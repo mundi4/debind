@@ -234,24 +234,60 @@ return function(DebindPrivate)
     -- One action, two records (`devdocs/splitting-an-action-into-bindings.md`)
     ---------------------------------------------------------------------------
 
-    -- **The twin is not a hover record for ordering purposes.** It stands right before its own
-    -- original and nowhere else: a hover record placed earlier stays ahead of it, and so does a
-    -- plain record placed earlier. Only the original is sorted; the twin rides along.
-    test("a hover twin stands right before its original and behind everything placed earlier", function()
+    -- **The key is laid out in tiers**: every self twin, every focus twin, every hover twin, every
+    -- original (`devdocs/implementing-focus-and-self-cast.md` §3-4). Side by side, an original placed
+    -- first took a pointed press before the hover twin of the action behind it had a turn. Among the
+    -- originals the hover condition still sorts first; action 1 has no hover twin to show it, since
+    -- its [not pointing] leaves the twin nothing to match.
+    test("the key is laid out in tiers", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
-                conditions = { units = { hover = {} }, combat = true } },
-            -- 이 액션은 스위치에서 빼 둔다. 재는 것은 쌍둥이 하나가 서는 자리이고, 여기도
-            -- 쌍둥이를 받으면 줄이 둘 늘어나 자리 검사가 흐려진다.
-            { type = Constants.SPELL, value = 2, key = "F1", seq = 2,
-                ignoreHoverUnit = true, conditions = { combat = true } },
-            { type = Constants.SPELL, value = 3, key = "F1", seq = 3 },
+                conditions = { units = { hover = false }, stealth = true } },
+            { type = Constants.SPELL, value = 2, key = "F1", seq = 2, conditions = { combat = true } },
         }, nil, { hoverCast = true });
 
-        check(Values("F1") == "1 2 3 3", "F1 came out as " .. Values("F1"));
-        local records = Records("F1");
-        check(records[3].hover == true and records[3].unit == "hover", "the third record is not the twin");
-        check(records[4].hover == nil, "the fourth record is not the original");
+        local records = DebindPrivate.KeyMap["F1"];
+        local shape = {};
+        for i = 1, #records do
+            local record = records[i];
+            local tier = (record.castModifier == Constants.CASTMOD_SELF and "self")
+                or (record.castModifier == Constants.CASTMOD_FOCUS and "focus")
+                or (record.hoverTwin and "hover")
+                or "original";
+            shape[i] = tier .. ":" .. tostring(record.value);
+        end
+        shape = table.concat(shape, " ");
+        check(shape == "self:1 self:2 focus:1 focus:2 hover:2 original:1 original:2",
+            "F1 came out as " .. shape);
+    end);
+
+    -- **A mouse button gets no hover twin that only competes for order** (§3-4, 2026-09-13, owner).
+    -- A mouse-button original with no hover condition never fires over a frame, so a twin going out
+    -- the way it does would only be a frame click record, and a frame click arrives on its exact
+    -- combination with nothing to order against. Left out, the click on the frame falls through to
+    -- the frame's own action. The Hover Cast twin aimed at the frame's unit stays a frame record.
+    test("on a mouse button a twin that goes out as its original is not made", function()
+        Bind({
+            { type = Constants.MACROTEXT, value = "/say hi", key = "BUTTON4", seq = 1 },
+            { type = Constants.SPELL, value = 585, key = "SHIFT-BUTTON4", seq = 2 },
+        }, nil, { hoverCast = true });
+
+        local macro = DebindPrivate.KeyMap["BUTTON4"];
+        check(macro and #macro > 0, "the macro did not reach its key");
+        for i = 1, #macro do
+            check(not macro[i].hoverTwin, "the macro has a hover twin at " .. i);
+            check(not macro[i].isClickCast, "the macro has a frame click record at " .. i);
+        end
+
+        local spell = DebindPrivate.KeyMap["SHIFT-BUTTON4"];
+        local frameRecord;
+        for i = 1, #(spell or {}) do
+            if (spell[i].hoverTwin and spell[i].isClickCast) then
+                frameRecord = spell[i];
+            end
+        end
+        check(frameRecord and frameRecord.unit == "hover",
+            "the spell's Hover Cast twin is not a frame record aimed at the frame's unit");
     end);
 
     -- On a mouse button the two split the way a hover record and a plain one always have: the twin

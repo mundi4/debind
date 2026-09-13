@@ -925,7 +925,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -933,35 +932,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 
@@ -1483,7 +1487,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -1491,35 +1494,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 
@@ -2169,7 +2177,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -2177,35 +2184,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 
@@ -2767,7 +2779,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -2775,35 +2786,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 
@@ -3297,7 +3313,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -3305,35 +3320,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 
@@ -3830,7 +3850,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -3838,35 +3857,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 
@@ -4292,7 +4316,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -4300,35 +4323,40 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+
+
+
+
+
+
+
+
+
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-
-
-
-
-
-
-
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 
 

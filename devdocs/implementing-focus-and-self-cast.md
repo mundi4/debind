@@ -1,10 +1,7 @@
 # 주시 대상 시전과 자기 자신 시전을 우리가 처리하기 (2026-09-13 시작)
 
-> 상태: **§3이 들어갔다.** 쌍둥이, 조합키 칸, 누를 때 재기, 루프가 쌍둥이를 건너뛰기,
-> 블리자드 쪽 판단 끄기, §3-6까지다. **§4(`@@`)는 아직이다.**
->
-> **조합키 쌍둥이를 거르는 대상은 `none` 하나로 시작했다** (2026-09-13, 소유자). 써 보면서
-> 맞춰 간다. `player`와 `focus`는 거르지 않는다(§3-4).
+> 상태: **§3이 들어갔다.** 모든 액션의 쌍둥이와 키를 네 층으로 펼치기(§3-4), 조합키 칸, 누를 때
+> 재기, 루프가 쌍둥이를 건너뛰기, 블리자드 쪽 판단 끄기, §3-6까지다. **§4(`@@`)는 아직이다.**
 
 지금 두 조합키는 블리자드가 처리한다. 우리 클릭 프레임에 `checkselfcast`와 `checkfocuscast`를
 켜 두고(`Debind.lua`), 액션에 대상이 없을 때 `unit`을 비워 `SecureButton_GetModifiedUnit`이
@@ -85,26 +82,71 @@
 
 ### 3-4. 솔버에는 쌍둥이로 넣는다
 
-`GetBindingsForAction`이 hover 쌍둥이를 만드는 자리에서 쌍둥이를 둘 더 만든다. 한 액션이 최대 넷이 되고, 이 순서로 선다 (2026-09-13, 소유자).
+**모든 원본이 모든 쌍둥이를 가진다** (2026-09-13, 소유자). 대상을 받지 않는 타입(매크로, 탈것, 대상
+없는 소환수 명령)도, `none`도, 대상이 이미 `player`나 `focus`인 액션도 예외가 없다. **쌍둥이가 있느냐와
+무엇으로 나가느냐는 따로다** (`GetBindingsForAction`, `TwinUnitFor`).
 
-| 순서 | 바인딩 | 조합키 칸 | `unit` |
+| 바인딩 | 조합키 칸 | 조건 | 나가는 유닛 |
 |---|---|---|---|
-| 1 | self 쌍둥이 | self | `player` |
-| 2 | focus 쌍둥이 | focus | `focus` |
-| 3 | Hover Cast, Mouseover Cast 쌍둥이 | 없음 | `hover` / `mouseover` |
-| 4 | 원본 | 없음 | 원래 대상 |
+| self 쌍둥이 | self | 원본 그대로 | `player`. 원본이 `none`이면 `none` |
+| focus 쌍둥이 | focus | 원본 그대로 | `focus`. 원본이 `none`이면 `none` |
+| hover 쌍둥이 | 없음 | 원본에 [가리킨 유닛 있음]을 더한 것 | 설정의 `hover` / `mouseover`. 아래 경우는 원본의 `unit` |
+| 원본 | 없음 | 원본 | 원래 대상 |
 
-**흑마 해제의 probe가 쌍둥이마다 붙어 한 액션이 여덟까지 된다** (`GetBindingsForAction`의 probe).
-우리 코드가 그만큼은 견딘다고 보고, 솔버를 줄이는 것은 이번에 안 한다 (2026-09-13, 소유자).
+**hover 쌍둥이가 원본의 `unit`으로 나가는 경우는 넷이다.** `ignoreHoverUnit`을 켰을 때, Hover Cast가
+닿지 않는 타입일 때(`TYPES_WITH_HOVER_UNIT_OPTION`), 원본이 `none`일 때, 원본이 이미 `hover`나
+`mouseover`를 겨눌 때다. 이 쌍둥이는 3층에 서기 위해서만 있다. `unit = "hover"` 원본은 Mouseover 모드에서도
+`hover`로 나간다. `mouseover`로 바꾸면 명판까지 닿아 사용자가 고른 뜻이 달라진다. [가리킨 유닛 있음]은 모드가
+가리키는 유닛 칸에 선다. 원본과 조건이 같거나 더 좁으므로 원본이 그 누름에서 대신 이기는 일은 없고, 솔버가
+원본을 덮인 것으로 지워도 된다.
 
-**hover 쌍둥이는 조합키로 나뉘지 않는다.** 조합키를 누른 누름은 1, 2가 맡으므로 3이 설 자리가
+**쌍둥이를 만들지 않는 경우는 셋뿐이다.** Hover Cast와 Mouseover Cast가 둘 다 꺼져 있으면 hover 쌍둥이가
+없어서 3층이 통째로 없다. 가리킨 유닛에 [없을 때]를 건 액션에도 hover 쌍둥이가 없다. 가리킨 유닛이 있는
+누름에서 절대 맞지 않으니 둘 자리가 없다. 그 유닛에 사용자가 건 다른 조건은 [있음]과 만나는 자리로 좁혀
+들어간다.
+
+**Unit Frames 모드의 마우스 버튼에는 원본 `unit`으로 나가는 hover 쌍둥이를 만들지 않는다** (2026-09-13,
+소유자). hover 조건 없는 마우스 버튼 원본은 암묵적으로 [가리키지 않음]이다(`BuildUnitStates`). 우리 마우스
+버튼 바인딩은 개체창 위에서 발동하지 않고, 블리자드도 액션 바 단축키로 건 마우스 버튼은 버튼 위에서 바인딩을
+실행하지 않는다. 가리킨 누름에서 맞을 수 없는 원본이니 [없을 때]와 같은 자리다. 그 쌍둥이는 개체창 클릭
+레코드가 될 뿐인데, 개체창 클릭은 정확한 조합으로만 오니(`matching-the-clients-cast-targeting.md` §2-1)
+떨어져 들어오는 누름끼리 순서를 겨룰 일이 없다. 그래서 매크로, `ignoreHoverUnit` 주문, `none` 액션을 건 버튼의
+개체창 클릭은 개체창 원래 동작으로 넘어간다. 개체창의 유닛을 겨누는 Hover Cast 쌍둥이는 그대로 개체창
+레코드다.
+
+**`none` 쌍둥이는 이기면 `none`으로 나간다.** 블리자드 코드로 보면 `none`은 `checkfocuscast`가 꺼진 버튼이라
+조합키가 무시되고 커서가 뜬다. 쌍둥이는 층 안의 순서에서 경쟁하려고 있다. `@`는 원본처럼 지우고 나머지 조건은
+원본 그대로다.
+
+**대상을 받지 않는 타입의 쌍둥이도 `unit`을 싣는다** (`FillBinding`). 블리자드 액션 바도 조합키를 쥐면 액션
+종류를 안 보고 `"focus"`/`"player"`를 돌려주고(`SecureTemplates.lua:190-199`), 주시 대상이 없으면
+`UnitExists` 가드가 끊는다(같은 파일 722줄). 있으면 액션이 유닛을 쓰거나 무시하고 나간다. 소유자가 액션
+바에서 조합키를 쥔 채 자기 전용 주문을 눌러 안 나가는 것을 확인했다. 원본은 지금처럼 유닛을 지운다.
+
+**대상이 이미 `player`나 `focus`여도 쌍둥이를 만든다.** 그 쌍둥이를 빼면 원본의 조합키 칸을 [없음, focus]처럼
+넓혀야 조합키를 누른 누름을 받는다. 빼고 넓히는 분기 둘보다 레코드 하나가 싸다.
+
+**키 전체를 네 층으로 펼친다** (`Debind.lua`의 `UnrollIntoTiers`). 층은 바인딩 종류만으로 정한다.
+
+1. self 쌍둥이 전부
+2. focus 쌍둥이 전부
+3. hover 쌍둥이 전부
+4. 원본 전부
+
+**1·2·4층 안은 정렬된 액션 순서다.** 3층 안은 쌍둥이를 **사용자가 손으로 만들었을 두 번째 액션**, 곧 같은
+액션에 쌍둥이의 조건을 단 것으로 본 순서 기록으로 `CompareActionOrder`에 넣는다(`MakeOrderRecord`의
+`binding`). hover 기준과 조건부 기준에서 그 기록이 받는 값을 그대로 쓰고, 원본 `unit`으로 나가는 쌍둥이도
+같다. `CompareActionOrder`는 고치지 않는다.
+
+**흑마 해제의 probe는 자기 바인딩 바로 앞에 붙은 채 층을 옮긴다.** probe가 바인딩마다 붙어 한 액션이 여덟까지
+된다. 우리 코드가 그만큼은 견딘다고 보고, 솔버를 줄이는 것은 이번에 안 한다 (2026-09-13, 소유자).
+
+**기존 사용자에게.** self와 focus 쌍둥이는 층끼리 조합키 칸이 겹치지 않아, 층을 나눠도 이기는 것이 안 바뀐다.
+대상을 받지 않는 타입과 `none`이 조합키를 쥔 누름에서 쌍둥이 층으로 옮겨 가는 것은 이 결정의 의도다. 달라지는
+나머지는 hover 쌍둥이의 자리인데, 아직 안 나간 기능이다.
+
+**hover 쌍둥이는 조합키로 나뉘지 않는다.** 조합키를 누른 누름은 1, 2층이 맡으므로 3층이 설 자리가
 [없음]뿐이다.
-
-**대상이 이미 `player`나 `focus`여도 쌍둥이를 만든다** (2026-09-13, 소유자). 그 쌍둥이를 빼면 원본의
-조합키 칸을 [없음, focus]처럼 넓혀야 조합키를 누른 누름을 받는다. 빼고 넓히는 분기 둘보다 레코드
-하나가 싸다. 늘어난 쌍둥이는 원본과 조합키 칸이 겹치지 않아 솔버에서 첫 노드에 서로 걸러진다.
-`hover`, `mouseover` 대상에 hover 쌍둥이가 안 생기는 것은 그대로다(`TwinUnitFor`). 넓힐 조합키 칸이
-없어서다.
 
 **클릭할 때 `unit`만 바꿔 끼우는 방법은 안 된다.** 솔버가 조합키를 모르면 조합키 없는 상태에서만
 덮임을 판단해, 조합키를 눌렀을 때만 살아나는 바인딩을 지운다.
@@ -129,8 +171,16 @@
 "둘 다 참"이라는 없는 조합이 생긴다. 스니펫은 클릭마다 `IsModifiedClick("SELFCAST")`를 먼저,
 아니면 `IsModifiedClick("FOCUSCAST")`를 물어 값 하나를 정한다.
 
-**hover 쌍둥이와 원본에 [없음]이 붙어야 한다.** 안 붙이면 focus 쌍둥이가 조건에서 떨어진 누름에서
-그 둘이 가리킨 유닛이나 대상으로 나가 §3-2가 깨진다.
+**모든 hover 쌍둥이와 모든 원본에 [없음]이 붙는다.** 타입도 대상도 안 가린다. 안 붙이면 focus 쌍둥이가
+조건에서 떨어진 누름에서 그 둘이 가리킨 유닛이나 대상으로 나가 §3-2가 깨지고, 앞에 선 원본이 조합키를 쥔
+누름을 가로채 뒤 액션의 쌍둥이가 차례를 못 받는다. 그래서 조합키를 쥔 누름에서는 그 조합키 층의 쌍둥이끼리만
+승자가 나온다.
+
+**클릭 경로는 그 층만 돈다** (2026-09-13, 소유자). 리빌드가 목록마다 층이 시작하는 자리
+(`bindings.focusFrom`, `bindings.noneFrom`)를 굽고, 스니펫은 조합키 값을 먼저 정한 뒤 그 구간만 돈다.
+조합키가 없으면 3·4층만 본다. 조합키 층에서 승자가 없으면 거기서 끝난다. 모든 액션이 쌍둥이를 가지므로 통째로
+돌면 조합키 없는 평범한 누름마다 액션 수의 두 배를 헛돌고 나서 본체에 닿는다. 클릭 핫패스라 레코드마다 칸을
+비교하는 대신 구간으로 가른다.
 
 **레코드에 "조합키를 따르나" 플래그가 없다.** 모든 대상이 따르므로(§3-1) 가를 것이 없고, 사용자가
 고른 hover와 따라 나온 hover를 가르던 필요도 같이 사라졌다.
@@ -145,7 +195,7 @@
 `k = binding.unit`). 쌍둥이마다 `unit`이 정해져 있으니 접어도 뜻이 안 바뀐다.
 
 **`@`가 지워지는 대상은 `none` 하나다** (2026-09-13, 소유자). 그 시전은 대상을 입력받으므로 누름이
-정하는 유닛도 쌍둥이도 없다. `player`는 `player` 칸에 산다.
+정하는 유닛이 없고, 쌍둥이도 `none`으로 나가니 `@`가 설 칸이 없다. `player`는 `player` 칸에 산다.
 
 **대상 없는 원본의 `@`는 판정할 때만 `target`에 검사한다** (2026-09-13, 소유자). 원본은 조건을
 지우지 않고, 시전은 그대로 둔다. `unit`은 비운 채라 `SELFCAST_OFF_SNIPPET`을 안 거치고, 게임이 대상과
@@ -187,7 +237,7 @@ Auto Self Cast로 정한다. 가리킨 유닛을 안 쓰겠다고 끈 `""`도 �
 
 루프가 정하는 것은 키 `X`를 잡느냐 놓느냐뿐이고, 무엇이 나갈지는 클릭할 때 정한다. 그러니 키를
 잡을지 판단할 때 self와 focus 쌍둥이는 세지 않는다 (2026-09-13, 소유자). 조합키 칸이 [없음]인
-레코드, 즉 원본과 hover 쌍둥이만 센다.
+레코드, 즉 3층과 4층만 센다. 원본 `unit`으로 나가는 hover 쌍둥이도 여기 든다.
 
 **`holdsKey`와는 다른 이야기다.** `holdsKey`는 "이 레코드가 키 누름 경로에 쓰인다"는 뜻이고, 쌍둥이도
 참이다. 거짓이면 클릭 래퍼가 키 누름에서 쌍둥이를 아예 평가하지 않아 조합키를 눌러도 쌍둥이가 이길 수
@@ -262,14 +312,54 @@ Auto Self Cast로 정하므로 미리 검사할 유닛이 없다고 봤다. `tar
 
 **쌍둥이의 조건까지 세어 조건부를 정하는 안은 안 했다.** hover 쌍둥이는 늘 [유닛 있음]을 들고 있어
 Hover Cast가 닿는 모든 액션이 조건부가 되고, 기존 사용자의 키 순서가 조용히 바뀐다. 원본이 조건을 지키면
-따로 고칠 것이 없다.
+따로 고칠 것이 없다. 3층 안의 순서만은 쌍둥이의 조건으로 정한다(§3-4). 원본 층의 순서와는 따로 도는 줄이라
+기존 순서를 안 건드린다.
+
+**쌍둥이를 어느 액션에 만들고 어떻게 세우나**도 같은 날 뒤집혔다.
+
+**처음 구현한 것** (2026-09-13, 소유자). self와 focus 쌍둥이를 대상을 받는 타입에만, `none`은 빼고 만들었다.
+조합키 칸 [없음]도 그 원본에만 붙었다. hover 쌍둥이는 `ignoreHoverUnit`, `hover`/`mouseover`/`none` 대상,
+Hover Cast가 닿지 않는 타입에서 안 만들었다. 한 액션의 바인딩은 self, focus, hover 쌍둥이, 원본 순으로 붙어서
+정렬된 액션 순서대로 섰다.
+
+**뒤집은 이유** (2026-09-13, 소유자).
+
+- **액션별로 붙여 세우면 hover 쌍둥이가 자기 원본보다만 앞선다.** [적대] 액션 1이 [우호] 액션 2보다 앞이고
+  둘 다 대상이 없으면, 적대 대상을 잡고 우호 프레임을 가리킨 누름에서 1의 원본이 대상에게 공격을 내고 2의
+  hover 쌍둥이는 차례가 없다. 우호 대상을 잡고 적대 프레임을 가리키면 1의 hover 쌍둥이가 가리킨 적에게 나간다.
+  같은 키인데 가리킨 유닛의 반응에 따라 규칙이 갈린다. 원본 옆에 쌍둥이를 붙이는 정렬로는 안 풀린다.
+- **조합키 칸 없는 원본이 조합키 누름을 가로챈다.** 앞에 선 매크로, 탈것, 대상 없는 소환수 명령, `none`
+  액션이 `ALT`를 쥔 누름에서도 맞아서 뒤 액션의 focus 쌍둥이가 차례를 못 받는다.
+- **필요한 쌍둥이만 만들면 순서가 답을 못 한다.** 쌍둥이가 없는 액션은 4층에만 서서, 앞에 두었어도 조합키를
+  쥐었거나 유닛을 가리킨 누름에서 뒤 액션의 쌍둥이에게 밀린다. 중요도 Very High로 맨 앞에 세운 액션도 못
+  이긴다. "이 쌍둥이가 순서상 어디까지 앞지를 수 있나"의 답이 안 나온다.
+- **`none`에 쌍둥이를 안 두면 같은 구멍이 `none`에 남는다.** 쌍둥이는 순서에서 경쟁하려고 있고, 무엇으로
+  나가느냐는 따로 정하면 된다.
+
+**원본이 겨누는 곳으로 층을 옮기는 안도 버렸다** (2026-09-13, 소유자). `unit`이 `hover`나 `mouseover`로
+풀린 원본을 3층에 두자는 것이었다. 모든 원본이 hover 쌍둥이를 가지면 그 자리는 쌍둥이가 맡으므로, 층을
+바인딩 종류 하나로 정할 수 있다.
+
+**hover 층 안을 원래 액션 순서로 두는 안도 버렸다.** 조건 없는 D의 쌍둥이가 늘 hover 조건 액션 H 뒤에
+서서, 사용자가 D를 앞에 두었어도 뒤집히지 않는다. 쌍둥이는 사용자가 손으로 만들었을 두 번째 액션을 대신하므로
+그 액션이 섰을 자리에 선다.
 
 ## 6. 테스트가 닿는 곳
 
-**헤드리스가 덮는 것.** 쌍둥이의 모양(`normalize_spec`: 겨누는 유닛, 조합키 칸, `@`가 옮겨 가는 칸,
-`none`과 대상 없는 타입에서 안 생기는 것)과, 누름과 루프가 고르는 것(`eval_spec`: self가 `player`에게,
-focus가 원래 대상으로 안 돌아가는 것, 둘 다 눌렸을 때 self, 개체창 클릭이 조합키를 무시하는 것, 루프가
-쌍둥이로 키를 안 잡는 것, 블리자드의 세 속성이 꺼져 있는 것). `IsModifiedClick`은 인터프리터가 이름마다
+**헤드리스가 덮는 것.** 쌍둥이의 모양(`normalize_spec`, `hovertwin_spec`: 겨누는 유닛, 조합키 칸, `@`가
+옮겨 가는 칸, `none`과 대상을 받지 않는 타입의 쌍둥이가 싣는 유닛, 원본의 `unit`으로 나가는 hover 쌍둥이,
+Mouseover 모드에서도 `hover`로 나가는 `hover` 원본의 쌍둥이, [없을 때]에서 안 생기는 hover 쌍둥이)와 키의
+층(`keymap_spec`, probe가 자기 바인딩 앞에 붙은 채 층을 옮기는 것은 `specspells_spec`). Unit Frames
+모드의 마우스 버튼에 매크로만 건 키가 hover 쌍둥이도 개체창 클릭 레코드도 안 갖고, 같은 모드의 마우스 버튼
+주문은 Hover Cast 쌍둥이가 개체창 레코드인 것도 `keymap_spec`이 본다. 층이 시작하는 자리가 목록마다 구워지는
+것은 이미션 골든이 든다. 누름과 루프가 고르는
+것(`eval_spec`: self가 `player`에게, focus가 원래 대상으로 안 돌아가는 것, 둘 다 눌렸을 때 self, 개체창
+클릭이 조합키를 무시하는 것, 루프가 쌍둥이로 키를 안 잡는 것, 블리자드의 세 속성이 꺼져 있는 것). 층에서
+나오는 누름 여섯도 `eval_spec`이 본다. §5의 [적대] 1과 [우호] 2가 가리킨 유닛의 반응을 따라 갈리는 것, hover
+층 안이 저장 순서를 따르는 것, 앞에 선 매크로 뒤의 주문이 focus 누름을 받고 안 맞으면 매크로의 focus 쌍둥이가
+`focus`를 싣고 이기는 것, 대상 없는 소환수 명령이 focus 누름에서 `focus`를 싣는 것, 중요도 맨 앞의 `none`이
+focus 누름과 가리킨 누름에서 `none`으로 나가는 것, 중요도 맨 앞의 `ignoreHoverUnit` 주문이 가리킨 누름에서
+원래 대상으로 나가는 것이다. `IsModifiedClick`은 인터프리터가 이름마다
 답을 넣는다. `@`가 대상 `player`와 쌍둥이의 칸에 서고, 대상 없는 원본과 `""`에서 `target` 칸에,
 hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는 것도 `normalize_spec`이 본다. 그 원본이
 조건부로 서서 조건 없는 액션보다 앞인 것은 `keymap_spec`이, 판정은 대상에 하고 누름은 유닛 없이
@@ -285,7 +375,9 @@ hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는
 
 **원리상 못 덮는 것.** 클라이언트가 바인딩 이름의 조합키를 가리는 것(§2-1)은 실제 누름에서만
 드러난다. 킷도 키를 누를 수 없다. 조합키 조합이 다른 바인딩에 잡혀 있으면 우리에게 안 오는 것도
-클라이언트의 바인딩 조회라 둘 다 재현이 없다.
+클라이언트의 바인딩 조회라 둘 다 재현이 없다. 쌍둥이가 실은 `focus`를 블리자드의 `UnitExists` 가드가 끊는 것과
+`none`이 커서를 띄우는 것도 액션 버튼이 실제로 눌려야 돈다. 헤드리스는 이긴 레코드가 그 유닛을 싣는 데까지
+본다.
 
 ## 7. 도움말 창 본문 초안
 
@@ -310,13 +402,13 @@ hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는
 > 4. A unit picked under **Target**: that unit.
 > 5. Nothing picked: the game decides, the same way it does on an action bar.
 >
-> The two keys are the ones in the game's own settings. A modifier that is part of the key you bound, such as the Alt in Alt-C, does not count as holding one.
+> The two keys are the ones in the game's own settings. Unless you changed it, the Self Cast Key is Alt. A modifier that is part of the key you bound, such as the Alt in Alt-C, does not count as holding one.
 >
 > **Why the keys come first.**
 >
 > On the game's action bars it is the other way round: with Mouseover Cast on, the unit under your cursor beats a held Focus Cast Key. That goes wrong exactly when it matters. Your cursor rests on whatever enemy you last clicked, so when you hold the Focus Cast Key to interrupt your focus, the interrupt lands on the enemy under the cursor instead. Holding a key is something you do on purpose at the moment you press. Where the cursor happens to be is not. So on a Debind key the held key wins, even over a target you picked for the action.
 >
-> A held key does not fall back. Hold the Focus Cast Key with no focus, or with a focus the action's conditions do not accept, and the key does nothing. It does not go to your target or to the unit you are pointing at instead.
+> A held key does not fall back. Hold the Focus Cast Key and only an action whose conditions accept your focus can go out. With no focus, or with a focus none of them accepts, the key does nothing. It does not go to your target or to the unit you are pointing at instead. This holds for every action on the key, a macro or a mount included, the same as on an action bar.
 >
 > **Resolved Target.**
 >

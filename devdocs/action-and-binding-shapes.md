@@ -291,28 +291,21 @@ binding
 
 **파생은 원본을 복사하지 않고 액션에서 다시 채운다.** 아래 `"@"` 정리가 `unit`을 보고 지우므로,
 원본을 채운 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다. 그래서 채우기 함수 하나가
-처음에 놓을 `unit`과 `units["hover"]`에 얹을 조건을 인자로 받고, 원본과 파생이 다른 인자로 부른다.
+나갈 `unit`, 조합키 칸, 가리킨 유닛 칸에 얹을 조건을 인자로 받고, 원본과 파생이 다른 인자로 부른다.
 
-**파생은 placement가 없다.** `BuildKeyMap`은 원본만 정렬하고, 정렬이 끝난 뒤 각 원본을 자기
-목록으로 펼친다(파생이 앞, 원본이 뒤). 그래서 한 액션의 바인딩은 언제나 인접하고, 파생이 hover
-조건을 들고 있어도 hover 층에 올라가지 않는다. **암묵적으로 hover 조건을 가진 것은 hover 조건이
-아니다.** 왜 이 모양인지는 `legacy/splitting-an-action-into-bindings.md`.
+**파생은 쌍둥이 셋과 probe다.** 어느 액션이 어느 쌍둥이를 갖고 쌍둥이가 무엇으로 나가는지는
+`implementing-focus-and-self-cast.md` §3-4가 든다.
 
-파생은 둘이고, 둘이 겹치면 셋이 된다.
-
-**hover 쌍둥이**는 `preferHoverUnit`이 만든다. `unit`이 `"hover"`, `units["hover"]`가 빈
-조건(모든 개체창, 모든 반응), 나머지는 액션 것 그대로. 액션의 `"@"`는 원본에서는 원래 대상을,
-쌍둥이에서는 hover 개체를 가리킨다. 만들지 않는 경우 넷: 옵션이 꺼짐, 원본에 hover 조건이
-있음(`false`도 포함이다), 대상이 `hover`거나 `none`, 타입이 `TYPES_WITH_HOVER_UNIT_OPTION` 밖.
-**Clique는 더 이상 막지 않는다** (코드 리뷰 2026-09-08). 쌍둥이가 쓰는 것은 개체창의 유닛
-하나이고 모든 개체창이 우리 것이라, 안 만들 이유가 없어졌다.
+**키에는 네 층으로 선다.** `BuildKeyMap`은 원본을 정렬한 뒤 키 전체를 self 쌍둥이, focus 쌍둥이,
+hover 쌍둥이, 원본의 네 층으로 펼친다. 자기 placement를 받는 파생은 hover 쌍둥이뿐이고, 그 순서
+기록은 쌍둥이의 조건을 단 액션으로 본 것이다.
 
 **probe**는 흑마법사의 해제에만 붙는다. `SpellForType`의 둘째 값(펫이 쓰는 주문)을 `spell`과
 `spellbook`에 넣은 사본이고, 누를 때 `FindSpellBookSlotBySpellID`가 주문서를 보고 갈린다
-(`SpecSpells.lua`). 쌍둥이가 있으면 쌍둥이의 probe까지 하나 더 선다.
+(`SpecSpells.lua`). 바인딩마다 하나씩 서고, 자기 바인딩 바로 앞에 붙은 채 층을 옮긴다.
 
-목록은 원본, probe, 쌍둥이, 쌍둥이의 probe 순으로 채우고, `UnrollDerivedBindings`가 뒤에서
-앞으로 걸어서 키에는 그 역순으로 앉는다.
+목록은 원본, probe, hover 쌍둥이와 그 probe, focus 쌍둥이와 그 probe, self 쌍둥이와 그 probe 순으로
+채우고, `BuildKeyMap`이 뒤에서 앞으로 걸으며 층마다 골라 담는다.
 
 **`binding.unit`은 `action.unit`이 아니다.** 매크로가 실제로 겨눌 유닛이다. 대상을 못 갖는
 타입이면 지워지고, 호버 액션이 자기 대상이 없으면 **호버한 유닛으로 채워진다.** "사용자가

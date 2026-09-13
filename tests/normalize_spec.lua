@@ -828,18 +828,31 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **`none`만 거르고 시작했다** (문서 상태 머리말). 조합키 칸 자체가 없어서 어떤 조합키에서도
-    --- 원본이 선다.
-    test("대상 none에는 쌍둥이도 조합키 칸도 없다", function()
-        local list = listFor({ unit = "none" });
-        check(#list == 1, "길이 " .. #list);
-        check(list[1].castModifier == nil, "조합키 칸: " .. tostring(list[1].castModifier));
+    --- **`none`도 쌍둥이를 내고, 쌍둥이도 대상을 묻는다** (§3-4, 2026-09-13 소유자). 쌍둥이는 층 안의
+    --- 순서에서 차례를 받으려고 있고, 무엇으로 나가느냐는 따로다. 액션 바도 조합키를 쥔 채 누르면
+    --- 커서가 뜬다.
+    test("대상 none도 쌍둥이를 내고 쌍둥이도 none으로 나간다", function()
+        local list = listFor({ unit = "none", units = { ["@"] = "help" } });
+        check(#list == 3, "길이 " .. #list);
+        check(list[1].castModifier == Constants.CASTMOD_NONE, "원본의 조합키 칸: " .. tostring(list[1].castModifier));
+        for _, castModifier in ipairs({ Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS }) do
+            local twin = twinFor(list, castModifier);
+            check(twin and twin.unit == "none", castModifier .. " 쌍둥이 unit: " .. tostring(twin and twin.unit));
+            check(twin.conditions.units == nil, castModifier .. " 쌍둥이에 @가 남았다");
+        end
     end);
 
-    test("대상을 못 받는 타입에는 쌍둥이도 조합키 칸도 없다", function()
+    --- **대상을 받지 않는 타입도 쌍둥이를 내고, 쌍둥이만 유닛을 싣는다** (§3-4). 클라이언트의
+    --- `UnitExists` 가드가 그 유닛을 읽어, 주시 대상이 없으면 액션 바처럼 누름이 멈춘다.
+    test("대상을 못 받는 타입도 쌍둥이를 내고 쌍둥이만 유닛을 싣는다", function()
         local list = listFor({ type = Constants.MACROTEXT, value = "/cast x" });
-        check(#list == 1, "길이 " .. #list);
-        check(list[1].castModifier == nil, "조합키 칸: " .. tostring(list[1].castModifier));
+        check(#list == 3, "길이 " .. #list);
+        check(list[1].castModifier == Constants.CASTMOD_NONE and list[1].unit == nil,
+            "원본: " .. tostring(list[1].castModifier) .. " " .. tostring(list[1].unit));
+        check(twinFor(list, Constants.CASTMOD_SELF).unit == "player",
+            "self 쌍둥이 unit: " .. tostring(twinFor(list, Constants.CASTMOD_SELF).unit));
+        check(twinFor(list, Constants.CASTMOD_FOCUS).unit == "focus",
+            "focus 쌍둥이 unit: " .. tostring(twinFor(list, Constants.CASTMOD_FOCUS).unit));
     end);
 
     --- `[우호일 때]`가 한 유닛 칸에 선 마스크. 기댓값을 손으로 적지 않고 대상 있는 액션에서 읽는다.
@@ -938,11 +951,29 @@ return function(DebindPrivate)
         end);
     end);
 
-    test("hover 조건이 켜진 액션은 쌍둥이를 안 낸다", function()
+    --- hover 조건으로 대상이 채워진 원본도 hover 쌍둥이를 내고, 쌍둥이는 원본처럼 `hover`로 나간다.
+    test("hover 조건이 켜진 액션의 쌍둥이는 원본의 대상으로 나간다", function()
         withHoverCast(function()
             local list = castmod.without(Constants, (listFor({ units = { hover = {} } })));
-            check(#list == 1, "길이 " .. #list);
+            check(#list == 2, "길이 " .. #list);
+            check(list[2].hoverTwin and list[2].unit == "hover", "쌍둥이 unit: " .. tostring(list[2].unit));
         end);
+    end);
+
+    --- **`hover`를 고른 원본의 쌍둥이는 Mouseover 모드에서도 `hover`로 나간다** (§3-4, 2026-09-13
+    --- 소유자). `mouseover`로 바꾸면 명판까지 닿아 사용자가 고른 뜻이 달라진다. 조건은 그 모드가
+    --- 가리키는 유닛에 선다.
+    test("대상 hover의 쌍둥이는 Mouseover 모드에서도 hover로 나간다", function()
+        DebindPrivate.Options.mouseoverCast = true;
+        local ok, err = pcall(function()
+            local list = castmod.without(Constants, (listFor({ unit = "hover" })));
+            check(#list == 2, "길이 " .. #list);
+            check(list[2].unit == "hover", "쌍둥이 unit: " .. tostring(list[2].unit));
+            check(list[2].unitStates and list[2].unitStates.mouseover == Constants.UNITSTATE_EXISTS,
+                "mouseover 칸: " .. tostring(list[2].unitStates and list[2].unitStates.mouseover));
+        end);
+        DebindPrivate.Options.mouseoverCast = nil;
+        if (not ok) then error(err, 0); end
     end);
 
     -- Clique가 있어도 쌍둥이는 나온다 (코드 리뷰, 2026-09-08). 블리자드 개체창은 Clique와 무관하게
@@ -961,12 +992,21 @@ return function(DebindPrivate)
         if (not ok) then error(err, 0); end
     end);
 
-    test("스위치가 못 닿는 타입은 쌍둥이를 안 낸다", function()
+    --- 스위치가 못 닿는 타입도 hover 쌍둥이를 낸다. 가리킨 유닛이 있는 누름의 층에 서려고 있을 뿐,
+    --- 원본의 대상 그대로 나간다 (§3-4).
+    test("스위치가 못 닿는 타입의 쌍둥이는 원본의 대상으로 나간다", function()
         withHoverCast(function()
-            local list = listFor({ type = Constants.MACROTEXT, value = "/cast x" });
-            check(#list == 1, "MACROTEXT 길이 " .. #list);
-            list = listFor({ type = Constants.SETCUSTOM, value = 1 });
-            check(#list == 1, "SETCUSTOM 길이 " .. #list);
+            for _, fields in ipairs({
+                { type = Constants.MACROTEXT, value = "/cast x" },
+                { type = Constants.SETCUSTOM, value = 1 },
+            }) do
+                local list = castmod.without(Constants, (listFor(fields)));
+                check(#list == 2, fields.type .. " 길이 " .. #list);
+                check(list[2].hoverTwin and list[2].unit == list[1].unit,
+                    fields.type .. " 쌍둥이 unit: " .. tostring(list[2].unit));
+                check(list[2].unitStates and list[2].unitStates.hover == Constants.UNITSTATE_EXISTS,
+                    fields.type .. " 쌍둥이가 hover 축에 안 섰다");
+            end
         end);
     end);
 

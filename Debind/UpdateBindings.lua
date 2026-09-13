@@ -2394,6 +2394,7 @@ function UpdateBindingsMap()
         end
 
         local first = true;
+        local selfCount, focusCount = 0, 0;
 
         if (hasClickCast or hasKeySnippet) then
             for i = 1, #bindingArray do
@@ -2414,6 +2415,11 @@ function UpdateBindingsMap()
                         end
                         CollectRecordAxes(record, stateDriven);
                         EmitRecord(record);
+                        if (binding.castModifier == Constants.CASTMOD_SELF) then
+                            selfCount = selfCount + 1;
+                        elseif (binding.castModifier == Constants.CASTMOD_FOCUS) then
+                            focusCount = focusCount + 1;
+                        end
                     end
                 end
             end
@@ -2430,6 +2436,14 @@ function UpdateBindingsMap()
         if (first and (hasClickCast or hasKeySnippet)) then
             first = false;
             AppendBindingsList(key, stateDriven);
+        end
+
+        -- **Where the key's tiers start, so a press walks only the one its modifier picks**
+        -- (`EVAL_SNIPPET`). Counted off the records that went out: one that can never fire leaves
+        -- no place behind it.
+        if (not first) then
+            appendLine("bindings.focusFrom=%d", selfCount + 1);
+            appendLine("bindings.noneFrom=%d", selfCount + focusCount + 1);
         end
 
         -- **`_measuredStates` is what gets measured**, so the two flags that name something

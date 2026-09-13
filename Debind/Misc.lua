@@ -799,17 +799,15 @@ do
     --- **순서 필드는 여기 없다.** 어느 액션이 먼저 발동하느냐는 액션 하나로 답이 안 나오는
     --- 유일한 것이라, 그쪽은 `MakeOrderRecord`가 따로 든다.
     ---
-    --- `aimedUnit` and `twinCondition` are the two places the original and a twin part company. The
-    --- original is called with the action's `unit` and no condition; a twin is called with the unit
-    --- it aims at and `UNIT_IS_THERE`, which lands under that unit's own name below
-    --- (`GetBindingsForAction`).
+    --- The original is called with the action's `unit` and nothing else. **A twin is called with
+    --- `castModifier`, and that is what makes it one**: its `aimedUnit` is already the unit it goes
+    --- out at, so nothing below strips or fills it (`GetBindingsForAction` works it out). A hover
+    --- twin also brings `twinCondition`, which lands under `pointedUnit`.
     ---
     --- **`unit`이 처음부터 들어와야 한다**: 아래 `"@"` 정리가 `unit`을 보고 지우므로, 원본을 채운
     --- 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다.
-    ---
-    --- `castModifier` is given only for the self and focus twins. Everything else works its own out
-    --- below, from the action, so a refill from anywhere lands on the same value.
-    local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier)
+    local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit)
+        local twin = castModifier ~= nil;
         binding.type, binding.value = action.type, action.value;
         -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
         -- action stores is the kind; which spell that is today is this specialization's answer
@@ -827,10 +825,10 @@ do
         -- has (`devdocs/adding-spec-resolved-actions.md` §10).
         binding.smart = DebindPrivate.SmartCastBranches(action);
         -- 쌍둥이는 가리킨 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
-        if (twinCondition == nil) then
-            binding.ignoreHoverUnit = action.ignoreHoverUnit;
-        else
+        if (twin) then
             binding.ignoreHoverUnit = nil;
+        else
+            binding.ignoreHoverUnit = action.ignoreHoverUnit;
         end
         binding.unit = aimedUnit;
         binding.key = action.key;
@@ -915,8 +913,8 @@ do
         local twinInvented = false;
         if (twinCondition ~= nil) then
             conditions.units = conditions.units or {};
-            twinInvented = conditions.units[aimedUnit] == nil;
-            conditions.units[aimedUnit] = twinCondition;
+            twinInvented = conditions.units[pointedUnit] == nil;
+            conditions.units[pointedUnit] = twinCondition;
         end
 
         -- Everything below this line reads `binding.hover`, so it has to be derived here and
@@ -930,7 +928,7 @@ do
         -- 의미 없는 조건들을 nil로 만듬.
         -- 마스크는 `units.hover`에 딸린 값이라, 갈래를 가르는 것은 **hover 조건을 누가 세웠느냐**다.
         -- `mouseover` 쌍둥이는 hover 쪽을 건드리지 않으므로 아래 둘 중 하나로 간다.
-        if (twinInvented and aimedUnit == "hover") then
+        if (twinInvented and pointedUnit == "hover") then
             -- 쌍둥이가 hover 조건을 **스스로 세운** 경우다(`UNIT_IS_THERE`). **액션에 남아 있는
             -- 마스크를 물려받으면 안 된다**: hover 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는
             -- 것과 지우는 것은 다르다 - `Profile.lua`), 세운 쪽이 우리이므로 물려받는 값은 언제나
@@ -970,8 +968,8 @@ do
             -- stand on.
             --
             -- **`none` is the one target that drops it, and the action's target is what is asked.**
-            -- That cast asks the reader for a target, so the press settles on no unit and no twin is
-            -- made to carry the condition. Every other target keeps it, `player` included, and each
+            -- That cast asks the reader for a target, so the press settles on no unit, and its twins
+            -- go out asking as well. Every other target keeps it, `player` included, and each
             -- binding folds it onto the unit it aims at: the self twin of an action aimed at
             -- `target` takes it onto `player` (`devdocs/implementing-focus-and-self-cast.md` §3-6).
             if (conditions.units["@"] ~= nil and action.unit == "none") then
@@ -1006,7 +1004,13 @@ do
         -- 대상 메뉴를 여는 쪽(`DropDownMenus.lua`)도 같은 값을 본다. 예전에는 여기와
         -- 저기에 같은 목록이 손으로 하나씩 적혀 있었고, 한쪽에만 타입을 넣는 바람에
         -- **화면에는 대상이 보이는데 나가는 매크로에는 없는** 상태가 나왔다.
-        if (not Constants.TYPES_WITH_UNIT[binding.type]) then
+        --
+        -- **Not on a twin.** A twin of an action that takes no unit still carries `player` or
+        -- `focus`, which is what the client's `UnitExists` guard reads: the press stops where there
+        -- is no focus, as it does on an action bar.
+        if (twin) then
+            binding.unit = aimedUnit;
+        elseif (not Constants.TYPES_WITH_UNIT[binding.type]) then
             binding.unit = nil;
         elseif (binding.type == Constants.PETACTION
                 and not DebindPrivate.PetActionTakesUnit(binding.value)) then
@@ -1015,15 +1019,11 @@ do
             binding.unit = nil;
         end
 
-        -- **Read after the two branches above**, which are what say whether this action takes a
-        -- unit at all. One that does gets the self and focus twins, and then every binding it puts
-        -- on the key carries the column; one that does not carries none and answers whatever is
-        -- held. `none` is a cast asking for a target, and is left out until use says otherwise
-        -- (`devdocs/implementing-focus-and-self-cast.md`, status header).
-        if (castModifier == nil and DebindPrivate.ActionTakesUnit(action) and action.unit ~= "none") then
-            castModifier = Constants.CASTMOD_NONE;
-        end
-        binding.castModifier = castModifier;
+        -- **Every original stands on [none held]**, whatever its type or target: every action has
+        -- the self and focus twins, so a held modifier is answered among those and never by an
+        -- original placed ahead of them (`devdocs/implementing-focus-and-self-cast.md` §3-4).
+        binding.castModifier = castModifier or Constants.CASTMOD_NONE;
+        binding.hoverTwin = pointedUnit ~= nil or nil;
 
         -- **An action that takes no unit drops `"@"`**: a type that carries none, or a pet command
         -- that takes none, which the two branches above just stripped of its target. Every other
@@ -1048,7 +1048,7 @@ do
             conditions.specialbar = nil;
         end
 
-        if (binding.hover and binding.unit == nil) then
+        if (not twin and binding.hover and binding.unit == nil) then
             if (binding.ignoreHoverUnit) then
                 binding.unit = "";
             else
@@ -1177,36 +1177,41 @@ do
     -- nothing at the moment nothing is pointed at.
     local UNIT_IS_THERE = {};
 
-    --- Which unit the derived binding aims at, or nil where none is wanted.
+    --- The hover twin, as three answers: the pointed unit its condition stands under, that
+    --- condition, and the unit it goes out at. nil where the action gets none.
     ---
-    --- **`ignoreHoverUnit` on an action with no hover condition takes it out of the feature.** The
-    --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
-    --- is what tells the two apart (2026-09-12, owner).
+    --- **Every action gets one while either switch is on**, because the twin is what gives an action
+    --- a place in the tier a pointed press is decided in (`devdocs/implementing-focus-and-self-cast.md`
+    --- §3-4). An action left without one waits in the last tier, and a Hover Cast action behind it
+    --- takes every press made over a unit, however high the reader put the first.
+    ---
+    --- **Where it goes out is a separate answer.** An action the feature does not reach goes out the
+    --- way its original does: `ignoreHoverUnit`, a type outside `TYPES_WITH_HOVER_UNIT_OPTION`, a
+    --- target of `none`, or a target that already is a pointed unit. `hover` stays `hover` in
+    --- Mouseover mode, because `mouseover` also reaches nameplates the reader never picked.
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
     --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
-    --- two meet at [it is hostile], which is the reader's own table, since `UNIT_IS_THERE`
-    --- constrains nothing. So the answer is the reader's condition where there is one and
-    --- `UNIT_IS_THERE` where there is not, and `FillBinding` leaves a filled slot alone.
+    --- two meet at [it is hostile], which is the reader's own table, since `UNIT_IS_THERE` constrains
+    --- nothing. Replacing was measured on 2026-09-12: an action aimed at `target` that runs [when the
+    --- mouseover unit is hostile] came out with a twin wider than its original on that axis, the
+    --- solver deleted the original, and the key fired at whatever the cursor was over.
     ---
-    --- **[when there is none] is the one that has no meeting point.** The twin only stands while
-    --- that unit is there, so the two sets do not touch and no twin is made. The solver would drop
-    --- an empty box anyway; not building it is cheaper (§1 of the design).
+    --- **[when there is none] is the one that has no meeting point.** The twin only stands while that
+    --- unit is there, so it could never match, and no twin is made.
     ---
-    --- Replacing instead of narrowing was measured on 2026-09-12: an action aimed at `target` that
-    --- runs [when the mouseover unit is hostile] came out with a twin saying [whenever there is a
-    --- mouseover unit], wider than the original on that axis, so the solver deleted the original
-    --- and the key fired at whatever the cursor was over, friendly or not.
+    --- **Nor where the original stands on [not pointing] without saying so, and the twin would go out
+    --- the way it does** (2026-09-13, owner). That is a mouse-button original with no hover condition
+    --- in Unit Frames mode (`BuildUnitStates`): our mouse-button binding does not fire over a frame,
+    --- and a Blizzard action bar key bound to a mouse button does not either. Such a twin could only
+    --- be a frame click record, and a frame click arrives on its exact combination with no other
+    --- press to be ordered against, so the click is left to the frame's own action. The twin aimed
+    --- at the frame's unit is still made: over a frame, that is Hover Cast itself.
     ---
-    --- `hover` and `mouseover` are already the pointed unit. `none` is not "no target" but a cast
-    --- that asks for one (`ActionDisplay.lua`'s `UNIT_INFO`, measured in game 2026-08-05), and the
-    --- owner's call is that a target the player is about to point at is not one for a twin to take
-    --- (2026-09-06).
-    ---
-    --- **Mouseover wins where both cells are set.** The settings row is one choice of three and
-    --- writes only one of them (`Options.lua`), and this is why it can be: over a unit frame the
-    --- two name one unit, and `mouseover` answers away from frames as well, so a second twin could
-    --- only repeat the first (2026-09-12, owner).
+    --- **Mouseover wins where both cells are set.** The settings row is one choice of three and writes
+    --- only one of them (`Options.lua`); over a unit frame the two name one unit, and `mouseover`
+    --- answers away from frames as well, so a second twin could only repeat the first (2026-09-12,
+    --- owner).
     local function TwinUnitFor(action, original)
         local unit;
         if (DebindPrivate.MouseoverCastEnabled()) then
@@ -1217,13 +1222,6 @@ do
             return nil;
         end
 
-        if (action.ignoreHoverUnit
-                or original.unit == "hover" or original.unit == "mouseover"
-                or original.unit == "none"
-                or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
-            return nil;
-        end
-
         local units = original.conditions and original.conditions.units;
 
         local existing = units and units[unit];
@@ -1231,13 +1229,26 @@ do
             return nil;
         end
 
-        return unit, existing or UNIT_IS_THERE;
+        local aim = unit;
+        if (action.ignoreHoverUnit
+                or original.unit == "hover" or original.unit == "mouseover"
+                or original.unit == "none"
+                or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
+            aim = original.unit;
+        end
+
+        if (aim ~= unit and original.unitStates
+                and original.unitStates[unit] == Constants.UNITSTATE_NONE) then
+            return nil;
+        end
+
+        return unit, existing or UNIT_IS_THERE, aim;
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
     --- (`GetBindingInfoForAction`'s table) and what follows is derived. `BuildKeyMap` sorts the
-    --- originals and unrolls each list after the sort, derived first, so a derived binding never has
-    --- a placement of its own (`devdocs/splitting-an-action-into-bindings.md`).
+    --- originals and lays the key out in tiers after the sort, so only a hover twin has a placement
+    --- of its own (`devdocs/implementing-focus-and-self-cast.md` §3-4).
     function DebindPrivate.GetBindingsForAction(action)
         local list = _ActionToBindingsCache[action];
         if (not list) then
@@ -1251,24 +1262,23 @@ do
 
         -- **The warlock's dispel is two bindings.** The original casts the player's own Singe Magic
         -- and a derived one casts the pet's through Command Demon, gated at the press by
-        -- `FindSpellBookSlotBySpellID` (`SpecSpells.lua`). The probe binding sits ahead of the
-        -- original, and where a twin is wanted the twin gets its own probe ahead of it.
+        -- `FindSpellBookSlotBySpellID` (`SpecSpells.lua`). Every binding here gets its own probe,
+        -- which stays right ahead of it in whichever tier it lands.
         --
-        -- **The list is filled back to front.** `UnrollDerivedBindings` (`Debind.lua`) walks a list
-        -- from its last entry down to the original, so the key order self, focus, hover twin,
-        -- original -- each with its probe ahead of it -- is written here the other way round.
+        -- **The list is filled back to front.** `BuildKeyMap` walks a list from its last entry down,
+        -- so each probe is written after the binding it goes ahead of.
         local probe;
         if (original.spell ~= nil) then
             probe = select(2, DebindPrivate.SpecSpells.SpellForType(action.type));
         end
 
-        local function fill(cache, aimedUnit, twinCondition, spell, castModifier)
+        local function fill(cache, aimedUnit, twinCondition, spell, castModifier, pointedUnit)
             local binding = cache[action];
             if (not binding) then
                 binding = {};
                 cache[action] = binding;
             end
-            FillBinding(binding, action, aimedUnit, twinCondition, castModifier);
+            FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit);
             if (spell) then
                 binding.spell = spell;
                 binding.spellbook = spell;
@@ -1277,29 +1287,31 @@ do
             list[n] = binding;
         end
 
-        local twinUnit, twinCondition = TwinUnitFor(action, original);
+        local pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
 
         if (probe) then
             fill(_ActionToProbeCache, action.unit, nil, probe);
         end
-        if (twinUnit) then
-            fill(_ActionToTwinCache, twinUnit, twinCondition, nil);
+        if (pointedUnit) then
+            fill(_ActionToTwinCache, pointedAim, pointedCondition, nil, Constants.CASTMOD_NONE, pointedUnit);
             if (probe) then
-                fill(_ActionToProbeTwinCache, twinUnit, twinCondition, probe);
+                fill(_ActionToProbeTwinCache, pointedAim, pointedCondition, probe, Constants.CASTMOD_NONE,
+                    pointedUnit);
             end
         end
 
-        -- A twin even where the action already aims at `focus` or `player`: the original stands on
-        -- [none held], so a held modifier has nothing else to land on.
-        if (original.castModifier) then
-            fill(_ActionToFocusCache, "focus", nil, nil, Constants.CASTMOD_FOCUS);
-            if (probe) then
-                fill(_ActionToProbeFocusCache, "focus", nil, probe, Constants.CASTMOD_FOCUS);
-            end
-            fill(_ActionToSelfCache, "player", nil, nil, Constants.CASTMOD_SELF);
-            if (probe) then
-                fill(_ActionToProbeSelfCache, "player", nil, probe, Constants.CASTMOD_SELF);
-            end
+        -- **Twins even where the action already aims at `focus` or `player`, or takes no unit**: the
+        -- original stands on [none held], so a held modifier has nothing else to land on. `none`
+        -- keeps asking for its unit whatever is held, as it does on an action bar, where the client
+        -- turns `checkfocuscast` off for it.
+        local asks = original.unit == "none";
+        fill(_ActionToFocusCache, asks and "none" or "focus", nil, nil, Constants.CASTMOD_FOCUS);
+        if (probe) then
+            fill(_ActionToProbeFocusCache, asks and "none" or "focus", nil, probe, Constants.CASTMOD_FOCUS);
+        end
+        fill(_ActionToSelfCache, asks and "none" or "player", nil, nil, Constants.CASTMOD_SELF);
+        if (probe) then
+            fill(_ActionToProbeSelfCache, asks and "none" or "player", nil, probe, Constants.CASTMOD_SELF);
         end
 
         for i = n + 1, #list do
@@ -1350,8 +1362,12 @@ end
 --- `dest` lets a caller hand its own table in. `BuildKeyMap` keeps one per binding and rebuilds
 --- in place, because it runs over every bound action on every rebuild and used to allocate
 --- nothing at all.
-function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
-    local binding = GetBindingInfoForAction(action);
+---
+--- **`binding` is for a hover twin**, which is ordered as the action the reader would have made by
+--- hand: the same one with the twin's condition on it. `hover` and `isConditional` then come off
+--- the twin, and where the action stands comes off the action.
+function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest, binding)
+    binding = binding or GetBindingInfoForAction(action);
     dest = dest or {};
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
     dest.hover = binding.hover;
@@ -2611,17 +2627,16 @@ local function ConditionsSurviveMacroText(action)
         return false;
     end
 
-    -- A twin has no macro-text form here, and dropping it would send the converted body at a
-    -- different unit than the key does. Asked of the list rather than of the switches, so an
-    -- account that has Hover Cast on does not lose the conversion on the actions the feature
-    -- never reaches -- the same line `known` draws above.
+    -- A probe or a hover twin aimed at the pointed unit has no macro-text form here, and dropping
+    -- it would send the converted body somewhere the key does not. Asked of the list rather than of
+    -- the switches, so an account that has Hover Cast on does not lose the conversion on the
+    -- actions the feature never reaches -- the same line `known` draws above.
     --
-    -- **The self and focus twins do not count.** Every action that takes a unit has them, so
-    -- counting them would refuse the conversion to all of those.
+    -- **The self and focus twins do not count, and neither does a hover twin that goes out the way
+    -- its original does.** Every action has those, so counting them would refuse every conversion.
     local list = DebindPrivate.GetBindingsForAction(action);
     for i = 2, #list do
-        local castModifier = list[i].castModifier;
-        if (castModifier ~= Constants.CASTMOD_SELF and castModifier ~= Constants.CASTMOD_FOCUS) then
+        if (list[i].spellbook ~= nil or (list[i].hoverTwin and list[i].unit ~= binding.unit)) then
             return false;
         end
     end

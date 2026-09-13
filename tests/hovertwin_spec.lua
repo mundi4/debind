@@ -39,7 +39,7 @@ return function(DebindPrivate)
 
     local castmod = require("castmod");
 
-    --- The action's bindings without the self and focus twins, which every spell here has and which
+    --- The action's bindings without the self and focus twins, which every action has and which
     --- this file is not about: `[1]` the original, `[2]` the hover twin where there is one.
     local function bindingsOf(action)
         return castmod.without(Constants, DebindPrivate.GetBindingsForAction(action));
@@ -56,10 +56,12 @@ return function(DebindPrivate)
     -- (`devdocs/splitting-an-action-into-bindings.md` §3-1)
     ---------------------------------------------------------------------------
 
-    --- 옵션 켠 액션을 `cover` 뒤에 세운다. `KeyMap`과 같은 순서로(쌍둥이가 원본 앞).
+    --- Puts every binding of `cover` ahead of every binding of the subject. **Not the key's tier
+    --- order** (`BuildKeyMap`): what is measured is that an action is unreachable only where all of
+    --- its bindings were dropped, and a cover standing wholly in front is what can drop them.
     ---
-    --- 액션에서 바인딩을 얻는 통로가 `GetBindingInfoForAction`이고 `IsUnreachableAction`도
-    --- 같은 통로로 캐시를 조회하므로, 솔버에 넣는 테이블과 조회되는 테이블이 같은 것이다.
+    --- The tables handed to the solver are the ones `IsUnreachableAction` looks up, since both come
+    --- from `GetBindingsForAction`'s cache.
     local function coveredPair(cover)
         local subject = { type = Constants.SPELL, value = 586, key = cover.key };
         check(#bindingsOf(subject) == 2, "쌍둥이가 안 생겼다");
@@ -158,15 +160,16 @@ return function(DebindPrivate)
         end);
     end);
 
-    -- **대상 `none`과 `hover`에서는 쌍둥이를 안 만든다** (2026-09-06, 소유자). `hover`는 이미
-    -- 그 개체를 겨누고, `none`은 대상 입력을 받는 시전이라 겨눔을 가로챌 자리가 아니다.
-    -- 만드는 쪽이 안 만들므로 Clique가 뺏을 것도 없고, 그래서 할 말도 없다.
-    test("대상이 none이나 hover면 옵션이 켜져 있어도 쌍둥이가 없다", function()
+    -- **대상 `none`과 `hover`에도 쌍둥이가 서고, 원본의 대상으로 나간다** (2026-09-13, 소유자).
+    -- 쌍둥이는 가리킨 유닛이 있는 누름의 층에서 차례를 받으려고 있다. `hover`는 이미 그 개체를
+    -- 겨누고, `none`은 대상 입력을 받는 시전이라 겨눔을 가로챌 자리가 아니다.
+    test("대상이 none이나 hover면 쌍둥이가 원본의 대상으로 나간다", function()
         for _, unit in ipairs({ "none", "hover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "T",
                 unit = unit };
-            check(bindingsOf(action)[2] == nil,
-                "대상 " .. unit .. "인데 쌍둥이가 생겼다");
+            local twin = bindingsOf(action)[2];
+            check(twin ~= nil and twin.unit == unit,
+                "대상 " .. unit .. "의 쌍둥이가 겨누는 것: " .. tostring(twin and twin.unit));
         end
 
         -- Clique가 있어도 둘 다 할 말이 없다. 대상 `hover`는 물러난 상태에서도 `GetHoveredUnit`이
@@ -353,26 +356,23 @@ return function(DebindPrivate)
         end);
     end);
 
-    --- **`ignoreHoverUnit`은 hover 조건이 없을 때 [이 액션은 빼라]가 된다** (2026-09-12, 소유자).
-    --- 조건이 켜져 있을 때의 [그 개체창의 개체를 안 쓴다]와 같은 필드이고, 어느 역할인지는
-    --- 액션의 `hover`가 정한다.
-    test("hover 조건 없이 켠 ignoreHoverUnit은 쌍둥이를 막는다", function()
+    --- **`ignoreHoverUnit`은 쌍둥이를 막지 않고, 쌍둥이를 원본의 대상으로 내보낸다** (2026-09-13,
+    --- 소유자). 쌍둥이가 없으면 그 액션은 마지막 층에만 서서, 앞에 두었어도 가리킨 유닛이 있는
+    --- 누름을 뒤의 Hover Cast 액션에 넘긴다. hover 조건이 켜진 액션에서는 원본의 겨눔이 `""`이고
+    --- 쌍둥이도 그렇다.
+    test("ignoreHoverUnit을 켠 액션의 쌍둥이는 원본의 대상으로 나간다", function()
         for _, case in ipairs({ { true, nil }, { nil, true } }) do
             withSwitches(case[1], case[2], function()
-                local action = spell({ ignoreHoverUnit = true });
-                check(bindingsOf(action)[2] == nil,
-                    "빼라고 했는데 쌍둥이가 생겼다");
+                local list = bindingsOf(spell({ ignoreHoverUnit = true, unit = "focus" }));
+                check(list[2] ~= nil and list[2].unit == "focus",
+                    "쌍둥이가 겨누는 것: " .. tostring(list[2] and list[2].unit));
             end);
         end
-    end);
 
-    --- 반대쪽. hover 조건이 켜진 액션에서는 같은 필드가 겨눔을 비우는 일만 하고, 쌍둥이 판정에는
-    --- 애초에 닿지 않는다 - 그런 액션에는 쌍둥이가 없다.
-    test("hover 조건이 켜진 액션의 ignoreHoverUnit은 겨눔만 비운다", function()
-        local action = spell({ ignoreHoverUnit = true, conditions = { units = { hover = {} } } });
-        local list = bindingsOf(action);
-        check(list[2] == nil, "hover 조건이 있는데 쌍둥이가 생겼다");
-        check(list[1].unit == "", "겨눔이 안 비었다: " .. tostring(list[1].unit));
+        local list = bindingsOf(spell({ ignoreHoverUnit = true, conditions = { units = { hover = {} } } }));
+        check(list[1].unit == "", "원본의 겨눔이 안 비었다: " .. tostring(list[1].unit));
+        check(list[2] ~= nil and list[2].unit == "",
+            "hover 조건 있는 액션의 쌍둥이가 겨누는 것: " .. tostring(list[2] and list[2].unit));
     end);
 
 

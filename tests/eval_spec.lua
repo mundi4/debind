@@ -81,9 +81,10 @@ return function(DebindPrivate, _, ctx)
     --- **The interpreter is built once and fed each rebuild after that.** Standing a new one up
     --- would mean replaying the login setup again for every test, and the login setup is what
     --- creates the tables -- replaying it twice into one environment is not what the game does.
-    local function Bind(actions, switches)
+    local function Bind(actions, switches, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
             characters = { [GUID] = { layers = {}, switches = {} } },
             migrated = {},
@@ -106,7 +107,7 @@ return function(DebindPrivate, _, ctx)
     local castmod = require("castmod");
 
     --- Which record wins on this key right now, by its place among the records that are not self or
-    --- focus twins. Every spell here has both, and a press with no modifier held never reaches them;
+    --- focus twins. Every action has both, and a press with no modifier held never reaches them;
     --- the cases about the twins read `interp:evalKey` itself.
     local function winner(key)
         return castmod.index(Constants, interp:recordsFor(key), (interp:evalKey(key)));
@@ -889,6 +890,182 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
+    -- The key laid out in tiers (`devdocs/implementing-focus-and-self-cast.md` §3-4)
+    ---------------------------------------------------------------------------
+
+    local FRIEND = { id = "friend", reaction = "help" };
+    local ENEMY = { id = "enemy", reaction = "harm" };
+
+    --- The unit a record goes out at, whichever field carries it.
+    local function Aimed(record)
+        return record and (record.unit or record.unitAlias);
+    end
+
+    --- Which of the key's originals a winning record came from, by the button both click.
+    local function ActionOf(key, record)
+        local originals = castmod.without(Constants, interp:recordsFor(key));
+        for i = 1, #originals do
+            if (originals[i].clickbutton == record.clickbutton) then
+                return i;
+            end
+        end
+    end
+
+    local function PointAt(unit)
+        unitFrame:SetAttribute("unit", unit);
+        interp:hoverEnter(unitFrame);
+    end
+
+    -- **Every hover twin stands ahead of every original** (§3-4, 2026-09-13, owner). An attack for
+    -- hostile units ahead of a heal for friendly ones, neither with a target picked, Hover Cast on.
+    -- With each twin beside its own original, a press over a friendly frame with a hostile target
+    -- reached the attack's original before the heal's twin, and the attack went at the target; over
+    -- a hostile frame with a friendly target the attack went at the frame. One key, two rules.
+    test("a pointed unit is tried for every action before any target is", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+            action({ value = 774, key = "F1",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+        }, nil, { hoverCast = true });
+
+        shim.world.units = { target = ENEMY, party1 = FRIEND };
+        PointAt("party1");
+        local record, spell = Fired("F1");
+        check(spell == "Rejuvenation" and Aimed(record) == "hover",
+            "hostile target, friendly frame: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+
+        shim.world.units = { target = FRIEND, party1 = ENEMY };
+        record, spell = Fired("F1");
+        check(spell == "Renew" and Aimed(record) == "hover",
+            "friendly target, hostile frame: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+
+        interp:hoverLeave(unitFrame);
+        shim.world.units = {};
+    end);
+
+    -- **A hover twin is ordered as the action the reader would have made by hand**: the same spell
+    -- with [pointing at a unit] on it (§3-4). Ordered by its own action, the twin of an action with
+    -- no condition stood behind every action with a hover condition, whichever came first.
+    test("hover twins keep the order the reader put the actions in", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        for _, case in ipairs({ { "plain", "Rejuvenation" }, { "hover", "Renew" } }) do
+            local plain = { value = 774, key = "F1" };
+            local hovered = { value = 585, key = "F1", conditions = { units = { hover = {} } } };
+            if (case[1] == "plain") then
+                Bind({ action(plain), action(hovered) }, nil, { hoverCast = true });
+            else
+                Bind({ action(hovered), action(plain) }, nil, { hoverCast = true });
+            end
+            shim.world.units = { party1 = FRIEND };
+            PointAt("party1");
+            local record, spell = Fired("F1");
+            check(spell == case[2] and Aimed(record) == "hover",
+                case[1] .. " first: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+            interp:hoverLeave(unitFrame);
+        end
+        shim.world.units = {};
+    end);
+
+    -- **An action that takes no unit has the twins too** (§3-4). Placed first, a macro carried no
+    -- modifier column and answered every held modifier, so nothing behind it could be focus cast.
+    -- A held modifier is now answered in its own tier: the spell's twin where its condition holds on
+    -- the focus, and otherwise the macro's -- carrying `focus`, which is what lets the client's own
+    -- `UnitExists` guard stop it where there is no focus, as it does on an action bar.
+    test("a macro placed ahead of a spell answers a held focus cast key as a focus cast", function()
+        shim.world.spells[585] = { name = "Renew" };
+        Bind({
+            action({ type = Constants.MACROTEXT, value = "/say hi", key = "F1" }),
+            action({ value = 585, key = "F1",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+        });
+        interp.state.modifiedClick.FOCUSCAST = true;
+
+        for _, case in ipairs({ { FRIEND, 1, "a friendly focus" }, { ENEMY, 2, "a hostile focus" },
+                { nil, 2, "no focus" } }) do
+            shim.world.units = { focus = case[1] };
+            local _, _, record = interp:evalKey("F1");
+            check(record and record.castModifier == Constants.CASTMOD_FOCUS,
+                case[3] .. ": the winner is not a focus twin: " .. tostring(record and record.castModifier));
+            check(ActionOf("F1", record) == case[2] and Aimed(record) == "focus",
+                case[3] .. ": action " .. tostring(ActionOf("F1", record)) .. " at " .. tostring(Aimed(record)));
+        end
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- The same for a pet command whose handler takes no unit. Whether a focus exists is the client's
+    -- guard to ask, so both answers pick the same twin here.
+    test("a pet command that takes no unit is focus cast like any action", function()
+        _G.SLASH_PET_FOLLOW1 = "/petfollow";
+        Bind({ action({ type = Constants.PETACTION, value = "PET_FOLLOW", key = "F1" }) });
+        interp.state.modifiedClick.FOCUSCAST = true;
+
+        for _, focus in ipairs({ false, true }) do
+            shim.world.units = { focus = focus and FRIEND or nil };
+            local _, _, record = interp:evalKey("F1");
+            check(record and record.castModifier == Constants.CASTMOD_FOCUS and Aimed(record) == "focus",
+                "focus " .. tostring(focus) .. ": " .. tostring(record and record.castModifier)
+                    .. " at " .. tostring(Aimed(record)));
+        end
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **`none` has every twin and every one of them asks** (§3-4). Its twins stand in each tier the
+    -- way any action's do, so an Always Ask action put first keeps the key whatever is held or
+    -- pointed at -- and the cast still asks for a unit.
+    test("an Always Ask action placed first answers a held key and a pointed unit by asking", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", unit = "none", priority = Constants.MIN_IMPORTANCE }),
+            action({ value = 774, key = "F1" }),
+        }, nil, { hoverCast = true });
+        shim.world.units = { focus = FRIEND, party1 = FRIEND };
+
+        interp.state.modifiedClick.FOCUSCAST = true;
+        local record, spell = Fired("F1");
+        check(spell == "Renew" and Aimed(record) == "none",
+            "focus cast key: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+        interp:resetState();
+
+        PointAt("party1");
+        record, spell = Fired("F1");
+        check(spell == "Renew" and Aimed(record) == "none",
+            "pointing: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+
+        interp:hoverLeave(unitFrame);
+        shim.world.units = {};
+    end);
+
+    -- **An action left out of Hover Cast still stands in the pointed tier** (§3-4). It goes out at
+    -- its own target there; without a twin it waited in the last tier and the Hover Cast action
+    -- behind it took every press made over a unit, whatever the reader had put first.
+    test("an action left out of Hover Cast placed first keeps a pointed press at its own target", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", ignoreHoverUnit = true, priority = Constants.MIN_IMPORTANCE }),
+            action({ value = 774, key = "F1" }),
+        }, nil, { hoverCast = true });
+        shim.world.units = { target = FRIEND, party1 = FRIEND };
+
+        PointAt("party1");
+        local record, spell = Fired("F1");
+        check(spell == "Renew" and Aimed(record) == nil,
+            "fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+
+        interp:hoverLeave(unitFrame);
+        shim.world.units = {};
+    end);
+
+    ---------------------------------------------------------------------------
     -- Which edge of the click we take
     ---------------------------------------------------------------------------
 
@@ -1216,7 +1393,7 @@ return function(DebindPrivate, _, ctx)
         end
         Bind(actions);
 
-        local records = interp:recordsFor("F1");
+        local records = castmod.without(Constants, interp:recordsFor("F1"));
         check(records and #records == #ROWS,
             "records emitted: " .. tostring(records and #records) .. " of " .. #ROWS);
         check(interp.env.StateDrivenBindings["F1"] ~= nil,

@@ -183,49 +183,94 @@ do
 		return CompareActionOrder(Placements[lhs], Placements[rhs]);
 	end
 
-	--- The full list an original binding stands for (`Misc.lua`'s `GetBindingsForAction`).
-	--- Only originals are sorted -- a derived binding has no placement -- and the list is unrolled
-	--- into the key **after** the sort, derived first, original last. That is what keeps one
-	--- action's bindings adjacent: nothing else can land between entries of one list.
+	--- The full list an original binding stands for (`Misc.lua`'s `GetBindingsForAction`), and the
+	--- hover twin in it where there is one.
 	---
 	--- **Wiped each rebuild rather than made weak like `Placements` above.** The value here is the
 	--- list whose `[1]` is the key, and Lua 5.1 marks a weak-keyed table's values strongly -- so
 	--- the entry would keep its own key reachable and never be collected (ephemerons are 5.2).
 	--- Nothing is allocated by the wipe: the lists themselves are `Misc.lua`'s to keep.
 	local Lists = {};
+	local HoverTwins = {};
 	local _unroll = {};
+	local _pointed = {};
 
-	local function UnrollDerivedBindings(bindings)
+	local function HoverTwinSortComparison(lhs, rhs)
+		return CompareActionOrder(Placements[HoverTwins[lhs]], Placements[HoverTwins[rhs]]);
+	end
+
+	--- Lays the sorted originals out as the key, in four tiers: every self twin, every focus twin,
+	--- every hover twin, every original (`devdocs/implementing-focus-and-self-cast.md` §3-4). A probe
+	--- goes with the binding it gates, right ahead of it.
+	---
+	--- **Tiers, not each action's bindings side by side.** Side by side, an original placed first
+	--- took a pointed press before a hover twin behind it had a turn, so the same key went at the
+	--- target or at the pointed unit depending on which of the two was hostile. The self and focus
+	--- tiers change no winner either way, since a held modifier and none held never meet.
+	---
+	--- **The hover tier has an order of its own.** A twin stands where the action the reader would
+	--- have made by hand, with the twin's condition, would stand. Put in its own action's place, the
+	--- twin of an action with no condition fell behind every action with a hover condition,
+	--- whatever the reader had put first.
+	local function UnrollIntoTiers(bindings)
 		local count = #bindings;
-		local grown = false;
-		for i = 1, count do
-			if (#Lists[bindings[i]] > 1) then
-				grown = true;
-				break;
-			end
-		end
-		if (not grown) then
-			return;
-		end
-
 		for i = 1, count do
 			_unroll[i] = bindings[i];
 		end
+
 		local out = 0;
+		for tier = 1, 2 do
+			local castModifier = tier == 1 and Constants.CASTMOD_SELF or Constants.CASTMOD_FOCUS;
+			for i = 1, count do
+				local list = Lists[_unroll[i]];
+				for j = #list, 2, -1 do
+					if (list[j].castModifier == castModifier) then
+						out = out + 1;
+						bindings[out] = list[j];
+					end
+				end
+			end
+		end
+
+		local pointed = 0;
+		for i = 1, count do
+			if (HoverTwins[_unroll[i]]) then
+				pointed = pointed + 1;
+				_pointed[pointed] = _unroll[i];
+			end
+		end
+		if (pointed > 1) then
+			sort(_pointed, HoverTwinSortComparison);
+		end
+		for k = 1, pointed do
+			local list = Lists[_pointed[k]];
+			for j = #list, 2, -1 do
+				if (list[j].hoverTwin) then
+					out = out + 1;
+					bindings[out] = list[j];
+				end
+			end
+		end
+
 		for i = 1, count do
 			local list = Lists[_unroll[i]];
 			for j = #list, 1, -1 do
-				out = out + 1;
-				bindings[out] = list[j];
+				if (list[j].castModifier == Constants.CASTMOD_NONE and not list[j].hoverTwin) then
+					out = out + 1;
+					bindings[out] = list[j];
+				end
 			end
 		end
+
 		wipe(_unroll);
+		wipe(_pointed);
 	end
 
 	function DebindPrivate.BuildKeyMap()
 		wipe(KeyMap);
 		wipe(ActiveActions);
 		wipe(Lists);
+		wipe(HoverTwins);
 		DebindPrivate.ClearUnreachableBindingCache();
 
 		-- **The layers are walked here rather than through an enumerator because both numbers are
@@ -282,6 +327,16 @@ do
 					Placements[binding] = DebindPrivate.MakeOrderRecord(
 						action, layerRank, nil, Placements[binding]);
 
+					for j = 2, #list do
+						local twin = list[j];
+						if (twin.hoverTwin and not twin.spellbook) then
+							HoverTwins[binding] = twin;
+							Placements[twin] = DebindPrivate.MakeOrderRecord(
+								action, layerRank, nil, Placements[twin], twin);
+							break;
+						end
+					end
+
 					local key = action.key;
 					local issue = DebindPrivate.GetBindingIssue(action);
 					-- 게임이 바인딩 컨텍스트로 가져간 키는 KeyMap에 넣지 않는다. 즉 그 키에는
@@ -315,7 +370,7 @@ do
 			if (#bindings > 1) then
 				sort(bindings, BindingSortComparison);
 			end
-			UnrollDerivedBindings(bindings);
+			UnrollIntoTiers(bindings);
 			if (#bindings > 1) then
 				DebindPrivate.CheckUnreachableBindings(bindings);
 			end

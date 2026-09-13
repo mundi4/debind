@@ -574,6 +574,43 @@ local function GetNthBinding(key, n)
     return bindings and bindings[n]
 end
 
+--- Every action puts a self twin and a focus twin on its key, in the key's first two tiers
+--- (`devdocs/implementing-focus-and-self-cast.md` §3-4). A press with no modifier held never
+--- reaches them, so the tests that ask about that press count and place bindings without them.
+local function IsModifierTwin(binding)
+    return binding.castModifier == Constants.CASTMOD_SELF or binding.castModifier == Constants.CASTMOD_FOCUS
+end
+
+local function GetKeyBindingsWithoutTwins(key)
+    local bindings = GetKeyBindings(key)
+    if not bindings then
+        return nil
+    end
+    local out = {}
+    for i = 1, #bindings do
+        if not IsModifierTwin(bindings[i]) then
+            out[#out + 1] = bindings[i]
+        end
+    end
+    return out
+end
+
+--- Where the binding at `index` on the key stands without the twins. nil for a twin, so a test
+--- expecting a place fails on one.
+local function PlaceWithoutTwins(key, index)
+    local bindings = GetKeyBindings(key)
+    if not index or not bindings or not bindings[index] or IsModifierTwin(bindings[index]) then
+        return nil
+    end
+    local place = 0
+    for i = 1, index do
+        if not IsModifierTwin(bindings[i]) then
+            place = place + 1
+        end
+    end
+    return place
+end
+
 
 -----------------------------------------------------------
 -- Test Helpers: State Injection
@@ -1164,19 +1201,15 @@ end
 --- The order `BuildKeyMap` ended up with, as a string of spell ids. Records the solver dropped
 --- are not in it, which is the point of asking here rather than asking the drawing side.
 ---
---- **Without the self and focus twins**, which every spell puts ahead of its other bindings and
---- which go wherever their action goes (`devdocs/implementing-focus-and-self-cast.md` §3-4).
+--- **Without the self and focus twins**, whose tiers keep the order of the originals.
 local function KeyMapOrder(key)
-    local bindings = GetKeyBindings(key)
+    local bindings = GetKeyBindingsWithoutTwins(key)
     if not bindings then
         return "<none>"
     end
     local out = {}
     for i = 1, #bindings do
-        local castModifier = bindings[i].castModifier
-        if castModifier ~= Constants.CASTMOD_SELF and castModifier ~= Constants.CASTMOD_FOCUS then
-            out[#out + 1] = tostring(bindings[i].value)
-        end
+        out[#out + 1] = tostring(bindings[i].value)
     end
     return table.concat(out, " ")
 end
@@ -7312,7 +7345,7 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
 
             -- **Read again every time.** `SetMockState` runs a rebuild at the end, which replaces
             -- the KeyMap array. Held once outside the loop, the second pass reads a dead table.
-            local records = GetKeyBindings(KEY)
+            local records = GetKeyBindingsWithoutTwins(KEY)
             if not records or #records ~= 2 then
                 return Fail(NAME, format("there should be 2 records, there are %d",
                     records and #records or 0))
@@ -7342,7 +7375,8 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             -- for having no way to be bound, or for being unreachable, puts it out of step with the
             -- KeyMap array; two were confirmed above and both are macrotext, so there is nothing to
             -- drop them for.
-            local got = records[idx]
+            local place = PlaceWithoutTwins(KEY, idx)
+            local got = place and records[place]
             if not got then
                 return Fail(NAME, format("combat=%s gave index %d and there is no record in that place",
                     tostring(want), idx))
@@ -7411,7 +7445,7 @@ RegisterTest("Click-time key: mounted, indoors and skyriding decide the press", 
 
                 -- Read again every pass. `SetMockState` ends in a rebuild, which replaces the
                 -- KeyMap array.
-                local records = GetKeyBindings(KEY)
+                local records = GetKeyBindingsWithoutTwins(KEY)
                 if not records or #records ~= 2 then
                     return Fail(NAME, format("%s: there should be 2 records, there are %d",
                         axis, records and #records or 0))
@@ -7430,7 +7464,8 @@ RegisterTest("Click-time key: mounted, indoors and skyriding decide the press", 
                         axis, tostring(want)))
                 end
 
-                local got = records[idx]
+                local place = PlaceWithoutTwins(KEY, idx)
+                local got = place and records[place]
                 if not got then
                     return Fail(NAME, format("%s=%s gave index %d and there is no record there",
                         axis, tostring(want), idx))
@@ -7814,7 +7849,7 @@ local function SetUpSweepKey(records, key)
     end
     ApplyBindings()
 
-    local emitted = GetKeyBindings(key)
+    local emitted = GetKeyBindingsWithoutTwins(key)
     if not emitted or #emitted ~= #records then
         return nil, format("there should be %d records, there are %d, either the solver dropped one or one had no way to be bound",
             #records, emitted and #emitted or 0)
@@ -7936,7 +7971,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
             -- **Read again every time.** Standing a state up runs a rebuild and replaces the table.
             -- A count out of step moves what the index points at, so this stops here before asking
             -- who won.
-            local emitted = GetKeyBindings(KEY)
+            local emitted = GetKeyBindingsWithoutTwins(KEY)
             if not emitted or #emitted ~= #CLICKTIME_SWEEP then
                 return Fail(NAME, format("%s: %d records after the rebuild, the index has lost its meaning",
                     ComboLabel(state), emitted and #emitted or 0))
@@ -7954,7 +7989,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
             local ran, rerr = EvalClickTimeKey(KEY)
             if not ran then return Fail(NAME, rerr) end
 
-            local got = WaitForWinner()
+            local got = PlaceWithoutTwins(KEY, WaitForWinner())
             if got ~= want then
                 return Fail(NAME, format("%s: #%d (%s) should have won and it was %s",
                     ComboLabel(state), want, CLICKTIME_SWEEP[want].label,
@@ -8063,7 +8098,7 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
             local ran, evalErr = EvalClickTimeKey(KEY)
             if not ran then return Fail(NAME, evalErr) end
 
-            local got = WaitForWinner()
+            local got = PlaceWithoutTwins(KEY, WaitForWinner())
             if got ~= want then
                 return Fail(NAME, format("%s: the press picked %s, it should be %s",
                     ComboLabel(state),

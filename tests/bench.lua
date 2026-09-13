@@ -141,8 +141,106 @@ return function(DebindPrivate)
     io.write(("\n최악: %.2f ms / 노드 %d / 비용 %d / 캡 초과 %d회\n")
         :format(worstMs, worstNodes, worstWork, gaveUpTotal));
 
+    -- **The shape a key really has, which the table above does not.** Every action puts an original,
+    -- a self twin and a focus twin on its key, and a hover twin while Hover Cast is on
+    -- (`devdocs/implementing-focus-and-self-cast.md` §3-4), so a key of n actions hands the solver
+    -- 4n bindings laid out in tiers. The bindings come out of `GetBindingsForAction` itself, and the
+    -- tiers keep the actions in the order they were made rather than sorting them: the comparator
+    -- decides where a binding stands, not how much covering there is to test.
+    --
+    -- Timed twice: one call over the whole key, and one call per tier the way the self tier, the
+    -- focus tier and the two [none held] tiers can never cover one another.
+    _G.DebindVars = {
+        dbver = Constants.DB_VERSION,
+        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        characters = {},
+        migrated = {},
+        switches = {},
+    };
+    DebindPrivate.InitDB();
+    DebindPrivate.Options.hoverCast = true;
+
+    local AIMS = { false, "target", "focus", "tank", "none" };
+    local function makeAction(density)
+        local conditions = makeBinding("a", density).conditions;
+        local aim = pick(AIMS);
+        return {
+            type = Constants.SPELL,
+            value = 100 + math.floor(rnd() * 4),
+            key = "SHIFT-Q",
+            unit = aim or nil,
+            conditions = conditions,
+        };
+    end
+
+    local TIERS = {
+        function(b) return b.castModifier == Constants.CASTMOD_SELF; end,
+        function(b) return b.castModifier == Constants.CASTMOD_FOCUS; end,
+        function(b) return b.hoverTwin == true; end,
+        function(b) return b.castModifier == Constants.CASTMOD_NONE and not b.hoverTwin; end,
+    };
+
+    io.write("\n실제 모양: 액션마다 원본, self, focus, hover (시행 50회씩)\n");
+    io.write(("%-5s %-6s %-6s %12s %12s %12s %12s\n")
+        :format("액션", "바인딩", "밀도", "통째평균ms", "통째최대ms", "층별평균ms", "층별최대ms"));
+
+    local realWorst = { whole = 0, tiered = 0 };
+    for _, count in ipairs({ 5, 10, 20 }) do
+        for _, density in ipairs({ 0.2, 0.4, 0.7 }) do
+            local trials = 50;
+            local wholeTotal, wholeMax, tieredTotal, tieredMax, size = 0, 0, 0, 0, 0;
+
+            for _ = 1, trials do
+                local lists = {};
+                for i = 1, count do
+                    lists[i] = DebindPrivate.GetBindingsForAction(makeAction(density));
+                end
+
+                local whole, segments = {}, { {}, {}, {} };
+                for tier = 1, 4 do
+                    local segment = segments[tier == 4 and 3 or tier];
+                    for i = 1, count do
+                        local list = lists[i];
+                        for j = #list, 1, -1 do
+                            if (TIERS[tier](list[j])) then
+                                whole[#whole + 1] = list[j];
+                                segment[#segment + 1] = list[j];
+                            end
+                        end
+                    end
+                end
+                size = #whole;
+
+                ClearUnreachableBindingCache();
+                local t0 = os.clock();
+                CheckUnreachableBindings(whole);
+                local ms = (os.clock() - t0) * 1000;
+                wholeTotal = wholeTotal + ms;
+                if (ms > wholeMax) then wholeMax = ms; end
+
+                ClearUnreachableBindingCache();
+                t0 = os.clock();
+                for s = 1, 3 do
+                    CheckUnreachableBindings(segments[s]);
+                end
+                ms = (os.clock() - t0) * 1000;
+                tieredTotal = tieredTotal + ms;
+                if (ms > tieredMax) then tieredMax = ms; end
+            end
+
+            io.write(("%-5d %-6d %-6.1f %12.2f %12.2f %12.2f %12.2f\n")
+                :format(count, size, density, wholeTotal / trials, wholeMax,
+                    tieredTotal / trials, tieredMax));
+            if (wholeMax > realWorst.whole) then realWorst.whole = wholeMax; end
+            if (tieredMax > realWorst.tiered) then realWorst.tiered = tieredMax; end
+        end
+    end
+
+    io.write(("\n실제 모양 최악: 통째 %.2f ms / 층별 %.2f ms\n"):format(realWorst.whole, realWorst.tiered));
+
     -- CheckUnreachableBindings는 키 하나에 대해 돈다. 한 키에 40개는 이미 비현실적이고,
     -- 여기서 포기가 나오기 시작하면 MAX_WORK를 다시 봐야 한다. 예산은 **바인딩마다**
     -- 리셋되므로 위의 "최대비용"은 한 바인딩이 쓴 값이 아니라 그 호출 전체의 합이다.
-    return { worstMs = worstMs, worstNodes = worstNodes, worstWork = worstWork, gaveUp = gaveUpTotal };
+    return { worstMs = worstMs, worstNodes = worstNodes, worstWork = worstWork, gaveUp = gaveUpTotal,
+        realWholeMs = realWorst.whole, realTieredMs = realWorst.tiered };
 end

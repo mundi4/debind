@@ -1,7 +1,7 @@
 -- The self and focus twins, taken back out of a key's list.
 --
--- An action that takes a unit puts a self twin and a focus twin on its key ahead of its other
--- bindings (`devdocs/implementing-focus-and-self-cast.md` §3-4). Most specs ask about the order
+-- Every action puts a self twin and a focus twin on its key, and those fill the key's first two
+-- tiers (`devdocs/implementing-focus-and-self-cast.md` §3-4). Most specs ask about the order
 -- among actions, or among what a press with no modifier held can reach. These helpers let them keep
 -- asking exactly that, where writing every index out with the twins in would bury the question
 -- under arithmetic.

@@ -67,7 +67,7 @@ return function(DebindPrivate, _, ctx)
 
     local castmod = require("castmod");
 
-    --- Indexed without the self and focus twins, which ride on every type here that takes a unit
+    --- Indexed without the self and focus twins, which ride on every action
     --- and are not what this file is about.
     local function recordField(key, index, field)
         local records = castmod.without(Constants, interp:recordsFor(key));
@@ -269,11 +269,14 @@ return function(DebindPrivate, _, ctx)
                 shim.world.spellbook[119905] = nil;
             end
 
-            -- With a hover twin as well, the twin gets a probe of its own ahead of it. The list is
-            -- read back to front by the unroll, so the key order is probe-twin, twin, probe,
-            -- original: over a frame with the imp out, the probe twin is the first record.
-            local twinned = action({ type = Constants.DISPEL, key = "F4" });
-            Bind({ twinned }, { hoverCast = true });
+            -- Every binding has a probe of its own, and **the probe moves into whichever tier its
+            -- binding lands in, right ahead of it** (`devdocs/implementing-focus-and-self-cast.md`
+            -- §3-4). A plain spell behind the dispel is what shows the tiers: each tier holds the
+            -- dispel's pair and then the spell. The dispel is in combat only, so the spell's
+            -- bindings are not covered by it.
+            local twinned = action({ type = Constants.DISPEL, key = "F4", conditions = { combat = true } });
+            local behind = action({ type = Constants.SPELL, key = "F4", value = 774 });
+            Bind({ twinned, behind }, { hoverCast = true });
 
             local twinnedList = castmod.without(Constants, DebindPrivate.GetBindingsForAction(twinned));
             check(#twinnedList == 4, "twinned list length: " .. #twinnedList);
@@ -281,16 +284,21 @@ return function(DebindPrivate, _, ctx)
             check(twinnedList[3].unit == "hover" and twinnedList[3].spellbook == nil, "twin");
             check(twinnedList[4].unit == "hover" and twinnedList[4].spellbook == 119905, "probe twin");
 
-            local keyed = castmod.without(Constants, interp:recordsFor("F4"));
-            check(keyed and #keyed == 4, "F4 records: " .. tostring(keyed and #keyed));
-            check(keyed[1].spellbook == 119905 and keyed[1].units and keyed[1].units.hover,
-                "the first record on the key is not the probe twin");
-            check(keyed[2].spellbook == nil and keyed[2].units and keyed[2].units.hover,
-                "the second record on the key is not the twin");
-            check(keyed[3].spellbook == 119905 and not (keyed[3].units and keyed[3].units.hover),
-                "the third record on the key is not the probe");
-            check(keyed[4].spellbook == nil and not (keyed[4].units and keyed[4].units.hover),
-                "the last record on the key is not the original");
+            local keyed = interp:recordsFor("F4");
+            local shape = {};
+            for i = 1, #(keyed or {}) do
+                local record = keyed[i];
+                local tier = (record.castModifier == Constants.CASTMOD_SELF and "self")
+                    or (record.castModifier == Constants.CASTMOD_FOCUS and "focus")
+                    or (record.units and record.units.hover and "hover")
+                    or "original";
+                local who = (record.spellbook and "probe") or (record.combat and "dispel") or "spell";
+                shape[i] = tier .. ":" .. who;
+            end
+            shape = table.concat(shape, " ");
+            check(shape == "self:probe self:dispel self:spell focus:probe focus:dispel focus:spell "
+                .. "hover:probe hover:dispel hover:spell original:probe original:dispel original:spell",
+                "F4 came out as " .. shape);
         end);
 
         SpecSpells.SpellForType = saved;

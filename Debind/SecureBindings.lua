@@ -1253,7 +1253,6 @@ local EVAL_SNIPPET = [==[
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
-	local castModifier
 
 	local memoReady = false
 
@@ -1261,35 +1260,40 @@ local EVAL_SNIPPET = [==[
 	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	for i = 1, #bindings do
+	-- **The held modifier picks the tier before any record is read, and only that tier is walked**
+	-- (`devdocs/implementing-focus-and-self-cast.md` §3-4). Every action has a self and a focus
+	-- twin, so walking the whole key would pass over two records per action on every press with
+	-- nothing held. A tier with no winner ends the press there.
+	--
+	-- The client hides the modifiers that are part of the binding the press arrived on, so what
+	-- `IsModifiedClick` answers here is only what was held on top of it (§2-1). A frame click has
+	-- no binding name to hide them behind, and a modifier held there picked the binding itself
+	-- (§3-10).
+	local castModifier
+	if (clickCast) then
+		castModifier = CONSTANTS.CASTMOD_NONE
+	elseif (IsModifiedClick("SELFCAST")) then
+		castModifier = CONSTANTS.CASTMOD_SELF
+	elseif (IsModifiedClick("FOCUSCAST")) then
+		castModifier = CONSTANTS.CASTMOD_FOCUS
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+	end
+	PROBE.MockState(castModifier)
+
+	local first, last
+	if (castModifier == CONSTANTS.CASTMOD_SELF) then
+		first, last = 1, bindings.focusFrom - 1
+	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
+		first, last = bindings.focusFrom, bindings.noneFrom - 1
+	else
+		first, last = bindings.noneFrom, #bindings
+	end
+
+	for i = first, last do
 		local t = bindings[i]
 		if (t[subset]) then
 			local match = true
-
-			-- **First, because it is what turns the self and focus twins away**, and those come
-			-- ahead of every other binding of their action.
-			--
-			-- The client hides the modifiers that are part of the binding the press arrived on, so
-			-- what `IsModifiedClick` answers here is only what was held on top of it
-			-- (`devdocs/implementing-focus-and-self-cast.md` §2-1). A frame click has no binding
-			-- name to hide them behind, and a modifier held there picked the binding itself (§3-10).
-			if (t.castModifier ~= nil) then
-				if (castModifier == nil) then
-					if (clickCast) then
-						castModifier = CONSTANTS.CASTMOD_NONE
-					elseif (IsModifiedClick("SELFCAST")) then
-						castModifier = CONSTANTS.CASTMOD_SELF
-					elseif (IsModifiedClick("FOCUSCAST")) then
-						castModifier = CONSTANTS.CASTMOD_FOCUS
-					else
-						castModifier = CONSTANTS.CASTMOD_NONE
-					end
-					PROBE.MockState(castModifier)
-				end
-				if (t.castModifier ~= castModifier) then
-					match = false
-				end
-			end
 
 			-- 호버 유닛의 존재와 반응은 아래 t.units["hover"]가 답한다. 그쪽도 여기서 잰
 			-- hoverUnit을 쓰므로 값이 갈릴 자리가 없다. 남은 것은 프레임의 종류뿐이다.
