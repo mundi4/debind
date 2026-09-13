@@ -280,11 +280,10 @@ Smart Cast가 켜진 액션은 "Smart Cast" 줄에 **이 캐릭터에서 실제�
 시전, hover 쌍둥이, `known`)이 제자리에 남고, "갈래가 안 걸리면 호스트가 나간다"가 유일한 답이라
 양보 옵션 물음이 사라지고, EUI와 VuhDo 둘 다와 일대일이 된다.
 
-**저장.** 액션 필드 여섯. `smartCast`는 모드(없음 / `"global"` / `"custom"`), `smartCastRez`,
-`smartCastBattleRez`, `smartCastDispel`, `smartCastBuff`는 직접 선택일 때의 체크박스 넷,
-`smartCastRezWithBattleRez`는 갈래가 아니라 부활 갈래를 넓히는 칸이다 (§10-7). 모드를
-바꿔도 값은 남긴다. 메뉴는 액션 우클릭의 "Smart Cast" 하위 메뉴에 라디오 셋과 그 아래 체크박스
-다섯(직접 선택일 때만 켜짐)이다.
+**저장.** 액션 필드 일곱. `smartCast`는 켰느냐, `smartCastCustom`은 직접 선택이냐(없으면 계정
+기본값을 따름), `smartCastRez`, `smartCastBattleRez`, `smartCastDispel`, `smartCastBuff`는 직접
+선택일 때의 체크박스 넷, `smartCastRezWithBattleRez`는 갈래가 아니라 부활 갈래를 넓히는 칸이다
+(§10-7). 켜기와 모드가 두 필드인 것은 체크박스를 꺼도 모드가 남게 하려는 것이다.
 
 **체크박스 넷은 §10-4의 시도 순서로 세운다** (2026-09-08, 소유자): 전투 부활, 부활, 해제, 공격대
 버프. 위에서부터 처음 걸리는 갈래가 나가는 것이라 목록이 누름과 같은 방향으로 읽힌다. 순서는
@@ -304,7 +303,7 @@ Smart Cast가 켜진 액션은 "Smart Cast" 줄에 **이 캐릭터에서 실제�
 자리는 옵션 드롭다운 "Smart Cast" 메뉴 맨 위, 구분선 아래가 기본값 넷이다. 라벨은 클라이언트가
 같은 자리에 쓰는 꼴을 그대로 따른다("Cooldown Manager" 머리말 아래 "Enable Cooldown Manager").
 꺼 두면 그 넷도 잠근다. 산 상자가 죽은 기능 위에 서 있으면 기능이 살아 있는 것으로 읽힌다.
-액션 쪽 메뉴는 항목을 남기되 라디오와 체크박스를 잠그고 툴팁이 계정 단위로 꺼져 있다고 말한다. 액션 툴팁의 Smart Cast
+액션 쪽 메뉴는 체크박스를 남기되 잠그고 툴팁이 계정 단위로 꺼져 있다고 말한다. 액션 툴팁의 Smart Cast
 줄도 서 있되 회색으로 같은 말을 한다. 어느 쪽도 액션 값을 건드리지 않는다.
 
 **전역 기본값.** 켤 액션마다 넷을 고르라는 건 고역이라 (소유자), "전역 기본값을 따름" 모드가

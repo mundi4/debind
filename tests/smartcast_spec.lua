@@ -107,38 +107,53 @@ return function(DebindPrivate, _, ctx)
         local off = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585 });
         check(off == nil, "an action without the option has branches");
 
-        local global = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = "global" });
+        local global = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = true });
         check(global.rez == true and global.dispel == true and global.buff == true,
             "the defaults do not turn the three on");
         check(global.battleRez == false, "battle resurrection is on by default");
 
         local custom = DebindPrivate.SmartCastBranches({
-            type = Constants.SPELL, value = 585, smartCast = "custom",
+            type = Constants.SPELL, value = 585, smartCast = true, smartCastCustom = true,
             smartCastRez = true, smartCastBattleRez = true,
         });
         check(custom.rez == true and custom.battleRez == true, "the chosen branches are off");
         check(custom.dispel == false and custom.buff == false, "an unchosen branch is on");
 
-        local none = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = "custom" });
+        local none = DebindPrivate.SmartCastBranches({
+            type = Constants.SPELL, value = 585, smartCast = true, smartCastCustom = true,
+        });
         check(none == nil, "custom with nothing chosen has branches");
 
-        local command = DebindPrivate.SmartCastBranches({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", smartCast = "global" });
+        local command = DebindPrivate.SmartCastBranches({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", smartCast = true });
         check(command == nil, "a command carries branches");
 
-        local target = DebindPrivate.SmartCastBranches({ type = Constants.TARGET, value = "focus", smartCast = "global" });
+        local target = DebindPrivate.SmartCastBranches({ type = Constants.TARGET, value = "focus", smartCast = true });
         check(target == nil, "a target action carries branches");
 
-        local switch = DebindPrivate.SmartCastBranches({ type = Constants.SETSTATE_TOGGLE, value = "$state1", smartCast = "global" });
+        local switch = DebindPrivate.SmartCastBranches({ type = Constants.SETSTATE_TOGGLE, value = "$state1", smartCast = true });
         check(switch == nil, "a switch action carries branches");
 
-        local pet = DebindPrivate.SmartCastBranches({ type = Constants.PETACTION, value = 1, smartCast = "global" });
+        local pet = DebindPrivate.SmartCastBranches({ type = Constants.PETACTION, value = 1, smartCast = true });
         check(pet and pet.rez == true, "a pet action lost its branches");
+    end);
+
+    test("turning the option off keeps the choice to pick here", function()
+        local stored = {
+            type = Constants.SPELL, value = 585, smartCast = false, smartCastCustom = true,
+            smartCastBattleRez = true,
+        };
+        check(DebindPrivate.SmartCastBranches(stored) == nil, "an action with the option off has branches");
+
+        stored.smartCast = true;
+        local back = DebindPrivate.SmartCastBranches(stored);
+        check(back and back.battleRez == true and back.rez == false,
+            "turning it back on did not bring back what was picked here");
     end);
 
     test("the account-wide default can be changed", function()
         Bind({});
         DebindPrivate.Options.smartCast = { battleRez = true, buff = false };
-        local global = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = "global" });
+        local global = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = true });
         check(global.battleRez == true and global.buff == false and global.rez == true,
             "the stored defaults were not read");
         DebindPrivate.Options.smartCast = nil;
@@ -152,7 +167,7 @@ return function(DebindPrivate, _, ctx)
         world();
         shim.world.specIndex = 4;
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom",
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
                 smartCastRez = true, smartCastBattleRez = true, smartCastDispel = true, smartCastBuff = true }),
         });
         local smart = record("F1", 1).smart;
@@ -168,7 +183,8 @@ return function(DebindPrivate, _, ctx)
         -- Balance has no mass resurrection, and the branch is simply absent.
         shim.world.specIndex = 1;
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom", smartCastRez = true }),
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
+                smartCastRez = true }),
         });
         local balance = record("F1", 1).smart;
         check(balance.rez ~= nil and balance.massRez == nil, "balance has a mass resurrection");
@@ -191,7 +207,7 @@ return function(DebindPrivate, _, ctx)
 
         local ok, err = pcall(function()
             Bind({
-                action({ value = 585, key = "F1", unit = "focus", smartCast = "custom",
+                action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
                     smartCastRez = true, smartCastRezWithBattleRez = true }),
             });
             local smart = record("F1", 1).smart;
@@ -199,7 +215,7 @@ return function(DebindPrivate, _, ctx)
             check(spellOn(smart.rez) == "Rebirth", "rez: " .. tostring(spellOn(smart.rez)));
 
             Bind({
-                action({ value = 585, key = "F1", unit = "focus", smartCast = "custom",
+                action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
                     smartCastRez = true }),
             });
             local without = record("F1", 1).smart;
@@ -231,7 +247,7 @@ return function(DebindPrivate, _, ctx)
         world();
         shim.world.specIndex = 4;
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom",
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
                 smartCastRez = true, smartCastBattleRez = true }),
         });
 
@@ -248,7 +264,8 @@ return function(DebindPrivate, _, ctx)
 
         -- With only the battle resurrection chosen, out of combat nothing fits and the host fires.
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom", smartCastBattleRez = true }),
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
+                smartCastBattleRez = true }),
         });
         check(pressed("F1") == "Renew", "the host did not fire: " .. tostring(pressed("F1")));
         shim.world.specIndex = nil;
@@ -261,7 +278,7 @@ return function(DebindPrivate, _, ctx)
         world();
         shim.world.specIndex = 4;
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "global" }),
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true }),
         });
         shim.world.units.focus = { reaction = "help" };
         interp.state.combat = false;
@@ -307,7 +324,7 @@ return function(DebindPrivate, _, ctx)
     test("a click-cast record carries the branches", function()
         world();
         Bind({
-            action({ value = 585, key = "BUTTON3", smartCast = "global" }),
+            action({ value = 585, key = "BUTTON3", smartCast = true }),
         }, { hoverCast = true });
         -- A mouse button's list is filed under `ClickCastKeys[button][modifier]` rather than under
         -- a click-time button name.
@@ -323,7 +340,7 @@ return function(DebindPrivate, _, ctx)
     test("a type outside the allow list keeps the option off the record", function()
         world();
         Bind({
-            action({ type = Constants.TARGET, key = "F1", unit = "focus", smartCast = "global" }),
+            action({ type = Constants.TARGET, key = "F1", unit = "focus", smartCast = true }),
         });
         -- A druid resolves rez, dispel and buff, so the branches would stand here if the type
         -- were allowed to carry them (`Constants.TYPES_WITH_SMART_CAST`).
@@ -334,26 +351,28 @@ return function(DebindPrivate, _, ctx)
     test("the account-wide master switch ignores every action's option", function()
         world();
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "global" }),
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true }),
         });
         check(record("F1", 1).smart ~= nil, "the record has no branches to begin with");
 
         local OFF = { smartCast = { enabled = false } };
         DebindPrivate.Options.smartCast = OFF.smartCast;
-        check(DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = "global" }) == nil,
+        check(DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = true }) == nil,
             "an action following the defaults kept its branches");
         check(DebindPrivate.SmartCastBranches({
-            type = Constants.SPELL, value = 585, smartCast = "custom", smartCastRez = true,
+            type = Constants.SPELL, value = 585, smartCast = true, smartCastCustom = true, smartCastRez = true,
         }) == nil, "an action that chose its own kept its branches");
 
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom", smartCastRez = true }),
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
+                smartCastRez = true }),
         }, OFF);
         check(record("F1", 1).smart == nil, "the record still carries a branch table");
 
         -- Off is not cleared: the action's own values are still there when the switch comes back.
         Bind({
-            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom", smartCastRez = true }),
+            action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
+                smartCastRez = true }),
         });
         local back = record("F1", 1).smart;
         check(back and back.rez ~= nil, "the branches did not come back");

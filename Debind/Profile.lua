@@ -36,11 +36,12 @@ local KEYS_TO_SAVE       = {
     arrivalID = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
-    -- **Smart Cast** (`devdocs/adding-spec-resolved-actions.md` §10). `smartCast` is the mode:
-    -- nil, `"global"` (the four branches follow the account-wide defaults) or `"custom"` (the four
-    -- booleans below decide). The four keep their values across mode changes, the same as every
-    -- other option that is turned off rather than cleared.
+    -- **Smart Cast** (`devdocs/adding-spec-resolved-actions.md` §10). `smartCast` is the checkbox
+    -- and `smartCastCustom` the mode beside it, so unticking the box leaves the mode and the four
+    -- branches where they were, the same as every other option that is turned off rather than
+    -- cleared. Without `smartCastCustom` the four follow the account-wide defaults.
     smartCast = true,
+    smartCastCustom = true,
     smartCastRez = true,
     smartCastBattleRez = true,
     smartCastDispel = true,

@@ -146,8 +146,6 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
 
     CreateTargetUnitMenuItem(rootDescription, ctx);
 
-    CreateSmartCastMenuItem(rootDescription, ctx);
-
     --
     -- Conditions
     --
@@ -169,6 +167,8 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     --
     rootDescription:CreateDivider();
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
+
+    CreateSmartCastMenuItem(rootDescription, ctx);
 
     CreateKeepInBindingContextMenuItem(rootDescription, ctx);
 

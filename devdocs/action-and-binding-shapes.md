@@ -50,9 +50,10 @@ action
                         게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다
     ignoreHoverUnit     겨누는 것을 바꾼다 (§2)
     preferHoverUnit     개체창 위에서는 그 개체를 겨눈다. 바인딩을 가른다 (§4)
-    smartCast           nil | `"global"` | `"custom"`. Smart Cast 모드
+    smartCast           Smart Cast를 켰느냐. 끄면 `false`이고 아래 값은 그대로 남는다
+    smartCastCustom     갈래를 여기서 고르느냐. 없으면 계정 기본값을 따른다
     smartCastRez smartCastBattleRez smartCastDispel smartCastBuff
-                        네 갈래. `"custom"`일 때만 읽는다. 모드를 옮겨도 값은 남는다
+                        네 갈래. `smartCastCustom`일 때만 읽는다. 모드를 옮겨도 값은 남는다
     smartCastRezWithBattleRez
                         다섯째 갈래가 아니다. 다른 부활이 없는 클래스에서 부활 갈래가
                         전투 부활로 손을 뻗게 한다

@@ -23,10 +23,7 @@ local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 local SetErrorTooltip                = ActionMenu.SetErrorTooltip;
 
 
---- Smart Cast (`devdocs/adding-spec-resolved-actions.md` §10). One mode radio -- off, the
---- account-wide defaults, or chosen here -- and the four branches under it, which only mean
---- something in the third mode and are locked otherwise. The values stay when the mode
---- changes; turning off is not clearing.
+--- Smart Cast (`devdocs/adding-spec-resolved-actions.md` §10).
 ---
 --- Only the types Smart Cast may be set on get the item at all
 --- (`Constants.TYPES_WITH_SMART_CAST`).
@@ -35,97 +32,14 @@ local function CreateSmartCastMenuItem(parentDescription, ctx)
         return;
     end
 
-    local description = ActionMenus:BuildNode(parentDescription, {
-        label = "SMART_CAST",
-        key = "smartCast",
-        isActive = function()
-            return ctx.action.smartCast ~= nil;
-        end,
-    }, ctx);
+    local description = parentDescription:CreateCheckbox(LLL["SMART_CAST"], actionValueEquals,
+        setActionValue, { ctx = ctx, key = "smartCast", value = USE_CHECKED_VALUE });
 
-    -- **The account-wide switch locks the whole submenu without emptying it.** The action keeps
-    -- what it chose (§10-1 of the design), so the items stay and stop answering; the tooltip is
-    -- the only thing that can say why, and it is set from an initializer because the group's
-    -- own runs at open and would overwrite one set here.
-    local function masterOn()
-        return DebindPrivate.SmartCastEnabled();
-    end
-    if (not masterOn()) then
-        description:AddInitializer(function(button, elementDescription)
-            SetInstructionTooltip(elementDescription, LLL["SMART_CAST_DESC"], function()
-                return LLL["SMART_CAST_DISABLED_ACCOUNT_WIDE"];
-            end);
-        end);
-    end
-
-    local off = description:CreateRadio(LLL["DISABLE"], actionValueEquals, setActionValue,
-        { ctx = ctx, key = "smartCast", value = nil });
-    off:SetEnabled(masterOn);
-    local global = description:CreateRadio(LLL["SMART_CAST_GLOBAL"], actionValueEquals, setActionValue,
-        { ctx = ctx, key = "smartCast", value = "global" });
-    global:SetEnabled(masterOn);
-    local custom = description:CreateRadio(LLL["SMART_CAST_CUSTOM"], actionValueEquals, setActionValue,
-        { ctx = ctx, key = "smartCast", value = "custom" });
-    custom:SetEnabled(masterOn);
-
-    description:CreateDivider();
-
-    local function customOnly()
-        return masterOn() and ctx.action.smartCast == "custom";
-    end
-
-    -- **Following the defaults shows the defaults, not what this action last chose.** The
-    -- boxes are locked in that mode, and a locked box that disagrees with what the key does is
-    -- read as the answer. The action's own values stay stored and come back the moment the
-    -- mode does (§10-1 of the design: turning off is not clearing).
-    local function branchChecked(branch)
-        return function(args)
-            if (ctx.action.smartCast == "global") then
-                return DebindPrivate.SmartCastDefault(branch) and true or false;
-            end
-            return actionValueEquals(args);
-        end;
-    end
-
-    -- The four in the order the snippet tries them (`SMART_CAST_SNIPPET`): the first branch
-    -- that fits the aimed unit is the one that goes out, so the list reads top to bottom the
-    -- way the press does.
-    local battleRez = description:CreateCheckbox(LLL["SMART_CAST_BATTLE_REZ"], branchChecked("battleRez"),
-        setActionValue, { ctx = ctx, key = "smartCastBattleRez", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(battleRez, LLL["SMART_CAST_BATTLE_REZ_DESC"]);
-    battleRez:SetEnabled(customOnly);
-
-    local rez = description:CreateCheckbox(LLL["SMART_CAST_REZ"], branchChecked("rez"), setActionValue,
-        { ctx = ctx, key = "smartCastRez", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(rez, LLL["SMART_CAST_REZ_DESC"]);
-    rez:SetEnabled(customOnly);
-
-    local dispel = description:CreateCheckbox(LLL["SMART_CAST_DISPEL"], branchChecked("dispel"),
-        setActionValue, { ctx = ctx, key = "smartCastDispel", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(dispel,
-        LLL["SMART_CAST_DISPEL_DESC"] .. "|n|n" .. LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
-    dispel:SetEnabled(customOnly);
-
-    local buff = description:CreateCheckbox(LLL["SMART_CAST_BUFF"], branchChecked("buff"),
-        setActionValue, { ctx = ctx, key = "smartCastBuff", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(buff,
-        LLL["SMART_CAST_BUFF_DESC"] .. "|n|n" .. LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
-    buff:SetEnabled(customOnly);
-
-    -- **Below the four, behind a divider, rather than under Resurrect.** It belongs to the
-    -- resurrection branch (§10-7 of the design) but it is not one of the four the list above
-    -- ranks, and a dropdown has no indentation to say so with: the menu system's only grouping
-    -- device is the divider (Blizzard indents dependent options in the settings panel only,
-    -- `initializer:Indent()`). Sitting under Resurrect unindented, it would read as a fifth
-    -- branch.
-    description:CreateDivider();
-
-    local rezWithBattleRez = description:CreateCheckbox(LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],
-        branchChecked("rezWithBattleRez"), setActionValue,
-        { ctx = ctx, key = "smartCastRezWithBattleRez", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(rezWithBattleRez, LLL["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
-    rezWithBattleRez:SetEnabled(function()
-        return customOnly() and ctx.action.smartCastRez and true or false;
+    description:SetEnabled(DebindPrivate.SmartCastEnabled);
+    SetInstructionTooltip(description, LLL["SMART_CAST_DESC"], function()
+        if (not DebindPrivate.SmartCastEnabled()) then
+            return LLL["SMART_CAST_DISABLED_ACCOUNT_WIDE"];
+        end
     end);
 
     ActionMenus:MarkNew("SMART_CAST", description);

@@ -1307,8 +1307,8 @@ L["SMART_CAST"] = "Smart Cast"
 -- into two descriptions of one feature.
 --
 -- The last sentence has to read true in both positions, so it says "an action turns it on" rather
--- than naming where: in the action's menu that is the radio below it, and in the defaults menu it
--- is somewhere else entirely.
+-- than naming where: in the action's menu that is the box this tooltip sits on, and in the defaults
+-- menu it is somewhere else entirely.
 L["SMART_CAST_DESC"] = "Smart Cast looks at the unit the action is aimed at and casts what that unit calls for instead: a dead friend is resurrected, and out of combat a friend you can dispel is dispelled and one missing your raid buff gets it. When none of that fits, the action itself goes out. It is off until an action turns it on."
 -- **"the account setting", not "the defaults".** The client spends the word "default" on factory
 -- values it can reset to (`SETTINGS_DEFAULTS`, `CONFIRM_RESET_SETTINGS`, "None (Default)") and

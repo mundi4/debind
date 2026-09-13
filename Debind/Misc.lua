@@ -1019,7 +1019,7 @@ do
     end
 
     --- The account-wide answer to which Smart Cast branches are on where an action says "the
-    --- defaults" (`smartCast == "global"`). Battle resurrection is off unless asked for: it is the
+    --- defaults" (`smartCastCustom` unset). Battle resurrection is off unless asked for: it is the
     --- one branch with a cost the reader has to accept (§6 of the design), the other three only
     --- ever fire where the host would have been refused anyway.
     --- `rezWithBattleRez` is stored and defaulted the same way but is not one of the four: it says
@@ -1062,8 +1062,7 @@ do
     --- (`Constants.TYPES_WITH_SMART_CAST`). A shared profile skips the menu, so the field can
     --- arrive on a type the menu would never have offered it for.
     function DebindPrivate.SmartCastBranches(action)
-        local mode = action.smartCast;
-        if (mode ~= "global" and mode ~= "custom") then
+        if (action.smartCast ~= true) then
             return nil;
         end
         if (not DebindPrivate.SmartCastEnabled()) then
@@ -1072,8 +1071,9 @@ do
         if (not Constants.TYPES_WITH_SMART_CAST[action.type]) then
             return nil;
         end
+        local custom = action.smartCastCustom;
         local function chosen(branch)
-            if (mode == "custom") then
+            if (custom) then
                 return action["smartCast" .. strupper(strsub(branch, 1, 1)) .. strsub(branch, 2)] and true or false;
             end
             return DebindPrivate.SmartCastDefault(branch) and true or false;

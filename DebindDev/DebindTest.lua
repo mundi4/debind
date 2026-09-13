@@ -8416,7 +8416,7 @@ RegisterTest("Smart Cast: the press asks the insecure side and acts on its answe
 
         -- Aimed at the player: alive, friendly, and always there.
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "player",
-            smartCast = "custom", smartCastDispel = true, smartCastBuff = true })
+            smartCast = true, smartCastCustom = true, smartCastDispel = true, smartCastBuff = true })
         ApplyBindings()
 
         local records = GetKeyBindings(KEY)
