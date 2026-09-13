@@ -638,3 +638,15 @@ loader:SetScript("OnEvent", function(self, _, addonName)
 
     ApplyDevSeed();
 end);
+
+--- Emptied in place rather than replaced, so a file that is still holding the table writes into
+--- the one that gets saved.
+SLASH_DEBINDDEVWIPE1 = "/debdevwipe";
+SlashCmdList["DEBINDDEVWIPE"] = function()
+    if (_G.DebindDevDB) then
+        wipe(_G.DebindDevDB);
+    else
+        _G.DebindDevDB = {};
+    end
+    print("DebindDevDB wiped");
+end;

@@ -15,14 +15,14 @@
 DevSeed.lua
 
 DebindTest.lua
-Probe_BindingContext.lua
-Probe_ForbiddenFrames.lua
-Probe_LoginTiming.lua
-Probe_FrameBoundary.lua
-Probe_NamePlates.lua
-Probe_SpellDisposition.lua
-Probe_TalentNodes.lua
-Probe_KnownFlip.lua
-Probe_SpecSweep.lua
-
+# Probe_BindingContext.lua
+# Probe_ForbiddenFrames.lua
+# Probe_LoginTiming.lua
+# Probe_FrameBoundary.lua
+# Probe_NamePlates.lua
+# Probe_SpellDisposition.lua
+# Probe_TalentNodes.lua
+# Probe_KnownFlip.lua
+# Probe_SpecSweep.lua
+Probe_ActionBars.lua
 # Probe_CombatUI.lua
