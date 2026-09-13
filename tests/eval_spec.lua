@@ -103,33 +103,54 @@ return function(DebindPrivate, _, ctx)
         return interp;
     end
 
-    --- Which record wins on this key right now, by its place in the emitted list.
+    local castmod = require("castmod");
+
+    --- Which record wins on this key right now, by its place among the records that are not self or
+    --- focus twins. Every spell here has both, and a press with no modifier held never reaches them;
+    --- the cases about the twins read `interp:evalKey` itself.
     local function winner(key)
-        return (interp:evalKey(key));
+        return castmod.index(Constants, interp:recordsFor(key), (interp:evalKey(key)));
     end
 
     ---------------------------------------------------------------------------
     -- The client's own targeting branches
     ---------------------------------------------------------------------------
 
-    -- **`checkmouseovercast` cannot reach a right answer on our button, so it stays off.**
-    -- `SecureButton_GetModifiedUnit` asks `C_ActionBar.IsHelpfulAction(self:CalculateAction(...))`,
-    -- and `CalculateAction` answers `1` for a button with no `GetID()` and no `action` attribute --
-    -- ours has neither. So the branch judges every Debind key by whatever sits in action bar slot
-    -- 1, never by the spell the key fires. Filling the `action` attribute in is no way out: it
-    -- would need the helpful/harmful answer the branch is being asked for.
+    -- **All three of the client's targeting branches are off.** Mouseover cast cannot reach a right
+    -- answer on our button (`CalculateAction` answers slot 1 for it), and self cast and focus cast
+    -- are the click wrapper's to decide now: left on, they would still redirect every press that
+    -- fires with no unit, in the order the addon took them over to fix
+    -- (`devdocs/implementing-focus-and-self-cast.md` §1, §3-7).
     --
-    -- The other two do reach a right answer -- they read `IsModifiedClick` alone and never touch a
-    -- slot -- and are checked beside it so the three are not levelled to each other by someone
-    -- restoring the symmetry (`devdocs/matching-the-clients-cast-targeting.md` §2, §2-1).
-    test("mouseover cast is off and the other two are on", function()
+    -- A key press and a frame click are both run through the wrapper here, since the wrapper used
+    -- to write two of them on every click.
+    test("the client's three targeting branches stay off", function()
+        -- Named before the first bind: the button a type and value get is stamped once and cached,
+        -- and the cases below read the name off it.
+        shim.world.spells[585] = { name = "Renew" };
+        Bind({
+            action({ value = 585, key = "F1" }),
+            action({ value = 585, key = "BUTTON2", ignoreHoverUnit = true,
+                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+        });
         local clickFrame = DebindPrivate.DefaultClickFrame;
-        check(clickFrame:GetAttribute("checkmouseovercast") == false,
-            "checkmouseovercast: " .. tostring(clickFrame:GetAttribute("checkmouseovercast")));
-        check(clickFrame:GetAttribute("checkselfcast") == true,
-            "checkselfcast: " .. tostring(clickFrame:GetAttribute("checkselfcast")));
-        check(clickFrame:GetAttribute("checkfocuscast") == true,
-            "checkfocuscast: " .. tostring(clickFrame:GetAttribute("checkfocuscast")));
+        shim.world.units = { party1 = { id = "friend", reaction = "help" } };
+
+        local function allOff(when)
+            for _, name in ipairs({ "checkmouseovercast", "checkselfcast", "checkfocuscast" }) do
+                check(clickFrame:GetAttribute(name) == false,
+                    when .. ": " .. name .. " is " .. tostring(clickFrame:GetAttribute(name)));
+            end
+        end
+
+        allOff("at login");
+        interp:runWrapped(clickFrame, "OnClick", Constants.CLICKTIME_BUTTON_PREFIX .. "F1", true);
+        allOff("after a key press");
+        interp:clickFrame(unitFrame, "RightButton", false);
+        interp:runWrapped(clickFrame, "OnClick", "debind1", false);
+        allOff("after a frame click");
+
+        shim.world.units = {};
     end);
 
 
@@ -265,7 +286,7 @@ return function(DebindPrivate, _, ctx)
         interp.state.combat = false;
         local index, button = interp:evalKey("F1");
         check(index == nil and button == nil, "unused fired something: " .. tostring(button));
-        check(interp:recordsFor("F1")[2].type == Constants.UNUSED,
+        check(castmod.without(Constants, interp:recordsFor("F1"))[2].type == Constants.UNUSED,
             "the second record is not the unused one");
 
         -- **And the key goes back to the game.** Firing nothing is not enough: an unused record
@@ -396,7 +417,8 @@ return function(DebindPrivate, _, ctx)
         -- **The record count, not only the winner.** With the dropped record still emitted, the
         -- fallback would sit at index 2 and this key would answer 2; asserting the count is what
         -- keeps "it was dropped" apart from "it lost".
-        local f2 = interp.env.ClickTimeKeys[Constants.CLICKTIME_BUTTON_PREFIX .. "F2"];
+        local f2 = castmod.without(Constants,
+            interp.env.ClickTimeKeys[Constants.CLICKTIME_BUTTON_PREFIX .. "F2"]);
         check(#f2 == 1, "the settled-false record was emitted: " .. #f2);
         check(winner("F2") == 1, "the fallback did not win the key");
         interp:resetState();
@@ -694,45 +716,176 @@ return function(DebindPrivate, _, ctx)
         check(interp:evalClickCast(unitFrame, 2, 0) == nil, "an empty unit frame was taken");
     end);
 
-    -- **A click on a unit frame never gets the client's cast modifiers, a key press does.**
-    -- On Blizzard's own path a frame click cannot reach those branches at all: the frame carries a
-    -- bare `unit` and `SecureButton_GetModifiedUnit` stops there. Our route ends on the click frame
-    -- instead, so with the hovered frame's unit turned off there is nothing to stop at -- and
-    -- without these two lines a held self-cast key would redirect a frame click, which is
-    -- something the client never does.
-    --
-    -- **Both arrive on the same frame**, so this is per click rather than once at login.
-    test("the cast modifiers are for key presses only", function()
+    ---------------------------------------------------------------------------
+    -- Self cast and focus cast (`devdocs/implementing-focus-and-self-cast.md`)
+    ---------------------------------------------------------------------------
+
+    --- Two actions on F1: a heal that asks for a friendly target, and a plain one behind it. Both
+    --- aim at `target`, so a press with nothing held goes where they say.
+    local function ModifierBind()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1" }),
-            action({ value = 585, key = "BUTTON2", ignoreHoverUnit = true,
-                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 774, key = "F1", unit = "target" }),
+        });
+    end
+
+    --- What a press fires: the record, the spell on the button it clicks, and the unit it goes at.
+    local function Fired(key)
+        local _, button, record = interp:evalKey(key);
+        if (not button) then
+            return nil;
+        end
+        return record, DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(button)),
+            DebindPrivate.CastFrame:GetAttribute("unit");
+    end
+
+    -- **The held modifier is what the press means, and the reader's condition goes with it** (§3-1,
+    -- §3-6). The `@` that asked whether the target is friendly asks it of the player once self cast
+    -- is held -- so the heal goes out at a friendly player over a hostile target, and a hostile
+    -- player falls to the next action, still at the player.
+    test("a held self-cast modifier sends the press at the player", function()
+        ModifierBind();
+        shim.world.units = { target = { id = "enemy", reaction = "harm" },
+            player = { id = "me", reaction = "help" } };
+
+        check(winner("F1") == 2, "nothing held, hostile target: " .. tostring(winner("F1")));
+
+        interp.state.modifiedClick.SELFCAST = true;
+        local record, spell, unit = Fired("F1");
+        check(record and record.castModifier == Constants.CASTMOD_SELF,
+            "the winner is not a self twin: " .. tostring(record and record.castModifier));
+        check(spell == "Renew" and unit == "player", "fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+        shim.world.units.player = { id = "me", reaction = "harm" };
+        record, spell, unit = Fired("F1");
+        check(spell == "Rejuvenation" and unit == "player",
+            "a hostile player: fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **Focus cast never falls back to the target** (§3-2). The first action's condition fails on
+    -- a hostile focus, and what wins is the next action's focus twin -- not the first action at the
+    -- friendly target the press would have reached with nothing held.
+    test("a held focus-cast modifier keeps to the focus", function()
+        ModifierBind();
+        shim.world.units = { target = { id = "friend", reaction = "help" },
+            focus = { id = "enemy", reaction = "harm" } };
+
+        check(winner("F1") == 1, "nothing held, friendly target: " .. tostring(winner("F1")));
+
+        interp.state.modifiedClick.FOCUSCAST = true;
+        local record, spell, unit = Fired("F1");
+        check(record and record.castModifier == Constants.CASTMOD_FOCUS,
+            "the winner is not a focus twin: " .. tostring(record and record.castModifier));
+        check(spell == "Rejuvenation" and unit == "focus",
+            "fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **With no target picked, `@` is asked of `target`, and the press still carries no unit**
+    -- (§3-6). The game keeps deciding where the cast goes; the condition only decides whether this
+    -- action is the one that goes. The shape the decision was made on: an attack for enemies ahead
+    -- of a heal, where a friendly target has to fall through to the heal.
+    test("with no target picked the resolved target's condition is asked of the target", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+            action({ value = 774, key = "F1" }),
         });
 
-        local clickFrame = DebindPrivate.DefaultClickFrame;
-        shim.world.units = { party1 = { id = "friend", reaction = "help" } };
+        shim.world.units = { target = { id = "friend", reaction = "help" } };
+        check(winner("F1") == 2, "a friendly target: " .. tostring(winner("F1")));
 
-        interp:runWrapped(clickFrame, "OnClick", Constants.CLICKTIME_BUTTON_PREFIX .. "F1", true);
-        check(clickFrame:GetAttribute("checkselfcast") == true
-            and clickFrame:GetAttribute("checkfocuscast") == true,
-            "a key press lost them: " .. tostring(clickFrame:GetAttribute("checkselfcast"))
-            .. "/" .. tostring(clickFrame:GetAttribute("checkfocuscast")));
-
-        -- The unit frame hands the click on under `debind1`, which is the name the click frame's
-        -- wrapper reads the handoff from.
-        interp:clickFrame(unitFrame, "RightButton", false);
-        interp:runWrapped(clickFrame, "OnClick", "debind1", false);
-        check(clickFrame:GetAttribute("checkselfcast") == false
-            and clickFrame:GetAttribute("checkfocuscast") == false,
-            "a frame click kept them: " .. tostring(clickFrame:GetAttribute("checkselfcast"))
-            .. "/" .. tostring(clickFrame:GetAttribute("checkfocuscast")));
-
-        -- **And the target really is empty there**, or the two lines above would be guarding
-        -- nothing: the branches only run when nothing stopped at `unit`.
-        check(clickFrame:GetAttribute("unit") == nil,
-            "the frame's unit was used anyway: " .. tostring(clickFrame:GetAttribute("unit")));
+        shim.world.units = { target = { id = "enemy", reaction = "harm" } };
+        check(winner("F1") == 1, "a hostile target: " .. tostring(winner("F1")));
+        local _, button, record = interp:evalKey("F1");
+        check(record and record.unit == nil and record.unitAlias == nil,
+            "the press carries a unit: " .. tostring(record and (record.unit or record.unitAlias)));
+        check(button == interp:actionButton(button), "the press took the route that turns Auto Self Cast off");
 
         shim.world.units = {};
+    end);
+
+    -- The client's own order: `checkselfcast` is read first and ends it (§3-3).
+    test("both modifiers held is self cast", function()
+        ModifierBind();
+        shim.world.units = { player = { id = "me", reaction = "help" },
+            focus = { id = "friend", reaction = "help" } };
+
+        interp.state.modifiedClick.SELFCAST = true;
+        interp.state.modifiedClick.FOCUSCAST = true;
+        local _, spell, unit = Fired("F1");
+        check(spell == "Renew" and unit == "player", "fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **A frame click ignores what is held** (§3-10). A modifier on a click arrives only with the
+    -- binding made for that exact combination, so it picked the binding and says nothing about the
+    -- target. The click goes at the frame's unit whatever `IsModifiedClick` answers.
+    test("a frame click goes at the frame with a modifier held", function()
+        Bind({
+            action({ value = 585, key = "BUTTON2", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+        });
+        shim.world.units = { party1 = { id = "friend", reaction = "help" },
+            player = { id = "me", reaction = "help" }, focus = { id = "friend", reaction = "help" } };
+        interp.state.modifiedClick.SELFCAST = true;
+        interp.state.modifiedClick.FOCUSCAST = true;
+
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debind1", "the frame click was declined");
+        local handed = interp.env.HandoffWinner;
+        check(handed and not castmod.isTwin(Constants, handed),
+            "a twin took the frame click: " .. tostring(handed and handed.castModifier));
+        interp:runWrapped(DebindPrivate.DefaultClickFrame, "OnClick", "debind1", false);
+        local unit = DebindPrivate.CastFrame:GetAttribute("unit");
+        check(unit == "party1", "the click went at " .. tostring(unit));
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **The state loop holds the key on the original's answer alone** (§3-9). The self twin asks
+    -- whether the player is friendly, which is nearly always so; counted, it would hold a key whose
+    -- original lets go, and a press with nothing held would find no winner and do nothing where the
+    -- game's own binding should have run.
+    test("the state loop does not hold a key on a self or focus twin", function()
+        Bind({
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+        });
+        local records = interp:recordsFor("F1");
+        local selfTwin;
+        for i = 1, #records do
+            if (records[i].castModifier == Constants.CASTMOD_SELF) then
+                selfTwin = records[i];
+            end
+        end
+        check(selfTwin and selfTwin.units and selfTwin.units.player,
+            "no self twin asking about the player, so this measures nothing");
+        check(interp.env.StateDrivenBindings["F1"] ~= nil, "the key is not state-driven");
+
+        shim.world.units = { target = { id = "enemy", reaction = "harm" },
+            player = { id = "me", reaction = "help" } };
+        interp:pollStates();
+        check(interp.bindings["F1"] == nil, "the key was held on a hostile target");
+
+        shim.world.units.target = { id = "friend", reaction = "help" };
+        interp:pollStates();
+        check(interp.bindings["F1"] ~= nil, "the key was not held on a friendly target");
+
+        shim.world.units = {};
+        interp:pollStates();
     end);
 
     ---------------------------------------------------------------------------
@@ -964,7 +1117,7 @@ return function(DebindPrivate, _, ctx)
         end
         Bind(actions);
 
-        local records = interp:recordsFor("F1");
+        local records = castmod.without(Constants, interp:recordsFor("F1"));
         check(records and #records == #ROWS,
             "records emitted: " .. tostring(records and #records) .. " of " .. #ROWS);
 

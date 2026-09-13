@@ -129,11 +129,10 @@ SEEDS[5] = function(guid)
                 --- unit and names no spell, so it stays class independent like everything else
                 --- here.
                 { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
-                --- Target and the `"@"` unit condition on one action, which is a tooltip line of
-                --- its own: `"@"` is drawn as `SELECTED_TARGET_UNIT` and that branch asks for
-                --- `action.unit` (`ActionTooltip.lua`), so neither row above can reach it alone. The
-                --- unit has to be one that can be absent, since `"@"` is dropped again on `none`
-                --- and on `player` (`Misc.lua`).
+                --- Target and the `"@"` unit condition on one action. `"@"` is drawn under `Units`
+                --- as `RESOLVED_TARGET` (`ActionTooltip.lua`), and the target line beside it is the
+                --- other half, so neither row above reaches the pair. Any target but `none`, where
+                --- `"@"` is dropped (`Misc.lua`).
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
                     key = "SHIFT-F10", seq = 1, checkedUnits = { ["@"] = {} } },
                 -- The binding-context exception: this key stays bound while an editor holds it

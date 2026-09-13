@@ -189,8 +189,6 @@ L["REACTION_HELP"] = "Друг"
 L["REACTION_OTHER"] = "Другие"
 -- 순서 목록의 행 툴팁에서 쓰는 이름표. 값은 ORDER_LAYER_LABEL이다.
 L["SCOPE"] = "Область действия"
-L["SELECTED_TARGET_UNIT_EMPTY"] = "Назначенная цель |cnDISABLED_FONT_COLOR:(Нет)|r"
-L["SELECTED_TARGET_UNIT"] = "Назначенная цель |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
 L["SHARED_BINDINGS"] = "Общие"
 L["CONDITIONS"] = "Условия"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Установлено на %2$s"

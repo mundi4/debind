@@ -392,9 +392,9 @@ local RESOLVE_UNIT_SNIPPET = [==[
 			unit = UnitAliasMap[winner.unitAlias]
 		end
 
-		-- **안 풀리면 존재하지 않는 유닛을 넣는다.** nil로 두면 대상이 없는 것이 되어
-		-- `checkselfcast`류가 끼어들거나 현재 대상에 그냥 나간다 - `@tank`를 걸어둔 채
-		-- 혼자 있을 때 엉뚱한 데 시전된다.
+		-- **An alias that resolves to nothing gets a unit that does not exist.** Left nil the action
+		-- has no target and goes at the current one -- `@tank` set up, played alone, casts at
+		-- whatever is targeted.
 		--
 		-- 옛 경로는 delegate가 `unit or "raid41"`을 들고 있어서(`SetUnit`) 게임이
 		-- `GetConvertedButtonUnitAndActionType`의 `UnitExists` 검사에서 중단했다.
@@ -738,11 +738,16 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 
 		for i = 1, #bindings do
 			local t = bindings[i]
-			local match = true
+			-- **The self and focus twins are passed over.** This loop only decides whether the key is
+			-- held, and that is the original's to answer: a modifier press arrives on this key only
+			-- when nothing holds the combination (`devdocs/implementing-focus-and-self-cast.md`
+			-- §3-9). Counting a twin would hold the key where its original lets go, and a press
+			-- with nothing held on top would then find no winner and do nothing.
+			local match = t.castModifier == nil or t.castModifier == CONSTANTS.CASTMOD_NONE
 
 			-- 호버 중이냐, 그 유닛이 어떠냐는 아래 t.units["hover"]가 답한다. 여기 남은
 			-- 것은 프레임의 종류뿐이라 제 존재 검사를 직접 들고 있다.
-			if (t.frameTypes) then
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
@@ -1248,6 +1253,7 @@ local EVAL_SNIPPET = [==[
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -1260,9 +1266,34 @@ local EVAL_SNIPPET = [==[
 		if (t[subset]) then
 			local match = true
 
+			-- **First, because it is what turns the self and focus twins away**, and those come
+			-- ahead of every other binding of their action.
+			--
+			-- The client hides the modifiers that are part of the binding the press arrived on, so
+			-- what `IsModifiedClick` answers here is only what was held on top of it
+			-- (`devdocs/implementing-focus-and-self-cast.md` §2-1). A frame click has no binding
+			-- name to hide them behind, and a modifier held there picked the binding itself (§3-10).
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					PROBE.MockState(castModifier)
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
 			-- 호버 유닛의 존재와 반응은 아래 t.units["hover"]가 답한다. 그쪽도 여기서 잰
 			-- hoverUnit을 쓰므로 값이 갈릴 자리가 없다. 남은 것은 프레임의 종류뿐이다.
-			if (t.frameTypes) then
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -1745,10 +1776,10 @@ end, [==[
 		end
 	end
 
-	-- **맨이름 속성은 프레임에 남는다.** "안 쓰면 없다"가 아니라 "안 쓰면 앞의 것이 남는다"라
-	-- 매 클릭 전부 확정해야 한다. 옛 경로로 들어온 클릭(deb1xx, /click 위임)에도 반드시
-	-- 적용한다 - 앞 클릭이 남긴 unit 하나가 자가시전·주시시전·마우스오버시전을 통째로
-	-- 죽인다(`checkselfcast`류는 unit이 없을 때만 동작한다). 오류도 로그도 안 난다.
+	-- **A bare attribute stays on the frame.** Not written means the previous click's value, not
+	-- none, so every click settles all of them -- the ones that came the old way (deb1xx, a
+	-- delegated /click) included. A `unit` left behind sends the next action with no target of its
+	-- own at the last one's, with no error and nothing logged.
 	--
 	-- `pressAndHoldAction`은 아래에서 이긴 액션의 값으로 다시 쓴다. 여기서 지우는 것은
 	-- 앞 클릭의 잔류를 막기 위해서다. `useOnKeyDown`은 키 갈래에서는 건드리지 않는다(nil) -
@@ -1758,19 +1789,6 @@ end, [==[
 	self:SetAttribute("useOnKeyDown", nil)
 	self:SetAttribute("type", nil)
 	self:SetAttribute("macrotext", nil)
-
-	-- **The client's three cast modifiers do not reach a click on a unit frame**, so neither do
-	-- ours. On Blizzard's own path they cannot: `SecureButton_GetModifiedUnit` returns the frame's
-	-- bare `unit` on its first line and never reaches those branches. Our click-cast route ends on
-	-- this frame instead, and where the reader turned the hovered frame's unit off there is no
-	-- `unit` to stop at -- which would light up, for frame clicks only, a branch the client itself
-	-- never lets a frame click reach.
-	--
-	-- Pinned per click rather than once at login because the key path is the opposite answer and
-	-- both arrive on this frame. `checkmouseovercast` needs no line: it is off for every path
-	-- (`Debind.lua`).
-	self:SetAttribute("checkselfcast", not clickCast)
-	self:SetAttribute("checkfocuscast", not clickCast)
 
 	-- **클릭캐스팅은 언제나 `down=false`로 도착한다.** `SECURE_ACTIONS.click`이
 	-- `delegate:Click(button)`이라 엣지를 못 싣는다(`/click`은 세 번째 인자로 실었다).
@@ -1954,6 +1972,13 @@ if (DebindPrivate.DEBUG) then
 		end
 ]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET
 		.. SELFCAST_OFF_SNIPPET .. [==[
+		-- The winner's place as well, because the button no longer names it: the self and focus
+		-- twins click the same button as their original.
+		for i = 1, #bindings do
+			if (bindings[i] == winner) then
+				return castButton, i
+			end
+		end
 		return castButton
 	]==]);
 

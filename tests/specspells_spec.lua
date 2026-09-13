@@ -65,10 +65,19 @@ return function(DebindPrivate, _, ctx)
         return interp;
     end
 
+    local castmod = require("castmod");
+
+    --- Indexed without the self and focus twins, which ride on every type here that takes a unit
+    --- and are not what this file is about.
     local function recordField(key, index, field)
-        local records = interp:recordsFor(key);
+        local records = castmod.without(Constants, interp:recordsFor(key));
         check(records and records[index], key .. " has no record " .. index);
         return records[index][field];
+    end
+
+    --- Which record a press with no modifier held fires, counted the same way.
+    local function winner(key)
+        return castmod.index(Constants, interp:recordsFor(key), (interp:evalKey(key)));
     end
 
     ---------------------------------------------------------------------------
@@ -161,7 +170,7 @@ return function(DebindPrivate, _, ctx)
 
         if (not shipped) then
             interp.state.known["Remove Corruption"] = true;
-            check(interp:evalKey("F1") == 1, "the dispel did not fire with its spell known");
+            check(winner("F1") == 1, "the dispel did not fire with its spell known");
         end
         shim.world.specIndex = nil;
     end);
@@ -202,12 +211,12 @@ return function(DebindPrivate, _, ctx)
             action({ type = Constants.EXTERNAL, key = "F3", conditions = { known = true } }),
             action({ type = Constants.SPELL, key = "F3", value = 774 }),
         });
-        local records = interp:recordsFor("F3");
+        local records = castmod.without(Constants, interp:recordsFor("F3"));
         check(records and #records == 1, "records on F3: " .. tostring(records and #records));
         check(recordField("F3", 1, "known") == nil,
             "the spell row carries a known: " .. tostring(recordField("F3", 1, "known")));
         if (not shipped) then
-            check(interp:evalKey("F3") == 1, "the spell behind it did not fire");
+            check(winner("F3") == 1, "the spell behind it did not fire");
         end
         shim.world.specIndex = nil;
     end);
@@ -243,7 +252,7 @@ return function(DebindPrivate, _, ctx)
             shim.world.spells[119905] = { name = "Command Demon" };
 
             local a = action({ type = Constants.DISPEL, key = "F3" });
-            local list = DebindPrivate.GetBindingsForAction(a);
+            local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
             check(#list == 2, "list length: " .. #list);
             check(list[1].spell == 132411 and list[1].spellbook == nil, "the original is not the player's spell");
             check(list[2].spell == 119905 and list[2].spellbook == 119905, "the derived is not the probe");
@@ -254,9 +263,9 @@ return function(DebindPrivate, _, ctx)
 
             if (not shipped) then
                 shim.world.spellbook[119905] = nil;
-                check(interp:evalKey("F3") == 2, "without the imp the original did not win");
+                check(winner("F3") == 2, "without the imp the original did not win");
                 shim.world.spellbook[119905] = true;
-                check(interp:evalKey("F3") == 1, "with the imp the probe binding did not win");
+                check(winner("F3") == 1, "with the imp the probe binding did not win");
                 shim.world.spellbook[119905] = nil;
             end
 
@@ -266,13 +275,13 @@ return function(DebindPrivate, _, ctx)
             local twinned = action({ type = Constants.DISPEL, key = "F4" });
             Bind({ twinned }, { hoverCast = true });
 
-            local twinnedList = DebindPrivate.GetBindingsForAction(twinned);
+            local twinnedList = castmod.without(Constants, DebindPrivate.GetBindingsForAction(twinned));
             check(#twinnedList == 4, "twinned list length: " .. #twinnedList);
             check(twinnedList[2].unit == nil and twinnedList[2].spellbook == 119905, "probe");
             check(twinnedList[3].unit == "hover" and twinnedList[3].spellbook == nil, "twin");
             check(twinnedList[4].unit == "hover" and twinnedList[4].spellbook == 119905, "probe twin");
 
-            local keyed = interp:recordsFor("F4");
+            local keyed = castmod.without(Constants, interp:recordsFor("F4"));
             check(keyed and #keyed == 4, "F4 records: " .. tostring(keyed and #keyed));
             check(keyed[1].spellbook == 119905 and keyed[1].units and keyed[1].units.hover,
                 "the first record on the key is not the probe twin");

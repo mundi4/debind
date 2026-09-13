@@ -9,7 +9,6 @@
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
     local GetBindingIssue = DebindPrivate.GetBindingIssue;
-    local GetBindingInfoForAction = DebindPrivate.GetBindingInfoForAction;
     local CheckUnreachableBindings = DebindPrivate.CheckUnreachableBindings;
     local ClearUnreachableBindingCache = DebindPrivate.ClearUnreachableBindingCache;
 
@@ -38,6 +37,14 @@ return function(DebindPrivate)
         end
     end
 
+    local castmod = require("castmod");
+
+    --- The action's bindings without the self and focus twins, which every spell here has and which
+    --- this file is not about: `[1]` the original, `[2]` the hover twin where there is one.
+    local function bindingsOf(action)
+        return castmod.without(Constants, DebindPrivate.GetBindingsForAction(action));
+    end
+
     local function check(cond, msg)
         if (not cond) then
             error(msg or "assertion failed", 2);
@@ -55,9 +62,19 @@ return function(DebindPrivate)
     --- 같은 통로로 캐시를 조회하므로, 솔버에 넣는 테이블과 조회되는 테이블이 같은 것이다.
     local function coveredPair(cover)
         local subject = { type = Constants.SPELL, value = 586, key = cover.key };
-        local list = DebindPrivate.GetBindingsForAction(subject);
-        check(#list == 2, "쌍둥이가 안 생겼다");
-        local bindings = { GetBindingInfoForAction(cover), list[2], list[1] };
+        check(#bindingsOf(subject) == 2, "쌍둥이가 안 생겼다");
+        -- **The self and focus twins of both are in**, since the subject is unreachable only where
+        -- all of its bindings were dropped. The cover keeps no hover twin of its own: it is the one
+        -- binding the case names, and its twin would cover the subject's.
+        local bindings = {};
+        for _, action in ipairs({ cover, subject }) do
+            local list = DebindPrivate.GetBindingsForAction(action);
+            for i = #list, 1, -1 do
+                if (action == subject or i == 1 or castmod.isTwin(Constants, list[i])) then
+                    bindings[#bindings + 1] = list[i];
+                end
+            end
+        end
         ClearUnreachableBindingCache();
         CheckUnreachableBindings(bindings);
         return subject;
@@ -105,7 +122,7 @@ return function(DebindPrivate)
         for _, mask in ipairs({ Constants.FRAMETYPE_GROUP, 0 }) do
             local action = { type = Constants.SPELL, value = 585, key = "T", unit = "focus",
                 conditions = { frameTypes = mask } };
-            local list = DebindPrivate.GetBindingsForAction(action);
+            local list = bindingsOf(action);
             check(list[1].conditions.frameTypes == nil,
                 "원본이 안 지워졌다: " .. tostring(list[1].conditions.frameTypes));
             check(list[2] ~= nil, "쌍둥이가 안 생겼다");
@@ -135,7 +152,7 @@ return function(DebindPrivate)
         withClique(function()
             local action = { type = Constants.SPELL, value = 585, key = "T" };
             check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
-            local bindings = DebindPrivate.GetBindingsForAction(action);
+            local bindings = bindingsOf(action);
             check(bindings[2] ~= nil and bindings[2].unit == "hover",
                 "Clique가 있다고 쌍둥이를 안 만들었다");
         end);
@@ -148,7 +165,7 @@ return function(DebindPrivate)
         for _, unit in ipairs({ "none", "hover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "T",
                 unit = unit };
-            check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+            check(bindingsOf(action)[2] == nil,
                 "대상 " .. unit .. "인데 쌍둥이가 생겼다");
         end
 
@@ -171,7 +188,7 @@ return function(DebindPrivate)
         local action = { type = Constants.SPELL, value = 585, key = "T",
             unit = "focus",
             conditions = { units = { hover = false } } };
-        check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+        check(bindingsOf(action)[2] == nil,
             "개체창 위에서 안 도는 액션에 쌍둥이가 생겼다");
     end);
 
@@ -179,7 +196,7 @@ return function(DebindPrivate)
     test("평범한 대상에는 쌍둥이가 생긴다", function()
         local action = { type = Constants.SPELL, value = 585, key = "T",
             unit = "focus" };
-        local bindings = DebindPrivate.GetBindingsForAction(action);
+        local bindings = bindingsOf(action);
         check(bindings[2] ~= nil, "대상 focus인데 쌍둥이가 없다");
         check(bindings[2].unit == "hover", "쌍둥이가 겨누는 것: " .. tostring(bindings[2].unit));
     end);
@@ -226,13 +243,13 @@ return function(DebindPrivate)
 
     test("스위치가 둘 다 꺼져 있으면 쌍둥이가 없다", function()
         withSwitches(nil, nil, function()
-            check(DebindPrivate.GetBindingsForAction(spell())[2] == nil, "꺼졌는데 쌍둥이가 생겼다");
+            check(bindingsOf(spell())[2] == nil, "꺼졌는데 쌍둥이가 생겼다");
         end);
     end);
 
     test("Mouseover Cast는 mouseover를 겨누는 쌍둥이를 낸다", function()
         withSwitches(nil, true, function()
-            local twin = DebindPrivate.GetBindingsForAction(spell())[2];
+            local twin = bindingsOf(spell())[2];
             check(twin ~= nil, "쌍둥이가 없다");
             check(twin.unit == "mouseover", "겨누는 것: " .. tostring(twin.unit));
         end);
@@ -242,7 +259,7 @@ return function(DebindPrivate)
     --- 같고 `mouseover`는 개체창이 아닌 곳에서도 서므로, hover 쌍둥이가 설 자리를 전부 덮는다.
     test("둘 다 켜면 쌍둥이는 mouseover 하나뿐이다", function()
         withSwitches(true, true, function()
-            local list = DebindPrivate.GetBindingsForAction(spell());
+            local list = bindingsOf(spell());
             check(list[2] ~= nil and list[2].unit == "mouseover",
                 "겨누는 것: " .. tostring(list[2] and list[2].unit));
             check(list[3] == nil, "쌍둥이가 둘 생겼다");
@@ -260,7 +277,7 @@ return function(DebindPrivate)
         for _, case in ipairs({ { "hover", true, nil }, { "mouseover", nil, true } }) do
             local unit = case[1];
             withSwitches(case[2], case[3], function()
-                local list = DebindPrivate.GetBindingsForAction(spell());
+                local list = bindingsOf(spell());
                 local twin = list[2];
                 check(twin ~= nil, unit .. ": 쌍둥이가 없다");
                 check(twin.conditions.units and twin.conditions.units[unit] ~= nil,
@@ -282,7 +299,7 @@ return function(DebindPrivate)
             withSwitches(case[2], case[3], function()
                 local action = spell({ unit = "target", conditions = { units = {
                     [unit] = { reaction = Constants.REACTION_HARM } } } });
-                local list = DebindPrivate.GetBindingsForAction(action);
+                local list = bindingsOf(action);
                 check(list[2] ~= nil, unit .. ": 쌍둥이가 없다");
                 check(list[2].unit == unit, unit .. ": 겨누는 것이 " .. tostring(list[2].unit));
                 check(list[2].unitStates[unit] == Constants.UNITSTATE_HARM,
@@ -301,7 +318,7 @@ return function(DebindPrivate)
             withSwitches(case[2], case[3], function()
                 local action = spell({ unit = "target",
                     conditions = { units = { [unit] = false } } });
-                check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+                check(bindingsOf(action)[2] == nil,
                     unit .. ": 모순인데 쌍둥이가 생겼다");
             end);
         end
@@ -312,7 +329,7 @@ return function(DebindPrivate)
         withSwitches(true, nil, function()
             local action = spell({ unit = "target", conditions = { units = {
                 mouseover = { reaction = Constants.REACTION_HARM } } } });
-            local twin = DebindPrivate.GetBindingsForAction(action)[2];
+            local twin = bindingsOf(action)[2];
             check(twin ~= nil, "hover 쌍둥이가 없다");
             check(twin.unitStates.mouseover == Constants.UNITSTATE_HARM,
                 "mouseover 조건이 쌍둥이에서 " .. tostring(twin.unitStates.mouseover));
@@ -329,7 +346,7 @@ return function(DebindPrivate)
             local mask = Constants.FRAMETYPE_GROUP;
             local action = spell({ unit = "target",
                 conditions = { frameTypes = mask, units = { hover = {} } } });
-            local twin = DebindPrivate.GetBindingsForAction(action)[2];
+            local twin = bindingsOf(action)[2];
             check(twin ~= nil, "쌍둥이가 없다");
             check(twin.conditions.frameTypes == mask,
                 "쌍둥이의 마스크가 " .. tostring(twin.conditions.frameTypes));
@@ -343,7 +360,7 @@ return function(DebindPrivate)
         for _, case in ipairs({ { true, nil }, { nil, true } }) do
             withSwitches(case[1], case[2], function()
                 local action = spell({ ignoreHoverUnit = true });
-                check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+                check(bindingsOf(action)[2] == nil,
                     "빼라고 했는데 쌍둥이가 생겼다");
             end);
         end
@@ -353,7 +370,7 @@ return function(DebindPrivate)
     --- 애초에 닿지 않는다 - 그런 액션에는 쌍둥이가 없다.
     test("hover 조건이 켜진 액션의 ignoreHoverUnit은 겨눔만 비운다", function()
         local action = spell({ ignoreHoverUnit = true, conditions = { units = { hover = {} } } });
-        local list = DebindPrivate.GetBindingsForAction(action);
+        local list = bindingsOf(action);
         check(list[2] == nil, "hover 조건이 있는데 쌍둥이가 생겼다");
         check(list[1].unit == "", "겨눔이 안 비었다: " .. tostring(list[1].unit));
     end);

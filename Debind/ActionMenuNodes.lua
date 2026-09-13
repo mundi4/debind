@@ -113,8 +113,17 @@ local UNIT_CONDITION_AXES = {
 };
 
 local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
+    -- Put together here because the sentence names two settings by their own labels
+    -- (`RESOLVED_TARGET_DESC`).
+    local instruction;
+    if (unit == "@") then
+        instruction = format(LLL["RESOLVED_TARGET_DESC"], LLL["TARGET_UNIT"], AUTO_SELF_CAST_KEY_TEXT,
+            FOCUS_CAST_KEY_TEXT, LLL["POINTED_UNIT_CAST"]);
+    end
+
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {
         label = label,
+        instruction = instruction,
         skipTitle = true,
         isActive = function()
             return UnitConditionIsOn(ctx, unit);
@@ -124,24 +133,13 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         end,
     }, ctx);
 
-    local titleDescription = MenuKit.CreateTitle(optionsDescription, MenuUtil.GetElementText(optionsDescription));
+    MenuKit.CreateTitle(optionsDescription, MenuUtil.GetElementText(optionsDescription));
     if (unit == "@") then
-        -- 여는 줄은 `Only if...`로 두고, **어느 유닛에 거는 조건인지는 안쪽 제목이 말한다.**
-        -- 바깥 줄까지 대상 이름으로 바꾸면 바로 위 라디오 목록이 방금 고른 그 이름을 한 번
-        -- 더 되뇌게 된다.
-        --
-        -- `player`가 빠지는 이유는 다른 것과 같다: 자기 자신은 늘 있으므로 걸 조건이 없다.
+        -- **Locked on `none` alone.** That cast asks the reader for a target, so the press settles on
+        -- no unit and the condition is dropped on the way out (`Misc.lua`'s `FillBinding`). No target
+        -- and `player` both leave a unit for it to be about.
         optionsDescription:SetEnabled(function()
-            return ctx.action.unit and ctx.action.unit ~= "none" and ctx.action.unit ~= "player"
-                and true or false;
-        end);
-
-        titleDescription:AddInitializer(function(button, elementDescription, menu)
-            if (ctx.action.unit and ctx.action.unit ~= "none") then
-                button.fontString:SetText(format(LLL["SELECTED_TARGET_UNIT"], DebindUI.UNIT_INFO[ctx.action.unit].name));
-            else
-                button.fontString:SetText(LLL["SELECTED_TARGET_UNIT_EMPTY"]);
-            end
+            return ctx.action.unit ~= "none";
         end);
     end
 
@@ -361,15 +359,21 @@ ActionMenus:Define("HOVER", {
     build = BuildHoverMenu,
 });
 
---- 이 메뉴가 답할 수 있는 유닛인가. `"@"`는 대상 메뉴가, `"hover"`는 hover 메뉴가,
---- `"player"`는 `Group` 아래 생사 메뉴가 편집한다 - 여기서 건드리면 **안 보여주는 조건이
---- 여기서 바뀐다.** 실제로 `"player"`가 빠져 있는 동안 [전부 사용 안 함]이 읽는 이의 생사
---- 조건을 꺼버렸고, 그 메뉴에는 그것을 되살릴 줄이 없었다.
+--- Whether this menu has a row for `unit`, which is also whether it counts it. `"hover"` is edited
+--- by the hover menu and `"player"` by the life menu under `Group`. **Counting one of those here
+--- changes a condition this menu does not show**: while `"player"` was missing from this test,
+--- [Disable All] switched the reader's own life condition off, and nothing here could bring it back.
 ---
---- **노드 밖에 있다.** 안에 두면 `isActive` 클로저가 만들어지는 시점에 아직 없는 이름을
---- 잡아서 런타임에 nil이 된다.
-local function isListedUnit(unit)
-    return unit ~= "@" and unit ~= "hover" and unit ~= "player";
+--- `"@"` has a row only on an action that takes a target, the same test the `Target` menu opens
+--- on. Anything else keeps no target and the condition is dropped on the way out.
+---
+--- **Outside the node.** Inside it, the `isActive` closure would capture a name that is not there
+--- yet and read nil at run time.
+local function isListedUnit(ctx, unit)
+    if (unit == "@") then
+        return DebindPrivate.ActionTakesUnit(ctx.action);
+    end
+    return unit ~= "hover" and unit ~= "player";
 end
 
 local function BuildUnitConditionMenu(kit, ctx)
@@ -379,7 +383,7 @@ local function BuildUnitConditionMenu(kit, ctx)
         local units;
         if (UnitConditionsOf(ctx.action)) then
             for unit in pairs(UnitConditionsOf(ctx.action)) do
-                if (isListedUnit(unit) and UnitConditionIsOn(ctx, unit)) then
+                if (isListedUnit(ctx, unit) and UnitConditionIsOn(ctx, unit)) then
                     units = units or {};
                     tinsert(units, unit);
                 end
@@ -410,9 +414,10 @@ local function BuildUnitConditionMenu(kit, ctx)
         end
     );
 
-    -- if (ctx.action.type == Constants.SPELL or ctx.action.type == Constants.ITEM or ctx.action.type == Constants.TARGET or ctx.action.type == Constants.FOCUS or ctx.action.type == Constants.TOGGLEMENU) then
-    --     CreateUnitConditionSubmenu(description, "SELECTED_TARGET_UNIT_EMPTY", "@");
-    -- end
+    if (isListedUnit(ctx, "@")) then
+        CreateUnitConditionSubmenu(description, ctx, "RESOLVED_TARGET", "@");
+        description:CreateDivider();
+    end
 
     for _, unit in ipairs(SORTED_UNIT_LIST) do
         -- `"hover"` is out. `Hovering Over Unit Frame` edits the very same key now, and it is
@@ -422,7 +427,7 @@ local function BuildUnitConditionMenu(kit, ctx)
         -- **그리는 줄과 세는 유닛이 같은 목록이어야 한다.** `isListedUnit`이 그 목록이고,
         -- 갈리면 이 메뉴가 안 그리는 조건으로 파래지거나 빨개진다. `"none"`만 여기 더 있다 -
         -- 그건 유닛이 아니라 대상 없음이라 조건이 붙을 자리가 아예 없다.
-        if (isListedUnit(unit) and unit ~= "none") then
+        if (isListedUnit(ctx, unit) and unit ~= "none") then
             CreateUnitConditionSubmenu(description, ctx, DebindUI.UNIT_INFO[unit].name, unit);
         end
     end
@@ -436,7 +441,7 @@ ActionMenus:Define("UNITS", {
         local units = UnitConditionsOf(ctx.action);
         if (units) then
             for unit in pairs(units) do
-                if (isListedUnit(unit) and UnitConditionIsOn(ctx, unit)) then
+                if (isListedUnit(ctx, unit) and UnitConditionIsOn(ctx, unit)) then
                     return true;
                 end
             end

@@ -237,7 +237,8 @@ return function(DebindPrivate)
         });
         DebindPrivate.BuildKeyMap();
 
-        local records = DebindPrivate.KeyMap and DebindPrivate.KeyMap["CTRL-SHIFT-F9"];
+        local records = require("castmod").without(Constants,
+            DebindPrivate.KeyMap and DebindPrivate.KeyMap["CTRL-SHIFT-F9"]);
         check(records and #records == 2, "records: " .. tostring(records and #records));
     end);
 
@@ -250,8 +251,11 @@ return function(DebindPrivate)
         });
         DebindPrivate.BuildKeyMap();
 
+        -- All three of the lower one's go, the twins with it.
         local records = DebindPrivate.KeyMap and DebindPrivate.KeyMap["CTRL-SHIFT-F9"];
-        check(records and #records == 1, "records: " .. tostring(records and #records));
+        check(records and #records == 3, "records: " .. tostring(records and #records));
+        check(#require("castmod").without(Constants, records) == 1,
+            "records other than twins: " .. #require("castmod").without(Constants, records));
     end);
 
     ---------------------------------------------------------------------------

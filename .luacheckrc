@@ -229,6 +229,8 @@ globals = {
 	"PixelUtil",
 
 	-- FrameXML: panels, tooltips, menus
+	"AUTO_SELF_CAST_KEY_TEXT",
+	"FOCUS_CAST_KEY_TEXT",
 	"GameFontHighlightSmall",
 	"GameFontHighlightLarge",
 	"GameFontNormalLarge",

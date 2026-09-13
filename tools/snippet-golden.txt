@@ -599,11 +599,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		for i = 1, #bindings do
 			local t = bindings[i]
-			local match = true
 
 
 
-			if (t.frameTypes) then
+
+
+			local match = t.castModifier == nil or t.castModifier == CONSTANTS.CASTMOD_NONE
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
@@ -920,6 +925,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -934,7 +940,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -1362,19 +1393,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	self:SetAttribute("checkselfcast", not clickCast)
-	self:SetAttribute("checkfocuscast", not clickCast)
-
-
-
-
-
-
-
-
-
-
-
 
 	if (clickCast) then
 		self:SetAttribute("useOnKeyDown", false)
@@ -1465,6 +1483,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -1479,7 +1498,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -2035,19 +2079,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	self:SetAttribute("checkselfcast", not clickCast)
-	self:SetAttribute("checkfocuscast", not clickCast)
-
-
-
-
-
-
-
-
-
-
-
 
 	if (clickCast) then
 		self:SetAttribute("useOnKeyDown", false)
@@ -2138,6 +2169,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -2152,7 +2184,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -2710,6 +2767,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -2724,7 +2782,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -3155,6 +3238,13 @@ DelegateFrameNames[frame] = frame:GetName()
 			castButton = wrapper
 		end
 	end
+
+
+		for i = 1, #bindings do
+			if (bindings[i] == winner) then
+				return castButton, i
+			end
+		end
 		return castButton
 	
 
@@ -3207,6 +3297,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -3221,7 +3312,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -3651,6 +3767,13 @@ DelegateFrameNames[frame] = frame:GetName()
 			castButton = wrapper
 		end
 	end
+
+
+		for i = 1, #bindings do
+			if (bindings[i] == winner) then
+				return castButton, i
+			end
+		end
 		return castButton
 	
 
@@ -3707,6 +3830,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -3721,7 +3845,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
@@ -4143,6 +4292,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
+	local castModifier
 
 	local memoReady = false
 
@@ -4157,7 +4307,32 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (t.frameTypes) then
+
+
+
+
+
+			if (t.castModifier ~= nil) then
+				if (castModifier == nil) then
+					if (clickCast) then
+						castModifier = CONSTANTS.CASTMOD_NONE
+					elseif (IsModifiedClick("SELFCAST")) then
+						castModifier = CONSTANTS.CASTMOD_SELF
+					elseif (IsModifiedClick("FOCUSCAST")) then
+						castModifier = CONSTANTS.CASTMOD_FOCUS
+					else
+						castModifier = CONSTANTS.CASTMOD_NONE
+					end
+					
+				end
+				if (t.castModifier ~= castModifier) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
 				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then

@@ -333,6 +333,10 @@ local function buildEnv(interp)
     env.IsAltKeyDown = function() return state.alt; end
     env.IsControlKeyDown = function() return state.ctrl; end
     env.IsShiftKeyDown = function() return state.shift; end
+    --- **What the client answers is not what is held.** It hides the modifiers that are part of
+    --- the binding a press arrived on, so a spec sets the answer for the name directly
+    --- (`devdocs/implementing-focus-and-self-cast.md` §2-1).
+    env.IsModifiedClick = function(name) return state.modifiedClick[name] and true or false; end
     env.SecureCmdOptionParse = function(expr) return parseCondition(interp, expr); end
 
     --- The unit queries, **forwarded to the same functions the insecure side calls**. Blizzard's
@@ -483,19 +487,11 @@ end
 
 function Interp:evalKey(key)
     local button = self.Constants.CLICKTIME_BUTTON_PREFIX .. key;
-    local clickbutton = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
+    local clickbutton, index = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
     if (not clickbutton) then
         return nil;
     end
-
-    local records = self.env.ClickTimeKeys[button];
-    local action = self:actionButton(clickbutton);
-    for i = 1, #records do
-        if (records[i].holdsKey and records[i].clickbutton == action) then
-            return i, clickbutton, records[i];
-        end
-    end
-    return nil, clickbutton;
+    return index, clickbutton, index and self.env.ClickTimeKeys[button][index];
 end
 
 --- The same for a click that arrives on a unit frame. `n` is the mouse button number and `mod`
@@ -696,6 +692,7 @@ function M.new(DebindPrivate, world)
         alt = false,
         ctrl = false,
         shift = false,
+        modifiedClick = {},
     };
 
     interp.driver = DebindPrivate.BindingDriver;

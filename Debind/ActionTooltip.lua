@@ -432,29 +432,11 @@ do
 
 		if (action.unit ~= nil) then
 			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
-			-- **`"@"` is what this menu wrote, so that is what it is asked about.** Without it the
-			-- answer covers every unit the action names and this line reports a contradiction the
-			-- reader made somewhere else.
+			-- **Asked about `"@"` because the target is what that resolves to with no key held.** A
+			-- contradiction on that unit is one picking another target can clear, and asking without
+			-- it would report contradictions on units the reader named somewhere else.
 			local error = hasIssues and GetIssue("unit", "@");
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
-
-			-- **The condition on the aimed unit belongs here, not in `Units`.** `units["@"]` is what
-			-- the reader set in this menu, on this target; over there it stood among units they had
-			-- picked by name, under a heading that said nothing about which one it qualified.
-			--
-			-- It joins the target's own line, the shape `Units` uses after a unit name. `none` is the
-			-- one target that is not a unit, so there is nothing for a condition to be about.
-			local aimed;
-			if (action.unit ~= "none" and conditions.units) then
-				aimed = DebindPrivate.UnitConditionForBinding(conditions.units["@"]);
-			end
-			if (aimed == false) then
-				unitStr = unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"];
-			elseif (aimed ~= nil) then
-				unitStr = unitStr .. " - "
-					.. (UnitConditionSummary(aimed) or LLL["CONDITION_UNIT_EXISTS"]);
-			end
-
 			addValueLine(tooltip, unitStr, error);
 		end
 
@@ -528,15 +510,35 @@ do
 
 		if (conditions.units) then
 			local first = true;
+
+			-- **`"@"` first, as the `Units` menu lists it**, and only where that menu draws its row
+			-- (`ActionMenuNodes.lua`'s `isListedUnit`). `none` locks the row and the condition is
+			-- dropped there, so a stored one is not drawn either. An `if` rather than `and`: the
+			-- condition answers `false` for [when there is none].
+			local resolved;
+			if (action.unit ~= "none" and DebindPrivate.ActionTakesUnit(action)) then
+				resolved = DebindPrivate.UnitConditionForBinding(conditions.units["@"]);
+			end
+			if (resolved ~= nil) then
+				addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
+				first = false;
+				local error = hasIssues and GetIssue("units", "@");
+				if (resolved == false) then
+					addValueLine(tooltip, LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
+				else
+					addValueLine(tooltip, LLL["RESOLVED_TARGET"] .. " - "
+						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]), error);
+				end
+			end
+
 			for checkedUnit, stored in pairs(conditions.units) do
 				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"hover"`는 위 호버 묶음이 그렸다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
-				-- `"hover"` is drawn by the block above and `"@"` by the `Target` block, each beside
-				-- the thing it qualifies. What is left is the units the reader picked by name.
-				-- `"player"` joins them: its own menu sits beside `Group` and asks about the
-				-- reader rather than about a unit they picked, so its line goes beside that one
-				-- too. Skipped whole rather than only where life is set, so a hand-edited axis
-				-- there is drawn once rather than in both places.
+				-- `"hover"` is drawn by the block above and `"@"` just before this loop. What is left
+				-- is the units the reader picked by name. `"player"` joins the skipped ones: its own
+				-- menu sits beside `Group` and asks about the reader rather than about a unit they
+				-- picked, so its line goes beside that one too. Skipped whole rather than only where
+				-- life is set, so a hand-edited axis there is drawn once rather than in both places.
 				if (value ~= nil and checkedUnit ~= "hover" and checkedUnit ~= "@"
 						and checkedUnit ~= "player") then
 					if (first) then

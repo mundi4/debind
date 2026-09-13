@@ -328,7 +328,10 @@ return function(DebindPrivate, _, ctx)
         }, { hoverCast = true });
         -- A mouse button's list is filed under `ClickCastKeys[button][modifier]` rather than under
         -- a click-time button name.
-        local records = interp.env.ClickCastKeys[3] and interp.env.ClickCastKeys[3][0];
+        -- The self and focus twins are key records on the same list, and carry the branches the
+        -- same way the original does; what is asked here is the pair a frame click chooses from.
+        local records = require("castmod").without(Constants,
+            interp.env.ClickCastKeys[3] and interp.env.ClickCastKeys[3][0]);
         check(records and #records == 2, "BUTTON3 records: " .. tostring(records and #records));
         -- A false axis is left off the record, so "not holding the key" is the field being absent.
         check(records[1].isClickCast and not records[1].holdsKey,

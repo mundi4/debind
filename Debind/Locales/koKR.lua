@@ -268,7 +268,6 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "이 레이어에는 행동이 없습니다. 주
 L["NO_SEARCH_RESULTS"] = "검색과 맞는 것이 없습니다."
 L["NO_SHAPESHIFT"] = "변신하지 않음"
 L["NOT_SELECTED"] = "선택 안 됨"
-L["ONLY_IF"] = "다음일 때만..."
 L["OPTIONS"] = "설정"
 -- 문제마다 하나씩 있던 짧은 문구는 걷어냈다. 근거는 enUS 쪽 주석에.
 L["ORDER_FLAG_ISSUE"] = "고쳐야 함"
@@ -322,8 +321,6 @@ L["REACTION_HELP"] = "아군"
 L["REACTION_OTHER"] = "기타"
 -- ORDER_BLOCKED_LAYER("둘은 범위가 다릅니다.")와 같은 낱말을 쓴다.
 L["SCOPE"] = "범위"
-L["SELECTED_TARGET_UNIT_EMPTY"] = "지정된 대상 |cnDISABLED_FONT_COLOR:(없음)|r"
-L["SELECTED_TARGET_UNIT"] = "지정된 대상 |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
 L["SHARED_BINDINGS"] = "공유"
 L["CONDITIONS"] = "조건"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - %2$s(으)로 지정"

@@ -40,12 +40,11 @@ Execute <Frame#3>
   | 
 ClearOverrideBindings <Frame#3>
 SetAttribute <Frame#3> _onattributechanged = nil
-CreateFrame DebindClickButton_hover SecureActionButtonTemplate
-SetAttribute DebindClickButton_hover alias = "hover"
-SetAttribute DebindClickButton_hover unit = "raid41"
-SetAttribute DebindClickButton_hover useparent* = true
-SetAttribute DebindClickButton_hover useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_hover"
+CreateFrame DebindClickButton_player SecureActionButtonTemplate
+SetAttribute DebindClickButton_player unit = "player"
+SetAttribute DebindClickButton_player useparent* = true
+SetAttribute DebindClickButton_player useparent-unit = false
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_player"
 Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
@@ -64,13 +63,42 @@ SetAttribute DebindClickButton *macrotext-deb101-nosc =
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindCastButton *type-deb101 = "spell"
 SetAttribute DebindCastButton *spell-deb101 = "Regrowth(Restoration)"
-CreateFrame <Frame#21> SecureHandlerBaseTemplate
-CreateFrame <Frame#22>
-CreateFrame <Texture#23>
-CreateFrame <Texture#24>
+CreateFrame DebindClickButton_focus SecureActionButtonTemplate
+SetAttribute DebindClickButton_focus unit = "focus"
+SetAttribute DebindClickButton_focus useparent* = true
+SetAttribute DebindClickButton_focus useparent-unit = false
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_focus"
+Execute <Frame#3>
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+CreateFrame DebindClickButton_hover SecureActionButtonTemplate
+SetAttribute DebindClickButton_hover alias = "hover"
+SetAttribute DebindClickButton_hover unit = "raid41"
+SetAttribute DebindClickButton_hover useparent* = true
+SetAttribute DebindClickButton_hover useparent-unit = false
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_hover"
+Execute <Frame#3>
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+CreateFrame <Frame#23> SecureHandlerBaseTemplate
+CreateFrame <Frame#24>
 CreateFrame <Texture#25>
-CreateFrame <Button#26> SecureHandlerClickTemplate
-SetAttribute <Button#26> _onclick =
+CreateFrame <Texture#26>
+CreateFrame <Texture#27>
+CreateFrame <Button#28> SecureHandlerClickTemplate
+SetAttribute <Button#28> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -105,32 +133,32 @@ SetAttribute <Button#26> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#26> screen "<Frame#6>"
-CreateFrame <Button#27> SecureActionButtonTemplate
-SetAttribute <Button#27> type = "spell"
-SetAttribute <Button#27> useOnKeyDown = false
-CreateFrame <Texture#28>
-CreateFrame <Texture#29>
+SetFrameRef <Button#28> screen "<Frame#6>"
+CreateFrame <Button#29> SecureActionButtonTemplate
+SetAttribute <Button#29> type = "spell"
+SetAttribute <Button#29> useOnKeyDown = false
 CreateFrame <Texture#30>
 CreateFrame <Texture#31>
 CreateFrame <Texture#32>
-WrapScript <Button#27> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#27> OnClick = " owner:Hide() "
-SetAttribute <Button#27> spell = "Call Pet 1"
-CreateFrame <Button#33> SecureActionButtonTemplate
-SetAttribute <Button#33> type = "spell"
-SetAttribute <Button#33> useOnKeyDown = false
+CreateFrame <Texture#33>
 CreateFrame <Texture#34>
-CreateFrame <Texture#35>
+WrapScript <Button#29> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#29> OnClick = " owner:Hide() "
+SetAttribute <Button#29> spell = "Call Pet 1"
+CreateFrame <Button#35> SecureActionButtonTemplate
+SetAttribute <Button#35> type = "spell"
+SetAttribute <Button#35> useOnKeyDown = false
 CreateFrame <Texture#36>
 CreateFrame <Texture#37>
 CreateFrame <Texture#38>
-WrapScript <Button#33> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#33> OnClick = " owner:Hide() "
-SetAttribute <Button#33> spell = "Call Pet 2"
-SetFrameRef <Button#26> holder "<Frame#21>"
+CreateFrame <Texture#39>
+CreateFrame <Texture#40>
+WrapScript <Button#35> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#35> OnClick = " owner:Hide() "
+SetAttribute <Button#35> spell = "Call Pet 2"
+SetFrameRef <Button#28> holder "<Frame#23>"
 SetAttribute DebindClickButton *type-deb102 = "click"
-SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#26>>
+SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#28>>
 SetAttribute DebindClickButton *type-deb103 = "macro"
 SetAttribute DebindClickButton *macro-deb103 = nil
 SetAttribute DebindClickButton *macrotext-deb103 = "/petattack"
@@ -193,13 +221,13 @@ Execute <Frame#3>
   | DelegateFrames[frame:GetName()] = frame
   | DelegateFrameNames[frame] = frame:GetName()
   | 
-CreateFrame <Frame#40> SecureHandlerBaseTemplate
-CreateFrame <Frame#41>
-CreateFrame <Texture#42>
-CreateFrame <Texture#43>
+CreateFrame <Frame#42> SecureHandlerBaseTemplate
+CreateFrame <Frame#43>
 CreateFrame <Texture#44>
-CreateFrame <Button#45> SecureHandlerClickTemplate
-SetAttribute <Button#45> _onclick =
+CreateFrame <Texture#45>
+CreateFrame <Texture#46>
+CreateFrame <Button#47> SecureHandlerClickTemplate
+SetAttribute <Button#47> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -234,8 +262,8 @@ SetAttribute <Button#45> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#45> screen "<Frame#6>"
-SetAttribute <Button#45> frameref-holder = nil
+SetFrameRef <Button#47> screen "<Frame#6>"
+SetAttribute <Button#47> frameref-holder = nil
 CreateFrame DebindClickButton_healer SecureActionButtonTemplate
 SetAttribute DebindClickButton_healer alias = "healer"
 SetAttribute DebindClickButton_healer unit = "raid41"
@@ -304,35 +332,7 @@ SetAttribute DebindClickButton *type-deb116 = "attribute"
 SetAttribute DebindClickButton *attribute-frame-deb116 = <frame DebindStates>
 SetAttribute DebindClickButton *attribute-name-deb116 = "$echo"
 SetAttribute DebindClickButton *attribute-value-deb116 = "off"
-CreateFrame DebindClickButton_focus SecureActionButtonTemplate
-SetAttribute DebindClickButton_focus unit = "focus"
-SetAttribute DebindClickButton_focus useparent* = true
-SetAttribute DebindClickButton_focus useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_focus"
-Execute <Frame#3>
-  | local frame = self:GetFrameRef("clickFrame")
-  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
-  | if (unit) then
-  | 	DelegateFrames[unit] = frame
-  | end
-  | DelegateFrames[frame:GetName()] = frame
-  | DelegateFrameNames[frame] = frame:GetName()
-  | 
 SetAttribute DebindClickButton *type-deb117 = "target"
-CreateFrame DebindClickButton_player SecureActionButtonTemplate
-SetAttribute DebindClickButton_player unit = "player"
-SetAttribute DebindClickButton_player useparent* = true
-SetAttribute DebindClickButton_player useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_player"
-Execute <Frame#3>
-  | local frame = self:GetFrameRef("clickFrame")
-  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
-  | if (unit) then
-  | 	DelegateFrames[unit] = frame
-  | end
-  | DelegateFrames[frame:GetName()] = frame
-  | DelegateFrameNames[frame] = frame:GetName()
-  | 
 SetAttribute DebindClickButton *type-deb118 = "togglemenu"
 SetAttribute DebindClickButton *type-deb119 = "macro"
 SetAttribute DebindClickButton *macro-deb119 = nil
@@ -345,8 +345,31 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["ALT-F1"]=bindings
   | bindings.key="ALT-F1"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_hover"
   | t["clickbutton"]="deb101"
+  | t["castModifier"]=1
   | t["unitAlias"]="hover"
   | t.units=newtable()
   | u=newtable();t.units["hover"]=u
@@ -377,8 +400,37 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["ALT-F2"]=bindings
   | bindings.key="ALT-F2"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["frameTypes"]=8
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | u.reaction.harm=true
+  | u.reaction.other=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["frameTypes"]=8
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | u.reaction.harm=true
+  | u.reaction.other=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_hover"
   | t["clickbutton"]="deb104"
+  | t["castModifier"]=1
   | t["unitAlias"]="hover"
   | t["frameTypes"]=8
   | t.units=newtable()
@@ -398,6 +450,19 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
   | t["pressAndHold"]=true
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb105"
+  | t["pressAndHold"]=true
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb105"
+  | t["pressAndHold"]=true
+  | t["castModifier"]=1
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F3"]=bindings
@@ -406,6 +471,17 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb106"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb106"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb106"
+  | t["castModifier"]=1
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F4"]=bindings
@@ -414,7 +490,22 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["ALT-F5"]=bindings
   | bindings.key="ALT-F5"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -435,6 +526,17 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["unitAlias"]="custom1"
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
@@ -444,11 +546,51 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["ALT-F8"]=bindings
   | bindings.key="ALT-F8"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb104"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
   | u.exists=true
@@ -464,11 +606,53 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["ALT-F9"]=bindings
   | bindings.key="ALT-F9"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb104"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.raid=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.raid=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
   | u.exists=true
@@ -485,7 +669,22 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F1"]=bindings
   | bindings.key="CTRL-F1"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["forms"]=3
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["forms"]=3
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["forms"]=3
   | t.holdsKey=true
   | DirtyKeys["form"]=DirtyKeys["form"] or newtable();tinsert(DirtyKeys["form"],bindings)
@@ -495,7 +694,30 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F10"]=bindings
   | bindings.key="CTRL-F10"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb104"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.harm=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.harm=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
   | u.exists=true
@@ -509,7 +731,26 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F11"]=bindings
   | bindings.key="CTRL-F11"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb104"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["pet"]=u
+  | u.exists=false
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["pet"]=u
+  | u.exists=false
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
   | u.exists=false
@@ -521,6 +762,17 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=1
   | t["unitAlias"]="healer"
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
@@ -530,7 +782,22 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F2"]=bindings
   | bindings.key="CTRL-F2"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["bonusbars"]=5
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["bonusbars"]=5
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["bonusbars"]=5
   | t.holdsKey=true
   | DirtyKeys["bonusbar"]=DirtyKeys["bonusbar"] or newtable();tinsert(DirtyKeys["bonusbar"],bindings)
@@ -540,7 +807,22 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F3"]=bindings
   | bindings.key="CTRL-F3"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["specialbar"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["specialbar"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["specialbar"]=true
   | t.holdsKey=true
   | DirtyKeys["specialbar"]=DirtyKeys["specialbar"] or newtable();tinsert(DirtyKeys["specialbar"],bindings)
@@ -550,7 +832,22 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F4"]=bindings
   | bindings.key="CTRL-F4"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["extrabar"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["extrabar"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["extrabar"]=true
   | t.holdsKey=true
   | DirtyKeys["extrabar"]=DirtyKeys["extrabar"] or newtable();tinsert(DirtyKeys["extrabar"],bindings)
@@ -560,7 +857,26 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F5"]=bindings
   | bindings.key="CTRL-F5"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["pet"]=u
+  | u.exists=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["pet"]=u
+  | u.exists=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
   | u.exists=true
@@ -572,7 +888,22 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F6"]=bindings
   | bindings.key="CTRL-F6"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb101"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["known"]="[known:Regrowth]"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["known"]="[known:Regrowth]"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=1
   | t["known"]="[known:Regrowth]"
   | t.holdsKey=true
   | DirtyKeys["[known:Regrowth]"]=DirtyKeys["[known:Regrowth]"] or newtable();tinsert(DirtyKeys["[known:Regrowth]"],bindings)
@@ -582,7 +913,24 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F7"]=bindings
   | bindings.key="CTRL-F7"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.switches=newtable()
+  | t.switches["$burst"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.switches=newtable()
+  | t.switches["$burst"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t.switches=newtable()
   | t.switches["$burst"]=true
   | t.holdsKey=true
@@ -593,8 +941,31 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F8"]=bindings
   | bindings.key="CTRL-F8"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["player"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_target"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
@@ -609,8 +980,39 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["CTRL-F9"]=bindings
   | bindings.key="CTRL-F9"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["player"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | u.reaction.other=true
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.dead=false
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | u.reaction.other=true
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.dead=false
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_target"
   | t["clickbutton"]="deb101"
+  | t["castModifier"]=1
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
@@ -627,6 +1029,17 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F1"]=bindings
@@ -651,11 +1064,41 @@ Execute <Frame#3>
   | bindings=newtable();StateDrivenBindings["F2"]=bindings
   | bindings.key="F2"
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb101"
+  | t["castModifier"]=2
+  | t["unit"]="player"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=1
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb111"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["stealth"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb111"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["stealth"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb111"
+  | t["castModifier"]=1
   | t["stealth"]=true
   | t.holdsKey=true
   | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
@@ -666,10 +1109,36 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["petbattle"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["petbattle"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["castModifier"]=1
   | t["petbattle"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb112"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t["petbattle"]=false
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb112"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t["petbattle"]=false
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb112"
+  | t["castModifier"]=1
   | t["petbattle"]=false
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
@@ -711,6 +1180,17 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb117"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb117"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb117"
+  | t["castModifier"]=1
   | t["unit"]="focus"
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
@@ -720,6 +1200,17 @@ Execute <Frame#3>
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb118"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb118"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb118"
+  | t["castModifier"]=1
   | t["unit"]="player"
   | t.holdsKey=true
   | bindings.hasKeyRecord=true
@@ -731,6 +1222,7 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_hover"
   | t["clickbutton"]="deb107"
+  | t["castModifier"]=1
   | t["unitAlias"]="hover"
   | t.units=newtable()
   | u=newtable();t.units["hover"]=u
@@ -739,7 +1231,20 @@ Execute <Frame#3>
   | u.reaction.harm=true
   | t.isClickCast=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_player"
   | t["clickbutton"]="deb101"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_focus"
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["castModifier"]=1
   | t.holdsKey=true
   | DirtyKeys["hover-exists"]=DirtyKeys["hover-exists"] or newtable();tinsert(DirtyKeys["hover-exists"],bindings)
   | ClickCastKeys[2]=ClickCastKeys[2] or newtable()

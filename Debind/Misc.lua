@@ -346,6 +346,20 @@ function DebindPrivate.PetActionTakesUnit(command)
     return command ~= nil and PET_ACTION_TAKES_UNIT[command] == true;
 end
 
+--- Whether an action of this type and value can aim at a unit at all. **One test for every reader**:
+--- the `Target` menu opens on it, the `Resolved Target` row is drawn on it, and `FillBinding` keeps a
+--- unit and makes the self and focus twins on it. The first two drawing a row the third drops is a
+--- setting that does nothing, which has happened here before.
+function DebindPrivate.ActionTakesUnit(action)
+    if (not Constants.TYPES_WITH_UNIT[action.type]) then
+        return false;
+    end
+    if (action.type == Constants.PETACTION) then
+        return DebindPrivate.PetActionTakesUnit(action.value);
+    end
+    return true;
+end
+
 --- 펫 명령 하나를 매크로 본문으로. 슬래시 명령이 없으면 nil - **부르는 쪽이 그걸로 거른다.**
 --- 카탈로그도 이 함수로 걸러서, 목록에 오르는 것은 실행되는 것만 남는다.
 ---
@@ -645,6 +659,30 @@ local function CellsToUnitGroup(cells)
 end
 DebindPrivate.CellsToUnitGroup = CellsToUnitGroup;
 
+--- The unit a binding's `"@"` is asked of: the unit it aims at, and `target` where it aims at none.
+--- nil only for a `unit` that is not a string at all.
+---
+--- **`target` is where the condition is checked and nothing more.** An original with no target keeps
+--- `unit` empty and goes out for the game to place, Auto Self Cast included. Writing `target` into the
+--- field would turn Auto Self Cast off the moment a condition was set, which is picking `target` under
+--- Target (`devdocs/implementing-focus-and-self-cast.md` §3-6). `""`, the hovered unit turned off, is
+--- the game placing the cast too.
+---
+--- **One rule for every reader**: the unit states below, the record `UpdateBindings.lua` emits, the
+--- issue check and the macro conversion. Two of them landing `"@"` on different units is a binding
+--- judged on one unit and shown or fired on another.
+local function ResolvedUnitOf(binding)
+    local unit = binding.unit;
+    if (unit == nil or unit == "") then
+        return "target";
+    end
+    if (type(unit) ~= "string") then
+        return nil;
+    end
+    return unit;
+end
+DebindPrivate.ResolvedUnitOf = ResolvedUnitOf;
+
 local function BuildUnitStates(binding)
     DeriveHoverFields(binding);
 
@@ -713,8 +751,8 @@ local function BuildUnitStates(binding)
         for key, value in pairs(units) do
             local unit = key;
             if (key == "@") then
-                unit = binding.unit;
-                if (type(unit) ~= "string" or unit == "") then
+                unit = ResolvedUnitOf(binding);
+                if (unit == nil) then
                     -- Nowhere to put it. Dropping the condition instead would make the binding
                     -- look wider than it is, and a cover wider than it should be deletes
                     -- bindings that can still fire -- so it leaves both roles, not one.
@@ -768,7 +806,10 @@ do
     ---
     --- **`unit`이 처음부터 들어와야 한다**: 아래 `"@"` 정리가 `unit`을 보고 지우므로, 원본을 채운
     --- 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다.
-    local function FillBinding(binding, action, aimedUnit, twinCondition)
+    ---
+    --- `castModifier` is given only for the self and focus twins. Everything else works its own out
+    --- below, from the action, so a refill from anywhere lands on the same value.
+    local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier)
         binding.type, binding.value = action.type, action.value;
         -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
         -- action stores is the kind; which spell that is today is this specialization's answer
@@ -924,10 +965,16 @@ do
         end
 
         if (conditions.units) then
-            -- truthy가 아니라 nil 검사다. "@"에 "없을 때"가 들어와 있으면(UI로는 못 만들지만
-            -- 공유 프로필로는 들어온다) truthy 검사는 그걸 못 지우고, 걸 축이 없는 조건이
-            -- 그대로 UpdateBindings까지 간다.
-            if (conditions.units["@"] ~= nil and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
+            -- A nil test, not a truthy one: a "@" holding [when there is none] arrives through a
+            -- shared profile, and a truthy test would let that condition through with no axis to
+            -- stand on.
+            --
+            -- **`none` is the one target that drops it, and the action's target is what is asked.**
+            -- That cast asks the reader for a target, so the press settles on no unit and no twin is
+            -- made to carry the condition. Every other target keeps it, `player` included, and each
+            -- binding folds it onto the unit it aims at: the self twin of an action aimed at
+            -- `target` takes it onto `player` (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+            if (conditions.units["@"] ~= nil and action.unit == "none") then
                 conditions.units["@"] = nil;
             end
 
@@ -968,18 +1015,25 @@ do
             binding.unit = nil;
         end
 
-        -- **대상을 뺏었으면 `"@"`도 뺏는다.** `"@"`는 대상 유닛을 가리키는 포인터라
-        -- 가리킬 것이 없으면 뜻이 없는데, 그걸 지우는 위쪽 검사는 대상 메뉴가 쓴 값을
-        -- 보고 이미 지나갔다. 바로 위 두 갈래가 그 뒤에서 대상을 지운다.
+        -- **Read after the two branches above**, which are what say whether this action takes a
+        -- unit at all. One that does gets the self and focus twins, and then every binding it puts
+        -- on the key carries the column; one that does not carries none and answers whatever is
+        -- held. `none` is a cast asking for a target, and is left out until use says otherwise
+        -- (`devdocs/implementing-focus-and-self-cast.md`, status header).
+        if (castModifier == nil and DebindPrivate.ActionTakesUnit(action) and action.unit ~= "none") then
+            castModifier = Constants.CASTMOD_NONE;
+        end
+        binding.castModifier = castModifier;
+
+        -- **An action that takes no unit drops `"@"`**: a type that carries none, or a pet command
+        -- that takes none, which the two branches above just stripped of its target. Every other
+        -- action keeps it, with a target or without one (`ResolvedUnitOf`).
         --
-        -- **아래 hover 채워넣기보다 앞이어야 한다.** 저기서 `"hover"`가 들어가고 나면
-        -- 남은 `"@"`가 그걸 가리켜서, focus를 겨누고 켠 조건이 **호버한 유닛** 조건으로
-        -- 조용히 바뀐다. 갈 축이 없어 판정에서 빠지는 것보다 나쁘다 - 이쪽은 멀쩡히
-        -- 동작하는 얼굴로 다른 일을 한다.
-        --
-        -- `""`도 같이 본다. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는 들어오고,
-        -- 위쪽 검사의 목록에는 없다.
-        if (conditions.units and (binding.unit == nil or binding.unit == "")) then
+        -- **Before the hover fill-in below, for exactly those.** A hover condition on such an action
+        -- still gets `"hover"` written into `unit` there, and a `"@"` left behind would become a
+        -- condition on the hovered unit for an action that aims at nothing. The key would go on
+        -- working while judging something the reader never set.
+        if (conditions.units and not DebindPrivate.ActionTakesUnit(action)) then
             conditions.units["@"] = nil;
         end
 
@@ -1108,6 +1162,10 @@ do
     local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeTwinCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToFocusCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToProbeFocusCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToSelfCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToProbeSelfCache = setmetatable({}, { __mode = "kv" });
 
     -- The stored shape of "that unit, whatever it is" is an empty table (`false` is [when there is
     -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
@@ -1197,20 +1255,20 @@ do
         -- original, and where a twin is wanted the twin gets its own probe ahead of it.
         --
         -- **The list is filled back to front.** `UnrollDerivedBindings` (`Debind.lua`) walks a list
-        -- from its last entry down to the original, so the key order probe-twin, twin, probe,
-        -- original is written here as original, probe, twin, probe-twin.
+        -- from its last entry down to the original, so the key order self, focus, hover twin,
+        -- original -- each with its probe ahead of it -- is written here the other way round.
         local probe;
         if (original.spell ~= nil) then
             probe = select(2, DebindPrivate.SpecSpells.SpellForType(action.type));
         end
 
-        local function fill(cache, aimedUnit, twinCondition, spell)
+        local function fill(cache, aimedUnit, twinCondition, spell, castModifier)
             local binding = cache[action];
             if (not binding) then
                 binding = {};
                 cache[action] = binding;
             end
-            FillBinding(binding, action, aimedUnit, twinCondition);
+            FillBinding(binding, action, aimedUnit, twinCondition, castModifier);
             if (spell) then
                 binding.spell = spell;
                 binding.spellbook = spell;
@@ -1228,6 +1286,19 @@ do
             fill(_ActionToTwinCache, twinUnit, twinCondition, nil);
             if (probe) then
                 fill(_ActionToProbeTwinCache, twinUnit, twinCondition, probe);
+            end
+        end
+
+        -- A twin even where the action already aims at `focus` or `player`: the original stands on
+        -- [none held], so a held modifier has nothing else to land on.
+        if (original.castModifier) then
+            fill(_ActionToFocusCache, "focus", nil, nil, Constants.CASTMOD_FOCUS);
+            if (probe) then
+                fill(_ActionToProbeFocusCache, "focus", nil, probe, Constants.CASTMOD_FOCUS);
+            end
+            fill(_ActionToSelfCache, "player", nil, nil, Constants.CASTMOD_SELF);
+            if (probe) then
+                fill(_ActionToProbeSelfCache, "player", nil, probe, Constants.CASTMOD_SELF);
             end
         end
 
@@ -2180,20 +2251,22 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             return false;
         end
         if (category == "unit") then
-            return conditions.units["@"] ~= nil and unit == binding.unit;
+            return conditions.units["@"] ~= nil and unit == ResolvedUnitOf(binding);
         end
         return conditions.units[unit] ~= nil;
     end
 
-    -- 짚어 물은 유닛. 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 여기서 `target`을 nil로
-    -- 두면 "짚어 물었다"가 "전부 물었다"로 바뀌어 **남의 유닛 모순이 그 서브메뉴에 뜬다.**
+    -- The unit a submenu asked about. `"@"` resolves the way every other reader resolves it
+    -- (`ResolvedUnitOf`). Its nil is a unit this build cannot read, and leaving `target` nil would
+    -- turn "asked about one" into "asked about all": **other units' contradictions would show on
+    -- that submenu.**
     --
-    -- **아래 두 순회가 같이 쓴다.** 둘이 같은 조건으로 열리고 같은 remap을 하는데 따로 세어
-    -- 두었더니 소속 순회에서 이 가드가 빠져 있었다 (code review, 2026-09-11).
+    -- **Both loops below read this.** They open on the same test and remap the same way, and while
+    -- each counted for itself the group loop was missing this guard (code review, 2026-09-11).
     local target = arg;
     local askedAboutNothing;
     if (target == "@") then
-        target = binding.unit;
+        target = ResolvedUnitOf(binding);
         askedAboutNothing = target == nil;
     end
 
@@ -2397,15 +2470,13 @@ local SWITCH_CLICK_TARGET = "DebindStates";
 --- The unit key a live `"@"` has to become, and **the stored table it has to be rewritten in**.
 --- Nil where no live one exists; a unit with no table where there is one this cannot rewrite.
 ---
---- **The binding is the judge of live, not the action.** `"@"` means the unit the action aims at,
---- and `GetBindingInfoForAction` has already dropped it wherever there was nothing to aim at: a
---- type that carries no unit, a pet command that takes none, the field left empty. Asking the
---- action again would resurrect a condition that was not reaching the key -- and reading the field
---- alone would move it onto the **hovered** unit for an action that aims there by derivation,
---- which is the exact swap that check is ordered before the hover fill-in to prevent.
----
---- Which also means `binding.unit` is still the unit `"@"` meant: the fill-in only writes where
---- that field was empty, and where it was empty `"@"` is already gone.
+--- **The binding is the judge of live, not the action.** `GetBindingInfoForAction` has already
+--- dropped `"@"` wherever the press aims at nothing: a type that carries no unit, a pet command that
+--- takes none, `none`. Asking the action again would resurrect a condition that was not reaching
+--- the key. Where it is live it goes where every other reader puts it (`ResolvedUnitOf`): the unit
+--- aimed at, the hovered one for an action that aims there by derivation, and `target` for an
+--- action with no target. The body the conversion writes has no `[@target]` in that last case, so
+--- the game goes on placing the cast and the condition goes on asking the target.
 ---
 --- **But the binding reads units from two places and only one of them can be written back to.**
 --- Where `conditions.units` is absent it falls back to the flat pre-`dbver` 6 `checkedUnits`, so a
@@ -2420,9 +2491,9 @@ local function AimedUnitKeyForMacroText(action, binding)
 
     local stored = action.conditions and action.conditions.units;
     if (stored == nil or stored["@"] == nil) then
-        return binding.unit, nil;
+        return ResolvedUnitOf(binding), nil;
     end
-    return binding.unit, stored;
+    return ResolvedUnitOf(binding), stored;
 end
 
 --- Two stored conditions about one unit, folded onto the one key that can hold them.
@@ -2544,8 +2615,15 @@ local function ConditionsSurviveMacroText(action)
     -- different unit than the key does. Asked of the list rather than of the switches, so an
     -- account that has Hover Cast on does not lose the conversion on the actions the feature
     -- never reaches -- the same line `known` draws above.
-    if (DebindPrivate.GetBindingsForAction(action)[2] ~= nil) then
-        return false;
+    --
+    -- **The self and focus twins do not count.** Every action that takes a unit has them, so
+    -- counting them would refuse the conversion to all of those.
+    local list = DebindPrivate.GetBindingsForAction(action);
+    for i = 2, #list do
+        local castModifier = list[i].castModifier;
+        if (castModifier ~= Constants.CASTMOD_SELF and castModifier ~= Constants.CASTMOD_FOCUS) then
+            return false;
+        end
     end
 
     local unit, units = AimedUnitKeyForMacroText(action, binding);

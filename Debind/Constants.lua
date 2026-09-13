@@ -184,6 +184,15 @@ Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
     [Constants.RAIDBUFF] = true,
 };
 
+--- Which of the client's cast modifiers the press is holding, as one value: the self-cast one wins
+--- where both are held, which is `SecureButton_GetModifiedUnit`'s order. Bits, because the solver
+--- reads the column as a mask (`Solver.lua`), and a binding that has the column at all holds exactly
+--- one of the three (`devdocs/implementing-focus-and-self-cast.md` §3-5).
+Constants.CASTMOD_NONE  = 1;
+Constants.CASTMOD_SELF  = 2;
+Constants.CASTMOD_FOCUS = 4;
+Constants.CASTMOD_ALL   = 7;
+
 
 --- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
 --- 왜 조건이 아닌지는 `devdocs/action-and-binding-shapes.md` §2에 있다.

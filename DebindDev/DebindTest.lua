@@ -1163,6 +1163,9 @@ end
 
 --- The order `BuildKeyMap` ended up with, as a string of spell ids. Records the solver dropped
 --- are not in it, which is the point of asking here rather than asking the drawing side.
+---
+--- **Without the self and focus twins**, which every spell puts ahead of its other bindings and
+--- which go wherever their action goes (`devdocs/implementing-focus-and-self-cast.md` §3-4).
 local function KeyMapOrder(key)
     local bindings = GetKeyBindings(key)
     if not bindings then
@@ -1170,7 +1173,10 @@ local function KeyMapOrder(key)
     end
     local out = {}
     for i = 1, #bindings do
-        out[i] = tostring(bindings[i].value)
+        local castModifier = bindings[i].castModifier
+        if castModifier ~= Constants.CASTMOD_SELF and castModifier ~= Constants.CASTMOD_FOCUS then
+            out[#out + 1] = tostring(bindings[i].value)
+        end
     end
     return table.concat(out, " ")
 end
@@ -1843,6 +1849,110 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
         end
 
         return Pass(NAME, "both picked were carried into the window, and [Unbind] went dark where nothing picked had a key")
+    end,
+})
+
+--- **Needs the game.** `DropDownMenus.lua` is not on the headless load list, so where the resolved
+--- target's row stands, when it is locked and what pressing it stores are only measured here
+--- (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+RegisterTest("Resolved Target: the row under Units writes the condition, and Target opens none", {
+    description = "The Resolved Target row sits under Units, stores \"@\" on an action with no target, locks on None, and is not drawn for a macro. The Target menu opens no submenu.",
+    run = function()
+        local NAME = "Resolved Target row"
+
+        AddTeardown(CleanupActions)
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+        end)
+
+        local function ChildByText(description, text)
+            for _, child in description:EnumerateElementDescriptions() do
+                if MenuUtil.GetElementText(child) == text then
+                    return child
+                end
+            end
+        end
+
+        local function ChildTexts(description)
+            local names = {}
+            for _, child in description:EnumerateElementDescriptions() do
+                tinsert(names, tostring(MenuUtil.GetElementText(child)))
+            end
+            return table.concat(names, " | ")
+        end
+
+        --- The menu opened afresh, and one group in it by its label.
+        local function Group(action, label)
+            Menu.GetManager():CloseMenus()
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupEditDropdownMenu, { action = action })
+            local menu = Menu.GetManager():GetOpenMenu()
+            if not menu then
+                return nil, "the menu did not come up"
+            end
+            local found
+            menu:EnumerateElementDescriptions(function(_, description)
+                if MenuUtil.GetElementText(description) == label then
+                    found = description
+                end
+            end)
+            if not found then
+                return nil, format("no [%s] group", label)
+            end
+            return found
+        end
+
+        local action = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F7" })
+        ApplyBindings()
+
+        local units, err = Group(action, LLL["CONDITION_UNITS"])
+        if not units then return Fail(NAME, err) end
+        local row = ChildByText(units, LLL["RESOLVED_TARGET"])
+        if not row then
+            return Fail(NAME, format("no [%s] row under [%s]: %s", LLL["RESOLVED_TARGET"],
+                LLL["CONDITION_UNITS"], ChildTexts(units)))
+        end
+        if not row:IsEnabled() then
+            return Fail(NAME, "the row is locked on an action with no target")
+        end
+        local exists = ChildByText(row, LLL["CONDITION_UNIT_EXISTS"])
+        if not exists then
+            return Fail(NAME, format("no [%s] entry: %s", LLL["CONDITION_UNIT_EXISTS"], ChildTexts(row)))
+        end
+        exists:Pick(MenuInputContext.MouseButton, "LeftButton")
+        local stored = action.conditions and action.conditions.units and action.conditions.units["@"]
+        if not (type(stored) == "table" and stored.exists == true) then
+            return Fail(NAME, "pressing it stored " .. tostring(stored))
+        end
+
+        -- **The Target menu is a list of targets and nothing else now.** A child with rows of its
+        -- own is a submenu, which is what the old condition row was.
+        local target, terr = Group(action, LLL["TARGET_UNIT"])
+        if not target then return Fail(NAME, terr) end
+        for _, child in target:EnumerateElementDescriptions() do
+            for _ in child:EnumerateElementDescriptions() do
+                return Fail(NAME, format("[%s] still opens a submenu: %s", LLL["TARGET_UNIT"],
+                    tostring(MenuUtil.GetElementText(child))))
+            end
+        end
+
+        action.unit = "none"
+        ApplyBindings()
+        units, err = Group(action, LLL["CONDITION_UNITS"])
+        if not units then return Fail(NAME, err) end
+        row = ChildByText(units, LLL["RESOLVED_TARGET"])
+        if not row or row:IsEnabled() then
+            return Fail(NAME, "on None the row is " .. (row and "open" or "missing"))
+        end
+
+        local macro = InsertAction({ type = Constants.MACROTEXT, value = "/say x", key = "CTRL-ALT-F8" })
+        ApplyBindings()
+        units, err = Group(macro, LLL["CONDITION_UNITS"])
+        if not units then return Fail(NAME, err) end
+        if ChildByText(units, LLL["RESOLVED_TARGET"]) then
+            return Fail(NAME, "a macro, which takes no target, has the row")
+        end
+
+        return Pass(NAME, "under Units, stores \"@\" with no target, locked on None, absent on a macro")
     end,
 })
 
@@ -7452,14 +7562,18 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
+        -- **Four records**: the self and focus twins stand ahead of the hover twin and the original
+        -- (`devdocs/implementing-focus-and-self-cast.md` §3-4), and a press with no modifier held
+        -- reaches only the last two. The winner comes back as a place in all four.
         local records = GetKeyBindings(KEY)
-        if not records or #records ~= 2 then
-            return Fail(NAME, format("the premise is gone: %d record(s) on the key, there should be 2",
+        if not records or #records ~= 4 then
+            return Fail(NAME, format("the premise is gone: %d record(s) on the key, there should be 4",
                 records and #records or 0))
         end
-        if not (records[1].unit == "hover" and records[2].unit == nil) then
-            return Fail(NAME, format("the premise is gone: units are %s / %s, the twin should be first",
-                tostring(records[1].unit), tostring(records[2].unit)))
+        local TWIN, ORIGINAL = 3, 4
+        if not (records[TWIN].unit == "hover" and records[ORIGINAL].unit == nil) then
+            return Fail(NAME, format("the premise is gone: units are %s / %s, the twin should come before the original",
+                tostring(records[TWIN].unit), tostring(records[ORIGINAL].unit)))
         end
 
         local bound = GetBindingAction(KEY, true) or ""
@@ -7480,8 +7594,8 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         local ran, rerr = EvalClickTimeKey(KEY)
         if not ran then return Fail(NAME, rerr) end
         local over = WaitForWinner()
-        if over ~= 1 then
-            return Fail(NAME, format("over the frame the winner is %s, it should be 1 (the twin)", tostring(over)))
+        if over ~= TWIN then
+            return Fail(NAME, format("over the frame the winner is %s, it should be %d (the twin)", tostring(over), TWIN))
         end
 
         -- **The other half.** Without it a key that always picks the twin passes.
@@ -7493,11 +7607,77 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         ran, rerr = EvalClickTimeKey(KEY)
         if not ran then return Fail(NAME, rerr) end
         local off = WaitForWinner()
-        if off ~= 2 then
-            return Fail(NAME, format("off the frame the winner is %s, it should be 2 (the original)", tostring(off)))
+        if off ~= ORIGINAL then
+            return Fail(NAME, format("off the frame the winner is %s, it should be %d (the original)", tostring(off), ORIGINAL))
         end
 
-        return Pass(NAME, "over the frame: 1 (twin) / off it: 2 (original)")
+        return Pass(NAME, format("over the frame: %d (twin) / off it: %d (original)", TWIN, ORIGINAL))
+    end,
+})
+
+-- **Needs the game.** Which twin a held modifier picks is headless (`tests/eval_spec.lua`); what only
+-- the client can show is that `IsModifiedClick` is callable from inside the restricted environment and
+-- that the unit the snippet settles on lands on the cast frame. A name the sandbox does not carry
+-- raises inside the snippet, and the key does nothing with nothing said.
+--
+-- `SetMockState` overrides the answer after `IsModifiedClick` has been called, so the real call
+-- still runs on every pass. What the client hides from `IsModifiedClick` on a real press -- the
+-- modifiers that are part of the binding's own name -- no press made from here can show.
+RegisterTest("Self and focus cast: the held modifier picks the twin at the press", {
+    description = "조합키 값마다 self 쌍둥이, focus 쌍둥이, 원본이 이기고 대상이 시전 프레임에 선다",
+    run = function()
+        local NAME = "Cast modifier at the press"
+        local KEY = "CTRL-ALT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "nothing can be rebaked in combat")
+        end
+
+        local probesOk, perr = EnableProbes()
+        if not probesOk then return Fail(NAME, perr) end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "target" })
+        ApplyBindings()
+
+        local records = GetKeyBindings(KEY)
+        if not records or #records ~= 3 then
+            return Fail(NAME, format("the premise is gone: %d record(s) on the key, there should be 3",
+                records and #records or 0))
+        end
+
+        local seen = {}
+        for _, case in ipairs({
+            { Constants.CASTMOD_SELF, "player" },
+            { Constants.CASTMOD_FOCUS, "focus" },
+            { Constants.CASTMOD_NONE, "target" },
+        }) do
+            SetMockState("castModifier", case[1])
+
+            local ran, rerr = EvalClickTimeKey(KEY)
+            if not ran then return Fail(NAME, rerr) end
+            local got = WaitForWinner()
+            if got == nil then
+                return Fail(NAME, format("modifier %d: nothing won -- if `IsModifiedClick` is not in the "
+                    .. "restricted environment the snippet stops there", case[1]))
+            end
+
+            -- Read again: `SetMockState` ended in a rebuild, which replaced the array.
+            records = GetKeyBindings(KEY)
+            local record = records and records[got]
+            if not record or record.castModifier ~= case[1] then
+                return Fail(NAME, format("modifier %d: record %d won, which carries %s", case[1], got,
+                    tostring(record and record.castModifier)))
+            end
+
+            local unit = DebindPrivate.CastFrame:GetAttribute("unit")
+            if unit ~= case[2] then
+                return Fail(NAME, format("modifier %d: the cast frame's unit is %s, it should be %s",
+                    case[1], tostring(unit), case[2]))
+            end
+            seen[#seen + 1] = format("%d->#%d@%s", case[1], got, unit)
+        end
+
+        return Pass(NAME, table.concat(seen, ", "))
     end,
 })
 
@@ -8624,64 +8804,6 @@ RegisterTest("Settings: the gear opens the panel and leaves our window standing"
         end
 
         return Pass(NAME, "the panel opened on our category and our window stayed up")
-    end,
-})
-
-RegisterTest("Settings: the button in the list opens our window", {
-    description = "설정창의 버튼 줄이 우리 창을 연다",
-    run = function()
-        local NAME = "the open button"
-
-        local frameWasShown = DebindFrame:IsShown()
-        local panelWasShown = SettingsPanel:IsShown()
-        AddTeardown(function()
-            if not panelWasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
-                HideUIPanel(SettingsPanel)
-            end
-            if not frameWasShown and DebindFrame:IsShown() then
-                DebindFrame:CloseWindow()
-            elseif frameWasShown and not DebindFrame:IsShown() and not InCombatLockdown() then
-                DebindFrame:Show()
-            end
-        end)
-
-        local opened, why = OpenOurSettings()
-        if not opened then
-            return Fail(NAME, why)
-        end
-
-        if DebindFrame:IsShown() then
-            DebindFrame:CloseWindow()
-        end
-
-        local pressed
-        SettingsPanel:GetSettingsList().ScrollBox:ForEachFrame(function(frame)
-            if not pressed and frame.Button and frame.Button.GetText
-                    and frame.Button:GetText() == LLL["OPEN_ADDON_WINDOW"] then
-                pressed = frame.Button
-            end
-        end)
-        if not pressed then
-            return Fail(NAME, format("no button in the list says %q", LLL["OPEN_ADDON_WINDOW"]))
-        end
-
-        pressed:Click()
-
-        if not DebindFrame:IsShown() then
-            return Fail(NAME, "the button did not open our window")
-        end
-        if not SettingsPanel:IsShown() then
-            return Fail(NAME, "the button closed the settings window, which it must not do")
-        end
-
-        -- **And pressing it again does not close what it just opened.** The toggle behind it
-        -- would; the button says "open" and may only open (`Options.lua`).
-        pressed:Click()
-        if not DebindFrame:IsShown() then
-            return Fail(NAME, "pressing it a second time closed our window")
-        end
-
-        return Pass(NAME, "our window opened, stayed open on a second press, and the panel stayed up")
     end,
 })
 

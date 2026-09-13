@@ -87,9 +87,10 @@ return function(DebindPrivate)
         end
     end
 
-    --- The values on the key, in order, or `<none>` where the key came out with no records.
+    --- The values on the key, in order, or `<none>` where the key came out with no records. The
+    --- self and focus twins are left out: they follow their action on and off the key.
     local function Values(key)
-        local records = DebindPrivate.KeyMap[key];
+        local records = require("castmod").without(Constants, DebindPrivate.KeyMap[key]);
         if (not records) then return "<none>"; end
         local out = {};
         for i = 1, #records do out[i] = tostring(records[i].value); end

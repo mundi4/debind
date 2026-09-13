@@ -124,6 +124,24 @@ return function(DebindPrivate)
             "the named unit lost its own block: " .. text);
     end);
 
+    -- **The condition on the resolved target is drawn under `Units`**, where the menu that edits it
+    -- lists it. The `Target` line says which unit was picked and nothing else.
+    test("the resolved target's condition is drawn under Units, not on the Target line", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "focus",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        local text = Tooltip(row);
+        local at = text:find(LLL["RESOLVED_TARGET"] .. " - ", 1, true);
+        check(at and text:find(LLL["REACTION_HELP"], at, true),
+            "the condition is not drawn under the resolved target: " .. text);
+        check(not text:find(LLL["UNIT_FOCUS"] .. " - ", 1, true),
+            "the Target line still carries a condition: " .. text);
+    end);
+
     --- The kind of line one piece of text came out on, so a spec can tell "the reason is written"
     --- from "the reason is written in the colour that says the key is dead".
     local function LineKind(row, text)

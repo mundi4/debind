@@ -15,7 +15,6 @@ local ActionMenus                    = ActionMenu.ActionMenus;
 local OnActionValueChanged           = ActionMenu.OnActionValueChanged;
 local actionValueEquals              = ActionMenu.actionValueEquals;
 local setActionValue                 = ActionMenu.setActionValue;
-local CreateUnitConditionSubmenu     = ActionMenu.CreateUnitConditionSubmenu;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local USE_CHECKED_VALUE              = ActionMenu.USE_CHECKED_VALUE;
 local GetTabList                     = ActionMenu.GetTabList;
@@ -213,18 +212,11 @@ local function CreateUnbindMenuItem(parentDescription, ctx)
 end
 
 local function CreateTargetUnitMenuItem(parentDescription, ctx)
-    -- 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다. `GetBindingInfoForAction`이
-    -- 바인딩을 만들 때 보는 것과 **같은 값**이라야 한다 - 갈리면 여기서 고를 수 있는
-    -- 대상이 저기서 조용히 지워진다(실제로 그랬다).
-    if (not Constants.TYPES_WITH_UNIT[ctx.action.type]) then
-        return;
-    end
-
-    -- 펫 명령은 타입만으로 안 갈린다. 대상을 쓰는 건 **공격 하나뿐이고**
-    -- (`PetAttack(target)`), 나머지 핸들러는 조건의 참·거짓만 보고 target을 버린다.
-    -- 이동 지정은 지면을 찍는 명령이라 유닛이 들어갈 자리가 아니다(`Misc.lua` 참고).
-    -- 안 쓰는 것에 메뉴를 띄우면 그 설정이 무언가를 한다고 읽힌다.
-    if (ctx.action.type == Constants.PETACTION and not DebindPrivate.PetActionTakesUnit(ctx.action.value)) then
+    -- **The same test `GetBindingInfoForAction` keeps a unit on.** Apart, a target picked here is
+    -- quietly wiped there, which has happened. A pet command is the case the type alone cannot
+    -- settle: only the attack uses a target, and a menu on the rest reads as a setting that does
+    -- something.
+    if (not DebindPrivate.ActionTakesUnit(ctx.action)) then
         return;
     end
 
@@ -248,12 +240,6 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
                 unitInfo.tooltipTitle and (unitInfo.tooltipTitle .. "|n|n" .. fixed) or fixed);
         end
     end
-
-    -- 겨누는 대상에 거는 조건은 **다른 유닛과 같은 메뉴**를 쓴다. 여기만 체크박스 + 좁은
-    -- 프리셋이던 시절에는 같은 것을 두 문법으로 말했고, 축이 하나 늘 때마다 이 목록이
-    -- 네 줄씩 길어졌다. 서브메뉴로 접으면 대상 목록은 대상만 남는다.
-    description:CreateDivider();
-    CreateUnitConditionSubmenu(description, ctx, "ONLY_IF", "@");
 
     return description;
 end

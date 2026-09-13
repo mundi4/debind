@@ -28,16 +28,21 @@ DebindPrivate.ClickDelegateFrames = {};
 local DefaultClickFrameName         = "DebindClickButton"
 local DefaultClickFrame             = CreateFrame("Button", DefaultClickFrameName, nil, "SecureActionButtonTemplate");
 DefaultClickFrame:RegisterForClicks("AnyUp", "AnyDown");
-DefaultClickFrame:SetAttribute("checkselfcast", true);
-DefaultClickFrame:SetAttribute("checkfocuscast", true);
--- **Off, and not missing.** `SecureButton_GetModifiedUnit` decides this branch with
--- `C_ActionBar.IsHelpfulAction(self:CalculateAction(button))`, and `CalculateAction` answers `1`
--- for a button with no `GetID()` and no `action` attribute -- this one has neither, and never
--- will. So the branch would judge every Debind key by whatever sits in action bar slot 1 instead
--- of by the spell the key fires. There is no value of `action` that fixes it: filling one in
--- needs the helpful/harmful answer the branch is being asked for.
+-- **The client's three targeting branches are off, and spelled out as off.**
 --
--- The two above read `IsModifiedClick` alone and reach a right answer, which is why they differ.
+-- Self cast and focus cast are decided by the click wrapper instead, because the client's order
+-- lets a pointed unit beat a held modifier and a unit of ours stops the branches from being
+-- reached at all (`devdocs/implementing-focus-and-self-cast.md` §1, §3-7). Left on, they would
+-- still redirect every press that fires with no unit.
+--
+-- Mouseover cast cannot reach a right answer on this button. `SecureButton_GetModifiedUnit` decides
+-- it with `C_ActionBar.IsHelpfulAction(self:CalculateAction(button))`, and `CalculateAction` answers
+-- `1` for a button with no `GetID()` and no `action` attribute -- this one has neither, and never
+-- will. So the branch would judge every Debind key by whatever sits in action bar slot 1 instead of
+-- by the spell the key fires, and filling `action` in needs the helpful/harmful answer the branch is
+-- being asked for.
+DefaultClickFrame:SetAttribute("checkselfcast", false);
+DefaultClickFrame:SetAttribute("checkfocuscast", false);
 DefaultClickFrame:SetAttribute("checkmouseovercast", false);
 DebindPrivate.DefaultClickFrame = DefaultClickFrame;
 

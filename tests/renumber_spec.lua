@@ -106,7 +106,8 @@ return function(DebindPrivate)
     --- Records the solver dropped are not in it, which is the point of asking here.
     local function KeyMapOrder(key)
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
-        local bindings = DebindPrivate.KeyMap[key];
+        -- Without the self and focus twins, which ride with their action and add nothing to its place.
+        local bindings = require("castmod").without(Constants, DebindPrivate.KeyMap[key]);
         if (not bindings) then return "<none>"; end
         local out = {};
         for i = 1, #bindings do out[i] = tostring(bindings[i].value); end

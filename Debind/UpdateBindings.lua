@@ -1742,8 +1742,12 @@ local function PrepareKeyBindings(key, bindingArray)
 
     for i = 1, #bindingArray do
         local binding = bindingArray[i];
+        -- **Never the self or focus twin.** A modifier held on a frame click is part of the binding
+        -- the reader put on that exact combination, since nothing falls through to a click with
+        -- fewer (`devdocs/implementing-focus-and-self-cast.md` §3-10).
         binding.isClickCast = button ~= nil and binding.type ~= Constants.COMMAND and
             (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover") and
+            (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
             true or false;
         binding.holdsKey = (button == nil or not binding.hover) and true or false;
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
@@ -1901,10 +1905,10 @@ local function MergeKeyUnitConditions(binding, out)
 
     for k, v in pairs(units) do
         if (k == "@") then
-            k = binding.unit;
+            k = DebindPrivate.ResolvedUnitOf(binding);
         end
-        -- A "@" with no unit to point at has no axis to land on. Normalization should have
-        -- dropped it, so drop it quietly.
+        -- nil is a `unit` that is not a string at all, and `BuildUnitStates` has already taken
+        -- that binding out of both solver roles, so the condition is dropped quietly here.
         if (k ~= nil) then
             -- **저장은 겹치는 세 상자, 여기서부터는 네 칸이다.** 세 상자는 교집합에 안 닫혀
             -- 있다: {파티}와 {공대}가 만나는 곳은 "공대이면서 같은 소그룹" 한 칸인데 그 칸만
@@ -2009,6 +2013,10 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
     -- 고치려면 엣지를 실어 올 길이 필요한데 `SECURE_ACTIONS.click`에는 없다.
     if (Constants.CLICK_TIME_EVAL and clickTime and holdsKey and binding.pressAndHold) then
         field(out, "pressAndHold", true);
+    end
+
+    if (binding.castModifier) then
+        field(out, "castModifier", binding.castModifier);
     end
 
     if (carriesTarget and binding.unit and binding.unit ~= "") then
@@ -2131,6 +2139,17 @@ end
 --- go without the other -- an emitted axis with no flag is a key that never wakes up, and a flag
 --- with no axis is a measurement nobody reads.
 local function CollectRecordAxes(record, stateDriven)
+    -- The state loop passes over the self and focus twins (`SecureBindings.lua`), so their units ask
+    -- it to measure nothing. The field flags stay: a twin copies the original's fields, so it
+    -- raises no flag the original does not.
+    local loopSkips = false;
+    for i = 1, record.fieldCount do
+        if (record.fieldNames[i] == "castModifier") then
+            loopSkips = record.fieldValues[i] ~= Constants.CASTMOD_NONE;
+            break;
+        end
+    end
+
     for i = 1, record.fieldCount do
         local name = record.fieldNames[i];
         if (name == "frameTypes") then
@@ -2194,7 +2213,7 @@ local function CollectRecordAxes(record, stateDriven)
         -- **This is an accumulator, so the unit of the decision matters.** `_measuredUnitAxes` is
         -- one table per rebuild and grows by `bor`, so a unit any state-driven key asks about is
         -- measured anyway. What is withheld here is **this record's share**, not the unit.
-        if (stateDriven) then
+        if (stateDriven and not loopSkips) then
             _measuredUnitAxes[unit] = bor(_measuredUnitAxes[unit] or 0, axes);
             _updateFlags[unit .. "-exists"] = true;
             if (band(axes, UNITAXIS_REACTION) ~= 0) then

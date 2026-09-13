@@ -79,10 +79,30 @@ return function(DebindPrivate)
             "reaction: " .. tostring(folded.target.reaction));
     end);
 
-    -- A `"@"` on an action with no target has no axis to land on. Normalization should have
-    -- dropped it; the fold drops it quietly rather than inventing a unit for it.
-    test("\"@\" with no target is dropped and nothing else is", function()
-        local folded = fold(nil, {
+    -- **A `"@"` on an action with no target is asked of `target`** (`Misc.lua`'s `ResolvedUnitOf`,
+    -- `devdocs/implementing-focus-and-self-cast.md` §3-6). The record still carries no unit, so the
+    -- game places the cast; only the condition lands on `target`, folding with one set there by name.
+    test("\"@\" with no target lands on target and folds with it", function()
+        for _, unit in ipairs({ false, "" }) do
+            local folded = fold(unit or nil, {
+                ["@"] = { reaction = HELP },
+                target = { dead = false },
+                focus = { reaction = HARM },
+            });
+            local label = "unit=" .. tostring(unit or nil) .. ": ";
+            check(folded, label .. "the fold refused a pair that can be satisfied");
+            check(size(folded) == 2, label .. "units left: " .. size(folded));
+            check(folded.target.reaction == HELP, label .. "the resolved target's reaction was lost");
+            check(folded.target.dead == false, label .. "the target's own condition was lost");
+            check(folded.focus.reaction == HARM, label .. "the focus condition went with it");
+        end
+    end);
+
+    -- A `unit` that is not a string at all is the one place left with nowhere to put `"@"`. The fold
+    -- drops it quietly rather than inventing a unit; `BuildUnitStates` has already made the binding
+    -- opaque.
+    test("\"@\" on a unit that is not a string is dropped and nothing else is", function()
+        local folded = fold(42, {
             ["@"] = { reaction = HELP },
             focus = { reaction = HARM },
         });

@@ -11,6 +11,7 @@
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
+    local castmod = require("castmod");
     local band, bor = bit.band, bit.bor;
 
     local T = { passed = 0, failures = {} };
@@ -46,9 +47,10 @@ return function(DebindPrivate)
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
     end
 
-    --- The records the key came out with, or nil where it came out with none.
+    --- The records the key came out with, or nil where it came out with none. The self and focus
+    --- twins are left out; the one case that is about them reads `KeyMap` itself.
     local function Records(key)
-        return DebindPrivate.KeyMap[key];
+        return castmod.without(Constants, DebindPrivate.KeyMap[key]);
     end
 
     local function Values(key)
@@ -162,6 +164,19 @@ return function(DebindPrivate)
             { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 },
             { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
                 conditions = { combat = true } },
+        });
+        check(Values("DELETE") == "116 585", "the order came out " .. Values("DELETE"));
+    end);
+
+    -- **A condition on the resolved target makes the action conditional, target or not.** An
+    -- action with no target and nothing but that condition used to read as unconditional, so it sat
+    -- behind an unconditional one placed earlier, and that one's self twin covered its own: held or
+    -- not, the key never reached it (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+    test("a resolved target condition with no target picked sorts as conditional", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 },
+            { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } },
         });
         check(Values("DELETE") == "116 585", "the order came out " .. Values("DELETE"));
     end);

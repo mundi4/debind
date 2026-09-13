@@ -225,6 +225,14 @@ local FIXED_COLUMNS = {
             return boolToConditionFlags(binding.conditions.skyriding);
         end
     },
+    -- **A binding with no value spans the column**: its type takes no unit, so nothing retargets
+    -- it and it answers whichever modifier is held (`Misc.lua`'s `FillBinding`).
+    {
+        name = "castModifier",
+        make = function(binding)
+            return binding.castModifier or Constants.CASTMOD_ALL;
+        end
+    },
     -- **`specs` has no column here and must not be given one.** Nothing that fails it reaches this
     -- file: `BuildKeyMap` leaves those bindings out of the key map altogether, and the comment
     -- there is where that reasoning lives. What arrives is a set of bindings whose specialization
