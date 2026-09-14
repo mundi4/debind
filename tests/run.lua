@@ -121,7 +121,6 @@ local function loadAddons(withCliqueFake)
     "ClickCastTable.lua",
     "UpdateBindings.lua",
     "Switches.lua",
-    "Options.lua",
     }, nil, loadOpts);
 
     --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon

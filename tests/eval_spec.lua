@@ -766,6 +766,93 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **A key turned off in the settings is a key not held** (§3-12). The self twin is gone and the
+    -- press does not ask about the key, so the heal that needs a friendly target falls to the next
+    -- action at the target; the Focus Cast Key, left on, still goes to the focus.
+    test("a cast key turned off counts as not held", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        local actions = {
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 774, key = "F1", unit = "target" }),
+        };
+        Bind(actions, nil, { selfCast = false });
+        shim.world.units = { target = { id = "enemy", reaction = "harm" },
+            player = { id = "me", reaction = "help" }, focus = { id = "friend", reaction = "help" } };
+
+        interp.state.modifiedClick.SELFCAST = true;
+        local record, spell, unit = Fired("F1");
+        check(record and record.castModifier == Constants.CASTMOD_NONE,
+            "self cast off: the winner carries " .. tostring(record and record.castModifier));
+        check(spell == "Rejuvenation" and unit == "target",
+            "self cast off: fired " .. tostring(spell) .. " at " .. tostring(unit));
+        for _, r in ipairs(interp:recordsFor("F1")) do
+            check(r.castModifier ~= Constants.CASTMOD_SELF, "a self record is still on the key");
+        end
+
+        interp.state.modifiedClick.FOCUSCAST = true;
+        record, spell, unit = Fired("F1");
+        check(spell == "Renew" and unit == "focus",
+            "self cast off, both held: fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+        Bind(actions, nil, { focusCast = false });
+        interp.state.modifiedClick.FOCUSCAST = true;
+        record, spell, unit = Fired("F1");
+        check(spell == "Rejuvenation" and unit == "target",
+            "focus cast off: fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **An action that ignores a key, under each answer of `Constants.CAST_KEY_IGNORE`** (§3-12).
+    -- The first action ignores the key and wants a friendly target; the second does not ignore it.
+    -- With a friendly target and the key held, dropping sends the second at you or your focus, and
+    -- aiming sends the first at the target. With a hostile target the first fails either way.
+    test("an action that ignores a cast key, dropped or aimed", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        local saved = Constants.CAST_KEY_IGNORE;
+        local ok, err = pcall(function()
+            for _, case in ipairs({
+                { field = "ignoreSelfCastKey", key = "SELFCAST", unit = "player" },
+                { field = "ignoreFocusCastKey", key = "FOCUSCAST", unit = "focus" },
+            }) do
+                for _, mode in ipairs({
+                    { Constants.CAST_KEY_IGNORE_DROP, "drop", "Rejuvenation", case.unit },
+                    { Constants.CAST_KEY_IGNORE_AIM, "aim", "Renew", "target" },
+                }) do
+                    Constants.CAST_KEY_IGNORE = mode[1];
+                    local first = action({ value = 585, key = "F1", unit = "target",
+                        conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } });
+                    first[case.field] = true;
+                    Bind({ first, action({ value = 774, key = "F1", unit = "target" }) });
+                    interp.state.modifiedClick[case.key] = true;
+                    local label = case.field .. ", " .. mode[2];
+
+                    shim.world.units = { target = { id = "friend", reaction = "help" },
+                        player = { id = "me", reaction = "help" }, focus = { id = "other", reaction = "help" } };
+                    local _, spell, unit = Fired("F1");
+                    check(spell == mode[3] and unit == mode[4],
+                        label .. ", friendly target: fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+                    shim.world.units.target = { id = "enemy", reaction = "harm" };
+                    _, spell, unit = Fired("F1");
+                    check(spell == "Rejuvenation" and unit == case.unit,
+                        label .. ", hostile target: fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+                    interp:resetState();
+                end
+            end
+        end);
+        Constants.CAST_KEY_IGNORE = saved;
+        shim.world.units = {};
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     -- **A frame click ignores what is held** (§3-10). A modifier on a click arrives only with the
     -- binding made for that exact combination, so it picked the binding and says nothing about the
     -- target. The click goes at the frame's unit whatever `IsModifiedClick` answers.

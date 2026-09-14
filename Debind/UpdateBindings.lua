@@ -1781,6 +1781,9 @@ local _withBlocks = {};
 ---
 --- **No block after the hover twins.** The last one sits under every original's [none held], which
 --- covers the pointed half and the rest alike.
+---
+--- **No block for a key turned off in the settings either.** The press never picks that tier
+--- (`EVAL_SNIPPET`), so the block would be a record nothing reads.
 local function WithBlocks(bindingArray)
     wipe(_withBlocks);
     local count = #bindingArray;
@@ -1802,14 +1805,18 @@ local function WithBlocks(bindingArray)
         n = n + 1;
         _withBlocks[n] = bindingArray[i];
     end
-    n = n + 1;
-    _withBlocks[n] = BLOCKS[Constants.CASTMOD_SELF];
+    if (DebindPrivate.SelfCastEnabled()) then
+        n = n + 1;
+        _withBlocks[n] = BLOCKS[Constants.CASTMOD_SELF];
+    end
     for i = selfEnd + 1, focusEnd do
         n = n + 1;
         _withBlocks[n] = bindingArray[i];
     end
-    n = n + 1;
-    _withBlocks[n] = BLOCKS[Constants.CASTMOD_FOCUS];
+    if (DebindPrivate.FocusCastEnabled()) then
+        n = n + 1;
+        _withBlocks[n] = BLOCKS[Constants.CASTMOD_FOCUS];
+    end
     for i = focusEnd + 1, count do
         n = n + 1;
         _withBlocks[n] = bindingArray[i];
@@ -2200,6 +2207,10 @@ end
 
 function UpdateBindingsMap()
     appendLine("local bindings,t,u");
+    -- **With the twins, not beside them.** A flag written anywhere else could say a key is on while
+    -- the records on the keys were built without its twins.
+    appendLine("SelfCastKeyOn=%s", tostring(DebindPrivate.SelfCastEnabled()));
+    appendLine("FocusCastKeyOn=%s", tostring(DebindPrivate.FocusCastEnabled()));
 
     for _, key in ipairs(sortedKeys(DebindPrivate.KeyMap, _sortedA)) do
         local bindingArray = DebindPrivate.KeyMap[key];

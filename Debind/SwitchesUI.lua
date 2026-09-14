@@ -788,7 +788,7 @@ end
 --- The lockdown has not begun when `PLAYER_REGEN_DISABLED` arrives: the flag answers false and a
 --- protected write still lands (`devdocs/reading-back-what-you-just-set.md`). A row reading the
 --- flag from inside this dispatch drew the toggle enabled at the moment it had to go dead, so the
---- answer is carried down instead. `DebindSettingsNoticeMixin` fell into the same hole.
+--- answer is carried down instead.
 function DebindSwitchesPanelMixin:OnEvent(event)
     if (event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED") then
         self:RefreshRows();

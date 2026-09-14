@@ -116,6 +116,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	SelfCastKeyOn = false
+	FocusCastKeyOn = false
+
+
+
 	HeldButtons = newtable()
 	HeldUnits = newtable()
 
@@ -669,12 +674,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -1285,12 +1293,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -2095,12 +2106,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -2817,12 +2831,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -3486,12 +3503,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -4158,12 +4178,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -4733,12 +4756,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE

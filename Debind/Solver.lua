@@ -225,8 +225,9 @@ local FIXED_COLUMNS = {
             return boolToConditionFlags(binding.conditions.skyriding);
         end
     },
-    -- **A binding with no value spans the column**: its type takes no unit, so nothing retargets
-    -- it and it answers whichever modifier is held (`Misc.lua`'s `FillBinding`).
+    -- **This column is what keeps a self or focus twin from deleting its original.** The twin has
+    -- the original's conditions and stands ahead of it, so without the column its box would hold
+    -- the original's whole (`devdocs/implementing-focus-and-self-cast.md` §3-5).
     {
         name = "castModifier",
         make = function(binding)

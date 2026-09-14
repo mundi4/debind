@@ -1522,7 +1522,7 @@ end
 
 --- **Ticking a box does not take the frame back.** A ticked box is a set we do not register from
 --- next login rather than one we hand back now. The boxes say so themselves (`REQUIRES_RELOAD` in
---- `Options.lua`), and reading the login snapshot rather than the stored table is what makes that
+--- `SettingsTab.lua`), and reading the login snapshot rather than the stored table is what makes that
 --- true in both directions - unticking used to register on the spot under the same tooltip.
 --- **The snapshot may have no shape at all**, which is why the table is asked for rather than
 --- walked through. `StandDown` hands out an empty profile and never takes a snapshot, but it does

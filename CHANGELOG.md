@@ -4,13 +4,15 @@
 
 **A click on a unit frame never uses those keys either**, whether or not the action takes the frame's unit. That is what the game does with its own click casting. A key press with no target picked is unchanged: the Self Cast Key, the Focus Cast Key and Auto Self Cast all work there as they do on an action bar.
 
+**The Self Cast Key and the Focus Cast Key can each be turned off for Debind keys**, in Debind's settings. Holding a key turned off there is the same as not holding it. A single action can turn either key off instead, from its menu: while that key is held the action is left out, and the next action on the key goes to you or to your focus.
+
 **Remove Duplicate Actions no longer offers to delete an action that has a unit condition on it.** An action set to run only while a unit is there read as the same thing as one with no condition at all, so the two came up as a duplicate pair and the one carrying the condition was the one offered for deletion. A key holding a conditional action above a plain fallback is exactly that shape, and it is a common one. Nothing was deleted without the confirmation window, but on that window the two rows looked identical.
 
 **Debind works on unit frames whatever addon draws them, including the ones that run hover casting of their own.** Earlier versions left those frames alone, because taking one could stop that addon's own hover casting working there. Debind now takes the frame without taking anything away: whatever the addon had on it still runs, and Debind's keys run beside it. Where you have both of them on one key over a unit frame, Debind's is what fires.
 
 **Debind now works alongside Clique instead of leaving unit frames to it.** Both run on the same frame: Clique keeps doing what you have set up there, and Debind's keys work there too. Where you have bound the same key in both, Debind's is what fires. If you had been running the two together, this changes what your unit frames do the first time you log in on this version.
 
-**One list says which unit frames to leave alone.** "Leave these unit frames alone" under Unit frame options lists the game's own seven windows and every unit frame addon Debind knows by name, and ticking one keeps Debind off those frames entirely; that addon's own click handling is unaffected. Everything is unticked to begin with, which is Debind working everywhere. A tick takes effect at the next login.
+**One list says which unit frames to leave alone.** Unit Frame Support in Debind's settings lists the game's own seven windows and every unit frame addon Debind knows by name, and unticking one keeps Debind off those frames entirely; that addon's own click handling is unaffected. Everything is ticked to begin with, which is Debind working everywhere. A change takes effect at the next login.
 
 **Set Custom Target on a keyboard key works while hovering any unit frame out of combat**, from the unit the game says your cursor is on. On a mouse button, and in combat on either, it works only where your other Debind keys work, and only over the player, pet, party, raid, boss and arena frames.
 
@@ -18,7 +20,7 @@
 
 **What 3.5.2 added is gone.** It answered with `mouseover` on frames another addon had hooked, because the game tells only the outermost hook when the cursor leaves a frame. Debind is that hook now and hears it directly, so there is nothing left to work around.
 
-**Ticking one of those boxes takes effect at the next login**, and the box says so. Debind no longer pulls a frame back out from under itself mid-session.
+**Changing one of those boxes takes effect at the next login**, and the box says so. Debind no longer pulls a frame back out from under itself mid-session.
 
 **A key can now be limited to certain specializations.** The new Specialization condition takes any of the five numbered specializations, and the action runs only while you are in one of them. The numbers follow the order the game lists your specializations in. They are numbers rather than names because the same action can sit on a tab several classes share, and there each class gives the same number to a different specialization. Number 5 is the starting specialization a character has before choosing one.
 
@@ -26,7 +28,7 @@
 
 **Three actions that pick the spell for you: Dispel, External and Raid Buff.** Each one casts whatever your class and specialization have for that job -- Purify on a Holy priest, Nature's Cure on a Restoration druid, Pain Suppression, Ironbark, Power Word: Fortitude -- and changes with you when you change specialization, so one action on the account tab covers every character. Where a specialization has no such spell the key does nothing, and the tooltip says which spell it is on the character you are looking at. They are under "Class and Specialization" in the picker. A warlock's dispel goes through the imp while it is out and through Singe Magic under Grimoire of Sacrifice.
 
-**Smart Cast, on any action.** Turn it on in the action's menu and, before the action goes out, Debind looks at the unit it is aimed at: a dead friend is resurrected (a battle resurrection in combat, the mass one out of combat when they are in your group, the ordinary one otherwise). Anyone else gets the action itself, so a heal with Smart Cast on is still just a heal on anyone who is alive. Which resurrections apply is set once under "Smart Cast defaults" in the options, or per action; battle resurrection is off unless you turn it on, since it goes out whether or not you have a charge left.
+**Smart Cast, on any action.** Turn it on in the action's menu and, before the action goes out, Debind looks at the unit it is aimed at: a dead friend is resurrected (a battle resurrection in combat, the mass one out of combat when they are in your group, the ordinary one otherwise). Anyone else gets the action itself, so a heal with Smart Cast on is still just a heal on anyone who is alive. Which resurrections apply is set once in Debind's settings, or per action; battle resurrection is off unless you turn it on, since it goes out whether or not you have a charge left.
 
 Nearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues.
 

@@ -80,6 +80,8 @@ return function(DebindPrivate)
             { priority = 3 },
             { keepInBindingContext = false },
             { ignoreHoverUnit = true },
+            { ignoreSelfCastKey = true },
+            { ignoreFocusCastKey = true },
         };
         for i = 1, #fields do
             local name = next(fields[i]);

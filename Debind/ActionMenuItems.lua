@@ -244,6 +244,26 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     return description;
 end
 
+--- **On every action, not only one that takes a target.** Every action has both twins
+--- (`devdocs/implementing-focus-and-self-cast.md` §3-4), so a held key reaches a macro or a mount as
+--- well, and taking one out of that press is the same choice there.
+local function CreateIgnoreCastKeyMenuItems(parentDescription, ctx)
+    for _, box in ipairs({
+        { key = "ignoreSelfCastKey", label = "IGNORE_SELF_CAST_KEY", enabled = DebindPrivate.SelfCastEnabled },
+        { key = "ignoreFocusCastKey", label = "IGNORE_FOCUS_CAST_KEY", enabled = DebindPrivate.FocusCastEnabled },
+    }) do
+        local ignore = parentDescription:CreateCheckbox(LLL[box.label], actionValueEquals, setActionValue,
+            { ctx = ctx, key = box.key, value = USE_CHECKED_VALUE });
+        ignore:SetEnabled(box.enabled);
+        local says = (Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM) and "_AIM_DESC" or "_DESC";
+        SetInstructionTooltip(ignore, LLL[box.label .. says], function()
+            if (not box.enabled()) then
+                return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
+            end
+        end);
+    end
+end
+
 --- 집 편집기 같은 바인딩 컨텍스트가 가져간 키는 기본적으로 우리가 내준다. 편집기가
 --- 자기 버튼과 안내 문구에 그 키를 그려주기 때문에, 우리가 먹으면 화면에 떠 있는
 --- 단축키가 안 먹는 상태가 된다. 그래도 그 키를 쓰겠다는 유저를 위한 통로다.
@@ -452,6 +472,7 @@ ActionMenu.CreateSetSwitchMenuItem            = CreateSetSwitchMenuItem;
 ActionMenu.CreateAssignKeyMenuItem            = CreateAssignKeyMenuItem;
 ActionMenu.CreateUnbindMenuItem               = CreateUnbindMenuItem;
 ActionMenu.CreateTargetUnitMenuItem           = CreateTargetUnitMenuItem;
+ActionMenu.CreateIgnoreCastKeyMenuItems       = CreateIgnoreCastKeyMenuItems;
 ActionMenu.CreateKeepInBindingContextMenuItem = CreateKeepInBindingContextMenuItem;
 ActionMenu.CreateImportanceMenu               = CreateImportanceMenu;
 ActionMenu.CreateApproveImportMenuItem        = CreateApproveImportMenuItem;

@@ -874,8 +874,8 @@
 				holds an action - `UpdateButtons` greys this out there and the reason belongs on
 				the button.
 
-				**It opens no menu of its own any more** - the settings window's AddOns tab holds
-				what that menu held (`Options.lua`). It stays a `DropdownButton` for the artwork,
+				**It opens no menu of its own any more** - the settings tab holds what that menu
+				held (`SettingsTab.lua`). It stays a `DropdownButton` for the artwork,
 				and with no menu generator set `OnMouseDown_Intrinsic` finds no description and
 				returns, so the press is ours to answer on the way back up.
 
@@ -2077,54 +2077,6 @@
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 		</Scripts>
-	</Frame>
-
-	<!--
-		The line at the top of our settings list (`Options.lua`).
-
-		**Ours rather than one of the panel's, because none of them can carry a sentence.**
-		`SettingsListSectionHeaderTemplate` is 45 tall in `GameFontHighlightLarge` and sizes itself
-		to the text - a heading, and a sentence in it shouts and pushes the width. A button row's
-		label is clipped at the panel's centre and does not wrap. `SettingsAddOnDisabledLabelTemplate`
-		is the right shape but its text is baked into its own XML and it has no mixin to change it.
-
-		`x="37"` is where every row's own label starts (`SettingsListElementMixin:Init`), so this
-		line begins on the same edge as the settings under it. The right anchor is what lets it wrap.
-	-->
-	<Frame name="DebindSettingsNoticeTemplate" mixin="DebindSettingsNoticeMixin" virtual="true">
-		<Size y="30"/>
-		<Layers>
-			<Layer level="OVERLAY">
-				<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT" justifyV="TOP">
-					<Anchors>
-						<Anchor point="TOPLEFT" x="37" y="-4"/>
-						<Anchor point="RIGHT" x="-40"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
-	</Frame>
-
-	<!--
-		Names the group of boxes under it, one step in from the section header above them.
-
-		The notice row's shape, for the reason the notice row has it: a font string and nothing
-		else, a height that does not move, and no script the panel would read outside its own
-		secure call (`Options.lua`'s head comment).
-
-	-->
-	<Frame name="DebindSettingsLabelTemplate" mixin="DebindSettingsLabelMixin" virtual="true">
-		<Size y="24"/>
-		<Layers>
-			<Layer level="OVERLAY">
-				<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT" justifyV="MIDDLE">
-					<Anchors>
-						<Anchor point="LEFT" x="37"/>
-						<Anchor point="RIGHT" x="-40"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
 	</Frame>
 
 </Ui>

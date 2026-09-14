@@ -83,8 +83,8 @@ one that answers true (`Events.lua`, `PLAYER_LOGIN`).
 Two things follow.
 
 * **A handler for that event may not ask the flag whether a fight is on.** It gets a truthful "not
-  locked", which is a different question, and that painted the settings notice row white at the
-  moment it had to go red (`Options.lua`, `NoticeWatcher`). The event is the answer. Blizzard reads
+  locked", which is a different question, and that drew the switch toggle enabled at the moment it
+  had to go dead (`SwitchesUI.lua`, `DebindSwitchesPanelMixin:OnEvent`). The event is the answer. Blizzard reads
   the flag inside no regen handler of its own.
 * **Protected work started from that handler still lands.** The window is real, not a race won by
   luck: the restriction is measurably off for the whole of the dispatch.

@@ -88,10 +88,10 @@ Execute DebindBindingDriver
   | DelegateFrameNames[frame] = frame:GetName()
   | 
 CreateFrame DebindFlyout66 SecureHandlerBaseTemplate
-CreateFrame <Frame#25>
+CreateFrame <Frame#24>
+CreateFrame <Texture#25>
 CreateFrame <Texture#26>
 CreateFrame <Texture#27>
-CreateFrame <Texture#28>
 CreateFrame DebindFlyout66Opener SecureHandlerClickTemplate
 SetAttribute DebindFlyout66Opener _onclick =
   | 	local holder = self:GetFrameRef("holder")
@@ -132,22 +132,22 @@ SetFrameRef DebindFlyout66Opener screen "DebindFlyoutScreen"
 CreateFrame DebindFlyout66Button1 SecureActionButtonTemplate
 SetAttribute DebindFlyout66Button1 type = "spell"
 SetAttribute DebindFlyout66Button1 useOnKeyDown = false
+CreateFrame <Texture#30>
 CreateFrame <Texture#31>
 CreateFrame <Texture#32>
 CreateFrame <Texture#33>
 CreateFrame <Texture#34>
-CreateFrame <Texture#35>
 WrapScript DebindFlyout66Button1 OnClick = " return nil, \"close\" "
 WrapScriptPost DebindFlyout66Button1 OnClick = " owner:Hide() "
 SetAttribute DebindFlyout66Button1 spell = "Call Pet 1"
 CreateFrame DebindFlyout66Button2 SecureActionButtonTemplate
 SetAttribute DebindFlyout66Button2 type = "spell"
 SetAttribute DebindFlyout66Button2 useOnKeyDown = false
+CreateFrame <Texture#36>
 CreateFrame <Texture#37>
 CreateFrame <Texture#38>
 CreateFrame <Texture#39>
 CreateFrame <Texture#40>
-CreateFrame <Texture#41>
 WrapScript DebindFlyout66Button2 OnClick = " return nil, \"close\" "
 WrapScriptPost DebindFlyout66Button2 OnClick = " owner:Hide() "
 SetAttribute DebindFlyout66Button2 spell = "Call Pet 2"
@@ -217,10 +217,10 @@ Execute DebindBindingDriver
   | DelegateFrameNames[frame] = frame:GetName()
   | 
 CreateFrame DebindFlyout900 SecureHandlerBaseTemplate
-CreateFrame <Frame#44>
+CreateFrame <Frame#43>
+CreateFrame <Texture#44>
 CreateFrame <Texture#45>
 CreateFrame <Texture#46>
-CreateFrame <Texture#47>
 CreateFrame DebindFlyout900Opener SecureHandlerClickTemplate
 SetAttribute DebindFlyout900Opener _onclick =
   | 	local holder = self:GetFrameRef("holder")
@@ -336,6 +336,8 @@ SetAttribute DebindClickButton *macrotext-deb119 =
   | /script C_MountJournal.SummonByID(7)
 Execute DebindBindingDriver
   | local bindings,t,u
+  | SelfCastKeyOn=true
+  | FocusCastKeyOn=true
   | -- ALT-F1
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
@@ -1789,27 +1791,27 @@ Execute DebindBindingDriver
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
   | ComputedSwitches[2]="$intent"
-CreateFrame <Button#51> SecureGroupHeaderTemplate
-SetAttribute <Button#51> alias = "healer"
-SetAttribute <Button#51> showParty = true
-SetAttribute <Button#51> showRaid = true
-SetAttribute <Button#51> showPlayer = true
-SetAttribute <Button#51> showSolo = true
-SetAttribute <Button#51> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#51> sortMethod = "NAME"
-SetAttribute <Button#51> maxColumns = 1
-SetAttribute <Button#51> unitsPerColumn = 2
-SetAttribute <Button#51> template = ""
-SetAttribute <Button#51> templateType = "Frame"
-SetAttribute <Button#51> roleFilter = "HEALER"
-SetAttribute <Button#51> showSolo = false
+CreateFrame <Button#50> SecureGroupHeaderTemplate
+SetAttribute <Button#50> alias = "healer"
+SetAttribute <Button#50> showParty = true
+SetAttribute <Button#50> showRaid = true
+SetAttribute <Button#50> showPlayer = true
+SetAttribute <Button#50> showSolo = true
+SetAttribute <Button#50> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#50> sortMethod = "NAME"
+SetAttribute <Button#50> maxColumns = 1
+SetAttribute <Button#50> unitsPerColumn = 2
+SetAttribute <Button#50> template = ""
+SetAttribute <Button#50> templateType = "Frame"
+SetAttribute <Button#50> roleFilter = "HEALER"
+SetAttribute <Button#50> showSolo = false
+CreateFrame <Button#51> SecureFrameTemplate
+SetAttribute <Button#50> child1 = <frame <Button#51>>
+SetFrameRef <Button#50> child1 "<Button#51>"
 CreateFrame <Button#52> SecureFrameTemplate
-SetAttribute <Button#51> child1 = <frame <Button#52>>
-SetFrameRef <Button#51> child1 "<Button#52>"
-CreateFrame <Button#53> SecureFrameTemplate
-SetAttribute <Button#51> child2 = <frame <Button#53>>
-SetFrameRef <Button#51> child2 "<Button#53>"
-SetFrameRef <Frame#10> unitwatch_header "<Button#51>"
+SetAttribute <Button#50> child2 = <frame <Button#52>>
+SetFrameRef <Button#50> child2 "<Button#52>"
+SetFrameRef <Frame#10> unitwatch_header "<Button#50>"
 Execute <Frame#10>
   |             local alias, from, to = "healer", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
@@ -1819,8 +1821,8 @@ Execute <Frame#10>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef DebindBindingDriver rolehdr_healer "<Button#51>"
-WrapScript <Button#53> OnAttributeChanged =
+SetFrameRef DebindBindingDriver rolehdr_healer "<Button#50>"
+WrapScript <Button#52> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1865,27 +1867,27 @@ Execute DebindBindingDriver
   | self:RunAttribute("SetUnit", "mainassist", nil)
 Execute DebindBindingDriver
   | self:RunAttribute("SetUnit", "maintank", nil)
-CreateFrame <Button#54> SecureGroupHeaderTemplate
-SetAttribute <Button#54> alias = "tank"
-SetAttribute <Button#54> showParty = true
-SetAttribute <Button#54> showRaid = true
-SetAttribute <Button#54> showPlayer = true
-SetAttribute <Button#54> showSolo = true
-SetAttribute <Button#54> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#54> sortMethod = "NAME"
-SetAttribute <Button#54> maxColumns = 1
-SetAttribute <Button#54> unitsPerColumn = 2
-SetAttribute <Button#54> template = ""
-SetAttribute <Button#54> templateType = "Frame"
-SetAttribute <Button#54> roleFilter = "TANK"
-SetAttribute <Button#54> showSolo = false
+CreateFrame <Button#53> SecureGroupHeaderTemplate
+SetAttribute <Button#53> alias = "tank"
+SetAttribute <Button#53> showParty = true
+SetAttribute <Button#53> showRaid = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#53> showSolo = true
+SetAttribute <Button#53> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#53> sortMethod = "NAME"
+SetAttribute <Button#53> maxColumns = 1
+SetAttribute <Button#53> unitsPerColumn = 2
+SetAttribute <Button#53> template = ""
+SetAttribute <Button#53> templateType = "Frame"
+SetAttribute <Button#53> roleFilter = "TANK"
+SetAttribute <Button#53> showSolo = false
+CreateFrame <Button#54> SecureFrameTemplate
+SetAttribute <Button#53> child1 = <frame <Button#54>>
+SetFrameRef <Button#53> child1 "<Button#54>"
 CreateFrame <Button#55> SecureFrameTemplate
-SetAttribute <Button#54> child1 = <frame <Button#55>>
-SetFrameRef <Button#54> child1 "<Button#55>"
-CreateFrame <Button#56> SecureFrameTemplate
-SetAttribute <Button#54> child2 = <frame <Button#56>>
-SetFrameRef <Button#54> child2 "<Button#56>"
-SetFrameRef <Frame#10> unitwatch_header "<Button#54>"
+SetAttribute <Button#53> child2 = <frame <Button#55>>
+SetFrameRef <Button#53> child2 "<Button#55>"
+SetFrameRef <Frame#10> unitwatch_header "<Button#53>"
 Execute <Frame#10>
   |             local alias, from, to = "tank", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
@@ -1895,8 +1897,8 @@ Execute <Frame#10>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef DebindBindingDriver rolehdr_tank "<Button#54>"
-WrapScript <Button#56> OnAttributeChanged =
+SetFrameRef DebindBindingDriver rolehdr_tank "<Button#53>"
+WrapScript <Button#55> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1966,8 +1968,8 @@ Execute DebindBindingDriver
   |     
 Execute DebindBindingDriver
   | ClickCastOnMouseDown=false
-SetAttribute <Button#54> showPlayer = true
-SetAttribute <Button#51> showPlayer = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#50> showPlayer = true
 SetAttribute SecureStateDriverManager updatetime = 0.2
 Execute DebindBindingDriver
   | PollEveryFrame=false

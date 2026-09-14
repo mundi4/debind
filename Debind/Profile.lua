@@ -36,6 +36,8 @@ local KEYS_TO_SAVE       = {
     arrivalID = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
+    ignoreSelfCastKey = true,
+    ignoreFocusCastKey = true,
     -- **Smart Cast** (`devdocs/adding-spec-resolved-actions.md` §10). `smartCast` is the checkbox
     -- and `smartCastCustom` the mode beside it, so unticking the box leaves the mode and the
     -- branches where they were, the same as every other option that is turned off rather than

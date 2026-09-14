@@ -240,6 +240,18 @@ Constants.CASTMOD_SELF  = 2;
 Constants.CASTMOD_FOCUS = 4;
 Constants.CASTMOD_ALL   = 7;
 
+--- What an action that ignores the Self Cast Key or the Focus Cast Key does while that key is held
+--- (`ignoreSelfCastKey`, `ignoreFocusCastKey`; `devdocs/implementing-focus-and-self-cast.md` §3-12).
+--- The two boxes' tooltips in the action menu follow it.
+---
+---   CAST_KEY_IGNORE_DROP  no twin for that key: the action sits that press out, and the next action
+---                         on the key goes to you or to your focus in its place
+---   CAST_KEY_IGNORE_AIM   the twin stays, aimed where the original aims: the action keeps its turn
+---                         and goes to its own target
+Constants.CAST_KEY_IGNORE_DROP = 1;
+Constants.CAST_KEY_IGNORE_AIM  = 2;
+Constants.CAST_KEY_IGNORE      = Constants.CAST_KEY_IGNORE_DROP;
+
 
 --- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
 --- 왜 조건이 아닌지는 `devdocs/action-and-binding-shapes.md` §2에 있다.

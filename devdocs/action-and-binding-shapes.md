@@ -49,6 +49,8 @@ action
     keepInBindingContext
                         게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다
     ignoreHoverUnit     겨누는 것을 바꾼다 (§2)
+    ignoreSelfCastKey ignoreFocusCastKey
+                        그 조합키를 쥔 누름에서 이 액션을 빼거나 자기 대상을 겨누게 한다 (§2)
     preferHoverUnit     개체창 위에서는 그 개체를 겨눈다. 바인딩을 가른다 (§4)
     smartCast           Smart Cast를 켰느냐. 끄면 `false`이고 아래 값은 그대로 남는다
     smartCastCustom     갈래를 여기서 고르느냐. 없으면 계정 기본값을 따른다
@@ -81,6 +83,10 @@ action
 
 **`ignoreHoverUnit`은 조건이 아니다.** `binding.unit`을 빈 문자열로 두느냐 `"hover"`로
 채우느냐를 가른다. 겨누는 것을 바꾸지 언제 나가는지를 바꾸지 않는다.
+
+**`ignoreSelfCastKey`와 `ignoreFocusCastKey`도 조건이 아니다.** 그 조합키의 쌍둥이를 안 만들거나,
+`player`나 `focus` 대신 원본이 겨누는 것을 겨누게 한다. 어느 쪽인지는 `Constants.CAST_KEY_IGNORE`다
+(`implementing-focus-and-self-cast.md` §3-12).
 
 **`preferHoverUnit`도 조건이 아니다.** hover 조건 없는 액션이 개체창 위에서는 그 개체를 겨누게
 한다. 겨눔이 둘이라 바인딩도 둘이고(§4), 순서에서는 hover 조건 없는 액션 그대로다.

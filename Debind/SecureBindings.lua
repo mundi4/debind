@@ -125,6 +125,11 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 그 전에 클릭이 도착해도 답이 있게 하려는 것이고, 블리자드 개체창의 기본값과 같다.
 	ClickCastOnMouseDown = false
 
+	-- Whether a press asks about the Self Cast Key and the Focus Cast Key. Every rebuild writes both
+	-- (`UpdateBindingsMap`); before the first one there is no key to press.
+	SelfCastKeyOn = false
+	FocusCastKeyOn = false
+
 	-- 실행 엣지가 down일 때 down의 선택을 up이 재사용하기 위한 자리. 버튼 이름 -> 이긴 레코드,
 	-- 그리고 그때 확정한 대상. down이 항상 먼저 오므로 덮어쓰기로 자가 치유된다.
 	HeldButtons = newtable()
@@ -1025,12 +1030,15 @@ local EVAL_SNIPPET = [==[
 	-- `IsModifiedClick` answers here is only what was held on top of it (§2-1). A frame click has
 	-- no binding name to hide them behind, and a modifier held there picked the binding itself
 	-- (§3-10).
+	--
+	-- A key turned off in the settings is not asked about. It has no twins, so its tier holds
+	-- nothing, and holding it has to land where holding nothing does (§3-12).
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (IsModifiedClick("SELFCAST")) then
+	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
 		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (IsModifiedClick("FOCUSCAST")) then
+	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
 		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
 		castModifier = CONSTANTS.CASTMOD_NONE

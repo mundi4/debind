@@ -398,8 +398,7 @@ Each of these is understood and none of them raises anything.
 listed name and a name no row covers alike, the pack box turning away its own pack at each of them,
 the five outside deregistrations leaving the row standing, the combat queue, the holder machinery
 against a proxy of every shape above, the hand over, and the Clique header door including what was
-already in `hccframes` at attach time. `tests/options_spec.lua` carries the one list and its
-polarity; `tests/migration_spec.lua` carries the two orphaned keys being swept out.
+already in `hccframes` at attach time. `tests/migration_spec.lua` carries the two orphaned keys being swept out.
 
 The HealBot door is there too: the pair coming in together off one announcement, the row pinning
 them to `group` over what their unit would read, the pack box shutting that door with the rest, and

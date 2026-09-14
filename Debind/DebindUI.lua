@@ -1725,6 +1725,8 @@ end
 --- Overview's seat. Named because two places outside the tab row have to name it: the first
 --- selection at load, and anything that has to put the reader back somewhere its work is visible.
 local OVERVIEW_PANEL = 1;
+--- The seat the title bar's gear opens.
+local SETTINGS_PANEL = 4;
 
 local STORE_ADDON = "DebindStorage";
 
@@ -1942,12 +1944,9 @@ function DebindOptionsButtonMixin:OnShow()
 	end
 end
 
---- **The window stays where it is.** Two panels the reader can see at once is what was wanted
---- here: ours can be dragged aside, and `SettingsPanel_EscapePressed` sits at `Framework` priority,
---- well above the `AddOnPost` rung that reaches this window at all (`DebindFrameMixin:OnLoad`).
 function DebindOptionsButtonMixin:OpenSettings(_, upInside)
 	if (upInside and self:IsEnabled()) then
-		DebindPrivate.OpenOptionsCategory();
+		DebindFrame:SelectPanel(SETTINGS_PANEL);
 	end
 end
 
@@ -6267,10 +6266,6 @@ end
 function DebindUI.GetSelectedSideTab()
 	return _selectedSideTab;
 end
-
---- **The state driver throttle's slider stood here and is gone.** It was a frame template wedged
---- into the options dropdown, which is the whole reason it had to exist; the settings window has
---- a slider of its own (`Settings.CreateSlider` in `Options.lua`).
 
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.MoveAction = MoveAction;

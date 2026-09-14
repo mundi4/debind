@@ -35,13 +35,6 @@ M.world = {
     equipped = {},
     --- The dialogs `StaticPopup_Show` was asked for, in order, as `{ which, ... }`.
     popups = {},
-    --- What the addon registered into the settings window, keyed by variable name, plus the
-    --- category and the rows in the order they were added (`settingsCategory`, `settingsRows`).
-    settings = {},
-    settingsRows = {},
-    --- The lists in the panel's left column under ours, in the order they were made.
-    --- Every `SetValue` that reached a setting, by variable name and in order, whether or not the
-    --- value moved. What the client fires from there is what wakes a row watching a parent setting.
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -58,7 +51,6 @@ function M.resetWorld()
     end
     M.world.inCombat = false;
     M.world.specIndex = nil;
-    M.world.settingsCategory = nil;
     --- **The one global an addon instance leaves behind.** `ClickCastTable.lua` puts its own table
     --- under this name at file scope, and the next instance would meet it as a foreign holder and
     --- wrap its metatable, one more layer per spec (code review, 2026-09-08).
@@ -926,107 +918,6 @@ function M.install()
     -- a matter of naming one that is not here.
     _G.SLASH_PETATTACK1 = "/petattack";
 
-    --- **The settings window, in the shape `Options.lua` registers into.** Nothing here draws:
-    --- the list, the search box and the Defaults button are the game's and stay out of reach. What
-    --- it is faithful about is the three things a spec can be wrong about.
-    ---
-    --- **A proxy setting reads and writes through the two functions it was handed**, so a spec
-    --- moving a row is running the addon's own getter and setter and not a copy of them.
-    ---
-    --- **`SetValue` does not write when the value has not moved**, which is
-    --- `SettingMixin:ApplyValue`. That is why the Defaults button calls nothing on a row already
-    --- at its default, and a spec that did not know it would read the wrong lesson off one.
-    ---
-    --- **An initializer keeps its predicates**, so "is this row greyed" (`IsModifiable`, the
-    --- modify predicates `SettingsControlMixin:IsEnabled` reads) and "is this row shown"
-    --- (`ShouldShow`) both have an answer without a frame.
-    local function newInitializer(kind, data)
-        local initializer = { kind = kind, data = data or {} };
-        function initializer:AddModifyPredicate(func)
-            self.modifyPredicates = self.modifyPredicates or {};
-            self.modifyPredicates[#self.modifyPredicates + 1] = func;
-        end
-        function initializer:AddShownPredicate(func)
-            self.shownPredicates = self.shownPredicates or {};
-            self.shownPredicates[#self.shownPredicates + 1] = func;
-        end
-        function initializer:AddSearchTags() end
-        function initializer:GetData() return self.data; end
-        --- `15` is `indentSize` in `Blizzard_SettingControls.lua`.
-        function initializer:Indent() self.data.indent = 15; end
-        function initializer:GetIndent()
-            return self.data.indent and 15 or 0;
-        end
-        function initializer:SetParentInitializer(parent, modifyPredicate)
-            assert(parent ~= nil and parent ~= self);
-            self.parentInitializer = parent;
-            if (modifyPredicate) then
-                self:AddModifyPredicate(modifyPredicate);
-            end
-        end
-        function initializer:GetSetting() return self.data.setting; end
-        function initializer:GetName() return self.data.name; end
-        function initializer:IsModifiable()
-            for i = 1, #(self.modifyPredicates or {}) do
-                if (not self.modifyPredicates[i]()) then return false; end
-            end
-            return true;
-        end
-        function initializer:ShouldShow()
-            for i = 1, #(self.shownPredicates or {}) do
-                if (not self.shownPredicates[i]()) then return false; end
-            end
-            return true;
-        end
-        M.world.settingsRows[#M.world.settingsRows + 1] = initializer;
-        return initializer;
-    end
-
-    _G.CreateSettingsListSectionHeaderInitializer = function(name, tooltip, newTagID)
-        return newInitializer("header", { name = name, tooltip = tooltip, newTagID = newTagID });
-    end
-    --- A row drawn from a template of the caller's. The template name is kept so a spec can find
-    --- the row by it; the frame it would draw is `newSettingsHeaderFrame` below.
-    local function CreateElementInitializer(frameTemplate, data)
-        assert(type(frameTemplate) == "string");
-        local initializer = newInitializer("element", data);
-        initializer.template = frameTemplate;
-        return initializer;
-    end
-
-    --- The frame the notice template would draw, reduced to what its mixin touches: a `Text` font
-    --- string with its words and its colour, and the events the frame registered for itself.
-    function M.newSettingsNoticeFrame()
-        local frame = { events = {}, Text = {} };
-        function frame:RegisterEvent(event) self.events[event] = true; end
-        function frame.Text:SetText(text) self.text = text; end
-        function frame.Text:SetTextColor(r, g, b) self.color = { r, g, b }; end
-        return frame;
-    end
-
-    --- The two the notice picks between. `GetRGB` is all it asks of one.
-    local function newColor(r, g, b)
-        return { GetRGB = function() return r, g, b; end };
-    end
-    _G.RED_FONT_COLOR = newColor(1, 0.125, 0.125);
-    _G.HIGHLIGHT_FONT_COLOR = newColor(1, 1, 1);
-    _G.CreateSettingsButtonInitializer = function(name, buttonText, buttonClick, tooltip, addSearchTags)
-        assert(addSearchTags ~= nil);
-        return newInitializer("button",
-            { name = name, buttonText = buttonText, buttonClick = buttonClick, tooltip = tooltip });
-    end
-    --- **No `setting` in its data**, the same as the client's: the two settings sit under their own
-    --- names, so a row found by `data.setting` never finds this one.
-    _G.CreateSettingsCheckboxDropdownInitializer = function(cbSetting, cbLabel, cbTooltip,
-            dropdownSetting, dropdownOptions, dropDownLabel, dropDownTooltip)
-        return newInitializer("checkboxdropdown", {
-            name = cbLabel, tooltip = cbTooltip, cbSetting = cbSetting, cbLabel = cbLabel,
-            cbTooltip = cbTooltip, dropdownSetting = dropdownSetting,
-            dropdownOptions = dropdownOptions, dropDownLabel = dropDownLabel,
-            dropDownTooltip = dropDownTooltip,
-        });
-    end
-
     --- 메뉴 설명자를 만드는 것 중 **커널이 스스로 부르는 하나**(`MenuKit.QueueTitle`). 다른
     --- 행은 모두 부모 설명자가 만들어 주므로 스펙이 자기 대역을 넘긴다.
     local function newTitleDescription(text)
@@ -1040,136 +931,15 @@ function M.install()
         };
     end
 
+    --- The colour a `MenuKit` row starts from. `GetRGB` is all it asks of one.
+    _G.HIGHLIGHT_FONT_COLOR = { GetRGB = function() return 1, 1, 1; end };
+
     _G.MenuUtil = {
         GetElementText = function(description) return description.text; end,
         SetElementText = function(description, text) description.text = text; end,
         CreateTitle = newTitleDescription,
     };
 
-    _G.MinimalSliderWithSteppersMixin = { Label = { Left = 1, Right = 2, Top = 3, Min = 4, Max = 5 } };
-
-    _G.Settings = {
-        VarType = { Boolean = "boolean", Number = "number", String = "string" },
-        Default = { True = true, False = false },
-    };
-
-    function Settings.RegisterVerticalLayoutCategory(name)
-        local category = { name = name, id = name };
-        function category:GetID() return self.id; end
-        M.world.settingsCategory = category;
-        return category;
-    end
-
-    function Settings.RegisterAddOnCategory(category)
-        category.registered = true;
-    end
-
-    function Settings.RegisterInitializer(owner, initializer)
-        initializer.owner = owner;
-        return initializer;
-    end
-
-    Settings.CreateElementInitializer = CreateElementInitializer;
-
-    function Settings.RegisterProxySetting(_, variable, variableType, name, defaultValue, getValue, setValue)
-        assert(type(variable) == "string" and type(name) == "string");
-        assert(type(variableType) == "string");
-        assert(defaultValue == nil or type(defaultValue) == variableType);
-        local setting = {
-            variable = variable, name = name, variableType = variableType,
-            defaultValue = defaultValue,
-        };
-        function setting:GetVariable() return self.variable; end
-        function setting:GetVariableType() return self.variableType; end
-        function setting:GetName() return self.name; end
-        function setting:GetDefaultValue() return self.defaultValue; end
-        function setting:GetValue() return getValue(); end
-        function setting:SetValue(value)
-            if (getValue() == value) then
-                return;
-            end
-            assert(type(value) == self.variableType,
-                self.variable .. " was handed a " .. type(value));
-            setValue(value);
-        end
-        function setting:SetValueToDefault() self:SetValue(self.defaultValue); end
-        M.world.settings[variable] = setting;
-        return setting;
-    end
-
-    function Settings.GetSetting(variable)
-        return M.world.settings[variable];
-    end
-
-    function Settings.CreateControlTextContainer()
-        local container = { data = {} };
-        function container:Add(value, label, tooltip)
-            self.data[#self.data + 1] = { value = value, label = label, text = label, tooltip = tooltip };
-        end
-        function container:AddCheckbox(value, label, tooltip)
-            self.data[#self.data + 1] = { value = value, label = label, text = label, tooltip = tooltip };
-        end
-        function container:GetData() return self.data; end
-        return container;
-    end
-
-    --- **Not a row.** The client's is laid out only when a category is handed it, and a parent that
-    --- is never handed one is what it is used for here.
-    function Settings.CreateDropdownInitializer(setting, options, tooltip)
-        assert(options ~= nil);
-        local initializer = newInitializer("dropdown",
-            { setting = setting, name = setting:GetName(), options = options, tooltip = tooltip });
-        M.world.settingsRows[#M.world.settingsRows] = nil;
-        return initializer;
-    end
-
-    function Settings.CreateSliderOptions(minValue, maxValue, rate)
-        local options = { minValue = minValue, maxValue = maxValue, rate = rate, formatters = {} };
-        function options:SetLabelFormatter(labelType, value)
-            self.formatters[labelType] = value;
-        end
-        return options;
-    end
-
-    --- **The owner is kept on these too**, and not only on `RegisterInitializer`'s rows: a control
-    --- goes into whichever category it was handed, so which list a box is on is a thing a spec has
-    --- to be able to read off it.
-    function Settings.CreateCheckbox(owner, setting, tooltip)
-        assert(setting.variableType == "boolean");
-        local initializer = newInitializer("checkbox",
-            { setting = setting, name = setting:GetName(), tooltip = tooltip });
-        initializer.owner = owner;
-        return initializer;
-    end
-
-    function Settings.CreateDropdown(owner, setting, options, tooltip)
-        assert(options ~= nil);
-        local initializer = newInitializer("dropdown",
-            { setting = setting, name = setting:GetName(), options = options, tooltip = tooltip });
-        initializer.owner = owner;
-        return initializer;
-    end
-
-    function Settings.CreateSlider(owner, setting, options, tooltip)
-        assert(options ~= nil);
-        local initializer = newInitializer("slider",
-            { setting = setting, name = setting:GetName(), options = options, tooltip = tooltip });
-        initializer.owner = owner;
-        return initializer;
-    end
-
-    function Settings.OpenToCategory(categoryID)
-        M.world.settingsOpenedTo = categoryID;
-    end
-
-    -- The client's word for the setting the click edge follows when the reader has left it alone
-    -- (`Options.lua` puts it in that row's tooltip).
-    _G.ACTION_BUTTON_USE_KEY_DOWN = "Use Key Down";
-    -- The client's own words for "this takes effect at the next login", on the unit frame boxes.
-    _G.REQUIRES_RELOAD = "Requires UI reload";
-    -- The client's own words for the Reload button and for the leftovers header.
-    _G.RELOADUI = "Reload UI";
-    _G.MISCELLANEOUS = "Miscellaneous";
     _G.ReloadUI = function() M.world.reloadedUI = true; end;
 end
 

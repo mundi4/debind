@@ -87,13 +87,13 @@ Execute <Frame#4>
   | DelegateFrames[frame:GetName()] = frame
   | DelegateFrameNames[frame] = frame:GetName()
   | 
-CreateFrame <Frame#24> SecureHandlerBaseTemplate
-CreateFrame <Frame#25>
+CreateFrame <Frame#23> SecureHandlerBaseTemplate
+CreateFrame <Frame#24>
+CreateFrame <Texture#25>
 CreateFrame <Texture#26>
 CreateFrame <Texture#27>
-CreateFrame <Texture#28>
-CreateFrame <Button#29> SecureHandlerClickTemplate
-SetAttribute <Button#29> _onclick =
+CreateFrame <Button#28> SecureHandlerClickTemplate
+SetAttribute <Button#28> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -128,32 +128,32 @@ SetAttribute <Button#29> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#29> screen "<Frame#7>"
-CreateFrame <Button#30> SecureActionButtonTemplate
-SetAttribute <Button#30> type = "spell"
-SetAttribute <Button#30> useOnKeyDown = false
+SetFrameRef <Button#28> screen "<Frame#7>"
+CreateFrame <Button#29> SecureActionButtonTemplate
+SetAttribute <Button#29> type = "spell"
+SetAttribute <Button#29> useOnKeyDown = false
+CreateFrame <Texture#30>
 CreateFrame <Texture#31>
 CreateFrame <Texture#32>
 CreateFrame <Texture#33>
 CreateFrame <Texture#34>
-CreateFrame <Texture#35>
-WrapScript <Button#30> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#30> OnClick = " owner:Hide() "
-SetAttribute <Button#30> spell = "Call Pet 1"
-CreateFrame <Button#36> SecureActionButtonTemplate
-SetAttribute <Button#36> type = "spell"
-SetAttribute <Button#36> useOnKeyDown = false
+WrapScript <Button#29> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#29> OnClick = " owner:Hide() "
+SetAttribute <Button#29> spell = "Call Pet 1"
+CreateFrame <Button#35> SecureActionButtonTemplate
+SetAttribute <Button#35> type = "spell"
+SetAttribute <Button#35> useOnKeyDown = false
+CreateFrame <Texture#36>
 CreateFrame <Texture#37>
 CreateFrame <Texture#38>
 CreateFrame <Texture#39>
 CreateFrame <Texture#40>
-CreateFrame <Texture#41>
-WrapScript <Button#36> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#36> OnClick = " owner:Hide() "
-SetAttribute <Button#36> spell = "Call Pet 2"
-SetFrameRef <Button#29> holder "<Frame#24>"
+WrapScript <Button#35> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#35> OnClick = " owner:Hide() "
+SetAttribute <Button#35> spell = "Call Pet 2"
+SetFrameRef <Button#28> holder "<Frame#23>"
 SetAttribute DebindClickButton *type-deb102 = "click"
-SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#29>>
+SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#28>>
 SetAttribute DebindClickButton *type-deb103 = "macro"
 SetAttribute DebindClickButton *macro-deb103 = nil
 SetAttribute DebindClickButton *macrotext-deb103 = "/petattack"
@@ -216,13 +216,13 @@ Execute <Frame#4>
   | DelegateFrames[frame:GetName()] = frame
   | DelegateFrameNames[frame] = frame:GetName()
   | 
-CreateFrame <Frame#43> SecureHandlerBaseTemplate
-CreateFrame <Frame#44>
+CreateFrame <Frame#42> SecureHandlerBaseTemplate
+CreateFrame <Frame#43>
+CreateFrame <Texture#44>
 CreateFrame <Texture#45>
 CreateFrame <Texture#46>
-CreateFrame <Texture#47>
-CreateFrame <Button#48> SecureHandlerClickTemplate
-SetAttribute <Button#48> _onclick =
+CreateFrame <Button#47> SecureHandlerClickTemplate
+SetAttribute <Button#47> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -257,8 +257,8 @@ SetAttribute <Button#48> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#48> screen "<Frame#7>"
-SetAttribute <Button#48> frameref-holder = nil
+SetFrameRef <Button#47> screen "<Frame#7>"
+SetAttribute <Button#47> frameref-holder = nil
 CreateFrame DebindClickButton_healer SecureActionButtonTemplate
 SetAttribute DebindClickButton_healer alias = "healer"
 SetAttribute DebindClickButton_healer unit = "raid41"
@@ -336,6 +336,8 @@ SetAttribute DebindClickButton *macrotext-deb119 =
   | /script C_MountJournal.SummonByID(7)
 Execute <Frame#4>
   | local bindings,t,u
+  | SelfCastKeyOn=true
+  | FocusCastKeyOn=true
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1752,27 +1754,27 @@ Execute <Frame#4>
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
   | ComputedSwitches[2]="$intent"
-CreateFrame <Button#51> SecureGroupHeaderTemplate
-SetAttribute <Button#51> alias = "healer"
-SetAttribute <Button#51> showParty = true
-SetAttribute <Button#51> showRaid = true
-SetAttribute <Button#51> showPlayer = true
-SetAttribute <Button#51> showSolo = true
-SetAttribute <Button#51> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#51> sortMethod = "NAME"
-SetAttribute <Button#51> maxColumns = 1
-SetAttribute <Button#51> unitsPerColumn = 2
-SetAttribute <Button#51> template = ""
-SetAttribute <Button#51> templateType = "Frame"
-SetAttribute <Button#51> roleFilter = "HEALER"
-SetAttribute <Button#51> showSolo = false
+CreateFrame <Button#50> SecureGroupHeaderTemplate
+SetAttribute <Button#50> alias = "healer"
+SetAttribute <Button#50> showParty = true
+SetAttribute <Button#50> showRaid = true
+SetAttribute <Button#50> showPlayer = true
+SetAttribute <Button#50> showSolo = true
+SetAttribute <Button#50> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#50> sortMethod = "NAME"
+SetAttribute <Button#50> maxColumns = 1
+SetAttribute <Button#50> unitsPerColumn = 2
+SetAttribute <Button#50> template = ""
+SetAttribute <Button#50> templateType = "Frame"
+SetAttribute <Button#50> roleFilter = "HEALER"
+SetAttribute <Button#50> showSolo = false
+CreateFrame <Button#51> SecureFrameTemplate
+SetAttribute <Button#50> child1 = <frame <Button#51>>
+SetFrameRef <Button#50> child1 "<Button#51>"
 CreateFrame <Button#52> SecureFrameTemplate
-SetAttribute <Button#51> child1 = <frame <Button#52>>
-SetFrameRef <Button#51> child1 "<Button#52>"
-CreateFrame <Button#53> SecureFrameTemplate
-SetAttribute <Button#51> child2 = <frame <Button#53>>
-SetFrameRef <Button#51> child2 "<Button#53>"
-SetFrameRef <Frame#10> unitwatch_header "<Button#51>"
+SetAttribute <Button#50> child2 = <frame <Button#52>>
+SetFrameRef <Button#50> child2 "<Button#52>"
+SetFrameRef <Frame#10> unitwatch_header "<Button#50>"
 Execute <Frame#10>
   |             local alias, from, to = "healer", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
@@ -1782,8 +1784,8 @@ Execute <Frame#10>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef <Frame#4> rolehdr_healer "<Button#51>"
-WrapScript <Button#53> OnAttributeChanged =
+SetFrameRef <Frame#4> rolehdr_healer "<Button#50>"
+WrapScript <Button#52> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1828,27 +1830,27 @@ Execute <Frame#4>
   | self:RunAttribute("SetUnit", "mainassist", nil)
 Execute <Frame#4>
   | self:RunAttribute("SetUnit", "maintank", nil)
-CreateFrame <Button#54> SecureGroupHeaderTemplate
-SetAttribute <Button#54> alias = "tank"
-SetAttribute <Button#54> showParty = true
-SetAttribute <Button#54> showRaid = true
-SetAttribute <Button#54> showPlayer = true
-SetAttribute <Button#54> showSolo = true
-SetAttribute <Button#54> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#54> sortMethod = "NAME"
-SetAttribute <Button#54> maxColumns = 1
-SetAttribute <Button#54> unitsPerColumn = 2
-SetAttribute <Button#54> template = ""
-SetAttribute <Button#54> templateType = "Frame"
-SetAttribute <Button#54> roleFilter = "TANK"
-SetAttribute <Button#54> showSolo = false
+CreateFrame <Button#53> SecureGroupHeaderTemplate
+SetAttribute <Button#53> alias = "tank"
+SetAttribute <Button#53> showParty = true
+SetAttribute <Button#53> showRaid = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#53> showSolo = true
+SetAttribute <Button#53> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#53> sortMethod = "NAME"
+SetAttribute <Button#53> maxColumns = 1
+SetAttribute <Button#53> unitsPerColumn = 2
+SetAttribute <Button#53> template = ""
+SetAttribute <Button#53> templateType = "Frame"
+SetAttribute <Button#53> roleFilter = "TANK"
+SetAttribute <Button#53> showSolo = false
+CreateFrame <Button#54> SecureFrameTemplate
+SetAttribute <Button#53> child1 = <frame <Button#54>>
+SetFrameRef <Button#53> child1 "<Button#54>"
 CreateFrame <Button#55> SecureFrameTemplate
-SetAttribute <Button#54> child1 = <frame <Button#55>>
-SetFrameRef <Button#54> child1 "<Button#55>"
-CreateFrame <Button#56> SecureFrameTemplate
-SetAttribute <Button#54> child2 = <frame <Button#56>>
-SetFrameRef <Button#54> child2 "<Button#56>"
-SetFrameRef <Frame#10> unitwatch_header "<Button#54>"
+SetAttribute <Button#53> child2 = <frame <Button#55>>
+SetFrameRef <Button#53> child2 "<Button#55>"
+SetFrameRef <Frame#10> unitwatch_header "<Button#53>"
 Execute <Frame#10>
   |             local alias, from, to = "tank", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
@@ -1858,8 +1860,8 @@ Execute <Frame#10>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef <Frame#4> rolehdr_tank "<Button#54>"
-WrapScript <Button#56> OnAttributeChanged =
+SetFrameRef <Frame#4> rolehdr_tank "<Button#53>"
+WrapScript <Button#55> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1929,8 +1931,8 @@ Execute <Frame#4>
   |     
 Execute <Frame#4>
   | ClickCastOnMouseDown=false
-SetAttribute <Button#54> showPlayer = true
-SetAttribute <Button#51> showPlayer = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#50> showPlayer = true
 SetAttribute SecureStateDriverManager updatetime = 0.2
 Execute <Frame#4>
   | PollEveryFrame=false

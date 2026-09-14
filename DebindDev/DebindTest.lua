@@ -2042,6 +2042,83 @@ RegisterTest("Resolved Target: the row under Units writes the condition, and Tar
     end,
 })
 
+--- **The box is the only writer of the field, and the menu files are not on the headless load list.**
+--- What the press stores, and the twin it turns into, is only measured here; which record wins a
+--- press with the key held is `tests/eval_spec.lua`'s.
+RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
+    description = "액션 메뉴의 두 체크박스가 필드를 쓰고, 그 조합키의 쌍둥이가 CAST_KEY_IGNORE대로 빠지거나 액션의 대상을 겨눈다",
+    run = function()
+        local NAME = "Ignore cast key box"
+        local KEY = "CTRL-ALT-F9"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "nothing can be rebaked in combat")
+        end
+        AddTeardown(function() Menu.GetManager():CloseMenus() end)
+
+        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "target" })
+        ApplyBindings()
+
+        local seen = {}
+        for _, case in ipairs({
+            { label = "IGNORE_SELF_CAST_KEY", field = "ignoreSelfCastKey", castModifier = Constants.CASTMOD_SELF },
+            { label = "IGNORE_FOCUS_CAST_KEY", field = "ignoreFocusCastKey", castModifier = Constants.CASTMOD_FOCUS },
+        }) do
+            Menu.GetManager():CloseMenus()
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupEditDropdownMenu, { action = action })
+            local menu = Menu.GetManager():GetOpenMenu()
+            if not menu then
+                return Fail(NAME, "the menu did not come up")
+            end
+            local box
+            menu:EnumerateElementDescriptions(function(_, description)
+                if MenuUtil.GetElementText(description) == LLL[case.label] then
+                    box = description
+                end
+            end)
+            if not box then
+                return Fail(NAME, format("no [%s] box in the action's menu", LLL[case.label]))
+            end
+
+            box:Pick(MenuInputContext.MouseButton, "LeftButton")
+            if action[case.field] ~= true then
+                return Fail(NAME, format("pressing [%s] stored %s", LLL[case.label], tostring(action[case.field])))
+            end
+
+            local function TwinOnKey()
+                for _, binding in ipairs(GetKeyBindings(KEY) or {}) do
+                    if binding.castModifier == case.castModifier and binding.type ~= Constants.BLOCK then
+                        return binding
+                    end
+                end
+            end
+
+            local saved = Constants.CAST_KEY_IGNORE
+            AddTeardown(function() Constants.CAST_KEY_IGNORE = saved end)
+
+            Constants.CAST_KEY_IGNORE = Constants.CAST_KEY_IGNORE_DROP
+            ApplyBindings()
+            if TwinOnKey() then
+                return Fail(NAME, format("%s, drop: the twin is still on %s", case.field, KEY))
+            end
+
+            Constants.CAST_KEY_IGNORE = Constants.CAST_KEY_IGNORE_AIM
+            ApplyBindings()
+            local twin = TwinOnKey()
+            if not twin or twin.unit ~= "target" then
+                return Fail(NAME, format("%s, aim: the twin aims at %s", case.field,
+                    tostring(twin and twin.unit)))
+            end
+
+            Constants.CAST_KEY_IGNORE = saved
+            ApplyBindings()
+            seen[#seen + 1] = case.field
+        end
+
+        return Pass(NAME, table.concat(seen, ", ") .. " stored, dropped, then aimed at target")
+    end,
+})
+
 --- **The three radios are the only thing that writes a unit condition's mode**, and the writer is
 --- a local inside the menu file. No spec can reach it: `DropDownMenus.lua` is not on the headless
 --- load list, so what gets stored when a reader presses one of these is only ever measured here.
@@ -7742,7 +7819,7 @@ RegisterTest("Click bakes the deferred macro body", {
 })
 
 --- Turns one of the two account switches on for the length of a test and puts it back after.
---- **Absent is the stored shape of off** (`Options.lua`), so the teardown writes nil rather than
+--- **Absent is the stored shape of off** (`SettingsTab.lua`), so the teardown writes nil rather than
 --- false or the run leaves a cell behind that nothing on screen ever wrote.
 local function UsePointedUnitCast(name)
     local was = DebindPrivate.Options[name]
@@ -8612,128 +8689,17 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 -- The settings window
 -----------------------------------------------------------
 
---- **What is left once `tests/options_spec.lua` has run.** That spec asks every question about
---- values -- which settings exist, what a setter writes, which rows are greyed, whether the combat
---- notice's predicate answers -- against a stand-in with no panel in it. What only the client can
---- answer is whether the panel accepts what we registered and draws it, and whether the two doors
---- between the two windows work.
----
---- **Out of reach here as well:** the combat notice coming and going on screen. `InCombatLockdown`
---- is the client's and cannot be forced, and a run that starts a fight to look at one line is not
---- a trade worth making. The frame's own answer to the two regen events is the headless spec's.
+--- The tab the gear selects, kept in step by hand with `SETTINGS_PANEL` in `DebindUI.lua`.
+local SETTINGS_PANEL_ID = 4
 
---- The rows the panel is drawing right now, by name. Returns `nil, reason`.
-local function DrawnRowNames()
-    local dataProvider = SettingsPanel:GetSettingsList().ScrollBox:GetDataProvider()
-    if not dataProvider then
-        return nil, "the list has no data provider"
-    end
-
-    local names = {}
-    for _, initializer in dataProvider:Enumerate() do
-        local name = initializer.GetName and initializer:GetName()
-        if name then
-            names[name] = true
-        end
-        --- **A button's own words are its `buttonText`.** `GetName` answers the label to its left
-        --- and ours are all empty, which is what anchors the button at the row's own edge
-        --- (`SettingsButtonControlMixin:Init`), so asking by name alone finds no button at all.
-        local data = initializer.GetData and initializer:GetData()
-        if data and type(data.buttonText) == "string" then
-            names[data.buttonText] = true
-        end
-    end
-    return names, dataProvider:GetSize()
-end
-
---- The panel, opened to our category, and the rows it drew. Returns `nil, reason`.
-local function OpenOurSettings()
-    if InCombatLockdown() then
-        return nil, "the settings panel is a protected panel and this run is in combat"
-    end
-    if not DebindPrivate.OpenOptionsCategory then
-        return nil, "the addon registered no settings category"
-    end
-
-    DebindPrivate.OpenOptionsCategory()
-
-    if not SettingsPanel:IsShown() then
-        return nil, "the panel did not open"
-    end
-
-    -- **Asked of the panel, not of `Settings.GetCategory`.** That function's parameter is called
-    -- `name` and it is not one: the lookup under it compares `category:GetID()`, which is a number
-    -- out of `CreateCounter` (`Blizzard_CategoryList.lua`, `Blizzard_Category.lua`). Handing it our
-    -- addon's name matched nothing and every test here reported "no category named Debind",
-    -- whatever the panel was actually showing.
-    local category = SettingsPanel:GetCurrentCategory()
-    if not category then
-        return nil, "the panel opened on no category at all"
-    end
-    if category:GetName() ~= LLL["ADDON_NAME"] then
-        return nil, format("the panel opened on %q", tostring(category:GetName()))
-    end
-
-    local names, rows = DrawnRowNames()
-    if not names then
-        return nil, rows
-    end
-
-    return { category = category, names = names, rows = rows }
-end
-
-RegisterTest("Settings: our own templates draw", {
-    description = "설정창 애드온 탭에서 우리 카테고리가 열리고, 우리 템플릿으로 그리는 줄이 다 선다",
-    run = function()
-        local NAME = "settings rows"
-
-        local wasShown = SettingsPanel:IsShown()
-        AddTeardown(function()
-            if not wasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
-                HideUIPanel(SettingsPanel)
-            end
-        end)
-
-        local opened, why = OpenOurSettings()
-        if not opened then
-            return Fail(NAME, why)
-        end
-
-        --- **The three rows drawn from a template of ours, and nothing else.** A template the
-        --- panel cannot make leaves its row out **with nothing raised**: the combat notice simply
-        --- is not there, and the boxes under a missing label read as belonging to whatever header
-        --- is above. Every other row here is drawn from the client's own templates, and that the
-        --- initializer was registered is what the headless spec already sees.
-        local wanted = {
-            LLL["SETTINGS_APPLIED_AFTER_COMBAT"],
-            LLL["FRAME_BLACKLIST_BLIZZARD"],
-            LLL["FRAME_BLACKLIST_ADDONS"],
-        }
-        for i = 1, #wanted do
-            if not opened.names[wanted[i]] then
-                return Fail(NAME, format("the list has no row called %q", wanted[i]))
-            end
-        end
-
-        return Pass(NAME, format("%d rows", opened.rows))
-    end,
-})
-
-RegisterTest("Settings: the gear opens the panel and leaves our window standing", {
-    description = "제목줄 톱니바퀴가 설정창을 열고, 우리 창은 그대로 있다",
+RegisterTest("Settings: the gear opens the settings tab", {
+    description = "제목줄 톱니바퀴가 우리 창의 설정 탭을 연다",
     run = function()
         local NAME = "the gear"
 
-        if InCombatLockdown() then
-            return Fail(NAME, "this run is in combat and neither window opens there")
-        end
-
         local frameWasShown = DebindFrame:IsShown()
-        local panelWasShown = SettingsPanel:IsShown()
         AddTeardown(function()
-            if not panelWasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
-                HideUIPanel(SettingsPanel)
-            end
+            DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
             if not frameWasShown and DebindFrame:IsShown() then
                 DebindFrame:CloseWindow()
             end
@@ -8742,9 +8708,10 @@ RegisterTest("Settings: the gear opens the panel and leaves our window standing"
         if not DebindFrame:IsShown() then
             DebindFrame:Show()
         end
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
 
-        -- **Its own script, the way a hand presses it.** Calling `OpenOptionsCategory` here would
-        -- prove the function works and say nothing about the button being wired to it.
+        -- **Its own script, the way a hand presses it.** Calling `SelectPanel` here would prove the
+        -- function works and say nothing about the button being wired to it.
         local button = DebindFrame.OptionsButton
         local script = button:GetScript("OnMouseUp")
         if not script then
@@ -8752,80 +8719,18 @@ RegisterTest("Settings: the gear opens the panel and leaves our window standing"
         end
         script(button, "LeftButton", true)
 
-        if not SettingsPanel:IsShown() then
-            return Fail(NAME, "pressing the gear opened nothing")
+        local settings = DebindFrame:ResolvePanel(SETTINGS_PANEL_ID)
+        if settings ~= DebindFrame.SettingsPanel then
+            return Fail(NAME, format("tab %d is not the settings panel", SETTINGS_PANEL_ID))
         end
-        -- By name off the panel's own answer, for the reason `OpenOurSettings` gives.
-        local opened = SettingsPanel:GetCurrentCategory()
-        if not opened or opened:GetName() ~= LLL["ADDON_NAME"] then
-            return Fail(NAME, format("the gear opened %q",
-                tostring(opened and opened:GetName())))
+        if not settings:IsShown() then
+            return Fail(NAME, "pressing the gear did not show the settings tab")
         end
-        if not DebindFrame:IsShown() then
-            return Fail(NAME, "the gear closed our window, which it must not do")
+        if DebindFrame.OverviewPanel:IsShown() then
+            return Fail(NAME, "the overview is still showing beside the settings tab")
         end
 
-        return Pass(NAME, "the panel opened on our category and our window stayed up")
-    end,
-})
-
---- **Showing our category must leave the list's scroll state secure.** The panel builds the list
---- in `Display` and reads each row's `ShouldShow` bare before it hands the data provider over; a
---- predicate we had stored on the combat notice made that read taint the pass, and every number
---- the scroll box wrote from then on carried it -- the next wheel scroll in combat was
---- `Frame:SetHeight()` blocked (2026-09-08). `issecurevariable` is the client's own answer to
---- "did that happen", and it is the one thing about this bug that can be asked out of combat.
----
---- The three slots are the ones `Display` is bound to write: the view's data provider, the range
---- it decided to show, and the scroll box's pan extent.
-RegisterTest("Settings: showing our category leaves the list's scroll state secure", {
-    description = "우리 카테고리를 열어도 설정창 목록의 스크롤 상태가 오염되지 않는다",
-    run = function()
-        local NAME = "scroll state"
-
-        local panelWasShown = SettingsPanel:IsShown()
-        AddTeardown(function()
-            if not panelWasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
-                HideUIPanel(SettingsPanel)
-            end
-        end)
-
-        local opened, why = OpenOurSettings()
-        if not opened then
-            return Fail(NAME, why)
-        end
-
-        local scrollBox = SettingsPanel:GetSettingsList().ScrollBox
-        local view = scrollBox:GetView()
-        local tainted = {}
-        local function ask(tbl, key, label)
-            local secure, source = issecurevariable(tbl, key)
-            if not secure then
-                tainted[#tainted + 1] = format("%s (by %s)", label, tostring(source))
-            end
-        end
-        ask(view, "dataProvider", "view.dataProvider")
-        ask(view, "dataIndexBegin", "view.dataIndexBegin")
-        ask(scrollBox, "panExtentPercentage", "ScrollBox.panExtentPercentage")
-
-        --- What the blocked call was about, read off the frame it named. Reported rather than
-        --- asserted: the shipped XML declares no protection anywhere on this chain and the
-        --- answer is the client's to give (the design document's §8).
-        local target = scrollBox:GetScrollTarget()
-        local okProtected, isProtected, explicitly = pcall(target.IsProtected, target)
-        local okRestricted, isRestricted = pcall(target.IsAnchoringRestricted, target)
-        local about = format("ScrollTarget IsProtected=%s (explicit=%s) IsAnchoringRestricted=%s",
-            okProtected and tostring(isProtected) or "error",
-            okProtected and tostring(explicitly) or "error",
-            okRestricted and tostring(isRestricted) or "error")
-
-        if #tainted > 0 then
-            return Fail(NAME, "tainted after showing our category: "
-                .. table.concat(tainted, ", ") .. "; " .. about)
-        end
-
-        return Pass(NAME, format("%d rows shown and the scroll state is secure; %s",
-            opened.rows, about))
+        return Pass(NAME, "the settings tab is up")
     end,
 })
 

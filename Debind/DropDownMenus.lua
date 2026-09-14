@@ -14,6 +14,7 @@ local CreateSetSwitchMenuItem                 = ActionMenu.CreateSetSwitchMenuIt
 local CreateAssignKeyMenuItem                 = ActionMenu.CreateAssignKeyMenuItem;
 local CreateUnbindMenuItem                    = ActionMenu.CreateUnbindMenuItem;
 local CreateTargetUnitMenuItem                = ActionMenu.CreateTargetUnitMenuItem;
+local CreateIgnoreCastKeyMenuItems            = ActionMenu.CreateIgnoreCastKeyMenuItems;
 local CreateKeepInBindingContextMenuItem      = ActionMenu.CreateKeepInBindingContextMenuItem;
 local CreateImportanceMenu                    = ActionMenu.CreateImportanceMenu;
 local CreateApproveImportMenuItem             = ActionMenu.CreateApproveImportMenuItem;
@@ -44,15 +45,12 @@ local SetErrorTooltip                         = ActionMenu.SetErrorTooltip;
 --------------------------------------------------------------------------------
 -- The options menu that used to hang off the title bar's gear
 --------------------------------------------------------------------------------
---- **It is gone, and the game's own settings window is where it went**
---- (`Debind/Options.lua`, `devdocs/legacy/moving-global-options-to-the-settings-panel.md`).
---- `SetupOptionsDropdownMenu` stood here with the same items in the same order.
+--- **It is gone, and the window's settings tab is where it went** (`Debind/SettingsTab.lua`).
+--- `SetupOptionsDropdownMenu` stood here with the same items.
 ---
---- What closed it is that everything in it is an **account** setting, so it was never about the
---- window it hung on -- and two of the items were things a menu cannot do: the boxes that only
---- take effect at the next login had nowhere but a tooltip to say so, and the throttle was a
---- slider template wedged into a dropdown. The settings window has a place for both, and brings
---- search and a Defaults button that this menu never had.
+--- Two of the items were things a menu cannot do: the boxes that only take effect at the next
+--- login had nowhere but a tooltip to say so, and the throttle was a slider template wedged into a
+--- dropdown.
 
 --------------------------------------------------------------------------------
 -- The six that are still here
@@ -167,6 +165,8 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     --
     rootDescription:CreateDivider();
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
+
+    CreateIgnoreCastKeyMenuItems(rootDescription, ctx);
 
     CreateSmartCastMenuItem(rootDescription, ctx);
 

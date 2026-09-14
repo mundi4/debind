@@ -126,6 +126,8 @@ local ACTION_FIELDS      = {
     priority = "number",
     keepInBindingContext = "boolean",
     ignoreHoverUnit = "boolean",
+    ignoreSelfCastKey = "boolean",
+    ignoreFocusCastKey = "boolean",
     -- Smart Cast: the box, the mode and its branches (`Profile.lua`'s `KEYS_TO_SAVE`).
     smartCast = "boolean",
     smartCastCustom = "boolean",

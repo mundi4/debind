@@ -41,9 +41,11 @@ local function AddRow(template)
     return row;
 end
 
+--- `text` may be a function, for a tooltip that reads something the game can change while the tab
+--- is open.
 local function TooltipFunc(title, text)
     return function()
-        Settings.InitTooltip(title, text);
+        Settings.InitTooltip(title, type(text) == "function" and text() or text);
     end
 end
 
@@ -162,8 +164,42 @@ local function Options()
     return DebindPrivate.Options;
 end
 
+--- The key the game has for `command` right now, named the way its own dropdown names it
+--- (`Settings.CreateModifiedClickOptions`). Setting Self Cast to None or Auto writes `"NONE"` here.
+local MODIFIED_CLICK_NAMES = { ALT = ALT_KEY, CTRL = CTRL_KEY, SHIFT = SHIFT_KEY };
+
+local function CastKeyTooltip(desc, current, command)
+    return function()
+        local name = MODIFIED_CLICK_NAMES[GetModifiedClick(command)] or NONE_KEY;
+        return desc .. "|n|n" .. format(L[current], HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(name))
+            .. "|n" .. L["CAST_KEY_CHANGE_IN_GAME_OPTIONS"];
+    end
+end
+
 local function Build()
     Header(GENERAL);
+    Checkbox(AUTO_SELF_CAST_KEY_TEXT,
+        CastKeyTooltip(L["SELF_CAST_KEY_DESC"], "CURRENT_SELF_CAST_KEY", "SELFCAST"),
+        DebindPrivate.SelfCastEnabled,
+        function(value)
+            if (value) then
+                Options().selfCast = nil;
+            else
+                Options().selfCast = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
+    Checkbox(FOCUS_CAST_KEY_TEXT,
+        CastKeyTooltip(L["FOCUS_CAST_KEY_DESC"], "CURRENT_FOCUS_CAST_KEY", "FOCUSCAST"),
+        DebindPrivate.FocusCastEnabled,
+        function(value)
+            if (value) then
+                Options().focusCast = nil;
+            else
+                Options().focusCast = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
     local hoverCastChoices = {
         { value = "off", label = OFF },
         { value = "hover", label = L["POINTED_UNIT_CAST_FRAMES"], tooltip = L["POINTED_UNIT_CAST_FRAMES_DESC"] },
@@ -267,6 +303,16 @@ local function Build()
     smartCast.Control.Dropdown:RegisterCallback(DropdownButtonMixin.Event.OnMenuClose, RefreshSmartCast, smartCast);
 
     refreshers[#refreshers + 1] = RefreshSmartCast;
+
+    Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
+        function(value)
+            if (value) then
+                Options().switchMessages = nil;
+            else
+                Options().switchMessages = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
 
     local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
     local throttle = AddRow("DebindSettingsSliderRowTemplate");
@@ -419,9 +465,12 @@ end);
 
 local function ResetToDefaults()
     local options = Options();
+    options.selfCast = nil;
+    options.focusCast = nil;
     options.hoverCast = nil;
     options.mouseoverCast = nil;
     options.smartCast = nil;
+    options.switchMessages = nil;
     options.excludePlayer = nil;
     options.stateDriverUpdateThrottle = nil;
     options.unitframeUseMouseDown = nil;

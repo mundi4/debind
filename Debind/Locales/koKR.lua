@@ -399,15 +399,11 @@ L["SWITCHES_EMPTY"] = "아직 만든 스위치가 없습니다.\n아래의 |cnHI
 -- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
 L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선합니다."
--- 개체창 하위 항목의 이름과 그 안 목록의 머리말들, 체크박스 툴팁 셋. 근거는 enUS 쪽 주석에.
+-- The unit frame section's header and the group names under it. The reasons are on the enUS side.
 L["UNIT_FRAME_SUPPORT"] = "개체창 지원"
-L["FRAME_BLACKLIST"] = "블랙리스트"
 L["FRAME_BLACKLIST_BLIZZARD"] = "블리자드 개체창"
 L["FRAME_BLACKLIST_ADDONS"] = "애드온 개체창"
-L["LEAVE_UNIT_FRAMES_ALONE_DESC"] = "켜면 Debind가 이 개체창에 손대지 않습니다. 그 개체창 자체의 클릭 처리는 그대로입니다."
-L["LEAVE_PACK_FRAMES_ALONE_DESC"] = "켜면 Debind가 이 애드온의 개체창에 손대지 않습니다. 그 애드온 자체의 클릭 처리는 그대로입니다."
 L["LEAVE_OTHER_ADDON_FRAMES"] = "그 밖의 모든 애드온"
-L["LEAVE_OTHER_ADDON_FRAMES_DESC"] = "켜면 Debind가 위에 없는 모든 애드온의 개체창에 손대지 않습니다."
 L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에게 행동을 사용합니다 -- 마우스 올림 조건이 걸려 있어도 마찬가지입니다."
 L["TARGET_UNIT"] = "대상"
 L["TYPE_COMMAND"] = "단축키 명령"

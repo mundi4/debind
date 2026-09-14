@@ -1095,9 +1095,9 @@ do
     -- branches from this table and the list is what tells the reader which branch wins.
     local SMART_CAST_BRANCHES = { "battleRez", "rez" };
     DebindPrivate.SMART_CAST_BRANCHES = SMART_CAST_BRANCHES;
-    --- Shared out because the settings panel needs the built-in answer on its own, which
+    --- Shared out because the settings tab needs the built-in answer on its own, which
     --- `SmartCastDefault` cannot give: that one reads what is stored first, and a setter has to
-    --- know whether the value it was handed is the one that clears the cell (`Options.lua`).
+    --- know whether the value it was handed is the one that clears the cell (`SettingsTab.lua`).
     DebindPrivate.SMART_CAST_DEFAULTS = SMART_CAST_DEFAULTS;
 
     --- The account-wide master switch. Off ignores every action's option, whichever mode it is in,
@@ -1174,6 +1174,19 @@ do
         return (options and options.mouseoverCast) and true or false;
     end
 
+    --- Whether Debind answers the Self Cast Key and the Focus Cast Key. **Absent means on**, which is
+    --- how every key behaved before the two boxes existed. Off is no twin and no question at the
+    --- press, never the game's own handling (`devdocs/implementing-focus-and-self-cast.md` §3-12).
+    function DebindPrivate.SelfCastEnabled()
+        local options = DebindPrivate.Options;
+        return not (options and options.selfCast == false);
+    end
+
+    function DebindPrivate.FocusCastEnabled()
+        local options = DebindPrivate.Options;
+        return not (options and options.focusCast == false);
+    end
+
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
     local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeCache = setmetatable({}, { __mode = "kv" });
@@ -1225,7 +1238,7 @@ do
     --- at the frame's unit is still made: over a frame, that is Hover Cast itself.
     ---
     --- **Mouseover wins where both cells are set.** The settings row is one choice of three and writes
-    --- only one of them (`Options.lua`); over a unit frame the two name one unit, and `mouseover`
+    --- only one of them (`SettingsTab.lua`); over a unit frame the two name one unit, and `mouseover`
     --- answers away from frames as well, so a second twin could only repeat the first (2026-09-12,
     --- owner).
     local function TwinUnitFor(action, original)
@@ -1320,14 +1333,40 @@ do
         -- original stands on [none held], so a held modifier has nothing else to land on. `none`
         -- keeps asking for its unit whatever is held, as it does on an action bar, where the client
         -- turns `checkfocuscast` off for it.
-        local asks = original.unit == "none";
-        fill(_ActionToFocusCache, asks and "none" or "focus", nil, nil, Constants.CASTMOD_FOCUS);
-        if (probe) then
-            fill(_ActionToProbeFocusCache, asks and "none" or "focus", nil, probe, Constants.CASTMOD_FOCUS);
+        --
+        -- An action that ignores a key loses that twin or keeps it aimed where the original aims,
+        -- whichever `Constants.CAST_KEY_IGNORE` says.
+        local aimWhenIgnored = Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM;
+        local focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(), DebindPrivate.SelfCastEnabled();
+        local focusAim, selfAim = "focus", "player";
+        if (original.unit == "none") then
+            focusAim, selfAim = "none", "none";
         end
-        fill(_ActionToSelfCache, asks and "none" or "player", nil, nil, Constants.CASTMOD_SELF);
-        if (probe) then
-            fill(_ActionToProbeSelfCache, asks and "none" or "player", nil, probe, Constants.CASTMOD_SELF);
+        if (action.ignoreFocusCastKey) then
+            if (aimWhenIgnored) then
+                focusAim = original.unit;
+            else
+                focusTwin = false;
+            end
+        end
+        if (action.ignoreSelfCastKey) then
+            if (aimWhenIgnored) then
+                selfAim = original.unit;
+            else
+                selfTwin = false;
+            end
+        end
+        if (focusTwin) then
+            fill(_ActionToFocusCache, focusAim, nil, nil, Constants.CASTMOD_FOCUS);
+            if (probe) then
+                fill(_ActionToProbeFocusCache, focusAim, nil, probe, Constants.CASTMOD_FOCUS);
+            end
+        end
+        if (selfTwin) then
+            fill(_ActionToSelfCache, selfAim, nil, nil, Constants.CASTMOD_SELF);
+            if (probe) then
+                fill(_ActionToProbeSelfCache, selfAim, nil, probe, Constants.CASTMOD_SELF);
+            end
         end
 
         for i = n + 1, #list do
