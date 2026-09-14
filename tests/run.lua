@@ -183,7 +183,6 @@ local specs = {
     { name = "hovertwin", path = root .. "/hovertwin_spec.lua" },
     { name = "specspells", path = root .. "/specspells_spec.lua" },
     { name = "knownspells", path = root .. "/knownspells_spec.lua" },
-    { name = "smartcast", path = root .. "/smartcast_spec.lua" },
     { name = "grade", path = root .. "/grade_spec.lua" },
     { name = "overview", path = root .. "/overview_spec.lua" },
     { name = "normalize", path = root .. "/normalize_spec.lua" },

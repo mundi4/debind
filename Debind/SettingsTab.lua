@@ -221,89 +221,6 @@ local function Build()
         end);
     end, hoverCastChoices);
 
-    local function SetSmartCast(key, value, default)
-        local stored = Options().smartCast;
-        if (value == default) then
-            if (stored) then
-                stored[key] = nil;
-            end
-        else
-            if (not stored) then
-                stored = {};
-                Options().smartCast = stored;
-            end
-            stored[key] = value;
-        end
-        DebindPrivate.QueueUpdateBindings();
-    end
-
-    local BRANCHES = DebindPrivate.SMART_CAST_BRANCHES;
-    local DEFAULTS = DebindPrivate.SMART_CAST_DEFAULTS;
-    local branchLabels = {
-        rez = L["SMART_CAST_REZ"],
-        battleRez = L["SMART_CAST_BATTLE_REZ"],
-    };
-    local branchTooltips = {
-        rez = L["SMART_CAST_REZ_DESC"],
-        battleRez = L["SMART_CAST_BATTLE_REZ_DESC"],
-    };
-    local smartCastChoices = {};
-    for _, branch in ipairs(BRANCHES) do
-        smartCastChoices[#smartCastChoices + 1] = { label = branchLabels[branch], tooltip = branchTooltips[branch] };
-    end
-    smartCastChoices[#smartCastChoices + 1] = {
-        label = L["SMART_CAST_REZ_WITH_BATTLE_REZ"], tooltip = L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"],
-    };
-
-    local smartCast;
-    local function RefreshSmartCast()
-        smartCast.Control:SetEnabled(DebindPrivate.SmartCastEnabled());
-    end
-
-    smartCast = AddRow("DebindSettingsCheckboxDropdownRowTemplate");
-    Label(smartCast, L["SMART_CAST"]);
-    WireCheckbox(smartCast, L["SMART_CAST"], L["SMART_CAST_DESC"] .. "|n|n" .. L["SMART_CAST_DEFAULTS_DESC"]
-        .. "|n|n" .. L["SMART_CAST_ENABLED_DESC"], DebindPrivate.SmartCastEnabled,
-        function(value)
-            SetSmartCast("enabled", value, true);
-            RefreshSmartCast();
-        end);
-    WireDropdown(smartCast.Control, function(_, rootDescription)
-        for _, branch in ipairs(BRANCHES) do
-            rootDescription:CreateCheckbox(branchLabels[branch], function()
-                return DebindPrivate.SmartCastDefault(branch) and true or false;
-            end, function()
-                SetSmartCast(branch, not DebindPrivate.SmartCastDefault(branch), DEFAULTS[branch]);
-            end);
-        end
-        rootDescription:CreateDivider();
-        local battleRez = rootDescription:CreateCheckbox(L["SMART_CAST_REZ_WITH_BATTLE_REZ"], function()
-            return DebindPrivate.SmartCastDefault("rezWithBattleRez") and true or false;
-        end, function()
-            SetSmartCast("rezWithBattleRez", not DebindPrivate.SmartCastDefault("rezWithBattleRez"),
-                DEFAULTS.rezWithBattleRez);
-        end);
-        battleRez:SetEnabled(function()
-            return DebindPrivate.SmartCastDefault("rez") and true or false;
-        end);
-    end, OptionsTooltip(L["SMART_CAST"], L["SMART_CAST_DEFAULTS_DESC"], smartCastChoices));
-    smartCast.Control.Dropdown:SetSelectionText(function()
-        local count = 0;
-        for _, branch in ipairs(BRANCHES) do
-            if (DebindPrivate.SmartCastDefault(branch)) then
-                count = count + 1;
-            end
-        end
-        if (count == #BRANCHES) then
-            return ALL;
-        elseif (count == 0) then
-            return NONE;
-        end
-    end);
-    smartCast.Control.Dropdown:RegisterCallback(DropdownButtonMixin.Event.OnMenuClose, RefreshSmartCast, smartCast);
-
-    refreshers[#refreshers + 1] = RefreshSmartCast;
-
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
         function(value)
             if (value) then
@@ -469,7 +386,6 @@ local function ResetToDefaults()
     options.focusCast = nil;
     options.hoverCast = nil;
     options.mouseoverCast = nil;
-    options.smartCast = nil;
     options.switchMessages = nil;
     options.excludePlayer = nil;
     options.stateDriverUpdateThrottle = nil;

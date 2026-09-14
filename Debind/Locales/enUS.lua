@@ -1289,42 +1289,6 @@ L["TYPE_EXTERNAL"] = "External"
 L["TYPE_EXTERNAL_DESC"] = "Casts your specialization's damage reduction or absorb for another player, such as Pain Suppression, Ironbark or Blessing of Sacrifice."
 L["TYPE_RAIDBUFF"] = "Raid Buff"
 L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect."
-L["SMART_CAST"] = "Smart Cast"
--- **Both menus say this, on purpose.** The account-wide list is not where most readers meet Smart
--- Cast: they find the option on an action without ever opening the options button, so the
--- explanation has to stand there too. The defaults menu appends `SMART_CAST_DEFAULTS_DESC` for the
--- half that is only true there. One key for the shared half is what keeps the two from drifting
--- into two descriptions of one feature.
---
--- The last sentence has to read true in both positions, so it says "an action turns it on" rather
--- than naming where: in the action's menu that is the box this tooltip sits on, and in the defaults
--- menu it is somewhere else entirely.
-L["SMART_CAST_DESC"] = "Smart Cast looks at the unit the action is aimed at, and a dead friend is resurrected instead. Anyone else gets the action itself. It is off until an action turns it on."
--- **"the account setting", not "the defaults".** The client spends the word "default" on factory
--- values it can reset to (`SETTINGS_DEFAULTS`, `CONFIRM_RESET_SETTINGS`, "None (Default)") and
--- never on a value the reader set that something else inherits. This one is the reader's own, and
--- it holds built-in values of its own inside it, so "defaults" would name two things on one
--- screen. "account wide" is the client's phrase for the scope (`RPE_TURNSTRAFE_AFFECT_ACCOUNT`).
-L["SMART_CAST_GLOBAL"] = "Use the account setting"
-L["SMART_CAST_CUSTOM"] = "Choose here"
-L["SMART_CAST_REZ"] = "Resurrect"
-L["SMART_CAST_REZ_DESC"] = "Out of combat, a dead friend gets your resurrection. Where your specialization has a mass resurrection and the dead friend is in your group, that one goes out instead."
--- **"Fallback" is what keeps it from reading as a branch of its own** (2026-09-13, owner). The box sits
--- below a divider rather than under Resurrect (a dropdown has no indentation), and it only reaches
--- for the spell where the resurrection branch has nothing else to cast.
-L["SMART_CAST_REZ_WITH_BATTLE_REZ"] = "Battle Resurrection Fallback"
-L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"] = "Where your class has no resurrection other than the battle one, a dead friend out of combat gets that instead of nothing. A class with a resurrection of its own is unaffected."
-L["SMART_CAST_BATTLE_REZ"] = "Battle Resurrection"
-L["SMART_CAST_BATTLE_REZ_DESC"] = "In combat, a dead friend gets your battle resurrection. It goes out whether or not a charge is left; the game refuses the cast when it is not."
--- **The one thing it has to say that clearing the branches would not.** Those reach only
--- an action that follows the account setting; an action that chose its own is untouched by them and
--- is exactly what this box is for. Without that clause the two gestures look interchangeable and
--- the reader picks the one that leaves half their keys casting.
-L["SMART_CAST_ENABLED_DESC"] = "Unticked, no key uses Smart Cast, including every action that chose its own branches."
--- **Appended to `SMART_CAST_DESC`, never shown alone** (`SettingsTab.lua`). Nothing in the labels
--- says these choices are a fallback rather than a setting every action obeys, so this paragraph is
--- the only place that does.
-L["SMART_CAST_DEFAULTS_DESC"] = "These choices hold the account setting. An action that follows it does this; an action can choose its own instead."
 -- The addon's own name, since the client has none for it: the game has no notion of a unit frame an
 -- addon happens to know about. A header that spelled the feature out instead of naming it was the
 -- worse of the two (2026-09-12, owner), so the row below repeats the name rather than dropping it.
@@ -1360,11 +1324,6 @@ L["POINTED_UNIT_CAST_FRAMES_DESC"] = "The unit of the unit frame under your curs
 -- (`HELP_TARGETING_BODY`). A second name for one behaviour would leave the reader with two.
 L["POINTED_UNIT_CAST_MOUSEOVER"] = "Mouseover"
 L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] = "A unit frame, a nameplate, or the unit itself in the world. This covers the unit frames as well."
--- **It says where to go and not which button to press.** The switch has moved twice: off the title
--- bar's menu, into the game's settings window, and back into Debind's own settings.
-L["SMART_CAST_DISABLED_ACCOUNT_WIDE"] = "Smart Cast is turned off for every character, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
-L["LINE_TOOLTIP_SMART_CAST_NONE"] = "Nothing. This character has none of the chosen spells"
-L["LINE_TOOLTIP_SMART_CAST_OFF"] = "Nothing. Smart Cast is turned off for every character"
 L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
 L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
 L["TYPE_UNUSED"] = "Use WoW's Own Binding"

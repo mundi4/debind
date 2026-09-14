@@ -38,17 +38,6 @@ local KEYS_TO_SAVE       = {
     ignoreHoverUnit = true,
     ignoreSelfCastKey = true,
     ignoreFocusCastKey = true,
-    -- **Smart Cast** (`devdocs/adding-spec-resolved-actions.md` §10). `smartCast` is the checkbox
-    -- and `smartCastCustom` the mode beside it, so unticking the box leaves the mode and the
-    -- branches where they were, the same as every other option that is turned off rather than
-    -- cleared. Without `smartCastCustom` the branches follow the account-wide defaults.
-    smartCast = true,
-    smartCastCustom = true,
-    smartCastRez = true,
-    smartCastBattleRez = true,
-    -- Not a branch: it lets the resurrection branch reach for the battle resurrection where
-    -- the class has no other one (§10-7 of that document).
-    smartCastRezWithBattleRez = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.

@@ -278,7 +278,7 @@ local ActionMenus = MenuKit.NewRegistry({
     accessor = ActionValues,
 
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
-    newFeatures = { "SMART_CAST", "ROLE" },
+    newFeatures = { "ROLE" },
 
     -- **묶음 키가 곧 이슈 갈래인 것은 아니다.** 이 메뉴가 쓰는 키 중 절반은 그 이름의
     -- 검사가 없다(`combat`, `known`, `stealth`, `extrabar`, 커스텀 상태, 중요도).

@@ -1619,61 +1619,7 @@ local _record            = {
     fieldCount = 0,
     units = {},
     switches = {},
-    smart = nil,
 };
-
-local _specSpells        = {};
-
---- Stamps a button for every Smart Cast branch this specialization can fill, and answers the
---- table of names the record carries -- or nil where no branch resolved to a spell, so the option
---- is simply not there on this character.
----
---- What the checkboxes become (`devdocs/adding-spec-resolved-actions.md` §10-3):
----
----   battleRez    the combat resurrection, chosen on a dead friend in combat
----   rez          the resurrection outside combat; for a class with none of its own (death
----                knight, warlock) it is the battle resurrection instead, but only where
----                `rezWithBattleRez` asked for it, since that charge is the group's (§10-7 of the
----                design)
----   massRez      the mass resurrection, chosen ahead of `rez` where the dead friend is in the
----                reader's group
----
---- **The table is the binding's own and is refilled**, the same as every other per-binding table
---- a rebuild reuses.
-local function StampSmartCastButtons(branches, binding)
-    local spells = DebindPrivate.SpecSpells.Resolve(_specSpells);
-    local out = binding._smartButtons;
-    if (not out) then
-        out = {};
-        binding._smartButtons = out;
-    else
-        wipe(out);
-    end
-
-    local any = false;
-    local function stamp(name, spellID)
-        if (spellID) then
-            local _, button = SetBindingAttributes(Constants.SPELL, spellID, nil);
-            if (button) then
-                out[name] = button;
-                any = true;
-            end
-        end
-    end
-
-    if (branches.battleRez) then
-        stamp("battleRez", spells.battlerez);
-    end
-    if (branches.rez) then
-        stamp("rez", spells.rez);
-        stamp("massRez", spells.massrez);
-        if (not out.rez and branches.rezWithBattleRez) then
-            stamp("rez", spells.battlerez);
-        end
-    end
-
-    return any and out or nil;
-end
 
 local function field(record, name, value)
     local count = record.fieldCount + 1;
@@ -1737,13 +1683,6 @@ local function PrepareKeyBindings(key, bindingArray)
                 override = C_Spell.GetOverrideSpell and C_Spell.GetOverrideSpell(base, 0, true, 0),
                 button = binding.clickbutton,
             });
-        end
-
-        -- The Smart Cast branches are buttons of their own on the click frame, stamped the way any
-        -- spell is, and the record carries their names for the press to choose between.
-        binding.smartButtons = nil;
-        if (binding.smart and binding.clickbutton) then
-            binding.smartButtons = StampSmartCastButtons(binding.smart, binding);
         end
 
         if (binding.type ~= Constants.BLOCK
@@ -1997,11 +1936,6 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
         field(out, "spellbook", binding.spellbook);
     end
 
-    -- Smart Cast's branch buttons, on the key record and the click-cast record alike. A unit-frame
-    -- click hands **this very record** to the key-side wrapper as the winner, so the click-cast
-    -- record is the one the branch is read off there.
-    out.smart = binding.smartButtons;
-
     -- **A switch is used by acting on it too, not only by being a condition.** An on/off/toggle
     -- action names its switch in `value`, so the condition loop below never sees it, and
     -- registration is what puts the switch's stored value back into `States` at every rebuild.
@@ -2148,18 +2082,6 @@ local function EmitRecord(record)
         appendLine([[t.switches[%q]=%s]], state, record.switches[state] and "true" or "false");
     end
 
-    if (record.smart) then
-        appendLine("t.smart=newtable()");
-        for _, name in ipairs(sortedKeys(record.smart, _sortedB)) do
-            local value = record.smart[name];
-            if (luatype(value) == "string") then
-                appendLine("t.smart.%s=%q", name, value);
-            else
-                appendLine("t.smart.%s=%d", name, value);
-            end
-        end
-    end
-
     -- **유닛 프레임은 매크로를 거치지 않는다.**
     --
     -- 옛 경로는 `type="macro"` + `macrotext="/click <프레임> <버튼>"`이었다. 그러면 **바깥이
@@ -2299,8 +2221,7 @@ function UpdateBindingsMap()
 
     -- **Emitted after the key loop, because that loop is what stamps them**, and emitted whole
     -- rather than per key: a button outlives the rebuild that stamped it (`BindingAttrsCache`), so
-    -- the pairing belongs to the click frame and not to any one key's records. Per record it would
-    -- also miss the Smart Cast branches, which are buttons of their own.
+    -- the pairing belongs to the click frame and not to any one key's records.
     for _, buttonname in ipairs(sortedKeys(_selfCastWrappers, _sortedA)) do
         appendLine("SelfCastWrappers[%q]=%q", buttonname, _selfCastWrappers[buttonname]);
     end

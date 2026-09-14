@@ -49,23 +49,6 @@ local EXTERNAL_BY_SPEC = {
     [MONK_MISTWEAVER] = 116849,
 };
 
-local REZ_BY_CLASS = {
-    PRIEST = 2006, PALADIN = 7328, SHAMAN = 2008, DRUID = 50769, MONK = 115178, EVOKER = 361227,
-};
-
-local MASS_REZ_BY_SPEC = {
-    [PRIEST_DISCIPLINE] = 212036, [PRIEST_HOLY] = 212036,
-    [PALADIN_HOLY] = 212056,
-    [SHAMAN_RESTORATION] = 212048,
-    [DRUID_RESTORATION] = 212040,
-    [MONK_MISTWEAVER] = 212051,
-    [EVOKER_PRESERVATION] = 361178,
-};
-
-local BATTLE_REZ_BY_CLASS = {
-    PALADIN = 391054, DRUID = 20484, DEATHKNIGHT = 61999, WARLOCK = 20707,
-};
-
 local RAID_BUFF_BY_CLASS = {
     PRIEST = 21562, DRUID = 1126, MAGE = 1459, WARRIOR = 6673, SHAMAN = 462854, EVOKER = 364342,
 };
@@ -86,8 +69,6 @@ end
 ---                       asks the spellbook about and casts when it answers
 ---   external            the external
 ---   raidbuff            the raid buff
----   rez, massrez        single-target and mass resurrection
----   battlerez           the combat resurrection
 function SpecSpells.Resolve(out)
     out = out or {};
     local class = Constants.PLAYER_CLASS;
@@ -102,9 +83,6 @@ function SpecSpells.Resolve(out)
     end
     out.external = spec and EXTERNAL_BY_SPEC[spec] or nil;
     out.raidbuff = RAID_BUFF_BY_CLASS[class];
-    out.rez = REZ_BY_CLASS[class];
-    out.massrez = spec and MASS_REZ_BY_SPEC[spec] or nil;
-    out.battlerez = BATTLE_REZ_BY_CLASS[class];
     return out;
 end
 

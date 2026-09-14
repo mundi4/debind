@@ -379,37 +379,6 @@ do
 			end
 		end
 
-		-- Smart Cast, as the branches that actually stand on this character: the defaults are
-		-- resolved here rather than named, since what the reader wants to know is what the key
-		-- does, and a branch this specialization has no spell for is left out for the same reason.
-		-- Listed in the order the snippet tries them (`SMART_CAST_SNIPPET`), so the line reads as
-		-- the sequence the press walks.
-		-- **The account-wide switch leaves the line standing and empties it.** `SmartCastBranches`
-		-- answers nil while the switch is off, so the reader who set the option here would otherwise
-		-- see no trace of it and nothing telling them where it went.
-		local branches = DebindPrivate.SmartCastBranches(action);
-		if (not branches and action.smartCast and Constants.TYPES_WITH_SMART_CAST[action.type]
-				and not DebindPrivate.SmartCastEnabled()) then
-			addLabelLine(tooltip, LLL["SMART_CAST"]);
-			addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_SMART_CAST_OFF"]));
-		elseif (branches) then
-			local spells = DebindPrivate.SpecSpells.Resolve();
-			local names = {};
-			if (branches.battleRez and spells.battlerez) then
-				names[#names + 1] = LLL["SMART_CAST_BATTLE_REZ"];
-			end
-			if (branches.rez and (spells.rez or spells.massrez
-					or (branches.rezWithBattleRez and spells.battlerez))) then
-				names[#names + 1] = LLL["SMART_CAST_REZ"];
-			end
-			addLabelLine(tooltip, LLL["SMART_CAST"]);
-			if (#names > 0) then
-				addValueLine(tooltip, table.concat(names, ", "));
-			else
-				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_SMART_CAST_NONE"]));
-			end
-		end
-
 		-- **What this character casts, first.** The three spec-resolved types are the only actions
 		-- whose value is not on the row, so the tooltip is where the spell is named -- and where a
 		-- specialization with nothing to cast is told so, since the key still takes the press.

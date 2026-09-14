@@ -89,15 +89,12 @@ return function(DebindPrivate, _, ctx)
         local balance = DebindPrivate.SpecSpells.Resolve();
         check(balance.dispel == 2782, "balance dispel: " .. tostring(balance.dispel));
         check(balance.external == nil, "balance external: " .. tostring(balance.external));
-        check(balance.massrez == nil, "balance mass rez: " .. tostring(balance.massrez));
-        check(balance.rez == 50769 and balance.battlerez == 20484 and balance.raidbuff == 1126,
-            "balance class spells");
+        check(balance.raidbuff == 1126, "balance raid buff: " .. tostring(balance.raidbuff));
 
         shim.world.specIndex = 4;
         local resto = DebindPrivate.SpecSpells.Resolve();
         check(resto.dispel == 88423, "restoration dispel: " .. tostring(resto.dispel));
         check(resto.external == 102342, "restoration external: " .. tostring(resto.external));
-        check(resto.massrez == 212040, "restoration mass rez: " .. tostring(resto.massrez));
         shim.world.specIndex = nil;
     end);
 

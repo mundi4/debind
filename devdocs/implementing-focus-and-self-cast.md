@@ -22,10 +22,6 @@
 쌍둥이는 스니펫이 `unit`을 채운다. `unit`이 있으면 블리자드 함수는 첫 줄에서 돌아가므로 조합키가
 아예 닿지 않는다.
 
-**Smart Cast가 판정한 유닛과 시전 유닛이 갈린다.** 대상이 없는 액션에서 Smart Cast는
-`unit or "target"`을 보고 갈래를 고르는데(`SMART_CAST_SNIPPET`), 그 뒤 블리자드가 `focus`로
-돌린다. 대상이 죽은 아군이고 주시 대상이 산 아군이면 주시 대상에게 부활이 나간다.
-
 **마우스오버 시전은 이미 우리 것이다.** `checkmouseovercast`는 모든 경로에서 꺼져 있다. 순서를
 블리자드에 맞출 이유가 없다.
 
@@ -270,11 +266,6 @@ Auto Self Cast로 정한다. 가리킨 유닛을 안 쓰겠다고 끈 `""`도 �
 읽힌다. 클릭캐스팅 갈래는 묻지 않고 [없음]을 넣는다. §3-7이 지우는 줄들이 하던 일을 이 자리가
 넘겨받는다.
 
-### 3-11. Smart Cast
-
-focus와 self 쌍둥이는 `unit`을 들고 이기므로 `SMART_CAST_SNIPPET`의 `unit or "target"`이 실제 시전
-유닛과 같아진다. §1의 어긋남은 따로 손대지 않아도 사라진다.
-
 ### 3-12. 조합키를 끄는 칸 (2026-09-14, 소유자)
 
 설정 탭 General에 `Self Cast Key`, `Focus Cast Key` 체크박스가 있다. 저장은 `Options.selfCast`,
@@ -293,7 +284,7 @@ focus와 self 쌍둥이는 `unit`을 들고 이기므로 `SMART_CAST_SNIPPET`의
 조합키에는 막을 쌍둥이가 없다.
 
 **액션마다 끄는 칸** (2026-09-14, 소유자). 액션 필드 `ignoreSelfCastKey`, `ignoreFocusCastKey`이고
-액션 메뉴의 Other Options에서 Smart Cast 위에 선 체크박스 둘이다. 대상을 안 받는 액션에도 선다.
+액션 메뉴의 Other Options 맨 위에 선 체크박스 둘이다. 대상을 안 받는 액션에도 선다.
 쌍둥이는 모든 액션에 있기 때문이다. 조합키를 쥔 누름은 그 층만 돌므로(§3-5) 뜻이 둘로 갈리고,
 `Constants.CAST_KEY_IGNORE`가 고른다(`GetBindingsForAction`).
 
@@ -326,7 +317,7 @@ DROP은 "조합키를 쥐면 이 액션은 해당이 없다", AIM은 "이 액션
   없어 넣을 값이 없다. 거기서는 `@@`를 거부한다.
 
 `@@`로 쓴 매크로는 시전 대상을 우리가 넣으므로, 매크로가 대상을 몸통 안에 숨겨서 빠졌던 Hover
-Cast와 Smart Cast에 들어갈 수 있다.
+Cast에 들어갈 수 있다.
 
 ## 5. 뒤집힌 결정
 

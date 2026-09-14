@@ -29,7 +29,7 @@
 | **다음 릴리스에 같이** | 알려진 팩의 이름을 표 하나로 들고 팩별로 켜고 끈다 | `legacy/keeping-one-table-of-known-packs.md` |
 | **다음 릴리스에 같이** | 유닛 프레임은 전부 잡고 빼는 것은 블랙리스트 하나. 위 세 줄이 들고 온 스위치 셋을 하나로 접는다. **Clique 사용자의 판이 업데이트로 바뀌므로 릴리스 노트 한 줄이 필요하다** | `legacy/taking-every-unit-frame-with-one-blacklist.md` |
 | **다음 릴리스에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, 순서를 강제하는 것은 그 가져오기 트랙이다 | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
-| **다음 릴리스에 같이** | 전문화가 주문을 정하는 타입 셋(`Dispel`, `External`, `Raid Buff`)과 Smart Cast 옵션. EUI의 `dispel`·`external`·`dynamicrez`·`smartRez`가 갈 곳이라 순서를 강제하는 것은 그 가져오기 트랙이다 | `adding-spec-resolved-actions.md`<br>`.zzz/eui-hovercast-savedvars.md` |
+| **다음 릴리스에 같이** | 전문화가 주문을 정하는 타입 셋(`Dispel`, `External`, `Raid Buff`). EUI의 `dispel`·`external`이 갈 곳이라 순서를 강제하는 것은 그 가져오기 트랙이다 | `adding-spec-resolved-actions.md`<br>`.zzz/eui-hovercast-savedvars.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, 보관함의 남은 넷 | `switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | ~~**다음 `dbver` 범프에**~~ **3.6에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |

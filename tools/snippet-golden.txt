@@ -1872,22 +1872,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		unit = unit or "raid41"
 	end
-	local smartButton
-	local smart = winner.smart
-	if (smart) then
-		local su = unit or "target"
-
-
-		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
-			if (PlayerInCombat()) then
-				smartButton = smart.battleRez
-			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-				smartButton = smart.massRez
-			else
-				smartButton = smart.rez
-			end
-		end
-	end
 	self:SetAttribute("unit", unit)
 
 
@@ -1900,10 +1884,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
 	if (down) then
-		if (winner.pressAndHold and not smartButton) then
+		if (winner.pressAndHold) then
 			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
@@ -1915,7 +1897,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		if (winner.pressAndHold and not smartButton) then
+		if (winner.pressAndHold) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -1924,8 +1906,8 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	local castButton = smartButton or winner.clickbutton
-	if (unit and not (winner.pressAndHold and not smartButton)) then
+	local castButton = winner.clickbutton
+	if (unit and not winner.pressAndHold) then
 		local wrapper = SelfCastWrappers[castButton]
 		if (wrapper) then
 			CastFrame:SetAttribute("unit", unit)
@@ -2684,22 +2666,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		unit = unit or "raid41"
 	end
-	local smartButton
-	local smart = winner.smart
-	if (smart) then
-		local su = unit or "target"
-
-
-		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
-			if (PlayerInCombat()) then
-				smartButton = smart.battleRez
-			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-				smartButton = smart.massRez
-			else
-				smartButton = smart.rez
-			end
-		end
-	end
 	self:SetAttribute("unit", unit)
 
 
@@ -2712,10 +2678,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
 	if (down) then
-		if (winner.pressAndHold and not smartButton) then
+		if (winner.pressAndHold) then
 			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
@@ -2727,7 +2691,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		if (winner.pressAndHold and not smartButton) then
+		if (winner.pressAndHold) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -2736,8 +2700,8 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	local castButton = smartButton or winner.clickbutton
-	if (unit and not (winner.pressAndHold and not smartButton)) then
+	local castButton = winner.clickbutton
+	if (unit and not winner.pressAndHold) then
 		local wrapper = SelfCastWrappers[castButton]
 		if (wrapper) then
 			CastFrame:SetAttribute("unit", unit)
@@ -3403,24 +3367,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		unit = unit or "raid41"
 	end
-	local smartButton
-	local smart = winner.smart
-	if (smart) then
-		local su = unit or "target"
-
-
-		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
-			if (PlayerInCombat()) then
-				smartButton = smart.battleRez
-			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-				smartButton = smart.massRez
-			else
-				smartButton = smart.rez
-			end
-		end
-	end
-	local castButton = smartButton or winner.clickbutton
-	if (unit and not (winner.pressAndHold and not smartButton)) then
+	local castButton = winner.clickbutton
+	if (unit and not winner.pressAndHold) then
 		local wrapper = SelfCastWrappers[castButton]
 		if (wrapper) then
 			CastFrame:SetAttribute("unit", unit)
@@ -4074,24 +4022,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		unit = unit or "raid41"
 	end
-	local smartButton
-	local smart = winner.smart
-	if (smart) then
-		local su = unit or "target"
-
-
-		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
-			if (PlayerInCombat()) then
-				smartButton = smart.battleRez
-			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-				smartButton = smart.massRez
-			else
-				smartButton = smart.rez
-			end
-		end
-	end
-	local castButton = smartButton or winner.clickbutton
-	if (unit and not (winner.pressAndHold and not smartButton)) then
+	local castButton = winner.clickbutton
+	if (unit and not winner.pressAndHold) then
 		local wrapper = SelfCastWrappers[castButton]
 		if (wrapper) then
 			CastFrame:SetAttribute("unit", unit)

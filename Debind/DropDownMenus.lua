@@ -7,7 +7,6 @@ local dump                  = DebindPrivate.dump
 --- The six dropdowns other files open.
 local ActionMenu                              = DebindPrivate.ActionMenu;
 local ActionMenus                             = ActionMenu.ActionMenus;
-local CreateSmartCastMenuItem                 = ActionMenu.CreateSmartCastMenuItem;
 local CreateConvertToMacroTextMenuItem        = ActionMenu.CreateConvertToMacroTextMenuItem;
 local EditMacroTextMenuItem                   = ActionMenu.EditMacroTextMenuItem;
 local CreateSetSwitchMenuItem                 = ActionMenu.CreateSetSwitchMenuItem;
@@ -167,8 +166,6 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
 
     CreateIgnoreCastKeyMenuItems(rootDescription, ctx);
-
-    CreateSmartCastMenuItem(rootDescription, ctx);
 
     CreateKeepInBindingContextMenuItem(rootDescription, ctx);
 

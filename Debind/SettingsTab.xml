@@ -88,16 +88,6 @@
 		</Frames>
 	</Frame>
 
-	<Frame name="DebindSettingsCheckboxDropdownRowTemplate" inherits="DebindSettingsCheckboxRowTemplate" virtual="true">
-		<Frames>
-			<Frame parentKey="Control" inherits="SettingsDropdownWithButtonsTemplate">
-				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.Checkbox" relativePoint="RIGHT" x="32"/>
-				</Anchors>
-			</Frame>
-		</Frames>
-	</Frame>
-
 	<Frame name="DebindSettingsSliderRowTemplate" inherits="DebindSettingsRowTemplate" virtual="true">
 		<Frames>
 			<Frame parentKey="Slider" inherits="MinimalSliderWithSteppersTemplate">

@@ -28,8 +28,6 @@
 
 **Three actions that pick the spell for you: Dispel, External and Raid Buff.** Each one casts whatever your class and specialization have for that job -- Purify on a Holy priest, Nature's Cure on a Restoration druid, Pain Suppression, Ironbark, Power Word: Fortitude -- and changes with you when you change specialization, so one action on the account tab covers every character. Where a specialization has no such spell the key does nothing, and the tooltip says which spell it is on the character you are looking at. They are under "Class and Specialization" in the picker. A warlock's dispel goes through the imp while it is out and through Singe Magic under Grimoire of Sacrifice.
 
-**Smart Cast, on any action.** Turn it on in the action's menu and, before the action goes out, Debind looks at the unit it is aimed at: a dead friend is resurrected (a battle resurrection in combat, the mass one out of combat when they are in your group, the ordinary one otherwise). Anyone else gets the action itself, so a heal with Smart Cast on is still just a heal on anyone who is alive. Which resurrections apply is set once in Debind's settings, or per action; battle resurrection is off unless you turn it on, since it goes out whether or not you have a charge left.
-
 Nearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues.
 
 # 3.5.2

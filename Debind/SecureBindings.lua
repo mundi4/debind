@@ -439,7 +439,7 @@ local ACTION_SLOT_SNIPPET = [==[
 ]==];
 
 --- The unit the winner is cast at, as `unit`. Spliced into the click wrapper and into the DEBUG
---- eval hook, so the Smart Cast block below judges the same unit the cast goes to.
+--- eval hook.
 local RESOLVE_UNIT_SNIPPET = [==[
 	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["hover"]는 enter와 폴링이
 	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
@@ -469,31 +469,6 @@ local RESOLVE_UNIT_SNIPPET = [==[
 	end
 ]==];
 
---- Smart Cast (`devdocs/adding-spec-resolved-actions.md` §10). Runs after the reader's own
---- conditions have chosen the winner and only where the winner carries a branch table; it decides
---- which of that winner's buttons goes out and nothing else, so the solver never sees any of
---- this. Answers with `smartButton`, nil where the host itself is what fires.
----
---- Needs `winner` and `unit` (`RESOLVE_UNIT_SNIPPET`) declared by the caller.
-local SMART_CAST_SNIPPET = [==[
-	local smartButton
-	local smart = winner.smart
-	if (smart) then
-		local su = unit or "target"
-		-- No `UnitExists` ahead of it: an absent unit answers false here already, the same fact the
-		-- reaction axis above rests on.
-		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
-			if (PlayerInCombat()) then
-				smartButton = smart.battleRez
-			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-				smartButton = smart.massRez
-			else
-				smartButton = smart.rez
-			end
-		end
-	end
-]==];
-
 --- The button a press actually ends at, as `castButton`. Spliced into the click wrapper and into
 --- the DEBUG eval hook, so what a test reads is what fires.
 ---
@@ -506,13 +481,12 @@ local SMART_CAST_SNIPPET = [==[
 ---
 --- **Press-and-hold keeps the direct route.** The macro runs once, and the hold the gate starts on
 --- the down edge has no release to pair with inside one; wrapping it would trade a chosen target
---- for a spell that never finishes. A Smart Cast branch is a plain spell whatever its host is, so
---- it wraps even when the host is press-and-hold.
+--- for a spell that never finishes.
 ---
---- Needs `winner`, `smartButton` and `unit` declared by the caller.
+--- Needs `winner` and `unit` declared by the caller.
 local SELFCAST_OFF_SNIPPET = [==[
-	local castButton = smartButton or winner.clickbutton
-	if (unit and not (winner.pressAndHold and not smartButton)) then
+	local castButton = winner.clickbutton
+	if (unit and not winner.pressAndHold) then
 		local wrapper = SelfCastWrappers[castButton]
 		if (wrapper) then
 			CastFrame:SetAttribute("unit", unit)
@@ -1637,7 +1611,7 @@ end, [==[
 ]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. [==[
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
-]==] .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET .. [==[
+]==] .. RESOLVE_UNIT_SNIPPET .. [==[
 	self:SetAttribute("unit", unit)
 
 	-- **B-11.** 게이트는 이 값을 맨이름으로만 읽는다(SecureTemplates.lua:812). 버튼별로
@@ -1650,10 +1624,8 @@ end, [==[
 	-- **down에서만 켠다.** up에서 다시 골라 나온 승자가 press-hold라고 여기서 켜면,
 	-- 게이트가 `clickAction`을 거짓으로 만들고 `releasePressAndHoldAction`으로 넘어가
 	-- **누른 적 없는 주문의 `typerelease`가 나간다.** 놓기는 위의 캐리 자리에서만 켠다.
-
-	-- A Smart Cast branch is a plain spell and never press-and-hold, whatever the host is.
 	if (down) then
-		if (winner.pressAndHold and not smartButton) then
+		if (winner.pressAndHold) then
 			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
@@ -1665,7 +1637,7 @@ end, [==[
 	-- 돌거나, 바인딩이 바뀌면 안 온다. 그러면 앞의 기록이 남고, 다음에 press-hold가 아닌
 	-- 액션을 눌렀다 뗄 때 그 낡은 것이 재사용된다. 맨이름 속성과 같은 규칙이다.
 	if (down) then
-		if (winner.pressAndHold and not smartButton) then
+		if (winner.pressAndHold) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -1728,7 +1700,7 @@ if (DebindPrivate.DEBUG) then
 			return
 		end
 ]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. RESOLVE_UNIT_SNIPPET
-		.. SMART_CAST_SNIPPET .. SELFCAST_OFF_SNIPPET .. [==[
+		.. SELFCAST_OFF_SNIPPET .. [==[
 		-- The winner's place as well, because the button no longer names it: the self and focus
 		-- twins click the same button as their original.
 		for i = 1, #bindings do

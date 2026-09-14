@@ -22,28 +22,6 @@ local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 local SetErrorTooltip                = ActionMenu.SetErrorTooltip;
 
 
---- Smart Cast (`devdocs/adding-spec-resolved-actions.md` §10).
----
---- Only the types Smart Cast may be set on get the item at all
---- (`Constants.TYPES_WITH_SMART_CAST`).
-local function CreateSmartCastMenuItem(parentDescription, ctx)
-    if (not Constants.TYPES_WITH_SMART_CAST[ctx.action.type]) then
-        return;
-    end
-
-    local description = parentDescription:CreateCheckbox(LLL["SMART_CAST"], actionValueEquals,
-        setActionValue, { ctx = ctx, key = "smartCast", value = USE_CHECKED_VALUE });
-
-    description:SetEnabled(DebindPrivate.SmartCastEnabled);
-    SetInstructionTooltip(description, LLL["SMART_CAST_DESC"], function()
-        if (not DebindPrivate.SmartCastEnabled()) then
-            return LLL["SMART_CAST_DISABLED_ACCOUNT_WIDE"];
-        end
-    end);
-
-    ActionMenus:MarkNew("SMART_CAST", description);
-end
-
 local function CreateConvertToMacroTextMenuItem(parentDescription, ctx)
     if (DebindPrivate.CanConvertToMacroText(ctx.action)) then
         parentDescription:CreateButton(LLL["CONVERT_TO_MACRO_TEXT"], function()
@@ -465,7 +443,6 @@ local function CreateDeleteMenu(rootDescription, ctx)
 end
 
 --- What the six entry points stand up (`DropDownMenus.lua`).
-ActionMenu.CreateSmartCastMenuItem            = CreateSmartCastMenuItem;
 ActionMenu.CreateConvertToMacroTextMenuItem   = CreateConvertToMacroTextMenuItem;
 ActionMenu.EditMacroTextMenuItem              = EditMacroTextMenuItem;
 ActionMenu.CreateSetSwitchMenuItem            = CreateSetSwitchMenuItem;

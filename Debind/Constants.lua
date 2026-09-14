@@ -195,26 +195,6 @@ Constants.SPEC_RESOLVED_TYPES             = {
     [Constants.RAIDBUFF] = true,
 };
 
---- Which types Smart Cast may be turned on for. Smart Cast replaces the cast with the one the
---- aimed unit calls for, so it only means something where the action casts something at a unit in
---- the first place; on the rest the option would change what the action is rather than which
---- spell it sends. VuhDo refuses target, focus and menu for the same reason, and EllesmereUI
---- offers its own switch on spells, macros, items and its presets only.
----
---- `PETACTION` is in because the reader picks a pet spell the way they pick their own
---- (2026-09-08, owner).
-Constants.TYPES_WITH_SMART_CAST           = {
-    [Constants.SPELL] = true,
-    [Constants.ITEM] = true,
-    [Constants.USESLOT] = true,
-    [Constants.MACRO] = true,
-    [Constants.MACROTEXT] = true,
-    [Constants.PETACTION] = true,
-    [Constants.DISPEL] = true,
-    [Constants.EXTERNAL] = true,
-    [Constants.RAIDBUFF] = true,
-};
-
 --- Which types the account-wide Hover Cast and Mouseover Cast reach (`Misc.lua`'s `TwinUnitFor`).
 --- `TYPES_WITH_UNIT` minus the pet command, whose target is decided by the command rather than by
 --- the type.

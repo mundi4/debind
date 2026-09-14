@@ -183,9 +183,8 @@
 
 **솔버.** `CheckUnreachableBindings`는 남는다. 행의 도달 불가 표시와 레코드 수를 줄이는 일은 그대로다.
 
-**문서.** `devdocs/0-IDEAS.md`의 두 항목이 움직인다. "Smart Cast 양보 옵션"은 안 하는 이유가 "다음이 `COMMAND`,
-`UNUSED`, 없음이면 키가 미리 풀려 있어야 한다"였으니 그 이유가 없어진다. "`COMMAND` 액션에 Smart Cast"는 대상이
-없어진다. `devdocs/adding-spec-resolved-actions.md`의 같은 이야기(269, 410줄)도 따라간다.
+**문서.** `0-IDEAS.md`에서 움직일 항목은 없다. 둘 다 Smart Cast에 딸린 것이었고, Smart Cast는
+빠졌다(`adding-spec-resolved-actions.md` §10).
 
 **테스트.**
 - 루프 스윕(`eval_spec`의 "the state loop binds the exact record out of seven")과 킷의 "Multi-axis: poll and

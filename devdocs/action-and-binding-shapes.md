@@ -52,13 +52,6 @@ action
     ignoreSelfCastKey ignoreFocusCastKey
                         그 조합키를 쥔 누름에서 이 액션을 빼거나 자기 대상을 겨누게 한다 (§2)
     preferHoverUnit     개체창 위에서는 그 개체를 겨눈다. 바인딩을 가른다 (§4)
-    smartCast           Smart Cast를 켰느냐. 끄면 `false`이고 아래 값은 그대로 남는다
-    smartCastCustom     갈래를 여기서 고르느냐. 없으면 계정 기본값을 따른다
-    smartCastRez smartCastBattleRez
-                        두 갈래. `smartCastCustom`일 때만 읽는다. 모드를 옮겨도 값은 남는다
-    smartCastRezWithBattleRez
-                        셋째 갈래가 아니다. 다른 부활이 없는 클래스에서 부활 갈래가
-                        전투 부활로 손을 뻗게 한다
     conditions          **언제 발동하느냐. 전부 이 안에 있다** (§3)
 ```
 
@@ -280,15 +273,13 @@ binding
     hover                                   true | false | nil
     spell                                   `SPEC_RESOLVED_TYPES`가 오늘 내는 주문. 그 밖에는 nil
     spellbook                               probe 파생만 든다. 누를 때 주문서에 있는지 묻는 id
-    smart                                   켜진 Smart Cast 갈래들, 아니면 nil. **조건이 아니다** -
-                                            이긴 뒤에 무엇을 쏘는지만 바꾼다
     unitStates unitGroups unitRole unitStatesOpaque
                                             솔버가 유닛에 대해 읽는 전부 (§3-2). 못 읽는 값을
                                             만나면 `unitConditionUnreadable`이 마지막 것이 된다
 ```
 
-**리빌드가 다섯을 더 얹는다.** `clickframe` `clickframeName` `clickbutton` `pressAndHold`
-`smartButtons`는 `UpdateBindings.lua`가 이 표에 직접 써넣는 값이고, 액션의 순수 파생이 아니라
+**리빌드가 넷을 더 얹는다.** `clickframe` `clickframeName` `clickbutton` `pressAndHold`는
+`UpdateBindings.lua`가 이 표에 직접 써넣는 값이고, 액션의 순수 파생이 아니라
 이번 빌드의 배선이다.
 
 **액션의 답은 원본의 답이다.** 이슈 검사, 순서 레코드, 매크로 변환, 툴팁이 전부 원본에 묻는다.

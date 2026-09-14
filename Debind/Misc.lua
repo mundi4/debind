@@ -830,10 +830,6 @@ do
         else
             binding.spell = nil;
         end
-        -- Which Smart Cast branches this action carries, or nil. Not a condition: the reader's
-        -- conditions decide whether the action wins, and this only decides what it fires once it
-        -- has (`devdocs/adding-spec-resolved-actions.md` §10).
-        binding.smart = DebindPrivate.SmartCastBranches(action);
         -- 쌍둥이는 가리킨 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
         if (twin) then
             binding.ignoreHoverUnit = nil;
@@ -1081,84 +1077,11 @@ do
         return FillBinding(binding, action, action.unit, nil);
     end
 
-    --- The account-wide answer to which Smart Cast branches are on where an action says "the
-    --- defaults" (`smartCastCustom` unset). Battle resurrection is off unless asked for: it is the
-    --- one branch with a cost the reader has to accept (§6 of the design); the resurrection outside
-    --- combat only ever fires on a dead friend, where the host would have been refused anyway.
-    --- `rezWithBattleRez` is stored and defaulted the same way but is not a branch: it says
-    --- what the `rez` branch may reach for where the class has no resurrection outside combat
-    --- (§10-7 of the design), so it never turns Smart Cast on by itself.
-    local SMART_CAST_DEFAULTS = {
-        rez = true, battleRez = false, rezWithBattleRez = false,
-    };
-    -- In the order the snippet tries them (`SMART_CAST_SNIPPET`), because the menus list the
-    -- branches from this table and the list is what tells the reader which branch wins.
-    local SMART_CAST_BRANCHES = { "battleRez", "rez" };
-    DebindPrivate.SMART_CAST_BRANCHES = SMART_CAST_BRANCHES;
-    --- Shared out because the settings tab needs the built-in answer on its own, which
-    --- `SmartCastDefault` cannot give: that one reads what is stored first, and a setter has to
-    --- know whether the value it was handed is the one that clears the cell (`SettingsTab.lua`).
-    DebindPrivate.SMART_CAST_DEFAULTS = SMART_CAST_DEFAULTS;
-
-    --- The account-wide master switch. Off ignores every action's option, whichever mode it is in,
-    --- and that is what separates it from clearing the branch boxes: an action that chose its own
-    --- branches is unreachable from those. Stored beside them and absent means on, so a profile
-    --- written before the switch existed reads as on.
-    function DebindPrivate.SmartCastEnabled()
-        local options = DebindPrivate.Options;
-        local stored = options and options.smartCast;
-        return not (stored and stored.enabled == false);
-    end
-
     --- The account-wide switch over every switch's own message box. Off silences them all without
     --- touching what any box holds. Absent means on, so a profile written before it reads as on.
     function DebindPrivate.SwitchMessagesEnabled()
         local options = DebindPrivate.Options;
         return not (options and options.switchMessages == false);
-    end
-
-    function DebindPrivate.SmartCastDefault(branch)
-        local options = DebindPrivate.Options;
-        local stored = options and options.smartCast;
-        local value = stored and stored[branch];
-        if (value == nil) then
-            return SMART_CAST_DEFAULTS[branch];
-        end
-        return value;
-    end
-
-    --- The branches an action's Smart Cast turns on, as a fresh table, or nil where the option is
-    --- off or the type is not one Smart Cast may be set on
-    --- (`Constants.TYPES_WITH_SMART_CAST`). A shared profile skips the menu, so the field can
-    --- arrive on a type the menu would never have offered it for.
-    function DebindPrivate.SmartCastBranches(action)
-        if (action.smartCast ~= true) then
-            return nil;
-        end
-        if (not DebindPrivate.SmartCastEnabled()) then
-            return nil;
-        end
-        if (not Constants.TYPES_WITH_SMART_CAST[action.type]) then
-            return nil;
-        end
-        local custom = action.smartCastCustom;
-        local function chosen(branch)
-            if (custom) then
-                return action["smartCast" .. strupper(strsub(branch, 1, 1)) .. strsub(branch, 2)] and true or false;
-            end
-            return DebindPrivate.SmartCastDefault(branch) and true or false;
-        end
-
-        local out = {};
-        local any = false;
-        for i = 1, #SMART_CAST_BRANCHES do
-            local branch = SMART_CAST_BRANCHES[i];
-            local on = chosen(branch);
-            out[branch] = on;
-            any = any or on;
-        end
-        out.rezWithBattleRez = chosen("rezWithBattleRez");
-        return any and out or nil;
     end
 
     --- The two account-wide cells that send an action at whatever the reader is pointing at.

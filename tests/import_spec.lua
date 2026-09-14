@@ -415,11 +415,6 @@ return function(DebindPrivate, DebindStorage)
         ignoreHoverUnit = true,
         ignoreSelfCastKey = true,
         ignoreFocusCastKey = true,
-        smartCast = true,
-        smartCastCustom = true,
-        smartCastRez = true,
-        smartCastBattleRez = true,
-        smartCastRezWithBattleRez = true,
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,
         value = 774,
