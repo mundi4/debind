@@ -152,7 +152,7 @@ end
 
 local function Radios(rootDescription, choices, get, set)
     for _, choice in ipairs(choices) do
-        rootDescription:CreateRadio(choice.label, function(data)
+        rootDescription:CreateHighlightRadio(choice.label, function(data)
             return get() == data.value;
         end, function(data)
             set(data.value);
