@@ -80,13 +80,14 @@ Everything else about an action — conditions, targets, importance, moving and 
 **Add an Action** has six tabs: **Spells**, **Macros**, **Mounts**, **Toys**, **Commands** and **Special**. The first four are what you already own — **Spells** has your flyouts and your pet's commands in it too. Items come in by dragging. The rest are Debind's own:
 
 - **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`. **New Custom Macro**, above the picker's list, starts an empty one.
-- **Binding Command**, on **Commands** — one of WoW's own binding commands (jump, open a bag, press a bar button), wrapped so it can carry conditions.
-- **Use WoW's Own Binding**, on **Special** — gives the key back to WoW for the cases you pick, so one spec can go on using your normal binding.
+- **Action Button**, on **Commands** — presses one of your action bar buttons, and follows the bar when a vehicle or a form swaps it out.
 - **Set Custom Target** and **Set Switch**, on **Special** — the next two sections.
 
 ![A Custom Macro named "Innervate the healer" open in the editor — kept in the addon, costing none of WoW's macro slots.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/custom-macro.png)
 
-The **Commands** tab has a few more of ours, above WoW's own list: world markers, targeting, focus, the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
+The **Commands** tab has a few more of ours, above the action buttons: world markers, targeting, focus, the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
+
+**A key with a Debind action on it is Debind's in every situation.** When none of its actions apply, pressing it does nothing; it doesn't fall back to whatever WoW's own keybinding window has on that key. So WoW's binding commands and Use WoW's Own Binding are gone from the list. Ones you already saved stay where they were, do nothing, and are marked so you can replace them. Those that pressed an action bar button were turned into Action Buttons for you. During a pet battle, the keys WoW has on action buttons 1 to 5 go back to the battle.
 
 ## Conditions
 

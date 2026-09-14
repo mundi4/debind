@@ -343,25 +343,14 @@ return function(DebindPrivate)
             "기억만 하는 값을 켜진 것으로 읽었다");
     end);
 
-    -- 같은 값이 반대 방향으로도 샌다: 꺼진 조건을 켜진 것으로 읽으면 hover + COMMAND 검사가
-    -- 걸려서 멀쩡한 액션이 `KeyMap`에서 빠진다.
-    test("끈 호버 조건은 명령 액션을 막지 않는다", function()
-        local HOVER_COMMAND = Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND;
-        local function commandIssue(hoverCondition)
-            return DebindPrivate.IsKeyInvalidForAction(nest({
-                type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "BUTTON3",
-                units = { hover = hoverCondition },
-            }), "BUTTON3");
-        end
-
-        -- 켜져 있으면 걸리는 것이 맞다. 이 줄이 없으면 아래가 "아무것도 안 걸리는" 것과
-        -- 구분되지 않는다.
-        check(commandIssue({}) == HOVER_COMMAND, "전제가 깨졌다 - 켜진 호버는 걸려야 한다");
-
-        check(commandIssue({ disabled = true, reaction = Constants.REACTION_HELP }) ~= HOVER_COMMAND,
-            "기억만 하는 값으로 호버-명령 검사가 걸렸다");
-        check(commandIssue({ exists = false }) ~= HOVER_COMMAND,
-            "\"없을 때\"로 호버-명령 검사가 걸렸다");
+    -- **A saved command with hover on a mouse button stays on its key.** It binds as a block like
+    -- every other saved command (`devdocs/dropping-the-game-fallback.md` §3); an ERROR here would
+    -- take it out of `KeyMap`, leave no block, and let the action under it fire instead.
+    test("호버를 켠 명령 액션도 마우스 버튼 키에서 안 빠진다", function()
+        check(DebindPrivate.IsKeyInvalidForAction(nest({
+            type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "BUTTON3",
+            units = { hover = {} },
+        }), "BUTTON3") == nil, "호버를 켠 명령 액션에 이슈가 났다");
     end);
 
     test("마이그레이션이 안 닿은 옛 hover도 같은 답을 낸다", function()

@@ -58,11 +58,6 @@ for classID = 1, 20 do
     end
 end
 
--- 키를 누른 순간 보안 스니펫이 조건을 평가해 액션을 고르는 경로. 끄면 라우팅이 전부 멈추고
--- 모든 키가 상태 구동(옛 경로)으로 돌아간다 - 회귀가 보이면 여기부터 뒤집어 볼 것.
--- 어느 키가 이 경로로 가는지는 `IsKeyAlwaysOurs`가 정한다.
-Constants.CLICK_TIME_EVAL                 = true;
-
 -- 클릭 시점 키를 클릭 프레임에 걸 때 쓰는 버튼 이름의 접두사. 래퍼가 이 이름을 보고
 -- 자기 키인지 가른 다음 이긴 액션의 이름으로 바꿔 반환한다.
 -- `NextButtonName`의 "deb<n>"과 겹치지 않기만 하면 된다.
@@ -116,6 +111,55 @@ Constants.SETSTATE_ON                     = "setstate_on";
 Constants.SETSTATE_OFF                    = "setstate_off";
 Constants.SETSTATE_TOGGLE                 = "setstate_toggle";
 Constants.UNUSED                          = "unused";
+--- **Never stored.** What `UNUSED` and `COMMAND` turn into on the binding, and what closes each tier
+--- of a key that holds one: a record that wins and does nothing, so no press falls through to the
+--- game (`devdocs/dropping-the-game-fallback.md` §3).
+Constants.BLOCK                           = "block";
+--- Presses one action bar button the way its binding command would. `value` is that command's
+--- name, so the row reads with the client's own `BINDING_NAME_*` and a saved `COMMAND` moves over
+--- by changing its type (`devdocs/dropping-the-game-fallback.md` §4).
+Constants.ACTIONBUTTON                    = "actionbutton";
+
+--- The binding commands `ACTIONBUTTON` takes, and where each one's slot is.
+---
+---   `index`     the button's place on its bar
+---   `page`      a page that never moves; absent on the main bar, whose page the press works out
+---   `extra`     on the page `GetExtraBarIndex()` answers, and nothing while `HasExtraActionBar()` is false
+---   `pet`       the pet bar's `index`th action, which is `CastPetAction(index)` and no slot at all;
+---               nothing while there is no pet
+---   `stance`    the `index`th stance, pressed through `button` (`StanceBar:Select` is plain Lua)
+---   `button`    the bar button a flyout slot is handed to, since `type=action` cannot open one
+---   `override`  the skinned override bar's button, which shows the main bar's first six
+---
+--- The pages are the `actionpage` each bar has in `MultiActionBars.xml`.
+Constants.ACTION_BUTTON_COMMANDS          = {};
+do
+    local commands = Constants.ACTION_BUTTON_COMMANDS;
+    for i = 1, 12 do
+        commands["ACTIONBUTTON" .. i] = { index = i, button = "ActionButton" .. i,
+            override = i <= 6 and ("OverrideActionBarButton" .. i) or nil };
+    end
+    local FIXED_BARS = {
+        { "MultiBarBottomLeftButton", 6 },
+        { "MultiBarBottomRightButton", 5 },
+        { "MultiBarRightButton", 3 },
+        { "MultiBarLeftButton", 4 },
+        { "MultiBar5Button", 13 },
+        { "MultiBar6Button", 14 },
+        { "MultiBar7Button", 15 },
+    };
+    for bar = 1, #FIXED_BARS do
+        for i = 1, 12 do
+            commands["MULTIACTIONBAR" .. bar .. "BUTTON" .. i] = { index = i,
+                page = FIXED_BARS[bar][2], button = FIXED_BARS[bar][1] .. i };
+        end
+    end
+    commands.EXTRAACTIONBUTTON1 = { index = 1, extra = true, button = "ExtraActionButton1" };
+    for i = 1, 10 do
+        commands["BONUSACTIONBUTTON" .. i] = { index = i, pet = true };
+        commands["SHAPESHIFTBUTTON" .. i] = { index = i, stance = true, button = "StanceButton" .. i };
+    end
+end
 
 --- 대상(unit)을 가질 수 있는 액션 타입.
 ---
@@ -133,6 +177,8 @@ Constants.TYPES_WITH_UNIT                 = {
     -- healing trinket bound to a slot aims the way the item bound by id does.
     [Constants.USESLOT] = true,
     [Constants.PETACTION] = true,
+    -- `SECURE_ACTIONS.action` hands its `unit` to `UseAction`.
+    [Constants.ACTIONBUTTON] = true,
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,
     [Constants.TOGGLEMENU] = true,
@@ -176,6 +222,7 @@ Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
     [Constants.SPELL] = true,
     [Constants.ITEM] = true,
     [Constants.USESLOT] = true,
+    [Constants.ACTIONBUTTON] = true,
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,
     [Constants.TOGGLEMENU] = true,
@@ -537,7 +584,6 @@ Constants.UNITGROUP_TO_CELLS = {
 -- Binding Issues
 Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
 Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";
-Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND = "NOT_SUPPORTED_HOVER_CLICK_COMMAND";
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
@@ -607,7 +653,6 @@ Constants.ISSUE_GRADE_WARNING = 2;
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND] = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,

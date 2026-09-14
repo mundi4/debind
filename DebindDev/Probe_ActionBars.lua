@@ -149,7 +149,7 @@ local function PetBattleButton(key, index)
 end
 
 -- State shared with the proof of concept below, declared here so the fields can read it.
-local secureView = { poll = "-", state = "-", click = "-", extra = "-" };
+local secureView = { poll = "-", state = "-", click = "-", extra = "-", stance = "-" };
 local poc = { bound = false, route = "RightButton", keys = "", released = false, petRef = "-",
     closeLockdown = "-", bindError = "-" };
 
@@ -275,6 +275,7 @@ Add("secure.poll", function() return secureView.poll end);
 Add("secure.state", function() return secureView.state end);
 Add("secure.click", function() return secureView.click end);
 Add("secure.extra", function() return secureView.extra end);
+Add("secure.stance", function() return secureView.stance end);
 Add("poc.bound", function() return Join(poc.bound, poc.route, poc.keys, poc.bindError) end);
 Add("poc.released", function() return Mark(poc.released) end);
 Add("poc.petRef", function() return poc.petRef end);
@@ -470,6 +471,28 @@ do
     label:SetText("EXTRA  L M R");
 end
 
+--- The third button: the first stance, by `type=click` on `StanceButton1`, the way Debind presses
+--- a stance (§4-8). That button is not a secure action button and its `OnClick` is plain Lua, so what
+--- this answers is whether `CastShapeshiftForm` still goes out when the click comes from a wrapper.
+local STANCE_BODY = [==[
+    owner:CallMethod("Report", 'stance:' .. tostring(button) .. ':' .. tostring(down))
+    return "abpST"
+]==];
+
+local stanceButton = CreateFrame("Button", "DebindDevABPStanceButton", UIParent, "SecureActionButtonTemplate");
+stanceButton:SetSize(90, 22);
+stanceButton:SetPoint("LEFT", extraButton, "RIGHT", 4, 0);
+stanceButton:RegisterForClicks("AnyUp", "AnyDown");
+stanceButton:SetAttribute("*type-abpST", "click");
+do
+    local background = stanceButton:CreateTexture(nil, "BACKGROUND");
+    background:SetAllPoints();
+    background:SetColorTexture(0.3, 0.5, 0.1, 0.8);
+    local label = stanceButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall");
+    label:SetPoint("CENTER");
+    label:SetText("STANCE 1");
+end
+
 --- Blizzard's buttons reach the header at login: `DebindDev` loads ahead of Debind but after the
 --- interface's own addons, so every frame named here exists by then.
 local function SetRefs()
@@ -489,6 +512,7 @@ local function SetRefs()
     button:SetAttribute("*clickbutton-abpAB", ActionButton1);
     button:SetAttribute("*clickbutton-abpOB", OverrideActionBarButton1);
     extraButton:SetAttribute("*clickbutton-abpEX", ExtraActionButton1);
+    stanceButton:SetAttribute("*clickbutton-abpST", StanceButton1);
     extraButton:SetAttribute("*action-abpEXSlot", 1 + (C_ActionBar.GetExtraBarIndex() - 1) * 12);
 end
 
@@ -513,7 +537,7 @@ function header:Report(source, ...)
     secureView[kind] = source .. " " .. Join(...);
     -- A press is logged every time. Two presses in the same state report the same thing, and the
     -- change-only sample would say nothing for the second.
-    if (kind == "click" or kind == "extra") then
+    if (kind == "click" or kind == "extra" or kind == "stance") then
         Log("wrapper " .. secureView[kind]);
     end
     if (kind ~= "poll") then
@@ -529,7 +553,7 @@ local function HookPress()
         Log("probe button PostClick " .. Join(mouseButton, down,
             button:GetAttribute("*action-abpSlot"), button:GetAttribute("*macrotext-abpMacro")));
     end);
-    for _, name in ipairs({ "ActionButton1", "OverrideActionBarButton1", "ExtraActionButton1" }) do
+    for _, name in ipairs({ "ActionButton1", "OverrideActionBarButton1", "ExtraActionButton1", "StanceButton1" }) do
         local frame = _G[name];
         if (frame) then
             frame:HookScript("PostClick", function(_, mouseButton, down)
@@ -540,6 +564,9 @@ local function HookPress()
     end
     hooksecurefunc("UseAction", function(slot, unit, mouseButton, isKeyPress)
         Log("UseAction " .. Join(slot, unit, mouseButton, isKeyPress) .. " " .. Slot(slot));
+    end);
+    hooksecurefunc("CastShapeshiftForm", function(index)
+        Log("CastShapeshiftForm " .. Join(index, GetShapeshiftForm()));
     end);
     -- A pet ability goes out through these and never through `UseAction`, so without them a pet
     -- battle press leaves no trace of whether it fired.
@@ -724,6 +751,8 @@ events:SetScript("OnEvent", function(self, event)
         .. "[shapeshift]shapeshift;[bonusbar]bonusbar;[extrabar]extrabar;[combat]combat;none");
     SecureHandlerWrapScript(button, "OnClick", header, PRESS_BODY);
     SecureHandlerWrapScript(extraButton, "OnClick", header, EXTRA_BODY);
+    SecureHandlerWrapScript(stanceButton, "OnClick", header, STANCE_BODY);
+    SecureHandlerWrapScript(stanceButton, "OnClick", header, STANCE_BODY);
     HookPress();
 
     for i = 1, #EVENTS do

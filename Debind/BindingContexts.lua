@@ -53,26 +53,46 @@ local function CollectClaimedKeys(out)
     end
 end
 
-local _claimed = {};
+--- Kept apart from `YieldedKeys` because `keepInBindingContext` reads to the user as "Override the
+--- house editor" and must not hold a key through a battle.
+local PetBattleKeys               = {};
 
---- 양보할 키를 다시 계산한다. 바뀌었으면 true.
-function DebindPrivate.RefreshYieldedKeys()
-    wipe(_claimed);
+-- Driven by the two events rather than `C_PetBattles.IsInBattle`, the way the probe that measured
+-- the yield did (§5-1 of `devdocs/dropping-the-game-fallback.md`).
+local inPetBattle                 = C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle() or false;
 
-    if (supported and AnyContextActive()) then
-        CollectClaimedKeys(_claimed);
+-- The battle's abilities go out through `ActionButtonDown`, which only these bindings call
+-- (`ActionButton.lua:123-164`); 4 opens the pet switch and 5 is the trap.
+local NUM_PET_BATTLE_BUTTONS      = 5;
+
+function DebindPrivate.IsKeyYieldedToPetBattle(key)
+    return PetBattleKeys[key] == true;
+end
+
+local function CollectPetBattleKeys(out)
+    for i = 1, NUM_PET_BATTLE_BUTTONS do
+        local action = "ACTIONBUTTON" .. i;
+        for j = 1, select("#", GetBindingKey(action)) do
+            local key = select(j, GetBindingKey(action));
+            if (key) then
+                out[key] = true;
+            end
+        end
     end
+end
 
+--- Makes `set` hold exactly the keys in `claimed`. True if that moved anything.
+local function ReplaceSet(set, claimed)
     local changed = false;
-    for key in pairs(_claimed) do
-        if (not YieldedKeys[key]) then
+    for key in pairs(claimed) do
+        if (not set[key]) then
             changed = true;
             break;
         end
     end
     if (not changed) then
-        for key in pairs(YieldedKeys) do
-            if (not _claimed[key]) then
+        for key in pairs(set) do
+            if (not claimed[key]) then
                 changed = true;
                 break;
             end
@@ -80,10 +100,30 @@ function DebindPrivate.RefreshYieldedKeys()
     end
 
     if (changed) then
-        wipe(YieldedKeys);
-        for key in pairs(_claimed) do
-            YieldedKeys[key] = true;
+        wipe(set);
+        for key in pairs(claimed) do
+            set[key] = true;
         end
+    end
+    return changed;
+end
+
+local _claimed = {};
+
+--- Recomputes the keys handed to the game. True if either set changed.
+function DebindPrivate.RefreshYieldedKeys()
+    wipe(_claimed);
+    if (supported and AnyContextActive()) then
+        CollectClaimedKeys(_claimed);
+    end
+    local changed = ReplaceSet(YieldedKeys, _claimed);
+
+    wipe(_claimed);
+    if (inPetBattle) then
+        CollectPetBattleKeys(_claimed);
+    end
+    if (ReplaceSet(PetBattleKeys, _claimed)) then
+        changed = true;
     end
 
     return changed;
@@ -131,4 +171,15 @@ if (supported) then
     end
 
     DebindPrivate.BindingContextTriggers = { mode = modeTrigger, state = stateTrigger };
+end
+
+do
+    local PetBattleEvents = CreateFrame("Frame");
+    PetBattleEvents:SetScript("OnEvent", function(_, event)
+        inPetBattle = event == "PET_BATTLE_OPENING_START";
+        ScheduleRefresh();
+    end);
+    -- Clients without pet battles do not have the events.
+    pcall(PetBattleEvents.RegisterEvent, PetBattleEvents, "PET_BATTLE_OPENING_START");
+    pcall(PetBattleEvents.RegisterEvent, PetBattleEvents, "PET_BATTLE_CLOSE");
 end

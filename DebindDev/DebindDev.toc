@@ -24,5 +24,5 @@ DebindTest.lua
 # Probe_TalentNodes.lua
 # Probe_KnownFlip.lua
 # Probe_SpecSweep.lua
-Probe_ActionBars.lua
+# Probe_ActionBars.lua
 # Probe_CombatUI.lua

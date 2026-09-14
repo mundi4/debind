@@ -163,8 +163,8 @@ SEEDS[5] = function(guid)
                 --- that unpacks it is verified against (`MigrateLayer` in `Profile.lua`).
                 --- `0x400` is toggle, and state 2 is one the seed actually defines below.
                 { type = "setstate", value = 0x400 + 2, key = "CTRL-F4", seq = 1 },
-                --- [Unused], which carries no value at all: the key is handed back to the game's
-                --- own binding rather than taken.
+                --- [Unused], which carries no value at all: it stands on the key as a block, so the
+                --- key is ours and a press does nothing.
                 { type = Constants.UNUSED, key = "CTRL-F5", seq = 1 },
                 --- The role units, which is the whole `UnitWatch.lua` half. Nothing else in the
                 --- seed reaches it: a role unit is neither a basic unit nor a condition, it is

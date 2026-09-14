@@ -170,6 +170,41 @@ return function(DebindPrivate)
         };
     end
 
+    -- **The picker makes neither of the two types the addon no longer runs**
+    -- (`devdocs/dropping-the-game-fallback.md` §3). A command that presses an action bar button
+    -- comes in as the action button action; every other game command and "use WoW's own binding"
+    -- are not offered at all. Saved ones still draw, which is the display's business.
+    test("명령 탭과 특수 탭은 COMMAND와 UNUSED를 안 만든다", function()
+        local shim = require("wow_shim");
+        local Constants = DebindPrivate.Constants;
+        shim.world.bindings = {
+            { action = "ACTIONBUTTON1", keys = {} },
+            { action = "TOGGLEWORLDMAP", keys = {} },
+            { action = "JUMP", keys = {} },
+        };
+        _G.BINDING_NAME_ACTIONBUTTON1 = "Action Button 1";
+        _G.BINDING_NAME_TOGGLEWORLDMAP = "Open World Map";
+        _G.BINDING_NAME_JUMP = "Jump";
+
+        local types, actionButton = {}, false;
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.source == "command" or category.source == "special") then
+                ActionCatalog.Invalidate(category.source);
+                for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
+                    types[entry.type] = true;
+                    if (entry.type == Constants.ACTIONBUTTON and entry.value == "ACTIONBUTTON1") then
+                        actionButton = true;
+                    end
+                end
+            end
+        end
+        shim.world.bindings = {};
+
+        check(not types[Constants.COMMAND], "a binding command was offered");
+        check(not types[Constants.UNUSED], "use WoW's own binding was offered");
+        check(actionButton, "the action bar button was not offered");
+    end);
+
     local left, right = fakeSource("spec-left"), fakeSource("spec-right");
     ActionCatalog.RegisterSource(left);
     ActionCatalog.RegisterSource(right);

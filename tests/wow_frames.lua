@@ -325,6 +325,11 @@ function M.install()
     --- like any other frame.
     _G.SecureStateDriverManager = newFrame("Frame", "SecureStateDriverManager");
 
+    --- The skinned override bar, which the click path reads to pick the button a flyout slot goes
+    --- to. Hidden, the state of every client not on a vehicle.
+    _G.OverrideActionBar = newFrame("Frame", "OverrideActionBar");
+    _G.OverrideActionBar:Hide();
+
     _G.CreateFrame = function(frameType, name, parent, template)
         return newFrame(frameType, name, parent, template);
     end

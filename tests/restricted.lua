@@ -310,6 +310,14 @@ local function buildEnv(interp)
     env.HasVehicleActionBar = function() return state.vehiclebar; end
     env.HasOverrideActionBar = function() return state.overridebar; end
     env.HasTempShapeshiftActionBar = function() return state.shapeshiftbar; end
+    env.HasBonusActionBar = function() return state.bonusactionbar; end
+    env.GetActionBarPage = function() return state.actionBarPage; end
+    -- The indices the probe read on retail (§4-5 of `devdocs/dropping-the-game-fallback.md`).
+    env.GetVehicleBarIndex = function() return 16; end
+    env.GetTempShapeshiftBarIndex = function() return 17; end
+    env.GetOverrideBarIndex = function() return 18; end
+    env.GetBonusBarIndex = function() return state.bonusIndex; end
+    env.GetActionInfo = function(slot) return state.actions[slot]; end
     env.GetShapeshiftForm = function() return state.form; end
     env.GetBonusBarOffset = function() return state.bonusbar; end
     env.PlayerIsChanneling = function() return state.channeling; end
@@ -454,6 +462,7 @@ function Interp:resetState()
         end
     end
     state.group = "none";
+    state.actionBarPage = 1;
 end
 
 --- The records this rebuild handed the click path for one key, or nil where it handed none.
@@ -678,6 +687,11 @@ function M.new(DebindPrivate, world)
         vehiclebar = false,
         overridebar = false,
         shapeshiftbar = false,
+        bonusactionbar = false,
+        actionBarPage = 1,
+        bonusIndex = 0,
+        --- What `GetActionInfo` answers per slot. Empty is every slot holding a plain action.
+        actions = {},
         mounted = false,
         indoors = false,
         outdoors = false,

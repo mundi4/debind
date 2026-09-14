@@ -342,6 +342,21 @@ function DebindPrivate.RegisterOptionsCategory()
     --- the same kind of leftover, so the game's own heading for that is the one to use.
     Header(MISCELLANEOUS);
 
+    --- **Over every switch's own box, not instead of it.** Unticked, no switch says anything, and the
+    --- boxes keep what they hold for when this is ticked again.
+    Settings.CreateCheckbox(category,
+        Proxy("SWITCH_MESSAGES", Settings.VarType.Boolean, L["SWITCH_MESSAGES"], true,
+            DebindPrivate.SwitchMessagesEnabled,
+            function(value)
+                if (value) then
+                    DebindPrivate.Options.switchMessages = nil;
+                else
+                    DebindPrivate.Options.switchMessages = false;
+                end
+                DebindPrivate.QueueUpdateBindings();
+            end),
+        L["SWITCH_MESSAGES_DESC"]);
+
     local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
     local throttle = Proxy("STATE_DRIVER_UPDATE_THROTTLE", Settings.VarType.Number,
         L["STATE_DRIVER_UPDATE_THROTTLE"], defaultThrottle,

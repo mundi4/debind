@@ -238,5 +238,80 @@ return function(DebindPrivate)
         Reset();
     end);
 
+    ---------------------------------------------------------------------------
+    -- A pet battle
+    ---------------------------------------------------------------------------
+
+    local frames = require("wow_frames");
+
+    --- The first five action buttons carry the battle's abilities, and the sixth is where the bar
+    --- goes on past them. Two keys on the first, the way the probe found `ACTIONBUTTON1` on xptr.
+    local function ActionButtonWorld()
+        World({
+            { action = "ACTIONBUTTON1", keys = { "1", "BUTTON3" } },
+            { action = "ACTIONBUTTON5", keys = { "5" } },
+            { action = "ACTIONBUTTON6", keys = { "6" } },
+        });
+    end
+
+    local function Battle(open)
+        frames.fireEvent(open and "PET_BATTLE_OPENING_START" or "PET_BATTLE_CLOSE");
+        frames.drainTimers();
+    end
+
+    -- **The battle's own path only runs while the key is not ours** (§5 of
+    -- `devdocs/dropping-the-game-fallback.md`): the abilities go out through `ActionButtonDown`,
+    -- which only the `ACTIONBUTTONn` binding calls. Every key the client has on each of the five.
+    test("a pet battle yields every key on the first five action buttons, and gives them back", function()
+        ActionButtonWorld();
+        DebindPrivate.RefreshYieldedKeys();
+        check(DebindPrivate.IsKeyYieldedToPetBattle("1") == false, "a key was yielded outside a battle");
+
+        Battle(true);
+        check(DebindPrivate.IsKeyYieldedToPetBattle("1") == true, "the first key was not yielded");
+        check(DebindPrivate.IsKeyYieldedToPetBattle("BUTTON3") == true, "the second key was not yielded");
+        check(DebindPrivate.IsKeyYieldedToPetBattle("5") == true, "ACTIONBUTTON5's key was not yielded");
+        check(DebindPrivate.IsKeyYieldedToPetBattle("6") == false, "ACTIONBUTTON6's key was yielded");
+
+        Battle(false);
+        check(DebindPrivate.IsKeyYieldedToPetBattle("1") == false, "the key stayed yielded after the battle");
+        Reset();
+    end);
+
+    -- **The events queue the rebuild**; nothing else in a battle would.
+    test("opening and closing a battle queues a rebuild", function()
+        ActionButtonWorld();
+        DebindPrivate.RefreshYieldedKeys();
+
+        local queued = 0;
+        local queue = DebindPrivate.QueueUpdateBindings;
+        DebindPrivate.QueueUpdateBindings = function() queued = queued + 1; end
+        Battle(true);
+        local afterOpen = queued;
+        Battle(false);
+        DebindPrivate.QueueUpdateBindings = queue;
+
+        check(afterOpen == 1, "opening queued " .. afterOpen .. " rebuilds");
+        check(queued == 2, "closing queued " .. (queued - afterOpen) .. " rebuilds");
+        Reset();
+    end);
+
+    -- **`keepInBindingContext` says "Override the house editor" to the reader**, and a battle is not
+    -- the editor.
+    test("a pet battle key leaves KeyMap even with keepInBindingContext", function()
+        ActionButtonWorld();
+        Battle(true);
+
+        local keyMap = Profile({
+            { type = Constants.SPELL, value = 585, key = "1", seq = 1, keepInBindingContext = true },
+            { type = Constants.SPELL, value = 774, key = "6", seq = 2 },
+        });
+        check(keyMap["1"] == nil, "a pet battle key stayed in KeyMap");
+        check(keyMap["6"] ~= nil, "a key the battle does not use was dropped");
+
+        Battle(false);
+        Reset();
+    end);
+
     return T;
 end

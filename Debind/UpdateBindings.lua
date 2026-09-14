@@ -73,6 +73,11 @@ local SELFCAST_OFF_BODY =
 --- Every button that has one, as `button name -> twin name`. Filled by `StampBinding` and emitted
 --- whole on each rebuild, the way the buttons themselves outlive one.
 local _selfCastWrappers = {};
+--- `button name -> { info, bar, overrideBar }` for every action button action stamped this
+--- session, emitted as `ActionSlots` on every rebuild. `info` is its `ACTION_BUTTON_COMMANDS` row.
+local _actionSlots = {};
+--- Blizzard bar button -> the button name that clicks it (`BarClickButton`).
+local _barClickButtons = {};
 local UpdateBindingsMap;
 local UpdateMacroTextsMap;
 local UpdateAttrChangedHandler;
@@ -94,7 +99,6 @@ local _macrotexts        = {};
 local _macrotextBindings = {};
 local _switches          = {};
 local _unitsSeen         = {};
-local _updateFlags       = {};
 
 --- Which names already have a list in `MacroTextsMap`. Module level, so a rebuild reuses it rather
 --- than allocating - the rule this file runs on.
@@ -117,25 +121,11 @@ local _plan              = { events = {}, units = {} };
 local _measuredStates    = {};
 local _measuredUnitAxes  = {};
 
---- Does any state-driven key have to be re-decided when the hover **frame** changes while the
---- unit under it does not? Only a `frameTypes` record can, and only the update loop acts on it,
---- so this is aggregated from the same per-key flags rather than kept as its own condition.
-local _rebindOnHoverFrame = false;
-
---- The keys a rebuild binds to a command itself, in two parallel arrays rather than a table per
---- entry. How many of them there are follows the profile, and the record path's rule is that a
---- rebuild allocates no table it can reuse.
-local _commandKeys       = {};
-local _commandValues     = {};
-local _commandCount      = 0;
-
---- Does any measured unit carry the reaction axis? That is what `UNIT_FACTION` is registered for.
---- Accumulated where the axes are worked out rather than derived by walking `_measuredUnitAxes` later,
---- because the axis constants are declared further down this file than the registration runs.
-local _measuresReaction = false;
 --- Does any action ask about the hovered unit's role? It is what turns the three role headers
 --- on, and they are the only thing that fills `UnitRoles`.
 local _readsRole = false;
+--- Does a switch on the beat name `@hover`? It is the one reader left for the poll's hover block.
+local _beatReadsHover = false;
 
 --- Scratch arrays for `sortedKeys`. Three, because the walks nest: a key's units are sorted inside
 --- the walk over keys, and one unit's reactions inside the walk over units.
@@ -178,10 +168,8 @@ local function ResetContext()
     wipe(_measuredStates);
     wipe(_measuredUnitAxes);
     wipe(_unitsSeen);
-    _rebindOnHoverFrame = false;
-    _measuresReaction = false;
     _readsRole = false;
-    _commandCount = 0;
+    _beatReadsHover = false;
 end
 
 --- Which measured state a macro conditional word answers to.
@@ -324,33 +312,8 @@ function addSwitch(stateName)
             if (mode == SWITCH_MODES.EXPR) then
                 info.expr = expr or "";
                 info.gate = CollectSwitchGate(info.expr);
-
-                -- **The flags have to exist, so the states behind them are registered from here.**
-                -- Nothing else would ask for them: a switch's conditional is read by no other part
-                -- of a rebuild, so a profile whose only `[combat]` sits inside a switch would leave
-                -- `DirtyFlags.combat` for the gate to open on. The gate would never open and the
-                -- switch would sit on its last answer for good.
-                --
-                -- One `PlayerInCombat()` a tick is what buys the parse, and the registration also
-                -- puts the switch on whichever state driver events that state brings with it
-                -- (`CollectDriverEvents`), so it stops waiting out the beat.
-                if (info.gate) then
-                    for i = 1, #info.gate do
-                        local flag = info.gate[i];
-                        -- A switch name is not measured. Its flag comes from `SetSwitch`.
-                        if (strsub(flag, 1, 1) ~= "$") then
-                            -- **A unit row raises its own flag**, so a word answered by one
-                            -- registers the row rather than a state (`SWITCH_GATE_UNITS`).
-                            local unit = strmatch(flag, "^(.+)%-exists$");
-                            if (unit) then
-                                MeasureUnitExists(unit);
-                            else
-                                _measuredStates[flag] = true;
-                            end
-                        end
-                    end
-                end
-
+                info.announce = options.displayMessage == true
+                    and DebindPrivate.SwitchMessagesEnabled();
                 addMacrotextBinding(info.name, info.expr);
             end
         end
@@ -359,6 +322,60 @@ function addSwitch(stateName)
     end
     return info;
 end
+--- Puts a computed switch on the beat, and every computed switch its expression reads.
+---
+--- **Only a switch that announces a change needs the beat**, since a press works every switch out
+--- for itself (`COMPUTE_SWITCHES_SNIPPET`). What such a switch reads has to be on the beat too:
+--- between presses the beat is the only thing working anything out, and a value only a press
+--- refreshes would be the last press's.
+---
+--- **The flags its gate opens on have to exist, so the states behind them are registered here.**
+--- A switch's conditional is read by no other part of a rebuild, so a profile whose only `[combat]`
+--- sits inside a switch would leave `DirtyFlags.combat` unset and the switch on its last answer for
+--- good. The registration also puts the switch on whichever state driver events that state brings
+--- with it (`CollectDriverEvents`).
+local function PutOnBeat(name)
+    local info = _switches[name];
+    if (not info or info.mode ~= SWITCH_MODES.EXPR or info.onBeat) then
+        return;
+    end
+    info.onBeat = true;
+
+    if (info.gate) then
+        for i = 1, #info.gate do
+            local flag = info.gate[i];
+            -- A switch name is not measured. Its flag comes from `SetSwitch`.
+            if (strsub(flag, 1, 1) ~= "$") then
+                -- **A unit row raises its own flag**, so a word answered by one registers the row
+                -- rather than a state (`SWITCH_GATE_UNITS`).
+                local unit = strmatch(flag, "^(.+)%-exists$");
+                if (unit) then
+                    MeasureUnitExists(unit);
+                else
+                    _measuredStates[flag] = true;
+                end
+            end
+        end
+    end
+
+    local parsed = _macrotexts[info.expr];
+    if (parsed) then
+        for _, arg in ipairs(parsed.args) do
+            if (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
+                PutOnBeat(arg.name);
+            end
+        end
+    end
+end
+
+local function SettleBeatSwitches()
+    for name, info in pairs(_switches) do
+        if (info and info.announce) then
+            PutOnBeat(name);
+        end
+    end
+end
+
 function addMacrotext(macrotext)
     local ret = _macrotexts[macrotext];
     if (ret == nil) then
@@ -517,16 +534,9 @@ wipe(OldStates)
 for k, v in pairs(States) do
     OldStates[k] = v
 end
-wipe(StateDrivenBindings)
 wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
-end
--- The lists and not the table, so a flag keeps the one it already has. Same reason as the line
--- above it: what is thrown away is the contents, and the table itself is a thing this rebuild
--- would only have to make again.
-for _, list in pairs(DirtyKeys) do
-    wipe(list)
 end
 wipe(HeldButtons)
 wipe(HeldUnits)
@@ -538,6 +548,8 @@ wipe(MacroTextsMap)
 wipe(DeferredMacroTexts)
 wipe(UnitStates)
 wipe(SwitchExpressions)
+wipe(SwitchEntries)
+wipe(ComputedSwitches)
 
 -- **`unitframe`은 살려서 넘긴다.** `States`에 든 나머지는 리빌드가 끝나면서 전부 다시
 -- 채워지지만, 이건 enter/leave 이벤트로만 서는 값이라 **다시 채워줄 사람이 없다.** 지우면
@@ -557,12 +569,40 @@ States.unitframe = hovered
     DebindPrivate.BindingDriver:SetAttribute("_onattributechanged", nil);
 end
 
+local _orderSeen = {};
+local _order = {};
+
+--- **A switch comes after every computed switch its expression reads**, so a press working them out
+--- in this order reads the answer it just got. A cycle is cut where the walk meets it.
+local function OrderComputedSwitch(name)
+    if (_orderSeen[name]) then
+        return;
+    end
+    _orderSeen[name] = true;
+
+    local info = _switches[name];
+    local parsed = info and _macrotexts[info.expr];
+    if (parsed) then
+        for _, arg in ipairs(parsed.args) do
+            local other = arg.type == Constants.MACROTEXT_ARG_SWITCH and _switches[arg.name];
+            if (other and other.mode == SWITCH_MODES.EXPR) then
+                OrderComputedSwitch(arg.name);
+            end
+        end
+    end
+    _order[#_order + 1] = name;
+end
+
 --- The line that puts a switch's stored value back, plus the fixed macro conditional behind a
---- computed one. Returns nil where this rebuild has no switch to say anything about.
+--- computed one, and the order a press works the computed ones out in. Returns nil where this
+--- rebuild has no switch to say anything about.
 ---
 --- Writing into `States` directly would raise no change event, so the state change message would
 --- not print. The value goes back through `SetSwitch` for that reason.
 local function BuildSwitchesSnippet()
+    wipe(_orderSeen);
+    wipe(_order);
+
     for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
         local stateInfo = _switches[state];
         if (stateInfo) then
@@ -576,7 +616,15 @@ local function BuildSwitchesSnippet()
             if (stateInfo.mode == SWITCH_MODES.EXPR and not addMacrotext(stateInfo.expr)) then
                 appendLine([[SwitchExpressions[%q]=%q]], state, stateInfo.expr);
             end
+
+            if (stateInfo.mode == SWITCH_MODES.EXPR) then
+                OrderComputedSwitch(state);
+            end
         end
+    end
+
+    for i = 1, #_order do
+        appendLine([[ComputedSwitches[%d]=%q]], i, _order[i]);
     end
 
     if (#_strArr == 0) then
@@ -618,12 +666,6 @@ local function CollectDriverEvents(events)
     -- branch of the hover block (`UpdateAttrChangedHandler`). Registering this is worth doing
     -- anyway, and reading it as the whole of hover dangling detection is not.
     want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.hover or _measuredUnitAxes.mouseover);
-
-    -- 반응 축을 재는 유닛이 하나라도 있으면 등록한다. 예전 술어(`_measuredStates.reaction`)는 어느
-    -- 유닛인지를 안 봐서, `target`에만 반응 조건을 걸어도 위의 mouseover 등록까지 딸려 왔다.
-    -- 측정에서 파생시키면 앞 단계의 좁히기도 그대로 따라온다 - 배선이 고정된 키만 반응을 묻는
-    -- 프로필에서는 재는 유닛이 없고 이 이벤트도 안 걸린다.
-    want("UNIT_FACTION", _measuresReaction);
 
     want("UPDATE_OVERRIDE_ACTIONBAR", _measuredStates.specialbar);
     want("UPDATE_VEHICLE_ACTIONBAR", _measuredStates.specialbar);
@@ -690,38 +732,19 @@ end
 ---
 --- `RegisterUnitWatch(BindingDriver, true)` is what makes Blizzard write `state-unitexists` five
 --- times a second, and our handler write it back -- **two attribute writes and two handler entries
---- a tick before anything of ours has been measured.** A profile that answers `false` here has
---- nothing for that pass to do: no state to re-read, no unit row to refresh, no computed switch to
---- work out, and nothing naming hover.
+--- a tick before anything of ours has been measured.**
+---
+--- **A switch on the beat is the whole answer** (`PutOnBeat`). A press measures every condition
+--- and works every computed switch out for itself, so the one thing left for a pass that runs with
+--- nobody pressing is a switch that announces a change, and what it reads.
 ---
 --- **`_onattributechanged` stays either way.** What is being turned off is only the periodicity.
 --- `SetSwitch`, `setup_onenter` and `setup_onleave` all reach the handler by writing
 --- `state-unitexists` themselves, and so does the block that closes a rebuild -- so the pass still
 --- runs whenever something actually moves.
----
---- Hover is in here for the same reason it gates the block above: the poll is the only thing that
---- notices a unit changing under a cursor that never moved, and `UnitAliasMap["hover"]` is what
---- goes stale when nobody notices.
----
---- **A computed switch is asked of `_switches` and not of `_measuredStates`.** A switch no record
---- conditions on is absent from the second and still has its two lines in the pass, because a
---- macro body can read it and `displayMessage` can announce it.
----
---- **A state-driven key is not asked about, and does not need to be.** What wakes such a key is
---- its place in `DirtyKeys`, and every flag it can be filed under comes from something this already
---- covers: `unitframe` needs `binding.hover` and so `_unitsSeen.hover`, `<unit>-exists` is written
---- in the same branch that fills `_measuredUnitAxes`, and a state or switch name lands in
---- `_measuredStates`. A key with no flags at all is a real shape rather than a hole -- a mouse
---- button carries "not while hovering" from the key itself (`BuildUnitStates`), so an
---- unconditional action on `BUTTON4` is state-driven with nothing measured. The pass that closes
---- a rebuild binds it with `forceAll`, and nothing that could take it away exists.
 local function WantsStatePoll()
-    if (next(_measuredStates) or next(_measuredUnitAxes) or _unitsSeen.hover) then
-        return true;
-    end
-
     for _, info in pairs(_switches) do
-        if (info and info.mode == SWITCH_MODES.EXPR) then
+        if (info and info.onBeat) then
             return true;
         end
     end
@@ -749,32 +772,17 @@ local function BuildBindingPlan(ctx)
     wipe(plan.units);
 
     plan.bindingsMapSnippet = UpdateBindingsMap();
+    SettleBeatSwitches();
     plan.macroTextsSnippet = UpdateMacroTextsMap();
     plan.attrChangedSnippet, plan.unitRowsSnippet = UpdateAttrChangedHandler();
     plan.switchesSnippet = BuildSwitchesSnippet();
 
     CollectWatchedUnits(plan.units);
 
-    -- **호버 프레임이 바뀌었을 때 다시 걸 것이 있나.** 이름 그대로다: 유닛은 그대로인데
-    -- 프레임만 바뀌는 사건에 반응해야 하는 상태 구동 키가 하나라도 있는가.
-    --
-    -- 예전 이름은 `HoverBindings`였고 값은 *"hover를 쓰는 바인딩이 있나"*였는데, 그건 훨씬
-    -- 넓다 - 호버 유닛이 바뀌는 쪽은 `SetUnit`의 반환값이 이미 답한다. 둘을 `or`로 묶어 쓰는
-    -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
-    plan.rebindOnHoverFrame = _rebindOnHoverFrame and true or false;
-
     --- `damager` is not in `plan.units` because it is not an alias -- nothing can aim at it, and
     --- `CollectWatchedUnits` walks the units a binding can name. It exists so that a unit off the
     --- map means "role unknown" instead of "we only looked for two of the three".
     plan.roleMap = _readsRole and true or false;
-
-    -- **Filled by `UpdateBindingsMap` on its way past**, the way `_rebindOnHoverFrame` is. The
-    -- arrays are the module's and outlive the plan; `commandCount` is what says how much of them
-    -- this rebuild filled, so a rebuild with fewer command keys than the last one does not read
-    -- the leftovers.
-    plan.commandKeys = _commandKeys;
-    plan.commandValues = _commandValues;
-    plan.commandCount = _commandCount;
 
     plan.statePoll = WantsStatePoll();
 
@@ -815,23 +823,6 @@ end
 --- once the two stages that still leave stamping inside the build are done.
 local function ApplyBindingPlan(plan)
     local driver = DebindPrivate.BindingDriver;
-
-    -- **The keys whose answer was settled at build time, bound from out here.**
-    --
-    -- `HANDLE:SetBinding` is `SetOverrideBinding(GetHandleFrame(self), ...)` and nothing else
-    -- (`RestrictedFrames.lua`), so going through the restricted environment for one of these buys
-    -- the right to do it under lockdown and nothing more. `CanBuildBindings` refuses a rebuild in
-    -- combat, so that right has no buyer here, and the other half of the pair is already out here:
-    -- `ClearPreviousBindings` calls `ClearOverrideBindings` on the same frame.
-    --
-    -- **`true` for the priority**, which is what `HANDLE:ClearBinding` clears and what the update
-    -- loop passed. A binding filed at the other priority is one the clear would walk past.
-    --
-    -- Settled `UNUSED` keys are not in this list and want no call. The prologue released every
-    -- override the driver owned and nothing has taken this key since.
-    for i = 1, plan.commandCount do
-        SetOverrideBinding(driver, true, plan.commandKeys[i], plan.commandValues[i]);
-    end
 
     SecureHandlerExecute(driver, plan.bindingsMapSnippet);
     SecureHandlerExecute(driver, plan.macroTextsSnippet);
@@ -890,12 +881,6 @@ local function ApplyBindingPlan(plan)
             end
         ]]);
     end
-
-    -- `PollEveryFrame` is not written here beside it, and the two look alike enough that it wants
-    -- saying. That one describes the throttle, and the throttle moves without a rebuild -- the
-    -- slider writes the option and calls `ApplyOptions`, which is where it is written from
-    -- (`Misc.lua`). `FinishBindingUpdate` calls that too, so a rebuild covers it.
-    SecureHandlerExecute(driver, format("RebindOnHoverFrame=%s", tostring(plan.rebindOnHoverFrame)));
 
     for i = 1, #plan.events do
         local entry = plan.events[i];
@@ -1046,6 +1031,12 @@ local function CollectBindingFacts(type, value, unit, facts)
         facts.petMacrotext = DebindPrivate.GetPetActionMacroText(value, unit);
     elseif (type == Constants.FLYOUT) then
         facts.flyoutOpener = DebindPrivate.GetFlyoutOpener(value);
+    elseif (type == Constants.ACTIONBUTTON) then
+        local info = Constants.ACTION_BUTTON_COMMANDS[value];
+        if (info) then
+            facts.barButton = _G[info.button];
+            facts.overrideButton = info.override and _G[info.override];
+        end
     elseif (type == Constants.SPELL) then
         -- **The name comes off the base and not off the stored id.** A talent version's name only
         -- exists while that talent is taken, so a button carrying it goes dead the moment the
@@ -1093,10 +1084,9 @@ local function DescribeBinding(type, value, unit, facts, out)
     out = out or { attrNames = {}, attrValues = {} };
     out.count = 0;
 
-    -- **Two types write no attribute at all and are not refusals.** Unused clears the key and a
-    -- command binds itself, so neither needs a button to click.
-    if (type == Constants.UNUSED or type == Constants.COMMAND) then
-        return nil, "self-bound";
+    -- **A block writes no attribute and is not a refusal.** It wins the press to do nothing with it.
+    if (type == Constants.BLOCK) then
+        return nil, "block";
     end
 
     -- 펫 명령은 **여기서 MACROTEXT가 된다.** 아래에 자기 갈래를 두면 세 가지를 각각 다시
@@ -1141,6 +1131,9 @@ local function DescribeBinding(type, value, unit, facts, out)
     out.type = type;
     out.value = value;
     out.unit = unit;
+    out.actionSlot = nil;
+    out.barButton = nil;
+    out.overrideButton = nil;
 
     -- **The key the stamp files this button under**, taken before any branch below rewrites the
     -- value for its own attribute. It used to be read after, and only the item branch rewrites --
@@ -1261,6 +1254,30 @@ local function DescribeBinding(type, value, unit, facts, out)
     elseif (type == Constants.WORLDMARKER) then
         attr(out, "*type-", "worldmarker");
         attr(out, "*marker-", value);
+    elseif (type == Constants.ACTIONBUTTON) then
+        -- `*action-` is the press's to write: the main bar's page moves with vehicles and forms, and
+        -- a flyout slot goes to the bar button instead (`SecureBindings.lua`'s `ACTION_SLOT_SNIPPET`).
+        local info = Constants.ACTION_BUTTON_COMMANDS[value];
+        if (not info) then
+            return nil, "unknown-action-button";
+        end
+        if (info.pet) then
+            attr(out, "*type-", "pet");
+            attr(out, "*action-", info.index);
+            -- No slot to work out, but the press still asks whether there is a pet.
+            out.actionSlot = info;
+        elseif (info.stance) then
+            if (not facts.barButton) then
+                return nil, "no-stance-button";
+            end
+            attr(out, "*type-", "click");
+            attr(out, "*clickbutton-", facts.barButton);
+        else
+            attr(out, "*type-", "action");
+            out.actionSlot = info;
+            out.barButton = facts.barButton;
+            out.overrideButton = facts.overrideButton;
+        end
     else
         return nil, "unhandled-type";
     end
@@ -1276,6 +1293,22 @@ end
 --- is written at all -- and `pressAndHold` comes back out of `BindingPressHoldCache` rather than
 --- off the descriptor, because what the wrapper reads is what was **baked**, not what the client
 --- would answer if asked again.
+--- A button on the click frame that clicks one of Blizzard's bar buttons, made once per bar button.
+--- Cached for the session the way `BindingAttrsCache` is: the bar buttons never go away.
+local function BarClickButton(frame)
+    if (not frame) then
+        return nil;
+    end
+    local buttonname = _barClickButtons[frame];
+    if (not buttonname) then
+        buttonname = NextButtonName();
+        DefaultClickFrame:SetAttribute("*type-" .. buttonname, "click");
+        DefaultClickFrame:SetAttribute("*clickbutton-" .. buttonname, frame);
+        _barClickButtons[frame] = buttonname;
+    end
+    return buttonname;
+end
+
 local function StampBinding(descriptor)
     local type, value, unit = descriptor.type, descriptor.value, descriptor.unit;
 
@@ -1330,6 +1363,14 @@ local function StampBinding(descriptor)
             end
         end
 
+        if (descriptor.actionSlot) then
+            _actionSlots[buttonname] = {
+                info = descriptor.actionSlot,
+                bar = BarClickButton(descriptor.barButton),
+                overrideBar = BarClickButton(descriptor.overrideButton),
+            };
+        end
+
         if (unit and unit ~= "" and not delegate) then
             if (DEBUG) then
                 DebindPrivate.log("No delegate frame for:", unit);
@@ -1367,7 +1408,7 @@ function SetBindingAttributes(type, value, unit)
 
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
     if (not descriptor) then
-        if (DEBUG and reason ~= "self-bound") then
+        if (DEBUG and reason ~= "block") then
             DebindPrivate.log("No attributes for:", type, value, reason);
         end
         return;
@@ -1540,73 +1581,6 @@ local function mergeUnitConditions(a, b)
     return { reaction = reaction, dead = dead, role = role, group = group };
 end
 
---- Emits the line that creates a key's record list, and puts it in `StateDrivenBindings` only when
---- the update loop has a wiring decision to make for that key.
----
---- **`StateDrivenBindings` is read by the update loop and by nothing else.** Two kinds of key leave
---- it with nothing to decide, and both stay out:
----
----   배선이 고정된 키      bound once, below. Which action goes out is the wrapper's call at the click
----   클릭캐스팅 전용 키     no record holds the key at all, so there is no key role to bind or release
----
---- Being in the table would only buy a walk over its records on every dirty flag, ending in
---- "nothing to do" -- and the second kind ended there without reading a single record. That is why
---- the loop can now open with `keyBound` unset instead of asking whether the key is held at all.
----
---- The list still has an owner either way: the `ClickTimeKeys` or `ClickCastKeys` registration
---- below holds it, and that is the table the wrapper reaches it through. Every one of those lines
---- is driven by the same `first` flag, so a key that emitted no records gets none of them.
---- **The key goes on the list itself for the state-driven kind.** The update loop reaches a list
---- through `DirtyKeys`, which is an array of lists and carries no key, and the loop needs one to
---- bind or release with. The other kinds are reached by a button name that already spells the key.
-local function AppendBindingsList(key, stateDriven)
-    if (stateDriven) then
-        appendLine("bindings=newtable();StateDrivenBindings[%q]=bindings", key);
-        appendLine("bindings.key=%q", key);
-        if (DEBUG) then
-            DebindPrivate.StateDrivenKeys[key] = true;
-        end
-    else
-        appendLine("bindings=newtable()");
-    end
-end
-
---- Which dirty flag re-decides a key that carries a record field.
----
---- **This table is what stops "what went out" and "what gets measured" from being written down
---- twice.** They used to be: the emitting branch for an axis set its own flag on the line below,
---- so an axis emitted without its flag was a key that never woke up, and a flag set without its
---- axis was a measurement nobody read. Both happened. The flags are read off the finished record
---- now (`CollectRecordAxes`), so there is no second place for them to be written.
----
---- The names do not match the field names for four of them, and that is the other half of why the
---- pairing was easy to get wrong: `groups` wakes on `group`, `forms` on `form`, `bonusbars` on
---- `bonusbar`.
----
---- `known` is `true` rather than a name: **the value it emits is the state name**, brackets and
---- all, because the click path hands the same string to `SecureCmdOptionParse` that the poll uses
---- as a key in `States`.
----
---- `frameTypes` is not in here. Its flag depends on the record's own `holdsKey`, so it is read
---- where that is in hand.
-local FIELD_FLAGS        = {
-    groups     = "group",
-    combat     = "combat",
-    stealth    = "stealth",
-    mounted    = "mounted",
-    indoors    = "indoors",
-    flyable    = "flyable",
-    advflyable = "advflyable",
-    flying     = "flying",
-    skyriding  = "skyriding",
-    known      = true,
-    forms      = "form",
-    bonusbars  = "bonusbar",
-    specialbar = "specialbar",
-    extrabar   = "extrabar",
-    petbattle  = "petbattle",
-};
-
 --- The condition axes that go out as a plain field, **in the order they are emitted in**, with the
 --- value that means "no restriction" for the three that have one.
 ---
@@ -1727,15 +1701,9 @@ end
 --- Stamps every binding on one key and **drops the ones with no way to fire**.
 ---
 --- `DescribeBinding` refuses a value it cannot build attributes for (an unknown pet command, a
---- flyout with every slot empty), and a record emitted for one of those is counted by the secure
---- side as a binding that took: `keyBound` goes up, neither `SetBindingClick` nor `ClearBinding`
---- runs, and the `not keyBound` cleanup below it is skipped as well.
----
---- **So the whole key is eaten.** Not just that action -- every lower priority action on the same
---- key goes with it. A hunter with no pet and a Call Pet binding is the case.
----
---- Unused and command are the exception: both fire without a `clickbutton`, by their own route
---- (`ClearBinding` / `SetBinding`).
+--- flyout with every slot empty), and a record emitted for one of those would win the press and
+--- fire nothing: **every action below it on the key would go with it.** A hunter with no pet and a
+--- Call Pet binding is the case. A BLOCK is the one binding that is meant to do exactly that.
 local function PrepareKeyBindings(key, bindingArray)
     local button = bindingArray.button;
     local hasClickCast, hasKeyRecord = false, false;
@@ -1745,7 +1713,7 @@ local function PrepareKeyBindings(key, bindingArray)
         -- **Never the self or focus twin.** A modifier held on a frame click is part of the binding
         -- the reader put on that exact combination, since nothing falls through to a click with
         -- fewer (`devdocs/implementing-focus-and-self-cast.md` §3-10).
-        binding.isClickCast = button ~= nil and binding.type ~= Constants.COMMAND and
+        binding.isClickCast = button ~= nil and
             (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover") and
             (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
             true or false;
@@ -1787,11 +1755,6 @@ local function PrepareKeyBindings(key, bindingArray)
             });
         end
 
-        -- Read here rather than where the record is built, so that nothing below this line needs
-        -- a frame at all. `DefaultClickFrame` is the one the record leaves out.
-        binding.clickframeName = (binding.clickframe and binding.clickframe ~= DefaultClickFrame)
-            and binding.clickframe:GetName() or nil;
-
         -- The Smart Cast branches are buttons of their own on the click frame, stamped the way any
         -- spell is, and the record carries their names for the press to choose between.
         binding.smartButtons = nil;
@@ -1799,7 +1762,7 @@ local function PrepareKeyBindings(key, bindingArray)
             binding.smartButtons = StampSmartCastButtons(binding.smart, binding);
         end
 
-        if (binding.type ~= Constants.UNUSED and binding.type ~= Constants.COMMAND
+        if (binding.type ~= Constants.BLOCK
                 and not (binding.clickframe and binding.clickbutton)) then
             if (DEBUG) then
                 DebindPrivate.log(format("|cffff6666[Debind/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
@@ -1815,73 +1778,61 @@ local function PrepareKeyBindings(key, bindingArray)
     return hasClickCast, hasKeyRecord;
 end
 
---- The binding a key is settled on before any state is read, when it is one that goes out without
---- a click. **nil for every other key**, which is nearly all of them.
+--- One BLOCK per tier, shared by every key. **Nothing hands them to the solver**, so no key and no
+--- unit state is read off them.
+local BLOCKS = {
+    [Constants.CASTMOD_SELF] = { type = Constants.BLOCK, conditions = {},
+        castModifier = Constants.CASTMOD_SELF, holdsKey = true, isClickCast = false },
+    [Constants.CASTMOD_FOCUS] = { type = Constants.BLOCK, conditions = {},
+        castModifier = Constants.CASTMOD_FOCUS, holdsKey = true, isClickCast = false },
+    [Constants.CASTMOD_NONE] = { type = Constants.BLOCK, conditions = {},
+        castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false },
+};
+
+local _withBlocks = {};
+
+--- The key's bindings with a BLOCK closing the self tier, the focus tier and the whole list
+--- (`devdocs/dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
+--- click-cast-only key a block would take the key, and the world click and camera with it.
 ---
---- **The third kind of key the update loop has nothing to decide for**, beside the two
---- `AppendBindingsList` already leaves out. `UNUSED` hands the key back and `COMMAND` binds it with
---- `SetBinding`, so with no condition in front of either the answer is fixed at build time and the
---- loop can only arrive at it again on every pass.
----
---- **The first key-holding record is the whole test.** The loop takes the first one that matches,
---- so an unconditional record at that position always wins and nothing after it can be reached.
---- Anything else stays with the loop, including an unconditional command that a conditional action
---- sits above: there the winner moves with the state, which is exactly what the loop is for.
----
---- **Narrower than `IsKeyAlwaysOurs` on purpose.** That one asks whether the condition space is
---- covered, which is enough when the answer is "our click frame either way"; here the answer *is*
---- the record, so covering the space is not enough and only position settles it.
----
---- **Only callable after `PrepareKeyBindings`.** `holdsKey` is decided there, and reading it first
---- answers nil for every key with no regression to show for it.
-local function GetSettledBinding(bindingArray)
-    for i = 1, #bindingArray do
-        local binding = bindingArray[i];
-        if (binding.holdsKey) then
-            if ((binding.type == Constants.UNUSED or binding.type == Constants.COMMAND)
-                    and binding.conditions and next(binding.conditions) == nil) then
-                return binding;
-            end
-            return nil;
+--- **No block after the hover twins.** The last one sits under every original's [none held], which
+--- covers the pointed half and the rest alike.
+local function WithBlocks(bindingArray)
+    wipe(_withBlocks);
+    local count = #bindingArray;
+    local selfEnd, focusEnd = 0, 0;
+    for i = 1, count do
+        local castModifier = bindingArray[i].castModifier;
+        if (castModifier == Constants.CASTMOD_SELF) then
+            selfEnd = i;
+        elseif (castModifier == Constants.CASTMOD_FOCUS) then
+            focusEnd = i;
         end
     end
-end
+    if (focusEnd < selfEnd) then
+        focusEnd = selfEnd;
+    end
 
---- The three answers a key gets before any of its records is built.
----
---- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
----
----   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
----   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
----
---- `IsKeyAlwaysOurs`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이 거짓이면 두
---- 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가 이미 적어둔
---- 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히 클릭 시점에 정한다."
----
---- **`PrepareKeyBindings` 뒤에만 부를 수 있다.** `holdsKey`가 거기서 정해지고, 걸 수단이 없어
---- 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지 않는데
---- 회귀는 안 나므로 알아채기 어렵다.
----
---- **The key it is asked about may already be settled**, and then the caller hands in `false` for
---- `hasKeyRecord` -- the key side is out of the snippet, so there is no click-time button to
---- register and nothing for the state loop to walk (`UpdateBindingsMap`).
----
---- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
---- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
-local function ClassifyKey(bindingArray, hasKeyRecord)
-    -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
-    local clickTime = Constants.CLICK_TIME_EVAL and hasKeyRecord and true or false;
-
-    -- 키 배선까지 고정이다. 한 번 `SetBindingClick` 걸고 상태 루프는 이 키의 키 역할을
-    -- 아예 안 본다.
-    local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysOurs(bindingArray) and true or false;
-
-    -- 상태 루프가 이 키에서 정할 것이 있나. 둘 다여야 한다: 키를 잡는 레코드가 있어야 하고
-    -- (없으면 클릭캐스팅 전용이라 걸었다 놓았다 할 키 역할 자체가 없다), 그 배선이 고정이
-    -- 아니어야 한다.
-    local stateDriven = hasKeyRecord and not alwaysOurs;
-
-    return clickTime, alwaysOurs, stateDriven;
+    local n = 0;
+    for i = 1, selfEnd do
+        n = n + 1;
+        _withBlocks[n] = bindingArray[i];
+    end
+    n = n + 1;
+    _withBlocks[n] = BLOCKS[Constants.CASTMOD_SELF];
+    for i = selfEnd + 1, focusEnd do
+        n = n + 1;
+        _withBlocks[n] = bindingArray[i];
+    end
+    n = n + 1;
+    _withBlocks[n] = BLOCKS[Constants.CASTMOD_FOCUS];
+    for i = focusEnd + 1, count do
+        n = n + 1;
+        _withBlocks[n] = bindingArray[i];
+    end
+    n = n + 1;
+    _withBlocks[n] = BLOCKS[Constants.CASTMOD_NONE];
+    return _withBlocks;
 end
 
 --- 같은 유닛에 두 번 걸린 조건을 하나로 접는다. 접어서 아무것도 안 남으면 **nil** - 그 바인딩은
@@ -1943,7 +1894,7 @@ end
 --- Nothing here reaches a frame or the client. The one frame question -- which click frame the
 --- state loop hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a
 --- name.
-local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickTime, out)
+local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     if (not MergeKeyUnitConditions(binding, out.units)) then
         return nil;
     end
@@ -1958,40 +1909,13 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
     out.setsSwitch = nil;
     out.carriesFrameTypes = false;
 
-    if (binding.type == Constants.UNUSED) then
-        field(out, "type", Constants.UNUSED);
-    elseif (binding.type == Constants.COMMAND) then
-        field(out, "command", binding.value);
-    end
-
     if (binding.clickframe and binding.clickbutton) then
-        -- `clickframe`은 상태 루프가 `SetBindingClick`에 넘길 때만 읽는다. 배선이 고정된
-        -- 키는 그 루프를 안 도니 실어 보낼 이유가 없다. `clickbutton`은 클릭 경로가
-        -- 읽으므로 어느 갈래든 나간다.
-        if (not alwaysOurs and binding.clickframeName) then
-            field(out, "clickframe", binding.clickframeName);
-        end
         field(out, "clickbutton", binding.clickbutton);
     end
 
-    -- **대상은 여기서만 레코드에 실린다.**
-    --
-    -- 옛 경로는 대상을 delegate 프레임의 맨이름 `unit`으로 나르므로 실어 보낼 필요가 없었다.
-    -- 클릭 시점 경로는 `DefaultClickFrame` 하나에 걸고 래퍼가 클릭 순간에 맨이름으로 넣기
-    -- 때문에 어느 대상인지를 스니펫이 알아야 한다.
-    --
-    -- 범위를 `GetDelegateFrame`(Debind.lua)과 정확히 맞춘다. 그 밖의 값은 옛 경로에서도
-    -- delegate가 없어 대상이 조용히 사라지므로, 여기서 안 내보내는 것이 곧 현행 유지다.
-    -- `""`(hover인데 재타겟 금지)도 같다.
-    --
-    -- **클릭캐스팅 레코드도 같은 것을 실어야 한다.** 그쪽도 이제 래퍼가 대상을 맨이름으로
-    -- 넣는다 - 유닛 프레임에서 delegate 프레임으로 가던 `/click` 한 단계가 없어졌으므로
-    -- delegate가 들고 있던 `unit`이 안 실리면 대상이 조용히 사라진다.
-    --
-    -- `isClickCast` 쪽은 `CLICK_TIME_EVAL`을 안 본다. 그 플래그는 **키 역할을 클릭 시점으로
-    -- 내릴지**를 가르는 것이고, 클릭캐스팅은 그 선택지가 없다 - 매크로를 안 거치려면 래퍼를
-    -- 지날 수밖에 없어서 언제나 클릭 시점이다.
-    local carriesTarget = isClickCast or (Constants.CLICK_TIME_EVAL and clickTime and holdsKey);
+    -- **The target rides on the record**, because the wrapper is what puts it on the button, at
+    -- the click, for a key and a unit-frame click alike.
+    local carriesTarget = isClickCast or holdsKey;
 
     -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의 선택을 붙들어야 하는지를
     -- 이걸로 가른다 - 그 밖의 액션은 up에서 `typerelease` 조회가 nil이라 아무 일도 안 나므로
@@ -2011,7 +1935,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
     --
     -- 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서 놓는 동작이 안 된다.
     -- 고치려면 엣지를 실어 올 길이 필요한데 `SECURE_ACTIONS.click`에는 없다.
-    if (Constants.CLICK_TIME_EVAL and clickTime and holdsKey and binding.pressAndHold) then
+    if (holdsKey and binding.pressAndHold) then
         field(out, "pressAndHold", true);
     end
 
@@ -2132,83 +2056,20 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
     return out;
 end
 
---- What has to be measured because of this record, read **off the record itself**.
----
---- That is the whole reason the record is a value. While this was done on the way out, the axis
---- and the flag that wakes a key carrying it were two lines next to each other, and either could
---- go without the other -- an emitted axis with no flag is a key that never wakes up, and a flag
---- with no axis is a measurement nobody reads.
-local function CollectRecordAxes(record, stateDriven)
-    for i = 1, record.fieldCount do
-        local name = record.fieldNames[i];
-        if (name == "frameTypes") then
-            -- **레코드 단위로, 키 잡는 레코드에만.** `DirtyFlags.unitframe`은 *유닛은 그대로인데
-            -- 프레임이 바뀜*을 뜻하고, 상태 루프에서 그것에 걸리는 것은 `t.frameTypes`를 가진
-            -- **`holdsKey`** 레코드뿐이다 (거는 갈래가 `not keyBound and t.holdsKey` 뒤에 있다).
-            -- 키 단위로 잡으면 hover 조건이 `isClickCast` 레코드에만 있는 키까지 깨운다.
-            --
-            -- `frameType` 플래그는 안 세운다. `DirtyFlags.frameType`을 세우는 곳이 없어서 어떤
-            -- 키도 못 깨웠다 - 세우는 쪽이 죽어 있었다.
-            if (record.holdsKey) then
-                _updateFlags.unitframe = true;
-            end
-        else
-            local flag = FIELD_FLAGS[name];
-            if (flag == true) then
-                _updateFlags[record.fieldValues[i]] = true;
-            elseif (flag) then
-                _updateFlags[flag] = true;
-            end
-        end
-    end
-
+--- What the rest of the rebuild has to set up because of this record: the switches it reads or
+--- sets, the aliases it resolves, and the role headers.
+local function CollectRecordNeeds(record)
     for unit, condition in pairs(record.units) do
-        local axes = UNITAXIS_EXISTS;
-        if (condition ~= false) then
-            if (condition.reaction) then
-                axes = bor(axes, UNITAXIS_REACTION);
-            end
-            if (condition.dead ~= nil) then
-                axes = bor(axes, UNITAXIS_DEAD);
-            end
-            if (condition.group) then
-                axes = bor(axes, UNITAXIS_GROUP);
-            end
-            -- **Not one of the axes above.** Those say how precisely the state loop measures a
-            -- unit; role is not measured on a unit at all. It rides the hover slot, filled where
-            -- the frame is in hand (`SecureBindings.lua`'s `setup_onenter` and the hover poll
-            -- below), so all this decides is whether the headers that fill `UnitRoles` run.
-            if (unit == "hover" and condition.role) then
-                _readsRole = true;
-            end
+        -- **Role is read off the hover slot, not measured on a unit**, filled where the frame is in
+        -- hand (`SecureBindings.lua`'s `setup_onenter`), so all this decides is whether the headers
+        -- that fill `UnitRoles` run.
+        if (unit == "hover" and condition ~= false and condition.role) then
+            _readsRole = true;
         end
 
         -- 별칭 해석은 어느 갈래든 필요하다. `_unitsSeen`가 `EnableUnitWatch`를 몰고, 그게
         -- `UnitAliasMap[별칭]`을 채운다 - 클릭 경로가 대상을 푸는 자리가 정확히 거기다.
         _unitsSeen[unit] = true;
-
-        -- **Only a state-driven key asks for measurement.**
-        --
-        -- Two things read `UnitStates`: the state loop, and the `UnitStates[alias] ~= nil` test
-        -- that decides whether `SetUnit` calls for a rebuild. A key the state loop never walks
-        -- does not reach the first, and has nothing to ask of the second -- there is nothing to
-        -- re-bind on its account, so the rebuild it used to trigger every time the hover moved
-        -- goes with it.
-        --
-        -- The click path loses nothing. Units are the one thing it does not take from the cache;
-        -- it measures them again at the press. Click-casting does not even take the hover from the
-        -- cache -- the frame that was clicked is `evalFrame`.
-        --
-        -- **This is an accumulator, so the unit of the decision matters.** `_measuredUnitAxes` is
-        -- one table per rebuild and grows by `bor`, so a unit any state-driven key asks about is
-        -- measured anyway. What is withheld here is **this record's share**, not the unit.
-        if (stateDriven) then
-            _measuredUnitAxes[unit] = bor(_measuredUnitAxes[unit] or 0, axes);
-            _updateFlags[unit .. "-exists"] = true;
-            if (band(axes, UNITAXIS_REACTION) ~= 0) then
-                _measuresReaction = true;
-            end
-        end
     end
 
     if (record.setsSwitch) then
@@ -2217,7 +2078,6 @@ local function CollectRecordAxes(record, stateDriven)
 
     for state in pairs(record.switches) do
         addSwitch(state);
-        _updateFlags[state] = true;
     end
 
     if (record.targetUnit) then
@@ -2355,54 +2215,35 @@ function DebindPrivate.IsSwitchTracked(name)
 end
 
 function UpdateBindingsMap()
-    if (DEBUG) then
-        wipe(DebindPrivate.StateDrivenKeys);
-    end
     appendLine("local bindings,t,u");
 
     for _, key in ipairs(sortedKeys(DebindPrivate.KeyMap, _sortedA)) do
         local bindingArray = DebindPrivate.KeyMap[key];
-        wipe(_updateFlags);
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
-
-        -- **A settled key leaves the key side out of the snippet entirely.** The rebuild binds it
-        -- below and nothing on the restricted side reads a record for it again: not the update
-        -- loop, which it is not in, and not the click wrapper, which is reached through a button
-        -- name this key never gets. Its click-cast records, if it has any, go out as they always
-        -- did -- that half is a different question and a different table.
-        local settled = GetSettledBinding(bindingArray);
-        local hasKeySnippet = hasKeyRecord and not settled;
-        local clickTime, alwaysOurs, stateDriven = ClassifyKey(bindingArray, hasKeySnippet);
-
-        if (settled and settled.type == Constants.COMMAND) then
-            _commandCount = _commandCount + 1;
-            _commandKeys[_commandCount] = key;
-            _commandValues[_commandCount] = settled.value;
-        end
+        local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
 
         local first = true;
         local selfCount, focusCount = 0, 0;
 
-        if (hasClickCast or hasKeySnippet) then
-            for i = 1, #bindingArray do
-                local binding = bindingArray[i];
+        if (hasClickCast or hasKeyRecord) then
+            for i = 1, #keyArray do
+                local binding = keyArray[i];
                 local isClickCast = hasClickCast and binding.isClickCast;
-                local holdsKey = hasKeySnippet and binding.holdsKey;
+                local holdsKey = hasKeyRecord and binding.holdsKey;
 
                 if (isClickCast or holdsKey) then
-                    local record = BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs,
-                        clickTime, _record);
+                    local record = BuildKeyRecord(binding, isClickCast, holdsKey, _record);
                     if (record) then
                         if (first) then
                             first = false;
                             if (DEBUG) then
                                 appendLine("-- %s", key);
                             end
-                            AppendBindingsList(key, stateDriven);
+                            appendLine("bindings=newtable()");
                         end
-                        CollectRecordAxes(record, stateDriven);
+                        CollectRecordNeeds(record);
                         EmitRecord(record);
                         if (binding.castModifier == Constants.CASTMOD_SELF) then
                             selfCount = selfCount + 1;
@@ -2414,17 +2255,12 @@ function UpdateBindingsMap()
             end
         end
 
-        -- **아무 레코드도 안 나갔으면 빈 목록이라도 세운다.** 아래로 이어지는 것들은
-        -- (`DirtyKeys` 등록, `ClickCastKeys`, `bindings.hasKeyRecord`, `alwaysOurs`)
-        -- `hasClickCast`/`hasKeySnippet`을 보고 도는데, 그 둘은 위 루프가 레코드를 하나도 안
-        -- 내보낼 수 있다는 것을 모른 채 앞에서 정해졌다. 그러면 `bindings`는 **직전 키의
-        -- 목록**을 가리킨 채로 남고, 이 키의 표시가 남의 목록에 붙는다.
-        --
-        -- 빈 목록은 뜻이 맞다: 쓸 수 있는 레코드가 없는 키이므로 매치 루프가 아무것도 못
-        -- 고르고 키는 안 걸린다.
-        if (first and (hasClickCast or hasKeySnippet)) then
+        -- **An empty list rather than none.** What follows goes by `hasClickCast`, settled before
+        -- the loop above could emit nothing, and without a list of its own `bindings` would still
+        -- point at the previous key's.
+        if (first and (hasClickCast or hasKeyRecord)) then
             first = false;
-            AppendBindingsList(key, stateDriven);
+            appendLine("bindings=newtable()");
         end
 
         -- **Where the key's tiers start, so a press walks only the one its modifier picks**
@@ -2433,56 +2269,6 @@ function UpdateBindingsMap()
         if (not first) then
             appendLine("bindings.focusFrom=%d", selfCount + 1);
             appendLine("bindings.noneFrom=%d", selfCount + focusCount + 1);
-        end
-
-        -- **`_measuredStates` is what gets measured**, so the two flags that name something
-        -- unmeasurable are filtered out here: `<unit>-exists` is a unit axis and
-        -- `_measuredUnitAxes` covers it, and `unitframe` is not measured at all -- enter/leave
-        -- push it.
-        --
-        -- **A key the state loop never walks registers nothing.** The click path measures those
-        -- axes at the press, so there is nothing for the poll to have ready. On an ordinary
-        -- profile `known:` comes out empty here and the `SPELLS_CHANGED` registration goes with
-        -- it.
-        --
-        -- **The question is `stateDriven`, not `not alwaysOurs`.** Two kinds of key leave the
-        -- state loop nothing to decide (`AppendBindingsList`), and `alwaysOurs` is only one of
-        -- them: a click-cast-only key holds no key-binding record, which is exactly the case
-        -- `IsKeyAlwaysOurs` answers `false` for. `not stateDriven` is the union of the two.
-        --
-        -- **Switches are the one exception.** They are the only axis the click path reads
-        -- straight out of `States` -- there is nothing to measure, the stored value is the
-        -- original -- so cutting the registration would take the value away entirely.
-        for k, _ in pairs(_updateFlags) do
-            if (k ~= "unitframe" and strsub(k, -7) ~= "-exists"
-                    and (stateDriven or _switches[k])) then
-                _measuredStates[k] = true;
-            end
-        end
-
-        -- **The state loop is the only reader, so only a state-driven key gets these baked.**
-        -- Any other key is absent from `StateDrivenBindings`, and nothing else looks at the
-        -- flags. The `_measuredStates` registration above is a separate decision -- switches
-        -- register from either kind, because the click path reads those out of `States`.
-        if (stateDriven) then
-            -- `RebindOnHoverFrame`은 정확히 이 플래그의 리빌드 전체 합이다. 같은 게이트 안에서
-            -- 모아야 뜻이 어긋나지 않는다 - 굽지 않은 키는 깨어날 수도 없다.
-            if (_updateFlags.unitframe) then
-                _rebindOnHoverFrame = true;
-            end
-
-            -- **Filed under the flags rather than carrying them.** The list used to hold its own set of
-            -- them and the loop asked every key whether it cared about anything that had
-            -- moved, so a pass cost one walk over `DirtyFlags` per key whether or not that key was
-            -- ever going to be looked at. Indexed this way the pass reaches only the lists the
-            -- flags that actually moved point at.
-            --
-            -- `DirtyKeys[flag]` is made on first use, the way `ClickCastKeys` already is, so a
-            -- profile pays for a flag nobody registered with nothing at all.
-            for _, flag in ipairs(sortedKeys(_updateFlags, _sortedB)) do
-                appendLine("DirtyKeys[%1$q]=DirtyKeys[%1$q] or newtable();tinsert(DirtyKeys[%1$q],bindings)",
-                    flag);
-            end
         end
 
         if (hasClickCast) then
@@ -2497,47 +2283,22 @@ function UpdateBindingsMap()
             appendLine("ClickCastKeys[%d][%d]=bindings", button, GetModifierIndex(buttonPrefix));
         end
 
-        -- **진단으로만 남는다.** 상태 루프가 마지막 독자였는데, 그 루프가 도는 키는 이제 전부
-        -- 이 값이 참이라 물어볼 것이 없어졌다. `alwaysOurs`와 같은 자리다(§2-2): 진짜는 어느
-        -- 표에 들어 있느냐이고 이 필드는 그 사본이라, 이걸로 판정하는 코드를 새로 쓰면 안 된다.
-        -- 남기는 이유도 같다 - `bindings` 하나만 보고 갈래를 알 수 있어야 인게임에서 확인이 된다.
-        if (hasKeySnippet) then
+        -- **Diagnostic only.** Nothing reads it; it is there so one `bindings` shows its kind in
+        -- the game.
+        if (hasKeyRecord) then
             appendLine("bindings.hasKeyRecord=true");
         end
 
-        -- 클릭 시점 키를 배선한다.
-        --
-        -- **이름 등록은 언제나 여기서 한 번이다.** 래퍼는 `self`와 `button`만 받으므로 버튼
-        -- 이름에 키를 실어 보내고, 그 이름으로 `ClickTimeKeys`를 찾아 바인딩 목록을 얻는다.
-        -- 목록은 리빌드마다 새로 만들어지니 등록도 리빌드마다 한 번이면 된다.
-        --
-        -- **거는 것은 갈린다:**
-        --
-        --   alwaysOurs   여기서 한 번 걸고 끝. 상태가 뭐가 되든 우리 클릭 프레임이라 다시 걸
-        --                일이 없다. 상태 루프에 둘 이유가 없다
-        --   그 밖         상태 루프가 건다. "잡느냐 놓느냐"가 상태에 달렸으므로 여기서 한 번
-        --                걸어버리면 놓아줘야 할 때 못 놓는다
-        --
-        -- 순서는 맞다: 이 스니펫은 `ClearOverrideBindings` 뒤에 실행된다.
-        if (clickTime and not first) then
+        -- **Bound once, for good.** Every tier ends in a BLOCK, so no state leaves the key to
+        -- anyone else, and which action goes out is the wrapper's to decide at the press. The
+        -- button name carries the key there, since the wrapper gets nothing but `self` and
+        -- `button`.
+        if (hasKeyRecord and not first) then
             local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
             DebindPrivate.ClickTimeKeys[key] = clickTimeButton;
             appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
-            if (alwaysOurs) then
-                -- **진단으로 남긴다.** 아무도 안 읽는다 - 어느 표에 들어 있느냐가 이미 답이고,
-                -- 진짜는 그 멤버십이며 이 필드는 사본이다. 어긋나면 필드가 틀린 것이고, 이걸로
-                -- 판정하는 코드를 새로 쓰면 안 된다. 그래도 두는 이유는 `bindings` 하나만 보고
-                -- 이 키가 어느 갈래인지 알 수 있어야 인게임에서 확인이 되기 때문이다.
-                appendLine("bindings.alwaysOurs=true");
-                appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key,
-                    clickTimeButton);
-            else
-                -- 상태 루프가 걸 때 쓸 이름. 문자열 결합을 클릭 경로 밖으로 빼둔다.
-                -- **이 값이 곧 "clickTime 키인가" 표시다** - 따로 불리언을 두면 둘이 갈라진다.
-                -- 배선이 고정된 키에는 굽지 않는다: 거는 것은 위에서 이미 끝났고, 그 루프가
-                -- 이 키를 보지 않는다.
-                appendLine("bindings.clickTimeButton=%q", clickTimeButton);
-            end
+            appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key,
+                clickTimeButton);
         end
     end
 
@@ -2547,6 +2308,31 @@ function UpdateBindingsMap()
     -- also miss the Smart Cast branches, which are buttons of their own.
     for _, buttonname in ipairs(sortedKeys(_selfCastWrappers, _sortedA)) do
         appendLine("SelfCastWrappers[%q]=%q", buttonname, _selfCastWrappers[buttonname]);
+    end
+
+    for _, buttonname in ipairs(sortedKeys(_actionSlots, _sortedA)) do
+        local entry = _actionSlots[buttonname];
+        local info = entry.info;
+        -- `GetExtraBarIndex` is not in the restricted environment, so its page is asked here.
+        local page = info.page or (info.extra and C_ActionBar.GetExtraBarIndex());
+        appendLine("ActionSlots[%q]=newtable()", buttonname);
+        appendLine("ActionSlots[%q].attr=%q", buttonname, "*action-" .. buttonname);
+        appendLine("ActionSlots[%q].index=%d", buttonname, info.index);
+        if (page) then
+            appendLine("ActionSlots[%q].page=%d", buttonname, page);
+        end
+        if (info.extra) then
+            appendLine("ActionSlots[%q].extra=true", buttonname);
+        end
+        if (info.pet) then
+            appendLine("ActionSlots[%q].pet=true", buttonname);
+        end
+        if (entry.bar) then
+            appendLine("ActionSlots[%q].bar=%q", buttonname, entry.bar);
+        end
+        if (entry.overrideBar) then
+            appendLine("ActionSlots[%q].overrideBar=%q", buttonname, entry.overrideBar);
+        end
     end
 
     local snippet = table.concat(_strArr, "\n");
@@ -2616,12 +2402,6 @@ end
 --- That is what takes the hover sweep down: `SetUnit` walks `MacroTextsMap[alias]`, and a profile
 --- whose `@hover` bodies are all buttons leaves that list empty.
 ---
---- **`Constants.CLICK_TIME_EVAL` is the gate, and it is not decoration.** Deferring rests on every
---- click reaching the `OnClick` wrapper, which is where the winner is baked. With the flag off, the
---- state loop binds a record's own button directly (`SetBindingClick(..., t.clickframe or
---- DefaultClickFrameName, t.clickbutton)`) and no wrapper runs, so a deferred body would never be
---- built at all and the binding would fire with an empty macro.
----
 --- **Dependents are emitted next to the entry rather than in a second pass.** The pass that used to
 --- do it walked `_macrotexts` by body text and reached the entry through `data.index`, which is one
 --- field on a table shared by every name bound to the same text -- so two names sharing a body left
@@ -2656,16 +2436,26 @@ local function EmitMacroTextEntries()
                 EmitMacroTextArg(i, data.args[i], buttonOrStateName, isState);
             end
 
-            if (not isState and Constants.CLICK_TIME_EVAL) then
+            if (not isState) then
                 appendLine("DeferredMacroTexts[%q]=t", buttonOrStateName);
             else
-                for _, arg in ipairs(data.args) do
-                    local key = arg.name;
-                    if (not _keysSeen[key]) then
-                        _keysSeen[key] = true;
-                        appendLine("MacroTextsMap[%q]=newtable()", key);
+                -- **Every computed switch keeps its entry for the press**, and only one on the beat
+                -- is recomposed when what it reads moves: nothing else reads the answer between
+                -- presses.
+                appendLine("SwitchEntries[%q]=t", buttonOrStateName);
+                local info = _switches[buttonOrStateName];
+                if (info and info.onBeat) then
+                    for _, arg in ipairs(data.args) do
+                        local key = arg.name;
+                        if (arg.type == Constants.MACROTEXT_ARG_UNIT and key == "hover") then
+                            _beatReadsHover = true;
+                        end
+                        if (not _keysSeen[key]) then
+                            _keysSeen[key] = true;
+                            appendLine("MacroTextsMap[%q]=newtable()", key);
+                        end
+                        appendLine("tinsert(MacroTextsMap[%q], t)", key);
                     end
-                    appendLine("tinsert(MacroTextsMap[%q], t)", key);
                 end
             end
         end
@@ -2832,18 +2622,10 @@ if (name == "state-unitexists") then
     local gateAt = #_strArr + 1;
     appendLine("if (full) then");
 
-    -- **The block below is what costs a tick while the cursor rests on a unit frame**, and a
-    -- profile where nothing names hover pays it for an answer nobody reads. `_unitsSeen.hover` is
-    -- what decides, and it is a superset of every reader rather than a list of them:
-    --
-    --   the hover row of the state loop    `record.units.hover` -> `_measuredUnitAxes.hover`
-    --   a key re-decided on the frame      `frameTypes` needs `binding.hover`, so `units.hover`
-    --   a binding aimed at `@hover`        `record.targetUnit`
-    --   `@hover` inside a macro body       `addMacrotext` files the argument as a unit
-    --   a `SETCUSTOM` action               says so itself (`record.readsHoverUnit`)
-    --
-    -- **The click path is not in that list and does not belong there.** It reads the frame again
-    -- at the press (`EVAL_SNIPPET`), so what the poll left behind is not what it answers with.
+    -- **The block below is what costs a tick while the cursor rests on a unit frame**, and its one
+    -- reader is a switch on the beat naming `@hover` (`_beatReadsHover`). A press reads the frame
+    -- itself (`EVAL_SNIPPET`, `GetHoveredUnit`), so what the poll leaves behind is not what it
+    -- answers with.
     --
     -- The slot itself stays: `setup_onenter` fills it whether or not this block is emitted, so a
     -- rebuild that starts naming hover finds a warm slot rather than an empty one and the first
@@ -2864,7 +2646,7 @@ if (name == "state-unitexists") then
     -- symptom was a binding that was right the moment the cursor arrived and went out on the first
     -- poll tick.
     --
-    if (_unitsSeen.hover) then
+    if (_beatReadsHover) then
         appendLine([[
 if (States.unitframe) then
     local unitframe = States.unitframe
@@ -2882,7 +2664,7 @@ if (States.unitframe) then
         if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
             unitframe.unit = unit
             unitframe.reaction = reaction
-            if (self:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+            if (self:RunAttribute("SetUnit", "hover", unit)) then
                 DirtyFlags.unitframe = true
             end
         end
@@ -2890,7 +2672,7 @@ if (States.unitframe) then
         unitframe.unit = nil
         unitframe.reaction = nil
         unitframe.role = nil
-        if (self:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+        if (self:RunAttribute("SetUnit", "hover", nil)) then
             DirtyFlags.unitframe = true
         end
     end
@@ -3004,7 +2786,7 @@ end
     for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
         local stateInfo = _switches[state];
         if (stateInfo) then
-            if (stateInfo.mode == SWITCH_MODES.EXPR) then
+            if (stateInfo.onBeat) then
                 -- **`forceAll` is the term that makes the rest of the gate safe to trust.** It is
                 -- set by the block that closes a rebuild, and the pass it opens is the one where
                 -- `States` has just been wiped, so the switch is worked out from nothing there
@@ -3029,18 +2811,13 @@ end
     end
 
     appendLine([[
-local shouldUpdate
 for flag in pairs(DirtyFlags) do
-    shouldUpdate = true
     if (MacroTextsMap[flag]) then
         self:RunAttribute("UpdateMacroTexts")
         break
     end
 end
-
-if (shouldUpdate) then
-    self:RunAttribute("UpdateBindings")
-end
+wipe(DirtyFlags)
 ]]);
 
     appendLine([[end]]);

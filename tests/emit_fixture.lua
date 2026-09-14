@@ -118,8 +118,8 @@ return function(DebindPrivate, shim)
             action({ type = Constants.SETSTATE_ON, value = "$intent", key = "F6" }),
             action({ type = Constants.SETSTATE_OFF, value = "$echo", key = "F7" }),
 
-            --- The types that carry no value at all, and the two that leave the click frame alone
-            --- entirely -- a command binds itself and `unused` clears the key.
+            --- The types that carry no value at all, and a command, which stands on its key as a
+            --- block.
             action({ type = Constants.TARGET, value = nil, key = "F8", unit = "focus" }),
             action({ type = Constants.TOGGLEMENU, value = nil, key = "F9", unit = "player" }),
             action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F10" }),
@@ -202,8 +202,8 @@ return function(DebindPrivate, shim)
             --- mouse button to arrive on.
             action({ type = Constants.SPELL, value = 8936, key = "ALT-F1", unit = "hover",
                 conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
-            --- A frame type condition, which is the only thing that makes the hover **frame**
-            --- worth re-deciding on: it sets `RebindOnHoverFrame` and the `unitframe` flag.
+            --- A frame type condition, the one condition read off the hover **frame** rather than
+            --- off its unit.
             action({ type = Constants.SPELL, value = 774, key = "ALT-F2", unit = "hover",
                 conditions = {
                     frameTypes = Constants.FRAMETYPE_GROUP,
@@ -224,8 +224,8 @@ return function(DebindPrivate, shim)
             --- A spell whose name does not resolve: the attribute carries the id instead.
             action({ type = Constants.SPELL, value = 5176, key = "ALT-F4" }),
 
-            --- **Unused, under a conditional action.** It takes the key back when the one above it
-            --- does not match, which is the shape `unused` exists for.
+            --- **Unused, under a conditional action.** It stands as a block, so the key fires nothing
+            --- when the one above it does not match.
             action({ type = Constants.SPELL, value = 585, key = "ALT-F5",
                 conditions = { combat = true } }),
             action({ type = Constants.UNUSED, key = "ALT-F5" }),

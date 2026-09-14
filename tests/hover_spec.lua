@@ -1,16 +1,9 @@
--- **호버 슬롯을 누가 채우고 누가 비우는가.** 와우 클라이언트 불필요.
+-- **Who fills the hover slot, who empties it, and who reads it.** No WoW client needed.
 --
--- 두 가지를 본다.
---
--- 하나는 커서가 멈춰 있는 동안 유닛 프레임이 가리키는 유닛이 바뀌는 경우다 (공대 프레임
--- 정렬이 그렇게 만든다). enter/leave는 커서가 안 움직이므로 안 뜨고, 그것을 알아채는 것은
--- 0.2초 상태 폴링뿐이다 (`UpdateBindings.lua`의 `_onattributechanged`). 그 폴링이 리빌드를
--- 부를지 말지가 앞의 두 테스트다. **밖에서 보이는 결과는 어느 쪽이나 같다**: 모든 키를 이미
--- 걸려 있던 값으로 다시 정하는 리빌드는 바인딩을 안 바꾼다. 그래서 물어볼 수 있는 것은
--- 돌았느냐뿐이고, `interp:rebuildCount()`가 그 답이다.
---
--- 다른 하나는 우리가 물러난 프레임이다. 래퍼를 안 떼므로 그런 프레임에서도 우리 본문이 계속
--- 돌고, 거기 들어갔을 때 무엇을 하느냐가 물러남의 실체다.
+-- Three things are asked. A unit changing under a cursor that never moves, which only the poll
+-- notices, and what the poll keeps current then. What the click bakes when the body on a button
+-- names `@hover`. And a frame we stood down from: the wrapper stays on, so our bodies keep running
+-- there, and what they do on arrival is what standing down amounts to.
 
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
@@ -141,70 +134,6 @@ return function(DebindPrivate, _, ctx)
     end
 
     ---------------------------------------------------------------------------
-    -- 폴링이 리빌드를 부르는 조건
-    ---------------------------------------------------------------------------
-
-    --- **Nothing reads it, so nothing is rebuilt.**
-    ---
-    --- Two things make a hover change worth re-deciding a key over, and the poll has to ask both:
-    --- is there a binding that reads the hovered unit (`SetUnit` answers that off `UnitStates`),
-    --- and is there a `frameTypes` record to decide again (`RebindOnHoverFrame`). `setup_onenter`
-    --- asked the two as one `or` from the start; only the poll set `DirtyFlags.unitframe`
-    --- unconditionally, and one entry in `DirtyFlags` walks every state-driven key.
-    ---
-    --- **This profile no longer emits the hover block at all** (2026-08-22). Nothing names hover,
-    --- so `_unitsSeen.hover` is false and the poll never looks at the frame. What this test holds
-    --- is one outcome with two layers behind it now; the inner layer -- a profile that names hover
-    --- but has nothing to re-decide -- is what the macro text tests below stand on.
-    test("호버 유닛이 바뀌어도 그것을 읽는 것이 없으면 폴링이 리빌드를 안 부른다", function()
-        twoParty();
-        local i = Bind({ action({ value = 585, key = "F1", combat = true }) });
-
-        local before = settleOn("party1");
-        unitFrame:SetAttribute("unit", "party2");
-        i:pollStates();
-
-        check(i:rebuildCount() == before,
-            ("폴링이 리빌드를 %d번 불렀다. 이 프로필에는 호버를 읽는 것이 없다")
-                :format(i:rebuildCount() - before));
-    end);
-
-    --- The other side. Without it the test above also passes on a poll that does nothing at all.
-    test("호버를 읽는 바인딩이 있으면 같은 변화가 리빌드를 부른다", function()
-        twoParty();
-        local i = Bind({
-            action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }),
-        });
-
-        local before = settleOn("party1");
-        unitFrame:SetAttribute("unit", "party2");
-        i:pollStates();
-
-        check(i:rebuildCount() > before,
-            "호버 조건이 걸린 프로필인데 폴링이 리빌드를 안 불렀다");
-    end);
-
-    --- **커서가 옮겨가는 경로.** 위 둘은 커서가 멈춰 있는 동안 유닛이 바뀌는 경우라 폴링이
-    --- 답하는데, 실제로 사람이 하는 것은 프레임에서 프레임으로 옮기는 것이고 그쪽은 폴링을
-    --- 안 기다린다. `setup_onenter`가 그 자리에서 dirty를 세워야 한다.
-    test("프레임을 옮기면 폴링을 안 기다리고 다시 정한다", function()
-        twoParty();
-        local i = Bind({
-            action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }),
-        });
-
-        settleOn("party1");
-        local before = i:rebuildCount();
-
-        interp:hoverLeave(unitFrame);
-        unitFrame:SetAttribute("unit", "party2");
-        interp:hoverEnter(unitFrame);
-
-        check(i:rebuildCount() > before,
-            "프레임을 옮겼는데 폴링 전까지 아무것도 다시 안 정했다");
-    end);
-
-    ---------------------------------------------------------------------------
     -- What makes the poll emit the hover block
     ---------------------------------------------------------------------------
 
@@ -226,12 +155,12 @@ return function(DebindPrivate, _, ctx)
         return nil, "레코드 중 매크로 본문을 가진 것이 없다";
     end
 
-    --- **A `@hover` switch expression needs the poll without carrying a single condition.**
+    --- **A `@hover` switch expression that announces needs the poll without carrying a single
+    --- condition.**
     ---
     --- The `@hover` in it is substituted with `UnitAliasMap["hover"]`, and while the cursor sits
-    --- still the only thing that keeps that alias current is the poll hover block. There is no key
-    --- to re-decide: `UnitStates` holds no hover row and `RebindOnHoverFrame` is false, so
-    --- `SetUnit` answers false. The block still has to go out.
+    --- still the only thing that keeps that alias current is the poll hover block. `UnitStates`
+    --- holds no hover row, so `SetUnit` answers false, and the block still has to go out.
     ---
     --- **That this is a switch expression and not a button body is the whole test.** A body on a
     --- button is held back to the click (item 2), and the click reads the unit off the frame
@@ -242,7 +171,7 @@ return function(DebindPrivate, _, ctx)
         local i = Bind({
             action({ value = 585, key = "F1", conditions = { ["$state1"] = true } }),
         }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@hover]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@hover]", displayMessage = true },
         });
 
         settleOn("party1");
@@ -340,14 +269,10 @@ return function(DebindPrivate, _, ctx)
 
     end
 
-    --- **A @custom1 action names no unit anywhere.**
-    ---
-    --- Which slot to fill is `value`, and where the unit comes from is baked by `DescribeBinding`
-    --- as the literal `"hover"` on `UnitWatch`. So neither this action's conditions nor its target
-    --- says hover, and the only way `_unitsSeen` hears about it from the record is
-    --- `record.readsHoverUnit`. Miss it and the poll emits no hover block for this profile -- and
-    --- when the frame's unit changes under a still cursor, the old unit lands in custom1.
-    test("@custom1 지정 액션만 있어도 폴링이 호버 유닛을 따라간다", function()
+    --- **A @custom1 action takes the hovered unit off the frame at the call** (`GetHoveredUnit`).
+    --- The frame's unit changes under a still cursor and no beat runs in between, so a slot that
+    --- read the unit enter left behind would fill custom1 with somebody who is no longer there.
+    test("@custom1 지정 액션은 커서 밑 프레임의 지금 유닛을 받는다", function()
         twoParty();
         local i = Bind({ action({ type = Constants.SETCUSTOM, value = 1, key = "F1" }) });
 
@@ -356,7 +281,6 @@ return function(DebindPrivate, _, ctx)
             "전제가 깨졌다 - enter가 호버 슬롯을 안 채웠다");
 
         unitFrame:SetAttribute("unit", "party2");
-        i:pollStates();
 
         local hovered = i.driverHandle:RunAttribute("GetHoveredUnit");
         check(hovered == "party2",
@@ -433,203 +357,6 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- How much a wake measures
-    ---------------------------------------------------------------------------
-
-    --- A profile that measures one of each kind: the hover row, so a crossing wakes the pass at
-    --- all; a base axis, which has an event of its own; and another unit's row, which has none.
-    local function BindOneOfEach()
-        twoParty();
-        shim.world.units.target = { id = "t", reaction = "harm" };
-        Bind({
-            action({ key = "F1", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
-            action({ key = "F2", conditions = { combat = true } }),
-            action({ key = "F3", conditions = { units = { target = { reaction = Constants.REACTION_HARM } } } }),
-        });
-        unitFrame:SetAttribute("unit", "party1");
-        interp:hoverEnter(unitFrame);
-        interp:pollStates();
-        return interp;
-    end
-
-    --- Moves the cursor to the other frame, which is a `"unitframe"` wake and nothing else.
-    local function crossTo(unit)
-        unitFrame:SetAttribute("unit", unit);
-        interp:hoverEnter(unitFrame);
-    end
-
-    -- **A crossing does not re-measure an axis that can announce itself.** `combat` has
-    -- `PLAYER_REGEN_DISABLED` on the manager, and an event puts the manager's timer to 0, so the
-    -- pass that picks it up is already coming. Spending the client calls on every frame boundary
-    -- the cursor crosses buys the same answer sooner by less than the frame the event costs.
-    --
-    -- **The second half is what makes the first mean anything.** Without it a gate that was simply
-    -- never opening would pass.
-    test("a hover crossing leaves the axes that have an event to the poll", function()
-        local i = BindOneOfEach();
-        check(i.env.States.combat == false, "전제가 깨졌다. 시작부터 combat이 참이다");
-
-        i.state.combat = true;
-        crossTo("party2");
-        check(i.env.States.combat == false,
-            "a hover crossing re-measured combat, which has an event of its own");
-
-        i:pollStates();
-        check(i.env.States.combat == true, "the poll did not pick combat up either");
-    end);
-
-    -- **A unit row is the other kind and a crossing does take it.** Nothing fires when a target
-    -- stops existing, so the only way anyone finds out is a pass that asks -- and a wake we were
-    -- handed for free is one of those.
-    test("a hover crossing still measures the rows nothing announces", function()
-        local i = BindOneOfEach();
-        check(i.env.UnitStates.target.exists == true,
-            "전제가 깨졌다. 대상이 처음부터 없다");
-
-        shim.world.units.target = nil;
-        crossTo("party2");
-        check(i.env.UnitStates.target.exists == false,
-            "a hover crossing skipped the unit rows, which nothing else would have caught");
-    end);
-
-    -- **A rebuild's own pass measures everything, and it is not the value that says so.** It wakes
-    -- with a number rather than the poll's `true`, and it wakes onto a `States` the prologue has
-    -- just wiped, so the term that opens the gate for it is `DirtyFlags.forceAll`. Drop that term
-    -- and every base axis stays nil until the next poll, with the first 0.2s of every rebuild
-    -- deciding keys on nothing.
-    test("a rebuild's own pass measures every axis", function()
-        BindOneOfEach();
-        interp.state.combat = true;
-
-        local mark = frames.mark();
-        check(DebindPrivate.UpdateBindings() == true, "리빌드가 거절됐다");
-        interp:replay(frames.since(mark));
-
-        check(interp.env.States.combat == true,
-            "the rebuild's pass left combat at " .. tostring(interp.env.States.combat));
-    end);
-
-    ---------------------------------------------------------------------------
-    -- Which keys a pass walks
-    ---------------------------------------------------------------------------
-
-    -- **A key on two axes that both went dirty in one pass is decided once.** The pass reaches it
-    -- through each flag's list, and the generation number is what makes the second arrival free.
-    --
-    -- **It cannot be asked in a value**, which is the whole reason `WorkCount` is here: deciding a
-    -- key twice lands on the same answer, because `bindings.bound` turns the second one into a
-    -- no-op. A case that read the key back would pass with the guard taken out.
-    test("a key on two dirty axes is decided once", function()
-        twoParty();
-        Bind({
-            action({ key = "F1", value = 585, conditions = { combat = true, stealth = true } }),
-        });
-
-        -- **Settled to a known world first.** `Bind` resets the interpreter's state but not
-        -- `States`, which the rebuild filled from whatever the case before this one left. An axis
-        -- that was already true does not go dirty when this case sets it true, and then the pass
-        -- has one flag in hand rather than two and proves nothing.
-        interp.state.combat = false;
-        interp.state.stealth = false;
-        interp:pollStates();
-        check(interp.env.States.combat == false and interp.env.States.stealth == false,
-            "전제가 깨졌다. 시작부터 축이 서 있다");
-
-        -- Both at once, so the pass has two flags in hand and one key filed under each.
-        interp.state.combat = true;
-        interp.state.stealth = true;
-        interp:pollStates();
-
-        check(interp.env.DirtyKeys.combat and #interp.env.DirtyKeys.combat == 1,
-            "전제가 깨졌다. combat 목록에 이 키가 없다");
-        check(interp.env.DirtyKeys.stealth and #interp.env.DirtyKeys.stealth == 1,
-            "전제가 깨졌다. stealth 목록에 이 키가 없다");
-
-        -- **`rawget`, because the environment raises on a name it does not carry.** In the shipped
-        -- shape it does not carry this one, and that absence is the other half of the case: a
-        -- counter that only a test reads has no business in a real user's snippet.
-        local walked = rawget(interp.env, "WorkCount");
-        if (ctx and ctx.shipped) then
-            check(walked == nil, "the DEBUG-only walk counter is in the shipped snippet");
-            return;
-        end
-
-        check(walked == 1, "one key on two dirty axes was walked " .. tostring(walked) .. " times");
-    end);
-
-    --- Rebuilds the profile that is already loaded with the throttle set to `value`, and puts the
-    --- option back so nothing after this reads it.
-    local function RebuildWithThrottle(value)
-        DebindPrivate.Options.stateDriverUpdateThrottle = value;
-        local mark = frames.mark();
-        check(DebindPrivate.UpdateBindings() == true, "리빌드가 거절됐다");
-        interp:replay(frames.since(mark));
-        DebindPrivate.Options.stateDriverUpdateThrottle = nil;
-    end
-
-    -- **At zero the beat is every frame, so a wake of ours is always second to it.** There is
-    -- nothing left for the pass to do and the handler turns round before it puts the attribute
-    -- back. Asked of the unit row, because that is the half a crossing does measure otherwise --
-    -- a base axis would read the same whether the pass was dropped or merely gated.
-    --
-    -- **The last half is what keeps this from passing on a dead profile.** A crossing that changed
-    -- nothing and a beat that measures nothing look alike from one read.
-    test("a crossing turns straight round while the beat comes every frame", function()
-        local i = BindOneOfEach();
-        RebuildWithThrottle(0);
-
-        local before = i:rebuildCount();
-        shim.world.units.target = nil;
-        crossTo("party2");
-
-        check(i:rebuildCount() == before,
-            "a crossing ran the pass while the beat was already coming every frame");
-        check(i.env.UnitStates.target.exists == true,
-            "the pass ran far enough to measure a unit row");
-
-        i:pollStates();
-        check(i.env.UnitStates.target.exists == false,
-            "the beat did not measure it either, so the check above proves nothing");
-    end);
-
-
-    -- **The throttle and the flag that reads it are one write.** Whatever says "the beat comes
-    -- every frame" has to be written by the same hand that writes the throttle, or a reader who
-    -- was at zero and raised the slider keeps having every hover crossing and every switch toggle
-    -- dropped until the two happen to be written together again. `ApplyOptions` is that hand, and
-    -- this drives it directly rather than through the settings row that asks for it
-    -- (`Options.lua`), because what is being measured is the write and not who asked.
-    test("raising the throttle brings the crossings back with no rebuild", function()
-        local i = BindOneOfEach();
-        RebuildWithThrottle(0);
-
-        DebindPrivate.Options.stateDriverUpdateThrottle =
-            Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-        local mark = frames.mark();
-        DebindPrivate.ApplyOptions("stateDriverUpdateThrottle");
-        i:replay(frames.since(mark));
-        DebindPrivate.Options.stateDriverUpdateThrottle = nil;
-
-        shim.world.units.target = nil;
-        crossTo("party2");
-        check(i.env.UnitStates.target.exists == false,
-            "the slider went up and crossings are still being dropped");
-    end);
-
-    -- The other side of the same switch: at the throttle the reader gets by default, a crossing is
-    -- the only thing that carries the change until the next tick, and it does.
-    test("a crossing still carries the change at the ordinary throttle", function()
-        local i = BindOneOfEach();
-        RebuildWithThrottle(Constants.STATE_DRIVER_UPDATETIME_DEFAULT);
-
-        shim.world.units.target = nil;
-        crossTo("party2");
-        check(i.env.UnitStates.target.exists == false,
-            "a crossing was dropped at a throttle that is not zero");
-    end);
-
-    ---------------------------------------------------------------------------
     -- The two ladders that turn a hovered unit into a reaction
     ---------------------------------------------------------------------------
 
@@ -651,9 +378,13 @@ return function(DebindPrivate, _, ctx)
     --- dead on the first poll tick, on exactly the targets that fall to the last branch: friendly
     --- NPCs, corpses, totems.
     local function reactionOnArrival(unit)
+        -- The poll's hover block goes out only for a switch on the beat that names `@hover`.
         Bind({
             action({ value = 585, key = "F1", unit = "hover",
                 conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+            action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@hover]", displayMessage = true },
         });
         unitFrame:SetAttribute("unit", unit);
         interp:hoverEnter(unitFrame);

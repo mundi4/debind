@@ -101,13 +101,11 @@ return function(DebindPrivate)
         check(reason == "unhandled-type", "reason: " .. tostring(reason));
     end);
 
-    -- **Not every nil is a refusal.** Unused clears the key and a command binds itself, so neither
-    -- needs a button -- and the caller must not drop them the way it drops the four above.
-    test("unused and command are answered apart from the refusals", function()
-        local _, unusedReason = describe(Constants.UNUSED, nil, nil, {});
-        local _, commandReason = describe(Constants.COMMAND, "TOGGLEWORLDMAP", nil, {});
-        check(unusedReason == "self-bound", "unused: " .. tostring(unusedReason));
-        check(commandReason == "self-bound", "command: " .. tostring(commandReason));
+    -- **Not every nil is a refusal.** A block needs no button, since winning the press to do
+    -- nothing is all it is for, and the caller must not drop it the way it drops the four above.
+    test("a block is answered apart from the refusals", function()
+        local _, reason = describe(Constants.BLOCK, nil, nil, {});
+        check(reason == "block", "block: " .. tostring(reason));
     end);
 
     ---------------------------------------------------------------------------

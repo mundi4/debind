@@ -1,8 +1,11 @@
 # 게임으로 돌려주는 길을 없앤다
 
-> 상태: 구현 전. 걷어내기로 했다 (2026-09-14, 소유자). 막히는 곳은 없다는 데까지 쟀다 (2026-09-14, retail과
+> 상태: 구현 중. BLOCK과 상태 루프의 키 몫 걷어내기(§9-4의 답), 계산식 스위치를 누를 때 재기와 박자 좁히기, 스위치 알림
+> 전역 옵션, `GetHoveredUnit`, 대전 키 양보(§5-1), 행동 단축키 액션과 행동 칸 `COMMAND`의 마이그레이션(§4)은 들어갔다.
+> 타입 메뉴와 카탈로그에서 두 타입을 뺐고 README를 고쳤다. 남은 것은 저장된 두 타입의 이슈 표시(§3)다. 걷어내기로 했다 (2026-09-14, 소유자). 막히는 곳은 없다는 데까지 쟀다 (2026-09-14, retail과
 > xptr, `DebindDev/Probe_ActionBars.lua`). 바뀐 액션 바는 행동 단축키 액션이 칸을 계산해 쏘고(§4), 애완동물 대전은
-> 대전 동안 행동 단축키 1~5의 키만 놓는다(§5). `UNUSED`와 옮길 곳이 없는 `COMMAND`는 BLOCK이 된다(§3). 쓸 수 있는
+> 대전 동안 행동 단축키 1~5의 키만 놓는다(§5). `UNUSED`와 옮길 곳이 없는 `COMMAND`는 BLOCK이 된다(§3). 계산식
+> 스위치는 누를 때 재고, 박자는 `displayMessage`가 켜진 계산식 스위치에만 남아 전역 옵션으로 끈다(§3). 쓸 수 있는
 > 전략은 §7, 바마다 켜지는 이벤트와 판별은 §8, 구현 세션이 먼저 알아야 할 것은 §9다. 고칠 자리(§3)는 코드를 세어 본
 > 것이 아니라 읽은 자리로 적었다. 범위는 손대기 전에 다시 센다.
 
@@ -25,12 +28,24 @@
 된다. "맞는 것이 없으면 아무것도 안 한다" 하나로 액션 바와 같다.
 
 **얻는 것은 주기적인 루프가 없어지는 것이다.** `COMMAND`, `UNUSED`, 틈에서 흘려주는 것을 내주는 값이 그것이라, 이
-이득을 되돌리는 안은 받지 않는다(§3의 스위치 이야기).
+이득을 되돌리는 안은 받지 않는다. 남는 박자는 `displayMessage`가 켜진 계산식 스위치 하나이고, 전역 옵션으로 끄면
+그것도 없다(§3의 스위치 이야기).
 
 ## 2. 전제
 
 **Debind 액션이 하나라도 걸린 키는 늘 우리 것이다.** 명시적 `UNUSED`, `COMMAND` 타입, 틈에서 블리자드 바인딩으로
 떨어지는 것을 모두 없앤다. 어떤 레코드도 안 맞는 누름은 아무것도 안 한다.
+
+**지금 동작을 전역 옵션 뒤에 남기는 안은 안 한다** (2026-09-14, 소유자). 옵션을 켜면 `COMMAND`, `UNUSED`, 틈이 지금처럼
+돌고, 끄면 이 문서대로 도는 안이었다. 기능은 그쪽이 많고 §6에서 잃는 것이 없다. 안 하는 이유는 넷이다.
+- 옵션을 끈 쪽이 곧 이 문서라 BLOCK, §4, §5는 그대로 다 만들어야 한다. 그 위에 키를 걸고 놓는 루프
+  (`StateDrivenBindings`, `DirtyKeys`, `_commandKeys`, `GetSettledBinding`, `IsKeyAlwaysOurs`와 센티넬, 키 몫의 측정
+  축)를 통째로 더 짊어진다.
+- 옵션을 켠 쪽에는 §1의 A와 B가 남는다. 고치든지 알고 내보내든지 해야 한다.
+- 레코드, 층, 쌍둥이, 조건을 손볼 때마다 클릭 시점 판정과 루프 판정 두 벌이 맞아야 하고, 틀려도 오류가 안 난다.
+- 가져온 프로필이 받는 쪽의 옵션에 따라 다르게 돈다.
+
+런타임 비용은 판단에 안 들었다. 옵션을 끈 사람은 이 문서와 같고 켠 사람만 지금의 비용을 낸다.
 
 ## 3. 고칠 자리
 
@@ -84,6 +99,9 @@
   - **`COMMAND`는 개체창 래퍼에 안 온다.** `isClickCast`가 `COMMAND`를 빼고(`UpdateBindings.lua`의
     `PrepareKeyBindings`), hover가 걸린 `COMMAND`를 마우스 버튼에 걸면 ERROR 이슈
     (`BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND`, `Misc.lua`의 `IsKeyInvalidForAction`)라 키에 안 오른다.
+    그 예외와 이 ERROR는 지웠다 (2026-09-14, 소유자). ERROR가 액션을 키에서 빼면 BLOCK이 안 서고 뒤 액션이
+    나가기 때문이다. 이제 hover가 걸린 저장된 `COMMAND`는 `UNUSED`와 같이 `clickbutton` 없는 클릭캐스팅 BLOCK이
+    되어 개체창 클릭을 흘려준다.
   - **`UNUSED`는 이미 흘려준다.** hover가 걸린 `UNUSED`는 클릭캐스팅 레코드가 되고, 개체창 래퍼에서 이기면
     `clickbutton`이 없어 `return`이다. 그것을 대신한 BLOCK은 `isClickCast`를 물려받고 같은 답을 낸다.
   - **틈도 이미 흘려준다.** 맞는 것이 없으면 `return`이다. 덧댄 BLOCK은 hover 조건이 없어 클릭캐스팅 레코드가 안 된다.
@@ -107,9 +125,13 @@
   굽는다(`UpdateBindings.lua`의 `EmitMacroTextEntries`). 루프에 남은 것은 계산식 스위치의 식(`MacroTextsMap`의
   `$` 이름)과 그 값을 재는 "Update Switches"다. 스위치 값을 읽는 것은 조건(`t.switches`)과 매크로 인자(`arg.state`)라
   둘 다 클릭 때다.
+- **계산식 스위치는 누를 때 잰다** (2026-09-14, 소유자). 지금 클릭 판정은 조건(`t.switches`)도 매크로 인자
+  (`arg.state`)도 `States`의 값을 읽고, 계산식 스위치의 그 값을 채우는 것이 박자다. 다른 축과 같이 `EVAL_SNIPPET`의
+  클릭 1회 메모에 스위치를 더한다. 식에 유닛 인자가 있으면 `COMPOSE_MACROTEXT_SNIPPET`로 조립하고, `@hover`는 그
+  클릭이 읽은 `hoverUnit`을 쓴다(`BAKE_WINNER_MACROTEXT_SNIPPET`과 같은 길). 값이 바뀌었으면 `SetSwitch`로 알린다.
 - **클릭 때만 재면 두 가지가 따라온다.** 스위치 탭은 `definition.value`를 그리는데(`SwitchesUI.lua`) 그 값을
   채우는 것이 `OnSwitchChanged` 보고라, 누르기 전까지 옛 값이 보인다. 바뀔 때 알리는 옵션(`displayMessage`)도 누를
-  때 뜬다.
+  때 뜬다. 알림은 아래 박자가 맡고, 탭의 값은 알림이 꺼진 스위치에서 누를 때 따라온다.
 - **보안 쪽은 창이 떠 있는지 묻지 않고, 스위치가 바뀔 때마다 `CallMethod`로 알린다** (2026-09-14, 소유자). 지금의
   `SetSwitch`가 이미 `OnSwitchChanged`를 부른다. 보여 줄지는 비보안이 정한다. 창의 상태를 제한 환경에 넘기는 길은
   둘 다 버렸다. Debind 창은 전투 중에도 열리고 닫힌다.
@@ -121,10 +143,24 @@
     (`RestrictedFrames.lua:79-85`의 `not InCombatLockdown()` 조건). 밖에서 미리 넘겨도 부를 때마다 검사한다.
 - **클릭이 없는 동안 전투 중에 스위치를 계산할 주체가 없다.** 계획은 UI가 떠 있는 동안 비보안이 주기적으로 제한
   환경에서 당겨 오는 것이었는데, `SecureHandlerExecute`가 전투 중 막혀서 안 된다(`SecureHandlers.lua:435-440`).
-  비보안이 `SecureCmdOptionParse`로 식을 직접 조립해 재는 길이 남아 있고 정하지 않았다. 그 길은 식 조립이 두 벌이
-  되어 탭에 보이는 값과 누를 때 쓰는 값이 갈릴 수 있다.
-- **계산식 스위치가 있으면 박자(`RegisterUnitWatch`)를 남기는 안은 버렸다** (2026-09-14, 소유자). §1의 이득을
+  비보안이 `SecureCmdOptionParse`로 식을 직접 조립해 재는 길은 안 한다. 식 조립이 두 벌이 되어 탭에 보이는 값과 누를
+  때 쓰는 값이 갈릴 수 있다.
+- **계산식 스위치가 있으면 박자(`RegisterUnitWatch`)를 통째로 남기는 안은 버렸다** (2026-09-14, 소유자). §1의 이득을
   반토막 낸다.
+- **박자는 `displayMessage`가 켜진 계산식 스위치에만 일단 남긴다** (2026-09-14, 소유자). 알림은 누르지 않아도 스위치가
+  바뀔 때 떠야 하는데, 그 순간을 아는 것이 박자뿐이다. 루프는 그 스위치의 식만 굽고, 알림이 꺼진 계산식 스위치는
+  루프에 안 들어간다.
+- **그 스위치가 식에서 읽는 계산식 스위치도 박자에 오른다** (`PutOnBeat`). 누름 사이에 값을 새로 내는 것이 박자뿐이라,
+  누를 때만 새로 나는 값을 읽으면 지난 누름의 답을 읽는다.
+- **스위치 알림을 완전히 끄는 전역 옵션을 둔다** (2026-09-14, 소유자). 끄면 `displayMessage`가 켜진 스위치도 루프에서
+  빠지고, 박자를 원하는 것이 남지 않는다.
+- **박자를 켜는 조건(`WantsStatePoll`)에서 지금 코드가 괜히 켜는 두 가지를 뺀다** (2026-09-14, 소유자). 둘 다 이번
+  변경과 무관하게 지금도 박자가 할 일이 없다.
+  - **수동 스위치.** 값은 `SetSwitch`가 `States`에 바로 쓰고, 리빌드의 `BuildSwitchesSnippet`이 저장된 값으로 채우며,
+    루프는 이 이름에 대해 굽는 줄이 없다. 그런데 `stateDriven`이 아닌 키에서도 `_switches[k]`이면 `_measuredStates`에
+    들어가 `next(_measuredStates)`만 참으로 만든다. 계산식 스위치가 아니면 넣지 않는다.
+  - **hover.** `units["hover"]`를 든 레코드는 `stateDriven`와 상관없이 `_unitsSeen.hover`를 세우고, 그것이 박자를 켠다.
+    박자를 켜는 조건은 알림이 켜진 계산식 스위치의 `@hover` 인자로 좁힌다.
 - **별칭 유닛과 hover는 루프 없이 선다** (2026-09-14, 코드로 읽음).
   - `UnitAliasMap`을 쓰는 곳은 `SetUnit` 하나이고, 부르는 쪽은 `UnitWatch.lua`(로스터와 역할 이벤트), 개체창
     enter/leave 래퍼(`SecureBindings.lua`의 `setup_onenter`/`setup_onleave`), 그리고 루프의 hover 폴링이다.
@@ -134,6 +170,10 @@
   - 루프의 hover 폴링(`UpdateBindings.lua`의 `if (States.unitframe)` 블록)이 하는 일은 커서가 멈춘 채 프레임의
     유닛이 바뀔 때 `UnitAliasMap["hover"]`를 따라잡는 것이다. 클릭은 그 값을 안 쓰니, 이 폴링에 기대는 것은 루프에
     남은 계산식 스위치의 `@hover` 인자뿐이다. 위의 스위치 이야기와 같은 자리다.
+  - **폴링은 유닛이 사라진 슬롯(`unitframe.unit`, `reaction`, `role`)도 비우는데, 누를 때 그 캐시를 믿는 곳은
+    `GetHoveredUnit` 하나다.** SETCUSTOM의 "hover"가 이것으로 대상을 정한다(`UnitWatch.lua`). `EVAL_SNIPPET`처럼
+    부르는 순간 `unitframe.frame`의 `unit`과 `UnitExists`를 다시 읽게 고친다 (2026-09-14, 소유자). 그러면 비우는 일
+    때문에 박자를 둘 이유도 없다.
 
 **클릭 래퍼.**
 - 이긴 레코드에 `clickbutton`이 없는 경로가 사라진다. 승자가 없거나 BLOCK이 이기면 `false`를 돌려주는 것 하나만
@@ -184,6 +224,12 @@
 
 **다른 액션과 똑같이 클릭 래퍼를 지난다.** focus와 self 쌍둥이, Hover Cast가 그대로 붙는다.
 
+**구현** (2026-09-14). 타입은 `Constants.ACTIONBUTTON`이고 값은 바인딩 명령 이름(`ACTIONBUTTON3`,
+`MULTIACTIONBAR1BUTTON5`, `EXTRAACTIONBUTTON1`)이다. 행 이름이 게임의 `BINDING_NAME_*` 그대로이고, 저장된 `COMMAND`는
+타입만 바꾸면 옮겨진다. 명령마다 칸이 어디인지는 `Constants.ACTION_BUTTON_COMMANDS` 하나가 들고, 마이그레이션
+단계(`MigrateLayer`의 아직 안 나간 단계)와 가져오기의 `IsUsableAction`, 카탈로그, 리빌드가 그것을 읽는다. 가져온 옛
+문자열은 같은 단계를 타고 들어온다. 누를 때 칸을 정하는 것은 `SecureBindings.lua`의 `ACTION_SLOT_SNIPPET`이다.
+
 **블리자드와 갈리는 곳 하나.** 스킨 있는 바에서 7~12를 누르면 블리자드는 아무것도 안 하지만
 (`NUM_OVERRIDE_BUTTONS = 6`) 우리는 그 페이지의 7~12번 칸을 쏜다.
 
@@ -194,7 +240,16 @@
 칸을 `GetExtraBarIndex()` 페이지에서 구한다(`SecureTemplates.lua:678-679`).
 
 **페이지 번호는 리빌드가 굽는다.** `HasExtraActionBar`는 제한 환경 허용 목록에 있지만 `GetExtraBarIndex`는 없다
-(`RestrictedEnvironment.lua:139-159`). 스니펫은 `HasExtraActionBar()`로 가르고, 칸은 구워 둔 페이지로 `1 + (page - 1) * 12`다.
+(`RestrictedEnvironment.lua:139-159`). 칸은 구워 둔 페이지로 `1 + (page - 1) * 12`다.
+
+**블리자드 바인딩이 누를 때 거는 판별은 우리도 걸고, 걸리면 `return false`로 끊는다** (2026-09-14, 소유자). 판별은
+승자가 정해진 뒤에 돌아서 다음 액션으로 넘기지 않는다. 다음 액션으로 넘기는 것은 사용자가 건 조건뿐이다
+(`EVAL_SNIPPET`). 그래서 `HasExtraActionBar()`가 거짓이면 아무것도 안 한다. 한때 이 판별을 뺐는데, 판별이 액션을
+건너뛰어 다음으로 넘기는 것으로 읽혔기 때문이고 실제 코드는 끊기만 했다.
+
+**개체창 클릭도 같다** (2026-09-14, 소유자). hover를 건 그 액션이 개체창 클릭에서 이기고 판별에 걸리면 아무것도 안
+하고, 개체창의 원래 동작(대상 잡기, 메뉴)으로도 흘려주지 않는다. 사용자 조건에서 막힌 것이 아니면 그 클릭은 그
+바인딩이다. 사용자 조건이 안 맞아 승자가 없을 때 흘려주는 것은 그대로다.
 
 ### 4-3. 페이지가 고정된 바
 
@@ -220,8 +275,13 @@ nil 호출이 난다. 맨몸 `SecureActionButtonTemplate`에는 그 메서드가
 `*type-flyout`을 안 쓰는 것과 같은 이유다(`UpdateBindings.lua`).
 
 제한 환경의 `GetActionInfo`가 `"flyout"`을 돌려주므로(`RestrictedEnvironment.lua:161-174`) 래퍼가 가를 수 있다.
-프로브는 그 칸을 진짜 바 버튼(`ActionButton1` 또는 `OverrideActionBarButton1`)에 넘겼고 오류 없이 돌았다. 그때
-플라이아웃이 열렸는지는 로그가 못 본다. 실제 액션에서 무엇을 누를지는 정하지 않았다.
+프로브는 그 칸을 진짜 바 버튼(`ActionButton1` 또는 `OverrideActionBarButton1`)에 넘겼고 오류 없이 돌았다. 소유자가
+게임에서 보니 왼쪽, 가운데, 오른쪽 버튼과 `/abp bind right` 뒤의 키 누름 모두에서 플라이아웃이 토글됐다
+(2026-09-14).
+
+**구현은 S2다.** 래퍼가 `GetActionInfo(slot) == "flyout"`이면 그 칸을 보여 주는 바 버튼을 누르는 이름을 돌려준다.
+주 바는 `OverrideActionBar:IsShown()`이면 `OverrideActionBarButtonN`(1~6), 아니면 `ActionButtonN`이고, 고정 페이지 바와
+기타 행동 버튼은 자기 버튼이다.
 
 ### 4-5. 잰 것 (2026-09-14, retail, `Probe_ActionBars.lua`)
 
@@ -280,6 +340,24 @@ nil 호출이 난다. 맨몸 `SecureActionButtonTemplate`에는 그 메서드가
 - **탈것에서 내리기는 대신할 것이 없다.** `VEHICLEEXIT` 바인딩은 `VehicleExit()` 한 줄이고 `/leavevehicle`이
   있어 커스텀 매크로로 된다.
 
+### 4-8. 소환수 바와 태세 바 (2026-09-14, 소유자)
+
+**행동 단축키 종류는 모두 우리가 대체한다.** 소매 바인딩 목록에서 앞의 것들 말고 남은 둘이다. 둘 다 칸이 번호 하나로
+고정이라 누를 때 고를 것이 없다. 블리자드 바인딩의 판별은 §4-2의 규칙대로 따른다.
+
+- **소환수 바.** `BONUSACTIONBUTTONn`은 `PetHasActionBar()`이면 `PetActionBar:PetActionButtonDown(n)`이고, 결국
+  `CastPetAction(n)`이다(`PetActionBar.lua:191-209`). 우리는 `type=pet`, `action=n`을 고정으로 건다.
+  `SECURE_ACTIONS.pet`이 `CastPetAction(action, unit)`이다(`SecureTemplates.lua:368`). `PetHasActionBar`는 제한 환경에
+  없어서 `UnitExists("pet")`로 가른다. 조종할 수 없는 소환수는 `pet`이 아니라서 답이 같다 (2026-09-14, 소유자).
+- **태세 바.** `SHAPESHIFTBUTTONn`은 `StanceBar:Select(n)`, 곧 `CastShapeshiftForm(n)`이고 판별이 없다
+  (`StanceBar.lua:104-124`). 우리는 `StanceButtonN`을 `type=click`으로 누른다(S2). 태세는 대상을 받지 않으므로 대상 메뉴가
+  안 열린다.
+- **태세를 리빌드가 주문으로 푸는 길은 안 한다.** `GetShapeshiftFormInfo(n)`의 주문을 `type=spell`로 굽는 길이다.
+  블리자드 바인딩과 같은 함수를 불러야 이미 그 태세일 때 해제되는 동작이 갈리지 않고, 태세 목록이 바뀌어도 리빌드에
+  기대지 않는다.
+- `StanceButtonTemplate`은 보안 행동 버튼이 아니고 `OnClick`이 일반 Lua다. 보안 클릭에서 그 안의 `CastShapeshiftForm`이
+  나가는지는 킷이 누를 수 없어 `Probe_ActionBars.lua`의 태세 버튼이 잰다.
+
 ## 5. 애완동물 대전
 
 **행동 단축키 칸으로는 안 닿는다.** 대전 기술은 행동 칸이 아니고 `C_PetBattles.UseAbility`로 나간다. 대전으로
@@ -305,6 +383,10 @@ nil 호출이 난다. 맨몸 `SecureActionButtonTemplate`에는 그 메서드가
 있으면 예외다. 대전은 이 장치에 "대전 중이면 `ACTIONBUTTON1`~`5`의 키"라는 출처 하나를 더하면 되고, 대전 중
 리빌드가 그 키를 건너뛰는 것과 닫힐 때 다시 거는 것이 그대로 따라온다. 트리거는 `PET_BATTLE_OPENING_START`와
 `PET_BATTLE_CLOSE`다. 닫힐 때 잠금이면 리빌드는 기존 경로대로 풀린 뒤로 밀린다.
+
+**구현** (2026-09-14). 대전 키는 `YieldedKeys`와 따로 `PetBattleKeys`에 담는다. `keepInBindingContext`는 사용자에게
+"주택 편집기보다 우선"으로 보이는 옵션이라 대전 키는 붙들지 않는다. 대전 중인지는 두 이벤트로 정하고, 로드할 때만
+`C_PetBattles.IsInBattle()`로 시작값을 읽는다.
 
 **잰 것** (2026-09-14, xptr, `Probe_ActionBars.lua` 로그). 대전 세 번 모두 같았다.
 - 열릴 때 `ACTIONBUTTON1`의 키 둘(`BUTTON3`, `1`)을 놓았다. `GetBindingKey`가 키를 여럿 돌려주는 경우다.
@@ -492,8 +574,8 @@ S2로 넘기는 것이 프로브가 한 방법이고, 결정은 아니다.
 ### 9-2. 코드가 틀리기 쉬운 자리
 
 - **플라이아웃 칸을 `type=action`으로 쏘지 않는다**(§4-4). 래퍼에서 `GetActionInfo(slot) == "flyout"`으로 먼저
-  가른다. 무엇을 누를지는 정하지 않았다.
-- **기타 행동 버튼의 페이지는 리빌드가 굽는다**(§4-2). 판별은 `HasExtraActionBar()`로 한다. `GetOverrideBarSkin()`은
+  가르고 바 버튼을 누른다.
+- **기타 행동 버튼의 페이지는 리빌드가 굽는다**(§4-2). 판별은 `HasExtraActionBar()`로 하고, 걸리면 다음 액션으로 넘기지 않고 끊는다. `GetOverrideBarSkin()`은
   기타 행동 버튼만 떠도 0이 아니라서 판별로 못 쓴다(§8-3).
 - **페이지 순서는 `ActionBarController_UpdateAll` 그대로다**(§4-1). 보너스 바는 `GetActionBarPage() == 1`일 때만이다.
 - **BLOCK은 self, focus 쌍둥이를 갖고 hover 쌍둥이는 안 갖는다**(§3). 각 층 맨 끝에 서고, 키 누름에서 이기면 래퍼가
@@ -508,10 +590,11 @@ S2로 넘기는 것이 프로브가 한 방법이고, 결정은 아니다.
 
 - 정한 것: 걷어낸다(§2), BLOCK과 대응표(§3), 행동 칸 `COMMAND`만 마이그레이션하고 나머지는 저장된 채 파생에서 BLOCK과
   WARNING 이슈로 둔다(§3), 스위치는 바뀔 때 알린다(§3), 바뀐 바는 S1(§4), 대전은 S5를 바인딩
-  컨텍스트 양보에 얹는다(§5-1), 박자를 남기는 안은 안 한다(§3), BLOCK만으로 루프가 꺼지는지를 코드로 먼저 보인다(§9-4).
-- 안 정한 것: 행동 칸 말고 대응표에 더할 `COMMAND`가 있는지(§3), 이슈 문구와 행 아이콘,
-  플라이아웃 칸에서 무엇을 누를지(§4-4), 전투 중 클릭 없이 스위치를 비보안이 잴지(§3), 대전에서 키를 지키고 싶은
-  액션의 예외를 둘지(`keepInBindingContext`에 얹을 수 있다).
+  컨텍스트 양보에 얹는다(§5-1), 지금 동작을 옵션으로 남기지 않는다(§2), 계산식 스위치는 누를 때 잰다(§3), 박자는
+  `displayMessage`가 켜진 계산식 스위치에만 남기고 전역 옵션으로 끈다(§3), 수동 스위치와 hover가 박자를 켜지 않게
+  하고 `GetHoveredUnit`은 프레임을 다시 읽는다(§3), BLOCK만으로 루프가 꺼지는지를 코드로 먼저 보인다(§9-4).
+- 안 정한 것: 행동 칸 말고 대응표에 더할 `COMMAND`가 있는지(§3), 이슈 문구와 행 아이콘, 대전에서 키를 지키고 싶은
+  액션의 예외를 둘지(지금은 `keepInBindingContext`가 대전 키를 안 붙든다, §5-1).
 
 ### 9-4. BLOCK만으로 루프가 꺼지는지를 코드로 보인다 (2026-09-14, 소유자)
 
@@ -525,12 +608,19 @@ S2로 넘기는 것이 프로브가 한 방법이고, 결정은 아니다.
   아무것도 안 들어간다(`UpdateBindings.lua`의 `UpdateBindingsMap`).
 - **박자가 꺼지는가.** 0.2초 박자를 원하는지는 키가 아니라 따로 정한다(`UpdateBindings.lua`의 "Does this rebuild
   want the 0.2s beat at all?"). 측정하는 상태, 유닛 행, 계산식 스위치, hover가 있으면 박자가 남는다. 키가 전부
-  `alwaysOurs`여도 이 판단이 참이면 루프는 돈다. §3의 스위치와 hover 이야기가 이 판단의 입력이다.
+  `alwaysOurs`여도 이 판단이 참이면 루프는 돈다. 지금 코드에서는 수동 스위치와 hover 조건만으로도 참이 된다.
+  §3대로 고친 뒤 참이어야 하는 것은 `displayMessage`가 켜진 계산식 스위치가 있고 전역 옵션이 알림을 허용할 때뿐이다.
+
+**답** (2026-09-14). 방출 픽스처에 BLOCK만 넣고 돌렸을 때 루프에 남은 키는 `SHIFT-BUTTON2` 하나였다. 원인은 마우스 버튼
+키의 BLOCK에도 붙던 [가리키지 않을 때] 좁히기(`BuildUnitStates`)였다. 그 반쪽은 개체창이 클릭을 먹어 키 바인딩에 오지
+않으므로 BLOCK은 좁히지 않는다. 층마다 끝에 BLOCK이 서면 덮기가 구조로 보장되니 `IsKeyAlwaysOurs`와 센티넬은 지웠고,
+BLOCK은 솔버를 거치지 않는다.
 
 ### 9-5. 테스트가 닿는 곳
 
 - **헤드리스가 덮을 수 있는 것.** 페이지 선택 표(§4-1)는 판별 함수 값만 넣으면 칸이 나오는 순수 계산이다. 기타
-  행동 버튼과 고정 페이지 바의 칸, BLOCK이 붙은 키가 `IsKeyAlwaysOurs`를 참으로 받는 것, 대응표, 대전 출처가
+  행동 버튼과 고정 페이지 바의 칸, 키 기록이 있는 모든 키가 우리 버튼에 걸리고 틈의 누름이 아무것도 안 내는 것
+  (`tests/loopoff_spec.lua`), 대응표, 대전 출처가
   `YieldedKeys`에 넣는 키도 헤드리스로 된다.
 - **킷이 덮을 수 있는 것.** 스니펫이 제한 환경에서 컴파일되고 이긴 레코드가 이름을 돌려주는 것, 기타 행동 버튼의
   구운 칸이 `GetExtraBarIndex()`와 맞는 것.

@@ -148,16 +148,6 @@ DebindPrivate.ActiveActions          = {};
 DebindPrivate.ClickTimeKeys          = {};
 dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
 
---- 배선을 상태 루프가 정하는 키. DEBUG mirror of `StateDrivenBindings` membership, recorded
---- at emit time (`AppendBindingsList`) -- the same branch emits the insert and records the
---- key, so the mirror cannot diverge from the table.
----
---- **DEBUG 전용.** 읽는 것이 사람뿐이다.
----
---- **재할당하지 말 것.** DevTool이 이 참조를 들고 있다 - 갱신은 `wipe` 후 채우기다.
-DebindPrivate.StateDrivenKeys        = {};
-dump("StateDrivenKeys", DebindPrivate.StateDrivenKeys);
-
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;
@@ -339,11 +329,11 @@ do
 
 					local key = action.key;
 					local issue = DebindPrivate.GetBindingIssue(action);
-					-- 게임이 바인딩 컨텍스트로 가져간 키는 KeyMap에 넣지 않는다. 즉 그 키에는
-					-- 오버라이드를 걸지 않고, 편집기가 닫히면 다시 들어온다.
-					-- keepInBindingContext를 켠 액션은 예외로 그대로 건다. 편집기가 자기 버튼에
-					-- 그 키를 표시한 채로 안 먹게 되므로, 유저가 알고 켜는 것이어야 한다.
-					local yielded = DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext;
+					-- A key the game has claimed gets no override, and comes back when the claim ends.
+					-- keepInBindingContext overrides the house editor only: the editor goes on showing
+					-- the key on its own button while it does nothing, so the reader turns it on knowing.
+					local yielded = (DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext)
+						or DebindPrivate.IsKeyYieldedToPetBattle(key);
 					-- **Only an ERROR keeps the action off its key.** That is what the grades mean
 					-- (`Constants.BINDING_ISSUE_GRADES`), and this gate read `not issue` until the
 					-- first WARNING code arrived (the hover twin lost to Clique, since retired):

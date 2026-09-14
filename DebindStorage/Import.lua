@@ -293,6 +293,8 @@ local VALUE_SHAPES = {
     [Constants.MACRO]       = "string",
     [Constants.MACROTEXT]   = "string",
     [Constants.COMMAND]     = "string",
+    -- One of `Constants.ACTION_BUTTON_COMMANDS`, which `IsUsableAction` asks as well.
+    [Constants.ACTIONBUTTON] = "string",
     [Constants.PETACTION]   = "string",
     [Constants.TARGET]      = false,
     [Constants.FOCUS]       = false,
@@ -326,6 +328,10 @@ local function IsUsableAction(action)
 
     if (shape == false) then
         return true;
+    end
+
+    if (action.type == Constants.ACTIONBUTTON) then
+        return Constants.ACTION_BUTTON_COMMANDS[action.value] ~= nil;
     end
     -- `|`-separated, read the way `ConditionAllowed` reads `CONDITION_TYPES`. One type needs it so
     -- far and `"nil"` is the alternative it needs, which `luatype` answers with like any other.

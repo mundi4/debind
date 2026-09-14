@@ -65,15 +65,26 @@ return function(DebindPrivate)
     -- What a record carries out
     ---------------------------------------------------------------------------
 
-    -- **`UNUSED` is the one type that reaches the key in order to fire nothing.** It is how a reader
-    -- takes a key away from the game without taking it away from Debind, so it has to come out of
-    -- the build as a record like any other -- what it must not have is anything to run.
-    test("an unused record stands on the key and keeps its type", function()
-        Bind({ { type = Constants.UNUSED, key = "F1", seq = 1 } });
+    -- **A saved `UNUSED` or `COMMAND` stands on the key as a BLOCK**, and the action keeps the type
+    -- it was saved with (`devdocs/dropping-the-game-fallback.md` §3). Nothing after it on the key
+    -- can fire, so it has to reach the key rather than be left out.
+    test("an unused or command action stands on the key as a block", function()
+        local unused = { type = Constants.UNUSED, key = "F1", seq = 1 };
+        local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F2", seq = 2 };
+        Bind({ unused, command });
 
-        local record = Records("F1") and Records("F1")[1];
-        check(record, "the unused record did not reach the key");
-        check(record.type == Constants.UNUSED, "it came out as " .. tostring(record.type));
+        for key, stored in pairs({ F1 = unused, F2 = command }) do
+            local list = DebindPrivate.KeyMap[key];
+            local original;
+            for i = 1, #(list or {}) do
+                if (not castmod.isTwin(Constants, list[i])) then
+                    original = list[i];
+                end
+            end
+            check(original, key .. ": the action did not reach the key");
+            check(original.type == Constants.BLOCK, key .. ": it came out as " .. tostring(original.type));
+            check(stored.type ~= Constants.BLOCK, key .. ": the stored action was rewritten");
+        end
     end);
 
     -- **A hover condition is two answers, and both ride the record.** Which reactions the frame's

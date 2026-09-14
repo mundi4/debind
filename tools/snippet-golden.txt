@@ -71,42 +71,21 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	SelfCastWrappers = newtable()
+
+
+
+	ActionSlots = newtable()
+	OverrideActionBar = self:GetFrameRef("overrideActionBar")
 	
 	SwitchExpressions = newtable()
 
 
 
 
-
-
-
-
-
-
-	StateDrivenBindings = newtable()
-
-
-
-
-
-
-
-
-
-
-	DirtyKeys = newtable()
-
-
-
-	WorkList = newtable()
-
-
-
-
-
-	UpdateGeneration = 0
-
-
+	SwitchEntries = newtable()
+	ComputedSwitches = newtable()
+	ClickSwitches = newtable()
+	ClickSwitchesReady = false
 
 
 
@@ -194,17 +173,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-	RebindOnHoverFrame = false
-
-
-
-
-
-
-
-
 	PollEveryFrame = false
 
 	OldStates = newtable()
@@ -231,6 +199,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				local entry = dependents[i]
 				local s
 				local hoverAlias = UnitAliasMap["hover"]
+				local clickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -245,7 +214,11 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -261,21 +234,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
-
-
-
-
-
-
-
 	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 
-				if (entry.attr) then
-					DefaultClickFrame:SetAttribute(entry.attr, s)
-				end
 
 
 
@@ -302,6 +262,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				local entry = dependents[i]
 				local s
 				local hoverAlias = UnitAliasMap["hover"]
+				local clickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -316,7 +277,11 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -333,19 +298,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
-
-
-
-
-
-
-
-				if (entry.attr) then
-					DefaultClickFrame:SetAttribute(entry.attr, s)
-				end
 
 
 
@@ -502,234 +454,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### SecureBindings.lua #10 SetAttribute
-	local vargs = newtable()
-	if (DirtyFlags.forceAll) then
-		tinsert(vargs, "forceAll")
-	end
-	for k in pairs(DirtyFlags) do
-		if (k ~= "forceAll") then
-			tinsert(vargs, k)
-		end
-	end
-	self:CallMethod("dump", "[SECURE] UpdateBindings",
-		vargs[1],
-		vargs[2],
-		vargs[3],
-		vargs[4],
-		vargs[5],
-		vargs[6],
-		vargs[7],
-		vargs[9],
-		vargs[10],
-		vargs[11],
-		vargs[12],
-		vargs[13],
-		vargs[14],
-		vargs[15]
-	)
-	local forceAll = DirtyFlags.forceAll
-	local unitframe = States.unitframe
-	if (unitframe and not unitframe.reaction) then unitframe = nil end
-
-
-
-
-
-	local group = States.group or CONSTANTS.GROUP_NONE
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
-	local combat = States.combat
-	local stealth = States.stealth
-	local mounted = States.mounted
-	local indoors = States.indoors
-	local flyable = States.flyable
-	local advflyable = States.advflyable
-	local flying = States.flying
-	local skyriding = States.skyriding
-	local specialbar = States.specialbar
-	local extrabar = States.extrabar
-	local petbattle = States.petbattle
-
-
-
-
-
-
-
-
-
-
-	local work = 0
-
-	if (forceAll) then
-
-		for _, bindings in pairs(StateDrivenBindings) do
-			work = work + 1
-			WorkList[work] = bindings
-		end
-	else
-
-
-
-		UpdateGeneration = UpdateGeneration + 1
-		for flag in pairs(DirtyFlags) do
-			local list = DirtyKeys[flag]
-			if (list) then
-				for i = 1, #list do
-					local bindings = list[i]
-					if (bindings.seen ~= UpdateGeneration) then
-						bindings.seen = UpdateGeneration
-						work = work + 1
-						WorkList[work] = bindings
-					end
-				end
-			end
-		end
-	end
-
-	for w = 1, work do
-		local bindings = WorkList[w]
-		local key = bindings.key
-
-
-
-
-
-		local keyBound
-
-		for i = 1, #bindings do
-			local t = bindings[i]
-
-
-
-			local match = true
-
-
-
-			if (match and t.frameTypes) then
-				if (not unitframe) then
-					match = false
-				elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
-					match = false
-				end
-			end
-
-
-
-
-
-
-
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= extrabar) or
-				(t.stealth ~= nil and t.stealth ~= stealth) or
-				(t.mounted ~= nil and t.mounted ~= mounted) or
-				(t.indoors ~= nil and t.indoors ~= indoors) or
-				(t.flyable ~= nil and t.flyable ~= flyable) or
-				(t.advflyable ~= nil and t.advflyable ~= advflyable) or
-				(t.flying ~= nil and t.flying ~= flying) or
-				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
-				(t.petbattle ~= nil and t.petbattle ~= petbattle)
-			)) then
-				match = false
-			end
-			
-			if (match and t.known ~= nil) then
-				if (States[t.known] ~= true) then
-					match = false
-				end
-			end
-
-			if (match and t.units) then
-				for checkedUnit, cond in pairs(t.units) do
-					local s = UnitStates[checkedUnit]
-
-
-
-
-
-
-					local role = unitframe and unitframe.role
-					if (not s or cond.exists ~= s.exists
-							or (cond.reaction and not cond.reaction[s.reaction])
-							or (cond.dead ~= nil and cond.dead ~= s.dead)
-							or (cond.group and not cond.group[s.group])
-							or (role and cond.role and not cond.role[role])) then
-						match = false
-						break
-					end
-				end
-			end
-
-			if (match and t.switches) then
-				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
-						match = false
-						break
-					end
-				end
-			end
-
-			if (match) then
-				if (not keyBound and t.holdsKey) then
-
-
-
-
-
-
-
-
-
-					local outcome
-					if (t.type == CONSTANTS.UNUSED) then
-						outcome = false
-					elseif (t.command) then
-						outcome = t.command
-					elseif (t.clickbutton) then
-						outcome = bindings.clickTimeButton or t
-					end
-
-					if (bindings.bound ~= outcome) then
-						bindings.bound = outcome
-						if (t.type == CONSTANTS.UNUSED) then
-							self:ClearBinding(key)
-						elseif (t.command) then
-							self:SetBinding(true, key, t.command)
-						elseif (t.clickbutton) then
-							if (bindings.clickTimeButton) then
-
-
-								self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
-							else
-								self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
-							end
-						end
-					end
-					keyBound = i
-				end
-
-				if (keyBound) then
-					break
-				end
-			end
-		end
-
-		if (not keyBound) then
-			bindings.bound = nil
-			self:ClearBinding(key)
-		end
-	end
-
-	wipe(DirtyFlags)
-
-
-### SecureBindings.lua #11 SetAttribute
 	local button = self
 	ccframes[button] = ccframes[button] or newtable()
 	ccframes[button].frame = button
@@ -739,13 +463,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-### SecureBindings.lua #12 SetAttribute
+### SecureBindings.lua #11 SetAttribute
 	local button = self
 	local info = ccframes[button]
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+			if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
 			end
@@ -755,7 +479,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	ccframes[button] = nil
 
 
-### SecureBindings.lua #13 SetAttribute
+### SecureBindings.lua #12 SetAttribute
 	local unit = self:GetEffectiveAttribute("unit")
 
 	local unitframe = ccframes[self]
@@ -793,12 +517,23 @@ DelegateFrameNames[frame] = frame:GetName()
 		unitframe.reaction = reaction
 		unitframe.role = role
 		States.unitframe = unitframe
-		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+		if (debind_driver:RunAttribute("SetUnit", "hover", unit)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
 	end
 
+	end
+
+
+### SecureBindings.lua #13 SetAttribute
+	local unitframe = States.unitframe
+	if (unitframe) then
+		States.unitframe = nil
+		if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
+			DirtyFlags.unitframe = true
+			debind_driver:SetAttribute("state-unitexists", "unitframe")
+		end
 	end
 
 
@@ -806,18 +541,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
-			DirtyFlags.unitframe = true
-			debind_driver:SetAttribute("state-unitexists", "unitframe")
-		end
-	end
-
-
-### SecureBindings.lua #15 SetAttribute
-	local unitframe = States.unitframe
-	if (unitframe) then
-		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+		if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -828,34 +552,39 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #16 SetAttribute
+### SecureBindings.lua #15 SetAttribute
 	local over = Overs[self]
 	if (over and over.post) then
 		over.handle:RunFor(self, over.post, message)
 	end
 
 
-### SecureBindings.lua #17 SetAttribute
+### SecureBindings.lua #16 SetAttribute
 	local header = self:GetParent():GetFrameRef("clickcast_header")
 	header:RunFor(self, header:GetAttribute("setup_onenter"))
 
 
-### SecureBindings.lua #18 SetAttribute
+### SecureBindings.lua #17 SetAttribute
 	local header = self:GetParent():GetFrameRef("clickcast_header")
 	header:RunFor(self, header:GetAttribute("setup_onleave"))
 
 
-### SecureBindings.lua #19 SetAttribute
+### SecureBindings.lua #18 SetAttribute
 	local unitframe = States.unitframe
-	return unitframe and unitframe.unit
+	if (unitframe and unitframe.frame) then
+		local unit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unit and UnitExists(unit)) then
+			return unit
+		end
+	end
 
 
-### SecureBindings.lua #20 SetAttribute
+### SecureBindings.lua #19 SetAttribute
 	local button = self:GetAttribute("clickcast_button")
 	self:CallMethod("OnClickCastRegister", button:GetName())
 
 
-### SecureBindings.lua #21 InstallSnippet
+### SecureBindings.lua #20 InstallSnippet
 	local info = ccframes[self]
 	if (not info) then
 		return
@@ -892,6 +621,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -978,12 +708,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -1256,6 +1037,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -1274,6 +1056,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -1328,7 +1111,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return "debind1"
 
 
-### SecureBindings.lua #22 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #21 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1454,6 +1237,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -1540,12 +1324,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -1818,6 +1653,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -1836,6 +1672,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -1865,28 +1702,21 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
-		local s
-		local hoverAlias = hoverUnit
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -1901,7 +1731,54 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+		local s
+		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -1914,6 +1791,47 @@ DelegateFrameNames[frame] = frame:GetName()
 	s = table.concat(entry.fragments)
 		debind_driver:CallMethod("printMacroText", entry.attr, s)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+	local slotButton
+	local actionSlot = ActionSlots[winner.clickbutton]
+	if (actionSlot) then
+		if (actionSlot.extra and not HasExtraActionBar()) then
+			return false
+		end
+		if (actionSlot.pet) then
+			if (not UnitExists("pet")) then
+				return false
+			end
+			slotButton = winner.clickbutton
+		else
+			local page = actionSlot.page
+			if (not page) then
+				if (HasVehicleActionBar()) then
+					page = GetVehicleBarIndex()
+				elseif (HasOverrideActionBar()) then
+					page = GetOverrideBarIndex()
+				elseif (HasTempShapeshiftActionBar()) then
+					page = GetTempShapeshiftBarIndex()
+				elseif (HasBonusActionBar() and GetActionBarPage() == 1) then
+					page = GetBonusBarIndex()
+				else
+					page = GetActionBarPage()
+				end
+			end
+			local slot = actionSlot.index + (page - 1) * 12
+			if (GetActionInfo(slot) == "flyout") then
+				slotButton = actionSlot.bar
+				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
+					slotButton = actionSlot.overrideBar
+				end
+				if (not slotButton) then
+					return false
+				end
+			else
+				DefaultClickFrame:SetAttribute(actionSlot.attr, slot)
+				slotButton = winner.clickbutton
+			end
+		end
 	end
 
 
@@ -2018,10 +1936,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			castButton = wrapper
 		end
 	end
-	return castButton
+	return slotButton or castButton
 
 
-### SecureBindings.lua #23 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #22 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -2144,6 +2062,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -2230,12 +2149,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -2508,6 +2478,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -2526,6 +2497,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -2555,28 +2527,21 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
-		local s
-		local hoverAlias = hoverUnit
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -2591,7 +2556,54 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+		local s
+		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -2603,6 +2615,47 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 	s = table.concat(entry.fragments)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+	local slotButton
+	local actionSlot = ActionSlots[winner.clickbutton]
+	if (actionSlot) then
+		if (actionSlot.extra and not HasExtraActionBar()) then
+			return false
+		end
+		if (actionSlot.pet) then
+			if (not UnitExists("pet")) then
+				return false
+			end
+			slotButton = winner.clickbutton
+		else
+			local page = actionSlot.page
+			if (not page) then
+				if (HasVehicleActionBar()) then
+					page = GetVehicleBarIndex()
+				elseif (HasOverrideActionBar()) then
+					page = GetOverrideBarIndex()
+				elseif (HasTempShapeshiftActionBar()) then
+					page = GetTempShapeshiftBarIndex()
+				elseif (HasBonusActionBar() and GetActionBarPage() == 1) then
+					page = GetBonusBarIndex()
+				else
+					page = GetActionBarPage()
+				end
+			end
+			local slot = actionSlot.index + (page - 1) * 12
+			if (GetActionInfo(slot) == "flyout") then
+				slotButton = actionSlot.bar
+				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
+					slotButton = actionSlot.overrideBar
+				end
+				if (not slotButton) then
+					return false
+				end
+			else
+				DefaultClickFrame:SetAttribute(actionSlot.attr, slot)
+				slotButton = winner.clickbutton
+			end
+		end
 	end
 
 
@@ -2707,10 +2760,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			castButton = wrapper
 		end
 	end
-	return castButton
+	return slotButton or castButton
 
 
-### SecureBindings.lua #24 InstallSnippet
+### SecureBindings.lua #23 InstallSnippet
 
 
 
@@ -2728,7 +2781,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("useOnKeyDown", nil)
 
 
-### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #24 InstallSnippet (DEBUG=on)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -2746,6 +2799,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -2832,12 +2886,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -3110,6 +3215,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -3128,6 +3234,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -3157,8 +3264,16 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
-		local s
-		local hoverAlias = hoverUnit
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -3173,7 +3288,54 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+		local s
+		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -3187,6 +3349,47 @@ DelegateFrameNames[frame] = frame:GetName()
 		debind_driver:CallMethod("printMacroText", entry.attr, s)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
 	end
+	local slotButton
+	local actionSlot = ActionSlots[winner.clickbutton]
+	if (actionSlot) then
+		if (actionSlot.extra and not HasExtraActionBar()) then
+			return false
+		end
+		if (actionSlot.pet) then
+			if (not UnitExists("pet")) then
+				return false
+			end
+			slotButton = winner.clickbutton
+		else
+			local page = actionSlot.page
+			if (not page) then
+				if (HasVehicleActionBar()) then
+					page = GetVehicleBarIndex()
+				elseif (HasOverrideActionBar()) then
+					page = GetOverrideBarIndex()
+				elseif (HasTempShapeshiftActionBar()) then
+					page = GetTempShapeshiftBarIndex()
+				elseif (HasBonusActionBar() and GetActionBarPage() == 1) then
+					page = GetBonusBarIndex()
+				else
+					page = GetActionBarPage()
+				end
+			end
+			local slot = actionSlot.index + (page - 1) * 12
+			if (GetActionInfo(slot) == "flyout") then
+				slotButton = actionSlot.bar
+				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
+					slotButton = actionSlot.overrideBar
+				end
+				if (not slotButton) then
+					return false
+				end
+			else
+				DefaultClickFrame:SetAttribute(actionSlot.attr, slot)
+				slotButton = winner.clickbutton
+			end
+		end
+	end
 
 
 
@@ -3256,13 +3459,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		for i = 1, #bindings do
 			if (bindings[i] == winner) then
-				return castButton, i
+				return slotButton or castButton, i
 			end
 		end
-		return castButton
+		return slotButton or castButton
 	
 
-### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #25 InstallSnippet (DEBUG=off)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -3280,6 +3483,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -3366,12 +3570,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -3644,6 +3899,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -3662,6 +3918,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -3691,8 +3948,16 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
-		local s
-		local hoverAlias = hoverUnit
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -3707,7 +3972,54 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+		local s
+		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -3719,6 +4031,47 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 	s = table.concat(entry.fragments)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+	local slotButton
+	local actionSlot = ActionSlots[winner.clickbutton]
+	if (actionSlot) then
+		if (actionSlot.extra and not HasExtraActionBar()) then
+			return false
+		end
+		if (actionSlot.pet) then
+			if (not UnitExists("pet")) then
+				return false
+			end
+			slotButton = winner.clickbutton
+		else
+			local page = actionSlot.page
+			if (not page) then
+				if (HasVehicleActionBar()) then
+					page = GetVehicleBarIndex()
+				elseif (HasOverrideActionBar()) then
+					page = GetOverrideBarIndex()
+				elseif (HasTempShapeshiftActionBar()) then
+					page = GetTempShapeshiftBarIndex()
+				elseif (HasBonusActionBar() and GetActionBarPage() == 1) then
+					page = GetBonusBarIndex()
+				else
+					page = GetActionBarPage()
+				end
+			end
+			local slot = actionSlot.index + (page - 1) * 12
+			if (GetActionInfo(slot) == "flyout") then
+				slotButton = actionSlot.bar
+				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
+					slotButton = actionSlot.overrideBar
+				end
+				if (not slotButton) then
+					return false
+				end
+			else
+				DefaultClickFrame:SetAttribute(actionSlot.attr, slot)
+				slotButton = winner.clickbutton
+			end
+		end
 	end
 
 
@@ -3789,13 +4142,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		for i = 1, #bindings do
 			if (bindings[i] == winner) then
-				return castButton, i
+				return slotButton or castButton, i
 			end
 		end
-		return castButton
+		return slotButton or castButton
 	
 
-### SecureBindings.lua #27 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #26 InstallSnippet (DEBUG=on)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
@@ -3817,6 +4170,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -3903,12 +4257,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -4181,6 +4586,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -4199,6 +4605,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -4228,8 +4635,16 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
-		local s
-		local hoverAlias = hoverUnit
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -4244,7 +4659,54 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+		local s
+		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -4261,7 +4723,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return winner.clickbutton
 	
 
-### SecureBindings.lua #28 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #27 InstallSnippet (DEBUG=off)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
@@ -4283,6 +4745,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -4369,12 +4832,63 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
 			if (match and t.switches) then
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -4647,6 +5161,7 @@ DelegateFrameNames[frame] = frame:GetName()
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -4665,6 +5180,7 @@ DelegateFrameNames[frame] = frame:GetName()
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -4694,8 +5210,16 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
-		local s
-		local hoverAlias = hoverUnit
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
@@ -4710,7 +5234,54 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+		local s
+		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -4884,9 +5455,7 @@ self:RunAttribute("ClearRoleUnits", %q)
                 header:Hide()
                 if (unitMap[alias] ~= unit) then
                     unitMap[alias] = unit
-                    if (debind_driver:RunAttribute("SetUnit", alias, unit or nil)) then
-                        debind_driver:RunAttribute("UpdateBindings")
-                    end
+                    debind_driver:RunAttribute("SetUnit", alias, unit or nil)
                 end
             end
         end
@@ -4913,16 +5482,9 @@ wipe(OldStates)
 for k, v in pairs(States) do
     OldStates[k] = v
 end
-wipe(StateDrivenBindings)
 wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
-end
-
-
-
-for _, list in pairs(DirtyKeys) do
-    wipe(list)
 end
 wipe(HeldButtons)
 wipe(HeldUnits)
@@ -4934,6 +5496,8 @@ wipe(MacroTextsMap)
 wipe(DeferredMacroTexts)
 wipe(UnitStates)
 wipe(SwitchExpressions)
+wipe(SwitchEntries)
+wipe(ComputedSwitches)
 
 
 

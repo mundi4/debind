@@ -69,7 +69,6 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- different places, and the second names a switch while this one has none to name.
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No switch is picked. Until one is, this binding does not fire at all."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
-L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "A Binding Command cannot use a mouse button over a unit frame."
 L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used by an action that runs over a unit frame."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
 -- action sets. **This line and the macro one below are the only errors that take an argument** --
@@ -1123,6 +1122,10 @@ L["SWITCH_ANSWER_OFF"] = "Starts off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
 L["SWITCH_ANSWER_REMEMBER"] = "As you left it"
 L["SWITCH_ANSWER_REMEMBER_DESC"] = "Starts on if you left it on. Every character remembers its own answer."
+-- The settings row over every switch's own message box. The tooltip says the boxes are overruled
+-- rather than cleared, because a reader who ticks this again expects their choices back.
+L["SWITCH_MESSAGES"] = "Switch change messages"
+L["SWITCH_MESSAGES_DESC"] = "Unticked, no switch prints a message when it changes, including the ones set to show one."
 -- The rows under a switch: one per override, and the account-wide answer last.
 --
 -- **"Override" is the client's own word**, and 덮어쓰기 in Korean: `TRANSMOG_ARTIFACT_OPTIONS_HEADER`
@@ -1403,9 +1406,9 @@ L["LINE_TOOLTIP_SMART_CAST_NONE"] = "Nothing. This character has none of the cho
 L["LINE_TOOLTIP_SMART_CAST_OFF"] = "Nothing. Smart Cast is turned off for every character"
 L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
 L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
-L["TYPE_UNUSED_DESC"] = "Hands the key back to WoW for the situations you pick. The key then does whatever your WoW key bindings say, and nothing at all if WoW has no binding on it."
 L["TYPE_UNUSED"] = "Use WoW's Own Binding"
 L["TYPE_WORLDMARKER"] = "World Marker"
+L["TYPE_ACTIONBUTTON"] = "Action Button"
 L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."
 L["UNBIND"] = "Unbind Key"
 --- Asked before a key comes off two or more actions that share one.

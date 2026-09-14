@@ -581,6 +581,23 @@ return function(DebindPrivate)
         check(layer[1].type == Constants.SPELL and layer[2].type == Constants.ITEM, "다른 타입이 바뀌었다");
     end);
 
+    -- An action slot command becomes the action button action, under the same command name
+    -- (`devdocs/dropping-the-game-fallback.md` §3). Every other command stays what it was saved as.
+    test("dbver 7 moves the action slot commands to the action button type", function()
+        local layer = {
+            { key = "A", type = Constants.COMMAND, value = "ACTIONBUTTON3" },
+            { key = "B", type = Constants.COMMAND, value = "MULTIACTIONBAR7BUTTON12" },
+            { key = "C", type = Constants.COMMAND, value = "EXTRAACTIONBUTTON1" },
+            { key = "D", type = Constants.COMMAND, value = "TOGGLEWORLDMAP" },
+        };
+        MigrateLayer(layer, 6);
+        for i = 1, 3 do
+            check(layer[i].type == Constants.ACTIONBUTTON, layer[i].value .. ": " .. tostring(layer[i].type));
+        end
+        check(layer[1].value == "ACTIONBUTTON3", "the value moved: " .. tostring(layer[1].value));
+        check(layer[4].type == Constants.COMMAND, "a command with nowhere to go moved");
+    end);
+
     test("dbver 7 is safe to run twice", function()
         local layer = { { key = "A", type = "equipslot", value = 13 } };
         MigrateLayer(layer, 6);

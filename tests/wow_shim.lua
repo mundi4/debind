@@ -31,6 +31,7 @@ M.world = {
     units = {},
     bindingContexts = {},
     activeBindingContexts = {},
+    inPetBattle = false,
     macros = {},
     equipped = {},
     --- The dialogs `StaticPopup_Show` was asked for, in order, as `{ which, ... }`.
@@ -499,6 +500,36 @@ function M.install()
             return M.world.activeBindingContexts[context] and true or false;
         end,
     };
+    _G.C_PetBattles = {
+        IsInBattle = function() return M.world.inPetBattle; end,
+    };
+    -- The page numbers the probe read on retail (§4-5 of `devdocs/dropping-the-game-fallback.md`),
+    -- and a client whose slots hold nothing.
+    _G.C_ActionBar = {
+        GetExtraBarIndex = function() return 19; end,
+        GetActionBarPage = function() return 1; end,
+    };
+    _G.GetActionTexture = function() return nil; end
+    -- A character with no stances and no pet.
+    _G.GetShapeshiftFormInfo = function() return nil; end
+    _G.GetPetActionInfo = function() return nil; end
+    -- The world markers the command tab lists (`Blizzard_CompactRaidFrameManager.lua`), with the
+    -- enUS names stripped of their icon and colour.
+    -- The headings the command tab files a binding under, as enUS has them.
+    _G.BINDING_HEADER_CAMERA = "Camera";
+    _G.BINDING_HEADER_CHAT = "Chat";
+    _G.BINDING_HEADER_INTERFACE = "Interface Panel";
+    _G.BINDING_HEADER_MISC = "Miscellaneous";
+    _G.BINDING_HEADER_MOVEMENT = "Movement Keys";
+    _G.BINDING_HEADER_OTHER = "Other";
+    _G.BINDING_HEADER_RAID_TARGET = "Target Markers";
+    _G.BINDING_HEADER_TARGETING = "Targeting";
+    _G.BINDING_HEADER_VEHICLE = "Vehicle Controls";
+    _G.NUM_WORLD_RAID_MARKERS = 8;
+    _G.WORLD_RAID_MARKER_ORDER = { 8, 4, 1, 7, 2, 3, 6, 5 };
+    for i, colour in ipairs({ "Blue", "Green", "Purple", "Red", "Yellow", "Orange", "Silver", "White" }) do
+        _G["WORLD_MARKER" .. i] = colour .. " World Marker";
+    end
 
     -- What Profile.lua and Legacy.lua (the pre-rename SavedVariables import) need in order to
     -- load and run. The values are not arbitrary, they are **what the tests expect**: migration_spec

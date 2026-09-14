@@ -166,6 +166,10 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 	-- writing into `States` does not hold, because the click measures again rather than reading
 	-- it. Absent here, so a real user's snippet has no table to miss and no branch to fail.
 	MockState = false,
+	-- The same for a unit's life and group cell, which no living session and no single group can
+	-- produce on demand.
+	MockUnitDead = false,
+	MockUnitGroup = false,
 };
 
 --- Replaces the `PROBE.<name>(args)` tokens.

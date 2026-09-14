@@ -357,6 +357,11 @@ function DebindPrivate.ActionTakesUnit(action)
     if (action.type == Constants.PETACTION) then
         return DebindPrivate.PetActionTakesUnit(action.value);
     end
+    -- A stance is pressed through its bar button, and a click carries no target.
+    if (action.type == Constants.ACTIONBUTTON) then
+        local info = Constants.ACTION_BUTTON_COMMANDS[action.value];
+        return not (info and info.stance);
+    end
     return true;
 end
 
@@ -809,6 +814,11 @@ do
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit)
         local twin = castModifier ~= nil;
         binding.type, binding.value = action.type, action.value;
+        -- **Only the binding changes.** The action keeps the type it was saved with, so its row
+        -- still says what it was, and an older build reading the same SavedVariables still runs it.
+        if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
+            binding.type = Constants.BLOCK;
+        end
         -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
         -- action stores is the kind; which spell that is today is this specialization's answer
         -- (`SpecSpells.lua`), and every reader of the binding that wants a spell id reads this
@@ -1012,10 +1022,9 @@ do
             binding.unit = aimedUnit;
         elseif (not Constants.TYPES_WITH_UNIT[binding.type]) then
             binding.unit = nil;
-        elseif (binding.type == Constants.PETACTION
-                and not DebindPrivate.PetActionTakesUnit(binding.value)) then
-            -- 펫 명령은 타입만으로 안 갈린다. 대상 메뉴도 같은 것을 보고 안 열린다
-            -- (`DropDownMenus.lua`). 여기서도 지워야 옛 프로필에 남은 값이 안 따라온다.
+        elseif (not DebindPrivate.ActionTakesUnit(binding)) then
+            -- The type alone does not settle a pet command or an action button, and the target menu
+            -- asks the same question. Cleared here too, or a unit left in an old profile goes out.
             binding.unit = nil;
         end
 
@@ -1099,6 +1108,13 @@ do
         local options = DebindPrivate.Options;
         local stored = options and options.smartCast;
         return not (stored and stored.enabled == false);
+    end
+
+    --- The account-wide switch over every switch's own message box. Off silences them all without
+    --- touching what any box holds. Absent means on, so a profile written before it reads as on.
+    function DebindPrivate.SwitchMessagesEnabled()
+        local options = DebindPrivate.Options;
+        return not (options and options.switchMessages == false);
     end
 
     function DebindPrivate.SmartCastDefault(branch)
@@ -1756,9 +1772,6 @@ function DebindPrivate.IsKeyInvalidForAction(action, key)
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
     elseif ((key == "BUTTON1" or key == "BUTTON2") and not hoverIsOn) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON;
-    end
-    if (hoverIsOn and action.type == Constants.COMMAND and DebindPrivate.GetMouseButtonAndPrefix(key)) then
-        return Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND;
     end
 end
 
@@ -3272,7 +3285,7 @@ local function SwitchesChangedCallback()
             if (_lastSwitchValues[state] ~= newValue) then
                 _lastSwitchValues[state] = newValue;
 
-                if (options.displayMessage) then
+                if (options.displayMessage and DebindPrivate.SwitchMessagesEnabled()) then
                     local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
                     DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], state,
                         valueText));

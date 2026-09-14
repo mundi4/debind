@@ -54,6 +54,10 @@ end
 --- strength of a state nobody looked at.
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);
 SecureHandlerSetFrameRef(BindingDriver, "castFrame", DebindPrivate.CastFrame);
+-- A protected frame, so its handle still answers `IsShown` in combat.
+if (OverrideActionBar) then
+	SecureHandlerSetFrameRef(BindingDriver, "overrideActionBar", OverrideActionBar);
+end
 SecureHandlerExecute(BindingDriver, [[
 
 	debind_driver = self
@@ -78,45 +82,24 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 통째로 다시 쓴다(`UpdateBindingsMap`). 클릭 경로에서 조회 하나로 끝나야 해서 표다 -
 	-- 이름을 결합하면 매 클릭 문자열이 생긴다.
 	SelfCastWrappers = newtable()
+
+	-- `button name -> where its slot is` for every action button action, rewritten whole by the
+	-- rebuild (`UpdateBindingsMap`). `ACTION_SLOT_SNIPPET` reads it.
+	ActionSlots = newtable()
+	OverrideActionBar = self:GetFrameRef("overrideActionBar")
 	
 	SwitchExpressions = newtable()
 
-	-- 배선이 상태에 달린 키들. 키 -> 그 키의 레코드 배열.
-	--
-	-- **모든 키가 아니다.** 모양(키 -> 배열)만 보고 "전부 있겠지"로 읽으면 안 된다 - 이름이
-	-- 말하는 그대로 배선이 상태에 달린 키만이고, 두 갈래가 빠져 있다:
-	--
-	--   배선이 고정된 키       `IsKeyAlwaysOurs`. 빌드 시점에 한 번 걸고 끝이다
-	--   클릭캐스팅 전용 키      키를 잡는 레코드가 없다. 걸었다 놓았다 할 키 역할이 아예 없다
-	--
-	-- 아래 상태 루프가 이 표의 유일한 독자다.
-	StateDrivenBindings = newtable()
+	-- A computed switch's composed entry by name, and every computed switch in the order a press
+	-- works them out (`BuildSwitchesSnippet`). `ClickSwitches` holds what one press worked out and
+	-- `ClickSwitchesReady` says whether it has yet.
+	SwitchEntries = newtable()
+	ComputedSwitches = newtable()
+	ClickSwitches = newtable()
+	ClickSwitchesReady = false
 
-	-- The same keys the other way round: dirty flag -> the record lists that flag can wake.
-	--
-	-- **Not a second membership.** `StateDrivenBindings` is still what says a key is state-driven,
-	-- and the `forceAll` pass walks that one. This is only the index that turns "which flags moved"
-	-- into "which keys have to be looked at" without asking every key whether it cares.
-	--
-	-- A state-driven key that registers no flag at all is in none of the lists here, and that is the
-	-- same answer it always got. The check this replaced fell through to `forceAll` for such a key
-	-- as well, so a rebuild is what has always decided it.
-	DirtyKeys = newtable()
-
-	-- The lists above, flattened for one pass. **Made once and cut with a count**, never wiped and
-	-- never rebuilt: a pass that fills fewer slots than the last one simply reads fewer.
-	WorkList = newtable()
-
-	-- Which pass is running, as a number that only goes up. A key registered on two flags that are
-	-- both dirty is reached twice, and this is what makes the second arrival free rather than a
-	-- second walk over the same records. A rebuild hands out new record lists, so `bindings.seen`
-	-- starts nil again and nothing has to be reset.
-	UpdateGeneration = 0
-
-	-- 클릭 시점 평가로 넘긴 키들. 버튼 이름("@" + 키) -> 그 키의 레코드 배열.
-	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
-	--
-	-- **배선이 고정된 키는 이 표에만 있다.** 그런 키의 배열을 붙드는 것이 여기 하나뿐이다.
+	-- Every key that holds a key record: button name ("@" + key) -> that key's record list. The
+	-- OnClick wrapper finds which key it is by the button name the press arrived under.
 	ClickTimeKeys = newtable()
 
 	-- 클릭캐스팅으로 도착한 클릭. `[버튼번호][수식어] -> 그 키의 레코드 배열`.
@@ -194,17 +177,6 @@ SecureHandlerExecute(BindingDriver, [[
 	States = newtable()
 	DirtyFlags = newtable()
 
-	-- Is there anything to re-bind when the hover **frame** changes? `UpdateBindings` bakes this
-	-- on every rebuild.
-	--
-	-- Four places `or` it with what `SetUnit` returns: `DeinitFrame`, `setup_onenter` and
-	-- `setup_onleave` below, and the state poll in `UpdateBindings.lua`. The two are **different
-	-- events**. The return value says *the hover unit changed*; this one says *the unit is the
-	-- same and the frame is not*. Only a `frameTypes` record cares about the second, so it is
-	-- false on most profiles, and then a cursor sweeping across raid frames raises no rebuild for
-	-- as long as the unit under it stays the same.
-	RebindOnHoverFrame = false
-
 	-- Does Blizzard's beat already come every frame? `UpdateBindings` bakes this on every rebuild
 	-- from the throttle the reader's slider asked for, and it is true only at zero and only while
 	-- the beat is registered at all.
@@ -252,7 +224,8 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 ]] or "";
 
---- Composes one macro body. The caller declares `entry`, `s` and `hoverAlias` and hands them in.
+--- Composes one macro body. The caller declares `entry`, `s`, `hoverAlias` and `clickSwitches` and
+--- hands them in; `clickSwitches` is what a press worked out, nil where no press is running.
 ---
 --- **Two places bake.** When a state moves (`UpdateMacroTexts`), and when a click arrives (the
 --- `OnClick` wrapper below). So the composition is one copy spliced into both -- two copies and
@@ -283,7 +256,11 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 			end
 			value = value or "raid41"
 		elseif (arg.state) then
-			value = States[arg.state] and true or false
+			value = clickSwitches and clickSwitches[arg.state]
+			if (value == nil) then
+				value = States[arg.state]
+			end
+			value = value and true or false
 			if (arg.reverse) then
 				value = not value
 			end
@@ -296,6 +273,39 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 	s = table.concat(entry.fragments)
 ]==];
 
+--- Works every computed switch out for this press, once, into `ClickSwitches`. Spliced where a
+--- press first needs a switch: a record that carries one, or a body on the winner's button.
+---
+--- **In `ComputedSwitches` order**, so a switch that reads another reads what this press just got.
+--- The caller has `hoverUnit` in hand, which is what `@hover` inside a switch aims at.
+---
+--- **A switch that moved is written and reported here.** The Switches tab reads what the report
+--- writes, and a switch off the beat has nothing else to write it.
+local COMPUTE_SWITCHES_SNIPPET = [==[
+	if (not ClickSwitchesReady) then
+		ClickSwitchesReady = true
+		wipe(ClickSwitches)
+		for n = 1, #ComputedSwitches do
+			local name = ComputedSwitches[n]
+			local s
+			local entry = SwitchEntries[name]
+			if (entry) then
+				local hoverAlias = hoverUnit
+				local clickSwitches = ClickSwitches
+]==] .. COMPOSE_MACROTEXT_SNIPPET .. [==[
+			else
+				s = SwitchExpressions[name]
+			end
+			local answer = SecureCmdOptionParse(s or "") and true or false
+			ClickSwitches[name] = answer
+			if (States[name] ~= answer) then
+				States[name] = answer
+				debind_driver:CallMethod("OnSwitchChanged", name, answer)
+			end
+		end
+	end
+]==];
+
 BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 	local key = ...
 	for state, dependents in pairs(MacroTextsMap) do
@@ -304,27 +314,15 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 				local entry = dependents[i]
 				local s
 				local hoverAlias = UnitAliasMap["hover"]
+				local clickSwitches
 ]=] .. COMPOSE_MACROTEXT_SNIPPET .. [=[
 
-				-- The string that actually goes on the button. This is **where a body is
-				-- finished because a state moved**, so the log belongs here -- past the
-				-- SetAttribute below there is no way to read it back (attributes do not
-				-- enumerate).
-				--
-				-- Only bodies with something that **has to change at run time** come through
-				-- here, `@custom1` and `@hover` and the like. Silence is an answer too: it means
-				-- that body is static and stands as `SetBindingAttributes` wrote it (look at that
-				-- log instead).
-				--
-				-- **A body that goes on a button mostly does not reach here.** What is held back
-				-- for the click is not in `MacroTextsMap` at all; it is in `DeferredMacroTexts`
-				-- (`EmitMacroTextEntries` in `UpdateBindings.lua`). The `entry.attr` left here
-				-- belongs to a build with `CLICK_TIME_EVAL` off.
+				-- **Only a switch's expression is finished here.** A button's body is held back
+				-- for the click in `DeferredMacroTexts` (`EmitMacroTextEntries` in
+				-- `UpdateBindings.lua`), so what moves with a unit or a switch and is not a button
+				-- is this, and the log belongs here.
 ]=] .. PRINT_MACROTEXT_SNIPPET .. [=[
 
-				if (entry.attr) then
-					DefaultClickFrame:SetAttribute(entry.attr, s)
-				end
 				-- No "did the text change" guard around this. The pass already parsed the
 				-- previous `SwitchExpressions[entry.state]` before reaching here, so the parse
 				-- below is what the newly composed text needs; skipping it when the text is
@@ -365,10 +363,73 @@ local PRINT_BAKED_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 	local entry = DeferredMacroTexts[winner.clickbutton]
 	if (entry) then
+]==] .. COMPUTE_SWITCHES_SNIPPET .. [==[
 		local s
 		local hoverAlias = hoverUnit
+		local clickSwitches = ClickSwitches
 ]==] .. COMPOSE_MACROTEXT_SNIPPET .. PRINT_BAKED_MACROTEXT_SNIPPET .. [==[
 		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+]==];
+
+--- The slot an action button action fires, worked out at the press
+--- (`devdocs/dropping-the-game-fallback.md` §4). Declares `slotButton`, the name to answer with
+--- where the winner is one. Needs `winner`.
+---
+--- **A check the Blizzard binding makes on the press is made here too, and it cancels the click.**
+--- `EXTRAACTIONBUTTON1` does nothing without `HasExtraActionBar()`, and `BONUSACTIONBUTTONn` nothing
+--- without `PetHasActionBar()`, which the restricted environment does not have: a pet it cannot
+--- control is not `pet`, so `UnitExists("pet")` answers the same. **The winner is already settled,
+--- so nothing under it fires instead**; passing a press on is what the reader's own conditions do,
+--- in `EVAL_SNIPPET` (2026-09-14, owner).
+---
+--- **The page is `ActionBarController_UpdateAll`'s order**, and a bonus bar only counts on page 1.
+---
+--- **A flyout slot goes to the bar button that shows it.** `SECURE_ACTIONS.action` opens a flyout
+--- with `SpellFlyout:Toggle(self, ...)`, which calls `GetPopupDirection` on the button that fired,
+--- and ours has none. The skinned override bar has its own buttons, and `IsShown` rather than
+--- `IsVisible` picks between them: the bar slides out still visible.
+local ACTION_SLOT_SNIPPET = [==[
+	local slotButton
+	local actionSlot = ActionSlots[winner.clickbutton]
+	if (actionSlot) then
+		if (actionSlot.extra and not HasExtraActionBar()) then
+			return false
+		end
+		if (actionSlot.pet) then
+			if (not UnitExists("pet")) then
+				return false
+			end
+			slotButton = winner.clickbutton
+		else
+			local page = actionSlot.page
+			if (not page) then
+				if (HasVehicleActionBar()) then
+					page = GetVehicleBarIndex()
+				elseif (HasOverrideActionBar()) then
+					page = GetOverrideBarIndex()
+				elseif (HasTempShapeshiftActionBar()) then
+					page = GetTempShapeshiftBarIndex()
+				elseif (HasBonusActionBar() and GetActionBarPage() == 1) then
+					page = GetBonusBarIndex()
+				else
+					page = GetActionBarPage()
+				end
+			end
+			local slot = actionSlot.index + (page - 1) * 12
+			if (GetActionInfo(slot) == "flyout") then
+				slotButton = actionSlot.bar
+				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
+					slotButton = actionSlot.overrideBar
+				end
+				if (not slotButton) then
+					return false
+				end
+			else
+				DefaultClickFrame:SetAttribute(actionSlot.attr, slot)
+				slotButton = winner.clickbutton
+			end
+		end
 	end
 ]==];
 
@@ -629,245 +690,6 @@ BindingDriver:SetAttribute("UpdateAllUnits", [[
 	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
 ]]);
 
---- How many keys this pass is about to decide. **DEBUG only** -- in a shipped build the string is
---- empty and the line is not in the snippet at all.
----
---- **The generation guard it exists for cannot be seen in a value.** A key reached through two
---- dirty flags and decided twice lands on the same answer, because `bindings.bound` turns the
---- second one into a no-op. So what the guard saves is the walk and nothing else, and a spec that
---- asked what the key ended up bound to would pass with the guard taken out.
-local WORK_COUNT_SNIPPET = DebindPrivate.DEBUG and "\tWorkCount = work\n" or "";
-
-BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
-	local vargs = newtable()
-	if (DirtyFlags.forceAll) then
-		tinsert(vargs, "forceAll")
-	end
-	for k in pairs(DirtyFlags) do
-		if (k ~= "forceAll") then
-			tinsert(vargs, k)
-		end
-	end
-	self:CallMethod("dump", "[SECURE] UpdateBindings",
-		vargs[1],
-		vargs[2],
-		vargs[3],
-		vargs[4],
-		vargs[5],
-		vargs[6],
-		vargs[7],
-		vargs[9],
-		vargs[10],
-		vargs[11],
-		vargs[12],
-		vargs[13],
-		vargs[14],
-		vargs[15]
-	)
-]] or "") .. BakeSnippet([==[
-	local forceAll = DirtyFlags.forceAll
-	local unitframe = States.unitframe
-	if (unitframe and not unitframe.reaction) then unitframe = nil end
-	-- **Defaulted like `form` and `bonusbar` below, and for the same reason.** `States` is filled
-	-- by the state pass, which a rebuild registers *after* it has shown the unit-watch headers --
-	-- and showing one lays it out, which runs `CheckUnits`, which can land back in here. On the
-	-- first rebuild of a session there has been no pass yet, so this is nil and `group + group`
-	-- raises. The pass that follows writes the real value a moment later.
-	local group = States.group or CONSTANTS.GROUP_NONE
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
-	local combat = States.combat
-	local stealth = States.stealth
-	local mounted = States.mounted
-	local indoors = States.indoors
-	local flyable = States.flyable
-	local advflyable = States.advflyable
-	local flying = States.flying
-	local skyriding = States.skyriding
-	local specialbar = States.specialbar
-	local extrabar = States.extrabar
-	local petbattle = States.petbattle
-
-	-- **어느 키를 볼지 고르는 것과 그 키를 정하는 것을 가른다.** 아래 판정은 한 벌이고 두 갈래가
-	-- 같은 작업목록으로 들어온다. 예순 줄짜리 본문이 두 벌이 되는 것이 이 뒤집기를 한 번 접게
-	-- 만든 값이었다.
-	--
-	-- **배선이 고정된 키는 어느 쪽에도 없다.** `UpdateBindingsMap`이 안 넣는다 - 그 키는 빌드
-	-- 시점에 한 번 걸고 끝이고, 어느 액션인지는 래퍼가 클릭 순간에 정한다.
-	--
-	-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기 있고,
-	-- "잡느냐 놓느냐"를 계속 정해야 한다 - 빼면 놓아줘야 할 때 못 놓는다.
-	local work = 0
-
-	if (forceAll) then
-		-- 리빌드가 여는 패스다. 어느 플래그가 움직였느냐가 뜻이 없으므로 전부 본다.
-		for _, bindings in pairs(StateDrivenBindings) do
-			work = work + 1
-			WorkList[work] = bindings
-		end
-	else
-		-- **한 키가 두 플래그에 걸려 있고 둘 다 더티면 두 번 도달한다.** 세대 번호가 두 번째를
-		-- 공짜로 만든다. 값으로는 안 드러나는 자리다 - 두 번 정해도 `bindings.bound` 비교가
-		-- 두 번째를 no-op으로 만들어서 결과가 같다. 그래서 이건 값이 아니라 비용을 지킨다.
-		UpdateGeneration = UpdateGeneration + 1
-		for flag in pairs(DirtyFlags) do
-			local list = DirtyKeys[flag]
-			if (list) then
-				for i = 1, #list do
-					local bindings = list[i]
-					if (bindings.seen ~= UpdateGeneration) then
-						bindings.seen = UpdateGeneration
-						work = work + 1
-						WorkList[work] = bindings
-					end
-				end
-			end
-		end
-	end
-]==] .. WORK_COUNT_SNIPPET .. [==[
-
-	for w = 1, work do
-		local bindings = WorkList[w]
-		local key = bindings.key
-
-		-- **이 목록에 있는 키는 전부 키를 잡는 레코드를 갖고 있다.** 없는 키는 클릭캐스팅
-		-- 전용이라 `UpdateBindingsMap`이 아예 안 넣는다. 그래서 여기서 `hasKeyRecord`을
-		-- 다시 묻지 않는다 - 물어봤자 답이 하나뿐이고, 옛 코드는 그 키들을 훑고 나서
-		-- 레코드 하나 안 읽고 끝냈다.
-		local keyBound
-
-		for i = 1, #bindings do
-			local t = bindings[i]
-			-- **The self and focus twins count like any record, their modifier column aside.** A held
-			-- modifier arrives only on a key we hold, so a key let go on its originals' answer takes
-			-- the twins' presses with it (`devdocs/implementing-focus-and-self-cast.md` §3-9).
-			local match = true
-
-			-- 호버 중이냐, 그 유닛이 어떠냐는 아래 t.units["hover"]가 답한다. 여기 남은
-			-- 것은 프레임의 종류뿐이라 제 존재 검사를 직접 들고 있다.
-			if (match and t.frameTypes) then
-				if (not unitframe) then
-					match = false
-				elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
-					match = false
-				end
-			end
-
-			-- **The outer parentheses are load-bearing.** `and` binds tighter than `or`, so
-			-- without them this reads as `(match and <first>) or <second> or ...` and every term
-			-- after the first is evaluated whether or not `match` still stands. The answer came
-			-- out the same either way, which is why it sat here unnoticed. What it cost was the
-			-- eight tests on a record the frame type check had already turned away, and what it
-			-- risked was the next term added here quietly not being guarded.
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= extrabar) or
-				(t.stealth ~= nil and t.stealth ~= stealth) or
-				(t.mounted ~= nil and t.mounted ~= mounted) or
-				(t.indoors ~= nil and t.indoors ~= indoors) or
-				(t.flyable ~= nil and t.flyable ~= flyable) or
-				(t.advflyable ~= nil and t.advflyable ~= advflyable) or
-				(t.flying ~= nil and t.flying ~= flying) or
-				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
-				(t.petbattle ~= nil and t.petbattle ~= petbattle)
-			)) then
-				match = false
-			end
-			
-			if (match and t.known ~= nil) then
-				if (States[t.known] ~= true) then
-					match = false
-				end
-			end
-
-			if (match and t.units) then
-				for checkedUnit, cond in pairs(t.units) do
-					local s = UnitStates[checkedUnit]
-					-- **역할만 유닛 행이 아니라 호버 슬롯에서 읽는다.** 가리킨 프레임에 대해서만
-					-- 답이 나오는 축이고, 그 값은 슬롯을 채우는 자리에서 이미 잘려 있다.
-					-- `cond.role`은 hover 항목에만 실린다.
-					--
-					-- **슬롯의 값이 nil이면 이 축은 아예 안 선다.** 답할 수 없다는 뜻이라
-					-- 조건을 걸어서 떨어뜨리면 그 키가 조용히 죽는다.
-					local role = unitframe and unitframe.role
-					if (not s or cond.exists ~= s.exists
-							or (cond.reaction and not cond.reaction[s.reaction])
-							or (cond.dead ~= nil and cond.dead ~= s.dead)
-							or (cond.group and not cond.group[s.group])
-							or (role and cond.role and not cond.role[role])) then
-						match = false
-						break
-					end
-				end
-			end
-
-			if (match and t.switches) then
-				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
-						match = false
-						break
-					end
-				end
-			end
-
-			if (match) then
-				if (not keyBound and t.holdsKey) then
-					-- **무엇을 걸 것인가는 이긴 액션이 아니라 세 갈래 중 하나다.**
-					--
-					-- clickTime 키는 어느 클릭 액션이 이기든 거는 것이 `"@"..key` 하나다.
-					-- 그래서 이긴 것으로 비교하면 승자가 뒤집힐 때마다 같은 값을 다시 거는
-					-- SetOverrideBinding이 나간다 - hover가 걸린 키에서 이게 제일 잦다.
-					-- 결과로 비교하면 그 재바인딩이 통째로 없어진다.
-					--
-					-- 셋은 서로 겹치지 않는다: false(놓아줌) / 명령 문자열 / 버튼 이름.
-					-- clickTime이 아니면 옛 규약대로 t 자체를 쓴다.
-					local outcome
-					if (t.type == CONSTANTS.UNUSED) then
-						outcome = false
-					elseif (t.command) then
-						outcome = t.command
-					elseif (t.clickbutton) then
-						outcome = bindings.clickTimeButton or t
-					end
-
-					if (bindings.bound ~= outcome) then
-						bindings.bound = outcome
-						if (t.type == CONSTANTS.UNUSED) then
-							self:ClearBinding(key)
-						elseif (t.command) then
-							self:SetBinding(true, key, t.command)
-						elseif (t.clickbutton) then
-							if (bindings.clickTimeButton) then
-								-- 어느 액션인지는 래퍼가 클릭 순간에 정한다. 여기서는
-								-- "클릭이 이겼다"까지만 정한다.
-								self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
-							else
-								self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
-							end
-						end
-					end
-					keyBound = i
-				end
-
-				if (keyBound) then
-					break
-				end
-			end
-		end
-
-		if (not keyBound) then
-			bindings.bound = nil
-			self:ClearBinding(key)
-		end
-	end
-
-	wipe(DirtyFlags)
-]==]));
-
 --- 클릭캐스팅 클릭이 우리 프레임까지 왔는지 보고한다. **빌드 시점에 가른다** - 릴리스에서는
 --- 문자열이 비어서 스니펫에 이 줄이 아예 없다.
 ---
@@ -899,7 +721,7 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+			if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
 			end
@@ -981,7 +803,7 @@ local SETUP_ONENTER_SNIPPET = [==[
 		unitframe.reaction = reaction
 		unitframe.role = role
 		States.unitframe = unitframe
-		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+		if (debind_driver:RunAttribute("SetUnit", "hover", unit)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -994,7 +816,7 @@ local SETUP_ONLEAVE_SNIPPET = [==[
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+		if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -1068,7 +890,12 @@ BindingDriver:SetAttribute("clickcast_onleave", [==[
 --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1).
 BindingDriver:SetAttribute("GetHoveredUnit", [==[
 	local unitframe = States.unitframe
-	return unitframe and unitframe.unit
+	if (unitframe and unitframe.frame) then
+		local unit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unit and UnitExists(unit)) then
+			return unit
+		end
+	end
 ]==]);
 
 --- **The header door hands out a name and registers nothing.** It used to set the frame up
@@ -1220,6 +1047,7 @@ local EVAL_SNIPPET = [==[
 	-- **어느 프레임이냐는 호출부가 정한다**(`evalFrame`). 키로 들어오면 enter/leave가 남긴
 	-- 캐시를 볼 수밖에 없지만, 유닛 프레임 클릭으로 들어오면 그 프레임이 곧 자기 자신이라
 	-- 캐시를 볼 이유가 없다.
+	ClickSwitchesReady = false
 	local unitframe = evalFrame
 	local hoverFrameType
 	local hoverRole
@@ -1303,15 +1131,17 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- **커스텀 상태가 먼저다. 유일하게 잴 것이 없는 축이라서다.**
-			--
-			-- 값 모드는 사용자가 넣어둔 저장값이 곧 원본이고, 조건문 모드도 매크로텍스트가
-			-- 클릭 밖에서 같은 값을 읽는 동안은 캐시가 아니라 공유값이다. 그래서 여기만
-			-- `States`를 그대로 읽고, 테이블 조회 하나뿐이라 제일 앞에 둔다 - 여기서 걸러진
-			-- 레코드는 아래의 C 호출을 하나도 안 치른다.
+			-- **Switches first.** A manual one is a table read and the computed ones are worked out
+			-- once for the whole press, so a record turned away here pays for none of the calls
+			-- below.
 			if (match and t.switches) then
+]==] .. COMPUTE_SWITCHES_SNIPPET .. [==[
 				for state, v in pairs(t.switches) do
-					if (States[state] ~= v) then
+					local value = ClickSwitches[state]
+					if (value == nil) then
+						value = States[state]
+					end
+					if (value ~= v) then
 						match = false
 						break
 					end
@@ -1584,6 +1414,7 @@ local EVAL_SNIPPET = [==[
 								local dead = ClickUnitDead[unit]
 								if (dead == nil) then
 									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									PROBE.MockUnitDead(unit)
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
@@ -1602,6 +1433,7 @@ local EVAL_SNIPPET = [==[
 									group = (raid and (party and "both" or "raid"))
 											or (party and "party")
 											or "neither"
+									PROBE.MockUnitGroup(unit)
 									ClickUnitGroup[unit] = group
 								end
 								if (not cond.group[group]) then
@@ -1858,28 +1690,13 @@ end, [==[
 ]==] .. EVAL_SNIPPET .. [==[
 	end
 
-	-- **낼 것이 없으면 클릭을 취소한다.** 두 갈래로 도달한다:
-	--
-	--   winner 없음        live로 아무 조건도 안 맞았다
-	--   clickbutton 없음   이긴 것이 UNUSED나 COMMAND다. 둘 다 클릭이 아니다
-	--
-	-- 배선이 고정된 키(alwaysOurs)에서는 둘 다 도달 불가다 - `IsKeyAlwaysOurs`가
-	-- 조건 공간이 전부 덮였음을 보장한다. 나머지 clickTime 키에서는 **정상적으로 도달한다.**
-	-- 상태 루프가 묵은 값으로 "클릭이 이긴다"고 보고 걸어둔 뒤, 누르는 순간 live로는 놓아줬어야
-	-- 하는 경우다.
-	--
-	-- 그때 옳은 동작은 "와우에 돌려주기"인데 **여기서는 불가능하다.** `RunBinding`이 제한
-	-- 환경에 없고(`click-time-eval.md` §2-5), 유일한 우회로인 `CallMethod`는 forceinsecure다.
-	-- 입력은 이미 소비됐다. 그러니 아무것도 안 내는 것이 도달 가능한 것 중 옳음에 가장 가깝다 -
-	-- 그 키를 우리에게 준 사용자는 대개 와우 쪽을 비워뒀으므로 흔한 경우에는 정확히 맞고,
-	-- 틀리는 경우에도 **틀린 주문이 나가는 것보다 낫다.** 다음 폴링 틱에 상태 루프가 놓아준다.
-	--
-	-- `false` 대신 이름을 그대로 두어도 결과는 같지만(`*type-@<키>`가 없으니 조용히 끝난다),
-	-- 우연에 기대지 않고 명시한다.
+	-- **Nothing to fire cancels the click.** The winner is the BLOCK that closes the tier, or
+	-- nothing matched at all (`devdocs/dropping-the-game-fallback.md` §3). Leaving the name would
+	-- come to the same, since there is no `*type-@<key>`, but only by accident.
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. [==[
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
 ]==] .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET .. [==[
@@ -1920,7 +1737,7 @@ end, [==[
 	end
 
 ]==] .. SELFCAST_OFF_SNIPPET .. [==[
-	return castButton
+	return slotButton or castButton
 ]==], [==[
 	-- 클릭이 끝난 뒤. **맨이름 `pressAndHoldAction`을 반드시 지운다.**
 	--
@@ -1972,16 +1789,16 @@ if (DebindPrivate.DEBUG) then
 		if (not winner or not winner.clickbutton) then
 			return
 		end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET
-		.. SELFCAST_OFF_SNIPPET .. [==[
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. RESOLVE_UNIT_SNIPPET
+		.. SMART_CAST_SNIPPET .. SELFCAST_OFF_SNIPPET .. [==[
 		-- The winner's place as well, because the button no longer names it: the self and focus
 		-- twins click the same button as their original.
 		for i = 1, #bindings do
 			if (bindings[i] == winner) then
-				return castButton, i
+				return slotButton or castButton, i
 			end
 		end
-		return castButton
+		return slotButton or castButton
 	]==]);
 
 	--- The same door for the click-cast side. Run it **for the unit frame** (`RunFor`), which is

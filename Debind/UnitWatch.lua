@@ -155,9 +155,7 @@ if (hasAlias) then
 
     if (unitMap[alias] ~= matchedUnit) then
         unitMap[alias] = matchedUnit
-        if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
-            debind_driver:RunAttribute("UpdateBindings")
-        end
+        debind_driver:RunAttribute("SetUnit", alias, matchedUnit)
         if (tooMany) then
             unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
         else
@@ -703,9 +701,7 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
                 header:Hide()
                 if (unitMap[alias] ~= unit) then
                     unitMap[alias] = unit
-                    if (debind_driver:RunAttribute("SetUnit", alias, unit or nil)) then
-                        debind_driver:RunAttribute("UpdateBindings")
-                    end
+                    debind_driver:RunAttribute("SetUnit", alias, unit or nil)
                 end
             end
         end

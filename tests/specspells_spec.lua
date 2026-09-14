@@ -292,12 +292,15 @@ return function(DebindPrivate, _, ctx)
                     or (record.castModifier == Constants.CASTMOD_FOCUS and "focus")
                     or (record.units and record.units.hover and "hover")
                     or "original";
-                local who = (record.spellbook and "probe") or (record.combat and "dispel") or "spell";
+                local who = (castmod.isBlock(Constants, record) and "block")
+                    or (record.spellbook and "probe") or (record.combat and "dispel") or "spell";
                 shape[i] = tier .. ":" .. who;
             end
             shape = table.concat(shape, " ");
-            check(shape == "self:probe self:dispel self:spell focus:probe focus:dispel focus:spell "
-                .. "hover:probe hover:dispel hover:spell original:probe original:dispel original:spell",
+            check(shape == "self:probe self:dispel self:spell self:block "
+                .. "focus:probe focus:dispel focus:spell focus:block "
+                .. "hover:probe hover:dispel hover:spell "
+                .. "original:probe original:dispel original:spell original:block",
                 "F4 came out as " .. shape);
         end);
 

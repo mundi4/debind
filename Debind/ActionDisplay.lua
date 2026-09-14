@@ -124,6 +124,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.EXTERNAL] = LLL["TYPE_EXTERNAL"],
 	[Constants.RAIDBUFF] = LLL["TYPE_RAIDBUFF"],
 	[Constants.COMMAND] = LLL["TYPE_COMMAND"],
+	[Constants.ACTIONBUTTON] = LLL["TYPE_ACTIONBUTTON"],
 	[Constants.WORLDMARKER] = LLL["TYPE_WORLDMARKER"],
 	[Constants.SETCUSTOM] = LLL["TYPE_SETCUSTOM"],
 	-- **Three types, one answer.** What sits in this table is what kind of action it is, and
@@ -330,6 +331,24 @@ local function NameAndIconForAction(action)
 	elseif (type == Constants.COMMAND) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
 		actionIcon = "A:NPE_Icon"
+	elseif (type == Constants.ACTIONBUTTON) then
+		actionName = _G["BINDING_NAME_" .. value] or value;
+		skipTypeName = true;
+		-- What the button shows on its own bar, resolved every draw for the reason `USESLOT` is. A
+		-- replaced bar is left out: the row is drawn out of a vehicle as often as in one.
+		local info = Constants.ACTION_BUTTON_COMMANDS[value];
+		if (info and info.stance) then
+			actionIcon = GetShapeshiftFormInfo(info.index);
+		elseif (info and info.pet) then
+			-- The pet bar's own commands answer with a global's name (`PetActionBar.lua`).
+			local _, texture, isToken = GetPetActionInfo(info.index);
+			actionIcon = isToken and _G[texture] or texture;
+		elseif (info) then
+			local page = info.page or (info.extra and C_ActionBar.GetExtraBarIndex())
+				or C_ActionBar.GetActionBarPage();
+			actionIcon = GetActionTexture(info.index + (page - 1) * 12);
+		end
+		actionIcon = actionIcon or "A:NPE_Icon";
 	elseif (type == Constants.TARGET) then
 		actionName = BINDING_TYPE_NAMES[Constants.TARGET];
 		actionIcon = 132212;

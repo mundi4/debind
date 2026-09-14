@@ -19,8 +19,7 @@
 -- **Two more came down on the re-read that followed** (2026-08-23). Both were kept by a line
 -- naming `GetBindingAction`, which had stopped being a reason a few hours earlier: whether a
 -- fixed-wired key is ever handed back, and the state loop's own sweep over four axes. The press
--- sweep and the poll-and-press one **stay** -- those two are §9's anchors and are meant to be in
--- both places, which the one that left was not.
+-- sweep **stays** -- it is §9's anchor and is meant to be in both places.
 --
 -- **Nine more came down that were never blocked by anything** (2026-08-23). Every one asked what
 -- `BuildKeyMap` hands out for a key, which the harness has been able to answer since 2026-08-21;
@@ -611,6 +610,54 @@ local function PlaceWithoutTwins(key, index)
     return place
 end
 
+--- Which `KeyMap` binding an emitted record index stands for, or `"block"` for one `WithBlocks` put in.
+---
+--- **The emitted list is not `KeyMap`'s.** A key that holds a key record carries a BLOCK after its
+--- self tier, after its focus tier and at its end (`UpdateBindings.lua`'s `WithBlocks`), and
+--- `KeyMap` has none of them, so every index past the first tier is out of step by one or two.
+local function BindingIndexForEmitted(key, index)
+    local bindings = key and GetKeyBindings(key)
+    if not bindings or type(index) ~= "number" then
+        return index
+    end
+    local holds, selfCount, focusCount = false, 0, 0
+    for i = 1, #bindings do
+        local binding = bindings[i]
+        holds = holds or binding.holdsKey
+        if binding.castModifier == Constants.CASTMOD_SELF then
+            selfCount = selfCount + 1
+        elseif binding.castModifier == Constants.CASTMOD_FOCUS then
+            focusCount = focusCount + 1
+        end
+    end
+    if not holds then
+        return index
+    end
+    if index <= selfCount then
+        return index
+    elseif index == selfCount + 1 then
+        return "block"
+    elseif index <= selfCount + focusCount + 1 then
+        return index - 1
+    elseif index == selfCount + focusCount + 2 then
+        return "block"
+    elseif index <= #bindings + 2 then
+        return index - 2
+    end
+    return "block"
+end
+
+--- The same, and `"block"` too where the `KeyMap` binding is one: a saved `UNUSED` or `COMMAND`
+--- binds as a BLOCK (`FillBinding`), and winning with it fires nothing either.
+local function BindingIndexForRecord(key, index)
+    local mapped = BindingIndexForEmitted(key, index)
+    local bindings = type(mapped) == "number" and GetKeyBindings(key)
+    if bindings and bindings[mapped] and bindings[mapped].type == Constants.BLOCK then
+        return "block"
+    end
+    return mapped
+end
+
 
 -----------------------------------------------------------
 -- Test Helpers: State Injection
@@ -731,6 +778,8 @@ end
 -- reading an empty table, it is the snippet a real user runs, rebuilt from the same source.
 local probeReports = {}
 local probesOn = false
+--- The key the last evaluation ran for, so a reported record index can be read as a `KeyMap` one.
+local lastEvalKey
 --- What the Smart Cast block last reported (`PROBE.SmartBranch`). Declared here, above
 --- `EnableProbes`, which is what writes them.
 local lastSmartBranch
@@ -740,7 +789,8 @@ local lastSmartBranchReported
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
 --- What `PROBE.MockState(x)` becomes while probing: the same override the update loop's generated
 --- snippet gets, moved to the click path. The argument is the local **and** the state name, which
---- is why they are spelled the same in `EVAL_SNIPPET`.
+--- is why they are spelled the same in `EVAL_SNIPPET`. `MockUnitDead` and `MockUnitGroup` take the
+--- unit instead, and read the `<unit>-dead` and `<unit>-group` names `SetMockState` is given.
 ---
 --- `~= nil` and an `if`, not `and`/`or`: most of these axes are booleans, and a false held value
 --- would fall straight through an `and`/`or` to the measured one.
@@ -748,6 +798,8 @@ local PROBE_DEV = {
     Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
     SmartBranch = [[debind_driver:CallMethod("DebindTestSmartBranch", %s)]],
     MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
+    MockUnitDead = [[if (MockStatesMap[%1$s .. "-dead"] ~= nil) then dead = MockStatesMap[%1$s .. "-dead"] end]],
+    MockUnitGroup = [[if (MockStatesMap[%1$s .. "-group"] ~= nil) then group = MockStatesMap[%1$s .. "-group"] end]],
 }
 
 local function BuildExpandTable()
@@ -772,7 +824,7 @@ local function EnableProbes()
     PlantMockTable()
 
     DebindPrivate.BindingDriver.DebindTestWinner = function(_, index)
-        probeReports[#probeReports + 1] = index
+        probeReports[#probeReports + 1] = BindingIndexForRecord(lastEvalKey, index)
     end
     DebindPrivate.BindingDriver.DebindTestSmartBranch = function(_, button)
         lastSmartBranch, lastSmartBranchReported = button, true
@@ -820,6 +872,7 @@ local function EvalClickTimeKey(key)
     end
 
     wipe(probeReports)
+    lastEvalKey = key
     SecureHandlerExecute(DebindPrivate.BindingDriver, format(
         [[self:RunAttribute("EvalClickTimeKey", %q)]], button))
     return true
@@ -845,6 +898,14 @@ local function EvalClickCast(frame, n, mod)
 
     wipe(probeReports)
     lastEvalAnswer, lastEvalAnswered = nil, false
+    -- The key comes back off the button and the modifier, which is all a frame click carries.
+    lastEvalKey = nil
+    for key in pairs(DebindPrivate.KeyMap) do
+        local button, prefix = DebindPrivate.GetMouseButtonAndPrefix(key)
+        if button == n and DebindPrivate.GetModifierIndex(prefix) == mod then
+            lastEvalKey = key
+        end
+    end
     DebindPrivate.BindingDriver.DebindTestEvalAnswer = function(_, answer)
         lastEvalAnswer, lastEvalAnswered = answer, true
     end
@@ -873,9 +934,15 @@ local function WaitForEvalAnswer(limit)
     return WaitUntil(function() return lastEvalAnswered end, limit)
 end
 
---- The record index the snippet last reported as the winner, or nil if it reported none.
+--- The `KeyMap` index the snippet last reported as the winner, or nil if it reported none or a
+--- block won. A block winning is the press doing nothing, which is what nil already means to every
+--- caller.
 local function LastWinner()
-    return probeReports[#probeReports]
+    local got = probeReports[#probeReports]
+    if got == "block" then
+        return nil
+    end
+    return got
 end
 
 --- What the Smart Cast block last chose: a branch button name, or nil where the host itself is
@@ -897,22 +964,18 @@ end
 --- "nothing matched" looks from here and is indistinguishable from a slow one. Only that case
 --- costs the limit, and a sweep is mostly hits.
 local function WaitForWinner(limit)
-    return WaitUntil(function() return probeReports[#probeReports] end, limit)
+    WaitUntil(function() return probeReports[#probeReports] end, limit)
+    return LastWinner()
 end
 
---- Which of the three tables a key's record list ended up in.
+--- Which of the two tables a key's record list ended up in.
 ---
---- **The split is the one thing nothing else here can see.** `IsKeyAlwaysOurs` is covered
---- headlessly, and the click tests cover what a press decides -- but both pass whichever table
---- the key landed in, so an emitter that ignored the verdict entirely would not show up in either.
----
---- `clickCast` is here for the same reason the other two are asked as a pair: for a key that holds
---- no keyboard role, "not state-driven" and "never emitted" look identical from the outside, and
---- only its `ClickCastKeys` slot tells them apart.
+--- **The split is the one thing nothing else here can see.** The click tests cover what a press
+--- decides, and they pass whichever table the key landed in.
 ---
 --- Asked of the restricted environment rather than of the source that built it. Reading the
 --- generated snippet back would only confirm that the generator wrote what the generator meant to
---- write; `StateDrivenBindings` is what the update loop actually walks.
+--- write.
 ---
 --- Read the answer with `WaitForMembership`.
 local lastMembership
@@ -920,20 +983,20 @@ local function ReadKeyMembership(key)
     local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
     local mouseButton, mousePrefix = DebindPrivate.GetMouseButtonAndPrefix(key)
     lastMembership = nil
-    DebindPrivate.BindingDriver.DebindTestMembership = function(_, stateDriven, clickTime, clickCast)
-        lastMembership = { stateDriven = stateDriven, clickTime = clickTime, clickCast = clickCast }
+    DebindPrivate.BindingDriver.DebindTestMembership = function(_, clickTime, clickCast)
+        lastMembership = { clickTime = clickTime, clickCast = clickCast }
     end
 
     SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
-        self:CallMethod("DebindTestMembership", StateDrivenBindings[%q] ~= nil, %s, %s)
-    ]], key,
+        self:CallMethod("DebindTestMembership", %s, %s)
+    ]],
         button and format([[ClickTimeKeys[%q] ~= nil]], button) or "false",
         mouseButton and format([[ClickCastKeys[%d] ~= nil and ClickCastKeys[%d][%d] ~= nil]],
             mouseButton, mouseButton, DebindPrivate.GetModifierIndex(mousePrefix)) or "false"))
     return true
 end
 
---- `{ stateDriven = bool, clickTime = bool, clickCast = bool }` from the last `ReadKeyMembership`,
+--- `{ clickTime = bool, clickCast = bool }` from the last `ReadKeyMembership`,
 --- waited for. nil means the restricted environment never came back -- the snippet failed to
 --- compile, or the driver is not carrying the tables it reads.
 ---
@@ -1178,9 +1241,9 @@ end
 --- wait would pass or time out on exactly what the comparison below is there to decide.
 ---
 --- After `HoverEnter`/`HoverLeave` this costs nothing: those run the real snippets through
---- `SecureHandlerExecute` and the mirror is written before the call returns. It earns its keep
---- after `SetFrameUnit`, where nothing is driving anything and the change is only noticed when
---- Blizzard's state driver comes round -- up to `updatetime`, and never sooner.
+--- `SecureHandlerExecute` and the mirror is written before the call returns. **Nothing else moves
+--- the slot any more**: a unit changing under a still cursor is read off the frame at the call
+--- (`GetHoveredUnit`), and the beat polls the slot only for an announcing switch that reads `@hover`.
 local function WaitForHoverSlot(filled, limit)
     return WaitUntil(function() return (GetHoverUnit() ~= nil) == filled end, limit)
 end
@@ -3844,7 +3907,7 @@ local function OpenSwitchesTab()
 end
 
 RegisterTest("Switches tab: the toggle on a row moves the key", {
-    description = "The on/off button on a row really does bind and release the key that switch stands on",
+    description = "The on/off button on a row really does turn on and off the key that switch stands on",
     run = function()
         local NAME = "Switch row toggle"
         local KEY = "CTRL-SHIFT-F7"
@@ -3852,6 +3915,11 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
 
         if InCombatLockdown() then
             return Fail(NAME, "this button is disabled in combat, so nothing can be judged")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         local saved = DebindPrivate.Switches[SWITCH]
@@ -3889,19 +3957,21 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
         -- lost its `OnClick`, which is exactly the wiring this test is here for.
         row.ToggleButton:Click()
 
-        local whenOn = GetBindingAction(KEY, true) or ""
-        if whenOn:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("turned on and the key is %q, the value never reached codegen", whenOn))
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if WaitForWinner() == nil then
+            return Fail(NAME, "turned on and the key fires nothing, the value never reached the press")
         end
 
         row.ToggleButton:Click()
 
-        local whenOff = GetBindingAction(KEY, true) or ""
-        if whenOff ~= "" then
-            return Fail(NAME, format("turned off and the key is still %q", whenOff))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("turned off and the key still fires #%d", LastWinner()))
         end
 
-        return Pass(NAME, "pressed on -> bound / pressed off -> released")
+        return Pass(NAME, "pressed on -> fires / pressed off -> fires nothing")
     end,
 })
 
@@ -4577,8 +4647,8 @@ RegisterTest("Custom state toggle flips the value", {
 --
 -- **What keeps this here is not those three but the last line.** `tests/boundkey_spec.lua` can see
 -- the three. What it cannot see is **the path walked in combat**: writing an attribute on
--- `SwitchesUpdaterFrame` has the client call `_onattributechanged`, and the key is rebound in there,
--- while the harness stores the attribute and never calls that handler. A spec calling the body by
+-- `SwitchesUpdaterFrame` has the client call `_onattributechanged`, which sets the switch the press
+-- reads, while the harness stores the attribute and never calls that handler. A spec calling the body by
 -- hand changes what is measured into "is the body right", and what is asked here is **whether the
 -- write calls the handler**.
 RegisterTest("Switch condition on a name outside the five", {
@@ -4605,6 +4675,11 @@ RegisterTest("Switch condition on a name outside the five", {
             end
         end)
 
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$burst"] = true })
         InsertAction({ type = Constants.SPELL, value = 585, key = UNDEFINED_KEY, ["$nodefinition"] = true })
 
@@ -4615,19 +4690,20 @@ RegisterTest("Switch condition on a name outside the five", {
         DebindPrivate.SetSwitchValue("$burst", true)
         ApplyBindings()
 
-        local whenOn = GetBindingAction(KEY, true) or ""
-        if whenOn:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "$burst is defined and on and the key is %q, a name outside the five never reached codegen", whenOn))
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if WaitForWinner() == nil then
+            return Fail(NAME, "$burst is defined and on and the key fires nothing, a name outside the five never reached codegen")
         end
 
         DebindPrivate.SetSwitchValue("$burst", false)
         ApplyBindings()
 
-        local whenOff = GetBindingAction(KEY, true) or ""
-        if whenOff ~= "" then
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
             return Fail(NAME, format(
-                "$burst went off and the key is still %q, the name got through and the value is not compared", whenOff))
+                "$burst went off and the key still fires #%d, the name got through and the value is not compared", LastWinner()))
         end
 
         -- A name with no definition. Dropping the condition outright sends that action out
@@ -4646,22 +4722,20 @@ RegisterTest("Switch condition on a name outside the five", {
         -- bound (the gate in `BuildKeyMap`).
 
         -- **The path walked in combat.** The two above are the insecure rebuild `ApplyBindings()`
-        -- runs, and in combat that is deferred, so what settles the key again when a value moves is
-        -- the restricted side: `SetSwitch` -> `DirtyFlags` -> `state-unitexists` -> the restricted
-        -- `UpdateBindings`. For that path to know this name, codegen has to have filed the key under
-        -- it in `DirtyKeys`; unfiled, the key does not come back until the fight ends.
+        -- runs, and in combat that is deferred, so what carries a value that moves is the restricted
+        -- side alone: the attribute write runs `SetSwitch`, and the press reads `States`.
         --
-        -- Nothing is waited on. `SetAttribute` runs the handler on the spot and the restricted
-        -- `SetBindingClick` binds immediately (`devdocs/reading-back-what-you-just-set.md`).
+        -- Nothing is waited on. `SetAttribute` runs the handler on the spot
+        -- (`devdocs/reading-back-what-you-just-set.md`).
         DebindPrivate.SwitchesUpdaterFrame:SetAttribute("$burst", true)
 
-        local afterToggle = GetBindingAction(KEY, true) or ""
-        if afterToggle:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "turned on with no rebuild and the key is %q, in combat it would never come back", afterToggle))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if WaitForWinner() == nil then
+            return Fail(NAME, "turned on with no rebuild and the key fires nothing, in combat it would never come back")
         end
 
-        return Pass(NAME, "$burst on -> bound / off -> released / undefined -> marked and released / on with no rebuild")
+        return Pass(NAME, "$burst on -> fires / off -> nothing / undefined -> marked and unbound / on with no rebuild -> fires")
     end,
 })
 
@@ -4733,7 +4807,7 @@ RegisterTest("Spec condition: the specialization the character is on decides the
 -- The definition is the account's and **only the behaviour is covered over by a layer.** Which
 -- answer wins is read back off the table by `tests/switch_spec.lua`, and whether that answer really
 -- reaches the key is `tests/boundkey_spec.lua`: the whole chain of `ApplySwitchResets` setting the
--- value again, codegen baking the winning row's `mode` and `expr`, and the state loop taking the key.
+-- value again, codegen baking the winning row's `mode` and `expr`, and the press firing the key.
 --
 -- **Only one thing is left for here.** See below.
 -----------------------------------------------------------
@@ -4887,23 +4961,25 @@ RegisterTest("Secure update path", {
 })
 
 -- **The 0.2s beat runs only where there is something to measure**
--- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 3). A profile with no conditions at all
--- lets `RegisterUnitWatch` go, and one condition brings it back.
+-- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 3). A profile with nothing to work
+-- out ahead of a press lets `RegisterUnitWatch` go, a key condition leaves it gone since the press
+-- measures that, and a computed switch brings it back.
 --
 -- Headless can see **the decision only** (`plan.statePoll`, `tests/plan_spec.lua`). The
 -- interpreter's `pollStates` writes the attribute itself, so it runs a pass whether or not the
 -- frame is registered. Whether the registration really reached Blizzard's manager is answerable
 -- here and nowhere else.
 --
--- **It asks whether the key is still bound, in the same breath.** What this item rests on is that
--- a fixed-wiring key is bound once by the rebuild snippet and owes the poll nothing -- and
--- without checking that, the test would see the registration go and not see the key die with it.
+-- **It asks whether the key is still bound, in the same breath.** Every key is bound once by the
+-- rebuild snippet and owes the beat nothing -- and without checking that, the test would see the
+-- registration go and not see the key die with it.
 RegisterTest("State poll follows what is measured", {
-    description = "With nothing to measure the 0.2s beat is dropped, and one condition puts it back",
+    description = "With nothing to work out the 0.2s beat is dropped, a key condition keeps it dropped, and a computed switch puts it back",
     run = function()
         local NAME = "State poll registration"
         local PLAIN = "CTRL-SHIFT-F10"
         local CONDITIONAL = "CTRL-SHIFT-F11"
+        local SWITCH = "$pollbeat"
 
         if InCombatLockdown() then
             return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
@@ -4912,7 +4988,7 @@ RegisterTest("State poll follows what is measured", {
         local driver = DebindPrivate.BindingDriver
         if not driver then return Fail(NAME, "no BindingDriver") end
 
-        -- One conditional action left behind by an earlier test and the beat is registered for
+        -- One computed switch left behind by an earlier test and the beat is registered for
         -- reasons of its own. An empty layer is this test's premise, and it leaves one behind.
         CleanupActions()
         AddTeardown(CleanupActions)
@@ -4929,18 +5005,30 @@ RegisterTest("State poll follows what is measured", {
             return Fail(NAME, format("the beat was dropped and the key did not bind (%q)", bound))
         end
 
-        -- **A different key.** Put on the same one, the unconditional action already covers the
-        -- condition space, so the key stays fixed-wiring -- and a key like that registers no axis
-        -- in `_measuredStates`. The condition would be in the profile with nothing measured for
-        -- it, and this test would go quietly meaningless.
         InsertAction({ type = Constants.SPELL, value = 585, key = CONDITIONAL, combat = true })
         ApplyBindings()
 
-        if not UnitWatchRegistered(driver) then
-            return Fail(NAME, "a combat condition went in and the 0.2s beat did not come back")
+        if UnitWatchRegistered(driver) then
+            return Fail(NAME, "a combat condition went in and the 0.2s beat came back with nothing to measure")
         end
 
-        return Pass(NAME, "the registration comes and goes with what there is to measure")
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]",
+            displayMessage = true }
+        InsertAction({ type = Constants.SPELL, value = 585, key = CONDITIONAL, [SWITCH] = true })
+        ApplyBindings()
+
+        if not UnitWatchRegistered(driver) then
+            return Fail(NAME, "a computed switch went in and the 0.2s beat did not come back")
+        end
+
+        return Pass(NAME, "the registration comes and goes with what there is to work out")
     end,
 })
 
@@ -4969,8 +5057,18 @@ RegisterTest("State pass: the beat re-measures what a wake does not", {
         end
 
         -- Something has to name `combat`, or it is not a measured axis and there is no line to
-        -- correct it. This is also what keeps the beat registered (`WantsStatePoll`).
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        -- correct it. A computed switch built on it is what does: its gate registers the axis
+        -- (`CollectSwitchGate`) and keeps the beat registered (`WantsStatePoll`).
+        local saved = DebindPrivate.Switches["$passgate"]
+        AddTeardown(function()
+            DebindPrivate.Switches["$passgate"] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches["$passgate"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]",
+            displayMessage = true }
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$passgate"] = true })
         ApplyBindings()
 
         SecureHandlerExecute(DebindPrivate.BindingDriver, [[States["combat"] = true]])
@@ -5071,10 +5169,15 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
     end,
 })
 
-RegisterTest("Hover slot: unit disappears under a still cursor", {
-    description = "The hover slot empties when the unit alone disappears under a still cursor, and fills again when it comes back",
+-- **The hovered unit is read off the frame at the call** (`GetHoveredUnit`, §3 of
+-- `devdocs/dropping-the-game-fallback.md`). The beat no longer polls the slot, so a unit that goes
+-- away under a still cursor leaves the slot as it was; what has to answer "nobody" is the read. The
+-- headless half is `tests/hover_spec.lua`; what only the client shows is that
+-- `GetEffectiveAttribute` on a frame handle answers in the real sandbox.
+RegisterTest("Hover unit: read off the frame when a unit disappears under a still cursor", {
+    description = "GetHoveredUnit answers nobody when the unit alone disappears under a still cursor, and the unit again when it comes back",
     run = function()
-        local NAME = "Hover slot"
+        local NAME = "Hover unit"
 
         if InCombatLockdown() then
             return Fail(NAME, "registering a frame and writing attributes are both blocked in combat")
@@ -5100,34 +5203,35 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
             return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
+        local hovered
+        DebindPrivate.BindingDriver.DebindTestHovered = function(_, unit)
+            hovered = unit
+        end
+        local function ReadHovered()
+            hovered = nil
+            SecureHandlerExecute(DebindPrivate.BindingDriver,
+                [[self:CallMethod("DebindTestHovered", self:RunAttribute("GetHoveredUnit"))]])
+            return hovered
+        end
+
+        if ReadHovered() ~= "player" then
+            return Fail(NAME, format("GetHoveredUnit=%s over the frame, it should be player", tostring(hovered)))
+        end
+
         -- The cursor has not moved. Only the attribute changed, which is exactly the shape of a
-        -- unit despawning under it.
-        --
-        -- **This is one of the two waits in the file that is really a wait.** Nothing is driving
-        -- anything here: the change is only noticed when Blizzard's state driver next comes round,
-        -- which is what this test exists to check. The limit is the ceiling, not the cost -- a
-        -- passing run leaves as soon as the poll lands.
+        -- unit despawning under it. Nothing has to come round first: the read is the call.
         SetFrameUnit(frame, UNIT_TOKEN_ABSENT)
-        WaitForHoverSlot(false)
-
-        if GetHoverUnit() ~= nil then
-            return Fail(NAME, format(
-                "the unit is gone and hover=%s. before the fix the reaction stayed behind",
-                tostring(GetHoverUnit())))
+        if ReadHovered() ~= nil then
+            return Fail(NAME, format("the unit is gone and GetHoveredUnit=%s", tostring(hovered)))
         end
 
-        -- The frame is deliberately not dropped when its unit goes away, so that this same poll
-        -- can pick it back up. Without that, the slot would stay empty until the mouse moved.
+        -- The slot still holds the frame, so the same read finds the unit when it comes back.
         SetFrameUnit(frame, "player")
-        WaitForHoverSlot(true)
-
-        if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format(
-                "the unit came back and hover=%s. that means the poll threw the frame away",
-                tostring(GetHoverUnit())))
+        if ReadHovered() ~= "player" then
+            return Fail(NAME, format("the unit came back and GetHoveredUnit=%s", tostring(hovered)))
         end
 
-        return Pass(NAME, "gone -> empty, back -> filled again")
+        return Pass(NAME, "gone -> nobody, back -> the unit again")
     end,
 })
 
@@ -5863,17 +5967,14 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
     end,
 })
 
--- A key whose records all carry a hover condition holds no key-binding record, so there is no key
--- role to take and hand back and the state loop has nothing to decide for it. `UpdateBindingsMap`
--- therefore registers none of its axes for measurement -- the click path measures them at the
--- press, and click-casting does not even take the hover from the cache.
+-- A key whose records all carry a hover condition holds no key-binding record, so the key itself is
+-- not bound and nothing is measured for it ahead of a click -- the click path measures at the press,
+-- and click-casting does not even take the hover from the cache.
 --
--- **What this holds is that narrowing the registration did not narrow the judgement.** With
--- nothing measured on the key's account, a press still has to ask about `combat`. The membership
--- assertion has to sit next to it: widen the gate back and the registration returns while the
--- judgement half goes on passing, so on its own it would not notice.
+-- **What this holds is that measuring nothing did not narrow the judgement.** A press still has to
+-- ask about `combat`, and the membership check beside it says the key really is click-cast only.
 RegisterTest("Click-cast only: judged at the press with nothing measured for it", {
-    description = "A click-cast only key drops out of the state loop's table and still judges its conditions",
+    description = "A click-cast only key is registered for frame clicks only and still judges its conditions",
     run = function()
         local NAME = "Click-cast only"
         local KEY = "BUTTON3"
@@ -5899,14 +6000,13 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
         local m = WaitForMembership()
         if not m then return Fail(NAME, "the restricted environment sent no answer") end
 
-        -- The positive side is checked first. "Not state driven" is true of a key whose records
+        -- The positive side is checked first. "Not a click-time key" is true of a key whose records
         -- never went out at all.
         if not m.clickCast then
             return Fail(NAME, "not in ClickCastKeys, and not because it was dropped: no record went out")
         end
-        if m.stateDriven then
-            return Fail(NAME, "it is in StateDrivenBindings, and with not one record taking the key "
-                .. "the state loop still sweeps it every tick")
+        if m.clickTime then
+            return Fail(NAME, "it is in ClickTimeKeys, so the key itself was bound with not one record holding it")
         end
 
         local targets, terr = ClickCastTargets()
@@ -6033,20 +6133,16 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
 -----------------------------------------------------------
 
 -- **Kept here.** The decision is headless now (`tests/eval_spec.lua`), and what stays is the
--- half that needs the client: `GetBindingAction` reporting the key, and the injection landing
--- between the measurement and the comparison inside a snippet that really compiled.
+-- injection landing between the measurement and the comparison inside a snippet that really
+-- compiled.
 -- The reason the kit exists. A combat-only binding is reachable only in combat, and in combat
 -- nothing outside can drive it -- lockdown stops the clicking, the binding and the attribute
 -- writes. So the one state where this code matters is the one state where it cannot be checked.
 --
--- Overriding `States.combat` while the client is at peace breaks that. The decision runs its real
--- path; the client, not actually fighting, never locks anything down.
---
--- What is checked is the game's own answer: `SetBindingClick` inside the snippet registers an
--- override binding, and `GetBindingAction` reads back what the key is bound to. Nothing about the
--- verdict is inferred from the injection.
+-- Overriding the measured combat while the client is at peace breaks that. The decision runs its
+-- real path; the client, not actually fighting, never locks anything down.
 RegisterTest("State injection: combat-only binding", {
-    description = "Injecting combat really does bind the combat-only binding",
+    description = "Injecting combat really does fire the combat-only binding",
     run = function()
         local NAME = "Combat injection"
         local KEY = "CTRL-SHIFT-F9"
@@ -6055,96 +6151,169 @@ RegisterTest("State injection: combat-only binding", {
             return Fail(NAME, "in real combat there is no telling the injected result from the real one")
         end
 
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
         ApplyBindings()
 
-        -- No wait after either: `SetMockState` ends in a rebuild, and a rebuild runs the state
-        -- pass and the binding inside the call.
         SetMockState("combat", false)
-        local atPeace = GetBindingAction(KEY, true) or ""
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("at peace and the combat-only binding fired #%d", LastWinner()))
+        end
 
         SetMockState("combat", true)
-        local inCombat = GetBindingAction(KEY, true) or ""
-
-        if inCombat == atPeace then
-            return Fail(NAME, format(
-                "combat was turned over and the binding is unchanged (%q). the injection never reached the snippet",
-                inCombat))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local inCombat = WaitForWinner()
+        if inCombat == nil then
+            return Fail(NAME, "combat was injected and nothing fired, the injection never reached the snippet")
         end
 
-        if inCombat:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("combat=true and it is %q, it should be CLICK", inCombat))
-        end
-
-        -- Back to peace: the binding has to go away again. Without this the test would pass on a
-        -- key that was simply bound the whole time.
+        -- Back to peace: the press has to fire nothing again. Without this the test would pass on
+        -- a key that fires whatever the state.
         SetMockState("combat", false)
-        local again = GetBindingAction(KEY, true) or ""
-
-        if again ~= atPeace then
-            return Fail(NAME, format("combat was put back and it is %q, it should be %q", again, atPeace))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, "combat was put back and it still fired")
         end
 
-        return Pass(NAME, format("drove the combat path from outside combat (%s)", inCombat))
+        return Pass(NAME, format("drove the combat path from outside combat (#%d)", inCombat))
     end,
 })
 
--- **The one half of a settled command the harness cannot reach.** Which keys stop being
--- state-driven, and that the record and the click-time button go with them, is decided in pure
--- code and asked in `tests/boundkey_spec.lua`. What is left for the client is whether an override
--- the addon files from **outside** the restricted environment actually takes: every other binding
--- this addon puts out goes through a frame handle, and `SetOverrideBinding` called from our own
--- Lua is a path nothing here had walked before.
---
--- The state loop is also asked, and asked with the one driver that carries no rebuild: a `forceAll`
--- pass poked straight at the driver. Anything that runs a rebuild files the override again, so a
--- key the loop had taken away would read as one that was never touched.
-RegisterTest("Settled command: filed from outside the restricted environment", {
-    description = "An unconditional command reaches the key without the update loop",
+-- **A saved command wins its key and does nothing** (`devdocs/dropping-the-game-fallback.md` §3).
+-- Which record wins is headless (`tests/loopoff_spec.lua`); what is left for the client is that the
+-- block goes through the real wrapper and reports, and that the key is ours rather than the game's
+-- while it does nothing.
+RegisterTest("Blocked command: the key is ours and the press does nothing", {
+    description = "A saved command stands on its key as a block: bound to our button, firing nothing",
     run = function()
-        local NAME = "Settled command"
+        local NAME = "Blocked command"
         local KEY = "CTRL-SHIFT-F12"
-        local COMMAND = "TOGGLEWORLDMAP"
 
         if InCombatLockdown() then
-            return Fail(NAME, "a rebuild is refused in combat, so nothing would be filed")
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
         end
 
-        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY })
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = KEY })
         ApplyBindings()
 
+        local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
         local bound = GetBindingAction(KEY, true) or ""
-        if bound ~= COMMAND then
-            return Fail(NAME, format("the key answers %q, it should answer %q", bound, COMMAND))
+        if not button or bound ~= "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":" .. button then
+            return Fail(NAME, format("the key answers %q, it should be our button", bound))
         end
 
-        if DebindPrivate.StateDrivenKeys and DebindPrivate.StateDrivenKeys[KEY] then
-            return Fail(NAME, "the key is still in the update loop, which has nothing to decide for it")
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        -- **A report has to arrive at all.** A block winning reads as nil below, and so does a
+        -- wrapper that never ran.
+        if #probeReports == 0 then
+            return Fail(NAME, "the press reported no winner, so the block never ran")
         end
-        if DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY] then
-            return Fail(NAME, "the key got a click-time button that no click can arrive under")
-        end
-
-        -- A pass of the state loop **without a rebuild behind it**, which is the only way this
-        -- read means anything: every helper that pokes a state here ends in `ApplyBindings`, and a
-        -- rebuild files the override again, so the key would answer with the command whatever the
-        -- loop did to it in between.
-        --
-        -- `forceAll` and the `1` are the pair `ApplyBindingPlan` closes a rebuild with, minus the
-        -- rebuild. It is the widest pass there is: every key in `StateDrivenBindings` is re-decided
-        -- and the ones with no matching record are handed back with `ClearBinding`. This key is not
-        -- in that table, so what this asks is that the pass leaves an override it never filed alone.
-        SecureHandlerExecute(DebindPrivate.BindingDriver, [[
-            DirtyFlags.forceAll = true
-            self:SetAttribute("state-unitexists", 1)
-        ]])
-
-        local afterPass = GetBindingAction(KEY, true) or ""
-        if afterPass ~= COMMAND then
-            return Fail(NAME, format("a state pass left the key at %q", afterPass))
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("the press fired #%d", LastWinner()))
         end
 
-        return Pass(NAME, format("%s is on the key and the loop never sees it", COMMAND))
+        return Pass(NAME, "bound to our button, and the block won the press")
+    end,
+})
+
+-- **The action button action works its slot out in the client** (`devdocs/dropping-the-game-fallback.md`
+-- §4). The page table is headless (`tests/actionbutton_spec.lua`); what is left for the client is
+-- that the snippet compiles against the real bar functions and lands on the slot the bar controller
+-- would pick, read here on the insecure side in `ActionBarController_UpdateAll`'s order.
+RegisterTest("Action button: the press writes the slot the bar shows", {
+    description = "An action button action writes *action- with the slot its bar button would fire",
+    run = function()
+        local NAME = "Action button slot"
+        local cases = {
+            { key = "CTRL-ALT-F9", command = "ACTIONBUTTON1" },
+            { key = "CTRL-ALT-F10", command = "MULTIACTIONBAR1BUTTON1" },
+        }
+        if HasExtraActionBar() then
+            cases[#cases + 1] = { key = "CTRL-ALT-F11", command = "EXTRAACTIONBUTTON1" }
+        end
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+
+        for _, case in ipairs(cases) do
+            InsertAction({ type = Constants.ACTIONBUTTON, value = case.command, key = case.key })
+        end
+        -- The stance and pet buttons are baked at the rebuild; what the client answers is that the
+        -- bar button names they rest on exist.
+        InsertAction({ type = Constants.ACTIONBUTTON, value = "SHAPESHIFTBUTTON1", key = "CTRL-ALT-F12" })
+        InsertAction({ type = Constants.ACTIONBUTTON, value = "BONUSACTIONBUTTON1", key = "CTRL-SHIFT-F9" })
+        ApplyBindings()
+
+        local AB = C_ActionBar
+        local function MainPage()
+            if AB.HasVehicleActionBar() then
+                return AB.GetVehicleBarIndex()
+            elseif AB.HasOverrideActionBar() then
+                return AB.GetOverrideBarIndex()
+            elseif AB.HasTempShapeshiftActionBar() then
+                return AB.GetTempShapeshiftBarIndex()
+            elseif AB.HasBonusActionBar() and AB.GetActionBarPage() == 1 then
+                return AB.GetBonusBarIndex()
+            end
+            return AB.GetActionBarPage()
+        end
+
+        local clickFrame = DebindPrivate.DefaultClickFrame
+        for _, case in ipairs(cases) do
+            local binding = GetKeyBindingsWithoutTwins(case.key)
+            binding = binding and binding[1]
+            if not binding or not binding.clickbutton then
+                return Fail(NAME, case.command .. " has no button on its key")
+            end
+            local info = Constants.ACTION_BUTTON_COMMANDS[case.command]
+            local page = info.page or (info.extra and AB.GetExtraBarIndex()) or MainPage()
+            local expected = info.index + (page - 1) * 12
+            local attribute = "*action-" .. binding.clickbutton
+            clickFrame:SetAttribute(attribute, nil)
+
+            local ran, rerr = EvalClickTimeKey(case.key)
+            if not ran then return Fail(NAME, rerr) end
+
+            -- A flyout slot goes to the bar button and writes nothing, so only a plain one is asked.
+            if GetActionInfo(expected) ~= "flyout" then
+                local slot = clickFrame:GetAttribute(attribute)
+                if slot ~= expected then
+                    return Fail(NAME, format("%s wrote slot %s, the bar shows %d",
+                        case.command, tostring(slot), expected))
+                end
+            end
+        end
+
+        local stance = GetKeyBindingsWithoutTwins("CTRL-ALT-F12")
+        stance = stance and stance[1]
+        if not stance or not stance.clickbutton
+                or clickFrame:GetAttribute("*clickbutton-" .. stance.clickbutton) ~= _G.StanceButton1 then
+            return Fail(NAME, "the stance button does not click StanceButton1")
+        end
+        local pet = GetKeyBindingsWithoutTwins("CTRL-SHIFT-F9")
+        pet = pet and pet[1]
+        if not pet or not pet.clickbutton
+                or clickFrame:GetAttribute("*type-" .. pet.clickbutton) ~= "pet"
+                or clickFrame:GetAttribute("*action-" .. pet.clickbutton) ~= 1 then
+            return Fail(NAME, "the pet bar button is not pet action 1")
+        end
+
+        return Pass(NAME, format("%d buttons wrote the slot their bar shows", #cases))
     end,
 })
 
@@ -6174,20 +6343,21 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
         })
         ApplyBindings()
 
-        -- No wait after either: `SetMockState` ends in a rebuild, and a rebuild runs the state
-        -- pass and the binding inside the call.
         SetMockState("combat", false)
-        local atPeace = GetBindingAction(KEY, true) or ""
-
-        SetMockState("combat", true)
-        local inCombat = GetBindingAction(KEY, true) or ""
-
-        if inCombat == atPeace then
-            return Fail(NAME, format("the condition does not take after the rebake (still %q)", inCombat))
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if #probeReports == 0 then
+            return Fail(NAME, "the rebaked wrapper reported nothing, so it did not run")
+        end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("at peace and #%d fired after the rebake", LastWinner()))
         end
 
-        if inCombat:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("%q after the rebake, it should be CLICK", inCombat))
+        SetMockState("combat", true)
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if WaitForWinner() == nil then
+            return Fail(NAME, "the condition does not take after the rebake")
         end
 
         return Pass(NAME, "judging is unchanged with the probes on")
@@ -6205,18 +6375,22 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
 
 -- **Kept here.** The axis itself is headless (`tests/eval_spec.lua`, the life axis) and so is the
 -- living half (`tests/boundkey_spec.lua`). This is the dead half, which no living session can
--- produce and no world a spec writes down can prove.
--- The other half, which no living session can produce. `player-dead` is injected at the same
--- point `combat` is -- right after the snippet measures it, before it stores it -- so the update
--- loop runs its real path and only the value it lands on differs.
+-- produce and no world a spec writes down can prove. `player-dead` is injected right after the
+-- press measures it and before it compares (`PROBE.MockUnitDead`), so the press runs its real path
+-- and only the value it lands on differs.
 RegisterTest("State injection: dead flips a binding", {
-    description = "Injecting dead really does bind the binding conditioned on it",
+    description = "Injecting dead really does fire the binding conditioned on it",
     run = function()
         local NAME = "Dead injection"
         local KEY = "CTRL-SHIFT-F10"
 
         if InCombatLockdown() then
             return Fail(NAME, "in combat there is no telling the injected result from the real one")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         InsertAction({
@@ -6226,30 +6400,30 @@ RegisterTest("State injection: dead flips a binding", {
         ApplyBindings()
 
         SetMockState("player-dead", false)
-        local whenAlive = GetBindingAction(KEY, true) or ""
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("alive and the dead-only binding fired #%d", LastWinner()))
+        end
 
         SetMockState("player-dead", true)
-        local whenDead = GetBindingAction(KEY, true) or ""
-
-        if whenDead == whenAlive then
-            return Fail(NAME, format(
-                "alive/dead was turned over and the binding is unchanged (%q). the injection never reached the snippet", whenDead))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local whenDead = WaitForWinner()
+        if whenDead == nil then
+            return Fail(NAME, "dead was injected and nothing fired, the injection never reached the snippet")
         end
 
-        if whenDead:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("dead=true and it is %q, it should be CLICK", whenDead))
-        end
-
-        -- It also checks that putting it back makes the binding go. Without that, a key that was
-        -- bound the whole time passes too.
+        -- Putting it back has to stop it again. Without that, a key that fires whatever the state
+        -- passes too.
         SetMockState("player-dead", false)
-        local again = GetBindingAction(KEY, true) or ""
-
-        if again ~= whenAlive then
-            return Fail(NAME, format("it was put back and it is %q, it should be %q", again, whenAlive))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, "it was put back and it still fired")
         end
 
-        return Pass(NAME, format("took the key by injecting dead (%s)", whenDead))
+        return Pass(NAME, format("fired by injecting dead (#%d)", whenDead))
     end,
 })
 
@@ -6259,18 +6433,23 @@ RegisterTest("State injection: dead flips a binding", {
 -- own subgroup -- takes a raid to reach. `player-group` is injected where `player-dead` is.
 --
 -- **The value injected is a cell name, not a ticked box.** The three boxes overlap and the four
--- cells partition; the update loop measures the cell and the condition holds the boxes it covers
+-- cells partition; the press measures the cell and the condition holds the boxes it covers
 -- (`Constants.lua`'s `UNITGROUPCELL_*`). Injecting `"both"` against a `[in my party]` condition
 -- is what asks whether the overlap survived to the snippet: a chain that took the raid answer and
--- stopped would leave this key unbound.
+-- stopped would leave this key firing nothing.
 RegisterTest("State injection: the party cell reaches a raid subgroup", {
-    description = "A unit condition of [in my party] binds while the injected cell is raid+party",
+    description = "A unit condition of [in my party] fires while the injected cell is raid+party",
     run = function()
         local NAME = "Group cell injection"
         local KEY = "CTRL-SHIFT-F11"
 
         if InCombatLockdown() then
             return Fail(NAME, "in combat there is no telling the injected result from the real one")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         InsertAction({
@@ -6280,47 +6459,50 @@ RegisterTest("State injection: the party cell reaches a raid subgroup", {
         ApplyBindings()
 
         SetMockState("player-group", "neither")
-        local whenAlone = GetBindingAction(KEY, true) or ""
-
-        SetMockState("player-group", "both")
-        local whenBoth = GetBindingAction(KEY, true) or ""
-
-        if whenBoth == whenAlone then
-            return Fail(NAME, format(
-                "the cell was turned over and the binding is unchanged (%q). the injection never reached the snippet", whenBoth))
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("cell=neither and the party binding fired #%d", LastWinner()))
         end
 
-        if whenBoth:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("cell=both and it is %q, it should be CLICK", whenBoth))
+        SetMockState("player-group", "both")
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local whenBoth = WaitForWinner()
+        if whenBoth == nil then
+            return Fail(NAME, "cell=both and nothing fired, the injection never reached the snippet or the overlap was lost")
         end
 
         -- The cell [in my raid] alone is the other subgroup, which [in my party] does not cover.
         -- Without this the test passes on a snippet that ignores the condition entirely.
         SetMockState("player-group", "raid")
-        local whenRaidOnly = GetBindingAction(KEY, true) or ""
-
-        if whenRaidOnly ~= whenAlone then
-            return Fail(NAME, format(
-                "cell=raid is another subgroup and it is %q, it should be %q", whenRaidOnly, whenAlone))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, "cell=raid is another subgroup and the party binding fired")
         end
 
         SetMockState("player-group", nil)
-        return Pass(NAME, format("the party condition took the key on the shared cell (%s)", whenBoth))
+        return Pass(NAME, format("the party condition fired on the shared cell (#%d)", whenBoth))
     end,
 })
 
--- The hover condition now rides the unit column (`t.units["hover"]`) instead of its own pair of
--- record fields. What that has to keep doing is decide **key ownership**: a hover-conditioned
--- keyboard key is ours only while the cursor is on a matching frame, and that judgement is made
--- by the update loop before the key is ever pressed.
-RegisterTest("Hover condition owns the key through the unit column", {
-    description = "The hover condition still takes and releases the key now that it lives in the unit column",
+-- The hover condition rides the unit column (`t.units["hover"]`) instead of its own pair of record
+-- fields. What that has to keep doing is decide the press: a hover-conditioned keyboard key fires
+-- only while the cursor is on a matching frame.
+RegisterTest("Hover condition decides the press through the unit column", {
+    description = "The hover condition still decides the press now that it lives in the unit column",
     run = function()
         local NAME = "Hover ownership"
         local KEY = "CTRL-SHIFT-F7"
 
         if InCombatLockdown() then
             return Fail(NAME, "registering a frame is blocked in combat")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         InsertAction({
@@ -6336,10 +6518,11 @@ RegisterTest("Hover condition owns the key through the unit column", {
         -- later. Everything else on this path has already happened.
         WaitForIdle()
 
-        local before = GetBindingAction(KEY, true) or ""
-        if before:sub(1, 6) == "CLICK " then
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
             return Fail(NAME, format(
-                "%q is bound before any hover. the hover condition may have been left out of the emission", before))
+                "#%d fired before any hover. the hover condition may have been left out of the emission", LastWinner()))
         end
 
         HoverEnter(frame)
@@ -6350,27 +6533,29 @@ RegisterTest("Hover condition owns the key through the unit column", {
             return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
-        local hovering = GetBindingAction(KEY, true) or ""
-        if hovering:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "put on a friendly frame and it is %q. t.units[\"hover\"] did not match", hovering))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local hovering = WaitForWinner()
+        if hovering == nil then
+            return Fail(NAME, "put on a friendly frame and nothing fired. t.units[\"hover\"] did not match")
         end
 
         HoverLeave(frame)
         WaitForHoverSlot(false)
 
-        local after = GetBindingAction(KEY, true) or ""
-        if after ~= before then
-            return Fail(NAME, format("%q even after leave, it should be %q", after, before))
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("#%d still fired after leave", LastWinner()))
         end
 
-        return Pass(NAME, format("hover -> %s, leave -> released", hovering))
+        return Pass(NAME, format("hover -> #%d, leave -> nothing", hovering))
     end,
 })
 
 -- `frameTypes` kept its own field, and with the hover pair gone it lost the `t.hover` wrapper
 -- that used to stand in front of it -- it carries its own "is there a frame at all" guard now.
--- What this pins is that the guard narrows: a frame of the wrong kind must not hand the key over.
+-- What this pins is that the guard narrows: a frame of the wrong kind must not fire the key.
 RegisterTest("Hover frame types still narrow on their own", {
     description = "A frame type limit narrows even while carrying its own existence check",
     run = function()
@@ -6379,6 +6564,11 @@ RegisterTest("Hover frame types still narrow on their own", {
 
         if InCombatLockdown() then
             return Fail(NAME, "registering a frame is blocked in combat")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         InsertAction({
@@ -6401,13 +6591,17 @@ RegisterTest("Hover frame types still narrow on their own", {
             return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
-        local wrongType = GetBindingAction(KEY, true) or ""
-        if wrongType:sub(1, 6) == "CLICK " then
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if #probeReports == 0 then
+            return Fail(NAME, "the press reported nothing, so nothing below was judged")
+        end
+        if LastWinner() ~= nil then
             return Fail(NAME, format(
-                "limited to boss and %q bound on a group frame. frameTypes did not take", wrongType))
+                "limited to boss and #%d fired on a group frame. frameTypes did not take", LastWinner()))
         end
 
-        return Pass(NAME, format("does not take where the type fails to match (%q)", wrongType))
+        return Pass(NAME, "does not fire where the type fails to match")
     end,
 })
 
@@ -7725,12 +7919,7 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
 -- it: **a key carrying half a dozen records, each naming several axes, and exactly one of them
 -- has to win.**
 --
--- Three tests below, because there are three separate deciders and each can be wrong on its own:
---
---   the press        which record the click-time snippet picks, on a key whose wiring is fixed
---   the poll         what the state loop binds the key to, when the winner decides the outcome
---   the two together on a key with a gap, where the poll decides *whether* and the press decides
---                    *which* -- the one place the two can contradict each other
+-- What is asked below is the press: which record the click-time snippet picks.
 --
 -- **The axes are chosen for the shapes they compare, not for their number.** `combat` and
 -- `stealth` are equality; `groups` is a bitmask whose measured value is already the bit;
@@ -7738,10 +7927,9 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
 -- of two after measuring -- so a mock lands on the number and the comparison happens on the bit,
 -- and getting that boundary wrong is a fault no single-axis test can produce.
 
---- The states swept, in the order the cross product is taken. Every value here has to be one both
---- paths can be forced to: the click path takes it through `PROBE.MockState` and the update loop
---- through the generated `stateValue` line, and the two only agree on the axes that are measured
---- rather than read (so no unit axis, no `known`, no custom state -- see `SetMockState`).
+--- The states swept, in the order the cross product is taken. Every value here has to be one the
+--- press can be forced to through `PROBE.MockState`, which only an axis measured under its own
+--- name allows (so no unit axis, no `known`, no custom state -- see `SetMockState`).
 local SWEEP_ORDER = { "combat", "stealth", "form", "group" }
 
 --- Both read `Constants`, so both are built by `BuildConstantTables` rather than here.
@@ -7874,9 +8062,8 @@ local function UnreachedRecords(records, wins)
     return missing
 end
 
--- Seven records, and the last is unconditional -- which is what makes this key `alwaysOurs`: the
--- condition space has no gap, the key is bound once at build time, and the only thing left to
--- decide is *which* record, at the press. Exactly the path being measured.
+-- Seven records, and the last is unconditional, so every combination has a record to pick and the
+-- only thing left to decide is *which* one, at the press. Exactly the path being measured.
 --
 -- Every record is a macrotext so that all seven are clickable and none can be dropped for having
 -- no way to be bound.
@@ -8008,125 +8195,6 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
         return Pass(NAME, format("all %d combinations exactly right, and all %d records won at least once",
             #combos, #CLICKTIME_SWEEP))
-    end,
-})
-
--- The one place the two deciders meet, and the only place they can contradict each other.
---
--- Drop the unconditional record and the condition space has a hole in it. Now both halves are
--- live on the same key: the **poll** decides whether the key is ours at all -- it has to grab it
--- when something matches and hand it back when nothing does -- and the **press** decides which of
--- the survivors runs. The comments in `SecureBindings.lua` call drift between them the worst kind
--- of quiet, because neither side can tell which of the two is the one that is wrong.
---
--- So both are asked in every combination, against one expectation:
---
---   something matches   the key is bound to the click-time button *and* the press picks that record
---   nothing matches     the key is released *and* the press picks nobody
---
--- Half of this would pass on a key that was simply bound the whole time; the other half would
--- pass on a snippet that always answered the first record. Together they do not.
---- **The table is made here and filled later.** What it is cut from, `CLICKTIME_SWEEP`, does not
---- exist until `ADDON_LOADED` (`BuildConstantTables`), and the tests below hold this table itself
---- rather than a copy, so it has to be the same one they were given.
-local GAPPED_SWEEP = {}
-local function BuildGappedSweep()
-    for i = 1, #CLICKTIME_SWEEP - 1 do
-        GAPPED_SWEEP[i] = CLICKTIME_SWEEP[i]
-    end
-end
-
--- **Both places, deliberately.** The second anchor (§9). The headless twin is in
--- `tests/eval_spec.lua`; keeping this one is what would show the two sides parting.
-RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
-    description = "On a key whose conditions have a gap, taking and releasing it never contradicts which record wins",
-    timeout = 120,
-    run = function()
-        local NAME = "Multi-axis poll vs press"
-        local KEY = "CTRL-SHIFT-F5"
-
-        if InCombatLockdown() then
-            return Fail(NAME, "nothing can be rebaked in combat")
-        end
-
-        local probesOk, probesErr = EnableProbes()
-        if not probesOk then
-            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
-        end
-
-        local ok, err = SetUpSweepKey(GAPPED_SWEEP, KEY)
-        if not ok then return Fail(NAME, err) end
-
-        local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
-        if not button then
-            return Fail(NAME, "not a click-time key, there is nowhere to ask who won")
-        end
-
-        -- The gap has to survive for the state loop to keep settling this key. This is where
-        -- dropping the unconditional record is confirmed to have had that effect; without it the
-        -- "has to be released" side below passes without ever running.
-        ReadKeyMembership(KEY)
-        local membership = WaitForMembership()
-        if not membership then return Fail(NAME, "the restricted environment sent no answer") end
-        if not membership.stateDriven then
-            return Fail(NAME, "not a state-driven key, which means the condition space has no gap")
-        end
-        if not membership.clickTime then
-            return Fail(NAME, "not in the click-time table either, there is nowhere to ask who won")
-        end
-
-        local combos = BuildCombos()
-        local wantBound = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":" .. button
-        local wins, released = {}, 0
-
-        for _, state in ipairs(combos) do
-            ApplySweepState(state)
-
-            local want = SweepWinner(GAPPED_SWEEP, state)
-            local bound = GetBindingAction(KEY, true) or ""
-
-            if want then
-                if bound ~= wantBound then
-                    return Fail(NAME, format("%s: #%d (%s) matches and the key is %q, it should have been taken",
-                        ComboLabel(state), want, GAPPED_SWEEP[want].label, bound))
-                end
-            elseif bound ~= "" then
-                return Fail(NAME, format("%s: no record matches and the key is %q, it should have been released",
-                    ComboLabel(state), bound))
-            end
-
-            local ran, evalErr = EvalClickTimeKey(KEY)
-            if not ran then return Fail(NAME, evalErr) end
-
-            local got = PlaceWithoutTwins(KEY, WaitForWinner())
-            if got ~= want then
-                return Fail(NAME, format("%s: the press picked %s, it should be %s",
-                    ComboLabel(state),
-                    got and format("#%d (%s)", got, GAPPED_SWEEP[got] and GAPPED_SWEEP[got].label or "?")
-                        or "nobody",
-                    want and format("#%d (%s)", want, GAPPED_SWEEP[want].label) or "nobody"))
-            end
-
-            if want then
-                wins[want] = (wins[want] or 0) + 1
-            else
-                released = released + 1
-            end
-        end
-
-        -- Was the gap actually walked into? If not, not a line of the "has to be released" side ran,
-        -- and this test measured the same thing as the one before it twice.
-        if released == 0 then
-            return Fail(NAME, format("it released in none of the %d combinations, the gap was never walked into", #combos))
-        end
-
-        local missing = UnreachedRecords(GAPPED_SWEEP, wins)
-        if missing then
-            return Fail(NAME, format("records that won in none of the %d combinations: %s", #combos, table.concat(missing, ", ")))
-        end
-
-        return Pass(NAME, format("the poll and the press agreed in %d combinations, and %d of those released the key",
-            #combos, released))
     end,
 })
 
@@ -9438,7 +9506,6 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         LLL = DebindPrivate.L
         DebindUI = DebindPrivate.DebindUI
         BuildConstantTables()
-        BuildGappedSweep()
         return
     end
 

@@ -185,10 +185,9 @@ return function(DebindPrivate)
         return nil, false;
     end
 
-    local function recordFor(binding, isClickCast, holdsKey, alwaysOurs, clickTime)
+    local function recordFor(binding, isClickCast, holdsKey)
         binding.conditions = binding.conditions or {};
         return DebindPrivate.BuildKeyRecord(binding, isClickCast, holdsKey,
-            alwaysOurs, clickTime,
             { fieldNames = {}, fieldValues = {}, fieldCount = 0, units = {}, switches = {} });
     end
 
@@ -218,28 +217,8 @@ return function(DebindPrivate)
             type = Constants.SPELL, value = 585, unit = "target",
             clickframe = true, clickbutton = "deb1",
             conditions = { units = { ["@"] = { reaction = HELP }, target = { reaction = HARM } } },
-        }, false, true, false, true);
+        }, false, true);
         check(record == nil, "a binding that can never fire got a record");
-    end);
-
-    -- **`clickframe` goes out only where the state loop will need it.** It is read when that loop
-    -- hands the key to `SetBindingClick`, and a key whose wiring is fixed never enters the loop.
-    test("clickframe is carried only for a key the state loop wires", function()
-        local function frameField(alwaysOurs)
-            local record = recordFor({
-                type = Constants.SPELL, value = 585, unit = "target",
-                clickframe = true, clickbutton = "deb1",
-                clickframeName = "DebindClickButton_target",
-            }, false, true, alwaysOurs, true);
-            local value, named = fieldOf(record, "clickframe");
-            return value, named;
-        end
-
-        local value, named = frameField(false);
-        check(named and value == "DebindClickButton_target", "wired key: " .. tostring(value));
-
-        local _, fixedNamed = frameField(true);
-        check(not fixedNamed, "a key with fixed wiring carried a clickframe");
     end);
 
     -- **Press and hold rides the key branch only.** A click-cast record arrives through
@@ -252,10 +231,10 @@ return function(DebindPrivate)
             clickframe = true, clickbutton = "deb1", pressAndHold = true,
         };
 
-        local held = recordFor(binding, false, true, false, true);
+        local held = recordFor(binding, false, true);
         check(fieldOf(held, "pressAndHold") == true, "the key branch did not carry it");
 
-        local clickCast = recordFor(binding, true, false, false, true);
+        local clickCast = recordFor(binding, true, false);
         local _, named = fieldOf(clickCast, "pressAndHold");
         check(not named, "the click-cast branch carried press and hold");
     end);
@@ -269,7 +248,7 @@ return function(DebindPrivate)
             type = Constants.SPELL, value = 8936,
             clickframe = true, clickbutton = "deb1",
             conditions = { known = true },
-        }, false, true, false, true);
+        }, false, true);
         check(fieldOf(record, "known") == "[known:8936]",
             "known: " .. tostring(fieldOf(record, "known")));
     end);
@@ -291,7 +270,7 @@ return function(DebindPrivate)
             type = Constants.SPELL, value = spellID,
             clickframe = true, clickbutton = "deb1",
             conditions = { known = true },
-        }, false, true, false, true);
+        }, false, true);
     end
 
     test("a fixed known that holds carries no axis at all", function()
@@ -326,7 +305,7 @@ return function(DebindPrivate)
             type = Constants.SPELL, value = 8936,
             clickframe = true, clickbutton = "deb1",
             conditions = { known = "Spell 1002" },
-        }, false, true, false, true);
+        }, false, true);
         check(fieldOf(record, "known") == "[known:Spell 1002]",
             "known: " .. tostring(fieldOf(record, "known")));
     end);
@@ -349,7 +328,7 @@ return function(DebindPrivate)
             type = Constants.SPELL, value = 585,
             clickframe = true, clickbutton = "deb1",
             conditions = { groups = Constants.GROUP_ALL, forms = Constants.FORM_ALL },
-        }, false, true, false, true);
+        }, false, true);
         local _, groups = fieldOf(record, "groups");
         local _, forms = fieldOf(record, "forms");
         check(not groups, "an unrestricted group condition was carried");

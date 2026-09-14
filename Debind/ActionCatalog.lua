@@ -934,48 +934,25 @@ ActionCatalog.RegisterSource({
 -- 소스: 명령
 --------------------------------------------------------------------------------
 
---- **"누르면 무슨 일이 일어나는" 것들.** 두 곳에서 온다:
+--- **Things a press makes happen**, from two places:
 ---
----   우리 것   대상 지정 · 주시 대상 지정 · 메뉴 열기 · 공격대 표적. 대상이나 표적을
----             인자로 받는 명령이고, 타입은 각각 따로다
----   게임 것   게임 자신의 단축키 목록(점프, 가방 열기, 액션바 1번 …). 타입은
----             `Constants.COMMAND`이고 저장값은 명령 문자열이다("JUMP", "TOGGLEBACKPACK")
+---   ours      target, focus, open the unit menu, world markers. Each takes a unit or a marker and
+---             is its own type
+---   the game  the binding commands that press an action bar button, as `Constants.ACTIONBUTTON`
+---             with the command's name as the value ("ACTIONBUTTON1", "MULTIACTIONBAR1BUTTON5")
 ---
---- **탭 이름을 "바인딩 명령"이 아니라 "명령"으로 지은 것이 이 합침을 가능하게 했다.**
---- 앞의 이름은 `Constants.COMMAND` 하나를 가리키는 타입 이름이라 우리 것이 끼면 거짓말이
---- 되지만, "명령"은 동사 하나를 가리키는 말이라 둘 다 받는다.
+--- **No other game command is offered.** Debind holds every key it has an action on, so WoW's own
+--- binding never gets the press, and only the bar buttons have something to stand in for them
+--- (`devdocs/dropping-the-game-fallback.md` §3, §4).
 ---
---- **우리 것이 먼저 온다.** 게임 명령은 250줄쯤이라 뒤에 두지 않으면 우리 것 스무 줄이
---- 그 안에 묻힌다. 이 탭에서 목록을 끝까지 훑는 사람은 없고 검색으로 찾는 자리다.
+--- **Ours come first**, since the bar buttons run to ninety-odd rows and would bury them.
 ---
---- 특수 탭으로 안 간 이유: 저 탭은 **이 애드온에만 있는 개념**(지정 대상, 사용자 상태)을
---- 담는 자리다. 대상 지정과 공격대 표적은 게임에도 같은 성격의 단축키가 있어서
---- (`BINDING_HEADER_TARGETING`, `BINDING_HEADER_RAID_TARGET`) 이쪽 이웃이 맞다.
+--- Not on the Special tab: that one holds what exists only in this addon, and targeting and world
+--- markers have bindings of the same kind in the game (`BINDING_HEADER_TARGETING`,
+--- `BINDING_HEADER_RAID_TARGET`).
 ---
---- 이 목록은 한때 [추가] 드롭다운에도 있었다. 거기는 머리글 아홉 겹의 하위 메뉴라
---- **이름을 이미 알고 있어야** 닿았다 - 액션바 하나를 찾으려고 메뉴를 다섯 번 펼치는
---- 자리였다. 이 탭이 그걸 대신하면서 그쪽은 통째로 없어졌고, 지금 이 열거는 **여기 하나뿐**이다.
----
---- **이름·아이콘을 여기서 안 만든다.** `AddEntry`가 공용 해석기(`NameAndIconForAction`)에
---- 물어본다 - 명령의 이름 규칙(`BINDING_NAME_*`)과 아이콘이 이미 거기 있고, 목록과 걸어둔
---- 액션이 다른 이름으로 보이면 안 된다.
-
---- 머리글 순서. 게임이 주는 순서(`GetNumBindings`)는 액션바가 앞을 통째로 차지해서
---- 이동·인터페이스처럼 제일 자주 쓰는 것이 한참 뒤로 밀린다. 자주 쓰는 것부터 세운다.
---- 여기 없는 머리글은 뒤에 게임 순서대로 붙고, 비는 머리글은 그냥 안 나온다.
----
---- **전역 이름으로 적는다.** 값(현지화된 글자)을 테이블에 바로 넣으면 하나가 nil인 날
---- 배열이 거기서 잘린다 - `ipairs`가 멈춘다.
-local PREFERRED_BINDING_HEADERS = {
-	"BINDING_HEADER_MOVEMENT",
-	"BINDING_HEADER_INTERFACE",
-	"BINDING_HEADER_CHAT",
-	"BINDING_HEADER_TARGETING",
-	"BINDING_HEADER_RAID_TARGET",
-	"BINDING_HEADER_VEHICLE",
-	"BINDING_HEADER_CAMERA",
-	"BINDING_HEADER_MISC",
-};
+--- **Names and icons are not made here.** `AddEntry` asks `NameAndIconForAction`, so the list and a
+--- bound action cannot show two different names.
 
 --- 대상을 인자로 받는 우리 타입들. 머리글 하나에 유닛들이 붙는다.
 local UNIT_ACTION_TYPES = {
@@ -1045,22 +1022,13 @@ local function BuildBindingCommands(entries)
 
 	AddOwnCommands(Bucket);
 
-	for _, key in ipairs(PREFERRED_BINDING_HEADERS) do
-		local group = _G[key];
-		if (group) then
-			Bucket(group);
-		end
-	end
-
 	for bindingIndex = 1, GetNumBindings() do
 		local action, cat = GetBinding(bindingIndex);
 
-		-- `HEADER_*`는 명령이 아니라 목록 안의 구분선이다. 걸어봐야 아무 일도 안 난다.
-		if (action and strsub(action, 1, 6) ~= "HEADER") then
-			-- **이름이 없는 명령은 안 올린다.** `NameAndIconForAction`은 이름을 못 찾으면
-			-- 명령 문자열을 그대로 돌려주므로(`"MOVEFORWARD"`) 가드가 안 걸린다 - 그 함수는
-			-- 이미 걸어둔 액션을 **그리는** 쪽이라 그게 맞는 답이지만, 고르는 쪽에서는
-			-- 대문자 덩어리가 적힌 줄을 만들 뿐이다.
+		if (action and Constants.ACTION_BUTTON_COMMANDS[action]) then
+			-- **A command the client names nothing for is left out.** `NameAndIconForAction` falls
+			-- back to the command string, which is right for drawing a bound action and here would
+			-- only make a row reading "ACTIONBUTTON1".
 			if (_G["BINDING_NAME_" .. action]) then
 				-- **The heading is resolved the way the client's own keybinding panel resolves
 				-- it** (`GetBindingCategoryName` in
@@ -1084,7 +1052,7 @@ local function BuildBindingCommands(entries)
 
 				local bucket = Bucket(group);
 				bucket[#bucket + 1] = {
-					type = Constants.COMMAND,
+					type = Constants.ACTIONBUTTON,
 					value = action,
 				};
 			end
@@ -1117,35 +1085,31 @@ ActionCatalog.RegisterSource({
 -- 소스: 특수
 --------------------------------------------------------------------------------
 
---- **이 애드온에만 있는 개념들.** 게임에 대응하는 물건이 없어서 여기 말고 갈 데가 없다 -
---- 지정 대상, 사용자 상태, 직업·전문화가 정하는 셋, 사용 안 함. 손으로 적은 열거이고
---- 개수가 고정이다.
+--- **What exists only in this addon**, so there is nowhere else for it: custom targets, setting a
+--- switch, and the three types the class and specialization resolve. A hand-written list of fixed
+--- length.
 ---
---- **"기타"가 아니다.** 이름이 정체성을 정하는 자리라 한 번 짚어둔다. 여기 안 들어가는
---- 것 둘이 그 경계를 보여준다:
+--- **Not "Other".** Two things kept out of it draw the line:
 ---
----   주문서 밖의 주문   무작위 즐겨찾는 탈것 따위. **주문**이라 주문 탭의 "그 밖" 그룹으로
----                      간다(`AddExtraSpellEntries`). 자루가 필요하면 그쪽이 자루다
----   대상 지정 · 표적   게임에도 같은 성격의 단축키가 있어서(`BINDING_HEADER_TARGETING`,
----                      `BINDING_HEADER_RAID_TARGET`) 명령 탭으로 간다(`AddOwnCommands`)
+---   spells outside the spellbook   the random favourite mount and the like. They are spells, so they
+---                                  go to the Spells tab's extra group (`AddExtraSpellEntries`)
+---   targeting and world markers    the game has bindings of the same kind, so they go to the
+---                                  Commands tab (`AddOwnCommands`)
 ---
---- 지정 대상·사용자 상태·사용 안 함 셋은 "레이어와 조건이 있는 애드온"이라야 뜻이 통한다.
---- 직업·전문화가 정하는 셋은 주문을 쏘지만 **저장할 값이 없다.** 주문 탭의 줄은 하나가
---- 주문 하나를 가리키는데 이쪽은 무엇을 쏠지가 누를 때 정해지므로 그 탭에는 못 실린다.
---- 그래서 이 탭은 항목이 일곱 줄뿐이어도 자기 자리를 갖는다. 여기 처음 온 사람이
---- **이 애드온이 무엇을 더 할 수 있는지**를 보는 자리이기도 하다.
+--- The class and specialization types fire a spell but **have no value to store**: a Spells tab row
+--- names one spell, and which one these fire is decided at the press. So the tab keeps its place
+--- with a handful of rows, and it is also where somebody new sees what else the addon can do.
 ---
---- 스무 줄이었다. 열다섯이 스위치 셋 × 다섯이었고, 개수 제한이 풀리면서 그 자리가 한 줄이
---- 됐다(§6-C). **줄어든 것이 아니라 목록에서 빠진 것이다.** 개념은 그대로 한 줄로 서 있고,
---- 어느 스위치냐는 액션 편집 메뉴가 답한다.
+--- It had twenty rows once, fifteen of them three verbs times five switches. Lifting the switch
+--- count made that one row (§6-C); the concept still stands, and which switch is the action menu's
+--- to answer.
 ---
---- 이름·아이콘은 전부 `NameAndIconForAction`이 낸다 - 여기 있는 타입이 그 함수가
---- `skipTypeName`으로 처리하는 것들이라 이름이 이미 완성돼 있다.
+--- Names and icons all come from `NameAndIconForAction`, which finishes the name for every type here
+--- (`skipTypeName`).
 ---
---- **툴팁 본문은 반드시 붙인다.** 다른 탭은 이름만 봐도 무엇인지 알지만(주문·탈것·장난감),
---- 여기 있는 것들은 이 애드온이 만든 개념이라 이름이 설명을 못 한다 - "지정 대상 1"을
---- 처음 보는 사람에게 그 글자는 아무 말도 안 한다. 설명은 타입별로 이미 있는 것을 쓴다
---- (`TYPE_*_DESC`) - 드롭다운이 쓰던 바로 그 문장이라 두 곳이 갈라지지 않는다.
+--- **Every row carries a tooltip body.** A spell or a mount explains itself; "Custom Target 1" says
+--- nothing to someone new. The body is the type's own `TYPE_*_DESC`, the sentence the dropdown used,
+--- so the two cannot drift.
 local function BuildSpecialActions(entries)
 	local seen = {};
 	local typeNames = DebindPrivate.DebindUI.BINDING_TYPE_NAMES;
@@ -1197,19 +1161,6 @@ local function BuildSpecialActions(entries)
 			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
 		});
 	end
-
-	-- 사용 안 함. **혼자여도 머리글을 준다.**
-	--
-	-- 처음엔 안 줬다 - 머리글이 자기 이름을 두 번 말하게 되니까. 그런데 격자에는 그룹
-	-- 경계를 그리는 것이 머리글뿐이라, 머리글이 없으면 앞 그룹(사용자 상태) 줄에 이어
-	-- 붙어서 **그 그룹의 일부로 읽힌다.** 이름을 두 번 말하는 것보다 남의 그룹에 들어가
-	-- 있는 것이 나쁘다.
-	local unusedGroup = typeNames[Constants.UNUSED];
-	AddEntry(entries, seen, {
-		type = Constants.UNUSED,
-		group = unusedGroup,
-		tooltipText = LLL["TYPE_UNUSED_DESC"],
-	});
 end
 
 --- 특수는 **맨 끝이다.** 등록 순서가 곧 탭 순서인데, 앞의 탭들이 "이미 가진 것"이라

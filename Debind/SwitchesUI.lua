@@ -530,6 +530,8 @@ do
             local options = DebindPrivate.ResolveSwitchDefinition(name);
             if (options) then
                 options.displayMessage = not options.displayMessage;
+                -- Whether a computed switch is on the beat follows this box (`PutOnBeat`).
+                DebindPrivate.QueueUpdateBindings();
             end
             return MenuResponse.Refresh;
         end);

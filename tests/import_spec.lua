@@ -690,6 +690,26 @@ return function(DebindPrivate, DebindStorage)
         check(action.value == 13, "값이 " .. tostring(action.value));
     end);
 
+    test("dbver 6 페이로드의 행동 칸 명령은 행동 단축키 액션으로 들어온다", function()
+        ResetProfile();
+        local old = General({ { type = Constants.COMMAND, value = "ACTIONBUTTON3", key = "F", seq = 1 } });
+        old.v = DebindStorage.EXPORT_SCHEMA_VERSION;
+        old.dbver = 6;
+        local action = PlanOne(Forwarded(old));
+        check(action.type == Constants.ACTIONBUTTON, "타입이 " .. tostring(action.type));
+        check(action.value == "ACTIONBUTTON3", "값이 " .. tostring(action.value));
+    end);
+
+    -- Our catalog only offers the commands in `ACTION_BUTTON_COMMANDS`, so any other name was typed.
+    test("행동 단축키 액션은 아는 명령 이름일 때만 받는다", function()
+        check(not DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.ACTIONBUTTON, value = "MULTIACTIONBAR1BUTTON5", key = "F", seq = 1 } })),
+            "아는 이름이 걸렸다");
+        check(DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.ACTIONBUTTON, value = "TOGGLEWORLDMAP", key = "F", seq = 1 } })),
+            "모르는 이름이 안 걸렸다");
+    end);
+
     test("dbver 없는 v1 페이로드의 equipslot도 useslot으로 들어온다", function()
         ResetProfile();
         local action = PlanOne(Forwarded(General({ { type = "equipslot", value = 13, key = "F", seq = 1 } })));

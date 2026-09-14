@@ -14,11 +14,12 @@
 -- measures never opens, and the switch freezes on whatever it answered last with nothing raising
 -- anything. Two of the cases below are expressions the gate has to **decline** for that reason.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
     local shim = require("wow_shim");
     local frames = require("wow_frames");
     local restricted = require("restricted");
+    local shipped = ctx and ctx.shipped;
 
     local T = { passed = 0, failures = {} };
 
@@ -81,8 +82,7 @@ return function(DebindPrivate)
         return interp;
     end
 
-    --- One key, held only while `$state1` is on. That makes the key state-driven, so whether it is
-    --- bound at all is the loop's answer to the switch rather than a rebuild's.
+    --- One key that fires only while `$state1` is on, so the press is the switch's answer.
     local function GatedKey()
         return {
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
@@ -90,11 +90,20 @@ return function(DebindPrivate)
         };
     end
 
+    --- Does the key hanging off the switch fire? The press goes through the DEBUG-only eval hook,
+    --- so the shipped pass leaves this half of each case out.
+    local function checkFires(i, want, msg)
+        if (shipped) then
+            return;
+        end
+        check((i:evalKey("F1") ~= nil) == want, msg);
+    end
+
     ---------------------------------------------------------------------------
 
     --- **A computed switch naming another custom state**, which is the one shape the cases above do
     --- not reach - theirs all name a game state (`[combat]`). The chain here is two links long, and
-    --- either of them going quiet leaves the key simply unbound with nothing raised.
+    --- either of them going quiet leaves the key simply dead with nothing raised.
     ---
     --- **⚠ `resetValue` is the setting and `value` is derived from it.** `ApplySwitchResets` writes
     --- `value` on every load and again whenever a switch's answer moves, from `resetValue` and what
@@ -109,7 +118,7 @@ return function(DebindPrivate)
     --- (2026-08-23). The test was wrong and the addon was not.
     test("a computed switch that names another custom state reaches the key", function()
         local i = Bind(GatedKey(), {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state2]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[$state2]" },
             ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
         });
 
@@ -117,15 +126,14 @@ return function(DebindPrivate)
             "the manual state it names is " .. tostring(i.env.States["$state2"]));
         check(i.env.States["$state1"] == true,
             "the computed state did not follow it: " .. tostring(i.env.States["$state1"]));
-        check(i.bindings["F1"], "the key hanging off the computed state was not bound");
-
+        checkFires(i, true, "the key hanging off the computed state did not fire");
     end);
 
-    --- 위 테스트의 짝. **없으면 위가 "이 키는 원래 늘 걸린다"와 구분이 안 된다** - 계산식이
-    --- 이름을 아예 안 읽고 참을 내도 통과한다.
+    --- The pair of the case above. **Without it that one reads the same as "this key always
+    --- fires"** -- an expression that never read the name and answered true would pass.
     test("the same chain with the named state off leaves the key alone", function()
         local i = Bind(GatedKey(), {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state2]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[$state2]" },
             ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
         });
 
@@ -133,13 +141,13 @@ return function(DebindPrivate)
             "the manual state it names is " .. tostring(i.env.States["$state2"]));
         check(i.env.States["$state1"] == false,
             "the computed state did not follow it: " .. tostring(i.env.States["$state1"]));
-        check(i.bindings["F1"] == nil, "the key was bound while the state it hangs off is off");
+        checkFires(i, false, "the key fired while the state it hangs off is off");
     end);
 
     test("a conditional built out of measured states is parsed only when one of them moves",
         function()
             local i = Bind(GatedKey(), {
-                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[combat]" },
             });
 
             local before = i:parseCount("[combat]");
@@ -155,12 +163,12 @@ return function(DebindPrivate)
             i.state.combat = true;
             i:pollStates();
             check(i.env.States["$state1"] == true, "the switch did not follow combat going on");
-            check(i.bindings["F1"], "the key hanging off the switch was not bound");
+            checkFires(i, true, "the key hanging off the switch did not fire");
 
             i.state.combat = false;
             i:pollStates();
             check(i.env.States["$state1"] == false, "the switch did not follow combat going off");
-            check(i.bindings["F1"] == nil, "the key was not let go");
+            checkFires(i, false, "the key still fired");
         end);
 
     test("a conditional naming a state nobody measures is parsed on every pass", function()
@@ -172,7 +180,7 @@ return function(DebindPrivate)
         -- This case used to be `[mounted]`, which stopped being true the day `mounted` became a
         -- measured state. The positive below is where that word went.
         local i = Bind(GatedKey(), {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[outdoors]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[outdoors]" },
         });
 
         local before = i:parseCount("[outdoors]");
@@ -182,12 +190,12 @@ return function(DebindPrivate)
         i.state.outdoors = true;
         i:pollStates();
         check(i.env.States["$state1"] == true, "the switch did not follow outdoors going on");
-        check(i.bindings["F1"], "the key hanging off the switch was not bound");
+        checkFires(i, true, "the key hanging off the switch did not fire");
 
         i.state.outdoors = false;
         i:pollStates();
         check(i.env.States["$state1"] == false, "the switch did not follow outdoors going off");
-        check(i.bindings["F1"] == nil, "the key was not let go");
+        checkFires(i, false, "the key still fired");
     end);
 
     --- **The words that moved from the case above to this one.** `IsMounted` and `IsIndoors` are
@@ -201,7 +209,7 @@ return function(DebindPrivate)
         for _, axis in ipairs({ "mounted", "indoors" }) do
             local expr = "[" .. axis .. "]";
             local i = Bind(GatedKey(), {
-                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = expr },
+                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = expr },
             });
 
             local before = i:parseCount(expr);
@@ -215,12 +223,12 @@ return function(DebindPrivate)
             i.state[axis] = true;
             i:pollStates();
             check(i.env.States["$state1"] == true, axis .. ": the switch did not follow it going on");
-            check(i.bindings["F1"], axis .. ": the key hanging off the switch was not bound");
+            checkFires(i, true, axis .. ": the key hanging off the switch did not fire");
 
             i.state[axis] = false;
             i:pollStates();
             check(i.env.States["$state1"] == false, axis .. ": the switch did not follow it going off");
-            check(i.bindings["F1"] == nil, axis .. ": the key was not let go");
+            checkFires(i, false, axis .. ": the key still fired");
         end
     end);
 
@@ -234,14 +242,14 @@ return function(DebindPrivate)
         shim.world.units = { pet = { id = "pet" } };
 
         local i = Bind(GatedKey(), {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[pet]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[pet]" },
         });
 
         local row = i.env.UnitStates["pet"];
         check(row, "the gate did not register the pet row");
         check(row.exists == true, "the row says exists=" .. tostring(row.exists));
         check(i.env.States["$state1"] == true, "the switch did not follow the pet being there");
-        check(i.bindings["F1"], "the key hanging off the switch was not bound");
+        checkFires(i, true, "the key hanging off the switch did not fire");
 
         local before = i:parseCount("[pet]");
         i:pollStates();
@@ -251,13 +259,13 @@ return function(DebindPrivate)
         shim.world.units = {};
         i:pollStates();
         check(i.env.States["$state1"] == false, "the switch did not follow the pet going away");
-        check(i.bindings["F1"] == nil, "the key was not let go");
+        checkFires(i, false, "the key still fired");
     end);
 
     test("a conditional aimed at a unit is parsed on every pass", function()
         -- Who `target` is, and what is true of them, moves without any flag this pass can read.
         local i = Bind(GatedKey(), {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@target,combat]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[@target,combat]" },
         });
 
         local before = i:parseCount("[@target,combat]");
@@ -281,7 +289,7 @@ return function(DebindPrivate)
             interp.state.combat = nil;
 
             local i = Bind(GatedKey(), {
-                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]",
+                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[combat]",
                     value = true },
             });
 
@@ -289,7 +297,7 @@ return function(DebindPrivate)
                 "setup: combat still answers something, so no flag was withheld");
             check(i.env.States["$state1"] == false,
                 "the stored value survived the pass that follows a rebuild");
-            check(i.bindings["F1"] == nil, "the key was held on the strength of the stored value");
+            checkFires(i, false, "the key fired on the strength of the stored value");
 
             interp.state.combat = false;
         end);
@@ -335,11 +343,11 @@ return function(DebindPrivate)
                 conditions = { ["$state2"] = true } },
         }, {
             ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL },
-            ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state1]" },
+            ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[$state1]" },
         });
 
         check(i.env.States["$state2"] == false, "the computed switch did not start off");
-        check(i.bindings["F1"] == nil, "the key was bound before the switch went on");
+        checkFires(i, false, "the key fired before the switch went on");
 
         -- **What reaches the parser is the composed text, not the expression as stored.**
         -- `UpdateMacroTexts` writes the switch it reads in as `known:0` while that switch is off
@@ -351,11 +359,11 @@ return function(DebindPrivate)
 
         i.driverHandle:RunAttribute("SetSwitch", "$state1", true);
         check(i.env.States["$state2"] == true, "the computed switch did not follow the one it reads");
-        check(i.bindings["F1"], "the key hanging off the computed switch was not bound");
+        checkFires(i, true, "the key hanging off the computed switch did not fire");
 
         i.driverHandle:RunAttribute("SetSwitch", "$state1", false);
         check(i.env.States["$state2"] == false, "the computed switch did not follow it back off");
-        check(i.bindings["F1"] == nil, "the key was not let go");
+        checkFires(i, false, "the key still fired");
     end);
 
     --- Two computed links deep, and **the far one is emitted first.** The state loop walks the
@@ -372,23 +380,23 @@ return function(DebindPrivate)
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                 conditions = { ["$state1"] = true } },
         }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state3]" },
-            ["$state3"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state2]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[$state3]" },
+            ["$state3"] = { mode = Constants.SWITCH_MODES.EXPR, displayMessage = true, expr = "[$state2]" },
             ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
         });
 
         check(i.env.States["$state1"] == false, "the far link did not start off");
-        check(i.bindings["F1"] == nil, "the key was bound before anything went on");
+        checkFires(i, false, "the key fired before anything went on");
 
         i.driverHandle:RunAttribute("ToggleSwitch", "$state2");
         check(i.env.States["$state3"] == true, "the near link did not follow the toggle");
         check(i.env.States["$state1"] == true, "the far link is a pass behind: "
             .. tostring(i.env.States["$state1"]));
-        check(i.bindings["F1"], "the key was not bound inside the click that toggled the switch");
+        checkFires(i, true, "the key did not fire inside the click that toggled the switch");
 
         i.driverHandle:RunAttribute("ToggleSwitch", "$state2");
         check(i.env.States["$state1"] == false, "the far link did not follow it back off");
-        check(i.bindings["F1"] == nil, "the key was not let go");
+        checkFires(i, false, "the key still fired");
     end);
 
     return T;

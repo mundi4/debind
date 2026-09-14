@@ -62,24 +62,6 @@ return function(DebindPrivate)
         return DebindPrivate.BuildBindingPlan(ctx);
     end
 
-    --- Did the plan ask for this event, or ask for it gone? Answers nil when the plan says nothing
-    --- about it at all, which is a third outcome and not the same as "no".
-    local function registration(plan, name)
-        for i = 1, #plan.events do
-            if (plan.events[i].name == name) then
-                return plan.events[i].register;
-            end
-        end
-    end
-
-    local function wants(plan, name, msg)
-        check(registration(plan, name) == true, msg or (name .. " was not registered"));
-    end
-
-    local function drops(plan, name, msg)
-        check(registration(plan, name) == false, msg or (name .. " was registered"));
-    end
-
     local seq = 0;
     local function spell(t)
         seq = seq + 1;
@@ -109,217 +91,6 @@ return function(DebindPrivate)
         check(ok2 == false and why2 == "spec", "spec: " .. tostring(ok2) .. "/" .. tostring(why2));
 
         check(DebindPrivate.CanBuildBindings() == true, "an ordinary world refused to build");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- The mouseover registration, and the fault it used to carry
-    ---------------------------------------------------------------------------
-
-    -- `UPDATE_MOUSEOVER_UNIT` exists so a hover unit that goes away under a cursor that never
-    -- moves is noticed. A profile that measures the hover axis needs it.
-    test("a hover condition registers the mouseover event", function()
-        local plan = PlanFor({
-            spell({ key = "F1", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
-        });
-        wants(plan, "UPDATE_MOUSEOVER_UNIT");
-    end);
-
-    -- **The fault this place is known for.** A reaction condition on `target` says nothing about
-    -- hovering, and the old predicate asked "does anything measure reaction" without asking about
-    -- which unit -- so this profile registered the mouseover event and re-measured the hover slot
-    -- five times a second for nothing.
-    test("a reaction condition on target does not drag the mouseover event with it", function()
-        local plan = PlanFor({
-            spell({ key = "F1", unit = "target",
-                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-        });
-        wants(plan, "UNIT_FACTION", "a measured reaction did not register UNIT_FACTION");
-        drops(plan, "UPDATE_MOUSEOVER_UNIT");
-    end);
-
-    -- The other half: with nothing measuring reaction anywhere, `UNIT_FACTION` goes.
-    test("a profile that measures no reaction unregisters UNIT_FACTION", function()
-        local plan = PlanFor({
-            spell({ key = "F1", conditions = { combat = true } }),
-        });
-        drops(plan, "UNIT_FACTION");
-        drops(plan, "UPDATE_MOUSEOVER_UNIT");
-    end);
-
-    -- **Nothing is measured for a key the state loop never walks.** A key whose actions cover the
-    -- whole condition space is bound once and never re-decided, so the axes it names have no
-    -- reader -- the click path measures them again at the press. A registration here would pay for
-    -- a measurement nobody reads.
-    test("a key that is always ours registers nothing", function()
-        local plan = PlanFor({
-            spell({ key = "F1", unit = "target",
-                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-            -- **This second action is what changes the answer.** It is unconditional, so nothing
-            -- can take the key away, so the key is bound once and the state loop never walks it.
-            -- The first action on its own registers `UNIT_FACTION` -- two tests above.
-            spell({ key = "F1", value = 774 }),
-        });
-        drops(plan, "UNIT_FACTION");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- The bar axes
-    ---------------------------------------------------------------------------
-
-    -- `specialbar` folds `[petbattle]` into its own value, so a profile that asks about it needs
-    -- the pet battle events as well as the two bar events. That is one axis asking for four
-    -- registrations, and the fold is the reason.
-    test("specialbar takes the bar events and the pet battle events", function()
-        local plan = PlanFor({
-            spell({ key = "F1", conditions = { specialbar = true } }),
-            spell({ key = "F2", conditions = { specialbar = false } }),
-        });
-        wants(plan, "UPDATE_OVERRIDE_ACTIONBAR");
-        wants(plan, "UPDATE_VEHICLE_ACTIONBAR");
-        wants(plan, "PET_BATTLE_OPENING_START");
-        wants(plan, "PET_BATTLE_CLOSE");
-        drops(plan, "UPDATE_EXTRA_ACTIONBAR");
-    end);
-
-    -- And the other direction: a pet battle condition takes the pet battle events **only**. The
-    -- fold runs one way.
-    test("petbattle does not take the bar events", function()
-        local plan = PlanFor({
-            spell({ key = "F1", conditions = { petbattle = true } }),
-        });
-        wants(plan, "PET_BATTLE_OPENING_START");
-        wants(plan, "PET_BATTLE_CLOSE");
-        drops(plan, "UPDATE_OVERRIDE_ACTIONBAR");
-        drops(plan, "UPDATE_VEHICLE_ACTIONBAR");
-    end);
-
-    test("extrabar takes its own event and nothing else", function()
-        local plan = PlanFor({
-            spell({ key = "F1", conditions = { extrabar = true } }),
-        });
-        wants(plan, "UPDATE_EXTRA_ACTIONBAR");
-        drops(plan, "UPDATE_OVERRIDE_ACTIONBAR");
-        drops(plan, "PET_BATTLE_CLOSE");
-    end);
-
-    -- A `known:` condition is answered by `SecureCmdOptionParse`, and the spell book is what
-    -- changes that answer. **The state it registers is named after the spell**, so the predicate
-    -- behind this event is a prefix walk over what got measured rather than one lookup -- and on
-    -- an ordinary profile it comes out empty and the event goes.
-    test("a known condition registers SPELLS_CHANGED and nothing else does", function()
-        local plan = PlanFor({
-            spell({ key = "F1", value = 8936, conditions = { known = true } }),
-        });
-        wants(plan, "SPELLS_CHANGED");
-
-        local bare = PlanFor({
-            spell({ key = "F1", conditions = { combat = true } }),
-        });
-        drops(bare, "SPELLS_CHANGED");
-    end);
-
-    -- **The registration follows the axis, so settling the axis takes it with it.** A `known`
-    -- whose answer cannot move before the next rebuild is baked rather than emitted
-    -- (`devdocs/baking-the-known-condition.md` §5), and then there is no `[known:` in
-    -- `_measuredStates` for the predicate above to find. This is the consequence that pays for
-    -- the whole optimization -- the 0.2s parse goes with it.
-    --
-    -- The world is stood up before the first plan, because `Spells` builds its table once.
-    test("a known that is settled at the rebuild registers nothing", function()
-        shim.world.spellbook[1000] = true;
-        shim.world.spells[1000] = { name = "Fixed", levelLearned = 10 };
-        shim.world.knownSpells[1000] = true;
-
-        local plan = PlanFor({
-            spell({ key = "F1", value = 1000, conditions = { known = true } }),
-        });
-        drops(plan, "SPELLS_CHANGED");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- Every axis a record carries is an axis the loop measures
-    ---------------------------------------------------------------------------
-
-    -- **The pairing this sweeps used to be written down twice.** Emitting an axis onto a record
-    -- and registering the state that wakes a key carrying it were two lines beside each other, so
-    -- either could go without the other -- an emitted axis with no state is a key that never wakes
-    -- up, and a state with no axis is a measurement nobody reads. The states are read off the
-    -- finished record now, and this is what says the two still line up.
-    --
-    -- **The state names are not the field names for four of them**, which is the other half of why
-    -- the pairing was easy to get wrong: `groups` wakes on `group`, `forms` on `form`,
-    -- `bonusbars` on `bonusbar`.
-    test("every condition axis on a state-driven key is measured by the state loop", function()
-        local AXES = {
-            { conditions = { groups = Constants.GROUP_PARTY }, state = "group" },
-            { conditions = { combat = true }, state = "combat" },
-            { conditions = { stealth = true }, state = "stealth" },
-            { conditions = { forms = 3 }, state = "form" },
-            { conditions = { bonusbars = 5 }, state = "bonusbar" },
-            { conditions = { specialbar = true }, state = "specialbar" },
-            { conditions = { extrabar = true }, state = "extrabar" },
-            { conditions = { petbattle = true }, state = "petbattle" },
-        };
-
-        for i = 1, #AXES do
-            local axis = AXES[i];
-            local plan = PlanFor({ spell({ key = "F1", conditions = axis.conditions }) });
-            local measured = ('States["%s"]'):format(axis.state);
-            check(plan.attrChangedSnippet:find(measured, 1, true),
-                axis.state .. " is carried by a record and never measured");
-
-            -- **And the other direction, in the same pass.** Without it the sweep also passes on a
-            -- loop that measures every axis whatever the profile asks for, which is what the
-            -- registration narrowing above exists to prevent.
-            for j = 1, #AXES do
-                if (j ~= i) then
-                    local other = ('States["%s"]'):format(AXES[j].state);
-                    -- `specialbar` folds `[petbattle]` into itself, so those two travel together
-                    -- and neither one alone proves anything about the other.
-                    local paired = (axis.state == "specialbar" and AXES[j].state == "petbattle")
-                        or (axis.state == "petbattle" and AXES[j].state == "specialbar");
-                    if (not paired) then
-                        check(not plan.attrChangedSnippet:find(other, 1, true),
-                            axis.state .. " dragged " .. AXES[j].state .. " into the loop");
-                    end
-                end
-            end
-        end
-    end);
-
-    ---------------------------------------------------------------------------
-    -- Who builds the unit rows
-    ---------------------------------------------------------------------------
-
-    -- **A row in `UnitStates` says one thing: this unit is measured.** Two snippets read it that
-    -- way -- `SetUnit` asks whether moving an alias can change what a key answers, and the
-    -- matcher treats a missing row as "not a unit this build measures". Neither survives the tick
-    -- owning the row: while the poll created it on first sight, its absence also meant *no tick
-    -- has been round yet*, and the two readers had no way to tell which they were looking at.
-    --
-    -- So the rebuild builds them and the tick only reads them. Both halves are asserted here,
-    -- because either one alone passes on a build that creates rows in both places.
-    test("the rebuild builds a row for each measured unit and the tick builds none", function()
-        local plan = PlanFor({
-            spell({ key = "F1", unit = "target",
-                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-            spell({ key = "F2", conditions = { units = { focus = { exists = true } } } }),
-        });
-
-        check(plan.unitRowsSnippet, "no rebuild snippet builds the rows");
-        for _, unit in ipairs({ "target", "focus" }) do
-            check(plan.unitRowsSnippet:find(('UnitStates["%s"]=newtable()'):format(unit), 1, true),
-                unit .. " is measured but the rebuild builds no row for it");
-        end
-
-        -- **A unit nothing measures gets no row**, or the readers above go back to answering
-        -- "measured" for every alias that exists.
-        check(not plan.unitRowsSnippet:find("pet", 1, true),
-            "a row was built for a unit the loop never reads");
-
-        check(not plan.attrChangedSnippet:find("newtable()", 1, true),
-            "the tick still builds a row, so its absence still means two things");
     end);
 
     ---------------------------------------------------------------------------
@@ -389,33 +160,6 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- Re-deciding on the hover frame
-    ---------------------------------------------------------------------------
-
-    -- **This flag is the narrow question, and its old name was the wide one.** What it asks is
-    -- whether any state-driven key has to be re-decided when the frame under the cursor changes
-    -- while the unit under it does not -- and only a `frameTypes` record can. The unit changing is
-    -- already answered by `SetUnit`.
-    test("only a frame type condition makes the hover frame worth re-deciding on", function()
-        local withFrameType = PlanFor({
-            spell({ key = "F1", unit = "hover", conditions = {
-                frameTypes = Constants.FRAMETYPE_GROUP,
-                units = { hover = { reaction = Constants.REACTION_ALL } },
-            } }),
-        });
-        check(withFrameType.rebindOnHoverFrame == true, "a frameTypes record did not set it");
-
-        -- The same key with a hover condition and no frame type: hovering is measured, but no
-        -- record can answer differently for one frame than another.
-        local plain = PlanFor({
-            spell({ key = "F1", unit = "hover", conditions = {
-                units = { hover = { reaction = Constants.REACTION_ALL } },
-            } }),
-        });
-        check(plain.rebindOnHoverFrame == false, "a plain hover condition set it");
-    end);
-
-    ---------------------------------------------------------------------------
     -- Whether the 0.2s beat runs at all
     ---------------------------------------------------------------------------
 
@@ -432,57 +176,59 @@ return function(DebindPrivate)
             "nothing in this profile is measured and the beat was asked for anyway");
     end);
 
-    -- **State-driven and measuring nothing is a real shape**, and it is the one that looks like a
-    -- hole. A mouse button carries "not while hovering" from the key itself (`BuildUnitStates`),
-    -- so an unconditional action on `BUTTON4` does not cover the space and its wiring belongs to
-    -- the state loop -- while no condition anywhere asks for a measurement. The pass that closes
-    -- the rebuild binds it with `forceAll` and nothing exists that could take it away, so the
-    -- answer is `false` on purpose.
-    test("a key the state loop owns but measures nothing does not ask for the beat", function()
-        local plan = PlanFor({ spell({ key = "BUTTON4" }) });
-        check(plan.statePoll == false,
-            "a mouse-button key with no conditions asked for a beat with nothing to measure");
-    end);
-
-    test("a measured state asks for the beat", function()
-        local plan = PlanFor({ spell({ key = "F1", conditions = { combat = true } }) });
-        check(plan.statePoll == true, "a combat condition did not ask for the beat");
-    end);
-
-    -- A unit condition lands in `_measuredUnitAxes` rather than `_measuredStates`, so the two
-    -- are separate terms and this is the one that catches a predicate asking only the first.
-    test("a unit condition asks for the beat", function()
+    -- **A condition asks for no beat.** The press measures every axis a record names, so nothing is
+    -- left for a pass to have ready (`devdocs/dropping-the-game-fallback.md` §3).
+    test("a key condition does not ask for the beat", function()
         local plan = PlanFor({
-            spell({ key = "F1", unit = "target",
-                conditions = { units = { ["@"] = { exists = true } } } }),
+            spell({ key = "F1", conditions = { combat = true } }),
+            spell({ key = "F2", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
         });
-        check(plan.statePoll == true, "a target condition did not ask for the beat");
+        check(plan.statePoll == false, "a key condition asked for the beat");
     end);
 
-    -- Hover is the one alias the beat itself keeps fresh -- a unit changing under a cursor that
-    -- never moved is invisible to enter and leave both.
-    test("naming hover asks for the beat", function()
+    -- **A body on a button is composed at the press**, which reads the frame itself, so naming hover
+    -- there leaves the beat nothing to keep current.
+    test("an @hover body on a button asks for no beat", function()
         local plan = PlanFor({
             { type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew", seq = 1 },
         });
-        check(plan.statePoll == true, "an @hover macro body did not ask for the beat");
+        check(plan.statePoll == false, "an @hover macro body asked for the beat");
     end);
 
-    -- **Asked of `_switches`, not of what is measured.** Nothing conditions on this switch, so it
-    -- is absent from `_measuredStates` while its two lines are still in the pass -- a macro body
-    -- reads it and `displayMessage` announces it.
-    --
-    -- **`[mounted]` and not `[combat]`, and that is the whole test.** A conditional the gate can
-    -- read registers the states behind it as measured (`addSwitch`), and then the first term of
-    -- the predicate answers before this one is ever reached -- so a version that forgot computed
-    -- switches entirely would pass. This is the switch that measures nothing.
-    test("a computed switch nothing conditions on asks for the beat", function()
+    -- **A computed switch is worked out at the press**, so only one that announces a change needs a
+    -- pass that runs with nobody pressing anything.
+    test("a computed switch with no message asks for no beat", function()
         local plan = PlanFor({
             { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
         }, {
             ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
         });
-        check(plan.statePoll == true, "a computed switch did not ask for the beat");
+        check(plan.statePoll == false, "a computed switch that announces nothing asked for the beat");
+    end);
+
+    test("a computed switch that announces asks for the beat", function()
+        local plan = PlanFor({
+            { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]",
+                displayMessage = true },
+        });
+        check(plan.statePoll == true, "a computed switch that announces did not ask for the beat");
+    end);
+
+    -- **The account-wide switch takes the last reason away.**
+    test("turning switch messages off drops the beat", function()
+        Profile({
+            { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]",
+                displayMessage = true },
+        });
+        DebindPrivate.Options.switchMessages = false;
+        local plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
+        DebindPrivate.Options.switchMessages = nil;
+        check(plan.statePoll == false, "switch messages are off and the beat was asked for anyway");
     end);
 
     ---------------------------------------------------------------------------

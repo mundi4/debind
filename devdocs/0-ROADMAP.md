@@ -9,6 +9,7 @@
 
 | | 트랙 | 문서 |
 |---|---|---|
+| **4.0** | 다음 릴리즈 |  |
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
 | **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`legacy/showing-off-spec-actions.md` |
 | **3.2.1 · 3.2.2** | 나갔다 (2026-08-21, 08-22). 무관한 핫픽스 둘 | `CHANGELOG.md` |
