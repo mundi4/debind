@@ -1084,17 +1084,19 @@ do
         return not (options and options.switchMessages == false);
     end
 
-    --- The two account-wide cells that send an action at whatever the reader is pointing at.
-    --- Absent means off: this arrived after `v3.5.2` and nobody's profile carries a cell for it, so
-    --- a profile written before it reads as off rather than as the feature turning itself on.
+    --- Hover Cast, which sends an action at whatever the reader is pointing at. Absent means off:
+    --- this arrived after `v3.5.2` and nobody's profile carries a cell for it, so a profile written
+    --- before it reads as off rather than as the feature turning itself on.
     function DebindPrivate.HoverCastEnabled()
         local options = DebindPrivate.Options;
         return (options and options.hoverCast) and true or false;
     end
 
-    function DebindPrivate.MouseoverCastEnabled()
+    --- **Answered while the box is off too**, because turning it off keeps the mode and the settings
+    --- tab still shows it.
+    function DebindPrivate.HoverCastMode()
         local options = DebindPrivate.Options;
-        return (options and options.mouseoverCast) and true or false;
+        return (options and options.hoverCastMode == "mouseover") and "mouseover" or "hover";
     end
 
     --- Whether Debind answers the Self Cast Key and the Focus Cast Key. **Absent means on**, which is
@@ -1132,7 +1134,7 @@ do
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
     ---
-    --- **Every action gets one while either switch is on**, because the twin is what gives an action
+    --- **Every action gets one while Hover Cast is on**, because the twin is what gives an action
     --- a place in the tier a pointed press is decided in (`devdocs/implementing-focus-and-self-cast.md`
     --- §3-4). An action left without one waits in the last tier, and a Hover Cast action behind it
     --- takes every press made over a unit, however high the reader put the first.
@@ -1159,20 +1161,11 @@ do
     --- be a frame click record, and a frame click arrives on its exact combination with no other
     --- press to be ordered against, so the click is left to the frame's own action. The twin aimed
     --- at the frame's unit is still made: over a frame, that is Hover Cast itself.
-    ---
-    --- **Mouseover wins where both cells are set.** The settings row is one choice of three and writes
-    --- only one of them (`SettingsTab.lua`); over a unit frame the two name one unit, and `mouseover`
-    --- answers away from frames as well, so a second twin could only repeat the first (2026-09-12,
-    --- owner).
     local function TwinUnitFor(action, original)
-        local unit;
-        if (DebindPrivate.MouseoverCastEnabled()) then
-            unit = "mouseover";
-        elseif (DebindPrivate.HoverCastEnabled()) then
-            unit = "hover";
-        else
+        if (not DebindPrivate.HoverCastEnabled()) then
             return nil;
         end
+        local unit = DebindPrivate.HoverCastMode();
 
         local units = original.conditions and original.conditions.units;
 

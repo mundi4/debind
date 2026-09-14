@@ -412,10 +412,10 @@ local function SetIsolated(isolated)
             realEnumerateAll = DebindPrivate.EnumerateAllProfileLayers
             realPointedUnitCast = {
                 hoverCast = DebindPrivate.Options.hoverCast,
-                mouseoverCast = DebindPrivate.Options.mouseoverCast,
+                hoverCastMode = DebindPrivate.Options.hoverCastMode,
             }
             DebindPrivate.Options.hoverCast = nil
-            DebindPrivate.Options.mouseoverCast = nil
+            DebindPrivate.Options.hoverCastMode = nil
             isolatedLayers = { GetTestLayer() }
             local only = isolatedLayers
             -- **The live walk yields the first layer alone**, whatever else is in the list. That is
@@ -464,7 +464,7 @@ local function SetIsolated(isolated)
             DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
             DebindPrivate.FindLayerID = realFindLayerID
             DebindPrivate.Options.hoverCast = realPointedUnitCast.hoverCast
-            DebindPrivate.Options.mouseoverCast = realPointedUnitCast.mouseoverCast
+            DebindPrivate.Options.hoverCastMode = realPointedUnitCast.hoverCastMode
             realEnumerate = nil
             realEnumerateAll = nil
             realFindLayerID = nil
@@ -7818,7 +7818,7 @@ RegisterTest("Click bakes the deferred macro body", {
     end,
 })
 
---- Turns one of the two account switches on for the length of a test and puts it back after.
+--- Turns an account switch on for the length of a test and puts it back after.
 --- **Absent is the stored shape of off** (`SettingsTab.lua`), so the teardown writes nil rather than
 --- false or the run leaves a cell behind that nothing on screen ever wrote.
 local function UsePointedUnitCast(name)

@@ -227,12 +227,12 @@ return function(DebindPrivate)
 
     --- 스위치를 잠깐 이 값으로 놓고 돈다. 파일 전체가 Hover Cast 켜진 상태로 서 있으므로,
     --- 끄는 쪽을 재려면 되돌려 놓을 자리가 있어야 한다.
-    local function withSwitches(hoverCast, mouseoverCast, fn)
+    local function withSwitches(hoverCast, hoverCastMode, fn)
         local options = DebindPrivate.Options;
-        local wasHover, wasMouseover = options.hoverCast, options.mouseoverCast;
-        options.hoverCast, options.mouseoverCast = hoverCast, mouseoverCast;
+        local wasHover, wasMode = options.hoverCast, options.hoverCastMode;
+        options.hoverCast, options.hoverCastMode = hoverCast, hoverCastMode;
         local ok, err = pcall(fn);
-        options.hoverCast, options.mouseoverCast = wasHover, wasMouseover;
+        options.hoverCast, options.hoverCastMode = wasHover, wasMode;
         if (not ok) then error(err, 0); end
     end
 
@@ -244,24 +244,21 @@ return function(DebindPrivate)
         return action;
     end
 
-    test("스위치가 둘 다 꺼져 있으면 쌍둥이가 없다", function()
+    test("Hover Cast가 꺼져 있으면 쌍둥이가 없다", function()
         withSwitches(nil, nil, function()
             check(bindingsOf(spell())[2] == nil, "꺼졌는데 쌍둥이가 생겼다");
         end);
     end);
 
-    test("Mouseover Cast는 mouseover를 겨누는 쌍둥이를 낸다", function()
-        withSwitches(nil, true, function()
-            local twin = bindingsOf(spell())[2];
-            check(twin ~= nil, "쌍둥이가 없다");
-            check(twin.unit == "mouseover", "겨누는 것: " .. tostring(twin.unit));
+    --- 끄면 설정 탭이 모드를 남겨 두므로, 꺼진 상자 아래 `mouseover`가 서 있는 것이 흔한 모양이다.
+    test("꺼진 Hover Cast는 모드가 남아 있어도 쌍둥이를 안 낸다", function()
+        withSwitches(nil, "mouseover", function()
+            check(bindingsOf(spell())[2] == nil, "꺼졌는데 쌍둥이가 생겼다");
         end);
     end);
 
-    --- **둘 다 켜면 쌍둥이는 하나고 `mouseover`다** (2026-09-12, 소유자). 개체창 위에서는 두 값이
-    --- 같고 `mouseover`는 개체창이 아닌 곳에서도 서므로, hover 쌍둥이가 설 자리를 전부 덮는다.
-    test("둘 다 켜면 쌍둥이는 mouseover 하나뿐이다", function()
-        withSwitches(true, true, function()
+    test("Mouseover 모드는 mouseover를 겨누는 쌍둥이 하나를 낸다", function()
+        withSwitches(true, "mouseover", function()
             local list = bindingsOf(spell());
             check(list[2] ~= nil and list[2].unit == "mouseover",
                 "겨누는 것: " .. tostring(list[2] and list[2].unit));
@@ -277,7 +274,7 @@ return function(DebindPrivate)
     --- `mouseover`를 겨누면서 **개체창 위에서만** 서게 되고, Mouseover Cast가 개체창 밖에서
     --- 아무 일도 안 한다.
     test("쌍둥이의 조건은 자기가 겨누는 유닛 아래 선다", function()
-        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", nil, true } }) do
+        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", true, "mouseover" } }) do
             local unit = case[1];
             withSwitches(case[2], case[3], function()
                 local list = bindingsOf(spell());
@@ -297,7 +294,7 @@ return function(DebindPrivate)
     --- 넓어지고, 솔버가 원본을 지워서 그 키가 커서 밑이 아군이든 적이든 그쪽으로 나갔다
     --- (2026-09-12에 잼).
     test("겨누려는 유닛에 걸린 조건이 쌍둥이로 좁혀 들어간다", function()
-        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", nil, true } }) do
+        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", true, "mouseover" } }) do
             local unit = case[1];
             withSwitches(case[2], case[3], function()
                 local action = spell({ unit = "target", conditions = { units = {
@@ -316,7 +313,7 @@ return function(DebindPrivate)
     --- **만나는 자리가 없으면 안 세운다.** [없을 때]를 건 유닛은 쌍둥이가 서는 순간과 겹치는
     --- 때가 없다. 솔버가 빈 상자로 떨구기는 하지만 안 만드는 쪽이 싸다.
     test("겨누려는 유닛에 [없을 때]가 걸려 있으면 쌍둥이가 없다", function()
-        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", nil, true } }) do
+        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", true, "mouseover" } }) do
             local unit = case[1];
             withSwitches(case[2], case[3], function()
                 local action = spell({ unit = "target",
@@ -361,7 +358,7 @@ return function(DebindPrivate)
     --- 누름을 뒤의 Hover Cast 액션에 넘긴다. hover 조건이 켜진 액션에서는 원본의 겨눔이 `""`이고
     --- 쌍둥이도 그렇다.
     test("ignoreHoverUnit을 켠 액션의 쌍둥이는 원본의 대상으로 나간다", function()
-        for _, case in ipairs({ { true, nil }, { nil, true } }) do
+        for _, case in ipairs({ { true, nil }, { true, "mouseover" } }) do
             withSwitches(case[1], case[2], function()
                 local list = bindingsOf(spell({ ignoreHoverUnit = true, unit = "focus" }));
                 check(list[2] ~= nil and list[2].unit == "focus",

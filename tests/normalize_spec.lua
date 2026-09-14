@@ -964,7 +964,8 @@ return function(DebindPrivate)
     --- 소유자). `mouseover`로 바꾸면 명판까지 닿아 사용자가 고른 뜻이 달라진다. 조건은 그 모드가
     --- 가리키는 유닛에 선다.
     test("대상 hover의 쌍둥이는 Mouseover 모드에서도 hover로 나간다", function()
-        DebindPrivate.Options.mouseoverCast = true;
+        DebindPrivate.Options.hoverCast = true;
+        DebindPrivate.Options.hoverCastMode = "mouseover";
         local ok, err = pcall(function()
             local list = castmod.without(Constants, (listFor({ unit = "hover" })));
             check(#list == 2, "길이 " .. #list);
@@ -972,7 +973,8 @@ return function(DebindPrivate)
             check(list[2].unitStates and list[2].unitStates.mouseover == Constants.UNITSTATE_EXISTS,
                 "mouseover 칸: " .. tostring(list[2].unitStates and list[2].unitStates.mouseover));
         end);
-        DebindPrivate.Options.mouseoverCast = nil;
+        DebindPrivate.Options.hoverCast = nil;
+        DebindPrivate.Options.hoverCastMode = nil;
         if (not ok) then error(err, 0); end
     end);
 

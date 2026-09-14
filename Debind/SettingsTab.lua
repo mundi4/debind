@@ -201,25 +201,27 @@ local function Build()
             DebindPrivate.QueueUpdateBindings();
         end);
     local hoverCastChoices = {
-        { value = "off", label = OFF },
         { value = "hover", label = L["POINTED_UNIT_CAST_FRAMES"], tooltip = L["POINTED_UNIT_CAST_FRAMES_DESC"] },
         { value = "mouseover", label = L["POINTED_UNIT_CAST_MOUSEOVER"], tooltip = L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] },
     };
-    Dropdown(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], function(_, rootDescription)
-        Radios(rootDescription, hoverCastChoices, function()
-            if (DebindPrivate.MouseoverCastEnabled()) then
-                return "mouseover";
-            end
-            if (DebindPrivate.HoverCastEnabled()) then
-                return "hover";
-            end
-            return "off";
-        end, function(value)
-            Options().hoverCast = (value == "hover") or nil;
-            Options().mouseoverCast = (value == "mouseover") or nil;
+    local hoverCast = AddRow("DebindSettingsCheckboxDropdownRowTemplate");
+    Label(hoverCast, L["POINTED_UNIT_CAST"]);
+    local function RefreshHoverCast()
+        hoverCast.Control:SetEnabled(DebindPrivate.HoverCastEnabled());
+    end
+    WireCheckbox(hoverCast, L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], DebindPrivate.HoverCastEnabled,
+        function(value)
+            Options().hoverCast = value or nil;
+            RefreshHoverCast();
             DebindPrivate.QueueUpdateBindings();
         end);
-    end, hoverCastChoices);
+    WireDropdown(hoverCast.Control, function(_, rootDescription)
+        Radios(rootDescription, hoverCastChoices, DebindPrivate.HoverCastMode, function(value)
+            Options().hoverCastMode = (value == "mouseover") and value or nil;
+            DebindPrivate.QueueUpdateBindings();
+        end);
+    end, OptionsTooltip(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], hoverCastChoices));
+    refreshers[#refreshers + 1] = RefreshHoverCast;
 
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
         function(value)
@@ -385,7 +387,7 @@ local function ResetToDefaults()
     options.selfCast = nil;
     options.focusCast = nil;
     options.hoverCast = nil;
-    options.mouseoverCast = nil;
+    options.hoverCastMode = nil;
     options.switchMessages = nil;
     options.excludePlayer = nil;
     options.stateDriverUpdateThrottle = nil;
