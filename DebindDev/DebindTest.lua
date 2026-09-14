@@ -1938,6 +1938,47 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
     end,
 })
 
+--- **Needs the window.** The selection lives in `DebindUI.lua` beside the list it is drawn over, and
+--- the rebuild after a key change is what folded it onto one row.
+RegisterTest("Bulk key change: a selection of several stays selected", {
+    description = "Taking the key off two picked rows leaves both picked; the same change sent from outside the selection still folds onto one",
+    run = function()
+        local NAME = "Selection after key change"
+
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F7" })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F8" })
+        local third = InsertAction({ type = Constants.SPELL, value = 3 })
+        ApplyBindings()
+
+        DebindFrame:Show()
+        AddTeardown(function() DebindFrame:CloseWindow() end)
+
+        DebindLayerPanel:SetSelectedAction(first)
+        DebindLayerPanel:ToggleActionSelected(second)
+        if DebindFrame:GetSelectionCount() ~= 2 then
+            return Fail(NAME, format("setup: %d picked, is a search term or filter on", DebindFrame:GetSelectionCount()))
+        end
+
+        DebindUI.UnbindActions({ first, second })
+        if DebindFrame:GetSelectionCount() ~= 2
+                or not DebindFrame:IsActionSelected(first) or not DebindFrame:IsActionSelected(second) then
+            return Fail(NAME, format("after unbinding the picked two, %d picked", DebindFrame:GetSelectionCount()))
+        end
+
+        -- **The other half.** A set that was not the selection has no selection to keep.
+        first.key, second.key = "CTRL-ALT-F7", "CTRL-ALT-F8"
+        ApplyBindings()
+        DebindLayerPanel:SetSelectedAction(third)
+        DebindUI.UnbindActions({ first, second })
+        if DebindFrame:GetSelectionCount() ~= 1 then
+            return Fail(NAME, format("a set sent from outside the selection left %d picked",
+                DebindFrame:GetSelectionCount()))
+        end
+
+        return Pass(NAME, "the picked two stayed picked, and an unpicked set folded onto one")
+    end,
+})
+
 --- **Needs the game.** Where the resolved target's row stands in the menu, when it is locked and
 --- which setter pressing it reaches is the client's menu tree, which only exists here
 --- (`devdocs/implementing-focus-and-self-cast.md` §3-6).

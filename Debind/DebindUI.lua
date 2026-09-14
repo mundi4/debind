@@ -3409,6 +3409,24 @@ function DebindLayerPanelMixin:ToggleActionSelected(action)
 	CommitSelection();
 end
 
+--- Makes these actions the selection again, with `anchor` as the anchor, after something rebuilt the
+--- list under them. **Only what the list still draws goes in**, the same rule `PruneSelectionToBinFilter`
+--- keeps: a row filtered out of sight is not something a later bulk press may reach.
+function DebindLayerPanelMixin:SelectActions(actions, anchor)
+	wipe(_selection);
+	_selectionCount = 0;
+	for _, action in ipairs(actions) do
+		if (not _selection[action] and self:FindElementDataByActionInfo(action)) then
+			_selection[action] = true;
+			_selectionCount = _selectionCount + 1;
+		end
+	end
+	_selectedAction = anchor;
+	_revealAction = anchor;
+
+	CommitSelection();
+end
+
 --- SHIFT-좌클릭. 앵커부터 이 행까지를 집합으로 삼는다.
 ---
 --- **앵커는 안 옮긴다.** 그래야 범위를 다시 잴 수 있다 - SHIFT를 한 번 더 찍으면 같은
@@ -5543,6 +5561,17 @@ end
 --- (`ClearKeyForActions`), so what is left is rows of their own in the pile at the bottom and each
 --- is its own answer - `CollectActionsForKey` has nothing to say about a key that is not there.
 local function RebuildAfterKeyGroupChange(actions, key)
+	-- **A selection the reader made stays made.** Read before the rebuild, while the set still answers
+	-- for what was picked. Actions sent here from a heading were never selected, and folding onto one
+	-- of them is still the answer for those.
+	local keepSelection = #actions > 1;
+	for i = 1, #actions do
+		if (not DebindFrame:IsActionSelected(actions[i])) then
+			keepSelection = false;
+			break;
+		end
+	end
+
 	DebindPrivate.UpdateBindings();
 	DebindLayerPanel:Refresh(true);
 
@@ -5563,7 +5592,11 @@ local function RebuildAfterKeyGroupChange(actions, key)
 	end
 
 	if (target) then
-		DebindLayerPanel:SetSelectedAction(target);
+		if (keepSelection) then
+			DebindLayerPanel:SelectActions(actions, target);
+		else
+			DebindLayerPanel:SetSelectedAction(target);
+		end
 		DebindLayerPanel:ScrollActionIntoView(target);
 	end
 
