@@ -642,23 +642,29 @@ local function DeleteActions(actions)
 	DebindLayerPanel:SetSelectedAction(DebindFrame:GetSelectedAction());
 end
 
-local ShowDeleteConfirmationPopup, ShowBulkDeleteConfirmationPopup, HideDeleteConfirmationPopup;
+local ShowDeleteConfirmationPopup, HideDeleteConfirmationPopup;
 local ShowRemoveDuplicatesConfirmationPopup;
 local ShowRejectImportConfirmationPopup;
 do
 	local _deletePopupData;
 
-	--- 벌크 삭제의 확인. **이름 대신 개수로 묻는다** - 열몇 개를 나열하면 팝업이 화면을 덮고,
-	--- 그렇다고 몇 개만 적으면 나머지를 숨긴 채로 묻는 꼴이 된다.
+	--- Asking before a delete, over one action or several. **One is named, several are counted** -
+	--- a dozen names would cover the screen, and naming a few would ask while hiding the rest.
 	---
-	--- 확인을 건너뛰지 않는 이유는 되돌리기가 없기 때문이다. 이동·복사는 확인 없이 즉시인데
-	--- (되돌릴 수 있거나 파괴적이지 않다) 이것만 다르다.
-	function ShowBulkDeleteConfirmationPopup(actions)
+	--- It asks because there is no undo. Move and copy go through at once (they can be undone, or
+	--- destroy nothing); this is the one that does not.
+	function ShowDeleteConfirmationPopup(actions)
 		HideDeleteConfirmationPopup();
 
+		local text, arg = LLL["DELETE_CONFIRM_MESSAGE_MULTIPLE"], #actions;
+		if (#actions == 1) then
+			text = LLL["DELETE_CONFIRM_MESSAGE"];
+			arg = NameAndIconForAction(actions[1]) or LLL["UNNAMED_ACTION"];
+		end
+
 		_deletePopupData = {
-			text = LLL["DELETE_CONFIRM_MESSAGE_MULTIPLE"],
-			text_arg1 = #actions,
+			text = text,
+			text_arg1 = arg,
 			callback = function()
 				DeleteActions(actions);
 			end,
@@ -694,28 +700,6 @@ do
 				-- which is what was asked for, and the dropdown's reset button is standing there
 				-- saying so. Three paths used to drop it here for the reader.
 			end,
-			acceptText = YES,
-			cancelText = NO,
-			showAlert = true,
-			referenceKey = "DebindDeleteConfirmation",
-		};
-
-		StaticPopup_ShowCustomGenericConfirmation(_deletePopupData);
-		DebindFrame:UpdateButtons();
-	end
-
-	function ShowDeleteConfirmationPopup(elementData)
-		HideDeleteConfirmationPopup();
-
-		local function onAccept()
-			DeleteElementData(elementData);
-		end
-
-		local name = NameAndIconForAction(elementData.action);
-		_deletePopupData = {
-			text = LLL["DELETE_CONFIRM_MESSAGE"],
-			text_arg1 = name or LLL["UNNAMED_ACTION"],
-			callback = onAccept,
 			acceptText = YES,
 			cancelText = NO,
 			showAlert = true,
@@ -1255,7 +1239,7 @@ function DebindLineMixin:OnClick(buttonName)
 			if (IsAltKeyDown() or IsShiftKeyDown()) then
 				DeleteElementData(elementData);
 			else
-				ShowDeleteConfirmationPopup(elementData);
+				ShowDeleteConfirmationPopup({ elementData.action });
 			end
 		elseif (DebindFrame:GetSelectionCount() > 1 and DebindFrame:IsActionSelected(elementData.action)) then
 			-- **고른 것 위에서 연 메뉴는 고른 것 전부를 겨눈다.** 탐색기와 같은 규칙이고,
@@ -3907,7 +3891,8 @@ function DebindFrameMixin:ShowEditDropdown(button, elementData)
 	elementData = elementData or button:GetElementData();
 	local action = elementData.action;
 
-	local menu = MenuUtil.CreateContextMenu(button, DebindUI.SetupEditDropdownMenu, elementData);
+	local menu = MenuUtil.CreateContextMenu(button, DebindUI.SetupActionDropdownMenu,
+		{ actions = { action }, layer = elementData.layer });
 	self.contextMenu = menu;
 	self.contextMenuAction = menu and action or nil;
 	if (menu) then
@@ -3929,17 +3914,16 @@ function DebindFrameMixin:ShowEditDropdown(button, elementData)
 	self:Update();
 end
 
---- 고른 것이 여럿일 때 여는 메뉴. 대상은 이 행이 아니라 **집합 전체**다.
+--- The same menu as `ShowEditDropdown`, opened over **the whole selection** rather than the row.
 ---
---- `ShowEditDropdown`과 갈라 둔 이유는 겨누는 것이 다르기 때문이다. 저쪽은 elementData
---- 하나를 들고 그 액션의 조건·중요도·키까지 만지는데, 그 값들은 여럿에 한꺼번에 걸 수 있는
---- 것이 아니다(중요도는 이 계정의 모든 캐릭터에 걸친다 - `IMPORTANCE_SHARED_WARNING`).
---- 여기는 이동·복사·삭제 셋뿐이라 액션 목록만 있으면 된다.
+--- **The selection is the target and the row is not.** It is read out of the list, which holds one
+--- layer, so every action in it lives in the layer on screen.
 ---
---- `contextMenuAction`은 안 세운다. 그건 "이 행의 메뉴가 떠 있다"는 표시로 행 강조에
---- 쓰이는데(`IsEditDropdownShown`), 여기서는 겨눈 행들이 이미 선택 강조를 받고 있다.
+--- `contextMenuAction` is left unset. It marks "this row's menu is open" for the row highlight
+--- (`IsEditDropdownShown`), and the rows this aims at are already drawn as selected.
 function DebindFrameMixin:ShowBulkDropdown(button)
-	local menu = MenuUtil.CreateContextMenu(button, DebindUI.SetupBulkDropdownMenu, self:GetSelectedActions());
+	local menu = MenuUtil.CreateContextMenu(button, DebindUI.SetupActionDropdownMenu,
+		{ actions = self:GetSelectedActions(), layer = GetLayerID() });
 	self.contextMenu = menu;
 	self.contextMenuAction = nil;
 	if (menu) then
@@ -4726,20 +4710,20 @@ function DebindOrderLineMixin:OnLeave()
 	HideActionTooltip(GameTooltip);
 end
 
---- 결과 목록의 행을 누르면 **그 액션이 사는 통으로 데려간다.**
+--- Clicking a row of the result list **takes the reader to the bin the action lives in.**
 ---
---- 이 목록은 사영이다 - 행마다 다른 레이어에서 왔고, 여기서 편집을 열면 "어디 붙은
---- 액션인지 모르는 채로" 만지는 일이 된다. 대신 통을 그 레이어로 옮기고 행을 짚어주면,
---- 그 다음 손질은 전부 통 쪽의 규칙대로 일어난다.
+--- This list is a projection: every row came from a different layer, and opening the edit menu
+--- here would be changing an action without knowing where it is attached. Moving the bin to that
+--- layer and pointing at the row instead means every change after that follows the bin's rules.
 ---
---- **우클릭은 순서 메뉴다.** 편집 메뉴(`SetupEditDropdownMenu`)는 여기서 안 연다 - 그것은
---- 액션이 사는 곳의 것이고, 그 액션을 그리로 데려가는 것이 이 목록의 좌클릭이다. 순서만은
---- 예외로 두는데, **순서는 이 목록이 답하는 물음 자체**라서 답을 보는 자리와 고치는 자리가
---- 갈리면 한 칸 옮길 때마다 통을 다녀와야 한다.
+--- **Right click is the order menu.** The edit menu (`SetupActionDropdownMenu`) is not opened here:
+--- it belongs to where the action lives, and taking the action there is this list's left click.
+--- Order is the one exception, because **order is the very question this list answers**, and with
+--- the answer in one place and the fix in another every one-step move would be a trip to the bin.
 ---
---- 화살표 버튼은 고른 행에만 선다. 그 판단은 늘 켜져 있는 버튼이 목록을 어지럽히는 문제라
---- (`UpdateMoveButtons`) 사용자가 직접 연 메뉴에는 걸리지 않는다 - 여기서는 혼자인 키도
---- 두 항목을 죽은 채로 보여주고, 왜 안 되는지를 그 툴팁이 말한다.
+--- The arrow buttons stand only on the picked row. That is about always-on buttons cluttering the
+--- list (`UpdateMoveButtons`) and does not reach a menu the reader opened on purpose, so here a key
+--- with a single action still shows both items, dead, and their tooltip says why.
 function DebindOrderLineMixin:OnClick(button)
 	-- 캡처 중에는 이 목록이 아직 옛 키의 것이다. 곧 갈아치워질 화면에서 떠나지 않고, 그
 	-- 화면의 순서를 고치지도 않는다.
@@ -6260,6 +6244,5 @@ DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;
 DebindUI.ApproveArrivedActions = ApproveArrivedActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
-DebindUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
 DebindUI.ShowRejectImportConfirmationPopup = ShowRejectImportConfirmationPopup;
 DebindUI.ShowInputBox = ShowInputBox

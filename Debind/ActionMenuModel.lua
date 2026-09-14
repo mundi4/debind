@@ -10,6 +10,10 @@ local dump                  = DebindPrivate.dump
 ---
 --- **One table on `DebindPrivate` rather than one entry per name.** Forty entries on the addon's
 --- private table would be the same forty upvalues the split just took out, one scope wider.
+---
+--- **The menu aims at `ctx.actions`, and a single row is a selection of one**
+--- (`devdocs/editing-many-actions-at-once.md`). Every read below answers for the whole selection and
+--- every write lands on each action in it, then rebuilds once.
 local ActionMenu = {};
 DebindPrivate.ActionMenu = ActionMenu;
 
@@ -129,16 +133,73 @@ local function GetTabList()
     return TAB_LIST;
 end
 
---- The edit menu has changed one of the action's values.
+--- Does `holds` answer true for every action the menu aims at.
+local function AllActions(ctx, holds)
+    local actions = ctx.actions;
+    if (#actions == 0) then
+        return false;
+    end
+    for i = 1, #actions do
+        if (not holds(actions[i])) then
+            return false;
+        end
+    end
+    return true;
+end
+
+local function AnyAction(ctx, holds)
+    local actions = ctx.actions;
+    for i = 1, #actions do
+        if (holds(actions[i])) then
+            return true;
+        end
+    end
+    return false;
+end
+
+--- `"all"`, `"some"` or `"none"`: how many of the selected actions can take an item at all.
+---
+--- **Some is its own answer because it is the one that has to be refused out loud.** Changing only
+--- the ones that can take it is five of seven moved with nobody told which, the same reason moving
+--- a selection with an arrival in it is refused.
+local function HowManyAccept(ctx, accepts)
+    local actions = ctx.actions;
+    local taken = 0;
+    for i = 1, #actions do
+        if (accepts(actions[i])) then
+            taken = taken + 1;
+        end
+    end
+    if (taken == 0) then
+        return "none";
+    elseif (taken == #actions) then
+        return "all";
+    end
+    return "some";
+end
+
+--- The reason an item that belongs to one action at a time is locked, or nil when one is picked.
+local function OnlyOneReason(ctx)
+    if (#ctx.actions ~= 1) then
+        return LLL["MENU_BLOCKED_ONLY_ONE"];
+    end
+end
+
+--- The menu has changed values on these actions.
 ---
 --- **It does not look at which value.** Conditions, importance and hover are steps in the
---- ordering, so changing one changes what this action is up against -- and rather than work out
---- which step moved, the key group is always renumbered. If nothing moved the renumber moves
---- nothing (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing the action
+--- ordering, so changing one changes what an action is up against -- and rather than work out
+--- which step moved, each action's key group is renumbered. If nothing moved the renumber moves
+--- nothing (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing each action
 --- before and after, and putting that pair of snapshots across the dozen call sites in this menu
 --- means missing one someday.
-local function OnActionValueChanged(action)
-    DebindPrivate.RenumberKeyGroupForAction(action);
+---
+--- **One rebuild for the whole selection.** Two actions sharing a group renumber it twice, which
+--- moves nothing the second time.
+local function OnActionsChanged(actions)
+    for i = 1, #actions do
+        DebindPrivate.RenumberKeyGroupForAction(actions[i]);
+    end
     DebindPrivate.UpdateBindings();
     return MenuResponse.Refresh;
 end
@@ -174,10 +235,23 @@ local function SpecConditionsOf(action)
     return action.conditions and action.conditions.specs;
 end
 
---- Is this one specialization in the set.
+--- The set, made where it is not there yet.
+local function SpecConditionsFor(action)
+    local conditions = TableFor(action, "specs", true);
+    local specs = conditions.specs;
+    if (specs == nil) then
+        specs = {};
+        conditions.specs = specs;
+    end
+    return specs;
+end
+
+--- Is this one specialization in every selected action's set.
 local function SpecConditionHasID(ctx, specID)
-    local specs = SpecConditionsOf(ctx.action);
-    return specs ~= nil and specs[specID] ~= nil;
+    return AllActions(ctx, function(action)
+        local specs = SpecConditionsOf(action);
+        return specs ~= nil and specs[specID] ~= nil;
+    end);
 end
 
 --- **The empty set is written and kept**, the way the all-off masks beside it are. Picking no
@@ -185,44 +259,39 @@ end
 --- reader is meant to see (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the row that says so is the
 --- row this leaves behind. [Disable] at the top of the menu is what clears the key.
 ---
---- **The set is read off the action at click time.** It does not exist until the first box is
+--- **The set is read off each action at click time.** It does not exist until the first box is
 --- ticked, so a reference taken while the menu was built is stale the moment one is.
+---
+--- **Off only when every action has it**, which is also why turning off never meets an action
+--- with no set: a selection where one lacks it is drawn off and turns it on.
 local function ToggleSpecConditionID(ctx, specID)
-    local conditions = TableFor(ctx.action, "specs", true);
-    local specs = conditions.specs;
-    if (specs == nil) then
-        specs = {};
-        conditions.specs = specs;
+    local turnOn = not SpecConditionHasID(ctx, specID);
+    for _, action in ipairs(ctx.actions) do
+        SpecConditionsFor(action)[specID] = turnOn or nil;
     end
-    if (specs[specID] == nil) then
-        specs[specID] = true;
-    else
-        specs[specID] = nil;
-    end
-    return OnActionValueChanged(ctx.action);
+    return OnActionsChanged(ctx.actions);
 end
 
---- Is every specialization of this class in the set. **The same question the tooltip line asks**
---- before it writes the class name in place of the specializations
+--- Is every specialization of this class in every selected action's set. **The same question the
+--- tooltip line asks** before it writes the class name in place of the specializations
 --- (`Misc.lua`'s `DescribeSpecCondition`), so the box and the line cannot disagree about what a
 --- whole class is.
 local function ClassSpecsAllPicked(ctx, classID)
-    return DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(ctx.action), classID);
+    return AllActions(ctx, function(action)
+        return DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(action), classID);
+    end);
 end
 
 --- **Half on goes to all on.** A checkbox is ticked or it is not, so a class with some of its
 --- specialization picked has no third state to draw, and "pressing it turns it on" is the only
---- answer a reader can predict from what is on screen.
+--- answer a reader can predict from what is on screen. A selection where one action holds the
+--- class and another does not is half on the same way.
 local function ToggleClassSpecs(ctx, classID)
     local turnOn = not ClassSpecsAllPicked(ctx, classID);
-    local conditions = TableFor(ctx.action, "specs", true);
-    local specs = conditions.specs;
-    if (specs == nil) then
-        specs = {};
-        conditions.specs = specs;
+    for _, action in ipairs(ctx.actions) do
+        DebindPrivate.SetClassInSpecSet(SpecConditionsFor(action), classID, turnOn);
     end
-    DebindPrivate.SetClassInSpecSet(specs, classID, turnOn);
-    return OnActionValueChanged(ctx.action);
+    return OnActionsChanged(ctx.actions);
 end
 
 --- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
@@ -234,19 +303,22 @@ local function PruneConditions(action)
 end
 
 --- **The one place this file turns a menu value into stored state.** Every handler the kit
---- makes goes in and out through these two (`MenuKit.MakeHandlers`), so what a write costs
---- after the value moved is written once.
+--- makes goes in and out through these (`MenuKit.MakeHandlers`), so what a write costs after the
+--- values moved is written once, in `Commit`.
 ---
 --- `targetObj` used to let a bit checkbox name some other table to work on. Nothing ever passed
 --- one, so nothing ever ran that branch, and it is not carried over.
 local ActionValues = {
-    Get = function(ctx, key)
-        local tbl = TableFor(ctx.action, key);
+    Targets = function(ctx)
+        return ctx.actions;
+    end,
+
+    Get = function(action, key)
+        local tbl = TableFor(action, key);
         return tbl and tbl[key];
     end,
 
-    Set = function(ctx, key, value)
-        local action = ctx.action;
+    Set = function(action, key, value)
         if (value == nil) then
             -- `nil`을 고를 때 표를 만들었다가 곧바로 거두는 일이 없어야 해서, 표는 실제로
             -- 쓸 때만 만든다.
@@ -258,11 +330,14 @@ local ActionValues = {
         else
             TableFor(action, key, true)[key] = value;
         end
-        -- The checkbox branch comes through here as well. Neither field that does so today
-        -- (`ignoreHoverUnit`, `keepInBindingContext`) is a step in the ordering, so the
-        -- renumber moves nothing -- but the day one that is arrives here, that group alone
-        -- would quietly keep the old symptom.
-        return OnActionValueChanged(action);
+    end,
+
+    -- The checkbox branch comes through here as well. None of the fields that do so today
+    -- (`ignoreHoverUnit`, `keepInBindingContext`, the two cast-key boxes) is a step in the
+    -- ordering, so the renumber moves nothing -- but the day one that is arrives here, that group
+    -- alone would quietly keep the old symptom.
+    Commit = function(ctx)
+        return OnActionsChanged(ctx.actions);
     end,
 };
 
@@ -280,21 +355,30 @@ local ActionMenus = MenuKit.NewRegistry({
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
     newFeatures = { "ROLE" },
 
-    -- **묶음 키가 곧 이슈 갈래인 것은 아니다.** 이 메뉴가 쓰는 키 중 절반은 그 이름의
-    -- 검사가 없다(`combat`, `known`, `stealth`, `extrabar`, 커스텀 상태, 중요도).
-    -- 그냥 물으면 언제나 nil이라 답은 같지만, 없는 갈래를 묻는 것 자체가 DEBUG에서 걸린다.
+    -- **Not every group's key is an issue category.** Half the keys this menu writes have no check
+    -- by that name (`combat`, `known`, `stealth`, `extrabar`, custom states, importance). Asking
+    -- anyway would answer nil all the same, but asking for a category that does not exist trips
+    -- DEBUG. The first action in the selection with a problem is the one the row speaks for.
     issueForKey = function(ctx, key)
         if (Constants.BINDING_ISSUE_CATEGORIES[key]) then
-            return DebindPrivate.GetBindingIssue(ctx.action, key);
+            for _, action in ipairs(ctx.actions) do
+                local issue = DebindPrivate.GetBindingIssue(action, key);
+                if (issue) then
+                    return issue;
+                end
+            end
         end
     end,
 
-    -- **`TableFor`를 거친다.** 조건은 `action.conditions` 안이라 최상단을 보면 언제나
-    -- nil이고, 그러면 조건이 걸린 묶음이 하나도 안 파래진다. 조건이 아닌 키(`priority`)는
-    -- 그대로 액션에서 읽힌다.
+    -- **Through `TableFor`.** Conditions live in `action.conditions`, so reading the top level
+    -- always gives nil and no group with a condition would turn blue. A key that is not a condition
+    -- (`priority`) is read off the action. **Blue when any selected action has it**: the colour says
+    -- there is something in here to look at.
     isActiveForKey = function(ctx, key)
-        local tbl = TableFor(ctx.action, key);
-        return tbl ~= nil and tbl[key] ~= nil;
+        return AnyAction(ctx, function(action)
+            local tbl = TableFor(action, key);
+            return tbl ~= nil and tbl[key] ~= nil;
+        end);
     end,
 
     --- 이슈 코드를 문장과 색으로. **등급이 색을 고른다** (`Misc.lua`의 `GetIssueColor`).
@@ -313,33 +397,32 @@ local ActionMenus = MenuKit.NewRegistry({
 --- axis is one field inside that table, so a new axis adds a block to the menu and leaves
 --- these accessors alone.
 ---
---- The axis widgets all read the table off `ctx.action` at click time rather than capturing it.
---- `units` is nil until the first condition is set, so a reference grabbed while the
---- menu was being built goes stale the moment the user turns one on.
-local function GetUnitConditionReaction(ctx, unit)
-    local value = UnitConditionsOf(ctx.action) and UnitConditionsOf(ctx.action)[unit];
+--- **Every one of these reads the table off the action when it is called** rather than capturing
+--- it. `units` is nil until the first condition is set, so a reference grabbed while the menu was
+--- being built goes stale the moment the user turns one on.
+local function UnitConditionAxisOf(action, unit, axis)
+    local units = UnitConditionsOf(action);
+    local value = units and units[unit];
     if (type(value) ~= "table") then
         return nil;
     end
-    return value.reaction;
+    return value[axis];
 end
 
---- Which of the three radios above is on, `nil` where no condition was ever made.
+--- Which of the three radios above is on for one action, `nil` where no condition was ever made.
 ---
 --- **The reading is `UnitConditionForBinding`'s and not a second one.** This used to spell the
 --- same fork out again -- scalars first, then `off`, then `exists == false` -- with a comment
---- saying the two had to agree, which nothing could check: that function is reached by the
---- headless specs and this file is not (`tests/run.lua`). The day they parted, the screen would
---- have said [when there is one] while the binding meant [when there is not], and only somebody
---- pressing the key would have found out. `ActionTooltip.lua` reads unit conditions the same
---- way, for the same reason.
+--- saying the two had to agree. The day they parted, the screen would have said [when there is
+--- one] while the binding meant [when there is not], and only somebody pressing the key would have
+--- found out. `ActionTooltip.lua` reads unit conditions the same way, for the same reason.
 ---
 --- **`off` is the one thing that function cannot answer.** It conflates a turned-off condition
 --- with an absent one, answering `nil` for both, which is right for a binding and wrong for a
 --- menu: this screen has to keep showing the axes a reader turned off but did not throw away.
 --- So it is asked here, ahead of the shared reading.
-local function UnitConditionMode(ctx, unit)
-    local units = UnitConditionsOf(ctx.action);
+local function UnitConditionModeOf(action, unit)
+    local units = UnitConditionsOf(action);
     local value = units and units[unit];
     if (value == nil) then
         return nil;
@@ -353,39 +436,33 @@ local function UnitConditionMode(ctx, unit)
     return "exists";
 end
 
-local function UnitConditionIsExists(ctx, unit)
-    return UnitConditionMode(ctx, unit) == "exists";
-end
-
 --- 조건이 실제로 걸려 있는가. 꺼진 채로 축만 기억하는 것은 조건이 아니다 - 묶음을 파랗게
 --- 칠하는 자리들이 이걸 물어야 **끈 조건 때문에 "걸려 있음"으로 보이지** 않는다.
-local function UnitConditionIsOn(ctx, unit)
-    local mode = UnitConditionMode(ctx, unit);
+local function UnitConditionOnFor(action, unit)
+    local mode = UnitConditionModeOf(action, unit);
     return mode == "exists" or mode == "absent";
 end
 
-local function GetUnitConditionDead(ctx, unit)
-    local value = UnitConditionsOf(ctx.action) and UnitConditionsOf(ctx.action)[unit];
-    if (type(value) ~= "table") then
-        return nil;
-    end
-    return value.dead;
+--- Is the [when there is one] radio on for every selected action. The axis blocks under it are
+--- locked on this, so they open only where every action has a table to write into.
+local function UnitConditionIsExists(ctx, unit)
+    return AllActions(ctx, function(action)
+        return UnitConditionModeOf(action, unit) == "exists";
+    end);
 end
 
-local function GetUnitConditionGroup(ctx, unit)
-    local value = UnitConditionsOf(ctx.action) and UnitConditionsOf(ctx.action)[unit];
-    if (type(value) ~= "table") then
-        return nil;
-    end
-    return value.group;
+--- Is the condition on for any selected action. What paints a row blue.
+local function UnitConditionIsOn(ctx, unit)
+    return AnyAction(ctx, function(action)
+        return UnitConditionOnFor(action, unit);
+    end);
 end
 
-local function GetUnitConditionRole(ctx, unit)
-    local value = UnitConditionsOf(ctx.action) and UnitConditionsOf(ctx.action)[unit];
-    if (type(value) ~= "table") then
-        return nil;
-    end
-    return value.role;
+--- Is the life radio holding `value` on every selected action.
+local function UnitConditionDeadIs(ctx, unit, value)
+    return AllActions(ctx, function(action)
+        return UnitConditionAxisOf(action, unit, "dead") == value;
+    end);
 end
 
 --- 이 유닛 조건이 기억하고 있는 축이 하나라도 있는가.
@@ -397,9 +474,10 @@ local function UnitConditionRemembersAxis(cond)
     return cond.reaction ~= nil or cond.dead ~= nil or cond.role ~= nil or cond.group ~= nil;
 end
 
---- What the three radios at the top write. **It moves the mode and leaves the axes alone**: a
---- reader who switches to [Disable] and back has to find the reaction and the life they picked
---- still there. Ignoring them while the condition is off is `Misc.UnitConditionForBinding`'s job.
+--- What the three radios at the top write into one action. **It moves the mode and leaves the axes
+--- alone**: a reader who switches to [Disable] and back has to find the reaction and the life they
+--- picked still there. Ignoring them while the condition is off is `Misc.UnitConditionForBinding`'s
+--- job.
 ---
 --- **Each of the three modes carries a value of its own.** While an empty table meant [when there
 --- is one], an action carrying a single unit condition signed the same as an action carrying no
@@ -408,15 +486,15 @@ end
 ---
 --- A key with nothing left to remember is deleted rather than left as an empty table, or a unit
 --- nothing was ever picked for piles up in the profile.
-local function SetUnitConditionMode(ctx, unit, mode)
-    local units = UnitConditionsOf(ctx.action);
+local function WriteUnitConditionMode(action, unit, mode)
+    local units = UnitConditionsOf(action);
     local cond = units and units[unit];
     if (type(cond) ~= "table") then
         cond = {};
     end
-    -- **`and false or`로 쓰지 말 것.** 그 관용구는 `false`를 못 돌려준다 - 참일 때
-    -- `true and false`가 `false`가 되고 그게 다시 `or`의 왼쪽이라 오른쪽이 나온다.
-    -- 그렇게 쓴 동안 [없을 때]가 아무것도 안 적어서 [있을 때]와 같은 값이 됐다.
+    -- **Not `and false or`.** That idiom cannot return `false`: when the test is true,
+    -- `true and false` is `false`, which is again the left of the `or`, so the right side comes
+    -- out. Written that way, [when there is none] stored nothing and matched [when there is one].
     cond.disabled = (mode == "disabled") or nil;
     if (mode == "absent") then
         cond.exists = false;
@@ -427,103 +505,117 @@ local function SetUnitConditionMode(ctx, unit, mode)
     end
 
     if (mode == "disabled" and not UnitConditionRemembersAxis(cond)) then
-        -- 기억할 축이 하나도 없다. 빈 표를 남기면 아무것도 안 고른 유닛이 프로필에 쌓인다.
+        -- Nothing left to remember. An empty table would pile up units nothing was picked for.
         if (units) then
             units[unit] = nil;
             if (not next(units)) then
-                ctx.action.conditions.units = nil;
-                PruneConditions(ctx.action);
+                action.conditions.units = nil;
+                PruneConditions(action);
             end
         end
     else
         if (units == nil) then
             units = {};
-            TableFor(ctx.action, "units", true).units = units;
+            TableFor(action, "units", true).units = units;
         end
         units[unit] = cond;
     end
-
-    OnActionValueChanged(ctx.action);
-    return MenuResponse.Refresh;
 end
 
---- Write one axis. Every caller is gated on the `exists` radio, so the table is already there.
-local function SetUnitConditionAxis(ctx, unit, axis, value)
-    local cond = UnitConditionsOf(ctx.action) and UnitConditionsOf(ctx.action)[unit];
-    if (type(cond) ~= "table") then
-        return;
+local function SetUnitConditionMode(ctx, unit, mode)
+    for _, action in ipairs(ctx.actions) do
+        WriteUnitConditionMode(action, unit, mode);
     end
-    cond[axis] = value;
-    OnActionValueChanged(ctx.action);
-    return MenuResponse.Refresh;
+    return OnActionsChanged(ctx.actions);
 end
 
---- The reaction boxes. Storage is a mask, but **all-on is never written** -- that says the
---- same thing as constraining nothing, and one condition stored two ways is two different
---- boxes to the solver (`Misc.lua` normalizes `reactions`/`frameTypes` for the same reason).
+--- Write one axis on every selected action. Every caller is gated on the `exists` radio being on
+--- for all of them, so the tables are already there; one that is not is skipped rather than made.
+local function SetUnitConditionAxis(ctx, unit, axis, value)
+    for _, action in ipairs(ctx.actions) do
+        local cond = UnitConditionsOf(action) and UnitConditionsOf(action)[unit];
+        if (type(cond) == "table") then
+            cond[axis] = value;
+        end
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+--- The reaction, group and role boxes share one rule. Storage is a mask, but **all-on is never
+--- written** -- that says the same thing as constraining nothing, and one condition stored two
+--- ways is two different boxes to the solver (`Misc.lua` normalizes `reactions`/`frameTypes` for
+--- the same reason).
 ---
 --- 0 **is** written. Choosing nothing is not something to normalize away; it is an issue, and
 --- `GetBindingIssue`'s zero-mask branch reports it where the user set it.
-local function UnitConditionReactionChecked(ctx, unit, value)
-    local reaction = GetUnitConditionReaction(ctx, unit);
-    if (reaction == nil) then
-        return true;
+local function UnitConditionMaskChecked(ctx, unit, axis, value)
+    return AllActions(ctx, function(action)
+        local mask = UnitConditionAxisOf(action, unit, axis);
+        return mask == nil or bit.band(mask, value) == value;
+    end);
+end
+
+--- **One outcome for the selection, and each action keeps its other bits.** On when some action
+--- lacks the bit, off when every one has it.
+local function ToggleUnitConditionMask(ctx, unit, axis, value, allMask)
+    local turnOn = not UnitConditionMaskChecked(ctx, unit, axis, value);
+    for _, action in ipairs(ctx.actions) do
+        local cond = UnitConditionsOf(action) and UnitConditionsOf(action)[unit];
+        if (type(cond) == "table") then
+            local mask = cond[axis] or allMask;
+            if (turnOn) then
+                mask = bit.bor(mask, value);
+            else
+                mask = mask - bit.band(mask, value);
+            end
+            if (mask == allMask) then
+                mask = nil;
+            end
+            cond[axis] = mask;
+        end
     end
-    return bit.band(reaction, value) == value;
+    return OnActionsChanged(ctx.actions);
+end
+
+local function UnitConditionReactionChecked(ctx, unit, value)
+    return UnitConditionMaskChecked(ctx, unit, "reaction", value);
 end
 
 local function ToggleUnitConditionReaction(ctx, unit, value)
-    local mask = bit.bxor(GetUnitConditionReaction(ctx, unit) or Constants.REACTION_ALL, value);
-    if (mask == Constants.REACTION_ALL) then
-        mask = nil;
-    end
-    return SetUnitConditionAxis(ctx, unit, "reaction", mask);
+    return ToggleUnitConditionMask(ctx, unit, "reaction", value, Constants.REACTION_ALL);
 end
 
 --- 소속 확인란. **셋이 서로 겹친다** - 공대에서 같은 소그룹인 사람은 [파티]와 [공대]에
 --- 다 든다. 그래서 [파티]만 켜도 파티가 공대가 된 뒤에 옆자리 사람에게 계속 걸린다.
 --- 반응·역할과 같은 규칙: 전부 켠 값은 안 쓰고, 0은 쓴다.
 local function UnitConditionGroupChecked(ctx, unit, value)
-    local group = GetUnitConditionGroup(ctx, unit);
-    if (group == nil) then
-        return true;
-    end
-    return bit.band(group, value) == value;
+    return UnitConditionMaskChecked(ctx, unit, "group", value);
 end
 
 local function ToggleUnitConditionGroup(ctx, unit, value)
-    local mask = bit.bxor(GetUnitConditionGroup(ctx, unit) or Constants.UNITGROUP_ALL, value);
-    if (mask == Constants.UNITGROUP_ALL) then
-        mask = nil;
-    end
-    return SetUnitConditionAxis(ctx, unit, "group", mask);
+    return ToggleUnitConditionMask(ctx, unit, "group", value, Constants.UNITGROUP_ALL);
 end
 
---- 프레임 종류 확인란 하나가 켜져 있는가. **`AppendCheckboxes`의 `_hasBit`과 같은 답을
---- 내야 한다** - 그쪽은 값이 없으면 기본 마스크로 읽으므로, 여기만 0으로 읽으면 아무것도
---- 안 정한 액션에서 전부 꺼진 것으로 보인다.
+--- 프레임 종류 확인란 하나가 켜져 있는가. **`MenuKit`의 `hasBit`과 같은 답을 내야 한다** -
+--- 그쪽은 값이 없으면 기본 마스크로 읽으므로, 여기만 0으로 읽으면 아무것도 안 정한 액션에서
+--- 전부 꺼진 것으로 보인다.
 local function HoverFrameTypeChecked(ctx, value)
-    local conditions = ctx.action and ctx.action.conditions;
-    local current = (conditions and conditions.frameTypes) or FRAMETYPE_DEFAULT;
-    return bit.band(current, value) == value;
+    return AllActions(ctx, function(action)
+        local conditions = action.conditions;
+        local current = (conditions and conditions.frameTypes) or FRAMETYPE_DEFAULT;
+        return bit.band(current, value) == value;
+    end);
 end
 
 --- The role boxes. Same rule as the reaction ones above: all-on is never written, and 0 is.
 local function UnitConditionRoleChecked(ctx, unit, value)
-    local role = GetUnitConditionRole(ctx, unit);
-    if (role == nil) then
-        return true;
-    end
-    return bit.band(role, value) == value;
+    return UnitConditionMaskChecked(ctx, unit, "role", value);
 end
 
 local function ToggleUnitConditionRole(ctx, unit, value)
-    local mask = bit.bxor(GetUnitConditionRole(ctx, unit) or Constants.ROLE_ALL, value);
-    if (mask == Constants.ROLE_ALL) then
-        mask = nil;
-    end
-    return SetUnitConditionAxis(ctx, unit, "role", mask);
+    return ToggleUnitConditionMask(ctx, unit, "role", value, Constants.ROLE_ALL);
 end
+
 local function hoverConditionIsOn(ctx)
     return UnitConditionIsExists(ctx, "hover");
 end
@@ -542,8 +634,13 @@ ActionMenu.GetTabList                = GetTabList;
 ActionMenu.SetInstructionTooltip     = SetInstructionTooltip;
 ActionMenu.SetErrorTooltip           = SetErrorTooltip;
 
+ActionMenu.AllActions                = AllActions;
+ActionMenu.AnyAction                 = AnyAction;
+ActionMenu.HowManyAccept             = HowManyAccept;
+ActionMenu.OnlyOneReason             = OnlyOneReason;
+
 ActionMenu.ActionMenus               = ActionMenus;
-ActionMenu.OnActionValueChanged      = OnActionValueChanged;
+ActionMenu.OnActionsChanged          = OnActionsChanged;
 ActionMenu.TableFor                  = TableFor;
 ActionMenu.PruneConditions           = PruneConditions;
 ActionMenu.UnitConditionsOf          = UnitConditionsOf;
@@ -552,13 +649,17 @@ ActionMenu.SpecConditionHasID        = SpecConditionHasID;
 ActionMenu.ToggleSpecConditionID     = ToggleSpecConditionID;
 ActionMenu.ClassSpecsAllPicked       = ClassSpecsAllPicked;
 ActionMenu.ToggleClassSpecs          = ToggleClassSpecs;
+ActionMenu.actionHandlers            = ActionHandlers;
 ActionMenu.actionValueEquals         = actionValueEquals;
 ActionMenu.setActionValue            = setActionValue;
 
-ActionMenu.UnitConditionMode         = UnitConditionMode;
+ActionMenu.UnitConditionAxisOf       = UnitConditionAxisOf;
+ActionMenu.UnitConditionModeOf       = UnitConditionModeOf;
+ActionMenu.UnitConditionOnFor        = UnitConditionOnFor;
 ActionMenu.UnitConditionIsExists     = UnitConditionIsExists;
 ActionMenu.UnitConditionIsOn         = UnitConditionIsOn;
-ActionMenu.GetUnitConditionDead      = GetUnitConditionDead;
+ActionMenu.UnitConditionDeadIs       = UnitConditionDeadIs;
+ActionMenu.WriteUnitConditionMode    = WriteUnitConditionMode;
 ActionMenu.SetUnitConditionMode      = SetUnitConditionMode;
 ActionMenu.SetUnitConditionAxis      = SetUnitConditionAxis;
 ActionMenu.UnitConditionReactionChecked = UnitConditionReactionChecked;

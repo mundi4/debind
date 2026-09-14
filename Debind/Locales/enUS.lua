@@ -1619,6 +1619,16 @@ L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, whereve
 L["BULK_SET_KEY_DESC"] = "Sets one key for everything you picked, in one go.|n|nRows sharing a key with something you did not pick are left on it. Both keys still work; they just stop working as one."
 L["BULK_BLOCKED_ALL_IMPORTED"] = "None of what you picked has been accepted yet. That has to come first."
 L["BULK_BLOCKED_SOME_IMPORTED"] = "Some of what you picked has not been accepted yet. Take those rows out of the selection."
+-- A single row's [Move to] and [Copy to] on something not accepted yet. `BULK_BLOCKED_ALL_IMPORTED`
+-- speaks of "what you picked", and a row somebody right-clicked is not a pick.
+L["MOVE_BLOCKED_IMPORTED"] = "This has not been accepted yet. That has to come first."
+-- **Why an item is dead on the menu over several rows**: it belongs to one action at a time
+-- (importance, the known condition, the two macro items). The way out is the selection, so that is
+-- what the sentence says; why each of those cannot go on many is not the reader's question here.
+L["MENU_BLOCKED_ONLY_ONE"] = "This can only be changed on one action at a time. Pick just one."
+-- Dead because some of the picked rows cannot carry this at all, as a macro takes no target. The way
+-- out is the one `BULK_BLOCKED_SOME_IMPORTED` gives, and in the same words.
+L["MENU_BLOCKED_SOME_CANNOT"] = "Some of what you picked cannot have this. Take those rows out of the selection."
 -- The single one, from a row's right-click menu.
 L["REJECT_IMPORT"] = "Reject"
 -- **The second sentence is the whole reason this has a tooltip**, and it is the one [Reject all]

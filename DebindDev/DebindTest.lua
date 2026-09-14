@@ -1869,7 +1869,7 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
 
         local function OpenBulkMenu(actions)
             Menu.GetManager():CloseMenus()
-            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupBulkDropdownMenu, actions)
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = actions })
             return Menu.GetManager():GetOpenMenu()
         end
 
@@ -1938,8 +1938,8 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
     end,
 })
 
---- **Needs the game.** `DropDownMenus.lua` is not on the headless load list, so where the resolved
---- target's row stands, when it is locked and what pressing it stores are only measured here
+--- **Needs the game.** Where the resolved target's row stands in the menu, when it is locked and
+--- which setter pressing it reaches is the client's menu tree, which only exists here
 --- (`devdocs/implementing-focus-and-self-cast.md` §3-6).
 RegisterTest("Resolved Target: the row under Units writes the condition, and Target opens none", {
     description = "The Resolved Target row sits under Units, stores \"@\" on an action with no target, locks on None, and is not drawn for a macro. The Target menu opens no submenu.",
@@ -1970,7 +1970,7 @@ RegisterTest("Resolved Target: the row under Units writes the condition, and Tar
         --- The menu opened afresh, and one group in it by its label.
         local function Group(action, label)
             Menu.GetManager():CloseMenus()
-            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupEditDropdownMenu, { action = action })
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = { action } })
             local menu = Menu.GetManager():GetOpenMenu()
             if not menu then
                 return nil, "the menu did not come up"
@@ -2042,9 +2042,9 @@ RegisterTest("Resolved Target: the row under Units writes the condition, and Tar
     end,
 })
 
---- **The box is the only writer of the field, and the menu files are not on the headless load list.**
---- What the press stores, and the twin it turns into, is only measured here; which record wins a
---- press with the key held is `tests/eval_spec.lua`'s.
+--- **The box is the only writer of the field, and which setter a press on it reaches is the client's
+--- menu tree.** What the press stores, and the twin it turns into, is measured here; which record
+--- wins a press with the key held is `tests/eval_spec.lua`'s.
 RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
     description = "액션 메뉴의 두 체크박스가 필드를 쓰고, 그 조합키의 쌍둥이가 CAST_KEY_IGNORE대로 빠지거나 액션의 대상을 겨눈다",
     run = function()
@@ -2065,7 +2065,7 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
             { label = "IGNORE_FOCUS_CAST_KEY", field = "ignoreFocusCastKey", castModifier = Constants.CASTMOD_FOCUS },
         }) do
             Menu.GetManager():CloseMenus()
-            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupEditDropdownMenu, { action = action })
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = { action } })
             local menu = Menu.GetManager():GetOpenMenu()
             if not menu then
                 return Fail(NAME, "the menu did not come up")
@@ -2119,9 +2119,9 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
     end,
 })
 
---- **The three radios are the only thing that writes a unit condition's mode**, and the writer is
---- a local inside the menu file. No spec can reach it: `DropDownMenus.lua` is not on the headless
---- load list, so what gets stored when a reader presses one of these is only ever measured here.
+--- **The three radios are the only thing that writes a unit condition's mode.** What the writer
+--- stores is `tests/actionmenu_spec.lua`'s too; what is left to the game is that pressing each row of
+--- the client's menu reaches it with the right mode.
 ---
 --- What it is guarding is the shape rather than the wording. A mode that leaves no value behind
 --- rides on the table being empty, and the rest of the addon reads an empty table as nothing at
@@ -2180,7 +2180,7 @@ RegisterTest("Unit condition: each mode writes a value of its own", {
         --- 값이 바뀌면 라디오가 다시 그려지기 때문이다.
         local function TargetSubmenu()
             Menu.GetManager():CloseMenus()
-            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupEditDropdownMenu, { action = action })
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = { action } })
             local menu = Menu.GetManager():GetOpenMenu()
             if not menu then
                 return nil, "the menu did not come up"

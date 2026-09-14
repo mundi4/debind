@@ -121,46 +121,112 @@ end
 
 --- Turns an accessor into the callback pairs the game's menu wants.
 ---
---- An accessor is `Get(ctx, key)` and `Set(ctx, key, value)`. Everything a family does on the way
---- in and out of storage lives behind those two: which table the key belongs to, what to prune
---- after a clear, what to rebuild once the value moved.
+--- An accessor is four functions. `Targets(ctx)` is the list a menu aims at, `Get(target, key)` and
+--- `Set(target, key, value)` read and write one of them, and `Commit(ctx)` runs once after a press
+--- wrote anything and returns what the menu should do next. Everything a family does on the way in
+--- and out of storage lives behind those: which table the key belongs to, what to prune after a
+--- clear, what to rebuild once the values moved.
+---
+--- **A menu aims at a list because one menu edits a selection** (`devdocs/editing-many-actions-at-once.md`).
+--- A single row is a list of one, and every rule below comes out as the plain single-value rule there.
+---
+--- - A radio or a box reads as picked only when **every** target holds it.
+--- - A press decides **one** outcome from what is drawn and writes that to every target. Flipping
+---   each target from its own value would leave a mixed selection mixed.
+--- - A bit moves on every target and **each keeps its other bits**.
 ---
 --- **`data` is the only thing the game hands a click callback back** (`MenuUtil.CreateRadio`), so
 --- `ctx` rides in it. That is what lets the callbacks here be written once for every family, and
---- what keeps a shared current-action upvalue out of the menus that use them.
+--- what keeps a shared current-target upvalue out of the menus that use them.
 function MenuKit.MakeHandlers(accessor)
-    local get, set = accessor.Get, accessor.Set;
+    local targets, get, set, commit = accessor.Targets, accessor.Get, accessor.Set, accessor.Commit;
 
-    local function equals(data)
-        local current = get(data.ctx, data.key);
-        if (data.value == MenuKit.TOGGLE) then
-            return current and true or false;
+    local function every(data, holds)
+        local list = targets(data.ctx);
+        if (#list == 0) then
+            return false;
         end
-        return current == data.value;
+        for i = 1, #list do
+            if (not holds(get(list[i], data.key))) then
+                return false;
+            end
+        end
+        return true;
     end
 
-    --- **Writes nothing when the value is already what was picked.** Clearing a key that was never
-    --- set would otherwise make the table it lives in and then prune it away again.
-    local function setValue(data)
+    local function equals(data)
         if (data.value == MenuKit.TOGGLE) then
+            return every(data, function(current)
+                return current and true or false;
+            end);
+        end
+        return every(data, function(current)
+            return current == data.value;
+        end);
+    end
+
+    --- **Writes nothing to a target already holding what was picked, and commits nothing when no
+    --- target moved.** Clearing a key that was never set would otherwise make the table it lives in
+    --- and then prune it away again.
+    local function setValue(data)
+        local value = data.value;
+        local toggle = value == MenuKit.TOGGLE;
+        if (toggle) then
             -- **The cleared box writes `false`, not nil.** Storing the off state rather than
             -- erasing the key is what the boxes coming this way have always done, and a family
             -- whose `Set` wants nil instead can fold `false` there.
-            return set(data.ctx, data.key, not get(data.ctx, data.key));
+            value = not equals(data);
         end
-        if (get(data.ctx, data.key) ~= data.value) then
-            return set(data.ctx, data.key, data.value);
+        local wrote = false;
+        for _, target in ipairs(targets(data.ctx)) do
+            local current = get(target, data.key);
+            if (toggle) then
+                current = current and true or false;
+            end
+            if (current ~= value) then
+                set(target, data.key, value);
+                wrote = true;
+            end
         end
+        if (wrote) then
+            return commit(data.ctx);
+        end
+    end
+
+    local function MaskOf(target, data)
+        return get(target, data.key) or data.defaultValue or 0;
     end
 
     local function hasBit(data)
-        local current = get(data.ctx, data.key) or data.defaultValue or 0;
-        return bit.band(current, data.value) == data.value;
+        local list = targets(data.ctx);
+        if (#list == 0) then
+            return false;
+        end
+        for i = 1, #list do
+            if (bit.band(MaskOf(list[i], data), data.value) ~= data.value) then
+                return false;
+            end
+        end
+        return true;
     end
 
     local function toggleBit(data)
-        local current = get(data.ctx, data.key) or data.defaultValue or 0;
-        return set(data.ctx, data.key, bit.bxor(current, data.value));
+        local turnOn = not hasBit(data);
+        local wrote = false;
+        for _, target in ipairs(targets(data.ctx)) do
+            local current = MaskOf(target, data);
+            local mask = bit.bor(current, data.value);
+            if (not turnOn) then
+                mask = current - bit.band(current, data.value);
+            end
+            if (mask ~= current) then
+                set(target, data.key, mask);
+                wrote = true;
+            end
+        end
+        if (wrote) then
+            return commit(data.ctx);
+        end
     end
 
     return { equals = equals, set = setValue, hasBit = hasBit, toggleBit = toggleBit };
@@ -382,6 +448,17 @@ function Registry:BuildNode(parentDescription, node, ctx)
     end
 
     local label = rawget(LLL, node.label) or node.label;
+
+    -- **A leaf, not a submenu nobody can open.** `blocked` answers with the reason this ctx cannot
+    -- have the node right now while some other one could, which is what a locked row says. The arrow
+    -- a submenu carries would promise a step that is not there.
+    local blockedReason = node.blocked and node.blocked(ctx);
+    if (blockedReason) then
+        local blockedDescription = parentDescription:CreateButton(label);
+        blockedDescription:SetEnabled(false);
+        MenuKit.SetErrorTooltip(blockedDescription, blockedReason);
+        return blockedDescription;
+    end
 
     local instruction = node.instruction;
     if (instruction == nil) then

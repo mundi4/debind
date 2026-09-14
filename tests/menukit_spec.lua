@@ -28,17 +28,24 @@ return function(DebindPrivate)
         end
     end
 
-    --- 가장 단순한 접근자. 표 하나에 그대로 읽고 쓰고, 쓴 횟수를 센다.
+    --- The plainest accessor. A target is a table with `values`, written straight through; writes and
+    --- commits are counted. A ctx with no `targets` is its own single target.
     local function Accessor()
-        local store = { writes = 0 };
+        local store = { writes = 0, commits = 0 };
         return {
             store = store,
-            Get = function(ctx, key)
-                return ctx.values[key];
+            Targets = function(ctx)
+                return ctx.targets or { ctx };
             end,
-            Set = function(ctx, key, value)
+            Get = function(target, key)
+                return target.values[key];
+            end,
+            Set = function(target, key, value)
                 store.writes = store.writes + 1;
-                ctx.values[key] = value;
+                target.values[key] = value;
+            end,
+            Commit = function()
+                store.commits = store.commits + 1;
                 return "refreshed";
             end,
         };
@@ -46,6 +53,15 @@ return function(DebindPrivate)
 
     local function Ctx(values)
         return { values = values or {} };
+    end
+
+    --- Several targets under one ctx, each starting from its own values.
+    local function Many(...)
+        local targets = {};
+        for i, values in ipairs({ ... }) do
+            targets[i] = { values = values };
+        end
+        return { targets = targets };
     end
 
     --------------------------------------------------------------------------
@@ -120,6 +136,81 @@ return function(DebindPrivate)
         local h = MenuKit.MakeHandlers(Accessor());
         check(not h.hasBit({ ctx = Ctx(), key = "forms", value = 1 }),
             "기본값이 없으면 아무 비트도 안 켜져 있다");
+    end);
+
+    --------------------------------------------------------------------------
+    -- MakeHandlers over several targets
+    --------------------------------------------------------------------------
+
+    test("a radio reads as picked only when every target holds the value", function()
+        local h = MenuKit.MakeHandlers(Accessor());
+        check(not h.equals({ ctx = Many({ combat = true }, { combat = false }), key = "combat", value = true }),
+            "one target holding another value leaves the radio off");
+        check(h.equals({ ctx = Many({ combat = true }, { combat = true }), key = "combat", value = true }),
+            "every target holding it lights the radio");
+    end);
+
+    test("a radio write reaches every target that differs and commits once", function()
+        local accessor = Accessor();
+        local h = MenuKit.MakeHandlers(accessor);
+        local ctx = Many({ combat = true }, { combat = false }, {});
+
+        check(h.set({ ctx = ctx, key = "combat", value = true }) == "refreshed", "the commit's answer comes back");
+        for i, target in ipairs(ctx.targets) do
+            check(target.values.combat == true, "target " .. i .. " did not take the value");
+        end
+        check(accessor.store.writes == 2, "the one already holding it is written anyway: " .. accessor.store.writes);
+        check(accessor.store.commits == 1, "commits: " .. accessor.store.commits);
+    end);
+
+    --- **Flipping each target from its own value leaves a mixed set mixed.** The press has to decide
+    --- one outcome from what is drawn, and a box that is not on for everyone is drawn off.
+    test("a toggle box on a mixed set turns everything on, then everything off", function()
+        local h = MenuKit.MakeHandlers(Accessor());
+        local ctx = Many({ keep = true }, {}, { keep = false });
+        local data = { ctx = ctx, key = "keep", value = MenuKit.TOGGLE };
+
+        check(not h.equals(data), "a mixed set draws the box off");
+        h.set(data);
+        for i, target in ipairs(ctx.targets) do
+            check(target.values.keep == true, "first press, target " .. i .. ": " .. tostring(target.values.keep));
+        end
+        check(h.equals(data), "everything on draws the box on");
+
+        h.set(data);
+        for i, target in ipairs(ctx.targets) do
+            check(target.values.keep == false, "second press, target " .. i .. ": " .. tostring(target.values.keep));
+        end
+    end);
+
+    test("a bit box on a mixed set moves that bit everywhere and leaves each target's other bits", function()
+        local h = MenuKit.MakeHandlers(Accessor());
+        local ctx = Many({ forms = 1 + 4 }, { forms = 2 }, {});
+        local data = { ctx = ctx, key = "forms", value = 4 };
+
+        check(not h.hasBit(data), "a bit only some targets hold draws off");
+        h.toggleBit(data);
+        check(ctx.targets[1].values.forms == 5, "first: " .. tostring(ctx.targets[1].values.forms));
+        check(ctx.targets[2].values.forms == 6, "second: " .. tostring(ctx.targets[2].values.forms));
+        check(ctx.targets[3].values.forms == 4, "third: " .. tostring(ctx.targets[3].values.forms));
+
+        h.toggleBit(data);
+        check(ctx.targets[1].values.forms == 1, "first, off: " .. tostring(ctx.targets[1].values.forms));
+        check(ctx.targets[2].values.forms == 2, "second, off: " .. tostring(ctx.targets[2].values.forms));
+        check(ctx.targets[3].values.forms == 0, "third, off: " .. tostring(ctx.targets[3].values.forms));
+    end);
+
+    --- The bit rule reads an unset value as the default mask, so turning a default bit off on a target
+    --- that stored nothing has to start from that mask and not from zero.
+    test("a bit box starts an unset target from the default mask", function()
+        local h = MenuKit.MakeHandlers(Accessor());
+        local ctx = Many({}, { frameTypes = 7 });
+        local data = { ctx = ctx, key = "frameTypes", value = 2, defaultValue = 7 };
+
+        check(h.hasBit(data), "both read the bit as on");
+        h.toggleBit(data);
+        check(ctx.targets[1].values.frameTypes == 5, "unset: " .. tostring(ctx.targets[1].values.frameTypes));
+        check(ctx.targets[2].values.frameTypes == 5, "set: " .. tostring(ctx.targets[2].values.frameTypes));
     end);
 
     --------------------------------------------------------------------------
@@ -288,6 +379,67 @@ return function(DebindPrivate)
 
         box.setSelected(box.data);
         check(ctx.values.known == nil, "끄면 false가 아니라 아무것도 안 남는다");
+    end);
+
+    test("the clearing checkbox on a mixed set stores everywhere, then clears everywhere", function()
+        local registry = MenuKit.NewRegistry({
+            accessor = Accessor(),
+            resolveIssue = function(issue) return issue, nil; end,
+        });
+        local parent = FakeDescription();
+        registry:Define("KNOWN", {
+            label = "KNOWN",
+            key = "known",
+            skipTitle = true,
+            build = function(kit)
+                kit:ClearingCheckbox("known?", "known", true);
+            end,
+        });
+
+        local ctx = Many({ known = true }, {});
+        registry:Build(parent, "KNOWN", ctx);
+        local box = parent.calls.checkboxes[1];
+
+        check(not box.isSelected(box.data), "a mixed set draws the box off");
+        box.setSelected(box.data);
+        check(ctx.targets[1].values.known == true and ctx.targets[2].values.known == true,
+            "the first press stores the value on both");
+        box.setSelected(box.data);
+        check(ctx.targets[1].values.known == nil and ctx.targets[2].values.known == nil,
+            "the second press clears both");
+    end);
+
+    --- **A leaf and not a submenu**, the same as `CreateBlockedMenuItem`: a list nobody can open has
+    --- no reason to stand, and an arrow on it promises a step that is not there.
+    test("a node that says it is blocked draws one locked row and nothing under it", function()
+        local registry = Registry({});
+        local built = false;
+        registry:Define("BLOCKED", {
+            label = "BLOCKED",
+            skipTitle = true,
+            blocked = function(ctx)
+                return ctx.values.reason;
+            end,
+            build = function()
+                built = true;
+            end,
+        });
+
+        local enabled, tooltip;
+        local parent = FakeDescription();
+        parent.SetEnabled = function(_, value) enabled = value; end;
+        parent.SetTooltip = function(_, fn) tooltip = fn; end;
+
+        check(registry:Build(parent, "BLOCKED", Ctx({ reason = "only one" })) ~= nil, "the row stands");
+        check(parent.calls.buttons == 1, "one row");
+        check(enabled == false, "the row is locked");
+        check(tooltip ~= nil, "the row carries its reason");
+        check(not built, "nothing is built under a blocked row");
+
+        enabled, tooltip = nil, nil;
+        registry:Build(parent, "BLOCKED", Ctx());
+        check(enabled == nil, "no reason, no lock");
+        check(built, "no reason, the node builds as usual");
     end);
 
     --------------------------------------------------------------------------

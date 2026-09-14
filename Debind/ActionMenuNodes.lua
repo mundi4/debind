@@ -9,14 +9,18 @@ local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 
 --- **The condition groups.** One node per axis an action can be conditioned on. The order they
 --- are drawn in is not here: the place that opens the menu holds it (`DropDownMenus.lua`'s
---- `SetupEditDropdownMenu`).
+--- `SetupActionDropdownMenu`).
 ---
 --- Reading and writing values is all `ActionMenuModel.lua`, and drawing a row is `MenuKit.lua`.
 --- What is left in this file is which group asks what and shows what
 --- (`devdocs/legacy/putting-the-menus-on-a-kit.md`).
 local ActionMenu                     = DebindPrivate.ActionMenu;
 local ActionMenus                    = ActionMenu.ActionMenus;
-local OnActionValueChanged           = ActionMenu.OnActionValueChanged;
+local OnActionsChanged               = ActionMenu.OnActionsChanged;
+local AllActions                     = ActionMenu.AllActions;
+local AnyAction                      = ActionMenu.AnyAction;
+local HowManyAccept                  = ActionMenu.HowManyAccept;
+local OnlyOneReason                  = ActionMenu.OnlyOneReason;
 local TableFor                       = ActionMenu.TableFor;
 local PruneConditions                = ActionMenu.PruneConditions;
 local UnitConditionsOf               = ActionMenu.UnitConditionsOf;
@@ -25,10 +29,12 @@ local SpecConditionHasID             = ActionMenu.SpecConditionHasID;
 local ToggleSpecConditionID          = ActionMenu.ToggleSpecConditionID;
 local ClassSpecsAllPicked            = ActionMenu.ClassSpecsAllPicked;
 local ToggleClassSpecs               = ActionMenu.ToggleClassSpecs;
-local UnitConditionMode              = ActionMenu.UnitConditionMode;
+local UnitConditionModeOf            = ActionMenu.UnitConditionModeOf;
+local UnitConditionOnFor             = ActionMenu.UnitConditionOnFor;
 local UnitConditionIsExists          = ActionMenu.UnitConditionIsExists;
 local UnitConditionIsOn              = ActionMenu.UnitConditionIsOn;
-local GetUnitConditionDead           = ActionMenu.GetUnitConditionDead;
+local UnitConditionDeadIs            = ActionMenu.UnitConditionDeadIs;
+local WriteUnitConditionMode         = ActionMenu.WriteUnitConditionMode;
 local SetUnitConditionMode           = ActionMenu.SetUnitConditionMode;
 local SetUnitConditionAxis           = ActionMenu.SetUnitConditionAxis;
 local UnitConditionReactionChecked   = ActionMenu.UnitConditionReactionChecked;
@@ -51,6 +57,24 @@ local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 
 local BONUSBAR_NAMES;
 
+
+--- Does every selected action's mode for `unit` answer one of the modes named.
+local function AllUnitModesIn(ctx, unit, first, second)
+    return AllActions(ctx, function(action)
+        local mode = UnitConditionModeOf(action, unit);
+        return mode == first or mode == second;
+    end);
+end
+
+--- The first problem any selected action has with `unit`'s condition.
+local function FirstUnitIssue(ctx, unit)
+    for _, action in ipairs(ctx.actions) do
+        local issue = DebindPrivate.GetBindingIssue(action, "units", nil, unit);
+        if (issue) then
+            return issue;
+        end
+    end
+end
 
 --- The three axes one unit condition can carry. **This order is the order on screen.**
 local UNIT_CONDITION_AXES = {
@@ -83,7 +107,7 @@ local UNIT_CONDITION_AXES = {
             for _, item in ipairs(LIFE_ITEMS) do
                 local lifeDescription = description:CreateRadio(item.text,
                     function()
-                        return GetUnitConditionDead(ctx, unit) == item.value;
+                        return UnitConditionDeadIs(ctx, unit, item.value);
                     end,
                     function()
                         return SetUnitConditionAxis(ctx, unit, "dead", item.value);
@@ -121,17 +145,30 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
             FOCUS_CAST_KEY_TEXT, LLL["POINTED_UNIT_CAST"]);
     end
 
+    -- **The aimed unit is only a question for an action that takes a target**, so a selection mixing
+    -- the two cannot have this row for part of it without the rest silently keeping what it had.
+    local blockedReason;
+    if (unit == "@" and HowManyAccept(ctx, DebindPrivate.ActionTakesUnit) == "some") then
+        blockedReason = LLL["MENU_BLOCKED_SOME_CANNOT"];
+    end
+
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {
         label = label,
         instruction = instruction,
         skipTitle = true,
+        blocked = function()
+            return blockedReason;
+        end,
         isActive = function()
             return UnitConditionIsOn(ctx, unit);
         end,
         issue = function()
-            return DebindPrivate.GetBindingIssue(ctx.action, "units", nil, unit);
+            return FirstUnitIssue(ctx, unit);
         end,
     }, ctx);
+    if (blockedReason) then
+        return optionsDescription;
+    end
 
     MenuKit.CreateTitle(optionsDescription, MenuUtil.GetElementText(optionsDescription));
     if (unit == "@") then
@@ -139,14 +176,15 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         -- no unit and the condition is dropped on the way out (`Misc.lua`'s `FillBinding`). No target
         -- and `player` both leave a unit for it to be about.
         optionsDescription:SetEnabled(function()
-            return ctx.action.unit ~= "none";
+            return AllActions(ctx, function(action)
+                return action.unit ~= "none";
+            end);
         end);
     end
 
     optionsDescription:CreateRadio(LLL["DISABLE"],
         function()
-            local mode = UnitConditionMode(ctx, unit);
-            return mode == nil or mode == "disabled";
+            return AllUnitModesIn(ctx, unit, nil, "disabled");
         end,
         function()
             return SetUnitConditionMode(ctx, unit, "disabled");
@@ -166,7 +204,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
 
     local absentDescription = optionsDescription:CreateRadio(LLL["CONDITION_UNIT_DOES_NOT_EXIST"],
         function()
-            return UnitConditionMode(ctx, unit) == "absent";
+            return AllUnitModesIn(ctx, unit, "absent");
         end,
         function()
             return SetUnitConditionMode(ctx, unit, "absent");
@@ -222,8 +260,7 @@ local function BuildHoverMenu(kit, ctx)
     -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
     description:CreateRadio(rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
         function()
-            local mode = UnitConditionMode(ctx, "hover");
-            return mode == nil or mode == "disabled";
+            return AllUnitModesIn(ctx, "hover", nil, "disabled");
         end,
         function()
             return SetUnitConditionMode(ctx, "hover", "disabled");
@@ -241,7 +278,7 @@ local function BuildHoverMenu(kit, ctx)
 
     description:CreateRadio(LLL["CONDITION_HOVER_NO"],
         function()
-            return UnitConditionMode(ctx, "hover") == "absent";
+            return AllUnitModesIn(ctx, "hover", "absent");
         end,
         function()
             return SetUnitConditionMode(ctx, "hover", "absent");
@@ -270,7 +307,7 @@ local function BuildHoverMenu(kit, ctx)
     for _, item in ipairs(LIFE_ITEMS) do
         local lifeDescription = description:CreateRadio(item.text,
             function()
-                return GetUnitConditionDead(ctx, "hover") == item.value;
+                return UnitConditionDeadIs(ctx, "hover", item.value);
             end,
             function()
                 return SetUnitConditionAxis(ctx, "hover", "dead", item.value);
@@ -346,7 +383,9 @@ local function BuildHoverMenu(kit, ctx)
     --- is no frame's unit to refuse -- and it is not left out of anything either, since no twin is
     --- made for it in the first place.
     ignoreHoverUnit:SetEnabled(function()
-        return UnitConditionMode(ctx, "hover") ~= "absent";
+        return AllActions(ctx, function(action)
+            return UnitConditionModeOf(action, "hover") ~= "absent";
+        end);
     end);
 end
 
@@ -359,62 +398,66 @@ ActionMenus:Define("HOVER", {
     build = BuildHoverMenu,
 });
 
---- Whether this menu has a row for `unit`, which is also whether it counts it. `"hover"` is edited
---- by the hover menu and `"player"` by the life menu under `Group`. **Counting one of those here
---- changes a condition this menu does not show**: while `"player"` was missing from this test,
---- [Disable All] switched the reader's own life condition off, and nothing here could bring it back.
+--- Whether this menu has a row for `unit` on this action, which is also whether it counts it.
+--- `"hover"` is edited by the hover menu and `"player"` by the life menu under `Group`. **Counting
+--- one of those here changes a condition this menu does not show**: while `"player"` was missing
+--- from this test, [Disable All] switched the reader's own life condition off, and nothing here could
+--- bring it back.
 ---
 --- `"@"` has a row only on an action that takes a target, the same test the `Target` menu opens
 --- on. Anything else keeps no target and the condition is dropped on the way out.
 ---
 --- **Outside the node.** Inside it, the `isActive` closure would capture a name that is not there
 --- yet and read nil at run time.
-local function isListedUnit(ctx, unit)
+local function isListedUnit(action, unit)
     if (unit == "@") then
-        return DebindPrivate.ActionTakesUnit(ctx.action);
+        return DebindPrivate.ActionTakesUnit(action);
     end
     return unit ~= "hover" and unit ~= "player";
+end
+
+--- The units one action has a condition on that this menu lists.
+local function ListedUnitsWithCondition(action)
+    local units;
+    if (UnitConditionsOf(action)) then
+        for unit in pairs(UnitConditionsOf(action)) do
+            if (isListedUnit(action, unit) and UnitConditionOnFor(action, unit)) then
+                units = units or {};
+                tinsert(units, unit);
+            end
+        end
+    end
+    return units;
 end
 
 local function BuildUnitConditionMenu(kit, ctx)
     local description = kit.description;
 
-    local function listedUnitsWithCondition()
-        local units;
-        if (UnitConditionsOf(ctx.action)) then
-            for unit in pairs(UnitConditionsOf(ctx.action)) do
-                if (isListedUnit(ctx, unit) and UnitConditionIsOn(ctx, unit)) then
-                    units = units or {};
-                    tinsert(units, unit);
-                end
-            end
-        end
-        return units;
-    end
-
     description:CreateRadio(LLL["DISABLE_ALL"],
         function()
-            return listedUnitsWithCondition() == nil;
+            return AllActions(ctx, function(action)
+                return ListedUnitsWithCondition(action) == nil;
+            end);
         end,
         function()
-            -- **끄기만 한다.** 골라둔 반응·생사는 그 자리에 남는다 - 되돌렸을 때 처음부터
-            -- 다시 고르게 만들 이유가 없다.
+            -- **Turns off, does not erase.** The reactions and life picked stay where they are;
+            -- there is no reason to make the reader pick them again when they turn it back on.
             --
-            -- 이름을 먼저 모으는 이유: 끄는 쪽이 기억할 축이 없는 항목을 지우고, 마지막
-            -- 하나가 지워지면 `units` 자체가 nil이 된다. 그 표를 돌면서 하면
-            -- 순회하던 표가 사라진다.
-            local units = listedUnitsWithCondition();
-            if (units) then
-                for i = 1, #units do
-                    SetUnitConditionMode(ctx, units[i], "disabled");
+            -- The names are gathered first because turning off deletes a unit that has nothing to
+            -- remember, and when the last goes `units` itself becomes nil under the loop walking it.
+            for _, action in ipairs(ctx.actions) do
+                local units = ListedUnitsWithCondition(action);
+                if (units) then
+                    for i = 1, #units do
+                        WriteUnitConditionMode(action, units[i], "disabled");
+                    end
                 end
             end
-            OnActionValueChanged(ctx.action);
-            return MenuResponse.Refresh;
+            return OnActionsChanged(ctx.actions);
         end
     );
 
-    if (isListedUnit(ctx, "@")) then
+    if (AnyAction(ctx, function(action) return isListedUnit(action, "@"); end)) then
         CreateUnitConditionSubmenu(description, ctx, "RESOLVED_TARGET", "@");
         description:CreateDivider();
     end
@@ -427,7 +470,7 @@ local function BuildUnitConditionMenu(kit, ctx)
         -- **그리는 줄과 세는 유닛이 같은 목록이어야 한다.** `isListedUnit`이 그 목록이고,
         -- 갈리면 이 메뉴가 안 그리는 조건으로 파래지거나 빨개진다. `"none"`만 여기 더 있다 -
         -- 그건 유닛이 아니라 대상 없음이라 조건이 붙을 자리가 아예 없다.
-        if (isListedUnit(ctx, unit) and unit ~= "none") then
+        if (unit ~= "@" and isListedUnit(nil, unit) and unit ~= "none") then
             CreateUnitConditionSubmenu(description, ctx, DebindUI.UNIT_INFO[unit].name, unit);
         end
     end
@@ -438,15 +481,9 @@ ActionMenus:Define("UNITS", {
     key = "units",
     -- 위 `isListedUnit`이 무엇을 세는지 정한다.
     isActive = function(ctx)
-        local units = UnitConditionsOf(ctx.action);
-        if (units) then
-            for unit in pairs(units) do
-                if (isListedUnit(ctx, unit) and UnitConditionIsOn(ctx, unit)) then
-                    return true;
-                end
-            end
-        end
-        return false;
+        return AnyAction(ctx, function(action)
+            return ListedUnitsWithCondition(action) ~= nil;
+        end);
     end,
     build = BuildUnitConditionMenu,
 });
@@ -466,61 +503,63 @@ ActionMenus:Define("UNITS", {
 local function BuildSelfLifeConditionMenu(kit, ctx)
     local description = kit.description;
 
-    --- 다른 축의 setter를 못 쓴다. 그쪽은 `exists` 라디오가 표를 세워둔 뒤에만 불리는데
-    --- 여기는 그 라디오가 없어서 첫 클릭이 표를 만든다. 지울 때도 같다 - 축 하나짜리
-    --- 자리라 그 값을 비우면 남는 것이 없고, 빈 표를 남기면 아무것도 안 고른 유닛이
-    --- 프로필에 쌓인다(`SetUnitConditionMode`가 끄는 자리에서 하는 것과 같은 정리다).
-    local function SetPlayerLife(value)
-        local units = UnitConditionsOf(ctx.action);
+    --- **Not the other axes' setter.** That one is only called once the `exists` radio has stood a
+    --- table up, and there is no such radio here, so the first press makes the table. Clearing is
+    --- the same in reverse: this place has one axis, so emptying it leaves nothing, and an empty
+    --- table left behind piles up a unit nothing was picked for (the same tidying
+    --- `WriteUnitConditionMode` does when it turns one off).
+    local function WritePlayerLife(action, value)
+        local units = UnitConditionsOf(action);
         if (value == nil) then
             local cond = units and units.player;
             if (type(cond) == "table") then
                 cond.dead = nil;
-                -- 모드 표시 하나만 남은 표는 아무것도 안 고른 유닛이다. `exists == false`는
-                -- 이 메뉴가 못 만들지만 공유 프로필이 들고 올 수 있어서 남긴다.
+                -- A table holding only a mode marker is a unit nothing was picked for.
+                -- `exists == false` cannot be made here, but a shared profile can bring one in, so
+                -- it is kept.
                 if (not UnitConditionRemembersAxis(cond) and cond.exists ~= false
                         and not cond.disabled) then
                     units.player = nil;
                     if (not next(units)) then
-                        ctx.action.conditions.units = nil;
-                        PruneConditions(ctx.action);
+                        action.conditions.units = nil;
+                        PruneConditions(action);
                     end
                 end
             end
         else
             if (units == nil) then
                 units = {};
-                TableFor(ctx.action, "units", true).units = units;
+                TableFor(action, "units", true).units = units;
             end
             local cond = units.player;
             if (type(cond) ~= "table") then
                 cond = {};
                 units.player = cond;
             end
-            -- **끈 표시도 같이 지운다.** 이 메뉴에는 `disabled`를 세우는 줄이 없지만 공유
-            -- 프로필과 손으로 고친 것이 들고 올 수 있고, 남아 있으면
-            -- `UnitConditionForBinding`이 조건을 통째로 무시하는 동안 라디오는 켜진 채로
-            -- 그려진다 - 되살릴 줄이 없는 값이 된다.
+            -- **The off marker goes too.** This menu has no row that sets `disabled`, but a shared
+            -- profile or a hand edit can bring one in, and while it stands
+            -- `UnitConditionForBinding` ignores the whole condition and the radio draws on -- a
+            -- value with no row to bring it back.
             cond.disabled = nil;
-            -- 읽는 이는 언제나 있으므로 모드는 하나뿐이다. 그래도 적는다: 모드 없는 표는
-            -- 옛 값이고, 저장에 새로 만들지 않는다.
+            -- The reader always exists, so there is one mode. It is written anyway: a table with
+            -- no mode is the old shape, and storage does not make new ones of those.
             if (cond.exists == nil) then
                 cond.exists = true;
             end
             cond.dead = value;
         end
-
-        OnActionValueChanged(ctx.action);
-        return MenuResponse.Refresh;
     end
 
     for _, item in ipairs(LIFE_ITEMS) do
         description:CreateRadio(item.text,
             function()
-                return GetUnitConditionDead(ctx, "player") == item.value;
+                return UnitConditionDeadIs(ctx, "player", item.value);
             end,
             function()
-                return SetPlayerLife(item.value);
+                for _, action in ipairs(ctx.actions) do
+                    WritePlayerLife(action, item.value);
+                end
+                return OnActionsChanged(ctx.actions);
             end
         );
     end
@@ -529,9 +568,11 @@ end
 ActionMenus:Define("SELFLIFE", {
     label = "CONDITION_LIFE",
     isActive = function(ctx)
-        local units = UnitConditionsOf(ctx.action);
-        local cond = units and units.player;
-        return type(cond) == "table" and not cond.disabled and cond.dead ~= nil;
+        return AnyAction(ctx, function(action)
+            local units = UnitConditionsOf(action);
+            local cond = units and units.player;
+            return type(cond) == "table" and not cond.disabled and cond.dead ~= nil;
+        end);
     end,
     build = BuildSelfLifeConditionMenu,
 });
@@ -549,21 +590,23 @@ ActionMenus:Define("GROUP", {
     end,
 });
 
---- Does anything under this class's row carry a tick. **That is the whole of the partial state.**
---- A menu checkbox is on or off with nothing in between, so a class whose specializations are
---- half picked cannot be drawn as a third kind of box; what says so is the row's own colour,
---- which every node in this family already gets from `isActive` (`MenuKit.lua`).
+--- Does anything under this class's row carry a tick, on any selected action. **That is the whole
+--- of the partial state.** A menu checkbox is on or off with nothing in between, so a class whose
+--- specializations are half picked cannot be drawn as a third kind of box; what says so is the
+--- row's own colour, which every node in this family already gets from `isActive` (`MenuKit.lua`).
 local function ClassSpecConditionIsOn(ctx, specs)
-    local conditions = SpecConditionsOf(ctx.action);
-    if (conditions == nil) then
-        return false;
-    end
-    for i = 1, #specs do
-        if (conditions[specs[i].id] ~= nil) then
-            return true;
+    return AnyAction(ctx, function(action)
+        local conditions = SpecConditionsOf(action);
+        if (conditions == nil) then
+            return false;
         end
-    end
-    return false;
+        for i = 1, #specs do
+            if (conditions[specs[i].id] ~= nil) then
+                return true;
+            end
+        end
+        return false;
+    end);
 end
 
 --- **Names, one class at a time.** The condition stores specialization ids, so a row means the
@@ -662,21 +705,29 @@ local function KnownRows(action)
     return rows;
 end
 
+local function AsksKnown(action)
+    return action.type == Constants.SPELL or Constants.SPEC_RESOLVED_TYPES[action.type] == true;
+end
+
 --- **Spells only.** An item or a macro is not something you can fail to know. The three
 --- spec-resolved types are spells too, and what the condition asks about is the spell this
 --- specialization resolves to (`SpecSpells.lua`).
+---
+--- **One action at a time.** The rows come out of the action's own spell, so a selection has no one
+--- list to offer.
 ActionMenus:Define("KNOWN", {
     label = "CONDITION_KNOWN",
     key = "known",
     shown = function(ctx)
-        return ctx.action.type == Constants.SPELL
-            or Constants.SPEC_RESOLVED_TYPES[ctx.action.type] == true;
+        return AnyAction(ctx, AsksKnown);
     end,
+    blocked = OnlyOneReason,
     build = function(kit)
+        local action = kit.ctx.actions[1];
         -- **A box and not a list**, because these three carry no spell to list. Which spell the
         -- key casts is decided at the rebuild, so `true` -- "whatever this action casts" -- is the
         -- only question that survives a specialization change here.
-        if (Constants.SPEC_RESOLVED_TYPES[kit.ctx.action.type]) then
+        if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
             kit:ClearingCheckbox(LLL["CONDITION_KNOWN_YES"], "known", true);
             return;
         end
@@ -689,7 +740,7 @@ ActionMenus:Define("KNOWN", {
         -- does, the way the specialization list's rows are bare names too; a sentence on every
         -- row would repeat it four times and sit oddly beside `Disable`. The sentence is in the
         -- tooltip, where the condition is read rather than picked (`ActionTooltip.lua`).
-        local rows = KnownRows(kit.ctx.action);
+        local rows = KnownRows(action);
         for i = 1, #rows do
             kit.description:CreateRadio(rows[i], kit.handlers.equals, kit.handlers.set,
                 { ctx = kit.ctx, key = "known", value = rows[i] });
@@ -753,10 +804,12 @@ ActionMenus:Define("MISC", {
         "MOUNTED", "SKYRIDING", "FLYABLE", "ADVFLYABLE", "FLYING", "INDOORS", "PETBATTLE",
     },
     isActive = function(ctx)
-        local c = ctx.action.conditions;
-        return c ~= nil and (c.mounted ~= nil or c.skyriding ~= nil
-            or c.flyable ~= nil or c.advflyable ~= nil or c.flying ~= nil
-            or c.indoors ~= nil or c.petbattle ~= nil);
+        return AnyAction(ctx, function(action)
+            local c = action.conditions;
+            return c ~= nil and (c.mounted ~= nil or c.skyriding ~= nil
+                or c.flyable ~= nil or c.advflyable ~= nil or c.flying ~= nil
+                or c.indoors ~= nil or c.petbattle ~= nil);
+        end);
     end,
 });
 
@@ -770,8 +823,10 @@ ActionMenus:Define("ACTIONBAR", {
     isActive = function(ctx)
         -- `action.bars`는 아무도 안 쓰는 필드였다. `KEYS_TO_SAVE`에 없어 늘 nil이라 이
         -- 절은 죽어 있었고, 나머지 셋이 같은 답을 낸다.
-        local c = ctx.action.conditions;
-        return c ~= nil and (c.bonusbars ~= nil or c.specialbar ~= nil or c.extrabar ~= nil);
+        return AnyAction(ctx, function(action)
+            local c = action.conditions;
+            return c ~= nil and (c.bonusbars ~= nil or c.specialbar ~= nil or c.extrabar ~= nil);
+        end);
     end,
 });
 
@@ -825,7 +880,6 @@ ActionMenus:Define("EXTRABAR", {
 
 local function BuildSwitchConditionMenu(kit, ctx)
     local description = kit.description;
-    local action = ctx.action;
 
     -- **Only switches that exist** (2026-08-21, 소유자). A condition on a name nothing defines
     -- matches on neither `true` nor `false`, so the key it is on never fires. Offering a name to
@@ -841,20 +895,25 @@ local function BuildSwitchConditionMenu(kit, ctx)
     -- there gets a definition before the condition goes on, so nothing here ever hangs a
     -- condition on a name nothing defines.
     --
-    -- **Plus whatever this action already names**, defined or not, because taking a condition
-    -- off is done here and nowhere else. A switch deleted while an action still names it would
-    -- otherwise leave that condition on the action with no way to reach it, which is worse than
-    -- the dead end this list just stopped offering.
+    -- **Plus whatever any selected action already names**, defined or not, because taking a
+    -- condition off is done here and nowhere else. A switch deleted while an action still names it
+    -- would otherwise leave that condition on the action with no way to reach it, which is worse
+    -- than the dead end this list just stopped offering.
     local switchNames = DebindPrivate.GetSwitchNames();
-    local conditions = action and action.conditions;
-    if (conditions) then
-        for name in pairs(conditions) do
-            if (Constants.IsSwitchName(name) and not DebindPrivate.ResolveSwitchDefinition(name)) then
+    local listed = {};
+    for _, name in ipairs(switchNames) do
+        listed[name] = true;
+    end
+    for _, action in ipairs(ctx.actions) do
+        for name in pairs(action.conditions or {}) do
+            if (not listed[name] and Constants.IsSwitchName(name)
+                    and not DebindPrivate.ResolveSwitchDefinition(name)) then
+                listed[name] = true;
                 switchNames[#switchNames + 1] = name;
             end
         end
-        sort(switchNames);
     end
+    sort(switchNames);
 
     -- 위 묶음이 빨개지는 것은 "이 액션에 끊긴 조건이 있다"이고, 여기가 빨개지는 것은
     -- **어느 것인지**다.
@@ -885,16 +944,17 @@ local function BuildSwitchConditionMenu(kit, ctx)
     --
     -- **만들고 나서 그 조건을 바로 켠다.** 만들기만 하면 방금 지나온 자리를 한 번 더
     -- 지나야 하고, 이름을 적은 사람이 원한 것은 정의가 아니라 이 액션에 걸린 조건이다.
-    if (action) then
-        local newDescription = description:CreateButton(LLL["SWITCH_CREATE"], function()
-            DebindUI.ShowNewSwitchBox(function(name)
+    local actions = ctx.actions;
+    local newDescription = description:CreateButton(LLL["SWITCH_CREATE"], function()
+        DebindUI.ShowNewSwitchBox(function(name)
+            for _, action in ipairs(actions) do
                 action.conditions = action.conditions or {};
                 action.conditions[name] = true;
-                OnActionValueChanged(action);
-            end);
+            end
+            OnActionsChanged(actions);
         end);
-        SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
-    end
+    end);
+    SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
 end
 
 ActionMenus:Define("SWITCHES", {
@@ -911,15 +971,14 @@ ActionMenus:Define("SWITCHES", {
     -- 켜져 보이느냐는 액션에 실제로 걸린 것을 따라가야 한다 - 다섯 밖의 이름이 걸린
     -- 액션이 "조건 없음"으로 보이면 그 조건을 지울 자리가 화면에서 사라진다.
     isActive = function(ctx)
-        local conditions = ctx.action.conditions;
-        if (conditions) then
-            for name in pairs(conditions) do
+        return AnyAction(ctx, function(action)
+            for name in pairs(action.conditions or {}) do
                 if (Constants.IsSwitchName(name)) then
                     return true;
                 end
             end
-        end
-        return false;
+            return false;
+        end);
     end,
 
     -- **자식에서 안 올라온다.** 스위치 줄은 이름이 있을 때만 생기는 노드라 트리에 자식이
@@ -929,14 +988,13 @@ ActionMenus:Define("SWITCHES", {
     -- 켜기/끄기/전환의 대상까지 같이 답하므로, 그걸 쓰면 조건은 멀쩡한데 이 칸이
     -- 빨개져서 고칠 곳을 엉뚱한 데로 가리킨다. 조건만 보는 문이 따로 있다.
     issue = function(ctx)
-        local name = ctx.action and DebindPrivate.GetUndefinedSwitchCondition(ctx.action);
-        if (name) then
-            return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], name);
+        for _, action in ipairs(ctx.actions) do
+            local name = DebindPrivate.GetUndefinedSwitchCondition(action);
+            if (name) then
+                return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], name);
+            end
         end
     end,
 
     build = BuildSwitchConditionMenu,
 });
-
---- The target menu's [Only if...] opens this same submenu (`ActionMenuItems.lua`).
-ActionMenu.CreateUnitConditionSubmenu = CreateUnitConditionSubmenu;

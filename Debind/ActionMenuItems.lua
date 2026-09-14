@@ -12,7 +12,11 @@ local dump                  = DebindPrivate.dump
 --- no issue and no submenu; making them nodes would need a second kind in the kit.
 local ActionMenu                     = DebindPrivate.ActionMenu;
 local ActionMenus                    = ActionMenu.ActionMenus;
-local OnActionValueChanged           = ActionMenu.OnActionValueChanged;
+local OnActionsChanged               = ActionMenu.OnActionsChanged;
+local AllActions                     = ActionMenu.AllActions;
+local AnyAction                      = ActionMenu.AnyAction;
+local HowManyAccept                  = ActionMenu.HowManyAccept;
+local OnlyOneReason                  = ActionMenu.OnlyOneReason;
 local actionValueEquals              = ActionMenu.actionValueEquals;
 local setActionValue                 = ActionMenu.setActionValue;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
@@ -22,31 +26,69 @@ local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 local SetErrorTooltip                = ActionMenu.SetErrorTooltip;
 
 
-local function CreateConvertToMacroTextMenuItem(parentDescription, ctx)
-    if (DebindPrivate.CanConvertToMacroText(ctx.action)) then
-        parentDescription:CreateButton(LLL["CONVERT_TO_MACRO_TEXT"], function()
-            local action = ctx.action;
-            local original = CopyTable(action);
-            if (DebindPrivate.ConvertToMacroText(action)) then
-                OnActionValueChanged(ctx.action);
-                local cancelFunc = function()
-                    wipe(action);
-                    MergeTable(action, original);
-                    OnActionValueChanged(ctx.action);
-                end
-                DebindMacroFrame:Open(action, cancelFunc);
-            end
-        end);
+--- An item that stands only to say it cannot be taken, and why.
+---
+--- **It is built as a leaf even where the live one is a submenu.** A destination list nobody can
+--- open is a list with no reason to exist, and the arrow on a parent that never opens promises a
+--- step that is not there. What the reader loses is nothing they could have used; what they get
+--- is the same shape this menu already uses for a blocked destination.
+local function CreateBlockedMenuItem(rootDescription, text, reason)
+    local description = rootDescription:CreateButton(text);
+    description:SetEnabled(false);
+    SetErrorTooltip(description, reason);
+    return description;
+end
+
+--- The reason a node every selected action has to be able to take stands locked, or nil.
+local function SomeCannotReason(acceptance)
+    if (acceptance == "some") then
+        return LLL["MENU_BLOCKED_SOME_CANNOT"];
     end
+end
+
+--- **One action at a time**: the body it opens on is that action's own. Over several rows it stands
+--- locked as long as any of them could be converted.
+local function CreateConvertToMacroTextMenuItem(parentDescription, ctx)
+    if (not AnyAction(ctx, DebindPrivate.CanConvertToMacroText)) then
+        return;
+    end
+    local reason = OnlyOneReason(ctx);
+    if (reason) then
+        CreateBlockedMenuItem(parentDescription, LLL["CONVERT_TO_MACRO_TEXT"], reason);
+        return;
+    end
+    parentDescription:CreateButton(LLL["CONVERT_TO_MACRO_TEXT"], function()
+        local action = ctx.actions[1];
+        local original = CopyTable(action);
+        if (DebindPrivate.ConvertToMacroText(action)) then
+            OnActionsChanged({ action });
+            local cancelFunc = function()
+                wipe(action);
+                MergeTable(action, original);
+                OnActionsChanged({ action });
+            end
+            DebindMacroFrame:Open(action, cancelFunc);
+        end
+    end);
+end
+
+local function IsMacroText(action)
+    return action.type == Constants.MACROTEXT;
 end
 
 -- .." (CTRL-|A:NPE_RightClick:16:16|a)"
 local function EditMacroTextMenuItem(parentDescription, ctx)
-    if (ctx.action.type == Constants.MACROTEXT) then
-        parentDescription:CreateButton(LLL["EDIT_MACRO"], function()
-            DebindMacroFrame:Open(ctx.elementData.action);
-        end);
+    if (not AnyAction(ctx, IsMacroText)) then
+        return;
     end
+    local reason = OnlyOneReason(ctx);
+    if (reason) then
+        CreateBlockedMenuItem(parentDescription, LLL["EDIT_MACRO"], reason);
+        return;
+    end
+    parentDescription:CreateButton(LLL["EDIT_MACRO"], function()
+        DebindMacroFrame:Open(ctx.actions[1]);
+    end);
 end
 
 --- The three verbs, top to bottom. `Constants.SETSTATE_MODES` is a lookup and would order this
@@ -56,6 +98,22 @@ local SETSTATE_VERBS = {
     { type = Constants.SETSTATE_OFF,    label = "SWITCH_ACTION_OFF" },
     { type = Constants.SETSTATE_TOGGLE, label = "SWITCH_ACTION_TOGGLE" },
 };
+
+local function IsSetStateAction(action)
+    return Constants.SETSTATE_MODES[action.type] ~= nil;
+end
+
+--- The stored name goes with every target or verb change. `NameAndIconForAction` builds the row's
+--- text from the type and the target every time it draws, so that follows on its own. But an action
+--- that came in from a shared string can be carrying `action.name`, and that one would go on saying
+--- `Toggle $burst` after the target moved (`ACTION_FIELDS`, §6-C).
+local function WriteSetState(actions, field, value)
+    for _, action in ipairs(actions) do
+        action[field] = value;
+        action.name = nil;
+    end
+    return OnActionsChanged(actions);
+end
 
 --- Which switch an on/off/toggle action works, and what it does to it.
 ---
@@ -69,7 +127,8 @@ local SETSTATE_VERBS = {
 --- says it does, and a reader who has the verb in one menu and the target in another has to
 --- hold half of it in their head while they open the other.
 local function CreateSetSwitchMenuItem(parentDescription, ctx)
-    if (not Constants.SETSTATE_MODES[ctx.action.type]) then
+    local acceptance = HowManyAccept(ctx, IsSetStateAction);
+    if (acceptance == "none") then
         return;
     end
 
@@ -79,45 +138,58 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     local description = ActionMenus:BuildNode(parentDescription, {
         label = "TYPE_SETSTATE",
         instruction = LLL["TYPE_SETSTATE_DESC"],
+        blocked = function()
+            return SomeCannotReason(acceptance);
+        end,
         -- a target is what makes this action finished, not a condition on it.
         isActive = function()
-            return type(ctx.action.value) == "string";
+            return AnyAction(ctx, function(action)
+                return type(action.value) == "string";
+            end);
         end,
         issue = function()
-            local value = ctx.action.value;
-            if (type(value) ~= "string") then
-                return LLL["BINDING_ERROR_SWITCH_NONE_SELECTED"];
-            end
-            if (not DebindPrivate.ResolveSwitchDefinition(value)) then
-                return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], value);
+            for _, action in ipairs(ctx.actions) do
+                local value = action.value;
+                if (type(value) ~= "string") then
+                    return LLL["BINDING_ERROR_SWITCH_NONE_SELECTED"];
+                end
+                if (not DebindPrivate.ResolveSwitchDefinition(value)) then
+                    return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], value);
+                end
             end
         end,
     }, ctx);
-
-    -- **Plus whatever this action already names**, on the same rule the condition list keeps:
-    -- a deleted switch has to stay pickable here or the row that names it cannot be read back
-    -- off the menu at all. Unlike a condition it cannot simply be taken off, because an action
-    -- with no target is the unfinished state rather than a clean one. What this offers is the
-    -- way to point it somewhere else.
-    local switchNames = DebindPrivate.GetSwitchNames();
-    local current = ctx.action.value;
-    if (type(current) == "string" and not DebindPrivate.ResolveSwitchDefinition(current)) then
-        switchNames[#switchNames + 1] = current;
-        sort(switchNames);
+    if (acceptance ~= "all") then
+        return description;
     end
+
+    -- **Plus whatever any selected action already names**, on the same rule the condition list
+    -- keeps: a deleted switch has to stay pickable here or the row that names it cannot be read
+    -- back off the menu at all. Unlike a condition it cannot simply be taken off, because an action
+    -- with no target is the unfinished state rather than a clean one. What this offers is the way
+    -- to point it somewhere else.
+    local switchNames = DebindPrivate.GetSwitchNames();
+    local listed = {};
+    for _, name in ipairs(switchNames) do
+        listed[name] = true;
+    end
+    for _, action in ipairs(ctx.actions) do
+        local current = action.value;
+        if (type(current) == "string" and not listed[current]
+                and not DebindPrivate.ResolveSwitchDefinition(current)) then
+            listed[current] = true;
+            switchNames[#switchNames + 1] = current;
+        end
+    end
+    sort(switchNames);
 
     for _, stateName in ipairs(switchNames) do
         local stateDescription = description:CreateRadio(stateName, function()
-            return ctx.action.value == stateName;
+            return AllActions(ctx, function(action)
+                return action.value == stateName;
+            end);
         end, function()
-            -- **The stored name goes with it.** `NameAndIconForAction` builds the row's text
-            -- from the type and the target every time it draws, so that follows on its own.
-            -- But an action that came in from a shared string can be carrying `action.name`,
-            -- and that one would go on saying `Toggle $burst` after the target moved
-            -- (`ACTION_FIELDS`, §6-C).
-            ctx.action.value = stateName;
-            ctx.action.name = nil;
-            return OnActionValueChanged(ctx.action);
+            return WriteSetState(ctx.actions, "value", stateName);
         end);
         if (not DebindPrivate.ResolveSwitchDefinition(stateName)) then
             SetErrorTooltip(stateDescription,
@@ -128,13 +200,10 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     -- Making one from here, for the reason the condition menu grew the same item: the reader
     -- is already looking at the thing they want the switch for.
     do
-        local action = ctx.action;
+        local actions = ctx.actions;
         local newDescription = description:CreateButton(LLL["SWITCH_CREATE"], function()
             DebindUI.ShowNewSwitchBox(function(name)
-                action.value = name;
-                action.name = nil;
-                DebindPrivate.RenumberKeyGroupForAction(action);
-                DebindPrivate.UpdateBindings();
+                WriteSetState(actions, "value", name);
             end);
         end);
         SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
@@ -145,18 +214,18 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
 
     for _, verb in ipairs(SETSTATE_VERBS) do
         description:CreateRadio(LLL[verb.label], function()
-            return ctx.action.type == verb.type;
+            return AllActions(ctx, function(action)
+                return action.type == verb.type;
+            end);
         end, function()
-            ctx.action.type = verb.type;
-            ctx.action.name = nil;
-            return OnActionValueChanged(ctx.action);
+            return WriteSetState(ctx.actions, "type", verb.type);
         end);
     end
 
     return description;
 end
 
---- The bin's own way to give this action a key, and the same one the overview's rows offer
+--- The bin's own way to give these actions a key, and the same one the overview's rows offer
 --- (`DebindUI.BeginKeyCapture`). It stands right beside [Unbind] because the two are the ends
 --- of one axis - what key is this on - and a menu that can take a key away but not give one back
 --- sends the reader off to a mode for the other half.
@@ -165,28 +234,32 @@ end
 --- it stays on, aims at whatever the cursor is over, and takes back everything on [Cancel]. This
 --- is the one-off, on a target that was picked before any key was pressed. **Both shapes stay**,
 --- and what each of them answers is in `devdocs/legacy/asking-for-a-key.md`.
+---
+--- **A selection gets a string of its own.** `ACTION_SET_KEY_DESC` opens on "this action" and a
+--- sentence stretched across both positions fits neither (`devdocs/writing-user-facing-text.md`).
 local function CreateAssignKeyMenuItem(parentDescription, ctx)
     local description = parentDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
-        DebindUI.BeginKeyCapture({ ctx.action });
+        DebindUI.BeginKeyCapture(ctx.actions);
     end);
-    SetInstructionTooltip(description, LLL["ACTION_SET_KEY_DESC"]);
+    SetInstructionTooltip(description, LLL[#ctx.actions == 1 and "ACTION_SET_KEY_DESC" or "BULK_SET_KEY_DESC"]);
 end
 
+--- **Through `UnbindActions` for one action as for many.** Taking the key away drops the ordering
+--- number with it and renumbers the group being left, which lives in `Profile.lua`; and a selection
+--- that would scatter a key group asks first. One action scatters nothing, so it goes straight through.
+---
+--- **A selection with no real key in it has nothing to take off** (`DebindPrivate.AnyRealKey`),
+--- which is the answer the capture dialog's own [Unbind Key] button already gives.
 local function CreateUnbindMenuItem(parentDescription, ctx)
     local description = parentDescription:CreateButton(LLL["UNBIND"], function()
-        -- Not `ctx.action.key = nil` on its own: taking the key away drops the ordering number
-        -- with it and renumbers the group being left, and that rule lives in `Profile.lua`.
-        DebindPrivate.ClearActionKey(ctx.action);
-        OnActionValueChanged(ctx.action);
-        -- 목록이 키로 묶여 있던 시절에는 이 행이 "키 없음" 묶음으로 건너뛰어서, 메뉴만
-        -- 남고 행은 화면 밖으로 사라졌다. 지금은 이름순이라 키를 지워도 행이 제자리다 -
-        -- 그래도 화면 밖에 있을 수는 있으므로(스크롤) 짚어주는 것은 그대로 둔다.
-        DebindLayerPanel:ScrollActionIntoView(ctx.action);
-        return MenuResponse.Refresh;
+        DebindUI.UnbindActions(ctx.actions);
     end);
-    description:SetEnabled(function()
-        return ctx.action.key ~= nil;
-    end);
+    description:SetEnabled(DebindPrivate.AnyRealKey(ctx.actions));
+end
+
+local function IsAimingOnlyType(action)
+    return action.type == Constants.TARGET or action.type == Constants.FOCUS
+        or action.type == Constants.TOGGLEMENU;
 end
 
 local function CreateTargetUnitMenuItem(parentDescription, ctx)
@@ -194,20 +267,34 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     -- quietly wiped there, which has happened. A pet command is the case the type alone cannot
     -- settle: only the attack uses a target, and a menu on the rest reads as a setting that does
     -- something.
-    if (not DebindPrivate.ActionTakesUnit(ctx.action)) then
+    local acceptance = HowManyAccept(ctx, DebindPrivate.ActionTakesUnit);
+    if (acceptance == "none") then
         return;
     end
 
-    local description = ActionMenus:BuildNode(parentDescription,
-        { label = "TARGET_UNIT", key = "unit" }, ctx);
+    local description = ActionMenus:BuildNode(parentDescription, {
+        label = "TARGET_UNIT",
+        key = "unit",
+        blocked = function()
+            return SomeCannotReason(acceptance);
+        end,
+    }, ctx);
+    if (acceptance ~= "all") then
+        return description;
+    end
 
-    if (not (ctx.action.type == Constants.TARGET or ctx.action.type == Constants.FOCUS or ctx.action.type == Constants.TOGGLEMENU)) then
+    -- A target or focus action has to aim at something, so [None] is only offered where no selected
+    -- action is one of those.
+    if (not AnyAction(ctx, IsAimingOnlyType)) then
         description:CreateRadio(LLL["UNIT_DISABLE"], actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = nil });
     end
 
     for _, unit in ipairs(SORTED_UNIT_LIST) do
         local unitInfo = DebindUI.UNIT_INFO[unit];
-        if (unitInfo[ctx.action.type] ~= false) then
+        local offered = AllActions(ctx, function(action)
+            return unitInfo[action.type] ~= false;
+        end);
+        if (offered) then
             local unitDescription = description:CreateRadio(unitInfo.name, actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = unit });
             -- **Every entry here says it, not just the menu row above.** A reader can arrive on
             -- one of these from the action's own tooltip without ever hovering the parent, and the
@@ -251,19 +338,21 @@ local function CreateKeepInBindingContextMenuItem(rootDescription, ctx)
     SetInstructionTooltip(description, LLL["KEEP_IN_BINDING_CONTEXT_DESC"]);
 end
 
---- 중요도는 이 메뉴에서 **파장이 가장 넓은 값**이다. 축이 둘 다 넓다: 이 액션이 걸린
---- **모든 키**의 순서를 바꾸고(이 키만이 아니다), 공유 레이어면 **이 계정의 모든
---- 캐릭터**에서 그렇게 된다.
+--- Importance is **the value with the widest reach** in this menu, on both axes: it reorders every
+--- key this action is on (not only this one), and on a shared layer it does so for every character
+--- on the account.
 ---
---- 제목 줄의 경고는 첫째 축까지밖에 못 말한다("여기서 바꾸면 모든 캐릭터"). 둘째 축은
---- 화면 어디에도 안 적혀 있고, 하필 이 목록에 온 사람의 머릿속은 "이 키의 순서"에 가
---- 있어서 정확히 어긋나는 자리다. 그래서 고르는 손이 라디오 위에 있는 순간 읽히도록
---- 항목 툴팁에 붙인다.
+--- The title line's warning can only say the first of those. The second is written nowhere on
+--- screen, and the reader who came to this list is thinking about this key's order, which is exactly
+--- where it misses. So it rides the item's tooltip, where it is read while the hand is on the radio.
+---
+--- **One action at a time.** Raised on a dozen at once, their order among themselves stays put while
+--- their order against everything left unpicked turns over, on keys the reader is not looking at.
 local function CreateImportanceMenu(rootDescription, ctx)
     -- `rawget`이라 없으면 nil이다(로케일 표의 __index를 건너뛴다). 이어붙이기 전에
     -- 갈라서 둔다 - 번역본 한 줄이 빠졌다고 메뉴가 통째로 터지면 안 된다.
     local instruction = rawget(LLL, "IMPORTANCE_DESC");
-    local layer = ctx.elementData.layer and DebindPrivate.GetProfileLayer(ctx.elementData.layer);
+    local layer = ctx.layer and DebindPrivate.GetProfileLayer(ctx.layer);
     if (layer and not layer.isCharacterSpecific) then
         local warning = LLL["IMPORTANCE_SHARED_WARNING"];
         instruction = instruction and (instruction .. "|n|n" .. warning) or warning;
@@ -273,10 +362,15 @@ local function CreateImportanceMenu(rootDescription, ctx)
         label = "IMPORTANCE",
         key = "priority",
         instruction = instruction,
+        blocked = OnlyOneReason,
         isActive = function()
-            return ctx.action.priority ~= nil and ctx.action.priority ~= Constants.DEFAULT_IMPORTANCE;
+            local action = ctx.actions[1];
+            return action.priority ~= nil and action.priority ~= Constants.DEFAULT_IMPORTANCE;
         end,
     }, ctx);
+    if (OnlyOneReason(ctx)) then
+        return;
+    end
 
     for i = Constants.MIN_IMPORTANCE, Constants.MAX_IMPORTANCE do
         -- 저장할 값으로 바꾸는 것은 Ordering.lua 한 군데다. 기본값을 nil로 접는 규칙이
@@ -284,12 +378,12 @@ local function CreateImportanceMenu(rootDescription, ctx)
         local value = DebindPrivate.ImportanceToStored(i);
         description:CreateRadio(LLL["IMPORTANCE" .. i],
             function()
-                return ctx.action.priority == value or ctx.action.priority == i;
+                local action = ctx.actions[1];
+                return action.priority == value or action.priority == i;
             end,
             function()
-                ctx.action.priority = value;
-                OnActionValueChanged(ctx.action);
-                return MenuResponse.Refresh;
+                ctx.actions[1].priority = value;
+                return OnActionsChanged(ctx.actions);
             end
         );
     end
@@ -423,26 +517,13 @@ local function CreateMoveCopyMenu(rootDescription, isCopy, fromLayerID, applyFun
     end
 end
 
---- An item that stands only to say it cannot be taken, and why.
----
---- **It is built as a leaf even where the live one is a submenu.** A destination list nobody can
---- open is a list with no reason to exist, and the arrow on a parent that never opens promises a
---- step that is not there. What the reader loses is nothing they could have used; what they get
---- is the same shape this menu already uses for a blocked destination.
-local function CreateBlockedMenuItem(rootDescription, text, reason)
-    local description = rootDescription:CreateButton(text);
-    description:SetEnabled(false);
-    SetErrorTooltip(description, reason);
-    return description;
-end
-
 local function CreateDeleteMenu(rootDescription, ctx)
     rootDescription:CreateButton(LLL["DELETE"], function()
-        DebindUI.ShowDeleteConfirmationPopup(ctx.elementData);
+        DebindUI.ShowDeleteConfirmationPopup(ctx.actions);
     end);
 end
 
---- What the six entry points stand up (`DropDownMenus.lua`).
+--- What the entry points stand up (`DropDownMenus.lua`).
 ActionMenu.CreateConvertToMacroTextMenuItem   = CreateConvertToMacroTextMenuItem;
 ActionMenu.EditMacroTextMenuItem              = EditMacroTextMenuItem;
 ActionMenu.CreateSetSwitchMenuItem            = CreateSetSwitchMenuItem;

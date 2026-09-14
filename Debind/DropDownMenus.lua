@@ -4,7 +4,7 @@ local DebindUI              = DebindPrivate.DebindUI;
 
 local dump                  = DebindPrivate.dump
 
---- The six dropdowns other files open.
+--- The five dropdowns other files open.
 local ActionMenu                              = DebindPrivate.ActionMenu;
 local ActionMenus                             = ActionMenu.ActionMenus;
 local CreateConvertToMacroTextMenuItem        = ActionMenu.CreateConvertToMacroTextMenuItem;
@@ -52,26 +52,38 @@ local SetErrorTooltip                         = ActionMenu.SetErrorTooltip;
 --- dropdown.
 
 --------------------------------------------------------------------------------
--- The six that are still here
+-- The five that are still here
 --------------------------------------------------------------------------------
 
-function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
-    local ctx = { elementData = elementData, action = elementData.action };
+--- The menu a row of the layer list opens, **over one row or over the rows the reader picked.**
+--- `ctx` is `{ actions, layer }`, and a single row is a selection of one
+--- (`devdocs/editing-many-actions-at-once.md`).
+---
+--- **One menu and not two.** The row menu and the selection menu used to be separate, the second
+--- holding keys, move, copy, accept, reject and delete on the grounds that a condition means
+--- something different on each action. It does not: `[combat]` is the same question on every
+--- action it is hung on, and hanging one condition on the several actions a key splits between is
+--- what setting a key up in this addon consists of. What really cannot go on many at once is
+--- locked where it stands (`OnlyOneReason`, `HowManyAccept`).
+---
+--- **The picked rows all live in one layer**, because the list holds one layer at a time
+--- (`DebindLayerPanelMixin:Refresh`). That is what lets `ctx.layer` answer "already lives here".
+function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
+    local actions = ctx.actions;
+    local anyArrived = DebindPrivate.AnyArrivedAction(actions);
 
-    -- GenerateMenu(dropdown, rootDescription, rootMenu, elementData.action);
-    -- if true then
-    --     return;
-    -- end
+    -- **One row is named, several are counted.** The count answers "is this the set I meant", which
+    -- is asked before any item is read. `NameAndIconForAction` hands back three values, so it is
+    -- taken into a local first: passed straight on, the icon lands in `CreateTitle`'s colour slot.
+    if (#actions == 1) then
+        local title = DebindUI.NameAndIconForAction(actions[1]);
+        rootDescription:CreateTitle(title);
+    else
+        rootDescription:CreateTitle(format(LLL["BULK_MENU_TITLE"], #actions));
+    end
 
-    local title = DebindUI.NameAndIconForAction(elementData.action);
-    rootDescription:CreateTitle(title);
-
-    -- **Which layer's action is being touched.** This menu deletes actions and changes
-    -- conditions, and nothing else in it said where that action lives.
-    --
-    -- It used to need no asking. The menu opened in one list only, and that list was always a
-    -- single layer, so the answer stood in the window's title. Neither holds now - **the
-    -- overview tab holds five layers in one list.**
+    -- **Which layer is being touched.** This menu deletes actions and changes conditions, and
+    -- nothing else in it said where those actions live.
     --
     -- **The line is a plain title, and the badge is the only thing that colours it.** The reach
     -- of the layer is not a colour any more: it is a standing property of every action in this
@@ -84,49 +96,20 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     -- long as the reader has not answered, it comes off the moment they do, and it is the same
     -- blue the row's name and its dot already wear. Passing no colour lands on the client's own
     -- title gold (`MenuUtil.CreateTitle`), which is what the name line above already uses.
-    --
-    -- The words stay bare. An icon and "all characters" were once hung here together, and one
-    -- title line carrying a picture, a position and a consequence read as none of the three.
-    if (elementData.layer) then
-        local color;
-        if (ctx.action.arrivalID) then
-            color = DebindUI.IMPORTED_FONT_COLOR;
-        end
-        rootDescription:CreateTitle(DebindUI.GetLayerLabel(elementData.layer), color);
+    if (ctx.layer) then
+        rootDescription:CreateTitle(DebindUI.GetLayerLabel(ctx.layer),
+            anyArrived and DebindUI.IMPORTED_FONT_COLOR or nil);
     end
 
     rootDescription:SetTag(DebindUI.ActionMenuRootTag, 1);
 
-    -- **A badged action gets a key, accept and reject, and nothing else.** The badge keeps it out
-    -- of the build (`BuildKeyMap`), so every other entry below sets a property on something that
-    -- does not fire - a condition, a target, a priority, all settled before the one question this
-    -- row is actually waiting on.
-    --
-    -- **Move and copy are the two that do harm rather than nothing.** `MoveAction` copies the
-    -- action whole and the badge rides along, so copying makes a second thing to accept and
-    -- moving files one away in a layer the reader was not looking at.
-    --
-    -- Delete goes because reject is this row's delete and says the truer thing - what arrived is
-    -- still in the drawer, which is what makes it the reversible half (`CreateRejectImportMenuItem`).
-    --
-    -- **The key stands above the pair because it is the third answer to their question.** Naming
-    -- the key is the reader saying yes and the badge comes off with it (`SetActionKey`), so the
-    -- three items are: take it and put it somewhere, take it where it lies, throw it back.
-    --
-    -- [Accept] keeps its place under it rather than being made redundant. What it leaves behind
-    -- is the action live on the key it came in on, which is what the reader is saying yes to
-    -- (`ApproveArrivedActions`). It used to leave it parked on a number the build skipped; the
-    -- number is gone and so is that half-state.
-    --
-    -- **It also takes this row out of the set it arrived in**, and that is why the left column's
-    -- row menu does not carry it: over there the set is drawn as a group with a heading, and the
-    -- heading is where its key belongs (`DebindUI.SetupOrderDropdownMenu`).
-    if (ctx.action.arrivalID) then
-        CreateAssignKeyMenuItem(rootDescription, ctx);
-        CreateApproveImportMenuItem(rootDescription, { ctx.action });
-        CreateRejectImportMenuItem(rootDescription, { ctx.action });
-        return;
-    end
+    -- **Something that arrived is edited like anything else, and its two answers come first.** The
+    -- import leaves what came in drawn and editable until the reader takes the badge off
+    -- (`DebindStorage/Import.lua`), and accepting is the moment it starts firing, so fitting its
+    -- conditions to this character is safer done before than after. The two build themselves out of
+    -- the way when nothing picked carries a badge.
+    CreateApproveImportMenuItem(rootDescription, actions);
+    CreateRejectImportMenuItem(rootDescription, actions);
 
     -- **First, because on a fresh one it is the only thing worth doing.** The picker adds an
     -- on/off/toggle action with no target (§6-C), so the reader arrives here at a red row that
@@ -171,14 +154,44 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
 
     CreateImportanceMenu(rootDescription, ctx);
 
-    CreateMoveCopyMenu(rootDescription, false, ctx.elementData.layer, function(destLayerID, isCopy)
-        DebindUI.MoveAction(ctx.elementData, destLayerID, isCopy);
-    end);
+    -- **One badged action stops move and copy.** What arrived carries the order its sender designed,
+    -- and that order lives in `seq` inside one (layer, key, arrival) group - so a move hands out a
+    -- fresh number at the back of a different group and the ranking is gone with no sign of it
+    -- (`SetKeyForActions`, which exists to keep exactly that). A copy is worse than quiet:
+    -- `MoveAction` copies the action whole, badge and all, so what came in once is waiting twice.
+    --
+    -- **Dead, rather than live and aimed at the rest.** Moving the five that can move and leaving
+    -- the two that cannot is a result nobody was told about, and move has no confirmation box to
+    -- tell them in. What the block costs instead is one click on a row the list already draws in
+    -- blue, and the reason says so.
+    --
+    -- **Three reasons.** With every picked row waiting there is nothing to take out of the selection,
+    -- so the way out is [Accept]; one row somebody right-clicked is not a pick at all.
+    local blockedReason;
+    if (anyArrived) then
+        if (#actions == 1) then
+            blockedReason = LLL["MOVE_BLOCKED_IMPORTED"];
+        elseif (ActionMenu.AllActions(ctx, function(action) return action.arrivalID ~= nil; end)) then
+            blockedReason = LLL["BULK_BLOCKED_ALL_IMPORTED"];
+        else
+            blockedReason = LLL["BULK_BLOCKED_SOME_IMPORTED"];
+        end
+    end
 
-    CreateMoveCopyMenu(rootDescription, true, ctx.elementData.layer, function(destLayerID, isCopy)
-        DebindUI.MoveAction(ctx.elementData, destLayerID, isCopy);
-    end);
+    if (blockedReason) then
+        CreateBlockedMenuItem(rootDescription, LLL["MOVE_TO"], blockedReason);
+        CreateBlockedMenuItem(rootDescription, LLL["COPY_TO"], blockedReason);
+    else
+        local function Apply(destLayerID, isCopy)
+            DebindUI.MoveActions(actions, destLayerID, isCopy);
+        end
+        CreateMoveCopyMenu(rootDescription, false, ctx.layer, Apply);
+        CreateMoveCopyMenu(rootDescription, true, ctx.layer, Apply);
+    end
 
+    -- **Delete takes badged rows with the rest.** Nothing is relocated and nothing duplicated, so
+    -- neither reason above reaches it; what it does to an arrival is what [Reject] does, and a reader
+    -- who picked a dozen rows to be rid of has said which they meant.
     CreateDeleteMenu(rootDescription, ctx);
 end
 
@@ -300,11 +313,10 @@ end
 --- the whole group can be told at once**: which key it goes on.
 ---
 --- Everything else that menu above offers is about a single action -- an order is a place
---- between two rows, a condition means something different on each of them -- and the heading
---- does not stand for any one of them. `SetupBulkDropdownMenu` keeps the same line for the same
---- reason, and takes move/copy/delete because those do go one at a time. They are left out here
---- on purpose: the heading is a **reading** of the column rather than a selection the reader
---- made, so a delete on it would take rows nobody picked.
+--- between two rows -- and the heading does not stand for any one of them. The conditions the
+--- layer list's menu hangs on several actions at once are left out here too, and so are move,
+--- copy and delete: the heading is a **reading** of the column rather than a selection the reader
+--- made, so anything written through it lands on rows nobody picked.
 ---
 --- **The title names the set the way the menu above names a row: by what is in it.** The first
 --- action's name, then how many follow -- `Charge +1`, which is the summary the heading itself
@@ -404,108 +416,6 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
         CreateApproveImportMenuItem(rootDescription, actions, true);
         CreateRejectImportMenuItem(rootDescription, actions, true);
     end
-end
-
---- 여럿을 고른 채로 연 메뉴. **이동·복사·삭제 셋뿐이다.**
----
---- 단일 메뉴의 나머지(키·조건·중요도)는 여기 안 넣는다. 그 값들은 한꺼번에 걸 수 있는
---- 것이 아니다 - 조건은 액션마다 뜻이 다르고, 중요도는 이 액션이 걸린 **모든 키**와 공유
---- 레이어면 이 계정의 **모든 캐릭터**까지 건드린다(`IMPORTANCE_SHARED_WARNING`). 그런 것을
---- 열 줄에 한 번에 거는 통로는 되돌릴 수도 없다.
----
---- 고른 것은 전부 **같은 레이어**에 있다. 오른쪽 목록이 한 레이어만 담기 때문이고
---- (`DebindLayerPanelMixin:Refresh`), 그래서 "이미 여기 산다"를 화면의 레이어로 답할 수 있다.
----
---- **One badged action in the selection stops move and copy.** What arrived carries the order its
---- sender designed, and that order lives in `seq` inside one (layer, key) group - so a move hands
---- out a fresh number at the back of a different group and the ranking is gone with no sign of it
---- (`SetKeyForActions`, which exists to keep exactly that). A copy is worse than quiet:
---- `MoveAction` copies the action whole, badge and all, so what came in once is waiting twice.
----
---- **Delete is not in that, and takes the badged rows with the rest.** Neither reason reaches it:
---- nothing is relocated, so there is no ranking left to lose, and nothing is duplicated. What it
---- does to an arrival is what [Reject] does, and a reader who picked a dozen rows to be rid of
---- has said which they meant.
----
---- **Dead, rather than live and aimed at the rest.** Moving the five that can move and leaving
---- the two that cannot is a result nobody was told about, and move has no confirmation box to
---- tell them in - it is exempt on the grounds that what it does can be undone, which stops being
---- true once the reader cannot say which five went. The warning would have to live in a tooltip,
---- and a tooltip is read by choice: nothing that costs the reader something when it goes unread
---- belongs in one. What the block costs instead is one click on a row the list already draws in
---- blue, and the reason says so.
----
---- **Two reasons and not one.** With none of them movable there is nothing to take out of the
---- selection, so that wording would be pointing at a door that is not there; the way out is
---- [Accept], two items down.
----
---- [Accept] and [Reject] need no branch of their own - they aim at the badged ones and build
---- themselves out of the way when there are none.
-function DebindUI.SetupBulkDropdownMenu(dropdown, rootDescription, actions)
-    -- **The title counts what was picked, not what the three items reach.** It answers "is this
-    -- the set I meant", which is asked before any item is read and is about the selection itself.
-    rootDescription:CreateTitle(format(LLL["BULK_MENU_TITLE"], #actions));
-
-    -- **The key pair is here because the window below it takes 1..n** (`DebindUI.BeginKeyCapture`,
-    -- which the row menu and the heading menu also open, each handing in an array). What kept the
-    -- rest of the single menu out of this one was that a value cannot be hung on a dozen actions
-    -- at once - a condition means something different on each of them - and a key is the one
-    -- thing that does not work that way: one key over a selection is a selection on one key,
-    -- which is this addon's ordinary state rather than a compromise.
-    --
-    -- **Giving and taking stay side by side**, the same as on a row: they are the two ends of one
-    -- axis, and a menu that can take a key away but not give one back sends the reader elsewhere
-    -- for the other half.
-    -- **A third scope gets a third string.** `ACTION_SET_KEY_DESC` opens on "this action" and
-    -- `KEY_HEADER_SET_KEY_DESC` on "under this heading", and neither is what the reader is looking
-    -- at here. The two were split for this reason to begin with - a sentence stretched across
-    -- positions fits none of them (`devdocs/writing-user-facing-text.md`).
-    local description = rootDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
-        DebindUI.BeginKeyCapture(actions);
-    end);
-    SetInstructionTooltip(description, LLL["BULK_SET_KEY_DESC"]);
-
-    -- **A selection with no real key in it has nothing to take off** (`DebindPrivate.AnyRealKey`),
-    -- which is the answer the dialog's own [Unbind Key] button already gives.
-    description = rootDescription:CreateButton(LLL["UNBIND"], function()
-        DebindUI.UnbindActions(actions);
-    end);
-    description:SetEnabled(DebindPrivate.AnyRealKey(actions));
-
-    -- Which of the two reasons the pair below wears, and `nil` for the selection that wears
-    -- neither. Counting rather than stopping at the first one is what tells them apart.
-    local badgedCount = 0;
-    for i = 1, #actions do
-        if (actions[i].arrivalID) then
-            badgedCount = badgedCount + 1;
-        end
-    end
-    local blockedReason;
-    if (badgedCount == #actions) then
-        blockedReason = LLL["BULK_BLOCKED_ALL_IMPORTED"];
-    elseif (badgedCount > 0) then
-        blockedReason = LLL["BULK_BLOCKED_SOME_IMPORTED"];
-    end
-
-    if (blockedReason) then
-        CreateBlockedMenuItem(rootDescription, LLL["MOVE_TO"], blockedReason);
-        CreateBlockedMenuItem(rootDescription, LLL["COPY_TO"], blockedReason);
-    else
-        local fromLayerID = DebindUI.GetLayerID();
-        CreateMoveCopyMenu(rootDescription, false, fromLayerID, function(destLayerID, isCopy)
-            DebindUI.MoveActions(actions, destLayerID, isCopy);
-        end);
-        CreateMoveCopyMenu(rootDescription, true, fromLayerID, function(destLayerID, isCopy)
-            DebindUI.MoveActions(actions, destLayerID, isCopy);
-        end);
-    end
-
-    CreateApproveImportMenuItem(rootDescription, actions);
-    CreateRejectImportMenuItem(rootDescription, actions);
-
-    rootDescription:CreateButton(LLL["DELETE"], function()
-        DebindUI.ShowBulkDeleteConfirmationPopup(actions);
-    end);
 end
 
 --- The row above the two columns, on either mouse button. **Two items, and they are the two

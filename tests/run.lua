@@ -80,6 +80,9 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---   `MenuKit.lua` is `DebindUI.xml`'s too, and only its drawing half needs a frame. The value
 ---     handlers and the issue rollup are asked about tables, which is what `menukit_spec.lua`
 ---     reaches; `Registry:Build` makes rows on a description and is out of reach here
+---   `ActionMenuModel.lua` is the action menu's reads and writes over a set of actions, and reads
+---     no frame until a destination list is asked for. `actionmenu_spec.lua` is what reaches it:
+---     a condition written once over a selection has to land the same on every action in it
 ---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
 ---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
 ---     along because the pipeline calls into it
@@ -111,6 +114,7 @@ local function loadAddons(withCliqueFake)
     "ActionDisplay.lua",
     "ActionTooltip.lua",
     "MenuKit.lua",
+    "ActionMenuModel.lua",
     "Flyout.lua",
     "Profile.lua",
     "Legacy.lua",
@@ -217,6 +221,7 @@ local specs = {
     { name = "role", path = root .. "/role_spec.lua" },
     { name = "options", path = root .. "/options_spec.lua" },
     { name = "menukit", path = root .. "/menukit_spec.lua" },
+    { name = "actionmenu", path = root .. "/actionmenu_spec.lua" },
     { name = "pet", path = root .. "/pet_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
 };
