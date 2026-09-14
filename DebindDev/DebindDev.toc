@@ -16,6 +16,7 @@ DevSeed.lua
 
 DebindTest.lua
 # Probe_BindingContext.lua
+# Probe_BindingList.lua
 # Probe_ForbiddenFrames.lua
 # Probe_LoginTiming.lua
 # Probe_FrameBoundary.lua
