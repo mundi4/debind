@@ -908,6 +908,11 @@ function M.install()
     --- because nothing reached that path.
     _G.FULL_PLAYER_NAME = "%s-%s";
 
+    --- The two words a yes/no condition row falls back to when the locale names none of its own
+    --- (`MenuKit`'s `Appender:YesNo`).
+    _G.YES = "Yes";
+    _G.NO = "No";
+
     --- **One binding command that resolves.** `ActionDisplay` asks `_G["BINDING_NAME_" .. value]`
     --- and falls back to the command code, so without a single one defined every spec walked the
     --- fallback and a command action was named by its code -- which is what a reader sees when the

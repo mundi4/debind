@@ -21,6 +21,8 @@ local AllActions                     = ActionMenu.AllActions;
 local AnyAction                      = ActionMenu.AnyAction;
 local HowManyAccept                  = ActionMenu.HowManyAccept;
 local OnlyOneReason                  = ActionMenu.OnlyOneReason;
+local CreateRadio                    = ActionMenu.CreateRadio;
+local CreateCheckbox                 = ActionMenu.CreateCheckbox;
 local TableFor                       = ActionMenu.TableFor;
 local PruneConditions                = ActionMenu.PruneConditions;
 local UnitConditionsOf               = ActionMenu.UnitConditionsOf;
@@ -83,7 +85,7 @@ local UNIT_CONDITION_AXES = {
         title = "CONDITION_REACTIONS",
         append = function(description, ctx, unit, isEnabled)
             for _, item in ipairs(REACTION_ITEMS) do
-                local reactionDescription = description:CreateCheckbox(item.text,
+                local reactionDescription = CreateCheckbox(description, ctx,item.text,
                     function()
                         return UnitConditionReactionChecked(ctx, unit, item.value);
                     end,
@@ -105,7 +107,7 @@ local UNIT_CONDITION_AXES = {
         -- This is where the two axes part.
         append = function(description, ctx, unit, isEnabled)
             for _, item in ipairs(LIFE_ITEMS) do
-                local lifeDescription = description:CreateRadio(item.text,
+                local lifeDescription = CreateRadio(description, ctx,item.text,
                     function()
                         return UnitConditionDeadIs(ctx, unit, item.value);
                     end,
@@ -122,7 +124,7 @@ local UNIT_CONDITION_AXES = {
         title = "CONDITION_UNIT_GROUP",
         append = function(description, ctx, unit, isEnabled)
             for _, item in ipairs(UNITGROUP_ITEMS) do
-                local groupDescription = description:CreateCheckbox(item.text,
+                local groupDescription = CreateCheckbox(description, ctx,item.text,
                     function()
                         return UnitConditionGroupChecked(ctx, unit, item.value);
                     end,
@@ -159,6 +161,10 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         blocked = function()
             return blockedReason;
         end,
+        valueOf = function(action)
+            local units = UnitConditionsOf(action);
+            return units and units[unit];
+        end,
         isActive = function()
             return UnitConditionIsOn(ctx, unit);
         end,
@@ -182,7 +188,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         end);
     end
 
-    optionsDescription:CreateRadio(LLL["DISABLE"],
+    CreateRadio(optionsDescription, ctx,LLL["DISABLE"],
         function()
             return AllUnitModesIn(ctx, unit, nil, "disabled");
         end,
@@ -193,7 +199,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
 
     -- The three above are exclusive; the axis blocks below are alive only while `exists` is
     -- picked. Same arrangement the hover menu gets from `hoverConditionIsOn`.
-    optionsDescription:CreateRadio(LLL["CONDITION_UNIT_EXISTS"],
+    CreateRadio(optionsDescription, ctx,LLL["CONDITION_UNIT_EXISTS"],
         function()
             return UnitConditionIsExists(ctx, unit);
         end,
@@ -202,7 +208,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         end
     );
 
-    local absentDescription = optionsDescription:CreateRadio(LLL["CONDITION_UNIT_DOES_NOT_EXIST"],
+    local absentDescription = CreateRadio(optionsDescription, ctx,LLL["CONDITION_UNIT_DOES_NOT_EXIST"],
         function()
             return AllUnitModesIn(ctx, unit, "absent");
         end,
@@ -258,7 +264,7 @@ local function BuildHoverMenu(kit, ctx)
 
     -- 유닛 서브메뉴의 라디오 셋과 같은 세 상태다. 글자만 이 자리의 말로 쓴다 -
     -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
-    description:CreateRadio(rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
+    CreateRadio(description, ctx,rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
         function()
             return AllUnitModesIn(ctx, "hover", nil, "disabled");
         end,
@@ -267,7 +273,7 @@ local function BuildHoverMenu(kit, ctx)
         end
     );
 
-    description:CreateRadio(LLL["CONDITION_HOVER_YES"],
+    CreateRadio(description, ctx,LLL["CONDITION_HOVER_YES"],
         function()
             return UnitConditionIsExists(ctx, "hover");
         end,
@@ -276,7 +282,7 @@ local function BuildHoverMenu(kit, ctx)
         end
     );
 
-    description:CreateRadio(LLL["CONDITION_HOVER_NO"],
+    CreateRadio(description, ctx,LLL["CONDITION_HOVER_NO"],
         function()
             return AllUnitModesIn(ctx, "hover", "absent");
         end,
@@ -290,7 +296,7 @@ local function BuildHoverMenu(kit, ctx)
     MenuKit.CreateTitle(description, LLL["CONDITION_REACTIONS"]);
 
     for _, item in ipairs(REACTION_ITEMS) do
-        local reactionDescription = description:CreateCheckbox(item.text,
+        local reactionDescription = CreateCheckbox(description, ctx,item.text,
             function()
                 return UnitConditionReactionChecked(ctx, "hover", item.value);
             end,
@@ -305,7 +311,7 @@ local function BuildHoverMenu(kit, ctx)
     MenuKit.CreateTitle(description, LLL["CONDITION_LIFE"]);
 
     for _, item in ipairs(LIFE_ITEMS) do
-        local lifeDescription = description:CreateRadio(item.text,
+        local lifeDescription = CreateRadio(description, ctx,item.text,
             function()
                 return UnitConditionDeadIs(ctx, "hover", item.value);
             end,
@@ -320,7 +326,7 @@ local function BuildHoverMenu(kit, ctx)
     MenuKit.CreateTitle(description, LLL["CONDITION_UNIT_GROUP"]);
 
     for _, item in ipairs(UNITGROUP_ITEMS) do
-        local groupDescription = description:CreateCheckbox(item.text,
+        local groupDescription = CreateCheckbox(description, ctx,item.text,
             function()
                 return UnitConditionGroupChecked(ctx, "hover", item.value);
             end,
@@ -351,7 +357,7 @@ local function BuildHoverMenu(kit, ctx)
             if (item.value == Constants.FRAMETYPE_GROUP) then
                 MenuKit.CreateTitle(elementDescription, LLL["CONDITION_ROLE"]);
                 for _, role in ipairs(ROLE_ITEMS) do
-                    local roleDescription = elementDescription:CreateCheckbox(role.text,
+                    local roleDescription = CreateCheckbox(elementDescription, ctx, role.text,
                         function()
                             return UnitConditionRoleChecked(ctx, "hover", role.value);
                         end,
@@ -371,7 +377,7 @@ local function BuildHoverMenu(kit, ctx)
     );
 
     description:CreateDivider();
-    local ignoreHoverUnit = description:CreateCheckbox(LLL["IGNORE_HOVER_UNIT"],
+    local ignoreHoverUnit = CreateCheckbox(description, ctx,LLL["IGNORE_HOVER_UNIT"],
         kit.handlers.equals, kit.handlers.set,
         { ctx = ctx, key = "ignoreHoverUnit", value = MenuKit.TOGGLE });
     SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
@@ -394,6 +400,17 @@ ActionMenus:Define("HOVER", {
     key = "hover",
     isActive = function(ctx)
         return UnitConditionIsOn(ctx, "hover");
+    end,
+    -- `key` names the issue category; what the menu edits is these three.
+    valueOf = function(action)
+        local units = UnitConditionsOf(action);
+        local frameTypes = TableFor(action, "frameTypes");
+        local ignoreHoverUnit = TableFor(action, "ignoreHoverUnit");
+        return {
+            unit = units and units.hover,
+            frameTypes = frameTypes and frameTypes.frameTypes,
+            ignoreHoverUnit = ignoreHoverUnit and ignoreHoverUnit.ignoreHoverUnit,
+        };
     end,
     build = BuildHoverMenu,
 });
@@ -433,7 +450,7 @@ end
 local function BuildUnitConditionMenu(kit, ctx)
     local description = kit.description;
 
-    description:CreateRadio(LLL["DISABLE_ALL"],
+    CreateRadio(description, ctx,LLL["DISABLE_ALL"],
         function()
             return AllActions(ctx, function(action)
                 return ListedUnitsWithCondition(action) == nil;
@@ -484,6 +501,15 @@ ActionMenus:Define("UNITS", {
         return AnyAction(ctx, function(action)
             return ListedUnitsWithCondition(action) ~= nil;
         end);
+    end,
+    valueOf = function(action)
+        local listed = {};
+        for unit, cond in pairs(UnitConditionsOf(action) or {}) do
+            if (isListedUnit(action, unit)) then
+                listed[unit] = cond;
+            end
+        end
+        return listed;
     end,
     build = BuildUnitConditionMenu,
 });
@@ -551,7 +577,7 @@ local function BuildSelfLifeConditionMenu(kit, ctx)
     end
 
     for _, item in ipairs(LIFE_ITEMS) do
-        description:CreateRadio(item.text,
+        CreateRadio(description, ctx,item.text,
             function()
                 return UnitConditionDeadIs(ctx, "player", item.value);
             end,
@@ -573,6 +599,10 @@ ActionMenus:Define("SELFLIFE", {
             local cond = units and units.player;
             return type(cond) == "table" and not cond.disabled and cond.dead ~= nil;
         end);
+    end,
+    valueOf = function(action)
+        local units = UnitConditionsOf(action);
+        return units and units.player;
     end,
     build = BuildSelfLifeConditionMenu,
 });
@@ -636,6 +666,14 @@ ActionMenus:Define("SPEC", {
                     isActive = function(ctx)
                         return ClassSpecConditionIsOn(ctx, specs);
                     end,
+                    valueOf = function(action)
+                        local picked = {};
+                        local set = SpecConditionsOf(action);
+                        for j = 1, #specs do
+                            picked[j] = set ~= nil and set[specs[j].id] ~= nil;
+                        end
+                        return picked;
+                    end,
                 }, kit.ctx);
 
                 -- **The whole class, from inside the submenu rather than from its row.** The
@@ -644,7 +682,7 @@ ActionMenus:Define("SPEC", {
                 -- same thing in the same place, one row above the specializations and in these
                 -- words (`ALL_SPECS`, `Blizzard_ClassMenu`).
                 local classID = class.id;
-                classDescription:CreateCheckbox(ALL_SPECS,
+                CreateCheckbox(classDescription, kit.ctx,ALL_SPECS,
                     function()
                         return ClassSpecsAllPicked(kit.ctx, classID);
                     end,
@@ -654,7 +692,7 @@ ActionMenus:Define("SPEC", {
 
                 for j = 1, #specs do
                     local specID = specs[j].id;
-                    classDescription:CreateCheckbox(specs[j].name or LLL["NO_SPECIALIZATION"],
+                    CreateCheckbox(classDescription, kit.ctx,specs[j].name or LLL["NO_SPECIALIZATION"],
                         function()
                             return SpecConditionHasID(kit.ctx, specID);
                         end,
@@ -742,7 +780,7 @@ ActionMenus:Define("KNOWN", {
         -- tooltip, where the condition is read rather than picked (`ActionTooltip.lua`).
         local rows = KnownRows(action);
         for i = 1, #rows do
-            kit.description:CreateRadio(rows[i], kit.handlers.equals, kit.handlers.set,
+            CreateRadio(kit.description, kit.ctx, rows[i], kit.handlers.equals, kit.handlers.set,
                 { ctx = kit.ctx, key = "known", value = rows[i] });
         end
     end,
@@ -979,6 +1017,16 @@ ActionMenus:Define("SWITCHES", {
             end
             return false;
         end);
+    end,
+
+    valueOf = function(action)
+        local named = {};
+        for name, value in pairs(action.conditions or {}) do
+            if (Constants.IsSwitchName(name)) then
+                named[name] = value;
+            end
+        end
+        return named;
     end,
 
     -- **자식에서 안 올라온다.** 스위치 줄은 이름이 있을 때만 생기는 노드라 트리에 자식이

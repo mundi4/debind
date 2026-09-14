@@ -588,6 +588,65 @@ return function(DebindPrivate)
     end);
 
     --------------------------------------------------------------------------
+    -- Mixed selections
+    --------------------------------------------------------------------------
+
+    --- **Every choice an appender draws goes past the family's hook**, so a family counting how many
+    --- of its targets hold a value does not have to find each row the kit made on its behalf.
+    test("every choice an appender draws is handed to the family's decorator", function()
+        local seen = {};
+        local registry = MenuKit.NewRegistry({
+            accessor = Accessor(),
+            resolveIssue = function(issue) return issue, nil; end,
+            decorateChoice = function(description, ctx, isSelected, data)
+                seen[#seen + 1] = { ctx = ctx, key = data.key, isSelected = isSelected };
+            end,
+        });
+        registry:Define("ALL", {
+            label = "ALL",
+            skipTitle = true,
+            build = function(kit)
+                kit:DisableYesNo("X", "combat");
+                kit:Checkboxes("forms", { { text = "a", value = 1 } });
+                kit:ClearingCheckbox("k", "known", true);
+            end,
+        });
+
+        local parent = FakeDescription();
+        parent.CreateRadio = function(self, text, isSelected, setSelected, data)
+            return self;
+        end;
+        local ctx = Ctx();
+        registry:Build(parent, "ALL", ctx);
+
+        check(#seen == 5, "choices decorated: " .. #seen);
+        for i = 1, #seen do
+            check(seen[i].ctx == ctx, "choice " .. i .. " was handed another ctx");
+            check(type(seen[i].isSelected) == "function", "choice " .. i .. " came without its reading");
+        end
+    end);
+
+    test("a node row carries the family's mixed count after its label", function()
+        local registry = MenuKit.NewRegistry({
+            accessor = Accessor(),
+            resolveIssue = function(issue) return issue, nil; end,
+            mixedCount = function(node, ctx)
+                return ctx.values.mixed;
+            end,
+        });
+        registry:Define("GROUP", { label = "밖", skipTitle = true });
+
+        local root = Row();
+        registry:Build(root, "GROUP", Ctx({ mixed = 2 }));
+        check(drawn(root.children[1]) == "밖 " .. format(DebindPrivate.L["MENU_MIXED_COUNT"], 2),
+            "drawn: " .. tostring(drawn(root.children[1])));
+
+        root = Row();
+        registry:Build(root, "GROUP", Ctx());
+        check(drawn(root.children[1]) == "밖", "no count, no suffix: " .. tostring(drawn(root.children[1])));
+    end);
+
+    --------------------------------------------------------------------------
     -- Define
     --------------------------------------------------------------------------
 

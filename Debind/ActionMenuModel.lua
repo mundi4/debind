@@ -185,6 +185,60 @@ local function OnlyOneReason(ctx)
     end
 end
 
+--- Runs `fn` with the selection narrowed to one action, and puts the selection back even when it
+--- raises. Every reading in these menus takes the selection off `ctx` when it is called, so this is
+--- how one of them is asked about a single action without a second copy of it.
+local function WithOneAction(ctx, action, fn, ...)
+    local actions = ctx.actions;
+    ctx.actions = { action };
+    local ok, result = pcall(fn, ...);
+    ctx.actions = actions;
+    if (not ok) then
+        error(result, 0);
+    end
+    return result;
+end
+
+--- How many selected actions a choice row holds, or nil where they all agree.
+---
+--- **The row's own reading is asked once per action**, so the number beside a row and the tick on it
+--- cannot come from two rules.
+local function MixedCount(ctx, isSelected, data)
+    local actions = ctx.actions;
+    if (#actions < 2) then
+        return nil;
+    end
+    local held = 0;
+    for i = 1, #actions do
+        if (WithOneAction(ctx, actions[i], isSelected, data)) then
+            held = held + 1;
+        end
+    end
+    if (held == 0 or held == #actions) then
+        return nil;
+    end
+    return held;
+end
+
+local function DecorateChoice(description, ctx, isSelected, data)
+    MenuKit.AppendCount(description, function()
+        return MixedCount(ctx, isSelected, data);
+    end);
+    return description;
+end
+
+--- A radio or a box drawn for the action menu, carrying the count where the selection is split.
+--- The rows the kit's appenders draw get the same through `decorateChoice`.
+local function CreateRadio(description, ctx, text, isSelected, setSelected, data)
+    return DecorateChoice(description:CreateRadio(text, isSelected, setSelected, data), ctx, isSelected, data);
+end
+
+local function CreateCheckbox(description, ctx, text, isSelected, setSelected, data)
+    return DecorateChoice(description:CreateCheckbox(text, isSelected, setSelected, data), ctx, isSelected, data);
+end
+
+local NodeMixedCount;
+
 --- The menu has changed values on these actions.
 ---
 --- **It does not look at which value.** Conditions, importance and hover are steps in the
@@ -352,6 +406,12 @@ local setActionValue = ActionHandlers.set;
 local ActionMenus = MenuKit.NewRegistry({
     accessor = ActionValues,
 
+    decorateChoice = DecorateChoice,
+
+    mixedCount = function(node, ctx)
+        return NodeMixedCount(node, ctx);
+    end,
+
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
     newFeatures = { "ROLE" },
 
@@ -389,6 +449,52 @@ local ActionMenus = MenuKit.NewRegistry({
             DebindPrivate.GetIssueColor(issue);
     end,
 });
+
+--- What one action holds under a node, as text only an equal value produces: its own `valueOf`, or
+--- the value under its `key`, then each child's.
+local function NodeValueText(node, action)
+    local parts = {};
+    local value;
+    if (node.valueOf) then
+        value = node.valueOf(action);
+    elseif (node.key) then
+        value = ActionValues.Get(action, node.key);
+    end
+    parts[1] = DebindPrivate.CanonicalValue(value) or "";
+    for _, child in ipairs(node.children or {}) do
+        parts[#parts + 1] = NodeValueText(ActionMenus:Get(child), action);
+    end
+    return table.concat(parts, "|");
+end
+
+--- How many selected actions have something set under a group row, or nil where they all hold the
+--- same.
+---
+--- **Where every action has it set and they hold different things, the count is all of them.** The
+--- number says how many have anything here; that they disagree is what its being there says.
+function NodeMixedCount(node, ctx)
+    local actions = ctx.actions;
+    if (#actions < 2) then
+        return nil;
+    end
+    local active, first, differs = 0, nil, false;
+    for i = 1, #actions do
+        local isActive = WithOneAction(ctx, actions[i], ActionMenus.IsActive, ActionMenus, node, ctx);
+        if (isActive) then
+            active = active + 1;
+        end
+        local text = (isActive and "1" or "0") .. NodeValueText(node, actions[i]);
+        if (i == 1) then
+            first = text;
+        elseif (text ~= first) then
+            differs = true;
+        end
+    end
+    if (not differs or active == 0) then
+        return nil;
+    end
+    return active;
+end
 
 --- Read and write one unit condition, one field per axis (`Profile.lua`'s `dbver <= 4` step).
 ---
@@ -638,6 +744,10 @@ ActionMenu.AllActions                = AllActions;
 ActionMenu.AnyAction                 = AnyAction;
 ActionMenu.HowManyAccept             = HowManyAccept;
 ActionMenu.OnlyOneReason             = OnlyOneReason;
+ActionMenu.MixedCount                = MixedCount;
+ActionMenu.NodeMixedCount            = NodeMixedCount;
+ActionMenu.CreateRadio               = CreateRadio;
+ActionMenu.CreateCheckbox            = CreateCheckbox;
 
 ActionMenu.ActionMenus               = ActionMenus;
 ActionMenu.OnActionsChanged          = OnActionsChanged;

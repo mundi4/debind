@@ -17,6 +17,8 @@ local AllActions                     = ActionMenu.AllActions;
 local AnyAction                      = ActionMenu.AnyAction;
 local HowManyAccept                  = ActionMenu.HowManyAccept;
 local OnlyOneReason                  = ActionMenu.OnlyOneReason;
+local CreateRadio                    = ActionMenu.CreateRadio;
+local CreateCheckbox                 = ActionMenu.CreateCheckbox;
 local actionValueEquals              = ActionMenu.actionValueEquals;
 local setActionValue                 = ActionMenu.setActionValue;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
@@ -141,6 +143,9 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
         blocked = function()
             return SomeCannotReason(acceptance);
         end,
+        valueOf = function(action)
+            return { type = action.type, value = action.value };
+        end,
         -- a target is what makes this action finished, not a condition on it.
         isActive = function()
             return AnyAction(ctx, function(action)
@@ -184,7 +189,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     sort(switchNames);
 
     for _, stateName in ipairs(switchNames) do
-        local stateDescription = description:CreateRadio(stateName, function()
+        local stateDescription = CreateRadio(description, ctx,stateName, function()
             return AllActions(ctx, function(action)
                 return action.value == stateName;
             end);
@@ -213,7 +218,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     MenuKit.CreateTitle(description, LLL["SWITCH_ACTION_TITLE"]);
 
     for _, verb in ipairs(SETSTATE_VERBS) do
-        description:CreateRadio(LLL[verb.label], function()
+        CreateRadio(description, ctx,LLL[verb.label], function()
             return AllActions(ctx, function(action)
                 return action.type == verb.type;
             end);
@@ -286,7 +291,7 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     -- A target or focus action has to aim at something, so [None] is only offered where no selected
     -- action is one of those.
     if (not AnyAction(ctx, IsAimingOnlyType)) then
-        description:CreateRadio(LLL["UNIT_DISABLE"], actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = nil });
+        CreateRadio(description, ctx,LLL["UNIT_DISABLE"], actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = nil });
     end
 
     for _, unit in ipairs(SORTED_UNIT_LIST) do
@@ -295,7 +300,7 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
             return unitInfo[action.type] ~= false;
         end);
         if (offered) then
-            local unitDescription = description:CreateRadio(unitInfo.name, actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = unit });
+            local unitDescription = CreateRadio(description, ctx,unitInfo.name, actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = unit });
             -- **Every entry here says it, not just the menu row above.** A reader can arrive on
             -- one of these from the action's own tooltip without ever hovering the parent, and the
             -- fact only bites once something is picked. It rides the entry's own sentence rather
@@ -317,7 +322,7 @@ local function CreateIgnoreCastKeyMenuItems(parentDescription, ctx)
         { key = "ignoreSelfCastKey", label = "IGNORE_SELF_CAST_KEY", enabled = DebindPrivate.SelfCastEnabled },
         { key = "ignoreFocusCastKey", label = "IGNORE_FOCUS_CAST_KEY", enabled = DebindPrivate.FocusCastEnabled },
     }) do
-        local ignore = parentDescription:CreateCheckbox(LLL[box.label], actionValueEquals, setActionValue,
+        local ignore = CreateCheckbox(parentDescription, ctx, LLL[box.label], actionValueEquals, setActionValue,
             { ctx = ctx, key = box.key, value = USE_CHECKED_VALUE });
         ignore:SetEnabled(box.enabled);
         local says = (Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM) and "_AIM_DESC" or "_DESC";
@@ -333,7 +338,7 @@ end
 --- 자기 버튼과 안내 문구에 그 키를 그려주기 때문에, 우리가 먹으면 화면에 떠 있는
 --- 단축키가 안 먹는 상태가 된다. 그래도 그 키를 쓰겠다는 유저를 위한 통로다.
 local function CreateKeepInBindingContextMenuItem(rootDescription, ctx)
-    local description = rootDescription:CreateCheckbox(LLL["KEEP_IN_BINDING_CONTEXT"], actionValueEquals,
+    local description = CreateCheckbox(rootDescription, ctx, LLL["KEEP_IN_BINDING_CONTEXT"], actionValueEquals,
         setActionValue, { ctx = ctx, key = "keepInBindingContext", value = USE_CHECKED_VALUE });
     SetInstructionTooltip(description, LLL["KEEP_IN_BINDING_CONTEXT_DESC"]);
 end
@@ -376,7 +381,7 @@ local function CreateImportanceMenu(rootDescription, ctx)
         -- 저장할 값으로 바꾸는 것은 Ordering.lua 한 군데다. 기본값을 nil로 접는 규칙이
         -- 여기에도 손으로 적혀 있었는데, 같은 규칙이 두 군데 있으면 한쪽만 바뀐다.
         local value = DebindPrivate.ImportanceToStored(i);
-        description:CreateRadio(LLL["IMPORTANCE" .. i],
+        CreateRadio(description, ctx,LLL["IMPORTANCE" .. i],
             function()
                 local action = ctx.actions[1];
                 return action.priority == value or action.priority == i;

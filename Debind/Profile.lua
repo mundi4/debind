@@ -133,6 +133,8 @@ local function Canonical(value)
     return "{" .. tconcat(parts, ",") .. "}";
 end
 
+DebindPrivate.CanonicalValue = Canonical;
+
 --- What this action **is**, as one string. Two actions are the same thing exactly when these match.
 ---
 --- The fields are `IDENTITY_FIELDS`, which says which and why. A field the action does not have is

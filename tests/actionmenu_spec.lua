@@ -261,6 +261,73 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- How many hold it, where the selection is split
+    ---------------------------------------------------------------------------
+
+    --- **The count asks the row's own reading once per action**, so the number beside a row and the
+    --- tick on it cannot come from two different rules.
+    test("a choice counts the actions holding it, and only when they differ", function()
+        local actions = ResetProfile({
+            Spell(1, { combat = true }), Spell(2, { combat = false }), Spell(3, { combat = true }),
+        });
+        local ctx = Ctx(actions);
+        local data = { ctx = ctx, key = "combat", value = true };
+
+        check(ActionMenu.MixedCount(ctx, ActionMenu.actionValueEquals, data) == 2,
+            "count: " .. tostring(ActionMenu.MixedCount(ctx, ActionMenu.actionValueEquals, data)));
+        check(ctx.actions == actions, "the selection was not put back");
+        check(ActionMenu.MixedCount(ctx, ActionMenu.actionValueEquals,
+            { ctx = ctx, key = "combat", value = "never" }) == nil, "nobody holds it, and a count stood");
+
+        local same = Ctx({ actions[1], actions[3] });
+        check(ActionMenu.MixedCount(same, ActionMenu.actionValueEquals,
+            { ctx = same, key = "combat", value = true }) == nil, "everyone holds it, and a count stood");
+    end);
+
+    test("a group counts the actions with something set, when what they hold differs", function()
+        local actions = ResetProfile({
+            Spell(1, { combat = true }), Spell(2, { combat = false }), Spell(3),
+        });
+        local node = { key = "combat" };
+
+        check(ActionMenu.NodeMixedCount(node, Ctx({ actions[1], actions[2] })) == 2,
+            "both set, differently: " .. tostring(ActionMenu.NodeMixedCount(node, Ctx({ actions[1], actions[2] }))));
+        check(ActionMenu.NodeMixedCount(node, Ctx({ actions[1], actions[3] })) == 1,
+            "one set, one not: " .. tostring(ActionMenu.NodeMixedCount(node, Ctx({ actions[1], actions[3] }))));
+        check(ActionMenu.NodeMixedCount(node, Ctx({ actions[1], actions[1] })) == nil, "the same, and a count stood");
+        check(ActionMenu.NodeMixedCount(node, Ctx({ actions[1] })) == nil, "one action, and a count stood");
+    end);
+
+    test("a group with no key of its own compares what it says it holds, and what its children hold", function()
+        local actions = ResetProfile({
+            Spell(1, { units = { hover = { exists = true } } }), Spell(2, { units = { hover = { exists = false } } }),
+            Spell(3, { stealth = true }), Spell(4, { stealth = true }),
+        });
+        local hover = {
+            isActive = function(ctx)
+                return ActionMenu.UnitConditionIsOn(ctx, "hover");
+            end,
+            valueOf = function(action)
+                local units = action.conditions and action.conditions.units;
+                return units and units.hover;
+            end,
+        };
+        check(ActionMenu.NodeMixedCount(hover, Ctx({ actions[1], actions[2] })) == 2, "two hovers that differ");
+
+        ActionMenu.ActionMenus:Define("SPEC_STEALTH_CHILD", { label = "x", key = "stealth" });
+        local parent = {
+            children = { "SPEC_STEALTH_CHILD" },
+            isActive = function(ctx)
+                return ActionMenu.AnyAction(ctx, function(action)
+                    return action.conditions ~= nil and action.conditions.stealth ~= nil;
+                end);
+            end,
+        };
+        check(ActionMenu.NodeMixedCount(parent, Ctx({ actions[3], actions[4] })) == nil, "same child value");
+        check(ActionMenu.NodeMixedCount(parent, Ctx({ actions[3], actions[1] })) == 1, "a child set on one only");
+    end);
+
+    ---------------------------------------------------------------------------
     -- What a selection may not reach
     ---------------------------------------------------------------------------
 

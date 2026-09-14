@@ -80,6 +80,25 @@ local function MarkRowNew(description)
     end);
 end
 
+--------------------------------------------------------------------------------
+-- Counts on a split selection
+--------------------------------------------------------------------------------
+
+--- Puts `count()` after a row's label while it answers a number, and nothing while it answers nil.
+---
+--- **Asked when the row is drawn**, which is again after every press that refreshes the menu, so the
+--- number follows the values rather than the moment the menu was built. Drawn over what the template
+--- left in `fontString`, for the reason `MarkRowNew` gives.
+function MenuKit.AppendCount(description, count)
+    description:AddInitializer(function(frame)
+        local n = count();
+        if (n) then
+            frame.fontString:SetTextToFit(format("%s %s", frame.fontString:GetText(), format(LLL["MENU_MIXED_COUNT"], n)));
+        end
+    end);
+    return description;
+end
+
 --- The title that opens the menu this row leads to, **made here so the mark can reach it.**
 ---
 --- A row cannot be asked what it is: the template it was made from is caught in a closure
@@ -243,19 +262,30 @@ function Appender:Title(text)
     return MenuKit.CreateTitle(self.description, text);
 end
 
+--- Hands a choice this kit drew to the family's `decorateChoice`, the same reading it was drawn with.
+function Appender:Decorate(description, isSelected, data)
+    if (self.decorateChoice) then
+        self.decorateChoice(description, self.ctx, isSelected, data);
+    end
+    return description;
+end
+
 --- The row every axis opens with. It says `Disable`, which is this axis constraining nothing
 --- rather than a third value to pick from.
 function Appender:Disable(prefix, key)
     local text = rawget(LLL, prefix .. "_DISABLE") or LLL["DISABLE"];
-    return self.description:CreateRadio(text, self.handlers.equals, self.handlers.set,
-        { ctx = self.ctx, key = key, value = nil });
+    local data = { ctx = self.ctx, key = key, value = nil };
+    return self:Decorate(self.description:CreateRadio(text, self.handlers.equals, self.handlers.set, data),
+        self.handlers.equals, data);
 end
 
 function Appender:YesNo(prefix, key)
-    local yes = self.description:CreateRadio(rawget(LLL, prefix .. "_YES") or YES,
-        self.handlers.equals, self.handlers.set, { ctx = self.ctx, key = key, value = true });
-    local no = self.description:CreateRadio(rawget(LLL, prefix .. "_NO") or NO,
-        self.handlers.equals, self.handlers.set, { ctx = self.ctx, key = key, value = false });
+    local yesData = { ctx = self.ctx, key = key, value = true };
+    local yes = self:Decorate(self.description:CreateRadio(rawget(LLL, prefix .. "_YES") or YES,
+        self.handlers.equals, self.handlers.set, yesData), self.handlers.equals, yesData);
+    local noData = { ctx = self.ctx, key = key, value = false };
+    local no = self:Decorate(self.description:CreateRadio(rawget(LLL, prefix .. "_NO") or NO,
+        self.handlers.equals, self.handlers.set, noData), self.handlers.equals, noData);
     return yes, no;
 end
 
@@ -272,14 +302,15 @@ end
 --- or the cleared box goes on saying something.
 function Appender:ClearingCheckbox(text, key, value)
     local handlers = self.handlers;
-    return self.description:CreateCheckbox(text, handlers.equals,
-        function(data)
-            if (handlers.equals(data)) then
-                return handlers.set({ ctx = data.ctx, key = data.key, value = nil });
+    local data = { ctx = self.ctx, key = key, value = value };
+    return self:Decorate(self.description:CreateCheckbox(text, handlers.equals,
+        function(pressed)
+            if (handlers.equals(pressed)) then
+                return handlers.set({ ctx = pressed.ctx, key = pressed.key, value = nil });
             end
-            return handlers.set(data);
+            return handlers.set(pressed);
         end,
-        { ctx = self.ctx, key = key, value = value });
+        data), handlers.equals, data);
 end
 
 --- One checkbox per item, each owning one bit of `key`.
@@ -290,8 +321,9 @@ function Appender:Checkboxes(key, items, callback, defaultValue)
     for _, item in ipairs(items) do
         local isSelected = item.isSelected or self.handlers.hasBit;
         local setSelected = item.setSelected or self.handlers.toggleBit;
-        local description = self.description:CreateCheckbox(item.text, isSelected, setSelected,
-            { ctx = self.ctx, key = key, value = item.value, defaultValue = defaultValue });
+        local data = { ctx = self.ctx, key = key, value = item.value, defaultValue = defaultValue };
+        local description = self:Decorate(self.description:CreateCheckbox(item.text, isSelected, setSelected, data),
+            isSelected, data);
         if (callback) then
             callback(description, item);
         end
@@ -485,6 +517,12 @@ function Registry:BuildNode(parentDescription, node, ctx)
 
         button.fontString:SetTextColor(color:GetRGB());
 
+        local mixed = registry.config.mixedCount and registry.config.mixedCount(node, ctx);
+        if (mixed) then
+            button.fontString:SetTextToFit(format("%s %s", button.fontString:GetText(),
+                format(LLL["MENU_MIXED_COUNT"], mixed)));
+        end
+
         elementDescription:SetTooltip(function(tooltip)
             local first = true;
             if (instruction) then
@@ -515,6 +553,7 @@ function Registry:BuildNode(parentDescription, node, ctx)
             description = description,
             ctx = ctx,
             handlers = self:HandlersFor(node),
+            decorateChoice = self.config.decorateChoice,
         }, Appender), ctx);
     end
 

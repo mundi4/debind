@@ -1629,6 +1629,10 @@ L["MENU_BLOCKED_ONLY_ONE"] = "This can only be changed on one action at a time. 
 -- Dead because some of the picked rows cannot carry this at all, as a macro takes no target. The way
 -- out is the one `BULK_BLOCKED_SOME_IMPORTED` gives, and in the same words.
 L["MENU_BLOCKED_SOME_CANNOT"] = "Some of what you picked cannot have this. Take those rows out of the selection."
+-- After a row's label on the menu over several rows, **only where the picked rows disagree**: how
+-- many of them hold this. The title above already says how many were picked, so the number reads
+-- against it without a word.
+L["MENU_MIXED_COUNT"] = "(%d)"
 -- The single one, from a row's right-click menu.
 L["REJECT_IMPORT"] = "Reject"
 -- **The second sentence is the whole reason this has a tooltip**, and it is the one [Reject all]
