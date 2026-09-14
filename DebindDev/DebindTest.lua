@@ -1178,6 +1178,15 @@ local function MakeTestUnitFrame(unit)
     return frame, name
 end
 
+--- A frame under a name no earlier run used, for the cases whose name has to match a pattern.
+--- **A fixed name only holds for the first run of a session**: the registration that run measured
+--- stays on the frame, so the next run is handed one we already know about.
+local function FreshNamedFrame(prefix)
+    testFrameCount = testFrameCount + 1
+    local name = prefix .. testFrameCount
+    return CreateFrame("Button", name, UIParent, "SecureUnitButtonTemplate"), name
+end
+
 local function CreateTestUnitFrame(unit, frameType)
     local frame, name = MakeTestUnitFrame(unit)
 
@@ -5493,9 +5502,7 @@ RegisterTest("Foreign wrappers: a frame the wrap itself registers keeps that bod
 
         -- A name the pack list answers, on a frame nothing has registered yet, so this wrap is
         -- also its first registration.
-        local frame = _G.ElvUF_DebindTestFirstWrap
-            or CreateFrame("Button", "ElvUF_DebindTestFirstWrap", UIParent,
-                "SecureUnitButtonTemplate")
+        local frame = FreshNamedFrame("ElvUF_DebindTestFirstWrap")
         if DebindPrivate.ccframes[frame] then
             return Fail(NAME, "it is already ours, so the door being measured is not the one taken")
         end
@@ -6887,8 +6894,7 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
         _G.ClickCastFrames = later
         local beforeWrap = getmetatable(later).__newindex
 
-        local stranger = _G.DebindTestHolderStranger
-            or CreateFrame("Button", "DebindTestHolderStranger", UIParent, "SecureUnitButtonTemplate")
+        local stranger = FreshNamedFrame("DebindTestHolderStranger")
         if DebindPrivate.ccframes[stranger] then
             return Fail(NAME, "the premise is gone: the stranger frame is one we already know about")
         end
@@ -7128,21 +7134,16 @@ RegisterTest("a pack that is turned off is not wired at all", {
             removeRow();
         end);
 
-        --- Reused by name across runs the way `CreateTestUnitFrame` does, and for the same reason:
-        --- a frame the client made once cannot be made again.
-        local function PackFrame(n)
-            local name = FRAME_NAME .. n;
-            local frame = _G[name]
-                or CreateFrame("Button", name, UIParent, "SecureUnitButtonTemplate");
+        local function PackFrame()
+            local frame = FreshNamedFrame(FRAME_NAME);
             frame:SetAttribute("unit", "player");
-            DebindPrivate.ccframes[frame] = nil;
             frame:Show();
             made[#made + 1] = frame;
             return frame;
         end
 
         DebindPrivate.optionsAtLogin.frameBlacklist.addons[PACK] = false;
-        local off = PackFrame(1);
+        local off = PackFrame();
         DebindPrivate.RegisterFrame(off, "group");
 
         if (DebindPrivate.ccframes[off] ~= nil) then
@@ -7159,10 +7160,10 @@ RegisterTest("a pack that is turned off is not wired at all", {
 
         -- The other half: with the same row on, a frame with the same name gets everything.
         DebindPrivate.optionsAtLogin.frameBlacklist.addons[PACK] = nil;
-        local on = PackFrame(2);
+        local on = PackFrame();
         DebindPrivate.RegisterFrame(on, "group");
 
-        local fault = CheckWiredFrame(on, FRAME_NAME .. "2", Constants.FRAMETYPE_GROUP);
+        local fault = CheckWiredFrame(on, on:GetName(), Constants.FRAMETYPE_GROUP);
         if (fault) then
             return Fail(NAME, "the switch is on and " .. fault);
         end
