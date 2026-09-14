@@ -126,6 +126,12 @@ local function WireDropdown(control, setup, tooltipFunc)
     local dropdown = control.Dropdown;
     dropdown:SetWidth(220);
     dropdown:SetupMenu(setup);
+    -- **A stepper or the mouse wheel picks with no menu to answer**, so nothing tells the steppers
+    -- the selection moved (`MenuElementDescriptionProxyMixin:Pick`). The client's settings window
+    -- rebuilds the dropdown on every value change instead; this row has no setting object to do that.
+    hooksecurefunc(dropdown, "Pick", function()
+        dropdown:SignalUpdate();
+    end);
     Mixin(dropdown, DefaultTooltipMixin);
     dropdown:SetTooltipFunc(tooltipFunc);
     dropdown:SetDefaultTooltipAnchors();
