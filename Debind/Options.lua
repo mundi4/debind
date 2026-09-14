@@ -214,16 +214,10 @@ function DebindPrivate.RegisterOptionsCategory()
     local branchLabels = {
         rez = L["SMART_CAST_REZ"],
         battleRez = L["SMART_CAST_BATTLE_REZ"],
-        dispel = L["SMART_CAST_DISPEL"],
-        buff = L["SMART_CAST_BUFF"],
     };
-    -- The same tooltips as on an action (`CreateSmartCastMenuItem`), because the box means the
-    -- same thing in both places. The two aura branches carry the shared caveat behind them.
     local branchTooltips = {
         rez = L["SMART_CAST_REZ_DESC"],
         battleRez = L["SMART_CAST_BATTLE_REZ_DESC"],
-        dispel = L["SMART_CAST_DISPEL_DESC"] .. "|n|n" .. L["SMART_CAST_OUT_OF_COMBAT_DESC"],
-        buff = L["SMART_CAST_BUFF_DESC"] .. "|n|n" .. L["SMART_CAST_OUT_OF_COMBAT_DESC"],
     };
 
     local function BranchOptions()
@@ -277,7 +271,7 @@ function DebindPrivate.RegisterOptionsCategory()
     end;
     Settings.RegisterInitializer(category, smartCast);
 
-    --- **Under the list and a step in.** It is not a fifth branch: it says what the resurrection
+    --- **Under the list and a step in.** It is not a branch: it says what the resurrection
     --- branch may reach for where the class has no resurrection out of combat, so it needs both
     --- the switch and that branch on.
     ---

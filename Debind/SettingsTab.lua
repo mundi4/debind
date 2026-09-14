@@ -206,14 +206,10 @@ local function Build()
     local branchLabels = {
         rez = L["SMART_CAST_REZ"],
         battleRez = L["SMART_CAST_BATTLE_REZ"],
-        dispel = L["SMART_CAST_DISPEL"],
-        buff = L["SMART_CAST_BUFF"],
     };
     local branchTooltips = {
         rez = L["SMART_CAST_REZ_DESC"],
         battleRez = L["SMART_CAST_BATTLE_REZ_DESC"],
-        dispel = L["SMART_CAST_DISPEL_DESC"],
-        buff = L["SMART_CAST_BUFF_DESC"],
     };
     local smartCastChoices = {};
     for _, branch in ipairs(BRANCHES) do
@@ -254,8 +250,7 @@ local function Build()
         battleRez:SetEnabled(function()
             return DebindPrivate.SmartCastDefault("rez") and true or false;
         end);
-    end, OptionsTooltip(L["SMART_CAST"], L["SMART_CAST_DEFAULTS_DESC"], smartCastChoices,
-        format(L["SMART_CAST_AURA_LIMITS_DESC"], L["SMART_CAST_DISPEL"], L["SMART_CAST_BUFF"])));
+    end, OptionsTooltip(L["SMART_CAST"], L["SMART_CAST_DEFAULTS_DESC"], smartCastChoices));
     smartCast.Control.Dropdown:SetSelectionText(function()
         local count = 0;
         for _, branch in ipairs(BRANCHES) do

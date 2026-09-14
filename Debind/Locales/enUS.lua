@@ -1332,7 +1332,7 @@ L["SMART_CAST"] = "Smart Cast"
 -- The last sentence has to read true in both positions, so it says "an action turns it on" rather
 -- than naming where: in the action's menu that is the box this tooltip sits on, and in the defaults
 -- menu it is somewhere else entirely.
-L["SMART_CAST_DESC"] = "Smart Cast looks at the unit the action is aimed at and casts what that unit calls for instead: a dead friend is resurrected, and out of combat a friend you can dispel is dispelled and one missing your raid buff gets it. When none of that fits, the action itself goes out. It is off until an action turns it on."
+L["SMART_CAST_DESC"] = "Smart Cast looks at the unit the action is aimed at, and a dead friend is resurrected instead. Anyone else gets the action itself. It is off until an action turns it on."
 -- **"the account setting", not "the defaults".** The client spends the word "default" on factory
 -- values it can reset to (`SETTINGS_DEFAULTS`, `CONFIRM_RESET_SETTINGS`, "None (Default)") and
 -- never on a value the reader set that something else inherits. This one is the reader's own, and
@@ -1342,24 +1342,13 @@ L["SMART_CAST_GLOBAL"] = "Use the account setting"
 L["SMART_CAST_CUSTOM"] = "Choose here"
 L["SMART_CAST_REZ"] = "Resurrect"
 L["SMART_CAST_REZ_DESC"] = "Out of combat, a dead friend gets your resurrection. Where your specialization has a mass resurrection and the dead friend is in your group, that one goes out instead."
--- **"Fallback" is what keeps it from reading as a fifth branch** (2026-09-13, owner). The box sits
+-- **"Fallback" is what keeps it from reading as a branch of its own** (2026-09-13, owner). The box sits
 -- below a divider rather than under Resurrect (a dropdown has no indentation), and it only reaches
 -- for the spell where the resurrection branch has nothing else to cast.
 L["SMART_CAST_REZ_WITH_BATTLE_REZ"] = "Battle Resurrection Fallback"
 L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"] = "Where your class has no resurrection other than the battle one, a dead friend out of combat gets that instead of nothing. A class with a resurrection of its own is unaffected."
 L["SMART_CAST_BATTLE_REZ"] = "Battle Resurrection"
 L["SMART_CAST_BATTLE_REZ_DESC"] = "In combat, a dead friend gets your battle resurrection. It goes out whether or not a charge is left; the game refuses the cast when it is not."
-L["SMART_CAST_DISPEL"] = "Dispel"
-L["SMART_CAST_DISPEL_DESC"] = "Out of combat, a friend carrying something your specialization can remove gets dispelled."
-L["SMART_CAST_BUFF"] = "Raid Buff"
-L["SMART_CAST_BUFF_DESC"] = "Out of combat, a friend missing your class's raid buff gets it."
--- **Appended to the two above, never shown alone** (`DropDownMenus.lua`). Both branches ask the
--- game what auras a unit carries, and both go quiet in the same places for the same reason, so the
--- sentence is written once instead of twice.
-L["SMART_CAST_OUT_OF_COMBAT_DESC"] = "Out of combat only, and not in a keystone dungeon, a raid encounter or a rated match: the game keeps aura data from addons there, so the action itself goes out instead."
--- The same limit said once under the whole list (`SettingsTab.lua`), where each entry already says
--- "out of combat" and the two `%s` name the entries it applies to.
-L["SMART_CAST_AURA_LIMITS_DESC"] = "%1$s and %2$s also stay quiet in a keystone dungeon, a raid encounter or a rated match: the game keeps aura data from addons there, so the action itself goes out instead."
 -- **Appended to `SMART_CAST_DESC`, never shown alone** (`Options.lua`, `SettingsTab.lua`). Nothing
 -- in the labels says these choices are a fallback rather than a setting every action obeys, so this
 -- paragraph is the only place that does.
@@ -1367,7 +1356,7 @@ L["SMART_CAST_AURA_LIMITS_DESC"] = "%1$s and %2$s also stay quiet in a keystone 
 -- It is shown on a section heading in one place and on the row holding the choices in the other,
 -- so it does not say where they are.
 L["SMART_CAST_DEFAULTS"] = "Smart Cast"
--- **The one thing it has to say that clearing the four branches would not.** Those four reach only
+-- **The one thing it has to say that clearing the branches would not.** Those reach only
 -- an action that follows the account setting; an action that chose its own is untouched by them and
 -- is exactly what this box is for. Without that clause the two gestures look interchangeable and
 -- the reader picks the one that leaves half their keys casting.

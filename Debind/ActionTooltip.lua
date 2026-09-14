@@ -402,12 +402,6 @@ do
 					or (branches.rezWithBattleRez and spells.battlerez))) then
 				names[#names + 1] = LLL["SMART_CAST_REZ"];
 			end
-			if (branches.dispel and spells.dispel) then
-				names[#names + 1] = LLL["SMART_CAST_DISPEL"];
-			end
-			if (branches.buff and spells.raidbuff) then
-				names[#names + 1] = LLL["SMART_CAST_BUFF"];
-			end
 			addLabelLine(tooltip, LLL["SMART_CAST"]);
 			if (#names > 0) then
 				addValueLine(tooltip, table.concat(names, ", "));

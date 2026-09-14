@@ -52,10 +52,10 @@ action
     preferHoverUnit     개체창 위에서는 그 개체를 겨눈다. 바인딩을 가른다 (§4)
     smartCast           Smart Cast를 켰느냐. 끄면 `false`이고 아래 값은 그대로 남는다
     smartCastCustom     갈래를 여기서 고르느냐. 없으면 계정 기본값을 따른다
-    smartCastRez smartCastBattleRez smartCastDispel smartCastBuff
-                        네 갈래. `smartCastCustom`일 때만 읽는다. 모드를 옮겨도 값은 남는다
+    smartCastRez smartCastBattleRez
+                        두 갈래. `smartCastCustom`일 때만 읽는다. 모드를 옮겨도 값은 남는다
     smartCastRezWithBattleRez
-                        다섯째 갈래가 아니다. 다른 부활이 없는 클래스에서 부활 갈래가
+                        셋째 갈래가 아니다. 다른 부활이 없는 클래스에서 부활 갈래가
                         전투 부활로 손을 뻗게 한다
     conditions          **언제 발동하느냐. 전부 이 안에 있다** (§3)
 ```

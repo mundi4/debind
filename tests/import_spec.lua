@@ -417,8 +417,6 @@ return function(DebindPrivate, DebindStorage)
         smartCastCustom = true,
         smartCastRez = true,
         smartCastBattleRez = true,
-        smartCastDispel = true,
-        smartCastBuff = true,
         smartCastRezWithBattleRez = true,
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,

@@ -470,12 +470,6 @@ local RESOLVE_UNIT_SNIPPET = [==[
 --- this. Answers with `smartButton`, nil where the host itself is what fires.
 ---
 --- Needs `winner` and `unit` (`RESOLVE_UNIT_SNIPPET`) declared by the caller.
----
---- The dead branches use what the loop above already asks the client; the living ones ask the
---- insecure side once (`AnswerAura`) and only out of combat, because the answer can only come
---- back through an attribute and that write is refused in combat. Clearing the attribute first
---- is what keeps a previous press's answer from standing in when the method raises: the call is
---- pcall'd on the client's side and the snippet carries on either way.
 local SMART_CAST_SNIPPET = [==[
 	local smartButton
 	local smart = winner.smart
@@ -483,30 +477,15 @@ local SMART_CAST_SNIPPET = [==[
 		local su = unit or "target"
 		-- No `UnitExists` ahead of it: an absent unit answers false here already, the same fact the
 		-- reaction axis above rests on.
-		if (PlayerCanAssist(su)) then
-			if (UnitIsDead(su) or UnitIsGhost(su)) then
-				if (PlayerInCombat()) then
-					smartButton = smart.battleRez
-				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-					smartButton = smart.massRez
-				else
-					smartButton = smart.rez
-				end
-			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
-				DefaultClickFrame:SetAttribute("debind-aura", nil)
-				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
-				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
-				if (smart.dispel and (mask % 2) == 1) then
-					smartButton = smart.dispel
-					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
-						smartButton = smart.dispelPet
-					end
-				elseif (smart.buff and mask >= 2) then
-					smartButton = smart.buff
-				end
+		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
+			if (PlayerInCombat()) then
+				smartButton = smart.battleRez
+			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+				smartButton = smart.massRez
+			else
+				smartButton = smart.rez
 			end
 		end
-		PROBE.SmartBranch(smartButton)
 	end
 ]==];
 
@@ -976,55 +955,6 @@ end
 
 function BindingDriver:OnSwitchChanged(name, value)
 	DebindPrivate.OnSwitchChanged(name, value);
-end
-
---- The one question the press cannot answer inside the restricted environment: what is on the
---- unit's aura list (`devdocs/adding-spec-resolved-actions.md` §10-4). The Smart Cast block asks
---- out of combat only, and the answer goes back through one attribute on the click frame, which
---- is the only road from here into a snippet -- an insecure write to a protected frame is refused
---- in combat, which is why the block never asks then. Bit 1: a harmful aura this character can
---- dispel. Bit 2: `buffSpellID` was given and no helpful aura of that name is on the unit.
----
---- 12.1 answers aura reads with secrets under encounter, challenge mode and PvP restrictions,
---- and a secret cannot be tested or compared. Every value read here goes through `PlainOrNil`,
---- and a read that raises is caught: either way the answer is "no", the branch is not taken and
---- the host fires, which is what the design asks for where the client will not say (§10-2).
-function BindingDriver:AnswerAura(unit, buffSpellID)
-	if (InCombatLockdown()) then
-		return;
-	end
-	local PlainOrNil = DebindPrivate.PlainOrNil;
-	local mask = 0;
-
-	local dispellable = false;
-	local ok = pcall(AuraUtil.ForEachAura, unit, "HARMFUL", nil, function(aura)
-		if (aura and PlainOrNil(aura.canActivePlayerDispel) == true) then
-			dispellable = true;
-			return true;
-		end
-	end, true);
-	if (ok and dispellable) then
-		mask = mask + 1;
-	end
-
-	if (buffSpellID) then
-		local name = DebindPrivate.GetSpellNameAndIconID(buffSpellID);
-		if (name) then
-			--- **The aura itself can be a secret**, and the `pcall` covers only the call: comparing
-			--- one raises where it stands. `GetAuraDataBySpellName` is
-			--- `SecretWhenUnitAuraRestricted`, which is on in battlegrounds, arenas and encounters
-			--- -- out of combat included, which is when this branch runs.
-			---
-			--- **Asked, not folded to nil.** This bit says the buff is missing, and a unit we are
-			--- not allowed to read has not said that.
-			local found, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, name, "HELPFUL");
-			if (found and not (issecretvalue and issecretvalue(aura)) and aura == nil) then
-				mask = mask + 2;
-			end
-		end
-	end
-
-	DebindPrivate.DefaultClickFrame:SetAttribute("debind-aura", mask);
 end
 
 --- The condition evaluation, kept as its own string so more than one wrapper can carry it.

@@ -780,10 +780,6 @@ local probeReports = {}
 local probesOn = false
 --- The key the last evaluation ran for, so a reported record index can be read as a `KeyMap` one.
 local lastEvalKey
---- What the Smart Cast block last reported (`PROBE.SmartBranch`). Declared here, above
---- `EnableProbes`, which is what writes them.
-local lastSmartBranch
-local lastSmartBranchReported
 
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
@@ -796,7 +792,6 @@ local lastSmartBranchReported
 --- would fall straight through an `and`/`or` to the measured one.
 local PROBE_DEV = {
     Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
-    SmartBranch = [[debind_driver:CallMethod("DebindTestSmartBranch", %s)]],
     MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
     MockUnitDead = [[if (MockStatesMap[%1$s .. "-dead"] ~= nil) then dead = MockStatesMap[%1$s .. "-dead"] end]],
     MockUnitGroup = [[if (MockStatesMap[%1$s .. "-group"] ~= nil) then group = MockStatesMap[%1$s .. "-group"] end]],
@@ -825,9 +820,6 @@ local function EnableProbes()
 
     DebindPrivate.BindingDriver.DebindTestWinner = function(_, index)
         probeReports[#probeReports + 1] = BindingIndexForRecord(lastEvalKey, index)
-    end
-    DebindPrivate.BindingDriver.DebindTestSmartBranch = function(_, button)
-        lastSmartBranch, lastSmartBranchReported = button, true
     end
 
     DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
@@ -943,17 +935,6 @@ local function LastWinner()
         return nil
     end
     return got
-end
-
---- What the Smart Cast block last chose: a branch button name, or nil where the host itself is
---- what fires. The second value says whether the block reported at all, since nil is one of its
---- two real answers.
-local function LastSmartBranch()
-    return lastSmartBranch, lastSmartBranchReported
-end
-
-local function ClearSmartBranch()
-    lastSmartBranch, lastSmartBranchReported = nil, false
 end
 
 --- Waits for the winner report to arrive and answers with it.
@@ -8624,129 +8605,6 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
         end
 
         return Pass(NAME, format("record %d took it", winner))
-    end,
-})
-
--- **Needs the game.** `tests/smartcast_spec.lua` runs the same answer against a stand-in aura
--- list; what only the client can show is that the real aura API answers for a real unit and that
--- an insecure write lands on the protected click frame where the snippet reads it back.
-RegisterTest("Smart Cast: the aura answer round-trips through the click frame", {
-    description = "AnswerAura reads the player's real auras and leaves the mask on the click frame",
-    run = function()
-        local NAME = "Smart Cast aura answer"
-        if InCombatLockdown() then
-            return Fail(NAME, "the click frame cannot be written in combat")
-        end
-
-        -- A spell with a name, so the buff half has something to look for. The class's own raid
-        -- buff where there is one; otherwise Battle Shout, which every client can name.
-        local spellID = DebindPrivate.SpecSpells.Resolve().raidbuff or 6673
-        local spellName = DebindPrivate.GetSpellNameAndIconID(spellID)
-        if not spellName then
-            return Fail(NAME, format("spell %d has no name on this client", spellID))
-        end
-
-        -- What the client says, asked the same way the addon asks, so the comparison is about
-        -- the round trip and not about what happens to be on the tester.
-        local wantDispel = false
-        AuraUtil.ForEachAura("player", "HARMFUL", nil, function(aura)
-            if aura and aura.canActivePlayerDispel == true then
-                wantDispel = true
-                return true
-            end
-        end, true)
-        local wantBuff = C_UnitAuras.GetAuraDataBySpellName("player", spellName, "HELPFUL") == nil
-        local want = (wantDispel and 1 or 0) + (wantBuff and 2 or 0)
-
-        local clickFrame = DebindPrivate.DefaultClickFrame
-        clickFrame:SetAttribute("debind-aura", nil)
-        AddTeardown(function() clickFrame:SetAttribute("debind-aura", nil) end)
-
-        DebindPrivate.BindingDriver:AnswerAura("player", spellID)
-
-        local got = clickFrame:GetAttribute("debind-aura")
-        if got ~= want then
-            return Fail(NAME, format("mask %s, the client says %d (dispel=%s, buff missing=%s)",
-                tostring(got), want, tostring(wantDispel), tostring(wantBuff)))
-        end
-        return Pass(NAME, format("mask %d (%s)", got, spellName))
-    end,
-})
-
--- **Needs the game.** The headless spec picks the same branches from the same block; what it
--- cannot see is the block compiling in the sandbox with `CallMethod` and `FindSpellBookSlotBySpellID`
--- in it, the call crossing into insecure code from a running snippet, and the attribute written
--- there being visible to the snippet that is still running.
-RegisterTest("Smart Cast: the press asks the insecure side and acts on its answer", {
-    description = "A living friendly unit at the press gets the aura question, and the branch follows the mask",
-    applies = function()
-        local spells = DebindPrivate.SpecSpells.Resolve()
-        if not (spells.dispel or spells.raidbuff) then
-            return false, "this class has neither a dispel nor a raid buff, so there is no living branch to take"
-        end
-        return true
-    end,
-    run = function()
-        local NAME = "Smart Cast press"
-        local KEY = "CTRL-SHIFT-F9"
-        if InCombatLockdown() then
-            return Fail(NAME, "nothing can be rebaked in combat")
-        end
-
-        local ok, err = EnableProbes()
-        if not ok then
-            return Fail(NAME, "rebake failed: " .. tostring(err))
-        end
-
-        -- Aimed at the player: alive, friendly, and always there.
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "player",
-            smartCast = true, smartCastCustom = true, smartCastDispel = true, smartCastBuff = true })
-        ApplyBindings()
-
-        local records = GetKeyBindings(KEY)
-        local binding = records and records[1]
-        if not binding or not binding.smartButtons then
-            return Fail(NAME, "the binding carries no branch buttons")
-        end
-        local buttons = binding.smartButtons
-
-        local clickFrame = DebindPrivate.DefaultClickFrame
-        clickFrame:SetAttribute("debind-aura", nil)
-        AddTeardown(function() clickFrame:SetAttribute("debind-aura", nil) end)
-        ClearSmartBranch()
-
-        local ran, rerr = EvalClickTimeKey(KEY)
-        if not ran then return Fail(NAME, rerr) end
-        if WaitForWinner() == nil then
-            return Fail(NAME, "the evaluation ran and no record matched")
-        end
-
-        -- The attribute is what says the call crossed over: nothing but `AnswerAura` writes it,
-        -- and the block clears it before asking.
-        local mask = clickFrame:GetAttribute("debind-aura")
-        if type(mask) ~= "number" then
-            return Fail(NAME, "the press did not reach AnswerAura: mask is " .. tostring(mask))
-        end
-
-        local branch, reported = LastSmartBranch()
-        if not reported then
-            return Fail(NAME, "the block did not report which branch it took")
-        end
-
-        local want
-        if buttons.dispel and mask % 2 == 1 then
-            want = buttons.dispel
-            if buttons.dispelPet and FindSpellBookSlotBySpellID(buttons.dispelPetID) then
-                want = buttons.dispelPet
-            end
-        elseif buttons.buff and mask >= 2 then
-            want = buttons.buff
-        end
-        if branch ~= want then
-            return Fail(NAME, format("mask %d, branch %s, it should be %s",
-                mask, tostring(branch), tostring(want)))
-        end
-        return Pass(NAME, format("mask %d, %s fires", mask, tostring(branch or "the host")))
     end,
 })
 

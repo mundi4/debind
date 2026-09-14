@@ -1083,17 +1083,17 @@ do
 
     --- The account-wide answer to which Smart Cast branches are on where an action says "the
     --- defaults" (`smartCastCustom` unset). Battle resurrection is off unless asked for: it is the
-    --- one branch with a cost the reader has to accept (§6 of the design), the other three only
-    --- ever fire where the host would have been refused anyway.
-    --- `rezWithBattleRez` is stored and defaulted the same way but is not one of the four: it says
+    --- one branch with a cost the reader has to accept (§6 of the design); the resurrection outside
+    --- combat only ever fires on a dead friend, where the host would have been refused anyway.
+    --- `rezWithBattleRez` is stored and defaulted the same way but is not a branch: it says
     --- what the `rez` branch may reach for where the class has no resurrection outside combat
     --- (§10-7 of the design), so it never turns Smart Cast on by itself.
     local SMART_CAST_DEFAULTS = {
-        rez = true, battleRez = false, dispel = true, buff = true, rezWithBattleRez = false,
+        rez = true, battleRez = false, rezWithBattleRez = false,
     };
-    -- In the order the snippet tries them (`SMART_CAST_SNIPPET`), because the menus list the four
-    -- from this table and the list is what tells the reader which branch wins.
-    local SMART_CAST_BRANCHES = { "battleRez", "rez", "dispel", "buff" };
+    -- In the order the snippet tries them (`SMART_CAST_SNIPPET`), because the menus list the
+    -- branches from this table and the list is what tells the reader which branch wins.
+    local SMART_CAST_BRANCHES = { "battleRez", "rez" };
     DebindPrivate.SMART_CAST_BRANCHES = SMART_CAST_BRANCHES;
     --- Shared out because the settings panel needs the built-in answer on its own, which
     --- `SmartCastDefault` cannot give: that one reads what is stored first, and a setter has to
@@ -1101,7 +1101,7 @@ do
     DebindPrivate.SMART_CAST_DEFAULTS = SMART_CAST_DEFAULTS;
 
     --- The account-wide master switch. Off ignores every action's option, whichever mode it is in,
-    --- and that is what separates it from clearing the four boxes: an action that chose its own
+    --- and that is what separates it from clearing the branch boxes: an action that chose its own
     --- branches is unreachable from those. Stored beside them and absent means on, so a profile
     --- written before the switch existed reads as on.
     function DebindPrivate.SmartCastEnabled()

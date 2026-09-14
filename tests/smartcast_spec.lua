@@ -2,9 +2,7 @@
 -- branch buttons a rebuild stamps, and which of them a press picks.
 --
 -- The press is run through the DEBUG eval hook, the same text the click wrapper splices, and the
--- name it answers with is the button whose attributes the game would read. The living branches
--- go out to the insecure side through `CallMethod` and come back through an attribute on the
--- click frame, both of which `tests/restricted.lua` carries, so the whole round trip is here.
+-- name it answers with is the button whose attributes the game would read.
 --
 -- The shim's character is a druid: Balance by default, Restoration on index 4.
 
@@ -108,8 +106,7 @@ return function(DebindPrivate, _, ctx)
         check(off == nil, "an action without the option has branches");
 
         local global = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = true });
-        check(global.rez == true and global.dispel == true and global.buff == true,
-            "the defaults do not turn the three on");
+        check(global.rez == true, "the defaults do not turn resurrection on");
         check(global.battleRez == false, "battle resurrection is on by default");
 
         local custom = DebindPrivate.SmartCastBranches({
@@ -117,7 +114,6 @@ return function(DebindPrivate, _, ctx)
             smartCastRez = true, smartCastBattleRez = true,
         });
         check(custom.rez == true and custom.battleRez == true, "the chosen branches are off");
-        check(custom.dispel == false and custom.buff == false, "an unchosen branch is on");
 
         local none = DebindPrivate.SmartCastBranches({
             type = Constants.SPELL, value = 585, smartCast = true, smartCastCustom = true,
@@ -152,9 +148,9 @@ return function(DebindPrivate, _, ctx)
 
     test("the account-wide default can be changed", function()
         Bind({});
-        DebindPrivate.Options.smartCast = { battleRez = true, buff = false };
+        DebindPrivate.Options.smartCast = { battleRez = true, rez = false };
         local global = DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = true });
-        check(global.battleRez == true and global.buff == false and global.rez == true,
+        check(global.battleRez == true and global.rez == false,
             "the stored defaults were not read");
         DebindPrivate.Options.smartCast = nil;
     end);
@@ -168,17 +164,13 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = 4;
         Bind({
             action({ value = 585, key = "F1", unit = "focus", smartCast = true, smartCastCustom = true,
-                smartCastRez = true, smartCastBattleRez = true, smartCastDispel = true, smartCastBuff = true }),
+                smartCastRez = true, smartCastBattleRez = true }),
         });
         local smart = record("F1", 1).smart;
         check(smart, "the record carries no branch table");
         check(spellOn(smart.rez) == "Revive", "rez: " .. tostring(smart.rez and spellOn(smart.rez)));
         check(spellOn(smart.massRez) == "Revitalize", "mass rez: " .. tostring(smart.massRez));
         check(spellOn(smart.battleRez) == "Rebirth", "battle rez: " .. tostring(smart.battleRez));
-        check(spellOn(smart.dispel) == "Nature's Cure", "dispel: " .. tostring(smart.dispel));
-        check(spellOn(smart.buff) == "Mark of the Wild", "buff: " .. tostring(smart.buff));
-        check(smart.buffSpell == 1126, "buff spell id: " .. tostring(smart.buffSpell));
-        check(smart.dispelPet == nil, "a druid has an imp");
 
         -- Balance has no mass resurrection, and the branch is simply absent.
         shim.world.specIndex = 1;
@@ -271,7 +263,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = nil;
     end);
 
-    test("a living friend is dispelled or buffed out of combat, else the host fires", function()
+    -- Restoration has a dispel and a raid buff to cast, so a branch for either would have something
+    -- to go out with here.
+    test("a living friend gets the action itself", function()
         if (shipped) then
             return;
         end
@@ -281,41 +275,16 @@ return function(DebindPrivate, _, ctx)
             action({ value = 585, key = "F1", unit = "focus", smartCast = true }),
         });
         shim.world.units.focus = { reaction = "help" };
+
         interp.state.combat = false;
-
-        -- Nothing on the unit at all: the raid buff is what is missing.
-        shim.world.auras.focus = {};
-        check(pressed("F1") == "Mark of the Wild", "nothing on the unit: " .. tostring(pressed("F1")));
-        -- Bit 2 on: the buff is missing. Bit 1 off: nothing to dispel.
-        check(clickFrame:GetAttribute("debind-aura") == 2,
-            "the answer was not written: " .. tostring(clickFrame:GetAttribute("debind-aura")));
-
-        shim.world.auras.focus = { { name = "Mark of the Wild", harmful = false } };
-        check(pressed("F1") == "Renew", "buffed already: " .. tostring(pressed("F1")));
-        check(clickFrame:GetAttribute("debind-aura") == 0,
-            "the answer for a buffed unit: " .. tostring(clickFrame:GetAttribute("debind-aura")));
-
-        shim.world.auras.focus = { { name = "Curse", harmful = true, dispellable = true } };
-        check(pressed("F1") == "Nature's Cure", "dispellable: " .. tostring(pressed("F1")));
-
-        shim.world.auras.focus = { { name = "Bleed", harmful = true, dispellable = false } };
-        check(pressed("F1") == "Mark of the Wild", "not dispellable, buff missing: " .. tostring(pressed("F1")));
-
-        -- Dispel ahead of buff where both apply.
-        shim.world.auras.focus = { { name = "Curse", harmful = true, dispellable = true } };
-        check(pressed("F1") == "Nature's Cure", "dispel did not come first: " .. tostring(pressed("F1")));
-
-        -- In combat neither branch is asked and the host fires.
+        check(pressed("F1") == "Renew", "out of combat: " .. tostring(pressed("F1")));
         interp.state.combat = true;
-        clickFrame:SetAttribute("debind-aura", 3);
         check(pressed("F1") == "Renew", "in combat: " .. tostring(pressed("F1")));
 
-        -- A hostile unit is nobody's business here.
         interp.state.combat = false;
         shim.world.units.focus = { reaction = "harm" };
         check(pressed("F1") == "Renew", "hostile: " .. tostring(pressed("F1")));
         shim.world.specIndex = nil;
-        shim.world.auras.focus = nil;
     end);
 
     -- A unit-frame click hands its own click-cast record to the key-side wrapper as the winner, so
@@ -345,7 +314,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ type = Constants.TARGET, key = "F1", unit = "focus", smartCast = true }),
         });
-        -- A druid resolves rez, dispel and buff, so the branches would stand here if the type
+        -- A druid resolves a resurrection, so the branches would stand here if the type
         -- were allowed to carry them (`Constants.TYPES_WITH_SMART_CAST`).
         check(record("F1", 1).smart == nil, "a target action carries branches");
     end);

@@ -1867,30 +1867,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		local su = unit or "target"
 
 
-		if (PlayerCanAssist(su)) then
-			if (UnitIsDead(su) or UnitIsGhost(su)) then
-				if (PlayerInCombat()) then
-					smartButton = smart.battleRez
-				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-					smartButton = smart.massRez
-				else
-					smartButton = smart.rez
-				end
-			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
-				DefaultClickFrame:SetAttribute("debind-aura", nil)
-				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
-				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
-				if (smart.dispel and (mask % 2) == 1) then
-					smartButton = smart.dispel
-					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
-						smartButton = smart.dispelPet
-					end
-				elseif (smart.buff and mask >= 2) then
-					smartButton = smart.buff
-				end
+		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
+			if (PlayerInCombat()) then
+				smartButton = smart.battleRez
+			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+				smartButton = smart.massRez
+			else
+				smartButton = smart.rez
 			end
 		end
-		
 	end
 	self:SetAttribute("unit", unit)
 
@@ -2691,30 +2676,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		local su = unit or "target"
 
 
-		if (PlayerCanAssist(su)) then
-			if (UnitIsDead(su) or UnitIsGhost(su)) then
-				if (PlayerInCombat()) then
-					smartButton = smart.battleRez
-				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-					smartButton = smart.massRez
-				else
-					smartButton = smart.rez
-				end
-			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
-				DefaultClickFrame:SetAttribute("debind-aura", nil)
-				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
-				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
-				if (smart.dispel and (mask % 2) == 1) then
-					smartButton = smart.dispel
-					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
-						smartButton = smart.dispelPet
-					end
-				elseif (smart.buff and mask >= 2) then
-					smartButton = smart.buff
-				end
+		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
+			if (PlayerInCombat()) then
+				smartButton = smart.battleRez
+			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+				smartButton = smart.massRez
+			else
+				smartButton = smart.rez
 			end
 		end
-		
 	end
 	self:SetAttribute("unit", unit)
 
@@ -3422,30 +3392,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		local su = unit or "target"
 
 
-		if (PlayerCanAssist(su)) then
-			if (UnitIsDead(su) or UnitIsGhost(su)) then
-				if (PlayerInCombat()) then
-					smartButton = smart.battleRez
-				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-					smartButton = smart.massRez
-				else
-					smartButton = smart.rez
-				end
-			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
-				DefaultClickFrame:SetAttribute("debind-aura", nil)
-				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
-				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
-				if (smart.dispel and (mask % 2) == 1) then
-					smartButton = smart.dispel
-					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
-						smartButton = smart.dispelPet
-					end
-				elseif (smart.buff and mask >= 2) then
-					smartButton = smart.buff
-				end
+		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
+			if (PlayerInCombat()) then
+				smartButton = smart.battleRez
+			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+				smartButton = smart.massRez
+			else
+				smartButton = smart.rez
 			end
 		end
-		
 	end
 	local castButton = smartButton or winner.clickbutton
 	if (unit and not (winner.pressAndHold and not smartButton)) then
@@ -4105,30 +4060,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		local su = unit or "target"
 
 
-		if (PlayerCanAssist(su)) then
-			if (UnitIsDead(su) or UnitIsGhost(su)) then
-				if (PlayerInCombat()) then
-					smartButton = smart.battleRez
-				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
-					smartButton = smart.massRez
-				else
-					smartButton = smart.rez
-				end
-			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
-				DefaultClickFrame:SetAttribute("debind-aura", nil)
-				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
-				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
-				if (smart.dispel and (mask % 2) == 1) then
-					smartButton = smart.dispel
-					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
-						smartButton = smart.dispelPet
-					end
-				elseif (smart.buff and mask >= 2) then
-					smartButton = smart.buff
-				end
+		if (PlayerCanAssist(su) and (UnitIsDead(su) or UnitIsGhost(su))) then
+			if (PlayerInCombat()) then
+				smartButton = smart.battleRez
+			elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+				smartButton = smart.massRez
+			else
+				smartButton = smart.rez
 			end
 		end
-		
 	end
 	local castButton = smartButton or winner.clickbutton
 	if (unit and not (winner.pressAndHold and not smartButton)) then

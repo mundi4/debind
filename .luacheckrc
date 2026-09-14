@@ -85,7 +85,6 @@ globals = {
 	"C_Spell",
 	"C_Traits",
 	"C_UnitAuras",
-	"AuraUtil",
 	"C_ToyBox",
 	"C_SpellBook",
 	"C_SpecializationInfo",

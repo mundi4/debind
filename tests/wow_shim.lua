@@ -13,7 +13,6 @@ M.world = {
     cvars = {},
     spells = {},
     spellbook = {},
-    auras = {},
     baseSpells = {},
     overrideSpells = {},
     --- Which spell ids `[known:<id>]` answers true for. Empty is a character who knows none of
@@ -382,31 +381,6 @@ function M.install()
         return (unit and unit.reaction == "harm") and true or false;
     end
 
-    --- The aura list, for the Smart Cast answer (`BindingDriver:AnswerAura`). `M.world.auras[token]`
-    --- is a list of `{ name = , harmful = , dispellable = }`, and the two reads the addon makes
-    --- answer out of it the way the client's do: one walks the harmful ones, the other looks a
-    --- helpful one up by name.
-    _G.AuraUtil = {
-        ForEachAura = function(token, filter, _, func)
-            for _, aura in ipairs(M.world.auras[token] or {}) do
-                if ((filter == "HARMFUL") == (aura.harmful == true)) then
-                    if (func({ name = aura.name, canActivePlayerDispel = aura.dispellable == true })) then
-                        return;
-                    end
-                end
-            end
-        end,
-    };
-    _G.C_UnitAuras = {
-        GetAuraDataBySpellName = function(token, name, filter)
-            for _, aura in ipairs(M.world.auras[token] or {}) do
-                if (aura.name == name and (filter == "HARMFUL") == (aura.harmful == true)) then
-                    return { name = aura.name };
-                end
-            end
-            return nil;
-        end,
-    };
     _G.GetShapeshiftForm = function() return 0; end
     _G.GetBonusBarOffset = function() return 0; end
     _G.IsStealthed = function() return false; end

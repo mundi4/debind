@@ -1628,7 +1628,7 @@ local _specSpells        = {};
 --- table of names the record carries -- or nil where no branch resolved to a spell, so the option
 --- is simply not there on this character.
 ---
---- What the four checkboxes become (`devdocs/adding-spec-resolved-actions.md` §10-3):
+--- What the checkboxes become (`devdocs/adding-spec-resolved-actions.md` §10-3):
 ---
 ---   battleRez    the combat resurrection, chosen on a dead friend in combat
 ---   rez          the resurrection outside combat; for a class with none of its own (death
@@ -1637,9 +1637,6 @@ local _specSpells        = {};
 ---                design)
 ---   massRez      the mass resurrection, chosen ahead of `rez` where the dead friend is in the
 ---                reader's group
----   dispel       the friendly dispel; `dispelPet` and `dispelPetID` are the warlock's imp route,
----                chosen over `dispel` when the spellbook answers for `dispelPetID`
----   buff         the raid buff, with `buffSpell` the id the insecure side looks for on the unit
 ---
 --- **The table is the binding's own and is refilled**, the same as every other per-binding table
 --- a rebuild reuses.
@@ -1672,19 +1669,6 @@ local function StampSmartCastButtons(branches, binding)
         stamp("massRez", spells.massrez);
         if (not out.rez and branches.rezWithBattleRez) then
             stamp("rez", spells.battlerez);
-        end
-    end
-    if (branches.dispel) then
-        stamp("dispel", spells.dispel);
-        if (spells.dispelPet) then
-            stamp("dispelPet", spells.dispelPet);
-            out.dispelPetID = spells.dispelPet;
-        end
-    end
-    if (branches.buff) then
-        stamp("buff", spells.raidbuff);
-        if (out.buff) then
-            out.buffSpell = spells.raidbuff;
         end
     end
 
