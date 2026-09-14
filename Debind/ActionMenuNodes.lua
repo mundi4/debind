@@ -60,13 +60,8 @@ local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 local BONUSBAR_NAMES;
 
 
---- Does every selected action's mode for `unit` answer one of the modes named.
-local function AllUnitModesIn(ctx, unit, first, second)
-    return AllActions(ctx, function(action)
-        local mode = UnitConditionModeOf(action, unit);
-        return mode == first or mode == second;
-    end);
-end
+local UnitConditionIsOff             = ActionMenu.UnitConditionIsOff;
+local UnitConditionIsAbsent          = ActionMenu.UnitConditionIsAbsent;
 
 --- The first problem any selected action has with `unit`'s condition.
 local function FirstUnitIssue(ctx, unit)
@@ -190,7 +185,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
 
     CreateRadio(optionsDescription, ctx,LLL["DISABLE"],
         function()
-            return AllUnitModesIn(ctx, unit, nil, "disabled");
+            return UnitConditionIsOff(ctx, unit);
         end,
         function()
             return SetUnitConditionMode(ctx, unit, "disabled");
@@ -210,7 +205,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
 
     local absentDescription = CreateRadio(optionsDescription, ctx,LLL["CONDITION_UNIT_DOES_NOT_EXIST"],
         function()
-            return AllUnitModesIn(ctx, unit, "absent");
+            return UnitConditionIsAbsent(ctx, unit);
         end,
         function()
             return SetUnitConditionMode(ctx, unit, "absent");
@@ -266,7 +261,7 @@ local function BuildHoverMenu(kit, ctx)
     -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
     CreateRadio(description, ctx,rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
         function()
-            return AllUnitModesIn(ctx, "hover", nil, "disabled");
+            return UnitConditionIsOff(ctx, "hover");
         end,
         function()
             return SetUnitConditionMode(ctx, "hover", "disabled");
@@ -284,7 +279,7 @@ local function BuildHoverMenu(kit, ctx)
 
     CreateRadio(description, ctx,LLL["CONDITION_HOVER_NO"],
         function()
-            return AllUnitModesIn(ctx, "hover", "absent");
+            return UnitConditionIsAbsent(ctx, "hover");
         end,
         function()
             return SetUnitConditionMode(ctx, "hover", "absent");

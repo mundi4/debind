@@ -913,6 +913,12 @@ function M.install()
     _G.YES = "Yes";
     _G.NO = "No";
 
+    --- The client strings the action menu reads while it is built: the aimed unit's row names the
+    --- two cast keys, and every class submenu opens on the client's own "all specializations".
+    _G.AUTO_SELF_CAST_KEY_TEXT = "Self Cast Key";
+    _G.FOCUS_CAST_KEY_TEXT = "Focus Cast Key";
+    _G.ALL_SPECS = "All Specializations";
+
     --- **One binding command that resolves.** `ActionDisplay` asks `_G["BINDING_NAME_" .. value]`
     --- and falls back to the command code, so without a single one defined every spec walked the
     --- fallback and a command action was named by its code -- which is what a reader sees when the

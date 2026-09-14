@@ -80,9 +80,11 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---   `MenuKit.lua` is `DebindUI.xml`'s too, and only its drawing half needs a frame. The value
 ---     handlers and the issue rollup are asked about tables, which is what `menukit_spec.lua`
 ---     reaches; `Registry:Build` makes rows on a description and is out of reach here
----   `ActionMenuModel.lua` is the action menu's reads and writes over a set of actions, and reads
----     no frame until a destination list is asked for. `actionmenu_spec.lua` is what reaches it:
----     a condition written once over a selection has to land the same on every action in it
+---   `ActionMenuModel.lua`, `ActionMenuNodes.lua`, `ActionMenuItems.lua` and `DropDownMenus.lua`
+---     are the whole action menu. A menu is rows built on a description, and what each row reads
+---     and writes is decided here rather than by the client's menu, so `actionmenutree_spec.lua`
+---     builds the real one on a stand-in and reads every row. `KeyCapture.lua` comes along for
+---     `AnyRealKey`, which the [Unbind] row asks while it is built
 ---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
 ---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
 ---     along because the pipeline calls into it
@@ -115,6 +117,10 @@ local function loadAddons(withCliqueFake)
     "ActionTooltip.lua",
     "MenuKit.lua",
     "ActionMenuModel.lua",
+    "ActionMenuNodes.lua",
+    "ActionMenuItems.lua",
+    "DropDownMenus.lua",
+    "KeyCapture.lua",
     "Flyout.lua",
     "Profile.lua",
     "Legacy.lua",
@@ -222,6 +228,7 @@ local specs = {
     { name = "options", path = root .. "/options_spec.lua" },
     { name = "menukit", path = root .. "/menukit_spec.lua" },
     { name = "actionmenu", path = root .. "/actionmenu_spec.lua" },
+    { name = "actionmenutree", path = root .. "/actionmenutree_spec.lua" },
     { name = "pet", path = root .. "/pet_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
 };

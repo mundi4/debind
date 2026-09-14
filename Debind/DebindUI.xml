@@ -21,9 +21,8 @@
 		there binds nil and fails much later, somewhere else.
 
 		`MenuKit.lua` reads nothing out of `DebindUI` and could stand higher still; it is here
-		because every file that uses it draws menus. `ActionMenuNodes.lua` before
-		`ActionMenuItems.lua` is for one name only, the unit condition submenu the target menu also
-		opens (`putting-the-menus-on-a-kit.md`).
+		because every file that uses it draws menus. The two drawing files take their names off
+		`ActionMenuModel.lua`, and `DropDownMenus.lua` takes the items off both.
 	-->
 	<Script file="MenuKit.lua" />
 	<Script file="ActionMenuModel.lua" />

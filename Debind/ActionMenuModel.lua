@@ -557,6 +557,22 @@ local function UnitConditionIsExists(ctx, unit)
     end);
 end
 
+--- Is the [Disable] radio on for every selected action: no condition made, or one turned off.
+local function UnitConditionIsOff(ctx, unit)
+    return AllActions(ctx, function(action)
+        local mode = UnitConditionModeOf(action, unit);
+        return mode == nil or mode == "disabled";
+    end);
+end
+
+--- Is the [when there is none] radio on for every selected action. **Only a condition saying so**:
+--- an action with no condition on the unit is [Disable]'s, and reading it here too drew two ticks.
+local function UnitConditionIsAbsent(ctx, unit)
+    return AllActions(ctx, function(action)
+        return UnitConditionModeOf(action, unit) == "absent";
+    end);
+end
+
 --- Is the condition on for any selected action. What paints a row blue.
 local function UnitConditionIsOn(ctx, unit)
     return AnyAction(ctx, function(action)
@@ -767,6 +783,8 @@ ActionMenu.UnitConditionAxisOf       = UnitConditionAxisOf;
 ActionMenu.UnitConditionModeOf       = UnitConditionModeOf;
 ActionMenu.UnitConditionOnFor        = UnitConditionOnFor;
 ActionMenu.UnitConditionIsExists     = UnitConditionIsExists;
+ActionMenu.UnitConditionIsOff        = UnitConditionIsOff;
+ActionMenu.UnitConditionIsAbsent     = UnitConditionIsAbsent;
 ActionMenu.UnitConditionIsOn         = UnitConditionIsOn;
 ActionMenu.UnitConditionDeadIs       = UnitConditionDeadIs;
 ActionMenu.WriteUnitConditionMode    = WriteUnitConditionMode;
