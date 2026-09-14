@@ -1727,6 +1727,8 @@ end
 local OVERVIEW_PANEL = 1;
 --- The seat the title bar's gear opens.
 local SETTINGS_PANEL = 4;
+--- Where the settings panel's Back returns: the seat the gear was pressed from.
+local _panelBeforeSettings = OVERVIEW_PANEL;
 
 local STORE_ADDON = "DebindStorage";
 
@@ -1739,8 +1741,17 @@ local PANELS = {
 	-- in two directions, and what they had in common is the list (12절 of
 	-- `devdocs/building-export-import.md`).
 	{ title = "STORAGE_TITLE", desc = "STORAGE_MENU_DESC", panelKey = "StoragePanel", needsStore = true },
-	{ title = "OVERVIEW", desc = "OVERVIEW_DESC", panelKey = "SettingsPanel" },
+	-- **A seat with no tab.** The three above are what the reader made; this one is how the addon
+	-- behaves, so it is not their sibling in the row. The gear is its only door, and while it is up
+	-- `PanelTemplates_SetTab` lights none of the three. The title is what names it
+	-- (`UpdateTitle`), with the client's own `SETTINGS`.
+	{ title = "SETTINGS", panelKey = "SettingsPanel" },
 };
+
+--- A title is our locale key or, failing that, a client global of that name.
+local function PanelTitle(entry)
+	return rawget(LLL, entry.title) or _G[entry.title];
+end
 
 --- Brings in the addon that builds the strings and keeps the drawer. Does nothing if it is here.
 ---
@@ -1787,7 +1798,7 @@ end
 function DebindPanelTabMixin:OnEnter()
 	local entry = PANELS[self:GetID()];
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, LLL[entry.title]);
+	GameTooltip_SetTitle(GameTooltip, PanelTitle(entry));
 	GameTooltip_AddNormalLine(GameTooltip, LLL[entry.desc]);
 	GameTooltip:Show();
 end
@@ -1922,52 +1933,20 @@ function DebindSideTabMixin:IsActive()
 end
 
 --- The title bar's gear. **Everything it draws is `UIPanelIconDropdownButtonTemplate`'s**, so what
---- is left here is the three things that template has no opinion about: what it opens, what it
---- says under the cursor, and going grey while the icon selector is up.
----
---- **The `TooltipTitle` KeyValue is read the way `DebindPortraitMixin` reads it**, because the
---- portrait row is where this button came from and one convention for "which tooltip" is worth
---- more than a second one that happens to be shorter.
+--- is left here is the two things that template has no opinion about: what it opens, and going
+--- grey while the icon selector is up.
 DebindOptionsButtonMixin = {};
 
---- Deferred to the first `OnShow` for the reason the portrait row defers: the locale table is
---- reached through this file's upvalue, and the XML is loaded before it.
-function DebindOptionsButtonMixin:OnShow()
-	if (self.initialized) then
+--- A second press is the settings panel's Back.
+function DebindOptionsButtonMixin:ToggleSettings(_, upInside)
+	if (not upInside or not self:IsEnabled()) then
 		return;
 	end
-	self.initialized = true;
-
-	if (self.TooltipTitle) then
-		self.TooltipTitle = rawget(LLL, self.TooltipTitle) or _G[self.TooltipTitle] or self.TooltipTitle;
-		self.TooltipText = rawget(LLL, self.TooltipText) or self.TooltipText;
-	end
-end
-
-function DebindOptionsButtonMixin:OpenSettings(_, upInside)
-	if (upInside and self:IsEnabled()) then
+	if (_selectedPanel == SETTINGS_PANEL) then
+		DebindFrame:LeaveSettings();
+	else
 		DebindFrame:SelectPanel(SETTINGS_PANEL);
 	end
-end
-
-function DebindOptionsButtonMixin:OnEnter()
-	if (not self.TooltipTitle) then
-		return;
-	end
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, self.TooltipTitle);
-	if (self.TooltipText) then
-		GameTooltip_AddNormalLine(GameTooltip, self.TooltipText);
-	end
-	if (self.disabledReason and not self:IsEnabled()) then
-		GameTooltip_AddBlankLineToTooltip(GameTooltip);
-		GameTooltip_AddErrorLine(GameTooltip, self.disabledReason);
-	end
-	GameTooltip:Show();
-end
-
-function DebindOptionsButtonMixin:OnLeave()
-	GameTooltip:Hide();
 end
 
 function DebindOptionsButtonMixin:OnEnable()
@@ -2711,7 +2690,7 @@ function DebindFrameMixin:OnLoad()
 	-- the reasoning is in the XML. Labels and tooltips both come from `PANELS`, so all that is
 	-- left here is standing them up.
 	for i, tab in ipairs(self.Tabs) do
-		tab:SetText(LLL[PANELS[i].title]);
+		tab:SetText(PanelTitle(PANELS[i]));
 		PanelTemplates_TabResize(tab, 0);
 	end
 	PanelTemplates_SetNumTabs(self, #self.Tabs);
@@ -2920,14 +2899,14 @@ function DebindFrameMixin:OnShow()
 	--- `CloseSpecialWindows` took it (`closeAt` there), and nothing changed in between - the
 	--- registrations below were never undone, because that branch returns before they are.
 	---
-	--- Doing the open's work anyway is what a reader sees: the rebuild discards where they had
-	--- scrolled, and it closes the macro editor whenever the action being edited is not a drawn
-	--- row (`DebindLayerPanelMixin:Refresh`). Opening the spellbook did both.
+	--- Doing the open's work anyway is what a reader sees: the rebuild closes the macro editor
+	--- whenever the action being edited is not a drawn row (`DebindLayerPanelMixin:Refresh`).
+	--- Opening the spellbook did that.
 	if (self.reopenAt == GetTime()) then
 		return;
 	end
 
-	self.LayerPanel:Refresh();
+	self.LayerPanel:Refresh(true);
 	-- **`Update`까지 와야 왼쪽 열이 그려진다.** `Refresh`는 오른쪽 목록만 다시 짓고, 왼쪽은
 	-- 선택이 아니라 프로필 전체를 보므로 여기서 같이 깨워야 한다. 예전에는 선택이 없으면
 	-- 왼쪽이 접혀 있어서 이 줄이 없어도 티가 안 났다.
@@ -3739,17 +3718,15 @@ function DebindFrameMixin:UpdatePendingImports()
 	button:SetEnabled(not self:IsCapturingKey() and not IsEditingAction());
 end
 
---- **제목은 창의 이름이다. 탭 좌표가 아니다.**
----
---- 한때 "Debind [공유 - 일반]"처럼 지금 보는 탭을 낱말로 다시 말했다. 그 좌표는 이미 화면에
---- 두 번 있다 - 통 아래의 탭과 오른쪽의 사이드탭이 각자 켜진 채로 서 있다. 세 번째로 적으면서
---- 얻는 것은 없고, 탭을 누를 때마다 창 이름이 바뀌어서 **같은 창이 아닌 것처럼** 보이는 값은
---- 치른다.
+--- **The window's tab row is named, the layer tabs inside Overview are not.** The title once read
+--- "Debind [Shared - General]", repeating the layer tab and side tab that already stand lit under
+--- the list, and changing the window's name on every click inside one panel.
 ---
 --- The version hangs off the name for the same reason it is on the login line: so a bug report can
 --- carry it. Dimmed, because it is there to be found rather than read every time.
 function DebindFrameMixin:UpdateTitle()
-	self:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
+	self:SetTitle(format("%s |cff9d9d9d%s|r - %s", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel(),
+		PanelTitle(PANELS[_selectedPanel])));
 end
 
 --- 리빌드가 전투 끝을 기다리고 있다는 알림.
@@ -3843,8 +3820,12 @@ function DebindFrameMixin:SelectPanel(id, force)
 		return;
 	end
 
+	if (id == SETTINGS_PANEL and _selectedPanel ~= SETTINGS_PANEL) then
+		_panelBeforeSettings = _selectedPanel;
+	end
 	_selectedPanel = id;
 	PanelTemplates_SetTab(self, id);
+	self:UpdateTitle();
 
 	local panel = self:ResolvePanel(id) or self.MissingPanel;
 
@@ -3871,6 +3852,13 @@ function DebindFrameMixin:SelectPanel(id, force)
 		self.shownPanel = panel;
 		panel:Show();
 	end
+end
+
+function DebindFrameMixin:LeaveSettings()
+	if (not TryCloseAnyDialog()) then
+		return;
+	end
+	self:SelectPanel(_panelBeforeSettings);
 end
 
 function DebindFrameMixin:SetTab(id)

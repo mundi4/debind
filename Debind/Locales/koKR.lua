@@ -267,7 +267,6 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "이 레이어에는 행동이 없습니다. 주
 L["NO_SEARCH_RESULTS"] = "검색과 맞는 것이 없습니다."
 L["NO_SHAPESHIFT"] = "변신하지 않음"
 L["NOT_SELECTED"] = "선택 안 됨"
-L["OPTIONS"] = "설정"
 -- 문제마다 하나씩 있던 짧은 문구는 걷어냈다. 근거는 enUS 쪽 주석에.
 L["ORDER_FLAG_ISSUE"] = "고쳐야 함"
 L["ORDER_FLAG_ISSUE_WARNING"] = "확인 필요"

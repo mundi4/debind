@@ -315,39 +315,30 @@
 			</EventFrame>
 
 			<!--
-				**The two ways a row gets into the list, on the floor under it** (2026-08-23, 소유자).
-				They stood above the list, on the grounds that a button which fills a list and a
-				button which spends a row of it are different jobs; they still are, and the two jobs
-				are the two ends of the band rather than two heights. The client's list frame puts
-				every button it has down here (`Blizzard_ClickBindingUI.xml`), left end and right
-				end, with the inset stopping short of the floor to leave them the room.
-
-				**Anchored to the panel, not to the inset.** The floor is the floor of the tab, so
-				both columns' buttons sit on one line whatever their lists do above them.
+				**The two ways a row gets into the list, side by side at the left end.** They are the
+				same job twice over and read as a pair, so the right end stays empty.
 
 				**Each is as wide as its own label and no wider** (2026-08-23, 소유자). They used to be
 				200 and 200, which is the width of the list, and a button that wide reads as what the
 				column is for rather than as the way into it. The `<Size>` here is the floor they
 				grow from (`UIPanelDynamicResizeButtonTemplate`, which never shrinks).
 			-->
-			<Button parentKey="CreateButton" inherits="UIPanelDynamicResizeButtonTemplate">
-				<Size x="80" y="23"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="5"/>
-				</Anchors>
-			</Button>
-			<!--
-				**Beside the other one** (2026-08-23, 소유자). It stood at the far end of the column
-				for a commit, on the grounds that the client's list frame spreads its buttons to both
-				ends of the floor; these two are the same job twice over and read as a pair, so they
-				stay together and the far end is left to the column that has something to say there.
-			-->
-			<Button parentKey="PasteButton" inherits="UIPanelDynamicResizeButtonTemplate">
-				<Size x="80" y="23"/>
-				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.CreateButton" relativePoint="RIGHT" x="5" y="0"/>
-				</Anchors>
-			</Button>
+			<Frame parentKey="ToolbarLeft" inherits="DebindToolbarLeftTemplate">
+				<Frames>
+					<Button parentKey="CreateButton" inherits="UIPanelDynamicResizeButtonTemplate">
+						<Size x="80" y="22"/>
+						<KeyValues>
+							<KeyValue key="layoutIndex" value="1" type="number"/>
+						</KeyValues>
+					</Button>
+					<Button parentKey="PasteButton" inherits="UIPanelDynamicResizeButtonTemplate">
+						<Size x="80" y="22"/>
+						<KeyValues>
+							<KeyValue key="layoutIndex" value="2" type="number"/>
+						</KeyValues>
+					</Button>
+				</Frames>
+			</Frame>
 
 			<!--
 				**The right column: what the picked entry holds.**

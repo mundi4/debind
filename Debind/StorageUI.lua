@@ -726,16 +726,17 @@ function DebindStoragePanelMixin:OnLoad()
     -- **What this panel asks the frame to be** is a `KeyValue` in the XML, read by `SelectPanel`.
     -- Two columns now, so it asks for Overview's width rather than a single list's.
 
-    self.CreateButton:SetText(LLL["STORAGE_CREATE"]);
-    self.PasteButton:SetText(LLL["STORAGE_PASTE"]);
+    local createButton, pasteButton = self.ToolbarLeft.CreateButton, self.ToolbarLeft.PasteButton;
+    createButton:SetText(LLL["STORAGE_CREATE"]);
+    pasteButton:SetText(LLL["STORAGE_PASTE"]);
 
     -- **Each one is as wide as its own label** (2026-08-23, 소유자). A button that fills the column
     -- reads as the thing the column is for, and these two are doors rather than the point of the
     -- screen. `UIPanelDynamicResizeButtonTemplate` does this on its own `OnLoad`, which has already
     -- run by the time this one sets the text - it grows to fit and never shrinks, so calling it
     -- here is what it would have done with the label it did not have yet.
-    DynamicResizeButton_Resize(self.CreateButton);
-    DynamicResizeButton_Resize(self.PasteButton);
+    DynamicResizeButton_Resize(createButton);
+    DynamicResizeButton_Resize(pasteButton);
     self.Preview.AddButton:SetText(LLL["STORAGE_ADD"]);
     self.Preview.CopyButton:SetText(LLL["STORAGE_COPY"]);
     DynamicResizeButton_Resize(self.Preview.AddButton);
@@ -761,19 +762,19 @@ function DebindStoragePanelMixin:OnLoad()
     -- **The chrome widgets get their scripts here.** XML's `method=` looks the name up on the
     -- element's *own* mixin, so naming the panel's method on a plain Blizzard template finds
     -- nothing. List rows are the other way round: those carry a mixin.
-    self.CreateButton:SetScript("OnClick", function() self:OnCreateClicked(); end);
+    createButton:SetScript("OnClick", function() self:OnCreateClicked(); end);
     -- **The one place the word is explained** (2026-08-23, 소유자). The list names payloads all over
     -- itself and nothing on screen says what one is; a tooltip is read by somebody who stopped to
     -- ask, which is exactly who needs it.
-    self.CreateButton:SetScript("OnEnter", function(button)
+    createButton:SetScript("OnEnter", function(button)
         GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
         GameTooltip_SetTitle(GameTooltip, button:GetText());
         GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_CREATE_TOOLTIP"]);
         GameTooltip_AddInstructionLine(GameTooltip, LLL["STORAGE_CREATE_INSTRUCTION"]);
         GameTooltip:Show();
     end);
-    self.CreateButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
-    self.PasteButton:SetScript("OnClick", function() DebindPasteFrame:Open(); end);
+    createButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+    pasteButton:SetScript("OnClick", function() DebindPasteFrame:Open(); end);
     self.Preview.AddButton:SetScript("OnClick", function(button)
         MenuUtil.CreateContextMenu(button, SetupAddMenu);
     end);

@@ -260,17 +260,21 @@
 				yet, and the rebuild behind it stands itself down until the fight ends
 				(`UpdateBindings`). Greying it would be a lockout with nothing behind it.
 			-->
-			<Button parentKey="NewButton" inherits="UIPanelButtonTemplate">
-				<Size x="140" y="23"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="4"/>
-				</Anchors>
-				<Scripts>
-					<OnClick>
-						self:GetParent():OnNewClick();
-					</OnClick>
-				</Scripts>
-			</Button>
+			<Frame parentKey="ToolbarLeft" inherits="DebindToolbarLeftTemplate">
+				<Frames>
+					<Button parentKey="NewButton" inherits="UIPanelButtonTemplate">
+						<Size x="140" y="22"/>
+						<KeyValues>
+							<KeyValue key="layoutIndex" value="1" type="number"/>
+						</KeyValues>
+						<Scripts>
+							<OnClick>
+								self:GetParent():GetParent():OnNewClick();
+							</OnClick>
+						</Scripts>
+					</Button>
+				</Frames>
+			</Frame>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

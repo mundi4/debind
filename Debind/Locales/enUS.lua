@@ -757,7 +757,6 @@ L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NO_SPECIALIZATION"] = "None chosen"
 L["NOT_SELECTED"] = "Not Selected"
-L["OPTIONS"] = "Options"
 
 --- The main window's title bar, and **only while the fight is on**. Being on screen is what says
 --- "in combat", so the sentence does not say it again -- unlike the line above, which is a standing

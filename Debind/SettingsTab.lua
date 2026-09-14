@@ -10,11 +10,20 @@ panel:Hide();
 panel.preferredWidth = 660;
 DebindFrame.SettingsPanel = panel;
 
+-- The client's own settings window wears `FlatPanelBackgroundTemplate` (`SettingsFrameTemplate`),
+-- where `PortraitFrameTemplate` gives `DebindFrame` the rock texture and its streaks. Those two are
+-- regions of `DebindFrame` itself and draw over a frame at level 0, so they are hidden while this
+-- panel is up rather than covered.
+local flatBackground = CreateFrame("Frame", nil, panel, "FlatPanelBackgroundTemplate");
+flatBackground:SetFrameLevel(0);
+flatBackground:SetPoint("TOPLEFT", 2, -20);
+flatBackground:SetPoint("BOTTOMRIGHT", -2, 3);
+
 local background = CreateFrame("Frame", nil, panel, "TooltipBackdropTemplate");
 background:SetPoint("TOPLEFT", 4, -85);
 background:SetPoint("BOTTOMRIGHT", -31, 8);
 background:SetBackdropBorderColor(DARKGRAY_COLOR:GetRGB());
-background:SetBackdropColor(BLACK_FONT_COLOR:GetRGB());
+background:SetBackdropColor(0, 0, 0, 0.5);
 
 local scroll = CreateFrame("ScrollFrame", nil, background, "DebindScrollFrameTemplate");
 scroll:SetPoint("TOPLEFT", 5, -5);
@@ -374,12 +383,18 @@ end
 
 local built = false;
 panel:SetScript("OnShow", function()
+    DebindFrame.Bg:Hide();
+    DebindFrame.TopTileStreaks:Hide();
     if (not built) then
         built = true;
         content:SetWidth(scroll:GetWidth());
         Build();
     end
     Refresh();
+end);
+panel:SetScript("OnHide", function()
+    DebindFrame.Bg:Show();
+    DebindFrame.TopTileStreaks:Show();
 end);
 
 local function ResetToDefaults()
@@ -409,19 +424,30 @@ StaticPopupDialogs["DEBIND_SETTINGS_DEFAULTS"] = {
     hideOnEscape = true,
 };
 
-local defaults = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate");
+local toolbarLeft = CreateFrame("Frame", nil, panel, "DebindToolbarLeftTemplate");
+local toolbarRight = CreateFrame("Frame", nil, panel, "DebindToolbarRightTemplate");
+
+local back = CreateFrame("Button", nil, toolbarLeft, "UIPanelButtonTemplate");
+back.layoutIndex = 1;
+back:SetSize(90, 22);
+back:SetText(BACK);
+back:SetScript("OnClick", function()
+    DebindFrame:LeaveSettings();
+end);
+
+local reload = CreateFrame("Button", nil, toolbarRight, "UIPanelButtonTemplate");
+reload.layoutIndex = 1;
+reload:SetSize(120, 22);
+reload:SetText(RELOADUI);
+reload:SetScript("OnClick", ReloadUI);
+
+local defaults = CreateFrame("Button", nil, toolbarRight, "UIPanelButtonTemplate");
+defaults.layoutIndex = 2;
 defaults:SetSize(120, 22);
-defaults:SetPoint("BOTTOMRIGHT", background, "TOPRIGHT", 0, 0);
 defaults:SetText(SETTINGS_DEFAULTS);
 defaults:SetScript("OnClick", function()
     StaticPopup_Show("DEBIND_SETTINGS_DEFAULTS");
 end);
-
-local reload = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate");
-reload:SetSize(120, 22);
-reload:SetPoint("RIGHT", defaults, "LEFT", -6, 0);
-reload:SetText(RELOADUI);
-reload:SetScript("OnClick", ReloadUI);
 
 UpdateReloadButton = function()
     reload:SetEnabled(DebindPrivate.IsReloadRequired());

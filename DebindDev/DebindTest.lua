@@ -4129,14 +4129,15 @@ RegisterTest("Switches tab: the New switch button makes one", {
         end
 
         local panel = OpenSwitchesTab()
-        if not panel.NewButton then
+        local newButton = panel.ToolbarLeft and panel.ToolbarLeft.NewButton
+        if not newButton then
             return Fail(NAME, "no NewButton on the panel, the XML was not loaded")
         end
-        if not panel.NewButton:IsEnabled() then
+        if not newButton:IsEnabled() then
             return Fail(NAME, "the button is disabled")
         end
 
-        panel.NewButton:Click()
+        newButton:Click()
 
         local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
         if not dialog then

@@ -146,7 +146,6 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "В этой вкладке нет действ�
 L["NO_SEARCH_RESULTS"] = "Здесь нет ничего, что соответствует запросу."
 L["NO_SHAPESHIFT"] = "Без перевоплощения"
 L["NOT_SELECTED"] = "Не выбрано"
-L["OPTIONS"] = "Настройки"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"

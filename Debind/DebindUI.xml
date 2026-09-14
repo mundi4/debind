@@ -237,6 +237,28 @@
 	</Frame>
 
 	<!--
+		**The band above a tab's list, one template for each end.** Every tab used to stand its buttons
+		against its own list, and the tabs had drifted apart in height, gap and offset. A tab that has
+		buttons there takes the end it needs as a child and puts them inside with a `layoutIndex`.
+	-->
+	<Frame name="DebindToolbarLeftTemplate" inherits="HorizontalLayoutFrame" virtual="true">
+		<KeyValues>
+			<KeyValue key="spacing" value="5" type="number"/>
+		</KeyValues>
+		<Anchors>
+			<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="4" y="-85"/>
+		</Anchors>
+	</Frame>
+	<Frame name="DebindToolbarRightTemplate" inherits="HorizontalLayoutFrame" virtual="true">
+		<KeyValues>
+			<KeyValue key="spacing" value="5" type="number"/>
+		</KeyValues>
+		<Anchors>
+			<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT" x="-31" y="-85"/>
+		</Anchors>
+	</Frame>
+
+	<!--
 		The line that goes in wherever the key changes in the shortcut ordering. The bar art comes
 		from Blizzard's `ListHeaderThreeSliceTemplate` - the one the cooldown manager's settings and
 		the currency tab use.
@@ -870,33 +892,27 @@
 				(`UIPanelCloseButtonNoScripts`), and it is the title bar's band:
 				`TitleContainer` is 510 too.
 
-				`motionScriptsWhileDisabled` so the tooltip still answers while the icon selector
-				holds an action - `UpdateButtons` greys this out there and the reason belongs on
-				the button.
+				**No tooltip.** A press is not always "open settings": on the settings panel it is
+				that panel's Back (`ToggleSettings`), so one fixed word under the cursor is wrong half
+				the time.
 
 				**It opens no menu of its own any more** - the settings tab holds what that menu
 				held (`SettingsTab.lua`). It stays a `DropdownButton` for the artwork,
 				and with no menu generator set `OnMouseDown_Intrinsic` finds no description and
 				returns, so the press is ours to answer on the way back up.
 
-				**`OpenSettings` rather than `OnMouseUp`, and appended.** The template already
+				**`ToggleSettings` rather than `OnMouseUp`, and appended.** The template already
 				scripts `OnMouseUp` at its own mixin's method of that name, and a method of the
 				same name here would replace it - the icon would stay pushed in.
 			-->
-			<DropdownButton parentKey="OptionsButton" inherits="UIPanelIconDropdownButtonTemplate" mixin="DebindOptionsButtonMixin" motionScriptsWhileDisabled="true" frameLevel="510">
-				<KeyValues>
-					<KeyValue key="TooltipTitle" value="OPTIONS" type="string"/>
-				</KeyValues>
+			<DropdownButton parentKey="OptionsButton" inherits="UIPanelIconDropdownButtonTemplate" mixin="DebindOptionsButtonMixin" frameLevel="510">
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.CloseButton" relativePoint="LEFT" x="-4" y="-1"/>
 				</Anchors>
 				<Scripts>
-					<OnShow method="OnShow"/>
-					<OnEnter method="OnEnter"/>
-					<OnLeave method="OnLeave"/>
 					<OnEnable method="OnEnable"/>
 					<OnDisable method="OnDisable"/>
-					<OnMouseUp method="OpenSettings" inherit="append"/>
+					<OnMouseUp method="ToggleSettings" inherit="append"/>
 				</Scripts>
 			</DropdownButton>
 			<!--
@@ -1701,11 +1717,6 @@
 			<Button parentKey="StorageTab" inherits="DebindPanelTabTemplate" id="3">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.SwitchesTab" relativePoint="TOPRIGHT" x="3" y="0"/>
-				</Anchors>
-			</Button>
-			<Button parentKey="TestTab" inherits="DebindPanelTabTemplate" id="4">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.StorageTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
 
