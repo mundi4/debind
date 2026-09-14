@@ -1950,13 +1950,32 @@ RegisterTest("Bulk key change: a selection of several stays selected", {
         local third = InsertAction({ type = Constants.SPELL, value = 3 })
         ApplyBindings()
 
+        -- **The list draws the open tab's layer, and the run does not isolate that lookup.** A
+        -- selection is only ever made of rows the list draws, and the rebuild keeps only those, so the
+        -- test layer has to be what the open tab shows for the rows to be there at all.
+        local realGetProfileLayer = DebindPrivate.GetProfileLayer
+        DebindPrivate.GetProfileLayer = function(layerID)
+            if layerID == DebindUI.GetLayerID() then
+                return GetTestLayer()
+            end
+            return realGetProfileLayer(layerID)
+        end
+        AddTeardown(function() DebindPrivate.GetProfileLayer = realGetProfileLayer end)
+
         DebindFrame:Show()
         AddTeardown(function() DebindFrame:CloseWindow() end)
+        DebindLayerPanel:Refresh(true)
+
+        for _, action in ipairs({ first, second, third }) do
+            if not DebindLayerPanel:FindElementDataByActionInfo(action) then
+                return Fail(NAME, "setup: a planted row is not in the list, is a search term or filter on")
+            end
+        end
 
         DebindLayerPanel:SetSelectedAction(first)
         DebindLayerPanel:ToggleActionSelected(second)
         if DebindFrame:GetSelectionCount() ~= 2 then
-            return Fail(NAME, format("setup: %d picked, is a search term or filter on", DebindFrame:GetSelectionCount()))
+            return Fail(NAME, format("setup: %d picked", DebindFrame:GetSelectionCount()))
         end
 
         DebindUI.UnbindActions({ first, second })
