@@ -615,12 +615,22 @@ end
 --- **The emitted list is not `KeyMap`'s.** A key that holds a key record carries a BLOCK after its
 --- self tier, after its focus tier and at its end (`UpdateBindings.lua`'s `WithBlocks`), and
 --- `KeyMap` has none of them, so every index past the first tier is out of step by one or two.
+---
+--- **A key in `KeysToHold` gets the blocks even with nothing in `KeyMap` holding it**, or with no
+--- `KeyMap` list at all, so its every record past its own bindings is a block.
 local function BindingIndexForEmitted(key, index)
-    local bindings = key and GetKeyBindings(key)
-    if not bindings or type(index) ~= "number" then
+    if not key or type(index) ~= "number" then
         return index
     end
-    local holds, selfCount, focusCount = false, 0, 0
+    local held = DebindPrivate.KeysToHold[key] == true
+    local bindings = GetKeyBindings(key)
+    if not bindings then
+        if not held then
+            return index
+        end
+        bindings = {}
+    end
+    local holds, selfCount, focusCount = held, 0, 0
     for i = 1, #bindings do
         local binding = bindings[i]
         holds = holds or binding.holdsKey
