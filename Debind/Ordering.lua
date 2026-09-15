@@ -131,25 +131,21 @@ function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
     return nil;
 end
 
---- Is this row for a specialization other than the one being drawn? **A question about the words
---- on the row, and not about whether its arrows can move it.**
+--- Is this row on a layer that belongs to a specialization other than the one being drawn? **A
+--- question about the words on the row and the overview's filter, and not about whether its arrows
+--- can move it.**
 ---
---- Three ways to be, and the filter files all three with the rest of them, since a specialization
---- change is what brings any of them back: the row's layer belongs to another specialization
---- (`specRank`), the action's own condition leaves this one out (`specExcluded`), or its `known`
---- has no spell to ask about here (`noSpell`) -- both of the latter from `Profile.lua`'s `MakeRow`.
+--- **Only the layer answers.** A row on a live layer whose own condition leaves this specialization
+--- out (`specExcluded`), or whose `known` has nothing to ask about (`noSpell`), is not one of these:
+--- its key is held and does nothing for it (`Debind.lua`'s `KeysToHold`), where another
+--- specialization's layer is simply not in play. Filed together, the reader took the first for
+--- something that comes back by itself (2026-09-15, owner).
 ---
---- **The reason column does not say the same thing about all three.** The first two belong to
---- another specialization and it names which; `noSpell` gets its own word, because a class can
---- lack the spell in every specialization it has.
----
---- **Never ask this about a swap.** The three do not answer alike there and the comparator already
---- tells them apart: the second and third stand in a layer that is live, so `specRank` ties and
---- `seq` alone settles them against the rows either side, while a row out by its **layer** is
---- decided on `specRank` before `seq` is reached. Refusing all three together let an arrow refuse a
---- move that the numbers underneath it could make.
+--- **Never ask this about a swap.** The comparator decides a row out by its layer on `specRank`
+--- before `seq` is reached, while the two above tie on `specRank` and are settled by `seq` against
+--- the rows either side.
 function DebindPrivate.IsRowOffSpec(row)
-    return (row.specRank or 0) ~= 0 or row.specExcluded == true or row.noSpell == true;
+    return (row.specRank or 0) ~= 0;
 end
 
 --- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을

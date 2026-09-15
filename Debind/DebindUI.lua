@@ -199,20 +199,20 @@ local _searchText;
 --- 「수집됨 / 수집 안 됨」과 같은 모양이고, 한 축을 다 끄면 막지 않고 0개를 낸다. 아무 값도 안
 --- 받겠다고 한 것이므로 그게 정직한 답이다.
 ---
---- 축이 둘이고 값은 서로 겹치지 않는다:
----   특성 - 활성 / 비활성
----   키   - 있음(진짜 키) / 없음(수락은 했는데 키를 안 줌) / Pending(아직 수락도 안 함)
+--- Two axes:
+---   layer - active / inactive
+---   key   - bound / unbound (accepted, no key given) / pending (not accepted yet)
 ---
---- **키 축의 셋이 겹칠 수 있다.** 배지 달린 것도 실키를 들고 있어서(`devdocs/building-export-import.md`
---- 12절) Pending과 「단축키 있음」이 같은 액션을 가리킬 수 있다. 축마다 따로 묻고 통과하면
---- 남기는 것이 그래서 맞다 - 한 축이 다른 축을 대신 답하게 만들면, 도착분을 보려고 Pending만
---- 켠 사람이 키 축에서 그것을 다시 잃는다.
+--- **The key axis can overlap.** A badged action carries a real key too
+--- (`devdocs/building-export-import.md` 12절), so pending and bound can name the same action. Each
+--- axis is asked on its own for that reason: letting one answer for the other would take an arrival
+--- back off the screen of a reader who ticked pending only to see it.
 ---
---- **저장하지 않는다.** 걸려 있다는 사실은 드롭다운의 리셋 버튼이 말한다(`UIResetButtonTemplate`은
---- 기본값이 아닐 때만 뜬다).
+--- **Not saved.** The dropdown's reset button says a filter is on (`UIResetButtonTemplate` shows
+--- only away from the default).
 local _filters = {
-	activeSpec   = true,
-	inactiveSpec = true,
+	activeLayer   = true,
+	inactiveLayer = true,
 	keyed        = true,
 	unkeyed      = true,
 	pending      = true,
@@ -438,20 +438,22 @@ end
 --- 저 함수들이라 여기서는 이름만 세워둔다.
 local BuildKeyboardElements, CollectVisibleActions;
 
---- 이 행 하나가 필터를 통과하나. **두 축을 모두** 통과해야 한다(`_filters`).
+--- Does this one row pass the filters. **Both axes** have to pass (`_filters`).
 ---
---- 전문화 축은 `IsRowOffSpec`이 답한다. 다른 전문화의 레이어에 있는 것과 자기 조건이 지금
---- 번호를 빼는 것 둘 다 여기서는 한 가지다 - 어느 쪽이든 지금 안 돈다.
+--- **The layer axis goes by the layer alone** (`IsRowOffSpec`). A row on a live layer that does not
+--- fire now stays on the active side: the layers do not line up with specializations one to one,
+--- and its key is held all the same (2026-09-15, owner).
 ---
---- 키 축은 셋 중 하나로만 떨어진다. 배지를 먼저 보는 것이 순서인데, 배지가 붙은 것은 언제나
---- 합성 번호 위에 있어서(`_filters` 주석) 아래 두 갈래와 다툴 일이 없기 때문이다.
+--- The key axis lands on exactly one of its three. The badge is asked first because a badged
+--- action always has a key of its own (the `_filters` comment), so it never contends with the
+--- two below.
 local function ActionPassesFilters(row)
 	local action = row.action;
 	if (not DebindPrivate.IsRowOffSpec(row)) then
-		if (not _filters.activeSpec) then
+		if (not _filters.activeLayer) then
 			return false;
 		end
-	elseif (not _filters.inactiveSpec) then
+	elseif (not _filters.inactiveLayer) then
 		return false;
 	end
 
@@ -2200,8 +2202,8 @@ end
 --- "지금 기본값인가"와 "기본값으로 되돌려라" 둘뿐이고, 주문 선택 창이 같은 자리에서 같은 둘을
 --- 준다.
 local FILTER_MENU = {
-	{ "activeSpec",   "FILTER_ACTIVE_SPEC"   },
-	{ "inactiveSpec", "FILTER_INACTIVE_SPEC" },
+	{ "activeLayer",   "FILTER_ACTIVE_LAYER"   },
+	{ "inactiveLayer", "FILTER_INACTIVE_LAYER" },
 	false,
 	{ "keyed",        "FILTER_KEYED"         },
 	{ "unkeyed",      "FILTER_UNKEYED"       },
@@ -4525,19 +4527,16 @@ local function GetOrderReasonText(elementData)
 	-- for the same reason those come before the ordering sentence: a more specific thing to say
 	-- wins the one slot.
 	--
-	-- **A row kept out by its own specialization condition says the same thing** (`IsRowOffSpec`).
-	-- Without it that row got the ordering sentence, which claims it beat the row below it: it
-	-- beats nothing in this specialization, so the one line the slot held was false rather than
-	-- missing.
-	--
-	-- **`noSpell` is the one of the three that names no specialization.** It is filed with them
-	-- because a specialization change can bring it back, but for a class that has no such spell in
-	-- any of its specializations there is none to come round, and naming one would promise it.
+	-- **`noSpell` names the spell that is missing rather than a specialization**: a class can lack
+	-- it in every specialization it has, so there is none to come round.
 	elseif (row.noSpell) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_NO_SPELL"]);
 	elseif (DebindPrivate.IsRowOffSpec(row)) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_OFFSPEC"]);
-	elseif (row.unreachable) then
+	-- **A row its own specialization condition leaves out never runs, like a covered one.** It is on
+	-- a live layer, so "Inactive specialization" read as the layer rows above: something that comes
+	-- back by itself. The row tooltip says why under the condition that caused it (2026-09-15, owner).
+	elseif (row.specExcluded or row.unreachable) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
 		-- **The grade picks the words as well as the colour.** One line for both said the same thing

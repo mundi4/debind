@@ -141,5 +141,65 @@ return function(DebindPrivate, _, ctx)
         check(interp:evalKey("F1") == nil, "the press did something");
     end);
 
+    ---------------------------------------------------------------------------
+    -- A key on a live layer whose every action the rebuild leaves out
+    ---------------------------------------------------------------------------
+
+    -- **What a rebuild skips because it already knows the answer must not hand the key back.**
+    -- Baked, the binding would never win and the press would do nothing; skipped, the key used to
+    -- leave the build and the game's own binding went out instead.
+    --
+    -- Each case asks `IsKeyOurs` beside the bound key, so the function and the key cannot part.
+    local function checkOursAndSilent(key)
+        check(IsOurs(key), "the key is not ours: " .. Bound(key));
+        check(DebindPrivate.IsKeyOurs(key), "the key is bound to us and IsKeyOurs says no");
+        check(interp:evalKey(key) == nil, "the press did something");
+    end
+
+    local function checkNotOurs(key)
+        check(Bound(key) == "", "the key was bound: " .. Bound(key));
+        check(not DebindPrivate.IsKeyOurs(key), "the key is not bound and IsKeyOurs says yes");
+    end
+
+    -- The shim plays specialization 1.
+    local function OtherSpec()
+        return { [DebindPrivate.SpecIDForIndex(2)] = true };
+    end
+
+    test("a key whose one action the specialization condition leaves out stays ours", function()
+        Bind({ action({ value = 585, key = "F1", conditions = { specs = OtherSpec() } }) });
+        checkOursAndSilent("F1");
+    end);
+
+    -- **The frame keeps its click and the key is still ours.** The hover action is click-cast only
+    -- and holds nothing, so all that holds the key is the action the condition left out.
+    test("a hover action on a mouse button does not stop a left-out action holding the key", function()
+        Bind({
+            action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { hover = {} } } }),
+            action({ value = 774, key = "SHIFT-BUTTON2", conditions = { specs = OtherSpec() } }),
+        });
+        checkOursAndSilent("SHIFT-BUTTON2");
+    end);
+
+    -- **Negative of the one above.** Without it that case also passes on a rebuild that takes
+    -- every mouse button it sees.
+    test("a hover action alone leaves its mouse button to the frame", function()
+        Bind({ action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { hover = {} } } }) });
+        checkNotOurs("SHIFT-BUTTON2");
+    end);
+
+    -- A binding with no way to fire is dropped per key, which left a key holding nothing.
+    test("a key whose one action has no way to fire stays ours", function()
+        Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }) });
+        checkOursAndSilent("F1");
+    end);
+
+    -- **An ERROR about the action keeps the key; one about the key lets it go.** Taking a bare left
+    -- click would end every world click and the camera with it.
+    test("a key the action may not be put on is not taken", function()
+        Bind({ action({ value = 585, key = "BUTTON1" }) });
+        checkNotOurs("BUTTON1");
+    end);
+
     return T;
 end

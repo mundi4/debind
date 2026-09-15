@@ -509,8 +509,8 @@ L["MENU_BLOCKED_SOME_CANNOT"] = "고른 것 중에 이것을 가질 수 없는 �
 L["REJECT_IMPORT"] = "버리기"
 L["REJECT_IMPORT_DESC"] = "이것만 지웁니다. 그 문자열은 가져오기 탭에 그대로 있으니 다시 가져올 수 있습니다."
 L["REJECT_IMPORT_CONFIRM"] = "가져왔지만 아직 받아들이지 않은 행동 |cnHIGHLIGHT_FONT_COLOR:%d|r개를 버릴까요?|n|n그 문자열은 가져오기 탭에 그대로 있으니 다시 가져올 수 있습니다."
-L["FILTER_ACTIVE_SPEC"] = "활성 전문화"
-L["FILTER_INACTIVE_SPEC"] = "비활성 전문화"
+L["FILTER_ACTIVE_LAYER"] = "활성 레이어"
+L["FILTER_INACTIVE_LAYER"] = "비활성 레이어"
 -- **앞에 "키"를 붙여야 뜻이 닫힌다.** "지정 안 됨"만 두면 무엇이 안 됐다는 것인지 목록 안에서는
 -- 안 서고, 그 말은 키 없는 덩어리 머리글이 이미 쓰고 있다(클라이언트 전역 NOT_BOUND).
 L["FILTER_KEYED"] = "키 지정됨"

@@ -2806,14 +2806,12 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- The row's tooltip passes it straight through (`ActionTooltip.lua`), which is what keeps the
     -- row and its tooltip from disagreeing.
     row.offWorld = offWorld;
-    -- **The other way a row belongs to a specialization that is not the one on screen.** The layer
-    -- answers for `specRank`; this is the action's own condition, answered the way the rebuild
+    -- **The action's own condition leaving this specialization out**, answered the way the rebuild
     -- answers it when it keeps the action off the key (`Misc.lua`'s `SpecConditionHolds`).
     --
     -- **It is deliberately not folded into `specRank`.** That field is a step of the comparator
     -- (`Ordering.lua`), and this action sits in a layer that is live: the place it takes among its
-    -- neighbours is the place it really takes when that specialization comes round. What reads the
-    -- two together is `IsRowOffSpec`, which is drawing rather than ordering.
+    -- neighbours is the place it really takes when that specialization comes round.
     --
     -- **An empty set is not another specialization's row.** No index satisfies it, so the row that
     -- carries one is not waiting for a specialization to come round, it is wrong -- and it already
@@ -2829,10 +2827,9 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
 
     -- **The other way a row does not fire in this world: `known` with no spell to ask about.**
     -- Same answer the rebuild gives when it leaves the action out of the key map
-    -- (`Misc.lua`'s `KnownConditionCanHold`). It rides with the specialization rows in the filter
-    -- because a specialization change is what can bring it back, but it gets a word of its own in
-    -- the reason column: some classes have no such spell in any specialization, and
-    -- "Inactive specialization" would promise one.
+    -- (`Misc.lua`'s `KnownConditionCanHold`). It gets a word of its own in the reason column: some
+    -- classes have no such spell in any specialization, and "Never runs" would not say which thing
+    -- is missing.
     --
     -- **Not asked outside the live world.** The spell comes from the specialization being played
     -- (`SpecSpells.lua`), so on a row drawn for another one the answer would be this character's,

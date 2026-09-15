@@ -175,12 +175,17 @@ return function(DebindPrivate, _, ctx)
     -- **A `known` this specialization has no spell for never reaches the build.** The condition is
     -- false for every press this build will see, so the rebuild leaves the action out the way it
     -- leaves out an action for another specialization (`Misc.lua`'s `KnownConditionCanHold`).
+    -- **Out of the build, not off the key**: the key stays ours and the press does nothing.
     test("a known with no spell is left out of the build", function()
         shim.world.specIndex = 1;
         Bind({
             action({ type = Constants.EXTERNAL, key = "F2", conditions = { known = true } }),
         });
-        check(interp:recordsFor("F2") == nil, "the key was bound anyway");
+        check(DebindPrivate.KeyMap["F2"] == nil, "the action reached the key map anyway");
+        check(DebindPrivate.IsKeyOurs("F2"), "the key was handed back");
+        if (not shipped) then
+            check(interp:evalKey("F2") == nil, "the press fired something");
+        end
         shim.world.specIndex = nil;
     end);
 

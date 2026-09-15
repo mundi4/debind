@@ -779,10 +779,9 @@ L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- of the pair is already spelled. "Other specialization" was ours and said the wrong thing besides:
 -- it reads as "some specialization elsewhere" when what matters is that this one is switched off.
 L["ORDER_FLAG_OFFSPEC"] = "Inactive specialization"
--- **No specialization is named, on purpose.** The row is filed with the inactive-specialization
--- rows because a specialization change can bring it back, but some classes have no such spell in
--- any of their specializations (a Restoration shaman and the external), and naming one would
--- promise a specialization that does not exist.
+-- **No specialization is named, on purpose.** Some classes have no such spell in any of their
+-- specializations (a Restoration shaman and the external), and naming one would promise a
+-- specialization that does not exist.
 --
 -- The tooltip is where the reader learns which spell is missing: `LINE_TOOLTIP_SPEC_SPELL_NONE`
 -- already stands at the top of it.
@@ -1668,16 +1667,15 @@ L["REMOVE_DUPLICATES_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%d|r duplicate 
 -- **Title Case, because that is what the client's filter items use** - [Collected] / [Not Collected]
 -- / [Usable Items] in the collection windows, and `NOT_BOUND` below is one of those strings.
 --
--- **"Inactive specialization" is not a fresh wording.** `ORDER_FLAG_OFFSPEC` and
--- `SPELL_PICKER_SHOW_OFFSPEC` already name this, and one thing has one name per screen - these two
--- keys exist so each position can be reworded on its own, never so they can say different things.
+-- **Layers, not specializations.** The layers do not match specializations one to one: General,
+-- the class and the character apply in every one, and each specialization has two of its own. A
+-- row on a live layer whose own condition leaves this specialization out stays on the active side
+-- (2026-09-15, owner). "Specialization" here filed it with the other specializations' layers, and
+-- the reader took it for something that comes back by itself.
 --
--- **Plural, and its neighbour is not.** A tick here covers every specialization that is not the one
--- being played, which is why `SPELL_PICKER_SHOW_OFFSPEC` is plural in the same position;
--- `ORDER_FLAG_OFFSPEC` is singular because it marks one row. There is only ever one active
--- specialization, so that side stays singular even though the pair then looks uneven.
-L["FILTER_ACTIVE_SPEC"] = "Active Specialization"
-L["FILTER_INACTIVE_SPEC"] = "Inactive Specializations"
+-- Both plural: several layers are active at once.
+L["FILTER_ACTIVE_LAYER"] = "Active Layers"
+L["FILTER_INACTIVE_LAYER"] = "Inactive Layers"
 -- The key axis. **Three values, and none of them overlaps another**: an action either presses on a
 -- key, or is waiting to be accepted, or is neither.
 --

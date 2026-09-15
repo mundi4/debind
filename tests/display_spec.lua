@@ -343,8 +343,8 @@ return function(DebindPrivate)
     -- (`devdocs/baking-the-known-condition.md` §6-1), and with nothing on the row a reader is
     -- looking at a binding that is simply not firing and no word about it.
     --
-    -- It takes `noSpell`, the flag that already means "that spell is not there", and rides with
-    -- the specialization rows in the filter because a talent change is what brings it back.
+    -- It takes `noSpell`, the flag that already means "that spell is not there". **It stays with
+    -- the live layer's rows in the filter**, which goes by the layer and not by whether a row fires.
     --
     -- The world is stood up before the first rebuild: `Spells` builds its table once.
     test("a known settled false marks the row, and one settled true does not", function()
@@ -364,7 +364,7 @@ return function(DebindPrivate)
         local dropped = DebindPrivate.CollectActionsForKey("F1")[1];
         check(dropped.noSpell == true,
             "the settled-false row was not marked: " .. tostring(dropped.noSpell));
-        check(DebindPrivate.IsRowOffSpec(dropped), "it was not filed with the spec rows");
+        check(not DebindPrivate.IsRowOffSpec(dropped), "it was filed with the inactive layers");
 
         local held = DebindPrivate.CollectActionsForKey("F2")[1];
         check(held.noSpell == nil,

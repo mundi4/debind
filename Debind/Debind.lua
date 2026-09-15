@@ -135,22 +135,32 @@ end
 DebindPrivate.KeyMap                 = {};
 DebindPrivate.ActiveActions          = {};
 
---- 액션 선택을 클릭 시점에 하는 키. `키 -> 클릭 프레임에 건 버튼 이름`.
---- 보안 쪽 `ClickTimeKeys`는 같은 것을 버튼 이름으로 색인한 것이다(래퍼가 그 방향으로 찾는다).
---- 여기 없는 키는 키를 잡는 레코드가 아예 없는 키다(클릭캐스팅 전용).
+--- The keys this rebuild bound to the click frame, `key -> button name`. The restricted
+--- `ClickTimeKeys` holds the same pairs indexed by button name, which is the way the wrapper looks.
 ---
---- **"이 키가 항상 우리 것인가"와는 다르다.** 그쪽은 `bindings.alwaysOurs`이고, 여기 있는
---- 키 중 일부다 - 나머지는 "잡느냐 놓느냐"를 상태 루프가 계속 정하고 어느 액션인지만
---- 클릭 시점에 정한다.
+--- **Filled on the line that binds the key** (`UpdateBindings.lua`'s `UpdateBindingsMap`), which is
+--- what lets `IsKeyOurs` answer from it.
 ---
---- **재할당하지 말 것.** DevTool이 이 참조를 들고 있으므로 갈아치우면 그쪽이 옛 표를 계속
---- 본다. 갱신은 `wipe` 후 채우기다.
+--- **Never reassigned.** DevTool holds this reference, so a new table would leave it reading the old
+--- one; a rebuild wipes and refills it.
 DebindPrivate.ClickTimeKeys          = {};
 dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
+
+--- Keys an action on a live layer holds whether or not any of its bindings reached `KeyMap`.
+--- `BuildKeyMap` fills it and `UpdateBindingsMap` binds every key in it.
+DebindPrivate.KeysToHold             = {};
+dump("KeysToHold", DebindPrivate.KeysToHold);
+
+--- Is the key bound to us by the last rebuild. A key waiting on a queued rebuild
+--- (`IsUpdateBindingsQueued`) is still answered as that rebuild left it.
+function DebindPrivate.IsKeyOurs(key)
+	return DebindPrivate.ClickTimeKeys[key] ~= nil;
+end
 
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;
+	local KeysToHold = DebindPrivate.KeysToHold;
 
 	dump("KeyMap", KeyMap);
 	dump("ActiveActions", ActiveActions);
@@ -259,6 +269,7 @@ do
 	function DebindPrivate.BuildKeyMap()
 		wipe(KeyMap);
 		wipe(ActiveActions);
+		wipe(KeysToHold);
 		wipe(Lists);
 		wipe(HoverTwins);
 		DebindPrivate.ClearUnreachableBindingCache();
@@ -287,10 +298,32 @@ do
 				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
 				-- accepting is the moment a key starts working, where it used to leave the set
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
-				local binding, list;
+				local binding, list, yielded;
 				if (action.key and not action.arrivalID) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
+
+					local key = action.key;
+					-- A key the game has claimed gets no override, and comes back when the claim ends.
+					-- keepInBindingContext overrides the house editor only: the editor goes on showing
+					-- the key on its own button while it does nothing, so the reader turns it on knowing.
+					yielded = (DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext)
+						or DebindPrivate.IsKeyYieldedToPetBattle(key);
+
+					-- **The key is held before anything below can leave the action out.** Every filter
+					-- under this one is the rebuild settling an answer early, and an answer settled
+					-- early must not hand the key back to the game: baked, the binding would lose every
+					-- press and the key would do nothing (2026-09-15, owner).
+					--
+					-- Three things still let the key go. A hover action on a mouse button fires through
+					-- the frame and holds nothing (`PrepareKeyBindings`' `holdsKey`); a yielded key is the
+					-- game's; and a `key` issue says this key cannot be taken at all, where the bare left
+					-- click or the game menu key would take the world click or Escape with it.
+					if (not yielded
+							and not (binding.hover and DebindPrivate.GetMouseButtonAndPrefix(key))
+							and not DebindPrivate.GetBindingIssue(action, "key")) then
+						KeysToHold[key] = true;
+					end
 				end
 
 				-- **The specialization index is filtered here and nowhere below.** It is the only
@@ -329,11 +362,6 @@ do
 
 					local key = action.key;
 					local issue = DebindPrivate.GetBindingIssue(action);
-					-- A key the game has claimed gets no override, and comes back when the claim ends.
-					-- keepInBindingContext overrides the house editor only: the editor goes on showing
-					-- the key on its own button while it does nothing, so the reader turns it on knowing.
-					local yielded = (DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext)
-						or DebindPrivate.IsKeyYieldedToPetBattle(key);
 					-- **Only an ERROR keeps the action off its key.** That is what the grades mean
 					-- (`Constants.BINDING_ISSUE_GRADES`), and this gate read `not issue` until the
 					-- first WARNING code arrived (the hover twin lost to Clique, since retired):

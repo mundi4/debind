@@ -238,6 +238,31 @@ return function(DebindPrivate)
         Reset();
     end);
 
+    -- **A yielded key stays yielded when nothing on it would fire either.** A key whose actions the
+    -- rebuild leaves out is still held (`Debind.lua`'s `BuildKeyMap`), and that hold must not reach
+    -- past a key the game has taken. The unyielded key is asked first, so "not bound" cannot also
+    -- mean the hold never happened.
+    test("a yielded key whose action the rebuild leaves out is not held", function()
+        World(
+            { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
+            { HOUSING_MODE_DECOR = HOUSING },
+            { [HOUSING] = true });
+        DebindPrivate.RefreshYieldedKeys();
+
+        local otherSpec = { [DebindPrivate.SpecIDForIndex(2)] = true };
+        Profile({
+            { type = Constants.SPELL, value = 585, key = "F5", seq = 1,
+                conditions = { specs = otherSpec } },
+            { type = Constants.SPELL, value = 774, key = "F6", seq = 2,
+                conditions = { specs = otherSpec } },
+        });
+        check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+        check(DebindPrivate.IsKeyOurs("F6"), "the key nobody claimed was not held");
+        check(not DebindPrivate.IsKeyOurs("F5"), "the yielded key was held");
+
+        Reset();
+    end);
+
     ---------------------------------------------------------------------------
     -- A pet battle
     ---------------------------------------------------------------------------

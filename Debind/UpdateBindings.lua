@@ -1714,6 +1714,11 @@ local BLOCKS = {
 
 local _withBlocks = {};
 
+--- `UpdateBindingsMap`'s scratch: the keys it walks, and the list a held key with nothing in
+--- `KeyMap` stands on.
+local _keysToWalk = {};
+local _noBindings = {};
+
 --- The key's bindings with a BLOCK closing the self tier, the focus tier and the whole list
 --- (`devdocs/dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
 --- click-cast-only key a block would take the key, and the world click and camera with it.
@@ -2134,11 +2139,28 @@ function UpdateBindingsMap()
     appendLine("SelfCastKeyOn=%s", tostring(DebindPrivate.SelfCastEnabled()));
     appendLine("FocusCastKeyOn=%s", tostring(DebindPrivate.FocusCastEnabled()));
 
-    for _, key in ipairs(sortedKeys(DebindPrivate.KeyMap, _sortedA)) do
-        local bindingArray = DebindPrivate.KeyMap[key];
+    local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
+    wipe(_keysToWalk);
+    for key in pairs(keyMap) do
+        _keysToWalk[key] = true;
+    end
+    for key in pairs(keysToHold) do
+        _keysToWalk[key] = true;
+    end
+
+    for _, key in ipairs(sortedKeys(_keysToWalk, _sortedA)) do
+        local bindingArray = keyMap[key];
+        if (not bindingArray) then
+            bindingArray = _noBindings;
+            bindingArray.button, bindingArray.buttonPrefix = DebindPrivate.GetMouseButtonAndPrefix(key);
+        end
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
+        -- **A key held with nothing on it that holds it** gets the blocks alone: every action on it
+        -- was left out before the key map, dropped for having no way to fire, or fires through the
+        -- frame. The press then lands on a block and does nothing (`Debind.lua`'s `KeysToHold`).
+        hasKeyRecord = hasKeyRecord or keysToHold[key] == true;
         local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
 
         local first = true;

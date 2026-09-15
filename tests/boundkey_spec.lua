@@ -308,6 +308,9 @@ return function(DebindPrivate, _, ctx)
     -- stops being red -- the window says nothing is wrong -- while the key stays dead until
     -- something unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is what is registered for that.
     --
+    -- **The key is ours through both halves**, since the action is on a live layer; what the macro
+    -- store moves is whether the press fires.
+    --
     -- **The login has to have happened, because that is where the listening starts.**
     -- `Events.PLAYER_LOGIN` registers `UPDATE_MACROS` and seven others, so an addon that was loaded
     -- and never logged in hears none of them -- which is the shape every spec here ran in until the
@@ -316,11 +319,11 @@ return function(DebindPrivate, _, ctx)
     -- ⚠ **What stays in `/debtest`**: that the client sends `UPDATE_MACROS` when a macro is made.
     -- The store is the harness's here and the event is sent by hand, so what this holds is that the
     -- handler is listening and rebuilds -- not that anything ever calls it.
-    test("the store moving under a key revives it, once the event arrives", function()
+    pressTest("the store moving under a key revives it, once the event arrives", function()
         shim.world.macros["Revive"] = nil;
         Bind({ spell({ type = Constants.MACRO, value = "Revive", key = "F1" }) }, {});
-        check(Bound("F1") == "",
-            "a key naming a macro that does not exist was bound: " .. Bound("F1"));
+        check(IsLive("F1"), "an action on a live layer handed its key back: " .. Bound("F1"));
+        check(not Fires("F1"), "a key naming a macro that does not exist fired");
 
         -- **The last thing the login does is talk to the window**, and `DebindUI.lua` needs frames
         -- so the harness does not read it. Standing the one function in is the spec saying "this
@@ -340,7 +343,7 @@ return function(DebindPrivate, _, ctx)
         interp:replay(frames.since(mark));
         interp:pollStates();
 
-        check(IsLive("F1"), "the macro exists and the key is still dead: " .. Bound("F1"));
+        check(Fires("F1"), "the macro exists and the key is still dead");
     end);
 
     ---------------------------------------------------------------------------

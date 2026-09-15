@@ -290,15 +290,16 @@ return function(DebindPrivate)
     -- What the overview's list makes of it
     ---------------------------------------------------------------------------
 
-    -- **Marked like an off-spec layer row, and moved not at all.** The two halves are one case
-    -- because the second is what a fold into `specRank` would have cost: that field is a step of
-    -- the comparator, and this action is in a layer that is live, so pushing it behind the active
-    -- rows would make the list say it stands somewhere it does not.
+    -- **Marked, not filed with the inactive layers, and moved not at all.** The row is on a live
+    -- layer, and the overview's filter and reason column go by the layer, so `IsRowOffSpec` has to
+    -- say no here while `specExcluded` says yes. The last half is what a fold into `specRank` would
+    -- have cost: that field is a step of the comparator, and pushing the row behind the active rows
+    -- would make the list say it stands somewhere it does not.
     --
     -- **Both rows carry a condition** so that the step above `specRank` cannot be what orders
     -- them. With one of them unconditional, `isConditional` settles it first and the row would
     -- come out in front whether or not anything below that step ran.
-    test("a row the condition leaves out is off-spec and keeps its place", function()
+    test("a row the condition leaves out is marked, stays on its live layer and keeps its place", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                 conditions = { specs = Specs(2) } },
@@ -311,13 +312,14 @@ return function(DebindPrivate)
         check(rows[1].action.value == 585,
             "the excluded row moved, and it is in a live layer: " .. tostring(rows[1].action.value));
         check((rows[1].specRank or 0) == 0, "it was given a specRank, which the comparator reads");
-        check(DebindPrivate.IsRowOffSpec(rows[1]), "it is not marked off-spec");
+        check(rows[1].specExcluded == true, "it is not marked excluded");
+        check(not DebindPrivate.IsRowOffSpec(rows[1]), "it was filed with the inactive layers");
         -- **Marked and still settled by `seq`**, which is the pair of answers this row needs. The
         -- flag is about the words on it; the comparator reaches `seq` against the row below either
         -- way, so it is that row's arrow neighbour (the swap case below).
         check(DebindPrivate.GetDecidingOrderAxis(rows[1], rows[2]) == nil,
             "an axis above seq settles them: " .. tostring(DebindPrivate.GetDecidingOrderAxis(rows[1], rows[2])));
-        check(not DebindPrivate.IsRowOffSpec(rows[2]), "the row beside it was marked too");
+        check(rows[2].specExcluded == nil, "the row beside it was marked too");
     end);
 
     test("a row whose set holds this specialization is an ordinary row", function()
@@ -327,7 +329,7 @@ return function(DebindPrivate)
         }, 1);
 
         local rows = DebindPrivate.CollectActionsForKey("F1");
-        check(not DebindPrivate.IsRowOffSpec(rows[1]), "a set holding this index was marked");
+        check(rows[1].specExcluded == nil, "a set holding this index was marked");
         check((rows[1].specRank or 0) == 0, "it was given a specRank, which the comparator reads");
     end);
 
@@ -344,13 +346,13 @@ return function(DebindPrivate)
         }, 1);
 
         local here = DebindPrivate.CollectActionsForKey("F1");
-        check(not DebindPrivate.IsRowOffSpec(here[1]), "the row for this index was marked");
-        check(DebindPrivate.IsRowOffSpec(here[2]), "the row for the other index was not marked");
+        check(here[1].specExcluded == nil, "the row for this index was marked");
+        check(here[2].specExcluded == true, "the row for the other index was not marked");
 
         local there = DebindPrivate.CollectActionsForKey("F1", 2);
-        check(DebindPrivate.IsRowOffSpec(there[1]),
+        check(there[1].specExcluded == true,
             "asked about index 2, the row for index 1 was not marked");
-        check(not DebindPrivate.IsRowOffSpec(there[2]),
+        check(there[2].specExcluded == nil,
             "asked about index 2, the row for index 2 was marked");
     end);
 
@@ -391,7 +393,7 @@ return function(DebindPrivate)
         }, 1);
 
         local rows = DebindPrivate.CollectActionsForKey("F1");
-        check(not DebindPrivate.IsRowOffSpec(rows[1]), "the empty set was filed as another spec");
+        check(rows[1].specExcluded == nil, "the empty set was filed as another spec");
         check(rows[1].issue == Constants.BINDING_ISSUE_SPECS_NONE_SELECTED,
             "the row's problem is " .. tostring(rows[1].issue));
     end);

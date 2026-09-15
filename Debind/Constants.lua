@@ -631,7 +631,7 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- **Every code in here is a fault of the action itself, and why an action is not firing right now
 --- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
 --- covered by a neighbour on the same key (`Solver.lua`'s `IsUnreachableAction`) and having a
---- specialization condition that does not hold (`Ordering.lua`'s `IsRowOffSpec`) are each answered
+--- specialization condition that does not hold (`Profile.lua`'s `specExcluded`) are each answered
 --- on their own, so that neither can take the slot the other needs. While the first of them was a
 --- code in here, a covered action reported that instead of its own warning and the warning left
 --- the screen.
