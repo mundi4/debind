@@ -185,6 +185,10 @@ local _selection             = {};
 local _selectionCount        = 0;
 
 --- The action under the cursor in the left column, lit in the layer list if that list draws it.
+---
+--- **Only the row's own `OnEnter` and `OnLeave` move it**, so a rebuild that reorders the column under
+--- a resting cursor (a specialization change) leaves the old action lit until the cursor moves. Left
+--- that way on purpose (2026-09-15, owner): the window is narrow and the next movement repairs it.
 local _linkedAction;
 
 --- 오른쪽 목록의 검색어. 소문자로, 빈 문자열이면 nil이다(`ClearSearch` / OnTextChanged).
@@ -834,9 +838,14 @@ local function MoveAction(elementData, destLayerID, copying)
 		insertIndex = elementData.index + 1;
 	end
 
-	action = CopyTable(elementData.action);
+	-- **A move carries the table itself.** The selection, the anchor and the linked highlight hold the
+	-- action by table, so a fresh one would leave each of them on something no layer holds. Nothing derived goes stale with it: the binding caches read no layer,
+	-- and what does depend on one is rebuilt by the `UpdateBindings` below.
+	if (copying) then
+		action = CopyTable(action);
+	end
 	local destLayer = DebindPrivate.GetProfileLayer(destLayerID);
-	destLayer:Insert(action, insertIndex, not copying);
+	destLayer:Insert(action, insertIndex);
 	-- The ordering number is handed out fresh. A copy is born holding the original's, which would
 	-- leave the two tied; one moved from another layer holds a number belonging to that group, which
 	-- means nothing here. "The back of this key group" is the answer to both.
@@ -864,9 +873,6 @@ end
 --- An action already in the destination is skipped when moving. The menu greys that destination only
 --- when the whole selection is in one layer (`CreateMoveCopyMenu`); unguarded, one such action hits
 --- `MoveAction`'s `assert(copying, ...)` and **the bulk stops halfway**, half of it moved.
----
---- The selection folds after a move: `MoveAction` puts in a copy (`CopyTable`), so the tables the set
---- held are in no layer any more. A copy leaves the originals where they were, so it does not fold.
 local function MoveActions(actions, destLayerID, copying)
 	for _, action in ipairs(actions) do
 		local layerID, layer = DebindPrivate.FindLayerID(action);
@@ -878,10 +884,6 @@ local function MoveActions(actions, destLayerID, copying)
 				end
 			end
 		end
-	end
-
-	if (not copying) then
-		DebindLayerPanel:SetSelectedAction(nil);
 	end
 end
 
@@ -1704,10 +1706,6 @@ function DebindSideTabMixin:OnClick()
 	local id = self:GetID();
 	if (_selectedSideTab ~= id) then
 		PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN);
-
-		-- 사이드탭도 탭과 같은 이동이다 - 바뀌는 것은 레이어 하나뿐이지만 목록이 통째로
-		-- 갈리는 것은 같다. 고른 것을 놓는 이유도 같다(`DebindFrameMixin:SetTab`).
-		DebindLayerPanel:SetSelectedAction(nil);
 
 		_selectedSideTab = id;
 
@@ -3079,15 +3077,11 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	self.dataProvider = dataProvider;
 	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
-	-- 선택은 **액션이 없어졌을 때만** 풀린다.
-	--
-	-- 예전 규칙은 "지금 보이는 목록에 없으면 푼다"였다. 그때는 편집이 왼쪽 목록에서만
-	-- 시작됐으니 둘이 같은 말이었는데, 지금은 순서 목록에서 **다른 레이어의 액션**을
-	-- 편집할 수 있다. 그 규칙을 그대로 두면 매크로 편집기를 열자마자 다음 재구성이 선택을
-	-- 풀어 패널이 접힌다 - 화면에 안 보인다는 이유로 방금 열어준 편집을 뺏는 것이다.
-	--
-	-- 뷰가 바뀌어서 선택을 놓는 것은 `SetTab`이 따로 한다. 여기는 "그 액션이 아직
-	-- 프로필에 있나"만 본다.
+	-- **The selection lets go only when the action is gone from the profile**, never because this list
+	-- does not draw it. The left column picks and edits actions of every layer, and no tab or side tab
+	-- switch drops the selection either, so an action missing from this one layer's list is the normal
+	-- case. Letting go of it here would take a macro editor opened from the left column away on the
+	-- very next rebuild.
 	if (_selectedAction and not DebindPrivate.FindLayerID(_selectedAction)) then
 		self:SetSelectedAction(nil);
 	end
@@ -5081,6 +5075,17 @@ local function AnchorOnGroup(elementData)
 	_selectedAction = elementData.rows[1].action;
 end
 
+local function PickGroup(elementData)
+	wipe(_selection);
+	_selectionCount = 0;
+	for _, row in ipairs(elementData.rows) do
+		_selection[row.action] = true;
+		_selectionCount = _selectionCount + 1;
+	end
+	AnchorOnGroup(elementData);
+	CommitSelection();
+end
+
 --- A heading's left click. The set becomes every row under it, or nothing when it already was exactly
 --- that group.
 function DebindResultPanelMixin:SelectGroup(elementData)
@@ -5098,14 +5103,7 @@ function DebindResultPanelMixin:SelectGroup(elementData)
 		end
 	end
 
-	wipe(_selection);
-	_selectionCount = 0;
-	for _, row in ipairs(elementData.rows) do
-		_selection[row.action] = true;
-		_selectionCount = _selectionCount + 1;
-	end
-	AnchorOnGroup(elementData);
-	CommitSelection();
+	PickGroup(elementData);
 end
 
 --- CTRL on a heading. The group goes out whole when all of it is picked and in whole otherwise, the
@@ -5151,8 +5149,10 @@ function DebindResultPanelMixin:SelectRangeTo(elementData, additive)
 		anchorLast = anchorFirst;
 	end
 	if (not anchorFirst) then
+		-- Not `SelectGroup`: a heading that already is the whole selection would let go of it there, and
+		-- SHIFT picks. A row goes the same way, `SetSelectedAction` keeping the one row it already was.
 		if (elementData.isHeader) then
-			return self:SelectGroup(elementData);
+			return PickGroup(elementData);
 		end
 		return DebindLayerPanel:SetSelectedAction(elementData.row.action);
 	end

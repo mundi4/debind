@@ -2805,7 +2805,7 @@ local function PlantThreeGroups()
 end
 
 RegisterTest("Left column: a selection spans layers and outlives a tab switch", {
-    description = "Two rows from two layers picked in the left column are both picked, both handed to the menu, and still picked after the tab changes",
+    description = "Two rows from two layers picked in the left column are both picked, both handed to the menu, and still picked after the side tab, the layer tab, Switches and back, and Settings and Back",
     run = function()
         local NAME = "Left column across layers"
 
@@ -2833,6 +2833,27 @@ RegisterTest("Left column: a selection spans layers and outlives a tab switch", 
             return Fail(NAME, format("the menu would be handed %d of 2", #handed))
         end
 
+        -- Before the tab switch, so that its teardown runs after the tab is back and the side tab it
+        -- clicks is one that tab shows.
+        local checkedSideTab, otherSideTab
+        for _, sideTab in ipairs(DebindFrame.LayerPanel.SideTabs) do
+            if sideTab:IsShown() then
+                if sideTab:GetChecked() then
+                    checkedSideTab = sideTab
+                elseif not otherSideTab then
+                    otherSideTab = sideTab
+                end
+            end
+        end
+        if not checkedSideTab or not otherSideTab then
+            return Fail(NAME, "setup: no second side tab is shown to switch to")
+        end
+        AddTeardown(function() checkedSideTab:Click() end)
+        otherSideTab:Click()
+        if DebindFrame:GetSelectionCount() ~= 2 then
+            return Fail(NAME, format("switching the side tab left %d picked", DebindFrame:GetSelectionCount()))
+        end
+
         local tab = DebindFrame.LayerPanel.selectedTab
         AddTeardown(function() DebindFrame:SetTab(tab) end)
         DebindFrame:SetTab(tab == 1 and 2 or 1)
@@ -2840,12 +2861,37 @@ RegisterTest("Left column: a selection spans layers and outlives a tab switch", 
             return Fail(NAME, format("switching the tab left %d picked", DebindFrame:GetSelectionCount()))
         end
 
+        AddTeardown(function() DebindFrame.OverviewTab:Click() end)
+        DebindFrame.SwitchesTab:Click()
+        DebindFrame.OverviewTab:Click()
+        if DebindFrame:GetSelectionCount() ~= 2 then
+            return Fail(NAME, format("Switches and back left %d picked", DebindFrame:GetSelectionCount()))
+        end
+
+        -- The gear's second press is the settings panel's Back (`LeaveSettings`).
+        local gear = DebindFrame.OptionsButton
+        local gearScript = gear:GetScript("OnMouseUp")
+        if not gearScript then
+            return Fail(NAME, "the gear has no OnMouseUp, so the XML wiring is gone")
+        end
+        gearScript(gear, "LeftButton", true)
+        if not DebindFrame.SettingsPanel:IsShown() then
+            return Fail(NAME, "setup: the gear did not open the settings tab")
+        end
+        gearScript(gear, "LeftButton", true)
+        if not DebindFrame.OverviewPanel:IsShown() then
+            return Fail(NAME, "setup: Back did not return to the overview")
+        end
+        if DebindFrame:GetSelectionCount() ~= 2 then
+            return Fail(NAME, format("Settings and Back left %d picked", DebindFrame:GetSelectionCount()))
+        end
+
         DebindLayerPanel:ToggleActionSelected(other)
         if DebindFrame:GetSelectionCount() ~= 1 or DebindFrame:IsActionSelected(other) then
             return Fail(NAME, "CTRL on a picked row of another layer did not take it out")
         end
 
-        return Pass(NAME, "two layers picked, handed over whole, kept across the tab switch")
+        return Pass(NAME, "two layers picked, handed over whole, kept across every tab")
     end,
 })
 
@@ -2977,6 +3023,43 @@ RegisterTest("Left column: a group anchor goes with its group", {
     end,
 })
 
+RegisterTest("Left column: SHIFT with no anchor drawn keeps a heading that already is the selection", {
+    description = "With the anchor row hidden by a search and exactly one group picked, SHIFT on that group's heading keeps it picked rather than letting go the way a plain press does",
+    run = function()
+        local NAME = "Left column SHIFT on the picked heading"
+
+        local a, b1, b2 = PlantThreeGroups()
+        OpenOverviewWithNothingPicked()
+
+        -- The anchor ends on `a` and the set is the two-row group alone.
+        DebindLayerPanel:ToggleActionSelected(b1)
+        DebindLayerPanel:ToggleActionSelected(b2)
+        DebindLayerPanel:ToggleActionSelected(a)
+        DebindLayerPanel:ToggleActionSelected(a)
+
+        local searchBox = DebindFrame.OverviewPanel.SearchBox
+        AddTeardown(function() TypeInto(searchBox, "") end)
+        if not TypeInto(searchBox, "f6") then
+            return Fail(NAME, "the search box has no OnTextChanged")
+        end
+        local heading = LeftHeadingOf("CTRL-ALT-F6")
+        if LeftRowOf(a) or not heading then
+            return Fail(NAME, "setup: the search did not hide the anchor row and keep the two-row group")
+        end
+        if DebindFrame:GetSelectionCount() ~= 2 then
+            return Fail(NAME, format("setup: %d picked before SHIFT, not the two-row group", DebindFrame:GetSelectionCount()))
+        end
+
+        DebindResultPanel:SelectRangeTo(heading, false)
+        if DebindFrame:GetSelectionCount() ~= 2
+                or not DebindFrame:IsActionSelected(b1) or not DebindFrame:IsActionSelected(b2) then
+            return Fail(NAME, format("SHIFT on the heading of the picked group left %d picked", DebindFrame:GetSelectionCount()))
+        end
+
+        return Pass(NAME, "the group stayed picked")
+    end,
+})
+
 RegisterTest("Left column: the layer list lights a linked action only where it draws it", {
     description = "An action linked from the left column locks its row's highlight in the layer list, lets go when unlinked, and lights nothing for an action that list does not draw",
     run = function()
@@ -3034,6 +3117,46 @@ RegisterTest("Left column: the layer list lights a linked action only where it d
         end
 
         return Pass(NAME, "lit where drawn, dark after, dark for another layer's action")
+    end,
+})
+
+RegisterTest("Move: a moved action is the same action, still picked", {
+    description = "Moving a picked action to another layer puts that same table in the destination, and the selection still holds it",
+    run = function()
+        local NAME = "Move keeps the action"
+
+        local mine = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F5" })
+        UseOffSpecLayer()
+        local destination = GetOffSpecLayer()
+        ApplyBindings()
+
+        -- `MoveAction` finds both layers by id, and the test layers' ids are in no profile.
+        local realGetProfileLayer = DebindPrivate.GetProfileLayer
+        DebindPrivate.GetProfileLayer = function(layerID)
+            if layerID == GetTestLayer().layerID then
+                return GetTestLayer()
+            elseif layerID == destination.layerID then
+                return destination
+            end
+            return realGetProfileLayer(layerID)
+        end
+        AddTeardown(function() DebindPrivate.GetProfileLayer = realGetProfileLayer end)
+
+        OpenOverviewWithNothingPicked()
+        DebindLayerPanel:ToggleActionSelected(mine)
+
+        DebindUI.MoveActions({ mine }, destination.layerID, false)
+
+        local layerID = DebindPrivate.FindLayerID(mine)
+        if layerID ~= destination.layerID then
+            return Fail(NAME, format("the picked table is in layer %s after the move, not the destination",
+                tostring(layerID)))
+        end
+        if DebindFrame:GetSelectionCount() ~= 1 or not DebindFrame:IsActionSelected(mine) then
+            return Fail(NAME, format("%d picked after the move", DebindFrame:GetSelectionCount()))
+        end
+
+        return Pass(NAME, "the same table moved and stayed picked")
     end,
 })
 
