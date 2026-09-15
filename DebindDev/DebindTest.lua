@@ -5132,19 +5132,27 @@ RegisterTest("Switch condition on a name outside the five", {
         end
 
         -- A name with no definition. Dropping the condition outright sends that action out
-        -- **wider**, so a failure here reads as "bound with no condition", not "not bound".
-        local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
-        if whenUndefined ~= "" then
-            return Fail(NAME, format(
-                "an action on an undefined name went out as %q, the condition is gone and it fires always", whenUndefined))
-        end
-
+        -- **wider**, so a failure here reads as "fires with no condition".
+        --
         -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row goes
         -- red and the tooltip writes the name), and under it codegen bakes the condition as false.
-        -- The line above is green with either one alive, and **which of the two held it is not a
-        -- question for here**: what the marker answers is a pure function, so `tests/issue_spec.lua`
-        -- looks at that. What this answers is whether that answer really keeps the key from being
-        -- bound (the gate in `BuildKeyMap`).
+        -- The press below does nothing with either one alive, and **which of the two held it is not
+        -- a question for here**: what the marker answers is a pure function, so
+        -- `tests/issue_spec.lua` looks at that.
+        --
+        -- **The key is still ours**, since the action is on a live layer (`Debind.lua`'s
+        -- `KeysToHold`), so what is asked is the press and not whether the key is bound.
+        local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
+        if whenUndefined:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "an action on an undefined name handed its key back: %q", whenUndefined))
+        end
+        ran, rerr = EvalClickTimeKey(UNDEFINED_KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format(
+                "an action on an undefined name fires #%d, the condition is gone and it fires always", LastWinner()))
+        end
 
         -- **The path walked in combat.** The two above are the insecure rebuild `ApplyBindings()`
         -- runs, and in combat that is deferred, so what carries a value that moves is the restricted
@@ -5160,7 +5168,7 @@ RegisterTest("Switch condition on a name outside the five", {
             return Fail(NAME, "turned on with no rebuild and the key fires nothing, in combat it would never come back")
         end
 
-        return Pass(NAME, "$burst on -> fires / off -> nothing / undefined -> marked and unbound / on with no rebuild -> fires")
+        return Pass(NAME, "$burst on: fires / off: nothing / undefined: held, fires nothing / on with no rebuild: fires")
     end,
 })
 
@@ -5174,11 +5182,12 @@ RegisterTest("Switch condition on a name outside the five", {
 -- of its own that no class names and that exists nowhere but in a client.
 --
 -- A specialization cannot be changed from a test, so the change and the rebuild it pulls are the
--- spec's. What is left is the pair: the set holding this specialization binds, the set leaving it
--- out does not. **Both halves, because on its own "not bound" also describes a key nothing was
--- ever put on.**
+-- spec's. What is left is the pair: the set holding this specialization fires, the set leaving it
+-- out does not. **Both keys are ours** either way (`Debind.lua`'s `KeysToHold`), so the press is
+-- what tells them apart. **Both halves, because on its own "fires nothing" also describes a key
+-- nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
-    description = "A binding whose specialization set holds this one is bound, one whose set leaves it out is not",
+    description = "A binding whose specialization set holds this one fires, one whose set leaves it out holds the key and fires nothing",
     run = function()
         local NAME = "Spec condition"
         local INSIDE = "CTRL-SHIFT-F6"
@@ -5186,6 +5195,11 @@ RegisterTest("Spec condition: the specialization the character is on decides the
 
         if InCombatLockdown() then
             return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         local spec = C_SpecializationInfo.GetSpecialization()
@@ -5217,13 +5231,23 @@ RegisterTest("Spec condition: the specialization the character is on decides the
         if inside:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the set holds id %d and the key is %q", mineID, inside))
         end
-
-        local outside = GetBindingAction(OUTSIDE, true) or ""
-        if outside ~= "" then
-            return Fail(NAME, format("the set leaves id %d out and the key is %q", mineID, outside))
+        local ran, rerr = EvalClickTimeKey(INSIDE)
+        if not ran then return Fail(NAME, rerr) end
+        if WaitForWinner() == nil then
+            return Fail(NAME, format("the set holds id %d and the press fires nothing", mineID))
         end
 
-        return Pass(NAME, format("id %d: bound / left out: released", mineID))
+        local outside = GetBindingAction(OUTSIDE, true) or ""
+        if outside:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("the set leaves id %d out and the key was handed back: %q", mineID, outside))
+        end
+        ran, rerr = EvalClickTimeKey(OUTSIDE)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("the set leaves id %d out and the press fires #%d", mineID, LastWinner()))
+        end
+
+        return Pass(NAME, format("id %d: fires / left out: held, fires nothing", mineID))
     end,
 })
 
@@ -8625,6 +8649,9 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 -- being red -- the window says nothing is wrong -- while the key stays dead until something
 -- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
 --
+-- **The key is ours through both halves** (`Debind.lua`'s `KeysToHold`), so dead means the press
+-- fires nothing, and that is what is asked.
+--
 -- **The half that is left is the client's.** `tests/boundkey_spec.lua` sends `UPDATE_MACROS` by
 -- hand and holds everything downstream of it: that the addon is listening, that the handler queues
 -- a rebuild, and that the key comes back. What no harness can send is the event itself, and this
@@ -8653,14 +8680,22 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
             DeleteMacro(MACRO)
         end
 
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
         InsertAction({ type = Constants.MACRO, value = MACRO, key = KEY })
         ApplyBindings()
 
-        -- **The negative first.** Without it a key that was live the whole time reads as a pass,
+        -- **The negative first.** Without it a key that fired the whole time reads as a pass,
         -- and this test would go green on a build where the issue never drops anything.
-        local before = GetBindingAction(KEY, true) or ""
-        if before ~= "" then
-            return Fail(NAME, format("the macro does not exist and the key is already taken: %q", before))
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then
+            return Fail(NAME, "the macro does not exist and the key was handed back: " .. rerr)
+        end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("the macro does not exist and the press already fires #%d", LastWinner()))
         end
 
         -- **Asked of the store, not of the return value.** `CreateMacro` raises when there is no
@@ -8671,22 +8706,24 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
             return Fail(NAME, "the macro could not be created, the macro slots may be full")
         end
 
-        -- **Waiting on the binding is right here only because the line above proved it was not
-        -- bound.** The usual objection -- that waiting for what you are about to assert can only
+        -- **Waiting on the press is right here only because the lines above proved it fired
+        -- nothing.** The usual objection -- that waiting for what you are about to assert can only
         -- fail by timing out -- needs the expected value to be a possible current one, and it is
         -- not. A timeout *is* the finding: nothing rebuilt.
+        local winner
         WaitUntil(function()
-            return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK "
+            if EvalClickTimeKey(KEY) then
+                winner = LastWinner()
+            end
+            return winner ~= nil
         end, 3)
 
-        local after = GetBindingAction(KEY, true) or ""
-        if after:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "the macro was created and the key is still dead (%q), nobody is listening to UPDATE_MACROS",
-                after))
+        if winner == nil then
+            return Fail(NAME,
+                "the macro was created and the press still fires nothing, nobody is listening to UPDATE_MACROS")
         end
 
-        return Pass(NAME, after)
+        return Pass(NAME, format("fires #%d", winner))
     end,
 })
 
