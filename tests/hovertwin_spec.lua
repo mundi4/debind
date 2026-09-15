@@ -203,6 +203,18 @@ return function(DebindPrivate)
             "개체창 위에서 안 도는 액션에 쌍둥이가 생겼다");
     end);
 
+    -- **An Always Ask action on a mouse button gets no hover twin in Unit Frames mode** (§3-4). With no
+    -- hover condition the original stands on [not pointing], and a twin that casts where the original
+    -- does could only be a frame click record: the click would open the targeting cursor instead of
+    -- doing the frame's own action. On a keyboard key the twin stays, since there it is what asks
+    -- `@` of the pointed unit.
+    test("마우스 버튼의 대상 none에는 hover 쌍둥이가 없다", function()
+        check(bindingsOf({ type = Constants.SPELL, value = 585, key = "BUTTON2", unit = "none" })[2] == nil,
+            "개체창 클릭을 가져가는 쌍둥이가 생겼다");
+        check(bindingsOf({ type = Constants.SPELL, value = 585, key = "T", unit = "none" })[2] ~= nil,
+            "키보드 키의 쌍둥이까지 사라졌다");
+    end);
+
     -- 반대쪽. 없으면 위 테스트는 "언제나 쌍둥이가 없다"로도 통과한다.
     test("평범한 대상에는 쌍둥이가 생긴다", function()
         local action = { type = Constants.SPELL, value = 585, key = "T",

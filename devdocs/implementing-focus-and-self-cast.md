@@ -262,6 +262,8 @@ Auto Self Cast로 정한다. 가리킨 유닛을 안 쓰겠다고 끈 `""`도 �
 쏘는 유닛은 `CastUnitOf`가 따로 답한다. 레코드의 `unit` 필드, 버튼 속성, 매크로 변환이 그쪽을 읽는다.
 `unit`에 `none`을 남기면 `@`와 hover 조건의 채워 넣기가 설 유닛이 없는 칸에 선다. 매크로 변환은 `none`의
 `@`를 옮기지 않는다. 본문의 `[@none]`은 물을 유닛이 아니고, 변환된 매크로도 대상 빈 액션처럼 겨눈다.
+Hover Cast가 켜져 있고 `@`가 있으면 변환 항목이 안 뜬다. 원래 hover 쌍둥이는 `@`를 가리킨 유닛에게 묻는데
+변환된 매크로의 hover 쌍둥이는 `target`에게 물어, 가리킨 누름의 승자가 바뀐다.
 
 **`unit = "target"`을 실제로 쓰지 않는 이유.** 그러면 `@`를 건 순간 Auto Self Cast가 꺼져 Target에서
 `target`을 고른 것과 같아진다.
@@ -497,10 +499,11 @@ hover 쌍둥이가 그 유닛으로 나가는 것, 옛 프로필이 매크로에
 
 **헤드리스가 덮는 것(`none`).** `none`의 원본이 `unit`을 비우고 `@`를 `target` 칸에, self와 focus 쌍둥이가
 `player`와 `focus` 칸에, hover 쌍둥이가 가리킨 유닛 칸에 세우고 셋 다 `none`으로 나가는 것
-(`normalize_spec`, `hovertwin_spec`). 아무것도 안 쥐었을 때 대상, self에서 나, focus에서 주시 대상,
+(`normalize_spec`, `hovertwin_spec`). Unit Frames 모드의 마우스 버튼에 건 `none`은 hover 쌍둥이가 없고 키보드
+키에서는 있는 것(`hovertwin_spec`). 아무것도 안 쥐었을 때 대상, self에서 나, focus에서 주시 대상,
 가리킨 누름에서 가리킨 유닛의 반응으로 승자가 갈리고 이긴 쪽이 시전 프레임에 `none`을 싣는 것
-(`eval_spec`). 변환해도 `@`가 그대로이고 본문이 `[@none]`인 것, hover 조건이 있어도 같은 것
-(`convert_spec`). 툴팁이 `none`의 `@` 줄을 그리는 것(`display_spec`).
+(`eval_spec`). 변환해도 `@`가 그대로이고 본문이 `[@none]`인 것, hover 조건이 있어도 같은 것, Hover Cast가 켜져 있으면
+`@`가 없을 때만 변환이 서는 것(`convert_spec`). 툴팁이 `none`의 `@` 줄을 그리는 것(`display_spec`).
 
 **헤드리스가 덮는 것(끄는 칸).** 끈 조합키를 쥔 누름이 원본으로 가고 그 조합키의 레코드가 키에 없는 것,
 켜 둔 다른 조합키는 그대로인 것(`eval_spec`). 조합키를 무시하는 액션이 그 조합키를 쥔 누름에서 DROP이면

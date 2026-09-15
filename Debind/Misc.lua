@@ -1188,7 +1188,9 @@ do
             aim = original.unit;
         end
 
-        if (aim ~= unit and original.unitStates
+        -- **Where the twin casts, not where it aims**: `none` aims at the pointed unit and still casts
+        -- the way its original does, so on a mouse button its twin would only take the frame's click.
+        if ((aim ~= unit or original.castsAtNone) and original.unitStates
                 and original.unitStates[unit] == Constants.UNITSTATE_NONE) then
             return nil;
         end
@@ -2618,9 +2620,19 @@ local function ConditionsSurviveMacroText(action)
     --
     -- **The self and focus twins do not count, and neither does a hover twin that goes out the way
     -- its original does.** Every action has those, so counting them would refuse every conversion.
+    --
+    -- **Going out the same way is not enough where `"@"` is live.** An Always Ask twin casts at `none`
+    -- like its original and the body, but asks `"@"` of the pointed unit, and the converted macro's
+    -- twin asks it of `target`: a pointed press would pick another winner.
+    local live = binding.conditions.units and binding.conditions.units["@"] ~= nil;
     local list = DebindPrivate.GetBindingsForAction(action);
     for i = 2, #list do
-        if (list[i].spellbook ~= nil or (list[i].hoverTwin and list[i].unit ~= binding.unit)) then
+        local twin = list[i];
+        if (twin.spellbook ~= nil) then
+            return false;
+        end
+        if (twin.hoverTwin and (DebindPrivate.CastUnitOf(twin) ~= DebindPrivate.CastUnitOf(binding)
+                or (live and twin.unit ~= binding.unit))) then
             return false;
         end
     end

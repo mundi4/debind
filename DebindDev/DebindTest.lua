@@ -8465,7 +8465,8 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
         if not probesOk then return Fail(NAME, perr) end
 
         -- **No target picked**, since a held key moves nothing else. The original then carries no unit
-        -- and writes none on the cast frame, so its row asks for none.
+        -- and writes none on the cast frame, so what that frame holds is whatever the twin before it
+        -- left: its row reads the winner's own `unit` instead.
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
@@ -8499,10 +8500,16 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
                     tostring(record and record.castModifier)))
             end
 
-            local unit = case[2] and DebindPrivate.CastFrame:GetAttribute("unit")
-            if unit ~= case[2] then
-                return Fail(NAME, format("modifier %d: the cast frame's unit is %s, it should be %s",
-                    case[1], tostring(unit), case[2]))
+            local unit
+            if case[2] then
+                unit = DebindPrivate.CastFrame:GetAttribute("unit")
+                if unit ~= case[2] then
+                    return Fail(NAME, format("modifier %d: the cast frame's unit is %s, it should be %s",
+                        case[1], tostring(unit), case[2]))
+                end
+            elseif record.unit ~= nil then
+                return Fail(NAME, format("modifier %d: the winner carries %s, it should carry no unit",
+                    case[1], tostring(record.unit)))
             end
             seen[#seen + 1] = format("%d->#%d@%s", case[1], got, tostring(unit))
         end

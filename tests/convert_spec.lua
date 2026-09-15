@@ -213,6 +213,24 @@ return function(DebindPrivate)
         if (not ok) then error(err, 0); end
     end);
 
+    --- **An Always Ask action's hover twin casts where the macro text does**, so with Hover Cast on
+    --- it converts, unless it carries `"@"`. There the twin asks `"@"` of the pointed unit and the
+    --- converted macro's twin asks it of `target`, and a pointed press would pick a different winner.
+    test("Hover Cast가 켜져도 대상 none은 `@`가 없을 때만 바꾼다", function()
+        installWorld();
+        local was = DebindPrivate.Options.hoverCast;
+        DebindPrivate.Options.hoverCast = true;
+        local ok, err = pcall(function()
+            check(Can({ type = Constants.SPELL, value = 774, unit = "none" }),
+                "`@`가 없는데 변환이 안 선다");
+            check(not Can({ type = Constants.SPELL, value = 774, unit = "none",
+                    conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+                "가리킨 유닛에 묻던 `@`를 target에 묻게 되는 변환이 선다");
+        end);
+        DebindPrivate.Options.hoverCast = was;
+        if (not ok) then error(err, 0); end
+    end);
+
     --- `"@"` is **the unit the press aims at**. The macro text carries no target field, so after the
     --- conversion its `"@"` would ask `target` while the body's `[@focus]` still goes to the focus.
     --- Moved to that unit's own name, the condition keeps asking the unit the cast goes to.
