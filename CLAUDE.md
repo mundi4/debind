@@ -61,7 +61,7 @@ thing that would run. Say it there and let it go.
 
 **Never leave it anywhere.** Not in a document, not in a status header, not as an open item or a
 blocker or a remaining task, not in a commit message, not in a new "check this on screen" list.
-The commit message is an instance of **Commit messages** below rather than a rule of its own.
+The commit message is an instance of **Commits** below rather than a rule of its own.
 
 **Do not follow up and do not ask.** I run it myself, and **silence means it passed.** Copying the
 state out of a document you just read is the same violation as writing it yourself, and so is
@@ -158,7 +158,14 @@ The rest:
 - Do not bulk-translate the Korean ones. But **a comment you are editing anyway gets rewritten
   whole, in English** — never half-edited into two languages.
 
-## Commit messages
+## Code review
+
+**Unless told otherwise, a review covers only what this session changed.** Other sessions'
+uncommitted work sits in the same working tree, and it is not yours to review.
+
+## Commits
+
+**Commit only when told to.** Finishing a change is not an instruction to commit it.
 
 **A commit message is fixed the moment it is written and nothing can correct it later.** So it may
 record **what happened**, and may not record **what is currently so.**
