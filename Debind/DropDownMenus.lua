@@ -4,7 +4,7 @@ local DebindUI              = DebindPrivate.DebindUI;
 
 local dump                  = DebindPrivate.dump
 
---- The five dropdowns other files open.
+--- The four dropdowns other files open.
 local ActionMenu                              = DebindPrivate.ActionMenu;
 local ActionMenus                             = ActionMenu.ActionMenus;
 local CreateConvertToMacroTextMenuItem        = ActionMenu.CreateConvertToMacroTextMenuItem;
@@ -20,10 +20,10 @@ local CreateApproveImportMenuItem             = ActionMenu.CreateApproveImportMe
 local CreateRejectImportMenuItem              = ActionMenu.CreateRejectImportMenuItem;
 local CreateMoveCopyMenu                      = ActionMenu.CreateMoveCopyMenu;
 local CreateBlockedMenuItem                   = ActionMenu.CreateBlockedMenuItem;
+local CreateOrderMenuItems                    = ActionMenu.CreateOrderMenuItems;
 local CreateDeleteMenu                        = ActionMenu.CreateDeleteMenu;
 local GetTabList                              = ActionMenu.GetTabList;
 local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip;
-local SetErrorTooltip                         = ActionMenu.SetErrorTooltip;
 
 --------------------------------------------------------------------------------
 -- The switches menu that used to hang off the portrait
@@ -52,11 +52,11 @@ local SetErrorTooltip                         = ActionMenu.SetErrorTooltip;
 --- dropdown.
 
 --------------------------------------------------------------------------------
--- The five that are still here
+-- The four that are still here
 --------------------------------------------------------------------------------
 
---- The menu a row of the layer list opens, **over one row or over the rows the reader picked.**
---- `ctx` is `{ actions, layer }`, and a single row is a selection of one
+--- The menu a row of either list opens, **over one row or over the rows the reader picked.**
+--- `ctx` is `{ actions, layer, otherLayers, inOrderList }`, and a single row is a selection of one
 --- (`devdocs/editing-many-actions-at-once.md`).
 ---
 --- **One menu and not two.** The row menu and the selection menu used to be separate, the second
@@ -66,8 +66,9 @@ local SetErrorTooltip                         = ActionMenu.SetErrorTooltip;
 --- what setting a key up in this addon consists of. What really cannot go on many at once is
 --- locked where it stands (`OnlyOneReason`, `HowManyAccept`).
 ---
---- **The picked rows all live in one layer**, because the list holds one layer at a time
---- (`DebindLayerPanelMixin:Refresh`). That is what lets `ctx.layer` answer "already lives here".
+--- **The picked rows can live in several layers**, since the order list picks across all of them.
+--- `ctx.layer` is then the broadest of them and `ctx.otherLayers` counts the rest; "already lives
+--- here" only has an answer when that count is nil.
 function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     local actions = ctx.actions;
     local anyArrived = DebindPrivate.AnyArrivedAction(actions);
@@ -96,9 +97,16 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     -- long as the reader has not answered, it comes off the moment they do, and it is the same
     -- blue the row's name and its dot already wear. Passing no colour lands on the client's own
     -- title gold (`MenuUtil.CreateTitle`), which is what the name line above already uses.
+    --
+    -- **Layers mixed, the broadest is named and the rest counted**, in the `+N` the key group menu's
+    -- title uses. A shared layer is always the broadest one present, and reaching it unawares is
+    -- what this line is here to prevent.
     if (ctx.layer) then
-        rootDescription:CreateTitle(DebindUI.GetLayerLabel(ctx.layer),
-            anyArrived and DebindUI.IMPORTED_FONT_COLOR or nil);
+        local label = DebindUI.GetLayerLabel(ctx.layer);
+        if (ctx.otherLayers) then
+            label = format("%s %s", label, format(LLL["OVERVIEW_KEY_HEADER_MORE"], ctx.otherLayers));
+        end
+        rootDescription:CreateTitle(label, anyArrived and DebindUI.IMPORTED_FONT_COLOR or nil);
     end
 
     rootDescription:SetTag(DebindUI.ActionMenuRootTag, 1);
@@ -123,6 +131,8 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     CreateAssignKeyMenuItem(rootDescription, ctx);
 
     CreateUnbindMenuItem(rootDescription, ctx);
+
+    CreateOrderMenuItems(rootDescription, ctx);
 
     CreateTargetUnitMenuItem(rootDescription, ctx);
 
@@ -185,128 +195,15 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
         local function Apply(destLayerID, isCopy)
             DebindUI.MoveActions(actions, destLayerID, isCopy);
         end
-        CreateMoveCopyMenu(rootDescription, false, ctx.layer, Apply);
-        CreateMoveCopyMenu(rootDescription, true, ctx.layer, Apply);
+        local fromLayerID = ctx.otherLayers == nil and ctx.layer or nil;
+        CreateMoveCopyMenu(rootDescription, false, fromLayerID, Apply);
+        CreateMoveCopyMenu(rootDescription, true, fromLayerID, Apply);
     end
 
     -- **Delete takes badged rows with the rest.** Nothing is relocated and nothing duplicated, so
     -- neither reason above reaches it; what it does to an arrival is what [Reject] does, and a reader
     -- who picked a dozen rows to be rid of has said which they meant.
     CreateDeleteMenu(rootDescription, ctx);
-end
-
---- 오버뷰 목록(`DebindOrderLineMixin`)의 행에서 우클릭으로 여는 메뉴. **순서 두 항목뿐이다.**
----
---- 화살표 버튼과 **같은 판정·같은 문자열**을 쓴다. 순서 규칙을 말하는 문장이 이 애드온에
---- 두 군데 생기면 하나가 낡는데, 낡은 쪽이 거짓말을 해도 잡아줄 검사가 없다.
----
---- 못 누르는 항목도 **세워 둔다.** 회색으로 서 있는 두 줄이 "여기서 순서를 만질 수 있다"를
---- 말하고, 지금 안 되는 이유는 그 툴팁이 댄다 - 빼버리면 메뉴가 통째로 비어서 우클릭이
---- 고장 난 것처럼 보인다.
----
---- 대상은 액션 하나다. 행이 아니라 액션으로 받는 이유는 `ComputeOrderSwapForAction`
---- 주석에 - 요약하면 메뉴가 떠 있는 동안 목록이 낡을 수 있어서다.
-function DebindUI.SetupOrderDropdownMenu(dropdown, rootDescription, action)
-    -- 어느 행에서 열었는지. 28px 한 줄짜리 목록이라 커서가 한 칸 어긋난 채로 여는 일이
-    -- 실제로 있고, 그때 이 제목이 아니면 잘못 옮긴 것을 옮기고 나서야 안다.
-    --
-    -- **로컬에 한 번 받는다.** `NameAndIconForAction`은 셋을 돌려주는데(이름·아이콘·본디
-    -- 이름), 그대로 넘기면 아이콘 파일 ID가 `CreateTitle`의 두 번째 인자인 **색** 자리로
-    -- 들어가서 메뉴가 열리는 순간 터진다(`MenuUtil.lua`의 `useColor`).
-    --
-    -- **The blue an arrival wears follows it into the menu** (2026-08-23, 소유자). The row's
-    -- name and its dot are already that colour (`DebindUI.IMPORTED_FONT_COLOR`), and this menu
-    -- offers a different three items on a row that has one - so the title saying which kind of
-    -- row it opened over is the same answer as why the items are what they are. Passing no
-    -- colour lands on the client's title gold, which is what every other row gets.
-    local title = DebindUI.NameAndIconForAction(action);
-    rootDescription:CreateTitle(title, action.arrivalID and DebindUI.IMPORTED_FONT_COLOR or nil);
-
-    local function CreateMoveMenuItem(direction, titleKey, descKey)
-        local description = rootDescription:CreateButton(LLL[titleKey], function()
-            -- **행이 아니라 그 안의 액션을 넘긴다.** `CollectActionsForKey`가 짓는 행에는
-            -- `seq` **사본**이 실려 있어서(Profile.lua), 행째로 주면 맞바꾸는 것이 사본
-            -- 둘이 된다 - 터지지도 않고 프로필도 그대로인 채 소리만 난다.
-            local neighborRow = DebindPrivate.ComputeOrderSwapForAction(action, direction);
-            DebindUI.ApplyOrderSwap(action, neighborRow and neighborRow.action);
-        end);
-
-        -- 여는 시점의 답으로 켜고 끈다. 누를 때 다시 묻는 값과 어긋날 수 있는 자리지만,
-        -- 그때는 맞바꿀 이웃이 nil이라 `ApplyOrderSwap`이 물러난다.
-        local neighbor, reason = DebindPrivate.ComputeOrderSwapForAction(action, direction);
-        description:SetEnabled(neighbor ~= nil);
-
-        if (neighbor) then
-            SetInstructionTooltip(description, LLL[descKey]);
-        else
-            SetErrorTooltip(description, LLL["ORDER_BLOCKED_" .. reason]);
-        end
-    end
-
-    --- **This row and nothing else** (`DebindUI.BeginKeyCapture`). The whole set is the
-    --- heading's operation and the heading is where it now lives
-    --- (`DebindUI.SetupKeyGroupDropdownMenu`) - one menu per thing the reader pointed at, and
-    --- what is pointed at here is a line.
-    ---
-    --- It used to be the set's item, standing in this menu because the heading took no clicks at
-    --- all. That is no longer true of the heading, and leaving the set's operation on a row left
-    --- the two menus offering the same thing while the reader had pointed at different things.
-    ---
-    --- **Splitting the set is the thing this can do that the reader will not see coming**, so
-    --- the tooltip is where the warning went (`ACTION_SET_KEY_DESC`). It is a real operation and
-    --- not a mistake - one action of four moving to its own key is how a condition gets its own
-    --- shortcut - but a key's actions are told apart by conditions, so a set coming apart looks
-    --- like nothing at all until both halves fire.
-    --- **On something that arrived, the label says the other half** (2026-08-23, 소유자). Giving
-    --- an arrival a key accepts it (`DebindFrameMixin:SetActionKey`), and until the label said
-    --- so the reader pressed this expecting the key to move and nothing else. The three words
-    --- are still the act's name, so the item stays the same item wherever it is offered; the
-    --- clause is only true here.
-    local function CreateAssignKeyItem()
-        local arrived = action.arrivalID ~= nil;
-        local description = rootDescription:CreateButton(
-            LLL[arrived and "ACTION_SET_KEY_ACCEPT" or "ACTION_SET_KEY"], function()
-                DebindUI.BeginKeyCapture({ action });
-            end);
-        SetInstructionTooltip(description,
-            LLL[arrived and "ACTION_SET_KEY_ACCEPT_DESC" or "ACTION_SET_KEY_DESC"]);
-    end
-
-    -- **A badged action gets accept and reject instead of the ordering items**, the same swap
-    -- the row itself makes (`UpdateMoveButtons`). While the badge is on this action does not
-    -- fire, so a place earlier or later settles nothing; what can be done to it here is take it
-    -- or throw it back.
-    --
-    -- Not two dead items with a reason, which is what this menu does elsewhere: **why** they
-    -- would be dead is an import matter and not an ordering rule, and `ORDER_BLOCKED_*` exists
-    -- to teach the ordering rules.
-    --
-    -- **The key item stands here too** (2026-08-19, owner's decision). It was left out for a
-    -- while on the reading that a key for one row splits the arrival it came in and accepts only
-    -- that row. Both halves of that are true and neither is a reason to withhold it: splitting a
-    -- set by giving one of its rows a key is an operation this menu already offers everywhere
-    -- else, and giving a key **is** accepting, which is the answer the reader came to this menu
-    -- for. Taking the whole arrival at once is still the heading's item.
-    -- **The plain answer first, then the same answer with a key picked, then the other one**
-    -- (2026-08-23, 소유자). The key item led, from when it was the odd one out here; the two
-    -- accepts belong side by side, since the second is the first with one thing decided along
-    -- the way, and [Reject] is the end of the list because it is the answer that goes the other
-    -- way.
-    if (action.arrivalID) then
-        CreateApproveImportMenuItem(rootDescription, { action });
-        CreateAssignKeyItem();
-        CreateRejectImportMenuItem(rootDescription, { action });
-        return;
-    end
-
-    -- **A line between the key and the order** (2026-08-23, 소유자). Which key this is on and
-    -- where it stands among the actions sharing that key are two questions, and the second one
-    -- only exists once the first is answered. Run together they read as three settings of one
-    -- kind.
-    CreateAssignKeyItem();
-    rootDescription:CreateDivider();
-    CreateMoveMenuItem(-1, "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC");
-    CreateMoveMenuItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
 end
 
 --- Right-clicking a key group's heading in the left column. **One item, and it is the one thing
@@ -319,8 +216,7 @@ end
 --- made, so anything written through it lands on rows nobody picked.
 ---
 --- **The title names the set the way the menu above names a row: by what is in it.** The first
---- action's name, then how many follow -- `Charge +1`, which is the summary the heading itself
---- draws once it is folded (`DebindKeyHeaderMixin:UpdateSummary`, `OVERVIEW_KEY_HEADER_MORE`).
+--- action's name, then how many follow -- `Charge +1` (`OVERVIEW_KEY_HEADER_MORE`).
 --- The key is not repeated into it: the bar the menu opened off is still on screen with the key
 --- written on it, and what a title has to answer is which of several near-identical bars was
 --- hit -- these rows are 26px and the cursor lands one off more often than it sounds.

@@ -258,72 +258,29 @@
 	</Frame>
 
 	<!--
-		The line that goes in wherever the key changes in the shortcut ordering. The bar art comes
-		from Blizzard's `ListHeaderThreeSliceTemplate` - the one the cooldown manager's settings and
-		the currency tab use.
+		The line that goes in wherever the key changes in the shortcut ordering.
 
-		**The whole bar folds it, and a right-click opens the group's menu**
-		(`DebindKeyHeaderMixin:OnClick`). Folding is what this template is for and the end cap is
-		the fold indicator, so nothing is attached to it - and the menu did not attach anything
-		either. Drops are not taken, the overview having no destination to name
-		(`DebindFrameMixin:OnReceiveDrag`), but that is true of this whole list rather than of this
-		bar.
-
-		The height is 26, which is the art's own. The 28 it used to be carried half a line of
-		padding on top - put there to part groups in a list that had no rule between them, and with
-		a real bar standing in that place there is nothing left for it to do.
-
-		**It summarises what is inside only while folded** - the key, then the first action's name
-		and how many more there are. Expanded, the rows right underneath are already saying that,
-		and the same thing does not get said twice.
-
-		There are three font strings because **only one of them may be cut**. Which key it is and
-		how many more there are both have to be readable; the name is the expendable one. Where that
-		is worked out is `DebindKeyHeaderMixin:LayoutSummary`.
+		**A left click picks the group, and a right-click opens its menu**
+		(`DebindKeyHeaderMixin:OnClick`). Drops are not taken, the overview having no destination to
+		name (`DebindFrameMixin:OnReceiveDrag`), but that is true of this whole list rather than of
+		this bar.
 	-->
-	<Button name="DebindKeyHeaderTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindKeyHeaderMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
+	<Button name="DebindKeyHeaderTemplate" inherits="ListHeaderVisualTemplate, ListHeaderCodeTemplate" mixin="DebindKeyHeaderMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
 		<Size x="450" y="26"/>
-		<Layers>
-			<Layer level="ARTWORK">
-				<!--
-					**키보다 작고, 키와 달리 금색이다.** 키는 흰색으로 못박혀 있는데(`OnLoad`), 그
-					근거가 "세야 할 것은 키가 아니라 그 밑에 몇 줄이 달렸는가다"였다 - 그 몇 줄을
-					말하는 것이 바로 이 둘이라, 눈을 끄는 색이 여기 오는 것이 그 근거대로다.
-					크기로 제목과 갈리고 색으로 무게가 갈린다.
-
-					**앵커는 왼쪽뿐이다.** 폭을 앵커로 묶으면 글자가 짧아도 상자가 그대로 남아
-					개수가 이름에서 멀찍이 떨어져 선다 - `Charge +1`은 붙어 있는 한 마디다.
-					대신 폭을 `LayoutSummary`가 재서 넣는다.
-				-->
-				<FontString parentKey="ActionName" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="RIGHT" x="4" y="0"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="ExtraCount" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.ActionName" relativePoint="RIGHT" x="4" y="0"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
 		<Frames>
 			<!--
 				The worst problem in the group, as a mark (`Init` picks which). One of them and not
 				two, because a heading has one of these at a time and both would want this spot.
-				A folded group shows only its first action, so the problem below it has nothing else
-				on the bar to say it is there.
 			-->
 			<Frame parentKey="IssueIcon" inherits="DebindRowMarkTemplate">
 				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.Right" relativePoint="LEFT" x="-2" y="0"/>
+					<Anchor point="RIGHT" relativeKey="$parent.CollapseButton" relativePoint="LEFT" x="-2" y="0"/>
 				</Anchors>
 			</Frame>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnClick method="OnClick"/>
-			<OnSizeChanged method="OnSizeChanged"/>
 		</Scripts>
 	</Button>
 

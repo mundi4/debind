@@ -242,11 +242,20 @@ end
 ---
 --- **A selection gets a string of its own.** `ACTION_SET_KEY_DESC` opens on "this action" and a
 --- sentence stretched across both positions fits neither (`devdocs/writing-user-facing-text.md`).
+--- **Over one arrival the label says the other half**: giving it a key accepts it
+--- (`DebindFrameMixin:SetActionKey`), and a plain label had the reader expecting the key to move and
+--- nothing else.
 local function CreateAssignKeyMenuItem(parentDescription, ctx)
-    local description = parentDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
-        DebindUI.BeginKeyCapture(ctx.actions);
-    end);
-    SetInstructionTooltip(description, LLL[#ctx.actions == 1 and "ACTION_SET_KEY_DESC" or "BULK_SET_KEY_DESC"]);
+    local arrived = #ctx.actions == 1 and ctx.actions[1].arrivalID ~= nil;
+    local description = parentDescription:CreateButton(
+        LLL[arrived and "ACTION_SET_KEY_ACCEPT" or "ACTION_SET_KEY"], function()
+            DebindUI.BeginKeyCapture(ctx.actions);
+        end);
+    local descKey = "BULK_SET_KEY_DESC";
+    if (#ctx.actions == 1) then
+        descKey = arrived and "ACTION_SET_KEY_ACCEPT_DESC" or "ACTION_SET_KEY_DESC";
+    end
+    SetInstructionTooltip(description, LLL[descKey]);
 end
 
 --- **Through `UnbindActions` for one action as for many.** Taking the key away drops the ordering
@@ -522,6 +531,46 @@ local function CreateMoveCopyMenu(rootDescription, isCopy, fromLayerID, applyFun
     end
 end
 
+--- `Run Sooner` and `Run Later`, only on a menu opened over the order list (`ctx.inOrderList`). The
+--- layer list draws one layer by name, so where an action stands among the others on its key is not
+--- a question that list shows.
+---
+--- **An arrival alone gets none.** It does not fire, so a place earlier or later settles nothing; the
+--- arrows on its row give way to the accept button for the same reason (`UpdateMoveButtons`).
+local function CreateOrderMenuItems(rootDescription, ctx)
+    if (not ctx.inOrderList) then
+        return;
+    end
+    if (#ctx.actions == 1 and ctx.actions[1].arrivalID ~= nil) then
+        return;
+    end
+
+    local function CreateMoveItem(direction, titleKey, descKey)
+        local reason = OnlyOneReason(ctx);
+        if (reason) then
+            CreateBlockedMenuItem(rootDescription, LLL[titleKey], reason);
+            return;
+        end
+
+        local action = ctx.actions[1];
+        local description = rootDescription:CreateButton(LLL[titleKey], function()
+            local neighborRow = DebindPrivate.ComputeOrderSwapForAction(action, direction);
+            DebindUI.ApplyOrderSwap(action, neighborRow and neighborRow.action);
+        end);
+
+        local neighbor, blocked = DebindPrivate.ComputeOrderSwapForAction(action, direction);
+        description:SetEnabled(neighbor ~= nil);
+        if (neighbor) then
+            SetInstructionTooltip(description, LLL[descKey]);
+        else
+            SetErrorTooltip(description, LLL["ORDER_BLOCKED_" .. blocked]);
+        end
+    end
+
+    CreateMoveItem(-1, "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC");
+    CreateMoveItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
+end
+
 local function CreateDeleteMenu(rootDescription, ctx)
     rootDescription:CreateButton(LLL["DELETE"], function()
         DebindUI.ShowDeleteConfirmationPopup(ctx.actions);
@@ -542,4 +591,5 @@ ActionMenu.CreateApproveImportMenuItem        = CreateApproveImportMenuItem;
 ActionMenu.CreateRejectImportMenuItem         = CreateRejectImportMenuItem;
 ActionMenu.CreateMoveCopyMenu                 = CreateMoveCopyMenu;
 ActionMenu.CreateBlockedMenuItem              = CreateBlockedMenuItem;
+ActionMenu.CreateOrderMenuItems               = CreateOrderMenuItems;
 ActionMenu.CreateDeleteMenu                   = CreateDeleteMenu;

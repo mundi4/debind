@@ -239,6 +239,63 @@ return function(DebindPrivate)
         end
     end);
 
+    --- The top-level row with this label, or nil.
+    local function TopRow(root, label)
+        for _, child in ipairs(root.children) do
+            if (child.text == label) then
+                return child;
+            end
+        end
+    end
+
+    local function BuildIn(actions, fields)
+        local root = Element("root");
+        local ctx = { actions = actions };
+        for k, v in pairs(fields or {}) do
+            ctx[k] = v;
+        end
+        DebindUI.SetupActionDropdownMenu(nil, root, ctx);
+        return root;
+    end
+
+    test("the order rows stand only where the menu opened over the order list", function()
+        local actions = ResetProfile({ Spell(1), Spell(2) });
+        local root = BuildIn({ actions[1] });
+        check(TopRow(root, LLL["ORDER_MOVE_UP"]) == nil, "Run Sooner stood on a menu from the layer list");
+        check(TopRow(root, LLL["ORDER_MOVE_DOWN"]) == nil, "Run Later stood on a menu from the layer list");
+
+        root = BuildIn({ actions[1] }, { inOrderList = true });
+        local up, down = TopRow(root, LLL["ORDER_MOVE_UP"]), TopRow(root, LLL["ORDER_MOVE_DOWN"]);
+        check(up ~= nil and down ~= nil, "the order list's menu has no order rows");
+        check(up.enabled == false, "the first action can run sooner");
+        check(down.enabled ~= false, "the first of two cannot run later");
+    end);
+
+    test("the order rows are locked over more than one action", function()
+        local actions = ResetProfile({ Spell(1), Spell(2) });
+        local root = BuildIn(actions, { inOrderList = true });
+        local up, down = TopRow(root, LLL["ORDER_MOVE_UP"]), TopRow(root, LLL["ORDER_MOVE_DOWN"]);
+        check(up ~= nil and down ~= nil, "no order rows over two actions");
+        check(up.enabled == false and down.enabled == false, "an order row is live over two actions");
+    end);
+
+    test("the key row over one arrival says that giving the key accepts it", function()
+        local actions = ResetProfile({ Spell(1, { arrivalID = 1 }), Spell(2) });
+        local root = BuildIn({ actions[1] }, { inOrderList = true });
+        check(TopRow(root, LLL["ACTION_SET_KEY_ACCEPT"]) ~= nil, "an arrival's key row reads as a plain one");
+        check(TopRow(root, LLL["ACTION_SET_KEY"]) == nil, "an arrival got the plain key row as well");
+
+        root = BuildIn({ actions[2] }, { inOrderList = true });
+        check(TopRow(root, LLL["ACTION_SET_KEY"]) ~= nil, "an action of the reader's own lost the plain key row");
+    end);
+
+    test("an arrival gets no order rows", function()
+        local actions = ResetProfile({ Spell(1, { arrivalID = 1 }), Spell(2, { arrivalID = 1 }) });
+        local root = BuildIn({ actions[1] }, { inOrderList = true });
+        check(TopRow(root, LLL["ORDER_MOVE_UP"]) == nil and TopRow(root, LLL["ORDER_MOVE_DOWN"]) == nil,
+            "order rows stood on an arrival");
+    end);
+
     _G.DebindLayerPanel = layerPanel;
 
     return T;

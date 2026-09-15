@@ -280,25 +280,14 @@ L["DELETE"] = "Delete"
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
 L["OVERVIEW_NO_KEY"] = NOT_BOUND
--- What a folded key group's heading says after the first action's name: how many more are under it.
+-- What a menu title says after the one thing it names: how many more are in it. The key group menu
+-- names the first action, and the action menu over several layers names the broadest one.
 -- **Not a total** - the one being named is not counted again, so a key with two actions reads
 -- "Charge +1".
 --
--- A sign and a number and nothing else, because it sits inside a line that is already carrying a
--- key and a name. Anything wordier and the name it belongs to starts losing characters to it: what
--- shortens when the bar runs out is the name, never this.
+-- A sign and a number and nothing else, because it sits beside a name, and anything wordier takes
+-- characters from that name.
 L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
--- What the folded pile with no key says instead. **A total, not a "+N"** - nothing is named beside
--- it, because the pile is sorted by name and its first entry is only alphabetically first. A key
--- group's first row is what that key actually sends; this one represents nothing.
---
--- Dropping the sign is what tells the two apart, since they stand in the same place: "+1" counts
--- what is not named, this counts everything.
---
--- `|4` is the client's own plural form, resolved when the string is drawn rather than by `format`
--- (`BN_TOAST_PENDING_INVITES` and `D_MINUTES` are handed straight to a FontString the same way).
--- Russian takes three forms in that escape, not two.
-L["OVERVIEW_NO_KEY_COUNT"] = "%d |4action:actions;"
 -- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
 -- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
 L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
@@ -803,7 +792,7 @@ L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 -- 우클릭 줄은 오른쪽 목록의 것을 그대로 쓴다(LINE_TOOLTIP_INSTRUCTION_MESSAGE2). 두 목록 다
 -- 그 액션의 메뉴가 열리므로 여기만 다른 말을 쓸 이유가 없다.
-L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action and edit it there."
+L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action. Hold CTRL or SHIFT while clicking to select more than one."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
 L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Unit frame -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to Account.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
@@ -1496,9 +1485,8 @@ L["APPROVE_IMPORT"] = "Accept"
 -- being the only one of the three that has to stand **alone**: the other two sit inside a sentence
 -- or a verb that supplies what is being waited on, and a button on an empty row has neither.
 --
--- **"Action" is the reader's word for the thing being counted** and this window already counts them
--- that way (`OVERVIEW_NO_KEY_COUNT`). `|4` is the client's own plural form, resolved when the
--- string is drawn rather than by `format`.
+-- **"Action" is the reader's word for the thing being counted.** `|4` is the client's own plural
+-- form, resolved when the string is drawn rather than by `format`.
 --
 -- **It breaks off** (2026-08-23, 소유자). The press opens a menu rather than doing anything, and a
 -- label that names a state on a button that acts is the one shape a reader cannot tell apart from a

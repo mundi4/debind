@@ -274,7 +274,7 @@ L["ORDER_FLAG_UNREACHABLE"] = "실행되지 않음"
 L["ORDER_FLAG_OFFSPEC"] = "비활성 전문화"
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_GOTO_ACTION"] = "%s에서 보기"
-L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "왼쪽 클릭하면 그 행동으로 옮겨 가서 편집합니다."
+L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "왼쪽 클릭하면 그 행동으로 옮겨 갑니다. CTRL이나 SHIFT를 누른 채 클릭하면 여러 개를 고를 수 있습니다."
 L["OTHER_OPTIONS"] = "기타 설정"
 L["PET"] = "소환수"
 L["IMPORTANCE_DESC"] = "같은 키를 여러 행동에 지정할 수 있습니다. 키를 누르면 Debind가 순서대로 훑어서 조건이 맞는 첫 번째 것을 실행합니다 -- 언제나 하나만 실행됩니다.|n|n중요도를 가장 먼저 비교하므로, 중요도가 높으면 아래 것들을 모두 이깁니다. 중요도가 같은 행동끼리는 이 순서로 정해집니다:|n|n1. 마우스 올림 -- 개체창에 마우스를 올렸을 때만 실행되는 행동을 먼저 봅니다.|n2. 조건 -- 조건이 있는 행동을 조건 없는 행동보다 먼저 봅니다.|n3. 탭 -- 더 좁은 탭을 먼저 봅니다. 지금 캐릭터와 전문화에서 시작해 공유까지 내려갑니다.|n4. 순서 -- 위가 모두 같으면, 그 키에 먼저 지정한 행동을 먼저 봅니다. 행동을 옮길 수 있는 단계도 여기뿐입니다."
@@ -492,8 +492,7 @@ L["APPROVE_IMPORT"] = "내 것으로 받기"
 -- The overview's import strip. The reasoning is in enUS.
 -- 클라이언트가 이 상태를 부르는 말이 "대기 중"이다(`CLUB_FINDER_PENDING`,
 -- `COMMUNITIES_MEMBER_LIST_PENDING_INVITE_HEADER` = "대기 중인 초대 (%d)"). 영어는 `|4`로 수를
--- 맞추는데 한국어는 수 일치가 없고, "개"가 이미 수량 단위라 "행동"을 안 붙인다
--- (`OVERVIEW_NO_KEY_COUNT`과 같은 이유).
+-- 맞추는데 한국어는 수 일치가 없고, "개"가 이미 수량 단위라 "행동"을 안 붙인다.
 L["IMPORT_PENDING"] = "대기 중 %d개..."
 L["IMPORT_PENDING_DESC"] = "문자열로 들어왔지만 아직 안 받은 것들입니다. 받기 전에는 아무 일도 안 하고, 원래 쓰시던 키도 그대로입니다. 개수는 지금 전문화가 아닌 곳에 내려앉은 것까지 포함한 전부입니다."
 L["IMPORT_PENDING_INSTRUCTION"] = "클릭하면 전부에 할 수 있는 일이 나옵니다."
@@ -522,9 +521,6 @@ L["OVERVIEW_EMPTY_FILTERED"] = "조건에 맞는 것이 없습니다. 무엇이 
 -- 부호와 숫자뿐이라 번역할 것이 없다. 그래도 키를 두는 것은, 언젠가 "외 %d개" 같은 말로 바뀔
 -- 자리가 여기 하나여야 하기 때문이다.
 L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
--- 영어는 `|4action:actions;`로 수를 맞추는데 한국어는 수 일치가 없다. "행동"도 안 붙인다 -
--- `개`가 이미 수량 단위라 총수로 읽히고, 머리글이 "지정 안 됨"이라고 이미 말했다.
-L["OVERVIEW_NO_KEY_COUNT"] = "%d개"
 L["IMPORT_NOTHING_PLACED"] = "아무것도 안 들어왔습니다 - 고르신 것 중에 이 캐릭터에 놓일 자리가 있는 것이 없습니다."
 L["IMPORT_COMMITTED"] = "행동 %d개를 가져왔습니다. 받아들이기 전까지는 꺼져 있고, 받아들이는 줄이 창 맨 위에 생겼습니다."
 L["IMPORT_COMMITTED_SKIPPED"] = "그중 %d개는 여기 놓일 자리가 없어 빠졌습니다 - 이 캐릭터에 없는 전문화이거나, 이 버전이 모르는 레이어입니다."

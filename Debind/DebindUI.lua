@@ -162,31 +162,30 @@ local _selectedSideTab       = 1;
 -- all". Like them it lives for the session only and is not saved - close and reopen and you are
 -- on the tab you left.
 local _selectedPanel         = 1;
--- **앵커.** SHIFT가 범위를 재는 기준점이고, 동시에 왼쪽 열이 짚는 행(`isCurrent`)이자 순서
--- ↑↓가 붙는 행이자 매크로 창이 여는 액션이다.
---
--- **둘을 한 변수로 둔 이유는 앵커가 화면에 보여야 하기 때문이다.** 기준점이 아무 데도 안
--- 그려져 있으면 SHIFT-클릭 결과를 눌러보기 전에는 알 수 없다. 합쳐두면 왼쪽 열이 짚고 있는
--- 그 행이 곧 기준점이라, 따로 그릴 것이 없다.
---
--- 옮기는 것은 **SHIFT 없는 좌클릭**이다(CTRL은 옮긴다 - 집합에서 빼는 경우까지). SHIFT가
--- 안 옮기는 덕에 범위를 다시 잴 수 있다: 2를 누르고 SHIFT로 8을 찍은 뒤 5를 찍으면 2-5가
--- 된다. SHIFT도 옮기게 두면 저 마지막 클릭이 5-8이 되어 범위를 줄일 길이 없어진다.
---
--- elementData가 아니라 action 테이블을 들고 있는 이유는 elementData가 Refresh마다 새로
--- 만들어지기 때문이다 (DebindLayerPanelMixin:Refresh).
+--- **The action the window is talking about**: the left column's arrows stand on its row, the macro
+--- editor opens on it, and reveal scrolls to it. An action table rather than elementData, which is
+--- rebuilt on every `Refresh`.
 local _selectedAction;
 
---- **벌크 대상 집합.** 앵커와는 다른 것이다 - 앵커는 "지금 이야기 중인 행" 하나이고, 이쪽은
---- "이동·복사·삭제가 손댈 것들"이다. 오른쪽 목록의 강조와 멀티 메뉴만 이걸 본다.
+--- **Where SHIFT measures from**, kept apart from `_selectedAction`. A row, or after a heading was
+--- pressed the whole group `(key, arrivalID)`: a single row anchor would drop the rest of the group
+--- on one side of the next SHIFT. Both nil is no anchor, which is what a released group anchor leaves
+--- (`PruneSelectionToBinFilter`) rather than a fall back onto a row nobody pressed.
 ---
---- 앵커가 이 집합 밖에 있을 수 있다: CTRL-클릭으로 앵커 행 자신을 집합에서 빼면 그렇게 된다.
---- 고치지 않는다 - "선택은 아닌데 지금 보고 있는 것"이 맞는 말이고, 왼쪽 열의 `isCurrent`는
---- 원래 선택이 아니라 이야기 중인 행이라는 뜻이었다.
+--- Only a press without SHIFT moves it, so SHIFT measures again from the same place and can shrink a
+--- range as well as grow it.
+local _anchorAction;
+local _anchorGroup;
+
+--- **What bulk operations touch**, and what both lists highlight. It can leave `_selectedAction` out:
+--- CTRL takes that row out of the set and it stays the row being talked about.
 ---
---- 액션 테이블을 키로 든다. elementData를 들면 Refresh 한 번에 집합 전체가 낡는다.
+--- Keyed by action table, since elementData goes stale on every `Refresh`.
 local _selection             = {};
 local _selectionCount        = 0;
+
+--- The action under the cursor in the left column, lit in the layer list if that list draws it.
+local _linkedAction;
 
 --- 오른쪽 목록의 검색어. 소문자로, 빈 문자열이면 nil이다(`ClearSearch` / OnTextChanged).
 ---
@@ -195,26 +194,6 @@ local _selectionCount        = 0;
 --- 몇 줄을 걷어내면 남은 문장이 화면에 없는 행을 가리킨다. 왼쪽은 이미 선택으로 답한다 -
 --- 오른쪽에서 찾은 행을 누르면 저쪽이 그 행을 짚고 그리로 스크롤한다.
 local _searchText;
-
---- 오버뷰에서 접혀 있는 키 그룹. 키 자체로 물으며, 키가 없는 맨 아래 덩어리는 `KEYLESS_GROUP`이
---- 대신 선다 - nil은 테이블 키가 못 되고, 고유 테이블이면 진짜 키와 부딪힐 길이 없다.
----
---- **A file local for the same reason `_searchText` is one**, and 보기 상태일 뿐이라 저장하지
---- 않는다 - 접힌 그룹도 그대로 발동한다. 목록을 다시 그리는 것 말고는 아무것도 안 건드린다.
-local KEYLESS_GROUP = {};
-local _collapsedKeys = {};
-
---- 액션의 그룹을 `_collapsedKeys`가 쓰는 이름으로 바꾼다. 키가 없다는 것도 그룹 하나이고,
---- nil은 테이블 키가 못 되므로 고유 테이블이 그 자리에 선다.
----
---- **`arrivalID`까지 넣는다.** 한 키 위에 내 세트와 도착분이 나란히 서고 머리글도 둘이라, 키만
---- 이름으로 삼으면 한쪽을 접었을 때 다른 쪽까지 같이 접힌다.
-local function CollapseKeyFor(key, arrivalID)
-	if (key == nil) then
-		return KEYLESS_GROUP;
-	end
-	return key .. "/" .. tostring(arrivalID);
-end
 
 --- 왼쪽 열의 필터. **값별 포함 체크박스**라 켜진 값만 통과한다 - 블리자드 수집품 창의
 --- 「수집됨 / 수집 안 됨」과 같은 모양이고, 한 축을 다 끄면 막지 않고 0개를 낸다. 아무 값도 안
@@ -871,26 +850,31 @@ local function MoveAction(elementData, destLayerID, copying)
 	end
 end
 
---- 고른 것 전부를 옮기거나 복사한다.
+--- Moves or copies every picked action.
 ---
---- 하나씩 `MoveAction`을 지난다. 그 함수가 레이어에서 빼고 넣고 순서 번호를 다시 주는 규칙을
---- 전부 들고 있어서, 벌크가 자기 몫으로 다시 적으면 같은 규칙이 두 군데 살게 된다.
+--- Each goes through `MoveAction`, which holds the rules for taking out, putting in and renumbering; a
+--- bulk copy of those rules would be the same rules living twice.
 ---
---- **elementData는 액션마다 그때그때 다시 찾는다.** `MoveAction`이 한 번 돌 때마다 `Refresh`가
---- 목록을 새로 지어서, 미리 모아둔 elementData는 둘째부터 낡은 layer/index를 들고 있다.
+--- **Where each one lives is asked of the profile, action by action** (`FindLayerID`). The selection
+--- can span layers, and every `MoveAction` shifts positions in the layer it takes from, so a layer and
+--- index gathered up front are stale from the second action on.
 ---
---- 목적지에 이미 사는 것은 건너뛴다(이동일 때). 그 항목은 메뉴에서 회색으로 세워만 두므로
---- (`CreateMoveCopyMenu`) 눌러서 여기 오지는 않지만, 막지 않으면 그런 한 줄이 `MoveAction`의
---- `assert(copying, ...)`에 걸려 **벌크 전체가 중간에 멈춘다** - 앞의 절반만 옮겨진 채로.
+--- An action already in the destination is skipped when moving. The menu greys that destination only
+--- when the whole selection is in one layer (`CreateMoveCopyMenu`); unguarded, one such action hits
+--- `MoveAction`'s `assert(copying, ...)` and **the bulk stops halfway**, half of it moved.
 ---
---- 옮긴 뒤에는 선택을 접는다. `MoveAction`이 액션 테이블을 복사해서 넣으므로(`CopyTable`)
---- 집합이 들고 있던 테이블은 어느 레이어에도 없는 것이 된다. 복사는 원본이 그대로 남으므로
---- 접지 않는다 - 사용자가 고른 것은 원본이고, 사본으로 옮겨주면 방금 무엇을 골랐는지가 틀어진다.
+--- The selection folds after a move: `MoveAction` puts in a copy (`CopyTable`), so the tables the set
+--- held are in no layer any more. A copy leaves the originals where they were, so it does not fold.
 local function MoveActions(actions, destLayerID, copying)
 	for _, action in ipairs(actions) do
-		local elementData = DebindLayerPanel:FindElementDataByActionInfo(action);
-		if (elementData and (copying or elementData.layer ~= destLayerID)) then
-			MoveAction(elementData, destLayerID, copying);
+		local layerID, layer = DebindPrivate.FindLayerID(action);
+		if (layerID and (copying or layerID ~= destLayerID)) then
+			for index, candidate in layer:Enumerate() do
+				if (candidate == action) then
+					MoveAction({ action = action, layer = layerID, index = index }, destLayerID, copying);
+					break;
+				end
+			end
 		end
 	end
 
@@ -1162,6 +1146,12 @@ function DebindLineMixin:Update()
 	-- Set here as well as on the hover edges because rows come out of a pool.
 	self:EnableKeyboard(self:ShouldTakeKeyboard());
 
+	if (_linkedAction ~= nil and _linkedAction == action) then
+		self:LockHighlight();
+	else
+		self:UnlockHighlight();
+	end
+
 	self:SetAlpha(1);
 end
 
@@ -1302,17 +1292,8 @@ function DebindLineMixin:OnReceiveDrag()
 	DebindFrame:OnReceiveDrag();
 end
 
---- 단축키 정렬에서 한 키의 묶음이 시작되는 자리에 놓이는 줄.
----
---- 행에서 단축키 글자를 빼지는 않는다. 헤더는 스크롤에 밀려 화면 밖으로 나가는데(이 목록은
---- 고정 헤더가 아니다) 그러면 무슨 키인지 알 수 없는 행들만 남는다.
---- 키 헤더의 높이, 곧 `ListHeaderThreeSliceTemplate` 아트의 제 높이. 여기서 벗어나면 띠가
---- 프레임 위아래로 삐져나오거나 잘린다 - 아트가 위에서부터 제 크기로 붙기 때문이다.
----
---- 첫 헤더만 낮게 세우던 규칙이 여기서 없어졌다. 그건 위쪽 절반이 여백이던 시절의 것으로,
---- 목록 첫 줄에서는 그 여백이 인셋 위에 뚫린 구멍이 됐다. 여백이 아니라 띠가 서는 지금은
---- 첫 줄도 가를 것이 없기는 마찬가지고, 구멍도 나지 않는다.
 local KEY_HEADER_HEIGHT = 26;
+local KEY_GROUP_GAP = 8;
 -- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;
@@ -1391,91 +1372,45 @@ local function KeyGroupLabel(key, from)
 	return LLL["OVERVIEW_NO_KEY"];
 end
 
---- 글자색은 두 상태 모두 흰색으로 못박는다. 템플릿의 기본은 금색인데, 금색은 이 창에서
---- "누를 수 있는 것"과 "값"이 쓰는 색이라 머리글이 그 색이면 키 이름이 행보다 세게 읽힌다 -
---- 여기서 세야 할 것은 키가 아니라 그 밑에 몇 줄이 달렸는가다. 칠하는 것은 `SetHeaderText`고
---- 이 두 줄은 무엇으로 칠할지만 정해 둔다.
+--- **The title is white in both states.** The template greys it until the cursor is on it, and grey
+--- in this column is a state: it is what the unbound pile's heading wears (`Init`). `SetHeaderText`
+--- does the painting; these two lines only say what with.
 function DebindKeyHeaderMixin:OnLoad()
 	self:SetTitleColor(false, HIGHLIGHT_FONT_COLOR);
 	self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
 
-	-- **키가 자기 글자만큼만 차지하게 푼다.** 템플릿은 이 칸을 끝 조각까지 늘여 놓는데, 그러면
-	-- 뒤에 붙는 요약이 언제나 띠 끝에서 시작한다. 왼쪽만 남기면 폭이 글자를 따라가고 요약이
-	-- 키 바로 뒤에 선다. x=10은 템플릿이 쓰던 값 그대로다.
-	self.Name:ClearAllPoints();
-	self.Name:SetPoint("LEFT", 10, 0);
+	self:GetNormalTexture():SetDesaturated(true);
+	self:GetNormalTexture():SetAlpha(0.3);
+	self:GetHighlightTexture():SetDesaturated(true);
 
-	-- **줄바꿈을 끈다.** 안 끄면 긴 이름이 잘리는 대신 둘째 줄로 넘어가 띠 밖으로 삐져나온다 -
-	-- 이 칸은 높이가 한 줄이다. 끄면 `…`로 잘리고, 덤으로 템플릿에 이미 달려 있는 잘림 툴팁이
-	-- 살아난다(`ListHeaderMixin:CheckUpdateTooltip`이 `IsTruncated`를 본다).
-	self.ActionName:SetWordWrap(false);
+	-- **The key takes only the width of its own text.** The template stretches it to the fold button,
+	-- which would start the summary behind it at the far end of the bar every time. The offsets are
+	-- the template's own.
+	self.ButtonText:ClearAllPoints();
+	self.ButtonText:SetPoint("LEFT", 8, 1);
+
+	self.CollapseButton:Hide();
 end
 
---- 뷰가 프레임 폭을 잡는 것은 `Init` **뒤**일 수 있다. 폭을 재서 쓰는 계산이라 그때 다시 한다.
-function DebindKeyHeaderMixin:OnSizeChanged()
-	if (self.elementData) then
-		self:LayoutSummary();
-	end
-end
-
---- 키 뒤에 붙는 요약의 자리를 잡는다. `Charge +1`.
----
---- **잘려도 되는 것은 이름 하나뿐이다.** 무슨 키인가와 몇 개 더 있는가는 둘 다 안 읽히면
---- 머리글이 할 말을 못 한다. 그래서 이름 칸의 폭을 **미리 깎아** 개수가 설 자리를 남긴다 -
---- 개수를 띠 끝에 못 박는 길도 있었지만, 그러면 짧은 이름에서 개수가 이름과 한참 떨어져 서서
---- `Charge +1`이 한 마디로 안 읽힌다.
----
---- `min`이 두 경우를 다 처리한다. 짧으면 제 폭이 이겨서 상자가 글자에 딱 맞고 개수가 바로 뒤에
---- 붙고, 길면 깎은 폭이 이겨서 `…`로 잘린다.
----
---- **`SetWidth(0)`은 "폭 없음"이 아니라 "제 폭대로"다.** 그래서 자리가 안 나오면 폭을 0으로
---- 두는 대신 아예 감춘다 - 안 그러면 자리가 없다고 판정한 바로 그 글자가 제 폭으로 펼쳐진다.
-local SUMMARY_MIN_WIDTH = 24;
-
-function DebindKeyHeaderMixin:LayoutSummary()
-	local name = self.ActionName;
-	if (not name:IsShown()) then
-		return;
-	end
-
-	-- 끝 조각은 `useAtlasSize`라 제 폭을 들고 있다. 오른쪽 여백 4는 글자가 그 조각에 닿지
-	-- 않게 하는 값이다.
-	-- 빼는 값들은 전부 XML에 적힌 자리다: 키의 왼쪽 오프셋 10, 끝 조각에 안 닿을 오른쪽 여백 4,
-	-- 그리고 키와 이름 사이 4(`ActionName`의 앵커).
-	local available = self:GetWidth() - self.Right:GetWidth() - 10 - 4
-		- self.Name:GetUnboundedStringWidth() - 4;
-	if (self.IssueIcon:IsShown()) then
-		available = available - self.IssueIcon:GetWidth() - 2 - 4;
-	end
-
-	local count = self.ExtraCount;
-	if (count:IsShown()) then
-		available = available - count:GetUnboundedStringWidth() - 4;
-	end
-
-	-- **Narrow is not hidden.** This used to hide both fields when the space fell under a minimum,
-	-- and it could not undo it: the guard above returns before anything measures again, and the
-	-- only thing that shows them is `UpdateSummary`, which the resize path does not go through. One
-	-- narrow moment stripped a pooled heading for good, and widening the window did not bring it
-	-- back. It is clamped instead, so a tight heading truncates to `…` and grows again on its own.
-	name:SetWidth(max(SUMMARY_MIN_WIDTH, min(name:GetUnboundedStringWidth(), available)));
-end
-
---- The whole bar is the fold button. This template carries no control of its own and **the end
---- cap is the indicator** (`Options_ListExpand_Right` <-> `_Expanded`), so letting only that piece
---- be pressed would part what is visible from what is clickable.
----
---- Right opens the group's menu, and it is the same bar it has always been: nothing was added to
---- the art for it, and the fold keeps the button the reader already presses.
+--- **Left picks the group, the heading standing for every row under it**, with CTRL and SHIFT meaning
+--- on the group what they mean on a row. Right opens the group's menu.
 function DebindKeyHeaderMixin:OnClick(button)
 	if (button == "RightButton") then
 		self:OpenKeyGroupMenu();
 		return;
 	end
 
-	local groupKey = CollapseKeyFor(self.elementData.key, self.elementData.arrivalID);
-	_collapsedKeys[groupKey] = not _collapsedKeys[groupKey] or nil;
-	DebindResultPanel:RefreshKeyboard();
+	if (DebindFrame:IsCapturingKey()) then
+		return;
+	end
+
+	if (IsShiftKeyDown()) then
+		DebindResultPanel:SelectRangeTo(self.elementData, IsControlKeyDown());
+	elseif (IsControlKeyDown()) then
+		DebindResultPanel:ToggleGroupSelected(self.elementData);
+	else
+		DebindResultPanel:SelectGroup(self.elementData);
+	end
 end
 
 --- What this heading's menu would be built over, or `nil` where it would come up empty.
@@ -1509,9 +1444,8 @@ end
 --- points at, and since the row menu stopped carrying the set's own items there is no other way in
 --- to them - the whole reason the heading was once rejected as a place to put them.
 ---
---- **Folding is left out.** Not knowing it costs the reader nothing: the column opens expanded, so a
---- fold they never find leaves every action and every operation reachable. Not knowing the
---- right-click costs them the menu. That is the test for a line here, and it is why the row's tooltip
+--- **Picking the group is left out.** Not knowing it costs the reader nothing: every row under it can
+--- be picked on its own. Not knowing the right-click costs them the menu. That is the test for a line here, and it is why the row's tooltip
 --- legitimately names both of its gestures while this one names one.
 ---
 --- **The line is hung on exactly the headings that open something**, which is why the same predicate
@@ -1521,7 +1455,7 @@ end
 ---
 --- The template's own tooltip is being overridden and it had a job: the full title when the title is
 --- cut (`ListHeaderMixin:CheckUpdateTooltip`). The title line here does that job. Its other two -
---- highlighting the title, lighting the end cap - are why the inherited handler is called first
+--- highlighting the title, lighting the fold button - are why the inherited handler is called first
 --- rather than reimplemented.
 function DebindKeyHeaderMixin:OnEnter()
 	ListHeaderMixin.OnEnter(self);
@@ -1564,15 +1498,14 @@ function DebindKeyHeaderMixin:OpenKeyGroupMenu()
 		return;
 	end
 
-	-- The title names the set the way the heading does (`UpdateSummary`): the first action, and how
-	-- many more there are. Only that second number is counted here.
+	-- The title names the set by the first action and how many more there are. Only that second
+	-- number is counted here.
 	MenuUtil.CreateContextMenu(self, DebindUI.SetupKeyGroupDropdownMenu,
 		elementData.key, actions[1], #actions - 1, actions, elementData.arrivalID);
 end
 
 function DebindKeyHeaderMixin:Init(elementData)
 	self.elementData = elementData;
-	self:UpdateCollapsedState(elementData.collapsed == true);
 	-- Pooled frame: the previous group may have shown it.
 	self.IssueIcon:SetKind(nil);
 
@@ -1581,7 +1514,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- names it -- and that key is routinely one the reader already uses, which is why the group
 		-- is `(key, arrivalID)` and this heading is not the same heading as theirs
 		-- (`devdocs/building-export-import.md` 12절). What separates two of them on screen is the
-		-- summary beside the key (`UpdateSummary`) and the tint here.
+		-- tint here.
 		--
 		-- **Tinted rather than greyed.** Grey is "nothing here runs, and that is fine"; this one is
 		-- waiting on the reader, which is work.
@@ -1594,9 +1527,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- arrival above.
 		--
 		-- **The mark carries the problem instead**, and it carries the worst one: an error where
-		-- the key does not fire, a warning where it fires with one thing missing. A folded group
-		-- summarises only its first action, so without this a problem further down says nothing at
-		-- all while folded.
+		-- the key does not fire, a warning where it fires with one thing missing.
 		self.IssueIcon.rows = elementData.rows;
 		self.IssueIcon:SetKind(elementData.hasError and "error"
 			or elementData.hasWarning and "warning" or nil, GroupIssueMarkTooltip);
@@ -1609,85 +1540,6 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- tooltip comment on that cell has the history.
 		self:SetHeaderText(DISABLED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel()));
 	end
-
-	self:UpdateSummary();
-end
-
---- Says what the group holds: the first action's name, and how many more there are.
----
---- **Folded or not, the heading says the same thing.** It used to summarise only while folded, on
---- the reading that the rows below already name themselves. What that cost was a heading that
---- changed shape as it was pressed, and a count that vanished exactly when the reader had opened
---- the group to compare it against what was inside.
----
---- The first action is **the first in firing order** (the order `CollectActionsForKey` settles).
---- That is what actually goes out when the key is pressed, so if only one of them can be shown it
---- has to be that one.
----
---- With only one there is no count. `+0` goes out of its way to say there is nothing to count, and
---- the room goes back to the name standing longer.
-function DebindKeyHeaderMixin:UpdateSummary()
-	local elementData = self.elementData;
-	local rows = elementData.rows;
-	if (not rows or #rows == 0) then
-		self.ActionName:Hide();
-		self.ExtraCount:Hide();
-		return;
-	end
-
-	-- **키 없는 덩어리는 개수만 말한다.** 키 그룹에서 첫 이름이 뜻을 갖는 것은 그게 이 키를
-	-- 눌렀을 때 실제로 나가는 것이기 때문인데, 여기는 아무것도 안 나가고 차례도 발동 순서가
-	-- 아니라 이름순이라 첫째가 그냥 가나다순 첫 글자다. 대표로 세울 근거가 없다.
-	--
-	-- **`+N`을 안 쓴다.** 같은 자리에 같은 모양으로 서지만 산수가 다르다 - 저쪽 `+1`은 "이름 댄
-	-- 것 말고 하나 더"이고 여기는 총수다. 부호를 떼는 것이 그 둘을 가른다.
-	--
-	-- 앵커를 갈래마다 다시 잡는 것은 프레임이 풀에서 나오기 때문이다. 이름 칸에 매달린 채로
-	-- 이름만 숨기면 앞 요소가 남긴 폭만큼 개수가 밀려 선다.
-	local keyless = elementData.key == nil;
-	self.ExtraCount:ClearAllPoints();
-
-	if (keyless) then
-		self.ActionName:Hide();
-		self.ExtraCount:SetPoint("LEFT", self.Name, "RIGHT", 4, 0);
-		self.ExtraCount:SetFormattedText(LLL["OVERVIEW_NO_KEY_COUNT"], #rows);
-		self.ExtraCount:Show();
-	else
-		-- **타입은 떼고 이름만.** 세 번째 반환값이 그것이다 - 같은 이유로 상세 패널의 인포
-		-- 인셋도 이 값을 쓴다. 이 줄에서는 자리가 더 무거운 이유이기도 한데, "Wrath (주문)"의
-		-- 괄호 절반이 잘리는 자리를 차지하면 정작 잘리는 것은 이름 쪽이 된다.
-		local _, _, bareName = NameAndIconForAction(rows[1].action);
-		self.ActionName:SetText(bareName or "");
-		self.ActionName:SetWidth(0);
-		self.ActionName:Show();
-
-		self.ExtraCount:SetPoint("LEFT", self.ActionName, "RIGHT", 4, 0);
-		if (#rows > 1) then
-			self.ExtraCount:SetFormattedText(LLL["OVERVIEW_KEY_HEADER_MORE"], #rows - 1);
-			self.ExtraCount:Show();
-		else
-			self.ExtraCount:Hide();
-		end
-	end
-
-	-- **줄이 통째로 흐려진다.** 키만 흐리고 요약을 금색으로 두면 한 줄이 안 나간다는 말과
-	-- 나간다는 말을 같이 하게 된다. 금색은 폰트가 들고 있으므로 되돌릴 때도 명시해야 한다.
-	--
-	-- 키 없는 덩어리는 언제나 흐리다 - 키가 없으니 한 줄도 빌드에 안 들어간다. 머리글 글자가
-	-- 이미 `DISABLED`로 감싸여 나오므로 개수만 금색이면 한 줄이 두 말을 한다.
-	--
-	-- **Red does not travel the same way, on purpose.** Grey is true of every member at once, which
-	-- is what lets it take the whole line; a problem belongs to one row, and this summary names the
-	-- first action only. Painting that name red would accuse whichever action happens to fire first
-	-- of a fault that may be three rows down.
-	local r, g, b = NORMAL_FONT_COLOR:GetRGB();
-	if (keyless or elementData.allInactive) then
-		r, g, b = DISABLED_FONT_COLOR:GetRGB();
-	end
-	self.ActionName:SetTextColor(r, g, b);
-	self.ExtraCount:SetTextColor(r, g, b);
-
-	self:LayoutSummary();
 end
 
 --- DebindFrameMixin:Update가 목록의 모든 프레임에 이걸 부른다. 헤더가 말하는 것은 키뿐이고
@@ -3289,25 +3141,20 @@ local function CommitSelection()
 	DebindFrame:Update();
 end
 
---- **선택을 이 액션 하나로 접고 앵커를 거기 둔다.** nil이면 아무것도 안 고른 상태다.
+--- **Folds the selection onto this one action and anchors there.** nil is nothing picked.
 ---
---- 벌크가 생기기 전부터 있던 입구라 부르는 데가 많다(탭 전환, 지정 모드, `GoToAction`,
---- 액션이 사라졌을 때). 전부 "이제 이것 하나다"라는 뜻이므로 집합도 여기서 같이 접는다 -
---- 저쪽들이 집합을 따로 챙기게 만들면 한 군데는 반드시 빠진다.
+--- It predates bulk and has many callers (bind mode, `GoToAction`, an action going away), all of
+--- them meaning "just this one now", so the set folds here rather than at each of them.
 function DebindLayerPanelMixin:SetSelectedAction(action)
-	-- **앵커가 같아도 집합이 여럿이면 접어야 한다.** 벌크로 셋을 고른 뒤 그중 앵커 행을 다시
-	-- 좌클릭하는 것이 정확히 그 경우다. 앵커만 보고 돌아서면 나머지 둘이 고른 채로 남는다.
-	--
-	-- 집합에 앵커가 들어 있는지도 같이 본다 - CTRL-클릭으로 앵커 행을 집합에서 빼면 개수가
-	-- 1인데 그 하나가 앵커가 아닌 상태가 된다.
+	_anchorAction, _anchorGroup = action, nil;
+
+	-- **The same action with several picked still has to fold.** Picking three and left-clicking one
+	-- of them again is that case. Whether the set holds the action is asked too: CTRL can take it out
+	-- and leave a count of one that is some other row.
 	if (action) then
 		if (_selectedAction == action and _selectionCount == 1 and _selection[action]) then
-			-- **고를 것은 없어도 보여줄 것은 있다.** 이미 고른 행을 다시 누르는 것은 "그거
-			-- 어디 갔지"라는 뜻이다 - 그 사이 왼쪽 열을 굴려놨거나 그룹을 접어놨으면 화면에
-			-- 없고, 선택이 그대로라는 이유로 아무 일도 안 하면 누른 쪽에는 고장으로 보인다.
-			--
-			-- 목록을 다시 짓는 것은 접혀 있을 때 펼쳐야 하기 때문이다(`RefreshKeyboard`가
-			-- 짓기 전에 편다). 이미 펴져 있으면 지은 결과가 같으므로 화면은 스크롤만 한다.
+			-- **Nothing to pick, still something to show.** Pressing the picked row again means "where
+			-- did it go", and the left column may have been scrolled away from it since.
 			_revealAction = action;
 			DebindResultPanel:Refresh();
 			return true;
@@ -3324,8 +3171,6 @@ function DebindLayerPanelMixin:SetSelectedAction(action)
 	end
 	_selectedAction = action;
 
-	-- 오른쪽에서 고른 행을 왼쪽 열에서 찾아준다. 위 가드를 지나왔으므로 여기 오는 것은 선택이
-	-- **바뀐** 경우뿐이고, 같은 행을 다시 고르면 화면은 가만히 있는다.
 	_revealAction = action;
 
 	CommitSelection();
@@ -3336,7 +3181,7 @@ function DebindFrameMixin:GetSelectedAction()
 	return _selectedAction;
 end
 
---- 이 액션이 벌크 대상인가. 오른쪽 목록의 강조가 이걸 본다(앵커가 아니다).
+--- Whether this action is in the set. Both lists' highlight reads this, not `_selectedAction`.
 function DebindFrameMixin:IsActionSelected(action)
 	return _selection[action] == true;
 end
@@ -3345,23 +3190,43 @@ function DebindFrameMixin:GetSelectionCount()
 	return _selectionCount;
 end
 
---- 벌크 대상을 **목록에 보이는 순서대로** 돌려준다.
+--- The bulk set **in the order the left column draws it**, which holds every layer.
 ---
---- 집합은 해시라 순서가 없는데, 이동·복사가 목적지 맨 뒤에 차례로 붙이므로(`MoveAction`)
---- 넘기는 순서가 그대로 결과가 된다. 해시 순서로 넘기면 방금 화면에서 고른 차례와 다르게
---- 쌓이고, 그건 매번 다르기까지 하다.
+--- The set is a hash and has no order, while move and copy append to the destination one after
+--- another (`MoveAction`), so the order handed over is the order that results. In the column's order
+--- a key's actions keep their firing order on the way.
 function DebindFrameMixin:GetSelectedActions()
 	local actions = {};
-	if (_selectionCount == 0 or not self.LayerPanel.dataProvider) then
+	if (_selectionCount == 0) then
 		return actions;
 	end
 
-	for _, elementData in self.LayerPanel.dataProvider:EnumerateEntireRange() do
-		if (_selection[elementData.action]) then
-			actions[#actions + 1] = elementData.action;
+	for _, elementData in ipairs((BuildKeyboardElements())) do
+		local action = elementData.row and elementData.row.action;
+		if (action and _selection[action]) then
+			actions[#actions + 1] = action;
 		end
 	end
 	return actions;
+end
+
+--- Whether any member of this group is drawn in the left column. The pile with no key is the group
+--- whose key is nil, and it holds arrivals too.
+local function GroupIsDrawn(group, visible)
+	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+		for _, action in layer:Enumerate() do
+			local member;
+			if (group.key == nil) then
+				member = action.key == nil;
+			else
+				member = action.key == group.key and action.arrivalID == group.arrivalID;
+			end
+			if (member and (visible == nil or visible[action])) then
+				return true;
+			end
+		end
+	end
+	return false;
 end
 
 --- Drops out of the bulk set whatever the bin no longer shows. Called only when what the bin is
@@ -3370,7 +3235,17 @@ end
 --- Bulk can only touch **what is on screen**. That is the same rule as the right-click contract
 --- ("a menu opened on one row must not delete things that are not visible"), and it is also what
 --- keeps the count from lying.
+---
+--- **A group anchor goes with its group.** Once nothing of it is drawn SHIFT has nowhere to measure
+--- from, and accepting an arrival group ends here too, its `(key, arrivalID)` gone.
 function DebindFrameMixin:PruneSelectionToBinFilter(visible)
+	if (_anchorGroup) then
+		visible = visible or NarrowedVisibleActions();
+		if (not GroupIsDrawn(_anchorGroup, visible)) then
+			_anchorGroup = nil;
+		end
+	end
+
 	if (_selectionCount == 0) then
 		return;
 	end
@@ -3388,10 +3263,10 @@ function DebindFrameMixin:PruneSelectionToBinFilter(visible)
 	end
 end
 
---- CTRL-좌클릭. 그 행 하나를 집합에 넣거나 뺀다.
+--- CTRL on a row of either list. That one row goes into the set or out of it.
 ---
---- **뺐을 때도 앵커는 그 행으로 간다.** 앵커는 "마지막으로 누른 행"이지 "고른 행"이 아니고,
---- 그래야 SHIFT가 재는 기준점이 방금 누른 자리에 있다.
+--- **The anchor moves to it even when it goes out.** The anchor is the row last pressed rather than a
+--- picked row, so SHIFT measures from where the hand just was.
 function DebindLayerPanelMixin:ToggleActionSelected(action)
 	if (not action) then
 		return;
@@ -3405,46 +3280,46 @@ function DebindLayerPanelMixin:ToggleActionSelected(action)
 		_selectionCount = _selectionCount + 1;
 	end
 	_selectedAction = action;
+	_anchorAction, _anchorGroup = action, nil;
 
 	CommitSelection();
 end
 
 --- Makes these actions the selection again, with `anchor` as the anchor, after something rebuilt the
---- list under them. **Only what the list still draws goes in**, the same rule `PruneSelectionToBinFilter`
---- keeps: a row filtered out of sight is not something a later bulk press may reach.
+--- lists under them. **Only what the left column still draws goes in**, the same rule
+--- `PruneSelectionToBinFilter` keeps: a row filtered out of sight is not something a later bulk press
+--- may reach.
 function DebindLayerPanelMixin:SelectActions(actions, anchor)
+	local visible = NarrowedVisibleActions();
 	wipe(_selection);
 	_selectionCount = 0;
 	for _, action in ipairs(actions) do
-		if (not _selection[action] and self:FindElementDataByActionInfo(action)) then
+		if (not _selection[action] and (visible == nil or visible[action])) then
 			_selection[action] = true;
 			_selectionCount = _selectionCount + 1;
 		end
 	end
 	_selectedAction = anchor;
+	_anchorAction, _anchorGroup = anchor, nil;
 	_revealAction = anchor;
 
 	CommitSelection();
 end
 
---- SHIFT-좌클릭. 앵커부터 이 행까지를 집합으로 삼는다.
+--- SHIFT on a row of the layer list. The set becomes everything from the anchor to this row.
 ---
---- **앵커는 안 옮긴다.** 그래야 범위를 다시 잴 수 있다 - SHIFT를 한 번 더 찍으면 같은
---- 기준점에서 새로 재므로 늘리는 것만이 아니라 줄이는 것도 된다(위 `_selectedAction` 주석).
+--- **The anchor does not move**, so pressing SHIFT again measures from the same place and can shrink
+--- the range as well as grow it. `additive` (CTRL+SHIFT) keeps what was picked and adds the range:
+--- CTRL puts the anchor on the first row of a new run, and CTRL+SHIFT then grows that run alone.
 ---
---- `additive`(CTRL+SHIFT)면 앞서 고른 것을 그대로 두고 이 범위를 **더한다.** CTRL로 새 묶음의
---- 첫 행을 찍으면 앵커가 거기로 가므로, 이어서 CTRL+SHIFT로 그 묶음만 늘릴 수 있다 - 떨어져
---- 있는 덩어리 여럿을 한 집합에 담는 길이다. 없으면 행마다 CTRL을 눌러야 한다.
----
---- 앵커가 없거나 지금 목록에 없으면 그냥 하나만 고른다. 후자는 실재한다 - 앵커는 액션으로
---- 들고 있어서 탭이 바뀌어도 살아 있는데, 그 액션은 다른 레이어에 있으므로 여기서는 범위를
---- 잴 자리가 없다.
+--- With no row anchor in this list only this row is picked. A group anchor is one, since this list
+--- has no groups; so is a row anchor in another layer.
 function DebindLayerPanelMixin:SelectRangeTo(action, additive)
 	if (not action or not self.dataProvider) then
 		return;
 	end
 
-	local _, anchorIndex = self:FindElementDataByActionInfo(_selectedAction);
+	local _, anchorIndex = self:FindElementDataByActionInfo(_anchorAction);
 	local _, targetIndex = self:FindElementDataByActionInfo(action);
 	if (not anchorIndex or not targetIndex) then
 		return self:SetSelectedAction(action);
@@ -3472,6 +3347,15 @@ end
 function DebindLayerPanelMixin:FindElementDataByActionInfo(action)
 	local index, elementData = self.dataProvider:FindByPredicate(function(e) return e.action == action; end);
 	return elementData, index;
+end
+
+--- Lights the row for `action` the way a cursor over it would, if the list draws it right now. It
+--- never scrolls: the cursor is in the other column, and moving this one under it is not asked for.
+function DebindLayerPanelMixin:SetLinkedAction(action)
+	_linkedAction = action;
+	self.ScrollBox:ForEachFrame(function(button)
+		button:Update();
+	end);
 end
 
 --- 액션이 사는 행을 화면 안으로 데려온다. **이미 다 보이면 아무것도 하지 않는다** -
@@ -3866,20 +3750,9 @@ end
 function DebindFrameMixin:SetTab(id)
 	PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN);
 
-	-- **고른 것을 여기서 놓는다.** 탭을 옮기면 그 액션은 새 목록에 없고, 그러면 상세 패널만
-	-- 화면 어디에도 없는 액션을 붙들고 열려 있게 된다 - 왼쪽에는 짚어줄 행이 없으니 그 패널이
-	-- 무엇을 고치는 중인지 말해줄 것이 아무것도 없고, 거기서 키를 바꾸면 안 보이는 레이어가
-	-- 바뀐다. `Refresh`의 "액션이 없어졌을 때만 푼다"가 이 자리를 안 본다(그쪽 주석 참고).
-	--
-	-- 탭이 실제로 바뀔 때만이다. `GoToAction`은 같은 탭에도 이 함수를 부르고 곧바로 목표
-	-- 액션을 고르는데, 거기서 놓았다 다시 잡으면 패널이 한 번 접혔다 펴진다.
-	-- **검색어는 탭을 건너 산다.** 찾는 이름이 어느 탭에 있는지 모르는 채로 뒤지는 것이 흔한
-	-- 일이라, 탭을 옮길 때마다 다시 치게 만들면 검색이 탭 하나짜리 도구가 된다. 새 탭이
-	-- 걸러진 채로 열리는 것은 빈 목록 문구가 갈라준다(`NO_SEARCH_RESULTS`).
-	if (_selectedTab ~= id) then
-		self.LayerPanel:SetSelectedAction(nil);
-	end
-
+	-- **The selection lives across tabs**, the way the search text does. The left column picks across
+	-- every layer, so a tab switch dropping it would undo that. What the switch used to guard against,
+	-- an editor left open over an action no list draws, `Refresh` closes on its own.
 	_selectedTab = id;
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 	self.LayerPanel:UpdateSideTabs();
@@ -3932,16 +3805,34 @@ function DebindFrameMixin:ShowEditDropdown(button, elementData)
 	self:Update();
 end
 
+--- The broadest layer these actions live in, and how many other layers they span, nil for none.
+local function LayerSpread(actions)
+	local lowest, seen, count = nil, {}, 0;
+	for _, action in ipairs(actions) do
+		local layerID = DebindPrivate.FindLayerID(action);
+		if (layerID and not seen[layerID]) then
+			seen[layerID] = true;
+			count = count + 1;
+			if (lowest == nil or layerID < lowest) then
+				lowest = layerID;
+			end
+		end
+	end
+	return lowest, count > 1 and count - 1 or nil;
+end
+
 --- The same menu as `ShowEditDropdown`, opened over **the whole selection** rather than the row.
 ---
---- **The selection is the target and the row is not.** It is read out of the list, which holds one
---- layer, so every action in it lives in the layer on screen.
+--- **The selection is the target and the row is not.** It can span layers, so the menu is told the
+--- broadest one and how many more (`LayerSpread`). `inOrderList` is set when the left column opened it.
 ---
 --- `contextMenuAction` is left unset. It marks "this row's menu is open" for the row highlight
 --- (`IsEditDropdownShown`), and the rows this aims at are already drawn as selected.
-function DebindFrameMixin:ShowBulkDropdown(button)
+function DebindFrameMixin:ShowBulkDropdown(button, inOrderList)
+	local actions = self:GetSelectedActions();
+	local layer, otherLayers = LayerSpread(actions);
 	local menu = MenuUtil.CreateContextMenu(button, DebindUI.SetupActionDropdownMenu,
-		{ actions = self:GetSelectedActions(), layer = GetLayerID() });
+		{ actions = actions, layer = layer, otherLayers = otherLayers, inOrderList = inOrderList });
 	self.contextMenu = menu;
 	self.contextMenuAction = nil;
 	if (menu) then
@@ -4699,8 +4590,7 @@ function DebindOrderLineMixin:Update()
 
 	self.NewDot:SetShown(row.action.arrivalID ~= nil);
 
-	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
-	self.SelectedHighlight:SetShown(elementData.isCurrent);
+	self.SelectedHighlight:SetShown(DebindFrame:IsActionSelected(row.action));
 end
 
 --- 이 행의 툴팁 맨 아래 안내 줄. 좌클릭 줄만 이 목록의 것으로 갈아 끼운다 - 오른쪽 목록에서
@@ -4722,26 +4612,21 @@ function DebindOrderLineMixin:OnEnter()
 		layerLabel = GetLayerLabel(row.layerID),
 	});
 	GameTooltip:Show();
+	DebindLayerPanel:SetLinkedAction(row.action);
 end
 
 function DebindOrderLineMixin:OnLeave()
 	HideActionTooltip(GameTooltip);
+	DebindLayerPanel:SetLinkedAction(nil);
 end
 
---- Clicking a row of the result list **takes the reader to the bin the action lives in.**
+--- **A plain left click takes the reader to the tab the action lives in.** With CTRL or SHIFT it picks
+--- instead and the tab stays: this column holds every layer, so what it picks can span them.
 ---
---- This list is a projection: every row came from a different layer, and opening the edit menu
---- here would be changing an action without knowing where it is attached. Moving the bin to that
---- layer and pointing at the row instead means every change after that follows the bin's rules.
----
---- **Right click is the order menu.** The edit menu (`SetupActionDropdownMenu`) is not opened here:
---- it belongs to where the action lives, and taking the action there is this list's left click.
---- Order is the one exception, because **order is the very question this list answers**, and with
---- the answer in one place and the fix in another every one-step move would be a trip to the bin.
----
---- The arrow buttons stand only on the picked row. That is about always-on buttons cluttering the
---- list (`UpdateMoveButtons`) and does not reach a menu the reader opened on purpose, so here a key
---- with a single action still shows both items, dead, and their tooltip says why.
+--- **Right click opens the action menu here**, the one the layer list opens, with the two order items
+--- added (`ctx.inOrderList`). A selection across layers has nowhere else to open a menu. Over a
+--- picked row it aims at the whole set; anywhere else the set folds onto the row first, as on the
+--- layer list.
 function DebindOrderLineMixin:OnClick(button)
 	-- 캡처 중에는 이 목록이 아직 옛 키의 것이다. 곧 갈아치워질 화면에서 떠나지 않고, 그
 	-- 화면의 순서를 고치지도 않는다.
@@ -4749,17 +4634,35 @@ function DebindOrderLineMixin:OnClick(button)
 		return;
 	end
 
-	local row = self:GetElementData().row;
+	local elementData = self:GetElementData();
+	local row = elementData.row;
 
 	if (button == "RightButton") then
-		-- **액션만 넘긴다.** 메뉴는 뜬 채로 목록이 다시 지어질 수 있는 자리라, 지금 손에 든
-		-- 그룹과 자리(`elementData.rows/index`)를 딸려 보내면 그것이 낡는다. 저쪽은 누를 때
-		-- `ComputeOrderSwapForAction`으로 다시 묻는다.
-		MenuUtil.CreateContextMenu(self, DebindUI.SetupOrderDropdownMenu, row.action);
+		if (DebindFrame:GetSelectionCount() > 1 and DebindFrame:IsActionSelected(row.action)) then
+			if (not TryCloseAnyDialog()) then
+				return;
+			end
+			DebindFrame:ShowBulkDropdown(self, true);
+			return;
+		end
+
+		local action, layerID = row.action, row.layerID;
+		DebindLayerPanel:SetSelectedAction(action);
+		if (not TryCloseAnyDialog()) then
+			return;
+		end
+		MenuUtil.CreateContextMenu(self, DebindUI.SetupActionDropdownMenu,
+			{ actions = { action }, layer = layerID, inOrderList = true });
 		return;
 	end
 
-	DebindFrame:GoToAction(row.action, row.layerID);
+	if (IsShiftKeyDown()) then
+		DebindResultPanel:SelectRangeTo(elementData, IsControlKeyDown());
+	elseif (IsControlKeyDown()) then
+		DebindLayerPanel:ToggleActionSelected(row.action);
+	else
+		DebindFrame:GoToAction(row.action, row.layerID);
+	end
 end
 
 local ORDER_LINE_INDENT = 10;
@@ -4774,6 +4677,8 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 			factory("DebindKeyHeaderTemplate", function(frame)
 				frame:Init(elementData);
 			end);
+		elseif (elementData.isSpacer) then
+			factory("Frame");
 		else
 			factory("DebindOrderLineTemplate", function(button)
 				button:Init(elementData);
@@ -4781,10 +4686,13 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 		end
 	end);
 	view:SetElementExtentCalculator(function(_, elementData)
+		if (elementData.isSpacer) then
+			return KEY_GROUP_GAP;
+		end
 		return elementData.isHeader and KEY_HEADER_HEIGHT or ORDER_LINE_HEIGHT;
 	end);
 	view:SetElementIndentCalculator(function(elementData)
-		return elementData.isHeader and 0 or ORDER_LINE_INDENT;
+		return elementData.row and ORDER_LINE_INDENT or 0;
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
@@ -4883,34 +4791,19 @@ function BuildKeyboardElements()
 	for _, group in ipairs(groups) do
 		local key, arrivalID = group.key, group.arrivalID;
 		local rows = DebindPrivate.CollectActionsForKey(key, nil, arrivalID);
-		local collapsed = _collapsedKeys[CollapseKeyFor(key, arrivalID)] == true;
 		local shown = KeyGroupPasses(rows, key);
 
-		-- **이 키를 지금 눌러도 아무것도 안 나가는가.** 키는 걸려 있는데 멤버가 전부 다른
-		-- 특성 것인 경우가 그렇고, 머리글은 그때 흐려진다.
-		--
-		-- 판정은 빌드에 들어갔는지 하나다(`ActiveActions`). "오프스펙인가"로 물으면 같은
-		-- 답을 내는 다른 사유들 - 배지가 붙었다, 키가 번호다 - 을 따로 다시 세게 된다.
-		-- 행 쪽은 `IsActionLive`라 조건을 안 본다. 그래서 멤버가 전부 조건에 막힌 키는
-		-- 머리글만 흐려지고 행들은 제 색으로 남는다 - 머리글이 말하는 것이 "지금 눌러도
-		-- 안 나간다"이고 행이 말하는 것은 "네가 여기 둔 것"이라 서로 다른 물음이다.
-		--
 		-- **Is one of the ones that would run broken?** Only rows that got into the build are asked,
 		-- which is what keeps this from reddening over things the reader cannot act on now: an
 		-- off-spec or badged row is inactive for a reason of its own and already says so in its own
 		-- slot. A problem does not keep an action out of `ActiveActions` (`BuildKeyMap` sets that
 		-- outside the gate), so what is left is exactly "would run, except for this".
 		--
-		-- **One is enough**, unlike the grey above which needs all of them. Grey describes the group
-		-- - nothing here runs - while red points at work waiting in it, and one broken row is work.
-		-- A collapsed heading summarises only its first action, so a rule of "all of them" would
-		-- leave a group with one bad row saying nothing at all while folded.
-		local allInactive = true;
+		-- **One is enough.** Red points at work waiting in the group, and one broken row is work.
 		local hasError = false;
 		local hasWarning = false;
 		for i = 1, #rows do
 			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
-				allInactive = false;
 				-- **Only what stops the key is the loud one.** A row that fires with one thing
 				-- missing is not something to go and fix on this key -- the key works -- so it
 				-- gets the quieter mark rather than the same one a dead key gets.
@@ -4936,26 +4829,19 @@ function BuildKeyboardElements()
 			elements[#elements + 1] = {
 				isHeader = true,
 				key = key,
-				collapsed = collapsed,
-				-- The heading summarises these (`UpdateSummary`), folded or not. **Emptying `rows`
-				-- below rebinds the local name**, so the table carried here is left as it is.
+				-- What picking the heading picks, and the issue mark's rows. **Emptying `rows` below
+				-- rebinds the local name**, so the table carried here is left as it is.
 				rows = rows,
-				allInactive = allInactive,
 				hasError = hasError,
 				hasWarning = hasWarning,
-				-- Which arrival this group is, or nil for the reader own. The heading reads it to
-				-- know whether to tint, and the collapse state and the menu are filed under it.
+				-- Which arrival this group is, or nil for the reader's own. The heading reads it to
+				-- know whether to tint, and the menu and a group anchor are filed under it.
 				arrivalID = arrivalID,
 			};
 		end
 
-		-- 각 행에 **바로 아래 행을 이긴 이유**를 붙인다. 마지막 행에는 안 붙는다 - 이길
-		-- 상대가 없다. 넷 다 같았으면(nil) 남은 것은 순서 번호뿐이라 SEQ로 부른다.
-		--
-		-- **접혀 있으면 행을 안 만든다.** 만들어두고 숨기는 길도 있지만, 이 목록은 스크롤
-		-- 길이를 elementData 개수로 재므로(`SetElementExtentCalculator`) 숨긴 행은 빈 자리로
-		-- 남는다. 필터에 빠진 그룹도 같은 자리에서 걷힌다 - 머리글을 안 세웠으니 행도 없다.
-		if (collapsed or not shown) then
+		-- A group the filters took out gets no rows, as it got no heading.
+		if (not shown) then
 			rows = {};
 		end
 		for i, row in ipairs(rows) do
@@ -5021,24 +4907,11 @@ function BuildKeyboardElements()
 	end);
 
 	if (#rows > 0) then
-		local collapsed = _collapsedKeys[CollapseKeyFor(nil)] == true;
 		elements[#elements + 1] = {
 			isHeader = true,
 			key = nil,
-			collapsed = collapsed,
-			-- This pile gets the same summary every other heading gets. What differs is that its
-			-- first name is first in name order rather than in firing order, and nothing here fires
-			-- at all, so the difference has nothing to be about.
 			rows = rows,
-			-- **Not a scan like the one above, a definition.** Having no key at all is what puts an
-			-- action in this pile, so every member of it is inactive by construction. Leaving the
-			-- field off left this heading grey with a gold summary beside it -- the one split
-			-- `UpdateSummary` says it is there to prevent.
-			allInactive = true,
 		};
-		if (collapsed) then
-			rows = {};
-		end
 		for _, row in ipairs(rows) do
 			-- No `reason`, and no `rows`/`index`. Nothing here beat anything: with no key there is
 			-- no contest to win and nowhere to move to, so the arrows stay down (`UpdateMoveButtons`
@@ -5106,22 +4979,15 @@ local function RevealRow(scrollBox, headerIndex, rowIndex, keyless)
 end
 
 
---- 왼쪽 열을 다시 그린다.
+--- Redraws the left column.
 ---
---- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 그 행을
---- 짚는 것 하나뿐이다(`isCurrent`).
----
---- **스크롤은 부탁받았을 때만 움직인다**(`_revealAction`). 그리는 일과 보여주는 일이 갈리는
---- 자리다 - 그 둘이 붙어 있으면 접기가 성립하지 않는다.
+--- **It scrolls only when asked** (`_revealAction`). A rebuild runs on every selection change, and
+--- one that scrolled each time would take the reader's place away from them.
 function DebindResultPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 
-	-- 지어놓고 펼치면 방금 지은 목록을 버리고 다시 지어야 하므로, 펼치는 것이 먼저다.
 	local revealAction = _revealAction;
 	_revealAction = nil;
-	if (revealAction) then
-		_collapsedKeys[CollapseKeyFor(revealAction.key, revealAction.arrivalID)] = nil;
-	end
 
 	local elements = BuildKeyboardElements();
 
@@ -5154,21 +5020,157 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	-- 대신 지나온 머리글을 기억하는 쪽이, 묶는 규칙이 하나로 남는다.
 	local dataProvider = CreateDataProvider();
 	local headerIndex, revealIndex, revealHeaderIndex;
-	for i, elementData in ipairs(elements) do
+	for _, elementData in ipairs(elements) do
 		if (elementData.isHeader) then
-			headerIndex = i;
-		elseif (revealAction and elementData.row.action == revealAction) then
-			revealIndex, revealHeaderIndex = i, headerIndex;
+			dataProvider:Insert({ isSpacer = true });
+			dataProvider:Insert(elementData);
+			headerIndex = dataProvider:GetSize();
+		else
+			dataProvider:Insert(elementData);
+			if (revealAction and elementData.row.action == revealAction) then
+				revealIndex, revealHeaderIndex = dataProvider:GetSize(), headerIndex;
+			end
 		end
-		dataProvider:Insert(elementData);
 	end
 	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
 
 	-- 없을 수 있다 - 지워진 액션을 부탁받았거나, [들어온 것만]이 그 그룹을 통째로 걷어냈거나.
 	if (revealIndex) then
 		RevealRow(orderArea.ScrollBox, revealHeaderIndex, revealIndex,
-			elements[revealHeaderIndex].key == nil);
+			dataProvider:Find(revealHeaderIndex).key == nil);
 	end
+end
+
+--- Where the rows under the heading for this group stand in the column as drawn, first and last, or
+--- nil when no such heading is drawn. The pile with no key is the group whose key is nil.
+local function FindGroupSpan(dataProvider, key, arrivalID)
+	local first, last, inGroup;
+	for index, elementData in dataProvider:EnumerateEntireRange() do
+		if (elementData.isHeader) then
+			if (inGroup) then
+				break;
+			end
+			inGroup = elementData.key == key and elementData.arrivalID == arrivalID;
+		elseif (inGroup and elementData.row) then
+			first = first or index;
+			last = index;
+		end
+	end
+	return first, last;
+end
+
+local function FindRowIndex(dataProvider, action)
+	for index, elementData in dataProvider:EnumerateEntireRange() do
+		if (elementData.row and elementData.row.action == action) then
+			return index;
+		end
+	end
+end
+
+--- Where an element of the column stands: a row at its own index, a heading at every row under it.
+local function ElementSpan(dataProvider, elementData)
+	if (elementData.isHeader) then
+		return FindGroupSpan(dataProvider, elementData.key, elementData.arrivalID);
+	end
+	local index = FindRowIndex(dataProvider, elementData.row.action);
+	return index, index;
+end
+
+local function AnchorOnGroup(elementData)
+	_anchorAction = nil;
+	_anchorGroup = { key = elementData.key, arrivalID = elementData.arrivalID };
+	_selectedAction = elementData.rows[1].action;
+end
+
+--- A heading's left click. The set becomes every row under it, or nothing when it already was exactly
+--- that group.
+function DebindResultPanelMixin:SelectGroup(elementData)
+	if (_selectionCount == #elementData.rows) then
+		local all = true;
+		for _, row in ipairs(elementData.rows) do
+			if (not _selection[row.action]) then
+				all = false;
+				break;
+			end
+		end
+		if (all) then
+			DebindLayerPanel:SetSelectedAction(nil);
+			return;
+		end
+	end
+
+	wipe(_selection);
+	_selectionCount = 0;
+	for _, row in ipairs(elementData.rows) do
+		_selection[row.action] = true;
+		_selectionCount = _selectionCount + 1;
+	end
+	AnchorOnGroup(elementData);
+	CommitSelection();
+end
+
+--- CTRL on a heading. The group goes out whole when all of it is picked and in whole otherwise, the
+--- rule a half-ticked layer follows on the Storage tab (`ToggleLayer`).
+function DebindResultPanelMixin:ToggleGroupSelected(elementData)
+	local all = true;
+	for _, row in ipairs(elementData.rows) do
+		if (not _selection[row.action]) then
+			all = false;
+			break;
+		end
+	end
+	for _, row in ipairs(elementData.rows) do
+		local action = row.action;
+		if (all and _selection[action]) then
+			_selection[action] = nil;
+			_selectionCount = _selectionCount - 1;
+		elseif (not all and not _selection[action]) then
+			_selection[action] = true;
+			_selectionCount = _selectionCount + 1;
+		end
+	end
+	AnchorOnGroup(elementData);
+	CommitSelection();
+end
+
+--- SHIFT on a row or a heading of this column. The set becomes everything from the anchor to what was
+--- pressed, in the order the column draws. **A heading stands for every row under it at either end**,
+--- so a group is taken whole whichever side of the anchor it is on. `additive` (CTRL+SHIFT) keeps what
+--- was picked. With no anchor drawn here, only what was pressed is picked.
+function DebindResultPanelMixin:SelectRangeTo(elementData, additive)
+	local dataProvider = self.ContentArea.OrderArea.ScrollBox:GetDataProvider();
+	local targetFirst, targetLast = ElementSpan(dataProvider, elementData);
+	if (not targetFirst) then
+		return;
+	end
+
+	local anchorFirst, anchorLast;
+	if (_anchorGroup) then
+		anchorFirst, anchorLast = FindGroupSpan(dataProvider, _anchorGroup.key, _anchorGroup.arrivalID);
+	elseif (_anchorAction) then
+		anchorFirst = FindRowIndex(dataProvider, _anchorAction);
+		anchorLast = anchorFirst;
+	end
+	if (not anchorFirst) then
+		if (elementData.isHeader) then
+			return self:SelectGroup(elementData);
+		end
+		return DebindLayerPanel:SetSelectedAction(elementData.row.action);
+	end
+
+	if (not additive) then
+		wipe(_selection);
+		_selectionCount = 0;
+	end
+	for index = min(anchorFirst, targetFirst), max(anchorLast, targetLast) do
+		local found = dataProvider:Find(index);
+		local action = found and found.row and found.row.action;
+		if (action and not _selection[action]) then
+			_selection[action] = true;
+			_selectionCount = _selectionCount + 1;
+		end
+	end
+	CommitSelection();
 end
 
 --- 지금 단축키를 듣고 있는가.
