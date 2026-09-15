@@ -474,14 +474,8 @@ do
 		if (conditions.units) then
 			local first = true;
 
-			-- **`"@"` first, as the `Units` menu lists it**, and only where that menu draws its row
-			-- (`ActionMenuNodes.lua`'s `isListedUnit`). `none` locks the row and the condition is
-			-- dropped there, so a stored one is not drawn either. An `if` rather than `and`: the
-			-- condition answers `false` for [when there is none].
-			local resolved;
-			if (action.unit ~= "none" and DebindPrivate.ActionTakesUnit(action)) then
-				resolved = DebindPrivate.UnitConditionForBinding(conditions.units["@"]);
-			end
+			-- **`"@"` first, as the `Units` menu lists it.**
+			local resolved = DebindPrivate.UnitConditionForBinding(conditions.units["@"]);
 			if (resolved ~= nil) then
 				addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 				first = false;

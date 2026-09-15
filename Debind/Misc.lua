@@ -346,10 +346,11 @@ function DebindPrivate.PetActionTakesUnit(command)
     return command ~= nil and PET_ACTION_TAKES_UNIT[command] == true;
 end
 
---- Whether an action of this type and value can aim at a unit at all. **One test for every reader**:
---- the `Target` menu opens on it, the `Resolved Target` row is drawn on it, and `FillBinding` keeps a
---- unit and makes the self and focus twins on it. The first two drawing a row the third drops is a
---- setting that does nothing, which has happened here before.
+--- Whether an action of this type and value can aim at a unit at all. **One test for both readers**:
+--- the `Target` menu opens on it and `FillBinding` keeps a unit on it. The menu offering a target
+--- the binding drops is a setting that does nothing, which has happened here before.
+---
+--- **Not what decides `"@"`.** That asks the unit the press aims at, which every action has.
 function DebindPrivate.ActionTakesUnit(action)
     if (not Constants.TYPES_WITH_UNIT[action.type]) then
         return false;
@@ -363,6 +364,21 @@ function DebindPrivate.ActionTakesUnit(action)
         return not (info and info.stance);
     end
     return true;
+end
+
+--- Whether the reader picked a unit for this action to go to. **Neither a held cast key nor Hover
+--- Cast moves one** (2026-09-15, owner): a modifier carried over from the key pressed just before,
+--- ALT-1 then 2, reads as held at the press, and the client's own buttons never let it move a unit
+--- set on them either.
+---
+--- **`none` is not one.** It settles nothing before the press, so what the press aims at is worked
+--- out the way it is for an action with no target and only the cast goes out asking
+--- (`binding.castsAtNone`). A `unit` the type cannot take is not one either, nor the `hover` a hover
+--- condition fills in, which is why this reads the action and not `binding.unit`.
+function DebindPrivate.ActionHasPickedUnit(action)
+    local unit = action.unit;
+    return type(unit) == "string" and unit ~= "" and unit ~= "none"
+        and DebindPrivate.ActionTakesUnit(action);
 end
 
 --- 펫 명령 하나를 매크로 본문으로. 슬래시 명령이 없으면 nil - **부르는 쪽이 그걸로 거른다.**
@@ -688,6 +704,15 @@ local function ResolvedUnitOf(binding)
 end
 DebindPrivate.ResolvedUnitOf = ResolvedUnitOf;
 
+--- The unit a binding's cast goes out at: its `unit`, except on `none`, where `unit` is only what the
+--- press aims at and the cast itself always asks (`ActionHasPickedUnit`).
+function DebindPrivate.CastUnitOf(binding)
+    if (binding.castsAtNone) then
+        return "none";
+    end
+    return binding.unit;
+end
+
 local function BuildUnitStates(binding)
     DeriveHoverFields(binding);
 
@@ -809,8 +834,8 @@ do
     --- out at, so nothing below strips or fills it (`GetBindingsForAction` works it out). A hover
     --- twin also brings `twinCondition`, which lands under `pointedUnit`.
     ---
-    --- **`unit`이 처음부터 들어와야 한다**: 아래 `"@"` 정리가 `unit`을 보고 지우므로, 원본을 채운
-    --- 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다.
+    --- **`unit` has to arrive with the call**: the hover fill-in and `BuildUnitStates` at the end
+    --- both read it, so changing `unit` on a filled binding leaves `"@"` standing on the old unit.
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit)
         local twin = castModifier ~= nil;
         binding.type, binding.value = action.type, action.value;
@@ -968,26 +993,14 @@ do
             conditions.known = nil;
         end
 
-        if (conditions.units) then
-            -- A nil test, not a truthy one: a "@" holding [when there is none] arrives through a
-            -- shared profile, and a truthy test would let that condition through with no axis to
-            -- stand on.
-            --
-            -- **`none` is the one target that drops it, and the action's target is what is asked.**
-            -- That cast asks the reader for a target, so the press settles on no unit, and its twins
-            -- go out asking as well. Every other target keeps it, `player` included, and each
-            -- binding folds it onto the unit it aims at: the self twin of an action aimed at
-            -- `target` takes it onto `player` (`devdocs/implementing-focus-and-self-cast.md` §3-6).
-            if (conditions.units["@"] ~= nil and action.unit == "none") then
-                conditions.units["@"] = nil;
-            end
-
-            -- `"@"` and an explicit condition on the same unit used to be folded into one key
-            -- here, by hand, for the scalar shape. **Both consumers intersect them
-            -- themselves now**: `BuildUnitStates` with `band` for the solver, and
-            -- `mergeUnitConditions` per axis on the way to the snippet. Folding again would
-            -- be a third copy of one rule, and the one that drifts is the one nothing checks.
-        end
+        -- `"@"` and an explicit condition on the same unit used to be folded into one key here, by
+        -- hand, for the scalar shape. **Both consumers intersect them themselves now**:
+        -- `BuildUnitStates` with `band` for the solver, and `mergeUnitConditions` per axis on the way
+        -- to the snippet. Folding again would be a third copy of one rule, and the one that drifts is
+        -- the one nothing checks.
+        --
+        -- **No target drops `"@"`, `none` included** (2026-09-15, owner). `none` is aimed like an
+        -- action with no target and only its cast asks, so each binding of it has a unit to ask.
 
         if (conditions.groups and band(conditions.groups, Constants.GROUP_ALL) == Constants.GROUP_ALL) then
             conditions.groups = Constants.GROUP_ALL;
@@ -1014,6 +1027,11 @@ do
         -- **Not on a twin.** A twin of an action that takes no unit still carries `player` or
         -- `focus`, which is what the client's `UnitExists` guard reads: the press stops where there
         -- is no focus, as it does on an action bar.
+        --
+        -- **`none` keeps no unit here and goes out as `none` all the same** (`CastUnitOf`). Left in
+        -- `unit`, it would be where `"@"` is asked and where the hover condition fills in, and neither
+        -- has a unit to stand on there.
+        binding.castsAtNone = (action.unit == "none" and DebindPrivate.ActionTakesUnit(binding)) or nil;
         if (twin) then
             binding.unit = aimedUnit;
         elseif (not Constants.TYPES_WITH_UNIT[binding.type]) then
@@ -1021,6 +1039,8 @@ do
         elseif (not DebindPrivate.ActionTakesUnit(binding)) then
             -- The type alone does not settle a pet command or an action button, and the target menu
             -- asks the same question. Cleared here too, or a unit left in an old profile goes out.
+            binding.unit = nil;
+        elseif (binding.castsAtNone) then
             binding.unit = nil;
         end
 
@@ -1030,24 +1050,9 @@ do
         binding.castModifier = castModifier or Constants.CASTMOD_NONE;
         binding.hoverTwin = pointedUnit ~= nil or nil;
 
-        -- **An action that takes no unit drops `"@"`**: a type that carries none, or a pet command
-        -- that takes none, which the two branches above just stripped of its target. Every other
-        -- action keeps it, with a target or without one (`ResolvedUnitOf`).
-        --
-        -- **Before the hover fill-in below, for exactly those.** A hover condition on such an action
-        -- still gets `"hover"` written into `unit` there, and a `"@"` left behind would become a
-        -- condition on the hovered unit for an action that aims at nothing. The key would go on
-        -- working while judging something the reader never set.
-        if (conditions.units and not DebindPrivate.ActionTakesUnit(action)) then
-            conditions.units["@"] = nil;
-        end
-
-        -- **빈 표는 남기지 않는다.** `"@"`가 유일한 키였으면 위 두 자리가 그것을 지우고
-        -- `{}`가 남는데, `conditions.units`가 있느냐를 게이트로 쓰는 자리가 여럿이라
-        -- (`IsConditionalBinding`, 이슈 검사) 조건이 하나도 없는 액션이 조건부가 된다.
-        if (conditions.units and not next(conditions.units)) then
-            conditions.units = nil;
-        end
+        -- **An action that takes no unit keeps `"@"`** (2026-09-15, owner). It asks the unit the
+        -- press aims at, and whether the action does anything with that unit cannot be known: every
+        -- action has the self and focus twins, and a macro body can aim wherever it likes.
 
         if (conditions.petbattle and conditions.specialbar) then
             conditions.specialbar = nil;
@@ -1141,8 +1146,9 @@ do
     ---
     --- **Where it goes out is a separate answer.** An action the feature does not reach goes out the
     --- way its original does: `ignoreHoverUnit`, a type outside `TYPES_WITH_HOVER_UNIT_OPTION`, a
-    --- target of `none`, or a target that already is a pointed unit. `hover` stays `hover` in
-    --- Mouseover mode, because `mouseover` also reaches nameplates the reader never picked.
+    --- unit the reader picked (`ActionHasPickedUnit`, 2026-09-15, owner), or a `hover` a hover
+    --- condition filled in. That `hover` stays `hover` in Mouseover mode, because `mouseover` also
+    --- reaches nameplates the reader never picked. `none` is reached like an action with no target.
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
     --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
@@ -1176,8 +1182,8 @@ do
 
         local aim = unit;
         if (action.ignoreHoverUnit
+                or DebindPrivate.ActionHasPickedUnit(action)
                 or original.unit == "hover" or original.unit == "mouseover"
-                or original.unit == "none"
                 or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
             aim = original.unit;
         end
@@ -1245,18 +1251,18 @@ do
             end
         end
 
-        -- **Twins even where the action already aims at `focus` or `player`, or takes no unit**: the
-        -- original stands on [none held], so a held modifier has nothing else to land on. `none`
-        -- keeps asking for its unit whatever is held, as it does on an action bar, where the client
-        -- turns `checkfocuscast` off for it.
+        -- **Twins on every action, a picked unit and one that takes no unit included**: the original
+        -- stands on [none held], so a held modifier has nothing else to land on. A picked unit keeps
+        -- its twins aimed at itself (`ActionHasPickedUnit`), which is what keeps its place in the held
+        -- tier.
         --
         -- An action that ignores a key loses that twin or keeps it aimed where the original aims,
         -- whichever `Constants.CAST_KEY_IGNORE` says.
         local aimWhenIgnored = Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM;
         local focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(), DebindPrivate.SelfCastEnabled();
         local focusAim, selfAim = "focus", "player";
-        if (original.unit == "none") then
-            focusAim, selfAim = "none", "none";
+        if (DebindPrivate.ActionHasPickedUnit(action)) then
+            focusAim, selfAim = original.unit, original.unit;
         end
         if (action.ignoreFocusCastKey) then
             if (aimWhenIgnored) then
@@ -2452,15 +2458,20 @@ end
 local SWITCH_CLICK_TARGET = "DebindStates";
 
 --- The unit key a live `"@"` has to become, and **the stored table it has to be rewritten in**.
---- Nil where no live one exists; a unit with no table where there is one this cannot rewrite.
+--- Nil where it stays `"@"`; a unit with no table where there is one this cannot rewrite.
 ---
---- **The binding is the judge of live, not the action.** `GetBindingInfoForAction` has already
---- dropped `"@"` wherever the press aims at nothing: a type that carries no unit, a pet command that
---- takes none, `none`. Asking the action again would resurrect a condition that was not reaching
---- the key. Where it is live it goes where every other reader puts it (`ResolvedUnitOf`): the unit
---- aimed at, the hovered one for an action that aims there by derivation, and `target` for an
---- action with no target. The body the conversion writes has no `[@target]` in that last case, so
---- the game goes on placing the cast and the condition goes on asking the target.
+--- **The binding is the judge of live, not the action.** A condition `GetBindingInfoForAction` did
+--- not carry onto the binding is not reaching the key, and asking the action again would resurrect it.
+---
+--- **`none` never moves it.** Its body names `[@none]`, which is no unit to ask, and the macro text is
+--- aimed the way `none` already was, like an action with no target. `binding.unit` there can be the
+--- `hover` a hover condition filled in, which the body does not go to.
+---
+--- **It moves only where the body spells the unit out.** The macro text aims at nothing, so from
+--- then on its `"@"` asks `target`, or the twins' units with a key held. A body reading
+--- `[@focus]` goes to the focus whatever is held, and the condition has to follow it there. A body
+--- with no unit in it aims the way the action did, and its `"@"` already resolves the same way:
+--- moving it to `target` would keep the press with nothing held and break every held one.
 ---
 --- **But the binding reads units from two places and only one of them can be written back to.**
 --- Where `conditions.units` is absent it falls back to the flat pre-`dbver` 6 `checkedUnits`, so a
@@ -2473,11 +2484,17 @@ local function AimedUnitKeyForMacroText(action, binding)
         return nil;
     end
 
+    local unit = binding.unit;
+    if (binding.castsAtNone or type(unit) ~= "string" or unit == ""
+            or not DebindPrivate.ActionTakesUnit(action)) then
+        return nil;
+    end
+
     local stored = action.conditions and action.conditions.units;
     if (stored == nil or stored["@"] == nil) then
-        return ResolvedUnitOf(binding), nil;
+        return unit, nil;
     end
-    return ResolvedUnitOf(binding), stored;
+    return unit, stored;
 end
 
 --- Two stored conditions about one unit, folded onto the one key that can hold them.
@@ -2577,10 +2594,9 @@ end
 --- not (`devdocs/making-known-a-spell-name.md`). A body sitting in `value` is such a type, so the
 --- condition would be dropped on the way out and the row would go on drawing it.
 ---
---- `"@"` points at the unit the action aims at, and `MACROTEXT` carries no unit
---- (`TYPES_WITH_UNIT`), so the key has to become the unit's own name. That name is also the only
---- way a macro body's action can say anything about that unit at all: the target menu does not
---- open for one. Where the name is already taken the two fold into it
+--- `"@"` points at the unit the action aims at, and where the body spells that unit out the key has
+--- to become the unit's own name (`AimedUnitKeyForMacroText`). Where the name is already taken the
+--- two fold into it
 --- (`IntersectStoredUnitConditions`), which is the same fold `BuildUnitStates` was doing across
 --- the two keys -- **except when a value cannot be read**. Folding one of those would drop the
 --- mark that says it was not read, and that mark is what keeps the binding out of two roles it
@@ -2693,7 +2709,7 @@ function DebindPrivate.ConvertToMacroText(action)
     --- exactly the derived case (`AimedUnitKeyForMacroText`). Both are read here, before anything
     --- else asks for a binding: the table comes out of a cache and is refilled in place.
     local binding = GetBindingInfoForAction(action);
-    local unit = binding.unit;
+    local unit = DebindPrivate.CastUnitOf(binding);
     local atUnit, atUnits = AimedUnitKeyForMacroText(action, binding);
     if (unit == "") then
         unit = nil;
@@ -2785,9 +2801,6 @@ function DebindPrivate.ConvertToMacroText(action)
     end
 
     if (macrotext) then
-        -- **`"@"` names the same unit this body now spells out**, and a `MACROTEXT` has no field
-        -- for it to keep pointing at, so it moves to that unit's own key -- folding into whatever
-        -- that key already says about it.
         if (atUnit and atUnits) then
             atUnits[atUnit] = IntersectStoredUnitConditions(atUnits[atUnit], atUnits["@"]);
             atUnits["@"] = nil;

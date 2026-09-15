@@ -326,18 +326,31 @@ end
 --- **On every action, not only one that takes a target.** Every action has both twins
 --- (`devdocs/implementing-focus-and-self-cast.md` §3-4), so a held key reaches a macro or a mount as
 --- well, and taking one out of that press is the same choice there.
+---
+--- **Locked where every action has a unit picked, while the box aims.** A held key never moves a
+--- picked unit (`ActionHasPickedUnit`), so aiming the twin where the action already goes changes
+--- nothing. Dropping the twin still would, which is why the lock follows `CAST_KEY_IGNORE`.
 local function CreateIgnoreCastKeyMenuItems(parentDescription, ctx)
+    local aims = Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM;
+    local function everyUnitPicked()
+        return aims and AllActions(ctx, DebindPrivate.ActionHasPickedUnit);
+    end
     for _, box in ipairs({
         { key = "ignoreSelfCastKey", label = "IGNORE_SELF_CAST_KEY", enabled = DebindPrivate.SelfCastEnabled },
         { key = "ignoreFocusCastKey", label = "IGNORE_FOCUS_CAST_KEY", enabled = DebindPrivate.FocusCastEnabled },
     }) do
         local ignore = CreateCheckbox(parentDescription, ctx, LLL[box.label], actionValueEquals, setActionValue,
             { ctx = ctx, key = box.key, value = USE_CHECKED_VALUE });
-        ignore:SetEnabled(box.enabled);
-        local says = (Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM) and "_AIM_DESC" or "_DESC";
+        ignore:SetEnabled(function()
+            return box.enabled() and not everyUnitPicked();
+        end);
+        local says = aims and "_AIM_DESC" or "_DESC";
         SetInstructionTooltip(ignore, LLL[box.label .. says], function()
             if (not box.enabled()) then
                 return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
+            end
+            if (everyUnitPicked()) then
+                return LLL["CAST_KEY_TARGET_PICKED"];
             end
         end);
     end

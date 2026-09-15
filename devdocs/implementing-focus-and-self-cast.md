@@ -2,6 +2,10 @@
 
 > 상태: **§3이 들어갔다.** 모든 액션의 쌍둥이와 키를 네 층으로 펼치기(§3-4), 조합키 칸, 누를 때
 > 재기, 루프가 쌍둥이를 건너뛰기, 블리자드 쪽 판단 끄기, §3-6까지다. **§4(`@@`)는 아직이다.**
+>
+> **2026-09-15에 §3-1이 뒤집혔다.** 고른 유닛은 조합키도 Hover Cast도 안 따른다. 그에 따라 바뀐 §3-4의
+> 쌍둥이가 싣는 유닛, §3-6의 `none`, §3-12의 액션 칸 잠금은 들어갔다. **§3-13의 자가시전 칸과 §7의
+> 도움말 본문은 아직이다.** 지금 `HELP_TARGETING_BODY`는 옛 구성 그대로 뒤집기와 부딪치는 문장만 고쳤다.
 
 지금 두 조합키는 블리자드가 처리한다. 우리 클릭 프레임에 `checkselfcast`와 `checkfocuscast`를
 켜 두고(`Debind.lua`), 액션에 대상이 없을 때 `unit`을 비워 `SecureButton_GetModifiedUnit`이
@@ -21,6 +25,10 @@
 **우리 코드에도 같은 일이 있다.** hover 조건에서 따라 나온 대상, Hover Cast와 Mouseover Cast
 쌍둥이는 스니펫이 `unit`을 채운다. `unit`이 있으면 블리자드 함수는 첫 줄에서 돌아가므로 조합키가
 아예 닿지 않는다.
+
+**이 순서가 틀린 자리는 커서가 채운 유닛뿐이다** (2026-09-15, 소유자). 사용자가 적어 둔 유닛이 첫
+줄에서 돌아가는 것은 블리자드가 맞고, §3-1이 그렇게 돌아갔다. 블리자드는 `unit`이 커서가 채운 것인지
+사람이 적은 것인지 못 가르지만, 사용자 쪽에서는 둘이 다른 것이다. 하나는 적었고 하나는 아니다.
 
 **마우스오버 시전은 이미 우리 것이다.** `checkmouseovercast`는 모든 경로에서 꺼져 있다. 순서를
 블리자드에 맞출 이유가 없다.
@@ -51,17 +59,49 @@
 
 ## 3. 결정
 
-### 3-1. 모든 대상이 조합키를 따른다
+### 3-1. 고른 유닛은 조합키도 Hover Cast도 안 따른다 (2026-09-15, 소유자)
 
-대상이 없든, hover 조건에서 따라 나왔든, Hover Cast 쌍둥이든, 사용자가 `@tank`처럼 골랐든 조합키가
-이긴다 (2026-09-13, 소유자). **누르는 순간의 조합키가 지금의 의도를 표현한다.** 저장된 대상은
-설정할 때의 의도다.
+**대상을 고른 액션은 그 유닛으로만 나간다.** `player`, `focus`, `target`, `@healer`, `@tank`, 사용자
+정의 유닛, `hover`, `mouseover` 전부다. 조합키를 쥐어도, 유닛을 가리켜도 그 유닛이다. 조합키와 Hover
+Cast가 닿는 것은 **대상이 빈 액션과 `none`뿐이다.** `none`은 시전이 어차피 안 움직이니 닿는 것은
+`@`가 묻는 유닛이다(§3-6).
 
-**사용자가 고른 대상은 조합키를 무시하게 두는 안을 먼저 세웠다가 버렸다.** 근거는 "고른 대상도
-명시적인 의도"와 "`[@mouseover]` 매크로는 주시 대상 조합키를 안 따른다"였다. 앞의 것은 조합키도
-명시적이고 더 나중이라 이기지 못한다. 뒤의 것은 블리자드 동작인데, 그 순서가 틀렸다는 것이 이
-문서의 출발이다. 실수로 발동할 걱정도 없다. 바인딩 이름에 든 조합키는 클라이언트가 가리므로(§2-1)
-조합키가 참인 것은 일부러 더 누른 누름뿐이다.
+**사용자가 고른 것은 "고정"이라고 읽기로 한 결정이다.** 사용자가 그렇게 말한 적은 없고, 유닛을 고른
+것을 그렇게 읽는다. `none`은 반대로 "누르기 전엔 정하지 않는다"라 고른 유닛 쪽이 아니다.
+
+**2026-09-13의 결정은 반대였다.** 모든 대상이 조합키를 따랐다. 근거는 "누르는 순간의 조합키가 지금의
+의도이고 저장된 대상은 설정할 때의 의도"였고, 고른 대상을 고정하는 안은 "조합키도 명시적이고 더
+나중이라 이긴다"와 "`[@mouseover]` 매크로가 조합키를 안 따르는 것은 틀린 블리자드 순서다"로 버렸다.
+"실수로 발동할 걱정도 없다"고 적었다. 바인딩 이름에 든 조합키는 클라이언트가 가리므로(§2-1) 조합키가
+참인 것은 일부러 더 누른 누름뿐이라고.
+
+**움직인 것은 그 마지막 줄이다.** `ALT-1`, `2`, `ALT-3`을 이어 누르면 `2`를 누를 때 ALT가 아직
+눌려 있다. 클라이언트는 `ALT-2` 바인딩이 없으면 `2`로 떨어뜨리면서 `IsModifiedClick("FOCUSCAST")`를
+참으로 준다. 조합키 참이 곧 의도라는 읽기는 키를 하나씩 누를 때만 참이고, 이어 누르면 조합키가 뜻
+없이 묻어온다. 대상 빈 액션은 블리자드도 같은 사고를 겪으니 감수하는 값이지만, `@healer`를 적은
+키에서는 적은 것이 우연에 진다. 블리자드는 `unit`이 있는 버튼을 첫 줄에서 돌려보내 그 사고를 안
+겪는다. 잰 값(§2-1)은 그대로다.
+
+**두 번째 근거도 살아 있었다.** `[@focus]` 매크로가 조합키에 안 움직이는 것은 §1이 틀렸다고 한
+"커서가 조합키를 이기는" 자리가 아니다. 매크로를 써 본 사용자는 적어 둔 대상이 조합키에 안 움직이길
+이미 기대한다. Target 메뉴에서 유닛을 고르는 것은 그 자리에 `@`를 적는 것이다.
+
+**Hover Cast도 같다.** `legacy/adding-hover-and-mouseover-cast.md`의 첫 문장이 "액션에 대상을 안
+지정했을 때"이고, 대상 있는 액션에 닿게 한 결정은 없었다. 커서는 쥐는 것이 아니라 늘 어딘가에 있는
+상태다. 힐러는 개체창 위에서 살아서, `@tank` 키에 Hover Cast가 닿으면 매 누름이 가리킨 사람에게
+가고 탱커 키가 아니게 된다. Unit Frames 모드는 그걸 완화하지 않는다. 힐러의 커서가 개체창을 떠나는
+일이 더 드물다.
+
+**값.** "평소엔 힐러, CTRL을 쥐면 나"를 원하면 `CTRL-2`에 같은 주문을 `player`로 한 번 더 건다.
+조합키 붙은 키가 다른 키라는 것이 이 애드온의 모델이고, 그 키에서는 CTRL이 조합키로 안 보인다(§2-1).
+자가시전을 끄려고 `target`을 골랐던 사용자는 조합키와 Hover Cast를 잃는다. 그 사람에게는 §3-13이
+갈 길이다.
+
+**저울** (2026-09-15, 소유자). 이해시키는 값: "대상을 고르면 거기로만 간다"는 한 문장이고 매크로와
+같아 새로 배울 게 없다. 반대쪽은 "고른 대상은 커서에는 안 움직이는데 조합키에는 움직인다"라 왜
+그런지를 동작 원리로 설명해야 한다. 받아들이는 값: 이쪽은 키를 하나 더 거는 것이고 설정할 때 한 번
+겪는다. 반대쪽은 묻어온 ALT가 전투 중에 소리 없이 주문을 엉뚱한 데로 보내고, 겪는 사람이 원인을 못
+찾는다. 둘은 같은 저울에 안 올라간다.
 
 ### 3-2. 주시 대상으로 고정한다
 
@@ -71,6 +111,8 @@
 조합키를 누른 사람의 의도가 그 자리에서 깨진다.
 
 조건에 맞는 쌍둥이가 없으면 그 키는 그 누름에서 아무것도 안 한다. 액션 바가 원래 그렇게 동작한다.
+고른 유닛의 쌍둥이는 그 층에서 제 유닛으로 나가니(§3-1), 그런 액션이 앞에 서 있으면 그 누름은 거기로
+간다.
 
 ### 3-3. 둘 다 눌렸으면 자기 자신
 
@@ -84,17 +126,23 @@
 
 | 바인딩 | 조합키 칸 | 조건 | 나가는 유닛 |
 |---|---|---|---|
-| self 쌍둥이 | self | 원본 그대로 | `player`. 원본이 `none`이면 `none` |
-| focus 쌍둥이 | focus | 원본 그대로 | `focus`. 원본이 `none`이면 `none` |
+| self 쌍둥이 | self | 원본 그대로 | `player`. 원본이 유닛을 골랐으면 그 유닛, `none`이면 `none` |
+| focus 쌍둥이 | focus | 원본 그대로 | `focus`. 원본이 유닛을 골랐으면 그 유닛, `none`이면 `none` |
 | hover 쌍둥이 | 없음 | 원본에 [가리킨 유닛 있음]을 더한 것 | 설정의 `hover` / `mouseover`. 아래 경우는 원본의 `unit` |
 | 원본 | 없음 | 원본 | 원래 대상 |
 
+**self와 focus 쌍둥이가 원본의 유닛으로 나가는 것은 §3-1이다.** 고른 유닛은 조합키를 안 따르므로 그
+쌍둥이는 조합키 층에 서서 제 유닛으로 나간다. `ignoreSelfCastKey`/`ignoreFocusCastKey`를 켠 액션과 같은
+모양이다(§3-12의 AIM). 대상 빈 원본의 쌍둥이만 `player`/`focus`를 싣는다.
+
 **hover 쌍둥이가 원본의 `unit`으로 나가는 경우는 넷이다.** `ignoreHoverUnit`을 켰을 때, Hover Cast가
-닿지 않는 타입일 때(`TYPES_WITH_HOVER_UNIT_OPTION`), 원본이 `none`일 때, 원본이 이미 `hover`나
-`mouseover`를 겨눌 때다. 이 쌍둥이는 3층에 서기 위해서만 있다. `unit = "hover"` 원본은 Mouseover 모드에서도
-`hover`로 나간다. `mouseover`로 바꾸면 명판까지 닿아 사용자가 고른 뜻이 달라진다. [가리킨 유닛 있음]은 모드가
-가리키는 유닛 칸에 선다. 원본과 조건이 같거나 더 좁으므로 원본이 그 누름에서 대신 이기는 일은 없고, 솔버가
-원본을 덮인 것으로 지워도 된다.
+닿지 않는 타입일 때(`TYPES_WITH_HOVER_UNIT_OPTION`), 원본이 유닛을 골랐을 때(§3-1, `hover`와 `mouseover`도
+고른 유닛이다, `ActionHasPickedUnit`), hover 조건이 원본을 `hover`로 채웠을 때다. `none`은 여기 안 든다.
+hover 쌍둥이는 가리킨 유닛을 겨누고 `none`으로 나간다(아래). 원본의 `unit`으로 나가는 쌍둥이는 3층에 서기
+위해서만 있다. `hover`로 채워진 원본은 Mouseover 모드에서도 `hover`로 나간다. `mouseover`로 바꾸면 명판까지
+닿아 사용자가 고른 뜻이 달라진다. 고른 유닛에서는 `ignoreHoverUnit` 칸이 할 일이 없어 잠근다.
+[가리킨 유닛 있음]은 모드가 가리키는 유닛 칸에 선다. 원본과 조건이 같거나 더 좁으므로 원본이 그 누름에서
+대신 이기는 일은 없고, 솔버가 원본을 덮인 것으로 지워도 된다.
 
 **쌍둥이를 만들지 않는 경우는 셋뿐이다.** Hover Cast가 꺼져 있으면 hover 쌍둥이가
 없어서 3층이 통째로 없다. 가리킨 유닛에 [없을 때]를 건 액션에도 hover 쌍둥이가 없다. 가리킨 유닛이 있는
@@ -111,7 +159,8 @@
 레코드다.
 
 **`none` 쌍둥이는 이기면 `none`으로 나간다.** 블리자드 코드로 보면 `none`은 `checkfocuscast`가 꺼진 버튼이라
-조합키가 무시되고 커서가 뜬다. 쌍둥이는 층 안의 순서에서 경쟁하려고 있다. `@`는 원본처럼 지우고 나머지 조건은
+조합키가 무시되고 커서가 뜬다. 쌍둥이는 층 안의 순서에서 경쟁하려고 있다. `@`는 대상 빈 원본의 쌍둥이와 같은
+칸에 선다. self 쌍둥이는 `player`, focus 쌍둥이는 `focus`, hover 쌍둥이는 가리킨 유닛이다(§3-6). 나머지 조건은
 원본 그대로다.
 
 **대상을 받지 않는 타입의 쌍둥이도 `unit`을 싣는다** (`FillBinding`). 블리자드 액션 바도 조합키를 쥐면 액션
@@ -178,8 +227,9 @@
 돌면 조합키 없는 평범한 누름마다 액션 수의 두 배를 헛돌고 나서 본체에 닿는다. 클릭 핫패스라 레코드마다 칸을
 비교하는 대신 구간으로 가른다.
 
-**레코드에 "조합키를 따르나" 플래그가 없다.** 모든 대상이 따르므로(§3-1) 가를 것이 없고, 사용자가
-고른 hover와 따라 나온 hover를 가르던 필요도 같이 사라졌다.
+**레코드에 "조합키를 따르나" 플래그가 없다.** 따르느냐는 쌍둥이를 만들 때 싣는 유닛으로 이미 정해져
+있고(§3-4), 클릭 경로는 이긴 레코드의 `unit`으로 쏘기만 한다. 사용자가 고른 hover와 따라 나온 hover를
+가르는 것도 같은 자리에서 끝난다.
 
 ### 3-6. `@`는 대상과 따로 고른다
 
@@ -190,8 +240,14 @@
 **구울 때 `@`를 그 바인딩의 `unit` 칸에 접는 것은 그대로 둔다**(`UpdateBindings.lua`,
 `k = binding.unit`). 쌍둥이마다 `unit`이 정해져 있으니 접어도 뜻이 안 바뀐다.
 
-**`@`가 지워지는 대상은 `none` 하나다** (2026-09-13, 소유자). 그 시전은 대상을 입력받으므로 누름이
-정하는 유닛이 없고, 쌍둥이도 `none`으로 나가니 `@`가 설 칸이 없다. `player`는 `player` 칸에 산다.
+**`none`의 `@`는 대상 빈 액션과 같은 칸에 선다** (2026-09-15, 소유자). 원본은 `target`, self 쌍둥이는
+`player`, focus 쌍둥이는 `focus`, hover 쌍둥이는 가리킨 유닛이다. 시전은 어느 쌍둥이든 `none`으로 나가고
+조건만 그 유닛에 묻는다. 2026-09-13에는 `none`에서 `@`를 지웠다. 시전이 대상을 입력받으니 누름이 정하는
+유닛이 없다고 봤다. 뒤집은 이유는 `none`이 "안 겨눈다"가 아니라 "겨누어진 유닛에게 안 쏘고 나에게 묻는다"라는
+것이다. 겨누어진 유닛은 대상 빈 액션과 똑같이 정해지고, "내가 겨눈 것이 적이면 나에게 물어라"에서 Focus Cast
+Key를 쥐면 겨눈 것은 주시 대상이다. `@`를 `target`에 고정하는 안은 그 사이에 세웠다가 버렸다. "Always Ask의
+Resolved Unit이 `target`이다"는 우리가 정해 넣는 규약이라 사용자 문장으로 못 쓴다. `player`는 `player` 칸에
+산다.
 
 **대상 없는 원본의 `@`는 판정할 때만 `target`에 검사한다** (2026-09-13, 소유자). 원본은 조건을
 지우지 않고, 시전은 그대로 둔다. `unit`은 비운 채라 `SELFCAST_OFF_SNIPPET`을 안 거치고, 게임이 대상과
@@ -199,8 +255,13 @@ Auto Self Cast로 정한다. 가리킨 유닛을 안 쓰겠다고 끈 `""`도 �
 
 **`@`가 얹히는 칸은 그 원본이 누를 때 겨누는 곳이다**(`Misc.lua`의 `ResolvedUnitOf`). `binding.unit`이
 있으면 그 칸이고, hover 조건에서 채워진 `"hover"`도 여기 든다. nil이거나 `""`이면 `target`이다. 유닛
-상태, 구운 레코드, 이슈 검사, 매크로 변환이 이 하나를 같이 쓴다. 대상을 받지 않는 타입과 `none`은
-지운다.
+상태, 구운 레코드, 이슈 검사, 매크로 변환이 이 하나를 같이 쓴다. `none`을 지우던 것은 2026-09-15에
+빠졌다(위).
+
+**`none`은 바인딩의 `unit`을 비우고 `castsAtNone`을 든다** (`FillBinding`). `unit`은 겨누는 유닛만 뜻하고,
+쏘는 유닛은 `CastUnitOf`가 따로 답한다. 레코드의 `unit` 필드, 버튼 속성, 매크로 변환이 그쪽을 읽는다.
+`unit`에 `none`을 남기면 `@`와 hover 조건의 채워 넣기가 설 유닛이 없는 칸에 선다. 매크로 변환은 `none`의
+`@`를 옮기지 않는다. 본문의 `[@none]`은 물을 유닛이 아니고, 변환된 매크로도 대상 빈 액션처럼 겨눈다.
 
 **`unit = "target"`을 실제로 쓰지 않는 이유.** 그러면 `@`를 건 순간 Auto Self Cast가 꺼져 Target에서
 `target`을 고른 것과 같아진다.
@@ -212,8 +273,9 @@ Auto Self Cast로 정한다. 가리킨 유닛을 안 쓰겠다고 끈 `""`도 �
 `target`이 못 쓸 대상이면 `player`로 넘기는 흉내는 버렸다. 주문이 이로운지를 알아야 하는데, 그 성향은
 아무 데서도 안 읽기로 했다(`legacy/adding-hover-and-mouseover-cast.md` §0).
 
-**메뉴는 `Target` 아래에서 `Units` 아래로 옮겼다.** `Units` 맨 위의 `Resolved Target` 줄이고, 대상을 받는
-타입에만 그린다. 잠그는 것은 대상 `none`뿐이다. 이름을 따로 둔 것은 같은 메뉴에 사용자가 고르는
+**메뉴는 `Target` 아래에서 `Units` 아래로 옮겼다.** `Units` 맨 위의 `Resolved Unit` 줄이고, 모든 액션에
+그린다. 대상을 못 받는 액션도 쌍둥이가 유닛을 겨누고, 그 액션이 유닛을 쓰는지는 알 수 없어서다
+(2026-09-15, 소유자). `none`도 잠그지 않는다(위). 이름을 따로 둔 것은 같은 메뉴에 사용자가 고르는
 `Target`이 있어서다. 이 줄은 그 선택이 누를 때 무엇으로 정해지는지를 가리킨다.
 
 ### 3-7. 블리자드 쪽 판단은 끈다
@@ -290,15 +352,37 @@ Auto Self Cast로 정한다. 가리킨 유닛을 안 쓰겠다고 끈 `""`도 �
 
 | 값 | 쌍둥이 | 조합키를 쥔 누름에서 |
 |---|---|---|
-| `CAST_KEY_IGNORE_DROP` (기본) | 안 만든다 | 이 액션은 빠지고 뒤 액션이 나나 주시 대상으로 나간다. 뒤에 아무것도 없으면 BLOCK에서 끝난다 |
-| `CAST_KEY_IGNORE_AIM` | 원본이 겨누는 것을 겨눈다 | 이 액션이 조합키 층의 제 순서에 서서 자기 대상으로 나간다 |
+| `CAST_KEY_IGNORE_DROP` | 안 만든다 | 이 액션은 빠지고 뒤 액션이 나나 주시 대상으로 나간다. 뒤에 아무것도 없으면 BLOCK에서 끝난다 |
+| `CAST_KEY_IGNORE_AIM` (기본) | 원본이 겨누는 것을 겨눈다 | 이 액션이 조합키 층의 제 순서에 서서 자기 대상으로 나간다 |
 
 DROP은 "조합키를 쥐면 이 액션은 해당이 없다", AIM은 "이 액션은 조합키를 신경 쓰지 않는다"로 읽힌다.
-기본은 DROP이고 AIM은 상수 뒤에 둔다 (소유자). 두 체크박스의 툴팁이 상수를 따라 문구를 고른다.
+처음 기본은 DROP이었고, 2026-09-15에 소유자가 AIM으로 바꿨다. DROP은 상수 뒤에 둔다. 두 체크박스의 툴팁이 상수를 따라 문구를 고른다.
 
 **계정 칸이 이긴다.** 계정에서 끈 조합키는 쌍둥이 자체가 없으므로 액션 칸이 할 일이 없고, 메뉴의
 체크박스는 잠긴다. **AIM에서 조합키를 쥔 동안 이 액션에는 Hover Cast가 안 닿는다.** 쌍둥이가 가리킨
 유닛의 층(3층)이 아니라 조합키 층에 서기 때문이다.
+
+**유닛을 고른 액션은 두 칸이 켜진 것과 같다** (2026-09-15, 소유자). AIM이면 "대상을 골랐다"와 "두 무시
+칸을 켰다"가 같은 누름을 만든다. 조합키를 쥐어도 원래 대상으로 나간다. 그래서 유닛을 고른 액션에서는 두
+칸을 켜진 것으로 보고 잠근다. 두 칸이 사용자 손에 남는 자리는 대상이 빈 액션과 `none`뿐이다. `none`에서
+켜면 `@`가 `target`에 고정된다(§3-6).
+
+**끄는 것과 지우는 것은 다르다.** 계정에서 끄거나 대상을 골라 칸이 잠겨도 액션에 적힌 값은 남고, 다시
+열리면 그대로 산다.
+
+### 3-13. 자가시전을 끄는 칸 (2026-09-15, 소유자)
+
+**액션에 Auto Self Cast를 끄는 체크박스를 둔다.** 대상이 빈 액션에서만 뜻이 있고 그 밖에서는 잠긴다.
+켜면 원본을 `target`에 고정하고, 쌍둥이는 대상 빈 액션 그대로다. 곧 조합키와 Hover Cast는 그대로 닿고
+평범한 누름만 게임의 Auto Self Cast를 안 거친다.
+
+**이유.** 지금 자가시전을 끄는 길은 Target에서 `target`을 고르는 것뿐이라(§3-6), `target`이 "현재
+대상에 고정"과 "자가시전만 끄기" 두 뜻을 지고 있고 사용자가 어느 쪽으로 골랐는지 아무도 모른다. §3-1이
+고른 유닛을 고정하면 뒤엣 뜻으로 고른 사람이 조합키와 Hover Cast를 잃는다. 칸이 생기면 `target`은
+다른 유닛과 같은 고른 대상이 되고, 자가시전 끄기는 자기 이름을 가진다. Auto Self Cast는 클라이언트가
+쓰는 이름이라 설명이 필요 없다.
+
+**메뉴 값은 있지만 매 액션에 읽히는 칸이 아니다.** 원하는 사람만 찾는 자리다.
 
 ## 4. 커스텀 매크로의 `@@`
 
@@ -400,21 +484,36 @@ Mouseover 모드에서도 `hover`로 나가는 `hover` 원본의 쌍둥이, [없
 focus 누름과 가리킨 누름에서 `none`으로 나가는 것, 중요도 맨 앞의 `ignoreHoverUnit` 주문이 가리킨 누름에서
 원래 대상으로 나가는 것이다. `IsModifiedClick`은 인터프리터가 이름마다
 답을 넣는다. `@`가 대상 `player`와 쌍둥이의 칸에 서고, 대상 없는 원본과 `""`에서 `target` 칸에,
-hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는 것도 `normalize_spec`이 본다. 그 원본이
+hover로 채워진 원본에서 `hover` 칸에 서는 것도 `normalize_spec`이 본다. 그 원본이
 조건부로 서서 조건 없는 액션보다 앞인 것은 `keymap_spec`이, 판정은 대상에 하고 누름은 유닛 없이
 나가는 것은 `eval_spec`이, 툴팁이 그 조건을 `Units` 아래에 그리는 것은 `display_spec`이 본다.
+
+**헤드리스가 덮는 것(§3-1의 고른 유닛).** `target`, `focus`, `player`, `tank`, `healer`, `custom1`, `hover`,
+`mouseover`를 고른 액션의 self와 focus 쌍둥이가 그 유닛을 싣고 `@`가 그 유닛 칸에 남는 것, 고른 유닛의
+hover 쌍둥이가 그 유닛으로 나가는 것, 옛 프로필이 매크로에 남긴 유닛과 hover 조건이 채운 `hover`는 고른
+유닛이 아니라 조합키를 따르는 것(`normalize_spec`, `hovertwin_spec`). 조합키를 쥐어도 고른 대상으로 나가고
+조건이 안 맞으면 뒤의 대상 빈 액션이 조합키대로 받는 것, 가리킨 누름에서 고른 대상으로 나가는 것
+(`eval_spec`).
+
+**헤드리스가 덮는 것(`none`).** `none`의 원본이 `unit`을 비우고 `@`를 `target` 칸에, self와 focus 쌍둥이가
+`player`와 `focus` 칸에, hover 쌍둥이가 가리킨 유닛 칸에 세우고 셋 다 `none`으로 나가는 것
+(`normalize_spec`, `hovertwin_spec`). 아무것도 안 쥐었을 때 대상, self에서 나, focus에서 주시 대상,
+가리킨 누름에서 가리킨 유닛의 반응으로 승자가 갈리고 이긴 쪽이 시전 프레임에 `none`을 싣는 것
+(`eval_spec`). 변환해도 `@`가 그대로이고 본문이 `[@none]`인 것, hover 조건이 있어도 같은 것
+(`convert_spec`). 툴팁이 `none`의 `@` 줄을 그리는 것(`display_spec`).
 
 **헤드리스가 덮는 것(끄는 칸).** 끈 조합키를 쥔 누름이 원본으로 가고 그 조합키의 레코드가 키에 없는 것,
 켜 둔 다른 조합키는 그대로인 것(`eval_spec`). 조합키를 무시하는 액션이 그 조합키를 쥔 누름에서 DROP이면
 빠지고 AIM이면 자기 순서에 자기 대상으로 나가는 것, 조건이 안 맞으면 둘 다 뒤 액션이 나나 주시 대상으로
 나가는 것(`eval_spec`).
 
-**킷이 덮는 것(액션 칸).** 액션 메뉴의 두 체크박스가 필드를 쓰고, 그 조합키의 쌍둥이가 DROP에서
-없고 AIM에서 액션의 대상을 겨누는 것. 메뉴 파일이 헤드리스 목록에 없어서 여기서만 잰다.
+**킷이 덮는 것(액션 칸).** 액션 메뉴의 두 체크박스가 필드를 쓰고, 대상 빈 액션에서 그 조합키의 쌍둥이가
+DROP에서 없고 AIM에서 원본처럼 유닛 없이 겨누는 것. 메뉴 파일이 헤드리스 목록에 없어서 여기서만 잰다. 고른
+유닛에서 두 칸과 `ignoreHoverUnit`이 잠기는 것은 한 번 보면 끝나는 배선이라 재지 않는다.
 
-**킷이 덮는 것(메뉴).** `Resolved Target` 줄이 `Units` 아래에 서고, 대상 없는 액션에서 `@`를 쓰고,
-`none`에서 잠기고, 매크로에는 없고, `Target` 메뉴가 하위 메뉴를 안 여는 것. `DropDownMenus.lua`가
-헤드리스 목록에 없어서 여기서만 잰다.
+**킷이 덮는 것(메뉴).** `Resolved Unit` 줄이 `Units` 아래에 서고, 대상 없는 액션, `none`, 매크로에서
+열려 `@`를 쓰고, `Target` 메뉴가 하위 메뉴를 안 여는 것. `DropDownMenus.lua`가 헤드리스 목록에 없어서
+여기서만 잰다.
 
 **킷이 덮는 것.** `IsModifiedClick`이 제한 환경에서 불리는 것과, 정해진 유닛이 시전 프레임에 서는 것.
 조합키 값은 `SetMockState("castModifier", ...)`로 민다. 주입은 `IsModifiedClick`을 부른 뒤에 걸리므로
@@ -433,7 +532,7 @@ hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는
 `|cnHIGHLIGHT_FONT_COLOR:...|r`가 된다.
 
 담아야 하는 것 둘 (2026-09-13, 소유자). **블리자드와 달리 조합키가 가리킨 유닛보다 먼저인 이유**와,
-**`Resolved Target` 조건이 어느 유닛에 검사되는가**다. 동작과 부딪치지 않는 것만으로는 읽는 사람에게 줄
+**`Resolved Unit` 조건이 어느 유닛에 검사되는가**다. 동작과 부딪치지 않는 것만으로는 읽는 사람에게 줄
 것이 없다.
 
 대상 없음(`unit` nil) 원본은 조합키도 없고 Hover Cast가 유닛을 안 정했으면 `@` 조건을 현재 대상에
@@ -443,21 +542,25 @@ hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는
 >
 > When you press a Debind key, the unit the action goes to is decided in this order. The first one that applies wins.
 >
-> 1. **Self Cast Key** held: you.
-> 2. **Focus Cast Key** held: your focus.
-> 3. **Hover Cast** on and you are pointing at a unit: that unit.
-> 4. A unit picked under **Target**: that unit.
+> 1. A unit picked under **Target**: that unit, always.
+> 2. **Self Cast Key** held: you.
+> 3. **Focus Cast Key** held: your focus.
+> 4. **Hover Cast** on and you are pointing at a unit: that unit.
 > 5. Nothing picked: the game decides, the same way it does on an action bar.
 >
 > The two keys are the ones in the game's own settings. Unless you changed it, the Self Cast Key is Alt. A modifier that is part of the key you bound, such as the Alt in Alt-C, does not count as holding one.
 >
-> **Why the keys come first.**
+> **A picked target stays picked.**
 >
-> On the game's action bars it is the other way round: with Mouseover Cast on, the unit under your cursor beats a held Focus Cast Key. That goes wrong exactly when it matters. Your cursor rests on whatever enemy you last clicked, so when you hold the Focus Cast Key to interrupt your focus, the interrupt lands on the enemy under the cursor instead. Holding a key is something you do on purpose at the moment you press. Where the cursor happens to be is not. So on a Debind key the held key wins, even over a target you picked for the action.
+> When you pick a unit under Target, the action goes there and nothing moves it: not a held key, not the unit under your cursor. It works the way a macro with `[@focus]` in it does. If you want the same spell on yourself while holding Ctrl, bind it once more on the Ctrl key with **Player** as its target.
 >
-> A held key does not fall back. Hold the Focus Cast Key and only an action whose conditions accept your focus can go out. With no focus, or with a focus none of them accepts, the key does nothing. It does not go to your target or to the unit you are pointing at instead. This holds for every action on the key, a macro or a mount included, the same as on an action bar.
+> **Why the keys beat the cursor.**
 >
-> **Resolved Target.**
+> On the game's action bars, with Mouseover Cast on, the unit under your cursor beats a held Focus Cast Key. That goes wrong exactly when it matters. Your cursor rests on whatever enemy you last clicked, so when you hold the Focus Cast Key to interrupt your focus, the interrupt lands on the enemy under the cursor instead. Holding a key is something you do on purpose at the moment you press. Where the cursor happens to be is not. So on a Debind key with no target picked, the held key wins.
+>
+> A held key does not fall back. Hold the Focus Cast Key and only an action whose conditions accept your focus can go out, apart from one with a picked target, which goes to its own unit as always. With no focus, or with a focus none of them accepts, the key does nothing. It does not go to your target or to the unit you are pointing at instead. This holds for every action on the key, a macro or a mount included, the same as on an action bar.
+>
+> **Resolved Unit.**
 >
 > This is where you put a condition on the unit the action is about to be used on, such as "only if friendly". It is checked against the unit chosen by the list above:
 >
@@ -471,19 +574,19 @@ hover로 채워진 원본에서 `hover` 칸에 서고, `none`에서 지워지는
 >
 > **You picked a target for the action.**
 >
-> The action goes to that unit unless a key or Hover Cast comes first. Auto Self Cast does not apply: a friendly spell aimed at an enemy does not come back to you, it simply does not go out. **Disable** under Target hands the decision back to the game.
+> The action goes to that unit. Auto Self Cast does not apply: a friendly spell aimed at an enemy does not come back to you, it simply does not go out. **Disable** under Target hands the decision back to the game.
 >
-> **Always Ask** is different. The game asks you to click a unit when you press the key, and neither key changes that.
+> **Always Ask** is different. The game asks you to click a unit when you press the key, and neither key nor Hover Cast changes that. A condition on **Resolved Unit** still follows the keys and the cursor, the same as with no target picked: it is checked on the unit you would have hit, and the game then asks you anyway.
 >
 > **You did not pick a target.**
 >
-> Auto Self Cast works as it does on an action bar: a friendly spell cast at an enemy, or at nothing, goes to you.
+> Auto Self Cast works as it does on an action bar: a friendly spell cast at an enemy, or at nothing, goes to you. **Disable Auto Self Cast** on the action turns that off for this one action and leaves the keys and Hover Cast working.
 >
 > **Hover Cast.**
 >
 > The game's own Mouseover Cast is switched off for Debind keys, because the game cannot tell which spell a Debind key is about to cast. **Hover Cast** in Debind's settings takes its place. **Unit Frames** uses the unit frame under your cursor. **Mouseover** also uses nameplates and units in the world.
 >
-> It reaches any action you can give a target, apart from a pet command, even one that has a target picked. A macro or a mount is left alone. It does not ask whether the spell is friendly or harmful, so put a condition on **Resolved Target** when that matters. **Don't use the action on the unit you are pointing at** leaves one action out of it.
+> It reaches any action you can give a target, apart from a pet command, as long as no target is picked for it. A macro or a mount is left alone. It does not ask whether the spell is friendly or harmful, so put a condition on **Resolved Unit** when that matters. **Don't use the action on the unit you are pointing at** leaves one action out of it.
 >
 > **Clicking a unit frame.**
 >

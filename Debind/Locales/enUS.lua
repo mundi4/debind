@@ -934,11 +934,10 @@ L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Deb
 -- will otherwise conclude the key is broken. The line that follows points at what does the same
 -- job here, or the paragraph is only bad news.
 --
--- **The two keys get a paragraph of their own, ahead of the branches**, because they are the one
--- thing that is the same in every branch: a held key wins over a picked target and over the unit
--- under the cursor (`devdocs/implementing-focus-and-self-cast.md` §3-1). Said once there, each
--- branch below only has to name the two that still differ. The frame click is the exception told
--- inside that paragraph, since it is the one place a held key does not redirect.
+-- **The two keys get a paragraph of their own, ahead of the branches**: a held key wins over the unit
+-- under the cursor, and never moves a target the reader picked (2026-09-15, owner). Said once there,
+-- each branch below only has to name what still differs. The frame click is the other place a held
+-- key does not redirect, and it is told inside that paragraph.
 --
 -- **Written as what the reader did**, never as what the addon stores: chose a target, pointed at a
 -- frame, turned a box off. The three branches are the same rule seen from three places, and each
@@ -948,7 +947,7 @@ L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Deb
 -- reader has to go and neither can be pointed at from here any other way. Renaming either one
 -- moves this sentence with it.
 L["HELP_TARGETING_TITLE"] = "Which unit an action is used on"
-L["HELP_TARGETING_BODY"] = "WoW has four ways to send a spell somewhere other than your current target, and they are all in the same place in the game's own settings.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Self Cast Key.|r Hold it and a friendly spell goes to you.|n2. |cnHIGHLIGHT_FONT_COLOR:Focus Cast Key.|r Hold it and the spell goes to your focus.|n3. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast.|r The spell goes to the unit under your cursor.|n4. |cnHIGHLIGHT_FONT_COLOR:Auto Self Cast.|r A friendly spell you cast with an enemy targeted, or with nothing targeted, goes to you instead.|n|nThe first three are keys you hold: you decide, at the moment you press. The fourth is not a key at all -- it is the game quietly sending a cast to you that could not have gone where you aimed it. They sit on one row in the settings and read as one thing, and telling them apart is most of this page.|n|n|cnHIGHLIGHT_FONT_COLOR:The Self Cast Key and the Focus Cast Key.|r|n|nOn a Debind key these two always win. Hold one and the action goes to you or to your focus, whether or not you picked a target for it, and ahead of the unit under your cursor. If the action's conditions do not hold for that unit, the key does nothing rather than going where it would have gone without the key.|n|nEither one can be turned off in Debind's settings. Holding a key turned off there is the same as not holding it.|n|nClicking a unit frame is the one exception. A key held on a click picks the binding you made for that exact combination, so the click still goes to the frame's unit.|n|n|cnHIGHLIGHT_FONT_COLOR:You did not pick a target for the action.|r|n|nAuto Self Cast works, exactly as it does on an action bar.|n|nThe game's own Mouseover Cast does not. It is the one part of this the game cannot answer for a Debind key, so it is switched off rather than left to give a wrong answer. Debind has its own in its place, in the addon's settings. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast|r there sends an action to the unit under your cursor, and |cnHIGHLIGHT_FONT_COLOR:Hover Cast|r beside it does the same for the unit frames Debind knows. To send one action and no other, set its target to |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r.|n|n|cnHIGHLIGHT_FONT_COLOR:You picked a target for the action.|r|n|nThe action goes to that unit unless you hold one of the two keys above. Mouseover Cast and Auto Self Cast do not apply: a friendly spell aimed at an enemy does not come back to you -- it simply does not go out.|n|nThat is what picking an entry in |cnHIGHLIGHT_FONT_COLOR:Target|r means. You named where the action goes, so nothing but a key you hold gets to move it. |cnHIGHLIGHT_FONT_COLOR:Disable|r is the other answer: it leaves the decision to the game, which is the case above.|n|n|cnHIGHLIGHT_FONT_COLOR:The action is used on the unit frame you are pointing at.|r|n|nThe same. Pointing at a frame is picking a target, so the action goes to that frame's unit, and Mouseover Cast and Auto Self Cast stay out of it.|n|nTurn on |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the unit you are pointing at|r and you have taken that back: the action no longer goes to the frame's unit, and the game decides again, exactly as in the first case.|n|n|cnHIGHLIGHT_FONT_COLOR:Hover Cast and Mouseover Cast.|r|n|nThese two reach any action you can give a target of its own, apart from a pet command, and they reach it even where you gave it one. A macro or a mount is left alone. A held Self Cast Key or Focus Cast Key comes first. The unit you point at is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters. The same box as above, |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the unit you are pointing at|r, leaves one action out of both."
+L["HELP_TARGETING_BODY"] = "WoW has four ways to send a spell somewhere other than your current target, and they are all in the same place in the game's own settings.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Self Cast Key.|r Hold it and a friendly spell goes to you.|n2. |cnHIGHLIGHT_FONT_COLOR:Focus Cast Key.|r Hold it and the spell goes to your focus.|n3. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast.|r The spell goes to the unit under your cursor.|n4. |cnHIGHLIGHT_FONT_COLOR:Auto Self Cast.|r A friendly spell you cast with an enemy targeted, or with nothing targeted, goes to you instead.|n|nThe first three are keys you hold: you decide, at the moment you press. The fourth is not a key at all -- it is the game quietly sending a cast to you that could not have gone where you aimed it. They sit on one row in the settings and read as one thing, and telling them apart is most of this page.|n|n|cnHIGHLIGHT_FONT_COLOR:The Self Cast Key and the Focus Cast Key.|r|n|nOn a Debind key these two come ahead of the unit under your cursor. Hold one and an action with no target picked goes to you or to your focus. An action you picked a target for keeps going there: a key still held from the key you pressed just before would otherwise send it somewhere you never chose. If the action's conditions do not hold for that unit, the key does nothing rather than going where it would have gone without the key.|n|nEither one can be turned off in Debind's settings. Holding a key turned off there is the same as not holding it.|n|nClicking a unit frame is the one exception. A key held on a click picks the binding you made for that exact combination, so the click still goes to the frame's unit.|n|n|cnHIGHLIGHT_FONT_COLOR:You did not pick a target for the action.|r|n|nAuto Self Cast works, exactly as it does on an action bar.|n|nThe game's own Mouseover Cast does not. It is the one part of this the game cannot answer for a Debind key, so it is switched off rather than left to give a wrong answer. Debind has its own in its place, in the addon's settings. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast|r there sends an action to the unit under your cursor, and |cnHIGHLIGHT_FONT_COLOR:Hover Cast|r beside it does the same for the unit frames Debind knows. To send one action and no other, set its target to |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r.|n|n|cnHIGHLIGHT_FONT_COLOR:You picked a target for the action.|r|n|nThe action goes to that unit. Neither of the two keys above moves it, and Mouseover Cast and Auto Self Cast do not apply: a friendly spell aimed at an enemy does not come back to you -- it simply does not go out.|n|nThat is what picking an entry in |cnHIGHLIGHT_FONT_COLOR:Target|r means. You named where the action goes, so nothing gets to move it. |cnHIGHLIGHT_FONT_COLOR:Disable|r is the other answer: it leaves the decision to the game, which is the case above.|n|n|cnHIGHLIGHT_FONT_COLOR:The action is used on the unit frame you are pointing at.|r|n|nThe same. Pointing at a frame is picking a target, so the action goes to that frame's unit, and Mouseover Cast and Auto Self Cast stay out of it.|n|nTurn on |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the unit you are pointing at|r and you have taken that back: the action no longer goes to the frame's unit, and the game decides again, exactly as in the first case.|n|n|cnHIGHLIGHT_FONT_COLOR:Hover Cast and Mouseover Cast.|r|n|nThese two reach any action you can give a target of its own, apart from a pet command, as long as you have not picked one for it. A macro or a mount is left alone. A held Self Cast Key or Focus Cast Key comes first. The unit you point at is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters. The same box as above, |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the unit you are pointing at|r, leaves one action out of both."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"
@@ -1179,23 +1178,23 @@ L["TAB_DESC_SHARED"] = "Every character on the account."
 L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Account, unless conditions or Importance say otherwise."
 -- The instruction line on the `Target` row (`MenuKit`'s `<label>_DESC` rule).
 --
--- **The second sentence is the surprising half, and it splits the four in two.** A picked target
--- takes the action out of the two redirections that happen without a key, and keeps the two keys a
--- reader holds at the moment of pressing, because what is held then is what they mean then
--- (`devdocs/implementing-focus-and-self-cast.md` §3-1). All four are named with the client's own
--- labels so they can be matched against the game's settings panel, where they sit together.
+-- **The second sentence is the surprising half.** A picked target is taken out of every
+-- redirection, the two keys included: a key still held from the key pressed just before reads as
+-- held, and would send the action somewhere the reader never chose (2026-09-15, owner). The client's
+-- own names are used so they can be matched against the game's settings panel, where they sit
+-- together; Hover Cast is this addon's own and sits in its settings.
 --
 -- **`Disable` is named because it is the way back**, it is the row directly above in this same
 -- menu, and its own label carries no hint that it is the one that hands the decision to the game.
-L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame.|n|nWhile a target is picked here, Mouseover Cast and Auto Self Cast are left out. Holding the Self Cast Key or the Focus Cast Key still sends the action to you or to your focus. Disable hands the decision back to the game."
+L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame.|n|nWhile a target is picked here, nothing moves it: not the Self Cast Key or the Focus Cast Key, not Hover Cast, not Mouseover Cast or Auto Self Cast. Disable hands the decision back to the game."
 -- Carried by every entry in the `Target` menu except `Disable`, appended to whatever that entry
 -- says for itself (`ActionMenuItems.lua`). The parent row says it too (`TARGET_UNIT_DESC`); this
 -- one exists because a reader can land on a single entry without passing the parent.
 --
--- **The four are the client's own labels**, so the sentence can be matched against the game's
--- settings panel, where they sit together. Auto Self Cast is named although no key is held for it:
+-- **Every redirection is named**, the client's with the client's own labels so the sentence can be
+-- matched against the game's settings panel. Auto Self Cast is named although no key is held for it:
 -- it fires with no key at all, so leaving it out would read as "that one still applies".
-L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here unless you hold the Self Cast Key or the Focus Cast Key, which send it to you or to your focus. Mouseover Cast and Auto Self Cast are left out. Disable hands the decision back to the game."
+L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here: neither the Self Cast Key nor the Focus Cast Key moves it, and Hover Cast, Mouseover Cast and Auto Self Cast are left out. Disable hands the decision back to the game."
 L["TARGET_UNIT"] = "Target"
 -- Two wordings per box, one per `Constants.CAST_KEY_IGNORE` (`ActionMenuItems.lua` picks), because
 -- the two answers differ exactly in what a reader holding the key sees go out
@@ -1203,16 +1202,18 @@ L["TARGET_UNIT"] = "Target"
 -- `_AIM_DESC` the action keeping its turn at its own target.
 L["IGNORE_SELF_CAST_KEY"] = "Disable Self Cast Key"
 L["IGNORE_SELF_CAST_KEY_DESC"] = "While the Self Cast Key is held, this action is left out: the next action on the key that can go to you goes instead, and with none the key does nothing."
-L["IGNORE_SELF_CAST_KEY_AIM_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes to its own target, and keeps its place among the actions on the key."
+L["IGNORE_SELF_CAST_KEY_AIM_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["IGNORE_FOCUS_CAST_KEY"] = "Disable Focus Cast Key"
 L["IGNORE_FOCUS_CAST_KEY_DESC"] = "While the Focus Cast Key is held, this action is left out: the next action on the key that can go to your focus goes instead, and with none the key does nothing."
-L["IGNORE_FOCUS_CAST_KEY_AIM_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes to its own target, and keeps its place among the actions on the key."
+L["IGNORE_FOCUS_CAST_KEY_AIM_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
+-- Why the two boxes above stand locked on an action with a target picked (`ActionMenuItems.lua`).
+L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and holding the key never moves it, so there is nothing here to turn off."
 -- **Named apart from `TARGET_UNIT`.** That one is the target the reader picks; this row is what the
--- pick turns into at the press, once a held key or Hover Cast has had its say, and the two sit in
--- one menu tree where "Target" twice would read as one thing (`devdocs/implementing-focus-and-self-cast.md`
--- §3-6).
-L["RESOLVED_TARGET"] = "Resolved Target"
+-- pick turns into at the press, once a held key or Hover Cast has had its say, and that is you or
+-- your focus as often as a target. The two sit in one menu tree, where "Target" twice would read as
+-- one thing (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+L["RESOLVED_TARGET"] = "Resolved Unit"
 -- **Formatted, not written out.** The first and last are this addon's own labels (`TARGET_UNIT`,
 -- `POINTED_UNIT_CAST`) and the middle two the client's (`AUTO_SELF_CAST_KEY_TEXT`,
 -- `FOCUS_CAST_KEY_TEXT`, the two modifier dropdowns in its settings), so a rename on either side
@@ -1225,7 +1226,7 @@ L["RESOLVED_TARGET"] = "Resolved Target"
 -- pointed unit leaves the game to place the cast, and the conditions are asked of the current target
 -- anyway (2026-09-13, owner). Auto Self Cast is named because it is what a reader expects to rescue a
 -- friendly spell there, and when the conditions fail it never gets the chance.
-L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s, you while the %2$s is held, your focus while the %3$s is held, and with %4$s on and no key held, the unit you point at.|n|nWhen the conditions set here do not hold for that unit, the action does not go out. With no target picked, no key held and nothing pointed at, they are checked on your current target: if they do not hold there, the action does not go out, and Auto Self Cast does not get a turn either."
+L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s, and with none picked, you while the %2$s is held, your focus while the %3$s is held, and with %4$s on and no key held, the unit you point at.|n|nWhen the conditions set here do not hold for that unit, the action does not go out. With no target picked, no key held and nothing pointed at, they are checked on your current target: if they do not hold there, the action does not go out, and Auto Self Cast does not get a turn either."
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"
@@ -1289,8 +1290,8 @@ L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word
 -- The two boxes are labelled with the client's own `AUTO_SELF_CAST_KEY_TEXT` and
 -- `FOCUS_CAST_KEY_TEXT`. **Unticked says where the action goes, not that the game takes over**: the
 -- game's own handling stays off for a Debind key either way (`Debind.lua`).
-L["SELF_CAST_KEY_DESC"] = "Holding the Self Cast Key sends the action to you.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
-L["FOCUS_CAST_KEY_DESC"] = "Holding the Focus Cast Key sends the action to your focus.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
+L["SELF_CAST_KEY_DESC"] = "Holding the Self Cast Key sends an action with no target of its own to you. An action with a target picked keeps going there.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
+L["FOCUS_CAST_KEY_DESC"] = "Holding the Focus Cast Key sends an action with no target of its own to your focus. An action with a target picked keeps going there.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
 -- Under the two above, with the key the game has now (`SettingsTab.lua`). **None gets no sentence of
 -- its own** (2026-09-14, owner): the value and the line under it already say where to set one.
 -- "Current" in the client's own `CURRENT_PET` shape.
@@ -1298,7 +1299,7 @@ L["CURRENT_SELF_CAST_KEY"] = "Current Self Cast Key: %s"
 L["CURRENT_FOCUS_CAST_KEY"] = "Current Focus Cast Key: %s"
 L["CAST_KEY_CHANGE_IN_GAME_OPTIONS"] = "You can change it in the game's Options, under Combat."
 L["POINTED_UNIT_CAST"] = "Hover Cast"
-L["POINTED_UNIT_CAST_DESC"] = "The unit under your cursor is used even when the action has a target of its own; point at nothing and the action goes where it normally would.|n|nThis reaches any action you can give a target of its own, apart from a pet command. A macro or a mount is left alone.|n|nThe unit is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters."
+L["POINTED_UNIT_CAST_DESC"] = "The unit under your cursor is used for an action with no target of its own; point at nothing and the action goes where it normally would. An action with a target picked keeps going there.|n|nThis reaches any action you can give a target of its own, apart from a pet command. A macro or a mount is left alone.|n|nThe unit is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters."
 -- **Entry names are Title Case**, which is what the client's own lists use
 -- (`SELF_CAST_AUTO_AND_KEY_PRESS`, `SETTING_EMPOWERED_SPELL_INPUT_HOLD_OPTION`).
 --

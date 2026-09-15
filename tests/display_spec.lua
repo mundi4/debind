@@ -142,6 +142,32 @@ return function(DebindPrivate)
             "the Target line still carries a condition: " .. text);
     end);
 
+    -- An action that takes no unit has the row too, so its condition is drawn the same way.
+    test("a macro's resolved unit condition is drawn under Units", function()
+        Bind({
+            { type = Constants.MACROTEXT, value = "/say hi", key = "F1", seq = 1,
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } },
+        }, {});
+
+        local text = Tooltip(DebindPrivate.CollectActionsForKey("F1")[1]);
+        local at = text:find(LLL["RESOLVED_TARGET"] .. " - ", 1, true);
+        check(at and text:find(LLL["REACTION_HELP"], at, true),
+            "the condition is not drawn: " .. text);
+    end);
+
+    -- `none` has the row as well: it is aimed like an action with no target (2026-09-15, owner).
+    test("an Always Ask action's resolved unit condition is drawn under Units", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "none",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } },
+        }, {});
+
+        local text = Tooltip(DebindPrivate.CollectActionsForKey("F1")[1]);
+        local at = text:find(LLL["RESOLVED_TARGET"] .. " - ", 1, true);
+        check(at and text:find(LLL["REACTION_HELP"], at, true),
+            "the condition is not drawn: " .. text);
+    end);
+
     --- The kind of line one piece of text came out on, so a spec can tell "the reason is written"
     --- from "the reason is written in the colour that says the key is dead".
     local function LineKind(row, text)

@@ -152,12 +152,9 @@ return function(DebindPrivate)
         check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
     end);
 
-    --- **겨누기가 파생이면 `"@"`는 변환 전에 이미 죽어 있다.** `GetBindingInfoForAction`은
-    --- 겨눌 것이 없는 `"@"`를 지우는데, 그 검사가 **hover 채워넣기보다 앞이다** - 뒤에 두면 다른
-    --- 유닛을 겨누며 켠 조건이 호버한 유닛 조건으로 조용히 바뀌기 때문이다.
-    ---
-    --- 그러니 변환도 그것을 되살리면 안 된다. 되살리면 **변환이 바인딩을 좁혀서**, 전에는 발동하던
-    --- 상태에서 안 나가게 된다. 본문에 `[@hover]`를 적는 것과는 다른 물음이다.
+    --- **Where the aim is derived, `"@"` already stands on the hovered unit**, and the body spells
+    --- `[@hover]`. The conversion must not move the hover axis: narrowing it would stop the key in
+    --- states where it fired before.
     test("죽어 있던 `@`는 변환이 되살리지 않는다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774,
@@ -216,12 +213,9 @@ return function(DebindPrivate)
         if (not ok) then error(err, 0); end
     end);
 
-    --- `"@"`는 **이 액션이 겨누는 대상**을 가리키는 키다. 매크로텍스트는 대상 필드를 안 가지므로
-    --- (`TYPES_WITH_UNIT`) 변환 뒤에는 가리킬 것이 없어져서 `GetBindingInfoForAction`이 그 조건을
-    --- 지운다. 본문의 `[@focus]`는 남으니 **겨누기는 하는데 그 유닛에 걸어둔 조건만 사라진다.**
-    ---
-    --- 겨누던 유닛의 이름으로 옮기면 뜻이 그대로다. 그 키는 조건 메뉴가 이미 쓰는 키이고
-    --- (`DropDownMenus.lua`의 `isListedUnit`), 하류는 유닛 이름으로만 축을 만든다.
+    --- `"@"` is **the unit the press aims at**. The macro text carries no target field, so after the
+    --- conversion its `"@"` would ask `target` while the body's `[@focus]` still goes to the focus.
+    --- Moved to that unit's own name, the condition keeps asking the unit the cast goes to.
     test("겨누는 대상 조건은 그 유닛 이름으로 옮겨간다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774, unit = "focus",
@@ -365,13 +359,43 @@ return function(DebindPrivate)
             "못 읽는 값을 접겠다고 나선다");
     end);
 
-    --- 겨누는 대상이 없으면 `"@"`는 가리킬 것이 없어서 바인딩에 닿은 적도 없다
-    --- (`GetBindingInfoForAction`이 지운다). 옮길 것이 없으므로 변환은 그대로 내준다.
-    test("겨누는 대상이 없으면 `@`는 막지 않는다", function()
+    --- **With no unit in the body, `"@"` stays `"@"`.** The macro text aims at nothing either, so
+    --- its `"@"` resolves where the action's did: `target` with nothing held, and the twins' units
+    --- with a key held. Moving it to `target` would keep the first and break the second.
+    test("겨누는 대상이 없으면 `@`는 그대로 남는다", function()
         installWorld();
-        check(Can({ type = Constants.SPELL, value = 774,
-                conditions = { units = { ["@"] = {} } } }),
-            "닿은 적도 없는 조건이 변환을 막는다");
+        local action = { type = Constants.SPELL, value = 774,
+            conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } };
+        check(Can(action), "변환이 안 선다");
+        local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.target;
+        check(Convert(action), "변환이 거절됐다");
+        check(action.conditions.units["@"] ~= nil, "`@`가 옮겨졌다");
+        check(action.conditions.units.target == nil, "`@`가 target 키로 갔다");
+        local after = DebindPrivate.GetBindingInfoForAction(action).unitStates.target;
+        check(after == before, "target 축이 " .. tostring(before) .. "에서 "
+            .. tostring(after) .. "로 움직였다");
+    end);
+
+    --- **On `none` the body says `[@none]` and `"@"` stays `"@"`.** `none` is aimed like an action with
+    --- no target (2026-09-15, owner), which is how the converted macro text is aimed as well, so the
+    --- condition already asks the right unit. A hover condition fills in `hover` on the binding without
+    --- the body going there; moving `"@"` onto that unit would stop the twins asking `player` and
+    --- `focus`.
+    test("대상 none의 `@`는 변환해도 그대로 남고 본문은 none을 겨눈다", function()
+        installWorld();
+        for _, withHover in ipairs({ false, true }) do
+            local units = { ["@"] = { reaction = Constants.REACTION_HARM } };
+            if (withHover) then
+                units.hover = {};
+            end
+            local label = withHover and "hover 조건 있음: " or "hover 조건 없음: ";
+            local action = { type = Constants.SPELL, value = 774, unit = "none",
+                conditions = { units = units } };
+            check(Convert(action), label .. "변환이 거절됐다");
+            check(action.value == "/cast [@none] Rejuvenation", label .. "본문이 " .. tostring(action.value) .. "다");
+            check(action.conditions.units["@"] ~= nil, label .. "`@`가 옮겨졌다");
+            check(action.conditions.units.none == nil, label .. "`@`가 none 키로 갔다");
+        end
     end);
 
     return T;

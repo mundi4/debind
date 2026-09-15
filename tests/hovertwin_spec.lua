@@ -160,17 +160,25 @@ return function(DebindPrivate)
         end);
     end);
 
-    -- **대상 `none`과 `hover`에도 쌍둥이가 서고, 원본의 대상으로 나간다** (2026-09-13, 소유자).
-    -- 쌍둥이는 가리킨 유닛이 있는 누름의 층에서 차례를 받으려고 있다. `hover`는 이미 그 개체를
-    -- 겨누고, `none`은 대상 입력을 받는 시전이라 겨눔을 가로챌 자리가 아니다.
-    test("대상이 none이나 hover면 쌍둥이가 원본의 대상으로 나간다", function()
-        for _, unit in ipairs({ "none", "hover" }) do
+    -- **An action with a unit picked gets a twin too, and the twin goes out at that unit**
+    -- (2026-09-13, owner; 2026-09-15, owner). The twin is there to take its turn in the tier a pointed
+    -- press is decided in, and Hover Cast does not move a unit the reader picked. **`none` is not a
+    -- picked unit**: it settles nothing before the press, so its twin is aimed at the pointed unit like
+    -- an action with no target and only the cast goes out asking.
+    test("고른 대상의 쌍둥이는 그 대상으로, none의 쌍둥이는 가리킨 유닛으로 겨눈다", function()
+        for _, unit in ipairs({ "hover", "focus", "target", "player", "tank", "custom1" }) do
             local action = { type = Constants.SPELL, value = 585, key = "T",
                 unit = unit };
             local twin = bindingsOf(action)[2];
             check(twin ~= nil and twin.unit == unit,
                 "대상 " .. unit .. "의 쌍둥이가 겨누는 것: " .. tostring(twin and twin.unit));
         end
+
+        local twin = bindingsOf({ type = Constants.SPELL, value = 585, key = "T", unit = "none" })[2];
+        check(twin ~= nil and twin.unit == "hover",
+            "대상 none의 쌍둥이가 겨누는 것: " .. tostring(twin and twin.unit));
+        check(DebindPrivate.CastUnitOf and DebindPrivate.CastUnitOf(twin) == "none",
+            "대상 none의 쌍둥이가 나가는 곳: " .. tostring(DebindPrivate.CastUnitOf and DebindPrivate.CastUnitOf(twin)));
 
         -- Clique가 있어도 둘 다 할 말이 없다. 대상 `hover`는 물러난 상태에서도 `GetHoveredUnit`이
         -- 답하는 겨눔이라 빨강이 아니다 (코드 리뷰, 2026-09-08).
@@ -201,7 +209,7 @@ return function(DebindPrivate)
             unit = "focus" };
         local bindings = bindingsOf(action);
         check(bindings[2] ~= nil, "대상 focus인데 쌍둥이가 없다");
-        check(bindings[2].unit == "hover", "쌍둥이가 겨누는 것: " .. tostring(bindings[2].unit));
+        check(bindings[2].unit == "focus", "쌍둥이가 겨누는 것: " .. tostring(bindings[2].unit));
     end);
 
     -- hover 조건은 우리가 등록한 프레임 위에서 도는 것이고, 블리자드 개체창은 Clique가 있어도
@@ -297,7 +305,7 @@ return function(DebindPrivate)
         for _, case in ipairs({ { "hover", true, nil }, { "mouseover", true, "mouseover" } }) do
             local unit = case[1];
             withSwitches(case[2], case[3], function()
-                local action = spell({ unit = "target", conditions = { units = {
+                local action = spell({ conditions = { units = {
                     [unit] = { reaction = Constants.REACTION_HARM } } } });
                 local list = bindingsOf(action);
                 check(list[2] ~= nil, unit .. ": 쌍둥이가 없다");

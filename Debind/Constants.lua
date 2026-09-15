@@ -230,7 +230,7 @@ Constants.CASTMOD_ALL   = 7;
 ---                         and goes to its own target
 Constants.CAST_KEY_IGNORE_DROP = 1;
 Constants.CAST_KEY_IGNORE_AIM  = 2;
-Constants.CAST_KEY_IGNORE      = Constants.CAST_KEY_IGNORE_DROP;
+Constants.CAST_KEY_IGNORE      = Constants.CAST_KEY_IGNORE_AIM;
 
 
 --- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이

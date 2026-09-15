@@ -7,9 +7,8 @@
 -- 위에 있으면 조용히 통과하고, 잘못 지우면 조건이 사라진 채 바인딩이 나간다. 어느 쪽도
 -- 화면에 아무 표시가 없다.
 --
--- `"@"`가 특히 그렇다. 유닛 이름이 아니라 **그 액션이 겨누는 대상을 가리키는 포인터**라,
--- 대상이 사라지면 같이 사라져야 한다. 대상을 지우는 자리가 셋이고 채워 넣는 자리가 하나라
--- 순서가 얽힌다.
+-- `"@"` especially: it is not a unit name but **a pointer to the unit the press aims at**, and the
+-- places that clear `unit` and the one that fills it in decide where it lands.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -334,42 +333,6 @@ return function(DebindPrivate)
         check(spell({ hover = true, unit = "focus" }).unit == "focus", "대상이 덮어써짐");
     end);
 
-    ---------------------------------------------------------------------------
-    -- 대상이 없으면 `"@"`도 없다
-    --
-    -- 아래 넷은 "가리킬 것이 처음부터 없다"에 해당한다. `"none"`은 대상 없음이 아니라
-    -- **대상 지정 모드**(사용자가 찍는다)라 바인딩을 걸 시점에 검사할 유닛이 없고,
-    -- `"player"`는 자기 자신이라 존재도 반응도 언제나 참이라 아무 말도 안 한다.
-    ---------------------------------------------------------------------------
-
-    test("대상을 안 골랐으면 \"@\"가 사라진다", function()
-        check(spell({ units = { ["@"] = true } }).units == nil, "\"@\"가 남음");
-    end);
-
-    test("대상이 \"none\"이면 \"@\"가 사라진다", function()
-        check(spell({ unit = "none", units = { ["@"] = true } }).units == nil,
-            "\"@\"가 남음");
-    end);
-
-    test("대상이 \"player\"면 \"@\"가 사라진다", function()
-        check(spell({ unit = "player", units = { ["@"] = true } }).units == nil,
-            "\"@\"가 남음");
-    end);
-
-    -- 저장된 대상이 빈 문자열인 프로필. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는
-    -- 들어온다.
-    test("대상이 빈 문자열이면 \"@\"가 사라진다", function()
-        check(spell({ unit = "", units = { ["@"] = true } }).units == nil,
-            "\"@\"가 남음");
-    end);
-
-    -- truthy 검사였다면 `false`("없을 때")를 못 잡고 걸 축이 없는 조건이 `UpdateBindings`
-    -- 까지 갔다. UI로는 못 만들지만 공유 프로필로는 들어오는 값이다.
-    test("\"@\"가 false여도 사라진다", function()
-        check(spell({ unit = "player", units = { ["@"] = false } }).units == nil,
-            "falsy라 검사에서 빠짐");
-    end);
-
     test("대상이 멀쩡하면 \"@\"는 남는다", function()
         local b = spell({ unit = "focus", units = { ["@"] = true } });
         check(type(b.conditions.units["@"]) == "table", "멀쩡한 조건이 지워짐");
@@ -377,49 +340,49 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 대상을 **나중에** 뺏겼을 때도 `"@"`가 사라진다
+    -- An action that takes no unit keeps `"@"`
     --
-    -- 위 검사는 대상 메뉴가 쓴 값을 본다. 그런데 그 뒤에서 `binding.unit`을 도로 지우는
-    -- 자리가 둘 있다(대상을 못 갖는 타입, 대상을 안 받는 펫 명령). 거기서 안 치우면 갈 곳
-    -- 없는 `"@"`가 그대로 흘러간다.
-    --
-    -- 지금 UI로는 못 만드는 상태다. 옛 프로필과 공유 프로필로 들어온다.
+    -- **`"@"` is the unit the press aims at, whether or not the action uses it** (2026-09-15,
+    -- owner). Whether a spell or a macro body does anything with that unit cannot be known, and
+    -- every action gets the self and focus twins, so the condition stays and asks what
+    -- `ResolvedUnitOf` answers: `target` on the original with nothing aimed at.
     ---------------------------------------------------------------------------
 
-    test("타입 때문에 대상을 잃으면 \"@\"도 같이 사라진다", function()
+    test("타입 때문에 대상을 잃어도 \"@\"는 target 칸에 선다", function()
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus",
             units = { ["@"] = true },
         }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.conditions.units == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.conditions.units and b.conditions.units["@"] ~= nil, "\"@\"가 지워짐");
+        check(b.unitStates and b.unitStates.target == Constants.UNITSTATE_EXISTS,
+            "target 칸: " .. tostring(b.unitStates and b.unitStates.target));
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
-    test("펫 명령 때문에 대상을 잃어도 \"@\"가 사라진다", function()
+    test("펫 명령 때문에 대상을 잃어도 \"@\"는 target 칸에 선다", function()
         local b = normalize(nest({
             type = Constants.PETACTION, value = "PET_FOLLOW",
             unit = "focus",
             units = { ["@"] = true },
         }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.conditions.units == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.unitStates and b.unitStates.target == Constants.UNITSTATE_EXISTS,
+            "target 칸: " .. tostring(b.unitStates and b.unitStates.target));
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
-    -- 대상이 비면 hover 채워넣기가 `"hover"`를 넣는다. 그 전에 안 치우면 남은 `"@"`가
-    -- 그것을 가리켜서, **focus를 겨누고 켠 조건이 호버한 유닛 조건이 된다.** 판정에서
-    -- 빠지는 것과 달리 이건 멀쩡히 동작하는 얼굴로 다른 일을 하므로 아무 데도 안 걸린다.
-    test("hover 채워넣기가 대상 잃은 \"@\"를 물려받지 않는다", function()
+    -- The hover fill-in aims such an action at the hovered unit, so that is the unit `"@"` asks.
+    test("hover로 대상이 채워진 매크로의 \"@\"는 hover 칸에 선다", function()
+        local help = spell({ unit = "focus", units = { ["@"] = "help" } }).unitStates.focus;
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus", hover = true,
             units = { ["@"] = "help" },
         }), true);
         check(b.unit == "hover", "hover 채워넣기가 안 일어남 - 전제가 깨졌다");
-        check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS,
-            "\"@\"가 호버 유닛 조건으로 둔갑함");
+        check(b.unitStates.hover == help, "hover 칸: " .. tostring(b.unitStates.hover));
     end);
 
     ---------------------------------------------------------------------------
@@ -791,9 +754,13 @@ return function(DebindPrivate)
         end
     end
 
-    test("대상을 받는 액션은 self와 focus 쌍둥이를 낸다", function()
-        local list = listFor({ unit = "target" });
-        check(#list == 3, "길이 " .. #list);
+    --- **A held key moves an action with no target and never a unit the reader picked** (2026-09-15,
+    --- owner). A modifier carried over from the key pressed just before reads as held, so moving a
+    --- picked unit on it sends the action somewhere nobody chose. Both twins stand either way, which
+    --- keeps the action's place in the tier a held key is decided in.
+    test("대상이 없으면 쌍둥이가 player와 focus로, 고른 대상이 있으면 그 대상으로 나간다", function()
+        local list = listFor({});
+        check(#list == 3, "대상 없음: 길이 " .. #list);
         check(list[1].castModifier == Constants.CASTMOD_NONE,
             "원본의 조합키 칸: " .. tostring(list[1].castModifier));
         -- 뒤에서부터 채우므로 [3]이 키에서 제일 앞에 서는 self다.
@@ -801,20 +768,39 @@ return function(DebindPrivate)
             "[3]: " .. tostring(list[3].castModifier) .. " " .. tostring(list[3].unit));
         check(list[2].castModifier == Constants.CASTMOD_FOCUS and list[2].unit == "focus",
             "[2]: " .. tostring(list[2].castModifier) .. " " .. tostring(list[2].unit));
+
+        for _, unit in ipairs({ "target", "focus", "player", "tank", "healer", "custom1", "hover", "mouseover" }) do
+            list = listFor({ unit = unit });
+            check(#list == 3, unit .. ": 길이 " .. #list);
+            for _, castModifier in ipairs({ Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS }) do
+                local twin = twinFor(list, castModifier);
+                check(twin and twin.unit == unit,
+                    unit .. ": " .. castModifier .. " 쌍둥이 unit: " .. tostring(twin and twin.unit));
+            end
+        end
     end);
 
-    --- **`@` 조건은 누르는 순간 겨누는 유닛으로 옮겨 간다** (§3-6). 원본의 `target` 칸에 선
-    --- 조건이 쌍둥이에서는 `player`와 `focus` 칸에 선다.
-    test("@ 조건이 쌍둥이가 겨누는 유닛 칸으로 간다", function()
-        local list = listFor({ unit = "target", units = { ["@"] = "help" } });
-        local original = list[1];
-        check(original.unitStates and original.unitStates.target, "원본에 target 칸이 없다");
+    --- **`@` goes with each twin to the unit that twin aims at** (§3-6). With no target the original
+    --- asks `target` and the twins ask `player` and `focus`; on a picked unit all three ask that unit.
+    test("@ 조건이 쌍둥이가 겨누는 유닛 칸에 선다", function()
+        local list = listFor({ units = { ["@"] = "help" } });
+        local help = list[1].unitStates and list[1].unitStates.target;
+        check(help, "원본에 target 칸이 없다");
         for _, case in ipairs({ { Constants.CASTMOD_SELF, "player" }, { Constants.CASTMOD_FOCUS, "focus" } }) do
             local twin = twinFor(list, case[1]);
             check(twin, case[2] .. " 쌍둥이가 없다");
-            check(twin.unitStates[case[2]] == original.unitStates.target,
+            check(twin.unitStates[case[2]] == help,
                 case[2] .. " 칸: " .. tostring(twin.unitStates[case[2]]));
             check(twin.unitStates.target == nil, case[2] .. " 쌍둥이가 target 조건을 들고 있다");
+        end
+
+        list = listFor({ unit = "target", units = { ["@"] = "help" } });
+        for _, castModifier in ipairs({ Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS }) do
+            local twin = twinFor(list, castModifier);
+            check(twin.unitStates.target == help,
+                castModifier .. " 쌍둥이의 target 칸: " .. tostring(twin.unitStates.target));
+            check(twin.unitStates.player == nil and twin.unitStates.focus == nil,
+                castModifier .. " 쌍둥이가 고른 대상 말고 다른 칸에 @를 세웠다");
         end
     end);
 
@@ -828,17 +814,27 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **`none`도 쌍둥이를 내고, 쌍둥이도 대상을 묻는다** (§3-4, 2026-09-13 소유자). 쌍둥이는 층 안의
-    --- 순서에서 차례를 받으려고 있고, 무엇으로 나가느냐는 따로다. 액션 바도 조합키를 쥔 채 누르면
-    --- 커서가 뜬다.
-    test("대상 none도 쌍둥이를 내고 쌍둥이도 none으로 나간다", function()
+    --- **`none` is aimed like an action with no target, and only the cast asks** (2026-09-15, owner).
+    --- It settles nothing before the press, so a held key moves what the press aims at and what `@` is
+    --- asked of, and whichever binding wins goes out as `none`.
+    test("대상 none은 대상 없는 액션처럼 겨누고 시전만 none으로 나간다", function()
+        local help = listFor({ unit = "target", units = { ["@"] = "help" } })[1].unitStates.target;
         local list = listFor({ unit = "none", units = { ["@"] = "help" } });
         check(#list == 3, "길이 " .. #list);
-        check(list[1].castModifier == Constants.CASTMOD_NONE, "원본의 조합키 칸: " .. tostring(list[1].castModifier));
-        for _, castModifier in ipairs({ Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS }) do
-            local twin = twinFor(list, castModifier);
-            check(twin and twin.unit == "none", castModifier .. " 쌍둥이 unit: " .. tostring(twin and twin.unit));
-            check(twin.conditions.units == nil, castModifier .. " 쌍둥이에 @가 남았다");
+        local original = list[1];
+        check(original.castModifier == Constants.CASTMOD_NONE, "원본의 조합키 칸: " .. tostring(original.castModifier));
+        check(original.unit == nil, "원본 unit: " .. tostring(original.unit));
+        check(original.unitStates and original.unitStates.target == help,
+            "원본의 target 칸: " .. tostring(original.unitStates and original.unitStates.target));
+        check(DebindPrivate.CastUnitOf(original) == "none",
+            "원본이 나가는 곳: " .. tostring(DebindPrivate.CastUnitOf(original)));
+        for _, case in ipairs({ { Constants.CASTMOD_SELF, "player" }, { Constants.CASTMOD_FOCUS, "focus" } }) do
+            local twin = twinFor(list, case[1]);
+            check(twin and twin.unit == case[2], case[2] .. " 쌍둥이 unit: " .. tostring(twin and twin.unit));
+            check(twin.unitStates and twin.unitStates[case[2]] == help,
+                case[2] .. " 칸: " .. tostring(twin.unitStates and twin.unitStates[case[2]]));
+            check(DebindPrivate.CastUnitOf(twin) == "none",
+                case[2] .. " 쌍둥이가 나가는 곳: " .. tostring(DebindPrivate.CastUnitOf(twin)));
         end
     end);
 
@@ -853,6 +849,23 @@ return function(DebindPrivate)
             "self 쌍둥이 unit: " .. tostring(twinFor(list, Constants.CASTMOD_SELF).unit));
         check(twinFor(list, Constants.CASTMOD_FOCUS).unit == "focus",
             "focus 쌍둥이 unit: " .. tostring(twinFor(list, Constants.CASTMOD_FOCUS).unit));
+    end);
+
+    --- **What decides is whether the reader picked a unit, not what `unit` holds.** A macro keeps no
+    --- unit an old profile left on it, and a hover condition fills in a `hover` nobody picked, so both
+    --- are aimed like an action with no target.
+    test("고르지 않은 대상은 조합키를 따른다", function()
+        for _, case in ipairs({
+            { label = "매크로에 남은 focus", fields = { type = Constants.MACROTEXT, value = "/cast x", unit = "focus" } },
+            { label = "hover 조건이 채운 hover", fields = { units = { hover = {} } }, unit = "hover" },
+        }) do
+            local list = listFor(case.fields);
+            check(list[1].unit == case.unit, case.label .. ": 원본 unit이 " .. tostring(list[1].unit));
+            check(twinFor(list, Constants.CASTMOD_SELF).unit == "player",
+                case.label .. ": self 쌍둥이 unit: " .. tostring(twinFor(list, Constants.CASTMOD_SELF).unit));
+            check(twinFor(list, Constants.CASTMOD_FOCUS).unit == "focus",
+                case.label .. ": focus 쌍둥이 unit: " .. tostring(twinFor(list, Constants.CASTMOD_FOCUS).unit));
+        end
     end);
 
     --- `[우호일 때]`가 한 유닛 칸에 선 마스크. 기댓값을 손으로 적지 않고 대상 있는 액션에서 읽는다.
@@ -924,30 +937,51 @@ return function(DebindPrivate)
         check(original.unitStates.target == nil, "target 칸에도 섰다");
     end);
 
-    --- 대상 `none`은 겨누는 유닛이 없고 쌍둥이도 없어서 `@`가 설 칸이 없다.
-    test("대상 none의 @는 지워진다", function()
-        local list = listFor({ unit = "none", units = { ["@"] = "help" } });
-        check(list[1].conditions.units == nil or list[1].conditions.units["@"] == nil, "@가 남았다");
-        check(not list[1].unitStatesOpaque, "갈 칸 없는 @로 판정에서 빠졌다");
-    end);
-
     test("Hover Cast가 켜지면 hover 쌍둥이가 따라온다", function()
         withHoverCast(function()
-            local list, action = listFor({ unit = "focus", units = { ["@"] = "help" } });
+            local list, action = listFor({ units = { ["@"] = "help" } });
             list = castmod.without(Constants, list);
             check(#list == 2, "길이 " .. #list);
             check(list[1] == normalize(action), "[1]이 원본이 아니다");
             local original, twin = list[1], list[2];
             check(original.hover == nil, "원본 hover: " .. tostring(original.hover));
-            check(original.unit == "focus", "원본 unit: " .. tostring(original.unit));
+            check(original.unit == nil, "원본 unit: " .. tostring(original.unit));
             check(twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
             check(twin.hover == true, "쌍둥이 hover: " .. tostring(twin.hover));
             check(twin.type == original.type and twin.value == original.value and twin.key == original.key,
                 "쌍둥이가 액션의 값을 잃었다");
             -- `"@"`는 겨누는 개체를 가리키는 포인터라, 쌍둥이에서는 hover 개체에게 묻는다.
-            check(twin.unitStates and twin.unitStates.hover == original.unitStates.focus,
+            check(twin.unitStates and twin.unitStates.hover == original.unitStates.target,
                 "쌍둥이의 hover 마스크가 원본의 @ 마스크와 다르다");
-            check(twin.unitStates.focus == nil, "쌍둥이가 focus 조건을 들고 있다");
+            check(twin.unitStates.target == nil, "쌍둥이가 target 조건을 들고 있다");
+        end);
+    end);
+
+    --- **Hover Cast does not move a picked unit either** (2026-09-15, owner). The twin still stands in
+    --- the pointed tier and goes out at the unit the reader picked, with `@` asked of that unit.
+    test("고른 대상이 있으면 hover 쌍둥이도 그 대상으로 나간다", function()
+        withHoverCast(function()
+            local list = castmod.without(Constants, (listFor({ unit = "focus", units = { ["@"] = "help" } })));
+            check(#list == 2, "길이 " .. #list);
+            local original, twin = list[1], list[2];
+            check(twin.hoverTwin and twin.unit == "focus", "쌍둥이 unit: " .. tostring(twin.unit));
+            check(twin.unitStates.focus == original.unitStates.focus,
+                "쌍둥이의 focus 칸: " .. tostring(twin.unitStates.focus));
+        end);
+    end);
+
+    --- The pointed half of `none` being aimed like an action with no target: the hover twin asks the
+    --- pointed unit and still goes out asking.
+    test("대상 none의 hover 쌍둥이는 가리킨 유닛에 묻고 none으로 나간다", function()
+        withHoverCast(function()
+            local list = castmod.without(Constants, (listFor({ unit = "none", units = { ["@"] = "help" } })));
+            check(#list == 2, "길이 " .. #list);
+            local original, twin = list[1], list[2];
+            check(twin.hoverTwin and twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
+            check(twin.unitStates.hover == original.unitStates.target,
+                "쌍둥이의 hover 칸: " .. tostring(twin.unitStates.hover));
+            check(DebindPrivate.CastUnitOf and DebindPrivate.CastUnitOf(twin) == "none",
+                "쌍둥이가 나가는 곳: " .. tostring(DebindPrivate.CastUnitOf and DebindPrivate.CastUnitOf(twin)));
         end);
     end);
 

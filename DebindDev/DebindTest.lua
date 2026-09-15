@@ -2013,10 +2013,10 @@ RegisterTest("Bulk key change: a selection of several stays selected", {
 --- **Needs the game.** Where the resolved target's row stands in the menu, when it is locked and
 --- which setter pressing it reaches is the client's menu tree, which only exists here
 --- (`devdocs/implementing-focus-and-self-cast.md` §3-6).
-RegisterTest("Resolved Target: the row under Units writes the condition, and Target opens none", {
-    description = "The Resolved Target row sits under Units, stores \"@\" on an action with no target, locks on None, and is not drawn for a macro. The Target menu opens no submenu.",
+RegisterTest("Resolved Unit: the row under Units writes the condition, and Target opens none", {
+    description = "The Resolved Unit row sits under Units, stores \"@\" on an action with no target, on Always Ask and on a macro. The Target menu opens no submenu.",
     run = function()
-        local NAME = "Resolved Target row"
+        local NAME = "Resolved Unit row"
 
         AddTeardown(CleanupActions)
         AddTeardown(function()
@@ -2093,24 +2093,47 @@ RegisterTest("Resolved Target: the row under Units writes the condition, and Tar
             end
         end
 
-        action.unit = "none"
+        -- **`none` has the row too** (2026-09-15, owner): it is aimed like an action with no target,
+        -- and only the cast asks.
+        local always = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F9", unit = "none" })
         ApplyBindings()
-        units, err = Group(action, LLL["CONDITION_UNITS"])
+        units, err = Group(always, LLL["CONDITION_UNITS"])
         if not units then return Fail(NAME, err) end
         row = ChildByText(units, LLL["RESOLVED_TARGET"])
-        if not row or row:IsEnabled() then
-            return Fail(NAME, "on None the row is " .. (row and "open" or "missing"))
+        if not row or not row:IsEnabled() then
+            return Fail(NAME, "on Always Ask the row is " .. (row and "locked" or "missing"))
+        end
+        exists = ChildByText(row, LLL["CONDITION_UNIT_EXISTS"])
+        if not exists then
+            return Fail(NAME, format("no [%s] entry on Always Ask: %s", LLL["CONDITION_UNIT_EXISTS"], ChildTexts(row)))
+        end
+        exists:Pick(MenuInputContext.MouseButton, "LeftButton")
+        stored = always.conditions and always.conditions.units and always.conditions.units["@"]
+        if not (type(stored) == "table" and stored.exists == true) then
+            return Fail(NAME, "pressing it on Always Ask stored " .. tostring(stored))
         end
 
+        -- **A macro takes no target and still has the row** (2026-09-15, owner): its self and
+        -- focus twins aim at a unit, and that is what the row asks.
         local macro = InsertAction({ type = Constants.MACROTEXT, value = "/say x", key = "CTRL-ALT-F8" })
         ApplyBindings()
         units, err = Group(macro, LLL["CONDITION_UNITS"])
         if not units then return Fail(NAME, err) end
-        if ChildByText(units, LLL["RESOLVED_TARGET"]) then
-            return Fail(NAME, "a macro, which takes no target, has the row")
+        row = ChildByText(units, LLL["RESOLVED_TARGET"])
+        if not row or not row:IsEnabled() then
+            return Fail(NAME, "on a macro the row is " .. (row and "locked" or "missing"))
+        end
+        exists = ChildByText(row, LLL["CONDITION_UNIT_EXISTS"])
+        if not exists then
+            return Fail(NAME, format("no [%s] entry on a macro: %s", LLL["CONDITION_UNIT_EXISTS"], ChildTexts(row)))
+        end
+        exists:Pick(MenuInputContext.MouseButton, "LeftButton")
+        stored = macro.conditions and macro.conditions.units and macro.conditions.units["@"]
+        if not (type(stored) == "table" and stored.exists == true) then
+            return Fail(NAME, "pressing it on a macro stored " .. tostring(stored))
         end
 
-        return Pass(NAME, "under Units, stores \"@\" with no target, locked on None, absent on a macro")
+        return Pass(NAME, "under Units, stores \"@\" with no target, on Always Ask and on a macro")
     end,
 })
 
@@ -2128,7 +2151,9 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
         end
         AddTeardown(function() Menu.GetManager():CloseMenus() end)
 
-        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "target" })
+        -- **No target picked**: a picked unit is not moved by the key at all, so aiming its twin could
+        -- not be told from leaving it alone.
+        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
         local seen = {}
@@ -2177,7 +2202,7 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
             Constants.CAST_KEY_IGNORE = Constants.CAST_KEY_IGNORE_AIM
             ApplyBindings()
             local twin = TwinOnKey()
-            if not twin or twin.unit ~= "target" then
+            if not twin or twin.unit ~= nil then
                 return Fail(NAME, format("%s, aim: the twin aims at %s", case.field,
                     tostring(twin and twin.unit)))
             end
@@ -2187,7 +2212,7 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
             seen[#seen + 1] = case.field
         end
 
-        return Pass(NAME, table.concat(seen, ", ") .. " stored, dropped, then aimed at target")
+        return Pass(NAME, table.concat(seen, ", ") .. " stored, dropped, then aimed where the action goes")
     end,
 })
 
@@ -8439,7 +8464,9 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "target" })
+        -- **No target picked**, since a held key moves nothing else. The original then carries no unit
+        -- and writes none on the cast frame, so its row asks for none.
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
         local records = GetKeyBindings(KEY)
@@ -8452,7 +8479,7 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
         for _, case in ipairs({
             { Constants.CASTMOD_SELF, "player" },
             { Constants.CASTMOD_FOCUS, "focus" },
-            { Constants.CASTMOD_NONE, "target" },
+            { Constants.CASTMOD_NONE, nil },
         }) do
             SetMockState("castModifier", case[1])
 
@@ -8472,12 +8499,12 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
                     tostring(record and record.castModifier)))
             end
 
-            local unit = DebindPrivate.CastFrame:GetAttribute("unit")
+            local unit = case[2] and DebindPrivate.CastFrame:GetAttribute("unit")
             if unit ~= case[2] then
                 return Fail(NAME, format("modifier %d: the cast frame's unit is %s, it should be %s",
                     case[1], tostring(unit), case[2]))
             end
-            seen[#seen + 1] = format("%d->#%d@%s", case[1], got, unit)
+            seen[#seen + 1] = format("%d->#%d@%s", case[1], got, tostring(unit))
         end
 
         return Pass(NAME, table.concat(seen, ", "))

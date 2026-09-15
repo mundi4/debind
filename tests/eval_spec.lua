@@ -662,9 +662,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "target",
+            action({ value = 585, key = "F1",
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-            action({ value = 774, key = "F1", unit = "target" }),
+            action({ value = 774, key = "F1" }),
         });
     end
 
@@ -678,10 +678,10 @@ return function(DebindPrivate, _, ctx)
             DebindPrivate.CastFrame:GetAttribute("unit");
     end
 
-    -- **The held modifier is what the press means, and the reader's condition goes with it** (§3-1,
-    -- §3-6). The `@` that asked whether the target is friendly asks it of the player once self cast
-    -- is held -- so the heal goes out at a friendly player over a hostile target, and a hostile
-    -- player falls to the next action, still at the player.
+    -- **A held key moves an action with no target, and the reader's condition goes with it** (§3-6).
+    -- The `@` that asked whether the target is friendly asks it of the player once self cast is held
+    -- -- so the heal goes out at a friendly player over a hostile target, and a hostile player falls
+    -- to the next action, still at the player.
     test("a held self-cast modifier sends the press at the player", function()
         ModifierBind();
         shim.world.units = { target = { id = "enemy", reaction = "harm" },
@@ -751,6 +751,41 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **`@` is the unit the press aims at, whether or not the action uses it** (2026-09-15, owner).
+    -- A macro takes no unit, but its focus twin still goes out at the focus, so its condition asks
+    -- the focus; with nothing held it asks the target, as it does on a spell with none picked.
+    test("a macro's resolved unit condition follows the held key", function()
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ type = Constants.MACROTEXT, value = "/say hi", key = "F1",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 774, key = "F1" }),
+        });
+
+        local function firedMacro()
+            local _, button = interp:evalKey("F1");
+            return button ~= nil
+                and DebindPrivate.DefaultClickFrame:GetAttribute("*type-" .. interp:actionButton(button)) == "macro";
+        end
+
+        shim.world.units = { target = { id = "enemy", reaction = "harm" },
+            focus = { id = "friend", reaction = "help" } };
+        check(winner("F1") == 2, "nothing held, hostile target: " .. tostring(winner("F1")));
+
+        shim.world.units.target = { id = "friend", reaction = "help" };
+        check(winner("F1") == 1, "nothing held, friendly target: " .. tostring(winner("F1")));
+
+        shim.world.units.target = { id = "enemy", reaction = "harm" };
+        interp.state.modifiedClick.FOCUSCAST = true;
+        check(firedMacro(), "focus held, friendly focus: the macro did not go");
+
+        shim.world.units.focus = { id = "enemy", reaction = "harm" };
+        check(not firedMacro(), "focus held, hostile focus: the macro went");
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
     -- The client's own order: `checkselfcast` is read first and ends it (§3-3).
     test("both modifiers held is self cast", function()
         ModifierBind();
@@ -768,14 +803,17 @@ return function(DebindPrivate, _, ctx)
 
     -- **A key turned off in the settings is a key not held** (§3-12). The self twin is gone and the
     -- press does not ask about the key, so the heal that needs a friendly target falls to the next
-    -- action at the target; the Focus Cast Key, left on, still goes to the focus.
+    -- action with no unit; the Focus Cast Key, left on, still goes to the focus.
+    --
+    -- The unit is read off the record, not the cast frame: a press with no unit never writes that
+    -- frame, and what it holds is whatever the press before it left.
     test("a cast key turned off counts as not held", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         local actions = {
-            action({ value = 585, key = "F1", unit = "target",
+            action({ value = 585, key = "F1",
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-            action({ value = 774, key = "F1", unit = "target" }),
+            action({ value = 774, key = "F1" }),
         };
         Bind(actions, nil, { selfCast = false });
         shim.world.units = { target = { id = "enemy", reaction = "harm" },
@@ -785,8 +823,8 @@ return function(DebindPrivate, _, ctx)
         local record, spell, unit = Fired("F1");
         check(record and record.castModifier == Constants.CASTMOD_NONE,
             "self cast off: the winner carries " .. tostring(record and record.castModifier));
-        check(spell == "Rejuvenation" and unit == "target",
-            "self cast off: fired " .. tostring(spell) .. " at " .. tostring(unit));
+        check(spell == "Rejuvenation" and record.unit == nil,
+            "self cast off: fired " .. tostring(spell) .. " at " .. tostring(record and record.unit));
         for _, r in ipairs(interp:recordsFor("F1")) do
             check(r.castModifier ~= Constants.CASTMOD_SELF, "a self record is still on the key");
         end
@@ -799,8 +837,8 @@ return function(DebindPrivate, _, ctx)
         Bind(actions, nil, { focusCast = false });
         interp.state.modifiedClick.FOCUSCAST = true;
         record, spell, unit = Fired("F1");
-        check(spell == "Rejuvenation" and unit == "target",
-            "focus cast off: fired " .. tostring(spell) .. " at " .. tostring(unit));
+        check(spell == "Rejuvenation" and record.unit == nil,
+            "focus cast off: fired " .. tostring(spell) .. " at " .. tostring(record and record.unit));
 
         interp:resetState();
         shim.world.units = {};
@@ -808,8 +846,10 @@ return function(DebindPrivate, _, ctx)
 
     -- **An action that ignores a key, under each answer of `Constants.CAST_KEY_IGNORE`** (§3-12).
     -- The first action ignores the key and wants a friendly target; the second does not ignore it.
+    -- Neither has a unit picked, since a picked unit is not moved by the key in the first place.
     -- With a friendly target and the key held, dropping sends the second at you or your focus, and
-    -- aiming sends the first at the target. With a hostile target the first fails either way.
+    -- aiming sends the first where it goes with no key held. With a hostile target the first fails
+    -- either way. Units are read off the record, which a press with no unit leaves empty.
     test("an action that ignores a cast key, dropped or aimed", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
@@ -821,24 +861,26 @@ return function(DebindPrivate, _, ctx)
             }) do
                 for _, mode in ipairs({
                     { Constants.CAST_KEY_IGNORE_DROP, "drop", "Rejuvenation", case.unit },
-                    { Constants.CAST_KEY_IGNORE_AIM, "aim", "Renew", "target" },
+                    { Constants.CAST_KEY_IGNORE_AIM, "aim", "Renew", nil },
                 }) do
                     Constants.CAST_KEY_IGNORE = mode[1];
-                    local first = action({ value = 585, key = "F1", unit = "target",
+                    local first = action({ value = 585, key = "F1",
                         conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } });
                     first[case.field] = true;
-                    Bind({ first, action({ value = 774, key = "F1", unit = "target" }) });
+                    Bind({ first, action({ value = 774, key = "F1" }) });
                     interp.state.modifiedClick[case.key] = true;
                     local label = case.field .. ", " .. mode[2];
 
                     shim.world.units = { target = { id = "friend", reaction = "help" },
                         player = { id = "me", reaction = "help" }, focus = { id = "other", reaction = "help" } };
-                    local _, spell, unit = Fired("F1");
+                    local record, spell = Fired("F1");
+                    local unit = record and record.unit;
                     check(spell == mode[3] and unit == mode[4],
                         label .. ", friendly target: fired " .. tostring(spell) .. " at " .. tostring(unit));
 
                     shim.world.units.target = { id = "enemy", reaction = "harm" };
-                    _, spell, unit = Fired("F1");
+                    record, spell = Fired("F1");
+                    unit = record and record.unit;
                     check(spell == "Rejuvenation" and unit == case.unit,
                         label .. ", hostile target: fired " .. tostring(spell) .. " at " .. tostring(unit));
 
@@ -851,6 +893,39 @@ return function(DebindPrivate, _, ctx)
         if (not ok) then
             error(err, 0);
         end
+    end);
+
+    -- **A held key does not move a unit the reader picked** (2026-09-15, owner). A modifier carried
+    -- over from the key pressed before reads as held (ALT-1, then 2), and moving a picked unit on it
+    -- sends the action somewhere nobody chose. The client's own buttons never let a held key move a
+    -- unit set on them. The action keeps its turn in the held tier, so the action with no target
+    -- behind it gets the press only where the first one's condition fails, and goes where the key
+    -- sends it.
+    test("a held key does not move a picked unit", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 774, key = "F1" }),
+        });
+
+        for _, case in ipairs({ { "SELFCAST", "player" }, { "FOCUSCAST", "focus" } }) do
+            shim.world.units = { target = { id = "friend", reaction = "help" },
+                player = { id = "me", reaction = "harm" }, focus = { id = "other", reaction = "harm" } };
+            interp.state.modifiedClick[case[1]] = true;
+            local _, spell, unit = Fired("F1");
+            check(spell == "Renew" and unit == "target",
+                case[1] .. ", friendly target: fired " .. tostring(spell) .. " at " .. tostring(unit));
+
+            shim.world.units.target = { id = "enemy", reaction = "harm" };
+            _, spell, unit = Fired("F1");
+            check(spell == "Rejuvenation" and unit == case[2],
+                case[1] .. ", hostile target: fired " .. tostring(spell) .. " at " .. tostring(unit));
+            interp:resetState();
+        end
+
+        shim.world.units = {};
     end);
 
     -- **A frame click ignores what is held** (§3-10). A modifier on a click arrives only with the
@@ -1051,6 +1126,72 @@ return function(DebindPrivate, _, ctx)
             "fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
 
         interp:hoverLeave(unitFrame);
+        shim.world.units = {};
+    end);
+
+    -- **Hover Cast does not move a unit the reader picked** (2026-09-15, owner). An action aimed at
+    -- the target keeps going there over a frame, and still takes the pointed press ahead of the action
+    -- with no target behind it.
+    test("a pointed press leaves a picked unit where it is", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", unit = "target" }),
+            action({ value = 774, key = "F1" }),
+        }, nil, { hoverCast = true });
+        shim.world.units = { target = FRIEND, party1 = FRIEND };
+
+        PointAt("party1");
+        local record, spell = Fired("F1");
+        check(spell == "Renew" and Aimed(record) == "target",
+            "fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+
+        interp:hoverLeave(unitFrame);
+        shim.world.units = {};
+    end);
+
+    -- **`none` is aimed like an action with no target, and only the cast asks** (2026-09-15, owner).
+    -- It settles nothing before the press, so its Resolved Unit condition is asked of the target with
+    -- nothing held, of you or your focus with a key held, and of the unit pointed at; whichever of its
+    -- bindings wins goes out as `none`, and one that fails hands the press to the action behind it.
+    test("an Always Ask action's resolved unit condition follows the key and the pointer", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", unit = "none",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 774, key = "F1" }),
+        }, nil, { hoverCast = true });
+
+        local function Press(label, units, held, expectSpell, expectAimed)
+            shim.world.units = units;
+            if (held) then
+                interp.state.modifiedClick[held] = true;
+            end
+            local record, spell, castUnit = Fired("F1");
+            check(spell == expectSpell and Aimed(record) == expectAimed,
+                label .. ": fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+            if (expectAimed == "none") then
+                check(castUnit == "none", label .. ": the cast frame's unit is " .. tostring(castUnit));
+            end
+            if (held) then
+                interp.state.modifiedClick[held] = nil;
+            end
+        end
+
+        Press("nothing held, friendly target", { target = FRIEND }, nil, "Renew", "none");
+        Press("nothing held, hostile target", { target = ENEMY }, nil, "Rejuvenation", nil);
+        Press("self cast, friendly player", { target = ENEMY, player = FRIEND }, "SELFCAST", "Renew", "none");
+        Press("self cast, hostile player", { target = FRIEND, player = ENEMY }, "SELFCAST", "Rejuvenation", "player");
+        Press("focus cast, friendly focus", { target = ENEMY, focus = FRIEND }, "FOCUSCAST", "Renew", "none");
+        Press("focus cast, hostile focus", { target = FRIEND, focus = ENEMY }, "FOCUSCAST", "Rejuvenation", "focus");
+
+        PointAt("party1");
+        Press("pointing at a friend", { target = ENEMY, party1 = FRIEND }, nil, "Renew", "none");
+        Press("pointing at an enemy", { target = FRIEND, party1 = ENEMY }, nil, "Rejuvenation", "hover");
+        interp:hoverLeave(unitFrame);
+
+        interp:resetState();
         shim.world.units = {};
     end);
 

@@ -35,11 +35,12 @@ Execute <Frame#4>
   | 
 ClearOverrideBindings <Frame#4>
 SetAttribute <Frame#4> _onattributechanged = nil
-CreateFrame DebindClickButton_player SecureActionButtonTemplate
-SetAttribute DebindClickButton_player unit = "player"
-SetAttribute DebindClickButton_player useparent* = true
-SetAttribute DebindClickButton_player useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_player"
+CreateFrame DebindClickButton_hover SecureActionButtonTemplate
+SetAttribute DebindClickButton_hover alias = "hover"
+SetAttribute DebindClickButton_hover unit = "raid41"
+SetAttribute DebindClickButton_hover useparent* = true
+SetAttribute DebindClickButton_hover useparent-unit = false
+SetFrameRef <Frame#4> clickFrame "DebindClickButton_hover"
 Execute <Frame#4>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
@@ -58,42 +59,13 @@ SetAttribute DebindClickButton *macrotext-deb101-nosc =
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindCastButton *type-deb101 = "spell"
 SetAttribute DebindCastButton *spell-deb101 = "Regrowth(Restoration)"
-CreateFrame DebindClickButton_focus SecureActionButtonTemplate
-SetAttribute DebindClickButton_focus unit = "focus"
-SetAttribute DebindClickButton_focus useparent* = true
-SetAttribute DebindClickButton_focus useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_focus"
-Execute <Frame#4>
-  | local frame = self:GetFrameRef("clickFrame")
-  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
-  | if (unit) then
-  | 	DelegateFrames[unit] = frame
-  | end
-  | DelegateFrames[frame:GetName()] = frame
-  | DelegateFrameNames[frame] = frame:GetName()
-  | 
-CreateFrame DebindClickButton_hover SecureActionButtonTemplate
-SetAttribute DebindClickButton_hover alias = "hover"
-SetAttribute DebindClickButton_hover unit = "raid41"
-SetAttribute DebindClickButton_hover useparent* = true
-SetAttribute DebindClickButton_hover useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_hover"
-Execute <Frame#4>
-  | local frame = self:GetFrameRef("clickFrame")
-  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
-  | if (unit) then
-  | 	DelegateFrames[unit] = frame
-  | end
-  | DelegateFrames[frame:GetName()] = frame
-  | DelegateFrameNames[frame] = frame:GetName()
-  | 
-CreateFrame <Frame#23> SecureHandlerBaseTemplate
-CreateFrame <Frame#24>
+CreateFrame <Frame#21> SecureHandlerBaseTemplate
+CreateFrame <Frame#22>
+CreateFrame <Texture#23>
+CreateFrame <Texture#24>
 CreateFrame <Texture#25>
-CreateFrame <Texture#26>
-CreateFrame <Texture#27>
-CreateFrame <Button#28> SecureHandlerClickTemplate
-SetAttribute <Button#28> _onclick =
+CreateFrame <Button#26> SecureHandlerClickTemplate
+SetAttribute <Button#26> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -128,32 +100,60 @@ SetAttribute <Button#28> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#28> screen "<Frame#7>"
-CreateFrame <Button#29> SecureActionButtonTemplate
-SetAttribute <Button#29> type = "spell"
-SetAttribute <Button#29> useOnKeyDown = false
+SetFrameRef <Button#26> screen "<Frame#7>"
+CreateFrame <Button#27> SecureActionButtonTemplate
+SetAttribute <Button#27> type = "spell"
+SetAttribute <Button#27> useOnKeyDown = false
+CreateFrame <Texture#28>
+CreateFrame <Texture#29>
 CreateFrame <Texture#30>
 CreateFrame <Texture#31>
 CreateFrame <Texture#32>
-CreateFrame <Texture#33>
+WrapScript <Button#27> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#27> OnClick = " owner:Hide() "
+SetAttribute <Button#27> spell = "Call Pet 1"
+CreateFrame <Button#33> SecureActionButtonTemplate
+SetAttribute <Button#33> type = "spell"
+SetAttribute <Button#33> useOnKeyDown = false
 CreateFrame <Texture#34>
-WrapScript <Button#29> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#29> OnClick = " owner:Hide() "
-SetAttribute <Button#29> spell = "Call Pet 1"
-CreateFrame <Button#35> SecureActionButtonTemplate
-SetAttribute <Button#35> type = "spell"
-SetAttribute <Button#35> useOnKeyDown = false
+CreateFrame <Texture#35>
 CreateFrame <Texture#36>
 CreateFrame <Texture#37>
 CreateFrame <Texture#38>
-CreateFrame <Texture#39>
-CreateFrame <Texture#40>
-WrapScript <Button#35> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#35> OnClick = " owner:Hide() "
-SetAttribute <Button#35> spell = "Call Pet 2"
-SetFrameRef <Button#28> holder "<Frame#23>"
+WrapScript <Button#33> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#33> OnClick = " owner:Hide() "
+SetAttribute <Button#33> spell = "Call Pet 2"
+SetFrameRef <Button#26> holder "<Frame#21>"
+CreateFrame DebindClickButton_player SecureActionButtonTemplate
+SetAttribute DebindClickButton_player unit = "player"
+SetAttribute DebindClickButton_player useparent* = true
+SetAttribute DebindClickButton_player useparent-unit = false
+SetFrameRef <Frame#4> clickFrame "DebindClickButton_player"
+Execute <Frame#4>
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
 SetAttribute DebindClickButton *type-deb102 = "click"
-SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#28>>
+SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#26>>
+CreateFrame DebindClickButton_focus SecureActionButtonTemplate
+SetAttribute DebindClickButton_focus unit = "focus"
+SetAttribute DebindClickButton_focus useparent* = true
+SetAttribute DebindClickButton_focus useparent-unit = false
+SetFrameRef <Frame#4> clickFrame "DebindClickButton_focus"
+Execute <Frame#4>
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
 SetAttribute DebindClickButton *type-deb103 = "macro"
 SetAttribute DebindClickButton *macro-deb103 = nil
 SetAttribute DebindClickButton *macrotext-deb103 = "/petattack"
@@ -342,7 +342,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unitAlias"]="hover"
   | t.units=newtable()
   | u=newtable();t.units["hover"]=u
   | u.exists=true
@@ -355,7 +355,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unitAlias"]="hover"
   | t.units=newtable()
   | u=newtable();t.units["hover"]=u
   | u.exists=true
@@ -445,7 +445,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unitAlias"]="hover"
   | t["frameTypes"]=8
   | t.units=newtable()
   | u=newtable();t.units["hover"]=u
@@ -461,7 +461,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unitAlias"]="hover"
   | t["frameTypes"]=8
   | t.units=newtable()
   | u=newtable();t.units["hover"]=u
@@ -632,7 +632,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unitAlias"]="custom1"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -640,7 +640,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unitAlias"]="custom1"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -907,7 +907,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unitAlias"]="healer"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -915,7 +915,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unitAlias"]="healer"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -1138,9 +1138,9 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unit"]="target"
   | t.units=newtable()
-  | u=newtable();t.units["player"]=u
+  | u=newtable();t.units["target"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -1151,9 +1151,9 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unit"]="target"
   | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
+  | u=newtable();t.units["target"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -1183,15 +1183,13 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unit"]="target"
   | t.units=newtable()
-  | u=newtable();t.units["player"]=u
+  | u=newtable();t.units["target"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
   | u.reaction.other=true
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
   | u.dead=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1200,15 +1198,13 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unit"]="target"
   | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
+  | u=newtable();t.units["target"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
   | u.reaction.other=true
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
   | u.dead=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1565,7 +1561,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb117"
   | t["castModifier"]=2
-  | t["unit"]="player"
+  | t["unit"]="focus"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -1603,7 +1599,7 @@ Execute <Frame#4>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb118"
   | t["castModifier"]=4
-  | t["unit"]="focus"
+  | t["unit"]="player"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4

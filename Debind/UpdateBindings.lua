@@ -1659,7 +1659,7 @@ local function PrepareKeyBindings(key, bindingArray)
             bindingValue = binding.spell;
         end
         binding.clickframe, binding.clickbutton, binding.pressAndHold =
-            SetBindingAttributes(binding.type, bindingValue, binding.unit);
+            SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding));
 
         -- **DEBUG only.** Which key ended up on which spell id, which nothing else records: the
         -- action keeps the id the reader picked, `_facts` is wiped per binding, and the button name
@@ -1840,7 +1840,10 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     wipe(out.switches);
     out.isClickCast = isClickCast;
     out.holdsKey = holdsKey;
-    out.targetUnit = binding.unit;
+    -- **Where the cast goes, not where the press aims.** `none` aims like an action with no target
+    -- and still goes out asking; the unit it aims at reaches the snippet through its conditions.
+    local castUnit = DebindPrivate.CastUnitOf(binding);
+    out.targetUnit = castUnit;
     out.setsSwitch = nil;
     out.carriesFrameTypes = false;
 
@@ -1878,11 +1881,11 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
         field(out, "castModifier", binding.castModifier);
     end
 
-    if (carriesTarget and binding.unit and binding.unit ~= "") then
-        if (SPECIAL_UNITS[binding.unit]) then
-            field(out, "unitAlias", binding.unit);
-        elseif (BASIC_UNITS[binding.unit]) then
-            field(out, "unit", binding.unit);
+    if (carriesTarget and castUnit and castUnit ~= "") then
+        if (SPECIAL_UNITS[castUnit]) then
+            field(out, "unitAlias", castUnit);
+        elseif (BASIC_UNITS[castUnit]) then
+            field(out, "unit", castUnit);
         end
     end
 

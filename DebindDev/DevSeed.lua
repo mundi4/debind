@@ -131,8 +131,7 @@ SEEDS[5] = function(guid)
                 { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
                 --- Target and the `"@"` unit condition on one action. `"@"` is drawn under `Units`
                 --- as `RESOLVED_TARGET` (`ActionTooltip.lua`), and the target line beside it is the
-                --- other half, so neither row above reaches the pair. Any target but `none`, where
-                --- `"@"` is dropped (`Misc.lua`).
+                --- other half, so neither row above reaches the pair.
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
                     key = "SHIFT-F10", seq = 1, checkedUnits = { ["@"] = {} } },
                 -- The binding-context exception: this key stays bound while an editor holds it

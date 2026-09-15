@@ -19,7 +19,6 @@ local ActionMenus                    = ActionMenu.ActionMenus;
 local OnActionsChanged               = ActionMenu.OnActionsChanged;
 local AllActions                     = ActionMenu.AllActions;
 local AnyAction                      = ActionMenu.AnyAction;
-local HowManyAccept                  = ActionMenu.HowManyAccept;
 local OnlyOneReason                  = ActionMenu.OnlyOneReason;
 local CreateRadio                    = ActionMenu.CreateRadio;
 local CreateCheckbox                 = ActionMenu.CreateCheckbox;
@@ -142,20 +141,10 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
             FOCUS_CAST_KEY_TEXT, LLL["POINTED_UNIT_CAST"]);
     end
 
-    -- **The aimed unit is only a question for an action that takes a target**, so a selection mixing
-    -- the two cannot have this row for part of it without the rest silently keeping what it had.
-    local blockedReason;
-    if (unit == "@" and HowManyAccept(ctx, DebindPrivate.ActionTakesUnit) == "some") then
-        blockedReason = LLL["MENU_BLOCKED_SOME_CANNOT"];
-    end
-
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {
         label = label,
         instruction = instruction,
         skipTitle = true,
-        blocked = function()
-            return blockedReason;
-        end,
         valueOf = function(action)
             local units = UnitConditionsOf(action);
             return units and units[unit];
@@ -167,21 +156,8 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
             return FirstUnitIssue(ctx, unit);
         end,
     }, ctx);
-    if (blockedReason) then
-        return optionsDescription;
-    end
 
     MenuKit.CreateTitle(optionsDescription, MenuUtil.GetElementText(optionsDescription));
-    if (unit == "@") then
-        -- **Locked on `none` alone.** That cast asks the reader for a target, so the press settles on
-        -- no unit and the condition is dropped on the way out (`Misc.lua`'s `FillBinding`). No target
-        -- and `player` both leave a unit for it to be about.
-        optionsDescription:SetEnabled(function()
-            return AllActions(ctx, function(action)
-                return action.unit ~= "none";
-            end);
-        end);
-    end
 
     CreateRadio(optionsDescription, ctx,LLL["DISABLE"],
         function()
@@ -380,12 +356,17 @@ local function BuildHoverMenu(kit, ctx)
     --- condition on it keeps the action off the frame's unit; with no condition at all it keeps the
     --- action out of Hover Cast and Mouseover Cast (`Misc.lua`'s `TwinUnitFor`).
     ---
-    --- **[안 올렸을 때] is the one that locks it.** That action does not run over a frame, so there
+    --- **[안 올렸을 때] is one that locks it.** That action does not run over a frame, so there
     --- is no frame's unit to refuse -- and it is not left out of anything either, since no twin is
     --- made for it in the first place.
+    ---
+    --- **A picked unit is the other.** The frame's unit only fills in where no unit was picked, and
+    --- Hover Cast never moves one that was (`Misc.lua`'s `ActionHasPickedUnit`), so the box has
+    --- nothing to take back.
     ignoreHoverUnit:SetEnabled(function()
         return AllActions(ctx, function(action)
-            return UnitConditionModeOf(action, "hover") ~= "absent";
+            return UnitConditionModeOf(action, "hover") ~= "absent"
+                and not DebindPrivate.ActionHasPickedUnit(action);
         end);
     end);
 end
@@ -410,21 +391,15 @@ ActionMenus:Define("HOVER", {
     build = BuildHoverMenu,
 });
 
---- Whether this menu has a row for `unit` on this action, which is also whether it counts it.
+--- Whether this menu has a row for `unit`, which is also whether it counts it.
 --- `"hover"` is edited by the hover menu and `"player"` by the life menu under `Group`. **Counting
 --- one of those here changes a condition this menu does not show**: while `"player"` was missing
 --- from this test, [Disable All] switched the reader's own life condition off, and nothing here could
 --- bring it back.
 ---
---- `"@"` has a row only on an action that takes a target, the same test the `Target` menu opens
---- on. Anything else keeps no target and the condition is dropped on the way out.
----
 --- **Outside the node.** Inside it, the `isActive` closure would capture a name that is not there
 --- yet and read nil at run time.
-local function isListedUnit(action, unit)
-    if (unit == "@") then
-        return DebindPrivate.ActionTakesUnit(action);
-    end
+local function isListedUnit(unit)
     return unit ~= "hover" and unit ~= "player";
 end
 
@@ -433,7 +408,7 @@ local function ListedUnitsWithCondition(action)
     local units;
     if (UnitConditionsOf(action)) then
         for unit in pairs(UnitConditionsOf(action)) do
-            if (isListedUnit(action, unit) and UnitConditionOnFor(action, unit)) then
+            if (isListedUnit(unit) and UnitConditionOnFor(action, unit)) then
                 units = units or {};
                 tinsert(units, unit);
             end
@@ -469,10 +444,7 @@ local function BuildUnitConditionMenu(kit, ctx)
         end
     );
 
-    if (AnyAction(ctx, function(action) return isListedUnit(action, "@"); end)) then
-        CreateUnitConditionSubmenu(description, ctx, "RESOLVED_TARGET", "@");
-        description:CreateDivider();
-    end
+    CreateUnitConditionSubmenu(description, ctx, "RESOLVED_TARGET", "@");
 
     for _, unit in ipairs(SORTED_UNIT_LIST) do
         -- `"hover"` is out. `Hovering Over Unit Frame` edits the very same key now, and it is
@@ -482,7 +454,7 @@ local function BuildUnitConditionMenu(kit, ctx)
         -- **그리는 줄과 세는 유닛이 같은 목록이어야 한다.** `isListedUnit`이 그 목록이고,
         -- 갈리면 이 메뉴가 안 그리는 조건으로 파래지거나 빨개진다. `"none"`만 여기 더 있다 -
         -- 그건 유닛이 아니라 대상 없음이라 조건이 붙을 자리가 아예 없다.
-        if (unit ~= "@" and isListedUnit(nil, unit) and unit ~= "none") then
+        if (unit ~= "@" and isListedUnit(unit) and unit ~= "none") then
             CreateUnitConditionSubmenu(description, ctx, DebindUI.UNIT_INFO[unit].name, unit);
         end
     end
@@ -500,7 +472,7 @@ ActionMenus:Define("UNITS", {
     valueOf = function(action)
         local listed = {};
         for unit, cond in pairs(UnitConditionsOf(action) or {}) do
-            if (isListedUnit(action, unit)) then
+            if (isListedUnit(unit)) then
                 listed[unit] = cond;
             end
         end
