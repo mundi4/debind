@@ -53,6 +53,11 @@ L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
+-- The second warning line, and it says what the reader gets rather than what is wrong: the key
+-- still works and the action simply has no press left to answer, which is something a reader is
+-- allowed to mean. It names where to turn one back on, because there is no box on screen to look
+-- at otherwise.
+L["BINDING_ERROR_CASTING_NONE_LEFT"] = "This action has no press left to answer, so it never runs. Turn one back on under Casting."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
@@ -1186,16 +1191,23 @@ L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, ev
 -- it fires with no key at all, so leaving it out would read as "that one still applies".
 L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here: neither the Self Cast Key nor the Focus Cast Key moves it, and Hover Cast, Mouseover Cast and Auto Self Cast are left out. Disable hands the decision back to the game."
 L["TARGET_UNIT"] = "Target"
--- Two wordings per box, one per `Constants.CAST_KEY_IGNORE` (`ActionMenuItems.lua` picks), because
--- the two answers differ exactly in what a reader holding the key sees go out
--- (`devdocs/implementing-focus-and-self-cast.md` §3-12). `_DESC` is the action sitting the press out,
--- `_AIM_DESC` the action keeping its turn at its own target.
+-- `_AIM_DESC` is the action keeping its turn and going where it would with no key held, which is
+-- what the box writes (`devdocs/which-action-a-key-runs.md` §6). The wording for the other value,
+-- the action sitting that press out, arrives with the menu that offers it.
 L["IGNORE_SELF_CAST_KEY"] = "Disable Self Cast Key"
-L["IGNORE_SELF_CAST_KEY_DESC"] = "While the Self Cast Key is held, this action is left out: the next action on the key that can go to you goes instead, and with none the key does nothing."
 L["IGNORE_SELF_CAST_KEY_AIM_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["IGNORE_FOCUS_CAST_KEY"] = "Disable Focus Cast Key"
-L["IGNORE_FOCUS_CAST_KEY_DESC"] = "While the Focus Cast Key is held, this action is left out: the next action on the key that can go to your focus goes instead, and with none the key does nothing."
 L["IGNORE_FOCUS_CAST_KEY_AIM_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
+-- The group an issue about the presses an action answers points at. The menu that carries these
+-- values is built in the next step and names itself from here.
+L["CASTING"] = "Casting"
+-- Said once, on the first login after Hover Cast became a per-action value. It opens on what has
+-- not changed, because nothing on screen has: every key does what it did yesterday, and the reason
+-- to say anything at all is that there is now a value to go and find.
+--
+-- **"Your actions kept what they did" rather than "they were moved with it off"**, which is the
+-- true half: an action that ran over a unit frame comes across running over a unit frame.
+L["CASTING_MIGRATED_MESSAGE"] = "Hover Cast is set on each action now. Your actions kept what they were doing, so nothing has changed; new actions follow the mode in Debind's settings. You can change it for several actions at once."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
 -- Why the two boxes above stand locked on an action with a target picked (`ActionMenuItems.lua`).
 L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and holding the key never moves it, so there is nothing here to turn off."

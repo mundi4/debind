@@ -36,10 +36,12 @@ return function(DebindPrivate, _, ctx)
     local interp;
     local seq = 0;
 
+    --- **Hover Cast는 꺼 둔다.** 이 파일이 재는 것은 전문화가 고르는 주문이고, 켜져 있으면
+    --- 액션마다 쌍둥이가 하나씩 더 서서 키의 목록이 두 배가 된다 (`tests/casting.lua`).
     local function action(t)
         seq = seq + 1;
         t.seq = seq;
-        return t;
+        return require("casting").skipHover(t);
     end
 
     local function Bind(actions, options)
@@ -276,9 +278,12 @@ return function(DebindPrivate, _, ctx)
             -- §3-4). A plain spell behind the dispel is what shows the tiers: each tier holds the
             -- dispel's pair and then the spell. The dispel is in combat only, so the spell's
             -- bindings are not covered by it.
+            --- 이 케이스만 Hover Cast를 켠다. `casting`을 지우면 설정 탭의 모드를 따르는,
+            --- 새로 만든 액션의 모양이 된다.
             local twinned = action({ type = Constants.DISPEL, key = "F4", conditions = { combat = true } });
             local behind = action({ type = Constants.SPELL, key = "F4", value = 774 });
-            Bind({ twinned, behind }, { hoverCast = true });
+            twinned.casting, behind.casting = nil, nil;
+            Bind({ twinned, behind });
 
             local twinnedList = castmod.without(Constants, DebindPrivate.GetBindingsForAction(twinned));
             check(#twinnedList == 4, "twinned list length: " .. #twinnedList);

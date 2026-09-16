@@ -111,6 +111,10 @@ function Events.PLAYER_LOGIN()
             WARNING_FONT_COLOR:GetRGBA());
     end
 
+    -- Once, on the first login after Hover Cast became a per-action value. It says nothing on every
+    -- other login.
+    DebindPrivate.ReportCastingMigration();
+
     -- **여기서 먼저 말을 건다.** 업데이트한 사람이 겪는 것은 "잘 되던 단축키가 전부 안 먹는다"
     -- 이고, 그 상태에서 애드온 창을 열어볼 이유가 없다. 창에 붙여두면 원인을 스스로 찾아낸
     -- 사람에게만 보이는 안내가 된다.

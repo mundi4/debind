@@ -117,30 +117,29 @@ return function(DebindPrivate)
     -- 겨누는 대상
     ---------------------------------------------------------------------------
 
-    --- **겨누는 대상은 액션의 필드로만 오는 것이 아니다.** 호버 조건만 걸어둔 액션은 그 필드가
-    --- 비어 있고, 겨누기는 `GetBindingInfoForAction`이 끝에서 파생시킨다.
-    ---
-    --- 매크로텍스트가 되면 그 파생값을 실을 자리가 없다. `SECURE_ACTIONS.macro`는 버튼의 unit을
-    --- 안 보고(`SecureTemplates.lua`) `UpdateBindings`도 그래서 이 타입에서 unit을 떨군다. 본문에
-    --- 안 적히면 **겨누기가 통째로 사라져서 현재 대상에게 나간다.**
-    test("호버로 겨누던 것도 본문에 실린다", function()
+    --- 개체창의 유닛을 **대상으로 고른** 액션. 그 이름은 매크로 본문에서도 살아 있는 토큰이라
+    --- (`ParseMacroText`가 누를 때 진짜 유닛으로 바꾼다) 그대로 실린다. 안 실으면 겨누기가 통째로
+    --- 사라져서 현재 대상에게 나간다 - `SECURE_ACTIONS.macro`는 버튼의 unit을 안 본다.
+    test("개체창 유닛을 고른 액션은 본문에 그 유닛이 실린다", function()
         installWorld();
-        local action = { type = Constants.SPELL, value = 774,
-            conditions = { units = { unitframe = {} } } };
-        check(DebindPrivate.GetBindingInfoForAction(action).unit == "unitframe",
-            "이 액션은 호버를 겨누고 있지 않다");
+        local action = { type = Constants.SPELL, value = 774, unit = "unitframe" };
         check(Convert(action), "변환이 거절됐다");
         check(action.value == "/cast [@unitframe] Rejuvenation",
             "본문이 " .. tostring(action.value) .. "다");
     end);
 
-    --- 겨누기를 끈 호버 액션. `binding.unit`이 `""`라 겨누는 곳이 없고, 본문도 그래야 한다.
-    test("겨누기를 끈 호버 액션은 대상이 안 실린다", function()
+    --- **쌍둥이는 변환을 막지 않는다** (2026-09-16, 소유자). 쌍둥이는 액션이 유닛을 받든 못 받든
+    --- 서고 유닛을 받아 간다. 주문도 유닛을 쓰는 것이 있고 안 쓰는 것이 있는데 넘기는 쪽은 언제나
+    --- 넘기고, 매크로 본문이 그 유닛을 읽느냐도 똑같이 그 액션의 몫이다. 읽게 하고 싶으면 `@@`가
+    --- 그 자리다 (`implementing-focus-and-self-cast.md` §4).
+    test("Hover Cast가 켜져 있어도 변환이 선다", function()
         installWorld();
-        local action = { type = Constants.SPELL, value = 774, ignoreHoverUnit = true,
-            conditions = { units = { unitframe = {} } } };
-        check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
+        check(DebindPrivate.CanConvertToMacroText({ type = Constants.SPELL, value = 774 }),
+            "쌍둥이를 들었다고 변환이 안 선다");
+        check(DebindPrivate.CanConvertToMacroText({ type = Constants.SPELL, value = 774,
+                casting = { hoverCast = { aim = "usual" } },
+                conditions = { units = { unitframe = {} } } }),
+            "Cast as usual인 액션에서 변환이 안 선다");
     end);
 
     --- [호버 안 했을 때]는 겨누는 조건이 아니다. 파생도 안 생기므로 본문에도 안 실린다.
@@ -152,21 +151,19 @@ return function(DebindPrivate)
         check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
     end);
 
-    --- **Where the aim is derived, `"@"` already stands on the hovered unit**, and the body spells
-    --- `[@unitframe]`. The conversion must not move the hover axis: narrowing it would stop the key in
-    --- states where it fired before.
-    test("죽어 있던 `@`는 변환이 되살리지 않는다", function()
+    --- **개체창 조건은 대상을 안 정하므로 본문에도 안 실린다** (§5), 그리고 조건 자체는 제 축에
+    --- 그대로 남아야 한다. 변환이 그 축을 좁히면 전에 나가던 상태에서 키가 멈춘다.
+    test("개체창 조건은 본문에 안 실리고 축도 안 움직인다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774,
             conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM },
                 unitframe = {} } } };
         local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast [@unitframe] Rejuvenation",
-            "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
 
         local after = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
-        check(after == before, "hover 축이 " .. tostring(before) .. "에서 "
+        check(after == before, "개체창 축이 " .. tostring(before) .. "에서 "
             .. tostring(after) .. "로 움직였다");
     end);
 
@@ -196,39 +193,23 @@ return function(DebindPrivate)
             "살릴 수 없는 조건을 들고도 변환이 선다");
     end);
 
-    --- 쌍둥이는 매크로 본문으로 안 옮겨간다. 조용히 떨어뜨리면 변환된 매크로가 가리킨 개체 대신
-    --- 원래 대상에게 나가므로, 쌍둥이가 실제로 서는 액션은 못 바꾼다. 쌍둥이가 안 서는
-    --- 액션(hover 조건이 켜진 것)은 스위치가 아무 일도 안 하니 변환이 아무것도 안 잃는다.
-    test("쌍둥이가 실제로 서는 액션은 못 바꾼다", function()
+    --- **`"@"`는 변환을 건너서도 같은 유닛에 묻는다.** 매크로텍스트의 쌍둥이도 제 유닛을 싣고
+    --- (`FillBinding`), `"@"`는 그 바인딩이 겨누는 유닛에 묻는 것이라(`ResolvedUnitOf`) 바꾸기
+    --- 전후가 같다. 원본은 앞뒤로 `target`이다.
+    test("대상 none에 `@`가 걸려 있어도 바꿀 수 있다", function()
         installWorld();
-        local was = DebindPrivate.Options.hoverCast;
-        DebindPrivate.Options.hoverCast = true;
-        local ok, err = pcall(function()
-            check(not Can({ type = Constants.SPELL, value = 774 }), "쌍둥이를 잃는 변환이 선다");
-            check(Can({ type = Constants.SPELL, value = 774,
-                    conditions = { units = { unitframe = {} } } }),
-                "쌍둥이가 안 서는 액션인데 변환이 안 선다");
-        end);
-        DebindPrivate.Options.hoverCast = was;
-        if (not ok) then error(err, 0); end
-    end);
+        local action = { type = Constants.SPELL, value = 774, unit = "none",
+            casting = { hoverCast = {} },
+            conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } };
+        local before = DebindPrivate.GetBindingsForAction(action);
+        local twinBefore = before[2] and before[2].unit;
+        check(DebindPrivate.CanConvertToMacroText(action), "변환이 안 선다");
+        check(DebindPrivate.ConvertToMacroText(action), "변환이 거절됐다");
 
-    --- **An Always Ask action's hover twin casts where the macro text does**, so with Hover Cast on
-    --- it converts, unless it carries `"@"`. There the twin asks `"@"` of the pointed unit and the
-    --- converted macro's twin asks it of `target`, and a pointed press would pick a different winner.
-    test("Hover Cast가 켜져도 대상 none은 `@`가 없을 때만 바꾼다", function()
-        installWorld();
-        local was = DebindPrivate.Options.hoverCast;
-        DebindPrivate.Options.hoverCast = true;
-        local ok, err = pcall(function()
-            check(Can({ type = Constants.SPELL, value = 774, unit = "none" }),
-                "`@`가 없는데 변환이 안 선다");
-            check(not Can({ type = Constants.SPELL, value = 774, unit = "none",
-                    conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-                "가리킨 유닛에 묻던 `@`를 target에 묻게 되는 변환이 선다");
-        end);
-        DebindPrivate.Options.hoverCast = was;
-        if (not ok) then error(err, 0); end
+        local after = DebindPrivate.GetBindingsForAction(action);
+        check(after[2] and after[2].unit == twinBefore,
+            "쌍둥이가 겨누던 것이 " .. tostring(twinBefore) .. "에서 "
+                .. tostring(after[2] and after[2].unit) .. "로 움직였다");
     end);
 
     --- `"@"` is **the unit the press aims at**. The macro text carries no target field, so after the

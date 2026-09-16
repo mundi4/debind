@@ -430,7 +430,8 @@ do
 		-- the grounds that `FillBinding` only fills the unit where none is set. It refuses the
 		-- account-wide twin too (`Misc.lua`'s `TwinUnitFor`), and that one stands on an action that
 		-- has a target, so the line was missing exactly where the box was the only thing stopping it.
-		if (action.ignoreHoverUnit) then
+		if (action.casting and action.casting.hoverCast
+				and action.casting.hoverCast.aim == "usual") then
 			addLabelLine(tooltip, LLL["IGNORE_HOVER_UNIT"]);
 			addValueLine(tooltip, LLL["LINE_TOOLTIP_IGNORE_HOVER_UNIT"]);
 		end

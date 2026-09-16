@@ -278,6 +278,69 @@ local function TableFor(action, key, create)
     return conditions;
 end
 
+--- A Casting value sits two levels down (`action.casting.hoverCast.aim`) and the kit addresses a
+--- value by one key, so the key spells the whole address: `casting.<row>.<field>`, or
+--- `casting.normalCast` for the one value that is not in a row
+--- (`devdocs/which-action-a-key-runs.md` §8).
+---
+--- Returns the table the field lives in and the field's name, or nil for a key that is not one of
+--- these. **Reading makes nothing**: an action with no `casting` answers off the empty table, the
+--- way `TableFor` refuses to make a condition table for a reader.
+local EMPTY_CASTING = {};
+local function CastingHolder(action, key, create)
+    if (strsub(key, 1, 8) ~= "casting.") then
+        return nil;
+    end
+    local rest = strsub(key, 9);
+    local rowName, field = strmatch(rest, "^([^.]+)%.([^.]+)$");
+    local casting = action.casting;
+    if (casting == nil) then
+        if (not create) then
+            return EMPTY_CASTING, field or rest;
+        end
+        casting = {};
+        action.casting = casting;
+    end
+    if (rowName == nil) then
+        return casting, rest;
+    end
+    local row = casting[rowName];
+    if (type(row) ~= "table") then
+        if (not create) then
+            return EMPTY_CASTING, field;
+        end
+        row = {};
+        casting[rowName] = row;
+    end
+    return row, field;
+end
+
+--- What a checkbox writing one of these means. The kit's boxes write a boolean
+--- (`MenuKit.TOGGLE`) and the fields hold a word, so the fold is here rather than in a box of its
+--- own: a row that offers the word itself (a radio) hands it over and passes straight through.
+local CASTING_BOX_VALUES = {
+    ["casting.selfCastKey.aim"] = "usual",
+    ["casting.focusCastKey.aim"] = "usual",
+    ["casting.hoverCast.aim"] = "usual",
+};
+
+--- 빈 표는 안 남긴다. `CleanUpDB`와 같은 규칙이고, 여기서도 하는 것은 저장과 내보내기와
+--- 같은지 묻기(`IDENTITY_FIELDS`)가 로그아웃을 안 기다리기 때문이다.
+local function PruneCasting(action)
+    local casting = action.casting;
+    if (casting == nil) then
+        return;
+    end
+    for name, row in pairs(casting) do
+        if (type(row) == "table" and next(row) == nil) then
+            casting[name] = nil;
+        end
+    end
+    if (next(casting) == nil) then
+        action.casting = nil;
+    end
+end
+
 --- 이 액션의 유닛 조건 표. 없으면 nil이고, 만들지 않는다.
 local function UnitConditionsOf(action)
     return action.conditions and action.conditions.units;
@@ -367,11 +430,29 @@ local ActionValues = {
     end,
 
     Get = function(action, key)
+        local holder, field = CastingHolder(action, key);
+        if (holder) then
+            return holder[field];
+        end
         local tbl = TableFor(action, key);
         return tbl and tbl[key];
     end,
 
     Set = function(action, key, value)
+        local boxValue = CASTING_BOX_VALUES[key];
+        if (boxValue ~= nil and type(value) == "boolean") then
+            if (value) then
+                value = boxValue;
+            else
+                value = nil;
+            end
+        end
+        local holder, field = CastingHolder(action, key, value ~= nil);
+        if (holder) then
+            holder[field] = value;
+            PruneCasting(action);
+            return;
+        end
         if (value == nil) then
             -- `nil`을 고를 때 표를 만들었다가 곧바로 거두는 일이 없어야 해서, 표는 실제로
             -- 쓸 때만 만든다.
@@ -386,9 +467,9 @@ local ActionValues = {
     end,
 
     -- The checkbox branch comes through here as well. None of the fields that do so today
-    -- (`ignoreHoverUnit`, `keepInBindingContext`, the two cast-key boxes) is a step in the
-    -- ordering, so the renumber moves nothing -- but the day one that is arrives here, that group
-    -- alone would quietly keep the old symptom.
+    -- (`keepInBindingContext`, the three Casting boxes) is a step in the ordering, so the renumber
+    -- moves nothing -- but the day one that is arrives here, that group alone would quietly keep
+    -- the old symptom.
     Commit = function(ctx)
         return OnActionsChanged(ctx.actions);
     end,

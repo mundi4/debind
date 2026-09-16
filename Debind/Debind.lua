@@ -191,27 +191,23 @@ do
 	--- the entry would keep its own key reachable and never be collected (ephemerons are 5.2).
 	--- Nothing is allocated by the wipe: the lists themselves are `Misc.lua`'s to keep.
 	local Lists = {};
-	local HoverTwins = {};
 	local _unroll = {};
-	local _pointed = {};
-
-	local function HoverTwinSortComparison(lhs, rhs)
-		return CompareActionOrder(Placements[HoverTwins[lhs]], Placements[HoverTwins[rhs]]);
-	end
 
 	--- Lays the sorted originals out as the key, in four tiers: every self twin, every focus twin,
-	--- every hover twin, every original (`devdocs/implementing-focus-and-self-cast.md` §3-4). A probe
-	--- goes with the binding it gates, right ahead of it.
+	--- every hover twin, every original (`devdocs/which-action-a-key-runs.md` §3). A probe goes with
+	--- the binding it gates, right ahead of it.
 	---
 	--- **Tiers, not each action's bindings side by side.** Side by side, an original placed first
 	--- took a pointed press before a hover twin behind it had a turn, so the same key went at the
 	--- target or at the pointed unit depending on which of the two was hostile. The self and focus
 	--- tiers change no winner either way, since a held modifier and none held never meet.
 	---
-	--- **The hover tier has an order of its own.** A twin stands where the action the reader would
-	--- have made by hand, with the twin's condition, would stand. Put in its own action's place, the
-	--- twin of an action with no condition fell behind every action with a hover condition,
-	--- whatever the reader had put first.
+	--- **Every tier is in the originals' order, the hover tier included** (2026-09-16, owner). That
+	--- order is the one the window draws, and an order the reader cannot see is an order they cannot
+	--- fix. The hover tier used to sort itself by where each twin's own condition would have put it.
+	---
+	--- **The last tier leaves out an original whose Normal Cast is off**, which is what makes a press
+	--- with nothing held and nothing pointed at fall through to the next action (§6).
 	local function UnrollIntoTiers(bindings)
 		local count = #bindings;
 		for i = 1, count do
@@ -219,51 +215,33 @@ do
 		end
 
 		local out = 0;
-		for tier = 1, 2 do
-			local castModifier = tier == 1 and Constants.CASTMOD_SELF or Constants.CASTMOD_FOCUS;
+		for tier = 1, 4 do
+			local castModifier = Constants.CASTMOD_NONE;
+			if (tier == 1) then
+				castModifier = Constants.CASTMOD_SELF;
+			elseif (tier == 2) then
+				castModifier = Constants.CASTMOD_FOCUS;
+			end
+			local wantHover = tier == 3;
 			for i = 1, count do
 				local list = Lists[_unroll[i]];
-				for j = #list, 2, -1 do
-					if (list[j].castModifier == castModifier) then
+				for j = #list, 1, -1 do
+					local binding = list[j];
+					if (binding.castModifier == castModifier
+							and (binding.hoverTwin or false) == wantHover
+							and (tier ~= 4 or binding.normalCast ~= false)) then
 						out = out + 1;
-						bindings[out] = list[j];
+						bindings[out] = binding;
 					end
 				end
 			end
 		end
 
-		local pointed = 0;
-		for i = 1, count do
-			if (HoverTwins[_unroll[i]]) then
-				pointed = pointed + 1;
-				_pointed[pointed] = _unroll[i];
-			end
-		end
-		if (pointed > 1) then
-			sort(_pointed, HoverTwinSortComparison);
-		end
-		for k = 1, pointed do
-			local list = Lists[_pointed[k]];
-			for j = #list, 2, -1 do
-				if (list[j].hoverTwin) then
-					out = out + 1;
-					bindings[out] = list[j];
-				end
-			end
-		end
-
-		for i = 1, count do
-			local list = Lists[_unroll[i]];
-			for j = #list, 1, -1 do
-				if (list[j].castModifier == Constants.CASTMOD_NONE and not list[j].hoverTwin) then
-					out = out + 1;
-					bindings[out] = list[j];
-				end
-			end
+		for i = out + 1, count do
+			bindings[i] = nil;
 		end
 
 		wipe(_unroll);
-		wipe(_pointed);
 	end
 
 	function DebindPrivate.BuildKeyMap()
@@ -271,7 +249,6 @@ do
 		wipe(ActiveActions);
 		wipe(KeysToHold);
 		wipe(Lists);
-		wipe(HoverTwins);
 		DebindPrivate.ClearUnreachableBindingCache();
 
 		-- **The layers are walked here rather than through an enumerator because both numbers are
@@ -302,6 +279,12 @@ do
 				if (action.key and not action.arrivalID) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
+				end
+				-- **An action can come back with no binding at all**: every press it could have
+				-- answered is turned off in its Casting menu (`devdocs/which-action-a-key-runs.md`
+				-- §6). Nothing below runs for one, the key is not held on its account, and on that
+				-- key the action is not there.
+				if (binding) then
 
 					local key = action.key;
 					-- A key the game has claimed gets no override, and comes back when the claim ends.
@@ -315,12 +298,13 @@ do
 					-- early must not hand the key back to the game: baked, the binding would lose every
 					-- press and the key would do nothing (2026-09-15, owner).
 					--
-					-- Three things still let the key go. A `unitframe` action on a mouse button fires through
-					-- the frame and holds nothing (`PrepareKeyBindings`' `holdsKey`); a yielded key is the
-					-- game's; and a `key` issue says this key cannot be taken at all, where the bare left
-					-- click or the game menu key would take the world click or Escape with it.
+					-- Three things still let the key go. An action that runs over a unit frame fires
+					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`,
+					-- which is the same question the left/right button's validity asks); a yielded key
+					-- is the game's; and a `key` issue says this key cannot be taken at all, where the
+					-- bare left click or the game menu key would take the world click or Escape with it.
 					if (not yielded
-							and not (type(DebindPrivate.UnitFrameConditionOf(binding)) == "table"
+							and not (DebindPrivate.ActionUnitFrameIsOn(action)
 								and DebindPrivate.GetMouseButtonAndPrefix(key))
 							and not DebindPrivate.GetBindingIssue(action, "key")) then
 						KeysToHold[key] = true;
@@ -350,16 +334,6 @@ do
 					-- 묻는 것은 창 쪽이고, 그쪽은 `CollectActionsForKey`로 간다.
 					Placements[binding] = DebindPrivate.MakeOrderRecord(
 						action, layerRank, nil, Placements[binding]);
-
-					for j = 2, #list do
-						local twin = list[j];
-						if (twin.hoverTwin and not twin.spellbook) then
-							HoverTwins[binding] = twin;
-							Placements[twin] = DebindPrivate.MakeOrderRecord(
-								action, layerRank, nil, Placements[twin], twin);
-							break;
-						end
-					end
 
 					local key = action.key;
 					local issue = DebindPrivate.GetBindingIssue(action);

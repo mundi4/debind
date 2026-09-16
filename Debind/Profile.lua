@@ -35,9 +35,10 @@ local KEYS_TO_SAVE       = {
     -- key here doing the group's work; what that cost is in the same 12절.
     arrivalID = true,
     keepInBindingContext = true,
-    ignoreHoverUnit = true,
-    ignoreSelfCastKey = true,
-    ignoreFocusCastKey = true,
+    -- **Which presses this action stands on**, as one table of four values
+    -- (`devdocs/which-action-a-key-runs.md` §8). The three checkboxes it replaced were
+    -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
+    casting = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.
@@ -634,9 +635,9 @@ local function MigrateLayer(layerTbl, dbver)
         -- 바인딩을 만들 때도 같은 규칙으로 들어올려야 해서(마이그레이션이 아직 안 닿은
         -- 프로필), 두 군데 적으면 갈라지는 종류의 규칙이다.
         --
-        -- `frameTypes`/`ignoreHoverUnit`은 여기서 안 옮긴다. 마스크는 **아래 `dbver <= 6`이**
-        -- 같은 행 안으로 옮기고(개체창의 유닛도 유닛이니 그 유닛에 대해 하는 말이다), 체크박스
-        -- 하나는 조건이 아니라 쌍둥이를 어디로 내보내느냐라 조건 표에 자리가 없다.
+        -- `frameTypes`/`ignoreHoverUnit`은 여기서 안 옮긴다. 둘 다 **아래 `dbver <= 6`이** 든다.
+        -- 마스크는 같은 행 안으로 들어가고(개체창의 유닛도 유닛이니 그 유닛에 대해 하는 말이다),
+        -- 체크박스 하나는 조건이 아니라 쌍둥이를 어디로 내보내느냐라 `casting`으로 간다.
         --
         -- 다시 돌아도 안전하다 - `hover`가 없으면 아무것도 안 한다.
         for i = 1, #layerTbl do
@@ -1131,7 +1132,15 @@ local function MigrateLayer(layerTbl, dbver)
                     local folded = DebindPrivate.UnitConditionForBinding(
                         action.conditions and action.conditions.units
                         and action.conditions.units.unitframe);
-                    group[j].unitFrame = folded ~= nil;
+                    -- **Or what the step below turned that condition into**, which is the same
+                    -- action on a second pass: a bare [when one is pointed at] is not written as a
+                    -- condition any more, and read as an action that never had one it would sort
+                    -- somewhere else the second time this runs.
+                    local casting = action.casting;
+                    local hoverCast = casting and casting.hoverCast;
+                    group[j].unitFrame = folded ~= nil
+                        or (casting ~= nil and casting.normalCast == false
+                            and hoverCast ~= nil and hoverCast.mode == "unitframe");
                     group[j].conditional = HasAnyCondition(action);
                 end
                 sort(group, OlderOrder);
@@ -1139,6 +1148,68 @@ local function MigrateLayer(layerTbl, dbver)
                     group[j].action.seq = j;
                 end
             end
+        end
+
+        -- 세 체크박스가 `action.casting` 한 표가 된다. Hover Cast는 액션마다 모드를 들고, 계정에는
+        -- 끔이 없다(`devdocs/which-action-a-key-runs.md` §8).
+        --
+        -- **옛 개체창 조건 액션은 쌍둥이만 있는 액션으로 옮긴다.** 옛 뜻이 "가리킨 누름에서만,
+        -- 층을 뛰어넘어"이고, 그것을 새 모양으로 정확히 적으면 Hover Cast가 Unit Frames이고
+        -- Normal Cast가 꺼진 것이다. 조건을 그대로 두고 계정 모드만 따르게 하면, 설정 탭이
+        -- Mouseover인 사람의 액션이 월드 유닛 위에서도 서게 되어 옮긴 날 동작이 바뀐다.
+        --
+        -- **빈 [올렸을 때]는 조건으로 안 남긴다.** 그 조건이 하던 일을 Casting 값 둘이 통째로 들고,
+        -- 남겨두면 쌍둥이의 조건이 두 번 적힌 채 원본까지 조건부로 만든다. 축이 붙어 있는 조건은
+        -- 그대로 둔다 - 반응과 역할과 프레임 종류는 쌍둥이가 물려받아야 한다.
+        --
+        -- **나머지 액션은 Skip this action이다.** 옮긴 날 아무것도 안 바뀌고, 설정 탭의 모드가
+        -- 무엇이든 옛 액션은 그대로다.
+        --
+        -- **번호를 다시 매긴 뒤에 돈다.** 위 비교자가 읽는 것이 여기서 지우는 그 조건이라, 먼저
+        -- 돌면 쌍둥이만 있는 액션이 조건 없는 액션으로 읽혀 옛 순서가 뒤집힌다.
+        --
+        -- 다시 돌아도 안전하다: 두 번째 순회는 옛 이름 셋을 못 찾고, 이미 선 `casting`을 안 건드린다.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local casting = action.casting;
+
+            if (action.ignoreSelfCastKey) then
+                casting = casting or {};
+                casting.selfCastKey = { mode = "skip" };
+                action.ignoreSelfCastKey = nil;
+            end
+            if (action.ignoreFocusCastKey) then
+                casting = casting or {};
+                casting.focusCastKey = { mode = "skip" };
+                action.ignoreFocusCastKey = nil;
+            end
+
+            if (casting == nil or casting.hoverCast == nil) then
+                local units = action.conditions and action.conditions.units;
+                local folded = DebindPrivate.UnitConditionForBinding(units and units.unitframe);
+                casting = casting or {};
+                if (folded == nil or folded == false) then
+                    casting.hoverCast = { mode = "skip" };
+                else
+                    local aim;
+                    if (action.ignoreHoverUnit) then
+                        aim = "usual";
+                    end
+                    casting.hoverCast = { mode = "unitframe", aim = aim };
+                    casting.normalCast = false;
+                    -- 빈 [올렸을 때]였나. `UnitConditionForBinding`이 낸 표에 축이 하나도 없으면
+                    -- 그것이 [올렸을 때]뿐인 조건이다.
+                    if (next(folded) == nil) then
+                        units.unitframe = nil;
+                        if (next(units) == nil) then
+                            action.conditions.units = nil;
+                        end
+                    end
+                end
+            end
+
+            action.ignoreHoverUnit = nil;
+            action.casting = casting;
         end
     end
 
@@ -1572,6 +1643,12 @@ local function MigrateDB(db, charEntry)
     --- The unreleased step; see `MigrateLayer`'s comment on the same one.
     if (dbver <= 6) then
         DebindPrivate.MigrateOptions(db);
+        -- **The one thing this ladder cannot leave unsaid.** Every existing action keeps what it did
+        -- -- an action with a unit frame condition comes across on Unit Frames, everything else with
+        -- Hover Cast off -- and every new one follows the settings tab, so nothing moves on the day
+        -- it runs. A reader who never hears that has no reason to look for the value
+        -- (`devdocs/which-action-a-key-runs.md` §8). The cell is cleared by the line that prints it.
+        db.castingNotice = true;
     end
 
     db.dbver = Constants.DB_VERSION;
@@ -2642,6 +2719,21 @@ function DebindPrivate.HandleNewerProfileReset(chunks)
     return true;
 end
 
+--- Says once that Hover Cast is a per-action value now, on the first login after the ladder moved
+--- the profile (`MigrateDB`). **Cleared as it prints**, so it is one line and not one per login.
+---
+--- **Chat, not the window's overlay.** Nothing is broken and nothing needs answering: every key does
+--- what it did yesterday. What the line buys is that the reader knows there is a value to go and
+--- find.
+function DebindPrivate.ReportCastingMigration()
+    local db = DebindPrivate.db and DebindPrivate.db.global;
+    if (not (db and db.castingNotice)) then
+        return;
+    end
+    db.castingNotice = nil;
+    DebindPrivate.DisplayMessage(L["CASTING_MIGRATED_MESSAGE"]);
+end
+
 function DebindPrivate.GetProfileLayer(layerID)
     return LayerArray[layerID];
 end
@@ -2659,6 +2751,15 @@ local ORPHANED_GLOBAL_KEYS = {
     -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`).
     "workAlongsideClique",
     "takeUnregisteredFrames",
+};
+
+--- The same for `options`, which the two above predate. **A name here has to be one no build reads**
+--- -- this runs on a profile stamped at the current `dbver`, so a migration step cannot have it.
+local ORPHANED_OPTION_KEYS = {
+    -- Hover Cast's account-wide on/off. Turning it off is the action's now and the account keeps the
+    -- mode alone (`devdocs/which-action-a-key-runs.md` §1). Never in a tag, but a worktree profile is
+    -- a profile somebody is using.
+    "hoverCast",
 };
 
 function DebindPrivate.CleanUpDB()
@@ -2734,6 +2835,30 @@ function DebindPrivate.CleanUpDB()
                 action.priority = nil;
             end
 
+            -- **Skip this action leaves no aim to keep**: that press makes no twin, so where one
+            -- would have gone out is a value with nobody to answer it. An empty row and an empty
+            -- table go the same way -- `casting` being there is not a gate anywhere, but a table of
+            -- nothing sits in SavedVariables and in every exported string for good.
+            local casting = action.casting;
+            if (luatype(casting) == "table") then
+                for name, row in pairs(casting) do
+                    if (luatype(row) == "table") then
+                        if (row.mode == "skip") then
+                            row.aim = nil;
+                        end
+                        if (next(row) == nil) then
+                            casting[name] = nil;
+                        end
+                    end
+                end
+                if (casting.normalCast ~= false) then
+                    casting.normalCast = nil;
+                end
+                if (next(casting) == nil) then
+                    action.casting = nil;
+                end
+            end
+
             -- The ordering number's net. **It is for data the migration never reached** -- MigrateDB
             -- only walks the shapes it knows about, so a hand-edited SavedVariables or a corner left
             -- by an old client can go past it. In ordinary use nothing trips it: every path that
@@ -2791,6 +2916,11 @@ function DebindPrivate.CleanUpDB()
     if (db) then
         for i = 1, #ORPHANED_GLOBAL_KEYS do
             db[ORPHANED_GLOBAL_KEYS[i]] = nil;
+        end
+        if (db.options) then
+            for i = 1, #ORPHANED_OPTION_KEYS do
+                db.options[ORPHANED_OPTION_KEYS[i]] = nil;
+            end
         end
     end
 

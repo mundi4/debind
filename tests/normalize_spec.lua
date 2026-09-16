@@ -200,16 +200,14 @@ return function(DebindPrivate)
     -- 없다. 남겨두면 solver가 없는 축을 좁히고, 사용자는 끄고 나서도 예전 값에 걸린다.
     ---------------------------------------------------------------------------
 
-    test("hover가 없으면 반응/frameTypes/ignoreHoverUnit이 사라진다", function()
+    test("hover가 없으면 반응과 frameTypes가 사라진다", function()
         local b = spell({
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
-            ignoreHoverUnit = true,
         });
         -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
         check(b.conditions.units == nil or b.conditions.units.unitframe == nil, "호버 조건이 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
-        check(b.ignoreHoverUnit == nil, "ignoreHoverUnit이 남음");
     end);
 
     -- `false`는 "호버 중이 **아닐** 때"라는 진짜 조건이다. 그래도 반응·프레임종류는
@@ -319,17 +317,15 @@ return function(DebindPrivate)
         check(b.unit == "focus", "대상이 사라짐");
     end);
 
-    test("hover 액션이 제 대상이 없으면 호버한 유닛을 겨눈다", function()
-        check(spell({ hover = true }).unit == "unitframe", "채워넣기가 안 일어남");
+    --- **개체창 조건은 대상을 안 채워 넣는다** (`devdocs/which-action-a-key-runs.md` §5). 대상을
+    --- 안 고른 원본은 게임이 놓는 대상으로 나가고, 가리킨 유닛은 쌍둥이가 든다. 채워 넣던 동안에는
+    --- 아무것도 안 가리킨 누름이 없는 유닛에게 나갔다.
+    test("개체창 조건은 원본의 대상을 안 채운다", function()
+        check(spell({ hover = true }).unit == nil,
+            "채워넣기가 남았다: " .. tostring(spell({ hover = true }).unit));
     end);
 
-    -- `ignoreHoverUnit`은 "올라간 프레임은 조건으로만 쓰고 대상으로는 안 쓴다"는 뜻이다.
-    -- 그래서 채워 넣을 유닛이 없고, 빈 문자열이 그 자리를 표시한다.
-    test("ignoreHoverUnit이면 겨눌 유닛이 빈 문자열이 된다", function()
-        check(spell({ hover = true, ignoreHoverUnit = true }).unit == "", "빈 문자열이 아님");
-    end);
-
-    test("제 대상이 있으면 hover 채워넣기가 일어나지 않는다", function()
+    test("제 대상이 있으면 그 대상 그대로다", function()
         check(spell({ hover = true, unit = "focus" }).unit == "focus", "대상이 덮어써짐");
     end);
 
@@ -381,16 +377,17 @@ return function(DebindPrivate)
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
-    -- The hover fill-in aims such an action at the hovered unit, so that is the unit `"@"` asks.
-    test("hover로 대상이 채워진 매크로의 \"@\"는 hover 칸에 선다", function()
+    -- **대상을 못 갖는 타입의 원본은 `"@"`를 `target` 칸에 묻는다.** 대상이 지워지고 채워 넣는
+    -- 것도 없으니, 게임이 놓는 대상이 그 누름이 겨누는 유닛이다.
+    test("대상이 지워진 매크로의 \"@\"는 target 칸에 선다", function()
         local help = spell({ unit = "focus", units = { ["@"] = "help" } }).unitStates.focus;
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus", hover = true,
             units = { ["@"] = "help" },
         }), true);
-        check(b.unit == "unitframe", "hover 채워넣기가 안 일어남 - 전제가 깨졌다");
-        check(b.unitStates.unitframe == help, "hover 칸: " .. tostring(b.unitStates.unitframe));
+        check(b.unit == nil, "대상이 남았다: " .. tostring(b.unit));
+        check(b.unitStates.target == help, "target 칸: " .. tostring(b.unitStates.target));
     end);
 
     ---------------------------------------------------------------------------
@@ -713,12 +710,20 @@ return function(DebindPrivate)
     -- (`devdocs/splitting-an-action-into-bindings.md`).
     ---------------------------------------------------------------------------
 
+    --- 쌍둥이를 세우는 것은 이제 액션의 Casting 값이고, 값을 안 적은 액션은 설정 탭의 모드를
+    --- 따라 쌍둥이를 받는다(`devdocs/which-action-a-key-runs.md` §6). 이 아래 대부분이 그 쌍둥이를
+    --- 안 재므로 `listFor`는 Skip this action으로 액션을 세우고, 쌍둥이를 재는 자리만 켠다.
+    local hoverCastOn = false;
+
     local function listFor(fields)
         local action = { type = Constants.SPELL, value = 100, key = "F" };
         for k, v in pairs(fields or {}) do
             action[k] = v;
         end
         nest(action);
+        if (not hoverCastOn) then
+            require("casting").skipHover(action);
+        end
         return DebindPrivate.GetBindingsForAction(action), action;
     end
 
@@ -734,9 +739,9 @@ return function(DebindPrivate)
     DebindPrivate.InitDB();
 
     local function withHoverCast(fn)
-        DebindPrivate.Options.hoverCast = true;
+        hoverCastOn = true;
         local ok, err = pcall(fn);
-        DebindPrivate.Options.hoverCast = nil;
+        hoverCastOn = false;
         if (not ok) then error(err, 0); end
     end
 
@@ -860,12 +865,12 @@ return function(DebindPrivate)
     end);
 
     --- **What decides is whether the reader picked a unit, not what `unit` holds.** A macro keeps no
-    --- unit an old profile left on it, and a hover condition fills in a `hover` nobody picked, so both
-    --- are aimed like an action with no target.
+    --- unit an old profile left on it, and a unit frame condition picks nothing, so both are aimed
+    --- like an action with no target.
     test("고르지 않은 대상은 조합키를 따른다", function()
         for _, case in ipairs({
             { label = "매크로에 남은 focus", fields = { type = Constants.MACROTEXT, value = "/cast x", unit = "focus" } },
-            { label = "hover 조건이 채운 hover", fields = { units = { unitframe = {} } }, unit = "unitframe" },
+            { label = "개체창 조건만 걸린 액션", fields = { units = { unitframe = {} } } },
         }) do
             local list = listFor(case.fields);
             check(list[1].unit == case.unit, case.label .. ": 원본 unit이 " .. tostring(list[1].unit));
@@ -918,7 +923,6 @@ return function(DebindPrivate)
         local help = helpMask();
         for _, case in ipairs({
             { fields = { units = { ["@"] = "help" } }, unit = nil },
-            { fields = { ignoreHoverUnit = true, units = { ["@"] = "help", unitframe = {} } }, unit = "" },
         }) do
             local list = listFor(case.fields);
             local original = list[1];
@@ -935,14 +939,17 @@ return function(DebindPrivate)
         end
     end);
 
-    --- hover 조건에서 대상이 채워진 원본은 가리킨 유닛에 쏘므로 `@`도 `hover` 칸에 선다.
-    test("hover로 대상이 채워진 원본은 @를 hover 칸에 얹는다", function()
+    --- **개체창 조건이 걸려 있어도 원본의 `@`는 `target` 칸이다.** 조건은 대상을 안 정하므로
+    --- (§5), 그 원본이 겨누는 것은 여전히 게임이 놓는 대상이다. 개체창 조건 자체는 제 유닛 칸에
+    --- 그대로 서고, 둘은 다른 축이다.
+    test("개체창 조건이 걸린 원본도 @를 target 칸에 얹는다", function()
         local help = helpMask();
         local original = listFor({ units = { ["@"] = "help", unitframe = {} } })[1];
-        check(original.unit == "unitframe", "원본의 unit: " .. tostring(original.unit));
-        check(original.unitStates and original.unitStates.unitframe == help,
-            "hover 칸: " .. tostring(original.unitStates and original.unitStates.unitframe));
-        check(original.unitStates.target == nil, "target 칸에도 섰다");
+        check(original.unit == nil, "원본의 unit: " .. tostring(original.unit));
+        check(original.unitStates and original.unitStates.target == help,
+            "target 칸: " .. tostring(original.unitStates and original.unitStates.target));
+        check(original.unitStates.unitframe == Constants.UNITSTATE_EXISTS,
+            "개체창 칸: " .. tostring(original.unitStates.unitframe));
     end);
 
     test("Hover Cast가 켜지면 hover 쌍둥이가 따라온다", function()
@@ -1003,20 +1010,20 @@ return function(DebindPrivate)
         end);
     end);
 
-    --- **`hover`를 고른 원본의 쌍둥이는 Mouseover 모드에서도 `hover`로 나간다** (§3-4, 2026-09-13
-    --- 소유자). `mouseover`로 바꾸면 명판까지 닿아 사용자가 고른 뜻이 달라진다. 조건은 그 모드가
-    --- 가리키는 유닛에 선다.
-    test("대상 hover의 쌍둥이는 Mouseover 모드에서도 hover로 나간다", function()
-        DebindPrivate.Options.hoverCast = true;
+    --- **`unitframe`을 고른 원본의 쌍둥이는 Mouseover 모드에서도 그 유닛으로 나간다** (§5). 고른
+    --- 유닛은 고정이고, `mouseover`로 바꾸면 명판까지 닿아 사용자가 고른 뜻이 달라진다. 조건은 그
+    --- 모드가 가리키는 유닛에 선다.
+    test("대상 unitframe의 쌍둥이는 Mouseover 모드에서도 unitframe으로 나간다", function()
         DebindPrivate.Options.hoverCastMode = "mouseover";
         local ok, err = pcall(function()
-            local list = castmod.without(Constants, (listFor({ unit = "unitframe" })));
-            check(#list == 2, "길이 " .. #list);
-            check(list[2].unit == "unitframe", "쌍둥이 unit: " .. tostring(list[2].unit));
-            check(list[2].unitStates and list[2].unitStates.mouseover == Constants.UNITSTATE_EXISTS,
-                "mouseover 칸: " .. tostring(list[2].unitStates and list[2].unitStates.mouseover));
+            withHoverCast(function()
+                local list = castmod.without(Constants, (listFor({ unit = "unitframe" })));
+                check(#list == 2, "길이 " .. #list);
+                check(list[2].unit == "unitframe", "쌍둥이 unit: " .. tostring(list[2].unit));
+                check(list[2].unitStates and list[2].unitStates.mouseover == Constants.UNITSTATE_EXISTS,
+                    "mouseover 칸: " .. tostring(list[2].unitStates and list[2].unitStates.mouseover));
+            end);
         end);
-        DebindPrivate.Options.hoverCast = nil;
         DebindPrivate.Options.hoverCastMode = nil;
         if (not ok) then error(err, 0); end
     end);
@@ -1037,9 +1044,10 @@ return function(DebindPrivate)
         if (not ok) then error(err, 0); end
     end);
 
-    --- 스위치가 못 닿는 타입도 hover 쌍둥이를 낸다. 가리킨 유닛이 있는 누름의 층에 서려고 있을 뿐,
-    --- 원본의 대상 그대로 나간다 (§3-4).
-    test("스위치가 못 닿는 타입의 쌍둥이는 원본의 대상으로 나간다", function()
+    --- **대상을 못 싣는 타입도 hover 쌍둥이를 내고, 그 쌍둥이도 가리킨 유닛을 싣는다** (§3,
+    --- 2026-09-15 소유자). 유닛을 실어 주되 그것을 쓸 수 있는지는 그 액션의 몫이다 - 매크로
+    --- 본문은 버튼의 유닛을 안 보고, 그래도 그 액션은 가리킨 누름의 층에서 제 차례를 지킨다.
+    test("대상을 못 싣는 타입의 쌍둥이도 가리킨 유닛을 싣는다", function()
         withHoverCast(function()
             for _, fields in ipairs({
                 { type = Constants.MACROTEXT, value = "/cast x" },
@@ -1047,8 +1055,10 @@ return function(DebindPrivate)
             }) do
                 local list = castmod.without(Constants, (listFor(fields)));
                 check(#list == 2, fields.type .. " 길이 " .. #list);
-                check(list[2].hoverTwin and list[2].unit == list[1].unit,
+                check(list[2].hoverTwin and list[2].unit == "unitframe",
                     fields.type .. " 쌍둥이 unit: " .. tostring(list[2].unit));
+                check(list[1].unit == nil,
+                    fields.type .. " 원본 unit: " .. tostring(list[1].unit));
                 check(list[2].unitStates and list[2].unitStates.unitframe == Constants.UNITSTATE_EXISTS,
                     fields.type .. " 쌍둥이가 hover 축에 안 섰다");
             end
@@ -1057,16 +1067,15 @@ return function(DebindPrivate)
 
     test("목록은 리빌드마다 같은 표를 다시 채운다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F" });
-        local first, a1, a2;
-        withHoverCast(function()
-            first = DebindPrivate.GetBindingsForAction(action);
-            a1, a2 = first[1], first[2];
-            local second = DebindPrivate.GetBindingsForAction(action);
-            check(second == first and second[1] == a1 and second[2] == a2, "표가 새로 만들어졌다");
-        end);
+        local first = DebindPrivate.GetBindingsForAction(action);
+        local a1, a2 = first[1], first[2];
+        local second = DebindPrivate.GetBindingsForAction(action);
+        check(second == first and second[1] == a1 and second[2] == a2, "표가 새로 만들어졌다");
+
+        require("casting").skipHover(action);
         local third = DebindPrivate.GetBindingsForAction(action);
         check(third == first, "표가 새로 만들어졌다");
-        check(#castmod.without(Constants, third) == 1, "스위치를 껐는데 쌍둥이가 남았다");
+        check(#castmod.without(Constants, third) == 1, "Hover Cast를 껐는데 쌍둥이가 남았다");
     end);
 
     return T;

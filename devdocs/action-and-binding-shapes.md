@@ -48,10 +48,8 @@ action
                         옛 `imported`가 `key`와 이 둘로 풀렸다 (`dbver <= 5`)
     keepInBindingContext
                         게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다
-    ignoreHoverUnit     겨누는 것을 바꾼다 (§2)
-    ignoreSelfCastKey ignoreFocusCastKey
-                        그 조합키를 쥔 누름에서 이 액션을 빼거나 자기 대상을 겨누게 한다 (§2)
-    preferHoverUnit     개체창 위에서는 그 개체를 겨눈다. 바인딩을 가른다 (§4)
+    casting             **어느 누름에서 이 액션이 서는가.** 표 하나에 값 넷이고, 모양과 뜻은
+                        `which-action-a-key-runs.md` §8이 든다. 조건이 아니다 (§2)
     conditions          **언제 발동하느냐. 전부 이 안에 있다** (§3)
 ```
 
@@ -74,15 +72,9 @@ action
 **`conditions.units`는 정반대다.** 언제 발동하느냐이고 동작은 안 바뀐다. `Units`
 메뉴가 쓰고, `Target` 메뉴의 아래쪽 절반도 `"@"`로 여기에 쓴다.
 
-**`ignoreHoverUnit`은 조건이 아니다.** `binding.unit`을 빈 문자열로 두느냐 `"hover"`로
-채우느냐를 가른다. 겨누는 것을 바꾸지 언제 나가는지를 바꾸지 않는다.
-
-**`ignoreSelfCastKey`와 `ignoreFocusCastKey`도 조건이 아니다.** 그 조합키의 쌍둥이를 안 만들거나,
-`player`나 `focus` 대신 원본이 겨누는 것을 겨누게 한다. 어느 쪽인지는 `Constants.CAST_KEY_IGNORE`다
-(`implementing-focus-and-self-cast.md` §3-12).
-
-**`preferHoverUnit`도 조건이 아니다.** hover 조건 없는 액션이 개체창 위에서는 그 개체를 겨누게
-한다. 겨눔이 둘이라 바인딩도 둘이고(§4), 순서에서는 hover 조건 없는 액션 그대로다.
+**`casting`도 조건이 아니다.** 누름의 종류마다 이 액션이 바인딩을 갖느냐, 그리고 그 바인딩이
+어디로 나가느냐를 정한다. 언제 발동하느냐를 말하는 것이 아니라 **어느 누름의 줄에 서느냐**를
+말한다 (`which-action-a-key-runs.md` §3, §6).
 
 ---
 
@@ -208,7 +200,7 @@ conditions.units[유닛]
 
 | 유닛 | 쓰는 메뉴 | 걸 수 있는 축 |
 |---|---|---|
-| `hover` | `CONDITION_HOVER` (`CreateHoverMenu`) | 넷 전부. `frameTypes`와 `ignoreHoverUnit`도 여기 있다 |
+| `unitframe` | `CONDITION_UNITS` (`CreateUnitConditionMenu`) | 넷 전부. 역할과 `frameTypes`도 이 줄에서만 건다 |
 | `"@"` | `TARGET_UNIT` 아래 `ONLY_IF` (`CreateTargetUnitMenuItem`) | 반응·생사·소속. [없을 때]는 잠겨 있다 |
 | `player` | `CONDITION_LIFE` (`CreateSelfLifeConditionMenu`) | **`dead` 하나** |
 | `target` `focus` `mouseover` `tank` `healer` `maintank` `mainassist` `custom1` `custom2` | `CONDITION_UNITS` (`CreateUnitConditionMenu`) | 반응·생사·소속 |
@@ -268,9 +260,12 @@ conditions.units[유닛]
 
 ```
 binding
-    type value key unit ignoreHoverUnit     액션에서 그대로. `unit`만 다르다(아래)
+    type value key unit                     액션에서 그대로. `unit`만 다르다(아래)
     conditions                              정규화된 조건. 액션 쪽과 같은 이름, 다른 값
-    hover                                   true | false | nil
+    castModifier hoverTwin                  이 바인딩이 받는 누름의 종류. 원본은 `CASTMOD_NONE`에
+                                            `hoverTwin`이 없고, 층은 이 둘로만 정해진다
+                                            (`which-action-a-key-runs.md` §3)
+    normalCast                              `false`면 원본이 마지막 층에서 빠진다. 원본만 든다
     spell                                   `SPEC_RESOLVED_TYPES`가 오늘 내는 주문. 그 밖에는 nil
     spellbook                               probe 파생만 든다. 누를 때 주문서에 있는지 묻는 id
     unitStates unitGroups unitRole unitStatesOpaque

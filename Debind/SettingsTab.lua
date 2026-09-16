@@ -219,24 +219,20 @@ local function Build()
         { value = "unitframe", label = L["POINTED_UNIT_CAST_FRAMES"], tooltip = L["POINTED_UNIT_CAST_FRAMES_DESC"] },
         { value = "mouseover", label = L["POINTED_UNIT_CAST_MOUSEOVER"], tooltip = L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] },
     };
-    local hoverCast = AddRow("DebindSettingsCheckboxDropdownRowTemplate");
-    Label(hoverCast, L["POINTED_UNIT_CAST"]);
-    local function RefreshHoverCast()
-        hoverCast.Control:SetEnabled(DebindPrivate.HoverCastEnabled());
-    end
-    WireCheckbox(hoverCast, L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], DebindPrivate.HoverCastEnabled,
-        function(value)
-            Options().hoverCast = value or nil;
-            RefreshHoverCast();
+    -- **The mode and nothing else.** Hover Cast is turned off per action, not here
+    -- (`devdocs/which-action-a-key-runs.md` §1): an account-wide off would have to be beaten by the
+    -- actions carried over from the unit frame condition, and a value the account cannot hold is one
+    -- value fewer than a value every one of those actions has to override.
+    Dropdown(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], function(_, rootDescription)
+        Radios(rootDescription, hoverCastChoices, DebindPrivate.AccountHoverCastMode, function(value)
+            if (value == "mouseover") then
+                Options().hoverCastMode = value;
+            else
+                Options().hoverCastMode = nil;
+            end
             DebindPrivate.QueueUpdateBindings();
         end);
-    WireDropdown(hoverCast.Control, function(_, rootDescription)
-        Radios(rootDescription, hoverCastChoices, DebindPrivate.HoverCastMode, function(value)
-            Options().hoverCastMode = (value == "mouseover") and value or nil;
-            DebindPrivate.QueueUpdateBindings();
-        end);
-    end, OptionsTooltip(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], hoverCastChoices));
-    refreshers[#refreshers + 1] = RefreshHoverCast;
+    end, hoverCastChoices);
 
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
         function(value)
@@ -407,7 +403,6 @@ local function ResetToDefaults()
     local options = Options();
     options.selfCast = nil;
     options.focusCast = nil;
-    options.hoverCast = nil;
     options.hoverCastMode = nil;
     options.switchMessages = nil;
     options.excludePlayer = nil;

@@ -195,22 +195,6 @@ Constants.SPEC_RESOLVED_TYPES             = {
     [Constants.RAIDBUFF] = true,
 };
 
---- Which types the account-wide Hover Cast and Mouseover Cast reach (`Misc.lua`'s `TwinUnitFor`).
---- `TYPES_WITH_UNIT` minus the pet command, whose target is decided by the command rather than by
---- the type.
-Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
-    [Constants.SPELL] = true,
-    [Constants.ITEM] = true,
-    [Constants.USESLOT] = true,
-    [Constants.ACTIONBUTTON] = true,
-    [Constants.TARGET] = true,
-    [Constants.FOCUS] = true,
-    [Constants.TOGGLEMENU] = true,
-    [Constants.DISPEL] = true,
-    [Constants.EXTERNAL] = true,
-    [Constants.RAIDBUFF] = true,
-};
-
 --- Which of the client's cast modifiers the press is holding, as one value: the self-cast one wins
 --- where both are held, which is `SecureButton_GetModifiedUnit`'s order. Bits, because the solver
 --- reads the column as a mask (`Solver.lua`), and a binding that has the column at all holds exactly
@@ -219,18 +203,6 @@ Constants.CASTMOD_NONE  = 1;
 Constants.CASTMOD_SELF  = 2;
 Constants.CASTMOD_FOCUS = 4;
 Constants.CASTMOD_ALL   = 7;
-
---- What an action that ignores the Self Cast Key or the Focus Cast Key does while that key is held
---- (`ignoreSelfCastKey`, `ignoreFocusCastKey`; `devdocs/implementing-focus-and-self-cast.md` §3-12).
---- The two boxes' tooltips in the action menu follow it.
----
----   CAST_KEY_IGNORE_DROP  no twin for that key: the action sits that press out, and the next action
----                         on the key goes to you or to your focus in its place
----   CAST_KEY_IGNORE_AIM   the twin stays, aimed where the original aims: the action keeps its turn
----                         and goes to its own target
-Constants.CAST_KEY_IGNORE_DROP = 1;
-Constants.CAST_KEY_IGNORE_AIM  = 2;
-Constants.CAST_KEY_IGNORE      = Constants.CAST_KEY_IGNORE_AIM;
 
 
 --- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
@@ -299,6 +271,8 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     states = true,
     -- 묻는 주문 이름이 조건문 파서를 못 탄다(`devdocs/making-known-a-spell-name.md`).
     known = true,
+    -- 조건이 아닌 하나 더. 어느 누름에서 이 액션이 서는가이고, Casting 메뉴가 이 이름으로 묻는다.
+    casting = true,
 };
 
 --- Is this a switch's name? **The `$` is the whole test.** A switch condition is stored under the
@@ -604,6 +578,10 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
+-- Every press the action could have answered is turned off in its Casting menu, so it makes no
+-- binding at all (`devdocs/which-action-a-key-runs.md` §6). A WARNING: the key works and this is a
+-- thing the reader is allowed to mean.
+Constants.BINDING_ISSUE_CASTING_NONE_LEFT                 = "CASTING_NONE_LEFT";
 
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
@@ -653,6 +631,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_CASTING_NONE_LEFT]                 = Constants.ISSUE_GRADE_WARNING,
 };
 
 

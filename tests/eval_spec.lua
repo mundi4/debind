@@ -69,10 +69,16 @@ return function(DebindPrivate, _, ctx)
     local seq = 0;
     --- One action, in the shape the profile stores. `seq` runs on its own so the order actions
     --- are written in is the order they sit in the layer.
+    --- **Hover Cast는 꺼 둔 채로 세운다.** 이 파일 대부분이 재는 것은 조건과 조합키가 고르는
+    --- 승자이고, 켜져 있으면 액션마다 쌍둥이가 하나씩 더 서서 승자의 자리 번호가 밀린다
+    --- (`tests/casting.lua`). 가리킨 누름을 재는 케이스는 `casting`을 스스로 적는다.
     local function action(t)
         seq = seq + 1;
         t.type = t.type or Constants.SPELL;
         t.seq = seq;
+        if (t.casting == nil) then
+            require("casting").skipHover(t);
+        end
         return t;
     end
 
@@ -131,7 +137,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         Bind({
             action({ value = 585, key = "F1" }),
-            action({ value = 585, key = "BUTTON2", ignoreHoverUnit = true,
+            action({ value = 585, key = "BUTTON2",
+                casting = { hoverCast = { aim = "usual" } },
                 conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
         });
         local clickFrame = DebindPrivate.DefaultClickFrame;
@@ -844,32 +851,30 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **An action that ignores a key, under each answer of `Constants.CAST_KEY_IGNORE`** (§3-12).
-    -- The first action ignores the key and wants a friendly target; the second does not ignore it.
-    -- Neither has a unit picked, since a picked unit is not moved by the key in the first place.
-    -- With a friendly target and the key held, dropping sends the second at you or your focus, and
-    -- aiming sends the first where it goes with no key held. With a hostile target the first fails
+    -- **An action that sits a cast key out, and one that keeps its turn on it** (§6). The first
+    -- action carries the value and wants a friendly target; the second carries neither. Neither has
+    -- a unit picked, since a picked unit is not moved by the key in the first place. With a friendly
+    -- target and the key held, Skip this action sends the second at you or your focus, and Cast as
+    -- usual sends the first where it goes with no key held. With a hostile target the first fails
     -- either way. Units are read off the record, which a press with no unit leaves empty.
-    test("an action that ignores a cast key, dropped or aimed", function()
+    test("an action that skips a cast key, or casts as usual on it", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
-        local saved = Constants.CAST_KEY_IGNORE;
         local ok, err = pcall(function()
             for _, case in ipairs({
-                { field = "ignoreSelfCastKey", key = "SELFCAST", unit = "player" },
-                { field = "ignoreFocusCastKey", key = "FOCUSCAST", unit = "focus" },
+                { row = "selfCastKey", key = "SELFCAST", unit = "player" },
+                { row = "focusCastKey", key = "FOCUSCAST", unit = "focus" },
             }) do
                 for _, mode in ipairs({
-                    { Constants.CAST_KEY_IGNORE_DROP, "drop", "Rejuvenation", case.unit },
-                    { Constants.CAST_KEY_IGNORE_AIM, "aim", "Renew", nil },
+                    { { mode = "skip" }, "skip", "Rejuvenation", case.unit },
+                    { { aim = "usual" }, "usual", "Renew", nil },
                 }) do
-                    Constants.CAST_KEY_IGNORE = mode[1];
                     local first = action({ value = 585, key = "F1",
+                        casting = { [case.row] = mode[1], hoverCast = { mode = "skip" } },
                         conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } });
-                    first[case.field] = true;
                     Bind({ first, action({ value = 774, key = "F1" }) });
                     interp.state.modifiedClick[case.key] = true;
-                    local label = case.field .. ", " .. mode[2];
+                    local label = case.row .. ", " .. mode[2];
 
                     shim.world.units = { target = { id = "friend", reaction = "help" },
                         player = { id = "me", reaction = "help" }, focus = { id = "other", reaction = "help" } };
@@ -888,7 +893,6 @@ return function(DebindPrivate, _, ctx)
                 end
             end
         end);
-        Constants.CAST_KEY_IGNORE = saved;
         shim.world.units = {};
         if (not ok) then
             error(err, 0);
@@ -989,11 +993,11 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1",
+            action({ value = 585, key = "F1", casting = { hoverCast = {} },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-            action({ value = 774, key = "F1",
+            action({ value = 774, key = "F1", casting = { hoverCast = {} },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-        }, nil, { hoverCast = true });
+        });
 
         shim.world.units = { target = ENEMY, party1 = FRIEND };
         PointAt("party1");
@@ -1010,19 +1014,23 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **A hover twin is ordered as the action the reader would have made by hand**: the same spell
-    -- with [pointing at a unit] on it (§3-4). Ordered by its own action, the twin of an action with
-    -- no condition stood behind every action with a hover condition, whichever came first.
+    -- **The hover tier stands in the originals' order** (§3, 2026-09-16, owner). Ordered by each
+    -- twin's own condition, the twin of the action with the wider condition stood behind the other
+    -- whichever the reader had put first, and the drawn order said otherwise. Both actions here are
+    -- conditional and at the same importance, so nothing but the reader's own order can split them.
     test("hover twins keep the order the reader put the actions in", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         for _, case in ipairs({ { "plain", "Rejuvenation" }, { "hover", "Renew" } }) do
-            local plain = { value = 774, key = "F1" };
-            local hovered = { value = 585, key = "F1", conditions = { units = { unitframe = {} } } };
+            local plain = { value = 774, key = "F1", casting = { hoverCast = {} },
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
+            local hovered = { value = 585, key = "F1", casting = { hoverCast = {} },
+                conditions = { units = { unitframe = { exists = true,
+                    reaction = Constants.REACTION_HELP } } } };
             if (case[1] == "plain") then
-                Bind({ action(plain), action(hovered) }, nil, { hoverCast = true });
+                Bind({ action(plain), action(hovered) });
             else
-                Bind({ action(hovered), action(plain) }, nil, { hoverCast = true });
+                Bind({ action(hovered), action(plain) });
             end
             shim.world.units = { party1 = FRIEND };
             PointAt("party1");
@@ -1088,9 +1096,10 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "none", priority = Constants.MIN_IMPORTANCE }),
-            action({ value = 774, key = "F1" }),
-        }, nil, { hoverCast = true });
+            action({ value = 585, key = "F1", unit = "none", priority = Constants.MIN_IMPORTANCE,
+                casting = { hoverCast = {} } }),
+            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+        });
         shim.world.units = { focus = FRIEND, party1 = FRIEND };
 
         interp.state.modifiedClick.FOCUSCAST = true;
@@ -1108,16 +1117,17 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **An action left out of Hover Cast still stands in the pointed tier** (§3-4). It goes out at
-    -- its own target there; without a twin it waited in the last tier and the Hover Cast action
-    -- behind it took every press made over a unit, whatever the reader had put first.
-    test("an action left out of Hover Cast placed first keeps a pointed press at its own target", function()
+    -- **Cast as usual still stands in the pointed tier** (§6). It goes out where the press would send
+    -- it with nothing pointed at; with no twin at all it would wait in the last tier and the Hover
+    -- Cast action behind it would take every press made over a unit, whatever the reader put first.
+    test("an action that casts as usual placed first keeps a pointed press at its own target", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", ignoreHoverUnit = true, priority = Constants.MIN_IMPORTANCE }),
-            action({ value = 774, key = "F1" }),
-        }, nil, { hoverCast = true });
+            action({ value = 585, key = "F1", priority = Constants.MIN_IMPORTANCE,
+                casting = { hoverCast = { aim = "usual" } } }),
+            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+        });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
         PointAt("party1");
@@ -1136,9 +1146,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "target" }),
-            action({ value = 774, key = "F1" }),
-        }, nil, { hoverCast = true });
+            action({ value = 585, key = "F1", unit = "target", casting = { hoverCast = {} } }),
+            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+        });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
         PointAt("party1");
@@ -1158,10 +1168,10 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "none",
+            action({ value = 585, key = "F1", unit = "none", casting = { hoverCast = {} },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-            action({ value = 774, key = "F1" }),
-        }, nil, { hoverCast = true });
+            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+        });
 
         local function Press(label, units, held, expectSpell, expectAimed)
             shim.world.units = units;

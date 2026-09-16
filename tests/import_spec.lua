@@ -409,11 +409,10 @@ return function(DebindPrivate, DebindStorage)
     };
 
     local REAL_VALUES = {
-        -- `setActionValue`의 체크박스 갈래. 둘 다 조건이 아니라 액션 최상단이다.
+        -- `setActionValue`의 체크박스 갈래. 조건이 아니라 액션 최상단이다.
         keepInBindingContext = true,
-        ignoreHoverUnit = true,
-        ignoreSelfCastKey = true,
-        ignoreFocusCastKey = true,
+        -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
+        casting = { hoverCast = { mode = "skip" }, normalCast = false },
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,
         value = 774,

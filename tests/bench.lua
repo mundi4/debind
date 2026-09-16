@@ -158,7 +158,8 @@ return function(DebindPrivate)
         switches = {},
     };
     DebindPrivate.InitDB();
-    DebindPrivate.Options.hoverCast = true;
+    -- Hover Cast는 액션마다이고 값을 안 적은 액션이 설정 탭의 모드를 따르므로
+    -- (`devdocs/which-action-a-key-runs.md` §6), 아래 액션들은 그대로 쌍둥이를 받는다.
 
     local AIMS = { false, "target", "focus", "tank", "none" };
     local function makeAction(density)

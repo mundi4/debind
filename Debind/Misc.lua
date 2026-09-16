@@ -872,12 +872,16 @@ do
         else
             binding.spell = nil;
         end
-        -- 쌍둥이는 가리킨 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
-        if (twin) then
-            binding.ignoreHoverUnit = nil;
+        -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
+        -- the original's field: the twins each stand in a tier of their own and Normal Cast says
+        -- nothing about those tiers. `BuildKeyMap` reads it to leave the original out of the last
+        -- tier (`devdocs/which-action-a-key-runs.md` §6).
+        if (twin or DebindPrivate.NormalCastEnabled(action)) then
+            binding.normalCast = nil;
         else
-            binding.ignoreHoverUnit = action.ignoreHoverUnit;
+            binding.normalCast = false;
         end
+
         binding.unit = aimedUnit;
         binding.key = action.key;
 
@@ -993,14 +997,6 @@ do
         -- 옮기므로 슬롯 다섯을 이름으로 세어줄 필요가 없고, 재설계가 임의 이름을 풀어도
         -- 이 자리가 안 바뀐다.
 
-        -- 프레임의 종류와 역할은 `units.unitframe` 안의 축이라 조건이 꺼져 있으면 여기까지
-        -- 오지도 않는다(`UnitConditionForBinding`). 남은 것은 개체창 조건이 아예 없는 액션에
-        -- 남아 있는 체크박스 하나다 - 가리킨 유닛이 없으면 거절할 유닛도 없다.
-        local unitFrameCondition = UnitFrameConditionOf(binding);
-        if (unitFrameCondition == nil or unitFrameCondition == false) then
-            binding.ignoreHoverUnit = nil;
-        end
-
         -- **A type with no spell carries no `known` at all**, whatever the value is. The question
         -- does stand on its own now that the value names a spell
         -- (`devdocs/making-known-a-spell-name.md`), but no menu offers it on those types, so a
@@ -1082,13 +1078,11 @@ do
             conditions.specialbar = nil;
         end
 
-        if (not twin and type(unitFrameCondition) == "table" and binding.unit == nil) then
-            if (binding.ignoreHoverUnit) then
-                binding.unit = "";
-            else
-                binding.unit = "unitframe";
-            end
-        end
+        -- **A unit frame condition fills no target in.** With no unit picked the original lets the
+        -- game place the cast, condition or no condition (`devdocs/which-action-a-key-runs.md` §5);
+        -- the pointed unit is reached through the hover twin, which is what the condition's own
+        -- action is carried over as (§8). The fill-in that used to sit here put `unitframe` in
+        -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
 
         BuildUnitStates(binding);
 
@@ -1113,32 +1107,85 @@ do
         return not (options and options.switchMessages == false);
     end
 
-    --- Hover Cast, which sends an action at whatever the reader is pointing at. Absent means off:
-    --- this arrived after `v3.5.2` and nobody's profile carries a cell for it, so a profile written
-    --- before it reads as off rather than as the feature turning itself on.
-    function DebindPrivate.HoverCastEnabled()
-        local options = DebindPrivate.Options;
-        return (options and options.hoverCast) and true or false;
+    --- One row of `action.casting`, always a table so a reader can index it. **The stored table is
+    --- not trusted to hold one**: a payload carries whatever it was written with, and the import
+    --- filters `casting` by the name and the type of the outer table alone.
+    local EMPTY_CASTING_ROW = {};
+    local function CastingRow(action, name)
+        local casting = action and action.casting;
+        local row = casting and casting[name];
+        if (type(row) ~= "table") then
+            return EMPTY_CASTING_ROW;
+        end
+        return row;
     end
 
-    --- **Answered while the box is off too**, because turning it off keeps the mode and the settings
-    --- tab still shows it.
-    function DebindPrivate.HoverCastMode()
-        local options = DebindPrivate.Options;
-        return (options and options.hoverCastMode == "mouseover") and "mouseover" or "unitframe";
+    --- Whether that press's twin goes out at the unit the press names, or the way the original does.
+    --- "Cast as usual" is the second: the twin keeps its turn in that tier and lets the game place
+    --- the cast, Auto Self Cast included (`devdocs/which-action-a-key-runs.md` §6).
+    local function CastsAsUsual(action, name)
+        return CastingRow(action, name).aim == "usual";
     end
 
-    --- Whether Debind answers the Self Cast Key and the Focus Cast Key. **Absent means on**, which is
-    --- how every key behaved before the two boxes existed. Off is no twin and no question at the
-    --- press, never the game's own handling (`devdocs/implementing-focus-and-self-cast.md` §3-12).
-    function DebindPrivate.SelfCastEnabled()
+    --- The settings tab's Hover Cast mode, which an action follows unless it names one of its own.
+    --- Absent reads as Unit Frames, because that is where the condition it replaces stood
+    --- (`devdocs/which-action-a-key-runs.md` §8).
+    function DebindPrivate.AccountHoverCastMode()
         local options = DebindPrivate.Options;
-        return not (options and options.selfCast == false);
+        if (options and options.hoverCastMode == "mouseover") then
+            return "mouseover";
+        end
+        return "unitframe";
     end
 
-    function DebindPrivate.FocusCastEnabled()
+    --- The unit this action's Hover Cast twin goes out at, or nil where the action takes no pointed
+    --- press at all. **`hover` is a name storage uses and this is where it stops**: everything below
+    --- reads `unitframe` or `mouseover` (`devdocs/which-action-a-key-runs.md` §0).
+    ---
+    --- **Asked of no action it answers the account's mode**, which is what the settings tab shows.
+    function DebindPrivate.HoverCastMode(action)
+        local mode = CastingRow(action, "hoverCast").mode;
+        if (mode == "skip") then
+            return nil;
+        end
+        if (mode == "unitframe" or mode == "mouseover") then
+            return mode;
+        end
+        return DebindPrivate.AccountHoverCastMode();
+    end
+
+    --- Whether Debind answers the Self Cast Key and the Focus Cast Key for this action. **Absent
+    --- means on** on both levels, which is how every key behaved before either value existed. Off is
+    --- no twin and no question at the press, never the game's own handling
+    --- (`devdocs/implementing-focus-and-self-cast.md` §3-12).
+    ---
+    --- **The account's box and the action's value are one answer.** With the box off the tier is not
+    --- built at all, so the action's value has nothing to say there
+    --- (`devdocs/which-action-a-key-runs.md` §6); asked of no action, this is the box alone, which
+    --- is what the emitter wires the press up from.
+    function DebindPrivate.SelfCastEnabled(action)
         local options = DebindPrivate.Options;
-        return not (options and options.focusCast == false);
+        if (options and options.selfCast == false) then
+            return false;
+        end
+        return CastingRow(action, "selfCastKey").mode ~= "skip";
+    end
+
+    function DebindPrivate.FocusCastEnabled(action)
+        local options = DebindPrivate.Options;
+        if (options and options.focusCast == false) then
+            return false;
+        end
+        return CastingRow(action, "focusCastKey").mode ~= "skip";
+    end
+
+    --- Whether the action stands on a press with nothing held and nothing pointed at. Off is the
+    --- original not being made, so the press falls through to the next action on the key -- which is
+    --- what the old [when a frame is pointed at] condition did, without swallowing the press
+    --- (`devdocs/which-action-a-key-runs.md` §6).
+    function DebindPrivate.NormalCastEnabled(action)
+        local casting = action and action.casting;
+        return not (casting and casting.normalCast == false);
     end
 
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
@@ -1163,16 +1210,15 @@ do
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
     ---
-    --- **Every action gets one while Hover Cast is on**, because the twin is what gives an action
-    --- a place in the tier a pointed press is decided in (`devdocs/implementing-focus-and-self-cast.md`
-    --- §3-4). An action left without one waits in the last tier, and a Hover Cast action behind it
-    --- takes every press made over a unit, however high the reader put the first.
+    --- **One rule, and the special cases are gone** (`devdocs/which-action-a-key-runs.md` §4). The
+    --- twin inherits every condition the reader wrote, adds [the pointed unit is there] on the unit
+    --- the action's mode names, and goes out at that unit. A condition the reader wrote is never
+    --- widened, and a unit the reader picked is never moved.
     ---
-    --- **Where it goes out is a separate answer.** An action the feature does not reach goes out the
-    --- way its original does: `ignoreHoverUnit`, a type outside `TYPES_WITH_HOVER_UNIT_OPTION`, a
-    --- unit the reader picked (`ActionHasPickedUnit`, 2026-09-15, owner), or a `unitframe` a
-    --- `unitframe` condition filled in. That stays `unitframe` in Mouseover mode, because `mouseover` also
-    --- reaches nameplates the reader never picked. `none` is reached like an action with no target.
+    --- **Every action gets one unless its Hover Cast says Skip this action**, because the twin is
+    --- what gives an action a place in the tier a pointed press is decided in
+    --- (§3). An action left without one waits in the last tier, and a Hover Cast action behind it
+    --- takes every press made over a unit, however high the reader put the first.
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
     --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
@@ -1184,18 +1230,14 @@ do
     --- **[when there is none] is the one that has no meeting point.** The twin only stands while that
     --- unit is there, so it could never match, and no twin is made.
     ---
-    --- **Nor where the original stands on [not pointing] without saying so, and the twin would go out
-    --- the way it does** (2026-09-13, owner). That is a mouse-button original with no `unitframe` condition
-    --- in Unit Frames mode (`BuildUnitStates`): our mouse-button binding does not fire over a frame,
-    --- and a Blizzard action bar key bound to a mouse button does not either. Such a twin could only
-    --- be a frame click record, and a frame click arrives on its exact combination with no other
-    --- press to be ordered against, so the click is left to the frame's own action. The twin aimed
-    --- at the frame's unit is still made: over a frame, that is Hover Cast itself.
+    --- **Public because the issue check asks the same question** and must not answer it twice: "no
+    --- twin" is half of what makes an action with nothing left to cast, and a second copy of this
+    --- rule would drift from the one that builds the bindings.
     local function TwinUnitFor(action, original)
-        if (not DebindPrivate.HoverCastEnabled()) then
+        local unit = DebindPrivate.HoverCastMode(action);
+        if (unit == nil) then
             return nil;
         end
-        local unit = DebindPrivate.HoverCastMode();
 
         local units = original.conditions and original.conditions.units;
 
@@ -1205,22 +1247,14 @@ do
         end
 
         local aim = unit;
-        if (action.ignoreHoverUnit
-                or DebindPrivate.ActionHasPickedUnit(action)
-                or original.unit == "unitframe" or original.unit == "mouseover"
-                or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
+        if (DebindPrivate.ActionHasPickedUnit(action) or CastsAsUsual(action, "hoverCast")) then
             aim = original.unit;
-        end
-
-        -- **Where the twin casts, not where it aims**: `none` aims at the pointed unit and still casts
-        -- the way its original does, so on a mouse button its twin would only take the frame's click.
-        if ((aim ~= unit or original.castsAtNone) and original.unitStates
-                and original.unitStates[unit] == Constants.UNITSTATE_NONE) then
-            return nil;
         end
 
         return unit, existing or UNIT_IS_THERE, aim;
     end
+
+    DebindPrivate.TwinUnitFor = TwinUnitFor;
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
     --- (`GetBindingInfoForAction`'s table) and what follows is derived. `BuildKeyMap` sorts the
@@ -1265,6 +1299,19 @@ do
         end
 
         local pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
+        local focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
+
+        -- **Four values off is an action with no bindings at all** (`devdocs/which-action-a-key-runs.md`
+        -- §6). It is not blocked: the issue check raises a WARNING and the row wears it, and the key
+        -- carries on with whatever else is on it. Answered before anything is filled, so the caches
+        -- keep the tables they had.
+        if (not DebindPrivate.NormalCastEnabled(action) and not pointedUnit
+                and not focusTwin and not selfTwin) then
+            for i = 1, #list do
+                list[i] = nil;
+            end
+            return list;
+        end
 
         if (probe) then
             fill(_ActionToProbeCache, action.unit, nil, probe);
@@ -1282,27 +1329,27 @@ do
         -- its twins aimed at itself (`ActionHasPickedUnit`), which is what keeps its place in the held
         -- tier.
         --
-        -- An action that ignores a key loses that twin or keeps it aimed where the original aims,
-        -- whichever `Constants.CAST_KEY_IGNORE` says.
-        local aimWhenIgnored = Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM;
-        local focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(), DebindPrivate.SelfCastEnabled();
+        -- "Cast as usual" keeps the twin and aims it where the original aims, so the action holds its
+        -- turn in that tier without using the key's unit. Skip this action is the other value and it
+        -- is answered above, where the twin is not made at all.
+        -- **개체창 위에서 눌리는 마우스 버튼에는 조합키 쌍둥이가 없다** (2026-09-16, 소유자;
+        -- `devdocs/which-action-a-key-runs.md` §7). 개체창 클릭은 조합키 칸이 늘 [없음]이라 1·2층을
+        -- 안 돌고, 그 액션은 키를 안 잡으므로 키 경로로도 그 누름이 안 온다. 받을 누름이 없는
+        -- 레코드라 만들면 솔버가 상자만 둘 더 세고, 키를 잡아 맨 왼쪽 클릭을 세상에서 가져간다.
+        if (DebindPrivate.GetMouseButtonAndPrefix(action.key)
+                and DebindPrivate.ActionUnitFrameIsOn(action)) then
+            focusTwin, selfTwin = false, false;
+        end
+
         local focusAim, selfAim = "focus", "player";
         if (DebindPrivate.ActionHasPickedUnit(action)) then
             focusAim, selfAim = original.unit, original.unit;
         end
-        if (action.ignoreFocusCastKey) then
-            if (aimWhenIgnored) then
-                focusAim = original.unit;
-            else
-                focusTwin = false;
-            end
+        if (CastsAsUsual(action, "focusCastKey")) then
+            focusAim = original.unit;
         end
-        if (action.ignoreSelfCastKey) then
-            if (aimWhenIgnored) then
-                selfAim = original.unit;
-            else
-                selfTwin = false;
-            end
+        if (CastsAsUsual(action, "selfCastKey")) then
+            selfAim = original.unit;
         end
         if (focusTwin) then
             fill(_ActionToFocusCache, focusAim, nil, nil, Constants.CASTMOD_FOCUS);
@@ -1359,11 +1406,11 @@ end
 --- in place, because it runs over every bound action on every rebuild and used to allocate
 --- nothing at all.
 ---
---- **`binding` is for a hover twin**, which is ordered as the action the reader would have made by
---- hand: the same one with the twin's condition on it. `isConditional` then comes off the twin, and
---- where the action stands comes off the action.
-function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest, binding)
-    binding = binding or GetBindingInfoForAction(action);
+--- **One record per action, twins included.** Every tier stands in the originals' order, which is
+--- the order the window draws (`devdocs/which-action-a-key-runs.md` §2), so a twin is never ordered
+--- against anything on its own terms.
+function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
+    local binding = GetBindingInfoForAction(action);
     dest = dest or {};
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
     dest.isConditional = DebindPrivate.IsConditionalBinding(binding);
@@ -1732,7 +1779,24 @@ end
 ---
 --- 마이그레이션이 안 닿은 프로필(`action.hover`)도 `UnitFrameConditionFromLegacy`와 같은 답을
 --- 내야 한다. 저장된 조건이 있으면 그쪽이 이긴다 - 접기가 교집합하는 것과 같은 순서다.
-local function ActionUnitFrameIsOn(action)
+--- **공개다.** 세 자리가 이 한 물음을 쓴다: 왼/오른쪽 버튼 유효성(`IsKeyInvalidForAction`), 그 키를
+--- 우리가 잡느냐(`BuildKeyMap`의 `KeysToHold`), 그리고 조합키 쌍둥이를 만드느냐
+--- (`GetBindingsForAction`). 같은 물음에 답하는 자리가 둘이면 갈린다.
+function DebindPrivate.ActionUnitFrameIsOn(action)
+    -- **개체창 위에서만 도는 액션은 조건 없이도 있다.** Normal Cast를 끄고 Hover Cast를 Unit
+    -- Frames로 둔 액션이 그것이고, 옛 개체창 조건 액션이 그 모양으로 옮겨 온다
+    -- (`devdocs/which-action-a-key-runs.md` §8). 조건만 보면 그 액션들이 마우스 왼/오른쪽 버튼에서
+    -- 통째로 빨개진다 - 조건이 안 적히는 것이 옮기기의 규칙이라 아무도 그것을 되돌릴 수 없다.
+    --
+    -- **Normal Cast가 켜져 있으면 안 센다.** 그때는 원본이 개체창 밖의 누름을 받아 키를 잡으므로
+    -- (`PrepareKeyBindings`의 `holdsKey`), 맨 왼쪽 클릭이 세상에서 사라진다. 그것이 이 문장이
+    -- 막는 것이다.
+    local casting = action.casting;
+    if (casting and casting.normalCast == false
+            and DebindPrivate.HoverCastMode(action) == "unitframe") then
+        return true;
+    end
+
     local condition = DebindPrivate.StoredUnitFrameCondition(action);
     if (condition == nil) then
         return action.hover == true;
@@ -1744,7 +1808,7 @@ local function ActionUnitFrameIsOn(action)
 end
 
 function DebindPrivate.IsKeyInvalidForAction(action, key)
-    local unitFrameIsOn = ActionUnitFrameIsOn(action);
+    local unitFrameIsOn = DebindPrivate.ActionUnitFrameIsOn(action);
     if (key == DebindPrivate.gmKey1 or key == DebindPrivate.gmKey2) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
     elseif ((key == "BUTTON1" or key == "BUTTON2") and not unitFrameIsOn) then
@@ -2107,6 +2171,24 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     if (Looking() and (not category or category == "key") and notCategory ~= "key") then
         if (action.key) then
             Report(DebindPrivate.IsKeyInvalidForAction(action, action.key), "KEY");
+        end
+    end
+
+    -- **Every press this action could have answered is turned off.** It makes no binding at all
+    -- (`GetBindingsForAction`), so the key runs whatever else is on it and this action is not there.
+    -- A WARNING rather than an ERROR: the key works, and turning all four off is something the
+    -- reader is allowed to mean (`devdocs/which-action-a-key-runs.md` §6).
+    --
+    -- **The pointed press is asked of `TwinUnitFor` and not of the mode**, because a mode with no
+    -- twin under it is the same silence: [when none is pointed at] on that unit leaves the twin
+    -- nowhere to stand, and asking the mode alone reported no problem on an action that made no
+    -- binding at all.
+    if (Looking() and (not category or category == "casting") and notCategory ~= "casting") then
+        if (not DebindPrivate.NormalCastEnabled(action)
+                and DebindPrivate.TwinUnitFor(action, binding) == nil
+                and not DebindPrivate.SelfCastEnabled(action)
+                and not DebindPrivate.FocusCastEnabled(action)) then
+            Report(Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "CASTING");
         end
     end
 
@@ -2594,26 +2676,16 @@ local function ConditionsSurviveMacroText(action)
         return false;
     end
 
-    -- A probe or a hover twin aimed at the pointed unit has no macro-text form here, and dropping
-    -- it would send the converted body somewhere the key does not. Asked of the list rather than of
-    -- the switches, so an account that has Hover Cast on does not lose the conversion on the
-    -- actions the feature never reaches -- the same line `known` draws above.
+    -- A probe has no macro-text form: it is a second spell gated on the spell book, and the body can
+    -- only hold one. Dropping it would leave the converted key firing the wrong half.
     --
-    -- **The self and focus twins do not count, and neither does a hover twin that goes out the way
-    -- its original does.** Every action has those, so counting them would refuse every conversion.
-    --
-    -- **Going out the same way is not enough where `"@"` is live.** An Always Ask twin casts at `none`
-    -- like its original and the body, but asks `"@"` of the pointed unit, and the converted macro's
-    -- twin asks it of `target`: a pointed press would pick another winner.
-    local live = binding.conditions.units and binding.conditions.units["@"] ~= nil;
+    -- **쌍둥이는 변환을 막지 않는다** (2026-09-16, 소유자). 쌍둥이는 액션이 유닛을 받든 못 받든 서고
+    -- 유닛을 받아 간다(`devdocs/which-action-a-key-runs.md` §3). 매크로 본문이 그 유닛을 읽느냐는
+    -- 그 액션의 몫이고, 읽게 하고 싶으면 `@@`가 그 자리다
+    -- (`devdocs/implementing-focus-and-self-cast.md` §4).
     local list = DebindPrivate.GetBindingsForAction(action);
     for i = 2, #list do
-        local twin = list[i];
-        if (twin.spellbook ~= nil) then
-            return false;
-        end
-        if (twin.hoverTwin and (DebindPrivate.CastUnitOf(twin) ~= DebindPrivate.CastUnitOf(binding)
-                or (live and twin.unit ~= binding.unit))) then
+        if (list[i].spellbook ~= nil) then
             return false;
         end
     end

@@ -327,30 +327,27 @@ end
 --- (`devdocs/implementing-focus-and-self-cast.md` §3-4), so a held key reaches a macro or a mount as
 --- well, and taking one out of that press is the same choice there.
 ---
---- **Locked where every action has a unit picked, while the box aims.** A held key never moves a
---- picked unit (`ActionHasPickedUnit`), so aiming the twin where the action already goes changes
---- nothing. Dropping the twin still would, which is why the lock follows `CAST_KEY_IGNORE`.
+--- **Locked where every action has a unit picked.** A held key never moves a picked unit
+--- (`ActionHasPickedUnit`), so aiming the twin where the action already goes changes nothing.
 ---
 --- **The pointed unit's box stands with the two of them.** It was under the Unit Frame condition
 --- while the pointed frame's unit had a menu of its own; that unit is an ordinary unit now
 --- (`devdocs/which-action-a-key-runs.md` §0) and the box is not a condition -- it is the third of
---- the three presses answering "take this action out of that one".
+--- the three presses answering "cast as usual on that one".
 local function CreateIgnoreCastKeyMenuItems(parentDescription, ctx)
-    local aims = Constants.CAST_KEY_IGNORE == Constants.CAST_KEY_IGNORE_AIM;
     local function everyUnitPicked()
-        return aims and AllActions(ctx, DebindPrivate.ActionHasPickedUnit);
+        return AllActions(ctx, DebindPrivate.ActionHasPickedUnit);
     end
     for _, box in ipairs({
-        { key = "ignoreSelfCastKey", label = "IGNORE_SELF_CAST_KEY", enabled = DebindPrivate.SelfCastEnabled },
-        { key = "ignoreFocusCastKey", label = "IGNORE_FOCUS_CAST_KEY", enabled = DebindPrivate.FocusCastEnabled },
+        { key = "casting.selfCastKey.aim", label = "IGNORE_SELF_CAST_KEY", enabled = DebindPrivate.SelfCastEnabled },
+        { key = "casting.focusCastKey.aim", label = "IGNORE_FOCUS_CAST_KEY", enabled = DebindPrivate.FocusCastEnabled },
     }) do
         local ignore = CreateCheckbox(parentDescription, ctx, LLL[box.label], actionValueEquals, setActionValue,
             { ctx = ctx, key = box.key, value = USE_CHECKED_VALUE });
         ignore:SetEnabled(function()
             return box.enabled() and not everyUnitPicked();
         end);
-        local says = aims and "_AIM_DESC" or "_DESC";
-        SetInstructionTooltip(ignore, LLL[box.label .. says], function()
+        SetInstructionTooltip(ignore, LLL[box.label .. "_AIM_DESC"], function()
             if (not box.enabled()) then
                 return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
             end
@@ -362,13 +359,13 @@ local function CreateIgnoreCastKeyMenuItems(parentDescription, ctx)
 
     local ignoreHoverUnit = CreateCheckbox(parentDescription, ctx, LLL["IGNORE_HOVER_UNIT"],
         actionValueEquals, setActionValue,
-        { ctx = ctx, key = "ignoreHoverUnit", value = USE_CHECKED_VALUE });
+        { ctx = ctx, key = "casting.hoverCast.aim", value = USE_CHECKED_VALUE });
     SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
     --- **A picked unit locks it.** The frame's unit only fills in where no unit was picked, and
     --- Hover Cast never moves one that was (`Misc.lua`'s `ActionHasPickedUnit`), so the box has
     --- nothing to take back.
     ignoreHoverUnit:SetEnabled(function()
-        return not AllActions(ctx, DebindPrivate.ActionHasPickedUnit);
+        return not everyUnitPicked();
     end);
 end
 

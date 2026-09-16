@@ -64,7 +64,10 @@ return function(DebindPrivate)
         _G.C_SpecializationInfo.GetSpecialization = function() return spec; end
     end
 
+    --- **Hover Cast는 꺼 둔다.** 이 파일이 재는 것은 전문화 조건이고, 켜져 있으면 액션마다
+    --- 쌍둥이가 하나씩 더 서서 키의 목록을 두 배로 읽게 된다 (`tests/casting.lua`).
     local function Bind(actions, spec)
+        require("casting").skipHoverAll(actions);
         _G.UnitGUID = function() return ME; end
         SetSpec(spec or 1);
         _G.DebindVars = {

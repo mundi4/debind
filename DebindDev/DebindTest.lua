@@ -389,12 +389,11 @@ end
 local realEnumerate
 local realEnumerateAll
 local realFindLayerID
---- What the reader had Hover Cast and Mouseover Cast set to before the run.
+--- What the reader had the Hover Cast mode set to before the run.
 ---
---- **They are isolated for the same reason the layers are.** A switch that is on gives **every**
---- eligible action a second binding (`Misc.lua`'s `TwinUnitFor`), so every case that counts the
---- records on a key sees each of its own actions twice and fails on a setting the case never
---- mentioned. Measured 2026-09-12: four cases went red on a profile with one of the two on.
+--- **It is isolated for the same reason the layers are.** A case that writes its own `casting` and
+--- expects the frame's unit gets `mouseover` instead on a profile set to Mouseover, and the case
+--- never mentioned a mode. Turning the feature off per action is `DefaultCasting`'s.
 local realPointedUnitCast
 
 --- The list the three stand-ins walk. Held here so a test can add the off-spec layer to it while
@@ -411,10 +410,8 @@ local function SetIsolated(isolated)
             realEnumerate = DebindPrivate.EnumerateProfileLayers
             realEnumerateAll = DebindPrivate.EnumerateAllProfileLayers
             realPointedUnitCast = {
-                hoverCast = DebindPrivate.Options.hoverCast,
                 hoverCastMode = DebindPrivate.Options.hoverCastMode,
             }
-            DebindPrivate.Options.hoverCast = nil
             DebindPrivate.Options.hoverCastMode = nil
             isolatedLayers = { GetTestLayer() }
             local only = isolatedLayers
@@ -463,7 +460,6 @@ local function SetIsolated(isolated)
             DebindPrivate.EnumerateProfileLayers = realEnumerate
             DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
             DebindPrivate.FindLayerID = realFindLayerID
-            DebindPrivate.Options.hoverCast = realPointedUnitCast.hoverCast
             DebindPrivate.Options.hoverCastMode = realPointedUnitCast.hoverCastMode
             realEnumerate = nil
             realEnumerateAll = nil
@@ -500,9 +496,21 @@ local function NestConditions(action)
     return action
 end
 
+--- **A test action stands on Hover Cast off unless the case says otherwise.** An action written with
+--- no `casting` follows the settings tab's mode (`devdocs/which-action-a-key-runs.md` §6), so every
+--- case that counts the records on a key would see each of its own actions twice -- which is what the
+--- account-wide switch used to be isolated for. A case about the twin writes its own `casting` and
+--- this leaves it alone.
+local function DefaultCasting(action)
+    if action.casting == nil then
+        action.casting = { hoverCast = { mode = "skip" } }
+    end
+    return action
+end
+
 local function InsertAction(action)
     local layer = GetTestLayer()
-    layer:Insert(NestConditions(action))
+    layer:Insert(NestConditions(DefaultCasting(action)))
     -- The layer is what hands out the order number. Without one, actions sharing a condition all
     -- carry a nil `seq`, nothing settles which fires first, and a test expecting insertion order
     -- moves with whatever the sort happens to do.
@@ -526,7 +534,7 @@ local function UseOffSpecLayer()
         end
     end)
     return function(action)
-        layer:Insert(NestConditions(action))
+        layer:Insert(NestConditions(DefaultCasting(action)))
         layer:PlaceInKeyGroup(action)
         return action
     end
@@ -2140,8 +2148,8 @@ RegisterTest("Resolved Unit: the row under Units writes the condition, and Targe
 --- **The box is the only writer of the field, and which setter a press on it reaches is the client's
 --- menu tree.** What the press stores, and the twin it turns into, is measured here; which record
 --- wins a press with the key held is `tests/eval_spec.lua`'s.
-RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
-    description = "액션 메뉴의 두 체크박스가 필드를 쓰고, 그 조합키의 쌍둥이가 CAST_KEY_IGNORE대로 빠지거나 액션의 대상을 겨눈다",
+RegisterTest("Menu: ignoring a cast key aims that key's twin where the action goes", {
+    description = "액션 메뉴의 두 체크박스가 casting 값을 쓰고, 그 조합키의 쌍둥이가 액션의 대상을 겨눈다",
     run = function()
         local NAME = "Ignore cast key box"
         local KEY = "CTRL-ALT-F9"
@@ -2158,8 +2166,8 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
 
         local seen = {}
         for _, case in ipairs({
-            { label = "IGNORE_SELF_CAST_KEY", field = "ignoreSelfCastKey", castModifier = Constants.CASTMOD_SELF },
-            { label = "IGNORE_FOCUS_CAST_KEY", field = "ignoreFocusCastKey", castModifier = Constants.CASTMOD_FOCUS },
+            { label = "IGNORE_SELF_CAST_KEY", row = "selfCastKey", castModifier = Constants.CASTMOD_SELF },
+            { label = "IGNORE_FOCUS_CAST_KEY", row = "focusCastKey", castModifier = Constants.CASTMOD_FOCUS },
         }) do
             Menu.GetManager():CloseMenus()
             MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = { action } })
@@ -2178,8 +2186,10 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
             end
 
             box:Pick(MenuInputContext.MouseButton, "LeftButton")
-            if action[case.field] ~= true then
-                return Fail(NAME, format("pressing [%s] stored %s", LLL[case.label], tostring(action[case.field])))
+            local stored = action.casting and action.casting[case.row]
+            if not (type(stored) == "table" and stored.aim == "usual") then
+                return Fail(NAME, format("pressing [%s] stored %s", LLL[case.label],
+                    tostring(type(stored) == "table" and stored.aim or stored)))
             end
 
             local function TwinOnKey()
@@ -2190,29 +2200,27 @@ RegisterTest("Menu: ignoring a cast key drops or aims that key's twin", {
                 end
             end
 
-            local saved = Constants.CAST_KEY_IGNORE
-            AddTeardown(function() Constants.CAST_KEY_IGNORE = saved end)
-
-            Constants.CAST_KEY_IGNORE = Constants.CAST_KEY_IGNORE_DROP
-            ApplyBindings()
-            if TwinOnKey() then
-                return Fail(NAME, format("%s, drop: the twin is still on %s", case.field, KEY))
-            end
-
-            Constants.CAST_KEY_IGNORE = Constants.CAST_KEY_IGNORE_AIM
             ApplyBindings()
             local twin = TwinOnKey()
             if not twin or twin.unit ~= nil then
-                return Fail(NAME, format("%s, aim: the twin aims at %s", case.field,
+                return Fail(NAME, format("%s: the twin aims at %s", case.row,
                     tostring(twin and twin.unit)))
             end
 
-            Constants.CAST_KEY_IGNORE = saved
+            -- **Skip this action은 그 쌍둥이를 통째로 뺀다.** 값 둘이 한 줄에 사니, 겨눔만 재고
+            -- 넘어가면 다른 값이 같은 자리를 못 쓰는 것을 아무도 못 본다.
+            action.casting[case.row] = { mode = "skip" }
             ApplyBindings()
-            seen[#seen + 1] = case.field
+            if TwinOnKey() then
+                return Fail(NAME, format("%s, skip: the twin is still on %s", case.row, KEY))
+            end
+
+            action.casting[case.row] = nil
+            ApplyBindings()
+            seen[#seen + 1] = case.row
         end
 
-        return Pass(NAME, table.concat(seen, ", ") .. " stored, dropped, then aimed where the action goes")
+        return Pass(NAME, table.concat(seen, ", ") .. " aimed where the action goes, then skipped")
     end,
 })
 
@@ -8351,18 +8359,6 @@ RegisterTest("Click bakes the deferred macro body", {
     end,
 })
 
---- Turns an account switch on for the length of a test and puts it back after.
---- **Absent is the stored shape of off** (`SettingsTab.lua`), so the teardown writes nil rather than
---- false or the run leaves a cell behind that nothing on screen ever wrote.
-local function UsePointedUnitCast(name)
-    local was = DebindPrivate.Options[name]
-    DebindPrivate.Options[name] = true
-    AddTeardown(function()
-        DebindPrivate.Options[name] = was
-        DebindPrivate.UpdateBindings()
-    end)
-end
-
 -- **Needs the game.** The headless keymap spec sees the two records Hover Cast puts on a key;
 -- which of them a real press over a real registered frame reaches is decided by the click path
 -- reading the frame under the cursor, and only the client has one.
@@ -8379,8 +8375,9 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        UsePointedUnitCast("hoverCast")
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
+        -- **Hover Cast는 이 액션에서만 켠다.** 빈 표가 "설정 탭의 모드를 따른다"이고, 그 모드는
+        -- 이 실행 동안 Unit Frames로 고정되어 있다(`SetIsolated`).
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, casting = { hoverCast = {} } })
         ApplyBindings()
 
         -- **Four records**: the self and focus twins stand ahead of the hover twin and the original

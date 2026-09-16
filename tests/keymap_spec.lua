@@ -33,7 +33,13 @@ return function(DebindPrivate)
 
     local ME = "Player-1-KEYMAP";
 
-    local function Bind(actions, switches, options)
+    --- **Hover Cast는 꺼 둔 채로 세운다.** 대부분의 케이스가 재는 것은 한 키의 순서이고, 켜져
+    --- 있으면 액션마다 쌍둥이가 하나씩 더 서서 목록이 두 배가 된다 (`tests/casting.lua`). 층을
+    --- 재는 케이스는 `hoverCast`를 켜서 새로 만든 액션의 모양으로 세운다.
+    local function Bind(actions, switches, options, hoverCast)
+        if (not hoverCast) then
+            require("casting").skipHoverAll(actions);
+        end
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
@@ -246,16 +252,15 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- **The key is laid out in tiers**: every self twin, every focus twin, every hover twin, every
-    -- original (`devdocs/implementing-focus-and-self-cast.md` §3-4). Side by side, an original placed
-    -- first took a pointed press before the hover twin of the action behind it had a turn. Among the
-    -- originals the hover condition still sorts first; action 1 has no hover twin to show it, since
-    -- its [not pointing] leaves the twin nothing to match.
+    -- original (`devdocs/which-action-a-key-runs.md` §3). Side by side, an original placed first took
+    -- a pointed press before the hover twin of the action behind it had a turn. Action 1 has no hover
+    -- twin, since its [when none is pointed at] leaves the twin nothing to match.
     test("the key is laid out in tiers", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
                 conditions = { units = { unitframe = false }, stealth = true } },
             { type = Constants.SPELL, value = 2, key = "F1", seq = 2, conditions = { combat = true } },
-        }, nil, { hoverCast = true });
+        }, nil, nil, true);
 
         local records = DebindPrivate.KeyMap["F1"];
         local shape = {};
@@ -272,33 +277,180 @@ return function(DebindPrivate)
             "F1 came out as " .. shape);
     end);
 
-    -- **A mouse button gets no hover twin that only competes for order** (§3-4, 2026-09-13, owner).
-    -- A mouse-button original with no hover condition never fires over a frame, so a twin going out
-    -- the way it does would only be a frame click record, and a frame click arrives on its exact
-    -- combination with nothing to order against. Left out, the click on the frame falls through to
-    -- the frame's own action. The Hover Cast twin aimed at the frame's unit stays a frame record.
-    test("on a mouse button a twin that goes out as its original is not made", function()
+    -- **A mouse button gets its hover twin like every other key** (§3, §7). The original with no unit
+    -- frame condition stands on [not pointing] -- that is the key's own rule and not a unit condition
+    -- (`BuildUnitStates`) -- so the two never meet: the twin takes the click on a frame and the
+    -- original takes the click anywhere else. A type that carries no target is no different; whether
+    -- it can use the unit is that action's business.
+    test("on a mouse button the hover twin is the frame's record", function()
         Bind({
             { type = Constants.MACROTEXT, value = "/say hi", key = "BUTTON4", seq = 1 },
             { type = Constants.SPELL, value = 585, key = "SHIFT-BUTTON4", seq = 2 },
-        }, nil, { hoverCast = true });
+        }, nil, nil, true);
 
-        local macro = DebindPrivate.KeyMap["BUTTON4"];
-        check(macro and #macro > 0, "the macro did not reach its key");
-        for i = 1, #macro do
-            check(not macro[i].hoverTwin, "the macro has a hover twin at " .. i);
-            check(not macro[i].isClickCast, "the macro has a frame click record at " .. i);
+        for _, key in ipairs({ "BUTTON4", "SHIFT-BUTTON4" }) do
+            local records = DebindPrivate.KeyMap[key];
+            local frameRecord, plain;
+            for i = 1, #(records or {}) do
+                if (records[i].hoverTwin) then
+                    frameRecord = records[i];
+                elseif (records[i].castModifier == Constants.CASTMOD_NONE) then
+                    plain = records[i];
+                end
+            end
+            check(frameRecord and frameRecord.isClickCast and frameRecord.unit == "unitframe",
+                key .. ": the hover twin is not the frame's record");
+            check(plain and plain.isClickCast == false and plain.holdsKey == true,
+                key .. ": the original does not hold the key");
         end
+    end);
 
-        local spell = DebindPrivate.KeyMap["SHIFT-BUTTON4"];
-        local frameRecord;
-        for i = 1, #(spell or {}) do
-            if (spell[i].hoverTwin and spell[i].isClickCast) then
-                frameRecord = spell[i];
+    -- **Every tier is in the originals' order, the hover tier included** (§3, 2026-09-16, owner).
+    -- That order is the one the window draws, and an order the reader cannot see is one they cannot
+    -- fix. The hover tier used to sort itself by where each twin's own condition would have stood,
+    -- so the twin of an action with no condition fell behind every twin that had one -- here, 2
+    -- would have come out ahead of 1.
+    test("the hover tier stands in the originals' order", function()
+        Bind({
+            -- 둘 다 조건부라 정렬을 가르는 것은 자리 번호뿐이다. 한쪽만 조건부면 조건 유무가
+            -- 먼저 갈라서 이 케이스가 제 물음을 못 묻는다.
+            { type = Constants.SPELL, value = 1, key = "F5", seq = 1,
+                conditions = { combat = true } },
+            { type = Constants.SPELL, value = 2, key = "F5", seq = 2,
+                conditions = { units = { unitframe = { exists = true,
+                    reaction = Constants.REACTION_HELP } } } },
+        }, nil, nil, true);
+
+        local records = DebindPrivate.KeyMap["F5"];
+        local order = {};
+        for i = 1, #records do
+            if (records[i].hoverTwin) then
+                order[#order + 1] = tostring(records[i].value);
             end
         end
-        check(frameRecord and frameRecord.unit == "unitframe",
-            "the spell's Hover Cast twin is not a frame record aimed at the frame's unit");
+        check(table.concat(order, " ") == "1 2",
+            "the hover tier came out " .. table.concat(order, " "));
+    end);
+
+    -- **Normal Cast off leaves the original out of the last tier** (§6), so a press with nothing
+    -- held and nothing pointed at falls through to the next action. The twins stay: the action still
+    -- takes its turn in the tiers it did not turn off.
+    test("normal cast off keeps the action out of the last tier only", function()
+        Bind({
+            { type = Constants.SPELL, value = 1, key = "F6", seq = 1,
+                casting = { normalCast = false } },
+            { type = Constants.SPELL, value = 2, key = "F6", seq = 2 },
+        }, nil, nil, true);
+
+        check(Values("F6") == "1 2", "the hover tier and the last tier came out " .. Values("F6"));
+
+        local records = DebindPrivate.KeyMap["F6"];
+        local last;
+        for i = 1, #records do
+            if (records[i].castModifier == Constants.CASTMOD_NONE and not records[i].hoverTwin) then
+                last = (last and last .. " " or "") .. tostring(records[i].value);
+            end
+        end
+        check(last == "2", "the last tier came out " .. tostring(last));
+    end);
+
+    -- **An action with all four values off is not on the key at all** (§6). It keeps its row and its
+    -- warning; what it does not keep is a record, so the action behind it answers every press.
+    test("an action with nothing left to cast reaches no record", function()
+        Bind({
+            { type = Constants.SPELL, value = 1, key = "F7", seq = 1,
+                casting = { normalCast = false, hoverCast = { mode = "skip" },
+                    selfCastKey = { mode = "skip" }, focusCastKey = { mode = "skip" } } },
+            { type = Constants.SPELL, value = 2, key = "F7", seq = 2 },
+        }, nil, nil, true);
+
+        local records = DebindPrivate.KeyMap["F7"];
+        for i = 1, #(records or {}) do
+            check(records[i].value ~= 1, "the action that casts nothing reached the key at " .. i);
+        end
+        check(Values("F7") == "2 2", "the key came out " .. Values("F7"));
+    end);
+
+    -- **An action that only runs over a frame keeps the bare left button** (§7, §8). That is the shape
+    -- a unit frame condition is carried over as -- Hover Cast on Unit Frames with Normal Cast off,
+    -- and **no condition left to read it off**. Asked of the condition alone, the whole of a reader's
+    -- click casting on BUTTON1 came out red the day their profile moved, and nothing they could do in
+    -- the window would have cleared it.
+    --
+    -- **The self and focus twins have to fall the same way.** They carry no unit frame condition
+    -- either, and each one that holds the key takes the world's left click with it.
+    test("an action that only runs over a frame may take the bare left button", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
+                casting = { normalCast = false, hoverCast = { mode = "unitframe" } } },
+        }, nil, nil, true);
+
+        local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
+        check(DebindPrivate.GetBindingIssue(action) == nil,
+            "the action is refused: " .. tostring(DebindPrivate.GetBindingIssue(action)));
+        check(DebindPrivate.KeysToHold["BUTTON1"] == nil, "the bare left click was taken");
+
+        local records = DebindPrivate.KeyMap["BUTTON1"];
+        check(records and #records > 0, "the action reached no record");
+        for i = 1, #records do
+            check(records[i].holdsKey == false, "record " .. i .. " holds the key");
+        end
+    end);
+
+    -- **On a mouse button over a frame there are no cast key twins at all** (§7). A frame click is
+    -- always [none held] (`EVAL_SNIPPET`), and the action holds no key, so nothing else can arrive
+    -- either: a self or focus record there is one no press can reach, and while they were made they
+    -- were also what held the bare left button.
+    test("a mouse button over a frame gets no cast key twins", function()
+        for _, casting in ipairs({
+            { normalCast = false, hoverCast = { mode = "unitframe" } },
+            {},
+        }) do
+            Bind({
+                { type = Constants.SPELL, value = 585, key = "BUTTON2", seq = 1, casting = casting,
+                    conditions = casting.hoverCast and {}
+                        or { units = { unitframe = { exists = true } } } },
+            }, nil, nil, true);
+
+            local records = DebindPrivate.KeyMap["BUTTON2"];
+            check(records and #records > 0, "the action reached no record");
+            for i = 1, #records do
+                check(records[i].castModifier == Constants.CASTMOD_NONE,
+                    "record " .. i .. " carries cast modifier "
+                        .. tostring(records[i].castModifier));
+            end
+        end
+    end);
+
+    -- 반대쪽. 키보드 키에서는 같은 액션이 조합키 쌍둥이를 그대로 갖는다 - 그 누름은 키 경로로
+    -- 오고, 그 층에서 이 액션이 제 차례를 지킨다.
+    test("the same action on a keyboard key keeps its cast key twins", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F8", seq = 1,
+                casting = { normalCast = false, hoverCast = { mode = "unitframe" } } },
+        }, nil, nil, true);
+
+        local records = DebindPrivate.KeyMap["F8"];
+        local held = 0;
+        for i = 1, #(records or {}) do
+            if (records[i].castModifier ~= Constants.CASTMOD_NONE) then
+                held = held + 1;
+            end
+        end
+        check(held == 2, "조합키 쌍둥이가 " .. held .. "개다");
+    end);
+
+    -- 반대쪽. Normal Cast가 켜져 있으면 그 원본이 개체창 밖의 누름을 받으므로 맨 왼쪽 클릭이
+    -- 사라진다. 그래서 그 액션은 여전히 거절이다.
+    test("an action that also runs off a frame still may not take the bare left button", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1 },
+        }, nil, nil, true);
+
+        local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
+        check(DebindPrivate.GetBindingIssue(action)
+                == Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON,
+            "the action was let onto the key: " .. tostring(DebindPrivate.GetBindingIssue(action)));
     end);
 
     -- On a mouse button the two split the way a hover record and a plain one always have: the twin
@@ -306,7 +458,7 @@ return function(DebindPrivate)
     test("on a mouse button the twin is the click-cast and the original holds the key", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1 },
-        }, nil, { hoverCast = true });
+        }, nil, nil, true);
 
         local records = Records("BUTTON3");
         check(records and #records == 2, "BUTTON3 came out with " .. tostring(records and #records));

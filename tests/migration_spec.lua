@@ -747,9 +747,12 @@ return function(DebindPrivate)
         check(cond.reaction == Constants.REACTION_HARM, "기억한 축이 사라졌다");
     end);
 
+    --- 개체창 조건에 축이 하나라도 있으면 조건으로 남고, 그 표도 `exists`를 받는다. 축이 없는
+    --- [올렸을 때]뿐인 조건은 Casting으로 옮겨져 여기 안 남는다(아래 단계).
     test("dbver 7 walks every unit key, the unit frame and @ included", function()
         local layer = { { key = "A", type = Constants.SPELL, value = 1, unit = "focus",
-            conditions = { units = { hover = {}, ["@"] = { reaction = Constants.REACTION_HELP } } } } };
+            conditions = { units = { hover = { reaction = Constants.REACTION_HELP },
+                ["@"] = { reaction = Constants.REACTION_HELP } } } } };
         MigrateLayer(layer, 6);
         local units = layer[1].conditions.units;
         check(units.unitframe.exists == true, "unitframe이 " .. tostring(units.unitframe.exists));
@@ -816,7 +819,7 @@ return function(DebindPrivate)
     test("dbver 7 is safe to run twice over the rename", function()
         local layer = { { key = "A", type = Constants.MACROTEXT, unit = "hover",
             value = "/cast [@hover] Renew",
-            conditions = { units = { hover = {} } } } };
+            conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } } };
         MigrateLayer(layer, 6);
         MigrateLayer(layer, 6);
         check(layer[1].unit == "unitframe", "unit이 " .. tostring(layer[1].unit));
@@ -1108,6 +1111,100 @@ return function(DebindPrivate)
         check(layer[1].seq == nil, "번호가 생겼다: " .. tostring(layer[1].seq));
     end);
 
+    ---------------------------------------------------------------------------
+    -- dbver 7: 세 체크박스가 `casting` 한 표가 된다
+    --
+    -- **옛 개체창 조건 액션은 쌍둥이만 있는 액션으로 옮긴다** (`devdocs/which-action-a-key-runs.md`
+    -- §8). 옛 뜻이 "가리킨 누름에서만, 층을 뛰어넘어"이고, 새 모양으로 정확히 적으면 Hover Cast가
+    -- Unit Frames이고 Normal Cast가 꺼진 것이다. 나머지 액션은 Skip this action이라 옮긴 날
+    -- 아무것도 안 바뀐다 - 설정 탭의 모드가 무엇이든.
+    ---------------------------------------------------------------------------
+
+    local function castingAfterMigrate(action)
+        local layer = { action };
+        MigrateLayer(layer, 6);
+        return layer[1].casting or {}, layer[1];
+    end
+
+    test("dbver 7 moves the two cast key boxes onto casting", function()
+        local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
+            ignoreSelfCastKey = true, ignoreFocusCastKey = true });
+        check(casting.selfCastKey and casting.selfCastKey.mode == "skip",
+            "self가 " .. tostring(casting.selfCastKey and casting.selfCastKey.mode));
+        check(casting.focusCastKey and casting.focusCastKey.mode == "skip",
+            "focus가 " .. tostring(casting.focusCastKey and casting.focusCastKey.mode));
+    end);
+
+    test("dbver 7 leaves an action that ignored neither cast key alone", function()
+        local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1 });
+        check(casting.selfCastKey == nil and casting.focusCastKey == nil,
+            "안 끈 조합키에 값이 생겼다");
+    end);
+
+    --- 개체창 조건이 없던 액션. 설정 탭의 모드가 무엇이든 옛 액션은 그대로여야 하므로 Skip이다.
+    test("dbver 7 turns an action with no unit frame condition into Skip this action", function()
+        local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1 });
+        check(casting.hoverCast and casting.hoverCast.mode == "skip",
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
+    end);
+
+    --- 빈 [올렸을 때]. 조건이 하던 일을 Casting 값 둘이 통째로 들고, 조건은 안 남는다.
+    test("dbver 7 turns a bare unit frame condition into a twin-only action", function()
+        local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
+            conditions = { units = { unitframe = { exists = true } } } });
+        check(casting.hoverCast and casting.hoverCast.mode == "unitframe",
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
+        check(action.conditions == nil or action.conditions.units == nil,
+            "빈 조건이 남았다");
+    end);
+
+    --- 축이 붙어 있으면 조건으로 남는다. 반응과 역할과 프레임 종류는 쌍둥이가 물려받아야 한다.
+    test("dbver 7 keeps a unit frame condition that says more than [there is one]", function()
+        local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
+            conditions = { units = { unitframe = { exists = true, reaction = Constants.REACTION_HELP,
+                role = Constants.ROLE_HEALER } } } });
+        check(casting.hoverCast and casting.hoverCast.mode == "unitframe",
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
+        local row = action.conditions.units.unitframe;
+        check(row and row.reaction == Constants.REACTION_HELP and row.role == Constants.ROLE_HEALER,
+            "축이 사라졌다");
+    end);
+
+    --- 겨누기를 껐던 액션은 Cast as usual로 온다. 쌍둥이는 서되 원본이 가는 곳으로 나간다.
+    test("dbver 7 moves the pointed unit box onto the aim", function()
+        local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
+            ignoreHoverUnit = true,
+            conditions = { units = { unitframe = { exists = true } } } });
+        check(casting.hoverCast and casting.hoverCast.aim == "usual",
+            "겨눔이 " .. tostring(casting.hoverCast and casting.hoverCast.aim));
+        check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
+    end);
+
+    --- [안 올렸을 때]는 개체창 위에서 아예 안 도는 액션이라 쌍둥이가 설 자리가 없다. 조건은
+    --- 그대로 남고 Hover Cast만 꺼진다.
+    test("dbver 7 turns [when none is pointed at] into Skip this action", function()
+        local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
+            conditions = { units = { unitframe = { exists = false } } } });
+        check(casting.hoverCast and casting.hoverCast.mode == "skip",
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
+        check(action.conditions.units.unitframe.exists == false, "조건이 사라졌다");
+    end);
+
+    test("dbver 7 casting is safe to run twice", function()
+        local layer = { { key = "F1", type = Constants.SPELL, value = 1,
+            conditions = { units = { unitframe = { exists = true } } } } };
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        local casting = layer[1].casting;
+        check(casting.hoverCast.mode == "unitframe" and casting.normalCast == false,
+            "두 번째에 뭉개짐");
+        check(layer[1].conditions == nil or layer[1].conditions.units == nil, "조건이 되살아났다");
+    end);
+
     test("dbver 7 renumbering is safe to run twice", function()
         local layer = {
             { key = "F1", seq = 1, type = Constants.SPELL, value = 1,
@@ -1317,11 +1414,27 @@ return function(DebindPrivate)
         { false, nil, false, Constants.UNITSTATE_NONE, false },
     };
 
-    local function checkHoverCase(case, action, when)
+    --- **A bare [when one is pointed at] is not a condition after the ladder.** The `dbver` 7 step
+    --- writes it as Casting instead -- Hover Cast on Unit Frames with Normal Cast off, which is what
+    --- that condition meant (`devdocs/which-action-a-key-runs.md` §8) -- and takes the row out. So
+    --- the same case reads one way before the ladder and another after it, and `migrated` says which
+    --- side is being asked.
+    local function checkHoverCase(case, action, when, migrated)
         local hover, reactions, existing = case[1], case[2], case[3];
         local wantMask, wantCond = case[4], case[5];
         local label = ("hover=%s reactions=%s existing=%s"):format(
             tostring(hover), tostring(reactions), describe(existing));
+
+        if (migrated and type(wantCond) == "table" and next(wantCond) == nil) then
+            local casting = action.casting;
+            local hoverCast = casting and casting.hoverCast;
+            check(hoverCast and hoverCast.mode == "unitframe",
+                ("%s %s: Hover Cast가 %s다"):format(label, when,
+                    tostring(hoverCast and hoverCast.mode)));
+            check(casting.normalCast == false,
+                ("%s %s: Normal Cast가 %s다"):format(label, when, tostring(casting.normalCast)));
+            wantMask, wantCond = nil, nil;
+        end
 
         local binding = bindingFor(action);
         local gotMask = binding.unitStates and binding.unitStates.unitframe;
@@ -1352,7 +1465,7 @@ return function(DebindPrivate)
         for _, case in ipairs(HOVER_CASES) do
             local layer = { hoverAction(case) };
             MigrateLayer(layer, 4);
-            checkHoverCase(case, layer[1], "(마이그레이션 후)");
+            checkHoverCase(case, layer[1], "(마이그레이션 후)", true);
         end
     end);
 
@@ -1372,7 +1485,7 @@ return function(DebindPrivate)
             local layer = { hoverAction(case) };
             MigrateLayer(layer, 4);
             MigrateLayer(layer, 4);
-            checkHoverCase(case, layer[1], "(두 번 돌린 뒤)");
+            checkHoverCase(case, layer[1], "(두 번 돌린 뒤)", true);
         end
     end);
 
@@ -1586,6 +1699,50 @@ return function(DebindPrivate)
         check(db.nextArrivalID == 2, "다음 도착 번호 " .. tostring(db.nextArrivalID));
         check(DebindPrivate.NextArrivalID() == 2, "새 도착분이 마이그레이션된 것과 같은 번호를 받는다");
         check(db.nextSyntheticKey == nil, "아무도 안 읽는 옛 카운터가 남음");
+    end);
+
+    -- **옮긴 뒤 한 번 알린다** (`devdocs/which-action-a-key-runs.md` §8). 옮긴 날 아무것도 안
+    -- 바뀌므로, 말하지 않으면 사용자는 찾아볼 값이 생겼다는 것을 알 길이 없다. 한 번인 것이
+    -- 절반이라, 출력한 줄이 칸을 지우는 것까지 같이 잰다.
+    test("dbver 7 leaves a note to tell the reader once", function()
+        _G.DebindVars = {
+            dbver = 6,
+            migrated = {},
+            shared = { GENERAL = {}, classes = {} },
+            characters = {},
+        };
+        _G.DebounceVars = nil;
+        _G.DebounceVarsPerChar = nil;
+        DebindPrivate.InitDB();
+
+        check(_G.DebindVars.castingNotice == true,
+            "알림이 " .. tostring(_G.DebindVars.castingNotice));
+
+        local said = 0;
+        local realDisplay = DebindPrivate.DisplayMessage;
+        DebindPrivate.DisplayMessage = function() said = said + 1; end;
+        DebindPrivate.ReportCastingMigration();
+        DebindPrivate.ReportCastingMigration();
+        DebindPrivate.DisplayMessage = realDisplay;
+
+        check(said == 1, "말한 횟수 " .. said);
+        check(_G.DebindVars.castingNotice == nil, "칸이 안 지워졌다");
+    end);
+
+    -- 반대쪽. 없으면 위 테스트는 "언제나 말한다"로도 통과한다.
+    test("a profile already on this version gets no note", function()
+        _G.DebindVars = {
+            dbver = Constants.DB_VERSION,
+            migrated = {},
+            shared = { GENERAL = {}, classes = {} },
+            characters = {},
+        };
+        _G.DebounceVars = nil;
+        _G.DebounceVarsPerChar = nil;
+        DebindPrivate.InitDB();
+
+        check(_G.DebindVars.castingNotice == nil,
+            "이미 올라온 프로필에 알림이 섰다");
     end);
 
     ---------------------------------------------------------------------------

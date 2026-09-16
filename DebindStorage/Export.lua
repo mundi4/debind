@@ -125,9 +125,9 @@ local ACTION_FIELDS      = {
     unit = "string",
     priority = "number",
     keepInBindingContext = "boolean",
-    ignoreHoverUnit = "boolean",
-    ignoreSelfCastKey = "boolean",
-    ignoreFocusCastKey = "boolean",
+    -- Which presses the action stands on. What may sit inside is `CASTING_TYPES` below, and the
+    -- import filters that level the way it filters `conditions`.
+    casting = "table",
     -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
     -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
     conditions = "table",
@@ -181,10 +181,24 @@ local CONDITION_TYPES    = {
     ["$state5"] = "boolean",
 };
 
+--- What may sit inside `casting`, by name and type. **The same reason `CONDITION_TYPES` exists**:
+--- folded into one table, the whitelist above sees `casting = "table"` and nothing looks inside.
+---
+--- The three press rows are tables of their own and their contents are **not** filtered further.
+--- Every reader compares them against a spelling it knows (`Misc.lua`'s `CastingRow`), so a value
+--- nobody wrote reads as the default, which is the value an action with no `casting` at all has.
+local CASTING_TYPES      = {
+    selfCastKey = "table",
+    focusCastKey = "table",
+    hoverCast = "table",
+    normalCast = "boolean",
+};
+
 --- Read by `Import.lua`, which filters the incoming table through the **same** list. One side a
 --- whitelist and the other a blacklist is what let a wire field nobody named ride into the profile.
 DebindStorage.ACTION_FIELDS = ACTION_FIELDS;
 DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
+DebindStorage.CASTING_TYPES = CASTING_TYPES;
 
 --- Which fields of a switch definition describe the switch, as opposed to what it happens
 --- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it on
