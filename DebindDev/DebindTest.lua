@@ -2145,13 +2145,13 @@ RegisterTest("Resolved Unit: the row under Units writes the condition, and Targe
     end,
 })
 
---- **The box is the only writer of the field, and which setter a press on it reaches is the client's
+--- **The menu is the only writer of the field, and which setter a press on it reaches is the client's
 --- menu tree.** What the press stores, and the twin it turns into, is measured here; which record
 --- wins a press with the key held is `tests/eval_spec.lua`'s.
-RegisterTest("Menu: ignoring a cast key aims that key's twin where the action goes", {
-    description = "액션 메뉴의 두 체크박스가 casting 값을 쓰고, 그 조합키의 쌍둥이가 액션의 대상을 겨눈다",
+RegisterTest("Menu: casting a cast key as usual aims that key's twin where the action goes", {
+    description = "Casting 메뉴의 조합키 줄에서 [Cast as usual]이 casting 값을 쓰고, 그 조합키의 쌍둥이가 액션의 대상을 겨눈다",
     run = function()
-        local NAME = "Ignore cast key box"
+        local NAME = "Cast as usual row"
         local KEY = "CTRL-ALT-F9"
 
         if InCombatLockdown() then
@@ -2160,14 +2160,30 @@ RegisterTest("Menu: ignoring a cast key aims that key's twin where the action go
         AddTeardown(function() Menu.GetManager():CloseMenus() end)
 
         -- **No target picked**: a picked unit is not moved by the key at all, so aiming its twin could
-        -- not be told from leaving it alone.
+        -- not be told from leaving it alone, and the row stands locked there.
         local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
+        local function ChildByText(description, text)
+            for _, child in description:EnumerateElementDescriptions() do
+                if MenuUtil.GetElementText(child) == text then
+                    return child
+                end
+            end
+        end
+
+        local function ChildTexts(description)
+            local names = {}
+            for _, child in description:EnumerateElementDescriptions() do
+                tinsert(names, tostring(MenuUtil.GetElementText(child)))
+            end
+            return table.concat(names, " | ")
+        end
+
         local seen = {}
         for _, case in ipairs({
-            { label = "IGNORE_SELF_CAST_KEY", row = "selfCastKey", castModifier = Constants.CASTMOD_SELF },
-            { label = "IGNORE_FOCUS_CAST_KEY", row = "focusCastKey", castModifier = Constants.CASTMOD_FOCUS },
+            { label = AUTO_SELF_CAST_KEY_TEXT, row = "selfCastKey", castModifier = Constants.CASTMOD_SELF },
+            { label = FOCUS_CAST_KEY_TEXT, row = "focusCastKey", castModifier = Constants.CASTMOD_FOCUS },
         }) do
             Menu.GetManager():CloseMenus()
             MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = { action } })
@@ -2175,20 +2191,30 @@ RegisterTest("Menu: ignoring a cast key aims that key's twin where the action go
             if not menu then
                 return Fail(NAME, "the menu did not come up")
             end
-            local box
+            local casting
             menu:EnumerateElementDescriptions(function(_, description)
-                if MenuUtil.GetElementText(description) == LLL[case.label] then
-                    box = description
+                if MenuUtil.GetElementText(description) == LLL["CASTING"] then
+                    casting = description
                 end
             end)
+            if not casting then
+                return Fail(NAME, format("no [%s] group in the action's menu", LLL["CASTING"]))
+            end
+            local keyRow = ChildByText(casting, case.label)
+            if not keyRow then
+                return Fail(NAME, format("no [%s] row under [%s]: %s", case.label, LLL["CASTING"],
+                    ChildTexts(casting)))
+            end
+            local box = ChildByText(keyRow, LLL["CASTING_AS_USUAL"])
             if not box then
-                return Fail(NAME, format("no [%s] box in the action's menu", LLL[case.label]))
+                return Fail(NAME, format("no [%s] row under [%s]: %s", LLL["CASTING_AS_USUAL"],
+                    case.label, ChildTexts(keyRow)))
             end
 
             box:Pick(MenuInputContext.MouseButton, "LeftButton")
             local stored = action.casting and action.casting[case.row]
             if not (type(stored) == "table" and stored.aim == "usual") then
-                return Fail(NAME, format("pressing [%s] stored %s", LLL[case.label],
+                return Fail(NAME, format("pressing [%s] stored %s", LLL["CASTING_AS_USUAL"],
                     tostring(type(stored) == "table" and stored.aim or stored)))
             end
 

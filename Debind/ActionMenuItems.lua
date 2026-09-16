@@ -24,6 +24,13 @@ local setActionValue                 = ActionMenu.setActionValue;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local USE_CHECKED_VALUE              = ActionMenu.USE_CHECKED_VALUE;
 local GetTabList                     = ActionMenu.GetTabList;
+local CastKeyChoiceOf                = ActionMenu.CastKeyChoiceOf;
+local CastKeyChoiceIs                = ActionMenu.CastKeyChoiceIs;
+local SetCastKeyChoice               = ActionMenu.SetCastKeyChoice;
+local SetHoverCastMode               = ActionMenu.SetHoverCastMode;
+local SetHoverCastAim                = ActionMenu.SetHoverCastAim;
+local NormalCastIsOn                 = ActionMenu.NormalCastIsOn;
+local ToggleNormalCast               = ActionMenu.ToggleNormalCast;
 local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 local SetErrorTooltip                = ActionMenu.SetErrorTooltip;
 
@@ -323,50 +330,185 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     return description;
 end
 
---- **On every action, not only one that takes a target.** Every action has both twins
---- (`devdocs/implementing-focus-and-self-cast.md` §3-4), so a held key reaches a macro or a mount as
---- well, and taking one out of that press is the same choice there.
+--- The four presses an action can stand on, and where it goes on each
+--- (`devdocs/which-action-a-key-runs.md` §6).
 ---
---- **Locked where every action has a unit picked.** A held key never moves a picked unit
---- (`ActionHasPickedUnit`), so aiming the twin where the action already goes changes nothing.
----
---- **The pointed unit's box stands with the two of them.** It was under the Unit Frame condition
---- while the pointed frame's unit had a menu of its own; that unit is an ordinary unit now
---- (`devdocs/which-action-a-key-runs.md` §0) and the box is not a condition -- it is the third of
---- the three presses answering "cast as usual on that one".
-local function CreateIgnoreCastKeyMenuItems(parentDescription, ctx)
+--- **On every action, not only one that takes a target.** Every action has all three twins (§3), so
+--- a held key reaches a macro or a mount as well, and taking one out of that press is the same
+--- choice there.
+local function CreateCastingMenu(parentDescription, ctx)
     local function everyUnitPicked()
         return AllActions(ctx, DebindPrivate.ActionHasPickedUnit);
     end
-    for _, box in ipairs({
-        { key = "casting.selfCastKey.aim", label = "IGNORE_SELF_CAST_KEY", enabled = DebindPrivate.SelfCastEnabled },
-        { key = "casting.focusCastKey.aim", label = "IGNORE_FOCUS_CAST_KEY", enabled = DebindPrivate.FocusCastEnabled },
-    }) do
-        local ignore = CreateCheckbox(parentDescription, ctx, LLL[box.label], actionValueEquals, setActionValue,
-            { ctx = ctx, key = box.key, value = USE_CHECKED_VALUE });
-        ignore:SetEnabled(function()
-            return box.enabled() and not everyUnitPicked();
-        end);
-        SetInstructionTooltip(ignore, LLL[box.label .. "_AIM_DESC"], function()
-            if (not box.enabled()) then
-                return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
-            end
-            if (everyUnitPicked()) then
-                return LLL["CAST_KEY_TARGET_PICKED"];
-            end
-        end);
+
+    --- **The note on the first row and the reason the second stands locked are one sentence.** A
+    --- picked unit is not moved by any of these presses (`ActionHasPickedUnit`), so "cast on that
+    --- unit" and "cast as usual" are the same cast there, and the first row's label is the half
+    --- that stops being literal.
+    local function pickedReason()
+        if (everyUnitPicked()) then
+            return LLL["CAST_KEY_TARGET_PICKED"];
+        end
     end
 
-    local ignoreHoverUnit = CreateCheckbox(parentDescription, ctx, LLL["IGNORE_HOVER_UNIT"],
-        actionValueEquals, setActionValue,
-        { ctx = ctx, key = "casting.hoverCast.aim", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
-    --- **A picked unit locks it.** The frame's unit only fills in where no unit was picked, and
-    --- Hover Cast never moves one that was (`Misc.lua`'s `ActionHasPickedUnit`), so the box has
-    --- nothing to take back.
-    ignoreHoverUnit:SetEnabled(function()
-        return not everyUnitPicked();
-    end);
+    local description = ActionMenus:BuildNode(parentDescription, {
+        label = "CASTING",
+        key = "casting",
+    }, ctx);
+
+    for _, row in ipairs({
+        {
+            row = "selfCastKey",
+            label = AUTO_SELF_CAST_KEY_TEXT,
+            instruction = LLL["CASTING_SELF_CAST_KEY_DESC"],
+            cast = "CASTING_SELF_CAST",
+            usual = "CASTING_SELF_USUAL_DESC",
+            enabled = DebindPrivate.SelfCastEnabled,
+        },
+        {
+            row = "focusCastKey",
+            label = FOCUS_CAST_KEY_TEXT,
+            instruction = LLL["CASTING_FOCUS_CAST_KEY_DESC"],
+            cast = "CASTING_FOCUS_CAST",
+            usual = "CASTING_FOCUS_USUAL_DESC",
+            enabled = DebindPrivate.FocusCastEnabled,
+        },
+    }) do
+        -- **The account's box takes the whole row.** With the key turned off in the settings the
+        -- tier is not built at all, so none of the three answers means anything
+        -- (`devdocs/which-action-a-key-runs.md` §6). What is stored here is kept and waits.
+        local rowDescription = ActionMenus:BuildNode(description, {
+            label = row.label,
+            instruction = row.instruction,
+            blocked = function()
+                if (not row.enabled()) then
+                    return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
+                end
+            end,
+            isActive = function()
+                return AnyAction(ctx, function(action)
+                    return CastKeyChoiceOf(action, row.row) ~= "cast";
+                end);
+            end,
+            valueOf = function(action)
+                return CastKeyChoiceOf(action, row.row);
+            end,
+        }, ctx);
+
+        if (row.enabled()) then
+            local function Choice(text, choice)
+                return CreateRadio(rowDescription, ctx, text,
+                    function()
+                        return CastKeyChoiceIs(ctx, row.row, choice);
+                    end,
+                    function()
+                        return SetCastKeyChoice(ctx, row.row, choice);
+                    end);
+            end
+
+            SetInstructionTooltip(Choice(LLL[row.cast], "cast"), LLL[row.cast .. "_DESC"], pickedReason);
+
+            local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
+            usual:SetEnabled(function()
+                return not everyUnitPicked();
+            end);
+            SetInstructionTooltip(usual, LLL[row.usual], pickedReason);
+
+            SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_SKIP_DESC"]);
+        end
+    end
+
+    -- **Four modes and two aims, where the two held keys have three answers between them.** Which
+    -- unit the pointed press means is this action's to say (§6), and that question does not exist
+    -- for a key that names its own unit.
+    local hoverDescription = ActionMenus:BuildNode(description, {
+        label = "POINTED_UNIT_CAST",
+        instruction = LLL["CASTING_HOVER_CAST_DESC"],
+        isActive = function()
+            return AnyAction(ctx, function(action)
+                local values = action.casting and action.casting.hoverCast;
+                return type(values) == "table" and next(values) ~= nil;
+            end);
+        end,
+        valueOf = function(action)
+            local casting = action.casting;
+            return casting and casting.hoverCast;
+        end,
+    }, ctx);
+
+    for _, mode in ipairs({
+        { account = true,      label = "CASTING_HOVER_ACCOUNT" },
+        { value = "unitframe", label = "POINTED_UNIT_CAST_FRAMES",    desc = "POINTED_UNIT_CAST_FRAMES_DESC" },
+        { value = "mouseover", label = "POINTED_UNIT_CAST_MOUSEOVER", desc = "POINTED_UNIT_CAST_MOUSEOVER_DESC" },
+        { value = "skip",      label = "CASTING_SKIP",               desc = "CASTING_HOVER_SKIP_DESC" },
+    }) do
+        local modeDescription = CreateRadio(hoverDescription, ctx, LLL[mode.label],
+            actionValueEquals,
+            function()
+                return SetHoverCastMode(ctx, mode.value);
+            end,
+            { ctx = ctx, key = "casting.hoverCast.mode", value = mode.value });
+        if (mode.account) then
+            -- **It names the mode that is set right now.** The row says where the answer comes
+            -- from; a reader who has to open the settings to find out what it is has been sent
+            -- away to read one word.
+            local current = "POINTED_UNIT_CAST_FRAMES";
+            if (DebindPrivate.AccountHoverCastMode() == "mouseover") then
+                current = "POINTED_UNIT_CAST_MOUSEOVER";
+            end
+            SetInstructionTooltip(modeDescription,
+                format(LLL["CASTING_HOVER_ACCOUNT_DESC"], LLL[current]));
+        else
+            SetInstructionTooltip(modeDescription, LLL[mode.desc]);
+        end
+    end
+
+    do
+        local function hoverSkipped()
+            return AllActions(ctx, function(action)
+                return DebindPrivate.HoverCastMode(action) == nil;
+            end);
+        end
+        local function hoverReason()
+            if (hoverSkipped()) then
+                return LLL["CASTING_HOVER_SKIPPED"];
+            end
+            return pickedReason();
+        end
+
+        hoverDescription:CreateDivider();
+
+        local pointed = CreateRadio(hoverDescription, ctx, LLL["CASTING_POINTED_CAST"],
+            actionValueEquals,
+            function()
+                return SetHoverCastAim(ctx, nil);
+            end,
+            { ctx = ctx, key = "casting.hoverCast.aim", value = nil });
+        pointed:SetEnabled(function()
+            return not hoverSkipped();
+        end);
+        SetInstructionTooltip(pointed, LLL["CASTING_POINTED_CAST_DESC"], hoverReason);
+
+        local usual = CreateRadio(hoverDescription, ctx, LLL["CASTING_AS_USUAL"],
+            actionValueEquals,
+            function()
+                return SetHoverCastAim(ctx, "usual");
+            end,
+            { ctx = ctx, key = "casting.hoverCast.aim", value = "usual" });
+        usual:SetEnabled(function()
+            return not hoverSkipped() and not everyUnitPicked();
+        end);
+        SetInstructionTooltip(usual, LLL["CASTING_HOVER_USUAL_DESC"], hoverReason);
+    end
+
+    local normal = CreateCheckbox(description, ctx, LLL["CASTING_NORMAL"],
+        function()
+            return NormalCastIsOn(ctx);
+        end,
+        function()
+            return ToggleNormalCast(ctx);
+        end);
+    SetInstructionTooltip(normal, LLL["CASTING_NORMAL_DESC"]);
 end
 
 --- 집 편집기 같은 바인딩 컨텍스트가 가져간 키는 기본적으로 우리가 내준다. 편집기가
@@ -610,7 +752,7 @@ ActionMenu.CreateSetSwitchMenuItem            = CreateSetSwitchMenuItem;
 ActionMenu.CreateAssignKeyMenuItem            = CreateAssignKeyMenuItem;
 ActionMenu.CreateUnbindMenuItem               = CreateUnbindMenuItem;
 ActionMenu.CreateTargetUnitMenuItem           = CreateTargetUnitMenuItem;
-ActionMenu.CreateIgnoreCastKeyMenuItems       = CreateIgnoreCastKeyMenuItems;
+ActionMenu.CreateCastingMenu                  = CreateCastingMenu;
 ActionMenu.CreateKeepInBindingContextMenuItem = CreateKeepInBindingContextMenuItem;
 ActionMenu.CreateImportanceMenu               = CreateImportanceMenu;
 ActionMenu.CreateApproveImportMenuItem        = CreateApproveImportMenuItem;

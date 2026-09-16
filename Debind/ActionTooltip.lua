@@ -426,14 +426,24 @@ do
 			addValueLine(tooltip, unitStr, error);
 		end
 
-		-- **Shown with a target set as well.** The box was read here under `action.unit == nil`, on
-		-- the grounds that `FillBinding` only fills the unit where none is set. It refuses the
-		-- account-wide twin too (`Misc.lua`'s `TwinUnitFor`), and that one stands on an action that
-		-- has a target, so the line was missing exactly where the box was the only thing stopping it.
-		if (action.casting and action.casting.hoverCast
+		-- **Shown with a target set as well.** The value was read here under `action.unit == nil`, on
+		-- the grounds that `FillBinding` only fills the unit where none is set. It aims the twin at
+		-- the action's own target too (`Misc.lua`'s `TwinUnitFor`), and that stands on an action that
+		-- has a target, so the line was missing exactly where this was the only thing stopping the
+		-- cast from following the cursor.
+		--
+		-- **Both halves are the menu's own words** (`ActionMenuItems.lua`), so a reader who wants to
+		-- change it is already holding the two rows to open.
+		--
+		-- **The mode is asked first, and through the one function that answers it.** An aim beside a
+		-- skipped mode says nothing about any press: there is no pointed press to cast on. Storage
+		-- can hold the pair on its way in from a string, which is what the import filters do not
+		-- look at (`Misc.lua`'s `CastingRow`), and `CleanUpDB` only clears it at logout.
+		if (DebindPrivate.HoverCastMode(action) ~= nil
+				and action.casting and action.casting.hoverCast
 				and action.casting.hoverCast.aim == "usual") then
-			addLabelLine(tooltip, LLL["IGNORE_HOVER_UNIT"]);
-			addValueLine(tooltip, LLL["LINE_TOOLTIP_IGNORE_HOVER_UNIT"]);
+			addLabelLine(tooltip, LLL["POINTED_UNIT_CAST"]);
+			addValueLine(tooltip, LLL["CASTING_AS_USUAL"]);
 		end
 
 		if (conditions.units) then

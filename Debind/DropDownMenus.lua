@@ -13,7 +13,7 @@ local CreateSetSwitchMenuItem                 = ActionMenu.CreateSetSwitchMenuIt
 local CreateAssignKeyMenuItem                 = ActionMenu.CreateAssignKeyMenuItem;
 local CreateUnbindMenuItem                    = ActionMenu.CreateUnbindMenuItem;
 local CreateTargetUnitMenuItem                = ActionMenu.CreateTargetUnitMenuItem;
-local CreateIgnoreCastKeyMenuItems            = ActionMenu.CreateIgnoreCastKeyMenuItems;
+local CreateCastingMenu                       = ActionMenu.CreateCastingMenu;
 local CreateKeepInBindingContextMenuItem      = ActionMenu.CreateKeepInBindingContextMenuItem;
 local CreateImportanceMenu                    = ActionMenu.CreateImportanceMenu;
 local CreateApproveImportMenuItem             = ActionMenu.CreateApproveImportMenuItem;
@@ -136,6 +136,8 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
 
     CreateTargetUnitMenuItem(rootDescription, ctx);
 
+    CreateCastingMenu(rootDescription, ctx);
+
     --
     -- Conditions
     --
@@ -157,8 +159,6 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     --
     rootDescription:CreateDivider();
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
-
-    CreateIgnoreCastKeyMenuItems(rootDescription, ctx);
 
     CreateKeepInBindingContextMenuItem(rootDescription, ctx);
 

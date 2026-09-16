@@ -315,15 +315,6 @@ local function CastingHolder(action, key, create)
     return row, field;
 end
 
---- What a checkbox writing one of these means. The kit's boxes write a boolean
---- (`MenuKit.TOGGLE`) and the fields hold a word, so the fold is here rather than in a box of its
---- own: a row that offers the word itself (a radio) hands it over and passes straight through.
-local CASTING_BOX_VALUES = {
-    ["casting.selfCastKey.aim"] = "usual",
-    ["casting.focusCastKey.aim"] = "usual",
-    ["casting.hoverCast.aim"] = "usual",
-};
-
 --- 빈 표는 안 남긴다. `CleanUpDB`와 같은 규칙이고, 여기서도 하는 것은 저장과 내보내기와
 --- 같은지 묻기(`IDENTITY_FIELDS`)가 로그아웃을 안 기다리기 때문이다.
 local function PruneCasting(action)
@@ -439,14 +430,6 @@ local ActionValues = {
     end,
 
     Set = function(action, key, value)
-        local boxValue = CASTING_BOX_VALUES[key];
-        if (boxValue ~= nil and type(value) == "boolean") then
-            if (value) then
-                value = boxValue;
-            else
-                value = nil;
-            end
-        end
         local holder, field = CastingHolder(action, key, value ~= nil);
         if (holder) then
             holder[field] = value;
@@ -466,10 +449,9 @@ local ActionValues = {
         end
     end,
 
-    -- The checkbox branch comes through here as well. None of the fields that do so today
-    -- (`keepInBindingContext`, the three Casting boxes) is a step in the ordering, so the renumber
-    -- moves nothing -- but the day one that is arrives here, that group alone would quietly keep
-    -- the old symptom.
+    -- The checkbox branch comes through here as well. `keepInBindingContext` is not a step in the
+    -- ordering, so the renumber moves nothing -- but the day one that is arrives here, that group
+    -- alone would quietly keep the old symptom.
     Commit = function(ctx)
         return OnActionsChanged(ctx.actions);
     end,
@@ -479,6 +461,97 @@ local ActionHandlers = MenuKit.MakeHandlers(ActionValues);
 
 local actionValueEquals = ActionHandlers.equals;
 local setActionValue = ActionHandlers.set;
+
+--- Which of the three a cast key row holds: the twin goes to that key's unit (`"cast"`), it goes
+--- where the press would have gone anyway (`"usual"`), or there is no twin at all (`"skip"`).
+---
+--- **One list where storage keeps two fields.** The three are exclusive at the press
+--- (`devdocs/which-action-a-key-runs.md` §6), and nothing else in the menu reads a row's two fields
+--- apart.
+local function CastKeyChoiceOf(action, row)
+    local casting = action.casting;
+    local values = casting and casting[row];
+    if (type(values) ~= "table") then
+        return "cast";
+    end
+    if (values.mode == "skip") then
+        return "skip";
+    end
+    if (values.aim == "usual") then
+        return "usual";
+    end
+    return "cast";
+end
+
+local function CastKeyChoiceIs(ctx, row, choice)
+    return AllActions(ctx, function(action)
+        return CastKeyChoiceOf(action, row) == choice;
+    end);
+end
+
+--- **`aim` is cleared with the skipped row rather than left behind.** `CleanUpDB` deletes it beside
+--- `"skip"` at logout, so a value kept here is one that answers the menu today and a different one
+--- tomorrow.
+local function SetCastKeyChoice(ctx, row, choice)
+    for _, action in ipairs(ctx.actions) do
+        local mode;
+        if (choice == "skip") then
+            mode = "skip";
+        end
+        local aim;
+        if (choice == "usual") then
+            aim = "usual";
+        end
+        ActionValues.Set(action, "casting." .. row .. ".mode", mode);
+        ActionValues.Set(action, "casting." .. row .. ".aim", aim);
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+--- Hover Cast keeps its mode and its aim in two rows of the menu, so the mode is written on its own.
+--- It takes the aim with it when it skips, for the reason above.
+local function SetHoverCastMode(ctx, mode)
+    for _, action in ipairs(ctx.actions) do
+        ActionValues.Set(action, "casting.hoverCast.mode", mode);
+        if (mode == "skip") then
+            ActionValues.Set(action, "casting.hoverCast.aim", nil);
+        end
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+--- The other half of the pair above: an action that stands down on the pointed press has no aim to
+--- set, so it is left alone rather than given one.
+---
+--- **The rows are locked only where every selected action skips**, so a selection holding one of
+--- each reaches this, and writing the aim onto that one would store the very pair the mode writer
+--- refuses to leave behind.
+local function SetHoverCastAim(ctx, aim)
+    for _, action in ipairs(ctx.actions) do
+        if (DebindPrivate.HoverCastMode(action) ~= nil) then
+            ActionValues.Set(action, "casting.hoverCast.aim", aim);
+        end
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+--- **On is the absent value**, so the box cannot be one of the kit's: those store what they are
+--- ticked with (`MenuKit.TOGGLE`), and here that would write the default into every action the
+--- reader ticks.
+local function NormalCastIsOn(ctx)
+    return AllActions(ctx, DebindPrivate.NormalCastEnabled);
+end
+
+local function ToggleNormalCast(ctx)
+    local value;
+    if (NormalCastIsOn(ctx)) then
+        value = false;
+    end
+    for _, action in ipairs(ctx.actions) do
+        ActionValues.Set(action, "casting.normalCast", value);
+    end
+    return OnActionsChanged(ctx.actions);
+end
 
 --- The action menu's family (`MenuKit.NewRegistry`). Every condition group is a node on it;
 --- what is left off is the rest of the edit menu, which stage 3 takes
@@ -853,6 +926,14 @@ ActionMenu.ToggleClassSpecs          = ToggleClassSpecs;
 ActionMenu.actionHandlers            = ActionHandlers;
 ActionMenu.actionValueEquals         = actionValueEquals;
 ActionMenu.setActionValue            = setActionValue;
+
+ActionMenu.CastKeyChoiceOf           = CastKeyChoiceOf;
+ActionMenu.CastKeyChoiceIs           = CastKeyChoiceIs;
+ActionMenu.SetCastKeyChoice          = SetCastKeyChoice;
+ActionMenu.SetHoverCastMode          = SetHoverCastMode;
+ActionMenu.SetHoverCastAim           = SetHoverCastAim;
+ActionMenu.NormalCastIsOn            = NormalCastIsOn;
+ActionMenu.ToggleNormalCast          = ToggleNormalCast;
 
 ActionMenu.UnitConditionAxisOf       = UnitConditionAxisOf;
 ActionMenu.UnitConditionModeOf       = UnitConditionModeOf;

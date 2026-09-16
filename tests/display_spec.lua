@@ -207,7 +207,7 @@ return function(DebindPrivate)
     --- empty slot; it also aims the twin where the original aims (`Misc.lua`'s `TwinUnitFor`),
     --- which is a thing it does exactly for an action that has a target. The reader saw no line on
     --- the one action where it was the only thing stopping the cast from following the cursor.
-    test("the ignore line is drawn on an action that has a target of its own", function()
+    test("the cast as usual line is drawn on an action that has a target of its own", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "focus",
                 casting = { hoverCast = { aim = "usual" } },
@@ -216,8 +216,28 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
-        check(Says(row, "LINE_TOOLTIP_IGNORE_HOVER_UNIT"),
-            "the box is on and nothing says so: " .. Tooltip(row));
+        check(Says(row, "CASTING_AS_USUAL"),
+            "the value is set and nothing says so: " .. Tooltip(row));
+    end);
+
+    --- **An aim beside a skipped mode is not a line.** The action stands down on the pointed press,
+    --- so there is no press for "cast as usual" to describe.
+    ---
+    --- **The pair is set after the load, because the load is what takes it apart.** `CleanUpDB` runs
+    --- at the tail of `InitDB` and clears the aim beside `"skip"` (`Profile.lua`), so an action
+    --- written with both in the table above arrives here with one -- and the check passes whatever
+    --- the tooltip does. What reaches this state in play is a string from somebody else, or the pair
+    --- standing in a profile between the write and the next logout.
+    test("an action that skips the pointed press draws no cast as usual line", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1 },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        row.action.casting = { hoverCast = { mode = "skip", aim = "usual" } };
+        check(not Says(row, "CASTING_AS_USUAL"),
+            "a skipped pointed press was reported as cast as usual: " .. Tooltip(row));
     end);
 
     --- **The tooltip walks the raw action's condition table**, so it meets the pre-rename key on a

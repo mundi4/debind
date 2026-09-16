@@ -1,6 +1,6 @@
 # `which-action-a-key-runs.md`를 구현하기 (2026-09-16 시작)
 
-> 상태: **3단계까지 들어갔다.** 다음은 4단계다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
+> 상태: **4단계까지 들어갔다.** 다음은 5단계다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
 >
 > 규칙은 `which-action-a-key-runs.md`가 들고, 여기는 순서와 각 단계가 건드리는 자리만 든다. 둘이 갈리면 스펙이
 > 맞다. 결정의 근거 중 문서에 없는 것은 `.zzz/hover-twin-wrong-2026-09-15.md`("그 당시의 근거")와 `0-DIARY.md`의
@@ -133,12 +133,29 @@
 스펙 §6. 액션 메뉴의 Casting 하위 메뉴. Self Cast Key, Focus Cast Key, Hover Cast 각각 하위 메뉴, Normal Cast
 체크박스.
 
-- 라벨은 `writing-user-facing-text.md`를 따라 정한다. 스펙의 문구는 제안이다.
-- Other Options 맨 위의 체크박스 둘과 옛 Unit Frame 노드의 "Don't use the action on the unit you are pointing at"이
-  없어진다.
-- 대상을 고른 액션에서 `aim` 줄이 잠기고, 설정 탭에서 끈 조합키의 하위 메뉴가 잠긴다.
-- 여러 액션을 골라 한 번에 고치는 길(`editing-many-actions-at-once.md`)이 이 값들에도 선다.
-- 킷 테스트는 안 단다. 한 번 보면 끝나는 배선이다.
+- `CreateCastingMenu`(`ActionMenuItems.lua`)가 Target 아래에 선다. Other Options의 체크박스 셋은
+  없어졌다.
+- 조합키 두 줄은 값 셋을 한 목록으로 낸다. 저장은 `mode`와 `aim` 두 필드인데 누름에서는 셋이 배타라,
+  읽고 쓰는 자리를 하나로 뒀다(`CastKeyChoiceOf`, `SetCastKeyChoice`). **`mode = "skip"`을 쓸 때 `aim`을
+  같이 지운다.** `CleanUpDB`가 로그아웃에 지우는 값이라, 남겨 두면 오늘과 내일의 메뉴가 다른 답을 낸다.
+  Hover Cast의 모드 줄도 같은 이유로 `SetHoverCastMode`를 탄다.
+- Normal Cast 체크박스는 킷의 것이 아니다. 켠 것이 **값 없음**이라, 킷의 체크박스(`MenuKit.TOGGLE`)로
+  두면 체크할 때마다 기본값을 액션마다 적어 넣는다.
+- 라벨: 조합키 둘은 클라이언트의 `AUTO_SELF_CAST_KEY_TEXT`·`FOCUS_CAST_KEY_TEXT`, 가리킨 누름은
+  설정 탭과 같은 `POINTED_UNIT_CAST`. 한 물음에 창마다 다른 이름이 서지 않는다.
+- 잠그기: 설정 탭에서 끈 조합키는 줄 전체가 `blocked`(하위 메뉴가 아니라 잠긴 단추 하나). 대상을 고른
+  액션은 [Cast as usual]이 잠기고 첫 줄이 같은 문장을 주석으로 단다(`CAST_KEY_TARGET_PICKED` 하나가 두
+  자리를 든다). Hover Cast가 Skip이면 겨눔 두 줄이 잠긴다.
+- 액션 툴팁의 옛 체크박스 줄은 메뉴의 말로 바뀌었다(`POINTED_UNIT_CAST` / `CASTING_AS_USUAL`).
+  `IGNORE_HOVER_UNIT`·`IGNORE_SELF_CAST_KEY`·`IGNORE_FOCUS_CAST_KEY`와 `LINE_TOOLTIP_IGNORE_HOVER_UNIT`은
+  세 로케일에서 없어졌다.
+- 여러 액션을 골라 한 번에 고치는 길(`editing-many-actions-at-once.md`)은 따로 세울 것이 없었다. 읽기는
+  전부 `AllActions`/`AnyAction`이고, 갈린 선택의 개수는 `MixedCount`가 붙인다.
+- 커버리지. 새 킷 테스트는 안 달았다. 한 번 보면 끝나는 배선이다. 이미 있던 킷 테스트 하나(조합키
+  쌍둥이의 겨눔)는 체크박스를 누르던 것을 Casting 줄을 타고 내려가 [Cast as usual]을 누르도록 고쳤고,
+  그것이 새 트리에서 값이 실제로 써지는 것을 든다. 메뉴가 쓰는 값이 무엇을 뜻하는지는 3단계의 spec들이
+  그대로 든다. 헤드리스가 원리상 못 재는 것은 메뉴 트리(어느 줄이 어디에 서고 언제 잠기는지)이고,
+  그것은 클라이언트의 메뉴가 있는 게임 안에만 있다.
 
 ## 5. 도움말과 문서
 

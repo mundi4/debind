@@ -320,31 +320,6 @@ L["GENERAL"] = "General"
 L["GROUP_NONE"] = "When not in a group";
 L["GROUP_PARTY"] = "When in a party";
 L["GROUP_RAID"] = "When in a raid";
--- The checkbox at the bottom of the hover menu, and a line of its own in the action tooltip.
--- What it turns off is a unit nobody picked: leave the target empty and the unit the reader is
--- pointing at fills it, so the label has to name that unit and say the action is not used on it.
--- "Ignore" named neither half, and every shorter phrasing collapses into the other half, the action
--- not running at all, which is the one that stays.
---
--- **One box says both halves, because one box does both jobs.** It keeps the action off the unit
--- of a frame its own condition named, and it keeps the action out of the account-wide setting. The
--- two are not alternatives, since an action can be in both at once, so the label names what is
--- being refused instead of which case the reader is in.
---
--- **"The unit you are pointing at", not "the hovered frame's unit".** The account-wide setting
--- reaches nameplates and units in the world as well, so naming the frame would describe half of
--- what the box refuses. It is a unit either way, never the frame: an action is not used on a frame.
---
--- **Not "unless you assign a target of your own".** That was true of the condition's own half
--- alone; the account-wide setting stands on an action that has a target and aims the twin at the
--- pointed unit anyway (`Misc.lua`'s `TwinUnitFor`).
---
--- **The last sentence names both landing places.** With no unit assigned the game decides, which
--- is the current target for one action and the player for another (auto self cast); naming one
--- makes the other a lie. It cannot be phrased as what would happen with nothing under the cursor
--- either, since in the first case the action does not run at all then.
-L["IGNORE_HOVER_UNIT_DESC"] = "The unit you point at is used for this action: from the account setting, and from a unit frame condition you put on the action when it has no target of its own. Check this and neither happens: the action lands where it normally would, on your current target or on you."
-L["IGNORE_HOVER_UNIT"] = "Don't use the action on the unit you are pointing at"
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.
@@ -653,7 +628,6 @@ L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it
 -- reading `DebindStorage`'s saved variables, and that addon is load-on-demand - a tooltip that says
 -- where a string came from only after some other window has been opened is worse than one that
 -- never claims to.
-L["LINE_TOOLTIP_IGNORE_HOVER_UNIT"] = "The frame's unit is not taken as the target."
 L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you accept it."
 -- 한때 "and set its key"가 붙어 있었다. 그 시절에는 행을 고르면 왼쪽 열이 그 액션의 상세
 -- 패널이 되고 거기서 키를 걸었다. 지금 왼쪽 열은 키보드 사영이라 보여주기만 하고, 키는
@@ -1191,16 +1165,52 @@ L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, ev
 -- it fires with no key at all, so leaving it out would read as "that one still applies".
 L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here: neither the Self Cast Key nor the Focus Cast Key moves it, and Hover Cast, Mouseover Cast and Auto Self Cast are left out. Disable hands the decision back to the game."
 L["TARGET_UNIT"] = "Target"
--- `_AIM_DESC` is the action keeping its turn and going where it would with no key held, which is
--- what the box writes (`devdocs/which-action-a-key-runs.md` §6). The wording for the other value,
--- the action sitting that press out, arrives with the menu that offers it.
-L["IGNORE_SELF_CAST_KEY"] = "Disable Self Cast Key"
-L["IGNORE_SELF_CAST_KEY_AIM_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
-L["IGNORE_FOCUS_CAST_KEY"] = "Disable Focus Cast Key"
-L["IGNORE_FOCUS_CAST_KEY_AIM_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
--- The group an issue about the presses an action answers points at. The menu that carries these
--- values is built in the next step and names itself from here.
+-- The group an issue about the presses an action answers points at, and the row that opens the menu
+-- holding them.
 L["CASTING"] = "Casting"
+-- **The row names the presses, not the values under it.** Four submenus each answering "and on this
+-- press?" is what the reader is about to read, and a row that tried to say what each of them does
+-- would be the menu written out on one line.
+L["CASTING_DESC"] = "Which presses this action stands on, and where it goes on each of them."
+-- The three rows inside a cast key's menu. **Each says what happens while the key is held**, which
+-- is the question the reader opened the row with (`devdocs/which-action-a-key-runs.md` §6).
+--
+-- **The two keys are named by the client's own labels** (`AUTO_SELF_CAST_KEY_TEXT`,
+-- `FOCUS_CAST_KEY_TEXT`, the dropdowns in its settings), so the sentences here name the key the
+-- same way the row above them does.
+L["CASTING_SELF_CAST_KEY_DESC"] = "What this action does while the Self Cast Key is held."
+L["CASTING_FOCUS_CAST_KEY_DESC"] = "What this action does while the Focus Cast Key is held."
+L["CASTING_SELF_CAST"] = "Cast on yourself"
+L["CASTING_SELF_CAST_DESC"] = "Holding the Self Cast Key sends this action to you."
+L["CASTING_FOCUS_CAST"] = "Cast on your focus"
+L["CASTING_FOCUS_CAST_DESC"] = "Holding the Focus Cast Key sends this action to your focus."
+-- **One label for the middle value of all three rows**, because it is one answer: the action takes
+-- its turn on that press and the press does not move it. The sentence under it is written per row,
+-- since what is being turned down differs.
+L["CASTING_AS_USUAL"] = "Cast as usual"
+L["CASTING_SELF_USUAL_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
+L["CASTING_FOCUS_USUAL_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
+L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to it. It goes where it would with nothing pointed at, and keeps its place among the actions on the key."
+-- **"Skip" is the action standing down, never the key doing nothing.** The next action on the key
+-- takes that press, and only an empty key does nothing at all.
+L["CASTING_SKIP"] = "Skip this action"
+L["CASTING_SKIP_DESC"] = "The action sits this press out, and the next action on the key takes it."
+L["CASTING_HOVER_SKIP_DESC"] = "Pointing at a unit does nothing for this action, and the press is answered the way any other press is."
+L["CASTING_HOVER_CAST_DESC"] = "What this action does while you point at a unit with no key held, and which units count as pointed at."
+-- **It says where the answer comes from and then says what the answer is.** The mode lives in one
+-- place for the whole account, and a row that only pointed at it would send the reader off to read
+-- one word.
+L["CASTING_HOVER_ACCOUNT"] = "Use the mode in Debind's settings"
+L["CASTING_HOVER_ACCOUNT_DESC"] = "Whatever Hover Cast is set to in Debind's settings, which is %s right now."
+L["CASTING_POINTED_CAST"] = "Cast on the unit you point at"
+L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
+-- Why the two rows under the divider stand locked while the mode above them is Skip this action.
+L["CASTING_HOVER_SKIPPED"] = "This action stands down on a pointed press, so there is no unit for it to be aimed at."
+-- **The fourth press has no key and no unit to name it by**, so it is named as the plain one: the
+-- key pressed with nothing held and nothing pointed at. Ticked is what every action did before any
+-- of these values existed.
+L["CASTING_NORMAL"] = "Normal Cast"
+L["CASTING_NORMAL_DESC"] = "The action takes its turn when the key is pressed with nothing held and nothing pointed at. Unticked, that press goes to the next action on the key, and this action is only reached by a held key or by pointing at a unit."
 -- Said once, on the first login after Hover Cast became a per-action value. It opens on what has
 -- not changed, because nothing on screen has: every key does what it did yesterday, and the reason
 -- to say anything at all is that there is now a value to go and find.
@@ -1209,8 +1219,11 @@ L["CASTING"] = "Casting"
 -- true half: an action that ran over a unit frame comes across running over a unit frame.
 L["CASTING_MIGRATED_MESSAGE"] = "Hover Cast is set on each action now. Your actions kept what they were doing, so nothing has changed; new actions follow the mode in Debind's settings. You can change it for several actions at once."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
--- Why the two boxes above stand locked on an action with a target picked (`ActionMenuItems.lua`).
-L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and holding the key never moves it, so there is nothing here to turn off."
+-- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
+-- target is never moved by any of these presses. On the first row of each it says the label is not
+-- literal here; on [Cast as usual] it is why the row stands locked, since with a target picked the
+-- two say the same thing.
+L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and it goes there on this press as well."
 -- **Named apart from `TARGET_UNIT`.** That one is the target the reader picks; this row is what the
 -- pick turns into at the press, once a held key or Hover Cast has had its say, and that is you or
 -- your focus as often as a target. The two sit in one menu tree, where "Target" twice would read as
