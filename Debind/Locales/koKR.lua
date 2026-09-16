@@ -19,7 +19,7 @@ L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
 -- 근거는 enUS 쪽 주석에.
 L["BULK_MENU_TITLE"] = "%d개 선택됨"
-L["BULK_SELECTED_COUNT"] = "%d개 선택됨"
+L["BULK_SELECTED_COUNT"] = "%1$d개 선택됨 (이 레이어 %2$d개)"
 -- The toggle in the portrait row. Why it names the mode instead of the act is in the enUS comment.
 --
 -- **"키 지정" is kept and 모드 is added to it.** The client's own words for this are

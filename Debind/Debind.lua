@@ -281,7 +281,7 @@ do
 					binding = list[1];
 				end
 				-- **An action can come back with no binding at all**: every press it could have
-				-- answered is turned off in its Casting menu (`devdocs/which-action-a-key-runs.md`
+				-- answered is turned off in its Cast Options menu (`devdocs/which-action-a-key-runs.md`
 				-- §6). Nothing below runs for one, the key is not held on its account, and on that
 				-- key the action is not there.
 				if (binding) then

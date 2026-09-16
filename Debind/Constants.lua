@@ -581,7 +581,7 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
--- Every press the action could have answered is turned off in its Casting menu, so it makes no
+-- Every press the action could have answered is turned off in its Cast Options menu, so it makes no
 -- binding at all (`devdocs/which-action-a-key-runs.md` §6). A WARNING: the key works and this is a
 -- thing the reader is allowed to mean.
 Constants.BINDING_ISSUE_CASTING_NONE_LEFT                 = "CASTING_NONE_LEFT";

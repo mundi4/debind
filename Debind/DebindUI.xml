@@ -1074,9 +1074,9 @@
 									이 `<Layers>`가 `<Frames>` **뒤에** 있어야 하는 이유가 여기 있다 -
 									`relativeKey`는 가리키는 것보다 뒤에 선언돼야 만들 때 nil이 아니다.
 								-->
-								<FontString parentKey="SelectionCount" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
+								<FontString parentKey="SelectionCount" inherits="GameFontNormal" justifyH="LEFT" hidden="true">
 									<Anchors>
-										<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="9"/>
+										<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="5"/>
 									</Anchors>
 								</FontString>
 							</Layer>

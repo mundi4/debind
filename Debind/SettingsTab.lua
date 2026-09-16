@@ -192,7 +192,7 @@ local function CastKeyTooltip(desc, current, command)
 end
 
 local function Build()
-    Header(GENERAL);
+    Header(L["CASTING"]);
     Checkbox(AUTO_SELF_CAST_KEY_TEXT,
         CastKeyTooltip(L["SELF_CAST_KEY_DESC"], "CURRENT_SELF_CAST_KEY", "SELFCAST"),
         DebindPrivate.SelfCastEnabled,
@@ -233,43 +233,6 @@ local function Build()
             DebindPrivate.QueueUpdateBindings();
         end);
     end, hoverCastChoices);
-
-    Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
-        function(value)
-            if (value) then
-                Options().switchMessages = nil;
-            else
-                Options().switchMessages = false;
-            end
-            DebindPrivate.QueueUpdateBindings();
-        end);
-
-    local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-    local throttle = AddRow("DebindSettingsSliderRowTemplate");
-    Label(throttle, L["STATE_DRIVER_UPDATE_THROTTLE"]);
-    throttle.Slider:SetWidth(250);
-    throttle.Tooltip:SetTooltipFunc(TooltipFunc(L["STATE_DRIVER_UPDATE_THROTTLE"],
-        L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] .. "|n|n|cnRED_FONT_COLOR:"
-        .. L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] .. "|r"));
-    local formatters = {
-        [MinimalSliderWithSteppersMixin.Label.Right] = CreateMinimalSliderFormatter(
-            MinimalSliderWithSteppersMixin.Label.Right, function(value)
-                return (format("%.2f", value):gsub("%.?0+$", ""));
-            end),
-    };
-    throttle.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
-        value = floor(value * 100 + 0.5) / 100;
-        if (value == defaultThrottle) then
-            Options().stateDriverUpdateThrottle = nil;
-        else
-            Options().stateDriverUpdateThrottle = value;
-        end
-        DebindPrivate.QueueUpdateBindings();
-    end, throttle);
-    refreshers[#refreshers + 1] = function()
-        throttle.Slider:Init(Options().stateDriverUpdateThrottle or defaultThrottle, 0, defaultThrottle,
-            floor(defaultThrottle / 0.01 + 0.5), formatters);
-    end;
 
     Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;
@@ -373,6 +336,44 @@ local function Build()
     Button(L["HELP_TARGETING"], function()
         DebindPrivate.DebindUI.ShowHelp("targeting");
     end);
+
+    Header(MISCELLANEOUS);
+    Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
+        function(value)
+            if (value) then
+                Options().switchMessages = nil;
+            else
+                Options().switchMessages = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
+
+    local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
+    local throttle = AddRow("DebindSettingsSliderRowTemplate");
+    Label(throttle, L["STATE_DRIVER_UPDATE_THROTTLE"]);
+    throttle.Slider:SetWidth(250);
+    throttle.Tooltip:SetTooltipFunc(TooltipFunc(L["STATE_DRIVER_UPDATE_THROTTLE"],
+        L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] .. "|n|n|cnRED_FONT_COLOR:"
+        .. L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] .. "|r"));
+    local formatters = {
+        [MinimalSliderWithSteppersMixin.Label.Right] = CreateMinimalSliderFormatter(
+            MinimalSliderWithSteppersMixin.Label.Right, function(value)
+                return (format("%.2f", value):gsub("%.?0+$", ""));
+            end),
+    };
+    throttle.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
+        value = floor(value * 100 + 0.5) / 100;
+        if (value == defaultThrottle) then
+            Options().stateDriverUpdateThrottle = nil;
+        else
+            Options().stateDriverUpdateThrottle = value;
+        end
+        DebindPrivate.QueueUpdateBindings();
+    end, throttle);
+    refreshers[#refreshers + 1] = function()
+        throttle.Slider:Init(Options().stateDriverUpdateThrottle or defaultThrottle, 0, defaultThrottle,
+            floor(defaultThrottle / 0.01 + 0.5), formatters);
+    end;
 
     content:SetHeight(y - SPACING + PAD_VERTICAL);
 end

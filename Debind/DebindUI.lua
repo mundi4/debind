@@ -3523,7 +3523,8 @@ end
 function DebindLayerPanelMixin:UpdateListStrip()
 	local multi = _selectionCount > 1;
 	if (multi) then
-		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
+		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount,
+			CountActionsInLayer(DebindPrivate.GetProfileLayer(GetLayerID()), _selection));
 	end
 	self.SelectionCount:SetShown(multi);
 
