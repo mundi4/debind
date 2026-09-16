@@ -972,8 +972,7 @@ function DebindLineMixin:HasCursor()
 		return true;
 	end
 	local marks = self.Marks;
-	return marks.Hover:IsMouseMotionFocus()
-		or marks.Conditional:IsMouseMotionFocus()
+	return marks.Conditional:IsMouseMotionFocus()
 		or marks.Issue:IsMouseMotionFocus();
 end
 
