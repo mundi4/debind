@@ -634,7 +634,9 @@ local function MigrateLayer(layerTbl, dbver)
         -- 바인딩을 만들 때도 같은 규칙으로 들어올려야 해서(마이그레이션이 아직 안 닿은
         -- 프로필), 두 군데 적으면 갈라지는 종류의 규칙이다.
         --
-        -- `frameTypes`/`ignoreHoverUnit`은 안 옮긴다: 그건 유닛이 아니라 **프레임**을 말한다.
+        -- `frameTypes`/`ignoreHoverUnit`은 여기서 안 옮긴다. 마스크는 **아래 `dbver <= 6`이**
+        -- 같은 행 안으로 옮기고(개체창의 유닛도 유닛이니 그 유닛에 대해 하는 말이다), 체크박스
+        -- 하나는 조건이 아니라 쌍둥이를 어디로 내보내느냐라 조건 표에 자리가 없다.
         --
         -- 다시 돌아도 안전하다 - `hover`가 없으면 아무것도 안 한다.
         for i = 1, #layerTbl do
@@ -983,6 +985,159 @@ local function MigrateLayer(layerTbl, dbver)
                     end
                     return head .. "unitframe";
                 end);
+            end
+        end
+
+        -- The frame type mask becomes an axis of the condition on the pointed frame's unit.
+        -- It was its own condition field while the Unit Frame menu was a group of its own; that
+        -- group is gone and the mask is one more thing said about `units["unitframe"]`
+        -- (`devdocs/which-action-a-key-runs.md` §0). The role mask was moved into that row by the
+        -- `dbver <= 4` step and stays where it is.
+        --
+        -- **Read from the top level as well.** `frameTypes` is no longer a condition field, so a
+        -- profile riding the ladder from below the `dbver <= 5` step arrives with the value still at
+        -- the top, exactly as the `pet` step above meets it.
+        --
+        -- **A mask already on the row wins**, the way that step's row does: one row cannot hold two
+        -- answers, and taking the outer one would undo an edit made against the new shape.
+        --
+        -- Running twice is safe: the second pass finds no `frameTypes` outside the row.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local conditions = action.conditions;
+            local mask = action.frameTypes;
+            if (mask == nil and conditions) then
+                mask = conditions.frameTypes;
+            end
+
+            if (mask ~= nil) then
+                if (conditions == nil) then
+                    conditions = {};
+                    action.conditions = conditions;
+                end
+                local units = conditions.units;
+                if (units == nil) then
+                    units = {};
+                    conditions.units = units;
+                end
+                local row = units.unitframe;
+                if (row == nil) then
+                    -- 개체창 조건이 아예 없는 액션이다. 마스크는 물을 자리가 없지만
+                    -- **버리지 않는다** - 끈 축을 기억하는 것이 이 표의 규칙이라, 다시 켜면
+                    -- 고른 값이 그대로 있어야 한다. 그래서 [사용 안 함]인 줄로 들어간다.
+                    row = { disabled = true };
+                    units.unitframe = row;
+                elseif (luatype(row) ~= "table") then
+                    -- 손으로 고친 프로필의 옛 스칼라. `UnitConditionForBinding`이 읽는 대로
+                    -- 표로 편다 - `true`/`"help"`/`"harm"`은 [올렸을 때]이고 나머지는
+                    -- [안 올렸을 때]다. 여기서 안 펴면 마스크를 실을 자리가 없다.
+                    if (row == true) then
+                        row = { exists = true };
+                    elseif (row == "help") then
+                        row = { exists = true, reaction = Constants.REACTION_HELP };
+                    elseif (row == "harm") then
+                        row = { exists = true, reaction = Constants.REACTION_HARM };
+                    else
+                        row = { exists = false };
+                    end
+                    units.unitframe = row;
+                end
+                if (row.frameTypes == nil) then
+                    row.frameTypes = mask;
+                end
+                conditions.frameTypes = nil;
+                action.frameTypes = nil;
+            end
+        end
+
+        -- 발동 순서에서 개체창 단계가 빠졌다. **키 묶음마다 번호를 옛 비교자 순서로 다시
+        -- 매겨서** 그 단계가 정하던 순서를 번호가 대신 들게 한다 - 안 하면 개체창 조건이
+        -- 붙은 액션이 같은 레이어의 이웃 뒤로 조용히 내려앉는다.
+        --
+        -- **옛 비교자를 이 단계가 직접 든다.** 단계는 한 번 쓰면 얼어붙는 것이라
+        -- (`0-DECISION-LOG.md`, 2026-08-21) `Ordering.lua`에서 사라진 규칙을 여기서 다시 부를
+        -- 수 없고, 부를 수 있어도 그쪽이 또 바뀌면 이 단계의 답이 바뀐다.
+        --
+        -- 묶음은 `(key, arrivalID)`다 - `RenumberKeyGroup`과 같은 묶음이고, 레이어 하나가
+        -- 이 함수의 전부라 레이어는 이미 갈려 있다.
+        --
+        -- 다시 돌아도 안전하다: 두 번째 순회는 이미 그 순서로 선 것을 같은 순서로 다시 센다.
+        do
+            local groups = {};
+            for i = 1, #layerTbl do
+                local action = layerTbl[i];
+                if (action.key ~= nil) then
+                    local name = action.key .. "\0" .. tostring(action.arrivalID);
+                    local group = groups[name];
+                    if (group == nil) then
+                        group = {};
+                        groups[name] = group;
+                    end
+                    group[#group + 1] = { action = action, index = i };
+                end
+            end
+
+            -- 옛 비교자. 레이어 하나 안에서는 `layerRank`와 `specRank`가 상수라 아무것도 못
+            -- 가르므로, 남는 단계는 중요도·개체창·조건 유무·번호 넷이다.
+            local function OlderOrder(lhs, rhs)
+                local lhsAction, rhsAction = lhs.action, rhs.action;
+                local lhsImportance = lhsAction.priority or Constants.DEFAULT_IMPORTANCE;
+                local rhsImportance = rhsAction.priority or Constants.DEFAULT_IMPORTANCE;
+                if (lhsImportance ~= rhsImportance) then
+                    return lhsImportance < rhsImportance;
+                end
+
+                -- **접기 전의 원문을 세 값으로 읽는다**: 조건이 없으면 nil, [안 올렸을 때]면
+                -- false, 그 밖이면 조건이 있는 것. 옛 비교자는 nil이 아닌 쪽을 앞세웠다.
+                if (lhs.unitFrame ~= rhs.unitFrame) then
+                    return lhs.unitFrame;
+                end
+
+                if (lhs.conditional ~= rhs.conditional) then
+                    return lhs.conditional;
+                end
+
+                if ((lhsAction.seq or 0) ~= (rhsAction.seq or 0)) then
+                    return (lhsAction.seq or 0) < (rhsAction.seq or 0);
+                end
+                return lhs.index < rhs.index;
+            end
+
+            -- 옛 세 번째 단계가 읽던 "조건이 하나라도 있나". **저장에서 바로 읽는다** -
+            -- `IsConditionalBinding`은 바인딩을 통째로 만들게 하고, 그 길은 전문화가 고르는
+            -- 주문까지 물어서 로그인 전에 부를 것이 못 된다. 꺼진 유닛 조건이 조건이 아닌 것만
+            -- 저쪽과 맞추면 된다.
+            local function HasAnyCondition(action)
+                local conditions = action.conditions;
+                if (conditions == nil) then
+                    return false;
+                end
+                for name, value in pairs(conditions) do
+                    if (name ~= "units") then
+                        return true;
+                    end
+                    for _, stored in pairs(value) do
+                        if (DebindPrivate.UnitConditionForBinding(stored) ~= nil) then
+                            return true;
+                        end
+                    end
+                end
+                return false;
+            end
+
+            for _, group in pairs(groups) do
+                for j = 1, #group do
+                    local action = group[j].action;
+                    local folded = DebindPrivate.UnitConditionForBinding(
+                        action.conditions and action.conditions.units
+                        and action.conditions.units.unitframe);
+                    group[j].unitFrame = folded ~= nil;
+                    group[j].conditional = HasAnyCondition(action);
+                end
+                sort(group, OlderOrder);
+                for j = 1, #group do
+                    group[j].action.seq = j;
+                end
             end
         end
     end

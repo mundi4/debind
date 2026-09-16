@@ -49,20 +49,19 @@ local UNITGROUP_ITEMS       = {
     { text = LLL["UNITGROUP_RAID"],  value = Constants.UNITGROUP_RAID },
 };
 
+local FRAMETYPE_ITEMS       = {
+    { text = LLL["FRAMETYPE_PLAYER"],  value = Constants.FRAMETYPE_PLAYER },
+    { text = LLL["FRAMETYPE_PET"],     value = Constants.FRAMETYPE_PET },
+    { text = LLL["FRAMETYPE_GROUP"],   value = Constants.FRAMETYPE_GROUP },
+    { text = LLL["FRAMETYPE_TARGET"],  value = Constants.FRAMETYPE_TARGET },
+    { text = LLL["FRAMETYPE_BOSS"],    value = Constants.FRAMETYPE_BOSS },
+    { text = LLL["FRAMETYPE_ARENA"],   value = Constants.FRAMETYPE_ARENA },
+    { text = LLL["FRAMETYPE_UNKNOWN"], value = Constants.FRAMETYPE_UNKNOWN },
+};
+
 --- 역할 확인란. **[역할 없음]도 고를 수 있는 값이다** - 역할이 지정 안 된 유닛에 대한 답이지
 --- 못 알아냈다는 뜻이 아니다. 세 헤더가 다 서 있으면 애드온은 언제나 답을 내므로, 그 답만
 --- 골라 나가는 바인딩을 걸 수 있어야 한다.
---- 프레임 종류 확인란의 기본값, 곧 **아무것도 안 정했을 때 켜져 있는 것**. 확인란과 그것을
---- 읽는 쪽이 같은 값을 봐야 해서 이름을 붙였다 - 한쪽만 `FRAMETYPE_ALL`로 읽으면 비트가 하나
---- 늘어나는 날 두 답이 갈린다.
-local FRAMETYPE_DEFAULT     = Constants.FRAMETYPE_PLAYER
-                            + Constants.FRAMETYPE_PET
-                            + Constants.FRAMETYPE_GROUP
-                            + Constants.FRAMETYPE_TARGET
-                            + Constants.FRAMETYPE_BOSS
-                            + Constants.FRAMETYPE_ARENA
-                            + Constants.FRAMETYPE_UNKNOWN;
-
 local ROLE_ITEMS            = {
     { text = LLL["ROLE_TANK"],    value = Constants.ROLE_TANK },
     { text = LLL["ROLE_HEALER"],  value = Constants.ROLE_HEALER },
@@ -241,8 +240,8 @@ local NodeMixedCount;
 
 --- The menu has changed values on these actions.
 ---
---- **It does not look at which value.** Conditions, importance and `unitframe` are steps in the
---- ordering, so changing one changes what an action is up against -- and rather than work out
+--- **It does not look at which value.** Conditions and importance are steps in the ordering, so
+--- changing one changes what an action is up against -- and rather than work out
 --- which step moved, each action's key group is renumbered. If nothing moved the renumber moves
 --- nothing (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing each action
 --- before and after, and putting that pair of snapshots across the dozen call sites in this menu
@@ -593,7 +592,8 @@ end
 --- 함]으로 옮기는 순간 기억되는 대신 지워진다. 소속을 넣을 때 실제로 그렇게 빠졌다. 두
 --- 자리가 같은 물음을 하므로 값이 하나여야 한다(`SetUnitConditionMode`, `SetPlayerLife`).
 local function UnitConditionRemembersAxis(cond)
-    return cond.reaction ~= nil or cond.dead ~= nil or cond.role ~= nil or cond.group ~= nil;
+    return cond.reaction ~= nil or cond.dead ~= nil or cond.role ~= nil or cond.group ~= nil
+        or cond.frameTypes ~= nil;
 end
 
 --- What the three radios at the top write into one action. **It moves the mode and leaves the axes
@@ -663,10 +663,9 @@ local function SetUnitConditionAxis(ctx, unit, axis, value)
     return OnActionsChanged(ctx.actions);
 end
 
---- The reaction, group and role boxes share one rule. Storage is a mask, but **all-on is never
---- written** -- that says the same thing as constraining nothing, and one condition stored two
---- ways is two different boxes to the solver (`Misc.lua` normalizes `reactions`/`frameTypes` for
---- the same reason).
+--- The reaction, group, role and frame type boxes share one rule. Storage is a mask, but **all-on
+--- is never written** -- that says the same thing as constraining nothing, and one condition stored
+--- two ways is two different boxes to the solver.
 ---
 --- 0 **is** written. Choosing nothing is not something to normalize away; it is an issue, and
 --- `GetBindingIssue`'s zero-mask branch reports it where the user set it.
@@ -718,15 +717,14 @@ local function ToggleUnitConditionGroup(ctx, unit, value)
     return ToggleUnitConditionMask(ctx, unit, "group", value, Constants.UNITGROUP_ALL);
 end
 
---- 프레임 종류 확인란 하나가 켜져 있는가. **`MenuKit`의 `hasBit`과 같은 답을 내야 한다** -
---- 그쪽은 값이 없으면 기본 마스크로 읽으므로, 여기만 0으로 읽으면 아무것도 안 정한 액션에서
---- 전부 꺼진 것으로 보인다.
-local function UnitFrameTypeChecked(ctx, value)
-    return AllActions(ctx, function(action)
-        local conditions = action.conditions;
-        local current = (conditions and conditions.frameTypes) or FRAMETYPE_DEFAULT;
-        return bit.band(current, value) == value;
-    end);
+--- 프레임 종류 확인란. 반응·소속과 같은 규칙이고, 사는 곳도 같다 - 가리킨 개체창의 유닛에
+--- 걸린 조건 하나의 축이다.
+local function UnitConditionFrameTypeChecked(ctx, unit, value)
+    return UnitConditionMaskChecked(ctx, unit, "frameTypes", value);
+end
+
+local function ToggleUnitConditionFrameType(ctx, unit, value)
+    return ToggleUnitConditionMask(ctx, unit, "frameTypes", value, Constants.FRAMETYPE_ALL);
 end
 
 --- The role boxes. Same rule as the reaction ones above: all-on is never written, and 0 is.
@@ -738,17 +736,13 @@ local function ToggleUnitConditionRole(ctx, unit, value)
     return ToggleUnitConditionMask(ctx, unit, "role", value, Constants.ROLE_ALL);
 end
 
-local function unitFrameConditionIsOn(ctx)
-    return UnitConditionIsExists(ctx, "unitframe");
-end
-
 --- What the two drawing files and the entry points reach in here. Everything else above is this
 --- file's own.
 ActionMenu.REACTION_ITEMS            = REACTION_ITEMS;
 ActionMenu.LIFE_ITEMS                = LIFE_ITEMS;
 ActionMenu.UNITGROUP_ITEMS           = UNITGROUP_ITEMS;
 ActionMenu.ROLE_ITEMS                = ROLE_ITEMS;
-ActionMenu.FRAMETYPE_DEFAULT         = FRAMETYPE_DEFAULT;
+ActionMenu.FRAMETYPE_ITEMS           = FRAMETYPE_ITEMS;
 ActionMenu.SORTED_UNIT_LIST          = SORTED_UNIT_LIST;
 ActionMenu.USE_CHECKED_VALUE         = USE_CHECKED_VALUE;
 ActionMenu.range                     = range;
@@ -797,5 +791,5 @@ ActionMenu.ToggleUnitConditionGroup  = ToggleUnitConditionGroup;
 ActionMenu.UnitConditionRoleChecked  = UnitConditionRoleChecked;
 ActionMenu.ToggleUnitConditionRole   = ToggleUnitConditionRole;
 ActionMenu.UnitConditionRemembersAxis = UnitConditionRemembersAxis;
-ActionMenu.UnitFrameTypeChecked      = UnitFrameTypeChecked;
-ActionMenu.unitFrameConditionIsOn    = unitFrameConditionIsOn;
+ActionMenu.UnitConditionFrameTypeChecked = UnitConditionFrameTypeChecked;
+ActionMenu.ToggleUnitConditionFrameType  = ToggleUnitConditionFrameType;

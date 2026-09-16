@@ -240,7 +240,6 @@ Constants.CAST_KEY_IGNORE      = Constants.CAST_KEY_IGNORE_AIM;
 --- 이름까지 같이 답한다.
 Constants.CONDITION_FIELDS = {
     units = true,
-    frameTypes = true,
     groups = true,
     -- **A set of specialization ids, keyed by id.** It was a mask of indices, which meant the
     -- same thing on every class and so followed an action to another class's tab. Ids do not,
@@ -288,11 +287,9 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     specialbar = true,
     petbattle = true,
     skyriding = true,
-    frameTypes = true,
     units = true,
-    -- 필드 이름이 아닌 셋.
-    hover = true,
-    reactions = true,
+    -- 필드 이름이 아닌 하나. 액션이 **겨누는** 대상을 고르는 메뉴이고, 그 유닛에 걸린 조건이
+    -- 아니다.
     unit = true,
     -- 매크로 이름이 가리키는 것이 없다. 조건이 아니라 액션 자체가 틀린 경우라 짚어 묻는
     -- 호출자가 없고, 갈래를 끄기 위한 이름으로만 쓰인다.

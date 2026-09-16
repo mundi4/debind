@@ -1570,6 +1570,16 @@ local function mergeUnitConditions(a, b)
         end
     end
 
+    local frameTypes = a.frameTypes;
+    if (frameTypes == nil) then
+        frameTypes = b.frameTypes;
+    elseif (b.frameTypes ~= nil) then
+        frameTypes = band(frameTypes, b.frameTypes);
+        if (frameTypes == 0) then
+            return NEVER;
+        end
+    end
+
     local group = a.group;
     if (group == nil) then
         group = b.group;
@@ -1580,7 +1590,7 @@ local function mergeUnitConditions(a, b)
         end
     end
 
-    return { reaction = reaction, dead = dead, role = role, group = group };
+    return { reaction = reaction, dead = dead, role = role, group = group, frameTypes = frameTypes };
 end
 
 --- The condition axes that go out as a plain field, **in the order they are emitted in**, with the
@@ -1645,11 +1655,13 @@ local function PrepareKeyBindings(key, bindingArray)
         -- **Never the self or focus twin.** A modifier held on a frame click is part of the binding
         -- the reader put on that exact combination, since nothing falls through to a click with
         -- fewer (`devdocs/implementing-focus-and-self-cast.md` §3-10).
+        local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
+        local wantsFrame = type(unitFrameCondition) == "table";
         binding.isClickCast = button ~= nil and
-            (binding.unitframe or binding.type == Constants.SETCUSTOM or binding.unit == "unitframe") and
+            (wantsFrame or binding.type == Constants.SETCUSTOM or binding.unit == "unitframe") and
             (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
             true or false;
-        binding.holdsKey = (button == nil or not binding.unitframe) and true or false;
+        binding.holdsKey = (button == nil or not wantsFrame) and true or false;
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
         -- there is a specialization with nothing to cast: the button is still handed out, with no
         -- action on it, so the key is taken and the press does nothing (§4 of the design).
@@ -1811,6 +1823,7 @@ local function MergeKeyUnitConditions(binding, out)
                     reaction = v.reaction,
                     dead = v.dead,
                     role = v.role,
+                    frameTypes = v.frameTypes,
                     group = UnitGroupToCells(v.group),
                 };
             end
@@ -1847,7 +1860,6 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     local castUnit = DebindPrivate.CastUnitOf(binding);
     out.targetUnit = castUnit;
     out.setsSwitch = nil;
-    out.carriesFrameTypes = false;
 
     if (binding.clickframe and binding.clickbutton) then
         field(out, "clickbutton", binding.clickbutton);
@@ -1891,18 +1903,17 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
         end
     end
 
-    -- **`unitframe` and `reactions` are not emitted.** They are the derived view of
-    -- `units["unitframe"]`, which goes out below with every other unit as `t.units["unitframe"]` --
-    -- emitting both would have the match loop ask the same question about the same unit twice, once
-    -- against the frame record and once against `UnitStates`.
+    -- **A record field of its own, though it is stored as an axis of `units["unitframe"]`.** It
+    -- describes the **frame** and only the frame record can answer it, where every other axis of
+    -- that unit is answered by measuring the unit. It carries its own "is there a frame" guard in
+    -- the snippet for that reason.
     --
-    -- `frameTypes` stays, because it describes the **frame** and only the frame record can answer
-    -- it. It carries its own "is there a frame" guard in the snippet for that reason -- there is
-    -- no `t.unitframe` in front of it any more.
-    if (binding.unitframe and conditions.frameTypes
-            and conditions.frameTypes ~= Constants.FRAMETYPE_ALL) then
-        field(out, "frameTypes", conditions.frameTypes);
-        out.carriesFrameTypes = true;
+    -- Read off the merged table, so a mask on `"@"` where the action aims at the frame's unit meets
+    -- the one on `units["unitframe"]` -- the same fold `Misc.BuildUnitStates` does for the solver.
+    local pointedFrame = out.units.unitframe;
+    if (type(pointedFrame) == "table" and pointedFrame.frameTypes
+            and pointedFrame.frameTypes ~= Constants.FRAMETYPE_ALL) then
+        field(out, "frameTypes", pointedFrame.frameTypes);
     end
 
     for i = 1, #CONDITION_AXES do

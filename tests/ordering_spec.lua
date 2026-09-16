@@ -1,8 +1,8 @@
 -- 순서 비교 함수 테스트. 와우 클라이언트 불필요.
 --
 -- 두 층으로 되어 있음:
---   1. 단계별 테스트 - CompareActionOrder의 5단계(priority > unitframe > isConditional >
---      layerRank > seq)와 CompareKeys의 규칙을 하나씩 고정한다
+--   1. 단계별 테스트 - CompareActionOrder의 다섯 단계(priority > isConditional > layerRank >
+--      specRank > seq)와 CompareKeys의 규칙을 하나씩 고정한다
 --   2. 무차별 대조 테스트 - (layerRank, seq)로 쪼개기 전의 통짜 ordinal 비교자를
 --      그대로 옮겨와서, 작은 조건 공간의 모든 쌍에 대해 두 비교자가 같은 답을 내는지 본다.
 --      "정렬 결과가 리팩터 전과 완전히 동일하다"를 직접 확인하는 게 이쪽이다.
@@ -36,8 +36,7 @@ return function(DebindPrivate)
     -- 1. CompareActionOrder - 단계별
     ---------------------------------------------------------------------------
 
-    --- layerRank/seq 기본값을 채운 레코드. unitframe는 nil/false/true가 전부 다른 뜻이라
-    --- 넘어온 값을 그대로 둔다.
+    --- layerRank/seq 기본값을 채운 레코드.
     local function rec(t)
         t.layerRank = t.layerRank or 1;
         t.seq = t.seq or 1;
@@ -66,43 +65,32 @@ return function(DebindPrivate)
         expectTie(rec({ priority = 3 }), rec({}), "3과 nil은 동률");
     end);
 
-    test("2단계 unitframe - unitframe가 있는 쪽이 먼저", function()
-        expectBefore(rec({ unitframe = true }), rec({}), "unitframe");
-    end);
+    --- **개체창 단계가 있었다.** 가리킨 개체창의 유닛에 조건이 걸린 액션을 안 걸린 것보다
+    --- 앞세우던 두 번째 단계이고, 그 유닛이 보통 유닛이 되면서 없어졌다
+    --- (`devdocs/which-action-a-key-runs.md` §2). 지금 그 조건은 아래 `isConditional`이 센다.
 
-    test("2단계 unitframe - false도 '있는' 것이다", function()
-        -- action.unitframe = false는 "unitframe 아님"을 명시한 조건이라 nil과 다르다.
-        -- 불리언으로 접어 넘기면 여기가 깨진다.
-        expectBefore(rec({ unitframe = false }), rec({}), "unitframe=false");
-        expectTie(rec({ unitframe = false }), rec({ unitframe = true }), "false와 true는 동률");
-    end);
-
-    test("2단계 unitframe - priority가 먼저 갈리면 unitframe는 안 본다", function()
-        expectBefore(rec({ priority = 1 }), rec({ priority = 2, unitframe = true }), "priority 우선");
-    end);
-
-    test("3단계 isConditional - 조건부가 먼저", function()
+    test("2단계 isConditional - 조건부가 먼저", function()
         expectBefore(rec({ isConditional = true }), rec({ isConditional = false }), "isConditional");
         expectBefore(rec({ isConditional = true }), rec({}), "nil은 비조건부");
         expectTie(rec({ isConditional = false }), rec({}), "false와 nil은 동률");
     end);
 
-    test("3단계 isConditional - unitframe가 먼저 갈리면 안 본다", function()
-        expectBefore(rec({ unitframe = true }), rec({ isConditional = true }), "unitframe 우선");
+    test("2단계 isConditional - priority가 먼저 갈리면 안 본다", function()
+        expectBefore(rec({ priority = 1 }), rec({ priority = 2, isConditional = true }), "priority 우선");
     end);
 
-    test("4단계 layerRank - 작은 값(구체적인 레이어)이 먼저", function()
+    test("3단계 layerRank - 작은 값(구체적인 레이어)이 먼저", function()
         expectBefore(rec({ layerRank = 1, seq = 99 }), rec({ layerRank = 2, seq = 1 }), "layerRank");
     end);
 
-    test("4단계 layerRank - isConditional이 먼저 갈리면 안 본다", function()
+    test("3단계 layerRank - isConditional이 먼저 갈리면 안 본다", function()
         expectBefore(rec({ layerRank = 5, isConditional = true }), rec({ layerRank = 1 }), "isConditional 우선");
     end);
 
     -- **오프스펙 액션은 활성 액션과 같은 밴드에 들어간다.** layerRank가 스코프까지만 좁히므로
     -- (직업/특성1과 직업/특성3이 같은 값), 그 안에서 자리를 마저 정하는 것이 이 단계다.
     -- 활성이 0이라 언제나 앞이고, 오프끼리는 특성 번호 차례다.
-    test("5단계 specRank - 활성이 먼저, 오프스펙은 특성 번호 차례", function()
+    test("4단계 specRank - 활성이 먼저, 오프스펙은 특성 번호 차례", function()
         expectBefore(rec({ specRank = 0, seq = 99 }), rec({ specRank = 1, seq = 1 }), "활성 우선");
         expectBefore(rec({ specRank = 1, seq = 99 }), rec({ specRank = 3, seq = 1 }), "특성 번호");
         -- 없으면 0, 즉 활성이다. 활성 레이어에서 온 레코드는 이 필드를 안 달고 온다.
@@ -111,12 +99,12 @@ return function(DebindPrivate)
 
     -- **seq보다 앞이어야 한다.** seq는 한 레이어 안에서만 믿을 수 있는 값이라, 레이어 하나로
     -- 좁혀지기 전에 비교하면 서로 다른 번호 공간을 견주게 된다.
-    test("5단계 specRank - layerRank가 먼저 갈리면 안 본다", function()
+    test("4단계 specRank - layerRank가 먼저 갈리면 안 본다", function()
         expectBefore(rec({ layerRank = 1, specRank = 4 }), rec({ layerRank = 2, specRank = 0 }),
             "layerRank 우선");
     end);
 
-    test("6단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
+    test("5단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
         expectBefore(rec({ seq = 1 }), rec({ seq = 2 }), "seq");
         -- 번호가 없는 쪽은 0으로 본다. 키가 걸린 액션에는 마이그레이션과 CleanUpDB가 번호를
         -- 보장하므로 정상 데이터에는 없는 경우지만, 정렬 안에서 터지지는 않아야 한다.
@@ -125,23 +113,22 @@ return function(DebindPrivate)
     end);
 
     test("전부 같으면 동률", function()
-        expectTie(rec({ priority = 2, unitframe = true, isConditional = true, layerRank = 3, seq = 4 }),
-            rec({ priority = 2, unitframe = true, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
+        expectTie(rec({ priority = 2, isConditional = true, layerRank = 3, seq = 4 }),
+            rec({ priority = 2, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
     end);
 
-    test("sort 통합 - 6단계가 순서대로 적용된다", function()
+    test("sort 통합 - 다섯 단계가 순서대로 적용된다", function()
         local arr = {
             rec({ seq = 2 }),
             rec({ seq = 1 }),
             rec({ isConditional = true, seq = 3 }),
-            rec({ unitframe = true, seq = 4 }),
             rec({ priority = 1, seq = 5 }),
             rec({ layerRank = 0, seq = 6 }),
             rec({ specRank = 2, seq = 7 }),
         };
         sort(arr, CompareActionOrder);
 
-        local expected = { 5, 4, 3, 6, 1, 2, 7 };
+        local expected = { 5, 3, 6, 1, 2, 7 };
         for i = 1, #expected do
             check(arr[i].seq == expected[i],
                 ("%d번째가 seq=%d, 기대값 %d"):format(i, arr[i].seq, expected[i]));
@@ -159,12 +146,6 @@ return function(DebindPrivate)
             return (lhs.priority or 3) < (rhs.priority or 3);
         end
 
-        if (lhs.unitframe ~= nil and rhs.unitframe == nil) then
-            return true;
-        elseif (lhs.unitframe == nil and rhs.unitframe ~= nil) then
-            return false;
-        end
-
         if (lhs.isConditional and not rhs.isConditional) then
             return true;
         elseif (not lhs.isConditional and rhs.isConditional) then
@@ -176,26 +157,22 @@ return function(DebindPrivate)
 
     test("무차별 대조 - 모든 쌍에서 옛 비교자와 답이 같다", function()
         local PRIORITIES = { 1, 3, 5, "nil" };
-        local HOVERS = { "nil", false, true };
         local CONDITIONALS = { "nil", false, true };
         local INDICES_PER_LAYER = 3;
 
         local records = {};
         for _, p in ipairs(PRIORITIES) do
-            for _, h in ipairs(HOVERS) do
-                for _, c in ipairs(CONDITIONALS) do
-                    for layerRank = 1, 2 do
-                        for seq = 1, INDICES_PER_LAYER do
-                            records[#records + 1] = {
-                                priority = p ~= "nil" and p or nil,
-                                unitframe = h ~= "nil" and h or nil,
-                                isConditional = c ~= "nil" and c or nil,
-                                layerRank = layerRank,
-                                seq = seq,
-                                -- 레이어를 순서대로 훑으면 나오는 통짜 일련번호.
-                                ordinal = (layerRank - 1) * INDICES_PER_LAYER + seq,
-                            };
-                        end
+            for _, c in ipairs(CONDITIONALS) do
+                for layerRank = 1, 2 do
+                    for seq = 1, INDICES_PER_LAYER do
+                        records[#records + 1] = {
+                            priority = p ~= "nil" and p or nil,
+                            isConditional = c ~= "nil" and c or nil,
+                            layerRank = layerRank,
+                            seq = seq,
+                            -- 레이어를 순서대로 훑으면 나오는 통짜 일련번호.
+                            ordinal = (layerRank - 1) * INDICES_PER_LAYER + seq,
+                        };
                     end
                 end
             end
@@ -215,7 +192,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- 3. ComputeOrderSwap
     --
-    -- 순서 UI의 ↑↓는 **seq만** 만진다. priority/unitframe/조건부/레이어는 각자 뜻이 있는
+    -- 순서 UI의 ↑↓는 **seq만** 만진다. priority/조건부/레이어/전문화는 각자 뜻이 있는
     -- 속성이고 각자의 자리에서 바뀌므로, 그 단계에서 갈렸으면 버튼은 손을 뗀다.
     -- 여기서 고정하는 건 두 가지다: 어느 단계에서 막혔는지, 그리고 움직였을 때 정확히
     -- 한 칸만 움직이고 ↑ 다음 ↓면 원래대로 돌아오는지.
@@ -456,14 +433,6 @@ return function(DebindPrivate)
 
     test("막힘 - 밴드가 다르면 IMPORTANCE", function()
         expectBlocked(rec({ name = "t" }), rec({ name = "n", priority = 2 }), "IMPORTANCE");
-    end);
-
-    test("막힘 - unitframe 여부가 다르면 HOVER", function()
-        expectBlocked(rec({ name = "t" }), rec({ name = "n", unitframe = true }), "UNITFRAME");
-    end);
-
-    test("막힘 - unitframe=false도 '있는' 것이라 HOVER로 갈린다", function()
-        expectBlocked(rec({ name = "t" }), rec({ name = "n", unitframe = false }), "UNITFRAME");
     end);
 
     test("막힘 - 조건부 여부가 다르면 CONDITIONAL", function()

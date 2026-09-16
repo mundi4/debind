@@ -937,6 +937,191 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 7: 프레임 종류가 가리킨 개체창 유닛 조건의 축이 된다.
+    --
+    -- 자기 조건 필드였던 것은 개체창이 자기 조건 축을 갖고 있던 시절의 모양이다. 그 유닛이
+    -- 보통 유닛이 되면서(`devdocs/which-action-a-key-runs.md` §0) 마스크도 그 유닛에 대해
+    -- 하는 말 하나가 된다.
+    ---------------------------------------------------------------------------
+
+    test("dbver 7 folds the frame type mask into the pointed frame's unit row", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { frameTypes = Constants.FRAMETYPE_GROUP,
+                units = { unitframe = { exists = true, reaction = Constants.REACTION_HELP } } } } };
+        MigrateLayer(layer, 6);
+        local c = layer[1].conditions;
+        check(c.frameTypes == nil, "옛 축이 남았다: " .. tostring(c.frameTypes));
+        check(c.units.unitframe.frameTypes == Constants.FRAMETYPE_GROUP,
+            "행에 안 실렸다: " .. tostring(c.units.unitframe.frameTypes));
+        check(c.units.unitframe.reaction == Constants.REACTION_HELP, "다른 축이 바뀌었다");
+    end);
+
+    -- **개체창 조건이 없는 액션의 마스크도 안 버린다.** 끄는 것과 지우는 것은 다르므로,
+    -- 조건을 켜면 고른 값이 그대로 있어야 한다. 그래서 [사용 안 함]인 행으로 들어간다.
+    test("dbver 7 remembers the mask on an action with no unit frame condition", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { frameTypes = Constants.FRAMETYPE_BOSS } } };
+        MigrateLayer(layer, 6);
+        local row = layer[1].conditions.units.unitframe;
+        check(row.disabled == true, "켜진 조건이 생겼다: " .. tostring(row.disabled));
+        check(row.frameTypes == Constants.FRAMETYPE_BOSS,
+            "마스크가 사라졌다: " .. tostring(row.frameTypes));
+    end);
+
+    -- 한 행이 두 답을 들 수 없다. 서 있던 마스크가 이긴다 - 새 모양에 맞춰 고친 값을
+    -- 바깥의 옛 값으로 되돌리면 안 된다.
+    test("dbver 7 keeps a frame type mask that was already on the row", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { frameTypes = Constants.FRAMETYPE_BOSS,
+                units = { unitframe = { exists = true,
+                    frameTypes = Constants.FRAMETYPE_GROUP } } } } };
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.units.unitframe.frameTypes == Constants.FRAMETYPE_GROUP,
+            "서 있던 마스크가 뭉개졌다");
+        check(layer[1].conditions.frameTypes == nil,
+            "밖의 옛 값이 남았다: " .. tostring(layer[1].conditions.frameTypes));
+    end);
+
+    -- **사다리를 아래 칸부터 탄 프로필.** 소환수 축과 같은 사정이다: `frameTypes`가 조건
+    -- 이름에서 빠졌으므로 최상단 조건을 내리는 `dbver <= 5` 단계가 그것을 안 옮기고, 마스크는
+    -- 액션 최상단에 남은 채로 이 단계를 만난다.
+    test("a frame type mask from before conditions moved still folds", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            frameTypes = Constants.FRAMETYPE_GROUP,
+            checkedUnits = { hover = {} } } };
+        MigrateLayer(layer, 5);
+        check(layer[1].frameTypes == nil, "최상단에 남았다: " .. tostring(layer[1].frameTypes));
+        local row = layer[1].conditions and layer[1].conditions.units
+            and layer[1].conditions.units.unitframe;
+        check(row and row.frameTypes == Constants.FRAMETYPE_GROUP,
+            "행에 안 실렸다: " .. tostring(row and row.frameTypes));
+    end);
+
+    test("dbver 7 frame type fold is safe to run twice", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { frameTypes = Constants.FRAMETYPE_GROUP,
+                units = { unitframe = { exists = true } } } } };
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.units.unitframe.frameTypes == Constants.FRAMETYPE_GROUP,
+            "두 번째에 뭉개짐");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 7: 발동 순서에서 개체창 단계가 빠진 자리를 번호가 받는다.
+    --
+    -- **이 단계가 틀리면 화면에 아무것도 안 뜬 채 순서가 뒤집힌다.** 비교자는 개체창 조건이
+    -- 걸린 액션을 안 걸린 것보다 앞세우고 있었고, 그 단계가 없어지면 그 자리를 `seq`가 들어야
+    -- 한다. 그래서 키 묶음마다 **옛 비교자** 순서로 1..n을 다시 매긴다.
+    ---------------------------------------------------------------------------
+
+    --- 같은 키의 두 액션을 배열 순서대로 넣고, 마이그레이션 뒤의 번호를 돌려준다.
+    local function seqsAfterMigrate(layer)
+        MigrateLayer(layer, 6);
+        local out = {};
+        for i = 1, #layer do
+            out[i] = layer[i].seq;
+        end
+        return out;
+    end
+
+    -- 개체창 조건이 뒤 번호에 있었다. 옛 비교자는 그것을 앞세웠으므로 번호가 1로 와야 한다.
+    -- 안 매기면 새 비교자에서 둘 다 조건부로 동률이 되어 `seq`가 정하고, 순서가 뒤집힌다.
+    test("dbver 7 renumbers so the old unit frame tier keeps its order", function()
+        local seqs = seqsAfterMigrate({
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 1,
+                conditions = { combat = true } },
+            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
+                conditions = { units = { unitframe = { exists = true } } } },
+        });
+        check(seqs[2] == 1, "개체창 조건이 1번이 아니다: " .. tostring(seqs[2]));
+        check(seqs[1] == 2, "조건 액션이 2번이 아니다: " .. tostring(seqs[1]));
+    end);
+
+    -- **[안 올렸을 때]도 개체창 조건이다.** 옛 비교자는 `nil`이 아닌 것을 앞세웠지 참인 것을
+    -- 앞세운 것이 아니다.
+    test("dbver 7 counts [when not over a frame] as the old tier did", function()
+        local seqs = seqsAfterMigrate({
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 1,
+                conditions = { combat = true } },
+            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
+                conditions = { units = { unitframe = { exists = false } } } },
+        });
+        check(seqs[2] == 1, "[안 올렸을 때]가 1번이 아니다: " .. tostring(seqs[2]));
+    end);
+
+    -- 꺼진 조건은 조건이 아니다. 옛 비교자도 접어서 봤으므로 꺼진 행을 든 액션은 개체창
+    -- 단계를 못 탄다. 진짜 개체창 조건을 든 셋째가 있어야 번호가 실제로 움직이고, 꺼진 것을
+    -- 조건으로 세면 그 액션이 같이 앞으로 딸려 오는 것이 보인다.
+    test("dbver 7 does not let a disabled unit frame condition win the tier", function()
+        local seqs = seqsAfterMigrate({
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 1,
+                conditions = { combat = true } },
+            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
+                conditions = { combat = false, units = { unitframe = { disabled = true } } } },
+            { key = "F1", seq = 3, type = Constants.SPELL, value = 3,
+                conditions = { units = { unitframe = { exists = true } } } },
+        });
+        check(seqs[3] == 1, "진짜 개체창 조건이 1번이 아니다: " .. tostring(seqs[3]));
+        check(seqs[1] == 2, "조건 액션이 2번이 아니다: " .. tostring(seqs[1]));
+        check(seqs[2] == 3, "꺼진 조건이 앞질렀다: " .. tostring(seqs[2]));
+    end);
+
+    -- 중요도가 개체창보다 위다. 옛 비교자의 첫 단계라 개체창 조건이 밴드를 못 넘는다.
+    test("dbver 7 keeps importance above the old unit frame tier", function()
+        local seqs = seqsAfterMigrate({
+            { key = "F1", seq = 2, type = Constants.SPELL, value = 1, priority = 1 },
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 2,
+                conditions = { units = { unitframe = { exists = true } } } },
+        });
+        check(seqs[1] == 1, "중요도가 밀렸다: " .. tostring(seqs[1]));
+        check(seqs[2] == 2, "개체창 조건이 앞질렀다: " .. tostring(seqs[2]));
+    end);
+
+    -- 키 묶음마다 1부터다. 한 레이어의 번호를 통째로 세면 다른 키의 액션이 사이에 끼어
+    -- 번호가 벌어지고, `RenumberKeyGroup`이 다음에 돌 때 그것을 다시 접는다.
+    test("dbver 7 numbers each key group from one", function()
+        local seqs = seqsAfterMigrate({
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 1 },
+            { key = "F2", seq = 2, type = Constants.SPELL, value = 2 },
+            { key = "F1", seq = 3, type = Constants.SPELL, value = 3 },
+        });
+        check(seqs[1] == 1 and seqs[3] == 2, "F1이 1,2가 아니다: "
+            .. tostring(seqs[1]) .. "," .. tostring(seqs[3]));
+        check(seqs[2] == 1, "F2가 1이 아니다: " .. tostring(seqs[2]));
+    end);
+
+    -- 받은 묶음은 제 번호 공간이다. 같이 세면 격리된 액션이 읽는 이의 순서 안으로 끼어든다.
+    test("dbver 7 numbers an arrival apart from the reader's own set", function()
+        local seqs = seqsAfterMigrate({
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 1 },
+            { key = "F1", seq = 2, type = Constants.SPELL, value = 2, arrivalID = 3 },
+        });
+        check(seqs[1] == 1 and seqs[2] == 1, "묶음이 같이 세어졌다: "
+            .. tostring(seqs[1]) .. "," .. tostring(seqs[2]));
+    end);
+
+    -- 키가 없으면 번호도 없다(`PlaceInKeyGroup`). 번호를 주면 그 액션만 영원히 한 묶음으로 선다.
+    test("dbver 7 leaves a keyless action without a number", function()
+        local layer = { { type = Constants.SPELL, value = 1 } };
+        MigrateLayer(layer, 6);
+        check(layer[1].seq == nil, "번호가 생겼다: " .. tostring(layer[1].seq));
+    end);
+
+    test("dbver 7 renumbering is safe to run twice", function()
+        local layer = {
+            { key = "F1", seq = 1, type = Constants.SPELL, value = 1,
+                conditions = { combat = true } },
+            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
+                conditions = { units = { unitframe = { exists = true } } } },
+        };
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        check(layer[2].seq == 1 and layer[1].seq == 2, "두 번째에 뭉개짐: "
+            .. tostring(layer[2].seq) .. "," .. tostring(layer[1].seq));
+    end);
+
+    ---------------------------------------------------------------------------
     -- dbver 5의 핵심 불변식: **표현만 바꾸고 뜻은 안 바꾼다**
     --
     -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다.

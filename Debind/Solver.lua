@@ -126,14 +126,11 @@ local FIXED_COLUMNS = {
         -- keeps this column free -- every cover that reaches the not-pointing point reaches it
         -- for all seven frame types at once, so the point never splits across covers.
         --
-        -- `Misc.lua` already nils the field for bindings with no `unitframe`; reading
-        -- `unitframe` here is what stops that from being a cross-file assumption.
+        -- That is what `Misc.BuildUnitStates` hands over: the mask is folded only off
+        -- `units["unitframe"]`, so a binding with no condition on that unit arrives with nil.
         name = "frameTypes",
         make = function(binding)
-            if (not binding.unitframe) then
-                return flagsToConditionFlags(nil, 6);
-            end
-            return flagsToConditionFlags(binding.conditions.frameTypes, 6);
+            return flagsToConditionFlags(binding.unitFrameTypes, 6);
         end
     },
     {

@@ -94,22 +94,22 @@ return function(DebindPrivate)
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1,
                 conditions = {
-                    units = { unitframe = { reaction = bor(Constants.REACTION_HELP,
-                        Constants.REACTION_HARM) } },
-                    frameTypes = Constants.FRAMETYPE_GROUP,
+                    units = { unitframe = {
+                        reaction = bor(Constants.REACTION_HELP, Constants.REACTION_HARM),
+                        frameTypes = Constants.FRAMETYPE_GROUP,
+                    } },
                 } },
         });
 
         local record = Records("BUTTON3") and Records("BUTTON3")[1];
         check(record, "the hover record did not reach the key");
-        check(record.unitframe == true, "the derived unitframe flag is " .. tostring(record.unitframe));
 
         local unitframe = record.conditions.units and record.conditions.units.unitframe;
         check(type(unitframe) == "table", "the unitframe condition came out as " .. tostring(unitframe));
         check(band(unitframe.reaction, Constants.REACTION_HELP) ~= 0, "the friendly bit is gone");
         check(band(unitframe.reaction, Constants.REACTION_HARM) ~= 0, "the hostile bit is gone");
-        check(record.conditions.frameTypes == Constants.FRAMETYPE_GROUP,
-            "frameTypes came out as " .. tostring(record.conditions.frameTypes));
+        check(record.unitFrameTypes == Constants.FRAMETYPE_GROUP,
+            "frameTypes came out as " .. tostring(record.unitFrameTypes));
     end);
 
     -- **Five axes at once, which is what a real profile looks like.** One condition on one key only

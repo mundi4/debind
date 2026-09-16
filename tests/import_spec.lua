@@ -394,7 +394,6 @@ return function(DebindPrivate, DebindStorage)
         -- 비트 마스크. `Misc.lua`가 `== 0`으로 비교한다.
         forms = 6,
         groups = 3,
-        frameTypes = 1,
         -- **하늘비행 오프셋 비트를 같이 켜둔다.** `skyriding`과 `bonusbars`는 같은
         -- `GetBonusBarOffset()`을 읽어서, 5번 비트가 빠진 마스크와 `skyriding = true`를 같이
         -- 두면 `GetBindingIssue`가 모순으로 잡는다(`Misc.lua`). 이 표본이 물어보는 건 타입이

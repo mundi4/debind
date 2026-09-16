@@ -205,8 +205,8 @@
 		되면 경우가 늘어난다. 숨은 자식을 건너뛰고 다시 세우는 일은 `HorizontalLayoutFrame`이
 		이미 한다.
 
-		**순서는 `layoutIndex`가 정하고, 그 순서는 비교자의 축 순서다** - 개체창, 조건, 그리고
-		그 액션이 먹느냐. 앞의 둘은 "왜 먼저 시도되는가"를, 마지막은 "먹느냐"를 말한다.
+		**순서는 `layoutIndex`가 정하고, 그 순서는 비교자의 축 순서다** - 조건, 그리고 그 액션이
+		먹느냐. 앞의 것은 "왜 먼저 시도되는가"를, 뒤의 것은 "먹느냐"를 말한다.
 
 		폭은 `Layout`이 자식을 재서 넣으므로, 이름이 쓸 수 있는 폭을 묻는 쪽은 이 줄 하나만
 		재면 된다(`DebindLineMixin:LayoutName`).
@@ -217,19 +217,14 @@
 			<KeyValue key="spacing" value="2" type="number"/>
 		</KeyValues>
 		<Frames>
-			<Frame parentKey="Hover" inherits="DebindRowMarkTemplate">
+			<Frame parentKey="Conditional" inherits="DebindRowMarkTemplate">
 				<KeyValues>
 					<KeyValue key="layoutIndex" value="1" type="number"/>
 				</KeyValues>
 			</Frame>
-			<Frame parentKey="Conditional" inherits="DebindRowMarkTemplate">
-				<KeyValues>
-					<KeyValue key="layoutIndex" value="2" type="number"/>
-				</KeyValues>
-			</Frame>
 			<Frame parentKey="Issue" inherits="DebindRowMarkTemplate">
 				<KeyValues>
-					<KeyValue key="layoutIndex" value="3" type="number"/>
+					<KeyValue key="layoutIndex" value="2" type="number"/>
 				</KeyValues>
 			</Frame>
 		</Frames>

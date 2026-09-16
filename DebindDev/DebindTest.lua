@@ -5733,8 +5733,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_GROUP,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_GROUP } },
         })
         ApplyBindings()
 
@@ -5794,8 +5793,7 @@ RegisterTest("Hover unit: read off the frame when a unit disappears under a stil
         -- this reads stays empty. The test builds its own precondition rather than hoping for one.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_GROUP,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_GROUP } },
         })
         ApplyBindings()
 
@@ -6402,8 +6400,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_ALL } },
         })
         ApplyBindings()
 
@@ -6538,8 +6535,7 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_ALL } },
         })
         ApplyBindings()
 
@@ -6595,8 +6591,7 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_ALL } },
             combat = true,
         })
         ApplyBindings()
@@ -6681,8 +6676,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         -- A test with no binding at all would pass without the wrapper ever deciding anything.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON1",
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_GROUP,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_GROUP } },
             combat = true,
         })
         ApplyBindings()
@@ -7158,8 +7152,8 @@ RegisterTest("Hover condition decides the press through the unit column", {
     end,
 })
 
--- `frameTypes` kept its own field, and with the hover pair gone it lost the `t.hover` wrapper
--- that used to stand in front of it -- it carries its own "is there a frame at all" guard now.
+-- `frameTypes` is stored as an axis of the pointed frame's unit condition and still reaches the
+-- restricted side as a record field of its own, carrying its own "is there a frame at all" guard.
 -- What this pins is that the guard narrows: a frame of the wrong kind must not fire the key.
 RegisterTest("Hover frame types still narrow on their own", {
     description = "A frame type limit narrows even while carrying its own existence check",
@@ -7178,8 +7172,7 @@ RegisterTest("Hover frame types still narrow on their own", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            units = { unitframe = {} },
-            frameTypes = Constants.FRAMETYPE_BOSS,
+            units = { unitframe = { frameTypes = Constants.FRAMETYPE_BOSS } },
         })
         ApplyBindings()
 
@@ -9083,8 +9076,8 @@ RegisterTest("A role condition widens the role headers", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = { role = Constants.ROLE_TANK } },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { role = Constants.ROLE_TANK,
+                frameTypes = Constants.FRAMETYPE_ALL } },
         })
         ApplyBindings()
 
@@ -9155,8 +9148,8 @@ RegisterTest("Dropping the role condition takes the map down", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = { role = Constants.ROLE_TANK } },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { role = Constants.ROLE_TANK,
+                frameTypes = Constants.FRAMETYPE_ALL } },
         })
         ApplyBindings()
         if mapPresent() ~= true then
@@ -9179,8 +9172,8 @@ RegisterTest("Dropping the role condition takes the map down", {
         CleanupActions()
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = { role = Constants.ROLE_HEALER } },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { role = Constants.ROLE_HEALER,
+                frameTypes = Constants.FRAMETYPE_ALL } },
         })
         ApplyBindings()
         if mapPresent() ~= true then
@@ -9216,13 +9209,12 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { unitframe = { role = Constants.ROLE_NONE } },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { role = Constants.ROLE_NONE,
+                frameTypes = Constants.FRAMETYPE_ALL } },
         })
         InsertAction({
             type = Constants.SPELL, value = 8936, key = "BUTTON3",
-            units = { unitframe = { role = REAL_ROLES } },
-            frameTypes = Constants.FRAMETYPE_ALL,
+            units = { unitframe = { role = REAL_ROLES, frameTypes = Constants.FRAMETYPE_ALL } },
         })
         ApplyBindings()
 

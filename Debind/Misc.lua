@@ -441,8 +441,7 @@ local REACTION_TO_UNIT_STATE = {
 ---
 --- 저장은 사용자가 편집하는 것이라 **끈 값을 기억한다.** 라디오를 [사용 안 함]이나
 --- [없을 때]로 옮겼다고 골라둔 반응·생사를 지우면, 되돌렸을 때 처음부터 다시 골라야 한다.
---- **옵션을 끄는 것이지 지우는 것이 아니다** - `frameTypes`가 unitframe을 껐다 켜도 남아 있는 것과
---- 같은 규칙이고, 이 메뉴만 예외일 이유가 없다.
+--- **옵션을 끄는 것이지 지우는 것이 아니다.**
 ---
 ---     { exists = true, ... }       있을 때. 축이 붙으면 그만큼 좁아진다
 ---     { exists = false, ... }      없을 때. 축은 기억만 한다
@@ -492,7 +491,8 @@ local function UnitConditionForBinding(value)
     elseif (value.exists == false) then
         return false;
     end
-    return { reaction = value.reaction, dead = value.dead, role = value.role, group = value.group };
+    return { reaction = value.reaction, dead = value.dead, role = value.role, group = value.group,
+        frameTypes = value.frameTypes };
 end
 
 --- The old `hover` / `reactions` pair -> the unit condition they became.
@@ -607,63 +607,23 @@ local function UnitConditionToState(value)
     return mask;
 end
 
---- Fold everything that says something about a unit onto one mask per unit.
+--- This binding's condition on `unitframe`, in binding shape: nil, `false`, or a table.
 ---
---- `binding.unitStates` is the only thing the solver reads about units. `units` and
---- `hover`/`reactions` are left untouched because the runtime still speaks that shape; when the
---- menus move to masks, storage becomes these values and this collapses into a copy.
----
---- The point of doing it here is that **the pointed frame's unit is just a unit, named
---- "unitframe"**. Kept apart, the `unitframe` condition and a unit condition on the same unit are
---- two columns describing one thing, and the solver cannot see that `unitframe=friendly` with
---- `@=hostile` never holds -- it keeps a binding that can never fire and warns about nothing.
----
---- A mouse button reaches the not-pointing point and nothing else: the click fires wherever the
---- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
---- there. The same absent condition on a keyboard key spans the whole axis.
---- `binding.unitframe` from the stored condition.
----
---- **Derived, not stored** (`Profile.lua`'s `dbver <= 4` step). Storage keeps one column for the
---- pointed frame's unit; this is the view of it the rest of the addon already speaks --
---- ordering ranks a binding by `unitframe ~= nil` (`Ordering.lua`), the runtime routes a key to
---- the click path by it (`UpdateBindings.lua`'s `isClickCast`), the frame-type column gates on it
---- (`Solver.lua`), and key validity asks about it (`IsKeyInvalidForAction`).
+--- **Read each time, not kept as a field.** The pointed frame's unit is an ordinary unit
+--- (`devdocs/which-action-a-key-runs.md` §0), so a second name for one entry of `units` would be
+--- the split that fold removed. The readers left are the ones that ask something about the **key**
+--- rather than about the unit: which path a press takes (`UpdateBindings.lua`'s `isClickCast` and
+--- `holdsKey`), whether a mouse button can be bound at all (`IsKeyInvalidForAction`), and where the
+--- frame's unit fills in for an empty target.
 ---
 --- `false` and `nil` are **different answers** and both are load-bearing -- "only when not over a
 --- frame" versus "does not care" -- so this cannot collapse to a boolean.
----
---- Idempotent, and called from both seams: `GetBindingInfoForAction` needs it before the checks
---- below it read `unitframe`, and `BuildUnitStates` needs it for bindings that never went through
---- there (the solver specs hand-write theirs).
-local function DeriveUnitFrameFields(binding)
+local function UnitFrameConditionOf(binding)
     local conditions = binding.conditions;
-    local condition = conditions and conditions.units and conditions.units.unitframe;
-    if (condition == nil) then
-        binding.unitframe = nil;
-    elseif (condition == false) then
-        binding.unitframe = false;
-    else
-        binding.unitframe = true;
-    end
+    return conditions and conditions.units and conditions.units.unitframe;
 end
 
-DebindPrivate.DeriveUnitFrameFields = DeriveUnitFrameFields;
-
---- 개체창 조건이 허용하는 반응 마스크. 아무 축도 제약 안 하면 nil.
----
---- **`binding.reactions`라는 필드였다.** 개체창 조건 하나를 세 겹으로 설명하던 마지막 겹이고
---- (`units["unitframe"]` -> `unitframe` -> `reactions`), `dbver <= 4`가 저장 쪽에서 없앤 것이
---- 정확히 그 모양이다. 읽는 데가 아래 이슈 검사 둘뿐이라 필드로 들고 있을 값이 아니었다.
----
---- `unitframe`은 남는다. 저쪽은 발동 순서·클릭 경로·솔버 컬럼·키 유효성이 다 읽는다.
-local function UnitFrameReactionMask(binding)
-    local conditions = binding.conditions;
-    local condition = conditions and conditions.units and conditions.units.unitframe;
-    if (type(condition) ~= "table" or condition.reaction == Constants.REACTION_ALL) then
-        return nil;
-    end
-    return condition.reaction;
-end
+DebindPrivate.UnitFrameConditionOf = UnitFrameConditionOf;
 
 --- 저장된 세 상자 -> 그것이 덮는 네 칸.
 ---
@@ -734,9 +694,19 @@ function DebindPrivate.CastUnitOf(binding)
     return binding.unit;
 end
 
+--- Fold everything that says something about a unit onto one mask per unit.
+---
+--- `binding.unitStates` is the only thing the solver reads about units.
+---
+--- The point of doing it here is that **the pointed frame's unit is just a unit, named
+--- "unitframe"**. Kept apart, the `unitframe` condition and a unit condition on the same unit are
+--- two columns describing one thing, and the solver cannot see that `unitframe=friendly` with
+--- `@=hostile` never holds -- it keeps a binding that can never fire and warns about nothing.
+---
+--- A mouse button reaches the not-pointing point and nothing else: the click fires wherever the
+--- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
+--- there. The same absent condition on a keyboard key spans the whole axis.
 local function BuildUnitStates(binding)
-    DeriveUnitFrameFields(binding);
-
     local states;
 
     -- **A value this build cannot read makes the binding opaque before any axis is touched.**
@@ -766,6 +736,17 @@ local function BuildUnitStates(binding)
             role = mask;
         else
             role = band(role, mask);
+        end
+    end
+
+    --- 프레임의 종류. 역할과 같은 자리에 산다 - 개체창을 가리켰을 때만 답이 나오는 축이라
+    --- 유닛마다 세울 값이 아니다.
+    local frameTypes;
+    local function narrowFrameTypes(mask)
+        if (frameTypes == nil) then
+            frameTypes = mask;
+        else
+            frameTypes = band(frameTypes, mask);
         end
     end
 
@@ -815,8 +796,13 @@ local function BuildUnitStates(binding)
                 narrow(unit, UnitConditionToState(value));
                 -- `value` is `false` for [when there is none], and role is remembered rather than
                 -- applied there -- the menu's rule for every axis under a mode it does not use.
-                if (unit == "unitframe" and type(value) == "table" and value.role) then
-                    narrowRole(value.role);
+                if (unit == "unitframe" and type(value) == "table") then
+                    if (value.role) then
+                        narrowRole(value.role);
+                    end
+                    if (value.frameTypes) then
+                        narrowFrameTypes(value.frameTypes);
+                    end
                 end
                 if (type(value) == "table" and value.group) then
                     narrowGroup(unit, UnitGroupToCells(value.group));
@@ -828,6 +814,7 @@ local function BuildUnitStates(binding)
     binding.unitStates = states;
     binding.unitStatesOpaque = opaque;
     binding.unitRole = role;
+    binding.unitFrameTypes = frameTypes;
     binding.unitGroups = groups;
 end
 
@@ -971,47 +958,46 @@ do
                 action.hover, action.reactions, conditions.units.unitframe);
         end
 
+        -- The frame type mask, likewise raised onto the copy. It was a condition of its own until
+        -- the pointed frame's unit became an ordinary unit (`dbver <= 6`); a profile the ladder has
+        -- not reached carries it at the action's top level or right under `conditions`, and both
+        -- have to be cleared off the binding or the name sits there as a condition nothing reads --
+        -- which is enough to make an unconditional action rank as a conditional one
+        -- (`IsConditionalBinding`).
+        --
+        -- **Only onto a condition that is a table.** Nothing else can hold an axis: the absent
+        -- point is not a frame, and with no `unitframe` condition at all there is no frame to have
+        -- a type. The mask is dropped there rather than inventing a condition nobody set.
+        local legacyFrameTypes = action.frameTypes or conditions.frameTypes;
+        conditions.frameTypes = nil;
+        if (legacyFrameTypes ~= nil and legacyFrameTypes ~= Constants.FRAMETYPE_ALL) then
+            local row = conditions.units and conditions.units.unitframe;
+            if (type(row) == "table" and row.frameTypes == nil) then
+                row.frameTypes = legacyFrameTypes;
+            end
+        end
+
         -- **Under the unit the twin aims at, not under a fixed name.** That is what narrows the
         -- twin's box to [the unit is there] on that unit's own axis (`BuildUnitStates`), which is
         -- what lets the original take the rest.
         --
         -- **The merge already happened.** `TwinUnitFor` hands over the reader's own condition where
         -- that unit carries one and `UNIT_IS_THERE` where it does not, so what is written here is
-        -- the meeting point either way. `twinInvented` is only for the frame-type mask below: it
-        -- says whether this condition is ours or the reader's.
-        local twinInvented = false;
+        -- the meeting point either way.
         if (twinCondition ~= nil) then
             conditions.units = conditions.units or {};
-            twinInvented = conditions.units[pointedUnit] == nil;
             conditions.units[pointedUnit] = twinCondition;
         end
-
-        -- Everything below this line reads `binding.unitframe`, so it has to be derived here and
-        -- not only in `BuildUnitStates` at the end.
-        DeriveUnitFrameFields(binding);
 
         -- 커스텀 상태를 따로 도는 루프가 여기 있었다. 위 벌크 복사가 조건 표를 통째로
         -- 옮기므로 슬롯 다섯을 이름으로 세어줄 필요가 없고, 재설계가 임의 이름을 풀어도
         -- 이 자리가 안 바뀐다.
 
-        -- 의미 없는 조건들을 nil로 만듬.
-        -- 마스크는 `units.unitframe`에 딸린 값이라, 갈래를 가르는 것은 **개체창 조건을 누가
-        -- 세웠느냐**다. `mouseover` 쌍둥이는 unitframe 쪽을 건드리지 않으므로 아래 둘 중 하나로 간다.
-        if (twinInvented and pointedUnit == "unitframe") then
-            -- 쌍둥이가 개체창 조건을 **스스로 세운** 경우다(`UNIT_IS_THERE`). **액션에 남아 있는
-            -- 마스크를 물려받으면 안 된다**: 개체창 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는
-            -- 것과 지우는 것은 다르다 - `Profile.lua`), 세운 쪽이 우리이므로 물려받는 값은 언제나
-            -- 죽은 조건의 것이다. 원본은 아래 `else`에서 지워지고 쌍둥이만 옛 마스크로 좁혀졌다.
-            --
-            -- **사용자가 건 개체창 조건을 물려받은 쌍둥이는 여기로 안 온다.** 그 마스크는 살아
-            -- 있는 조건의 것이라 아래 `elseif`가 원본과 같은 규칙으로 다룬다.
-            conditions.frameTypes = nil;
-        elseif (binding.unitframe) then
-            if (conditions.frameTypes and band(conditions.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
-                conditions.frameTypes = nil;
-            end
-        else
-            conditions.frameTypes = nil;
+        -- 프레임의 종류와 역할은 `units.unitframe` 안의 축이라 조건이 꺼져 있으면 여기까지
+        -- 오지도 않는다(`UnitConditionForBinding`). 남은 것은 개체창 조건이 아예 없는 액션에
+        -- 남아 있는 체크박스 하나다 - 가리킨 유닛이 없으면 거절할 유닛도 없다.
+        local unitFrameCondition = UnitFrameConditionOf(binding);
+        if (unitFrameCondition == nil or unitFrameCondition == false) then
             binding.ignoreHoverUnit = nil;
         end
 
@@ -1096,7 +1082,7 @@ do
             conditions.specialbar = nil;
         end
 
-        if (not twin and binding.unitframe and binding.unit == nil) then
+        if (not twin and type(unitFrameCondition) == "table" and binding.unit == nil) then
             if (binding.ignoreHoverUnit) then
                 binding.unit = "";
             else
@@ -1364,30 +1350,22 @@ end
 --- drifted apart -- they are never sorted against each other, so nothing was wrong today and
 --- nothing would have said so on the day one of them lost a field.
 ---
---- **Where an action stands is the one thing not derived from the action.** `priority`, `unitframe`
---- and `isConditional` are; `layerRank`, `specRank` and `seq` are its place in the profile. Those
+--- **Where an action stands is the one thing not derived from the action.** `priority` and
+--- `isConditional` are; `layerRank`, `specRank` and `seq` are its place in the profile. Those
 --- last three used to be written onto the binding from outside, which left the binding a pure
 --- function of its action by convention rather than in fact.
----
---- `unitframe` is read **off the binding**, and that is not interchangeable with reading the action:
---- an action has no such field any more (`Profile.lua`'s `dbver <= 4` folded it into
---- `units["unitframe"]`), so taking it from there would hand the comparator `nil` every time
---- and kill its UNITFRAME tier outright -- **the list would then draw in an order the key does not
---- fire in.** It is also **the raw value**: `false` and `nil` are different answers and the
---- comparator reads them apart, so it must not be folded to a boolean (`Ordering.lua`).
 ---
 --- `dest` lets a caller hand its own table in. `BuildKeyMap` keeps one per binding and rebuilds
 --- in place, because it runs over every bound action on every rebuild and used to allocate
 --- nothing at all.
 ---
 --- **`binding` is for a hover twin**, which is ordered as the action the reader would have made by
---- hand: the same one with the twin's condition on it. `unitframe` and `isConditional` then come off
---- the twin, and where the action stands comes off the action.
+--- hand: the same one with the twin's condition on it. `isConditional` then comes off the twin, and
+--- where the action stands comes off the action.
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest, binding)
     binding = binding or GetBindingInfoForAction(action);
     dest = dest or {};
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
-    dest.unitframe = binding.unitframe;
     dest.isConditional = DebindPrivate.IsConditionalBinding(binding);
     dest.layerRank = layerRank;
     dest.specRank = specRank;
@@ -1748,7 +1726,7 @@ end
 
 --- "이 액션에 개체창 조건이 켜져 있는가"를 **액션에서 바로** 답한다.
 ---
---- `binding.unitframe`을 쓰면 될 것 같지만, 아래 함수는 목록을 그릴 때 **행마다** 불린다 -
+--- `UnitFrameConditionOf`를 쓰면 될 것 같지만, 아래 함수는 목록을 그릴 때 **행마다** 불린다 -
 --- `GetBindingInfoForAction`을 거치면 그때마다 바인딩을 통째로 다시 만든다. 필요한 것은
 --- 한 축뿐이라 여기서 읽는다.
 ---
@@ -1760,8 +1738,7 @@ local function ActionUnitFrameIsOn(action)
         return action.hover == true;
     end
     -- **접어서 본다.** 저장 원문에는 끈 조건도 남아 있어서 `{ exists = false }`도 `{ disabled = true }`도
-    -- 표라는 이유만으로 "켜짐"이 된다. `DeriveUnitFrameFields`와 정반대 답을 내면 왼/우클릭
-    -- 유효성이 뒤집힌다.
+    -- 표라는 이유만으로 "켜짐"이 된다. 바인딩 쪽과 정반대 답을 내면 왼/우클릭 유효성이 뒤집힌다.
     local folded = UnitConditionForBinding(condition);
     return folded ~= nil and folded ~= false;
 end
@@ -2049,9 +2026,9 @@ end
 --- The branches below used to start on the action and switch to the binding halfway down, with
 --- nothing saying which reads had to come from where.
 ---
----   the binding, necessarily: `frameTypes` is nil'd for a binding with no `unitframe` there and
----     only there, `unitframe` has no action field at all any more, `unit` is the one the macro will aim
----     at rather than the one the user picked, and `unitStates` exists nowhere else
+---   the binding, necessarily: a disabled unit condition is dropped on the way onto it and its
+---     axes with it, `unit` is the one the macro will aim at rather than the one the user picked,
+---     and `unitStates`, `unitRole`, `unitFrameTypes` and `unitGroups` exist nowhere else
 ---   the binding, by choice: `groups`, `specs`, `forms`, `bonusbars`. Normalizing folds only the
 ---     all-bits case to `_ALL` and leaves `specs` alone entirely, so an empty one reads the same
 ---     either way. They come off the binding so that this function speaks one shape
@@ -2071,13 +2048,6 @@ end
 --- found**, since nothing below could replace it.
 local function LookingForWorse(issue)
     return issue == nil or IssueGrade(issue) > Constants.ISSUE_GRADE_ERROR;
-end
-
---- The group a contradiction on one unit is fixed in. `unitframe` can only be set in its own group
---- and every other unit lives under `Units`; both loops below have to answer this the same way, so
---- it is answered once here.
-local function UnitLabel(unit)
-    return unit == "unitframe" and "CONDITION_HOVER" or "CONDITION_UNITS";
 end
 
 local function EvaluateIssues(action, category, notCategory, arg, collected)
@@ -2221,30 +2191,6 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
         end
     end
 
-    if (Looking() and (not category or category == "hover") and notCategory ~= "hover") then
-        if (binding.unitframe ~= nil) then
-            if (binding.unitframe and (UnitFrameReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
-                Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
-            end
-        end
-    end
-
-    if (Looking() and (not category or category == "reactions") and notCategory ~= "reactions") then
-        if (binding.unitframe) then
-            if (UnitFrameReactionMask(binding) == 0) then
-                Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
-            end
-        end
-    end
-
-    if (Looking() and (not category or category == "frameTypes") and notCategory ~= "frameTypes") then
-        if (binding.unitframe) then
-            if (conditions.frameTypes == 0) then
-                Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
-            end
-        end
-    end
-
     -- 한 유닛에 걸린 조건들의 **교집합이 비면** 그 유닛이 놓일 수 있는 상태가 없다는 뜻이다.
     -- 개체창 조건과 `"@"`와 명시 유닛 조건이 전부 같은 축에 접혀 있으므로(`BuildUnitStates`),
     -- 조합을 손으로 나열하지 않고 마스크가 0인지만 보면 된다.
@@ -2300,28 +2246,24 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     end
 
     if (Looking() and binding.unitStates and notCategory ~= "units"
-            and (not category or category == "units" or category == "hover"
-                or category == "unit")) then
+            and (not category or category == "units" or category == "unit")) then
         for unit, mask in pairs(binding.unitStates) do
             if (mask == 0 and not askedAboutNothing) then
                 local mine;
                 if (target ~= nil) then
                     -- 유닛 하나를 짚어 물었다(서브메뉴).
                     mine = target == unit;
-                elseif (category == "hover") then
-                    mine = unit == "unitframe" and contributed(unit);
                 elseif (category == "unit") then
                     -- 대상 메뉴. `"@"`가 가리키는 유닛의 0이 곧 이 메뉴의 문제다.
                     mine = contributed(unit);
-                elseif (category == "units") then
-                    mine = unit ~= "unitframe";
                 else
-                    -- 액션 전체. 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는다.
+                    -- `Units` 묶음이거나 액션 전체. 유닛 조건은 전부 그 묶음에서 고치고,
+                    -- 액션 전체는 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는다.
                     mine = true;
                 end
 
                 if (mine) then
-                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, UnitLabel(unit));
+                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
                     if (not collected) then
                         break;
                     end
@@ -2334,25 +2276,20 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- 역할과 달리 **유닛마다** 서므로, 짚어 물었으면 그 유닛만 답한다. 안 그러면 한 유닛의
     -- 빈 묶음으로 서브메뉴가 전부 빨개져서 어느 것을 고쳐야 하는지가 화면에서 사라진다.
     if (Looking() and binding.unitGroups and notCategory ~= "units"
-            and (not category or category == "units" or category == "hover"
-                or category == "unit")) then
+            and (not category or category == "units" or category == "unit")) then
         for unit, mask in pairs(binding.unitGroups) do
             local mine;
             if (askedAboutNothing) then
                 mine = false;
             elseif (target ~= nil) then
                 mine = target == unit;
-            elseif (category == "hover") then
-                mine = unit == "unitframe";
-            elseif (category == "units") then
-                mine = unit ~= "unitframe";
             elseif (category == "unit") then
                 mine = contributed(unit);
             else
                 mine = true;
             end
             if (mask == 0 and mine) then
-                Report(Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, UnitLabel(unit));
+                Report(Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, "CONDITION_UNITS");
                 if (not collected) then
                     break;
                 end
@@ -2360,11 +2297,18 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
         end
     end
 
-    -- 역할을 하나도 안 고른 것. 유닛 축의 0과 같은 뜻인데 컬럼이 달라서 위 순회가 못 본다.
-    -- **개체창 묶음에서만 칠한다** - 이 축은 거기서만 걸 수 있다.
-    if (Looking() and binding.unitRole == 0 and notCategory ~= "units"
-            and (not category or category == "hover")) then
-        Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_HOVER");
+    -- 역할과 프레임 종류를 하나도 안 고른 것. 유닛 축의 0과 같은 뜻인데 컬럼이 달라서 위
+    -- 순회가 못 본다. **둘 다 `unitframe` 줄에서만 걸 수 있으므로** 짚어 물었을 때는 그 줄만
+    -- 답한다.
+    if (Looking() and notCategory ~= "units"
+            and (not category or category == "units")
+            and (target == nil or target == "unitframe")) then
+        if (binding.unitRole == 0) then
+            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
+        end
+        if (binding.unitFrameTypes == 0) then
+            Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_UNITS");
+        end
     end
 
     -- **A unit that needs a group, set against being alone.** The four role aliases are empty while
@@ -2407,7 +2351,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     --
     -- A zero mask is not this; the branch further up already reported it.
     if (Looking() and binding.unitRole and binding.unitRole ~= 0 and conditions.groups
-            and (not category or category == "groups" or category == "hover")
+            and (not category or category == "groups" or category == "units")
             and notCategory ~= "groups" and notCategory ~= "units"
             and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0
             and band(binding.unitRole, Constants.ROLE_NONE) == 0) then

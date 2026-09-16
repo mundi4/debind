@@ -195,8 +195,8 @@ return function(DebindPrivate, shim)
     function M.characterLayer()
         return {
             --- **Hover, three ways.** What makes a binding a hover binding is the condition
-            --- `units.unitframe`, not the target -- `DeriveUnitFrameFields` reads that one key and
-            --- nothing else -- so each of these carries one.
+            --- `units.unitframe`, not the target -- the click path reads that one key and nothing
+            --- else -- so each of these carries one.
             ---
             --- A keyboard key with a hover condition still holds the key: click-casting needs a
             --- mouse button to arrive on.
@@ -206,8 +206,10 @@ return function(DebindPrivate, shim)
             --- off its unit.
             action({ type = Constants.SPELL, value = 774, key = "ALT-F2", unit = "unitframe",
                 conditions = {
-                    frameTypes = Constants.FRAMETYPE_GROUP,
-                    units = { unitframe = { reaction = Constants.REACTION_ALL } },
+                    units = { unitframe = {
+                        reaction = Constants.REACTION_ALL,
+                        frameTypes = Constants.FRAMETYPE_GROUP,
+                    } },
                 } }),
             --- On a mouse button, the same condition makes the record click-cast instead: it
             --- arrives through the unit frame and holds no key.

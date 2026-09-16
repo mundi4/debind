@@ -30,7 +30,6 @@ local SpecConditionHasID             = ActionMenu.SpecConditionHasID;
 local ToggleSpecConditionID          = ActionMenu.ToggleSpecConditionID;
 local ClassSpecsAllPicked            = ActionMenu.ClassSpecsAllPicked;
 local ToggleClassSpecs               = ActionMenu.ToggleClassSpecs;
-local UnitConditionModeOf            = ActionMenu.UnitConditionModeOf;
 local UnitConditionOnFor             = ActionMenu.UnitConditionOnFor;
 local UnitConditionIsExists          = ActionMenu.UnitConditionIsExists;
 local UnitConditionIsOn              = ActionMenu.UnitConditionIsOn;
@@ -45,13 +44,13 @@ local ToggleUnitConditionGroup       = ActionMenu.ToggleUnitConditionGroup;
 local UnitConditionRoleChecked       = ActionMenu.UnitConditionRoleChecked;
 local ToggleUnitConditionRole        = ActionMenu.ToggleUnitConditionRole;
 local UnitConditionRemembersAxis     = ActionMenu.UnitConditionRemembersAxis;
-local UnitFrameTypeChecked           = ActionMenu.UnitFrameTypeChecked;
-local unitFrameConditionIsOn         = ActionMenu.unitFrameConditionIsOn;
+local UnitConditionFrameTypeChecked  = ActionMenu.UnitConditionFrameTypeChecked;
+local ToggleUnitConditionFrameType   = ActionMenu.ToggleUnitConditionFrameType;
 local REACTION_ITEMS                 = ActionMenu.REACTION_ITEMS;
 local LIFE_ITEMS                     = ActionMenu.LIFE_ITEMS;
 local UNITGROUP_ITEMS                = ActionMenu.UNITGROUP_ITEMS;
 local ROLE_ITEMS                     = ActionMenu.ROLE_ITEMS;
-local FRAMETYPE_DEFAULT              = ActionMenu.FRAMETYPE_DEFAULT;
+local FRAMETYPE_ITEMS                = ActionMenu.FRAMETYPE_ITEMS;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local range                          = ActionMenu.range;
 local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
@@ -72,7 +71,13 @@ local function FirstUnitIssue(ctx, unit)
     end
 end
 
---- The three axes one unit condition can carry. **This order is the order on screen.**
+--- The axes one unit condition can carry. **This order is the order on screen.**
+---
+--- **`onlyPointedFrame` is the two that only a unit frame can answer.** A frame has a type and the
+--- unit on a group frame has a role; neither can be read off a unit token, so the answer for a unit
+--- that is not the one being pointed at is "yes" and the rows would say nothing
+--- (`devdocs/which-action-a-key-runs.md` §0). Only `"unitframe"` and the unit this action aims at
+--- can be that unit.
 local UNIT_CONDITION_AXES = {
     {
         axis = "reaction",
@@ -130,6 +135,48 @@ local UNIT_CONDITION_AXES = {
             end
         end,
     },
+    {
+        axis = "frameTypes",
+        title = "CONDITION_FRAMETYPES",
+        onlyPointedFrame = true,
+        append = function(description, ctx, unit, isEnabled)
+            for _, item in ipairs(FRAMETYPE_ITEMS) do
+                local typeDescription = CreateCheckbox(description, ctx, item.text,
+                    function()
+                        return UnitConditionFrameTypeChecked(ctx, unit, item.value);
+                    end,
+                    function()
+                        return ToggleUnitConditionFrameType(ctx, unit, item.value);
+                    end
+                );
+                typeDescription:SetEnabled(isEnabled);
+                SetInstructionTooltip(typeDescription, LLL["CONDITION_FRAMETYPES_DESC"]);
+
+                --- **역할은 파티/공대 개체창 아래에 산다.** 맵의 키가 그룹 유닛 토큰이라 그
+                --- 종류의 개체창만 답을 낼 수 있고(`Constants.lua`), 자리가 그것을 말한다.
+                --- 그 줄을 안 켰으면 물을 것이 없으므로 하위 항목도 같이 잠근다.
+                if (item.value == Constants.FRAMETYPE_GROUP) then
+                    MenuKit.CreateTitle(typeDescription, LLL["CONDITION_ROLE"]);
+                    for _, role in ipairs(ROLE_ITEMS) do
+                        local roleDescription = CreateCheckbox(typeDescription, ctx, role.text,
+                            function()
+                                return UnitConditionRoleChecked(ctx, unit, role.value);
+                            end,
+                            function()
+                                return ToggleUnitConditionRole(ctx, unit, role.value);
+                            end
+                        );
+                        SetInstructionTooltip(roleDescription, LLL["CONDITION_ROLE_DESC"]);
+                        roleDescription:SetEnabled(function()
+                            return isEnabled()
+                                and UnitConditionFrameTypeChecked(ctx, unit, Constants.FRAMETYPE_GROUP);
+                        end);
+                    end
+                    ActionMenus:MarkNew("ROLE", typeDescription);
+                end
+            end
+        end,
+    },
 };
 
 local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
@@ -169,7 +216,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     );
 
     -- The three above are exclusive; the axis blocks below are alive only while `exists` is
-    -- picked. Same arrangement the Unit Frame menu gets from `unitFrameConditionIsOn`.
+    -- picked, which is what `axisIsEnabled` answers.
     CreateRadio(optionsDescription, ctx,LLL["CONDITION_UNIT_EXISTS"],
         function()
             return UnitConditionIsExists(ctx, unit);
@@ -206,8 +253,10 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     --- `"@"` has no row there. It is whatever this action aims at, so nothing is taken off it.
     local unitInfo = DebindUI.UNIT_INFO[unit];
     local axes = unitInfo and unitInfo.conditionAxes;
+    local pointedFrame = unit == "unitframe" or unit == "@";
     for _, block in ipairs(UNIT_CONDITION_AXES) do
-        if (axes == nil or axes[block.axis] ~= false) then
+        if ((axes == nil or axes[block.axis] ~= false)
+                and (pointedFrame or not block.onlyPointedFrame)) then
             optionsDescription:CreateDivider();
             MenuKit.CreateTitle(optionsDescription, LLL[block.title]);
             block.append(optionsDescription, ctx, unit, axisIsEnabled);
@@ -218,189 +267,15 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
 end
 
 
---- 이 메뉴가 만지는 것은 `units["unitframe"]`다 - **가리킨 프레임의 유닛도 유닛이다**
---- (`Profile.lua`의 `dbver <= 4`). 옛 `hover`/`reactions` 두 필드는 없어졌고, 그 이름들은
---- 이제 파생값이라(`Misc.DeriveUnitFrameFields`) 이슈 category로는 그대로 쓴다.
----
---- `frameTypes`와 `ignoreHoverUnit`은 여전히 액션 루트에 있다. 그건 유닛이 아니라
---- **프레임**을 말하는 값이라 접을 축이 아니었다.
-local function BuildUnitFrameMenu(kit, ctx)
-    local description = kit.description;
-
-    --- 축 위젯들이 잠기는 조건. 설명자에 함수로 넘어가므로 인자를 못 받고, ctx는 여기서
-    --- 묶는다.
-    local function unitFrameIsOn()
-        return unitFrameConditionIsOn(ctx);
-    end
-
-    -- 유닛 서브메뉴의 라디오 셋과 같은 세 상태다. 글자만 이 자리의 말로 쓴다 -
-    -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
-    CreateRadio(description, ctx,rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
-        function()
-            return UnitConditionIsOff(ctx, "unitframe");
-        end,
-        function()
-            return SetUnitConditionMode(ctx, "unitframe", "disabled");
-        end
-    );
-
-    CreateRadio(description, ctx,LLL["CONDITION_HOVER_YES"],
-        function()
-            return UnitConditionIsExists(ctx, "unitframe");
-        end,
-        function()
-            return SetUnitConditionMode(ctx, "unitframe", "exists");
-        end
-    );
-
-    CreateRadio(description, ctx,LLL["CONDITION_HOVER_NO"],
-        function()
-            return UnitConditionIsAbsent(ctx, "unitframe");
-        end,
-        function()
-            return SetUnitConditionMode(ctx, "unitframe", "absent");
-        end
-    );
-
-
-    description:CreateDivider();
-    MenuKit.CreateTitle(description, LLL["CONDITION_REACTIONS"]);
-
-    for _, item in ipairs(REACTION_ITEMS) do
-        local reactionDescription = CreateCheckbox(description, ctx,item.text,
-            function()
-                return UnitConditionReactionChecked(ctx, "unitframe", item.value);
-            end,
-            function()
-                return ToggleUnitConditionReaction(ctx, "unitframe", item.value);
-            end
-        );
-        reactionDescription:SetEnabled(unitFrameIsOn);
-    end
-
-    description:CreateDivider();
-    MenuKit.CreateTitle(description, LLL["CONDITION_LIFE"]);
-
-    for _, item in ipairs(LIFE_ITEMS) do
-        local lifeDescription = CreateRadio(description, ctx,item.text,
-            function()
-                return UnitConditionDeadIs(ctx, "unitframe", item.value);
-            end,
-            function()
-                return SetUnitConditionAxis(ctx, "unitframe", "dead", item.value);
-            end
-        );
-        lifeDescription:SetEnabled(unitFrameIsOn);
-    end
-
-    description:CreateDivider();
-    MenuKit.CreateTitle(description, LLL["CONDITION_UNIT_GROUP"]);
-
-    for _, item in ipairs(UNITGROUP_ITEMS) do
-        local groupDescription = CreateCheckbox(description, ctx,item.text,
-            function()
-                return UnitConditionGroupChecked(ctx, "unitframe", item.value);
-            end,
-            function()
-                return ToggleUnitConditionGroup(ctx, "unitframe", item.value);
-            end
-        );
-        groupDescription:SetEnabled(unitFrameIsOn);
-    end
-
-    description:CreateDivider();
-    MenuKit.CreateTitle(description, LLL["CONDITION_FRAMETYPES"]);
-
-    kit:Checkboxes("frameTypes", {
-            { text = LLL["FRAMETYPE_PLAYER"],  value = Constants["FRAMETYPE_PLAYER"] },
-            { text = LLL["FRAMETYPE_PET"],     value = Constants["FRAMETYPE_PET"] },
-            { text = LLL["FRAMETYPE_GROUP"],   value = Constants["FRAMETYPE_GROUP"] },
-            { text = LLL["FRAMETYPE_TARGET"],  value = Constants["FRAMETYPE_TARGET"] },
-            { text = LLL["FRAMETYPE_BOSS"],    value = Constants["FRAMETYPE_BOSS"] },
-            { text = LLL["FRAMETYPE_ARENA"],   value = Constants["FRAMETYPE_ARENA"] },
-            { text = LLL["FRAMETYPE_UNKNOWN"], value = Constants["FRAMETYPE_UNKNOWN"] },
-        }, function(elementDescription, item)
-            elementDescription:SetEnabled(unitFrameIsOn);
-
-            --- **역할은 파티/공대 개체창 아래에 산다.** 맵의 키가 그룹 유닛 토큰이라 그
-            --- 종류의 개체창만 답을 낼 수 있고(`Constants.lua`), 자리가 그것을 말한다.
-            --- 그 줄을 안 켰으면 물을 것이 없으므로 하위 항목도 같이 잠근다.
-            if (item.value == Constants.FRAMETYPE_GROUP) then
-                MenuKit.CreateTitle(elementDescription, LLL["CONDITION_ROLE"]);
-                for _, role in ipairs(ROLE_ITEMS) do
-                    local roleDescription = CreateCheckbox(elementDescription, ctx, role.text,
-                        function()
-                            return UnitConditionRoleChecked(ctx, "unitframe", role.value);
-                        end,
-                        function()
-                            return ToggleUnitConditionRole(ctx, "unitframe", role.value);
-                        end
-                    );
-                    SetInstructionTooltip(roleDescription, LLL["CONDITION_ROLE_DESC"]);
-                    roleDescription:SetEnabled(function()
-                        return unitFrameConditionIsOn(ctx) and UnitFrameTypeChecked(ctx, Constants.FRAMETYPE_GROUP);
-                    end);
-                end
-                ActionMenus:MarkNew("ROLE", elementDescription);
-            end
-        end,
-        FRAMETYPE_DEFAULT
-    );
-
-    description:CreateDivider();
-    local ignoreHoverUnit = CreateCheckbox(description, ctx,LLL["IGNORE_HOVER_UNIT"],
-        kit.handlers.equals, kit.handlers.set,
-        { ctx = ctx, key = "ignoreHoverUnit", value = MenuKit.TOGGLE });
-    SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
-    --- **One box, two jobs, and the radios above decide which** (2026-09-12, owner). With the
-    --- condition on it keeps the action off the frame's unit; with no condition at all it keeps the
-    --- action out of Hover Cast and Mouseover Cast (`Misc.lua`'s `TwinUnitFor`).
-    ---
-    --- **[안 올렸을 때] is one that locks it.** That action does not run over a frame, so there
-    --- is no frame's unit to refuse -- and it is not left out of anything either, since no twin is
-    --- made for it in the first place.
-    ---
-    --- **A picked unit is the other.** The frame's unit only fills in where no unit was picked, and
-    --- Hover Cast never moves one that was (`Misc.lua`'s `ActionHasPickedUnit`), so the box has
-    --- nothing to take back.
-    ignoreHoverUnit:SetEnabled(function()
-        return AllActions(ctx, function(action)
-            return UnitConditionModeOf(action, "unitframe") ~= "absent"
-                and not DebindPrivate.ActionHasPickedUnit(action);
-        end);
-    end);
-end
-
-ActionMenus:Define("HOVER", {
-    label = "CONDITION_HOVER",
-    key = "hover",
-    isActive = function(ctx)
-        return UnitConditionIsOn(ctx, "unitframe");
-    end,
-    -- `key` names the issue category; what the menu edits is these three.
-    valueOf = function(action)
-        local units = UnitConditionsOf(action);
-        local frameTypes = TableFor(action, "frameTypes");
-        local ignoreHoverUnit = TableFor(action, "ignoreHoverUnit");
-        return {
-            unit = units and units.unitframe,
-            frameTypes = frameTypes and frameTypes.frameTypes,
-            ignoreHoverUnit = ignoreHoverUnit and ignoreHoverUnit.ignoreHoverUnit,
-        };
-    end,
-    build = BuildUnitFrameMenu,
-});
-
 --- Whether this menu has a row for `unit`, which is also whether it counts it.
---- `"unitframe"` is edited by the Unit Frame menu and `"player"` by the life menu under `Group`. **Counting
---- one of those here changes a condition this menu does not show**: while `"player"` was missing
---- from this test, [Disable All] switched the reader's own life condition off, and nothing here could
---- bring it back.
+--- `"player"` is edited by the life menu under `Group`. **Counting it here changes a condition this
+--- menu does not show**: while it was missing from this test, [Disable All] switched the reader's
+--- own life condition off, and nothing here could bring it back.
 ---
 --- **Outside the node.** Inside it, the `isActive` closure would capture a name that is not there
 --- yet and read nil at run time.
 local function isListedUnit(unit)
-    return unit ~= "unitframe" and unit ~= "player";
+    return unit ~= "player";
 end
 
 --- The units one action has a condition on that this menu lists.
@@ -447,10 +322,6 @@ local function BuildUnitConditionMenu(kit, ctx)
     CreateUnitConditionSubmenu(description, ctx, "RESOLVED_TARGET", "@");
 
     for _, unit in ipairs(SORTED_UNIT_LIST) do
-        -- `"unitframe"` is out. `Hovering Over Unit Frame` edits the very same key now, and it is
-        -- the one that stays because `frameTypes` and `ignoreHoverUnit` only fit there --
-        -- those describe the frame, not the unit on it. Two rows onto one key would be two
-        -- ways to say one thing again, which is what the fold just removed.
         -- **그리는 줄과 세는 유닛이 같은 목록이어야 한다.** `isListedUnit`이 그 목록이고,
         -- 갈리면 이 메뉴가 안 그리는 조건으로 파래지거나 빨개진다. `"none"`만 여기 더 있다 -
         -- 그건 유닛이 아니라 대상 없음이라 조건이 붙을 자리가 아예 없다.

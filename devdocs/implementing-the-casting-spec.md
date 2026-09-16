@@ -1,6 +1,6 @@
 # `which-action-a-key-runs.md`를 구현하기 (2026-09-16 시작)
 
-> 상태: **1단계가 들어갔다.** 다음은 2단계다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
+> 상태: **2단계까지 들어갔다.** 다음은 3단계다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
 >
 > 규칙은 `which-action-a-key-runs.md`가 들고, 여기는 순서와 각 단계가 건드리는 자리만 든다. 둘이 갈리면 스펙이
 > 맞다. 결정의 근거 중 문서에 없는 것은 `.zzz/hover-twin-wrong-2026-09-15.md`("그 당시의 근거")와 `0-DIARY.md`의
@@ -50,20 +50,26 @@
 된다.
 
 - `UnitConditionForBinding`의 값 표에 `role`, `frameTypes`. `BuildUnitStates`가 역할을 `units.unitframe`(과
-  `"@"`가 `unitframe`으로 풀릴 때)에서 읽는다. 잴 수 없는 유닛에 실린 역할과 프레임 종류는 참.
-- 없어지는 것: 액션 루트(또는 `conditions`)의 `frameTypes`, 바인딩의 `hover` 필드와 `DeriveHoverFields`,
-  `CompareActionOrder`의 hover 단계와 `GetDecidingOrderAxis`의 `"HOVER"`(`Ordering.lua` 머리의 "바꾸지 말 것"은
-  이 결정으로 뒤집힌다), 이슈 검사의 `"hover"`와 `"frameTypes"` 갈래(`"units"` 갈래가 본다),
-  `HoverConditionFromLegacy`.
-- `BuildUnitStates`의 마우스 버튼 암묵 [가리키지 않음]은 키의 규칙이라 남는다. 이름만 `unitframe`.
-- `dbver`: `units.hover`의 역할과 `conditions.frameTypes` → `units.unitframe`. 스펙 §8의 표 중 조건 줄들. hover
-  단계가 빠지므로 키 묶음마다 `seq`를 **옛 비교자**(hover 단계가 든 것) 순서대로 다시 매긴다. 옛 비교자는
-  마이그레이션 안에 한 벌 둔다.
-- 메뉴: Unit Frame 노드(`BuildHoverMenu`)가 없어지고, 유닛 조건 메뉴가 `unitframe`, `mouseover`, `hover`를
-  보통 유닛으로 그린다. 역할과 프레임 종류는 `unitframe`과 Resolved Unit에서만 보이고, 툴팁이 "Unit Frames 모드일
-  때만 검사되고 그 밖에서는 무시된다"고 말한다.
-- 테스트: `ordering_spec`(hover 단계 없음), `normalize_spec`(옮기기 줄마다 하나), `eval_spec`(역할과 프레임 종류가
-  `unitframe` 조건으로), `display_spec`.
+  `"@"`가 `unitframe`으로 풀릴 때)에서 읽고, 프레임 종류도 같은 자리에서 `binding.unitFrameTypes`로 접는다.
+  잴 수 없는 유닛에 실린 역할과 프레임 종류는 참.
+- 없어진 것: 액션 루트(또는 `conditions`)의 `frameTypes`, 바인딩의 `unitframe` 필드와 `DeriveUnitFrameFields`,
+  `CompareActionOrder`의 개체창 단계와 `GetDecidingOrderAxis`의 `"UNITFRAME"`, 이슈 검사의 `"hover"`·
+  `"reactions"`·`"frameTypes"` 갈래(`"units"` 갈래가 본다), 목록 행의 개체창 마크.
+- 파생 필드 대신 `Misc.UnitFrameConditionOf`가 그 조건을 읽는다. 남은 독자는 유닛이 아니라 **키**를 묻는
+  자리들이다: 클릭 경로(`isClickCast`/`holdsKey`), 마우스 버튼 유효성, 대상이 빈 액션의 채워넣기.
+- `UnitFrameConditionFromLegacy`는 남겼다. `dbver <= 4`가 3.x 이전의 `hover`/`reactions` 쌍을 접는 규칙이고,
+  없어진 조건 축과 상관이 없다.
+- `BuildUnitStates`의 마우스 버튼 암묵 [가리키지 않음]은 키의 규칙이라 남는다.
+- `dbver <= 6`: `conditions.frameTypes`(와 액션 루트의 것) → `units.unitframe.frameTypes`. 개체창 조건이
+  없는 액션은 [사용 안 함]인 줄로 들어가 마스크를 기억한다. 개체창 단계가 빠지므로 키 묶음마다 `seq`를
+  **옛 비교자** 순서대로 다시 매기고, 그 비교자는 마이그레이션 안에 한 벌 있다.
+- 메뉴: Unit Frame 노드가 없어지고 `unitframe`이 유닛 조건 메뉴의 보통 줄이 됐다. 역할과 프레임 종류는
+  `unitframe`과 Resolved Unit에서만 보인다. `hover`는 유닛으로서 3단계에서 생기므로 그때 줄이 는다.
+  "Don't use the action on the unit you are pointing at"은 Other Options의 조합키 체크박스 둘 옆으로
+  옮겼다 - 4단계가 셋을 같이 없앤다.
+- 테스트: `ordering_spec`(개체창 단계 없음), `solver_spec`(프레임 종류 무차별 대조가 새 저장 모양으로),
+  `normalize_spec`·`hovertwin_spec`·`keymap_spec`(마스크가 조건 안에 산다), `issue_spec`·`role_spec`(갈래가
+  `units`로), `display_spec`(옛 철자가 유닛 줄로 그려진다).
 
 ## 3. Casting 값과 쌍둥이 규칙
 

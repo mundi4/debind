@@ -206,13 +206,36 @@ do
 		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
 	end
 
+	--- The two axes only a unit frame can answer, each on its own labelled line under the unit's.
+	---
+	--- **Not joined onto the unit's line like the others.** Both are lists of names long enough that
+	--- a joined line wraps somewhere arbitrary.
+	local function AddUnitFrameAxes(tooltip, value)
+		if (type(value) ~= "table") then
+			return;
+		end
+		if (value.frameTypes ~= nil) then
+			local names = FlagNames(value.frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_",
+				Constants.FRAMETYPE_ALL);
+			if (names) then
+				addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES", names), nil, true);
+			end
+		end
+		if (value.role ~= nil) then
+			local names = FlagNames(value.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL);
+			if (names) then
+				addValueLine(tooltip, LabelledValue("CONDITION_ROLE", names), nil, true);
+			end
+		end
+	end
+
 	--- What one unit condition narrows, joined onto the unit's own line: "Focus - Enemy, Alive".
 	--- Nil where it narrows nothing, and the caller writes "when the unit exists" instead.
 	---
 	--- **No label on either part, and no line of its own.** Anything after the unit's name is a
 	--- restriction on that unit and nothing else can be there, so the position says what a label
 	--- would; on separate lines they stood level with the units themselves and stopped saying whose
-	--- they were.
+	--- they were. The two axes above are the exception, and say why.
 	---
 	--- **The existence is not written where an axis is.** An axis can only be read off a unit that
 	--- is there, so a reaction or a life state already carries it.
@@ -403,72 +426,13 @@ do
 			addValueLine(tooltip, unitStr, error);
 		end
 
-		-- 개체창 조건은 `units["unitframe"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
-		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
-		-- 저장에는 끈 값이 남아 있다. 여기는 **걸린 조건**을 그리는 자리라 그걸 접고 본다.
-		local hoverCondition = DebindPrivate.UnitConditionForBinding(
-			DebindPrivate.StoredUnitFrameCondition(action));
-		if (hoverCondition ~= nil) then
-			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
-			local error = hasIssues and GetIssue("hover");
-			-- **Under the label, ahead of the values, and the only red line in the block.** What is
-			-- wrong here is the condition itself rather than any one value: the reader picked those
-			-- and there is nothing wrong with them. Painting them too left two red lines at one
-			-- margin reading as one sentence, with no way to tell the fault from the setting. The
-			-- reaction and frame type lines keep their own colour, because those carry issues of
-			-- their own.
-			if (error) then
-				addIssueLine(tooltip, error);
-			end
-			if (hoverCondition) then
-				local frameTypes = conditions.frameTypes or Constants.FRAMETYPE_ALL;
-				-- **The block cannot end up as a bare label.** Every line under it narrows the
-				-- condition, and an unnarrowed one has none to draw, so the plain "over a unit
-				-- frame" goes up instead. The negative branch below has said that much all along.
-				local wroteValue = false;
-
-				-- **The two axes a unit carries anywhere go on one unlabelled line**, the same
-				-- shape the `Units` block writes after a unit's name. The two below stay labelled:
-				-- they belong to the frame rather than to the unit on it, and their values are
-				-- long enough that a joined line would wrap somewhere arbitrary.
-				local summary = UnitConditionSummary(hoverCondition);
-				if (summary) then
-					wroteValue = true;
-					addValueLine(tooltip, summary,
-						hasIssues and GetIssue("reactions") and true or false, true);
-				end
-
-				local frameTypeNames = FlagNames(frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_",
-					Constants.FRAMETYPE_ALL);
-				if (frameTypeNames) then
-					wroteValue = true;
-					addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES", frameTypeNames),
-						hasIssues and GetIssue("frameTypes") and true or false, true);
-				end
-
-				if (hoverCondition.role ~= nil and hoverCondition.role ~= Constants.ROLE_ALL) then
-					wroteValue = true;
-					addValueLine(tooltip, LabelledValue("CONDITION_ROLE",
-						FlagNames(hoverCondition.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL)),
-						nil, true);
-				end
-
-				-- **Shown with a target set as well.** The box was read here under
-				-- `action.unit == nil`, on the grounds that `FillBinding` only fills the unit
-				-- where none is set. It refuses the account-wide twin too (`Misc.lua`'s
-				-- `TwinUnitFor`), and that one stands on an action that has a target, so the
-				-- line was missing exactly where the box was the only thing stopping it.
-				if (action.ignoreHoverUnit) then
-					wroteValue = true;
-					addValueLine(tooltip, LLL["LINE_TOOLTIP_IGNORE_HOVER_UNIT"]);
-				end
-
-				if (not wroteValue) then
-					addValueLine(tooltip, LLL["CONDITION_HOVER_YES"]);
-				end
-			else
-				addValueLine(tooltip, LLL["CONDITION_HOVER_NO"]);
-			end
+		-- **Shown with a target set as well.** The box was read here under `action.unit == nil`, on
+		-- the grounds that `FillBinding` only fills the unit where none is set. It refuses the
+		-- account-wide twin too (`Misc.lua`'s `TwinUnitFor`), and that one stands on an action that
+		-- has a target, so the line was missing exactly where the box was the only thing stopping it.
+		if (action.ignoreHoverUnit) then
+			addLabelLine(tooltip, LLL["IGNORE_HOVER_UNIT"]);
+			addValueLine(tooltip, LLL["LINE_TOOLTIP_IGNORE_HOVER_UNIT"]);
 		end
 
 		if (conditions.units) then
@@ -485,21 +449,26 @@ do
 				else
 					addValueLine(tooltip, LLL["RESOLVED_TARGET"] .. " - "
 						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]), error);
+					AddUnitFrameAxes(tooltip, resolved);
 				end
 			end
 
 			for checkedUnit, stored in pairs(conditions.units) do
-				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"unitframe"`은 위 개체창 묶음이 그렸다.
+				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
-				-- `"unitframe"` is drawn by the block above and `"@"` just before this loop. What is left
-				-- is the units the reader picked by name. `"player"` joins the skipped ones: its own
-				-- menu sits beside `Group` and asks about the reader rather than about a unit they
-				-- picked, so its line goes beside that one too. Skipped whole rather than only where
-				-- life is set, so a hand-edited axis there is drawn once rather than in both places.
-				-- **옛 철자도 여기서 건너뛴다.** 이 순회는 원본 액션의 표를 도는데, 사다리가 아직
-				-- 안 닿은 프로필은 그 키가 `hover`다. 위 묶음이 이미 그렸고(`StoredUnitFrameCondition`),
-				-- 게다가 `UNIT_INFO`에 그 이름이 없어서 아래 줄이 nil을 인덱싱하다 터진다.
-				if (value ~= nil and checkedUnit ~= "unitframe" and checkedUnit ~= "hover"
+				-- **옛 철자를 새 이름으로 바꿔서 그린다.** 이 순회는 원본 액션의 표를 도는데,
+				-- 사다리가 아직 안 닿은 프로필은 가리킨 개체창의 유닛이 `hover`다. 그대로 두면
+				-- `UNIT_INFO`에 그 이름이 없어서 아래 줄이 nil을 인덱싱하다 터지고, 건너뛰면
+				-- 걸어둔 조건이 화면에서 통째로 사라진다. 새 이름이 이미 있으면 그쪽이 이긴다 -
+				-- `StoredUnitFrameCondition`이 같은 순서로 읽는다.
+				if (checkedUnit == "hover" and conditions.units.unitframe == nil) then
+					checkedUnit = "unitframe";
+				end
+				-- `"@"` is drawn just before this loop. `"player"` is skipped: its own menu sits
+				-- beside `Group` and asks about the reader rather than about a unit they picked, so
+				-- its line goes beside that one too. Skipped whole rather than only where life is
+				-- set, so a hand-edited axis there is drawn once rather than in both places.
+				if (value ~= nil and checkedUnit ~= "hover"
 						and checkedUnit ~= "@" and checkedUnit ~= "player") then
 					if (first) then
 						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
@@ -523,6 +492,7 @@ do
 						local summary = UnitConditionSummary(value);
 						addValueLine(tooltip, unitStr .. " - "
 							.. (summary or LLL["CONDITION_UNIT_EXISTS"]), error);
+						AddUnitFrameAxes(tooltip, value);
 					end
 				end
 			end
@@ -773,7 +743,7 @@ do
 	local ISSUE_ORDER = {};
 	for i, label in ipairs({
 		"TYPE_MACRO", "KEY",
-		"CONDITION_HOVER", "CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC",
+		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC",
 		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
 		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_CUSTOM_STATES",
 	}) do

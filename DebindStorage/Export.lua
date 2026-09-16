@@ -152,7 +152,6 @@ local ACTION_FIELDS      = {
 --- named state the day it lands.
 local CONDITION_TYPES    = {
     -- Bit masks.
-    frameTypes = "number",
     groups = "number",
     forms = "number",
     bonusbars = "number",

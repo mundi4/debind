@@ -269,8 +269,8 @@ return function(DebindPrivate)
         Profile({ action });
         check(DebindPrivate.GetBindingIssue(action) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
             "issue: " .. tostring(DebindPrivate.GetBindingIssue(action)));
-        check(DebindPrivate.GetBindingIssue(action, "hover") ~= nil,
-            "the hover group was not marked");
+        check(DebindPrivate.GetBindingIssue(action, "units") ~= nil,
+            "the unit condition group was not marked");
     end);
 
     --- **전부 켠 것은 조건이 아니다.** 메뉴가 그때 nil을 쓰지만, 손으로 고친 프로필이나

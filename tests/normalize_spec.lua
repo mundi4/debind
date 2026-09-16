@@ -97,20 +97,19 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- 개체창 조건은 `units["unitframe"]`에 산다
     --
-    -- 저장에는 그 키 하나뿐이고, `unitframe`은 거기서 파생된 값이다 (`Misc.DeriveUnitFrameFields`).
-    -- 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이 들어올림 경로를 지나기
-    -- 때문**이고, 여기가 그 두 모양이 같은 답을 낸다는 것을 잠근다.
+    -- 저장에는 그 키 하나뿐이다. 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이
+    -- 들어올림 경로를 지나기 때문**이고, 여기가 그 두 모양이 같은 답을 낸다는 것을 잠근다.
     ---------------------------------------------------------------------------
 
-    test("저장된 호버 조건이 hover로 파생된다", function()
+    test("저장된 호버 조건이 축에 실린다", function()
         local b = spell({ units = { unitframe = { reaction = Constants.REACTION_HELP } } });
-        check(b.unitframe == true, "hover가 안 파생됨");
+        check(b.conditions.units.unitframe ~= nil, "조건이 안 옮겨짐");
         check(b.unitStates["unitframe"] == Constants.UNITSTATE_HELP, "축에 안 실림");
     end);
 
     test("저장된 호버 조건이 false면 부재로 파생된다", function()
         local b = spell({ units = { unitframe = false } });
-        check(b.unitframe == false, "false가 안 파생됨 - nil과 다른 답이다");
+        check(b.conditions.units.unitframe == false, "false가 안 남음 - nil과 다른 답이다");
         check(b.unitStates["unitframe"] == Constants.UNITSTATE_NONE, "부재로 안 좁혀짐");
     end);
 
@@ -128,8 +127,8 @@ return function(DebindPrivate)
     -- 끈 조건은 **기억하되 판정에서 뺀다**
     --
     -- 라디오를 [사용 안 함]이나 [없을 때]로 옮겼다고 골라둔 반응·생사를 지우면, 되돌렸을 때
-    -- 처음부터 다시 골라야 한다. 옵션을 끄는 것이지 지우는 것이 아니다 - `frameTypes`가
-    -- hover를 껐다 켜도 남아 있는 것과 같은 규칙이고, 무시하는 것은 코드가 한다.
+    -- 처음부터 다시 골라야 한다. 옵션을 끄는 것이지 지우는 것이 아니고, 무시하는 것은
+    -- 코드가 한다.
     ---------------------------------------------------------------------------
 
     test("꺼진 조건은 바인딩에 안 나온다", function()
@@ -208,7 +207,6 @@ return function(DebindPrivate)
             ignoreHoverUnit = true,
         });
         -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
-        check(b.unitframe == nil, "hover 조건이 생김");
         check(b.conditions.units == nil or b.conditions.units.unitframe == nil, "호버 조건이 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
         check(b.ignoreHoverUnit == nil, "ignoreHoverUnit이 남음");
@@ -222,7 +220,6 @@ return function(DebindPrivate)
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
-        check(b.unitframe == false, "hover 조건 자체는 남아야 한다");
         -- 안 올렸을 때와 반응은 같이 설 수 없다. 접기가 조건을 `false` 하나로 만든다.
         check(b.conditions.units.unitframe == false, "반응이 조건으로 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
@@ -241,7 +238,8 @@ return function(DebindPrivate)
 
     test("hover 프레임종류를 전부 고르면 nil로 접힌다", function()
         local b = spell({ hover = true, frameTypes = Constants.FRAMETYPE_ALL });
-        check(b.conditions.frameTypes == nil, "전체 비트가 안 접힘");
+        check(b.conditions.units.unitframe.frameTypes == nil, "전체 비트가 안 접힘");
+        check(b.unitFrameTypes == nil, "축이 좁아짐");
     end);
 
     test("일부만 고른 마스크는 그대로 남는다", function()
@@ -251,7 +249,9 @@ return function(DebindPrivate)
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
         check(b.conditions.units.unitframe.reaction == Constants.REACTION_HELP, "반응이 바뀜");
-        check(b.conditions.frameTypes == Constants.FRAMETYPE_PLAYER, "frameTypes가 바뀜");
+        check(b.conditions.units.unitframe.frameTypes == Constants.FRAMETYPE_PLAYER,
+            "frameTypes가 바뀜");
+        check(b.unitFrameTypes == Constants.FRAMETYPE_PLAYER, "축에 안 실림");
     end);
 
     ---------------------------------------------------------------------------
@@ -952,10 +952,11 @@ return function(DebindPrivate)
             check(#list == 2, "길이 " .. #list);
             check(list[1] == normalize(action), "[1]이 원본이 아니다");
             local original, twin = list[1], list[2];
-            check(original.unitframe == nil, "원본 unitframe: " .. tostring(original.unitframe));
+            check(original.conditions.units == nil or original.conditions.units.unitframe == nil,
+                "원본에 개체창 조건이 생겼다");
             check(original.unit == nil, "원본 unit: " .. tostring(original.unit));
             check(twin.unit == "unitframe", "쌍둥이 unit: " .. tostring(twin.unit));
-            check(twin.unitframe == true, "쌍둥이 unitframe: " .. tostring(twin.unitframe));
+            check(twin.conditions.units.unitframe ~= nil, "쌍둥이에 개체창 조건이 없다");
             check(twin.type == original.type and twin.value == original.value and twin.key == original.key,
                 "쌍둥이가 액션의 값을 잃었다");
             -- `"@"`는 겨누는 개체를 가리키는 포인터라, 쌍둥이에서는 hover 개체에게 묻는다.

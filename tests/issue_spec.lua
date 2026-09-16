@@ -179,9 +179,9 @@ return function(DebindPrivate)
         check(GetBindingIssue(hoverTargetConflict()) == NEVER, "이슈가 안 남");
     end);
 
-    test("hover x 대상 모순은 hover 묶음을 칠한다", function()
-        check(GetBindingIssue(hoverTargetConflict(), "hover") == NEVER,
-            "hover 메뉴가 안 빨개진다 - 거기서 고칠 수 있는 문제다");
+    test("hover x 대상 모순은 Units 묶음을 칠한다", function()
+        check(GetBindingIssue(hoverTargetConflict(), "units") == NEVER,
+            "Units 메뉴가 안 빨개진다 - 거기서 고칠 수 있는 문제다");
     end);
 
     test("hover x 대상 모순은 대상 묶음도 칠한다", function()
@@ -192,12 +192,6 @@ return function(DebindPrivate)
     test("hover x 대상 모순은 그 대상의 서브메뉴도 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "units", nil, "@") == NEVER,
             "\"@\" 서브메뉴가 안 빨개진다");
-    end);
-
-    -- `Units` 묶음은 `"hover"`를 줄로 안 갖는다. 안 보여주는 조건으로 칠하면 어디를 고쳐야
-    -- 하는지가 오히려 안 보인다.
-    test("hover x 대상 모순으로 Units 묶음은 안 칠한다", function()
-        check(GetBindingIssue(hoverTargetConflict(), "units") == nil, "오탐");
     end);
 
     --- `"@"`와 같은 유닛의 명시 조건이 어긋난다. 대상 메뉴와 Units 메뉴 둘 다 고칠 수 있다.
@@ -211,14 +205,14 @@ return function(DebindPrivate)
         });
     end
 
-    -- **안 거든 묶음은 안 칠한다.** hover에서 반응을 하나도 안 고른 것은 hover 메뉴의 문제이고
-    -- 제 이름(`HOVER_NONE_SELECTED`)이 있다. 대상 메뉴는 아무것도 안 골랐는데 빨개지면
-    -- 어디를 봐야 하는지가 오히려 안 보인다.
+    -- **안 거든 묶음은 안 칠한다.** 개체창 유닛에서 반응을 하나도 안 고른 것은 그 유닛의
+    -- 조건 메뉴에서 고치는 문제다. 대상 메뉴는 아무것도 안 골랐는데 빨개지면 어디를 봐야
+    -- 하는지가 오히려 안 보인다.
     test("hover의 빈 반응만으로 대상 묶음이 빨개지지 않는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
             units = { unitframe = { reaction = 0 } } });
         check(GetBindingIssue(action, "unit") == nil, "안 거든 묶음을 칠했다");
-        check(GetBindingIssue(action, "hover") ~= nil, "hover 묶음은 잡아야 한다");
+        check(GetBindingIssue(action, "units") ~= nil, "Units 묶음은 잡아야 한다");
     end);
 
     -- 소속을 하나도 안 고른 것. **유닛 마스크는 멀쩡하다** - 소속은 유닛 곱에 안 들어가고
@@ -244,14 +238,14 @@ return function(DebindPrivate)
             "남의 유닛 서브메뉴가 빨개졌다");
     end);
 
-    -- hover의 빈 소속은 hover 묶음의 문제다. `Units`는 `"hover"`를 줄로 갖고 있지 않다.
-    test("hover의 빈 소속은 hover 묶음만 칠한다", function()
+    -- 개체창 유닛의 빈 소속도 `Units` 묶음의 문제다. 그 유닛은 이제 이 메뉴가 줄로 갖고 있다.
+    test("hover의 빈 소속은 Units 묶음이 잡는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
             units = { unitframe = { group = 0 } } });
-        check(GetBindingIssue(action, "hover") == UNITGROUPS_NONE,
-            "hover 묶음이 안 잡는다");
-        check(GetBindingIssue(action, "units") == nil,
-            "Units 묶음이 hover의 빈 소속으로 빨개졌다");
+        check(GetBindingIssue(action, "units") == UNITGROUPS_NONE,
+            "Units 묶음이 안 잡는다");
+        check(GetBindingIssue(action, "units", nil, "focus") == nil,
+            "남의 유닛 서브메뉴가 빨개졌다");
     end);
 
     -- **반응과 같은 규칙이 소속에도 걸린다.** 위 "hover의 빈 반응만으로..."와 같은 액션이고
@@ -262,7 +256,7 @@ return function(DebindPrivate)
             units = { unitframe = { group = 0 } } });
         check(GetBindingIssue(action, "unit") == nil,
             "안 거든 묶음을 칠했다: " .. tostring(GetBindingIssue(action, "unit")));
-        check(GetBindingIssue(action, "hover") == UNITGROUPS_NONE, "hover 묶음은 잡아야 한다");
+        check(GetBindingIssue(action, "units") == UNITGROUPS_NONE, "Units 묶음은 잡아야 한다");
     end);
 
     -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 그때 이 서브메뉴는 **아무것도 안 묻는

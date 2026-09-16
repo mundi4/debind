@@ -113,24 +113,23 @@ return function(DebindPrivate)
         check(GetBindingIssue(subject) == nil, "나온 것: " .. tostring(GetBindingIssue(subject)));
     end);
 
-    --- **쌍둥이는 개체창 종류 조건을 안 물려받는다** (2026-09-06). `frameTypes`는 hover 조건을
-    --- 꺼도 안 지워진다(`Profile.lua`의 `dbver` 주석: 끄는 것과 지우는 것은 다르다). 그런데
-    --- 조건을 끄면 옵션이 다시 살아나 쌍둥이가 생기고, 쌍둥이는 `hover`가 참이라 원본을
-    --- 정리하는 갈래를 안 지난다. 그대로 두면 쌍둥이만 옛 마스크로 좁혀진다.
+    --- **쌍둥이는 꺼진 hover 조건이 기억하고 있는 개체창 마스크를 안 물려받는다** (2026-09-06).
+    --- 조건을 꺼도 고른 값은 남고(끄는 것과 지우는 것은 다르다), 조건이 꺼져 있으니 쌍둥이는
+    --- 자기 조건을 스스로 세운다(`UNIT_IS_THERE`). 마스크가 거기까지 따라가면 쌍둥이만 죽은
+    --- 조건의 값으로 좁혀진다.
     ---
-    --- 마스크가 0이면 더 조용하다. 쌍둥이가 어떤 개체창에도 안 걸리는데 `GetBindingIssue`의
-    --- frameTypes 검사는 **원본의** `hover`(=nil)로 게이트되어 아무 말도 안 나온다.
+    --- 마스크가 0이면 더 조용하다. 쌍둥이가 어떤 개체창에도 안 걸리는데 그 0은 사용자가 이미
+    --- 끈 조건의 것이라 이슈로도 안 나온다.
     test("쌍둥이는 꺼진 hover 조건이 남긴 frameTypes를 안 가져온다", function()
         for _, mask in ipairs({ Constants.FRAMETYPE_GROUP, 0 }) do
             local action = { type = Constants.SPELL, value = 585, key = "T", unit = "focus",
-                conditions = { frameTypes = mask } };
+                conditions = { units = { unitframe = { disabled = true, frameTypes = mask } } } };
             local list = bindingsOf(action);
-            check(list[1].conditions.frameTypes == nil,
-                "원본이 안 지워졌다: " .. tostring(list[1].conditions.frameTypes));
+            check(list[1].unitFrameTypes == nil,
+                "원본이 안 지워졌다: " .. tostring(list[1].unitFrameTypes));
             check(list[2] ~= nil, "쌍둥이가 안 생겼다");
-            check(list[2].conditions.frameTypes == nil,
-                "마스크 " .. mask .. "가 쌍둥이에 남았다: "
-                    .. tostring(list[2].conditions.frameTypes));
+            check(list[2].unitFrameTypes == nil,
+                "마스크 " .. mask .. "가 쌍둥이에 남았다: " .. tostring(list[2].unitFrameTypes));
         end
     end);
 
@@ -358,18 +357,18 @@ return function(DebindPrivate)
         end);
     end);
 
-    --- **사용자가 건 hover 조건을 물려받은 쌍둥이는 그 개체창 마스크도 물려받는다.**
-    --- 마스크를 지우는 갈래는 쌍둥이가 hover 조건을 스스로 세웠을 때의 것이고(죽은 조건이
-    --- 남긴 값이라 물려받으면 안 된다), 살아 있는 조건의 마스크는 사용자가 건 것이다.
+    --- **사용자가 건 hover 조건을 물려받은 쌍둥이는 그 개체창 마스크도 물려받는다.** 마스크는
+    --- 그 조건의 축이라 조건과 함께 움직이고, 조건을 안 건 액션의 쌍둥이는 `UNIT_IS_THERE`를
+    --- 세우므로 실을 마스크 자체가 없다.
     test("살아 있는 hover 조건의 개체창 마스크는 쌍둥이로 따라간다", function()
         withSwitches(true, nil, function()
             local mask = Constants.FRAMETYPE_GROUP;
             local action = spell({ unit = "target",
-                conditions = { frameTypes = mask, units = { unitframe = {} } } });
+                conditions = { units = { unitframe = { frameTypes = mask } } } });
             local twin = bindingsOf(action)[2];
             check(twin ~= nil, "쌍둥이가 없다");
-            check(twin.conditions.frameTypes == mask,
-                "쌍둥이의 마스크가 " .. tostring(twin.conditions.frameTypes));
+            check(twin.unitFrameTypes == mask,
+                "쌍둥이의 마스크가 " .. tostring(twin.unitFrameTypes));
         end);
     end);
 

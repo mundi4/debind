@@ -153,10 +153,11 @@ L["CONDITION_FLYING_YES"] = "While airborne"
 L["CONDITION_FLYING"] = "Airborne"
 L["CONDITION_FORM_N"] = "Form %d"
 L["CONDITION_FRAMETYPES"] = "Frame Type"
+-- **두 반쪽을 다 말해야 한다.** 이 줄은 개체창 유닛 아래에도, Resolved Unit 아래에도 선다.
+-- 앞 문장이 "어느 개체창이냐"를, 뒤 문장이 "이 개체가 그 개체창의 개체냐"를 답한다. 뒤를
+-- 빼면 대상을 따로 고른 액션에서 상자를 켠 사람이 아무 일도 안 일어나는 것을 보게 된다.
+L["CONDITION_FRAMETYPES_DESC"] = "Only the frame you are pointing at has a kind. When this unit is not the one on that frame, this does not hold the action back."
 L["CONDITION_GROUP"] = "Group";
-L["CONDITION_HOVER_NO"] = "When not over a unit frame"
-L["CONDITION_HOVER_YES"] = "When over a unit frame"
-L["CONDITION_HOVER"] = "Unit Frame"
 -- The negative is "Not Indoors" and deliberately not "Outdoors". The condition reads `IsIndoors()`
 -- alone, so its false half is everything that is not indoors, which is a wider thing than the
 -- client's Outdoors. Calling it Outdoors would be a claim the measurement does not make.
@@ -187,7 +188,7 @@ L["CONDITION_REACTIONS"] = "Reactions"
 -- 게임의 낱말 그대로다: ROLE / TANK / HEALER / DAMAGER, 그리고 알 수 없을 때가 UNKNOWN.
 -- 우리가 붙인 이름이 하나도 없어야 하는 자리다.
 L["CONDITION_ROLE"] = "Role"
-L["CONDITION_ROLE_DESC"] = "Only party and raid frames can tell you a role. Over any other frame this does not hold the action back."
+L["CONDITION_ROLE_DESC"] = "Only party and raid frames can tell you a role. Over any other frame, and when this unit is not the one on the frame you are pointing at, this does not hold the action back."
 L["ROLE_TANK"] = "Tank"
 L["ROLE_HEALER"] = "Healer"
 L["ROLE_DAMAGER"] = "Damage"
@@ -629,12 +630,6 @@ L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- what the grade is called and this says what it costs the reader**, which is the thing a name
 -- alone cannot carry: an ERROR is not merely worse, it is the key not being there at all.
 L["MARK_TOOLTIP_ISSUE_DESC"] = "Debind ignores this action until the problem is fixed."
--- The hover mark's tooltip, one line per side. **The mark stands for either side** -- the comparator
--- reads this axis as `hover ~= nil` (`Ordering.lua`), so an action that runs only while the mouse is
--- away from a unit frame is on the axis too and carries the mark. One drawing, two sentences: the
--- client has no second cursor art, and the sentence is what tells the two apart.
-L["MARK_TOOLTIP_HOVER_OVER"] = "Runs only while the mouse is over a unit frame."
-L["MARK_TOOLTIP_HOVER_AWAY"] = "Runs only while the mouse is not over a unit frame."
 -- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
@@ -875,11 +870,6 @@ L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 -- **어느 것도 절대화하지 않는다.** IMPORTANCE 아래 셋은 전부 위에 다른 축이 있어서 "always"가
 -- 거짓이 된다. 제 축의 규칙만 말하고 멈춘다.
 L["ORDER_BLOCKED_CONDITIONAL"] = "This action cannot move past the one next to it -- only one of the two has conditions, and an action with conditions is tried before one without."
--- **"runs while hovering"이라고 쓰면 안 된다.** 이 축은 `hover ~= nil`이라 "When not over a unit
--- frame"을 고른 액션도 갖는다(`Misc.lua`의 `DeriveUnitFrameFields`, `Ordering.lua`의 비교자). 그쪽은
--- 호버 중에 **안** 도는데 먼저 시도되므로, 도느냐로 적으면 그 액션에 대고 거짓말이 된다.
--- 갈리는 것은 개체창 여부를 따지느냐다.
-L["ORDER_BLOCKED_UNITFRAME"] ="This action cannot move past the one next to it -- only one of the two has the Unit Frame condition, and an action that has it is tried before one that does not."
 -- **layer이고 scope가 아니다.** README가 "Layers, not profiles"로 가르치고 CurseForge 설명도
 -- layered bindings라 읽는 사람이 이미 만난 말이다. scope는 덮는다는 뜻을 안 나르고, tab은
 -- 누르는 컨트롤 이름이라 Import 탭·Storage 탭과 자리를 다툰다.

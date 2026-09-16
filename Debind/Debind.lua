@@ -320,7 +320,8 @@ do
 					-- game's; and a `key` issue says this key cannot be taken at all, where the bare left
 					-- click or the game menu key would take the world click or Escape with it.
 					if (not yielded
-							and not (binding.unitframe and DebindPrivate.GetMouseButtonAndPrefix(key))
+							and not (type(DebindPrivate.UnitFrameConditionOf(binding)) == "table"
+								and DebindPrivate.GetMouseButtonAndPrefix(key))
 							and not DebindPrivate.GetBindingIssue(action, "key")) then
 						KeysToHold[key] = true;
 					end

@@ -53,8 +53,6 @@ local MARK_SIZE                      = 15;
 --- 지워야 한다 - 이 프레임들은 풀에서 돌아오므로 앞 행이 남긴 것을 들고 온다. 좌표가 그중
 --- 물리는 것이라, 안 자르는 그림도 자기가 안 자른다고 말해야 한다.
 local MARK_KINDS = {
-	--- 개체창 위에서만 사는 액션. 비교자가 조건보다 먼저 보는 축이다(`Ordering.lua`).
-	hover       = { file = "Interface\\Cursor\\Point", offsetY = -1 },
 	--- 조건이 붙어 있다는 것만 말한다. 그 조건이 틀렸는지는 아래 두 마크가 말한다.
 	conditional = { atlas = "questlog-questtypeicon-quest" },
 	--- 키가 아예 안 먹는다.
@@ -121,12 +119,6 @@ function DebindRowMarkMixin:OnLeave()
 	if (GameTooltip:GetOwner() == self) then
 		GameTooltip:Hide();
 	end
-end
-
---- The unit-frame mark: which side of that axis this action is on.
-local function UnitFrameMarkTooltip(tooltip, mark)
-	GameTooltip_AddNormalLine(tooltip,
-		mark.over and LLL["MARK_TOOLTIP_HOVER_OVER"] or LLL["MARK_TOOLTIP_HOVER_AWAY"], true);
 end
 
 --- The conditional mark: that conditions exist. Which ones is the row's own tooltip.
@@ -1071,19 +1063,9 @@ function DebindLineMixin:Update()
 		self.InfoText:SetText("");
 	end
 
-	-- **비교자가 보는 순서 그대로다** (`Ordering.lua`): 개체창이 조건보다 먼저다. 두 축이 다
-	-- 화면에 서야 왜 이 행이 먼저 시도되는지가 목록에서 읽힌다.
-	--
-	-- **조건 마크는 조건이 있다는 것만 말한다.** 그중 하나가 틀렸는지는 세 번째 마크가 말한다
+	-- **조건 마크는 조건이 있다는 것만 말한다.** 그중 하나가 틀렸는지는 두 번째 마크가 말한다
 	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이
 	-- 어느 쪽 답인지를 먼저 알아야 했다.
-	local binding = DebindPrivate.GetBindingInfoForAction(action);
-	-- **The axis is `unitframe ~= nil`, which is what the comparator reads** (`Ordering.lua`): "not
-	-- over a unit frame" is a condition said out loud and it stands on this axis too. While the mark
-	-- went up for the true half only, a row that was tried first for having this condition showed
-	-- nothing saying why.
-	self.Marks.Hover.over = binding and binding.unitframe;
-	self.Marks.Hover:SetKind(binding and binding.unitframe ~= nil and "hover" or nil, UnitFrameMarkTooltip);
 	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
 		ConditionalMarkTooltip);
 
@@ -1099,7 +1081,6 @@ function DebindLineMixin:Update()
 	self.Marks.Issue:SetKind(grade, IssueMarkTooltip);
 
 	if (isInactive) then
-		self.Marks.Hover:SetInactive(true);
 		self.Marks.Conditional:SetInactive(true);
 	end
 	self.Marks:Layout();

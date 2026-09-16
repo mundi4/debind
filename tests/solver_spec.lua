@@ -651,9 +651,7 @@ return function(DebindPrivate)
     -- reference stops being runnable, so the hover axis gets its own small space.
     --
     -- Bindings here skip normalization -- survivors() hands raw tables straight to
-    -- CheckUnreachableBindings. Misc.lua strips reactions/frameTypes off non-hover
-    -- bindings, and the generator deliberately leaves them on: the Solver has to
-    -- reach the same verdict without that help.
+    -- CheckUnreachableBindings, with `BuildUnitStates` run over them so the masks exist.
     ---------------------------------------------------------------------------
 
     local band = bit.band;
@@ -685,10 +683,10 @@ return function(DebindPrivate)
         end
     end
 
-    -- The condition is `units["unitframe"]` now -- the pointed frame's unit is a unit.
-    -- `frameTypes` stays its own field because it describes the **frame**, not the unit on it,
-    -- which is why it is still rolled independently below and still has to be ignored when the
-    -- binding is not on the hover path.
+    -- The condition is `units["unitframe"]` now -- the pointed frame's unit is a unit -- and the
+    -- frame type mask is one of its axes. It describes the **frame** rather than the unit on it,
+    -- so it is a record field of its own downstream, but there is no place left to store one off
+    -- the hover path: the absent point is `false`, which carries no axes.
     local function hoverConditionOf(b)
         return b.units and b.units.unitframe;
     end
@@ -700,14 +698,12 @@ return function(DebindPrivate)
         elseif (cond) then
             if (not p.hovering) then return false; end
             if (cond.reaction and band(cond.reaction, p.reaction) == 0) then return false; end
-            if (b.frameTypes and band(b.frameTypes, p.frameType) == 0) then return false; end
+            if (cond.frameTypes and band(cond.frameTypes, p.frameType) == 0) then return false; end
         elseif (b.key and DebindPrivate.GetMouseButtonAndPrefix(b.key)) then
             -- a mouse button fires wherever the cursor already is, so it can only
             -- answer for the not-hovering point
             if (p.hovering) then return false; end
         end
-        -- off the hover path frameTypes has no axis to sit on, so it is ignored no matter what
-        -- the binding still carries
         if (b.combat ~= nil and b.combat ~= p.combat) then return false; end
         return true;
     end
@@ -720,8 +716,10 @@ return function(DebindPrivate)
             if (cond and cond.reaction) then
                 parts[#parts + 1] = ("reaction=%d"):format(cond.reaction);
             end
+            if (cond and cond.frameTypes) then
+                parts[#parts + 1] = ("frameTypes=%d"):format(cond.frameTypes);
+            end
         end
-        if (b.frameTypes) then parts[#parts + 1] = ("frameTypes=%d"):format(b.frameTypes); end
         if (b.combat ~= nil) then parts[#parts + 1] = "combat=" .. tostring(b.combat); end
         parts[#parts + 1] = "key=" .. b.key;
         return b.name .. "{" .. table.concat(parts, ",") .. "}";
@@ -745,13 +743,12 @@ return function(DebindPrivate)
             b.units = { unitframe = false };
         elseif (hover == "exists") then
             local reaction = randomMask(REACTION_VALUES);
-            b.units = { unitframe = { reaction = reaction ~= 0 and reaction or nil } };
+            local frameTypes = randomMask(FRAMETYPE_VALUES);
+            b.units = { unitframe = {
+                reaction = reaction ~= 0 and reaction or nil,
+                frameTypes = frameTypes ~= 0 and frameTypes or nil,
+            } };
         end
-
-        -- still rolled independently of hover on purpose: `frameTypes` is a field of its own, so
-        -- a mask sitting on a non-hover binding is exactly the input this section exists to pin
-        local frameTypes = randomMask(FRAMETYPE_VALUES);
-        if (frameTypes ~= 0) then b.frameTypes = frameTypes; end
 
         local combat = pick({ "nil", true, false });
         if (combat ~= "nil") then b.combat = combat; end
@@ -771,19 +768,19 @@ return function(DebindPrivate)
         end
     end);
 
-    -- Reading frameTypes off a binding that is not hovering narrows its box, and a
-    -- narrowed cover stops covering what it really covers. Both bindings below fire
-    -- on exactly "not hovering", so the second one is unreachable and has to go.
-    test("hover가 아니면 frameTypes를 안 읽는다", function()
-        expectRemoved({
-            { name = "cover",   units = { unitframe = false }, frameTypes = Constants.FRAMETYPE_GROUP },
+    -- A frame type mask narrows only the hovering half. The cover below asks for a group frame,
+    -- so it does not reach the not-hovering point and the subject standing on exactly that point
+    -- has to survive -- reading the mask off the whole binding is what deletes it.
+    test("frameTypes는 가리키는 쪽만 좁힌다", function()
+        expectSurvives({
+            { name = "cover",   units = { unitframe = { frameTypes = Constants.FRAMETYPE_GROUP } } },
             { name = "subject", units = { unitframe = false } },
         }, "subject");
     end);
 
-    -- Reactions cannot sit off the hover path any more -- they live **inside** the hover
-    -- condition, so "not hovering" has no field to carry one. What is left to pin is that the
-    -- two shapes still order the same way: "not hovering" covers itself.
+    -- Reactions and frame types cannot sit off the hover path at all -- they live **inside** the
+    -- hover condition, so "not hovering" has no field to carry one. What is left to pin is that
+    -- the two shapes still order the same way: "not hovering" covers itself.
     test("hover가 아니면 반응을 말할 자리가 없다", function()
         expectRemoved({
             { name = "cover",   units = { unitframe = false } },
