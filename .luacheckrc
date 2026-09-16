@@ -211,6 +211,7 @@ globals = {
 	-- The class icon on a storage row, built out of the class name and drawn inline in the text.
 	"GetClassAtlas",
 	"CreateAtlasMarkup",
+	"CreateSimpleTextureMarkup",
 	"CopyTable",
 	"CreateTableEnumerator",
 	"CreateDataProvider",

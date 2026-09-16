@@ -509,6 +509,12 @@ local function CreateCastingMenu(parentDescription, ctx)
             return ToggleNormalCast(ctx);
         end);
     SetInstructionTooltip(normal, LLL["CASTING_NORMAL_DESC"]);
+
+    description:CreateDivider();
+    description:CreateButton(CreateSimpleTextureMarkup([[Interface\common\help-i]], 24, 24)
+        .. LLL["HELP_TARGETING_TITLE"], function()
+        DebindUI.ShowHelp("targeting");
+    end);
 end
 
 --- 집 편집기 같은 바인딩 컨텍스트가 가져간 키는 기본적으로 우리가 내준다. 편집기가
