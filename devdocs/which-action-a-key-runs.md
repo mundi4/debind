@@ -1,9 +1,8 @@
 # 키 하나가 무엇을 실행하나: Hover Cast, Focus Cast Key, Self Cast Key의 스펙 (2026-09-16 시작)
 
-> 상태: **스펙이다. 코드는 아직 이 문서대로가 아니다.** 2026-09-15 문답으로 세우고 2026-09-16에 이름과
+> 상태: **스펙이고, 코드가 이 문서대로다**(2026-09-16). 2026-09-15 문답으로 세우고 2026-09-16에 이름과
 > 조건 축을 합쳤다. 구현 순서와 각 단계가 건드리는 자리는 `implementing-the-casting-spec.md`가 든다.
-> 인게임 도움말 "Which action a key runs"와 "Which unit an action is used on"은 이 문서보다 낡았고,
-> 이 문서에서 다시 쓴다(§9).
+> 인게임 도움말 "Which action a key runs"와 "Which unit an action is used on"도 §9대로 다시 썼다.
 >
 > **코드는 근거가 아니다** (2026-09-15, 소유자). 이 문서는 사용자가 무엇을 적었고 무엇을 눌렀는지로만
 > 쓴다. 지금 구현이 어떻게 되어 있는지는 `implementing-focus-and-self-cast.md`가 들고, 둘이 갈리면
