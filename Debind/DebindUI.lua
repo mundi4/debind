@@ -123,8 +123,8 @@ function DebindRowMarkMixin:OnLeave()
 	end
 end
 
---- The hover mark: which side of the unit-frame axis this action is on.
-local function HoverMarkTooltip(tooltip, mark)
+--- The unit-frame mark: which side of that axis this action is on.
+local function UnitFrameMarkTooltip(tooltip, mark)
 	GameTooltip_AddNormalLine(tooltip,
 		mark.over and LLL["MARK_TOOLTIP_HOVER_OVER"] or LLL["MARK_TOOLTIP_HOVER_AWAY"], true);
 end
@@ -1078,12 +1078,12 @@ function DebindLineMixin:Update()
 	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이
 	-- 어느 쪽 답인지를 먼저 알아야 했다.
 	local binding = DebindPrivate.GetBindingInfoForAction(action);
-	-- **The axis is `hover ~= nil`, which is what the comparator reads** (`Ordering.lua`): "not over
-	-- a unit frame" is a condition said out loud and it stands on this axis too. While the mark went
-	-- up for the true half only, a row that was tried first for having this condition showed nothing
-	-- saying why.
-	self.Marks.Hover.over = binding and binding.hover;
-	self.Marks.Hover:SetKind(binding and binding.hover ~= nil and "hover" or nil, HoverMarkTooltip);
+	-- **The axis is `unitframe ~= nil`, which is what the comparator reads** (`Ordering.lua`): "not
+	-- over a unit frame" is a condition said out loud and it stands on this axis too. While the mark
+	-- went up for the true half only, a row that was tried first for having this condition showed
+	-- nothing saying why.
+	self.Marks.Hover.over = binding and binding.unitframe;
+	self.Marks.Hover:SetKind(binding and binding.unitframe ~= nil and "hover" or nil, UnitFrameMarkTooltip);
 	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
 		ConditionalMarkTooltip);
 

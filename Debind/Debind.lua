@@ -315,12 +315,12 @@ do
 					-- early must not hand the key back to the game: baked, the binding would lose every
 					-- press and the key would do nothing (2026-09-15, owner).
 					--
-					-- Three things still let the key go. A hover action on a mouse button fires through
+					-- Three things still let the key go. A `unitframe` action on a mouse button fires through
 					-- the frame and holds nothing (`PrepareKeyBindings`' `holdsKey`); a yielded key is the
 					-- game's; and a `key` issue says this key cannot be taken at all, where the bare left
 					-- click or the game menu key would take the world click or Escape with it.
 					if (not yielded
-							and not (binding.hover and DebindPrivate.GetMouseButtonAndPrefix(key))
+							and not (binding.unitframe and DebindPrivate.GetMouseButtonAndPrefix(key))
 							and not DebindPrivate.GetBindingIssue(action, "key")) then
 						KeysToHold[key] = true;
 					end

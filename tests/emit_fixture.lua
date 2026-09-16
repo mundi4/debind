@@ -195,24 +195,24 @@ return function(DebindPrivate, shim)
     function M.characterLayer()
         return {
             --- **Hover, three ways.** What makes a binding a hover binding is the condition
-            --- `units.hover`, not the target -- `DeriveHoverFields` reads that one key and
+            --- `units.unitframe`, not the target -- `DeriveUnitFrameFields` reads that one key and
             --- nothing else -- so each of these carries one.
             ---
             --- A keyboard key with a hover condition still holds the key: click-casting needs a
             --- mouse button to arrive on.
-            action({ type = Constants.SPELL, value = 8936, key = "ALT-F1", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            action({ type = Constants.SPELL, value = 8936, key = "ALT-F1", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
             --- A frame type condition, the one condition read off the hover **frame** rather than
             --- off its unit.
-            action({ type = Constants.SPELL, value = 774, key = "ALT-F2", unit = "hover",
+            action({ type = Constants.SPELL, value = 774, key = "ALT-F2", unit = "unitframe",
                 conditions = {
                     frameTypes = Constants.FRAMETYPE_GROUP,
-                    units = { hover = { reaction = Constants.REACTION_ALL } },
+                    units = { unitframe = { reaction = Constants.REACTION_ALL } },
                 } }),
             --- On a mouse button, the same condition makes the record click-cast instead: it
             --- arrives through the unit frame and holds no key.
-            action({ type = Constants.SPELL, value = 585, key = "SHIFT-BUTTON2", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HARM } } } }),
+            action({ type = Constants.SPELL, value = 585, key = "SHIFT-BUTTON2", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } }),
             --- Beside it on the same button, a record that holds the key rather than
             --- click-casting. The two are registered in different tables, which is the point of
             --- having them on one key.

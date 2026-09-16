@@ -132,7 +132,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ value = 585, key = "F1" }),
             action({ value = 585, key = "BUTTON2", ignoreHoverUnit = true,
-                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
         });
         local clickFrame = DebindPrivate.DefaultClickFrame;
         shim.world.units = { party1 = { id = "friend", reaction = "help" } };
@@ -617,8 +617,8 @@ return function(DebindPrivate, _, ctx)
     -- world click and the camera stay the game's.
     test("a click-casting-only key is not bound", function()
         Bind({
-            action({ value = 585, key = "BUTTON2", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+            action({ value = 585, key = "BUTTON2", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
         });
 
         local how = wiring("BUTTON2");
@@ -637,8 +637,8 @@ return function(DebindPrivate, _, ctx)
     -- is only reachable from that side.
     test("a click-cast click is judged against the frame it arrived on", function()
         Bind({
-            action({ value = 585, key = "BUTTON2", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 585, key = "BUTTON2", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
         });
 
         shim.world.units = { party1 = { id = "friend", reaction = "help" } };
@@ -933,8 +933,8 @@ return function(DebindPrivate, _, ctx)
     -- target. The click goes at the frame's unit whatever `IsModifiedClick` answers.
     test("a frame click goes at the frame with a modifier held", function()
         Bind({
-            action({ value = 585, key = "BUTTON2", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 585, key = "BUTTON2", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
         });
         shim.world.units = { party1 = { id = "friend", reaction = "help" },
             player = { id = "me", reaction = "help" }, focus = { id = "friend", reaction = "help" } };
@@ -998,12 +998,12 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = { target = ENEMY, party1 = FRIEND };
         PointAt("party1");
         local record, spell = Fired("F1");
-        check(spell == "Rejuvenation" and Aimed(record) == "hover",
+        check(spell == "Rejuvenation" and Aimed(record) == "unitframe",
             "hostile target, friendly frame: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
 
         shim.world.units = { target = FRIEND, party1 = ENEMY };
         record, spell = Fired("F1");
-        check(spell == "Renew" and Aimed(record) == "hover",
+        check(spell == "Renew" and Aimed(record) == "unitframe",
             "friendly target, hostile frame: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
 
         interp:hoverLeave(unitFrame);
@@ -1018,7 +1018,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[774] = { name = "Rejuvenation" };
         for _, case in ipairs({ { "plain", "Rejuvenation" }, { "hover", "Renew" } }) do
             local plain = { value = 774, key = "F1" };
-            local hovered = { value = 585, key = "F1", conditions = { units = { hover = {} } } };
+            local hovered = { value = 585, key = "F1", conditions = { units = { unitframe = {} } } };
             if (case[1] == "plain") then
                 Bind({ action(plain), action(hovered) }, nil, { hoverCast = true });
             else
@@ -1027,7 +1027,7 @@ return function(DebindPrivate, _, ctx)
             shim.world.units = { party1 = FRIEND };
             PointAt("party1");
             local record, spell = Fired("F1");
-            check(spell == case[2] and Aimed(record) == "hover",
+            check(spell == case[2] and Aimed(record) == "unitframe",
                 case[1] .. " first: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
             interp:hoverLeave(unitFrame);
         end
@@ -1188,7 +1188,7 @@ return function(DebindPrivate, _, ctx)
 
         PointAt("party1");
         Press("pointing at a friend", { target = ENEMY, party1 = FRIEND }, nil, "Renew", "none");
-        Press("pointing at an enemy", { target = FRIEND, party1 = ENEMY }, nil, "Rejuvenation", "hover");
+        Press("pointing at an enemy", { target = FRIEND, party1 = ENEMY }, nil, "Rejuvenation", "unitframe");
         interp:hoverLeave(unitFrame);
 
         interp:resetState();
@@ -1226,11 +1226,11 @@ return function(DebindPrivate, _, ctx)
 
     local function ClickCastBind()
         Bind({
-            action({ value = 585, key = "BUTTON2", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 585, key = "BUTTON2", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
             -- A second button, for the case where two are held at once.
-            action({ value = 585, key = "BUTTON1", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 585, key = "BUTTON1", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
         });
         shim.world.units = { party1 = { id = "friend", reaction = "help" } };
         -- Nothing chosen and the game's own setting off, which is where a fresh install stands.

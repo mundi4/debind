@@ -134,7 +134,7 @@ return function(DebindPrivate)
         return table.concat(frags);
     end
 
-    local LEAKABLE = { "@tank", "@healer", "@maintank", "@mainassist", "@custom1", "@custom2", "@hover", "$state" };
+    local LEAKABLE = { "@tank", "@healer", "@maintank", "@mainassist", "@custom1", "@custom2", "@unitframe", "$state" };
 
     --- 치환 후에도 애드온 전용 토큰이 남아 있으면 그건 와우로 새어나간 것.
     local function expectNoLeak(macrotext, units, states)
@@ -189,7 +189,7 @@ return function(DebindPrivate)
     end);
 
     test("특수 토큰이 마지막 그룹에만 있어도 파싱된다", function()
-        expectArgs("/cast [combat][mod:alt][@hover] Foo", { "hover" });
+        expectArgs("/cast [combat][mod:alt][@unitframe] Foo", { "unitframe" });
     end);
 
     ---------------------------------------------------------------------------
@@ -508,7 +508,7 @@ return function(DebindPrivate)
         { "[$state1]",           { "$state1" } },
         { "[@custom1,nocombat]", { "custom1" } },
         { "[@custom2target]",    { "custom2" } },
-        { "[nocombat,@hover]",   { "hover" } },
+        { "[nocombat,@unitframe]",   { "unitframe" } },
     };
 
     --- 그룹 인덱스 목록으로 절 하나와 기대 인자 목록을 만든다.

@@ -350,7 +350,7 @@ return function(DebindPrivate)
     test("마우스버튼 키에 hover=true를 주면 다시 마우스오버 축", function()
         expectSurvives({
             { name = "nohover", key = "BUTTON4" },
-            { name = "hover",   key = "BUTTON4", units = { hover = {} } },
+            { name = "hover",   key = "BUTTON4", units = { unitframe = {} } },
         }, "hover");
     end);
 
@@ -367,7 +367,7 @@ return function(DebindPrivate)
     test("mouseover=있음이 hover 조건을 덮는다", function()
         expectRemoved({
             { name = "mouseover", key = "SHIFT-Q", units = { mouseover = {} } },
-            { name = "hover",     key = "SHIFT-Q", units = { hover = {} } },
+            { name = "hover",     key = "SHIFT-Q", units = { unitframe = {} } },
         }, "hover");
     end);
 
@@ -375,7 +375,7 @@ return function(DebindPrivate)
         expectRemoved({
             { name = "mouseover", key = "SHIFT-Q", units = { mouseover = {} } },
             { name = "hover",     key = "SHIFT-Q",
-              units = { hover = { reaction = Constants.REACTION_HELP } } },
+              units = { unitframe = { reaction = Constants.REACTION_HELP } } },
         }, "hover");
     end);
 
@@ -385,8 +385,8 @@ return function(DebindPrivate)
     -- theirs to cover and neither reaches it. Measured against that placement, this went red.
     test("hover 축을 쪼갠 둘은 여전히 무조건 바인딩을 덮는다", function()
         expectRemoved({
-            { name = "nohover",  key = "SHIFT-Q", units = { hover = false } },
-            { name = "hovering", key = "SHIFT-Q", units = { hover = {} } },
+            { name = "nohover",  key = "SHIFT-Q", units = { unitframe = false } },
+            { name = "hovering", key = "SHIFT-Q", units = { unitframe = {} } },
             { name = "always",   key = "SHIFT-Q" },
         }, "always");
     end);
@@ -395,7 +395,7 @@ return function(DebindPrivate)
     -- anywhere.
     test("hover 조건은 mouseover=있음을 못 덮는다", function()
         expectSurvives({
-            { name = "hover",     key = "SHIFT-Q", units = { hover = {} } },
+            { name = "hover",     key = "SHIFT-Q", units = { unitframe = {} } },
             { name = "mouseover", key = "SHIFT-Q", units = { mouseover = {} } },
         }, "mouseover");
     end);
@@ -685,12 +685,12 @@ return function(DebindPrivate)
         end
     end
 
-    -- The hover condition is `units["hover"]` now -- the hovered frame's unit is a unit.
+    -- The condition is `units["unitframe"]` now -- the pointed frame's unit is a unit.
     -- `frameTypes` stays its own field because it describes the **frame**, not the unit on it,
     -- which is why it is still rolled independently below and still has to be ignored when the
     -- binding is not on the hover path.
     local function hoverConditionOf(b)
-        return b.units and b.units.hover;
+        return b.units and b.units.unitframe;
     end
 
     local function matchesHoverPoint(b, p)
@@ -742,10 +742,10 @@ return function(DebindPrivate)
         -- be stored now. A mask on a binding that is not hovering is no longer a reachable input.
         local hover = pick({ "nil", "exists", false });
         if (hover == false) then
-            b.units = { hover = false };
+            b.units = { unitframe = false };
         elseif (hover == "exists") then
             local reaction = randomMask(REACTION_VALUES);
-            b.units = { hover = { reaction = reaction ~= 0 and reaction or nil } };
+            b.units = { unitframe = { reaction = reaction ~= 0 and reaction or nil } };
         end
 
         -- still rolled independently of hover on purpose: `frameTypes` is a field of its own, so
@@ -776,8 +776,8 @@ return function(DebindPrivate)
     -- on exactly "not hovering", so the second one is unreachable and has to go.
     test("hover가 아니면 frameTypes를 안 읽는다", function()
         expectRemoved({
-            { name = "cover",   units = { hover = false }, frameTypes = Constants.FRAMETYPE_GROUP },
-            { name = "subject", units = { hover = false } },
+            { name = "cover",   units = { unitframe = false }, frameTypes = Constants.FRAMETYPE_GROUP },
+            { name = "subject", units = { unitframe = false } },
         }, "subject");
     end);
 
@@ -786,8 +786,8 @@ return function(DebindPrivate)
     -- two shapes still order the same way: "not hovering" covers itself.
     test("hover가 아니면 반응을 말할 자리가 없다", function()
         expectRemoved({
-            { name = "cover",   units = { hover = false } },
-            { name = "subject", units = { hover = false } },
+            { name = "cover",   units = { unitframe = false } },
+            { name = "subject", units = { unitframe = false } },
         }, "subject");
     end);
 
@@ -801,14 +801,14 @@ return function(DebindPrivate)
     -- because they are two readings of one unit.
     test("hover 반응과 @ 유닛 조건이 같은 축에 얹힌다", function()
         expectRemoved({
-            { name = "byReaction", units = { hover = { reaction = Constants.REACTION_HELP } } },
-            { name = "byUnit",     unit = "hover", units = { hover = {}, ["@"] = "help" } },
+            { name = "byReaction", units = { unitframe = { reaction = Constants.REACTION_HELP } } },
+            { name = "byUnit",     unit = "unitframe", units = { unitframe = {}, ["@"] = "help" } },
         }, "byUnit");
 
         -- and the other way round, so this is an identity rather than one side widening
         expectRemoved({
-            { name = "byUnit",     unit = "hover", units = { hover = {}, ["@"] = "help" } },
-            { name = "byReaction", units = { hover = { reaction = Constants.REACTION_HELP } } },
+            { name = "byUnit",     unit = "unitframe", units = { unitframe = {}, ["@"] = "help" } },
+            { name = "byReaction", units = { unitframe = { reaction = Constants.REACTION_HELP } } },
         }, "byReaction");
     end);
 

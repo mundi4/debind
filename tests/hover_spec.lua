@@ -2,7 +2,7 @@
 --
 -- Three things are asked. A unit changing under a cursor that never moves, which only the poll
 -- notices, and what the poll keeps current then. What the click bakes when the body on a button
--- names `@hover`. And a frame we stood down from: the wrapper stays on, so our bodies keep running
+-- names `@unitframe`. And a frame we stood down from: the wrapper stays on, so our bodies keep running
 -- there, and what they do on arrival is what standing down amounts to.
 
 return function(DebindPrivate, _, ctx)
@@ -155,10 +155,10 @@ return function(DebindPrivate, _, ctx)
         return nil, "레코드 중 매크로 본문을 가진 것이 없다";
     end
 
-    --- **A `@hover` switch expression that announces needs the poll without carrying a single
+    --- **A `@unitframe` switch expression that announces needs the poll without carrying a single
     --- condition.**
     ---
-    --- The `@hover` in it is substituted with `UnitAliasMap["hover"]`, and while the cursor sits
+    --- The `@unitframe` in it is substituted with `UnitAliasMap["unitframe"]`, and while the cursor sits
     --- still the only thing that keeps that alias current is the poll hover block. `UnitStates`
     --- holds no hover row, so `SetUnit` answers false, and the block still has to go out.
     ---
@@ -166,12 +166,12 @@ return function(DebindPrivate, _, ctx)
     --- button is held back to the click (item 2), and the click reads the unit off the frame
     --- again -- it never looks at this alias. What is left for the poll to keep current in
     --- `MacroTextsMap` is the expressions.
-    test("@hover 스위치 계산식은 폴링이 별칭을 따라가 준다", function()
+    test("@unitframe 스위치 계산식은 폴링이 별칭을 따라가 준다", function()
         twoParty();
         local i = Bind({
             action({ value = 585, key = "F1", conditions = { ["$state1"] = true } }),
         }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@hover]", displayMessage = true },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@unitframe]", displayMessage = true },
         });
 
         settleOn("party1");
@@ -198,18 +198,18 @@ return function(DebindPrivate, _, ctx)
     --- It is not in `MacroTextsMap` but in `DeferredMacroTexts`, so it drops out of the list
     --- `SetUnit` walks while the cursor sweeps frames. It is baked by the click that picks that
     --- button instead.
-    test("@hover 버튼 본문은 폴링이 아니라 클릭이 굽는다", function()
+    test("@unitframe 버튼 본문은 폴링이 아니라 클릭이 굽는다", function()
         twoParty();
         local i = Bind({
-            action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew" }),
+            action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@unitframe] Renew" }),
         });
 
-        check(i.env.MacroTextsMap.hover == nil,
+        check(i.env.MacroTextsMap.unitframe == nil,
             "버튼 본문이 여전히 hover의 의존자로 남아 있다");
 
         settleOn("party1");
         local text = macrotextOn("F1");
-        check(text == "/cast [@hover] Renew",
+        check(text == "/cast [@unitframe] Renew",
             ("폴링이 본문을 구웠다 (%q). 이건 클릭까지 미룬 것이다"):format(tostring(text)));
 
         i:evalKey("F1");
@@ -227,8 +227,8 @@ return function(DebindPrivate, _, ctx)
     test("호버 조건이 붙은 키는 프레임 위에서만 승자를 낸다", function()
         twoParty();
         local i = Bind({
-            action({ value = 585, key = "F1", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+            action({ value = 585, key = "F1", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
         });
 
         settleOn("party1");
@@ -243,7 +243,7 @@ return function(DebindPrivate, _, ctx)
     --- **What the click bakes is the unit it judged, not the cache.**
     ---
     --- The wrapper reads the unit off the frame again to judge the conditions, and aims at what
-    --- it read. Take only the body from `UnitAliasMap["hover"]` and **the unit that was judged
+    --- it read. Take only the body from `UnitAliasMap["unitframe"]` and **the unit that was judged
     --- and the unit the body aims at come apart** -- on a spell whose effect forks on friend or
     --- foe, that is not "nothing goes out" but "something else does".
     ---
@@ -252,12 +252,12 @@ return function(DebindPrivate, _, ctx)
     test("클릭이 구운 본문은 그 클릭이 판정한 유닛을 겨눈다", function()
         twoParty();
         local i = Bind({
-            action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew" }),
+            action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@unitframe] Renew" }),
         });
 
         settleOn("party1");
         unitFrame:SetAttribute("unit", "party2");
-        check(i.env.UnitAliasMap.hover == "party1",
+        check(i.env.UnitAliasMap.unitframe == "party1",
             "전제가 깨졌다 - 별칭이 벌써 따라갔다. 폴링이 돈 것이다");
 
         i:evalKey("F1");
@@ -269,7 +269,7 @@ return function(DebindPrivate, _, ctx)
 
     end
 
-    --- **A @custom1 action takes the hovered unit off the frame at the call** (`GetHoveredUnit`).
+    --- **A @custom1 action takes the hovered unit off the frame at the call** (`GetUnitFrameUnit`).
     --- The frame's unit changes under a still cursor and no beat runs in between, so a slot that
     --- read the unit enter left behind would fill custom1 with somebody who is no longer there.
     test("@custom1 지정 액션은 커서 밑 프레임의 지금 유닛을 받는다", function()
@@ -277,12 +277,12 @@ return function(DebindPrivate, _, ctx)
         local i = Bind({ action({ type = Constants.SETCUSTOM, value = 1, key = "F1" }) });
 
         settleOn("party1");
-        check(i.driverHandle:RunAttribute("GetHoveredUnit") == "party1",
+        check(i.driverHandle:RunAttribute("GetUnitFrameUnit") == "party1",
             "전제가 깨졌다 - enter가 호버 슬롯을 안 채웠다");
 
         unitFrame:SetAttribute("unit", "party2");
 
-        local hovered = i.driverHandle:RunAttribute("GetHoveredUnit");
+        local hovered = i.driverHandle:RunAttribute("GetUnitFrameUnit");
         check(hovered == "party2",
             ("커서가 멈춘 채 프레임의 유닛이 바뀌었는데 호버 슬롯이 %s다")
                 :format(hovered and ("%q"):format(hovered) or "비었다"));
@@ -304,7 +304,7 @@ return function(DebindPrivate, _, ctx)
     --- 행이 사라진 **뒤에** 떨어진 래퍼다.
     test("프레임에서 물러나도 OnEnter/OnLeave 래퍼는 안 뗀다", function()
         twoParty();
-        Bind({ action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }) });
+        Bind({ action({ value = 585, key = "F1", conditions = { units = { unitframe = {} } } }) });
 
         local entries = standDown(spare);
         check(DebindPrivate.ccframes[spare] == false, "싸움에서 물러났는데 ccframes 행이 남았다");
@@ -334,16 +334,16 @@ return function(DebindPrivate, _, ctx)
     test("추적을 놓은 프레임에 들어가면 호버 슬롯이 빈다", function()
         twoParty();
         local i = Bind({
-            action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }),
+            action({ value = 585, key = "F1", conditions = { units = { unitframe = {} } } }),
         });
 
         unitFrame:SetAttribute("unit", "party1");
         i:hoverEnter(unitFrame);
-        check(i.env.UnitAliasMap.hover == "party1",
-            ("전제가 깨졌다. 진입 후 hover=%s"):format(tostring(i.env.UnitAliasMap.hover)));
+        check(i.env.UnitAliasMap.unitframe == "party1",
+            ("전제가 깨졌다. 진입 후 hover=%s"):format(tostring(i.env.UnitAliasMap.unitframe)));
 
         standDown(dropped);
-        check(i.env.UnitAliasMap.hover == "party1",
+        check(i.env.UnitAliasMap.unitframe == "party1",
             "전제가 깨졌다. 다른 프레임 해제가 호버 슬롯을 비웠다");
 
         dropped:SetAttribute("unit", "party2");
@@ -351,9 +351,9 @@ return function(DebindPrivate, _, ctx)
 
         check(i.env.States.unitframe == nil,
             "추적 안 하는 프레임에 들어갔는데 옛 프레임이 호버 슬롯에 남아 있다");
-        check(i.env.UnitAliasMap.hover == nil,
+        check(i.env.UnitAliasMap.unitframe == nil,
             ("추적 안 하는 프레임에 들어갔는데 hover=%s"):format(
-                tostring(i.env.UnitAliasMap.hover)));
+                tostring(i.env.UnitAliasMap.unitframe)));
     end);
 
     ---------------------------------------------------------------------------
@@ -378,13 +378,13 @@ return function(DebindPrivate, _, ctx)
     --- dead on the first poll tick, on exactly the targets that fall to the last branch: friendly
     --- NPCs, corpses, totems.
     local function reactionOnArrival(unit)
-        -- The poll's hover block goes out only for a switch on the beat that names `@hover`.
+        -- The poll's hover block goes out only for a switch on the beat that names `@unitframe`.
         Bind({
-            action({ value = 585, key = "F1", unit = "hover",
-                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+            action({ value = 585, key = "F1", unit = "unitframe",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
             action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
         }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@hover]", displayMessage = true },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@unitframe]", displayMessage = true },
         });
         unitFrame:SetAttribute("unit", unit);
         interp:hoverEnter(unitFrame);
@@ -441,7 +441,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = units;
         interp:clearHoverSlot();
         interp.unitWatchHandle:SetAttribute("custom1", "none");
-        return interp:setCustomTarget("custom1", "hover");
+        return interp:setCustomTarget("custom1", "unitframe");
     end
 
     test("호버 슬롯이 비어 있으면 mouseover가 서 있는 토큰으로 지정된다", function()

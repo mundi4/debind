@@ -373,8 +373,8 @@ end
 ---
 --- **`none` is not one.** It settles nothing before the press, so what the press aims at is worked
 --- out the way it is for an action with no target and only the cast goes out asking
---- (`binding.castsAtNone`). A `unit` the type cannot take is not one either, nor the `hover` a hover
---- condition fills in, which is why this reads the action and not `binding.unit`.
+--- (`binding.castsAtNone`). A `unit` the type cannot take is not one either, nor the `unitframe` a
+--- `unitframe` condition fills in, which is why this reads the action and not `binding.unit`.
 function DebindPrivate.ActionHasPickedUnit(action)
     local unit = action.unit;
     return type(unit) == "string" and unit ~= "" and unit ~= "none"
@@ -391,7 +391,7 @@ end
 --- 있는데, 진짜 원인은 `SetBindingAttributes`의 캐시였다. `refactor-candidates.md` 참고.)
 ---
 --- 조건절의 `@유닛`은 그대로 안 나간다. `SetBindingAttributes`가 이걸 MACROTEXT와 같은 길에
---- 태우므로, `@custom1`·`@hover` 같은 우리 유닛은 `ParseMacroText`가 실행 시점에 진짜 토큰으로
+--- 태우므로, `@custom1`·`@unitframe` 같은 우리 유닛은 `ParseMacroText`가 실행 시점에 진짜 토큰으로
 --- 바꾼다. 여기서 할 일은 문자열을 만드는 것까지다.
 function DebindPrivate.GetPetActionMacroText(command, unit)
     local slash = command and _G["SLASH_" .. command .. "1"];
@@ -441,7 +441,7 @@ local REACTION_TO_UNIT_STATE = {
 ---
 --- 저장은 사용자가 편집하는 것이라 **끈 값을 기억한다.** 라디오를 [사용 안 함]이나
 --- [없을 때]로 옮겼다고 골라둔 반응·생사를 지우면, 되돌렸을 때 처음부터 다시 골라야 한다.
---- **옵션을 끄는 것이지 지우는 것이 아니다** - `frameTypes`가 hover를 껐다 켜도 남아 있는 것과
+--- **옵션을 끄는 것이지 지우는 것이 아니다** - `frameTypes`가 unitframe을 껐다 켜도 남아 있는 것과
 --- 같은 규칙이고, 이 메뉴만 예외일 이유가 없다.
 ---
 ---     { exists = true, ... }       있을 때. 축이 붙으면 그만큼 좁아진다
@@ -497,7 +497,7 @@ end
 
 --- The old `hover` / `reactions` pair -> the unit condition they became.
 ---
---- The hovered frame's unit is a unit, so it is stored as one: `units["hover"]`
+--- The pointed frame's unit is a unit, so it is stored as one: `units["unitframe"]`
 --- (`Profile.lua`'s `dbver <= 4` step). Kept in its own pair of fields it was one unit described
 --- by two columns, meeting only in `BuildUnitStates` -- which meant two runtime paths measuring
 --- the same thing about the same unit.
@@ -510,9 +510,9 @@ end
 --- **`existing`도 돌려주는 값도 바인딩 모양이다**(`UnitConditionForBinding`이 내는 것). 저장
 --- 모양을 넣지 말 것 - 부르는 쪽이 먼저 통과시킨다. 접기는 "꺼진 축을 기억한다"는 편집 쪽
 --- 사정과 아무 상관이 없고, 두 모양을 다 받게 만들면 어느 쪽인지 매번 물어야 한다.
-local function HoverConditionFromLegacy(hover, reactions, existing)
+local function UnitFrameConditionFromLegacy(hover, reactions, existing)
     if (hover == false) then
-        -- "Not hovering" against any condition that needs the unit there. Nothing is both.
+        -- "Not over a frame" against any condition that needs the unit there. Nothing is both.
         -- Spelled out rather than `and false or` -- that idiom cannot return `false`.
         if (existing == nil or existing == false) then
             return false;
@@ -538,8 +538,29 @@ local function HoverConditionFromLegacy(hover, reactions, existing)
     return folded;
 end
 
-DebindPrivate.HoverConditionFromLegacy = HoverConditionFromLegacy;
+DebindPrivate.UnitFrameConditionFromLegacy = UnitFrameConditionFromLegacy;
 DebindPrivate.UnitConditionForBinding = UnitConditionForBinding;
+
+--- 이 액션에 저장된 개체창 유닛 조건. **옛 철자도 읽는다.**
+---
+--- `dbver <= 6`이 저장된 `units.hover`를 `units.unitframe`으로 옮기지만, **원본 액션을 직접 읽는
+--- 자리는 사다리가 아직 안 닿은 것도 만난다** - 손으로 고친 프로필, 그리고 `FillBinding`이 평면
+--- `checkedUnits`를 받아주는 것과 같은 경우들이다. 이름 하나만 보게 두면 그 조건이 조용히 사라지고,
+--- **조건이 사라진 바인딩은 넓어져서 남의 키를 가져간다.**
+---
+--- 원본 액션을 읽는 자리가 셋이라(여기 둘과 `ActionTooltip.lua`) 옛 이름은 이 함수 하나만 안다.
+--- 표를 새로 만들지 않으므로 행마다 불려도 할당이 없다.
+function DebindPrivate.StoredUnitFrameCondition(action)
+    local units = action.conditions and action.conditions.units;
+    if (units == nil) then
+        return nil;
+    end
+    local value = units.unitframe;
+    if (value == nil) then
+        value = units.hover;
+    end
+    return value;
+end
 
 --- One stored unit condition -> a mask on the unit axis.
 ---
@@ -592,52 +613,52 @@ end
 --- `hover`/`reactions` are left untouched because the runtime still speaks that shape; when the
 --- menus move to masks, storage becomes these values and this collapses into a copy.
 ---
---- The point of doing it here is that **the hovered frame's unit is just a unit, named "hover"**.
---- Kept apart, the hover condition and a unit condition on the same unit are two columns
---- describing one thing, and the solver cannot see that `hover=friendly` with `@=hostile` never
---- holds -- it keeps a binding that can never fire and warns about nothing.
+--- The point of doing it here is that **the pointed frame's unit is just a unit, named
+--- "unitframe"**. Kept apart, the `unitframe` condition and a unit condition on the same unit are
+--- two columns describing one thing, and the solver cannot see that `unitframe=friendly` with
+--- `@=hostile` never holds -- it keeps a binding that can never fire and warns about nothing.
 ---
---- A mouse button reaches the not-hovering point and nothing else: the click fires wherever the
+--- A mouse button reaches the not-pointing point and nothing else: the click fires wherever the
 --- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
 --- there. The same absent condition on a keyboard key spans the whole axis.
---- `binding.hover` from the stored condition.
+--- `binding.unitframe` from the stored condition.
 ---
 --- **Derived, not stored** (`Profile.lua`'s `dbver <= 4` step). Storage keeps one column for the
---- hovered frame's unit; this is the view of it the rest of the addon already speaks --
---- ordering ranks a hover binding by `hover ~= nil` (`Ordering.lua`), the runtime routes a key to
+--- pointed frame's unit; this is the view of it the rest of the addon already speaks --
+--- ordering ranks a binding by `unitframe ~= nil` (`Ordering.lua`), the runtime routes a key to
 --- the click path by it (`UpdateBindings.lua`'s `isClickCast`), the frame-type column gates on it
 --- (`Solver.lua`), and key validity asks about it (`IsKeyInvalidForAction`).
 ---
---- `false` and `nil` are **different answers** and both are load-bearing -- "only when not
---- hovering" versus "does not care" -- so this cannot collapse to a boolean.
+--- `false` and `nil` are **different answers** and both are load-bearing -- "only when not over a
+--- frame" versus "does not care" -- so this cannot collapse to a boolean.
 ---
 --- Idempotent, and called from both seams: `GetBindingInfoForAction` needs it before the checks
---- below it read `hover`, and `BuildUnitStates` needs it for bindings that never went through
+--- below it read `unitframe`, and `BuildUnitStates` needs it for bindings that never went through
 --- there (the solver specs hand-write theirs).
-local function DeriveHoverFields(binding)
+local function DeriveUnitFrameFields(binding)
     local conditions = binding.conditions;
-    local condition = conditions and conditions.units and conditions.units.hover;
+    local condition = conditions and conditions.units and conditions.units.unitframe;
     if (condition == nil) then
-        binding.hover = nil;
+        binding.unitframe = nil;
     elseif (condition == false) then
-        binding.hover = false;
+        binding.unitframe = false;
     else
-        binding.hover = true;
+        binding.unitframe = true;
     end
 end
 
-DebindPrivate.DeriveHoverFields = DeriveHoverFields;
+DebindPrivate.DeriveUnitFrameFields = DeriveUnitFrameFields;
 
---- 호버 조건이 허용하는 반응 마스크. 아무 축도 제약 안 하면 nil.
+--- 개체창 조건이 허용하는 반응 마스크. 아무 축도 제약 안 하면 nil.
 ---
---- **`binding.reactions`라는 필드였다.** 호버 조건 하나를 세 겹으로 설명하던 마지막 겹이고
---- (`units["hover"]` -> `hover` -> `reactions`), `dbver <= 4`가 저장 쪽에서 없앤 것이
+--- **`binding.reactions`라는 필드였다.** 개체창 조건 하나를 세 겹으로 설명하던 마지막 겹이고
+--- (`units["unitframe"]` -> `unitframe` -> `reactions`), `dbver <= 4`가 저장 쪽에서 없앤 것이
 --- 정확히 그 모양이다. 읽는 데가 아래 이슈 검사 둘뿐이라 필드로 들고 있을 값이 아니었다.
 ---
---- `hover`는 남는다. 저쪽은 발동 순서·클릭 경로·솔버 컬럼·키 유효성이 다 읽는다.
-local function HoverReactionMask(binding)
+--- `unitframe`은 남는다. 저쪽은 발동 순서·클릭 경로·솔버 컬럼·키 유효성이 다 읽는다.
+local function UnitFrameReactionMask(binding)
     local conditions = binding.conditions;
-    local condition = conditions and conditions.units and conditions.units.hover;
+    local condition = conditions and conditions.units and conditions.units.unitframe;
     if (type(condition) ~= "table" or condition.reaction == Constants.REACTION_ALL) then
         return nil;
     end
@@ -714,7 +735,7 @@ function DebindPrivate.CastUnitOf(binding)
 end
 
 local function BuildUnitStates(binding)
-    DeriveHoverFields(binding);
+    DeriveUnitFrameFields(binding);
 
     local states;
 
@@ -735,9 +756,9 @@ local function BuildUnitStates(binding)
         end
     end
 
-    --- **Its own column, and only the hovered frame's unit rides it.** The map behind it is keyed
+    --- **Its own column, and only the pointed frame's unit rides it.** The map behind it is keyed
     --- by group unit tokens, and a group frame is the only thing that hands us one
-    --- (`Constants.lua`). Two sources can name that unit -- `units.hover` and a `"@"` that
+    --- (`Constants.lua`). Two sources can name that unit -- `units.unitframe` and a `"@"` that
     --- resolves to it -- so this narrows the same way `narrow` does.
     local role;
     local function narrowRole(mask)
@@ -749,7 +770,7 @@ local function BuildUnitStates(binding)
     end
 
     --- 소속도 자기 컬럼이고, 역할과 달리 **유닛마다** 선다. 어느 유닛에나 물을 수 있는
-    --- 축이라 hover 슬롯에 얹을 이유가 없다.
+    --- 축이라 unitframe 슬롯에 얹을 이유가 없다.
     local groups;
     local function narrowGroup(unit, mask)
         groups = groups or {};
@@ -761,20 +782,20 @@ local function BuildUnitStates(binding)
         end
     end
 
-    -- The hover condition itself is not read here any more -- it lives in `units["hover"]`
-    -- and the loop below folds it like any other unit. What is left is the one thing the **key**
-    -- says: a mouse button reaches the not-hovering point and nothing else, because the click
-    -- fires wherever the cursor already is and over a unit frame the frame eats it.
+    -- The `unitframe` condition itself is not read here any more -- it lives in
+    -- `units["unitframe"]` and the loop below folds it like any other unit. What is left is the
+    -- one thing the **key** says: a mouse button reaches the not-pointing point and nothing else,
+    -- because the click fires wherever the cursor already is and over a unit frame the frame eats it.
     --
-    -- **Only when nothing was said about hovering.** An explicit hover condition on a mouse
+    -- **Only when nothing was said about pointing.** An explicit `unitframe` condition on a mouse
     -- button key is the user overriding that reading, and it has always won here -- narrowing it
     -- to absent as well would leave an empty box and delete the binding for a reason nobody set.
     local conditions = binding.conditions;
     local units = conditions and conditions.units;
 
-    if (binding.key and (units == nil or units.hover == nil)
+    if (binding.key and (units == nil or units.unitframe == nil)
             and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
-        narrow("hover", Constants.UNITSTATE_NONE);
+        narrow("unitframe", Constants.UNITSTATE_NONE);
     end
 
     if (units) then
@@ -794,7 +815,7 @@ local function BuildUnitStates(binding)
                 narrow(unit, UnitConditionToState(value));
                 -- `value` is `false` for [when there is none], and role is remembered rather than
                 -- applied there -- the menu's rule for every axis under a mode it does not use.
-                if (unit == "hover" and type(value) == "table" and value.role) then
+                if (unit == "unitframe" and type(value) == "table" and value.role) then
                     narrowRole(value.role);
                 end
                 if (type(value) == "table" and value.group) then
@@ -834,10 +855,19 @@ do
     --- out at, so nothing below strips or fills it (`GetBindingsForAction` works it out). A hover
     --- twin also brings `twinCondition`, which lands under `pointedUnit`.
     ---
-    --- **`unit` has to arrive with the call**: the hover fill-in and `BuildUnitStates` at the end
+    --- **`unit` has to arrive with the call**: the `unitframe` fill-in and `BuildUnitStates` at the end
     --- both read it, so changing `unit` on a filled binding leaves `"@"` standing on the old unit.
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit)
         local twin = castModifier ~= nil;
+        -- **The pre-rename spelling of the target, for the profiles the ladder has not reached.**
+        -- `dbver <= 6` renames a stored `unit = "hover"` alongside the condition; the unit table
+        -- below carries the same shim for the same reason. Left as it is, `binding.unit` holds a
+        -- name nothing answers to any more: the click path does not recognise it
+        -- (`UpdateBindings.lua`'s `isClickCast`) and the emitter finds it in neither
+        -- `SPECIAL_UNITS` nor `BASIC_UNITS`, so the action goes out with no unit at all.
+        if (aimedUnit == "hover") then
+            aimedUnit = "unitframe";
+        end
         binding.type, binding.value = action.type, action.value;
         -- **Only the binding changes.** The action keeps the type it was saved with, so its row
         -- still says what it was, and an older build reading the same SavedVariables still runs it.
@@ -911,6 +941,14 @@ do
             or rawget(action, "checkedUnits");
         if (storedUnits) then
             for unit, value in pairs(storedUnits) do
+                -- **The pre-rename spelling is read here too.** A profile the ladder has not
+                -- reached yet calls the pointed frame's unit `hover`, and the legacy lift just
+                -- below writes `unitframe` -- so left alone, one unit arrives as two columns,
+                -- which is the split the fold exists to remove. `dbver <= 6` renames what is
+                -- stored; this is the same rule on the copy, for the profiles it has not met.
+                if (unit == "hover") then
+                    unit = "unitframe";
+                end
                 local condition, unreadable = UnitConditionForBinding(value);
                 if (unreadable) then
                     -- 이 빌드가 못 읽는 값이 하나라도 있으면 바인딩을 판정에서 뺀다
@@ -929,8 +967,8 @@ do
         -- reached first would otherwise be rewritten by whoever read it.
         if (action.hover ~= nil) then
             conditions.units = conditions.units or {};
-            conditions.units.hover = HoverConditionFromLegacy(
-                action.hover, action.reactions, conditions.units.hover);
+            conditions.units.unitframe = UnitFrameConditionFromLegacy(
+                action.hover, action.reactions, conditions.units.unitframe);
         end
 
         -- **Under the unit the twin aims at, not under a fixed name.** That is what narrows the
@@ -948,27 +986,27 @@ do
             conditions.units[pointedUnit] = twinCondition;
         end
 
-        -- Everything below this line reads `binding.hover`, so it has to be derived here and
+        -- Everything below this line reads `binding.unitframe`, so it has to be derived here and
         -- not only in `BuildUnitStates` at the end.
-        DeriveHoverFields(binding);
+        DeriveUnitFrameFields(binding);
 
         -- 커스텀 상태를 따로 도는 루프가 여기 있었다. 위 벌크 복사가 조건 표를 통째로
         -- 옮기므로 슬롯 다섯을 이름으로 세어줄 필요가 없고, 재설계가 임의 이름을 풀어도
         -- 이 자리가 안 바뀐다.
 
         -- 의미 없는 조건들을 nil로 만듬.
-        -- 마스크는 `units.hover`에 딸린 값이라, 갈래를 가르는 것은 **hover 조건을 누가 세웠느냐**다.
-        -- `mouseover` 쌍둥이는 hover 쪽을 건드리지 않으므로 아래 둘 중 하나로 간다.
-        if (twinInvented and pointedUnit == "hover") then
-            -- 쌍둥이가 hover 조건을 **스스로 세운** 경우다(`UNIT_IS_THERE`). **액션에 남아 있는
-            -- 마스크를 물려받으면 안 된다**: hover 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는
+        -- 마스크는 `units.unitframe`에 딸린 값이라, 갈래를 가르는 것은 **개체창 조건을 누가
+        -- 세웠느냐**다. `mouseover` 쌍둥이는 unitframe 쪽을 건드리지 않으므로 아래 둘 중 하나로 간다.
+        if (twinInvented and pointedUnit == "unitframe") then
+            -- 쌍둥이가 개체창 조건을 **스스로 세운** 경우다(`UNIT_IS_THERE`). **액션에 남아 있는
+            -- 마스크를 물려받으면 안 된다**: 개체창 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는
             -- 것과 지우는 것은 다르다 - `Profile.lua`), 세운 쪽이 우리이므로 물려받는 값은 언제나
             -- 죽은 조건의 것이다. 원본은 아래 `else`에서 지워지고 쌍둥이만 옛 마스크로 좁혀졌다.
             --
-            -- **사용자가 건 hover 조건을 물려받은 쌍둥이는 여기로 안 온다.** 그 마스크는 살아
+            -- **사용자가 건 개체창 조건을 물려받은 쌍둥이는 여기로 안 온다.** 그 마스크는 살아
             -- 있는 조건의 것이라 아래 `elseif`가 원본과 같은 규칙으로 다룬다.
             conditions.frameTypes = nil;
-        elseif (binding.hover) then
+        elseif (binding.unitframe) then
             if (conditions.frameTypes and band(conditions.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
                 conditions.frameTypes = nil;
             end
@@ -1029,7 +1067,7 @@ do
         -- is no focus, as it does on an action bar.
         --
         -- **`none` keeps no unit here and goes out as `none` all the same** (`CastUnitOf`). Left in
-        -- `unit`, it would be where `"@"` is asked and where the hover condition fills in, and neither
+        -- `unit`, it would be where `"@"` is asked and where the `unitframe` condition fills in, and neither
         -- has a unit to stand on there.
         binding.castsAtNone = (action.unit == "none" and DebindPrivate.ActionTakesUnit(binding)) or nil;
         if (twin) then
@@ -1058,11 +1096,11 @@ do
             conditions.specialbar = nil;
         end
 
-        if (not twin and binding.hover and binding.unit == nil) then
+        if (not twin and binding.unitframe and binding.unit == nil) then
             if (binding.ignoreHoverUnit) then
                 binding.unit = "";
             else
-                binding.unit = "hover";
+                binding.unit = "unitframe";
             end
         end
 
@@ -1101,7 +1139,7 @@ do
     --- tab still shows it.
     function DebindPrivate.HoverCastMode()
         local options = DebindPrivate.Options;
-        return (options and options.hoverCastMode == "mouseover") and "mouseover" or "hover";
+        return (options and options.hoverCastMode == "mouseover") and "mouseover" or "unitframe";
     end
 
     --- Whether Debind answers the Self Cast Key and the Focus Cast Key. **Absent means on**, which is
@@ -1146,8 +1184,8 @@ do
     ---
     --- **Where it goes out is a separate answer.** An action the feature does not reach goes out the
     --- way its original does: `ignoreHoverUnit`, a type outside `TYPES_WITH_HOVER_UNIT_OPTION`, a
-    --- unit the reader picked (`ActionHasPickedUnit`, 2026-09-15, owner), or a `hover` a hover
-    --- condition filled in. That `hover` stays `hover` in Mouseover mode, because `mouseover` also
+    --- unit the reader picked (`ActionHasPickedUnit`, 2026-09-15, owner), or a `unitframe` a
+    --- `unitframe` condition filled in. That stays `unitframe` in Mouseover mode, because `mouseover` also
     --- reaches nameplates the reader never picked. `none` is reached like an action with no target.
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
@@ -1161,7 +1199,7 @@ do
     --- unit is there, so it could never match, and no twin is made.
     ---
     --- **Nor where the original stands on [not pointing] without saying so, and the twin would go out
-    --- the way it does** (2026-09-13, owner). That is a mouse-button original with no hover condition
+    --- the way it does** (2026-09-13, owner). That is a mouse-button original with no `unitframe` condition
     --- in Unit Frames mode (`BuildUnitStates`): our mouse-button binding does not fire over a frame,
     --- and a Blizzard action bar key bound to a mouse button does not either. Such a twin could only
     --- be a frame click record, and a frame click arrives on its exact combination with no other
@@ -1183,7 +1221,7 @@ do
         local aim = unit;
         if (action.ignoreHoverUnit
                 or DebindPrivate.ActionHasPickedUnit(action)
-                or original.unit == "hover" or original.unit == "mouseover"
+                or original.unit == "unitframe" or original.unit == "mouseover"
                 or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
             aim = original.unit;
         end
@@ -1326,15 +1364,15 @@ end
 --- drifted apart -- they are never sorted against each other, so nothing was wrong today and
 --- nothing would have said so on the day one of them lost a field.
 ---
---- **Where an action stands is the one thing not derived from the action.** `priority`, `hover`
+--- **Where an action stands is the one thing not derived from the action.** `priority`, `unitframe`
 --- and `isConditional` are; `layerRank`, `specRank` and `seq` are its place in the profile. Those
 --- last three used to be written onto the binding from outside, which left the binding a pure
 --- function of its action by convention rather than in fact.
 ---
---- `hover` is read **off the binding**, and that is not interchangeable with reading the action:
+--- `unitframe` is read **off the binding**, and that is not interchangeable with reading the action:
 --- an action has no such field any more (`Profile.lua`'s `dbver <= 4` folded it into
---- `units["hover"]`), so taking it from there would hand the comparator `nil` every time
---- and kill its HOVER tier outright -- **the list would then draw in an order the key does not
+--- `units["unitframe"]`), so taking it from there would hand the comparator `nil` every time
+--- and kill its UNITFRAME tier outright -- **the list would then draw in an order the key does not
 --- fire in.** It is also **the raw value**: `false` and `nil` are different answers and the
 --- comparator reads them apart, so it must not be folded to a boolean (`Ordering.lua`).
 ---
@@ -1343,13 +1381,13 @@ end
 --- nothing at all.
 ---
 --- **`binding` is for a hover twin**, which is ordered as the action the reader would have made by
---- hand: the same one with the twin's condition on it. `hover` and `isConditional` then come off
+--- hand: the same one with the twin's condition on it. `unitframe` and `isConditional` then come off
 --- the twin, and where the action stands comes off the action.
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest, binding)
     binding = binding or GetBindingInfoForAction(action);
     dest = dest or {};
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
-    dest.hover = binding.hover;
+    dest.unitframe = binding.unitframe;
     dest.isConditional = DebindPrivate.IsConditionalBinding(binding);
     dest.layerRank = layerRank;
     dest.specRank = specRank;
@@ -1708,32 +1746,31 @@ function DebindPrivate.RefreshGameMenuKeys()
     DebindPrivate.gmKey1, DebindPrivate.gmKey2 = GetBindingKey("TOGGLEGAMEMENU");
 end
 
---- "이 액션에 호버 조건이 켜져 있는가"를 **액션에서 바로** 답한다.
+--- "이 액션에 개체창 조건이 켜져 있는가"를 **액션에서 바로** 답한다.
 ---
---- `binding.hover`를 쓰면 될 것 같지만, 아래 함수는 목록을 그릴 때 **행마다** 불린다 -
+--- `binding.unitframe`을 쓰면 될 것 같지만, 아래 함수는 목록을 그릴 때 **행마다** 불린다 -
 --- `GetBindingInfoForAction`을 거치면 그때마다 바인딩을 통째로 다시 만든다. 필요한 것은
 --- 한 축뿐이라 여기서 읽는다.
 ---
---- 마이그레이션이 안 닿은 프로필(`action.hover`)도 `HoverConditionFromLegacy`와 같은 답을
+--- 마이그레이션이 안 닿은 프로필(`action.hover`)도 `UnitFrameConditionFromLegacy`와 같은 답을
 --- 내야 한다. 저장된 조건이 있으면 그쪽이 이긴다 - 접기가 교집합하는 것과 같은 순서다.
-local function ActionHoverIsOn(action)
-    local conditions = action.conditions;
-    local condition = conditions and conditions.units and conditions.units.hover;
+local function ActionUnitFrameIsOn(action)
+    local condition = DebindPrivate.StoredUnitFrameCondition(action);
     if (condition == nil) then
         return action.hover == true;
     end
     -- **접어서 본다.** 저장 원문에는 끈 조건도 남아 있어서 `{ exists = false }`도 `{ disabled = true }`도
-    -- 표라는 이유만으로 "켜짐"이 된다. `DeriveHoverFields`와 정반대 답을 내면 왼/우클릭
+    -- 표라는 이유만으로 "켜짐"이 된다. `DeriveUnitFrameFields`와 정반대 답을 내면 왼/우클릭
     -- 유효성이 뒤집힌다.
     local folded = UnitConditionForBinding(condition);
     return folded ~= nil and folded ~= false;
 end
 
 function DebindPrivate.IsKeyInvalidForAction(action, key)
-    local hoverIsOn = ActionHoverIsOn(action);
+    local unitFrameIsOn = ActionUnitFrameIsOn(action);
     if (key == DebindPrivate.gmKey1 or key == DebindPrivate.gmKey2) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
-    elseif ((key == "BUTTON1" or key == "BUTTON2") and not hoverIsOn) then
+    elseif ((key == "BUTTON1" or key == "BUTTON2") and not unitFrameIsOn) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON;
     end
 end
@@ -2012,8 +2049,8 @@ end
 --- The branches below used to start on the action and switch to the binding halfway down, with
 --- nothing saying which reads had to come from where.
 ---
----   the binding, necessarily: `frameTypes` is nil'd for a non-hover binding there and only
----     there, `hover` has no action field at all any more, `unit` is the one the macro will aim
+---   the binding, necessarily: `frameTypes` is nil'd for a binding with no `unitframe` there and
+---     only there, `unitframe` has no action field at all any more, `unit` is the one the macro will aim
 ---     at rather than the one the user picked, and `unitStates` exists nowhere else
 ---   the binding, by choice: `groups`, `specs`, `forms`, `bonusbars`. Normalizing folds only the
 ---     all-bits case to `_ALL` and leaves `specs` alone entirely, so an empty one reads the same
@@ -2036,11 +2073,11 @@ local function LookingForWorse(issue)
     return issue == nil or IssueGrade(issue) > Constants.ISSUE_GRADE_ERROR;
 end
 
---- The group a contradiction on one unit is fixed in. `hover` can only be set in its own group and
---- every other unit lives under `Units`; both loops below have to answer this the same way, so it
---- is answered once here.
+--- The group a contradiction on one unit is fixed in. `unitframe` can only be set in its own group
+--- and every other unit lives under `Units`; both loops below have to answer this the same way, so
+--- it is answered once here.
 local function UnitLabel(unit)
-    return unit == "hover" and "CONDITION_HOVER" or "CONDITION_UNITS";
+    return unit == "unitframe" and "CONDITION_HOVER" or "CONDITION_UNITS";
 end
 
 local function EvaluateIssues(action, category, notCategory, arg, collected)
@@ -2185,23 +2222,23 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     end
 
     if (Looking() and (not category or category == "hover") and notCategory ~= "hover") then
-        if (binding.hover ~= nil) then
-            if (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
+        if (binding.unitframe ~= nil) then
+            if (binding.unitframe and (UnitFrameReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
                 Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
             end
         end
     end
 
     if (Looking() and (not category or category == "reactions") and notCategory ~= "reactions") then
-        if (binding.hover) then
-            if (HoverReactionMask(binding) == 0) then
+        if (binding.unitframe) then
+            if (UnitFrameReactionMask(binding) == 0) then
                 Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
             end
         end
     end
 
     if (Looking() and (not category or category == "frameTypes") and notCategory ~= "frameTypes") then
-        if (binding.hover) then
+        if (binding.unitframe) then
             if (conditions.frameTypes == 0) then
                 Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
             end
@@ -2209,20 +2246,20 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     end
 
     -- 한 유닛에 걸린 조건들의 **교집합이 비면** 그 유닛이 놓일 수 있는 상태가 없다는 뜻이다.
-    -- hover 조건과 `"@"`와 명시 유닛 조건이 전부 같은 축에 접혀 있으므로(`BuildUnitStates`),
+    -- 개체창 조건과 `"@"`와 명시 유닛 조건이 전부 같은 축에 접혀 있으므로(`BuildUnitStates`),
     -- 조합을 손으로 나열하지 않고 마스크가 0인지만 보면 된다.
     --
-    -- 나열하던 시절에는 hover의 반응 제한과 `"@"` 조건이 어긋나는 경우가 빠져 있었다.
-    -- 대상이 `@hover`인 액션에 hover 반응을 `우호`로, `"@"`를 `적대`로 걸면 영원히 안 걸리는데
+    -- 나열하던 시절에는 개체창의 반응 제한과 `"@"` 조건이 어긋나는 경우가 빠져 있었다.
+    -- 대상이 `@unitframe`인 액션에 개체창 반응을 `우호`로, `"@"`를 `적대`로 걸면 영원히 안 걸리는데
     -- 두 값이 서로 다른 필드에 있어서 비교 대상이 아니었다. 접힌 지금은 그 경우가 따로가 아니다.
     --
     -- **한 유닛의 0은 여러 메뉴가 같이 만든다. 그래서 그 조건을 고칠 수 있는 묶음은 전부
-    -- 빨갛게 칠한다.** 대상이 `hover`인 액션에 hover 조건을 [안 올렸을 때]로 걸면 겨눌 유닛이
-    -- 놓일 자리가 없는데, 이건 hover 메뉴에서 풀 수도 있고 대상 메뉴에서 다른 유닛을 골라
+    -- 빨갛게 칠한다.** 대상이 `unitframe`인 액션에 개체창 조건을 [안 올렸을 때]로 걸면 겨눌 유닛이
+    -- 놓일 자리가 없는데, 이건 개체창 메뉴에서 풀 수도 있고 대상 메뉴에서 다른 유닛을 골라
     -- 풀 수도 있다. 한쪽만 칠하면 나머지 한쪽을 연 사람은 멀쩡한 화면을 본다 - 메뉴를 열었을
     -- 때 어디를 봐야 하는지가 이 색으로만 보이므로, 관련된 자리는 다 칠해야 한다.
     --
-    -- 대신 **자기가 보여주지 않는 조건으로는 안 칠한다.** `Units` 묶음은 `"hover"`를 줄로
+    -- 대신 **자기가 보여주지 않는 조건으로는 안 칠한다.** `Units` 묶음은 `"unitframe"`을 줄로
     -- 갖고 있지 않으므로 그 키의 0에는 반응하지 않는다.
     --
     -- **This zero is what keeps contradictory conditions out of the secure environment.** An
@@ -2232,11 +2269,11 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- function's header spells out the reasoning; the two are one rule written twice, so **weaken
     -- this check and the runtime starts carrying conditions nothing can satisfy.**
     --- 이 묶음이 그 0에 **거들었는가.** 안 거든 묶음을 칠하면 아무것도 안 고른 메뉴가
-    --- 빨개진다 - hover에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
+    --- 빨개진다 - 개체창에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
     ---
     --- **두 순회가 같이 쓴다.** 소속은 유닛 곱에 안 들어가고 자기 컬럼으로 서느라 아래쪽
     --- 순회를 따로 도는데, 거든 묶음만 칠한다는 규칙은 축과 무관하다. 유닛 마스크 순회 안에
-    --- 있던 동안 소속 쪽은 그 규칙 없이 `binding.unit`만 봤고, 그래서 hover에서 비운 소속이
+    --- 있던 동안 소속 쪽은 그 규칙 없이 `binding.unit`만 봤고, 그래서 개체창에서 비운 소속이
     --- `Target`을 칠했다.
     local function contributed(unit)
         if (not conditions.units) then
@@ -2272,12 +2309,12 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                     -- 유닛 하나를 짚어 물었다(서브메뉴).
                     mine = target == unit;
                 elseif (category == "hover") then
-                    mine = unit == "hover" and contributed(unit);
+                    mine = unit == "unitframe" and contributed(unit);
                 elseif (category == "unit") then
                     -- 대상 메뉴. `"@"`가 가리키는 유닛의 0이 곧 이 메뉴의 문제다.
                     mine = contributed(unit);
                 elseif (category == "units") then
-                    mine = unit ~= "hover";
+                    mine = unit ~= "unitframe";
                 else
                     -- 액션 전체. 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는다.
                     mine = true;
@@ -2306,9 +2343,9 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             elseif (target ~= nil) then
                 mine = target == unit;
             elseif (category == "hover") then
-                mine = unit == "hover";
+                mine = unit == "unitframe";
             elseif (category == "units") then
-                mine = unit ~= "hover";
+                mine = unit ~= "unitframe";
             elseif (category == "unit") then
                 mine = contributed(unit);
             else
@@ -2324,7 +2361,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     end
 
     -- 역할을 하나도 안 고른 것. 유닛 축의 0과 같은 뜻인데 컬럼이 달라서 위 순회가 못 본다.
-    -- **hover 묶음에서만 칠한다** - 이 축은 거기서만 걸 수 있다.
+    -- **개체창 묶음에서만 칠한다** - 이 축은 거기서만 걸 수 있다.
     if (Looking() and binding.unitRole == 0 and notCategory ~= "units"
             and (not category or category == "hover")) then
         Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_HOVER");
@@ -2467,7 +2504,7 @@ local SWITCH_CLICK_TARGET = "DebindStates";
 ---
 --- **`none` never moves it.** Its body names `[@none]`, which is no unit to ask, and the macro text is
 --- aimed the way `none` already was, like an action with no target. `binding.unit` there can be the
---- `hover` a hover condition filled in, which the body does not go to.
+--- `unitframe` a `unitframe` condition filled in, which the body does not go to.
 ---
 --- **It moves only where the body spells the unit out.** The macro text aims at nothing, so from
 --- then on its `"@"` asks `target`, or the twins' units with a key held. A body reading
@@ -2506,7 +2543,7 @@ end
 --- half is itself one of each, so the stored shape can always say the answer.
 ---
 --- `{ exists = true, reaction = 0 }` is the empty one: exists, and in none of the three reactions,
---- which no unit satisfies. Not a new marker -- `HoverConditionFromLegacy` writes the same zero
+--- which no unit satisfies. Not a new marker -- `UnitFrameConditionFromLegacy` writes the same zero
 --- mask where its two sides do not overlap, and `GetBindingIssue` already reads it that way.
 ---
 --- **What the discarded side remembered is gone.** Storage keeps the axes of a condition switched
@@ -2799,7 +2836,7 @@ function DebindPrivate.ConvertToMacroText(action)
         name = action.name;
         icon = action.icon;
     elseif (action.type == Constants.SETCUSTOM) then
-        macrotext = format("/click DebindCustom%d hover", action.value);
+        macrotext = format("/click DebindCustom%d unitframe", action.value);
         name = L["TYPE_SETCUSTOM" .. action.value];
         icon = 1505950;
     elseif (Constants.SETSTATE_MODES[action.type]) then
@@ -3006,6 +3043,52 @@ do
                 _parsedMacrotextCache[k] = nil;
             end
         end
+    end
+
+    --- The same body with every `@<from>` unit token pointed at `@<to>`, suffix kept.
+    ---
+    --- **Written for the migration that renames a unit, and it cannot go through
+    --- `ParseMacroText`.** That parser finds a unit token by asking `Constants.SPECIAL_UNITS`, and
+    --- a step renaming a unit runs in a build where the old name has already left that table -- so
+    --- the token it has to rewrite is exactly the one the parser has stopped recognising. The step
+    --- hands the old name in, the way every frozen step in `Profile.lua` holds its own literals.
+    ---
+    --- **Whole tokens inside `[...]`, never substrings.** `@hovering` is not the unit `hover`, and
+    --- `/say [@hover]` outside a condition position is text -- the same boundary
+    --- `StripSwitchConditions` keeps, for the same reason. A suffix the parser accepts
+    --- (`@hovertarget`) is part of the token and rides across onto the new name.
+    function DebindPrivate.RenameUnitInMacroText(str, from, to)
+        if (type(str) ~= "string" or not strfind(str, "@" .. from, 1, true)) then
+            return str;
+        end
+        return (str:gsub("%[([^%[%]]*)%]", function(body)
+            local touched = false;
+            local tokens = { strsplit(",", body) };
+            for i = 1, #tokens do
+                local token = tokens[i];
+                local trimmed = strtrim(token);
+                if (strsub(trimmed, 1, 1) == "@") then
+                    local rest = strsub(trimmed, 2);
+                    local suffix;
+                    if (rest == from) then
+                        suffix = "";
+                    elseif (strsub(rest, 1, from:len()) == from
+                            and UNIT_SUFFIXES[strsub(rest, from:len() + 1)]) then
+                        suffix = strsub(rest, from:len() + 1);
+                    end
+                    if (suffix) then
+                        -- The spacing around the token is the user's and is kept. Only the name moves.
+                        tokens[i] = (strmatch(token, "^%s*") or "") .. "@" .. to .. suffix
+                            .. (strmatch(token, "%s*$") or "");
+                        touched = true;
+                    end
+                end
+            end
+            if (not touched) then
+                return nil;
+            end
+            return "[" .. table.concat(tokens, ",") .. "]";
+        end));
     end
 end
 

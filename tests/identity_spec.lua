@@ -48,7 +48,7 @@ return function(DebindPrivate)
             priority = 2,
             keepInBindingContext = true,
             ignoreHoverUnit = false,
-            conditions = { combat = true, forms = 3, units = { hover = 1 } },
+            conditions = { combat = true, forms = 3, units = { unitframe = 1 } },
             seq = 1,
         };
         for k, v in pairs(overrides or {}) do
@@ -134,23 +134,23 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("조건 값이 다르면 다르다", function()
-        check(not ActionsAreEqual(action(), action({ conditions = { combat = false, forms = 3, units = { hover = 1 } } })),
+        check(not ActionsAreEqual(action(), action({ conditions = { combat = false, forms = 3, units = { unitframe = 1 } } })),
             "combat이 다르다");
-        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 4, units = { hover = 1 } } })),
+        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 4, units = { unitframe = 1 } } })),
             "forms가 다르다");
     end);
 
     test("조건이 하나 더 있거나 없으면 다르다", function()
-        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3, units = { hover = 1 }, stealth = true } })),
+        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3, units = { unitframe = 1 }, stealth = true } })),
             "하나 더 있으면 다르다");
-        check(not ActionsAreEqual(action(), action({ conditions = { forms = 3, units = { hover = 1 } } })),
+        check(not ActionsAreEqual(action(), action({ conditions = { forms = 3, units = { unitframe = 1 } } })),
             "하나 빠지면 다르다");
     end);
 
     test("중첩 표의 내용이 다르면 다르다", function()
-        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3, units = { hover = 2 } } })),
+        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3, units = { unitframe = 2 } } })),
             "units의 값이 다르다");
-        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3, units = { hover = 1, mouseover = 1 } } })),
+        check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3, units = { unitframe = 1, mouseover = 1 } } })),
             "units에 하나 더 있다");
         check(not ActionsAreEqual(action(), action({ conditions = { combat = true, forms = 3 } })),
             "units 자체가 없다");
@@ -161,13 +161,13 @@ return function(DebindPrivate)
         one.conditions.combat = true;
         one.conditions.forms = 3;
         one.conditions.units = {};
-        one.conditions.units.hover = 1;
+        one.conditions.units.unitframe = 1;
         one.conditions.units.mouseover = 2;
 
         local other = action({ conditions = {} });
         other.conditions.units = {};
         other.conditions.units.mouseover = 2;
-        other.conditions.units.hover = 1;
+        other.conditions.units.unitframe = 1;
         other.conditions.forms = 3;
         other.conditions.combat = true;
 

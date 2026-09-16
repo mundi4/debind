@@ -194,7 +194,7 @@ local UNIT_INFO            = {
 		name = LLL["UNIT_CUSTOM2"],
 		type = "custom",
 	},
-	hover = {
+	unitframe = {
 		name = LLL["UNIT_HOVER"],
 		-- spell = false,
 		-- item = false,
@@ -243,7 +243,7 @@ local SORTED_UNIT_LIST     = {
 	"mainassist",
 	"custom1",
 	"custom2",
-	"hover",
+	"unitframe",
 	"none",
 };
 --- 액션 하나를 받는다. 목록 elementData를 그대로 넘기지 말 것 - 부르는 쪽이 `.action`을

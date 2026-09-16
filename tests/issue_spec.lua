@@ -128,7 +128,7 @@ return function(DebindPrivate)
     --- 지금 모양으로 접는 것은 `GetBindingInfoForAction`이 한다. 조건 이름만 `nest`가 내린다.
     local function hoverAction(reactions, atValue)
         return nest({
-            type = Constants.SPELL, value = 100, unit = "hover",
+            type = Constants.SPELL, value = 100, unit = "unitframe",
             hover = true, reactions = reactions,
             units = { ["@"] = atValue },
         });
@@ -170,8 +170,8 @@ return function(DebindPrivate)
     --- 대상이 hover인데 hover 조건이 "안 올렸을 때"다. 겹치는 상태가 없다.
     local function hoverTargetConflict()
         return nest({
-            type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
-            units = { ["@"] = {}, hover = { exists = false } },
+            type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
+            units = { ["@"] = {}, unitframe = { exists = false } },
         });
     end
 
@@ -215,8 +215,8 @@ return function(DebindPrivate)
     -- 제 이름(`HOVER_NONE_SELECTED`)이 있다. 대상 메뉴는 아무것도 안 골랐는데 빨개지면
     -- 어디를 봐야 하는지가 오히려 안 보인다.
     test("hover의 빈 반응만으로 대상 묶음이 빨개지지 않는다", function()
-        local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
-            units = { hover = { reaction = 0 } } });
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
+            units = { unitframe = { reaction = 0 } } });
         check(GetBindingIssue(action, "unit") == nil, "안 거든 묶음을 칠했다");
         check(GetBindingIssue(action, "hover") ~= nil, "hover 묶음은 잡아야 한다");
     end);
@@ -247,7 +247,7 @@ return function(DebindPrivate)
     -- hover의 빈 소속은 hover 묶음의 문제다. `Units`는 `"hover"`를 줄로 갖고 있지 않다.
     test("hover의 빈 소속은 hover 묶음만 칠한다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
-            units = { hover = { group = 0 } } });
+            units = { unitframe = { group = 0 } } });
         check(GetBindingIssue(action, "hover") == UNITGROUPS_NONE,
             "hover 묶음이 안 잡는다");
         check(GetBindingIssue(action, "units") == nil,
@@ -258,8 +258,8 @@ return function(DebindPrivate)
     -- 축만 다르다. 유닛 마스크를 보는 순회는 `contributed`로 거든 묶음만 칠하는데, 소속은
     -- 자기 컬럼으로 서느라 그 순회를 안 지나므로 같은 규칙을 따로 걸어야 한다.
     test("hover의 빈 소속만으로 대상 묶음이 빨개지지 않는다", function()
-        local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
-            units = { hover = { group = 0 } } });
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
+            units = { unitframe = { group = 0 } } });
         check(GetBindingIssue(action, "unit") == nil,
             "안 거든 묶음을 칠했다: " .. tostring(GetBindingIssue(action, "unit")));
         check(GetBindingIssue(action, "hover") == UNITGROUPS_NONE, "hover 묶음은 잡아야 한다");
@@ -322,23 +322,23 @@ return function(DebindPrivate)
     end);
 
     test("저장된 호버 조건이 있으면 왼쪽 버튼을 쓸 수 있다", function()
-        check(mouseKeyIssue({ units = { hover = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
-        check(mouseKeyIssue({ units = { hover = { reaction = Constants.REACTION_HELP } } }) == nil,
+        check(mouseKeyIssue({ units = { unitframe = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
+        check(mouseKeyIssue({ units = { unitframe = { reaction = Constants.REACTION_HELP } } }) == nil,
             "오탐 - 반응이 걸려도 호버 조건이다");
     end);
 
     -- "호버 중이 **아닐** 때"는 호버 조건이 켜진 것이 아니다. 마우스 버튼은 커서가 있는
     -- 자리에서 발동하므로 그 조건으로는 유닛 프레임 클릭을 못 받는다.
     test("호버가 false면 왼쪽 버튼을 못 쓴다", function()
-        check(mouseKeyIssue({ units = { hover = false } }) == MOUSE_ISSUE, "이슈가 안 남");
+        check(mouseKeyIssue({ units = { unitframe = false } }) == MOUSE_ISSUE, "이슈가 안 남");
     end);
 
     -- 저장에는 끈 조건이 표로 남는다. 표라는 이유만으로 "켜짐"이라고 읽으면 이 판정이
     -- 뒤집혀서, 걸리지 말아야 할 왼쪽 버튼이 통과하고 걸릴 것이 안 걸린다.
     test("끈 호버 조건은 왼쪽 버튼을 못 쓰게 한다", function()
-        check(mouseKeyIssue({ units = { hover = { exists = false } } }) == MOUSE_ISSUE,
+        check(mouseKeyIssue({ units = { unitframe = { exists = false } } }) == MOUSE_ISSUE,
             "\"없을 때\"를 켜진 것으로 읽었다");
-        check(mouseKeyIssue({ units = { hover = { disabled = true,
+        check(mouseKeyIssue({ units = { unitframe = { disabled = true,
             reaction = Constants.REACTION_HELP } } }) == MOUSE_ISSUE,
             "기억만 하는 값을 켜진 것으로 읽었다");
     end);
@@ -349,13 +349,22 @@ return function(DebindPrivate)
     test("호버를 켠 명령 액션도 마우스 버튼 키에서 안 빠진다", function()
         check(DebindPrivate.IsKeyInvalidForAction(nest({
             type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "BUTTON3",
-            units = { hover = {} },
+            units = { unitframe = {} },
         }), "BUTTON3") == nil, "호버를 켠 명령 액션에 이슈가 났다");
     end);
 
     test("마이그레이션이 안 닿은 옛 hover도 같은 답을 낸다", function()
         check(mouseKeyIssue({ hover = true }) == nil, "옛 모양이 안 읽힘");
         check(mouseKeyIssue({ hover = false }) == MOUSE_ISSUE, "옛 false가 안 읽힘");
+    end);
+
+    -- **개명 전 이름으로 저장된 조건도 같은 답을 내야 한다.** 이 검사는 원본 액션을 직접 읽고,
+    -- `dbver <= 6`이 아직 안 닿은 프로필은 그 키가 `hover`다. 새 이름만 보면 조건이 없는 것으로
+    -- 읽혀 **모든** 왼/오른 버튼 바인딩이 지워진다 - 위 묶음이 적어둔 그 실패 그대로다.
+    test("개명 전 이름으로 저장된 개체창 조건도 왼쪽 버튼을 쓸 수 있게 한다", function()
+        check(mouseKeyIssue({ units = { hover = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
+        check(mouseKeyIssue({ units = { hover = { exists = false } } }) == MOUSE_ISSUE,
+            "옛 이름의 \"없을 때\"를 켜진 것으로 읽었다");
     end);
 
     ---------------------------------------------------------------------------
@@ -596,7 +605,7 @@ return function(DebindPrivate)
         -- **`@hover`이지 `@focus`가 아니다.** 파서가 인자로 적어두는 것은 값을 갈아끼워야 하는
         -- 별칭뿐이고, 맨 유닛 토큰은 글자 그대로 남아 인자 목록에 아예 안 들어온다 - 그것으로는
         -- 인자 종류를 안 보는 판까지 통과한다.
-        check(GetUndefinedSwitchInExpr("[@hover,harm]", "$derived") == nil, "유닛을 스위치로 읽었다");
+        check(GetUndefinedSwitchInExpr("[@unitframe,harm]", "$derived") == nil, "유닛을 스위치로 읽었다");
     end);
 
     -- **자기 참조는 미정의가 아니다.** 코드젠이 그 자리를 지워서 굽지(`EmitMacroTextArg`) 죽은

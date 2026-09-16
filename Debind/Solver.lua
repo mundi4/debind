@@ -46,7 +46,7 @@ local pairs = pairs;
           group      `Constants.STATE_EVAL_EXPRESSIONS` and `SecureBindings.lua`'s
                      `EVAL_SNIPPET`. `check:state-eval` holds those two together, and that is
                      the only check anywhere near either invariant
-          reaction   `UpdateBindings.lua` emits both the state loop's line and the hover poll's;
+          reaction   `UpdateBindings.lua` emits both the state loop's line and the unitframe poll's;
                      `SecureBindings.lua` carries the click path and `setup_onenter`
 
       - **Across columns**, independence is not required. Correlated columns -- target and
@@ -80,9 +80,9 @@ local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 -- 유닛 하나를 한 값으로 푼다 (`UpdateBindings.lua`의 unitStateExpression). 블리자드도 같은
 -- 자리를 if/elseif로 푼다 (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환).
 --
--- The mask itself is built in `Misc.lua` (BuildUnitStates), which is also where the hover
--- condition is folded in -- the hovered frame's unit is a unit named "hover", so it belongs on
--- this axis rather than in a column of its own.
+-- The mask itself is built in `Misc.lua` (BuildUnitStates), which is also where the `unitframe`
+-- condition is folded in -- the pointed frame's unit is a unit named "unitframe", so it belongs
+-- on this axis rather than in a column of its own.
 
 -- `max` is the exhaustive half of the column invariant: it has to name every value the game
 -- can produce on this axis. One index past it and "no condition" stops standing for the whole
@@ -121,16 +121,16 @@ end
 --- 축이 하나뿐인 컬럼들. 순서는 상관없음.
 local FIXED_COLUMNS = {
     {
-        -- Hover-dependent axes carry no condition off the hover path: with nothing hovered
-        -- there is no frame to have a type. Returning the full mask there is what keeps this
-        -- column free -- every cover that reaches the not-hovering point reaches it for all
-        -- seven frame types at once, so the point never splits across covers.
+        -- Frame-dependent axes carry no condition off the `unitframe` path: with no frame
+        -- pointed at there is no frame to have a type. Returning the full mask there is what
+        -- keeps this column free -- every cover that reaches the not-pointing point reaches it
+        -- for all seven frame types at once, so the point never splits across covers.
         --
-        -- `Misc.lua` already nils the field for non-hover bindings; reading `hover` here is
-        -- what stops that from being a cross-file assumption.
+        -- `Misc.lua` already nils the field for bindings with no `unitframe`; reading
+        -- `unitframe` here is what stops that from being a cross-file assumption.
         name = "frameTypes",
         make = function(binding)
-            if (not binding.hover) then
+            if (not binding.unitframe) then
                 return flagsToConditionFlags(nil, 6);
             end
             return flagsToConditionFlags(binding.conditions.frameTypes, 6);
@@ -263,27 +263,27 @@ end
 
 --- **The one correlation across columns that is folded in, and the only place it can be.** The
 --- cursor being on a frame is the client's `mouseover` standing on that frame's unit, so the
---- product's (hovering, nothing moused over) point is one the game never produces. Left in, a
---- `mouseover` action never covers a hover action it always beats to the press -- the shape a key
---- with both casts on it has.
+--- product's (on a frame, nothing moused over) point is one the game never produces. Left in, a
+--- `mouseover` action never covers a `unitframe` action it always beats to the press -- the shape
+--- a key with both casts on it has.
 ---
 --- **Here rather than in the mask `Misc.lua` builds**, because narrowing it there would create
 --- this column on a key where nobody named `mouseover`, and then a pair of bindings splitting the
---- hover axis between them would stop covering an unconditional one: the phantom point is theirs
---- to cover and neither reaches it. Done at column-build time, the space only grows the axis when
---- a binding really asks about it.
+--- `unitframe` axis between them would stop covering an unconditional one: the phantom point is
+--- theirs to cover and neither reaches it. Done at column-build time, the space only grows the
+--- axis when a binding really asks about it.
 ---
---- **Existence and nothing more, though it is the same unit.** Taking the hover mask outright
---- would say [the moused-over unit is friendly] where the user said it of the hovered frame, and
---- nobody here has measured the client on that.
+--- **Existence and nothing more, though it is the same unit.** Taking the `unitframe` mask
+--- outright would say [the moused-over unit is friendly] where the user said it of the pointed
+--- frame, and nobody here has measured the client on that.
 ---
 --- **One direction.** Mousing over something in the world sets the token with no frame anywhere,
---- so a hover condition says nothing about `mouseover` being absent.
+--- so a `unitframe` condition says nothing about `mouseover` being absent.
 local function makeMouseoverFlags(binding)
     local states = binding.unitStates;
     local mask = (states and states.mouseover) or Constants.UNITSTATE_ALL;
-    local hover = states and states.hover;
-    if (hover and hover ~= 0 and band(hover, Constants.UNITSTATE_NONE) == 0) then
+    local unitframe = states and states.unitframe;
+    if (unitframe and unitframe ~= 0 and band(unitframe, Constants.UNITSTATE_NONE) == 0) then
         mask = band(mask, Constants.UNITSTATE_EXISTS);
     end
     return mask;
@@ -291,7 +291,7 @@ end
 
 --- **A column of its own rather than another factor in the unit product.** `Constants.lua` says
 --- why over `UNITSTATE_NONE`: the product belongs to a key and widening the enumeration makes
---- every key pay for an axis it never asked about. It correlates with the hover unit's column --
+--- every key pay for an axis it never asked about. It correlates with the `unitframe` column --
 --- an absent unit is always of unknown role -- and a correlation across columns is the safe
 --- direction (see "Across columns" above), so it is left alone.
 local function makeRoleFlags(binding)

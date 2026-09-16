@@ -1,7 +1,7 @@
 -- 순서 비교 함수 테스트. 와우 클라이언트 불필요.
 --
 -- 두 층으로 되어 있음:
---   1. 단계별 테스트 - CompareActionOrder의 5단계(priority > hover > isConditional >
+--   1. 단계별 테스트 - CompareActionOrder의 5단계(priority > unitframe > isConditional >
 --      layerRank > seq)와 CompareKeys의 규칙을 하나씩 고정한다
 --   2. 무차별 대조 테스트 - (layerRank, seq)로 쪼개기 전의 통짜 ordinal 비교자를
 --      그대로 옮겨와서, 작은 조건 공간의 모든 쌍에 대해 두 비교자가 같은 답을 내는지 본다.
@@ -36,7 +36,7 @@ return function(DebindPrivate)
     -- 1. CompareActionOrder - 단계별
     ---------------------------------------------------------------------------
 
-    --- layerRank/seq 기본값을 채운 레코드. hover는 nil/false/true가 전부 다른 뜻이라
+    --- layerRank/seq 기본값을 채운 레코드. unitframe는 nil/false/true가 전부 다른 뜻이라
     --- 넘어온 값을 그대로 둔다.
     local function rec(t)
         t.layerRank = t.layerRank or 1;
@@ -66,19 +66,19 @@ return function(DebindPrivate)
         expectTie(rec({ priority = 3 }), rec({}), "3과 nil은 동률");
     end);
 
-    test("2단계 hover - hover가 있는 쪽이 먼저", function()
-        expectBefore(rec({ hover = true }), rec({}), "hover");
+    test("2단계 unitframe - unitframe가 있는 쪽이 먼저", function()
+        expectBefore(rec({ unitframe = true }), rec({}), "unitframe");
     end);
 
-    test("2단계 hover - false도 '있는' 것이다", function()
-        -- action.hover = false는 "hover 아님"을 명시한 조건이라 nil과 다르다.
+    test("2단계 unitframe - false도 '있는' 것이다", function()
+        -- action.unitframe = false는 "unitframe 아님"을 명시한 조건이라 nil과 다르다.
         -- 불리언으로 접어 넘기면 여기가 깨진다.
-        expectBefore(rec({ hover = false }), rec({}), "hover=false");
-        expectTie(rec({ hover = false }), rec({ hover = true }), "false와 true는 동률");
+        expectBefore(rec({ unitframe = false }), rec({}), "unitframe=false");
+        expectTie(rec({ unitframe = false }), rec({ unitframe = true }), "false와 true는 동률");
     end);
 
-    test("2단계 hover - priority가 먼저 갈리면 hover는 안 본다", function()
-        expectBefore(rec({ priority = 1 }), rec({ priority = 2, hover = true }), "priority 우선");
+    test("2단계 unitframe - priority가 먼저 갈리면 unitframe는 안 본다", function()
+        expectBefore(rec({ priority = 1 }), rec({ priority = 2, unitframe = true }), "priority 우선");
     end);
 
     test("3단계 isConditional - 조건부가 먼저", function()
@@ -87,8 +87,8 @@ return function(DebindPrivate)
         expectTie(rec({ isConditional = false }), rec({}), "false와 nil은 동률");
     end);
 
-    test("3단계 isConditional - hover가 먼저 갈리면 안 본다", function()
-        expectBefore(rec({ hover = true }), rec({ isConditional = true }), "hover 우선");
+    test("3단계 isConditional - unitframe가 먼저 갈리면 안 본다", function()
+        expectBefore(rec({ unitframe = true }), rec({ isConditional = true }), "unitframe 우선");
     end);
 
     test("4단계 layerRank - 작은 값(구체적인 레이어)이 먼저", function()
@@ -125,8 +125,8 @@ return function(DebindPrivate)
     end);
 
     test("전부 같으면 동률", function()
-        expectTie(rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }),
-            rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
+        expectTie(rec({ priority = 2, unitframe = true, isConditional = true, layerRank = 3, seq = 4 }),
+            rec({ priority = 2, unitframe = true, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
     end);
 
     test("sort 통합 - 6단계가 순서대로 적용된다", function()
@@ -134,7 +134,7 @@ return function(DebindPrivate)
             rec({ seq = 2 }),
             rec({ seq = 1 }),
             rec({ isConditional = true, seq = 3 }),
-            rec({ hover = true, seq = 4 }),
+            rec({ unitframe = true, seq = 4 }),
             rec({ priority = 1, seq = 5 }),
             rec({ layerRank = 0, seq = 6 }),
             rec({ specRank = 2, seq = 7 }),
@@ -159,9 +159,9 @@ return function(DebindPrivate)
             return (lhs.priority or 3) < (rhs.priority or 3);
         end
 
-        if (lhs.hover ~= nil and rhs.hover == nil) then
+        if (lhs.unitframe ~= nil and rhs.unitframe == nil) then
             return true;
-        elseif (lhs.hover == nil and rhs.hover ~= nil) then
+        elseif (lhs.unitframe == nil and rhs.unitframe ~= nil) then
             return false;
         end
 
@@ -188,7 +188,7 @@ return function(DebindPrivate)
                         for seq = 1, INDICES_PER_LAYER do
                             records[#records + 1] = {
                                 priority = p ~= "nil" and p or nil,
-                                hover = h ~= "nil" and h or nil,
+                                unitframe = h ~= "nil" and h or nil,
                                 isConditional = c ~= "nil" and c or nil,
                                 layerRank = layerRank,
                                 seq = seq,
@@ -215,7 +215,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- 3. ComputeOrderSwap
     --
-    -- 순서 UI의 ↑↓는 **seq만** 만진다. priority/hover/조건부/레이어는 각자 뜻이 있는
+    -- 순서 UI의 ↑↓는 **seq만** 만진다. priority/unitframe/조건부/레이어는 각자 뜻이 있는
     -- 속성이고 각자의 자리에서 바뀌므로, 그 단계에서 갈렸으면 버튼은 손을 뗀다.
     -- 여기서 고정하는 건 두 가지다: 어느 단계에서 막혔는지, 그리고 움직였을 때 정확히
     -- 한 칸만 움직이고 ↑ 다음 ↓면 원래대로 돌아오는지.
@@ -458,12 +458,12 @@ return function(DebindPrivate)
         expectBlocked(rec({ name = "t" }), rec({ name = "n", priority = 2 }), "IMPORTANCE");
     end);
 
-    test("막힘 - hover 여부가 다르면 HOVER", function()
-        expectBlocked(rec({ name = "t" }), rec({ name = "n", hover = true }), "HOVER");
+    test("막힘 - unitframe 여부가 다르면 HOVER", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", unitframe = true }), "UNITFRAME");
     end);
 
-    test("막힘 - hover=false도 '있는' 것이라 HOVER로 갈린다", function()
-        expectBlocked(rec({ name = "t" }), rec({ name = "n", hover = false }), "HOVER");
+    test("막힘 - unitframe=false도 '있는' 것이라 HOVER로 갈린다", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", unitframe = false }), "UNITFRAME");
     end);
 
     test("막힘 - 조건부 여부가 다르면 CONDITIONAL", function()

@@ -175,7 +175,7 @@ return function(DebindPrivate, _, ctx)
     -- and holds nothing, so all that holds the key is the action the condition left out.
     test("a hover action on a mouse button does not stop a left-out action holding the key", function()
         Bind({
-            action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { hover = {} } } }),
+            action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { unitframe = {} } } }),
             action({ value = 774, key = "SHIFT-BUTTON2", conditions = { specs = OtherSpec() } }),
         });
         checkOursAndSilent("SHIFT-BUTTON2");
@@ -184,7 +184,7 @@ return function(DebindPrivate, _, ctx)
     -- **Negative of the one above.** Without it that case also passes on a rebuild that takes
     -- every mouse button it sees.
     test("a hover action alone leaves its mouse button to the frame", function()
-        Bind({ action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { hover = {} } } }) });
+        Bind({ action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { unitframe = {} } } }) });
         checkNotOurs("SHIFT-BUTTON2");
     end);
 

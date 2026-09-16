@@ -124,8 +124,9 @@ local _measuredUnitAxes  = {};
 --- Does any action ask about the hovered unit's role? It is what turns the three role headers
 --- on, and they are the only thing that fills `UnitRoles`.
 local _readsRole = false;
---- Does a switch on the beat name `@hover`? It is the one reader left for the poll's hover block.
-local _beatReadsHover = false;
+--- Does a switch on the beat name `@unitframe`? It is the one reader left for the poll's
+--- unitframe block.
+local _beatReadsUnitFrame = false;
 
 --- Scratch arrays for `sortedKeys`. Three, because the walks nest: a key's units are sorted inside
 --- the walk over keys, and one unit's reactions inside the walk over units.
@@ -169,7 +170,7 @@ local function ResetContext()
     wipe(_measuredUnitAxes);
     wipe(_unitsSeen);
     _readsRole = false;
-    _beatReadsHover = false;
+    _beatReadsUnitFrame = false;
 end
 
 --- Which measured state a macro conditional word answers to.
@@ -543,7 +544,7 @@ wipe(HeldUnits)
 -- Drop any unconsumed handoff -- it points into the old records.
 HandoffBindings = nil
 HandoffWinner = nil
-HandoffHoverUnit = nil
+HandoffUnitFrameUnit = nil
 wipe(MacroTextsMap)
 wipe(DeferredMacroTexts)
 wipe(UnitStates)
@@ -556,10 +557,10 @@ wipe(ComputedSwitches)
 -- 다음에 커서가 들어올 때까지 빈 채로 남는다.
 --
 -- 커서는 그대로 프레임 위에 있는데 조건 하나만 바뀌면(전투 진입, 자세 변경, 특성) 리빌드가
--- 돌고, 그 순간 hover 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
+-- 돌고, 그 순간 개체창 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
 --
--- 짝이 되는 `UnitAliasMap["hover"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
--- 한다 - hover 유닛은 남아 있는데 hover 프레임은 없는 상태가 된다.
+-- 짝이 되는 `UnitAliasMap["unitframe"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
+-- 한다 - 유닛은 남아 있는데 프레임은 없는 상태가 된다.
 local hovered = States.unitframe
 wipe(States)
 States.unitframe = hovered
@@ -665,7 +666,7 @@ local function CollectDriverEvents(events)
     -- empty space. That second half is the state poll's, in the `elseif (unitframe.reaction)`
     -- branch of the hover block (`UpdateAttrChangedHandler`). Registering this is worth doing
     -- anyway, and reading it as the whole of hover dangling detection is not.
-    want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.hover or _measuredUnitAxes.mouseover);
+    want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.unitframe or _measuredUnitAxes.mouseover);
 
     want("UPDATE_OVERRIDE_ACTIONBAR", _measuredStates.specialbar);
     want("UPDATE_VEHICLE_ACTIONBAR", _measuredStates.specialbar);
@@ -1098,6 +1099,7 @@ local function DescribeBinding(type, value, unit, facts, out)
     --      키에 들어가므로 그 일이 없다. (캐시 자체는 여전히 이 구조다 - refactor-candidates 18)
     --   2. `@custom1`·`@hover`·`@tank`는 진짜 유닛 토큰이 아니다. 바꿔주는 것이
     --      `addMacrotextBinding` -> `ParseMacroText`이고, 그건 MACROTEXT에만 걸려 있다.
+    --      (`@custom1`·`@unitframe`·`@tank` 이야기다.)
     --   3. unit을 여기서 떨군다. 본문이 대상을 들고 있으므로 delegate 프레임이 할 일이
     --      없다(`SECURE_ACTIONS.macro`는 버튼의 unit을 안 본다).
     --
@@ -1217,7 +1219,7 @@ local function DescribeBinding(type, value, unit, facts, out)
         attr(out, "*type-", "attribute");
         attr(out, "*attribute-frame-", DebindPrivate.UnitWatch);
         attr(out, "*attribute-name-", "custom" .. value);
-        attr(out, "*attribute-value-", "hover");
+        attr(out, "*attribute-value-", "unitframe");
     elseif (Constants.SETSTATE_MODES[type]) then
         -- **The type decides the mode, so the name is all that is left to be wrong.** What
         -- this guard turned away while the value was a bitpack was an undecodable mode; the
@@ -1644,10 +1646,10 @@ local function PrepareKeyBindings(key, bindingArray)
         -- the reader put on that exact combination, since nothing falls through to a click with
         -- fewer (`devdocs/implementing-focus-and-self-cast.md` §3-10).
         binding.isClickCast = button ~= nil and
-            (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover") and
+            (binding.unitframe or binding.type == Constants.SETCUSTOM or binding.unit == "unitframe") and
             (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
             true or false;
-        binding.holdsKey = (button == nil or not binding.hover) and true or false;
+        binding.holdsKey = (button == nil or not binding.unitframe) and true or false;
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
         -- there is a specialization with nothing to cast: the button is still handed out, with no
         -- action on it, so the key is taken and the press does nothing (§4 of the design).
@@ -1889,15 +1891,15 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
         end
     end
 
-    -- **`hover` and `reactions` are not emitted.** They are the derived view of `units["hover"]`,
-    -- which goes out below with every other unit as `t.units["hover"]` -- emitting both would have
-    -- the match loop ask the same question about the same unit twice, once against the frame
-    -- record and once against `UnitStates`.
+    -- **`unitframe` and `reactions` are not emitted.** They are the derived view of
+    -- `units["unitframe"]`, which goes out below with every other unit as `t.units["unitframe"]` --
+    -- emitting both would have the match loop ask the same question about the same unit twice, once
+    -- against the frame record and once against `UnitStates`.
     --
     -- `frameTypes` stays, because it describes the **frame** and only the frame record can answer
     -- it. It carries its own "is there a frame" guard in the snippet for that reason -- there is
-    -- no `t.hover` in front of it any more.
-    if (binding.hover and conditions.frameTypes
+    -- no `t.unitframe` in front of it any more.
+    if (binding.unitframe and conditions.frameTypes
             and conditions.frameTypes ~= Constants.FRAMETYPE_ALL) then
         field(out, "frameTypes", conditions.frameTypes);
         out.carriesFrameTypes = true;
@@ -1957,13 +1959,13 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
         out.setsSwitch = binding.value;
     end
 
-    -- **A `SETCUSTOM` action reads the hovered unit, and it is the one reader that names no unit.**
-    -- Its value is which custom slot to fill; where the unit comes from is baked as the literal
-    -- `"hover"` on the `UnitWatch` frame (`DescribeBinding`), and the restricted side resolves it
-    -- through `GetHoveredUnit` at the press. So nothing about this binding's units or its target
-    -- says "hover" and `_unitsSeen` would not hear about it -- which is what turns the hover slot
-    -- off underneath it.
-    out.readsHoverUnit = binding.type == Constants.SETCUSTOM;
+    -- **A `SETCUSTOM` action reads the pointed frame's unit, and it is the one reader that names no
+    -- unit.** Its value is which custom slot to fill; where the unit comes from is baked as the
+    -- literal `"unitframe"` on the `UnitWatch` frame (`DescribeBinding`), and the restricted side
+    -- resolves it through `GetUnitFrameUnit` at the press. So nothing about this binding's units or
+    -- its target says "unitframe" and `_unitsSeen` would not hear about it -- which is what turns
+    -- the slot off underneath it.
+    out.readsUnitFrameUnit = binding.type == Constants.SETCUSTOM;
 
     -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는 루프였고, 그래서
     -- `$state1`~`$state5` 밖의 이름은 조건으로 걸려 있어도 여기서 안 보였다. 솔버는 그 이름에도
@@ -1993,10 +1995,10 @@ end
 --- sets, the aliases it resolves, and the role headers.
 local function CollectRecordNeeds(record)
     for unit, condition in pairs(record.units) do
-        -- **Role is read off the hover slot, not measured on a unit**, filled where the frame is in
-        -- hand (`SecureBindings.lua`'s `setup_onenter`), so all this decides is whether the headers
-        -- that fill `UnitRoles` run.
-        if (unit == "hover" and condition ~= false and condition.role) then
+        -- **Role is read off the unitframe slot, not measured on a unit**, filled where the frame is
+        -- in hand (`SecureBindings.lua`'s `setup_onenter`), so all this decides is whether the
+        -- headers that fill `UnitRoles` run.
+        if (unit == "unitframe" and condition ~= false and condition.role) then
             _readsRole = true;
         end
 
@@ -2017,8 +2019,8 @@ local function CollectRecordNeeds(record)
         _unitsSeen[record.targetUnit] = true;
     end
 
-    if (record.readsHoverUnit) then
-        _unitsSeen.hover = true;
+    if (record.readsUnitFrameUnit) then
+        _unitsSeen.unitframe = true;
     end
 end
 
@@ -2066,11 +2068,11 @@ local function EmitRecord(record)
                     end
                 end
             end
-            -- **hover에만 나간다**, `Misc.BuildUnitStates`가 hover에만 축을 세우는 것과 같은
-            -- 이유로. 다른 유닛에도 내보내면 재는 쪽이 그 행을 안 채워서 `cond.role[nil]`이 되고
-            -- 그 키가 조용히 죽는다. 게다가 솔버는 그 조건을 무시하므로 둘이 갈린다.
+            -- **unitframe에만 나간다**, `Misc.BuildUnitStates`가 unitframe에만 축을 세우는 것과
+            -- 같은 이유로. 다른 유닛에도 내보내면 재는 쪽이 그 행을 안 채워서 `cond.role[nil]`이
+            -- 되고 그 키가 조용히 죽는다. 게다가 솔버는 그 조건을 무시하므로 둘이 갈린다.
             -- 메뉴로는 못 만드는 모양이지만 손으로 고친 프로필과 옛 문자열이 이리로 온다.
-            if (unit == "hover" and condition.role) then
+            if (unit == "unitframe" and condition.role) then
                 appendLine("u.role=newtable()");
                 for _, bit in ipairs(sortedKeys(ROLE_NAMES, _sortedC)) do
                     if (band(condition.role, bit) ~= 0) then
@@ -2340,8 +2342,8 @@ end
 ---   `DeferredMacroTexts`    rebuilt by the click that picks it, and by nothing else. A button's
 ---                           `*macrotext-` is read only when that button is clicked
 ---
---- That is what takes the hover sweep down: `SetUnit` walks `MacroTextsMap[alias]`, and a profile
---- whose `@hover` bodies are all buttons leaves that list empty.
+--- That is what takes the frame sweep down: `SetUnit` walks `MacroTextsMap[alias]`, and a profile
+--- whose `@unitframe` bodies are all buttons leaves that list empty.
 ---
 --- **Dependents are emitted next to the entry rather than in a second pass.** The pass that used to
 --- do it walked `_macrotexts` by body text and reached the entry through `data.index`, which is one
@@ -2388,8 +2390,8 @@ local function EmitMacroTextEntries()
                 if (info and info.onBeat) then
                     for _, arg in ipairs(data.args) do
                         local key = arg.name;
-                        if (arg.type == Constants.MACROTEXT_ARG_UNIT and key == "hover") then
-                            _beatReadsHover = true;
+                        if (arg.type == Constants.MACROTEXT_ARG_UNIT and key == "unitframe") then
+                            _beatReadsUnitFrame = true;
                         end
                         if (not _keysSeen[key]) then
                             _keysSeen[key] = true;
@@ -2564,8 +2566,8 @@ if (name == "state-unitexists") then
     appendLine("if (full) then");
 
     -- **The block below is what costs a tick while the cursor rests on a unit frame**, and its one
-    -- reader is a switch on the beat naming `@hover` (`_beatReadsHover`). A press reads the frame
-    -- itself (`EVAL_SNIPPET`, `GetHoveredUnit`), so what the poll leaves behind is not what it
+    -- reader is a switch on the beat naming `@unitframe` (`_beatReadsUnitFrame`). A press reads the
+    -- frame itself (`EVAL_SNIPPET`, `GetUnitFrameUnit`), so what the poll leaves behind is not what it
     -- answers with.
     --
     -- The slot itself stays: `setup_onenter` fills it whether or not this block is emitted, so a
@@ -2587,7 +2589,7 @@ if (name == "state-unitexists") then
     -- symptom was a binding that was right the moment the cursor arrived and went out on the first
     -- poll tick.
     --
-    if (_beatReadsHover) then
+    if (_beatReadsUnitFrame) then
         appendLine([[
 if (States.unitframe) then
     local unitframe = States.unitframe
@@ -2605,7 +2607,7 @@ if (States.unitframe) then
         if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
             unitframe.unit = unit
             unitframe.reaction = reaction
-            if (self:RunAttribute("SetUnit", "hover", unit)) then
+            if (self:RunAttribute("SetUnit", "unitframe", unit)) then
                 DirtyFlags.unitframe = true
             end
         end
@@ -2613,7 +2615,7 @@ if (States.unitframe) then
         unitframe.unit = nil
         unitframe.reaction = nil
         unitframe.role = nil
-        if (self:RunAttribute("SetUnit", "hover", nil)) then
+        if (self:RunAttribute("SetUnit", "unitframe", nil)) then
             DirtyFlags.unitframe = true
         end
     end
@@ -2693,7 +2695,7 @@ end
         end
     end
 
-    -- **Nothing to gate, so no gate.** A profile that measures no base axis and does not name hover
+    -- **Nothing to gate, so no gate.** A profile that measures no base axis and does not name unitframe
     -- would otherwise carry an `if ... then end` around nothing on every pass. The opening line is
     -- still the last one in the buffer exactly when that happened.
     if (#_strArr == gateAt) then

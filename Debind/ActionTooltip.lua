@@ -403,11 +403,11 @@ do
 			addValueLine(tooltip, unitStr, error);
 		end
 
-		-- 호버 조건은 `units["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
+		-- 개체창 조건은 `units["unitframe"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
 		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
 		-- 저장에는 끈 값이 남아 있다. 여기는 **걸린 조건**을 그리는 자리라 그걸 접고 본다.
 		local hoverCondition = DebindPrivate.UnitConditionForBinding(
-			conditions.units and conditions.units.hover);
+			DebindPrivate.StoredUnitFrameCondition(action));
 		if (hoverCondition ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
@@ -489,15 +489,18 @@ do
 			end
 
 			for checkedUnit, stored in pairs(conditions.units) do
-				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"hover"`는 위 호버 묶음이 그렸다.
+				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"unitframe"`은 위 개체창 묶음이 그렸다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
-				-- `"hover"` is drawn by the block above and `"@"` just before this loop. What is left
+				-- `"unitframe"` is drawn by the block above and `"@"` just before this loop. What is left
 				-- is the units the reader picked by name. `"player"` joins the skipped ones: its own
 				-- menu sits beside `Group` and asks about the reader rather than about a unit they
 				-- picked, so its line goes beside that one too. Skipped whole rather than only where
 				-- life is set, so a hand-edited axis there is drawn once rather than in both places.
-				if (value ~= nil and checkedUnit ~= "hover" and checkedUnit ~= "@"
-						and checkedUnit ~= "player") then
+				-- **옛 철자도 여기서 건너뛴다.** 이 순회는 원본 액션의 표를 도는데, 사다리가 아직
+				-- 안 닿은 프로필은 그 키가 `hover`다. 위 묶음이 이미 그렸고(`StoredUnitFrameCondition`),
+				-- 게다가 `UNIT_INFO`에 그 이름이 없어서 아래 줄이 nil을 인덱싱하다 터진다.
+				if (value ~= nil and checkedUnit ~= "unitframe" and checkedUnit ~= "hover"
+						and checkedUnit ~= "@" and checkedUnit ~= "player") then
 					if (first) then
 						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 						first = false;
@@ -512,7 +515,7 @@ do
 					local unitStr = UNIT_INFO[checkedUnit].name;
 					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
 					-- line says whether the unit has to be there, and each constrained axis adds
-					-- a line below it in the shape the hover block already uses. A new axis is
+					-- a line below it in the shape the unit frame block already uses. A new axis is
 					-- one more branch here.
 					if (value == false) then
 						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);

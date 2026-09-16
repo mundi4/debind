@@ -424,7 +424,7 @@ SEEDS[7] = function(guid)
             type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
             value = format("/script print(\"hover-%s\")", name), name = "Hover " .. name,
             key = "ALT-BUTTON1", seq = seq,
-            conditions = { frameTypes = frameType, units = { hover = { exists = true } } },
+            conditions = { frameTypes = frameType, units = { unitframe = { exists = true } } },
         };
     end
 

@@ -210,13 +210,29 @@ return function(DebindPrivate)
     test("the ignore line is drawn on an action that has a target of its own", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "focus",
-                ignoreHoverUnit = true, conditions = { units = { hover = {} } } },
+                ignoreHoverUnit = true, conditions = { units = { unitframe = {} } } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
         check(Says(row, "LINE_TOOLTIP_IGNORE_HOVER_UNIT"),
             "the box is on and nothing says so: " .. Tooltip(row));
+    end);
+
+    --- **The tooltip walks the raw action's condition table**, so it meets the pre-rename key on a
+    --- profile the ladder has not reached. Reading only the new name loses the block; worse, the
+    --- old key then falls through to the units loop, where `UNIT_INFO` has no row for it and the
+    --- line raises -- the tooltip does not come up short, it errors.
+    test("a unit frame condition saved under the old name still draws its own block", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { units = { hover = {} } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        check(Says(row, "CONDITION_HOVER_YES"),
+            "the unit frame block is missing: " .. Tooltip(row));
     end);
 
 

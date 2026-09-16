@@ -203,7 +203,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			for i = 1, #dependents do
 				local entry = dependents[i]
 				local s
-				local hoverAlias = UnitAliasMap["hover"]
+				local unitframeAlias = UnitAliasMap["unitframe"]
 				local clickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -212,8 +212,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -266,7 +266,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			for i = 1, #dependents do
 				local entry = dependents[i]
 				local s
-				local hoverAlias = UnitAliasMap["hover"]
+				local unitframeAlias = UnitAliasMap["unitframe"]
 				local clickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -275,8 +275,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -380,7 +380,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-		if (not force and alias ~= "hover") then
+		if (not force and alias ~= "unitframe") then
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
 		end
 	end
@@ -455,7 +455,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:RunAttribute("SetUnit", "mainassist", UnitAliasMap["mainassist"], true)
 	self:RunAttribute("SetUnit", "custom1", UnitAliasMap["custom1"], true)
 	self:RunAttribute("SetUnit", "custom2", UnitAliasMap["custom2"], true)
-	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
+	self:RunAttribute("SetUnit", "unitframe", UnitAliasMap["unitframe"], true)
 
 
 ### SecureBindings.lua #10 SetAttribute
@@ -474,7 +474,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
+			if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
 			end
@@ -522,7 +522,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		unitframe.reaction = reaction
 		unitframe.role = role
 		States.unitframe = unitframe
-		if (debind_driver:RunAttribute("SetUnit", "hover", unit)) then
+		if (debind_driver:RunAttribute("SetUnit", "unitframe", unit)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -535,7 +535,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
+		if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -546,7 +546,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
+		if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -618,7 +618,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	local clickCast = true
-	local winner, hoverUnit
+	local winner, unitframeUnit
 	local evalFrame = info
 
 
@@ -628,20 +628,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -708,7 +708,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -725,7 +725,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -734,8 +734,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -980,15 +980,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -1115,7 +1115,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	HandoffBindings = bindings
 	HandoffWinner = winner
-	HandoffHoverUnit = hoverUnit
+	HandoffUnitFrameUnit = unitframeUnit
 	return "debind1"
 
 
@@ -1226,16 +1226,16 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	local winner, hoverUnit
+	local winner, unitframeUnit
 
 	if (handoff) then
 
 
 		winner = HandoffWinner
-		hoverUnit = HandoffHoverUnit
+		unitframeUnit = HandoffUnitFrameUnit
 		HandoffBindings = nil
 		HandoffWinner = nil
-		HandoffHoverUnit = nil
+		HandoffUnitFrameUnit = nil
 	else
 
 	local evalFrame = States.unitframe
@@ -1247,20 +1247,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -1327,7 +1327,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -1344,7 +1344,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -1353,8 +1353,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -1599,15 +1599,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -1726,7 +1726,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -1735,8 +1735,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -1769,7 +1769,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -1778,8 +1778,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -1857,8 +1857,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (winner.unit) then
 		unit = winner.unit
 	elseif (winner.unitAlias) then
-		if (winner.unitAlias == "hover") then
-			unit = hoverUnit
+		if (winner.unitAlias == "unitframe") then
+			unit = unitframeUnit
 		else
 			unit = UnitAliasMap[winner.unitAlias]
 		end
@@ -2021,16 +2021,16 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	local winner, hoverUnit
+	local winner, unitframeUnit
 
 	if (handoff) then
 
 
 		winner = HandoffWinner
-		hoverUnit = HandoffHoverUnit
+		unitframeUnit = HandoffUnitFrameUnit
 		HandoffBindings = nil
 		HandoffWinner = nil
-		HandoffHoverUnit = nil
+		HandoffUnitFrameUnit = nil
 	else
 
 	local evalFrame = States.unitframe
@@ -2042,20 +2042,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -2122,7 +2122,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -2139,7 +2139,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -2148,8 +2148,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -2394,15 +2394,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -2521,7 +2521,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -2530,8 +2530,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -2564,7 +2564,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -2573,8 +2573,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -2651,8 +2651,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (winner.unit) then
 		unit = winner.unit
 	elseif (winner.unitAlias) then
-		if (winner.unitAlias == "hover") then
-			unit = hoverUnit
+		if (winner.unitAlias == "unitframe") then
+			unit = unitframeUnit
 		else
 			unit = UnitAliasMap[winner.unitAlias]
 		end
@@ -2739,7 +2739,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 		local clickCast = false
-		local winner, hoverUnit
+		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 
 
@@ -2749,20 +2749,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -2829,7 +2829,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -2846,7 +2846,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -2855,8 +2855,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -3101,15 +3101,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -3223,7 +3223,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -3232,8 +3232,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -3266,7 +3266,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -3275,8 +3275,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -3352,8 +3352,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (winner.unit) then
 		unit = winner.unit
 	elseif (winner.unitAlias) then
-		if (winner.unitAlias == "hover") then
-			unit = hoverUnit
+		if (winner.unitAlias == "unitframe") then
+			unit = unitframeUnit
 		else
 			unit = UnitAliasMap[winner.unitAlias]
 		end
@@ -3395,7 +3395,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 		local clickCast = false
-		local winner, hoverUnit
+		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 
 
@@ -3405,20 +3405,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -3485,7 +3485,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -3502,7 +3502,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -3511,8 +3511,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -3757,15 +3757,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -3879,7 +3879,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -3888,8 +3888,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -3922,7 +3922,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -3931,8 +3931,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -4007,8 +4007,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (winner.unit) then
 		unit = winner.unit
 	elseif (winner.unitAlias) then
-		if (winner.unitAlias == "hover") then
-			unit = hoverUnit
+		if (winner.unitAlias == "unitframe") then
+			unit = unitframeUnit
 		else
 			unit = UnitAliasMap[winner.unitAlias]
 		end
@@ -4054,7 +4054,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 
 		local clickCast = true
-		local winner, hoverUnit
+		local winner, unitframeUnit
 		local evalFrame = info
 
 
@@ -4064,20 +4064,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -4144,7 +4144,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -4161,7 +4161,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -4170,8 +4170,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -4416,15 +4416,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -4538,7 +4538,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -4547,8 +4547,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -4581,7 +4581,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -4590,8 +4590,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -4632,7 +4632,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 
 		local clickCast = true
-		local winner, hoverUnit
+		local winner, unitframeUnit
 		local evalFrame = info
 
 
@@ -4642,20 +4642,20 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 
 
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -4722,7 +4722,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -4739,7 +4739,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -4748,8 +4748,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -4994,15 +4994,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
+						if (u == "unitframe") then
 
 
 
-							unit = hoverUnit
+							unit = unitframeUnit
 
 
 
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -5116,7 +5116,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -5125,8 +5125,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -5159,7 +5159,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
@@ -5168,8 +5168,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -5305,8 +5305,8 @@ self:RunAttribute("ClearRoleUnits", %q)
 			unit = strtrim(unit)
             if (unit == "" or unit == "none" or unit == ":") then
                 unit = nil
-			elseif (unit == "hover") then
-                unit = debind_driver:RunAttribute("GetHoveredUnit")
+			elseif (unit == "unitframe") then
+                unit = debind_driver:RunAttribute("GetUnitFrameUnit")
 
 
 
@@ -5389,7 +5389,7 @@ wipe(HeldUnits)
 
 HandoffBindings = nil
 HandoffWinner = nil
-HandoffHoverUnit = nil
+HandoffUnitFrameUnit = nil
 wipe(MacroTextsMap)
 wipe(DeferredMacroTexts)
 wipe(UnitStates)

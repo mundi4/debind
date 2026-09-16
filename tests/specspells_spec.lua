@@ -283,8 +283,8 @@ return function(DebindPrivate, _, ctx)
             local twinnedList = castmod.without(Constants, DebindPrivate.GetBindingsForAction(twinned));
             check(#twinnedList == 4, "twinned list length: " .. #twinnedList);
             check(twinnedList[2].unit == nil and twinnedList[2].spellbook == 119905, "probe");
-            check(twinnedList[3].unit == "hover" and twinnedList[3].spellbook == nil, "twin");
-            check(twinnedList[4].unit == "hover" and twinnedList[4].spellbook == 119905, "probe twin");
+            check(twinnedList[3].unit == "unitframe" and twinnedList[3].spellbook == nil, "twin");
+            check(twinnedList[4].unit == "unitframe" and twinnedList[4].spellbook == 119905, "probe twin");
 
             local keyed = interp:recordsFor("F4");
             local shape = {};
@@ -292,7 +292,7 @@ return function(DebindPrivate, _, ctx)
                 local record = keyed[i];
                 local tier = (record.castModifier == Constants.CASTMOD_SELF and "self")
                     or (record.castModifier == Constants.CASTMOD_FOCUS and "focus")
-                    or (record.units and record.units.hover and "hover")
+                    or (record.units and record.units.unitframe and "hover")
                     or "original";
                 local who = (castmod.isBlock(Constants, record) and "block")
                     or (record.spellbook and "probe") or (record.combat and "dispel") or "spell";

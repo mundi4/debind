@@ -300,16 +300,16 @@ return function(DebindPrivate)
 
     test("a group with no key of its own compares what it says it holds, and what its children hold", function()
         local actions = ResetProfile({
-            Spell(1, { units = { hover = { exists = true } } }), Spell(2, { units = { hover = { exists = false } } }),
+            Spell(1, { units = { unitframe = { exists = true } } }), Spell(2, { units = { unitframe = { exists = false } } }),
             Spell(3, { stealth = true }), Spell(4, { stealth = true }),
         });
         local hover = {
             isActive = function(ctx)
-                return ActionMenu.UnitConditionIsOn(ctx, "hover");
+                return ActionMenu.UnitConditionIsOn(ctx, "unitframe");
             end,
             valueOf = function(action)
                 local units = action.conditions and action.conditions.units;
-                return units and units.hover;
+                return units and units.unitframe;
             end,
         };
         check(ActionMenu.NodeMixedCount(hover, Ctx({ actions[1], actions[2] })) == 2, "two hovers that differ");

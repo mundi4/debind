@@ -57,7 +57,7 @@ return function(DebindPrivate)
 
     --- Hover 조건에 역할을 걸어둔 액션 하나.
     local function roleAction(mask, extra)
-        local conditions = { units = { hover = { role = mask } } };
+        local conditions = { units = { unitframe = { role = mask } } };
         for k, v in pairs(extra or {}) do
             conditions[k] = v;
         end
@@ -126,7 +126,7 @@ return function(DebindPrivate)
         check(not snippet:find("u.role.unknown=true", 1, true), "unknown should not be in");
     end);
 
-    --- **hover가 아닌 유닛에는 안 나간다.** 재는 쪽은 `unit == "hover"`에서만 축을 세우므로,
+    --- **unitframe이 아닌 유닛에는 안 나간다.** 재는 쪽은 `unit == "unitframe"`에서만 축을 세우므로,
     --- 방출만 유닛을 안 가리면 `UnitStates.target.role`이 영영 nil이고 `cond.role[nil]`이
     --- 되어 **그 키가 조용히 죽는다.** 솔버 쪽(`BuildUnitStates`)은 hover만 읽어서 그 조건을
     --- 무시하므로, 막지 않으면 솔버와 런타임이 갈린다.

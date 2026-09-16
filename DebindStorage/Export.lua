@@ -714,6 +714,20 @@ local function BringPayloadDataForward(payload)
         RenameManifestSwitchFields(payload.states);
     end
 
+    if (dbver <= 6) then
+        -- The unit rename, on the manifest. A computed switch's expression is macro text and can
+        -- name the pointed frame's unit, which is called `unitframe` from `dbver` 7 on
+        -- (`Profile.lua`'s step says why a body has to move and not only a field). The actions in
+        -- the payload ride the profile's own ladder below and are already covered.
+        local states = luatype(payload.states) == "table" and payload.states or nil;
+        for _, definition in pairs(states or {}) do
+            if (luatype(definition) == "table" and luatype(definition.expr) == "string") then
+                definition.expr = DebindPrivate.RenameUnitInMacroText(
+                    definition.expr, "hover", "unitframe");
+            end
+        end
+    end
+
     DebindStorage.ForEachPayloadLayer(payload, function(actions)
         DebindPrivate.MigrateLayer(actions, dbver);
     end);

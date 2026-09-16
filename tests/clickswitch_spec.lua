@@ -120,21 +120,21 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- **`@hover` inside a switch is the frame the press judged, not the alias the poll keeps.** The
+    -- **`@unitframe` inside a switch is the frame the press judged, not the alias the poll keeps.** The
     -- cursor stays on the frame while its unit changes, and no beat runs. The interpreter answers a
     -- target selector as a match whoever it names, so what is asked is the text the press parsed.
-    test("an @hover inside a switch is composed from the frame at the press", function()
+    test("an @unitframe inside a switch is composed from the frame at the press", function()
         shim.world.units = {
             party1 = { id = "p1", reaction = "help" },
             party2 = { id = "p2", reaction = "help" },
         };
-        Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[@hover]" } });
+        Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[@unitframe]" } });
 
         unitFrame:SetAttribute("unit", "party1");
         interp:hoverEnter(unitFrame);
         local before = interp:parseCount("[@party1]");
         Fires();
-        check(interp:parseCount("[@party1]") > before, "the press did not compose [@hover] from the frame");
+        check(interp:parseCount("[@party1]") > before, "the press did not compose [@unitframe] from the frame");
 
         unitFrame:SetAttribute("unit", "party2");
         before = interp:parseCount("[@party2]");

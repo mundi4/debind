@@ -455,8 +455,8 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 -- one is true of a unit at any moment, which is what lets `Solver.lua` treat a unit condition
 -- as a set on this axis and reason about coverage with plain bit ops.
 --
--- The hovered frame's unit rides this axis under the name "hover" (`Misc.BuildUnitStates`),
--- so a hover condition and a unit condition aimed at the same unit cannot describe it two
+-- The pointed frame's unit rides this axis under the name "unitframe" (`Misc.BuildUnitStates`),
+-- so a `unitframe` condition and a unit condition aimed at the same unit cannot describe it two
 -- different ways.
 --
 -- **The axis is a product**: absent, or (one of three reactions) x (alive or dead). Life is
@@ -678,14 +678,14 @@ local SPECIAL_UNITS                                 = {
     mainassist = true,
     custom1 = true,
     custom2 = true,
-    hover = true,
+    unitframe = true,
 };
 
 Constants.BASIC_UNITS                               = BASIC_UNITS;
 Constants.SPECIAL_UNITS                             = SPECIAL_UNITS;
 
 
--- 키 문자열 파싱. 순수 Lua라 와우 없이도 돌고, Solver.lua가 hover 컬럼에서 쓴다.
+-- 키 문자열 파싱. 순수 Lua라 와우 없이도 돌고, Solver.lua가 unitframe 컬럼에서 쓴다.
 -- Solver.lua는 Misc.lua보다 먼저 로드되므로 여기에 둔다.
 local MOUSE_BUTTONS = {};
 for i = 1, 5 do
@@ -725,7 +725,7 @@ end
 local _mousebuttonCache = {};
 function DebindPrivate.GetMouseButtonAndPrefix(key)
     -- **A key is a string or it is nothing** (`devdocs/building-export-import.md` 12절), and nil has
-    -- no `:match` to ask with. This is the funnel both the hover derivation and key validity come
+    -- no `:match` to ask with. This is the funnel both the `unitframe` derivation and key validity come
     -- through, so the guard belongs here rather than at each of them.
     if (type(key) ~= "string") then
         return nil;

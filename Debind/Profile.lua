@@ -20,7 +20,7 @@ local KEYS_TO_SAVE       = {
     unit = true,
     -- **조건은 전부 이 안에 있다.** 어느 이름이 조건인지는 `Constants.IsConditionField`가
     -- 답하고, 그 표의 머리주석이 밖에 남은 것들이 왜 조건이 아닌지를 하나씩 적어둔다.
-    -- `hover`/`reactions`도 한때 여기 있었다. 지금은 `conditions.units["hover"]`다.
+    -- `hover`/`reactions`도 한때 여기 있었다. 지금은 `conditions.units["unitframe"]`다.
     conditions = true,
     priority = true,
     seq = true,
@@ -609,7 +609,7 @@ local function MigrateLayer(layerTbl, dbver)
         --
         -- `false`가 표가 되는 이유는 **끈 값을 기억하기 위해서다.** 라디오를 [없을 때]로
         -- 옮겼다고 골라둔 반응·생사를 지우면 되돌렸을 때 처음부터 다시 골라야 한다. 끄는 것과
-        -- 지우는 것은 다르다 - `frameTypes`가 hover를 껐다 켜도 남아 있는 것과 같다.
+        -- 지우는 것은 다르다 - `frameTypes`가 개체창 조건을 껐다 켜도 남아 있는 것과 같다.
         -- 무시하는 것은 `Misc.UnitConditionForBinding`이 한다.
         --
         -- 다시 돌아도 안전하다 - 이미 테이블이면 건드리지 않는다.
@@ -643,7 +643,7 @@ local function MigrateLayer(layerTbl, dbver)
                 action.checkedUnits = action.checkedUnits or {};
                 -- 접기는 바인딩 모양 위에서 돈다. 넣기 전에 한 번 통과시키고, 나온 것을 다시
                 -- 저장 모양으로 돌린다 - `false`(없을 때)만 표가 되면 되고, 나머지는 그대로다.
-                local folded = DebindPrivate.HoverConditionFromLegacy(
+                local folded = DebindPrivate.UnitFrameConditionFromLegacy(
                     action.hover, action.reactions,
                     DebindPrivate.UnitConditionForBinding(action.checkedUnits.hover));
                 if (folded == false) then
@@ -933,6 +933,58 @@ local function MigrateLayer(layerTbl, dbver)
                 action.pet = nil;
             end
         end
+
+        -- The pointed frame's unit is called `unitframe` from here on. `hover` stops being a unit
+        -- at all and becomes the unit an action's Hover Cast mode picks
+        -- (`devdocs/which-action-a-key-runs.md` §0), so every stored spelling of the old name has
+        -- to move before that second meaning arrives.
+        --
+        -- **Bodies move too, not only fields.** `@hover` is a unit token in hand-written macro text
+        -- and `/click DebindCustom<n> hover` is the unit a custom target is filled from. Both are
+        -- read by name, so a body left alone stops resolving the moment the name leaves
+        -- `Constants.SPECIAL_UNITS` -- and nothing is raised, because a token the parser does not
+        -- know is handed to the game as text. Leaving it would be worse than breaking it: the same
+        -- spelling comes back meaning something else.
+        --
+        -- **The step hands the old name in** rather than asking `ParseMacroText`, which cannot see
+        -- it any more (`Misc.lua`'s `RenameUnitInMacroText` says why).
+        --
+        -- Running twice is safe: nothing carries the old spelling once this has passed.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+
+            local units = action.conditions and action.conditions.units;
+            if (luatype(units) == "table" and units.hover ~= nil) then
+                -- Both names at once is a hand-edited profile. The one this build reads wins;
+                -- taking the old one instead would undo an edit made against the new name.
+                if (units.unitframe == nil) then
+                    units.unitframe = units.hover;
+                end
+                units.hover = nil;
+            end
+
+            if (action.unit == "hover") then
+                action.unit = "unitframe";
+            end
+
+            if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+                action.value = DebindPrivate.RenameUnitInMacroText(action.value, "hover", "unitframe");
+                -- **A whole token after the frame name**, the way `/click` reads it and the way
+                -- `renameClickedSwitch` reads the switch in the same position.
+                --
+                -- **Both spellings of the frame, which is why the name is matched loosely.**
+                -- `Legacy.lua` rewrites `DebounceCustom` into `DebindCustom` **after** this ladder
+                -- has run (`ImportLayer` migrates first and repairs second), so a pre-rename body
+                -- still says `DebounceCustom<n>` when it passes here -- and `dbver` is stamped by
+                -- then, so the ladder never comes back for it.
+                action.value = action.value:gsub("(Deb%a+Custom%d+%s+)(%S+)", function(head, token)
+                    if (token ~= "hover") then
+                        return nil;
+                    end
+                    return head .. "unitframe";
+                end);
+            end
+        end
     end
 
 end
@@ -1205,6 +1257,7 @@ local function MigrateSwitches(db, dbver, charEntry)
             -- 안 건 새 스위치가 사라진다 (`devdocs/legacy/redesigning-custom-states.md` §9-3).
             --
             -- 지우는 것은 **손댄 적도 없고, 참조도 없고, 어느 캐릭터도 값을 기억하지 않는**
+            -- (아래 `dbver <= 6` 단계가 계산식 안의 유닛 이름을 옮긴다)
             -- 것뿐이다. 셋 중 하나라도 있으면 남는다: 설정을 해뒀는데 아직 아무 액션에도 안 건
             -- 스위치가 조용히 사라지면 안 되고, 조건이 거는 이름의 정의가 사라지면 그 조건은
             -- 영영 거짓인 채로 남는다.
@@ -1263,6 +1316,33 @@ local function MigrateSwitches(db, dbver, charEntry)
                 local name = Constants.SWITCH_NAMES[index];
                 if (name and switches[name] == nil) then
                     switches[name] = definition;
+                end
+            end
+        end
+    end
+
+    if (dbver <= 6) then
+        -- The unit rename, on this ladder. A computed switch's expression is macro text and can
+        -- name the pointed frame's unit, which `MigrateLayer`'s step at the same number renames
+        -- everywhere else -- that step's comment carries the reasoning, and an expression left
+        -- behind bakes to a token the parser no longer knows.
+        --
+        -- **Every row, not only the root's.** A layer override carries an expression of its own,
+        -- and one left behind is the quietest failure there is here: the switch reads false on
+        -- that one tab and right everywhere the reader is likely to look. `RenameSwitch` walks the
+        -- overrides for exactly this reason.
+        --
+        -- Running twice is safe: nothing carries the old spelling once this has passed.
+        local function RenameUnitInRow(row)
+            if (luatype(row) == "table" and luatype(row.expr) == "string") then
+                row.expr = DebindPrivate.RenameUnitInMacroText(row.expr, "hover", "unitframe");
+            end
+        end
+        for _, definition in pairs(db.switches or {}) do
+            if (luatype(definition) == "table") then
+                RenameUnitInRow(definition);
+                for _, row in pairs(definition.overrides or {}) do
+                    RenameUnitInRow(row);
                 end
             end
         end

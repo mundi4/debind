@@ -12,7 +12,7 @@ Execute DebindBindingDriver
   | -- Drop any unconsumed handoff -- it points into the old records.
   | HandoffBindings = nil
   | HandoffWinner = nil
-  | HandoffHoverUnit = nil
+  | HandoffUnitFrameUnit = nil
   | wipe(MacroTextsMap)
   | wipe(DeferredMacroTexts)
   | wipe(UnitStates)
@@ -25,22 +25,22 @@ Execute DebindBindingDriver
   | -- 다음에 커서가 들어올 때까지 빈 채로 남는다.
   | --
   | -- 커서는 그대로 프레임 위에 있는데 조건 하나만 바뀌면(전투 진입, 자세 변경, 특성) 리빌드가
-  | -- 돌고, 그 순간 hover 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
+  | -- 돌고, 그 순간 개체창 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
   | --
-  | -- 짝이 되는 `UnitAliasMap["hover"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
-  | -- 한다 - hover 유닛은 남아 있는데 hover 프레임은 없는 상태가 된다.
+  | -- 짝이 되는 `UnitAliasMap["unitframe"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
+  | -- 한다 - 유닛은 남아 있는데 프레임은 없는 상태가 된다.
   | local hovered = States.unitframe
   | wipe(States)
   | States.unitframe = hovered
   | 
 ClearOverrideBindings DebindBindingDriver
 SetAttribute DebindBindingDriver _onattributechanged = nil
-CreateFrame DebindClickButton_hover SecureActionButtonTemplate
-SetAttribute DebindClickButton_hover alias = "hover"
-SetAttribute DebindClickButton_hover unit = "raid41"
-SetAttribute DebindClickButton_hover useparent* = true
-SetAttribute DebindClickButton_hover useparent-unit = false
-SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_hover"
+CreateFrame DebindClickButton_unitframe SecureActionButtonTemplate
+SetAttribute DebindClickButton_unitframe alias = "unitframe"
+SetAttribute DebindClickButton_unitframe unit = "raid41"
+SetAttribute DebindClickButton_unitframe useparent* = true
+SetAttribute DebindClickButton_unitframe useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_unitframe"
 Execute DebindBindingDriver
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
@@ -200,7 +200,7 @@ SetAttribute DebindCastButton *spell-deb107 = "Renew"
 SetAttribute DebindClickButton *type-deb108 = "attribute"
 SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#10>>
 SetAttribute DebindClickButton *attribute-name-deb108 = "custom1"
-SetAttribute DebindClickButton *attribute-value-deb108 = "hover"
+SetAttribute DebindClickButton *attribute-value-deb108 = "unitframe"
 CreateFrame DebindClickButton_custom1 SecureActionButtonTemplate
 SetAttribute DebindClickButton_custom1 alias = "custom1"
 SetAttribute DebindClickButton_custom1 unit = "raid41"
@@ -343,9 +343,9 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=2
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -356,9 +356,9 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=4
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -369,9 +369,9 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=1
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -449,10 +449,10 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=2
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t["frameTypes"]=8
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -465,10 +465,10 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=4
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t["frameTypes"]=8
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -481,10 +481,10 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=1
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t["frameTypes"]=8
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.help=true
@@ -1673,9 +1673,9 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="hover"
+  | t["unitAlias"]="unitframe"
   | t.units=newtable()
-  | u=newtable();t.units["hover"]=u
+  | u=newtable();t.units["unitframe"]=u
   | u.exists=true
   | u.reaction=newtable()
   | u.reaction.harm=true

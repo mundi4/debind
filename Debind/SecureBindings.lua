@@ -229,7 +229,7 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 ]] or "";
 
---- Composes one macro body. The caller declares `entry`, `s`, `hoverAlias` and `clickSwitches` and
+--- Composes one macro body. The caller declares `entry`, `s`, `unitframeAlias` and `clickSwitches` and
 --- hands them in; `clickSwitches` is what a press worked out, nil where no press is running.
 ---
 --- **Two places bake.** When a state moves (`UpdateMacroTexts`), and when a click arrives (the
@@ -237,8 +237,8 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 --- the day comes when `arg.reverse` is fixed on one side only, and that body goes out inverted
 --- with nothing to say so.
 ---
---- **`hoverAlias` comes from the caller, and that is what keeps this one copy.** When a state
---- moves the hovered unit can only be `UnitAliasMap["hover"]`, but **at a click that value must
+--- **`unitframeAlias` comes from the caller, and that is what keeps this one copy.** When a state
+--- moves the hovered unit can only be `UnitAliasMap["unitframe"]`, but **at a click that value must
 --- not be used**: the wrapper reads the unit off the frame again to judge the conditions and aims
 --- at what it read, so taking only the body from the cache **splits the unit that was judged from
 --- the unit the body aims at.** On a spell whose effect forks on friend or foe, that is not "the
@@ -251,11 +251,11 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 		local arg = entry.args[i]
 		local value
 		if (arg.unit) then
-			-- **No ternary stand-in here.** `hoverAlias` is nil while nothing is hovered, so
-			-- `arg.unit == "hover" and hoverAlias or UnitAliasMap[arg.unit]` falls through to the
+			-- **No ternary stand-in here.** `unitframeAlias` is nil while nothing is hovered, so
+			-- `arg.unit == "unitframe" and unitframeAlias or UnitAliasMap[arg.unit]` falls through to the
 			-- cache in exactly that case -- which is the thing the comment above exists to stop.
-			if (arg.unit == "hover") then
-				value = hoverAlias
+			if (arg.unit == "unitframe") then
+				value = unitframeAlias
 			else
 				value = UnitAliasMap[arg.unit]
 			end
@@ -282,7 +282,7 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 --- press first needs a switch: a record that carries one, or a body on the winner's button.
 ---
 --- **In `ComputedSwitches` order**, so a switch that reads another reads what this press just got.
---- The caller has `hoverUnit` in hand, which is what `@hover` inside a switch aims at.
+--- The caller has `unitframeUnit` in hand, which is what `@hover` inside a switch aims at.
 ---
 --- **A switch that moved is written and reported here.** The Switches tab reads what the report
 --- writes, and a switch off the beat has nothing else to write it.
@@ -295,7 +295,7 @@ local COMPUTE_SWITCHES_SNIPPET = [==[
 			local s
 			local entry = SwitchEntries[name]
 			if (entry) then
-				local hoverAlias = hoverUnit
+				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
 ]==] .. COMPOSE_MACROTEXT_SNIPPET .. [==[
 			else
@@ -318,7 +318,7 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 			for i = 1, #dependents do
 				local entry = dependents[i]
 				local s
-				local hoverAlias = UnitAliasMap["hover"]
+				local unitframeAlias = UnitAliasMap["unitframe"]
 				local clickSwitches
 ]=] .. COMPOSE_MACROTEXT_SNIPPET .. [=[
 
@@ -370,7 +370,7 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 	if (entry) then
 ]==] .. COMPUTE_SWITCHES_SNIPPET .. [==[
 		local s
-		local hoverAlias = hoverUnit
+		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
 ]==] .. COMPOSE_MACROTEXT_SNIPPET .. PRINT_BAKED_MACROTEXT_SNIPPET .. [==[
 		DefaultClickFrame:SetAttribute(entry.attr, s)
@@ -441,7 +441,7 @@ local ACTION_SLOT_SNIPPET = [==[
 --- The unit the winner is cast at, as `unit`. Spliced into the click wrapper and into the DEBUG
 --- eval hook.
 local RESOLVE_UNIT_SNIPPET = [==[
-	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["hover"]는 enter와 폴링이
+	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["unitframe"]는 enter와 폴링이
 	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
 	-- 캐시에서 가져오면 **판정한 유닛과 시전 대상이 갈린다** - 우호로 판정해 놓고 옛 유닛에
 	-- 쏘는 것이다. 옛 경로는 둘 다 캐시라 적어도 일관됐으니 그보다 나빠진다.
@@ -452,8 +452,8 @@ local RESOLVE_UNIT_SNIPPET = [==[
 	if (winner.unit) then
 		unit = winner.unit
 	elseif (winner.unitAlias) then
-		if (winner.unitAlias == "hover") then
-			unit = hoverUnit
+		if (winner.unitAlias == "unitframe") then
+			unit = unitframeUnit
 		else
 			unit = UnitAliasMap[winner.unitAlias]
 		end
@@ -553,8 +553,8 @@ BindingDriver:SetAttribute("SetUnit", [[
 		--
 		-- So this one line was crossing to the insecure side **twice per frame the cursor swept**
 		-- (enter and leave) to fire a `UNIT_CHANGED` nobody was listening for.
-		-- `DebindPrivate.Units.hover` is empty from here on.
-		if (not force and alias ~= "hover") then
+		-- `DebindPrivate.Units.unitframe` is empty from here on.
+		if (not force and alias ~= "unitframe") then
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
 		end
 	end
@@ -645,7 +645,7 @@ BindingDriver:SetAttribute("UpdateAllUnits", [[
 	self:RunAttribute("SetUnit", "mainassist", UnitAliasMap["mainassist"], true)
 	self:RunAttribute("SetUnit", "custom1", UnitAliasMap["custom1"], true)
 	self:RunAttribute("SetUnit", "custom2", UnitAliasMap["custom2"], true)
-	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
+	self:RunAttribute("SetUnit", "unitframe", UnitAliasMap["unitframe"], true)
 ]]);
 
 --- 클릭캐스팅 클릭이 우리 프레임까지 왔는지 보고한다. **빌드 시점에 가른다** - 릴리스에서는
@@ -679,7 +679,7 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
+			if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
 			end
@@ -761,7 +761,7 @@ local SETUP_ONENTER_SNIPPET = [==[
 		unitframe.reaction = reaction
 		unitframe.role = role
 		States.unitframe = unitframe
-		if (debind_driver:RunAttribute("SetUnit", "hover", unit)) then
+		if (debind_driver:RunAttribute("SetUnit", "unitframe", unit)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -774,7 +774,7 @@ local SETUP_ONLEAVE_SNIPPET = [==[
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "hover", nil)) then
+		if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
@@ -846,7 +846,7 @@ BindingDriver:SetAttribute("clickcast_onleave", [==[
 --- over any of them fills `States.unitframe` the ordinary way and there is no frame left for a
 --- second shape to answer for
 --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1).
-BindingDriver:SetAttribute("GetHoveredUnit", [==[
+BindingDriver:SetAttribute("GetUnitFrameUnit", [==[
 	local unitframe = States.unitframe
 	if (unitframe and unitframe.frame) then
 		local unit = unitframe.frame:GetEffectiveAttribute("unit")
@@ -939,11 +939,11 @@ end
 --- The condition evaluation, kept as its own string so more than one wrapper can carry it.
 ---
 --- It is spliced in textually rather than called, which is what lets the locals it declares
---- (`unitframe`, `hoverUnit`, `winner`) stay visible to whatever follows -- a `RunAttribute`
+--- (`unitframe`, `unitframeUnit`, `winner`) stay visible to whatever follows -- a `RunAttribute`
 --- could not hand those back without turning each one into a shared global.
 ---
 --- The caller owes it `bindings` (the records to walk) and `evalFrame` (which unit frame hover
---- means for this click, or nil), and must have declared `winner` and `hoverUnit` itself -- they
+--- means for this click, or nil), and must have declared `winner` and `unitframeUnit` itself -- they
 --- are what it answers with, and a caller that only reaches this on one branch still has to read
 --- them on the other.
 ---
@@ -958,20 +958,20 @@ local EVAL_SNIPPET = [==[
 	-- 캐시를 볼 이유가 없다.
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local hoverFrameType
-	local hoverRole
+	local unitframeFrameType
+	local unitframeRole
 	if (unitframe) then
-		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (hoverUnit and UnitExists(hoverUnit)) then
-			hoverFrameType = unitframe.frameType
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
 			-- 역할도 클릭당 한 번. **nil이 "답할 수 없다"다.** 표가 없으면 세 헤더가 다 서
 			-- 있지 않다는 뜻이고, 파티/공대 개체창이 아니면 토큰이 맵의 키와 다르다.
-			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "norole"
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
 			end
 		else
 			unitframe = nil
-			hoverUnit = nil
+			unitframeUnit = nil
 		end
 	end
 
@@ -1033,12 +1033,12 @@ local EVAL_SNIPPET = [==[
 		if (t[subset]) then
 			local match = true
 
-			-- 호버 유닛의 존재와 반응은 아래 t.units["hover"]가 답한다. 그쪽도 여기서 잰
-			-- hoverUnit을 쓰므로 값이 갈릴 자리가 없다. 남은 것은 프레임의 종류뿐이다.
+			-- 호버 유닛의 존재와 반응은 아래 t.units["unitframe"]가 답한다. 그쪽도 여기서 잰
+			-- unitframeUnit을 쓰므로 값이 갈릴 자리가 없다. 남은 것은 프레임의 종류뿐이다.
 			if (match and t.frameTypes) then
 				if (not unitframe) then
 					match = false
-				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+				elseif ((t.frameTypes % (unitframeFrameType + unitframeFrameType)) < unitframeFrameType) then
 					match = false
 				end
 			end
@@ -1261,15 +1261,15 @@ local EVAL_SNIPPET = [==[
 					local ok = true
 					do
 						local unit, needsExists
-						if (u == "hover") then
-							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitAliasMap["hover"]는
+						if (u == "unitframe") then
+							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitAliasMap["unitframe"]는
 							-- 캐시라 여기서만 그걸 보면 hover 조건과 다른 유닛을 판정하게
 							-- 된다. 대상도 같은 값을 쓴다(아래 SetAttribute).
-							unit = hoverUnit
+							unit = unitframeUnit
 							-- **역할은 이 갈래에만 있다.** 가리킨 프레임에 대해서만 답이 나오는
 							-- 축이라, 유닛 공통 자리에 두면 다른 유닛마다 헛도는 검사가 된다.
-							-- `hoverRole`이 nil이면 답할 수 없다는 뜻이라 이 축은 안 선다.
-							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+							-- `unitframeRole`이 nil이면 답할 수 없다는 뜻이라 이 축은 안 선다.
+							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 								ok = false
 							end
 						else
@@ -1437,7 +1437,7 @@ end, [==[
 	end
 
 	local clickCast = true
-	local winner, hoverUnit
+	local winner, unitframeUnit
 	local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[
 
@@ -1466,7 +1466,7 @@ end, [==[
 
 	HandoffBindings = bindings
 	HandoffWinner = winner
-	HandoffHoverUnit = hoverUnit
+	HandoffUnitFrameUnit = unitframeUnit
 	return "debind1"
 ]==]);
 
@@ -1586,16 +1586,16 @@ end, [==[
 		end
 	end
 
-	local winner, hoverUnit
+	local winner, unitframeUnit
 
 	if (handoff) then
 		-- 유닛 프레임 래퍼가 이미 골랐다. 여기서 다시 도는 것은 같은 답을 두 번 내는 것이고,
 		-- hover는 그쪽이 자기 자신을 보고 읽은 값이라 여기서 캐시로 다시 읽으면 오히려 나빠진다.
 		winner = HandoffWinner
-		hoverUnit = HandoffHoverUnit
+		unitframeUnit = HandoffUnitFrameUnit
 		HandoffBindings = nil
 		HandoffWinner = nil
-		HandoffHoverUnit = nil
+		HandoffUnitFrameUnit = nil
 	else
 	-- 키로 들어온 클릭이라 hover는 캐시에서 온다.
 	local evalFrame = States.unitframe
@@ -1693,7 +1693,7 @@ if (DebindPrivate.DEBUG) then
 		-- 키로 들어온 클릭과 같은 자리에 선다: 클릭캐스팅이 아니므로 `holdsKey` 레코드를 보고,
 		-- hover는 enter/leave가 남긴 캐시에서 온다.
 		local clickCast = false
-		local winner, hoverUnit
+		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 ]==] .. EVAL_SNIPPET .. [==[
 		if (not winner or not winner.clickbutton) then
@@ -1734,7 +1734,7 @@ if (DebindPrivate.DEBUG) then
 		end
 
 		local clickCast = true
-		local winner, hoverUnit
+		local winner, unitframeUnit
 		local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[
 		if (not winner or not winner.clickbutton) then

@@ -1227,7 +1227,7 @@ end
 --- It has to be, now: hover is the one alias that is **not** mirrored out at all (2026-08-22).
 --- `SetUnit` stopped reporting it, so `DebindPrivate.Units.hover` is nil whatever is hovered.
 local function GetHoverUnit()
-    local answer = ReadSecureUnit("hover")
+    local answer = ReadSecureUnit("unitframe")
     if not (answer and answer.present) then
         return nil
     end
@@ -1243,7 +1243,7 @@ end
 --- After `HoverEnter`/`HoverLeave` this costs nothing: those run the real snippets through
 --- `SecureHandlerExecute` and the mirror is written before the call returns. **Nothing else moves
 --- the slot any more**: a unit changing under a still cursor is read off the frame at the call
---- (`GetHoveredUnit`), and the beat polls the slot only for an announcing switch that reads `@hover`.
+--- (`GetUnitFrameUnit`), and the beat polls the slot only for an announcing switch that reads `@unitframe`.
 local function WaitForHoverSlot(filled, limit)
     return WaitUntil(function() return (GetHoverUnit() ~= nil) == filled end, limit)
 end
@@ -5719,7 +5719,7 @@ RegisterTest("State pass: the beat re-measures what a wake does not", {
 -- only comes back if the mouse leaves and returns. One condition changing is enough to run a
 -- rebuild, entering combat or changing form among them, so this is walked in real use.
 --
--- **`GetHoverUnit()` alone cannot catch it.** Its counterpart `UnitAliasMap["hover"]` is not cleared
+-- **`GetHoverUnit()` alone cannot catch it.** Its counterpart `UnitAliasMap["unitframe"]` is not cleared
 -- by a rebuild, so it stays "player" even where the bug is. Hence looking at leave: with the slot
 -- gone, leave finds nothing to clear and simply goes out, and hover is left standing.
 RegisterTest("Hover slot: survives a rebuild under a still cursor", {
@@ -5733,7 +5733,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -5776,13 +5776,13 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
     end,
 })
 
--- **The hovered unit is read off the frame at the call** (`GetHoveredUnit`, §3 of
+-- **The hovered unit is read off the frame at the call** (`GetUnitFrameUnit`, §3 of
 -- `devdocs/dropping-the-game-fallback.md`). The beat no longer polls the slot, so a unit that goes
 -- away under a still cursor leaves the slot as it was; what has to answer "nobody" is the read. The
 -- headless half is `tests/hover_spec.lua`; what only the client shows is that
 -- `GetEffectiveAttribute` on a frame handle answers in the real sandbox.
 RegisterTest("Hover unit: read off the frame when a unit disappears under a still cursor", {
-    description = "GetHoveredUnit answers nobody when the unit alone disappears under a still cursor, and the unit again when it comes back",
+    description = "GetUnitFrameUnit answers nobody when the unit alone disappears under a still cursor, and the unit again when it comes back",
     run = function()
         local NAME = "Hover unit"
 
@@ -5794,7 +5794,7 @@ RegisterTest("Hover unit: read off the frame when a unit disappears under a stil
         -- this reads stays empty. The test builds its own precondition rather than hoping for one.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -5817,25 +5817,25 @@ RegisterTest("Hover unit: read off the frame when a unit disappears under a stil
         local function ReadHovered()
             hovered = nil
             SecureHandlerExecute(DebindPrivate.BindingDriver,
-                [[self:CallMethod("DebindTestHovered", self:RunAttribute("GetHoveredUnit"))]])
+                [[self:CallMethod("DebindTestHovered", self:RunAttribute("GetUnitFrameUnit"))]])
             return hovered
         end
 
         if ReadHovered() ~= "player" then
-            return Fail(NAME, format("GetHoveredUnit=%s over the frame, it should be player", tostring(hovered)))
+            return Fail(NAME, format("GetUnitFrameUnit=%s over the frame, it should be player", tostring(hovered)))
         end
 
         -- The cursor has not moved. Only the attribute changed, which is exactly the shape of a
         -- unit despawning under it. Nothing has to come round first: the read is the call.
         SetFrameUnit(frame, UNIT_TOKEN_ABSENT)
         if ReadHovered() ~= nil then
-            return Fail(NAME, format("the unit is gone and GetHoveredUnit=%s", tostring(hovered)))
+            return Fail(NAME, format("the unit is gone and GetUnitFrameUnit=%s", tostring(hovered)))
         end
 
         -- The slot still holds the frame, so the same read finds the unit when it comes back.
         SetFrameUnit(frame, "player")
         if ReadHovered() ~= "player" then
-            return Fail(NAME, format("the unit came back and GetHoveredUnit=%s", tostring(hovered)))
+            return Fail(NAME, format("the unit came back and GetUnitFrameUnit=%s", tostring(hovered)))
         end
 
         return Pass(NAME, "gone -> nobody, back -> the unit again")
@@ -5870,7 +5870,7 @@ RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
         -- this slot a value to read.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = {} },
+            units = { unitframe = {} },
         })
         ApplyBindings()
 
@@ -6025,7 +6025,7 @@ end
 local function HoverBoundFrame()
     InsertAction({
         type = Constants.SPELL, value = 585, key = "BUTTON3",
-        units = { hover = {} },
+        units = { unitframe = {} },
     })
     ApplyBindings()
     return CreateTestUnitFrame("player", "group")
@@ -6402,7 +6402,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -6538,7 +6538,7 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -6595,7 +6595,7 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
             combat = true,
         })
@@ -6681,7 +6681,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         -- A test with no binding at all would pass without the wrapper ever deciding anything.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON1",
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
             combat = true,
         })
@@ -7092,7 +7092,7 @@ RegisterTest("State injection: the party cell reaches a raid subgroup", {
     end,
 })
 
--- The hover condition rides the unit column (`t.units["hover"]`) instead of its own pair of record
+-- The condition rides the unit column (`t.units["unitframe"]`) instead of its own pair of record
 -- fields. What that has to keep doing is decide the press: a hover-conditioned keyboard key fires
 -- only while the cursor is on a matching frame.
 RegisterTest("Hover condition decides the press through the unit column", {
@@ -7112,7 +7112,7 @@ RegisterTest("Hover condition decides the press through the unit column", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            units = { hover = { reaction = Constants.REACTION_HELP } },
+            units = { unitframe = { reaction = Constants.REACTION_HELP } },
         })
         ApplyBindings()
 
@@ -7142,7 +7142,7 @@ RegisterTest("Hover condition decides the press through the unit column", {
         if not ran then return Fail(NAME, rerr) end
         local hovering = WaitForWinner()
         if hovering == nil then
-            return Fail(NAME, "put on a friendly frame and nothing fired. t.units[\"hover\"] did not match")
+            return Fail(NAME, "put on a friendly frame and nothing fired. t.units[\"unitframe\"] did not match")
         end
 
         HoverLeave(frame)
@@ -7178,7 +7178,7 @@ RegisterTest("Hover frame types still narrow on their own", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            units = { hover = {} },
+            units = { unitframe = {} },
             frameTypes = Constants.FRAMETYPE_BOSS,
         })
         ApplyBindings()
@@ -8297,7 +8297,7 @@ RegisterTest("Click-time key: mounted, indoors and skyriding decide the press", 
 local macroBodySeq = 0
 
 RegisterTest("Click bakes the deferred macro body", {
-    description = "The click bakes an @hover macro body, which is also whether SetAttribute carries in the restricted environment",
+    description = "The click bakes an @unitframe macro body, which is also whether SetAttribute carries in the restricted environment",
     run = function()
         local NAME = "Deferred macrotext"
         local KEY = "CTRL-SHIFT-F9"
@@ -8321,7 +8321,7 @@ RegisterTest("Click bakes the deferred macro body", {
         -- would read that instead of what `StampBinding` wrote. In play nothing is wrong with
         -- that: every press composes the body afresh before running it.
         macroBodySeq = macroBodySeq + 1
-        local body = format("/cast [@hover] Debind%d", macroBodySeq)
+        local body = format("/cast [@unitframe] Debind%d", macroBodySeq)
 
         InsertAction({ type = Constants.MACROTEXT, value = body, key = KEY })
         ApplyBindings()
@@ -8337,9 +8337,9 @@ RegisterTest("Click bakes the deferred macro body", {
         WaitForHoverSlot(true)
 
         -- **Nobody should have baked it yet.** What is here is what `StampBinding` wrote, and
-        -- `@hover` still standing in it is the proof that the poll does not touch this body.
+        -- `@unitframe` still standing in it is the proof that the poll does not touch this body.
         local raw = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
-        if not (raw and raw:find("@hover", 1, true)) then
+        if not (raw and raw:find("@unitframe", 1, true)) then
             return Fail(NAME, format("the premise is gone: the body is already %q before any click", tostring(raw)))
         end
 
@@ -8399,7 +8399,7 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
                 records and #records or 0))
         end
         local TWIN, ORIGINAL = 3, 4
-        if not (records[TWIN].unit == "hover" and records[ORIGINAL].unit == nil) then
+        if not (records[TWIN].unit == "unitframe" and records[ORIGINAL].unit == nil) then
             return Fail(NAME, format("the premise is gone: units are %s / %s, the twin should come before the original",
                 tostring(records[TWIN].unit), tostring(records[ORIGINAL].unit)))
         end
@@ -9083,7 +9083,7 @@ RegisterTest("A role condition widens the role headers", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = { role = Constants.ROLE_TANK } },
+            units = { unitframe = { role = Constants.ROLE_TANK } },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -9155,7 +9155,7 @@ RegisterTest("Dropping the role condition takes the map down", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = { role = Constants.ROLE_TANK } },
+            units = { unitframe = { role = Constants.ROLE_TANK } },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -9179,7 +9179,7 @@ RegisterTest("Dropping the role condition takes the map down", {
         CleanupActions()
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = { role = Constants.ROLE_HEALER } },
+            units = { unitframe = { role = Constants.ROLE_HEALER } },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -9216,12 +9216,12 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = { role = Constants.ROLE_NONE } },
+            units = { unitframe = { role = Constants.ROLE_NONE } },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         InsertAction({
             type = Constants.SPELL, value = 8936, key = "BUTTON3",
-            units = { hover = { role = REAL_ROLES } },
+            units = { unitframe = { role = REAL_ROLES } },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()

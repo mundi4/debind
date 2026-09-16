@@ -1,6 +1,6 @@
 # `which-action-a-key-runs.md`를 구현하기 (2026-09-16 시작)
 
-> 상태: **아직 아무것도 안 들어갔다.** 단계 0부터다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
+> 상태: **1단계가 들어갔다.** 다음은 2단계다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
 >
 > 규칙은 `which-action-a-key-runs.md`가 들고, 여기는 순서와 각 단계가 건드리는 자리만 든다. 둘이 갈리면 스펙이
 > 맞다. 결정의 근거 중 문서에 없는 것은 `.zzz/hover-twin-wrong-2026-09-15.md`("그 당시의 근거")와 `0-DIARY.md`의
@@ -28,9 +28,19 @@
   `HoverConditionFromLegacy`, `hoverConditionIsOn`, `hoverIsOn`, `ActionHoverIsOn`, `BuildHoverMenu`,
   `HoverFrameTypeChecked`, `hoverRole`, `HoverMarkTooltip`, `GetHoveredLine`이 `unitframe` 쪽으로.
 - 기능 이름은 남는다: `hoverTwin`, `HoverTwins`, `HoverCastMode`, `RefreshHoverCast`, `hoverCastChoices`.
-- 저장값: `conditions.units.hover` → `conditions.units.unitframe`, `unit = "hover"` → `"unitframe"`,
-  `Options.hoverCastMode`의 `"hover"` → `"unitframe"`. `dbver` 하나. 가져오기(`DebindStorage/Import.lua`)는 옛
-  이름을 받는다. Export 필드 표.
+- 저장값: `conditions.units.hover` → `conditions.units.unitframe`, `unit = "hover"` → `"unitframe"`.
+  나가지 않은 `dbver <= 6` 단계에 얹었다 - 안 나간 단계가 나갈 때까지 저장 변경을 다 받는다는 규칙
+  그대로라, `DB_VERSION`은 7에 그대로다.
+- **매크로 본문도 옮긴다.** 손으로 친 `@hover`와 `/click DebindCustom<n> hover`가 유닛을 **이름으로**
+  읽는 자리다. 이름이 `Constants.SPECIAL_UNITS`에서 빠지는 순간 파서가 그 토큰을 못 알아보고 게임에
+  글자 그대로 넘기는데, 아무것도 안 터진다. 안 옮기면 3단계에서 같은 철자가 다른 뜻으로 돌아오므로
+  깨지는 것보다 나쁘다. 스위치 계산식(`expr`)도 같은 본문이라 스위치 사다리와 페이로드 manifest에
+  같은 단계를 세웠다. 단계가 옛 이름을 직접 들고, `ParseMacroText`를 안 탄다 - 그쪽은 이제 그 토큰을
+  못 본다.
+- `Options.hoverCastMode`의 `"hover"`는 안 옮긴다. 읽는 쪽이 `"mouseover"`가 아니면 `"unitframe"`을
+  내므로 옛 값이 그대로 새 기본값으로 읽힌다.
+- 가져오기는 손댈 것이 없었다. 페이로드는 `MigrateLayer`를 그대로 타고, `ACTION_FIELDS`와
+  `CONDITION_TYPES` 어느 쪽도 유닛 이름을 나열하지 않는다.
 - 스니펫 본문이 바뀌니 `tools/snippet-golden.txt` 갱신.
 - 테스트: 기존 헤드리스 전부가 이름만 바뀐 채 통과. `normalize_spec`에 옛 이름 옮기기 한 줄.
 

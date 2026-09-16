@@ -22,7 +22,7 @@ local ARRAY_MARKER          = {};
 local SORTED_UNIT_LIST      = DebindUI.SORTED_UNIT_LIST;
 local USE_CHECKED_VALUE     = MenuKit.TOGGLE;
 
--- The hover condition and the unit conditions draw their reaction boxes from this one list. Two
+-- The `unitframe` condition and the unit conditions draw their reaction boxes from this one list. Two
 -- copies drift the day a reaction is added.
 local REACTION_ITEMS        = {
     { text = LLL["REACTION_HELP"],  value = Constants.REACTION_HELP },
@@ -42,7 +42,7 @@ local LIFE_ITEMS            = {
     { text = LLL["LIFE_DEAD"],  value = true },
 };
 
---- 소속 확인란. hover 조건과 유닛 조건이 이 하나를 나눠 쓴다.
+--- 소속 확인란. unitframe 조건과 유닛 조건이 이 하나를 나눠 쓴다.
 local UNITGROUP_ITEMS       = {
     { text = LLL["UNITGROUP_NONE"],  value = Constants.UNITGROUP_NONE },
     { text = LLL["UNITGROUP_PARTY"], value = Constants.UNITGROUP_PARTY },
@@ -241,7 +241,7 @@ local NodeMixedCount;
 
 --- The menu has changed values on these actions.
 ---
---- **It does not look at which value.** Conditions, importance and hover are steps in the
+--- **It does not look at which value.** Conditions, importance and `unitframe` are steps in the
 --- ordering, so changing one changes what an action is up against -- and rather than work out
 --- which step moved, each action's key group is renumbered. If nothing moved the renumber moves
 --- nothing (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing each action
@@ -721,7 +721,7 @@ end
 --- 프레임 종류 확인란 하나가 켜져 있는가. **`MenuKit`의 `hasBit`과 같은 답을 내야 한다** -
 --- 그쪽은 값이 없으면 기본 마스크로 읽으므로, 여기만 0으로 읽으면 아무것도 안 정한 액션에서
 --- 전부 꺼진 것으로 보인다.
-local function HoverFrameTypeChecked(ctx, value)
+local function UnitFrameTypeChecked(ctx, value)
     return AllActions(ctx, function(action)
         local conditions = action.conditions;
         local current = (conditions and conditions.frameTypes) or FRAMETYPE_DEFAULT;
@@ -738,8 +738,8 @@ local function ToggleUnitConditionRole(ctx, unit, value)
     return ToggleUnitConditionMask(ctx, unit, "role", value, Constants.ROLE_ALL);
 end
 
-local function hoverConditionIsOn(ctx)
-    return UnitConditionIsExists(ctx, "hover");
+local function unitFrameConditionIsOn(ctx)
+    return UnitConditionIsExists(ctx, "unitframe");
 end
 
 --- What the two drawing files and the entry points reach in here. Everything else above is this
@@ -797,5 +797,5 @@ ActionMenu.ToggleUnitConditionGroup  = ToggleUnitConditionGroup;
 ActionMenu.UnitConditionRoleChecked  = UnitConditionRoleChecked;
 ActionMenu.ToggleUnitConditionRole   = ToggleUnitConditionRole;
 ActionMenu.UnitConditionRemembersAxis = UnitConditionRemembersAxis;
-ActionMenu.HoverFrameTypeChecked     = HoverFrameTypeChecked;
-ActionMenu.hoverConditionIsOn        = hoverConditionIsOn;
+ActionMenu.UnitFrameTypeChecked      = UnitFrameTypeChecked;
+ActionMenu.unitFrameConditionIsOn    = unitFrameConditionIsOn;

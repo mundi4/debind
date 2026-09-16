@@ -95,33 +95,33 @@ return function(DebindPrivate)
         check(b.isConditional == nil, "isConditional이 바인딩에 앉아 있다");
     end);
     ---------------------------------------------------------------------------
-    -- 호버 조건은 `units["hover"]`에 산다
+    -- 개체창 조건은 `units["unitframe"]`에 산다
     --
-    -- 저장에는 그 키 하나뿐이고, `hover`는 거기서 파생된 값이다 (`Misc.DeriveHoverFields`).
+    -- 저장에는 그 키 하나뿐이고, `unitframe`은 거기서 파생된 값이다 (`Misc.DeriveUnitFrameFields`).
     -- 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이 들어올림 경로를 지나기
     -- 때문**이고, 여기가 그 두 모양이 같은 답을 낸다는 것을 잠근다.
     ---------------------------------------------------------------------------
 
     test("저장된 호버 조건이 hover로 파생된다", function()
-        local b = spell({ units = { hover = { reaction = Constants.REACTION_HELP } } });
-        check(b.hover == true, "hover가 안 파생됨");
-        check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "축에 안 실림");
+        local b = spell({ units = { unitframe = { reaction = Constants.REACTION_HELP } } });
+        check(b.unitframe == true, "hover가 안 파생됨");
+        check(b.unitStates["unitframe"] == Constants.UNITSTATE_HELP, "축에 안 실림");
     end);
 
     test("저장된 호버 조건이 false면 부재로 파생된다", function()
-        local b = spell({ units = { hover = false } });
-        check(b.hover == false, "false가 안 파생됨 - nil과 다른 답이다");
-        check(b.unitStates["hover"] == Constants.UNITSTATE_NONE, "부재로 안 좁혀짐");
+        local b = spell({ units = { unitframe = false } });
+        check(b.unitframe == false, "false가 안 파생됨 - nil과 다른 답이다");
+        check(b.unitStates["unitframe"] == Constants.UNITSTATE_NONE, "부재로 안 좁혀짐");
     end);
 
     test("반응을 전부 고른 저장값은 제약이 없는 것과 같다", function()
-        local b = spell({ units = { hover = { reaction = Constants.REACTION_ALL } } });
-        check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS, "축이 좁아짐");
+        local b = spell({ units = { unitframe = { reaction = Constants.REACTION_ALL } } });
+        check(b.unitStates["unitframe"] == Constants.UNITSTATE_EXISTS, "축이 좁아짐");
     end);
 
     test("호버 유닛에도 생사가 걸린다", function()
-        local b = spell({ units = { hover = { dead = true } } });
-        check(b.unitStates["hover"] == Constants.UNITSTATE_DEAD, "생사가 축에 안 실림");
+        local b = spell({ units = { unitframe = { dead = true } } });
+        check(b.unitStates["unitframe"] == Constants.UNITSTATE_DEAD, "생사가 축에 안 실림");
     end);
 
     ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ return function(DebindPrivate)
         local action = { type = Constants.SPELL, value = 100,
             hover = true, reactions = Constants.REACTION_HELP };
         local b = normalize(action, true);
-        check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "새 모양과 답이 다름");
+        check(b.unitStates["unitframe"] == Constants.UNITSTATE_HELP, "새 모양과 답이 다름");
         check(action.hover == true, "액션이 고쳐졌다 - 들어올림은 사본에만 일어나야 한다");
         check(action.units == nil, "액션에 units가 생겼다");
     end);
@@ -184,14 +184,14 @@ return function(DebindPrivate)
     test("옛 hover가 같은 유닛의 조건과 교집합된다", function()
         local b = normalize(nest({ type = Constants.SPELL, value = 100,
             hover = true, reactions = Constants.REACTION_HELP,
-            units = { hover = { reaction = Constants.REACTION_HARM } } }), true);
-        check(b.unitStates["hover"] == 0, "안 겹치는 두 조건이 0이 안 됨");
+            units = { unitframe = { reaction = Constants.REACTION_HARM } } }), true);
+        check(b.unitStates["unitframe"] == 0, "안 겹치는 두 조건이 0이 안 됨");
     end);
 
     test("옛 hover=false가 존재 조건과 만나면 0이 된다", function()
         local b = normalize(nest({ type = Constants.SPELL, value = 100,
-            hover = false, units = { hover = {} } }), true);
-        check(b.unitStates["hover"] == 0, "부재와 존재가 0이 안 됨");
+            hover = false, units = { unitframe = {} } }), true);
+        check(b.unitStates["unitframe"] == 0, "부재와 존재가 0이 안 됨");
     end);
 
     ---------------------------------------------------------------------------
@@ -208,8 +208,8 @@ return function(DebindPrivate)
             ignoreHoverUnit = true,
         });
         -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
-        check(b.hover == nil, "hover 조건이 생김");
-        check(b.conditions.units == nil or b.conditions.units.hover == nil, "호버 조건이 남음");
+        check(b.unitframe == nil, "hover 조건이 생김");
+        check(b.conditions.units == nil or b.conditions.units.unitframe == nil, "호버 조건이 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
         check(b.ignoreHoverUnit == nil, "ignoreHoverUnit이 남음");
     end);
@@ -222,9 +222,9 @@ return function(DebindPrivate)
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
-        check(b.hover == false, "hover 조건 자체는 남아야 한다");
+        check(b.unitframe == false, "hover 조건 자체는 남아야 한다");
         -- 안 올렸을 때와 반응은 같이 설 수 없다. 접기가 조건을 `false` 하나로 만든다.
-        check(b.conditions.units.hover == false, "반응이 조건으로 남음");
+        check(b.conditions.units.unitframe == false, "반응이 조건으로 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
     end);
 
@@ -236,7 +236,7 @@ return function(DebindPrivate)
 
     test("hover 반응을 전부 고르면 nil로 접힌다", function()
         local b = spell({ hover = true, reactions = Constants.REACTION_ALL });
-        check(b.conditions.units.hover.reaction == nil, "전체 비트가 안 접힘");
+        check(b.conditions.units.unitframe.reaction == nil, "전체 비트가 안 접힘");
     end);
 
     test("hover 프레임종류를 전부 고르면 nil로 접힌다", function()
@@ -250,7 +250,7 @@ return function(DebindPrivate)
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
-        check(b.conditions.units.hover.reaction == Constants.REACTION_HELP, "반응이 바뀜");
+        check(b.conditions.units.unitframe.reaction == Constants.REACTION_HELP, "반응이 바뀜");
         check(b.conditions.frameTypes == Constants.FRAMETYPE_PLAYER, "frameTypes가 바뀜");
     end);
 
@@ -320,7 +320,7 @@ return function(DebindPrivate)
     end);
 
     test("hover 액션이 제 대상이 없으면 호버한 유닛을 겨눈다", function()
-        check(spell({ hover = true }).unit == "hover", "채워넣기가 안 일어남");
+        check(spell({ hover = true }).unit == "unitframe", "채워넣기가 안 일어남");
     end);
 
     -- `ignoreHoverUnit`은 "올라간 프레임은 조건으로만 쓰고 대상으로는 안 쓴다"는 뜻이다.
@@ -331,6 +331,14 @@ return function(DebindPrivate)
 
     test("제 대상이 있으면 hover 채워넣기가 일어나지 않는다", function()
         check(spell({ hover = true, unit = "focus" }).unit == "focus", "대상이 덮어써짐");
+    end);
+
+    -- **개명 전 이름으로 고른 대상도 옮겨서 읽는다.** `dbver <= 6`이 저장된 `unit = "hover"`를
+    -- 옮기지만, 사다리가 아직 안 닿은 프로필이 그대로 오면 `binding.unit`에 아무도 못 알아보는
+    -- 이름이 실린다 - 클릭 경로가 그 이름을 안 보고(`isClickCast`), 방출도 `SPECIAL_UNITS`와
+    -- `BASIC_UNITS` 어느 쪽에서도 못 찾아서 대상 없이 나간다.
+    test("개명 전 이름으로 고른 대상은 unitframe으로 읽힌다", function()
+        check(spell({ unit = "hover" }).unit == "unitframe", "대상이 " .. tostring(spell({ unit = "hover" }).unit));
     end);
 
     test("대상이 멀쩡하면 \"@\"는 남는다", function()
@@ -381,8 +389,8 @@ return function(DebindPrivate)
             unit = "focus", hover = true,
             units = { ["@"] = "help" },
         }), true);
-        check(b.unit == "hover", "hover 채워넣기가 안 일어남 - 전제가 깨졌다");
-        check(b.unitStates.hover == help, "hover 칸: " .. tostring(b.unitStates.hover));
+        check(b.unit == "unitframe", "hover 채워넣기가 안 일어남 - 전제가 깨졌다");
+        check(b.unitStates.unitframe == help, "hover 칸: " .. tostring(b.unitStates.unitframe));
     end);
 
     ---------------------------------------------------------------------------
@@ -559,29 +567,29 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- hover 조건도 같은 축을 탄다
     --
-    -- 마우스를 올린 프레임의 유닛은 `"hover"`라는 이름의 유닛일 뿐이다. 따로 두면 solver가
+    -- 가리킨 프레임의 유닛은 `"unitframe"`이라는 이름의 유닛일 뿐이다. 따로 두면 solver가
     -- hover 조건과 같은 유닛의 조건이 서로 모순인 것을 못 본다.
     ---------------------------------------------------------------------------
 
     test("hover만 켜면 호버 유닛이 존재로 좁혀진다", function()
-        check(spell({ hover = true }).unitStates["hover"] == Constants.UNITSTATE_EXISTS,
+        check(spell({ hover = true }).unitStates["unitframe"] == Constants.UNITSTATE_EXISTS,
             "존재로 안 좁혀짐");
     end);
 
     test("hover 반응이 호버 유닛 축을 좁힌다", function()
-        check(spell({ hover = true, reactions = Constants.REACTION_HELP }).unitStates["hover"]
+        check(spell({ hover = true, reactions = Constants.REACTION_HELP }).unitStates["unitframe"]
             == Constants.UNITSTATE_HELP, "반응이 축에 안 실림");
     end);
 
     test("hover가 false면 호버 유닛이 부재로 좁혀진다", function()
-        check(spell({ hover = false }).unitStates["hover"] == Constants.UNITSTATE_NONE,
+        check(spell({ hover = false }).unitStates["unitframe"] == Constants.UNITSTATE_NONE,
             "부재로 안 좁혀짐");
     end);
 
     -- 마우스 클릭은 커서가 이미 있는 자리에서 발동한다. 유닛 프레임 위였다면 프레임이
     -- 그 클릭을 먹으므로, 이 경로로 오는 것은 "호버 중이 아님"뿐이다.
     test("마우스 버튼 키는 호버 유닛이 부재로 좁혀진다", function()
-        check(spell({ key = "BUTTON3" }).unitStates["hover"] == Constants.UNITSTATE_NONE,
+        check(spell({ key = "BUTTON3" }).unitStates["unitframe"] == Constants.UNITSTATE_NONE,
             "마우스 버튼이 호버 축을 안 좁힘");
     end);
 
@@ -769,7 +777,7 @@ return function(DebindPrivate)
         check(list[2].castModifier == Constants.CASTMOD_FOCUS and list[2].unit == "focus",
             "[2]: " .. tostring(list[2].castModifier) .. " " .. tostring(list[2].unit));
 
-        for _, unit in ipairs({ "target", "focus", "player", "tank", "healer", "custom1", "hover", "mouseover" }) do
+        for _, unit in ipairs({ "target", "focus", "player", "tank", "healer", "custom1", "unitframe", "mouseover" }) do
             list = listFor({ unit = unit });
             check(#list == 3, unit .. ": 길이 " .. #list);
             for _, castModifier in ipairs({ Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS }) do
@@ -857,7 +865,7 @@ return function(DebindPrivate)
     test("고르지 않은 대상은 조합키를 따른다", function()
         for _, case in ipairs({
             { label = "매크로에 남은 focus", fields = { type = Constants.MACROTEXT, value = "/cast x", unit = "focus" } },
-            { label = "hover 조건이 채운 hover", fields = { units = { hover = {} } }, unit = "hover" },
+            { label = "hover 조건이 채운 hover", fields = { units = { unitframe = {} } }, unit = "unitframe" },
         }) do
             local list = listFor(case.fields);
             check(list[1].unit == case.unit, case.label .. ": 원본 unit이 " .. tostring(list[1].unit));
@@ -896,9 +904,9 @@ return function(DebindPrivate)
                     case[2] .. " 칸: " .. tostring(twin and twin.unitStates and twin.unitStates[case[2]]));
             end
             local hoverTwin = castmod.without(Constants, list)[2];
-            check(hoverTwin and hoverTwin.unit == "hover", "hover 쌍둥이가 없다");
-            check(hoverTwin.unitStates.hover == help,
-                "hover 칸: " .. tostring(hoverTwin.unitStates.hover));
+            check(hoverTwin and hoverTwin.unit == "unitframe", "hover 쌍둥이가 없다");
+            check(hoverTwin.unitStates.unitframe == help,
+                "hover 칸: " .. tostring(hoverTwin.unitStates.unitframe));
         end);
     end);
 
@@ -910,7 +918,7 @@ return function(DebindPrivate)
         local help = helpMask();
         for _, case in ipairs({
             { fields = { units = { ["@"] = "help" } }, unit = nil },
-            { fields = { ignoreHoverUnit = true, units = { ["@"] = "help", hover = {} } }, unit = "" },
+            { fields = { ignoreHoverUnit = true, units = { ["@"] = "help", unitframe = {} } }, unit = "" },
         }) do
             local list = listFor(case.fields);
             local original = list[1];
@@ -930,10 +938,10 @@ return function(DebindPrivate)
     --- hover 조건에서 대상이 채워진 원본은 가리킨 유닛에 쏘므로 `@`도 `hover` 칸에 선다.
     test("hover로 대상이 채워진 원본은 @를 hover 칸에 얹는다", function()
         local help = helpMask();
-        local original = listFor({ units = { ["@"] = "help", hover = {} } })[1];
-        check(original.unit == "hover", "원본의 unit: " .. tostring(original.unit));
-        check(original.unitStates and original.unitStates.hover == help,
-            "hover 칸: " .. tostring(original.unitStates and original.unitStates.hover));
+        local original = listFor({ units = { ["@"] = "help", unitframe = {} } })[1];
+        check(original.unit == "unitframe", "원본의 unit: " .. tostring(original.unit));
+        check(original.unitStates and original.unitStates.unitframe == help,
+            "hover 칸: " .. tostring(original.unitStates and original.unitStates.unitframe));
         check(original.unitStates.target == nil, "target 칸에도 섰다");
     end);
 
@@ -944,14 +952,14 @@ return function(DebindPrivate)
             check(#list == 2, "길이 " .. #list);
             check(list[1] == normalize(action), "[1]이 원본이 아니다");
             local original, twin = list[1], list[2];
-            check(original.hover == nil, "원본 hover: " .. tostring(original.hover));
+            check(original.unitframe == nil, "원본 unitframe: " .. tostring(original.unitframe));
             check(original.unit == nil, "원본 unit: " .. tostring(original.unit));
-            check(twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
-            check(twin.hover == true, "쌍둥이 hover: " .. tostring(twin.hover));
+            check(twin.unit == "unitframe", "쌍둥이 unit: " .. tostring(twin.unit));
+            check(twin.unitframe == true, "쌍둥이 unitframe: " .. tostring(twin.unitframe));
             check(twin.type == original.type and twin.value == original.value and twin.key == original.key,
                 "쌍둥이가 액션의 값을 잃었다");
             -- `"@"`는 겨누는 개체를 가리키는 포인터라, 쌍둥이에서는 hover 개체에게 묻는다.
-            check(twin.unitStates and twin.unitStates.hover == original.unitStates.target,
+            check(twin.unitStates and twin.unitStates.unitframe == original.unitStates.target,
                 "쌍둥이의 hover 마스크가 원본의 @ 마스크와 다르다");
             check(twin.unitStates.target == nil, "쌍둥이가 target 조건을 들고 있다");
         end);
@@ -977,9 +985,9 @@ return function(DebindPrivate)
             local list = castmod.without(Constants, (listFor({ unit = "none", units = { ["@"] = "help" } })));
             check(#list == 2, "길이 " .. #list);
             local original, twin = list[1], list[2];
-            check(twin.hoverTwin and twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
-            check(twin.unitStates.hover == original.unitStates.target,
-                "쌍둥이의 hover 칸: " .. tostring(twin.unitStates.hover));
+            check(twin.hoverTwin and twin.unit == "unitframe", "쌍둥이 unit: " .. tostring(twin.unit));
+            check(twin.unitStates.unitframe == original.unitStates.target,
+                "쌍둥이의 hover 칸: " .. tostring(twin.unitStates.unitframe));
             check(DebindPrivate.CastUnitOf and DebindPrivate.CastUnitOf(twin) == "none",
                 "쌍둥이가 나가는 곳: " .. tostring(DebindPrivate.CastUnitOf and DebindPrivate.CastUnitOf(twin)));
         end);
@@ -988,9 +996,9 @@ return function(DebindPrivate)
     --- hover 조건으로 대상이 채워진 원본도 hover 쌍둥이를 내고, 쌍둥이는 원본처럼 `hover`로 나간다.
     test("hover 조건이 켜진 액션의 쌍둥이는 원본의 대상으로 나간다", function()
         withHoverCast(function()
-            local list = castmod.without(Constants, (listFor({ units = { hover = {} } })));
+            local list = castmod.without(Constants, (listFor({ units = { unitframe = {} } })));
             check(#list == 2, "길이 " .. #list);
-            check(list[2].hoverTwin and list[2].unit == "hover", "쌍둥이 unit: " .. tostring(list[2].unit));
+            check(list[2].hoverTwin and list[2].unit == "unitframe", "쌍둥이 unit: " .. tostring(list[2].unit));
         end);
     end);
 
@@ -1001,9 +1009,9 @@ return function(DebindPrivate)
         DebindPrivate.Options.hoverCast = true;
         DebindPrivate.Options.hoverCastMode = "mouseover";
         local ok, err = pcall(function()
-            local list = castmod.without(Constants, (listFor({ unit = "hover" })));
+            local list = castmod.without(Constants, (listFor({ unit = "unitframe" })));
             check(#list == 2, "길이 " .. #list);
-            check(list[2].unit == "hover", "쌍둥이 unit: " .. tostring(list[2].unit));
+            check(list[2].unit == "unitframe", "쌍둥이 unit: " .. tostring(list[2].unit));
             check(list[2].unitStates and list[2].unitStates.mouseover == Constants.UNITSTATE_EXISTS,
                 "mouseover 칸: " .. tostring(list[2].unitStates and list[2].unitStates.mouseover));
         end);
@@ -1013,7 +1021,7 @@ return function(DebindPrivate)
     end);
 
     -- Clique가 있어도 쌍둥이는 나온다 (코드 리뷰, 2026-09-08). 블리자드 개체창은 Clique와 무관하게
-    -- 우리가 등록하고, 물러난 상태의 `GetHoveredUnit`은 우리 행에서 먼저, 없으면 Clique의 hover
+    -- 우리가 등록하고, 물러난 상태의 `GetUnitFrameUnit`은 우리 행에서 먼저, 없으면 Clique의 hover
     -- 버튼에서 답하니 쌍둥이가 겨눌 개체가 있다.
     test("Clique가 있어도 쌍둥이를 낸다", function()
         local was = DebindPrivate.CliqueDetected;
@@ -1040,7 +1048,7 @@ return function(DebindPrivate)
                 check(#list == 2, fields.type .. " 길이 " .. #list);
                 check(list[2].hoverTwin and list[2].unit == list[1].unit,
                     fields.type .. " 쌍둥이 unit: " .. tostring(list[2].unit));
-                check(list[2].unitStates and list[2].unitStates.hover == Constants.UNITSTATE_EXISTS,
+                check(list[2].unitStates and list[2].unitStates.unitframe == Constants.UNITSTATE_EXISTS,
                     fields.type .. " 쌍둥이가 hover 축에 안 섰다");
             end
         end);

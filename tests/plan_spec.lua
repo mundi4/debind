@@ -189,11 +189,11 @@ return function(DebindPrivate)
 
     -- **A body on a button is composed at the press**, which reads the frame itself, so naming hover
     -- there leaves the beat nothing to keep current.
-    test("an @hover body on a button asks for no beat", function()
+    test("an @unitframe body on a button asks for no beat", function()
         local plan = PlanFor({
-            { type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew", seq = 1 },
+            { type = Constants.MACROTEXT, key = "F1", value = "/cast [@unitframe] Renew", seq = 1 },
         });
-        check(plan.statePoll == false, "an @hover macro body asked for the beat");
+        check(plan.statePoll == false, "an @unitframe macro body asked for the beat");
     end);
 
     -- **A computed switch is worked out at the press**, so only one that announces a change needs a

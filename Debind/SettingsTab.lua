@@ -216,7 +216,7 @@ local function Build()
             DebindPrivate.QueueUpdateBindings();
         end);
     local hoverCastChoices = {
-        { value = "hover", label = L["POINTED_UNIT_CAST_FRAMES"], tooltip = L["POINTED_UNIT_CAST_FRAMES_DESC"] },
+        { value = "unitframe", label = L["POINTED_UNIT_CAST_FRAMES"], tooltip = L["POINTED_UNIT_CAST_FRAMES_DESC"] },
         { value = "mouseover", label = L["POINTED_UNIT_CAST_MOUSEOVER"], tooltip = L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] },
     };
     local hoverCast = AddRow("DebindSettingsCheckboxDropdownRowTemplate");

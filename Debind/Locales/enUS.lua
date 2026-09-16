@@ -876,10 +876,10 @@ L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 -- 거짓이 된다. 제 축의 규칙만 말하고 멈춘다.
 L["ORDER_BLOCKED_CONDITIONAL"] = "This action cannot move past the one next to it -- only one of the two has conditions, and an action with conditions is tried before one without."
 -- **"runs while hovering"이라고 쓰면 안 된다.** 이 축은 `hover ~= nil`이라 "When not over a unit
--- frame"을 고른 액션도 갖는다(`Misc.lua`의 `DeriveHoverFields`, `Ordering.lua`의 비교자). 그쪽은
+-- frame"을 고른 액션도 갖는다(`Misc.lua`의 `DeriveUnitFrameFields`, `Ordering.lua`의 비교자). 그쪽은
 -- 호버 중에 **안** 도는데 먼저 시도되므로, 도느냐로 적으면 그 액션에 대고 거짓말이 된다.
 -- 갈리는 것은 개체창 여부를 따지느냐다.
-L["ORDER_BLOCKED_HOVER"] = "This action cannot move past the one next to it -- only one of the two has the Unit Frame condition, and an action that has it is tried before one that does not."
+L["ORDER_BLOCKED_UNITFRAME"] ="This action cannot move past the one next to it -- only one of the two has the Unit Frame condition, and an action that has it is tried before one that does not."
 -- **layer이고 scope가 아니다.** README가 "Layers, not profiles"로 가르치고 CurseForge 설명도
 -- layered bindings라 읽는 사람이 이미 만난 말이다. scope는 덮는다는 뜻을 안 나르고, tab은
 -- 누르는 컨트롤 이름이라 Import 탭·Storage 탭과 자리를 다툰다.

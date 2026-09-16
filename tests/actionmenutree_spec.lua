@@ -196,8 +196,8 @@ return function(DebindPrivate)
         local firstSpec = catalog[1].specs[1].id;
         return ResetProfile({
             Spell(1),
-            Spell(2, { units = { hover = { exists = true, reaction = Constants.REACTION_HELP } } }),
-            Spell(3, { units = { hover = { exists = false } } }),
+            Spell(2, { units = { unitframe = { exists = true, reaction = Constants.REACTION_HELP } } }),
+            Spell(3, { units = { unitframe = { exists = false } } }),
             Spell(4, { units = { target = { exists = true, dead = true } } }),
             Spell(5, { combat = true, stealth = false }),
             Spell(6, { specs = { [firstSpec] = true } }),

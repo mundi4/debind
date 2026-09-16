@@ -14,11 +14,11 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- **The record comes from `Misc.lua`'s `MakeOrderRecord` and nowhere else.** Three callers build
 --- one (`BuildKeyMap`, `MakeRow`, `RenumberKeyGroup`) and none of them spells the fields out.
 ---
---- Record fields: priority, hover, isConditional, layerRank, specRank, seq
+--- Record fields: priority, unitframe, isConditional, layerRank, specRank, seq
 ---   priority      - `Constants.DEFAULT_IMPORTANCE` when nil
----   hover         - **the raw value.** false and nil mean different things (false is a condition
----                   that says "not hovering" out loud, so it counts as one). Do not fold it to a
----                   boolean on the way in
+---   unitframe     - **the raw value.** false and nil mean different things (false is a condition
+---                   that says "not over a unit frame" out loud, so it counts as one). Do not fold
+---                   it to a boolean on the way in
 ---   isConditional - `DebindPrivate.IsConditionalBinding(binding)`
 ---   layerRank     - the scope's rank (smaller is narrower): character/spec -> character/shared ->
 ---                   class/spec -> class/shared -> general. **The specialization number is not read
@@ -47,9 +47,9 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
         return lhsImportance < rhsImportance;
     end
 
-    if (lhs.hover ~= nil and rhs.hover == nil) then
+    if (lhs.unitframe ~= nil and rhs.unitframe == nil) then
         return true;
-    elseif (lhs.hover == nil and rhs.hover ~= nil) then
+    elseif (lhs.unitframe == nil and rhs.unitframe ~= nil) then
         return false;
     end
 
@@ -111,9 +111,9 @@ function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
         return "IMPORTANCE";
     end
 
-    -- hover는 false와 nil이 다른 뜻이다. 비교자와 같은 기준으로 본다.
-    if ((lhs.hover ~= nil) ~= (rhs.hover ~= nil)) then
-        return "HOVER";
+    -- unitframe은 false와 nil이 다른 뜻이다. 비교자와 같은 기준으로 본다.
+    if ((lhs.unitframe ~= nil) ~= (rhs.unitframe ~= nil)) then
+        return "UNITFRAME";
     end
 
     if ((lhs.isConditional and true or false) ~= (rhs.isConditional and true or false)) then
@@ -169,7 +169,7 @@ end
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
 ---   "IMPORTED" - 대상이 아직 받아들이지 않은 도착분이다
----   "IMPORTANCE" | "HOVER" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
+---   "IMPORTANCE" | "UNITFRAME" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
 --- 일이 없지만, 이 함수는 "못 하면 이유를 돌려준다"고 약속해 놓고 대신 터지면 안 된다.

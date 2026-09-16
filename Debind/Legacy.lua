@@ -53,7 +53,7 @@ local LEGACY_ADDON     = "Debounce";
 
 --- The addon's own click targets were renamed along with the addon, and **the old names are sitting
 --- inside users' saved macros.** "Convert to a Custom Macro" writes the frame name into the macro
---- body (`Misc.lua`: `/click DebindCustom1 hover`, `/click DebindStates $state1-on`), so an action
+--- body (`Misc.lua`: `/click DebindCustom1 unitframe`, `/click DebindStates $state1-on`), so an action
 --- converted before the rename now clicks a frame that does not exist. Nothing errors - the key just
 --- stops doing anything, which is the one outcome this whole file exists to prevent.
 ---

@@ -227,7 +227,7 @@ return function(DebindPrivate)
     -- `useOnKeyDown`, which sends the release of a spell nobody pressed.
     test("press and hold is carried on the key branch and not the click-cast one", function()
         local binding = {
-            type = Constants.SPELL, value = 271466, unit = "hover", hover = true,
+            type = Constants.SPELL, value = 271466, unit = "unitframe", hover = true,
             clickframe = true, clickbutton = "deb1", pressAndHold = true,
         };
 

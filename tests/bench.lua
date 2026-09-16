@@ -58,7 +58,7 @@ return function(DebindPrivate)
     local BOOLS = { "combat", "stealth", "pet", "petbattle", "specialbar", "extrabar" };
     local STATES = { "$state1", "$state2", "$state3", "$state4", "$state5" };
     local UNITS = { "mouseover", "player", "pet", "target", "focus", "none",
-                    "tank", "healer", "maintank", "mainassist", "custom1", "custom2", "hover" };
+                    "tank", "healer", "maintank", "mainassist", "custom1", "custom2", "unitframe" };
     local UNIT_VALS = { true, false, "help", "harm" };
     local KEYS = { "SHIFT-Q", "BUTTON4", "CTRL-BUTTON5", "ALT-F" };
 
@@ -89,10 +89,10 @@ return function(DebindPrivate)
             if (rnd() < 0.5) then
                 local condition = {};
                 if (rnd() < 0.6) then condition.reaction = math.floor(rnd() * 6) + 1; end
-                b.units = { hover = condition };
+                b.units = { unitframe = condition };
                 if (rnd() < 0.6) then b.frameTypes = math.floor(rnd() * 126) + 1; end
             else
-                b.units = { hover = false };
+                b.units = { unitframe = false };
             end
         end
         if (rnd() < density * 0.3) then b.forms = math.floor(rnd() * 2048); end

@@ -217,7 +217,7 @@ if (_G.Grid2) then
 	---
 	--- What went with it is the report itself. `SetUnit` no longer crosses to the insecure side
 	--- when the hovered unit moves (`SecureBindings.lua`), and that crossing happened twice per
-	--- frame the cursor swept. So `DebindPublic.Units.hover` is nil from here on.
+	--- frame the cursor swept. So `DebindPublic.Units.unitframe` is nil from here on.
 	local aliases = { "custom1", "custom2", "tank", "healer", "maintank", "mainassist" };
 	for i = 1, #aliases do
 		local theAlias = aliases[i];

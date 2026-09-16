@@ -258,8 +258,10 @@ return function(DebindPrivate)
         };
         DebindPrivate.RunLegacyMigration();
 
-        check(_G.DebindVars.shared.GENERAL[1].value == "/click DebindCustom1 hover",
-            "a shared layer kept the old frame name: " .. tostring(_G.DebindVars.shared.GENERAL[1].value));
+        -- **개명 둘이 한 본문에서 만난다.** 프레임 이름은 이 파일이 고치고, 그 뒤에 오는 유닛
+        -- 이름은 `dbver <= 6`이 고친다.
+        check(_G.DebindVars.shared.GENERAL[1].value == "/click DebindCustom1 unitframe",
+            "a shared layer kept an old name: " .. tostring(_G.DebindVars.shared.GENERAL[1].value));
         check(_G.DebindVars.shared.classes.DRUID[0][1].value == "/click DebindStates $state1-on",
             "a class layer kept the old frame name: " .. tostring(_G.DebindVars.shared.classes.DRUID[0][1].value));
 
@@ -745,13 +747,81 @@ return function(DebindPrivate)
         check(cond.reaction == Constants.REACTION_HARM, "기억한 축이 사라졌다");
     end);
 
-    test("dbver 7 walks every unit key, hover and @ included", function()
+    test("dbver 7 walks every unit key, the unit frame and @ included", function()
         local layer = { { key = "A", type = Constants.SPELL, value = 1, unit = "focus",
             conditions = { units = { hover = {}, ["@"] = { reaction = Constants.REACTION_HELP } } } } };
         MigrateLayer(layer, 6);
         local units = layer[1].conditions.units;
-        check(units.hover.exists == true, "hover가 " .. tostring(units.hover.exists));
+        check(units.unitframe.exists == true, "unitframe이 " .. tostring(units.unitframe.exists));
         check(units["@"].exists == true, "@가 " .. tostring(units["@"].exists));
+    end);
+
+    --- 개체창 유닛의 이름이 `hover`에서 `unitframe`으로 간다. `hover`는 3단계에서 **다른 뜻**으로
+    --- 돌아오므로, 안 옮긴 값은 안 깨지는 것이 아니라 조용히 다른 것을 뜻하게 된다.
+    test("dbver 7 renames the pointed frame's unit condition", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } } };
+        MigrateLayer(layer, 6);
+        local units = layer[1].conditions.units;
+        check(units.hover == nil, "옛 이름이 남았다");
+        check(units.unitframe and units.unitframe.reaction == Constants.REACTION_HELP,
+            "반응이 안 따라왔다: " .. tostring(units.unitframe and units.unitframe.reaction));
+    end);
+
+    test("dbver 7 renames the picked target too", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1, unit = "hover" } };
+        MigrateLayer(layer, 6);
+        check(layer[1].unit == "unitframe", "unit이 " .. tostring(layer[1].unit));
+    end);
+
+    --- **본문도 옮긴다.** 유닛을 이름으로 읽는 자리라, 안 옮기면 파서가 못 알아보고 게임에 글자
+    --- 그대로 나가는데 아무것도 안 터진다.
+    test("dbver 7 renames the unit token in a hand-written body", function()
+        local layer = { { key = "A", type = Constants.MACROTEXT,
+            value = "/cast [@hover,harm] Smite\n/cast [@hovertarget] Renew" } };
+        MigrateLayer(layer, 6);
+        check(layer[1].value == "/cast [@unitframe,harm] Smite\n/cast [@unitframetarget] Renew",
+            "본문이 " .. tostring(layer[1].value) .. "다");
+    end);
+
+    --- **토큰 전체일 때만.** 사용자가 손으로 친 글자라, 이 유닛이 아닌 것을 건드리면 말없이 바뀐
+    --- 매크로를 스스로 찾아내야 한다.
+    test("dbver 7 leaves a body that only looks like the unit alone", function()
+        local layer = { { key = "A", type = Constants.MACROTEXT,
+            value = "/say [@hovering] hi\n/say hover" } };
+        MigrateLayer(layer, 6);
+        check(layer[1].value == "/say [@hovering] hi\n/say hover",
+            "본문이 " .. tostring(layer[1].value) .. "다");
+    end);
+
+    test("dbver 7 renames the unit a custom target is filled from", function()
+        local layer = { { key = "A", type = Constants.MACROTEXT,
+            value = "/click DebindCustom1 hover" } };
+        MigrateLayer(layer, 6);
+        check(layer[1].value == "/click DebindCustom1 unitframe",
+            "본문이 " .. tostring(layer[1].value) .. "다");
+    end);
+
+    --- **개명 전 프레임 이름을 단 본문도 같은 단계가 만난다.** `Legacy.lua`는 사다리를 **먼저**
+    --- 돌리고 `DebounceCustom` -> `DebindCustom`을 그 뒤에 고친다(`ImportLayer`). 그래서 이 단계가
+    --- 볼 때 본문은 아직 옛 프레임 이름이고, `dbver`는 이미 찍혀서 사다리가 다시 올 일이 없다.
+    test("dbver 7 renames the unit under the pre-rename frame name too", function()
+        local layer = { { key = "A", type = Constants.MACROTEXT,
+            value = "/click DebounceCustom2 hover" } };
+        MigrateLayer(layer, 6);
+        check(layer[1].value == "/click DebounceCustom2 unitframe",
+            "본문이 " .. tostring(layer[1].value) .. "다");
+    end);
+
+    test("dbver 7 is safe to run twice over the rename", function()
+        local layer = { { key = "A", type = Constants.MACROTEXT, unit = "hover",
+            value = "/cast [@hover] Renew",
+            conditions = { units = { hover = {} } } } };
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        check(layer[1].unit == "unitframe", "unit이 " .. tostring(layer[1].unit));
+        check(layer[1].value == "/cast [@unitframe] Renew", "본문이 " .. tostring(layer[1].value) .. "다");
+        check(layer[1].conditions.units.unitframe ~= nil, "조건이 사라졌다");
     end);
 
     test("dbver 7 leaves an action with no unit conditions alone", function()
@@ -1069,8 +1139,8 @@ return function(DebindPrivate)
             tostring(hover), tostring(reactions), describe(existing));
 
         local binding = bindingFor(action);
-        local gotMask = binding.unitStates and binding.unitStates.hover;
-        local gotCond = binding.conditions.units and binding.conditions.units.hover;
+        local gotMask = binding.unitStates and binding.unitStates.unitframe;
+        local gotCond = binding.conditions.units and binding.conditions.units.unitframe;
 
         check(gotMask == wantMask, ("%s %s: 마스크가 %s여야 하는데 %s"):format(
             label, when, tostring(wantMask), tostring(gotMask)));
@@ -1108,7 +1178,7 @@ return function(DebindPrivate)
 
         check(layer[1].hover == nil, "옛 hover 필드가 남음");
         check(layer[1].reactions == nil, "옛 reactions 필드가 남음");
-        check(layer[1].conditions.units.hover.reaction == Constants.REACTION_HELP,
+        check(layer[1].conditions.units.unitframe.reaction == Constants.REACTION_HELP,
             "반응이 유닛 조건으로 안 옮겨감");
     end);
 
@@ -1744,6 +1814,28 @@ return function(DebindPrivate)
         check(db.switches["$state3"].resetValue == false, "두 번째에 false가 뭉개졌다");
         check(charEntry.switches["$state4"] == true, "두 번째에 기억한 값이 뭉개졌다");
         check(db.switches["$state4"] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
+    end);
+
+    --- 계산식도 매크로 본문이라 유닛을 이름으로 든다. 액션 사다리가 옮기는 것과 같은 이름이고,
+    --- 여기는 사다리가 다르다 - 정의는 액션이 아니라 계정 표 꼭대기에 산다.
+    ---
+    --- **뿌리만이 아니라 덮어쓴 줄도 본다.** 한 탭에서만 거짓이 되는 것이 여기서 제일 조용한
+    --- 실패라, `RenameSwitch`가 덮어쓴 줄을 도는 이유와 같다.
+    test("dbver 7 renames the unit token in a switch expression", function()
+        local db = {
+            switches = {
+                ["$s1"] = {
+                    mode = MODES.EXPR,
+                    expr = "[@hover,harm]",
+                    overrides = { ["Player-1:2"] = { mode = MODES.EXPR, expr = "[@hovertarget]" } },
+                },
+            },
+        };
+        DebindPrivate.MigrateSwitches(db, 6, { layers = {}, switches = {} });
+        check(db.switches["$s1"].expr == "[@unitframe,harm]",
+            "뿌리 계산식이 " .. tostring(db.switches["$s1"].expr) .. "다");
+        check(db.switches["$s1"].overrides["Player-1:2"].expr == "[@unitframetarget]",
+            "덮어쓴 줄이 " .. tostring(db.switches["$s1"].overrides["Player-1:2"].expr) .. "다");
     end);
 
     ---------------------------------------------------------------------------

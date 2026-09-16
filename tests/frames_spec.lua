@@ -1509,21 +1509,21 @@ return function(DebindPrivate)
             raid7 = { id = "healer-guid" },
             player = { id = "me" },
         });
-        local key = failureKey("target", "hover", true);
+        local key = failureKey("target", "unitframe", true);
         check(key == "CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT", "said: " .. tostring(key));
     end);
 
     -- The frame is the cause where the hover slot was empty, which is the mouseover fallback.
     test("the hover fallback in combat blames the frame", function()
         World({ mouseover = { id = "stranger" }, player = { id = "me" } });
-        local key = failureKey("mouseover", "hover", true);
+        local key = failureKey("mouseover", "unitframe", true);
         check(key == "CUSTOM_TARGET_FRAME_NOT_OURS_IN_COMBAT", "said: " .. tostring(key));
     end);
 
     -- And out of combat the frame does not matter: what is left is a unit with no token.
     test("out of combat an unholdable unit is the cause", function()
         World({ target = { id = "stranger" }, player = { id = "me" } });
-        local key = failureKey("target", "hover", false);
+        local key = failureKey("target", "unitframe", false);
         check(key == "CUSTOM_TARGET_UNSUPPORTED_UNIT", "said: " .. tostring(key));
     end);
 

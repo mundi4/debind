@@ -126,11 +126,11 @@ return function(DebindPrivate)
     test("호버로 겨누던 것도 본문에 실린다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774,
-            conditions = { units = { hover = {} } } };
-        check(DebindPrivate.GetBindingInfoForAction(action).unit == "hover",
+            conditions = { units = { unitframe = {} } } };
+        check(DebindPrivate.GetBindingInfoForAction(action).unit == "unitframe",
             "이 액션은 호버를 겨누고 있지 않다");
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast [@hover] Rejuvenation",
+        check(action.value == "/cast [@unitframe] Rejuvenation",
             "본문이 " .. tostring(action.value) .. "다");
     end);
 
@@ -138,7 +138,7 @@ return function(DebindPrivate)
     test("겨누기를 끈 호버 액션은 대상이 안 실린다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774, ignoreHoverUnit = true,
-            conditions = { units = { hover = {} } } };
+            conditions = { units = { unitframe = {} } } };
         check(Convert(action), "변환이 거절됐다");
         check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
     end);
@@ -147,25 +147,25 @@ return function(DebindPrivate)
     test("호버 안 했을 때는 겨누지 않는다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774,
-            conditions = { units = { hover = false } } };
+            conditions = { units = { unitframe = false } } };
         check(Convert(action), "변환이 거절됐다");
         check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
     end);
 
     --- **Where the aim is derived, `"@"` already stands on the hovered unit**, and the body spells
-    --- `[@hover]`. The conversion must not move the hover axis: narrowing it would stop the key in
+    --- `[@unitframe]`. The conversion must not move the hover axis: narrowing it would stop the key in
     --- states where it fired before.
     test("죽어 있던 `@`는 변환이 되살리지 않는다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774,
             conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM },
-                hover = {} } } };
-        local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.hover;
+                unitframe = {} } } };
+        local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast [@hover] Rejuvenation",
+        check(action.value == "/cast [@unitframe] Rejuvenation",
             "본문이 " .. tostring(action.value) .. "다");
 
-        local after = DebindPrivate.GetBindingInfoForAction(action).unitStates.hover;
+        local after = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(after == before, "hover 축이 " .. tostring(before) .. "에서 "
             .. tostring(after) .. "로 움직였다");
     end);
@@ -206,7 +206,7 @@ return function(DebindPrivate)
         local ok, err = pcall(function()
             check(not Can({ type = Constants.SPELL, value = 774 }), "쌍둥이를 잃는 변환이 선다");
             check(Can({ type = Constants.SPELL, value = 774,
-                    conditions = { units = { hover = {} } } }),
+                    conditions = { units = { unitframe = {} } } }),
                 "쌍둥이가 안 서는 액션인데 변환이 안 선다");
         end);
         DebindPrivate.Options.hoverCast = was;
@@ -317,15 +317,15 @@ return function(DebindPrivate)
             "소속 교집합이 틀렸다: " .. tostring(action.conditions.units.focus.group));
 
         -- 역할은 hover에만 실리므로 `"@"`가 hover를 가리킬 때만 만난다.
-        action = { type = Constants.SPELL, value = 774, unit = "hover",
+        action = { type = Constants.SPELL, value = 774, unit = "unitframe",
             conditions = { units = {
                 ["@"] = { role = Constants.ROLE_TANK },
-                hover = { dead = false },
+                unitframe = { dead = false },
             } } };
         if (Can(action)) then
             check(Convert(action), "변환이 거절됐다");
-            check(action.conditions.units.hover.role == Constants.ROLE_TANK,
-                "`@`의 역할이 사라졌다: " .. tostring(action.conditions.units.hover.role));
+            check(action.conditions.units.unitframe.role == Constants.ROLE_TANK,
+                "`@`의 역할이 사라졌다: " .. tostring(action.conditions.units.unitframe.role));
         end
     end);
 
@@ -404,7 +404,7 @@ return function(DebindPrivate)
         for _, withHover in ipairs({ false, true }) do
             local units = { ["@"] = { reaction = Constants.REACTION_HARM } };
             if (withHover) then
-                units.hover = {};
+                units.unitframe = {};
             end
             local label = withHover and "hover 조건 있음: " or "hover 조건 없음: ";
             local action = { type = Constants.SPELL, value = 774, unit = "none",

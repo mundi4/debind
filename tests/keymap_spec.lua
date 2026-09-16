@@ -94,7 +94,7 @@ return function(DebindPrivate)
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1,
                 conditions = {
-                    units = { hover = { reaction = bor(Constants.REACTION_HELP,
+                    units = { unitframe = { reaction = bor(Constants.REACTION_HELP,
                         Constants.REACTION_HARM) } },
                     frameTypes = Constants.FRAMETYPE_GROUP,
                 } },
@@ -102,12 +102,12 @@ return function(DebindPrivate)
 
         local record = Records("BUTTON3") and Records("BUTTON3")[1];
         check(record, "the hover record did not reach the key");
-        check(record.hover == true, "the derived hover flag is " .. tostring(record.hover));
+        check(record.unitframe == true, "the derived unitframe flag is " .. tostring(record.unitframe));
 
-        local hover = record.conditions.units and record.conditions.units.hover;
-        check(type(hover) == "table", "the hover condition came out as " .. tostring(hover));
-        check(band(hover.reaction, Constants.REACTION_HELP) ~= 0, "the friendly bit is gone");
-        check(band(hover.reaction, Constants.REACTION_HARM) ~= 0, "the hostile bit is gone");
+        local unitframe = record.conditions.units and record.conditions.units.unitframe;
+        check(type(unitframe) == "table", "the unitframe condition came out as " .. tostring(unitframe));
+        check(band(unitframe.reaction, Constants.REACTION_HELP) ~= 0, "the friendly bit is gone");
+        check(band(unitframe.reaction, Constants.REACTION_HARM) ~= 0, "the hostile bit is gone");
         check(record.conditions.frameTypes == Constants.FRAMETYPE_GROUP,
             "frameTypes came out as " .. tostring(record.conditions.frameTypes));
     end);
@@ -253,7 +253,7 @@ return function(DebindPrivate)
     test("the key is laid out in tiers", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
-                conditions = { units = { hover = false }, stealth = true } },
+                conditions = { units = { unitframe = false }, stealth = true } },
             { type = Constants.SPELL, value = 2, key = "F1", seq = 2, conditions = { combat = true } },
         }, nil, { hoverCast = true });
 
@@ -297,7 +297,7 @@ return function(DebindPrivate)
                 frameRecord = spell[i];
             end
         end
-        check(frameRecord and frameRecord.unit == "hover",
+        check(frameRecord and frameRecord.unit == "unitframe",
             "the spell's Hover Cast twin is not a frame record aimed at the frame's unit");
     end);
 

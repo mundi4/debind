@@ -619,7 +619,7 @@ do
 
     --- Three causes wearing one failure, and the reader can act on a different thing in each.
     ---
-    --- `value` is `mouseover` only where the hover slot was empty, which is a unit frame whose
+    --- `value` is `mouseover` only where the unitframe slot was empty, which is a unit frame whose
     --- addon kept it (the `_onattributechanged` body).
     function UnitWatch:OnSetCustomTargetFailed(alias, value, originalValue)
         --- **Combat decides before anything is looked up, because in combat the lookup is not what
@@ -628,7 +628,7 @@ do
         --- So a unit it resolves perfectly well came out as "failed to set", naming a cause the
         --- reader could do nothing about.
         if (InCombatLockdown()) then
-            if (originalValue == "hover" and value == "mouseover") then
+            if (originalValue == "unitframe" and value == "mouseover") then
                 DebindPrivate.DisplayMessage(LLL["CUSTOM_TARGET_FRAME_NOT_OURS_IN_COMBAT"]);
             else
                 DebindPrivate.DisplayMessage(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"]);
@@ -653,9 +653,9 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
 			unit = strtrim(unit)
             if (unit == "" or unit == "none" or unit == ":") then
                 unit = nil
-			elseif (unit == "hover") then
-                unit = debind_driver:RunAttribute("GetHoveredUnit")
-                -- The hover slot is filled by frames that were handed over; on every other unit
+			elseif (unit == "unitframe") then
+                unit = debind_driver:RunAttribute("GetUnitFrameUnit")
+                -- The unitframe slot is filled by frames that were handed over; on every other unit
                 -- frame it stays empty. Out of combat ResolveUnitToken turns mouseover into a
                 -- token, so those frames still answer. In combat it cannot, and the value falls
                 -- through to OnSetCustomTargetFailed below.

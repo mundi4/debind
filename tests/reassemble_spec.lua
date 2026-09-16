@@ -139,7 +139,7 @@ return function(DebindPrivate)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             shared = { GENERAL = { action({ value = 585, key = "F1",
-                conditions = { units = { hover = {} } } }) },
+                conditions = { units = { unitframe = {} } } }) },
                 classes = { [Constants.PLAYER_CLASS] = {} } },
             characters = { [GUID] = { layers = {}, switches = {} } },
             migrated = {},
@@ -194,7 +194,7 @@ return function(DebindPrivate)
     local DRIVER = DebindPrivate.BindingDriver:GetName() or "<unnamed>";
 
     local function hovered()
-        return interp.env.UnitAliasMap.hover;
+        return interp.env.UnitAliasMap.unitframe;
     end
 
     ---------------------------------------------------------------------------
