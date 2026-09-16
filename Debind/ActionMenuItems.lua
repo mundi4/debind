@@ -28,7 +28,6 @@ local CastKeyChoiceOf                = ActionMenu.CastKeyChoiceOf;
 local CastKeyChoiceIs                = ActionMenu.CastKeyChoiceIs;
 local SetCastKeyChoice               = ActionMenu.SetCastKeyChoice;
 local SetHoverCastMode               = ActionMenu.SetHoverCastMode;
-local SetHoverCastAim                = ActionMenu.SetHoverCastAim;
 local NormalCastIsOn                 = ActionMenu.NormalCastIsOn;
 local ToggleNormalCast               = ActionMenu.ToggleNormalCast;
 local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
@@ -418,9 +417,9 @@ local function CreateCastingMenu(parentDescription, ctx)
         end
     end
 
-    -- **Four modes and two aims, where the two held keys have three answers between them.** Which
-    -- unit the pointed press means is this action's to say (§6), and that question does not exist
-    -- for a key that names its own unit.
+    -- **Three modes over the same three answers the two held keys have.** Which unit the pointed
+    -- press means is this action's to say (§6), and that question does not exist for a key that
+    -- names its own unit.
     local hoverDescription = ActionMenus:BuildNode(description, {
         label = "POINTED_UNIT_CAST",
         instruction = LLL["CASTING_HOVER_CAST_DESC"],
@@ -440,7 +439,6 @@ local function CreateCastingMenu(parentDescription, ctx)
         { account = true,      label = "CASTING_HOVER_ACCOUNT" },
         { value = "unitframe", label = "POINTED_UNIT_CAST_FRAMES",    desc = "POINTED_UNIT_CAST_FRAMES_DESC" },
         { value = "mouseover", label = "POINTED_UNIT_CAST_MOUSEOVER", desc = "POINTED_UNIT_CAST_MOUSEOVER_DESC" },
-        { value = "skip",      label = "CASTING_SKIP",               desc = "CASTING_HOVER_SKIP_DESC" },
     }) do
         local modeDescription = CreateRadio(hoverDescription, ctx, LLL[mode.label],
             actionValueEquals,
@@ -464,41 +462,28 @@ local function CreateCastingMenu(parentDescription, ctx)
     end
 
     do
-        local function hoverSkipped()
-            return AllActions(ctx, function(action)
-                return DebindPrivate.HoverCastMode(action) == nil;
-            end);
-        end
-        local function hoverReason()
-            if (hoverSkipped()) then
-                return LLL["CASTING_HOVER_SKIPPED"];
-            end
-            return pickedReason();
-        end
-
         hoverDescription:CreateDivider();
 
-        local pointed = CreateRadio(hoverDescription, ctx, LLL["CASTING_POINTED_CAST"],
-            actionValueEquals,
-            function()
-                return SetHoverCastAim(ctx, nil);
-            end,
-            { ctx = ctx, key = "casting.hoverCast.aim", value = nil });
-        pointed:SetEnabled(function()
-            return not hoverSkipped();
-        end);
-        SetInstructionTooltip(pointed, LLL["CASTING_POINTED_CAST_DESC"], hoverReason);
+        local function Choice(text, choice)
+            return CreateRadio(hoverDescription, ctx, text,
+                function()
+                    return CastKeyChoiceIs(ctx, "hoverCast", choice);
+                end,
+                function()
+                    return SetCastKeyChoice(ctx, "hoverCast", choice);
+                end);
+        end
 
-        local usual = CreateRadio(hoverDescription, ctx, LLL["CASTING_AS_USUAL"],
-            actionValueEquals,
-            function()
-                return SetHoverCastAim(ctx, "usual");
-            end,
-            { ctx = ctx, key = "casting.hoverCast.aim", value = "usual" });
+        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"), LLL["CASTING_POINTED_CAST_DESC"],
+            pickedReason);
+
+        local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
         usual:SetEnabled(function()
-            return not hoverSkipped() and not everyUnitPicked();
+            return not everyUnitPicked();
         end);
-        SetInstructionTooltip(usual, LLL["CASTING_HOVER_USUAL_DESC"], hoverReason);
+        SetInstructionTooltip(usual, LLL["CASTING_HOVER_USUAL_DESC"], pickedReason);
+
+        SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_HOVER_SKIP_DESC"]);
     end
 
     local normal = CreateCheckbox(description, ctx, LLL["CASTING_NORMAL"],

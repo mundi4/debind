@@ -866,11 +866,11 @@ return function(DebindPrivate, _, ctx)
                 { row = "focusCastKey", key = "FOCUSCAST", unit = "focus" },
             }) do
                 for _, mode in ipairs({
-                    { { mode = "skip" }, "skip", "Rejuvenation", case.unit },
+                    { { aim = "skip" }, "skip", "Rejuvenation", case.unit },
                     { { aim = "usual" }, "usual", "Renew", nil },
                 }) do
                     local first = action({ value = 585, key = "F1",
-                        casting = { [case.row] = mode[1], hoverCast = { mode = "skip" } },
+                        casting = { [case.row] = mode[1], hoverCast = { aim = "skip" } },
                         conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } });
                     Bind({ first, action({ value = 774, key = "F1" }) });
                     interp.state.modifiedClick[case.key] = true;
@@ -1185,6 +1185,37 @@ return function(DebindPrivate, _, ctx)
         local record, spell = Fired("F1");
         check(spell == "Renew" and Aimed(record) == nil,
             "fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
+
+        interp:hoverLeave(unitFrame);
+        shim.world.units = {};
+    end);
+
+    -- **Skip this action is out of the pointed press** (§6). Alone on the key it answers nothing while
+    -- a unit frame is pointed at and runs once nothing is; with a Hover Cast action behind it, that
+    -- one takes the pointed press.
+    test("an action that skips Hover Cast does not run while a unit frame is pointed at", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", casting = { hoverCast = { aim = "skip" } } }),
+        });
+        shim.world.units = { target = FRIEND, party1 = FRIEND };
+
+        PointAt("party1");
+        local _, spell = Fired("F1");
+        check(spell == nil, "alone, pointing: fired " .. tostring(spell));
+        interp:hoverLeave(unitFrame);
+        _, spell = Fired("F1");
+        check(spell == "Renew", "alone, nothing pointed at: fired " .. tostring(spell));
+
+        Bind({
+            action({ value = 585, key = "F1", priority = Constants.MAX_IMPORTANCE,
+                casting = { hoverCast = { aim = "skip" } } }),
+            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+        });
+        PointAt("party1");
+        _, spell = Fired("F1");
+        check(spell == "Rejuvenation", "with a Hover Cast action behind, pointing: fired " .. tostring(spell));
 
         interp:hoverLeave(unitFrame);
         shim.world.units = {};
@@ -1544,6 +1575,406 @@ return function(DebindPrivate, _, ctx)
         end
         interp:resetState();
     end);
+
+    ---------------------------------------------------------------------------
+    -- `devdocs/which-action-a-key-runs.md` §S5: one row, one test
+    --
+    -- Written from the table and not from the code: each row's action, press and answer are the
+    -- row's own. "Next" is the action alone on its key, so the answer is that nothing fires.
+    ---------------------------------------------------------------------------
+
+    do
+        local NAMES = { [701] = "A", [702] = "B", [703] = "X" };
+        for id, name in pairs(NAMES) do
+            shim.world.spells[id] = { name = name };
+        end
+
+        --- An action as the profile stores it. **No `casting` unless the row says so**: the default
+        --- is what the row means by "기본", which this file's `action` would turn into a skip.
+        local function A(fields)
+            local t = { type = Constants.SPELL, value = 701, key = "F1", seq = 1 };
+            for k, v in pairs(fields or {}) do
+                t[k] = v;
+            end
+            return t;
+        end
+
+        --- The pointed unit's world. The frame's unit is `party1`, and over a frame the mouseover
+        --- unit is that same unit, as the client has it.
+        local function PointFrame(unit)
+            shim.world.units.party1 = unit or FRIEND;
+            shim.world.units.mouseover = unit or FRIEND;
+            PointAt("party1");
+        end
+        local function PointWorld()
+            interp:clearHoverSlot();
+            shim.world.units.mouseover = ENEMY;
+        end
+        local function PointNothing()
+            interp:clearHoverSlot();
+            shim.world.units.mouseover = nil;
+        end
+
+        local HELD = { self = { "SELFCAST" }, focus = { "FOCUSCAST" }, both = { "SELFCAST", "FOCUSCAST" } };
+
+        --- Presses `key` and answers the spell's name, the unit the record aims at, and which of the
+        --- action's bindings the record is: `self`, `focus`, `hover` (it stands on [H is there]) or
+        --- `original`.
+        local function Press(key, held, H)
+            for _, name in ipairs(HELD[held] or {}) do
+                interp.state.modifiedClick[name] = true;
+            end
+            local record, spell = Fired(key);
+            for _, name in ipairs(HELD[held] or {}) do
+                interp.state.modifiedClick[name] = nil;
+            end
+            if (not record) then
+                return nil;
+            end
+            local kind = "original";
+            local units = record.units;
+            if (record.castModifier == Constants.CASTMOD_SELF) then
+                kind = "self";
+            elseif (record.castModifier == Constants.CASTMOD_FOCUS) then
+                kind = "focus";
+            elseif (units and units[H] and units[H].exists == true) then
+                kind = "hover";
+            end
+            return spell, Aimed(record), kind;
+        end
+
+        --- A click that arrives on the frame, answered with the spell's name or nil.
+        local function Click(n)
+            local button = interp:evalClickCast(unitFrame, n, 0);
+            if (not button) then
+                return nil;
+            end
+            return DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(button));
+        end
+
+        local function Expect(row, got, want)
+            local g = table.concat({ tostring(got[1]), tostring(got[2]), tostring(got[3]) }, " / ");
+            local w = table.concat({ tostring(want[1]), tostring(want[2]), tostring(want[3]) }, " / ");
+            check(g == w, "#" .. row .. ": got " .. g .. ", want " .. w);
+        end
+
+        local function Row(n, fn)
+            test("§S5 #" .. n, function()
+                shim.world.units = { target = FRIEND, player = FRIEND, focus = FRIEND };
+                local ok, err = pcall(fn);
+                interp:clearHoverSlot();
+                interp:resetState();
+                shim.world.units = {};
+                if (not ok) then
+                    error(err, 0);
+                end
+            end);
+        end
+
+        local MOUSEOVER = { hoverCastMode = "mouseover" };
+
+        Row(1, function()
+            Bind({ A() });
+            PointFrame();
+            Expect(1, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+        end);
+        Row(2, function()
+            Bind({ A() });
+            PointWorld();
+            Expect(2, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(3, function()
+            Bind({ A() }, nil, MOUSEOVER);
+            PointWorld();
+            Expect(3, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
+        end);
+        Row(4, function()
+            Bind({ A({ casting = { hoverCast = { mode = "mouseover" } } }) });
+            PointWorld();
+            Expect(4, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
+        end);
+        Row(5, function()
+            Bind({ A({ casting = { hoverCast = { aim = "usual" } } }) });
+            PointFrame();
+            Expect(5, { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
+        end);
+        Row(6, function()
+            Bind({ A({ casting = { hoverCast = { aim = "skip" } } }) });
+            PointFrame();
+            Expect(6, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(7, function()
+            Bind({ A({ casting = { hoverCast = { aim = "skip" } } }) });
+            PointNothing();
+            Expect(7, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(8, function()
+            Bind({ A({ casting = { hoverCast = { aim = "skip" } } }) }, nil, MOUSEOVER);
+            PointWorld();
+            Expect(8, { Press("F1", nil, "mouseover") }, {});
+        end);
+        Row(9, function()
+            local subject = A({ casting = { hoverCast = { aim = "skip" } },
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } });
+            Bind({ subject });
+            PointFrame(ENEMY);
+            Expect(9, { Press("F1", nil, "unitframe") }, {});
+            Expect(9, { Press("F1", "self", "unitframe") }, { "A", "player", "self" });
+            Expect(9, { Press("F1", "focus", "unitframe") }, { "A", "focus", "focus" });
+            PointNothing();
+            Expect(9, { Press("F1", nil, "unitframe") }, {});
+            check(DebindPrivate.GetBindingIssue(subject) == nil,
+                "#9: an issue was raised: " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+        end);
+        Row(10, function()
+            Bind({ A({ casting = { normalCast = false } }) });
+            PointNothing();
+            Expect(10, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(11, function()
+            Bind({ A({ casting = { normalCast = false } }) });
+            PointFrame();
+            Expect(11, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+        end);
+        Row(12, function()
+            Bind({ A({ conditions = { units = { unitframe = {} } } }) });
+            PointNothing();
+            Expect(12, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(13, function()
+            Bind({ A({ conditions = { units = { unitframe = {} } } }) });
+            PointFrame();
+            Expect(13, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+        end);
+        Row(14, function()
+            Bind({ A({ conditions = { units = { unitframe = false } } }) });
+            PointFrame();
+            Expect(14, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(15, function()
+            Bind({ A({ conditions = { units = { unitframe = false } } }) }, nil, MOUSEOVER);
+            PointWorld();
+            Expect(15, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
+        end);
+        Row(16, function()
+            Bind({ A({ unit = "focus" }) });
+            PointFrame();
+            Expect(16, { Press("F1", nil, "unitframe") }, { "A", "focus", "hover" });
+        end);
+        Row(17, function()
+            Bind({ A({ unit = "focus" }) });
+            PointNothing();
+            Expect(17, { Press("F1", "self", "unitframe") }, { "A", "focus", "self" });
+        end);
+        Row(18, function()
+            Bind({ A({ value = 703, seq = 1 }), A({ unit = "mouseover", seq = 2 }) });
+            PointWorld();
+            Expect(18, { Press("F1", nil, "unitframe") }, { "X", nil, "original" });
+        end);
+        Row(19, function()
+            Bind({ A({ value = 703, seq = 1 }),
+                A({ unit = "mouseover", seq = 2, casting = { hoverCast = { mode = "mouseover" } } }) });
+            PointWorld();
+            Expect(19, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
+        end);
+        Row(20, function()
+            Bind({ A({ unit = "unitframe" }) });
+            PointNothing();
+            Expect(20, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "original" });
+        end);
+        Row(21, function()
+            Bind({ A() });
+            PointNothing();
+            Expect(21, { Press("F1", "self", "unitframe") }, { "A", "player", "self" });
+        end);
+        Row(22, function()
+            Bind({ A() });
+            PointNothing();
+            Expect(22, { Press("F1", "focus", "unitframe") }, { "A", "focus", "focus" });
+        end);
+        Row(23, function()
+            Bind({ A() });
+            PointNothing();
+            Expect(23, { Press("F1", "both", "unitframe") }, { "A", "player", "self" });
+        end);
+        Row(24, function()
+            Bind({ A({ casting = { selfCastKey = { aim = "skip" } } }) });
+            PointNothing();
+            Expect(24, { Press("F1", "self", "unitframe") }, {});
+        end);
+        Row(25, function()
+            Bind({ A({ casting = { selfCastKey = { aim = "usual" } } }) });
+            PointNothing();
+            Expect(25, { Press("F1", "self", "unitframe") }, { "A", nil, "self" });
+        end);
+        Row(26, function()
+            Bind({ A() }, nil, { focusCast = false });
+            PointNothing();
+            Expect(26, { Press("F1", "focus", "unitframe") }, { "A", nil, "original" });
+        end);
+
+        local function AB(order, bCasting)
+            local a = A({ value = 701 });
+            local b = A({ value = 702, casting = bCasting });
+            if (order == "AB") then
+                a.seq, b.seq = 1, 2;
+            else
+                a.seq, b.seq = 2, 1;
+            end
+            return { a, b };
+        end
+        Row(27, function()
+            Bind(AB("AB", { hoverCast = { aim = "skip" } }));
+            PointFrame();
+            Expect(27, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+        end);
+        Row(28, function()
+            Bind(AB("BA", { hoverCast = { aim = "skip" } }));
+            PointFrame();
+            Expect(28, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+        end);
+        Row(29, function()
+            Bind(AB("BA", { hoverCast = { aim = "skip" } }));
+            PointNothing();
+            Expect(29, { Press("F1", nil, "unitframe") }, { "B", nil, "original" });
+        end);
+
+        --- A in the account layer on [a unit frame is there], B in the character layer in combat.
+        local function Layered(bCasting)
+            _G.DebindVars = nil;
+            local a = A({ value = 701, conditions = { units = { unitframe = {} } } });
+            local b = A({ value = 702, conditions = { combat = true }, casting = bCasting });
+            local mark = frames.mark();
+            _G.DebindVars = {
+                dbver = Constants.DB_VERSION,
+                shared = { GENERAL = { a }, classes = { [Constants.PLAYER_CLASS] = {} } },
+                characters = { [GUID] = { layers = { [0] = { b } }, switches = {} } },
+                migrated = {},
+                switches = {},
+            };
+            DebindPrivate.InitDB();
+            check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+            interp:replay(frames.since(mark));
+            interp:resetState();
+            interp.state.combat = true;
+        end
+        Row(30, function()
+            Layered(nil);
+            PointFrame();
+            Expect(30, { Press("F1", nil, "unitframe") }, { "B", "unitframe", "hover" });
+        end);
+        Row(31, function()
+            Layered({ hoverCast = { aim = "usual" } });
+            PointFrame();
+            Expect(31, { Press("F1", nil, "unitframe") }, { "B", nil, "hover" });
+        end);
+        Row(32, function()
+            Layered({ hoverCast = { aim = "skip" } });
+            PointFrame();
+            Expect(32, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+        end);
+
+        Row(33, function()
+            Bind({ A({ key = "BUTTON4" }) });
+            PointFrame();
+            check(Click(4) == "A", "#33: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(34, function()
+            Bind({ A({ key = "BUTTON4", casting = { hoverCast = { aim = "skip" } } }) });
+            PointFrame();
+            check(Click(4) == nil, "#34: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(35, function()
+            Bind({ A({ key = "BUTTON4" }) });
+            PointNothing();
+            Expect(35, { Press("BUTTON4", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(36, function()
+            Bind({ A({ key = "BUTTON4", conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } }) });
+            PointFrame(ENEMY);
+            check(Click(4) == "A", "#36: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(37, function()
+            Bind({ A({ key = "BUTTON4", conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } }) });
+            PointFrame(FRIEND);
+            check(Click(4) == nil, "#37: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(38, function()
+            Bind({ A({ key = "BUTTON4" }) });
+            PointFrame();
+            interp.state.modifiedClick.SELFCAST = true;
+            check(Click(4) == "A", "#38: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(39, function()
+            Bind({ A({ type = Constants.MACROTEXT, value = "/cast [@@] A" }) });
+            PointFrame();
+            local record = select(3, interp:evalKey("F1"));
+            check(record and Aimed(record) == "unitframe",
+                "#39: the macro's record aims at " .. tostring(record and Aimed(record)));
+        end);
+        --- **`"@"` is asked of the frame's unit**, which a Resolved Unit condition shows: friendly on the
+        --- frame against a hostile target, it holds.
+        Row(40, function()
+            Bind({ A({ unit = "none", conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }) });
+            shim.world.units.target = ENEMY;
+            PointFrame(FRIEND);
+            local record, spell, castUnit = Fired("F1");
+            check(spell == "A" and castUnit == "none" and record.units.unitframe
+                    and record.units.unitframe.exists == true,
+                "#40: fired " .. tostring(spell) .. " cast at " .. tostring(castUnit));
+        end);
+        Row(41, function()
+            local subject = A({ casting = { normalCast = false, hoverCast = { aim = "skip" },
+                selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } });
+            Bind({ subject });
+            PointFrame();
+            Expect(41, { Press("F1", nil, "unitframe") }, {});
+            PointNothing();
+            Expect(41, { Press("F1", nil, "unitframe") }, {});
+            Expect(41, { Press("F1", "self", "unitframe") }, {});
+            Expect(41, { Press("F1", "focus", "unitframe") }, {});
+            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CASTING_NONE_LEFT,
+                "#41: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+        end);
+
+        --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
+        --- at `dbver` 6, so the ladder is what turns each old action into its new shape.
+        local function BindOld(actions)
+            local mark = frames.mark();
+            _G.DebindVars = {
+                dbver = 6,
+                shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
+                characters = { [GUID] = { layers = {}, switches = {} } },
+                migrated = {},
+                switches = {},
+            };
+            DebindPrivate.InitDB();
+            check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+            interp:replay(frames.since(mark));
+            interp:resetState();
+        end
+        Row("move: an old unit frame condition", function()
+            BindOld({ A({ conditions = { units = { hover = {} } } }) });
+            PointFrame();
+            Expect("move 13", { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+            PointNothing();
+            Expect("move 10", { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row("move: an old keyboard action", function()
+            BindOld({ A() });
+            PointFrame();
+            Expect("move 5", { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
+            PointNothing();
+            Expect("move 7", { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row("move: an old mouse button action", function()
+            BindOld({ A({ key = "BUTTON4" }) });
+            PointFrame();
+            check(Click(4) == nil, "move 34: the frame click fired " .. tostring(Click(4)));
+            PointNothing();
+            Expect("move 35", { Press("BUTTON4", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+    end
 
     return T;
 end

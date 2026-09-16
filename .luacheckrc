@@ -243,6 +243,8 @@ globals = {
 	"GameFontHighlightSmall",
 	"GameFontHighlightLarge",
 	"GameFontNormalLarge",
+	"GameFontNormal",
+	"GameFontHighlightMedium",
 	"GameTooltip",
 	"GameTooltip_SetTitle",
 	"GameTooltip_AddErrorLine",

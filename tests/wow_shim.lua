@@ -257,6 +257,9 @@ function M.install()
     _G.CreateAtlasMarkup = function(name, height, width)
         return format("|A:%s:%d:%d|a", name, height or 0, width or 0);
     end
+    _G.CreateSimpleTextureMarkup = function(file, width, height, xOffset, yOffset)
+        return format("|T%s:%d:%d:%d:%d|t", file, height or width, width, xOffset or 0, yOffset or 0);
+    end
     -- 와우의 strsplit: 첫 인자의 **각 문자**가 개별 구분자. 빈 필드도 그대로 남는다.
     _G.strsplit = function(delims, s)
         local out, cur = {}, {};

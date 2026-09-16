@@ -79,7 +79,7 @@ return function(DebindPrivate)
             { unit = "focus" },
             { priority = 3 },
             { keepInBindingContext = false },
-            { casting = { hoverCast = { mode = "skip" } } },
+            { casting = { hoverCast = { aim = "skip" } } },
         };
         for i = 1, #fields do
             local name = next(fields[i]);

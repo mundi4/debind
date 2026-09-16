@@ -1,7 +1,7 @@
 # `which-action-a-key-runs.md`를 구현하기 (2026-09-16 시작)
 
-> 상태: **다섯 단계가 다 들어갔다.** 남은 것은 `implementing-focus-and-self-cast.md` §3-13이고, 그것이
-> 들어가면 이 문서와 그 문서가 `legacy/`로 간다. 각 단계가 한 세션 크기이고, 단계마다 이 헤더를 고친다.
+> 상태: **여섯 단계가 다 들어갔다.** `implementing-focus-and-self-cast.md` §3-13이 들어가면 이 문서와 그
+> 문서가 `legacy/`로 간다.
 >
 > 규칙은 `which-action-a-key-runs.md`가 들고, 여기는 순서와 각 단계가 건드리는 자리만 든다. 둘이 갈리면 스펙이
 > 맞다. 결정의 근거 중 문서에 없는 것은 `.zzz/hover-twin-wrong-2026-09-15.md`("그 당시의 근거")와 `0-DIARY.md`의
@@ -181,7 +181,51 @@
 `implementing-focus-and-self-cast.md`의 §3-13(Auto Self Cast 끄는 체크박스)은 이 문서와 별개로 아직
 안 들어갔다. 다 들어가면 이 문서와 `implementing-focus-and-self-cast.md`가 `legacy/`로 간다.
 
-## 6. 커버리지
+## 6. Hover Cast의 Skip을 세 줄과 같은 뜻으로
+
+스펙 §6, §7, §8 (2026-09-16 저녁). 3단계가 넣은 Hover Cast의 "Skip"은 쌍둥이만 안 만들었고, 조합키 없는
+누름은 3층부터 4층까지 보므로 원본이 가리키는 동안에도 4층에서 나갔다. 같은 라벨이 줄마다 다른 일을 했고,
+그 값은 사용자 눈에 Cast as usual과 안 갈렸으며, "가리키는 동안 실행하지 않기"가 이 메뉴에 없었다(다른
+세션의 검토). 그 값은 옮기기 때문에 있던 것이라 없앤다.
+
+- 저장 모양: `hoverCast = { mode = nil | "unitframe" | "mouseover", aim = nil | "usual" | "skip" }`,
+  조합키 둘은 `{ aim = nil | "usual" | "skip" }`. `mode`에서 `"skip"`이 빠지고 `aim`에 `"skip"`이 든다.
+  아직 안 나간 `dbver` 단계 안에서 고친다. 옛 `mode = "skip"`을 읽던 자리(`HoverCastMode`,
+  `CastKeyChoiceOf`, `SetCastKeyChoice`, `SetHoverCastMode`, `tests/casting.lua`)가 따라간다.
+- `TwinUnitFor`: `aim = "skip"`이면 쌍둥이를 안 만든다. **원본에 [모드의 유닛 없음]을 얹는다.** 조건 표에
+  적지 않는다. 조건 표는 `IsConditionalBinding`이 읽어 순서를 정하는데, Skip은 Casting 값이지 사용자가 건
+  조건이 아니라 순서를 움직이면 안 된다(옮긴 옛 마우스 버튼 액션이 전부 조건 있는 액션이 되어 옛 순서가
+  깨진다). 바인딩의 별도 필드에 두고 `BuildUnitStates`(솔버)와 `MergeKeyUnitConditions`(레코드)만 읽는다.
+  마우스 버튼의 암묵 [개체창 없음]이 이미 그렇게 조건 표 밖에서 처리된다. 사용자가 그 유닛에 [있음]이나
+  반응을 걸어 만날 자리가 없으면 **원본만 안 세운다**(Normal Cast를 끈 것과 같은 모양). ERROR
+  (`CONDITIONS_NEVER`)로 보고하면 액션이 통째로 키에서 빠져 멀쩡한 조합키 쌍둥이까지 죽는다. 넷이 다 없어졌을
+  때만 `CASTING_NONE_LEFT`(WARNING)다.
+- 마우스 버튼의 암묵 [개체창 없음](`BuildUnitStates`)은 그대로다. Skip이 얹는 것과 같은 조건이라 겹쳐도
+  뜻이 안 바뀐다.
+- 메뉴: Hover Cast 하위 메뉴가 모드 셋(설정 탭 모드, Unit Frames, Mouseover)과 답 셋(가리킨 유닛에,
+  평소대로, Skip this action)이 된다. Skip이 모드 줄에서 답 줄로 옮겨 간다. 대상을 고른 액션은 [Cast as
+  usual]이 잠긴다. Skip일 때 잠글 줄은 없다.
+- 옮기기(§8): 옛 개체창 조건 액션은 그대로(`mode = "unitframe"`, Normal Cast 끔). 그 밖의 옛 키보드 키
+  액션은 `aim = "usual"`, 옛 마우스 버튼 액션은 `{ mode = "unitframe", aim = "skip" }`. 3단계의 옮기기가
+  이미 나갔다면 그 값(`mode = "skip"`)을 이 값으로 한 번 더 옮긴다. 안 나갔으면 3단계의 줄을 고친다.
+  `CASTING_MIGRATED_MESSAGE`가 "하던 대로 옮겨졌다"로 남는다.
+- 툴팁과 도움말: `CASTING_HOVER_SKIP_DESC`와 `CASTING_HOVER_SKIPPED`가 새 뜻으로. 2026-09-16 저녁에 넣은
+  임시 문구("가리키는 유닛이 아무 영향도 안 준다. Hover Cast를 켠 액션들이 먼저")는 옛 뜻이라 지운다.
+  `HELP_TARGETING_BODY`는 통째로 다시 쓴다. 소유자와 고친 초안이 `.zzz/help-targeting-draft-2026-09-16.md`에
+  있다. 첫 문단은 Debind의 규칙만, 게임 설정은 그 뒤 한 줄로, 순서는 Target·쥔 키·가리킨 유닛, Normal Cast도 한
+  절, 게임이 그다음에 무엇을 하는지는 안 적는다 (소유자).
+- 테스트: **스펙 §S5의 줄 하나가 테스트 하나다.** 41줄을 전부 헤드리스로 세우고, 지금 코드와 갈리는 줄이
+  이 단계가 고칠 자리다. 아래는 그 줄들이 들어갈 파일이다.
+  `hovertwin_spec`(Skip이 원본에 [없음]을 얹는 것, [있음]과 만나면 원본만 없음, 순서 레코드는 그대로),
+  `keymap_spec`, `migration_spec`(키보드와 마우스 버튼이 갈리는 것), `eval_spec`(Skip 액션이 개체창 위에서 안
+  나가는 것). `tests/casting.lua`의 `skipHover`가 만들던 "쌍둥이도 조건도 없는 액션"은 이제 없는 모양이라
+  그것을 쓰던 스펙 일곱 파일과 emit 골든이 움직인다. **골든은 움직인 줄마다 Skip이 원본에 [없음]을 얹은 것으로
+  설명되는지 읽고 넘긴다.** 설명 안 되는 줄이 버그다. 킷: 개체창 위에서 Skip 액션이 안 나가고 다음 액션이
+  받는 것.
+- 이미 `dbver 7`로 옮겨진 프로필(소유자 클라이언트뿐, 안 나간 단계)의 `mode = "skip"`은 다시 안 옮긴다. 사용자에게
+  없을 상태를 읽는 코드는 두지 않는다. `DevSeed.lua`로 다시 쓰거나 메뉴에서 다시 고른다.
+
+## 7. 커버리지
 
 스펙 §10. 헤드리스가 재는 것과 킷이 재는 것은 각 단계의 테스트 줄에 있다. 원리상 못 재는 것은 게임이 놓는
 대상(Auto Self Cast)과 개체창 클릭이 개체창에 닿는 길이고, `matching-the-clients-cast-targeting.md` §4가 든다.

@@ -41,6 +41,7 @@ DebindUI.xml
 # leaves the frame without its methods and the client says "Unknown method OnLoad".
 #
 # **After `DebindUI.xml`**, whose `DebindScrollFrameTemplate` this frame inherits.
+HelpText.lua
 DebindMessageFrame.lua
 DebindMessageFrame.xml
 

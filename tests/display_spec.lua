@@ -220,26 +220,6 @@ return function(DebindPrivate)
             "the value is set and nothing says so: " .. Tooltip(row));
     end);
 
-    --- **An aim beside a skipped mode is not a line.** The action stands down on the pointed press,
-    --- so there is no press for "cast as usual" to describe.
-    ---
-    --- **The pair is set after the load, because the load is what takes it apart.** `CleanUpDB` runs
-    --- at the tail of `InitDB` and clears the aim beside `"skip"` (`Profile.lua`), so an action
-    --- written with both in the table above arrives here with one -- and the check passes whatever
-    --- the tooltip does. What reaches this state in play is a string from somebody else, or the pair
-    --- standing in a profile between the write and the next logout.
-    test("an action that skips the pointed press draws no cast as usual line", function()
-        Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1 },
-        }, {});
-
-        local row = DebindPrivate.CollectActionsForKey("F1")[1];
-        check(row, "the action is not on the key");
-        row.action.casting = { hoverCast = { mode = "skip", aim = "usual" } };
-        check(not Says(row, "CASTING_AS_USUAL"),
-            "a skipped pointed press was reported as cast as usual: " .. Tooltip(row));
-    end);
-
     --- **The tooltip walks the raw action's condition table**, so it meets the pre-rename key on a
     --- profile the ladder has not reached. Skipping it loses the condition off the screen; drawing
     --- it under its stored name raises instead, because `UNIT_INFO` has no row for it.

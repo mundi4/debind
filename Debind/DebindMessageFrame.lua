@@ -32,18 +32,86 @@ function DebindMessageFrameMixin:OnLoad()
     tinsert(UISpecialFrames, self:GetName());
 end
 
---- 제목과 본문을 갈아 끼운다.
+local CONTENT_WIDTH = 452;
+local INDENT = 20;
+local MARKER_GAP = 4;
+
+local function GapBefore(previous, block)
+    if (not previous) then
+        return 0;
+    elseif (block.kind == "heading") then
+        return 16;
+    elseif (previous.kind == "heading") then
+        return 6;
+    elseif (previous.kind == "item" and block.kind == "item") then
+        return 4;
+    end
+    return 10;
+end
+
+local function AcquireFontString(self, index)
+    local fontString = self.bodyStrings[index];
+    if (not fontString) then
+        fontString = self.ScrollFrame.Content:CreateFontString(nil, "ARTWORK");
+        fontString:SetJustifyV("TOP");
+        fontString:SetWordWrap(true);
+        self.bodyStrings[index] = fontString;
+    end
+    fontString:ClearAllPoints();
+    fontString:Show();
+    return fontString;
+end
+
+--- Swap the title and the body in. The body is cut into blocks (`ParseHelpText`) and each gets a
+--- FontString of its own; an item's marker gets a second one, so a wrapped line stands under the
+--- item's text and not under its number.
 ---
---- **본문 프레임 높이를 여기서 잡는다.** 스크롤 폭은 XML이 정하지만 높이는 글이 정하고, 그
---- 값이 없으면 `ScrollFrame`이 스크롤할 것이 없다고 보고 막대를 안 세운다.
+--- **The body is `GameFontNormal`, gold.** In `GameFontHighlight` its colour would be
+--- `HIGHLIGHT_FONT_COLOR`, and every word a page picks out in that colour would stop standing out.
 ---
---- **매번 맨 위로 돌린다.** 다른 글을 띄우면서 앞 글에서 굴려둔 자리를 그대로 두면, 짧은 글을
---- 열었을 때 빈 화면이 뜬다.
+--- **The content frame's height is set here.** Without it `ScrollFrame` sees nothing to scroll
+--- and puts up no bar.
+---
+--- **Back to the top every time.** A position scrolled to on a long page, kept for a short one,
+--- opens on an empty window.
 function DebindMessageFrameMixin:SetMessage(title, body)
-    local content = self.ScrollFrame.Content;
     self.Title:SetText(title);
-    content.Body:SetText(body);
-    content:SetHeight(max(1, content.Body:GetStringHeight()));
+    self.bodyStrings = self.bodyStrings or {};
+
+    local used, y, previous = 0, 0, nil;
+    for _, block in ipairs(DebindPrivate.ParseHelpText(body)) do
+        y = y + GapBefore(previous, block);
+
+        local x = 0;
+        if (block.kind == "item") then
+            x = block.level * INDENT;
+            used = used + 1;
+            local marker = AcquireFontString(self, used);
+            marker:SetFontObject(GameFontNormal);
+            marker:SetJustifyH("RIGHT");
+            marker:SetWidth(INDENT);
+            marker:SetText(block.marker == "-" and "•" or block.marker);
+            marker:SetPoint("TOPLEFT", x, -y);
+            x = x + INDENT + MARKER_GAP;
+        end
+
+        used = used + 1;
+        local fontString = AcquireFontString(self, used);
+        fontString:SetFontObject(block.kind == "heading" and GameFontHighlightMedium or GameFontNormal);
+        fontString:SetJustifyH("LEFT");
+        fontString:SetWidth(CONTENT_WIDTH - x);
+        fontString:SetText(block.text);
+        fontString:SetPoint("TOPLEFT", x, -y);
+
+        y = y + fontString:GetStringHeight();
+        previous = block;
+    end
+
+    for i = used + 1, #self.bodyStrings do
+        self.bodyStrings[i]:Hide();
+    end
+
+    self.ScrollFrame.Content:SetHeight(max(1, y));
     self.ScrollFrame:SetVerticalScroll(0);
 end
 

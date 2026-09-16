@@ -359,8 +359,8 @@ return function(DebindPrivate)
     test("an action with nothing left to cast reaches no record", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F7", seq = 1,
-                casting = { normalCast = false, hoverCast = { mode = "skip" },
-                    selfCastKey = { mode = "skip" }, focusCastKey = { mode = "skip" } } },
+                casting = { normalCast = false, hoverCast = { aim = "skip" },
+                    selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } },
             { type = Constants.SPELL, value = 2, key = "F7", seq = 2 },
         }, nil, nil, true);
 

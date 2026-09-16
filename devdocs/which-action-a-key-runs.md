@@ -11,6 +11,139 @@
 한 키에 여러 액션이 걸린다. 키를 누르면 그중 하나가 나간다. 어느 것이 나가고 어느 유닛에게 가는지를
 정하는 규칙 전부가 여기 있다.
 
+**스펙은 §S1부터 §S5까지의 표다.** 입력(액션의 대상, 조건, Cast Options 값, 키 종류, 설정 탭 모드)과
+누름이 주어지면 출력(어느 바인딩이 이기고 어느 유닛에 나가는지)이 표에서 하나로 나와야 하고, 칸 하나가
+테스트 하나다. 표에 없는 조합이 나오면 그것이 스펙의 구멍이고, 표를 고치는 것이 답이다. §0 뒤의 절들은
+표를 읽는 규칙과 결정의 근거이고, 표와 갈리면 표가 맞다 (2026-09-16, 소유자: "스펙만 보고 테스트 케이스를
+만들 수 있어야, 문제 정답이 나와야 스펙이지").
+
+## S1. 어느 누름에 어느 바인딩이 있나
+
+`H`는 그 액션의 가리킨 유닛이다. `casting.hoverCast.mode`가 있으면 그것, 없으면 설정 탭의 모드. 값은
+`unitframe` 또는 `mouseover`.
+
+| 누름 | 바인딩 | 있는 조건 | 층 |
+|---|---|---|---|
+| Self Cast Key를 쥔 누름 | self 쌍둥이 | 설정 탭 Self Cast Key 켬, 그리고 `selfCastKey.aim ~= "skip"` | 1 |
+| Focus Cast Key를 쥔 누름 | focus 쌍둥이 | 설정 탭 Focus Cast Key 켬, 그리고 `focusCastKey.aim ~= "skip"` | 2 |
+| 가리킨 누름 | hover 쌍둥이 | `hoverCast.aim ~= "skip"`, 그리고 사용자 조건과 [`H` 있음]이 만날 자리가 있음(S2) | 3 |
+| 보통 누름 | 원본 | `normalCast ~= false`, 그리고 원본의 조건이 만날 자리가 있음(S2) | 4 |
+
+둘 다 쥐면 Self Cast Key 누름이다. **마우스 버튼 액션 중 개체창 위에서 서는 것**(유닛 조건에
+`unitframe`이 있거나 hover 쌍둥이가 `unitframe`에 서는 것)은 self와 focus 쌍둥이를 갖지 않는다. 개체창
+클릭은 조합키 층을 안 읽고, 그 바인딩이 키를 잡으면 클릭을 세상에서 가져간다. 넷이 다 없는 액션은 어느
+층에도 안 굽고 `"casting"` 갈래 WARNING이다.
+
+## S2. 각 바인딩의 조건
+
+`U`는 사용자가 유닛 조건 메뉴에서 건 것 전부(어느 유닛이든), `C`는 [없음]이 아닌 유닛 조건(반응, 생사, 역할,
+프레임 종류)이다.
+
+| 바인딩 | 조건 |
+|---|---|
+| self 쌍둥이, focus 쌍둥이 | `U` 그대로 |
+| hover 쌍둥이 | `U` + [`H` 있음]. `U`에 `H` [없음]이 있으면 만날 자리가 없어 쌍둥이 없음 |
+| 원본 | `U`. `hoverCast.aim == "skip"`이면 + [`H` 없음]. 마우스 버튼이고 `U`에 `unitframe` 조건이 없으면 + [`unitframe` 없음](키의 규칙). `U`에 `H` [있음]이나 `H` C가 있는데 [`H` 없음]이 얹히면 만날 자리가 없어 원본 없음 |
+
+얹힌 [없음]은 순서(§2)의 "조건 유무"에 들지 않는다. 사용자가 건 것이 아니다.
+
+조건이 맞는지는 누르는 순간의 상황이 정한다.
+
+| 조건 | 개체창을 가리킴 | 명판이나 월드 유닛을 가리킴 | 아무것도 안 가리킴 |
+|---|---|---|---|
+| [`unitframe` 있음] | 맞음 | 안 맞음 | 안 맞음 |
+| [`unitframe` 없음] | 안 맞음 | 맞음 | 맞음 |
+| [`mouseover` 있음] | 맞음 | 맞음 | 안 맞음 |
+| [`mouseover` 없음] | 안 맞음 | 안 맞음 | 맞음 |
+| `unitframe` C | 그 개체창 유닛이 C면 맞음 | 안 맞음 | 안 맞음 |
+| `mouseover` C | 그 유닛이 C면 맞음 | 그 유닛이 C면 맞음 | 안 맞음 |
+| `"@"` C | 그 바인딩이 겨누는 유닛(S3)이 C면 맞음 | 같음 | 같음 |
+
+개체창을 가리키면 `mouseover`도 그 개체창의 유닛이다. `unitframe` C 중 역할과 프레임 종류는 개체창을
+가리킬 때만 잴 수 있고, 못 재면 맞음이다.
+
+## S3. 각 바인딩이 어디로 나가나
+
+`"@"` 조건은 "겨누는 유닛"에 묻는다. 대상을 안 고른 원본과 Cast as usual 쌍둥이는 `target`에 묻는다.
+
+| 액션의 대상 | self 쌍둥이 | focus 쌍둥이 | hover 쌍둥이 | Cast as usual 쌍둥이 (`aim == "usual"`) | 원본 |
+|---|---|---|---|---|---|
+| 안 고름 | `player` | `focus` | `H` | 게임이 놓는 대상. Auto Self Cast 포함 | 게임이 놓는 대상. Auto Self Cast 포함 |
+| 고른 유닛(`target`, `focus`, `player`, 역할 유닛, 사용자 유닛) | 그 유닛 | 그 유닛 | 그 유닛 | 없음. 메뉴에서 잠김 | 그 유닛 |
+| `unitframe`, `mouseover`, `hover`를 고름 | 그 유닛 | 그 유닛 | 그 유닛 | 없음. 잠김 | 그 유닛. 없으면 아무 일도 안 일어나고 누름을 삼킨다 |
+| `none` | 시전은 `none`, `"@"`는 `player` | 시전 `none`, `"@"`는 `focus` | 시전 `none`, `"@"`는 `H` | 시전 `none`, `"@"`는 `target` | 시전 `none`, `"@"`는 `target` |
+| 대상을 못 싣는 타입 | `player`를 실어 줌 | `focus`를 실어 줌 | `H`를 실어 줌 | 비움 | 원래대로 |
+
+고른 유닛에 나가는 시전은 Auto Self Cast를 안 탄다. 쌍둥이가 채운 `player`, `focus`, `H`가 Auto Self Cast를
+타는지는 정하지 않았다(2026-09-16, 소유자: "일단 그냥 둔다").
+
+## S4. 누름 하나의 정답
+
+키 `K`의 액션들을 화면의 원본 순서(§2)로 두고, 각 액션의 바인딩을 S1대로 넷 층에 편다. 층 안 순서는 원본
+순서다.
+
+1. Self Cast Key를 쥔 누름: 1층만, 순서대로, 조건(S2)이 맞는 첫 바인딩이 S3의 유닛에 나간다. 없으면 아무
+   일도 안 한다.
+2. Focus Cast Key를 쥔 누름: 2층만, 같음.
+3. 그 밖의 누름(가리킨 누름, 보통 누름, 개체창 클릭): 3층을 순서대로, 그다음 4층을 순서대로, 조건이 맞는
+   첫 바인딩. 없으면 아무 일도 안 한다.
+
+솔버가 덮인 바인딩을 지우는 것은 정답을 안 바꾼다. 덮인 바인딩은 이길 수 없는 것이다.
+
+## S5. 문제와 정답
+
+각 줄이 헤드리스 테스트 하나다. 따로 적지 않은 것은 기본값(대상 안 고름, 조건 없음, Cast Options 기본,
+키보드 키, 설정 탭 모드 Unit Frames, 계정의 두 조합키 켬)이다. "다음"은 그 액션에 바인딩이 없어 키의 다음
+액션이 받는다는 뜻이고, 키에 그 액션뿐이면 아무 일도 안 한다.
+
+| # | 액션 | 누름 | 정답 |
+|---|---|---|---|
+| 1 | 기본 | 개체창 가리킴 | hover 쌍둥이, 그 개체창의 유닛 |
+| 2 | 기본 | 월드 유닛 가리킴 | 3층 없음([`unitframe` 있음] 안 맞음), 원본, 게임이 놓음 |
+| 3 | 기본, 설정 탭 Mouseover | 월드 유닛 가리킴 | hover 쌍둥이, 그 유닛 |
+| 4 | `hoverCast.mode = "mouseover"`, 설정 탭 Unit Frames | 월드 유닛 가리킴 | hover 쌍둥이, 그 유닛 |
+| 5 | `hoverCast.aim = "usual"` | 개체창 가리킴 | hover 쌍둥이, 게임이 놓음 |
+| 6 | `hoverCast.aim = "skip"` | 개체창 가리킴 | 다음. 원본은 [`unitframe` 없음]이라 4층에서도 안 맞음 |
+| 7 | `hoverCast.aim = "skip"` | 아무것도 안 가리킴 | 원본, 게임이 놓음 |
+| 8 | `hoverCast.aim = "skip"`, 설정 탭 Mouseover | 월드 유닛 가리킴 | 다음 |
+| 9 | `hoverCast.aim = "skip"`, `unitframe` [적대] | 조합키 없는 어느 누름이든 | 다음. 원본이 만날 자리가 없어 없음. self·focus 쌍둥이는 있고 [개체창 적대]를 물려받아, 적대 개체창을 가리킨 채 그 키를 쥐면 나간다. WARNING 아님 |
+| 10 | `normalCast = false` | 아무것도 안 가리킴 | 다음 |
+| 11 | `normalCast = false` | 개체창 가리킴 | hover 쌍둥이, 그 개체창의 유닛 |
+| 12 | `unitframe` [있음] | 아무것도 안 가리킴 | 다음. 원본 조건 안 맞음 |
+| 13 | `unitframe` [있음] | 개체창 가리킴 | hover 쌍둥이(원본과 같음), 그 개체창의 유닛 |
+| 14 | `unitframe` [없음] | 개체창 가리킴 | 다음. 쌍둥이 없음, 원본 안 맞음 |
+| 15 | `unitframe` [없음], 설정 탭 Mouseover | 월드 유닛 가리킴 | hover 쌍둥이([`unitframe` 없음]+[`mouseover` 있음]), 그 유닛 |
+| 16 | 대상 `focus` | 개체창 가리킴 | hover 쌍둥이, `focus` |
+| 17 | 대상 `focus` | Self Cast Key 쥠 | self 쌍둥이, `focus` |
+| 18 | 대상 `mouseover`, 설정 탭 Unit Frames, 앞에 기본 액션 X | 월드 유닛 가리킴 | X의 원본(3층은 둘 다 안 맞음, 4층 순서). 이 액션은 안 나감 |
+| 19 | 18에서 이 액션에 `hoverCast.mode = "mouseover"` | 월드 유닛 가리킴 | 이 액션의 hover 쌍둥이, 그 유닛 |
+| 20 | 대상 `unitframe` | 아무것도 안 가리킴 | 원본, 유닛 없음. 아무 일 없음, 삼킴 |
+| 21 | 기본 | Self Cast Key 쥠 | self 쌍둥이, `player` |
+| 22 | 기본 | Focus Cast Key 쥠 | focus 쌍둥이, `focus` |
+| 23 | 기본 | 둘 다 쥠 | self 쌍둥이, `player` |
+| 24 | `selfCastKey.aim = "skip"` | Self Cast Key 쥠 | 다음 |
+| 25 | `selfCastKey.aim = "usual"` | Self Cast Key 쥠 | self 쌍둥이, 게임이 놓음 |
+| 26 | 기본, 설정 탭 Focus Cast Key 끔 | Focus Cast Key 쥠 | 쥐지 않은 것과 같음. 3층, 4층 |
+| 27 | 액션 A(기본), B(`hoverCast.aim = "skip"`), 순서 A, B | 개체창 가리킴 | A의 hover 쌍둥이 |
+| 28 | 27에서 순서 B, A | 개체창 가리킴 | A의 hover 쌍둥이. B는 3층에 없고 4층에서도 안 맞음 |
+| 29 | 27에서 순서 B, A | 아무것도 안 가리킴 | B의 원본 |
+| 30 | 액션 A(계정 층, `unitframe` [있음]), B(캐릭터 층, [전투 중]) | 전투 중 개체창 가리킴 | 3층 원본 순서. 둘 다 조건 있음이라 층으로 갈려 B의 hover 쌍둥이. 옛 순서(개체창 조건이 먼저)와 다르다(§8) |
+| 31 | 30에서 B의 `hoverCast.aim = "usual"` | 전투 중 개체창 가리킴 | B의 hover 쌍둥이, 게임이 놓음 |
+| 32 | 30에서 B의 `hoverCast.aim = "skip"` | 전투 중 개체창 가리킴 | A의 hover 쌍둥이 |
+| 33 | 마우스 버튼, 기본 | 개체창 클릭 | hover 쌍둥이, 그 개체창의 유닛 |
+| 34 | 마우스 버튼, `hoverCast.aim = "skip"` | 개체창 클릭 | 다음. 원본은 [`unitframe` 없음]. 개체창 자체의 클릭으로 간다 |
+| 35 | 마우스 버튼, 기본 | 개체창 밖 클릭 | 원본, 게임이 놓음 |
+| 36 | 마우스 버튼, `unitframe` [적대] | 적대 개체창 클릭 | hover 쌍둥이, 그 유닛 |
+| 37 | 마우스 버튼, `unitframe` [적대] | 우호 개체창 클릭 | 다음 |
+| 38 | 마우스 버튼, 기본 | Self Cast Key 쥔 개체창 클릭 | 조합키 층 없음. 33과 같음 |
+| 39 | 매크로(대상 못 싣는 타입) | 개체창 가리킴 | hover 쌍둥이, `unitframe`을 실어 줌. 매크로가 쓰든 말든 |
+| 40 | 대상 `none`, Resolved Unit [우호] | 우호 개체창을 가리킴, 현재 대상은 적대 | hover 쌍둥이, 시전 `none`. `"@"`가 그 개체창의 유닛에 묻어 맞는다. 레코드의 겨누는 유닛은 `none`이라 조건이 맞아 나가는 것으로 잰다 |
+| 41 | `selfCastKey`, `focusCastKey`, `hoverCast` 전부 skip, `normalCast = false` | 어느 누름이든 | 다음. 이 액션은 어느 층에도 없음. WARNING |
+
+옮기기(§8)의 정답도 각 줄이 테스트다. 옛 `units.hover = {}`인 키보드 액션은 가리키면 13, 안 가리키면 10과
+같고, 옛 조건 없는 키보드 액션은 가리키면 5, 안 가리키면 7과 같고, 옛 조건 없는 마우스 버튼 액션은 34와 35와
+같다.
+
 ## 0. 이름
 
 코드와 문서가 쓰는 이름은 넷이다 (2026-09-16, 소유자).
@@ -156,9 +289,9 @@ self 쌍둥이는 `player`, focus 쌍둥이는 `focus`, hover 쌍둥이는 `hove
 Casting
   Self Cast Key   ▸  ( ) Cast on yourself     ( ) Cast as usual  ( ) Skip this action
   Focus Cast Key  ▸  ( ) Cast on your focus   ( ) Cast as usual  ( ) Skip this action
-  Hover Cast      ▸  ( ) Skip this action  ( ) Account mode  ( ) Unit Frames  ( ) Mouseover
+  Hover Cast      ▸  ( ) Account mode  ( ) Unit Frames  ( ) Mouseover
                      ---
-                     ( ) Cast on pointed unit  ( ) Cast as usual
+                     ( ) Cast on pointed unit  ( ) Cast as usual  ( ) Skip this action
   [x] Normal Cast
 ```
 
@@ -172,22 +305,48 @@ original target"이라고 적으면 사용자가 "Focus Cast 기능인데 focus�
 아무것도 안 한다. 계정에서 끈 키는 이 값이 뜻이 없다. Use Setting은 없다. 계정을 끄면 층이 통째로
 없어서 액션 값이 무의미하고, 계정이 켜져 있으면 액션 값이 전부다 (소유자).
 
-**Hover Cast는 모드 넷에 겨눔 둘이다.** 모드의 기본은 Account mode, 겨눔의 기본은 Cast on pointed unit.
-**Hover Cast의 Skip은 조합키의 Skip과 뜻이 다르다** (2026-09-16, 소유자). 쌍둥이를 안 만들 뿐이고, 조합키
-없는 누름은 3층부터 4층까지 보니(§3) 원본이 가리키든 말든 4층의 제 자리에서 평소대로 돈다. 사용자 말로는
-"가리키는 유닛이 이 액션에 아무 영향도 안 준다. Hover Cast를 켠 액션들이 먼저 시도되고 그다음 이 액션이
-평소대로." 조합키의 Skip은 그 층에서 끝나므로 정말로 빠지지만, Hover Cast에는 빠지는 값이 없다. 가리킬 때
-아예 안 나가게 하는 것은 `hover` [없음] 조건이다. 라벨은 그대로 두고 툴팁이 그 차이를 한 줄로 말한다.
-옮긴 옛 액션(§8)과 "몇 개에만 원하는 사람"이 필요로 하는 것이 이 값이다. 스펙이 처음에 "빠지고 다음 액션이
-받는다"와 "원본이 4층에서 돈다"를 같이 적었고, 둘이 어긋나는 것을 못 봤다. Account mode는 설정 탭의 모드를
-물려받는다. Unit Frames와
-Mouseover는 이 액션만 그 유닛을 쓴다. 액션이 자기 가리킨 유닛을 말하니 "Unit Frames 모드인데 이 액션만
+**Hover Cast는 모드 셋에 답 셋이다.** 모드는 "어느 유닛이 가리킨 유닛이냐"만 답하고, 답은 조합키 줄과
+같은 셋이다. 모드의 기본은 Account mode, 답의 기본은 Cast on pointed unit.
+
+**Skip은 세 줄에서 같은 뜻이다: 그 누름에서 빠진다** (2026-09-16). Hover Cast의 Skip은 쌍둥이를 안 만들고
+**원본에 [모드의 유닛 없음]을 얹는다.** 조합키 없는 누름은 3층부터 4층까지 보니(§3) 쌍둥이만 빼면 원본이
+가리키는 동안에도 4층에서 나가는데, 그것은 빠진 것이 아니다. Skip이 모드 자리에 있으면 안 되는 이유가
+여기 있다. 어느 유닛의 [없음]인지는 모드가 정한다. Unit Frames면 개체창을 가리키는 동안, Mouseover면
+mouseover가 있는 동안 안 나간다.
+
+스펙이 2026-09-16 낮까지 Skip을 "쌍둥이 없음"으로만 적어 두고 "빠지고 다음 액션이 받는다"와 "원본이 4층에서
+돈다"를 같이 적었다. 다른 세션의 검토: 같은 라벨이 줄마다 다른 일을 하고, 그 값은 사용자 눈에 Cast as
+usual과 안 갈리며(둘 다 평소 대상에게 나가고 차례만 다르다), 정작 "가리키는 동안 실행하지 않기"가 이
+메뉴에 없다. 그 값은 옛 액션을 옮기려고 있던 것이라 없애고, 옮기기는 §8대로 Cast as usual과 Skip으로
+나눈다.
+
+Account mode는 설정 탭의 모드를 물려받는다. Unit Frames와 Mouseover는 이 액션만 그 유닛을 쓴다. 액션이 자기 가리킨 유닛을 말하니 "Unit Frames 모드인데 이 액션만
 mouseover에서"가 설정 하나로 된다. 그 전에는 대상을 `mouseover`로 고르는 길뿐이었는데, 그러면 Unit
 Frames 모드에서 그 쌍둥이의 조건이 [`unitframe` 있음]이라 월드 유닛 위에서 3층에 못 서고 4층에서
-앞 순서 액션에 졌다 (소유자). 겨눔 둘은 대상을 고른 액션에서 같은 일이라 둘째를 잠그고, 첫째의 툴팁이
-"대상을 골랐으니 그 대상에"라고 말한다.
+앞 순서 액션에 졌다 (소유자). 답의 첫째와 둘째는 대상을 고른 액션에서 같은 일이라 둘째를 잠그고, 첫째의
+툴팁이 "대상을 골랐으니 그 대상에"라고 말한다.
 
 **Normal Cast는 체크박스다.** 기본은 체크. 끄면 원본을 만들지 않는다.
+
+**값마다 누름마다 무엇이 서고 무엇이 나가나.** 대상을 안 고른 액션 하나에 대해, 그 액션의 바인딩이 그
+누름에서 있는지와 어디로 나가는지다. "없음"은 그 누름에서 이 액션이 빠지고 다음 액션이 받는다는 뜻이다.
+누름 순서는 §3이다. 조합키 누름은 제 층에서 끝나고, 조합키 없는 누름은 3층을 보고 4층을 본다.
+
+| 값 | Self Cast Key 누름 | Focus Cast Key 누름 | 가리킨 누름(`hover` 있음) | 보통 누름 | 개체창 클릭 |
+|---|---|---|---|---|---|
+| 전부 기본 | self 쌍둥이, `player` | focus 쌍둥이, `focus` | hover 쌍둥이, `hover`. 없으면 4층 원본이 평소 대상 | 원본, 평소 대상 | hover 쌍둥이, 개체창 유닛 |
+| Self Cast Key: Cast as usual | self 쌍둥이, 평소 대상 | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
+| Self Cast Key: Skip | 없음 | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
+| Hover Cast: Cast as usual | 기본과 같음 | 기본과 같음 | hover 쌍둥이, 평소 대상 | 원본, 평소 대상 | hover 쌍둥이, 평소 대상 |
+| Hover Cast: Skip | 기본과 같음 | 기본과 같음 | 없음. 원본에 [`hover` 없음]이 얹혀 4층에서도 안 선다 | 원본, 평소 대상 | 없음 |
+| Normal Cast 끔 | 기본과 같음 | 기본과 같음 | hover 쌍둥이, `hover` | 없음 | hover 쌍둥이, 개체창 유닛 |
+| Hover Cast: Skip + Normal Cast 끔 | 기본과 같음 | 기본과 같음 | 없음 | 없음 | 없음 |
+| 넷 다 Skip/끔 | 없음 | 없음 | 없음 | 없음 | 없음. WARNING |
+
+Focus Cast Key의 Cast as usual과 Skip은 Self Cast Key 줄과 같은 모양이다. 대상을 고른 액션은 어느 칸이든
+"쌍둥이, 그 대상"이고 Cast as usual이 잠긴다. 마우스 버튼 키의 "보통 누름"은 개체창 밖 클릭이고, 개체창 위
+클릭은 마지막 열이다. 조건 없는 마우스 버튼 원본은 개체창 위에서 서지 않으므로(§7) 마지막 열에 원본은 없다.
+사용자가 건 조건은 모든 칸에 그대로 얹힌다.
 
 **넷을 다 끈 액션은 어느 층에도 안 굽는다.** 막지 않는다. 바인딩을 하나도 안 만들고, 이슈 검사가
 WARNING 등급 이슈를 돌려주어 행에 경고로 표시된다 (2026-09-16, 소유자). WARNING이라 키에서 빠지지는
@@ -213,18 +372,19 @@ WARNING 등급 이슈를 돌려주어 행에 경고로 표시된다 (2026-09-16,
 대상에 나간다. 차례를 지키고 그 누름의 유닛을 안 쓴다. Auto Self Cast 포함. 게임이 놓는 대상을 대상
 고르기로는 못 만들기 때문에 있다(§5). 옛 "Don't use the action on the unit you are pointing at"
 (`ignoreHoverUnit`)이 Hover Cast의 이 값으로 온다. 조합키 둘의 설명은 지금 `_AIM_DESC` 문구다.
-"가리킬 때 시전 안 함"이라는 값은 안 둔다. `hover` [없음] 조건과 같은 말이다 (2026-09-16).
+"가리킬 때 시전 안 함"은 Skip이다. `hover` [없음] 조건과 같은 일을 이 메뉴에서 한다 (2026-09-16).
 
 **옛 "Unit Frame 조건이 앞선다"를 이것으로 대신한다.** 옛날에는 개체창 조건 액션이 보통 액션보다 앞이되
 중요도로 보통 액션을 앞세울 수 있었고, 그러면 개체창 위에서 보통 액션이 자기 대상에 나갔다. 이제 그
 액션의 Hover Cast를 "Cast as usual"로 두면 쌍둥이가 3층의 제 자리에 서서 같은 일을 한다. 개체창 조건은 보통 조건이
 되어 조건 없는 액션보다는 앞이지만 다른 조건 액션과는 층과 자리 번호로 갈린다. 사용자가 정한다.
 
-**Hover Cast를 Skip this action으로 둔 액션.** 쌍둥이가 없으니 원본이 4층의 제 자리에서 돈다. 조건도
-대상도 사용자가 적은 그대로다. `unitframe` [있음] 조건에 Skip이면 "개체창 위에서만, 평소 대상에게, Hover Cast를 켠 액션들
-뒤에서"이고 그것은 뜻이 서는 설정이라 경고를 달지 않는다 (2026-09-16, 소유자). 2026-09-15에 "개체창 조건이 있는 원본은 3층 자리"로 정했던 것은 2026-09-16에 뺐다.
-옛 "Unit Frame 조건이 먼저"를 이름만 바꿔 다시 들이는 것이고, 설명할 규칙을 하나 줄일 기회를 잃는다
-(소유자).
+**Hover Cast를 Skip this action으로 둔 액션.** 쌍둥이가 없고 원본은 [모드의 유닛 없음]을 얹은 채 4층의
+제 자리에서 돈다. 그 [없음]은 사용자가 건 조건이 아니라 순서를 움직이지 않는다(§2의 조건 유무 물음에
+안 든다). `unitframe` [있음] 조건에 Skip이면 만날 자리가 없어 원본만 없다. 조합키 쌍둥이는 그대로 선다.
+넷이 다 없어졌을 때만 WARNING이다. 2026-09-15에 "개체창 조건이 있는 원본은 3층 자리"로 정했던 것은
+2026-09-16에 뺐다. 옛 "Unit Frame 조건이 먼저"를 이름만 바꿔 다시 들이는 것이고, 설명할 규칙을 하나 줄일
+기회를 잃는다 (소유자).
 
 **Auto Self Cast를 끄는 체크박스**는 `implementing-focus-and-self-cast.md` §3-13이다. 대상 없는
 액션의 보통 누름에서만 뜻이 있고, 쌍둥이는 안 건드린다.
@@ -232,9 +392,14 @@ WARNING 등급 이슈를 돌려주어 행에 경고로 표시된다 (2026-09-16,
 ## 7. 개체창 클릭
 
 **개체창 클릭도 조합키 없는 누름과 같이 3층부터 4층까지 본다.** 조건 없는 마우스 버튼
-원본은 개체창 위에서 서지 않는다(마우스 버튼은 개체창 조건이 없으면 [가리키지 않음]이다. 그것은 키의
-규칙이고 유닛 조건이 아니다). 옮긴 개체창 조건 액션은 Hover Cast가 Unit Frames라 3층에 쌍둥이가
+원본은 개체창 위에서 서지 않는다(마우스 버튼은 `units.unitframe`이 비어 있으면 [개체창 없음]이다. 그것은
+키의 규칙이고 유닛 조건이 아니다). 옮긴 개체창 조건 액션은 Hover Cast가 Unit Frames라 3층에 쌍둥이가
 있고, 개체창 클릭이 거기서 만난다(§8).
+
+**그 키의 규칙은 `units.unitframe`이 비어 있을 때만 붙는다.** 쌍둥이가 거기 [있음]을 얹으면 안 붙는다.
+그래서 옛 마우스 버튼 액션을 Cast as usual로 옮기면 Unit Frames 모드에서 그 쌍둥이가 개체창 위에 서서,
+전에는 개체창으로 가던 조합키 클릭이 그 액션을 평소 대상에게 낸다. 옛 마우스 버튼 액션은 Skip으로 옮기는
+이유다(§8).
 
 **개체창 위 마우스 클릭은 Self Cast Key와 Focus Cast Key를 지원하지 않는다** (2026-09-15, 소유자).
 조합키를 쥔 클릭은 그 조합 그대로의 클릭이고, self나 focus 쌍둥이가 끼지 않는다.
@@ -261,25 +426,26 @@ WARNING 등급 이슈를 돌려주어 행에 경고로 표시된다 (2026-09-16,
 | `units.hover`가 `{}`(빈 [있음])이고 `ignoreHoverUnit`이 아님 | | 조건은 안 적고 `casting.hoverCast.mode = "unitframe"`, `casting.normalCast = false`. "가리킨 누름에서만"을 조건이 아니라 Casting으로 적는다 |
 | `units.hover`가 `{ reaction = R, role = ... }`이고 `ignoreHoverUnit`이 아님 | | `units.unitframe`에 같은 값, 그리고 `casting.hoverCast.mode = "unitframe"`, `casting.normalCast = false` |
 | `units.hover`가 `false`가 아니고 `ignoreHoverUnit`이 참 | | `units.unitframe`에 같은 값(빈 [있음]이면 안 적음), `casting.hoverCast = { mode = "unitframe", aim = "usual" }`, `casting.normalCast = false` |
-| 그 밖의 액션 | | `casting.hoverCast.mode = "skip"`. 옛 액션은 설정 탭의 모드가 무엇이든 그대로다 |
-| `ignoreSelfCastKey` | 참 | `casting.selfCastKey.mode = "skip"` |
-| `ignoreFocusCastKey` | 참 | `casting.focusCastKey.mode = "skip"` |
+| 그 밖의 키보드 키 액션 | | `casting.hoverCast.aim = "usual"`. 모드는 설정 탭. 가리켜도 평소대로, 차례는 지킨다 |
+| 그 밖의 마우스 버튼 액션 | | `casting.hoverCast = { mode = "unitframe", aim = "skip" }`. 옛 [개체창 없음] 그대로. 모드를 못 박는 이유는 아래 |
+| `ignoreSelfCastKey` | 참 | `casting.selfCastKey.aim = "skip"` |
+| `ignoreFocusCastKey` | 참 | `casting.focusCastKey.aim = "skip"` |
+| 발동 순서의 hover 단계 | | 없어진다. 같은 층 안 순서는 키 묶음마다 `seq`를 옛 순서대로 다시 매겨 지킨다 |
 | 없음 | | `action.casting` 표 하나 (2026-09-16, 소유자). 아래 모양 |
 
 ```lua
 action.casting = {
-    selfCastKey  = { mode = nil | "skip",                              aim = nil | "usual" },
-    focusCastKey = { mode = nil | "skip",                              aim = nil | "usual" },
-    hoverCast    = { mode = nil | "skip" | "unitframe" | "mouseover",  aim = nil | "usual" },
+    selfCastKey  = { aim = nil | "usual" | "skip" },
+    focusCastKey = { aim = nil | "usual" | "skip" },
+    hoverCast    = { mode = nil | "unitframe" | "mouseover",  aim = nil | "usual" | "skip" },
     normalCast   = nil | false,
 }
 ```
 
-키 이름은 메뉴 행 이름 그대로다. `mode`가 없으면 조합키는 켬, Hover Cast는 설정 탭 모드다. `aim`이
-없으면 그 누름의 유닛에. `mode = "skip"`이면 `aim`은 뜻이 없어 `CleanUpDB`가 지우고, 빈 표도 지운다.
-한 필드에 불리언과 문자열을 섞지 않는다. 셋이 같은 모양인 것은 메뉴가 같은 모양이기 때문이다.
+키 이름은 메뉴 행 이름 그대로다. `aim`이 없으면 그 누름의 유닛에, `"usual"`이면 평소 대상에, `"skip"`이면
+그 누름에서 빠진다. Hover Cast의 `mode`가 없으면 설정 탭 모드다. `mode`는 Hover Cast에만 있다. 조합키는
+유닛이 정해져 있다. 빈 표는 `CleanUpDB`가 지운다. 한 필드에 불리언과 문자열을 섞지 않는다.
 `Options.selfCast`, `Options.focusCast`는 설정 탭의 켜고 끄기라 그대로 둔다.
-| 발동 순서의 hover 단계 | | 없어진다. 같은 층 안 순서는 키 묶음마다 `seq`를 옛 순서대로 다시 매겨 지킨다 |
 
 **옛 개체창 조건 액션은 쌍둥이만 있는 액션으로 옮긴다** (2026-09-16, 소유자). 옛 뜻이 "가리킨 누름에서만,
 층을 뛰어넘어"이고, 그것을 새 모양으로 정확히 적으면 Hover Cast를 Unit Frames로 두고 Normal Cast를
@@ -287,10 +453,23 @@ action.casting = {
 프레임 종류는 `units.unitframe`에 조건으로 남고 쌍둥이가 물려받는다. 설정 탭에 끔이 없어야 하는 이유가
 이것이다. 그 쌍둥이는 Hover Cast를 켠 적 없는 사람에게도 서야 한다.
 
-**나머지 옛 액션은 Skip this action으로 옮긴다.** 옮긴 날 아무것도 안 바뀌고, 설정 탭의 모드가 무엇이든
-옛 액션은 그대로다. 새 액션만 Account mode다. 옮긴 뒤 한 번 알린다: "기존 액션은 Hover Cast가 꺼진 채
-옮겨졌고, 새 액션은 설정 탭의 모드를 따릅니다. 여러 액션을 골라 한 번에 바꿀 수 있습니다." 설정 탭의
-모드 기본값은 Unit Frames다. 파급이 개체창 안에 머문다.
+**나머지 옛 키보드 키 액션은 Cast as usual로 옮긴다** (2026-09-16). 쌍둥이가 3층에 평소 대상으로 서서
+차례를 지키니 "가리켜도 평소대로"라는 옛 뜻 그대로다. 그 전에는 "쌍둥이 없음, 원본 그대로"라는 값으로
+옮겼는데, 그 값은 사용자 눈에 Cast as usual과 안 갈리고(둘 다 평소 대상에게, 차례만 다르다) 옮기기
+말고는 쓸 데가 없어 없앴다(§6). 그 값이 지키던 것 하나를 잃는다. 넓은 층의 옛 개체창 조건 액션과 좁은
+층의 조건 있는 보통 액션이 둘 다 3층에 서면 층으로 갈려 좁은 층이 먼저다. 옛날에는 개체창 조건이 먼저였다.
+릴리스 노트에 적는다.
+
+**나머지 옛 마우스 버튼 액션은 Unit Frames에 Skip으로 옮긴다** (2026-09-16, 다른 세션의 검토). 옛
+마우스 버튼은 개체창 조건이 없으면 [개체창 없음]이 자동으로 붙어 개체창 위에서 안 나갔다. Cast as usual로
+옮기면 쌍둥이가 `units.unitframe`에 [있음]을 얹어 그 자동 조건이 안 붙고, 조합키 클릭이 개체창으로 가는
+대신 그 액션을 낸다(§7). Skip이 얹는 [모드의 유닛 없음]이 그 자동 조건과 같으니 옛 동작이 그대로다. 모드를
+설정 탭에 맡기면 Mouseover 모드인 사람의 옛 마우스 버튼이 월드 유닛 위에서도 안 나가게 되므로, 모드까지
+Unit Frames로 못 박는다.
+
+새 액션은 Account mode에 Cast on pointed unit이다. 옮긴 뒤 한 번 알린다: "기존 액션은 하던 대로 옮겨졌고,
+새 액션은 설정 탭의 모드를 따라 가리킨 유닛에 나갑니다. 여러 액션을 골라 한 번에 바꿀 수 있습니다." 설정
+탭의 모드 기본값은 Unit Frames다. 파급이 개체창 안에 머문다.
 
 **버린 안들.** 옛 개체창 조건을 `units.unitframe = {}` 조건과 `unit = "unitframe"`으로 옮기는 안: 원본이
 4층에 서서 층이 다른 조건 액션과의 옛 순서를 못 지키고, 자리 번호는 층 뒤에 비교되어 못 뒤집는다.
@@ -301,8 +480,8 @@ action.casting = {
 Hover Cast에만 두면 조합키 둘과 모양이 다르다. 계정 켜고 끄기를 없애고 액션에 모드까지 두는 것이 값이
 가장 적다.
 
-**Hover Cast를 몇 개 액션에만 원하는 사람**은 나머지를 Skip this action으로 둔다. 여러 액션을 골라 한
-번에 된다.
+**Hover Cast를 몇 개 액션에만 원하는 사람**은 나머지를 Cast as usual로 둔다. 여러 액션을 골라 한 번에
+된다.
 
 ## 9. 도움말이 말해야 하는 것
 

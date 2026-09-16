@@ -44,25 +44,11 @@
 						나오므로 폭만 여기 적는다.
 
 						**`hyperlinksEnabled`가 프레임 쪽에 있다.** 링크를 그리는 FontString을 들고
-						있는 프레임이 그 클릭을 받는다.
+						있는 프레임이 그 클릭을 받는다. 본문의 FontString은 `SetMessage`가 이 프레임
+						위에 만든다.
 					-->
 					<Frame parentKey="Content" enableMouse="true" hyperlinksEnabled="true">
 						<Size x="452" y="1"/>
-						<Layers>
-							<Layer level="ARTWORK">
-								<!--
-									**`GameFontNormal`이라 본문이 금색이다.** `GameFontHighlight`를 쓰면
-									본문의 기본색이 `HIGHLIGHT_FONT_COLOR`와 같아서, 본문 안에서 그 색으로
-									강조한 것이 아무것도 안 뜬다.
-								-->
-								<FontString parentKey="Body" inherits="GameFontNormal" justifyH="LEFT" justifyV="TOP" wordwrap="true">
-									<Size x="452" y="0"/>
-									<Anchors>
-										<Anchor point="TOPLEFT"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
 						<Scripts>
 							<OnHyperlinkClick>
 								DebindMessageFrame:OnHyperlinkClick(link);

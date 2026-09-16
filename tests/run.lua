@@ -94,6 +94,8 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---   `Public.lua` is **not** UI and is **not** here. It is in the TOC after `DebindUI.xml`
 ---     rather than in this XML, and nothing in the pipeline calls it - it is what other addons
 ---     call
+---   `HelpText.lua` is in the TOC ahead of `DebindMessageFrame.lua` and needs no frame: it only
+---     cuts a help page into blocks
 ---   `DevSeed.lua` is not Debind's at all any more - it is `DebindDev/`, a separate addon that
 ---     loads ahead of Debind in the game and is on no list here
 --- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
@@ -131,6 +133,7 @@ local function loadAddons(withCliqueFake)
     "ClickCastTable.lua",
     "UpdateBindings.lua",
     "Switches.lua",
+    "HelpText.lua",
     }, nil, loadOpts);
 
     --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
@@ -186,6 +189,7 @@ local specs = {
     { name = "format", path = root .. "/format_spec.lua" },
     { name = "solver", path = root .. "/solver_spec.lua" },
     { name = "ordering", path = root .. "/ordering_spec.lua" },
+    { name = "helptext", path = root .. "/helptext_spec.lua" },
     { name = "macrotext", path = root .. "/macrotext_spec.lua" },
     { name = "catalog", path = root .. "/catalog_spec.lua" },
     { name = "migration", path = root .. "/migration_spec.lua" },

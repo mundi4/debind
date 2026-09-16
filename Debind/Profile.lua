@@ -1150,37 +1150,42 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
 
-        -- 세 체크박스가 `action.casting` 한 표가 된다. Hover Cast는 액션마다 모드를 들고, 계정에는
-        -- 끔이 없다(`devdocs/which-action-a-key-runs.md` §8).
+        -- The three boxes become one `action.casting` table. Hover Cast holds a mode per action, and
+        -- the account has no off (`devdocs/which-action-a-key-runs.md` §8).
         --
-        -- **옛 개체창 조건 액션은 쌍둥이만 있는 액션으로 옮긴다.** 옛 뜻이 "가리킨 누름에서만,
-        -- 층을 뛰어넘어"이고, 그것을 새 모양으로 정확히 적으면 Hover Cast가 Unit Frames이고
-        -- Normal Cast가 꺼진 것이다. 조건을 그대로 두고 계정 모드만 따르게 하면, 설정 탭이
-        -- Mouseover인 사람의 액션이 월드 유닛 위에서도 서게 되어 옮긴 날 동작이 바뀐다.
+        -- **An old unit frame condition action becomes a twin-only action.** It meant "on a pointed
+        -- press only, ahead of the layers", which in the new shape is Hover Cast on Unit Frames with
+        -- Normal Cast off. Keeping the condition and following the account's mode instead would stand
+        -- the action over world units for anyone whose settings say Mouseover, on the day it moved.
         --
-        -- **빈 [올렸을 때]는 조건으로 안 남긴다.** 그 조건이 하던 일을 Casting 값 둘이 통째로 들고,
-        -- 남겨두면 쌍둥이의 조건이 두 번 적힌 채 원본까지 조건부로 만든다. 축이 붙어 있는 조건은
-        -- 그대로 둔다 - 반응과 역할과 프레임 종류는 쌍둥이가 물려받아야 한다.
+        -- **A bare [when one is pointed at] is not kept as a condition.** The two Casting values carry
+        -- all of what it did, and left in place the twin's condition is written twice and the original
+        -- is made conditional too. A condition with an axis on it stays: the twin has to inherit the
+        -- reaction, the role and the frame type.
         --
-        -- **나머지 액션은 Skip this action이다.** 옮긴 날 아무것도 안 바뀌고, 설정 탭의 모드가
-        -- 무엇이든 옛 액션은 그대로다.
+        -- **The rest keep doing what they did.** A keyboard key is Cast as usual: its twin keeps its
+        -- turn and goes where the original goes. A mouse button is Skip on Unit Frames, because it
+        -- never ran over a unit frame and a Cast as usual twin would stand there (§7); the mode is
+        -- pinned so an account on Mouseover does not take the button off world units too.
         --
-        -- **번호를 다시 매긴 뒤에 돈다.** 위 비교자가 읽는 것이 여기서 지우는 그 조건이라, 먼저
-        -- 돌면 쌍둥이만 있는 액션이 조건 없는 액션으로 읽혀 옛 순서가 뒤집힌다.
+        -- **It runs after the renumbering.** The comparator above reads the very condition removed
+        -- here, and run first it would read a twin-only action as unconditional and turn the old
+        -- order over.
         --
-        -- 다시 돌아도 안전하다: 두 번째 순회는 옛 이름 셋을 못 찾고, 이미 선 `casting`을 안 건드린다.
+        -- Safe to run twice: the second pass finds none of the three old names and leaves a
+        -- `casting` that is already there alone.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             local casting = action.casting;
 
             if (action.ignoreSelfCastKey) then
                 casting = casting or {};
-                casting.selfCastKey = { mode = "skip" };
+                casting.selfCastKey = { aim = "skip" };
                 action.ignoreSelfCastKey = nil;
             end
             if (action.ignoreFocusCastKey) then
                 casting = casting or {};
-                casting.focusCastKey = { mode = "skip" };
+                casting.focusCastKey = { aim = "skip" };
                 action.ignoreFocusCastKey = nil;
             end
 
@@ -1189,7 +1194,11 @@ local function MigrateLayer(layerTbl, dbver)
                 local folded = DebindPrivate.UnitConditionForBinding(units and units.unitframe);
                 casting = casting or {};
                 if (folded == nil or folded == false) then
-                    casting.hoverCast = { mode = "skip" };
+                    if (DebindPrivate.GetMouseButtonAndPrefix(action.key)) then
+                        casting.hoverCast = { mode = "unitframe", aim = "skip" };
+                    else
+                        casting.hoverCast = { aim = "usual" };
+                    end
                 else
                     local aim;
                     if (action.ignoreHoverUnit) then
@@ -2835,17 +2844,13 @@ function DebindPrivate.CleanUpDB()
                 action.priority = nil;
             end
 
-            -- **Skip this action leaves no aim to keep**: that press makes no twin, so where one
-            -- would have gone out is a value with nobody to answer it. An empty row and an empty
-            -- table go the same way -- `casting` being there is not a gate anywhere, but a table of
-            -- nothing sits in SavedVariables and in every exported string for good.
+            -- **An empty row and an empty table do not stay**: `casting` being there is not a gate
+            -- anywhere, but a table of nothing sits in SavedVariables and in every exported string
+            -- for good.
             local casting = action.casting;
             if (luatype(casting) == "table") then
                 for name, row in pairs(casting) do
                     if (luatype(row) == "table") then
-                        if (row.mode == "skip") then
-                            row.aim = nil;
-                        end
                         if (next(row) == nil) then
                             casting[name] = nil;
                         end

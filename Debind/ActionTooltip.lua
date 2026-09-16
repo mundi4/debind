@@ -434,13 +434,7 @@ do
 		--
 		-- **Both halves are the menu's own words** (`ActionMenuItems.lua`), so a reader who wants to
 		-- change it is already holding the two rows to open.
-		--
-		-- **The mode is asked first, and through the one function that answers it.** An aim beside a
-		-- skipped mode says nothing about any press: there is no pointed press to cast on. Storage
-		-- can hold the pair on its way in from a string, which is what the import filters do not
-		-- look at (`Misc.lua`'s `CastingRow`), and `CleanUpDB` only clears it at logout.
-		if (DebindPrivate.HoverCastMode(action) ~= nil
-				and action.casting and action.casting.hoverCast
+		if (action.casting and type(action.casting.hoverCast) == "table"
 				and action.casting.hoverCast.aim == "usual") then
 			addLabelLine(tooltip, LLL["POINTED_UNIT_CAST"]);
 			addValueLine(tooltip, LLL["CASTING_AS_USUAL"]);

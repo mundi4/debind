@@ -1112,12 +1112,12 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- dbver 7: 세 체크박스가 `casting` 한 표가 된다
+    -- dbver 7: the three boxes become one `casting` table
     --
-    -- **옛 개체창 조건 액션은 쌍둥이만 있는 액션으로 옮긴다** (`devdocs/which-action-a-key-runs.md`
-    -- §8). 옛 뜻이 "가리킨 누름에서만, 층을 뛰어넘어"이고, 새 모양으로 정확히 적으면 Hover Cast가
-    -- Unit Frames이고 Normal Cast가 꺼진 것이다. 나머지 액션은 Skip this action이라 옮긴 날
-    -- 아무것도 안 바뀐다 - 설정 탭의 모드가 무엇이든.
+    -- **An old unit frame condition action becomes a twin-only action**
+    -- (`devdocs/which-action-a-key-runs.md` §8). It meant "on a pointed press only, ahead of the
+    -- layers", which in the new shape is Hover Cast on Unit Frames with Normal Cast off. The rest keep
+    -- doing what they did: a keyboard key as Cast as usual, a mouse button as Skip on Unit Frames.
     ---------------------------------------------------------------------------
 
     local function castingAfterMigrate(action)
@@ -1129,10 +1129,10 @@ return function(DebindPrivate)
     test("dbver 7 moves the two cast key boxes onto casting", function()
         local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             ignoreSelfCastKey = true, ignoreFocusCastKey = true });
-        check(casting.selfCastKey and casting.selfCastKey.mode == "skip",
-            "self가 " .. tostring(casting.selfCastKey and casting.selfCastKey.mode));
-        check(casting.focusCastKey and casting.focusCastKey.mode == "skip",
-            "focus가 " .. tostring(casting.focusCastKey and casting.focusCastKey.mode));
+        check(casting.selfCastKey and casting.selfCastKey.aim == "skip" and casting.selfCastKey.mode == nil,
+            "self가 " .. tostring(casting.selfCastKey and casting.selfCastKey.aim));
+        check(casting.focusCastKey and casting.focusCastKey.aim == "skip" and casting.focusCastKey.mode == nil,
+            "focus가 " .. tostring(casting.focusCastKey and casting.focusCastKey.aim));
     end);
 
     test("dbver 7 leaves an action that ignored neither cast key alone", function()
@@ -1141,11 +1141,24 @@ return function(DebindPrivate)
             "안 끈 조합키에 값이 생겼다");
     end);
 
-    --- 개체창 조건이 없던 액션. 설정 탭의 모드가 무엇이든 옛 액션은 그대로여야 하므로 Skip이다.
-    test("dbver 7 turns an action with no unit frame condition into Skip this action", function()
+    --- **A keyboard key with no unit frame condition is Cast as usual**: its twin keeps its turn and
+    --- goes where the original goes, which is what the key did over a unit frame before.
+    test("dbver 7 turns a keyboard action with no unit frame condition into Cast as usual", function()
         local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1 });
-        check(casting.hoverCast and casting.hoverCast.mode == "skip",
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.hoverCast and casting.hoverCast.aim == "usual" and casting.hoverCast.mode == nil,
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode)
+            .. "/" .. tostring(casting.hoverCast and casting.hoverCast.aim));
+        check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
+    end);
+
+    --- **A mouse button is Skip on Unit Frames.** It never ran over a unit frame, and Cast as usual
+    --- would stand its twin there (§7). The mode is pinned so an account on Mouseover does not take
+    --- the button off world units too.
+    test("dbver 7 turns a mouse button action with no unit frame condition into Skip on Unit Frames", function()
+        local casting = castingAfterMigrate({ key = "ALT-BUTTON4", type = Constants.SPELL, value = 1 });
+        check(casting.hoverCast and casting.hoverCast.mode == "unitframe" and casting.hoverCast.aim == "skip",
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode)
+            .. "/" .. tostring(casting.hoverCast and casting.hoverCast.aim));
         check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
     end);
 
@@ -1183,13 +1196,13 @@ return function(DebindPrivate)
         check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
     end);
 
-    --- [안 올렸을 때]는 개체창 위에서 아예 안 도는 액션이라 쌍둥이가 설 자리가 없다. 조건은
-    --- 그대로 남고 Hover Cast만 꺼진다.
-    test("dbver 7 turns [when none is pointed at] into Skip this action", function()
+    --- [when none is pointed at] never ran over a unit frame, so a twin has nowhere to stand. The
+    --- condition stays, and the key gets what any other keyboard key gets.
+    test("dbver 7 keeps [when none is pointed at] as a condition", function()
         local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             conditions = { units = { unitframe = { exists = false } } } });
-        check(casting.hoverCast and casting.hoverCast.mode == "skip",
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.hoverCast and casting.hoverCast.aim == "usual",
+            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.aim));
         check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
         check(action.conditions.units.unitframe.exists == false, "조건이 사라졌다");
     end);

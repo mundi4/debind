@@ -7,7 +7,6 @@ L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
 -- 근거는 enUS 쪽 주석에.
 L["BULK_MENU_TITLE"] = "Выбрано: %d"
-L["BULK_SELECTED_COUNT"] = "Выбрано: %d"
 -- The toggle in the portrait row. The reasoning is in the enUS comment. The verb this file already
 -- used is kept and turned into a mode, rather than taking the client's own "Режим быстрой привязки
 -- клавиш" (`QUICK_KEYBIND_MODE`), which belongs to the action bars' mode.

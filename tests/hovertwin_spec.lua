@@ -354,8 +354,63 @@ return function(DebindPrivate)
     -- 5. Casting의 네 값이 바인딩을 넣고 뺀다 (§6)
     ---------------------------------------------------------------------------
 
-    test("Skip this action이면 쌍둥이가 없다", function()
-        check(twinOf(inMode("skip")) == nil, "꺼졌는데 쌍둥이가 생겼다");
+    --- **Skip takes the action out of the pointed press** (§6): no twin, and the original stands only
+    --- while the mode's unit is not there. The mouse button's implicit [no unit frame] is not what
+    --- measures it, so the key here is a keyboard one.
+    test("Skip this action이면 쌍둥이가 없고 원본은 모드의 유닛이 없을 때만 선다", function()
+        for _, mode in ipairs({ "unitframe", "mouseover" }) do
+            local action = spell();
+            action.casting = { hoverCast = { mode = mode, aim = "skip" } };
+            local list = bindingsOf(action);
+            check(list[2] == nil, mode .. ": 쌍둥이가 생겼다");
+            check(states(list[1], mode) == NONE,
+                mode .. ": 원본의 상자가 " .. tostring(states(list[1], mode)));
+        end
+    end);
+
+    --- **A condition on another unit does not stop it.** The `"@"` check there is absent, not
+    --- [none], or a skipped action with [the target is hostile] runs over a unit frame.
+    test("Skip은 다른 유닛에 조건이 있어도 원본을 모드의 유닛이 없을 때로 좁힌다", function()
+        for _, units in ipairs({
+            { target = { reaction = Constants.REACTION_HARM } },
+            { focus = {} },
+            { ["@"] = { reaction = Constants.REACTION_HELP } },
+        }) do
+            local action = spell({ conditions = { units = units } });
+            action.casting = { hoverCast = { mode = "unitframe", aim = "skip" } };
+            local original = bindingsOf(action)[1];
+            check(states(original, "unitframe") == NONE,
+                next(units) .. ": 원본의 상자가 " .. tostring(states(original, "unitframe")));
+        end
+    end);
+
+    --- **Skip is a Cast Options value, not a condition the reader set**, so it moves nothing in the
+    --- order. Written into the condition table it would make every skipped action a conditional one.
+    test("Skip은 원본의 조건 표와 순서 레코드를 안 바꾼다", function()
+        local plain, skipped = spell(), spell();
+        skipped.casting = { hoverCast = { aim = "skip" } };
+        local list = bindingsOf(skipped);
+        check(list[1].conditions.units == nil, "조건 표에 유닛 조건이 섰다");
+        check(DebindPrivate.MakeOrderRecord(skipped, 1, 1).isConditional
+                == DebindPrivate.MakeOrderRecord(plain, 1, 1).isConditional,
+            "Skip이 조건 유무를 바꿨다");
+    end);
+
+    --- **A condition on that very unit leaves the original nowhere to stand**, so only the original
+    --- goes, the way Normal Cast off takes it. Reported as a unit contradiction it would be an ERROR,
+    --- and that takes the whole action off the key, the held-key twins with it.
+    test("Skip과 그 유닛의 조건이 안 만나면 원본만 빠지고 조합키 쌍둥이는 남는다", function()
+        for _, condition in ipairs({ {}, { reaction = Constants.REACTION_HARM } }) do
+            local action = spell({ conditions = { units = { unitframe = condition } } });
+            action.casting = { hoverCast = { mode = "unitframe", aim = "skip" } };
+            local all = DebindPrivate.GetBindingsForAction(action);
+            local list = castmod.without(Constants, all);
+            check(list[1] ~= nil and list[1].normalCast == false,
+                "원본의 표시가 " .. tostring(list[1] and list[1].normalCast));
+            check(#all > #list, "조합키 쌍둥이가 없다");
+            local issue = GetBindingIssue(action);
+            check(issue == nil, "나온 것: " .. tostring(issue));
+        end
     end);
 
     --- 액션의 모드가 없으면 설정 탭의 모드를 따른다. 새로 만든 액션이 그 모양이다.
@@ -393,9 +448,9 @@ return function(DebindPrivate)
         local action = spell();
         action.casting = {
             normalCast = false,
-            hoverCast = { mode = "skip" },
-            selfCastKey = { mode = "skip" },
-            focusCastKey = { mode = "skip" },
+            hoverCast = { aim = "skip" },
+            selfCastKey = { aim = "skip" },
+            focusCastKey = { aim = "skip" },
         };
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
@@ -412,8 +467,8 @@ return function(DebindPrivate)
         action.casting = {
             normalCast = false,
             hoverCast = { mode = "unitframe" },
-            selfCastKey = { mode = "skip" },
-            focusCastKey = { mode = "skip" },
+            selfCastKey = { aim = "skip" },
+            focusCastKey = { aim = "skip" },
         };
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
@@ -427,8 +482,8 @@ return function(DebindPrivate)
         local action = spell();
         action.casting = {
             normalCast = false,
-            hoverCast = { mode = "skip" },
-            selfCastKey = { mode = "skip" },
+            hoverCast = { aim = "skip" },
+            selfCastKey = { aim = "skip" },
         };
         check(#DebindPrivate.GetBindingsForAction(action) > 0, "바인딩이 하나도 안 나왔다");
         check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));

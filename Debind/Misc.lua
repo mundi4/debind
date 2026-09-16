@@ -778,6 +778,9 @@ local function BuildUnitStates(binding)
             and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
         narrow("unitframe", Constants.UNITSTATE_NONE);
     end
+    if (binding.skipsPointedUnit) then
+        narrow(binding.skipsPointedUnit, Constants.UNITSTATE_NONE);
+    end
 
     if (units) then
         for key, value in pairs(units) do
@@ -1084,6 +1087,31 @@ do
         -- action is carried over as (§8). The fill-in that used to sit here put `unitframe` in
         -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
 
+        -- **Hover Cast's Skip stands the original on [the mode's unit is not there]**, and it is not
+        -- written into `conditions`: that table is what `IsConditionalBinding` orders by, and a Cast
+        -- Options value must not move the action. `BuildUnitStates` and the record read the field,
+        -- the way the mouse button's implicit [no unit frame] already stays out of the table.
+        --
+        -- **A condition on that unit leaves nowhere to stand, and only the original goes.** Left to
+        -- the solver it is a zero mask, which is `CONDITIONS_NEVER`, an ERROR, and that takes the
+        -- held-key twins off the key with it (`devdocs/which-action-a-key-runs.md` §6).
+        binding.skipsPointedUnit = nil;
+        if (not twin and DebindPrivate.HoverCastSkipped(action)) then
+            local unit = DebindPrivate.HoverCastMode(action);
+            local units = conditions.units;
+            local own = units and units[unit];
+            -- An `if`, not `and`: a `"@"` on another unit has to come out nil, and `and` answers false.
+            local resolved;
+            if (units and ResolvedUnitOf(binding) == unit) then
+                resolved = units["@"];
+            end
+            if (type(own) == "table" or type(resolved) == "table") then
+                binding.normalCast = false;
+            elseif (own ~= false and resolved ~= false) then
+                binding.skipsPointedUnit = unit;
+            end
+        end
+
         BuildUnitStates(binding);
 
         return binding;
@@ -1138,16 +1166,16 @@ do
         return "unitframe";
     end
 
-    --- The unit this action's Hover Cast twin goes out at, or nil where the action takes no pointed
-    --- press at all. **`hover` is a name storage uses and this is where it stops**: everything below
-    --- reads `unitframe` or `mouseover` (`devdocs/which-action-a-key-runs.md` §0).
+    --- The unit this action counts as pointed at. **`hover` is a name storage uses and this is where
+    --- it stops**: everything below reads `unitframe` or `mouseover`
+    --- (`devdocs/which-action-a-key-runs.md` §0).
+    ---
+    --- **A skipped action has a mode too**: it names the unit whose presence takes the action off the
+    --- press (`HoverCastSkipped`).
     ---
     --- **Asked of no action it answers the account's mode**, which is what the settings tab shows.
     function DebindPrivate.HoverCastMode(action)
         local mode = CastingRow(action, "hoverCast").mode;
-        if (mode == "skip") then
-            return nil;
-        end
         if (mode == "unitframe" or mode == "mouseover") then
             return mode;
         end
@@ -1168,7 +1196,7 @@ do
         if (options and options.selfCast == false) then
             return false;
         end
-        return CastingRow(action, "selfCastKey").mode ~= "skip";
+        return CastingRow(action, "selfCastKey").aim ~= "skip";
     end
 
     function DebindPrivate.FocusCastEnabled(action)
@@ -1176,7 +1204,14 @@ do
         if (options and options.focusCast == false) then
             return false;
         end
-        return CastingRow(action, "focusCastKey").mode ~= "skip";
+        return CastingRow(action, "focusCastKey").aim ~= "skip";
+    end
+
+    --- Whether Skip this action is Hover Cast's answer: no twin, and the original stands only while
+    --- the mode's unit is not there, so the action is out of the pointed press the way a skipped
+    --- key's action is out of that key's (`devdocs/which-action-a-key-runs.md` §6).
+    function DebindPrivate.HoverCastSkipped(action)
+        return CastingRow(action, "hoverCast").aim == "skip";
     end
 
     --- Whether the action stands on a press with nothing held and nothing pointed at. Off is the
@@ -1234,10 +1269,10 @@ do
     --- twin" is half of what makes an action with nothing left to cast, and a second copy of this
     --- rule would drift from the one that builds the bindings.
     local function TwinUnitFor(action, original)
-        local unit = DebindPrivate.HoverCastMode(action);
-        if (unit == nil) then
+        if (DebindPrivate.HoverCastSkipped(action)) then
             return nil;
         end
+        local unit = DebindPrivate.HoverCastMode(action);
 
         local units = original.conditions and original.conditions.units;
 
@@ -1304,8 +1339,9 @@ do
         -- **Four values off is an action with no bindings at all** (`devdocs/which-action-a-key-runs.md`
         -- §6). It is not blocked: the issue check raises a WARNING and the row wears it, and the key
         -- carries on with whatever else is on it. Answered before anything is filled, so the caches
-        -- keep the tables they had.
-        if (not DebindPrivate.NormalCastEnabled(action) and not pointedUnit
+        -- keep the tables they had. **The original's mark, not the stored box**: Skip can take the
+        -- original away as well (`FillBinding`).
+        if (original.normalCast == false and not pointedUnit
                 and not focusTwin and not selfTwin) then
             for i = 1, #list do
                 list[i] = nil;
@@ -1793,6 +1829,7 @@ function DebindPrivate.ActionUnitFrameIsOn(action)
     -- 막는 것이다.
     local casting = action.casting;
     if (casting and casting.normalCast == false
+            and not DebindPrivate.HoverCastSkipped(action)
             and DebindPrivate.HoverCastMode(action) == "unitframe") then
         return true;
     end
@@ -2182,9 +2219,10 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- **The pointed press is asked of `TwinUnitFor` and not of the mode**, because a mode with no
     -- twin under it is the same silence: [when none is pointed at] on that unit leaves the twin
     -- nowhere to stand, and asking the mode alone reported no problem on an action that made no
-    -- binding at all.
+    -- binding at all. The original is asked of its mark for the same reason: Hover Cast's Skip
+    -- takes it away where a condition on that unit leaves it nowhere to stand (`FillBinding`).
     if (Looking() and (not category or category == "casting") and notCategory ~= "casting") then
-        if (not DebindPrivate.NormalCastEnabled(action)
+        if (binding.normalCast == false
                 and DebindPrivate.TwinUnitFor(action, binding) == nil
                 and not DebindPrivate.SelfCastEnabled(action)
                 and not DebindPrivate.FocusCastEnabled(action)) then

@@ -501,10 +501,19 @@ end
 --- case that counts the records on a key would see each of its own actions twice -- which is what the
 --- account-wide switch used to be isolated for. A case about the twin writes its own `casting` and
 --- this leaves it alone.
+---
+--- **An action with a condition on the unit frame is left alone too.** Skip this action stands the
+--- original on [no unit frame], which that condition never meets, so the action would be gone; its
+--- twin is the same box as its original and folds back into one record (`tests/casting.lua`).
 local function DefaultCasting(action)
-    if action.casting == nil then
-        action.casting = { hoverCast = { mode = "skip" } }
+    if action.casting ~= nil then
+        return action
     end
+    local units = action.units or (action.conditions and action.conditions.units)
+    if type(units) == "table" and type(units.unitframe) == "table" then
+        return action
+    end
+    action.casting = { hoverCast = { aim = "skip" } }
     return action
 end
 
@@ -2233,9 +2242,9 @@ RegisterTest("Menu: casting a cast key as usual aims that key's twin where the a
                     tostring(twin and twin.unit)))
             end
 
-            -- **Skip this action은 그 쌍둥이를 통째로 뺀다.** 값 둘이 한 줄에 사니, 겨눔만 재고
-            -- 넘어가면 다른 값이 같은 자리를 못 쓰는 것을 아무도 못 본다.
-            action.casting[case.row] = { mode = "skip" }
+            -- **Skip this action takes that twin away.** Both values live in one row, so measuring
+            -- the aim alone would never show the other value failing to use the same place.
+            action.casting[case.row] = { aim = "skip" }
             ApplyBindings()
             if TwinOnKey() then
                 return Fail(NAME, format("%s, skip: the twin is still on %s", case.row, KEY))
@@ -8350,7 +8359,10 @@ RegisterTest("Click bakes the deferred macro body", {
         macroBodySeq = macroBodySeq + 1
         local body = format("/cast [@unitframe] Debind%d", macroBodySeq)
 
-        InsertAction({ type = Constants.MACROTEXT, value = body, key = KEY })
+        -- **Cast as usual, so the press over the frame reaches the action.** The kit's default is
+        -- Skip this action, which keeps it off every press made over a unit frame.
+        InsertAction({ type = Constants.MACROTEXT, value = body, key = KEY,
+            casting = { hoverCast = { aim = "usual" } } })
         ApplyBindings()
 
         local binding = GetNthBinding(KEY, 1)
@@ -8456,6 +8468,66 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         end
 
         return Pass(NAME, format("over the frame: %d (twin) / off it: %d (original)", TWIN, ORIGINAL))
+    end,
+})
+
+-- **Needs the game.** Which record a skipped action leaves to the next one is headless
+-- (`tests/eval_spec.lua`); what only the client shows is the original's [no unit frame] being
+-- answered by a real frame under the cursor. Alone on the key, the action then answers nothing over
+-- the frame, where it used to wait in the last tier and fire.
+RegisterTest("Hover Cast skip: over a frame the action does not run, off it it does", {
+    description = "Hover Cast를 Skip으로 둔 액션은 개체창 위에서 안 나가고, 밖에서는 나간다",
+    run = function()
+        local NAME = "Hover Cast skip"
+        local KEY = "CTRL-ALT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "registering a frame and rebuilding are both blocked in combat")
+        end
+
+        local probesOk, perr = EnableProbes()
+        if not probesOk then return Fail(NAME, perr) end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, casting = { hoverCast = { aim = "skip" } } })
+        ApplyBindings()
+
+        local ORIGINAL
+        for i, record in ipairs(GetKeyBindings(KEY) or {}) do
+            if record.castModifier == Constants.CASTMOD_NONE and record.type ~= Constants.BLOCK then
+                if record.hoverTwin or ORIGINAL then
+                    return Fail(NAME, format("the premise is gone: a second record at %d on a press with no key held", i))
+                end
+                ORIGINAL = i
+            end
+        end
+        if not ORIGINAL then
+            return Fail(NAME, "the premise is gone: the original is not on the key")
+        end
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        WaitForHoverSlot(true)
+
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("over the frame #%d fired, the skipped action should answer nothing", LastWinner()))
+        end
+
+        -- **The other half.** Without it a key that never fires passes.
+        HoverLeave(frame)
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local off = WaitForWinner()
+        if off ~= ORIGINAL then
+            return Fail(NAME, format("off the frame the winner is %s, it should be %d (the original)",
+                tostring(off), ORIGINAL))
+        end
+
+        return Pass(NAME, format("over the frame: nothing / off it: %d", ORIGINAL))
     end,
 })
 

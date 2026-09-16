@@ -5,21 +5,29 @@
 -- key beside its original. A spec measuring something else would be reading two records per action
 -- and asking its question through arithmetic.
 --
--- **Skip this action is the shape an existing profile arrives in**, not a shape invented here: the
--- `dbver` 7 step moves every action that had no unit frame condition to it (§8), so an action a
--- spec writes by hand looks like one that came through the ladder.
+-- **Skip this action takes the twin away and stands the original on [no unit frame].** No stored
+-- shape gives an action with neither since Skip means the same on all three rows, so what a spec
+-- reads carries that one unit row.
+--
+-- **An action with a condition on the unit frame is left as it is.** Skip would leave its original
+-- nowhere to stand (`FillBinding`), and its twin is the same box as its original, which the solver
+-- folds back into one record: what such a spec reads is one record either way.
 
 local M = {};
 
---- The action, with its Hover Cast off. Edits the table and hands it back, so it can wrap a
+--- The action, out of the pointed press. Edits the table and hands it back, so it can wrap a
 --- constructor call.
 function M.skipHover(action)
+    local units = action.conditions and action.conditions.units;
+    if (units and type(units.unitframe) == "table") then
+        return action;
+    end
     local casting = action.casting;
     if (casting == nil) then
         casting = {};
         action.casting = casting;
     end
-    casting.hoverCast = { mode = "skip" };
+    casting.hoverCast = { aim = "skip" };
     return action;
 end
 
