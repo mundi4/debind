@@ -8534,6 +8534,56 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
     end,
 })
 
+-- **Needs the game.** Which body each twin composes is headless (`tests/eval_spec.lua`); what only the
+-- client can show is that the composition runs inside the restricted environment after the unit is
+-- settled and lands on the button the press fires. A body that reads `unit` before it is declared
+-- composes a lone `@` on every press, and the key still fires.
+RegisterTest("@@ in a macro body: the held modifier's unit is written in at the press", {
+    description = "조합키 값마다 매크로 본문의 @@가 player, focus, 빈 @로 구워진다",
+    run = function()
+        local NAME = "@@ at the press"
+        local KEY = "CTRL-ALT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "nothing can be rebaked in combat")
+        end
+
+        local probesOk, perr = EnableProbes()
+        if not probesOk then return Fail(NAME, perr) end
+
+        InsertAction({ type = Constants.MACROTEXT, value = "/cast [@@] Renew", key = KEY })
+        ApplyBindings()
+
+        local seen = {}
+        for _, case in ipairs({
+            { Constants.CASTMOD_SELF, "/cast [@player]Renew" },
+            { Constants.CASTMOD_FOCUS, "/cast [@focus]Renew" },
+            { Constants.CASTMOD_NONE, "/cast [@]Renew" },
+        }) do
+            SetMockState("castModifier", case[1])
+
+            local ran, rerr = EvalClickTimeKey(KEY)
+            if not ran then return Fail(NAME, rerr) end
+            local got = WaitForWinner()
+            if got == nil then
+                return Fail(NAME, format("modifier %d: nothing won", case[1]))
+            end
+
+            local records = GetKeyBindings(KEY)
+            local record = records and records[got]
+            local button = record and record.clickbutton
+            local body = button and DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
+            if body ~= case[2] then
+                return Fail(NAME, format("modifier %d: the body is %s, it should be %q", case[1],
+                    body and format("%q", body) or "missing", case[2]))
+            end
+            seen[#seen + 1] = format("%d->%s", case[1], body)
+        end
+
+        return Pass(NAME, table.concat(seen, ", "))
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Many records on one key, many axes at once
 -----------------------------------------------------------

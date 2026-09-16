@@ -97,7 +97,7 @@ return function(DebindPrivate)
         check(Can(action), "착용 칸에 변환이 안 선다");
         check(Convert(action), "변환이 거절됐다");
         check(action.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(action.type));
-        check(action.value == "/use 13", "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/use [@@] 13", "본문이 " .. tostring(action.value) .. "다");
         check(action.name == DebindPrivate.EquipSlotFacts(13),
             "이름이 " .. tostring(action.name) .. "다");
         check(action.icon ~= nil, "아이콘이 안 붙었다");
@@ -142,13 +142,37 @@ return function(DebindPrivate)
             "Cast as usual인 액션에서 변환이 안 선다");
     end);
 
-    --- [호버 안 했을 때]는 겨누는 조건이 아니다. 파생도 안 생기므로 본문에도 안 실린다.
+    --- **An action with no unit picked converts to `[@@]`** (`implementing-focus-and-self-cast.md`
+    --- §4). Its twins pass `player`, `focus` and the pointed unit, and a body with no `@@` reads none
+    --- of them, so the conversion would take the cast keys and Hover Cast off the key. On the
+    --- original the press aims at nothing and `@@` goes out as a lone `@`, which the client ignores.
+    ---
+    --- A type that takes no unit keeps its body as it is: whether a body reads the unit is the
+    --- action's business, and those never did.
+    test("대상을 안 고른 액션은 [@@]로 겨눈다", function()
+        installWorld();
+        _G.SLASH_PET_ATTACK1 = "/petattack";
+        _G.SLASH_PET_FOLLOW1 = "/petfollow";
+        for _, case in ipairs({
+            { { type = Constants.SPELL, value = 774 }, "/cast [@@] Rejuvenation" },
+            { { type = Constants.USESLOT, value = 13 }, "/use [@@] 13" },
+            { { type = Constants.PETACTION, value = "PET_ATTACK" }, "/petattack [@@]" },
+            { { type = Constants.PETACTION, value = "PET_FOLLOW" }, "/petfollow" },
+        }) do
+            local action = case[1];
+            local label = tostring(action.value) .. ": ";
+            check(Convert(action), label .. "변환이 거절됐다");
+            check(action.value == case[2], label .. "본문이 " .. tostring(action.value) .. "다");
+        end
+    end);
+
+    --- [호버 안 했을 때]는 겨누는 조건이 아니다. 본문이 가리킨 유닛을 따로 적지 않는다.
     test("호버 안 했을 때는 겨누지 않는다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774,
             conditions = { units = { unitframe = false } } };
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/cast [@@] Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
     end);
 
     --- **개체창 조건은 대상을 안 정하므로 본문에도 안 실린다** (§5), 그리고 조건 자체는 제 축에
@@ -160,7 +184,7 @@ return function(DebindPrivate)
                 unitframe = {} } } };
         local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/cast [@@] Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
 
         local after = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(after == before, "개체창 축이 " .. tostring(before) .. "에서 "

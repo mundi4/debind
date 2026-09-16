@@ -229,8 +229,13 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 ]] or "";
 
---- Composes one macro body. The caller declares `entry`, `s`, `unitframeAlias` and `clickSwitches` and
---- hands them in; `clickSwitches` is what a press worked out, nil where no press is running.
+--- Composes one macro body. The caller declares `entry`, `s`, `unitframeAlias`, `clickSwitches` and
+--- `pressUnit` and hands them in; `clickSwitches` is what a press worked out, nil where no press is
+--- running, and `pressUnit` is the unit the winner goes out at, nil where it aims at nothing.
+---
+--- **`@@` with no unit goes out as a lone `@`**, which the client ignores wherever it sits in the
+--- group (`devdocs/implementing-focus-and-self-cast.md` §2-3). `@target` in its place would drop
+--- the engine's automatic self-cast.
 ---
 --- **Two places bake.** When a state moves (`UpdateMacroTexts`), and when a click arrives (the
 --- `OnClick` wrapper below). So the composition is one copy spliced into both -- two copies and
@@ -260,6 +265,8 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 				value = UnitAliasMap[arg.unit]
 			end
 			value = value or "raid41"
+		elseif (arg.pressUnit) then
+			value = pressUnit or ""
 		elseif (arg.state) then
 			value = clickSwitches and clickSwitches[arg.state]
 			if (value == nil) then
@@ -297,6 +304,7 @@ local COMPUTE_SWITCHES_SNIPPET = [==[
 			if (entry) then
 				local unitframeAlias = unitframeUnit
 				local clickSwitches = ClickSwitches
+				local pressUnit
 ]==] .. COMPOSE_MACROTEXT_SNIPPET .. [==[
 			else
 				s = SwitchExpressions[name]
@@ -320,6 +328,7 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 				local s
 				local unitframeAlias = UnitAliasMap["unitframe"]
 				local clickSwitches
+				local pressUnit
 ]=] .. COMPOSE_MACROTEXT_SNIPPET .. [=[
 
 				-- **Only a switch's expression is finished here.** A button's body is held back
@@ -347,7 +356,8 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 ]=]);
 
 --- Bakes the winning record's macro body at the click. Spliced in **after the winner is settled
---- and before the button name goes back**.
+--- and before the button name goes back**, and after `RESOLVE_UNIT_SNIPPET`, whose `unit` is what
+--- `@@` in the body becomes.
 ---
 --- **No `RunAttribute` and no `RunFor`.** Splicing is what keeps the 2026-08-11 decision standing.
 ---
@@ -372,6 +382,7 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 		local s
 		local unitframeAlias = unitframeUnit
 		local clickSwitches = ClickSwitches
+		local pressUnit = unit
 ]==] .. COMPOSE_MACROTEXT_SNIPPET .. PRINT_BAKED_MACROTEXT_SNIPPET .. [==[
 		DefaultClickFrame:SetAttribute(entry.attr, s)
 	end
@@ -439,7 +450,7 @@ local ACTION_SLOT_SNIPPET = [==[
 ]==];
 
 --- The unit the winner is cast at, as `unit`. Spliced into the click wrapper and into the DEBUG
---- eval hook.
+--- eval hooks.
 local RESOLVE_UNIT_SNIPPET = [==[
 	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["unitframe"]는 enter와 폴링이
 	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
@@ -1608,10 +1619,9 @@ end, [==[
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. [==[
+]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. [==[
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
-]==] .. RESOLVE_UNIT_SNIPPET .. [==[
 	self:SetAttribute("unit", unit)
 
 	-- **B-11.** 게이트는 이 값을 맨이름으로만 읽는다(SecureTemplates.lua:812). 버튼별로
@@ -1699,7 +1709,7 @@ if (DebindPrivate.DEBUG) then
 		if (not winner or not winner.clickbutton) then
 			return
 		end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. RESOLVE_UNIT_SNIPPET
+]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET
 		.. SELFCAST_OFF_SNIPPET .. [==[
 		-- The winner's place as well, because the button no longer names it: the self and focus
 		-- twins click the same button as their original.
@@ -1740,7 +1750,7 @@ if (DebindPrivate.DEBUG) then
 		if (not winner or not winner.clickbutton) then
 			return
 		end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
+]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
 		return winner.clickbutton
 	]==]);
 end

@@ -358,6 +358,9 @@ Constants.SETSTATE_MODES = {
 
 Constants.MACROTEXT_ARG_UNIT   = 1;
 Constants.MACROTEXT_ARG_SWITCH = 2;
+--- `@@`, the unit the press aims at. Not a `MACROTEXT_ARG_UNIT` named `@`: every reader of those
+--- takes the name for an alias (`_unitsSeen`, the `unitframe` beat check).
+Constants.MACROTEXT_ARG_PRESS_UNIT = 3;
 
 
 -- Importance Values

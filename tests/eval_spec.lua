@@ -1089,6 +1089,57 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **`@@` in a macro body is where the press aims** (§4). The twins pass a unit whether or not the
+    -- action reads it, and this is how a body reads it: the self twin's `player`, the focus twin's
+    -- `focus`, the hover twin's pointed unit, and on the original nothing at all -- a lone `@` the
+    -- client ignores, so the body goes out the way it would with no `@@` in it (§2-3).
+    --
+    -- A switch expression has no one press to aim with (its value is worked out once for the whole
+    -- press, before any winner), so there it stays as written.
+    test("@@ in a macro body is the unit the press aims at", function()
+        shim.world.spells[585] = { name = "Renew" };
+        Bind({
+            action({ type = Constants.MACROTEXT, value = "/cast [@@,help] Renew", key = "F1",
+                casting = { hoverCast = {} } }),
+            -- Only a switch some action names is compiled at all.
+            action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@@,combat]", displayMessage = true },
+        });
+        shim.world.units = { focus = FRIEND, party1 = FRIEND };
+
+        local function body(label)
+            local _, _, record = interp:evalKey("F1");
+            check(record and record.clickbutton, label .. ": nothing won");
+            return DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. record.clickbutton);
+        end
+
+        local text = body("no key held");
+        check(text == "/cast [@,help]Renew", "no key held: " .. tostring(text));
+
+        interp.state.modifiedClick.SELFCAST = true;
+        text = body("self cast key");
+        check(text == "/cast [@player,help]Renew", "self cast key: " .. tostring(text));
+        interp.state.modifiedClick.SELFCAST = nil;
+
+        interp.state.modifiedClick.FOCUSCAST = true;
+        text = body("focus cast key");
+        check(text == "/cast [@focus,help]Renew", "focus cast key: " .. tostring(text));
+        interp.state.modifiedClick.FOCUSCAST = nil;
+
+        PointAt("party1");
+        text = body("pointed at party1");
+        check(text == "/cast [@party1,help]Renew", "pointed at party1: " .. tostring(text));
+        interp:hoverLeave(unitFrame);
+
+        interp:pollStates();
+        check(interp.env.SwitchExpressions["$state1"] == "[@@,combat]",
+            "the switch expression: " .. tostring(interp.env.SwitchExpressions["$state1"]));
+
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
     -- **`none` has every twin and every one of them asks** (§3-4). Its twins stand in each tier the
     -- way any action's do, so an Always Ask action put first keeps the key whatever is held or
     -- pointed at -- and the cast still asks for a unit.

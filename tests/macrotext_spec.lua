@@ -325,6 +325,26 @@ return function(DebindPrivate)
         check(out:find("@raid7target", 1, true), "접미사가 붙어 나오지 않음: " .. out);
     end);
 
+    --- **`@@` is the unit the press aims at** (`implementing-focus-and-self-cast.md` §4). The `@`
+    --- stays text and only the name after it is a slot, the same shape `@tank` has: the press
+    --- writes nothing there where it aims at nothing, and a lone `@` is ignored by the client
+    --- wherever it sits in the group (§2-3).
+    test("@@는 누름이 겨누는 유닛 자리다", function()
+        local body = "/cast [@@,help] Foo; [help,@@] Bar";
+        local fragments, args = ParseMacroText(body);
+        check(args and #args == 2, "@@를 인자로 못 잡음");
+        for i = 1, 2 do
+            check(args[i].type ~= nil and args[i].type == Constants.MACROTEXT_ARG_PRESS_UNIT,
+                i .. "번 인자의 타입이 " .. tostring(args[i].type));
+            check(fragments[i * 2 - 1]:sub(-1) == "@", i .. "번 인자 앞에 `@`가 글자로 안 남음");
+        end
+        expectRoundTrip(body);
+
+        -- A suffix has nowhere to go where the press aims at nothing, so `@@target` is not one.
+        local _, suffixed = ParseMacroText("/cast [@@target] Foo");
+        check(suffixed == nil, "@@target을 인자로 잡음");
+    end);
+
     test("알 수 없는 @유닛은 건드리지 않는다", function()
         local a, args = ParseMacroText("/cast [@notaunit] Foo");
         check(args == nil, "모르는 유닛을 인자로 잡음");

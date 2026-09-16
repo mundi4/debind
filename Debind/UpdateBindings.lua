@@ -2323,6 +2323,18 @@ local function EmitMacroTextArg(index, arg, ownerName, isState)
         return;
     end
 
+    -- **A switch expression keeps `@@` as written.** It is worked out once per press, before any
+    -- winner, and the records of one press aim at different units, so there is no one unit to put
+    -- there. `@@` reaches the client as the unit `@`, which never exists.
+    if (arg.type == Constants.MACROTEXT_ARG_PRESS_UNIT) then
+        if (isState) then
+            appendLine([[t.args[%d].fixed="@"]], index);
+        else
+            appendLine([[t.args[%d].pressUnit=true]], index);
+        end
+        return;
+    end
+
     if (arg.type ~= Constants.MACROTEXT_ARG_SWITCH) then
         return;
     end

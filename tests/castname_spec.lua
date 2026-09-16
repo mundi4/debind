@@ -112,10 +112,10 @@ return function(DebindPrivate)
     test("a macro body names the spell by the same string", function()
         installWorld();
 
-        check(convert(8936) == "/cast Regrowth(Restoration)",
+        check(convert(8936) == "/cast [@@] Regrowth(Restoration)",
             "the macro body is not what it should be: " .. convert(8936));
 
-        check(convert(17116) == "/cast " .. CastName(774),
+        check(convert(17116) == "/cast [@@] " .. CastName(774),
             "the macro body did not resolve the override to its base name: " .. convert(17116));
     end);
 
