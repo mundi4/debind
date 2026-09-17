@@ -195,7 +195,7 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
-        local kind, color = LineKind(row, LLL["BINDING_ERROR_CONDITIONS_NEVER"]);
+        local kind, color = LineKind(row, LLL["BINDING_ERROR_REACTIONS_NONE_SELECTED"]);
         check(kind == "colored" and color == ERROR_COLOR,
             "the unit that carries the contradiction was not reported: " .. Tooltip(row));
         check(LineKind(row, LLL["LIFE_ALIVE"]) == "normal",
@@ -241,10 +241,11 @@ return function(DebindPrivate)
         check(not Says(row, "CASTING"), "a block of defaults was drawn: " .. Tooltip(row));
     end);
 
-    --- **Every press turned off is said under Cast Options, right under the key, in the warning's
-    --- colour.** It used to come out nowhere in this tooltip, and the one line under the key said a
-    --- neighbour got there first on a key with nothing else on it.
-    test("all four Cast Options off draws the block under the key with the warning in it", function()
+    --- **Every press turned off is said under Cast Options, right under the key, as a reason the row
+    --- does not run.** Not in an issue's colour: the reader may mean it, and a mark they can only clear
+    --- by turning a press back on is a mark they cannot clear
+    --- (`devdocs/reorganizing-binding-issues.md` §3-3).
+    test("all four Cast Options off draws the block under the key with the reason in it", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                 casting = { normalCast = false, hoverCast = { aim = "skip" },
@@ -253,19 +254,21 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
+        check(row.issue == nil, "the row carries an issue: " .. tostring(row.issue));
+        check(row.castingOff == "NONE_LEFT", "the row carries no reason: " .. tostring(row.castingOff));
         local text = Tooltip(row);
         -- The label line is a format string with the label in it, so the value lines are what can be
         -- found; the key's own value line (`F1`) is what they have to come after.
         local keyAt = LineIndex(row, "F1");
-        local issueAt, issue = LineIndex(row, LLL["BINDING_ERROR_CASTING_NONE_LEFT"]);
-        check(keyAt and issueAt, "the key or the warning is missing: " .. text);
-        check(issue.kind == "colored" and issue.color == ORANGE_FONT_COLOR,
-            "the warning is not in the warning's colour");
+        local reasonAt, reason = LineIndex(row, LLL["LINE_TOOLTIP_CASTING_NONE_LEFT"]);
+        check(keyAt and reasonAt, "the key or the reason is missing: " .. text);
+        check(reason.kind ~= "colored" and reason.text:find(DISABLED_FONT_COLOR:WrapTextInColorCode(""):sub(1, 10), 1, true),
+            "the reason is not in the disabled colour: " .. text);
         local firstAt = LineIndex(row, AUTO_SELF_CAST_KEY_TEXT .. ":");
         for _, word in ipairs({ AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT,
                 LLL["POINTED_UNIT_CAST"], LLL["CASTING_NORMAL"] }) do
             local at = LineIndex(row, word .. ":");
-            check(at and keyAt < at and at < issueAt, word .. " is not drawn between the key and the warning: " .. text);
+            check(at and keyAt < at and at < reasonAt, word .. " is not drawn between the key and the reason: " .. text);
         end
         check(firstAt == keyAt + 3, "something stands between the key and the block: " .. text);
     end);
@@ -273,7 +276,7 @@ return function(DebindPrivate)
     --- **A skipped Hover Cast on the bare left click says why, not that every press is off.** The
     --- other three are still on; the click only runs through Hover Cast
     --- (`devdocs/which-action-a-key-runs.md` §7).
-    test("a skipped Hover Cast on the bare left click draws its own warning", function()
+    test("a skipped Hover Cast on the bare left click draws its own reason", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
                 casting = { hoverCast = { aim = "skip" } } },
@@ -281,13 +284,36 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
         check(row, "the action is not on the key");
+        check(row.issue == nil, "the row carries an issue: " .. tostring(row.issue));
+        check(row.castingOff == "BARE_CLICK_SKIPPED", "the row carries no reason: " .. tostring(row.castingOff));
         local text = Tooltip(row);
         local hoverAt = LineIndex(row, LLL["POINTED_UNIT_CAST"] .. ":");
-        local issueAt, issue = LineIndex(row, LLL["BINDING_ERROR_CASTING_BARE_CLICK_SKIPPED"]);
-        check(hoverAt and issueAt and hoverAt < issueAt, "the Hover Cast line or the warning is missing: " .. text);
-        check(issue.kind == "colored" and issue.color == ORANGE_FONT_COLOR,
-            "the warning is not in the warning's colour");
-        check(not Says(row, "BINDING_ERROR_CASTING_NONE_LEFT"), "every press was called off: " .. text);
+        local reasonAt = LineIndex(row, LLL["LINE_TOOLTIP_CASTING_BARE_CLICK_SKIPPED"]);
+        check(hoverAt and reasonAt and hoverAt < reasonAt, "the Hover Cast line or the reason is missing: " .. text);
+        check(not Says(row, "LINE_TOOLTIP_CASTING_NONE_LEFT"), "every press was called off: " .. text);
+    end);
+
+    --- **The contradiction on the bare click is said at the key and at the unit**, since Cast Options
+    --- has nothing off to draw a block for and a reason line would have nowhere to stand.
+    test("the bare click with the pointed unit [none] says so at the key and at the unit", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
+                conditions = { units = { unitframe = false } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
+        check(row, "the action is not on the key");
+        check(row.issue == Constants.BINDING_ISSUE_CONDITIONS_NEVER, "the row's issue: " .. tostring(row.issue));
+        check(row.castingOff == nil, "also given as a reason: " .. tostring(row.castingOff));
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddActionToTooltip(tooltip, row.action, { suppressInactive = true });
+        local count = 0;
+        for i = 1, #tooltip.lines do
+            if (tooltip.lines[i].text == LLL["BINDING_ERROR_CONDITIONS_NEVER"]) then
+                count = count + 1;
+            end
+        end
+        check(count == 2, "the sentence came out " .. count .. " times: " .. tooltip:text());
     end);
 
     --- **Only what differs is drawn.** One value changed is one line, in the menu's own words.
@@ -302,7 +328,8 @@ return function(DebindPrivate)
         check(text:find(LLL["CASTING_SKIP"], 1, true), "the changed value is missing: " .. text);
         check(not text:find(FOCUS_CAST_KEY_TEXT, 1, true), "an unchanged row was drawn: " .. text);
         check(not text:find(LLL["CASTING_NORMAL"], 1, true), "an unchanged row was drawn: " .. text);
-        check(not Says(row, "BINDING_ERROR_CASTING_NONE_LEFT"), "a warning with presses left: " .. text);
+        check(not Says(row, "LINE_TOOLTIP_CASTING_NONE_LEFT"), "a reason with presses left: " .. text);
+        check(row.castingOff == nil, "a reason with presses left: " .. tostring(row.castingOff));
     end);
 
     --- **The tooltip walks the raw action's condition table**, so it meets the pre-rename key on a

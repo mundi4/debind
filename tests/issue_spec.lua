@@ -1052,20 +1052,22 @@ return function(DebindPrivate)
     -- goes red only for a zero it had a hand in.
     ---------------------------------------------------------------------------
 
-    local NONE_LEFT = Constants.BINDING_ISSUE_CASTING_NONE_LEFT;
-    local BARE_CLICK_SKIPPED = Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED;
+    local REACTIONS_NONE = Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED;
+    local ROLES_NONE = Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
 
     --- Per row: the whole action, `units`, each unit row asked on its own, `unit` (the root Target),
     --- and `groups` and `casting` where the table fills them in. `false` stands for nil so a column
     --- that is asked can be told from one that is not.
     local ANSWERS = {
-        [1] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, target = false }, unit = false },
+        [1] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE, target = false },
+            unit = false },
         [2] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false },
         [3] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false },
         [4] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, focus = NEVER }, unit = NEVER },
-        [5] = { all = NEVER, units = NEVER, rows = { target = NEVER, ["@"] = false }, unit = false },
+        [5] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { target = REACTIONS_NONE, ["@"] = false },
+            unit = false },
         [6] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, unitframe = NEVER }, unit = NEVER },
-        [7] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER }, unit = false },
+        [7] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { unitframe = REACTIONS_NONE }, unit = false },
         [8] = { all = NEVER, units = NEVER, rows = { tank = NEVER, target = false }, unit = false,
             groups = NEVER },
         [9] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER }, unit = NEVER, groups = NEVER },
@@ -1078,17 +1080,16 @@ return function(DebindPrivate)
             focus = NEVER, unitframe = NEVER }, unit = false },
         [15] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
         [16] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
-        [17] = { all = NONE_LEFT, units = false, rows = { ["@"] = false }, unit = false, casting = NONE_LEFT },
-        [18] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER }, unit = false, casting = NONE_LEFT },
-        [19] = { all = NONE_LEFT, units = false, rows = { unitframe = false }, unit = false,
-            casting = NONE_LEFT },
-        [20] = { all = BARE_CLICK_SKIPPED, units = false, rows = { ["@"] = false }, unit = false,
-            casting = BARE_CLICK_SKIPPED },
+        [17] = { all = false, units = false, rows = { ["@"] = false }, unit = false, casting = false },
+        [18] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE }, unit = false,
+            casting = false },
+        [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
+        [20] = { all = false, units = false, rows = { ["@"] = false }, unit = false, casting = false },
         [21] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false,
             casting = false },
         [22] = { all = UNITGROUPS_NONE, units = UNITGROUPS_NONE,
             rows = { focus = UNITGROUPS_NONE, target = false }, unit = false },
-        [23] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER }, unit = false },
+        [23] = { all = ROLES_NONE, units = ROLES_NONE, rows = { unitframe = ROLES_NONE }, unit = false },
         [24] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER, ["@"] = false, target = false },
             unit = false, groups = NEVER },
         [25] = { all = false, units = false, rows = { target = false }, unit = false },
@@ -1138,12 +1139,168 @@ return function(DebindPrivate)
         end);
     end
 
-    -- #18 names two faults, and the tooltip has to be able to say both.
-    test("§4 #18: both codes are reported", function()
+    -- #18 carries one fault and one choice. **The choice is not reported next to the fault**: every
+    -- press turned off is something the reader may mean, and a mark they can only clear by turning
+    -- a press back on is a mark they cannot clear (`devdocs/reorganizing-binding-issues.md` §2-3).
+    test("§4 #18: only the empty reaction is reported", function()
         local action = require("answer_rows")(Constants)[18].action();
-        local codes = labelsByCode(GetBindingIssues(action));
-        check(codes[NEVER] ~= nil, "the contradiction is missing");
-        check(codes[NONE_LEFT] ~= nil, "the warning is missing");
+        local issues = GetBindingIssues(action);
+        check(#issues == 1 and issues[1].code == REACTIONS_NONE,
+            "reported: " .. tostring(issues[1] and issues[1].code) .. " and " .. (#issues - 1) .. " more");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- An action with no binding left (`devdocs/reorganizing-binding-issues.md` §3-3)
+    --
+    -- **What the reader chose is not an issue; what two menus contradict is.** Both leave the list
+    -- empty. Every press turned off, or Hover Cast skipped on the bare click, is said as a reason
+    -- the row does not run. A [when there is none] on the unit Hover Cast points at leaves no twin
+    -- where the reader skipped nothing, and that is a contradiction painted on both sides of it.
+    ---------------------------------------------------------------------------
+
+    local ALL_OFF = { normalCast = false, hoverCast = { aim = "skip" },
+        selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } };
+    local GetCastingOffReason = DebindPrivate.GetCastingOffReason;
+
+    local function copyOf(value)
+        if (type(value) ~= "table") then
+            return value;
+        end
+        local out = {};
+        for k, v in pairs(value) do
+            out[k] = copyOf(v);
+        end
+        return out;
+    end
+
+    test("every press turned off is a reason, not an issue", function()
+        local action = { type = Constants.SPELL, value = 585, key = "F1", casting = copyOf(ALL_OFF) };
+        check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
+        check(#GetBindingIssues(action) == 0, "the list is not empty");
+        check(GetCastingOffReason and GetCastingOffReason(action) == "NONE_LEFT",
+            "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
+    end);
+
+    test("Hover Cast skipped on the bare click is a reason, not an issue", function()
+        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
+            casting = { hoverCast = { aim = "skip" } } };
+        check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
+        check(GetCastingOffReason and GetCastingOffReason(action) == "BARE_CLICK_SKIPPED",
+            "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
+    end);
+
+    -- The negative half: an action that still makes a binding has no reason to give.
+    test("an action with a press left gives no reason", function()
+        local action = { type = Constants.SPELL, value = 585, key = "F1",
+            casting = { normalCast = false } };
+        check(GetCastingOffReason and GetCastingOffReason(action) == nil,
+            "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
+    end);
+
+    --- The bare click only runs over a unit frame, and [when there is none] on that unit leaves it
+    --- nowhere. **Undone by changing the key or the condition**, so both are told.
+    test("the bare click with the pointed unit [none] is a contradiction on the key and the unit", function()
+        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
+            conditions = { units = { unitframe = false } } };
+        check(GetBindingIssue(action) == NEVER, "reported: " .. tostring(GetBindingIssue(action)));
+        local labels = {};
+        for _, issue in ipairs(GetBindingIssues(action)) do
+            if (issue.code == NEVER) then
+                labels[issue.label] = true;
+            end
+        end
+        check(labels.KEY and labels.CONDITION_UNITS, "the key or the units label is missing");
+        check(GetBindingIssue(action, "key") == NEVER, "the key box is not told");
+        check(GetBindingIssue(action, "units", nil, "unitframe") == NEVER, "the unit row is not told");
+        check(GetBindingIssue(action, "units", nil, "target") == nil, "another row was told");
+        check(GetBindingIssue(action, "casting") == nil, "Cast Options was told");
+        check(GetCastingOffReason(action) == nil, "also given as a reason");
+    end);
+
+    --- **The bare click points at a frame whatever the mode says** (`HoverCastMode`,
+    --- `which-action-a-key-runs.md` §7), so [when there is none] on `mouseover` leaves its twin alone.
+    test("the bare click with mouseover [none] under the mouseover mode is not a contradiction", function()
+        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
+            casting = { hoverCast = { mode = "mouseover" } },
+            conditions = { units = { mouseover = false } } };
+        check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
+    end);
+
+    --- The same contradiction off the bare click: Normal, Self and Focus turned off, and the one
+    --- press left is ruled out by the condition. **Cast Options is the other side here**, not the key.
+    test("three presses off and the pointed unit [none] is a contradiction on Cast Options and the unit", function()
+        for _, mode in ipairs({ "unitframe", "mouseover" }) do
+            local action = { type = Constants.SPELL, value = 585, key = "F1",
+                casting = { normalCast = false, hoverCast = { mode = mode },
+                    selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } },
+                conditions = { units = { [mode] = false } } };
+            check(GetBindingIssue(action) == NEVER, mode .. ": " .. tostring(GetBindingIssue(action)));
+            check(GetBindingIssue(action, "casting") == NEVER, mode .. ": Cast Options is not told");
+            check(GetBindingIssue(action, "units", nil, mode) == NEVER, mode .. ": the unit row is not told");
+            check(GetBindingIssue(action, "key") == nil, mode .. ": the key box was told");
+            check(GetCastingOffReason(action) == nil, mode .. ": also given as a reason");
+        end
+    end);
+
+    ---------------------------------------------------------------------------
+    -- One code per empty axis of a unit row (`devdocs/reorganizing-binding-issues.md` §3-4)
+    ---------------------------------------------------------------------------
+
+    test("no reaction and no role each have their own code, and frame types keep theirs", function()
+        local function issueOf(row)
+            return GetBindingIssue({ type = Constants.SPELL, value = 585, key = "F1",
+                conditions = { units = { unitframe = row } } });
+        end
+        check(issueOf({ reaction = 0 }) == REACTIONS_NONE, "reaction: " .. tostring(issueOf({ reaction = 0 })));
+        check(issueOf({ role = 0 }) == ROLES_NONE, "role: " .. tostring(issueOf({ role = 0 })));
+        check(issueOf({ frameTypes = 0 }) == Constants.BINDING_ISSUE_HOVER_NONE_SELECTED,
+            "frame types: " .. tostring(issueOf({ frameTypes = 0 })));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Where an undefined switch is fixed (`devdocs/reorganizing-binding-issues.md` §3-4)
+    ---------------------------------------------------------------------------
+
+    --- The label each path carries. **It names where the name is written**, so a typo in a macro body
+    --- does not send the reader to the switch conditions.
+    local function labelOf(action, code)
+        for _, issue in ipairs(GetBindingIssues(action)) do
+            if (issue.code == code) then
+                return issue.label;
+            end
+        end
+    end
+
+    test("an undefined switch is labelled where it is written", function()
+        local cases = {
+            { "condition", { type = Constants.SPELL, value = 1, key = "F1", conditions = { ["$typo"] = true } },
+                "CONDITION_CUSTOM_STATES" },
+            { "switch action", { type = Constants.SETSTATE_ON, value = "$typo", key = "F1" }, "TYPE_SETSTATE" },
+            { "macro body", { type = Constants.MACROTEXT, value = "/cast [$typo] Foo", key = "F1" },
+                "TYPE_MACROTEXT" },
+            { "converted click", { type = Constants.MACROTEXT,
+                value = "/click DebindStates $typo-on", key = "F1" }, "TYPE_MACROTEXT" },
+        };
+        for _, case in ipairs(cases) do
+            local label = labelOf(case[2], UNDEFINED);
+            check(label == case[3], case[1] .. ": " .. tostring(label));
+        end
+    end);
+
+    test("both a condition and a body naming undefined switches are reported", function()
+        local action = { type = Constants.MACROTEXT, value = "/cast [$other] Foo", key = "F1",
+            conditions = { ["$typo"] = true } };
+        local labels = {};
+        for _, issue in ipairs(GetBindingIssues(action)) do
+            labels[issue.label] = issue.arg;
+        end
+        check(labels.CONDITION_CUSTOM_STATES == "$typo", "the condition: " .. tostring(labels.CONDITION_CUSTOM_STATES));
+        check(labels.TYPE_MACROTEXT == "$other", "the body: " .. tostring(labels.TYPE_MACROTEXT));
+    end);
+
+    test("a switch action with no switch picked is labelled on the switch action", function()
+        check(labelOf({ type = Constants.SETSTATE_ON, key = "F1" }, Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED)
+            == "TYPE_SETSTATE", "wrong label");
     end);
 
     return T;

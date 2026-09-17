@@ -19,7 +19,6 @@ L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "Не выбрана ни одна 
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "Условия невозможно выполнить."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "Не выбрана ни одна форма перевоплощения."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "Не выбран ни один тип группы."
-L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "Не выбрана реакция или тип фрейма."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша, назначенная для |cnHIGHLIGHT_FONT_COLOR:Переключения игрового меню|r, не может быть использована."
 -- %s는 매크로 본문에 적힌 그 이름이다. 근거는 enUS 쪽 주석에.
 L["BINDING_ERROR_UNDEFINED_STATE"] = "Переключателя с именем |cnHIGHLIGHT_FONT_COLOR:%s|r не существует."
@@ -122,7 +121,6 @@ L["KEY"] = "Клавиша"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 L["MARK_TOOLTIP_ISSUE_DESC"] = "Debind не учитывает это действие, пока проблема не устранена."
 L["MARK_TOOLTIP_CONDITIONAL"] = "Срабатывает, только когда выполняются заданные условия."
-L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "Действие срабатывает, но одна из его настроек не работает."
 -- 키를 지정한다는 말이 빠진 이유는 enUS 쪽 주석에.
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Левый клик, чтобы выбрать это действие. Удерживайте CTRL или SHIFT при клике, чтобы выбрать несколько."
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Нажмите любую клавишу или кнопку мыши, чтобы назначить её этому действию."

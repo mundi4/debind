@@ -740,10 +740,10 @@ end
 --- the key, so nothing covers it, and counted it would keep an action every press of which goes to
 --- another from ever reading as unreachable.
 ---
---- **With none that stand the action is not unreachable.** That is an empty list, the action with
---- every Casting value turned off, or one whose every binding cannot stand; each has its own issue,
---- and "all of none were dropped" is vacuously true and put "another action gets there first" on a
---- key with nothing else on it.
+--- **With none that stand the action is not unreachable.** That is an empty list or one whose every
+--- binding cannot stand. Each is answered on its own, as a reason (`GetCastingOffReason`) or as an
+--- issue, and "all of none were dropped" is vacuously true and put "another action gets there first"
+--- on a key with nothing else on it.
 function DebindPrivate.IsUnreachableAction(action)
     local list = DebindPrivate.PeekBindingsForAction(action)
         or DebindPrivate.GetBindingsForAction(action);

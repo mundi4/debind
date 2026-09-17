@@ -1933,8 +1933,10 @@ return function(DebindPrivate, _, ctx)
             Expect(41, { Press("F1", nil, "unitframe") }, {});
             Expect(41, { Press("F1", "self", "unitframe") }, {});
             Expect(41, { Press("F1", "focus", "unitframe") }, {});
-            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CASTING_NONE_LEFT,
+            check(DebindPrivate.GetBindingIssue(subject) == nil,
                 "#41: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+            check(DebindPrivate.GetCastingOffReason(subject) == "NONE_LEFT",
+                "#41: the reason is " .. tostring(DebindPrivate.GetCastingOffReason(subject)));
         end);
         Row(42, function()
             Bind({ A({ casting = { normalCast = false, hoverCast = { aim = "skip" },
@@ -1991,8 +1993,10 @@ return function(DebindPrivate, _, ctx)
                 "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             PointFrame();
             check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
-            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED,
+            check(DebindPrivate.GetBindingIssue(subject) == nil,
                 "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+            check(DebindPrivate.GetCastingOffReason(subject) == "BARE_CLICK_SKIPPED",
+                "#47: the reason is " .. tostring(DebindPrivate.GetCastingOffReason(subject)));
         end);
 
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written

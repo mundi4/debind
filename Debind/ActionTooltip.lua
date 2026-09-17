@@ -421,9 +421,10 @@ do
 		-- A held key the settings turn off is not drawn: that tier is not built at all, so the
 		-- action's own value there says nothing (`SelfCastEnabled`).
 		--
-		-- `CASTING_NONE_LEFT` goes under the block. Normal Cast being off is part of that code, so
-		-- the block always has a line for it to stand under; `CASTING_BARE_CLICK_SKIPPED` has the
-		-- Hover Cast line.
+		-- **Every press turned off is said under the block as a reason, not as an issue**, the way the
+		-- specialization line stands under its condition. The block always has a line for it: the
+		-- reason needs Normal Cast off or Hover Cast skipped (`GetCastingOffReason`), and both draw
+		-- one. Asked in every world, since neither half of it has a specialization.
 		do
 			wipe(_lines);
 			if (DebindPrivate.SelfCastEnabled()) then
@@ -463,6 +464,11 @@ do
 			if (#_lines > 0) then
 				addLabelLine(tooltip, LLL["CASTING"]);
 				addValueLines(tooltip, _lines, hasIssues and GetIssue("casting"), true);
+				local castingOff = DebindPrivate.GetCastingOffReason(action);
+				if (castingOff) then
+					addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
+						"(" .. LLL["LINE_TOOLTIP_CASTING_" .. castingOff] .. ")"), nil, true);
+				end
 			end
 		end
 
@@ -797,7 +803,7 @@ do
 	--- with no frames at all.
 	local ISSUE_ORDER = {};
 	for i, label in ipairs({
-		"TYPE_MACRO", "KEY",
+		"TYPE_MACRO", "TYPE_MACROTEXT", "TYPE_SETSTATE", "KEY",
 		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC",
 		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
 		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_CUSTOM_STATES",

@@ -442,9 +442,10 @@ return function(DebindPrivate)
         check(list[2] ~= nil and list[2].normalCast == nil, "쌍둥이에까지 표시가 섰다");
     end);
 
-    --- **넷을 다 끄면 바인딩이 하나도 안 나온다**, 그리고 그것이 경고 하나로 보인다. 막지는
-    --- 않는다 (2026-09-16, 소유자).
-    test("넷을 다 끈 액션은 바인딩이 없고 경고가 하나 뜬다", function()
+    --- **Every press turned off makes no binding at all**, and it is said as a reason the row does
+    --- not run rather than as an issue. Nothing blocks it (2026-09-16, owner;
+    --- `devdocs/reorganizing-binding-issues.md` §3-3).
+    test("an action with every press off has no binding and gives a reason, not an issue", function()
         local action = spell();
         action.casting = {
             normalCast = false,
@@ -455,16 +456,18 @@ return function(DebindPrivate)
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
         local issue = GetBindingIssue(action);
-        check(issue == Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "나온 것: " .. tostring(issue));
-        check(DebindPrivate.IssueKeepsKey(issue), "경고가 키를 뺏는다");
+        check(issue == nil, "reported: " .. tostring(issue));
+        check(DebindPrivate.GetCastingOffReason(action) == "NONE_LEFT",
+            "reason: " .. tostring(DebindPrivate.GetCastingOffReason(action)));
         -- An empty list has no binding a neighbour could have covered.
         check(not DebindPrivate.IsUnreachableAction(action), "바인딩이 없는 액션이 이웃에 덮였다고 나온다");
     end);
 
-    --- **모드가 서 있어도 쌍둥이가 안 서면 같은 경고다.** 겨눌 유닛에 [없을 때]를 건 액션은
-    --- Hover Cast가 Unit Frames인 채로도 쌍둥이가 없다(`TwinUnitFor`). 모드만 물으면 바인딩이
-    --- 하나도 없는 액션이 아무 말 없이 지나가고, 행에는 "다른 액션에 덮였다"는 엉뚱한 표시가 뜬다.
-    test("쌍둥이가 설 자리가 없는 액션도 같은 경고를 받는다", function()
+    --- **A mode that stands and a twin that does not is a contradiction, not a choice.** An action with
+    --- [when there is none] on the unit it points at has no twin even with Hover Cast on Unit Frames
+    --- (`TwinUnitFor`). The reader skipped nothing, so it is not a reason to give; asked only about the
+    --- mode, it would pass with nothing said and the row would claim a neighbour covered it.
+    test("an action whose twin has nowhere to stand is a contradiction", function()
         local action = spell({ conditions = { units = { unitframe = false } } });
         action.casting = {
             normalCast = false,
@@ -474,8 +477,9 @@ return function(DebindPrivate)
         };
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
-        check(GetBindingIssue(action) == Constants.BINDING_ISSUE_CASTING_NONE_LEFT,
+        check(GetBindingIssue(action) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
             "나온 것: " .. tostring(GetBindingIssue(action)));
+        check(DebindPrivate.GetCastingOffReason(action) == nil, "also given as a reason");
     end);
 
     --- 셋만 끈 액션은 남은 하나로 여전히 선다. 이것이 없으면 위 테스트는 "언제나 경고"로도

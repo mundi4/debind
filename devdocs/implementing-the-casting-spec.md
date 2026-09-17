@@ -91,7 +91,8 @@
 - `UnrollIntoTiers`: 3층을 쌍둥이 레코드로 따로 정렬하던 것(`MakeOrderRecord`의 `binding` 인자, `HoverTwins`,
   `HoverTwinSortComparison`)을 없애고 원본 순서 그대로 편다. 원본과 같은 쌍둥이가 4층 원본을 덮는 것은 솔버가
   한다.
-- 이슈 검사에 `"casting"` 갈래. 넷을 다 끈 액션은 WARNING이고, 바인딩이 없어 키에 안 선다. **키는
+- 이슈 검사에 `"casting"` 갈래. 넷을 다 끈 액션은 WARNING이고, 바인딩이 없어 키에 안 선다. (2026-09-17에
+  이슈에서 빠져 실행되지 않는 이유가 됐다. `reorganizing-binding-issues.md` §3-3.) **키는
   그대로 잡는다.** 이 단계가 `BuildKeyMap`의 `KeysToHold` 기록을 바인딩 있는 액션 안에 넣어서, 키에 그
   액션뿐이면 키가 게임으로 갔다. 2026-09-17에 밖으로 뺐다(스펙 S5 #42, #43, `eval_spec`).
 - 프레임 클릭 경로는 손댈 것이 없었다. 클릭캐스팅 갈래가 이미 `noneFrom`부터 끝까지 돌고, hover 쌍둥이가
@@ -202,7 +203,7 @@
   마우스 버튼의 암묵 [개체창 없음]이 이미 그렇게 조건 표 밖에서 처리된다. 사용자가 그 유닛에 [있음]이나
   반응을 걸어 만날 자리가 없으면 **원본만 안 세운다**(Normal Cast를 끈 것과 같은 모양). ERROR
   (`CONDITIONS_NEVER`)로 보고하면 액션이 통째로 키에서 빠져 멀쩡한 조합키 쌍둥이까지 죽는다. 넷이 다 없어졌을
-  때만 `CASTING_NONE_LEFT`(WARNING)다.
+  때만 `CASTING_NONE_LEFT`(WARNING)였고, 2026-09-17부터는 이슈가 아니다(`reorganizing-binding-issues.md` §3-3).
 - 마우스 버튼의 암묵 [개체창 없음](`BuildUnitStates`)은 그대로다. Skip이 얹는 것과 같은 조건이라 겹쳐도
   뜻이 안 바뀐다.
 - 메뉴: Hover Cast 하위 메뉴가 모드 셋(설정 탭 모드, Unit Frames, Mouseover)과 답 셋(가리킨 유닛에,

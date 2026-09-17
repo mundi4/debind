@@ -271,7 +271,9 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     states = true,
     -- 묻는 주문 이름이 조건문 파서를 못 탄다(`devdocs/making-known-a-spell-name.md`).
     known = true,
-    -- 조건이 아닌 하나 더. 어느 누름에서 이 액션이 서는가이고, Casting 메뉴가 이 이름으로 묻는다.
+    -- Cast Options, where one side of a contradiction can be undone: Normal, Self and Focus turned
+    -- off, with the one press left ruled out by a condition. Turning presses off on its own is not
+    -- an issue and answers nothing here (`GetCastingOffReason`).
     casting = true,
     -- A saved `UNUSED` or `COMMAND`. Like `macro`, the action itself is wrong and no control goes red.
     retired = true,
@@ -569,6 +571,11 @@ Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE             = "KNOWN_NAME_UNPARSAB
 -- Read off the stored row, not off a binding: a row with its group block empty is empty whatever
 -- unit its bindings aim at, so the answer needs none of them.
 Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED          = "UNITGROUPS_NONE_SELECTED";
+-- No reaction, and no role on the pointed frame's row. **One axis, one code**, for the reason the
+-- group block above has its own: a zero on one axis is nothing picked, and `CONDITIONS_NEVER` says
+-- two menus disagree, which sends the reader looking for a contradiction that is not there.
+Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED           = "REACTIONS_NONE_SELECTED";
+Constants.BINDING_ISSUE_ROLES_NONE_SELECTED               = "ROLES_NONE_SELECTED";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
@@ -581,13 +588,6 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
--- Every press the action could have answered is turned off in its Cast Options menu, so it makes no
--- binding at all (`devdocs/which-action-a-key-runs.md` §6). A WARNING: the key works and this is a
--- thing the reader is allowed to mean.
-Constants.BINDING_ISSUE_CASTING_NONE_LEFT                 = "CASTING_NONE_LEFT";
--- The same nothing-left on the bare left or right click, where Hover Cast is the only press there is
--- (§7). Its own code because the other three are still on, and "every press is off" would be false.
-Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED        = "CASTING_BARE_CLICK_SKIPPED";
 -- A saved `UNUSED` or `COMMAND`, which binds as a block and does nothing when pressed
 -- (`devdocs/legacy/dropping-the-game-fallback.md` §3). A WARNING because an ERROR leaves the action out of
 -- `KeyMap`: no block stands where it was, and the action after it on the key fires instead.
@@ -613,10 +613,14 @@ Constants.ISSUE_GRADE_WARNING = 2;
 ---   ERROR    the action cannot work as saved, and it is waiting on the reader
 ---   WARNING  something it was told to do does not happen, and leaving it out would not help
 ---
---- **A WARNING is not an action that runs.** The three codes carrying one each do nothing on press.
---- `CASTING_NONE_LEFT` and `CASTING_BARE_CLICK_SKIPPED` have no binding at all, and that may be what
---- the reader meant. `TYPE_RETIRED` binds a block, which is the one thing that keeps the action
---- behind it on the key from firing.
+--- **A WARNING is not an action that runs.** `TYPE_RETIRED`, the one code carrying it, does nothing
+--- on press: it binds a block, which is the one thing that keeps the action behind it on the key from
+--- firing.
+---
+--- **A state the reader may have meant is not in here at all.** A mark they can only clear by
+--- choosing a value they do not want is a mark they cannot clear, so an action with every press
+--- turned off says so as a reason it does not run (`GetCastingOffReason`), not as a code
+--- (`devdocs/reorganizing-binding-issues.md` §2-3).
 ---
 --- **Every code in here is a fault of the action itself, and why an action is not firing right now
 --- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
@@ -627,8 +631,7 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- the screen.
 ---
 --- `BuildKeyMap` reads the same line: an ERROR keeps the action out of `KeyMap` entirely, and
---- anything else passes the gate. Passing it puts in only what the action has, which for an action
---- with every press off is nothing.
+--- anything else passes the gate.
 ---
 --- **A code with no row here is treated as ERROR** (`GetIssueColor` and `IssueKeepsKey` are the
 --- only readers, and both fall that way). Failing loud is the safe direction in a keybinding addon:
@@ -643,11 +646,11 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE]             = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED]          = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_CASTING_NONE_LEFT]                 = Constants.ISSUE_GRADE_WARNING,
-    [Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED]        = Constants.ISSUE_GRADE_WARNING,
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_WARNING,
 };
 

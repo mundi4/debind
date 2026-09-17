@@ -53,19 +53,14 @@ L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
--- It says what the reader gets rather than what is wrong: the key still works, and turning all four
--- off is something a reader is allowed to mean. "Sits out" is `CASTING_SKIP_DESC`'s verb, and an
--- unticked Normal Cast does the same thing (`CASTING_NORMAL_DESC`). It no longer says where to turn
--- one back on: every place it is shown already stands on Cast Options (the menu row, the action
--- tooltip's block, the heading in the mark's tooltip).
-L["BINDING_ERROR_CASTING_NONE_LEFT"] = "This action sits out every press, so it never runs."
--- Shown instead of the one above on the bare left or right click with Hover Cast skipped. The other
--- rows are still on there, so it says the key's rule that leaves Hover Cast as the only press.
-L["BINDING_ERROR_CASTING_BARE_CLICK_SKIPPED"] = "On a left or right click with no modifier, this action only runs on a unit frame, and Hover Cast skips it there."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
-L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected."
+-- One axis each, named by the axis. The frame type one said "reaction or frame type" while it was
+-- raised for frame types alone, and a reaction left empty said the conditions contradict.
+L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No frame type is selected."
+L["BINDING_ERROR_REACTIONS_NONE_SELECTED"] = "No reaction is selected."
+L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
 -- The reader cannot fix the spell's name, so the sentence says what to do instead: pick another
 -- row, or drop the condition. Neither half of the reason (macro conditionals, commas) is
@@ -612,10 +607,12 @@ L["MARK_TOOLTIP_ISSUE_DESC"] = "Debind ignores this action until the problem is 
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
 L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
--- The other grade. **The key works**, so what this has to say is which part of the action did not
--- happen -- said as the action still running, because a reader who arrived at a red-looking mark
--- needs to know first that nothing is dead.
-L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it was told to do does not."
+-- The other grade, carried by one code: a saved row of a retired type. **What it costs is the
+-- opposite of the line above**: the action is not ignored, it keeps its place on the key, and that
+-- place is what stops the actions after it. The code's own sentence says the press does nothing, so
+-- this says only what the grade adds. When another code takes this grade, check this still holds
+-- (`devdocs/reorganizing-binding-issues.md` §3-4).
+L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "Debind keeps this action on its key, so the actions after it on the key do not run in its place."
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.
 --
@@ -655,6 +652,14 @@ L["LINE_TOOLTIP_TARGET_NORMAL"] = "Where it normally goes"
 -- Under the numbers, the way the unreachable line sits under the key: the action is set up right
 -- and this says only that the world is not the one it asked for.
 L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."
+-- Under the Cast Options lines, the way the line above sits under the specialization numbers. **Not
+-- an issue**: turning every press off is something the reader may mean, so it is said as why the
+-- action does not run and nothing asks them to change it. "Sits out" is `CASTING_SKIP_DESC`'s verb,
+-- and an unticked Normal Cast does the same thing (`CASTING_NORMAL_DESC`).
+L["LINE_TOOLTIP_CASTING_NONE_LEFT"] = "This action sits out every press, so it never runs."
+-- Instead of the one above on the bare left or right click with Hover Cast skipped. The other rows
+-- are still on there, so it says the key's rule that leaves Hover Cast as the only press.
+L["LINE_TOOLTIP_CASTING_BARE_CLICK_SKIPPED"] = "On a left or right click with no modifier, this action only runs on a unit frame, and Hover Cast skips it there."
 -- What fits named, and the rest left unnamed. **"and others" rather than "and 3 more"**: what the
 -- line names is specializations of this character's class and whole classes otherwise, so a number
 -- after it would be counting two different things at once. The client says it the same way where

@@ -1196,8 +1196,8 @@ do
         -- **A condition on that unit leaves nowhere to stand, and the original is marked off rather
         -- than left with a zero mask.** A zero makes it `dead`, and with nothing else standing that
         -- reads as a contradiction the reader wrote (`CONDITIONS_NEVER`, an ERROR) where all they
-        -- did was choose Skip. Marked, nothing left is `CASTING_NONE_LEFT`
-        -- (`devdocs/which-action-a-key-runs.md` S5 #9).
+        -- did was choose Skip. Marked, nothing left is a reason the row does not run
+        -- (`GetCastingOffReason`, `devdocs/which-action-a-key-runs.md` S5 #9).
         binding.skipsPointedUnit = nil;
         if (not twin and DebindPrivate.HoverCastSkipped(action)) then
             local unit = DebindPrivate.HoverCastMode(action);
@@ -1446,8 +1446,8 @@ do
         end
 
         -- **Four values off is an action with no bindings at all** (`devdocs/which-action-a-key-runs.md`
-        -- §6). It is not blocked: the issue check raises a WARNING and the row wears it, and the key
-        -- carries on with whatever else is on it. Answered before anything is filled, so the caches
+        -- §6). It is not blocked: the row says why it does not run (`GetCastingOffReason`), and the
+        -- key carries on with whatever else is on it. Answered before anything is filled, so the caches
         -- keep the tables they had. **The original's mark, not the stored box**: Skip can take the
         -- original away as well (`FillBinding`).
         if (original.normalCast == false and not pointedUnit
@@ -2058,7 +2058,16 @@ function DebindPrivate.GetUndefinedSwitch(action)
         return action.value;
     end
 
-    if (action.type ~= Constants.MACROTEXT) then
+    return DebindPrivate.GetUndefinedSwitchInBody(action);
+end
+
+--- The switch a `MACROTEXT` body names, read or worked, that nothing defines, or nil.
+---
+--- Apart from the whole answer above for the reason the condition half is: the issue check labels
+--- each place a name is written with the menu it is fixed in, and a typo in a body is fixed in the
+--- body.
+function DebindPrivate.GetUndefinedSwitchInBody(action)
+    if (action.type ~= Constants.MACROTEXT or type(action.value) ~= "string") then
         return nil;
     end
 
@@ -2270,23 +2279,31 @@ local function PickedUnitOf(action)
 end
 
 --- Which axes of one stored row no unit can satisfy on their own: its states, its groups, its frame
---- types. **Role and frame types only count where they are measured**, on the `unitframe` row and on
---- a `"@"` whose picked unit is `unitframe`; anywhere else they are never narrowed
---- (`BuildUnitStates`), so a zero there empties nothing.
+--- types, its reactions, its roles. **Role and frame types only count where they are measured**, on
+--- the `unitframe` row and on a `"@"` whose picked unit is `unitframe`; anywhere else they are never
+--- narrowed (`BuildUnitStates`), so a zero there empties nothing.
+---
+--- **No reaction is its own axis, not a state mask of zero.** It is the one way that mask reaches
+--- zero from a row the reader wrote, and it is nothing picked rather than a contradiction.
 local function EmptyUnitRow(action, key, value)
     local condition = UnitConditionForBinding(value);
     if (type(condition) ~= "table") then
-        return false, false, false;
+        return false, false, false, false, false;
     end
     local onFrame = RowUnitName(key) == "unitframe"
         or (key == "@" and PickedUnitOf(action) == "unitframe");
-    return UnitConditionToState(condition) == 0 or (onFrame and condition.role == 0),
+    local noReaction = condition.reaction == 0;
+    return not noReaction and UnitConditionToState(condition) == 0,
         condition.group ~= nil and UnitGroupToCells(condition.group) == 0,
-        onFrame and condition.frameTypes == 0;
+        onFrame and condition.frameTypes == 0,
+        noReaction,
+        onFrame and condition.role == 0;
 end
 
---- Is one of the asked rows empty on `axis` (1 states, 2 groups, 3 frame types)? `unit` nil asks
---- every row, and `"@"` asks the Resolved Unit row.
+local EMPTY_UNIT_ROW_AXES = 5;
+
+--- Is one of the asked rows empty on `axis` (1 states, 2 groups, 3 frame types, 4 reactions,
+--- 5 roles)? `unit` nil asks every row, and `"@"` asks the Resolved Unit row.
 local function HasEmptyUnitRow(action, unit, axis)
     local rows = StoredUnitRows(action);
     if (rows) then
@@ -2300,8 +2317,12 @@ local function HasEmptyUnitRow(action, unit, axis)
 end
 
 local function HasAnyEmptyUnitRow(action, unit)
-    return HasEmptyUnitRow(action, unit, 1) or HasEmptyUnitRow(action, unit, 2)
-        or HasEmptyUnitRow(action, unit, 3);
+    for axis = 1, EMPTY_UNIT_ROW_AXES do
+        if (HasEmptyUnitRow(action, unit, axis)) then
+            return true;
+        end
+    end
+    return false;
 end
 
 local EMPTY_CONDITIONS = {};
@@ -2377,14 +2398,31 @@ local ACTION_CHECKS = {
             return Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED;
         end
     end },
+    -- **Each place a switch is named carries the menu it is fixed in.** One label for all of them
+    -- sent a typo in a macro body to the switch conditions.
+    --
     -- **Not chosen yet is asked first**: an on/off/toggle action arrives from the picker with no
     -- target, and "nothing defines nil" has no name to print. The binding builder keeps the same
     -- guard (`UpdateBindings.lua`); an action drawn clean must not be one it turns back.
-    { category = "states", label = "CONDITION_CUSTOM_STATES", check = function(action)
-        if (Constants.SETSTATE_MODES[action.type] and type(action.value) ~= "string") then
+    { category = "states", label = "TYPE_SETSTATE", check = function(action)
+        if (not Constants.SETSTATE_MODES[action.type]) then
+            return nil;
+        end
+        if (type(action.value) ~= "string") then
             return Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
         end
-        local undefined = DebindPrivate.GetUndefinedSwitch(action);
+        if (not DebindPrivate.ResolveSwitchDefinition(action.value)) then
+            return Constants.BINDING_ISSUE_UNDEFINED_STATE, action.value;
+        end
+    end },
+    { category = "states", label = "CONDITION_CUSTOM_STATES", check = function(action)
+        local undefined = DebindPrivate.GetUndefinedSwitchCondition(action);
+        if (undefined) then
+            return Constants.BINDING_ISSUE_UNDEFINED_STATE, undefined;
+        end
+    end },
+    { category = "states", label = "TYPE_MACROTEXT", check = function(action)
+        local undefined = DebindPrivate.GetUndefinedSwitchInBody(action);
         if (undefined) then
             return Constants.BINDING_ISSUE_UNDEFINED_STATE, undefined;
         end
@@ -2409,6 +2447,16 @@ local ACTION_CHECKS = {
         end
     end },
     { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
+        if (HasEmptyUnitRow(action, unit, 4)) then
+            return Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED;
+        end
+    end },
+    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
+        if (HasEmptyUnitRow(action, unit, 5)) then
+            return Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
+        end
+    end },
+    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
         if (HasEmptyUnitRow(action, unit, 2)) then
             return Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
         end
@@ -2424,7 +2472,42 @@ local ACTION_CHECKS = {
     { category = "bonusbars", label = "CONDITION_BONUSBAR", check = SkyridingAgainstBonusBars },
 };
 
-local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting = true };
+local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting = true, key = true };
+
+--- Why an action makes no binding at all, given its list; nil where the list has one.
+---
+---   `"NONE_LEFT"`           every press is turned off or skipped
+---   `"BARE_CLICK_SKIPPED"`  Hover Cast skipped on the bare left or right click, its only press
+---   `"CONTRADICTION"`       Hover Cast is on, and [when there is none] on its unit leaves the twin
+---                           nowhere to stand (`TwinUnitFor`)
+---
+--- **An empty list with Hover Cast not skipped is always the third.** The twin is missing for one of
+--- two reasons, Skip or that condition, and every other press being gone is what emptied the list.
+--- The first two are the reader's choice; the third is two menus disagreeing, and the reader skipped
+--- nothing (`devdocs/reorganizing-binding-issues.md` §3-3).
+local function NoBindingCause(action, list)
+    if (#list > 0) then
+        return nil;
+    end
+    if (not DebindPrivate.HoverCastSkipped(action)) then
+        return "CONTRADICTION";
+    end
+    if (DebindPrivate.IsBareWorldClick(action.key)) then
+        return "BARE_CLICK_SKIPPED";
+    end
+    return "NONE_LEFT";
+end
+
+--- Why this action does not run because of what its Cast Options say, or nil: `"NONE_LEFT"` or
+--- `"BARE_CLICK_SKIPPED"`. **A reason, not an issue.** The reader may mean it, and a mark they could
+--- only clear by turning a press back on is a mark they cannot clear.
+function DebindPrivate.GetCastingOffReason(action)
+    local cause = NoBindingCause(action, DebindPrivate.GetBindingsForAction(action));
+    if (cause ~= "CONTRADICTION") then
+        return cause;
+    end
+    return nil;
+end
 
 local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- **A category nothing below answers comes out nil**, which looks the same as "no problem".
@@ -2487,20 +2570,34 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row, no
     -- `casting` and no old `hover` pair, no binding can be empty and none can be dropped, so the
     -- list is not made: that is most rows the window draws.
+    --
+    -- **`key` reaches it only on the bare click**, the one key a contradiction here is painted on.
+    -- `BuildKeyMap` asks `key` of every action, and nothing else there has a list to make.
     if (Looking() and (not category or BINDING_CATEGORIES[category])
+            and (category ~= "key" or DebindPrivate.IsBareWorldClick(action.key))
             and (StoredUnitRows(action) or action.casting or action.hover ~= nil)) then
         local list = DebindPrivate.GetBindingsForAction(action);
         if (#list == 0) then
-            -- **A WARNING, not an ERROR**: the key runs whatever else is on it, and turning every
-            -- press off is something the reader is allowed to mean (`which-action-a-key-runs.md` §6).
-            if ((not category or category == "casting") and notCategory ~= "casting") then
-                if (DebindPrivate.IsBareWorldClick(action.key) and DebindPrivate.HoverCastSkipped(action)) then
-                    Report(Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED, "CASTING");
-                else
-                    Report(Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "CASTING");
+            -- Every press turned off is not reported: it is a reason the row does not run
+            -- (`GetCastingOffReason`). The contradiction is, on both sides that can undo it: the
+            -- unit's row, and whatever emptied the rest of the list. On the bare click that is the
+            -- key, which runs only over a unit frame (`which-action-a-key-runs.md` §7); anywhere
+            -- else it is Cast Options.
+            if (NoBindingCause(action, list) == "CONTRADICTION") then
+                local side, sideLabel = "casting", "CASTING";
+                if (DebindPrivate.IsBareWorldClick(action.key)) then
+                    side, sideLabel = "key", "KEY";
+                end
+                if ((not category or category == side) and notCategory ~= side) then
+                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, sideLabel);
+                end
+                if ((not category or (category == "units"
+                            and (arg == nil or RowUnitName(arg) == DebindPrivate.HoverCastMode(action))))
+                        and notCategory ~= "units") then
+                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
                 end
             end
-        elseif (category ~= "casting") then
+        elseif (category ~= "casting" and category ~= "key") then
             -- **Only an action none of whose bindings stands is in trouble** (2026-09-17, owner).
             -- One that cannot stand beside one that does is only left off the key.
             local standing, dead = false, false;

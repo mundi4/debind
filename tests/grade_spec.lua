@@ -48,16 +48,12 @@ return function(DebindPrivate)
     ---
     --- **이 표에 안 나가는 사유는 없다** (2026-09-06, 소유자). 이웃에 덮인 것도 다른 전문화의
     --- 것도 문제 코드가 아니라 다른 축이고, 답을 내는 자리가 따로 있다.
-    --- The first two are an action with nothing left to cast. It makes no binding, but the key goes
-    --- on working and leaving it that way is the reader's to choose
-    --- (`devdocs/which-action-a-key-runs.md` §6, §7). The third is a saved type that now binds as a
-    --- block, and as an ERROR it would leave the key and let the action after it fire
-    --- (`devdocs/legacy/dropping-the-game-fallback.md` §3). The first orange, "Clique took the hover
-    --- twin", went when Blizzard's unit frames became ours whether or not Clique is there (code
-    --- review, 2026-09-08).
+    --- A saved type that now binds as a block, and as an ERROR it would leave the key and let the
+    --- action after it fire (`devdocs/legacy/dropping-the-game-fallback.md` §3). The first orange,
+    --- "Clique took the hover twin", went when Blizzard's unit frames became ours whether or not
+    --- Clique is there (code review, 2026-09-08). An action with every press turned off was orange
+    --- until it stopped being an issue at all (`devdocs/reorganizing-binding-issues.md` §3-3).
     local WARNING = {
-        [Constants.BINDING_ISSUE_CASTING_NONE_LEFT] = true,
-        [Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED] = true,
         [Constants.BINDING_ISSUE_TYPE_RETIRED] = true,
     };
 

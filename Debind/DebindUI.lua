@@ -4515,7 +4515,7 @@ local function GetOrderReasonText(elementData)
 	-- **A row its own specialization condition leaves out never runs, like a covered one.** It is on
 	-- a live layer, so "Inactive specialization" read as the layer rows above: something that comes
 	-- back by itself. The row tooltip says why under the condition that caused it (2026-09-15, owner).
-	elseif (row.specExcluded or row.unreachable) then
+	elseif (row.specExcluded or row.unreachable or row.castingOff) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
 		-- **The grade picks the words as well as the colour.** One line for both said the same thing
