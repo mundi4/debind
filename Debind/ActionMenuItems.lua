@@ -433,6 +433,16 @@ local function CreateCastingMenu(parentDescription, ctx)
             local casting = action.casting;
             return casting and casting.hoverCast;
         end,
+        -- On the bare left or right click this row is the whole cause, so it carries the warning
+        -- the Cast Options row does. With every row off no one row is, and none is marked.
+        issue = function()
+            for _, action in ipairs(ctx.actions) do
+                local issue = DebindPrivate.GetBindingIssue(action, "casting");
+                if (issue == Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED) then
+                    return issue;
+                end
+            end
+        end,
     }, ctx);
 
     for _, mode in ipairs({

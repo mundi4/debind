@@ -549,7 +549,6 @@ Constants.UNITGROUP_TO_CELLS = {
 
 -- Binding Issues
 Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
-Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
@@ -585,6 +584,9 @@ Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- binding at all (`devdocs/which-action-a-key-runs.md` §6). A WARNING: the key works and this is a
 -- thing the reader is allowed to mean.
 Constants.BINDING_ISSUE_CASTING_NONE_LEFT                 = "CASTING_NONE_LEFT";
+-- The same nothing-left on the bare left or right click, where Hover Cast is the only press there is
+-- (§7). Its own code because the other three are still on, and "every press is off" would be false.
+Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED        = "CASTING_BARE_CLICK_SKIPPED";
 
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
@@ -622,7 +624,6 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- -- a grade nobody wrote would otherwise leave a binding that does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
@@ -635,6 +636,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CASTING_NONE_LEFT]                 = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED]        = Constants.ISSUE_GRADE_WARNING,
 };
 
 

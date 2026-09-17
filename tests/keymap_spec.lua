@@ -440,17 +440,27 @@ return function(DebindPrivate)
         check(held == 2, "조합키 쌍둥이가 " .. held .. "개다");
     end);
 
-    -- 반대쪽. Normal Cast가 켜져 있으면 그 원본이 개체창 밖의 누름을 받으므로 맨 왼쪽 클릭이
-    -- 사라진다. 그래서 그 액션은 여전히 거절이다.
-    test("an action that also runs off a frame still may not take the bare left button", function()
+    -- **Normal Cast on and Mouseover changes nothing on the bare left button** (§7). The original
+    -- would hold the key off the frame and a Mouseover twin would have to hold it to stand, so the
+    -- button gets the Unit Frames twin alone, and no warning for values the reader never has to
+    -- change.
+    test("the bare left button with Normal Cast on gets only the unit frame twin", function()
         Bind({
-            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1 },
+            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
+                casting = { hoverCast = { mode = "mouseover" } } },
         }, nil, nil, true);
 
         local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
-        check(DebindPrivate.GetBindingIssue(action)
-                == Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON,
-            "the action was let onto the key: " .. tostring(DebindPrivate.GetBindingIssue(action)));
+        check(DebindPrivate.GetBindingIssue(action) == nil,
+            "the action has an issue: " .. tostring(DebindPrivate.GetBindingIssue(action)));
+        check(DebindPrivate.KeysToHold["BUTTON1"] == nil, "the bare left click was taken");
+
+        local records = DebindPrivate.KeyMap["BUTTON1"];
+        check(records and #records == 1, "BUTTON1 came out with " .. tostring(records and #records));
+        check(records[1].hoverTwin and records[1].isClickCast == true and records[1].holdsKey == false,
+            "the one record is not the frame click");
+        check(records[1].conditions.units.unitframe ~= nil and records[1].conditions.units.mouseover == nil,
+            "the twin stands on the wrong unit");
     end);
 
     -- On a mouse button the two split the way a hover record and a plain one always have: the twin

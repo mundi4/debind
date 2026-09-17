@@ -48,11 +48,15 @@ return function(DebindPrivate)
     ---
     --- **이 표에 안 나가는 사유는 없다** (2026-09-06, 소유자). 이웃에 덮인 것도 다른 전문화의
     --- 것도 문제 코드가 아니라 다른 축이고, 답을 내는 자리가 따로 있다.
-    --- 지금 하나다. Casting 값 넷을 다 끈 액션은 바인딩을 하나도 안 만들지만, 키는 그대로 돌고
-    --- 그렇게 두는 것은 사용자가 고를 수 있는 것이다(`devdocs/which-action-a-key-runs.md` §6).
-    --- 첫 주황이던 "Clique가 hover 쌍둥이를 가져갔다"는 블리자드 개체창이 Clique와 무관하게 우리
-    --- 것이 되면서 물러났다(코드 리뷰, 2026-09-08).
-    local WARNING = { [Constants.BINDING_ISSUE_CASTING_NONE_LEFT] = true };
+    --- Two now, and both are an action with nothing left to cast. It makes no binding, but the key
+    --- goes on working and leaving it that way is the reader's to choose
+    --- (`devdocs/which-action-a-key-runs.md` §6, §7). The first orange, "Clique took the hover twin",
+    --- went when Blizzard's unit frames became ours whether or not Clique is there (code review,
+    --- 2026-09-08).
+    local WARNING = {
+        [Constants.BINDING_ISSUE_CASTING_NONE_LEFT] = true,
+        [Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED] = true,
+    };
 
     test("도는데 하나가 빠진 것은 주황이다", function()
         for code in pairs(WARNING) do

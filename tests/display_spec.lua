@@ -270,6 +270,26 @@ return function(DebindPrivate)
         check(firstAt == keyAt + 3, "something stands between the key and the block: " .. text);
     end);
 
+    --- **A skipped Hover Cast on the bare left click says why, not that every press is off.** The
+    --- other three are still on; the click only runs through Hover Cast
+    --- (`devdocs/which-action-a-key-runs.md` §7).
+    test("a skipped Hover Cast on the bare left click draws its own warning", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
+                casting = { hoverCast = { aim = "skip" } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
+        check(row, "the action is not on the key");
+        local text = Tooltip(row);
+        local hoverAt = LineIndex(row, LLL["POINTED_UNIT_CAST"] .. ":");
+        local issueAt, issue = LineIndex(row, LLL["BINDING_ERROR_CASTING_BARE_CLICK_SKIPPED"]);
+        check(hoverAt and issueAt and hoverAt < issueAt, "the Hover Cast line or the warning is missing: " .. text);
+        check(issue.kind == "colored" and issue.color == ORANGE_FONT_COLOR,
+            "the warning is not in the warning's colour");
+        check(not Says(row, "BINDING_ERROR_CASTING_NONE_LEFT"), "every press was called off: " .. text);
+    end);
+
     --- **Only what differs is drawn.** One value changed is one line, in the menu's own words.
     test("one Cast Options value changed draws that one line", function()
         Bind({
@@ -343,21 +363,29 @@ return function(DebindPrivate)
             "a row read from another specialization was still called unreachable");
     end);
 
-    -- **Suppression reaches one branch and must not reach the next.** `BUTTON1` with no hover
-    -- condition is invalid wherever it is read from -- nothing about that comes out of a key map --
-    -- so an off-spec view that swallowed it would leave a reader with a key that cannot work and a
-    -- tooltip that says nothing is wrong.
+    -- **Suppression reaches one branch and must not reach the next.** The game menu key is invalid
+    -- wherever it is read from -- nothing about that comes out of a key map -- so an off-spec view
+    -- that swallowed it would leave a reader with a key that cannot work and a tooltip that says
+    -- nothing is wrong.
     test("a key that is invalid anywhere is still called invalid off-spec", function()
-        Bind({ { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1 } }, {});
+        shim.world.bindings = { { action = "TOGGLEGAMEMENU", keys = { "ESCAPE" } } };
+        local ok, err = pcall(function()
+            Bind({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } }, {});
 
-        local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
-        check(row, "no row stood on BUTTON1");
-        check(row.issue == Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON,
-            "the row is not carrying the mouse-button issue: " .. tostring(row.issue));
+            local row = DebindPrivate.CollectActionsForKey("ESCAPE")[1];
+            check(row, "no row stood on ESCAPE");
+            check(row.issue == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY,
+                "the row is not carrying the game menu key issue: " .. tostring(row.issue));
 
-        row.offWorld = true;
-        check(Says(row, "BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"),
-            "being read from another specialization turned off the key validity check too");
+            row.offWorld = true;
+            check(Says(row, "BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"),
+                "being read from another specialization turned off the key validity check too");
+        end);
+        shim.world.bindings = {};
+        DebindPrivate.RefreshGameMenuKeys();
+        if (not ok) then
+            error(err, 0);
+        end
     end);
 
     ---------------------------------------------------------------------------

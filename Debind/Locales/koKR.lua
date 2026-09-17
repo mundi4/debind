@@ -44,7 +44,6 @@ L["BINDING_ERROR_KNOWN_NAME_UNPARSABLE"] = "이 주문의 이름은 이 조건�
 L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "선택된 전문화가 없습니다."
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "고른 스위치가 없습니다. 고르기 전까지 이 지정은 아예 발동하지 않습니다."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "|cnHIGHLIGHT_FONT_COLOR:게임 메뉴 열기/닫기|r에 지정된 키는 쓸 수 없습니다."
-L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "조합 키 없는 마우스 왼쪽/오른쪽 버튼은 마우스 올림 조건에서만 쓸 수 있습니다."
 L["BINDING_ERROR_MISSING_MACRO"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 매크로가 이 계정에도 이 캐릭터에도 없습니다."
 L["BINDING_ERROR_UNDEFINED_STATE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 스위치가 없습니다."
 L["BINDING_ERROR_UNREACHABLE"] = "이 행동은 실행되지 않습니다. 어떤 경우에도 이 키의 다른 행동이 먼저 실행됩니다."

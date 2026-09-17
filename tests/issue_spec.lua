@@ -290,51 +290,51 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 마우스 왼/오른 버튼은 호버 조건이 있어야 쓸 수 있다
+    -- Whether an action runs over a unit frame (`ActionUnitFrameIsOn`)
     --
-    -- 이 판정이 오탐이면 **클릭캐스팅이 통째로 죽는다.** 이슈가 붙은 액션은 `KeyMap`에
-    -- 안 들어가고(`Debind.lua`), BUTTON1/BUTTON2에 걸린 것은 거의 전부 클릭캐스팅이다.
+    -- **Misread either way, a mouse button breaks.** Read as on, the key is let go and the action's
+    -- clicks off a frame stop; read as off, an action that belongs to the frame holds the key and
+    -- makes cast key twins no press reaches.
     --
-    -- 호버 조건이 `units["hover"]`로 옮겨간 뒤 이 검사가 `action.hover`를 계속 읽고
-    -- 있었다. 그 필드는 이제 저장에 없으므로 **모든** 왼/오른 버튼 바인딩이 지워졌다.
-    -- 어느 층도 못 봤다 - 헤드리스에 이 검사의 스펙이 없었고, 화면에는 키가 안 먹는 것으로만
-    -- 나타난다.
+    -- **The bare left and right click run over a frame whatever the action says**
+    -- (`devdocs/which-action-a-key-runs.md` §7), so the rest of the answers are asked of `BUTTON3`.
     ---------------------------------------------------------------------------
 
-    local MOUSE_ISSUE = Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON;
-
-    local function mouseKeyIssue(fields)
-        local action = { type = Constants.SPELL, value = 100, key = "BUTTON1" };
+    local function unitFrameIsOn(fields, key)
+        local action = { type = Constants.SPELL, value = 100, key = key or "BUTTON3" };
         for k, v in pairs(fields or {}) do
             action[k] = v;
         end
-        return DebindPrivate.IsKeyInvalidForAction(nest(action), "BUTTON1");
+        return DebindPrivate.ActionUnitFrameIsOn(nest(action));
     end
 
-    test("호버 조건이 없는 왼쪽 버튼은 못 쓴다", function()
-        check(mouseKeyIssue() == MOUSE_ISSUE, "이슈가 안 남");
+    test("the bare left and right click run over a frame with no condition", function()
+        check(unitFrameIsOn(nil, "BUTTON1") == true, "BUTTON1 read as running off a frame");
+        check(unitFrameIsOn({ units = { unitframe = false } }, "BUTTON2") == true,
+            "BUTTON2 read as running off a frame");
+        check(unitFrameIsOn() == false, "BUTTON3 with no condition read as running over a frame");
     end);
 
-    test("저장된 호버 조건이 있으면 왼쪽 버튼을 쓸 수 있다", function()
-        check(mouseKeyIssue({ units = { unitframe = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
-        check(mouseKeyIssue({ units = { unitframe = { reaction = Constants.REACTION_HELP } } }) == nil,
-            "오탐 - 반응이 걸려도 호버 조건이다");
+    test("a stored unit frame condition runs the action over a frame", function()
+        check(unitFrameIsOn({ units = { unitframe = {} } }) == true, "[there] was not read");
+        check(unitFrameIsOn({ units = { unitframe = { reaction = Constants.REACTION_HELP } } }) == true,
+            "a reaction was not read as the condition being on");
     end);
 
-    -- "호버 중이 **아닐** 때"는 호버 조건이 켜진 것이 아니다. 마우스 버튼은 커서가 있는
-    -- 자리에서 발동하므로 그 조건으로는 유닛 프레임 클릭을 못 받는다.
-    test("호버가 false면 왼쪽 버튼을 못 쓴다", function()
-        check(mouseKeyIssue({ units = { unitframe = false } }) == MOUSE_ISSUE, "이슈가 안 남");
+    -- [when there is none] is not the condition being on. A mouse button fires where the cursor
+    -- already is, so that condition never takes a frame click.
+    test("[when there is none] does not run the action over a frame", function()
+        check(unitFrameIsOn({ units = { unitframe = false } }) == false, "false was read as on");
     end);
 
-    -- 저장에는 끈 조건이 표로 남는다. 표라는 이유만으로 "켜짐"이라고 읽으면 이 판정이
-    -- 뒤집혀서, 걸리지 말아야 할 왼쪽 버튼이 통과하고 걸릴 것이 안 걸린다.
-    test("끈 호버 조건은 왼쪽 버튼을 못 쓰게 한다", function()
-        check(mouseKeyIssue({ units = { unitframe = { exists = false } } }) == MOUSE_ISSUE,
-            "\"없을 때\"를 켜진 것으로 읽었다");
-        check(mouseKeyIssue({ units = { unitframe = { disabled = true,
-            reaction = Constants.REACTION_HELP } } }) == MOUSE_ISSUE,
-            "기억만 하는 값을 켜진 것으로 읽었다");
+    -- A turned-off condition stays in storage as a table. Read as on because it is a table, the
+    -- answer flips.
+    test("a turned-off unit frame condition does not run the action over a frame", function()
+        check(unitFrameIsOn({ units = { unitframe = { exists = false } } }) == false,
+            "\"when there is none\" was read as on");
+        check(unitFrameIsOn({ units = { unitframe = { disabled = true,
+            reaction = Constants.REACTION_HELP } } }) == false,
+            "a remembered value was read as on");
     end);
 
     -- **A saved command with hover on a mouse button stays on its key.** It binds as a block like
@@ -347,18 +347,17 @@ return function(DebindPrivate)
         }), "BUTTON3") == nil, "호버를 켠 명령 액션에 이슈가 났다");
     end);
 
-    test("마이그레이션이 안 닿은 옛 hover도 같은 답을 낸다", function()
-        check(mouseKeyIssue({ hover = true }) == nil, "옛 모양이 안 읽힘");
-        check(mouseKeyIssue({ hover = false }) == MOUSE_ISSUE, "옛 false가 안 읽힘");
+    test("an old hover the migration has not reached gives the same answer", function()
+        check(unitFrameIsOn({ hover = true }) == true, "the old shape was not read");
+        check(unitFrameIsOn({ hover = false }) == false, "the old false was not read");
     end);
 
-    -- **개명 전 이름으로 저장된 조건도 같은 답을 내야 한다.** 이 검사는 원본 액션을 직접 읽고,
-    -- `dbver <= 6`이 아직 안 닿은 프로필은 그 키가 `hover`다. 새 이름만 보면 조건이 없는 것으로
-    -- 읽혀 **모든** 왼/오른 버튼 바인딩이 지워진다 - 위 묶음이 적어둔 그 실패 그대로다.
-    test("개명 전 이름으로 저장된 개체창 조건도 왼쪽 버튼을 쓸 수 있게 한다", function()
-        check(mouseKeyIssue({ units = { hover = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
-        check(mouseKeyIssue({ units = { hover = { exists = false } } }) == MOUSE_ISSUE,
-            "옛 이름의 \"없을 때\"를 켜진 것으로 읽었다");
+    -- **A condition stored under the name before the rename answers the same.** This reads the
+    -- action itself, and a profile `dbver <= 6` has not reached still keys it `hover`.
+    test("a unit frame condition stored under the old name runs the action over a frame", function()
+        check(unitFrameIsOn({ units = { hover = {} } }) == true, "the old name was not read");
+        check(unitFrameIsOn({ units = { hover = { exists = false } } }) == false,
+            "\"when there is none\" under the old name was read as on");
     end);
 
     ---------------------------------------------------------------------------

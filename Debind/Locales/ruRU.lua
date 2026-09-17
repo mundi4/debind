@@ -21,7 +21,6 @@ L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "Не выбрана ни одна фо
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "Не выбран ни один тип группы."
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "Не выбрана реакция или тип фрейма."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша, назначенная для |cnHIGHLIGHT_FONT_COLOR:Переключения игрового меню|r, не может быть использована."
-L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "Левая/правая кнопка мыши без модификаторов может использоваться только с условием наведения."
 -- %s는 매크로 본문에 적힌 그 이름이다. 근거는 enUS 쪽 주석에.
 L["BINDING_ERROR_UNDEFINED_STATE"] = "Переключателя с именем |cnHIGHLIGHT_FONT_COLOR:%s|r не существует."
 L["BINDING_ERROR_UNREACHABLE"] = "Эта привязка всегда перекрывается другими."

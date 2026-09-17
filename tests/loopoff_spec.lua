@@ -194,9 +194,28 @@ return function(DebindPrivate, _, ctx)
         checkOursAndSilent("F1");
     end);
 
-    -- **An ERROR about the action keeps the key; one about the key lets it go.** Taking a bare left
-    -- click would end every world click and the camera with it.
+    -- **An ERROR about the action keeps the key; one about the key lets it go.** Taking the game menu
+    -- key would end Escape.
     test("a key the action may not be put on is not taken", function()
+        shim.world.bindings = { { action = "TOGGLEGAMEMENU", keys = { "ESCAPE" } } };
+        local ok, err = pcall(function()
+            Bind({ action({ value = 585, key = "ESCAPE" }) });
+            check(DebindPrivate.GetBindingIssue(DebindPrivate.CollectActionsForKey("ESCAPE")[1].action)
+                    == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY, "the key carries no key issue");
+            -- The game's own binding stays on it, so what is asked is that ours is not.
+            check(Bound("ESCAPE") == "TOGGLEGAMEMENU", "the key was bound: " .. Bound("ESCAPE"));
+            check(not DebindPrivate.IsKeyOurs("ESCAPE"), "the key is not bound and IsKeyOurs says yes");
+        end);
+        shim.world.bindings = {};
+        DebindPrivate.RefreshGameMenuKeys();
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
+    -- **The bare left and right click are never taken** (`devdocs/which-action-a-key-runs.md` §7),
+    -- and no longer because of an issue: the action there runs over a unit frame or not at all.
+    test("the bare left click is not taken", function()
         Bind({ action({ value = 585, key = "BUTTON1" }) });
         checkNotOurs("BUTTON1");
     end);

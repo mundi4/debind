@@ -18,6 +18,8 @@ When a unit is chosen under |cnBLUE_FONT_COLOR:Target|r, the first answer on eac
 |cnBLUE_FONT_COLOR:Normal Cast|r is the press with nothing held and nothing pointed at. Untick it and the action runs only on a held key or a pointed unit, and that plain press goes to the next action on the key.
 
 Clicking a unit frame does not use the Self Cast Key or the Focus Cast Key. A key held on the click picks the binding you made for that exact combination, so the click still goes to the frame's unit.
+
+An action on the left or right mouse button with no modifier runs only when you click a unit frame. There it ignores |cnBLUE_FONT_COLOR:Normal Cast|r and uses |cnBLUE_FONT_COLOR:Unit Frames|r, so a click anywhere else still reaches the game.
 ]==]
 
 L["HELP_CUSTOM_MACRO_TITLE"] = "Which extra units can a Custom Macro aim at?"

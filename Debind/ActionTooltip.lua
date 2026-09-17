@@ -414,7 +414,8 @@ do
 		-- action's own value there says nothing (`SelfCastEnabled`).
 		--
 		-- `CASTING_NONE_LEFT` goes under the block. Normal Cast being off is part of that code, so
-		-- the block always has a line for it to stand under.
+		-- the block always has a line for it to stand under; `CASTING_BARE_CLICK_SKIPPED` has the
+		-- Hover Cast line.
 		do
 			wipe(_lines);
 			if (DebindPrivate.SelfCastEnabled()) then

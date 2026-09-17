@@ -1953,6 +1953,47 @@ return function(DebindPrivate, _, ctx)
                 "#43: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             check(not DebindPrivate.IsKeyOurs("BUTTON1"), "#43: IsKeyOurs says yes");
         end);
+        Row(44, function()
+            local subject = A({ key = "BUTTON1" });
+            Bind({ subject });
+            check(DebindPrivate.GetBindingIssue(subject) == nil,
+                "#44: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+            PointFrame();
+            check(Click(1) == "A", "#44: the frame click fired " .. tostring(Click(1)));
+            interp.state.modifiedClick.SELFCAST = true;
+            check(Click(1) == "A", "#44: the frame click with Self Cast Key held fired " .. tostring(Click(1)));
+        end);
+        Row(45, function()
+            Bind({ A({ key = "BUTTON1" }) });
+            check((_G.GetBindingAction("BUTTON1", true) or "") == "",
+                "#45: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
+            check(not DebindPrivate.IsKeyOurs("BUTTON1"), "#45: IsKeyOurs says yes");
+        end);
+        Row(46, function()
+            for _, bound in ipairs({
+                { actions = { A({ key = "BUTTON2", casting = { hoverCast = { mode = "mouseover" } } }) } },
+                { actions = { A({ key = "BUTTON2" }) }, options = MOUSEOVER },
+            }) do
+                Bind(bound.actions, nil, bound.options);
+                check(DebindPrivate.GetBindingIssue(bound.actions[1]) == nil,
+                    "#46: the issue is " .. tostring(DebindPrivate.GetBindingIssue(bound.actions[1])));
+                check((_G.GetBindingAction("BUTTON2", true) or "") == "",
+                    "#46: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON2", true)));
+                PointFrame();
+                check(Click(2) == "A", "#46: the frame click fired " .. tostring(Click(2)));
+                interp:clearHoverSlot();
+            end
+        end);
+        Row(47, function()
+            local subject = A({ key = "BUTTON1", casting = { hoverCast = { aim = "skip" } } });
+            Bind({ subject });
+            check((_G.GetBindingAction("BUTTON1", true) or "") == "",
+                "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
+            PointFrame();
+            check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
+            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED,
+                "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+        end);
 
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
         --- at `dbver` 6, so the ladder is what turns each old action into its new shape.

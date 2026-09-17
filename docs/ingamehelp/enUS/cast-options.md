@@ -19,3 +19,8 @@ When a unit is chosen under *Target*, the first answer on each row sends the act
 *Normal Cast* is the press with nothing held and nothing pointed at. Untick it and the action runs only on a held key or a pointed unit, and that plain press goes to the next action on the key.
 
 Clicking a unit frame does not use the Self Cast Key or the Focus Cast Key. A key held on the click picks the binding you made for that exact combination, so the click still goes to the frame's unit.
+
+<!--
+**The rule is here and not in a warning** (2026-09-17, owner). Normal Cast on and Mouseover are what a new action has, and a warning would ask the reader to change values that only this key ignores. `devdocs/which-action-a-key-runs.md` §7.
+-->
+An action on the left or right mouse button with no modifier runs only when you click a unit frame. There it ignores *Normal Cast* and uses *Unit Frames*, so a click anywhere else still reaches the game.

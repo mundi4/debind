@@ -295,10 +295,10 @@ do
 					-- (`devdocs/which-action-a-key-runs.md` §6): the key is still held for it.
 					--
 					-- Three things still let the key go. An action that runs over a unit frame fires
-					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`,
-					-- which is the same question the left/right button's validity asks); a yielded key
-					-- is the game's; and a `key` issue says this key cannot be taken at all, where the
-					-- bare left click or the game menu key would take the world click or Escape with it.
+					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`, which
+					-- the bare left and right click always answer yes); a yielded key is the game's; and a
+					-- `key` issue says this key cannot be taken at all, where the game menu key would
+					-- take Escape with it.
 					if (not yielded
 							and not (DebindPrivate.ActionUnitFrameIsOn(action)
 								and DebindPrivate.GetMouseButtonAndPrefix(key))

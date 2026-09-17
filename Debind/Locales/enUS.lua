@@ -59,6 +59,9 @@ L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 -- one back on: every place it is shown already stands on Cast Options (the menu row, the action
 -- tooltip's block, the heading in the mark's tooltip).
 L["BINDING_ERROR_CASTING_NONE_LEFT"] = "This action sits out every press, so it never runs."
+-- Shown instead of the one above on the bare left or right click with Hover Cast skipped. The other
+-- rows are still on there, so it says the key's rule that leaves Hover Cast as the only press.
+L["BINDING_ERROR_CASTING_BARE_CLICK_SKIPPED"] = "On a left or right click with no modifier, this action only runs on a unit frame, and Hover Cast skips it there."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
@@ -75,7 +78,6 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- different places, and the second names a switch while this one has none to name.
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No switch is picked. Until one is, this binding does not fire at all."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
-L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used by an action that runs over a unit frame."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
 -- action sets. **This line and the macro one below are the only errors that take an argument** --
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the

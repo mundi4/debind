@@ -878,8 +878,10 @@ do
         -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
         -- the original's field: the twins each stand in a tier of their own and Normal Cast says
         -- nothing about those tiers. `BuildKeyMap` reads it to leave the original out of the last
-        -- tier (`devdocs/which-action-a-key-runs.md` §6).
-        if (twin or DebindPrivate.NormalCastEnabled(action)) then
+        -- tier (`devdocs/which-action-a-key-runs.md` §6). The bare left and right click have no
+        -- original whatever the box says: it would hold the key and take the world click (§7).
+        if (twin or (DebindPrivate.NormalCastEnabled(action)
+                and not DebindPrivate.IsBareWorldClick(action.key))) then
             binding.normalCast = nil;
         else
             binding.normalCast = false;
@@ -1174,7 +1176,14 @@ do
     --- press (`HoverCastSkipped`).
     ---
     --- **Asked of no action it answers the account's mode**, which is what the settings tab shows.
+    ---
+    --- **The bare left and right click answer Unit Frames whatever the action or the tab says**
+    --- (`devdocs/which-action-a-key-runs.md` §7). The key is never held there, so a Mouseover twin
+    --- would have to take the world click to stand at all.
     function DebindPrivate.HoverCastMode(action)
+        if (action and DebindPrivate.IsBareWorldClick(action.key)) then
+            return "unitframe";
+        end
         local mode = CastingRow(action, "hoverCast").mode;
         if (mode == "unitframe" or mode == "mouseover") then
             return mode;
@@ -1345,7 +1354,10 @@ do
         end
 
         local pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
-        local focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
+        local focusTwin, selfTwin = false, false;
+        if (DebindPrivate.KeyTakesCastKeyTwins(action)) then
+            focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
+        end
 
         -- **Four values off is an action with no bindings at all** (`devdocs/which-action-a-key-runs.md`
         -- §6). It is not blocked: the issue check raises a WARNING and the row wears it, and the key
@@ -1379,15 +1391,6 @@ do
         -- "Cast as usual" keeps the twin and aims it where the original aims, so the action holds its
         -- turn in that tier without using the key's unit. Skip this action is the other value and it
         -- is answered above, where the twin is not made at all.
-        -- **개체창 위에서 눌리는 마우스 버튼에는 조합키 쌍둥이가 없다** (2026-09-16, 소유자;
-        -- `devdocs/which-action-a-key-runs.md` §7). 개체창 클릭은 조합키 칸이 늘 [없음]이라 1·2층을
-        -- 안 돌고, 그 액션은 키를 안 잡으므로 키 경로로도 그 누름이 안 온다. 받을 누름이 없는
-        -- 레코드라 만들면 솔버가 상자만 둘 더 세고, 키를 잡아 맨 왼쪽 클릭을 세상에서 가져간다.
-        if (DebindPrivate.GetMouseButtonAndPrefix(action.key)
-                and DebindPrivate.ActionUnitFrameIsOn(action)) then
-            focusTwin, selfTwin = false, false;
-        end
-
         local focusAim, selfAim = "focus", "player";
         if (DebindPrivate.ActionHasPickedUnit(action)) then
             focusAim, selfAim = original.unit, original.unit;
@@ -1818,26 +1821,34 @@ function DebindPrivate.RefreshGameMenuKeys()
     DebindPrivate.gmKey1, DebindPrivate.gmKey2 = GetBindingKey("TOGGLEGAMEMENU");
 end
 
---- "이 액션에 개체창 조건이 켜져 있는가"를 **액션에서 바로** 답한다.
+--- The bare left and right click. **Never held**: the only press Debind answers on them is a click on
+--- a unit frame, whatever the action's Cast Options say (`devdocs/which-action-a-key-runs.md` §7).
+function DebindPrivate.IsBareWorldClick(key)
+    return key == "BUTTON1" or key == "BUTTON2";
+end
+
+--- Whether this action runs over a unit frame and nowhere else, **read off the action**: the issue
+--- check asks it per row while the list is drawn, and going through `GetBindingInfoForAction` would
+--- rebuild the binding each time.
 ---
---- `UnitFrameConditionOf`를 쓰면 될 것 같지만, 아래 함수는 목록을 그릴 때 **행마다** 불린다 -
---- `GetBindingInfoForAction`을 거치면 그때마다 바인딩을 통째로 다시 만든다. 필요한 것은
---- 한 축뿐이라 여기서 읽는다.
+--- **Public because two places ask it and must agree**: whether the key is held (`BuildKeyMap`'s
+--- `KeysToHold`) and whether a mouse button carries cast key twins (`KeyTakesCastKeyTwins`).
 ---
---- 마이그레이션이 안 닿은 프로필(`action.hover`)도 `UnitFrameConditionFromLegacy`와 같은 답을
---- 내야 한다. 저장된 조건이 있으면 그쪽이 이긴다 - 접기가 교집합하는 것과 같은 순서다.
---- **공개다.** 세 자리가 이 한 물음을 쓴다: 왼/오른쪽 버튼 유효성(`IsKeyInvalidForAction`), 그 키를
---- 우리가 잡느냐(`BuildKeyMap`의 `KeysToHold`), 그리고 조합키 쌍둥이를 만드느냐
---- (`GetBindingsForAction`). 같은 물음에 답하는 자리가 둘이면 갈린다.
+--- A profile the migration has not reached (`action.hover`) answers what `UnitFrameConditionFromLegacy`
+--- would, and a stored condition wins over it.
 function DebindPrivate.ActionUnitFrameIsOn(action)
-    -- **개체창 위에서만 도는 액션은 조건 없이도 있다.** Normal Cast를 끄고 Hover Cast를 Unit
-    -- Frames로 둔 액션이 그것이고, 옛 개체창 조건 액션이 그 모양으로 옮겨 온다
-    -- (`devdocs/which-action-a-key-runs.md` §8). 조건만 보면 그 액션들이 마우스 왼/오른쪽 버튼에서
-    -- 통째로 빨개진다 - 조건이 안 적히는 것이 옮기기의 규칙이라 아무도 그것을 되돌릴 수 없다.
+    -- **The bare left and right click run over a frame or not at all** (§7). With Hover Cast skipped
+    -- nothing is left, and that is still nothing off a frame.
+    if (DebindPrivate.IsBareWorldClick(action.key)) then
+        return true;
+    end
+
+    -- **With no condition saying so.** Normal Cast off and Hover Cast on Unit Frames is that shape,
+    -- and the old unit frame condition actions are carried over as it with no condition written
+    -- (§8).
     --
-    -- **Normal Cast가 켜져 있으면 안 센다.** 그때는 원본이 개체창 밖의 누름을 받아 키를 잡으므로
-    -- (`PrepareKeyBindings`의 `holdsKey`), 맨 왼쪽 클릭이 세상에서 사라진다. 그것이 이 문장이
-    -- 막는 것이다.
+    -- **Not with Normal Cast on.** The original then takes the presses off the frame and holds the
+    -- key (`PrepareKeyBindings`' `holdsKey`).
     local casting = action.casting;
     if (casting and casting.normalCast == false
             and not DebindPrivate.HoverCastSkipped(action)
@@ -1849,18 +1860,24 @@ function DebindPrivate.ActionUnitFrameIsOn(action)
     if (condition == nil) then
         return action.hover == true;
     end
-    -- **접어서 본다.** 저장 원문에는 끈 조건도 남아 있어서 `{ exists = false }`도 `{ disabled = true }`도
-    -- 표라는 이유만으로 "켜짐"이 된다. 바인딩 쪽과 정반대 답을 내면 왼/우클릭 유효성이 뒤집힌다.
+    -- **Folded, not read raw.** The stored table keeps a condition that is turned off, and
+    -- `{ exists = false }` or `{ disabled = true }` is a table all the same.
     local folded = UnitConditionForBinding(condition);
     return folded ~= nil and folded ~= false;
 end
 
-function DebindPrivate.IsKeyInvalidForAction(action, key)
-    local unitFrameIsOn = DebindPrivate.ActionUnitFrameIsOn(action);
+--- Whether this action's key carries Self Cast Key and Focus Cast Key twins. **Not a mouse button
+--- that runs over a frame** (2026-09-16, owner; §7): a frame click never reads the cast modifiers
+--- and the action holds no key, so no press reaches them, and made anyway they held the key.
+--- `GetBindingsForAction` and the issue check both ask, and have to agree on what is left.
+function DebindPrivate.KeyTakesCastKeyTwins(action)
+    return not (DebindPrivate.GetMouseButtonAndPrefix(action.key)
+        and DebindPrivate.ActionUnitFrameIsOn(action));
+end
+
+function DebindPrivate.IsKeyInvalidForAction(_, key)
     if (key == DebindPrivate.gmKey1 or key == DebindPrivate.gmKey2) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
-    elseif ((key == "BUTTON1" or key == "BUTTON2") and not unitFrameIsOn) then
-        return Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON;
     end
 end
 
@@ -2235,9 +2252,13 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     if (Looking() and (not category or category == "casting") and notCategory ~= "casting") then
         if (binding.normalCast == false
                 and DebindPrivate.TwinUnitFor(action, binding) == nil
-                and not DebindPrivate.SelfCastEnabled(action)
-                and not DebindPrivate.FocusCastEnabled(action)) then
-            Report(Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "CASTING");
+                and not (DebindPrivate.KeyTakesCastKeyTwins(action)
+                    and (DebindPrivate.SelfCastEnabled(action) or DebindPrivate.FocusCastEnabled(action)))) then
+            if (DebindPrivate.IsBareWorldClick(action.key) and DebindPrivate.HoverCastSkipped(action)) then
+                Report(Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED, "CASTING");
+            else
+                Report(Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "CASTING");
+            end
         end
     end
 
