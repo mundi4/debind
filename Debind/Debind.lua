@@ -279,12 +279,6 @@ do
 				if (action.key and not action.arrivalID) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
-				end
-				-- **An action can come back with no binding at all**: every press it could have
-				-- answered is turned off in its Cast Options menu (`devdocs/which-action-a-key-runs.md`
-				-- §6). Nothing below runs for one, the key is not held on its account, and on that
-				-- key the action is not there.
-				if (binding) then
 
 					local key = action.key;
 					-- A key the game has claimed gets no override, and comes back when the claim ends.
@@ -296,7 +290,9 @@ do
 					-- **The key is held before anything below can leave the action out.** Every filter
 					-- under this one is the rebuild settling an answer early, and an answer settled
 					-- early must not hand the key back to the game: baked, the binding would lose every
-					-- press and the key would do nothing (2026-09-15, owner).
+					-- press and the key would do nothing (2026-09-15, owner). That includes an action
+					-- with no binding at all, every press turned off in its Cast Options menu
+					-- (`devdocs/which-action-a-key-runs.md` §6): the key is still held for it.
 					--
 					-- Three things still let the key go. An action that runs over a unit frame fires
 					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`,

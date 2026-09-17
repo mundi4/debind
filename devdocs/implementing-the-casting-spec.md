@@ -91,7 +91,9 @@
 - `UnrollIntoTiers`: 3층을 쌍둥이 레코드로 따로 정렬하던 것(`MakeOrderRecord`의 `binding` 인자, `HoverTwins`,
   `HoverTwinSortComparison`)을 없애고 원본 순서 그대로 편다. 원본과 같은 쌍둥이가 4층 원본을 덮는 것은 솔버가
   한다.
-- 이슈 검사에 `"casting"` 갈래. 넷을 다 끈 액션은 WARNING이고, 바인딩이 없어 키에 안 선다.
+- 이슈 검사에 `"casting"` 갈래. 넷을 다 끈 액션은 WARNING이고, 바인딩이 없어 키에 안 선다. **키는
+  그대로 잡는다.** 이 단계가 `BuildKeyMap`의 `KeysToHold` 기록을 바인딩 있는 액션 안에 넣어서, 키에 그
+  액션뿐이면 키가 게임으로 갔다. 2026-09-17에 밖으로 뺐다(스펙 S5 #42, #43, `eval_spec`).
 - 프레임 클릭 경로는 손댈 것이 없었다. 클릭캐스팅 갈래가 이미 `noneFrom`부터 끝까지 돌고, hover 쌍둥이가
   `CASTMOD_NONE`이라 그 구간이 3층과 4층이다. 가리키지 않은 누름에서 3층을 건너뛰는 것은 성능 항목이라
   안 넣었다.

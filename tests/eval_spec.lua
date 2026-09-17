@@ -1936,6 +1936,23 @@ return function(DebindPrivate, _, ctx)
             check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CASTING_NONE_LEFT,
                 "#41: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
         end);
+        Row(42, function()
+            Bind({ A({ casting = { normalCast = false, hoverCast = { aim = "skip" },
+                selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } }) });
+            check(_G.GetBindingAction("F1", true) == "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
+                    .. ":" .. Constants.CLICKTIME_BUTTON_PREFIX .. "F1",
+                "#42: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
+            check(DebindPrivate.IsKeyOurs("F1"), "#42: IsKeyOurs says no");
+            PointNothing();
+            Expect(42, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(43, function()
+            Bind({ A({ key = "BUTTON1", casting = { normalCast = false, hoverCast = { aim = "skip" },
+                selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } }) });
+            check((_G.GetBindingAction("BUTTON1", true) or "") == "",
+                "#43: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
+            check(not DebindPrivate.IsKeyOurs("BUTTON1"), "#43: IsKeyOurs says yes");
+        end);
 
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
         --- at `dbver` 6, so the ladder is what turns each old action into its new shape.
