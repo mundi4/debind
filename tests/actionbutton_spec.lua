@@ -214,24 +214,30 @@ return function(DebindPrivate, _, ctx)
             "a pet bar button lost its target");
     end);
 
-    -- The pet and stance rows draw what their own bar shows, not a main bar slot.
-    test("pet and stance rows take their icon from their own bar", function()
+    test("a row keeps the default icon whatever its bar shows", function()
+        local actionTexture = _G.GetActionTexture;
         local stanceIcon = _G.GetShapeshiftFormInfo;
         local petInfo = _G.GetPetActionInfo;
-        _G.GetShapeshiftFormInfo = function(i) if (i == 3) then return 136116, false, true, 768; end end
-        _G.GetPetActionInfo = function(i) if (i == 3) then return "PET_ACTION_ATTACK", "PET_ATTACK_TEXTURE", true; end end
+        _G.GetActionTexture = function() return 135932; end
+        _G.GetShapeshiftFormInfo = function() return 136116, false, true, 768; end
+        _G.GetPetActionInfo = function() return "PET_ACTION_ATTACK", "PET_ATTACK_TEXTURE", true; end
         _G.PET_ATTACK_TEXTURE = "Interface\\Icons\\Ability_GhoulFrenzy";
+        _G.BINDING_NAME_ACTIONBUTTON3 = "Action Button 3";
         _G.BINDING_NAME_SHAPESHIFTBUTTON3 = "Special Action Button 3";
         _G.BINDING_NAME_BONUSACTIONBUTTON3 = "Secondary Action Button 3";
 
-        local _, stance = DebindPrivate.DebindUI.NameAndIconForAction(
-            { type = Constants.ACTIONBUTTON, value = "SHAPESHIFTBUTTON3" });
-        local _, pet = DebindPrivate.DebindUI.NameAndIconForAction(
-            { type = Constants.ACTIONBUTTON, value = "BONUSACTIONBUTTON3" });
-        _G.GetShapeshiftFormInfo, _G.GetPetActionInfo = stanceIcon, petInfo;
+        local icons = {};
+        for _, value in ipairs({ "ACTIONBUTTON3", "SHAPESHIFTBUTTON3", "BONUSACTIONBUTTON3" }) do
+            local _, icon = DebindPrivate.DebindUI.NameAndIconForAction(
+                { type = Constants.ACTIONBUTTON, value = value });
+            icons[value] = icon;
+        end
+        _G.GetActionTexture, _G.GetShapeshiftFormInfo, _G.GetPetActionInfo =
+            actionTexture, stanceIcon, petInfo;
 
-        check(stance == 136116, "stance icon " .. tostring(stance));
-        check(pet == "Interface\\Icons\\Ability_GhoulFrenzy", "pet icon " .. tostring(pet));
+        for value, icon in pairs(icons) do
+            check(icon == "A:NPE_Icon", value .. " icon " .. tostring(icon));
+        end
     end);
 
     -- The row says what the client's own keybinding panel says.
