@@ -20,6 +20,20 @@ When a unit is chosen under |cnBLUE_FONT_COLOR:Target|r, the first answer on eac
 Clicking a unit frame does not use the Self Cast Key or the Focus Cast Key. A key held on the click picks the binding you made for that exact combination, so the click still goes to the frame's unit.
 ]==]
 
+L["HELP_CUSTOM_MACRO_TITLE"] = "Which extra units can a Custom Macro aim at?"
+L["HELP_CUSTOM_MACRO_BODY"] = [==[
+A |cnBLUE_FONT_COLOR:Custom Macro|r can aim at these units, which a macro in the game's own list cannot. Write them like any other unit, as in /cast [@tank,exists] Rejuvenation; Regrowth.
+
+- |cnHIGHLIGHT_FONT_COLOR:@tank, @healer, @maintank, @mainassist.|r The member of your group who holds that role, only while exactly one member holds it. Debind's settings can leave you out of each.
+- |cnHIGHLIGHT_FONT_COLOR:@custom1, @custom2.|r The unit you pinned with |cnBLUE_FONT_COLOR:Set Custom Target|r.
+- |cnHIGHLIGHT_FONT_COLOR:@unitframe.|r The unit on the unit frame you press the key over.
+- |cnHIGHLIGHT_FONT_COLOR:@@.|r The unit this press aims at: you while the Self Cast Key is held, your focus while the Focus Cast Key is held, and the unit you point at with |cnBLUE_FONT_COLOR:Hover Cast|r. With none of these it is as if it were not written.
+
+A unit nobody holds counts as not existing, so add exists to go on to the next part of the line. Target and pet can follow a name, as in @tanktarget, except after @@.
+
+Write them in lower case, with @, in the brackets that open each part of a line. Anywhere else they are left as plain text.
+]==]
+
 L["HELP_ORDERING_TITLE"] = "Which action does a key run?"
 L["HELP_ORDERING_BODY"] = [==[
 A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing.

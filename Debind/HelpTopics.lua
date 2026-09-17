@@ -10,6 +10,7 @@ DebindPrivate.HELP_SECTIONS = {
             { name = "targeting", title = "HELP_TARGETING_TITLE", body = "HELP_TARGETING_BODY" },
             { name = "cast-options", title = "HELP_CAST_OPTIONS_TITLE", body = "HELP_CAST_OPTIONS_BODY" },
             { name = "picking-a-pointed-unit", title = "HELP_PICKING_A_POINTED_UNIT_TITLE", body = "HELP_PICKING_A_POINTED_UNIT_BODY" },
+            { name = "custom-macro", title = "HELP_CUSTOM_MACRO_TITLE", body = "HELP_CUSTOM_MACRO_BODY" },
         },
     },
 };
