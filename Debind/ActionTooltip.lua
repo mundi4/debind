@@ -170,9 +170,6 @@ do
 
 	--- The names a mask has switched on, comma-joined onto one line.
 	---
-	--- **The empty mask gets a word instead of a list.** It is not a list of nothing: it is the one
-	--- state nothing can satisfy, so it gets a word a reader can catch.
-	---
 	--- One `prefix` addresses both tables -- the flag is `Constants[prefix .. name]` and the word
 	--- is `LLL[prefix .. name]` -- which holds because the two are keyed alike by construction.
 	local function FlagNames(mask, names, prefix, all)
@@ -181,10 +178,11 @@ do
 		-- into the other before a binding is built (`Misc.lua`), and `frameTypes` is not written
 		-- as an attribute either (`UpdateBindings.lua`). A line for it says a condition is at work
 		-- where none is.
-		if (mask == all) then
+		--
+		-- **Nil for the empty mask too.** The issue check's sentence says an empty axis, in the
+		-- place its line would stand (`UnitRowIssues`); a word here as well said it twice.
+		if (mask == all or mask == 0) then
 			return nil;
-		elseif (mask == 0) then
-			return LLL["NOT_SELECTED"];
 		end
 
 		local s = "";
@@ -210,27 +208,45 @@ do
 	end
 
 	--- The two axes only a unit frame can answer, each on its own labelled line under the unit's.
+	--- `said` carries a problem for either axis, and the problem's sentence stands where that axis's
+	--- line would.
 	---
 	--- **Not joined onto the unit's line like the others.** Both are lists of names long enough that
 	--- a joined line wraps somewhere arbitrary.
-	local function AddUnitFrameAxes(tooltip, value)
+	---
+	--- **No role line without party or raid frames.** A role is only measured on those
+	--- (`Misc.lua`'s `RoleMeasuredUnder`), so there it narrows nothing, which is also why the menu
+	--- locks it.
+	local function AddUnitFrameAxes(tooltip, value, said)
 		if (type(value) ~= "table") then
 			return;
 		end
-		if (value.frameTypes ~= nil) then
+		if (said.frameTypes) then
+			addIssueLine(tooltip, said.frameTypes, true);
+		elseif (value.frameTypes ~= nil) then
 			local names = FlagNames(value.frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_",
 				Constants.FRAMETYPE_ALL);
 			if (names) then
 				addValueLine(tooltip, LabelledValue(LLL["CONDITION_FRAMETYPES"], names), nil, true);
 			end
 		end
-		if (value.role ~= nil) then
+		if (said.role) then
+			addIssueLine(tooltip, said.role, true);
+		elseif (value.role ~= nil and (value.frameTypes == nil
+				or bit.band(value.frameTypes, Constants.FRAMETYPE_GROUP) ~= 0)) then
 			local names = FlagNames(value.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL);
 			if (names) then
 				addValueLine(tooltip, LabelledValue(LLL["CONDITION_ROLE"], names), nil, true);
 			end
 		end
 	end
+
+	--- Which unit row problem is said at an axis's own line rather than under the unit's.
+	local AXIS_OF_ISSUE = {
+		[Constants.BINDING_ISSUE_HOVER_NONE_SELECTED] = "frameTypes",
+		[Constants.BINDING_ISSUE_ROLES_NONE_SELECTED] = "role",
+		[Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES] = "role",
+	};
 
 	--- What one unit condition narrows, joined onto the unit's own line: "Focus - Enemy, Alive".
 	--- Nil where it narrows nothing, and the caller writes "when the unit exists" instead.
@@ -496,6 +512,32 @@ do
 			addValueLine(tooltip, unitStr, error);
 		end
 
+		--- Every problem one unit row has, **all of them and each said once**: the ones about an
+		--- axis with a line of its own go to that line (`AXIS_OF_ISSUE`), the rest under the unit's
+		--- line. Asked of one unit, since a contradiction on one unit read on every unit's line
+		--- sends the reader to edit a condition that was never wrong.
+		local function UnitRowIssues(unit)
+			local under, said = {}, {};
+			if (hasIssues) then
+				for _, issue in ipairs(DebindPrivate.GetBindingIssues(action, "units", unit)) do
+					local axis = AXIS_OF_ISSUE[issue.code];
+					if (axis) then
+						said[axis] = issue.code;
+					else
+						under[#under + 1] = issue.code;
+					end
+				end
+			end
+			return under, said;
+		end
+
+		local function addUnitLine(text, under)
+			addValueLine(tooltip, text);
+			for i = 1, #under do
+				addIssueLine(tooltip, under[i], nil, LEFT_OFFSET + INDENT_STEP);
+			end
+		end
+
 		if (conditions.units) then
 			local first = true;
 
@@ -504,13 +546,13 @@ do
 			if (resolved ~= nil) then
 				addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 				first = false;
-				local error = hasIssues and GetIssue("units", "@");
+				local under, said = UnitRowIssues("@");
 				if (resolved == false) then
-					addValueLine(tooltip, LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
+					addUnitLine(LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], under);
 				else
-					addValueLine(tooltip, LLL["RESOLVED_TARGET"] .. " - "
-						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]), error);
-					AddUnitFrameAxes(tooltip, resolved);
+					addUnitLine(LLL["RESOLVED_TARGET"] .. " - "
+						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]), under);
+					AddUnitFrameAxes(tooltip, resolved, said);
 				end
 			end
 
@@ -536,24 +578,18 @@ do
 						first = false;
 					end
 
-					-- **Asked of this unit, not of the block.** One `GetIssue("units")` for the whole
-					-- loop put one unit's contradiction on every line under the heading, so a unit
-					-- that had nothing to do with it read as broken and the sentence repeated once
-					-- per row. The fourth argument is what narrows the answer to one unit; the unit
-					-- submenus have always asked that way (`Misc.lua`).
-					local error = hasIssues and GetIssue("units", checkedUnit);
+					local under, said = UnitRowIssues(checkedUnit);
 					local unitStr = UNIT_INFO[checkedUnit].name;
 					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
 					-- line says whether the unit has to be there, and each constrained axis adds
 					-- a line below it in the shape the unit frame block already uses. A new axis is
 					-- one more branch here.
 					if (value == false) then
-						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
+						addUnitLine(unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], under);
 					else
 						local summary = UnitConditionSummary(value);
-						addValueLine(tooltip, unitStr .. " - "
-							.. (summary or LLL["CONDITION_UNIT_EXISTS"]), error);
-						AddUnitFrameAxes(tooltip, value);
+						addUnitLine(unitStr .. " - " .. (summary or LLL["CONDITION_UNIT_EXISTS"]), under);
+						AddUnitFrameAxes(tooltip, value, said);
 					end
 				end
 			end
@@ -597,10 +633,16 @@ do
 			conditions.units and conditions.units.player);
 		if (selfCondition) then
 			local summary = UnitConditionSummary(selfCondition);
-			if (summary) then
+			local under = UnitRowIssues("player");
+			if (summary or #under > 0) then
 				addLabelLine(tooltip, LLL["CONDITION_LIFE"]);
-				addValueLine(tooltip, summary,
-					hasIssues and GetIssue("units", "player") and true or false);
+				if (summary) then
+					addUnitLine(summary, under);
+				else
+					for i = 1, #under do
+						addIssueLine(tooltip, under[i]);
+					end
+				end
 			end
 		end
 

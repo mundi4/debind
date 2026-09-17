@@ -41,6 +41,7 @@ L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "선택된 그룹 종류가 없습니�
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "선택된 개체창 종류가 없습니다."
 L["BINDING_ERROR_REACTIONS_NONE_SELECTED"] = "선택된 반응이 없습니다."
 L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "선택된 역할이 없습니다."
+L["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"] = "선택된 역할이 없어서 파티/공격대 개체창에서는 실행되지 않습니다."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "선택된 소속이 없습니다."
 L["BINDING_ERROR_KNOWN_NAME_UNPARSABLE"] = "이 주문의 이름은 이 조건에 쓸 수 없습니다. 다른 주문을 고르거나 조건을 끄십시오."
 L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "선택된 전문화가 없습니다."
@@ -225,9 +226,9 @@ L["UNITGROUP_NONE"] = "내 그룹이 아님"
 L["UNITGROUP_PARTY"] = "내 파티에 있음"
 L["UNITGROUP_RAID"] = "내 공대에 있음"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
-L["MARK_TOOLTIP_ISSUE_DESC"] = "문제를 해결하기 전까지 이 액션은 무시됩니다."
+L["MARK_TOOLTIP_ISSUE_DESC"] = "문제를 해결하기 전까지 이 액션은 동작하지 않습니다."
 L["MARK_TOOLTIP_CONDITIONAL"] = "지정된 조건이 맞을 때만 실행됩니다."
-L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "Debind는 이 액션을 키에 그대로 두므로, 같은 키의 뒤 액션이 대신 실행되지 않습니다."
+L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "이 액션은 그대로 실행되지만, 지시한 것 하나가 동작하지 않습니다."
 L["LINE_TOOLTIP_IMPORTED"] = "문자열로 받아온 것입니다. 받아들이기 전까지는 어떤 키에도 걸리지 않습니다."
 -- 키를 지정한다는 말이 빠진 이유는 enUS 쪽 주석에.
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "왼쪽 클릭하면 이 행동을 선택합니다. CTRL이나 SHIFT를 누른 채 클릭하면 여러 개를 고를 수 있습니다."
@@ -262,7 +263,6 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "이 레이어에는 행동이 없습니다. 주
 -- 근거는 enUS 쪽 주석에.
 L["NO_SEARCH_RESULTS"] = "검색과 맞는 것이 없습니다."
 L["NO_SHAPESHIFT"] = "변신하지 않음"
-L["NOT_SELECTED"] = "선택 안 됨"
 -- 문제마다 하나씩 있던 짧은 문구는 걷어냈다. 근거는 enUS 쪽 주석에.
 L["ORDER_FLAG_ISSUE"] = "고쳐야 함"
 L["ORDER_FLAG_ISSUE_WARNING"] = "확인 필요"

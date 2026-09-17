@@ -509,16 +509,17 @@ end
 ---
 --- The cover that splits into the fewest pieces is picked, which prunes hardest.
 ---
---- A degenerate box -- some column at 0, meaning the condition can never hold -- falls out of
---- both roles on the disjointness test, which is the right answer either way: as a region it
---- meets no cover and survives, as a cover it meets no region and deletes nothing. Strictly
---- such a binding *is* unreachable and could be dropped, but a silent deletion and a warning
---- are different products, and the warning is the issue check's.
+--- A degenerate box -- some column at 0 -- falls out of both roles on the disjointness test: as a
+--- region it meets no cover and survives, as a cover it meets no region and deletes nothing.
 ---
---- **Such a box should not arrive here at all.** `BuildKeyMap` leaves off the key every binding
---- `FillBinding` marked `dead` and every action carrying an ERROR, `groups == 0` among them. The
---- behaviour above is a backstop, and it is one on purpose: assuming an upstream filter held is the
---- shape of coupling this file has been bitten by before.
+--- **One such box arrives on purpose: a role column at 0 from a row with no role picked, beside
+--- frame types other than party and raid frames** (`Misc.lua`'s `RoleLeavesNothing`). A role is only
+--- measured on those frames, so the binding still runs over the rest, which this column cannot say.
+--- Falling out of both roles is the safe answer for it: it deletes nothing it does not cover, and
+--- nothing deletes it. Every other zero is left off the key before it gets here (`dead`, and the
+--- issues whose outcome is not KEEP); the behaviour above is a backstop for those, and it is one on
+--- purpose: assuming an upstream filter held is the shape of coupling this file has been bitten by
+--- before.
 ---
 local _workBudget = 0;
 local _nodeCount = 0;

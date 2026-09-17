@@ -119,7 +119,6 @@ L["KEEP_IN_BINDING_CONTEXT_DESC"] = "Пока редактор дома откр
 L["KEEP_IN_BINDING_CONTEXT"] = "Переопределить редактор дома"
 L["KEY"] = "Клавиша"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
-L["MARK_TOOLTIP_ISSUE_DESC"] = "Debind не учитывает это действие, пока проблема не устранена."
 L["MARK_TOOLTIP_CONDITIONAL"] = "Срабатывает, только когда выполняются заданные условия."
 -- 키를 지정한다는 말이 빠진 이유는 enUS 쪽 주석에.
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Левый клик, чтобы выбрать это действие. Удерживайте CTRL или SHIFT при клике, чтобы выбрать несколько."
@@ -135,7 +134,6 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "В этой вкладке нет действ�
 -- 근거는 enUS 쪽 주석에.
 L["NO_SEARCH_RESULTS"] = "Здесь нет ничего, что соответствует запросу."
 L["NO_SHAPESHIFT"] = "Без перевоплощения"
-L["NOT_SELECTED"] = "Не выбрано"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"

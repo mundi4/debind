@@ -66,6 +66,12 @@ return function(DebindPrivate, _, ctx)
     DebindPrivate.RegisterFrame(unitFrame, "group");
     unitFrame:SetAttribute("unit", "party1");
 
+    --- A frame that is not a party or raid frame, for the role cases: the role is only measured on
+    --- those, so this one is where a role condition has no say.
+    local playerFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
+    DebindPrivate.RegisterFrame(playerFrame, "player");
+    playerFrame:SetAttribute("unit", "player");
+
     local seq = 0;
     --- One action, in the shape the profile stores. `seq` runs on its own so the order actions
     --- are written in is the order they sit in the layer.
@@ -2036,6 +2042,42 @@ return function(DebindPrivate, _, ctx)
             PointNothing();
             Expect("move 35", { Press("BUTTON4", nil, "unitframe") }, { "A", nil, "original" });
         end);
+
+        -----------------------------------------------------------------------
+        -- No role picked (`devdocs/legacy/reorganizing-binding-issues.md` §3-6)
+        --
+        -- **A role is only measured on a party or raid frame.** Everywhere else the condition has no
+        -- say, so an empty one stops the action on those frames and nowhere else. Asked of the press
+        -- itself, since what the issue check and the binding decide has to agree with it.
+        -----------------------------------------------------------------------
+
+        --- A frame click on `frame`, answered with the spell's name or nil.
+        local function ClickOn(frame)
+            local button = interp:evalClickCast(frame, 3, 0);
+            if (not button) then
+                return nil;
+            end
+            return DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(button));
+        end
+
+        local function RoleRow(name, frameTypes, onParty, onPlayer)
+            Row("role: " .. name, function()
+                Bind({ A({ key = "BUTTON3", conditions = { units = { unitframe = {
+                    role = 0, frameTypes = frameTypes } } } }) });
+                shim.world.units.party1 = FRIEND;
+                interp.env.UnitRoles = { party1 = "tank" };
+                local party, player = ClickOn(unitFrame), ClickOn(playerFrame);
+                interp.env.UnitRoles = false;
+                check(party == onParty, name .. ": over the party frame fired " .. tostring(party));
+                check(player == onPlayer, name .. ": over the player frame fired " .. tostring(player));
+            end);
+        end
+
+        RoleRow("no role, every frame type", nil, nil, "A");
+        RoleRow("no role, player and party frames", Constants.FRAMETYPE_PLAYER + Constants.FRAMETYPE_GROUP,
+            nil, "A");
+        RoleRow("no role, no party frames", Constants.FRAMETYPE_PLAYER, nil, "A");
+        RoleRow("no role, party frames only", Constants.FRAMETYPE_GROUP, nil, nil);
     end
 
     return T;

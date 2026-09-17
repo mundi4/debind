@@ -1555,14 +1555,18 @@ local function mergeUnitConditions(a, b)
         return NEVER;
     end
 
+    -- **Only two picked sets that do not meet are NEVER.** A row with no role picked is already
+    -- empty and still runs over every frame that is not a party or raid frame, which is the only
+    -- kind a role is measured on (`Misc.lua`'s `RoleLeavesNothing`); meeting it keeps that.
     local role = a.role;
     if (role == nil) then
         role = b.role;
     elseif (b.role ~= nil) then
-        role = band(role, b.role);
-        if (role == 0) then
+        local met = band(role, b.role);
+        if (met == 0 and role ~= 0 and b.role ~= 0) then
             return NEVER;
         end
+        role = met;
     end
 
     local frameTypes = a.frameTypes;

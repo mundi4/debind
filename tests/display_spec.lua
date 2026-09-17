@@ -202,6 +202,112 @@ return function(DebindPrivate)
             "the reader's own life line was marked for another unit's contradiction");
     end);
 
+    ---------------------------------------------------------------------------
+    -- An axis with nothing picked is said once (`devdocs/legacy/reorganizing-binding-issues.md` §3-6)
+    --
+    -- **The sentence stands where the axis's own line would**, and the value is not drawn beside it.
+    -- The two used to come from two pieces of code that did not know about each other, so the same
+    -- empty axis was said as "Not Selected" and again as a sentence under the unit's line.
+    ---------------------------------------------------------------------------
+
+    --- The tooltip's lines, in order, with the index of the first that contains `text`.
+    local function Lines(row)
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddActionToTooltip(tooltip, row.action, { suppressInactive = true });
+        local texts = {};
+        for i = 1, #tooltip.lines do
+            texts[i] = tooltip.lines[i].text or "";
+        end
+        local function at(text)
+            for i = 1, #texts do
+                if (texts[i]:find(text, 1, true)) then
+                    return i;
+                end
+            end
+        end
+        local function count(text)
+            local n = 0;
+            for i = 1, #texts do
+                if (texts[i]:find(text, 1, true)) then
+                    n = n + 1;
+                end
+            end
+            return n;
+        end
+        return at, count, table.concat(texts, "\n"), texts;
+    end
+
+    --- The start of a labelled axis line (`LabelledValue` in `ActionTooltip.lua`), whatever its axis.
+    local LABELLED = "|cnWHITE_FONT_COLOR:";
+
+    local function unitFrameRow(condition, key)
+        Bind({ { type = Constants.SPELL, value = 585, key = key or "BUTTON3", seq = 1,
+            conditions = { units = condition } } }, {});
+        local row = DebindPrivate.CollectActionsForKey(key or "BUTTON3")[1];
+        check(row, "the action is not on the key");
+        return row;
+    end
+
+    test("no role with party frames only is said once, where the role line would be", function()
+        local at, count, text = Lines(unitFrameRow({ unitframe = {
+            frameTypes = Constants.FRAMETYPE_GROUP, role = 0 } }));
+        local sentence = LLL["BINDING_ERROR_ROLES_NONE_SELECTED"];
+        check(count(sentence) == 1, "the sentence came out " .. count(sentence) .. " times:\n" .. text);
+        check(count(LLL["CONDITION_ROLE"] .. ":") == 0, "the empty value was drawn too:\n" .. text);
+        check(at(LLL["CONDITION_FRAMETYPES"] .. ":") < at(sentence), "the sentence is above the frame types:\n" .. text);
+    end);
+
+    test("no role beside other frame types is said once, where the role line would be", function()
+        local at, count, text = Lines(unitFrameRow({ unitframe = {
+            frameTypes = Constants.FRAMETYPE_GROUP + Constants.FRAMETYPE_PLAYER, role = 0 } }));
+        local sentence = LLL["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"];
+        check(count(sentence) == 1, "the sentence came out " .. count(sentence) .. " times:\n" .. text);
+        check(count(LLL["CONDITION_ROLE"] .. ":") == 0, "the empty value was drawn too:\n" .. text);
+        check(at(LLL["CONDITION_FRAMETYPES"] .. ":") < at(sentence), "the sentence is above the frame types:\n" .. text);
+    end);
+
+    -- **Without party or raid frames the role narrows nothing**, the way the menu locks it there.
+    test("a role without party or raid frames draws nothing", function()
+        local _, count, text = Lines(unitFrameRow({ unitframe = {
+            frameTypes = Constants.FRAMETYPE_PLAYER, role = Constants.ROLE_TANK } }));
+        check(count(LLL["CONDITION_ROLE"] .. ":") == 0, "the role line was drawn:\n" .. text);
+        check(count(LLL["ROLE_TANK"]) == 0, "the role was drawn:\n" .. text);
+    end);
+
+    -- The other half: with party frames a picked role is an ordinary value line.
+    test("a role with party or raid frames is drawn as its value", function()
+        local _, count, text = Lines(unitFrameRow({ unitframe = {
+            frameTypes = Constants.FRAMETYPE_GROUP, role = Constants.ROLE_TANK } }));
+        check(count(LLL["CONDITION_ROLE"] .. ":") == 1, "the role line is missing:\n" .. text);
+    end);
+
+    test("no frame type is said once, where the frame type line would be", function()
+        local at, count, text, texts = Lines(unitFrameRow({ unitframe = { frameTypes = 0 } }));
+        local sentence = LLL["BINDING_ERROR_HOVER_NONE_SELECTED"];
+        check(count(sentence) == 1, "the sentence came out " .. count(sentence) .. " times:\n" .. text);
+        -- **Whatever word it would be drawn in**: no axis line at all stands beside the sentence.
+        check(count(LABELLED) == 0, "an axis line was drawn beside the sentence:\n" .. text);
+        check(texts[at(sentence) - 1] == LLL["UNIT_HOVER"] .. " - " .. LLL["CONDITION_UNIT_EXISTS"],
+            "the unit's line carries something more:\n" .. text);
+    end);
+
+    test("no reaction is said once, under the unit's line", function()
+        local at, count, text, texts = Lines(unitFrameRow({ focus = { reaction = 0 } }, "F1"));
+        local sentence = LLL["BINDING_ERROR_REACTIONS_NONE_SELECTED"];
+        check(count(sentence) == 1, "the sentence came out " .. count(sentence) .. " times:\n" .. text);
+        -- **The whole line**, so any word for the empty reaction joined onto it fails here.
+        check(texts[at(sentence) - 1] == LLL["UNIT_FOCUS"] .. " - " .. LLL["CONDITION_UNIT_EXISTS"],
+            "the sentence is not under a unit line that says nothing more:\n" .. text);
+    end);
+
+    -- **Two axes empty on one unit are two sentences.** The unit's line used to carry the first issue
+    -- the check folded to, and the second was not said anywhere.
+    test("two empty axes on one unit are both said", function()
+        local _, count, text = Lines(unitFrameRow({ unitframe = { reaction = 0, frameTypes = 0 } }));
+        check(count(LLL["BINDING_ERROR_REACTIONS_NONE_SELECTED"]) == 1, "the reaction is not said:\n" .. text);
+        check(count(LLL["BINDING_ERROR_HOVER_NONE_SELECTED"]) == 1, "the frame types are not said:\n" .. text);
+    end);
+
     --- **Cast as usual is drawn on an action that has a target of its own.** The line used to be
     --- gated on the action having none, on the grounds that the value only kept a unit out of an
     --- empty slot; it also aims the twin where the original aims (`Misc.lua`'s `TwinUnitFor`),
@@ -244,7 +350,7 @@ return function(DebindPrivate)
     --- **Every press turned off is said under Cast Options, right under the key, as a reason the row
     --- does not run.** Not in an issue's colour: the reader may mean it, and a mark they can only clear
     --- by turning a press back on is a mark they cannot clear
-    --- (`devdocs/reorganizing-binding-issues.md` §3-3).
+    --- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
     test("all four Cast Options off draws the block under the key with the reason in it", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,

@@ -1071,7 +1071,7 @@ function DebindLineMixin:Update()
 	-- The same two marks the group heading carries, on the row they came from. The heading is a
 	-- summary and cannot say which row it meant, least of all while folded.
 	local grade;
-	if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
+	if (DebindPrivate.IsIssueError(issue)) then
 		grade = "error";
 	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
 		grade = "warning";
@@ -4782,14 +4782,10 @@ function BuildKeyboardElements()
 		local hasWarning = false;
 		for i = 1, #rows do
 			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
-				-- **Only what stops the key is the loud one.** A row that fires with one thing
-				-- missing is not something to go and fix on this key -- the key works -- so it
-				-- gets the quieter mark rather than the same one a dead key gets.
-				--
 				-- **Without a `break` on the warning**: an error further down still has to be
 				-- found, since it is the one that decides which mark goes up.
 				local issue = rows[i].issue;
-				if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
+				if (DebindPrivate.IsIssueError(issue)) then
 					hasError = true;
 					break;
 				elseif (issue and DebindPrivate.IsIssueWarning(issue)) then

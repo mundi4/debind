@@ -278,10 +278,11 @@ do
 				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
 				-- accepting is the moment a key starts working, where it used to leave the set
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
-				local binding, list, yielded;
+				local binding, list, yielded, outcome;
 				if (action.key and not action.arrivalID) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
+					outcome = DebindPrivate.GetIssueOutcome(action);
 
 					local key = action.key;
 					-- A key the game has claimed gets no override, and comes back when the claim ends.
@@ -299,13 +300,13 @@ do
 					--
 					-- Three things still let the key go. An action that runs over a unit frame fires
 					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`, which
-					-- the bare left and right click always answer yes); a yielded key is the game's; and a
-					-- `key` issue says this key cannot be taken at all, where the game menu key would
-					-- take Escape with it.
+					-- the bare left and right click always answer yes); a yielded key is the game's; and an
+					-- issue whose outcome is RELEASE says this key cannot be taken at all, where the game
+					-- menu key would take Escape with it.
 					if (not yielded
 							and not (DebindPrivate.ActionUnitFrameIsOn(action)
 								and DebindPrivate.GetMouseButtonAndPrefix(key))
-							and not DebindPrivate.GetBindingIssue(action, "key")) then
+							and outcome ~= Constants.ISSUE_OUTCOME_RELEASE) then
 						KeysToHold[key] = true;
 					end
 				end
@@ -335,14 +336,10 @@ do
 						action, layerRank, nil, Placements[binding]);
 
 					local key = action.key;
-					local issue = DebindPrivate.GetBindingIssue(action);
-					-- **Only an ERROR keeps the action off its key.** That is what the grades mean
-					-- (`Constants.BINDING_ISSUE_GRADES`), and this gate read `not issue` until the
-					-- first WARNING code arrived (the hover twin lost to Clique, since retired):
-					-- measured then, `KeyMap` came out with no record for that key at all, so an
-					-- action that was to lose the aiming over frames and nothing else fired on no
-					-- unit whatever.
-					if ((not issue or DebindPrivate.IssueKeepsKey(issue)) and not yielded) then
+					-- **The issue's outcome decides, never its grade** (`Constants.BINDING_ISSUE_OUTCOMES`).
+					-- The gate read the grade, which made a retired type orange so that its block kept
+					-- the key.
+					if ((outcome == nil or outcome == Constants.ISSUE_OUTCOME_KEEP) and not yielded) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};
 							local button, buttonPrefix = DebindPrivate.GetMouseButtonAndPrefix(key);

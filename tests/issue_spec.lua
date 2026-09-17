@@ -1,6 +1,7 @@
 -- `GetBindingIssue`, branch by branch. No WoW client needed.
 --
--- Why it is dangerous: an action carrying an ERROR does not reach `KeyMap` at all (`Debind.lua`).
+-- Why it is dangerous: most issues leave their action out of `KeyMap` altogether
+-- (`Constants.BINDING_ISSUE_OUTCOMES`).
 -- **A false positive here is not a drawing bug, it is a key that does nothing**, and a missed
 -- contradiction is a binding that quietly never fires.
 --
@@ -755,13 +756,6 @@ return function(DebindPrivate)
         check(GetBindingIssue(command, "key") == nil, "the key box goes red");
     end);
 
-    -- **A WARNING, not an ERROR.** An ERROR leaves the action out of `KeyMap`, no block stands where
-    -- it was, and the action after it on the key fires instead.
-    test("the retired type keeps its key", function()
-        check(DebindPrivate.IssueKeepsKey(Constants.BINDING_ISSUE_TYPE_RETIRED),
-            "the action leaves the key");
-    end);
-
     test("the action button action that replaced a command is not reported", function()
         local action = { type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON3", key = "F1" };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
@@ -814,7 +808,7 @@ return function(DebindPrivate)
     --- **Party and raid are not split, and that took measuring.** Main tank and main assist are
     --- assigned in a raid, but the assignment survives converting the group down -- in a party
     --- `GetPartyAssignment("MAINTANK", "party1")` still answers true. Calling them raid-only would
-    --- have put `CONDITIONS_NEVER` on a binding that fires, and an action carrying an issue is left
+    --- have put `CONDITIONS_NEVER` on a binding that fires, and an action carrying that code is left
     --- out of `KeyMap` entirely (`Debind.lua`): the key would have died rather than gone yellow.
     local ROLE_UNITS = { "tank", "healer", "maintank", "mainassist" };
 
@@ -895,7 +889,7 @@ return function(DebindPrivate)
     --- wrong where it was set, which is what makes it this check's job rather than the reader's.
     ---
     --- A false negative here is a binding that presses and does nothing for good. A false positive
-    --- is worse: an action carrying an issue is left out of `KeyMap` entirely (`Debind.lua`), so
+    --- is worse: an action carrying that code is left out of `KeyMap` entirely (`Debind.lua`), so
     --- the key dies rather than going yellow.
     local SKY = 2 ^ Constants.BONUSBAR_SKYRIDING;
 
@@ -1054,6 +1048,7 @@ return function(DebindPrivate)
 
     local REACTIONS_NONE = Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED;
     local ROLES_NONE = Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
+    local ROLES_ON_GROUP = Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
 
     --- Per row: the whole action, `units`, each unit row asked on its own, `unit` (the root Target),
     --- and `groups` and `casting` where the table fills them in. `false` stands for nil so a column
@@ -1089,7 +1084,7 @@ return function(DebindPrivate)
             casting = false },
         [22] = { all = UNITGROUPS_NONE, units = UNITGROUPS_NONE,
             rows = { focus = UNITGROUPS_NONE, target = false }, unit = false },
-        [23] = { all = ROLES_NONE, units = ROLES_NONE, rows = { unitframe = ROLES_NONE }, unit = false },
+        [23] = { all = ROLES_ON_GROUP, units = ROLES_ON_GROUP, rows = { unitframe = ROLES_ON_GROUP }, unit = false },
         [24] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER, ["@"] = false, target = false },
             unit = false, groups = NEVER },
         [25] = { all = false, units = false, rows = { target = false }, unit = false },
@@ -1141,7 +1136,7 @@ return function(DebindPrivate)
 
     -- #18 carries one fault and one choice. **The choice is not reported next to the fault**: every
     -- press turned off is something the reader may mean, and a mark they can only clear by turning
-    -- a press back on is a mark they cannot clear (`devdocs/reorganizing-binding-issues.md` §2-3).
+    -- a press back on is a mark they cannot clear (`devdocs/legacy/reorganizing-binding-issues.md` §2-3).
     test("§4 #18: only the empty reaction is reported", function()
         local action = require("answer_rows")(Constants)[18].action();
         local issues = GetBindingIssues(action);
@@ -1150,7 +1145,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- An action with no binding left (`devdocs/reorganizing-binding-issues.md` §3-3)
+    -- An action with no binding left (`devdocs/legacy/reorganizing-binding-issues.md` §3-3)
     --
     -- **What the reader chose is not an issue; what two menus contradict is.** Both leave the list
     -- empty. Every press turned off, or Hover Cast skipped on the bare click, is said as a reason
@@ -1243,22 +1238,84 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- One code per empty axis of a unit row (`devdocs/reorganizing-binding-issues.md` §3-4)
+    -- One code per empty axis of a unit row (`devdocs/legacy/reorganizing-binding-issues.md` §3-4)
     ---------------------------------------------------------------------------
 
+    local ROLES_ON_GROUP_FRAMES = Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
+    local GROUP, PLAYER = Constants.FRAMETYPE_GROUP, Constants.FRAMETYPE_PLAYER;
+
+    local function unitFrameIssue(row, category)
+        return GetBindingIssue({ type = Constants.SPELL, value = 585, key = "F1",
+            conditions = { units = { unitframe = row } } }, category);
+    end
+
     test("no reaction and no role each have their own code, and frame types keep theirs", function()
-        local function issueOf(row)
-            return GetBindingIssue({ type = Constants.SPELL, value = 585, key = "F1",
-                conditions = { units = { unitframe = row } } });
-        end
-        check(issueOf({ reaction = 0 }) == REACTIONS_NONE, "reaction: " .. tostring(issueOf({ reaction = 0 })));
-        check(issueOf({ role = 0 }) == ROLES_NONE, "role: " .. tostring(issueOf({ role = 0 })));
-        check(issueOf({ frameTypes = 0 }) == Constants.BINDING_ISSUE_HOVER_NONE_SELECTED,
-            "frame types: " .. tostring(issueOf({ frameTypes = 0 })));
+        check(unitFrameIssue({ reaction = 0 }) == REACTIONS_NONE,
+            "reaction: " .. tostring(unitFrameIssue({ reaction = 0 })));
+        check(unitFrameIssue({ role = 0, frameTypes = GROUP }) == ROLES_NONE,
+            "role: " .. tostring(unitFrameIssue({ role = 0, frameTypes = GROUP })));
+        check(unitFrameIssue({ frameTypes = 0 }) == Constants.BINDING_ISSUE_HOVER_NONE_SELECTED,
+            "frame types: " .. tostring(unitFrameIssue({ frameTypes = 0 })));
     end);
 
     ---------------------------------------------------------------------------
-    -- Where an undefined switch is fixed (`devdocs/reorganizing-binding-issues.md` §3-4)
+    -- No role picked, by the frame types beside it (`devdocs/legacy/reorganizing-binding-issues.md` §3-6)
+    --
+    -- **A role is only measured on a party or raid frame** (`SecureBindings.lua`'s click path and
+    -- `setup_onenter`). Without those frames the empty role holds nothing back; beside other frame
+    -- types it holds the action back over party and raid frames alone; with those frames only, it
+    -- holds it back everywhere.
+    ---------------------------------------------------------------------------
+
+    test("no role without party or raid frames is not an issue", function()
+        check(unitFrameIssue({ role = 0, frameTypes = PLAYER }) == nil,
+            "reported: " .. tostring(unitFrameIssue({ role = 0, frameTypes = PLAYER })));
+    end);
+
+    test("no role beside other frame types is told it does not run on party or raid frames", function()
+        check(unitFrameIssue({ role = 0 }) == ROLES_ON_GROUP_FRAMES,
+            "every frame type: " .. tostring(unitFrameIssue({ role = 0 })));
+        check(unitFrameIssue({ role = 0, frameTypes = PLAYER + GROUP }) == ROLES_ON_GROUP_FRAMES,
+            "player and party: " .. tostring(unitFrameIssue({ role = 0, frameTypes = PLAYER + GROUP })));
+        check(unitFrameIssue({ role = 0 }, "units") == ROLES_ON_GROUP_FRAMES, "the Units group is not told");
+    end);
+
+    --- **An empty role that still runs elsewhere does not stand in for a contradiction.** The
+    --- reactions on the frame's row and on `"@"` do not meet, so no binding stands; the role warning
+    --- beside it must not be all that is said, or the row reads orange and "still runs" on a key that
+    --- does nothing. It did: the warning's axis was counted as a row empty on its own, and the
+    --- binding check skips those because the action check already spoke for them.
+    test("a contradiction beside no role picked is still reported and leaves the key", function()
+        local action = { type = Constants.SPELL, value = 585, key = "F1", unit = "unitframe",
+            conditions = { units = {
+                unitframe = { reaction = Constants.REACTION_HELP, role = 0 },
+                ["@"] = { reaction = Constants.REACTION_HARM },
+            } } };
+        check(GetBindingIssue(action) == NEVER, "reported: " .. tostring(GetBindingIssue(action)));
+        check(DebindPrivate.GetIssueOutcome(action) == Constants.ISSUE_OUTCOME_OMIT,
+            "outcome: " .. tostring(DebindPrivate.GetIssueOutcome(action)));
+        local codes = {};
+        for _, issue in ipairs(GetBindingIssues(action)) do
+            codes[issue.code] = true;
+        end
+        check(codes[ROLES_ON_GROUP_FRAMES], "the role warning is missing");
+    end);
+
+    test("no role with party or raid frames only is an error", function()
+        check(unitFrameIssue({ role = 0, frameTypes = GROUP }) == ROLES_NONE,
+            "reported: " .. tostring(unitFrameIssue({ role = 0, frameTypes = GROUP })));
+    end);
+
+    --- **The frame types come from every row that lands on the pointed frame's unit.** A `"@"` aimed
+    --- at the unit frame carries the role and the frame's own row carries the types.
+    test("no role on the resolved unit reads the unit frame row's frame types", function()
+        local action = { type = Constants.SPELL, value = 585, key = "F1", unit = "unitframe",
+            conditions = { units = { ["@"] = { role = 0 }, unitframe = { frameTypes = GROUP } } } };
+        check(GetBindingIssue(action) == ROLES_NONE, "reported: " .. tostring(GetBindingIssue(action)));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Where an undefined switch is fixed (`devdocs/legacy/reorganizing-binding-issues.md` §3-4)
     ---------------------------------------------------------------------------
 
     --- The label each path carries. **It names where the name is written**, so a typo in a macro body

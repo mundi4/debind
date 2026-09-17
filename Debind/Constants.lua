@@ -575,7 +575,12 @@ Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED          = "UNITGROUPS_NONE_SEL
 -- group block above has its own: a zero on one axis is nothing picked, and `CONDITIONS_NEVER` says
 -- two menus disagree, which sends the reader looking for a contradiction that is not there.
 Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED           = "REACTIONS_NONE_SELECTED";
+-- **A role is only measured on a party or raid frame** (`SecureBindings.lua`), so no role picked
+-- is three answers by the frame types beside it. With party and raid frames only, nothing is left:
+-- this code. Beside other frame types, the action still runs over those: the one below. Without
+-- party and raid frames, the role narrows nothing and there is no code at all.
 Constants.BINDING_ISSUE_ROLES_NONE_SELECTED               = "ROLES_NONE_SELECTED";
+Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES        = "ROLES_NONE_ON_GROUP_FRAMES";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
@@ -589,38 +594,31 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- A saved `UNUSED` or `COMMAND`, which binds as a block and does nothing when pressed
--- (`devdocs/legacy/dropping-the-game-fallback.md` §3). A WARNING because an ERROR leaves the action out of
--- `KeyMap`: no block stands where it was, and the action after it on the key fires instead.
+-- (`devdocs/legacy/dropping-the-game-fallback.md` §3). Red, and still on its key: the block is the
+-- one thing that keeps the action behind it from firing (`BINDING_ISSUE_OUTCOMES`).
 Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
 
 
--- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
--- colour of a new issue is decided by adding a row below rather than by touching every place that
--- paints one (`devdocs/legacy/grading-binding-issues.md`).
+-- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
+-- action is the code's outcome below, so a colour is picked without moving a key
+-- (`devdocs/legacy/reorganizing-binding-issues.md` §3-1, §3-2).
 Constants.ISSUE_GRADE_ERROR = 1;
---- **Something the action was told to do does not happen, and taking the action off its key would
---- not help.** Orange rather than red (2026-09-06, owner): a colour that says work is waiting would
---- be a lie where the reader may have meant it.
+--- **The action runs; one thing it was told to do does not.** Orange rather than red (2026-09-06,
+--- owner): the key works, and a colour that says the action is dead would be a lie.
 ---
---- **The code this grade was made for went with the Clique option it was about (2026-09-09), and
---- the grade stays behind on purpose (owner).** What it buys is that the next issue of this kind
---- picks its colour, its icon and its place in `BuildKeyMap` by adding one row to the table below.
---- Taking the grade out would mean building all of that again to put one code back.
+--- **The grade outlived the code it was made for (2026-09-09, owner)**, so the next issue of this
+--- kind needed one row below and nothing else.
 Constants.ISSUE_GRADE_WARNING = 2;
 
 --- Which grade each code carries, and the question each one answers is **what the reader sees**:
 ---
----   ERROR    the action cannot work as saved, and it is waiting on the reader
----   WARNING  something it was told to do does not happen, and leaving it out would not help
----
---- **A WARNING is not an action that runs.** `TYPE_RETIRED`, the one code carrying it, does nothing
---- on press: it binds a block, which is the one thing that keeps the action behind it on the key from
---- firing.
+---   ERROR    the action does not work as saved, and it is waiting on the reader
+---   WARNING  the action runs, and one thing it was told to do does not
 ---
 --- **A state the reader may have meant is not in here at all.** A mark they can only clear by
 --- choosing a value they do not want is a mark they cannot clear, so an action with every press
 --- turned off says so as a reason it does not run (`GetCastingOffReason`), not as a code
---- (`devdocs/reorganizing-binding-issues.md` §2-3).
+--- (`devdocs/legacy/reorganizing-binding-issues.md` §2-3).
 ---
 --- **Every code in here is a fault of the action itself, and why an action is not firing right now
 --- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
@@ -630,12 +628,9 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- code in here, a covered action reported that instead of its own warning and the warning left
 --- the screen.
 ---
---- `BuildKeyMap` reads the same line: an ERROR keeps the action out of `KeyMap` entirely, and
---- anything else passes the gate.
----
---- **A code with no row here is treated as ERROR** (`GetIssueColor` and `IssueKeepsKey` are the
---- only readers, and both fall that way). Failing loud is the safe direction in a keybinding addon:
---- a grade nobody wrote would otherwise leave a binding that does not work looking fine.
+--- **A code with no row here is treated as ERROR** (`Misc.lua`'s `IssueGrade`). Failing loud is the
+--- safe direction in a keybinding addon: a grade nobody wrote would otherwise leave a binding that
+--- does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
@@ -648,10 +643,51 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED]          = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES]        = Constants.ISSUE_GRADE_WARNING,
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
+};
+
+-- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
+-- asks**, so neither the grade nor the category decides it: the grade used to, which made a retired
+-- type orange to keep its block, and the `key` category used to let go of the key, which made any
+-- code painted there do the same.
+--
+--   RELEASE  left out of `KeyMap`, and the key is not held for it: the game keeps the key
+--   OMIT     left out of `KeyMap`; the key is still held, so the next action on it takes the press
+--   KEEP     on the key as the bindings it makes
+--
+-- **Lower is stronger**, and an action carrying several issues gets the strongest.
+Constants.ISSUE_OUTCOME_RELEASE = 1;
+Constants.ISSUE_OUTCOME_OMIT    = 2;
+Constants.ISSUE_OUTCOME_KEEP    = 3;
+
+--- **A code with no row here is OMIT** (`Misc.lua`'s `IssueOutcome`), for the reason a missing grade
+--- is ERROR: leaving the action out is the direction that cannot fire something nobody meant.
+Constants.BINDING_ISSUE_OUTCOMES = {
+    -- The game menu key cannot be taken at all.
+    [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_OUTCOME_RELEASE,
+    [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_SPECS_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
+    -- Left in, the key answers a question nobody asked.
+    [Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE]             = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED]          = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED]           = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
+    -- It still runs over every frame that is not a party or raid frame.
+    [Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES]        = Constants.ISSUE_OUTCOME_KEEP,
+    [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
+    -- Left in, the press finds no macro and does nothing where the next action could have run.
+    [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_OUTCOME_OMIT,
+    -- The block is what stops the action behind it.
+    [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_OUTCOME_KEEP,
 };
 
 

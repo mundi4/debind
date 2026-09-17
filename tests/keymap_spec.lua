@@ -95,6 +95,22 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **The strongest outcome among an action's issues is the one it gets.** A retired type stays
+    -- on its key as a block; a condition no state can meet leaves it out. Carrying both, it is left
+    -- out: folded by grade instead, the two tie and whichever check is written first decides
+    -- (`devdocs/legacy/reorganizing-binding-issues.md` §3-1).
+    test("a retired type carrying an issue that leaves it out is left out", function()
+        -- Special bar against pet battle, on purpose: that check runs after the retired type's, so a
+        -- fold that keeps the first of equals keeps the wrong one, and it leaves the binding standing,
+        -- so nothing but the outcome can take it off the key.
+        local retired = { type = Constants.UNUSED, key = "F1", seq = 1,
+            conditions = { specialbar = true, petbattle = false } };
+        Bind({ retired });
+        -- Read off `KeyMap` itself: a block is not a record `Records` hands back.
+        local list = DebindPrivate.KeyMap.F1 or {};
+        check(#list == 0, "it reached the key as " .. #list .. " bindings");
+    end);
+
     -- **A hover condition is two answers, and both ride the record.** Which reactions the frame's
     -- unit may have, and which kinds of frame count at all. Either one lost leaves a key that fires
     -- over frames the reader excluded, and nothing says so.
@@ -494,7 +510,7 @@ return function(DebindPrivate)
         [1] = "", [2] = "self focus hover", [3] = "hover", [4] = "", [5] = "", [6] = "", [7] = "",
         [8] = "", [9] = "", [10] = "self focus", [11] = "original", [12] = "",
         [13] = "focus hover original", [14] = "", [15] = "self focus original", [16] = "hover",
-        [17] = "", [18] = "", [19] = "", [20] = "", [21] = "self focus hover", [22] = "", [23] = "",
+        [17] = "", [18] = "", [19] = "", [20] = "", [21] = "self focus hover", [22] = "", [23] = "self focus hover original",
         [24] = "", [25] = "self focus hover original", [26] = "self focus hover original", [27] = "",
     };
 

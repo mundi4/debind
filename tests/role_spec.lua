@@ -267,7 +267,7 @@ return function(DebindPrivate)
     test("choosing no role at all is reported rather than silently never firing", function()
         local action = roleAction(0);
         Profile({ action });
-        check(DebindPrivate.GetBindingIssue(action) == Constants.BINDING_ISSUE_ROLES_NONE_SELECTED,
+        check(DebindPrivate.GetBindingIssue(action) == Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES,
             "issue: " .. tostring(DebindPrivate.GetBindingIssue(action)));
         check(DebindPrivate.GetBindingIssue(action, "units") ~= nil,
             "the unit condition group was not marked");

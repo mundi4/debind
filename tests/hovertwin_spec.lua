@@ -444,7 +444,7 @@ return function(DebindPrivate)
 
     --- **Every press turned off makes no binding at all**, and it is said as a reason the row does
     --- not run rather than as an issue. Nothing blocks it (2026-09-16, owner;
-    --- `devdocs/reorganizing-binding-issues.md` §3-3).
+    --- `devdocs/legacy/reorganizing-binding-issues.md` §3-3).
     test("an action with every press off has no binding and gives a reason, not an issue", function()
         local action = spell();
         action.casting = {

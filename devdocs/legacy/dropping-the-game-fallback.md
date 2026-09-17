@@ -72,7 +72,8 @@
   보고 매크로로 다시 만들지 지울지 고른다. 코드는 `BINDING_ISSUE_TYPE_RETIRED` 하나이고, 문구는 누르면 아무것도
   안 한다는 것과 매크로로 다시 만들거나 지우라는 것만 말한다. 무엇이었는지는 행 이름이, 옵션은 행 툴팁이 이미
   그린다. 이슈 등급은 WARNING이어야 한다. `BuildKeyMap`은 ERROR만 키에서
-  빼므로(`IssueKeepsKey`), ERROR면 BLOCK이 키에 안 올라가 뒤 액션이 나간다.
+  빼므로(`IssueKeepsKey`), ERROR면 BLOCK이 키에 안 올라가 뒤 액션이 나간다. (2026-09-17에 키에서 빼는지가 등급에서
+  떨어져 코드마다의 처리가 됐고, 이 코드는 ERROR에 처리 KEEP이 됐다. `reorganizing-binding-issues.md` §3-1.)
 - **이렇게 두는 이유.** 명령 이름을 잃지 않고, `dbver`를 안 올리니 같은 SavedVariables를 옛 버전이 읽어도 그대로 돌고,
   마이그레이션이 BLOCK을 저장된 액션으로 넣었을 때 목록에 어떻게 보일지라는 물음이 없어진다. 가져오기도 두 타입을
   받아 그대로 저장한다.

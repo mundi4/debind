@@ -842,6 +842,42 @@ end
 
 DebindPrivate.BuildUnitStates = BuildUnitStates;
 
+--- Does a role get measured under these frame types, and is that all it is measured under? nil
+--- frame types are every type. **A role is only measured on a party or raid frame**
+--- (`SecureBindings.lua`'s click path and `setup_onenter`); on any other frame it has no say at all,
+--- an empty one included.
+local ROLE_FRAME_TYPES_OTHER = Constants.FRAMETYPE_ALL - Constants.FRAMETYPE_GROUP;
+local function RoleMeasuredUnder(frameTypes)
+    if (frameTypes == nil) then
+        return true, false;
+    end
+    local measured = band(frameTypes, Constants.FRAMETYPE_GROUP) ~= 0;
+    return measured, measured and band(frameTypes, ROLE_FRAME_TYPES_OTHER) == 0;
+end
+
+--- Whether a role mask of zero leaves this binding nowhere. **Not where one row picked no role and
+--- the frame types reach past party and raid frames**: the role is measured on those alone, and the
+--- binding still runs over the rest (`RoleMeasuredUnder`). A zero two rows made between them is the
+--- other thing, a contradiction, and `mergeUnitConditions` emits nothing for it
+--- (`UpdateBindings.lua`), so that one leaves nothing whatever the frame types.
+local function RoleLeavesNothing(binding)
+    local units = binding.conditions and binding.conditions.units;
+    local ownRow = false;
+    if (units) then
+        for key, value in pairs(units) do
+            if ((key == "unitframe" or (key == "@" and ResolvedUnitOf(binding) == "unitframe"))
+                    and type(value) == "table" and value.role == 0) then
+                ownRow = true;
+            end
+        end
+    end
+    if (not ownRow) then
+        return true;
+    end
+    local _, onlyGroup = RoleMeasuredUnder(binding.unitFrameTypes);
+    return onlyGroup;
+end
+
 --- Whether this binding cannot stand. **Given `visit`, every reason is handed to it** as the unit
 --- the zero sits on and whether it is the solo rule, until `visit` returns true. The issue check
 --- paints from those reasons, and a second copy of the rule there would drift from the one
@@ -873,7 +909,8 @@ local function CannotStand(binding, visit)
         end
     end
     -- Only a `unitframe` row, or a `"@"` landing there, narrows these two (`BuildUnitStates`).
-    if ((binding.unitRole == 0 or binding.unitFrameTypes == 0) and found("unitframe", false)) then
+    if ((binding.unitFrameTypes == 0 or (binding.unitRole == 0 and RoleLeavesNothing(binding)))
+            and found("unitframe", false)) then
         return true;
     end
 
@@ -1997,9 +2034,9 @@ end
 --- `/click DebindStates $burst-on` (`ForEachClickedSwitch`). It fails the way the third one does,
 --- and it is here because otherwise converting an action would be a way of taking the mark off it.
 ---
---- Either way the action is marked, which keeps it out of `KeyMap` entirely (`Debind.lua`'s
---- `not issue` gate). Dropping the switch action loses nothing that was working: it was a key that
---- did nothing on press, the same trade the `MISSING_MACRO` branch below already makes.
+--- Either way the action is marked, and the mark's outcome keeps it out of `KeyMap` entirely
+--- (`Constants.BINDING_ISSUE_OUTCOMES`). Dropping the switch action loses nothing that was working:
+--- it was a key that did nothing on press, the same trade the `MISSING_MACRO` branch below makes.
 ---
 --- **The question is whether anything defines the name**, which is `ResolveSwitchDefinition` and
 --- nothing else (`Profile.lua`). It used to be whether the name was one of the five, from when
@@ -2195,10 +2232,7 @@ function DebindPrivate.GetMissingMacroName(action)
     return value;
 end
 
---- Does the key fire while something it was told to do is missing?
----
---- Not the complement of the one below it: `IssueKeepsKey`'s negation is the ERROR grade, and a
---- caller that wants exactly this one cannot get it from there.
+--- Is this problem drawn as the action running with one thing missing?
 ---
 --- Takes the code rather than the action because the callers have already asked for one, often for
 --- a single category, and asking again would run the whole of `GetBindingIssue` a second time.
@@ -2207,20 +2241,20 @@ function DebindPrivate.IsIssueWarning(issue)
 end
 
 --- An issue code's grade, defaulting to ERROR: a code with no row in `BINDING_ISSUE_GRADES` is a
---- code nobody graded, and the safe reading of that is the one that keeps the key off.
+--- code nobody graded, and the safe reading of that is the loud one.
 local function IssueGrade(code)
     return Constants.BINDING_ISSUE_GRADES[code] or Constants.ISSUE_GRADE_ERROR;
 end
 
---- Does the key still fire with this problem on it? Everything but an ERROR does.
----
---- `BuildKeyMap`'s gate.
-function DebindPrivate.IssueKeepsKey(issue)
-    -- **없는 등급은 ERROR다**, `IssueGrade`와 `GetIssueColor`가 이미 그렇게 읽는다. 표를
-    -- 그대로 비교하던 동안 이 함수만 반대로 답했다: 등급을 안 붙인 코드가 하나 생기면 그
-    -- 액션이 `BuildKeyMap`의 게이트를 통과해 솔버와 `UpdateBindings`까지 가는데, 화면에는
-    -- 아무 표시도 안 뜬다. **한 표를 읽는 세 함수가 다른 기본값을 쓰면 안 된다.**
-    return IssueGrade(issue) ~= Constants.ISSUE_GRADE_ERROR;
+--- Is this problem drawn red? **The same default as `IssueGrade`**: a table read by several functions
+--- with different defaults once let an ungraded code through one of them looking fine.
+function DebindPrivate.IsIssueError(issue)
+    return issue ~= nil and IssueGrade(issue) == Constants.ISSUE_GRADE_ERROR;
+end
+
+--- What an issue code does to its action, defaulting to OMIT (`Constants.BINDING_ISSUE_OUTCOMES`).
+local function IssueOutcome(code)
+    return Constants.BINDING_ISSUE_OUTCOMES[code] or Constants.ISSUE_OUTCOME_OMIT;
 end
 
 --- What colour a problem is drawn in. **The grade picks it, never the code** -- that is the whole
@@ -2244,19 +2278,25 @@ function DebindPrivate.GetIssueColor(issue)
     return ERROR_COLOR;
 end
 
---- Of the issue already found and one a branch just raised, the one that is reported. **A tie goes
---- to the one already there**, so branches keep the order they are written in among equals.
-local function TakeIssue(current, candidate)
-    if (candidate ~= nil and (current == nil or IssueGrade(candidate) < IssueGrade(current))) then
+--- Of the issue already found and one a branch just raised, the one that is reported, by `rank`
+--- (lower is stronger). **A tie goes to the one already there**, so branches keep the order they are
+--- written in among equals.
+---
+--- **Two ranks, because two questions fold differently.** The colour wants the loudest grade and
+--- `BuildKeyMap` wants the strongest outcome, and a retired type is the case where they part: red
+--- like a condition nothing meets, and kept where that one is left out. Folded by grade, the two tie
+--- and whichever check is written first decides what happens to the key.
+local function TakeIssue(current, candidate, rank)
+    if (candidate ~= nil and (current == nil or rank(candidate) < rank(current))) then
         return candidate;
     end
     return current;
 end
 
---- Is there any point asking another branch? **Only while the worst grade there is has not been
---- found**, since nothing below could replace it.
-local function LookingForWorse(issue)
-    return issue == nil or IssueGrade(issue) > Constants.ISSUE_GRADE_ERROR;
+--- Is there any point asking another branch? **Only while the strongest there is has not been
+--- found**, since nothing below could replace it. Both ranks start at 1.
+local function LookingForWorse(issue, rank)
+    return issue == nil or rank(issue) > 1;
 end
 
 --- The stored unit rows, under the pre-migration name too, the way `FillBinding` reads them.
@@ -2278,37 +2318,67 @@ local function PickedUnitOf(action)
     return RowUnitName(action.unit);
 end
 
+--- The frame types every stored row that lands on the pointed frame's unit asks for together: the
+--- `unitframe` row, and a `"@"` whose picked unit is `unitframe`. nil where none asks.
+local function PointedFrameTypes(action, rows)
+    local frameTypes;
+    for key, value in pairs(rows) do
+        if (RowUnitName(key) == "unitframe" or (key == "@" and PickedUnitOf(action) == "unitframe")) then
+            local condition = UnitConditionForBinding(value);
+            if (type(condition) == "table" and condition.frameTypes ~= nil) then
+                frameTypes = frameTypes and band(frameTypes, condition.frameTypes) or condition.frameTypes;
+            end
+        end
+    end
+    return frameTypes;
+end
+
 --- Which axes of one stored row no unit can satisfy on their own: its states, its groups, its frame
---- types, its reactions, its roles. **Role and frame types only count where they are measured**, on
---- the `unitframe` row and on a `"@"` whose picked unit is `unitframe`; anywhere else they are never
---- narrowed (`BuildUnitStates`), so a zero there empties nothing.
+--- types, its reactions, and its roles in two shapes. **Role and frame types only count where they
+--- are measured**, on the `unitframe` row and on a `"@"` whose picked unit is `unitframe`; anywhere
+--- else they are never narrowed (`BuildUnitStates`), so a zero there empties nothing.
 ---
 --- **No reaction is its own axis, not a state mask of zero.** It is the one way that mask reaches
 --- zero from a row the reader wrote, and it is nothing picked rather than a contradiction.
-local function EmptyUnitRow(action, key, value)
+---
+--- **No role is read against the frame types** (`RoleMeasuredUnder`): nothing left with party and
+--- raid frames only (axis 5), those frames lost beside other types (axis 6), and nothing at all
+--- without them.
+local function EmptyUnitRow(action, key, value, rows)
     local condition = UnitConditionForBinding(value);
     if (type(condition) ~= "table") then
-        return false, false, false, false, false;
+        return false, false, false, false, false, false;
     end
     local onFrame = RowUnitName(key) == "unitframe"
         or (key == "@" and PickedUnitOf(action) == "unitframe");
     local noReaction = condition.reaction == 0;
+    local noRole, measured, onlyGroup = onFrame and condition.role == 0, false, false;
+    if (noRole) then
+        measured, onlyGroup = RoleMeasuredUnder(PointedFrameTypes(action, rows));
+    end
     return not noReaction and UnitConditionToState(condition) == 0,
         condition.group ~= nil and UnitGroupToCells(condition.group) == 0,
         onFrame and condition.frameTypes == 0,
         noReaction,
-        onFrame and condition.role == 0;
+        noRole and onlyGroup,
+        noRole and measured and not onlyGroup;
 end
 
+--- The axes that leave a row matching nothing. **Not axis 6**: a role missing beside other frame
+--- types still runs over those, so that row is not empty, and counting it as one hid a
+--- contradiction on the same unit behind the warning (`HasAnyEmptyUnitRow`'s reader skips a row the
+--- action check already spoke for).
 local EMPTY_UNIT_ROW_AXES = 5;
 
 --- Is one of the asked rows empty on `axis` (1 states, 2 groups, 3 frame types, 4 reactions,
---- 5 roles)? `unit` nil asks every row, and `"@"` asks the Resolved Unit row.
+--- 5 roles with party and raid frames only, 6 roles beside other frame types)? `unit` nil asks every
+--- row, and `"@"` asks the Resolved Unit row.
 local function HasEmptyUnitRow(action, unit, axis)
     local rows = StoredUnitRows(action);
     if (rows) then
         for key, value in pairs(rows) do
-            if ((unit == nil or RowUnitName(key) == unit) and (select(axis, EmptyUnitRow(action, key, value)))) then
+            if ((unit == nil or RowUnitName(key) == unit)
+                    and (select(axis, EmptyUnitRow(action, key, value, rows)))) then
                 return true;
             end
         end
@@ -2457,6 +2527,11 @@ local ACTION_CHECKS = {
         end
     end },
     { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
+        if (HasEmptyUnitRow(action, unit, 6)) then
+            return Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
+        end
+    end },
+    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
         if (HasEmptyUnitRow(action, unit, 2)) then
             return Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
         end
@@ -2484,7 +2559,7 @@ local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting =
 --- **An empty list with Hover Cast not skipped is always the third.** The twin is missing for one of
 --- two reasons, Skip or that condition, and every other press being gone is what emptied the list.
 --- The first two are the reader's choice; the third is two menus disagreeing, and the reader skipped
---- nothing (`devdocs/reorganizing-binding-issues.md` §3-3).
+--- nothing (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
 local function NoBindingCause(action, list)
     if (#list > 0) then
         return nil;
@@ -2509,22 +2584,19 @@ function DebindPrivate.GetCastingOffReason(action)
     return nil;
 end
 
-local function EvaluateIssues(action, category, notCategory, arg, collected)
+local function EvaluateIssues(action, category, notCategory, arg, collected, rank)
     -- **A category nothing below answers comes out nil**, which looks the same as "no problem".
     -- Stopped under DEBUG only; it is not a fault to raise in a shipped build.
     if (Constants.DEBUG and category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
         error("GetBindingIssue: 없는 갈래 " .. tostring(category), 2);
     end
 
-    --- **A branch may replace only something less severe, and a tie goes to the branch that got
+    --- **A branch may replace only something weaker by `rank`, and a tie goes to the branch that got
     --- there first.** Every branch used to stop at `not issue`, so the order they are written in
-    --- decided the answer: the one WARNING sits above branches that raise ERRORs, and an action
-    --- carrying both reported the warning. `IssueKeepsKey` then let it keep its key
-    --- (`Debind.lua`), which is how a binding with conditions nothing can satisfy reached the
-    --- solver.
-    ---
-    --- `TakeIssue` holds the tie rule and `LookingForWorse` is what the guards ask, so a branch
-    --- stops being asked only once the worst grade there is has been found.
+    --- decided the answer: an action carrying a milder code above an ERROR reported the milder one,
+    --- and the key was decided off it. `TakeIssue` holds the tie rule and `LookingForWorse` is what
+    --- the guards ask, so a branch stops being asked only once the strongest there is has been found.
+    rank = rank or IssueGrade;
     local issue;
 
     --- Where a branch hands in the code it raised. `label` names the group that problem is fixed
@@ -2546,13 +2618,13 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 collected[#collected + 1] = { code = candidate, label = label, arg = arg };
             end
         end
-        issue = TakeIssue(issue, candidate);
+        issue = TakeIssue(issue, candidate, rank);
     end
 
-    --- Is there any point asking another branch? **A collecting call always has one** -- only the
-    --- caller that folds to the worst one stops early, which is what `LookingForWorse` decides.
+    --- Is there any point asking another branch? **A collecting call always has one**: only the
+    --- caller that folds to the strongest one stops early, which is what `LookingForWorse` decides.
     local function Looking()
-        return collected ~= nil or LookingForWorse(issue);
+        return collected ~= nil or LookingForWorse(issue, rank);
     end
 
     for i = 1, #ACTION_CHECKS do
@@ -2670,22 +2742,30 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     return issue;
 end
 
---- 이 액션의 문제 하나. **제일 심한 것**이고, 갈래를 짚어 물으면 그 갈래 안에서의 하나다.
---- 색 하나, 마크 하나, 게이트 하나를 정하는 자리는 전부 이것을 쓴다.
+--- One problem this action has: **the loudest by grade**, and within one category when a category is
+--- given. Every place that picks one colour or one mark uses this.
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     return EvaluateIssues(action, category, notCategory, arg, nil);
 end
 
---- 이 액션의 문제 **전부**. `{ code, label }`의 목록이고, 순서는 갈래가 쓰인 순서다.
---- `label`은 그 문제를 고칠 수 있는 묶음의 로케일 키이며, 고칠 묶음이 없으면 nil이다.
---- 문제가 없으면 빈 목록이다.
+--- What happens to this action on its key: the strongest outcome among its problems
+--- (`Constants.ISSUE_OUTCOME_*`), or nil where it has none. `BuildKeyMap`'s one question.
+function DebindPrivate.GetIssueOutcome(action)
+    local code = EvaluateIssues(action, nil, nil, nil, nil, IssueOutcome);
+    return code and IssueOutcome(code);
+end
+
+--- **Every** problem this action has, as `{ code, label, arg }` in the order the checks are written.
+--- `label` is the locale key of the group the problem is fixed in, nil where there is none. Empty
+--- when there is nothing wrong. `category` and `arg` narrow it the way `GetBindingIssue` does: the
+--- tooltip asks one unit's row for all of its problems, so that a second one is not lost behind the
+--- first.
 ---
---- 하나로 접는 쪽과 나뉜 이유는 답의 모양이 아니라 묻는 사람이 다르기 때문이다: 색을 고르고
---- 게이트를 여는 자리는 제일 심한 것 하나만 있으면 되고 그 하나를 찾는 즉시 멈추는 편이 싸다.
---- 읽는 사람에게 무엇이 잘못됐는지 말하는 자리만 전부가 필요하다.
-function DebindPrivate.GetBindingIssues(action)
+--- Apart from the folding call because the askers differ: a colour or a gate needs the strongest
+--- one and is cheaper stopping there, and only what tells the reader what is wrong needs them all.
+function DebindPrivate.GetBindingIssues(action, category, arg)
     local collected = {};
-    EvaluateIssues(action, nil, nil, nil, collected);
+    EvaluateIssues(action, category, nil, arg, collected);
     return collected;
 end
 

@@ -3218,8 +3218,8 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
         or nil;
 
     -- **The fourth way: every press turned off in Cast Options.** Not an issue, because the reader may
-    -- mean it (`devdocs/reorganizing-binding-issues.md` §3-3). Asked in every world: what it reads is
-    -- the action and the account's cast key settings, neither of which has a specialization.
+    -- mean it (`devdocs/legacy/reorganizing-binding-issues.md` §3-3). Asked in every world: what it
+    -- reads is the action and the account's cast key settings, neither of which has a specialization.
     row.castingOff = DebindPrivate.GetCastingOffReason(action);
 
     return row;

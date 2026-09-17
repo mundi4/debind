@@ -61,6 +61,9 @@ L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No frame type is selected."
 L["BINDING_ERROR_REACTIONS_NONE_SELECTED"] = "No reaction is selected."
 L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
+-- The same empty role beside frame types other than party and raid frames. A role is only measured
+-- on those, so the action still runs over the rest, and this says which frames it loses.
+L["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"] = "No role is selected, so it does not run on party or raid frames."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
 -- The reader cannot fix the spell's name, so the sentence says what to do instead: pick another
 -- row, or drop the condition. Neither half of the reason (macro conditionals, commas) is
@@ -601,18 +604,17 @@ L["UNITGROUP_RAID"] = "In my raid"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- Under the issue mark's title, which is the grade in words (`ORDER_FLAG_ISSUE*`). **The title says
 -- what the grade is called and this says what it costs the reader**, which is the thing a name
--- alone cannot carry: an ERROR is not merely worse, it is the key not being there at all.
-L["MARK_TOOLTIP_ISSUE_DESC"] = "Debind ignores this action until the problem is fixed."
+-- alone cannot carry. It says the action does not work rather than that it is ignored: a saved
+-- retired type is red and still holds its place on the key, doing nothing there.
+L["MARK_TOOLTIP_ISSUE_DESC"] = "This action does not work until the problem is fixed."
 -- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
 L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
--- The other grade, carried by one code: a saved row of a retired type. **What it costs is the
--- opposite of the line above**: the action is not ignored, it keeps its place on the key, and that
--- place is what stops the actions after it. The code's own sentence says the press does nothing, so
--- this says only what the grade adds. When another code takes this grade, check this still holds
--- (`devdocs/reorganizing-binding-issues.md` §3-4).
-L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "Debind keeps this action on its key, so the actions after it on the key do not run in its place."
+-- The other grade. **The action runs**, so what this has to say is that one part of it does not,
+-- said as the action still running, because a reader who arrived at a red-looking mark needs to know
+-- first that nothing is dead.
+L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it was told to do does not."
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.
 --
@@ -722,7 +724,6 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "There are no actions in this layer. You can add
 L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NO_SPECIALIZATION"] = "None chosen"
-L["NOT_SELECTED"] = "Not Selected"
 
 --- The main window's title bar, and **only while the fight is on**. Being on screen is what says
 --- "in combat", so the sentence does not say it again -- unlike the line above, which is a standing
