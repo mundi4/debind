@@ -42,6 +42,7 @@ DebindUI.xml
 #
 # **After `DebindUI.xml`**, whose `DebindScrollFrameTemplate` this frame inherits.
 HelpText.lua
+HelpTopics.lua
 DebindMessageFrame.lua
 DebindMessageFrame.xml
 

@@ -329,13 +329,14 @@ local function Build()
             Options().frameBlacklist.other = stored;
         end);
 
-    Header(L["HELP_TOPICS"]);
-    Button(L["HELP_ORDERING"], function()
-        DebindPrivate.DebindUI.ShowHelp("ordering");
-    end);
-    Button(L["HELP_TARGETING"], function()
-        DebindPrivate.DebindUI.ShowHelp("targeting");
-    end);
+    for _, section in ipairs(DebindPrivate.HELP_SECTIONS) do
+        Header(L[section.title]);
+        for _, topic in ipairs(section.topics) do
+            Button(L[topic.title], function()
+                DebindPrivate.DebindUI.ShowHelp(topic.name);
+            end);
+        end
+    end
 
     Header(MISCELLANEOUS);
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,

@@ -1,38 +1,82 @@
 local _, DebindPrivate = ...;
 local LLL = DebindPrivate.L;
 
---- **여는 함수는 `DebindUI`에 건다.** `DebindPrivate`는 코어의 표이고 여기 있는 것은 전부 UI라,
---- 창 하나 여는 일이 거기 설 자리가 없다. `ActionMenu`와 `Store`도 각자 자기 표를 갖는다.
+--- **The functions that open it hang on `DebindUI`.** `DebindPrivate` is the core's table and
+--- everything here is UI, so opening a window has no place there.
 local DebindUI = DebindPrivate.DebindUI;
 
---- 긴 글 한 편을 띄우는 창. 창이 무엇으로 되어 있는지는 `DebindMessageFrame.xml`에 있고, 여기
---- 있는 것은 **무엇을 띄우느냐**뿐이다.
+--- The help window. What it is made of is in `DebindMessageFrame.xml`; what is here is which page
+--- it shows.
 ---
---- **창 밖에 산다.** 이 창은 메인 창을 안 보고 메인 창도 이 창을 안 본다 - 지금 부르는 데가
---- 설정 패널이고, 그쪽은 메인 창이 서 있지 않아도 열린다(`breaking-up-debindui.md`의
---- "창보다 위로 올릴 것").
+--- **It lives outside the main window.** Neither looks at the other: the settings tab opens it,
+--- and that tab opens with the main window not up.
 ---
---- **`.toc`에서 이 파일이 XML보다 먼저다.** XML의 `mixin=`이 이 파일의 전역을 프레임 만드는
---- 시점에 찾으므로, 뒤에 서면 "Unknown method OnLoad"가 난다. 실제로 한 번 났다.
+--- **This file comes before the XML in the `.toc`.** The XML's `mixin=` looks this global up as
+--- the frame is made, and the other order says "Unknown method OnLoad". It has happened once.
 DebindMessageFrameMixin = {};
 
+--- `HelpTopics.lua`, generated from `docs/ingamehelp/index.md`, by page name.
+local TOPICS = {};
+for _, section in ipairs(DebindPrivate.HELP_SECTIONS) do
+    for _, topic in ipairs(section.topics) do
+        TOPICS[topic.name] = topic;
+    end
+end
+
 function DebindMessageFrameMixin:OnLoad()
-    -- `BasicFrameTemplate`이라 초상화가 없다. 제목도 `SetTitle`이 아니라 `TitleText`다.
-    self.TitleText:SetText(LLL["ADDON_NAME"]);
+    self:SetTitle(LLL["ADDON_NAME"]);
     self:RegisterForDrag("LeftButton");
     self:SetScript("OnDragStart", self.StartMoving);
     self:SetScript("OnDragStop", self.StopMovingOrSizing);
 
-    -- ESC는 게임의 그물에 맡긴다. 이유는 `DebindUI.lua`의 `DebindDialogMixin:InitDialog` 주석에.
+    -- ESC is left to the game's net; the reason is on `DebindDialogMixin:InitDialog` in
+    -- `DebindUI.lua`.
     --
-    -- **`HandleEscape`의 칸도 `OnDialogHide`도 일부러 없다.** 그 둘은 메인 창이 자기 아래 것의
-    -- 수명을 쥐는 장치인데 이 창은 메인 창 밖에 산다. 그래서 `CloseSpecialWindows`가 떠 있는
-    -- 것을 전부 닫는 탓에 ESC 한 번이 이 창과 메인 창을 같이 닫는데, 그것을 고치려면 둘을
-    -- 엮어야 하므로 안 한다. 끄는 길은 띄운 그 버튼이다 (code review, 2026-09-11).
+    -- **No `HandleEscape` slot and no `OnDialogHide`, on purpose.** Those let the main window own
+    -- the lifetime of what is under it, and this window is not under it. One ESC closing only this
+    -- is the main window's doing instead: it leaves that press unstamped while this is up
+    -- (`DebindFrameMixin:OnKeyDown`).
     tinsert(UISpecialFrames, self:GetName());
+
+    self.Dropdown:SetPoint("RIGHT", self.ScrollFrame.ScrollBar, "RIGHT");
+
+    --- The pages left, with where each was scrolled to, newest last.
+    self.history = {};
+    self.BackButton:SetOnClickHandler(function()
+        self:GoBack();
+    end);
+    self.BackButton:SetEnabledState(false);
+
+    self.Dropdown:SetupMenu(function(_, rootDescription)
+        for _, section in ipairs(DebindPrivate.HELP_SECTIONS) do
+            rootDescription:CreateTitle(LLL[section.title]);
+            for _, topic in ipairs(section.topics) do
+                rootDescription:CreateRadio(LLL[topic.title], function()
+                    return self.topic == topic.name;
+                end, function()
+                    DebindUI.ShowHelp(topic.name);
+                end);
+            end
+        end
+    end);
 end
 
-local CONTENT_WIDTH = 452;
+--- **History lasts as long as the window is up.** Whoever opens it again came for the page they
+--- opened, and a Back into whatever they read last time would take them somewhere unasked
+--- (2026-09-17, owner).
+function DebindMessageFrameMixin:OnHide()
+    wipe(self.history);
+    self.BackButton:SetEnabledState(false);
+end
+
+function DebindMessageFrameMixin:GoBack()
+    local entry = tremove(self.history);
+    if (entry) then
+        self:ShowTopic(entry.name, entry.scroll);
+    end
+    self.BackButton:SetEnabledState(#self.history > 0);
+end
+
 local INDENT = 20;
 local MARKER_GAP = 4;
 
@@ -62,9 +106,9 @@ local function AcquireFontString(self, index)
     return fontString;
 end
 
---- Swap the title and the body in. The body is cut into blocks (`ParseHelpText`) and each gets a
---- FontString of its own; an item's marker gets a second one, so a wrapped line stands under the
---- item's text and not under its number.
+--- Lay a page out. The body is cut into blocks (`ParseHelpText`) and each gets a FontString of its
+--- own; an item's marker gets a second one, so a wrapped line stands under the item's text and not
+--- under its number.
 ---
 --- **The body is `GameFontNormal`, gold.** In `GameFontHighlight` its colour would be
 --- `HIGHLIGHT_FONT_COLOR`, and every word a page picks out in that colour would stop standing out.
@@ -72,14 +116,18 @@ end
 --- **The content frame's height is set here.** Without it `ScrollFrame` sees nothing to scroll
 --- and puts up no bar.
 ---
---- **Back to the top every time.** A position scrolled to on a long page, kept for a short one,
---- opens on an empty window.
-function DebindMessageFrameMixin:SetMessage(title, body)
-    self.Title:SetText(title);
+--- **Back to the top unless `scroll` says where.** A position scrolled to on a long page, kept for
+--- a short one, opens on an empty window; `GoBack` hands in the position it saved for that page.
+function DebindMessageFrameMixin:ShowTopic(name, scroll)
+    local topic = TOPICS[name];
+    self.topic = name;
+    local title = self.ScrollFrame.Content.Title;
+    title:SetText(LLL[topic.title]);
     self.bodyStrings = self.bodyStrings or {};
 
-    local used, y, previous = 0, 0, nil;
-    for _, block in ipairs(DebindPrivate.ParseHelpText(body)) do
+    local width = self.ScrollFrame.Content:GetWidth();
+    local used, y, previous = 0, title:GetStringHeight() + 12, nil;
+    for _, block in ipairs(DebindPrivate.ParseHelpText(LLL[topic.body])) do
         y = y + GapBefore(previous, block);
 
         local x = 0;
@@ -99,7 +147,7 @@ function DebindMessageFrameMixin:SetMessage(title, body)
         local fontString = AcquireFontString(self, used);
         fontString:SetFontObject(block.kind == "heading" and GameFontHighlightMedium or GameFontNormal);
         fontString:SetJustifyH("LEFT");
-        fontString:SetWidth(CONTENT_WIDTH - x);
+        fontString:SetWidth(width - x);
         fontString:SetText(block.text);
         fontString:SetPoint("TOPLEFT", x, -y);
 
@@ -112,44 +160,48 @@ function DebindMessageFrameMixin:SetMessage(title, body)
     end
 
     self.ScrollFrame.Content:SetHeight(max(1, y));
-    self.ScrollFrame:SetVerticalScroll(0);
+    -- The range has to be measured again before the saved position is inside it, or it is clamped
+    -- to the range the previous page left.
+    self.ScrollFrame:UpdateScrollChildRect();
+    self.ScrollFrame:SetVerticalScroll(min(scroll or 0, self.ScrollFrame:GetVerticalScrollRange()));
+
+    -- A page opened from a link or from outside the window moves no radio, so the picker is told.
+    self.Dropdown:GenerateMenu();
 end
 
---- 본문 안의 링크. `link`는 우리가 심은 값 그대로 오고, `text`는 번역과 색이 섞인 화면 문자열
---- 이라 갈래를 타는 데 쓰지 않는다.
+--- A link in the body. `link` comes as it was written; `text` is the translated screen string with
+--- colour in it, so it decides nothing.
 function DebindMessageFrameMixin:OnHyperlinkClick(link)
-    local topic = link and link:match("^debind:help:(.+)$");
-    if (topic) then
-        DebindUI.ShowHelp(topic);
+    local name = link and link:match("^debind:help:(.+)$");
+    if (name) then
+        DebindUI.ShowHelp(name);
     end
 end
 
---- 도움말 한 편. 값은 로케일 열쇠이고, 이름은 `debind:help:<이름>` 링크에 그대로 들어간다.
-local HELP_TOPICS = {
-    ordering = { title = "HELP_ORDERING_TITLE", body = "HELP_ORDERING_BODY" },
-    targeting = { title = "HELP_TARGETING_TITLE", body = "HELP_TARGETING_BODY" },
-};
-
---- 도움말을 띄운다. 모르는 이름이면 아무 일도 안 한다 - 링크는 번역된 본문 안에 있어서 오타가
---- 이 길로 들어올 수 있고, 그때 창이 빈 채로 뜨는 것보다 안 뜨는 편이 낫다.
-function DebindUI.ShowHelp(topic)
-    local entry = HELP_TOPICS[topic];
-    if (not entry) then
+--- Open a page. An unknown name does nothing: `build-help.js` refuses a link to a page that does
+--- not exist, but a page left out of `index.md` has no entry here and its name can still be called.
+function DebindUI.ShowHelp(name)
+    if (not TOPICS[name]) then
         return;
     end
 
-    DebindMessageFrame:SetMessage(LLL[entry.title], LLL[entry.body]);
-    DebindMessageFrame.topic = topic;
-    DebindMessageFrame:Show();
-    DebindMessageFrame:Raise();
+    local frame = DebindMessageFrame;
+    if (frame:IsShown() and frame.topic ~= name) then
+        tinsert(frame.history, { name = frame.topic, scroll = frame.ScrollFrame:GetVerticalScroll() });
+        frame.BackButton:SetEnabledState(true);
+    end
+
+    frame:ShowTopic(name);
+    frame:Show();
+    frame:Raise();
 end
 
---- The (i)'s press: the same page closes, any other opens. Judged by the topic on the frame and
---- not by whether it is shown, so a press while a different page is up swaps to this one.
-function DebindUI.ToggleHelp(topic)
-    if (DebindMessageFrame:IsShown() and DebindMessageFrame.topic == topic) then
+--- The (i)'s press: the same page closes, any other opens. Judged by the page on the frame and not
+--- by whether it is shown, so a press while a different page is up swaps to this one.
+function DebindUI.ToggleHelp(name)
+    if (DebindMessageFrame:IsShown() and DebindMessageFrame.topic == name) then
         DebindMessageFrame:Hide();
         return;
     end
-    DebindUI.ShowHelp(topic);
+    DebindUI.ShowHelp(name);
 end

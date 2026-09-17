@@ -110,15 +110,6 @@ L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
 -- **Not the client's `HELP_LABEL`.** That one is the game menu's entry into customer support, so the
 -- same word would point somewhere else.
 L["HELP_TOPICS"] = "Help"
--- 그 페이지의 버튼. 여는 창의 제목(`HELP_ORDERING_TITLE`)과 다른 말을 쓰면 누른 것과 열린
--- 것이 달라 보이므로, 버튼이 물음이고 창이 그 답이 되게 맞춰 둔다.
-L["HELP_ORDERING"] = "Which action does a key run?"
--- 두 번째 도움말 페이지의 버튼. 위와 같은 규칙으로 버튼이 물음이고 창이 답이다.
---
--- **`Where` 로 열면 안 된다.** 이 목록은 전역 옵션창이라 액션이 어느 레이어에 있느냐로 읽힌다.
--- 대상 메뉴 안에 붙어 있었으면 문맥이 받쳐 줬을 텐데 여기는 그게 없다. 유닛을 물어야 뜻이 하나로
--- 선다. 위 항목과 같은 꼴로 맞춰 둔 것이기도 하다.
-L["HELP_TARGETING"] = "Which unit is an action used on?"
 -- The two groups under `UNIT_FRAME_SUPPORT`.
 --
 -- **Not `Blizzard's`.** A possessive wants a noun behind it, and `Blizzard's Frames` reads as the
@@ -873,139 +864,6 @@ L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It cam
 -- 이 짝만의 특징인 것처럼 읽히고 다른 짝은 같이 도는 것이 된다. 같은 행의 사유 칸이 이미
 -- ORDER_FLAG_OFFSPEC("Inactive specialization")이라 낱말도 그쪽에 맞춘다.
 L["ORDER_BLOCKED_SPEC"] = "This action and the one next to it are never active at the same time, so their order settles nothing."
--- **A help body is written in lines**: `# ` a heading, `1. ` or `- ` an item, two leading spaces a
--- level of nesting, a blank line between blocks. `ParseHelpText` in `HelpText.lua` reads it, and a
--- translation keeps the same marks.
---
--- The ordering help. Whoever opens this window was stopped while moving a row one step, so the
--- first paragraph answers "what happens when one key holds several actions". Opening on a list of
--- steps to memorise is what stops it being read.
---
--- **The presses come before the questions** (`devdocs/which-action-a-key-runs.md` §3). Which
--- actions are on the list at all is settled by how the key was pressed, and a reader who takes the
--- questions for the whole answer cannot see why a pointed press runs an action the list puts later.
---
--- **A tie falling through to the next question has to stay in.** Importance once read as "it
--- overrides the rest", and two actions both set to Very High then left nothing to read the result
--- by. Writing the three as questions is what says it: the first one they answer differently
--- decides, and the rest are not asked.
---
--- **The closing paragraphs are what this window is worth.** Each of these is a handle, and what
--- each one changes besides the order differs; side by side is a thing only this page can do. The
--- row tooltip answers where this one pair split and nothing else.
---
--- **Where each handle is set is named too.** A reader given the rule and not the menu has nowhere
--- to go from here, so that sentence points at the right-click menu, and renaming an entry there
--- moves this sentence with it.
-L["HELP_ORDERING_TITLE"] = "Which action a key runs"
-L["HELP_ORDERING_BODY"] = [[
-A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met at that moment. One of them runs, never two.
-
-Which actions are on that list depends on how you pressed the key. There are four presses, and every action says which of them it stands on, under |cnHIGHLIGHT_FONT_COLOR:Cast Options|r in its right-click menu.
-
-1. |cnHIGHLIGHT_FONT_COLOR:The Self Cast Key is held.|r Only the actions that stand on that press are tried.
-2. |cnHIGHLIGHT_FONT_COLOR:The Focus Cast Key is held.|r The same for that key. Hold both and it counts as the Self Cast Key.
-3. |cnHIGHLIGHT_FONT_COLOR:You are pointing at a unit|r and no key is held. The actions that stand on a pointed press are tried first, and then the actions below.
-4. |cnHIGHLIGHT_FONT_COLOR:Nothing is held and nothing is pointed at.|r The actions that stand on a plain press are tried.
-
-A held key does not fall through: when nothing on the key answers it, the key does nothing. Pointing at a unit does fall through, so an action that stands on a pointed press comes ahead of every action that does not, however you ordered them.
-
-Inside one of those groups the order matters, and it is not the order you added the actions in. Debind decides it by taking them two at a time and asking three questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.
-
-1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.
-2. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.
-3. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.
-
-The left column of the Overview tab groups actions by key, and each group is in that order. When all three are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the three has already settled it, and the tooltip names which one.
-
-All of it is set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, the conditions, |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer, and |cnHIGHLIGHT_FONT_COLOR:Cast Options|r for the presses the action stands on.
-
-Start with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. |cnHIGHLIGHT_FONT_COLOR:Importance|r is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.
-
-If the action reaches other characters, whatever you change changes for them too.
-]]
--- **Why this page exists at all.** Whether the game's own redirection applies to a Debind key
--- turns on one thing -- did the reader choose a target -- and nothing on screen says so. The
--- people who built it spent a day getting it wrong from the code, so a reader has no chance.
---
--- **The order comes first, as one list**, and each section below is one step of it seen up close. The
--- client's own order is named next to it because a reader who knows the game expects the cursor to
--- win over a held key (2026-09-15, owner).
---
--- **The hostile focus sentence is there because Auto Self Cast is what the reader expects.** A held
--- key names a unit, and a press that names one goes out with Auto Self Cast off
--- (`SELFCAST_OFF_SNIPPET` in `SecureBindings.lua`), so the spell does not come back to them.
---
--- **Picking Unit Frame or Mouseover as the target** is the case that surprises: it is an ordinary
--- picked unit, so with nothing pointed at the action still takes its turn and the press dies there.
--- The way out is a condition on that unit (`devdocs/which-action-a-key-runs.md` §5).
---
--- **Mouseover Cast is named even though the answer is "no".** It is on the same client panel as the
--- two keys, so a reader who has it on and is not told otherwise concludes the key is broken.
---
--- **What the game does after that is not ours to say** (owner): no "it simply does not go out", no
--- targeting cursor. What Debind decides is said, Auto Self Cast being left out included.
---
--- **Written as what the reader did**, never as what the addon stores. Labels are quoted where the
--- reader has to go: the Target menu, its Disable entry, Units, Resolved Unit and the rows under Cast
--- Options. Renaming any of them moves this text with it.
---
--- **Our menu and settings labels are `BLUE_FONT_COLOR`**, the colour `MenuKit` gives a row that is
--- on, so a word on this page reads as a row the reader can find. The game's own names (Self Cast Key,
--- Auto Self Cast) stay uncoloured, and `HIGHLIGHT_FONT_COLOR` is only the lead of a list item.
-L["HELP_TARGETING_TITLE"] = "Which unit an action is used on"
-L["HELP_TARGETING_BODY"] = [[
-Where an action goes is settled in this order, and the first that applies decides:
-
-1. |cnHIGHLIGHT_FONT_COLOR:The target you picked|r under |cnBLUE_FONT_COLOR:Target|r.
-2. |cnHIGHLIGHT_FONT_COLOR:The key you hold:|r the Self Cast Key or the Focus Cast Key.
-3. |cnHIGHLIGHT_FONT_COLOR:The unit you point at.|r
-4. |cnHIGHLIGHT_FONT_COLOR:None of these:|r the game places the cast as it does on an action bar, Auto Self Cast included.
-
-The game's own settings look at the unit under your cursor before the key you hold. Debind does it the other way round: the key is something you chose as you pressed, and the cursor is wherever it happened to be.
-
-# You picked a target
-
-The action goes to that unit, and nothing you hold or point at moves it. Auto Self Cast does not apply either: a friendly spell aimed at an enemy does not come back to you. |cnBLUE_FONT_COLOR:Disable|r under |cnBLUE_FONT_COLOR:Target|r leaves the decision to the press again.
-
-|cnBLUE_FONT_COLOR:Unit Frame|r and |cnBLUE_FONT_COLOR:Mouseover|r are units like any other. While you point at nothing there is no such unit, and the press does nothing, the way an action aimed at your focus does with no focus set.
-
-- |cnHIGHLIGHT_FONT_COLOR:To have the press go on to the next action instead,|r give the action |cnBLUE_FONT_COLOR:When the unit exists|r on that unit under |cnBLUE_FONT_COLOR:Units|r.
-- |cnHIGHLIGHT_FONT_COLOR:To run the action only while you point at nothing,|r give it |cnBLUE_FONT_COLOR:When the unit doesn't exist|r instead.
-
-# The Self Cast Key and the Focus Cast Key
-
-Which keys these are is set in the game's own settings. Either one can be turned off in Debind's settings, and holding a key turned off there is the same as not holding it.
-
-Hold one and the action goes to you or to your focus. With no focus set, the press does nothing rather than going somewhere else. Auto Self Cast does not apply: a friendly spell sent to a hostile focus does not come back to you.
-
-Each action answers each key under |cnBLUE_FONT_COLOR:Cast Options|r in its right-click menu:
-
-- |cnBLUE_FONT_COLOR:Cast on yourself|r and |cnBLUE_FONT_COLOR:Cast on your focus|r are what every action does unless you change it.
-- |cnBLUE_FONT_COLOR:Cast as usual|r keeps the action's turn on that press and sends it where it would go with no key held.
-- |cnBLUE_FONT_COLOR:Skip this action|r hands the press to the next action on the key that answers it. With none left, the key does nothing.
-
-Clicking a unit frame is the one exception. A key held on a click picks the binding you made for that exact combination, so the click still goes to the frame's unit.
-
-# Pointing at a unit
-
-The game's own Mouseover Cast is switched off for Debind keys, and |cnBLUE_FONT_COLOR:Hover Cast|r in Debind's settings does its job. The mode there says which units count as pointed at: |cnBLUE_FONT_COLOR:Unit Frames|r, the unit frames Debind knows, or |cnBLUE_FONT_COLOR:Mouseover|r, anything your cursor is over.
-
-The unit is handed to every action as it is:
-
-- A macro or a mount takes no unit and runs the way it always does.
-- Debind does not ask whether a spell is friendly or harmful, so an attack aimed at a party member goes nowhere. When that matters, put a condition on the action under |cnBLUE_FONT_COLOR:Resolved Unit|r, which is the unit the press is aimed at.
-
-Under |cnBLUE_FONT_COLOR:Cast Options|r, each action says which units count as pointed at: |cnBLUE_FONT_COLOR:Use the mode in Debind's settings|r, or |cnBLUE_FONT_COLOR:Unit Frames|r or |cnBLUE_FONT_COLOR:Mouseover|r for this action alone. And what it does on a pointed press:
-
-- |cnBLUE_FONT_COLOR:Cast on the unit you point at|r is what every action does unless you change it.
-- |cnBLUE_FONT_COLOR:Cast as usual|r keeps the action's turn on a pointed press without sending it to that unit.
-- |cnBLUE_FONT_COLOR:Skip this action|r takes the action out of that press. While you point at such a unit it does not run, and the next action on the key that answers the press takes it.
-
-# Normal Cast
-
-|cnBLUE_FONT_COLOR:Normal Cast|r, the last row under |cnBLUE_FONT_COLOR:Cast Options|r, is the press with nothing held and nothing pointed at. Untick it and the action is reached only by a held key or by pointing at a unit; that plain press goes to the next action on the key.
-]]
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"
@@ -1320,18 +1178,25 @@ L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and it goes 
 -- one thing (`devdocs/implementing-focus-and-self-cast.md` §3-6).
 L["RESOLVED_TARGET"] = "Resolved Unit"
 -- **Formatted, not written out.** The first and last are this addon's own labels (`TARGET_UNIT`,
--- `POINTED_UNIT_CAST`) and the middle two the client's (`AUTO_SELF_CAST_KEY_TEXT`,
+-- `CASTING_AS_USUAL`) and the middle two the client's (`AUTO_SELF_CAST_KEY_TEXT`,
 -- `FOCUS_CAST_KEY_TEXT`, the two modifier dropdowns in its settings), so a rename on either side
 -- carries into the sentence (`ActionMenuNodes.lua`).
 --
--- **A held key comes before Hover Cast**, and the order of the sentence says so: the pointed unit
--- is only reached with no key held.
+-- **A held key comes before the pointed unit**, and the order of the sentence says so: the pointed
+-- unit is only reached with no key held.
 --
--- **The last sentence is the case the list does not name.** No target picked, no key held and no
--- pointed unit leaves the game to place the cast, and the conditions are asked of the current target
--- anyway (2026-09-13, owner). Auto Self Cast is named because it is what a reader expects to rescue a
--- friendly spell there, and when the conditions fail it never gets the chance.
-L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s, and with none picked, you while the %2$s is held, your focus while the %3$s is held, and with %4$s on and no key held, the unit you point at.|n|nWhen the conditions set here do not hold for that unit, the action does not go out. With no target picked, no key held and nothing pointed at, they are checked on your current target: if they do not hold there, the action does not go out, and Auto Self Cast does not get a turn either."
+-- **Cast as usual is named because it lands on the current target too.** A held key or a pointed
+-- unit set to it sends the action where it would go with nothing held or pointed at, and the
+-- conditions follow it there (`devdocs/which-action-a-key-runs.md` S3). Without it the sentence
+-- promises you or your focus on a press that goes neither way.
+--
+-- **"Sits the press out", not "does not go out".** A condition that fails hands the press to the
+-- next action on the key; the old wording read as the press ending there. The words are
+-- `CASTING_SKIP_DESC`'s, since it is the same outcome.
+--
+-- **Auto Self Cast is named** because it is what a reader expects to rescue a friendly spell on the
+-- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
+L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"

@@ -2962,8 +2962,12 @@ end
 --- the front instead is not open to us either, since we see our own clicks and not theirs. So the
 --- window steps back on its own ladder and the panel closes on the same press, which is what two
 --- of the client's own panels do (owner, 2026-09-09).
+---
+--- **No stamp while the help window is up.** The same press closes that window through
+--- `UISpecialFrames`, and a stamp would also walk this window's ladder, so one Escape took both
+--- down. Unstamped, `OnHide` only puts this window back (2026-09-17, owner).
 function DebindFrameMixin:OnKeyDown(input)
-	if (input == "ESCAPE") then
+	if (input == "ESCAPE" and not DebindMessageFrame:IsShown()) then
 		self.escAt = GetTime();
 	end
 end

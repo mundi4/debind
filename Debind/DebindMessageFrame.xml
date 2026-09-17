@@ -2,53 +2,77 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
 
 	<!--
-		긴 글 한 편을 띄우는 창. **도움말 전용이 아니다** - 제목과 본문만 갈아 끼우므로 릴리즈
-		노트처럼 읽을 것이 더 생겨도 창은 이것 하나다.
+		The help window: a back button and a page picker on top, and the page under it.
 
-		**`StaticPopup`이 아닌 이유는 제목 칸이다.** 그쪽에는 이름을 붙일 자리가 없어서 본문 첫
-		줄로 밀어 넣게 되고, 누가 하는 말인지가 본문에 섞인다. 3.6에서 지운 개체창 안내창이 같은
-		이유로 자기 프레임이었다.
+		**Not a `StaticPopup`**, because that has no place for a name above its text, and the name ends
+		up as the body's first line.
 
-		**높이는 고정이고 본문은 스크롤한다.** 저쪽은 본문에 맞춰 창을 늘렸는데, 그건 화면에
-		들어가는 길이를 전제로 한 것이라 긴 글에는 못 쓴다. 높이가 고정이면 어느 언어에서도 창이
-		화면 밖으로 안 나간다.
+		**The height is fixed and the body scrolls.** A window sized to its text assumes the text fits
+		on the screen, which a long page in a long language does not.
 
-		**`DebindScrollFrameTemplate`을 쓰므로 `.toc`에서 `DebindUI.xml`보다 뒤에 선다.**
+		**After `DebindUI.xml` in the `.toc`**, for `DebindScrollFrameTemplate`.
+
+		**`DefaultPanelTemplate`, which is the main window's `PortraitFrameTemplate` without the
+		portrait** and what the game's own `HelpFrame` is. It brings no close button, so one is added
+		the way `HelpFrame` adds it.
 	-->
-	<Frame name="DebindMessageFrame" inherits="BasicFrameTemplate" parent="UIParent" toplevel="true"
+	<Frame name="DebindMessageFrame" inherits="DefaultPanelTemplate" parent="UIParent" toplevel="true"
 		frameStrata="DIALOG" enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
 		mixin="DebindMessageFrameMixin">
-		<Size x="520" y="480"/>
+		<Size x="560" y="540"/>
 		<Anchors>
 			<Anchor point="CENTER" x="0" y="60"/>
 		</Anchors>
-		<Layers>
-			<Layer level="ARTWORK">
-				<FontString parentKey="Title" inherits="GameFontHighlightLarge" justifyH="LEFT" wordwrap="true">
-					<Size x="452" y="0"/>
-					<Anchors>
-						<Anchor point="TOPLEFT" x="30" y="-34"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
 		<Frames>
+			<Button parentKey="CloseButton" inherits="UIPanelCloseButtonDefaultAnchors"/>
+			<Button parentKey="BackButton" inherits="SquareIconButtonTemplate">
+				<Size x="28" y="28"/>
+				<KeyValues>
+					<KeyValue key="iconAtlas" value="common-icon-backarrow" type="string"/>
+					<KeyValue key="iconSize" value="16" type="number"/>
+					<KeyValue key="tooltipTitle" value="BACK" type="global"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="13" y="-33"/>
+				</Anchors>
+			</Button>
+			<!--
+				**The right edge is anchored in `OnLoad`**, to the scroll bar, which `ScrollFrame_OnLoad`
+				makes after this frame is read.
+			-->
+			<DropdownButton parentKey="Dropdown" inherits="WowStyle1DropdownTemplate">
+				<Size x="0" y="26"/>
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.BackButton" relativePoint="RIGHT" x="4" y="0"/>
+				</Anchors>
+			</DropdownButton>
 			<ScrollFrame parentKey="ScrollFrame" inherits="DebindScrollFrameTemplate">
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.Title" relativePoint="BOTTOMLEFT" x="0" y="-12"/>
+					<!-- On the window and not under the picker: the picker's right edge hangs off this
+					     frame's scroll bar, and the two would each wait on the other. -->
+					<Anchor point="TOPLEFT" x="20" y="-74"/>
 					<Anchor point="BOTTOMRIGHT" x="-36" y="18"/>
 				</Anchors>
 				<ScrollChild>
 					<!--
-						**높이는 `SetMessage`가 본문을 재서 잡는다.** 스크롤 폭은 이 프레임의 폭에서
-						나오므로 폭만 여기 적는다.
+						**The height is set by `ShowTopic`**, which measures the page.
 
-						**`hyperlinksEnabled`가 프레임 쪽에 있다.** 링크를 그리는 FontString을 들고
-						있는 프레임이 그 클릭을 받는다. 본문의 FontString은 `SetMessage`가 이 프레임
-						위에 만든다.
+						**`hyperlinksEnabled` is on this frame.** A link's click goes to the frame
+						holding the FontString it is drawn in, and the body's FontStrings are made on
+						this one.
 					-->
 					<Frame parentKey="Content" enableMouse="true" hyperlinksEnabled="true">
-						<Size x="452" y="1"/>
+						<Size x="502" y="1"/>
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="Title" inherits="GameFontHighlightLarge" justifyH="LEFT" wordwrap="true">
+									<Anchors>
+										<Anchor point="TOPLEFT"/>
+										<Anchor point="TOPRIGHT"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
 						<Scripts>
 							<OnHyperlinkClick>
 								DebindMessageFrame:OnHyperlinkClick(link);
@@ -60,6 +84,7 @@
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
+			<OnHide method="OnHide"/>
 		</Scripts>
 	</Frame>
 

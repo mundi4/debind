@@ -109,17 +109,23 @@ function contract(specs) {
     return { sig: specs.map((s, i) => `%${s.arg ?? i + 1}$${s.conv}`).join("") };
 }
 
-function readKeys(file) {
-    const src = fs.readFileSync(file, "utf8");
+// A locale's keys are its own file and, when there is one, the help pages generated for it
+// (`tools/build-help.js`). They load one after the other into the same `L`, so a key set in both
+// is a duplicate like any other.
+function readKeys(locale) {
     const keys = new Set();
     const dupes = [];
     const contracts = new Map();
-    for (const m of src.matchAll(ASSIGN)) {
-        if (keys.has(m[1])) {
-            dupes.push(m[1]);
+    const files = [path.join(localesDir, `${locale}.lua`), path.join(localesDir, "Help", `${locale}.lua`)];
+    for (const file of files.filter((f) => fs.existsSync(f))) {
+        const src = fs.readFileSync(file, "utf8");
+        for (const m of src.matchAll(ASSIGN)) {
+            if (keys.has(m[1])) {
+                dupes.push(m[1]);
+            }
+            keys.add(m[1]);
+            contracts.set(m[1], contract(readSpecs(m[2])));
         }
-        keys.add(m[1]);
-        contracts.set(m[1], contract(readSpecs(m[2])));
     }
     return { keys, dupes, contracts };
 }
@@ -162,7 +168,7 @@ function usedKeys(dir, into) {
 }
 
 const files = fs.readdirSync(localesDir).filter((f) => f.endsWith(".lua"));
-const base = readKeys(path.join(localesDir, `${BASE}.lua`));
+const base = readKeys(BASE);
 
 let failed = false;
 
@@ -198,7 +204,7 @@ for (const file of files) {
         continue;
     }
 
-    const { keys, dupes, contracts } = readKeys(path.join(localesDir, file));
+    const { keys, dupes, contracts } = readKeys(locale);
 
     // 애매한 것부터 끊는다. 계약이 안 서는 문자열은 견줄 값 자체가 없다.
     const vague = [...contracts].filter(([, c]) => c.error);

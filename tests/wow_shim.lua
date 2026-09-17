@@ -840,6 +840,7 @@ function M.install()
     _G.BRIGHTBLUE_FONT_COLOR = color("ff00b0ff");
     _G.ORANGE_FONT_COLOR = color("ffff7f3f");
     _G.NORMAL_FONT_COLOR = color("ffffd100");
+    _G.GREEN_FONT_COLOR = color("ff19ff19");
 
     --- **A colour per class, so a spec reading a line back can tell two of them apart.** The codes
     --- are this file's own rather than the client's; what a case asks is which class a name was
