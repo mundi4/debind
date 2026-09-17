@@ -389,7 +389,7 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 ]==];
 
 --- The slot an action button action fires, worked out at the press
---- (`devdocs/dropping-the-game-fallback.md` §4). Declares `slotButton`, the name to answer with
+--- (`devdocs/legacy/dropping-the-game-fallback.md` §4). Declares `slotButton`, the name to answer with
 --- where the winner is one. Needs `winner`.
 ---
 --- **A check the Blizzard binding makes on the press is made here too, and it cancels the click.**
@@ -1614,7 +1614,7 @@ end, [==[
 	end
 
 	-- **Nothing to fire cancels the click.** The winner is the BLOCK that closes the tier, or
-	-- nothing matched at all (`devdocs/dropping-the-game-fallback.md` §3). Leaving the name would
+	-- nothing matched at all (`devdocs/legacy/dropping-the-game-fallback.md` §3). Leaving the name would
 	-- come to the same, since there is no `*type-@<key>`, but only by accident.
 	if (not winner or not winner.clickbutton) then
 		return false

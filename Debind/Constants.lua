@@ -113,11 +113,11 @@ Constants.SETSTATE_TOGGLE                 = "setstate_toggle";
 Constants.UNUSED                          = "unused";
 --- **Never stored.** What `UNUSED` and `COMMAND` turn into on the binding, and what closes each tier
 --- of a key that holds one: a record that wins and does nothing, so no press falls through to the
---- game (`devdocs/dropping-the-game-fallback.md` §3).
+--- game (`devdocs/legacy/dropping-the-game-fallback.md` §3).
 Constants.BLOCK                           = "block";
 --- Presses one action bar button the way its binding command would. `value` is that command's
 --- name, so the row reads with the client's own `BINDING_NAME_*` and a saved `COMMAND` moves over
---- by changing its type (`devdocs/dropping-the-game-fallback.md` §4).
+--- by changing its type (`devdocs/legacy/dropping-the-game-fallback.md` §4).
 Constants.ACTIONBUTTON                    = "actionbutton";
 
 --- The binding commands `ACTIONBUTTON` takes, and where each one's slot is.
@@ -273,6 +273,8 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     known = true,
     -- 조건이 아닌 하나 더. 어느 누름에서 이 액션이 서는가이고, Casting 메뉴가 이 이름으로 묻는다.
     casting = true,
+    -- A saved `UNUSED` or `COMMAND`. Like `macro`, the action itself is wrong and no control goes red.
+    retired = true,
 };
 
 --- Is this a switch's name? **The `$` is the whole test.** A switch condition is stored under the
@@ -586,26 +588,35 @@ Constants.BINDING_ISSUE_CASTING_NONE_LEFT                 = "CASTING_NONE_LEFT";
 -- The same nothing-left on the bare left or right click, where Hover Cast is the only press there is
 -- (§7). Its own code because the other three are still on, and "every press is off" would be false.
 Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED        = "CASTING_BARE_CLICK_SKIPPED";
+-- A saved `UNUSED` or `COMMAND`, which binds as a block and does nothing when pressed
+-- (`devdocs/legacy/dropping-the-game-fallback.md` §3). A WARNING because an ERROR leaves the action out of
+-- `KeyMap`: no block stands where it was, and the action after it on the key fires instead.
+Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
 
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
 -- colour of a new issue is decided by adding a row below rather than by touching every place that
 -- paints one (`devdocs/legacy/grading-binding-issues.md`).
 Constants.ISSUE_GRADE_ERROR = 1;
---- **The action runs; something around it does not.** Orange rather than red (2026-09-06, owner).
---- The key works, one thing it was told to do does not, and there may be nothing to fix at all
---- (another addon owns the frames), so a colour that says work is waiting would be a lie.
+--- **Something the action was told to do does not happen, and taking the action off its key would
+--- not help.** Orange rather than red (2026-09-06, owner): a colour that says work is waiting would
+--- be a lie where the reader may have meant it.
 ---
---- **The one code that carried this went with the Clique option it was about (2026-09-09), and the
---- grade stays behind on purpose (owner).** What it buys is that the next issue of this kind picks
---- its colour, its icon and its place in `BuildKeyMap` by adding one row to the table below --
---- taking the grade out would mean building all of that again to put one code back.
+--- **The code this grade was made for went with the Clique option it was about (2026-09-09), and
+--- the grade stays behind on purpose (owner).** What it buys is that the next issue of this kind
+--- picks its colour, its icon and its place in `BuildKeyMap` by adding one row to the table below.
+--- Taking the grade out would mean building all of that again to put one code back.
 Constants.ISSUE_GRADE_WARNING = 2;
 
 --- Which grade each code carries, and the question each one answers is **what the reader sees**:
 ---
----   ERROR    the key does not work and it is waiting on the reader
----   WARNING  the action runs; one thing it was told to do does not
+---   ERROR    the action cannot work as saved, and it is waiting on the reader
+---   WARNING  something it was told to do does not happen, and leaving it out would not help
+---
+--- **A WARNING is not an action that runs.** The three codes carrying one each do nothing on press.
+--- `CASTING_NONE_LEFT` and `CASTING_BARE_CLICK_SKIPPED` have no binding at all, and that may be what
+--- the reader meant. `TYPE_RETIRED` binds a block, which is the one thing that keeps the action
+--- behind it on the key from firing.
 ---
 --- **Every code in here is a fault of the action itself, and why an action is not firing right now
 --- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
@@ -616,11 +627,12 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- the screen.
 ---
 --- `BuildKeyMap` reads the same line: an ERROR keeps the action out of `KeyMap` entirely, and
---- anything else goes in.
+--- anything else passes the gate. Passing it puts in only what the action has, which for an action
+--- with every press off is nothing.
 ---
 --- **A code with no row here is treated as ERROR** (`GetIssueColor` and `IssueKeepsKey` are the
---- only readers, and both fall that way). Failing loud is the safe direction in a keybinding addon
---- -- a grade nobody wrote would otherwise leave a binding that does not work looking fine.
+--- only readers, and both fall that way). Failing loud is the safe direction in a keybinding addon:
+--- a grade nobody wrote would otherwise leave a binding that does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
@@ -636,6 +648,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CASTING_NONE_LEFT]                 = Constants.ISSUE_GRADE_WARNING,
     [Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED]        = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_WARNING,
 };
 
 

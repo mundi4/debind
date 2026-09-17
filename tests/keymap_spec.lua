@@ -72,7 +72,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- **A saved `UNUSED` or `COMMAND` stands on the key as a BLOCK**, and the action keeps the type
-    -- it was saved with (`devdocs/dropping-the-game-fallback.md` §3). Nothing after it on the key
+    -- it was saved with (`devdocs/legacy/dropping-the-game-fallback.md` §3). Nothing after it on the key
     -- can fire, so it has to reach the key rather than be left out.
     test("an unused or command action stands on the key as a block", function()
         local unused = { type = Constants.UNUSED, key = "F1", seq = 1 };
@@ -90,6 +90,8 @@ return function(DebindPrivate)
             check(original, key .. ": the action did not reach the key");
             check(original.type == Constants.BLOCK, key .. ": it came out as " .. tostring(original.type));
             check(stored.type ~= Constants.BLOCK, key .. ": the stored action was rewritten");
+            check(DebindPrivate.GetBindingIssue(stored) == Constants.BINDING_ISSUE_TYPE_RETIRED,
+                key .. ": the row is not marked");
         end
     end);
 

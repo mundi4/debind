@@ -330,7 +330,7 @@ local function NameAndIconForAction(action)
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
-		actionIcon = "A:NPE_Icon"
+		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";
 	elseif (type == Constants.ACTIONBUTTON) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
 		skipTypeName = true;
@@ -373,11 +373,7 @@ local function NameAndIconForAction(action)
 		actionName, actionIcon = DebindPrivate.GetFlyoutNameAndIcon(value, true);
 	elseif (type == Constants.UNUSED) then
 		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
-		-- **되돌리기지 금지가 아니다.** 빨간 X(`ReadyCheck-NotReady`)를 쓰던 자리인데, 그
-		-- 그림은 "막는다·아무 일도 안 한다"로 읽혀서 툴팁과 반대말을 했다 - 키는 그대로
-		-- 눌리고 WoW 바인딩이 시키는 일을 한다. 블리자드가 "기본값으로 되돌리기"에 쓰는
-		-- 화살표를 그대로 빌려온다(쿨다운 뷰어의 변경 취소, 커스터마이즈의 카메라 초기화).
-		actionIcon = "A:common-icon-undo";
+		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";
 		skipTypeName = true;
 	else
 		actionName = action.name or LLL["UNNAMED_ACTION"];
@@ -399,12 +395,12 @@ end
 --- Puts an icon from `NameAndIconForAction` on a texture.
 
 ---
---- The second return value is **not always a texture.** Binding commands and `UNUSED` hand back an
+--- The second return value is **not always a texture.** The action button action hands back an
 --- atlas name behind an `A:` prefix, and `SetTexture` on one of those draws nothing and raises
 --- nothing - the icon is simply blank, which is only ever noticed by someone looking at that row.
 ---
---- **One function, and the whole convention lives in this file.** The only two places that put an
---- `A:` on an icon are a few lines above; this is the only place that takes one off. Seven callers
+--- **One function, and the whole convention lives in this file.** The only place that puts an
+--- `A:` on an icon is a few lines above; this is the only place that takes one off. Seven callers
 --- across five files draw an action's icon, and the branch was written out by hand in several of
 --- them at one point -- the drag portrait was missing it, so dragging a command action carried a
 --- blank square around while every list showed the picture correctly.

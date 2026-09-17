@@ -312,7 +312,7 @@ local function buildEnv(interp)
     env.HasTempShapeshiftActionBar = function() return state.shapeshiftbar; end
     env.HasBonusActionBar = function() return state.bonusactionbar; end
     env.GetActionBarPage = function() return state.actionBarPage; end
-    -- The indices the probe read on retail (§4-5 of `devdocs/dropping-the-game-fallback.md`).
+    -- The indices the probe read on retail (§4-5 of `devdocs/legacy/dropping-the-game-fallback.md`).
     env.GetVehicleBarIndex = function() return 16; end
     env.GetTempShapeshiftBarIndex = function() return 17; end
     env.GetOverrideBarIndex = function() return 18; end

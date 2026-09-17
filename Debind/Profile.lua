@@ -804,7 +804,7 @@ local function MigrateLayer(layerTbl, dbver)
 
         -- A command that presses an action bar button becomes the action button action under the
         -- same name: Debind holds every key it has an action on, so the game's binding no longer
-        -- gets the press (`devdocs/dropping-the-game-fallback.md` §3). Every other command is left
+        -- gets the press (`devdocs/legacy/dropping-the-game-fallback.md` §3). Every other command is left
         -- as saved and binds as a block. Safe to run again, and payloads ride it too.
         for i = 1, #layerTbl do
             local action = layerTbl[i];

@@ -472,7 +472,7 @@ function M.install()
     _G.C_PetBattles = {
         IsInBattle = function() return M.world.inPetBattle; end,
     };
-    -- The page numbers the probe read on retail (§4-5 of `devdocs/dropping-the-game-fallback.md`),
+    -- The page numbers the probe read on retail (§4-5 of `devdocs/legacy/dropping-the-game-fallback.md`),
     -- and a client whose slots hold nothing.
     _G.C_ActionBar = {
         GetExtraBarIndex = function() return 19; end,

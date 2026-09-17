@@ -1,5 +1,5 @@
 -- A computed switch is worked out at the press, and the beat is left to the ones that announce a
--- change (`devdocs/dropping-the-game-fallback.md` §3). No WoW client needed.
+-- change (`devdocs/legacy/dropping-the-game-fallback.md` §3). No WoW client needed.
 
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;

@@ -58,7 +58,7 @@ end
 local PetBattleKeys               = {};
 
 -- Driven by the two events rather than `C_PetBattles.IsInBattle`, the way the probe that measured
--- the yield did (§5-1 of `devdocs/dropping-the-game-fallback.md`).
+-- the yield did (§5-1 of `devdocs/legacy/dropping-the-game-fallback.md`).
 local inPetBattle                 = C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle() or false;
 
 -- The battle's abilities go out through `ActionButtonDown`, which only these bindings call

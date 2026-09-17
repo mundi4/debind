@@ -337,6 +337,14 @@ SEEDS[6] = function(guid)
                 {
                     type = "equipslot", value = 13, key = "CTRL-F10", seq = 1,
                 },
+
+                --- What the `dbver <= 6` command step meets. Once raised, the first three are action
+                --- button actions, and the fourth and the `UNUSED` stay as saved and wear the mark.
+                { type = Constants.COMMAND, value = "ACTIONBUTTON3", key = "CTRL-F11", seq = 1 },
+                { type = Constants.COMMAND, value = "MULTIACTIONBAR1BUTTON5", key = "CTRL-F12", seq = 1 },
+                { type = Constants.COMMAND, value = "EXTRAACTIONBUTTON1", key = "ALT-F11", seq = 1 },
+                { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
+                { type = Constants.UNUSED, key = "ALT-F10", seq = 1 },
             },
         },
 
@@ -455,6 +463,13 @@ SEEDS[7] = function(guid)
                 {
                     type = Constants.USESLOT, value = 13, key = "CTRL-F10", seq = 1,
                 },
+
+                --- The commands above after the step. The two with nowhere to go are unchanged.
+                { type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON3", key = "CTRL-F11", seq = 1 },
+                { type = Constants.ACTIONBUTTON, value = "MULTIACTIONBAR1BUTTON5", key = "CTRL-F12", seq = 1 },
+                { type = Constants.ACTIONBUTTON, value = "EXTRAACTIONBUTTON1", key = "ALT-F11", seq = 1 },
+                { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
+                { type = Constants.UNUSED, key = "ALT-F10", seq = 1 },
             },
         },
 

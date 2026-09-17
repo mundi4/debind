@@ -584,7 +584,7 @@ return function(DebindPrivate)
     end);
 
     -- An action slot command becomes the action button action, under the same command name
-    -- (`devdocs/dropping-the-game-fallback.md` §3). Every other command stays what it was saved as.
+    -- (`devdocs/legacy/dropping-the-game-fallback.md` §3). Every other command stays what it was saved as.
     test("dbver 7 moves the action slot commands to the action button type", function()
         local layer = {
             { key = "A", type = Constants.COMMAND, value = "ACTIONBUTTON3" },

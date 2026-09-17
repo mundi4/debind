@@ -171,7 +171,7 @@ return function(DebindPrivate)
     end
 
     -- **The picker makes neither of the two types the addon no longer runs**
-    -- (`devdocs/dropping-the-game-fallback.md` §3). A command that presses an action bar button
+    -- (`devdocs/legacy/dropping-the-game-fallback.md` §3). A command that presses an action bar button
     -- comes in as the action button action; every other game command and "use WoW's own binding"
     -- are not offered at all. Saved ones still draw, which is the display's business.
     test("명령 탭과 특수 탭은 COMMAND와 UNUSED를 안 만든다", function()

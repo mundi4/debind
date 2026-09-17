@@ -87,6 +87,10 @@ L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
+-- On a saved [Use WoW's Own Binding] or binding command row. The row's own name already says what it
+-- was, so this says what a press does now and why, then the two ways out. It says "the game's own
+-- keybinding" because the command was one, and a macro is where most of them can be remade.
+L["BINDING_ERROR_TYPE_RETIRED"] = "Debind no longer passes keys to the game's own keybindings, so pressing this does nothing. Make it again as a macro, or delete it."
 -- The only MINOR code, so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --

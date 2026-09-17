@@ -285,7 +285,7 @@ return function(DebindPrivate)
     end
 
     -- **The battle's own path only runs while the key is not ours** (§5 of
-    -- `devdocs/dropping-the-game-fallback.md`): the abilities go out through `ActionButtonDown`,
+    -- `devdocs/legacy/dropping-the-game-fallback.md`): the abilities go out through `ActionButtonDown`,
     -- which only the `ACTIONBUTTONn` binding calls. Every key the client has on each of the five.
     test("a pet battle yields every key on the first five action buttons, and gives them back", function()
         ActionButtonWorld();

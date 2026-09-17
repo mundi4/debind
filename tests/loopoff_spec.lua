@@ -1,5 +1,5 @@
 -- Every key that holds a key record is ours for good, and a press nothing answers does nothing
--- (`devdocs/dropping-the-game-fallback.md` §2, §3). No WoW client needed.
+-- (`devdocs/legacy/dropping-the-game-fallback.md` §2, §3). No WoW client needed.
 --
 -- **Asked of the emission fixture too**, the one profile shaped to reach every branch of
 -- `UpdateBindings.lua`, and not only of keys built to pass: a key that came out unbound there is a

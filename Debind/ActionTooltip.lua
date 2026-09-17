@@ -363,6 +363,14 @@ do
 		-- in lines instead - the badge just under the key, problems on the lines they belong to.
 		GameTooltip_SetTitle(tooltip, (NameAndIconForAction(action)));
 
+		-- **Above the key, because it is about the action the title names.** Every line below it is a
+		-- setting of an action that no longer does anything.
+		local retired = hasIssues and GetIssue("retired");
+		if (retired) then
+			GameTooltip_AddBlankLineToTooltip(tooltip);
+			addIssueLine(tooltip, retired, true, 0);
+		end
+
 		do
 			addLabelLine(tooltip, LLL["KEY"]);
 

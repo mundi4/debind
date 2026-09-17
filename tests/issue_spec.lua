@@ -333,7 +333,7 @@ return function(DebindPrivate)
     end);
 
     -- **A saved command with hover on a mouse button stays on its key.** It binds as a block like
-    -- every other saved command (`devdocs/dropping-the-game-fallback.md` §3); an ERROR here would
+    -- every other saved command (`devdocs/legacy/dropping-the-game-fallback.md` §3); an ERROR here would
     -- take it out of `KeyMap`, leave no block, and let the action under it fire instead.
     test("호버를 켠 명령 액션도 마우스 버튼 키에서 안 빠진다", function()
         check(DebindPrivate.IsKeyInvalidForAction(nest({
@@ -433,7 +433,7 @@ return function(DebindPrivate)
     -- 본문을 파싱하는 타입만 본다. 다른 타입의 `value`는 매크로 본문이 아니라서 같은
     -- 글자가 들어 있어도 조건이 아니다.
     test("매크로 본문이 아닌 타입은 안 본다", function()
-        local action = { type = Constants.COMMAND, value = "/cast [$typo] Foo", key = "F1" };
+        local action = { type = Constants.ITEM, value = "/cast [$typo] Foo", key = "F1" };
         check(GetBindingIssue(action) == nil, "오탐 - 본문으로 읽었다");
     end);
 
@@ -735,6 +735,36 @@ return function(DebindPrivate)
         check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴가 빨개진다");
         check(GetBindingIssue(macroValueAction("Kick+Pet2"), nil, "macro") == nil,
             "갈래를 껐는데도 나온다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- A type that used to hand the key back to the game
+    ---------------------------------------------------------------------------
+
+    -- **A saved `UNUSED` or `COMMAND` binds as a block** (`devdocs/legacy/dropping-the-game-fallback.md`
+    -- §3), so pressing it does nothing while the row still reads as what it was. Only the mark
+    -- tells the reader.
+    test("a saved unused or command action is reported", function()
+        local RETIRED = Constants.BINDING_ISSUE_TYPE_RETIRED;
+        check(RETIRED ~= nil, "no code");
+        check(GetBindingIssue({ type = Constants.UNUSED, key = "F1" }) == RETIRED,
+            "unused: " .. tostring(GetBindingIssue({ type = Constants.UNUSED, key = "F1" })));
+        local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F1" };
+        check(GetBindingIssue(command) == RETIRED, "command: " .. tostring(GetBindingIssue(command)));
+        check(GetBindingIssue(command, nil, "retired") == nil, "turning the category off did not");
+        check(GetBindingIssue(command, "key") == nil, "the key box goes red");
+    end);
+
+    -- **A WARNING, not an ERROR.** An ERROR leaves the action out of `KeyMap`, no block stands where
+    -- it was, and the action after it on the key fires instead.
+    test("the retired type keeps its key", function()
+        check(DebindPrivate.IssueKeepsKey(Constants.BINDING_ISSUE_TYPE_RETIRED),
+            "the action leaves the key");
+    end);
+
+    test("the action button action that replaced a command is not reported", function()
+        local action = { type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON3", key = "F1" };
+        check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
     end);
 
     ---------------------------------------------------------------------------

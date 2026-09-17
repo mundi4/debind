@@ -5916,7 +5916,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 })
 
 -- **The hovered unit is read off the frame at the call** (`GetUnitFrameUnit`, §3 of
--- `devdocs/dropping-the-game-fallback.md`). The beat no longer polls the slot, so a unit that goes
+-- `devdocs/legacy/dropping-the-game-fallback.md`). The beat no longer polls the slot, so a unit that goes
 -- away under a still cursor leaves the slot as it was; what has to answer "nobody" is the read. The
 -- headless half is `tests/hover_spec.lua`; what only the client shows is that
 -- `GetEffectiveAttribute` on a frame handle answers in the real sandbox.
@@ -6926,7 +6926,7 @@ RegisterTest("State injection: combat-only binding", {
     end,
 })
 
--- **A saved command wins its key and does nothing** (`devdocs/dropping-the-game-fallback.md` §3).
+-- **A saved command wins its key and does nothing** (`devdocs/legacy/dropping-the-game-fallback.md` §3).
 -- Which record wins is headless (`tests/loopoff_spec.lua`); what is left for the client is that the
 -- block goes through the real wrapper and reports, and that the key is ours rather than the game's
 -- while it does nothing.
@@ -6969,7 +6969,7 @@ RegisterTest("Blocked command: the key is ours and the press does nothing", {
     end,
 })
 
--- **The action button action works its slot out in the client** (`devdocs/dropping-the-game-fallback.md`
+-- **The action button action works its slot out in the client** (`devdocs/legacy/dropping-the-game-fallback.md`
 -- §4). The page table is headless (`tests/actionbutton_spec.lua`); what is left for the client is
 -- that the snippet compiles against the real bar functions and lands on the slot the bar controller
 -- would pick, read here on the insecure side in `ActionBarController_UpdateAll`'s order.

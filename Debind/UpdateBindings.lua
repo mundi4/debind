@@ -1729,7 +1729,7 @@ local _keysToWalk = {};
 local _noBindings = {};
 
 --- The key's bindings with a BLOCK closing the self tier, the focus tier and the whole list
---- (`devdocs/dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
+--- (`devdocs/legacy/dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
 --- click-cast-only key a block would take the key, and the world click and camera with it.
 ---
 --- **No block after the hover twins.** The last one sits under every original's [none held], which

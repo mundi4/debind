@@ -2395,6 +2395,11 @@ local ACTION_CHECKS = {
             return Constants.BINDING_ISSUE_MISSING_MACRO, missing;
         end
     end },
+    { category = "retired", check = function(action)
+        if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
+            return Constants.BINDING_ISSUE_TYPE_RETIRED;
+        end
+    end },
     -- **A row empty on its own.** Every binding that asks it cannot stand, so the answer needs none of
     -- them; asked of one unit, only that row answers. The root Target is not told: the reader fixes
     -- the row, not the unit they picked.

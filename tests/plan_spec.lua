@@ -177,7 +177,7 @@ return function(DebindPrivate)
     end);
 
     -- **A condition asks for no beat.** The press measures every axis a record names, so nothing is
-    -- left for a pass to have ready (`devdocs/dropping-the-game-fallback.md` §3).
+    -- left for a pass to have ready (`devdocs/legacy/dropping-the-game-fallback.md` §3).
     test("a key condition does not ask for the beat", function()
         local plan = PlanFor({
             spell({ key = "F1", conditions = { combat = true } }),

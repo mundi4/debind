@@ -444,7 +444,7 @@ return function(DebindPrivate)
     ---
     --- Seven callers draw an action's icon and they all go through `SetActionIcon` now, which is
     --- what makes the convention worth pinning here: with one reader left, the way to break it is to
-    --- change what the writers emit, and those two lines sit in the same file.
+    --- change what the writer emits, which `actionbutton_spec` asks.
     local function drawnBy(icon)
         local drawn;
         local texture = {
@@ -504,19 +504,6 @@ return function(DebindPrivate)
         local held = DebindPrivate.CollectActionsForKey("F2")[1];
         check(held.noSpell == nil,
             "the settled-true row was marked: " .. tostring(held.noSpell));
-    end);
-
-    --- The two types with no icon file of their own. **If either stops emitting `A:`**, the fork
-    --- above is still correct and the picture is still wrong, so what they emit is asked here.
-    test("the two iconless types come back with an atlas", function()
-        local _, command = DebindPrivate.DebindUI.NameAndIconForAction(
-            { type = Constants.COMMAND, value = "TOGGLEGAMEMENU" });
-        check(type(command) == "string" and command:sub(1, 2) == "A:",
-            "a binding command's icon is not an atlas: " .. tostring(command));
-
-        local _, unused = DebindPrivate.DebindUI.NameAndIconForAction({ type = Constants.UNUSED });
-        check(type(unused) == "string" and unused:sub(1, 2) == "A:",
-            "an unused action's icon is not an atlas: " .. tostring(unused));
     end);
 
     return T;

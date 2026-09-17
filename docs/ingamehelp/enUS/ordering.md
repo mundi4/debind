@@ -5,7 +5,7 @@
 # Which action does a key run?
 
 <!--
-**"The key does nothing" is the line that matters to someone upgrading.** Up to the previous release a key with nothing to run was handed back to the game and its own keybinding ran; that path is gone (`devdocs/dropping-the-game-fallback.md`). It also covers a held key no action answers, so the paragraph at the end needs no sentence of its own for that. Pet battles handing keys back are left out: there the key does what the battle bar shows.
+**"The key does nothing" is the line that matters to someone upgrading.** Up to the previous release a key with nothing to run was handed back to the game and its own keybinding ran; that path is gone (`devdocs/legacy/dropping-the-game-fallback.md`). It also covers a held key no action answers, so the paragraph at the end needs no sentence of its own for that. Pet battles handing keys back are left out: there the key does what the battle bar shows.
 -->
 
 A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing.
