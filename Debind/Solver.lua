@@ -495,30 +495,30 @@ local function buildConditionSet(binding, dest)
 end
 
 ---
---- `region`이 커버들의 합집합에 완전히 덮이는가?
+--- Is `region` wholly covered by the union of the covers?
 ---
---- 잔여 집합을 만들어놓고 비었는지 보는 대신, 덮이지 않은 점을 **하나 찾으면 즉시 끝낸다.**
---- 대부분의 바인딩은 도달 가능하므로 흔한 경우가 곧 빨리 끝나는 경우가 된다.
---- 잔여를 전부 만들면 정반대였다 -- 도달 가능한 바인딩이 제일 비쌌음.
+--- **It stops at the first uncovered point** instead of building the remainder and asking whether
+--- it is empty. Most bindings are reachable, so the common case is the one that ends early; building
+--- the whole remainder made it the other way round, and a reachable binding was the most expensive.
 ---
---- 각 노드에서:
----   1. region과 만나지 않는 커버를 버린다. 남는 게 없으면 반례를 찾은 것.
----   2. region을 통째로 덮는 커버가 있으면 이 가지는 끝.
----   3. 커버 O 하나를 골라 region \ O를 서로소 조각들로 쪼개고 각각 재귀한다.
----      조각들은 O와 만나지 않으므로 **O를 커버 목록에서 뺀 채로** 내려간다.
+--- At each node:
+---   1. Drop the covers that do not meet `region`. If none is left, a counterexample is found.
+---   2. If one cover takes `region` whole, this branch is done.
+---   3. Pick a cover O, split `region \ O` into disjoint pieces and recurse on each. The pieces do
+---      not meet O, so they go down **with O taken off the cover list**.
 ---
---- 쪼개지는 개수가 가장 적은 커버를 고른다 -- 가지치기가 가장 센 선택.
+--- The cover that splits into the fewest pieces is picked, which prunes hardest.
 ---
 --- A degenerate box -- some column at 0, meaning the condition can never hold -- falls out of
 --- both roles on the disjointness test, which is the right answer either way: as a region it
 --- meets no cover and survives, as a cover it meets no region and deletes nothing. Strictly
 --- such a binding *is* unreachable and could be dropped, but a silent deletion and a warning
---- are different products, and the warning is `GetBindingIssue`'s.
+--- are different products, and the warning is the issue check's.
 ---
---- That filter runs before this one (`Debind.lua` builds KeyMap from issue-free actions only),
---- so a degenerate box should not arrive here at all. The behaviour above is a backstop, and
---- it is one on purpose: assuming an upstream filter held is the shape of coupling this file
---- has been bitten by before.
+--- **Such a box should not arrive here at all.** `BuildKeyMap` leaves off the key every binding
+--- `FillBinding` marked `dead` and every action carrying an ERROR, `groups == 0` among them. The
+--- behaviour above is a backstop, and it is one on purpose: assuming an upstream filter held is the
+--- shape of coupling this file has been bitten by before.
 ---
 local _workBudget = 0;
 local _nodeCount = 0;
@@ -736,21 +736,27 @@ end
 --- the last `BuildKeyMap`, and this is asked several times per drawn row. An action with no list
 --- yet gets one, which the cache cannot hold, so the answer is the same and the cost is paid once.
 ---
---- **An empty list is not unreachable.** It is the action with every Casting value turned off,
---- which `CASTING_NONE_LEFT` or `CASTING_BARE_CLICK_SKIPPED` already names; "all of none were dropped" is vacuously true and put
---- "another action gets there first" on a key with nothing else on it.
+--- **Only the bindings that can stand are counted** (`binding.dead`). One that cannot never reaches
+--- the key, so nothing covers it, and counted it would keep an action every press of which goes to
+--- another from ever reading as unreachable.
+---
+--- **With none that stand the action is not unreachable.** That is an empty list, the action with
+--- every Casting value turned off, or one whose every binding cannot stand; each has its own issue,
+--- and "all of none were dropped" is vacuously true and put "another action gets there first" on a
+--- key with nothing else on it.
 function DebindPrivate.IsUnreachableAction(action)
     local list = DebindPrivate.PeekBindingsForAction(action)
         or DebindPrivate.GetBindingsForAction(action);
-    if (#list == 0) then
-        return false;
-    end
+    local standing = false;
     for i = 1, #list do
-        if (not UnreachableBindingCache[list[i]]) then
-            return false;
+        if (not list[i].dead) then
+            if (not UnreachableBindingCache[list[i]]) then
+                return false;
+            end
+            standing = true;
         end
     end
-    return true;
+    return standing;
 end
 
 function DebindPrivate.ClearUnreachableBindingCache()

@@ -895,7 +895,8 @@ return function(DebindPrivate)
     -- 0 is a condition no state satisfies. `flagsToConditionFlags` passes it through rather
     -- than reading it as "unset" -- 0 is truthy in Lua -- and the solver then finds the box
     -- disjoint from every cover, so it survives instead of being deleted. Deleting it would be
-    -- defensible; warning about it is `GetBindingIssue`'s job and that is the split we chose.
+    -- defensible; warning about it is the issue check's job, and keeping it off the key is
+    -- `BuildKeyMap`'s. That is the split we chose.
     test("마스크가 0이면 지워지지 않는다", function()
         expectSurvives({
             { name = "cover",   groups = Constants.GROUP_ALL },
@@ -1004,7 +1005,7 @@ return function(DebindPrivate)
     --- point is smaller than "exists" but it is not inside it. A higher-priority binding carrying
     --- that reading covers the binding that really is [when there is none], and the solver deletes
     --- a condition the reader set, with nothing on screen to say so -- the mask is
-    --- `UNITSTATE_NONE` rather than 0, so `CONDITIONS_NEVER` does not fire either.
+    --- `UNITSTATE_NONE` rather than 0, so the binding is not `dead` and no issue fires either.
     ---
     --- `Solver.lua`'s header wrote the answer down before the case turned up: a condition that
     --- cannot be placed on an axis makes the binding opaque, out of both roles, rather than being

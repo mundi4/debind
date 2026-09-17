@@ -668,18 +668,20 @@ return function(DebindPrivate)
         check(mode(7) == "absent", "모르는 숫자가 없을 때로 안 떨어짐");
     end);
 
-    --- **모르는 값은 축에 못 올린다. 좁게 읽는 것이 아니라 다른 자리로 읽는 것이라서다.**
+    --- **A value this build cannot read is not put on an axis, because reading it there is not
+    --- narrower but elsewhere.**
     ---
-    --- 없음 점은 크기가 작을 뿐 "있을 때"의 부분집합이 아니다. 모르는 값을 없음 점으로 읽으면
-    --- 그 바인딩이 **진짜 "없을 때" 바인딩을 통째로 덮고**, solver가 그것을 지운다. 사용자가 건
-    --- 조건이 소리 없이 사라지고 이슈도 안 뜬다 - 마스크가 0이 아니라 `UNITSTATE_NONE`이라
-    --- `CONDITIONS_NEVER`에 안 걸린다.
+    --- The absent point is smaller than "there" but not inside it. Read as the absent point, the
+    --- binding **covers a real [when there is none] binding whole** and the solver deletes it. The
+    --- reader's condition disappears with no issue shown: the mask is `UNITSTATE_NONE`, not 0, so
+    --- the binding is not `dead` either.
     ---
-    --- `Solver.lua` 머리 주석이 이 경우의 답을 적어놨다: 축에 못 놓는 조건은 무시하는 것이 아니라
-    --- **바인딩을 `_opaque`로 만들어 두 역할에서 뺀다.** 덮지도 않고 덮이지도 않는다.
+    --- `Solver.lua`'s header gives the answer: a condition that cannot be placed on an axis is not
+    --- ignored, **it makes the binding opaque and takes it out of both roles.** It neither covers
+    --- nor is covered.
     ---
-    --- **닿는 길은 가져오기다.** `Import.lua`는 `units`가 표라는 것만 보고 안에 든 값은
-    --- `CopyTable`로 그대로 들여온다. 즉 더 새로운 버전이 만든 값이 이쪽으로 온다.
+    --- **The way in is an import.** `Import.lua` checks only that `units` is a table and copies what
+    --- is inside it with `CopyTable`, so a value a newer version wrote arrives here.
     local function opaqueFor(value)
         local b = normalize(nest({
             type = Constants.SPELL, value = 585, key = "T",

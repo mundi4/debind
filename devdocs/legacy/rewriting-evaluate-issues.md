@@ -1,9 +1,9 @@
 # `EvaluateIssues`를 다시 짜기 (2026-09-17 시작)
 
-> 상태: **계획. 코드는 안 건드렸다.** 정답표(§4)와 기존 테스트 대조(§5)는 2026-09-17에 지금 코드를
-> 헤드리스로 돌려 채웠다. 구현 순서는 §8이다.
+> 상태: **전부 들어갔다.** 정답표(§4)는 `tests/answer_rows.lua`가 행을 들고 `issue_spec`과
+> `keymap_spec`이 잰다. §4의 "지금" 열은 2026-09-17에 1단계 코드로 돌린 답이다.
 >
-> 규칙은 `which-action-a-key-runs.md`(S2, S3)가 들고, 이 문서는 이슈 검사가 그 규칙을 어떻게 읽어야
+> 규칙은 `../which-action-a-key-runs.md`(S2, S3)가 들고, 이 문서는 이슈 검사가 그 규칙을 어떻게 읽어야
 > 하는지와 그것을 재는 표만 든다. 둘이 갈리면 스펙이 맞다.
 
 ## 0. 왜 다시 짜나
@@ -26,7 +26,7 @@ Unit의 반응을 전부 끄면 세 곳이 빨갛다. Units › Resolved Unit은
   `BuildKeyMap`이 액션을 통째로 빼므로 멀쩡한 쌍둥이까지 키에서 사라진다.
 - 반대로 **쌍둥이만 죽는 경우는 아무도 안 본다.** `"@"` [우호]에 `player` [적대]면 self 쌍둥이의
   `player` 칸이 0인데 원본은 멀쩡하니 이슈가 없고, 그 죽은 쌍둥이가 `KeyMap`에 들어가 솔버와
-  `UpdateBindings`까지 간다(§4 R, F, G 줄). `mergeUnitConditions`의 `NEVER`가 그것을 방출 직전에
+  `UpdateBindings`까지 간다(§4 11, 12, 13, 15). `mergeUnitConditions`의 `NEVER`가 그것을 방출 직전에
   걸러서 지금까지 증상이 없었을 뿐이다. 그 함수의 머리 주석이 "여기까지 오는 것 자체가 없다"고
   장담하는 보장은 **원본에만** 서 있었다.
 - 솔버는 칸이 0인 상자를 표시도 삭제도 안 한다(`Solver.lua`의 `isCovered` 머리 주석). 지금 그 앞에서
@@ -116,8 +116,8 @@ Unit의 반응을 전부 끄면 세 곳이 빨갛다. Units › Resolved Unit은
 | `SOURCE_ROW` | 그 유닛의 저장된 줄 |
 | `SOURCE_AT` | `"@"`가 이 바인딩에서 그 유닛으로 풀림 |
 | `SOURCE_KEY` | 마우스 버튼 키의 규칙([`unitframe` 없음]) |
-| `SOURCE_SKIP` | Hover Cast Skip이 원본에 얹는 [모드의 유닛 없음](`skipsPointedUnit`) |
-| `SOURCE_TWIN` | hover 쌍둥이가 스스로 얹는 [`H` 있음](`UNIT_IS_THERE`) |
+| `SOURCE_SKIP` | Hover Cast Skip이 원본에 얹는 [모드의 유닛 없음] (`skipsPointedUnit`) |
+| `SOURCE_TWIN` | hover 쌍둥이가 스스로 얹는 [`H` 있음] (`UNIT_IS_THERE`) |
 
 `binding.unitSources[unit]`에 `bor`로 쌓는다. 표는 바인딩이 갖고 리필마다 `wipe`한다. 쌍둥이의
 [`H` 있음]은 `FillBinding`이 `conditions.units[pointedUnit]`에 써넣으므로 `BuildUnitStates`는 그것을
@@ -155,6 +155,12 @@ Unit의 반응을 전부 끄면 세 곳이 빨갛다. Units › Resolved Unit은
   `Looking()`과 `category`/`notCategory` 가드가 루프 한 자리에 선다. `units`의 스스로 빈 줄 검사는
   `arg`를 봐야 하므로 `check(action, arg)`로 받는다. 두 묶음을 칠하는 쌍(`specialbar`/`petbattle`,
   `skyriding`/`bonusbars`)은 표에 두 줄이다. 지금 코드가 그 둘을 따로 적고 있는 것과 같다.
+  스스로 빈 줄 검사도 코드마다 한 줄씩 세 줄이다. 한 줄로 두면 한 줄에 겹친 두 코드 중 하나를
+  `GetBindingIssues`가 잃는다. skyriding 쌍이 두 줄이 되면서 `GetBindingIssues`는 그 모순을
+  CONDITION_SKYRIDING과 CONDITION_BONUSBAR 두 묶음 이름으로 낸다.
+- **못 서는 이유는 `CannotStand(binding, visit)` 하나가 든다.** `dead`를 세울 때는 첫 이유에서 멈추고,
+  칠할 때는 이유마다 유닛과 혼자 규칙인지를 넘긴다. 칠하기가 이유를 따로 세면 `BuildKeyMap`이 빼는
+  규칙과 갈린다.
 - **바인딩 갈래 함수 하나.** `category`가 nil, `units`, `unit`, `groups`, `casting` 중 하나일 때만 돈다.
   `GetBindingsForAction(action)`을 한 번 부르고 §2-1의 빈 목록 검사와 §2-4의 칠하기를 한다.
   `notCategory`가 `units`면 유닛 부분을, `casting`이면 빈 목록 부분을, `groups`면 혼자 부분을 건너뛴다.
@@ -195,11 +201,11 @@ Unit의 반응을 전부 끄면 세 곳이 빨갛다. Units › Resolved Unit은
 | 11 | BUTTON3, `"@"` [우호], `unitframe` [적대] | nil | nil | nil | nil | | | 1 (원본) | KeyMap 2 |
 | 12 | BUTTON1, `"@"` [우호], `unitframe` [적대] | NEVER | NEVER | `"@"`, `unitframe` NEVER | nil | | nil | 0 | nil, KeyMap 1 |
 | 13 | `"@"` [우호], `player` [적대] | nil | nil | nil | nil | | | 3 (hover, focus, 원본) | KeyMap 4 |
-| 14 | `"@"` [우호], `target`·`player`·`focus`·`unitframe` 전부 [적대] | NEVER | NEVER | 다섯 줄 전부 NEVER | nil | | | 0 | `player`, `focus`, `unitframe` nil |
+| 14 | `"@"` [우호], `target`·`player`·`focus`·`unitframe` 전부 [적대] | NEVER | NEVER | 다섯 줄 전부 NEVER | nil | | | 0 | `player`, `focus`, `unitframe` nil, Target NEVER |
 | 15 | `"@"` [없음] | nil | nil | nil | nil | | | 3 (focus, self, 원본) | KeyMap 4 |
 | 16 | BUTTON3, 대상 `unitframe`, `"@"` [있음] (마우스 버튼 키 규칙) | nil | nil | nil | nil | | | 1 (hover) | NEVER, KeyMap 0 |
 | 17 | 넷 다 끔 | NONE_LEFT | nil | nil | nil | | NONE_LEFT | 0 | |
-| 18 | 17에 `"@"` 반응 0 | NEVER | NEVER | `"@"` NEVER | nil | | NONE_LEFT | 0 | |
+| 18 | 17에 `"@"` 반응 0 | NEVER | NEVER | `"@"` NEVER | nil | | NONE_LEFT | 0 | Target NEVER |
 | 19 | Hover Cast Skip, 설정 탭 두 조합키 끔, `unitframe` [적대] | NONE_LEFT | nil | nil | nil | | NONE_LEFT | 0 | |
 | 20 | BUTTON1, Hover Cast Skip (S5 #47) | BARE_CLICK_SKIPPED | nil | nil | nil | | BARE_CLICK_SKIPPED | 0 | |
 | 21 | Normal Cast 끔, `"@"` [우호], `target` [적대] | nil | nil | nil | nil | | nil | 3 | NEVER, KeyMap 0 |
@@ -216,6 +222,10 @@ Unit의 반응을 전부 끄면 세 곳이 빨갛다. Units › Resolved Unit은
 자리가 없는 액션도 같은 경고를 받는다"와 같은 규칙). 12는 수식키 없는 왼클릭이라 원본이 없고 hover
 쌍둥이만 있는데 그것이 못 서므로 ERROR다. 스펙 #47과 달리 사용자가 건 조건끼리 어긋난 것이라
 WARNING이 아니다.
+
+`IsUnreachableAction`은 표의 칸이 아니라 두 경우로 잰다. 13을 우선순위가 앞선 조건 없는 액션 뒤에 두면
+참이다. 서는 셋이 다 덮이기 때문이다. 지금은 거짓인데, 죽은 self 쌍둥이가 안 덮인 채 키에 남기 때문이다.
+1을 같은 자리에 두면 서는 바인딩이 없어서 거짓이다. 지금도 거짓이다.
 
 ## 5. 기존 테스트와의 대조
 
@@ -246,11 +256,14 @@ WARNING이 아니다.
 | `MakeRow` | 1 | 0, 또는 목록 길이 |
 | 툴팁 `hasIssues` | 1 | 0, 또는 목록 길이 |
 
-바인딩 갈래는 `action.conditions.units`도 `action.casting`도 없으면 안 돈다. 그 둘이 없으면 목록은 비지
-않고 어느 바인딩도 `dead`가 아니다. 혼자 규칙과 마우스 버튼 규칙과 Skip이 0을 만들려면 유닛 줄이나
-`casting`이 있어야 한다. 그래서 유닛 조건이 없는 행(대부분)은 0회가 되어 지금(2회)보다 싸고, 유닛 조건이
-있는 행은 2회에서 최대 4회(탐침 타입 8회)가 된다. `FillBinding`은 표를 재사용하고 할당이 없다. 새로
-드는 것은 `unitSources` 표 하나로, 바인딩마다 한 번 만들고 `wipe`한다.
+바인딩 갈래는 유닛 줄(`action.conditions.units`, 옛 이름 `checkedUnits`)도 `action.casting`도 옛
+`hover` 쌍도 없으면 안 돈다. 옛 이름과 옛 쌍은 `FillBinding`이 유닛 줄로 올리므로 마이그레이션이 아직
+안 닿은 액션에서는 유닛 줄과 같다. 셋 다 없으면 목록은 비지 않고 어느 바인딩도 `dead`가 아니다. 혼자
+규칙과 마우스 버튼 규칙과 Skip이 0을 만들려면 유닛 줄이나 `casting`이 있어야 한다. 그래서 유닛 조건이
+없는 행(대부분)은 0회가 되어 지금(2회)보다 싸고, 유닛 조건이 있는 행은 2회에서 최대 4회(탐침 타입
+8회)가 된다. `FillBinding`은 표를 재사용하고 할당이 없다. 새로 드는 것은 `unitSources` 표 하나로,
+바인딩마다 한 번 만들고 `wipe`한다. 칠하기는 못 서는 바인딩마다 클로저 하나를 만들지만, 서는 바인딩이
+하나도 없는 액션에서만 도는 길이다.
 
 ## 7. 커버리지
 
@@ -266,8 +279,9 @@ WARNING이 아니다.
    `IsUnreachableAction`)에 세운다. 돌려서 빨간 줄이 §4의 "지금" 열과 **정확히** 일치하는지 본다. 더
    빨갛거나 덜 빨가면 표나 테스트가 틀린 것이다.
 2. `FillBinding`: `UNIT_IS_THERE` 선언을 위로, `twinOwnUnit`, `unitSources`, `dead`. `UnrollIntoTiers`가
-   `dead`를 건너뛰고 `IsUnreachableAction`이 `dead`를 안 센다. `KeyMap` 줄이 초록이 되고 이슈 줄은
-   아직 빨갛다.
+   `dead`를 건너뛰고 `IsUnreachableAction`이 `dead`를 안 센다. `KeyMap`의 11, 12, 13, 15와
+   `IsUnreachableAction`이 초록이 된다. `KeyMap`의 2, 3, 16, 21과 이슈 줄은 아직 빨갛다. 그 넷은
+   지금 이슈 검사가 ERROR를 내 액션이 통째로 빠지기 때문이다.
 3. `EvaluateIssues`를 §2-5로 다시 쓴다. 전부 초록.
 4. §2-3의 주석 여섯 자리를 고친다. `Constants.lua`의 `BINDING_ISSUE_UNITGROUPS_NONE_SELECTED` 주석은
    "위 순회가 찾는다"가 아니라 저장된 줄을 읽는다고 적는다.

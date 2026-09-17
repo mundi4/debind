@@ -6,10 +6,10 @@
 -- what that looks like from the outside.
 --
 -- The other half is `NEVER`: a fold that leaves nothing any state can satisfy. **Nothing should
--- reach it.** Every way it happens leaves a zero mask in `binding.unitStates`, `GetBindingIssue`
--- reports the zero, and `Debind.lua` keeps the binding out of `KeyMap` -- so it reaches neither
--- the solver nor the emitter. It is the backstop for those two intersections disagreeing, which is
--- two implementations of one rule, and it is the only thing that would notice.
+-- reach it.** Every way it happens leaves a zero mask in `binding.unitStates`, `FillBinding` marks
+-- that binding `dead`, and `BuildKeyMap` leaves it off the key -- so it reaches neither the solver
+-- nor the emitter. It is the backstop for those two intersections disagreeing, which is two
+-- implementations of one rule, and it is the only thing that would notice.
 --
 -- Verified with a one-off script every time this was touched before, because the harness did not
 -- read the file (`.zzz/refactor-candidates.md` 31).

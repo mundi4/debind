@@ -478,6 +478,74 @@ return function(DebindPrivate)
             "the original does not hold the key");
     end);
 
+    ---------------------------------------------------------------------------
+    -- `devdocs/legacy/rewriting-evaluate-issues.md` §4: how many records each row puts on its key
+    --
+    -- **A binding that cannot stand is not on the key**, the other bindings of its action are.
+    -- Nothing after `BuildKeyMap` would drop it (`Debind.lua`'s `UnrollIntoTiers`).
+    ---------------------------------------------------------------------------
+
+    local ROWS = require("answer_rows")(Constants);
+
+    --- Per row, the records on the key, spelled the way the table spells them.
+    local RECORDS = {
+        [1] = "", [2] = "self focus hover", [3] = "hover", [4] = "", [5] = "", [6] = "", [7] = "",
+        [8] = "", [9] = "", [10] = "self focus", [11] = "original", [12] = "",
+        [13] = "focus hover original", [14] = "", [15] = "self focus original", [16] = "hover",
+        [17] = "", [18] = "", [19] = "", [20] = "", [21] = "self focus hover", [22] = "", [23] = "",
+        [24] = "", [25] = "self focus hover original", [26] = "self focus hover original", [27] = "",
+    };
+
+    local function shapeOf(records)
+        local out = {};
+        for i = 1, #(records or {}) do
+            local record = records[i];
+            out[i] = (record.castModifier == Constants.CASTMOD_SELF and "self")
+                or (record.castModifier == Constants.CASTMOD_FOCUS and "focus")
+                or (record.hoverTwin and "hover")
+                or "original";
+        end
+        return table.concat(out, " ");
+    end
+
+    for _, row in ipairs(ROWS) do
+        test("§4 #" .. row.n .. " KeyMap: " .. row.label, function()
+            local action = row.action();
+            Bind({ action }, nil, row.options, true);
+            local shape = shapeOf(DebindPrivate.KeyMap[action.key]);
+            check(shape == RECORDS[row.n],
+                "came out [" .. shape .. "] (" .. select(2, shape:gsub("%S+", "")) .. "), want ["
+                    .. RECORDS[row.n] .. "]");
+        end);
+    end
+
+    -- **"Every binding was covered" means every binding that stands.** #13's self twin cannot stand,
+    -- and nothing covers a box with a zero in it, so counted it would keep an action whose every
+    -- press goes to the one ahead of it from ever reading as unreachable.
+    test("§4 #13 IsUnreachableAction: a binding that cannot stand is not counted", function()
+        local subject = ROWS[13].action();
+        subject.seq = 2;
+        Bind({ { type = Constants.SPELL, value = 116, key = "F1", seq = 1, priority = 1 }, subject },
+            nil, nil, true);
+        local left = {};
+        for _, record in ipairs(DebindPrivate.KeyMap["F1"]) do
+            if (record.value == 585) then
+                left[#left + 1] = shapeOf({ record });
+            end
+        end
+        check(DebindPrivate.IsUnreachableAction(subject) == true,
+            "the action ahead covers every binding that stands, and it still reads as reachable;"
+                .. " left on the key: " .. table.concat(left, " "));
+    end);
+
+    -- The other half: with nothing that stands there is nothing to have been covered.
+    test("§4 #1 IsUnreachableAction: an action with nothing that stands is not unreachable", function()
+        local subject = ROWS[1].action();
+        subject.seq = 2;
+        Bind({ { type = Constants.SPELL, value = 116, key = "F1", seq = 1, priority = 1 }, subject },
+            nil, nil, true);
+        check(DebindPrivate.IsUnreachableAction(subject) == false, "read as covered");
+    end);
 
     return T;
 end

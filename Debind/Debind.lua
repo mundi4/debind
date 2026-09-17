@@ -208,6 +208,9 @@ do
 	---
 	--- **The last tier leaves out an original whose Normal Cast is off**, which is what makes a press
 	--- with nothing held and nothing pointed at fall through to the next action (§6).
+	---
+	--- **No tier takes a binding that cannot stand** (`binding.dead`). Nothing downstream drops it: a
+	--- zero in its box the solver neither marks nor drops, and the solo rule is not in the box at all.
 	local function UnrollIntoTiers(bindings)
 		local count = #bindings;
 		for i = 1, count do
@@ -227,7 +230,7 @@ do
 				local list = Lists[_unroll[i]];
 				for j = #list, 1, -1 do
 					local binding = list[j];
-					if (binding.castModifier == castModifier
+					if (not binding.dead and binding.castModifier == castModifier
 							and (binding.hoverTwin or false) == wantHover
 							and (tier ~= 4 or binding.normalCast ~= false)) then
 						out = out + 1;

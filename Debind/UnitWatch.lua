@@ -356,12 +356,13 @@ do
     --- than listed again. `showSolo = false` is the whole of what makes one of them empty solo, so a
     --- header added with that property joins this set without anyone remembering to.
     ---
-    --- `GetBindingIssue` reads it to catch "only while solo" set against a unit that needs a group.
+    --- `Misc.lua`'s `CannotStand` reads it to mark a binding `dead` where "only while solo" is set
+    --- against a unit that needs a group.
     --- **Party and raid are not told apart here, and that is measured rather than assumed.** Main
     --- tank and main assist are assigned in a raid, but the assignment survives converting the group
     --- down: in a party `GetPartyAssignment("MAINTANK", "party1")` still answers true. Calling them
-    --- raid-only would put an issue on a binding that fires, and an action carrying an issue is left
-    --- out of `KeyMap` entirely -- the key dies rather than going yellow.
+    --- raid-only would mark a binding that fires `dead`, and `BuildKeyMap` leaves it off the key --
+    --- the key dies rather than going yellow.
     --- The aliases a reader may keep themselves out of. `damager` is not one: it answers the role
     --- map rather than a `@unit`, so leaving yourself out of it would leave your own role unknown
     --- to every binding that reads that map.

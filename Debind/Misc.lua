@@ -694,6 +694,12 @@ function DebindPrivate.CastUnitOf(binding)
     return binding.unit;
 end
 
+local SOURCE_ROW = 1;
+local SOURCE_AT = 2;
+local SOURCE_KEY = 4;
+local SOURCE_SKIP = 8;
+local SOURCE_TWIN = 16;
+
 --- Fold everything that says something about a unit onto one mask per unit.
 ---
 --- `binding.unitStates` is the only thing the solver reads about units.
@@ -716,7 +722,15 @@ local function BuildUnitStates(binding)
     -- [when there is none] and delete them.
     local opaque = binding.unitConditionUnreadable or nil;
 
-    local function narrow(unit, mask)
+    local sources = binding.unitSources;
+    if (sources == nil) then
+        sources = {};
+        binding.unitSources = sources;
+    else
+        wipe(sources);
+    end
+
+    local function narrow(unit, mask, source)
         states = states or {};
         local prev = states[unit];
         if (prev == nil) then
@@ -724,6 +738,7 @@ local function BuildUnitStates(binding)
         else
             states[unit] = band(prev, mask);
         end
+        sources[unit] = bor(sources[unit] or 0, source);
     end
 
     --- **Its own column, and only the pointed frame's unit rides it.** The map behind it is keyed
@@ -776,16 +791,20 @@ local function BuildUnitStates(binding)
 
     if (binding.key and (units == nil or units.unitframe == nil)
             and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
-        narrow("unitframe", Constants.UNITSTATE_NONE);
+        narrow("unitframe", Constants.UNITSTATE_NONE, SOURCE_KEY);
     end
     if (binding.skipsPointedUnit) then
-        narrow(binding.skipsPointedUnit, Constants.UNITSTATE_NONE);
+        narrow(binding.skipsPointedUnit, Constants.UNITSTATE_NONE, SOURCE_SKIP);
     end
 
     if (units) then
         for key, value in pairs(units) do
             local unit = key;
-            if (key == "@") then
+            local source = SOURCE_ROW;
+            if (key == binding.twinOwnUnit) then
+                source = SOURCE_TWIN;
+            elseif (key == "@") then
+                source = SOURCE_AT;
                 unit = ResolvedUnitOf(binding);
                 if (unit == nil) then
                     -- Nowhere to put it. Dropping the condition instead would make the binding
@@ -796,7 +815,7 @@ local function BuildUnitStates(binding)
                 end
             end
             if (unit) then
-                narrow(unit, UnitConditionToState(value));
+                narrow(unit, UnitConditionToState(value), source);
                 -- `value` is `false` for [when there is none], and role is remembered rather than
                 -- applied there -- the menu's rule for every axis under a mode it does not use.
                 if (unit == "unitframe" and type(value) == "table") then
@@ -823,8 +842,75 @@ end
 
 DebindPrivate.BuildUnitStates = BuildUnitStates;
 
+--- Whether this binding cannot stand. **Given `visit`, every reason is handed to it** as the unit
+--- the zero sits on and whether it is the solo rule, until `visit` returns true. The issue check
+--- paints from those reasons, and a second copy of the rule there would drift from the one
+--- `BuildKeyMap` leaves bindings out by.
+---
+--- **The solo reasons skip a zero**: that unit already has a reason of its own, and handing it
+--- twice would paint the groups menu for a contradiction it has no part in.
+local function CannotStand(binding, visit)
+    if (binding.unitStatesOpaque) then
+        return false;
+    end
+    local function found(unit, solo)
+        return visit == nil or visit(unit, solo) == true;
+    end
+
+    local states = binding.unitStates;
+    if (states) then
+        for unit, mask in pairs(states) do
+            if (mask == 0 and found(unit, false)) then
+                return true;
+            end
+        end
+    end
+    if (binding.unitGroups) then
+        for unit, mask in pairs(binding.unitGroups) do
+            if (mask == 0 and found(unit, false)) then
+                return true;
+            end
+        end
+    end
+    -- Only a `unitframe` row, or a `"@"` landing there, narrows these two (`BuildUnitStates`).
+    if ((binding.unitRole == 0 or binding.unitFrameTypes == 0) and found("unitframe", false)) then
+        return true;
+    end
+
+    -- **Solo only, against a unit that has to be there.** The role aliases and the role map are empty
+    -- while the reader is alone (`showSolo = false`, `UnitWatch.lua`). `UNITSTATE_NONE` or
+    -- `ROLE_NONE` still in the mask is [when there is none] or [unknown], which solo satisfies.
+    local groups = binding.conditions and binding.conditions.groups;
+    if (groups and band(groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
+        local role = binding.unitRole;
+        if (role and role ~= 0 and band(role, Constants.ROLE_NONE) == 0 and found("unitframe", true)) then
+            return true;
+        end
+        if (states) then
+            local absentWhenSolo = DebindPrivate.UNITS_ABSENT_WHEN_SOLO;
+            for unit, mask in pairs(states) do
+                if (absentWhenSolo[unit] and mask ~= 0 and band(mask, Constants.UNITSTATE_NONE) == 0
+                        and found(unit, true)) then
+                    return true;
+                end
+            end
+        end
+    end
+    return false;
+end
+
 do
     local _ActionToBindingCache = setmetatable({}, { __mode = "kv" });
+
+    -- The stored shape of "that unit, whatever it is" is an empty table (`false` is [when there is
+    -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
+    --
+    -- **This is what keeps the twin from deleting the original.** Empty reads as
+    -- `UNITSTATE_EXISTS` (`UnitConditionToState`), so the twin's box is the half of the axis where
+    -- the unit is there and the original still covers the other half. A twin standing with no
+    -- condition at all would cover the original, the solver would drop it, and the key would do
+    -- nothing at the moment nothing is pointed at.
+    local UNIT_IS_THERE = {};
 
     --- 액션을 바인딩으로. **두 모양이 무엇을 드는지는 `devdocs/action-and-binding-shapes.md`가
     --- 든다** - 여기서 되풀이하면 둘째 진실이 생긴다.
@@ -847,6 +933,15 @@ do
     ---
     --- **`unit` has to arrive with the call**: the `unitframe` fill-in and `BuildUnitStates` at the end
     --- both read it, so changing `unit` on a filled binding leaves `"@"` standing on the old unit.
+    ---
+    --- **`dead` is asked of each binding, not of the action**
+    --- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-2). `"@"` lands on the unit each binding
+    --- aims at, so one action can have twins that stand beside an original that cannot, or the other
+    --- way round. Nothing downstream drops such a binding, so `BuildKeyMap` leaves it out itself.
+    ---
+    --- **`unitSources` keeps what narrowed each unit's mask**, because a zero does not say which
+    --- menu made it. `twinOwnUnit` is what tells the hover twin's own [the unit is there] apart from
+    --- a row the reader wrote: both sit in `conditions.units` by the time `BuildUnitStates` reads it.
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit)
         local twin = castModifier ~= nil;
         -- **The pre-rename spelling of the target, for the profiles the ladder has not reached.**
@@ -993,9 +1088,13 @@ do
         -- **The merge already happened.** `TwinUnitFor` hands over the reader's own condition where
         -- that unit carries one and `UNIT_IS_THERE` where it does not, so what is written here is
         -- the meeting point either way.
+        binding.twinOwnUnit = nil;
         if (twinCondition ~= nil) then
             conditions.units = conditions.units or {};
             conditions.units[pointedUnit] = twinCondition;
+            if (twinCondition == UNIT_IS_THERE) then
+                binding.twinOwnUnit = pointedUnit;
+            end
         end
 
         -- 커스텀 상태를 따로 도는 루프가 여기 있었다. 위 벌크 복사가 조건 표를 통째로
@@ -1094,9 +1193,11 @@ do
         -- Options value must not move the action. `BuildUnitStates` and the record read the field,
         -- the way the mouse button's implicit [no unit frame] already stays out of the table.
         --
-        -- **A condition on that unit leaves nowhere to stand, and only the original goes.** Left to
-        -- the solver it is a zero mask, which is `CONDITIONS_NEVER`, an ERROR, and that takes the
-        -- held-key twins off the key with it (`devdocs/which-action-a-key-runs.md` §6).
+        -- **A condition on that unit leaves nowhere to stand, and the original is marked off rather
+        -- than left with a zero mask.** A zero makes it `dead`, and with nothing else standing that
+        -- reads as a contradiction the reader wrote (`CONDITIONS_NEVER`, an ERROR) where all they
+        -- did was choose Skip. Marked, nothing left is `CASTING_NONE_LEFT`
+        -- (`devdocs/which-action-a-key-runs.md` S5 #9).
         binding.skipsPointedUnit = nil;
         if (not twin and DebindPrivate.HoverCastSkipped(action)) then
             local unit = DebindPrivate.HoverCastMode(action);
@@ -1115,6 +1216,7 @@ do
         end
 
         BuildUnitStates(binding);
+        binding.dead = CannotStand(binding) or nil;
 
         return binding;
     end
@@ -1252,16 +1354,6 @@ do
     local _ActionToSelfCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeSelfCache = setmetatable({}, { __mode = "kv" });
 
-    -- The stored shape of "that unit, whatever it is" is an empty table (`false` is [when there is
-    -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
-    --
-    -- **This is what keeps the twin from deleting the original.** Empty reads as
-    -- `UNITSTATE_EXISTS` (`UnitConditionToState`), so the twin's box is the half of the axis where
-    -- the unit is there and the original still covers the other half. A twin standing with no
-    -- condition at all would cover the original, the solver would drop it, and the key would do
-    -- nothing at the moment nothing is pointed at.
-    local UNIT_IS_THERE = {};
-
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
     ---
@@ -1284,10 +1376,6 @@ do
     ---
     --- **[when there is none] is the one that has no meeting point.** The twin only stands while that
     --- unit is there, so it could never match, and no twin is made.
-    ---
-    --- **Public because the issue check asks the same question** and must not answer it twice: "no
-    --- twin" is half of what makes an action with nothing left to cast, and a second copy of this
-    --- rule would drift from the one that builds the bindings.
     local function TwinUnitFor(action, original)
         if (DebindPrivate.HoverCastSkipped(action)) then
             return nil;
@@ -1308,8 +1396,6 @@ do
 
         return unit, existing or UNIT_IS_THERE, aim;
     end
-
-    DebindPrivate.TwinUnitFor = TwinUnitFor;
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
     --- (`GetBindingInfoForAction`'s table) and what follows is derived. `BuildKeyMap` sorts the
@@ -1869,7 +1955,6 @@ end
 --- Whether this action's key carries Self Cast Key and Focus Cast Key twins. **Not a mouse button
 --- that runs over a frame** (2026-09-16, owner; §7): a frame click never reads the cast modifiers
 --- and the action holds no key, so no press reaches them, and made anyway they held the key.
---- `GetBindingsForAction` and the issue check both ask, and have to agree on what is left.
 function DebindPrivate.KeyTakesCastKeyTwins(action)
     return not (DebindPrivate.GetMouseButtonAndPrefix(action.key)
         and DebindPrivate.ActionUnitFrameIsOn(action));
@@ -2150,20 +2235,6 @@ function DebindPrivate.GetIssueColor(issue)
     return ERROR_COLOR;
 end
 
---- **Which of the two shapes each check reads is not a free choice, so it is made once here.**
----
---- The branches below used to start on the action and switch to the binding halfway down, with
---- nothing saying which reads had to come from where.
----
----   the binding, necessarily: a disabled unit condition is dropped on the way onto it and its
----     axes with it, `unit` is the one the macro will aim at rather than the one the user picked,
----     and `unitStates`, `unitRole`, `unitFrameTypes` and `unitGroups` exist nowhere else
----   the binding, by choice: `groups`, `specs`, `forms`, `bonusbars`. Normalizing folds only the
----     all-bits case to `_ALL` and leaves `specs` alone entirely, so an empty one reads the same
----     either way. They come off the binding so that this function speaks one shape
----   the action, necessarily: `key`, and the two checks that ask whether a name points at
----     something (`GetUndefinedSwitch`, `GetMissingMacroName`). None of the three is a
----     condition and none survives onto the binding
 --- Of the issue already found and one a branch just raised, the one that is reported. **A tie goes
 --- to the one already there**, so branches keep the order they are written in among equals.
 local function TakeIssue(current, candidate)
@@ -2179,10 +2250,180 @@ local function LookingForWorse(issue)
     return issue == nil or IssueGrade(issue) > Constants.ISSUE_GRADE_ERROR;
 end
 
+--- The stored unit rows, under the pre-migration name too, the way `FillBinding` reads them.
+local function StoredUnitRows(action)
+    return (action.conditions and action.conditions.units) or rawget(action, "checkedUnits");
+end
+
+local function RowUnitName(key)
+    if (key == "hover") then
+        return "unitframe";
+    end
+    return key;
+end
+
+local function PickedUnitOf(action)
+    if (not DebindPrivate.ActionHasPickedUnit(action)) then
+        return nil;
+    end
+    return RowUnitName(action.unit);
+end
+
+--- Which axes of one stored row no unit can satisfy on their own: its states, its groups, its frame
+--- types. **Role and frame types only count where they are measured**, on the `unitframe` row and on
+--- a `"@"` whose picked unit is `unitframe`; anywhere else they are never narrowed
+--- (`BuildUnitStates`), so a zero there empties nothing.
+local function EmptyUnitRow(action, key, value)
+    local condition = UnitConditionForBinding(value);
+    if (type(condition) ~= "table") then
+        return false, false, false;
+    end
+    local onFrame = RowUnitName(key) == "unitframe"
+        or (key == "@" and PickedUnitOf(action) == "unitframe");
+    return UnitConditionToState(condition) == 0 or (onFrame and condition.role == 0),
+        condition.group ~= nil and UnitGroupToCells(condition.group) == 0,
+        onFrame and condition.frameTypes == 0;
+end
+
+--- Is one of the asked rows empty on `axis` (1 states, 2 groups, 3 frame types)? `unit` nil asks
+--- every row, and `"@"` asks the Resolved Unit row.
+local function HasEmptyUnitRow(action, unit, axis)
+    local rows = StoredUnitRows(action);
+    if (rows) then
+        for key, value in pairs(rows) do
+            if ((unit == nil or RowUnitName(key) == unit) and (select(axis, EmptyUnitRow(action, key, value)))) then
+                return true;
+            end
+        end
+    end
+    return false;
+end
+
+local function HasAnyEmptyUnitRow(action, unit)
+    return HasEmptyUnitRow(action, unit, 1) or HasEmptyUnitRow(action, unit, 2)
+        or HasEmptyUnitRow(action, unit, 3);
+end
+
+local EMPTY_CONDITIONS = {};
+
+local function SpecialBarAgainstPetBattle(action)
+    local conditions = action.conditions or EMPTY_CONDITIONS;
+    if ((conditions.specialbar and conditions.petbattle == false)
+            or (conditions.petbattle and conditions.specialbar == false)) then
+        return Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+    end
+end
+
+--- **The one pair `skyriding` costs.** It and `bonusbars` read the same `GetBonusBarOffset()`, so the
+--- two menus can set a pair no runtime state satisfies while neither looks wrong on its own.
+---
+--- **Asked as "is the offset only 5", not "is bit 5 in there"**: with another offset ticked too, the
+--- binding still has somewhere to fire while not skyriding. A zero mask is `BONUSBARS_NONE_SELECTED`,
+--- a different sentence.
+local function SkyridingAgainstBonusBars(action)
+    local conditions = action.conditions or EMPTY_CONDITIONS;
+    local bonusbars = conditions.bonusbars;
+    if (conditions.skyriding == nil or not bonusbars or bonusbars == 0) then
+        return nil;
+    end
+    local skyridingBit = 2 ^ Constants.BONUSBAR_SKYRIDING;
+    if ((conditions.skyriding and band(bonusbars, skyridingBit) == 0)
+            or (conditions.skyriding == false and bonusbars == skyridingBit)) then
+        return Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+    end
+end
+
+--- **What an action issue reads is only what is stored**
+--- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-1). Each answer holds for every binding the
+--- action could make, so none has to be made.
+---
+--- A pair that two menus can undo stands as two rows under the one code, so each menu hears it.
+local ACTION_CHECKS = {
+    -- **The key itself, not what else is on it.** Being covered by a neighbour is not this action's
+    -- fault and `IsUnreachableAction` answers it; asked here, it hid the action's own warning.
+    { category = "key", label = "KEY", check = function(action)
+        if (action.key) then
+            return DebindPrivate.IsKeyInvalidForAction(action, action.key);
+        end
+    end },
+    { category = "groups", label = "CONDITION_GROUP", check = function(action)
+        if ((action.conditions or EMPTY_CONDITIONS).groups == 0) then
+            return Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED;
+        end
+    end },
+    { category = "specs", label = "CONDITION_SPEC", check = function(action)
+        local specs = (action.conditions or EMPTY_CONDITIONS).specs;
+        if (specs ~= nil and next(specs) == nil) then
+            return Constants.BINDING_ISSUE_SPECS_NONE_SELECTED;
+        end
+    end },
+    -- **The name is handed to the conditional parser as it stands**, and a comma or a `]` there
+    -- raises nothing: the key answers a question nobody asked. Only a type `FillBinding` keeps
+    -- `known` on is asked; on any other the value never reaches a binding.
+    { category = "known", label = "CONDITION_KNOWN", check = function(action)
+        local known = (action.conditions or EMPTY_CONDITIONS).known;
+        if (type(known) == "string" and known:find("[,%]]")
+                and (action.type == Constants.SPELL or Constants.SPEC_RESOLVED_TYPES[action.type])) then
+            return Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE;
+        end
+    end },
+    { category = "forms", label = "CONDITION_SHAPESHIFT", check = function(action)
+        if ((action.conditions or EMPTY_CONDITIONS).forms == 0) then
+            return Constants.BINDING_ISSUE_FORMS_NONE_SELECTED;
+        end
+    end },
+    { category = "bonusbars", label = "CONDITION_BONUSBAR", check = function(action)
+        if ((action.conditions or EMPTY_CONDITIONS).bonusbars == 0) then
+            return Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED;
+        end
+    end },
+    -- **Not chosen yet is asked first**: an on/off/toggle action arrives from the picker with no
+    -- target, and "nothing defines nil" has no name to print. The binding builder keeps the same
+    -- guard (`UpdateBindings.lua`); an action drawn clean must not be one it turns back.
+    { category = "states", label = "CONDITION_CUSTOM_STATES", check = function(action)
+        if (Constants.SETSTATE_MODES[action.type] and type(action.value) ~= "string") then
+            return Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
+        end
+        local undefined = DebindPrivate.GetUndefinedSwitch(action);
+        if (undefined) then
+            return Constants.BINDING_ISSUE_UNDEFINED_STATE, undefined;
+        end
+    end },
+    { category = "macro", label = "TYPE_MACRO", check = function(action)
+        local missing = DebindPrivate.GetMissingMacroName(action);
+        if (missing) then
+            return Constants.BINDING_ISSUE_MISSING_MACRO, missing;
+        end
+    end },
+    -- **A row empty on its own.** Every binding that asks it cannot stand, so the answer needs none of
+    -- them; asked of one unit, only that row answers. The root Target is not told: the reader fixes
+    -- the row, not the unit they picked.
+    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
+        if (HasEmptyUnitRow(action, unit, 1)) then
+            return Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+        end
+    end },
+    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
+        if (HasEmptyUnitRow(action, unit, 2)) then
+            return Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
+        end
+    end },
+    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
+        if (HasEmptyUnitRow(action, unit, 3)) then
+            return Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
+        end
+    end },
+    { category = "specialbar", label = "CONDITION_SPECIALBAR", check = SpecialBarAgainstPetBattle },
+    { category = "petbattle", label = "CONDITION_PETBATTLE", check = SpecialBarAgainstPetBattle },
+    { category = "skyriding", label = "CONDITION_SKYRIDING", check = SkyridingAgainstBonusBars },
+    { category = "bonusbars", label = "CONDITION_BONUSBAR", check = SkyridingAgainstBonusBars },
+};
+
+local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting = true };
+
 local function EvaluateIssues(action, category, notCategory, arg, collected)
-    -- **없는 갈래로 물으면 아래 `if`가 전부 비켜가 nil이 나온다**, 그리고 그건 "문제 없음"과
-    -- 생김새가 같다. 목록 행이 그렇게 죽은 갈래 넷을 묻고 있었고, 증상이 없어서 읽는 사람만
-    -- 그 조건들에 검사가 있다고 읽었다. DEBUG에서만 세운다 - 배포본에서 터뜨릴 잘못이 아니다.
+    -- **A category nothing below answers comes out nil**, which looks the same as "no problem".
+    -- Stopped under DEBUG only; it is not a fault to raise in a shipped build.
     if (Constants.DEBUG and category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
         error("GetBindingIssue: 없는 갈래 " .. tostring(category), 2);
     end
@@ -2192,7 +2433,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     --- decided the answer: the one WARNING sits above branches that raise ERRORs, and an action
     --- carrying both reported the warning. `IssueKeepsKey` then let it keep its key
     --- (`Debind.lua`), which is how a binding with conditions nothing can satisfy reached the
-    --- solver -- the very thing the `unitStates` zero below exists to stop.
+    --- solver.
     ---
     --- `TakeIssue` holds the tie rule and `LookingForWorse` is what the guards ask, so a branch
     --- stops being asked only once the worst grade there is has been found.
@@ -2224,323 +2465,103 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     --- caller that folds to the worst one stops early, which is what `LookingForWorse` decides.
     local function Looking()
         return collected ~= nil or LookingForWorse(issue);
-
     end
-    local binding = DebindPrivate.GetBindingInfoForAction(action);
-    local conditions = binding.conditions;
 
-    -- **이 갈래는 키 자체만 본다.** 이웃에 덮였는지는 여기서 안 묻는다 - 그건 이 액션의 잘못이
-    -- 아니라 같은 키에 무엇이 더 걸려 있는가이고, 답을 내는 자리가 따로 있다
-    -- (`Solver.lua`의 `IsUnreachableAction`). 여기 있던 동안에는 덮인 액션이 자기 경고 대신
-    -- 그걸 냈고, 경고가 화면에서 사라졌다.
-    if (Looking() and (not category or category == "key") and notCategory ~= "key") then
-        if (action.key) then
-            Report(DebindPrivate.IsKeyInvalidForAction(action, action.key), "KEY");
+    for i = 1, #ACTION_CHECKS do
+        if (not Looking()) then
+            break;
+        end
+        local row = ACTION_CHECKS[i];
+        if ((not category or category == row.category) and notCategory ~= row.category) then
+            local code, name = row.check(action, arg);
+            Report(code, row.label, name);
         end
     end
 
-    -- **Every press this action could have answered is turned off.** It makes no binding at all
-    -- (`GetBindingsForAction`), so the key runs whatever else is on it and this action is not there.
-    -- A WARNING rather than an ERROR: the key works, and turning all four off is something the
-    -- reader is allowed to mean (`devdocs/which-action-a-key-runs.md` §6).
-    --
-    -- **The pointed press is asked of `TwinUnitFor` and not of the mode**, because a mode with no
-    -- twin under it is the same silence: [when none is pointed at] on that unit leaves the twin
-    -- nowhere to stand, and asking the mode alone reported no problem on an action that made no
-    -- binding at all. The original is asked of its mark for the same reason: Hover Cast's Skip
-    -- takes it away where a condition on that unit leaves it nowhere to stand (`FillBinding`).
-    if (Looking() and (not category or category == "casting") and notCategory ~= "casting") then
-        if (binding.normalCast == false
-                and DebindPrivate.TwinUnitFor(action, binding) == nil
-                and not (DebindPrivate.KeyTakesCastKeyTwins(action)
-                    and (DebindPrivate.SelfCastEnabled(action) or DebindPrivate.FocusCastEnabled(action)))) then
-            if (DebindPrivate.IsBareWorldClick(action.key) and DebindPrivate.HoverCastSkipped(action)) then
-                Report(Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED, "CASTING");
-            else
-                Report(Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "CASTING");
-            end
-        end
-    end
-
-    if (Looking() and (not category or category == "groups") and notCategory ~= "groups") then
-        if (conditions.groups == 0) then
-            Report(Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED, "CONDITION_GROUP");
-        end
-    end
-
-    if (Looking() and (not category or category == "specs") and notCategory ~= "specs") then
-        if (conditions.specs ~= nil and next(conditions.specs) == nil) then
-            Report(Constants.BINDING_ISSUE_SPECS_NONE_SELECTED, "CONDITION_SPEC");
-        end
-    end
-
-    -- **The name is handed to the conditional parser as it stands.** A comma there ends the
-    -- condition and a `]` ends the group, and neither raises: the key goes on working and answers
-    -- a question nobody asked. Nothing can quote it, so the binding is refused instead
-    -- (`devdocs/making-known-a-spell-name.md`).
-    if (Looking() and (not category or category == "known") and notCategory ~= "known") then
-        if (type(conditions.known) == "string" and conditions.known:find("[,%]]")) then
-            Report(Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE, "CONDITION_KNOWN");
-        end
-    end
-
-    if (Looking() and (not category or category == "forms") and notCategory ~= "forms") then
-        if (conditions.forms == 0) then
-            Report(Constants.BINDING_ISSUE_FORMS_NONE_SELECTED, "CONDITION_SHAPESHIFT");
-        end
-    end
-
-    if (Looking() and (not category or category == "bonusbars") and notCategory ~= "bonusbars") then
-        if (conditions.bonusbars == 0) then
-            Report(Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED, "CONDITION_BONUSBAR");
-        end
-    end
-
-    -- **Three ways to name a switch, and a box for only one of them.** A macro body and an
-    -- on/off/toggle target are the action itself, so nothing asks about them by name: they are
-    -- caught by the overall call (`GetBindingIssue(action)`), the row turns red
-    -- (`ColoredNameAndIconForAction`) and the tooltip says which name is wrong. A condition does
-    -- have a box, and that box colours itself off `GetUndefinedSwitchCondition` rather than off
-    -- this branch (`CreateSwitchConditionMenu`) -- it has to name the switch in its message, and
-    -- it must not go red for a typo that is in the body instead.
-    --
-    -- The on/off/toggle target grew a box of its own in 3c (`CreateSetSwitchMenuItem`), and it
-    -- colours itself the same way and for the same reason.
-    if (Looking() and (not category or category == "states") and notCategory ~= "states") then
-        -- **Not chosen yet is asked first, because the other question cannot be asked of it.**
-        -- An on/off/toggle action arrives from the picker with no target at all (§6-C), and
-        -- "nothing defines nil" is a sentence with no name to print in it. `GetUndefinedSwitch`
-        -- says nothing about a value that is not a string, which is the same guard the binding
-        -- builder keeps (`UpdateBindings.lua`). The two have to agree, or an action drawn clean
-        -- is one that turns back at the door with nothing said.
-        if (Constants.SETSTATE_MODES[action.type] and type(action.value) ~= "string") then
-            Report(Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED, "CONDITION_CUSTOM_STATES");
-        else
-            -- **The name goes with the code**: this sentence has a `%s` in it and the reader has
-            -- to be told which name is the wrong one.
-            local undefined = DebindPrivate.GetUndefinedSwitch(action);
-            if (undefined) then
-                Report(Constants.BINDING_ISSUE_UNDEFINED_STATE, "CONDITION_CUSTOM_STATES", undefined);
-            end
-        end
-    end
-
-    -- Same shape as the branch above: not a condition, but **a name that points at nothing**. So
-    -- there is no caller that asks about it by name: what needs fixing is the action itself rather
-    -- than a condition menu, and the name here is one for switching the branch off.
-    --
-    -- It was `"target"`, which named four other things in this repo already -- an action type, a
-    -- unit token, a frame type, and the `Target` menu's own category, which asks about the unit
-    -- the action aims at and has nothing to do with this.
-    --
-    -- An action reported here drops out of `KeyMap` entirely (`Debind.lua`). **Nothing is lost by
-    -- that**: it is a binding that already pressed and did nothing, so the only thing that changes
-    -- is that it becomes visible.
-    if (Looking() and (not category or category == "macro") and notCategory ~= "macro") then
-        local missing = DebindPrivate.GetMissingMacroName(action);
-        if (missing) then
-            Report(Constants.BINDING_ISSUE_MISSING_MACRO, "TYPE_MACRO", missing);
-        end
-    end
-
-    -- 한 유닛에 걸린 조건들의 **교집합이 비면** 그 유닛이 놓일 수 있는 상태가 없다는 뜻이다.
-    -- 개체창 조건과 `"@"`와 명시 유닛 조건이 전부 같은 축에 접혀 있으므로(`BuildUnitStates`),
-    -- 조합을 손으로 나열하지 않고 마스크가 0인지만 보면 된다.
-    --
-    -- 나열하던 시절에는 개체창의 반응 제한과 `"@"` 조건이 어긋나는 경우가 빠져 있었다.
-    -- 대상이 `@unitframe`인 액션에 개체창 반응을 `우호`로, `"@"`를 `적대`로 걸면 영원히 안 걸리는데
-    -- 두 값이 서로 다른 필드에 있어서 비교 대상이 아니었다. 접힌 지금은 그 경우가 따로가 아니다.
-    --
-    -- **한 유닛의 0은 여러 메뉴가 같이 만든다. 그래서 그 조건을 고칠 수 있는 묶음은 전부
-    -- 빨갛게 칠한다.** 대상이 `unitframe`인 액션에 개체창 조건을 [안 올렸을 때]로 걸면 겨눌 유닛이
-    -- 놓일 자리가 없는데, 이건 개체창 메뉴에서 풀 수도 있고 대상 메뉴에서 다른 유닛을 골라
-    -- 풀 수도 있다. 한쪽만 칠하면 나머지 한쪽을 연 사람은 멀쩡한 화면을 본다 - 메뉴를 열었을
-    -- 때 어디를 봐야 하는지가 이 색으로만 보이므로, 관련된 자리는 다 칠해야 한다.
-    --
-    -- 대신 **자기가 보여주지 않는 조건으로는 안 칠한다.** `Units` 묶음은 `"unitframe"`을 줄로
-    -- 갖고 있지 않으므로 그 키의 0에는 반응하지 않는다.
-    --
-    -- **This zero is what keeps contradictory conditions out of the secure environment.** An
-    -- action reported here never enters `KeyMap` (`Debind.lua`), so it reaches neither the solver
-    -- nor `UpdateBindings` -- which is why `mergeUnitConditions` over there treats its own
-    -- "impossible" answer as unreachable and skips the binding instead of representing it. That
-    -- function's header spells out the reasoning; the two are one rule written twice, so **weaken
-    -- this check and the runtime starts carrying conditions nothing can satisfy.**
-    --- 이 묶음이 그 0에 **거들었는가.** 안 거든 묶음을 칠하면 아무것도 안 고른 메뉴가
-    --- 빨개진다 - 개체창에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
-    ---
-    --- **두 순회가 같이 쓴다.** 소속은 유닛 곱에 안 들어가고 자기 컬럼으로 서느라 아래쪽
-    --- 순회를 따로 도는데, 거든 묶음만 칠한다는 규칙은 축과 무관하다. 유닛 마스크 순회 안에
-    --- 있던 동안 소속 쪽은 그 규칙 없이 `binding.unit`만 봤고, 그래서 개체창에서 비운 소속이
-    --- `Target`을 칠했다.
-    local function contributed(unit)
-        if (not conditions.units) then
-            return false;
-        end
-        if (category == "unit") then
-            return conditions.units["@"] ~= nil and unit == ResolvedUnitOf(binding);
-        end
-        return conditions.units[unit] ~= nil;
-    end
-
-    -- The unit a submenu asked about. `"@"` resolves the way every other reader resolves it
-    -- (`ResolvedUnitOf`). Its nil is a unit this build cannot read, and leaving `target` nil would
-    -- turn "asked about one" into "asked about all": **other units' contradictions would show on
-    -- that submenu.**
-    --
-    -- **Both loops below read this.** They open on the same test and remap the same way, and while
-    -- each counted for itself the group loop was missing this guard (code review, 2026-09-11).
-    local target = arg;
-    local askedAboutNothing;
-    if (target == "@") then
-        target = ResolvedUnitOf(binding);
-        askedAboutNothing = target == nil;
-    end
-
-    if (Looking() and binding.unitStates and notCategory ~= "units"
-            and (not category or category == "units" or category == "unit")) then
-        for unit, mask in pairs(binding.unitStates) do
-            if (mask == 0 and not askedAboutNothing) then
-                local mine;
-                if (target ~= nil) then
-                    -- 유닛 하나를 짚어 물었다(서브메뉴).
-                    mine = target == unit;
-                elseif (category == "unit") then
-                    -- 대상 메뉴. `"@"`가 가리키는 유닛의 0이 곧 이 메뉴의 문제다.
-                    mine = contributed(unit);
+    -- **The binding issue reads the list `BuildKeyMap` binds**
+    -- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row, no
+    -- `casting` and no old `hover` pair, no binding can be empty and none can be dropped, so the
+    -- list is not made: that is most rows the window draws.
+    if (Looking() and (not category or BINDING_CATEGORIES[category])
+            and (StoredUnitRows(action) or action.casting or action.hover ~= nil)) then
+        local list = DebindPrivate.GetBindingsForAction(action);
+        if (#list == 0) then
+            -- **A WARNING, not an ERROR**: the key runs whatever else is on it, and turning every
+            -- press off is something the reader is allowed to mean (`which-action-a-key-runs.md` §6).
+            if ((not category or category == "casting") and notCategory ~= "casting") then
+                if (DebindPrivate.IsBareWorldClick(action.key) and DebindPrivate.HoverCastSkipped(action)) then
+                    Report(Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED, "CASTING");
                 else
-                    -- `Units` 묶음이거나 액션 전체. 유닛 조건은 전부 그 묶음에서 고치고,
-                    -- 액션 전체는 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는다.
-                    mine = true;
-                end
-
-                if (mine) then
-                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
-                    if (not collected) then
-                        break;
-                    end
+                    Report(Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "CASTING");
                 end
             end
-        end
-    end
-
-    -- 소속을 하나도 안 고른 것. 역할과 같은 이유로 위 순회가 못 본다 - 컬럼이 다르다.
-    -- 역할과 달리 **유닛마다** 서므로, 짚어 물었으면 그 유닛만 답한다. 안 그러면 한 유닛의
-    -- 빈 묶음으로 서브메뉴가 전부 빨개져서 어느 것을 고쳐야 하는지가 화면에서 사라진다.
-    if (Looking() and binding.unitGroups and notCategory ~= "units"
-            and (not category or category == "units" or category == "unit")) then
-        for unit, mask in pairs(binding.unitGroups) do
-            local mine;
-            if (askedAboutNothing) then
-                mine = false;
-            elseif (target ~= nil) then
-                mine = target == unit;
-            elseif (category == "unit") then
-                mine = contributed(unit);
-            else
-                mine = true;
-            end
-            if (mask == 0 and mine) then
-                Report(Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, "CONDITION_UNITS");
-                if (not collected) then
+        elseif (category ~= "casting") then
+            -- **Only an action none of whose bindings stands is in trouble** (2026-09-17, owner).
+            -- One that cannot stand beside one that does is only left off the key.
+            local standing, dead = false, false;
+            for i = 1, #list do
+                if (list[i].dead) then
+                    dead = true;
+                elseif (list[i].normalCast ~= false) then
+                    standing = true;
                     break;
                 end
             end
-        end
-    end
-
-    -- 역할과 프레임 종류를 하나도 안 고른 것. 유닛 축의 0과 같은 뜻인데 컬럼이 달라서 위
-    -- 순회가 못 본다. **둘 다 `unitframe` 줄에서만 걸 수 있으므로** 짚어 물었을 때는 그 줄만
-    -- 답한다.
-    if (Looking() and notCategory ~= "units"
-            and (not category or category == "units")
-            and (target == nil or target == "unitframe")) then
-        if (binding.unitRole == 0) then
-            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
-        end
-        if (binding.unitFrameTypes == 0) then
-            Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_UNITS");
-        end
-    end
-
-    -- **A unit that needs a group, set against being alone.** The four role aliases are empty while
-    -- the reader is solo (`UNITS_ABSENT_WHEN_SOLO`, read off the headers that declare it), so a
-    -- binding that both requires one to be there and is restricted to `GROUP_NONE` presses and does
-    -- nothing. The two halves live in different menus, which is why neither one looks wrong on its
-    -- own and why both are told below.
-    --
-    -- **The mask is what says "has to be there", not the presence of a condition.** [When there is
-    -- no tank] while solo is exactly true, and reading it as a contradiction would kill a working
-    -- binding. `UNITSTATE_NONE` still being in the mask is that unit being allowed to be absent.
-    --
-    -- A zero mask is not this: that is a unit with no state left at all and the branch above has
-    -- already reported it. `groups == 0` likewise belongs to `GROUPS_NONE_SELECTED`, which runs
-    -- first for the same reason -- an axis with nothing ticked is a different sentence.
-    if (Looking() and binding.unitStates and conditions.groups
-            and (not category or category == "groups" or category == "units")
-            and notCategory ~= "groups" and notCategory ~= "units"
-            and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
-        -- **짚어 물었으면 그 유닛만 답한다.** 유닛 서브메뉴는 유닛마다 자기 색을 따로 묻는데,
-        -- 여기가 `arg`를 안 보는 동안 한 유닛의 모순으로 **서브메뉴가 전부 빨개졌다.** 그러면
-        -- 어느 것을 고쳐야 하는지가 화면에서 사라진다.
-        for unit, mask in pairs(binding.unitStates) do
-            if (not askedAboutNothing and (target == nil or target == unit)
-                    and DebindPrivate.UNITS_ABSENT_WHEN_SOLO[unit] and mask ~= 0
-                    and band(mask, Constants.UNITSTATE_NONE) == 0) then
-                Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");
-                break;
+            if (dead and not standing) then
+                local picked = PickedUnitOf(action);
+                local toUnits, toGroups = false, false;
+                for i = 1, #list do
+                    local binding = list[i];
+                    if (binding.dead) then
+                        CannotStand(binding, function(unit, solo)
+                            local sources = binding.unitSources[unit] or 0;
+                            -- A row empty on its own is already the action issue's, and its zero
+                            -- spreads to wherever `"@"` landed; painting it here would redden
+                            -- menus the reader has nothing to fix in.
+                            if ((band(sources, SOURCE_ROW) ~= 0 and HasAnyEmptyUnitRow(action, unit))
+                                    or (band(sources, SOURCE_AT) ~= 0 and HasAnyEmptyUnitRow(action, "@"))) then
+                                return false;
+                            end
+                            if (solo and (not category or category == "groups") and notCategory ~= "groups") then
+                                toGroups = true;
+                            end
+                            if (notCategory ~= "units") then
+                                if (not category) then
+                                    toUnits = toUnits or not solo;
+                                elseif (category == "units") then
+                                    local asked;
+                                    if (arg == nil) then
+                                        asked = bor(SOURCE_ROW, SOURCE_AT);
+                                    elseif (arg == "@") then
+                                        asked = SOURCE_AT;
+                                    elseif (arg == unit) then
+                                        asked = SOURCE_ROW;
+                                    else
+                                        asked = 0;
+                                    end
+                                    toUnits = toUnits or band(sources, asked) ~= 0;
+                                elseif (category == "unit") then
+                                    -- **Only a unit the reader picked.** Unpicked, `"@"` lands on
+                                    -- `target` all the same, and the Target menu holds nothing to
+                                    -- undo there.
+                                    toUnits = toUnits
+                                        or (picked == unit and band(sources, SOURCE_AT) ~= 0);
+                                end
+                            end
+                            return collected == nil and (toUnits or toGroups);
+                        end);
+                        if (collected == nil and (toUnits or toGroups)) then
+                            break;
+                        end
+                    end
+                end
+                if (toUnits) then
+                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
+                end
+                if (toGroups) then
+                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");
+                end
             end
-        end
-    end
-
-    -- **A real role asked for, set against being alone.** The three headers that fill the role map
-    -- all carry `showSolo = false` (`UnitWatch.lua`), so while the reader is solo nobody is on it
-    -- and every unit reads `unknown`. Asking for tank, healer or damage there presses and does
-    -- nothing, and the two halves live in different menus.
-    --
-    -- **`unknown` still being in the mask is what makes it satisfiable**, the same way
-    -- `UNITSTATE_NONE` is above: [unknown] while solo is exactly true.
-    --
-    -- A zero mask is not this; the branch further up already reported it.
-    if (Looking() and binding.unitRole and binding.unitRole ~= 0 and conditions.groups
-            and (not category or category == "groups" or category == "units")
-            and notCategory ~= "groups" and notCategory ~= "units"
-            and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0
-            and band(binding.unitRole, Constants.ROLE_NONE) == 0) then
-        Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");
-    end
-
-    if (Looking() and (not category or category == "specialbar") and notCategory ~= "specialbar") then
-        if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
-            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_SPECIALBAR");
-        end
-    end
-
-    if (Looking() and (not category or category == "petbattle") and notCategory ~= "petbattle") then
-        if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
-            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_PETBATTLE");
-        end
-    end
-
-    -- **The one pair `skyriding` costs.** It and `bonusbars` read the same `GetBonusBarOffset()`,
-    -- so a user who sets both can write a pair no runtime state satisfies -- and the two halves
-    -- live in different menus, which is why neither looks wrong on its own. Same shape as the
-    -- `specialbar`/`petbattle` pair above, and told under both names for the same reason.
-    --
-    -- **A zero mask is not this.** `BONUSBARS_NONE_SELECTED` runs further up and says a different
-    -- sentence: an axis with nothing ticked, rather than two axes that disagree.
-    if (Looking() and conditions.skyriding ~= nil and conditions.bonusbars
-            and conditions.bonusbars ~= 0
-            and (not category or category == "skyriding" or category == "bonusbars")
-            and notCategory ~= "skyriding" and notCategory ~= "bonusbars") then
-        local skyridingBit = 2 ^ Constants.BONUSBAR_SKYRIDING;
-        local hasSkyridingBar = band(conditions.bonusbars, skyridingBit) ~= 0;
-        -- Asked as "is the offset **only** 5", not "is bit 5 in there": with any other offset also
-        -- ticked the binding still has somewhere to fire while not skyriding.
-        local onlySkyridingBar = conditions.bonusbars == skyridingBit;
-        if ((conditions.skyriding and not hasSkyridingBar)
-                or (conditions.skyriding == false and onlySkyridingBar)) then
-            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_SKYRIDING");
         end
     end
 

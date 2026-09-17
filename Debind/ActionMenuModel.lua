@@ -777,7 +777,7 @@ end
 --- two ways is two different boxes to the solver.
 ---
 --- 0 **is** written. Choosing nothing is not something to normalize away; it is an issue, and
---- `GetBindingIssue`'s zero-mask branch reports it where the user set it.
+--- `GetBindingIssue` reads the stored row and reports it where the user set it.
 local function UnitConditionMaskChecked(ctx, unit, axis, value)
     return AllActions(ctx, function(action)
         local mask = UnitConditionAxisOf(action, unit, axis);

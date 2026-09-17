@@ -1,11 +1,11 @@
--- `GetBindingIssue`의 유닛 조건 갈래 테스트. 와우 클라이언트 불필요.
+-- `GetBindingIssue`, branch by branch. No WoW client needed.
 --
--- 이 갈래가 왜 위험한가: 이슈가 붙은 액션은 `Debind.lua`에서 `KeyMap`에 아예
--- 안 들어간다. 즉 여기서 나는 **오탐은 표시 버그가 아니라 키가 안 먹는 것**이다.
--- 반대로 놓친 모순은 조용히 아무것도 안 하는 바인딩이 된다.
+-- Why it is dangerous: an action carrying an ERROR does not reach `KeyMap` at all (`Debind.lua`).
+-- **A false positive here is not a drawing bug, it is a key that does nothing**, and a missed
+-- contradiction is a binding that quietly never fires.
 --
--- `units`의 `"@"`는 그 액션 자신의 대상 유닛을 가리키므로, 같은 유닛에
--- 명시 조건이 같이 걸리면 둘이 한 축에서 만난다. 그 조합표가 여기 있다.
+-- `"@"` lands on the unit each binding aims at, so it meets a condition that unit carries of its
+-- own on one axis. The combinations are here.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -94,8 +94,6 @@ return function(DebindPrivate)
     -- 모순이 아닌 것 - 이슈가 나면 안 된다
     ---------------------------------------------------------------------------
 
-    -- 아래 둘은 `GetBindingInfoForAction`의 정규화가 `"@"`를 흡수해서 여기 오기 전에
-    -- 사라진다. 그래도 이슈가 나면 안 되는 건 같다.
     test("같은 값은 모순이 아님", function()
         check(issueFor("help", "help") == nil, "오탐");
         check(issueFor(false, false) == nil, "오탐");
@@ -215,9 +213,8 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units") ~= nil, "Units 묶음은 잡아야 한다");
     end);
 
-    -- 소속을 하나도 안 고른 것. **유닛 마스크는 멀쩡하다** - 소속은 유닛 곱에 안 들어가고
-    -- 자기 컬럼으로 서므로, 유닛의 0을 보는 순회는 이걸 못 본다. 역할이 자기 갈래를 따로
-    -- 가진 것과 같은 사정이고, 그래서 이 갈래가 없으면 아무 표시 없이 안 나가는 키가 된다.
+    -- No group box ticked. **The unit mask is intact**: groups are their own column, not a factor
+    -- of the unit states, so without its own code this is a key that never fires with nothing shown.
     local UNITGROUPS_NONE = Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
 
     test("소속을 하나도 안 고르면 그 유닛 묶음이 잡는다", function()
@@ -248,9 +245,7 @@ return function(DebindPrivate)
             "남의 유닛 서브메뉴가 빨개졌다");
     end);
 
-    -- **반응과 같은 규칙이 소속에도 걸린다.** 위 "hover의 빈 반응만으로..."와 같은 액션이고
-    -- 축만 다르다. 유닛 마스크를 보는 순회는 `contributed`로 거든 묶음만 칠하는데, 소속은
-    -- 자기 컬럼으로 서느라 그 순회를 안 지나므로 같은 규칙을 따로 걸어야 한다.
+    -- The same rule as the empty reaction above, on the group column.
     test("hover의 빈 소속만으로 대상 묶음이 빨개지지 않는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
             units = { unitframe = { group = 0 } } });
@@ -259,8 +254,8 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units") == UNITGROUPS_NONE, "Units 묶음은 잡아야 한다");
     end);
 
-    -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 그때 이 서브메뉴는 **아무것도 안 묻는
-    -- 것**이지 "전부 묻는 것"이 아니다.
+    -- **Asked about `"@"`, only the Resolved Unit row answers.** Another unit's empty row is fixed in
+    -- that unit's submenu, and answering here too would redden one the reader has nothing set in.
     test("대상이 없으면 \"@\" 서브메뉴가 남의 모순을 안 보여준다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
             units = {
@@ -270,7 +265,7 @@ return function(DebindPrivate)
             "\"@\"가 가리킬 유닛이 없는데 남의 유닛 모순이 떴다");
     end);
 
-    -- 같은 규칙이 소속 순회에도 걸린다. 그쪽은 자기 컬럼으로 서느라 위 순회를 안 지난다.
+    -- The same rule on the group column.
     test("대상이 없으면 \"@\" 서브메뉴가 남의 빈 소속을 안 보여준다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
             units = {
@@ -818,12 +813,9 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units") == NEVER, "the units menu was not told");
     end);
 
-    --- **유닛 하나를 짚어 물으면 그 유닛만 답한다.** `units` 서브메뉴가 유닛마다 하나씩
-    --- `GetBindingIssue(action, "units", nil, unit)`로 자기 색을 묻는데, 짚은 것을 안 보고
-    --- 아무 유닛이나 모순이면 답하면 **한 유닛의 문제로 서브메뉴가 전부 빨개진다.** 그러면
-    --- 어느 것을 고쳐야 하는지가 화면에서 사라진다.
-    ---
-    --- 0 마스크를 보는 위쪽 갈래는 이미 `arg`를 본다. 이쪽만 안 보고 있었다.
+    --- **Asked about one unit, only that unit answers.** Each `units` submenu asks for its own colour
+    --- with `GetBindingIssue(action, "units", nil, unit)`; answered for any unit, one unit's problem
+    --- reddens every submenu and which one to fix disappears from the screen.
     test("asking about one unit answers about that unit only", function()
         local action = soloAction("healer");
         action.conditions.units.target = {};
@@ -1021,5 +1013,108 @@ return function(DebindPrivate)
         check(labels["CONDITION_SPECIALBAR"], "the special bar label is missing");
         check(labels["CONDITION_PETBATTLE"], "the pet battle label is missing");
     end);
+
+    ---------------------------------------------------------------------------
+    -- `devdocs/legacy/rewriting-evaluate-issues.md` §4: what each menu is told, row by row
+    --
+    -- **`"@"` is asked of every binding, each on the unit that binding aims at** (`which-action-a-key-
+    -- runs.md` S2, S3). An action is in trouble only where none of its bindings can stand, and a menu
+    -- goes red only for a zero it had a hand in.
+    ---------------------------------------------------------------------------
+
+    local NONE_LEFT = Constants.BINDING_ISSUE_CASTING_NONE_LEFT;
+    local BARE_CLICK_SKIPPED = Constants.BINDING_ISSUE_CASTING_BARE_CLICK_SKIPPED;
+
+    --- Per row: the whole action, `units`, each unit row asked on its own, `unit` (the root Target),
+    --- and `groups` and `casting` where the table fills them in. `false` stands for nil so a column
+    --- that is asked can be told from one that is not.
+    local ANSWERS = {
+        [1] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, target = false }, unit = false },
+        [2] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false },
+        [3] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false },
+        [4] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, focus = NEVER }, unit = NEVER },
+        [5] = { all = NEVER, units = NEVER, rows = { target = NEVER, ["@"] = false }, unit = false },
+        [6] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, unitframe = NEVER }, unit = NEVER },
+        [7] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER }, unit = false },
+        [8] = { all = NEVER, units = NEVER, rows = { tank = NEVER, target = false }, unit = false,
+            groups = NEVER },
+        [9] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER }, unit = NEVER, groups = NEVER },
+        [10] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
+        [11] = { all = false, units = false, rows = { ["@"] = false, unitframe = false }, unit = false },
+        [12] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, unitframe = NEVER }, unit = false,
+            casting = false },
+        [13] = { all = false, units = false, rows = { ["@"] = false, player = false }, unit = false },
+        [14] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, target = NEVER, player = NEVER,
+            focus = NEVER, unitframe = NEVER }, unit = false },
+        [15] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
+        [16] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
+        [17] = { all = NONE_LEFT, units = false, rows = { ["@"] = false }, unit = false, casting = NONE_LEFT },
+        [18] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER }, unit = false, casting = NONE_LEFT },
+        [19] = { all = NONE_LEFT, units = false, rows = { unitframe = false }, unit = false,
+            casting = NONE_LEFT },
+        [20] = { all = BARE_CLICK_SKIPPED, units = false, rows = { ["@"] = false }, unit = false,
+            casting = BARE_CLICK_SKIPPED },
+        [21] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false,
+            casting = false },
+        [22] = { all = UNITGROUPS_NONE, units = UNITGROUPS_NONE,
+            rows = { focus = UNITGROUPS_NONE, target = false }, unit = false },
+        [23] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER }, unit = false },
+        [24] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER, ["@"] = false, target = false },
+            unit = false, groups = NEVER },
+        [25] = { all = false, units = false, rows = { target = false }, unit = false },
+        [26] = { all = false, units = false, rows = { target = false }, unit = false },
+        [27] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, target = NEVER, player = NEVER,
+            focus = NEVER, unitframe = false }, unit = false },
+    };
+
+    local function name(code)
+        return code == false and "nil" or tostring(code);
+    end
+
+    for _, row in ipairs(require("answer_rows")(Constants)) do
+        local answer = ANSWERS[row.n];
+        test("§4 #" .. row.n .. ": " .. row.label, function()
+            local wasOptions = DebindPrivate.Options;
+            DebindPrivate.Options = row.options;
+            local ok, err = pcall(function()
+                local action = row.action();
+                local wrong = {};
+                local function expect(column, want, got)
+                    if ((got or false) ~= want) then
+                        wrong[#wrong + 1] = column .. " " .. name(got or false) .. " (want " .. name(want) .. ")";
+                    end
+                end
+                expect("action", answer.all, GetBindingIssue(action));
+                expect("Units", answer.units, GetBindingIssue(action, "units"));
+                local units = {};
+                for unit in pairs(answer.rows) do
+                    units[#units + 1] = unit;
+                end
+                table.sort(units);
+                for _, unit in ipairs(units) do
+                    expect("row " .. unit, answer.rows[unit], GetBindingIssue(action, "units", nil, unit));
+                end
+                expect("Target", answer.unit, GetBindingIssue(action, "unit"));
+                if (answer.groups ~= nil) then
+                    expect("groups", answer.groups, GetBindingIssue(action, "groups"));
+                end
+                if (answer.casting ~= nil) then
+                    expect("casting", answer.casting, GetBindingIssue(action, "casting"));
+                end
+                check(#wrong == 0, table.concat(wrong, ", "));
+            end);
+            DebindPrivate.Options = wasOptions;
+            if (not ok) then error(err, 0); end
+        end);
+    end
+
+    -- #18 names two faults, and the tooltip has to be able to say both.
+    test("§4 #18: both codes are reported", function()
+        local action = require("answer_rows")(Constants)[18].action();
+        local codes = labelsByCode(GetBindingIssues(action));
+        check(codes[NEVER] ~= nil, "the contradiction is missing");
+        check(codes[NONE_LEFT] ~= nil, "the warning is missing");
+    end);
+
     return T;
 end

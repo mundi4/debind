@@ -1484,15 +1484,11 @@ local ROLE_NAMES = {
 };
 
 ---
---- 같은 유닛에 조건이 두 번 걸렸을 때 하나로 합친다.
+--- Two conditions on one unit, merged into one.
 ---
---- `"@"`는 이 액션 자신의 대상 유닛을 가리키므로, 그 유닛에 명시 조건도 걸려 있으면
---- **`t.units`의 같은 키에 두 번 쓰게 된다.** 합치지 않으면 `pairs` 순서에 따라
---- 한쪽이 조용히 사라진다 - 걸어둔 조건이 무작위로 없어지는 것이다.
----
---- 포섭 관계(`true` vs `"help"`)는 `GetBindingInfoForAction`의 정규화가 앞에서
---- 걷어내지만 여기서도 받아준다. 나머지 조합은 전부 모순이고, 그건 `GetBindingIssue`가
---- 걸러서 `KeyMap`에 안 들어온다.
+--- **`"@"` lands on the unit the binding aims at**, so where that unit carries a condition of its
+--- own, both are written under the same key of `t.units`. Unmerged, `pairs` order decides which one
+--- survives, and a condition the reader set disappears at random.
 ---
 --- Values carry one field per axis (`Profile.lua`'s `dbver <= 4` step), so merging is an
 --- intersection **per axis**. One empty axis leaves no state at all, which is `NEVER` for the
@@ -1502,17 +1498,16 @@ local ROLE_NAMES = {
 --- `NEVER` IS UNREACHABLE. DO NOT BUILD A RUNTIME REPRESENTATION FOR IT.
 --- ============================================================================================
 ---
---- Every way this function can return `NEVER` is a zero mask in `binding.unitStates`, and a zero
---- mask is `CONDITIONS_NEVER`, which is an ERROR -- the one grade `BuildKeyMap` keeps out of
---- `KeyMap` entirely:
+--- Every way this function can return `NEVER` is a zero mask in `binding.unitStates`:
 ---
 ---   absent vs a constrained axis   `band(UNITSTATE_NONE, ...)`  == 0
 ---   reactions do not overlap       `band(reaction, reaction)`   == 0
 ---   life asked both ways           `band(ALIVE, DEAD)`          == 0
 ---
---- `Misc.BuildUnitStates` folds the same conditions with the same intersection, `GetBindingIssue`
---- reports the zero, and `Debind.lua` leaves that binding out of `KeyMap`. So a contradictory
---- binding reaches **neither the solver nor this file**.
+--- `Misc.BuildUnitStates` folds the same conditions with the same intersection, `FillBinding` marks
+--- a binding with a zero `dead`, and `BuildKeyMap`'s `UnrollIntoTiers` leaves every such binding off
+--- the key, one binding at a time. So a binding that cannot stand reaches **neither the solver nor
+--- this file**, whatever its action's other bindings do.
 ---
 --- That makes `NEVER` a backstop for one thing only: **the two intersections disagreeing.** Two
 --- implementations of one rule -- this one and `BuildUnitStates` -- which is why the redesign
@@ -1784,17 +1779,16 @@ local function WithBlocks(bindingArray)
     return _withBlocks;
 end
 
---- 같은 유닛에 두 번 걸린 조건을 하나로 접는다. 접어서 아무것도 안 남으면 **nil** - 그 바인딩은
---- 어떤 상태에서도 안 나가므로 레코드를 만들지 않는다.
+--- The binding's unit conditions with every unit written once. **nil where the fold leaves
+--- nothing**: that binding fires in no state, so no record is made for it.
 ---
---- `"@"`는 이 액션 자신의 대상 유닛을 가리키므로, 그 유닛에 명시 조건도 걸려 있으면
---- **같은 키에 두 번 쓰게 된다.** 접지 않으면 `pairs` 순서에 따라 한쪽이 조용히 사라진다 -
---- 걸어둔 조건이 무작위로 없어지는 것이다.
+--- **`"@"` lands on the unit the binding aims at**, so a condition of that unit's own lands on the
+--- same key. Unfolded, `pairs` order decides which one survives.
 ---
---- **여기까지 오는 것 자체가 원래 없다.** `mergeUnitConditions`가 `NEVER`를 내는 세 갈래는 전부
---- `binding.unitStates`에 0 마스크를 남기고, 그것을 `GetBindingIssue`가 보고하고 `Debind.lua`가
---- `KeyMap`에서 빼므로 솔버에도 이 파일에도 안 온다. 남겨두는 것은 그 두 교집합 구현이 갈리는
---- 날을 위해서고, 값으로 만들고 나니 비용이 없다.
+--- **Nothing should reach the nil.** Each of the three ways `mergeUnitConditions` answers `NEVER`
+--- leaves a zero mask in `binding.unitStates`, `FillBinding` marks that binding `dead`, and
+--- `UnrollIntoTiers` leaves it off the key. It stays for the day the two intersections disagree,
+--- and as a value it costs nothing.
 local function MergeKeyUnitConditions(binding, out)
     wipe(out);
 

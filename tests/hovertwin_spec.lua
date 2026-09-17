@@ -397,8 +397,8 @@ return function(DebindPrivate)
     end);
 
     --- **A condition on that very unit leaves the original nowhere to stand**, so only the original
-    --- goes, the way Normal Cast off takes it. Reported as a unit contradiction it would be an ERROR,
-    --- and that takes the whole action off the key, the held-key twins with it.
+    --- goes, the way Normal Cast off takes it. Read as a unit contradiction it would be the reader's
+    --- ERROR where all they chose was Skip, and with the cast keys off too it would stay one.
     test("Skip과 그 유닛의 조건이 안 만나면 원본만 빠지고 조합키 쌍둥이는 남는다", function()
         for _, condition in ipairs({ {}, { reaction = Constants.REACTION_HARM } }) do
             local action = spell({ conditions = { units = { unitframe = condition } } });

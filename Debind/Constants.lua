@@ -564,9 +564,8 @@ Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE             = "KNOWN_NAME_UNPARSAB
 -- is the right one; what a shared code would get wrong is the sentence, because a zero here is one
 -- axis empty rather than the unit having no state left at all.
 --
--- A zero reaction mask does not need this: reactions are a factor of `unitStates`, so emptying
--- them empties that mask and the traversal above finds it. Group is its own column, exactly like
--- role, and its own column is why neither is visible from there.
+-- Read off the stored row, not off a binding: a row with its group block empty is empty whatever
+-- unit its bindings aim at, so the answer needs none of them.
 Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED          = "UNITGROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
