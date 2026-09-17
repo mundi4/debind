@@ -462,18 +462,7 @@ local ActionHandlers = MenuKit.MakeHandlers(ActionValues);
 local actionValueEquals = ActionHandlers.equals;
 local setActionValue = ActionHandlers.set;
 
---- Which of the three a press row holds: the action goes to that press's unit (`"cast"`), where the
---- press would have gone anyway (`"usual"`), or it is out of that press (`"skip"`). The same three
---- on all three rows (`devdocs/which-action-a-key-runs.md` §6).
-local function CastKeyChoiceOf(action, row)
-    local casting = action.casting;
-    local values = casting and casting[row];
-    local aim = type(values) == "table" and values.aim;
-    if (aim == "usual" or aim == "skip") then
-        return aim;
-    end
-    return "cast";
-end
+local CastKeyChoiceOf = DebindPrivate.CastKeyChoiceOf;
 
 local function CastKeyChoiceIs(ctx, row, choice)
     return AllActions(ctx, function(action)

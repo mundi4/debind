@@ -53,11 +53,12 @@ L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
--- The second warning line, and it says what the reader gets rather than what is wrong: the key
--- still works and the action simply has no press left to answer, which is something a reader is
--- allowed to mean. It names where to turn one back on, because there is no box on screen to look
--- at otherwise.
-L["BINDING_ERROR_CASTING_NONE_LEFT"] = "This action has no press left to answer, so it never runs. Turn one back on under Cast Options."
+-- It says what the reader gets rather than what is wrong: the key still works, and turning all four
+-- off is something a reader is allowed to mean. "Sits out" is `CASTING_SKIP_DESC`'s verb, and an
+-- unticked Normal Cast does the same thing (`CASTING_NORMAL_DESC`). It no longer says where to turn
+-- one back on: every place it is shown already stands on Cast Options (the menu row, the action
+-- tooltip's block, the heading in the mark's tooltip).
+L["BINDING_ERROR_CASTING_NONE_LEFT"] = "This action sits out every press, so it never runs."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."

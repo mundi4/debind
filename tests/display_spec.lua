@@ -220,6 +220,71 @@ return function(DebindPrivate)
             "the value is set and nothing says so: " .. Tooltip(row));
     end);
 
+    --- Where in the tooltip one piece of text first comes out, or nil.
+    local function LineIndex(row, text)
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddActionToTooltip(tooltip, row.action, { suppressInactive = true });
+        for i = 1, #tooltip.lines do
+            if (tooltip.lines[i].text and tooltip.lines[i].text:find(text, 1, true)) then
+                return i, tooltip.lines[i];
+            end
+        end
+    end
+
+    --- **An action nobody changed has no Cast Options block.** The tooltip draws a value only where
+    --- it narrows something, and four lines of defaults on every action narrow nothing.
+    test("an action with Cast Options left alone has no Cast Options block", function()
+        Bind({ { type = Constants.SPELL, value = 585, key = "F1", seq = 1 } }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        check(not Says(row, "CASTING"), "a block of defaults was drawn: " .. Tooltip(row));
+    end);
+
+    --- **Every press turned off is said under Cast Options, right under the key, in the warning's
+    --- colour.** It used to come out nowhere in this tooltip, and the one line under the key said a
+    --- neighbour got there first on a key with nothing else on it.
+    test("all four Cast Options off draws the block under the key with the warning in it", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                casting = { normalCast = false, hoverCast = { aim = "skip" },
+                    selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        local text = Tooltip(row);
+        -- The label line is a format string with the label in it, so the value lines are what can be
+        -- found; the key's own value line (`F1`) is what they have to come after.
+        local keyAt = LineIndex(row, "F1");
+        local issueAt, issue = LineIndex(row, LLL["BINDING_ERROR_CASTING_NONE_LEFT"]);
+        check(keyAt and issueAt, "the key or the warning is missing: " .. text);
+        check(issue.kind == "colored" and issue.color == ORANGE_FONT_COLOR,
+            "the warning is not in the warning's colour");
+        local firstAt = LineIndex(row, AUTO_SELF_CAST_KEY_TEXT .. ":");
+        for _, word in ipairs({ AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT,
+                LLL["POINTED_UNIT_CAST"], LLL["CASTING_NORMAL"] }) do
+            local at = LineIndex(row, word .. ":");
+            check(at and keyAt < at and at < issueAt, word .. " is not drawn between the key and the warning: " .. text);
+        end
+        check(firstAt == keyAt + 3, "something stands between the key and the block: " .. text);
+    end);
+
+    --- **Only what differs is drawn.** One value changed is one line, in the menu's own words.
+    test("one Cast Options value changed draws that one line", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                casting = { selfCastKey = { aim = "skip" } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        local text = Tooltip(row);
+        check(text:find(LLL["CASTING_SKIP"], 1, true), "the changed value is missing: " .. text);
+        check(not text:find(FOCUS_CAST_KEY_TEXT, 1, true), "an unchanged row was drawn: " .. text);
+        check(not text:find(LLL["CASTING_NORMAL"], 1, true), "an unchanged row was drawn: " .. text);
+        check(not Says(row, "BINDING_ERROR_CASTING_NONE_LEFT"), "a warning with presses left: " .. text);
+    end);
+
     --- **The tooltip walks the raw action's condition table**, so it meets the pre-rename key on a
     --- profile the ladder has not reached. Skipping it loses the condition off the screen; drawing
     --- it under its stored name raises instead, because `UNIT_INFO` has no row for it.

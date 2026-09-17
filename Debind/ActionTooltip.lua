@@ -115,6 +115,9 @@ do
 	--- one and threw it away.
 	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
 
+	--- A Cast Options press row's value in the menu's words. `"cast"` is the default and has none.
+	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_SKIP"] };
+
 	local function addErrorLine(tooltip, message, wrap, leftOffset)
 		GameTooltip_AddErrorLine(tooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
 	end
@@ -202,8 +205,8 @@ do
 	--- These sit **under** a condition's own label line, one per narrowed axis, so each needs to
 	--- say which axis it is. The label line's shape (`LINE_TOOLTIP_CONDITION_LABEL`) is not reused:
 	--- that one opens a block and this one is inside it.
-	local function LabelledValue(labelKey, value)
-		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
+	local function LabelledValue(label, value)
+		return format("|cnWHITE_FONT_COLOR:%s:|r %s", label, value);
 	end
 
 	--- The two axes only a unit frame can answer, each on its own labelled line under the unit's.
@@ -218,13 +221,13 @@ do
 			local names = FlagNames(value.frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_",
 				Constants.FRAMETYPE_ALL);
 			if (names) then
-				addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES", names), nil, true);
+				addValueLine(tooltip, LabelledValue(LLL["CONDITION_FRAMETYPES"], names), nil, true);
 			end
 		end
 		if (value.role ~= nil) then
 			local names = FlagNames(value.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL);
 			if (names) then
-				addValueLine(tooltip, LabelledValue("CONDITION_ROLE", names), nil, true);
+				addValueLine(tooltip, LabelledValue(LLL["CONDITION_ROLE"], names), nil, true);
 			end
 		end
 	end
@@ -402,6 +405,58 @@ do
 			end
 		end
 
+		-- **Under the key, because these decide which presses of it this action takes.** Only a row
+		-- off its default is drawn, the way a condition is only drawn where it narrows something.
+		-- The labels and values are the menu's own words (`ActionMenuItems.lua`'s
+		-- `CreateCastingMenu`), so the reader is already holding the rows to open.
+		--
+		-- A held key the settings turn off is not drawn: that tier is not built at all, so the
+		-- action's own value there says nothing (`SelfCastEnabled`).
+		--
+		-- `CASTING_NONE_LEFT` goes under the block. Normal Cast being off is part of that code, so
+		-- the block always has a line for it to stand under.
+		do
+			wipe(_lines);
+			if (DebindPrivate.SelfCastEnabled()) then
+				local text = CHOICE_TEXT[DebindPrivate.CastKeyChoiceOf(action, "selfCastKey")];
+				if (text) then
+					tinsert(_lines, LabelledValue(AUTO_SELF_CAST_KEY_TEXT, text));
+				end
+			end
+			if (DebindPrivate.FocusCastEnabled()) then
+				local text = CHOICE_TEXT[DebindPrivate.CastKeyChoiceOf(action, "focusCastKey")];
+				if (text) then
+					tinsert(_lines, LabelledValue(FOCUS_CAST_KEY_TEXT, text));
+				end
+			end
+
+			-- Hover Cast's two questions share one line, as they share one submenu.
+			local hoverCast = action.casting and action.casting.hoverCast;
+			local mode = type(hoverCast) == "table" and hoverCast.mode;
+			local hover;
+			if (mode == "unitframe") then
+				hover = LLL["POINTED_UNIT_CAST_FRAMES"];
+			elseif (mode == "mouseover") then
+				hover = LLL["POINTED_UNIT_CAST_MOUSEOVER"];
+			end
+			local hoverChoice = CHOICE_TEXT[DebindPrivate.CastKeyChoiceOf(action, "hoverCast")];
+			if (hoverChoice) then
+				hover = hover and (hover .. ", " .. hoverChoice) or hoverChoice;
+			end
+			if (hover) then
+				tinsert(_lines, LabelledValue(LLL["POINTED_UNIT_CAST"], hover));
+			end
+
+			if (not DebindPrivate.NormalCastEnabled(action)) then
+				tinsert(_lines, LabelledValue(LLL["CASTING_NORMAL"], OFF));
+			end
+
+			if (#_lines > 0) then
+				addLabelLine(tooltip, LLL["CASTING"]);
+				addValueLines(tooltip, _lines, hasIssues and GetIssue("casting"), true);
+			end
+		end
+
 		-- **What this character casts, first.** The three spec-resolved types are the only actions
 		-- whose value is not on the row, so the tooltip is where the spell is named -- and where a
 		-- specialization with nothing to cast is told so, since the key still takes the press.
@@ -424,20 +479,6 @@ do
 			local error = hasIssues and GetIssue("unit", "@");
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
 			addValueLine(tooltip, unitStr, error);
-		end
-
-		-- **Shown with a target set as well.** The value was read here under `action.unit == nil`, on
-		-- the grounds that `FillBinding` only fills the unit where none is set. It aims the twin at
-		-- the action's own target too (`Misc.lua`'s `TwinUnitFor`), and that stands on an action that
-		-- has a target, so the line was missing exactly where this was the only thing stopping the
-		-- cast from following the cursor.
-		--
-		-- **Both halves are the menu's own words** (`ActionMenuItems.lua`), so a reader who wants to
-		-- change it is already holding the two rows to open.
-		if (action.casting and type(action.casting.hoverCast) == "table"
-				and action.casting.hoverCast.aim == "usual") then
-			addLabelLine(tooltip, LLL["POINTED_UNIT_CAST"]);
-			addValueLine(tooltip, LLL["CASTING_AS_USUAL"]);
 		end
 
 		if (conditions.units) then

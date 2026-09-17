@@ -235,6 +235,7 @@ globals = {
 	-- FrameXML: panels, tooltips, menus
 	"AUTO_SELF_CAST_KEY_TEXT",
 	"FOCUS_CAST_KEY_TEXT",
+	"OFF",
 	"GetModifiedClick",
 	"ALT_KEY",
 	"CTRL_KEY",

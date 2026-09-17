@@ -735,9 +735,16 @@ end
 --- Read off the cached list rather than a fresh derivation: the cache was keyed by these tables in
 --- the last `BuildKeyMap`, and this is asked several times per drawn row. An action with no list
 --- yet gets one, which the cache cannot hold, so the answer is the same and the cost is paid once.
+---
+--- **An empty list is not unreachable.** It is the action with every Casting value turned off,
+--- which `CASTING_NONE_LEFT` already names; "all of none were dropped" is vacuously true and put
+--- "another action gets there first" on a key with nothing else on it.
 function DebindPrivate.IsUnreachableAction(action)
     local list = DebindPrivate.PeekBindingsForAction(action)
         or DebindPrivate.GetBindingsForAction(action);
+    if (#list == 0) then
+        return false;
+    end
     for i = 1, #list do
         if (not UnreachableBindingCache[list[i]]) then
             return false;

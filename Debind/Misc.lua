@@ -1214,6 +1214,17 @@ do
         return CastingRow(action, "hoverCast").aim == "skip";
     end
 
+    --- Which of the three a press row holds: the action goes to that press's unit (`"cast"`), where the
+    --- press would have gone anyway (`"usual"`), or it is out of that press (`"skip"`). The same three
+    --- on all three rows (`devdocs/which-action-a-key-runs.md` §6).
+    function DebindPrivate.CastKeyChoiceOf(action, row)
+        local aim = CastingRow(action, row).aim;
+        if (aim == "usual" or aim == "skip") then
+            return aim;
+        end
+        return "cast";
+    end
+
     --- Whether the action stands on a press with nothing held and nothing pointed at. Off is the
     --- original not being made, so the press falls through to the next action on the key -- which is
     --- what the old [when a frame is pointed at] condition did, without swallowing the press

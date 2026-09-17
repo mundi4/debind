@@ -457,6 +457,8 @@ return function(DebindPrivate)
         local issue = GetBindingIssue(action);
         check(issue == Constants.BINDING_ISSUE_CASTING_NONE_LEFT, "나온 것: " .. tostring(issue));
         check(DebindPrivate.IssueKeepsKey(issue), "경고가 키를 뺏는다");
+        -- An empty list has no binding a neighbour could have covered.
+        check(not DebindPrivate.IsUnreachableAction(action), "바인딩이 없는 액션이 이웃에 덮였다고 나온다");
     end);
 
     --- **모드가 서 있어도 쌍둥이가 안 서면 같은 경고다.** 겨눌 유닛에 [없을 때]를 건 액션은

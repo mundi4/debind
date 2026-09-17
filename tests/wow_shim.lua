@@ -916,6 +916,8 @@ function M.install()
     --- (`MenuKit`'s `Appender:YesNo`).
     _G.YES = "Yes";
     _G.NO = "No";
+    -- The value an unticked Normal Cast is drawn with in the action tooltip.
+    _G.OFF = "Off";
 
     --- The client strings the action menu reads while it is built: the aimed unit's row names the
     --- two cast keys, and every class submenu opens on the client's own "all specializations".

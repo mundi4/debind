@@ -504,13 +504,15 @@ function Registry:BuildNode(parentDescription, node, ctx)
     description:AddInitializer(function(button, elementDescription)
         local color = HIGHLIGHT_FONT_COLOR;
         local err = registry:IssueOf(node, ctx);
+        local errColor;
         if (err) then
-            -- **The grade picks the colour** (`resolveIssue`). Painting a problem this group holds
-            -- nothing to fix about the same red as one it does sends the reader looking for a fix
-            -- that is not in there. The sentence goes in the tooltip either way.
+            -- **The grade picks the colour** (`resolveIssue`), for the label and for the sentence
+            -- in the tooltip alike. Painting a problem this group holds nothing to fix about the
+            -- same red as one it does sends the reader looking for a fix that is not in there.
             local text, issueColor = registry.config.resolveIssue(err);
             err = text;
-            color = issueColor or ERROR_COLOR;
+            errColor = issueColor or ERROR_COLOR;
+            color = errColor;
         elseif (registry:IsActive(node, ctx)) then
             color = BLUE_FONT_COLOR;
         end
@@ -533,7 +535,7 @@ function Registry:BuildNode(parentDescription, node, ctx)
                 if (not first) then
                     GameTooltip_AddBlankLineToTooltip(tooltip);
                 end
-                GameTooltip_AddErrorLine(tooltip, err);
+                GameTooltip_AddColoredLine(tooltip, err, errColor, true);
             end
         end);
     end);

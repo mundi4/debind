@@ -409,6 +409,47 @@ return function(DebindPrivate)
             "the second press clears both");
     end);
 
+    --- The row's label and the sentence in its tooltip are one statement, so the grade that paints
+    --- one paints the other. A WARNING's label went orange while its sentence stayed red.
+    test("an issue's sentence in a row's tooltip takes the grade's colour", function()
+        local WARNING_COLOR = { GetRGB = function() return 1, 0.5, 0.25; end };
+        local registry = MenuKit.NewRegistry({
+            accessor = Accessor(),
+            resolveIssue = function(issue) return "sentence for " .. issue, WARNING_COLOR; end,
+        });
+        registry:Define("WARNED", {
+            label = "WARNED",
+            skipTitle = true,
+            issue = function() return "CODE"; end,
+        });
+
+        local row = { initializers = {} };
+        function row:AddInitializer(fn) self.initializers[#self.initializers + 1] = fn; end
+        registry:Build({ CreateButton = function() return row; end }, "WARNED", Ctx());
+
+        local tooltipFn;
+        local element = { SetTooltip = function(_, fn) tooltipFn = fn; end };
+        local frame = { fontString = {
+            GetText = function() return "WARNED"; end,
+            SetTextToFit = function() end,
+            SetTextColor = function() end,
+        } };
+        for _, fn in ipairs(row.initializers) do
+            fn(frame, element);
+        end
+        check(tooltipFn ~= nil, "no tooltip was set");
+
+        local tooltip = require("wow_shim").newTooltip();
+        tooltipFn(tooltip);
+        local line;
+        for _, l in ipairs(tooltip.lines) do
+            if (l.text == "sentence for CODE") then line = l; end
+        end
+        check(line ~= nil, "the sentence is not in the tooltip");
+        check(line.kind == "colored" and line.color == WARNING_COLOR,
+            "the sentence came out as " .. tostring(line.kind));
+    end);
+
     --- **A leaf and not a submenu**, the same as `CreateBlockedMenuItem`: a list nobody can open has
     --- no reason to stand, and an arrow on it promises a step that is not there.
     test("a node that says it is blocked draws one locked row and nothing under it", function()
