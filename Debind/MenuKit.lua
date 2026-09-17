@@ -146,7 +146,7 @@ end
 --- and out of storage lives behind those: which table the key belongs to, what to prune after a
 --- clear, what to rebuild once the values moved.
 ---
---- **A menu aims at a list because one menu edits a selection** (`devdocs/editing-many-actions-at-once.md`).
+--- **A menu aims at a list because one menu edits a selection** (`devdocs/legacy/editing-many-actions-at-once.md`).
 --- A single row is a list of one, and every rule below comes out as the plain single-value rule there.
 ---
 --- - A radio or a box reads as picked only when **every** target holds it.

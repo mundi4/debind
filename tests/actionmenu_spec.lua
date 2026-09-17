@@ -1,4 +1,4 @@
--- The action menu's reads and writes over a selection (`devdocs/editing-many-actions-at-once.md`).
+-- The action menu's reads and writes over a selection (`devdocs/legacy/editing-many-actions-at-once.md`).
 --
 -- **One menu aims at `ctx.actions`, and a single row is a selection of one.** What is measured here is
 -- that a press lands the same on every action picked: a radio holds for all or for none, a box goes

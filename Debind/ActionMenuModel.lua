@@ -12,7 +12,7 @@ local dump                  = DebindPrivate.dump
 --- private table would be the same forty upvalues the split just took out, one scope wider.
 ---
 --- **The menu aims at `ctx.actions`, and a single row is a selection of one**
---- (`devdocs/editing-many-actions-at-once.md`). Every read below answers for the whole selection and
+--- (`devdocs/legacy/editing-many-actions-at-once.md`). Every read below answers for the whole selection and
 --- every write lands on each action in it, then rebuilds once.
 local ActionMenu = {};
 DebindPrivate.ActionMenu = ActionMenu;

@@ -57,7 +57,7 @@ local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip
 
 --- The menu a row of either list opens, **over one row or over the rows the reader picked.**
 --- `ctx` is `{ actions, layer, otherLayers, inOrderList }`, and a single row is a selection of one
---- (`devdocs/editing-many-actions-at-once.md`).
+--- (`devdocs/legacy/editing-many-actions-at-once.md`).
 ---
 --- **One menu and not two.** The row menu and the selection menu used to be separate, the second
 --- holding keys, move, copy, accept, reject and delete on the grounds that a condition means
