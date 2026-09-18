@@ -129,6 +129,12 @@ L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
 -- **Not the client's `HELP_LABEL`.** That one is the game menu's entry into customer support, so the
 -- same word would point somewhere else.
 L["HELP_TOPICS"] = "Help"
+--- The second line of the (i) callout, under the topic's own title.
+---
+--- **Not the client's `CLICK_FOR_MORE_INFO`** ("Click for more information"). That line stands under
+--- something the reader has already been shown, and here there is nothing above it but the title -
+--- a question, with the answer still behind the click. "More" would be counting from nothing.
+L["HELP_TIP_OPEN"] = "Click to read this help topic"
 -- The two groups under `UNIT_FRAME_SUPPORT`.
 --
 -- **Not `Blizzard's`.** A possessive wants a noun behind it, and `Blizzard's Frames` reads as the
@@ -360,7 +366,7 @@ L["KEY"] = "Key"
 --- key are listed under this line with their icons, the way every other list in the addon draws an
 --- action. Saying "for Wrath +2" in a sentence was the version that had to stand in for showing
 --- them.
-L["KEY_CAPTURE_TITLE"] = "Assign a Key"
+L["KEY_CAPTURE_TITLE"] = "Assign a key"
 --- **The middle clause is the one that earns its place.** That mouse buttons and the wheel are keys
 --- here is where this addon parts company with the game's own keybinding panel, which will not take
 --- them - so a reader who knows that panel does not try, and nothing else on screen says otherwise.
@@ -371,7 +377,7 @@ L["KEY_CAPTURE_TITLE"] = "Assign a Key"
 --- mentioning.
 L["KEY_CAPTURE_DESC"] = "Press any key to assign it - mouse buttons and the wheel included, but those only count over this window."
 --- The key the set is on today, said once over the whole list. **A label, not a sentence**, because
---- what follows it is the value - which is also what [Unbind Key] is talking about, so the button
+--- what follows it is the value - which is also what [Unbind key] is talking about, so the button
 --- being lit or dead has something on screen to point at.
 L["KEY_CAPTURE_CURRENT_KEY"] = "Current key:"
 --- What the line above says when the actions being asked about are **not all on the same key**. It
@@ -419,7 +425,7 @@ L["ACTION_SET_KEY_ACCEPT"] = "Assign a key & Accept"
 --- is a thing people mean to do. It is written as what happens, and the reader decides.
 ---
 --- **It does not describe the dialog.** The opening line used to say "the key you press", which is
---- wrong twice over - the answer can be a mouse button or the wheel, and it can be [Unbind Key],
+--- wrong twice over - the answer can be a mouse button or the wheel, and it can be [Unbind key],
 --- which presses nothing and still takes this action out of the set. How the key is given is the
 --- dialog's own line to say (`KEY_CAPTURE_DESC`); this one says who it is given to.
 ---
@@ -510,9 +516,9 @@ L["KEY_GROUP_CONFLICT_KEEP"] = "Merge"
 --- press" got. **Where the order is changed is not named either**: spelling out a tab or a menu is a
 --- sentence pointing at something that can be renamed out from under it.
 L["KEY_GROUP_CONFLICT_KEEP_DESC"] = "Pressing the key then runs down the list until something matches, so which one goes off depends on the order they land in - and that order is yours to change."
---- **The client's own verb for this, and the reader met it a moment ago** - `UNBIND` is a global
---- ("Unbind Key"), it is what the button on the key capture dialog says, and it names exactly what
---- happens to these: they lose the key and nothing else.
+--- **The client's own verb for this, and the reader met it a moment ago** - the game calls taking a
+--- key off "unbind" (`UNBIND`), it is what the button on the key capture dialog says, and it names
+--- exactly what happens to these: they lose the key and nothing else.
 ---
 --- It said "Overwrite" for a while, which is not a client word either (the one place the game names
 --- that idea, `TUTORIAL_PERKS_PROGRAM_OVERWRITE_FROZEN_ITEM`, reads "Replace") and which overstates
@@ -608,7 +614,7 @@ L["KEY_HEADER_REJECT_ONE"] = "Reject the one still waiting"
 --- anybody. The heading that arrived has a string of its own, and a label that says it out loud.
 ---
 --- It said "the key you press" too, and that is wrong here for the reasons it was wrong there: the
---- answer can be a mouse button or the wheel, and [Unbind Key] presses nothing and still settles
+--- answer can be a mouse button or the wheel, and [Unbind key] presses nothing and still settles
 --- the whole set. How the key arrives is `KEY_CAPTURE_DESC`'s line.
 L["KEY_HEADER_SET_KEY_DESC"] = "Sets one key for every action under this heading, in one go - including any in specializations you are not in."
 -- The same item over a heading that arrived. **Nothing is left behind here**, which is the one way
@@ -1321,7 +1327,7 @@ L["TYPE_UNUSED"] = "Use WoW's Own Binding"
 L["TYPE_WORLDMARKER"] = "World Marker"
 L["TYPE_ACTIONBUTTON"] = "Action Button"
 L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."
-L["UNBIND"] = "Unbind Key"
+L["UNBIND"] = "Unbind key"
 --- Asked before a key comes off two or more actions that share one.
 ---
 --- **The whole point of the sentence is the last clause.** Taking a key off deletes nothing and the

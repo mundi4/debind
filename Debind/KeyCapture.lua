@@ -76,7 +76,7 @@ local CAPTION_GAP      = 8;
 --- a key would for a set whose key had not been decided; that shape is gone
 --- (`devdocs/building-export-import.md` 12절) and what is left is the plain question.
 ---
---- [Unbind Key] reads it, and so does the key each row draws when the rows disagree. **A selection
+--- [Unbind key] reads it, and so does the key each row draws when the rows disagree. **A selection
 --- is why it is any of them rather than the first**: a group shares one key by definition, and rows
 --- somebody ticked share nothing.
 ---
@@ -179,7 +179,7 @@ end
 -- What is being asked about
 --------------------------------------------------------------------------------
 
---- Is there anything here for [Unbind Key] to take off.
+--- Is there anything here for [Unbind key] to take off.
 ---
 --- **Any of them, not the first.** This window takes any 1..n actions, and only some of those are a
 --- key group -- a group shares one key by definition, but a selection somebody made by hand shares
@@ -251,6 +251,7 @@ function DebindKeyCaptureFrameMixin:OnLoad()
     self.Description:SetText(LLL["KEY_CAPTURE_DESC"]);
     self.CurrentKeyLabel:SetText(LLL["KEY_CAPTURE_CURRENT_KEY"]);
     self.TargetsLabel:SetText(LLL["KEY_CAPTURE_TARGETS"]);
+    self.UnbindButton:SetText(LLL["UNBIND"]);
 
     --- The rows, made once. `MAX_ROWS` is the ceiling, so this is all of them there will ever be.
     self.rows = {};
@@ -275,7 +276,7 @@ function DebindKeyCaptureFrameMixin:OnLoad()
 end
 
 --- Puts the question up. `actions` is one action or a whole key group; `onCommit` is handed the key
---- that was pressed, or `nil` when the reader chose [Unbind Key]. Cancelling calls nothing.
+--- that was pressed, or `nil` when the reader chose [Unbind key]. Cancelling calls nothing.
 ---
 --- **The actions are only read, never written.** What to do with the answer - which of them move,
 --- what happens to whatever already sits on that key - is the caller's, and it is the half that
@@ -384,7 +385,7 @@ function DebindKeyCaptureFrameMixin:OnHide()
     self.pressed = nil;
 end
 
---- The one exit that carries an answer. `key` is a chord string, or `nil` for [Unbind Key].
+--- The one exit that carries an answer. `key` is a chord string, or `nil` for [Unbind key].
 ---
 --- **Down before the answer is handed over.** Giving a key can raise a question of its own - the key
 --- may already be carrying something - and nothing should still be listening for keys over that.
@@ -428,7 +429,7 @@ end
 ---
 --- **Escape is cancel, not the eraser.** In the mode it erases the row being pointed at, because in
 --- a mode that never closes there is no other input left to mean "take this key away" - every
---- button, the wheel and Delete are all bindable. Here [Unbind Key] is on screen saying it, and
+--- button, the wheel and Delete are all bindable. Here [Unbind key] is on screen saying it, and
 --- Escape is what it is in every other dialog.
 function DebindKeyCaptureFrameMixin:OnKeyDown(key)
     if (key == "ESCAPE") then

@@ -1818,7 +1818,7 @@ RegisterTest("Assign a key: a badged row is offered one too", {
 --- **Both answers in that window are the reader deciding the key** (2026-08-23, the owner), and
 --- deciding the key is what accepting an arrival is (`DebindFrameMixin:SetActionKey`). The item that
 --- opened it says so on its face, so pressing the button on the window it opened has to keep the
---- promise: [Unbind Key] used to leave the arrival with no key **and** still waiting, which is
+--- promise: [Unbind key] used to leave the arrival with no key **and** still waiting, which is
 --- neither half of what the label said.
 ---
 --- The menu's own [Unbind] is not this and does not accept - it is aimed at a row rather than opened

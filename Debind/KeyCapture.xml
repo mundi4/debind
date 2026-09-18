@@ -34,15 +34,14 @@
 				5 either side, the way out on the left and the thing that acts on the right
 				(`DebindPasteFrame`, `DebindBringFrame`).
 
-				Both take client globals, so both are already in every language and follow the game
-				if it ever rewords them. `UNBIND` is the client's own "Unbind Key" - the shorter
-				"Unbind" would be a string of ours to translate everywhere for nothing, and the word
-				it drops is the one that says the button acts on the key already on those rows rather
-				than on the one about to be pressed.
+				`CANCEL` is a client global, so it is already in every language and follows the game
+				if it ever rewords it. **The unbind button is ours** (`UNBIND`, set in `OnLoad`): a
+				client string is worth taking for a name the reader already has, and "Unbind key" is
+				a sentence rather than a name, so it follows this addon's wording and not the game's.
 
 				**Cancel, not Close, with nothing to cancel.** The two are the same action here - the
 				dialog commits and closes on the first key, so there is never a change waiting to be
-				undone. What decides it is the button next to it: against [Unbind Key], which does
+				undone. What decides it is the button next to it: against [Unbind key], which does
 				take the key away, "Cancel" says "leave it as it is" and "Close" says nothing at all.
 				A dialog that asks a question is also where the reader has already been taught that
 				the second button refuses it.
@@ -54,7 +53,7 @@
 				</Anchors>
 			</Button>
 
-			<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate" text="UNBIND">
+			<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate">
 				<Size x="120" y="22"/>
 				<Anchors>
 					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>

@@ -4208,7 +4208,7 @@ local ORDER_HELP_TIP = {
 };
 
 local function OrderHelpTipText()
-	return LLL["HELP_ORDERING_TITLE"] .. "|n|n" .. GREEN_FONT_COLOR:WrapTextInColorCode(CLICK_FOR_MORE_INFO);
+	return LLL["HELP_ORDERING_TITLE"] .. "|n|n" .. GREEN_FONT_COLOR:WrapTextInColorCode(LLL["HELP_TIP_OPEN"]);
 end
 
 function DebindResultPanelMixin:ShowHelpTip()
@@ -5471,7 +5471,7 @@ function DebindFrameMixin:SetActionKey(action, key)
 	-- reader saying yes; there is nothing further to approve about an action they just put on their
 	-- own keyboard, and the set's own path has read it that way all along (`SetKeyForActions`).
 	--
-	-- **Only this direction.** [Unbind Key] settles nothing: it takes a key away rather than deciding
+	-- **Only this direction.** [Unbind key] settles nothing: it takes a key away rather than deciding
 	-- one, so it is not the reader taking the action.
 	local accepted;
 	if (key ~= nil) then
@@ -5715,7 +5715,7 @@ function DebindUI.BeginKeyCapture(actions)
 	local label = CaptureLabel(actions);
 
 	DebindKeyCaptureFrame:Open(actions, function(captured)
-		-- **`nil` is [Unbind Key], not a cancel** -- cancelling never gets here.
+		-- **`nil` is [Unbind key], not a cancel** -- cancelling never gets here.
 		--
 		-- **And it accepts, the same as the other answer** (2026-08-23, 소유자). This window is the
 		-- reader deciding the key, which is what accepting an arrival is; the item that opens it
@@ -5738,7 +5738,7 @@ end
 ---
 --- The key is read **after** the release, since that is where it is settled: scattered rows leave
 --- `nil` behind, and the rebuild knows that case.
---- `accepting` takes the badge off as well, and only the capture dialog's [Unbind Key] passes it.
+--- `accepting` takes the badge off as well, and only the capture dialog's [Unbind key] passes it.
 --- **Inside that window both answers are the reader deciding the key**, which is the whole of what
 --- accepting an arrival is (`DebindFrameMixin:SetActionKey` says so on the other answer). The menu's
 --- own [Unbind] passes nothing: that one is aimed at a row rather than opened over a question.
@@ -5756,7 +5756,7 @@ local function ReleaseAndRebuild(actions, accepting)
 	RebuildAfterKeyGroupChange(actions, actions[1].key);
 end
 
---- [Unbind], from either place that offers it: the menu item, and the dialog's [Unbind Key] button
+--- [Unbind], from either place that offers it: the menu item, and the dialog's [Unbind key] button
 --- (`BeginKeyCapture`, where a nil capture comes back). **One function, because a menu offering the
 --- button's other half must not be able to mean something else by it.**
 ---

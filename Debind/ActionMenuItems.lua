@@ -271,7 +271,7 @@ end
 --- that would scatter a key group asks first. One action scatters nothing, so it goes straight through.
 ---
 --- **A selection with no real key in it has nothing to take off** (`DebindPrivate.AnyRealKey`),
---- which is the answer the capture dialog's own [Unbind Key] button already gives.
+--- which is the answer the capture dialog's own [Unbind key] button already gives.
 local function CreateUnbindMenuItem(parentDescription, ctx)
     local description = parentDescription:CreateButton(LLL["UNBIND"], function()
         DebindUI.UnbindActions(ctx.actions);

@@ -104,6 +104,30 @@ old ones unless asked — the owner intends to go through them.
 
 ---
 
+## Capitals in enUS, and what may be taken from the client
+
+**A word is capitalised when it is part of a name.** `Custom Macro`, `World Marker`, `Player Frame`,
+`Extra Action Button` are names of things, and the game names them the same way. Everything else is
+written as an ordinary sentence: `Assign a key`, `Unbind key`, `Turn this action off`,
+`While in combat`, `Cast on your focus`.
+
+The tempting rule is length, and it is wrong. The client's own labels do flip from title case to
+sentence case somewhere around four or five words, but hold the length fixed and the split is still
+there: among three-to-five word strings, 98% of the ones that name a control are title case while
+the ones that talk to the reader are not. Long strings are long **because they are sentences**, and
+the sentence is what decides the capitals. Measured 2026-09-18.
+
+**A name may be taken from the client. A sentence may not.** Taking `MOUNT` or `MAIN_TANK` gives the
+reader the word they already use for that thing, in every language, for free. Taking a whole
+sentence brings the game's capitals into a screen that does not write that way, and it brings the
+sentence's own assumptions with it: `CLICK_FOR_MORE_INFO` ("Click for more information") stands
+under something the reader has already been shown, so on a balloon that holds nothing but a title
+it counts from nothing. Write our own.
+
+This is why the capture dialog's [Cancel] is `CANCEL` and its [Unbind key] is `L["UNBIND"]`.
+
+---
+
 ## Length is a property of the position, not of the string
 
 | where | budget |

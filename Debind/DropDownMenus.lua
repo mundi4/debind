@@ -292,7 +292,7 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
 
         -- **One item, and taking the key off is not a second one** (2026-08-23, 소유자). It stood
         -- here as the other end of the same axis, and the window this item opens has that end on
-        -- it: [Unbind Key] is a button on the capture dialog, over the same set, asking the same
+        -- it: [Unbind key] is a button on the capture dialog, over the same set, asking the same
         -- question. A menu item beside it was the one door in this window that could scatter a
         -- set without the reader having gone to decide its key.
         CreateAssignKeyItem();
