@@ -71,7 +71,7 @@ L["CONDITION_UNIT_DOES_NOT_EXIST"] = "Когда юнит не существу�
 L["CONDITION_UNIT_EXISTS"] = "Когда юнит существует"
 L["CONDITION_UNITS"] = "Юниты"
 L["CONFIRM_CURRENT_CHANGE_FIRST"] = "Сначала подтвердите текущие изменения."
-L["CONVERT_TO_MACRO_TEXT"] = "Преобразовать в |cnLIGHTBLUE_FONT_COLOR:Пользовательский макрос|r"
+L["CONVERT_TO_MACRO_TEXT"] = "Преобразовать в Пользовательский макрос"
 L["COPY_TO"] = "Скопировать в..."
 -- 근거는 enUS 쪽 주석에.
 L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(текущая)|r"

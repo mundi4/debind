@@ -101,8 +101,16 @@ L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
 -- On a saved [Use WoW's Own Binding] or binding command row. The row's own name already says what it
 -- was, so this says what a press does now and why, then the two ways out. It says "the game's own
--- keybinding" because the command was one, and a macro is where most of them can be remade.
-L["BINDING_ERROR_TYPE_RETIRED"] = "Debind no longer passes keys to the game's own keybindings, so pressing this does nothing. Make it again as a macro, or delete it."
+-- keybinding" because the command was one.
+--
+-- **It says nothing about the key**, and neither may anything written here later. This action is one
+-- of several the key can hold and it may carry conditions of its own, so whether the key is taken,
+-- and whether the actions under it run, are answered by the whole key and never by this row.
+--
+-- **The macro is offered "where it can be done" and not flatly.** Not every binding command has a
+-- slash command, and `CanConvertToMacroText` takes neither of these two types, so the reader makes
+-- the Custom Macro themselves rather than converting this row.
+L["BINDING_ERROR_TYPE_RETIRED"] = "Debind no longer passes keys to the game's own keybindings, so this action does nothing when it takes a press. Delete it, or where a slash command can do the same thing, replace it with a Custom Macro."
 -- The only MINOR code, so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
@@ -254,7 +262,7 @@ L["CONDITION_LIFE"] = "Alive or Dead"
 L["CONDITION_UNIT_GROUP"] = "Group"
 L["CONDITION_UNITS"] = "Units"
 L["CONFIRM_CURRENT_CHANGE_FIRST"] = "Confirm current change first."
-L["CONVERT_TO_MACRO_TEXT"] = "Convert to a |cnLIGHTBLUE_FONT_COLOR:Custom Macro|r"
+L["CONVERT_TO_MACRO_TEXT"] = "Convert to a Custom Macro"
 L["COPY_TO"] = "Copy to..."
 -- 이동·복사 목록에서 지금 그 액션이 사는 탭. %s는 다른 줄과 **똑같은** 탭 이름이고, 뒤에
 -- 붙는 표시만 그 줄을 가른다 - 이름을 갈아치우면 목록에서 그 탭의 자리를 잃는다.
@@ -315,7 +323,7 @@ L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
 L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
 L["DISABLE"] = "Disable"
 L["DISABLE_ALL"] = "Disable All"
-L["EDIT_MACRO"] = "Edit Macro"
+L["EDIT_MACRO"] = "Edit this Custom Macro"
 L["ERROR_MESSAGE_CANNOT_SET_CUSTOM_TARGET_IN_COMBAT"] = "Cannot set a custom target by command while in combat."
 L["EXCLUDE_PLAYER_DESC"] = "An action aimed at Tank, Healer, Main Tank or Main Assist goes to whoever in your group holds it, and a ticked one never resolves to you. These targets stand only while exactly one member holds them, so excluding yourself is how a tank aims at the other tank."
 L["EXCLUDE_PLAYER"] = "Exclude self"
@@ -1257,6 +1265,8 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 -- **Auto Self Cast is named** because it is what a reader expects to rescue a friendly spell on the
 -- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
 L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while %5$s is on for this action and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
+L["TYPE_BLOCK"] = "Nothing"
+L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only."
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"

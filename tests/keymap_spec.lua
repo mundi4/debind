@@ -95,6 +95,30 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **A saved BLOCK is the reader's own, not a retired type.** It stands on the key the same way,
+    -- and nothing under it on that key fires, which is the whole of what the reader picked it for.
+    -- The mark is what tells the two apart: a retired type is red because there is nothing the
+    -- reader can do with it, and this one is not.
+    test("a block action stands on the key and closes it", function()
+        local block = { type = Constants.BLOCK, key = "F1", seq = 1 };
+        local under = { type = Constants.SPELL, value = 585, key = "F1", seq = 2 };
+        Bind({ block, under });
+
+        local list = DebindPrivate.KeyMap.F1 or {};
+        local first, spell;
+        for i = 1, #list do
+            if (not castmod.isTwin(Constants, list[i])) then
+                first = first or list[i];
+                spell = spell or (list[i].value == 585 and list[i] or nil);
+            end
+        end
+        check(first, "the action did not reach the key");
+        check(first.type == Constants.BLOCK, "it came out as " .. tostring(first.type));
+        check(DebindPrivate.GetBindingIssue(block) == nil,
+            "the row is marked: " .. tostring(DebindPrivate.GetBindingIssue(block)));
+        check(not spell, "the action under it is still on the key");
+    end);
+
     -- **The strongest outcome among an action's issues is the one it gets.** A retired type stays
     -- on its key as a block; a condition no state can meet leaves it out. Carrying both, it is left
     -- out: folded by grade instead, the two tie and whichever check is written first decides

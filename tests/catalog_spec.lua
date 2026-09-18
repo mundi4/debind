@@ -205,6 +205,22 @@ return function(DebindPrivate)
         check(actionButton, "the action bar button was not offered");
     end);
 
+    -- **The one way to take a key and do nothing with it.** It is what covering an action with a
+    -- condition needs on top, and the retired type that used to stand there cannot be picked.
+    test("특수 탭은 아무것도 안 하는 액션을 만든다", function()
+        local Constants = DebindPrivate.Constants;
+        local offered = false;
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.source == "special") then
+                ActionCatalog.Invalidate(category.source);
+                for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
+                    offered = offered or entry.type == Constants.BLOCK;
+                end
+            end
+        end
+        check(offered, "nothing was not offered");
+    end);
+
     local left, right = fakeSource("spec-left"), fakeSource("spec-right");
     ActionCatalog.RegisterSource(left);
     ActionCatalog.RegisterSource(right);

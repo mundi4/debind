@@ -136,6 +136,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.SETSTATE_OFF] = LLL["TYPE_SETSTATE"],
 	[Constants.SETSTATE_TOGGLE] = LLL["TYPE_SETSTATE"],
 	[Constants.UNUSED] = LLL["TYPE_UNUSED"],
+	[Constants.BLOCK] = LLL["TYPE_BLOCK"],
 };
 
 local UNIT_INFO            = {
@@ -401,6 +402,10 @@ local function NameAndIconForAction(action)
 	elseif (type == Constants.UNUSED) then
 		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
 		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";
+		skipTypeName = true;
+	elseif (type == Constants.BLOCK) then
+		actionName = BINDING_TYPE_NAMES[Constants.BLOCK];
+		actionIcon = "INTERFACE\\BUTTONS\\UI-GroupLoot-Pass-Up";
 		skipTypeName = true;
 	else
 		actionName = action.name or LLL["UNNAMED_ACTION"];

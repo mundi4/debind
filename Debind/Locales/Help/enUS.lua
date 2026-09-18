@@ -77,9 +77,9 @@ To hand the press to the next action instead, give the action |cnBLUE_FONT_COLOR
 
 L["HELP_STOPPING_AN_ACTION_TITLE"] = "How do I stop an action from running?"
 L["HELP_STOPPING_AN_ACTION_BODY"] = [==[
-|cnHIGHLIGHT_FONT_COLOR:Turn it off.|r |cnBLUE_FONT_COLOR:Turn this action off|r in its right-click menu stops the action and gives its key back to the game. It keeps everything you set on it, so turning it back on puts it where it was.
+|cnHIGHLIGHT_FONT_COLOR:Turn it off.|r |cnBLUE_FONT_COLOR:Turn this action off|r in its right-click menu stops the action. The key goes to the next action on it, and when every action on it is off, back to whatever WoW has bound to it. It keeps everything you set on it, so turning it back on puts it where it was.
 
-|cnHIGHLIGHT_FONT_COLOR:Cover it.|r Put an action above it on the same key with a condition for the case you want stopped. The one above runs in that case and the one below never gets the press. When you want nothing to happen there, give the action above the type |cnBLUE_FONT_COLOR:Use WoW's Own Binding|r.
+|cnHIGHLIGHT_FONT_COLOR:Cover it.|r Put an action above it on the same key with a condition for the case you want stopped. The one above runs in that case and the one below never gets the press. When you want nothing to happen there, give the action above the type |cnBLUE_FONT_COLOR:Nothing|r.
 
 |cnHIGHLIGHT_FONT_COLOR:Delete it.|r |cnBLUE_FONT_COLOR:Delete|r takes the action and everything set on it: the conditions, the importance and its place in the key.
 

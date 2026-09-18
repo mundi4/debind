@@ -1161,6 +1161,14 @@ local function BuildSpecialActions(entries)
 			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
 		});
 	end
+
+	-- Taking a key and doing nothing with it. It stores no value, and what makes it worth a row is
+	-- the conditions that go on it afterwards: they are what turn it into "not in this case".
+	AddEntry(entries, seen, {
+		type = Constants.BLOCK,
+		group = typeNames[Constants.BLOCK],
+		tooltipText = LLL["TYPE_BLOCK_DESC"],
+	});
 end
 
 --- 특수는 **맨 끝이다.** 등록 순서가 곧 탭 순서인데, 앞의 탭들이 "이미 가진 것"이라

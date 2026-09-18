@@ -111,9 +111,12 @@ Constants.SETSTATE_ON                     = "setstate_on";
 Constants.SETSTATE_OFF                    = "setstate_off";
 Constants.SETSTATE_TOGGLE                 = "setstate_toggle";
 Constants.UNUSED                          = "unused";
---- **Never stored.** What `UNUSED` and `COMMAND` turn into on the binding, and what closes each tier
---- of a key that holds one: a record that wins and does nothing, so no press falls through to the
---- game (`devdocs/legacy/dropping-the-game-fallback.md` §3).
+--- A record that wins the press and does nothing: what closes each tier of a key that holds one, so
+--- no press falls through to the game (`devdocs/legacy/dropping-the-game-fallback.md` §3).
+---
+--- It is three things at once. The reader can pick it, `UNUSED` and `COMMAND` turn into it on the
+--- binding, and the self and focus twins are built out of it. **A stored one is not retired**, which
+--- is what `BINDING_ISSUE_TYPE_RETIRED` tests the other two for by type rather than by this one.
 Constants.BLOCK                           = "block";
 --- Presses one action bar button the way its binding command would. `value` is that command's
 --- name, so the row reads with the client's own `BINDING_NAME_*` and a saved `COMMAND` moves over
