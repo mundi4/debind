@@ -278,56 +278,35 @@ local function TableFor(action, key, create)
     return conditions;
 end
 
---- A Casting value sits two levels down (`action.casting.hoverCast.aim`) and the kit addresses a
---- value by one key, so the key spells the whole address: `casting.<row>.<field>`, or
---- `casting.normalCast` for the one value that is not in a row
---- (`devdocs/which-action-a-key-runs.md` §8).
+--- Every Casting value is a scalar one level down (`action.casting.hoverCast`) and the kit addresses
+--- a value by one key, so the key spells the whole address: `casting.<name>`
+--- (`devdocs/action-and-binding-shapes.md` §1).
 ---
---- Returns the table the field lives in and the field's name, or nil for a key that is not one of
---- these. **Reading makes nothing**: an action with no `casting` answers off the empty table, the
---- way `TableFor` refuses to make a condition table for a reader.
+--- Returns the table the value lives in and its name, or nil for a key that is not one of these.
+--- **Reading makes nothing**: an action with no `casting` answers off the empty table, the way
+--- `TableFor` refuses to make a condition table for a reader.
 local EMPTY_CASTING = {};
 local function CastingHolder(action, key, create)
     if (strsub(key, 1, 8) ~= "casting.") then
         return nil;
     end
-    local rest = strsub(key, 9);
-    local rowName, field = strmatch(rest, "^([^.]+)%.([^.]+)$");
+    local name = strsub(key, 9);
     local casting = action.casting;
     if (casting == nil) then
         if (not create) then
-            return EMPTY_CASTING, field or rest;
+            return EMPTY_CASTING, name;
         end
         casting = {};
         action.casting = casting;
     end
-    if (rowName == nil) then
-        return casting, rest;
-    end
-    local row = casting[rowName];
-    if (type(row) ~= "table") then
-        if (not create) then
-            return EMPTY_CASTING, field;
-        end
-        row = {};
-        casting[rowName] = row;
-    end
-    return row, field;
+    return casting, name;
 end
 
 --- 빈 표는 안 남긴다. `CleanUpDB`와 같은 규칙이고, 여기서도 하는 것은 저장과 내보내기와
 --- 같은지 묻기(`IDENTITY_FIELDS`)가 로그아웃을 안 기다리기 때문이다.
 local function PruneCasting(action)
     local casting = action.casting;
-    if (casting == nil) then
-        return;
-    end
-    for name, row in pairs(casting) do
-        if (type(row) == "table" and next(row) == nil) then
-            casting[name] = nil;
-        end
-    end
-    if (next(casting) == nil) then
+    if (casting ~= nil and next(casting) == nil) then
         action.casting = nil;
     end
 end
@@ -471,12 +450,12 @@ local function CastKeyChoiceIs(ctx, row, choice)
 end
 
 local function SetCastKeyChoice(ctx, row, choice)
-    local aim;
+    local value;
     if (choice ~= "cast") then
-        aim = choice;
+        value = choice;
     end
     for _, action in ipairs(ctx.actions) do
-        ActionValues.Set(action, "casting." .. row .. ".aim", aim);
+        ActionValues.Set(action, "casting." .. row, value);
     end
     return OnActionsChanged(ctx.actions);
 end
@@ -485,7 +464,7 @@ end
 --- the unit whose presence takes the action off the press.
 local function SetHoverCastMode(ctx, mode)
     for _, action in ipairs(ctx.actions) do
-        ActionValues.Set(action, "casting.hoverCast.mode", mode);
+        ActionValues.Set(action, "casting.hoverCastMode", mode);
     end
     return OnActionsChanged(ctx.actions);
 end

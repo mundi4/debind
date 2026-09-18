@@ -316,7 +316,7 @@ return function(DebindPrivate)
     test("the cast as usual line is drawn on an action that has a target of its own", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "focus",
-                casting = { hoverCast = { aim = "usual" } },
+                casting = { hoverCast = "usual" },
                 conditions = { units = { unitframe = {} } } },
         }, {});
 
@@ -354,8 +354,8 @@ return function(DebindPrivate)
     test("all four Cast Options off draws the block under the key with the reason in it", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                casting = { normalCast = false, hoverCast = { aim = "skip" },
-                    selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } },
+                casting = { normalCast = false, hoverCast = "skip",
+                    selfCastKey = "skip", focusCastKey = "skip" } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
@@ -385,7 +385,7 @@ return function(DebindPrivate)
     test("a skipped Hover Cast on the bare left click draws its own reason", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
-                casting = { hoverCast = { aim = "skip" } } },
+                casting = { hoverCast = "skip" } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
@@ -426,7 +426,7 @@ return function(DebindPrivate)
     test("one Cast Options value changed draws that one line", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                casting = { selfCastKey = { aim = "skip" } } },
+                casting = { selfCastKey = "skip" } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];

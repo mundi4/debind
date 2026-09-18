@@ -66,7 +66,7 @@ return function(DebindPrivate)
     --- its own (§6).
     local function inMode(mode, fields)
         local action = spell(fields);
-        action.casting = { hoverCast = { mode = mode } };
+        action.casting = { hoverCastMode = mode };
         return action;
     end
 
@@ -336,7 +336,7 @@ return function(DebindPrivate)
     test("Cast as usual인 액션의 쌍둥이는 원본이 가는 곳으로 나간다", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = spell({ unit = "focus" });
-            action.casting = { hoverCast = { mode = mode, aim = "usual" } };
+            action.casting = { hoverCastMode = mode, hoverCast = "usual" };
             local twin = twinOf(action);
             check(twin ~= nil and twin.unit == "focus",
                 mode .. ": 쌍둥이가 겨누는 것: " .. tostring(twin and twin.unit));
@@ -344,7 +344,7 @@ return function(DebindPrivate)
 
         -- 대상이 없는 액션에서는 원본도 비어 있으므로 쌍둥이도 비고, 게임이 대상을 놓는다.
         local action = spell();
-        action.casting = { hoverCast = { mode = "unitframe", aim = "usual" } };
+        action.casting = { hoverCastMode = "unitframe", hoverCast = "usual" };
         local twin = twinOf(action);
         check(twin ~= nil, "대상 없는 액션의 쌍둥이가 없다");
         check(twin.unit == nil, "쌍둥이가 겨누는 것: " .. tostring(twin.unit));
@@ -360,7 +360,7 @@ return function(DebindPrivate)
     test("Skip this action이면 쌍둥이가 없고 원본은 모드의 유닛이 없을 때만 선다", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = spell();
-            action.casting = { hoverCast = { mode = mode, aim = "skip" } };
+            action.casting = { hoverCastMode = mode, hoverCast = "skip" };
             local list = bindingsOf(action);
             check(list[2] == nil, mode .. ": 쌍둥이가 생겼다");
             check(states(list[1], mode) == NONE,
@@ -377,7 +377,7 @@ return function(DebindPrivate)
             { ["@"] = { reaction = Constants.REACTION_HELP } },
         }) do
             local action = spell({ conditions = { units = units } });
-            action.casting = { hoverCast = { mode = "unitframe", aim = "skip" } };
+            action.casting = { hoverCastMode = "unitframe", hoverCast = "skip" };
             local original = bindingsOf(action)[1];
             check(states(original, "unitframe") == NONE,
                 next(units) .. ": 원본의 상자가 " .. tostring(states(original, "unitframe")));
@@ -388,7 +388,7 @@ return function(DebindPrivate)
     --- order. Written into the condition table it would make every skipped action a conditional one.
     test("Skip은 원본의 조건 표와 순서 레코드를 안 바꾼다", function()
         local plain, skipped = spell(), spell();
-        skipped.casting = { hoverCast = { aim = "skip" } };
+        skipped.casting = { hoverCast = "skip" };
         local list = bindingsOf(skipped);
         check(list[1].conditions.units == nil, "조건 표에 유닛 조건이 섰다");
         check(DebindPrivate.MakeOrderRecord(skipped, 1, 1).isConditional
@@ -402,7 +402,7 @@ return function(DebindPrivate)
     test("Skip과 그 유닛의 조건이 안 만나면 원본만 빠지고 조합키 쌍둥이는 남는다", function()
         for _, condition in ipairs({ {}, { reaction = Constants.REACTION_HARM } }) do
             local action = spell({ conditions = { units = { unitframe = condition } } });
-            action.casting = { hoverCast = { mode = "unitframe", aim = "skip" } };
+            action.casting = { hoverCastMode = "unitframe", hoverCast = "skip" };
             local all = DebindPrivate.GetBindingsForAction(action);
             local list = castmod.without(Constants, all);
             check(list[1] ~= nil and list[1].normalCast == false,
@@ -449,9 +449,9 @@ return function(DebindPrivate)
         local action = spell();
         action.casting = {
             normalCast = false,
-            hoverCast = { aim = "skip" },
-            selfCastKey = { aim = "skip" },
-            focusCastKey = { aim = "skip" },
+            hoverCast = "skip",
+            selfCastKey = "skip",
+            focusCastKey = "skip",
         };
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
@@ -471,9 +471,9 @@ return function(DebindPrivate)
         local action = spell({ conditions = { units = { unitframe = false } } });
         action.casting = {
             normalCast = false,
-            hoverCast = { mode = "unitframe" },
-            selfCastKey = { aim = "skip" },
-            focusCastKey = { aim = "skip" },
+            hoverCastMode = "unitframe",
+            selfCastKey = "skip",
+            focusCastKey = "skip",
         };
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
@@ -488,8 +488,8 @@ return function(DebindPrivate)
         local action = spell();
         action.casting = {
             normalCast = false,
-            hoverCast = { aim = "skip" },
-            selfCastKey = { aim = "skip" },
+            hoverCast = "skip",
+            selfCastKey = "skip",
         };
         check(#DebindPrivate.GetBindingsForAction(action) > 0, "바인딩이 하나도 안 나왔다");
         check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));

@@ -27,7 +27,7 @@ function M.skipHover(action)
         casting = {};
         action.casting = casting;
     end
-    casting.hoverCast = { aim = "skip" };
+    casting.hoverCast = "skip";
     return action;
 end
 

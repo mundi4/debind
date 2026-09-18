@@ -1153,8 +1153,8 @@ return function(DebindPrivate)
     -- where the reader skipped nothing, and that is a contradiction painted on both sides of it.
     ---------------------------------------------------------------------------
 
-    local ALL_OFF = { normalCast = false, hoverCast = { aim = "skip" },
-        selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } };
+    local ALL_OFF = { normalCast = false, hoverCast = "skip",
+        selfCastKey = "skip", focusCastKey = "skip" };
     local GetCastingOffReason = DebindPrivate.GetCastingOffReason;
 
     local function copyOf(value)
@@ -1178,7 +1178,7 @@ return function(DebindPrivate)
 
     test("Hover Cast skipped on the bare click is a reason, not an issue", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
-            casting = { hoverCast = { aim = "skip" } } };
+            casting = { hoverCast = "skip" } };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
         check(GetCastingOffReason and GetCastingOffReason(action) == "BARE_CLICK_SKIPPED",
             "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
@@ -1216,7 +1216,7 @@ return function(DebindPrivate)
     --- `which-action-a-key-runs.md` §7), so [when there is none] on `mouseover` leaves its twin alone.
     test("the bare click with mouseover [none] under the mouseover mode is not a contradiction", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
-            casting = { hoverCast = { mode = "mouseover" } },
+            casting = { hoverCastMode = "mouseover" },
             conditions = { units = { mouseover = false } } };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
     end);
@@ -1226,8 +1226,8 @@ return function(DebindPrivate)
     test("three presses off and the pointed unit [none] is a contradiction on Cast Options and the unit", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "F1",
-                casting = { normalCast = false, hoverCast = { mode = mode },
-                    selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } },
+                casting = { normalCast = false, hoverCastMode = mode,
+                    selfCastKey = "skip", focusCastKey = "skip" },
                 conditions = { units = { [mode] = false } } };
             check(GetBindingIssue(action) == NEVER, mode .. ": " .. tostring(GetBindingIssue(action)));
             check(GetBindingIssue(action, "casting") == NEVER, mode .. ": Cast Options is not told");

@@ -137,7 +137,7 @@ return function(DebindPrivate)
         check(DebindPrivate.CanConvertToMacroText({ type = Constants.SPELL, value = 774 }),
             "쌍둥이를 들었다고 변환이 안 선다");
         check(DebindPrivate.CanConvertToMacroText({ type = Constants.SPELL, value = 774,
-                casting = { hoverCast = { aim = "usual" } },
+                casting = { hoverCast = "usual" },
                 conditions = { units = { unitframe = {} } } }),
             "Cast as usual인 액션에서 변환이 안 선다");
     end);
@@ -223,7 +223,7 @@ return function(DebindPrivate)
     test("대상 none에 `@`가 걸려 있어도 바꿀 수 있다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774, unit = "none",
-            casting = { hoverCast = {} },
+            casting = {},
             conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } };
         local before = DebindPrivate.GetBindingsForAction(action);
         local twinBefore = before[2] and before[2].unit;

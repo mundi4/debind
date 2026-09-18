@@ -48,8 +48,46 @@ action
                         옛 `imported`가 `key`와 이 둘로 풀렸다 (`dbver <= 5`)
     keepInBindingContext
                         게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다
-    casting             **어느 누름에서 이 액션이 서는가.** 표 하나에 값 넷이고, 모양과 뜻은
-                        `which-action-a-key-runs.md` §8이 든다. 조건이 아니다 (§2)
+    casting             **어느 누름에서 이 액션이 서는가.** 조건이 아니다 (§2). 왜 이 값들인지는
+                        `which-action-a-key-runs.md` §6이 든다. **전부 스칼라다.** 한 값짜리에
+                        표를 씌우면 `nil`과 빈 표가 같은 뜻인 자리가 생긴다
+                            selfCastKey   = nil | "usual" | "skip"
+                                           Self Cast Key를 쥔 누름에서 이 액션이 무엇을 하는가.
+                                           적지 않으면 쌍둥이가 `player`에게 시전한다. `"usual"`이면
+                                           쌍둥이가 원본과 같은 대상에게 시전한다. `"skip"`이면
+                                           쌍둥이를 만들지 않아서 이 액션은 그 누름에서 실행되지 않는다
+                            focusCastKey  = nil | "usual" | "skip"
+                                           Focus Cast Key를 쥔 누름에 대해 같은 셋. 적지 않으면
+                                           쌍둥이가 `focus`에게 시전한다
+                            hoverCastMode = nil | "unitframe" | "mouseover"
+                                           이 액션이 어느 유닛을 가리킨 유닛으로 보는가. 적지 않으면
+                                           설정 탭의 모드를 따른다 (`AccountHoverCastMode`)
+                            hoverCast     = nil | "usual" | "skip"
+                                           가리킨 누름에 대해 위 둘과 같은 셋. 적지 않으면 쌍둥이가
+                                           `hoverCastMode`가 고른 유닛에게 시전한다
+                                           **`"skip"`은 이 줄에서만 두 가지를 한다.** 쌍둥이를 만들지
+                                           않고, 그에 더해 그 유닛이 존재하는 동안에는 원본도 실행되지
+                                           않게 한다. 조합키를 쥔 누름은 자기 층에서 끝나므로 쌍둥이만
+                                           없애면 그 누름에서 빠지지만, 가리킨 누름은 3층과 4층을 함께
+                                           보기 때문에 원본이 그대로 실행된다. 그것을 막는 것이 둘째
+                                           일이고, 시전 대상은 건드리지 않는다
+                                           (`binding.skipsPointedUnit`, §4)
+                            normalCast    = nil | false
+                                           `false`면 원본이 마지막 층에서 빠진다
+                        **어느 값도 불리언으로 읽지 않는다.** 적지 않은 자리는 언제나 그 줄의
+                        기본값을 뜻하는데, 기본값이 줄마다 다르므로 `nil`이 뜻하는 것도 줄마다
+                        다르다. 기본값에는 저장할 자리가 없어서 그렇다.
+                        값을 이름으로 푸는 곳은 `Misc.lua` 하나이고
+                        (`CastKeyChoiceOf`, `CastsAsUsual`, `SelfCastEnabled`, `FocusCastEnabled`,
+                        `HoverCastMode`, `HoverCastSkipped`, `NormalCastEnabled`), 그 바깥은 이
+                        함수들에만 묻는다
+                        **대상을 고른 액션은 세 줄의 `"usual"`이 뜻이 없다.** 쌍둥이가 그 대상에
+                        나가는 것이 이미 `"usual"`과 같은 일이라 메뉴가 그 값을 잠근다
+                        **수식키 없는 `BUTTON1`과 `BUTTON2`는 값을 안 본다.** `hoverCastMode`는
+                        `unitframe`, `normalCast`는 꺼진 것으로 못 박힌다
+                        (`IsBareWorldClick`, `which-action-a-key-runs.md` §7)
+                        빈 표는 `CleanUpDB`가 걷어낸다. 가져오기는 이름마다 타입을 보고 거른다
+                        (`DebindStorage/Export.lua`의 `CASTING_TYPES`)
     conditions          **언제 발동하느냐. 전부 이 안에 있다** (§3)
 ```
 
@@ -266,6 +304,11 @@ binding
                                             `hoverTwin`이 없고, 층은 이 둘로만 정해진다
                                             (`which-action-a-key-runs.md` §3)
     normalCast                              `false`면 원본이 마지막 층에서 빠진다. 원본만 든다
+    skipsPointedUnit                        Hover Cast가 Skip일 때 원본만 드는 유닛 이름. 그 유닛의
+                                            [없음]을 이 바인딩에 얹는다. **`conditions`에 안 쓴다.**
+                                            그 표는 `IsConditionalBinding`이 순서를 가르는 자리라,
+                                            Cast Options 값이 액션을 움직이면 안 된다.
+                                            `BuildUnitStates`와 방출부가 이 필드를 직접 읽는다
     spell                                   `SPEC_RESOLVED_TYPES`가 오늘 내는 주문. 그 밖에는 nil
     spellbook                               probe 파생만 든다. 누를 때 주문서에 있는지 묻는 id
     unitStates unitGroups unitRole unitStatesOpaque

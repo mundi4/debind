@@ -184,13 +184,15 @@ local CONDITION_TYPES    = {
 --- What may sit inside `casting`, by name and type. **The same reason `CONDITION_TYPES` exists**:
 --- folded into one table, the whitelist above sees `casting = "table"` and nothing looks inside.
 ---
---- The three press rows are tables of their own and their contents are **not** filtered further.
---- Every reader compares them against a spelling it knows (`Misc.lua`'s `CastingRow`), so a value
---- nobody wrote reads as the default, which is the value an action with no `casting` at all has.
+--- **Every value is a scalar, so this whitelist reaches all of them.** A spelling nobody knows still
+--- gets through when it is a string of the right name, and every reader compares it against a
+--- spelling it does know (`Misc.lua`'s `CastingValue`), so it reads as the default, which is the
+--- value an action with no `casting` at all has.
 local CASTING_TYPES      = {
-    selfCastKey = "table",
-    focusCastKey = "table",
-    hoverCast = "table",
+    selfCastKey = "string",
+    focusCastKey = "string",
+    hoverCast = "string",
+    hoverCastMode = "string",
     normalCast = "boolean",
 };
 

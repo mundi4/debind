@@ -457,8 +457,7 @@ do
 			end
 
 			-- Hover Cast's two questions share one line, as they share one submenu.
-			local hoverCast = action.casting and action.casting.hoverCast;
-			local mode = type(hoverCast) == "table" and hoverCast.mode;
+			local mode = action.casting and action.casting.hoverCastMode;
 			local hover;
 			if (mode == "unitframe") then
 				hover = LLL["POINTED_UNIT_CAST_FRAMES"];

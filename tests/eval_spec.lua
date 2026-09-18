@@ -144,7 +144,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ value = 585, key = "F1" }),
             action({ value = 585, key = "BUTTON2",
-                casting = { hoverCast = { aim = "usual" } },
+                casting = { hoverCast = "usual" },
                 conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
         });
         local clickFrame = DebindPrivate.DefaultClickFrame;
@@ -872,11 +872,11 @@ return function(DebindPrivate, _, ctx)
                 { row = "focusCastKey", key = "FOCUSCAST", unit = "focus" },
             }) do
                 for _, mode in ipairs({
-                    { { aim = "skip" }, "skip", "Rejuvenation", case.unit },
-                    { { aim = "usual" }, "usual", "Renew", nil },
+                    { "skip", "skip", "Rejuvenation", case.unit },
+                    { "usual", "usual", "Renew", nil },
                 }) do
                     local first = action({ value = 585, key = "F1",
-                        casting = { [case.row] = mode[1], hoverCast = { aim = "skip" } },
+                        casting = { [case.row] = mode[1], hoverCast = "skip" },
                         conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } });
                     Bind({ first, action({ value = 774, key = "F1" }) });
                     interp.state.modifiedClick[case.key] = true;
@@ -999,9 +999,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", casting = { hoverCast = {} },
+            action({ value = 585, key = "F1", casting = {},
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-            action({ value = 774, key = "F1", casting = { hoverCast = {} },
+            action({ value = 774, key = "F1", casting = {},
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
         });
 
@@ -1028,9 +1028,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         for _, case in ipairs({ { "plain", "Rejuvenation" }, { "hover", "Renew" } }) do
-            local plain = { value = 774, key = "F1", casting = { hoverCast = {} },
+            local plain = { value = 774, key = "F1", casting = {},
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
-            local hovered = { value = 585, key = "F1", casting = { hoverCast = {} },
+            local hovered = { value = 585, key = "F1", casting = {},
                 conditions = { units = { unitframe = { exists = true,
                     reaction = Constants.REACTION_HELP } } } };
             if (case[1] == "plain") then
@@ -1106,7 +1106,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         Bind({
             action({ type = Constants.MACROTEXT, value = "/cast [@@,help] Renew", key = "F1",
-                casting = { hoverCast = {} } }),
+                casting = {} }),
             -- Only a switch some action names is compiled at all.
             action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
         }, {
@@ -1154,8 +1154,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
             action({ value = 585, key = "F1", unit = "none", priority = Constants.MIN_IMPORTANCE,
-                casting = { hoverCast = {} } }),
-            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+                casting = {} }),
+            action({ value = 774, key = "F1", casting = {} }),
         });
         shim.world.units = { focus = FRIEND, party1 = FRIEND };
 
@@ -1182,8 +1182,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
             action({ value = 585, key = "F1", priority = Constants.MIN_IMPORTANCE,
-                casting = { hoverCast = { aim = "usual" } } }),
-            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+                casting = { hoverCast = "usual" } }),
+            action({ value = 774, key = "F1", casting = {} }),
         });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
@@ -1203,7 +1203,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", casting = { hoverCast = { aim = "skip" } } }),
+            action({ value = 585, key = "F1", casting = { hoverCast = "skip" } }),
         });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
@@ -1216,8 +1216,8 @@ return function(DebindPrivate, _, ctx)
 
         Bind({
             action({ value = 585, key = "F1", priority = Constants.MAX_IMPORTANCE,
-                casting = { hoverCast = { aim = "skip" } } }),
-            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+                casting = { hoverCast = "skip" } }),
+            action({ value = 774, key = "F1", casting = {} }),
         });
         PointAt("party1");
         _, spell = Fired("F1");
@@ -1234,8 +1234,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "target", casting = { hoverCast = {} } }),
-            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+            action({ value = 585, key = "F1", unit = "target", casting = {} }),
+            action({ value = 774, key = "F1", casting = {} }),
         });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
@@ -1256,9 +1256,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "none", casting = { hoverCast = {} },
+            action({ value = 585, key = "F1", unit = "none", casting = {},
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-            action({ value = 774, key = "F1", casting = { hoverCast = {} } }),
+            action({ value = 774, key = "F1", casting = {} }),
         });
 
         local function Press(label, units, held, expectSpell, expectAimed)
@@ -1695,32 +1695,32 @@ return function(DebindPrivate, _, ctx)
             Expect(3, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
         end);
         Row(4, function()
-            Bind({ A({ casting = { hoverCast = { mode = "mouseover" } } }) });
+            Bind({ A({ casting = { hoverCastMode = "mouseover" } }) });
             PointWorld();
             Expect(4, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
         end);
         Row(5, function()
-            Bind({ A({ casting = { hoverCast = { aim = "usual" } } }) });
+            Bind({ A({ casting = { hoverCast = "usual" } }) });
             PointFrame();
             Expect(5, { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
         end);
         Row(6, function()
-            Bind({ A({ casting = { hoverCast = { aim = "skip" } } }) });
+            Bind({ A({ casting = { hoverCast = "skip" } }) });
             PointFrame();
             Expect(6, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(7, function()
-            Bind({ A({ casting = { hoverCast = { aim = "skip" } } }) });
+            Bind({ A({ casting = { hoverCast = "skip" } }) });
             PointNothing();
             Expect(7, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
         end);
         Row(8, function()
-            Bind({ A({ casting = { hoverCast = { aim = "skip" } } }) }, nil, MOUSEOVER);
+            Bind({ A({ casting = { hoverCast = "skip" } }) }, nil, MOUSEOVER);
             PointWorld();
             Expect(8, { Press("F1", nil, "mouseover") }, {});
         end);
         Row(9, function()
-            local subject = A({ casting = { hoverCast = { aim = "skip" } },
+            local subject = A({ casting = { hoverCast = "skip" },
                 conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } });
             Bind({ subject });
             PointFrame(ENEMY);
@@ -1779,7 +1779,7 @@ return function(DebindPrivate, _, ctx)
         end);
         Row(19, function()
             Bind({ A({ value = 703, seq = 1 }),
-                A({ unit = "mouseover", seq = 2, casting = { hoverCast = { mode = "mouseover" } } }) });
+                A({ unit = "mouseover", seq = 2, casting = { hoverCastMode = "mouseover" } }) });
             PointWorld();
             Expect(19, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
         end);
@@ -1804,12 +1804,12 @@ return function(DebindPrivate, _, ctx)
             Expect(23, { Press("F1", "both", "unitframe") }, { "A", "player", "self" });
         end);
         Row(24, function()
-            Bind({ A({ casting = { selfCastKey = { aim = "skip" } } }) });
+            Bind({ A({ casting = { selfCastKey = "skip" } }) });
             PointNothing();
             Expect(24, { Press("F1", "self", "unitframe") }, {});
         end);
         Row(25, function()
-            Bind({ A({ casting = { selfCastKey = { aim = "usual" } } }) });
+            Bind({ A({ casting = { selfCastKey = "usual" } }) });
             PointNothing();
             Expect(25, { Press("F1", "self", "unitframe") }, { "A", nil, "self" });
         end);
@@ -1830,17 +1830,17 @@ return function(DebindPrivate, _, ctx)
             return { a, b };
         end
         Row(27, function()
-            Bind(AB("AB", { hoverCast = { aim = "skip" } }));
+            Bind(AB("AB", { hoverCast = "skip" }));
             PointFrame();
             Expect(27, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
         Row(28, function()
-            Bind(AB("BA", { hoverCast = { aim = "skip" } }));
+            Bind(AB("BA", { hoverCast = "skip" }));
             PointFrame();
             Expect(28, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
         Row(29, function()
-            Bind(AB("BA", { hoverCast = { aim = "skip" } }));
+            Bind(AB("BA", { hoverCast = "skip" }));
             PointNothing();
             Expect(29, { Press("F1", nil, "unitframe") }, { "B", nil, "original" });
         end);
@@ -1870,12 +1870,12 @@ return function(DebindPrivate, _, ctx)
             Expect(30, { Press("F1", nil, "unitframe") }, { "B", "unitframe", "hover" });
         end);
         Row(31, function()
-            Layered({ hoverCast = { aim = "usual" } });
+            Layered({ hoverCast = "usual" });
             PointFrame();
             Expect(31, { Press("F1", nil, "unitframe") }, { "B", nil, "hover" });
         end);
         Row(32, function()
-            Layered({ hoverCast = { aim = "skip" } });
+            Layered({ hoverCast = "skip" });
             PointFrame();
             Expect(32, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
@@ -1886,7 +1886,7 @@ return function(DebindPrivate, _, ctx)
             check(Click(4) == "A", "#33: the frame click fired " .. tostring(Click(4)));
         end);
         Row(34, function()
-            Bind({ A({ key = "BUTTON4", casting = { hoverCast = { aim = "skip" } } }) });
+            Bind({ A({ key = "BUTTON4", casting = { hoverCast = "skip" } }) });
             PointFrame();
             check(Click(4) == nil, "#34: the frame click fired " .. tostring(Click(4)));
         end);
@@ -1930,8 +1930,8 @@ return function(DebindPrivate, _, ctx)
                 "#40: fired " .. tostring(spell) .. " cast at " .. tostring(castUnit));
         end);
         Row(41, function()
-            local subject = A({ casting = { normalCast = false, hoverCast = { aim = "skip" },
-                selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } });
+            local subject = A({ casting = { normalCast = false, hoverCast = "skip",
+                selfCastKey = "skip", focusCastKey = "skip" } });
             Bind({ subject });
             PointFrame();
             Expect(41, { Press("F1", nil, "unitframe") }, {});
@@ -1945,8 +1945,8 @@ return function(DebindPrivate, _, ctx)
                 "#41: the reason is " .. tostring(DebindPrivate.GetCastingOffReason(subject)));
         end);
         Row(42, function()
-            Bind({ A({ casting = { normalCast = false, hoverCast = { aim = "skip" },
-                selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } }) });
+            Bind({ A({ casting = { normalCast = false, hoverCast = "skip",
+                selfCastKey = "skip", focusCastKey = "skip" } }) });
             check(_G.GetBindingAction("F1", true) == "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
                     .. ":" .. Constants.CLICKTIME_BUTTON_PREFIX .. "F1",
                 "#42: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
@@ -1955,8 +1955,8 @@ return function(DebindPrivate, _, ctx)
             Expect(42, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(43, function()
-            Bind({ A({ key = "BUTTON1", casting = { normalCast = false, hoverCast = { aim = "skip" },
-                selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } }) });
+            Bind({ A({ key = "BUTTON1", casting = { normalCast = false, hoverCast = "skip",
+                selfCastKey = "skip", focusCastKey = "skip" } }) });
             check((_G.GetBindingAction("BUTTON1", true) or "") == "",
                 "#43: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             check(not DebindPrivate.IsKeyOurs("BUTTON1"), "#43: IsKeyOurs says yes");
@@ -1979,7 +1979,7 @@ return function(DebindPrivate, _, ctx)
         end);
         Row(46, function()
             for _, bound in ipairs({
-                { actions = { A({ key = "BUTTON2", casting = { hoverCast = { mode = "mouseover" } } }) } },
+                { actions = { A({ key = "BUTTON2", casting = { hoverCastMode = "mouseover" } }) } },
                 { actions = { A({ key = "BUTTON2" }) }, options = MOUSEOVER },
             }) do
                 Bind(bound.actions, nil, bound.options);
@@ -1993,7 +1993,7 @@ return function(DebindPrivate, _, ctx)
             end
         end);
         Row(47, function()
-            local subject = A({ key = "BUTTON1", casting = { hoverCast = { aim = "skip" } } });
+            local subject = A({ key = "BUTTON1", casting = { hoverCast = "skip" } });
             Bind({ subject });
             check((_G.GetBindingAction("BUTTON1", true) or "") == "",
                 "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));

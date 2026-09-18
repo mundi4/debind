@@ -1129,10 +1129,8 @@ return function(DebindPrivate)
     test("dbver 7 moves the two cast key boxes onto casting", function()
         local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             ignoreSelfCastKey = true, ignoreFocusCastKey = true });
-        check(casting.selfCastKey and casting.selfCastKey.aim == "skip" and casting.selfCastKey.mode == nil,
-            "self가 " .. tostring(casting.selfCastKey and casting.selfCastKey.aim));
-        check(casting.focusCastKey and casting.focusCastKey.aim == "skip" and casting.focusCastKey.mode == nil,
-            "focus가 " .. tostring(casting.focusCastKey and casting.focusCastKey.aim));
+        check(casting.selfCastKey == "skip", "self가 " .. tostring(casting.selfCastKey));
+        check(casting.focusCastKey == "skip", "focus가 " .. tostring(casting.focusCastKey));
     end);
 
     test("dbver 7 leaves an action that ignored neither cast key alone", function()
@@ -1145,9 +1143,8 @@ return function(DebindPrivate)
     --- goes where the original goes, which is what the key did over a unit frame before.
     test("dbver 7 turns a keyboard action with no unit frame condition into Cast as usual", function()
         local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1 });
-        check(casting.hoverCast and casting.hoverCast.aim == "usual" and casting.hoverCast.mode == nil,
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode)
-            .. "/" .. tostring(casting.hoverCast and casting.hoverCast.aim));
+        check(casting.hoverCast == "usual" and casting.hoverCastMode == nil,
+            "Hover Cast가 " .. tostring(casting.hoverCastMode) .. "/" .. tostring(casting.hoverCast));
         check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
     end);
 
@@ -1156,9 +1153,8 @@ return function(DebindPrivate)
     --- the button off world units too.
     test("dbver 7 turns a mouse button action with no unit frame condition into Skip on Unit Frames", function()
         local casting = castingAfterMigrate({ key = "ALT-BUTTON4", type = Constants.SPELL, value = 1 });
-        check(casting.hoverCast and casting.hoverCast.mode == "unitframe" and casting.hoverCast.aim == "skip",
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode)
-            .. "/" .. tostring(casting.hoverCast and casting.hoverCast.aim));
+        check(casting.hoverCastMode == "unitframe" and casting.hoverCast == "skip",
+            "Hover Cast가 " .. tostring(casting.hoverCastMode) .. "/" .. tostring(casting.hoverCast));
         check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
     end);
 
@@ -1166,8 +1162,8 @@ return function(DebindPrivate)
     test("dbver 7 turns a bare unit frame condition into a twin-only action", function()
         local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             conditions = { units = { unitframe = { exists = true } } } });
-        check(casting.hoverCast and casting.hoverCast.mode == "unitframe",
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.hoverCastMode == "unitframe",
+            "Hover Cast가 " .. tostring(casting.hoverCastMode));
         check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
         check(action.conditions == nil or action.conditions.units == nil,
             "빈 조건이 남았다");
@@ -1178,8 +1174,8 @@ return function(DebindPrivate)
         local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             conditions = { units = { unitframe = { exists = true, reaction = Constants.REACTION_HELP,
                 role = Constants.ROLE_HEALER } } } });
-        check(casting.hoverCast and casting.hoverCast.mode == "unitframe",
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.mode));
+        check(casting.hoverCastMode == "unitframe",
+            "Hover Cast가 " .. tostring(casting.hoverCastMode));
         check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
         local row = action.conditions.units.unitframe;
         check(row and row.reaction == Constants.REACTION_HELP and row.role == Constants.ROLE_HEALER,
@@ -1191,8 +1187,7 @@ return function(DebindPrivate)
         local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             ignoreHoverUnit = true,
             conditions = { units = { unitframe = { exists = true } } } });
-        check(casting.hoverCast and casting.hoverCast.aim == "usual",
-            "겨눔이 " .. tostring(casting.hoverCast and casting.hoverCast.aim));
+        check(casting.hoverCast == "usual", "겨눔이 " .. tostring(casting.hoverCast));
         check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
     end);
 
@@ -1201,8 +1196,7 @@ return function(DebindPrivate)
     test("dbver 7 keeps [when none is pointed at] as a condition", function()
         local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             conditions = { units = { unitframe = { exists = false } } } });
-        check(casting.hoverCast and casting.hoverCast.aim == "usual",
-            "Hover Cast가 " .. tostring(casting.hoverCast and casting.hoverCast.aim));
+        check(casting.hoverCast == "usual", "Hover Cast가 " .. tostring(casting.hoverCast));
         check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
         check(action.conditions.units.unitframe.exists == false, "조건이 사라졌다");
     end);
@@ -1213,7 +1207,7 @@ return function(DebindPrivate)
         MigrateLayer(layer, 6);
         MigrateLayer(layer, 6);
         local casting = layer[1].casting;
-        check(casting.hoverCast.mode == "unitframe" and casting.normalCast == false,
+        check(casting.hoverCastMode == "unitframe" and casting.normalCast == false,
             "두 번째에 뭉개짐");
         check(layer[1].conditions == nil or layer[1].conditions.units == nil, "조건이 되살아났다");
     end);
@@ -1440,10 +1434,9 @@ return function(DebindPrivate)
 
         if (migrated and type(wantCond) == "table" and next(wantCond) == nil) then
             local casting = action.casting;
-            local hoverCast = casting and casting.hoverCast;
-            check(hoverCast and hoverCast.mode == "unitframe",
+            check(casting and casting.hoverCastMode == "unitframe",
                 ("%s %s: Hover Cast가 %s다"):format(label, when,
-                    tostring(hoverCast and hoverCast.mode)));
+                    tostring(casting and casting.hoverCastMode)));
             check(casting.normalCast == false,
                 ("%s %s: Normal Cast가 %s다"):format(label, when, tostring(casting.normalCast)));
             wantMask, wantCond = nil, nil;

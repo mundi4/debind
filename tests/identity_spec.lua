@@ -47,7 +47,7 @@ return function(DebindPrivate)
             unit = "target",
             priority = 2,
             keepInBindingContext = true,
-            casting = { hoverCast = { mode = "unitframe" } },
+            casting = { hoverCastMode = "unitframe" },
             conditions = { combat = true, forms = 3, units = { unitframe = 1 } },
             seq = 1,
         };
@@ -79,7 +79,7 @@ return function(DebindPrivate)
             { unit = "focus" },
             { priority = 3 },
             { keepInBindingContext = false },
-            { casting = { hoverCast = { aim = "skip" } } },
+            { casting = { hoverCast = "skip" } },
         };
         for i = 1, #fields do
             local name = next(fields[i]);

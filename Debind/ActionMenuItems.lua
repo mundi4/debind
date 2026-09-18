@@ -425,13 +425,20 @@ local function CreateCastingMenu(parentDescription, ctx)
         instruction = LLL["CASTING_HOVER_CAST_DESC"],
         isActive = function()
             return AnyAction(ctx, function(action)
-                local values = action.casting and action.casting.hoverCast;
-                return type(values) == "table" and next(values) ~= nil;
+                local casting = action.casting;
+                return casting ~= nil
+                    and (casting.hoverCast ~= nil or casting.hoverCastMode ~= nil);
             end);
         end,
+        -- **Both values, because the radios under this row are not nodes.** `NodeValueText` reads
+        -- this one answer for the whole row, so a mode alone would call two actions equal when only
+        -- their answer differs.
         valueOf = function(action)
             local casting = action.casting;
-            return casting and casting.hoverCast;
+            if (casting == nil) then
+                return nil;
+            end
+            return { mode = casting.hoverCastMode, aim = casting.hoverCast };
         end,
     }, ctx);
 
@@ -445,7 +452,7 @@ local function CreateCastingMenu(parentDescription, ctx)
             function()
                 return SetHoverCastMode(ctx, mode.value);
             end,
-            { ctx = ctx, key = "casting.hoverCast.mode", value = mode.value });
+            { ctx = ctx, key = "casting.hoverCastMode", value = mode.value });
         if (mode.account) then
             -- **It names the mode that is set right now.** The row says where the answer comes
             -- from; a reader who has to open the settings to find out what it is has been sent

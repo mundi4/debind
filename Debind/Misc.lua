@@ -1276,24 +1276,20 @@ do
         return not (options and options.switchMessages == false);
     end
 
-    --- One row of `action.casting`, always a table so a reader can index it. **The stored table is
-    --- not trusted to hold one**: a payload carries whatever it was written with, and the import
-    --- filters `casting` by the name and the type of the outer table alone.
-    local EMPTY_CASTING_ROW = {};
-    local function CastingRow(action, name)
+    --- One value of `action.casting`. **The stored table is not trusted to hold a name we know**: a
+    --- payload carries whatever it was written with, so an unknown value has to read as the default,
+    --- which is what an action with no `casting` at all has
+    --- (`devdocs/action-and-binding-shapes.md` §1).
+    local function CastingValue(action, name)
         local casting = action and action.casting;
-        local row = casting and casting[name];
-        if (type(row) ~= "table") then
-            return EMPTY_CASTING_ROW;
-        end
-        return row;
+        return casting and casting[name];
     end
 
     --- Whether that press's twin goes out at the unit the press names, or the way the original does.
     --- "Cast as usual" is the second: the twin keeps its turn in that tier and lets the game place
     --- the cast, Auto Self Cast included (`devdocs/which-action-a-key-runs.md` §6).
     local function CastsAsUsual(action, name)
-        return CastingRow(action, name).aim == "usual";
+        return CastingValue(action, name) == "usual";
     end
 
     --- The settings tab's Hover Cast mode, which an action follows unless it names one of its own.
@@ -1323,7 +1319,7 @@ do
         if (action and DebindPrivate.IsBareWorldClick(action.key)) then
             return "unitframe";
         end
-        local mode = CastingRow(action, "hoverCast").mode;
+        local mode = CastingValue(action, "hoverCastMode");
         if (mode == "unitframe" or mode == "mouseover") then
             return mode;
         end
@@ -1344,7 +1340,7 @@ do
         if (options and options.selfCast == false) then
             return false;
         end
-        return CastingRow(action, "selfCastKey").aim ~= "skip";
+        return CastingValue(action, "selfCastKey") ~= "skip";
     end
 
     function DebindPrivate.FocusCastEnabled(action)
@@ -1352,23 +1348,23 @@ do
         if (options and options.focusCast == false) then
             return false;
         end
-        return CastingRow(action, "focusCastKey").aim ~= "skip";
+        return CastingValue(action, "focusCastKey") ~= "skip";
     end
 
     --- Whether Skip this action is Hover Cast's answer: no twin, and the original stands only while
     --- the mode's unit is not there, so the action is out of the pointed press the way a skipped
     --- key's action is out of that key's (`devdocs/which-action-a-key-runs.md` §6).
     function DebindPrivate.HoverCastSkipped(action)
-        return CastingRow(action, "hoverCast").aim == "skip";
+        return CastingValue(action, "hoverCast") == "skip";
     end
 
-    --- Which of the three a press row holds: the action goes to that press's unit (`"cast"`), where the
+    --- Which of the three a press holds: the action goes to that press's unit (`"cast"`), where the
     --- press would have gone anyway (`"usual"`), or it is out of that press (`"skip"`). The same three
     --- on all three rows (`devdocs/which-action-a-key-runs.md` §6).
     function DebindPrivate.CastKeyChoiceOf(action, row)
-        local aim = CastingRow(action, row).aim;
-        if (aim == "usual" or aim == "skip") then
-            return aim;
+        local value = CastingValue(action, row);
+        if (value == "usual" or value == "skip") then
+            return value;
         end
         return "cast";
     end

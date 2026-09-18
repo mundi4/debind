@@ -23,11 +23,11 @@ return function(Constants)
 
     local ALL_OFF = {
         normalCast = false,
-        hoverCast = { aim = "skip" },
-        selfCastKey = { aim = "skip" },
-        focusCastKey = { aim = "skip" },
+        hoverCast = "skip",
+        selfCastKey = "skip",
+        focusCastKey = "skip",
     };
-    local SKIP = { hoverCast = { aim = "skip" } };
+    local SKIP = { hoverCast = "skip" };
     local CAST_KEYS_OFF = { selfCast = false, focusCast = false };
 
     --- `units` and `groups` go under `conditions`; `options` is the settings tab.

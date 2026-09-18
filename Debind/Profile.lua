@@ -1137,10 +1137,9 @@ local function MigrateLayer(layerTbl, dbver)
                     -- condition any more, and read as an action that never had one it would sort
                     -- somewhere else the second time this runs.
                     local casting = action.casting;
-                    local hoverCast = casting and casting.hoverCast;
                     group[j].unitFrame = folded ~= nil
                         or (casting ~= nil and casting.normalCast == false
-                            and hoverCast ~= nil and hoverCast.mode == "unitframe");
+                            and casting.hoverCastMode == "unitframe");
                     group[j].conditional = HasAnyCondition(action);
                 end
                 sort(group, OlderOrder);
@@ -1150,7 +1149,7 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
 
-        -- The three boxes become one `action.casting` table. Hover Cast holds a mode per action, and
+        -- The three boxes become the `action.casting` values. Hover Cast holds a mode per action, and
         -- the account has no off (`devdocs/which-action-a-key-runs.md` §8).
         --
         -- **An old unit frame condition action becomes a twin-only action.** It meant "on a pointed
@@ -1172,39 +1171,38 @@ local function MigrateLayer(layerTbl, dbver)
         -- here, and run first it would read a twin-only action as unconditional and turn the old
         -- order over.
         --
-        -- Safe to run twice: the second pass finds none of the three old names and leaves a
-        -- `casting` that is already there alone.
+        -- Safe to run twice: the second pass finds none of the three old names, and a Hover Cast
+        -- value already written is what says the action has been through here.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             local casting = action.casting;
 
             if (action.ignoreSelfCastKey) then
                 casting = casting or {};
-                casting.selfCastKey = { aim = "skip" };
+                casting.selfCastKey = "skip";
                 action.ignoreSelfCastKey = nil;
             end
             if (action.ignoreFocusCastKey) then
                 casting = casting or {};
-                casting.focusCastKey = { aim = "skip" };
+                casting.focusCastKey = "skip";
                 action.ignoreFocusCastKey = nil;
             end
 
-            if (casting == nil or casting.hoverCast == nil) then
+            if (casting == nil or (casting.hoverCast == nil and casting.hoverCastMode == nil)) then
                 local units = action.conditions and action.conditions.units;
                 local folded = DebindPrivate.UnitConditionForBinding(units and units.unitframe);
                 casting = casting or {};
                 if (folded == nil or folded == false) then
                     if (DebindPrivate.GetMouseButtonAndPrefix(action.key)) then
-                        casting.hoverCast = { mode = "unitframe", aim = "skip" };
+                        casting.hoverCastMode, casting.hoverCast = "unitframe", "skip";
                     else
-                        casting.hoverCast = { aim = "usual" };
+                        casting.hoverCast = "usual";
                     end
                 else
-                    local aim;
+                    casting.hoverCastMode = "unitframe";
                     if (action.ignoreHoverUnit) then
-                        aim = "usual";
+                        casting.hoverCast = "usual";
                     end
-                    casting.hoverCast = { mode = "unitframe", aim = aim };
                     casting.normalCast = false;
                     -- 빈 [올렸을 때]였나. `UnitConditionForBinding`이 낸 표에 축이 하나도 없으면
                     -- 그것이 [올렸을 때]뿐인 조건이다.
@@ -2844,18 +2842,10 @@ function DebindPrivate.CleanUpDB()
                 action.priority = nil;
             end
 
-            -- **An empty row and an empty table do not stay**: `casting` being there is not a gate
-            -- anywhere, but a table of nothing sits in SavedVariables and in every exported string
-            -- for good.
+            -- **An empty table does not stay**: `casting` being there is not a gate anywhere, but a
+            -- table of nothing sits in SavedVariables and in every exported string for good.
             local casting = action.casting;
             if (luatype(casting) == "table") then
-                for name, row in pairs(casting) do
-                    if (luatype(row) == "table") then
-                        if (next(row) == nil) then
-                            casting[name] = nil;
-                        end
-                    end
-                end
                 if (casting.normalCast ~= false) then
                     casting.normalCast = nil;
                 end

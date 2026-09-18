@@ -392,8 +392,8 @@ local function BuildAction(source)
     end
 
     -- The same one level down for `casting`, and for the same reason: the whitelist above sees one
-    -- table and nothing inside it. What a row holds is not filtered past this -- every reader
-    -- compares it against a spelling it knows, so an unknown value reads as the default.
+    -- table and nothing inside it. The values are scalars, so this reaches all of them; an unknown
+    -- spelling of the right type stays and reads as the default.
     local casting = action.casting;
     if (casting) then
         for k, v in pairs(casting) do

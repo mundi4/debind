@@ -377,8 +377,8 @@ return function(DebindPrivate)
     test("an action with nothing left to cast reaches no record", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F7", seq = 1,
-                casting = { normalCast = false, hoverCast = { aim = "skip" },
-                    selfCastKey = { aim = "skip" }, focusCastKey = { aim = "skip" } } },
+                casting = { normalCast = false, hoverCast = "skip",
+                    selfCastKey = "skip", focusCastKey = "skip" } },
             { type = Constants.SPELL, value = 2, key = "F7", seq = 2 },
         }, nil, nil, true);
 
@@ -400,7 +400,7 @@ return function(DebindPrivate)
     test("an action that only runs over a frame may take the bare left button", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
-                casting = { normalCast = false, hoverCast = { mode = "unitframe" } } },
+                casting = { normalCast = false, hoverCastMode = "unitframe" } },
         }, nil, nil, true);
 
         local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
@@ -421,12 +421,12 @@ return function(DebindPrivate)
     -- were also what held the bare left button.
     test("a mouse button over a frame gets no cast key twins", function()
         for _, casting in ipairs({
-            { normalCast = false, hoverCast = { mode = "unitframe" } },
+            { normalCast = false, hoverCastMode = "unitframe" },
             {},
         }) do
             Bind({
                 { type = Constants.SPELL, value = 585, key = "BUTTON2", seq = 1, casting = casting,
-                    conditions = casting.hoverCast and {}
+                    conditions = casting.hoverCastMode and {}
                         or { units = { unitframe = { exists = true } } } },
             }, nil, nil, true);
 
@@ -445,7 +445,7 @@ return function(DebindPrivate)
     test("the same action on a keyboard key keeps its cast key twins", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F8", seq = 1,
-                casting = { normalCast = false, hoverCast = { mode = "unitframe" } } },
+                casting = { normalCast = false, hoverCastMode = "unitframe" } },
         }, nil, nil, true);
 
         local records = DebindPrivate.KeyMap["F8"];
@@ -465,7 +465,7 @@ return function(DebindPrivate)
     test("the bare left button with Normal Cast on gets only the unit frame twin", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
-                casting = { hoverCast = { mode = "mouseover" } } },
+                casting = { hoverCastMode = "mouseover" } },
         }, nil, nil, true);
 
         local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
