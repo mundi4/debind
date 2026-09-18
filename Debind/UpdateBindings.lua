@@ -1796,12 +1796,6 @@ end
 local function MergeKeyUnitConditions(binding, out)
     wipe(out);
 
-    -- **Hover Cast's Skip is not in `conditions`** (`FillBinding`), so it is folded in here, where
-    -- the record gets the unit rows the press checks.
-    if (binding.skipsPointedUnit) then
-        out[binding.skipsPointedUnit] = false;
-    end
-
     local units = binding.conditions.units;
     if (not units) then
         return out;

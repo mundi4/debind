@@ -1162,10 +1162,11 @@ local function MigrateLayer(layerTbl, dbver)
         -- is made conditional too. A condition with an axis on it stays: the twin has to inherit the
         -- reaction, the role and the frame type.
         --
-        -- **The rest keep doing what they did.** A keyboard key is Cast as usual: its twin keeps its
-        -- turn and goes where the original goes. A mouse button is Skip on Unit Frames, because it
-        -- never ran over a unit frame and a Cast as usual twin would stand there (§7); the mode is
-        -- pinned so an account on Mouseover does not take the button off world units too.
+        -- **The rest get nothing written, because off is the default and off is what they did.** A
+        -- key with no unit frame condition never sent a press to the unit under the cursor, and with
+        -- no twin its original stands in the last tier exactly as it did. A mouse button keeps the
+        -- key's own [no unit frame] as well, which only holds while nothing is stored on that unit
+        -- row (`BuildUnitStates`), and a twin is what would have taken it away (§7).
         --
         -- **It runs after the renumbering.** The comparator above reads the very condition removed
         -- here, and run first it would read a twin-only action as unconditional and turn the old
@@ -1191,15 +1192,10 @@ local function MigrateLayer(layerTbl, dbver)
             if (casting == nil or (casting.hoverCast == nil and casting.hoverCastMode == nil)) then
                 local units = action.conditions and action.conditions.units;
                 local folded = DebindPrivate.UnitConditionForBinding(units and units.unitframe);
-                casting = casting or {};
-                if (folded == nil or folded == false) then
-                    if (DebindPrivate.GetMouseButtonAndPrefix(action.key)) then
-                        casting.hoverCastMode, casting.hoverCast = "unitframe", "skip";
-                    else
-                        casting.hoverCast = "usual";
-                    end
-                else
+                if (folded ~= nil and folded ~= false) then
+                    casting = casting or {};
                     casting.hoverCastMode = "unitframe";
+                    casting.hoverCast = "cast";
                     if (action.ignoreHoverUnit) then
                         casting.hoverCast = "usual";
                     end

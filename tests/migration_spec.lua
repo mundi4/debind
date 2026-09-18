@@ -1139,23 +1139,14 @@ return function(DebindPrivate)
             "안 끈 조합키에 값이 생겼다");
     end);
 
-    --- **A keyboard key with no unit frame condition is Cast as usual**: its twin keeps its turn and
-    --- goes where the original goes, which is what the key did over a unit frame before.
-    test("dbver 7 turns a keyboard action with no unit frame condition into Cast as usual", function()
-        local casting = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1 });
-        check(casting.hoverCast == "usual" and casting.hoverCastMode == nil,
-            "Hover Cast가 " .. tostring(casting.hoverCastMode) .. "/" .. tostring(casting.hoverCast));
-        check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
-    end);
-
-    --- **A mouse button is Skip on Unit Frames.** It never ran over a unit frame, and Cast as usual
-    --- would stand its twin there (§7). The mode is pinned so an account on Mouseover does not take
-    --- the button off world units too.
-    test("dbver 7 turns a mouse button action with no unit frame condition into Skip on Unit Frames", function()
-        local casting = castingAfterMigrate({ key = "ALT-BUTTON4", type = Constants.SPELL, value = 1 });
-        check(casting.hoverCastMode == "unitframe" and casting.hoverCast == "skip",
-            "Hover Cast가 " .. tostring(casting.hoverCastMode) .. "/" .. tostring(casting.hoverCast));
-        check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
+    --- **An action with no unit frame condition gets nothing written**, because off is the default
+    --- and off is what it did: the pointed press reaches its original in the last tier.
+    test("dbver 7 leaves an action with no unit frame condition alone", function()
+        for _, key in ipairs({ "F1", "ALT-BUTTON4" }) do
+            local casting = castingAfterMigrate({ key = key, type = Constants.SPELL, value = 1 });
+            check(next(casting) == nil, key .. ": " .. tostring(casting.hoverCastMode)
+                .. "/" .. tostring(casting.hoverCast) .. "/" .. tostring(casting.normalCast));
+        end
     end);
 
     --- 빈 [올렸을 때]. 조건이 하던 일을 Casting 값 둘이 통째로 들고, 조건은 안 남는다.
@@ -1191,13 +1182,12 @@ return function(DebindPrivate)
         check(casting.normalCast == false, "Normal Cast가 " .. tostring(casting.normalCast));
     end);
 
-    --- [when none is pointed at] never ran over a unit frame, so a twin has nowhere to stand. The
-    --- condition stays, and the key gets what any other keyboard key gets.
+    --- [when none is pointed at] never ran over a unit frame, so there is nothing to turn on. The
+    --- condition stays and says it, and the action gets what any other old action gets, nothing.
     test("dbver 7 keeps [when none is pointed at] as a condition", function()
         local casting, action = castingAfterMigrate({ key = "F1", type = Constants.SPELL, value = 1,
             conditions = { units = { unitframe = { exists = false } } } });
-        check(casting.hoverCast == "usual", "Hover Cast가 " .. tostring(casting.hoverCast));
-        check(casting.normalCast == nil, "Normal Cast가 " .. tostring(casting.normalCast));
+        check(next(casting) == nil, "Hover Cast가 " .. tostring(casting.hoverCast));
         check(action.conditions.units.unitframe.exists == false, "조건이 사라졌다");
     end);
 

@@ -659,9 +659,6 @@ L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it 
 -- action does not run and nothing asks them to change it. "Sits out" is `CASTING_SKIP_DESC`'s verb,
 -- and an unticked Normal Cast does the same thing (`CASTING_NORMAL_DESC`).
 L["LINE_TOOLTIP_CASTING_NONE_LEFT"] = "This action sits out every press, so it never runs."
--- Instead of the one above on the bare left or right click with Hover Cast skipped. The other rows
--- are still on there, so it says the key's rule that leaves Hover Cast as the only press.
-L["LINE_TOOLTIP_CASTING_BARE_CLICK_SKIPPED"] = "On a left or right click with no modifier, this action only runs on a unit frame, and Hover Cast skips it there."
 -- What fits named, and the rest left unnamed. **"and others" rather than "and 3 more"**: what the
 -- line names is specializations of this character's class and whole classes otherwise, so a number
 -- after it would be counting two different things at once. The client says it the same way where
@@ -1151,15 +1148,18 @@ L["CASTING_AS_USUAL"] = "Cast as usual"
 L["CASTING_SELF_USUAL_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_FOCUS_USUAL_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to it. It goes where it would with nothing pointed at, and keeps its place among the actions on the key."
--- **"Skip" is the action standing down, never the key doing nothing.** The next action on the key
--- takes that press, and only an empty key does nothing at all.
-L["CASTING_SKIP"] = "Skip this action"
+-- **One word for the same value on all three rows.** Turned off, the action makes no binding for
+-- that press; what that leaves behind differs by row, and each row's own sentence says it.
+L["CASTING_OFF"] = "Off"
 L["CASTING_SKIP_DESC"] = "The action sits this press out, and the next action on the key takes it."
--- **The same hand-off as on the two keys** (`devdocs/which-action-a-key-runs.md` §6). The pointed
--- press has no key to name it by, so the sentence names the moment instead: while a unit is pointed
--- at, in whichever mode the rows above pick.
-L["CASTING_HOVER_SKIP_DESC"] = "While you point at a unit, this action sits the press out, and the next action on the key takes it."
+-- **Off does not take the action off the pointed press**, and the sentence has to say so, because
+-- the two rows above it do exactly that. With no twin the action waits in the last tier, so a
+-- pointed press still reaches it once every action that answers one has been tried.
+L["CASTING_HOVER_OFF_DESC"] = "Pointing at a unit does nothing for this action. It runs on a plain press, behind any action on the key that does answer a pointed press."
 L["CASTING_HOVER_CAST_DESC"] = "What this action does while you point at a unit with no key held, and which units count as pointed at."
+-- **The key decides, so the row says so and stops.** Nothing stored here reaches a bare click, and a
+-- reader who came to change it is owed the reason rather than a row that does nothing.
+L["CASTING_HOVER_BARE_CLICK"] = "A left or right click with no modifier only runs on a unit frame, so this action always casts on the unit you click."
 -- **It says where the answer comes from and then says what the answer is.** The mode lives in one
 -- place for the whole account, and a row that only pointed at it would send the reader off to read
 -- one word.

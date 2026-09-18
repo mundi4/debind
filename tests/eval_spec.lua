@@ -75,16 +75,13 @@ return function(DebindPrivate, _, ctx)
     local seq = 0;
     --- One action, in the shape the profile stores. `seq` runs on its own so the order actions
     --- are written in is the order they sit in the layer.
-    --- **Hover Cast는 꺼 둔 채로 세운다.** 이 파일 대부분이 재는 것은 조건과 조합키가 고르는
-    --- 승자이고, 켜져 있으면 액션마다 쌍둥이가 하나씩 더 서서 승자의 자리 번호가 밀린다
-    --- (`tests/casting.lua`). 가리킨 누름을 재는 케이스는 `casting`을 스스로 적는다.
+    --- **Hover Cast는 기본값 그대로 꺼져 있다.** 이 파일 대부분이 재는 것은 조건과 조합키가 고르는
+    --- 승자이고, 켜져 있으면 액션마다 쌍둥이가 하나씩 더 서서 승자의 자리 번호가 밀린다. 가리킨
+    --- 누름을 재는 케이스는 `casting`을 스스로 적는다 (`tests/casting.lua`).
     local function action(t)
         seq = seq + 1;
         t.type = t.type or Constants.SPELL;
         t.seq = seq;
-        if (t.casting == nil) then
-            require("casting").skipHover(t);
-        end
         return t;
     end
 
@@ -999,9 +996,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", casting = {},
+            action({ value = 585, key = "F1", casting = { hoverCast = "cast" },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-            action({ value = 774, key = "F1", casting = {},
+            action({ value = 774, key = "F1", casting = { hoverCast = "cast" },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
         });
 
@@ -1028,9 +1025,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         for _, case in ipairs({ { "plain", "Rejuvenation" }, { "hover", "Renew" } }) do
-            local plain = { value = 774, key = "F1", casting = {},
+            local plain = { value = 774, key = "F1", casting = { hoverCast = "cast" },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
-            local hovered = { value = 585, key = "F1", casting = {},
+            local hovered = { value = 585, key = "F1", casting = { hoverCast = "cast" },
                 conditions = { units = { unitframe = { exists = true,
                     reaction = Constants.REACTION_HELP } } } };
             if (case[1] == "plain") then
@@ -1106,7 +1103,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         Bind({
             action({ type = Constants.MACROTEXT, value = "/cast [@@,help] Renew", key = "F1",
-                casting = {} }),
+                casting = { hoverCast = "cast" } }),
             -- Only a switch some action names is compiled at all.
             action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
         }, {
@@ -1154,8 +1151,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
             action({ value = 585, key = "F1", unit = "none", priority = Constants.MIN_IMPORTANCE,
-                casting = {} }),
-            action({ value = 774, key = "F1", casting = {} }),
+                casting = { hoverCast = "cast" } }),
+            action({ value = 774, key = "F1", casting = { hoverCast = "cast" } }),
         });
         shim.world.units = { focus = FRIEND, party1 = FRIEND };
 
@@ -1183,7 +1180,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ value = 585, key = "F1", priority = Constants.MIN_IMPORTANCE,
                 casting = { hoverCast = "usual" } }),
-            action({ value = 774, key = "F1", casting = {} }),
+            action({ value = 774, key = "F1", casting = { hoverCast = "cast" } }),
         });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
@@ -1196,14 +1193,17 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **Skip this action is out of the pointed press** (§6). Alone on the key it answers nothing while
-    -- a unit frame is pointed at and runs once nothing is; with a Hover Cast action behind it, that
-    -- one takes the pointed press.
-    test("an action that skips Hover Cast does not run while a unit frame is pointed at", function()
+    -- **[when there is none] on the pointed unit takes the action out of the pointed press** (§6).
+    -- Alone on the key it answers nothing while a unit frame is pointed at and runs once nothing is;
+    -- with a Hover Cast action behind it, that one takes the pointed press.
+    test("an action with the pointed unit [none] does not run while a unit frame is pointed at", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
+        local function noFrame()
+            return { units = { unitframe = false } };
+        end
         Bind({
-            action({ value = 585, key = "F1", casting = { hoverCast = "skip" } }),
+            action({ value = 585, key = "F1", conditions = noFrame() }),
         });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
@@ -1216,8 +1216,8 @@ return function(DebindPrivate, _, ctx)
 
         Bind({
             action({ value = 585, key = "F1", priority = Constants.MAX_IMPORTANCE,
-                casting = { hoverCast = "skip" } }),
-            action({ value = 774, key = "F1", casting = {} }),
+                conditions = noFrame() }),
+            action({ value = 774, key = "F1", casting = { hoverCast = "cast" } }),
         });
         PointAt("party1");
         _, spell = Fired("F1");
@@ -1234,8 +1234,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "target", casting = {} }),
-            action({ value = 774, key = "F1", casting = {} }),
+            action({ value = 585, key = "F1", unit = "target", casting = { hoverCast = "cast" } }),
+            action({ value = 774, key = "F1", casting = { hoverCast = "cast" } }),
         });
         shim.world.units = { target = FRIEND, party1 = FRIEND };
 
@@ -1256,9 +1256,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
-            action({ value = 585, key = "F1", unit = "none", casting = {},
+            action({ value = 585, key = "F1", unit = "none", casting = { hoverCast = "cast" },
                 conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-            action({ value = 774, key = "F1", casting = {} }),
+            action({ value = 774, key = "F1", casting = { hoverCast = "cast" } }),
         });
 
         local function Press(label, units, held, expectSpell, expectAimed)
@@ -1595,12 +1595,19 @@ return function(DebindPrivate, _, ctx)
             shim.world.spells[id] = { name = name };
         end
 
-        --- An action as the profile stores it. **No `casting` unless the row says so**: the default
-        --- is what the row means by "기본", which this file's `action` would turn into a skip.
+        --- An action as the profile stores it, with Hover Cast on. **The rows are about the pointed
+        --- press**, so "기본" here means the action answers it at the pointed unit; a row that turns
+        --- Hover Cast off writes that for itself.
         local function A(fields)
             local t = { type = Constants.SPELL, value = 701, key = "F1", seq = 1 };
             for k, v in pairs(fields or {}) do
                 t[k] = v;
+            end
+            if (t.casting == nil) then
+                t.casting = {};
+            end
+            if (t.casting.hoverCast == nil) then
+                t.casting.hoverCast = "cast";
             end
             return t;
         end
@@ -1705,30 +1712,34 @@ return function(DebindPrivate, _, ctx)
             Expect(5, { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
         end);
         Row(6, function()
-            Bind({ A({ casting = { hoverCast = "skip" } }) });
+            Bind({ A({ conditions = { units = { unitframe = false } } }) });
             PointFrame();
             Expect(6, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(7, function()
-            Bind({ A({ casting = { hoverCast = "skip" } }) });
+            Bind({ A({ conditions = { units = { unitframe = false } } }) });
             PointNothing();
             Expect(7, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
         end);
         Row(8, function()
-            Bind({ A({ casting = { hoverCast = "skip" } }) }, nil, MOUSEOVER);
+            Bind({ A({ conditions = { units = { mouseover = false } } }) }, nil, MOUSEOVER);
             PointWorld();
             Expect(8, { Press("F1", nil, "mouseover") }, {});
         end);
+        --- **[when there is none] is a condition, so it reaches every press**, the held ones too. Off
+        --- is the value that takes only the pointed press away, and no value takes the pointed press
+        --- away while leaving the held ones: a condition is the only thing that can say "not while a
+        --- frame is pointed at", and conditions are inherited by every twin.
         Row(9, function()
-            local subject = A({ casting = { hoverCast = "skip" },
-                conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } });
+            local subject = A({ conditions = { units = { unitframe = false } },
+                casting = { hoverCast = "cast" } });
             Bind({ subject });
             PointFrame(ENEMY);
             Expect(9, { Press("F1", nil, "unitframe") }, {});
-            Expect(9, { Press("F1", "self", "unitframe") }, { "A", "player", "self" });
-            Expect(9, { Press("F1", "focus", "unitframe") }, { "A", "focus", "focus" });
+            Expect(9, { Press("F1", "self", "unitframe") }, {});
+            Expect(9, { Press("F1", "focus", "unitframe") }, {});
             PointNothing();
-            Expect(9, { Press("F1", nil, "unitframe") }, {});
+            Expect(9, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
             check(DebindPrivate.GetBindingIssue(subject) == nil,
                 "#9: an issue was raised: " .. tostring(DebindPrivate.GetBindingIssue(subject)));
         end);
@@ -1992,22 +2003,31 @@ return function(DebindPrivate, _, ctx)
                 interp:clearHoverSlot();
             end
         end);
+        --- **The bare click cannot be turned off, so [when there is none] is what empties it**, and
+        --- that is a contradiction the reader can undo rather than a reason (`NoBindingCause`).
         Row(47, function()
-            local subject = A({ key = "BUTTON1", casting = { hoverCast = "skip" } });
+            local subject = A({ key = "BUTTON1", conditions = { units = { unitframe = false } } });
             Bind({ subject });
             check((_G.GetBindingAction("BUTTON1", true) or "") == "",
                 "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             PointFrame();
             check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
-            check(DebindPrivate.GetBindingIssue(subject) == nil,
+            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
                 "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
-            check(DebindPrivate.GetCastingOffReason(subject) == "BARE_CLICK_SKIPPED",
+            check(DebindPrivate.GetCastingOffReason(subject) == nil,
                 "#47: the reason is " .. tostring(DebindPrivate.GetCastingOffReason(subject)));
         end);
 
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
         --- at `dbver` 6, so the ladder is what turns each old action into its new shape.
+        ---
+        --- **`casting` comes off first.** These actions are what the ladder is handed, and an old
+        --- profile has no such table; leaving `A`'s in would hand the migration a shape it is meant
+        --- to produce.
         local function BindOld(actions)
+            for i = 1, #actions do
+                actions[i].casting = nil;
+            end
             local mark = frames.mark();
             _G.DebindVars = {
                 dbver = 6,
@@ -2028,10 +2048,13 @@ return function(DebindPrivate, _, ctx)
             PointNothing();
             Expect("move 10", { Press("F1", nil, "unitframe") }, {});
         end);
+        --- **An old action with no unit frame condition is moved with Hover Cast off**, which is what
+        --- it did: the pointed press reaches its original in the last tier and goes to its own
+        --- target, and the mouse button keeps the key's own [no unit frame] (§8).
         Row("move: an old keyboard action", function()
             BindOld({ A() });
             PointFrame();
-            Expect("move 5", { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
+            Expect("move 5", { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
             PointNothing();
             Expect("move 7", { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
         end);

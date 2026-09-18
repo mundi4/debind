@@ -712,9 +712,9 @@ return function(DebindPrivate)
     -- (`devdocs/splitting-an-action-into-bindings.md`).
     ---------------------------------------------------------------------------
 
-    --- 쌍둥이를 세우는 것은 이제 액션의 Casting 값이고, 값을 안 적은 액션은 설정 탭의 모드를
-    --- 따라 쌍둥이를 받는다(`devdocs/which-action-a-key-runs.md` §6). 이 아래 대부분이 그 쌍둥이를
-    --- 안 재므로 `listFor`는 Skip this action으로 액션을 세우고, 쌍둥이를 재는 자리만 켠다.
+    --- 쌍둥이를 세우는 것은 액션의 Hover Cast 값이고, 값을 안 적은 액션은 쌍둥이를 안 받는다
+    --- (`devdocs/which-action-a-key-runs.md` §6). 이 아래 대부분이 그 쌍둥이를 안 재므로
+    --- `listFor`는 기본값 그대로 세우고, 쌍둥이를 재는 자리만 켠다.
     local hoverCastOn = false;
 
     local function listFor(fields)
@@ -723,8 +723,8 @@ return function(DebindPrivate)
             action[k] = v;
         end
         nest(action);
-        if (not hoverCastOn) then
-            require("casting").skipHover(action);
+        if (hoverCastOn) then
+            require("casting").castOnHover(action);
         end
         return DebindPrivate.GetBindingsForAction(action), action;
     end
@@ -1068,13 +1068,14 @@ return function(DebindPrivate)
     end);
 
     test("목록은 리빌드마다 같은 표를 다시 채운다", function()
-        local action = nest({ type = Constants.SPELL, value = 100, key = "F" });
+        local action = require("casting").castOnHover(
+            nest({ type = Constants.SPELL, value = 100, key = "F" }));
         local first = DebindPrivate.GetBindingsForAction(action);
         local a1, a2 = first[1], first[2];
         local second = DebindPrivate.GetBindingsForAction(action);
         check(second == first and second[1] == a1 and second[2] == a2, "표가 새로 만들어졌다");
 
-        require("casting").skipHover(action);
+        action.casting.hoverCast = nil;
         local third = DebindPrivate.GetBindingsForAction(action);
         check(third == first, "표가 새로 만들어졌다");
         check(#castmod.without(Constants, third) == 1, "Hover Cast를 껐는데 쌍둥이가 남았다");

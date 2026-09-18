@@ -35,16 +35,10 @@ return function(DebindPrivate)
     -- The same premise keygroup_spec runs on: a druid (four specs), specialization 1 active.
     check(CLASS == "DRUID", "druid assumed, got " .. tostring(CLASS));
 
-    --- **Hover Cast는 꺼 둔다.** 이 파일이 재는 것은 번호와 순서이고, 켜져 있으면 액션마다
-    --- 쌍둥이가 하나씩 더 서서 키에서 읽는 목록이 두 배가 된다 (`tests/casting.lua`).
+    --- **Hover Cast는 기본값 그대로 꺼져 있다.** 이 파일이 재는 것은 번호와 순서이고, 켜져 있으면
+    --- 액션마다 쌍둥이가 하나씩 더 서서 키에서 읽는 목록이 두 배가 된다.
     local function ResetProfile(layout)
         layout = layout or {};
-        local skipHoverAll = require("casting").skipHoverAll;
-        skipHoverAll(layout.general or {});
-        skipHoverAll(layout.class or {});
-        for _, layer in pairs(layout.char or {}) do
-            skipHoverAll(layer);
-        end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             shared = { GENERAL = layout.general or {}, classes = { [CLASS] = layout.class or {} } },

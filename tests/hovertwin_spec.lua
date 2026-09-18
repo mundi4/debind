@@ -52,21 +52,22 @@ return function(DebindPrivate)
         end
     end
 
-    --- One spell on one key, with whatever the case adds. **No `casting`**, so it follows the
-    --- account's mode, which is what a newly made action does (§6).
+    --- One spell on one key with Hover Cast on, following the account's mode. **Turning it on is
+    --- what makes the twin**; an action written with no `casting` gets none (§6), and that is what
+    --- the cases about being off write for themselves.
     local function spell(fields)
         local action = { type = Constants.SPELL, value = 585, key = "T" };
         for k, v in pairs(fields or {}) do
             action[k] = v;
         end
-        return action;
+        return casting.castOnHover(action);
     end
 
     --- The same with the action's Hover Cast mode named, which is how one action runs in a mode of
     --- its own (§6).
     local function inMode(mode, fields)
         local action = spell(fields);
-        action.casting = { hoverCastMode = mode };
+        action.casting.hoverCastMode = mode;
         return action;
     end
 
@@ -82,7 +83,7 @@ return function(DebindPrivate)
     --- The tables handed to the solver are the ones `IsUnreachableAction` looks up, since both come
     --- from `GetBindingsForAction`'s cache.
     local function coveredPair(cover)
-        local subject = { type = Constants.SPELL, value = 586, key = cover.key };
+        local subject = casting.castOnHover({ type = Constants.SPELL, value = 586, key = cover.key });
         check(#bindingsOf(subject) == 2, "쌍둥이가 안 생겼다");
         -- **The self and focus twins of both are in**, since the subject is unreachable only where
         -- all of its bindings were dropped. The cover keeps no hover twin of its own: it is the one
@@ -108,8 +109,7 @@ return function(DebindPrivate)
     --- 액션을 한 키에 여럿 두면 일부가 겹치는 것이 이 애드온의 정상 동작이라, 겹친 자리를
     --- 문제라고 부를 자리가 없다.
     test("쌍둥이만 덮인 액션은 도달 불가가 아니다", function()
-        local subject = coveredPair(casting.skipHover({ type = Constants.SPELL, value = 585, key = "T",
-            conditions = { units = { unitframe = {} } } }));
+        local subject = coveredPair(spell({ conditions = { units = { unitframe = {} } } }));
         check(not DebindPrivate.IsUnreachableAction(subject), "원본이 살아 있는데 액션이 죽었다");
         check(GetBindingIssue(subject) == nil, "나온 것: " .. tostring(GetBindingIssue(subject)));
     end);
@@ -118,8 +118,7 @@ return function(DebindPrivate)
     --- 그걸 덮는 것은 쌍둥이도 덮는다. 마우스 버튼은 개체창 조건 없는 원본이 [가리키지 않음]으로
     --- 좁혀져 있어서(`BuildUnitStates`), 같은 버튼의 이웃이 원본만 덮는다.
     test("원본만 덮인 액션도 도달 불가가 아니다", function()
-        local subject = coveredPair(casting.skipHover(
-            { type = Constants.SPELL, value = 585, key = "BUTTON3" }));
+        local subject = coveredPair(spell({ key = "BUTTON3" }));
         check(not DebindPrivate.IsUnreachableAction(subject), "쌍둥이가 살아 있는데 액션이 죽었다");
         check(GetBindingIssue(subject) == nil, "나온 것: " .. tostring(GetBindingIssue(subject)));
     end);
@@ -326,7 +325,8 @@ return function(DebindPrivate)
     -- **대상을 못 싣는 타입도 쌍둥이를 받고, 그 쌍둥이도 유닛을 싣는다** (§3). 유닛을 실어 주되
     -- 그것을 쓸 수 있는지는 그 액션의 몫이다.
     test("대상을 못 싣는 타입의 쌍둥이도 가리킨 유닛을 겨눈다", function()
-        local twin = twinOf({ type = Constants.MACROTEXT, value = "/cast x", key = "T" });
+        local twin = twinOf(casting.castOnHover(
+            { type = Constants.MACROTEXT, value = "/cast x", key = "T" }));
         check(twin ~= nil and twin.unit == "unitframe",
             "매크로 쌍둥이가 겨누는 것: " .. tostring(twin and twin.unit));
     end);
@@ -354,63 +354,46 @@ return function(DebindPrivate)
     -- 5. Casting의 네 값이 바인딩을 넣고 뺀다 (§6)
     ---------------------------------------------------------------------------
 
-    --- **Skip takes the action out of the pointed press** (§6): no twin, and the original stands only
-    --- while the mode's unit is not there. The mouse button's implicit [no unit frame] is not what
-    --- measures it, so the key here is a keyboard one.
-    test("Skip this action이면 쌍둥이가 없고 원본은 모드의 유닛이 없을 때만 선다", function()
+    --- **Off is no twin, and the original is left alone** (§6). The action still answers a pointed
+    --- press from the last tier once nothing ahead of it does, which is what makes off different
+    --- from the [when there is none] condition below.
+    test("Hover Cast를 안 켠 액션은 쌍둥이가 없고 원본은 그대로다", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = spell();
-            action.casting = { hoverCastMode = mode, hoverCast = "skip" };
+            action.casting = { hoverCastMode = mode };
             local list = bindingsOf(action);
             check(list[2] == nil, mode .. ": 쌍둥이가 생겼다");
-            check(states(list[1], mode) == NONE,
+            check(states(list[1], mode) == nil,
                 mode .. ": 원본의 상자가 " .. tostring(states(list[1], mode)));
         end
     end);
 
-    --- **A condition on another unit does not stop it.** The `"@"` check there is absent, not
-    --- [none], or a skipped action with [the target is hostile] runs over a unit frame.
-    test("Skip은 다른 유닛에 조건이 있어도 원본을 모드의 유닛이 없을 때로 좁힌다", function()
-        for _, units in ipairs({
-            { target = { reaction = Constants.REACTION_HARM } },
-            { focus = {} },
-            { ["@"] = { reaction = Constants.REACTION_HELP } },
-        }) do
-            local action = spell({ conditions = { units = units } });
-            action.casting = { hoverCastMode = "unitframe", hoverCast = "skip" };
-            local original = bindingsOf(action)[1];
-            check(states(original, "unitframe") == NONE,
-                next(units) .. ": 원본의 상자가 " .. tostring(states(original, "unitframe")));
+    --- **[when there is none] on that unit is what takes the action out of the pointed press**, and
+    --- it is the reader's own condition, so it lands in the condition table and counts in the order.
+    --- Hover Cast has no value that does this any more.
+    test("가리킨 누름에서 빼는 것은 그 유닛의 [없을 때] 조건이다", function()
+        for _, mode in ipairs({ "unitframe", "mouseover" }) do
+            local action = spell({ conditions = { units = { [mode] = false } } });
+            action.casting = { hoverCastMode = mode, hoverCast = "cast" };
+            local list = bindingsOf(action);
+            check(list[2] == nil, mode .. ": 쌍둥이가 생겼다");
+            check(states(list[1], mode) == NONE,
+                mode .. ": 원본의 상자가 " .. tostring(states(list[1], mode)));
+            check(DebindPrivate.MakeOrderRecord(action, 1, 1).isConditional,
+                mode .. ": 조건 액션으로 안 섰다");
         end
     end);
 
-    --- **Skip is a Cast Options value, not a condition the reader set**, so it moves nothing in the
-    --- order. Written into the condition table it would make every skipped action a conditional one.
-    test("Skip은 원본의 조건 표와 순서 레코드를 안 바꾼다", function()
-        local plain, skipped = spell(), spell();
-        skipped.casting = { hoverCast = "skip" };
-        local list = bindingsOf(skipped);
+    --- **Off moves nothing in the order**, because nothing is written into the condition table. An
+    --- action with Hover Cast on and one with it off sort the same way.
+    test("Hover Cast 값은 조건 표와 순서 레코드를 안 바꾼다", function()
+        local on, off = spell(), spell();
+        off.casting = {};
+        local list = bindingsOf(off);
         check(list[1].conditions.units == nil, "조건 표에 유닛 조건이 섰다");
-        check(DebindPrivate.MakeOrderRecord(skipped, 1, 1).isConditional
-                == DebindPrivate.MakeOrderRecord(plain, 1, 1).isConditional,
-            "Skip이 조건 유무를 바꿨다");
-    end);
-
-    --- **A condition on that very unit leaves the original nowhere to stand**, so only the original
-    --- goes, the way Normal Cast off takes it. Read as a unit contradiction it would be the reader's
-    --- ERROR where all they chose was Skip, and with the cast keys off too it would stay one.
-    test("Skip과 그 유닛의 조건이 안 만나면 원본만 빠지고 조합키 쌍둥이는 남는다", function()
-        for _, condition in ipairs({ {}, { reaction = Constants.REACTION_HARM } }) do
-            local action = spell({ conditions = { units = { unitframe = condition } } });
-            action.casting = { hoverCastMode = "unitframe", hoverCast = "skip" };
-            local all = DebindPrivate.GetBindingsForAction(action);
-            local list = castmod.without(Constants, all);
-            check(list[1] ~= nil and list[1].normalCast == false,
-                "원본의 표시가 " .. tostring(list[1] and list[1].normalCast));
-            check(#all > #list, "조합키 쌍둥이가 없다");
-            local issue = GetBindingIssue(action);
-            check(issue == nil, "나온 것: " .. tostring(issue));
-        end
+        check(DebindPrivate.MakeOrderRecord(off, 1, 1).isConditional
+                == DebindPrivate.MakeOrderRecord(on, 1, 1).isConditional,
+            "Hover Cast 값이 조건 유무를 바꿨다");
     end);
 
     --- 액션의 모드가 없으면 설정 탭의 모드를 따른다. 새로 만든 액션이 그 모양이다.
@@ -435,7 +418,7 @@ return function(DebindPrivate)
     --- 서고 (`BuildKeyMap`이 읽는다), 그래서 키의 다른 액션이 그 누름을 받는다.
     test("Normal Cast를 끄면 원본에 표시가 선다", function()
         local action = spell();
-        action.casting = { normalCast = false };
+        action.casting.normalCast = false;
         local list = bindingsOf(action);
         check(list[1] ~= nil and list[1].normalCast == false,
             "원본의 표시가 " .. tostring(list[1] and list[1].normalCast));
@@ -472,6 +455,7 @@ return function(DebindPrivate)
         action.casting = {
             normalCast = false,
             hoverCastMode = "unitframe",
+            hoverCast = "cast",
             selfCastKey = "skip",
             focusCastKey = "skip",
         };

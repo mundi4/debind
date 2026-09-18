@@ -33,12 +33,12 @@ return function(DebindPrivate)
 
     local ME = "Player-1-KEYMAP";
 
-    --- **Hover Cast는 꺼 둔 채로 세운다.** 대부분의 케이스가 재는 것은 한 키의 순서이고, 켜져
-    --- 있으면 액션마다 쌍둥이가 하나씩 더 서서 목록이 두 배가 된다 (`tests/casting.lua`). 층을
-    --- 재는 케이스는 `hoverCast`를 켜서 새로 만든 액션의 모양으로 세운다.
+    --- **Hover Cast는 기본값 그대로 꺼져 있다.** 대부분의 케이스가 재는 것은 한 키의 순서이고,
+    --- 켜져 있으면 액션마다 쌍둥이가 하나씩 더 서서 목록이 두 배가 된다 (`tests/casting.lua`).
+    --- 층을 재는 케이스만 켠다.
     local function Bind(actions, switches, options, hoverCast)
-        if (not hoverCast) then
-            require("casting").skipHoverAll(actions);
+        if (hoverCast) then
+            require("casting").castOnHoverAll(actions);
         end
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
@@ -377,16 +377,15 @@ return function(DebindPrivate)
     test("an action with nothing left to cast reaches no record", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F7", seq = 1,
-                casting = { normalCast = false, hoverCast = "skip",
-                    selfCastKey = "skip", focusCastKey = "skip" } },
+                casting = { normalCast = false, selfCastKey = "skip", focusCastKey = "skip" } },
             { type = Constants.SPELL, value = 2, key = "F7", seq = 2 },
-        }, nil, nil, true);
+        });
 
         local records = DebindPrivate.KeyMap["F7"];
         for i = 1, #(records or {}) do
             check(records[i].value ~= 1, "the action that casts nothing reached the key at " .. i);
         end
-        check(Values("F7") == "2 2", "the key came out " .. Values("F7"));
+        check(Values("F7") == "2", "the key came out " .. Values("F7"));
     end);
 
     -- **An action that only runs over a frame keeps the bare left button** (§7, §8). That is the shape
@@ -508,9 +507,9 @@ return function(DebindPrivate)
     --- Per row, the records on the key, spelled the way the table spells them.
     local RECORDS = {
         [1] = "", [2] = "self focus hover", [3] = "hover", [4] = "", [5] = "", [6] = "", [7] = "",
-        [8] = "", [9] = "", [10] = "self focus", [11] = "original", [12] = "",
+        [8] = "", [9] = "", [10] = "self focus original", [11] = "original", [12] = "",
         [13] = "focus hover original", [14] = "", [15] = "self focus original", [16] = "hover",
-        [17] = "", [18] = "", [19] = "", [20] = "", [21] = "self focus hover", [22] = "", [23] = "self focus hover original",
+        [17] = "", [18] = "", [19] = "original", [20] = "", [21] = "self focus hover", [22] = "", [23] = "self focus hover original",
         [24] = "", [25] = "self focus hover original", [26] = "self focus hover original", [27] = "",
     };
 
@@ -529,7 +528,7 @@ return function(DebindPrivate)
     for _, row in ipairs(ROWS) do
         test("§4 #" .. row.n .. " KeyMap: " .. row.label, function()
             local action = row.action();
-            Bind({ action }, nil, row.options, true);
+            Bind({ action }, nil, row.options);
             local shape = shapeOf(DebindPrivate.KeyMap[action.key]);
             check(shape == RECORDS[row.n],
                 "came out [" .. shape .. "] (" .. select(2, shape:gsub("%S+", "")) .. "), want ["

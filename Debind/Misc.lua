@@ -697,7 +697,6 @@ end
 local SOURCE_ROW = 1;
 local SOURCE_AT = 2;
 local SOURCE_KEY = 4;
-local SOURCE_SKIP = 8;
 local SOURCE_TWIN = 16;
 
 --- Fold everything that says something about a unit onto one mask per unit.
@@ -793,10 +792,6 @@ local function BuildUnitStates(binding)
             and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
         narrow("unitframe", Constants.UNITSTATE_NONE, SOURCE_KEY);
     end
-    if (binding.skipsPointedUnit) then
-        narrow(binding.skipsPointedUnit, Constants.UNITSTATE_NONE, SOURCE_SKIP);
-    end
-
     if (units) then
         for key, value in pairs(units) do
             local unit = key;
@@ -1225,33 +1220,6 @@ do
         -- action is carried over as (§8). The fill-in that used to sit here put `unitframe` in
         -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
 
-        -- **Hover Cast's Skip stands the original on [the mode's unit is not there]**, and it is not
-        -- written into `conditions`: that table is what `IsConditionalBinding` orders by, and a Cast
-        -- Options value must not move the action. `BuildUnitStates` and the record read the field,
-        -- the way the mouse button's implicit [no unit frame] already stays out of the table.
-        --
-        -- **A condition on that unit leaves nowhere to stand, and the original is marked off rather
-        -- than left with a zero mask.** A zero makes it `dead`, and with nothing else standing that
-        -- reads as a contradiction the reader wrote (`CONDITIONS_NEVER`, an ERROR) where all they
-        -- did was choose Skip. Marked, nothing left is a reason the row does not run
-        -- (`GetCastingOffReason`, `devdocs/which-action-a-key-runs.md` S5 #9).
-        binding.skipsPointedUnit = nil;
-        if (not twin and DebindPrivate.HoverCastSkipped(action)) then
-            local unit = DebindPrivate.HoverCastMode(action);
-            local units = conditions.units;
-            local own = units and units[unit];
-            -- An `if`, not `and`: a `"@"` on another unit has to come out nil, and `and` answers false.
-            local resolved;
-            if (units and ResolvedUnitOf(binding) == unit) then
-                resolved = units["@"];
-            end
-            if (type(own) == "table" or type(resolved) == "table") then
-                binding.normalCast = false;
-            elseif (own ~= false and resolved ~= false) then
-                binding.skipsPointedUnit = unit;
-            end
-        end
-
         BuildUnitStates(binding);
         binding.dead = CannotStand(binding) or nil;
 
@@ -1351,11 +1319,25 @@ do
         return CastingValue(action, "focusCastKey") ~= "skip";
     end
 
-    --- Whether Skip this action is Hover Cast's answer: no twin, and the original stands only while
-    --- the mode's unit is not there, so the action is out of the pointed press the way a skipped
-    --- key's action is out of that key's (`devdocs/which-action-a-key-runs.md` §6).
-    function DebindPrivate.HoverCastSkipped(action)
-        return CastingValue(action, "hoverCast") == "skip";
+    --- What Hover Cast answers for this action: the pointed unit (`"cast"`), where the press would
+    --- have gone anyway (`"usual"`), or nil for off, which is the default and means no twin at all.
+    ---
+    --- **Off leaves the original where it was**, in the last tier, so the action still answers a
+    --- pointed press when nothing ahead of it does. Keeping it out of the pointed press is a
+    --- condition the reader writes on that unit, not a value here
+    --- (`devdocs/which-action-a-key-runs.md` §6).
+    ---
+    --- **The bare left and right click answer `"cast"` whatever is stored** (§7). The only press
+    --- those keys can serve is a click on a unit frame, so off would leave the action with nothing.
+    function DebindPrivate.HoverCastChoiceOf(action)
+        if (action and DebindPrivate.IsBareWorldClick(action.key)) then
+            return "cast";
+        end
+        local value = CastingValue(action, "hoverCast");
+        if (value == "cast" or value == "usual") then
+            return value;
+        end
+        return nil;
     end
 
     --- Which of the three a press holds: the action goes to that press's unit (`"cast"`), where the
@@ -1395,10 +1377,12 @@ do
     --- the action's mode names, and goes out at that unit. A condition the reader wrote is never
     --- widened, and a unit the reader picked is never moved.
     ---
-    --- **Every action gets one unless its Hover Cast says Skip this action**, because the twin is
-    --- what gives an action a place in the tier a pointed press is decided in
-    --- (§3). An action left without one waits in the last tier, and a Hover Cast action behind it
-    --- takes every press made over a unit, however high the reader put the first.
+    --- **Only an action with Hover Cast turned on gets one**, because the twin is what gives an
+    --- action a place in the tier a pointed press is decided in (§3). An action left without one
+    --- waits in the last tier, and a Hover Cast action behind it takes every press made over a unit,
+    --- however high the reader put the first. That is what turning it on buys: with every action in
+    --- the pointed tier the value would change where the press goes and never which action answers
+    --- it, so the one the reader turned on could sit under a plain action for good.
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
     --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
@@ -1410,7 +1394,8 @@ do
     --- **[when there is none] is the one that has no meeting point.** The twin only stands while that
     --- unit is there, so it could never match, and no twin is made.
     local function TwinUnitFor(action, original)
-        if (DebindPrivate.HoverCastSkipped(action)) then
+        local choice = DebindPrivate.HoverCastChoiceOf(action);
+        if (choice == nil) then
             return nil;
         end
         local unit = DebindPrivate.HoverCastMode(action);
@@ -1423,7 +1408,7 @@ do
         end
 
         local aim = unit;
-        if (DebindPrivate.ActionHasPickedUnit(action) or CastsAsUsual(action, "hoverCast")) then
+        if (DebindPrivate.ActionHasPickedUnit(action) or choice == "usual") then
             aim = original.unit;
         end
 
@@ -1970,7 +1955,7 @@ function DebindPrivate.ActionUnitFrameIsOn(action)
     -- key (`PrepareKeyBindings`' `holdsKey`).
     local casting = action.casting;
     if (casting and casting.normalCast == false
-            and not DebindPrivate.HoverCastSkipped(action)
+            and DebindPrivate.HoverCastChoiceOf(action) ~= nil
             and DebindPrivate.HoverCastMode(action) == "unitframe") then
         return true;
     end
@@ -2547,31 +2532,27 @@ local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting =
 
 --- Why an action makes no binding at all, given its list; nil where the list has one.
 ---
----   `"NONE_LEFT"`           every press is turned off or skipped
----   `"BARE_CLICK_SKIPPED"`  Hover Cast skipped on the bare left or right click, its only press
+---   `"NONE_LEFT"`           every press the reader could turn off is off
 ---   `"CONTRADICTION"`       Hover Cast is on, and [when there is none] on its unit leaves the twin
 ---                           nowhere to stand (`TwinUnitFor`)
 ---
---- **An empty list with Hover Cast not skipped is always the third.** The twin is missing for one of
---- two reasons, Skip or that condition, and every other press being gone is what emptied the list.
---- The first two are the reader's choice; the third is two menus disagreeing, and the reader skipped
---- nothing (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
+--- **An empty list with Hover Cast on is always the second.** With it on the twin is missing for one
+--- reason only, that condition, and every other press being gone is what emptied the list. Off is the
+--- reader's own value; the condition against the mode is two menus disagreeing
+--- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
 local function NoBindingCause(action, list)
     if (#list > 0) then
         return nil;
     end
-    if (not DebindPrivate.HoverCastSkipped(action)) then
+    if (DebindPrivate.HoverCastChoiceOf(action) ~= nil) then
         return "CONTRADICTION";
-    end
-    if (DebindPrivate.IsBareWorldClick(action.key)) then
-        return "BARE_CLICK_SKIPPED";
     end
     return "NONE_LEFT";
 end
 
---- Why this action does not run because of what its Cast Options say, or nil: `"NONE_LEFT"` or
---- `"BARE_CLICK_SKIPPED"`. **A reason, not an issue.** The reader may mean it, and a mark they could
---- only clear by turning a press back on is a mark they cannot clear.
+--- Why this action does not run because of what its Cast Options say, or nil: `"NONE_LEFT"`.
+--- **A reason, not an issue.** The reader may mean it, and a mark they could only clear by turning a
+--- press back on is a mark they cannot clear.
 function DebindPrivate.GetCastingOffReason(action)
     local cause = NoBindingCause(action, DebindPrivate.GetBindingsForAction(action));
     if (cause ~= "CONTRADICTION") then

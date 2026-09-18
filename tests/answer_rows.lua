@@ -21,18 +21,23 @@ return function(Constants)
         return out;
     end
 
+    --- **Every row says what its Hover Cast is**, because off is the default and the rows are read
+    --- by two specs: a row left blank would be one nobody can tell from a row meant to be off.
+    local HOVER = { hoverCast = "cast" };
+    local HOVER_OFF = {};
     local ALL_OFF = {
         normalCast = false,
-        hoverCast = "skip",
         selfCastKey = "skip",
         focusCastKey = "skip",
     };
-    local SKIP = { hoverCast = "skip" };
     local CAST_KEYS_OFF = { selfCast = false, focusCast = false };
 
-    --- `units` and `groups` go under `conditions`; `options` is the settings tab.
+    --- `units` and `groups` go under `conditions`; `options` is the settings tab. A row that says
+    --- nothing about Casting gets Hover Cast on, which is the shape most of these rows were written
+    --- against.
     local function row(n, label, fields)
         fields.n, fields.label = n, label;
+        fields.casting = fields.casting or HOVER;
         fields.action = function()
             local conditions;
             if (fields.units or fields.groups) then
@@ -61,7 +66,8 @@ return function(Constants)
         row(8, "tank [there], solo only", { units = { tank = {} }, groups = Constants.GROUP_NONE }),
         row(9, "target tank, \"@\" [there], solo only",
             { unit = "tank", units = { ["@"] = {} }, groups = Constants.GROUP_NONE }),
-        row(10, "Hover Cast Skip, unitframe [hostile]", { casting = SKIP, units = { unitframe = HARM } }),
+        row(10, "Hover Cast off, unitframe [hostile]",
+            { casting = HOVER_OFF, units = { unitframe = HARM } }),
         row(11, "BUTTON3, \"@\" [friendly], unitframe [hostile]",
             { key = "BUTTON3", units = { ["@"] = HELP, unitframe = HARM } }),
         row(12, "BUTTON1, \"@\" [friendly], unitframe [hostile]",
@@ -74,11 +80,15 @@ return function(Constants)
             { key = "BUTTON3", unit = "unitframe", units = { ["@"] = {} } }),
         row(17, "all four off", { casting = ALL_OFF }),
         row(18, "17 with \"@\" reaction 0", { casting = ALL_OFF, units = { ["@"] = { reaction = 0 } } }),
-        row(19, "Hover Cast Skip, both cast keys off, unitframe [hostile]",
-            { casting = SKIP, options = CAST_KEYS_OFF, units = { unitframe = HARM } }),
-        row(20, "BUTTON1, Hover Cast Skip", { key = "BUTTON1", casting = SKIP }),
+        row(19, "Hover Cast off, both cast keys off, unitframe [hostile]",
+            { casting = HOVER_OFF, options = CAST_KEYS_OFF, units = { unitframe = HARM } }),
+        -- The bare click answers `"cast"` whatever is stored, so [when there is none] on that unit
+        -- is the one way to leave it with nothing (`HoverCastChoiceOf`).
+        row(20, "BUTTON1, unitframe [none]",
+            { key = "BUTTON1", casting = HOVER_OFF, units = { unitframe = false } }),
         row(21, "Normal Cast off, \"@\" [friendly], target [hostile]",
-            { casting = { normalCast = false }, units = { ["@"] = HELP, target = HARM } }),
+            { casting = { normalCast = false, hoverCast = "cast" },
+                units = { ["@"] = HELP, target = HARM } }),
         row(22, "focus group 0, target [there]", { units = { focus = { group = 0 }, target = {} } }),
         row(23, "unitframe role 0", { units = { unitframe = { role = 0 } } }),
         row(24, "unitframe role tank, solo only",

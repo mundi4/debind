@@ -460,8 +460,25 @@ local function SetCastKeyChoice(ctx, row, choice)
     return OnActionsChanged(ctx.actions);
 end
 
---- Hover Cast's other question, which units count as pointed at. A skipped action keeps it: it names
---- the unit whose presence takes the action off the press.
+local HoverCastChoiceOf = DebindPrivate.HoverCastChoiceOf;
+
+--- Hover Cast's own three, where the absent value is off rather than the pointed unit
+--- (`Misc.lua`'s `HoverCastChoiceOf`). nil is the choice here, not the lack of one.
+local function HoverCastChoiceIs(ctx, choice)
+    return AllActions(ctx, function(action)
+        return HoverCastChoiceOf(action) == choice;
+    end);
+end
+
+local function SetHoverCastChoice(ctx, choice)
+    for _, action in ipairs(ctx.actions) do
+        ActionValues.Set(action, "casting.hoverCast", choice);
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+--- Hover Cast's other question, which units count as pointed at. An action with it turned off keeps
+--- this: turning it back on should find the mode the reader picked.
 local function SetHoverCastMode(ctx, mode)
     for _, action in ipairs(ctx.actions) do
         ActionValues.Set(action, "casting.hoverCastMode", mode);
@@ -864,6 +881,8 @@ ActionMenu.setActionValue            = setActionValue;
 ActionMenu.CastKeyChoiceOf           = CastKeyChoiceOf;
 ActionMenu.CastKeyChoiceIs           = CastKeyChoiceIs;
 ActionMenu.SetCastKeyChoice          = SetCastKeyChoice;
+ActionMenu.HoverCastChoiceIs         = HoverCastChoiceIs;
+ActionMenu.SetHoverCastChoice        = SetHoverCastChoice;
 ActionMenu.SetHoverCastMode          = SetHoverCastMode;
 ActionMenu.NormalCastIsOn            = NormalCastIsOn;
 ActionMenu.ToggleNormalCast          = ToggleNormalCast;

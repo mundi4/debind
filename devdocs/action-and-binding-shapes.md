@@ -62,16 +62,17 @@ action
                             hoverCastMode = nil | "unitframe" | "mouseover"
                                            이 액션이 어느 유닛을 가리킨 유닛으로 보는가. 적지 않으면
                                            설정 탭의 모드를 따른다 (`AccountHoverCastMode`)
-                            hoverCast     = nil | "usual" | "skip"
-                                           가리킨 누름에 대해 위 둘과 같은 셋. 적지 않으면 쌍둥이가
-                                           `hoverCastMode`가 고른 유닛에게 시전한다
-                                           **`"skip"`은 이 줄에서만 두 가지를 한다.** 쌍둥이를 만들지
-                                           않고, 그에 더해 그 유닛이 존재하는 동안에는 원본도 실행되지
-                                           않게 한다. 조합키를 쥔 누름은 자기 층에서 끝나므로 쌍둥이만
-                                           없애면 그 누름에서 빠지지만, 가리킨 누름은 3층과 4층을 함께
-                                           보기 때문에 원본이 그대로 실행된다. 그것을 막는 것이 둘째
-                                           일이고, 시전 대상은 건드리지 않는다
-                                           (`binding.skipsPointedUnit`, §4)
+                            hoverCast     = nil | "cast" | "usual"
+                                           **이 줄만 적지 않은 것이 꺼진 것이다.** 꺼져 있으면 쌍둥이를
+                                           만들지 않아서, 이 액션은 가리킨 누름에 답하는 액션들보다
+                                           뒤로 밀려 마지막 층에서 선다. `"cast"`면 쌍둥이가
+                                           `hoverCastMode`가 고른 유닛에게 시전하고, `"usual"`이면
+                                           원본과 같은 대상에게 시전한다
+                                           **가리키는 동안 아예 실행되지 않게 하는 것은 값이 아니라
+                                           그 유닛의 [없을 때] 조건이다.** 조합키를 쥔 누름은 자기
+                                           층에서 끝나므로 쌍둥이만 없애면 그 누름에서 빠지지만,
+                                           가리킨 누름은 3층과 4층을 함께 보기 때문에 원본이 그대로
+                                           실행된다
                             normalCast    = nil | false
                                            `false`면 원본이 마지막 층에서 빠진다
                         **어느 값도 불리언으로 읽지 않는다.** 적지 않은 자리는 언제나 그 줄의
@@ -79,7 +80,7 @@ action
                         다르다. 기본값에는 저장할 자리가 없어서 그렇다.
                         값을 이름으로 푸는 곳은 `Misc.lua` 하나이고
                         (`CastKeyChoiceOf`, `CastsAsUsual`, `SelfCastEnabled`, `FocusCastEnabled`,
-                        `HoverCastMode`, `HoverCastSkipped`, `NormalCastEnabled`), 그 바깥은 이
+                        `HoverCastChoiceOf`, `HoverCastMode`, `NormalCastEnabled`), 그 바깥은 이
                         함수들에만 묻는다
                         **대상을 고른 액션은 세 줄의 `"usual"`이 뜻이 없다.** 쌍둥이가 그 대상에
                         나가는 것이 이미 `"usual"`과 같은 일이라 메뉴가 그 값을 잠근다
@@ -304,11 +305,6 @@ binding
                                             `hoverTwin`이 없고, 층은 이 둘로만 정해진다
                                             (`which-action-a-key-runs.md` §3)
     normalCast                              `false`면 원본이 마지막 층에서 빠진다. 원본만 든다
-    skipsPointedUnit                        Hover Cast가 Skip일 때 원본만 드는 유닛 이름. 그 유닛의
-                                            [없음]을 이 바인딩에 얹는다. **`conditions`에 안 쓴다.**
-                                            그 표는 `IsConditionalBinding`이 순서를 가르는 자리라,
-                                            Cast Options 값이 액션을 움직이면 안 된다.
-                                            `BuildUnitStates`와 방출부가 이 필드를 직접 읽는다
     spell                                   `SPEC_RESOLVED_TYPES`가 오늘 내는 주문. 그 밖에는 nil
     spellbook                               probe 파생만 든다. 누를 때 주문서에 있는지 묻는 id
     unitStates unitGroups unitRole unitStatesOpaque

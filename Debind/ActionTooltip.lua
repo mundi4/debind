@@ -115,8 +115,10 @@ do
 	--- one and threw it away.
 	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
 
-	--- A Cast Options press row's value in the menu's words. `"cast"` is the default and has none.
-	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_SKIP"] };
+	--- A Cast Options press row's value in the menu's words. On the two cast key rows `"cast"` is the
+	--- default and has none; on Hover Cast the default is off, so that row names what it holds.
+	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_OFF"] };
+	local HOVER_TEXT = { cast = LLL["CASTING_POINTED_CAST"], usual = LLL["CASTING_AS_USUAL"] };
 
 	local function addErrorLine(tooltip, message, wrap, leftOffset)
 		GameTooltip_AddErrorLine(tooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
@@ -464,7 +466,7 @@ do
 			elseif (mode == "mouseover") then
 				hover = LLL["POINTED_UNIT_CAST_MOUSEOVER"];
 			end
-			local hoverChoice = CHOICE_TEXT[DebindPrivate.CastKeyChoiceOf(action, "hoverCast")];
+			local hoverChoice = HOVER_TEXT[DebindPrivate.HoverCastChoiceOf(action)];
 			if (hoverChoice) then
 				hover = hover and (hover .. ", " .. hoverChoice) or hoverChoice;
 			end

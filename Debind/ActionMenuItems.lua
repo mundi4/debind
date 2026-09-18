@@ -27,6 +27,8 @@ local GetTabList                     = ActionMenu.GetTabList;
 local CastKeyChoiceOf                = ActionMenu.CastKeyChoiceOf;
 local CastKeyChoiceIs                = ActionMenu.CastKeyChoiceIs;
 local SetCastKeyChoice               = ActionMenu.SetCastKeyChoice;
+local HoverCastChoiceIs              = ActionMenu.HoverCastChoiceIs;
+local SetHoverCastChoice             = ActionMenu.SetHoverCastChoice;
 local SetHoverCastMode               = ActionMenu.SetHoverCastMode;
 local NormalCastIsOn                 = ActionMenu.NormalCastIsOn;
 local ToggleNormalCast               = ActionMenu.ToggleNormalCast;
@@ -413,16 +415,26 @@ local function CreateCastingMenu(parentDescription, ctx)
             end);
             SetInstructionTooltip(usual, LLL[row.usual], pickedReason);
 
-            SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_SKIP_DESC"]);
+            SetInstructionTooltip(Choice(LLL["CASTING_OFF"], "skip"), LLL["CASTING_SKIP_DESC"]);
         end
     end
 
-    -- **Three modes over the same three answers the two held keys have.** Which unit the pointed
-    -- press means is this action's to say (§6), and that question does not exist for a key that
-    -- names its own unit.
+    -- **Three answers over three modes.** Which unit the pointed press means is this action's to say
+    -- (§6), and that question does not exist for a key that names its own unit.
+    --
+    -- **The bare left and right click take the whole row.** Both values are pinned there, the mode to
+    -- Unit Frames and the answer to the pointed unit, because a click on a unit frame is the only
+    -- press those keys can serve (§7).
     local hoverDescription = ActionMenus:BuildNode(description, {
         label = "POINTED_UNIT_CAST",
         instruction = LLL["CASTING_HOVER_CAST_DESC"],
+        blocked = function()
+            if (AllActions(ctx, function(action)
+                    return DebindPrivate.IsBareWorldClick(action.key);
+                end)) then
+                return LLL["CASTING_HOVER_BARE_CLICK"];
+            end
+        end,
         isActive = function()
             return AnyAction(ctx, function(action)
                 local casting = action.casting;
@@ -441,6 +453,31 @@ local function CreateCastingMenu(parentDescription, ctx)
             return { mode = casting.hoverCastMode, aim = casting.hoverCast };
         end,
     }, ctx);
+
+    do
+        local function Choice(text, choice)
+            return CreateRadio(hoverDescription, ctx, text,
+                function()
+                    return HoverCastChoiceIs(ctx, choice);
+                end,
+                function()
+                    return SetHoverCastChoice(ctx, choice);
+                end);
+        end
+
+        SetInstructionTooltip(Choice(LLL["CASTING_OFF"], nil), LLL["CASTING_HOVER_OFF_DESC"]);
+
+        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"), LLL["CASTING_POINTED_CAST_DESC"],
+            pickedReason);
+
+        local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
+        usual:SetEnabled(function()
+            return not everyUnitPicked();
+        end);
+        SetInstructionTooltip(usual, LLL["CASTING_HOVER_USUAL_DESC"], pickedReason);
+
+        hoverDescription:CreateDivider();
+    end
 
     for _, mode in ipairs({
         { account = true,      label = "CASTING_HOVER_ACCOUNT" },
@@ -466,31 +503,6 @@ local function CreateCastingMenu(parentDescription, ctx)
         else
             SetInstructionTooltip(modeDescription, LLL[mode.desc]);
         end
-    end
-
-    do
-        hoverDescription:CreateDivider();
-
-        local function Choice(text, choice)
-            return CreateRadio(hoverDescription, ctx, text,
-                function()
-                    return CastKeyChoiceIs(ctx, "hoverCast", choice);
-                end,
-                function()
-                    return SetCastKeyChoice(ctx, "hoverCast", choice);
-                end);
-        end
-
-        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"), LLL["CASTING_POINTED_CAST_DESC"],
-            pickedReason);
-
-        local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
-        usual:SetEnabled(function()
-            return not everyUnitPicked();
-        end);
-        SetInstructionTooltip(usual, LLL["CASTING_HOVER_USUAL_DESC"], pickedReason);
-
-        SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_HOVER_SKIP_DESC"]);
     end
 
     local normal = CreateCheckbox(description, ctx, LLL["CASTING_NORMAL"],

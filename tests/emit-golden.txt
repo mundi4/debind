@@ -405,14 +405,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb102"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb102"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -439,14 +431,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb103"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb103"
@@ -539,15 +523,6 @@ Execute DebindBindingDriver
   | t["clickbutton"]="deb105"
   | t["pressAndHold"]=true
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb105"
-  | t["pressAndHold"]=true
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -574,14 +549,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb106"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb106"
@@ -626,22 +593,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["combat"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -676,14 +627,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb108"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb108"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -710,14 +653,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
-  | t["unitAlias"]="custom1"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -773,28 +708,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["combat"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.both=true
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -866,29 +779,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["combat"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.raid=true
-  | u.group.both=true
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -929,15 +819,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["forms"]=3
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -983,18 +864,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
-  | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.harm=true
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
   | u.exists=true
@@ -1036,16 +905,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["pet"]=u
-  | u.exists=false
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
   | u.exists=false
@@ -1075,14 +934,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb101"
-  | t["castModifier"]=1
-  | t["unitAlias"]="healer"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1120,15 +971,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["bonusbars"]=5
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
   | t["bonusbars"]=5
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1162,15 +1004,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["specialbar"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
   | t["specialbar"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1200,15 +1033,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["extrabar"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1250,16 +1074,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["pet"]=u
-  | u.exists=true
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
   | u.exists=true
@@ -1295,15 +1109,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["known"]="[known:Regrowth]"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb101"
-  | t["castModifier"]=1
   | t["known"]="[known:Regrowth]"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1335,16 +1140,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.switches=newtable()
-  | t.switches["$burst"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1387,18 +1182,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
-  | t["unit"]="target"
-  | t.units=newtable()
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1461,20 +1244,6 @@ Execute DebindBindingDriver
   | u.reaction.help=true
   | u.reaction.other=true
   | u.dead=false
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb101"
-  | t["castModifier"]=1
-  | t["unit"]="target"
-  | t.units=newtable()
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.other=true
-  | u.dead=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1505,14 +1274,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb107"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1537,13 +1298,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1577,14 +1331,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb109"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb109"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1611,14 +1357,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb110"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb110"
@@ -1663,24 +1401,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb101"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["combat"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb111"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["stealth"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1735,24 +1455,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["petbattle"]=true
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb112"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t["petbattle"]=false
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["castModifier"]=1
   | t["petbattle"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1789,14 +1491,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb113"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb113"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1823,14 +1517,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb114"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb114"
@@ -1865,14 +1551,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb115"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb115"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1899,14 +1577,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb116"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb116"
@@ -1942,14 +1612,6 @@ Execute DebindBindingDriver
   | t["clickbutton"]="deb117"
   | t["castModifier"]=1
   | t["unit"]="focus"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb117"
-  | t["castModifier"]=1
-  | t["unit"]="focus"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1976,14 +1638,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb118"
-  | t["castModifier"]=1
-  | t["unit"]="player"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb118"
@@ -2029,14 +1683,6 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
-  | t.isClickCast=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb101"
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -2065,14 +1711,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb119"
-  | t["castModifier"]=1
-  | t["unitAlias"]="unitframe"
-  | t.units=newtable()
-  | u=newtable();t.units["unitframe"]=u
-  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb119"

@@ -1079,7 +1079,9 @@ return function(DebindPrivate)
         [18] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE }, unit = false,
             casting = false },
         [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
-        [20] = { all = false, units = false, rows = { ["@"] = false }, unit = false, casting = false },
+        -- The bare click always answers the pointed press, so [when there is none] on that unit is a
+        -- contradiction the reader can undo, painted on the key and on that row (`NoBindingCause`).
+        [20] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER }, unit = false, casting = false },
         [21] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false,
             casting = false },
         [22] = { all = UNITGROUPS_NONE, units = UNITGROUPS_NONE,
@@ -1176,11 +1178,12 @@ return function(DebindPrivate)
             "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
     end);
 
-    test("Hover Cast skipped on the bare click is a reason, not an issue", function()
-        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
-            casting = { hoverCast = "skip" } };
+    --- **Hover Cast turned off does not reach the bare click**, which answers the pointed press
+    --- whatever is stored (`HoverCastChoiceOf`), so the action still runs and has nothing to report.
+    test("Hover Cast turned off on the bare click changes nothing", function()
+        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1", casting = {} };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
-        check(GetCastingOffReason and GetCastingOffReason(action) == "BARE_CLICK_SKIPPED",
+        check(GetCastingOffReason and GetCastingOffReason(action) == nil,
             "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
     end);
 
@@ -1226,7 +1229,7 @@ return function(DebindPrivate)
     test("three presses off and the pointed unit [none] is a contradiction on Cast Options and the unit", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "F1",
-                casting = { normalCast = false, hoverCastMode = mode,
+                casting = { normalCast = false, hoverCastMode = mode, hoverCast = "cast",
                     selfCastKey = "skip", focusCastKey = "skip" },
                 conditions = { units = { [mode] = false } } };
             check(GetBindingIssue(action) == NEVER, mode .. ": " .. tostring(GetBindingIssue(action)));
