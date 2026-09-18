@@ -10,6 +10,12 @@ twice, and the second one would be the one nobody updates.
 **What earns an entry**: something the reader will meet on screen or in their own keys. A rename
 they will see, a value that is not where it was, a key that behaves differently, a mark that is
 new. Not what moved inside the addon.
+
+**What opens the window** (2026-09-18, owner): a number in the code that goes up by one whenever we
+want the window shown again, and the last number a reader saw, kept in the profile. Higher in the
+code than in the profile means show it. It is not the addon version, so a release with nothing to
+say leaves it alone. A fresh profile starts at the code's number, or a reader's first login brings
+a list of changes they never had. Same ladder `dbver` is, and it is written when the window is.
 -->
 
 # Changelog: the version Cast Options landed in
