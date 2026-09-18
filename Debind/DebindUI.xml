@@ -269,7 +269,7 @@
 			-->
 			<Frame parentKey="IssueIcon" inherits="DebindRowMarkTemplate">
 				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.CollapseButton" relativePoint="LEFT" x="-2" y="0"/>
+					<Anchor point="RIGHT" x="-5" y="0"/>
 				</Anchors>
 			</Frame>
 		</Frames>
