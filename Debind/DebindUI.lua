@@ -1382,9 +1382,22 @@ function DebindKeyHeaderMixin:OnLoad()
 end
 
 --- **Left picks the group, the heading standing for every row under it**, with CTRL and SHIFT meaning
---- on the group what they mean on a row. Right opens the group's menu.
+--- on the group what they mean on a row. Right takes the group as the set and opens the group's menu.
 function DebindKeyHeaderMixin:OnClick(button)
 	if (button == "RightButton") then
+		-- **What is ticked is what the menu aims at**, the rule a row keeps by folding the set onto
+		-- itself when the menu opens outside it (`DebindLineMixin:OnClick`, which took it from the
+		-- file explorer). The heading was the one place standing outside that rule: a menu opened
+		-- here acts on the whole group while the ticks could be showing rows in other layers
+		-- entirely. **It is also what makes an unbind from here recoverable.** The group is still
+		-- ticked after the key comes off, so one key given to the set puts it back, which nothing
+		-- in the profile can do (`ClearKeyForActions`).
+		--
+		-- **Not while a key is being captured.** The column is still the old key's then, which is
+		-- what the branch below leaves alone for.
+		if (not DebindFrame:IsCapturingKey()) then
+			DebindResultPanel:SelectGroupForMenu(self.elementData);
+		end
 		self:OpenKeyGroupMenu();
 		return;
 	end
@@ -5135,6 +5148,13 @@ local function PickGroup(elementData)
 	end
 	AnchorOnGroup(elementData);
 	CommitSelection();
+end
+
+--- A heading's right click. **The set becomes the group and stays it**, where the left click above
+--- lets go of a group that was already exactly the set. A menu opens on this press, and a menu
+--- standing over nothing ticked is the disagreement the fold exists to prevent.
+function DebindResultPanelMixin:SelectGroupForMenu(elementData)
+	PickGroup(elementData);
 end
 
 --- A heading's left click. The set becomes every row under it, or nothing when it already was exactly

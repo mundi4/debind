@@ -1771,6 +1771,66 @@ RegisterTest("Key group: the heading's [Unbind key] takes the whole group off", 
     end,
 })
 
+--- **What is ticked has to be what the menu aims at**, and the heading is where the two can part:
+--- its menu acts on the key group whatever the reader picked, so a pick made somewhere else and
+--- left standing would be the window pointing at one set and acting on another.
+---
+--- **Picked elsewhere on purpose.** Starting with nothing picked passes on the day the fold stops
+--- happening, since the group is what the menu takes either way.
+RegisterTest("Key group: the heading's right-click folds the pick onto the group", {
+    description = "A right-click on a heading makes that group the picked set, dropping a pick made elsewhere",
+    run = function()
+        local NAME = "Key group heading picks"
+        local KEY = "CTRL-ALT-F2"
+
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
+        local elsewhere = InsertAction({ type = Constants.SPELL, value = 3, key = "CTRL-ALT-F3" })
+        ApplyBindings()
+
+        DebindLayerPanel:ToggleActionSelected(elsewhere)
+        if DebindFrame:GetSelectionCount() ~= 1 or not DebindFrame:IsActionSelected(elsewhere) then
+            return Fail(NAME, format("setup: %d picked", DebindFrame:GetSelectionCount()))
+        end
+
+        DebindResultPanel:RefreshKeyboard()
+
+        local elementData
+        for _, data in DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider():Enumerate() do
+            if data.isHeader and data.key == KEY then
+                elementData = data
+            end
+        end
+        if not elementData then
+            return Fail(NAME, format("no heading for %s in the left column, is a search term or filter on", KEY))
+        end
+
+        local header = CreateFrame("Button", nil, UIParent, "DebindKeyHeaderTemplate")
+        header:SetPoint("CENTER")
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            header:Hide()
+            header:SetParent(nil)
+        end)
+        header:Init(elementData)
+        header:Click("RightButton")
+
+        if not Menu.GetManager():GetOpenMenu() then
+            return Fail(NAME, "the right-click brought up no menu")
+        end
+
+        if DebindFrame:IsActionSelected(elsewhere) then
+            return Fail(NAME, "the pick made elsewhere is still in the set")
+        end
+        if DebindFrame:GetSelectionCount() ~= 2
+                or not DebindFrame:IsActionSelected(first) or not DebindFrame:IsActionSelected(second) then
+            return Fail(NAME, format("the set is not the group: %d picked", DebindFrame:GetSelectionCount()))
+        end
+
+        return Pass(NAME, "right-click -> the group is the picked set")
+    end,
+})
+
 --- The entry that opens the same window stands on a row too, and **there it must carry that row
 --- alone**. It reads the same as the heading's (both say [Assign a key]), so the eye cannot tell
 --- them apart, and getting it wrong is quiet: the window opens and takes a key either way.
