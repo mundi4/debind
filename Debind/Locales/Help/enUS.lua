@@ -7,9 +7,11 @@ L["HELP_CAST_OPTIONS_TITLE"] = "What do the Cast Options do?"
 L["HELP_CAST_OPTIONS_BODY"] = [==[
 |cnBLUE_FONT_COLOR:Cast Options|r in an action's right-click menu says what the action does on each kind of press. The Self Cast Key, Focus Cast Key and |cnBLUE_FONT_COLOR:Hover Cast|r rows each take one of three answers:
 
-- |cnBLUE_FONT_COLOR:Cast on yourself|r, |cnBLUE_FONT_COLOR:Cast on your focus|r or |cnBLUE_FONT_COLOR:Cast on the unit you point at|r sends the action to that unit. Every action does this unless you change it.
+- |cnBLUE_FONT_COLOR:Cast on yourself|r, |cnBLUE_FONT_COLOR:Cast on your focus|r or |cnBLUE_FONT_COLOR:Cast on the unit you point at|r sends the action to that unit. The two key rows do this unless you change them; |cnBLUE_FONT_COLOR:Hover Cast|r starts off, so pointing at a unit does nothing until you turn it on.
 - |cnBLUE_FONT_COLOR:Cast as usual|r keeps the action's place on the key and sends it where it would go with nothing held or pointed at.
-- |cnBLUE_FONT_COLOR:Skip this action|r takes the action out of that press, and the next action on the key takes it. With none left, the key does nothing.
+- |cnBLUE_FONT_COLOR:Off|r makes no binding for that press. On the two key rows the action is out of that press and the next action on the key takes it. On |cnBLUE_FONT_COLOR:Hover Cast|r the action still runs, behind every action on the key that does answer a pointed press.
+
+To keep an action from running while you point at a unit, put a condition on that unit instead: under |cnBLUE_FONT_COLOR:Units|r, pick |cnBLUE_FONT_COLOR:Unit Frame|r (or |cnBLUE_FONT_COLOR:Mouseover|r) and choose |cnBLUE_FONT_COLOR:When the unit doesn't exist|r.
 
 When a unit is chosen under |cnBLUE_FONT_COLOR:Target|r, the first answer on each row sends the action to that unit instead, and |cnBLUE_FONT_COLOR:Cast as usual|r is locked. Which of the target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
 
@@ -19,7 +21,7 @@ When a unit is chosen under |cnBLUE_FONT_COLOR:Target|r, the first answer on eac
 
 Clicking a unit frame does not use the Self Cast Key or the Focus Cast Key. A key held on the click picks the binding you made for that exact combination, so the click still goes to the frame's unit.
 
-An action on the left or right mouse button with no modifier runs only when you click a unit frame. There it ignores |cnBLUE_FONT_COLOR:Normal Cast|r and uses |cnBLUE_FONT_COLOR:Unit Frames|r, so a click anywhere else still reaches the game.
+An action on the left or right mouse button with no modifier runs only when you click a unit frame. There it ignores |cnBLUE_FONT_COLOR:Normal Cast|r and |cnBLUE_FONT_COLOR:Hover Cast|r, using |cnBLUE_FONT_COLOR:Unit Frames|r and the unit you click, so a click anywhere else still reaches the game.
 ]==]
 
 L["HELP_CUSTOM_MACRO_TITLE"] = "Which extra units can a Custom Macro aim at?"
@@ -55,6 +57,17 @@ L["HELP_PICKING_A_POINTED_UNIT_BODY"] = [==[
 The action goes only to that unit. While you point at nothing there is no such unit, and the press does nothing, the way an action aimed at your focus does with no focus set.
 
 To hand the press to the next action instead, give the action |cnBLUE_FONT_COLOR:When the unit exists|r on that unit under |cnBLUE_FONT_COLOR:Units|r.
+]==]
+
+L["HELP_STOPPING_AN_ACTION_TITLE"] = "How do I stop an action from running?"
+L["HELP_STOPPING_AN_ACTION_BODY"] = [==[
+|cnHIGHLIGHT_FONT_COLOR:Turn it off.|r |cnBLUE_FONT_COLOR:Turn this action off|r in its right-click menu stops the action and gives its key back to the game. It keeps everything you set on it, so turning it back on puts it where it was.
+
+|cnHIGHLIGHT_FONT_COLOR:Cover it.|r Put an action above it on the same key with a condition for the case you want stopped. The one above runs in that case and the one below never gets the press. When you want nothing to happen there, give the action above the type |cnBLUE_FONT_COLOR:Use WoW's Own Binding|r.
+
+|cnHIGHLIGHT_FONT_COLOR:Delete it.|r |cnBLUE_FONT_COLOR:Delete|r takes the action and everything set on it: the conditions, the importance and its place in the key.
+
+To stop an action on one kind of press only, use |cnBLUE_FONT_COLOR:Cast Options|r instead: |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do the Cast Options do?]|h|r.
 ]==]
 
 L["HELP_TARGETING_TITLE"] = "Which unit is an action used on?"
