@@ -2727,6 +2727,14 @@ function DebindFrameMixin:OnShow()
 		return;
 	end
 
+	-- **The settings seat does not survive a close.** It is reached through the gear and left
+	-- through the gear or Escape, so the only way it is still up here is a close taken from it
+	-- (the X, or someone else's `CloseSpecialWindows`). Reopening onto it puts the reader in front
+	-- of a panel with no tab lit and nothing of their own on screen.
+	if (_selectedPanel == SETTINGS_PANEL) then
+		self:SelectPanel(OVERVIEW_PANEL);
+	end
+
 	self.LayerPanel:Refresh(true);
 	-- **`Update`까지 와야 왼쪽 열이 그려진다.** `Refresh`는 오른쪽 목록만 다시 짓고, 왼쪽은
 	-- 선택이 아니라 프로필 전체를 보므로 여기서 같이 깨워야 한다. 예전에는 선택이 없으면
@@ -2943,6 +2951,14 @@ function DebindFrameMixin:HandleEscape()
 
 	if (DebindCopyFrame:IsShown()) then
 		DebindCopyFrame:CloseDialog();
+		return true;
+	end
+
+	-- The settings panel has no tab of its own and the gear is its only door, so Escape is the one
+	-- step back a reader who never found the gear again has. The window stays up: what steps back
+	-- is the seat, the same thing the gear's second press does.
+	if (_selectedPanel == SETTINGS_PANEL) then
+		self:LeaveSettings();
 		return true;
 	end
 
@@ -3557,20 +3573,21 @@ end
 
 --- 오른쪽 목록 위의 개수, 그리고 왼쪽 열 위의 좁히는 두 컨트롤.
 ---
---- 개수는 둘 이상일 때만 뜬다. 하나일 때는 행 강조가 이미 말했고, 늘 떠 있으면 "1 selected"가
---- 화면의 기본 상태가 되어 아무 말도 안 하게 된다.
+--- The count shows from one selected, not from two. With one it says nothing the row highlight
+--- does not already say, and that is the point: seeing a count on a single row is how somebody
+--- finds out several rows can be picked at once.
 ---
 --- **개수가 뜬다고 검색창을 내리지 않는다.** 둘이 오른쪽 목록 위 한 자리를 번갈아 쓰던 시절의
 --- 규칙이었고, 그때는 검색창이 사라지는 것이 곧 "지금은 못 좁힌다"였다. 검색이 왼쪽으로 가면서
 --- 자리가 갈렸고, 무엇보다 **걸러져 나간 선택은 이제 집합에서 빠진다**(`PruneSelectionToBinFilter`) -
 --- 그 규칙이 막으려던 "안 보이는데 골라져 있는" 상태 자체가 안 생긴다.
 function DebindLayerPanelMixin:UpdateListStrip()
-	local multi = _selectionCount > 1;
-	if (multi) then
+	local anySelected = _selectionCount > 0;
+	if (anySelected) then
 		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount,
 			CountActionsInLayer(DebindPrivate.GetProfileLayer(GetLayerID()), _selection));
 	end
-	self.SelectionCount:SetShown(multi);
+	self.SelectionCount:SetShown(anySelected);
 
 	-- 좁히는 것이 죽는 자리는 둘이고, **판정은 여기 하나에 모은다.** `UpdateButtons`에도 같은
 	-- 잠금이 있는데 이 함수가 그 뒤에 도므로, 저기서 같이 끄면 여기가 도로 켠다.
