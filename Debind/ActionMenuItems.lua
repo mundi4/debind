@@ -56,6 +56,20 @@ local function SomeCannotReason(acceptance)
     end
 end
 
+--- 타입과 값을 그 자리에서 바꾼다. 확인 창이 먼저 서고, 승낙해야 선택 창이 바꾸기 모드로 뜬다
+--- (`devdocs/legacy/changing-what-an-action-does.md`).
+---
+--- **여러 줄을 한꺼번에 받는다.** 조건을 여러 액션에 한 번에 거는 것이 이 애드온에서 키 하나를
+--- 세우는 일 자체인데, 액션을 바꾸는 것만 한 줄씩 할 이유가 없다.
+---
+--- **도착한 액션도 받는다.** 옮기기와 복사를 막는 것은 `seq`가 (레이어, 키, 도착) 그룹 안에서
+--- 다시 매겨져 보낸 사람의 순서가 사라지기 때문인데, 바꾸기는 `seq`를 안 건드린다.
+local function CreateReplaceActionMenuItem(parentDescription, ctx)
+    parentDescription:CreateButton(LLL["REPLACE_ACTION"], function()
+        DebindUI.BeginReplaceActions(ctx.actions);
+    end);
+end
+
 --- **One action at a time**: the body it opens on is that action's own. Over several rows it stands
 --- locked as long as any of them could be converted.
 local function CreateConvertToMacroTextMenuItem(parentDescription, ctx)
@@ -762,6 +776,7 @@ local function CreateDeleteMenu(rootDescription, ctx)
 end
 
 --- What the entry points stand up (`DropDownMenus.lua`).
+ActionMenu.CreateReplaceActionMenuItem        = CreateReplaceActionMenuItem;
 ActionMenu.CreateConvertToMacroTextMenuItem   = CreateConvertToMacroTextMenuItem;
 ActionMenu.EditMacroTextMenuItem              = EditMacroTextMenuItem;
 ActionMenu.CreateSetSwitchMenuItem            = CreateSetSwitchMenuItem;

@@ -331,8 +331,13 @@ local function GetSideTabDescription(sideTabID, tabID)
 		GetSideTabLabel(2), GetSideTabLabel(sideTabID), GetLayerLabel(GetLayerID(1, 2)));
 end
 
+--- **매크로 편집창은 여기 없다.** 이 함수가 하는 일은 잠그는 것을 걷어내는 것이고, 잠그는 것은
+--- 아이콘 선택창 하나다(`Close()`가 저장 안 된 변경 앞에서 false를 낸다). 그 창의 `Close()`는
+--- 언제나 true라 막는 일이 없으면서 딸려 닫히기만 했고, 그 딸림 하나 때문에 행을 우클릭해
+--- 메뉴를 여는 것만으로 편집 중인 본문이 커밋됐다. 액션 위에 서는 창을 닫는 자리는 넷뿐이다
+--- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
 local function TryCloseAnyDialog()
-	if (DebindIconSelectorFrame:Close() and DebindMacroFrame:Close() and DebindResultPanel:Close()) then
+	if (DebindIconSelectorFrame:Close() and DebindResultPanel:Close()) then
 		return true;
 	end
 	return false;
@@ -367,8 +372,8 @@ end
 
 --- 대화상자를 닫고 이 행의 elementData를 **다시 집어** 준다. 목록에 없어졌으면 nil.
 ---
---- 닫는 길에는 매크로 본문 저장이 딸려 오고, 그게 `UpdateBindings` → `OnBindingsUpdated`
---- → `Refresh(true)`로 이어져 목록이 통째로 새로 지어진다. 그 뒤로는 붙들 데가 없다:
+--- 닫는 길이 프로필을 건드리면 `UpdateBindings`, `OnBindingsUpdated`, `Refresh(true)`로 이어져
+--- 목록이 통째로 새로 지어진다. 그 뒤로는 붙들 데가 없다:
 ---
 --- - 프레임에서 다시 읽으면 - 블리자드가 프레임을 반납하면서 `frame.GetElementData`를
 ---   지운다(`ScrollBoxListViewMixin:UnassignAccessors`). 다시 잡히더라도 그 프레임이 이제
@@ -3050,11 +3055,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	local layerID = GetLayerID();
 	local elements = BuildSortedElements(DebindPrivate.GetProfileLayer(layerID), layerID, visible);
 
-	local selectedIsDrawn = false;
 	for _, elementData in ipairs(elements) do
-		if (elementData.action == _selectedAction) then
-			selectedIsDrawn = true;
-		end
 		dataProvider:Insert(elementData);
 	end
 
@@ -3070,20 +3071,10 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 		self:SetSelectedAction(nil);
 	end
 
-	-- **선택은 남아도 편집 창은 닫는다.** 검색어나 필터가 걸리면 고치던 행이 통에서 사라지는데,
-	-- 위 규칙대로 선택은 그대로다. 그러면 화면 어디에도 없는 액션 위에 편집 창만 떠 있고,
-	-- 무엇을 고치는 중인지 가리켜 줄 행이 없다.
-	--
-	-- 닫는 것이 곧 저장이다(`DebindMacroFrameMixin`). 이 길로 사라지는 본문은 없다.
-	--
-	-- The popup goes first, and only when it is standing on this same action: it is also the window
-	-- [New Custom Macro] opens, and that one runs with no selection behind it at all.
-	if (_selectedAction and not selectedIsDrawn) then
-		if (DebindIconSelectorFrame.editAction == _selectedAction) then
-			DebindIconSelectorFrame:Close(true);
-		end
-		DebindMacroFrame:Close();
-	end
+	-- **행이 안 그려졌다는 것으로는 액션 위의 창을 닫지 않는다.** 그 조건은 검색·필터와 함께
+	-- 레이어 이동까지 잡는데, 편집 중에 레이어 탭을 한 번 누르면 본문이 커밋되고 `[취소]`가
+	-- 돌아갈 자리가 같이 없어진다. 닫는 방아쇠는 넷뿐이다
+	-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
 
 	DebindFrame:UpdateTitle();
 	self:UpdateActionCounts(visible);
@@ -3096,27 +3087,39 @@ end
 --- 예전에는 패널이 저장 안 된 변경을 들고 거부할 수 있어서 false와 force가 있었다. 지금
 --- 패널에는 미루는 저장이 없으므로(Close 참고) 거부할 일이 없다. 돌려주는 true는 부르는
 --- 쪽의 옛 코드를 위해 남긴 것이다.
+--- 액션 위에 서 있는 창 셋을 놓는다. **여는 창 하나만 빼고** 닫으므로, 창을 여는 자리도 이
+--- 함수를 부른다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
+---
+--- **아이콘 선택창은 여기 없다.** 연 쪽이 닫는다 - 편집 모드는 매크로 편집창이, 새로 만드는
+--- 모드는 피커가 (같은 문서 §4).
+---
+--- **매크로 편집창은 닫는 것이 곧 저장이다.** 셋 중 이것만 닫히면서 남기는 것이 있다.
+---
+--- 피커는 바꾸기 모드일 때만 든다. 추가 모드는 돌아다니는 동안 열어두라고 만든 창이다.
+function DebindUI.CloseActionWindows(opening)
+	if (opening ~= DebindKeyCaptureFrame) then
+		DebindKeyCaptureFrame:Hide();
+	end
+	if (opening ~= DebindMacroFrame) then
+		DebindMacroFrame:Close();
+	end
+	if (opening ~= DebindSpellPickerFrame and DebindSpellPickerFrame.replaceTargets) then
+		DebindSpellPickerFrame:Hide();
+	end
+end
+
 --- 집합이나 앵커를 손본 뒤 **반드시** 지나는 자리.
 ---
---- **다중이 되면 매크로 창을 닫는다.** 그 창은 본문 하나를 여는 편집기라 대상이 여럿이면
---- 열려 있을 자리가 없다. 본문은 `Close`가 저장한다. 앵커가 그대로면 `Refresh`는 창을
---- 안 건드리므로, CTRL-클릭으로 벌크를 시작하는 자리는 이 줄이 따로 챙겨야 한다.
----
---- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
+--- **액션 위에 서 있던 창은 전부 닫는다.** 고른 것이 달라졌다는 것은 읽는 사람이 다른 이야기를
+--- 시작했다는 뜻인데, 그 창들은 열 때 받은 액션을 그대로 묻고 있다. CTRL-클릭으로 한 줄이
+--- **더해지기만 해도** 닫는 것은 그 때문이다 - 하나 위에 서던 창이 둘 위에 설 자리는 없다.
 local function CommitSelection()
 	-- 왼쪽 열을 여기서 따로 다시 그리지 않는다. **맨 아래 `Update`가 이미 그 일을 한다**
 	-- (`DebindResultPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
 	-- 전체를 두 번 짓는다 - 그 함수는 프로필의 모든 레이어를 훑어 키로 묶는 자리다.
 	DebindResultPanel:Close();
 
-	if (_selectionCount > 1) then
-		DebindMacroFrame:Close();
-	else
-		-- If the macro editor is open on some other action, this is what closes it - Refresh
-		-- does not carry the window over to a new target any more, it leaves. Same action, or
-		-- window already closed, and nothing happens.
-		DebindMacroFrame:Refresh();
-	end
+	DebindUI.CloseActionWindows();
 
 	DebindFrame:Update();
 end
@@ -3422,17 +3425,8 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 
 	local layerID = destLayerID or GetLayerID();
 	local layer = DebindPrivate.GetProfileLayer(layerID);
-	local action = {
-		type = type,
-		value = value,
-		name = name,
-		icon = icon,
-	};
-	if (props) then
-		for k, v in pairs(props) do
-			action[k] = v;
-		end
-	end
+	local action = {};
+	DebindPrivate.SetActionEntry(action, type, value, name, icon, props);
 	layer:Insert(action);
 	-- A new action goes through the same ordering rule as anything else. The ones that arrive here
 	-- are born without a key and so get no number (`SetActionKey` hands one out when a key is
@@ -3461,6 +3455,52 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	self:Update();
 
 	return elementData;
+end
+
+--- 고른 액션들의 타입과 값을 그 자리에서 덮는다. [바꾸기]가 띄운 선택 창에서 하나를 고르면
+--- 여기로 온다 (`devdocs/legacy/changing-what-an-action-does.md`).
+---
+--- **묻는 일은 여기에 없다.** 확인 창은 이 조작을 시작할 때 서고(`DebindUI.BeginReplaceActions`),
+--- 여기까지 온 것은 승낙한 사람이 고른 것이다.
+---
+--- **프로필에 아직 있는 것만 덮는다.** 확인과 고르기 사이에도 메인 창은 그대로 열려 있어서 그
+--- 사이에 지워진 액션이 있을 수 있는데, 빠져나간 표에 쓰는 것은 아무 일도 안 일어난 채 끝난다.
+---
+--- 줄 자리는 안 건드리지만 **목록은 다시 짓는다.** 이름이 바뀌면 이름순 정렬에서 줄이 옮겨
+--- 앉는데, `Update`는 있는 줄을 그 자리에서 고쳐 그릴 뿐이다.
+function DebindFrameMixin:ReplaceActions(actions, type, value, name, icon, props)
+	-- **덮기 전에 액션 위의 창들을 놓는다.** 매크로 편집창이 대상 위에 서 있으면 아래 줄이
+	-- `value`를 바꾼 뒤에 그 창이 닫히는데, `Save`는 편집칸 글자를 **지금** `value`와 견주므로
+	-- 새 값과 다르다는 이유로 본문을 거기 써 넣는다. 주문이 된 액션의 값이 매크로 본문이 된다.
+	-- 먼저 닫으면 그 저장이 옛 값과 견주어 제대로 끝난다.
+	DebindUI.CloseActionWindows();
+
+	local changed = {};
+	for i = 1, #actions do
+		local action = actions[i];
+		if (DebindPrivate.FindLayerID(action)) then
+			DebindPrivate.SetActionEntry(action, type, value, name, icon, props);
+			changed[#changed + 1] = action;
+		end
+	end
+
+	if (#changed == 0) then
+		return;
+	end
+
+	-- **덮은 것이 보이는 곳으로 먼저 돌아간다.** 아래 셋이 전부 오버뷰 패널의 것이라, 가져오기
+	-- 탭에 서 있으면 프로필은 바뀌고 화면은 아무 데도 안 움직인다. `AddNewAction`이 같은 이유로
+	-- 같은 줄을 들고, 거기 적혀 있다.
+	if (_selectedPanel ~= OVERVIEW_PANEL) then
+		self:SelectPanel(OVERVIEW_PANEL);
+	end
+
+	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+
+	DebindPrivate.UpdateBindings();
+	self.LayerPanel:Refresh(true);
+	self.LayerPanel:ScrollActionIntoView(changed[1]);
+	self:Update();
 end
 
 function DebindFrameMixin:Update()
@@ -3690,6 +3730,14 @@ function DebindFrameMixin:SelectPanel(id, force)
 	if (id == SETTINGS_PANEL and _selectedPanel ~= SETTINGS_PANEL) then
 		_panelBeforeSettings = _selectedPanel;
 	end
+
+	-- 탭을 옮기는 것도 **다른 이야기를 시작하는 것**이다. 액션 하나를 묻고 있던 창은 여기서
+	-- 놓는다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §2). 같은 탭을 다시
+	-- 세우는 `force` 호출은 위에서 안 걸러지므로 여기서 가른다.
+	if (_selectedPanel ~= id) then
+		DebindUI.CloseActionWindows();
+	end
+
 	_selectedPanel = id;
 	PanelTemplates_SetTab(self, id);
 	self:UpdateTitle();
@@ -3732,8 +3780,9 @@ function DebindFrameMixin:SetTab(id)
 	PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN);
 
 	-- **The selection lives across tabs**, the way the search text does. The left column picks across
-	-- every layer, so a tab switch dropping it would undo that. What the switch used to guard against,
-	-- an editor left open over an action no list draws, `Refresh` closes on its own.
+	-- every layer, so a tab switch dropping it would undo that. The editor left open over an action
+	-- no list draws is not what this guards either: a layer move closes nothing any more
+	-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §3).
 	_selectedTab = id;
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 	self.LayerPanel:UpdateSideTabs();
@@ -3755,7 +3804,7 @@ function DebindFrameMixin:SetTab(id)
 end
 
 --- **The `elementData` parameter is there because the button's own can be stale by now.** The
---- right-click path closes dialogs before opening the menu, and a macro body saved on the way out
+--- right-click path closes dialogs before opening the menu, and a close that touches the profile
 --- rebuilds the list, so it refetches and passes the fresh table
 --- (`CloseDialogsAndRefetchElementData`). The menu reads layer and index off whatever it is handed,
 --- and a stale one points at somebody else's seat.
@@ -4235,8 +4284,9 @@ end
 --- 다른 것으로 넘어가기 전에 부르는 계약. 이 패널은 저장을 미루는 상태가 **없다** - 키도
 --- 순서도 누르는 즉시 반영된다. 그래서 아무것도 막지 않고 언제나 true다.
 ---
---- 매크로 본문은 여기 없다. 그건 창(`DebindMacroFrame`)이 자기 몫으로 들고 있다 -
---- `TryCloseAnyDialog`가 둘 다 부른다.
+--- 매크로 본문은 여기 없다. 그건 창(`DebindMacroFrame`)이 자기 몫으로 들고 있고, 그 창은
+--- `TryCloseAnyDialog`가 부르는 것도 아니다 - 닫는 자리가 따로 넷이다
+--- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
 ---
 --- 선택은 건드리지 않는다. 부르는 쪽이 이미 선택을 바꾸는 중이다.
 ---
@@ -5185,6 +5235,16 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 둘을 걸어도 취소는 다섯을 전부 되돌린다.
 		self.bindEdits = {};
 
+		-- **액션 하나를 묻는 창들을 놓는다.** 사유는 집중이다 - 화면 전체가 키를 묻고 있는데
+		-- 그 창이 같이 서 있으면 집중할 것이 둘이 된다. 단축키 지정 창에는 사유가 하나 더
+		-- 있다. 커서 밑의 행이 키를 듣는 동안 그 창도 자기 `OnKeyDown`으로 듣고 있어서, 한 번
+		-- 누른 키가 두 군데로 들어간다.
+		--
+		-- **아래 `SetSelectedAction(nil)`에 맡길 수 없다.** 고른 액션이 없으면 그쪽이 먼저
+		-- 돌아서는데, 키 묶음 메뉴에서 연 창은 선택 없이도 떠 있다
+		-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §2).
+		DebindUI.CloseActionWindows();
+
 		-- **선택을 비운다.** 선택은 "지금 이 액션 이야기 중"이라는 뜻인데 모드의 대상은 커서
 		-- 밑의 행이라, 남겨두면 강조가 가리키는 것과 실제로 키가 걸릴 곳이 어긋난다.
 		self.LayerPanel:SetSelectedAction(nil);
@@ -5714,6 +5774,10 @@ function DebindUI.BeginKeyCapture(actions)
 	-- so a set asked about by the key it was on could no longer say which key that was.
 	local label = CaptureLabel(actions);
 
+	-- 이 창은 선택을 안 건드리므로(행 메뉴와 키 묶음 메뉴 둘 다 고른 것 없이 연다) 나머지 둘을
+	-- 여기서 놓는다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §2).
+	DebindUI.CloseActionWindows(DebindKeyCaptureFrame);
+
 	DebindKeyCaptureFrame:Open(actions, function(captured)
 		-- **`nil` is [Unbind key], not a cancel** -- cancelling never gets here.
 		--
@@ -5885,6 +5949,141 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	wide = 1,
 };
 
+--- 고른 것이 무엇을 없애는가. **새 타입과 값을 보고 답한다** - 확인 창을 고른 뒤로 세운 값이
+--- 여기 있다 (`devdocs/legacy/changing-what-an-action-does.md` §3). 실제로 없어지는 것만
+--- 목록에 든다.
+---
+--- 대상은 `ActionTakesUnit`에게 묻는다. 타입만으로는 소환수 명령과 태세 버튼이 안 갈리고,
+--- 그쪽이 `SetActionEntry`가 묻는 것이기도 하다. 습득 조건은 타입을 볼 것 없이 언제나 없어진다.
+---
+--- **매크로 본문은 이 목록에 안 든다.** 설정이 아니라 액션의 몸통이고, 다시 치는 수밖에 없는
+--- 유일한 것이라 무게가 다르다. 부르는 쪽이 따로 한 문장으로 세운다.
+local function ReplaceLostSettings(actions, entryType, value, props)
+	local probe = { type = entryType, value = value };
+	if (props) then
+		for k, v in pairs(props) do
+			probe[k] = v;
+		end
+	end
+	local takesUnit = DebindPrivate.ActionTakesUnit(probe);
+
+	local lostUnit, lostKnown;
+	for i = 1, #actions do
+		local action = actions[i];
+		if (action.unit and not takesUnit) then
+			lostUnit = true;
+		end
+		if (action.conditions and action.conditions.known ~= nil) then
+			lostKnown = true;
+		end
+	end
+
+	local names = {};
+	if (lostUnit) then
+		names[#names + 1] = LLL["TARGET_UNIT"];
+	end
+	if (lostKnown) then
+		names[#names + 1] = LLL["CONDITION_KNOWN"];
+	end
+	return names;
+end
+
+--- 확인 창에 올릴 글. 머리줄은 **무엇을 무엇으로 바꾸는지**를 말하고, 그 아래로 없어지는 것이
+--- 붙는다.
+---
+--- 이름은 엔트리가 그릴 때 쓰던 것을 안 가져오고 여기서 다시 푼다. 저장되는 것은 타입과 값뿐이라
+--- (`ActionCatalog.lua`의 엔트리 계약) 바뀐 뒤의 행이 무엇으로 보일지는 그리는 함수가 답한다.
+local function ReplaceConfirmText(actions, entryType, value, props)
+	local probe = { type = entryType, value = value };
+	if (props) then
+		for k, v in pairs(props) do
+			probe[k] = v;
+		end
+	end
+	local newName = NameAndIconForAction(probe);
+
+	local text;
+	if (#actions > 1) then
+		text = format(LLL["REPLACE_CONFIRM_MANY"], #actions, newName);
+	else
+		text = format(LLL["REPLACE_CONFIRM_ONE"], newName);
+	end
+
+	local lost = ReplaceLostSettings(actions, entryType, value, props);
+	if (#lost > 0) then
+		text = text .. "|n|n" .. LLL["REPLACE_CONFIRM_LOSES"] .. "|n" .. table.concat(lost, "|n");
+	end
+
+	for i = 1, #actions do
+		if (actions[i].type == Constants.MACROTEXT) then
+			text = text .. "|n|n" .. LLL["REPLACE_CONFIRM_MACROTEXT"];
+			break;
+		end
+	end
+
+	return text;
+end
+
+--- [바꾸기]가 들어오는 자리. **여기서는 안 묻는다** - 무엇으로 바꿀지 고른 다음이라야 창이
+--- 무엇이 없어지는지를 말할 수 있고, 되돌릴 수 없는 순간도 고른 뒤다.
+---
+--- **메뉴가 준 표를 그대로 안 들고 있는다.** 여는 것과 고르는 것 사이에 목록의 선택이 바뀔 수
+--- 있고, 그때 바뀌는 것은 지금 골라둔 이것이어야 한다.
+function DebindUI.BeginReplaceActions(actions)
+	if (actions == nil or #actions == 0) then
+		return;
+	end
+
+	local targets = {};
+	for i = 1, #actions do
+		targets[i] = actions[i];
+	end
+
+	DebindSpellPickerFrame:BeginReplace(targets);
+end
+
+--- 선택 창에서 하나를 고르면 여기로 온다. **피커는 열어둔 채로 묻는다** - 취소가 "다른 것을
+--- 고른다"가 되려면 창이 그 자리에 있어야 한다.
+---
+--- 엔트리 표를 들고 있지 않고 세 값만 옮긴다. 카탈로그는 게임 이벤트에 통째로 다시 지어지므로
+--- (`ActionCatalog.Invalidate`) 이 창이 떠 있는 동안 그 표가 남아 있다는 보장이 없다.
+function DebindUI.ConfirmReplaceActions(actions, entryType, value, props)
+	if (actions == nil or #actions == 0) then
+		return;
+	end
+
+	StaticPopup_Show("DEBIND_REPLACE_ACTIONS", nil, nil, {
+		actions = actions,
+		type = entryType,
+		value = value,
+		props = props,
+		text = ReplaceConfirmText(actions, entryType, value, props),
+	});
+end
+
+--- **고른 뒤에 선다. 언제나 선다.**
+---
+--- 선택 창은 아이콘이 빽빽한 격자이고, 추가 모드에서 잘못 누른 것은 지우면 그만이지만 여기서는
+--- 그 한 번이 있던 액션을 덮는다. 무엇이 있었는지 적어두는 데가 없어서 되돌릴 자리도 없다.
+--- 고른 뒤에 서므로 이 창은 **언제나 할 말이 있다** - 무엇을 골랐는지는 늘 말할 수 있다.
+StaticPopupDialogs["DEBIND_REPLACE_ACTIONS"] = {
+	-- 문장을 여는 시점에 짓는다. `DEBIND_KEY_GROUP_CONFLICT`와 같은 이유이고, 거기 적혀 있다.
+	text = "",
+	button1 = OKAY,
+	button2 = CANCEL,
+	OnShow = function(dialog, data)
+		dialog:SetFormattedText("%s", data.text);
+	end,
+	-- 승낙이 바꾸기 모드의 끝이다. 선택 창을 닫는 것은 `ReplaceActions`가 덮기 전에 지나는
+	-- `CloseActionWindows`이고, 취소는 아무것도 안 불러서 그 창을 그대로 둔다.
+	OnAccept = function(_, data)
+		DebindFrame:ReplaceActions(data.actions, data.type, data.value, nil, nil, data.props);
+	end,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+};
+
 --- **The one thing here that cannot be walked back.** Nothing is deleted, so every action can be
 --- given a key again one at a time -- but which of them belonged together is not written down
 --- anywhere, and after this it is only in the reader's head.
@@ -6014,6 +6213,9 @@ function DebindMacroFrameMixin:Open(action, cancelFunc)
 	end
 	DebindLayerPanel:SetSelectedAction(action);
 
+	-- 고른 것이 이미 이 액션이면 위 줄이 먼저 돌아서므로, 나머지 둘을 놓는 일이 안 일어난다.
+	DebindUI.CloseActionWindows(self);
+
 	self:Show();
 	self:Refresh();
 	self.macroCancelFunc = cancelFunc;
@@ -6023,8 +6225,8 @@ function DebindMacroFrameMixin:Open(action, cancelFunc)
 	return true;
 end
 
---- 창을 닫는다. 저장은 OnHide가 한다 - 닫는 길이 여럿이라(X 버튼, `TryCloseAnyDialog`,
---- 메인 창이 닫히면서 딸려 감) 한 군데로 모아야 한 번도 안 새어 나간다.
+--- 창을 닫는다. 저장은 OnHide가 한다 - 닫는 길이 여럿이라(X 버튼, `CloseActionWindows`의 방아쇠
+--- 넷, 메인 창이 닫히면서 딸려 감) 한 군데로 모아야 한 번도 안 새어 나간다.
 ---
 --- 언제나 true다. 이 창은 아무것도 막지 않는다.
 function DebindMacroFrameMixin:Close()
@@ -6034,7 +6236,19 @@ function DebindMacroFrameMixin:Close()
 	return true;
 end
 
+--- **이름·아이콘 팝업을 데리고 나간다.** 그 팝업을 액션 위에 세우는 자리는 이 창의
+--- `EditNameIcon_OnClick` 하나뿐이라, 그것이 서 있다는 것은 이 창이 열었다는 뜻이다. 연 쪽이
+--- 닫는다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §4).
+---
+--- 강제로 닫는다. 이 창이 닫히는 길은 전부 읽는 사람이 다른 것을 하겠다고 말한 것이고, 그
+--- 뒤에 팝업 하나가 거부하고 남아 서는 자리가 아니다.
 function DebindMacroFrameMixin:OnHide()
+	-- `macroAction`이 nil이면 묻지 않는다. 새로 만드는 모드의 팝업도 `editAction`이 nil이라,
+	-- 그냥 견주면 남의 팝업을 닫는다.
+	if (self.macroAction and DebindIconSelectorFrame.editAction == self.macroAction) then
+		DebindIconSelectorFrame:Close(true);
+	end
+
 	self:Save();
 	self:ClearEdit();
 	DebindFrame:Update();

@@ -3641,6 +3641,52 @@ function DebindPrivate.ClearKeyForActions(actions)
     return changed;
 end
 
+--- 카탈로그 엔트리 하나를 액션에 쓴다. 새로 만드는 액션과 **이미 저장돼 있던 액션**이 같은
+--- 여기를 지난다 (`ActionCatalog.lua`의 엔트리 계약,
+--- `devdocs/legacy/changing-what-an-action-does.md`).
+---
+--- **이름과 아이콘도 인자 그대로 덮는다.** 저장해둬야 하는 타입만 `props`에 담아 오므로, 안
+--- 덮으면 옛 타입의 이름이 새 타입 위에 박힌 채 남는다.
+---
+--- 둘을 같이 떨군다. 둘 다 `GetBindingInfoForAction`이 이미 바인딩에서 떨궈내는 것이라, 저장에
+--- 남으면 **행에는 그려지는데 키는 그것 없이 나가는** 상태가 된다.
+---
+---   `conditions.known`  언제나. 타입을 볼 것 없이 규칙이 하나가 되고, 주문에서 주문으로
+---                       바꿨을 때 시전하는 주문과 다른 주문을 묻는 조건이 안 남는다.
+---                       `CleanUpDB`가 타입으로 가르는 것은 값이 안 바뀌는 청소여서다
+---   `unit`              새 액션이 대상을 못 가질 때. 묻는 것은 `ActionTakesUnit`이고, 대상
+---                       메뉴와 `FillBinding`이 보는 것도 그것이다 - 타입만으로는 소환수 명령과
+---                       태세 버튼이 안 갈린다. 대상을 `props`로 들고 오는 엔트리가 있어서
+---                       (선택 창의 대상 지정 행) 복사한 다음에 묻는다
+---
+--- 새로 만드는 자리에서는 지울 것이 없어 둘 다 아무 일도 안 한다.
+function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, props)
+    action.type = actionType;
+    action.value = value;
+    action.name = name;
+    action.icon = icon;
+
+    if (props) then
+        for k, v in pairs(props) do
+            action[k] = v;
+        end
+    end
+
+    local conditions = action.conditions;
+    if (conditions) then
+        conditions.known = nil;
+        -- **빈 표는 안 남긴다.** 있느냐를 게이트로 쓰는 자리가 여럿이라(`IsConditionalBinding`),
+        -- 빈 표는 조건이 하나도 없는 액션을 조건부로 만든다. `CleanUpDB`도 같은 줄을 든다.
+        if (next(conditions) == nil) then
+            action.conditions = nil;
+        end
+    end
+
+    if (not DebindPrivate.ActionTakesUnit(action)) then
+        action.unit = nil;
+    end
+end
+
 --- The walk a key-group operation stands on, and its reach.
 ---
 --- **Both sides of the operation have to come from the same place.** The set being moved and

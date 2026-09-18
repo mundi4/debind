@@ -124,6 +124,13 @@ function DebindSpellPickerRowMixin:OnEnter()
 	-- 안 두면 주문 툴팁의 마지막 줄(재사용 대기시간 따위)에 붙어서 그것도 주문 설명인 것처럼
 	-- 읽힌다. 애드온의 다른 툴팁들도 같은 자리에 빈 줄을 둔다.
 	GameTooltip_AddBlankLineToTooltip(GameTooltip);
+	-- 바꾸기 중에는 **줄이 하나다.** 넣을 자리는 바꿀 액션들이 이미 있는 자리라 탭을 고를 것이
+	-- 없고, 그래서 오른쪽 클릭도 할 일이 없다 (`OnClick`).
+	if (DebindSpellPickerFrame.replaceTargets) then
+		GameTooltip_AddInstructionLine(GameTooltip, LLL["SPELL_PICKER_LEFT_CLICK_TO_REPLACE"]);
+		GameTooltip:Show();
+		return;
+	end
 	-- **The line names the tab, it does not just say "the current one".** Two windows stand side
 	-- by side here and only one of them has tabs, so "current" is a word this window cannot answer;
 	-- the name can be read where the cursor already is. `GetLayerLabel` is the same name the side
@@ -154,6 +161,19 @@ end
 function DebindSpellPickerRowMixin:OnClick(button)
 	local entry = self.entry;
 	if (not entry) then
+		return;
+	end
+
+	-- 바꾸기 중이면 새로 만들지 않고 고른 액션들을 덮는다. 오른쪽 클릭이 여기서 아무것도 안
+	-- 하는 것은 그 메뉴가 고르는 것이 **넣을 탭**이라서다. 바꿀 액션은 이미 자기 탭에 있고
+	-- 바꾸기는 그 자리를 안 옮긴다 (`devdocs/legacy/changing-what-an-action-does.md` §4).
+	local replaceTargets = DebindSpellPickerFrame.replaceTargets;
+	if (replaceTargets) then
+		if (button ~= "RightButton") then
+			-- **고른 것을 바로 덮지 않는다.** 확인 창이 여기서 서고, 승낙이 바꾸기를 일으키면서
+			-- 이 창을 닫는다. 취소하면 이 창이 그대로 있어서 다른 것을 고를 수 있다.
+			DebindUI.ConfirmReplaceActions(replaceTargets, entry.type, entry.value, entry.props);
+		end
 		return;
 	end
 
@@ -535,6 +555,23 @@ function DebindSpellPickerFrameMixin:OnShow()
 end
 
 function DebindSpellPickerFrameMixin:OnHide()
+	-- **모드가 풀리는 유일한 자리다.** 고르고 나서도, 닫아서 그만두어도 창은 여기를 지난다.
+	self.replaceTargets = nil;
+	self:UpdateReplaceState();
+
+	-- **확인 창을 데리고 나간다.** 그 창은 이 창에서 고른 것을 묻고 있고, 취소가 "다른 것을
+	-- 고른다"가 되려면 이 창이 뒤에 서 있어야 한다. 남겨두면 고를 창이 없는 확인이 되고,
+	-- `[확인]`은 아무도 안 보고 있는 액션들을 그대로 덮는다.
+	StaticPopup_Hide("DEBIND_REPLACE_ACTIONS");
+
+	-- **[새 사용자 지정 매크로]가 띄운 팝업을 데리고 나간다.** 그 모드로 그 팝업을 여는 자리는
+	-- 이 창의 버튼 하나뿐이라 연 쪽이 여기다. 그 팝업은 아직 아무 액션 위에도 안 서 있어서
+	-- 매크로 편집창이 뒤에 없다
+	-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §4).
+	if (DebindIconSelectorFrame.mode == IconSelectorPopupFrameModes.New) then
+		DebindIconSelectorFrame:Close(true);
+	end
+
 	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(false);
 
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
@@ -791,6 +828,24 @@ function DebindSpellPickerFrameMixin:UpdateEmptyText()
 
 	self.ScrollBox.EmptyText:SetText(self.searchText and LLL["SPELL_PICKER_NO_MATCH"] or LLL["SPELL_PICKER_EMPTY"]);
 	self.ScrollBox.EmptyText:Show();
+end
+
+--- 바꾸기 모드로 세운다. 확인 창이 승낙을 받은 뒤에만 들어온다
+--- (`DebindUI.BeginReplaceActions`, `devdocs/legacy/changing-what-an-action-does.md`).
+function DebindSpellPickerFrameMixin:BeginReplace(actions)
+	self.replaceTargets = actions;
+	DebindUI.CloseActionWindows(self);
+	self:Show();
+	self:UpdateReplaceState();
+end
+
+--- 지금이 어느 모드인지를 말하는 두 자리. [새 사용자 지정 매크로]가 꺼지는 것은 그 버튼이
+--- 언제나 **새 액션을 만들기** 때문이다. 바꿔 넣을 본문을 쓰는 길은 행 메뉴의
+--- [매크로로 바꾸기]이고, 그쪽은 바꿀 액션을 그대로 들고 편집기를 연다.
+function DebindSpellPickerFrameMixin:UpdateReplaceState()
+	local replacing = self.replaceTargets ~= nil;
+	self:SetTitle(replacing and LLL["SPELL_PICKER_REPLACE_TITLE"] or LLL["SPELL_PICKER_TITLE"]);
+	self.NewMacroButton:SetEnabled(not replacing);
 end
 
 function DebindSpellPickerFrameMixin:Toggle()

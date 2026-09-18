@@ -968,6 +968,12 @@ L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"
 -- SPELL_PICKER_LEFT_CLICK_TO_ADD의 짝. 오른쪽 클릭이 있다는 것을 말하는 자리가 화면에
 -- 여기뿐이다 - 행은 있으나 없으나 같은 모양이다.
 L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another layer."
+-- 바꾸기 중의 안내 줄. 한 줄뿐이라 SPELL_PICKER_RIGHT_CLICK_TO_ADD의 짝이 없다 - 넣을 탭을
+-- 고를 일이 없어서 오른쪽 클릭도 할 일이 없다.
+L["SPELL_PICKER_LEFT_CLICK_TO_REPLACE"] = "Left click to replace with it."
+-- SPELL_PICKER_TITLE과 같은 창의 제목이다. 이 창이 지금 무엇을 하는 중인지를 말하는 자리가
+-- 제목 말고는 없어서, 두 모드가 같은 제목을 달면 클릭이 무엇을 할지 알 수 없다.
+L["SPELL_PICKER_REPLACE_TITLE"] = "Replace an Action"
 -- Same thing the overview's `ORDER_FLAG_OFFSPEC` names, so it has to be the same word: two names
 -- for one thing in one window is how a reader ends up thinking there are two things.
 L["SPELL_PICKER_SHOW_OFFSPEC"] = "Inactive specializations"
@@ -1694,6 +1700,22 @@ L["REMOVE_DUPLICATES"] = "Remove Duplicate Actions"
 L["REMOVE_DUPLICATES_DESC"] = "Looks for actions that are exactly the same - same key and all - sitting in the same layer, and removes the extra copies. The one that fires first stays. The same action on two different layers is left alone: that is how a specialization overrides the general list."
 --- Pressed on a profile with nothing to find. **A line rather than a box** - there is nothing to
 --- confirm and nothing to look at, and a dialog saying "no" is a dialog to dismiss.
+-- **말줄임표는 창이 뜬다는 뜻이 아니라 더 물어본다는 뜻이다.** 이 줄은 무엇으로 바꿀지를
+-- 골라야 끝나므로 옆의 MOVE_TO / COPY_TO와 같은 꼴이다. EDIT_MACRO와 CONVERT_TO_MACRO_TEXT는
+-- 창이 뜨지만 더 묻는 것이 없어서 안 단다.
+L["REPLACE_ACTION"] = "Replace..."
+--- 무엇을 고른 **뒤에** 서는 확인 창이라, 머리줄이 바꿀 것의 이름을 댈 수 있다. 고르기 전에는
+--- 못 하던 것이고, 이 창이 언제나 설 수 있는 이유이기도 하다.
+L["REPLACE_CONFIRM_ONE"] = "Replace this action with |cnHIGHLIGHT_FONT_COLOR:%s|r?"
+L["REPLACE_CONFIRM_MANY"] = "Replace |cnHIGHLIGHT_FONT_COLOR:%d|r actions with |cnHIGHLIGHT_FONT_COLOR:%s|r?"
+--- 목록에 들어가는 이름은 메뉴가 쓰는 것 그대로다(`TARGET_UNIT`, `CONDITION_KNOWN`). 읽는
+--- 사람이 거기서 정해둔 것이라, 낱말이 다르면 무엇을 잃는지 찾아야 한다.
+---
+--- **"conditions"라고 못 적는다.** 대상은 조건이 아니다. 둘을 덮는 낱말이라야 한다.
+L["REPLACE_CONFIRM_LOSES"] = "The following settings are removed:"
+--- **목록 밖에 따로 선다.** 설정이 아니라 액션의 몸통이고, 다시 치는 것 말고는 돌아올 길이
+--- 없는 유일한 것이라 무게가 다르다.
+L["REPLACE_CONFIRM_MACROTEXT"] = "A Custom Macro's body is not kept."
 L["REMOVE_DUPLICATES_NONE"] = "No duplicate actions to remove."
 --- **The count is the whole question.** Naming them would be the same name repeated, which is what
 --- a duplicate is.

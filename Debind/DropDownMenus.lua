@@ -7,6 +7,7 @@ local dump                  = DebindPrivate.dump
 --- The four dropdowns other files open.
 local ActionMenu                              = DebindPrivate.ActionMenu;
 local ActionMenus                             = ActionMenu.ActionMenus;
+local CreateReplaceActionMenuItem             = ActionMenu.CreateReplaceActionMenuItem;
 local CreateConvertToMacroTextMenuItem        = ActionMenu.CreateConvertToMacroTextMenuItem;
 local EditMacroTextMenuItem                   = ActionMenu.EditMacroTextMenuItem;
 local CreateSetSwitchMenuItem                 = ActionMenu.CreateSetSwitchMenuItem;
@@ -123,6 +124,8 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     -- on/off/toggle action with no target (§6-C), so the reader arrives here at a red row that
     -- does nothing, and what fixes it is this box.
     CreateSetSwitchMenuItem(rootDescription, ctx);
+
+    CreateReplaceActionMenuItem(rootDescription, ctx);
 
     CreateConvertToMacroTextMenuItem(rootDescription, ctx);
 
