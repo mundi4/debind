@@ -54,6 +54,11 @@ L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you 
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
+-- **Neither side is wrong on its own, so the sentence names both.** The reader wrote one ordinary
+-- condition; what it cannot meet is the key, whose only press is a click on a unit frame. Saying
+-- "the conditions are impossible" here would send them looking for a second condition that is not
+-- there. Mouseover is named because pointing at a frame is what sets it.
+L["BINDING_ERROR_KEY_AND_CONDITION"] = "A left or right click with no modifier only runs when you click a unit frame, and there is always a unit there to point at. This condition asks for none, so the action never runs on this key."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 -- One axis each, named by the axis. The frame type one said "reaction or frame type" while it was

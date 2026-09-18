@@ -2008,7 +2008,7 @@ return function(DebindPrivate, _, ctx)
             end
         end);
         --- **The bare click cannot be turned off, so [when there is none] is what empties it**, and
-        --- that is a contradiction the reader can undo rather than a reason (`NoBindingCause`).
+        --- that is the key and a condition disagreeing rather than a reason (S5 #48).
         Row(47, function()
             local subject = A({ key = "BUTTON1", conditions = { units = { unitframe = false } } });
             Bind({ subject });
@@ -2016,7 +2016,7 @@ return function(DebindPrivate, _, ctx)
                 "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             PointFrame();
             check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
-            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
+            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_KEY_AND_CONDITION,
                 "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
             check(DebindPrivate.GetNotRunningReason(subject) == nil,
                 "#47: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));

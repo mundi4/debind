@@ -602,6 +602,12 @@ Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
 -- does not want back on: turning the action off keeps what it was set with and says they meant it
 -- (`devdocs/which-action-a-key-runs.md` §6, 2026-09-18).
 Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
+-- A left or right click with no modifier answers one press, a click on a unit frame, and the action
+-- carries [when there is none] on a unit that is always there on such a click: the frame's own unit,
+-- or `mouseover`, which the client sets to that same unit (`which-action-a-key-runs.md` §0, S5 #48,
+-- #49). **Not `CONDITIONS_NEVER`**, which says the conditions cannot all be true at once. Here one
+-- condition is enough and nothing is wrong with it; what it cannot meet is the key.
+Constants.BINDING_ISSUE_KEY_AND_CONDITION                 = "KEY_AND_CONDITION";
 
 
 -- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
@@ -655,6 +661,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
     -- Orange, not red: nothing is broken and the reader may have meant it.
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_KEY_AND_CONDITION]                 = Constants.ISSUE_GRADE_ERROR,
 };
 
 -- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
@@ -697,6 +704,9 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_OUTCOME_KEEP,
     -- There is nothing to leave in or out; the key stays held, so the next action on it answers.
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_OUTCOME_OMIT,
+    -- The binding the solver keeps could never match at the press, so it is left off the key and the
+    -- click reaches the frame rather than doing nothing.
+    [Constants.BINDING_ISSUE_KEY_AND_CONDITION]                 = Constants.ISSUE_OUTCOME_OMIT,
 };
 
 

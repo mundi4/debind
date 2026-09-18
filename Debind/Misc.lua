@@ -2540,6 +2540,37 @@ local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting =
 --- reason only, that condition, and every other press being gone is what emptied the list. Off is the
 --- reader's own value; the condition against the mode is two menus disagreeing
 --- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
+--- Both readings of the unit a bare click lands on, in the order the message names them.
+local BARE_CLICK_UNITS = { "unitframe", "mouseover" };
+
+--- The unit whose [when there is none] leaves a bare left or right click nothing to run, or nil.
+---
+--- **Two units, one of them not the mode's.** That key answers one press, a click on a unit frame
+--- (`which-action-a-key-runs.md` §7), and on such a click both the frame's own unit and `mouseover`
+--- are there: the client sets `mouseover` off the frame's `unit` attribute, which is the very
+--- attribute this addon reads for the frame's unit (`SecureBindings.lua`'s `setup_onenter`). A frame
+--- that cannot answer with a unit sets neither: `setup_onenter` writes nothing when the attribute
+--- is missing or the unit is not there.
+---
+--- **The resolved unit counts too**, since `"@"` is that unit's row under another name.
+local function BareClickImpossibleUnit(action)
+    if (not DebindPrivate.IsBareWorldClick(action.key)) then
+        return nil;
+    end
+    local units = action.conditions and action.conditions.units;
+    if (units == nil) then
+        return nil;
+    end
+    local picked = PickedUnitOf(action);
+    for _, unit in ipairs(BARE_CLICK_UNITS) do
+        if (UnitConditionForBinding(units[unit]) == false
+                or (picked == unit and UnitConditionForBinding(units["@"]) == false)) then
+            return unit;
+        end
+    end
+    return nil;
+end
+
 local function NoBindingCause(action, list)
     if (#list > 0) then
         return nil;
@@ -2626,7 +2657,22 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
             and (category ~= "key" or DebindPrivate.IsBareWorldClick(action.key))
             and (StoredUnitRows(action) or action.casting or action.hover ~= nil)) then
         local list = DebindPrivate.GetBindingsForAction(action);
-        if (#list == 0) then
+        -- **The key and one condition, neither of them wrong on its own** (S5 #48, #49). Told before
+        -- the list is looked at, because `mouseover` [when there is none] does not empty the list:
+        -- the twin stands on [the frame's unit is there] and the solver keeps the two units apart,
+        -- as it keeps every correlation apart (`Solver.lua`'s header). At the press they are one
+        -- unit, and the click finds nothing to run.
+        local impossible = BareClickImpossibleUnit(action);
+        if (impossible) then
+            if ((not category or category == "key") and notCategory ~= "key") then
+                Report(Constants.BINDING_ISSUE_KEY_AND_CONDITION, "KEY");
+            end
+            if ((not category or (category == "units"
+                        and (arg == nil or RowUnitName(arg) == impossible)))
+                    and notCategory ~= "units") then
+                Report(Constants.BINDING_ISSUE_KEY_AND_CONDITION, "CONDITION_UNITS");
+            end
+        elseif (#list == 0) then
             -- **Every press turned off is a warning on Cast Options** (2026-09-18, owner). It was a
             -- reason and nothing else while the only way to clear it was turning a press back on;
             -- an action can be turned off now, which says the reader meant it and takes the mark

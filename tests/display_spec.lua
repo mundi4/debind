@@ -423,13 +423,14 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
         check(row, "the action is not on the key");
-        check(row.issue == Constants.BINDING_ISSUE_CONDITIONS_NEVER, "the row's issue: " .. tostring(row.issue));
-        check(row.castingOff == nil, "also given as a reason: " .. tostring(row.castingOff));
+        check(row.issue == Constants.BINDING_ISSUE_KEY_AND_CONDITION,
+            "the row's issue: " .. tostring(row.issue));
+        check(row.notRunning == nil, "also given as a reason: " .. tostring(row.notRunning));
         local tooltip = shim.newTooltip();
         DebindPrivate.AddActionToTooltip(tooltip, row.action, { suppressInactive = true });
         local count = 0;
         for i = 1, #tooltip.lines do
-            if (tooltip.lines[i].text == LLL["BINDING_ERROR_CONDITIONS_NEVER"]) then
+            if (tooltip.lines[i].text == LLL["BINDING_ERROR_KEY_AND_CONDITION"]) then
                 count = count + 1;
             end
         end

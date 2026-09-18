@@ -1050,6 +1050,7 @@ return function(DebindPrivate)
     local ROLES_NONE = Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
     local ROLES_ON_GROUP = Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
     local NOTHING_RUNS = Constants.BINDING_ISSUE_NOTHING_RUNS;
+    local KEY_AND_CONDITION = Constants.BINDING_ISSUE_KEY_AND_CONDITION;
 
     --- Per row: the whole action, `units`, each unit row asked on its own, `unit` (the root Target),
     --- and `groups` and `casting` where the table fills them in. `false` stands for nil so a column
@@ -1084,9 +1085,10 @@ return function(DebindPrivate)
         [18] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE }, unit = false,
             casting = NOTHING_RUNS },
         [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
-        -- The bare click always answers the pointed press, so [when there is none] on that unit is a
-        -- contradiction the reader can undo, painted on the key and on that row (`NoBindingCause`).
-        [20] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER }, unit = false, casting = false },
+        -- The bare click always lands on a unit, so [when there is none] on it is the key and one
+        -- condition that cannot both stand. Painted on the key and on that row.
+        [20] = { all = KEY_AND_CONDITION, units = KEY_AND_CONDITION,
+            rows = { unitframe = KEY_AND_CONDITION }, unit = false, casting = false },
         [21] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false,
             casting = false },
         [22] = { all = UNITGROUPS_NONE, units = UNITGROUPS_NONE,
@@ -1221,33 +1223,55 @@ return function(DebindPrivate)
             "reason: " .. tostring(GetNotRunningReason(action)));
     end);
 
-    --- The bare click only runs over a unit frame, and [when there is none] on that unit leaves it
-    --- nowhere. **Undone by changing the key or the condition**, so both are told.
-    test("the bare click with the pointed unit [none] is a contradiction on the key and the unit", function()
+    --- The bare click only runs when a unit frame is clicked, and there is always a unit there, so
+    --- [when there is none] on it leaves the key nothing. **Undone by changing the key or the
+    --- condition**, so both are told. Not `CONDITIONS_NEVER`: one condition is all there is, and
+    --- nothing is wrong with it (S5 #48).
+    test("the bare click with the pointed unit [none] is told at the key and at the unit", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
             conditions = { units = { unitframe = false } } };
-        check(GetBindingIssue(action) == NEVER, "reported: " .. tostring(GetBindingIssue(action)));
+        check(GetBindingIssue(action) == KEY_AND_CONDITION,
+            "reported: " .. tostring(GetBindingIssue(action)));
         local labels = {};
         for _, issue in ipairs(GetBindingIssues(action)) do
-            if (issue.code == NEVER) then
+            if (issue.code == KEY_AND_CONDITION) then
                 labels[issue.label] = true;
             end
         end
         check(labels.KEY and labels.CONDITION_UNITS, "the key or the units label is missing");
-        check(GetBindingIssue(action, "key") == NEVER, "the key box is not told");
-        check(GetBindingIssue(action, "units", nil, "unitframe") == NEVER, "the unit row is not told");
+        check(GetBindingIssue(action, "key") == KEY_AND_CONDITION, "the key box is not told");
+        check(GetBindingIssue(action, "units", nil, "unitframe") == KEY_AND_CONDITION,
+            "the unit row is not told");
         check(GetBindingIssue(action, "units", nil, "target") == nil, "another row was told");
         check(GetBindingIssue(action, "casting") == nil, "Cast Options was told");
         check(GetNotRunningReason(action) == nil, "also given as a reason");
     end);
 
-    --- **The bare click points at a frame whatever the mode says** (`HoverCastMode`,
-    --- `which-action-a-key-runs.md` §7), so [when there is none] on `mouseover` leaves its twin alone.
-    test("the bare click with mouseover [none] under the mouseover mode is not a contradiction", function()
-        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
-            casting = { hoverCastMode = "mouseover" },
-            conditions = { units = { mouseover = false } } };
-        check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
+    --- **`mouseover` is the same unit on that click** (S5 #49). Pointing at a frame is what sets it,
+    --- off the very attribute this addon reads for the frame's unit, so [when there is none] on it
+    --- stops the click as surely as the row above. The mode has no say: this key points at frames
+    --- whatever it says (`HoverCastMode`).
+    test("the bare click with mouseover [none] is told the same way", function()
+        for _, mode in ipairs({ "unitframe", "mouseover" }) do
+            local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
+                casting = { hoverCastMode = mode },
+                conditions = { units = { mouseover = false } } };
+            check(GetBindingIssue(action) == KEY_AND_CONDITION,
+                mode .. ": " .. tostring(GetBindingIssue(action)));
+            check(GetBindingIssue(action, "units", nil, "mouseover") == KEY_AND_CONDITION,
+                mode .. ": the unit row is not told");
+            check(GetBindingIssue(action, "key") == KEY_AND_CONDITION, mode .. ": the key is not told");
+        end
+    end);
+
+    --- 같은 조건이 다른 키에서는 아무 문제가 아니다. 이것이 없으면 위 둘은 "그 조건이면 언제나
+    --- 경고"로도 통과한다.
+    test("the same condition on a keyboard key is no issue", function()
+        for _, unit in ipairs({ "unitframe", "mouseover" }) do
+            local action = { type = Constants.SPELL, value = 585, key = "F1",
+                conditions = { units = { [unit] = false } } };
+            check(GetBindingIssue(action) == nil, unit .. ": " .. tostring(GetBindingIssue(action)));
+        end
     end);
 
     --- The same contradiction off the bare click: Normal, Self and Focus turned off, and the one
