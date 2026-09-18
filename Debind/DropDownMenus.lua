@@ -21,6 +21,7 @@ local CreateRejectImportMenuItem              = ActionMenu.CreateRejectImportMen
 local CreateMoveCopyMenu                      = ActionMenu.CreateMoveCopyMenu;
 local CreateBlockedMenuItem                   = ActionMenu.CreateBlockedMenuItem;
 local CreateOrderMenuItems                    = ActionMenu.CreateOrderMenuItems;
+local CreateDisableMenuItem                   = ActionMenu.CreateDisableMenuItem;
 local CreateDeleteMenu                        = ActionMenu.CreateDeleteMenu;
 local GetTabList                              = ActionMenu.GetTabList;
 local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip;
@@ -199,6 +200,10 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
         CreateMoveCopyMenu(rootDescription, false, fromLayerID, Apply);
         CreateMoveCopyMenu(rootDescription, true, fromLayerID, Apply);
     end
+
+    -- **Turning off sits beside deleting**, because it is the same question answered two ways: stop
+    -- this action, keeping what it was set with or not.
+    CreateDisableMenuItem(rootDescription, ctx);
 
     -- **Delete takes badged rows with the rest.** Nothing is relocated and nothing duplicated, so
     -- neither reason above reaches it; what it does to an arrival is what [Reject] does, and a reader

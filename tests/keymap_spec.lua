@@ -372,6 +372,28 @@ return function(DebindPrivate)
         check(last == "2", "the last tier came out " .. tostring(last));
     end);
 
+    --- **An action the reader turned off reaches no record and hands its key back** (2026-09-18,
+    --- 소유자). That last part is what tells it from an action whose presses are all off: there the
+    --- key stays held so the next action on it answers, here nobody asked us to hold anything.
+    test("an action turned off reaches no record and does not hold its key", function()
+        Bind({
+            { type = Constants.SPELL, value = 1, key = "F8", seq = 1, disabled = true },
+        });
+        check(DebindPrivate.KeyMap["F8"] == nil, "the action reached a record");
+        check(DebindPrivate.KeysToHold["F8"] == nil, "the key was held");
+    end);
+
+    --- 같은 키에 켜진 액션이 있으면 키는 그 액션이 잡는다. 이것이 없으면 위 테스트는 "키를 영영
+    --- 안 잡는다"로도 통과한다.
+    test("an action turned off leaves the key to the action beside it", function()
+        Bind({
+            { type = Constants.SPELL, value = 1, key = "F8", seq = 1, disabled = true },
+            { type = Constants.SPELL, value = 2, key = "F8", seq = 2 },
+        });
+        check(Values("F8") == "2", "the key came out " .. Values("F8"));
+        check(DebindPrivate.KeysToHold["F8"] == true, "the key was not held");
+    end);
+
     -- **An action with all four values off is not on the key at all** (§6). It keeps its row and its
     -- warning; what it does not keep is a record, so the action behind it answers every press.
     test("an action with nothing left to cast reaches no record", function()

@@ -751,6 +751,15 @@ local function CreateOrderMenuItems(rootDescription, ctx)
     CreateMoveItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
 end
 
+--- **Off without deleting.** The action keeps its conditions, its importance and its place in the
+--- key, and hands its key back to the game. It is the way out of "this action never runs" that does
+--- not mean turning a press back on (`devdocs/which-action-a-key-runs.md` §6).
+local function CreateDisableMenuItem(rootDescription, ctx)
+    local description = CreateCheckbox(rootDescription, ctx, LLL["ACTION_DISABLED"], actionValueEquals,
+        setActionValue, { ctx = ctx, key = "disabled", value = USE_CHECKED_VALUE });
+    SetInstructionTooltip(description, LLL["ACTION_DISABLED_DESC"]);
+end
+
 local function CreateDeleteMenu(rootDescription, ctx)
     rootDescription:CreateButton(LLL["DELETE"], function()
         DebindUI.ShowDeleteConfirmationPopup(ctx.actions);
@@ -772,4 +781,5 @@ ActionMenu.CreateRejectImportMenuItem         = CreateRejectImportMenuItem;
 ActionMenu.CreateMoveCopyMenu                 = CreateMoveCopyMenu;
 ActionMenu.CreateBlockedMenuItem              = CreateBlockedMenuItem;
 ActionMenu.CreateOrderMenuItems               = CreateOrderMenuItems;
+ActionMenu.CreateDisableMenuItem              = CreateDisableMenuItem;
 ActionMenu.CreateDeleteMenu                   = CreateDeleteMenu;

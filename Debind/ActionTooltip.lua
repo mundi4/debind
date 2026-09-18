@@ -439,10 +439,9 @@ do
 		-- A held key the settings turn off is not drawn: that tier is not built at all, so the
 		-- action's own value there says nothing (`SelfCastEnabled`).
 		--
-		-- **Every press turned off is said under the block as a reason, not as an issue**, the way the
-		-- specialization line stands under its condition. The block always has a line for it: the
-		-- reason needs Normal Cast off or Hover Cast skipped (`GetCastingOffReason`), and both draw
-		-- one. Asked in every world, since neither half of it has a specialization.
+		-- **An action the reader turned off says so under the block as a reason, not as an issue**,
+		-- the way the specialization line stands under its condition (`GetNotRunningReason`). Every
+		-- press being off is the other way to stand still, and that one is a warning on this block.
 		do
 			wipe(_lines);
 			if (DebindPrivate.SelfCastEnabled()) then
@@ -478,13 +477,13 @@ do
 				tinsert(_lines, LabelledValue(LLL["CASTING_NORMAL"], OFF));
 			end
 
-			if (#_lines > 0) then
+			local notRunning = DebindPrivate.GetNotRunningReason(action);
+			if (#_lines > 0 or notRunning) then
 				addLabelLine(tooltip, LLL["CASTING"]);
 				addValueLines(tooltip, _lines, hasIssues and GetIssue("casting"), true);
-				local castingOff = DebindPrivate.GetCastingOffReason(action);
-				if (castingOff) then
+				if (notRunning) then
 					addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
-						"(" .. LLL["LINE_TOOLTIP_CASTING_" .. castingOff] .. ")"), nil, true);
+						"(" .. LLL["LINE_TOOLTIP_NOT_RUNNING_" .. notRunning] .. ")"), nil, true);
 				end
 			end
 		end

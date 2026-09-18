@@ -2550,13 +2550,13 @@ local function NoBindingCause(action, list)
     return "NONE_LEFT";
 end
 
---- Why this action does not run because of what its Cast Options say, or nil: `"NONE_LEFT"`.
---- **A reason, not an issue.** The reader may mean it, and a mark they could only clear by turning a
---- press back on is a mark they cannot clear.
-function DebindPrivate.GetCastingOffReason(action)
-    local cause = NoBindingCause(action, DebindPrivate.GetBindingsForAction(action));
-    if (cause ~= "CONTRADICTION") then
-        return cause;
+--- Why this action does not run although nothing about it is wrong, or nil: `"DISABLED"`.
+--- **A reason, not an issue.** The reader said so, and a mark on what they asked for is a mark with
+--- nothing to fix. Every press being off is the other way to stand still and that one **is** an
+--- issue, because turning the action off is a way to close it (`BINDING_ISSUE_NOTHING_RUNS`).
+function DebindPrivate.GetNotRunningReason(action)
+    if (action and action.disabled) then
+        return "DISABLED";
     end
     return nil;
 end
@@ -2627,12 +2627,23 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
             and (StoredUnitRows(action) or action.casting or action.hover ~= nil)) then
         local list = DebindPrivate.GetBindingsForAction(action);
         if (#list == 0) then
-            -- Every press turned off is not reported: it is a reason the row does not run
-            -- (`GetCastingOffReason`). The contradiction is, on both sides that can undo it: the
-            -- unit's row, and whatever emptied the rest of the list. On the bare click that is the
-            -- key, which runs only over a unit frame (`which-action-a-key-runs.md` §7); anywhere
-            -- else it is Cast Options.
-            if (NoBindingCause(action, list) == "CONTRADICTION") then
+            -- **Every press turned off is a warning on Cast Options** (2026-09-18, owner). It was a
+            -- reason and nothing else while the only way to clear it was turning a press back on;
+            -- an action can be turned off now, which says the reader meant it and takes the mark
+            -- with it (`action.disabled`).
+            --
+            -- The contradiction is told on both sides that can undo it: the unit's row, and whatever
+            -- emptied the rest of the list. On the bare click that is the key, which runs only over a
+            -- unit frame (`which-action-a-key-runs.md` §7); anywhere else it is Cast Options.
+            local cause = NoBindingCause(action, list);
+            if (cause == "NONE_LEFT") then
+                -- **Turned off, the warning has been answered.** Every other code stays, so turning
+                -- the action back on is not a surprise.
+                if (not action.disabled
+                        and (not category or category == "casting") and notCategory ~= "casting") then
+                    Report(Constants.BINDING_ISSUE_NOTHING_RUNS, "CASTING");
+                end
+            elseif (cause == "CONTRADICTION") then
                 local side, sideLabel = "casting", "CASTING";
                 if (DebindPrivate.IsBareWorldClick(action.key)) then
                     side, sideLabel = "key", "KEY";

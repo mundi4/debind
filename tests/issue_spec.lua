@@ -1049,6 +1049,7 @@ return function(DebindPrivate)
     local REACTIONS_NONE = Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED;
     local ROLES_NONE = Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
     local ROLES_ON_GROUP = Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
+    local NOTHING_RUNS = Constants.BINDING_ISSUE_NOTHING_RUNS;
 
     --- Per row: the whole action, `units`, each unit row asked on its own, `unit` (the root Target),
     --- and `groups` and `casting` where the table fills them in. `false` stands for nil so a column
@@ -1075,9 +1076,13 @@ return function(DebindPrivate)
             focus = NEVER, unitframe = NEVER }, unit = false },
         [15] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
         [16] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
-        [17] = { all = false, units = false, rows = { ["@"] = false }, unit = false, casting = false },
+        -- Every press off is a warning on Cast Options now, closable by turning the action off.
+        [17] = { all = NOTHING_RUNS, units = false, rows = { ["@"] = false }, unit = false,
+            casting = NOTHING_RUNS },
+        -- **The reaction wins the action's own slot**, being the louder of the two (ERROR over
+        -- WARNING), and Cast Options still carries its own.
         [18] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE }, unit = false,
-            casting = false },
+            casting = NOTHING_RUNS },
         [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
         -- The bare click always answers the pointed press, so [when there is none] on that unit is a
         -- contradiction the reader can undo, painted on the key and on that row (`NoBindingCause`).
@@ -1136,14 +1141,20 @@ return function(DebindPrivate)
         end);
     end
 
-    -- #18 carries one fault and one choice. **The choice is not reported next to the fault**: every
-    -- press turned off is something the reader may mean, and a mark they can only clear by turning
-    -- a press back on is a mark they cannot clear (`devdocs/legacy/reorganizing-binding-issues.md` §2-3).
-    test("§4 #18: only the empty reaction is reported", function()
+    -- #18 carries two, and they are different things to fix: an empty reaction, which is a fault,
+    -- and every press turned off, which is a state with a way to mean it (2026-09-18, 소유자). **The
+    -- fault is louder**, so it takes the action's own slot while both stand in the list.
+    test("§4 #18: the empty reaction is reported ahead of the presses", function()
         local action = require("answer_rows")(Constants)[18].action();
         local issues = GetBindingIssues(action);
-        check(#issues == 1 and issues[1].code == REACTIONS_NONE,
+        local codes = {};
+        for _, issue in ipairs(issues) do
+            codes[issue.code] = true;
+        end
+        check(#issues == 2 and codes[REACTIONS_NONE] and codes[NOTHING_RUNS],
             "reported: " .. tostring(issues[1] and issues[1].code) .. " and " .. (#issues - 1) .. " more");
+        check(GetBindingIssue(action) == REACTIONS_NONE,
+            "the action's own slot is " .. tostring(GetBindingIssue(action)));
     end);
 
     ---------------------------------------------------------------------------
@@ -1157,7 +1168,7 @@ return function(DebindPrivate)
 
     local ALL_OFF = { normalCast = false, hoverCast = "skip",
         selfCastKey = "skip", focusCastKey = "skip" };
-    local GetCastingOffReason = DebindPrivate.GetCastingOffReason;
+    local GetNotRunningReason = DebindPrivate.GetNotRunningReason;
 
     local function copyOf(value)
         if (type(value) ~= "table") then
@@ -1170,12 +1181,27 @@ return function(DebindPrivate)
         return out;
     end
 
-    test("every press turned off is a reason, not an issue", function()
+    --- **Every press turned off is a warning on Cast Options** (2026-09-18, 소유자). It says nothing
+    --- about the reader being wrong; it says the action never runs and names the way to mean it.
+    test("every press turned off is a warning on Cast Options", function()
         local action = { type = Constants.SPELL, value = 585, key = "F1", casting = copyOf(ALL_OFF) };
+        check(GetBindingIssue(action) == Constants.BINDING_ISSUE_NOTHING_RUNS,
+            "reported: " .. tostring(GetBindingIssue(action)));
+        check(GetBindingIssue(action, "casting") == Constants.BINDING_ISSUE_NOTHING_RUNS,
+            "Cast Options was not told");
+        check(GetNotRunningReason(action) == nil,
+            "also given as a reason: " .. tostring(GetNotRunningReason(action)));
+    end);
+
+    --- **Turning the action off is the way to close that warning**, and it is not a warning itself.
+    --- The row says why it does not run and nothing asks the reader to change anything.
+    test("an action the reader turned off carries a reason and no issue", function()
+        local action = { type = Constants.SPELL, value = 585, key = "F1", disabled = true,
+            casting = copyOf(ALL_OFF) };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
         check(#GetBindingIssues(action) == 0, "the list is not empty");
-        check(GetCastingOffReason and GetCastingOffReason(action) == "NONE_LEFT",
-            "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
+        check(GetNotRunningReason(action) == "DISABLED",
+            "reason: " .. tostring(GetNotRunningReason(action)));
     end);
 
     --- **Hover Cast turned off does not reach the bare click**, which answers the pointed press
@@ -1183,16 +1209,16 @@ return function(DebindPrivate)
     test("Hover Cast turned off on the bare click changes nothing", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1", casting = {} };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
-        check(GetCastingOffReason and GetCastingOffReason(action) == nil,
-            "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
+        check(GetNotRunningReason(action) == nil,
+            "reason: " .. tostring(GetNotRunningReason(action)));
     end);
 
-    -- The negative half: an action that still makes a binding has no reason to give.
-    test("an action with a press left gives no reason", function()
+    -- The negative half: an action nobody turned off has no reason to give.
+    test("an action the reader left on gives no reason", function()
         local action = { type = Constants.SPELL, value = 585, key = "F1",
             casting = { normalCast = false } };
-        check(GetCastingOffReason and GetCastingOffReason(action) == nil,
-            "reason: " .. tostring(GetCastingOffReason and GetCastingOffReason(action)));
+        check(GetNotRunningReason(action) == nil,
+            "reason: " .. tostring(GetNotRunningReason(action)));
     end);
 
     --- The bare click only runs over a unit frame, and [when there is none] on that unit leaves it
@@ -1212,7 +1238,7 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units", nil, "unitframe") == NEVER, "the unit row is not told");
         check(GetBindingIssue(action, "units", nil, "target") == nil, "another row was told");
         check(GetBindingIssue(action, "casting") == nil, "Cast Options was told");
-        check(GetCastingOffReason(action) == nil, "also given as a reason");
+        check(GetNotRunningReason(action) == nil, "also given as a reason");
     end);
 
     --- **The bare click points at a frame whatever the mode says** (`HoverCastMode`,
@@ -1236,7 +1262,7 @@ return function(DebindPrivate)
             check(GetBindingIssue(action, "casting") == NEVER, mode .. ": Cast Options is not told");
             check(GetBindingIssue(action, "units", nil, mode) == NEVER, mode .. ": the unit row is not told");
             check(GetBindingIssue(action, "key") == nil, mode .. ": the key box was told");
-            check(GetCastingOffReason(action) == nil, mode .. ": also given as a reason");
+            check(GetNotRunningReason(action) == nil, mode .. ": also given as a reason");
         end
     end);
 

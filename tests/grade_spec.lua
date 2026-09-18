@@ -54,7 +54,8 @@ return function(DebindPrivate)
     --- twin", went when Blizzard's unit frames became ours whether or not Clique is there (code
     --- review, 2026-09-08).
     local WARNING = {};
-    for _, code in ipairs({ Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES }) do
+    for _, code in ipairs({ Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES,
+            Constants.BINDING_ISSUE_NOTHING_RUNS }) do
         WARNING[code] = true;
     end
 

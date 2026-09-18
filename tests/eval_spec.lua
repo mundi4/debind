@@ -873,7 +873,7 @@ return function(DebindPrivate, _, ctx)
                     { "usual", "usual", "Renew", nil },
                 }) do
                     local first = action({ value = 585, key = "F1",
-                        casting = { [case.row] = mode[1], hoverCast = "skip" },
+                        casting = { [case.row] = mode[1] },
                         conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } });
                     Bind({ first, action({ value = 774, key = "F1" }) });
                     interp.state.modifiedClick[case.key] = true;
@@ -1606,7 +1606,11 @@ return function(DebindPrivate, _, ctx)
             if (t.casting == nil) then
                 t.casting = {};
             end
-            if (t.casting.hoverCast == nil) then
+            -- **`false` is this helper's word for off**, which is stored as nothing at all: written
+            -- as nil a row could not tell "leave it off" from "say nothing and get the default".
+            if (t.casting.hoverCast == false) then
+                t.casting.hoverCast = nil;
+            elseif (t.casting.hoverCast == nil) then
                 t.casting.hoverCast = "cast";
             end
             return t;
@@ -1841,17 +1845,17 @@ return function(DebindPrivate, _, ctx)
             return { a, b };
         end
         Row(27, function()
-            Bind(AB("AB", { hoverCast = "skip" }));
+            Bind(AB("AB", { hoverCast = false }));
             PointFrame();
             Expect(27, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
         Row(28, function()
-            Bind(AB("BA", { hoverCast = "skip" }));
+            Bind(AB("BA", { hoverCast = false }));
             PointFrame();
             Expect(28, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
         Row(29, function()
-            Bind(AB("BA", { hoverCast = "skip" }));
+            Bind(AB("BA", { hoverCast = false }));
             PointNothing();
             Expect(29, { Press("F1", nil, "unitframe") }, { "B", nil, "original" });
         end);
@@ -1886,7 +1890,7 @@ return function(DebindPrivate, _, ctx)
             Expect(31, { Press("F1", nil, "unitframe") }, { "B", nil, "hover" });
         end);
         Row(32, function()
-            Layered({ hoverCast = "skip" });
+            Layered({ hoverCast = false });
             PointFrame();
             Expect(32, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
@@ -1897,7 +1901,7 @@ return function(DebindPrivate, _, ctx)
             check(Click(4) == "A", "#33: the frame click fired " .. tostring(Click(4)));
         end);
         Row(34, function()
-            Bind({ A({ key = "BUTTON4", casting = { hoverCast = "skip" } }) });
+            Bind({ A({ key = "BUTTON4", casting = { hoverCast = false } }) });
             PointFrame();
             check(Click(4) == nil, "#34: the frame click fired " .. tostring(Click(4)));
         end);
@@ -1941,7 +1945,7 @@ return function(DebindPrivate, _, ctx)
                 "#40: fired " .. tostring(spell) .. " cast at " .. tostring(castUnit));
         end);
         Row(41, function()
-            local subject = A({ casting = { normalCast = false, hoverCast = "skip",
+            local subject = A({ casting = { normalCast = false, hoverCast = false,
                 selfCastKey = "skip", focusCastKey = "skip" } });
             Bind({ subject });
             PointFrame();
@@ -1950,13 +1954,13 @@ return function(DebindPrivate, _, ctx)
             Expect(41, { Press("F1", nil, "unitframe") }, {});
             Expect(41, { Press("F1", "self", "unitframe") }, {});
             Expect(41, { Press("F1", "focus", "unitframe") }, {});
-            check(DebindPrivate.GetBindingIssue(subject) == nil,
+            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_NOTHING_RUNS,
                 "#41: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
-            check(DebindPrivate.GetCastingOffReason(subject) == "NONE_LEFT",
-                "#41: the reason is " .. tostring(DebindPrivate.GetCastingOffReason(subject)));
+            check(DebindPrivate.GetNotRunningReason(subject) == nil,
+                "#41: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
         end);
         Row(42, function()
-            Bind({ A({ casting = { normalCast = false, hoverCast = "skip",
+            Bind({ A({ casting = { normalCast = false, hoverCast = false,
                 selfCastKey = "skip", focusCastKey = "skip" } }) });
             check(_G.GetBindingAction("F1", true) == "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
                     .. ":" .. Constants.CLICKTIME_BUTTON_PREFIX .. "F1",
@@ -1966,7 +1970,7 @@ return function(DebindPrivate, _, ctx)
             Expect(42, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(43, function()
-            Bind({ A({ key = "BUTTON1", casting = { normalCast = false, hoverCast = "skip",
+            Bind({ A({ key = "BUTTON1", casting = { normalCast = false, hoverCast = false,
                 selfCastKey = "skip", focusCastKey = "skip" } }) });
             check((_G.GetBindingAction("BUTTON1", true) or "") == "",
                 "#43: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
@@ -2014,8 +2018,8 @@ return function(DebindPrivate, _, ctx)
             check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
             check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
                 "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
-            check(DebindPrivate.GetCastingOffReason(subject) == nil,
-                "#47: the reason is " .. tostring(DebindPrivate.GetCastingOffReason(subject)));
+            check(DebindPrivate.GetNotRunningReason(subject) == nil,
+                "#47: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
         end);
 
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written

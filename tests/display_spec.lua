@@ -347,11 +347,9 @@ return function(DebindPrivate)
         check(not Says(row, "CASTING"), "a block of defaults was drawn: " .. Tooltip(row));
     end);
 
-    --- **Every press turned off is said under Cast Options, right under the key, as a reason the row
-    --- does not run.** Not in an issue's colour: the reader may mean it, and a mark they can only clear
-    --- by turning a press back on is a mark they cannot clear
-    --- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
-    test("every press turned off draws the block under the key with the reason in it", function()
+    --- **Every press turned off is a warning on the Cast Options block** (2026-09-18, 소유자), which
+    --- is where the values that caused it are. The block stands right under the key.
+    test("every press turned off draws the block under the key and warns on it", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                 casting = { normalCast = false, selfCastKey = "skip", focusCastKey = "skip" } },
@@ -359,25 +357,43 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
-        check(row.issue == nil, "the row carries an issue: " .. tostring(row.issue));
-        check(row.castingOff == "NONE_LEFT", "the row carries no reason: " .. tostring(row.castingOff));
+        check(row.issue == Constants.BINDING_ISSUE_NOTHING_RUNS,
+            "the row carries " .. tostring(row.issue));
+        check(row.notRunning == nil, "the row carries a reason: " .. tostring(row.notRunning));
         local text = Tooltip(row);
         -- The label line is a format string with the label in it, so the value lines are what can be
         -- found; the key's own value line (`F1`) is what they have to come after.
         local keyAt = LineIndex(row, "F1");
-        local reasonAt, reason = LineIndex(row, LLL["LINE_TOOLTIP_CASTING_NONE_LEFT"]);
-        check(keyAt and reasonAt, "the key or the reason is missing: " .. text);
-        check(reason.kind ~= "colored" and reason.text:find(DISABLED_FONT_COLOR:WrapTextInColorCode(""):sub(1, 10), 1, true),
-            "the reason is not in the disabled colour: " .. text);
+        check(keyAt, "the key line is missing: " .. text);
         -- **Hover Cast has no line here**, because off is what it is by default and the block names
         -- only what the reader changed.
         local firstAt = LineIndex(row, AUTO_SELF_CAST_KEY_TEXT .. ":");
         for _, word in ipairs({ AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT,
                 LLL["CASTING_NORMAL"] }) do
             local at = LineIndex(row, word .. ":");
-            check(at and keyAt < at and at < reasonAt, word .. " is not drawn between the key and the reason: " .. text);
+            check(at and keyAt < at, word .. " is not drawn under the key: " .. text);
         end
         check(firstAt == keyAt + 3, "something stands between the key and the block: " .. text);
+    end);
+
+    --- **An action the reader turned off says so as a reason, in the disabled colour**, the way the
+    --- specialization line does. Nothing asks them to change anything, and the warning above is gone
+    --- because turning it off is how that one is answered.
+    test("an action turned off draws its reason and no warning", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, disabled = true,
+                casting = { normalCast = false, selfCastKey = "skip", focusCastKey = "skip" } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        check(row.issue == nil, "the row carries an issue: " .. tostring(row.issue));
+        check(row.notRunning == "DISABLED", "the row carries no reason: " .. tostring(row.notRunning));
+        local text = Tooltip(row);
+        local reasonAt, reason = LineIndex(row, LLL["LINE_TOOLTIP_NOT_RUNNING_DISABLED"]);
+        check(reasonAt, "the reason is missing: " .. text);
+        check(reason.kind ~= "colored" and reason.text:find(DISABLED_FONT_COLOR:WrapTextInColorCode(""):sub(1, 10), 1, true),
+            "the reason is not in the disabled colour: " .. text);
     end);
 
     --- **Hover Cast turned off does not reach the bare left click** (`HoverCastChoiceOf`,

@@ -428,20 +428,19 @@ return function(DebindPrivate)
     --- **Every press turned off makes no binding at all**, and it is said as a reason the row does
     --- not run rather than as an issue. Nothing blocks it (2026-09-16, owner;
     --- `devdocs/legacy/reorganizing-binding-issues.md` §3-3).
-    test("an action with every press off has no binding and gives a reason, not an issue", function()
+    test("an action with every press off has no binding and is warned about", function()
         local action = spell();
         action.casting = {
             normalCast = false,
-            hoverCast = "skip",
             selfCastKey = "skip",
             focusCastKey = "skip",
         };
         check(#DebindPrivate.GetBindingsForAction(action) == 0,
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
         local issue = GetBindingIssue(action);
-        check(issue == nil, "reported: " .. tostring(issue));
-        check(DebindPrivate.GetCastingOffReason(action) == "NONE_LEFT",
-            "reason: " .. tostring(DebindPrivate.GetCastingOffReason(action)));
+        check(issue == Constants.BINDING_ISSUE_NOTHING_RUNS, "reported: " .. tostring(issue));
+        check(DebindPrivate.GetNotRunningReason(action) == nil,
+            "reason: " .. tostring(DebindPrivate.GetNotRunningReason(action)));
         -- An empty list has no binding a neighbour could have covered.
         check(not DebindPrivate.IsUnreachableAction(action), "바인딩이 없는 액션이 이웃에 덮였다고 나온다");
     end);
@@ -463,7 +462,7 @@ return function(DebindPrivate)
             "바인딩이 " .. #DebindPrivate.GetBindingsForAction(action) .. "개 나왔다");
         check(GetBindingIssue(action) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
             "나온 것: " .. tostring(GetBindingIssue(action)));
-        check(DebindPrivate.GetCastingOffReason(action) == nil, "also given as a reason");
+        check(DebindPrivate.GetNotRunningReason(action) == nil, "also given as a reason");
     end);
 
     --- 셋만 끈 액션은 남은 하나로 여전히 선다. 이것이 없으면 위 테스트는 "언제나 경고"로도

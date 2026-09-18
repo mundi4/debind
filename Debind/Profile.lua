@@ -35,6 +35,11 @@ local KEYS_TO_SAVE       = {
     -- key here doing the group's work; what that cost is in the same 12절.
     arrivalID = true,
     keepInBindingContext = true,
+    -- **The reader has turned this action off.** It keeps everything it was set with, reaches no
+    -- key, and hands its key back to the game, which is what tells it apart from an action whose
+    -- presses are all off (`devdocs/which-action-a-key-runs.md` §6). Deleting is the other way to
+    -- stop an action, and it takes the conditions, the importance and the place in the key with it.
+    disabled = true,
     -- **Which presses this action stands on**, as one table of four values
     -- (`devdocs/which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
@@ -3203,10 +3208,10 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
                 and DebindPrivate.Spells.SettleKnown(knownAsked) == false))
         or nil;
 
-    -- **The fourth way: every press turned off in Cast Options.** Not an issue, because the reader may
-    -- mean it (`devdocs/legacy/reorganizing-binding-issues.md` §3-3). Asked in every world: what it
-    -- reads is the action and the account's cast key settings, neither of which has a specialization.
-    row.castingOff = DebindPrivate.GetCastingOffReason(action);
+    -- **The fourth way: the reader turned the action off.** Not an issue, because they asked for it
+    -- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3). Every press being off is a warning
+    -- instead, since turning the action off is how that one is closed.
+    row.notRunning = DebindPrivate.GetNotRunningReason(action);
 
     return row;
 end

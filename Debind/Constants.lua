@@ -597,6 +597,11 @@ Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- (`devdocs/legacy/dropping-the-game-fallback.md` §3). Red, and still on its key: the block is the
 -- one thing that keeps the action behind it from firing (`BINDING_ISSUE_OUTCOMES`).
 Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
+-- Every press this action could answer is turned off, so it makes no binding at all. **A warning
+-- rather than a reason**, because there is a way to close it that is not turning a press the reader
+-- does not want back on: turning the action off keeps what it was set with and says they meant it
+-- (`devdocs/which-action-a-key-runs.md` §6, 2026-09-18).
+Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 
 
 -- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
@@ -648,6 +653,8 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
+    -- Orange, not red: nothing is broken and the reader may have meant it.
+    [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_WARNING,
 };
 
 -- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
@@ -688,6 +695,8 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_OUTCOME_OMIT,
     -- The block is what stops the action behind it.
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_OUTCOME_KEEP,
+    -- There is nothing to leave in or out; the key stays held, so the next action on it answers.
+    [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_OUTCOME_OMIT,
 };
 
 

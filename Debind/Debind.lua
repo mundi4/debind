@@ -278,8 +278,12 @@ do
 				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
 				-- accepting is the moment a key starts working, where it used to leave the set
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
+				-- **An action the reader turned off gets the same treatment as a quarantined one**,
+				-- and for the same reason: drawn, greyed, reaching nothing. Unlike every filter
+				-- below this line it also hands the key back, because "I am not using this" is what
+				-- the reader said and a key we hold for nothing is a key the game cannot use.
 				local binding, list, yielded, outcome;
-				if (action.key and not action.arrivalID) then
+				if (action.key and not action.arrivalID and not action.disabled) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
 					outcome = DebindPrivate.GetIssueOutcome(action);

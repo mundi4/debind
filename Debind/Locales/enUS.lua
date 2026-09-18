@@ -65,6 +65,10 @@ L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
 -- on those, so the action still runs over the rest, and this says which frames it loses.
 L["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"] = "No role is selected, so it does not run on party or raid frames."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
+-- **It names the way out that is not turning a press back on.** The reader may have meant to stop
+-- this action, and the mark has to be closable by saying so rather than by choosing a value they do
+-- not want. The second sentence is what tells turning off from deleting.
+L["BINDING_ERROR_NOTHING_RUNS"] = "Every press is turned off, so this action never runs. Turn it off if you don't want to use it. A turned-off action keeps everything you set on it and hands its key back to the game."
 -- The reader cannot fix the spell's name, so the sentence says what to do instead: pick another
 -- row, or drop the condition. Neither half of the reason (macro conditionals, commas) is
 -- something the window has ever spoken about.
@@ -328,6 +332,11 @@ L["INACTIVE_SPEC_DESC"] = "Keys you put here start working when you're in this s
 L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its own shortcuts while it is open, and this addon leaves those keys alone. An action bound to one of them does nothing while the editor is open.|n|nCheck this to take the key anyway: your action runs, and the editor's shortcut on that key does not. The editor still shows the key on its own button, so that button will look usable while doing nothing."
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
+-- **Named for what it does to the action, beside Delete, which is the other way to stop one.** The
+-- sentence has to say what turning off keeps, or a reader who does not want to lose their conditions
+-- leaves the action running instead.
+L["ACTION_DISABLED"] = "Turn this action off"
+L["ACTION_DISABLED_DESC"] = "The action stops running and its key goes back to the game. It keeps everything you set on it, so turning it back on puts it where it was.|n|nDeleting takes the conditions, the importance and the place in the key with it."
 L["KEY"] = "Key"
 --- The dialog that asks for one key, for one action or one set of them (`KeyCapture.lua`).
 ---
@@ -655,10 +664,9 @@ L["LINE_TOOLTIP_TARGET_NORMAL"] = "Where it normally goes"
 -- and this says only that the world is not the one it asked for.
 L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."
 -- Under the Cast Options lines, the way the line above sits under the specialization numbers. **Not
--- an issue**: turning every press off is something the reader may mean, so it is said as why the
--- action does not run and nothing asks them to change it. "Sits out" is `CASTING_SKIP_DESC`'s verb,
--- and an unticked Normal Cast does the same thing (`CASTING_NORMAL_DESC`).
-L["LINE_TOOLTIP_CASTING_NONE_LEFT"] = "This action sits out every press, so it never runs."
+-- an issue**: the reader asked for this, so it says why the action does not run and nothing asks
+-- them to change it.
+L["LINE_TOOLTIP_NOT_RUNNING_DISABLED"] = "This action is turned off."
 -- What fits named, and the rest left unnamed. **"and others" rather than "and 3 more"**: what the
 -- line names is specializations of this character's class and whole classes otherwise, so a number
 -- after it would be counting two different things at once. The client says it the same way where
