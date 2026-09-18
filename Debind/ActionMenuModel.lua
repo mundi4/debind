@@ -428,9 +428,9 @@ local ActionValues = {
         end
     end,
 
-    -- The checkbox branch comes through here as well. `keepInBindingContext` is not a step in the
-    -- ordering, so the renumber moves nothing -- but the day one that is arrives here, that group
-    -- alone would quietly keep the old symptom.
+    -- The checkbox branch comes through here as well. No checkbox in this menu is a step in the
+    -- ordering today, so the renumber moves nothing -- but the day one that is arrives here, that
+    -- group alone would quietly keep the old symptom.
     Commit = function(ctx)
         return OnActionsChanged(ctx.actions);
     end,

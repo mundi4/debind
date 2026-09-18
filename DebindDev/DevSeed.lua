@@ -135,11 +135,11 @@ SEEDS[5] = function(guid)
                 --- other half, so neither row above reaches the pair.
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
                     key = "SHIFT-F10", seq = 1, checkedUnits = { ["@"] = {} } },
-                -- The binding-context exception: this key stays bound while an editor holds it
-                -- (`Debind.lua`'s `IsKeyYielded`).
+                -- A key on the binding-context path: it goes to the game while an editor holds it
+                -- (`Debind.lua`'s `IsKeyYielded`) and comes back when the editor closes.
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/say kept", name = "Say kept",
-                    key = "SHIFT-F11", seq = 1, keepInBindingContext = true },
+                    key = "SHIFT-F11", seq = 1 },
                 --- Mount, on the one value that resolves for every character alive: `0` is the
                 --- random favourite, drawn from a spell rather than the journal
                 --- (`ActionDisplay.lua`), so a client with nothing collected still gets a name and an

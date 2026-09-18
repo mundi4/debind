@@ -102,6 +102,35 @@ SecureHandlerExecute(BindingDriver, [[
 	-- OnClick wrapper finds which key it is by the button name the press arrived under.
 	ClickTimeKeys = newtable()
 
+	-- **Keys given back to the game while something else needs them**
+	-- (`devdocs/giving-keys-back.md`).
+	--
+	-- `BoundKeys` is `key -> that key's record list`, the other direction of `ClickTimeKeys`, and
+	-- the rebuild writes it beside the `SetBindingClick` that put the key on. A record list carries
+	-- `clickButton` (what to hand `SetBindingClick` to put it back) and `givenBack` (whether it is
+	-- off right now). One slot on a table that is already there rather than a second map.
+	--
+	-- `GiveBack` is the reader's rows, also rewritten whole by the rebuild.
+	BoundKeys = newtable()
+	GiveBack = newtable()
+	GivenBackNow = newtable()
+
+	-- **Built once, because it follows nothing.** Composing "ACTIONBUTTON" .. i inside the body
+	-- would allocate a string per button on every transition.
+	ActionButtonCommands = newtable()
+	ActionButtonCommands[1] = "ACTIONBUTTON1"
+	ActionButtonCommands[2] = "ACTIONBUTTON2"
+	ActionButtonCommands[3] = "ACTIONBUTTON3"
+	ActionButtonCommands[4] = "ACTIONBUTTON4"
+	ActionButtonCommands[5] = "ACTIONBUTTON5"
+	ActionButtonCommands[6] = "ACTIONBUTTON6"
+	ActionButtonCommands[7] = "ACTIONBUTTON7"
+	ActionButtonCommands[8] = "ACTIONBUTTON8"
+	ActionButtonCommands[9] = "ACTIONBUTTON9"
+	ActionButtonCommands[10] = "ACTIONBUTTON10"
+	ActionButtonCommands[11] = "ACTIONBUTTON11"
+	ActionButtonCommands[12] = "ACTIONBUTTON12"
+
 	-- 클릭캐스팅으로 도착한 클릭. `[버튼번호][수식어] -> 그 키의 레코드 배열`.
 	--
 	-- **이쪽은 이름을 못 받는다.** 유닛 프레임은 `type="click"`으로 우리에게 넘기는데
@@ -645,6 +674,90 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 		for i = 1, #owned do
 			UnitRoles[owned[i]] = nil
 			owned[i] = nil
+		end
+	end
+]==]);
+
+--- **Hands the action buttons' keys to the game while the bar they sit on is somebody else's**,
+--- and takes them back when it is not (`devdocs/giving-keys-back.md`).
+---
+--- It runs here rather than in a rebuild because the transitions it answers are mid-fight and a
+--- rebuild cannot cross a lockdown (`CanBuildBindings`). Nothing it reads is baked: `GetBindingKey`
+--- is in the restricted environment, so a key the reader rebound during the fight is read as it is
+--- now.
+---
+--- **How many buttons are live is not the same in every state** (§2 of the document). A skinned bar
+--- has six and the rest of the page is dead, a battle has five, and everything else has twelve. The
+--- skin has no function to ask, so the bar frame answers with `IsShown`; that is the same read
+--- `ACTION_SLOT_SNIPPET` uses for a flyout.
+---
+--- **The page is worked out exactly as `ActionBarController_UpdateAll` does**, so the slot asked
+--- about is the slot the game's own binding would have pressed.
+BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
+	wipe(GivenBackNow)
+
+	local page
+	local count = 0
+	if (GiveBack.petBattle and SecureCmdOptionParse("[petbattle]")) then
+		count = 5
+	elseif (GiveBack.replacedBar) then
+		if (HasVehicleActionBar()) then
+			page = GetVehicleBarIndex()
+		elseif (HasOverrideActionBar()) then
+			page = GetOverrideBarIndex()
+		elseif (HasTempShapeshiftActionBar()) then
+			page = GetTempShapeshiftBarIndex()
+		end
+		if (page) then
+			count = 12
+			if (OverrideActionBar and OverrideActionBar:IsShown()) then
+				count = 6
+			end
+		end
+	end
+
+	for i = 1, count do
+		-- **A battle's abilities are not action slots**, so with no page there is nothing for
+		-- "only where there is something" to ask about and it is not asked.
+		--
+		-- **Asked of `GetActionInfo` and not of `HasAction`.** A replaced bar answers `HasAction`
+		-- true on a slot that holds nothing nameable: measured on a skinned override bar,
+		-- `HasAction(206)` was true while `GetActionInfo(206)` was nil and the bar's own button was
+		-- hidden (2026-09-18). The bar hides a button on the same read, the spell id out of
+		-- `GetActionInfo` (`OverrideActionBar.lua`'s `Setup`).
+		local slotID
+		if (page) then
+			local _
+			_, slotID = GetActionInfo(i + (page - 1) * 12)
+		end
+		if (not (page and GiveBack.onlyWithAction) or (slotID and slotID > 0)) then
+			-- **Every key the command has.** Which of them the keybinding screen showed first is
+			-- not kept across a reload (2026-09-18, measured), so there is no first one to prefer.
+			for j = 1, select("#", GetBindingKey(ActionButtonCommands[i])) do
+				local key = select(j, GetBindingKey(ActionButtonCommands[i]))
+				if (key) then
+					GivenBackNow[key] = true
+				end
+			end
+		end
+	end
+
+	-- **Walked over the keys we hold, not over the twelve.** A reader can rebind a command in the
+	-- middle of a fight, and the key that went over is then no longer the key that command answers
+	-- to; asking the commands again would leave that key off for good.
+	--
+	-- One slot per key holds what is in force, so a pass that decides the same thing as the last
+	-- one touches no binding at all. That shape is the one the addon opened with
+	-- (`bindings.bound`, initial commit).
+	for key, bindings in pairs(BoundKeys) do
+		local want = GivenBackNow[key] and true or nil
+		if (want ~= bindings.givenBack) then
+			bindings.givenBack = want
+			if (want) then
+				self:ClearBinding(key)
+			else
+				self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickButton)
+			end
 		end
 	end
 ]==]);

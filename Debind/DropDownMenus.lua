@@ -14,7 +14,6 @@ local CreateAssignKeyMenuItem                 = ActionMenu.CreateAssignKeyMenuIt
 local CreateUnbindMenuItem                    = ActionMenu.CreateUnbindMenuItem;
 local CreateTargetUnitMenuItem                = ActionMenu.CreateTargetUnitMenuItem;
 local CreateCastingMenu                       = ActionMenu.CreateCastingMenu;
-local CreateKeepInBindingContextMenuItem      = ActionMenu.CreateKeepInBindingContextMenuItem;
 local CreateImportanceMenu                    = ActionMenu.CreateImportanceMenu;
 local CreateApproveImportMenuItem             = ActionMenu.CreateApproveImportMenuItem;
 local CreateRejectImportMenuItem              = ActionMenu.CreateRejectImportMenuItem;
@@ -160,8 +159,6 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     --
     rootDescription:CreateDivider();
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
-
-    CreateKeepInBindingContextMenuItem(rootDescription, ctx);
 
     CreateImportanceMenu(rootDescription, ctx);
 

@@ -345,6 +345,29 @@ local function Build()
             Options().frameBlacklist.other = stored;
         end);
 
+    Header(L["GIVE_BACK_KEYS"]);
+    --- `set` takes the value the box now shows and stores it only where it is not the default, so
+    --- an untouched profile carries none of these (`devdocs/giving-keys-back.md` §7).
+    local function GiveBack(text, tooltip, get, field, defaultOn, indent)
+        Checkbox(text, tooltip, get, function(value)
+            if (value == defaultOn) then
+                Options()[field] = nil;
+            else
+                Options()[field] = value;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end, indent);
+    end
+
+    GiveBack(L["CONDITION_SPECIALBAR"], L["GIVE_BACK_REPLACED_BAR_DESC"],
+        DebindPrivate.GiveBackOnReplacedBar, "giveBackOnReplacedBar", false);
+    GiveBack(L["GIVE_BACK_ONLY_WITH_ACTION"], L["GIVE_BACK_ONLY_WITH_ACTION_DESC"],
+        DebindPrivate.GiveBackWhenActionExists, "giveBackWhenActionExists", false, INDENT);
+    GiveBack(L["GIVE_BACK_PET_BATTLE"], L["GIVE_BACK_PET_BATTLE_DESC"],
+        DebindPrivate.GiveBackInPetBattle, "giveBackInPetBattle", true);
+    GiveBack(L["GIVE_BACK_HOUSE_EDITOR"], L["GIVE_BACK_HOUSE_EDITOR_DESC"],
+        DebindPrivate.GiveBackInBindingContext, "giveBackInBindingContext", true);
+
     for _, section in ipairs(DebindPrivate.HELP_SECTIONS) do
         Header(L[section.title]);
         for _, topic in ipairs(section.topics) do
@@ -426,6 +449,10 @@ local function ResetToDefaults()
     options.excludePlayer = nil;
     options.stateDriverUpdateThrottle = nil;
     options.unitframeUseMouseDown = nil;
+    options.giveBackOnReplacedBar = nil;
+    options.giveBackWhenActionExists = nil;
+    options.giveBackInPetBattle = nil;
+    options.giveBackInBindingContext = nil;
     wipe(options.frameBlacklist.blizzard);
     wipe(options.frameBlacklist.addons);
     options.frameBlacklist.other = nil;

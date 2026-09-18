@@ -199,28 +199,30 @@ return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
     local GUID = "Player-1-TESTGUID";
 
-    local function Profile(actions)
+    --- **The yield is recomputed inside here**, after `InitDB` has handed the options over, because
+    --- what gets collected depends on two of them.
+    local function Profile(actions, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
             characters = { [GUID] = { layers = {}, switches = {} } },
             migrated = {},
             switches = {},
         };
         DebindPrivate.InitDB();
+        DebindPrivate.RefreshYieldedKeys();
         DebindPrivate.BuildKeyMap();
         return DebindPrivate.KeyMap;
     end
 
     -- Standing back means the key is not in `KeyMap`, so no override is put on it and the editor
-    -- gets it. **`keepInBindingContext` is the reader overruling that**, and it is theirs to set:
-    -- the editor goes on showing the key on its own button while it does nothing.
-    test("a yielded key leaves KeyMap unless the reader asked to keep it", function()
+    -- gets it.
+    test("a yielded key leaves KeyMap", function()
         World(
             { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
             { HOUSING_MODE_DECOR = HOUSING },
             { [HOUSING] = true });
-        DebindPrivate.RefreshYieldedKeys();
 
         local keyMap = Profile({
             { type = Constants.SPELL, value = 585, key = "F5", seq = 1 },
@@ -229,11 +231,40 @@ return function(DebindPrivate)
         check(keyMap["F5"] == nil, "a yielded key stayed in KeyMap");
         check(keyMap["F6"] ~= nil, "a key nobody claimed was dropped");
 
-        local kept = Profile({
-            { type = Constants.SPELL, value = 585, key = "F5", seq = 1,
-                keepInBindingContext = true },
+        Reset();
+    end);
+
+    -- **Off, nothing is collected at all**, so the key the editor claims stays Debind's. The row is
+    -- on with the value absent, which the test above is standing on.
+    test("the House Editor row off keeps the claimed key", function()
+        World(
+            { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
+            { HOUSING_MODE_DECOR = HOUSING },
+            { [HOUSING] = true });
+
+        local keyMap = Profile({
+            { type = Constants.SPELL, value = 585, key = "F5", seq = 1 },
+        }, { giveBackInBindingContext = false });
+        check(keyMap["F5"] ~= nil, "the row was off and the key still left KeyMap");
+        check(DebindPrivate.IsKeyYielded("F5") == false, "the key is still reported as yielded");
+
+        Reset();
+    end);
+
+    -- **Every key the command has, not one of them.** Which of a command's two keys the keybinding
+    -- screen showed first is not kept across a reload (2026-09-18, measured), so there is no first
+    -- one to hold back.
+    test("both of a command's keys go back", function()
+        World(
+            { { action = "HOUSING_MODE_DECOR", keys = { "F5", "F7" } } },
+            { HOUSING_MODE_DECOR = HOUSING },
+            { [HOUSING] = true });
+
+        local keyMap = Profile({
+            { type = Constants.SPELL, value = 585, key = "F5", seq = 1 },
+            { type = Constants.SPELL, value = 774, key = "F7", seq = 2 },
         });
-        check(kept["F5"] ~= nil, "keepInBindingContext did not hold the key");
+        check(keyMap["F5"] == nil and keyMap["F7"] == nil, "a claimed key stayed in KeyMap");
 
         Reset();
     end);
@@ -260,81 +291,6 @@ return function(DebindPrivate)
         check(DebindPrivate.IsKeyOurs("F6"), "the key nobody claimed was not held");
         check(not DebindPrivate.IsKeyOurs("F5"), "the yielded key was held");
 
-        Reset();
-    end);
-
-    ---------------------------------------------------------------------------
-    -- A pet battle
-    ---------------------------------------------------------------------------
-
-    local frames = require("wow_frames");
-
-    --- The first five action buttons carry the battle's abilities, and the sixth is where the bar
-    --- goes on past them. Two keys on the first, the way the probe found `ACTIONBUTTON1` on xptr.
-    local function ActionButtonWorld()
-        World({
-            { action = "ACTIONBUTTON1", keys = { "1", "BUTTON3" } },
-            { action = "ACTIONBUTTON5", keys = { "5" } },
-            { action = "ACTIONBUTTON6", keys = { "6" } },
-        });
-    end
-
-    local function Battle(open)
-        frames.fireEvent(open and "PET_BATTLE_OPENING_START" or "PET_BATTLE_CLOSE");
-        frames.drainTimers();
-    end
-
-    -- **The battle's own path only runs while the key is not ours** (§5 of
-    -- `devdocs/legacy/dropping-the-game-fallback.md`): the abilities go out through `ActionButtonDown`,
-    -- which only the `ACTIONBUTTONn` binding calls. Every key the client has on each of the five.
-    test("a pet battle yields every key on the first five action buttons, and gives them back", function()
-        ActionButtonWorld();
-        DebindPrivate.RefreshYieldedKeys();
-        check(DebindPrivate.IsKeyYieldedToPetBattle("1") == false, "a key was yielded outside a battle");
-
-        Battle(true);
-        check(DebindPrivate.IsKeyYieldedToPetBattle("1") == true, "the first key was not yielded");
-        check(DebindPrivate.IsKeyYieldedToPetBattle("BUTTON3") == true, "the second key was not yielded");
-        check(DebindPrivate.IsKeyYieldedToPetBattle("5") == true, "ACTIONBUTTON5's key was not yielded");
-        check(DebindPrivate.IsKeyYieldedToPetBattle("6") == false, "ACTIONBUTTON6's key was yielded");
-
-        Battle(false);
-        check(DebindPrivate.IsKeyYieldedToPetBattle("1") == false, "the key stayed yielded after the battle");
-        Reset();
-    end);
-
-    -- **The events queue the rebuild**; nothing else in a battle would.
-    test("opening and closing a battle queues a rebuild", function()
-        ActionButtonWorld();
-        DebindPrivate.RefreshYieldedKeys();
-
-        local queued = 0;
-        local queue = DebindPrivate.QueueUpdateBindings;
-        DebindPrivate.QueueUpdateBindings = function() queued = queued + 1; end
-        Battle(true);
-        local afterOpen = queued;
-        Battle(false);
-        DebindPrivate.QueueUpdateBindings = queue;
-
-        check(afterOpen == 1, "opening queued " .. afterOpen .. " rebuilds");
-        check(queued == 2, "closing queued " .. (queued - afterOpen) .. " rebuilds");
-        Reset();
-    end);
-
-    -- **`keepInBindingContext` says "Override the house editor" to the reader**, and a battle is not
-    -- the editor.
-    test("a pet battle key leaves KeyMap even with keepInBindingContext", function()
-        ActionButtonWorld();
-        Battle(true);
-
-        local keyMap = Profile({
-            { type = Constants.SPELL, value = 585, key = "1", seq = 1, keepInBindingContext = true },
-            { type = Constants.SPELL, value = 774, key = "6", seq = 2 },
-        });
-        check(keyMap["1"] == nil, "a pet battle key stayed in KeyMap");
-        check(keyMap["6"] ~= nil, "a key the battle does not use was dropped");
-
-        Battle(false);
         Reset();
     end);
 

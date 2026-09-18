@@ -34,7 +34,6 @@ local KEYS_TO_SAVE       = {
     -- the reader's own actions use, and its place in the set is `seq`. There used to be a synthetic
     -- key here doing the group's work; what that cost is in the same 12절.
     arrivalID = true,
-    keepInBindingContext = true,
     -- **The reader has turned this action off.** It keeps everything it was set with, reaches no
     -- key, and hands its key back to the game, which is what tells it apart from an action whose
     -- presses are all off (`devdocs/which-action-a-key-runs.md` §6). Deleting is the other way to
@@ -1218,6 +1217,19 @@ local function MigrateLayer(layerTbl, dbver)
 
             action.ignoreHoverUnit = nil;
             action.casting = casting;
+        end
+
+        -- `keepInBindingContext` is gone, and nothing takes its place on the action. The question
+        -- it answered is the account's now ("House Editor" under Keys Given Back), so a value left
+        -- here would be a second answer nothing reads (`devdocs/giving-keys-back.md` §7).
+        --
+        -- **The reader who had it ticked loses it** rather than carrying it to the account row: the
+        -- old value was per action and the new one is not, so one of them would have to decide for
+        -- the other.
+        --
+        -- Running twice is safe: the second pass finds nothing.
+        for i = 1, #layerTbl do
+            layerTbl[i].keepInBindingContext = nil;
         end
     end
 

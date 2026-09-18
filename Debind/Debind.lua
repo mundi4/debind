@@ -290,10 +290,7 @@ do
 
 					local key = action.key;
 					-- A key the game has claimed gets no override, and comes back when the claim ends.
-					-- keepInBindingContext overrides the house editor only: the editor goes on showing
-					-- the key on its own button while it does nothing, so the reader turns it on knowing.
-					yielded = (DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext)
-						or DebindPrivate.IsKeyYieldedToPetBattle(key);
+					yielded = DebindPrivate.IsKeyYielded(key);
 
 					-- **The key is held before anything below can leave the action out.** Every filter
 					-- under this one is the rebuild settling an answer early, and an answer settled

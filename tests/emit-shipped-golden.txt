@@ -1,9 +1,14 @@
-Execute <Frame#4>
+Execute <Frame#3>
   | wipe(OldStates)
   | for k, v in pairs(States) do
   |     OldStates[k] = v
   | end
   | wipe(ClickTimeKeys)
+  | -- **`ClearOverrideBindings` below takes every key off**, so what a record list remembered about
+  | -- being handed over is gone with it. The next pass of `UpdateGivenBackKeys` starts from nothing
+  | -- given back, which is what the game is in after this.
+  | wipe(BoundKeys)
+  | wipe(GivenBackNow)
   | for _, byMod in pairs(ClickCastKeys) do
   |     wipe(byMod)
   | end
@@ -33,15 +38,15 @@ Execute <Frame#4>
   | wipe(States)
   | States.unitframe = hovered
   | 
-ClearOverrideBindings <Frame#4>
-SetAttribute <Frame#4> _onattributechanged = nil
+ClearOverrideBindings <Frame#3>
+SetAttribute <Frame#3> _onattributechanged = nil
 CreateFrame DebindClickButton_unitframe SecureActionButtonTemplate
 SetAttribute DebindClickButton_unitframe alias = "unitframe"
 SetAttribute DebindClickButton_unitframe unit = "raid41"
 SetAttribute DebindClickButton_unitframe useparent* = true
 SetAttribute DebindClickButton_unitframe useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_unitframe"
-Execute <Frame#4>
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_unitframe"
+Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -59,13 +64,13 @@ SetAttribute DebindClickButton *macrotext-deb101-nosc =
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindCastButton *type-deb101 = "spell"
 SetAttribute DebindCastButton *spell-deb101 = "Regrowth(Restoration)"
-CreateFrame <Frame#21> SecureHandlerBaseTemplate
-CreateFrame <Frame#22>
+CreateFrame <Frame#20> SecureHandlerBaseTemplate
+CreateFrame <Frame#21>
+CreateFrame <Texture#22>
 CreateFrame <Texture#23>
 CreateFrame <Texture#24>
-CreateFrame <Texture#25>
-CreateFrame <Button#26> SecureHandlerClickTemplate
-SetAttribute <Button#26> _onclick =
+CreateFrame <Button#25> SecureHandlerClickTemplate
+SetAttribute <Button#25> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -100,36 +105,36 @@ SetAttribute <Button#26> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#26> screen "<Frame#7>"
-CreateFrame <Button#27> SecureActionButtonTemplate
-SetAttribute <Button#27> type = "spell"
-SetAttribute <Button#27> useOnKeyDown = false
+SetFrameRef <Button#25> screen "<Frame#6>"
+CreateFrame <Button#26> SecureActionButtonTemplate
+SetAttribute <Button#26> type = "spell"
+SetAttribute <Button#26> useOnKeyDown = false
+CreateFrame <Texture#27>
 CreateFrame <Texture#28>
 CreateFrame <Texture#29>
 CreateFrame <Texture#30>
 CreateFrame <Texture#31>
-CreateFrame <Texture#32>
-WrapScript <Button#27> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#27> OnClick = " owner:Hide() "
-SetAttribute <Button#27> spell = "Call Pet 1"
-CreateFrame <Button#33> SecureActionButtonTemplate
-SetAttribute <Button#33> type = "spell"
-SetAttribute <Button#33> useOnKeyDown = false
+WrapScript <Button#26> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#26> OnClick = " owner:Hide() "
+SetAttribute <Button#26> spell = "Call Pet 1"
+CreateFrame <Button#32> SecureActionButtonTemplate
+SetAttribute <Button#32> type = "spell"
+SetAttribute <Button#32> useOnKeyDown = false
+CreateFrame <Texture#33>
 CreateFrame <Texture#34>
 CreateFrame <Texture#35>
 CreateFrame <Texture#36>
 CreateFrame <Texture#37>
-CreateFrame <Texture#38>
-WrapScript <Button#33> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#33> OnClick = " owner:Hide() "
-SetAttribute <Button#33> spell = "Call Pet 2"
-SetFrameRef <Button#26> holder "<Frame#21>"
+WrapScript <Button#32> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#32> OnClick = " owner:Hide() "
+SetAttribute <Button#32> spell = "Call Pet 2"
+SetFrameRef <Button#25> holder "<Frame#20>"
 CreateFrame DebindClickButton_player SecureActionButtonTemplate
 SetAttribute DebindClickButton_player unit = "player"
 SetAttribute DebindClickButton_player useparent* = true
 SetAttribute DebindClickButton_player useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_player"
-Execute <Frame#4>
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_player"
+Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -139,13 +144,13 @@ Execute <Frame#4>
   | DelegateFrameNames[frame] = frame:GetName()
   | 
 SetAttribute DebindClickButton *type-deb102 = "click"
-SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#26>>
+SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#25>>
 CreateFrame DebindClickButton_focus SecureActionButtonTemplate
 SetAttribute DebindClickButton_focus unit = "focus"
 SetAttribute DebindClickButton_focus useparent* = true
 SetAttribute DebindClickButton_focus useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_focus"
-Execute <Frame#4>
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_focus"
+Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -198,7 +203,7 @@ SetAttribute DebindClickButton *macrotext-deb107-nosc =
 SetAttribute DebindCastButton *type-deb107 = "spell"
 SetAttribute DebindCastButton *spell-deb107 = "Renew"
 SetAttribute DebindClickButton *type-deb108 = "attribute"
-SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#10>>
+SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#9>>
 SetAttribute DebindClickButton *attribute-name-deb108 = "custom1"
 SetAttribute DebindClickButton *attribute-value-deb108 = "unitframe"
 CreateFrame DebindClickButton_custom1 SecureActionButtonTemplate
@@ -206,8 +211,8 @@ SetAttribute DebindClickButton_custom1 alias = "custom1"
 SetAttribute DebindClickButton_custom1 unit = "raid41"
 SetAttribute DebindClickButton_custom1 useparent* = true
 SetAttribute DebindClickButton_custom1 useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_custom1"
-Execute <Frame#4>
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_custom1"
+Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -216,13 +221,13 @@ Execute <Frame#4>
   | DelegateFrames[frame:GetName()] = frame
   | DelegateFrameNames[frame] = frame:GetName()
   | 
-CreateFrame <Frame#42> SecureHandlerBaseTemplate
-CreateFrame <Frame#43>
+CreateFrame <Frame#41> SecureHandlerBaseTemplate
+CreateFrame <Frame#42>
+CreateFrame <Texture#43>
 CreateFrame <Texture#44>
 CreateFrame <Texture#45>
-CreateFrame <Texture#46>
-CreateFrame <Button#47> SecureHandlerClickTemplate
-SetAttribute <Button#47> _onclick =
+CreateFrame <Button#46> SecureHandlerClickTemplate
+SetAttribute <Button#46> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -257,15 +262,15 @@ SetAttribute <Button#47> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#47> screen "<Frame#7>"
-SetAttribute <Button#47> frameref-holder = nil
+SetFrameRef <Button#46> screen "<Frame#6>"
+SetAttribute <Button#46> frameref-holder = nil
 CreateFrame DebindClickButton_healer SecureActionButtonTemplate
 SetAttribute DebindClickButton_healer alias = "healer"
 SetAttribute DebindClickButton_healer unit = "raid41"
 SetAttribute DebindClickButton_healer useparent* = true
 SetAttribute DebindClickButton_healer useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_healer"
-Execute <Frame#4>
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_healer"
+Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -278,8 +283,8 @@ CreateFrame DebindClickButton_target SecureActionButtonTemplate
 SetAttribute DebindClickButton_target unit = "target"
 SetAttribute DebindClickButton_target useparent* = true
 SetAttribute DebindClickButton_target useparent-unit = false
-SetFrameRef <Frame#4> clickFrame "DebindClickButton_target"
-Execute <Frame#4>
+SetFrameRef <Frame#3> clickFrame "DebindClickButton_target"
+Execute <Frame#3>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -334,7 +339,7 @@ SetAttribute DebindClickButton *macro-deb119 = nil
 SetAttribute DebindClickButton *macrotext-deb119 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
-Execute <Frame#4>
+Execute <Frame#3>
   | local bindings,t,u
   | SelfCastKeyOn=true
   | FocusCastKeyOn=true
@@ -383,6 +388,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F1"]=bindings
   | self:SetBindingClick(true,"ALT-F1",DefaultClickFrameName,"@ALT-F1")
+  | BoundKeys["ALT-F1"]=bindings
+  | bindings.clickButton="@ALT-F1"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb102"
@@ -412,6 +419,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F10"]=bindings
   | self:SetBindingClick(true,"ALT-F10",DefaultClickFrameName,"@ALT-F10")
+  | BoundKeys["ALT-F10"]=bindings
+  | bindings.clickButton="@ALT-F10"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb103"
@@ -441,6 +450,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F11"]=bindings
   | self:SetBindingClick(true,"ALT-F11",DefaultClickFrameName,"@ALT-F11")
+  | BoundKeys["ALT-F11"]=bindings
+  | bindings.clickButton="@ALT-F11"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
@@ -495,6 +506,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F2"]=bindings
   | self:SetBindingClick(true,"ALT-F2",DefaultClickFrameName,"@ALT-F2")
+  | BoundKeys["ALT-F2"]=bindings
+  | bindings.clickButton="@ALT-F2"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
@@ -527,6 +540,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F3"]=bindings
   | self:SetBindingClick(true,"ALT-F3",DefaultClickFrameName,"@ALT-F3")
+  | BoundKeys["ALT-F3"]=bindings
+  | bindings.clickButton="@ALT-F3"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb106"
@@ -556,6 +571,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F4"]=bindings
   | self:SetBindingClick(true,"ALT-F4",DefaultClickFrameName,"@ALT-F4")
+  | BoundKeys["ALT-F4"]=bindings
+  | bindings.clickButton="@ALT-F4"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -599,6 +616,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F5"]=bindings
   | self:SetBindingClick(true,"ALT-F5",DefaultClickFrameName,"@ALT-F5")
+  | BoundKeys["ALT-F5"]=bindings
+  | bindings.clickButton="@ALT-F5"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb108"
@@ -628,6 +647,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F6"]=bindings
   | self:SetBindingClick(true,"ALT-F6",DefaultClickFrameName,"@ALT-F6")
+  | BoundKeys["ALT-F6"]=bindings
+  | bindings.clickButton="@ALT-F6"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -658,6 +679,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F7"]=bindings
   | self:SetBindingClick(true,"ALT-F7",DefaultClickFrameName,"@ALT-F7")
+  | BoundKeys["ALT-F7"]=bindings
+  | bindings.clickButton="@ALT-F7"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -722,6 +745,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F8"]=bindings
   | self:SetBindingClick(true,"ALT-F8",DefaultClickFrameName,"@ALT-F8")
+  | BoundKeys["ALT-F8"]=bindings
+  | bindings.clickButton="@ALT-F8"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -789,6 +814,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F9"]=bindings
   | self:SetBindingClick(true,"ALT-F9",DefaultClickFrameName,"@ALT-F9")
+  | BoundKeys["ALT-F9"]=bindings
+  | bindings.clickButton="@ALT-F9"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -821,6 +848,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F1"]=bindings
   | self:SetBindingClick(true,"CTRL-F1",DefaultClickFrameName,"@CTRL-F1")
+  | BoundKeys["CTRL-F1"]=bindings
+  | bindings.clickButton="@CTRL-F1"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
@@ -865,6 +894,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F10"]=bindings
   | self:SetBindingClick(true,"CTRL-F10",DefaultClickFrameName,"@CTRL-F10")
+  | BoundKeys["CTRL-F10"]=bindings
+  | bindings.clickButton="@CTRL-F10"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
@@ -903,6 +934,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F11"]=bindings
   | self:SetBindingClick(true,"CTRL-F11",DefaultClickFrameName,"@CTRL-F11")
+  | BoundKeys["CTRL-F11"]=bindings
+  | bindings.clickButton="@CTRL-F11"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -933,6 +966,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F12"]=bindings
   | self:SetBindingClick(true,"CTRL-F12",DefaultClickFrameName,"@CTRL-F12")
+  | BoundKeys["CTRL-F12"]=bindings
+  | bindings.clickButton="@CTRL-F12"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -965,6 +1000,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F2"]=bindings
   | self:SetBindingClick(true,"CTRL-F2",DefaultClickFrameName,"@CTRL-F2")
+  | BoundKeys["CTRL-F2"]=bindings
+  | bindings.clickButton="@CTRL-F2"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -997,6 +1034,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F3"]=bindings
   | self:SetBindingClick(true,"CTRL-F3",DefaultClickFrameName,"@CTRL-F3")
+  | BoundKeys["CTRL-F3"]=bindings
+  | bindings.clickButton="@CTRL-F3"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1029,6 +1068,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F4"]=bindings
   | self:SetBindingClick(true,"CTRL-F4",DefaultClickFrameName,"@CTRL-F4")
+  | BoundKeys["CTRL-F4"]=bindings
+  | bindings.clickButton="@CTRL-F4"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1067,6 +1108,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F5"]=bindings
   | self:SetBindingClick(true,"CTRL-F5",DefaultClickFrameName,"@CTRL-F5")
+  | BoundKeys["CTRL-F5"]=bindings
+  | bindings.clickButton="@CTRL-F5"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1099,6 +1142,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F6"]=bindings
   | self:SetBindingClick(true,"CTRL-F6",DefaultClickFrameName,"@CTRL-F6")
+  | BoundKeys["CTRL-F6"]=bindings
+  | bindings.clickButton="@CTRL-F6"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1134,6 +1179,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F7"]=bindings
   | self:SetBindingClick(true,"CTRL-F7",DefaultClickFrameName,"@CTRL-F7")
+  | BoundKeys["CTRL-F7"]=bindings
+  | bindings.clickButton="@CTRL-F7"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1179,6 +1226,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F8"]=bindings
   | self:SetBindingClick(true,"CTRL-F8",DefaultClickFrameName,"@CTRL-F8")
+  | BoundKeys["CTRL-F8"]=bindings
+  | bindings.clickButton="@CTRL-F8"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1230,6 +1279,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F9"]=bindings
   | self:SetBindingClick(true,"CTRL-F9",DefaultClickFrameName,"@CTRL-F9")
+  | BoundKeys["CTRL-F9"]=bindings
+  | bindings.clickButton="@CTRL-F9"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -1259,6 +1310,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F1"]=bindings
   | self:SetBindingClick(true,"F1",DefaultClickFrameName,"@F1")
+  | BoundKeys["F1"]=bindings
+  | bindings.clickButton="@F1"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -1285,6 +1338,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F10"]=bindings
   | self:SetBindingClick(true,"F10",DefaultClickFrameName,"@F10")
+  | BoundKeys["F10"]=bindings
+  | bindings.clickButton="@F10"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb109"
@@ -1314,6 +1369,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F11"]=bindings
   | self:SetBindingClick(true,"F11",DefaultClickFrameName,"@F11")
+  | BoundKeys["F11"]=bindings
+  | bindings.clickButton="@F11"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb110"
@@ -1343,6 +1400,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F12"]=bindings
   | self:SetBindingClick(true,"F12",DefaultClickFrameName,"@F12")
+  | BoundKeys["F12"]=bindings
+  | bindings.clickButton="@F12"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1392,6 +1451,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F2"]=bindings
   | self:SetBindingClick(true,"F2",DefaultClickFrameName,"@F2")
+  | BoundKeys["F2"]=bindings
+  | bindings.clickButton="@F2"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
@@ -1441,6 +1502,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F3"]=bindings
   | self:SetBindingClick(true,"F3",DefaultClickFrameName,"@F3")
+  | BoundKeys["F3"]=bindings
+  | bindings.clickButton="@F3"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb113"
@@ -1470,6 +1533,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F4"]=bindings
   | self:SetBindingClick(true,"F4",DefaultClickFrameName,"@F4")
+  | BoundKeys["F4"]=bindings
+  | bindings.clickButton="@F4"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb114"
@@ -1499,6 +1564,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F5"]=bindings
   | self:SetBindingClick(true,"F5",DefaultClickFrameName,"@F5")
+  | BoundKeys["F5"]=bindings
+  | bindings.clickButton="@F5"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb115"
@@ -1528,6 +1595,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F6"]=bindings
   | self:SetBindingClick(true,"F6",DefaultClickFrameName,"@F6")
+  | BoundKeys["F6"]=bindings
+  | bindings.clickButton="@F6"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb116"
@@ -1557,6 +1626,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F7"]=bindings
   | self:SetBindingClick(true,"F7",DefaultClickFrameName,"@F7")
+  | BoundKeys["F7"]=bindings
+  | bindings.clickButton="@F7"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb117"
@@ -1587,6 +1658,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F8"]=bindings
   | self:SetBindingClick(true,"F8",DefaultClickFrameName,"@F8")
+  | BoundKeys["F8"]=bindings
+  | bindings.clickButton="@F8"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb118"
@@ -1617,6 +1690,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F9"]=bindings
   | self:SetBindingClick(true,"F9",DefaultClickFrameName,"@F9")
+  | BoundKeys["F9"]=bindings
+  | bindings.clickButton="@F9"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1658,6 +1733,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@SHIFT-BUTTON2"]=bindings
   | self:SetBindingClick(true,"SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2")
+  | BoundKeys["SHIFT-BUTTON2"]=bindings
+  | bindings.clickButton="@SHIFT-BUTTON2"
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb119"
@@ -1687,6 +1764,8 @@ Execute <Frame#4>
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@SHIFT-F12"]=bindings
   | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
+  | BoundKeys["SHIFT-F12"]=bindings
+  | bindings.clickButton="@SHIFT-F12"
   | SelfCastWrappers["deb101"]="deb101-nosc"
   | SelfCastWrappers["deb104"]="deb104-nosc"
   | SelfCastWrappers["deb105"]="deb105-nosc"
@@ -1694,7 +1773,7 @@ Execute <Frame#4>
   | SelfCastWrappers["deb107"]="deb107-nosc"
   | SelfCastWrappers["deb111"]="deb111-nosc"
   | SelfCastWrappers["deb112"]="deb112-nosc"
-Execute <Frame#4>
+Execute <Frame#3>
   | local t
   | t=newtable()
   | t.id=1
@@ -1726,7 +1805,12 @@ Execute <Frame#4>
   | t.args[3].state="$intent"
   | t.args[3].reverse=true
   | DeferredMacroTexts["deb113"]=t
-SetAttribute <Frame#4> _onattributechanged =
+SetAttribute <Frame#3> _onattributechanged =
+  | if (name == "state-giveback") then
+  |     self:RunAttribute("UpdateGivenBackKeys")
+  |     return
+  | end
+  | 
   | if (name == "state-unitexists") then
   |     if (value == 0) then return end
   |     local full = DirtyFlags.forceAll or value == true or value == false
@@ -1743,35 +1827,35 @@ SetAttribute <Frame#4> _onattributechanged =
   | wipe(DirtyFlags)
   | 
   | end
-Execute <Frame#4>
+Execute <Frame#3>
   | self:RunAttribute("SetSwitch", "$burst", true, true)
   | self:RunAttribute("SetSwitch", "$echo", false, true)
   | self:RunAttribute("SetSwitch", "$intent", false, true)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
   | ComputedSwitches[2]="$intent"
-CreateFrame <Button#50> SecureGroupHeaderTemplate
-SetAttribute <Button#50> alias = "healer"
-SetAttribute <Button#50> showParty = true
-SetAttribute <Button#50> showRaid = true
-SetAttribute <Button#50> showPlayer = true
-SetAttribute <Button#50> showSolo = true
-SetAttribute <Button#50> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#50> sortMethod = "NAME"
-SetAttribute <Button#50> maxColumns = 1
-SetAttribute <Button#50> unitsPerColumn = 2
-SetAttribute <Button#50> template = ""
-SetAttribute <Button#50> templateType = "Frame"
-SetAttribute <Button#50> roleFilter = "HEALER"
-SetAttribute <Button#50> showSolo = false
+CreateFrame <Button#49> SecureGroupHeaderTemplate
+SetAttribute <Button#49> alias = "healer"
+SetAttribute <Button#49> showParty = true
+SetAttribute <Button#49> showRaid = true
+SetAttribute <Button#49> showPlayer = true
+SetAttribute <Button#49> showSolo = true
+SetAttribute <Button#49> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#49> sortMethod = "NAME"
+SetAttribute <Button#49> maxColumns = 1
+SetAttribute <Button#49> unitsPerColumn = 2
+SetAttribute <Button#49> template = ""
+SetAttribute <Button#49> templateType = "Frame"
+SetAttribute <Button#49> roleFilter = "HEALER"
+SetAttribute <Button#49> showSolo = false
+CreateFrame <Button#50> SecureFrameTemplate
+SetAttribute <Button#49> child1 = <frame <Button#50>>
+SetFrameRef <Button#49> child1 "<Button#50>"
 CreateFrame <Button#51> SecureFrameTemplate
-SetAttribute <Button#50> child1 = <frame <Button#51>>
-SetFrameRef <Button#50> child1 "<Button#51>"
-CreateFrame <Button#52> SecureFrameTemplate
-SetAttribute <Button#50> child2 = <frame <Button#52>>
-SetFrameRef <Button#50> child2 "<Button#52>"
-SetFrameRef <Frame#10> unitwatch_header "<Button#50>"
-Execute <Frame#10>
+SetAttribute <Button#49> child2 = <frame <Button#51>>
+SetFrameRef <Button#49> child2 "<Button#51>"
+SetFrameRef <Frame#9> unitwatch_header "<Button#49>"
+Execute <Frame#9>
   |             local alias, from, to = "healer", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
   |             UnitwatchHeaders[alias] = header
@@ -1780,8 +1864,8 @@ Execute <Frame#10>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef <Frame#4> rolehdr_healer "<Button#50>"
-WrapScript <Button#52> OnAttributeChanged =
+SetFrameRef <Frame#3> rolehdr_healer "<Button#49>"
+WrapScript <Button#51> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1822,32 +1906,32 @@ WrapScript <Button#52> OnAttributeChanged =
   |     end
   | end
   | 
-Execute <Frame#4>
+Execute <Frame#3>
   | self:RunAttribute("SetUnit", "mainassist", nil)
-Execute <Frame#4>
+Execute <Frame#3>
   | self:RunAttribute("SetUnit", "maintank", nil)
-CreateFrame <Button#53> SecureGroupHeaderTemplate
-SetAttribute <Button#53> alias = "tank"
-SetAttribute <Button#53> showParty = true
-SetAttribute <Button#53> showRaid = true
-SetAttribute <Button#53> showPlayer = true
-SetAttribute <Button#53> showSolo = true
-SetAttribute <Button#53> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#53> sortMethod = "NAME"
-SetAttribute <Button#53> maxColumns = 1
-SetAttribute <Button#53> unitsPerColumn = 2
-SetAttribute <Button#53> template = ""
-SetAttribute <Button#53> templateType = "Frame"
-SetAttribute <Button#53> roleFilter = "TANK"
-SetAttribute <Button#53> showSolo = false
+CreateFrame <Button#52> SecureGroupHeaderTemplate
+SetAttribute <Button#52> alias = "tank"
+SetAttribute <Button#52> showParty = true
+SetAttribute <Button#52> showRaid = true
+SetAttribute <Button#52> showPlayer = true
+SetAttribute <Button#52> showSolo = true
+SetAttribute <Button#52> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#52> sortMethod = "NAME"
+SetAttribute <Button#52> maxColumns = 1
+SetAttribute <Button#52> unitsPerColumn = 2
+SetAttribute <Button#52> template = ""
+SetAttribute <Button#52> templateType = "Frame"
+SetAttribute <Button#52> roleFilter = "TANK"
+SetAttribute <Button#52> showSolo = false
+CreateFrame <Button#53> SecureFrameTemplate
+SetAttribute <Button#52> child1 = <frame <Button#53>>
+SetFrameRef <Button#52> child1 "<Button#53>"
 CreateFrame <Button#54> SecureFrameTemplate
-SetAttribute <Button#53> child1 = <frame <Button#54>>
-SetFrameRef <Button#53> child1 "<Button#54>"
-CreateFrame <Button#55> SecureFrameTemplate
-SetAttribute <Button#53> child2 = <frame <Button#55>>
-SetFrameRef <Button#53> child2 "<Button#55>"
-SetFrameRef <Frame#10> unitwatch_header "<Button#53>"
-Execute <Frame#10>
+SetAttribute <Button#52> child2 = <frame <Button#54>>
+SetFrameRef <Button#52> child2 "<Button#54>"
+SetFrameRef <Frame#9> unitwatch_header "<Button#52>"
+Execute <Frame#9>
   |             local alias, from, to = "tank", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
   |             UnitwatchHeaders[alias] = header
@@ -1856,8 +1940,8 @@ Execute <Frame#10>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef <Frame#4> rolehdr_tank "<Button#53>"
-WrapScript <Button#55> OnAttributeChanged =
+SetFrameRef <Frame#3> rolehdr_tank "<Button#52>"
+WrapScript <Button#54> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1898,7 +1982,7 @@ WrapScript <Button#55> OnAttributeChanged =
   |     end
   | end
   | 
-Execute <Frame#4>
+Execute <Frame#3>
   |             UnitRoles = false
   |             RoleOwners = false
   |             local unitframe = States.unitframe
@@ -1914,21 +1998,26 @@ UnregisterEvent SecureStateDriverManager PLAYER_MOUNT_DISPLAY_CHANGED
 UnregisterEvent SecureStateDriverManager ZONE_CHANGED
 UnregisterEvent SecureStateDriverManager ZONE_CHANGED_INDOORS
 UnregisterEvent SecureStateDriverManager ZONE_CHANGED_NEW_AREA
-UnregisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
-UnregisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
+RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
+RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
 UnregisterEvent SecureStateDriverManager SPELLS_CHANGED
 SetAttribute SecureStateDriverManager updatetime = 0.2
-UnregisterUnitWatch <Frame#4>
-Execute <Frame#4>
+UnregisterUnitWatch <Frame#3>
+Execute <Frame#3>
   |         DirtyFlags.forceAll = true
   |         self:RunAttribute("UpdateAllUnits")
   |         self:RunAttribute("UpdateMacroTexts", true)
   |         self:SetAttribute("state-unitexists", 1)
   |     
-Execute <Frame#4>
+Execute <Frame#3>
+  | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
+RegisterAttributeDriver <Frame#3> state-giveback "[petbattle] b; [vehicleui] v; [possessbar] p; [overridebar] o; [shapeshift] s; 0"
+Execute <Frame#3>
+  | self:RunAttribute("UpdateGivenBackKeys")
+Execute <Frame#3>
   | ClickCastOnMouseDown=false
-SetAttribute <Button#53> showPlayer = true
-SetAttribute <Button#50> showPlayer = true
+SetAttribute <Button#52> showPlayer = true
+SetAttribute <Button#49> showPlayer = true
 SetAttribute SecureStateDriverManager updatetime = 0.2
-Execute <Frame#4>
+Execute <Frame#3>
   | PollEveryFrame=false

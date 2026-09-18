@@ -111,25 +111,25 @@ return function(DebindPrivate)
     end);
 
     test("a box over a mixed selection turns all on, then all off", function()
-        local actions = ResetProfile({ Spell(1, { keepInBindingContext = true }), Spell(2) });
-        local data = { ctx = Ctx(actions), key = "keepInBindingContext", value = ActionMenu.USE_CHECKED_VALUE };
+        local actions = ResetProfile({ Spell(1, { disabled = true }), Spell(2) });
+        local data = { ctx = Ctx(actions), key = "disabled", value = ActionMenu.USE_CHECKED_VALUE };
 
         check(not ActionMenu.actionValueEquals(data), "a mixed selection draws the box on");
         ActionMenu.setActionValue(data);
-        check(actions[1].keepInBindingContext == true and actions[2].keepInBindingContext == true,
-            "first press: " .. tostring(actions[1].keepInBindingContext) .. " " .. tostring(actions[2].keepInBindingContext));
+        check(actions[1].disabled == true and actions[2].disabled == true,
+            "first press: " .. tostring(actions[1].disabled) .. " " .. tostring(actions[2].disabled));
         ActionMenu.setActionValue(data);
-        check(actions[1].keepInBindingContext == false and actions[2].keepInBindingContext == false,
-            "second press: " .. tostring(actions[1].keepInBindingContext) .. " " .. tostring(actions[2].keepInBindingContext));
+        check(actions[1].disabled == false and actions[2].disabled == false,
+            "second press: " .. tostring(actions[1].disabled) .. " " .. tostring(actions[2].disabled));
     end);
 
     test("a selection of one flips the box the way a single row always has", function()
-        local actions = ResetProfile({ Spell(1, { keepInBindingContext = true }) });
-        local data = { ctx = Ctx(actions), key = "keepInBindingContext", value = ActionMenu.USE_CHECKED_VALUE };
+        local actions = ResetProfile({ Spell(1, { disabled = true }) });
+        local data = { ctx = Ctx(actions), key = "disabled", value = ActionMenu.USE_CHECKED_VALUE };
 
         check(ActionMenu.actionValueEquals(data), "the one action's box is on");
         ActionMenu.setActionValue(data);
-        check(actions[1].keepInBindingContext == false, "pressed: " .. tostring(actions[1].keepInBindingContext));
+        check(actions[1].disabled == false, "pressed: " .. tostring(actions[1].disabled));
     end);
 
     test("a bit box moves that bit on every action and leaves the other bits", function()

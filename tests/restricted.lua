@@ -317,7 +317,19 @@ local function buildEnv(interp)
     env.GetTempShapeshiftBarIndex = function() return 17; end
     env.GetOverrideBarIndex = function() return 18; end
     env.GetBonusBarIndex = function() return state.bonusIndex; end
-    env.GetActionInfo = function(slot) return state.actions[slot]; end
+    --- **Two values, because the second is the one that says a slot holds something.** A replaced
+    --- bar answers `HasAction` true on a slot with nothing nameable in it, so the bar itself reads
+    --- the spell id instead (`OverrideActionBar.lua`'s `Setup`) and so do we.
+    env.GetActionInfo = function(slot)
+        if (state.emptySlots[slot]) then
+            return nil;
+        end
+        return state.actions[slot] or "spell", 585;
+    end
+    --- **The saved bindings, the same table the insecure side reads.** `GetBindingKey` is in the
+    --- restricted environment (`RestrictedEnvironment.lua`), which is what lets a body ask what a
+    --- command is bound to at the moment it runs rather than carry a baked answer.
+    env.GetBindingKey = function(command) return _G.GetBindingKey(command); end
     env.GetShapeshiftForm = function() return state.form; end
     env.GetBonusBarOffset = function() return state.bonusbar; end
     env.PlayerIsChanneling = function() return state.channeling; end
@@ -692,6 +704,10 @@ function M.new(DebindPrivate, world)
         bonusIndex = 0,
         --- What `GetActionInfo` answers per slot. Empty is every slot holding a plain action.
         actions = {},
+        --- Which slots `GetActionInfo` answers nothing for. **Empty is every slot filled**, which
+        --- is the baseline a body narrowing itself to "only where there is an action" needs: a
+        --- spec puts the holes in rather than the contents.
+        emptySlots = {},
         mounted = false,
         indoors = false,
         outdoors = false,

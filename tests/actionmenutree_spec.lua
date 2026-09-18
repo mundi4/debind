@@ -201,7 +201,7 @@ return function(DebindPrivate)
             Spell(4, { units = { target = { exists = true, dead = true } } }),
             Spell(5, { combat = true, stealth = false }),
             Spell(6, { specs = { [firstSpec] = true } }),
-            Spell(7, { forms = 1 + 4, keepInBindingContext = true, unit = "focus" }),
+            Spell(7, { forms = 1 + 4, disabled = true, unit = "focus" }),
             Spell(8, { units = { player = { exists = true, dead = false } } }),
         });
     end

@@ -104,14 +104,14 @@ return function(DebindPrivate)
         local h = MenuKit.MakeHandlers(Accessor());
         local ctx = Ctx();
 
-        h.set({ ctx = ctx, key = "keepInBindingContext", value = MenuKit.TOGGLE });
-        check(ctx.values.keepInBindingContext == true, "안 켜져 있던 것은 켜진다");
-        check(h.equals({ ctx = ctx, key = "keepInBindingContext", value = MenuKit.TOGGLE }),
+        h.set({ ctx = ctx, key = "disabled", value = MenuKit.TOGGLE });
+        check(ctx.values.disabled == true, "안 켜져 있던 것은 켜진다");
+        check(h.equals({ ctx = ctx, key = "disabled", value = MenuKit.TOGGLE }),
             "켜진 뒤에는 확인란도 켜져 보인다");
 
-        h.set({ ctx = ctx, key = "keepInBindingContext", value = MenuKit.TOGGLE });
-        check(ctx.values.keepInBindingContext == false, "끄면 false가 남지 nil이 되지 않는다");
-        check(not h.equals({ ctx = ctx, key = "keepInBindingContext", value = MenuKit.TOGGLE }),
+        h.set({ ctx = ctx, key = "disabled", value = MenuKit.TOGGLE });
+        check(ctx.values.disabled == false, "끄면 false가 남지 nil이 되지 않는다");
+        check(not h.equals({ ctx = ctx, key = "disabled", value = MenuKit.TOGGLE }),
             "false는 꺼진 것으로 보인다");
     end);
 

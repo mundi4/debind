@@ -525,15 +525,6 @@ local function CreateCastingMenu(parentDescription, ctx)
     end);
 end
 
---- 집 편집기 같은 바인딩 컨텍스트가 가져간 키는 기본적으로 우리가 내준다. 편집기가
---- 자기 버튼과 안내 문구에 그 키를 그려주기 때문에, 우리가 먹으면 화면에 떠 있는
---- 단축키가 안 먹는 상태가 된다. 그래도 그 키를 쓰겠다는 유저를 위한 통로다.
-local function CreateKeepInBindingContextMenuItem(rootDescription, ctx)
-    local description = CreateCheckbox(rootDescription, ctx, LLL["KEEP_IN_BINDING_CONTEXT"], actionValueEquals,
-        setActionValue, { ctx = ctx, key = "keepInBindingContext", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(description, LLL["KEEP_IN_BINDING_CONTEXT_DESC"]);
-end
-
 --- Importance is **the value with the widest reach** in this menu, on both axes: it reorders every
 --- key this action is on (not only this one), and on a shared layer it does so for every character
 --- on the account.
@@ -754,8 +745,10 @@ local function CreateOrderMenuItems(rootDescription, ctx)
 end
 
 --- **Off without deleting.** The action keeps its conditions, its importance and its place in the
---- key, and hands its key back to the game. It is the way out of "this action never runs" that does
---- not mean turning a press back on (`devdocs/which-action-a-key-runs.md` §6).
+--- key, and drops out of the rebuild ahead of every other filter (`Debind.lua:286`). The key is
+--- still held for every other action on it, and goes back to the game only when none is left. It is
+--- the way out of "this action never runs" that does not mean turning a press back on
+--- (`devdocs/which-action-a-key-runs.md` §6).
 local function CreateDisableMenuItem(rootDescription, ctx)
     local description = CreateCheckbox(rootDescription, ctx, LLL["ACTION_DISABLED"], actionValueEquals,
         setActionValue, { ctx = ctx, key = "disabled", value = USE_CHECKED_VALUE });
@@ -776,7 +769,6 @@ ActionMenu.CreateAssignKeyMenuItem            = CreateAssignKeyMenuItem;
 ActionMenu.CreateUnbindMenuItem               = CreateUnbindMenuItem;
 ActionMenu.CreateTargetUnitMenuItem           = CreateTargetUnitMenuItem;
 ActionMenu.CreateCastingMenu                  = CreateCastingMenu;
-ActionMenu.CreateKeepInBindingContextMenuItem = CreateKeepInBindingContextMenuItem;
 ActionMenu.CreateImportanceMenu               = CreateImportanceMenu;
 ActionMenu.CreateApproveImportMenuItem        = CreateApproveImportMenuItem;
 ActionMenu.CreateRejectImportMenuItem         = CreateRejectImportMenuItem;

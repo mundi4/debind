@@ -536,6 +536,11 @@ for k, v in pairs(States) do
     OldStates[k] = v
 end
 wipe(ClickTimeKeys)
+-- **`ClearOverrideBindings` below takes every key off**, so what a record list remembered about
+-- being handed over is gone with it. The next pass of `UpdateGivenBackKeys` starts from nothing
+-- given back, which is what the game is in after this.
+wipe(BoundKeys)
+wipe(GivenBackNow)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
 end
@@ -668,8 +673,12 @@ local function CollectDriverEvents(events)
     -- anyway, and reading it as the whole of hover dangling detection is not.
     want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.unitframe or _measuredUnitAxes.mouseover);
 
-    want("UPDATE_OVERRIDE_ACTIONBAR", _measuredStates.specialbar);
-    want("UPDATE_VEHICLE_ACTIONBAR", _measuredStates.specialbar);
+    -- **Keys Given Back needs these whether or not a binding asks about the bar.** The rows are an
+    -- account answer, so a profile where nothing carries `specialbar` still has to be woken when a
+    -- vehicle takes the bar (`devdocs/giving-keys-back.md` §4).
+    local givesBackOnReplacedBar = DebindPrivate.GiveBackOnReplacedBar();
+    want("UPDATE_OVERRIDE_ACTIONBAR", _measuredStates.specialbar or givesBackOnReplacedBar);
+    want("UPDATE_VEHICLE_ACTIONBAR", _measuredStates.specialbar or givesBackOnReplacedBar);
 
     want("UPDATE_EXTRA_ACTIONBAR", _measuredStates.extrabar);
 
@@ -691,9 +700,12 @@ local function CollectDriverEvents(events)
     want("ZONE_CHANGED_INDOORS", _measuredStates.indoors);
     want("ZONE_CHANGED_NEW_AREA", _measuredStates.flyable or _measuredStates.advflyable);
 
-    -- specialbar folds [petbattle] into its own value, so it needs these too
-    want("PET_BATTLE_OPENING_START", _measuredStates.petbattle or _measuredStates.specialbar);
-    want("PET_BATTLE_CLOSE", _measuredStates.petbattle or _measuredStates.specialbar);
+    -- specialbar folds [petbattle] into its own value, so it needs these too, and so does the
+    -- Pet Battle row of Keys Given Back.
+    local battle = _measuredStates.petbattle or _measuredStates.specialbar
+        or DebindPrivate.GiveBackInPetBattle();
+    want("PET_BATTLE_OPENING_START", battle);
+    want("PET_BATTLE_CLOSE", battle);
 
     local hasKnownState = false;
     for state in pairs(_measuredStates) do
@@ -787,6 +799,15 @@ local function BuildBindingPlan(ctx)
 
     plan.statePoll = WantsStatePoll();
 
+    --- The two rows of Keys Given Back that the restricted side answers, and the two that narrow
+    --- them. The House Editor row is not here: it is settled on this side by
+    --- `RefreshYieldedKeys`, which runs before the key map is built.
+    plan.giveBack = {
+        replacedBar = DebindPrivate.GiveBackOnReplacedBar(),
+        petBattle = DebindPrivate.GiveBackInPetBattle(),
+        onlyWithAction = DebindPrivate.GiveBackWhenActionExists(),
+    };
+
     CollectDriverEvents(plan.events);
 
     -- **The throttle this rebuild asks for, and it is the fallback rather than the answer.**
@@ -818,6 +839,49 @@ local function BuildBindingPlan(ctx)
     plan.updatetime = updatetime;
 
     return plan;
+end
+
+--- What wakes `UpdateGivenBackKeys`. Blizzard's manager resolves this insecurely on its own beat
+--- and writes the attribute only when the value moves, so every transition between these states
+--- costs one handler entry and a state that is not among them costs nothing
+--- (`SecureStateDriver.lua`, `resolveDriver`).
+---
+--- **A token per state rather than a boolean.** How many buttons are live differs between them
+--- (§2), so going straight from one to another has to read as a move.
+---
+--- **`[vehicleui]` stands before `[possessbar]`, and `HasVehicleActionBar()` is neither of them.**
+--- Measured in a possession: `[possessbar]` is true, `[vehicleui]` is false, and the bar is a
+--- vehicle bar (`legacy/dropping-the-game-fallback.md` §4-5). What this expression decides is only
+--- **when** to run; the body asks the bar itself what it is.
+local GIVE_BACK_DRIVER =
+"[petbattle] b; [vehicleui] v; [possessbar] p; [overridebar] o; [shapeshift] s; 0";
+
+--- Writes the reader's rows to the secure side and puts the driver on or takes it off.
+---
+--- **Off is not the same as leaving it registered with every row false.** A driver that stays on
+--- goes on costing a resolve on the manager's beat for a reader who turned the feature off.
+local function ApplyGiveBack(driver, giveBack)
+    SecureHandlerExecute(driver, format(
+        "GiveBack.replacedBar=%s GiveBack.petBattle=%s GiveBack.onlyWithAction=%s",
+        tostring(giveBack.replacedBar), tostring(giveBack.petBattle),
+        tostring(giveBack.onlyWithAction)));
+
+    if (giveBack.replacedBar or giveBack.petBattle) then
+        RegisterAttributeDriver(driver, "state-giveback", GIVE_BACK_DRIVER);
+    else
+        UnregisterAttributeDriver(driver, "state-giveback");
+        driver:SetAttribute("state-giveback", nil);
+    end
+
+    --- **The rebuild has to work it out again itself.** Registering the driver resolves it on the
+    --- spot, but the manager writes the attribute only when the value moves, and a rebuild that
+    --- happened inside one of these states finds the same value already there -- so no transition
+    --- arrives. Meanwhile `ClearPreviousBindings` took every override off and `UpdateBindingsMap`
+    --- put them all back, so without this the keys stay Debind's for as long as the state lasts.
+    ---
+    --- A pet battle is where that shows: it is not a combat lockdown, so a rebuild really does run
+    --- in the middle of one.
+    SecureHandlerExecute(driver, [[self:RunAttribute("UpdateGivenBackKeys")]]);
 end
 
 --- Hands the plan to the game. **The only step of a rebuild with an effect on the secure side**,
@@ -920,6 +984,8 @@ local function ApplyBindingPlan(plan)
         self:RunAttribute("UpdateMacroTexts", true)
         self:SetAttribute("state-unitexists", 1)
     ]]);
+
+    ApplyGiveBack(driver, plan.giveBack);
 end
 
 --- What is left once the bindings are up: drop what this rebuild made stale, put the reader's own
@@ -2252,6 +2318,12 @@ function UpdateBindingsMap()
             appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
             appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key,
                 clickTimeButton);
+            -- **The other direction of the line above, and the button name it just used**, so a
+            -- key handed to the game can be found by its own spelling and put back with the same
+            -- argument (`UpdateGivenBackKeys`). The rebuild has cleared every override on its way
+            -- in, so nothing is given back at this point and no slot is written for that.
+            appendLine("BoundKeys[%q]=bindings", key);
+            appendLine("bindings.clickButton=%q", clickTimeButton);
         end
     end
 
@@ -2538,6 +2610,17 @@ end
 -- 블리자드 StateDriverManager는 기존 값과 새로운 값(true or false)이 다른 경우에만 _onattributechanged를 호출하므로
 -- 'state-unitexists'은 true/false가 아닌 값을 넣어둔다.
 function UpdateAttrChangedHandler()
+    -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the
+    -- driver on its own beat and writes this attribute only when the value moves, so this branch is
+    -- one transition and not a poll (`devdocs/giving-keys-back.md` §4). The value itself says
+    -- nothing the body does not read for itself; it exists to be different.
+    appendLine([[
+if (name == "state-giveback") then
+    self:RunAttribute("UpdateGivenBackKeys")
+    return
+end
+]]);
+
     appendLine([[
 if (name == "state-unitexists") then
     if (value == 0) then return end

@@ -11,6 +11,10 @@ local _, DebindPrivate = ...;
 ---
 --- 어떤 키가 걸리는지는 목록으로 들고 있지 않고 게임에 물어본다. 블리자드가 다음
 --- 패치에서 바인딩을 더 추가해도 질의가 알아서 따라간다.
+---
+--- **물러날지는 전역 옵션이 정한다** (`GiveBackInBindingContext`). 없으면 물러나는 쪽이 기본인
+--- 것은 여기 적힌 이유 그대로다. 액션마다 있던 `keepInBindingContext`는 그 옵션이 서면서
+--- 나갔다(`devdocs/giving-keys-back.md` §7).
 
 local YieldedKeys                 = {};
 
@@ -53,34 +57,6 @@ local function CollectClaimedKeys(out)
     end
 end
 
---- Kept apart from `YieldedKeys` because `keepInBindingContext` reads to the user as "Override the
---- house editor" and must not hold a key through a battle.
-local PetBattleKeys               = {};
-
--- Driven by the two events rather than `C_PetBattles.IsInBattle`, the way the probe that measured
--- the yield did (§5-1 of `devdocs/legacy/dropping-the-game-fallback.md`).
-local inPetBattle                 = C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle() or false;
-
--- The battle's abilities go out through `ActionButtonDown`, which only these bindings call
--- (`ActionButton.lua:123-164`); 4 opens the pet switch and 5 is the trap.
-local NUM_PET_BATTLE_BUTTONS      = 5;
-
-function DebindPrivate.IsKeyYieldedToPetBattle(key)
-    return PetBattleKeys[key] == true;
-end
-
-local function CollectPetBattleKeys(out)
-    for i = 1, NUM_PET_BATTLE_BUTTONS do
-        local action = "ACTIONBUTTON" .. i;
-        for j = 1, select("#", GetBindingKey(action)) do
-            local key = select(j, GetBindingKey(action));
-            if (key) then
-                out[key] = true;
-            end
-        end
-    end
-end
-
 --- Makes `set` hold exactly the keys in `claimed`. True if that moved anything.
 local function ReplaceSet(set, claimed)
     local changed = false;
@@ -110,23 +86,13 @@ end
 
 local _claimed = {};
 
---- Recomputes the keys handed to the game. True if either set changed.
+--- Recomputes the keys handed to the game. True if the set changed.
 function DebindPrivate.RefreshYieldedKeys()
     wipe(_claimed);
-    if (supported and AnyContextActive()) then
+    if (supported and AnyContextActive() and DebindPrivate.GiveBackInBindingContext()) then
         CollectClaimedKeys(_claimed);
     end
-    local changed = ReplaceSet(YieldedKeys, _claimed);
-
-    wipe(_claimed);
-    if (inPetBattle) then
-        CollectPetBattleKeys(_claimed);
-    end
-    if (ReplaceSet(PetBattleKeys, _claimed)) then
-        changed = true;
-    end
-
-    return changed;
+    return ReplaceSet(YieldedKeys, _claimed);
 end
 
 --- 알림이 컨텍스트 활성화보다 먼저 올 수 있다. HouseEditorFrame:OnShow는
@@ -173,13 +139,3 @@ if (supported) then
     DebindPrivate.BindingContextTriggers = { mode = modeTrigger, state = stateTrigger };
 end
 
-do
-    local PetBattleEvents = CreateFrame("Frame");
-    PetBattleEvents:SetScript("OnEvent", function(_, event)
-        inPetBattle = event == "PET_BATTLE_OPENING_START";
-        ScheduleRefresh();
-    end);
-    -- Clients without pet battles do not have the events.
-    pcall(PetBattleEvents.RegisterEvent, PetBattleEvents, "PET_BATTLE_OPENING_START");
-    pcall(PetBattleEvents.RegisterEvent, PetBattleEvents, "PET_BATTLE_CLOSE");
-end

@@ -46,7 +46,7 @@ return function(DebindPrivate)
             icon = 135846,
             unit = "target",
             priority = 2,
-            keepInBindingContext = true,
+            disabled = true,
             casting = { hoverCastMode = "unitframe" },
             conditions = { combat = true, forms = 3, units = { unitframe = 1 } },
             seq = 1,
@@ -78,7 +78,7 @@ return function(DebindPrivate)
             { icon = 1 },
             { unit = "focus" },
             { priority = 3 },
-            { keepInBindingContext = false },
+            { disabled = false },
             { casting = { hoverCast = "skip" } },
         };
         for i = 1, #fields do

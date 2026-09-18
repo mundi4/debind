@@ -224,6 +224,7 @@ local specs = {
     { name = "keymap", path = root .. "/keymap_spec.lua" },
     { name = "specid", path = root .. "/specid_spec.lua" },
     { name = "boundkey", path = root .. "/boundkey_spec.lua" },
+    { name = "giveback", path = root .. "/giveback_spec.lua" },
     { name = "display", path = root .. "/display_spec.lua" },
     { name = "hover", path = root .. "/hover_spec.lua" },
     { name = "reassemble", path = root .. "/reassemble_spec.lua" },

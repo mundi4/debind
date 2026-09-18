@@ -430,8 +430,16 @@ function M.install()
     _G.UnregisterStateDriver = function(frame, state)
         record("UnregisterStateDriver", label(frame), state);
     end
-    --- The addon only ever hooks this one; it stands here so the hook resolves.
-    _G.RegisterAttributeDriver = function() end
+    --- **Recorded but not resolved.** Blizzard's manager is what turns a driver expression into
+    --- attribute writes, and none of it runs here, so what a spec can ask is that the driver went
+    --- on or came off. A spec that wants the body's answer runs the body
+    --- (`tests/giveback_spec.lua`).
+    _G.RegisterAttributeDriver = function(frame, state, values)
+        record("RegisterAttributeDriver", label(frame), state, values);
+    end
+    _G.UnregisterAttributeDriver = function(frame, state)
+        record("UnregisterAttributeDriver", label(frame), state);
+    end
 
     --- **The frame goes in the frame slot on all three.** It used to be left out on the clear and
     --- to be the mouse button on the click, which nothing noticed because the golden renders

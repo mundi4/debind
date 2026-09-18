@@ -346,13 +346,11 @@ L["GROUP_RAID"] = "When in a raid";
 -- spec") cannot be read the second way.
 L["INACTIVE_SPEC_DESC"] = "Keys you put here start working when you're in this spec."
 L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
-L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its own shortcuts while it is open, and this addon leaves those keys alone. An action bound to one of them does nothing while the editor is open.|n|nCheck this to take the key anyway: your action runs, and the editor's shortcut on that key does not. The editor still shows the key on its own button, so that button will look usable while doing nothing."
-L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
--- **Named for what it does to the action, beside Delete, which is the other way to stop one.** The
--- sentence has to say what turning off keeps, or a reader who does not want to lose their conditions
--- leaves the action running instead.
+-- **Named for what it does to the action, beside Delete, which is the other way to stop one.** What
+-- turning off keeps is said in the help instead (`HELP_STOPPING_AN_ACTION_BODY`): a checkbox already
+-- promises the way back, and the tooltip's one job is the key, which several actions can share.
 L["ACTION_DISABLED"] = "Turn this action off"
-L["ACTION_DISABLED_DESC"] = "The action stops running and its key goes back to the game. It keeps everything you set on it, so turning it back on puts it where it was.|n|nDeleting takes the conditions, the importance and the place in the key with it."
+L["ACTION_DISABLED_DESC"] = "The action stops running. The key goes to the next action on it, and when every action on it is off, back to whatever WoW has bound to it."
 L["KEY"] = "Key"
 --- The dialog that asks for one key, for one action or one set of them (`KeyCapture.lua`).
 ---
@@ -1018,6 +1016,33 @@ L["SWITCH_ANSWER_REMEMBER_DESC"] = "Starts on if you left it on. Every character
 -- rather than cleared, because a reader who ticks this again expects their choices back.
 L["SWITCH_MESSAGES"] = "Switch change messages"
 L["SWITCH_MESSAGES_DESC"] = "Unticked, no switch prints a message when it changes, including the ones set to show one."
+-- The section where Debind hands a key it holds back to the game for as long as something else
+-- needs it.
+--
+-- **The three rows are named after the situation, not after what happens to the key.** What happens
+-- is the same on all three and the heading already says it, so a row repeating it would leave the
+-- reader comparing three sentences to find the one word that differs.
+--
+-- The first row is `CONDITION_SPECIALBAR`, the name this state already has in the condition list.
+-- A second name for it would put two words on one thing in front of a reader who cannot know they
+-- are the same.
+L["GIVE_BACK_KEYS"] = "Keys Given Back"
+L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or the like has replaced your action bar, the keys bound to that bar's action buttons go back to the game. Your own actions on those keys come back when the bar does."
+L["GIVE_BACK_ONLY_WITH_ACTION"] = "Filled buttons only"
+L["GIVE_BACK_ONLY_WITH_ACTION_DESC"] = "A key goes back only where the replaced bar actually has an action. Empty buttons keep doing what you bound them to."
+-- **The client's own name for the thing** (`MAP_LEGEND_PETBATTLE`), so every language gets it for
+-- free. Assigned here only; translating it again could disagree with the game inside one window.
+L["GIVE_BACK_PET_BATTLE"] = MAP_LEGEND_PETBATTLE
+L["GIVE_BACK_PET_BATTLE_DESC"] = "During a pet battle, the keys bound to action buttons 1 to 5 go back to the game. There is no other way to reach a pet battle ability from a key."
+-- **Not taken from the client**, which has no bare name for it: every string it has is a sentence
+-- around one (`Exit House Editor`).
+L["GIVE_BACK_HOUSE_EDITOR"] = "House Editor"
+L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself while it is open. Ticked, Debind steps aside on the keys it claims and keeps every other one."
+-- **There is no "only the first key" row, and there cannot be one** (2026-09-18, measured). The
+-- client does not keep the two slots of a command in the order the keybinding screen showed: bind
+-- a key in the first slot, reload, bind another in the second, reload, and the first slot is now
+-- the second key. "The first key" would name a different key from one login to the next, which is
+-- not something a checkbox can promise.
 -- The rows under a switch: one per override, and the account-wide answer last.
 --
 -- **"Override" is the client's own word**, and 덮어쓰기 in Korean: `TRANSMOG_ARTIFACT_OPTIONS_HEADER`

@@ -109,6 +109,8 @@ globals = {
 	"RegisterUnitWatch",
 	"UnregisterUnitWatch",
 	"UnitWatchRegistered",
+	"RegisterAttributeDriver",
+	"UnregisterAttributeDriver",
 	"SecureHandlerSetFrameRef",
 	"SecureHandlerExecute",
 	"SecureHandlerWrapScript",

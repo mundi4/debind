@@ -124,7 +124,6 @@ local ACTION_FIELDS      = {
     icon = "number|string",
     unit = "string",
     priority = "number",
-    keepInBindingContext = "boolean",
     -- **An action the sender had turned off arrives turned off.** Dropping it would hand the reader
     -- a running action the sender had stopped, and turning something on is not a thing an import may
     -- do by itself.

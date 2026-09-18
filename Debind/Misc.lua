@@ -1244,6 +1244,39 @@ do
         return not (options and options.switchMessages == false);
     end
 
+    --- The three places Debind hands a key it holds back to the game, and the two values that
+    --- narrow what goes over (`devdocs/giving-keys-back.md` §7).
+    ---
+    --- **Two of the three are on with the value absent and one is off**, so which way a reader is
+    --- asked differs per row. What decides it is whether the situation happens in a fight: a pet
+    --- battle and the house editor do not, so a key handed over there costs the reader nothing,
+    --- while a replaced bar is usually mid-fight and a key that does something else there is the
+    --- loss itself.
+    function DebindPrivate.GiveBackOnReplacedBar()
+        local options = DebindPrivate.Options;
+        return (options and options.giveBackOnReplacedBar) and true or false;
+    end
+
+    --- Narrows the row above to the buttons whose slot holds something.
+    function DebindPrivate.GiveBackWhenActionExists()
+        local options = DebindPrivate.Options;
+        return (options and options.giveBackWhenActionExists) and true or false;
+    end
+
+    function DebindPrivate.GiveBackInPetBattle()
+        local options = DebindPrivate.Options;
+        return not (options and options.giveBackInPetBattle == false);
+    end
+
+    --- The house editor and whatever else opens a binding context. **This one was running before it
+    --- was an option**, which is why absent reads as on: the keys a context claims were never ours
+    --- to hold (`BindingContexts.lua`).
+    function DebindPrivate.GiveBackInBindingContext()
+        local options = DebindPrivate.Options;
+        return not (options and options.giveBackInBindingContext == false);
+    end
+
+
     --- One value of `action.casting`. **The stored table is not trusted to hold a name we know**: a
     --- payload carries whatever it was written with, so an unknown value has to read as the default,
     --- which is what an action with no `casting` at all has
