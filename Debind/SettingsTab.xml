@@ -108,6 +108,45 @@
 		</Frames>
 	</Frame>
 
+	<!--
+		A row that is one link: the ordinary row with nothing in the right column, so the text and
+		the hover both run the whole width. Every other row keeps its left half for a label and its
+		right half for the control, and a link with no control has no reason to stop at the middle.
+
+		**The hover frame is the button.** `DebindSettingsRowTemplate` already lights the row and
+		shows a tooltip from that frame; giving it `OnMouseUp` makes the same lit row the thing that
+		is pressed, rather than putting a second shape on the screen for one press.
+	-->
+	<Frame name="DebindSettingsLinkRowTemplate" virtual="true">
+		<Size y="26"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontNormal" justifyH="LEFT" wordwrap="false">
+					<Anchors>
+						<Anchor point="LEFT" x="37"/>
+						<Anchor point="RIGHT" x="-40"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="Tooltip" mixin="DefaultTooltipMixin" enableMouse="true">
+				<Anchors>
+					<Anchor point="TOPLEFT"/>
+					<Anchor point="BOTTOMRIGHT"/>
+				</Anchors>
+				<Layers>
+					<Layer level="BACKGROUND">
+						<Texture parentKey="HoverBackground" inherits="HoverBackgroundTemplate"/>
+					</Layer>
+				</Layers>
+				<Scripts>
+					<OnLoad method="OnLoad"/>
+				</Scripts>
+			</Frame>
+		</Frames>
+	</Frame>
+
 	<Frame name="DebindSettingsButtonRowTemplate" virtual="true">
 		<Size y="26"/>
 		<Frames>

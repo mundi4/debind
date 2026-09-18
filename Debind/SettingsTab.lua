@@ -165,6 +165,18 @@ local function Button(text, onClick)
     row.Button:SetScript("OnClick", onClick);
 end
 
+--- A row that opens a help page. **Green, the way every other way into a page is** (`build-help.js`,
+--- `ActionMenuItems.lua`), and pressed on the row itself rather than on a button of its own: a
+--- button here would read as a setting being changed, which is what every other row does.
+local function HelpLink(title, page)
+    local row = AddRow("DebindSettingsLinkRowTemplate");
+    row.Text:SetText(CreateSimpleTextureMarkup([[Interface\common\help-i]], 24, 24)
+        .. GREEN_FONT_COLOR:WrapTextInColorCode(title));
+    row.Tooltip:SetScript("OnMouseUp", function()
+        DebindPrivate.DebindUI.ToggleHelp(page);
+    end);
+end
+
 local function Radios(rootDescription, choices, get, set)
     for _, choice in ipairs(choices) do
         rootDescription:CreateHighlightRadio(choice.label, function(data)
@@ -233,6 +245,10 @@ local function Build()
             DebindPrivate.QueueUpdateBindings();
         end);
     end, hoverCastChoices);
+    -- **The one help link that is not in the list further down.** What Hover Cast is has to be
+    -- within reach of the row that asks a reader to pick a mode for it, and a reader who has not met
+    -- the name yet cannot know to scroll to a list of page titles.
+    HelpLink(L["HELP_HOVER_CAST_TITLE"], "hover-cast");
 
     Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;

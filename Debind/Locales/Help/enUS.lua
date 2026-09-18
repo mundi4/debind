@@ -38,6 +38,22 @@ A unit nobody holds counts as not existing, so add exists to go on to the next p
 Write them in lower case, with @, in the brackets that open each part of a line. Anywhere else they are left as plain text.
 ]==]
 
+L["HELP_HOVER_CAST_TITLE"] = "What is Hover Cast?"
+L["HELP_HOVER_CAST_BODY"] = [==[
+While you point at a unit, a key sends its action to that unit instead of where it would normally go. Point at nothing and the action goes where it normally would, and an action with a target picked under |cnBLUE_FONT_COLOR:Target|r keeps going there.
+
+|cnHIGHLIGHT_FONT_COLOR:It is off on each action until you turn it on|r, in the action's right-click menu under |cnBLUE_FONT_COLOR:Cast Options|r. You can turn it on for several actions at once. The same menu lets one action use a mode of its own.
+
+Which units count as pointed at is the mode in Debind's settings:
+
+- |cnBLUE_FONT_COLOR:Unit Frames|r, the unit of the unit frame under your cursor. Away from a unit frame nothing is pointed at.
+- |cnBLUE_FONT_COLOR:Mouseover|r, a unit frame, a nameplate, or the unit itself in the world.
+
+The unit is handed to the action, and what the action can do with it is the action's own business: a macro or a mount takes no unit and runs the way it always does. It is used as it is, too. Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters.
+
+What each row of |cnBLUE_FONT_COLOR:Cast Options|r does, and how to keep an action from running while you point at a unit, is in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do the Cast Options do?]|h|r. Which of a picked target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+]==]
+
 L["HELP_ORDERING_TITLE"] = "Which action does a key run?"
 L["HELP_ORDERING_BODY"] = [==[
 A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing.

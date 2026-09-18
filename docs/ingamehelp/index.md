@@ -2,6 +2,7 @@
 
 - ordering
 - targeting
+- hover-cast
 - cast-options
 - stopping-an-action
 - picking-a-pointed-unit
