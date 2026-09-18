@@ -601,10 +601,19 @@ L["KEY_HEADER_APPROVE"] = "Accept the %d still waiting"
 L["KEY_HEADER_APPROVE_ONE"] = "Accept the one still waiting"
 L["KEY_HEADER_REJECT"] = "Reject the %d still waiting"
 L["KEY_HEADER_REJECT_ONE"] = "Reject the one still waiting"
--- **[Unbind] came off the heading's menu** (2026-08-23, 소유자) and this went with it. The other end
--- of that axis is a button on the window [Assign a key] opens, over the same set, so the menu item
--- was a second door to it that could scatter a set without the reader having gone to decide its
--- key. What the sentence here explained lives on that button now.
+--- The other end of the axis, over the same set. **The words are `UNBIND`'s**, for the reason the
+--- item above shares its words with the row's: the act is the same, only the reach differs, and the
+--- reach is the tooltip's to carry.
+---
+--- **The scope is not "this group".** `Group` is this window's word for a party or a raid
+--- (`CONDITION_GROUP`, `UNITGROUP_NONE`), and a set sharing one key is not a thing the profile keeps
+--- either (`devdocs/building-export-import.md` 12절). "under this heading" is what the item above
+--- says and is what this screen has to name it by.
+---
+--- **The set coming apart is not said here.** `UNBIND_SCATTERS_CONFIRM` stands in front of the press
+--- with the number it actually found, and a tooltip written once cannot name that number.
+L["KEY_HEADER_UNBIND"] = "Unbind key"
+L["KEY_HEADER_UNBIND_DESC"] = "Takes the key off every action under this heading, in one go. That includes any in specializations you are not in."
 --- **This is where the label's missing half went, so the first line has to carry it**: one key, the
 --- whole set, at once.
 ---

@@ -211,8 +211,8 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     CreateDeleteMenu(rootDescription, ctx);
 end
 
---- Right-clicking a key group's heading in the left column. **One item, and it is the one thing
---- the whole group can be told at once**: which key it goes on.
+--- Right-clicking a key group's heading in the left column. **Two items, and they are the two ends
+--- of the one axis the whole group can be told at once**: which key it goes on, and off it.
 ---
 --- Everything else that menu above offers is about a single action -- an order is a place
 --- between two rows -- and the heading does not stand for any one of them. The conditions the
@@ -290,12 +290,20 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
             return;
         end
 
-        -- **One item, and taking the key off is not a second one** (2026-08-23, 소유자). It stood
-        -- here as the other end of the same axis, and the window this item opens has that end on
-        -- it: [Unbind key] is a button on the capture dialog, over the same set, asking the same
-        -- question. A menu item beside it was the one door in this window that could scatter a
-        -- set without the reader having gone to decide its key.
+        -- **Taking the key off stands beside giving one** (2026-09-18, 소유자). It was out from
+        -- 2026-08-23 as a door that could scatter a set without the reader having gone to decide
+        -- its key, and that door is not an open one: every press lands in `DebindUI.UnbindActions`,
+        -- which asks before it scatters two or more, whichever of the two doors it came through.
+        -- What it cost while it was out is that the only way to take a key off a whole set was to
+        -- open the window that says it is about to set one.
+        --
+        -- **The set is collected on the press**, for the reason `CreateAssignKeyItem` gives.
         CreateAssignKeyItem();
+
+        local unbind = rootDescription:CreateButton(LLL["KEY_HEADER_UNBIND"], function()
+            DebindUI.UnbindActions(DebindPrivate.CollectKeyGroupActions(key, nil));
+        end);
+        SetInstructionTooltip(unbind, LLL["KEY_HEADER_UNBIND_DESC"]);
     else
         -- **The pile at the bottom, and only when something in it arrived.** Its heading names a
         -- state rather than a key, so neither key item belongs: giving them all one key would

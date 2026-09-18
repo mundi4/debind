@@ -1691,6 +1691,86 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
     end,
 })
 
+--- The other end of the same axis, and **the one that cannot be walked back**. A capture window
+--- opened on the wrong set is closed again; a press here takes the key off whatever it gathered and
+--- nothing records which of them went together (`ClearKeyForActions`).
+---
+--- **The confirmation is what measures the reach.** `UnbindActions` only asks when two or more of
+--- one group are in what it was handed, so a box standing at all says the press gathered both. A
+--- single action would go through in silence, which is what the pair of tests above this section
+--- measures from the other side.
+RegisterTest("Key group: the heading's [Unbind key] takes the whole group off", {
+    description = "The heading's unbind entry gathers the whole group and asks before it scatters them",
+    run = function()
+        local NAME = "Key group heading unbind"
+        local KEY = "CTRL-ALT-F4"
+
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
+        ApplyBindings()
+
+        DebindResultPanel:RefreshKeyboard()
+
+        local elementData
+        for _, data in DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider():Enumerate() do
+            if data.isHeader and data.key == KEY then
+                elementData = data
+            end
+        end
+        if not elementData then
+            return Fail(NAME, format("no heading for %s in the left column, is a search term or filter on", KEY))
+        end
+
+        local header = CreateFrame("Button", nil, UIParent, "DebindKeyHeaderTemplate")
+        header:SetPoint("CENTER")
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            StaticPopup_Hide("DEBIND_UNBIND_SCATTERS")
+            header:Hide()
+            header:SetParent(nil)
+        end)
+        header:Init(elementData)
+        header:Click("RightButton")
+
+        local menu = Menu.GetManager():GetOpenMenu()
+        if not menu then
+            return Fail(NAME, "the right-click brought up no menu")
+        end
+
+        local item
+        menu:EnumerateElementDescriptions(function(_, description)
+            if MenuUtil.GetElementText(description) == LLL["KEY_HEADER_UNBIND"] then
+                item = description
+            end
+        end)
+        if not item then
+            return Fail(NAME, format("no [%s] entry", LLL["KEY_HEADER_UNBIND"]))
+        end
+
+        item:Pick(MenuInputContext.MouseButton, "LeftButton")
+
+        if first.key ~= KEY or second.key ~= KEY then
+            return Fail(NAME, "the key was released before anything was asked")
+        end
+        local dialog = StaticPopup_FindVisible("DEBIND_UNBIND_SCATTERS")
+        if not dialog then
+            return Fail(NAME, "pressed the entry and nothing was asked, what it gathered is not the group")
+        end
+
+        local button = dialog.GetButton and dialog:GetButton(1)
+        if not button then
+            return Fail(NAME, "could not get button 1, has the client's dialog shape changed")
+        end
+        button:Click()
+
+        if first.key ~= nil or second.key ~= nil then
+            return Fail(NAME, format("confirmed and the key is still there: %s %s",
+                tostring(first.key), tostring(second.key)))
+        end
+        return Pass(NAME, "right-click -> menu -> asked over the group -> scattered")
+    end,
+})
+
 --- The entry that opens the same window stands on a row too, and **there it must carry that row
 --- alone**. It reads the same as the heading's (both say [Assign a key]), so the eye cannot tell
 --- them apart, and getting it wrong is quiet: the window opens and takes a key either way.
