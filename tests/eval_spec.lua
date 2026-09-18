@@ -1094,8 +1094,8 @@ return function(DebindPrivate, _, ctx)
 
     -- **`@@` in a macro body is where the press aims** (§4). The twins pass a unit whether or not the
     -- action reads it, and this is how a body reads it: the self twin's `player`, the focus twin's
-    -- `focus`, the hover twin's pointed unit, and on the original nothing at all -- a lone `@` the
-    -- client ignores, so the body goes out the way it would with no `@@` in it (§2-3).
+    -- `focus`, the hover twin's pointed unit, and on the original `target`, the unit a press with no
+    -- key held goes at.
     --
     -- A switch expression has no one press to aim with (its value is worked out once for the whole
     -- press, before any winner), so there it stays as written.
@@ -1118,7 +1118,7 @@ return function(DebindPrivate, _, ctx)
         end
 
         local text = body("no key held");
-        check(text == "/cast [@,help]Renew", "no key held: " .. tostring(text));
+        check(text == "/cast [@target,help]Renew", "no key held: " .. tostring(text));
 
         interp.state.modifiedClick.SELFCAST = true;
         text = body("self cast key");

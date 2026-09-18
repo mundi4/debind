@@ -145,7 +145,7 @@ return function(DebindPrivate)
     --- **An action with no unit picked converts to `[@@]`** (`implementing-focus-and-self-cast.md`
     --- §4). Its twins pass `player`, `focus` and the pointed unit, and a body with no `@@` reads none
     --- of them, so the conversion would take the cast keys and Hover Cast off the key. On the
-    --- original the press aims at nothing and `@@` goes out as a lone `@`, which the client ignores.
+    --- original the press aims at nothing and `@@` goes out as `@target`.
     ---
     --- A type that takes no unit keeps its body as it is: whether a body reads the unit is the
     --- action's business, and those never did.

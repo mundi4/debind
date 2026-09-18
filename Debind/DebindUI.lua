@@ -2132,9 +2132,10 @@ function DebindFrameMixin:InitializeButtons()
 			-- **앵커는 안 건드린다.** 그건 "벌크 대상"이 아니라 "지금 이야기 중인 행"이고,
 			-- 왼쪽 열이 그것을 보고 있다. 검색어를 쳤다고 보던 자리를 뺏지 않는다.
 			--
-			-- 매크로 편집 창은 반대다. 걸러져 나간 행 위에 떠 있을 자리가 없으므로 `Refresh`가
-			-- 닫는다. 앵커가 남는 것과 어긋나 보이지만, 하나는 화면이 짚는 자리고 하나는 그 행이
-			-- 있어야 뜻이 서는 창이다.
+			-- 매크로 편집 창은 반대다. 닫는 방아쇠는 검색어가 달라졌다는 것이 아니라 **고른 것이
+			-- 달라졌다는 것**이고, 집합이 실제로 달라졌을 때 `PruneSelectionToBinFilter`가
+			-- `CommitSelection`으로 간다. 앵커가 남는 것과 어긋나 보이지만, 하나는 화면이 짚는
+			-- 자리고 하나는 그 행이 있어야 뜻이 서는 창이다.
 			--
 			-- One set for the two below, built here because this is the top of the update. The
 			-- keystroke that lands on this line is the reason it is not built three times over
@@ -2566,6 +2567,9 @@ function DebindFrameMixin:OnLoad()
 		local x, y = self:GetLeft(), self:GetTop();
 		AnchorTopLeft(x, y);
 		DebindPrivate.db.global.ui.main = { x = x, y = y };
+
+		-- 이 창의 새 자리에 따라 매크로 편집창이 설 쪽이 바뀐다.
+		DebindMacroFrame:UpdateSide();
 	end);
 
 	DebindPrivate.db.global.ui = DebindPrivate.db.global.ui or {};
@@ -3237,6 +3241,12 @@ end
 ---
 --- **A group anchor goes with its group.** Once nothing of it is drawn SHIFT has nowhere to measure
 --- from, and accepting an arrival group ends here too, its `(key, arrivalID)` gone.
+---
+--- **A set that changed goes through `CommitSelection`**, which is the rule wherever the set is
+--- written: the windows standing on an action close whenever it changes, whether a row came in or
+--- went out. Only going out can happen here, and a pass that drops nothing changes nothing.
+--- Shrinking it quietly left the macro editor up over a row nothing draws, with a count that no
+--- longer held it.
 function DebindFrameMixin:PruneSelectionToBinFilter(visible)
 	if (_anchorGroup) then
 		visible = visible or NarrowedVisibleActions();
@@ -3254,11 +3264,17 @@ function DebindFrameMixin:PruneSelectionToBinFilter(visible)
 		return;
 	end
 
+	local dropped = false;
 	for action in pairs(_selection) do
 		if (not visible[action]) then
 			_selection[action] = nil;
 			_selectionCount = _selectionCount - 1;
+			dropped = true;
 		end
+	end
+
+	if (dropped) then
+		CommitSelection();
 	end
 end
 
@@ -3771,6 +3787,8 @@ function DebindFrameMixin:SelectPanel(id, force)
 	-- user put it at where they put it.
 	if (panel.preferredWidth) then
 		self:SetWidth(panel.preferredWidth);
+		-- 폭이 바뀌면 오른쪽 변이 움직이고, 거기 붙어 있던 창이 설 쪽도 같이 바뀐다.
+		DebindMacroFrame:UpdateSide();
 	end
 
 	if (self.shownPanel ~= panel) then
@@ -4260,35 +4278,20 @@ function DebindResultPanelMixin:OnLoad()
 	overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
 	overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
 
+	self.ContentArea.HelpButton:SetHelpTopic("ordering");
+
 	self.initialized = true;
 	self:Refresh();
 end
 
---- The callout on the (i): its own hover, and the cursor on a locked arrow. It is the (i)'s
---- tooltip; nothing else is put on it.
-local ORDER_HELP_TIP = {
-	text = nil,
-	buttonStyle = HelpTip.ButtonStyle.Close,
-	targetPoint = HelpTip.Point.TopEdgeCenter,
-	alignment = HelpTip.Alignment.Left,
-};
-
-local function OrderHelpTipText()
-	return LLL["HELP_ORDERING_TITLE"] .. "|n|n" .. GREEN_FONT_COLOR:WrapTextInColorCode(LLL["HELP_TIP_OPEN"]);
-end
-
+--- 말풍선은 (i) 자신의 hover 말고 **잠긴 화살표 위**에서도 뜬다. 그래서 이 두 줄이 남아 있다
+--- - 그 자리(`DebindOrderLineMixin:OnMoveEnter`)가 버튼을 직접 부르지 않고 이 열에 말한다.
 function DebindResultPanelMixin:ShowHelpTip()
-	ORDER_HELP_TIP.text = OrderHelpTipText();
-	HelpTip:Show(self, ORDER_HELP_TIP, self.ContentArea.HelpButton);
+	self.ContentArea.HelpButton:ShowCallout();
 end
 
 function DebindResultPanelMixin:HideHelpTip()
-	HelpTip:Hide(self, OrderHelpTipText());
-end
-
-function DebindResultPanelMixin:OnHelpClick()
-	DebindUI.ToggleHelp("ordering");
-	self:HideHelpTip();
+	self.ContentArea.HelpButton:HideCallout();
 end
 
 function DebindResultPanelMixin:Refresh()
@@ -6201,6 +6204,106 @@ StaticPopupDialogs["DEBIND_APPROVE_ALL_OCCUPIED"] = {
 
 DebindMacroFrameMixin = {};
 
+--- `DebindHelpLinkTemplate`의 뒤. 창은 자리만 잡고 어느 페이지인지만 말한다
+--- (`SetHelpTopic`), 제목도 색도 폭도 여기서 나온다.
+DebindHelpLinkMixin = {};
+
+--- 페이지 이름 하나로 끝난다. 제목을 따로 받지 않는 것은 같은 페이지에 두 이름이 생기는 것을
+--- 막기 위해서다 - 목록이 든 제목이 도움말 창의 제목이다.
+function DebindHelpLinkMixin:SetHelpTopic(page)
+	self.helpTopic = page;
+	self:UpdateTitle();
+end
+
+--- **제목은 뜰 때 붙는다.** 이 창들의 `OnLoad`는 XML을 읽을 때 도는데, 페이지 목록
+--- (`HelpTopics.lua`)은 TOC에서 그보다 뒤에 있어 그 시점에는 `HELP_SECTIONS`가 아직 없다.
+function DebindHelpLinkMixin:UpdateTitle()
+	-- 아이콘 크기와 아이콘만 쓸지는 두 KeyValue가 말한다 (`DebindHelpLinkTemplate`). 링은
+	-- 아이콘에 맞춰 같이 큰다 - 따로 두면 한쪽만 고쳤을 때 글로우가 어긋난다.
+	local size = self.iconSize or 28;
+	self.HelpI:SetSize(size, size);
+	self:GetHighlightTexture():SetSize(size, size);
+	self:SetHeight(size);
+
+	local sections = DebindPrivate.HELP_SECTIONS;
+	if (not sections or not self.helpTopic) then
+		return;
+	end
+
+	for _, section in ipairs(sections) do
+		for _, topic in ipairs(section.topics) do
+			if (topic.name == self.helpTopic) then
+				self.helpTitle = LLL[topic.title];
+			end
+		end
+	end
+
+	-- 제목은 아이콘만 쓰는 자리에서도 읽어 둔다. 그 자리에서는 글자 대신 말풍선이 그것을 쓴다.
+	if (self.iconOnly) then
+		self.Text:SetText("");
+		self:SetWidth(size);
+		return;
+	end
+
+	self.Text:SetText(self.helpTitle or "");
+	self.Text:SetTextColor(GREEN_FONT_COLOR:GetRGB());
+	self:SetWidth(size + self.Text:GetStringWidth());
+end
+
+
+function DebindHelpLinkMixin:CalloutText()
+	return (self.helpTitle or "") .. "|n|n" .. GREEN_FONT_COLOR:WrapTextInColorCode(LLL["HELP_TIP_OPEN"]);
+end
+
+--- 아이콘만 있는 자리의 말풍선. 제목과, 누르면 열린다는 한 줄.
+---
+--- **표는 부를 때마다 새로 만든다.** `HelpTip`은 넘긴 표를 참조로 들고 있어서, 모듈 하나를 돌려
+--- 쓰면 둘째 말풍선이 아직 떠 있는 첫 말풍선의 `text`를 갈아치운다. 그러면 `HideCallout`이 짓는
+--- 글과 저쪽이 들고 있는 글이 달라져 첫 말풍선이 안 닫힌다. 커서가 아이콘에 올라올 때만 도는
+--- 자리라 할당 하나는 값이 안 된다.
+---
+--- 말풍선이 버튼의 어느 변에 서고 그 변에서 어느 쪽으로 붙는지는 두 KeyValue가 말한다. 클라이언트
+--- 상수의 **이름**을 적는다 - `HelpTip.Point`는 XML이 KeyValue로 집어올 수 있는 전역이 아니다.
+function DebindHelpLinkMixin:ShowCallout()
+	HelpTip:Show(self, {
+		text = self:CalloutText(),
+		-- 닫는 버튼은 없다. 커서가 아이콘을 떠나면 사라지므로 닫을 것이 화면에 남지 않는다.
+		buttonStyle = HelpTip.ButtonStyle.None,
+		targetPoint = HelpTip.Point[self.calloutPoint or "TopEdgeCenter"],
+		alignment = HelpTip.Alignment[self.calloutAlignment or "Left"],
+	}, self);
+end
+
+function DebindHelpLinkMixin:HideCallout()
+	HelpTip:Hide(self, self:CalloutText());
+end
+
+function DebindHelpLinkMixin:OnShow()
+	self:UpdateTitle();
+end
+
+function DebindHelpLinkMixin:OnClick()
+	DebindUI.ToggleHelp(self.helpTopic);
+	self:HideCallout();
+end
+
+--- 제목이 옆에 있으면 그 글자가 밝아지고, 아이콘뿐이면 제목을 말풍선이 대신 말한다.
+function DebindHelpLinkMixin:OnEnter()
+	if (self.iconOnly) then
+		self:ShowCallout();
+		return;
+	end
+	self.Text:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
+end
+
+function DebindHelpLinkMixin:OnLeave()
+	if (self.iconOnly) then
+		self:HideCallout();
+		return;
+	end
+	self.Text:SetTextColor(GREEN_FONT_COLOR:GetRGB());
+end
+
 function DebindMacroFrameMixin:OnLoad()
 	-- 편집칸은 보이는 만큼만 크고, 넘치는 본문은 스크롤로 간다(기본 매크로 창도 편집칸과
 	-- 스크롤 영역이 같은 크기다). 창 크기를 XML에 박아두더라도 여기서 한 번 맞춰야
@@ -6211,6 +6314,70 @@ function DebindMacroFrameMixin:OnLoad()
 		scrollFrame.EditBox:SetSize(width, height);
 	end);
 
+	editor.HelpButton:SetHelpTopic("custom-macro");
+end
+
+--- 메인 창 위로 올린다.
+---
+--- **한 단 위로는 안 된다.** 메인 창의 내용은 창 자신의 레벨 위에 층층이 서 있어서, 창 값에
+--- 하나만 얹으면 배경보다는 위지만 그 창의 위젯들보다는 아래다. `Raise`가 strata 안에서
+--- 맨 위로 보내는 값을 쓴다.
+---
+--- **누를 때마다 다시 잡는다.** 두 창 다 `toplevel`이라 누르면 클라이언트가 그 창을 올리고,
+--- 그러면 메인 창을 한 번 누른 것으로 이 창이 그 뒤로 간다. 전역 마우스 이벤트로 받는 것은
+--- 메인 창 안쪽 위젯을 눌러도 그 올림은 도는데, 그 위젯이 마우스를 먹으면 창의 `OnMouseDown`은
+--- 안 돌기 때문이다.
+--- **이 창이 세운 이름·아이콘 팝업은 같이 데리고 올라간다.** 그 팝업은 이 창과 같은 strata에
+--- 메인 창의 같은 변으로 서므로, 이 창만 올리면 팝업이 그 뒤로 묻힌다. 조건은 `OnHide`가 그
+--- 팝업을 닫을 때 쓰는 것과 같은 것이다 - 그 팝업이 이 액션 위에 서 있다는 것이 이 창이 열었다는
+--- 뜻이다.
+function DebindMacroFrameMixin:StackOnMainFrame()
+	self:Raise();
+	if (self.macroAction and DebindIconSelectorFrame.editAction == self.macroAction
+			and DebindIconSelectorFrame:IsShown()) then
+		DebindIconSelectorFrame:Raise();
+	end
+end
+
+--- 메인 창의 어느 쪽에 설지.
+---
+--- **오른쪽이 기본이고, 거기가 모자라면 왼쪽으로 넘어간다.** 메인 창은 화면 안에 갇혀 있지만
+--- (`clampedToScreen`) 이 창은 그 창의 변에 붙어 있을 뿐이라, 메인 창이 오른쪽에 바짝 붙으면
+--- 이 창의 폭이 통째로 화면 밖으로 나간다.
+---
+--- 양쪽 다 모자라면 오른쪽에 둔다. 왼쪽으로 넘겨 봐야 같은 만큼 반대쪽으로 나가는 자리다.
+function DebindMacroFrameMixin:UpdateSide()
+	local left, right = DebindFrame:GetLeft(), DebindFrame:GetRight();
+	if (not left or not right) then
+		return;
+	end
+
+	local width = self:GetWidth();
+	local flip = right + width > UIParent:GetRight() and left - width >= UIParent:GetLeft();
+
+	self:ClearAllPoints();
+	if (flip) then
+		self:SetPoint("TOPRIGHT", DebindFrame, "TOPLEFT", 0, 0);
+	else
+		self:SetPoint("TOPLEFT", DebindFrame, "TOPRIGHT", 0, 0);
+	end
+end
+
+function DebindMacroFrameMixin:OnShow()
+	self:StackOnMainFrame();
+	self:UpdateSide();
+	self:RegisterEvent("GLOBAL_MOUSE_DOWN");
+	self:RegisterEvent("GLOBAL_MOUSE_UP");
+end
+
+--- **누름과 뗌 둘 다 받는다.** 누름은 그 자리에서 바로 올라오게 하고, 뗌은 끄는 동안 저쪽이
+--- 다시 올라온 경우를 메운다 - 창을 끌고 가는 사이에는 누름이 한 번뿐이다.
+function DebindMacroFrameMixin:OnEvent()
+	-- 메인 창을 눌러 저쪽이 올라온 경우만이다. 주문 선택 창처럼 따로 선 창을 눌렀을 때까지
+	-- 올리면 그 창을 이 창이 덮는다.
+	if (DebindFrame:IsMouseOver()) then
+		self:StackOnMainFrame();
+	end
 end
 
 --- Opens the window on this action.
@@ -6260,6 +6427,9 @@ end
 --- 강제로 닫는다. 이 창이 닫히는 길은 전부 읽는 사람이 다른 것을 하겠다고 말한 것이고, 그
 --- 뒤에 팝업 하나가 거부하고 남아 서는 자리가 아니다.
 function DebindMacroFrameMixin:OnHide()
+	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
+	self:UnregisterEvent("GLOBAL_MOUSE_UP");
+
 	-- `macroAction`이 nil이면 묻지 않는다. 새로 만드는 모드의 팝업도 `editAction`이 nil이라,
 	-- 그냥 견주면 남의 팝업을 닫는다.
 	if (self.macroAction and DebindIconSelectorFrame.editAction == self.macroAction) then
@@ -6418,8 +6588,7 @@ end
 
 function DebindMacroFrameMixin:Text_OnTextChanged(editBox)
 	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
-	self.Editor.CharLimitText:SetFormattedText(
-		LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
+	self.Editor.EditBackdrop.CharLimitText:SetFormattedText("%d/%d", editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
 	self:UpdateRevertButton();
 end
 

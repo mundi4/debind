@@ -262,9 +262,10 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 --- `pressUnit` and hands them in; `clickSwitches` is what a press worked out, nil where no press is
 --- running, and `pressUnit` is the unit the winner goes out at, nil where it aims at nothing.
 ---
---- **`@@` with no unit goes out as a lone `@`**, which the client ignores wherever it sits in the
---- group (`devdocs/implementing-focus-and-self-cast.md` §2-3). `@target` in its place would drop
---- the engine's automatic self-cast.
+--- **`@@` with nothing aimed at goes out as `@target`** (2026-09-18, owner). `[@@]` is a clause
+--- the reader wrote a unit into, and a lone `@` there is erased by the client, which hands the
+--- clause back to whatever the game aims at by default -- a unit the reader never named
+--- (`devdocs/implementing-focus-and-self-cast.md` §4).
 ---
 --- **Two places bake.** When a state moves (`UpdateMacroTexts`), and when a click arrives (the
 --- `OnClick` wrapper below). So the composition is one copy spliced into both -- two copies and
@@ -295,7 +296,7 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 			end
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
-			value = pressUnit or ""
+			value = pressUnit or "target"
 		elseif (arg.state) then
 			value = clickSwitches and clickSwitches[arg.state]
 			if (value == nil) then

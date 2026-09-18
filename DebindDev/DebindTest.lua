@@ -2660,14 +2660,16 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
         if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on a locked arrow did not light the (i)")
         end
-        if not HelpTip:IsShowingAny(DebindResultPanel) then
+        -- **The (i) is the parent HelpTip knows**, not the panel: `ShowCallout` passes the button
+        -- itself (`DebindHelpLinkMixin`).
+        if not HelpTip:IsShowingAny(help) then
             return Fail(NAME, "the cursor on a locked arrow put no callout on the (i)")
         end
         line:OnMoveLeave()
         if help:IsHighlightLocked() then
             return Fail(NAME, "the (i) stayed lit after the cursor left")
         end
-        if HelpTip:IsShowingAny(DebindResultPanel) then
+        if HelpTip:IsShowingAny(help) then
             return Fail(NAME, "the callout stayed up after the cursor left")
         end
 
@@ -2683,7 +2685,7 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
         if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on the end arrow did not light the (i)")
         end
-        if HelpTip:IsShowingAny(DebindResultPanel) then
+        if HelpTip:IsShowingAny(help) then
             return Fail(NAME, "the end arrow put a callout up with nothing to say")
         end
         line:OnMoveLeave()
@@ -3612,6 +3614,10 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
 --     end,
 -- })
 
+-- **The filter takes the row out of the set, and a selection that changed closes the windows
+-- standing on an action** (`PruneSelectionToBinFilter` -> `CommitSelection`). The rebuild itself
+-- closes nothing over an undrawn row, which is why the trigger is the set and not the drawing
+-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
 RegisterTest("Macro editor: a row filtered out of the bin takes its editor with it", {
     description = "A row filtered out by the search closes its editor, and the body is saved",
     run = function()
@@ -8699,9 +8705,9 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
 -- **Needs the game.** Which body each twin composes is headless (`tests/eval_spec.lua`); what only the
 -- client can show is that the composition runs inside the restricted environment after the unit is
 -- settled and lands on the button the press fires. A body that reads `unit` before it is declared
--- composes a lone `@` on every press, and the key still fires.
+-- composes `@target` on every press, and the key still fires.
 RegisterTest("@@ in a macro body: the held modifier's unit is written in at the press", {
-    description = "조합키 값마다 매크로 본문의 @@가 player, focus, 빈 @로 구워진다",
+    description = "조합키 값마다 매크로 본문의 @@가 player, focus, target으로 구워진다",
     run = function()
         local NAME = "@@ at the press"
         local KEY = "CTRL-ALT-F7"
@@ -8720,7 +8726,7 @@ RegisterTest("@@ in a macro body: the held modifier's unit is written in at the 
         for _, case in ipairs({
             { Constants.CASTMOD_SELF, "/cast [@player]Renew" },
             { Constants.CASTMOD_FOCUS, "/cast [@focus]Renew" },
-            { Constants.CASTMOD_NONE, "/cast [@]Renew" },
+            { Constants.CASTMOD_NONE, "/cast [@target]Renew" },
         }) do
             SetMockState("castModifier", case[1])
 

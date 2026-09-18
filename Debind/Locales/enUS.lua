@@ -268,7 +268,10 @@ L["COPY_TO"] = "Copy to..."
 -- 붙는 표시만 그 줄을 가른다 - 이름을 갈아치우면 목록에서 그 탭의 자리를 잃는다.
 L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
 L["CUSTOM_STATE_DISPLAY_MESSAGE"] = "Show message on change."
-L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "Enter macro conditional expression.\n(Example: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)"
+-- **`@@`가 여기서 안 된다는 것은 이 줄이 유일하게 말하는 자리다.** 식은 누름마다 한 번, 어느 액션이
+-- 이기는지 정해지기 전에 계산돼서 겨누는 유닛이 없다(`implementing-focus-and-self-cast.md` §4). 상자는
+-- 게임 조건문을 그대로 받고 어떤 문법도 안 보므로, 적어 넣어도 막히지 않고 조용히 안 맞는다.
+L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "Enter macro conditional expression.\n(Example: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)\n|cnHIGHLIGHT_FONT_COLOR:@@|r is not read here."
 L["CUSTOM_STATE_EDIT_VALUE"] = "Enter macro conditional expression."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "This option lets the addon determine the value of the switch based on macro conditional expressions (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "Set Automatically"

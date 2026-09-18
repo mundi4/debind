@@ -170,8 +170,7 @@ end
 --- button here would read as a setting being changed, which is what every other row does.
 local function HelpLink(title, page)
     local row = AddRow("DebindSettingsLinkRowTemplate");
-    row.Text:SetText(CreateSimpleTextureMarkup([[Interface\common\help-i]], 24, 24)
-        .. GREEN_FONT_COLOR:WrapTextInColorCode(title));
+    row.Text:SetText(DebindPrivate.MenuKit.HelpLinkText(title));
     row.Tooltip:SetScript("OnMouseUp", function()
         DebindPrivate.DebindUI.ToggleHelp(page);
     end);

@@ -24,18 +24,28 @@ Clicking a unit frame does not use the Self Cast Key or the Focus Cast Key. A ke
 An action on the left or right mouse button with no modifier runs only when you click a unit frame. There it ignores |cnBLUE_FONT_COLOR:Normal Cast|r and |cnBLUE_FONT_COLOR:Hover Cast|r, using |cnBLUE_FONT_COLOR:Unit Frames|r and the unit you click, so a click anywhere else still reaches the game.
 ]==]
 
-L["HELP_CUSTOM_MACRO_TITLE"] = "Which extra units can a Custom Macro aim at?"
+L["HELP_CUSTOM_MACRO_TITLE"] = "Writing a Custom Macro"
 L["HELP_CUSTOM_MACRO_BODY"] = [==[
-A |cnBLUE_FONT_COLOR:Custom Macro|r can aim at these units, which a macro in the game's own list cannot. Write them like any other unit, as in /cast [@tank,exists] Rejuvenation; Regrowth.
+Anything a macro in the game's own list holds, and two things it cannot: the units below, and your switches.
+
+These units can be aimed at. Write them like any other unit.
+
+|cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation; Regrowth|r
 
 - |cnHIGHLIGHT_FONT_COLOR:@tank, @healer, @maintank, @mainassist.|r The member of your group who holds that role, only while exactly one member holds it. Debind's settings can leave you out of each.
 - |cnHIGHLIGHT_FONT_COLOR:@custom1, @custom2.|r The unit you pinned with |cnBLUE_FONT_COLOR:Set Custom Target|r.
 - |cnHIGHLIGHT_FONT_COLOR:@unitframe.|r The unit on the unit frame you press the key over.
-- |cnHIGHLIGHT_FONT_COLOR:@@.|r The unit this press aims at: you while the Self Cast Key is held, your focus while the Focus Cast Key is held, and the unit you point at with |cnBLUE_FONT_COLOR:Hover Cast|r. With none of these it is as if it were not written.
+- |cnHIGHLIGHT_FONT_COLOR:@@.|r The unit this press aims at: you while the Self Cast Key is held, your focus while the Focus Cast Key is held, and the unit you point at with |cnBLUE_FONT_COLOR:Hover Cast|r. With none of these it is your target.
 
-A unit nobody holds counts as not existing, so add exists to go on to the next part of the line. Target and pet can follow a name, as in @tanktarget, except after @@.
+A unit nobody holds counts as not existing. Target and pet can follow any of these names, as in @tanktarget or @@target.
 
-Write them in lower case, with @, in the brackets that open each part of a line. Anywhere else they are left as plain text.
+@@ always puts a unit in, so with nothing aimed at and no target the action goes nowhere. Write an empty part after it to send it where it would normally go.
+
+|cnHIGHLIGHT_FONT_COLOR:/cast [@@,exists][] Regrowth|r
+
+A switch is a condition of its own: [$burst] while it is on, [no$burst] while it is off. The name is the one it has under |cnBLUE_FONT_COLOR:Switches|r.
+
+Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
 ]==]
 
 L["HELP_HOVER_CAST_TITLE"] = "What is Hover Cast?"

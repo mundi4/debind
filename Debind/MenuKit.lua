@@ -134,6 +134,24 @@ function MenuKit.CreateTitle(description, text)
     return title;
 end
 
+--- What a way into a help page looks like: the map's (i), and the title in the green every help
+--- link in a body already carries (`tools/build-help.js`). The settings tab's help rows are not
+--- menu items and use it too - the icon's size is not something two screens may disagree about.
+---
+--- Here rather than beside `DebindUI.ShowHelp`, which sits in a file that needs a frame and so is
+--- outside what the headless specs load (`tests/run.lua`).
+function MenuKit.HelpLinkText(title)
+    return CreateSimpleTextureMarkup([[Interface\common\help-i]], 28, 28)
+        .. GREEN_FONT_COLOR:WrapTextInColorCode(title);
+end
+
+--- A row that leaves the menu for a help page.
+function MenuKit.CreateHelpButton(description, page, title)
+    return description:CreateButton(MenuKit.HelpLinkText(title), function()
+        DebindPrivate.DebindUI.ShowHelp(page);
+    end);
+end
+
 --------------------------------------------------------------------------------
 -- Value handlers
 --------------------------------------------------------------------------------

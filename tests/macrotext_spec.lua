@@ -106,7 +106,7 @@ return function(DebindPrivate)
     ---
     --- One branch is correct here. A body carrying only units and one carrying a switch take
     --- the same path.
-    local function resolve(macrotext, units, states)
+    local function resolve(macrotext, units, states, pressUnit)
         units, states = units or {}, states or {};
         local fragments, args = ParseMacroText(macrotext);
         if (not args) then
@@ -122,6 +122,8 @@ return function(DebindPrivate)
             local value;
             if (arg.type == ARG_UNIT) then
                 value = units[arg.name] or "raid41";
+            elseif (arg.type == Constants.MACROTEXT_ARG_PRESS_UNIT) then
+                value = pressUnit or "target";
             else
                 local on = states[arg.name] and true or false;
                 if (arg.reverse) then
@@ -327,8 +329,7 @@ return function(DebindPrivate)
 
     --- **`@@` is the unit the press aims at** (`implementing-focus-and-self-cast.md` §4). The `@`
     --- stays text and only the name after it is a slot, the same shape `@tank` has: the press
-    --- writes nothing there where it aims at nothing, and a lone `@` is ignored by the client
-    --- wherever it sits in the group (§2-3).
+    --- writes `target` there where it aims at nothing.
     test("@@는 누름이 겨누는 유닛 자리다", function()
         local body = "/cast [@@,help] Foo; [help,@@] Bar";
         local fragments, args = ParseMacroText(body);
@@ -340,9 +341,18 @@ return function(DebindPrivate)
         end
         expectRoundTrip(body);
 
-        -- A suffix has nowhere to go where the press aims at nothing, so `@@target` is not one.
-        local _, suffixed = ParseMacroText("/cast [@@target] Foo");
-        check(suffixed == nil, "@@target을 인자로 잡음");
+        -- **A suffix rides the press unit the way it rides `@tank`** (§4). It was refused while a
+        -- press aiming at nothing wrote an empty string and left the suffix hanging off a lone `@`.
+        local suffixedFragments, suffixedArgs = ParseMacroText("/cast [@@target] Foo");
+        check(suffixedArgs and #suffixedArgs == 1, "@@target을 인자로 못 잡음");
+        check(suffixedArgs and suffixedArgs[1].type == Constants.MACROTEXT_ARG_PRESS_UNIT,
+            "@@target 인자의 타입이 " .. tostring(suffixedArgs and suffixedArgs[1].type));
+        check(suffixedFragments and suffixedFragments[3]:sub(1, 6) == "target",
+            "접미사가 인자 뒤에 글자로 안 남음: " .. tostring(suffixedFragments and suffixedFragments[3]));
+        expectRoundTrip("/cast [@@target] Foo");
+
+        check(resolve("/cast [@@pettarget] Foo", nil, nil, "party1"):find("@party1pettarget", 1, true),
+            "접미사가 겨누는 유닛 뒤에 안 붙음: " .. resolve("/cast [@@pettarget] Foo", nil, nil, "party1"));
     end);
 
     test("알 수 없는 @유닛은 건드리지 않는다", function()

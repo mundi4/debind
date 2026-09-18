@@ -531,12 +531,7 @@ local function CreateCastingMenu(parentDescription, ctx)
     SetInstructionTooltip(normal, LLL["CASTING_NORMAL_DESC"]);
 
     description:CreateDivider();
-    -- Green like every other way into a help page: its links and the (i) tooltip's last line
-    -- (`tools/build-help.js`).
-    description:CreateButton(CreateSimpleTextureMarkup([[Interface\common\help-i]], 24, 24)
-        .. GREEN_FONT_COLOR:WrapTextInColorCode(LLL["HELP_CAST_OPTIONS_TITLE"]), function()
-        DebindUI.ShowHelp("cast-options");
-    end);
+    MenuKit.CreateHelpButton(description, "cast-options", LLL["HELP_CAST_OPTIONS_TITLE"]);
 end
 
 --- Importance is **the value with the widest reach** in this menu, on both axes: it reorders every

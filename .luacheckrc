@@ -421,6 +421,7 @@ globals = {
 	"DebindLayerPanelMixin",
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
+	"DebindHelpLinkMixin",
 	"DebindIconSelectorFrameMixin",
 	"DebindSpellPickerFrameMixin",
 	"DebindMessageFrameMixin",

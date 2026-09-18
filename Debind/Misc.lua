@@ -3123,7 +3123,7 @@ function DebindPrivate.ConvertToMacroText(action)
     -- **No unit picked is `@@`, on a type that takes one** (`devdocs/implementing-focus-and-self-cast.md`
     -- §4). The twins pass `player`, `focus` and the pointed unit, and a body that does not read them
     -- takes the cast keys and Hover Cast off the key. The original aims at nothing and `@@` goes out
-    -- as a lone `@`, the same as a body with no target in it.
+    -- as `@target`.
     if (unit == nil and DebindPrivate.ActionTakesUnit(action)) then
         unit = "@";
     end
@@ -3285,6 +3285,10 @@ do
                 if (token == "@") then
                     appendStr("@");
                     appendArg(token, Constants.MACROTEXT_ARG_PRESS_UNIT);
+                elseif (strsub(token, 1, 1) == "@" and UNIT_SUFFIXES[strsub(token, 2)]) then
+                    appendStr("@");
+                    appendArg("@", Constants.MACROTEXT_ARG_PRESS_UNIT);
+                    appendStr(strsub(token, 2));
                 elseif (SPECIAL_UNITS[token]) then
                     appendStr("@");
                     appendArg(token, Constants.MACROTEXT_ARG_UNIT);

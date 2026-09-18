@@ -792,6 +792,55 @@
 		</Layers>
 	</Button>
 
+	<!--
+		**A way into one help page, standing in a window.** The (i) and the page's own title, which
+		is the pair the settings tab's rows and the action menu's last item carry as one string
+		(`MenuKit.HelpLinkText`).
+
+		The icon is a texture of its own rather than a glyph in that string, because a glyph inside
+		a string takes no highlight: the ring the map's (i) glows with has to sit on a region.
+
+		Its width is the icon plus the title, measured in `SetHelpTopic`. A window with no room for
+		the title says so with `iconOnly`, and then the button is the icon alone.
+	-->
+	<Button name="DebindHelpLinkTemplate" mixin="DebindHelpLinkMixin" virtual="true">
+		<Size x="28" y="28"/>
+		<KeyValues>
+			<KeyValue key="iconSize" value="28" type="number"/>
+			<KeyValue key="iconOnly" value="false" type="boolean"/>
+			<!-- `HelpTip.Point`와 `HelpTip.Alignment`의 이름 (`ShowCallout`). -->
+			<KeyValue key="calloutPoint" value="TopEdgeCenter" type="string"/>
+			<KeyValue key="calloutAlignment" value="Left" type="string"/>
+		</KeyValues>
+		<Layers>
+			<Layer level="ARTWORK">
+				<Texture parentKey="HelpI" file="Interface\common\help-i">
+					<Size x="28" y="28"/>
+					<Anchors>
+						<Anchor point="LEFT"/>
+					</Anchors>
+				</Texture>
+				<FontString parentKey="Text" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.HelpI" relativePoint="RIGHT" x="-2" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnShow method="OnShow"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+		<HighlightTexture alphaMode="ADD" file="Interface\Minimap\UI-Minimap-ZoomButton-Highlight">
+			<Size x="28" y="28"/>
+			<Anchors>
+				<Anchor point="CENTER" relativeKey="$parent.HelpI" x="-1" y="-1"/>
+			</Anchors>
+		</HighlightTexture>
+	</Button>
+
 	<ScrollFrame name="DebindScrollFrameTemplate" inherits="ScrollFrameTemplate" virtual="true">
 		<KeyValues>
 			<KeyValue key="scrollBarX" value="6" type="number"/>
@@ -1192,39 +1241,17 @@
 										the arrows - so this is where its help is reached from. The title bar's
 										big (i) is not used: that seat is a whole window's help.
 
-										**The map's small (i)**, the one its help mode puts on the navigation
-										bar: `HelpPlateTile`'s `Button` in `Blizzard_HelpPlate.xml`. That button
-										is not a template, so its pieces are copied: the glyph filling the
-										button, and the ring glow as the highlight. Its pulse glow and slide
-										animation are the help mode's and are left there.
+										There is no room for the page's title beside it, so it is the icon
+										alone and the callout says which page it is.
 									-->
-									<Button parentKey="HelpButton">
-										<Size x="36" y="36"/>
+									<Button parentKey="HelpButton" inherits="DebindHelpLinkTemplate">
+										<KeyValues>
+											<KeyValue key="iconSize" value="36" type="number"/>
+											<KeyValue key="iconOnly" value="true" type="boolean"/>
+										</KeyValues>
 										<Anchors>
 											<Anchor point="CENTER" relativePoint="TOPRIGHT" x="-20" y="-19"/>
 										</Anchors>
-										<Layers>
-											<Layer level="ARTWORK">
-												<Texture parentKey="HelpI" file="Interface\common\help-i"/>
-											</Layer>
-										</Layers>
-										<Scripts>
-											<OnClick>
-												DebindResultPanel:OnHelpClick();
-											</OnClick>
-											<OnEnter>
-												DebindResultPanel:ShowHelpTip();
-											</OnEnter>
-											<OnLeave>
-												DebindResultPanel:HideHelpTip();
-											</OnLeave>
-										</Scripts>
-										<HighlightTexture alphaMode="ADD" file="Interface\Minimap\UI-Minimap-ZoomButton-Highlight">
-											<Size x="36" y="36"/>
-											<Anchors>
-												<Anchor point="CENTER" x="-1" y="-1"/>
-											</Anchors>
-										</HighlightTexture>
 									</Button>
 								</Frames>
 							</Frame>
@@ -1708,6 +1735,9 @@
 			Why parent="UIParent": see the comment on DebindIconSelectorFrame. This window was
 			caught in the same trap. The anchor still names the main window, so it follows it
 			exactly as before.
+
+			This anchor is the right-hand side, which `UpdateSide` swaps for the left one when the
+			screen has no room there.
 		-->
 		<Anchors>
 			<Anchor point="TOPLEFT" relativeTo="DebindFrame" relativePoint="TOPRIGHT" x="0" y="0"/>
@@ -1766,18 +1796,6 @@
 								<Anchor point="TOPLEFT" x="4" y="-70"/>
 							</Anchors>
 						</FontString>
-						<!--
-							On the ENTER_MACRO_LABEL line, not under the edit box where it used to
-							be. Two buttons leave about 120px of that bottom row, and the longer
-							translations of MACROFRAME_CHAR_LIMIT run past it - ruRU spells out
-							"символов использовано". Up here it also sits directly above the box
-							it counts.
-						-->
-						<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall" justifyH="RIGHT">
-							<Anchors>
-								<Anchor point="TOPRIGHT" x="-4" y="-70"/>
-							</Anchors>
-						</FontString>
 					</Layer>
 				</Layers>
 				<Frames>
@@ -1791,6 +1809,16 @@
 							</OnClick>
 						</Scripts>
 					</CheckButton>
+					<!-- `ENTER_MACRO_LABEL` 줄의 반대쪽 끝. -->
+					<Button parentKey="HelpButton" inherits="DebindHelpLinkTemplate">
+						<KeyValues>
+							<KeyValue key="iconOnly" value="true" type="boolean"/>
+							<KeyValue key="calloutPoint" value="LeftEdgeCenter" type="string"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="RIGHT" relativePoint="TOPRIGHT" x="0" y="-76"/>
+						</Anchors>
+					</Button>
 					<Button parentKey="EditButton" inherits="UIPanelButtonTemplate" text="CHANGE_MACRO_NAME_ICON">
 						<Size x="170" y="22"/>
 						<Anchors>
@@ -1812,6 +1840,15 @@
 							<Anchor point="TOPLEFT" x="0" y="-86"/>
 							<Anchor point="BOTTOMRIGHT" x="0" y="32"/>
 						</Anchors>
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="4" y="0"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
 						<Scripts>
 							<OnMouseDown>
 								self:GetParent().ScrollFrame.EditBox:SetFocus();
@@ -1914,7 +1951,9 @@
 		-->
 		<Scripts>
 			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
 			<OnHide method="OnHide"/>
+			<OnEvent method="OnEvent"/>
 		</Scripts>
 	</Frame>
 

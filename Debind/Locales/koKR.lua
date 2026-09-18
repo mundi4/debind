@@ -131,7 +131,7 @@ L["COPY_TO"] = "복사할 곳..."
 -- 근거는 enUS 쪽 주석에.
 L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(현재)|r"
 L["CUSTOM_STATE_DISPLAY_MESSAGE"] = "바뀔 때 메시지 표시"
-L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "매크로 조건문을 입력하십시오.\n(예: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)"
+L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "매크로 조건문을 입력하십시오.\n(예: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)\n여기서는 |cnHIGHLIGHT_FONT_COLOR:@@|r를 읽지 않습니다."
 L["CUSTOM_STATE_EDIT_VALUE"] = "매크로 조건문을 입력하십시오."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "매크로 조건문을 보고 애드온이 스위치 값을 정하게 합니다 (예: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "자동으로 지정"
