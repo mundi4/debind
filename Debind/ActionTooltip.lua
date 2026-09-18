@@ -141,7 +141,7 @@ do
 	--- the order flag were already asking the grade, so the tooltip was the one surface saying
 	--- something else about the same state.
 	local function addIssueLine(tooltip, code, wrap, leftOffset)
-		GameTooltip_AddColoredLine(tooltip, LLL["BINDING_ERROR_" .. code],
+		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code),
 			DebindPrivate.GetIssueColor(code), wrap or false, leftOffset or LEFT_OFFSET);
 	end
 
@@ -878,11 +878,8 @@ do
 	--- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
 	--- raw `%s` where the name should have been.
 	local function AddIssueLine(tooltip, code, arg, leftOffset)
-		local text = rawget(LLL, code) or rawget(LLL, "BINDING_ERROR_" .. code) or code;
-		if (arg ~= nil) then
-			text = format(text, arg);
-		end
-		GameTooltip_AddColoredLine(tooltip, text, DebindPrivate.GetIssueColor(code), true, leftOffset or 0);
+		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code, arg),
+			DebindPrivate.GetIssueColor(code), true, leftOffset or 0);
 	end
 
 	--- One grade's problems, written under the name of the group each one is fixed in. `done`

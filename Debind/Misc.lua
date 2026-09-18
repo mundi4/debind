@@ -2665,12 +2665,12 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
         local impossible = BareClickImpossibleUnit(action);
         if (impossible) then
             if ((not category or category == "key") and notCategory ~= "key") then
-                Report(Constants.BINDING_ISSUE_KEY_AND_CONDITION, "KEY");
+                Report(Constants.BINDING_ISSUE_KEY_RULED_OUT, "KEY");
             end
             if ((not category or (category == "units"
                         and (arg == nil or RowUnitName(arg) == impossible)))
                     and notCategory ~= "units") then
-                Report(Constants.BINDING_ISSUE_KEY_AND_CONDITION, "CONDITION_UNITS");
+                Report(Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY, "CONDITION_UNITS");
             end
         elseif (#list == 0) then
             -- **Every press turned off is a warning on Cast Options** (2026-09-18, owner). It was a

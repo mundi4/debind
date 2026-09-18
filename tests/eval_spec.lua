@@ -2016,7 +2016,7 @@ return function(DebindPrivate, _, ctx)
                 "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             PointFrame();
             check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
-            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_KEY_AND_CONDITION,
+            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_KEY_RULED_OUT,
                 "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
             check(DebindPrivate.GetNotRunningReason(subject) == nil,
                 "#47: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));

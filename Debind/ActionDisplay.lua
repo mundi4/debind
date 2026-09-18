@@ -21,6 +21,7 @@ local LLL                    = DebindPrivate.L;
 local DebindUI               = DebindPrivate.DebindUI;
 
 local luatype                = type;
+local format                 = string.format;
 local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 local EquipSlotFacts         = DebindPrivate.EquipSlotFacts;
 local InCombatLockdown       = InCombatLockdown;
@@ -246,6 +247,32 @@ local SORTED_UNIT_LIST     = {
 	"unitframe",
 	"none",
 };
+--- A code whose sentence has a `%s` in it, and what fills it when the caller has nothing of its own.
+--- **Only for a name that is the same every time the code is raised.** A name that belongs to the
+--- action -- the macro it names, the switch it names -- is handed over at the call site instead,
+--- because two rows raising one code print two different names.
+local ISSUE_FIXED_NAMES = {
+	[Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY] = "CONDITION_UNIT_DOES_NOT_EXIST",
+};
+
+--- The sentence an issue code prints. **One place, because three surfaces print it**: the row mark's
+--- tooltip, the action tooltip's own lines, and the menu (`ActionMenuModel.lua`'s `resolveIssue`).
+--- Left to each of them, a code with a `%s` prints the `%s` on whichever one was not told.
+function DebindPrivate.IssueSentence(code, name)
+	-- **`rawget` first, plain indexing second.** A code with a string of its own is the exception,
+	-- and asking for one that is not there has to miss rather than answer with the locale table's
+	-- stand-in for a missing key.
+	local text = rawget(LLL, code) or LLL["BINDING_ERROR_" .. code];
+	if (name == nil) then
+		local fixed = ISSUE_FIXED_NAMES[code];
+		name = fixed and LLL[fixed];
+	end
+	if (name ~= nil) then
+		text = format(text, name);
+	end
+	return text;
+end
+
 --- 액션 하나를 받는다. 목록 elementData를 그대로 넘기지 말 것 - 부르는 쪽이 `.action`을
 
 --- 꺼내서 넘긴다. 아래 색칠하는 쪽도 같은 계약이다.

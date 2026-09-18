@@ -549,8 +549,7 @@ local ActionMenus = MenuKit.NewRegistry({
     --- Clique가 개체창을 가져간 것처럼 **그 묶음에서 고칠 것이 없는** 문제까지 빨갛게
     --- 칠하면, 열어 본 사람이 고칠 것을 찾다가 못 찾는다.
     resolveIssue = function(issue)
-        return rawget(LLL, issue) or rawget(LLL, "BINDING_ERROR_" .. issue) or issue,
-            DebindPrivate.GetIssueColor(issue);
+        return DebindPrivate.IssueSentence(issue), DebindPrivate.GetIssueColor(issue);
     end,
 });
 

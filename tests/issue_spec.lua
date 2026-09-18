@@ -1050,7 +1050,9 @@ return function(DebindPrivate)
     local ROLES_NONE = Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
     local ROLES_ON_GROUP = Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
     local NOTHING_RUNS = Constants.BINDING_ISSUE_NOTHING_RUNS;
-    local KEY_AND_CONDITION = Constants.BINDING_ISSUE_KEY_AND_CONDITION;
+    -- One state, one check, two codes: the sentence differs by what the reader is looking at.
+    local KEY_RULED_OUT = Constants.BINDING_ISSUE_KEY_RULED_OUT;
+    local NEVER_ON_KEY = Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY;
 
     --- Per row: the whole action, `units`, each unit row asked on its own, `unit` (the root Target),
     --- and `groups` and `casting` where the table fills them in. `false` stands for nil so a column
@@ -1087,8 +1089,8 @@ return function(DebindPrivate)
         [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
         -- The bare click always lands on a unit, so [when there is none] on it is the key and one
         -- condition that cannot both stand. Painted on the key and on that row.
-        [20] = { all = KEY_AND_CONDITION, units = KEY_AND_CONDITION,
-            rows = { unitframe = KEY_AND_CONDITION }, unit = false, casting = false },
+        [20] = { all = KEY_RULED_OUT, units = NEVER_ON_KEY,
+            rows = { unitframe = NEVER_ON_KEY }, unit = false, casting = false },
         [21] = { all = false, units = false, rows = { ["@"] = false, target = false }, unit = false,
             casting = false },
         [22] = { all = UNITGROUPS_NONE, units = UNITGROUPS_NONE,
@@ -1230,17 +1232,16 @@ return function(DebindPrivate)
     test("the bare click with the pointed unit [none] is told at the key and at the unit", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
             conditions = { units = { unitframe = false } } };
-        check(GetBindingIssue(action) == KEY_AND_CONDITION,
+        check(GetBindingIssue(action) == KEY_RULED_OUT,
             "reported: " .. tostring(GetBindingIssue(action)));
         local labels = {};
         for _, issue in ipairs(GetBindingIssues(action)) do
-            if (issue.code == KEY_AND_CONDITION) then
-                labels[issue.label] = true;
-            end
+            labels[issue.label] = issue.code;
         end
-        check(labels.KEY and labels.CONDITION_UNITS, "the key or the units label is missing");
-        check(GetBindingIssue(action, "key") == KEY_AND_CONDITION, "the key box is not told");
-        check(GetBindingIssue(action, "units", nil, "unitframe") == KEY_AND_CONDITION,
+        check(labels.KEY == KEY_RULED_OUT and labels.CONDITION_UNITS == NEVER_ON_KEY,
+            "the two sides came out " .. tostring(labels.KEY) .. " / " .. tostring(labels.CONDITION_UNITS));
+        check(GetBindingIssue(action, "key") == KEY_RULED_OUT, "the key box is not told");
+        check(GetBindingIssue(action, "units", nil, "unitframe") == NEVER_ON_KEY,
             "the unit row is not told");
         check(GetBindingIssue(action, "units", nil, "target") == nil, "another row was told");
         check(GetBindingIssue(action, "casting") == nil, "Cast Options was told");
@@ -1256,11 +1257,11 @@ return function(DebindPrivate)
             local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
                 casting = { hoverCastMode = mode },
                 conditions = { units = { mouseover = false } } };
-            check(GetBindingIssue(action) == KEY_AND_CONDITION,
+            check(GetBindingIssue(action) == KEY_RULED_OUT,
                 mode .. ": " .. tostring(GetBindingIssue(action)));
-            check(GetBindingIssue(action, "units", nil, "mouseover") == KEY_AND_CONDITION,
+            check(GetBindingIssue(action, "units", nil, "mouseover") == NEVER_ON_KEY,
                 mode .. ": the unit row is not told");
-            check(GetBindingIssue(action, "key") == KEY_AND_CONDITION, mode .. ": the key is not told");
+            check(GetBindingIssue(action, "key") == KEY_RULED_OUT, mode .. ": the key is not told");
         end
     end);
 

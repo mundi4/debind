@@ -407,6 +407,10 @@ local function CreateCastingMenu(parentDescription, ctx)
                     end);
             end
 
+            -- **Off is first on all three rows.** Which of them is the default differs, and a reader
+            -- looking for the same value on the next row down should not have to read the list again.
+            SetInstructionTooltip(Choice(LLL["CASTING_OFF"], "skip"), LLL["CASTING_SKIP_DESC"]);
+
             SetInstructionTooltip(Choice(LLL[row.cast], "cast"), LLL[row.cast .. "_DESC"], pickedReason);
 
             local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
@@ -414,8 +418,6 @@ local function CreateCastingMenu(parentDescription, ctx)
                 return not everyUnitPicked();
             end);
             SetInstructionTooltip(usual, LLL[row.usual], pickedReason);
-
-            SetInstructionTooltip(Choice(LLL["CASTING_OFF"], "skip"), LLL["CASTING_SKIP_DESC"]);
         end
     end
 

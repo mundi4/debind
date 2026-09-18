@@ -54,11 +54,16 @@ L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you 
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
--- **Neither side is wrong on its own, so the sentence names both.** The reader wrote one ordinary
--- condition; what it cannot meet is the key, whose only press is a click on a unit frame. Saying
--- "the conditions are impossible" here would send them looking for a second condition that is not
--- there. Mouseover is named because pointing at a frame is what sets it.
-L["BINDING_ERROR_KEY_AND_CONDITION"] = "A left or right click with no modifier only runs when you click a unit frame, and there is always a unit there to point at. This condition asks for none, so the action never runs on this key."
+-- **One state, two sentences, because the reader is looking at two different things.** Neither side
+-- is wrong on its own: the reader wrote one ordinary condition, and what it cannot meet is the key.
+-- "The conditions are impossible" would send them looking for a second condition that is not there.
+--
+-- **Beside the key, the condition is not "this".** The reader is looking at the key, so the sentence
+-- says what the key can do and that something on the action rules it out.
+L["BINDING_ERROR_KEY_RULED_OUT"] = "This key runs only when you click a unit frame, and a condition on this action rules that click out."
+-- **Beside the condition, it is named as the reader set it.** `%s` is the mode they picked on that
+-- unit row, so a rename carries into the sentence; the row they are looking at says which unit.
+L["BINDING_ERROR_CONDITION_NEVER_ON_KEY"] = "%s never holds on this key: a left or right click with no modifier runs only when you click a unit frame."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 -- One axis each, named by the axis. The frame type one said "reaction or frame type" while it was

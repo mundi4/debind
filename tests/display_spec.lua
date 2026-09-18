@@ -423,18 +423,23 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
         check(row, "the action is not on the key");
-        check(row.issue == Constants.BINDING_ISSUE_KEY_AND_CONDITION,
+        check(row.issue == Constants.BINDING_ISSUE_KEY_RULED_OUT,
             "the row's issue: " .. tostring(row.issue));
         check(row.notRunning == nil, "also given as a reason: " .. tostring(row.notRunning));
         local tooltip = shim.newTooltip();
         DebindPrivate.AddActionToTooltip(tooltip, row.action, { suppressInactive = true });
-        local count = 0;
+        -- **A sentence each, and the one beside the condition names the mode the reader picked.**
+        -- Printed unfilled it would carry a bare `%s` onto the screen.
+        local atKey = LLL["BINDING_ERROR_KEY_RULED_OUT"];
+        local atUnit = LLL["BINDING_ERROR_CONDITION_NEVER_ON_KEY"]:format(
+            LLL["CONDITION_UNIT_DOES_NOT_EXIST"]);
+        local seen = {};
         for i = 1, #tooltip.lines do
-            if (tooltip.lines[i].text == LLL["BINDING_ERROR_KEY_AND_CONDITION"]) then
-                count = count + 1;
-            end
+            seen[tooltip.lines[i].text] = (seen[tooltip.lines[i].text] or 0) + 1;
         end
-        check(count == 2, "the sentence came out " .. count .. " times: " .. tooltip:text());
+        check(seen[atKey] == 1 and seen[atUnit] == 1,
+            "the two sentences came out " .. tostring(seen[atKey]) .. " / " .. tostring(seen[atUnit])
+            .. ": " .. tooltip:text());
     end);
 
     --- **Only what differs is drawn.** One value changed is one line, in the menu's own words.

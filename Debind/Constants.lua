@@ -607,7 +607,13 @@ Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- or `mouseover`, which the client sets to that same unit (`which-action-a-key-runs.md` §0, S5 #48,
 -- #49). **Not `CONDITIONS_NEVER`**, which says the conditions cannot all be true at once. Here one
 -- condition is enough and nothing is wrong with it; what it cannot meet is the key.
-Constants.BINDING_ISSUE_KEY_AND_CONDITION                 = "KEY_AND_CONDITION";
+--
+-- **One state, two codes, because the sentence has two readers.** They are raised together by one
+-- check and carry the same grade and the same outcome; what differs is what the reader is looking at
+-- when they meet it, the key or the condition. A code is how a sentence is found (`BINDING_ERROR_`
+-- plus the code, in the tooltip and in the menu alike), so two sentences need two codes.
+Constants.BINDING_ISSUE_KEY_RULED_OUT                     = "KEY_RULED_OUT";
+Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY            = "CONDITION_NEVER_ON_KEY";
 
 
 -- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
@@ -661,7 +667,8 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
     -- Orange, not red: nothing is broken and the reader may have meant it.
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_WARNING,
-    [Constants.BINDING_ISSUE_KEY_AND_CONDITION]                 = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_GRADE_ERROR,
 };
 
 -- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
@@ -706,7 +713,8 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_OUTCOME_OMIT,
     -- The binding the solver keeps could never match at the press, so it is left off the key and the
     -- click reaches the frame rather than doing nothing.
-    [Constants.BINDING_ISSUE_KEY_AND_CONDITION]                 = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_OUTCOME_OMIT,
 };
 
 
