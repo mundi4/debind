@@ -497,24 +497,14 @@ local function NestConditions(action)
     return action
 end
 
---- **A test action stands on Hover Cast off unless the case says otherwise.** An action written with
---- no `casting` follows the settings tab's mode (`devdocs/which-action-a-key-runs.md` §6), so every
---- case that counts the records on a key would see each of its own actions twice -- which is what the
---- account-wide switch used to be isolated for. A case about the twin writes its own `casting` and
---- this leaves it alone.
+--- **A test action stands on Hover Cast off, and that is now the stored default**, so nothing has to
+--- be written for it (`devdocs/which-action-a-key-runs.md` §6). What the cases need from it is one
+--- record per action: with a twin standing in front, every case that counts records on a key would
+--- see each of its own actions twice. A case about the pointed press turns Hover Cast on for itself.
 ---
---- **An action with a condition on the unit frame is left alone too.** Skip this action stands the
---- original on [no unit frame], which that condition never meets, so the action would be gone; its
---- twin is the same box as its original and folds back into one record (`tests/casting.lua`).
+--- **The function stays where the writing used to be.** Every insertion goes through it, so the day
+--- a test action needs a value again there is one place to put it.
 local function DefaultCasting(action)
-    if action.casting ~= nil then
-        return action
-    end
-    local units = action.units or (action.conditions and action.conditions.units)
-    if type(units) == "table" and type(units.unitframe) == "table" then
-        return action
-    end
-    action.casting = { hoverCast = { aim = "skip" } }
     return action
 end
 
@@ -2223,9 +2213,9 @@ RegisterTest("Menu: casting a cast key as usual aims that key's twin where the a
 
             box:Pick(MenuInputContext.MouseButton, "LeftButton")
             local stored = action.casting and action.casting[case.row]
-            if not (type(stored) == "table" and stored.aim == "usual") then
+            if stored ~= "usual" then
                 return Fail(NAME, format("pressing [%s] stored %s", LLL["CASTING_AS_USUAL"],
-                    tostring(type(stored) == "table" and stored.aim or stored)))
+                    tostring(stored)))
             end
 
             local function TwinOnKey()
@@ -2243,12 +2233,12 @@ RegisterTest("Menu: casting a cast key as usual aims that key's twin where the a
                     tostring(twin and twin.unit)))
             end
 
-            -- **Skip this action takes that twin away.** Both values live in one row, so measuring
-            -- the aim alone would never show the other value failing to use the same place.
-            action.casting[case.row] = { aim = "skip" }
+            -- **Off takes that twin away.** Measuring the aim alone would never show the other value
+            -- failing to reach the same field.
+            action.casting[case.row] = "skip"
             ApplyBindings()
             if TwinOnKey() then
-                return Fail(NAME, format("%s, skip: the twin is still on %s", case.row, KEY))
+                return Fail(NAME, format("%s, off: the twin is still on %s", case.row, KEY))
             end
 
             action.casting[case.row] = nil
@@ -8456,10 +8446,11 @@ RegisterTest("Click bakes the deferred macro body", {
         macroBodySeq = macroBodySeq + 1
         local body = format("/cast [@unitframe] Debind%d", macroBodySeq)
 
-        -- **Cast as usual, so the press over the frame reaches the action.** The kit's default is
-        -- Skip this action, which keeps it off every press made over a unit frame.
+        -- **Cast as usual, so the press over the frame reaches this action's twin** while the twin
+        -- still aims where the original does. Off, which is the default, leaves the original in the
+        -- last tier and the body under test is not the one the click bakes.
         InsertAction({ type = Constants.MACROTEXT, value = body, key = KEY,
-            casting = { hoverCast = { aim = "usual" } } })
+            casting = { hoverCast = "usual" } })
         ApplyBindings()
 
         local binding = GetNthBinding(KEY, 1)
@@ -8510,9 +8501,10 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        -- **Hover Cast는 이 액션에서만 켠다.** 빈 표가 "설정 탭의 모드를 따른다"이고, 그 모드는
-        -- 이 실행 동안 Unit Frames로 고정되어 있다(`SetIsolated`).
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, casting = { hoverCast = {} } })
+        -- **Hover Cast는 이 액션에서만 켠다.** 기본은 꺼짐이고, 모드를 안 적으면 설정 탭의 모드를
+        -- 따르는데 그 모드는 이 실행 동안 Unit Frames로 고정되어 있다(`SetIsolated`).
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY,
+            casting = { hoverCast = "cast" } })
         ApplyBindings()
 
         -- **Four records**: the self and focus twins stand ahead of the hover twin and the original
@@ -8568,14 +8560,14 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
     end,
 })
 
--- **Needs the game.** Which record a skipped action leaves to the next one is headless
--- (`tests/eval_spec.lua`); what only the client shows is the original's [no unit frame] being
--- answered by a real frame under the cursor. Alone on the key, the action then answers nothing over
--- the frame, where it used to wait in the last tier and fire.
-RegisterTest("Hover Cast skip: over a frame the action does not run, off it it does", {
-    description = "Hover Cast를 Skip으로 둔 액션은 개체창 위에서 안 나가고, 밖에서는 나간다",
+-- **Needs the game.** Which record the condition leaves to the next action is headless
+-- (`tests/eval_spec.lua`); what only the client shows is [when there is none] on the frame's unit
+-- being answered by a real frame under the cursor. Alone on the key, the action then answers nothing
+-- over the frame and fires off it.
+RegisterTest("Pointed unit [none]: over a frame the action does not run, off it it does", {
+    description = "개체창에 [없을 때]를 건 액션은 개체창 위에서 안 나가고, 밖에서는 나간다",
     run = function()
-        local NAME = "Hover Cast skip"
+        local NAME = "Pointed unit [none]"
         local KEY = "CTRL-ALT-F7"
 
         if InCombatLockdown() then
@@ -8585,7 +8577,8 @@ RegisterTest("Hover Cast skip: over a frame the action does not run, off it it d
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, casting = { hoverCast = { aim = "skip" } } })
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY,
+            conditions = { units = { unitframe = false } } })
         ApplyBindings()
 
         local ORIGINAL
@@ -8611,7 +8604,7 @@ RegisterTest("Hover Cast skip: over a frame the action does not run, off it it d
         local ran, rerr = EvalClickTimeKey(KEY)
         if not ran then return Fail(NAME, rerr) end
         if LastWinner() ~= nil then
-            return Fail(NAME, format("over the frame #%d fired, the skipped action should answer nothing", LastWinner()))
+            return Fail(NAME, format("over the frame #%d fired, the condition should answer nothing", LastWinner()))
         end
 
         -- **The other half.** Without it a key that never fires passes.
