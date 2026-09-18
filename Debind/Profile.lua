@@ -1651,12 +1651,6 @@ local function MigrateDB(db, charEntry)
     --- The unreleased step; see `MigrateLayer`'s comment on the same one.
     if (dbver <= 6) then
         DebindPrivate.MigrateOptions(db);
-        -- **The one thing this ladder cannot leave unsaid.** Every existing action keeps what it did
-        -- -- an action with a unit frame condition comes across on Unit Frames, everything else with
-        -- Hover Cast off -- and every new one follows the settings tab, so nothing moves on the day
-        -- it runs. A reader who never hears that has no reason to look for the value
-        -- (`devdocs/which-action-a-key-runs.md` §8). The cell is cleared by the line that prints it.
-        db.castingNotice = true;
     end
 
     db.dbver = Constants.DB_VERSION;
@@ -2725,21 +2719,6 @@ function DebindPrivate.HandleNewerProfileReset(chunks)
 
     DebindPrivate.DisplayMessage(L["NEWER_PROFILE_RESET_PROMPT"], ERROR_COLOR:GetRGBA());
     return true;
-end
-
---- Says once that Hover Cast is a per-action value now, on the first login after the ladder moved
---- the profile (`MigrateDB`). **Cleared as it prints**, so it is one line and not one per login.
----
---- **Chat, not the window's overlay.** Nothing is broken and nothing needs answering: every key does
---- what it did yesterday. What the line buys is that the reader knows there is a value to go and
---- find.
-function DebindPrivate.ReportCastingMigration()
-    local db = DebindPrivate.db and DebindPrivate.db.global;
-    if (not (db and db.castingNotice)) then
-        return;
-    end
-    db.castingNotice = nil;
-    DebindPrivate.DisplayMessage(L["CASTING_MIGRATED_MESSAGE"]);
 end
 
 function DebindPrivate.GetProfileLayer(layerID)

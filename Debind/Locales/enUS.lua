@@ -1190,13 +1190,6 @@ L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
 -- of these values existed.
 L["CASTING_NORMAL"] = "Normal Cast"
 L["CASTING_NORMAL_DESC"] = "The action takes its turn when the key is pressed with nothing held and nothing pointed at. Unticked, that press goes to the next action on the key, and this action is only reached by a held key or by pointing at a unit."
--- Said once, on the first login after Hover Cast became a per-action value. It opens on what has
--- not changed, because nothing on screen has: every key does what it did yesterday, and the reason
--- to say anything at all is that there is now a value to go and find.
---
--- **"Your actions kept what they did" rather than "they were moved with it off"**, which is the
--- true half: an action that ran over a unit frame comes across running over a unit frame.
-L["CASTING_MIGRATED_MESSAGE"] = "Hover Cast is set on each action now. Your actions kept what they were doing, so nothing has changed; new actions follow the mode in Debind's settings. You can change it for several actions at once."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
