@@ -209,6 +209,42 @@ L["CONDITION_KNOWN_YES"] = "While you know the spell"
 -- The row names the spell it asks about, and the rows are a list to pick one from. A talent that
 -- replaces a spell is its own row, which is the whole point of naming them.
 L["CONDITION_KNOWN_VALUE"] = "While you know %s"
+-- **The client's own word for the thing** (`TALENTS`), and the branches under it are named by the
+-- client too: the class, the specialization, each hero tree and `PVP_TALENTS`. The reader has one
+-- name for each of those already and a second one would put two names on one thing.
+L["CONDITION_TALENT"] = "Talents"
+-- The rows under each branch are talent names, so these two say what picking one does. A talent
+-- the character has bought is *taken*, which is the word the client's own failure messages use.
+L["CONDITION_TALENT_TAKEN"] = "While it is taken"
+L["CONDITION_TALENT_NOT_TAKEN"] = "While it is not taken"
+-- The same two, where the tooltip names the talents instead of standing under one.
+-- The branch holding what other specializations carry. **It opens on what is stored, not on their
+-- trees**: the menu offers the specialization being played, so these rows can be read and cleared
+-- but nothing new can be put on them.
+-- The client's own words for the thing (`HERO_TALENTS_LOCKED_1`), in the case a menu row is
+-- written in rather than the banner's caps.
+L["CONDITION_TALENT_HERO"] = "Hero Talents: %s"
+-- **The heading over the one thing this menu can do about them.** It lists the specialization
+-- being played, so talents set on another one have no rows here; the button under this is how they
+-- come off without switching specialization.
+--
+-- **Classes are named too, and not for completeness.** A shared string carries the sender's own
+-- specialization ids, so an imported action arrives holding a class this character will never
+-- play, and switching specialization can never reach it.
+L["CONDITION_TALENT_OTHER_SPECS"] = "Set on other classes and specializations"
+L["CONDITION_TALENT_CLEAR_OTHERS"] = "Remove all"
+-- **What the button does not touch is the half worth saying.** It reads as though it clears the
+-- talent condition, and the rows above it are the ones the reader has been clicking.
+L["CONDITION_TALENT_CLEAR_OTHERS_DESC"] = "Removes the talents set on every other class and specialization. What you set on the specialization you are playing stays."
+-- The same block with nothing in it. **A line and not an empty space**: the reader came here to
+-- find out whether anything is set elsewhere, and silence does not answer that.
+L["CONDITION_TALENT_NO_OTHERS"] = "None"
+-- **Two things a reader cannot see on the rows.** The condition is kept per specialization and
+-- this menu writes the one being played, so the rows say nothing about the others; and both hero
+-- trees are offered, while the game runs one of them at a time.
+L["CONDITION_TALENT_DESC"] = "Only what you set here, on the specialization you are playing, is shown. Both hero talent trees are offered, and a talent in the one you have not chosen counts as not taken."
+L["CONDITION_TALENT_VALUE_TAKEN"] = "While %s is taken"
+L["CONDITION_TALENT_VALUE_NOT_TAKEN"] = "While %s is not taken"
 -- The submenu that holds the four conditions too small to hold a row of the main list each. It
 -- names no rule of its own, so it stays the plain word rather than trying to describe what is
 -- inside it.
@@ -724,6 +760,14 @@ L["LINE_TOOLTIP_TARGET_NORMAL"] = "Where it normally goes"
 -- Under the numbers, the way the unreachable line sits under the key: the action is set up right
 -- and this says only that the world is not the one it asked for.
 L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."
+-- **The two lines the talent condition needs beyond naming talents.** A talent set on another
+-- class or specialization does nothing here and has no row in the menu, so without these the
+-- action reads as carrying less than it does.
+--
+-- **Each is a sentence about the action**, not a value: written as a value under the talent lines,
+-- it read as that talent being taken over there (2026-09-19, owner).
+L["LINE_TOOLTIP_TALENT_ALSO_OTHERS"] = "Other classes and specializations have talents of their own set."
+L["LINE_TOOLTIP_TALENT_ONLY_OTHERS"] = "Talents are set on other classes and specializations only, so none of them apply here."
 -- Under the Cast Options lines, the way the line above sits under the specialization numbers. **Not
 -- an issue**: the reader asked for this, so it says why the action does not run and nothing asks
 -- them to change it.

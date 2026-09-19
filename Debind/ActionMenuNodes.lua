@@ -26,6 +26,11 @@ local TableFor                       = ActionMenu.TableFor;
 local PruneConditions                = ActionMenu.PruneConditions;
 local UnitConditionsOf               = ActionMenu.UnitConditionsOf;
 local SpecConditionsOf               = ActionMenu.SpecConditionsOf;
+local TalentConditionIs              = ActionMenu.TalentConditionIs;
+local TalentConditionTouches         = ActionMenu.TalentConditionTouches;
+local HasOtherSpecTalents            = ActionMenu.HasOtherSpecTalents;
+local ClearOtherSpecTalents          = ActionMenu.ClearOtherSpecTalents;
+local SetTalentCondition             = ActionMenu.SetTalentCondition;
 local SpecConditionHasID             = ActionMenu.SpecConditionHasID;
 local ToggleSpecConditionID          = ActionMenu.ToggleSpecConditionID;
 local ClassSpecsAllPicked            = ActionMenu.ClassSpecsAllPicked;
@@ -539,6 +544,131 @@ ActionMenus:Define("SPEC", {
                         end);
                 end
             end
+        end
+    end,
+});
+
+--- Which specializations one row writes to: **the one being played, and only that one.**
+---
+--- The class tree branch used to write every specialization of the class, on the grounds that a
+--- class talent means the same thing in all of them. What that did was put a setting where the
+--- reader cannot see it: this menu opens the specialization being played, so the other four keys
+--- could not be read, changed or removed -- and one of them was the initial specialization, which
+--- nobody can switch to (2026-09-19, owner).
+local function TalentSpecIDs()
+    return { DebindPrivate.SpecIDForIndex(C_SpecializationInfo.GetSpecialization()) };
+end
+
+--- One talent: taken, not taken, or neither.
+---
+--- **Three rows and not two.** A row that can only be turned on is a row the reader cannot take
+--- back without clearing the whole condition, and clearing it would take every other talent with
+--- it.
+local function BuildTalentRow(parent, ctx, specIDs, row)
+    local ids = { [row.id] = true };
+    local description = ActionMenus:BuildNode(parent, {
+        label = row.name,
+        skipTitle = true,
+        -- **The colour walks up from here.** This row, the tree it sits in and `Talents` itself all
+        -- answer the same question, so a talent picked five levels down is visible from the top
+        -- (`MenuKit.lua` paints an active node blue).
+        isActive = function()
+            return TalentConditionTouches(ctx, specIDs[1], ids);
+        end,
+    }, ctx);
+    if (not description) then
+        return;
+    end
+
+    local states = {
+        { text = LLL["DISABLE"], value = nil },
+        { text = LLL["CONDITION_TALENT_TAKEN"], value = "taken" },
+        { text = LLL["CONDITION_TALENT_NOT_TAKEN"], value = "notTaken" },
+    };
+    for i = 1, #states do
+        local state = states[i];
+        CreateRadio(description, ctx, state.text,
+            function()
+                return TalentConditionIs(ctx, specIDs, row.id, state.value);
+            end,
+            function()
+                return SetTalentCondition(ctx, specIDs, row.id, state.value);
+            end);
+    end
+end
+
+--- **Talents, this specialization's** (`devdocs/adding-a-talent-condition.md` §5). The class tree,
+--- this specialization's tree, one branch per hero tree and the pvp talents, each named the way
+--- the game names it.
+---
+--- **A selection of several actions is fine here**, unlike `known`: the rows come from the
+--- character rather than from the action, so every action in the selection is offered the same
+--- ones and a row that disagrees between them reads as unset, which is what ticking it fixes.
+ActionMenus:Define("TALENT", {
+    label = "CONDITION_TALENT",
+    key = "talents",
+    -- **Blue for what is reachable under this row.** The five tree branches are the specialization
+    -- being played, and a key written on another one reaches the block at the bottom instead -- so
+    -- both count, and the trail the colour promises ends on a row that exists either way.
+    --
+    -- The `Remove all` row itself is left alone (2026-09-19, owner): the colour is a trail to
+    -- follow, and the end of it is where the reader acts rather than another step.
+    isActive = function(ctx)
+        local mine = DebindPrivate.SpecIDForIndex(C_SpecializationInfo.GetSpecialization());
+        return AnyAction(ctx, function(action)
+            local talents = action.conditions and action.conditions.talents;
+            return mine ~= nil and talents ~= nil and talents[mine] ~= nil;
+        end) or AnyAction(ctx, HasOtherSpecTalents);
+    end,
+    build = function(kit)
+        local groups = DebindPrivate.Talents.GetMenu();
+        for i = 1, #groups do
+            local group = groups[i];
+            if (#group.rows > 0) then
+                local specIDs = TalentSpecIDs();
+                -- One set per tree, so the tree's colour is one lookup per action rather than one
+                -- per row.
+                local groupIDs = {};
+                for j = 1, #group.rows do
+                    groupIDs[group.rows[j].id] = true;
+                end
+                -- **The hero trees say what they are.** The other four rows are named after
+                -- something the reader already reads as a heading -- their class, their
+                -- specialization, pvp -- and a hero tree's name is just a name.
+                local label = group.name or "?";
+                if (group.key == "hero") then
+                    label = format(LLL["CONDITION_TALENT_HERO"], label);
+                end
+                local description = ActionMenus:BuildNode(kit.description, {
+                    label = label,
+                    skipTitle = true,
+                    isActive = function(ctx)
+                        return TalentConditionTouches(ctx, specIDs[1], groupIDs);
+                    end,
+                }, kit.ctx);
+                if (description) then
+                    for j = 1, #group.rows do
+                        BuildTalentRow(description, kit.ctx, specIDs, group.rows[j]);
+                    end
+                end
+            end
+        end
+
+        -- **The block stands whether or not there is anything in it.** Their talents are not
+        -- listed here and cannot be, so a reader who has none has no way to tell that apart from
+        -- the menu not saying; the empty line is the answer to the question this block exists to
+        -- raise.
+        kit.description:CreateDivider();
+        kit.description:CreateTitle(LLL["CONDITION_TALENT_OTHER_SPECS"]);
+        if (AnyAction(kit.ctx, HasOtherSpecTalents)) then
+            local clear = kit.description:CreateButton(LLL["CONDITION_TALENT_CLEAR_OTHERS"],
+                function()
+                    return ClearOtherSpecTalents(kit.ctx);
+                end);
+            SetInstructionTooltip(clear, LLL["CONDITION_TALENT_CLEAR_OTHERS_DESC"]);
+        else
+            local none = kit.description:CreateButton(LLL["CONDITION_TALENT_NO_OTHERS"]);
+            none:SetEnabled(false);
         end
     end,
 });

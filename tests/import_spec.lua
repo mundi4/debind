@@ -401,6 +401,9 @@ return function(DebindPrivate, DebindStorage)
         bonusbars = 2 + 2 ^ Constants.BONUSBAR_SKYRIDING,
         units = { target = {} },
         specs = { [102] = true, [104] = true },
+        -- 전문화 id로 갈린 표이고 그 안이 주문 id 배열 둘이다
+        -- (`devdocs/adding-a-talent-condition.md` §2).
+        talents = { [102] = { taken = { 429523 }, notTaken = { 428544 } } },
         ["$state1"] = true,
         ["$state2"] = true,
         ["$state3"] = true,

@@ -2462,6 +2462,14 @@ local ACTION_CHECKS = {
             return Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE;
         end
     end },
+    -- **Two hero trees on one `taken` list.** A character stands in one at a time, so nothing can
+    -- satisfy it; left alone the key would simply never fire and the rows would both look
+    -- reachable (2026-09-19, owner).
+    { category = "talents", label = "CONDITION_TALENT", check = function(action)
+        if (DebindPrivate.TalentConditionContradicts(action)) then
+            return Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+        end
+    end },
     { category = "forms", label = "CONDITION_SHAPESHIFT", check = function(action)
         if ((action.conditions or EMPTY_CONDITIONS).forms == 0) then
             return Constants.BINDING_ISSUE_FORMS_NONE_SELECTED;

@@ -2823,6 +2823,24 @@ function DebindPrivate.CleanUpDB()
                         and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
                     conditions.known = nil;
                 end
+                -- **빈 칸은 조건이 아니다.** `talents`는 두 겹이라 아래의 `next` 한 번이 못
+                -- 닿는다. 아무것도 안 든 전문화 칸은 "그 전문화에 대해 아무 말도 안 했다"와
+                -- 같은 뜻인데(`devdocs/adding-a-talent-condition.md` §2), 남겨 두면 조건이
+                -- 하나도 없는 액션이 조건부로 서서 발동 순서가 바뀐다.
+                local talents = conditions.talents;
+                if (luatype(talents) == "table") then
+                    for specID, entry in pairs(talents) do
+                        local taken = luatype(entry) == "table" and entry.taken;
+                        local notTaken = luatype(entry) == "table" and entry.notTaken;
+                        if (not ((luatype(taken) == "table" and next(taken) ~= nil)
+                                or (luatype(notTaken) == "table" and next(notTaken) ~= nil))) then
+                            talents[specID] = nil;
+                        end
+                    end
+                    if (next(talents) == nil) then
+                        conditions.talents = nil;
+                    end
+                end
                 -- **빈 표는 안 남긴다.** 있느냐를 게이트로 쓰는 자리가 여럿이라
                 -- (`IsConditionalBinding`이 `next` 하나로 답한다), 빈 표는 조건이 하나도
                 -- 없는 액션을 조건부로 만든다.

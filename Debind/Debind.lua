@@ -280,6 +280,10 @@ do
 		wipe(HandledKeys);
 		wipe(Lists);
 		DebindPrivate.ClearUnreachableBindingCache();
+		-- **What is taken moves under the reader's hands**, unlike what can be obtained
+		-- (`Spells.lua` keeps that one per specialization). Every change that moves it raises a
+		-- rebuild, so dropping it here is dropping it on each of them.
+		DebindPrivate.Talents.Wipe();
 
 		-- **The layers are walked here rather than through an enumerator because both numbers are
 		-- wanted.** `layerRank` goes to the order record and the flat `ordinal` to `ActiveActions`,
@@ -365,8 +369,13 @@ do
 				-- (`KnownConditionCanHold`). Left in, the binding would take the key from the
 				-- actions behind it and hand every press a conditional that is false for the life
 				-- of this build.
+				--
+				-- **The talent condition is the third, and it is the same rule again**: talents
+				-- cannot change in combat and every change that moves them rebuilds everything
+				-- (`devdocs/adding-a-talent-condition.md` §4), so this build has one answer to it.
 				if (binding and DebindPrivate.SpecConditionHolds(binding)
-						and DebindPrivate.KnownConditionCanHold(binding)) then
+						and DebindPrivate.KnownConditionCanHold(binding)
+						and DebindPrivate.TalentConditionHolds(binding)) then
 					Lists[binding] = list;
 
 					-- 활성 레이어만 도므로 전문화 순위는 언제나 동률이다. 다른 전문화의 순서를

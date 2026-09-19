@@ -164,6 +164,12 @@ local CONDITION_TYPES    = {
     -- keybinding addon must not fail in is the other one. The tooltip walks the client's own
     -- classes rather than the set, so a junk key has nothing to print itself into.
     specs = "table",
+    -- A table of specialization ids, each holding a list of spell ids to have taken and one to
+    -- not. **What is inside is not filtered either**, for the reason above: an id this client
+    -- cannot name matches no talent, which makes the condition true less often. The reader walks
+    -- the two lists rather than indexing them, so it skips what is not a number
+    -- (`Debind/Talents.lua`).
+    talents = "table",
     known = "boolean|number|string",
     combat = "boolean",
     stealth = "boolean",

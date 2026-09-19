@@ -605,6 +605,12 @@ function M.install()
     --- every spec that does not care about talents gets.
     _G.C_ClassTalents = {
         GetActiveConfigID = function() return M.world.traits.configID; end,
+        --- The hero trees this specialization is offered, **in the order the talent window lays
+        --- them out** -- which is what the condition menu's two hero rows follow. Nothing means a
+        --- specialization that has none.
+        GetHeroTalentSpecsForClassSpec = function()
+            return M.world.traits.heroSpecs;
+        end,
     };
     _G.C_Traits = {
         GetConfigInfo = function(configID)
@@ -616,6 +622,16 @@ function M.install()
         GetEntryInfo = function(_, entryID) return (M.world.traits.entries or {})[entryID]; end,
         GetDefinitionInfo = function(definitionID)
             return (M.world.traits.definitions or {})[definitionID];
+        end,
+        --- The three the talent condition's **menu** reads (`Debind/Talents.lua`): the tree's
+        --- currencies tell the class panel from the specialization one, a node's cost says which
+        --- of them it belongs to, and a subtree is a hero tree. Empty is a world that says every
+        --- node is the specialization's, which is what a spec that does not care about the split
+        --- gets.
+        GetTreeCurrencyInfo = function() return M.world.traits.currencies or {}; end,
+        GetNodeCost = function(_, nodeID) return (M.world.traits.costs or {})[nodeID]; end,
+        GetSubTreeInfo = function(_, subTreeID)
+            return (M.world.traits.subTrees or {})[subTreeID];
         end,
     };
     _G.C_SpecializationInfo.GetPvpTalentSlotInfo = function(slot)
@@ -924,6 +940,9 @@ function M.install()
     _G.AUTO_SELF_CAST_KEY_TEXT = "Self Cast Key";
     _G.FOCUS_CAST_KEY_TEXT = "Focus Cast Key";
     _G.ALL_SPECS = "All Specializations";
+    --- The talent condition's pvp branch is named by the client, the way its class, specialization
+    --- and hero branches are (`Debind/Talents.lua`).
+    _G.PVP_TALENTS = "PvP Talents";
 
     --- **One binding command that resolves.** `ActionDisplay` asks `_G["BINDING_NAME_" .. value]`
     --- and falls back to the command code, so without a single one defined every spec walked the

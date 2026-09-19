@@ -666,6 +666,68 @@ do
 			end
 		end
 
+		--- The talents one list names, as the reader sees them. **An id this client cannot name is
+		--- dropped rather than printed as a number**: it is one no talent here matches, and the
+		--- line is about what the condition asks, not about what is stored.
+		local function TalentNames(list)
+			local names;
+			for i = 1, (list and #list or 0) do
+				local name = type(list[i]) == "number" and GetSpellNameAndIconID(list[i]);
+				if (name) then
+					names = names and (names .. ", " .. name) or name;
+				end
+			end
+			return names;
+		end
+
+		-- **The specialization being played and nothing else.** The other keys judge nothing in
+		-- this world -- a specialization the condition holds no key for is one it says nothing
+		-- about (`devdocs/adding-a-talent-condition.md` §2) -- and a tooltip describes the world
+		-- the reader is in. Naming them here put a specialization under a talent's line and read
+		-- as that talent being taken over there.
+		--- **Three cases, and the reader has to be able to tell them apart.** What is set on this
+		--- specialization runs; what is set on another one does not run here at all, and the menu
+		--- does not list it either, so a line that only named talents would leave an action looking
+		--- unconditioned while it carries settings the reader cannot find.
+		---
+		--- The second line is a sentence about the action rather than a value under the talent
+		--- above it. Written as a value it read as that talent being taken on the other
+		--- specialization (2026-09-19, owner).
+		if (conditions.talents ~= nil) then
+			local mySpec = DebindPrivate.SpecIDForIndex(C_SpecializationInfo.GetSpecialization());
+			local entry = mySpec and conditions.talents[mySpec];
+			local Talents = DebindPrivate.Talents;
+			local taken = TalentNames(Talents.ListOf(entry, "taken"));
+			local notTaken = TalentNames(Talents.ListOf(entry, "notTaken"));
+
+			local elsewhere = false;
+			for specID in pairs(conditions.talents) do
+				if (specID ~= mySpec) then
+					elsewhere = true;
+				end
+			end
+
+			if (taken or notTaken or elsewhere) then
+				addLabelLine(tooltip, LLL["CONDITION_TALENT"]);
+			end
+			-- The error rides on the lines the way every other condition's does: two hero trees on
+			-- one list is a contradiction the reader undoes here (`Misc.lua`'s `ACTION_CHECKS`).
+			local talentError = hasIssues and GetIssue("talents");
+			if (taken) then
+				addValueLine(tooltip, format(LLL["CONDITION_TALENT_VALUE_TAKEN"], taken),
+					talentError);
+			end
+			if (notTaken) then
+				addValueLine(tooltip, format(LLL["CONDITION_TALENT_VALUE_NOT_TAKEN"], notTaken),
+					talentError);
+			end
+			if (elsewhere) then
+				local key = (taken or notTaken) and "LINE_TOOLTIP_TALENT_ALSO_OTHERS"
+					or "LINE_TOOLTIP_TALENT_ONLY_OTHERS";
+				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL[key]));
+			end
+		end
+
 		addBooleanCondition("combat");
 		addBooleanCondition("stealth");
 		addBooleanCondition("mounted");
@@ -846,7 +908,7 @@ do
 	local ISSUE_ORDER = {};
 	for i, label in ipairs({
 		"TYPE_MACRO", "TYPE_MACROTEXT", "TYPE_SETSTATE", "KEY",
-		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC",
+		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC", "CONDITION_TALENT",
 		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
 		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_CUSTOM_STATES",
 	}) do

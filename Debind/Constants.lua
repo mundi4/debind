@@ -222,6 +222,11 @@ Constants.CONDITION_FIELDS = {
     -- so "while I am a warrior" needs no axis of its own
     -- (`devdocs/moving-the-spec-condition-to-spec-ids.md`).
     specs = true,
+    -- **A table of specialization ids, each holding two lists of spell ids**: the talents that
+    -- have to be taken and the ones that have to not be. A specialization with no key here is one
+    -- the condition says nothing about (`devdocs/adding-a-talent-condition.md` §2), which is what
+    -- lets one action carry another class's talents without dying on this character.
+    talents = true,
     forms = true,
     bonusbars = true,
     specialbar = true,
@@ -257,6 +262,8 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     -- 조건 묶음. 메뉴가 자기 키를 그대로 넘긴다(`DropDownMenus.lua`).
     groups = true,
     specs = true,
+    -- 영웅 특성 둘을 한 조건에 같이 건 경우. 동시에 설 수 없으므로 어떤 상태에서도 안 맞는다.
+    talents = true,
     forms = true,
     bonusbars = true,
     specialbar = true,

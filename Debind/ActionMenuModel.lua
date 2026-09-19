@@ -388,6 +388,188 @@ local function PruneConditions(action)
     end
 end
 
+--- This action's talent condition. nil where there is none, and none is made.
+local function TalentConditionOf(action)
+    return action.conditions and action.conditions.talents;
+end
+
+--- One specialization's entry, made where it is not there yet.
+local function TalentEntryFor(action, specID)
+    local conditions = TableFor(action, "talents", true);
+    local talents = conditions.talents;
+    if (talents == nil) then
+        talents = {};
+        conditions.talents = talents;
+    end
+    -- **Replaced rather than written into where it is not a table.** A shared string can leave
+    -- anything under a specialization id, and writing a row into it would raise; what the reader
+    -- just clicked is what the entry should hold.
+    local entry = talents[specID];
+    if (type(entry) ~= "table") then
+        entry = {};
+        talents[specID] = entry;
+    end
+    return entry;
+end
+
+--- **Anything may be under these two names.** The wire types the condition and stops there
+--- (`DebindStorage/Import.lua`), so a hand-made string reaches this with a number where a list
+--- belongs, and `#` on one raises.
+local function ListHolds(list, spellID)
+    if (type(list) ~= "table") then
+        return nil;
+    end
+    for i = 1, #list do
+        if (list[i] == spellID) then
+            return i;
+        end
+    end
+    return nil;
+end
+
+--- What this action says about one talent in one specialization: `"taken"`, `"notTaken"` or nil.
+local function TalentStateOf(action, specID, spellID)
+    local talents = TalentConditionOf(action);
+    local entry = talents and talents[specID];
+    local Talents = DebindPrivate.Talents;
+    if (ListHolds(Talents.ListOf(entry, "taken"), spellID)) then
+        return "taken";
+    end
+    if (ListHolds(Talents.ListOf(entry, "notTaken"), spellID)) then
+        return "notTaken";
+    end
+    return nil;
+end
+
+--- **Read off the first specialization and written to all of them.** The class tree hands this the
+--- whole class, because a class talent means the same thing in every specialization and a tick
+--- that landed on one would read as untouched from the other three
+--- (`devdocs/adding-a-talent-condition.md` §2). Reading is the specialization being played, which
+--- is the one the reader is looking at; a set that arrived out of step realigns on the next click.
+local function TalentConditionIs(ctx, specIDs, spellID, state)
+    return AllActions(ctx, function(action)
+        return TalentStateOf(action, specIDs[1], spellID) == state;
+    end);
+end
+
+local function ListTouches(list, ids)
+    if (type(list) ~= "table") then
+        return false;
+    end
+    for i = 1, #list do
+        if (ids[list[i]]) then
+            return true;
+        end
+    end
+    return false;
+end
+
+--- Does any selected action say anything about any of these talents?
+---
+--- **Any, not every.** This is what colours a row that only opens a submenu, and the question a
+--- colour answers there is "is there something of mine down here" (`MenuKit.lua`). A row lit only
+--- where the whole selection agrees would leave the reader hunting through branches that look
+--- untouched.
+local function TalentConditionTouches(ctx, specID, ids)
+    return AnyAction(ctx, function(action)
+        local talents = TalentConditionOf(action);
+        local entry = talents and talents[specID];
+        local Talents = DebindPrivate.Talents;
+        return ListTouches(Talents.ListOf(entry, "taken"), ids)
+            or ListTouches(Talents.ListOf(entry, "notTaken"), ids);
+    end);
+end
+
+--- **The empty entry is swept here rather than left for the logout.** A specialization key with
+--- both lists empty says nothing, and an action carrying one reads as conditional
+--- (`IsConditionalBinding`, `CleanUpDB`).
+local function PruneTalents(action)
+    local talents = TalentConditionOf(action);
+    if (talents == nil) then
+        return;
+    end
+    -- **An entry that is not a pair of lists goes with the empty ones.** Nothing here can make
+    -- one, and one that arrived in a shared string says nothing this menu can draw or undo.
+    local Talents = DebindPrivate.Talents;
+    for specID, entry in pairs(talents) do
+        local taken = Talents.ListOf(entry, "taken");
+        local notTaken = Talents.ListOf(entry, "notTaken");
+        if ((taken == nil or #taken == 0) and (notTaken == nil or #notTaken == 0)) then
+            talents[specID] = nil;
+        end
+    end
+    if (next(talents) == nil) then
+        action.conditions.talents = nil;
+    end
+end
+
+--- Puts one talent on one of the two lists, or on neither. **Off both is how a row is cleared**,
+--- which is the third choice every row carries.
+local function WriteList(entry, name, spellID, wanted)
+    local list = DebindPrivate.Talents.ListOf(entry, name);
+    local at = ListHolds(list, spellID);
+    if (wanted and not at) then
+        list = list or {};
+        entry[name] = list;
+        list[#list + 1] = spellID;
+    elseif (at and not wanted) then
+        table.remove(list, at);
+    end
+end
+
+local function SetTalentCondition(ctx, specIDs, spellID, state)
+    for _, action in ipairs(ctx.actions) do
+        for i = 1, #specIDs do
+            local entry = TalentEntryFor(action, specIDs[i]);
+            WriteList(entry, "taken", spellID, state == "taken");
+            WriteList(entry, "notTaken", spellID, state == "notTaken");
+        end
+        PruneTalents(action);
+        PruneConditions(action);
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+--- Does this action carry a talent condition on a specialization other than the one being played?
+---
+--- **The menu cannot show those.** It opens the specialization being played, so a key written in
+--- another one -- by that specialization's own menu, or by a shared string -- is on the action with
+--- no row of its own.
+local function HasOtherSpecTalents(action)
+    local mine = DebindPrivate.SpecIDForIndex(C_SpecializationInfo.GetSpecialization());
+    local talents = TalentConditionOf(action);
+    for specID in pairs(talents or {}) do
+        if (specID ~= mine) then
+            return true;
+        end
+    end
+    return false;
+end
+
+--- Drops every specialization's entry but the one being played.
+local function ClearOtherSpecTalents(ctx)
+    local mine = DebindPrivate.SpecIDForIndex(C_SpecializationInfo.GetSpecialization());
+    for _, action in ipairs(ctx.actions) do
+        local talents = TalentConditionOf(action);
+        if (talents) then
+            for specID in pairs(talents) do
+                if (specID ~= mine) then
+                    talents[specID] = nil;
+                end
+            end
+            PruneTalents(action);
+            PruneConditions(action);
+        end
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
+
+
+
+
+
+
 --- **The one place this file turns a menu value into stored state.** Every handler the kit
 --- makes goes in and out through these (`MenuKit.MakeHandlers`), so what a write costs after the
 --- values moved is written once, in `Commit`.
@@ -871,6 +1053,11 @@ ActionMenu.UnitConditionsOf          = UnitConditionsOf;
 ActionMenu.SpecConditionsOf          = SpecConditionsOf;
 ActionMenu.SpecConditionHasID        = SpecConditionHasID;
 ActionMenu.ToggleSpecConditionID     = ToggleSpecConditionID;
+ActionMenu.TalentConditionIs         = TalentConditionIs;
+ActionMenu.TalentConditionTouches    = TalentConditionTouches;
+ActionMenu.HasOtherSpecTalents       = HasOtherSpecTalents;
+ActionMenu.ClearOtherSpecTalents     = ClearOtherSpecTalents;
+ActionMenu.SetTalentCondition        = SetTalentCondition;
 ActionMenu.ClassSpecsAllPicked       = ClassSpecsAllPicked;
 ActionMenu.ToggleClassSpecs          = ToggleClassSpecs;
 ActionMenu.actionHandlers            = ActionHandlers;

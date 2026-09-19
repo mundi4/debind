@@ -233,6 +233,10 @@ local FIXED_COLUMNS = {
     -- file: `BuildKeyMap` leaves those bindings out of the key map altogether, and the comment
     -- there is where that reasoning lives. What arrives is a set of bindings whose specialization
     -- condition is true everywhere in this space, and the full mask is how that is spelled.
+    --
+    -- **`talents` is the same, and for the same reason** (`Debind/Talents.lua`). A talent cannot
+    -- change in combat and every change that moves one rebuilds everything, so the answer is a
+    -- constant for the life of this build and `BuildKeyMap` has already spent it.
 };
 
 -- **컬럼의 인자가 이름이다.** 다섯 번호를 도는 루프였고 컬럼마다 번호를 들고 있었다. 스위치
