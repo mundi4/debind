@@ -145,7 +145,7 @@ L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
 -- **Not the client's `HELP_LABEL`.** That one is the game menu's entry into customer support, so the
 -- same word would point somewhere else.
 L["HELP_TOPICS"] = "Help"
---- The second line of the (i) callout, under the topic's own title.
+--- The second line of the (i) tooltip, under the topic's own title.
 ---
 --- **Not the client's `CLICK_FOR_MORE_INFO`** ("Click for more information"). That line stands under
 --- something the reader has already been shown, and here there is nothing above it but the title -
@@ -998,7 +998,7 @@ L["ORDER_BLOCKED_IMPORTANCE"] = "This action cannot move past the one next to it
 L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a string, and it reaches no key until you accept it."
 -- **Not held, just nothing to contend for.** The four above cannot pass because one step
 -- splits them, and changing that step lets them; these two are never on one list together, so
--- an order between them settles nothing. That is the grey branch, with no red and no callout
+-- an order between them settles nothing. That is the grey branch, with no red
 -- (BLOCKED_WITH_NOTHING_TO_DO in DebindUI.lua).
 --
 -- **run이 아니라 active를 쓴다.** 한 키에 걸린 것은 원래 하나만 도니, 안 같이 돈다고 하면

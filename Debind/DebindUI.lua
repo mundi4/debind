@@ -4478,16 +4478,6 @@ function DebindResultPanelMixin:OnLoad()
 	self:Refresh();
 end
 
---- 말풍선은 (i) 자신의 hover 말고 **잠긴 화살표 위**에서도 뜬다. 그래서 이 두 줄이 남아 있다
---- - 그 자리(`DebindOrderLineMixin:OnMoveEnter`)가 버튼을 직접 부르지 않고 이 열에 말한다.
-function DebindResultPanelMixin:ShowHelpTip()
-	self.ContentArea.HelpButton:ShowCallout();
-end
-
-function DebindResultPanelMixin:HideHelpTip()
-	self.ContentArea.HelpButton:HideCallout();
-end
-
 function DebindResultPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
@@ -4541,8 +4531,7 @@ local ORDER_REASON_WIDTH = 170;
 --- 버튼은 없앴다 만들지 않고 **늘 두 개**다. 비활성이 곧 "지금은 안 된다"이고, 나타났다
 --- 사라지면 연타할 때 과녁이 흔들린다.
 
---- Which dead arrows are written in red and get the callout on the (i): **only the ones a reader
---- can do something about.**
+--- Which dead arrows are written in red: **only the ones a reader can do something about.**
 ---
 --- One at the end of its group and one against another specialization's row are left out. The
 --- first has nowhere to go and nothing more to say; the second is not held by a rule, it has
@@ -4720,7 +4709,6 @@ function DebindOrderLineMixin:OnMoveEnter(button)
 		-- one colour and the red says nothing (`IsRuleBlocked`).
 		if (IsRuleBlocked(button.reason)) then
 			GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
-			DebindResultPanel:ShowHelpTip();
 		else
 			GameTooltip_AddDisabledLine(GameTooltip, LLL[button.reasonKey]);
 		end
@@ -4731,7 +4719,6 @@ end
 function DebindOrderLineMixin:OnMoveLeave()
 	GameTooltip:Hide();
 	DebindResultPanel.ContentArea.HelpButton:UnlockHighlight();
-	DebindResultPanel:HideHelpTip();
 end
 
 --- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.
@@ -6453,31 +6440,14 @@ function DebindHelpLinkMixin:UpdateTitle()
 end
 
 
-function DebindHelpLinkMixin:CalloutText()
-	return (self.helpTitle or "") .. "|n|n" .. GREEN_FONT_COLOR:WrapTextInColorCode(LLL["HELP_TIP_OPEN"]);
-end
-
---- 아이콘만 있는 자리의 말풍선. 제목과, 누르면 열린다는 한 줄.
----
---- **표는 부를 때마다 새로 만든다.** 말풍선은 넘긴 표를 참조로 들고 있어서, 모듈 하나를 돌려
---- 쓰면 둘째 말풍선이 아직 떠 있는 첫 말풍선의 `text`를 갈아치운다. 그러면 `HideCallout`이 짓는
---- 글과 저쪽이 들고 있는 글이 달라져 첫 말풍선이 안 닫힌다. 커서가 아이콘에 올라올 때만 도는
---- 자리라 할당 하나는 값이 안 된다.
----
---- 말풍선이 버튼의 어느 변에 서고 그 변에서 어느 쪽으로 붙는지는 두 KeyValue가 말한다. 상수의
---- **이름**을 적는다 - `HelpTip.Point`는 XML이 KeyValue로 집어올 수 있는 전역이 아니다.
-function DebindHelpLinkMixin:ShowCallout()
-	HelpTip.Show(self, {
-		text = self:CalloutText(),
-		-- 닫는 버튼은 없다. 커서가 아이콘을 떠나면 사라지므로 닫을 것이 화면에 남지 않는다.
-		buttonStyle = HelpTip.ButtonStyle.None,
-		targetPoint = HelpTip.Point[self.calloutPoint or "TopEdgeCenter"],
-		alignment = HelpTip.Alignment[self.calloutAlignment or "Left"],
-	});
-end
-
-function DebindHelpLinkMixin:HideCallout()
-	HelpTip.Hide(self, self:CalloutText());
+--- 아이콘만 있는 자리에서 제목을 말하는 툴팁. 말풍선이던 것을 옮긴 것이고, 옮긴 이유는 그쪽이
+--- 자기를 띄운 버튼을 부모로 붙어서 **잘라내는 틀 안에서는 같이 잘리기 때문이다** - 피커의
+--- 머리글이 그 안에 선다. 툴팁은 어디에도 안 잘리고, 줄이 다시 쓰이거나 숨을 때 같이 닫힌다.
+function DebindHelpLinkMixin:ShowTooltip()
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, self.helpTitle or "");
+	GameTooltip_AddColoredLine(GameTooltip, LLL["HELP_TIP_OPEN"], GREEN_FONT_COLOR);
+	GameTooltip:Show();
 end
 
 function DebindHelpLinkMixin:OnShow()
@@ -6486,13 +6456,13 @@ end
 
 function DebindHelpLinkMixin:OnClick()
 	DebindUI.ToggleHelp(self.helpTopic);
-	self:HideCallout();
+	GameTooltip:Hide();
 end
 
---- 제목이 옆에 있으면 그 글자가 밝아지고, 아이콘뿐이면 제목을 말풍선이 대신 말한다.
+--- 제목이 옆에 있으면 그 글자가 밝아지고, 아이콘뿐이면 제목을 툴팁이 대신 말한다.
 function DebindHelpLinkMixin:OnEnter()
 	if (self.iconOnly) then
-		self:ShowCallout();
+		self:ShowTooltip();
 		return;
 	end
 	self.Text:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
@@ -6500,7 +6470,7 @@ end
 
 function DebindHelpLinkMixin:OnLeave()
 	if (self.iconOnly) then
-		self:HideCallout();
+		GameTooltip:Hide();
 		return;
 	end
 	self.Text:SetTextColor(GREEN_FONT_COLOR:GetRGB());

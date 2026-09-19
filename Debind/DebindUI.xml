@@ -834,9 +834,6 @@
 		<KeyValues>
 			<KeyValue key="iconSize" value="28" type="number"/>
 			<KeyValue key="iconOnly" value="false" type="boolean"/>
-			<!-- `HelpTip.Point`와 `HelpTip.Alignment`의 이름 (`ShowCallout`). -->
-			<KeyValue key="calloutPoint" value="TopEdgeCenter" type="string"/>
-			<KeyValue key="calloutAlignment" value="Left" type="string"/>
 		</KeyValues>
 		<Layers>
 			<Layer level="ARTWORK">
@@ -1268,7 +1265,7 @@
 										big (i) is not used: that seat is a whole window's help.
 
 										There is no room for the page's title beside it, so it is the icon
-										alone and the callout says which page it is.
+										alone and its tooltip says which page it is.
 									-->
 									<Button parentKey="HelpButton" inherits="DebindHelpLinkTemplate">
 										<KeyValues>
@@ -1838,7 +1835,6 @@
 					<Button parentKey="HelpButton" inherits="DebindHelpLinkTemplate">
 						<KeyValues>
 							<KeyValue key="iconOnly" value="true" type="boolean"/>
-							<KeyValue key="calloutPoint" value="LeftEdgeCenter" type="string"/>
 						</KeyValues>
 						<Anchors>
 							<Anchor point="RIGHT" relativePoint="TOPRIGHT" x="0" y="-76"/>

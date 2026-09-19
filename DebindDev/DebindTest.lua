@@ -2768,7 +2768,7 @@ end
 -- What the game does: a click on a locked arrow, and on the (i), opens a window. These need the
 -- window, the tooltip and the real button scripts, none of which the headless run has.
 RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
-    description = "An arrow a rule holds is disabled; the cursor on it lights the (i) and puts its callout up, and leaving takes both down. One dead at the end lights the (i) and puts no callout up",
+    description = "An arrow a rule holds is disabled; the cursor on it lights the (i) and leaving puts it out. One dead at the end lights it the same way",
     run = function()
         local NAME = "Locked arrow"
         local KEY = "CTRL-ALT-F11"
@@ -2796,25 +2796,12 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
         if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on a locked arrow did not light the (i)")
         end
-        -- **The (i) is the frame the balloon is pinned to**, not the panel: `ShowCallout` passes the
-        -- button itself (`DebindHelpLinkMixin`).
-        --
-        -- **Ours, not the client's.** The callout stopped going through Blizzard's `HelpTip` on
-        -- 2026-09-19 (`Debind/HelpTip.lua` says why), and asking theirs answers about a pool our
-        -- balloons never enter.
-        if not DebindPrivate.HelpTip.IsShowing(help) then
-            return Fail(NAME, "the cursor on a locked arrow put no callout on the (i)")
-        end
         line:OnMoveLeave()
         if help:IsHighlightLocked() then
             return Fail(NAME, "the (i) stayed lit after the cursor left")
         end
-        if DebindPrivate.HelpTip.IsShowing(help) then
-            return Fail(NAME, "the callout stayed up after the cursor left")
-        end
 
-        -- The negative: the arrow at the end of the group is dead too, but there is nothing to
-        -- learn from it, so the (i) lights and no callout comes up.
+        -- The arrow at the end of the group is dead too, and lights the (i) the same way.
         if down.reason ~= "ALREADY_LAST" then
             return Fail(NAME, format("setup: the downward arrow is not at the end: %s", tostring(down.reason)))
         end
@@ -2825,12 +2812,9 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
         if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on the end arrow did not light the (i)")
         end
-        if DebindPrivate.HelpTip.IsShowing(help) then
-            return Fail(NAME, "the end arrow put a callout up with nothing to say")
-        end
         line:OnMoveLeave()
 
-        return Pass(NAME, "the held arrow is dead and lights the (i) with its callout; the end arrow lights it alone")
+        return Pass(NAME, "both dead arrows light the (i), and it goes out when the cursor leaves")
     end,
 })
 

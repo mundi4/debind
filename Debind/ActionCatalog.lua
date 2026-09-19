@@ -1122,6 +1122,7 @@ local function BuildSpecialActions(entries)
 			value = i,
 			group = setCustomGroup,
 			tooltipText = LLL["TYPE_SETCUSTOM_DESC"],
+			helpPage = "custom-target",
 		});
 	end
 

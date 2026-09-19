@@ -2,7 +2,7 @@
 **The answer comes first.** Whoever opens this was stopped moving a row, so the order is the first thing on the page and the presses come after it (2026-09-17, owner: a help page answers at once). The advice on which handle to reach for first is left out for the same reason.
 -->
 
-# Which action does a key run?
+# When a key holds more than one action
 
 <!--
 **"The key does nothing" is the line that matters to someone upgrading.** Up to the previous release a key with nothing to run was handed back to the game and its own keybinding ran; that path is gone (`devdocs/legacy/dropping-the-game-fallback.md`). It also covers a held key no action answers, so the paragraph at the end needs no sentence of its own for that. Pet battles handing keys back are left out: there the key does what the battle bar shows.

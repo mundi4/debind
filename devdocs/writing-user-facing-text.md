@@ -91,6 +91,23 @@ hand-translate them into a second wording that can then disagree with the client
 
 ---
 
+## Nothing here has a will of its own
+
+**Write what happens, not what something decided.** The addon, a key, an action, a slot, the game:
+none of them want, refuse, agree, give up, let go, hold on, or decide. A sentence that hands one of
+them an intention reads as a small story, and the reader has to translate it back into the event
+before they can act on it.
+
+* "Anybody else is turned down" → "on anybody else the press does nothing".
+* "Press it to let the person go" → "press it to clear it".
+* "The key gives the press to the next action" is on the edge and is fine: it is the key's own rule,
+  said in one clause, with no wish behind it.
+
+Plain verbs the reader already uses for software are what this leaves: set, clear, keep, stop,
+work, do nothing. Reaching past them is where the personification comes from.
+
+---
+
 ## Register, in Korean
 
 Sentences that **ask or instruct** use 해요체 — "켜 주세요", not "켜십시오". This is a game addon,

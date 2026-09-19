@@ -216,6 +216,26 @@ function DebindSpellPickerHeaderMixin:Init(elementData)
 	self.elementData = elementData;
 	self.Bar:SetHeaderText(elementData.name);
 	self.Bar:UpdateCollapsedState(elementData.collapsed);
+	self:UpdateHelpLink(elementData.helpPage);
+end
+
+--- **The (i) stands where the title ends, which has to be measured.** The bar's own name string runs
+--- to the end cap whatever it holds (`ListHeaderThreeSliceTemplate`), so anchoring to its right edge
+--- would put the icon on the far side, next to the fold indicator.
+---
+--- It is a button of its own inside the bar, so a press on it opens the page instead of folding the
+--- group. That is the point of it: somebody reaching for the help does not want the list to close.
+function DebindSpellPickerHeaderMixin:UpdateHelpLink(page)
+	local link = self.Bar.HelpLink;
+	if (not page) then
+		link:Hide();
+		return;
+	end
+
+	link:SetHelpTopic(page);
+	link:ClearAllPoints();
+	link:SetPoint("LEFT", self.Bar.Name, "LEFT", self.Bar.Name:GetStringWidth() + 4, 0);
+	link:Show();
 end
 
 --- The list is rebuilt rather than the rows hidden, because the grid takes a heading for one cell
@@ -721,6 +741,9 @@ local function BuildDisplayList(entries, out, stride, categoryKey)
 				-- Which tab this heading belongs to, so a click can file the fold under it.
 				categoryKey = categoryKey,
 				collapsed = collapsed,
+				-- Read off the group's first entry, because a page belongs to what the group holds
+				-- and the group name is a locale string that a map here would have to be keyed by.
+				helpPage = buckets[key][1].helpPage,
 			};
 			for _ = 2, stride do
 				out[#out + 1] = { isSpacer = true };

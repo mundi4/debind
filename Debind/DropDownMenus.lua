@@ -25,6 +25,7 @@ local CreateDisableMenuItem                   = ActionMenu.CreateDisableMenuItem
 local CreateDeleteMenu                        = ActionMenu.CreateDeleteMenu;
 local GetTabList                              = ActionMenu.GetTabList;
 local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip;
+local MenuKit                                 = DebindPrivate.MenuKit;
 
 --------------------------------------------------------------------------------
 -- The switches menu that used to hang off the portrait
@@ -241,6 +242,12 @@ end
 --- so a delete here takes rows nobody selected - which is the same line the edit menu's other
 --- items are kept out on (`reworking-the-overview.md`).
 function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, action, extraCount, actions, arrivalID)
+    --- 이 메뉴의 항목이 무엇이든 마지막 줄은 같다. 갈래마다 따로 적으면 한 갈래에서 빠진다.
+    local function CreateHelpItem()
+        rootDescription:CreateDivider();
+        MenuKit.CreateHelpButton(rootDescription, "ordering", LLL["HELP_ORDERING_TITLE"]);
+    end
+
     if (key ~= nil) then
         -- 로컬에 한 번 받는 이유는 위 메뉴와 같다 - 셋을 돌려주므로 그대로 넘기면 아이콘이
         -- `CreateTitle`의 **색** 자리로 들어간다.
@@ -287,6 +294,7 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
             CreateApproveImportMenuItem(rootDescription, actions);
             CreateAssignKeyItem();
             CreateRejectImportMenuItem(rootDescription, actions);
+            CreateHelpItem();
             return;
         end
 
@@ -325,6 +333,8 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
         CreateApproveImportMenuItem(rootDescription, actions, true);
         CreateRejectImportMenuItem(rootDescription, actions, true);
     end
+
+    CreateHelpItem();
 end
 
 --- The row above the two columns, on either mouse button. **Two items, and they are the two

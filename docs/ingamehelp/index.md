@@ -6,4 +6,5 @@
 - cast-options
 - stopping-an-action
 - picking-a-pointed-unit
+- custom-target
 - custom-macro

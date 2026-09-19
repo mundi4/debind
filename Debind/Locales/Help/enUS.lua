@@ -48,6 +48,21 @@ A switch is a condition of its own: [$burst] while it is on, [no$burst] while it
 Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
 ]==]
 
+L["HELP_CUSTOM_TARGET_TITLE"] = "Setting a Custom Target"
+L["HELP_CUSTOM_TARGET_BODY"] = [==[
+Two extra targets you set the way you set your focus. Put |cnBLUE_FONT_COLOR:Set Custom Target 1|r or |cnBLUE_FONT_COLOR:Set Custom Target 2|r on a key, from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
+
+Then use one like any other unit: pick |cnBLUE_FONT_COLOR:Custom Target 1|r or |cnBLUE_FONT_COLOR:Custom Target 2|r in an action's |cnBLUE_FONT_COLOR:Target|r menu, ask about it under |cnBLUE_FONT_COLOR:Units|r, or write |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a Custom Macro, as in |cnGREEN_FONT_COLOR:|Hdebind:help:custom-macro|h[Writing a Custom Macro]|h|r.
+
+You can set yourself, your pet, somebody in your party or raid, an encounter boss, or an arena opponent. On anything else the press does nothing and a line in chat says why. Each character has its own two, and they are still there at the next login.
+
+Out of combat this works over any unit frame. In combat it works over the Player, Pet, Party, Raid, Boss and Arena frames Debind works on.
+
+A custom target stays on the person you set it on until you set it on somebody else. Set it before the pull, or during a fight before your group changes, and it stays on them through the fight. A boss or an arena opponent is the spot rather than the person, so next time it is whoever stands there.
+
+The exception is one you set during a fight your group has already changed in. That one clears if the group changes again before the fight ends, and the line you get when you set it says so.
+]==]
+
 L["HELP_HOVER_CAST_TITLE"] = "What is Hover Cast?"
 L["HELP_HOVER_CAST_BODY"] = [==[
 While you point at a unit, a key sends its action to that unit instead of where it would normally go. Point at nothing and the action goes where it normally would, and an action with a target picked under |cnBLUE_FONT_COLOR:Target|r keeps going there.
@@ -64,7 +79,7 @@ The unit is handed to the action, and what the action can do with it is the acti
 What each row of |cnBLUE_FONT_COLOR:Cast Options|r does, and how to keep an action from running while you point at a unit, is in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do the Cast Options do?]|h|r. Which of a picked target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
 ]==]
 
-L["HELP_ORDERING_TITLE"] = "Which action does a key run?"
+L["HELP_ORDERING_TITLE"] = "When a key holds more than one action"
 L["HELP_ORDERING_BODY"] = [==[
 A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing.
 
