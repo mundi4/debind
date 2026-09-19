@@ -89,7 +89,15 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- purpose. "You have not picked one" and "the one you picked is gone" send the reader to two
 -- different places, and the second names a switch while this one has none to name.
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No switch is picked. Until one is, this binding does not fire at all."
-L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
+-- **Escape by name, because Escape is what is refused** (`IsKeyInvalidForAction`). It used to name
+-- Toggle Game Menu and follow that binding, which meant it could print about a key the reader had
+-- moved somewhere we could not follow. "Escape" is the client's own word for the key
+-- (`KEY_ESCAPE`).
+--
+-- **Nothing is highlighted.** The whole line is already drawn red as an error, and one white word
+-- inside it reads as a second thing being said rather than as emphasis. The other errors highlight
+-- a value they were handed (`%s`); there is no value here, only the one key this is about.
+L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The Escape key cannot be used."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
 -- action sets. **This line and the macro one below are the only errors that take an argument** --
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
@@ -577,6 +585,26 @@ L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can se
 --- the heading still stands over it - and because that is the phrase the item's own tooltip uses
 --- (`KEY_HEADER_SET_KEY_DESC`). One set, one way of naming it per screen.
 L["KEY_HEADER_TOOLTIP_INSTRUCTION"] = "Right-click for what can be done to everything under this heading."
+--- What the greyed key name in the column means, said once for the whole group. **The outcome and
+--- not the cause**: a group is grey because every action in it is turned off, because they all
+--- belong to a specialization you are not in, or because it is the key that opens the game menu,
+--- and the causes can be mixed in one group. Each row says its own (`LINE_TOOLTIP_NOT_RUNNING_DISABLED`,
+--- `LINE_TOOLTIP_SPEC_INACTIVE`) and the mark says the game menu one. All three do the same thing
+--- to the key, which is what this sentence is about.
+---
+--- **A group that is only broken is not grey and does not get this line.** The key is still ours
+--- and does not go anywhere; that nothing comes out of it is the mark's to say.
+---
+--- **"whatever WoW has bound to it" is the phrase the switch that causes this already uses**
+--- (`ACTION_DISABLED_DESC`). One thing, one wording per screen.
+L["KEY_HEADER_TOOLTIP_KEY_LEFT_TO_GAME"] = "Nothing here is running, so this key is left to whatever WoW has bound to it."
+--- The same slot for an arrival group. **"reaches no key until you accept it" is
+--- `LINE_TOOLTIP_IMPORTED`'s own wording**, for the same reason.
+---
+--- It is said instead of the line above and never beside it: an arrival sitting on a key the reader
+--- already uses reaches no key while that key is very much still theirs, and a sentence about where
+--- the key goes would be answering about somebody else's group.
+L["KEY_HEADER_TOOLTIP_NOT_ACCEPTED"] = "Nothing here has been accepted yet, so it reaches no key."
 L["KEY_HEADER_SET_KEY"] = "Assign a key"
 --- The heading's import items.
 ---

@@ -19,7 +19,7 @@ L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "Не выбрана ни одна 
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "Условия невозможно выполнить."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "Не выбрана ни одна форма перевоплощения."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "Не выбран ни один тип группы."
-L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша, назначенная для |cnHIGHLIGHT_FONT_COLOR:Переключения игрового меню|r, не может быть использована."
+L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавишу Esc использовать нельзя."
 -- %s는 매크로 본문에 적힌 그 이름이다. 근거는 enUS 쪽 주석에.
 L["BINDING_ERROR_UNDEFINED_STATE"] = "Переключателя с именем |cnHIGHLIGHT_FONT_COLOR:%s|r не существует."
 L["BINDING_ERROR_UNREACHABLE"] = "Эта привязка всегда перекрывается другими."

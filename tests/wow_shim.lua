@@ -408,9 +408,9 @@ function M.install()
         return "";
     end
 
-    --- The game's own binding table, which the addon reads and never writes: `RefreshGameMenuKeys`
-    --- asks what `TOGGLEGAMEMENU` sits on, and `BindingContexts.lua` walks the whole table to find
-    --- the keys an open editor has claimed. `M.world.bindings` is a list of
+    --- The game's own binding table, which the addon reads and never writes: `BindingContexts.lua`
+    --- walks the whole table to find the keys an open editor has claimed, and the restricted side
+    --- asks what each `ACTIONBUTTON` sits on. `M.world.bindings` is a list of
     --- `{ action = , context = , keys = { ... } }` and starts empty, which is a client with
     --- nothing bound rather than a client that refuses to answer.
     _G.GetNumBindings = function() return #M.world.bindings; end

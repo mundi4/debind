@@ -222,6 +222,17 @@ local function RunTeardowns()
         end
     end
     wipe(teardowns)
+
+    -- **The pick is the runner's to clear, for the reason above.** It outlives the actions it holds:
+    -- a heading's right-click folds the pick onto its group and leaves it standing on purpose, so
+    -- that an unbind from there can be put back, and nothing prunes it while the window is shut.
+    -- Every test after one of those then started with somebody else's two rows in the set.
+    --
+    -- **After the teardowns**, so a test that closes the window does it first.
+    local ok, err = pcall(DebindLayerPanel.SetSelectedAction, DebindLayerPanel, nil)
+    if not ok then
+        print(format("|cffff8800[DebindTest]|r clearing the pick failed: %s", tostring(err)))
+    end
 end
 
 --- ESCAPE as the main window actually meets it, in the four steps the client takes.

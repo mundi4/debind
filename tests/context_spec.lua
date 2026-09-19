@@ -195,6 +195,16 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- What yielding does to the bindings
     ---------------------------------------------------------------------------
+    --
+    -- **The rebuild bakes a claimed key like any other now.** Standing back happens on the
+    -- restricted side, where the claim is added to the other reasons a key goes over
+    -- (`UpdateGivenBackKeys`), and what that comes to is `giveback_spec.lua`'s to read. What is
+    -- left here is that the rebuild does not settle it early: a key the editor has taken has to
+    -- still be ours, or the restricted side has nothing to hand over and nothing to put back.
+    --
+    -- **A fight still stops both.** Nothing crosses into the restricted side under lockdown either,
+    -- so an editor that opens or closes mid-fight waits for `PLAYER_REGEN_ENABLED` exactly as the
+    -- rebuild used to (`devdocs/giving-keys-back.md` §6).
 
     local Constants = DebindPrivate.Constants;
     local GUID = "Player-1-TESTGUID";
@@ -216,9 +226,10 @@ return function(DebindPrivate)
         return DebindPrivate.KeyMap;
     end
 
-    -- Standing back means the key is not in `KeyMap`, so no override is put on it and the editor
-    -- gets it.
-    test("a yielded key leaves KeyMap", function()
+    -- **The claimed key is baked like any other.** It used to be dropped here, and a rebuild is the
+    -- only thing that could put it back -- so the editor closing during a fight left the key dead
+    -- until the fight ended.
+    test("a yielded key stays in KeyMap", function()
         World(
             { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
             { HOUSING_MODE_DECOR = HOUSING },
@@ -228,52 +239,32 @@ return function(DebindPrivate)
             { type = Constants.SPELL, value = 585, key = "F5", seq = 1 },
             { type = Constants.SPELL, value = 774, key = "F6", seq = 2 },
         });
-        check(keyMap["F5"] == nil, "a yielded key stayed in KeyMap");
+        check(keyMap["F5"] ~= nil, "a yielded key left KeyMap");
         check(keyMap["F6"] ~= nil, "a key nobody claimed was dropped");
 
         Reset();
     end);
 
-    -- **Off, nothing is collected at all**, so the key the editor claims stays Debind's. The row is
-    -- on with the value absent, which the test above is standing on.
-    test("the House Editor row off keeps the claimed key", function()
+    -- **Off, nothing is collected at all**, so nothing is handed over for the editor. The row is on
+    -- with the value absent, which every test above is standing on.
+    test("the House Editor row off claims nothing", function()
         World(
             { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
             { HOUSING_MODE_DECOR = HOUSING },
             { [HOUSING] = true });
 
-        local keyMap = Profile({
+        Profile({
             { type = Constants.SPELL, value = 585, key = "F5", seq = 1 },
         }, { giveBackInBindingContext = false });
-        check(keyMap["F5"] ~= nil, "the row was off and the key still left KeyMap");
         check(DebindPrivate.IsKeyYielded("F5") == false, "the key is still reported as yielded");
 
         Reset();
     end);
 
-    -- **Every key the command has, not one of them.** Which of a command's two keys the keybinding
-    -- screen showed first is not kept across a reload (2026-09-18, measured), so there is no first
-    -- one to hold back.
-    test("both of a command's keys go back", function()
-        World(
-            { { action = "HOUSING_MODE_DECOR", keys = { "F5", "F7" } } },
-            { HOUSING_MODE_DECOR = HOUSING },
-            { [HOUSING] = true });
-
-        local keyMap = Profile({
-            { type = Constants.SPELL, value = 585, key = "F5", seq = 1 },
-            { type = Constants.SPELL, value = 774, key = "F7", seq = 2 },
-        });
-        check(keyMap["F5"] == nil and keyMap["F7"] == nil, "a claimed key stayed in KeyMap");
-
-        Reset();
-    end);
-
-    -- **A yielded key stays yielded when nothing on it would fire either.** A key whose actions the
-    -- rebuild leaves out is still held (`Debind.lua`'s `BuildKeyMap`), and that hold must not reach
-    -- past a key the game has taken. The unyielded key is asked first, so "not bound" cannot also
-    -- mean the hold never happened.
-    test("a yielded key whose action the rebuild leaves out is not held", function()
+    -- **The hold reaches past a claimed key too.** A key whose actions the rebuild leaves out is
+    -- still held (`Debind.lua`'s `BuildKeyMap`), and a claim no longer stops that -- the restricted
+    -- side is what hands it over, and it can only hand over a key we hold.
+    test("a yielded key whose action the rebuild leaves out is still held", function()
         World(
             { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
             { HOUSING_MODE_DECOR = HOUSING },
@@ -289,7 +280,7 @@ return function(DebindPrivate)
         });
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
         check(DebindPrivate.IsKeyOurs("F6"), "the key nobody claimed was not held");
-        check(not DebindPrivate.IsKeyOurs("F5"), "the yielded key was held");
+        check(DebindPrivate.IsKeyOurs("F5"), "the yielded key was not held");
 
         Reset();
     end);

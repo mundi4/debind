@@ -202,12 +202,13 @@ return function(DebindPrivate, _, ctx)
             Bind({ action({ value = 585, key = "ESCAPE" }) });
             check(DebindPrivate.GetBindingIssue(DebindPrivate.CollectActionsForKey("ESCAPE")[1].action)
                     == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY, "the key carries no key issue");
-            -- The game's own binding stays on it, so what is asked is that ours is not.
+            -- The game's own binding stays on it, so what is asked is that ours is not. **What is on
+            -- it is the world's to say and not what the check reads**: the check is `ESCAPE` itself
+            -- now, so this line measures the outcome rather than restating the rule.
             check(Bound("ESCAPE") == "TOGGLEGAMEMENU", "the key was bound: " .. Bound("ESCAPE"));
             check(not DebindPrivate.IsKeyOurs("ESCAPE"), "the key is not bound and IsKeyOurs says yes");
         end);
         shim.world.bindings = {};
-        DebindPrivate.RefreshGameMenuKeys();
         if (not ok) then
             error(err, 0);
         end

@@ -15,6 +15,15 @@ local _, DebindPrivate = ...;
 --- **물러날지는 전역 옵션이 정한다** (`GiveBackInBindingContext`). 없으면 물러나는 쪽이 기본인
 --- 것은 여기 적힌 이유 그대로다. 액션마다 있던 `keepInBindingContext`는 그 옵션이 서면서
 --- 나갔다(`devdocs/giving-keys-back.md` §7).
+---
+--- **물러나는 일은 보안 쪽이 한다.** 여기는 점유 키 목록만 실어 보내고(`ContextKeys`), 키를
+--- 놓을지 잡을지는 `UpdateGivenBackKeys`가 네 갈래를 합쳐 한 번에 정한다. 그래야 한 키의
+--- 양보를 드는 곳이 `bindings.givenBack` 하나로 남는다 - 비보안 쪽에서 그 키만 따로 여닫으면
+--- 차량바가 끝날 때 편집기가 열린 채로 키가 돌아오고, 편집기를 닫으며 씌우면 차량바가 서
+--- 있는 내내 키가 우리 것으로 남는다.
+---
+--- 예전에는 집합이 움직일 때마다 리빌드를 걸었다. 집 편집기는 모드마다 컨텍스트가 갈리니
+--- 한 번 열고 닫는 동안 여러 번 돌고, 리빌드는 솔버와 굽기를 통째로 다시 한다.
 
 local YieldedKeys                 = {};
 
@@ -22,7 +31,8 @@ local YieldedKeys                 = {};
 local supported                   = C_KeyBindings and C_KeyBindings.GetBindingContextForAction
     and C_KeyBindings.IsBindingContextActive and Enum and Enum.BindingContext and true or false;
 
---- 지금 이 키를 게임에 양보 중인가.
+--- 지금 이 키를 게임에 양보 중인가. **리빌드는 안 묻는다** - 양보는 보안 쪽이 하므로 구울 때는
+--- 이 답이 필요 없다. 집합이 무엇으로 채워졌는지를 밖에서 읽을 수 있는 자리로 남는다.
 function DebindPrivate.IsKeyYielded(key)
     return YieldedKeys[key] == true;
 end
@@ -101,11 +111,71 @@ end
 --- 뒤이어 오는 알림이 없으니 그대로 굳는다. 그래서 세는 일을 다음 프레임으로 미룬다.
 local scheduled = false;
 
+local _lines = {};
+local _sorted = {};
+
+--- Whether a transition arrived during a fight and is still owed its crossing.
+local pendingPush = false;
+
+--- Writes the claimed set into the restricted `ContextKeys`.
+---
+--- **Assignments rather than a list the body has to cut up.** A parser in the restricted
+--- environment is a cost on every transition and a body that goes wrong without saying so; this is
+--- the shape `ApplyGiveBack` already emits.
+---
+--- Sorted so two transitions claiming the same keys emit the same bytes, which is what makes a
+--- recorded run readable.
+function DebindPrivate.BakeContextKeys(driver)
+    wipe(_sorted);
+    for key in pairs(YieldedKeys) do
+        _sorted[#_sorted + 1] = key;
+    end
+    sort(_sorted);
+
+    wipe(_lines);
+    _lines[1] = "wipe(ContextKeys)";
+    for i = 1, #_sorted do
+        _lines[i + 1] = format("ContextKeys[%q]=true", _sorted[i]);
+    end
+    SecureHandlerExecute(driver, table.concat(_lines, "\n"));
+    -- Whatever a fight refused has just been made good, by the rebuild or by the flush below.
+    pendingPush = false;
+end
+
+--- Hands the set over and has the restricted side work every key out again.
+---
+--- **The call is made whether or not the set moved.** What it decides is the union of four
+--- sources, and the other three move without this one; the pass is what makes a key that is now
+--- only wanted by one of them come back. A pass that decides what the last one did touches no
+--- binding at all (`UpdateGivenBackKeys`).
+local function PushContextKeys(rebake)
+    -- Nothing can cross into the restricted side during a fight. Same constraint a rebuild is
+    -- under, and `PLAYER_REGEN_ENABLED` is where both are paid.
+    if (InCombatLockdown()) then
+        pendingPush = true;
+        return;
+    end
+
+    local driver = DebindPrivate.BindingDriver;
+    if (rebake) then
+        DebindPrivate.BakeContextKeys(driver);
+    end
+    SecureHandlerExecute(driver, [[self:RunAttribute("UpdateGivenBackKeys")]]);
+end
+
+--- The crossing a fight refused, made once it ends (`Events.lua`).
+---
+--- **Baked again rather than replayed.** What was refused is not a set but the fact that the set
+--- moved, and it may have moved several times over the fight.
+function DebindPrivate.FlushContextKeys()
+    if (pendingPush) then
+        PushContextKeys(true);
+    end
+end
+
 local function DoRefresh()
     scheduled = false;
-    if (DebindPrivate.RefreshYieldedKeys()) then
-        DebindPrivate.QueueUpdateBindings();
-    end
+    PushContextKeys(DebindPrivate.RefreshYieldedKeys());
 end
 
 local function ScheduleRefresh()

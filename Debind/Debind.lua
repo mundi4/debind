@@ -151,16 +151,37 @@ dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
 DebindPrivate.KeysToHold             = {};
 dump("KeysToHold", DebindPrivate.KeysToHold);
 
+--- **Keys a press on which reaches this addon.** Not the same question as either table above, and
+--- the only one the window has any business asking: what a reader wants to know about a key is
+--- whether pressing it does anything of ours, not how it was wired.
+---
+--- Wider than `KeysToHold` by exactly one case, and that case is why this exists. A mouse button
+--- that runs over a unit frame holds no key at all -- the press arrives through the frame -- and it
+--- works. Asked of the other two tables it reads as a key we do not have.
+---
+--- Narrower by one as well: the game menu key is in neither, because nothing can take it.
+DebindPrivate.HandledKeys            = {};
+dump("HandledKeys", DebindPrivate.HandledKeys);
+
 --- Is the key bound to us by the last rebuild. A key waiting on a queued rebuild
 --- (`IsUpdateBindingsQueued`) is still answered as that rebuild left it.
+---
+--- **This is about the override, not about whether the key does anything.** `IsKeyHandled` is the
+--- second one, and a screen asking on a reader's behalf wants that.
 function DebindPrivate.IsKeyOurs(key)
 	return DebindPrivate.ClickTimeKeys[key] ~= nil;
+end
+
+--- Does pressing this key reach us at all, however it is wired.
+function DebindPrivate.IsKeyHandled(key)
+	return DebindPrivate.HandledKeys[key] == true;
 end
 
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;
 	local KeysToHold = DebindPrivate.KeysToHold;
+	local HandledKeys = DebindPrivate.HandledKeys;
 
 	dump("KeyMap", KeyMap);
 	dump("ActiveActions", ActiveActions);
@@ -251,6 +272,7 @@ do
 		wipe(KeyMap);
 		wipe(ActiveActions);
 		wipe(KeysToHold);
+		wipe(HandledKeys);
 		wipe(Lists);
 		DebindPrivate.ClearUnreachableBindingCache();
 
@@ -282,16 +304,13 @@ do
 				-- and for the same reason: drawn, greyed, reaching nothing. Unlike every filter
 				-- below this line it also hands the key back, because "I am not using this" is what
 				-- the reader said and a key we hold for nothing is a key the game cannot use.
-				local binding, list, yielded, outcome;
+				local binding, list, outcome;
 				if (action.key and not action.arrivalID and not action.disabled) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
 					outcome = DebindPrivate.GetIssueOutcome(action);
 
 					local key = action.key;
-					-- A key the game has claimed gets no override, and comes back when the claim ends.
-					yielded = DebindPrivate.IsKeyYielded(key);
-
 					-- **The key is held before anything below can leave the action out.** Every filter
 					-- under this one is the rebuild settling an answer early, and an answer settled
 					-- early must not hand the key back to the game: baked, the binding would lose every
@@ -299,16 +318,30 @@ do
 					-- with no binding at all, every press turned off in its Cast Options menu
 					-- (`devdocs/which-action-a-key-runs.md` §6): the key is still held for it.
 					--
-					-- Three things still let the key go. An action that runs over a unit frame fires
+					-- **A specialization condition naming another class's specializations holds the
+					-- key too**, though nothing behind it can ever fire on this character
+					-- (2026-09-19, owner). It is the same rule: the filter under this line is an
+					-- optimization, and an optimization must not change what a press does.
+					--
+					-- Two things still let the key go. An action that runs over a unit frame fires
 					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`, which
-					-- the bare left and right click always answer yes); a yielded key is the game's; and an
-					-- issue whose outcome is RELEASE says this key cannot be taken at all, where the game
-					-- menu key would take Escape with it.
-					if (not yielded
-							and not (DebindPrivate.ActionUnitFrameIsOn(action)
-								and DebindPrivate.GetMouseButtonAndPrefix(key))
-							and outcome ~= Constants.ISSUE_OUTCOME_RELEASE) then
-						KeysToHold[key] = true;
+					-- the bare left and right click always answer yes); and an issue whose outcome is
+					-- RELEASE says this key cannot be taken at all, where the game menu key would take
+					-- Escape with it.
+					--
+					-- **A key a binding context has claimed is not one of them.** It is baked like any
+					-- other and handed over on the restricted side while the claim stands
+					-- (`BindingContexts.lua`), so a claim that ends puts the key back without a rebuild.
+					--
+					-- **Only RELEASE takes the key out of our hands.** The frame case above still
+					-- answers the press, which is the whole difference between the two tables, and
+					-- `HandledKeys` is the one a screen asks (`IsKeyHandled`).
+					if (outcome ~= Constants.ISSUE_OUTCOME_RELEASE) then
+						HandledKeys[key] = true;
+						if (not (DebindPrivate.ActionUnitFrameIsOn(action)
+								and DebindPrivate.GetMouseButtonAndPrefix(key))) then
+							KeysToHold[key] = true;
+						end
 					end
 				end
 
@@ -340,7 +373,7 @@ do
 					-- **The issue's outcome decides, never its grade** (`Constants.BINDING_ISSUE_OUTCOMES`).
 					-- The gate read the grade, which made a retired type orange so that its block kept
 					-- the key.
-					if ((outcome == nil or outcome == Constants.ISSUE_OUTCOME_KEEP) and not yielded) then
+					if (outcome == nil or outcome == Constants.ISSUE_OUTCOME_KEEP) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};
 							local button, buttonPrefix = DebindPrivate.GetMouseButtonAndPrefix(key);

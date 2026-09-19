@@ -1468,10 +1468,25 @@ function DebindKeyHeaderMixin:OnEnter()
 		return;
 	end
 
-	-- 색은 안 물려준다. 머리글의 파랑·회색·빨강은 **그 자리에서** 이 그룹이 어디 서 있는지를
-	-- 말하는 것이고, 툴팁은 그 물음에 답하는 자리가 아니다(메뉴 제목과 같은 규칙).
+	-- 제목에 색은 안 물려준다. 파랑과 회색은 **그 자리에서** 읽히라고 있는 것이고, 같은 색을
+	-- 툴팁 제목에 한 번 더 칠하면 아무것도 더 말하지 않는다(메뉴 제목과 같은 규칙).
+	--
+	-- **대신 그 색이 무슨 뜻인지를 한 줄로 쓴다.** 회색 키 이름은 무언가 다르다는 것만 말하고
+	-- 무엇이 다른지는 안 말한다. 이유는 행마다 갈리므로(꺼둔 것, 다른 전문화, 게임 메뉴 키)
+	-- 여기 적는 것은 이유가 아니라 **그룹 하나로 참인 결과**다. 이유는 행 툴팁과 이슈 마크가
+	-- 든다.
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, KeyGroupLabel(elementData.key));
+
+	if (elementData.arrivalID ~= nil) then
+		-- **받아들이기 전에는 키에 안 닿는다**, 그 키를 다른 그룹이 잡고 있든 아니든. 그래서
+		-- 아래 가지와 배타적이다 - 둘 다 서면 한 툴팁이 같은 사실을 두 번 말한다.
+		GameTooltip_AddDisabledLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_NOT_ACCEPTED"], true);
+	elseif (elementData.key and not DebindPrivate.IsKeyHandled(elementData.key)) then
+		-- 머리글을 회색으로 만든 것과 같은 물음이고, 회색 셋은 다 키를 게임에 넘긴다.
+		GameTooltip_AddDisabledLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_KEY_LEFT_TO_GAME"], true);
+	end
+
 	GameTooltip_AddInstructionLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_INSTRUCTION"]);
 	GameTooltip:Show();
 end
@@ -1523,18 +1538,29 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- waiting on the reader, which is work.
 		self:SetHeaderText(IMPORTED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel(elementData.key)));
 	elseif (elementData.key) then
-		-- **The key keeps its own colour, whatever the group holds.** What is written here is the
-		-- name of a key, and a reader scanning this column is looking for the one they pressed --
-		-- painting it says something about the group instead, and the name stops being findable at
-		-- a glance. Colour is left to the one heading that is not a key of theirs at all, the
-		-- arrival above.
+		-- **회색은 이 키가 우리 손을 떠났다는 뜻이다.** 누르면 Debind가 무언가 하는 키가 흰색이고,
+		-- 아닌 것이 회색이다 - 꺼둔 것만 남은 그룹, 이 캐릭터가 안 서는 전문화 레이어에만 있는
+		-- 그룹, 그리고 게임 메뉴 키. 셋 다 키가 게임으로 넘어간다.
 		--
-		-- **The mark carries the problem instead**, and it carries the worst one: an error where
-		-- the key does not fire, a warning where it fires with one thing missing.
+		-- **어떻게 걸렸는지는 묻지 않는다** (`IsKeyHandled`). 개체창 위 마우스 버튼은 키를 물지
+		-- 않고 프레임으로 들어오는데, 멀쩡히 돈다. "우리가 키를 잡았나"로 물으면 그것이 회색이
+		-- 되고, 사용자는 잘 되는 키를 안 되는 것으로 읽는다.
+		--
+		-- **에러만 있는 그룹도 흰색이다** (2026-09-19, 소유자). 우리가 처리하는 키가 맞고, 눌러도
+		-- 아무 일이 없다는 것은 **마크가 이미 말한다.** 색까지 같은 말을 하면 마크가 할 말이
+		-- 없어진다. 게임 메뉴 키가 회색인 것은 에러여서가 아니라 우리가 손댈 수 없는 키여서다.
+		--
+		-- **집 편집기나 바뀐 바에 넘겨준 키도 흰색이다.** 잠깐 비켜 준 것이고 저절로 돌아온다.
+		-- 탈것을 타는 동안 이름 색이 변하면 키를 잃은 것처럼 읽힌다.
 		self.IssueIcon.rows = elementData.rows;
 		self.IssueIcon:SetKind(elementData.hasError and "error"
 			or elementData.hasWarning and "warning" or nil, GroupIssueMarkTooltip);
-		self:SetHeaderText(KeyGroupLabel(elementData.key));
+
+		local label = KeyGroupLabel(elementData.key);
+		if (not DebindPrivate.IsKeyHandled(elementData.key)) then
+			label = DISABLED_FONT_COLOR:WrapTextInColorCode(label);
+		end
+		self:SetHeaderText(label);
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
 		--
@@ -4924,20 +4950,21 @@ function BuildKeyboardElements()
 		end
 	end
 
-	-- 키가 먼저고, 같은 키 안에서는 **내 것이 위**다. 도착분은 아직 안 눌리는 것이라, 눌리는
-	-- 그룹을 위에 두는 편이 그 키를 눌렀을 때 무엇이 나가는지를 먼저 읽게 한다. 그다음은 번호
-	-- 순이고, 번호는 도착한 차례라 오래된 것이 위에 선다.
+	-- **도착분은 전부 아래로 내려간다. 키보다 이것이 먼저다** (2026-09-19, 소유자). 예전에는 키가
+	-- 먼저고 같은 키 안에서만 내 것이 위였는데, 그러면 아직 아무 키에도 안 닿는 그룹이 눌리는
+	-- 그룹들 사이사이에 끼어서 위에서 아래로 읽히는 키보드가 끊긴다. 한 덩어리로 모아 두면 위쪽은
+	-- 지금 눌리는 것만 남고, 받아들일지 정해야 하는 것은 그 아래에 모여 선다.
+	--
+	-- 각 덩어리 안은 키 순이고, 도착분 안에서 같은 키가 겹치면 번호 순이다. 번호는 도착한
+	-- 차례라 오래된 것이 위에 선다.
 	sort(groups, function(lhs, rhs)
+		if ((lhs.arrivalID == nil) ~= (rhs.arrivalID == nil)) then
+			return lhs.arrivalID == nil;
+		end
 		if (lhs.key ~= rhs.key) then
 			return DebindPrivate.CompareKeys(lhs.key, rhs.key);
 		end
 		if (lhs.arrivalID == rhs.arrivalID) then
-			return false;
-		end
-		if (lhs.arrivalID == nil) then
-			return true;
-		end
-		if (rhs.arrivalID == nil) then
 			return false;
 		end
 		return lhs.arrivalID < rhs.arrivalID;

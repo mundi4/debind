@@ -405,6 +405,7 @@ return function(DebindPrivate)
         });
         check(DebindPrivate.KeyMap["F8"] == nil, "the action reached a record");
         check(DebindPrivate.KeysToHold["F8"] == nil, "the key was held");
+        check(DebindPrivate.IsKeyHandled("F8") == false, "the key still reads as one we answer");
     end);
 
     --- 같은 키에 켜진 액션이 있으면 키는 그 액션이 잡는다. 이것이 없으면 위 테스트는 "키를 영영
@@ -416,6 +417,7 @@ return function(DebindPrivate)
         });
         check(Values("F8") == "2", "the key came out " .. Values("F8"));
         check(DebindPrivate.KeysToHold["F8"] == true, "the key was not held");
+        check(DebindPrivate.IsKeyHandled("F8") == true, "the key does not read as one we answer");
     end);
 
     -- **An action with all four values off is not on the key at all** (§6). It keeps its row and its
@@ -452,12 +454,39 @@ return function(DebindPrivate)
         check(DebindPrivate.GetBindingIssue(action) == nil,
             "the action is refused: " .. tostring(DebindPrivate.GetBindingIssue(action)));
         check(DebindPrivate.KeysToHold["BUTTON1"] == nil, "the bare left click was taken");
+        -- **Held and answered are two questions, and this is the case that parts them.** The press
+        -- arrives through the frame and fires; a screen that asked whether the key was held would
+        -- call a working button dead.
+        check(DebindPrivate.IsKeyHandled("BUTTON1") == true,
+            "a click-cast button does not read as one we answer");
 
         local records = DebindPrivate.KeyMap["BUTTON1"];
         check(records and #records > 0, "the action reached no record");
         for i = 1, #records do
             check(records[i].holdsKey == false, "record " .. i .. " holds the key");
         end
+    end);
+
+    --- **A broken action still answers its key.** Nothing comes out of the press, but the key is
+    --- ours and the game's own binding does not run either -- which is why the window marks the
+    --- group rather than greying its name (`DebindKeyHeaderMixin:Init`).
+    test("an action that cannot fire still answers its key", function()
+        Bind({
+            { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "F6", seq = 1 },
+        });
+        local action = DebindPrivate.CollectActionsForKey("F6")[1].action;
+        check(DebindPrivate.GetBindingIssue(action) == Constants.BINDING_ISSUE_MISSING_MACRO,
+            "the action carries " .. tostring(DebindPrivate.GetBindingIssue(action)));
+        check(DebindPrivate.KeyMap["F6"] == nil, "the broken action reached a record");
+        check(DebindPrivate.IsKeyHandled("F6") == true, "a key held for a broken action reads as dead");
+    end);
+
+    --- **Escape is the one key nothing can take** (`ISSUE_OUTCOME_RELEASE`), so it is the one error
+    --- that does not answer. That is the difference the case above is standing next to.
+    test("Escape answers nothing of ours", function()
+        Bind({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } });
+        check(DebindPrivate.KeysToHold["ESCAPE"] == nil, "Escape was held");
+        check(DebindPrivate.IsKeyHandled("ESCAPE") == false, "Escape reads as ours");
     end);
 
     -- **On a mouse button over a frame there are no cast key twins at all** (§7). A frame click is

@@ -508,7 +508,6 @@ local function CollectBindingContext()
     DebindPrivate.ApplySwitchResets();
 
     DebindPrivate.RefreshYieldedKeys();
-    DebindPrivate.RefreshGameMenuKeys();
 
     DebindPrivate.BuildKeyMap();
 
@@ -541,6 +540,8 @@ wipe(ClickTimeKeys)
 -- given back, which is what the game is in after this.
 wipe(BoundKeys)
 wipe(GivenBackNow)
+-- `ApplyGiveBack` bakes it again from the set as it stands, below.
+wipe(ContextKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
 end
@@ -799,9 +800,9 @@ local function BuildBindingPlan(ctx)
 
     plan.statePoll = WantsStatePoll();
 
-    --- The two rows of Keys Given Back that the restricted side answers, and the two that narrow
-    --- them. The House Editor row is not here: it is settled on this side by
-    --- `RefreshYieldedKeys`, which runs before the key map is built.
+    --- The two rows of Keys Given Back that the driver's letter answers, and the one that narrows
+    --- them. The House Editor row is not here: what crosses for it is the claimed keys themselves
+    --- (`BakeContextKeys`), because the set is the game's answer rather than a row we evaluate.
     plan.giveBack = {
         replacedBar = DebindPrivate.GiveBackOnReplacedBar(),
         petBattle = DebindPrivate.GiveBackInPetBattle(),
@@ -851,10 +852,26 @@ end
 ---
 --- **`[vehicleui]` stands before `[possessbar]`, and `HasVehicleActionBar()` is neither of them.**
 --- Measured in a possession: `[possessbar]` is true, `[vehicleui]` is false, and the bar is a
---- vehicle bar (`legacy/dropping-the-game-fallback.md` §4-5). What this expression decides is only
---- **when** to run; the body asks the bar itself what it is.
-local GIVE_BACK_DRIVER =
-"[petbattle] b; [vehicleui] v; [possessbar] p; [overridebar] o; [shapeshift] s; 0";
+--- vehicle bar (`legacy/dropping-the-game-fallback.md` §4-5).
+---
+--- **The letter is the whole of the answer now**, so the body no longer asks which state it is in
+--- (§2 of `devdocs/giving-keys-back.md`). That closed a hole: the driver wakes before
+--- the bar is up, and a body asking `HasVehicleActionBar()` at that moment found nothing, handed no
+--- key over, and stayed that way until the next transition. Measured 2026-09-19 on a Ulduar vehicle
+--- and on the bonus bar.
+local GIVE_BACK_PET_BATTLE = "[petbattle] b";
+local GIVE_BACK_REPLACED_BAR = "[vehicleui] v; [possessbar] p; [overridebar] o; [shapeshift] s";
+
+--- **Only the clauses the reader's rows need.** A clause in here is resolved by Blizzard's manager
+--- on every beat whether or not anything would come of it.
+local function GiveBackDriver(giveBack)
+    if (giveBack.petBattle and giveBack.replacedBar) then
+        return GIVE_BACK_PET_BATTLE .. "; " .. GIVE_BACK_REPLACED_BAR .. "; 0";
+    elseif (giveBack.petBattle) then
+        return GIVE_BACK_PET_BATTLE .. "; 0";
+    end
+    return GIVE_BACK_REPLACED_BAR .. "; 0";
+end
 
 --- Writes the reader's rows to the secure side and puts the driver on or takes it off.
 ---
@@ -867,7 +884,7 @@ local function ApplyGiveBack(driver, giveBack)
         tostring(giveBack.onlyWithAction)));
 
     if (giveBack.replacedBar or giveBack.petBattle) then
-        RegisterAttributeDriver(driver, "state-giveback", GIVE_BACK_DRIVER);
+        RegisterAttributeDriver(driver, "state-giveback", GiveBackDriver(giveBack));
     else
         UnregisterAttributeDriver(driver, "state-giveback");
         driver:SetAttribute("state-giveback", nil);
@@ -881,6 +898,11 @@ local function ApplyGiveBack(driver, giveBack)
     ---
     --- A pet battle is where that shows: it is not a combat lockdown, so a rebuild really does run
     --- in the middle of one.
+    ---
+    --- **The claimed keys go back on first**, for the same reason: `ClearPreviousBindings` wiped
+    --- them along with the overrides, and a rebuild inside an open house editor would otherwise
+    --- take the editor's keys back for as long as it stays open.
+    DebindPrivate.BakeContextKeys(driver);
     SecureHandlerExecute(driver, [[self:RunAttribute("UpdateGivenBackKeys")]]);
 end
 

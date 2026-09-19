@@ -202,6 +202,10 @@ function Events.PLAYER_REGEN_ENABLED()
         DebindPrivate.updateBindingsSuspended = nil;
         DebindPrivate.UpdateBindings();
     end
+
+    -- A binding context that opened or closed during the fight could not reach the restricted side
+    -- either. **After the rebuild above**, which bakes the same set and leaves nothing owed.
+    DebindPrivate.FlushContextKeys();
 end
 
 function Events.UPDATE_BINDINGS()

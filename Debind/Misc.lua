@@ -1943,21 +1943,6 @@ function DebindPrivate.GetKeyDisplayText(key)
     return GetBindingText(key);
 end
 
---- 게임 메뉴(기본 ESC) 키를 다시 읽는다. `IsKeyInvalidForAction`이 이 두 값으로 막는다.
----
---- **이게 없어서 그 가드가 죽어 있었다.** `gmKey1`/`gmKey2`를 읽는 곳은 있는데 쓰는 곳이
---- 없어서 비교가 늘 `key == nil`이었다. ESCAPE를 걸면 아무 경고 없이 `SetOverrideBinding`이
---- 올라가서 게임 메뉴가 안 열렸고, `BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY`는 도달할 수
---- 없는 문자열이었다.
----
---- 부르는 쪽에서 매번 `GetBindingKey`를 하지 않고 값으로 들고 있는 이유는 아래 함수가
---- **목록을 그릴 때 행마다** 불리기 때문이다. 갱신은 `UpdateBindings`가 돌 때 한 번이고,
---- 바인딩이 바뀌면 `UPDATE_BINDINGS`가 그걸 부른다(`Events.lua:75`). 사용자가 게임 메뉴
---- 키를 안 걸어뒀으면 둘 다 nil이라 가드가 저절로 비켜간다.
-function DebindPrivate.RefreshGameMenuKeys()
-    DebindPrivate.gmKey1, DebindPrivate.gmKey2 = GetBindingKey("TOGGLEGAMEMENU");
-end
-
 --- The bare left and right click. **Never held**: the only press Debind answers on them is a click on
 --- a unit frame, whatever the action's Cast Options say (`devdocs/which-action-a-key-runs.md` §7).
 function DebindPrivate.IsBareWorldClick(key)
@@ -2011,8 +1996,18 @@ function DebindPrivate.KeyTakesCastKeyTwins(action)
         and DebindPrivate.ActionUnitFrameIsOn(action));
 end
 
+--- **Escape, and not whatever `TOGGLEGAMEMENU` happens to be on** (2026-09-19, owner). This used to
+--- read the binding, which promised something it cannot keep: the reader can move that command in
+--- the middle of a fight, and `UPDATE_BINDINGS` reaches a rebuild that a lockdown refuses
+--- (`CanBuildBindings`). Our override on the new key is already up and stays up for the rest of the
+--- fight, so the game menu is shut either way -- the check was chasing a value it could not follow.
+---
+--- Escape does not move. It is also the only one of the two the addon can act on at all: the window
+--- never takes it as a key, because a capture dialog reads it as cancel and bind mode reads it as
+--- "clear this row" (`KeyCapture.lua`, `DebindUI.lua`). An action sitting on it arrived from an
+--- import or a hand-edited file.
 function DebindPrivate.IsKeyInvalidForAction(_, key)
-    if (key == DebindPrivate.gmKey1 or key == DebindPrivate.gmKey2) then
+    if (key == "ESCAPE") then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
     end
 end

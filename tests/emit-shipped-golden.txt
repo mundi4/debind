@@ -9,6 +9,8 @@ Execute <Frame#3>
   | -- given back, which is what the game is in after this.
   | wipe(BoundKeys)
   | wipe(GivenBackNow)
+  | -- `ApplyGiveBack` bakes it again from the set as it stands, below.
+  | wipe(ContextKeys)
   | for _, byMod in pairs(ClickCastKeys) do
   |     wipe(byMod)
   | end
@@ -2011,7 +2013,9 @@ Execute <Frame#3>
   |     
 Execute <Frame#3>
   | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
-RegisterAttributeDriver <Frame#3> state-giveback "[petbattle] b; [vehicleui] v; [possessbar] p; [overridebar] o; [shapeshift] s; 0"
+RegisterAttributeDriver <Frame#3> state-giveback "[petbattle] b; 0"
+Execute <Frame#3>
+  | wipe(ContextKeys)
 Execute <Frame#3>
   | self:RunAttribute("UpdateGivenBackKeys")
 Execute <Frame#3>

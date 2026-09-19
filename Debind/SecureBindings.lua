@@ -115,6 +115,11 @@ SecureHandlerExecute(BindingDriver, [[
 	GiveBack = newtable()
 	GivenBackNow = newtable()
 
+	-- The keys the game has claimed for a binding context, written by `BakeContextKeys` on every
+	-- transition rather than by a rebuild -- a rebuild cannot cross a lockdown and the house editor
+	-- changes context per mode.
+	ContextKeys = newtable()
+
 	-- **Built once, because it follows nothing.** Composing "ACTIONBUTTON" .. i inside the body
 	-- would allocate a string per button on every transition.
 	ActionButtonCommands = newtable()
@@ -687,10 +692,21 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 --- is in the restricted environment, so a key the reader rebound during the fight is read as it is
 --- now.
 ---
+--- **The driver's letter says which bar it is, so nothing here asks again** (`GIVE_BACK_DRIVER`).
+--- Asking was a hole: the driver wakes on the macro conditional turning true and the bar is not
+--- necessarily up yet at that moment, so `HasVehicleActionBar()` answered false, no page was found
+--- and not one key went over until the next transition (measured 2026-09-19 on a Ulduar vehicle and
+--- on the bonus bar). A page function answers a bar index rather than a state, and an index does not
+--- move over the life of a build.
+---
 --- **How many buttons are live is not the same in every state** (§2 of the document). A skinned bar
---- has six and the rest of the page is dead, a battle has five, and everything else has twelve. The
---- skin has no function to ask, so the bar frame answers with `IsShown`; that is the same read
---- `ACTION_SLOT_SNIPPET` uses for a flyout.
+--- has six and the rest of the page is dead, a battle has five, and everything else has twelve.
+---
+--- **`v` and `o` are six on three measured samples** (§2 of `devdocs/giving-keys-back.md`): two
+--- skinned override bars and a skinned Ulduar vehicle. What is not measured is an `[overridebar]`
+--- with no skin, which Blizzard's own code has a branch for (`ActionBarController.lua`), and
+--- whether `[vehicleui]` is ever unskinned (§8). Either turning up is twelve, and this table is
+--- then wrong for it.
 ---
 --- **The page is worked out exactly as `ActionBarController_UpdateAll` does**, so the slot asked
 --- about is the slot the game's own binding would have pressed.
@@ -699,21 +715,26 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 
 	local page
 	local count = 0
-	if (GiveBack.petBattle and SecureCmdOptionParse("[petbattle]")) then
-		count = 5
-	elseif (GiveBack.replacedBar) then
-		if (HasVehicleActionBar()) then
-			page = GetVehicleBarIndex()
-		elseif (HasOverrideActionBar()) then
-			page = GetOverrideBarIndex()
-		elseif (HasTempShapeshiftActionBar()) then
-			page = GetTempShapeshiftBarIndex()
+	-- **The rows are still read**, because the driver drops a clause the reader turned off only at
+	-- the next rebuild and a row can move between two of them.
+	local state = self:GetAttribute("state-giveback")
+	if (state == "b") then
+		if (GiveBack.petBattle) then
+			count = 5
 		end
-		if (page) then
+	elseif (GiveBack.replacedBar) then
+		if (state == "v") then
+			page = GetVehicleBarIndex()
+			count = 6
+		elseif (state == "p") then
+			page = GetVehicleBarIndex()
 			count = 12
-			if (OverrideActionBar and OverrideActionBar:IsShown()) then
-				count = 6
-			end
+		elseif (state == "o") then
+			page = GetOverrideBarIndex()
+			count = 6
+		elseif (state == "s") then
+			page = GetTempShapeshiftBarIndex()
+			count = 12
 		end
 	end
 
@@ -741,6 +762,14 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 				end
 			end
 		end
+	end
+
+	-- **The other source, added up here rather than settled on the insecure side.** A binding
+	-- context claims keys while the bar may also want them, and one key's yield has to be held in
+	-- one place: taking it off with `SetOverrideBinding` outside would leave the loop below blind to
+	-- it, so the bar ending would take the key back inside an open editor.
+	for key in pairs(ContextKeys) do
+		GivenBackNow[key] = true
 	end
 
 	-- **Walked over the keys we hold, not over the twelve.** A reader can rebind a command in the

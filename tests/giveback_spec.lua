@@ -65,8 +65,11 @@ return function(DebindPrivate)
         if (interp) then
             interp:resetState();
             interp.state.actionBarPage = 1;
+            interp.driver.__attributes["state-giveback"] = nil;
         end
         _G.OverrideActionBar:Hide();
+        shim.world.bindingContexts = {};
+        shim.world.activeBindingContexts = {};
     end
 
     local function Bind(options)
@@ -97,6 +100,13 @@ return function(DebindPrivate)
         interp.driverHandle:RunAttribute("UpdateGivenBackKeys");
     end
 
+    --- The driver resolving to a letter. **Through the attribute**, because that is the whole of
+    --- what the body is told now: the manager writes it and `_onattributechanged` runs the pass.
+    --- `nil` is the state the driver resolves to when none of its clauses match.
+    local function Transition(letter)
+        interp.driverHandle:SetAttribute("state-giveback", letter);
+    end
+
     --- A rebuild on the profile already loaded, **with the state left as it is.** `Bind` resets it,
     --- and the case this is for is a rebuild that happens while a state is standing.
     local function Rebuild()
@@ -113,9 +123,7 @@ return function(DebindPrivate)
 
     local function GoneAndBack(key, msg)
         check(not IsOurs(key), msg .. ": the key did not go over");
-        interp:resetState();
-        _G.OverrideActionBar:Hide();
-        Pass();
+        Transition(nil);
         check(IsOurs(key), msg .. ": the key did not come back");
     end
 
@@ -123,39 +131,65 @@ return function(DebindPrivate)
     -- Which buttons are live
     ---------------------------------------------------------------------------
 
-    -- **Twelve on a bar with no skin**, which is the possession and the unskinned vehicle. The
-    -- twelfth is the one that says the count is not six.
-    test("an unskinned replaced bar hands over all twelve", function()
+    -- **Twelve in a possession**, which has no skin. The twelfth is the one that says the count is
+    -- not six.
+    test("a possession hands over all twelve", function()
         Bind({ giveBackOnReplacedBar = true });
-        interp.state.vehiclebar = true;
-        Pass();
+        Transition("p");
 
         check(not IsOurs("1"), "button 1's key stayed ours");
         check(not IsOurs("12"), "button 12's key stayed ours");
         GoneAndBack("6", "button 6");
     end);
 
-    -- **Six on a skinned bar**, because `GetActionButtonForID` answers nil past
+    -- **Twelve on a temporary shapeshift bar**, the other unskinned one.
+    test("a temporary shapeshift bar hands over all twelve", function()
+        Bind({ giveBackOnReplacedBar = true });
+        Transition("s");
+
+        check(not IsOurs("12"), "button 12's key stayed ours");
+        GoneAndBack("1", "button 1");
+    end);
+
+    -- **Six on the override bar**, because `GetActionButtonForID` answers nil past
     -- `NUM_OVERRIDE_BUTTONS` and the game's own binding does nothing there. Handing 7 to 12 over
     -- would make those keys dead rather than useful.
-    test("a skinned replaced bar stops at six", function()
+    test("the override bar stops at six", function()
         Bind({ giveBackOnReplacedBar = true });
-        interp.state.overridebar = true;
-        _G.OverrideActionBar:Show();
-        Pass();
+        Transition("o");
 
         check(not IsOurs("6"), "button 6's key stayed ours");
-        check(IsOurs("7"), "button 7's key went over on a skinned bar");
-        check(IsOurs("12"), "button 12's key went over on a skinned bar");
+        check(IsOurs("7"), "button 7's key went over on the override bar");
+        check(IsOurs("12"), "button 12's key went over on the override bar");
+    end);
 
-        _G.OverrideActionBar:Hide();
+    -- **Six on a vehicle UI bar too**, on the three samples measured (2026-09-19). The letter is
+    -- what decides it: nothing in the body asks the bar, so a driver that woke before the bar was
+    -- up still hands the right six over.
+    test("a vehicle UI bar stops at six", function()
+        Bind({ giveBackOnReplacedBar = true });
+        Transition("v");
+
+        check(not IsOurs("6"), "button 6's key stayed ours");
+        check(IsOurs("7"), "button 7's key went over on a vehicle UI bar");
+    end);
+
+    -- **The bars are not up when the driver wakes** (measured 2026-09-19: the transition arrived
+    -- with `HasVehicleActionBar()` still false, a second later it was true). The body used to read
+    -- those, find no page, and hand nothing over until the next transition.
+    test("the letter decides with every bar query still false", function()
+        Bind({ giveBackOnReplacedBar = true });
+        check(interp.state.vehiclebar == false and interp.state.overridebar == false
+            and interp.state.shapeshiftbar == false, "a bar query was already true");
+        Transition("v");
+
+        check(not IsOurs("1"), "button 1's key stayed ours while the bar was not up yet");
     end);
 
     -- **Five in a battle**, and the sixth is where the bar goes on past the abilities.
     test("a pet battle hands over the first five", function()
         Bind();
-        interp.state.petbattle = true;
-        Pass();
+        Transition("b");
 
         check(not IsOurs("5"), "button 5's key stayed ours");
         check(IsOurs("6"), "button 6's key went over in a battle");
@@ -170,8 +204,7 @@ return function(DebindPrivate)
     -- so this is the state every existing profile is in.
     test("the replaced bar row off leaves every key ours", function()
         Bind();
-        interp.state.vehiclebar = true;
-        Pass();
+        Transition("p");
 
         check(IsOurs("1"), "button 1's key went over with the row off");
         check(IsOurs("12"), "button 12's key went over with the row off");
@@ -181,13 +214,11 @@ return function(DebindPrivate)
     -- turned off by hand. A battle ability cannot be reached from a key any other way.
     test("the pet battle row is on until the reader turns it off", function()
         Bind();
-        interp.state.petbattle = true;
-        Pass();
+        Transition("b");
         check(not IsOurs("1"), "the row was not on with no value stored");
 
         Bind({ giveBackInPetBattle = false });
-        interp.state.petbattle = true;
-        Pass();
+        Transition("b");
         check(IsOurs("1"), "button 1's key went over with the row off");
     end);
 
@@ -196,8 +227,7 @@ return function(DebindPrivate)
     -- would hold back a different key each login.
     test("both of a command's keys go over", function()
         Bind({ giveBackOnReplacedBar = true });
-        interp.state.vehiclebar = true;
-        Pass();
+        Transition("p");
 
         check(not IsOurs("1"), "the first key stayed ours");
         check(not IsOurs("BUTTON3"), "the second key stayed ours");
@@ -207,10 +237,9 @@ return function(DebindPrivate)
     -- body looks and not where the reader's own page is.
     test("an empty slot keeps its key when the reader asked for that", function()
         Bind({ giveBackOnReplacedBar = true, giveBackWhenActionExists = true });
-        interp.state.vehiclebar = true;
         -- Page 16 (`GetVehicleBarIndex`), so button 3 is slot 3 + 15 * 12.
         interp.state.emptySlots[3 + 15 * 12] = true;
-        Pass();
+        Transition("v");
 
         check(IsOurs("3"), "the empty button's key went over");
         check(not IsOurs("4"), "a filled button's key stayed ours");
@@ -220,9 +249,8 @@ return function(DebindPrivate)
     -- option's doing rather than the slot's.
     test("an empty slot goes over while the narrowing is off", function()
         Bind({ giveBackOnReplacedBar = true });
-        interp.state.vehiclebar = true;
         interp.state.emptySlots[3 + 15 * 12] = true;
-        Pass();
+        Transition("v");
 
         check(not IsOurs("3"), "the empty button's key stayed ours");
     end);
@@ -236,13 +264,11 @@ return function(DebindPrivate)
     -- we hold rather than from the commands, so the old one is not left off for good.
     test("a key rebound while it was over still comes back", function()
         Bind({ giveBackOnReplacedBar = true });
-        interp.state.vehiclebar = true;
-        Pass();
+        Transition("p");
         check(not IsOurs("4"), "button 4's key did not go over");
 
         shim.world.bindings[4].keys = { "F4" };
-        interp:resetState();
-        Pass();
+        Transition(nil);
 
         check(IsOurs("4"), "the key stayed off after the command moved");
     end);
@@ -253,8 +279,7 @@ return function(DebindPrivate)
     -- this shows, since it is not a combat lockdown and a rebuild really does run inside one.
     test("a rebuild in the middle of a state hands the keys over again", function()
         Bind();
-        interp.state.petbattle = true;
-        Pass();
+        Transition("b");
         check(not IsOurs("1"), "button 1's key did not go over");
 
         Rebuild();
@@ -281,12 +306,100 @@ return function(DebindPrivate)
     -- driver fires on every transition whether or not this one moved anything.
     test("a second pass in the same state makes no binding call", function()
         Bind({ giveBackOnReplacedBar = true });
-        interp.state.vehiclebar = true;
+        interp.driver.__attributes["state-giveback"] = "p";
         -- Thirteen rather than twelve: `ACTIONBUTTON1` has two keys in this world.
         local first = BindingCalls();
         check(first == 13, "the first pass handed over " .. first .. " keys");
         local second = BindingCalls();
         check(second == 0, "a repeat pass made " .. second .. " binding calls");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The keys a binding context has claimed
+    ---------------------------------------------------------------------------
+
+    --- Opens the house editor over one command's key. The claim is the client's own
+    --- (`BindingContexts.lua` asks it), so this is the same world `context_spec.lua` builds.
+    local function ClaimKey(key)
+        local HOUSING = _G.Enum.BindingContext.Housing;
+        shim.world.bindings[#shim.world.bindings + 1] =
+            { action = "HOUSING_MODE_DECOR", keys = { key } };
+        shim.world.bindingContexts = { HOUSING_MODE_DECOR = HOUSING };
+        shim.world.activeBindingContexts = { [HOUSING] = true };
+    end
+
+    --- The editor opening or closing, which is `DoRefresh` in the game: recount, bake the set, and
+    --- have the restricted side work every key out again.
+    local function ContextTransition()
+        local mark = frames.mark();
+        DebindPrivate.RefreshYieldedKeys();
+        DebindPrivate.BakeContextKeys(DebindPrivate.BindingDriver);
+        interp:replay(frames.since(mark));
+        Pass();
+    end
+
+    -- **The claimed key goes over, and comes back when the claim ends.** With no rebuild either
+    -- way, which is what this buys: the house editor changes context per mode, and a rebuild is the
+    -- solver and the whole bake again.
+    test("a key a binding context claims goes over and comes back", function()
+        Bind();
+        ClaimKey("7");
+        ContextTransition();
+        check(not IsOurs("7"), "the claimed key stayed ours");
+        check(IsOurs("8"), "a key nobody claimed went over");
+
+        shim.world.activeBindingContexts = {};
+        ContextTransition();
+        check(IsOurs("7"), "the key did not come back when the claim ended");
+    end);
+
+    -- **The House Editor row off collects nothing**, so the claim never reaches the restricted side
+    -- and the key stays ours inside the editor.
+    test("the House Editor row off keeps the claimed key", function()
+        Bind({ giveBackInBindingContext = false });
+        ClaimKey("7");
+        ContextTransition();
+        check(IsOurs("7"), "the claimed key went over with the row off");
+    end);
+
+    -- **A key we do not hold is skipped.** The pass walks `BoundKeys`, so a claim on a key with no
+    -- action of ours behind it decides nothing and touches no binding.
+    test("a claim on a key we do not hold touches nothing", function()
+        Bind();
+        ClaimKey("F9");
+        local mark = frames.mark();
+        DebindPrivate.RefreshYieldedKeys();
+        DebindPrivate.BakeContextKeys(DebindPrivate.BindingDriver);
+        interp:replay(frames.since(mark));
+        local calls = BindingCalls();
+        check(calls == 0, "a claim on an unheld key made " .. calls .. " binding calls");
+    end);
+
+    -- **The bar and the editor are added up in one place**, which is why neither is settled
+    -- outside. The bar ending inside an open editor must not take the editor's key back.
+    test("a claimed key stays over when the bar that also wanted it ends", function()
+        Bind({ giveBackOnReplacedBar = true });
+        ClaimKey("7");
+        ContextTransition();
+        Transition("p");
+        check(not IsOurs("7"), "the key was ours with both wanting it");
+
+        Transition(nil);
+        check(IsOurs("1"), "a bar-only key did not come back");
+        check(not IsOurs("7"), "the claimed key came back inside an open editor");
+    end);
+
+    -- **A rebuild inside an open editor hands the claimed keys over again.** It wipes `ContextKeys`
+    -- with the overrides, so `ApplyGiveBack` bakes the set again on the way out.
+    test("a rebuild inside an open editor keeps the claimed key over", function()
+        Bind();
+        ClaimKey("7");
+        ContextTransition();
+        check(not IsOurs("7"), "the claimed key did not go over");
+
+        Rebuild();
+        check(not IsOurs("7"), "the rebuild took the claimed key back");
+        check(IsOurs("8"), "a key nobody claimed did not come back after the rebuild");
     end);
 
     return T;

@@ -1,3 +1,6 @@
+### BindingContexts.lua #1 SecureHandlerExecute
+self:RunAttribute("UpdateGivenBackKeys")
+
 ### Debind.lua #1 SecureHandlerExecute
 	DelegateFrames = newtable()
 	DelegateFrameNames = newtable()
@@ -103,6 +106,11 @@ DelegateFrameNames[frame] = frame:GetName()
 	BoundKeys = newtable()
 	GiveBack = newtable()
 	GivenBackNow = newtable()
+
+
+
+
+	ContextKeys = newtable()
 
 
 
@@ -488,21 +496,26 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local page
 	local count = 0
-	if (GiveBack.petBattle and SecureCmdOptionParse("[petbattle]")) then
-		count = 5
-	elseif (GiveBack.replacedBar) then
-		if (HasVehicleActionBar()) then
-			page = GetVehicleBarIndex()
-		elseif (HasOverrideActionBar()) then
-			page = GetOverrideBarIndex()
-		elseif (HasTempShapeshiftActionBar()) then
-			page = GetTempShapeshiftBarIndex()
+
+
+	local state = self:GetAttribute("state-giveback")
+	if (state == "b") then
+		if (GiveBack.petBattle) then
+			count = 5
 		end
-		if (page) then
+	elseif (GiveBack.replacedBar) then
+		if (state == "v") then
+			page = GetVehicleBarIndex()
+			count = 6
+		elseif (state == "p") then
+			page = GetVehicleBarIndex()
 			count = 12
-			if (OverrideActionBar and OverrideActionBar:IsShown()) then
-				count = 6
-			end
+		elseif (state == "o") then
+			page = GetOverrideBarIndex()
+			count = 6
+		elseif (state == "s") then
+			page = GetTempShapeshiftBarIndex()
+			count = 12
 		end
 	end
 
@@ -530,6 +543,14 @@ DelegateFrameNames[frame] = frame:GetName()
 				end
 			end
 		end
+	end
+
+
+
+
+
+	for key in pairs(ContextKeys) do
+		GivenBackNow[key] = true
 	end
 
 
@@ -5599,6 +5620,8 @@ wipe(ClickTimeKeys)
 
 wipe(BoundKeys)
 wipe(GivenBackNow)
+
+wipe(ContextKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
 end

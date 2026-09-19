@@ -516,29 +516,21 @@ return function(DebindPrivate)
             "a row read from another specialization was still called unreachable");
     end);
 
-    -- **Suppression reaches one branch and must not reach the next.** The game menu key is invalid
-    -- wherever it is read from -- nothing about that comes out of a key map -- so an off-spec view
-    -- that swallowed it would leave a reader with a key that cannot work and a tooltip that says
-    -- nothing is wrong.
+    -- **Suppression reaches one branch and must not reach the next.** Escape is invalid wherever it
+    -- is read from -- nothing about that comes out of a key map -- so an off-spec view that
+    -- swallowed it would leave a reader with a key that cannot work and a tooltip that says nothing
+    -- is wrong.
     test("a key that is invalid anywhere is still called invalid off-spec", function()
-        shim.world.bindings = { { action = "TOGGLEGAMEMENU", keys = { "ESCAPE" } } };
-        local ok, err = pcall(function()
-            Bind({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } }, {});
+        Bind({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } }, {});
 
-            local row = DebindPrivate.CollectActionsForKey("ESCAPE")[1];
-            check(row, "no row stood on ESCAPE");
-            check(row.issue == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY,
-                "the row is not carrying the game menu key issue: " .. tostring(row.issue));
+        local row = DebindPrivate.CollectActionsForKey("ESCAPE")[1];
+        check(row, "no row stood on ESCAPE");
+        check(row.issue == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY,
+            "the row is not carrying the Escape key issue: " .. tostring(row.issue));
 
-            row.offWorld = true;
-            check(Says(row, "BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"),
-                "being read from another specialization turned off the key validity check too");
-        end);
-        shim.world.bindings = {};
-        DebindPrivate.RefreshGameMenuKeys();
-        if (not ok) then
-            error(err, 0);
-        end
+        row.offWorld = true;
+        check(Says(row, "BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"),
+            "being read from another specialization turned off the key validity check too");
     end);
 
     ---------------------------------------------------------------------------

@@ -9,6 +9,8 @@ Execute DebindBindingDriver
   | -- given back, which is what the game is in after this.
   | wipe(BoundKeys)
   | wipe(GivenBackNow)
+  | -- `ApplyGiveBack` bakes it again from the set as it stands, below.
+  | wipe(ContextKeys)
   | for _, byMod in pairs(ClickCastKeys) do
   |     wipe(byMod)
   | end
@@ -2048,7 +2050,9 @@ Execute DebindBindingDriver
   |     
 Execute DebindBindingDriver
   | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
-RegisterAttributeDriver DebindBindingDriver state-giveback "[petbattle] b; [vehicleui] v; [possessbar] p; [overridebar] o; [shapeshift] s; 0"
+RegisterAttributeDriver DebindBindingDriver state-giveback "[petbattle] b; 0"
+Execute DebindBindingDriver
+  | wipe(ContextKeys)
 Execute DebindBindingDriver
   | self:RunAttribute("UpdateGivenBackKeys")
 Execute DebindBindingDriver
