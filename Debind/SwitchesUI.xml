@@ -247,23 +247,25 @@
 			<!--
 				**The one thing this tab does that is not on a row**, and since 3c the only visible
 				way to make a switch at all: the portrait's dropdown that used to carry it is gone
-				(§6-C). The empty-list text points here.
+				(§6-C).
 
-				Above the list and to the left, where the storage tab puts the buttons that add to its
-				list (`StorageUI.xml`'s `CreateButton`). The two tabs answer the same shape of
-				question, which is what puts a row in here, so the control sits in the same place on both.
-				Text is set in `OnLoad`: `text=` on the template takes a global's name, and ours
-				live in `L`.
+				**It is the same [+] Overview wears**, in the same corner, because it is the same
+				job: the one control on the tab that puts a row in the list. It was a labelled button
+				above the list's left edge until then, and the two tabs each had their own answer to
+				where the way in goes.
+
+				**The empty-list text no longer quotes it** (`SWITCHES_EMPTY`). A label could be
+				quoted and a picture cannot, which is the trap §6-C's button left behind. That text
+				says what fills the list instead, and points at nothing.
 
 				**Not disabled in combat, unlike the toggles on the rows.** Those press a value the
 				restricted side has to be told about; this writes a definition nothing is bound to
 				yet, and the rebuild behind it stands itself down until the fight ends
 				(`UpdateBindings`). Greying it would be a lockout with nothing behind it.
 			-->
-			<Frame parentKey="ToolbarLeft" inherits="DebindToolbarLeftTemplate">
+			<Frame parentKey="PortraitRow" inherits="DebindPortraitRowTemplate">
 				<Frames>
-					<Button parentKey="NewButton" inherits="UIPanelButtonTemplate">
-						<Size x="140" y="22"/>
+					<Button parentKey="NewPortrait" inherits="DebindPortraitTemplate">
 						<KeyValues>
 							<KeyValue key="layoutIndex" value="1" type="number"/>
 						</KeyValues>
@@ -283,5 +285,8 @@
 			<OnEvent method="OnEvent"/>
 			<OnUpdate method="OnUpdate"/>
 		</Scripts>
+							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
+							<KeyValue key="TooltipTitle" value="SWITCH_CREATE_BUTTON" type="string"/>
+							<KeyValue key="TooltipInstruction" value="SWITCH_CREATE_BUTTON_INSTRUCTION" type="string"/>
 	</Frame>
 </Ui>

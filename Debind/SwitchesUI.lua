@@ -657,9 +657,6 @@ DebindSwitchesPanelMixin = {};
 
 function DebindSwitchesPanelMixin:OnLoad()
     self:InitializeScrollBox();
-    -- `text=` in the XML names a global, and ours are in `L` (the export panel's button is set the
-    -- same way, for the same reason).
-    self.ToolbarLeft.NewButton:SetText(LLL["SWITCH_CREATE_BUTTON"]);
 end
 
 function DebindSwitchesPanelMixin:OnNewClick()
@@ -719,7 +716,7 @@ function DebindSwitchesPanelMixin:RefreshRows()
     end
 
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
-    self.ScrollBox.EmptyText:SetText(format(LLL["SWITCHES_EMPTY"], LLL["SWITCH_CREATE_BUTTON"]));
+    self.ScrollBox.EmptyText:SetText(LLL["SWITCHES_EMPTY"]);
     self.ScrollBox.EmptyText:SetShown(#list == 0);
 end
 

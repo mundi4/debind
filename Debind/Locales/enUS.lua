@@ -1188,6 +1188,11 @@ L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
 -- switches.
 L["SWITCH_CREATE"] = "New switch..."
 L["SWITCH_CREATE_BUTTON"] = "New switch"
+-- **The tooltip carries the button's whole meaning now**, the [+] having no label of its own, so the
+-- title above is what the button would have said and this is what the press does. It says the box
+-- comes up because a name is the one thing making a switch needs and nothing on screen asks for it
+-- yet. A reader expecting a row to appear presses once and gets a dialog instead.
+L["SWITCH_CREATE_BUTTON_INSTRUCTION"] = "Click and it asks what to call it."
 L["SWITCH_CREATE_DESC"] = "Makes a switch and puts it on this action straight away."
 L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 -- **The two refusals a typed name gets, and they are about the name rather than about which box
@@ -1217,13 +1222,13 @@ L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r?\n|cnHIGHLIG
 -- the list draws what one character reaches, so a druid's overrides go without ever having been
 -- on screen.
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r overrides go with it, including ones on your other characters that this list does not show."
--- Empty-list text says what fills it, and now it can quote the button: it is the one under this
--- list, with a label. It pointed at the picture on the title bar until 3c, which had none.
+-- **It quoted the button for as long as the button had a label**, and it does not any more: the way
+-- in is the [+] in the corner. A sentence that spells out a picture has the reader hunting for a
+-- control against a description instead of seeing it, and the [+] is the only control on this tab.
 --
--- **%s is that button's own label** (SWITCH_CREATE), put in rather than written out again. Two
--- copies of a button's name is one of them going stale the day the button is reworded, and the
--- sentence points at a control the reader is meant to find by its glyphs.
-L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below makes one."
+-- So it goes back to the one job an empty-list line has, **saying what fills it**. The second line
+-- is what a row will be: the switch, and under it the places its answer differs.
+L["SWITCHES_EMPTY"] = "No switches yet.|n|nOne you make stands here, with every place you have set it differently under it."
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.

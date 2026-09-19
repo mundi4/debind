@@ -5156,9 +5156,9 @@ RegisterTest("Switches tab: the New switch button makes one", {
         end
 
         local panel = OpenSwitchesTab()
-        local newButton = panel.ToolbarLeft and panel.ToolbarLeft.NewButton
+        local newButton = panel.PortraitRow and panel.PortraitRow.NewPortrait
         if not newButton then
-            return Fail(NAME, "no NewButton on the panel, the XML was not loaded")
+            return Fail(NAME, "no NewPortrait on the panel, the XML was not loaded")
         end
         if not newButton:IsEnabled() then
             return Fail(NAME, "the button is disabled")
