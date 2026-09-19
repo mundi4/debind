@@ -43,7 +43,7 @@ A unit nobody holds counts as not existing. Target and pet can follow any of the
 
 |cnHIGHLIGHT_FONT_COLOR:/cast [@@,exists][] Regrowth|r
 
-A switch is a condition of its own: [$burst] while it is on, [no$burst] while it is off. The name is the one it has under |cnBLUE_FONT_COLOR:Switches|r.
+A switch is a condition of its own: [$fishing] while it is on, [no$fishing] while it is off. The name is the one it has under |cnBLUE_FONT_COLOR:Switches|r.
 
 Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
 ]==]
@@ -109,6 +109,19 @@ L["HELP_STOPPING_AN_ACTION_BODY"] = [==[
 |cnHIGHLIGHT_FONT_COLOR:Delete it.|r |cnBLUE_FONT_COLOR:Delete|r takes the action and everything set on it: the conditions, the importance and its place in the key.
 
 To stop an action on one kind of press only, use |cnBLUE_FONT_COLOR:Cast Options|r instead: |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do the Cast Options do?]|h|r.
+]==]
+
+L["HELP_SWITCHES_TITLE"] = "What a switch is for"
+L["HELP_SWITCHES_BODY"] = [==[
+A switch is an on and off value you name yourself. Put it on an action as a condition and that action runs only while the switch is on, leaving the key to another action while it is off, or to nothing at all. Make one with |cnBLUE_FONT_COLOR:New Switch|r on the |cnBLUE_FONT_COLOR:Switches|r tab, or with |cnBLUE_FONT_COLOR:Switches|r in an action's right-click menu, which puts it on that action as it makes it.
+
+Two places take one: |cnBLUE_FONT_COLOR:Switches|r in an action's menu, where you pick on or off, and a Custom Macro, where you write |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r for on and |cnHIGHLIGHT_FONT_COLOR:[no$fishing]|r for off.
+
+Work one with a key: put |cnBLUE_FONT_COLOR:Switch|r on it from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then pick in its menu which switch the key works and whether the press turns that switch on, off or over. A key does it in combat, which is where a switch earns its place. Clicking one on the |cnBLUE_FONT_COLOR:Switches|r tab turns it over as well, out of combat.
+
+Each switch says what it comes up as when you log in and when you change specialization: |cnBLUE_FONT_COLOR:Starts on|r, |cnBLUE_FONT_COLOR:Starts off|r, or |cnBLUE_FONT_COLOR:As you left it|r. Right-click it on the |cnBLUE_FONT_COLOR:Switches|r tab to pick that, and to set it differently for one class, one specialization or one character under |cnBLUE_FONT_COLOR:Override|r. The narrowest one that fits is what counts, and it gets a row under the switch so you can read it off the list.
+
+When the condition menu has nothing for what you want, a switch can work itself out. |cnBLUE_FONT_COLOR:Set Automatically|r takes a macro conditional such as |cnHIGHLIGHT_FONT_COLOR:[@tank,exists]|r, and the switch is on exactly while that is true. One set this way cannot be turned over by hand or by a key.
 ]==]
 
 L["HELP_TARGETING_TITLE"] = "Which unit is an action used on?"

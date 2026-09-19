@@ -962,6 +962,9 @@ local function BuildSwitchConditionMenu(kit, ctx)
         end);
     end);
     SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
+
+    description:CreateDivider();
+    MenuKit.CreateHelpButton(description, "switches", LLL["HELP_SWITCHES_TITLE"]);
 end
 
 ActionMenus:Define("SWITCHES", {

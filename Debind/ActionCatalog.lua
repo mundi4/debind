@@ -1148,6 +1148,7 @@ local function BuildSpecialActions(entries)
 		type = Constants.SETSTATE_TOGGLE,
 		group = typeNames[Constants.SETSTATE_TOGGLE],
 		tooltipText = LLL["TYPE_SETSTATE_DESC"],
+		helpPage = "switches",
 	});
 
 	-- The three types the class and specialization resolve (`SpecSpells.lua`). One heading for

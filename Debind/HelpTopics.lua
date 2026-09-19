@@ -13,6 +13,7 @@ DebindPrivate.HELP_SECTIONS = {
             { name = "stopping-an-action", title = "HELP_STOPPING_AN_ACTION_TITLE", body = "HELP_STOPPING_AN_ACTION_BODY" },
             { name = "picking-a-pointed-unit", title = "HELP_PICKING_A_POINTED_UNIT_TITLE", body = "HELP_PICKING_A_POINTED_UNIT_BODY" },
             { name = "custom-target", title = "HELP_CUSTOM_TARGET_TITLE", body = "HELP_CUSTOM_TARGET_BODY" },
+            { name = "switches", title = "HELP_SWITCHES_TITLE", body = "HELP_SWITCHES_BODY" },
             { name = "custom-macro", title = "HELP_CUSTOM_MACRO_TITLE", body = "HELP_CUSTOM_MACRO_BODY" },
         },
     },

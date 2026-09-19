@@ -1224,21 +1224,23 @@ L["SWITCH_TOGGLE_IS_AUTOMATIC"] = "This one is worked out from its macro conditi
 L["SWITCH_RENAME"] = "Rename"
 -- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
 -- no learns the rule one refusal at a time; a reader who is told first types a name that takes.
-L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
 L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
 -- Making one. **Three places open this box**: the button under the Switches list, the condition
 -- menu, and an on/off/toggle action's own menu. All three exist because a reader finds out they
 -- want a switch while they are setting up the thing that needs it, not while looking at a list of
 -- switches.
-L["SWITCH_CREATE"] = "New switch..."
-L["SWITCH_CREATE_BUTTON"] = "New switch"
+-- **Title case, as `SPELL_PICKER_NEW_MACROTEXT` is.** What follows "New" is the name of the kind of
+-- thing the press makes, and the two rows say one thing between them wherever a reader meets both.
+L["SWITCH_CREATE"] = "New Switch..."
+L["SWITCH_CREATE_BUTTON"] = "New Switch"
 -- **The tooltip carries the button's whole meaning now**, the [+] having no label of its own, so the
 -- title above is what the button would have said and this is what the press does. It says the box
 -- comes up because a name is the one thing making a switch needs and nothing on screen asks for it
 -- yet. A reader expecting a row to appear presses once and gets a dialog instead.
 L["SWITCH_CREATE_BUTTON_INSTRUCTION"] = "Click and it asks what to call it."
 L["SWITCH_CREATE_DESC"] = "Makes a switch and puts it on this action straight away."
-L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
 -- **The two refusals a typed name gets, and they are about the name rather than about which box
 -- it was typed into.** Renaming and creating both hand them back (`RenameSwitch`, `CreateSwitch`),
 -- which is why they are not called SWITCH_RENAME_ERROR_* any more.

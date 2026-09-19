@@ -41,6 +41,6 @@ A unit nobody holds counts as not existing. Target and pet can follow any of the
 
 **/cast [@@,exists][] Regrowth**
 
-A switch is a condition of its own: [$burst] while it is on, [no$burst] while it is off. The name is the one it has under *Switches*.
+A switch is a condition of its own: [$fishing] while it is on, [no$fishing] while it is off. The name is the one it has under *Switches*.
 
 Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.

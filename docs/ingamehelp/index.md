@@ -7,4 +7,5 @@
 - stopping-an-action
 - picking-a-pointed-unit
 - custom-target
+- switches
 - custom-macro

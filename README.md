@@ -125,9 +125,9 @@ A custom target follows the person, not their spot in the raid frames — shuffl
 
 ## Switches
 
-On/off switches of your own, as many as you want. You name each one, and the name is what you write: an action can require `$burst` to be on, or off, and a Custom Macro reads it as `[$burst]` / `[no$burst]`.
+On/off switches of your own, as many as you want. You name each one, and the name is what you write: an action can require `$fishing` to be on, or off, and a Custom Macro reads it as `[$fishing]` / `[no$fishing]`.
 
-The **Switches** tab, along the top of the window, is the list of them: what each one is right now, a button to turn it over, and under each one a row per answer to *what does this come up as*. **New switch...** under the list makes one, and so does the same entry on an action's condition menu, which hangs the new switch on that action as it makes it.
+The **Switches** tab, along the top of the window, is the list of them: what each one is right now, a button to turn it over, and under each one a row per answer to *what does this come up as*. **New Switch...** under the list makes one, and so does the same entry on an action's condition menu, which hangs the new switch on that action as it makes it.
 
 A switch has one name and one meaning everywhere, but what it comes up as can be **overridden** for one class, one spec or one character. Most have a single row, the account-wide one; add an override and that row answers instead whenever it applies. A tick marks the row in use, so a switch that behaves differently on one spec says so without a click.
 
