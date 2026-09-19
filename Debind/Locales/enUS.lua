@@ -1098,6 +1098,12 @@ L["SWITCH_MESSAGES_DESC"] = "Unticked, no switch prints a message when it change
 -- The first row is `CONDITION_SPECIALBAR`, the name this state already has in the condition list.
 -- A second name for it would put two words on one thing in front of a reader who cannot know they
 -- are the same.
+-- The balloon on the gear, the first time this window is opened. **It names what is behind the
+-- gear rather than saying "settings are here"**: the gear already says that much, and what the
+-- reader cannot see is that the things under it are ones they have to set before Debind behaves
+-- the way they expect. Three of the four sections are named in the reader's own words, from the
+-- headings they will find there.
+L["SETTINGS_TIP"] = "Cast Options, Unit Frame Support and Keys Given Back are set here."
 L["GIVE_BACK_KEYS"] = "Keys Given Back"
 L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or the like has replaced your action bar, the keys bound to that bar's action buttons go back to the game. Your own actions on those keys come back when the bar does."
 L["GIVE_BACK_ONLY_WITH_ACTION"] = "Filled buttons only"

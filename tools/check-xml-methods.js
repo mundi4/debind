@@ -30,6 +30,9 @@ const EXTERNAL_MIXINS = {
     // Blizzard's (`Blizzard_HelpPlate.lua`). Our own help plate balloon wears it whole, the way
     // their `HelpPlateTooltip` does; `Debind/HelpPlate.lua` says why the frame is ours.
     HelpPlateTooltipMixin: true,
+    // Blizzard's (`HelpTip.lua`). The X on our help tip wears it whole, the way theirs does; it
+    // only swaps the button's own atlas, and `Debind/HelpTip.lua` says why the frame is ours.
+    HelpTipCloseButtonMixin: true,
 };
 
 function walk(dir, out, ext) {

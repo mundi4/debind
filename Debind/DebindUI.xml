@@ -907,7 +907,7 @@
 			-->
 			<DropdownButton parentKey="OptionsButton" inherits="UIPanelIconDropdownButtonTemplate" mixin="DebindOptionsButtonMixin" frameLevel="510">
 				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.CloseButton" relativePoint="LEFT" x="-4" y="-1"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.CloseButton" relativePoint="TOPLEFT" x="-4" y="-4"/>
 				</Anchors>
 				<Scripts>
 					<OnEnable method="OnEnable"/>

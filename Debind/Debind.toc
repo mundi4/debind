@@ -37,6 +37,10 @@ Debind.xml
 
 HelpPlate.xml
 
+# **The Lua first**, for the XML's `mixin=` (the same reason `HelpText.lua` is ordered below).
+HelpTip.lua
+HelpTip.xml
+
 DebindUI.xml
 
 # **The Lua first.** The XML's `mixin=` looks the table up as the frame is made, so the other order

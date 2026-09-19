@@ -381,6 +381,10 @@ L["SWITCH_TOGGLE_INSTRUCTION"] = "누르면 켜고 끕니다."
 L["SWITCH_TOGGLE_IN_COMBAT"] = "전투 중에는 여기서 못 바꿉니다. 스위치를 켜고 끄는 단축키는 언제든 됩니다."
 L["SWITCH_MESSAGES"] = "스위치 변경 메시지"
 L["SWITCH_MESSAGES_DESC"] = "끄면 바뀔 때 메시지를 표시하도록 한 스위치도 메시지를 내지 않습니다."
+-- 설정 화면의 머리글 셋을 그대로 부른다. 그래서 `CASTING`도 여기서 같이 옮긴다 - 말풍선이
+-- 한국어로 부르는 자리를 화면이 영어로 적고 있으면 같은 것인지 알 수가 없다.
+L["CASTING"] = "시전 옵션"
+L["SETTINGS_TIP"] = "시전 옵션, 개체창 지원, 키 돌려주기를 여기서 정합니다."
 L["GIVE_BACK_KEYS"] = "키 돌려주기"
 L["GIVE_BACK_REPLACED_BAR_DESC"] = "차량이나 조종 상태처럼 무언가가 행동 단축바를 대신하는 동안, 그 단축바의 행동 단축키에 걸린 키를 게임에 돌려줍니다. 단축바가 돌아오면 그 키의 액션도 돌아옵니다."
 L["GIVE_BACK_ONLY_WITH_ACTION"] = "채워진 버튼만"

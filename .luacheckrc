@@ -261,7 +261,10 @@ globals = {
 	"GameTooltip_AddColoredLine",
 	"GameTooltip_AddColoredDoubleLine",
 	"GameTooltip_Hide",
-	"HelpTip",
+	-- **The client's own `HelpTip` is deliberately not here.** We keep a copy of it
+	-- (`Debind/HelpTip.lua`) because its frame pool is one table for the whole game, and taking a
+	-- frame out of it from here taints what the action bar reads. Listing the global would let the
+	-- next call go straight back to theirs without anyone noticing.
 	"StaticPopup_Show",
 	"StaticPopup_ShowCustomGenericConfirmation",
 	"StaticPopup_ShowCustomGenericInputBox",
@@ -374,6 +377,7 @@ globals = {
 	"ERROR_COLOR",
 	"INACTIVE_COLOR",
 	"HIGHLIGHT_FONT_COLOR",
+	"HELP_TIP_BUTTON_GOT_IT",
 	"BLUE_FONT_COLOR",
 	"BRIGHTBLUE_FONT_COLOR",
 	"WARNING_FONT_COLOR",
@@ -425,6 +429,7 @@ globals = {
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
 	"DebindHelpLinkMixin",
+	"DebindHelpTipMixin",
 	"DebindIconSelectorFrameMixin",
 	"DebindSpellPickerFrameMixin",
 	"DebindMessageFrameMixin",

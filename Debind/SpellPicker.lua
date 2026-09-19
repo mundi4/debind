@@ -444,6 +444,9 @@ end
 --- 흐름은 [추가] 드롭다운이 하던 것과 **똑같다** - 이름·아이콘을 먼저 받고, 만들어진
 --- 액션의 본문 편집기로 이어 간다. 그 이어붙임을 아는 것은 부르는 쪽이다(아이콘 선택기는
 --- "무엇을 열지"를 모른다).
+---
+--- 두 클릭은 행과 같다. 왼쪽은 열린 탭에, 오른쪽은 메뉴가 고른 탭에 넣는다. 고른 탭은
+--- 아이콘 선택기를 거쳐 `AddNewAction`까지 실려 간다(`OpenForNewMacro`).
 function DebindSpellPickerFrameMixin:InitializeNewMacroButton()
 	local button = self.NewMacroButton;
 
@@ -456,7 +459,11 @@ function DebindSpellPickerFrameMixin:InitializeNewMacroButton()
 		button:SetWidth(max(120, fontString:GetStringWidth() + 30));
 	end
 
-	button:SetScript("OnClick", function()
+	button:SetScript("OnClick", function(_, mouseButton)
+		if (mouseButton == "RightButton") then
+			MenuUtil.CreateContextMenu(button, DebindUI.SetupNewMacroDropdownMenu);
+			return;
+		end
 		DebindIconSelectorFrame:OpenForNewMacro(function(elementData)
 			DebindMacroFrame:Open(elementData.action);
 		end);
@@ -466,6 +473,11 @@ function DebindSpellPickerFrameMixin:InitializeNewMacroButton()
 		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 		GameTooltip_SetTitle(GameTooltip, LLL["SPELL_PICKER_NEW_MACROTEXT"]);
 		GameTooltip_AddNormalLine(GameTooltip, LLL["TYPE_MACROTEXT_DESC"]);
+		-- 빈 줄이 안내 줄과 설명을 가른다. 행 툴팁이 같은 자리에 같은 이유로 둔다.
+		GameTooltip_AddBlankLineToTooltip(GameTooltip);
+		GameTooltip_AddInstructionLine(GameTooltip,
+			format(LLL["SPELL_PICKER_LEFT_CLICK_TO_ADD"], DebindUI.GetLayerLabel(DebindUI.GetLayerID())));
+		GameTooltip_AddInstructionLine(GameTooltip, LLL["SPELL_PICKER_RIGHT_CLICK_TO_ADD"]);
 		GameTooltip:Show();
 	end);
 	button:SetScript("OnLeave", GameTooltip_Hide);
@@ -518,10 +530,9 @@ function DebindSpellPickerFrameMixin:OnShow()
 
 	self:ApplyPosition();
 
-	-- 이 창을 연 버튼에 눌린 표시를 남긴다. 창이 메인 창을 덮지 않고 옆에 서므로 둘이 같이
-	-- 보이는데, 그때 [+]가 평범하게 서 있으면 이 창이 저 버튼에서 나온 것인지 알 수 없다.
-	-- 오버뷰 창이 자기 버튼에 하는 것과 같다.
-	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(true);
+	-- 제목과 [새 사용자 지정 매크로], [+]의 눌린 표시를 지금 모드에 맞춘다. `BeginReplace`가
+	-- 닫혀 있는 창을 세우는 길로도 여기를 지난다.
+	self:UpdateReplaceState();
 
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN);
 
@@ -555,14 +566,9 @@ function DebindSpellPickerFrameMixin:OnShow()
 end
 
 function DebindSpellPickerFrameMixin:OnHide()
-	-- **모드가 풀리는 유일한 자리다.** 고르고 나서도, 닫아서 그만두어도 창은 여기를 지난다.
-	self.replaceTargets = nil;
-	self:UpdateReplaceState();
-
-	-- **확인 창을 데리고 나간다.** 그 창은 이 창에서 고른 것을 묻고 있고, 취소가 "다른 것을
-	-- 고른다"가 되려면 이 창이 뒤에 서 있어야 한다. 남겨두면 고를 창이 없는 확인이 되고,
-	-- `[확인]`은 아무도 안 보고 있는 액션들을 그대로 덮는다.
-	StaticPopup_Hide("DEBIND_REPLACE_ACTIONS");
+	-- 고르고 나서도, 닫아서 그만두어도 창은 여기를 지난다. 창을 닫지 않고 모드만 벗는 길은
+	-- `Toggle`에 있다.
+	self:LeaveReplace();
 
 	-- **[새 사용자 지정 매크로]가 띄운 팝업을 데리고 나간다.** 그 모드로 그 팝업을 여는 자리는
 	-- 이 창의 버튼 하나뿐이라 연 쪽이 여기다. 그 팝업은 아직 아무 액션 위에도 안 서 있어서
@@ -572,7 +578,6 @@ function DebindSpellPickerFrameMixin:OnHide()
 		DebindIconSelectorFrame:Close(true);
 	end
 
-	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(false);
 
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
 
@@ -839,19 +844,37 @@ function DebindSpellPickerFrameMixin:BeginReplace(actions)
 	self:UpdateReplaceState();
 end
 
---- 지금이 어느 모드인지를 말하는 두 자리. [새 사용자 지정 매크로]가 꺼지는 것은 그 버튼이
+--- 바꾸기 모드를 벗는다. **확인 창을 데리고 나간다** - 그 창은 이 창에서 고른 것을 묻고
+--- 있고, 모드가 풀리면 물을 대상이 없다. 남겨두면 `[확인]`이 아무도 안 보고 있는 액션들을
+--- 그대로 덮는다.
+function DebindSpellPickerFrameMixin:LeaveReplace()
+	self.replaceTargets = nil;
+	StaticPopup_Hide("DEBIND_REPLACE_ACTIONS");
+	self:UpdateReplaceState();
+end
+
+--- 지금이 어느 모드인지를 말하는 세 자리. [새 사용자 지정 매크로]가 꺼지는 것은 그 버튼이
 --- 언제나 **새 액션을 만들기** 때문이다. 바꿔 넣을 본문을 쓰는 길은 행 메뉴의
 --- [매크로로 바꾸기]이고, 그쪽은 바꿀 액션을 그대로 들고 편집기를 연다.
+---
+--- [+]의 눌린 표시는 **추가 모드에서만** 남는다. 그 표시가 말하는 것은 "이 창이 저 버튼에서
+--- 나왔다"인데, 바꾸기로 선 창은 액션 줄의 메뉴에서 나왔다. 창이 닫혀 있을 때도 거짓인 것은
+--- 같은 이유다.
 function DebindSpellPickerFrameMixin:UpdateReplaceState()
 	local replacing = self.replaceTargets ~= nil;
 	self:SetTitle(replacing and LLL["SPELL_PICKER_REPLACE_TITLE"] or LLL["SPELL_PICKER_TITLE"]);
 	self.NewMacroButton:SetEnabled(not replacing);
+	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(self:IsShown() and not replacing);
 end
 
+--- 바꾸기 중에 [+]를 누르면 **닫지 않고 추가 모드로 돌아온다.** 그 버튼이 여는 것은 추가
+--- 모드이고, 창이 이미 서 있다는 이유로 닫아버리면 누른 것과 다른 일이 일어난다.
 function DebindSpellPickerFrameMixin:Toggle()
-	if (self:IsShown()) then
-		self:Hide();
-	else
+	if (not self:IsShown()) then
 		self:Show();
+	elseif (self.replaceTargets) then
+		self:LeaveReplace();
+	else
+		self:Hide();
 	end
 end

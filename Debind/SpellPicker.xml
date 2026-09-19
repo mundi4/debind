@@ -285,7 +285,7 @@
 
 				폭은 `OnLoad`에서 글자에 맞춘다 - 번역이 길어져도 잘리지 않게.
 			-->
-			<Button parentKey="NewMacroButton" inherits="UIPanelButtonTemplate">
+			<Button parentKey="NewMacroButton" inherits="UIPanelButtonTemplate" registerForClicks="LeftButtonUp,RightButtonUp">
 				<Size x="120" y="22"/>
 				<Anchors>
 					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="6" y="4"/>

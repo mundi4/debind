@@ -356,25 +356,13 @@ function DebindUI.SetupPendingImportsDropdownMenu(dropdown, rootDescription)
     SetInstructionTooltip(description, LLL["REJECT_ALL_IMPORT_DESC"]);
 end
 
---- Right-clicking a row of the spell picker. **The whole menu is the destination list** -
---- there is nothing else to ask about an entry that is not an action yet.
+--- The spell picker's two right-click menus are this list and nothing else, so it is written once.
 ---
---- Left click still adds to the open tab, so this menu is the shortcut, not the only way:
---- filling one tab is a click each, and the one action that belongs somewhere else no longer
---- costs a trip to the main window and back.
----
---- The destination list is `GetTabList`'s - the same one move and copy show. The tab you are
---- looking at stays in it and stays enabled; adding there is exactly what left click does, and
---- dropping the row would make the list a different shape in this menu than in the other two.
-function DebindUI.SetupSpellPickerDropdownMenu(dropdown, rootDescription, entry)
-    rootDescription:CreateTitle(entry.name);
-    rootDescription:CreateTitle(LLL["SPELL_PICKER_ADD_TO"]);
-
+--- The destinations are `GetTabList`'s - the same ones move and copy show. The tab you are looking
+--- at stays in the list and stays enabled; adding there is exactly what left click does, and
+--- dropping it would make the list a different shape in these menus than in the other two.
+local function AddDestinationTabs(rootDescription, func)
     local currentLayerID = DebindUI.GetLayerID();
-
-    local func = function(args)
-        DebindFrame:AddNewAction(entry.type, entry.value, nil, nil, entry.props, args[1]);
-    end
 
     for _, tabInfo in ipairs(GetTabList()) do
         rootDescription:CreateButton(
@@ -383,4 +371,37 @@ function DebindUI.SetupSpellPickerDropdownMenu(dropdown, rootDescription, entry)
             { tabInfo.layerID }
         );
     end
+end
+
+--- Right-clicking a row of the spell picker. **The whole menu is the destination list** - there is
+--- nothing else to ask about an entry that is not an action yet.
+---
+--- Left click still adds to the open tab, so this menu is the shortcut, not the only way: filling
+--- one tab is a click each, and the one action that belongs somewhere else no longer costs a trip
+--- to the main window and back.
+function DebindUI.SetupSpellPickerDropdownMenu(dropdown, rootDescription, entry)
+    rootDescription:CreateTitle(entry.name);
+    rootDescription:CreateTitle(LLL["SPELL_PICKER_ADD_TO"]);
+
+    AddDestinationTabs(rootDescription, function(args)
+        DebindFrame:AddNewAction(entry.type, entry.value, nil, nil, entry.props, args[1]);
+    end);
+end
+
+--- Right-clicking [New Custom Macro]. The same menu as a row's, over the same list, because the
+--- button sits in the same window and left click on it does the same thing left click on a row
+--- does - only what it adds is made rather than picked.
+---
+--- The tab is carried to the icon selector rather than read back when it accepts: that popup
+--- stands over this window and the reader can cross to the main window's tabs while it is up
+--- (`OpenForNewMacro`).
+function DebindUI.SetupNewMacroDropdownMenu(dropdown, rootDescription)
+    rootDescription:CreateTitle(LLL["SPELL_PICKER_NEW_MACROTEXT"]);
+    rootDescription:CreateTitle(LLL["SPELL_PICKER_ADD_TO"]);
+
+    AddDestinationTabs(rootDescription, function(args)
+        DebindIconSelectorFrame:OpenForNewMacro(function(elementData)
+            DebindMacroFrame:Open(elementData.action);
+        end, args[1]);
+    end);
 end

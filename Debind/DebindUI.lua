@@ -31,6 +31,7 @@ local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
 local HelpPlate              = DebindPrivate.HelpPlate;
+local HelpTip                = DebindPrivate.HelpTip;
 
 -- Three files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
 -- the blue an imported one wears, `LayerDisplay.lua` owns what a layer is called and the icon beside
@@ -2892,6 +2893,32 @@ function DebindFrameMixin:OnShow()
 	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:OnPickup();
 	end
+
+	self:ShowSettingsTip();
+end
+
+--- **The balloon that points at the gear until somebody closes it.** The gear is the only door to
+--- the settings panel and it is the client's 15x16 icon in the title bar, which is the seat that
+--- says "minor options" - and what is behind it is the cast keys, unit frame support and which
+--- keys go back to the game. Nothing else on screen says the door is there, and a tooltip would
+--- only answer a reader who already found it.
+---
+--- **The (?) plate cannot carry this.** It is inset past the title bar on purpose
+--- (`HELP_PLATE_TOP_INSET`), so it never points at this corner.
+---
+--- **It is not raised again while it stands**, and `Show` answering false for a tip already closed
+--- is what makes calling this on every open cost nothing.
+function DebindFrameMixin:ShowSettingsTip()
+	HelpTip.Show(self.OptionsButton, {
+		text = LLL["SETTINGS_TIP"],
+		buttonStyle = HelpTip.ButtonStyle.GotIt,
+		seenKey = "settingsGear",
+		-- 제목줄 오른쪽 끝이라 상자를 가운데에 두면 화면 밖으로 나간다. 오른쪽 끝을 버튼에
+		-- 맞추고 화살표만 그 아래에서 올려다본다.
+		targetPoint = HelpTip.Point.BottomEdgeRight,
+		alignment = HelpTip.Alignment.Right,
+		offsetX = -8,
+	});
 end
 
 --- The one deliberate close, and this stamp is the whole of what tells `OnHide` the close was ours.
@@ -3092,6 +3119,9 @@ function DebindFrameMixin:HandleEscape()
 		return true;
 	end
 
+	-- **(?) 도움말 판.** 판이 창을 덮고 있는 동안 ESC가 뜻하는 것은 창을 닫는 것이 아니라 그
+	-- 덮개를 걷는 것이다 - (?)를 다시 누르는 것과 같은 한 걸음이고, 그래서 창은 그대로 선다.
+	--
 	-- The settings panel has no tab of its own and the gear is its only door, so Escape is the one
 	-- step back a reader who never found the gear again has. The window stays up: what steps back
 	-- is the seat, the same thing the gear's second press does.
@@ -3127,6 +3157,16 @@ end
 --- down. Unstamped, `OnHide` only puts this window back (2026-09-17, owner).
 function DebindFrameMixin:OnKeyDown(input)
 	if (input == "ESCAPE" and not DebindMessageFrame:IsShown()) then
+		-- **(?) 도움말 판이 서 있으면 이 press는 그 덮개를 걷는다.** 창을 닫는 것이 아니므로
+		-- 표시를 안 남기고, 표시가 없으면 `OnHide`는 사다리를 안 걷고 창을 도로 세우기만 한다.
+		--
+		-- 사다리의 한 칸이 아니라 여기인 것은, 사다리가 걸어올 때는 판이 이미 없기 때문이다.
+		-- 이 press가 창을 숨기면서 (?)도 같이 숨고, 그 `OnHide`가 판을 내린다
+		-- (`InitializeButtons`). 그래서 서 있는지 물을 수 있는 자리는 여기뿐이다.
+		if (HelpPlate.IsShowing(OVERVIEW_HELP_PLATE)) then
+			HelpPlate.Hide();
+			return;
+		end
 		self.escAt = GetTime();
 	end
 end
@@ -4221,10 +4261,14 @@ end
 --- 확인을 누르면 이 팝업이 매크로 편집기를 **직접** 열었다 - "나는 매크로에서 열렸다"가
 --- 코드에 박혀 있었다. 이제 확인 뒤에 할 일은 연 쪽이 준다(`EditMacroText`의 `cancelFunc`과
 --- 같은 모양). 콜백은 확인을 눌렀을 때만, 대상 elementData를 들고 불린다.
-function DebindIconSelectorFrameMixin:OpenForNewMacro(onAccepted)
+---
+--- `destLayerID` is the tab the macro is added to. Nothing passes it when the reader left-clicked
+--- the button, and then `AddNewAction` reads the open tab as it always does.
+function DebindIconSelectorFrameMixin:OpenForNewMacro(onAccepted, destLayerID)
 	self.mode = IconSelectorPopupFrameModes.New;
 	self.editAction = nil;
 	self.onAccepted = onAccepted;
+	self.newActionLayerID = destLayerID;
 	self:Show();
 end
 
@@ -4234,6 +4278,7 @@ function DebindIconSelectorFrameMixin:OpenForAction(action, onAccepted)
 	self.mode = IconSelectorPopupFrameModes.Edit;
 	self.editAction = action;
 	self.onAccepted = onAccepted;
+	self.newActionLayerID = nil;
 	self:Show();
 end
 
@@ -4292,6 +4337,7 @@ function DebindIconSelectorFrameMixin:OnHide()
 	-- 취소로 닫혔든, OnShow가 대상을 못 찾아 도로 숨겼든 콜백은 죽는다. 확인을 누른 경우엔
 	-- OkayButton_OnClick이 이미 꺼내 갔다.
 	self.onAccepted = nil;
+	self.newActionLayerID = nil;
 	DebindFrame:Update();
 end
 
@@ -4330,10 +4376,21 @@ function DebindIconSelectorFrameMixin:OkayButton_OnClick()
 	local text = self.BorderBox.IconSelectorEditBox:GetText();
 	text = string.gsub(text, "\"", "");
 
+	-- **콜백을 먼저 꺼내 둔다.** 아래 `AddNewAction`이 다른 탭으로 건너가는 길에
+	-- `TryCloseAnyDialog`로 이 팝업을 닫고(`GoToAction`), 그 `OnHide`가 `onAccepted`를 비운다.
+	-- 뒤에서 읽으면 우클릭 메뉴로 탭을 지목한 경우에만 본문 편집기가 안 열려서, 이름만 있고
+	-- 본문도 편집기도 없는 매크로가 남는다.
+	--
+	-- 비우는 것도 여기서 같이 한다. 콜백이 이 창을 닫아도 `OnHide`가 같은 콜백을 두 번 부르지
+	-- 않게 하려는 것이고, 그 이유는 자리를 옮겨도 그대로다.
+	local onAccepted = self.onAccepted;
+	self.onAccepted = nil;
+
 	local isNew = self.mode == IconSelectorPopupFrameModes.New;
 	local elementData;
 	if (isNew) then
-		elementData = DebindFrame:AddNewAction(Constants.MACROTEXT, "", text, iconTexture);
+		elementData = DebindFrame:AddNewAction(Constants.MACROTEXT, "", text, iconTexture, nil,
+			self.newActionLayerID);
 	else
 		self.editAction.name = text;
 		self.editAction.icon = iconTexture;
@@ -4344,10 +4401,7 @@ function DebindIconSelectorFrameMixin:OkayButton_OnClick()
 	DebindLayerPanel:Refresh(true);
 	DebindFrame:Update();
 
-	-- 다음에 무엇이 열릴지는 이 팝업이 정하지 않는다. 연 쪽이 안다. 먼저 꺼내 두는 건
-	-- 콜백이 이 창을 닫아도 OnHide가 같은 콜백을 두 번 부르지 않게 하려는 것이다.
-	local onAccepted = self.onAccepted;
-	self.onAccepted = nil;
+	-- 다음에 무엇이 열릴지는 이 팝업이 정하지 않는다. 연 쪽이 안다.
 	if (onAccepted and elementData) then
 		onAccepted(elementData);
 	end
@@ -6399,25 +6453,25 @@ end
 
 --- 아이콘만 있는 자리의 말풍선. 제목과, 누르면 열린다는 한 줄.
 ---
---- **표는 부를 때마다 새로 만든다.** `HelpTip`은 넘긴 표를 참조로 들고 있어서, 모듈 하나를 돌려
+--- **표는 부를 때마다 새로 만든다.** 말풍선은 넘긴 표를 참조로 들고 있어서, 모듈 하나를 돌려
 --- 쓰면 둘째 말풍선이 아직 떠 있는 첫 말풍선의 `text`를 갈아치운다. 그러면 `HideCallout`이 짓는
 --- 글과 저쪽이 들고 있는 글이 달라져 첫 말풍선이 안 닫힌다. 커서가 아이콘에 올라올 때만 도는
 --- 자리라 할당 하나는 값이 안 된다.
 ---
---- 말풍선이 버튼의 어느 변에 서고 그 변에서 어느 쪽으로 붙는지는 두 KeyValue가 말한다. 클라이언트
---- 상수의 **이름**을 적는다 - `HelpTip.Point`는 XML이 KeyValue로 집어올 수 있는 전역이 아니다.
+--- 말풍선이 버튼의 어느 변에 서고 그 변에서 어느 쪽으로 붙는지는 두 KeyValue가 말한다. 상수의
+--- **이름**을 적는다 - `HelpTip.Point`는 XML이 KeyValue로 집어올 수 있는 전역이 아니다.
 function DebindHelpLinkMixin:ShowCallout()
-	HelpTip:Show(self, {
+	HelpTip.Show(self, {
 		text = self:CalloutText(),
 		-- 닫는 버튼은 없다. 커서가 아이콘을 떠나면 사라지므로 닫을 것이 화면에 남지 않는다.
 		buttonStyle = HelpTip.ButtonStyle.None,
 		targetPoint = HelpTip.Point[self.calloutPoint or "TopEdgeCenter"],
 		alignment = HelpTip.Alignment[self.calloutAlignment or "Left"],
-	}, self);
+	});
 end
 
 function DebindHelpLinkMixin:HideCallout()
-	HelpTip:Hide(self, self:CalloutText());
+	HelpTip.Hide(self, self:CalloutText());
 end
 
 function DebindHelpLinkMixin:OnShow()

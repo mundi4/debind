@@ -1,0 +1,71 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<!--
+		**A second copy of `HelpTipTemplate`, and the reason is taint** - the same reason
+		`HelpPlate.xml` stands beside it (its header carries the argument at length). The client
+		keeps one `HelpTip.framePool` for the whole game and `HelpTip:Show` takes a frame out of it,
+		so calling that from here leaves our taint on a table the action bar reads when it raises its
+		own tip.
+
+		**Inheriting `HelpTipTemplate` is not a way around it.** That template wears
+		`HelpTipTemplateMixin`, and the mixin hands the frame back with `HelpTip:Release(self)` on
+		hide - the pool again, from a frame that was never in it.
+
+		**The art is still theirs and none of it is copied.** `GlowBoxTemplate` and
+		`GlowBoxArrowTemplate` are virtual, so this draws the client's balloon. What is written out
+		again is the body Blizzard's own `HelpTip.xml` holds, which is this much.
+	-->
+	<Frame name="DebindHelpTipTemplate" inherits="GlowBoxTemplate" hidden="true" mixin="DebindHelpTipMixin" toplevel="true" virtual="true" enableMouse="true" flattenRenderLayers="true">
+		<Size x="226" y="10"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontHighlightLeft" justifyH="LEFT" justifyV="TOP">
+					<Size x="196" y="0"/>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY" hidden="true">
+				<Size x="110" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOM" x="0" y="12"/>
+				</Anchors>
+			</Button>
+			<Frame parentKey="Arrow" inherits="GlowBoxArrowTemplate">
+				<Size x="61" y="61"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="-17" y="-9"/>
+				</Anchors>
+			</Frame>
+			<!--
+				`HelpTipCloseButtonMixin` is the client's and is taken as it is. A mixin is a table of
+				methods copied onto the frame - it writes nothing the client shares - so it carries
+				none of what the frame pool does.
+			-->
+			<Button parentKey="CloseButton" mixin="HelpTipCloseButtonMixin" hidden="true" frameLevel="100">
+				<Size x="18" y="18"/>
+				<Anchors>
+					<Anchor point="TOPRIGHT" x="-2" y="-2"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<Texture parentKey="Texture">
+							<Anchors>
+								<Anchor point="TOPLEFT"/>
+							</Anchors>
+						</Texture>
+					</Layer>
+				</Layers>
+				<Scripts>
+					<OnLoad method="OnLoad"/>
+					<OnEnter method="OnEnter"/>
+					<OnLeave method="OnLeave"/>
+				</Scripts>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+		</Scripts>
+	</Frame>
+
+</Ui>
