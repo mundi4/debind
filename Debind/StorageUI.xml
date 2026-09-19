@@ -315,26 +315,41 @@
 			</EventFrame>
 
 			<!--
-				**The two ways a row gets into the list, side by side at the left end.** They are the
-				same job twice over and read as a pair, so the right end stays empty.
+				**The two ways a row gets into the list**, in the corner every tab's controls stand in
+				(`DebindPortraitRowTemplate`). They were labelled buttons above the list's left edge,
+				each as wide as its own label (2026-08-23, 소유자); what that decision was about is
+				width, and a portrait has none to get wrong.
 
-				**Each is as wide as its own label and no wider** (2026-08-23, 소유자). They used to be
-				200 and 200, which is the width of the list, and a button that wide reads as what the
-				column is for rather than as the way into it. The `<Size>` here is the floor they
-				grow from (`UIPanelDynamicResizeButtonTemplate`, which never shrinks).
+				**`CreatePortrait` wears Overview's [+]**, because it is the same job on a different
+				list. Paste does not: nothing about it is "one more".
 			-->
-			<Frame parentKey="ToolbarLeft" inherits="DebindToolbarLeftTemplate">
+			<Frame parentKey="PortraitRow" inherits="DebindPortraitRowTemplate">
 				<Frames>
-					<Button parentKey="CreateButton" inherits="UIPanelDynamicResizeButtonTemplate">
-						<Size x="80" y="22"/>
+					<Button parentKey="CreatePortrait" inherits="DebindPortraitTemplate">
 						<KeyValues>
 							<KeyValue key="layoutIndex" value="1" type="number"/>
+							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
+							<KeyValue key="TooltipTitle" value="STORAGE_CREATE" type="string"/>
+							<KeyValue key="TooltipText" value="STORAGE_CREATE_TOOLTIP" type="string"/>
+							<KeyValue key="TooltipInstruction" value="STORAGE_CREATE_INSTRUCTION" type="string"/>
 						</KeyValues>
 					</Button>
-					<Button parentKey="PasteButton" inherits="UIPanelDynamicResizeButtonTemplate">
-						<Size x="80" y="22"/>
+					<!--
+						**An arrow coming in, and nothing else on it** (2026-09-19, 소유자). An envelope
+						stood here first and read as sending rather than receiving; a [+] with the arrow
+						as a badge on it was next, and what it bought was a second button that looks like
+						`CreatePortrait` at a glance. The arrow alone says the one thing that makes the
+						two different, which is where the row comes from.
+
+						`house-reward-green-arrow-up` points up, the client having no green arrow that
+						points down, so it is turned over (`SetRotation`, in `OnLoad`).
+					-->
+					<Button parentKey="PastePortrait" inherits="DebindPortraitTemplate">
 						<KeyValues>
 							<KeyValue key="layoutIndex" value="2" type="number"/>
+							<KeyValue key="PortraitTexture" value="A:house-reward-green-arrow-up" type="string"/>
+							<KeyValue key="TooltipTitle" value="STORAGE_PASTE" type="string"/>
+							<KeyValue key="TooltipInstruction" value="STORAGE_PASTE_INSTRUCTION" type="string"/>
 						</KeyValues>
 					</Button>
 				</Frames>

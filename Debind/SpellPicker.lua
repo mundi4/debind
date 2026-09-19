@@ -864,7 +864,7 @@ function DebindSpellPickerFrameMixin:UpdateReplaceState()
 	local replacing = self.replaceTargets ~= nil;
 	self:SetTitle(replacing and LLL["SPELL_PICKER_REPLACE_TITLE"] or LLL["SPELL_PICKER_TITLE"]);
 	self.NewMacroButton:SetEnabled(not replacing);
-	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(self:IsShown() and not replacing);
+	DebindFrame.OverviewPanel.PortraitRow.AddPortrait:SetSelectedState(self:IsShown() and not replacing);
 end
 
 --- 바꾸기 중에 [+]를 누르면 **닫지 않고 추가 모드로 돌아온다.** 그 버튼이 여는 것은 추가

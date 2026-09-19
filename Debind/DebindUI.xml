@@ -253,6 +253,32 @@
 	</Frame>
 
 	<!--
+		**The portrait row, in the window's top right corner.** Overview's three round buttons stood
+		here anchored to each other in a chain, each one naming the one to its right. The seat a
+		button sat in was therefore written in that button, and a tab that wanted one of its own had
+		nothing to inherit.
+
+		The corner and the gap are the click binding window's (`Blizzard_ClickBindingUI.xml`:
+		TOPRIGHT -40/-40, the next one 5 to its left), and the container reproduces them. The last
+		child's right edge is the container's, and `spacing` is that 5.
+
+		**Order is `layoutIndex`, left to right**, like the two toolbars above. The row is anchored
+		at the right, so what grows is the left end.
+
+		**`useParentLevel` keeps the buttons at the level they had** as direct children of the panel.
+		A container taking one of its own would push them a level up, and this corner is where
+		`frameLevel` already decides whether anything is visible at all (`OptionsButton`).
+	-->
+	<Frame name="DebindPortraitRowTemplate" inherits="HorizontalLayoutFrame" useParentLevel="true" virtual="true">
+		<KeyValues>
+			<KeyValue key="spacing" value="5" type="number"/>
+		</KeyValues>
+		<Anchors>
+			<Anchor point="TOPRIGHT" x="-40" y="-40"/>
+		</Anchors>
+	</Frame>
+
+	<!--
 		The line that goes in wherever the key changes in the shortcut ordering.
 
 		**A left click picks the group, and a right-click opens its menu**
@@ -662,7 +688,7 @@
 		것인지 알 길이 없다. 블리자드도 같은 자리에서 같은 속성을 쓴다
 		(`PanelTabButtonTemplate`).
 	-->
-	<Button name="DebindPortraitTemplate" mixin="DebindPortraitMixin" parentArray="FramePortraits" motionScriptsWhileDisabled="true" virtual="true">
+	<Button name="DebindPortraitTemplate" mixin="DebindPortraitMixin" motionScriptsWhileDisabled="true" virtual="true">
 		<Size x="31" y="31"/>
 		<Layers>
 			<Layer level="ARTWORK">
@@ -926,9 +952,9 @@
 				and everything else about one was on the tab, and the empty list had to point at a
 				button with no label to quote.
 
-				The gear followed it off the row, to the title bar. What is left down there is the two
-				buttons that act on the list - [+] and the bind mode toggle - and `BindModePortrait`
-				is what holds the row's position now.
+				The gear followed it off the row, to the title bar. What is left down there is the
+				buttons that act on the list, and the row's position is the container's
+				(`DebindPortraitRowTemplate`) rather than any one button's.
 			-->
 			<!--
 				**Tab one's container: everything this window shows today.** It covers the whole frame, and
@@ -1420,141 +1446,123 @@
 						</Anchors>
 					</DropdownButton>
 
-					<!--
-						**Clean up, and it holds the right end of the portrait row.** The seat and the
-						numbers are the ones the gear stood at before it went to the title bar, which
-						are the click binding window's (`Blizzard_ClickBindingUI.xml`: TOPRIGHT
-						-40/-40, the next one -5 to its left). Measured from the frame rather than an
-						inset - an inset moves when the window is resized and used to drag the row
-						with it.
-
-						**The art is the bag frame's, and so is the job.** `bags-button-autosort-up`
-						is what the client puts on [Clean Up Bags]; a reader who has ever sorted a bag
-						already knows what this button is going to do to a list.
-
-						**It is enabled only while there is something to remove**
-						(`DebindFrameMixin:UpdateButtons`), unlike the same one-shot in the options
-						menu, which is always pressable and answers in a line. A button standing in
-						the open can say "nothing to do" by being grey; a menu item cannot, because
-						nobody opens a menu to look at it.
-					-->
-					<Button parentKey="CleanUpPortrait" inherits="DebindPortraitTemplate">
-						<KeyValues>
-							<KeyValue key="PortraitTexture" value="A:bags-button-autosort-up" type="string"/>
-							<KeyValue key="TooltipTitle" value="REMOVE_DUPLICATES" type="string"/>
-							<KeyValue key="TooltipText" value="REMOVE_DUPLICATES_DESC" type="string"/>
-						</KeyValues>
-						<Anchors>
+					<Frame parentKey="PortraitRow" inherits="DebindPortraitRowTemplate">
+						<Frames>
 							<!--
-								`$parent` is the container and the row belongs to the window, hence the
-								second hop. The side tabs already reach out this way.
+								**메뉴가 아니라 창을 연다.** 한때 여기 드롭다운이 매달려 있었고 그 안에
+								타입별 하위 메뉴가 아홉 겹까지 들어갔는데, 지금은 그 항목이 전부 주문 선택
+								창에 있다 - 검색까지 되는 자리라 메뉴로 남길 이유가 없어졌다.
+
+								그래서 `DropdownButton`이 아니라 평범한 `Button`이다. 클릭은
+								`DebindFrameMixin:InitializeButtons`에서 붙인다(오버뷰 버튼과 같은 방식).
 							-->
-							<Anchor point="TOPRIGHT" relativeKey="$parent.$parent" relativePoint="TOPRIGHT" x="-40" y="-40"/>
-						</Anchors>
-					</Button>
+							<Button parentKey="AddPortrait" inherits="DebindPortraitTemplate">
+								<KeyValues>
+									<KeyValue key="layoutIndex" value="1" type="number"/>
+									<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
+									<!--
+										제목은 **열리는 창의 제목 그대로**다. "Add..."라는 이 버튼만의
+										낱말을 따로 갖고 있었는데, 눌러서 뜬 창이 "Add an Action"이라고
+										적혀 있으면 같은 것인지 알 수가 없다.
+									-->
+									<KeyValue key="TooltipTitle" value="SPELL_PICKER_TITLE" type="string"/>
+									<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
+								</KeyValues>
+							</Button>
 
-					<!--
-						**The bind mode toggle.** It stands in the portrait row, and the list itself
-						carries no control for it.
-
-						It was once a button that came up on a row while the cursor was over that row.
-						That puts the way in **under the cursor** - a control appeared and vanished on
-						every row the mouse crossed, and the row lost focus the instant the cursor
-						reached the button, which took the button back down (the target being aimed at
-						blinked). Standing outside the list takes that whole property away.
-
-						The game has the same thing - the action bars' quick keybind mode
-						(Blizzard_QuickKeybind). There too a mode is turned on, the cursor is put on a
-						target, and a key is pressed.
-
-						While it is on, **every input over a row becomes a key** - left and right click
-						are legitimate bindings too (they go with the hover condition), so no exception
-						is made for them. Selecting and the right-click menu stop for that time. That
-						they have stopped has to be on screen, so this button wears the lit ring the
-						whole time (`SetBindingMode` -> `SetSelectedState`).
-
-						The keyboard arrives **at this button**, wherever the cursor happens to be. The
-						target is the row under the cursor at that moment, and it is looked up again on
-						every press (`GetHoveredLine`).
-
-						**The way in and the way out are no longer one place.** It used to stand above
-						the left column, because that column is what the overlay covers when the mode
-						turns on - and [Done]/[Cancel] are on that overlay, so the mode began and ended
-						in one spot. In the portrait row it stands with the other controls that act on
-						the whole window instead, and the exit stays where the overlay is.
-					-->
-					<Button parentKey="BindModePortrait" inherits="DebindPortraitTemplate">
-						<KeyValues>
 							<!--
-								The keycap the command actions already wear (`NameAndIconForAction`), so
-								"a key" is one picture across the window. Blizzard uses this atlas in a
-								portrait slot as well (Blizzard_TutorialKeyboardMouseFrame).
-							-->
-							<KeyValue key="PortraitTexture" value="A:NPE_Icon" type="string"/>
-							<!--
-								Both are rewritten per state by `UpdateBindModeButton`; these are what
-								they say while the mode is off.
-							-->
-							<KeyValue key="TooltipTitle" value="BIND_MODE" type="string"/>
-							<KeyValue key="TooltipText" value="BIND_MODE_DESC" type="string"/>
-						</KeyValues>
-						<Anchors>
-							<!--
-								Second seat from the right. It hung off `SwitchesPortrait`, then off
-								`OptionsPortrait`; the gear went to the title bar and `CleanUpPortrait`
-								took the seat it left, so this hangs off that one now.
-							-->
-							<Anchor point="RIGHT" relativeKey="$parent.CleanUpPortrait" relativePoint="LEFT" x="-5" y="0"/>
-						</Anchors>
-						<Scripts>
-							<!--
-								This button answers `IsKeyboardEnabled()` true from the moment it is
-								built, and `enableKeyboard="false"` on the frame does not change
-								that. A keyboard-enabled frame keeps what it receives, and this one
-								has no key of its own to take: while the mode is on the keys belong
-								to the row under the cursor (`DebindLineMixin:OnKeyDown`).
+								**The bind mode toggle.** It stands in the portrait row, and the list itself
+								carries no control for it.
 
-								**The mode is not turned off here either.** An OnHide on this button
-								fires whenever anything sweeps the window out of `UISpecialFrames`,
-								and opening the spellbook is one of those - that ended the mode and
-								threw away its undo list. Closing the window is what closes the mode,
-								and `DebindFrameMixin:OnHide` is where that is known.
+								It was once a button that came up on a row while the cursor was over that row.
+								That puts the way in **under the cursor** - a control appeared and vanished on
+								every row the mouse crossed, and the row lost focus the instant the cursor
+								reached the button, which took the button back down (the target being aimed at
+								blinked). Standing outside the list takes that whole property away.
+
+								The game has the same thing - the action bars' quick keybind mode
+								(Blizzard_QuickKeybind). There too a mode is turned on, the cursor is put on a
+								target, and a key is pressed.
+
+								While it is on, **every input over a row becomes a key** - left and right click
+								are legitimate bindings too (they go with the hover condition), so no exception
+								is made for them. Selecting and the right-click menu stop for that time. That
+								they have stopped has to be on screen, so this button wears the lit ring the
+								whole time (`SetBindingMode` -> `SetSelectedState`).
+
+								The keyboard arrives **at this button**, wherever the cursor happens to be. The
+								target is the row under the cursor at that moment, and it is looked up again on
+								every press (`GetHoveredLine`).
+
+								**The way in and the way out are no longer one place.** It used to stand above
+								the left column, because that column is what the overlay covers when the mode
+								turns on - and [Done]/[Cancel] are on that overlay, so the mode began and ended
+								in one spot. In the portrait row it stands with the other controls that act on
+								the whole window instead, and the exit stays where the overlay is.
 							-->
-							<OnLoad>
-								self:EnableKeyboard(false);
-							</OnLoad>
-							<OnClick>
-								DebindFrame:ToggleBindMode();
-							</OnClick>
-							<OnGamePadButtonUp>
-								DebindFrame:BindMode_OnInput(button);
-							</OnGamePadButtonUp>
-						</Scripts>
-					</Button>
+							<Button parentKey="BindModePortrait" inherits="DebindPortraitTemplate">
+								<KeyValues>
+									<KeyValue key="layoutIndex" value="2" type="number"/>
+									<!--
+										The keycap the command actions already wear (`NameAndIconForAction`), so
+										"a key" is one picture across the window. Blizzard uses this atlas in a
+										portrait slot as well (Blizzard_TutorialKeyboardMouseFrame).
+									-->
+									<KeyValue key="PortraitTexture" value="A:NPE_Icon" type="string"/>
+									<!--
+										Both are rewritten per state by `UpdateBindModeButton`; these are what
+										they say while the mode is off.
+									-->
+									<KeyValue key="TooltipTitle" value="BIND_MODE" type="string"/>
+									<KeyValue key="TooltipText" value="BIND_MODE_DESC" type="string"/>
+								</KeyValues>
+								<Scripts>
+									<!--
+										This button answers `IsKeyboardEnabled()` true from the moment it is
+										built, and `enableKeyboard="false"` on the frame does not change
+										that. A keyboard-enabled frame keeps what it receives, and this one
+										has no key of its own to take: while the mode is on the keys belong
+										to the row under the cursor (`DebindLineMixin:OnKeyDown`).
 
-					<!--
-						**메뉴가 아니라 창을 연다.** 한때 여기 드롭다운이 매달려 있었고 그 안에
-						타입별 하위 메뉴가 아홉 겹까지 들어갔는데, 지금은 그 항목이 전부 주문 선택
-						창에 있다 - 검색까지 되는 자리라 메뉴로 남길 이유가 없어졌다.
+										**The mode is not turned off here either.** An OnHide on this button
+										fires whenever anything sweeps the window out of `UISpecialFrames`,
+										and opening the spellbook is one of those - that ended the mode and
+										threw away its undo list. Closing the window is what closes the mode,
+										and `DebindFrameMixin:OnHide` is where that is known.
+									-->
+									<OnLoad>
+										self:EnableKeyboard(false);
+									</OnLoad>
+									<OnClick>
+										DebindFrame:ToggleBindMode();
+									</OnClick>
+									<OnGamePadButtonUp>
+										DebindFrame:BindMode_OnInput(button);
+									</OnGamePadButtonUp>
+								</Scripts>
+							</Button>
 
-						그래서 `DropdownButton`이 아니라 평범한 `Button`이다. 클릭은
-						`DebindFrameMixin:InitializeButtons`에서 붙인다(오버뷰 버튼과 같은 방식).
-					-->
-					<Button parentKey="AddPortrait" inherits="DebindPortraitTemplate">
-						<KeyValues>
-							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
 							<!--
-								제목은 **열리는 창의 제목 그대로**다. "Add..."라는 이 버튼만의
-								낱말을 따로 갖고 있었는데, 눌러서 뜬 창이 "Add an Action"이라고
-								적혀 있으면 같은 것인지 알 수가 없다.
+								**The art is the bag frame's, and so is the job.** `bags-button-autosort-up`
+								is what the client puts on [Clean Up Bags]; a reader who has ever sorted a bag
+								already knows what this button is going to do to a list.
+
+								**It is enabled only while there is something to remove**
+								(`DebindFrameMixin:UpdateButtons`), unlike the same one-shot in the options
+								menu, which is always pressable and answers in a line. A button standing in
+								the open can say "nothing to do" by being grey; a menu item cannot, because
+								nobody opens a menu to look at it.
 							-->
-							<KeyValue key="TooltipTitle" value="SPELL_PICKER_TITLE" type="string"/>
-							<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
-						</KeyValues>
-						<Anchors>
-							<Anchor point="RIGHT" relativeKey="$parent.BindModePortrait" relativePoint="LEFT" x="-5" y="0"/>
-						</Anchors>
-					</Button>
+							<Button parentKey="CleanUpPortrait" inherits="DebindPortraitTemplate">
+								<KeyValues>
+									<KeyValue key="layoutIndex" value="3" type="number"/>
+									<KeyValue key="PortraitTexture" value="A:bags-button-autosort-up" type="string"/>
+									<KeyValue key="TooltipTitle" value="REMOVE_DUPLICATES" type="string"/>
+									<KeyValue key="TooltipText" value="REMOVE_DUPLICATES_DESC" type="string"/>
+								</KeyValues>
+							</Button>
+						</Frames>
+					</Frame>
 
 					<!--
 						**What came in and has not been answered. It only stands while there is some.**

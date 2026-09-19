@@ -2567,7 +2567,7 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
             DebindFrame:CloseWindow()
         end)
 
-        local toggle = DebindFrame.OverviewPanel.BindModePortrait
+        local toggle = DebindFrame.OverviewPanel.PortraitRow.BindModePortrait
         if not toggle then
             return Fail(NAME, "no BindModePortrait, has the parentKey in the XML changed")
         end
@@ -3948,7 +3948,7 @@ RegisterTest("Spell picker: [+] while replacing", {
         end)
 
         local action = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F6" })
-        local addPortrait = DebindFrame.OverviewPanel.AddPortrait
+        local addPortrait = DebindFrame.OverviewPanel.PortraitRow.AddPortrait
 
         -- **`Show`가 `OnShow`를 지나야 모드가 버튼에 반영된다.** 앞 테스트가 두고 간 창이 이미
         -- 서 있으면 `Show`는 아무 일도 안 하고, 읽는 것은 그때의 표시가 된다.
@@ -4702,7 +4702,7 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
         -- case as something it has to know about.
         AddTeardown(CleanupActions)
 
-        local cleanUp = DebindFrame.OverviewPanel.CleanUpPortrait
+        local cleanUp = DebindFrame.OverviewPanel.PortraitRow.CleanUpPortrait
         DebindFrame:Update()
         if cleanUp:IsEnabled() then
             return Fail(NAME, "there is no duplicate at all and the clean up button is lit")
@@ -4774,7 +4774,7 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         AddTeardown(function() StaticPopup_Hide("GENERIC_CONFIRMATION") end)
         AddTeardown(CleanupActions)
 
-        local cleanUp = DebindFrame.OverviewPanel.CleanUpPortrait
+        local cleanUp = DebindFrame.OverviewPanel.PortraitRow.CleanUpPortrait
 
         --- The action while it is still in the layer, nil once it has been deleted. The table it
         --- was is still in hand either way, so asking it is no answer.

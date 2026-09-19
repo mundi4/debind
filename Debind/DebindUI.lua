@@ -1839,6 +1839,7 @@ function DebindPortraitMixin:OnLoad()
 	if (self.TooltipTitle) then
 		self.TooltipTitle = rawget(LLL, self.TooltipTitle) or _G[self.TooltipTitle] or self.TooltipTitle;
 		self.TooltipText = rawget(LLL, self.TooltipText) or self.TooltipText;
+		self.TooltipInstruction = rawget(LLL, self.TooltipInstruction) or self.TooltipInstruction;
 	end
 	if (self.MenuFunc) then
 		self:SetupMenu(DebindUI[self.MenuFunc]);
@@ -1874,6 +1875,11 @@ function DebindPortraitMixin:OnEnter()
 		GameTooltip_SetTitle(GameTooltip, self.TooltipTitle);
 		if (self.TooltipText) then
 			GameTooltip_AddNormalLine(GameTooltip, self.TooltipText);
+		end
+		-- **한 줄 더가 아니라 주체가 다른 줄이다.** 위의 두 줄은 이 버튼이 무엇인가를 말하고,
+		-- 이건 누르면 무슨 일이 일어나는가라, 클라이언트가 그 성질에 따로 쓰는 줄이 있다.
+		if (self.TooltipInstruction) then
+			GameTooltip_AddInstructionLine(GameTooltip, self.TooltipInstruction);
 		end
 		if (self.disabledReason and not self:IsEnabled()) then
 			GameTooltip_AddBlankLineToTooltip(GameTooltip);
@@ -2209,14 +2215,14 @@ function DebindFrameMixin:InitializeButtons()
 	-- [+]는 이제 **창을 연다.** 예전에는 여기 드롭다운이 매달려 있었는데, 그 안에 있던
 	-- 항목이 전부 주문 선택 창으로 옮겨갔다(주문·매크로·탈것·장난감은 목록으로, 명령과
 	-- 애드온 고유 액션은 각자 탭으로, 매크로 텍스트는 그 창의 버튼으로).
-	self.OverviewPanel.AddPortrait:SetScript("OnClick", function()
+	self.OverviewPanel.PortraitRow.AddPortrait:SetScript("OnClick", function()
 		DebindSpellPickerFrame:Toggle();
 	end)
 
 	-- **The same entry point as the options menu's item.** It is enabled only when the sweep has
 	-- something (`UpdateButtons`), so the "nothing to remove" line that function prints is not
 	-- reachable from here - it stays for the menu, which is always pressable.
-	self.OverviewPanel.CleanUpPortrait:SetScript("OnClick", function()
+	self.OverviewPanel.PortraitRow.CleanUpPortrait:SetScript("OnClick", function()
 		DebindUI.RemoveDuplicateActions();
 	end)
 
@@ -3879,8 +3885,8 @@ function DebindFrameMixin:UpdateButtons()
 		tab:SetEnabled(enableButtons);
 	end
 
-	self.OverviewPanel.BindModePortrait:SetEnabled(enableButtons);
-	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
+	self.OverviewPanel.PortraitRow.BindModePortrait:SetEnabled(enableButtons);
+	self.OverviewPanel.PortraitRow.AddPortrait:SetEnabled(enableButtons);
 	self.OptionsButton:SetEnabled(enableButtons);
 
 	-- **The sweep runs here, on a button that says "nothing to do" by being grey.** The same walk
@@ -3895,7 +3901,7 @@ function DebindFrameMixin:UpdateButtons()
 	-- What it costs is the walk on each pass through here, which is one per gesture in an open
 	-- window rather than anything on a frame.
 	local duplicates = #DebindPrivate.CollectDuplicateActions();
-	local cleanUp = self.OverviewPanel.CleanUpPortrait;
+	local cleanUp = self.OverviewPanel.PortraitRow.CleanUpPortrait;
 	cleanUp.disabledReason = (duplicates == 0) and LLL["REMOVE_DUPLICATES_NONE"] or nil;
 	cleanUp:SetEnabled(enableButtons and duplicates > 0);
 end
@@ -5543,7 +5549,7 @@ end
 --- 이미 켜진 버튼 위에서는 거짓이고, 그때 필요한 말 - 어떻게 걸고 어떻게 끝내는지 - 는
 --- 오버레이가 이미 화면에 띄워 두고 있다.
 function DebindFrameMixin:UpdateBindModeButton()
-	local button = self.OverviewPanel.BindModePortrait;
+	local button = self.OverviewPanel.PortraitRow.BindModePortrait;
 	if (self:IsCapturingKey()) then
 		button.TooltipTitle = LLL["BIND_MODE_STOP"];
 		button.TooltipText = nil;
@@ -5555,7 +5561,7 @@ end
 
 --- Turns it on and off. The toggle in the portrait row is what calls this.
 function DebindFrameMixin:ToggleBindMode()
-	self:SetBindingMode(not self:IsCapturingKey(), self.OverviewPanel.BindModePortrait);
+	self:SetBindingMode(not self:IsCapturingKey(), self.OverviewPanel.PortraitRow.BindModePortrait);
 end
 
 --- 커서 밑의 행. **들고 있지 않고 그때그때 찾는다.**

@@ -1918,6 +1918,13 @@ L["STORAGE_PASTE"] = "Paste Share Code"
 -- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to
 -- its own key names, which is the same line this file is supposed to draw. koKR says 코드
 -- throughout.
+-- **The button lost its label to an icon, so the verb has to be said again here.** "Paste" was the
+-- half of the old label the reader had to know before pressing, and a picture cannot carry it.
+--
+-- It names the clipboard because that is where the code has to already be: the box that opens has
+-- nowhere to get one from, and a reader who presses this without a code in hand has opened a dialog
+-- for nothing.
+L["STORAGE_PASTE_INSTRUCTION"] = "Click with a share code on your clipboard and it opens the box to paste it into."
 --
 -- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
 -- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
@@ -2009,10 +2016,11 @@ L["STORAGE_MENU_DESC"] = "Where payloads are kept: ones you save from this chara
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills
 -- it rather than what to do next - there is no next step until something is in there.
 --
--- **The instruction came out when the button moved.** It stood on the far bottom corner of the
--- frame and this sentence was the only thing pointing at it; it stands directly above this text
--- now, so telling the reader to press it is the screen describing what the screen already shows.
--- What is left is the half a visible button cannot say: that anything landing here stays.
+-- **The instruction came out when the button moved** and stays out for a second reason now. It stood
+-- in the far bottom corner and this sentence was the only thing pointing at it; the two ways in are
+-- portraits in the tab's corner since then, and a sentence pointing at one of those would have to
+-- spell out a picture to say which. What is left is the half a visible button cannot say: that
+-- anything landing here stays.
 L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nA string you paste will sit here until you decide what to do with it, and it is kept afterwards - so you can come back and finish later."
 L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
 -- The two halves of the game's own import dialog, which this one is shaped after: a caption over
