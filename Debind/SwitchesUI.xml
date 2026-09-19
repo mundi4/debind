@@ -150,7 +150,7 @@
 					name is the window's own tab wording and is the one thing this row's tooltip
 					repeats, so it is the safer of the two to clip.
 				-->
-				<FontString parentKey="Setting" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+				<FontString parentKey="Setting" inherits="GameFontDisable" maxLines="1" justifyH="RIGHT">
 					<Size x="140" y="0"/>
 					<Anchors>
 						<Anchor point="RIGHT" x="-6" y="0"/>
@@ -161,7 +161,7 @@
 					horizontal points are set, which is what gives the label a width without a
 					number of its own: it ends where the answer begins.
 				-->
-				<FontString parentKey="Layer" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+				<FontString parentKey="Layer" inherits="GameFontHighlight" maxLines="1" justifyH="LEFT">
 					<Anchors>
 						<Anchor point="LEFT" x="34" y="0"/>
 						<Anchor point="RIGHT" relativeKey="$parent.Setting" relativePoint="LEFT" x="-6" y="0"/>

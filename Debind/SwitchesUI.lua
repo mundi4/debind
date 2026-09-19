@@ -13,6 +13,8 @@ local ROW_HEIGHT        = 28;
 local HEADER_ROW_HEIGHT = 26;
 --- How far a row hangs in from the heading above it. Overview's `ORDER_LINE_INDENT`.
 local ROW_INDENT        = 10;
+--- The air above a heading, as an element of its own. Overview's `KEY_GROUP_GAP`.
+local GROUP_GAP         = 8;
 --- A layer row. Shorter than a switch row on purpose: the list is a switch with its layers under
 --- it, and two rows of the same height read as two switches.
 local LAYER_ROW_HEIGHT  = 20;
@@ -678,7 +680,7 @@ function DebindSwitchGroupHeaderMixin:OnLoad()
     self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
 
     self:GetNormalTexture():SetDesaturated(true);
-    self:GetNormalTexture():SetAlpha(0.3);
+    self:GetNormalTexture():SetAlpha(0.5);
 
     -- The fold the template hangs on every heading. Neither half folds.
     self.CollapseButton:Hide();
@@ -722,7 +724,9 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
-        if (elementData.header) then
+        if (elementData.spacer) then
+            factory("Frame");
+        elseif (elementData.header) then
             factory("DebindSwitchGroupHeaderTemplate", function(frame) frame:Init(elementData); end);
         elseif (elementData.layerID) then
             factory("DebindSwitchLayerRowTemplate", function(frame) frame:Init(elementData); end);
@@ -732,6 +736,9 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
     end);
 
     view:SetElementExtentCalculator(function(_, elementData)
+        if (elementData.spacer) then
+            return GROUP_GAP;
+        end
         if (elementData.header) then
             return HEADER_ROW_HEIGHT;
         end
@@ -742,7 +749,10 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
     -- (`ORDER_LINE_INDENT`). Two lists in one window that hang rows off the same bar by different
     -- amounts read as two kinds of bar.
     view:SetElementIndentCalculator(function(elementData)
-        return elementData.header and 0 or ROW_INDENT;
+        if (elementData.spacer or elementData.header) then
+            return 0;
+        end
+        return ROW_INDENT;
     end);
 
     ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
@@ -773,7 +783,12 @@ function DebindSwitchesPanelMixin:RefreshRows()
     -- **No headings at all where there is not one switch.** That is the one case the two halves
     -- say nothing about, and the empty text below is the whole of what the tab has to say then.
     if (#names > 0) then
-        for _, group in ipairs(GROUPS) do
+        for index, group in ipairs(GROUPS) do
+            -- Air between the two halves, as its own element (Overview's `KEY_GROUP_GAP`). Not
+            -- above the first: the list already stands off the top of its box.
+            if (index > 1) then
+                list[#list + 1] = { spacer = true };
+            end
             list[#list + 1] = { header = group.header };
             for _, name in ipairs(names) do
                 if (DebindPrivate.IsSwitchTracked(name) == group.tracked) then

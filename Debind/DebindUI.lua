@@ -1371,7 +1371,7 @@ function DebindKeyHeaderMixin:OnLoad()
 	self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
 
 	self:GetNormalTexture():SetDesaturated(true);
-	self:GetNormalTexture():SetAlpha(0.3);
+	self:GetNormalTexture():SetAlpha(0.5);
 	self:GetHighlightTexture():SetDesaturated(true);
 
 	-- **The key takes only the width of its own text.** The template stretches it to the fold button,
