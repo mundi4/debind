@@ -247,6 +247,17 @@ end
 ---
 --- `GetTime()` holds still for the whole frame, so the stamp `OnKeyDown` leaves is still current
 --- by the time the window's `OnHide` reads it.
+---
+--- **That same frame is why a test standing the window up has to yield first.** `CloseWindow`
+--- stamps `closeAt = GetTime()` and `DebindFrameMixin:OnHide` reads "deliberate" off it, so a
+--- teardown that closed the window leaves that stamp current for everything the runner steps
+--- through next -- and it steps through as many as it can without giving up the frame
+--- (`while run and Step() do end`). The next test's `Hide` is then read as its own close: the
+--- window stays down and the ladder never walks. Nobody can reach that order by hand, since it
+--- means reopening the window in the same frame it was closed in.
+---
+--- So a test that shows the window and expects a `Hide` to come back opens with
+--- `coroutine.yield(0)`. One frame, once, at the top.
 local function PressEscape()
     DebindFrame:OnKeyDown("ESCAPE")
     DebindPasteFrame:Hide()
@@ -2956,6 +2967,9 @@ RegisterTest("Help window: ESC closes the help and leaves the main window up", {
     run = function()
         local NAME = "Help escape"
 
+        -- 앞 케이스의 teardown이 남긴 `closeAt`과 프레임을 나눈다 (`PressEscape`).
+        coroutine.yield(0)
+
         DebindFrame:Show()
         AddTeardown(function() DebindFrame:CloseWindow() end)
         AddTeardown(function() DebindMessageFrame:Hide() end)
@@ -5505,6 +5519,9 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
     run = function()
         local NAME = "Escape ladder"
 
+        -- 앞 케이스의 teardown이 남긴 `closeAt`과 프레임을 나눈다 (`PressEscape`).
+        coroutine.yield(0)
+
         DebindFrame:Show()
         AddTeardown(function()
             DebindCopyFrame.Output.EditBox:ClearFocus()
@@ -5573,6 +5590,9 @@ RegisterTest("Escape: a close the window did not ask for is undone", {
     description = "Opening a panel sweeps UISpecialFrames; the window comes back, and its own close still closes",
     run = function()
         local NAME = "Foreign close"
+
+        -- 앞 케이스의 teardown이 남긴 `closeAt`과 프레임을 나눈다 (`PressEscape`).
+        coroutine.yield(0)
 
         DebindFrame:Show()
         AddTeardown(function()
