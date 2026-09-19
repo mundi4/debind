@@ -204,42 +204,17 @@ return function(DebindPrivate)
             "the override bar event was not asked for");
     end);
 
-    ---------------------------------------------------------------------------
-    -- The state driver throttle
-    ---------------------------------------------------------------------------
-
-    --- Builds a plan with one option value stored, so the throttle can be asked about on its own.
-    local function PlanWithThrottle(value)
+    -- **`updatetime` belongs to Blizzard and a rebuild leaves it alone** (2026-09-19, owner). A
+    -- stored throttle from a build that had the slider is still in some profiles, so what this
+    -- asks is that reading one changes nothing: the value cannot reach the plan, and the manager's
+    -- attribute is nobody's here to write.
+    test("a stored throttle reaches nothing", function()
         Profile({ spell({ key = "F1" }) });
-        DebindPrivate.Options.stateDriverUpdateThrottle = value;
-        return DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
-    end
+        DebindPrivate.Options.stateDriverUpdateThrottle = 0.05;
+        local plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
+        DebindPrivate.Options.stateDriverUpdateThrottle = nil;
 
-    -- **The rebuild's write is the fallback for the slider's, so it has to be reading the same
-    -- key.** It was reading `Options.updatetime`, a key left behind when the slider was built
-    -- around `stateDriverUpdateThrottle` (2024-08-24), and nothing has written it since. So the
-    -- fallback always came out at the default and could never carry what the reader chose --
-    -- which is only invisible because `ApplyOptions` overwrites it a moment later on every path
-    -- where the stored value is a number.
-    test("the throttle the reader chose reaches the plan", function()
-        check(PlanWithThrottle(0.05).updatetime == 0.05, "the stored throttle did not reach the plan");
-        check(PlanWithThrottle(0).updatetime == 0, "zero was not carried; the slider goes there");
-    end);
-
-    -- **Nothing type-checks `db.options`**, and this is the one path that reads the key without
-    -- `ApplyOptions`'s `type(value) == "number"` in front of it. A hand-edited string used to be
-    -- unreachable here because the key was dead; pointing this at the live one puts it in range of
-    -- a `<` against a number, which raises rather than falling back.
-    --
-    -- **A number out of range is clamped and not refused**, floor as well as ceiling, because
-    -- `ApplyOptions` clamps and runs last. The two landing on different numbers is what left the
-    -- manager sweeping every frame on a stored negative while this side believed it was throttled.
-    test("a throttle that is not a usable number falls back to the default", function()
-        local default = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-        check(PlanWithThrottle("0.05").updatetime == default, "a string did not fall back");
-        check(PlanWithThrottle(nil).updatetime == default, "nil did not fall back");
-        check(PlanWithThrottle(-1).updatetime == 0, "a negative did not clamp to the floor");
-        check(PlanWithThrottle(5).updatetime == default, "a value past the ceiling did not clamp");
+        check(plan.updatetime == nil, "the throttle is back in the plan: " .. tostring(plan.updatetime));
     end);
 
     ---------------------------------------------------------------------------

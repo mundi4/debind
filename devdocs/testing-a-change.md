@@ -335,8 +335,8 @@ a hole in the sweep, not a pass).
 the test. A test only has to fail early once and everything after it runs against a state nobody
 chose.
 
-**A test session is a test session.** Actions really firing, a state driver throttle changed, the
-UI reloading — none of that is a cost worth bending the design around. Do not avoid pressing a key
+**A test session is a test session.** Actions really firing, bindings really moving, the UI
+reloading — none of that is a cost worth bending the design around. Do not avoid pressing a key
 because pressing it does something.
 
 **The client you verify in is a PTR build, and it can be the thing that is wrong — until it isn't.**

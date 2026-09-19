@@ -13,11 +13,6 @@ local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
 local GetSpellCastName        = DebindPrivate.GetSpellCastName;
 
 
--- One ceiling for two clamps. `BuildBindingPlan` clamps the same option against
--- `Constants.STATE_DRIVER_UPDATETIME_DEFAULT`, and a second copy of the number here is a way for
--- the two to drift apart without anything saying so.
-local STATE_DRIVER_UPDATE_THROTTLE_DEFAULT = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-
 function DebindPrivate.GetSpellNameAndIconID(spellId)
     local spellInfo = C_Spell.GetSpellInfo(spellId);
     if (spellInfo) then
@@ -3831,13 +3826,4 @@ function DebindPrivate.ApplyOptions(option)
         end
     end
 
-    --- **A lockdown blocks this door**, and the manager is a `SecureFrameTemplate` and protected,
-    --- so the throttle cannot move during a fight.
-    if (option == nil or option == "stateDriverUpdateThrottle") then
-        local value = DebindPrivate.Options.stateDriverUpdateThrottle or STATE_DRIVER_UPDATE_THROTTLE_DEFAULT;
-        if (type(value) == "number" and not InCombatLockdown()) then
-            value = max(0, min(value, STATE_DRIVER_UPDATE_THROTTLE_DEFAULT));
-            SecureStateDriverManager:SetAttribute("updatetime", value);
-        end
-    end
 end

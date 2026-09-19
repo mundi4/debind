@@ -1,5 +1,4 @@
 local _, DebindPrivate = ...;
-local Constants = DebindPrivate.Constants;
 local L = DebindPrivate.L;
 
 local INDENT = 15;
@@ -373,32 +372,13 @@ local function Build()
             -- and nothing a rebuild builds depends on it.
         end);
 
-    local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-    local throttle = AddRow("DebindSettingsSliderRowTemplate");
-    Label(throttle, L["STATE_DRIVER_UPDATE_THROTTLE"]);
-    throttle.Slider:SetWidth(250);
-    throttle.Tooltip:SetTooltipFunc(TooltipFunc(L["STATE_DRIVER_UPDATE_THROTTLE"],
-        L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] .. "|n|n|cnRED_FONT_COLOR:"
-        .. L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] .. "|r"));
-    local formatters = {
-        [MinimalSliderWithSteppersMixin.Label.Right] = CreateMinimalSliderFormatter(
-            MinimalSliderWithSteppersMixin.Label.Right, function(value)
-                return (format("%.2f", value):gsub("%.?0+$", ""));
-            end),
-    };
-    throttle.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
-        value = floor(value * 100 + 0.5) / 100;
-        if (value == defaultThrottle) then
-            Options().stateDriverUpdateThrottle = nil;
-        else
-            Options().stateDriverUpdateThrottle = value;
-        end
-        DebindPrivate.QueueUpdateBindings();
-    end, throttle);
-    refreshers[#refreshers + 1] = function()
-        throttle.Slider:Init(Options().stateDriverUpdateThrottle or defaultThrottle, 0, defaultThrottle,
-            floor(defaultThrottle / 0.01 + 0.5), formatters);
-    end;
+    -- **The state driver interval slider is not built** (2026-09-19, owner). It moved Blizzard's
+    -- own `updatetime`, and after the state loop went there was nothing of ours left waiting on it:
+    -- every moment a key is handed back arrives as an event, and an event zeroes the manager's
+    -- timer. A slider that cannot change what the reader sees is worse than no slider.
+    --
+    -- The three strings it used are still in the locales. What would bring the row back is
+    -- something of ours that has to be worked out with nobody pressing anything.
 
     content:SetHeight(y - SPACING + PAD_VERTICAL);
 end

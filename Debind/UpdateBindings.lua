@@ -314,7 +314,6 @@ local function CollectBindingContext()
 
     local ctx = _ctx;
     ctx.keyMap = DebindPrivate.KeyMap;
-    ctx.updatetime = DebindPrivate.Options.stateDriverUpdateThrottle;
     return ctx;
 end
 
@@ -537,34 +536,6 @@ local function BuildBindingPlan(ctx)
 
     CollectDriverEvents(plan.events);
 
-    -- **The throttle this rebuild asks for, and it is the fallback rather than the answer.**
-    -- `FinishBindingUpdate` writes `updatetime` again from the same option (`ApplyOptions`), and
-    -- that one usually wins.
-    --
-    -- **Usually, not always.** `ApplyOptions` only writes when the stored option is a number, and
-    -- nothing type-checks `db.options`, so a hand-edited SavedVariables holding a string skips it
-    -- entirely and what the state driver runs on is the value decided here. Do not delete this
-    -- write on the grounds that the other one covers it. `STATE_DRIVER_UPDATE_THROTTLE` is
-    -- Blizzard's own, shared with every addon, and leaving nobody to write it means whatever was
-    -- there last stays (`.zzz/refactor-candidates.md` 33).
-    --
-    -- **`type` rather than `not`, because this is the branch that receives what `ApplyOptions`
-    -- refused.** A string reaching `<` raises, and the rebuild dies with it. The old code was safe
-    -- from that only by accident: it read `Options.updatetime`, a key left behind when the slider
-    -- was built around `stateDriverUpdateThrottle` (2024-08-24) and never written since, so the
-    -- clamp always came out at the default and this fallback could not carry what the reader chose.
-    --
-    -- **Clamped the way `ApplyOptions` clamps, floor included.** A stored negative used to come
-    -- out at the default here and at zero there, and the second one runs last -- so the manager
-    -- would sweep every frame while this side believed it was throttled.
-    local updatetime = ctx.updatetime;
-    if (type(updatetime) ~= "number") then
-        updatetime = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-    else
-        updatetime = max(0, min(updatetime, Constants.STATE_DRIVER_UPDATETIME_DEFAULT));
-    end
-    plan.updatetime = updatetime;
-
     return plan;
 end
 
@@ -697,7 +668,10 @@ local function ApplyBindingPlan(plan)
             SecureStateDriverManager:UnregisterEvent(entry.name);
         end
     end
-    SecureStateDriverManager:SetAttribute("updatetime", plan.updatetime);
+    --- **`updatetime` is Blizzard's and nobody here writes it** (2026-09-19, owner). Every moment
+    --- a key is handed back arrives as an event, and an event on the manager's own list puts its
+    --- timer to zero, so the interval never stood between one of those and the attribute moving.
+    --- A shorter one bought nothing and the attribute is shared with every other addon.
 
     -- The aliases this rebuild watches, resolved once so a press finds them standing.
     SecureHandlerExecute(driver, [[

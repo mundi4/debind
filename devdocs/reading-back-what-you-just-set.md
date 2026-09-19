@@ -52,12 +52,10 @@ Direct `DebindPrivate.UpdateBindings()` does not go through this. Only `QueueUpd
 
 **Blizzard's state driver poll — the only genuine clock in the system.**
 `SecureStateDriverManager` (`Blizzard_FrameXML/SecureStateDriver.lua`) runs on an OnUpdate throttled
-to `STATE_DRIVER_UPDATE_THROTTLE`, default `0.2`, settable through its `updatetime` attribute —
-which Debind writes. Two places write it, and the later one usually wins:
-`FinishBindingUpdate` writes what the rebuild planned, then `ApplyOptions("stateDriverUpdateThrottle")`
-writes the window slider's option over it. Both clamp to 0.2 at the top, so nothing Debind does can
-make the poll slower than Blizzard's own default, only faster. Nothing conditions the rate on which
-axes are measured: the slider is a user setting and it applies whatever the profile holds.
+to `STATE_DRIVER_UPDATE_THROTTLE`, default `0.2`, settable through its `updatetime` attribute.
+**Debind does not write it** (2026-09-19): the attribute is shared with every other addon, and
+every moment of ours that the manager carries arrives as an event, which zeroes its timer anyway.
+A stored `stateDriverUpdateThrottle` from the build that had a slider for it is read by nothing.
 
 Two things about it are worth knowing:
 
@@ -91,9 +89,10 @@ Two things follow.
 does nothing, so `pcall` around one answers "ok" either way. Writing a value and reading it straight
 back is the only oracle.
 
-So: anything that is only noticed by that poll — a unit appearing or going away under a cursor that
-never moved, a real world state changing with no event behind it — costs up to `updatetime` and
-nothing can shorten it.
+So: anything that is only noticed by that poll — a state the manager resolves with no event behind
+it — costs up to `updatetime` and nothing can shorten it. Nothing of Debind's is in that class any
+more: a condition is measured at the press, and the attribute driver behind Keys Given Back moves
+on events the manager is registered for.
 
 ---
 

@@ -2015,7 +2015,6 @@ UnregisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
 UnregisterEvent SecureStateDriverManager UPDATE_VEHICLE_ACTIONBAR
 RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
 RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
-SetAttribute SecureStateDriverManager updatetime = 0.2
 Execute DebindBindingDriver
   |         self:RunAttribute("UpdateAllUnits")
   |     
@@ -2030,4 +2029,3 @@ Execute DebindBindingDriver
   | ClickCastOnMouseDown=false
 SetAttribute <Button#52> showPlayer = true
 SetAttribute <Button#49> showPlayer = true
-SetAttribute SecureStateDriverManager updatetime = 0.2
