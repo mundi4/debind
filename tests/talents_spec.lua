@@ -8,7 +8,8 @@
 --
 -- **What this cannot see** is whether the real client fills those fields the way the fake one
 -- does. The shapes come from a measurement kept in `DebindDevDB.talentCondition`
--- (`devdocs/adding-a-talent-condition.md` §6-1), and nothing headless can check them again.
+-- (`devdocs/legacy/adding-a-talent-condition.md` §6-1), and nothing headless can check them
+-- again.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;

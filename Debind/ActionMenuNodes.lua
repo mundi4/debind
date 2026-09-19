@@ -597,7 +597,8 @@ local function BuildTalentRow(parent, ctx, specIDs, row)
     end
 end
 
---- **Talents, this specialization's** (`devdocs/adding-a-talent-condition.md` §5). The class tree,
+--- **Talents, this specialization's** (`devdocs/legacy/adding-a-talent-condition.md` §5). The
+--- class tree,
 --- this specialization's tree, one branch per hero tree and the pvp talents, each named the way
 --- the game names it.
 ---

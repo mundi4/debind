@@ -444,7 +444,8 @@ end
 --- **Read off the first specialization and written to all of them.** The class tree hands this the
 --- whole class, because a class talent means the same thing in every specialization and a tick
 --- that landed on one would read as untouched from the other three
---- (`devdocs/adding-a-talent-condition.md` §2). Reading is the specialization being played, which
+--- (`devdocs/legacy/adding-a-talent-condition.md` §2). Reading is the specialization being played,
+--- which
 --- is the one the reader is looking at; a set that arrived out of step realigns on the next click.
 local function TalentConditionIs(ctx, specIDs, spellID, state)
     return AllActions(ctx, function(action)

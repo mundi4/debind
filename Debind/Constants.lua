@@ -224,7 +224,8 @@ Constants.CONDITION_FIELDS = {
     specs = true,
     -- **A table of specialization ids, each holding two lists of spell ids**: the talents that
     -- have to be taken and the ones that have to not be. A specialization with no key here is one
-    -- the condition says nothing about (`devdocs/adding-a-talent-condition.md` §2), which is what
+    -- the condition says nothing about (`devdocs/legacy/adding-a-talent-condition.md` §2), which
+    -- is what
     -- lets one action carry another class's talents without dying on this character.
     talents = true,
     forms = true,

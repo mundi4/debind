@@ -2825,7 +2825,7 @@ function DebindPrivate.CleanUpDB()
                 end
                 -- **빈 칸은 조건이 아니다.** `talents`는 두 겹이라 아래의 `next` 한 번이 못
                 -- 닿는다. 아무것도 안 든 전문화 칸은 "그 전문화에 대해 아무 말도 안 했다"와
-                -- 같은 뜻인데(`devdocs/adding-a-talent-condition.md` §2), 남겨 두면 조건이
+                -- 같은 뜻인데(`devdocs/legacy/adding-a-talent-condition.md` §2), 남겨 두면 조건이
                 -- 하나도 없는 액션이 조건부로 서서 발동 순서가 바뀐다.
                 local talents = conditions.talents;
                 if (luatype(talents) == "table") then

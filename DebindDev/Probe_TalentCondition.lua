@@ -1,6 +1,7 @@
 -- Probe_TalentCondition.lua
 -- What a talent condition's menu and its judgment can reach, measured per specialization and
--- written to `DebindDevDB`. `devdocs/adding-a-talent-condition.md` §6-1 is what this answers.
+-- written to `DebindDevDB`. `devdocs/legacy/adding-a-talent-condition.md` §6-1 is what this
+-- answers.
 --
 -- **Every number in it was first taken by hand in chat, one specialization deep, and two of the
 -- readings were wrong.** `subTreeID` came back for the active specialization's two hero trees only,

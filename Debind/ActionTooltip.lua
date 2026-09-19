@@ -682,7 +682,8 @@ do
 
 		-- **The specialization being played and nothing else.** The other keys judge nothing in
 		-- this world -- a specialization the condition holds no key for is one it says nothing
-		-- about (`devdocs/adding-a-talent-condition.md` §2) -- and a tooltip describes the world
+		-- about (`devdocs/legacy/adding-a-talent-condition.md` §2) -- and a tooltip describes the
+		-- world
 		-- the reader is in. Naming them here put a specialization under a talent's line and read
 		-- as that talent being taken over there.
 		--- **Three cases, and the reader has to be able to tell them apart.** What is set on this

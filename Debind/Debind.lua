@@ -372,7 +372,8 @@ do
 				--
 				-- **The talent condition is the third, and it is the same rule again**: talents
 				-- cannot change in combat and every change that moves them rebuilds everything
-				-- (`devdocs/adding-a-talent-condition.md` §4), so this build has one answer to it.
+				-- (`devdocs/legacy/adding-a-talent-condition.md` §4), so this build has one answer
+				-- to it.
 				if (binding and DebindPrivate.SpecConditionHolds(binding)
 						and DebindPrivate.KnownConditionCanHold(binding)
 						and DebindPrivate.TalentConditionHolds(binding)) then
