@@ -524,7 +524,7 @@ L["ACTION_SET_KEY_ACCEPT_DESC"] = "Sets the key for this action and takes it: it
 --- there is somebody.
 ---
 --- Numbered placeholders because two of them are strings; the rule is in
---- `devdocs/writing-user-facing-text.md`.
+--- `writing-user-facing-text.md`.
 L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$d|r actions on it - everything that key does on this character, whichever specialization they belong to.|n|nWhat should happen to them when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
 --- Added under the question when any of the ones being counted lives in a shared scope.
 ---
@@ -545,7 +545,7 @@ L["KEY_GROUP_CONFLICT_SHARED"] = "Some of them are your other characters' as wel
 --- simply both sat on the key with their conditions telling them apart, because what arrived was
 --- parked on a key of its own. It is not parked anywhere now: accepting moves it onto `(key, nil)`,
 --- the reader's own group, and `RenumberKeyGroup` ranks the two as **one** group, 1..n
---- (`devdocs/building-export-import.md` 12절). Combining is exactly what happens.
+--- (`building-export-import.md` 12절). Combining is exactly what happens.
 ---
 --- The other half of that objection was that the client does not use the word. That test answers
 --- "is there a word here to reuse", and it was being read as "would a reader know this one" -- which
@@ -670,7 +670,7 @@ L["KEY_HEADER_REJECT_ONE"] = "Reject the one still waiting"
 ---
 --- **The scope is not "this group".** `Group` is this window's word for a party or a raid
 --- (`CONDITION_GROUP`, `UNITGROUP_NONE`), and a set sharing one key is not a thing the profile keeps
---- either (`devdocs/building-export-import.md` 12절). "under this heading" is what the item above
+--- either (`building-export-import.md` 12절). "under this heading" is what the item above
 --- says and is what this screen has to name it by.
 ---
 --- **The set coming apart is not said here.** `UNBIND_SCATTERS_CONFIRM` stands in front of the press
@@ -1178,7 +1178,7 @@ L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself
 -- would promise the opposite.
 --
 -- **The axis has no name here, only its values**: a class, a specialization, a character. That is
--- the `reaction` move in `devdocs/writing-user-facing-text.md`, and it is what keeps the sentence
+-- the `reaction` move in `writing-user-facing-text.md`, and it is what keeps the sentence
 -- out of the window's furniture.
 --
 -- ⚠ **The two lines below are what stops the rows reading as an order.** Stacked rows mean "the
@@ -1311,7 +1311,7 @@ L["CASTING"] = "Cast Options"
 -- would be the menu written out on one line.
 L["CASTING_DESC"] = "Which presses this action stands on, and where it goes on each of them."
 -- The three rows inside a cast key's menu. **Each says what happens while the key is held**, which
--- is the question the reader opened the row with (`devdocs/which-action-a-key-runs.md` §6).
+-- is the question the reader opened the row with (`which-action-a-key-runs.md` §6).
 --
 -- **The two keys are named by the client's own labels** (`AUTO_SELF_CAST_KEY_TEXT`,
 -- `FOCUS_CAST_KEY_TEXT`, the dropdowns in its settings), so the sentences here name the key the
@@ -1367,7 +1367,7 @@ L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and it goes 
 -- **Named apart from `TARGET_UNIT`.** That one is the target the reader picks; this row is what the
 -- pick turns into at the press, once a held key or Hover Cast has had its say, and that is you or
 -- your focus as often as a target. The two sit in one menu tree, where "Target" twice would read as
--- one thing (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+-- one thing (`implementing-focus-and-self-cast.md` §3-6).
 L["RESOLVED_TARGET"] = "Resolved Unit"
 -- **Formatted, not written out.** The first and last are this addon's own labels (`TARGET_UNIT`,
 -- `CASTING_AS_USUAL`) and the middle two the client's (`AUTO_SELF_CAST_KEY_TEXT`,
@@ -1379,7 +1379,7 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 --
 -- **Cast as usual is named because it lands on the current target too.** A held key or a pointed
 -- unit set to it sends the action where it would go with nothing held or pointed at, and the
--- conditions follow it there (`devdocs/which-action-a-key-runs.md` S3). Without it the sentence
+-- conditions follow it there (`which-action-a-key-runs.md` S3). Without it the sentence
 -- promises you or your focus on a press that goes neither way.
 --
 -- **"Sits the press out", not "does not go out".** A condition that fails hands the press to the
@@ -1632,7 +1632,7 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- **It is the moment a key starts working.** What arrives keeps the key it was sent on and the badge
 -- is the only thing holding it back, so this press puts it live. It used to be the opposite - what
 -- arrived sat on a number the build skipped - and the sentence that said so went with the number
--- (`devdocs/building-export-import.md` 12절).
+-- (`building-export-import.md` 12절).
 --
 -- **"As mine" came off** (2026-08-23, 소유자). It marked the answer while there was nothing else in
 -- the menu it could be confused with; the item beside it now is the same verb with a key picked
@@ -1690,7 +1690,7 @@ L["APPROVE_ALL_IMPORT"] = "Accept all"
 -- badge is the only thing holding them back, so taking the badge off is the moment they start
 -- working. It used to say the opposite, truthfully: what arrived sat on a number the build skipped,
 -- so accepting could not reach a key. That number is gone
--- (`devdocs/building-export-import.md` 12절) and the sentence went with it.
+-- (`building-export-import.md` 12절) and the sentence went with it.
 L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went, including other specializations. They start working on the keys they came in on. If any of those is a key you already use, you will be asked what to do about it first."
 -- Asked once for the whole batch, when accepting would take keys the reader is using.
 --
@@ -1731,7 +1731,7 @@ L["APPROVE_ALL_KEEP_EXISTING"] = "Keep Existing"
 -- What the label cannot say: **the incoming ones still arrive.** This answer is about the key, not
 -- about whether to take them - the reader already pressed accept - so what steps aside is the key
 -- and they land unbound. That is the state everything used to arrive in before an arrival kept the
--- key it was sent on (`devdocs/building-export-import.md` 12절).
+-- key it was sent on (`building-export-import.md` 12절).
 --
 -- **And that it is only the contested keys.** Anything that came in on a key nobody was using takes
 -- that key whichever of the three is pressed.
@@ -2030,7 +2030,7 @@ L["STORAGE_COPY"] = "Create Share Code"
 -- the grounds that some actions have no key, and that reading is wrong: the client's own Key
 -- Bindings screen lists a command that is not bound, so **unbound is a state inside bindings rather
 -- than outside them**. A word is cut for being wrong about the thing, not for being awkward in a
--- corner of it (`devdocs/writing-user-facing-text.md`) - and following the corner left `Setup`,
+-- corner of it (`writing-user-facing-text.md`) - and following the corner left `Setup`,
 -- which is a word of ours that says less. This one is the client's, it is what this window edits,
 -- and the item's own tooltip was already saying it.
 --
@@ -2054,7 +2054,7 @@ L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
 -- in koKR and almost none of them are this in enUS.
 --
 -- It is also the AddOns list name of the addon that keeps the payloads, and that was known and
--- taken: the two never stand on one screen (12절 of `devdocs/building-export-import.md`).
+-- taken: the two never stand on one screen (12절 of `building-export-import.md`).
 L["STORAGE_TITLE"] = "Storage"
 -- The header over actions this version has no layer for: a specialization number past the end of
 -- the class they came from, which only a hand-edited string carries. **They are drawn rather than

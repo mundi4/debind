@@ -209,7 +209,7 @@ return function(DebindPrivate)
 
     --- **이름을 들었어도 못 바꾼다** (2026-09-12, 소유자). 물음 자체는 본문이 되어도 서지만,
     --- 주문이 아닌 액션에 `known`을 세울 자리가 UI에 없어서 저장 쪽이 그 값을 안 들고 간다
-    --- (`Profile.lua`의 청소, `devdocs/making-known-a-spell-name.md`). 변환을 세워 주면 조건이
+    --- (`Profile.lua`의 청소, `making-known-a-spell-name.md`). 변환을 세워 주면 조건이
     --- 조용히 사라지는 것이 된다.
     test("이름을 든 배웠을 때만 조건도 변환을 막는다", function()
         installWorld();

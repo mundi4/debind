@@ -203,7 +203,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- An axis with nothing picked is said once (`devdocs/legacy/reorganizing-binding-issues.md` §3-6)
+    -- An axis with nothing picked is said once (`reorganizing-binding-issues.md` §3-6)
     --
     -- **The sentence stands where the axis's own line would**, and the value is not drawn beside it.
     -- The two used to come from two pieces of code that did not know about each other, so the same
@@ -397,7 +397,7 @@ return function(DebindPrivate)
     end);
 
     --- **Hover Cast turned off does not reach the bare left click** (`HoverCastChoiceOf`,
-    --- `devdocs/which-action-a-key-runs.md` §7), so the row runs and has no reason to give. The line
+    --- `which-action-a-key-runs.md` §7), so the row runs and has no reason to give. The line
     --- is drawn all the same, because what that key answers with is the pointed unit.
     test("Hover Cast turned off on the bare left click draws the pointed unit anyway", function()
         Bind({
@@ -539,7 +539,7 @@ return function(DebindPrivate)
 
     -- **One row, whatever the profile holds.** The special tab offered three per defined switch
     -- until 3c; it offers one that names no switch, and which switch is chosen in the action's own
-    -- menu afterwards (§6-C of `devdocs/legacy/redesigning-custom-states.md`).
+    -- menu afterwards (§6-C of `redesigning-custom-states.md`).
     --
     -- **The name is asked for, because a row that cannot be named is not drawn at all.**
     -- `NameAndIconForAction` formats the switch name into the label, and a target-less row has none
@@ -620,7 +620,7 @@ return function(DebindPrivate)
 
     -- **A binding the rebuild drops has to say why on the row.** A `known` whose answer is settled
     -- false for this rebuild takes the binding out of the key entirely
-    -- (`devdocs/baking-the-known-condition.md` §6-1), and with nothing on the row a reader is
+    -- (`baking-the-known-condition.md` §6-1), and with nothing on the row a reader is
     -- looking at a binding that is simply not firing and no word about it.
     --
     -- It takes `noSpell`, the flag that already means "that spell is not there". **It stays with

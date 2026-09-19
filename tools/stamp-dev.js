@@ -4,7 +4,7 @@
 // and this is what stands in for it. The file is gitignored and its TOC line lives inside
 // `#@debug@`, so nothing here can reach a user.
 //
-// Run by `.git/hooks/post-checkout` (see `devdocs/dev-setup.md`), and safe to run by hand.
+// Run by `.git/hooks/post-checkout` (see `dev-setup.md`), and safe to run by hand.
 // Worktrees share the common `.git`, so one hook covers all of them -- and because the hook runs
 // with the worktree as its working directory, each writes its own stamp.
 

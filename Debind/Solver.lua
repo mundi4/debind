@@ -222,7 +222,7 @@ local FIXED_COLUMNS = {
     },
     -- **This column is what keeps a self or focus twin from deleting its original.** The twin has
     -- the original's conditions and stands ahead of it, so without the column its box would hold
-    -- the original's whole (`devdocs/implementing-focus-and-self-cast.md` §3-5).
+    -- the original's whole (`implementing-focus-and-self-cast.md` §3-5).
     {
         name = "castModifier",
         make = function(binding)

@@ -50,7 +50,7 @@ return function(DebindPrivate)
     --- 것도 문제 코드가 아니라 다른 축이고, 답을 내는 자리가 따로 있다.
     --- **The action runs; one thing it was told to do does not.** No role picked with the party and
     --- raid frames among other frame types: the action still runs over every other frame
-    --- (`devdocs/legacy/reorganizing-binding-issues.md` §3-6). The first orange, "Clique took the hover
+    --- (`reorganizing-binding-issues.md` §3-6). The first orange, "Clique took the hover
     --- twin", went when Blizzard's unit frames became ours whether or not Clique is there (code
     --- review, 2026-09-08).
     local WARNING = {};

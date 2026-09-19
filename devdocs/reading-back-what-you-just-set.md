@@ -98,7 +98,7 @@ on events the manager is registered for.
 
 ## Where the test side of this lives
 
-`devdocs/testing-a-change.md` owns what `/debtest` does about it: the wait helpers, what each one
+`testing-a-change.md` owns what `/debtest` does about it: the wait helpers, what each one
 waits on, and the two ways a wait makes a test weaker. It used to be repeated here as well, and two
 copies of one table is one copy too many. Read this file for what is true when, and that one before
 adding a wait.

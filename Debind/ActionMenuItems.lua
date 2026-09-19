@@ -57,7 +57,7 @@ local function SomeCannotReason(acceptance)
 end
 
 --- 타입과 값을 그 자리에서 바꾼다. 확인 창이 먼저 서고, 승낙해야 선택 창이 바꾸기 모드로 뜬다
---- (`devdocs/legacy/changing-what-an-action-does.md`).
+--- (`changing-what-an-action-does.md`).
 ---
 --- **여러 줄을 한꺼번에 받는다.** 조건을 여러 액션에 한 번에 거는 것이 이 애드온에서 키 하나를
 --- 세우는 일 자체인데, 액션을 바꾸는 것만 한 줄씩 할 이유가 없다.
@@ -141,7 +141,7 @@ end
 
 --- Which switch an on/off/toggle action works, and what it does to it.
 ---
---- **This is what the picker stopped asking** (§6-C of `devdocs/legacy/redesigning-custom-states.md`).
+--- **This is what the picker stopped asking** (§6-C of `redesigning-custom-states.md`).
 --- The special tab offered three rows per switch, so choosing one there was the only way to
 --- say which, and changing your mind afterwards meant deleting the action and adding another.
 --- It had to be here regardless: deleting a switch leaves every action that named it pointing
@@ -260,10 +260,10 @@ end
 --- **It does not replace the binding mode.** That one is still how ten keys get set in a row:
 --- it stays on, aims at whatever the cursor is over, and takes back everything on [Cancel]. This
 --- is the one-off, on a target that was picked before any key was pressed. **Both shapes stay**,
---- and what each of them answers is in `devdocs/legacy/asking-for-a-key.md`.
+--- and what each of them answers is in `asking-for-a-key.md`.
 ---
 --- **A selection gets a string of its own.** `ACTION_SET_KEY_DESC` opens on "this action" and a
---- sentence stretched across both positions fits neither (`devdocs/writing-user-facing-text.md`).
+--- sentence stretched across both positions fits neither (`writing-user-facing-text.md`).
 --- **Over one arrival the label says the other half**: giving it a key accepts it
 --- (`DebindFrameMixin:SetActionKey`), and a plain label had the reader expecting the key to move and
 --- nothing else.
@@ -346,7 +346,7 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
 end
 
 --- The four presses an action can stand on, and where it goes on each
---- (`devdocs/which-action-a-key-runs.md` §6).
+--- (`which-action-a-key-runs.md` §6).
 ---
 --- **On every action, not only one that takes a target.** Every action has all three twins (§3), so
 --- a held key reaches a macro or a mount as well, and taking one out of that press is the same
@@ -391,7 +391,7 @@ local function CreateCastingMenu(parentDescription, ctx)
     }) do
         -- **The account's box takes the whole row.** With the key turned off in the settings the
         -- tier is not built at all, so none of the three answers means anything
-        -- (`devdocs/which-action-a-key-runs.md` §6). What is stored here is kept and waits.
+        -- (`which-action-a-key-runs.md` §6). What is stored here is kept and waits.
         local rowDescription = ActionMenus:BuildNode(description, {
             label = row.label,
             instruction = row.instruction,
@@ -757,7 +757,7 @@ end
 --- key, and drops out of the rebuild ahead of every other filter (`Debind.lua:286`). The key is
 --- still held for every other action on it, and goes back to the game only when none is left. It is
 --- the way out of "this action never runs" that does not mean turning a press back on
---- (`devdocs/which-action-a-key-runs.md` §6).
+--- (`which-action-a-key-runs.md` §6).
 local function CreateDisableMenuItem(rootDescription, ctx)
     local description = CreateCheckbox(rootDescription, ctx, LLL["ACTION_DISABLED"], actionValueEquals,
         setActionValue, { ctx = ctx, key = "disabled", value = USE_CHECKED_VALUE });

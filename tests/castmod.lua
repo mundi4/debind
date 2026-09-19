@@ -1,8 +1,8 @@
 -- The self and focus twins and the BLOCKs, taken back out of a key's list.
 --
 -- Every action puts a self twin and a focus twin on its key, and those fill the key's first two
--- tiers (`devdocs/implementing-focus-and-self-cast.md` §3-4); every tier of a key that holds one
--- ends in a BLOCK (`devdocs/legacy/dropping-the-game-fallback.md` §3). Most specs ask about the order
+-- tiers (`implementing-focus-and-self-cast.md` §3-4); every tier of a key that holds one
+-- ends in a BLOCK (`dropping-the-game-fallback.md` §3). Most specs ask about the order
 -- among actions, or among what a press with no modifier held can reach. These helpers let them keep
 -- asking exactly that, where writing every index out with the twins and blocks in would bury the
 -- question under arithmetic.

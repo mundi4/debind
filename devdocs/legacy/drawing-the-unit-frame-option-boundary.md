@@ -11,7 +11,7 @@
 ## 0. 어디서 나온 자리이고, 무엇을 봤나
 
 **바로 앞 작업이 이 옵션들을 게임 설정창의 애드온 탭으로 옮겼다**
-(`devdocs/legacy/moving-global-options-to-the-settings-panel.md`). 옮기는 일 자체는 자리와 위젯을
+(`moving-global-options-to-the-settings-panel.md`). 옮기는 일 자체는 자리와 위젯을
 바꾸는 일이라, **각 옵션이 무엇을 묻는 상자인지는 옛 메뉴에 있던 그대로 따라왔다.** 세 종류가 한
 구역에 평평하게 서고 나서야 그 물음들이 서로 어긋나 있는 것이 보였고, 이 문서는 그 경계를 다시
 긋는 자리다.
@@ -303,7 +303,7 @@ Unit Frame Addons                             (섹션 헤더)
 9. `tools/snippet-golden.txt`가 움직였다. 스니펫 둘이 줄고 `clickcast_on*` 둘이 바뀐 것뿐이다.
 10. `tests/wow_shim.lua`가 `UNITFRAME_LABEL`을 답한다. 클라이언트 문자열을 그대로 쓰는 자리라
     섀도가 그것을 모르면 스펙 전체가 nil을 읽는다.
-11. `devdocs/restricted-environment.md`의 핫패스 목록에서 호버 줄을 고쳤다. 우리 프레임이 실제로
+11. `restricted-environment.md`의 핫패스 목록에서 호버 줄을 고쳤다. 우리 프레임이 실제로
     도는 것은 `setup_onenter_wrap` 쪽이고, `clickcast_onenter`는 남이 복사해 갔을 때의 길이다.
 
 **이름 없는 헤더 자식은 이 문으로 못 온다.** `CallMethod`는 인자를 문자열과 숫자와 boolean으로

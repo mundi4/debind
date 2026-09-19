@@ -33,7 +33,7 @@ local ccframesMeta = {
     --- **A write taking a frame back is filed and nothing else.** The table says what it has been
     --- told, so the row goes; the frame stays ours, because being ours is the blacklist's answer
     --- and not the frame owner's
-    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5).
+    --- (`taking-every-unit-frame-with-one-blacklist.md` §1-5).
     __newindex = function(_, frame, value)
         if (value == nil or value == false) then
             registered[frame] = nil;
@@ -55,7 +55,7 @@ local ccframesMeta = {
 --- **A `false` row is registered like any other.** What that row says is what the addon before us
 --- decided, and that is not the question this table answers: every unit frame is ours whoever
 --- else is standing on it, and the only thing that leaves one alone is the reader's blacklist
---- (`devdocs/how-unit-frames-reach-us.md` §2 and §4). Skipping those rows handed a frame nobody
+--- (`how-unit-frames-reach-us.md` §2 and §4). Skipping those rows handed a frame nobody
 --- ticked to the addon that had written the cell (code review, 2026-09-11).
 ---
 --- **Filed as `nil` all the same**, which is what `__newindex` does with the same value. Two doors
@@ -280,7 +280,7 @@ DebindPrivate.AttachClickCastFrames = AttachClickCastFrames;
 --- **모양으로는 못 가른다.** 밖에서 보이는 것은 메타테이블뿐인데, `__index`를 다는 프록시가
 --- 우리만이 아니다. EllesmereUI의 엔진은 자기 `registeredFrames`에서 답하는 `__index`를 달고,
 --- Clique가 깔린 판에서도 저장된 설정이 켜져 있으면 그 프록시가 Clique의 표 위에 앉는다
---- (`devdocs/how-unit-frames-reach-us.md`의 EllesmereUI 절). 그래서 그 모양을 우리 것이라고
+--- (`how-unit-frames-reach-us.md`의 EllesmereUI 절). 그래서 그 모양을 우리 것이라고
 --- 읽으면 남의 프록시를 우리 것으로 세는데, 실제로 `/debtest`가 그렇게 읽고 실패를 냈다.
 --- 신원은 이 안에서만 답할 수 있어서 문을 하나 낸다.
 function DebindPrivate.ClickCastTableHolder()
@@ -335,7 +335,7 @@ function DebindPrivate.AttachCliqueHeader()
 
     --- **`export_unregister` is listened to by nobody.** A header taking a child back is a
     --- deregistration arriving from outside, and one of those means nothing here
-    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5).
+    --- (`taking-every-unit-frame-with-one-blacklist.md` §1-5).
     header:HookScript("OnAttributeChanged", function(_, name, value)
         if (name == "export_register") then
             TakeExported(value);

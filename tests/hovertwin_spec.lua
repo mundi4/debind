@@ -1,4 +1,4 @@
--- **The hover twin, one rule and no special cases** (`devdocs/which-action-a-key-runs.md` §4, §5).
+-- **The hover twin, one rule and no special cases** (`which-action-a-key-runs.md` §4, §5).
 -- No WoW client needed.
 --
 -- The twin inherits every condition the reader wrote, adds [the pointed unit is there] on the unit
@@ -73,7 +73,7 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- 1. 바인딩이 둘인 액션은 둘 다 죽어야 도달 불가다
-    -- (`devdocs/legacy/splitting-an-action-into-bindings.md` §3-1)
+    -- (`splitting-an-action-into-bindings.md` §3-1)
     ---------------------------------------------------------------------------
 
     --- Puts every binding of `cover` ahead of every binding of the subject. **Not the key's tier
@@ -427,7 +427,7 @@ return function(DebindPrivate)
 
     --- **Every press turned off makes no binding at all**, and it is said as a reason the row does
     --- not run rather than as an issue. Nothing blocks it (2026-09-16, owner;
-    --- `devdocs/legacy/reorganizing-binding-issues.md` §3-3).
+    --- `reorganizing-binding-issues.md` §3-3).
     test("an action with every press off has no binding and is warned about", function()
         local action = spell();
         action.casting = {

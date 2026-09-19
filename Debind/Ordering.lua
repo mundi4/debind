@@ -41,7 +41,7 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- **The one step that has gone is the unit-frame one**, which ranked a binding carrying a
 --- condition on the pointed frame's unit ahead of one that did not. That unit is an ordinary unit
 --- now, so what that step said is said by the tier a hover twin stands in
---- (`devdocs/which-action-a-key-runs.md` §3). The `dbver` step that took the condition apart
+--- (`which-action-a-key-runs.md` §3). The `dbver` step that took the condition apart
 --- renumbers every key group with the old comparator, so nobody's order moved.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
     local lhsImportance = lhs.priority or DEFAULT_IMPORTANCE;
@@ -79,7 +79,7 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
     -- **Every action being compared here has a key**, so it has a number: no key, no number
     -- (`ClearActionKey`), and this comparator is only ever asked about actions sharing one. An
     -- arrival keeps the key it was sent on, so it is a key group like any other
-    -- (`devdocs/building-export-import.md` 12절) -- there used to be a second field read in this
+    -- (`building-export-import.md` 12절) -- there used to be a second field read in this
     -- slot for sets that had no key of their own, and it is gone with that case.
     --
     -- Absent reads as 0. If the net ever tears, that beats comparing nil inside a sort.
@@ -325,7 +325,7 @@ do
     --- 그것도 같으면 수식키를 앞에서부터 비교.
     ---
     --- **A number is a key whose real one has not been decided yet** and it sorts after every real
-    --- key, in the slot the unbound pile sits in (`devdocs/building-export-import.md`). It has no
+    --- key, in the slot the unbound pile sits in (`building-export-import.md`). It has no
     --- modifiers and no key name to rank, so nothing below this could say anything about it -- and
     --- comparing a number against a string there is what raises **inside `table.sort`**, which
     --- leaves the column half drawn.

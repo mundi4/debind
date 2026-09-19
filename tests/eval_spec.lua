@@ -2,7 +2,7 @@
 --
 -- Everything above this file measures what a rebuild decided. This one runs the decision: the
 -- emitted records go into a restricted environment, `EVAL_SNIPPET` walks them, and the winner is
--- read back (`devdocs/legacy/going-headless-outside-the-ui.md` §5, `tests/restricted.lua`).
+-- read back (`going-headless-outside-the-ui.md` §5, `tests/restricted.lua`).
 --
 -- These came down from `/debtest`, where they were the only layer that could see them. What each
 -- one gives up by coming down is the same three things (§8): whether the sandbox would compile the
@@ -130,7 +130,7 @@ return function(DebindPrivate, _, ctx)
     -- answer on our button (`CalculateAction` answers slot 1 for it), and self cast and focus cast
     -- are the click wrapper's to decide now: left on, they would still redirect every press that
     -- fires with no unit, in the order the addon took them over to fix
-    -- (`devdocs/implementing-focus-and-self-cast.md` §1, §3-7).
+    -- (`implementing-focus-and-self-cast.md` §1, §3-7).
     --
     -- A key press and a frame click are both run through the wrapper here, since the wrapper used
     -- to write two of them on every click.
@@ -369,7 +369,7 @@ return function(DebindPrivate, _, ctx)
 
     -- A `known` condition is answered by parsing the conditional the record carries. The value it
     -- names is the spell, and `true` is the action's own, named at the bake
-    -- (`devdocs/making-known-a-spell-name.md`). The state loop reads the same string as a key in
+    -- (`making-known-a-spell-name.md`). The state loop reads the same string as a key in
     -- `States`.
     test("a known condition follows the spell book", function()
         Bind({
@@ -385,7 +385,7 @@ return function(DebindPrivate, _, ctx)
 
     -- **The same two outcomes, reached at the rebuild instead of at the press.** A `known` the
     -- rebuild can settle carries no axis at all, or takes its record out of the key
-    -- (`devdocs/baking-the-known-condition.md` §5) -- and the press has to land where it lands
+    -- (`baking-the-known-condition.md` §5) -- and the press has to land where it lands
     -- today either way. That is the whole claim the optimization rests on, and the restricted
     -- side is the only thing that can check it.
     --
@@ -663,7 +663,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- Self cast and focus cast (`devdocs/implementing-focus-and-self-cast.md`)
+    -- Self cast and focus cast (`implementing-focus-and-self-cast.md`)
     ---------------------------------------------------------------------------
 
     --- Two actions on F1: a heal that asks for a friendly target, and a plain one behind it. Both
@@ -961,7 +961,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- The key laid out in tiers (`devdocs/implementing-focus-and-self-cast.md` §3-4)
+    -- The key laid out in tiers (`implementing-focus-and-self-cast.md` §3-4)
     ---------------------------------------------------------------------------
 
     local FRIEND = { id = "friend", reaction = "help" };
@@ -1499,7 +1499,7 @@ return function(DebindPrivate, _, ctx)
     --
     -- **This one stays in `/debtest` as well.** It is the anchor: four axes over seven records is
     -- where a difference between this interpretation and the real environment would show
-    -- (`devdocs/legacy/going-headless-outside-the-ui.md` §9).
+    -- (`going-headless-outside-the-ui.md` §9).
     test("the press picks the exact record out of seven", function()
         --- The key's records, in order, each as the world it needs. `nil` means the axis is not
         --- named by that record.
@@ -1586,7 +1586,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- `devdocs/which-action-a-key-runs.md` §S5: one row, one test
+    -- `which-action-a-key-runs.md` §S5: one row, one test
     --
     -- Written from the table and not from the code: each row's action, press and answer are the
     -- row's own. "Next" is the action alone on its key, so the answer is that nothing fires.
@@ -2074,7 +2074,7 @@ return function(DebindPrivate, _, ctx)
         end);
 
         -----------------------------------------------------------------------
-        -- No role picked (`devdocs/legacy/reorganizing-binding-issues.md` §3-6)
+        -- No role picked (`reorganizing-binding-issues.md` §3-6)
         --
         -- **A role is only measured on a party or raid frame.** Everywhere else the condition has no
         -- say, so an empty one stops the action on those frames and nowhere else. Asked of the press

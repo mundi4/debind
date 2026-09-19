@@ -1,7 +1,7 @@
 -- 키 그룹째 키를 주는 것. `Profile.lua`의 `SetKeyForActions`와 그 앞에 서는 수집 함수.
 --
 -- **이 파일이 지키는 것은 보낸 사람의 순서다.** 도착분이 나르는 설계의 잔존물이 그것뿐인데
--- (`devdocs/building-export-import.md`), 액션에 하나씩 키를 주면 조용히 사라진다 - `seq`는 만진
+-- (`building-export-import.md`), 액션에 하나씩 키를 주면 조용히 사라진다 - `seq`는 만진
 -- 차례대로 발급되지 그 액션이 몇 번째였는지를 안 본다. 그래서 그룹째 주는 조작은 편의가 아니라
 -- 순서를 지키는 유일한 길이다.
 --
@@ -170,7 +170,7 @@ return function(DebindPrivate)
     -- **배지가 붙어 있는 동안은 실키를 들고도 키맵에 안 선다.** 이 개편 전체가 그 한 줄 위에
     -- 서 있다(`BuildKeyMap`) - 도착분이 보낸 사람의 실키를 그대로 들고 오니 키 값으로는 내 것과
     -- 구분이 안 되고, 막아주는 것은 배지 하나뿐이다. 예전에는 키가 숫자라는 것이 두 번째 자물쇠
-    -- 였는데 그 숫자를 없앴다(`devdocs/building-export-import.md` 12절). 여기가 빨개지면 남의
+    -- 였는데 그 숫자를 없앴다(`building-export-import.md` 12절). 여기가 빨개지면 남의
     -- 문자열을 받는 순간 남의 키가 내 키보드에서 돈다.
     test("배지 달린 것은 실키를 들고도 키맵에 안 선다", function()
         ResetProfile({ general = { Arrived(10, "F", 1, 7) } });
@@ -364,7 +364,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- **오프스펙 레이어는 범위 안이다.** 그 액션들은 이제 왼쪽 열에 그려지고, 지금 안 돈다는
-    -- 것만 사유 칸이 말한다(`devdocs/legacy/showing-off-spec-actions.md`).
+    -- 것만 사유 칸이 말한다(`showing-off-spec-actions.md`).
     test("그룹도 점유자도 오프스펙 레이어까지 모은다", function()
         ResetProfile({
             class = {
@@ -410,7 +410,7 @@ return function(DebindPrivate)
     -- 그룹째 키를 빼는 것
     --
     -- **키를 지우면 그룹이 없어진다.** 붙들어 둘 번호가 없다 - 그것이 합성 키였고, 없앤 사유는
-    -- `devdocs/building-export-import.md` 12절에 있다. 그래서 이 조작은 되돌릴 수 없고, 묻는
+    -- `building-export-import.md` 12절에 있다. 그래서 이 조작은 되돌릴 수 없고, 묻는
     -- 것은 `DebindUI.UnbindActions`의 몫이다.
     ---------------------------------------------------------------------------
 

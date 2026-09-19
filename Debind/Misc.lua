@@ -605,7 +605,7 @@ end
 --- This binding's condition on `unitframe`, in binding shape: nil, `false`, or a table.
 ---
 --- **Read each time, not kept as a field.** The pointed frame's unit is an ordinary unit
---- (`devdocs/which-action-a-key-runs.md` §0), so a second name for one entry of `units` would be
+--- (`which-action-a-key-runs.md` §0), so a second name for one entry of `units` would be
 --- the split that fold removed. The readers left are the ones that ask something about the **key**
 --- rather than about the unit: which path a press takes (`UpdateBindings.lua`'s `isClickCast` and
 --- `holdsKey`), whether a mouse button can be bound at all (`IsKeyInvalidForAction`), and where the
@@ -662,7 +662,7 @@ DebindPrivate.CellsToUnitGroup = CellsToUnitGroup;
 --- **`target` is where the condition is checked and nothing more.** An original with no target keeps
 --- `unit` empty and goes out for the game to place, Auto Self Cast included. Writing `target` into the
 --- field would turn Auto Self Cast off the moment a condition was set, which is picking `target` under
---- Target (`devdocs/implementing-focus-and-self-cast.md` §3-6). `""`, the hovered unit turned off, is
+--- Target (`implementing-focus-and-self-cast.md` §3-6). `""`, the hovered unit turned off, is
 --- the game placing the cast too.
 ---
 --- **One rule for every reader**: the unit states below, the record `UpdateBindings.lua` emits, the
@@ -939,7 +939,7 @@ do
     -- nothing at the moment nothing is pointed at.
     local UNIT_IS_THERE = {};
 
-    --- 액션을 바인딩으로. **두 모양이 무엇을 드는지는 `devdocs/action-and-binding-shapes.md`가
+    --- 액션을 바인딩으로. **두 모양이 무엇을 드는지는 `action-and-binding-shapes.md`가
     --- 든다** - 여기서 되풀이하면 둘째 진실이 생긴다.
     ---
     --- 이 함수에만 있는 사실 셋:
@@ -962,7 +962,7 @@ do
     --- both read it, so changing `unit` on a filled binding leaves `"@"` standing on the old unit.
     ---
     --- **`dead` is asked of each binding, not of the action**
-    --- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-2). `"@"` lands on the unit each binding
+    --- (`rewriting-evaluate-issues.md` §2-2). `"@"` lands on the unit each binding
     --- aims at, so one action can have twins that stand beside an original that cannot, or the other
     --- way round. Nothing downstream drops such a binding, so `BuildKeyMap` leaves it out itself.
     ---
@@ -1000,7 +1000,7 @@ do
         -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
         -- the original's field: the twins each stand in a tier of their own and Normal Cast says
         -- nothing about those tiers. `BuildKeyMap` reads it to leave the original out of the last
-        -- tier (`devdocs/which-action-a-key-runs.md` §6). The bare left and right click have no
+        -- tier (`which-action-a-key-runs.md` §6). The bare left and right click have no
         -- original whatever the box says: it would hold the key and take the world click (§7).
         if (twin or (DebindPrivate.NormalCastEnabled(action)
                 and not DebindPrivate.IsBareWorldClick(action.key))) then
@@ -1130,7 +1130,7 @@ do
 
         -- **A type with no spell carries no `known` at all**, whatever the value is. The question
         -- does stand on its own now that the value names a spell
-        -- (`devdocs/making-known-a-spell-name.md`), but no menu offers it on those types, so a
+        -- (`making-known-a-spell-name.md`), but no menu offers it on those types, so a
         -- value there is one the reader could not have made and cannot take off. `CleanUpDB` takes
         -- it out of storage for the same reason; this is the same rule on the binding.
         --
@@ -1197,7 +1197,7 @@ do
 
         -- **Every original stands on [none held]**, whatever its type or target: every action has
         -- the self and focus twins, so a held modifier is answered among those and never by an
-        -- original placed ahead of them (`devdocs/implementing-focus-and-self-cast.md` §3-4).
+        -- original placed ahead of them (`implementing-focus-and-self-cast.md` §3-4).
         binding.castModifier = castModifier or Constants.CASTMOD_NONE;
         binding.hoverTwin = pointedUnit ~= nil or nil;
 
@@ -1210,7 +1210,7 @@ do
         end
 
         -- **A unit frame condition fills no target in.** With no unit picked the original lets the
-        -- game place the cast, condition or no condition (`devdocs/which-action-a-key-runs.md` §5);
+        -- game place the cast, condition or no condition (`which-action-a-key-runs.md` §5);
         -- the pointed unit is reached through the hover twin, which is what the condition's own
         -- action is carried over as (§8). The fill-in that used to sit here put `unitframe` in
         -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
@@ -1240,7 +1240,7 @@ do
     end
 
     --- The three places Debind hands a key it holds back to the game, and the two values that
-    --- narrow what goes over (`devdocs/giving-keys-back.md` §7).
+    --- narrow what goes over (`giving-keys-back.md` §7).
     ---
     --- **Two of the three are on with the value absent and one is off**, so which way a reader is
     --- asked differs per row. What decides it is whether the situation happens in a fight: a pet
@@ -1275,7 +1275,7 @@ do
     --- One value of `action.casting`. **The stored table is not trusted to hold a name we know**: a
     --- payload carries whatever it was written with, so an unknown value has to read as the default,
     --- which is what an action with no `casting` at all has
-    --- (`devdocs/action-and-binding-shapes.md` §1).
+    --- (`action-and-binding-shapes.md` §1).
     local function CastingValue(action, name)
         local casting = action and action.casting;
         return casting and casting[name];
@@ -1283,14 +1283,14 @@ do
 
     --- Whether that press's twin goes out at the unit the press names, or the way the original does.
     --- "Cast as usual" is the second: the twin keeps its turn in that tier and lets the game place
-    --- the cast, Auto Self Cast included (`devdocs/which-action-a-key-runs.md` §6).
+    --- the cast, Auto Self Cast included (`which-action-a-key-runs.md` §6).
     local function CastsAsUsual(action, name)
         return CastingValue(action, name) == "usual";
     end
 
     --- The settings tab's Hover Cast mode, which an action follows unless it names one of its own.
     --- Absent reads as Unit Frames, because that is where the condition it replaces stood
-    --- (`devdocs/which-action-a-key-runs.md` §8).
+    --- (`which-action-a-key-runs.md` §8).
     function DebindPrivate.AccountHoverCastMode()
         local options = DebindPrivate.Options;
         if (options and options.hoverCastMode == "mouseover") then
@@ -1301,7 +1301,7 @@ do
 
     --- The unit this action counts as pointed at. **`hover` is a name storage uses and this is where
     --- it stops**: everything below reads `unitframe` or `mouseover`
-    --- (`devdocs/which-action-a-key-runs.md` §0).
+    --- (`which-action-a-key-runs.md` §0).
     ---
     --- **A skipped action has a mode too**: it names the unit whose presence takes the action off the
     --- press (`HoverCastSkipped`).
@@ -1309,7 +1309,7 @@ do
     --- **Asked of no action it answers the account's mode**, which is what the settings tab shows.
     ---
     --- **The bare left and right click answer Unit Frames whatever the action or the tab says**
-    --- (`devdocs/which-action-a-key-runs.md` §7). The key is never held there, so a Mouseover twin
+    --- (`which-action-a-key-runs.md` §7). The key is never held there, so a Mouseover twin
     --- would have to take the world click to stand at all.
     function DebindPrivate.HoverCastMode(action)
         if (action and DebindPrivate.IsBareWorldClick(action.key)) then
@@ -1325,11 +1325,11 @@ do
     --- Whether Debind answers the Self Cast Key and the Focus Cast Key for this action. **Absent
     --- means on** on both levels, which is how every key behaved before either value existed. Off is
     --- no twin and no question at the press, never the game's own handling
-    --- (`devdocs/implementing-focus-and-self-cast.md` §3-12).
+    --- (`implementing-focus-and-self-cast.md` §3-12).
     ---
     --- **The account's box and the action's value are one answer.** With the box off the tier is not
     --- built at all, so the action's value has nothing to say there
-    --- (`devdocs/which-action-a-key-runs.md` §6); asked of no action, this is the box alone, which
+    --- (`which-action-a-key-runs.md` §6); asked of no action, this is the box alone, which
     --- is what the emitter wires the press up from.
     function DebindPrivate.SelfCastEnabled(action)
         local options = DebindPrivate.Options;
@@ -1353,7 +1353,7 @@ do
     --- **Off leaves the original where it was**, in the last tier, so the action still answers a
     --- pointed press when nothing ahead of it does. Keeping it out of the pointed press is a
     --- condition the reader writes on that unit, not a value here
-    --- (`devdocs/which-action-a-key-runs.md` §6).
+    --- (`which-action-a-key-runs.md` §6).
     ---
     --- **The bare left and right click answer `"cast"` whatever is stored** (§7). The only press
     --- those keys can serve is a click on a unit frame, so off would leave the action with nothing.
@@ -1370,7 +1370,7 @@ do
 
     --- Which of the three a press holds: the action goes to that press's unit (`"cast"`), where the
     --- press would have gone anyway (`"usual"`), or it is out of that press (`"skip"`). The same three
-    --- on all three rows (`devdocs/which-action-a-key-runs.md` §6).
+    --- on all three rows (`which-action-a-key-runs.md` §6).
     function DebindPrivate.CastKeyChoiceOf(action, row)
         local value = CastingValue(action, row);
         if (value == "usual" or value == "skip") then
@@ -1382,7 +1382,7 @@ do
     --- Whether the action stands on a press with nothing held and nothing pointed at. Off is the
     --- original not being made, so the press falls through to the next action on the key -- which is
     --- what the old [when a frame is pointed at] condition did, without swallowing the press
-    --- (`devdocs/which-action-a-key-runs.md` §6).
+    --- (`which-action-a-key-runs.md` §6).
     function DebindPrivate.NormalCastEnabled(action)
         local casting = action and action.casting;
         return not (casting and casting.normalCast == false);
@@ -1400,7 +1400,7 @@ do
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
     ---
-    --- **One rule, and the special cases are gone** (`devdocs/which-action-a-key-runs.md` §4). The
+    --- **One rule, and the special cases are gone** (`which-action-a-key-runs.md` §4). The
     --- twin inherits every condition the reader wrote, adds [the pointed unit is there] on the unit
     --- the action's mode names, and goes out at that unit. A condition the reader wrote is never
     --- widened, and a unit the reader picked is never moved.
@@ -1446,7 +1446,7 @@ do
     --- Every binding one action puts on its key, in place: `[1]` is the original
     --- (`GetBindingInfoForAction`'s table) and what follows is derived. `BuildKeyMap` sorts the
     --- originals and lays the key out in tiers after the sort, so only a hover twin has a placement
-    --- of its own (`devdocs/implementing-focus-and-self-cast.md` §3-4).
+    --- of its own (`implementing-focus-and-self-cast.md` §3-4).
     function DebindPrivate.GetBindingsForAction(action)
         local list = _ActionToBindingsCache[action];
         if (not list) then
@@ -1491,7 +1491,7 @@ do
             focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
         end
 
-        -- **Four values off is an action with no bindings at all** (`devdocs/which-action-a-key-runs.md`
+        -- **Four values off is an action with no bindings at all** (`which-action-a-key-runs.md`
         -- §6). It is not blocked: the row says why it does not run (`GetCastingOffReason`), and the
         -- key carries on with whatever else is on it. Answered before anything is filled, so the caches
         -- keep the tables they had. **The original's mark, not the stored box**: Skip can take the
@@ -1589,7 +1589,7 @@ end
 --- nothing at all.
 ---
 --- **One record per action, twins included.** Every tier stands in the originals' order, which is
---- the order the window draws (`devdocs/which-action-a-key-runs.md` §2), so a twin is never ordered
+--- the order the window draws (`which-action-a-key-runs.md` §2), so a twin is never ordered
 --- against anything on its own terms.
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     local binding = GetBindingInfoForAction(action);
@@ -1860,7 +1860,7 @@ end
 --- rebuilds everything.
 ---
 --- What this binding's `known` condition asks about: the spell it names, or the action's own spell
---- where it says `true` (`devdocs/making-known-a-spell-name.md`). nil where there is no condition,
+--- where it says `true` (`making-known-a-spell-name.md`). nil where there is no condition,
 --- and where `true` has no spell to fall back on.
 ---
 --- **One answer for the three places that ask.** The conditional baked into the record, the
@@ -1887,7 +1887,7 @@ function DebindPrivate.KnownSpellAsked(binding)
 end
 
 --- **Only `true` can answer no**, because only `true` asks about the action
---- (`devdocs/making-known-a-spell-name.md`). A condition carrying a spell of its own asks the same
+--- (`making-known-a-spell-name.md`). A condition carrying a spell of its own asks the same
 --- question whatever this specialization resolves to, and a specialization that cannot answer it
 --- is answering false rather than having nothing to answer.
 ---
@@ -1932,14 +1932,14 @@ end
 --- **A key is a binding string and nothing else.** This used to take a second argument and to guard
 --- against a number, because a set whose key the reader had not decided sat on one and the heading
 --- had to be told separately which key it had come in on. An arrival keeps the key it was sent on,
---- so the key names it (`devdocs/building-export-import.md` 12절) and there is no second thing left
+--- so the key names it (`building-export-import.md` 12절) and there is no second thing left
 --- to say.
 function DebindPrivate.GetKeyDisplayText(key)
     return GetBindingText(key);
 end
 
 --- The bare left and right click. **Never held**: the only press Debind answers on them is a click on
---- a unit frame, whatever the action's Cast Options say (`devdocs/which-action-a-key-runs.md` §7).
+--- a unit frame, whatever the action's Cast Options say (`which-action-a-key-runs.md` §7).
 function DebindPrivate.IsBareWorldClick(key)
     return key == "BUTTON1" or key == "BUTTON2";
 end
@@ -2029,7 +2029,7 @@ end
 --- The third is the target of an on/off/toggle action, which is `action.value`. That one is picked
 --- from a list, so it cannot be mistyped. But the switch it was picked for can be deleted
 --- afterwards, and a string from someone else arrives naming switches this profile has never had,
---- because an import plants no definitions (`devdocs/building-export-import.md`). Nothing goes
+--- because an import plants no definitions (`building-export-import.md`). Nothing goes
 --- wide there: the press sets a name nothing reads and the row draws clean. **Which is the
 --- problem.** The reader's only sign that the key does nothing is that nothing happens, and this
 --- mark is the only thing that can say so out loud.
@@ -2183,7 +2183,7 @@ end
 --- was written and mean nothing here.
 ---
 --- Which is why it could not be left out once strings started travelling between installs
---- (`devdocs/building-export-import.md`). Until now a `MACRO` naming nothing simply bound and
+--- (`building-export-import.md`). Until now a `MACRO` naming nothing simply bound and
 --- did nothing on press: `UpdateBindings` stamps `*macro-<button>` with the name and the secure
 --- handler finds no macro, with no error and no mark anywhere on screen. The imported-actions rule
 --- is "send broken things too, the reader sees red and deletes them" -- and this was the hole in
@@ -2262,7 +2262,7 @@ local function IssueOutcome(code)
 end
 
 --- What colour a problem is drawn in. **The grade picks it, never the code** -- that is the whole
---- of `devdocs/legacy/grading-binding-issues.md`, and it is why a new issue needs one row in
+--- of `grading-binding-issues.md`, and it is why a new issue needs one row in
 --- `BINDING_ISSUE_GRADES` and no edit anywhere that paints.
 ---
 --- Red is what waits on the reader; orange is the key working with one thing it was told to do
@@ -2429,7 +2429,7 @@ local function SkyridingAgainstBonusBars(action)
 end
 
 --- **What an action issue reads is only what is stored**
---- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-1). Each answer holds for every binding the
+--- (`rewriting-evaluate-issues.md` §2-1). Each answer holds for every binding the
 --- action could make, so none has to be made.
 ---
 --- A pair that two menus can undo stands as two rows under the one code, so each menu hears it.
@@ -2570,7 +2570,7 @@ local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting =
 --- **An empty list with Hover Cast on is always the second.** With it on the twin is missing for one
 --- reason only, that condition, and every other press being gone is what emptied the list. Off is the
 --- reader's own value; the condition against the mode is two menus disagreeing
---- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3).
+--- (`reorganizing-binding-issues.md` §3-3).
 --- Both readings of the unit a bare click lands on, in the order the message names them.
 local BARE_CLICK_UNITS = { "unitframe", "mouseover" };
 
@@ -2678,7 +2678,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
     end
 
     -- **The binding issue reads the list `BuildKeyMap` binds**
-    -- (`devdocs/legacy/rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row, no
+    -- (`rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row, no
     -- `casting` and no old `hover` pair, no binding can be empty and none can be dropped, so the
     -- list is not made: that is most rows the window draws.
     --
@@ -2994,7 +2994,7 @@ end
 --- storage while the key fires without it.
 ---
 --- `known` is only offered on a type that casts a spell, and nothing takes it off a type that does
---- not (`devdocs/making-known-a-spell-name.md`). A body sitting in `value` is such a type, so the
+--- not (`making-known-a-spell-name.md`). A body sitting in `value` is such a type, so the
 --- condition would be dropped on the way out and the row would go on drawing it.
 ---
 --- `"@"` points at the unit the action aims at, and where the body spells that unit out the key has
@@ -3018,9 +3018,9 @@ local function ConditionsSurviveMacroText(action)
     -- only hold one. Dropping it would leave the converted key firing the wrong half.
     --
     -- **쌍둥이는 변환을 막지 않는다** (2026-09-16, 소유자). 쌍둥이는 액션이 유닛을 받든 못 받든 서고
-    -- 유닛을 받아 간다(`devdocs/which-action-a-key-runs.md` §3). 매크로 본문이 그 유닛을 읽느냐는
+    -- 유닛을 받아 간다(`which-action-a-key-runs.md` §3). 매크로 본문이 그 유닛을 읽느냐는
     -- 그 액션의 몫이고, 읽게 하고 싶으면 `@@`가 그 자리다
-    -- (`devdocs/implementing-focus-and-self-cast.md` §4).
+    -- (`implementing-focus-and-self-cast.md` §4).
     local list = DebindPrivate.GetBindingsForAction(action);
     for i = 2, #list do
         if (list[i].spellbook ~= nil) then
@@ -3118,7 +3118,7 @@ function DebindPrivate.ConvertToMacroText(action)
         unit = nil;
     end
 
-    -- **No unit picked is `@@`, on a type that takes one** (`devdocs/implementing-focus-and-self-cast.md`
+    -- **No unit picked is `@@`, on a type that takes one** (`implementing-focus-and-self-cast.md`
     -- §4). The twins pass `player`, `focus` and the pointed unit, and a body that does not read them
     -- takes the cast keys and Hover Cast off the key. The original aims at nothing and `@@` goes out
     -- as `@target`.
@@ -3619,7 +3619,7 @@ do
     --- Renaming a switch has to rewrite five kinds of reference and this is the one that cannot be
     --- done by moving a key: a condition, an on/off/toggle target and another switch's expression
     --- each hold the name whole, while a macro body holds it inside a sentence
-    --- (`devdocs/legacy/redesigning-custom-states.md` §3).
+    --- (`redesigning-custom-states.md` §3).
     function DebindPrivate.RenameSwitchInMacroText(str, from, to)
         if (not str) then
             return str;
@@ -3686,14 +3686,14 @@ local _changedStates = {};
 ---
 --- **A name nothing defines is left alone rather than defined.** There is no row to write the
 --- value into and making one here would be the load-time repair §9-3 of
---- `devdocs/legacy/redesigning-custom-states.md` rules out. The switch still works for this session: the
+--- `redesigning-custom-states.md` rules out. The switch still works for this session: the
 --- value lives in the restricted environment's `States`, and what is missing is only the memory of
 --- it across a reload.
 ---
 --- **The remembered value goes on the character, the live one on the definition**, and both are
 --- `SetSwitchValue`'s to write (`Profile.lua`). The definition is account-wide, and while the
 --- memory sat there too "remember" meant "remember what the character who logged out last left"
---- (§5 of `devdocs/legacy/redesigning-custom-states.md`). **Which of these reports becomes a memory is
+--- (§5 of `redesigning-custom-states.md`). **Which of these reports becomes a memory is
 --- decided there and not here**: a report carrying the value the definition already holds is a
 --- reset this side pushed a moment ago coming back round, and it is the one that must not be
 --- remembered (§4-9).
@@ -3716,7 +3716,7 @@ local _changedStates = {};
 --- **Nothing is broadcast any more.** `SWITCH_CHANGED` went on 2026-08-22. A listener on it
 --- meant every switch value had to be right the moment it moved, and that reachability is what
 --- kept a computed switch from being worked out lazily
---- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
+--- (`trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
 --- which `SetSwitchValue` above still fills in, so what it lost was a reason to redraw rather
 --- than the value to draw.
 local function SwitchesChangedCallback()

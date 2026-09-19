@@ -224,7 +224,7 @@ local function Build()
         { value = "mouseover", label = L["POINTED_UNIT_CAST_MOUSEOVER"], tooltip = L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] },
     };
     -- **The mode and nothing else.** Hover Cast is turned off per action, not here
-    -- (`devdocs/which-action-a-key-runs.md` §1): an account-wide off would have to be beaten by the
+    -- (`which-action-a-key-runs.md` §1): an account-wide off would have to be beaten by the
     -- actions carried over from the unit frame condition, and a value the account cannot hold is one
     -- value fewer than a value every one of those actions has to override.
     Dropdown(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], function(_, rootDescription)
@@ -339,7 +339,7 @@ local function Build()
 
     Header(L["GIVE_BACK_KEYS"]);
     --- `set` takes the value the box now shows and stores it only where it is not the default, so
-    --- an untouched profile carries none of these (`devdocs/giving-keys-back.md` §7).
+    --- an untouched profile carries none of these (`giving-keys-back.md` §7).
     local function GiveBack(text, tooltip, get, field, defaultOn, indent)
         Checkbox(text, tooltip, get, function(value)
             if (value == defaultOn) then

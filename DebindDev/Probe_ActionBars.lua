@@ -1,5 +1,5 @@
 -- Probe_ActionBars.lua
--- One-shot probe and proof of concept for `devdocs/legacy/dropping-the-game-fallback.md` §4 and §5: pressing
+-- One-shot probe and proof of concept for `dropping-the-game-fallback.md` §4 and §5: pressing
 -- an action bar button from the restricted environment through every kind of replaced bar
 -- (vehicle, possession, override, temporary shapeshift, bonus bar) and through a pet battle.
 -- Written to be carried once through all of them, so it records more than the question needs.

@@ -168,7 +168,7 @@ return function(DebindPrivate, DebindStorage)
         -- 버전을 묻는 케이스는 아래에서 값을 직접 만들어 쓴다.
         --
         -- **둘을 다 든다.** 봉투 모양은 `v`가, 그 안의 액션 모양은 `dbver`가 센다
-        -- (`devdocs/legacy/unifying-action-migration.md` §3-3). 하나만 들면 서랍 문이 거절한다.
+        -- (`unifying-action-migration.md` §3-3). 하나만 들면 서랍 문이 거절한다.
         local payload = {
             v = DebindStorage.EXPORT_SCHEMA_VERSION,
             dbver = Constants.DB_VERSION,
@@ -435,7 +435,7 @@ return function(DebindPrivate, DebindStorage)
     -- **만료 케이스 셋이 여기 있었다** (`GetSecondsUntilExpiry` / `IsExpiringSoon` / 핀).
     -- 판정만 있고 쓸어내는 코드가 없어서, 그 셋은 화면에 아무 일도 안 일어나는 날짜를 띄우는
     -- 계산을 검사하고 있었다. 판정과 핀이 같이 빠지면서 스펙도 같이 나간다 — 되살릴 때는
-    -- 쓸어내는 쪽이 아니라 **묻는** 쪽으로 짓는다(`devdocs/building-export-import.md`).
+    -- 쓸어내는 쪽이 아니라 **묻는** 쪽으로 짓는다(`building-export-import.md`).
 
     ---------------------------------------------------------------------------
     -- Cutting actions out of an entry

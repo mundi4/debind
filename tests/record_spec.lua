@@ -80,7 +80,7 @@ return function(DebindPrivate)
     end);
 
     -- **A `"@"` on an action with no target is asked of `target`** (`Misc.lua`'s `ResolvedUnitOf`,
-    -- `devdocs/implementing-focus-and-self-cast.md` §3-6). The record still carries no unit, so the
+    -- `implementing-focus-and-self-cast.md` §3-6). The record still carries no unit, so the
     -- game places the cast; only the condition lands on `target`, folding with one set there by name.
     test("\"@\" with no target lands on target and folds with it", function()
         for _, unit in ipairs({ false, "" }) do
@@ -257,7 +257,7 @@ return function(DebindPrivate)
     -- A `known` whose answer cannot move before the next rebuild
     ---------------------------------------------------------------------------
 
-    -- The three branches of `devdocs/baking-the-known-condition.md` §5. The table says only that
+    -- The three branches of `baking-the-known-condition.md` §5. The table says only that
     -- the answer is fixed; what it *is* gets measured here with the same string the snippet would
     -- have used, so the two cannot part.
     --
@@ -295,11 +295,11 @@ return function(DebindPrivate)
     -- condition bakes the conditional it will be parsed as" is it: 8936 is in no world here.
 
     -- The same three branches asked in a **name**, which is what the condition will store
-    -- (`devdocs/making-known-a-spell-name.md` §3-2). The level that settles it comes off the
+    -- (`making-known-a-spell-name.md` §3-2). The level that settles it comes off the
     -- walk's name index, and the answer is measured with the string that would be baked.
     -- **The condition's own value is the question.** A name is what it stores, and the action it
     -- sits on is not what it asks about any more: an action on the base spell can ask about the
-    -- talent that replaces it (`devdocs/making-known-a-spell-name.md`).
+    -- talent that replaces it (`making-known-a-spell-name.md`).
     test("a known bakes the value it carries and not the action's spell", function()
         local record = recordFor({
             type = Constants.SPELL, value = 8936,

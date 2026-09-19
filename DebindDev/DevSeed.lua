@@ -19,7 +19,7 @@ local DebindPrivate, Constants;
 --- **The seed is written, not captured.** No real name and no real GUID goes in, which is the
 --- whole reason it can be committed at all.
 ---
---- `devdocs/legacy/setting-up-a-dev-profile.md`.
+--- `setting-up-a-dev-profile.md`.
 
 --- One builder per `dbver`. **When `dbver` goes up, add the new one and leave the old ones where
 --- they are.** Carrying all of them is what makes this file right wherever it is copied, so no
@@ -80,7 +80,7 @@ SEEDS[5] = function(guid)
                 --- is kept.** Back then an arriving set was renamed onto a number of ours and the
                 --- sender's key was carried in `imported`; the step that raises 5 puts the key back
                 --- and turns the badge into an arrival number (`Profile.lua`,
-                --- `devdocs/building-export-import.md` 12절). Seeding 5 is what runs that step, so
+                --- `building-export-import.md` 12절). Seeding 5 is what runs that step, so
                 --- **the old field names are spelled out here on purpose** and nothing in this
                 --- builder follows a rename made elsewhere.
                 ---
@@ -370,7 +370,7 @@ SEEDS[6] = function(guid)
         --- **The remembered switch value, and it belongs to this character alone.** An alt on the
         --- same account comes up with `$state3` off, which is the whole point of it living here
         --- rather than next to the definition (§5 of
-        --- `devdocs/legacy/redesigning-custom-states.md`).
+        --- `redesigning-custom-states.md`).
         characters = {
             [guid] = {
                 switches = { ["$state3"] = true },

@@ -3,7 +3,7 @@
 --
 -- `Void Volley` is the case. It replaces another spell dynamically while a buff stands, so the
 -- spell a press would reach moves mid-combat. Everything baked out of the level table assumes the
--- opposite: `devdocs/baking-the-known-condition.md` §3 rests on "a learned spell cannot be
+-- opposite: `baking-the-known-condition.md` §3 rests on "a learned spell cannot be
 -- forgotten and a talent cannot be taken in combat", and `UpdateBindings.lua` settles the axis away
 -- on the strength of it. One spell that flips under a buff is a counterexample to the whole table.
 --
@@ -100,7 +100,7 @@ end
 
 --- One sample, as the line it prints. **Both spellings of the conditional**, because the plan on
 --- the table is to bake the name and everything measured so far was baked from an id
---- (`devdocs/resolving-a-stored-spell-id.md`).
+--- (`resolving-a-stored-spell-id.md`).
 ---
 --- The three book questions are not one question asked three times. The client's own documentation
 --- parts them: `IsSpellInSpellBook` "can also return true for spells that aren't known, such as

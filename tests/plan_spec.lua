@@ -4,7 +4,7 @@
 -- re-deciding on. Every one of them is a reading of what the profile asked to be measured, and
 -- until `UpdateBindings()` was split into deciding and doing, the only way to see one was to stand
 -- up a `SecureStateDriverManager` in the game and look at what had been registered on it
--- (`devdocs/legacy/going-headless-outside-the-ui.md` §3-1).
+-- (`going-headless-outside-the-ui.md` §3-1).
 --
 -- **Two faults have already come out of this exact place**, and the file's own comments record
 -- them: the old predicate did not look at *which* unit carried a reaction condition, so putting
@@ -175,7 +175,7 @@ return function(DebindPrivate)
     -- **An event costs a wake, and nothing of ours reads one any more.** Every condition is
     -- measured at the press and every computed switch is worked out there, so what a profile
     -- carries decides nothing here: Keys Given Back is the one reader left, and it is an account
-    -- answer (`devdocs/giving-keys-back.md` §4).
+    -- answer (`giving-keys-back.md` §4).
     test("a measured condition asks for no event", function()
         local plan = PlanFor({
             spell({ key = "F1", conditions = { combat = true, mounted = true } }),

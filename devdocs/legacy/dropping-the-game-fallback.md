@@ -16,11 +16,11 @@
 `IsKeyAlwaysOurs`의 센티넬이 그것이다. 그래서 키마다 "지금 잡느냐, 놓느냐, 명령에 거느냐"를 누르기 전에
 정해야 하고, 상태 루프가 그 일을 한다.
 
-쌍둥이와 층이 들어오면서 이것이 두 구멍이 됐다(`devdocs/implementing-focus-and-self-cast.md` §3-9). 루프는
+쌍둥이와 층이 들어오면서 이것이 두 구멍이 됐다(`implementing-focus-and-self-cast.md` §3-9). 루프는
 조합키를 모르니 층을 못 가르고 첫 매치로 키를 정한다.
 
 - **A.** 조합키 층의 `UNUSED`·`COMMAND` 쌍둥이가 맞으면 키를 놓거나 명령에 걸어, 뒤 액션의 클릭 쌍둥이가
-  받을 조합키 누름이 래퍼에 안 온다.
+  받을 조합키 누름이 래                 퍼에 안 온다.
 - **B.** 조합키 층의 클릭 쌍둥이가 맞으면 키를 클릭으로 잡아, 조합키 없는 누름에서 뒤의 `COMMAND`가 안 나가고
   `UNUSED`나 틈이 게임에 돌려주지 못한다.
 
@@ -576,9 +576,9 @@ S2로 넘기는 것이 프로브가 한 방법이고, 결정은 아니다.
   (`*action-<이름>`, `*macrotext-<이름>`). Debind가 이긴 매크로 본문을 클릭 때 굽는 자리와 같다.
 - **대전 키 양보는 `BindingContexts.lua`에 출처를 더한다**(§5-1). 새 이벤트 프레임과 오버라이드 조작을 따로 만들 일이
   아니다.
-- **스니펫 본문을 고치기 전에 `devdocs/restricted-environment.md`를 읽는다.** 틀리면 오류 없이 키 하나가 죽는다.
+- **스니펫 본문을 고치기 전에 `restricted-environment.md`를 읽는다.** 틀리면 오류 없이 키 하나가 죽는다.
   `tools/snippet-golden.txt`가 구운 바이트를 잠그고 있다.
-- **블리자드 코드는 `reference/wow-ui-source`에 있다**(`devdocs/dev-setup.md`). 이 문서의 줄 번호는 거기 기준이다.
+- **블리자드 코드는 `reference/wow-ui-source`에 있다**(`dev-setup.md`). 이 문서의 줄 번호는 거기 기준이다.
 
 ### 9-2. 코드가 틀리기 쉬운 자리
 

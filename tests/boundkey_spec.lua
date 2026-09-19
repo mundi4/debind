@@ -91,7 +91,7 @@ return function(DebindPrivate, _, ctx)
     end
 
     --- **Does a press on the key fire anything.** Every key that holds a record is bound for good
-    --- (`devdocs/legacy/dropping-the-game-fallback.md` §3), so whether a switch or a unit condition reached
+    --- (`dropping-the-game-fallback.md` §3), so whether a switch or a unit condition reached
     --- it shows at the press and never in what the key is bound to.
     local function Fires(key)
         return interp:evalKey(key) ~= nil;

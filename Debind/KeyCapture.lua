@@ -74,7 +74,7 @@ local CAPTION_GAP      = 8;
 ---
 --- **A key is a string or it is nothing.** There used to be a third answer, a number standing where
 --- a key would for a set whose key had not been decided; that shape is gone
---- (`devdocs/building-export-import.md` 12절) and what is left is the plain question.
+--- (`building-export-import.md` 12절) and what is left is the plain question.
 ---
 --- [Unbind key] reads it, and so does the key each row draws when the rows disagree. **A selection
 --- is why it is any of them rather than the first**: a group shares one key by definition, and rows
@@ -210,7 +210,7 @@ DebindPrivate.AnyRealKey = AnyRealKey;
 --- is how two screens end up saying it differently.
 ---
 --- **A set still waiting says the key it came in on**, because that is the key it is on: an arrival
---- keeps the sender's key and the badge is what holds it back (`devdocs/building-export-import.md`
+--- keeps the sender's key and the badge is what holds it back (`building-export-import.md`
 --- 12절). That is what the overview's heading says too, and the reader got here from that heading.
 local function CurrentKeyText(actions)
     local key, shared = DebindPrivate.SharedKeyOf(actions);

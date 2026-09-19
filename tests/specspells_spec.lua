@@ -1,5 +1,5 @@
 -- The three action types whose spell the class and specialization decide (`SpecSpells.lua`,
--- `devdocs/adding-spec-resolved-actions.md`): what they resolve to, what the binding carries, what
+-- `adding-spec-resolved-actions.md`): what they resolve to, what the binding carries, what
 -- is stamped for a specialization that has nothing to cast, and the warlock's two-binding dispel.
 --
 -- The shim's character is a druid, so the four specialization indexes are Balance, Feral,
@@ -155,7 +155,7 @@ return function(DebindPrivate, _, ctx)
 
     -- `known` bakes the resolved spell, **by name like every other one**. `true` is what these
     -- three store because the spell is the specialization's answer rather than a stored value
-    -- (`devdocs/making-known-a-spell-name.md`), and naming it at the bake is what puts them on the
+    -- (`making-known-a-spell-name.md`), and naming it at the bake is what puts them on the
     -- same state key as a spell action asking about the same spell.
     test("known is baked from the resolved spell", function()
         shim.world.specIndex = 1;
@@ -193,7 +193,7 @@ return function(DebindPrivate, _, ctx)
 
     -- **A `known` naming a spell of its own is a different question and stays in the build.** What
     -- the filter above answers is "there is nothing to ask about", which only `true` can be
-    -- (`devdocs/making-known-a-spell-name.md`); a name asks the same thing whatever this
+    -- (`making-known-a-spell-name.md`); a name asks the same thing whatever this
     -- specialization resolves to.
     test("a known that names a spell survives a specialization with none", function()
         shim.world.specIndex = 1;
@@ -274,7 +274,7 @@ return function(DebindPrivate, _, ctx)
             end
 
             -- Every binding has a probe of its own, and **the probe moves into whichever tier its
-            -- binding lands in, right ahead of it** (`devdocs/implementing-focus-and-self-cast.md`
+            -- binding lands in, right ahead of it** (`implementing-focus-and-self-cast.md`
             -- §3-4). A plain spell behind the dispel is what shows the tiers: each tier holds the
             -- dispel's pair and then the spell. The dispel is in combat only, so the spell's
             -- bindings are not covered by it.

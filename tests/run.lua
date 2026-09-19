@@ -37,7 +37,7 @@ end
 
 local bench = false;
 --- Rewrite the recorded files instead of comparing against them. The emission golden is a net for
---- a refactor and not a specification (`devdocs/legacy/going-headless-outside-the-ui.md` §6), so a
+--- a refactor and not a specification (`going-headless-outside-the-ui.md` §6), so a
 --- deliberate change to what a rebuild emits is answered by updating it and reading the diff --
 --- the same discipline `tools/snippet-golden.txt` already runs on.
 local updateGolden = false;
@@ -68,7 +68,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 --- the value there binds nil and fails much later, somewhere else.
 ---
 --- **This is `Debind.xml` plus two, and it is not "everything but the UI".** §11 of
---- `devdocs/legacy/going-headless-outside-the-ui.md` says which rule decides: whether the
+--- `going-headless-outside-the-ui.md` says which rule decides: whether the
 --- **function** needs a frame, not whether the file is UI.
 ---
 ---   `ActionDisplay.lua` and `ActionTooltip.lua` are `DebindUI.xml`'s and are here, in that XML's
@@ -90,7 +90,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---     along because the pipeline calls into it
 ---   `StorageUI.lua` is UI and is **not** here any more. It was, for two functions that decided
 ---     which layers the bring dialog offered; the tick moved onto the action and both went with
----     the dialog (`devdocs/building-export-import.md` 12절)
+---     the dialog (`building-export-import.md` 12절)
 ---   `Public.lua` is **not** UI and is **not** here. It is in the TOC after `DebindUI.xml`
 ---     rather than in this XML, and nothing in the pipeline calls it - it is what other addons
 ---     call
@@ -101,7 +101,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 --- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
 --- state from crossing between them: `BindingAttrsCache`, `KeyMap`, the switch table and the
 --- counter the button names come off all start where the game starts them
---- (`devdocs/legacy/going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
+--- (`going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
 --- a fraction of one spec.
 local function loadAddons(withCliqueFake)
     local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
@@ -180,7 +180,7 @@ end
 --- `BindingAttrsCache`, not the counter the button names come off, not a `_G` stub a spec put up
 --- for itself. Reversing this list is a run that has to pass, and it is how the last of that was
 --- found -- `emit_fixture` had never installed a macro store and was passing on one another spec
---- had left in `_G` (`devdocs/legacy/going-headless-outside-the-ui.md` §10-1).
+--- had left in `_G` (`going-headless-outside-the-ui.md` §10-1).
 ---
 --- The order is still worth keeping readable: cheapest first, and the ones that run a whole
 --- rebuild after the ones that measure a single function.

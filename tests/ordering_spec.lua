@@ -67,7 +67,7 @@ return function(DebindPrivate)
 
     --- **개체창 단계가 있었다.** 가리킨 개체창의 유닛에 조건이 걸린 액션을 안 걸린 것보다
     --- 앞세우던 두 번째 단계이고, 그 유닛이 보통 유닛이 되면서 없어졌다
-    --- (`devdocs/which-action-a-key-runs.md` §2). 지금 그 조건은 아래 `isConditional`이 센다.
+    --- (`which-action-a-key-runs.md` §2). 지금 그 조건은 아래 `isConditional`이 센다.
 
     test("2단계 isConditional - 조건부가 먼저", function()
         expectBefore(rec({ isConditional = true }), rec({ isConditional = false }), "isConditional");

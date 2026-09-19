@@ -9,7 +9,7 @@
 // never build a menu, and the raise happens in an initializer inside the game's menu system - one
 // group opens empty and everything around it looks fine. Five of these were written at once when
 // `DropDownMenus.lua` was split and the file-scope `_action` the callbacks used to read went away
-// (`devdocs/legacy/putting-the-menus-on-a-kit.md`).
+// (`putting-the-menus-on-a-kit.md`).
 //
 // **What counts as a data table**: a brace group carrying both `key` and `value` and no `label`.
 // A node declaration carries `label` and is the thing this must not flag; an item list entry

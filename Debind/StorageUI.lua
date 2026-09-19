@@ -26,7 +26,7 @@ end
 --- **It was two tabs.** Making a string and taking one in pointed opposite ways at the same thing,
 --- and the thing is what they had in common: a payload is not a step on the way in or out any more
 --- but an item that sits in a list, gets edited, and is used again (12절 of
---- `devdocs/building-export-import.md`). So there are four verbs on one screen -- make one from
+--- `building-export-import.md`). So there are four verbs on one screen -- make one from
 --- this profile, take one in from a string, put one into the profile, turn one into a string --
 --- and all four act on a row of the same list.
 ---
@@ -223,7 +223,7 @@ end
 --- 소유자). The words beside it are not the same thing twice: a row made here says which character,
 --- which is the one thing that tells two of your own backups apart, since they carry the same class
 --- and often the same date. A row that came from a string cannot say it. The string does not carry
---- a character name and is not meant to (`devdocs/building-export-import.md` 3절), so the class
+--- a character name and is not meant to (`building-export-import.md` 3절), so the class
 --- name is what the words fall back to. Spelling the class only in that second case is what used to
 --- move it between the title and a line of its own.
 ---
@@ -306,7 +306,7 @@ function DebindStorageEntryRowMixin:Init(elementData)
     -- removes one. A control that exempts you from something that does not happen is a control
     -- that does nothing. The design for that is not rejected -- it is waiting on a clear-out that
     -- **asks** rather than sweeps, which is the one thing this list may not do silently
-    -- (`devdocs/building-export-import.md`).
+    -- (`building-export-import.md`).
 
     -- **Deleting asks first, and names what goes.** An entry is the only copy of a string somebody
     -- sent: once the list lets go of it the way back is to ask them for it again. The main window
@@ -647,7 +647,7 @@ local ELSEWHERE_ORDER = 100;
 --- header fractions, the [select all] total, which rows can be ticked, and the set `FilterPayload`
 --- and `PlanArrival` are given. One list is what makes those the same answer rather than the same
 --- idea written twice -- the fault being guarded against is the panel saying 12 while the string
---- carries 9 (`devdocs/building-export-import.md` 2절).
+--- carries 9 (`building-export-import.md` 2절).
 ---
 --- **The address is walked, not translated.** `ForEachPayloadLayer` hands out the same three
 --- coordinates the profile is keyed by, so nothing here has to know whose payload it is except to

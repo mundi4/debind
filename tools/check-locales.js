@@ -12,7 +12,7 @@
 // is a working answer - enUS is the one file that has to be complete. Their number is printed and
 // nothing has to be registered to excuse it: the exemption list this file used to keep cost an
 // edit for every new string and told nobody anything the count does not.
-// devdocs/writing-user-facing-text.md holds the rule.
+// writing-user-facing-text.md holds the rule.
 //
 // No network, unlike check-templates, so it can be run at any time.
 

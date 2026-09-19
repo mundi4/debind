@@ -3,7 +3,7 @@
 //   npm run help           write the Lua
 //   npm run check:help     fail when the Lua on disk is not what the sources make
 //
-// devdocs/writing-a-help-page.md is the format, devdocs/legacy/rebuilding-in-game-help.md the
+// writing-a-help-page.md is the format, rebuilding-in-game-help.md the
 // reasons.
 //
 // **The output ships and nothing rebuilds it at package time**, so the check is the only thing

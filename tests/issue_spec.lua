@@ -293,7 +293,7 @@ return function(DebindPrivate)
     -- makes cast key twins no press reaches.
     --
     -- **The bare left and right click run over a frame whatever the action says**
-    -- (`devdocs/which-action-a-key-runs.md` §7), so the rest of the answers are asked of `BUTTON3`.
+    -- (`which-action-a-key-runs.md` §7), so the rest of the answers are asked of `BUTTON3`.
     ---------------------------------------------------------------------------
 
     local function unitFrameIsOn(fields, key)
@@ -334,7 +334,7 @@ return function(DebindPrivate)
     end);
 
     -- **A saved command with hover on a mouse button stays on its key.** It binds as a block like
-    -- every other saved command (`devdocs/legacy/dropping-the-game-fallback.md` §3); an ERROR here would
+    -- every other saved command (`dropping-the-game-fallback.md` §3); an ERROR here would
     -- take it out of `KeyMap`, leave no block, and let the action under it fire instead.
     test("호버를 켠 명령 액션도 마우스 버튼 키에서 안 빠진다", function()
         check(DebindPrivate.IsKeyInvalidForAction(nest({
@@ -526,7 +526,7 @@ return function(DebindPrivate)
     -- nowhere. The switch never came on, and nothing on screen said why.
     --
     -- **The mark is the whole warning.** An imported string plants no definitions on purpose
-    -- (`devdocs/building-export-import.md`), so a shared action pointing at a switch the reader
+    -- (`building-export-import.md`), so a shared action pointing at a switch the reader
     -- has never made arrives with nothing else to announce it.
     --
     -- Marked means dropped from `KeyMap`, which is what the missing-macro branch below already
@@ -625,7 +625,7 @@ return function(DebindPrivate)
     -- The one issue branch about what an action **points at**. Before it existed such an action
     -- bound normally and did nothing on press -- no error, no mark -- which is the failure the
     -- sharing format's "send broken things too, the reader sees red" rule leans on
-    -- (`devdocs/building-export-import.md`).
+    -- (`building-export-import.md`).
     --
     -- Both halves matter as much as they do above: a false positive here does not grey a row, it
     -- takes a working macro binding out of `KeyMap` entirely.
@@ -742,7 +742,7 @@ return function(DebindPrivate)
     -- A type that used to hand the key back to the game
     ---------------------------------------------------------------------------
 
-    -- **A saved `UNUSED` or `COMMAND` binds as a block** (`devdocs/legacy/dropping-the-game-fallback.md`
+    -- **A saved `UNUSED` or `COMMAND` binds as a block** (`dropping-the-game-fallback.md`
     -- §3), so pressing it does nothing while the row still reads as what it was. Only the mark
     -- tells the reader.
     test("a saved unused or command action is reported", function()
@@ -998,7 +998,7 @@ return function(DebindPrivate)
 
     --- 이름은 `[known:<이름>]`에 그대로 들어간다. 쉼표는 조건 하나를 둘로 쪼개고 `]`는 그룹을
     --- 끝내는데, 둘 다 아무 오류도 안 내고 **다른 물음**이 되어 버린다
-    --- (`devdocs/making-known-a-spell-name.md`). 이슈로 세워서 그 키를 안 걸게 한다.
+    --- (`making-known-a-spell-name.md`). 이슈로 세워서 그 키를 안 걸게 한다.
     local function knownIssue(value)
         return GetBindingIssue(nest({
             type = Constants.SPELL, value = 100, key = "T", conditions = { known = value },
@@ -1039,7 +1039,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- `devdocs/legacy/rewriting-evaluate-issues.md` §4: what each menu is told, row by row
+    -- `rewriting-evaluate-issues.md` §4: what each menu is told, row by row
     --
     -- **`"@"` is asked of every binding, each on the unit that binding aims at** (`which-action-a-key-
     -- runs.md` S2, S3). An action is in trouble only where none of its bindings can stand, and a menu
@@ -1162,7 +1162,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- An action with no binding left (`devdocs/legacy/reorganizing-binding-issues.md` §3-3)
+    -- An action with no binding left (`reorganizing-binding-issues.md` §3-3)
     --
     -- **What the reader chose is not an issue; what two menus contradict is.** Both leave the list
     -- empty. Every press turned off, or Hover Cast skipped on the bare click, is said as a reason
@@ -1292,7 +1292,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- One code per empty axis of a unit row (`devdocs/legacy/reorganizing-binding-issues.md` §3-4)
+    -- One code per empty axis of a unit row (`reorganizing-binding-issues.md` §3-4)
     ---------------------------------------------------------------------------
 
     local ROLES_ON_GROUP_FRAMES = Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
@@ -1313,7 +1313,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- No role picked, by the frame types beside it (`devdocs/legacy/reorganizing-binding-issues.md` §3-6)
+    -- No role picked, by the frame types beside it (`reorganizing-binding-issues.md` §3-6)
     --
     -- **A role is only measured on a party or raid frame** (`SecureBindings.lua`'s click path and
     -- `setup_onenter`). Without those frames the empty role holds nothing back; beside other frame
@@ -1369,7 +1369,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- Where an undefined switch is fixed (`devdocs/legacy/reorganizing-binding-issues.md` §3-4)
+    -- Where an undefined switch is fixed (`reorganizing-binding-issues.md` §3-4)
     ---------------------------------------------------------------------------
 
     --- The label each path carries. **It names where the name is written**, so a typo in a macro body

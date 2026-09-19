@@ -8,7 +8,7 @@
 -- **This file had no test of any kind** (`.zzz/refactor-candidates.md` 10, opened 2026-08-04). It
 -- was checked by opening the editor and pressing keys, and the reason was the harness: it read
 -- pure logic only, and this one builds a frame when it loads. That line is gone
--- (`devdocs/legacy/going-headless-outside-the-ui.md`) -- the file is read whole now, on a frame shell.
+-- (`going-headless-outside-the-ui.md`) -- the file is read whole now, on a frame shell.
 
 return function(DebindPrivate)
     local shim = require("wow_shim");
@@ -204,7 +204,7 @@ return function(DebindPrivate)
     --
     -- **A fight still stops both.** Nothing crosses into the restricted side under lockdown either,
     -- so an editor that opens or closes mid-fight waits for `PLAYER_REGEN_ENABLED` exactly as the
-    -- rebuild used to (`devdocs/giving-keys-back.md` §6).
+    -- rebuild used to (`giving-keys-back.md` §6).
 
     local Constants = DebindPrivate.Constants;
     local GUID = "Player-1-TESTGUID";

@@ -8,11 +8,11 @@
 -- Two of those are the whole reason the format is shaped the way it is:
 --
 --   * a `SETSTATE` value is a switch **name**, on the wire and in the profile alike (§9-1 of
---     `devdocs/legacy/redesigning-custom-states.md`). What still has to be rebuilt is v1's `setstate`
+--     `redesigning-custom-states.md`). What still has to be rebuilt is v1's `setstate`
 --     subtable, and that happens at the door rather than here.
 --   * a `MACRO` carries a **name**, and only a name. A slot index would resolve on any install and
 --     point at some other macro; the body no longer travels at all, so nothing can arrive carrying
---     a stranger's macro text (`devdocs/building-export-import.md`, 2026-08-18).
+--     a stranger's macro text (`building-export-import.md`, 2026-08-18).
 --
 -- Everything built here also has to arrive quarantined. An action that landed without `imported`
 -- is bound the moment it lands, which is the one thing this whole path promises not to do.
@@ -100,7 +100,7 @@ return function(DebindPrivate, DebindStorage)
     -- **The key it was sent on is the key it lands on.** What keeps it off the reader's keyboard is
     -- the badge, and what keeps it out of the reader's own set on that key is that a group is
     -- `(key, arrivalID)` -- so the two sit on one key under two headings and neither is merged into
-    -- the other (`devdocs/building-export-import.md` 12절).
+    -- the other (`building-export-import.md` 12절).
     test("실키를 달고 오면 그 키에 앉고 배지가 붙는다", function()
         ResetProfile();
         local action = PlanOne(General({
@@ -377,7 +377,7 @@ return function(DebindPrivate, DebindStorage)
     local REAL_CONDITIONS = {
         -- `known`은 **무엇을 묻는가**라서 혼자 다르다. 주문 이름이 보통이고, 전문화가 주문을
         -- 정하는 타입 셋에서만 `true`가 "이 액션의 주문"을 뜻한다
-        -- (`devdocs/making-known-a-spell-name.md`). 그 갈래는 아래 테스트가 따로 본다.
+        -- (`making-known-a-spell-name.md`). 그 갈래는 아래 테스트가 따로 본다.
         known = "Regrowth",
         -- `DropDownMenus.lua`의 `setActionValue`가 조건에 쓰는 것: 예/아니오/안 물음 = true/false/nil.
         combat = true,
@@ -402,7 +402,7 @@ return function(DebindPrivate, DebindStorage)
         units = { target = {} },
         specs = { [102] = true, [104] = true },
         -- 전문화 id로 갈린 표이고 그 안이 주문 id 배열 둘이다
-        -- (`devdocs/legacy/adding-a-talent-condition.md` §2).
+        -- (`adding-a-talent-condition.md` §2).
         talents = { [102] = { taken = { 429523 }, notTaken = { 428544 } } },
         ["$state1"] = true,
         ["$state2"] = true,
@@ -598,7 +598,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **틱은 이제 액션에 붙는다.** 미리보기가 액션을 그리고 거기서 고르므로, 놓이는 것도 액션
-    -- 단위로 갈린다 (`devdocs/building-export-import.md` 12절). 줄 필터와 같은 규칙이 그대로
+    -- 단위로 갈린다 (`building-export-import.md` 12절). 줄 필터와 같은 규칙이 그대로
     -- 선다: 안 고른 것은 빠지되 세지 않는다.
     test("안 고른 액션은 빠지되 세지 않는다", function()
         ResetProfile();
@@ -620,7 +620,7 @@ return function(DebindPrivate, DebindStorage)
     -- SETSTATE: v1's subtable, and the shape it lands in
     --
     -- **The rebuild left this file.** The profile stores a type and a name now (§9-1 of
-    -- `devdocs/legacy/redesigning-custom-states.md`), so a current payload lands as it arrived and
+    -- `redesigning-custom-states.md`), so a current payload lands as it arrived and
     -- `BuildAction` has nothing to do with it. What v1 spelled as a `setstate` subtable is a
     -- version step like any other, and it stands one door earlier - `BringPayloadForward`.
     ---------------------------------------------------------------------------
@@ -656,7 +656,7 @@ return function(DebindPrivate, DebindStorage)
 
     -- **이 문서 전체가 겨눈 자리다.** 같은 액션이 v1 서브테이블로 와도 지금 모양으로 와도 같은
     -- 것으로 도착해야 한다. 갈리면 액션 모양이 둘이라는 뜻이고, 그러면 마이그레이션도 두 벌이
-    -- 된다 (`devdocs/legacy/unifying-action-migration.md`).
+    -- 된다 (`unifying-action-migration.md`).
     test("v1 페이로드와 새 페이로드가 같은 액션으로 도착한다", function()
         ResetProfile();
         local fromV1 = PlanOne(Forwarded(V1Setstate("toggle", "$state3")));
@@ -767,7 +767,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **Somebody else's macro body does not come in** (2026-08-18,
-    -- `devdocs/building-export-import.md`). Our export no longer sends one, but a paste is input
+    -- `building-export-import.md`). Our export no longer sends one, but a paste is input
     -- somebody else handed over and may hold anything. A string carrying the old shape leaves no
     -- body in the profile and does not turn the action into a `MACROTEXT`.
     test("본문 스냅샷을 달고 와도 본문은 안 앉는다", function()

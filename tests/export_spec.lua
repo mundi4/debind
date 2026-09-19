@@ -392,7 +392,7 @@ return function(DebindPrivate, DebindStorage)
     -- Local references: macros
     ---------------------------------------------------------------------------
 
-    -- **The body does not travel** (2026-08-18, `devdocs/building-export-import.md`). It is text
+    -- **The body does not travel** (2026-08-18, `building-export-import.md`). It is text
     -- the user wrote freely and we do not know what is in it, and the sender knows only that this
     -- action calls one of their macros, not that its contents ride along. The name goes, and that
     -- is all that goes.
@@ -427,7 +427,7 @@ return function(DebindPrivate, DebindStorage)
 
     -- **The one field the export used to rewrite.** A `setstate = { mode, state }` subtable was
     -- hung on the copy and `value` was cleared, which put the same action in two shapes and the
-    -- migration for it in two copies (`devdocs/legacy/unifying-action-migration.md`). What is asked
+    -- migration for it in two copies (`unifying-action-migration.md`). What is asked
     -- now is that nothing is rewritten at all.
     test("SETSTATE도 저장된 모양 그대로 나간다", function()
         ResetProfile({
@@ -595,7 +595,7 @@ return function(DebindPrivate, DebindStorage)
     --
     -- 프로필에서 만든 엔트리는 **누구 것인지를 셋으로 든다**. 그 셋이 페이로드 밖에 있는 것이
     -- 곧 그것이 문자열에 안 실린다는 뜻이라, 여기서 재는 것은 값이 맞느냐만이 아니라
-    -- **어디에 앉느냐**다 (`devdocs/building-export-import.md` 12절).
+    -- **어디에 앉느냐**다 (`building-export-import.md` 12절).
     --
     -- 그 셋이 페이로드 안으로 들어가는 편집은 어떤 검사도 못 잡는다. 문자열은 그대로 만들어지고
     -- 남의 화면에서 캐릭터 이름이 보인다.
@@ -732,7 +732,7 @@ return function(DebindPrivate, DebindStorage)
     -- The shape itself
     --
     -- **저장 구조 그대로**가 이 포맷의 결론이고, 그리는 코드를 번역 없이 재사용하려는 것이
-    -- 그 이유다 (`devdocs/building-export-import.md`의 세 번째 ★ 절). 아래 넷이 그 결론이
+    -- 그 이유다 (`building-export-import.md`의 세 번째 ★ 절). 아래 넷이 그 결론이
     -- 실제로 선을 타고 나가는지를 본다.
     ---------------------------------------------------------------------------
 
@@ -843,7 +843,7 @@ return function(DebindPrivate, DebindStorage)
     -- 액션 사다리는 프로필의 것 하나뿐이다
     --
     -- 같은 변환이 두 벌 서 있었다. 조건 중첩이 `MigrateLayer` 안에 한 번, 페이로드 쪽에
-    -- 손으로 한 번(`NestPayloadConditions`). `devdocs/legacy/unifying-action-migration.md`가
+    -- 손으로 한 번(`NestPayloadConditions`). `unifying-action-migration.md`가
     -- 없애려던 것이 그 갈라짐이다.
     ---------------------------------------------------------------------------
 

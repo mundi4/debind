@@ -21,7 +21,7 @@ local LAYER_ROW_HEIGHT  = 20;
 
 --- The root's own layer, which is `GetLayerID(nil, false)`. It is drawn like the overrides and
 --- edited like them, and it is the one row that is always there and cannot be taken away (§4-6 of
---- `devdocs/legacy/redesigning-custom-states.md`): the definition itself is that answer, which is why it
+--- `redesigning-custom-states.md`): the definition itself is that answer, which is why it
 --- is the one layer `GetSwitchLayerKey` gives no key for.
 local ROOT_LAYER_ID     = 1;
 
@@ -39,7 +39,7 @@ local GROUPS = {
 --- two fields, manual or an expression, and what a manual one resets to. But those two are a
 --- single question to the person reading: *what is this switch when I log in, and can I press it?*
 --- Splitting them put "Set Manually" on screen with the answer to the second half two levels down
---- (§4-6 of `devdocs/legacy/redesigning-custom-states.md`).
+--- (§4-6 of `redesigning-custom-states.md`).
 ---
 --- `resetValue = nil` is an answer and not an absence: it means "come back the way this character
 --- left it", which is why `key` exists at all: a table cannot hold a nil to compare against.
@@ -597,7 +597,7 @@ do
     --- **Three places open this box**: the button under this list, the condition menu, and an
     --- on/off/toggle action's own menu (`DropDownMenus.lua`). That is the whole point of stage
     --- 3c: making a switch belongs wherever the reader turns out to need one, not on a trip to a
-    --- tab they have to know about first (§6-2 of `devdocs/legacy/redesigning-custom-states.md`).
+    --- tab they have to know about first (§6-2 of `redesigning-custom-states.md`).
     ---
     --- It reads like `ShowRenameBox` on purpose, down to saying no in chat rather than in a second
     --- dialog: the two are one gesture, and `CreateSwitch` and `RenameSwitch` answer with the same
@@ -838,7 +838,7 @@ function DebindSwitchesPanelMixin:OnShow()
     -- **The first two are pulled and the third is pushed.** A value moving used to arrive as
     -- `SWITCH_CHANGED`; that event is gone, because anything listening to it made every switch
     -- value have to be current the instant it moved
-    -- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`). The set of switches changing is a different
+    -- (`trimming-the-restricted-hot-paths.md`). The set of switches changing is a different
     -- question, it is rare, and it still arrives.
     self.seenSerial = DebindPrivate.switchValueSerial;
     DebindPrivate.RegisterCallback(self, "OnSwitchesChanged");
@@ -869,7 +869,7 @@ end
 ---
 --- **The event says whether a fight is on, and `InCombatLockdown()` answers a different question.**
 --- The lockdown has not begun when `PLAYER_REGEN_DISABLED` arrives: the flag answers false and a
---- protected write still lands (`devdocs/reading-back-what-you-just-set.md`). A row reading the
+--- protected write still lands (`reading-back-what-you-just-set.md`). A row reading the
 --- flag from inside this dispatch drew the toggle enabled at the moment it had to go dead, so the
 --- answer is carried down instead.
 function DebindSwitchesPanelMixin:OnEvent(event)

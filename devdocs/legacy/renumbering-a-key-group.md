@@ -49,7 +49,7 @@
 >
 > 1. **도착 번호에 더할 값 — 닫혔다.** 아래 표의 `PlaceImportedActions` 행은
 >    `seq = MAGIC + 실려온 seq`인데 선에 `seq`가 안 실려서, 그때는 배치 안의 자리(`ipairs` 차례)를
->    더하고 있었다. 전송 포맷이 `seq`를 제 이름으로 싣게 되면서(`devdocs/building-export-import.md`의
+>    더하고 있었다. 전송 포맷이 `seq`를 제 이름으로 싣게 되면서(`building-export-import.md`의
 >    세 번째 ★) 그 자리에 실려온 `seq`가 들어갔다. `tests/import_spec.lua`의 "한 그룹은 실려온 seq
 >    차례로 번호를 받는다"가 그걸 못 박는다 — 저장 배열 차례와 일부러 어긋나게 세워서.
 > 2. **`MoveAction`의 떠난 쪽 재부여 한 줄에 자동 검증이 없다.** 그 함수가 `DebindUI.lua`의
@@ -66,11 +66,11 @@
 > 없어진 것이 아니다.
 >
 > **그런데 전송 포맷 작업이 이 위에 선다.** 그쪽의 bring이 "매직넘버 + 재부여"로 순서를 옮기고
-> (`devdocs/building-export-import.md`), 그 재부여가 이 문서의 것과 **같은 물건**이다. 그래서
+> (`building-export-import.md`), 그 재부여가 이 문서의 것과 **같은 물건**이다. 그래서
 > 실제 작업 순서는 **이 문서가 먼저**다.
 >
 > 임포트와 **무관한 기존 결함**이다. 편집 메뉴·순서 UI·레이어 이동에 걸려 있고, 임포트는
-> 이 위에 얹혀 있을 뿐이라 `devdocs/building-export-import.md`에서 갈라 세웠다.
+> 이 위에 얹혀 있을 뿐이라 `building-export-import.md`에서 갈라 세웠다.
 
 # 키 그룹의 순서 번호를 다시 매기는 것
 
@@ -311,7 +311,7 @@ X가 자기 밴드의 번호를 들고 다른 밴드로 넘어가면 그 번호�
 | `ApplyOrderSwap` | 앞에 수리 갈래를 달고 있다 | 수리 갈래가 필요 없어진다 |
 | `CleanUpDB` | 빠진 번호·겹친 번호를 깁는다 | 빠진 번호는 안 생긴다. 겹침 그물은 손으로 고친 저장 파일용으로 남길지 따로 판단 |
 | `SetKeyForActions` | 랭크로 정렬 후 하나씩 `PlaceLast` | 매직넘버 + 재부여 (모양은 이미 같다) |
-| `PlaceImportedActions` | `ipairs(placements)` 차례로 놓고 `PlaceLast`가 번호를 준다 | **매직넘버 + 재부여.** 들어온 액션에 `seq = MAGIC + 실려온 seq`를 먼저 얹고, 넣고, 닿은 그룹을 전부 재부여한다(`devdocs/building-export-import.md`) |
+| `PlaceImportedActions` | `ipairs(placements)` 차례로 놓고 `PlaceLast`가 번호를 준다 | **매직넘버 + 재부여.** 들어온 액션에 `seq = MAGIC + 실려온 seq`를 먼저 얹고, 넣고, 닿은 그룹을 전부 재부여한다(`building-export-import.md`) |
 
 **재부여가 걸려야 하는 입구**(하나라도 빠지면 그 그룹만 옛 증상이 남고, 재현이 안 된다):
 조건·중요도·hover 편집(`onActionValueChanged`), 키 걸기/떼기(`SetActionKey`), 레이어 이동·복사
@@ -378,5 +378,5 @@ X가 자기 밴드의 번호를 들고 다른 밴드로 넘어가면 그 번호�
 ## 임포트와의 관계
 
 이 문서는 임포트가 만든 문제가 아니지만, 임포트가 여기 얹혀 있다.
-`devdocs/building-export-import.md`의 `importOrder` / `order` / 매직넘버 이야기가 전부 이
+`building-export-import.md`의 `importOrder` / `order` / 매직넘버 이야기가 전부 이
 결함을 우회하려고 생긴 것들이고, 이 문서의 결론이 서면 그쪽에서 걷어낼 수 있다.

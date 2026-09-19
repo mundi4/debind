@@ -72,7 +72,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- **A saved `UNUSED` or `COMMAND` stands on the key as a BLOCK**, and the action keeps the type
-    -- it was saved with (`devdocs/legacy/dropping-the-game-fallback.md` §3). Nothing after it on the key
+    -- it was saved with (`dropping-the-game-fallback.md` §3). Nothing after it on the key
     -- can fire, so it has to reach the key rather than be left out.
     test("an unused or command action stands on the key as a block", function()
         local unused = { type = Constants.UNUSED, key = "F1", seq = 1 };
@@ -122,7 +122,7 @@ return function(DebindPrivate)
     -- **The strongest outcome among an action's issues is the one it gets.** A retired type stays
     -- on its key as a block; a condition no state can meet leaves it out. Carrying both, it is left
     -- out: folded by grade instead, the two tie and whichever check is written first decides
-    -- (`devdocs/legacy/reorganizing-binding-issues.md` §3-1).
+    -- (`reorganizing-binding-issues.md` §3-1).
     test("a retired type carrying an issue that leaves it out is left out", function()
         -- Special bar against pet battle, on purpose: that check runs after the retired type's, so a
         -- fold that keeps the first of equals keeps the wrong one, and it leaves the binding standing,
@@ -230,7 +230,7 @@ return function(DebindPrivate)
     -- **A condition on the resolved target makes the action conditional, target or not.** An
     -- action with no target and nothing but that condition used to read as unconditional, so it sat
     -- behind an unconditional one placed earlier, and that one's self twin covered its own: held or
-    -- not, the key never reached it (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+    -- not, the key never reached it (`implementing-focus-and-self-cast.md` §3-6).
     test("a resolved target condition with no target picked sorts as conditional", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 },
@@ -290,11 +290,11 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- One action, two records (`devdocs/splitting-an-action-into-bindings.md`)
+    -- One action, two records (`splitting-an-action-into-bindings.md`)
     ---------------------------------------------------------------------------
 
     -- **The key is laid out in tiers**: every self twin, every focus twin, every hover twin, every
-    -- original (`devdocs/which-action-a-key-runs.md` §3). Side by side, an original placed first took
+    -- original (`which-action-a-key-runs.md` §3). Side by side, an original placed first took
     -- a pointed press before the hover twin of the action behind it had a turn. Action 1 has no hover
     -- twin, since its [when none is pointed at] leaves the twin nothing to match.
     test("the key is laid out in tiers", function()
@@ -571,7 +571,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- `devdocs/legacy/rewriting-evaluate-issues.md` §4: how many records each row puts on its key
+    -- `rewriting-evaluate-issues.md` §4: how many records each row puts on its key
     --
     -- **A binding that cannot stand is not on the key**, the other bindings of its action are.
     -- Nothing after `BuildKeyMap` would drop it (`Debind.lua`'s `UnrollIntoTiers`).

@@ -1,4 +1,4 @@
--- The 27 actions of `devdocs/legacy/rewriting-evaluate-issues.md` §4, in the shape a profile stores them.
+-- The 27 actions of `rewriting-evaluate-issues.md` §4, in the shape a profile stores them.
 --
 -- **One table for two specs.** `issue_spec` reads the issue columns and `keymap_spec` the record
 -- counts, and a row spelled out twice is a row that can drift into two different actions.

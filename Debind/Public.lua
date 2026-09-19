@@ -32,7 +32,7 @@ end
 --- **The shape stays and the call does nothing.** An addon that hands a frame over and takes it
 --- back is answering a question we no longer ask: a unit frame is ours because the reader has not
 --- put it on the blacklist, and nobody else's word moves that
---- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5). Removing the name would
+--- (`taking-every-unit-frame-with-one-blacklist.md` §1-5). Removing the name would
 --- raise inside whoever calls it.
 function DebindPublic:UnregisterFrame()
 end
@@ -44,7 +44,7 @@ end
 --- **`SWITCH_CHANGED` was here and is not any more (2026-08-22).** Anything listening made every
 --- switch value have to be current the instant it moved, and that reachability is what stopped a
 --- computed switch from being worked out only when something asks
---- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`). Nothing in the addon listened and the event
+--- (`trimming-the-restricted-hot-paths.md`). Nothing in the addon listened and the event
 --- was never announced anywhere. If a reason to publish switch values comes back, it comes back
 --- as something cheaper than a broadcast on every flip.
 local VALID_EVENTNAMES = {

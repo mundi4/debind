@@ -12,7 +12,7 @@ local dump                  = DebindPrivate.dump
 --- private table would be the same forty upvalues the split just took out, one scope wider.
 ---
 --- **The menu aims at `ctx.actions`, and a single row is a selection of one**
---- (`devdocs/legacy/editing-many-actions-at-once.md`). Every read below answers for the whole selection and
+--- (`editing-many-actions-at-once.md`). Every read below answers for the whole selection and
 --- every write lands on each action in it, then rebuilds once.
 local ActionMenu = {};
 DebindPrivate.ActionMenu = ActionMenu;
@@ -280,7 +280,7 @@ end
 
 --- Every Casting value is a scalar one level down (`action.casting.hoverCast`) and the kit addresses
 --- a value by one key, so the key spells the whole address: `casting.<name>`
---- (`devdocs/action-and-binding-shapes.md` §1).
+--- (`action-and-binding-shapes.md` §1).
 ---
 --- Returns the table the value lives in and its name, or nil for a key that is not one of these.
 --- **Reading makes nothing**: an action with no `casting` answers off the empty table, the way
@@ -444,7 +444,7 @@ end
 --- **Read off the first specialization and written to all of them.** The class tree hands this the
 --- whole class, because a class talent means the same thing in every specialization and a tick
 --- that landed on one would read as untouched from the other three
---- (`devdocs/legacy/adding-a-talent-condition.md` §2). Reading is the specialization being played,
+--- (`adding-a-talent-condition.md` §2). Reading is the specialization being played,
 --- which
 --- is the one the reader is looking at; a set that arrived out of step realigns on the next click.
 local function TalentConditionIs(ctx, specIDs, spellID, state)
@@ -689,7 +689,7 @@ end
 
 --- The action menu's family (`MenuKit.NewRegistry`). Every condition group is a node on it;
 --- what is left off is the rest of the edit menu, which stage 3 takes
---- (`devdocs/legacy/putting-the-menus-on-a-kit.md`).
+--- (`putting-the-menus-on-a-kit.md`).
 local ActionMenus = MenuKit.NewRegistry({
     accessor = ActionValues,
 

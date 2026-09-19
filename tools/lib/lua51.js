@@ -29,7 +29,7 @@ function runLuaDriver(driver, mode, input) {
         if (run.error && run.error.code === "ENOENT") {
             throw new Error(
                 "lua5.1을 PATH에서 못 찾았습니다. 이 검사는 게임과 같은 5.1로 돌아야 합니다.\n"
-                + "설치는 devdocs/dev-setup.md에 있습니다."
+                + "설치는 dev-setup.md에 있습니다."
             );
         }
         if (run.error) throw run.error;

@@ -202,7 +202,7 @@ local _searchText;
 ---   key   - bound / unbound (accepted, no key given) / pending (not accepted yet)
 ---
 --- **The key axis can overlap.** A badged action carries a real key too
---- (`devdocs/building-export-import.md` 12절), so pending and bound can name the same action. Each
+--- (`building-export-import.md` 12절), so pending and bound can name the same action. Each
 --- axis is asked on its own for that reason: letting one answer for the other would take an arrival
 --- back off the screen of a reader who ticked pending only to see it.
 ---
@@ -337,7 +337,7 @@ end
 --- 아이콘 선택창 하나다(`Close()`가 저장 안 된 변경 앞에서 false를 낸다). 그 창의 `Close()`는
 --- 언제나 true라 막는 일이 없으면서 딸려 닫히기만 했고, 그 딸림 하나 때문에 행을 우클릭해
 --- 메뉴를 여는 것만으로 편집 중인 본문이 커밋됐다. 액션 위에 서는 창을 닫는 자리는 넷뿐이다
---- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
+--- (`closing-the-windows-that-stand-on-an-action.md`).
 local function TryCloseAnyDialog()
 	if (DebindIconSelectorFrame:Close() and DebindResultPanel:Close()) then
 		return true;
@@ -738,7 +738,7 @@ end
 --- the one that stays -- that is what a matching signature means -- so there is no per-row fact the
 --- reader could act on differently, and a list of names would be the same name over and over. That
 --- is a different case from the preview's rows, where marking was turned down for showing something
---- uncertain (`devdocs/building-export-import.md` 12절); a count of exact matches is not uncertain.
+--- uncertain (`building-export-import.md` 12절); a count of exact matches is not uncertain.
 ---
 --- It asks because nothing here is undoable, which is the rule the bulk delete beside it keeps.
 function DebindUI.RemoveDuplicateActions()
@@ -1532,7 +1532,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- **An arrival, waiting to be taken.** It is on the key it was sent on, so the key is what
 		-- names it -- and that key is routinely one the reader already uses, which is why the group
 		-- is `(key, arrivalID)` and this heading is not the same heading as theirs
-		-- (`devdocs/building-export-import.md` 12절). What separates two of them on screen is the
+		-- (`building-export-import.md` 12절). What separates two of them on screen is the
 		-- tint here.
 		--
 		-- **Tinted rather than greyed.** Grey is "nothing here runs, and that is fine"; this one is
@@ -1583,7 +1583,7 @@ end
 --- **Every panel is this addon's own now**, so all three arrive by `panelKey`. Two of them used to
 --- be built by the load-on-demand addon, which is why they could not be XML children of the frame
 --- and had to be fetched by global name and reparented. Moving the UI over here closed that road
---- (`devdocs/building-export-import.md`).
+--- (`building-export-import.md`).
 ---
 --- `needsStore` is what is left of the split, and it asks about **data** rather than about the
 --- panel. Import reads the drawer, Export walks the profile through `IsExportable`, and both of
@@ -1605,7 +1605,7 @@ local PANELS = {
 	{ title = "CUSTOM_STATES", desc = "CUSTOM_STATES_DESC", panelKey = "SwitchesPanel" },
 	-- **One seat where there were two.** Making a string and taking one in are the same list read
 	-- in two directions, and what they had in common is the list (12절 of
-	-- `devdocs/building-export-import.md`).
+	-- `building-export-import.md`).
 	{ title = "STORAGE_TITLE", desc = "STORAGE_MENU_DESC", panelKey = "StoragePanel", needsStore = true },
 	-- **A seat with no tab.** The three above are what the reader made; this one is how the addon
 	-- behaves, so it is not their sibling in the row. The gear is its only door, and while it is up
@@ -2450,14 +2450,14 @@ end
 --- **⚠ It asks when a key would be taken.** An arrival keeps the key it was sent on, so accepting
 --- the lot puts those keys live -- and where the reader already uses one, something has to give.
 --- Nothing used to: what arrived sat on a number the build skipped, so accepting could not reach a
---- key at all. That number is gone (`devdocs/building-export-import.md` 12절) and this question is
+--- key at all. That number is gone (`building-export-import.md` 12절) and this question is
 --- what stands in its place. **A free key still asks nothing**, which is the common case and the
 --- reason the box is not on the ordinary end after all.
 ---
 --- **Two presses reach this, and the question is theirs to share.** [Accept all] hands over every
 --- badge in the profile; the storage tab's [Add and Accept] hands over the ones that press just put
 --- there. What a key collision means is the same either way, so the walk that finds one and the
---- prompt that asks about it are written once (`devdocs/building-export-import.md` 12절).
+--- prompt that asks about it are written once (`building-export-import.md` 12절).
 ---
 --- **Answers with whether it is finished.** A free key is decided here and now; an occupied one puts
 --- a dialog up and the answer arrives later, so a caller with something to say about the outcome
@@ -2528,7 +2528,7 @@ end
 ---
 --- **Blizzard's own registry, kept private to this frame.** `EventRegistry` is a global instance of
 --- this very mixin, so nothing here is a machine of our own -- what was worth avoiding about the
---- global bus was the global, not the mixin (`devdocs/breaking-up-debindui.md`).
+--- global bus was the global, not the mixin (`breaking-up-debindui.md`).
 ---
 --- **A name not declared here raises where it is fired.** `GenerateCallbackEvents` turns each of
 --- these into `DebindFrame.Event.<name>` and `SetUndefinedEventsAllowed` is off by default, so a
@@ -3114,7 +3114,7 @@ function DebindFrameMixin:HandleEscape()
 	--
 	-- **There were three.** The bring dialog asked which layers to take, and the tick moved onto the
 	-- action when the preview column arrived -- there is nothing left for it to ask
-	-- (`devdocs/building-export-import.md` 12절).
+	-- (`building-export-import.md` 12절).
 	if (DebindPasteFrame:IsShown()) then
 		DebindPasteFrame:CloseDialog();
 		return true;
@@ -3274,7 +3274,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	-- **행이 안 그려졌다는 것으로는 액션 위의 창을 닫지 않는다.** 그 조건은 검색·필터와 함께
 	-- 레이어 이동까지 잡는데, 편집 중에 레이어 탭을 한 번 누르면 본문이 커밋되고 `[취소]`가
 	-- 돌아갈 자리가 같이 없어진다. 닫는 방아쇠는 넷뿐이다
-	-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
+	-- (`closing-the-windows-that-stand-on-an-action.md`).
 
 	DebindFrame:UpdateTitle();
 	self:UpdateActionCounts(visible);
@@ -3288,7 +3288,7 @@ end
 --- 패널에는 미루는 저장이 없으므로(Close 참고) 거부할 일이 없다. 돌려주는 true는 부르는
 --- 쪽의 옛 코드를 위해 남긴 것이다.
 --- 액션 위에 서 있는 창 셋을 놓는다. **여는 창 하나만 빼고** 닫으므로, 창을 여는 자리도 이
---- 함수를 부른다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
+--- 함수를 부른다 (`closing-the-windows-that-stand-on-an-action.md`).
 ---
 --- **아이콘 선택창은 여기 없다.** 연 쪽이 닫는다 - 편집 모드는 매크로 편집창이, 새로 만드는
 --- 모드는 피커가 (같은 문서 §4).
@@ -3670,7 +3670,7 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 end
 
 --- 고른 액션들의 타입과 값을 그 자리에서 덮는다. [바꾸기]가 띄운 선택 창에서 하나를 고르면
---- 여기로 온다 (`devdocs/legacy/changing-what-an-action-does.md`).
+--- 여기로 온다 (`changing-what-an-action-does.md`).
 ---
 --- **묻는 일은 여기에 없다.** 확인 창은 이 조작을 시작할 때 서고(`DebindUI.BeginReplaceActions`),
 --- 여기까지 온 것은 승낙한 사람이 고른 것이다.
@@ -3752,7 +3752,7 @@ end
 --- **Not an event, and not yet.** Both columns that have to redraw are the window's own, so it
 --- calls them; an `OnProfileChanged` declared here would be fired at nobody. It goes up when C
 --- makes those columns files that register, and this function keeps its name and its callers
---- (`devdocs/breaking-up-debindui.md`).
+--- (`breaking-up-debindui.md`).
 ---
 --- **No rebuild.** Everything an import places is badged and `BuildKeyMap` skips a badged action,
 --- so a rebuild here would spend the walk to arrive at the key map that is already up. Bindings
@@ -3945,7 +3945,7 @@ function DebindFrameMixin:SelectPanel(id, force)
 	end
 
 	-- 탭을 옮기는 것도 **다른 이야기를 시작하는 것**이다. 액션 하나를 묻고 있던 창은 여기서
-	-- 놓는다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §2). 같은 탭을 다시
+	-- 놓는다 (`closing-the-windows-that-stand-on-an-action.md` §2). 같은 탭을 다시
 	-- 세우는 `force` 호출은 위에서 안 걸러지므로 여기서 가른다.
 	if (_selectedPanel ~= id) then
 		DebindUI.CloseActionWindows();
@@ -3997,7 +3997,7 @@ function DebindFrameMixin:SetTab(id)
 	-- **The selection lives across tabs**, the way the search text does. The left column picks across
 	-- every layer, so a tab switch dropping it would undo that. The editor left open over an action
 	-- no list draws is not what this guards either: a layer move closes nothing any more
-	-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §3).
+	-- (`closing-the-windows-that-stand-on-an-action.md` §3).
 	_selectedTab = id;
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 	self.LayerPanel:UpdateSideTabs();
@@ -4500,7 +4500,7 @@ end
 ---
 --- 매크로 본문은 여기 없다. 그건 창(`DebindMacroFrame`)이 자기 몫으로 들고 있고, 그 창은
 --- `TryCloseAnyDialog`가 부르는 것도 아니다 - 닫는 자리가 따로 넷이다
---- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
+--- (`closing-the-windows-that-stand-on-an-action.md`).
 ---
 --- 선택은 건드리지 않는다. 부르는 쪽이 이미 선택을 바꾸는 중이다.
 ---
@@ -4994,7 +4994,7 @@ end
 --- 액션도 오른쪽에는 그대로 서 있어야 한다.
 function BuildKeyboardElements()
 	-- **한 키가 그룹 하나가 아니다.** 도착분은 보낸 사람의 실키를 그대로 들고 오므로 내 세트와
-	-- 같은 키 위에 앉고, 그 둘은 머리글이 둘이다(`devdocs/building-export-import.md` 12절).
+	-- 같은 키 위에 앉고, 그 둘은 머리글이 둘이다(`building-export-import.md` 12절).
 	-- 그래서 훑는 단위가 `(key, arrivalID)` 쌍이고, 아래 `groups`는 그 쌍의 목록이다.
 	local seen, groups = {}, {};
 	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
@@ -5101,7 +5101,7 @@ function BuildKeyboardElements()
 	-- **One pile, and it used to be several.** A set that arrived without a key was headed on its
 	-- own here, because the grouping was the only surviving record of what the sender had built. An
 	-- arrival keeps the key it was sent on now, so anything of it that reaches this pile came in on
-	-- no key at all and was never a set (`devdocs/building-export-import.md` 12절).
+	-- no key at all and was never a set (`building-export-import.md` 12절).
 	local rows = DebindPrivate.CollectKeylessActionRows();
 
 	-- **The pile is narrowed row by row, and the key groups above are not.** A key group is kept
@@ -5464,7 +5464,7 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		--
 		-- **아래 `SetSelectedAction(nil)`에 맡길 수 없다.** 고른 액션이 없으면 그쪽이 먼저
 		-- 돌아서는데, 키 묶음 메뉴에서 연 창은 선택 없이도 떠 있다
-		-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §2).
+		-- (`closing-the-windows-that-stand-on-an-action.md` §2).
 		DebindUI.CloseActionWindows();
 
 		-- **선택을 비운다.** 선택은 "지금 이 액션 이야기 중"이라는 뜻인데 모드의 대상은 커서
@@ -5980,7 +5980,7 @@ end
 --- **It asks in a dialog** (`KeyCapture.lua`). The other shape - arming the bind mode with the set
 --- and letting the overlay name it instead of pointing at a row - was built, stood beside this one
 --- while the two were compared, and lost; the mode aims at the row under the cursor and nothing
---- else. What separates them is in `devdocs/legacy/asking-for-a-key.md`.
+--- else. What separates them is in `asking-for-a-key.md`.
 ---
 --- **The occupied-key question is asked by occupancy and not by size.** It used to be the set's
 --- question alone, with a single action moving in beside whatever was there and saying nothing - a
@@ -5997,7 +5997,7 @@ function DebindUI.BeginKeyCapture(actions)
 	local label = CaptureLabel(actions);
 
 	-- 이 창은 선택을 안 건드리므로(행 메뉴와 키 묶음 메뉴 둘 다 고른 것 없이 연다) 나머지 둘을
-	-- 여기서 놓는다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §2).
+	-- 여기서 놓는다 (`closing-the-windows-that-stand-on-an-action.md` §2).
 	DebindUI.CloseActionWindows(DebindKeyCaptureFrame);
 
 	DebindKeyCaptureFrame:Open(actions, function(captured)
@@ -6050,7 +6050,7 @@ end
 --- nothing records that those actions were ever one thing (`ClearKeyForActions`) -- so a reader who
 --- does not remember the membership has no way back. One action alone is not asked about: there is
 --- no set there to lose, which is the same line the entry's action delete draws
---- (`devdocs/building-export-import.md` 12절).
+--- (`building-export-import.md` 12절).
 ---
 --- Cancelling does nothing at all. It does not reopen the dialog the button was on either: that
 --- dialog has already closed and asking for a key again is a fresh press.
@@ -6172,7 +6172,7 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 };
 
 --- 고른 것이 무엇을 없애는가. **새 타입과 값을 보고 답한다** - 확인 창을 고른 뒤로 세운 값이
---- 여기 있다 (`devdocs/legacy/changing-what-an-action-does.md` §3). 실제로 없어지는 것만
+--- 여기 있다 (`changing-what-an-action-does.md` §3). 실제로 없어지는 것만
 --- 목록에 든다.
 ---
 --- 대상은 `ActionTakesUnit`에게 묻는다. 타입만으로는 소환수 명령과 태세 버튼이 안 갈리고,
@@ -6624,7 +6624,7 @@ end
 
 --- **이름·아이콘 팝업을 데리고 나간다.** 그 팝업을 액션 위에 세우는 자리는 이 창의
 --- `EditNameIcon_OnClick` 하나뿐이라, 그것이 서 있다는 것은 이 창이 열었다는 뜻이다. 연 쪽이
---- 닫는다 (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §4).
+--- 닫는다 (`closing-the-windows-that-stand-on-an-action.md` §4).
 ---
 --- 강제로 닫는다. 이 창이 닫히는 길은 전부 읽는 사람이 다른 것을 하겠다고 말한 것이고, 그
 --- 뒤에 팝업 하나가 거부하고 남아 서는 자리가 아니다.

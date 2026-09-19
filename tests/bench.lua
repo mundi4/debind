@@ -143,7 +143,7 @@ return function(DebindPrivate)
 
     -- **The shape a key really has, which the table above does not.** Every action puts an original,
     -- a self twin and a focus twin on its key, and a hover twin while Hover Cast is on
-    -- (`devdocs/implementing-focus-and-self-cast.md` §3-4), so a key of n actions hands the solver
+    -- (`implementing-focus-and-self-cast.md` §3-4), so a key of n actions hands the solver
     -- 4n bindings laid out in tiers. The bindings come out of `GetBindingsForAction` itself, and the
     -- tiers keep the actions in the order they were made rather than sorting them: the comparator
     -- decides where a binding stands, not how much covering there is to test.
@@ -159,7 +159,7 @@ return function(DebindPrivate)
     };
     DebindPrivate.InitDB();
     -- Hover Cast는 액션마다이고 값을 안 적은 액션이 설정 탭의 모드를 따르므로
-    -- (`devdocs/which-action-a-key-runs.md` §6), 아래 액션들은 그대로 쌍둥이를 받는다.
+    -- (`which-action-a-key-runs.md` §6), 아래 액션들은 그대로 쌍둥이를 받는다.
 
     local AIMS = { false, "target", "focus", "tank", "none" };
     local function makeAction(density)

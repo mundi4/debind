@@ -13,7 +13,7 @@ local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 ---
 --- Reading and writing values is all `ActionMenuModel.lua`, and drawing a row is `MenuKit.lua`.
 --- What is left in this file is which group asks what and shows what
---- (`devdocs/legacy/putting-the-menus-on-a-kit.md`).
+--- (`putting-the-menus-on-a-kit.md`).
 local ActionMenu                     = DebindPrivate.ActionMenu;
 local ActionMenus                    = ActionMenu.ActionMenus;
 local OnActionsChanged               = ActionMenu.OnActionsChanged;
@@ -81,7 +81,7 @@ end
 --- **`onlyPointedFrame` is the two that only a unit frame can answer.** A frame has a type and the
 --- unit on a group frame has a role; neither can be read off a unit token, so the answer for a unit
 --- that is not the one being pointed at is "yes" and the rows would say nothing
---- (`devdocs/which-action-a-key-runs.md` §0). Only `"unitframe"` and the unit this action aims at
+--- (`which-action-a-key-runs.md` §0). Only `"unitframe"` and the unit this action aims at
 --- can be that unit.
 local UNIT_CONDITION_AXES = {
     {
@@ -485,7 +485,7 @@ end
 --- **Names, one class at a time.** The condition stores specialization ids, so a row means the
 --- same specialization wherever the action sits and a class is exactly its own ids: ticking every
 --- box under one class is what "while I am a warrior" is
---- (`devdocs/moving-the-spec-condition-to-spec-ids.md`).
+--- (`moving-the-spec-condition-to-spec-ids.md`).
 ---
 --- **Every class is offered, not just this character's.** An action moves between tabs and can sit
 --- in General, where it is a character of another class that will press the key.
@@ -597,7 +597,7 @@ local function BuildTalentRow(parent, ctx, specIDs, row)
     end
 end
 
---- **Talents, this specialization's** (`devdocs/legacy/adding-a-talent-condition.md` §5). The
+--- **Talents, this specialization's** (`adding-a-talent-condition.md` §5). The
 --- class tree,
 --- this specialization's tree, one branch per hero tree and the pvp talents, each named the way
 --- the game names it.
@@ -680,7 +680,7 @@ ActionMenus:Define("TALENT", {
 ---
 --- **Rows are names.** That is what the condition stores, because a spell has an id per
 --- specialization and a talent combination can stand up one no walk ever sees
---- (`devdocs/making-known-a-spell-name.md`).
+--- (`making-known-a-spell-name.md`).
 ---
 --- The stored value leads, and it is there even when the walk does not know it: a name from
 --- another specialization, or an id the client could not name. Without that row the reader sees a
@@ -820,7 +820,7 @@ ActionMenus:Define("MISC", {
     end,
 });
 
---- **The first branch on the kit** (`devdocs/legacy/putting-the-menus-on-a-kit.md`). The row that
+--- **The first branch on the kit** (`putting-the-menus-on-a-kit.md`). The row that
 --- opens this used to name `{ "bonusbars", "specialbar" }` beside itself so a red child would
 --- redden it; the tree says who the children are, so the list is gone and a fourth one added
 --- here brings its own colour up with it.

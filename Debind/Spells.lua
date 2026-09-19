@@ -30,7 +30,7 @@ end
 ---
 ---   learnLevelBySpellID   `spellID -> level`, for `[known:]` (below)
 ---   learnLevelByName      the same thing keyed by name, for a `known` that stores one
----                         (`devdocs/making-known-a-spell-name.md`)
+---                         (`making-known-a-spell-name.md`)
 ---   obtainableIDsByName   `name -> { spellID, ... }`, for `ResolveBase` (below)
 ---   nameAsked             ids already put to `GetSpellName`. `AddSpellBook` files one id under
 ---                         three keys and the merge meets it again, so without this the same id
@@ -182,7 +182,7 @@ end
 --- it.
 ---
 --- First: which spells' `[known:]` answer cannot move before the next rebuild
---- (`devdocs/baking-the-known-condition.md`). `spellID -> level`: the answer is fixed once the
+--- (`baking-the-known-condition.md`). `spellID -> level`: the answer is fixed once the
 --- character has reached that level, and `0` is a spell whose answer never depended on level.
 ---
 --- **That table says only that the answer is fixed, never what it is.** What it is gets measured
@@ -193,7 +193,7 @@ end
 --- no longer place a stored id.
 ---
 --- Third: the first table keyed by name, for a `known` condition that stores one
---- (`devdocs/making-known-a-spell-name.md`). A name several ids share holds the highest of their
+--- (`making-known-a-spell-name.md`). A name several ids share holds the highest of their
 --- levels, because any one of them still below it flips the answer with no rebuild behind it.
 ---
 --- `api` holds every client call this walk makes, in one table so a spec can hand it a world of
@@ -324,7 +324,7 @@ end
 --- table but below its level is **not** fixed: a level-up flips it with no rebuild behind it.
 ---
 --- **A name asks the same question of the name index.** That is what a `known` condition stores
---- (`devdocs/making-known-a-spell-name.md`), and the value handed here is the one that goes into
+--- (`making-known-a-spell-name.md`), and the value handed here is the one that goes into
 --- the conditional either way.
 local function IsFixed(value)
     local level;
@@ -417,7 +417,7 @@ end
 --- Among several ids under one name, the first that climbs anywhere wins. **Which one that is
 --- does not reach the cast**: they share a name and the name is what goes on the button
 --- (`ComposeSpellCastName`). It does reach `[known:]` and the icon, and neither has a rule saying
---- which of them the reader meant -- see `devdocs/resolving-a-stored-spell-id.md`.
+--- which of them the reader meant -- see `resolving-a-stored-spell-id.md`.
 ---
 --- **The client's answer and nothing else.** For an id that is already standing this is the whole
 --- of the question, and it is what a caller holding a **fresh** id wants: one that just came out

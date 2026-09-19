@@ -37,7 +37,7 @@ DefaultClickFrame:RegisterForClicks("AnyUp", "AnyDown");
 --
 -- Self cast and focus cast are decided by the click wrapper instead, because the client's order
 -- lets a pointed unit beat a held modifier and a unit of ours stops the branches from being
--- reached at all (`devdocs/implementing-focus-and-self-cast.md` §1, §3-7). Left on, they would
+-- reached at all (`implementing-focus-and-self-cast.md` §1, §3-7). Left on, they would
 -- still redirect every press that fires with no unit.
 --
 -- Mouseover cast cannot reach a right answer on this button. `SecureButton_GetModifiedUnit` decides
@@ -53,7 +53,7 @@ DebindPrivate.DefaultClickFrame = DefaultClickFrame;
 
 -- **Where a cast with a chosen target goes out.** A binding whose target the reader picked is
 -- fired through a macro body that turns `autoSelfCast` off around it, and that body clicks this
--- frame rather than the one above (`devdocs/matching-the-clients-cast-targeting.md` §2-2).
+-- frame rather than the one above (`matching-the-clients-cast-targeting.md` §2-2).
 --
 -- **The click wrapper is on `DefaultClickFrame`, and its prologue wipes the bare `unit`.** Sending
 -- the inner click back to that frame would clear the target the wrapper had just settled, which is
@@ -220,7 +220,7 @@ do
 	local _unroll = {};
 
 	--- Lays the sorted originals out as the key, in four tiers: every self twin, every focus twin,
-	--- every hover twin, every original (`devdocs/which-action-a-key-runs.md` §3). A probe goes with
+	--- every hover twin, every original (`which-action-a-key-runs.md` §3). A probe goes with
 	--- the binding it gates, right ahead of it.
 	---
 	--- **Tiers, not each action's bindings side by side.** Side by side, an original placed first
@@ -306,7 +306,7 @@ do
 				-- **The badge is the whole of the gate now.** An arrival keeps the key it was sent
 				-- on, so the key says nothing about whether it is the reader's yet - this line
 				-- used to have a second test for a number standing in for an undecided key, and
-				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
+				-- that shape is gone (`building-export-import.md` 12절). Which also means
 				-- accepting is the moment a key starts working, where it used to leave the set
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
 				-- **An action the reader turned off gets the same treatment as a quarantined one**,
@@ -325,7 +325,7 @@ do
 					-- early must not hand the key back to the game: baked, the binding would lose every
 					-- press and the key would do nothing (2026-09-15, owner). That includes an action
 					-- with no binding at all, every press turned off in its Cast Options menu
-					-- (`devdocs/which-action-a-key-runs.md` §6): the key is still held for it.
+					-- (`which-action-a-key-runs.md` §6): the key is still held for it.
 					--
 					-- **A specialization condition naming another class's specializations holds the
 					-- key too**, though nothing behind it can ever fire on this character
@@ -372,7 +372,7 @@ do
 				--
 				-- **The talent condition is the third, and it is the same rule again**: talents
 				-- cannot change in combat and every change that moves them rebuilds everything
-				-- (`devdocs/legacy/adding-a-talent-condition.md` §4), so this build has one answer
+				-- (`adding-a-talent-condition.md` §4), so this build has one answer
 				-- to it.
 				if (binding and DebindPrivate.SpecConditionHolds(binding)
 						and DebindPrivate.KnownConditionCanHold(binding)

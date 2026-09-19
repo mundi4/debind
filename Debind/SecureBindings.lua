@@ -94,7 +94,7 @@ SecureHandlerExecute(BindingDriver, [[
 	ClickTimeKeys = newtable()
 
 	-- **Keys given back to the game while something else needs them**
-	-- (`devdocs/giving-keys-back.md`).
+	-- (`giving-keys-back.md`).
 	--
 	-- `BoundKeys` is `key -> that key's record list`, the other direction of `ClickTimeKeys`, and
 	-- the rebuild writes it beside the `SetBindingClick` that put the key on. A record list carries
@@ -240,7 +240,7 @@ end
 --- **`@@` with nothing aimed at goes out as `@target`** (2026-09-18, owner). `[@@]` is a clause
 --- the reader wrote a unit into, and a lone `@` there is erased by the client, which hands the
 --- clause back to whatever the game aims at by default -- a unit the reader never named
---- (`devdocs/implementing-focus-and-self-cast.md` §4).
+--- (`implementing-focus-and-self-cast.md` §4).
 ---
 --- **Two places bake, and both are the click.** A computed switch's expression
 --- (`COMPUTE_SWITCHES_SNIPPET`) and the winner's own body (the `OnClick` wrapper below). So the
@@ -358,7 +358,7 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 ]==];
 
 --- The slot an action button action fires, worked out at the press
---- (`devdocs/legacy/dropping-the-game-fallback.md` §4). Declares `slotButton`, the name to answer with
+--- (`dropping-the-game-fallback.md` §4). Declares `slotButton`, the name to answer with
 --- where the winner is one. Needs `winner`.
 ---
 --- **A check the Blizzard binding makes on the press is made here too, and it cancels the click.**
@@ -457,7 +457,7 @@ local RESOLVE_UNIT_SNIPPET = [==[
 --- button. Without it the same profile answers two ways: a chosen unit that exists casts and gets
 --- redirected to the caster, and one that does not exist is dropped by the client's `UnitExists`
 --- guard with nothing happening at all
---- (`devdocs/matching-the-clients-cast-targeting.md` §2-2).
+--- (`matching-the-clients-cast-targeting.md` §2-2).
 ---
 --- **Press-and-hold keeps the direct route.** The macro runs once, and the hold the gate starts on
 --- the down edge has no release to pair with inside one; wrapping it would trade a chosen target
@@ -581,7 +581,7 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 ]==]);
 
 --- **Hands the action buttons' keys to the game while the bar they sit on is somebody else's**,
---- and takes them back when it is not (`devdocs/giving-keys-back.md`).
+--- and takes them back when it is not (`giving-keys-back.md`).
 ---
 --- It runs here rather than in a rebuild because the transitions it answers are mid-fight and a
 --- rebuild cannot cross a lockdown (`CanBuildBindings`). Nothing it reads is baked: `GetBindingKey`
@@ -598,7 +598,7 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 --- **How many buttons are live is not the same in every state** (§2 of the document). A skinned bar
 --- has six and the rest of the page is dead, a battle has five, and everything else has twelve.
 ---
---- **`v` and `o` are six on three measured samples** (§2 of `devdocs/giving-keys-back.md`): two
+--- **`v` and `o` are six on three measured samples** (§2 of `giving-keys-back.md`): two
 --- skinned override bars and a skinned Ulduar vehicle. What is not measured is an `[overridebar]`
 --- with no skin, which Blizzard's own code has a branch for (`ActionBarController.lua`), and
 --- whether `[vehicleui]` is ever unskinned (§8). Either turning up is twelve, and this table is
@@ -886,7 +886,7 @@ BindingDriver:SetAttribute("clickcast_onleave", [==[
 --- **One body, whatever Clique is doing.** Every unit frame is ours, Clique's included, so a hover
 --- over any of them fills `States.unitframe` the ordinary way and there is no frame left for a
 --- second shape to answer for
---- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1).
+--- (`taking-every-unit-frame-with-one-blacklist.md` §1-1).
 BindingDriver:SetAttribute("GetUnitFrameUnit", [==[
 	local unitframe = States.unitframe
 	if (unitframe and unitframe.frame) then
@@ -929,7 +929,7 @@ BindingDriver:SetAttribute("clickcast_register", [==[
 
 --- **Part of the `ClickCastHeader` shape and does nothing.** A header taking a child back is a
 --- deregistration arriving from outside, and one of those means nothing here
---- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5). The attribute stays
+--- (`taking-every-unit-frame-with-one-blacklist.md` §1-5). The attribute stays
 --- because a header calls it by name and a missing body raises where it is called from.
 BindingDriver:SetAttribute("clickcast_unregister", "");
 
@@ -1036,7 +1036,7 @@ local EVAL_SNIPPET = [==[
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	-- **The held modifier picks the tier before any record is read, and only that tier is walked**
-	-- (`devdocs/implementing-focus-and-self-cast.md` §3-4). Every action has a self and a focus
+	-- (`implementing-focus-and-self-cast.md` §3-4). Every action has a self and a focus
 	-- twin, so walking the whole key would pass over two records per action on every press with
 	-- nothing held. A tier with no winner ends the press there.
 	--
@@ -1643,7 +1643,7 @@ end, [==[
 	end
 
 	-- **Nothing to fire cancels the click.** The winner is the BLOCK that closes the tier, or
-	-- nothing matched at all (`devdocs/legacy/dropping-the-game-fallback.md` §3). Leaving the name would
+	-- nothing matched at all (`dropping-the-game-fallback.md` §3). Leaving the name would
 	-- come to the same, since there is no `*type-@<key>`, but only by accident.
 	if (not winner or not winner.clickbutton) then
 		return false

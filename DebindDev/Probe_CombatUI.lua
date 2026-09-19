@@ -32,7 +32,7 @@ local function Emit(fmt, ...)
 end
 
 --- 막힌 protected 호출은 에러를 안 던지고 ADDON_ACTION_BLOCKED로 나간다
---- (`devdocs/reading-back-what-you-just-set.md`). 배터리가 도는 동안 들어온 것만 모은다.
+--- (`reading-back-what-you-just-set.md`). 배터리가 도는 동안 들어온 것만 모은다.
 local blocked = {}
 local watching = false
 local watcher = CreateFrame("Frame")

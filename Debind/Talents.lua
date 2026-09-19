@@ -7,7 +7,7 @@ DebindPrivate.Talents = Talents;
 ---
 --- **Names and not ids**, because a talent has an id per specialization and the reader who sees
 --- one name on screen has no way to tell which build wrote which id
---- (`devdocs/legacy/adding-a-talent-condition.md` §3).
+--- (`adding-a-talent-condition.md` §3).
 ---
 --- **A talent of the hero tree that is not running is not taken**, and that is the whole reason
 --- this walk cannot take `entryIDsWithCommittedRanks` at face value. Ranks bought in a hero tree
@@ -224,7 +224,7 @@ end
 --- The lists the menu offers, for the specialization being played: the class tree, this
 --- specialization's tree, one per hero tree, and the pvp talents.
 ---
---- **This specialization only** (`devdocs/legacy/adding-a-talent-condition.md` §5). Another one's nodes
+--- **This specialization only** (`adding-a-talent-condition.md` §5). Another one's nodes
 --- are reachable through a view config, but its pvp talents are not reachable at all, and a branch
 --- that opens four specializations beside one that opens one is worse than either.
 ---
@@ -394,7 +394,7 @@ end
 --- Does this action name talents from both hero trees at once, on the specialization being played?
 ---
 --- **This specialization's entry only.** Which tree a talent belongs to is answered by the
---- configuration the character is standing in (`devdocs/legacy/adding-a-talent-condition.md`
+--- configuration the character is standing in (`adding-a-talent-condition.md`
 --- §6-1), so a
 --- contradiction stored under another specialization is out of reach until they are in it.
 function DebindPrivate.TalentConditionContradicts(actionOrBinding)

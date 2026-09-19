@@ -264,7 +264,7 @@ return function(DebindPrivate)
     end);
 
     -- **컬럼을 가르는 것은 액션의 주문이 아니라 물어보는 주문이다**
-    -- (`devdocs/making-known-a-spell-name.md`). 같은 주문에 걸린 두 액션이 서로 다른 특성을
+    -- (`making-known-a-spell-name.md`). 같은 주문에 걸린 두 액션이 서로 다른 특성을
     -- 물으면 두 축이고, 한 축으로 묶으면 뒤엣것이 앞엣것에 덮인 것으로 잘못 판정된다.
     test("같은 주문이어도 묻는 주문이 다르면 독립", function()
         expectSurvives({

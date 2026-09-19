@@ -107,7 +107,7 @@ return function(DebindPrivate, _, ctx)
     --- 나가므로 replay 전에는 인터프리터의 `ccframes`에 행이 그대로 있다.
     ---
     --- **싸움이 유일한 길이다.** 밖에서 들어오는 해제는 이제 아무것도 안 하고
-    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5), 행이 사라지는 자리는
+    --- (`taking-every-unit-frame-with-one-blacklist.md` §1-5), 행이 사라지는 자리는
     --- `StandDown` 하나만 남았다. 싸움의 정의가 **우리가 감싸는 그 순간에 그 위에 다시 감는
     --- 것**이라 여기서도 그렇게 만든다 - 우리 리어셈블리가 스택에 있는 동안 남의 래퍼를 얹으면
     --- 그 프레임에서 물러난다.

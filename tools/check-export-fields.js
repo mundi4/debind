@@ -32,7 +32,7 @@ const EXPECTED_ONLY_IN_PROFILE = {
 
 // This list used to hold `key` and `seq` as well, under a format that carried the key on a group
 // layer above the action and renamed the ranking to `order` to keep it from colliding. Both are on
-// the wire under their own names now (`devdocs/building-export-import.md`), which is also what let
+// the wire under their own names now (`building-export-import.md`), which is also what let
 // the receiving side read the same whitelist instead of a blacklist of its own.
 //
 // **`macro` and `setstate` are on the wire and this check cannot see them.** Neither is a profile

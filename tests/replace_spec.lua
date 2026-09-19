@@ -1,7 +1,7 @@
 -- 이미 저장된 액션의 타입과 값을 바꾸는 것. `Profile.lua`의 `SetActionEntry`.
 --
 -- **이 파일이 지키는 것은 남는 쪽과 지워지는 쪽의 경계다**
--- (`devdocs/legacy/changing-what-an-action-does.md`). 키와 키 그룹 안의 자리와 조건은 그대로 있어야
+-- (`changing-what-an-action-does.md`). 키와 키 그룹 안의 자리와 조건은 그대로 있어야
 -- 하고, `known`과 못 가지는 타입의 `unit`은 없어져야 한다. 두 쪽 다 틀려도 화면에는 안 나온다 -
 -- 남겨진 조건은 행에 그려지면서 키에는 안 나가고, 지워야 할 것을 안 지우면 낡은 이름이 새 타입
 -- 위에 남는다.

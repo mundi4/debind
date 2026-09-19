@@ -2,7 +2,7 @@
 // game already says.
 //   npm run globalstrings
 //
-// Why: UI text has to use the game's words (devdocs/writing-user-facing-text.md), and until this
+// Why: UI text has to use the game's words (writing-user-facing-text.md), and until this
 // existed the only way to check one was to launch a client in that language. Korean could be
 // checked that way. Russian could not - it is not installed here and cannot be, so a Russian
 // term was unverifiable from this machine. With the files on disk it is one grep.

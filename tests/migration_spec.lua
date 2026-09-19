@@ -564,7 +564,7 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- dbver 7: `equipslot` becomes `useslot`. The stored string is the type, so the rename is a
-    -- migration step and not a constant edit (`devdocs/0-ROADMAP.md`, 2026-08-28).
+    -- migration step and not a constant edit (`0-ROADMAP.md`, 2026-08-28).
     ---------------------------------------------------------------------------
 
     test("dbver 7 renames the equipslot type", function()
@@ -584,7 +584,7 @@ return function(DebindPrivate)
     end);
 
     -- An action slot command becomes the action button action, under the same command name
-    -- (`devdocs/legacy/dropping-the-game-fallback.md` §3). Every other command stays what it was saved as.
+    -- (`dropping-the-game-fallback.md` §3). Every other command stays what it was saved as.
     test("dbver 7 moves the action slot commands to the action button type", function()
         local layer = {
             { key = "A", type = Constants.COMMAND, value = "ACTIONBUTTON3" },
@@ -609,7 +609,7 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- dbver 7: `known`이 "물어본다"에서 **무엇을 묻는가**로 바뀐다
-    -- (`devdocs/making-known-a-spell-name.md`).
+    -- (`making-known-a-spell-name.md`).
     ---------------------------------------------------------------------------
 
     local function knownLayer(action)
@@ -943,7 +943,7 @@ return function(DebindPrivate)
     -- dbver 7: 프레임 종류가 가리킨 개체창 유닛 조건의 축이 된다.
     --
     -- 자기 조건 필드였던 것은 개체창이 자기 조건 축을 갖고 있던 시절의 모양이다. 그 유닛이
-    -- 보통 유닛이 되면서(`devdocs/which-action-a-key-runs.md` §0) 마스크도 그 유닛에 대해
+    -- 보통 유닛이 되면서(`which-action-a-key-runs.md` §0) 마스크도 그 유닛에 대해
     -- 하는 말 하나가 된다.
     ---------------------------------------------------------------------------
 
@@ -1115,7 +1115,7 @@ return function(DebindPrivate)
     -- dbver 7: the three boxes become one `casting` table
     --
     -- **An old unit frame condition action becomes a twin-only action**
-    -- (`devdocs/which-action-a-key-runs.md` §8). It meant "on a pointed press only, ahead of the
+    -- (`which-action-a-key-runs.md` §8). It meant "on a pointed press only, ahead of the
     -- layers", which in the new shape is Hover Cast on Unit Frames with Normal Cast off. The rest keep
     -- doing what they did: a keyboard key as Cast as usual, a mouse button as Skip on Unit Frames.
     ---------------------------------------------------------------------------
@@ -1413,7 +1413,7 @@ return function(DebindPrivate)
 
     --- **A bare [when one is pointed at] is not a condition after the ladder.** The `dbver` 7 step
     --- writes it as Casting instead -- Hover Cast on Unit Frames with Normal Cast off, which is what
-    --- that condition meant (`devdocs/which-action-a-key-runs.md` §8) -- and takes the row out. So
+    --- that condition meant (`which-action-a-key-runs.md` §8) -- and takes the row out. So
     --- the same case reads one way before the ladder and another after it, and `migrated` says which
     --- side is being asked.
     local function checkHoverCase(case, action, when, migrated)
@@ -1564,7 +1564,7 @@ return function(DebindPrivate)
     -- dbver 6: SETSTATE가 타입 셋과 이름으로 갈린다
     --
     -- 저장은 `mode | index` 비트팩 하나였다. 모드가 `type`으로 올라가고 대상이 이름이 된다
-    -- (`devdocs/legacy/redesigning-custom-states.md` §9-1).
+    -- (`redesigning-custom-states.md` §9-1).
     --
     -- **틀리면 조용하다.** 모드를 잘못 읽으면 켜는 키가 끄는 키가 되고, 이름을 잘못 읽으면
     -- 남의 스위치를 켠다. 둘 다 화면에는 멀쩡한 줄로 그려진다.
@@ -1620,7 +1620,7 @@ return function(DebindPrivate)
     --
     -- 3.2 stored a waiting set as a synthetic number in `key` plus `imported`, which held the
     -- sender's real key. The synthetic key is gone: `key` is the sender's own and `arrivalID` is
-    -- what holds the set back (`devdocs/building-export-import.md` 12절).
+    -- what holds the set back (`building-export-import.md` 12절).
     --
     -- **Both ways of getting this wrong are silent, and one of them fires keys.** Drop the badge
     -- and a set the reader never agreed to reaches every key it was sent on. Leave the synthetic
@@ -2294,7 +2294,7 @@ return function(DebindPrivate)
     -- **저장되는 값은 하나뿐이다.** 계산식 스위치는 파생값이라 저장할 것이 없고, 남는 것은
     -- 수동 + "기억하기"(`resetValue == nil`)의 `savedValue` 하나다. 그것이 계정에 앉아 있는
     -- 동안 "기억하기"는 **마지막에 로그아웃한 캐릭터가 남긴 값 기억하기**였다
-    -- (`devdocs/legacy/redesigning-custom-states.md` §5).
+    -- (`redesigning-custom-states.md` §5).
     --
     -- **`db.characters`는 계정 파일 안에 있고 전부 한꺼번에 메모리에 올라온다.** 그래서
     -- "캐릭터마다 자기 첫 로그인에 알아서 마이그레이션된다"가 여기서는 성립하지 않는다 -
@@ -2415,7 +2415,7 @@ return function(DebindPrivate)
 
     --- **끄는 것과 지우는 것은 다르다는 원칙은 옵션이 살아 있을 때의 것이다.** 상자가 없어지면
     --- 다시 켤 길도 없으니 그 값은 아무에게도 뜻이 없는 고아고, 안 지우면 SavedVariables에
-    --- 영영 남는다 (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §3).
+    --- 영영 남는다 (`taking-every-unit-frame-with-one-blacklist.md` §3).
     test("the two switches the blacklist replaced are swept out of the account file", function()
         local db = InitWith({ workAlongsideClique = true, takeUnregisteredFrames = false });
         DebindPrivate.CleanUpDB();

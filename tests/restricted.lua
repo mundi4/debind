@@ -4,7 +4,7 @@
 -- `SecureHandlerExecute` or stored in an attribute is replayed here in the order it crossed --
 -- login setup first, then the rebuild -- so the tables the click path reads are the ones the game
 -- would have built. Writing the setup out here instead would be a second copy of it, and a second
--- copy is the one thing that can drift (`devdocs/legacy/going-headless-outside-the-ui.md` §5).
+-- copy is the one thing that can drift (`going-headless-outside-the-ui.md` §5).
 --
 -- **The binding driver's environment and `UnitWatch`'s, kept apart.** In the game each header
 -- frame gets its own managed environment, and the click path lives entirely in the driver's --
@@ -312,7 +312,7 @@ local function buildEnv(interp)
     env.HasTempShapeshiftActionBar = function() return state.shapeshiftbar; end
     env.HasBonusActionBar = function() return state.bonusactionbar; end
     env.GetActionBarPage = function() return state.actionBarPage; end
-    -- The indices the probe read on retail (§4-5 of `devdocs/legacy/dropping-the-game-fallback.md`).
+    -- The indices the probe read on retail (§4-5 of `dropping-the-game-fallback.md`).
     env.GetVehicleBarIndex = function() return 16; end
     env.GetTempShapeshiftBarIndex = function() return 17; end
     env.GetOverrideBarIndex = function() return 18; end
@@ -355,7 +355,7 @@ local function buildEnv(interp)
     env.IsShiftKeyDown = function() return state.shift; end
     --- **What the client answers is not what is held.** It hides the modifiers that are part of
     --- the binding a press arrived on, so a spec sets the answer for the name directly
-    --- (`devdocs/implementing-focus-and-self-cast.md` §2-1).
+    --- (`implementing-focus-and-self-cast.md` §2-1).
     env.IsModifiedClick = function(name) return state.modifiedClick[name] and true or false; end
     env.SecureCmdOptionParse = function(expr) return parseCondition(interp, expr); end
 

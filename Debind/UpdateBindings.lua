@@ -56,7 +56,7 @@ local SELFCAST_OFF_SUFFIX = "-nosc";
 
 --- The body that twin carries: read the reader's setting, turn it off, fire the real button,
 --- put it back. **The value is read in the body and not baked in**, so a setting changed mid-fight
---- is the one the next press restores (`devdocs/matching-the-clients-cast-targeting.md` §2-2).
+--- is the one the next press restores (`matching-the-clients-cast-targeting.md` §2-2).
 ---
 --- The global is how the two `/run` lines reach each other -- a macro body has no other scope, and
 --- the cast frame is protected from where this runs.
@@ -95,7 +95,7 @@ local _unitsSeen         = {};
 ---
 --- Holding the decision apart from the doing is what lets a spec ask what a profile comes to
 --- without a client in front of it: `BuildBindingPlan` answers from `ctx`, and `ApplyBindingPlan`
---- is the only step with an effect (`devdocs/legacy/going-headless-outside-the-ui.md` §3-1).
+--- is the only step with an effect (`going-headless-outside-the-ui.md` §3-1).
 local _ctx               = {};
 local _plan              = { events = {}, units = {} };
 
@@ -150,7 +150,7 @@ end
 --- **The name is not checked against a list any more.** It used to have to be one of the numbered
 --- five, and a name outside them was answered `false` without so much as asking whether it was
 --- defined. So a definition could never be found under any other name, which is what §10's 1b-2
---- lifts (`devdocs/legacy/redesigning-custom-states.md`). What decides now is the same thing that decides
+--- lifts (`redesigning-custom-states.md`). What decides now is the same thing that decides
 --- everywhere else: whether `ResolveSwitchDefinition` has an answer.
 ---
 --- **How it behaves is asked of the layers, whether it exists is asked of the definition** (§4-6).
@@ -294,11 +294,11 @@ end
 --- **Most of what it collects is still not a value**, and saying so is the point of the step
 --- existing this early. `BuildKeyMap` fills `DebindPrivate.KeyMap` and the switch reset writes the
 --- profile, so what comes back is a reference to a table this call filled rather than a copy. What
---- turns those into values is stage 3 of `devdocs/legacy/going-headless-outside-the-ui.md`; naming the
+--- turns those into values is stage 3 of `going-headless-outside-the-ui.md`; naming the
 --- seam is what makes it possible to move.
 local function CollectBindingContext()
     -- **Where a specialization change reaches a switch** (§4-8 of
-    -- `devdocs/legacy/redesigning-custom-states.md`). An override saying "always on in this
+    -- `redesigning-custom-states.md`). An override saying "always on in this
     -- specialization" has to be applied on the way *into* that specialization, not only at login,
     -- and a specialization change is a rebuild - this one. It is below the guard above on purpose:
     -- which answer wins depends on the specialization, so asking before it is known would resolve
@@ -322,7 +322,7 @@ end
 --- **It runs before the build rather than inside `ApplyBindingPlan`, and that is temporary.** The
 --- build still stamps attributes and builds delegate frames as it goes (`SetBindingAttributes`),
 --- so a reset deferred to the apply would land on top of what the build had already put out.
---- Stage 2 of `devdocs/legacy/going-headless-outside-the-ui.md` takes the stamping out of the build, and
+--- Stage 2 of `going-headless-outside-the-ui.md` takes the stamping out of the build, and
 --- this moves in with it.
 ---
 --- **`UnitAliasMap` is deliberately not among what goes.** It outlives the rebuild, which is why an
@@ -451,7 +451,7 @@ end
 --- **Keys Given Back is the only reader left.** A condition is measured at the press, so no event
 --- has to reach us for one; what these wake is `SecureStateDriverManager`'s evaluation of the
 --- `state-giveback` attribute driver, which has to be current the moment a vehicle takes the bar
---- (`devdocs/giving-keys-back.md` §4). Every event the state loop used to ask for went with it.
+--- (`giving-keys-back.md` §4). Every event the state loop used to ask for went with it.
 ---
 --- The order here is the order they are applied in. It is written out rather than walked out of a
 --- table, so what a rebuild emits does not depend on `pairs`.
@@ -498,7 +498,7 @@ end
 ---
 --- **What is not pure yet is the emitters.** `UpdateBindingsMap` reaches `SetBindingAttributes`,
 --- which stamps the click frame and builds delegate frames as it walks; stages 2 and 3 of
---- `devdocs/legacy/going-headless-outside-the-ui.md` take that out. What is already a value is every
+--- `going-headless-outside-the-ui.md` take that out. What is already a value is every
 --- decision below the snippets -- which events to register, which units to watch, the throttle --
 --- and those are the ones a spec could not reach at all before.
 ---
@@ -552,7 +552,7 @@ end
 --- vehicle bar (`legacy/dropping-the-game-fallback.md` §4-5).
 ---
 --- **The letter is the whole of the answer now**, so the body no longer asks which state it is in
---- (§2 of `devdocs/giving-keys-back.md`). That closed a hole: the driver wakes before
+--- (§2 of `giving-keys-back.md`). That closed a hole: the driver wakes before
 --- the bar is up, and a body asking `HasVehicleActionBar()` at that moment found nothing, handed no
 --- key over, and stayed that way until the next transition. Measured 2026-09-19 on a Ulduar vehicle
 --- and on the bonus bar.
@@ -776,7 +776,7 @@ end
 --- this whole path is here**, which is what leaves `DescribeBinding` with nothing to ask.
 ---
 --- A spec hands these in as plain values instead: it is standing a world up, not imitating an API
---- (`devdocs/legacy/going-headless-outside-the-ui.md` §4).
+--- (`going-headless-outside-the-ui.md` §4).
 local function CollectBindingFacts(type, value, unit, facts)
     wipe(facts);
 
@@ -1161,7 +1161,7 @@ DebindPrivate.StampBinding = StampBinding;
 
 --- Asks, describes, stamps. **The reason a binding was refused is dropped here and nowhere else**,
 --- because the caller's shape still cannot carry one; stage 3 of
---- `devdocs/legacy/going-headless-outside-the-ui.md` is where the record loop learns to.
+--- `going-headless-outside-the-ui.md` is where the record loop learns to.
 function SetBindingAttributes(type, value, unit)
     local facts = CollectBindingFacts(type, value, unit, _facts);
 
@@ -1344,7 +1344,7 @@ local CONDITION_AXES     = {
 --- **Two readers, one value.** `CollectRecordAxes` works out what has to be measured for this
 --- record and `EmitRecord` writes it into the snippet, and both read this. That is the whole point
 --- of the record existing: while emitting and accumulating were one walk, the two could disagree
---- and nothing could tell (`devdocs/legacy/going-headless-outside-the-ui.md` §3-2).
+--- and nothing could tell (`going-headless-outside-the-ui.md` §3-2).
 ---
 --- **One table, refilled**, like every other scratch table in this file. It is good until the next
 --- `BuildKeyRecord`, and both readers run before that.
@@ -1377,7 +1377,7 @@ local function PrepareKeyBindings(key, bindingArray)
         local binding = bindingArray[i];
         -- **Never the self or focus twin.** A modifier held on a frame click is part of the binding
         -- the reader put on that exact combination, since nothing falls through to a click with
-        -- fewer (`devdocs/implementing-focus-and-self-cast.md` §3-10).
+        -- fewer (`implementing-focus-and-self-cast.md` §3-10).
         local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
         local wantsFrame = type(unitFrameCondition) == "table";
         binding.isClickCast = button ~= nil and
@@ -1457,7 +1457,7 @@ local _keysToWalk = {};
 local _noBindings = {};
 
 --- The key's bindings with a BLOCK closing the self tier, the focus tier and the whole list
---- (`devdocs/legacy/dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
+--- (`dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
 --- click-cast-only key a block would take the key, and the world click and camera with it.
 ---
 --- **No block after the hover twins.** The last one sits under every original's [none held], which
@@ -1646,7 +1646,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
                 -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
                 -- `SecureCmdOptionParse`에 그대로 넘긴다. 나눠 두면 클릭마다 결합이 난다.
                 -- **The condition's own value is the question** -- a spell name, or the id where
-                -- the client could not name one (`devdocs/making-known-a-spell-name.md`).
+                -- the client could not name one (`making-known-a-spell-name.md`).
                 --
                 -- `true` is the one shape still derived from the action, and it is left to the
                 -- three types whose spell the specialization picks: they carry no value of their
@@ -1655,7 +1655,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
                 -- false elsewhere in this file too).
                 local spell = DebindPrivate.KnownSpellAsked(binding);
                 -- A spell whose answer cannot move before the next rebuild is settled here
-                -- instead of going out as an axis (`devdocs/baking-the-known-condition.md`), so
+                -- instead of going out as an axis (`baking-the-known-condition.md`), so
                 -- the press stops parsing it.
                 local settled = spell and Spells.SettleKnown(spell);
                 if (settled == false) then
@@ -2154,7 +2154,7 @@ end
 function UpdateAttrChangedHandler()
     -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the
     -- driver on its own beat and writes this attribute only when the value moves, so this branch is
-    -- one transition and not a poll (`devdocs/giving-keys-back.md` §4). The value itself says
+    -- one transition and not a poll (`giving-keys-back.md` §4). The value itself says
     -- nothing the body does not read for itself; it exists to be different.
     appendLine([[
 if (name == "state-giveback") then

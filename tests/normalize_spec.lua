@@ -317,7 +317,7 @@ return function(DebindPrivate)
         check(b.unit == "focus", "대상이 사라짐");
     end);
 
-    --- **개체창 조건은 대상을 안 채워 넣는다** (`devdocs/which-action-a-key-runs.md` §5). 대상을
+    --- **개체창 조건은 대상을 안 채워 넣는다** (`which-action-a-key-runs.md` §5). 대상을
     --- 안 고른 원본은 게임이 놓는 대상으로 나가고, 가리킨 유닛은 쌍둥이가 든다. 채워 넣던 동안에는
     --- 아무것도 안 가리킨 누름이 없는 유닛에게 나갔다.
     test("개체창 조건은 원본의 대상을 안 채운다", function()
@@ -709,11 +709,11 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- 액션 하나가 내는 바인딩 목록. `[1]`이 원본이고 그 뒤가 파생이다
-    -- (`devdocs/splitting-an-action-into-bindings.md`).
+    -- (`splitting-an-action-into-bindings.md`).
     ---------------------------------------------------------------------------
 
     --- 쌍둥이를 세우는 것은 액션의 Hover Cast 값이고, 값을 안 적은 액션은 쌍둥이를 안 받는다
-    --- (`devdocs/which-action-a-key-runs.md` §6). 이 아래 대부분이 그 쌍둥이를 안 재므로
+    --- (`which-action-a-key-runs.md` §6). 이 아래 대부분이 그 쌍둥이를 안 재므로
     --- `listFor`는 기본값 그대로 세우고, 쌍둥이를 재는 자리만 켠다.
     local hoverCastOn = false;
 
@@ -757,7 +757,7 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- 주시 대상 시전과 자기 자신 시전의 쌍둥이
-    -- (`devdocs/implementing-focus-and-self-cast.md` §3-4)
+    -- (`implementing-focus-and-self-cast.md` §3-4)
     ---------------------------------------------------------------------------
 
     --- 쌍둥이 하나를 조합키 값으로 찾는다. 없으면 nil.

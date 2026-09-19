@@ -682,7 +682,7 @@ do
 
 		-- **The specialization being played and nothing else.** The other keys judge nothing in
 		-- this world -- a specialization the condition holds no key for is one it says nothing
-		-- about (`devdocs/legacy/adding-a-talent-condition.md` §2) -- and a tooltip describes the
+		-- about (`adding-a-talent-condition.md` §2) -- and a tooltip describes the
 		-- world
 		-- the reader is in. Naming them here put a specialization under a talent's line and read
 		-- as that talent being taken over there.
@@ -742,7 +742,7 @@ do
 		-- menu picks which spell is asked about rather than inverting the question, so there is no
 		-- "does not know it" row to write and `CONDITION_KNOWN_NO` does not exist.
 		--
-		-- The value names the spell (`devdocs/making-known-a-spell-name.md`); `true` is the three
+		-- The value names the spell (`making-known-a-spell-name.md`); `true` is the three
 		-- types whose spell the specialization picks, and there the action itself is the answer.
 		if (conditions.known) then
 			local error = hasIssues and GetIssue("known");

@@ -15,7 +15,7 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- window's Overview.
 ---
 --- **An entry is outside the profile until it is committed**, which is the decision the design turns
---- on (`devdocs/building-export-import.md`): once actions are in the profile they scatter -- the
+--- on (`building-export-import.md`): once actions are in the profile they scatter -- the
 --- overview sorts by name, layers split them -- so what arrived together has to keep saying so, and
 --- the key is what carries it across.
 ---
@@ -24,7 +24,7 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- until the reader takes the badge off. So committing never changes what any key does, which is
 --- what lets it run without asking anything first - **even though each of them keeps the key it was
 --- sent on**, which is routinely one the reader already uses
---- (`devdocs/building-export-import.md` 12절).
+--- (`building-export-import.md` 12절).
 
 
 --- The shape of a stored **entry** -- the record below, not the payload inside it.
@@ -75,7 +75,7 @@ local KNOWN_CLASSES           = Constants.CLASS_IDS;
 --- **The design is not rejected, it is unbuilt.** Received strings do pile up, and the one thing
 --- that may not happen is one of them vanishing without having said so - which is why the answer is a
 --- clear-out that **asks**, not a sweep, and why nothing here should judge anything until there is
---- something to ask with (`devdocs/building-export-import.md`). Judgement with no action is worse
+--- something to ask with (`building-export-import.md`). Judgement with no action is worse
 --- than neither: it puts a promise on screen.
 
 
@@ -88,7 +88,7 @@ local KNOWN_CLASSES           = Constants.CLASS_IDS;
 --- **The path is the address.** The payload nests the way storage does -- `shared.GENERAL`,
 --- `shared.classes[class][spec]`, `char[spec]` -- so there is no descriptor to read and nothing to
 --- translate; walking the string and walking the profile are the same walk
---- (`devdocs/building-export-import.md`).
+--- (`building-export-import.md`).
 ---
 --- The address is only where it *claims* to be. `ImportAddress` is what says whether it is one this
 --- profile has a place for, and the two are separate so a caller can count what it turned down.
@@ -153,7 +153,7 @@ end
 --- general layer, then class by spec, then character by spec. What differs between two accounts is
 --- *which class*, and that is a value of the coordinate, not a coordinate of its own. A mage's
 --- spec 2 layer is a mage's spec 2 layer on every account, so it goes there verbatim -- no falling
---- back, no dropping the spec, no swapping the class for the reader's. `devdocs/building-export-import.md`.
+--- back, no dropping the spec, no swapping the class for the reader's. `building-export-import.md`.
 ---
 --- The cost is that a mage's string read by a druid lands somewhere this session cannot see: the
 --- druid's `LayerArray` has no `classes.MAGE` in it, so nothing about it is on screen until they
@@ -282,7 +282,7 @@ local VALUE_SHAPES = {
     --
     -- **Or nothing at all**, which is a shape this addon started producing at stage 3c: the picker
     -- adds one row with no target and the switch is picked in the action's own menu afterwards
-    -- (`devdocs/legacy/redesigning-custom-states.md` §6-C). A reader can export a layer before getting
+    -- (`redesigning-custom-states.md` §6-C). A reader can export a layer before getting
     -- round to that, and this table is asked whether the addon *could* have made the action. So
     -- refusing it here would turn away the whole string over a half-finished row, which is the one
     -- thing the receiving side is built not to do. It lands, it is red
@@ -317,7 +317,7 @@ local VALUE_SHAPES = {
 --- `worldmarker` holding nothing. **Nothing this addon writes builds one of those**, so a string
 --- carrying one was touched by hand somewhere -- the string itself, or the SavedVariables it was
 --- exported from -- and `ImportEntry` turns the **whole string** away on it
---- (`devdocs/building-export-import.md`).
+--- (`building-export-import.md`).
 ---
 --- A type nobody knows is the same answer. It cannot be drawn, cannot be bound, and cannot be
 --- repaired into anything.
@@ -345,7 +345,7 @@ end
 --- be a blacklist naming the format's own fields, and being the opposite of the other end is what
 --- made it a hazard: a wire field nobody had thought to name rode straight into the profile, and
 --- avoiding that was the last reason left for the ranking to travel under a name other than its own.
---- With both ends reading one list there is no name to dodge (`devdocs/building-export-import.md`).
+--- With both ends reading one list there is no name to dodge (`building-export-import.md`).
 ---
 --- **The whitelist is the last thing this does, and it is the only writer of `action`.** Grep
 --- `action[` in here and there is one line. Everything decided above it writes to `fields`, which
@@ -357,7 +357,7 @@ end
 --- `SETSTATE` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
 --- where it was turned back into the bitpack the profile stored. §9-1 made the stored form a `type`
 --- and a name, so what arrives is what lands and the loop below just copies it
---- (`devdocs/legacy/unifying-action-migration.md` §3-1). Reading the old subtable is
+--- (`unifying-action-migration.md` §3-1). Reading the old subtable is
 --- `BringPayloadForward`'s now, one door earlier, where every other version step lives.
 local function BuildAction(source)
     local fields = CopyTable(source);
@@ -414,7 +414,7 @@ end
 --- Does this payload hold something **this addon could not have made**?
 ---
 --- One is enough, and one refuses the whole string (2026-08-18, owner's decision,
---- `devdocs/building-export-import.md`). Not that one part on its own: our export cannot produce
+--- `building-export-import.md`). Not that one part on its own: our export cannot produce
 --- the shape, so the string was edited after it was made, and **the rest of it is not warranted
 --- either**. It is also the only answer the reader can act on. Nothing in this addon repoints an
 --- existing action, so a bad row left in their profile could only be deleted -- refusing the string
@@ -483,7 +483,7 @@ end
 ---
 --- **The payload is what is stored, not the string it came in.** Four reasons for keeping the
 --- string were written down and all four turned out to be true of both shapes
---- (`devdocs/building-export-import.md`). What decided it points the other way: `DecodeExportString`
+--- (`building-export-import.md`). What decided it points the other way: `DecodeExportString`
 --- refuses a string outright once its schema has moved, so stored strings are stored values nothing
 --- can bring forward, while a payload can be walked the way `Profile.lua` walks `dbver`. What is
 --- left over is disk size, and holding a smaller thing we cannot read is the worse end of that
@@ -558,7 +558,7 @@ end
 ---
 --- **The automatic backup is why this is one door rather than two.** A backup is an entry made from
 --- the profile and restoring one is pressing the same button any other row has, so there is nothing
---- for it to have of its own (`devdocs/building-export-import.md`). A branch built for backups
+--- for it to have of its own (`building-export-import.md`). A branch built for backups
 --- would be code no ordinary press ever walks, and code nothing walks is code nothing has checked.
 local function StoreEntry(payload, extra)
     local vars = Vars();
@@ -569,7 +569,7 @@ local function StoreEntry(payload, extra)
     -- string that is when it was pasted; for one made here it is when it was made. What it is not
     -- is when the setting it holds was *exported* -- a string carries nothing about its sender but
     -- their class, so that is a second question with no answer on the wire yet
-    -- (`devdocs/building-export-import.md`).
+    -- (`building-export-import.md`).
     entry.received = time();
     -- **What arrived, not the string it arrived in.** The string is not kept: nothing reads it
     -- back, and a copy of the same contents in a form we may one day be unable to decode is worth
@@ -631,7 +631,7 @@ end
 --- character a row in the list belongs to, what to call an automatic backup, and whether this is
 --- the reader's own backup rather than somebody else's setting. That last one is the axis the
 --- custom-state question could never be decided on, because nothing on the wire tells the two apart
---- (`devdocs/building-export-import.md`).
+--- (`building-export-import.md`).
 ---
 --- **They are outside the payload**, which is what keeps them off the wire. A string is made by
 --- encoding `entry.payload`, so there is no step that has to remember to drop them and no way for a
@@ -646,7 +646,7 @@ end
 
 --- Takes a set of actions out of an entry, for good. Answers how many it found.
 ---
---- **The one edit an entry has** (`devdocs/building-export-import.md` 12절). Adding, reordering and
+--- **The one edit an entry has** (`building-export-import.md` 12절). Adding, reordering and
 --- changing an action are all absent and each for its own reason; what is left is throwing part of
 --- it away, and that exists because making an entry takes the whole profile -- eleven layers of it,
 --- with no screen in front to pick from -- so a reader who wants to hand over one part has to be
@@ -759,7 +759,7 @@ end
 --- `arrivalID`, one number for this whole call, and while it is set the action is in the profile and
 --- reaches no key (`BuildKeyMap`). With `key` it is also which group the action lands in, so an
 --- arrival that came in on a key the reader already uses stands under its own heading rather than
---- merging into theirs (`devdocs/building-export-import.md` 12절).
+--- merging into theirs (`building-export-import.md` 12절).
 ---
 --- There used to be a rename here instead: the key was replaced with a number of ours, so that
 --- landing on a key the reader used could not become a merge they cannot undo. The pair does that
@@ -780,7 +780,7 @@ end
 --- -- four of them, one per place a payload could land, offered by a dialog the press opened. The
 --- preview column replaced both: a reader looking at the actions themselves has no reason to be
 --- asked about the layers first, and the answer is no longer worth a window of its own
---- (`devdocs/building-export-import.md` 12절).
+--- (`building-export-import.md` 12절).
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
@@ -845,7 +845,7 @@ end
 --- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_STATE`).
 ---
 --- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
---- put to the reader, and it is not built yet (`devdocs/building-export-import.md`). Until it is, the answer is
+--- put to the reader, and it is not built yet (`building-export-import.md`). Until it is, the answer is
 --- the one that cannot change anything they already had.
 function DebindStorage.CommitEntry(entry, options)
     local payload, reason = DebindStorage.GetEntryPayload(entry);

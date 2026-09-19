@@ -29,7 +29,7 @@ local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip
 --------------------------------------------------------------------------------
 -- The switches menu that used to hang off the portrait
 --------------------------------------------------------------------------------
---- **It is gone, and the tab is where it went** (stage 3c, `devdocs/legacy/redesigning-custom-states.md`
+--- **It is gone, and the tab is where it went** (stage 3c, `redesigning-custom-states.md`
 --- §6-B). `SetupSwitchesDropdownMenu` stood here and edited `mode`, `resetValue` and `expr` on
 --- five offered names, which is the whole of what a row's menu on the
 --- `Switches` tab does now, only over however many switches the reader has made, with renaming
@@ -58,7 +58,7 @@ local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip
 
 --- The menu a row of either list opens, **over one row or over the rows the reader picked.**
 --- `ctx` is `{ actions, layer, otherLayers, inOrderList }`, and a single row is a selection of one
---- (`devdocs/legacy/editing-many-actions-at-once.md`).
+--- (`editing-many-actions-at-once.md`).
 ---
 --- **One menu and not two.** The row menu and the selection menu used to be separate, the second
 --- holding keys, move, copy, accept, reject and delete on the grounds that a condition means
@@ -259,7 +259,7 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
         -- the same. What differs is how much of the column each one reaches, and neither label
         -- says so - a label saying it would set this menu's width. The tooltips are where the two
         -- part, and one string stretched across both positions would fit neither
-        -- (`devdocs/writing-user-facing-text.md`).
+        -- (`writing-user-facing-text.md`).
         --
         -- **The set is collected on the press, not when the menu is built.** That is the only
         -- moment the answer is worth anything: the menu may have stood open through a rebuild,

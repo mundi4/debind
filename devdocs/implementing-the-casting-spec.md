@@ -1,7 +1,8 @@
 # `which-action-a-key-runs.md`를 구현하기 (2026-09-16 시작)
 
-> 상태: **여섯 단계가 다 들어갔다.** `implementing-focus-and-self-cast.md` §3-13이 들어가면 이 문서와 그
-> 문서가 `legacy/`로 간다.
+> 상태: **여섯 단계가 다 들어갔다.** 닫는 조건으로 `implementing-focus-and-self-cast.md` §3-13을 걸어
+> 두었는데, **그 절이 보류가 되었다** (2026-09-19, 소유자). 이제 이 문서와 그 문서를 `legacy/`로 보내는
+> 것은 그쪽 §7 하나다.
 >
 > 규칙은 `which-action-a-key-runs.md`가 들고, 여기는 순서와 각 단계가 건드리는 자리만 든다. 둘이 갈리면 스펙이
 > 맞다. 결정의 근거 중 문서에 없는 것은 `.zzz/hover-twin-wrong-2026-09-15.md`("그 당시의 근거")와 `0-DIARY.md`의

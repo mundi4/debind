@@ -166,7 +166,7 @@ function DebindSpellPickerRowMixin:OnClick(button)
 
 	-- 바꾸기 중이면 새로 만들지 않고 고른 액션들을 덮는다. 오른쪽 클릭이 여기서 아무것도 안
 	-- 하는 것은 그 메뉴가 고르는 것이 **넣을 탭**이라서다. 바꿀 액션은 이미 자기 탭에 있고
-	-- 바꾸기는 그 자리를 안 옮긴다 (`devdocs/legacy/changing-what-an-action-does.md` §4).
+	-- 바꾸기는 그 자리를 안 옮긴다 (`changing-what-an-action-does.md` §4).
 	local replaceTargets = DebindSpellPickerFrame.replaceTargets;
 	if (replaceTargets) then
 		if (button ~= "RightButton") then
@@ -573,7 +573,7 @@ function DebindSpellPickerFrameMixin:OnHide()
 	-- **[새 사용자 지정 매크로]가 띄운 팝업을 데리고 나간다.** 그 모드로 그 팝업을 여는 자리는
 	-- 이 창의 버튼 하나뿐이라 연 쪽이 여기다. 그 팝업은 아직 아무 액션 위에도 안 서 있어서
 	-- 매크로 편집창이 뒤에 없다
-	-- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md` §4).
+	-- (`closing-the-windows-that-stand-on-an-action.md` §4).
 	if (DebindIconSelectorFrame.mode == IconSelectorPopupFrameModes.New) then
 		DebindIconSelectorFrame:Close(true);
 	end
@@ -836,7 +836,7 @@ function DebindSpellPickerFrameMixin:UpdateEmptyText()
 end
 
 --- 바꾸기 모드로 세운다. 확인 창이 승낙을 받은 뒤에만 들어온다
---- (`DebindUI.BeginReplaceActions`, `devdocs/legacy/changing-what-an-action-does.md`).
+--- (`DebindUI.BeginReplaceActions`, `changing-what-an-action-does.md`).
 function DebindSpellPickerFrameMixin:BeginReplace(actions)
 	self.replaceTargets = actions;
 	DebindUI.CloseActionWindows(self);

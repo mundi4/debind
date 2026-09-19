@@ -83,7 +83,7 @@
 - **헤드리스 스펙이 `Debind/ImportUI.lua`를 읽는다.** `CollectImportLines` 케이스 여덟 개가 거기
   걸려 있고, 이 파일은 읽힐 때 프레임을 안 만들어서 셤에 그대로 들어간다. `tests/run.lua`가
   `DebindPrivate.Store`도 같이 세운다(게임에서는 `DebindStorage.lua`가 하는 일).
-  `devdocs/testing-a-change.md`의 로드 목록도 같이 고쳤다.
+  `testing-a-change.md`의 로드 목록도 같이 고쳤다.
 
 `EnsureLineButtons`가 첫 열기까지 미루던 이유가 "그 숫자는 저장 애드온만 안다"였는데 이제
 아니다. 미루는 것 자체는 그대로 뒀고(임포트 탭을 안 여는 사람은 프레임 넷을 안 만든다) 주석만

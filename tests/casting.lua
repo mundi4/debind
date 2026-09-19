@@ -1,6 +1,6 @@
 -- Turning Hover Cast on, for the specs that need a hover twin without being about Hover Cast.
 --
--- Off is what an action written with no `casting` has (`devdocs/which-action-a-key-runs.md` §6), so
+-- Off is what an action written with no `casting` has (`which-action-a-key-runs.md` §6), so
 -- a spec that measures conditions or ordering reads one record per action and needs nothing here.
 -- A spec that measures the pointed press needs the twin, and the twin is what this puts on.
 --

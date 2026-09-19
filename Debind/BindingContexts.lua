@@ -14,7 +14,7 @@ local _, DebindPrivate = ...;
 ---
 --- **물러날지는 전역 옵션이 정한다** (`GiveBackInBindingContext`). 없으면 물러나는 쪽이 기본인
 --- 것은 여기 적힌 이유 그대로다. 액션마다 있던 `keepInBindingContext`는 그 옵션이 서면서
---- 나갔다(`devdocs/giving-keys-back.md` §7).
+--- 나갔다(`giving-keys-back.md` §7).
 ---
 --- **물러나는 일은 보안 쪽이 한다.** 여기는 점유 키 목록만 실어 보내고(`ContextKeys`), 키를
 --- 놓을지 잡을지는 `UpdateGivenBackKeys`가 네 갈래를 합쳐 한 번에 정한다. 그래야 한 키의

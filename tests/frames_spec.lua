@@ -4,11 +4,11 @@
 -- forbidden, has its anchors tied, or cannot be told what to do with a click, is written off and
 -- never asked again -- with nothing said anywhere. Left unchecked, a test drives a frame the addon
 -- is not watching, reads an empty slot, and reports a bug that is not there; that is a rule in
--- `devdocs/testing-a-change.md` because it happened.
+-- `testing-a-change.md` because it happened.
 --
 -- Neither of these needed a client. What kept them out of the harness was that `FrameRegistry.lua`
 -- and `UnitWatch.lua` build frames when they load, and the line has moved: a frame shell is what
--- the harness gives them now (`devdocs/legacy/going-headless-outside-the-ui.md`).
+-- the harness gives them now (`going-headless-outside-the-ui.md`).
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -589,7 +589,7 @@ return function(DebindPrivate)
 
     -- **Every door takes what nobody named, which is the whole decision.** The frames a pack keeps
     -- to itself used to sit behind an option, and the option is gone
-    -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-3): a listed name and a
+    -- (`taking-every-unit-frame-with-one-blacklist.md` §1-3): a listed name and a
     -- name no row covers arrive the same way at each of the three.
     test("every door takes a listed name and a name no row covers alike", function()
         local named = ForeignFrame("ERFExtraFrame41", nil);
@@ -1280,7 +1280,7 @@ return function(DebindPrivate)
     end
 
     -- **Clique being there closes no door.** The switch that used to shut them is gone
-    -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1): a pack that wires its
+    -- (`taking-every-unit-frame-with-one-blacklist.md` §1-1): a pack that wires its
     -- own frames up hands them to whoever holds `ClickCastFrames`, and both engines end up on the
     -- frame.
     test("the name door is open while Clique is installed", function()
@@ -1409,7 +1409,7 @@ return function(DebindPrivate)
     -- **Blizzard's own unit frames are ours whoever else is installed.** Blizzard hands them to
     -- nobody; Clique picks them up itself and so do we, and the two meeting inside
     -- `ClickCastFrames` is Clique's implementation rather than a door the frame came in by
-    -- (`devdocs/legacy/coexisting-with-clique.md` §5).
+    -- (`coexisting-with-clique.md` §5).
     test("Blizzard's own unit frames are registered while Clique is installed", function()
         local frame = ForeignFrame(nil, "player");
 

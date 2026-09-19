@@ -11,7 +11,7 @@ local luatype            = type;
 --- of that last step and nothing more -- it hands back a plain table, never an action. Turning one
 --- into actions is `Import.lua`.
 ---
---- Design notes and the open questions this file does **not** answer: `devdocs/building-export-import.md`.
+--- Design notes and the open questions this file does **not** answer: `building-export-import.md`.
 
 
 --- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
@@ -24,7 +24,7 @@ local luatype            = type;
 --- somebody's guide, so a bump from here is a bump under readers holding one written by 1.
 ---
 --- **Which is why a bump owes v1 a way forward rather than a refusal** (2026-08-19, owner's
---- decision; `devdocs/building-export-import.md`). `BringPayloadForward` is where that step goes,
+--- decision; `building-export-import.md`). `BringPayloadForward` is where that step goes,
 --- and both doors into a payload run it.
 ---
 --- **2 (2026-08-21): the conditions moved into `action.conditions`.** v1 carried their names at the
@@ -42,7 +42,7 @@ local luatype            = type;
 --- envelope and the shape of an action. It went up when only the addressing moved and the actions
 --- did not, and it would have to go up the other way round as well. The profile already versions
 --- the action shape and calls that number `dbver`, so the payload carries the same one
---- (`devdocs/legacy/unifying-action-migration.md` §3-3) -- which is what lets the two ladders be
+--- (`unifying-action-migration.md` §3-3) -- which is what lets the two ladders be
 --- one.
 ---
 --- **That rides on 2 as well.** v3.2 sent 1, and 2 had not gone out when this was decided.
@@ -56,7 +56,7 @@ local luatype            = type;
 --- action type refuses the whole string. So the bump would buy only the codes that use a new
 --- condition and no equipment slot, and it would cost every code that uses neither, which is most
 --- of them. And 2 is out in the field now, unlike when v1 was raised, so a bump is no longer free.
---- `devdocs/0-DECISION-LOG.md` 2026-08-27.
+--- `0-DECISION-LOG.md` 2026-08-27.
 ---
 --- So there are two versions, and what separates them is **whether the payload carries its own
 --- `dbver`**. v1 does not: its version number is the answer, and the branch below stamps 5.
@@ -91,7 +91,7 @@ local ENVELOPE_SEPARATOR = ":";
 --- group now, so there is nothing above the action to hold it, and the collision `seq` was renamed
 --- to avoid was never there. `PlaceArrivedActions` is the only way these reach the profile and it
 --- overwrites `seq` on every one of them with an arrival number before renumbering the group, so a
---- sender's number cannot survive landing. `devdocs/building-export-import.md`.
+--- sender's number cannot survive landing. `building-export-import.md`.
 ---
 --- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
 --- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
@@ -113,7 +113,7 @@ local ACTION_FIELDS      = {
     -- A spell or item id, or a macro name, or a macro body.
     value = "number|string",
     -- A binding string. **Only a string** - a number used to be "a group whose key the sender had
-    -- not decided", and nothing makes one any more (`devdocs/building-export-import.md` 12절). An
+    -- not decided", and nothing makes one any more (`building-export-import.md` 12절). An
     -- old string can still hold them and the ladder nils those on the way in (`MigrateLayer`,
     -- `dbver <= 5`); this line catches one that reaches here anyway, because a number landing in
     -- `key` would stand as a group nobody can name and no key the reader can press.
@@ -140,7 +140,7 @@ local ACTION_FIELDS      = {
 --- receiving side filters one level deeper than it used to (`Import.lua`'s `FieldAllowed`).
 ---
 --- `known` says **what** is asked about rather than whether to ask
---- (`devdocs/making-known-a-spell-name.md`): the name of a spell, the id where the client could
+--- (`making-known-a-spell-name.md`): the name of a spell, the id where the client could
 --- not name it, or `true` on the three types whose spell the specialization picks, which is the
 --- only shape left meaning "this action's own spell". All three types are listed because a shape
 --- left out is a condition that vanishes out of a shared action with nothing said.
@@ -151,7 +151,7 @@ local ACTION_FIELDS      = {
 ---
 --- **A `$`-prefixed name passes unlisted, as a boolean.** Custom state conditions are stored
 --- under their own name and the redesign turns the five slots into arbitrary ones
---- (`devdocs/legacy/redesigning-custom-states.md`); listing five and stopping there would drop every
+--- (`redesigning-custom-states.md`); listing five and stopping there would drop every
 --- named state the day it lands.
 local CONDITION_TYPES    = {
     -- Bit masks.
@@ -217,7 +217,7 @@ DebindStorage.CASTING_TYPES = CASTING_TYPES;
 --- runtime reading as if it were a setting.
 ---
 --- **The remembered value is not on this list and does not belong on it.** It lives on the
---- character now (`devdocs/legacy/redesigning-custom-states.md` §5), and it is one character's on or off
+--- character now (`redesigning-custom-states.md` §5), and it is one character's on or off
 --- rather than a setting: the person reading the string is not that character. A v1 payload
 --- carries a `savedValue` and nothing reads it.
 ---
@@ -225,7 +225,7 @@ DebindStorage.CASTING_TYPES = CASTING_TYPES;
 --- under an absolute key naming *this* installation's characters and classes
 --- (`GetSwitchLayerKey`), so `Player-1329-0004AB27:2` addresses somebody the receiver has never
 --- had. What travels is the answer everything falls back to, which is the one a definition always
---- has. §4-6 of `devdocs/legacy/redesigning-custom-states.md`.
+--- has. §4-6 of `redesigning-custom-states.md`.
 ---
 --- ⚠ **Nothing checks this table.** `check:export-fields` compares `ACTION_FIELDS` and the
 --- condition table and never looks here, so a definition field added without a line here simply
@@ -273,7 +273,7 @@ end
 --- nothing translates one -- the two profiles use the same coordinate system and what differs is
 --- only *which class*, which is a value of the coordinate. Which is also what lets the drawing code
 --- be reused on a payload later without a translation step in front of it
---- (`devdocs/building-export-import.md`).
+--- (`building-export-import.md`).
 ---
 --- Layer **IDs** are what cannot travel: 2..6 are "my class", and the sender's class is not the
 --- reader's. The character block drops the guid for the same reason -- "their character" means
@@ -347,7 +347,7 @@ end
 ---
 --- **§9-1 took the reason away.** With the stored form itself a `type` and a name, what goes on the
 --- wire is not a bitpack any more, and both fields are ordinary whitelisted ones that `CopyFields`
---- passes through. The whole argument is `devdocs/legacy/unifying-action-migration.md`, sections 1
+--- passes through. The whole argument is `unifying-action-migration.md`, sections 1
 --- to 3.
 ---
 --- The other types never needed anything here, and why still holds.
@@ -356,7 +356,7 @@ end
 --- is stored already means the same thing on the far side -- or means nothing, which is what
 --- `BINDING_ISSUE_MISSING_MACRO` is for. **The body does not travel**: it is text the user wrote
 --- freely, and the sender knows only that this action calls their macro named X, not that its
---- contents ride along (2026-08-18, `devdocs/building-export-import.md`). `MACROTEXT` is the
+--- contents ride along (2026-08-18, `building-export-import.md`). `MACROTEXT` is the
 --- opposite case and travels whole -- that text was written inside this addon, to be this action.
 ---
 --- **`SETCUSTOM` is not a switch despite the name.** It sets a custom *target* -- a unit slot, like
@@ -369,7 +369,7 @@ end
 
 --- Every custom state the exported actions name, by name.
 ---
---- Four places hold a reference (`devdocs/legacy/redesigning-custom-states.md` §3-4) and three of them are
+--- Four places hold a reference (`redesigning-custom-states.md` §3-4) and three of them are
 --- reachable from an action: the condition fields on the action itself, an on/off/toggle action's
 --- `value`, and names typed into macro text. The fourth is a state's own `expr` naming another
 --- state, which is why this closes transitively rather than doing one pass.
@@ -483,7 +483,7 @@ end
 ---
 --- A payload is made once (`CreateEntry`) and the panel draws that payload, so there is no second
 --- walk to be wrong: a badged action is not in the entry, therefore not in the preview, therefore
---- not in the count and not in the string (`devdocs/building-export-import.md` 12절).
+--- not in the count and not in the string (`building-export-import.md` 12절).
 ---
 --- **A keyless action is not this.** No badge means the action is the sender's, and "something I
 --- have not given a key to" is a fact about their setup worth carrying.
@@ -515,7 +515,7 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- player is showing it off, and the keys are the part worth showing -- they are not a name, a
 --- realm, or anything else a string pasted into a public channel should not carry. The receiving
 --- side keeps them and holds the actions back with a badge instead
---- (`devdocs/building-export-import.md` 12절).
+--- (`building-export-import.md` 12절).
 ---
 --- A number still travels: that is a key group the sender has not given a key to, which is a fact
 --- about their setup rather than something withheld.
@@ -524,7 +524,7 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- `seq`, so the array is not carrying that and does not have to be sorted to say it; and storage
 --- order is stable for a profile nobody has edited, which is what re-exporting has to be able to
 --- show. Whether a layer's actions are clumped by key is deliberately left open until there is a
---- preview to read them (`devdocs/building-export-import.md`).
+--- preview to read them (`building-export-import.md`).
 ---
 --- **Nothing is validated, and nothing is rewritten.** A broken action exports exactly as it sits.
 --- The receiving side shows it in red and the user deletes it, and that one rule is what removes a
@@ -573,7 +573,7 @@ end
 ---
 --- **What travels is decided here rather than when an entry is made.** An entry is a whole thing
 --- somebody keeps; which part of it to hand out is a different answer every time, worth exactly one
---- press, and so it is never written down (`devdocs/building-export-import.md`). Deleting from the
+--- press, and so it is never written down (`building-export-import.md`). Deleting from the
 --- entry is the other verb and it is permanent -- one narrows a copy, the other narrows the thing.
 ---
 --- **The fields an entry carries about itself do not travel, and nothing here has to drop them.**
@@ -675,7 +675,7 @@ end
 
 --- v1 -> v2, the action side. The wire spelled a `SETSTATE` as a `setstate = { mode, state }`
 --- subtable with no `value`; it is opened out into the `type` and the name the profile stores
---- (`devdocs/legacy/unifying-action-migration.md` §3-2).
+--- (`unifying-action-migration.md` §3-2).
 ---
 --- **This adapter is permanent.** The door to dropping v1 shut when 3.2 shipped: those strings are
 --- in other people's hands and the reading side has to be able to read them. It can stay because
@@ -726,7 +726,7 @@ end
 --- touches nothing above one, and a payload's layer is an array of actions, so it goes across as it
 --- is. Writing the same transformation twice is what this replaces: condition nesting stood here in
 --- full, in a second copy of the `dbver <= 5` step
---- (`devdocs/legacy/unifying-action-migration.md` §3-4).
+--- (`unifying-action-migration.md` §3-4).
 ---
 --- **What is walked is still each side's own.** Layer addresses and key mapping are different
 --- things in a profile and in a payload; only the per-action ladder is shared.
@@ -765,7 +765,7 @@ end
 --- `shared` / `classes` / `char` addresses, the `states` manifest, what `seq` means -- and
 --- `payload.dbver` describes the actions inside it. The envelope has to be raised first, because
 --- v1 does not carry a `dbver` and the step that raises it is what stamps one on
---- (`devdocs/legacy/unifying-action-migration.md` §3-3).
+--- (`unifying-action-migration.md` §3-3).
 ---
 --- **An envelope step names the exact version it raises (`== 1`), not `<=`.** A payload two
 --- versions back then walks every step in turn, and a number nothing ever wrote falls through to

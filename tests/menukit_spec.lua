@@ -6,7 +6,7 @@
 --
 -- `Registry:Build`는 **부르는 것만** 본다. 설명자 대역에 무엇이 그려지라고 불렸는지까지가
 -- 여기 닿는 끝이고, 색이 실제로 칠해지는지와 툴팁 줄이 어떻게 서는지는 화면에서만 보인다
--- (`devdocs/legacy/putting-the-menus-on-a-kit.md`).
+-- (`putting-the-menus-on-a-kit.md`).
 
 return function(DebindPrivate)
     local MenuKit = DebindPrivate.MenuKit;

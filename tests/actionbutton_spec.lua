@@ -1,5 +1,5 @@
 -- The action button action: what a press on one fires, asked without the game
--- (`devdocs/legacy/dropping-the-game-fallback.md` §4). The page and slot tables are pure arithmetic over
+-- (`dropping-the-game-fallback.md` §4). The page and slot tables are pure arithmetic over
 -- what the bar functions answer, so they come down here; that a slot really fires is the probe log.
 
 return function(DebindPrivate, _, ctx)

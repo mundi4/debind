@@ -206,7 +206,7 @@ elementData 개수로 재므로(`SetElementExtentCalculator`) 빈 자리가 남�
 
 ## 1차 확인 방법
 
-**이 트랙은 `npm run check`가 하나도 못 본다.** 전부 UI다. `devdocs/testing-a-change.md`를 먼저
+**이 트랙은 `npm run check`가 하나도 못 본다.** 전부 UI다. `testing-a-change.md`를 먼저
 읽고, 리로드해서 볼 것:
 
 - 그룹을 접었다 펼 때 스크롤이 튀지 않는지, **선택된 액션이 든 그룹을 접을 수 있는지**(안 되면

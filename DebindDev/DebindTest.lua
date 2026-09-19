@@ -5,7 +5,7 @@
 --
 -- **What is here is what needs the game.** Twenty-nine cases came down to the headless specs
 -- when the harness learned to read UpdateBindings.lua and to run the restricted environment
--- (devdocs/legacy/going-headless-outside-the-ui.md): the binding types, the twelve condition families,
+-- (going-headless-outside-the-ui.md): the binding types, the twelve condition families,
 -- priority ordering, the three Split: cases, the four Issue: ones and the four macro text ones.
 -- Every one of them asked a question about a value, and a question about a value is answered
 -- more cheaply -- and on every commit -- by npm test.
@@ -118,7 +118,7 @@ end
 -- The runner still understands a duration -- `coroutine.yield(seconds)` -- so the door is there;
 -- what is gone is the helper that made walking through it look routine. A number here means
 -- "I could not name what I am waiting for", and every one that was here turned out to be waiting
--- for something that had already happened. `devdocs/reading-back-what-you-just-set.md` has the
+-- for something that had already happened. `reading-back-what-you-just-set.md` has the
 -- whole map, including the two traps in writing a condition to wait on.
 --
 -- **Tests that never yield are unaffected.** A coroutine that runs straight through finishes on
@@ -497,7 +497,7 @@ end
 --- Moves the conditions into `action.conditions`.
 ---
 --- Tests write conditions flat: `InsertAction({ ..., combat = true })`. The stored shape is
---- nested (`devdocs/action-and-binding-shapes.md`), so planting one flat leaves the condition
+--- nested (`action-and-binding-shapes.md`), so planting one flat leaves the condition
 --- short of the binding and the action runs **without the condition the test believes it set**.
 --- An action missing a condition is the wider one, so it usually goes green.
 ---
@@ -517,7 +517,7 @@ local function NestConditions(action)
 end
 
 --- **A test action stands on Hover Cast off, and that is now the stored default**, so nothing has to
---- be written for it (`devdocs/which-action-a-key-runs.md` §6). What the cases need from it is one
+--- be written for it (`which-action-a-key-runs.md` §6). What the cases need from it is one
 --- record per action: with a twin standing in front, every case that counts records on a key would
 --- see each of its own actions twice. A case about the pointed press turns Hover Cast on for itself.
 ---
@@ -601,7 +601,7 @@ local function GetNthBinding(key, n)
 end
 
 --- Every action puts a self twin and a focus twin on its key, in the key's first two tiers
---- (`devdocs/implementing-focus-and-self-cast.md` §3-4). A press with no modifier held never
+--- (`implementing-focus-and-self-cast.md` §3-4). A press with no modifier held never
 --- reaches them, so the tests that ask about that press count and place bindings without them.
 local function IsModifierTwin(binding)
     return binding.castModifier == Constants.CASTMOD_SELF or binding.castModifier == Constants.CASTMOD_FOCUS
@@ -1110,7 +1110,7 @@ local standDownHeader
 --- Makes a frame lose its row, which is the whole of what a teardown has to undo.
 ---
 --- **A fight is the only way left.** Nothing in the addon takes a row back any more
---- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5), and `StandDown` is what
+--- (`taking-every-unit-frame-with-one-blacklist.md` §1-5), and `StandDown` is what
 --- is left: wrapping over us **inside our own wrap** is the definition of one, so that is what this
 --- stages. Writing `ccframes[frame] = nil` here instead would leave the restricted side holding a
 --- row for a frame the insecure side has forgotten.
@@ -1255,7 +1255,7 @@ end
 -----------------------------------------------------------
 -- Test Cases: Renumbering a key group
 --
--- `devdocs/legacy/renumbering-a-key-group.md`. **The rule and both of its ends are headless now**
+-- `renumbering-a-key-group.md`. **The rule and both of its ends are headless now**
 -- (`tests/renumber_spec.lua`): the drawn order, and that the same numbers reach `BuildKeyMap` and
 -- the solver. Two cases came down there on 2026-08-23 and this one did not follow them, for a
 -- reason that has nothing to do with numbers.
@@ -1379,7 +1379,7 @@ RegisterTest("Key group: the conflict popup's second answer runs", {
 -- be impossible are now ordinary: **two groups on one key**, and **accepting putting a key live**.
 -- Each is answered by a question the reader is asked, and a question is exactly the kind of thing
 -- that can be wired up wrong in silence -- the popup opens, a button does nothing, and only someone
--- who pressed it finds out (section 12 of `devdocs/building-export-import.md`).
+-- who pressed it finds out (section 12 of `building-export-import.md`).
 -----------------------------------------------------------
 
 RegisterTest("Unbind: a set is not scattered without asking", {
@@ -2156,7 +2156,7 @@ RegisterTest("Bulk key change: a selection of several stays selected", {
 
 --- **Needs the game.** Where the resolved target's row stands in the menu, when it is locked and
 --- which setter pressing it reaches is the client's menu tree, which only exists here
---- (`devdocs/implementing-focus-and-self-cast.md` §3-6).
+--- (`implementing-focus-and-self-cast.md` §3-6).
 RegisterTest("Resolved Unit: the row under Units writes the condition, and Target opens none", {
     description = "The Resolved Unit row sits under Units, stores \"@\" on an action with no target, on Always Ask and on a macro. The Target menu opens no submenu.",
     run = function()
@@ -2394,7 +2394,7 @@ RegisterTest("Menu: casting a cast key as usual aims that key's twin where the a
 --- rides on the table being empty, and the rest of the addon reads an empty table as nothing at
 --- all -- `ActionSignature` folds one away, which is what made a unit-conditioned action and an
 --- unconditional one come out as duplicates of each other
---- (`devdocs/action-and-binding-shapes.md` §3-2).
+--- (`action-and-binding-shapes.md` §3-2).
 RegisterTest("Unit condition: each mode writes a value of its own", {
     description = "[When it exists] stores exists, [Disable] stores disabled and keeps the axes, and a mode with nothing to remember leaves no table behind",
     run = function()
@@ -3760,7 +3760,7 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
 -- **The filter takes the row out of the set, and a selection that changed closes the windows
 -- standing on an action** (`PruneSelectionToBinFilter` -> `CommitSelection`). The rebuild itself
 -- closes nothing over an undrawn row, which is why the trigger is the set and not the drawing
--- (`devdocs/legacy/closing-the-windows-that-stand-on-an-action.md`).
+-- (`closing-the-windows-that-stand-on-an-action.md`).
 RegisterTest("Macro editor: a row filtered out of the bin takes its editor with it", {
     description = "A row filtered out by the search closes its editor, and the body is saved",
     run = function()
@@ -4099,7 +4099,7 @@ local function DecodeExportedString(str)
 end
 
 --- Every action in a payload, whatever layer it sits under. The nesting is the address, so this is
---- the walk a reader makes (`devdocs/building-export-import.md`).
+--- the walk a reader makes (`building-export-import.md`).
 local function PayloadActions(payload)
     local out = {}
     local function Take(list)
@@ -4130,7 +4130,7 @@ local STORAGE_PANEL_ID = 3
 --- what adding it back would put in the profile. The tick set feeds all three (`FilterPayload`,
 --- `PlanArrival`), so a filter read in one place and not another is silent everywhere else: the
 --- window says 12, the string carries 9, and nobody sees the difference until somebody else opens
---- it (section 12 of `devdocs/building-export-import.md`).
+--- it (section 12 of `building-export-import.md`).
 -- **꺼둔 케이스.** 이 테스트는 `LibSerialize`가 직렬화 도중 나눗셈에서 터진다
 -- (`LibSerialize.lua:1562`, division by zero). 터지는 자리가 우리 코드가 아니라 라이브러리
 -- 안이라 여기서 고칠 것이 없고, 켜두면 실행할 때마다 오류 하나가 선다. 소유자가 꺼두라고
@@ -4471,7 +4471,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
 --
 -- **All three are Debind's own XML now** (2026-08-15). Two of them used to be built by the
 -- load-on-demand addon and fetched by global name; they are children of the frame by
--- `parent=` + `parentKey=` and arrive by `panelKey` (`devdocs/building-export-import.md`).
+-- `parent=` + `parentKey=` and arrive by `panelKey` (`building-export-import.md`).
 --
 -- Everything below fails **silently** if it breaks, which is why it is here rather than in a
 -- checklist: a `parentKey` renamed, an XML dropped from the TOC, another panel added without a
@@ -5120,7 +5120,7 @@ RegisterTest("Switches tab: the expression box opens on the expression", {
 })
 
 -- **The button that replaced the portrait's dropdown** (3c, §6-C of
--- `devdocs/legacy/redesigning-custom-states.md`). Making a switch was a menu on the window's title bar
+-- `redesigning-custom-states.md`). Making a switch was a menu on the window's title bar
 -- until now; it is this button, the condition menu and an on/off/toggle action's own menu, and all
 -- three go through `DebindUI.ShowNewSwitchBox`.
 --
@@ -5519,7 +5519,7 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
 --- dialog outlives the tab it came from on purpose (`DebindStoragePanelMixin:OnHide`).
 ---
 --- **There were three.** The bring dialog asked which layers to take, and went with the question
---- when the tick moved onto the action (section 12 of `devdocs/building-export-import.md`).
+--- when the tick moved onto the action (section 12 of `building-export-import.md`).
 ---
 --- `PressEscape` is why this is not a real key press; its comment carries that.
 RegisterTest("Escape: the sharing dialogs close before the window", {
@@ -5843,7 +5843,7 @@ RegisterTest("Switch condition on a name outside the five", {
         -- side alone: the attribute write runs `SetSwitch`, and the press reads `States`.
         --
         -- Nothing is waited on. `SetAttribute` runs the handler on the spot
-        -- (`devdocs/reading-back-what-you-just-set.md`).
+        -- (`reading-back-what-you-just-set.md`).
         DebindPrivate.SwitchesUpdaterFrame:SetAttribute("$burst", true)
 
         ran, rerr = EvalClickTimeKey(KEY)
@@ -6235,7 +6235,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 })
 
 -- **The hovered unit is read off the frame at the call** (`GetUnitFrameUnit`, §3 of
--- `devdocs/legacy/dropping-the-game-fallback.md`). The beat no longer polls the slot, so a unit that goes
+-- `dropping-the-game-fallback.md`). The beat no longer polls the slot, so a unit that goes
 -- away under a still cursor leaves the slot as it was; what has to answer "nobody" is the read. The
 -- headless half is `tests/hover_spec.lua`; what only the client shows is that
 -- `GetEffectiveAttribute` on a frame handle answers in the real sandbox.
@@ -6369,7 +6369,7 @@ RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
 -----------------------------------------------------------
 -- Test Cases: standing on top of another addon's wrappers
 --
--- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. The order of the chain and what each
+-- `standing-on-top-of-foreign-wrappers.md`. The order of the chain and what each
 -- script's gate does are headless (`tests/reassemble_spec.lua`); what needs the client is
 -- everything the shim cannot be: that the sandbox accepts `RunFor` onto another header's handle at
 -- all, that a key another engine binds from inside its own body still reaches the binding table,
@@ -7244,7 +7244,7 @@ RegisterTest("State injection: combat-only binding", {
     end,
 })
 
--- **A saved command wins its key and does nothing** (`devdocs/legacy/dropping-the-game-fallback.md` §3).
+-- **A saved command wins its key and does nothing** (`dropping-the-game-fallback.md` §3).
 -- Which record wins is headless (`tests/loopoff_spec.lua`); what is left for the client is that the
 -- block goes through the real wrapper and reports, and that the key is ours rather than the game's
 -- while it does nothing.
@@ -7287,7 +7287,7 @@ RegisterTest("Blocked command: the key is ours and the press does nothing", {
     end,
 })
 
--- **The action button action works its slot out in the client** (`devdocs/legacy/dropping-the-game-fallback.md`
+-- **The action button action works its slot out in the client** (`dropping-the-game-fallback.md`
 -- §4). The page table is headless (`tests/actionbutton_spec.lua`); what is left for the client is
 -- that the snippet compiles against the real bar functions and lands on the slot the bar controller
 -- would pick, read here on the insecure side in `ActionBarController_UpdateAll`'s order.
@@ -7704,7 +7704,7 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 
         -- **The frame's own teardown is what takes the row**, and `clickcast_unregister` is not: a
         -- header taking a child back is a deregistration from outside and those do nothing now
-        -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5). Run here anyway,
+        -- (`taking-every-unit-frame-with-one-blacklist.md` §1-5). Run here anyway,
         -- because the body still has to be reachable by name from a header that calls it.
         AddTeardown(function()
             SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_cc", frame)
@@ -7793,7 +7793,7 @@ RegisterTest("Clique: the real addon keeps every name that is its own", {
         -- 것으로 읽던 자리인데, 그 전제는 "남의 프록시에는 `__index`가 없다" 하나에 걸려 있었다.
         -- EllesmereUI의 엔진은 자기 `registeredFrames`에서 답하는 `__index`를 달고, Clique가
         -- 깔린 판에서도 저장된 설정이 켜져 있으면 그 프록시가 Clique의 표 위에 앉는다
-        -- (`devdocs/how-unit-frames-reach-us.md`의 EllesmereUI 절). 그 판에서 이 검사는 남의
+        -- (`how-unit-frames-reach-us.md`의 EllesmereUI 절). 그 판에서 이 검사는 남의
         -- 프록시를 보고 우리를 탓했다. 지금 묻는 것은 우리가 누구 뒤에 서 있느냐이고, 그 답은
         -- `ClickCastTable.lua` 안에서만 나온다.
         local holder = DebindPrivate.ClickCastTableHolder and DebindPrivate.ClickCastTableHolder()
@@ -7925,7 +7925,7 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
 
         -- **A deregistration arriving from outside means nothing**, here as everywhere: being ours
         -- is the blacklist's answer and not the frame owner's
-        -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5).
+        -- (`taking-every-unit-frame-with-one-blacklist.md` §1-5).
         _G.ClickCastFrames[dropped] = nil
         if DebindPrivate.ccframes[dropped] ~= droppedRow then
             return Fail(NAME, format("a nil write behind the holder took our row (ccframes=%s)",
@@ -8079,7 +8079,7 @@ end
 -- **Only a board with the real Clique can answer this**, and the stand-in cannot: what is measured
 -- is that the frames Clique itself is holding carry our wiring as well, so the two engines are on
 -- one frame rather than one of them having quietly won
--- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1).
+-- (`taking-every-unit-frame-with-one-blacklist.md` §1-1).
 --
 -- **Both of Clique's lists, because they are two doors.** `Clique.ccframes` is what came in from
 -- the insecure side and `Clique.hccframes` what its header protocol registered by name -- the
@@ -8735,7 +8735,7 @@ RegisterTest("Click-time key: mounted, indoors and skyriding decide the press", 
     end,
 })
 
--- **The click bakes the macro body** (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 2).
+-- **The click bakes the macro body** (`trimming-the-restricted-hot-paths.md`, item 2).
 -- A body that goes on a button is baked by nobody when a state moves, and by the click that
 -- picks that button.
 --
@@ -8836,7 +8836,7 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         ApplyBindings()
 
         -- **Four records**: the self and focus twins stand ahead of the hover twin and the original
-        -- (`devdocs/implementing-focus-and-self-cast.md` §3-4), and a press with no modifier held
+        -- (`implementing-focus-and-self-cast.md` §3-4), and a press with no modifier held
         -- reaches only the last two. The winner comes back as a place in all four.
         local records = GetKeyBindings(KEY)
         if not records or #records ~= 4 then

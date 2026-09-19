@@ -502,7 +502,7 @@ local _wrapped = setmetatable({}, { __mode = "k" });
 ---------------------------------------------------------------------------
 -- Standing on top of another addon's wrappers
 --
--- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`.
+-- `standing-on-top-of-foreign-wrappers.md`.
 ---------------------------------------------------------------------------
 
 --- The three scripts we wrap, and the only ones the hooks below answer for.
@@ -935,10 +935,10 @@ function DebindPrivate.RegisterFrame(button, type)
     --- to register from inside the restricted environment and write our row from `CallMethod`, so
     --- it never passed this gate and a pack the reader had ticked went on registering through its
     --- group headers. What the box did depended on which layout that reader had picked
-    --- (`devdocs/legacy/drawing-the-unit-frame-option-boundary.md`).
+    --- (`drawing-the-unit-frame-option-boundary.md`).
     ---
     --- **A name no row covers is answered by the last box instead of by nobody**
-    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` decided the first half; the
+    --- (`taking-every-unit-frame-with-one-blacklist.md` decided the first half; the
     --- second is `Any Other Addon`). Blizzard's seven are asked one door earlier
     --- (`registerBlizzardFrame`) and are exempt here for that reason: `blizzardFrames` holds every
     --- frame that door has seen, `false` in it meaning a compact frame it could not sort, which is
@@ -1242,7 +1242,7 @@ end
 ---------------------------------------------------------------------------
 -- The three doors nobody hands a frame through
 --
--- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. A pack running click casting of its own
+-- `standing-on-top-of-foreign-wrappers.md`. A pack running click casting of its own
 -- registers nothing with anybody, so these are the ways a frame reaches us without its owner
 -- offering it. Standing on top of whatever that pack wraps is what makes taking one of them safe.
 --
@@ -1483,7 +1483,7 @@ end
 --- **The one door named after a single addon, because HealBot shuts every other one.** It writes
 --- nothing into `ClickCastFrames`, speaks no header protocol, hangs its buttons off a plain
 --- `SecureFrameTemplate` frame rather than a group header, and ships no oUF. Its buttons are
---- reachable only through its own code (`devdocs/how-unit-frames-reach-us.md` §6).
+--- reachable only through its own code (`how-unit-frames-reach-us.md` §6).
 ---
 --- **`HealBot_Action_RegisterUnitEvents` is the call, because it is the moment a button becomes a
 --- unit frame.** HealBot writes the unit attribute and then registers that button's unit events in
@@ -1539,7 +1539,7 @@ end
 --- **These seven are ours whether or not Clique is installed.** Blizzard handed its unit frames to
 --- nobody: Clique picks them up itself (`Clique/modules/Blizzard_utils.lua`) exactly as we do, and
 --- both of them going through `ClickCastFrames` on the way is Clique's implementation rather than a
---- door the frame came in by (`devdocs/legacy/coexisting-with-clique.md` §5). What the reader
+--- door the frame came in by (`coexisting-with-clique.md` §5). What the reader
 --- decides here is the seven boxes.
 function DebindPrivate.UpdateBlizzardFrames(firstTime)
 

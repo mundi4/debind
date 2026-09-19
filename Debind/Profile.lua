@@ -28,7 +28,7 @@ local KEYS_TO_SAVE       = {
     -- in the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying yes.
     -- A number, handed out one per arrival by `NextArrivalID`, and it is half of what a key group is:
     -- two sets can sit on the same key while only one of them is the reader's
-    -- (`devdocs/building-export-import.md` 12절).
+    -- (`building-export-import.md` 12절).
     --
     -- **Nothing else about the arrival is stored.** The key it came in on is `key`, the same field
     -- the reader's own actions use, and its place in the set is `seq`. There used to be a synthetic
@@ -36,11 +36,11 @@ local KEYS_TO_SAVE       = {
     arrivalID = true,
     -- **The reader has turned this action off.** It keeps everything it was set with, reaches no
     -- key, and hands its key back to the game, which is what tells it apart from an action whose
-    -- presses are all off (`devdocs/which-action-a-key-runs.md` §6). Deleting is the other way to
+    -- presses are all off (`which-action-a-key-runs.md` §6). Deleting is the other way to
     -- stop an action, and it takes the conditions, the importance and the place in the key with it.
     disabled = true,
     -- **Which presses this action stands on**, as one table of four values
-    -- (`devdocs/which-action-a-key-runs.md` §8). The three checkboxes it replaced were
+    -- (`which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
     casting = true,
 };
@@ -345,7 +345,7 @@ if (Constants.DEBUG) then
             if (Constants.IsConditionField(k)) then
                 error("action." .. tostring(k) .. "를 최상단에서 읽었다." ..
                     " 조건은 action.conditions 안이다" ..
-                    " (devdocs/action-and-binding-shapes.md)", 2);
+                    " (action-and-binding-shapes.md)", 2);
             end
             return nil;
         end,
@@ -440,7 +440,7 @@ local ARRIVAL_SEQ = 1000000;
 --- a number carried in from another band can only land outside the destination's range. That is
 --- what fixes the landing at the **end facing where it came from**, and what leaves an edit that
 --- crosses no band moving nothing. The whole argument is in
---- `devdocs/legacy/renumbering-a-key-group.md`.
+--- `renumbering-a-key-group.md`.
 ---
 --- The record is `MakeOrderRecord`'s, with no scope on it. `layerRank` and `specRank` are constant
 --- inside one layer and so can decide nothing, and the order without them is the full list filtered
@@ -512,7 +512,7 @@ end
 ---
 --- **What comes through here is not only the profile.** A received payload's action array rides
 --- the same ladder (`BringPayloadForward` in `Export.lua`). That is what keeps one transformation
---- from being written twice (`devdocs/legacy/unifying-action-migration.md` §3-4), and the price
+--- from being written twice (`unifying-action-migration.md` §3-4), and the price
 --- of it is that **the input is no longer trusted**: a pasted string's fields arrive as any type at
 --- all, and
 --- an error raised in here takes down a commit with half the arrival already in the profile.
@@ -748,7 +748,7 @@ local function MigrateLayer(layerTbl, dbver)
         end
 
         -- 합성 키가 없어진다. `key`는 실키 문자열 아니면 nil이고, 어느 arrival이 놓았느냐는
-        -- `arrivalID`가 따로 든다(`devdocs/building-export-import.md` 12절).
+        -- `arrivalID`가 따로 든다(`building-export-import.md` 12절).
         --
         -- **`imported`가 도착 키를 나르던 것을 `key`가 도로 받는다.** 발동을 막는 것은 이제
         -- 배지 하나이고(`BuildKeyMap`), 그 게이트는 원래부터 키 타입이 아니라 배지를 보고
@@ -808,7 +808,7 @@ local function MigrateLayer(layerTbl, dbver)
 
         -- A command that presses an action bar button becomes the action button action under the
         -- same name: Debind holds every key it has an action on, so the game's binding no longer
-        -- gets the press (`devdocs/legacy/dropping-the-game-fallback.md` §3). Every other command is left
+        -- gets the press (`dropping-the-game-fallback.md` §3). Every other command is left
         -- as saved and binds as a block. Safe to run again, and payloads ride it too.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
@@ -818,13 +818,13 @@ local function MigrateLayer(layerTbl, dbver)
         end
 
         -- `known` stops being "ask about it" and starts saying **what** is asked about
-        -- (`devdocs/making-known-a-spell-name.md`). `true` used to mean the action's own spell,
+        -- (`making-known-a-spell-name.md`). `true` used to mean the action's own spell,
         -- which left a reader no way to ask about the talent that replaces it.
         --
         -- The action's own value is what it meant, so that is what goes in, as the **name** the
         -- client draws on it. A name survives a specialization change where an id does not: the
         -- same spell has an id per specialization and the two do not point at each other
-        -- (`devdocs/resolving-a-stored-spell-id.md`).
+        -- (`resolving-a-stored-spell-id.md`).
         --
         -- **A value the client cannot name keeps its id.** That is a spell whose data is not
         -- loaded, or one that no longer exists, and `[known:<id>]` answers false for it either
@@ -943,7 +943,7 @@ local function MigrateLayer(layerTbl, dbver)
 
         -- The pointed frame's unit is called `unitframe` from here on. `hover` stops being a unit
         -- at all and becomes the unit an action's Hover Cast mode picks
-        -- (`devdocs/which-action-a-key-runs.md` §0), so every stored spelling of the old name has
+        -- (`which-action-a-key-runs.md` §0), so every stored spelling of the old name has
         -- to move before that second meaning arrives.
         --
         -- **Bodies move too, not only fields.** `@hover` is a unit token in hand-written macro text
@@ -996,7 +996,7 @@ local function MigrateLayer(layerTbl, dbver)
         -- The frame type mask becomes an axis of the condition on the pointed frame's unit.
         -- It was its own condition field while the Unit Frame menu was a group of its own; that
         -- group is gone and the mask is one more thing said about `units["unitframe"]`
-        -- (`devdocs/which-action-a-key-runs.md` §0). The role mask was moved into that row by the
+        -- (`which-action-a-key-runs.md` §0). The role mask was moved into that row by the
         -- `dbver <= 4` step and stays where it is.
         --
         -- **Read from the top level as well.** `frameTypes` is no longer a condition field, so a
@@ -1154,7 +1154,7 @@ local function MigrateLayer(layerTbl, dbver)
         end
 
         -- The three boxes become the `action.casting` values. Hover Cast holds a mode per action, and
-        -- the account has no off (`devdocs/which-action-a-key-runs.md` §8).
+        -- the account has no off (`which-action-a-key-runs.md` §8).
         --
         -- **An old unit frame condition action becomes a twin-only action.** It meant "on a pointed
         -- press only, ahead of the layers", which in the new shape is Hover Cast on Unit Frames with
@@ -1221,7 +1221,7 @@ local function MigrateLayer(layerTbl, dbver)
 
         -- `keepInBindingContext` is gone, and nothing takes its place on the action. The question
         -- it answered is the account's now ("House Editor" under Keys Given Back), so a value left
-        -- here would be a second answer nothing reads (`devdocs/giving-keys-back.md` §7).
+        -- here would be a second answer nothing reads (`giving-keys-back.md` §7).
         --
         -- **The reader who had it ticked loses it** rather than carrying it to the account row: the
         -- old value was per action and the new one is not, so one of them would have to decide for
@@ -1324,7 +1324,7 @@ DebindPrivate.ForEachStoredAction = ForEachStoredAction;
 ---
 --- **Conditions and `SETSTATE` targets, and nothing else.** Those two are the places a switch is
 --- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
---- `[$burst]` is typed by hand and is deliberately left out (`devdocs/legacy/redesigning-custom-states.md`
+--- `[$burst]` is typed by hand and is deliberately left out (`redesigning-custom-states.md`
 --- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
 --- how the user finds out about the typo at all.
 ---
@@ -1500,7 +1500,7 @@ local function MigrateSwitches(db, dbver, charEntry)
             --
             -- **한 번이지 매 로드 수리가 아니다.** 참조를 훑어 정의를 되살리거나 지우는 것이
             -- 로그인마다 돈다면, 사용자가 지운 스위치가 참조 때문에 돌아오거나 아직 아무 데도
-            -- 안 건 새 스위치가 사라진다 (`devdocs/legacy/redesigning-custom-states.md` §9-3).
+            -- 안 건 새 스위치가 사라진다 (`redesigning-custom-states.md` §9-3).
             --
             -- 지우는 것은 **손댄 적도 없고, 참조도 없고, 어느 캐릭터도 값을 기억하지 않는**
             -- (아래 `dbver <= 6` 단계가 계산식 안의 유닛 이름을 옮긴다)
@@ -1538,7 +1538,7 @@ local function MigrateSwitches(db, dbver, charEntry)
             -- place left where a switch had a second identity. Renaming is what could not be built
             -- on top of that: the name would have had to be a field beside the number, and then
             -- two things would say which switch this is (§6-B of
-            -- `devdocs/legacy/redesigning-custom-states.md`).
+            -- `redesigning-custom-states.md`).
             --
             -- **Only number keys move.** A table that has already been through here is keyed by
             -- name, and the pre-rename share `Legacy.lua` lays on top arrives numbered and comes
@@ -1721,7 +1721,7 @@ end
 --- **Everything a character can hold has to be listed here**, and the one that is missing is
 --- silent: `CleanUpDB` detaches the whole entry on the way out, so a character whose only content
 --- this does not recognise loses it at logout rather than at the write, with nothing said either
---- time (`devdocs/legacy/redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
+--- time (`redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
 local function HasCharContent(entry)
     if (entry.CustomTargets and next(entry.CustomTargets) ~= nil) then
         return true;
@@ -1756,7 +1756,7 @@ DebindPrivate.SWITCH_DEFAULTS = SWITCH_DEFAULTS;
 --- **The only door to a definition.** Every caller used to reach into the stored table itself, and
 --- half of them had to know that a definition is filed by index while a condition names it by
 --- string. Going through here is what lets that stop being true in one place: §4-6 of
---- `devdocs/legacy/redesigning-custom-states.md` puts the answer behind a layer cascade, and this function
+--- `redesigning-custom-states.md` puts the answer behind a layer cascade, and this function
 --- is the whole of what changes.
 ---
 --- **nil is an ordinary answer, not a mistake.** Names are free -- the parser takes any
@@ -1778,7 +1778,7 @@ end
 --- definitions are account-wide, so filing one under the layer's own number would have the next
 --- character to log in read this one's setting, and write over it. The key has to say *which*
 --- character, the way `characters[guid]` already does
---- (`devdocs/legacy/redesigning-custom-states.md` §4-7-3).
+--- (`redesigning-custom-states.md` §4-7-3).
 ---
 --- **Layer 1 has no key, and that is not a gap.** `GENERAL` is the root answer; it lives on the
 --- definition itself and cannot be missing, which is what the whole cascade stands on (§4-6).
@@ -2102,7 +2102,7 @@ end
 --- **Creating is a user's doing, and this is the only place it happens.** Nothing is planted at
 --- load (`BindDerivedTables`), so a row on disk means somebody made it. The alternative, making
 --- one wherever a reference to the name turns up, is what §9-3 of
---- `devdocs/legacy/redesigning-custom-states.md` rules out: a switch the user deleted would come back on
+--- `redesigning-custom-states.md` rules out: a switch the user deleted would come back on
 --- the next login and the red references to it would go quiet, which is the deletion being undone
 --- by the thing that was supposed to report it.
 ---
@@ -2242,7 +2242,7 @@ end
 ---
 --- **The rename is the five rewrites.** The definition moving is the easy part; a name is written
 --- down in five other kinds of place, and one missed leaves a condition that never matches or a
---- macro clause that quietly stopped being a clause (`devdocs/legacy/redesigning-custom-states.md` §3):
+--- macro clause that quietly stopped being a clause (`redesigning-custom-states.md` §3):
 ---
 ---   * a condition key, `action.conditions["$burst"]`
 ---   * an on/off/toggle action's target, `action.value`
@@ -2342,7 +2342,7 @@ end
 --- in no action at all and is marked on the Switches tab instead
 --- (`GetUndefinedSwitchInExpr`, `SwitchesUI.lua`).
 --- Rewriting them here would delete parts of actions the user never asked to lose, and doing it
---- silently would be worse than the red (§9-3 of `devdocs/legacy/redesigning-custom-states.md` turns the
+--- silently would be worse than the red (§9-3 of `redesigning-custom-states.md` turns the
 --- same argument the other way round: a reference must not resurrect a definition either).
 ---
 --- **The remembered values go**, because they are this switch's and nothing else's. Leaving them
@@ -2467,13 +2467,13 @@ end
 --- **The remembered value comes off this character, not off the definition.** The definition is
 --- account-wide and a name raises an expectation of scope that a number never did, so "remember"
 --- used to mean "remember what the character who logged out last left" (§5 of
---- `devdocs/legacy/redesigning-custom-states.md`). Keyed by name because that is what everything asking
+--- `redesigning-custom-states.md`). Keyed by name because that is what everything asking
 --- for a switch says, and because the five numbers stopped being the whole list.
 ---
 --- **Nothing is created.** A row is a switch somebody made; five empty ones were being planted on
 --- every load, which put a row under a name the user never touched and would have filled §6-B's
 --- list with blanks for people who have never used the feature
---- (`devdocs/legacy/redesigning-custom-states.md` §9-3). A definition is made by a reader naming one
+--- (`redesigning-custom-states.md` §9-3). A definition is made by a reader naming one
 --- (`CreateSwitch`), and `MigrateSwitches` cleared out the untouched ones once.
 function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
@@ -2747,7 +2747,7 @@ end
 --- these two were written by a build that stamped the current `dbver`.
 local ORPHANED_GLOBAL_KEYS = {
     -- The two switches the one blacklist replaced
-    -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`).
+    -- (`taking-every-unit-frame-with-one-blacklist.md`).
     "workAlongsideClique",
     "takeUnregisteredFrames",
 };
@@ -2756,7 +2756,7 @@ local ORPHANED_GLOBAL_KEYS = {
 --- -- this runs on a profile stamped at the current `dbver`, so a migration step cannot have it.
 local ORPHANED_OPTION_KEYS = {
     -- Hover Cast's account-wide on/off. Turning it off is the action's now and the account keeps the
-    -- mode alone (`devdocs/which-action-a-key-runs.md` §1). Never in a tag, but a worktree profile is
+    -- mode alone (`which-action-a-key-runs.md` §1). Never in a tag, but a worktree profile is
     -- a profile somebody is using.
     "hoverCast",
 };
@@ -2806,7 +2806,7 @@ function DebindPrivate.CleanUpDB()
             -- 그대로 두면 `$`로 시작하기만 하면 무엇이든 최상단에 눌러앉는다.
             --
             -- 여기서 묻는 것은 `IsConditionField`이므로 재설계가 임의 이름을 풀어도
-            -- (`devdocs/legacy/redesigning-custom-states.md`) 이 줄은 안 바뀐다.
+            -- (`redesigning-custom-states.md`) 이 줄은 안 바뀐다.
             local conditions = action.conditions;
             if (conditions) then
                 for k in pairs(conditions) do
@@ -2816,7 +2816,7 @@ function DebindPrivate.CleanUpDB()
                 end
                 -- **만들 수 없는 값은 저장에도 안 둔다.** `known`을 세우는 메뉴는 주문과
                 -- 전문화가 주문을 정하는 셋에서만 뜨므로, 다른 타입에 붙은 `known`은 사용자가
-                -- 만들 수 없고 화면에서 끌 수도 없다(`devdocs/making-known-a-spell-name.md`).
+                -- 만들 수 없고 화면에서 끌 수도 없다(`making-known-a-spell-name.md`).
                 -- 바인딩을 세울 때 무시되기만 하던 동안에는 조용히 누워 있었는데, 값이 이름이
                 -- 되면서 굽는 쪽이 쓸 수 있는 값이 됐다.
                 if (conditions.known ~= nil and action.type ~= Constants.SPELL
@@ -2825,7 +2825,7 @@ function DebindPrivate.CleanUpDB()
                 end
                 -- **빈 칸은 조건이 아니다.** `talents`는 두 겹이라 아래의 `next` 한 번이 못
                 -- 닿는다. 아무것도 안 든 전문화 칸은 "그 전문화에 대해 아무 말도 안 했다"와
-                -- 같은 뜻인데(`devdocs/legacy/adding-a-talent-condition.md` §2), 남겨 두면 조건이
+                -- 같은 뜻인데(`adding-a-talent-condition.md` §2), 남겨 두면 조건이
                 -- 하나도 없는 액션이 조건부로 서서 발동 순서가 바뀐다.
                 local talents = conditions.talents;
                 if (luatype(talents) == "table") then
@@ -3207,7 +3207,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     --
     -- **The second way, and it is a different question.** Above is "there is no spell to ask
     -- about"; here the spell exists and the answer is already settled false for this rebuild
-    -- (`devdocs/baking-the-known-condition.md` §6-1), which is what takes the binding out of the
+    -- (`baking-the-known-condition.md` §6-1), which is what takes the binding out of the
     -- key. A reader sees one thing either way -- that spell is not there -- so both take the same
     -- word.
     local knownAsked = DebindPrivate.KnownSpellAsked(binding);
@@ -3218,7 +3218,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
         or nil;
 
     -- **The fourth way: the reader turned the action off.** Not an issue, because they asked for it
-    -- (`devdocs/legacy/reorganizing-binding-issues.md` §3-3). Every press being off is a warning
+    -- (`reorganizing-binding-issues.md` §3-3). Every press being off is a warning
     -- instead, since turning the action off is how that one is closed.
     row.notRunning = DebindPrivate.GetNotRunningReason(action);
 
@@ -3439,7 +3439,7 @@ end
 ---
 --- **This is the only way the ordering inside the set survives.** Giving the actions a key one at a
 --- time issues `seq` in the order they happen to be touched, which is the profile array's -- so the
---- ranking the set arrived with (`devdocs/building-export-import.md`) is gone, silently, and the
+--- ranking the set arrived with (`building-export-import.md`) is gone, silently, and the
 --- reader has no way to tell.
 ---
 --- Every action goes to the **back** of the key group it lands in, in that order. It is what
@@ -3576,7 +3576,7 @@ end
 --- -- both sets on one key with conditions telling them apart, which is this addon's ordinary state
 --- rather than a compromise -- or they lose their key and this set takes it.
 ---
---- A third answer, the two sets **swapping** keys, was dropped (`devdocs/building-export-import.md`):
+--- A third answer, the two sets **swapping** keys, was dropped (`building-export-import.md`):
 --- a set arriving with no key of its own has nowhere to send the occupants, so on the path this was
 --- built for it is the same operation as unbinding them.
 ---
@@ -3635,7 +3635,7 @@ end
 --- **The set comes apart, and there is no way for it not to.** A group is the actions on one key
 --- (`RenumberKeyGroup`), so with the key gone there is no group -- four loose actions, and nothing
 --- anywhere recording that they were once one thing. There used to be a number stood in the key's
---- place to hold them together; what that cost is in `devdocs/building-export-import.md` 12절.
+--- place to hold them together; what that cost is in `building-export-import.md` 12절.
 ---
 --- **So the asking is the caller's, and it is not optional.** The reader cannot walk this back from
 --- what is on screen, because what they would need is the membership and that is what just went.
@@ -3661,7 +3661,7 @@ end
 
 --- 카탈로그 엔트리 하나를 액션에 쓴다. 새로 만드는 액션과 **이미 저장돼 있던 액션**이 같은
 --- 여기를 지난다 (`ActionCatalog.lua`의 엔트리 계약,
---- `devdocs/legacy/changing-what-an-action-does.md`).
+--- `changing-what-an-action-does.md`).
 ---
 --- **이름과 아이콘도 인자 그대로 덮는다.** 저장해둬야 하는 타입만 `props`에 담아 오므로, 안
 --- 덮으면 옛 타입의 이름이 새 타입 위에 박힌 채 남는다.
@@ -3714,7 +3714,7 @@ end
 ---
 --- **The eleven layers this character has, which is more than what is in play.** Off-spec layers
 --- are in, and they have to be: those actions are drawn in the overview now
---- (`devdocs/legacy/showing-off-spec-actions.md`), so a reader looking at a key sees them, and a set that
+--- (`showing-off-spec-actions.md`), so a reader looking at a key sees them, and a set that
 --- crosses specs is one set.
 ---
 --- **Another class's layers are out.** An arrival lands there readily (`ImportAddress`), so a group

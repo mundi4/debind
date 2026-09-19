@@ -943,7 +943,7 @@ ActionCatalog.RegisterSource({
 ---
 --- **No other game command is offered.** Debind holds every key it has an action on, so WoW's own
 --- binding never gets the press, and only the bar buttons have something to stand in for them
---- (`devdocs/legacy/dropping-the-game-fallback.md` §3, §4).
+--- (`dropping-the-game-fallback.md` §3, §4).
 ---
 --- **Ours come first**, since the bar buttons run to ninety-odd rows and would bury them.
 ---
@@ -1126,7 +1126,7 @@ local function BuildSpecialActions(entries)
 	end
 
 	-- Setting a switch. **One row, and it names no switch** (§6-C of
-	-- `devdocs/legacy/redesigning-custom-states.md`).
+	-- `redesigning-custom-states.md`).
 	--
 	-- It was three rows per switch, one each for on, off and toggle, which came to fifteen of this
 	-- tab's twenty while a profile could hold five. Lifting that count turned the number into

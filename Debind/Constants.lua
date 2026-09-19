@@ -10,7 +10,7 @@ Constants.NIL                             = "\0";
 --- **Read the last tag's value before raising this** (`git show v<tag>:Debind/Constants.lua`).
 --- Anything above it is a number nobody has ever stored, so **the unreleased span is one step, not
 --- a ladder**: every change to the stored shape that lands in it goes into that one step. What has
---- to move together when a change joins it is in `devdocs/cutting-a-release.md`.
+--- to move together when a change joins it is in `cutting-a-release.md`.
 Constants.DB_VERSION                      = 7;
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
@@ -86,7 +86,7 @@ Constants.TARGET                          = "target";
 Constants.FOCUS                           = "focus";
 Constants.TOGGLEMENU                      = "togglemenu";
 --- Three types that carry no value: the spell is decided by the class and specialization at
---- rebuild time (`SpecSpells.lua`, `devdocs/adding-spec-resolved-actions.md`).
+--- rebuild time (`SpecSpells.lua`, `adding-spec-resolved-actions.md`).
 Constants.DISPEL                          = "dispel";
 Constants.EXTERNAL                        = "external";
 Constants.RAIDBUFF                        = "raidbuff";
@@ -96,7 +96,7 @@ Constants.SETCUSTOM                       = "setcustom";
 --- **On, off and toggle are three verbs, not one verb with a parameter.** Every other type has a
 --- verb in `type` and an object in `value`; this one folded the verb into the value as a
 --- `mode | index` bitpack. With the mode moved up, `value` carries one switch name and nothing else
---- (`devdocs/legacy/redesigning-custom-states.md` §9-1).
+--- (`redesigning-custom-states.md` §9-1).
 ---
 --- **Three types rather than a `mode` field, because that adds no surface to validate.** A mode
 --- nothing wrote is simply an unknown type, and what to do about an unknown type is a question that
@@ -112,7 +112,7 @@ Constants.SETSTATE_OFF                    = "setstate_off";
 Constants.SETSTATE_TOGGLE                 = "setstate_toggle";
 Constants.UNUSED                          = "unused";
 --- A record that wins the press and does nothing: what closes each tier of a key that holds one, so
---- no press falls through to the game (`devdocs/legacy/dropping-the-game-fallback.md` §3).
+--- no press falls through to the game (`dropping-the-game-fallback.md` §3).
 ---
 --- It is three things at once. The reader can pick it, `UNUSED` and `COMMAND` turn into it on the
 --- binding, and the self and focus twins are built out of it. **A stored one is not retired**, which
@@ -120,7 +120,7 @@ Constants.UNUSED                          = "unused";
 Constants.BLOCK                           = "block";
 --- Presses one action bar button the way its binding command would. `value` is that command's
 --- name, so the row reads with the client's own `BINDING_NAME_*` and a saved `COMMAND` moves over
---- by changing its type (`devdocs/legacy/dropping-the-game-fallback.md` §4).
+--- by changing its type (`dropping-the-game-fallback.md` §4).
 Constants.ACTIONBUTTON                    = "actionbutton";
 
 --- The binding commands `ACTIONBUTTON` takes, and where each one's slot is.
@@ -201,7 +201,7 @@ Constants.SPEC_RESOLVED_TYPES             = {
 --- Which of the client's cast modifiers the press is holding, as one value: the self-cast one wins
 --- where both are held, which is `SecureButton_GetModifiedUnit`'s order. Bits, because the solver
 --- reads the column as a mask (`Solver.lua`), and a binding that has the column at all holds exactly
---- one of the three (`devdocs/implementing-focus-and-self-cast.md` §3-5).
+--- one of the three (`implementing-focus-and-self-cast.md` §3-5).
 Constants.CASTMOD_NONE  = 1;
 Constants.CASTMOD_SELF  = 2;
 Constants.CASTMOD_FOCUS = 4;
@@ -209,7 +209,7 @@ Constants.CASTMOD_ALL   = 7;
 
 
 --- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
---- 왜 조건이 아닌지는 `devdocs/action-and-binding-shapes.md` §2에 있다.
+--- 왜 조건이 아닌지는 `action-and-binding-shapes.md` §2에 있다.
 ---
 --- **이 표를 직접 보지 말 것.** 묻는 것은 `IsConditionField`이고, 그쪽만이 달러로 시작하는
 --- 이름까지 같이 답한다.
@@ -220,11 +220,11 @@ Constants.CONDITION_FIELDS = {
     -- same thing on every class and so followed an action to another class's tab. Ids do not,
     -- and that is what buys the class condition: a class is exactly its own specialization ids,
     -- so "while I am a warrior" needs no axis of its own
-    -- (`devdocs/moving-the-spec-condition-to-spec-ids.md`).
+    -- (`moving-the-spec-condition-to-spec-ids.md`).
     specs = true,
     -- **A table of specialization ids, each holding two lists of spell ids**: the talents that
     -- have to be taken and the ones that have to not be. A specialization with no key here is one
-    -- the condition says nothing about (`devdocs/legacy/adding-a-talent-condition.md` §2), which
+    -- the condition says nothing about (`adding-a-talent-condition.md` §2), which
     -- is what
     -- lets one action carry another class's talents without dying on this character.
     talents = true,
@@ -254,7 +254,7 @@ Constants.CONDITION_FIELDS = {
 };
 
 --- 이슈 갈래의 이름들. **어느 컨트롤을 빨갛게 칠할지의 이름이지 필드 이름이 아니다.**
---- 왜 그 둘이 안 겹치는지는 `devdocs/action-and-binding-shapes.md` §7에 있다.
+--- 왜 그 둘이 안 겹치는지는 `action-and-binding-shapes.md` §7에 있다.
 ---
 --- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
 --- 비켜가 언제나 nil이 나오는데, 그건 "문제 없음"과 구별되지 않는다.
@@ -280,7 +280,7 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     -- 액션이 스위치를 잘못 가리킨다. 정의가 없는 이름을 부르거나(매크로 본문·조건·켜기 대상),
     -- 켜기/끄기/전환인데 아직 어느 스위치인지 안 골랐거나. 위와 같은 자리다.
     states = true,
-    -- 묻는 주문 이름이 조건문 파서를 못 탄다(`devdocs/making-known-a-spell-name.md`).
+    -- 묻는 주문 이름이 조건문 파서를 못 탄다(`making-known-a-spell-name.md`).
     known = true,
     -- Cast Options, where one side of a contradiction can be undone: Normal, Self and Focus turned
     -- off, with the one press left ruled out by a condition. Turning presses off on its own is not
@@ -307,7 +307,7 @@ end
 --- The pattern is `ParseMacroText`'s, and it is the same pattern for a reason that is not tidiness:
 --- a name outside it cannot be written into a macro body at all. The parser drops the token and
 --- the condition goes to the game as literal text. So a name this refuses is one the user could
---- never type where the list tells them to (§6-B of `devdocs/legacy/redesigning-custom-states.md`).
+--- never type where the list tells them to (§6-B of `redesigning-custom-states.md`).
 function Constants.IsValidSwitchName(name)
     return type(name) == "string" and strmatch(name, "^%$[a-zA-Z0-9_]+$") ~= nil;
 end
@@ -325,7 +325,7 @@ end
 --- there. A binding's conditions and the definitions that exist are what get walked, so a name
 --- outside this list reaches the solver and codegen like any other. Stage 3c took the last count
 --- off the creating end as well, so there is no upper bound anywhere any more
---- (`devdocs/legacy/redesigning-custom-states.md` §6-C).
+--- (`redesigning-custom-states.md` §6-C).
 ---
 --- **Storage does not use this.** A definition is filed under its own name, so a number is no
 --- longer an identity a switch has. §6-B's list took that away and the `dbver` 6 step moved the
@@ -572,7 +572,7 @@ Constants.BINDING_ISSUE_SPECS_NONE_SELECTED               = "SPECS_NONE_SELECTED
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
 -- **The name goes into a macro conditional as it stands**, so a comma ends the condition and a
 -- `]` ends the group. Neither raises anything: the conditional parses into something else and the
--- key answers a question nobody asked (`devdocs/making-known-a-spell-name.md`).
+-- key answers a question nobody asked (`making-known-a-spell-name.md`).
 Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE             = "KNOWN_NAME_UNPARSABLE";
 -- No box ticked in a unit's group block. **Its own code, on the same categories the unit's other
 -- axes use.** The category picks which control goes red and the block lives in those menus, so it
@@ -595,7 +595,7 @@ Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES        = "ROLES_NONE_ON_GROUP
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
--- own menu afterwards (§6-C of `devdocs/legacy/redesigning-custom-states.md`).
+-- own menu afterwards (§6-C of `redesigning-custom-states.md`).
 --
 -- **A fourth `*_NONE_SELECTED`, not a variant of the code above.** "You have not picked one" and
 -- "the one you picked is gone" send the reader to two different places, and the three existing
@@ -605,13 +605,13 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- A saved `UNUSED` or `COMMAND`, which binds as a block and does nothing when pressed
--- (`devdocs/legacy/dropping-the-game-fallback.md` §3). Red, and still on its key: the block is the
+-- (`dropping-the-game-fallback.md` §3). Red, and still on its key: the block is the
 -- one thing that keeps the action behind it from firing (`BINDING_ISSUE_OUTCOMES`).
 Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
 -- Every press this action could answer is turned off, so it makes no binding at all. **A warning
 -- rather than a reason**, because there is a way to close it that is not turning a press the reader
 -- does not want back on: turning the action off keeps what it was set with and says they meant it
--- (`devdocs/which-action-a-key-runs.md` §6, 2026-09-18).
+-- (`which-action-a-key-runs.md` §6, 2026-09-18).
 Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- A left or right click with no modifier answers one press, a click on a unit frame, and the action
 -- carries [when there is none] on a unit that is always there on such a click: the frame's own unit,
@@ -629,7 +629,7 @@ Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY            = "CONDITION_NEVER_ON_
 
 -- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
 -- action is the code's outcome below, so a colour is picked without moving a key
--- (`devdocs/legacy/reorganizing-binding-issues.md` §3-1, §3-2).
+-- (`reorganizing-binding-issues.md` §3-1, §3-2).
 Constants.ISSUE_GRADE_ERROR = 1;
 --- **The action runs; one thing it was told to do does not.** Orange rather than red (2026-09-06,
 --- owner): the key works, and a colour that says the action is dead would be a lie.
@@ -646,7 +646,7 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- **A state the reader may have meant is not in here at all.** A mark they can only clear by
 --- choosing a value they do not want is a mark they cannot clear, so an action with every press
 --- turned off says so as a reason it does not run (`GetCastingOffReason`), not as a code
---- (`devdocs/legacy/reorganizing-binding-issues.md` §2-3).
+--- (`reorganizing-binding-issues.md` §2-3).
 ---
 --- **Every code in here is a fault of the action itself, and why an action is not firing right now
 --- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
@@ -794,7 +794,7 @@ end
 
 local _mousebuttonCache = {};
 function DebindPrivate.GetMouseButtonAndPrefix(key)
-    -- **A key is a string or it is nothing** (`devdocs/building-export-import.md` 12절), and nil has
+    -- **A key is a string or it is nothing** (`building-export-import.md` 12절), and nil has
     -- no `:match` to ask with. This is the funnel both the `unitframe` derivation and key validity come
     -- through, so the guard belongs here rather than at each of them.
     if (type(key) ~= "string") then

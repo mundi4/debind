@@ -348,7 +348,7 @@ in our own logic, "because this is a PTR build" belongs in the candidate list; a
 or worked around because of such a difference has to be **re-measured on a schedule**, because it
 expires without telling you. One stack trace read as a rule about the whole platform came within a
 step of filing an issue on somebody else's library
-([building-export-import.md](building-export-import.md), the LibSerialize section).
+([building-export-import.md](legacy/building-export-import.md), the LibSerialize section).
 
 **`npm run check` passing is not "it works".** It cannot see the game. Say what was checked and
 what was not, and do not report a UI or in-game change as done before someone has run `/debtest`.

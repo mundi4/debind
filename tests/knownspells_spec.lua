@@ -4,7 +4,7 @@
 --
 -- **What this cannot see** is whether the real client puts what we expect in those fields. The
 -- fake API answers here, so what is verified is our traversal and nothing about Blizzard's data
--- (`devdocs/baking-the-known-condition.md` §7).
+-- (`baking-the-known-condition.md` §7).
 
 return function(DebindPrivate)
     local Spells = DebindPrivate.Spells;
@@ -327,7 +327,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     --- The same question the id table answers, asked in the name a `known` condition stores
-    --- (`devdocs/making-known-a-spell-name.md` §3-2).
+    --- (`making-known-a-spell-name.md` §3-2).
 
     local function nameLevels(world)
         return (select(3, Spells.Build(API(world))));

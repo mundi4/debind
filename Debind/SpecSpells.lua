@@ -2,7 +2,7 @@ local _, DebindPrivate = ...;
 local Constants = DebindPrivate.Constants;
 
 --- The spells a class or a specialization decides for the reader, so an action can say "the
---- dispel" and a rebuild can put the spell in (`devdocs/adding-spec-resolved-actions.md`).
+--- dispel" and a rebuild can put the spell in (`adding-spec-resolved-actions.md`).
 ---
 --- Keyed by specialization id where the spell differs across a class, by class file otherwise.
 --- Ids that came from another addon's table and were not seen in the client yet are marked in

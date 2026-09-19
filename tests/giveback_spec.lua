@@ -1,4 +1,4 @@
--- **Keys handed to the game while something else needs them** (`devdocs/giving-keys-back.md`).
+-- **Keys handed to the game while something else needs them** (`giving-keys-back.md`).
 --
 -- The whole of the answer lives in the restricted environment, so the question this file asks is
 -- the one `boundkey_spec.lua` opened: what does the client say the key is bound to. The body runs

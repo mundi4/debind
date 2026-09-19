@@ -104,7 +104,7 @@ end
 --- one value. Every call site that means "mine" passes nothing and reads as it did.
 ---
 --- The one thing a foreign layer cannot have is a **name**: a string carries no character name on
---- purpose (`devdocs/building-export-import.md` 3절), so the character scope falls back to the bare
+--- purpose (`building-export-import.md` 3절), so the character scope falls back to the bare
 --- word. Naming it would print *this* reader's character over somebody else's layer, which is the
 --- fault that made the bring dialog write a second set of labels of its own (`IMPORT_BRING_LINE_*`).
 local function GetLayerLabel(layerID, class)

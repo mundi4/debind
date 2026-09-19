@@ -1,5 +1,5 @@
 -- Every key that holds a key record is ours for good, and a press nothing answers does nothing
--- (`devdocs/legacy/dropping-the-game-fallback.md` §2, §3). No WoW client needed.
+-- (`dropping-the-game-fallback.md` §2, §3). No WoW client needed.
 --
 -- **Asked of the emission fixture too**, the one profile shaped to reach every branch of
 -- `UpdateBindings.lua`, and not only of keys built to pass: a key that came out unbound there is a
@@ -214,7 +214,7 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
-    -- **The bare left and right click are never taken** (`devdocs/which-action-a-key-runs.md` §7),
+    -- **The bare left and right click are never taken** (`which-action-a-key-runs.md` §7),
     -- and no longer because of an issue: the action there runs over a unit frame or not at all.
     test("the bare left click is not taken", function()
         Bind({ action({ value = 585, key = "BUTTON1" }) });

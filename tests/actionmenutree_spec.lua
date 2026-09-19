@@ -1,5 +1,5 @@
 -- The whole action menu, built the way the game builds it, and read row by row
--- (`devdocs/legacy/editing-many-actions-at-once.md`).
+-- (`editing-many-actions-at-once.md`).
 --
 -- **What is swept is two rules every row has to keep, not one case per group.** Written out per
 -- group, the next group added is a group nobody wrote a case for.

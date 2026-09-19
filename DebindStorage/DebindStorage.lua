@@ -14,5 +14,5 @@ DebindStorage.DebindPrivate = DebindPrivate;
 --- at the moment of the call, and the moment this line runs is what makes that answer.
 ---
 --- `Store` names the job and not the addon, so the folder is free to be renamed without a call site
---- moving (`devdocs/building-export-import.md`).
+--- moving (`building-export-import.md`).
 DebindPrivate.Store = DebindStorage;

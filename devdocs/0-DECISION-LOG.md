@@ -843,7 +843,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 드롭은 언제나 새 액션을 만들고, `action.value`에 쓰는 자리는 매크로 본문 편집기와 그 취소뿐이다.
 받는 사람이 할 수 있는 일은 삭제 하나였고, 그 사실이 아래 항목의 통째 거절로 이어졌다.
 
-`devdocs/building-export-import.md` — "우리가 만들 수 없는 것이 하나라도 있으면 문자열을 통째로 거절한다"
+`building-export-import.md` — "우리가 만들 수 없는 것이 하나라도 있으면 문자열을 통째로 거절한다"
 
 ---
 
@@ -883,7 +883,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 "NaN 하나가 붙여넣기를 에러로 만든다"가 둘 다 이 문 하나로 없어진다. 저장되기 전에 거절되므로
 `batch.class`가 디스크에 앉지 않고, 개수 루프가 NaN을 인덱스로 쓰는 자리에도 도달하지 않는다.
 
-`devdocs/fixing-what-the-review-found.md` — "거부하면 페이로드가 통째로 떨어진다"
+`fixing-what-the-review-found.md` — "거부하면 페이로드가 통째로 떨어진다"
 
 ## 2026-08-19
 
@@ -909,7 +909,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 나왔다. 두 경우는 낱말이 갈리는데(FROM과 WAS) 승인 뒤에는 데이터로 구분이 안 되므로, 하나로
 합친 필드로는 안 되고 둘이어야 한다.
 
-`devdocs/reworking-the-overview.md` — "받아온 그룹은 온 키로 부른다"
+`reworking-the-overview.md` — "받아온 그룹은 온 키로 부른다"
 
 > **소유자** — *"오버뷰목록에서 가져온 액션에 대해서도 ASSIGN A KEY 메뉴 표시"*
 
@@ -923,7 +923,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 **같은 항목이 통(레이어 탭) 쪽에는 2026-08-17에 이미 섰다.** 그때 근거가 "왼쪽 열에는 대신 갈 곳,
 즉 머리글이 있고 통에는 없다"였는데, 그 뒤로 두 열이 같은 행에 다른 메뉴를 내주고 있었다.
 
-`devdocs/reworking-the-overview.md` — "행 메뉴는 행 하나만 겨눈다"
+`reworking-the-overview.md` — "행 메뉴는 행 하나만 겨눈다"
 
 > **소유자** — *"왼쪽 목록에서 액션에 대해 ACCEPT나 키지정을 할때 그 액션을 선택하는 것과 같은
 > 결과가 나와야 된다고 생각 안하냐?"*
@@ -939,7 +939,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 창이 무엇을 보고 있어야 하는가"를 물었다. 뒤엣것으로 물으면 자리가 안 옮겨졌다는 사실은 답과 상관이
 없다. 다른 탭 것이면 오른쪽 패널은 여전히 엉뚱한 것을 보여주고 있다.
 
-`devdocs/reworking-the-overview.md` — "다음에 볼 것"의 "행에 손댄 결과는 그 행을 고른 결과와 같아야 한다"
+`reworking-the-overview.md` — "다음에 볼 것"의 "행에 손댄 결과는 그 행을 고른 결과와 같아야 한다"
 
 > **소유자** — *"버튼 하나로 합친다"*
 
@@ -952,7 +952,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 라벨이 답마다 하나면 그 칸은 컨트롤 하나가 될 수 없다. 상태를 이름으로 부르면 접힌다 — 아직
 정하지 않은 사람에게 **정할 것이 무엇인지**를 말하고, 두 답은 한 번 더 눌러서 나온다.
 
-`devdocs/reworking-the-overview.md` — "위 칸은 버튼 하나다"
+`reworking-the-overview.md` — "위 칸은 버튼 하나다"
 
 > **소유자** — *"3.3에서 custom state 개선이 일어나고 그때 필연적으로 dbver는 올라간다. 그냥
 > 그때 같이 할까?"*
@@ -997,7 +997,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 **얼리는 것을 접자 "릴리스마다 얼린다"는 규칙도 같이 없어졌다.** 짜는 것이면 소스라서 닫히는
 창이 없다. 내가 순서를 올려 잡은 근거 자체가 얼리는 안에서만 나오던 것이었다.
 
-`devdocs/setting-up-a-dev-profile.md` — "동결본은 왜 없어졌나"
+`setting-up-a-dev-profile.md` — "동결본은 왜 없어졌나"
 
 > **소유자** — *"메인브랜치에서 한참 3.3 개발 중에 3.2에 중요한 버그가 나타났다. 그러면
 > 워크트리에서 3.2 핫픽스를 먼저 만들어야하는데... 이때 설정파일이 없지."*
@@ -1013,7 +1013,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 때문에 `.zzz/`에 갇히는데, **`.zzz/`는 gitignore라 워크트리가 못 본다.** 짜는 것이면 씻을 것이
 없어서 커밋할 수 있고, 커밋되어야 워크트리가 본다. 앞 결정과 이 요구가 서로를 성립시킨다.
 
-`devdocs/setting-up-a-dev-profile.md` — "무엇이 필요한가"
+`setting-up-a-dev-profile.md` — "무엇이 필요한가"
 
 > **소유자** — *"Profile.lua 안 혹은 적절한 파일 @debug@태그안에서 이 시드 savedvars 변수를
 > 심는것도 생각해봐. 그리고 그 태그 안에서 슬래시커맨드도 등록하거나(시드로 리셋)"*
@@ -1038,7 +1038,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 "플래그를 저장하고 리로드한 뒤 로드 시점에 교체"는 아무도 그 데이터를 붙들기 전이라 그 문제가
 아예 없다. 리셋 경로와 로그인 경로가 같은 경로가 된다.
 
-`devdocs/setting-up-a-dev-profile.md` — "씨앗은 애드온 안에 산다", "심는 자리와 리셋"
+`setting-up-a-dev-profile.md` — "씨앗은 애드온 안에 산다", "심는 자리와 리셋"
 
 > **소유자** — *"makeseed가 서는 파일은 어차피 개발 환경에서만 존재하는 파일이므로 애당초 각
 > 버전의 시드를 모두 구현. 즉 dbver가 오를때 새 버전의 시드코드를 추가하고 기존 코드는 유지"*
@@ -1058,7 +1058,7 @@ dbver)이고 룩업하는 키는 `DB_VERSION`(더 낮은 쪽)이라 쓰기와 �
 없고 짠 것은 버려도 되면서 쓸모가 있다. 나는 앞엣것을 이미 받아들이고도 뒤엣것에서 같은 실수를
 했다.
 
-`devdocs/setting-up-a-dev-profile.md` — "심는 자리와 리셋"
+`setting-up-a-dev-profile.md` — "심는 자리와 리셋"
 
 ---
 
@@ -2037,7 +2037,7 @@ lua5.1로 돌리며, `check-snippets.js`의 파서도 게임의 5.1이 되어 5.
 없어졌다. 압축 왕복 스펙에 걸려 있던 `deflateWorks` 갈래도 없어졌다. 골든은 한 바이트도 안
 움직였다. 리포에 남은 node 의존은 이제 없다.
 
-`devdocs/dev-setup.md`, `devdocs/testing-a-change.md`
+`dev-setup.md`, `testing-a-change.md`
 
 ## 2026-08-27
 
@@ -2103,7 +2103,7 @@ lua5.1로 돌리며, `check-snippets.js`의 파서도 게임의 5.1이 되어 5.
 표의 유무가 곧 준비 여부다. 하나만 켜진 채로 답을 내면 나머지 역할이 전부 `unknown`으로 떨어져
 [탱커]와 [알 수 없음]을 고른 사용자에게 딜러까지 걸린다.
 
-`devdocs/adding-a-role-condition.md`
+`adding-a-role-condition.md`
 
 ## 2026-09-02
 
@@ -2123,7 +2123,7 @@ lua5.1로 돌리며, `check-snippets.js`의 파서도 게임의 5.1이 되어 5.
 
 접기가 서면 컨테이너가 secure여야 하고 스니펫이 따라온다. 스니펫 0은 그 대가로 포기했다.
 
-`devdocs/switch-bar.md`
+`switch-bar.md`
 
 ### 그 프레임을 전투 중에 못 옮긴다는 것이 트랙을 세웠다
 
@@ -2140,7 +2140,7 @@ lua5.1로 돌리며, `check-snippets.js`의 파서도 게임의 5.1이 되어 5.
 `OnUpdate`가 없다. 남는 것은 집었다 놓는 방식뿐이고, **소유자는 그 값어치를 못 미덥게 보고
 트랙을 통째로 보류시켰다.** 다시 열 때까지 착수도 제안도 하지 않는다.
 
-`devdocs/switch-bar.md`
+`switch-bar.md`
 
 ### 스위치 보고를 "누가 보고 있나"로 막지 않는다
 
@@ -2159,4 +2159,4 @@ OnAttributeChanged scripts and create temporary restricted tables"*라고 적혀
 보인다. 대가는 `displayMessage`의 스위치별 예외와 전투 종료 시점의 플러시·리빌드 순서
 의존이고, 둘 다 틀리면 조용히 틀린다.
 
-`devdocs/switch-bar.md`
+`switch-bar.md`

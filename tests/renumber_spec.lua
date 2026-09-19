@@ -1,4 +1,4 @@
--- Renumbering a key group's ordering numbers. `devdocs/legacy/renumbering-a-key-group.md` is the spec.
+-- Renumbering a key group's ordering numbers. `renumbering-a-key-group.md` is the spec.
 --
 -- **What this measures is where an action stands after it crosses a band.** The five steps above
 -- `seq` in `CompareActionOrder` (importance, hover, conditions, layer, specialization) are what that
