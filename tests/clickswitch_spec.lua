@@ -1,5 +1,5 @@
--- A computed switch is worked out at the press, and the beat is left to the ones that announce a
--- change (`devdocs/legacy/dropping-the-game-fallback.md` §3). No WoW client needed.
+-- A computed switch is worked out at the press, and nothing works one out between presses. No WoW
+-- client needed.
 
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
@@ -37,11 +37,13 @@ return function(DebindPrivate, _, ctx)
     local unitFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
     DebindPrivate.RegisterFrame(unitFrame, "group");
 
-    local function Bind(switches, key)
+    local Rebuild;
+
+    local function Bind(switches, key, actions)
         _G.UnitGUID = function() return GUID; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {
+            shared = { GENERAL = actions or {
                 { type = Constants.SPELL, value = 585, key = key or "F1", seq = 1,
                     conditions = { ["$s1"] = true } },
             }, classes = { [Constants.PLAYER_CLASS] = {} } },
@@ -50,9 +52,16 @@ return function(DebindPrivate, _, ctx)
             switches = switches,
         };
         DebindPrivate.InitDB();
+        return Rebuild();
+    end
 
-        -- The rebuild's own pass reads the world, so a case that failed with combat on must not
-        -- hand that to the next one.
+    --- A rebuild on the profile that is already loaded.
+    ---
+    --- **Split out because a reload is not a rebuild.** `Bind` builds `DebindVars` from scratch, so
+    --- anything written into the profile since -- a switch value the character remembers, say --
+    --- goes with it. A case about what survives a rebuild has to use this one.
+    function Rebuild()
+        -- A case that failed with combat on must not hand that to the next one.
         if (interp) then
             interp:resetState();
         end
@@ -146,34 +155,61 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    ---------------------------------------------------------------------------
-    -- The beat
-    ---------------------------------------------------------------------------
+    -- **A toggle and the whole chain hanging off it land inside the one click.** Two computed
+    -- links deep, and the press is the only thing that works either of them out, so what this
+    -- asks is whether the key the far link gates fires on the press that follows the toggle.
+    test("a toggle carries two computed links and the key in the one click", function()
+        local i = Bind({
+            ["$s1"] = { mode = MODES.EXPR, expr = "[$s3]" },
+            ["$s3"] = { mode = MODES.EXPR, expr = "[$s2]" },
+            ["$s2"] = { mode = MODES.MANUAL, resetValue = false },
+        });
 
-    -- **A switch that announces nothing is not worked out on the beat at all.** A parse count is the
-    -- only thing that can see it, since the press answers right either way.
-    test("the beat leaves a switch with no message alone", function()
-        local i = Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[combat]" } });
+        check(not Fires(), "the key fired before anything went on");
 
-        local before = i:parseCount("[combat]");
-        i.state.combat = true;
-        i:pollStates();
-        i.state.combat = false;
-        i:pollStates();
-        check(i:parseCount("[combat]") == before,
-            "the beat parsed a switch nobody is told about: "
-            .. (i:parseCount("[combat]") - before) .. " times");
-        i:resetState();
+        i.driverHandle:RunAttribute("ToggleSwitch", "$s2");
+        check(Fires(), "the key did not fire on the press that followed the toggle");
+        check(i.env.States["$s3"] == true, "the near link was not worked out by that press");
+
+        i.driverHandle:RunAttribute("ToggleSwitch", "$s2");
+        check(not Fires(), "the key still fired after the toggle went back off");
     end);
 
-    -- The other side, so the case above cannot pass on a beat that parses nothing at all.
-    test("a switch with a message is worked out on the beat", function()
-        local i = Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[combat]", displayMessage = true } });
+    ---------------------------------------------------------------------------
+    -- Back through the restricted side
+    ---------------------------------------------------------------------------
 
-        i.state.combat = true;
-        i:pollStates();
-        check(i.env.States["$s1"] == true, "the beat did not work out a switch that announces");
-        i:resetState();
+    -- **The echo of a reset must not become a memory** (§4-9 of
+    -- `devdocs/legacy/redesigning-custom-states.md`). The insecure side writes a switch's starting value and
+    -- pushes it in; the restricted side reports that same value straight back out (`SetSwitch` ->
+    -- `OnSwitchChanged`), and taking the report as a person having moved the switch overwrites the
+    -- memory **on one login** -- which is the value the character goes back to when it leaves a
+    -- layer that forces the answer.
+    --
+    -- **The whole round trip, not the two halves.** `switch_spec.lua` pins each end separately: that
+    -- a reset writes `value`, and that `SetSwitchValue` writes the memory. Neither can see them meet,
+    -- and meeting is the fault: the report arrives a frame later through the mirror
+    -- (`SwitchesChangedCallback`), so it is `drainTimers` that puts the two in the same room.
+    test("a reset that comes back through the restricted side is not remembered", function()
+        -- **No starting value yet**, so the switch is a plain "leave it where I left it" one and
+        -- turning it on is a memory rather than something a reset will argue with.
+        local i = Bind({ ["$s1"] = { mode = MODES.MANUAL } });
+
+        DebindPrivate.SetSwitchValue("$s1", true);
+        check(DebindPrivate.db.char.switches["$s1"] == true, "setup: nothing was remembered");
+
+        -- **Giving it a starting value is what moves the answer**, and a moved answer is the only
+        -- thing that makes the next rebuild re-apply one (`ApplySwitchResets` compares
+        -- `layerKey|mode|resetValue`). Rebuilding with the same answer would push nothing in and
+        -- there would be no echo to mistake for a person.
+        DebindPrivate.Switches["$s1"].resetValue = false;
+        Rebuild();
+
+        check(i.env.States["$s1"] == false, "the reset did not reach the restricted side");
+        frames.drainTimers();
+
+        check(DebindPrivate.db.char.switches["$s1"] == true,
+            "the reset's echo was taken for a person and ate the memory");
     end);
 
     return T;

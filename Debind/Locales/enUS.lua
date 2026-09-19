@@ -275,7 +275,6 @@ L["COPY_TO"] = "Copy to..."
 -- 이동·복사 목록에서 지금 그 액션이 사는 탭. %s는 다른 줄과 **똑같은** 탭 이름이고, 뒤에
 -- 붙는 표시만 그 줄을 가른다 - 이름을 갈아치우면 목록에서 그 탭의 자리를 잃는다.
 L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
-L["CUSTOM_STATE_DISPLAY_MESSAGE"] = "Show message on change."
 -- **`@@`가 여기서 안 된다는 것은 이 줄이 유일하게 말하는 자리다.** 식은 누름마다 한 번, 어느 액션이
 -- 이기는지 정해지기 전에 계산돼서 겨누는 유닛이 없다(`implementing-focus-and-self-cast.md` §4). 상자는
 -- 게임 조건문을 그대로 받고 어떤 문법도 안 보므로, 적어 넣어도 막히지 않고 조용히 안 맞는다.
@@ -1052,12 +1051,12 @@ L["STATE_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
 L["STATE_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
 L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
 -- **Blizzard's own name for the machinery, kept.** "Condition Update Interval" was tried and reads
--- as the interval every condition the reader wrote is worked out on, which is not what this is: it
--- is the one timer the state driver polls on, and the conditions that answer from an event do not
--- wait for it (2026-09-12, owner). The tooltip is what says which states are the slow ones, and it
--- says it in full.
+-- as the interval every condition the reader wrote is worked out on, which is not what this is
+-- (2026-09-12, owner). It is even less that now: a condition is worked out at the press, and what
+-- waits on this timer is the game noticing that something replaced the action bar. The tooltip
+-- says so rather than leaving a reader to change it and see nothing.
 L["STATE_DRIVER_UPDATE_THROTTLE"] = "State Driver Update Interval"
-L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Some states, such as those related to mouseover, may not be updated immediately. By changing this value, you can adjust the update frequency for these states. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
+L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Your keys work their conditions out the moment you press them, so this does not change how quickly one answers; what waits for it is the game noticing that a vehicle or a pet battle has taken your action bar. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
 -- The Switches tab. Everything below is read on that tab and nowhere else.
 --
@@ -1084,10 +1083,11 @@ L["SWITCH_ANSWER_OFF"] = "Starts off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
 L["SWITCH_ANSWER_REMEMBER"] = "As you left it"
 L["SWITCH_ANSWER_REMEMBER_DESC"] = "Starts on if you left it on. Every character remembers its own answer."
--- The settings row over every switch's own message box. The tooltip says the boxes are overruled
--- rather than cleared, because a reader who ticks this again expects their choices back.
+-- **The second sentence is the whole reason the tooltip exists.** A reader who ticks this and
+-- then watches a switch the addon works out move in silence has no way to tell the option from a
+-- fault, so which switches it covers is said here rather than left to be discovered.
 L["SWITCH_MESSAGES"] = "Switch change messages"
-L["SWITCH_MESSAGES_DESC"] = "Unticked, no switch prints a message when it changes, including the ones set to show one."
+L["SWITCH_MESSAGES_DESC"] = "Prints a line when a switch changes. Only switches you turn on and off yourself print one, never the ones the addon works out from a macro conditional."
 -- The section where Debind hands a key it holds back to the game for as long as something else
 -- needs it.
 --

@@ -409,7 +409,6 @@ SEEDS[6] = function(guid)
         --- character this seed cannot know; a class tab's key is the class of whoever plants it.
         switches = {
             ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
-                displayMessage = true,
                 overrides = {
                     [Constants.PLAYER_CLASS .. ":1"] = {
                         mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
@@ -513,7 +512,6 @@ SEEDS[7] = function(guid)
 
         switches = {
             ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
-                displayMessage = true,
                 overrides = {
                     [Constants.PLAYER_CLASS .. ":1"] = {
                         mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },

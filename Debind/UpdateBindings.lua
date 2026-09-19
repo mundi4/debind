@@ -16,10 +16,7 @@ local dump                               = DebindPrivate.dump;
 local luatype                            = type;
 local format, tostring, select           = format, tostring, select;
 local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
---- `string.gmatch` rather than the bare global. The client carries both, the headless runner only
---- the one under `string` (`tests/wow_shim.lua`).
-local gmatch                             = string.gmatch;
-local band, bor                          = bit.band, bit.bor;
+local band                               = bit.band;
 local InCombatLockdown                   = InCombatLockdown;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
@@ -40,8 +37,6 @@ local BindingAttrsCache                  = {};
 --- 경우와 어긋난다. 그러면 눌러서 시작은 되는데 `*typerelease-`가 없어서 **안 놓인다.**
 --- (500행 주석의 그 질문 - 특성으로 값이 바뀌는 경우)
 local BindingPressHoldCache              = {};
-
-local STATE_EVAL_EXPRESSIONS             = Constants.STATE_EVAL_EXPRESSIONS;
 
 
 local NextButtonName;
@@ -79,30 +74,21 @@ local _actionSlots = {};
 --- Blizzard bar button -> the button name that clicks it (`BarClickButton`).
 local _barClickButtons = {};
 local UpdateBindingsMap;
-local UpdateMacroTextsMap;
+local BuildMacroTextEntries;
 local UpdateAttrChangedHandler;
 
 local addSwitch;
 local addMacrotext;
 local addMacrotextBinding;
-local MeasureUnitExists;
 
 local GetModifierIndex   = DebindPrivate.GetModifierIndex;
 
 local _strArr            = {};
 
---- The second buffer `UpdateAttrChangedHandler` fills. One line per measured unit, and it is a
---- buffer of its own because the two land in different places: this one runs once per rebuild,
---- `_strArr` becomes the handler that runs on every tick.
-local _unitRowArr        = {};
 local _macrotexts        = {};
 local _macrotextBindings = {};
 local _switches          = {};
 local _unitsSeen         = {};
-
---- Which names already have a list in `MacroTextsMap`. Module level, so a rebuild reuses it rather
---- than allocating - the rule this file runs on.
-local _keysSeen          = {};
 
 --- The world a rebuild was built against, and what it decided to do about it. **Two tables, wiped
 --- and refilled**, the way the rest of this file already works.
@@ -113,20 +99,9 @@ local _keysSeen          = {};
 local _ctx               = {};
 local _plan              = { events = {}, units = {} };
 
---- **Build time, not runtime.** These two pick what gets measured; the secure globals `States` and
---- `UnitStates` hold what was measured. The underscore only says "local to this file" and left the
---- two kinds looking alike, which is a real source of confusion: being registered here decides
---- whether polling re-measures a value, and nothing else. Whether a record's condition is compared
---- is decided by the record carrying that field, not by anything in here.
-local _measuredStates    = {};
-local _measuredUnitAxes  = {};
-
 --- Does any action ask about the hovered unit's role? It is what turns the three role headers
 --- on, and they are the only thing that fills `UnitRoles`.
 local _readsRole = false;
---- Does a switch on the beat name `@unitframe`? It is the one reader left for the poll's
---- unitframe block.
-local _beatReadsUnitFrame = false;
 
 --- Scratch arrays for `sortedKeys`. Three, because the walks nest: a key's units are sorted inside
 --- the walk over keys, and one unit's reactions inside the walk over units.
@@ -166,122 +141,8 @@ local function ResetContext()
     wipe(_macrotexts);
     wipe(_macrotextBindings);
     wipe(_switches);
-    wipe(_measuredStates);
-    wipe(_measuredUnitAxes);
     wipe(_unitsSeen);
     _readsRole = false;
-    _beatReadsUnitFrame = false;
-end
-
---- Which measured state a macro conditional word answers to.
----
---- **Every entry is a claim that the word and the state move together**, so the table is short on
---- purpose. `vehicleui`, `overridebar` and `possessbar` are the ones that look like they belong and
---- do not: `specialbar` folds three `Has...ActionBar` calls into one boolean, and not one of the
---- three is the question those words ask.
-local SWITCH_GATE_STATES = {
-    combat    = "combat",
-    stealth   = "stealth",
-    mounted   = "mounted",
-    -- **`outdoors` is not the pair of this one.** `States.indoors` is `IsIndoors()` alone, and the
-    -- two are not each other's complement: during a dungeon loading screen both answer false
-    -- (measured 2026-08-26). So a gate built on this flag would not follow `[outdoors]`.
-    indoors   = "indoors",
-    flyable   = "flyable",
-    advflyable = "advflyable",
-    flying     = "flying",
-    form      = "form",
-    stance    = "form",
-    bonusbar  = "bonusbar",
-    group     = "group",
-    petbattle = "petbattle",
-    extrabar  = "extrabar",
-};
-
---- The same claim for words a **unit row** answers rather than a base axis.
----
---- The flag is that row's, `<unit>-exists`, and registering it registers the row (`addSwitch`).
---- `[pet]` is here rather than in the table above because nothing else measures a pet any more:
---- the condition side asks `units["pet"]` and a second measurement of the same fact would be a
---- second answer nobody could choose between.
-local SWITCH_GATE_UNITS = { pet = "pet" };
-
---- Words whose argument can move the answer on its own.
----
---- The row behind `[pet]` holds whether a pet is there, so trading one pet for another leaves it
---- standing while `[pet:Imp]` flips. The bare word is answered by the row, the argument form is
---- not. Every other word in the tables above is answered whole: `GetShapeshiftForm()` covers every
---- `form:` argument, `GetBonusBarOffset()` every `bonusbar:`, and the group partition every
---- `group:`.
-local SWITCH_GATE_ARG_MOVES = { pet = true };
-
---- Names already in the gate being built. Module level, wiped and refilled, the rule this file runs
---- on.
-local _gateSeen = {};
-
---- One token out of a macro conditional, as the dirty flag that can move it.
----
---- `nil` is "cannot tell", and the caller reads that as the whole expression being ungatable.
-local function SwitchGateFlag(token)
-    -- A unit token puts the answer on `UnitAliasMap` and on whoever that unit turns out to be.
-    -- Neither raises a flag the switch lines could read.
-    if (strsub(token, 1, 1) == "@") then
-        return nil;
-    end
-
-    if (strsub(token, 1, 2) == "no") then
-        token = strsub(token, 3);
-    end
-
-    -- A switch reference. `SetSwitch` raises `DirtyFlags[name]`, so the name already is the flag.
-    if (strsub(token, 1, 1) == "$") then
-        return strmatch(token, "^%$[a-zA-Z0-9_]+$");
-    end
-
-    local word, rest = strmatch(token, "^(%a+)(.*)$");
-    local unit = word and SWITCH_GATE_UNITS[word];
-    local state = unit and (unit .. "-exists") or (word and SWITCH_GATE_STATES[word]);
-    if (not state) then
-        return nil;
-    end
-    if (rest ~= "" and (strsub(rest, 1, 1) ~= ":" or SWITCH_GATE_ARG_MOVES[word])) then
-        return nil;
-    end
-    return state;
-end
-
---- The dirty flags a computed switch's value can move on, or `nil` where that cannot be worked out.
----
---- The state loop hands every computed switch to `SecureCmdOptionParse` on the 0.2s beat, and the
---- answer cannot have moved unless something the conditional reads moved with it. What comes back
---- here is that something, named as the flags the same pass has already set by the time the switch
---- lines run.
----
---- **One word it cannot place and the whole expression is ungatable.** `[outdoors]` is not measured
---- here, so a gate built out of the rest of that expression would freeze the switch on whatever it
---- answered last, and nothing anywhere would say so.
----
---- Only the bracket groups are read. What sits outside them is the macro body, baked into the
---- expression, and it reads the same on every tick.
-local function CollectSwitchGate(expr)
-    local gate;
-    wipe(_gateSeen);
-
-    for group in gmatch(expr, "%[([^%]]*)%]") do
-        for token in gmatch(group, "[^,]+") do
-            local flag = SwitchGateFlag(strtrim(token));
-            if (not flag) then
-                return nil;
-            end
-            if (not _gateSeen[flag]) then
-                _gateSeen[flag] = true;
-                gate = gate or {};
-                gate[#gate + 1] = flag;
-            end
-        end
-    end
-
-    return gate;
 end
 
 --- This rebuild's take on one switch, or `false` where nothing defines the name.
@@ -312,9 +173,6 @@ function addSwitch(stateName)
             };
             if (mode == SWITCH_MODES.EXPR) then
                 info.expr = expr or "";
-                info.gate = CollectSwitchGate(info.expr);
-                info.announce = options.displayMessage == true
-                    and DebindPrivate.SwitchMessagesEnabled();
                 addMacrotextBinding(info.name, info.expr);
             end
         end
@@ -322,59 +180,6 @@ function addSwitch(stateName)
         _switches[stateName] = info;
     end
     return info;
-end
---- Puts a computed switch on the beat, and every computed switch its expression reads.
----
---- **Only a switch that announces a change needs the beat**, since a press works every switch out
---- for itself (`COMPUTE_SWITCHES_SNIPPET`). What such a switch reads has to be on the beat too:
---- between presses the beat is the only thing working anything out, and a value only a press
---- refreshes would be the last press's.
----
---- **The flags its gate opens on have to exist, so the states behind them are registered here.**
---- A switch's conditional is read by no other part of a rebuild, so a profile whose only `[combat]`
---- sits inside a switch would leave `DirtyFlags.combat` unset and the switch on its last answer for
---- good. The registration also puts the switch on whichever state driver events that state brings
---- with it (`CollectDriverEvents`).
-local function PutOnBeat(name)
-    local info = _switches[name];
-    if (not info or info.mode ~= SWITCH_MODES.EXPR or info.onBeat) then
-        return;
-    end
-    info.onBeat = true;
-
-    if (info.gate) then
-        for i = 1, #info.gate do
-            local flag = info.gate[i];
-            -- A switch name is not measured. Its flag comes from `SetSwitch`.
-            if (strsub(flag, 1, 1) ~= "$") then
-                -- **A unit row raises its own flag**, so a word answered by one registers the row
-                -- rather than a state (`SWITCH_GATE_UNITS`).
-                local unit = strmatch(flag, "^(.+)%-exists$");
-                if (unit) then
-                    MeasureUnitExists(unit);
-                else
-                    _measuredStates[flag] = true;
-                end
-            end
-        end
-    end
-
-    local parsed = _macrotexts[info.expr];
-    if (parsed) then
-        for _, arg in ipairs(parsed.args) do
-            if (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
-                PutOnBeat(arg.name);
-            end
-        end
-    end
-end
-
-local function SettleBeatSwitches()
-    for name, info in pairs(_switches) do
-        if (info and info.announce) then
-            PutOnBeat(name);
-        end
-    end
 end
 
 function addMacrotext(macrotext)
@@ -416,10 +221,6 @@ local function appendLine(str, ...)
     else
         _strArr[#_strArr + 1] = str or "";
     end
-end
-
-local function appendUnitRowLine(str, ...)
-    _unitRowArr[#_unitRowArr + 1] = format(str, ...);
 end
 
 --- Compiles a generated snippet before it is handed over, in DEBUG builds only.
@@ -551,9 +352,7 @@ wipe(HeldUnits)
 HandoffBindings = nil
 HandoffWinner = nil
 HandoffUnitFrameUnit = nil
-wipe(MacroTextsMap)
 wipe(DeferredMacroTexts)
-wipe(UnitStates)
 wipe(SwitchExpressions)
 wipe(SwitchEntries)
 wipe(ComputedSwitches)
@@ -604,8 +403,9 @@ end
 --- computed one, and the order a press works the computed ones out in. Returns nil where this
 --- rebuild has no switch to say anything about.
 ---
---- Writing into `States` directly would raise no change event, so the state change message would
---- not print. The value goes back through `SetSwitch` for that reason.
+--- Writing into `States` directly would skip the report the insecure side folds back into the
+--- definition (`OnSwitchChanged`), which is what the Switches tab reads. The value goes back
+--- through `SetSwitch` for that reason.
 local function BuildSwitchesSnippet()
     wipe(_orderSeen);
     wipe(_order);
@@ -615,7 +415,7 @@ local function BuildSwitchesSnippet()
         if (stateInfo) then
             -- previous switch value
             if (stateInfo.value ~= nil) then
-                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s, true)]], state,
+                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s)]], state,
                     tostring(stateInfo.value));
             end
 
@@ -649,12 +449,10 @@ end
 
 --- Which state driver events this rebuild wants, and which it wants gone.
 ---
---- **Every one of these is a pure reading of what got measured**, and until they were collected
---- into a value the only way to see one was to stand a `SecureStateDriverManager` up and look at
---- what had been registered on it. Two faults lived here for exactly that reason, and both are
---- gone: the old `_measuredStates.reaction` term did not look at *which* unit, so a reaction
---- condition on `target` alone dragged the mouseover registration along with it, and
---- `HoverBindings` was so wide that the narrow test beside it meant nothing.
+--- **Keys Given Back is the only reader left.** A condition is measured at the press, so no event
+--- has to reach us for one; what these wake is `SecureStateDriverManager`'s evaluation of the
+--- `state-giveback` attribute driver, which has to be current the moment a vehicle takes the bar
+--- (`devdocs/giving-keys-back.md` §4). Every event the state loop used to ask for went with it.
 ---
 --- The order here is the order they are applied in. It is written out rather than walked out of a
 --- table, so what a rebuild emits does not depend on `pairs`.
@@ -663,59 +461,14 @@ local function CollectDriverEvents(events)
         events[#events + 1] = { name = name, register = register and true or false };
     end
 
-    -- **The question is "is hover measured".** The old predicate carried a
-    -- `_measuredStates.reaction` term as well, and it was redundant: a reaction condition is part
-    -- of a unit condition, so `_measuredUnitAxes` already covers it.
-    --
-    -- **This event only fires when a mouseover unit appears, never when one goes away**, so it
-    -- covers the cursor moving from one unit to another and not the cursor leaving a unit for
-    -- empty space. That second half is the state poll's, in the `elseif (unitframe.reaction)`
-    -- branch of the hover block (`UpdateAttrChangedHandler`). Registering this is worth doing
-    -- anyway, and reading it as the whole of hover dangling detection is not.
-    want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.unitframe or _measuredUnitAxes.mouseover);
-
-    -- **Keys Given Back needs these whether or not a binding asks about the bar.** The rows are an
-    -- account answer, so a profile where nothing carries `specialbar` still has to be woken when a
-    -- vehicle takes the bar (`devdocs/giving-keys-back.md` §4).
     local givesBackOnReplacedBar = DebindPrivate.GiveBackOnReplacedBar();
-    want("UPDATE_OVERRIDE_ACTIONBAR", _measuredStates.specialbar or givesBackOnReplacedBar);
-    want("UPDATE_VEHICLE_ACTIONBAR", _measuredStates.specialbar or givesBackOnReplacedBar);
+    want("UPDATE_OVERRIDE_ACTIONBAR", givesBackOnReplacedBar);
+    want("UPDATE_VEHICLE_ACTIONBAR", givesBackOnReplacedBar);
 
-    want("UPDATE_EXTRA_ACTIONBAR", _measuredStates.extrabar);
-
-    -- **`skyriding` is not here, and it is not an omission.** It reads `GetBonusBarOffset()`, and
-    -- `SecureStateDriverManager` registers `UPDATE_BONUS_ACTIONBAR` when Blizzard builds it
-    -- (`SecureStateDriver.lua`). Everything named in this function is a state whose event that
-    -- baseline does **not** already carry -- which is also why `combat`, `stealth` and `group`
-    -- are absent.
-    want("PLAYER_MOUNT_DISPLAY_CHANGED", _measuredStates.mounted);
-
-    -- Both, because the pair is what the client splits the move into: `ZONE_CHANGED_INDOORS` is
-    -- the doorway and `ZONE_CHANGED` the rest.
-    -- **`flyable` and `advflyable` ride these too, and nothing more.** What a zone allows lags
-    -- the world by design: stepping outdoors does not make mounting legal on the same frame, and
-    -- crossing the other way leaves a player mounted for some distance. Every mount macro answers
-    -- off that same delay, so there is nothing here to chase.
-    local zone = _measuredStates.indoors or _measuredStates.flyable or _measuredStates.advflyable;
-    want("ZONE_CHANGED", zone);
-    want("ZONE_CHANGED_INDOORS", _measuredStates.indoors);
-    want("ZONE_CHANGED_NEW_AREA", _measuredStates.flyable or _measuredStates.advflyable);
-
-    -- specialbar folds [petbattle] into its own value, so it needs these too, and so does the
-    -- Pet Battle row of Keys Given Back.
-    local battle = _measuredStates.petbattle or _measuredStates.specialbar
-        or DebindPrivate.GiveBackInPetBattle();
+    -- Both, because the client splits a pet battle into the two.
+    local battle = DebindPrivate.GiveBackInPetBattle();
     want("PET_BATTLE_OPENING_START", battle);
     want("PET_BATTLE_CLOSE", battle);
-
-    local hasKnownState = false;
-    for state in pairs(_measuredStates) do
-        if (strsub(state, 1, 7) == "[known:") then
-            hasKnownState = true;
-            break;
-        end
-    end
-    want("SPELLS_CHANGED", hasKnownState);
 
     return events;
 end
@@ -742,30 +495,6 @@ local function CollectWatchedUnits(units)
     return units;
 end
 
---- Does this rebuild want the 0.2s beat at all?
----
---- `RegisterUnitWatch(BindingDriver, true)` is what makes Blizzard write `state-unitexists` five
---- times a second, and our handler write it back -- **two attribute writes and two handler entries
---- a tick before anything of ours has been measured.**
----
---- **A switch on the beat is the whole answer** (`PutOnBeat`). A press measures every condition
---- and works every computed switch out for itself, so the one thing left for a pass that runs with
---- nobody pressing is a switch that announces a change, and what it reads.
----
---- **`_onattributechanged` stays either way.** What is being turned off is only the periodicity.
---- `SetSwitch`, `setup_onenter` and `setup_onleave` all reach the handler by writing
---- `state-unitexists` themselves, and so does the block that closes a rebuild -- so the pass still
---- runs whenever something actually moves.
-local function WantsStatePoll()
-    for _, info in pairs(_switches) do
-        if (info and info.onBeat) then
-            return true;
-        end
-    end
-
-    return false;
-end
-
 --- What this rebuild decided, as a value.
 ---
 --- **What is not pure yet is the emitters.** `UpdateBindingsMap` reaches `SetBindingAttributes`,
@@ -786,9 +515,8 @@ local function BuildBindingPlan(ctx)
     wipe(plan.units);
 
     plan.bindingsMapSnippet = UpdateBindingsMap();
-    SettleBeatSwitches();
-    plan.macroTextsSnippet = UpdateMacroTextsMap();
-    plan.attrChangedSnippet, plan.unitRowsSnippet = UpdateAttrChangedHandler();
+    plan.macroTextsSnippet = BuildMacroTextEntries();
+    plan.attrChangedSnippet = UpdateAttrChangedHandler();
     plan.switchesSnippet = BuildSwitchesSnippet();
 
     CollectWatchedUnits(plan.units);
@@ -797,8 +525,6 @@ local function BuildBindingPlan(ctx)
     --- `CollectWatchedUnits` walks the units a binding can name. It exists so that a unit off the
     --- map means "role unknown" instead of "we only looked for two of the three".
     plan.roleMap = _readsRole and true or false;
-
-    plan.statePoll = WantsStatePoll();
 
     --- The two rows of Keys Given Back that the driver's letter answers, and the one that narrows
     --- them. The House Editor row is not here: what crosses for it is the claimed keys themselves
@@ -914,12 +640,6 @@ local function ApplyBindingPlan(plan)
     SecureHandlerExecute(driver, plan.bindingsMapSnippet);
     SecureHandlerExecute(driver, plan.macroTextsSnippet);
 
-    -- **Before the handler that reads them.** `ClearPreviousBindings` wiped `UnitStates` on the way
-    -- in, so this is what puts the rows back, and every read below expects them to be there.
-    if (plan.unitRowsSnippet) then
-        SecureHandlerExecute(driver, plan.unitRowsSnippet);
-    end
-
     driver:SetAttribute("_onattributechanged", plan.attrChangedSnippet);
 
     if (plan.switchesSnippet) then
@@ -979,32 +699,9 @@ local function ApplyBindingPlan(plan)
     end
     SecureStateDriverManager:SetAttribute("updatetime", plan.updatetime);
 
-    -- **Only on a change.** Registering again is not free and not silent: Blizzard's handler shows
-    -- the manager and measures the frame on the spot, which writes `state-unitexists` and runs a
-    -- pass. Asking first keeps a rebuild that decided the same thing as the last one from
-    -- producing one (`SecureStateDriver.lua`, `addwatchstate`).
-    --
-    -- **Turning it back on is its own first tick**, and that is what makes it safe to turn off:
-    -- `addwatchstate` measures the frame right there, so the pass a profile was missing arrives
-    -- with the registration rather than up to 0.2s later.
-    if (plan.statePoll ~= UnitWatchRegistered(driver)) then
-        if (plan.statePoll) then
-            RegisterUnitWatch(driver, true);
-        else
-            UnregisterUnitWatch(driver);
-        end
-    end
-
-    -- 클릭캐스팅 라우팅을 프레임들에 반영한다. **아래 상태 루프보다 먼저다** - 그쪽이
-    -- `<접두사>type<번호>`를 걸므로, 짝인 `clickbutton`이 아직 없으면 그 사이의 클릭이
-    -- 조용히 사라진다(`SECURE_ACTIONS.click`이 delegate가 없으면 아무것도 안 한다).
-
-    -- execute UpdateBindings with forceAll set
+    -- The aliases this rebuild watches, resolved once so a press finds them standing.
     SecureHandlerExecute(driver, [[
-        DirtyFlags.forceAll = true
         self:RunAttribute("UpdateAllUnits")
-        self:RunAttribute("UpdateMacroTexts", true)
-        self:SetAttribute("state-unitexists", 1)
     ]]);
 
     ApplyGiveBack(driver, plan.giveBack);
@@ -1025,8 +722,6 @@ local function FinishBindingUpdate()
 
     if (DEBUG) then
         dump("UpdateBindings", {
-            states = _measuredStates,
-            unitStates = _measuredUnitAxes,
             unitsSeen = _unitsSeen,
             bindingAttrsCache = BindingAttrsCache,
             macrotexts = _macrotexts,
@@ -1513,39 +1208,6 @@ function SetBindingAttributes(type, value, unit)
     return clickframe, buttonname, pressAndHold;
 end
 
---- Which axes have to be **measured** for a unit. Accumulated per unit across every binding that
---- names it, so an axis nobody asks about is never measured and simply has no field in
---- `UnitStates[unit]`. Nothing can ask about an unmeasured axis -- asking is what turns the bit on
---- -- so its absence never reaches a comparison.
----
---- This is what retires the old encoding's defect. Registration used to change the **meaning** of
---- the value (with nobody asking about reaction, a friendly unit came back as `true`), so every
---- consumer had to know who else had registered what. Now registration changes only precision.
-local UNITAXIS_EXISTS   = 1;
---- Reaction is measured as **one axis, all the way**. Emitting a term per registered value saved a
---- call when only `help` was asked for, and paid for it by putting `true` in the place of the
---- values nobody asked about. Resolving to exactly one of help/harm/other costs one more C call in
---- the worst case and buys back a value that means the same thing to everyone.
-local UNITAXIS_REACTION = 2;
---- Life is two C calls, not one: `UnitIsDeadOrGhost` is not in the restricted environment
---- (`RestrictedEnvironment.lua`'s `DIRECT_MACRO_CONDITIONAL_NAMES` lists only `UnitIsDead` and
---- `UnitIsGhost`). Both have to be asked, because a ghost is not dead by `UnitIsDead` and the
---- macro `[dead]` this mirrors counts it as dead. Reading a ghost as alive sends heals at a corpse.
-local UNITAXIS_DEAD     = 4;
---- Where the unit stands in the reader's group. Two C calls, and unlike life the pair is not one
---- question asked twice: the two predicates overlap, and which of the four cells a unit is in
---- takes both answers (`Constants.lua`'s `UNITGROUPCELL_*`).
-local UNITAXIS_GROUP    = 8;
-
---- Registers a unit's existence axis, for the callers that are not walking a record.
----
---- `_unitsSeen` goes with it because that is what resolves an alias, and a row for an alias nobody
---- resolved would measure whether `UnitAliasMap` has an entry that nothing fills.
-function MeasureUnitExists(unit)
-    _measuredUnitAxes[unit] = bor(_measuredUnitAxes[unit] or 0, UNITAXIS_EXISTS);
-    _unitsSeen[unit] = true;
-end
-
 local REACTION_NAMES = {
     [Constants.REACTION_HELP]  = "help",
     [Constants.REACTION_HARM]  = "harm",
@@ -1928,8 +1590,7 @@ end
 --- fire**, which is the unit conditions folding to nothing.
 ---
 --- Nothing here reaches a frame or the client. The one frame question -- which click frame the
---- state loop hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a
---- name.
+--- record hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a name.
 local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     if (not MergeKeyUnitConditions(binding, out.units)) then
         return nil;
@@ -2009,8 +1670,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
             local omit = false;
             if (axis.derived) then
                 -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
-                -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을 `States`의
-                -- 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이 두 군데 적힌다.
+                -- `SecureCmdOptionParse`에 그대로 넘긴다. 나눠 두면 클릭마다 결합이 난다.
                 -- **The condition's own value is the question** -- a spell name, or the id where
                 -- the client could not name one (`devdocs/making-known-a-spell-name.md`).
                 --
@@ -2021,8 +1681,8 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
                 -- false elsewhere in this file too).
                 local spell = DebindPrivate.KnownSpellAsked(binding);
                 -- A spell whose answer cannot move before the next rebuild is settled here
-                -- instead of going out as an axis (`devdocs/baking-the-known-condition.md`): the
-                -- state loop stops parsing it every tick, and so does the press.
+                -- instead of going out as an axis (`devdocs/baking-the-known-condition.md`), so
+                -- the press stops parsing it.
                 local settled = spell and Spells.SettleKnown(spell);
                 if (settled == false) then
                     -- No state can bring this record back for the rest of the rebuild. Dropping
@@ -2449,25 +2109,13 @@ end
 --- One entry per parsed macro body: where it is written back to, its fragments, the arguments that
 --- get re-evaluated, and which of the two tables it lands in.
 ---
---- **A body goes into exactly one of them, and which one is the whole of ②.**
----
----   `MacroTextsMap[name]`   rebuilt whenever `name` moves. A switch's expression lives here,
----                           because the poll reads the value it produces and there is nobody to
----                           rebuild it at that moment
----   `DeferredMacroTexts`    rebuilt by the click that picks it, and by nothing else. A button's
----                           `*macrotext-` is read only when that button is clicked
----
---- That is what takes the frame sweep down: `SetUnit` walks `MacroTextsMap[alias]`, and a profile
---- whose `@unitframe` bodies are all buttons leaves that list empty.
----
---- **Dependents are emitted next to the entry rather than in a second pass.** The pass that used to
---- do it walked `_macrotexts` by body text and reached the entry through `data.index`, which is one
---- field on a table shared by every name bound to the same text -- so two names sharing a body left
---- the second overwriting the first, and only one of them had dependents. Walking the names is the
---- same walk the entries already do, and there is no id to keep in step.
+--- **Both are read by a click and by nothing else.** `DeferredMacroTexts` holds a button's
+--- `*macrotext-`, composed by the click that picks that button; `SwitchEntries` holds a computed
+--- switch's expression, composed by the press that has to know the switch's answer
+--- (`COMPUTE_SWITCHES_SNIPPET`). That is what takes the frame sweep down: moving an alias walks no
+--- list of bodies.
 local function EmitMacroTextEntries()
     local index = 0;
-    wipe(_keysSeen);
 
     for _, buttonOrStateName in ipairs(sortedKeys(_macrotextBindings, _sortedA)) do
         local data = _macrotextBindings[buttonOrStateName];
@@ -2497,38 +2145,24 @@ local function EmitMacroTextEntries()
             if (not isState) then
                 appendLine("DeferredMacroTexts[%q]=t", buttonOrStateName);
             else
-                -- **Every computed switch keeps its entry for the press**, and only one on the beat
-                -- is recomposed when what it reads moves: nothing else reads the answer between
-                -- presses.
+                -- **A computed switch keeps its entry for the press, and the press is the only
+                -- reader.** Nothing works one out between presses, so there is nobody to recompose
+                -- the body for either.
                 appendLine("SwitchEntries[%q]=t", buttonOrStateName);
-                local info = _switches[buttonOrStateName];
-                if (info and info.onBeat) then
-                    for _, arg in ipairs(data.args) do
-                        local key = arg.name;
-                        if (arg.type == Constants.MACROTEXT_ARG_UNIT and key == "unitframe") then
-                            _beatReadsUnitFrame = true;
-                        end
-                        if (not _keysSeen[key]) then
-                            _keysSeen[key] = true;
-                            appendLine("MacroTextsMap[%q]=newtable()", key);
-                        end
-                        appendLine("tinsert(MacroTextsMap[%q], t)", key);
-                    end
-                end
             end
         end
     end
 end
 
-function UpdateMacroTextsMap()
+function BuildMacroTextEntries()
     appendLine("local t");
 
     EmitMacroTextEntries();
 
     local snippet = table.concat(_strArr, "\n");
-    AssertSnippetCompiles(snippet, "UpdateMacroTextsMap");
+    AssertSnippetCompiles(snippet, "MacroTextEntries");
     if (DEBUG) then
-        dump("UpdateMacroTextsMap", {
+        dump("MacroTextEntries", {
             CopyTable(_strArr),
             snippet:len(),
         });
@@ -2537,100 +2171,12 @@ function UpdateMacroTextsMap()
     return snippet;
 end
 
-local function compareStates(lhs, rhs)
-    if (lhs == "petbattle") then
-        return true;
-    end
-    if (rhs == "petbattle") then
-        return false;
-    end
-
-    return lhs < rhs;
-end
-
---- Emits the code that refreshes one unit's row in `UnitStates`. One field per axis, not one
---- value.
+--- The driver's `_onattributechanged`, which is one branch: Keys Given Back.
 ---
---- The row table is created once per unit and **reused**. Building a fresh one each tick would
---- destroy change detection: a new table never equals the old one, so every tick would look like
---- a change and rebind.
----
---- **Creating it is a rebuild's job, not a tick's** -- `appendUnitRowLine` puts that line in the
---- snippet `ApplyBindingPlan` runs after `wipe(UnitStates)`. So a row exists from the moment a
---- rebuild ends, and `UnitStates[unit] ~= nil` answers *"this unit is measured"* and nothing else.
---- Two places read it that way (`SetUnit` and the matcher in `SecureBindings.lua`); while the tick
---- created the row, both were also answering *"and a tick has been round"*.
----
---- Axes that were not registered emit nothing and leave no field behind. Nothing can ask about
---- them, so the absence is never compared against.
----
---- A unit that does not exist is not asked anything else. Absence is not a point on the other
---- axes -- it is the case where those axes have no value at all -- and the condition side splits
---- at the same place.
----
---- `stateOverride` is the same optional line the basic states get, and it lands in the same place
---- -- after the value is computed, before it is compared. Life is the axis that needs it: a test
---- can stand up a friendly unit or an absent one on demand, but not a dead one.
-local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOverride)
-    local dirty = format([[DirtyFlags["%s-exists"]=true]], unit);
-
-    appendUnitRowLine("UnitStates[%q]=newtable()", unit);
-    appendLine("u=UnitStates[%q]", unit);
-    appendLine("stateValue=%s and true or false", existsExpr);
-    -- **계산 뒤, 비교 앞.** 이 줄이 계산보다 위에 있던 동안 `stateValue`가 바로 덮어써져서
-    -- 존재 축 주입이 조용히 아무것도 안 했다.
-    if (stateOverride) then
-        appendLine(stateOverride, unit .. "-exists");
-    end
-    appendLine("if (u.exists ~= stateValue) then u.exists=stateValue;%s end", dirty);
-
-    local wantsReaction = band(axes, UNITAXIS_REACTION) ~= 0;
-    local wantsDead = band(axes, UNITAXIS_DEAD) ~= 0;
-    local wantsGroup = band(axes, UNITAXIS_GROUP) ~= 0;
-
-    -- The axes share one existence test. They are asked the same question -- "does this unit have
-    -- a value on the axis at all" -- and the answer was just computed above.
-    if (wantsReaction or wantsDead or wantsGroup) then
-        appendLine("if (u.exists) then");
-
-        if (wantsReaction) then
-            -- Blizzard resolves the same fork with if/elseif (`SecureTemplates.lua`, the
-            -- `helpbutton`/`harmbutton` substitution). It asks about hostile first; this asks about
-            -- friendly first. If a state where both are true ever turns up, that is where they part.
-            appendLine([[stateValue=(PlayerCanAssist(%1$s) and "help") or (PlayerCanAttack(%1$s) and "harm") or "other"]],
-                unitExpr);
-            appendLine("if (u.reaction ~= stateValue) then u.reaction=stateValue;%s end", dirty);
-        end
-
-        if (wantsDead) then
-            -- `UnitIsDead` alone is not `[dead]`: a ghost answers false to it. The pair is what the
-            -- macro conditional means, and the restricted environment has no `UnitIsDeadOrGhost`.
-            appendLine("stateValue=(UnitIsDead(%1$s) or UnitIsGhost(%1$s)) and true or false", unitExpr);
-            if (stateOverride) then
-                appendLine(stateOverride, unit .. "-dead");
-            end
-            appendLine("if (u.dead ~= stateValue) then u.dead=stateValue;%s end", dirty);
-        end
-
-        if (wantsGroup) then
-            -- **둘 다 묻는다. 체인이 아니다.** 두 술어가 겹치므로 (공대이면서 같은 소그룹)이
-            -- 제 칸을 갖고, 그 칸은 두 답이 다 있어야 나온다. 하나만 묻고 갈래를 세우면 그
-            -- 칸이 이웃 칸으로 접혀서 "같은 파티"가 공대에서 안 걸린다.
-            appendLine([[stateValue=(UnitPlayerOrPetInRaid(%1$s) and (UnitPlayerOrPetInParty(%1$s) and "both" or "raid")) or (UnitPlayerOrPetInParty(%1$s) and "party") or "neither"]],
-                unitExpr);
-            if (stateOverride) then
-                appendLine(stateOverride, unit .. "-group");
-            end
-            appendLine("if (u.group ~= stateValue) then u.group=stateValue;%s end", dirty);
-        end
-
-        appendLine("end");
-    end
-end
-
--- 'state-unitexists' attribute 값이 변경될 때 상태 업데이트 후 UpdateBindings 실행함.
--- 블리자드 StateDriverManager는 기존 값과 새로운 값(true or false)이 다른 경우에만 _onattributechanged를 호출하므로
--- 'state-unitexists'은 true/false가 아닌 값을 넣어둔다.
+--- **`state-unitexists` went with the state loop.** Nothing measured a value between presses once
+--- a computed switch stopped announcing itself, so the pass had nothing to compute and nobody to
+--- compute it for. Every condition is measured at the press (`SecureBindings.lua`'s matcher) and
+--- every computed switch is worked out there too (`COMPUTE_SWITCHES_SNIPPET`).
 function UpdateAttrChangedHandler()
     -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the
     -- driver on its own beat and writes this attribute only when the value moves, so this branch is
@@ -2643,269 +2189,13 @@ if (name == "state-giveback") then
 end
 ]]);
 
-    appendLine([[
-if (name == "state-unitexists") then
-    if (value == 0) then return end
-    local full = DirtyFlags.forceAll or value == true or value == false
-    if (PollEveryFrame and not full) then return end
-    self:SetAttribute("state-unitexists", 0)
-]]);
-
-    -- **The value says who woke us, and that is what decides how much gets measured.**
-    --
-    --   `true` / `false`   Blizzard's poll. It knows nothing, so everything is measured
-    --   `"unitframe"`      `setup_onenter` / `setup_onleave`. The cursor moved and nothing else
-    --   a switch name      `SetSwitch`. That switch moved and nothing else
-    --   `1`                the block that closes a rebuild, which runs on `forceAll` anyway
-    --
-    -- The driver carries `unit = "player"`, so what the poll writes is `true` and the check below
-    -- is the poll and nothing else. Our own writers are a string or a number by construction.
-    --
-    -- **Only the axes with no way of announcing themselves are measured on our wakes.** Everything
-    -- inside the guard has an event registered on the manager, and an event puts `timer` to 0, so
-    -- the next pass arrives the following frame whether or not a cursor crossed a frame. Measuring
-    -- them again here buys nothing. The unit rows below are the other kind: nothing fires when a
-    -- target dies or a pet stops existing, so a wake we got for free is a sampling chance and it
-    -- is taken.
-    --
-    -- **The hover block is inside the guard for a second reason of its own.** On a `"unitframe"`
-    -- wake `setup_onenter` has just made those same client calls and written the answer into
-    -- `unitframe.unit` and `unitframe.reaction`; the block would spend them again to learn nothing.
-    -- What it is *for* is the case where the cursor never moved and the unit went away, and that
-    -- is a poll's case by definition.
-    --
-    -- **The one thing this gives up** is that a base axis which changed since the last poll stays
-    -- stale for the wakes in between. The event that announced it has already pulled the next pass
-    -- to the following frame, so the window is a frame rather than the 0.2s the contract allows.
-    --
-    -- **`PollEveryFrame` takes the same answer one step further.** With the throttle at zero the
-    -- beat arrives every frame, so a wake of ours cannot be earlier than it and there is nothing
-    -- left for the pass to do; the handler turns round before it even puts the attribute back to
-    -- `0`. It is false wherever the beat is not registered, because then our wakes are the only
-    -- thing that carries a hover crossing or a switch at all (`BuildBindingPlan`).
-    -- `u` holds the `UnitStates` row being refreshed. Declared here rather than assigned as a
-    -- global: every snippet shares one environment, so a stray global would collide across them.
-    -- **Above the guard**, because the unit rows below it are the half that always runs.
-    appendLine("local stateValue,u");
-
-    local gateAt = #_strArr + 1;
-    appendLine("if (full) then");
-
-    -- **The block below is what costs a tick while the cursor rests on a unit frame**, and its one
-    -- reader is a switch on the beat naming `@unitframe` (`_beatReadsUnitFrame`). A press reads the
-    -- frame itself (`EVAL_SNIPPET`, `GetUnitFrameUnit`), so what the poll leaves behind is not what it
-    -- answers with.
-    --
-    -- The slot itself stays: `setup_onenter` fills it whether or not this block is emitted, so a
-    -- rebuild that starts naming hover finds a warm slot rather than an empty one and the first
-    -- tick after it brings the unit up to date.
-    --
-    -- The `elseif` below is the half that was missing. A unit can go away under a cursor that
-    -- never moves -- neither enter nor leave fires -- and without it the reaction the frame had
-    -- when the cursor arrived stayed true forever. The frame itself is kept so this same poll
-    -- can pick the unit back up; only the reaction is cleared, and `reaction == nil` is what
-    -- every reader now treats as "not hovering".
-    --
-    -- **The last of the three formatted in below is `REACTION_OTHER`, not `REACTION_NONE`.** This
-    -- is the branch where a unit is hovered and `UnitExists` is true, so "not hovering" has no
-    -- place in it. `REACTION_NONE` is a bit outside `REACTION_ALL` (`Solver.lua`), so no mask a
-    -- user can build ever matches it. Put it here and every hover binding carrying a reaction
-    -- restriction dies on a target that can be neither helped nor attacked: friendly NPCs such as
-    -- vendors and guards, corpses, totems. `setup_onenter` has used `OTHER` from the start, so the
-    -- symptom was a binding that was right the moment the cursor arrived and went out on the first
-    -- poll tick.
-    --
-    if (_beatReadsUnitFrame) then
-        appendLine([[
-if (States.unitframe) then
-    local unitframe = States.unitframe
-    local unit = unitframe.frame:GetEffectiveAttribute("unit");
-    if (UnitExists(unit)) then
-        local reaction
-        if (PlayerCanAssist(unit)) then
-            reaction = %d
-        elseif (PlayerCanAttack(unit)) then
-            reaction = %d
-        else
-            reaction = %d
-        end
-
-        if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
-            unitframe.unit = unit
-            unitframe.reaction = reaction
-            if (self:RunAttribute("SetUnit", "unitframe", unit)) then
-                DirtyFlags.unitframe = true
-            end
-        end
-    elseif (unitframe.reaction) then
-        unitframe.unit = nil
-        unitframe.reaction = nil
-        unitframe.role = nil
-        if (self:RunAttribute("SetUnit", "unitframe", nil)) then
-            DirtyFlags.unitframe = true
-        end
-    end
-end
-]], Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_OTHER);
-    end
-
-    -- Update Basic States
-    local stateArray = {};
-    for state in pairs(_measuredStates) do
-        tinsert(stateArray, state);
-    end
-    sort(stateArray, compareStates);
-
-    -- An optional line, supplied from outside, that gets a say in `stateValue` between the
-    -- expression that computed it and the comparison that stores it.
-    --
-    -- **Overriding has to happen here and nowhere else.** Writing into `States` from outside does
-    -- not hold: the poll comes round every 0.2s, or any of the events fires, and the real value
-    -- goes back. Stopping the loop to keep it would be switching off the code the override exists
-    -- to exercise. So the loop runs exactly as it always does, and only the value it lands on is
-    -- allowed to differ.
-    --
-    -- Debind does not know what the line says. It is a format string handed over by whoever wants
-    -- it -- in practice the test addon, which is absent for every real user, so nothing is
-    -- generated and the emitted snippet is unchanged.
-    local stateOverride = DebindPrivate.SnippetProbes and DebindPrivate.SnippetProbes.stateValue;
-
-    local function appendStateStore(state)
-        if (stateOverride) then
-            appendLine(stateOverride, state);
-        end
-        appendLine("if (States[%1$q] ~= stateValue) then States[%1$q]=stateValue;DirtyFlags[%1$q]=true; end", state);
-    end
-
-    for _, state in ipairs(stateArray) do
-        if (STATE_EVAL_EXPRESSIONS[state]) then
-            if (state == "specialbar") then
-                if (_measuredStates.petbattle) then
-                    appendLine("stateValue=(%s) or States.petbattle", STATE_EVAL_EXPRESSIONS.specialbar);
-                else
-                    appendLine([[stateValue=(%s) or (SecureCmdOptionParse("[petbattle]") and true or false)]], STATE_EVAL_EXPRESSIONS.specialbar);
-                end
-            else
-                appendLine("stateValue=%s", STATE_EVAL_EXPRESSIONS[state]);
-            end
-            appendStateStore(state);
-        elseif (state:sub(1, 7) == "[known:") then
-            -- 이름이 곧 조건문이다(대괄호 포함). 클릭 경로가 같은 문자열을 그대로 파싱한다.
-            --
-            -- **게이트가 없다.** 스위치는 `DirtyFlags`로 감싸는데(아래 "Update Switches") 이쪽은
-            -- 매 비트 판다. 그러려면 "`SPELLS_CHANGED` 말고는 답이 안 움직인다"를 짊어져야 하고,
-            -- 전투 중에 임시 주문을 받는 경우가 그 문장을 깨뜨릴 자리였다.
-            --
-            -- **인게임 확인함 (2026-08-27).** 넷 다 `[known:<id>]`가 거짓이다 - 탈것 바 주문,
-            -- 지배 바 주문, 특별 행동 버튼, 그리고 **사용 효과가 있는 장비의 주문**. 주문서를
-            -- 안 거치는 주문은 `IsPlayerSpell`을 안 뒤집는다.
-            --
-            -- 넷째가 제일 넓게 닫는다. 아이템에서 오는 주문을 안 보므로 **장비를 갈아입어도**
-            -- `known`이 안 움직이고, 전투 중 무기 교체까지 계기 목록 밖으로 빠진다.
-            --
-            -- 남은 계기(주문 습득, 특성·전문화 변경)는 전부 전투 밖이고 전부 `SPELLS_CHANGED`를
-            -- 낸다.
-            --
-            -- 그래도 아직 안 감쌌다. 위의 셋이 아닌 계기가 없다는 것까지는 확인이 아니고,
-            -- 게이트를 다는 순간 매 비트 재기가 주던 안전망(어떤 계기를 놓쳐도 0.2초 안에 회복)이
-            -- 사라진다.
-            appendLine([[stateValue=SecureCmdOptionParse(%q) and true or false]], state);
-            appendStateStore(state);
-
-        elseif (_switches[state] ~= nil) then
-            -- 아래 "Update Switches"가 맡는다. **`~= nil`이다** - 정의를 못 찾은 이름은
-            -- `false`로 메모되고, 그것도 스위치라서 여기서 잴 것이 없기는 마찬가지다.
-            -- `_switches[state]`로 물으면 그 이름이 "모르는 상태"로 떨어져 DEBUG 로그가 뜬다.
-        elseif (DEBUG) then
-            DebindPrivate.log("Unhandled State: " .. state);
-        end
-    end
-
-    -- **Nothing to gate, so no gate.** A profile that measures no base axis and does not name unitframe
-    -- would otherwise carry an `if ... then end` around nothing on every pass. The opening line is
-    -- still the last one in the buffer exactly when that happened.
-    if (#_strArr == gateAt) then
-        _strArr[gateAt] = nil;
-    else
-        appendLine("end");
-    end
-
-    -- Update Unit States
-    for _, unit in ipairs(sortedKeys(_measuredUnitAxes, _sortedA)) do
-        local axes = _measuredUnitAxes[unit];
-        local unitExpr, existsExpr;
-        if (unit == "custom1" or unit == "custom2") then
-            unitExpr = format("UnitAliasMap[%q]", unit);
-            existsExpr = format("UnitAliasMap[%1$q] and UnitExists(UnitAliasMap[%1$q])", unit);
-        elseif (SPECIAL_UNITS[unit]) then
-            -- For the other aliases, being in `UnitAliasMap` **is** the proof of existence -- `SetUnit`
-            -- does not put one there otherwise. Asking `UnitExists` again would tighten the
-            -- condition without anyone saying so.
-            unitExpr = format("UnitAliasMap[%q]", unit);
-            existsExpr = format("UnitAliasMap[%q]", unit);
-        else
-            unitExpr = format("%q", unit);
-            existsExpr = format("UnitExists(%q)", unit);
-        end
-
-        appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOverride);
-    end
-
-    -- Update Switches
-    for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
-        local stateInfo = _switches[state];
-        if (stateInfo) then
-            if (stateInfo.onBeat) then
-                -- **`forceAll` is the term that makes the rest of the gate safe to trust.** It is
-                -- set by the block that closes a rebuild, and the pass it opens is the one where
-                -- `States` has just been wiped, so the switch is worked out from nothing there
-                -- whatever its flags say. Everything below that is the steady state.
-                local gate = stateInfo.gate;
-                if (gate) then
-                    local terms = "DirtyFlags.forceAll";
-                    for i = 1, #gate do
-                        terms = terms .. format(" or DirtyFlags[%q]", gate[i]);
-                    end
-                    appendLine("if (%s) then", terms);
-                end
-
-                appendLine([[stateValue=SecureCmdOptionParse(SwitchExpressions[%q] or "") and true or false]], stateInfo.name);
-                appendLine([[if (States[%1$q] ~= stateValue) then self:RunAttribute("SetSwitch", %1$q, stateValue, true) end]], stateInfo.name);
-
-                if (gate) then
-                    appendLine("end");
-                end
-            end
-        end
-    end
-
-    appendLine([[
-for flag in pairs(DirtyFlags) do
-    if (MacroTextsMap[flag]) then
-        self:RunAttribute("UpdateMacroTexts")
-        break
-    end
-end
-wipe(DirtyFlags)
-]]);
-
-    appendLine([[end]]);
-
     local snippet = table.concat(_strArr, "\n");
     AssertSnippetCompiles(snippet, "_onattributechanged");
-
-    -- Nil rather than an empty string when nothing is measured, so the caller has something to
-    -- test -- the same shape `BuildSwitchesSnippet` already returns.
-    local rowsSnippet;
-    if (#_unitRowArr > 0) then
-        rowsSnippet = table.concat(_unitRowArr, "\n");
-        AssertSnippetCompiles(rowsSnippet, "UnitStates rows");
-    end
 
     if (DEBUG) then
         dump("_onattributechanged", { CopyTable(_strArr), snippet:len() });
     end
     wipe(_strArr);
-    wipe(_unitRowArr);
-    return snippet, rowsSnippet;
+    return snippet;
 end
+

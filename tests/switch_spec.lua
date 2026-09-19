@@ -339,6 +339,66 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 바뀔 때 적는 줄
+    --
+    -- **되보고는 사람이 넘긴 것과 우리가 밀어 넣은 것 둘 다 싣고 온다.** 리빌드는 저장된 값을
+    -- 제한 환경으로 밀어 넣고(`BuildSwitchesSnippet`), 그쪽은 그 값을 그대로 되보고한다. 로그인
+    -- 한 번에 스위치 수만큼 줄이 뜨는 것이 그 보고를 사람으로 읽었을 때의 모습이다.
+    ---------------------------------------------------------------------------
+
+    --- 이 블록이 적은 줄을 모은다.
+    local function CaptureMessages(fn)
+        local said = {};
+        local real = DebindPrivate.DisplayMessage;
+        DebindPrivate.DisplayMessage = function(text) said[#said + 1] = text; end
+        local ok, err = pcall(fn);
+        DebindPrivate.DisplayMessage = real;
+        if (not ok) then
+            error(err, 0);
+        end
+        return said;
+    end
+
+    test("우리가 밀어 넣은 값이 되돌아온 것은 안 적는다", function()
+        InitWith(Profile());
+        local options = DebindPrivate.Switches["$state1"];
+        options.value = true;
+
+        local said = CaptureMessages(function()
+            DebindPrivate.OnSwitchChanged("$state1", true);
+            frames.drainTimers();
+        end);
+
+        check(#said == 0, "리셋의 메아리를 사람이 넘긴 것으로 읽고 " .. #said .. "줄 적었다");
+    end);
+
+    test("사람이 넘긴 수동 스위치는 적는다", function()
+        InitWith(Profile());
+        DebindPrivate.Switches["$state1"].value = false;
+
+        local said = CaptureMessages(function()
+            DebindPrivate.OnSwitchChanged("$state1", true);
+            frames.drainTimers();
+        end);
+
+        -- 줄 수만 본다. 헤드리스의 `L`은 키를 그대로 돌려주므로 서식이 채워지지 않아, 적힌
+        -- 내용을 물으면 문자열 표가 로드되는지를 묻는 것이 된다.
+        check(#said == 1, "한 줄이 아니라 " .. #said .. "줄 적었다");
+    end);
+
+    test("계산식 스위치는 값이 움직여도 안 적는다", function()
+        InitWith(Profile());
+        DebindPrivate.Switches["$state2"].value = false;
+
+        local said = CaptureMessages(function()
+            DebindPrivate.OnSwitchChanged("$state2", true);
+            frames.drainTimers();
+        end);
+
+        check(#said == 0, "계산식 스위치가 " .. #said .. "줄 적었다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 거절하는 자리
     --
     -- **거절은 아무것도 안 바꾸고 거절해야 한다.** 절반만 옮긴 개명은 이름 하나가 두 군데를

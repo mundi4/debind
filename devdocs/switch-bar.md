@@ -154,11 +154,8 @@ attribute-value = "toggle"
 
 **토글 한 번이 그 클릭 안에서 다 끝난다.** 매뉴얼 스위치를 뒤집으면 그것을 읽는 계산식 스위치와
 그 계산식을 읽는 계산식 스위치까지 값이 따라오고, 거기 걸린 키의 바인딩까지 같은 클릭 안에서
-다시 선다. 폴링을 기다리지 않는다. `tests/switchgate_spec.lua`의 "a toggle carries two computed
+다시 선다. 무엇도 기다리지 않는다. `tests/clickswitch_spec.lua`의 "a toggle carries two computed
 links and the key in the one click"이 그것을 든다.
-
-**한 자리 예외가 있다.** 상태 구동 갱신 주기를 0으로 둔 사람(`PollEveryFrame`)은 토글이 깨운
-패스가 첫 줄에서 되돌아간다. 그 설정에서는 매 프레임 도는 박자가 대신 처리하므로 늦어야 한 프레임이다.
 
 ### 6. 만드는 순서 — **폐기 (2026-09-02). 착수 순서가 아니다**
 
@@ -207,8 +204,9 @@ attribute-value = "toggle"              ("on" / "off"도 같은 자리)
 **글자 그대로 이것을 한다.** 받는 쪽은 `Switches.lua`의 `_onattributechanged`고, 거기서 `ToggleSwitch`로 간다. **전투 중 클릭은 아무것도 안 굽고
 이미 구워진 속성을 밟기만 한다.**
 
-**`MANUAL` 상태만 버튼을 준다.** `MACRO_CONDITIONAL`은 `UpdateAttrChangedHandler`가 구운 폴링이
-다음 틱에 도로 덮어쓴다 — 눌리는데 안 바뀌는 버튼이 된다. 그 행은 **읽기 전용 표시**로 둔다.
+**`MANUAL` 상태만 버튼을 준다.** `MACRO_CONDITIONAL`은 값을 누를 때 계산식으로 다시 정하므로
+눌러 놓아도 다음 누름이 도로 덮는다 — 눌리는데 안 바뀌는 버튼이 된다. 그 행은 **읽기 전용
+표시**로 둔다.
 
 ### 접기 / 보이기 — 된다. **단 Lua `OnClick`으로는 안 된다**
 
@@ -353,7 +351,7 @@ attribute-value = "toggle"              ("on" / "off"도 같은 자리)
 
 **헤드리스가 볼 수 있는 것.** 어느 스위치가 바에 서는지 고르는 것은 정의와
 `IsSwitchTracked` 둘로만 답이 나므로 순수 함수이고 스펙이 그대로 잰다. 토글이 값과 바인딩을
-같은 클릭 안에 옮기는지도 이미 스펙이 든다(`tests/switchgate_spec.lua`). 아이콘 필드가 공유
+같은 클릭 안에 옮기는지도 이미 스펙이 든다(`tests/clickswitch_spec.lua`). 아이콘 필드가 공유
 문자열에 실려 나가고 돌아오는 것도 왕복으로 잴 수 있다.
 
 **원리상 못 보는 것 셋.** 화면이라서다.

@@ -15,8 +15,13 @@ local wipe, pairs, tinsert, sort         = wipe, pairs, tinsert, sort;
 
 
 local BindingDriver                      = CreateFrame("Frame", DEBUG and "DebindBindingDriver" or nil, nil, "SecureHandlerBaseTemplate,SecureHandlerAttributeTemplate");
+-- **`unit` stays and the watch is gone.** Blizzard's `RegisterUnitWatch(frame, true)` wrote
+-- `state-unitexists` here five times a second, and the pass it woke measured values that only a
+-- computed switch announcing a change ever read. Those announce nothing now
+-- (`SwitchesChangedCallback`, `Misc.lua`), so the pass went with them and every condition is
+-- measured at the press instead. The attribute is what `RegisterUnitWatch` would resolve, and it
+-- costs nothing standing here.
 BindingDriver:SetAttribute("unit", "player");
-RegisterUnitWatch(BindingDriver, true);
 SecureHandlerExecute(BindingDriver, [[
 	DelegateFrames = newtable()
 	DelegateFrameNames = newtable()
@@ -358,8 +363,8 @@ do
 				--
 				-- **A `known` with nothing to ask about is filtered here for the same reason**
 				-- (`KnownConditionCanHold`). Left in, the binding would take the key from the
-				-- actions behind it and put a conditional that is false for the life of this
-				-- build into the state loop to be measured every tick.
+				-- actions behind it and hand every press a conditional that is false for the life
+				-- of this build.
 				if (binding and DebindPrivate.SpecConditionHolds(binding)
 						and DebindPrivate.KnownConditionCanHold(binding)) then
 					Lists[binding] = list;

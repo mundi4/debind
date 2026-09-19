@@ -230,7 +230,6 @@ DebindStorage.CASTING_TYPES = CASTING_TYPES;
 local STATE_FIELDS       = {
     mode = true,
     resetValue = true,
-    displayMessage = true,
     expr = true,
 };
 

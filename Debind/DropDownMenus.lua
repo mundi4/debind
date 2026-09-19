@@ -30,8 +30,8 @@ local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip
 -- The switches menu that used to hang off the portrait
 --------------------------------------------------------------------------------
 --- **It is gone, and the tab is where it went** (stage 3c, `devdocs/legacy/redesigning-custom-states.md`
---- §6-B). `SetupSwitchesDropdownMenu` stood here and edited `mode`, `resetValue`, `expr` and
---- `displayMessage` on five offered names, which is the whole of what a row's menu on the
+--- §6-B). `SetupSwitchesDropdownMenu` stood here and edited `mode`, `resetValue` and `expr` on
+--- five offered names, which is the whole of what a row's menu on the
 --- `Switches` tab does now, only over however many switches the reader has made, with renaming
 --- and deleting beside it and a list that can be scrolled.
 ---

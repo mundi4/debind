@@ -17,7 +17,7 @@ function BindingDriver:dump(name, ...)
 	end
 end
 
---- 보안 스니펫이 완성한 매크로 본문. `UpdateMacroTexts`가 부른다.
+--- 보안 스니펫이 완성한 매크로 본문. 클릭 때 본문을 굽는 자리가 부른다.
 ---
 --- 속성은 한 번 쓰면 열거할 수가 없어서, **버튼에 무엇이 올라갔는지 확인할 길이 이 로그뿐이다.**
 --- 짝이 되는 정적 쪽 로그는 `UpdateBindings.lua`의 `SetBindingAttributes`에 있다 - 둘을 같이
@@ -31,27 +31,18 @@ end
 --- A snippet cannot declare a callable of its own. `BuildRestrictedClosure`
 --- (`Blizzard_RestrictedAddOnEnvironment/RestrictedExecution.lua:58`) rejects the body on a plain
 --- substring match -- its own comment calls that "overzealous but it keeps it simple" -- and the
---- whole snippet dies with it. When the one below dies, `ccframes` / `DirtyFlags` / `UnitStates`
---- are never created, and the first write to any of them fails somewhere else entirely. The error
+--- whole snippet dies with it. When the one below dies, `ccframes` and `States` are never
+--- created, and the first write to either of them fails somewhere else entirely. The error
 --- you see then has nothing to do with the line that caused it.
 ---
 --- The same check bans braces, and both look at the **raw text**. Which is the other half of why
 --- snippet bodies carry no comments at all: an explanation inside one is shipped to that parser.
 --- `tools/check-snippets.js` enforces both.
 ---
---- The shape each site writes out:
----
----     local s = UnitStates[u]
----     if (not s or c.exists ~= s.exists
----             or (c.reaction and not c.reaction[s.reaction])
----             or (c.dead ~= nil and c.dead ~= s.dead)) then  -- no match
----
---- One comparison per axis, never a mask intersection: there is no `bit` in there, and the
---- arithmetic idiom that replaces it costs the same two lookups **plus** three operations.
---- `c.exists` needs no nil guard (the emitter always writes it), and a condition that asked for
---- absence carries no other axis, so neither needs a wrapper. A nil row means the state has not
---- been computed yet and nothing matches -- reading it as "absent" would fire a binding on the
---- strength of a state nobody looked at.
+--- Each site measures the unit's axes itself and compares them one at a time, never as a mask
+--- intersection: there is no `bit` in there, and the arithmetic idiom that replaces it costs the
+--- same two lookups **plus** three operations. A unit that does not exist is asked nothing else,
+--- since the other axes have no value at all for one.
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);
 SecureHandlerSetFrameRef(BindingDriver, "castFrame", DebindPrivate.CastFrame);
 -- A protected frame, so its handle still answers `IsShown` in combat.
@@ -177,13 +168,11 @@ SecureHandlerExecute(BindingDriver, [[
 	ClickUnitDead = newtable()
 	ClickUnitGroup = newtable()
 
-	MacroTextsMap = newtable()
-
 	-- The macro bodies held back until a click. `button name -> what it takes to compose one`.
 	--
-	-- **This and `MacroTextsMap` do not overlap.** A body is in one or the other. What is here is
-	-- rebuilt by nobody when a state moves, and by the click that picks that button. That is what
-	-- takes a raid-frame sweep down: the list `SetUnit` walks no longer holds them.
+	-- **Every body that moves with a state is here**, a switch's expression included
+	-- (`SwitchEntries`): nothing recomposes one between presses, so a raid-frame sweep walks no
+	-- list of bodies at all.
 	--
 	-- Indexed by button name because at the moment of a click that is the only thing in hand --
 	-- what the wrapper's winner carries is `clickbutton`, and that name is what `*macrotext-`
@@ -212,18 +201,7 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 조회 하나로 남는다.
 	RoleOwners = false
 
-	UnitStates = newtable()
 	States = newtable()
-	DirtyFlags = newtable()
-
-	-- Does Blizzard's beat already come every frame? `UpdateBindings` bakes this on every rebuild
-	-- from the throttle the reader's slider asked for, and it is true only at zero and only while
-	-- the beat is registered at all.
-	--
-	-- Where it is true, a wake of our own can never be earlier than the beat, so
-	-- `_onattributechanged` turns straight round on one. Where it is false, our wakes are the only
-	-- thing that carries a hover crossing or a switch before the next tick.
-	PollEveryFrame = false
 
 	OldStates = newtable()
 
@@ -255,14 +233,6 @@ do
 end
 
 
---- 본문 로그. **빌드 시점에 가른다** - 릴리스에서는 문자열 자체가 비어서 스니펫에 그 줄이
---- 아예 없다. `printMacroText` 안쪽의 DEBUG 검사만으로는 늦다: 그건 이미 샌드박스를 넘어온
---- 뒤라, 실사용자도 전투 중 상태가 바뀔 때마다 의존 바인딩 수만큼 `CallMethod`를 치른다.
---- 아래 `UpdateBindings`가 같은 방식으로 갈린다.
-local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
-	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
-]] or "";
-
 --- Composes one macro body. The caller declares `entry`, `s`, `unitframeAlias`, `clickSwitches` and
 --- `pressUnit` and hands them in; `clickSwitches` is what a press worked out, nil where no press is
 --- running, and `pressUnit` is the unit the winner goes out at, nil where it aims at nothing.
@@ -272,10 +242,10 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 --- clause back to whatever the game aims at by default -- a unit the reader never named
 --- (`devdocs/implementing-focus-and-self-cast.md` §4).
 ---
---- **Two places bake.** When a state moves (`UpdateMacroTexts`), and when a click arrives (the
---- `OnClick` wrapper below). So the composition is one copy spliced into both -- two copies and
---- the day comes when `arg.reverse` is fixed on one side only, and that body goes out inverted
---- with nothing to say so.
+--- **Two places bake, and both are the click.** A computed switch's expression
+--- (`COMPUTE_SWITCHES_SNIPPET`) and the winner's own body (the `OnClick` wrapper below). So the
+--- composition is one copy spliced into both -- two copies and the day comes when `arg.reverse` is
+--- fixed on one side only, and that body goes out inverted with nothing to say so.
 ---
 --- **`unitframeAlias` comes from the caller, and that is what keeps this one copy.** When a state
 --- moves the hovered unit can only be `UnitAliasMap["unitframe"]`, but **at a click that value must
@@ -327,7 +297,8 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 --- The caller has `unitframeUnit` in hand, which is what `@hover` inside a switch aims at.
 ---
 --- **A switch that moved is written and reported here.** The Switches tab reads what the report
---- writes, and a switch off the beat has nothing else to write it.
+--- writes, and a computed switch has nothing else to write it: nothing works one out between
+--- presses.
 local COMPUTE_SWITCHES_SNIPPET = [==[
 	if (not ClickSwitchesReady) then
 		ClickSwitchesReady = true
@@ -354,42 +325,6 @@ local COMPUTE_SWITCHES_SNIPPET = [==[
 	end
 ]==];
 
-BindingDriver:SetAttribute("UpdateMacroTexts", [=[
-	local key = ...
-	for state, dependents in pairs(MacroTextsMap) do
-		if (key == true or key == state or DirtyFlags[state]) then
-			for i = 1, #dependents do
-				local entry = dependents[i]
-				local s
-				local unitframeAlias = UnitAliasMap["unitframe"]
-				local clickSwitches
-				local pressUnit
-]=] .. COMPOSE_MACROTEXT_SNIPPET .. [=[
-
-				-- **Only a switch's expression is finished here.** A button's body is held back
-				-- for the click in `DeferredMacroTexts` (`EmitMacroTextEntries` in
-				-- `UpdateBindings.lua`), so what moves with a unit or a switch and is not a button
-				-- is this, and the log belongs here.
-]=] .. PRINT_MACROTEXT_SNIPPET .. [=[
-
-				-- No "did the text change" guard around this. The pass already parsed the
-				-- previous `SwitchExpressions[entry.state]` before reaching here, so the parse
-				-- below is what the newly composed text needs; skipping it when the text is
-				-- unchanged would save one call, and this only runs because something the
-				-- text depends on went dirty, so unchanged is the rare case.
-				-- It stood as `if (true or ... ~= s)`, which read as a guard and was not one.
-				if (entry.state) then
-					SwitchExpressions[entry.state] = s
-					local newValue = SecureCmdOptionParse(s) and true or false
-					if (States[entry.state] ~= newValue) then
-						self:RunAttribute("SetSwitch", entry.state, newValue, true)
-					end
-				end
-			end
-		end
-	end
-]=]);
-
 --- Bakes the winning record's macro body at the click. Spliced in **after the winner is settled
 --- and before the button name goes back**, and after `RESOLVE_UNIT_SNIPPET`, whose `unit` is what
 --- `@@` in the body becomes.
@@ -401,9 +336,8 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 --- while the cursor sweeps a raid frame becomes **the one that won** per click. A click runs at
 --- hand speed, ten a second at the outside; sweeping frames does not.
 ---
---- A button that is not in `DeferredMacroTexts` costs nothing here. A static body stands as
---- `StampBinding` wrote it, and a body that has to move with a state and is not here belongs to
---- `UpdateMacroTexts` above.
+--- A button that is not in `DeferredMacroTexts` costs nothing here: a static body stands as
+--- `StampBinding` wrote it.
 --- The same log on the click side. **`debind_driver`, not `self`** -- this wrapper's `self` is
 --- the frame it wraps, and `printMacroText` is not on that one.
 local PRINT_BAKED_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
@@ -487,8 +421,8 @@ local ACTION_SLOT_SNIPPET = [==[
 --- The unit the winner is cast at, as `unit`. Spliced into the click wrapper and into the DEBUG
 --- eval hooks.
 local RESOLVE_UNIT_SNIPPET = [==[
-	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["unitframe"]는 enter와 폴링이
-	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
+	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["unitframe"]는 enter가 채우는
+	-- 캐시라 커서가 멈춘 채 프레임의 유닛이 바뀌면 안 따라온다. 조건은 live로 읽어놓고 대상만
 	-- 캐시에서 가져오면 **판정한 유닛과 시전 대상이 갈린다** - 우호로 판정해 놓고 옛 유닛에
 	-- 쏘는 것이다. 옛 경로는 둘 다 캐시라 적어도 일관됐으니 그보다 나빠진다.
 	--
@@ -542,21 +476,12 @@ local SELFCAST_OFF_SNIPPET = [==[
 ]==];
 
 BindingDriver:SetAttribute("SetSwitch", [[
-	local name, value, skipUpdate = ...
+	local name, value = ...
 	if (States[name] ~= value) then
 		if (not _switchesUpdating[name]) then
 			_switchesUpdating[name] = true
 			
 			States[name] = value
-			DirtyFlags[name] = true
-			
-			if (not skipUpdate) then
-				if (MacroTextsMap[name]) then
-					self:RunAttribute("UpdateMacroTexts", name)
-				end
-
-				debind_driver:SetAttribute("state-unitexists", name)
-			end
 
 			self:CallMethod("OnSwitchChanged", name, value)
 			_switchesUpdating[name] = false
@@ -572,24 +497,12 @@ BindingDriver:SetAttribute("ToggleSwitch", [[
 BindingDriver:SetAttribute("SetUnit", [[
 	local alias, unit, force = ...
 	local changed = UnitAliasMap[alias] ~= unit
-	local dirty = false
 	if (changed or force) then
 		UnitAliasMap[alias] = unit
 
 		local delegateFrame = DelegateFrames[alias]
 		if (delegateFrame) then
 			delegateFrame:SetAttribute("unit", unit or "raid41")
-		end
-
-		-- **The row's existence is how a snippet asks "is this alias measured".** A rebuild wipes
-		-- `UnitStates` and puts a row back for every unit in `_measuredUnitAxes`, so there is one
-		-- here exactly when moving this alias can change what a key answers.
-		if (UnitStates[alias] ~= nil) then
-			dirty = true
-		end
-
-		if (MacroTextsMap[alias]) then
-			self:RunAttribute("UpdateMacroTexts", alias)
 		end
 
 		-- **Hover is not announced outside** (2026-08-22). What sets it apart from the other
@@ -604,8 +517,6 @@ BindingDriver:SetAttribute("SetUnit", [[
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
 		end
 	end
-
-	return dirty;
 ]]);
 
 --- 역할 헤더 하나가 방금 배치한 결과를 `UnitRoles`에 옮긴다.
@@ -650,21 +561,6 @@ BindingDriver:SetAttribute("SetRoleUnits", BakeSnippet([==[
 		owned[i] = unit
 	end
 
-	-- **역할이 바뀌는 사건은 이 자리 하나뿐이다.** 슬롯의 유닛은 그대로인데 그 사람의 역할만
-	-- 바뀌는 것도 여기서만 생기므로, 폴링이 비트마다 다시 잴 이유가 없다. 슬롯을 들고 있으면
-	-- 여기서 한 번 맞춰주고, 달라졌을 때만 깨운다.
-	local unitframe = States.unitframe
-	if (unitframe and unitframe.unit) then
-		local role
-		if (unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
-			role = UnitRoles[unitframe.unit] or "norole"
-		end
-		if (unitframe.role ~= role) then
-			unitframe.role = role
-			DirtyFlags.unitframe = true
-			self:SetAttribute("state-unitexists", "unitframe")
-		end
-	end
 ]==]));
 
 --- **역할 조건을 한 번도 안 쓴 사람도 여기로 온다.** `tank`와 `healer`는 별칭이면서 역할
@@ -833,10 +729,7 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
-				DirtyFlags.unitframe = true
-				debind_driver:SetAttribute("state-unitexists", "unitframe")
-			end
+			debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		end
 		info.frame = nil
 	end
@@ -855,7 +748,7 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 -- `setup_onleave` happens to answer with would put that contract in the other body's hands.
 --
 -- A frame whose unit does not exist counts as **not hovering**, and the frame is still recorded
--- so the poll can pick it back up when the unit returns. Recording it is what makes recovery
+-- so a later press can pick it back up when the unit returns. Recording it is what makes recovery
 -- possible: neither enter nor leave fires while the cursor sits still, so dropping the frame
 -- here would strand the hover slot until the user moved the mouse.
 --
@@ -915,10 +808,7 @@ local SETUP_ONENTER_SNIPPET = [==[
 		unitframe.reaction = reaction
 		unitframe.role = role
 		States.unitframe = unitframe
-		if (debind_driver:RunAttribute("SetUnit", "unitframe", unit)) then
-			DirtyFlags.unitframe = true
-			debind_driver:SetAttribute("state-unitexists", "unitframe")
-		end
+		debind_driver:RunAttribute("SetUnit", "unitframe", unit)
 	end
 
 	end
@@ -928,10 +818,7 @@ local SETUP_ONLEAVE_SNIPPET = [==[
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
-		if (debind_driver:RunAttribute("SetUnit", "unitframe", nil)) then
-			DirtyFlags.unitframe = true
-			debind_driver:SetAttribute("state-unitexists", "unitframe")
-		end
+		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 	end
 ]==];
 
@@ -1105,7 +992,7 @@ end
 --- the body it belongs to, and a body it cannot resolve leaves every static check silently.
 local EVAL_SNIPPET = [==[
 	-- hover는 루프 밖에서 클릭당 한 번만 푼다. 레코드마다 다시 물으면 같은 C 호출이 반복된다.
-	-- 그 프레임의 unit과 반응은 지금 다시 읽는다 - 폴링이 놓치는 창이 여기서 닫힌다.
+	-- 그 프레임의 unit과 반응은 지금 다시 읽는다 - 커서가 멈춘 채 유닛이 바뀌어도 여기서 맞는다.
 	--
 	-- **어느 프레임이냐는 호출부가 정한다**(`evalFrame`). 키로 들어오면 enter/leave가 남긴
 	-- 캐시를 볼 수밖에 없지만, 유닛 프레임 클릭으로 들어오면 그 프레임이 곧 자기 자신이라
@@ -1129,11 +1016,10 @@ local EVAL_SNIPPET = [==[
 		end
 	end
 
-	-- **클릭 시점에 잴 수 있는 것은 잰다. 캐시는 안 읽는다.**
+	-- **클릭 시점에 잰다. 미리 재 둔 값은 없다.**
 	--
-	-- 상태 루프의 값은 구조적으로 낡아 있다 - 폴링이 최대 0.2초에, 계기가 이벤트인 축은
-	-- 이벤트→매니저→틱 지연까지 얹힌다. 클릭은 진실을 잴 수 있는 시점이므로 잰다. 기준은
-	-- 성능이 아니라 정확성이다.
+	-- 미리 재 두는 값은 구조적으로 낡는다. 클릭은 진실을 잴 수 있는 시점이므로 여기서 잰다.
+	-- 기준은 성능이 아니라 정확성이고, 그 결론이 상태 루프를 걷어낸 자리까지 갔다.
 	--
 	-- **이 로컬들이 클릭 1회 메모다.** `nil`이면 아직 안 쟀다는 뜻이고, 한 번 재면 이 클릭이
 	-- 끝날 때까지 그 값을 쓴다. 아무 레코드도 안 묻는 축은 C 호출이 아예 안 나간다.
@@ -1321,7 +1207,7 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- **목은 잰 값에 걸리고 자리옮김은 그 뒤다.** 상태 루프가 `States.form`에 담는 것은
+			-- **목은 잰 값에 걸리고 자리옮김은 그 뒤다.** `GetShapeshiftForm()`이 내는 것은
 			-- 자세 번호이지 비트가 아니므로, 주입도 번호에 걸려야 양쪽이 같은 것을 뜻한다.
 			if (match and t.forms) then
 				if (form == nil) then
@@ -1358,8 +1244,8 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- **`specialbar`는 `petbattle`을 접어 쓴다** - 상태 루프의 측정식과 같은 모양이라야
-			-- 답이 안 갈린다. 앞이 참이면 파싱까지 안 간다.
+			-- **`specialbar`는 `petbattle`을 접어 쓴다** - 조건 쪽이 그 모양으로 접어 두므로
+			-- 여기서도 같이 접어야 답이 안 갈린다. 앞이 참이면 파싱까지 안 간다.
 			if (match and t.specialbar ~= nil) then
 				if (specialbar == nil) then
 					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false

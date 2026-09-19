@@ -521,22 +521,6 @@ do
         end
 
         rootDescription:CreateDivider();
-        -- **Not one of the four, so it is not on a layer.** It says whether a change is worth a
-        -- line in chat, which is about the switch and not about where the switch is being used.
-        rootDescription:CreateCheckbox(LLL["CUSTOM_STATE_DISPLAY_MESSAGE"], function()
-            local options = DebindPrivate.ResolveSwitchDefinition(name);
-            return options ~= nil and options.displayMessage == true;
-        end, function()
-            local options = DebindPrivate.ResolveSwitchDefinition(name);
-            if (options) then
-                options.displayMessage = not options.displayMessage;
-                -- Whether a computed switch is on the beat follows this box (`PutOnBeat`).
-                DebindPrivate.QueueUpdateBindings();
-            end
-            return MenuResponse.Refresh;
-        end);
-
-        rootDescription:CreateDivider();
         rootDescription:CreateButton(LLL["SWITCH_RENAME"], function()
             ShowRenameBox(name);
         end);

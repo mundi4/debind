@@ -211,7 +211,6 @@ local specs = {
     { name = "replace", path = root .. "/replace_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
     { name = "switch", path = root .. "/switch_spec.lua" },
-    { name = "switchgate", path = root .. "/switchgate_spec.lua" },
     { name = "clickswitch", path = root .. "/clickswitch_spec.lua" },
     { name = "emit", path = root .. "/emit_spec.lua" },
     { name = "plan", path = root .. "/plan_spec.lua" },

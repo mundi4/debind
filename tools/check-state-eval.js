@@ -1,16 +1,15 @@
-// The poll path and the press path measure the same states, and they have to measure them the
-// same way.
+// The press measures every state, and `Constants.STATE_EVAL_EXPRESSIONS` is the form it has to
+// measure them in.
 //
-// `UpdateBindings.lua` builds its 0.2s state loop out of `Constants.STATE_EVAL_EXPRESSIONS`.
-// `SecureBindings.lua`'s `EVAL_SNIPPET` spells the same measurements out as literals instead,
-// because a body assembled from interpolated strings is one `tools/lib/snippets.js` cannot
-// resolve, and an unresolvable body drops out of every other snippet check without a sound.
+// `SecureBindings.lua`'s `EVAL_SNIPPET` spells those measurements out as literals, because a body
+// assembled from interpolated strings is one `tools/lib/snippets.js` cannot resolve, and an
+// unresolvable body drops out of every other snippet check without a sound. So the agreement is
+// checked here, against the **baked** body: `CONSTANTS.GROUP_RAID` is a number by then, which is
+// the form the table holds.
 //
-// So the agreement is checked here, against the **baked** body: `CONSTANTS.GROUP_RAID` is a number
-// by then, which is the form the shared table holds.
-//
-// Drift here is the worst kind of quiet. The poll and the press would answer differently for the
-// same state, and nothing downstream could tell which one was wrong.
+// **What the table carries that the snippet cannot show is the order inside a chain.** A raid
+// member is also in a party, so asking party first lights two bits where the solver's set algebra
+// needs exactly one (`Solver.lua`'s header), and a run of the game answers plausibly either way.
 //
 // This lived in `SecureBindings.lua` as a load-time `assert` under `if (DebindPrivate.DEBUG)`
 // until 2026-08-20, which meant the only thing that ever ran it was logging in on a development
@@ -65,7 +64,7 @@ for (const state of missing) {
     console.log(`    표: ${expressions[state]}`);
 }
 console.log("");
-console.log(`폴은 UpdateBindings.lua가 이 식으로 걸고, 프레스는 ${FILE}의 ${LOCAL}이 잰다.`);
-console.log("둘이 갈리면 같은 상태에 서로 다른 답이 나오고, 그 아래 어디에도 어느 쪽이 틀렸는지");
-console.log("아는 곳이 없다. 한쪽을 일부러 고쳤으면 다른 쪽도 같이 고칠 것.");
+console.log(`재는 모양은 표가 들고, 실제로 재는 것은 ${FILE}의 ${LOCAL}이다.`);
+console.log("둘이 갈리면 같은 상태에 다른 답이 나오고, 그 아래 어디에도 어느 쪽이 맞는지 아는");
+console.log("곳이 없다. 한쪽을 일부러 고쳤으면 다른 쪽도 같이 고칠 것.");
 process.exit(1);

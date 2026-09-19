@@ -379,7 +379,7 @@ return function(DebindPrivate)
             "상태가 꺼졌는데 no$state1이 거짓으로 나옴");
     end);
 
-    --- `UpdateBindings.lua`의 `UpdateMacroTextsMap`이 상태 인자마다 내리는 결정의 **거울**이다.
+    --- `UpdateBindings.lua`의 `EmitMacroTextArg`가 상태 인자마다 내리는 결정의 **거울**이다.
     --- 컴파일 시점에 정의를 못 찾은 이름은 런타임 참조가 아니라 리터럴로 굽힌다.
     ---
     --- ⚠ 거울이지 그 파일의 검사가 아니다. `UpdateBindings.lua`는 로드에 프레임을 만들어서

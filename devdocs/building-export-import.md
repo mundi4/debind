@@ -52,7 +52,7 @@
   dbver = 6,                    -- 그 안의 액션 모양. 프로필이 쓰는 그 번호다
   class = "DRUID",              -- 보내는 쪽 클래스. shared.classes를 읽으려면 필요
   states = {                    -- 참조된 것만. 하나도 없으면 이 필드 자체가 없다
-    ["$state3"] = { mode = "manual", resetValue = true, displayMessage = "Burst" },
+    ["$state3"] = { mode = "manual", resetValue = true },
   },
 
   -- 여기서부터는 저장 구조 그대로다. 경로가 곧 주소이고, 서술 테이블이 없다.
@@ -1121,10 +1121,10 @@ kept."* **그래서 보관함은 읽기 전용 보관함이 아니라 손볼 수
 
 #### ⚠ 그 통과 판정은 `EXPR`에서만 정보를 담는다 (2026-08-21)
 
-정의가 드는 것은 `mode`·`resetValue`·`displayMessage`·`expr` 넷이다(`STATE_FIELDS`).
+정의가 드는 것은 `mode`·`resetValue`·`expr` 셋이다(`STATE_FIELDS`).
 `EXPR`이면 `expr`이 곧 그 스위치의 내용이라 같으면 같은 물건이다.
 
-**`MANUAL`이면 비교할 내용이 사실상 없다.** 남는 것이 `resetValue`와 `displayMessage`뿐이라
+**`MANUAL`이면 비교할 내용이 사실상 없다.** 남는 것이 `resetValue`뿐이라
 **서로 아무 상관 없는 두 `$burst`가 거의 항상 "일치"로 판정된다.** `MANUAL` 스위치의 뜻은
 정의가 아니라 **그것을 참조하는 것들**에 있는데 비교는 정의만 본다.
 

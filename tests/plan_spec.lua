@@ -160,75 +160,48 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- Whether the 0.2s beat runs at all
+    -- Which state driver events a profile asks for
     ---------------------------------------------------------------------------
 
-    -- **The beat costs something before anything of ours is measured**: Blizzard writes
-    -- `state-unitexists` and the handler writes it back, five times a second, forever. A profile
-    -- with nothing to re-read has no use for any of that, and `RegisterUnitWatch` was a load-time
-    -- call nothing ever took back.
-    --
-    -- What follows says what the beat is *for* in each case, one reason per test, because a
-    -- predicate is only as good as the narrowest thing it still catches.
-    test("a profile with no conditions at all does not ask for the beat", function()
-        local plan = PlanFor({ spell({ key = "F1" }) });
-        check(plan.statePoll == false,
-            "nothing in this profile is measured and the beat was asked for anyway");
-    end);
+    --- Does the plan ask for this event? nil where the plan does not mention it at all.
+    local function registers(plan, name)
+        for i = 1, #plan.events do
+            if (plan.events[i].name == name) then
+                return plan.events[i].register;
+            end
+        end
+    end
 
-    -- **A condition asks for no beat.** The press measures every axis a record names, so nothing is
-    -- left for a pass to have ready (`devdocs/legacy/dropping-the-game-fallback.md` §3).
-    test("a key condition does not ask for the beat", function()
+    -- **An event costs a wake, and nothing of ours reads one any more.** Every condition is
+    -- measured at the press and every computed switch is worked out there, so what a profile
+    -- carries decides nothing here: Keys Given Back is the one reader left, and it is an account
+    -- answer (`devdocs/giving-keys-back.md` §4).
+    test("a measured condition asks for no event", function()
         local plan = PlanFor({
-            spell({ key = "F1", conditions = { combat = true } }),
-            spell({ key = "F2", unit = "target",
-                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
-        });
-        check(plan.statePoll == false, "a key condition asked for the beat");
-    end);
-
-    -- **A body on a button is composed at the press**, which reads the frame itself, so naming hover
-    -- there leaves the beat nothing to keep current.
-    test("an @unitframe body on a button asks for no beat", function()
-        local plan = PlanFor({
-            { type = Constants.MACROTEXT, key = "F1", value = "/cast [@unitframe] Renew", seq = 1 },
-        });
-        check(plan.statePoll == false, "an @unitframe macro body asked for the beat");
-    end);
-
-    -- **A computed switch is worked out at the press**, so only one that announces a change needs a
-    -- pass that runs with nobody pressing anything.
-    test("a computed switch with no message asks for no beat", function()
-        local plan = PlanFor({
-            { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
+            spell({ key = "F1", conditions = { combat = true, mounted = true } }),
+            { type = Constants.MACROTEXT, key = "F2", value = "/cast [@unitframe] Renew", seq = 1 },
         }, {
             ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
         });
-        check(plan.statePoll == false, "a computed switch that announces nothing asked for the beat");
+
+        check(registers(plan, "PLAYER_MOUNT_DISPLAY_CHANGED") == nil,
+            "a mounted condition asked for an event");
+        check(registers(plan, "UPDATE_MOUSEOVER_UNIT") == nil, "hover asked for an event");
+        check(registers(plan, "UPDATE_VEHICLE_ACTIONBAR") == false,
+            "the bar event was registered with nothing to give back");
     end);
 
-    test("a computed switch that announces asks for the beat", function()
-        local plan = PlanFor({
-            { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
-        }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]",
-                displayMessage = true },
-        });
-        check(plan.statePoll == true, "a computed switch that announces did not ask for the beat");
-    end);
+    -- The other side of it: the rows that do want a wake still get one.
+    test("giving keys back on a replaced bar asks for the bar events", function()
+        local plan = PlanFor({ spell({ key = "F1" }) });
+        DebindPrivate.Options.giveBackOnReplacedBar = true;
+        plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
+        DebindPrivate.Options.giveBackOnReplacedBar = nil;
 
-    -- **The account-wide switch takes the last reason away.**
-    test("turning switch messages off drops the beat", function()
-        Profile({
-            { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
-        }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]",
-                displayMessage = true },
-        });
-        DebindPrivate.Options.switchMessages = false;
-        local plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
-        DebindPrivate.Options.switchMessages = nil;
-        check(plan.statePoll == false, "switch messages are off and the beat was asked for anyway");
+        check(registers(plan, "UPDATE_VEHICLE_ACTIONBAR") == true,
+            "the vehicle bar event was not asked for");
+        check(registers(plan, "UPDATE_OVERRIDE_ACTIONBAR") == true,
+            "the override bar event was not asked for");
     end);
 
     ---------------------------------------------------------------------------

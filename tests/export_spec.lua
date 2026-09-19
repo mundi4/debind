@@ -460,12 +460,11 @@ return function(DebindPrivate, DebindStorage)
         ResetProfile({
             general = general,
             switches = {
-                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
-                        displayMessage = "1번" },
-                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "3번" },
+                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
                 ["$state4"] = { mode = Constants.SWITCH_MODES.EXPR,
                         expr = "[$state5] [combat]" },
-                ["$state5"] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "5번" },
+                ["$state5"] = { mode = Constants.SWITCH_MODES.MANUAL },
             },
         });
     end
@@ -478,7 +477,7 @@ return function(DebindPrivate, DebindStorage)
         local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest, "매니페스트가 없다");
         check(manifest["$state3"], "조건이 가리킨 상태가 빠졌다");
-        check(manifest["$state3"].displayMessage == "3번", "정의가 안 실렸다");
+        check(manifest["$state3"].resetValue == false, "정의가 안 실렸다");
         check(manifest["$state1"] == nil, "안 쓰는 상태까지 실렸다");
     end);
 
@@ -566,7 +565,7 @@ return function(DebindPrivate, DebindStorage)
         local macro = shiftF[1].type == Constants.MACRO and shiftF[1] or shiftF[2];
         check(macro.value == "내매크로", "매크로 이름 " .. tostring(macro.value));
         check(OneOn(payload, "G").value == "$state3", "상태 이름");
-        check(payload.states["$state3"].displayMessage == "3번", "매니페스트");
+        check(payload.states["$state3"].resetValue == false, "매니페스트");
     end
 
     test("페이로드가 직렬화를 건너 살아 돌아온다", function()
@@ -719,14 +718,14 @@ return function(DebindPrivate, DebindStorage)
         local payload = DebindStorage.CreateEntry().payload;
         -- 남이 준 문자열이면 정의가 내 것과 다르다. 여기서 프로필을 다시 물으면 그 순간
         -- **남의 정의가 내 것으로 바뀐 채** 나간다.
-        payload.states["$state3"].displayMessage = "보낸 사람 것";
+        payload.states["$state3"].resetValue = true;
 
         local selection = {};
         selection[OneOn(payload, "G")] = true;
 
         local states = DebindStorage.FilterPayload(payload, selection).states;
-        check(states["$state3"].displayMessage == "보낸 사람 것",
-            "프로필 정의로 바뀌었다: " .. tostring(states["$state3"].displayMessage));
+        check(states["$state3"].resetValue == true,
+            "프로필 정의로 바뀌었다: " .. tostring(states["$state3"].resetValue));
     end);
 
     ---------------------------------------------------------------------------
@@ -821,7 +820,7 @@ return function(DebindPrivate, DebindStorage)
         local payload = DebindStorage.BringPayloadForward({
             v = 1, class = CLASS,
             states = {
-                ["$state1"] = { mode = 0, initialValue = true, displayMessage = "1번" },
+                ["$state1"] = { mode = 0, initialValue = true },
                 ["$state2"] = { mode = 3, expr = "[combat]" },
                 ["$state3"] = { mode = 0, initialValue = false },
             },
@@ -837,7 +836,7 @@ return function(DebindPrivate, DebindStorage)
         -- `false`와 없는 것은 다른 답이다. 뭉개면 "로그인 때 꺼짐"이 "기억한 값"이 된다.
         check(states["$state3"].resetValue == false,
             "false가 " .. tostring(states["$state3"].resetValue) .. "가 됐다");
-        check(states["$state1"].displayMessage == "1번", "나머지가 안 따라왔다");
+        check(states["$state2"].expr == "[combat]", "나머지가 안 따라왔다");
     end);
 
     ---------------------------------------------------------------------------

@@ -119,7 +119,7 @@
 `timer`를 0으로 놓고 다음 프레임에 등록된 드라이버를 전부 다시 푼다. 값이 바뀔 때만 속성을 쓰고,
 그 쓰기가 `_onattributechanged`를 깨운다(`SecureStateDriver.lua:119-143`).
 
-- **주기 폴링이 필요 없다.** `RegisterUnitWatch`(`WantsStatePoll`)와 무관하게 돈다.
+- **주기 폴링이 필요 없다.** 매니저가 이벤트를 받고 값이 움직일 때만 돈다.
 - **전투 중에도 돈다.** 매니저 쪽은 비보안이지만 우리 본문은 제한 환경 안이다.
 - 필요한 이벤트는 매니저 기본값에 없다. `UPDATE_OVERRIDE_ACTIONBAR`, `UPDATE_VEHICLE_ACTIONBAR`,
   `PET_BATTLE_OPENING_START`, `PET_BATTLE_CLOSE`는 우리가 등록한다
@@ -145,8 +145,7 @@
 
 **리빌드가 지나가면 다시 돌아야 한다.** `UpdateBindingsMap`이 모든 키에 `SetBindingClick`을 다시
 걸므로(`UpdateBindings.lua:2253`), 돌려준 상태에서 리빌드가 지나가면 키가 도로 우리 것이 된다.
-리빌드를 닫는 블록이 `state-unitexists`를 1로 쓰니(`ApplyBindingPlan`), 본문을 거기서도 한 번
-부르면 자기 치유가 된다.
+`ApplyGiveBack`이 마지막에 `UpdateGivenBackKeys`를 직접 한 번 부르는 것이 그 자리다.
 
 ## 5. 본문이 하는 일
 

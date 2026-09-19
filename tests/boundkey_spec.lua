@@ -75,7 +75,6 @@ return function(DebindPrivate, _, ctx)
         else
             interp:replay(frames.since(mark));
         end
-        interp:pollStates();
         return interp;
     end
 
@@ -341,7 +340,6 @@ return function(DebindPrivate, _, ctx)
         -- keystroke in the client's editor and there is nothing to be first for.
         frames.drainTimers();
         interp:replay(frames.since(mark));
-        interp:pollStates();
 
         check(Fires("F1"), "the macro exists and the key is still dead");
     end);

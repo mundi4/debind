@@ -6,7 +6,7 @@ change spans layers, land a check in each.
 
 | | runs | sees | cannot see |
 |---|---|---|---|
-| `npm test` | headless, no client, **both shapes** | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, which record a press picks, and **what a key ends up bound to** | the sandbox itself, taint, combat lockdown, Blizzard's own 0.2s beat, a real frame under a real cursor |
+| `npm test` | headless, no client, **both shapes** | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, which record a press picks, and **what a key ends up bound to** | the sandbox itself, taint, combat lockdown, Blizzard's own registries and state driver, a real frame under a real cursor |
 | `npm run check` | headless | lint, XML, locale/template parity, snippet syntax, **the exact bytes every snippet bakes to** | whether any of it behaves |
 | `/debtest` | in the game | the real restricted environment: snippets compiling, attributes wiring, event ordering, the client's own frames, dialogs and menus | nothing that needs a second player or a real fight |
 
@@ -133,11 +133,12 @@ because the attribute governs what is checked out from here on and a copy alread
 converted. If you are writing a third file of this kind, it needs both halves.
 
 **`check:state-eval`** bakes `EVAL_SNIPPET` and holds it against
-`Constants.STATE_EVAL_EXPRESSIONS`, which is where the state loop gets its own lines. The loop
-measures on its 0.2s beat and the click path measures at the press, so if the two read one axis
-differently the same state answers two ways and nothing below them can tell which answer was
-wrong. It was a load-time `assert` under `Constants.DEBUG` until 2026-08-20, which meant the only
-thing that ever ran it was logging in on a development client.
+`Constants.STATE_EVAL_EXPRESSIONS`, which is the form each state has to be measured in. The press
+is the only place one is measured, and what the table carries that the snippet cannot show is the
+order inside a chain: ask party before raid and the group column stops being a partition
+(`Solver.lua`'s header) while the game answers plausibly either way. It was a load-time `assert`
+under `Constants.DEBUG` until 2026-08-20, which meant the only thing that ever ran it was logging
+in on a development client.
 
 ## 3. In-game tests — `DebindDev`
 
@@ -202,8 +203,8 @@ RegisterTest("what it checks", {
         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F9", combat = true })
         ApplyBindings()
 
-        -- No wait: `SetMockState` ends in a rebuild, and a rebuild runs the state pass and
-        -- the bindings before it returns. See "Waiting" below.
+        -- No wait: `SetMockState` ends in a rebuild, and a rebuild runs its snippets before it
+        -- returns. See "Waiting" below.
         SetMockState("combat", true)
 
         local bound = GetBindingAction("CTRL-SHIFT-F9", true) or ""
@@ -222,7 +223,7 @@ RegisterTest("what it checks", {
 | `WaitUntil(pred, limit)` | hands the frame back until `pred` answers. **There is no fixed-duration wait** — see "Waiting" below for why, and for the four `WaitFor…` helpers built on this |
 | `AddTeardown(fn)` | the runner runs it after the test, however the test ended |
 | `InsertAction` / `ApplyBindings` / `CleanupActions` | build the bindings the test needs |
-| `SetMockState(state, value)` | force a watched state. `nil` releases it; teardown is registered for you. Unit axes take a suffixed name -- `"<unit>-exists"`, `"<unit>-dead"` -- because the value is overridden where the update loop computes it, and that is per axis. **Life is the axis that needs this**: a test can stand up a friendly unit or an absent one, but not a dead one |
+| `SetMockState(state, value)` | force a state at the press. `nil` releases it; teardown is registered for you. **`EnableProbes()` first**, because the line that reads the mock is in the body only while probes are on. Unit axes take a suffixed name -- `"<unit>-dead"`, `"<unit>-group"` -- because the value is overridden where the press measures it, and that is per axis. **Life is the axis that needs this**: a test can stand up a friendly unit or an absent one, but not a dead one |
 | `CreateTestUnitFrame(unit, frameType)` | a unit frame the test owns, registered through the real path. Returns `nil, reason` if registration was refused |
 | `SetFrameUnit` / `HoverEnter` / `HoverLeave` / `GetHoverUnit` | drive and read the hover slot |
 | `EnableProbes()` | rebake the snippets with reporting turned on |
@@ -262,7 +263,7 @@ actually costs rather than a flat sum:
 | `WaitUntil(pred, limit)` | the primitive. Asks `pred` **before** the first yield, so an already-true condition costs nothing |
 | `WaitForIdle()` | a **queued** rebuild (`QueueUpdateBindings` -> next frame), plus one frame for the one that just ran |
 | `WaitForMembership()` / `WaitForWinner()` / `WaitForEvalAnswer()` | a snippet's answer. Already there in practice; the wait is what turns "no answer at all" into a bounded failure |
-| `WaitForHoverSlot(filled)` | the hover mirror. Free after `HoverEnter`/`HoverLeave`; a real wait after `SetFrameUnit`, which only Blizzard's 0.2s poll notices |
+| `WaitForHoverSlot(filled)` | the hover mirror. Free after `HoverEnter`/`HoverLeave`, which run the real snippets before they return |
 
 Two ways to get this wrong:
 

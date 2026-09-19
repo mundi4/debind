@@ -366,7 +366,7 @@ Constants.SETSTATE_MODES = {
 Constants.MACROTEXT_ARG_UNIT   = 1;
 Constants.MACROTEXT_ARG_SWITCH = 2;
 --- `@@`, the unit the press aims at. Not a `MACROTEXT_ARG_UNIT` named `@`: every reader of those
---- takes the name for an alias (`_unitsSeen`, the `unitframe` beat check).
+--- takes the name for an alias (`_unitsSeen`).
 Constants.MACROTEXT_ARG_PRESS_UNIT = 3;
 
 
@@ -944,9 +944,12 @@ end
 
 --- How each measurable state is worked out, as snippet source.
 ---
---- **Both paths read this, and that is the point.** The update loop measures on its 0.2s beat and
---- the click path measures at the press; a second copy of "how do I read combat" would be free to
---- drift, and the two answers disagreeing is exactly the class of fault neither layer can see.
+--- **Nothing runs this table.** The press is the only place a state is measured now
+--- (`EVAL_SNIPPET`, `SecureBindings.lua`), and it spells the same measurements out as literals
+--- because a body assembled from interpolated strings drops out of every snippet check. So what
+--- this holds is the form that path has to keep, and `check:state-eval` holds it to it. The order
+--- inside a chain is the part that cannot be read off the result: ask party before raid and the
+--- group column stops being a partition with nothing raising anything (`Solver.lua`'s header).
 ---
 --- These are the states a value can be *derived* for. What cannot be derived at a press -- which
 --- unit the cursor is over, what a user's custom conditional evaluates to -- is not in here.
@@ -969,13 +972,9 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     indoors = "IsIndoors()",
     -- **These two lag the world and that is the game, not us.** Stepping outdoors does not make
     -- mounting legal on the same frame, and a player crossing the other way can run some distance
-    -- still mounted. Every mount macro ever written has answered off the same delay, so matching
-    -- the poll to it is not worth an event nobody else registers.
+    -- still mounted. Every mount macro ever written has answered off the same delay.
     flyable = "IsFlyableArea()",
     advflyable = "IsAdvancedFlyableArea()",
-    -- **No event carries this one and none is wanted.** Nothing fires when a mount leaves the
-    -- ground, so it rides the beat, which is the same 0.2s every mount macro has always answered
-    -- off. Gating it on anything would be gating it on a trigger list that does not exist.
     flying = "IsFlying()",
     form = "GetShapeshiftForm()",
     bonusbar = "GetBonusBarOffset()",
@@ -988,8 +987,8 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     -- **The one parse in here.** `specialbar` folds it in, so a profile asking about special bars
     -- pays for this whether or not anything asks about pet battles.
     --
-    -- No `PROBE.` token in any of these: the update loop's snippet is built at runtime and handed
-    -- straight to `SecureHandlerExecute`, so it never passes through `BakeSnippet` and a token
-    -- would survive into it verbatim.
+    -- No `PROBE.` token in any of these: what this table holds is the form to compare against, and
+    -- the probes belong to the body that does the measuring (`EVAL_SNIPPET`), which is where
+    -- `check:state-eval` looks for these strings inside.
     petbattle = [[SecureCmdOptionParse("[petbattle]") and true or false]],
 };

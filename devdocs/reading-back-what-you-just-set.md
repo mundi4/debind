@@ -33,12 +33,11 @@ handlers before it continues.
 `HANDLE:SetBindingClick` / `SetBinding` / `ClearBinding` call `SetOverrideBindingClick` and friends
 directly, so `GetBindingAction(key, true)` answers with the new binding on the next line.
 
-**`DebindPrivate.UpdateBindings()` finishes everything, including the state pass.** Its tail (the
-"execute UpdateBindings with forceAll set" block) sets `state-unitexists` on the driver itself,
-which by the above runs `_onattributechanged` -> recompute every measured state -> the
-`UpdateBindings` snippet -> the actual bindings. Nothing is left over for the poll to finish. This
-is why a test can call `UpdateBindings()` and compare `GetBindingAction` on the next line, and why
-`SetMockState` (which ends in a rebuild) needs nothing after it.
+**`DebindPrivate.UpdateBindings()` finishes everything.** It runs every snippet it built through
+`SecureHandlerExecute` on the way out, and by the above that means the bindings are real before it
+returns. Nothing is left over for a later frame to finish. This is why a test can call
+`UpdateBindings()` and compare `GetBindingAction` on the next line, and why `SetMockState` (which
+ends in a rebuild) needs nothing after it.
 
 ---
 
@@ -62,15 +61,14 @@ axes are measured: the slider is a user setting and it applies whatever the prof
 
 Two things about it are worth knowing:
 
-* **Events on its own list reset the timer to zero**, so the next frame resolves everything —
-  `MODIFIER_STATE_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `UNIT_FACTION`, and the rest Debind registers
-  in `UpdateBindings.lua`. That is why some changes look instant in the game and the same change
-  looks slow when a test makes it happen without an event.
-* **This poll is what drives Debind's whole state pass.** `Debind.lua` calls
-  `RegisterUnitWatch(BindingDriver, true)` — not because the driver has a unit, but because a
-  watched frame gets `state-unitexists` written on every pass. Blizzard writes the unit's existence
-  (`false` here) and Debind's `_onattributechanged` writes `0` back, so the two never agree and the
-  handler fires every single tick.
+* **Events on its own list reset the timer to zero**, so the next frame resolves everything. What
+  Debind registers there is the bar and pet battle events behind Keys Given Back
+  (`CollectDriverEvents`), and those are what make the `state-giveback` attribute driver resolve
+  promptly.
+* **Nothing of Debind's rides the poll itself.** The driver was registered with
+  `RegisterUnitWatch(BindingDriver, true)` until the state pass went, which is what got
+  `state-unitexists` written on every tick; now every condition is measured at the press and the
+  frame is registered nowhere.
 
 **The lockdown itself, after `PLAYER_REGEN_DISABLED`.** The event arrives first and **the lockdown
 has not begun when it does** — this is not the flag lagging behind the restriction, the two move

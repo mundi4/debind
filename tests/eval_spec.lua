@@ -1107,7 +1107,7 @@ return function(DebindPrivate, _, ctx)
             -- Only a switch some action names is compiled at all.
             action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
         }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@@,combat]", displayMessage = true },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@@,combat]" },
         });
         shim.world.units = { focus = FRIEND, party1 = FRIEND };
 
@@ -1135,9 +1135,12 @@ return function(DebindPrivate, _, ctx)
         check(text == "/cast [@party1,help]Renew", "pointed at party1: " .. tostring(text));
         interp:hoverLeave(unitFrame);
 
-        interp:pollStates();
-        check(interp.env.SwitchExpressions["$state1"] == "[@@,combat]",
-            "the switch expression: " .. tostring(interp.env.SwitchExpressions["$state1"]));
+        -- The press is what composes a switch's expression, so the string it hands the parser is
+        -- where "as written" is visible.
+        local before = interp:parseCount("[@@,combat]");
+        interp:evalKey("F2");
+        check(interp:parseCount("[@@,combat]") > before,
+            "the press worked the switch out from something other than the expression as written");
 
         interp:resetState();
         shim.world.units = {};

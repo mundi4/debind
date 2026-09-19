@@ -1237,8 +1237,8 @@ do
         return FillBinding(binding, action, action.unit, nil);
     end
 
-    --- The account-wide switch over every switch's own message box. Off silences them all without
-    --- touching what any box holds. Absent means on, so a profile written before it reads as on.
+    --- Does a switch a person toggles print a line? Absent means on, so a profile written before
+    --- the option reads as on.
     function DebindPrivate.SwitchMessagesEnabled()
         local options = DebindPrivate.Options;
         return not (options and options.switchMessages == false);
@@ -3673,7 +3673,6 @@ function DebindPrivate.OnSpecialUnitChanged(alias, value)
     end
 end
 
-local _lastSwitchValues = {};
 local _changedStates = {};
 
 --- What the restricted side reported back, folded into the stored definitions.
@@ -3696,8 +3695,20 @@ local _changedStates = {};
 --- reset this side pushed a moment ago coming back round, and it is the one that must not be
 --- remembered (§4-9).
 ---
---- What is left here is what only this path knows: that the value came from outside, and the
---- user may have asked to be told.
+--- What is left here is what only this path knows: that the value came from outside, and whether
+--- it is the kind of switch a change is worth a line for.
+---
+--- **Only a switch this character works by hand announces itself.** A computed one answers a
+--- conditional, so its value moves with the world rather than with anything the user did, and
+--- there was nobody to read the line. Which kind it is is the winning layer's answer
+--- (`ResolveSwitchAnswer`) and not the account-wide definition's: a layer can override manual with
+--- an expression and the other way round.
+---
+--- **What the line is worth saying about is a report that moved the switch**, and the definition's
+--- value is what it moved from. Every rebuild pushes the stored values in and the restricted side
+--- reports them straight back (`BuildSwitchesSnippet`), so without that test a login says one line
+--- per switch -- the §4-9 echo again, from the side that prints rather than the side that
+--- remembers.
 ---
 --- **Nothing is broadcast any more.** `SWITCH_CHANGED` went on 2026-08-22. A listener on it
 --- meant every switch value had to be right the moment it moved, and that reachability is what
@@ -3709,16 +3720,14 @@ local function SwitchesChangedCallback()
     for state, newValue in pairs(_changedStates) do
         local options = DebindPrivate.ResolveSwitchDefinition(state);
         if (options) then
+            local moved = options.value ~= newValue;
             DebindPrivate.SetSwitchValue(state, newValue);
 
-            if (_lastSwitchValues[state] ~= newValue) then
-                _lastSwitchValues[state] = newValue;
-
-                if (options.displayMessage and DebindPrivate.SwitchMessagesEnabled()) then
-                    local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
-                    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], state,
-                        valueText));
-                end
+            if (moved and DebindPrivate.SwitchMessagesEnabled()
+                    and DebindPrivate.ResolveSwitchAnswer(state) == Constants.SWITCH_MODES.MANUAL) then
+                local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
+                DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], state,
+                    valueText));
             end
         end
     end
@@ -3822,35 +3831,13 @@ function DebindPrivate.ApplyOptions(option)
         end
     end
 
-    --- **The throttle and the flag that reads it move together or not at all.**
-    ---
-    --- `PollEveryFrame` says the beat already comes every frame, and the restricted side turns a
-    --- wake of its own straight round on it (`UpdateAttrChangedHandler`). Writing the flag anywhere
-    --- but here would leave a reader who was at zero and raised the slider with every hover
-    --- crossing and every switch toggle dropped until the two happened to be written together
-    --- again.
-    ---
-    --- `UnitWatchRegistered` rather than a value carried from the rebuild, for the same reason. It
-    --- is what is true now, and a rebuild reaches here through `FinishBindingUpdate`, which runs
-    --- after `ApplyBindingPlan` has registered or unregistered the watch.
-    ---
-    --- **That term is a backstop, and no spec here could make it the difference.** What a
-    --- state-driven key registers is also what `WantsStatePoll` asks about, so a profile with an
-    --- unregistered beat and a key for the loop to decide is a shape none of them could build. It
-    --- stays because the claim the flag makes is "the beat is coming", and reading that off a beat
-    --- nobody asked for would be false on its face.
-    ---
-    --- **A lockdown blocks both doors at once**, which is what makes leaving them is safe: the
-    --- manager is a `SecureFrameTemplate` and protected, so the throttle cannot move during a
-    --- fight either, and a flag that describes a throttle that cannot move cannot go stale.
+    --- **A lockdown blocks this door**, and the manager is a `SecureFrameTemplate` and protected,
+    --- so the throttle cannot move during a fight.
     if (option == nil or option == "stateDriverUpdateThrottle") then
         local value = DebindPrivate.Options.stateDriverUpdateThrottle or STATE_DRIVER_UPDATE_THROTTLE_DEFAULT;
         if (type(value) == "number" and not InCombatLockdown()) then
             value = max(0, min(value, STATE_DRIVER_UPDATE_THROTTLE_DEFAULT));
             SecureStateDriverManager:SetAttribute("updatetime", value);
-            SecureHandlerExecute(DebindPrivate.BindingDriver, format("PollEveryFrame=%s",
-                tostring(value == 0 and UnitWatchRegistered(DebindPrivate.BindingDriver) and true
-                    or false)));
         end
     end
 end

@@ -369,7 +369,8 @@ local function Build()
             else
                 Options().switchMessages = false;
             end
-            DebindPrivate.QueueUpdateBindings();
+            -- No rebuild. The box is read where the line is printed (`SwitchesChangedCallback`),
+            -- and nothing a rebuild builds depends on it.
         end);
 
     local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;

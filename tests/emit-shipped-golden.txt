@@ -20,9 +20,7 @@ Execute <Frame#3>
   | HandoffBindings = nil
   | HandoffWinner = nil
   | HandoffUnitFrameUnit = nil
-  | wipe(MacroTextsMap)
   | wipe(DeferredMacroTexts)
-  | wipe(UnitStates)
   | wipe(SwitchExpressions)
   | wipe(SwitchEntries)
   | wipe(ComputedSwitches)
@@ -1813,26 +1811,10 @@ SetAttribute <Frame#3> _onattributechanged =
   |     return
   | end
   | 
-  | if (name == "state-unitexists") then
-  |     if (value == 0) then return end
-  |     local full = DirtyFlags.forceAll or value == true or value == false
-  |     if (PollEveryFrame and not full) then return end
-  |     self:SetAttribute("state-unitexists", 0)
-  | 
-  | local stateValue,u
-  | for flag in pairs(DirtyFlags) do
-  |     if (MacroTextsMap[flag]) then
-  |         self:RunAttribute("UpdateMacroTexts")
-  |         break
-  |     end
-  | end
-  | wipe(DirtyFlags)
-  | 
-  | end
 Execute <Frame#3>
-  | self:RunAttribute("SetSwitch", "$burst", true, true)
-  | self:RunAttribute("SetSwitch", "$echo", false, true)
-  | self:RunAttribute("SetSwitch", "$intent", false, true)
+  | self:RunAttribute("SetSwitch", "$burst", true)
+  | self:RunAttribute("SetSwitch", "$echo", false)
+  | self:RunAttribute("SetSwitch", "$intent", false)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
   | ComputedSwitches[2]="$intent"
@@ -1992,24 +1974,13 @@ Execute <Frame#3>
   |                 unitframe.role = nil
   |             end
   |         
-UnregisterEvent SecureStateDriverManager UPDATE_MOUSEOVER_UNIT
 UnregisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
 UnregisterEvent SecureStateDriverManager UPDATE_VEHICLE_ACTIONBAR
-UnregisterEvent SecureStateDriverManager UPDATE_EXTRA_ACTIONBAR
-UnregisterEvent SecureStateDriverManager PLAYER_MOUNT_DISPLAY_CHANGED
-UnregisterEvent SecureStateDriverManager ZONE_CHANGED
-UnregisterEvent SecureStateDriverManager ZONE_CHANGED_INDOORS
-UnregisterEvent SecureStateDriverManager ZONE_CHANGED_NEW_AREA
 RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
 RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
-UnregisterEvent SecureStateDriverManager SPELLS_CHANGED
 SetAttribute SecureStateDriverManager updatetime = 0.2
-UnregisterUnitWatch <Frame#3>
 Execute <Frame#3>
-  |         DirtyFlags.forceAll = true
   |         self:RunAttribute("UpdateAllUnits")
-  |         self:RunAttribute("UpdateMacroTexts", true)
-  |         self:SetAttribute("state-unitexists", 1)
   |     
 Execute <Frame#3>
   | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
@@ -2023,5 +1994,3 @@ Execute <Frame#3>
 SetAttribute <Button#52> showPlayer = true
 SetAttribute <Button#49> showPlayer = true
 SetAttribute SecureStateDriverManager updatetime = 0.2
-Execute <Frame#3>
-  | PollEveryFrame=false

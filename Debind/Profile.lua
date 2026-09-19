@@ -1878,9 +1878,9 @@ end
 --- character left it" is `resetValue == nil` - so a field-by-field merge could not express it: a
 --- missing field would mean both "this layer says nothing" and "reset to nothing".
 ---
---- **`displayMessage` is not one of the four**, so it is not here. It stays on the definition with
---- the one menu that sets it (`SwitchesUI.lua`); an override row carrying it would be a stored
---- field nothing writes and nothing reads.
+--- **Whether a change is announced is read off `mode` here** and nowhere else
+--- (`SwitchesChangedCallback`, `Misc.lua`), which is why a layer overriding the mode moves the
+--- announcement with it.
 function DebindPrivate.ResolveSwitchAnswer(name)
     local definition = DebindPrivate.Switches[name];
     if (not definition) then

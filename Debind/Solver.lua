@@ -40,14 +40,12 @@ local pairs = pairs;
         and that file says so). Reorder one of those and this column stops being a partition
         without anything here noticing.
 
-        Each chain is written twice, once for the poll and once for the click, and the two have
-        to stay in the same order as each other as well as in this one:
+        Where each chain is written, and every one of them has to keep this order:
 
-          group      `Constants.STATE_EVAL_EXPRESSIONS` and `SecureBindings.lua`'s
-                     `EVAL_SNIPPET`. `check:state-eval` holds those two together, and that is
-                     the only check anywhere near either invariant
-          reaction   `UpdateBindings.lua` emits both the state loop's line and the unitframe poll's;
-                     `SecureBindings.lua` carries the click path and `setup_onenter`
+          group      `SecureBindings.lua`'s `EVAL_SNIPPET`, held to the order written down in
+                     `Constants.STATE_EVAL_EXPRESSIONS` by `check:state-eval`. That is the only
+                     check anywhere near either invariant
+          reaction   `SecureBindings.lua` carries the click path and `setup_onenter`
 
       - **Across columns**, independence is not required. Correlated columns -- target and
         targettarget, combat and form -- leave points in the product space that cannot

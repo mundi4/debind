@@ -44,7 +44,7 @@
 -- has to be re-read against `tests/run.lua` before it is believed** -- that list has grown twice.
 --
 -- What stayed asks something only a client can answer: a snippet the sandbox really compiled, a
--- frame under a real cursor, Blizzard's own 0.2s beat, a dialog the client builds, a real macro
+-- frame under a real cursor, Blizzard's own registries, a dialog the client builds, a real macro
 -- store, a reload. **Each of those carries a line above it saying which of the three it is and
 -- why**, so the next reader does not have to work out again why this one is still here.
 
@@ -102,20 +102,17 @@ end
 --     time the `SecureHandlerExecute` that asked for it returns.
 --   * `SetBindingClick` from the restricted environment calls `SetOverrideBindingClick` directly,
 --     so `GetBindingAction` answers with the new binding immediately.
---   * `UpdateBindings` ends by setting `state-unitexists` on the driver itself
---     (`UpdateBindings.lua`, the "execute UpdateBindings with forceAll set" block), which runs
---     `_onattributechanged` -> the whole state pass -> the bindings, all inside the call. A
---     rebuild leaves nothing for the poll to finish, which is why `SetMockState` needs no wait
---     after it: it ends in a rebuild.
+--   * `UpdateBindings` runs its own snippets through `SecureHandlerExecute` on the way out, so a
+--     rebuild leaves nothing behind to finish. That is why `SetMockState` needs no wait after it:
+--     it ends in a rebuild.
 --
 -- Two things do take time, and each has a helper that stops the moment it happens rather than
 -- spending a fixed sum:
 --
 --   * a **queued** rebuild -- `QueueUpdateBindings` defers to `C_Timer.After(0)`, so that one
 --     lands a frame later. `WaitForIdle`.
---   * Blizzard's state driver poll, up to `updatetime` (0.2s). It is what notices a unit
---     appearing or going away under a cursor that never moved, and nothing can shorten it.
---     `WaitUntil`.
+--   * an event the client has to deliver, such as a state driver attribute resolving after a
+--     vehicle takes the bar. `WaitUntil`.
 --
 -- **There is no fixed-duration wait left in this file, and adding one back needs an argument.**
 -- The runner still understands a duration -- `coroutine.yield(seconds)` -- so the door is there;
@@ -703,19 +700,12 @@ end
 -- `[combat, harm, form:2]` -- and checking one means standing all three up at once. An axis that
 -- still has to come from the world puts the test back on a raid schedule.
 --
--- Nothing is written into `States` directly: the poll would put the real value back within 0.2s.
--- The override sits at the one point where the freshly computed value is about to be stored, so
--- the update loop runs exactly as it always does.
+-- **The press is where the override sits**, because the press is where a state is measured
+-- (`PROBE.MockState` in `EVAL_SNIPPET`). It lands after the real call and before the value is
+-- compared, so the measurement runs exactly as it always does and only the answer differs.
 --
--- Debind carries none of this. It emits a line supplied from here, and for anyone without this
--- addon there is no line and the snippet is what it always was.
--- `%1$q` twice, not `%q` twice. `appendLine` is `format(str, ...)` and it gets one argument, so a
--- second plain `%q` has nothing to consume -- which came out as a snippet missing an `end`, not
--- as a format error. The generated line right below this one uses the positional form for the
--- same reason.
-local MOCK_STATE_LINE =
-    [[if (MockStatesMap[%1$q] ~= nil) then stateValue = MockStatesMap[%1$q] end]]
-
+-- Debind carries none of this. The probe expands to nothing for anyone without this addon, and
+-- the body is then the one a real user runs.
 local mockStates = {}
 local mockPlanted = false
 
@@ -745,21 +735,16 @@ local function ToLiteral(value)
     return tostring(value)
 end
 
---- Forces `state` to `value` from the next update on. `nil` releases it.
+--- Forces `state` to `value` at the press. `nil` releases it.
 ---
---- The bindings are rebuilt because the override rides in the generated snippet -- a state that
---- has never been mocked has no line to read the table.
+--- **`EnableProbes()` has to have been called**, because the line that reads this table is
+--- `PROBE.MockState` and that is in the body only while probes are on. Without it the press
+--- measures the real state and the mock is not wrong so much as absent.
 ---
---- **Two paths read the table, and they are switched on separately.** The update loop's line
---- comes from the rebuild this does; the click path's comes from `PROBE.MockState`, which is only
---- in the body while probes are on. So a test that mocks a state and then asks what a *press*
---- decided has to call `EnableProbes()` as well -- without it the press measures the real state
---- and the mock is not wrong so much as absent.
+--- It ends in a rebuild, which is what every caller that re-reads a binding array afterwards
+--- leans on.
 local function SetMockState(state, value)
     PlantMockTable()
-
-    DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
-    DebindPrivate.SnippetProbes.stateValue = MOCK_STATE_LINE
 
     mockStates[state] = value
 
@@ -771,16 +756,6 @@ local function SetMockState(state, value)
     AddTeardown(function()
         mockStates[state] = nil
         SecureHandlerExecute(DebindPrivate.BindingDriver, format([[MockStatesMap[%q] = nil]], state))
-
-        -- With nothing held any more, the line stops being emitted at all -- the generated
-        -- snippet goes back to being exactly the one a real user gets, rather than the one that
-        -- merely reads an empty table.
-        --
-        -- Only this key is cleared. `SnippetProbes` also carries the bake-time table, and the two
-        -- are switched on and off independently.
-        if next(mockStates) == nil and DebindPrivate.SnippetProbes then
-            DebindPrivate.SnippetProbes.stateValue = nil
-        end
 
         if not InCombatLockdown() then
             DebindPrivate.UpdateBindings()
@@ -812,8 +787,7 @@ local lastEvalKey
 
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
---- What `PROBE.MockState(x)` becomes while probing: the same override the update loop's generated
---- snippet gets, moved to the click path. The argument is the local **and** the state name, which
+--- What `PROBE.MockState(x)` becomes while probing. The argument is the local **and** the state name, which
 --- is why they are spelled the same in `EVAL_SNIPPET`. `MockUnitDead` and `MockUnitGroup` take the
 --- unit instead, and read the `<unit>-dead` and `<unit>-group` names `SetMockState` is given.
 ---
@@ -1102,8 +1076,8 @@ end
 -----------------------------------------------------------
 
 -- A unit frame the test owns, registered through the same path a real one takes. Owning it is
--- what makes the hover slot reachable at all: the frame is where `unit` is read from, both when
--- the cursor arrives and on every poll after, so a frame we can write to is a hover state we can
+-- what makes the hover slot reachable at all: the frame is where `unit` is read from, when the
+-- cursor arrives and again at every press, so a frame we can write to is a hover state we can
 -- set. Nothing is faked -- the attribute read, the registration, and the reaction lookup are the
 -- shipped ones.
 --
@@ -1214,8 +1188,8 @@ local function CreateTestUnitFrame(unit, frameType)
 end
 
 --- Points the frame at another unit. This is the whole simulation of "the unit under the cursor
---- changed": neither enter nor leave fires while the cursor sits still, and what the poll reads
---- is this attribute.
+--- changed": neither enter nor leave fires while the cursor sits still, and what a press reads is
+--- this attribute.
 local function SetFrameUnit(frame, unit)
     frame:SetAttribute("unit", unit)
 end
@@ -1262,7 +1236,7 @@ end
 --- After `HoverEnter`/`HoverLeave` this costs nothing: those run the real snippets through
 --- `SecureHandlerExecute` and the mirror is written before the call returns. **Nothing else moves
 --- the slot any more**: a unit changing under a still cursor is read off the frame at the call
---- (`GetUnitFrameUnit`), and the beat polls the slot only for an announcing switch that reads `@unitframe`.
+--- (`GetUnitFrameUnit`), and nothing runs between presses to touch the slot.
 local function WaitForHoverSlot(filled, limit)
     return WaitUntil(function() return (GetHoverUnit() ~= nil) == filled end, limit)
 end
@@ -6065,51 +6039,63 @@ RegisterTest("Custom target survives a rebuild", {
 -- stop, so the user has no words for it beyond "sometimes it does not work". The point is to make a
 -- silent fault loud.
 RegisterTest("Secure update path", {
-    description = "UpdateBindings reaches the secure handler, measured by the handler having consumed state-unitexists",
+    description = "UpdateBindings reaches the restricted environment, measured by a switch it pushes in arriving there",
     run = function()
+        local NAME = "Secure update path"
+        local SWITCH = "$securepath"
+
         if InCombatLockdown() then
-            return Fail("Secure update path", "UpdateBindings is deferred in combat, so nothing can be judged")
+            return Fail(NAME, "UpdateBindings is deferred in combat, so nothing can be judged")
         end
 
         local driver = DebindPrivate.BindingDriver
-        if not driver then return Fail("Secure update path", "no BindingDriver") end
+        if not driver then return Fail(NAME, "no BindingDriver") end
 
+        -- **A switch is what a rebuild pushes across on its own**, in the snippet that closes the
+        -- rebuild (`BuildSwitchesSnippet`). So `States` carrying it is the proof that the snippets
+        -- this rebuild built were executed, and reading it back needs no wait: a
+        -- `SecureHandlerExecute` runs where it is called.
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        AddTeardown(CleanupActions)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true }
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F10", [SWITCH] = true })
         ApplyBindings()
 
-        -- The last thing UpdateBindings does is state-unitexists=1, and the first thing the secure
-        -- _onattributechanged does is put it back to 0. The handler runs synchronously, so anything
-        -- other than 0 by the time we are here means the handler never ran at all. There is no
-        -- confusing it with a resting 0, since 1 was just written.
-        local value = driver:GetAttribute("state-unitexists")
-        if value ~= 0 then
-            return Fail("Secure update path", format(
-                "state-unitexists=%s, it should be 0. the secure handler never ran, the bindings have stopped updating",
-                tostring(value)))
+        local state = ReadSecureState(SWITCH)
+        if not (state and state.present) then
+            return Fail(NAME,
+                "the switch this rebuild pushed in never arrived in States, so the rebuild's snippets never ran and the bindings have stopped updating")
+        end
+        if state.value ~= true then
+            return Fail(NAME, "the switch arrived off where the rebuild pushed it on")
         end
 
-        return Pass("Secure update path", "the handler consumed it")
+        return Pass(NAME, "what the rebuild pushed in is there")
     end,
 })
 
--- **The 0.2s beat runs only where there is something to measure**
--- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 3). A profile with nothing to work
--- out ahead of a press lets `RegisterUnitWatch` go, a key condition leaves it gone since the press
--- measures that, and a computed switch brings it back.
+-- **Nothing puts the driver on Blizzard's 0.2s beat any more.** `RegisterUnitWatch(driver, true)`
+-- is what made the client write `state-unitexists` five times a second, and every value that pass
+-- measured is measured at the press instead. A profile that would have brought the beat back under
+-- the old rule is the case worth asking about: a computed switch and a measured condition.
 --
--- Headless can see **the decision only** (`plan.statePoll`, `tests/plan_spec.lua`). The
--- interpreter's `pollStates` writes the attribute itself, so it runs a pass whether or not the
--- frame is registered. Whether the registration really reached Blizzard's manager is answerable
--- here and nowhere else.
+-- **Headless cannot see this.** It is Blizzard's registry being asked, and `UnitWatchRegistered`
+-- is a client call. What a rebuild decided is a value the specs read; whether anything registered
+-- the frame behind their back is answerable here and nowhere else.
 --
--- **It asks whether the key is still bound, in the same breath.** Every key is bound once by the
--- rebuild snippet and owes the beat nothing -- and without checking that, the test would see the
--- registration go and not see the key die with it.
-RegisterTest("State poll follows what is measured", {
-    description = "With nothing to work out the 0.2s beat is dropped, a key condition keeps it dropped, and a computed switch puts it back",
+-- **It asks whether the key is still bound, in the same breath**, or a rebuild that quietly stopped
+-- binding anything would read as the quietest possible pass.
+RegisterTest("The driver is off Blizzard's beat", {
+    description = "A computed switch and a measured condition leave the 0.2s unit watch unregistered, and the key still binds",
     run = function()
-        local NAME = "State poll registration"
-        local PLAIN = "CTRL-SHIFT-F10"
-        local CONDITIONAL = "CTRL-SHIFT-F11"
+        local NAME = "Unit watch registration"
+        local KEY = "CTRL-SHIFT-F11"
         local SWITCH = "$pollbeat"
 
         if InCombatLockdown() then
@@ -6119,29 +6105,8 @@ RegisterTest("State poll follows what is measured", {
         local driver = DebindPrivate.BindingDriver
         if not driver then return Fail(NAME, "no BindingDriver") end
 
-        -- One computed switch left behind by an earlier test and the beat is registered for
-        -- reasons of its own. An empty layer is this test's premise, and it leaves one behind.
         CleanupActions()
         AddTeardown(CleanupActions)
-
-        InsertAction({ type = Constants.SPELL, value = 585, key = PLAIN })
-        ApplyBindings()
-
-        if UnitWatchRegistered(driver) then
-            return Fail(NAME, "a profile with no condition at all and the 0.2s beat is on")
-        end
-
-        local bound = GetBindingAction(PLAIN, true) or ""
-        if bound:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("the beat was dropped and the key did not bind (%q)", bound))
-        end
-
-        InsertAction({ type = Constants.SPELL, value = 585, key = CONDITIONAL, combat = true })
-        ApplyBindings()
-
-        if UnitWatchRegistered(driver) then
-            return Fail(NAME, "a combat condition went in and the 0.2s beat came back with nothing to measure")
-        end
 
         local saved = DebindPrivate.Switches[SWITCH]
         AddTeardown(function()
@@ -6150,76 +6115,21 @@ RegisterTest("State poll follows what is measured", {
                 DebindPrivate.UpdateBindings()
             end
         end)
-        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]",
-            displayMessage = true }
-        InsertAction({ type = Constants.SPELL, value = 585, key = CONDITIONAL, [SWITCH] = true })
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" }
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F12", combat = true })
         ApplyBindings()
 
-        if not UnitWatchRegistered(driver) then
-            return Fail(NAME, "a computed switch went in and the 0.2s beat did not come back")
+        if UnitWatchRegistered(driver) then
+            return Fail(NAME, "something registered the unit watch, so the 0.2s beat is running again")
         end
 
-        return Pass(NAME, "the registration comes and goes with what there is to work out")
-    end,
-})
-
--- **The state pass measures a base axis only when the poll is the one asking**, and what tells the
--- two apart is the value written to `state-unitexists`. Blizzard's poll writes `exists or false`,
--- and the driver carries `unit = "player"`, so it writes `true`; our own wakes write a string or a
--- number. `UpdateAttrChangedHandler` reads that.
---
--- **That reading is the one thing the harness models rather than observes.** `tests/hover_spec.lua`
--- drives the same handler with the same values, but it is a stand-in writing `true` because this
--- comment says the client does. If the client ever wrote something else, every base axis would
--- quietly stop being measured between rebuilds, and nothing anywhere would say so.
---
--- So this asks the client. A wrong answer is written straight into `States` and the beat is given
--- its chance to put it back. Only the block behind the gate can, and no rebuild is run in between:
--- the rebuild's own pass opens the gate on `DirtyFlags.forceAll` and would answer for the wrong
--- reason.
-RegisterTest("State pass: the beat re-measures what a wake does not", {
-    description = "A value written under States is corrected by the 0.2s beat and not by a rebuild",
-    run = function()
-        local NAME = "Poll gate"
-        local KEY = "CTRL-SHIFT-F2"
-
-        if InCombatLockdown() then
-            return Fail(NAME, "combat is what would be measured, and it would be measured true")
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("the key did not bind (%q)", bound))
         end
 
-        -- Something has to name `combat`, or it is not a measured axis and there is no line to
-        -- correct it. A computed switch built on it is what does: its gate registers the axis
-        -- (`CollectSwitchGate`) and keeps the beat registered (`WantsStatePoll`).
-        local saved = DebindPrivate.Switches["$passgate"]
-        AddTeardown(function()
-            DebindPrivate.Switches["$passgate"] = saved
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-        DebindPrivate.Switches["$passgate"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]",
-            displayMessage = true }
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$passgate"] = true })
-        ApplyBindings()
-
-        SecureHandlerExecute(DebindPrivate.BindingDriver, [[States["combat"] = true]])
-
-        local wrong = ReadSecureState("combat")
-        if not (wrong and wrong.value == true) then
-            return Fail(NAME, "the wrong value did not go in, so nothing below is being measured")
-        end
-
-        local corrected = WaitUntil(function()
-            local st = ReadSecureState("combat")
-            return st and st.present and st.value == false
-        end, 1)
-
-        if not corrected then
-            return Fail(NAME,
-                "a second went by and States.combat is still the value written under it, so the beat never measured it")
-        end
-
-        return Pass(NAME, "the beat put combat back, so the poll opens the gate")
+        return Pass(NAME, "no beat, and the key is bound")
     end,
 })
 
@@ -6228,13 +6138,13 @@ RegisterTest("State pass: the beat re-measures what a wake does not", {
 -----------------------------------------------------------
 
 -- The one state that could not be checked by hand: **the cursor sits still on a unit frame and
--- the unit goes away.** No enter fires, no leave fires, and only the poll sees it. Reproducing
--- that in the world means waiting for a boss to despawn or an arena to swap -- a raid schedule,
--- not a check.
+-- the unit goes away.** No enter fires and no leave fires, so what has to answer is the read a
+-- press makes. Reproducing that in the world means waiting for a boss to despawn or an arena to
+-- swap -- a raid schedule, not a check.
 --
 -- Owning the frame turns it into three attribute writes. Pointing it at a unit that does not
--- exist is, from the poll's side, indistinguishable from a unit that stopped existing: it reads
--- the attribute, asks `UnitExists`, and takes the same branch either way.
+-- exist is indistinguishable from a unit that stopped existing: the read takes the attribute,
+-- asks `UnitExists`, and follows the same branch either way.
 --
 -- No mocks are involved. The test picks the unit token, so reality supplies both answers --
 -- `player` exists, an unrecognised token does not.
@@ -6274,12 +6184,9 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         -- The cursor stays where it is. Only the rebuild runs.
         --
-        -- **Giving up no frame at all here is the stricter test.** The poll picks the frame back
-        -- up, so a rebuild that did wipe the slot would have it refilled within a tick -- wait,
-        -- and the comparison below reads the recovered value and passes. The rebuild finishes its
-        -- own state pass before it returns, so if the slot went it is already empty on the next
-        -- line. That is why this is the bare call and not `ApplyBindings`, which gives up a frame
-        -- in `WaitForIdle`.
+        -- **Giving up no frame at all here is the stricter test.** A rebuild runs its snippets
+        -- before it returns, so if the slot went it is already empty on the next line. That is why
+        -- this is the bare call and not `ApplyBindings`, which gives up a frame in `WaitForIdle`.
         DebindPrivate.UpdateBindings()
 
         if GetHoverUnit() ~= "player" then
@@ -6418,8 +6325,7 @@ RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
         -- The wrapper is still on, so our body runs here too.
         --
         -- **Nothing is waited on.** `SecureHandlerExecute` returns after running the body, and the
-        -- slot not emptying is exactly the fault this test is looking for. Waiting could read a
-        -- value the poll has since tidied and pass.
+        -- slot not emptying is exactly the fault this test is looking for.
         HoverEnter(dropped)
 
         if GetHoverUnit() ~= nil then
@@ -8858,7 +8764,7 @@ RegisterTest("Click bakes the deferred macro body", {
         WaitForHoverSlot(true)
 
         -- **Nobody should have baked it yet.** What is here is what `StampBinding` wrote, and
-        -- `@unitframe` still standing in it is the proof that the poll does not touch this body.
+        -- `@unitframe` still standing in it is the proof that nothing bakes this body before a click.
         local raw = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
         if not (raw and raw:find("@unitframe", 1, true)) then
             return Fail(NAME, format("the premise is gone: the body is already %q before any click", tostring(raw)))

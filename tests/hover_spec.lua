@@ -100,7 +100,6 @@ return function(DebindPrivate, _, ctx)
     local function settleOn(unit)
         unitFrame:SetAttribute("unit", unit);
         interp:hoverEnter(unitFrame);
-        interp:pollStates();
         return interp:rebuildCount();
     end
 
@@ -155,57 +154,21 @@ return function(DebindPrivate, _, ctx)
         return nil, "레코드 중 매크로 본문을 가진 것이 없다";
     end
 
-    --- **A `@unitframe` switch expression that announces needs the poll without carrying a single
-    --- condition.**
-    ---
-    --- The `@unitframe` in it is substituted with `UnitAliasMap["unitframe"]`, and while the cursor sits
-    --- still the only thing that keeps that alias current is the poll hover block. `UnitStates`
-    --- holds no hover row, so `SetUnit` answers false, and the block still has to go out.
-    ---
-    --- **That this is a switch expression and not a button body is the whole test.** A body on a
-    --- button is held back to the click (item 2), and the click reads the unit off the frame
-    --- again -- it never looks at this alias. What is left for the poll to keep current in
-    --- `MacroTextsMap` is the expressions.
-    test("@unitframe 스위치 계산식은 폴링이 별칭을 따라가 준다", function()
-        twoParty();
-        local i = Bind({
-            action({ value = 585, key = "F1", conditions = { ["$state1"] = true } }),
-        }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@unitframe]", displayMessage = true },
-        });
-
-        settleOn("party1");
-        check(i.env.SwitchExpressions["$state1"] == "[@party1]",
-            ("전제가 깨졌다 - 첫 계산식이 %q다")
-                :format(tostring(i.env.SwitchExpressions["$state1"])));
-
-        unitFrame:SetAttribute("unit", "party2");
-        i:pollStates();
-
-        check(i.env.SwitchExpressions["$state1"] == "[@party2]",
-            ("커서가 멈춘 채 프레임의 유닛이 바뀌었는데 계산식이 %q에 머물렀다")
-                :format(tostring(i.env.SwitchExpressions["$state1"])));
-    end);
-
     ---------------------------------------------------------------------------
     -- Holding a button body back to the click (item 2)
     ---------------------------------------------------------------------------
 
     if (not skipClickTests) then
 
-    --- **A body that goes on a button is baked by nobody when a state moves.**
+    --- **A body that goes on a button is baked by nobody until the click.**
     ---
-    --- It is not in `MacroTextsMap` but in `DeferredMacroTexts`, so it drops out of the list
-    --- `SetUnit` walks while the cursor sweeps frames. It is baked by the click that picks that
-    --- button instead.
-    test("@unitframe 버튼 본문은 폴링이 아니라 클릭이 굽는다", function()
+    --- It sits in `DeferredMacroTexts`, so sweeping frames bakes nothing: the click that picks
+    --- that button is what composes it.
+    test("@unitframe 버튼 본문은 커서가 아니라 클릭이 굽는다", function()
         twoParty();
         local i = Bind({
             action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@unitframe] Renew" }),
         });
-
-        check(i.env.MacroTextsMap.unitframe == nil,
-            "버튼 본문이 여전히 hover의 의존자로 남아 있다");
 
         settleOn("party1");
         local text = macrotextOn("F1");
@@ -236,7 +199,6 @@ return function(DebindPrivate, _, ctx)
         check(won ~= nil, "프레임 위인데 키가 아무 승자도 못 냈다");
 
         interp:hoverLeave(unitFrame);
-        interp:pollStates();
         check(i:evalKey("F1") == nil, "프레임을 벗어났는데 키가 여전히 승자를 낸다");
     end);
 
@@ -360,46 +322,23 @@ return function(DebindPrivate, _, ctx)
     -- The two ladders that turn a hovered unit into a reaction
     ---------------------------------------------------------------------------
 
-    --- **Two snippets answer this and they are written out separately**: `setup_onenter` in
-    --- `SecureBindings.lua` when the cursor arrives, and the hover block the rebuild generates in
-    --- `UpdateBindings.lua` for a unit that changes under a cursor that never moves. Neither can go
-    --- -- the poll is blind to a crossing until its next beat, and enter never fires for a raid
-    --- frame that re-sorts under a still cursor.
+    --- **One snippet answers this now**: `setup_onenter` in `SecureBindings.lua`, when the cursor
+    --- arrives. The rebuild used to emit a second ladder for the poll, and the two parted once --
+    --- the poll's last branch said `REACTION_NONE`, a bit outside `REACTION_ALL` (`Solver.lua`)
+    --- that no mask a reader can build ever matches, so every hover binding carrying a reaction
+    --- restriction was right the instant the cursor arrived and went dead on the first poll tick,
+    --- on exactly the targets that fall to the last branch: friendly NPCs, corpses, totems.
     ---
-    --- **They cannot be made one piece of text, which is why they are held together here instead.**
-    --- The first is baked and carries `CONSTANTS.REACTION_*` tokens; the second is built at runtime,
-    --- never reaches `BakeSnippet`, and formats the numbers in itself. Splicing one fragment into
-    --- both takes the ladder out of `check:snippets` (the extractor resolves `_SNIPPET` locals in
-    --- the same file, not a call).
-    ---
-    --- **They parted once.** The poll's last branch said `REACTION_NONE`, a bit outside
-    --- `REACTION_ALL` (`Solver.lua`) that no mask a reader can build ever matches. Every hover
-    --- binding carrying a reaction restriction was right the instant the cursor arrived and went
-    --- dead on the first poll tick, on exactly the targets that fall to the last branch: friendly
-    --- NPCs, corpses, totems.
+    --- **The last branch is why every reaction is asked about here**, rather than only the two a
+    --- reader usually names.
     local function reactionOnArrival(unit)
-        -- The poll's hover block goes out only for a switch on the beat that names `@unitframe`.
         Bind({
             action({ value = 585, key = "F1", unit = "unitframe",
                 conditions = { units = { unitframe = { reaction = Constants.REACTION_ALL } } } }),
-            action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
-        }, {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@unitframe]", displayMessage = true },
         });
         unitFrame:SetAttribute("unit", unit);
         interp:hoverEnter(unitFrame);
         return interp.env.States.unitframe and interp.env.States.unitframe.reaction;
-    end
-
-    --- Wipes what the arrival wrote and lets the poll fill it back in. **The frame is left in the
-    --- slot** because that is the state the poll is for: cursor still, unit changed under it.
-    local function reactionOnPoll()
-        local unitframe = interp.env.States.unitframe;
-        check(unitframe, "전제가 깨졌다. 폴링을 돌리기 전에 호버 슬롯이 비어 있다");
-        unitframe.unit = nil;
-        unitframe.reaction = nil;
-        interp:pollStates();
-        return unitframe.reaction;
     end
 
     local REACTIONS = {
@@ -409,7 +348,7 @@ return function(DebindPrivate, _, ctx)
         { name = "other", world = "neutral", expected = Constants.REACTION_OTHER },
     };
 
-    test("arrival and the poll read the same reaction off the same unit", function()
+    test("arrival reads the unit's reaction, every branch of the ladder", function()
         for i = 1, #REACTIONS do
             local case = REACTIONS[i];
             shim.world.spells[585] = { name = "Renew" };
@@ -421,11 +360,6 @@ return function(DebindPrivate, _, ctx)
             check(onArrival == case.expected,
                 ("arrival read %s for a %s unit, not %s"):format(
                     tostring(onArrival), case.name, tostring(case.expected)));
-
-            local onPoll = reactionOnPoll();
-            check(onPoll == onArrival,
-                ("the poll read %s for a %s unit where arrival read %s"):format(
-                    tostring(onPoll), case.name, tostring(onArrival)));
         end
     end);
 
