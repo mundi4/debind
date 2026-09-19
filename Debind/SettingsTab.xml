@@ -147,16 +147,4 @@
 		</Frames>
 	</Frame>
 
-	<Frame name="DebindSettingsButtonRowTemplate" virtual="true">
-		<Size y="26"/>
-		<Frames>
-			<Button parentKey="Button" inherits="UIPanelButtonTemplate">
-				<Size x="200" y="22"/>
-				<Anchors>
-					<Anchor point="LEFT" x="37"/>
-				</Anchors>
-			</Button>
-		</Frames>
-	</Frame>
-
 </Ui>

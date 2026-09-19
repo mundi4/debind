@@ -159,12 +159,6 @@ local function Dropdown(text, tooltip, setup, choices)
     return row;
 end
 
-local function Button(text, onClick)
-    local row = AddRow("DebindSettingsButtonRowTemplate");
-    row.Button:SetText(text);
-    row.Button:SetScript("OnClick", onClick);
-end
-
 --- A row that opens a help page. **Green, the way every other way into a page is** (`build-help.js`,
 --- `ActionMenuItems.lua`), and pressed on the row itself rather than on a button of its own: a
 --- button here would read as a setting being changed, which is what every other row does.
@@ -366,15 +360,6 @@ local function Build()
         DebindPrivate.GiveBackInPetBattle, "giveBackInPetBattle", true);
     GiveBack(L["GIVE_BACK_HOUSE_EDITOR"], L["GIVE_BACK_HOUSE_EDITOR_DESC"],
         DebindPrivate.GiveBackInBindingContext, "giveBackInBindingContext", true);
-
-    for _, section in ipairs(DebindPrivate.HELP_SECTIONS) do
-        Header(L[section.title]);
-        for _, topic in ipairs(section.topics) do
-            Button(L[topic.title], function()
-                DebindPrivate.DebindUI.ShowHelp(topic.name);
-            end);
-        end
-    end
 
     Header(MISCELLANEOUS);
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
