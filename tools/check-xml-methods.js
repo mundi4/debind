@@ -27,6 +27,9 @@ const EXTERNAL_MIXINS = {
     // Blizzard's (Blizzard_SettingControls.lua). The settings tab rows put it on their tooltip frame
     // the way `SettingsListElementTemplate` does, and call only its `OnLoad`.
     DefaultTooltipMixin: true,
+    // Blizzard's (`Blizzard_HelpPlate.lua`). Our own help plate balloon wears it whole, the way
+    // their `HelpPlateTooltip` does; `Debind/HelpPlate.lua` says why the frame is ours.
+    HelpPlateTooltipMixin: true,
 };
 
 function walk(dir, out, ext) {

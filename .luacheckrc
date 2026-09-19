@@ -315,6 +315,9 @@ globals = {
 
 	-- FrameXML: frames
 	"UIParent",
+	-- Blizzard's tile mixin, worn by the tiles our own plate makes from their `HelpPlateTile`
+	-- template (`Debind/HelpPlate.lua` says why the plate is ours and the art is theirs).
+	"HelpPlateTileMixin",
 	"UISpecialFrames",
 	"RegisterGameMenuEscHandler", -- 12.1+
 	"GameMenuEscPriority",        -- 12.1+
@@ -456,6 +459,8 @@ globals = {
 	"DebindPasteFrame",
 	"DebindKeyCaptureFrame",
 	"DebindMessageFrame",
+	"DebindHelpPlateCanvas",
+	"DebindHelpPlateTooltip",
 
 	-- The font of the output box. A generated string is long and has no line breaks, so it needs
 	-- a narrow font to fold into a readable number of lines inside the box.

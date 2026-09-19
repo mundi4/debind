@@ -1,0 +1,115 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<!--
+		**The sheet the (i) buttons stand on, and the reason the window under it goes quiet.**
+		It takes the mouse over everything it covers and hands nothing through, so whatever is
+		underneath cannot be clicked or dragged while the plate is up. What it covers is the caller's
+		to choose (`FramePos`/`FrameSize`) - Overview keeps its title bar outside, so the window can
+		still be moved and closed.
+
+		**A click on it does nothing**, the way the client's own plates behave: the (?) that raised
+		the plate is what puts it away (2026-09-19, owner). Closing on a click could not have been
+		made whole anyway - a tile's `Box` passes mouse *motion* down and keeps the click, so the
+		yellow boxes would have been the one place it did not work.
+
+		No `enableKeyboard`. Theirs has it, and it is why Escape does nothing while their plates are
+		up; ours lets the key through to the window, which closes and takes the plate with it.
+	-->
+	<Button name="DebindHelpPlateCanvas" toplevel="true" enableMouse="true" frameStrata="DIALOG" parent="UIParent" hidden="true">
+		<Size x="1" y="1"/>
+	</Button>
+
+	<!--
+		**The balloon, written out because `HelpPlateTooltip` is a named frame and not a template.**
+		Everything else the plate draws is virtual and inherited. This is the same layout as theirs
+		(`Blizzard_HelpPlate.xml`) and the same behaviour: `HelpPlateTooltipMixin` decides which
+		arrow shows and how tall the box ends up, from the text it is handed.
+
+		The four arrows are one texture between them. `OnLoad` rotates the two side ones
+		(`SetClampedTextureRotation`), which is why `ArrowRight` and `ArrowLeft` inherit the *down*
+		arrow here rather than a left and a right one.
+	-->
+	<Frame name="DebindHelpPlateTooltip" inherits="GlowBoxTemplate" mixin="HelpPlateTooltipMixin" parent="UIParent" hidden="true">
+		<Size x="220" y="100"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontHighlightLeft">
+					<Size x="200" y="0"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="15" y="-15"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="ARTWORK">
+				<Texture parentKey="ArrowUp" inherits="HelpPlateArrowDown" hidden="true">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="TOP" relativePoint="BOTTOM" x="0" y="3"/>
+					</Anchors>
+				</Texture>
+				<Texture parentKey="ArrowDown" inherits="HelpPlateArrowUp" hidden="true">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="BOTTOM" relativePoint="TOP" x="0" y="-3"/>
+					</Anchors>
+				</Texture>
+				<Texture parentKey="ArrowRight" inherits="HelpPlateArrowDown" hidden="true">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="RIGHT" relativePoint="LEFT" x="3" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture parentKey="ArrowLeft" inherits="HelpPlateArrowDown" hidden="true">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="LEFT" relativePoint="RIGHT" x="-3" y="0"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="BORDER">
+				<Texture parentKey="ArrowGlowUp" inherits="HelpPlateArrow-GlowDown" hidden="true" alphaMode="ADD" alpha="0.5">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="TOP" relativePoint="BOTTOM" x="0" y="3"/>
+					</Anchors>
+				</Texture>
+				<Texture parentKey="ArrowGlowDown" inherits="HelpPlateArrow-GlowUp" hidden="true" alphaMode="ADD" alpha="0.5">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="BOTTOM" relativePoint="TOP" x="0" y="-3"/>
+					</Anchors>
+				</Texture>
+				<Texture parentKey="ArrowGlowRight" inherits="HelpPlateArrow-GlowDown" hidden="true" alphaMode="ADD" alpha="0.5">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="RIGHT" relativePoint="LEFT" x="3" y="0"/>
+					</Anchors>
+				</Texture>
+				<Texture parentKey="ArrowGlowLeft" inherits="HelpPlateArrow-GlowDown" hidden="true" alphaMode="ADD" alpha="0.5">
+					<Size x="53" y="21"/>
+					<Anchors>
+						<Anchor point="LEFT" relativePoint="RIGHT" x="-3" y="0"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Animations>
+			<AnimationGroup parentKey="LingerAndFade">
+				<Alpha parentKey="FadeOut" startDelay="5" fromAlpha="1" toAlpha="0" duration="1" smoothing="IN_OUT" order="2"/>
+			</AnimationGroup>
+		</Animations>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnHide method="OnHide"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		**Last, not first.** The usual order in this addon is the Lua ahead of the XML, so a `mixin=`
+		finds its table as the frame is made. Nothing here is mixed in from our side - the balloon
+		wears Blizzard's mixin - and the file below reaches for the two frames above at load, to put
+		the click handler on the canvas.
+	-->
+	<Script file="HelpPlate.lua"/>
+
+</Ui>

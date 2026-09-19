@@ -840,6 +840,24 @@ L["OVERVIEW"] = "Overview"
 -- 행동은 그 전문화였다면 섰을 자리에 서고, 지금 안 돈다는 것은 옆 칸이 말한다. 약속을 지킬 수
 -- 없게 됐을 때 문장을 안 고치면 읽는 사람은 그것을 고장으로 읽는다.
 L["OVERVIEW_DESC"] = "Everything in this character's bindings, grouped by the key it is on. Within a key, they are listed in the order Debind tries them.|n|nActions on an inactive specialization are listed too, in the place they would take if that specialization were active. The line beside them says so, and they reach no key until you activate it. Opening another tab on the right does not change what is listed here.|n|nActions with no key are gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile in name order. Anything still waiting to be accepted is listed as well, and reaches no key until you say so."
+-- The two balloons on Overview's help plate, one per column.
+--
+-- **Not `OVERVIEW_DESC` split in two.** That one hangs off the tab and answers "what is this tab",
+-- so it has to cover the whole of it: off spec actions, what came in from a string, where the
+-- keyless ones went. These two answer a different question, asked with the plate already up and
+-- both columns lit: which of the two am I looking at, and what do I do to it. A reader who is
+-- looking at the plate can see the lists; what they cannot see is that one side is the sum and the
+-- other is where you put things.
+--
+-- **The left one may not promise that this is what pressing the key does**, for the two reasons the
+-- `OVERVIEW_DESC` comment above records: an action that came in switched off, and one on another
+-- specialization. Both are listed, both hold a key, and neither fires. It said so for a while.
+--
+-- Each one says the other side's name, because the pair is one sentence about cause and effect: you
+-- drop on the right and it appears on the left. That is the reason the window is two columns at all
+-- (`DebindUI.xml`, `LayerPanel`), and the plate is the only place it is ever said.
+L["OVERVIEW_HELP_RESULT"] = "Every key this character has, and everything on it. Actions from all the layers arrive here together, grouped by the key they are on, in the order Debind tries them.|n|nNothing is put in from this side. It is what the layers on the right add up to."
+L["OVERVIEW_HELP_LAYER"] = "One layer at a time, and what is in it. The tabs underneath and the ones down the side of the window pick which layer.|n|nDrag a spell, a macro, an item or a mount in here to add it, and it shows up on the left."
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.

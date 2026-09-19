@@ -1607,6 +1607,23 @@
 							</OnClick>
 						</Scripts>
 					</Button>
+
+					<!--
+						**The (?) that lays the help plate over the two columns.** It sits in this
+						panel rather than in the window, because the plate points at Overview's two
+						columns and nothing else in the window has them - hiding with the tab is the
+						whole reason for the seat (`DebindFrameMixin:InitializeButtons` takes the
+						plate down from that `OnHide`).
+
+						The corner is the client's own: `ClickBindingFrame` is the same
+						`PortraitFrameTemplate` window and puts its (?) at exactly this offset
+						(`Blizzard_ClickBindingUI.xml`).
+					-->
+					<Button parentKey="HelpPlateButton" inherits="MainHelpPlateButton">
+						<Anchors>
+							<Anchor point="TOPLEFT" x="39" y="20"/>
+						</Anchors>
+					</Button>
 				</Frames>
 			</Frame>
 

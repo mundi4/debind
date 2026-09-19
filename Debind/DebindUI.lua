@@ -30,6 +30,7 @@ local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
+local HelpPlate              = DebindPrivate.HelpPlate;
 
 -- Three files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
 -- the blue an imported one wears, `LayerDisplay.lua` owns what a layer is called and the icon beside
@@ -2105,6 +2106,78 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 	self.ScrollBox:SetScript("OnReceiveDrag", self.ScrollBox.OnReceiveDrag);
 end
 
+--- The plate laid over Overview's two columns (`HelpPlate.lua`), and the identity `IsShowing`
+--- compares against - it takes this table, not its contents, so it is built once and refilled.
+---
+--- **The rectangles are measured when it opens, not written down here.** The window is 867 wide on
+--- this tab and 440 on the others, the two columns are anchored to each other, and the user moves
+--- the whole thing around the screen; coordinates fixed at load would point at empty air after any
+--- of that.
+local OVERVIEW_HELP_PLATE = {};
+
+--- **The title bar stays outside the plate, and that is what this number is for.**
+--- The canvas takes the mouse over everything it covers and hands nothing through, so a
+--- plate that started at the very top of the window left it impossible to drag and impossible to
+--- close while the help was up. The close button is 24 tall in its corner
+--- (`UIPanelCloseButtonNoScripts`), so 26 clears it, the gear beside it and the title strip the
+--- window is dragged by. It also clears the (?) itself, which hangs 26 below the window's top edge
+--- and has to stay pressable to put the plate away. Blizzard's own windows inset the same way
+--- (world map -26, spell book -22).
+local HELP_PLATE_TOP_INSET = 26;
+
+local HELP_PLATE_BUTTON_SIZE = 46;
+
+--- One (i) in the middle of `frame`, with the whole of `frame` lit behind it. `left` and `top` are
+--- the window's own corner, already in the plate's scale.
+local function HelpPlateSectionFor(frame, relativeScale, left, top, tooltipDir, tooltipText)
+	local x = (frame:GetLeft() * relativeScale) - left;
+	local y = (frame:GetTop() * relativeScale) - top;
+	local width = frame:GetWidth() * relativeScale;
+	local height = frame:GetHeight() * relativeScale;
+
+	return {
+		ButtonPos = {
+			x = x + (width - HELP_PLATE_BUTTON_SIZE) / 2,
+			y = y - (height - HELP_PLATE_BUTTON_SIZE) / 2,
+		},
+		HighLightBox = { x = x, y = y, width = width, height = height },
+		ToolTipDir = tooltipDir,
+		ToolTipText = tooltipText,
+	};
+end
+
+function DebindFrameMixin:UpdateHelpPlate()
+	-- The canvas is parented to the top level, not to us, so everything measured on this window
+	-- has to be carried into that scale first (`Blizzard_SpellBookFrameTutorials.lua` does the
+	-- same arithmetic for the same reason).
+	local relativeScale = self:GetEffectiveScale() / HelpPlate.GetEffectiveScale();
+	local left = self:GetLeft() * relativeScale;
+	local top = (self:GetTop() * relativeScale) - HELP_PLATE_TOP_INSET;
+
+	OVERVIEW_HELP_PLATE.FramePos = { x = 0, y = -HELP_PLATE_TOP_INSET };
+	OVERVIEW_HELP_PLATE.FrameSize = {
+		width = self:GetWidth() * relativeScale,
+		height = (self:GetHeight() * relativeScale) - HELP_PLATE_TOP_INSET,
+	};
+
+	-- 말풍선은 각자 자기 열의 바깥쪽으로 편다. 안쪽으로 펴면 220px짜리 상자가 옆 열을
+	-- 덮어서, 설명하는 동안 설명 대상의 절반이 가려진다.
+	OVERVIEW_HELP_PLATE[1] = HelpPlateSectionFor(self.OverviewPanel.ResultPanel,
+		relativeScale, left, top, "LEFT", LLL["OVERVIEW_HELP_RESULT"]);
+	OVERVIEW_HELP_PLATE[2] = HelpPlateSectionFor(self.OverviewPanel.LayerPanel.ScrollBoxBackground,
+		relativeScale, left, top, "RIGHT", LLL["OVERVIEW_HELP_LAYER"]);
+end
+
+function DebindFrameMixin:ToggleHelpPlate()
+	if (HelpPlate.IsShowing(OVERVIEW_HELP_PLATE)) then
+		HelpPlate.Hide();
+		return;
+	end
+
+	self:UpdateHelpPlate();
+	HelpPlate.Show(OVERVIEW_HELP_PLATE, self);
+end
+
 function DebindFrameMixin:InitializeButtons()
 	-- [+]는 이제 **창을 연다.** 예전에는 여기 드롭다운이 매달려 있었는데, 그 안에 있던
 	-- 항목이 전부 주문 선택 창으로 옮겨갔다(주문·매크로·탈것·장난감은 목록으로, 명령과
@@ -2119,6 +2192,28 @@ function DebindFrameMixin:InitializeButtons()
 	self.OverviewPanel.CleanUpPortrait:SetScript("OnClick", function()
 		DebindUI.RemoveDuplicateActions();
 	end)
+
+	-- **The three handlers the template brings are replaced, not kept.** `MainHelpPlateButtonMixin`
+	-- puts its own balloon up on hover, and that balloon is the client's single shared one - the
+	-- thing `HelpPlate.lua` exists to stay out of. What stays is `OnMouseDown`/`OnMouseUp`, which
+	-- only nudge the (i) a pixel.
+	local helpPlateButton = self.OverviewPanel.HelpPlateButton;
+	helpPlateButton:SetScript("OnClick", function()
+		self:ToggleHelpPlate();
+	end);
+	helpPlateButton:SetScript("OnEnter", function(button)
+		HelpPlate.ShowButtonTooltip(button);
+	end);
+	helpPlateButton:SetScript("OnLeave", function()
+		HelpPlate.HideTooltip();
+	end);
+
+	-- **The canvas is not our child** - it hangs off `UIParent`, so closing the window or moving to
+	-- another tab would leave it lying over the screen on its own.
+	helpPlateButton:SetScript("OnHide", function()
+		HelpPlate.HideTooltip();
+		HelpPlate.Hide();
+	end);
 
 	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 처음 한 번의 툴팁이다.
 	--

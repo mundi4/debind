@@ -35,6 +35,8 @@ DevStamp.lua
 
 Debind.xml
 
+HelpPlate.xml
+
 DebindUI.xml
 
 # **The Lua first.** The XML's `mixin=` looks the table up as the frame is made, so the other order
