@@ -6,18 +6,30 @@ local DebindUI         = DebindPrivate.DebindUI;
 
 --- What the counts under "Actions using it" are pushed in by. **In code and not in the strings**:
 --- it is layout, and a translator handed leading spaces will lose them or double them.
-local INDENT           = "   ";
+local INDENT            = "   ";
 
-local ROW_HEIGHT       = 28;
+local ROW_HEIGHT        = 28;
+--- A group heading. The height Overview's heading stands at, because it is the same bar.
+local HEADER_ROW_HEIGHT = 26;
+--- How far a row hangs in from the heading above it. Overview's `ORDER_LINE_INDENT`.
+local ROW_INDENT        = 10;
 --- A layer row. Shorter than a switch row on purpose: the list is a switch with its layers under
 --- it, and two rows of the same height read as two switches.
-local LAYER_ROW_HEIGHT = 20;
+local LAYER_ROW_HEIGHT  = 20;
 
 --- The root's own layer, which is `GetLayerID(nil, false)`. It is drawn like the overrides and
 --- edited like them, and it is the one row that is always there and cannot be taken away (§4-6 of
 --- `devdocs/legacy/redesigning-custom-states.md`): the definition itself is that answer, which is why it
 --- is the one layer `GetSwitchLayerKey` gives no key for.
-local ROOT_LAYER_ID    = 1;
+local ROOT_LAYER_ID     = 1;
+
+--- The two halves the list is drawn in, in the order they stand. **Both headings are drawn even
+--- where one half is empty**: the two sit in the same place every time, and which half a switch is
+--- in is read off where it stands rather than off a heading that comes and goes.
+local GROUPS = {
+    { header = "SWITCHES_GROUP_TRACKED",   tracked = true },
+    { header = "SWITCHES_GROUP_UNTRACKED", tracked = false },
+};
 
 --- The four answers a switch can give, in the order the menu offers them.
 ---
@@ -650,10 +662,53 @@ end
 
 
 --------------------------------------------------------------------------------
+-- A group's heading
+--------------------------------------------------------------------------------
+
+DebindSwitchGroupHeaderMixin = {};
+
+--- **The mouse comes off.** The template is a button and Overview's heading uses that, but there
+--- is nothing under these words to pick: without this the bar lights up under the cursor and
+--- offers a press that does nothing.
+---
+--- **White in both states**, for the reason Overview's heading is: the template greys the title
+--- until the cursor is on it, and the cursor never reaches this one.
+function DebindSwitchGroupHeaderMixin:OnLoad()
+    self:SetTitleColor(false, HIGHLIGHT_FONT_COLOR);
+    self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
+
+    self:GetNormalTexture():SetDesaturated(true);
+    self:GetNormalTexture():SetAlpha(0.3);
+
+    -- The fold the template hangs on every heading. Neither half folds.
+    self.CollapseButton:Hide();
+    self:EnableMouse(false);
+end
+
+function DebindSwitchGroupHeaderMixin:Init(elementData)
+    self:SetHeaderText(LLL[elementData.header]);
+end
+
+
+--------------------------------------------------------------------------------
 -- The panel
 --------------------------------------------------------------------------------
 
 DebindSwitchesPanelMixin = {};
+
+--- Which switches are in the first half, as one value to compare against.
+---
+--- **Not a count.** One switch going tracked while another goes untracked leaves the count where
+--- it was and moves two rows.
+local function TrackedSignature(names)
+    local parts = {};
+    for _, name in ipairs(names) do
+        if (DebindPrivate.IsSwitchTracked(name)) then
+            parts[#parts + 1] = name;
+        end
+    end
+    return table.concat(parts, "\30");
+end
 
 function DebindSwitchesPanelMixin:OnLoad()
     self:InitializeScrollBox();
@@ -667,7 +722,9 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
-        if (elementData.layerID) then
+        if (elementData.header) then
+            factory("DebindSwitchGroupHeaderTemplate", function(frame) frame:Init(elementData); end);
+        elseif (elementData.layerID) then
             factory("DebindSwitchLayerRowTemplate", function(frame) frame:Init(elementData); end);
         else
             factory("DebindSwitchRowTemplate", function(frame) frame:Init(elementData); end);
@@ -675,7 +732,17 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
     end);
 
     view:SetElementExtentCalculator(function(_, elementData)
+        if (elementData.header) then
+            return HEADER_ROW_HEIGHT;
+        end
         return elementData.layerID and LAYER_ROW_HEIGHT or ROW_HEIGHT;
+    end);
+
+    -- The inset Overview's order list puts its rows at under the same heading
+    -- (`ORDER_LINE_INDENT`). Two lists in one window that hang rows off the same bar by different
+    -- amounts read as two kinds of bar.
+    view:SetElementIndentCalculator(function(elementData)
+        return elementData.header and 0 or ROW_INDENT;
     end);
 
     ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
@@ -700,24 +767,37 @@ end
 --- be a second answer to a question the profile already answers.
 function DebindSwitchesPanelMixin:RefreshRows()
     local layerIDs = DebindPrivate.GetOverridableLayerIDs();
+    local names = DebindPrivate.GetSwitchNames();
     local list = {};
 
-    for _, name in ipairs(DebindPrivate.GetSwitchNames()) do
-        list[#list + 1] = { name = name };
-        for i = 1, #layerIDs do
-            local layerKey = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
-            if (layerKey and DebindPrivate.GetSwitchAnswerAt(name, layerKey)) then
-                list[#list + 1] = { name = name, layerID = layerIDs[i], layerKey = layerKey };
+    -- **No headings at all where there is not one switch.** That is the one case the two halves
+    -- say nothing about, and the empty text below is the whole of what the tab has to say then.
+    if (#names > 0) then
+        for _, group in ipairs(GROUPS) do
+            list[#list + 1] = { header = group.header };
+            for _, name in ipairs(names) do
+                if (DebindPrivate.IsSwitchTracked(name) == group.tracked) then
+                    list[#list + 1] = { name = name };
+                    for i = 1, #layerIDs do
+                        local layerKey = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
+                        if (layerKey and DebindPrivate.GetSwitchAnswerAt(name, layerKey)) then
+                            list[#list + 1] =
+                                { name = name, layerID = layerIDs[i], layerKey = layerKey };
+                        end
+                    end
+                    -- The root, last and always. `layerKey` is left nil, which is what every door
+                    -- into a definition's own answer takes for "the root" (`GetSwitchAnswerAt`).
+                    list[#list + 1] = { name = name, layerID = ROOT_LAYER_ID };
+                end
             end
         end
-        -- The root, last and always. `layerKey` is left nil, which is what every door into a
-        -- definition's own answer takes for "the root" (`GetSwitchAnswerAt`).
-        list[#list + 1] = { name = name, layerID = ROOT_LAYER_ID };
     end
+
+    self.trackedSignature = TrackedSignature(names);
 
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
     self.ScrollBox.EmptyText:SetText(LLL["SWITCHES_EMPTY"]);
-    self.ScrollBox.EmptyText:SetShown(#list == 0);
+    self.ScrollBox.EmptyText:SetShown(#names == 0);
 end
 
 --- Redraws the rows that are up, without rebuilding the list. What a value change needs.
@@ -725,7 +805,10 @@ end
 --- Everywhere else it is nil and each row asks for itself.
 function DebindSwitchesPanelMixin:UpdateRows(inCombat)
     self.ScrollBox:ForEachFrame(function(frame)
-        frame:Update(inCombat);
+        -- A heading has nothing on it that moves, so it carries no `Update` to call.
+        if (frame.Update) then
+            frame:Update(inCombat);
+        end
     end);
 end
 
@@ -744,6 +827,9 @@ function DebindSwitchesPanelMixin:OnShow()
     -- question, it is rare, and it still arrives.
     self.seenSerial = DebindPrivate.switchValueSerial;
     DebindPrivate.RegisterCallback(self, "OnSwitchesChanged");
+    -- **A fifth, and it is what the two halves are read off.** Which switches anything binds is
+    -- settled by the rebuild (`IsSwitchTracked`), and nothing above says when that moved.
+    DebindPrivate.RegisterCallback(self, "OnBindingsUpdated");
     self:RegisterEvent("PLAYER_REGEN_DISABLED");
     self:RegisterEvent("PLAYER_REGEN_ENABLED");
     -- **A fourth, and it is the one this list was rebuilt for.** Changing specialization moves the
@@ -755,6 +841,7 @@ end
 
 function DebindSwitchesPanelMixin:OnHide()
     DebindPrivate.UnregisterCallback(self, "OnSwitchesChanged");
+    DebindPrivate.UnregisterCallback(self, "OnBindingsUpdated");
     self:UnregisterEvent("PLAYER_REGEN_DISABLED");
     self:UnregisterEvent("PLAYER_REGEN_ENABLED");
     self:UnregisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
@@ -796,4 +883,13 @@ end
 
 function DebindSwitchesPanelMixin:OnSwitchesChanged()
     self:RefreshRows();
+end
+
+--- **Only where a switch changed halves.** Every rebuild arrives here, and the toggle on these
+--- own rows runs one on every press: rebuilding the list each time would throw the rows away under
+--- the hand that pressed one, for a value change that never moves a switch between the halves.
+function DebindSwitchesPanelMixin:OnBindingsUpdated()
+    if (TrackedSignature(DebindPrivate.GetSwitchNames()) ~= self.trackedSignature) then
+        self:RefreshRows();
+    end
 end

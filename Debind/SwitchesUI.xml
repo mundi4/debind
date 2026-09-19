@@ -182,6 +182,23 @@
 	</Button>
 
 	<!--
+		The heading over each half of the list.
+
+		**Overview's heading, minus what makes it a control.** That one is picked and right-clicked
+		and stands for every row under it (`DebindKeyHeaderTemplate`, `DebindKeyHeaderMixin`); this
+		one only names the half. So the look is inherited and `ListHeaderCodeTemplate` is not, and
+		the mouse comes off in `OnLoad` - without that the bar lights up under the cursor and
+		offers a press that does nothing.
+	-->
+	<Button name="DebindSwitchGroupHeaderTemplate" inherits="ListHeaderVisualTemplate"
+		mixin="DebindSwitchGroupHeaderMixin" virtual="true">
+		<Size x="400" y="26"/>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+		</Scripts>
+	</Button>
+
+	<!--
 		**A panel, not a window.** It is the second seat in `PANELS` (`DebindUI.lua`), reached by
 		the Switches tab. Everything the export panel's own header says about being a panel holds here
 		word for word: no chrome, no ESC, no drag, no `enableMouse`, `useParentLevel`, and a
@@ -268,6 +285,9 @@
 					<Button parentKey="NewPortrait" inherits="DebindPortraitTemplate">
 						<KeyValues>
 							<KeyValue key="layoutIndex" value="1" type="number"/>
+							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
+							<KeyValue key="TooltipTitle" value="SWITCH_CREATE_BUTTON" type="string"/>
+							<KeyValue key="TooltipInstruction" value="SWITCH_CREATE_BUTTON_INSTRUCTION" type="string"/>
 						</KeyValues>
 						<Scripts>
 							<OnClick>
@@ -285,8 +305,5 @@
 			<OnEvent method="OnEvent"/>
 			<OnUpdate method="OnUpdate"/>
 		</Scripts>
-							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
-							<KeyValue key="TooltipTitle" value="SWITCH_CREATE_BUTTON" type="string"/>
-							<KeyValue key="TooltipInstruction" value="SWITCH_CREATE_BUTTON_INSTRUCTION" type="string"/>
 	</Frame>
 </Ui>

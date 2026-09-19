@@ -5378,12 +5378,20 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
         end
 
         -- Now one action reads it, which is what puts the name in front of the restricted side.
-        -- The rows are told to redraw by hand: what changed is the bindings, and the list rebuilds
-        -- itself off switch changes rather than off those.
+        --
+        -- **The rows are read again rather than redrawn by hand.** The switch has just moved from
+        -- the untracked half of the list to the tracked one, so the rebuild stands the whole list
+        -- up (`OnBindingsUpdated`) and the frames caught above went back to the pool with it.
         InsertAction({ type = Constants.SETSTATE_TOGGLE, value = SWITCH, key = "CTRL-SHIFT-F8" })
         ApplyBindings()
-        for _, row in ipairs(rows) do
-            row:Update()
+        rows = WaitUntil(function()
+            local found = SwitchLayerRows(panel, SWITCH)
+            return #found >= 2 and found or nil
+        end, 2)
+        if not rows then
+            return Fail(NAME, format(
+                "%d rows came back after an action started reading the switch, there should be two",
+                #SwitchLayerRows(panel, SWITCH)))
         end
 
         marked, unmarked = ReadTicks()

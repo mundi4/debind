@@ -1229,6 +1229,11 @@ L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r overrides g
 -- So it goes back to the one job an empty-list line has, **saying what fills it**. The second line
 -- is what a row will be: the switch, and under it the places its answer differs.
 L["SWITCHES_EMPTY"] = "No switches yet.|n|nOne you make stands here, with every place you have set it differently under it."
+-- The two headings the list is split under. **The second says what `SWITCH_NOT_TRACKED` says on a
+-- row**, because they are the same fact about the same switch, and two wordings for it in one
+-- panel leave the reader unable to see that.
+L["SWITCHES_GROUP_TRACKED"] = "Tracked"
+L["SWITCHES_GROUP_UNTRACKED"] = "Not tracked"
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
@@ -1913,6 +1918,13 @@ L["STORAGE_CREATE_INSTRUCTION"] = "Click to make one out of everything this char
 -- shape: one takes what the reader already has and the other wants something out of their
 -- clipboard, and the verb is the part of that they have to know before pressing.
 L["STORAGE_PASTE"] = "Paste Share Code"
+-- **The button lost its label to an icon, so the verb has to be said again here.** "Paste" was the
+-- half of the old label the reader had to know before pressing, and a picture cannot carry it.
+--
+-- It names the clipboard because that is where the code has to already be: the box that opens has
+-- nowhere to get one from, and a reader who presses this without a code in hand has opened a dialog
+-- for nothing.
+L["STORAGE_PASTE_INSTRUCTION"] = "Click with a share code on your clipboard and it opens the box to paste it into."
 -- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
 --
@@ -1923,13 +1935,6 @@ L["STORAGE_PASTE"] = "Paste Share Code"
 -- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to
 -- its own key names, which is the same line this file is supposed to draw. koKR says 코드
 -- throughout.
--- **The button lost its label to an icon, so the verb has to be said again here.** "Paste" was the
--- half of the old label the reader had to know before pressing, and a picture cannot carry it.
---
--- It names the clipboard because that is where the code has to already be: the box that opens has
--- nowhere to get one from, and a reader who presses this without a code in hand has opened a dialog
--- for nothing.
-L["STORAGE_PASTE_INSTRUCTION"] = "Click with a share code on your clipboard and it opens the box to paste it into."
 --
 -- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
 -- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
