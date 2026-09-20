@@ -80,8 +80,14 @@ DebindPrivate.DefaultClickFrame = DefaultClickFrame;
 --- **And with nothing left to inherit there is nothing left to be a child for.** The three
 --- `check*cast` attributes are the only ones the click frame carries that this frame would have
 --- wanted, and every one of them is a branch `SecureButton_GetModifiedUnit` reaches only where the
---- button has no `unit` -- which this one always has, because the snippet that routes a click here
---- writes it first (`SecureBindings.lua`, `SELFCAST_OFF_SNIPPET`).
+--- button has no `unit`.
+---
+--- **Not carrying them is what leaves the client's own rules standing where the reader chose no
+--- target.** A wrapped press writes this frame's `unit` on the way through and writes nothing when
+--- it has none (`SecureBindings.lua`, `CAST_BUTTON_SNIPPET`), so an action with no target reaches
+--- the cast with no unit and no check of ours, which is how an action bar button behaves. The
+--- self and focus twins do not come through here for their unit either: Debind settles those and
+--- hands the unit over already chosen.
 local CastFrameName                 = "DebindCastButton";
 local CastFrame                     = CreateFrame("Button", CastFrameName, nil, "SecureActionButtonTemplate");
 CastFrame:RegisterForClicks("AnyUp", "AnyDown");

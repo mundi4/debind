@@ -15,6 +15,7 @@ local SWITCH_MODES            = Constants.SWITCH_MODES;
 local dump                               = DebindPrivate.dump;
 local luatype                            = type;
 local format, tostring, select           = format, tostring, select;
+local strsub, tconcat                    = string.sub, table.concat;
 local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
 local band                               = bit.band;
 local InCombatLockdown                   = InCombatLockdown;
@@ -50,24 +51,48 @@ end
 
 local SetBindingAttributes;
 
---- The self-cast-off twin of a button, by the button's own name. One suffix so the pair is legible
---- in a log and in `/click`, which reads the name as one whitespace-run token.
-local SELFCAST_OFF_SUFFIX = "-nosc";
-
---- The body that twin carries: read the reader's setting, turn it off, fire the real button,
---- put it back. **The value is read in the body and not baked in**, so a setting changed mid-fight
---- is the one the next press restores (`matching-the-clients-cast-targeting.md` §2-2).
+--- The body a wrapped button carries: put each chosen CVar's current value aside and write the
+--- action's, fire the real button, put them back. **The values are read in the body and not baked
+--- in**, so a setting changed mid-fight is the one the next press restores
+--- (`matching-the-clients-cast-targeting.md` §2-2).
 ---
---- The global is how the two `/run` lines reach each other -- a macro body has no other scope, and
---- the cast frame is protected from where this runs.
-local SELFCAST_OFF_BODY =
-    '/run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
-    .. '/click %s %s\n'
-    .. '/run SetCVar("autoSelfCast",DebindAutoSelfCast)';
+--- **Lines, not nesting.** A macro inside a macro does not run, so the saves go in front of the one
+--- `/click` and the restores behind it. The globals are how the two `/run` lines reach each other:
+--- a macro body has no other scope, and the cast frame is protected from where this runs.
+---
+--- `key` is `CastAutomaticsKeyOf`'s, one character per row.
+local function AutomaticsBody(key, buttonname)
+    local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+    local save, restore = {}, {};
+    for i = 1, #rows do
+        local mark = strsub(key, i, i);
+        if (mark ~= "-") then
+            local row = rows[i];
+            local global = "DebindAuto_" .. row;
+            save[#save + 1] = format('%s=GetCVar("%s");SetCVar("%s","%s")', global, row, row, mark);
+            restore[#restore + 1] = format('SetCVar("%s",%s)', row, global);
+        end
+    end
+    return "/run " .. tconcat(save, ";") .. "\n"
+        .. format("/click %s %s\n", DebindPrivate.CastFrameName, buttonname)
+        .. "/run " .. tconcat(restore, ";");
+end
 
---- Every button that has one, as `button name -> twin name`. Filled by `StampBinding` and emitted
---- whole on each rebuild, the way the buttons themselves outlive one.
-local _selfCastWrappers = {};
+--- `type -> cacheKey -> automatics key -> button name`, beside `BindingAttrsCache` and kept the
+--- same way. **The plain button stays shared**: what the automatics split is the wrapper around it,
+--- and the one inside is the same button for every combination
+--- (`setting-the-clients-cast-automatics-per-action.md` §4).
+local WrappedAttrsCache = {};
+
+--- Every wrapped button stamped this session, as `wrapped -> the button its body clicks`. **The
+--- click path reads it to know whether the press's unit has to go on the cast frame**, which is the
+--- one thing about a wrapped button that cannot be baked: `@hover` and the custom aliases are
+--- worked out at the press. What it maps to is for the readers who have to get back to the real
+--- action from a button name.
+---
+--- Not wiped between rebuilds, because a button outlives the rebuild that stamped it
+--- (`BindingAttrsCache`).
+local _wrappedButtons = {};
 --- `button name -> { info, bar, overrideBar }` for every action button action stamped this
 --- session, emitted as `ActionSlots` on every rebuild. `info` is its `ACTION_BUTTON_COMMANDS` row.
 local _actionSlots = {};
@@ -1072,7 +1097,7 @@ local function BarClickButton(frame)
     return buttonname;
 end
 
-local function StampBinding(descriptor)
+local function StampBinding(descriptor, automatics)
     local type, value, unit = descriptor.type, descriptor.value, descriptor.unit;
 
     local buttonname = BindingAttrsCache[type] and BindingAttrsCache[type][descriptor.cacheKey];
@@ -1097,33 +1122,6 @@ local function StampBinding(descriptor)
 
         if (descriptor.pressAndHold) then
             BindingPressHoldCache[buttonname] = true;
-        end
-
-        -- **The same action again, with the engine's automatic self-cast switched off around it.**
-        -- Stamped for every spell and item, target or no target, because the button is shared by
-        -- every binding that names the same action and only some of them choose a target
-        -- (`descriptor.cacheKey` deliberately leaves the unit out). Which of the two a press ends
-        -- at is the click path's call.
-        --
-        -- **Baked here rather than composed at the click** so the hot path neither builds a string
-        -- nor writes an attribute, and so the body is a value a spec can read.
-        --
-        -- **The cast frame is given its own copy of the action, and inheriting one is not an
-        -- option.** It used to reach these through `useparent*`, which reads back correctly and
-        -- casts nothing (`Debind.lua`, where that frame is built, says what was measured). Only
-        -- the buttons that have a twin are copied, because the twin's body is the only thing that
-        -- ever clicks that frame.
-        if (descriptor.castsAtUnit) then
-            local wrapper = buttonname .. SELFCAST_OFF_SUFFIX;
-            clickframe:SetAttribute("*type-" .. wrapper, "macro");
-            clickframe:SetAttribute("*macrotext-" .. wrapper,
-                format(SELFCAST_OFF_BODY, DebindPrivate.CastFrameName, buttonname));
-            _selfCastWrappers[buttonname] = wrapper;
-
-            local castframe = DebindPrivate.CastFrame;
-            for i = 1, descriptor.count do
-                castframe:SetAttribute(names[i] .. buttonname, values[i]);
-            end
         end
 
         if (descriptor.actionSlot) then
@@ -1157,6 +1155,49 @@ local function StampBinding(descriptor)
         BindingAttrsCache[type][descriptor.cacheKey] = buttonname;
     end
 
+    -- **감싼 버튼은 자기 이름을 따로 받는다.** 값이 다른 액션 둘이 안쪽 버튼은 같이 쓰고 감싼
+    -- 것만 갈린다. `nil`은 넷 다 기본이라는 뜻이고, 그때는 감쌀 것이 없어 이 아래가 통째로
+    -- 없는 일이 된다.
+    --
+    -- **유지·시전 주문은 아직 안 감싼다.** 본문 하나가 두 엣지에 나가서 차오르기만 하고 안
+    -- 놓인다(§7의 `phOne`). 걷으려면 본문이 엣지마다 갈려야 한다.
+    if (automatics and descriptor.castsAtUnit and not descriptor.pressAndHold) then
+        local byKey = WrappedAttrsCache[type];
+        if (not byKey) then
+            byKey = {};
+            WrappedAttrsCache[type] = byKey;
+        end
+        local byAutomatics = byKey[descriptor.cacheKey];
+        if (not byAutomatics) then
+            byAutomatics = {};
+            byKey[descriptor.cacheKey] = byAutomatics;
+        end
+
+        local wrapped = byAutomatics[automatics];
+        if (not wrapped) then
+            wrapped = NextButtonName();
+            DefaultClickFrame:SetAttribute("*type-" .. wrapped, "macro");
+            DefaultClickFrame:SetAttribute("*macrotext-" .. wrapped,
+                AutomaticsBody(automatics, buttonname));
+            byAutomatics[automatics] = wrapped;
+            _wrappedButtons[wrapped] = buttonname;
+
+            -- **캐스트 프레임은 액션의 사본을 따로 받고, 물려받는 것은 안 된다.** 예전에는
+            -- `useparent*`로 닿았는데 그건 읽을 때만 맞고 시전이 안 된다(그 프레임을 세우는
+            -- `Debind.lua`가 무엇을 쟀는지 적고 있다). 감싼 본문이 그 프레임을 누르는 유일한
+            -- 것이라 감싼 버튼이 생길 때만 복사한다.
+            local castframe = DebindPrivate.CastFrame;
+            local names, values = descriptor.attrNames, descriptor.attrValues;
+            for i = 1, descriptor.count do
+                castframe:SetAttribute(names[i] .. buttonname, values[i]);
+            end
+        end
+
+        -- **대리 프레임으로 안 간다.** 나가는 것이 매크로라 버튼의 `unit`을 아무도 안 읽는다.
+        -- 누름의 대상은 클릭 때 캐스트 프레임에 얹힌다(`SecureBindings.lua`).
+        return DefaultClickFrame, wrapped, false;
+    end
+
     return delegate or clickframe, buttonname, BindingPressHoldCache[buttonname];
 end
 
@@ -1166,7 +1207,7 @@ DebindPrivate.StampBinding = StampBinding;
 --- Asks, describes, stamps. **The reason a binding was refused is dropped here and nowhere else**,
 --- because the caller's shape still cannot carry one; stage 3 of
 --- `going-headless-outside-the-ui.md` is where the record loop learns to.
-function SetBindingAttributes(type, value, unit)
+function SetBindingAttributes(type, value, unit, automatics)
     local facts = CollectBindingFacts(type, value, unit, _facts);
 
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
@@ -1177,7 +1218,7 @@ function SetBindingAttributes(type, value, unit)
         return;
     end
 
-    local clickframe, buttonname, pressAndHold = StampBinding(descriptor);
+    local clickframe, buttonname, pressAndHold = StampBinding(descriptor, automatics);
 
     if (descriptor.type == Constants.MACROTEXT) then
         addMacrotextBinding(buttonname, descriptor.value);
@@ -1400,7 +1441,8 @@ local function PrepareKeyBindings(key, bindingArray)
             bindingValue = binding.spell;
         end
         binding.clickframe, binding.clickbutton, binding.pressAndHold =
-            SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding));
+            SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
+                binding.automatics);
 
         -- **DEBUG only.** Which key ended up on which spell id, which nothing else records: the
         -- action keeps the id the reader picked, `_facts` is wiped per binding, and the button name
@@ -1989,9 +2031,9 @@ function UpdateBindingsMap()
 
     -- **Emitted after the key loop, because that loop is what stamps them**, and emitted whole
     -- rather than per key: a button outlives the rebuild that stamped it (`BindingAttrsCache`), so
-    -- the pairing belongs to the click frame and not to any one key's records.
-    for _, buttonname in ipairs(sortedKeys(_selfCastWrappers, _sortedA)) do
-        appendLine("SelfCastWrappers[%q]=%q", buttonname, _selfCastWrappers[buttonname]);
+    -- this belongs to the click frame and not to any one key's records.
+    for _, buttonname in ipairs(sortedKeys(_wrappedButtons, _sortedA)) do
+        appendLine("WrappedButtons[%q]=%q", buttonname, _wrappedButtons[buttonname]);
     end
 
     for _, buttonname in ipairs(sortedKeys(_actionSlots, _sortedA)) do

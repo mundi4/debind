@@ -72,7 +72,7 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 자동 자가시전을 끄고 도는 쌍둥이 버튼. `진짜 버튼 이름 -> 쌍둥이 이름`이고 리빌드가
 	-- 통째로 다시 쓴다(`UpdateBindingsMap`). 클릭 경로에서 조회 하나로 끝나야 해서 표다 -
 	-- 이름을 결합하면 매 클릭 문자열이 생긴다.
-	SelfCastWrappers = newtable()
+	WrappedButtons = newtable()
 
 	-- `button name -> where its slot is` for every action button action, rewritten whole by the
 	-- rebuild (`UpdateBindingsMap`). `ACTION_SLOT_SNIPPET` reads it.
@@ -451,31 +451,24 @@ local RESOLVE_UNIT_SNIPPET = [==[
 --- The button a press actually ends at, as `castButton`. Spliced into the click wrapper and into
 --- the DEBUG eval hook, so what a test reads is what fires.
 ---
---- **A target the reader chose turns the engine's automatic self-cast off**, by going out through
---- the twin button `StampBinding` baked -- a macro body that flips the CVar around the real
---- button. Without it the same profile answers two ways: a chosen unit that exists casts and gets
---- redirected to the caster, and one that does not exist is dropped by the client's `UnitExists`
---- guard with nothing happening at all
---- (`matching-the-clients-cast-targeting.md` §2-2).
+--- **Nothing is chosen here.** The action's own values decide at the build whether its button is
+--- a wrapped one, so the winner already names the button that fires
+--- (`setting-the-clients-cast-automatics-per-action.md` §4).
 ---
---- **Press-and-hold keeps the direct route.** One baked body is sent on both edges, and the hold
---- the gate starts on the down edge has no release to pair with inside one; wrapping it would trade
---- a chosen target for a spell that never finishes.
+--- **What is left is the press's unit.** A wrapped button is a macro that clicks the cast frame's
+--- copy of the action, and that copy reads its target from the cast frame rather than from a
+--- delegate. `@hover` and the custom aliases are worked out at the press, so this is the one thing
+--- about a wrapped button the build cannot bake.
 ---
---- **Two bodies would carry it, and that was measured** (2026-09-21, `matching-the-clients-cast-targeting.md`
---- §2-2). A `/click` takes an edge in its third token, and a route that sends `true` on the down
---- edge and `false` on the up edge charges an empowered spell and ends it on the release. What
---- keeps these spells out is that this route bakes one body, not that a macro cannot carry a hold.
+--- **Written on every wrapped press, emptied included.** Left alone where the press has no unit,
+--- the frame still holds the one the previous press put there, and an action with no target chosen
+--- would go out at it.
 ---
 --- Needs `winner` and `unit` declared by the caller.
-local SELFCAST_OFF_SNIPPET = [==[
+local CAST_BUTTON_SNIPPET = [==[
 	local castButton = winner.clickbutton
-	if (unit and not winner.pressAndHold) then
-		local wrapper = SelfCastWrappers[castButton]
-		if (wrapper) then
-			CastFrame:SetAttribute("unit", unit)
-			castButton = wrapper
-		end
+	if (WrappedButtons[castButton]) then
+		CastFrame:SetAttribute("unit", unit)
 	end
 ]==];
 
@@ -1689,7 +1682,7 @@ end, [==[
 		end
 	end
 
-]==] .. SELFCAST_OFF_SNIPPET .. [==[
+]==] .. CAST_BUTTON_SNIPPET .. [==[
 	return slotButton or castButton
 ]==], [==[
 	-- 클릭이 끝난 뒤. **맨이름 `pressAndHoldAction`을 반드시 지운다.**
@@ -1743,15 +1736,18 @@ if (DebindPrivate.DEBUG) then
 			return
 		end
 ]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET
-		.. SELFCAST_OFF_SNIPPET .. [==[
+		.. CAST_BUTTON_SNIPPET .. [==[
 		-- The winner's place as well, because the button no longer names it: the self and focus
 		-- twins click the same button as their original.
+		-- **대상도 같이 낸다.** 평범한 버튼으로 나가는 누름의 대상은 진짜 클릭 경로에서 맨이름
+		-- `unit`으로 프레임에 얹히는데, 이 훅은 읽기만 하므로 그 자리가 없다. 여기서 안 내면
+		-- 테스트가 겨눈 대상을 볼 방법이 감싼 버튼 쪽밖에 안 남는다.
 		for i = 1, #bindings do
 			if (bindings[i] == winner) then
-				return slotButton or castButton, i
+				return slotButton or castButton, i, unit
 			end
 		end
-		return slotButton or castButton
+		return slotButton or castButton, nil, unit
 	]==]);
 
 	--- The same door for the click-cast side. Run it **for the unit frame** (`RunFor`), which is

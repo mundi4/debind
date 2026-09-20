@@ -165,53 +165,75 @@ return function(DebindPrivate, _, ctx)
     end);
 
 
-    -- **A target the reader chose is the whole condition for the detour.** The press comes back
-    -- with a twin button whose body switches the engine's automatic self-cast off around the real
-    -- one, and the target goes on the cast frame rather than on the wrapped click frame -- the
-    -- wrapper's own prologue would wipe it off that one.
+    -- **A value the reader set is the whole condition for the wrapped button.** The press comes
+    -- back with a macro button whose body puts each chosen CVar where the action wants it around
+    -- the real one, and the target goes on the cast frame rather than on the wrapped click frame --
+    -- the wrapper's own prologue would wipe it off that one.
     --
-    -- Without the detour the same profile answers two ways: a chosen unit that exists casts and
-    -- the engine redirects it to the caster, and one that does not exist is dropped by the
-    -- client's `UnitExists` guard with nothing happening at all.
-    test("a chosen target takes the self-cast-off route", function()
+    -- **A chosen target no longer sends a press this way** (2026-09-21). Turning the engine's
+    -- automatic self-cast off under a target nobody asked to turn it off for was adding a
+    -- behaviour the client does not have; a target with nothing set goes out exactly as an action
+    -- bar button with a `unit` on it does
+    -- (`setting-the-clients-cast-automatics-per-action.md` §3).
+    test("an action that sets one of the automatics gets a wrapped button", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         shim.world.spells[8936] = { name = "Regrowth", pressAndHold = true };
         Bind({
-            action({ value = 585, key = "F1", unit = "focus" }),
-            action({ value = 774, key = "F2" }),
-            action({ value = 8936, key = "F3", unit = "focus" }),
+            action({ value = 585, key = "F1", unit = "focus",
+                casting = { autoSelfCast = false } }),
+            action({ value = 774, key = "F2", unit = "focus" }),
+            action({ value = 8936, key = "F3", casting = { autoSelfCast = false } }),
+            action({ value = 585, key = "F4",
+                casting = { autoUnshift = true, autoDismountFlying = false } }),
         });
 
         local clickFrame = DebindPrivate.DefaultClickFrame;
 
         local _, chosen = interp:evalKey("F1");
         check(clickFrame:GetAttribute("*type-" .. chosen) == "macro",
-            "a chosen target did not reach the twin: " .. tostring(chosen));
+            "a set value did not reach a wrapped button: " .. tostring(chosen));
         check(clickFrame:GetAttribute("*macrotext-" .. chosen) ==
-            '/run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
+            '/run DebindAuto_autoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
             .. '/click DebindCastButton ' .. interp:actionButton(chosen) .. '\n'
-            .. '/run SetCVar("autoSelfCast",DebindAutoSelfCast)',
-            "the twin's body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. chosen)));
+            .. '/run SetCVar("autoSelfCast",DebindAuto_autoSelfCast)',
+            "the body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. chosen)));
         check(clickFrame:GetAttribute("*spell-" .. interp:actionButton(chosen)) == "Renew",
-            "the twin clicks the wrong button: " .. tostring(interp:actionButton(chosen)));
+            "the wrapper clicks the wrong button: " .. tostring(interp:actionButton(chosen)));
 
         -- **The target goes on the cast frame**, because that is the one the body clicks and the
         -- only one nothing wipes between the decision and the cast.
         check(DebindPrivate.CastFrame:GetAttribute("unit") == "focus",
             "the cast frame's unit: " .. tostring(DebindPrivate.CastFrame:GetAttribute("unit")));
 
-        -- **No target chosen, no detour.** The game's own rules are what the reader gets, which is
-        -- both self-cast branches and the automatic one.
+        -- **Nothing set, no wrapper**, target or no target.
         local _, plain = interp:evalKey("F2");
         check(clickFrame:GetAttribute("*type-" .. plain) == "spell",
-            "an untargeted spell took the detour: " .. tostring(plain));
+            "an action with nothing set took the wrapped route: " .. tostring(plain));
 
-        -- **Press-and-hold keeps the direct route even with a target chosen.** A macro runs once
-        -- and the hold the gate starts on the down edge has no release to pair with inside one.
+        -- **Press-and-hold keeps the direct route.** One body goes out on both edges, and the hold
+        -- the gate starts on the down edge has no release to pair with inside one.
         local _, held = interp:evalKey("F3");
         check(clickFrame:GetAttribute("*type-" .. held) == "spell",
-            "a press-and-hold spell took the detour: " .. tostring(held));
+            "a press-and-hold spell took the wrapped route: " .. tostring(held));
+
+        -- **Two rows, two pairs of lines, one `/click` between them.** A macro inside a macro does
+        -- not run, so the rows stack as lines rather than as nesting.
+        local _, two = interp:evalKey("F4");
+        check(clickFrame:GetAttribute("*macrotext-" .. two) ==
+            '/run DebindAuto_autoUnshift=GetCVar("autoUnshift");SetCVar("autoUnshift","1")'
+            .. ';DebindAuto_autoDismountFlying=GetCVar("autoDismountFlying")'
+            .. ';SetCVar("autoDismountFlying","0")\n'
+            .. '/click DebindCastButton ' .. interp:actionButton(two) .. '\n'
+            .. '/run SetCVar("autoUnshift",DebindAuto_autoUnshift)'
+            .. ';SetCVar("autoDismountFlying",DebindAuto_autoDismountFlying)',
+            "two rows: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. two)));
+
+        -- **The same spell with different values does not share a button.** The one inside is
+        -- shared; the wrapper around it is what the values split.
+        check(interp:actionButton(chosen) == interp:actionButton(two),
+            "the two wrappers do not click the same button");
+        check(chosen ~= two, "two sets of values shared one wrapper");
     end);
 
     ---------------------------------------------------------------------------
@@ -680,12 +702,14 @@ return function(DebindPrivate, _, ctx)
 
     --- What a press fires: the record, the spell on the button it clicks, and the unit it goes at.
     local function Fired(key)
-        local _, button, record = interp:evalKey(key);
+        local _, button, record, unit = interp:evalKey(key);
         if (not button) then
             return nil;
         end
+        -- **겨눈 대상은 평가가 낸 것을 읽는다.** 감싼 버튼으로 나가는 누름만 그 값을 캐스트
+        -- 프레임에 얹으므로, 프레임에서 읽으면 안 감싼 누름은 늘 대상이 없어 보인다.
         return record, DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(button)),
-            DebindPrivate.CastFrame:GetAttribute("unit");
+            unit;
     end
 
     -- **A held key moves an action with no target, and the reader's condition goes with it** (§3-6).
@@ -953,7 +977,9 @@ return function(DebindPrivate, _, ctx)
         check(handed and not castmod.isTwin(Constants, handed),
             "a twin took the frame click: " .. tostring(handed and handed.castModifier));
         interp:runWrapped(DebindPrivate.DefaultClickFrame, "OnClick", "debind1", false);
-        local unit = DebindPrivate.CastFrame:GetAttribute("unit");
+        -- **맨이름 `unit`이 겨눈 대상이 서는 자리다.** 캐스트 프레임은 감싼 버튼으로 나가는
+        -- 누름만 거치고, 이 액션은 값을 하나도 안 켜서 평범한 버튼으로 나간다.
+        local unit = DebindPrivate.DefaultClickFrame:GetAttribute("unit");
         check(unit == "party1", "the click went at " .. tostring(unit));
 
         interp:resetState();

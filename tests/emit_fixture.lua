@@ -90,7 +90,10 @@ return function(DebindPrivate, shim)
         return {
             --- **One unconditional action on a key.** Nothing can take the key away, so this is
             --- the `alwaysOurs` shape: bound once here and never walked by the state loop.
-            action({ type = Constants.SPELL, value = 585, key = "F1" }),
+            --- **And one of the client's automatics set on it**, so the emission carries a wrapped
+            --- button, its body and its `WrappedButtons` line.
+            action({ type = Constants.SPELL, value = 585, key = "F1",
+                casting = { autoSelfCast = false } }),
 
             --- **Three actions on one key, and the axes do not cover the space.** The key is
             --- state-driven: whether we hold it at all depends on what is measured.

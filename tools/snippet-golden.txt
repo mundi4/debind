@@ -73,7 +73,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	SelfCastWrappers = newtable()
+	WrappedButtons = newtable()
 
 
 
@@ -1839,12 +1839,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	local castButton = winner.clickbutton
-	if (unit and not winner.pressAndHold) then
-		local wrapper = SelfCastWrappers[castButton]
-		if (wrapper) then
-			CastFrame:SetAttribute("unit", unit)
-			castButton = wrapper
-		end
+	if (WrappedButtons[castButton]) then
+		CastFrame:SetAttribute("unit", unit)
 	end
 	return slotButton or castButton
 
@@ -2635,12 +2631,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	local castButton = winner.clickbutton
-	if (unit and not winner.pressAndHold) then
-		local wrapper = SelfCastWrappers[castButton]
-		if (wrapper) then
-			CastFrame:SetAttribute("unit", unit)
-			castButton = wrapper
-		end
+	if (WrappedButtons[castButton]) then
+		CastFrame:SetAttribute("unit", unit)
 	end
 	return slotButton or castButton
 
@@ -3304,21 +3296,20 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 	local castButton = winner.clickbutton
-	if (unit and not winner.pressAndHold) then
-		local wrapper = SelfCastWrappers[castButton]
-		if (wrapper) then
-			CastFrame:SetAttribute("unit", unit)
-			castButton = wrapper
-		end
+	if (WrappedButtons[castButton]) then
+		CastFrame:SetAttribute("unit", unit)
 	end
+
+
+
 
 
 		for i = 1, #bindings do
 			if (bindings[i] == winner) then
-				return slotButton or castButton, i
+				return slotButton or castButton, i, unit
 			end
 		end
-		return slotButton or castButton
+		return slotButton or castButton, nil, unit
 	
 
 ### SecureBindings.lua #24 InstallSnippet (DEBUG=off)
@@ -3961,21 +3952,20 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 	local castButton = winner.clickbutton
-	if (unit and not winner.pressAndHold) then
-		local wrapper = SelfCastWrappers[castButton]
-		if (wrapper) then
-			CastFrame:SetAttribute("unit", unit)
-			castButton = wrapper
-		end
+	if (WrappedButtons[castButton]) then
+		CastFrame:SetAttribute("unit", unit)
 	end
+
+
+
 
 
 		for i = 1, #bindings do
 			if (bindings[i] == winner) then
-				return slotButton or castButton, i
+				return slotButton or castButton, i, unit
 			end
 		end
-		return slotButton or castButton
+		return slotButton or castButton, nil, unit
 	
 
 ### SecureBindings.lua #25 InstallSnippet (DEBUG=on)

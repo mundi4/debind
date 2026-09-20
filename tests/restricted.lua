@@ -490,29 +490,25 @@ end
 --- press arrives and arrives under this button name; that half stays in the game (§8).
 --- The button whose attributes fire, for a name the click path answered with.
 ---
---- **A chosen target sends the press through a twin button** whose `*macrotext-` turns the
---- engine's automatic self-cast off around the real one (`SecureBindings.lua`'s
---- `SELFCAST_OFF_SNIPPET`). A spec asking "which spell went out" wants the real one; a spec asking
---- "did the target route take" reads the name `evalKey` answered with, which is the twin.
+--- **An action that sets one of the client's automatics goes out through a wrapped button** whose
+--- `*macrotext-` puts the CVars where the action wants them around the real one
+--- (`setting-the-clients-cast-automatics-per-action.md` §4). A spec asking "which spell went out"
+--- wants the real one; a spec asking "did the wrapped route take" reads the name `evalKey`
+--- answered with, which is the wrapper.
 function Interp:actionButton(clickbutton)
     if (not clickbutton) then
         return nil;
     end
-    for button, wrapper in pairs(self.env.SelfCastWrappers) do
-        if (wrapper == clickbutton) then
-            return button;
-        end
-    end
-    return clickbutton;
+    return self.env.WrappedButtons[clickbutton] or clickbutton;
 end
 
 function Interp:evalKey(key)
     local button = self.Constants.CLICKTIME_BUTTON_PREFIX .. key;
-    local clickbutton, index = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
+    local clickbutton, index, unit = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
     if (not clickbutton) then
         return nil;
     end
-    return index, clickbutton, index and self.env.ClickTimeKeys[button][index];
+    return index, clickbutton, index and self.env.ClickTimeKeys[button][index], unit;
 end
 
 --- The same for a click that arrives on a unit frame. `n` is the mouse button number and `mod`

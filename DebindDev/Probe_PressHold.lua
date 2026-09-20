@@ -1,7 +1,7 @@
 -- Probe_PressHold.lua
 -- One-shot probe: **does an empowered spell still charge when the press goes out through a macro?**
 --
--- `SELFCAST_OFF_SNIPPET` leaves press-and-hold spells on the direct route, and the reason written
+-- `StampBinding` leaves press-and-hold spells on the direct route, and the reason written
 -- down is that one macro run cannot carry the two edges the gate needs. `/click` takes a third
 -- token and hands it to `Click(button, down)` (`SlashCommands.lua:728-739`, 12.1), so the two edges
 -- can be sent separately after all. What that does not settle is the half below Lua: the gate reads

@@ -1192,6 +1192,9 @@ do
         -- `unit`, it would be where `"@"` is asked and where the `unitframe` condition fills in, and neither
         -- has a unit to stand on there.
         binding.castsAtNone = (action.unit == "none" and DebindPrivate.ActionTakesUnit(binding)) or nil;
+        -- **쌍둥이도 같은 액션이라 같은 값을 든다.** 어느 누름으로 나가든 클라이언트의 자동
+        -- 동작을 어떻게 둘지는 액션이 정한 하나다.
+        binding.automatics = DebindPrivate.CastAutomaticsKeyOf(action);
         if (twin) then
             binding.unit = aimedUnit;
         elseif (not Constants.TYPES_WITH_UNIT[binding.type]) then
@@ -1405,6 +1408,30 @@ do
         "autoDismount",
         "autoDismountFlying",
     };
+
+    --- 네 줄의 값을 한 글자씩 적은 열쇠, 또는 넷 다 기본이면 `nil`. 켬이 `1`, 끔이 `0`,
+    --- 게임 설정 그대로가 `-`다.
+    ---
+    --- **버튼을 가르는 것이 이 열쇠다.** 값은 액션마다 빌드 때 확정되므로 감싼 본문도 그때
+    --- 정해지고, `(종류, 값)`으로만 잡힌 버튼은 값이 다른 액션 둘에게 같은 본문을 준다
+    --- (`setting-the-clients-cast-automatics-per-action.md` §4).
+    ---
+    --- **`nil`은 "감쌀 것이 없다"는 뜻이고 그 액션은 버튼을 감싸지 않는다.** 클라이언트가 하던
+    --- 그대로 나가는 것이 넷 다 기본일 때의 동작이다.
+    function DebindPrivate.CastAutomaticsKeyOf(action)
+        local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+        local key, any = "", false;
+        for i = 1, #rows do
+            local value = DebindPrivate.CastAutomaticOf(action, rows[i]);
+            if (value == nil) then
+                key = key .. "-";
+            else
+                key = key .. (value and "1" or "0");
+                any = true;
+            end
+        end
+        return any and key or nil;
+    end
 
     --- 그 줄 하나의 값: 켬(`true`), 끔(`false`), 게임 설정 그대로(`nil`).
     ---
