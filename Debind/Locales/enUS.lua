@@ -1367,15 +1367,22 @@ L["AUTOMATIC_SELF_CAST_DESC"] = "Casting a helpful spell with no friendly target
 L["AUTOMATIC_CANCEL_FORM_DESC"] = "Casting a spell your current form does not allow leaves the form first."
 L["AUTOMATIC_DISMOUNT_DESC"] = "Casting a spell while mounted gets you off the mount first."
 L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "The same while flying, where getting off means falling."
+-- **Not `DISABLE` and not `CASTING_OFF`, though the word is the same as the second.** `Disable` is
+-- this window's word for taking an action out (`UNIT_DISABLE`, `ACTION_DISABLED`), and
+-- `CASTING_OFF` is for a row the action sits out. Neither is what these two say: the label above
+-- them names a setting of the game's, so they are that setting's two states and nothing else. Kept
+-- as their own keys so a translator can part them where one word will not carry both.
+L["AUTOMATIC_ON"] = "On"
+L["AUTOMATIC_OFF"] = "Off"
 -- **The third answer, and the one every action starts on.** Named after the row it follows rather
 -- than called a default, the way Hover Cast's account row is (`CASTING_HOVER_ACCOUNT`).
 L["AUTOMATIC_GAME_SETTING"] = "Use the game's setting"
 L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever this is set to in the game's own settings, for this action as for every other."
--- Where the four cannot be answered at all. **Both are about how the press has to go out**, not
--- about the action being unusual: a macro of the game's is a body we never see, and a spell you
--- hold has to reach the game as the very press you are holding.
-L["AUTOMATIC_GAME_MACRO"] = "This action runs one of the game's macros, and Debind cannot add to it. Write these into the macro itself."
-L["AUTOMATIC_PRESS_AND_HOLD"] = "This spell charges while you hold the key, and that leaves no room for Debind to change a setting around it."
+-- Where the four cannot be answered at all. **It says what the row does here and stops.** What
+-- this addon can or cannot reach, and what the game does with the press instead, are both ours to
+-- know and no part of what the reader is deciding.
+L["AUTOMATIC_GAME_MACRO"] = "This does not apply to a macro from WoW's own list."
+L["AUTOMATIC_PRESS_AND_HOLD"] = "This does not apply to an empowered spell."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
 -- literal here; on [Cast as usual] it is why the row stands locked, since with a target picked the

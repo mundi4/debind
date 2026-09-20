@@ -941,8 +941,6 @@ function M.install()
     _G.FOCUS_CAST_KEY_TEXT = "Focus Cast Key";
     _G.AUTO_SELF_CAST_TEXT = "Auto Self Cast";
     _G.AUTO_DISMOUNT_FLYING_TEXT = "Auto Dismount in Flight";
-    _G.VIDEO_OPTIONS_ENABLED = "Enabled";
-    _G.VIDEO_OPTIONS_DISABLED = "Disabled";
     _G.ALL_SPECS = "All Specializations";
     --- The talent condition's pvp branch is named by the client, the way its class, specialization
     --- and hero branches are (`Debind/Talents.lua`).

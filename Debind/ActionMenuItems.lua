@@ -437,59 +437,6 @@ local function CreateCastingMenu(parentDescription, ctx)
         end
     end
 
-    -- The four things the game does around a cast on its own, each set for this action alone and
-    -- put back the moment the press is over.
-    --
-    -- **Not set is the game's own setting**, so a reader who never opens these rows keeps exactly
-    -- what the game gives everybody else
-    -- (`setting-the-clients-cast-automatics-per-action.md` §2).
-    local function automaticsReason()
-        local reason = AllActions(ctx, function(action)
-            return DebindPrivate.CastAutomaticsBlockedReason(action) ~= nil;
-        end) and DebindPrivate.CastAutomaticsBlockedReason(ctx.actions[1]);
-        if (reason == "gamemacro") then
-            return LLL["AUTOMATIC_GAME_MACRO"];
-        elseif (reason == "presshold") then
-            return LLL["AUTOMATIC_PRESS_AND_HOLD"];
-        end
-    end
-
-    for _, row in ipairs({
-        { row = "autoSelfCast", instruction = LLL["AUTOMATIC_SELF_CAST_DESC"] },
-        { row = "autoUnshift", instruction = LLL["AUTOMATIC_CANCEL_FORM_DESC"] },
-        { row = "autoDismount", instruction = LLL["AUTOMATIC_DISMOUNT_DESC"] },
-        { row = "autoDismountFlying", instruction = LLL["AUTOMATIC_DISMOUNT_FLYING_DESC"] },
-    }) do
-        local rowDescription = ActionMenus:BuildNode(description, {
-            label = DebindPrivate.CastAutomaticLabel(row.row),
-            instruction = row.instruction,
-            blocked = automaticsReason,
-            isActive = function()
-                return AnyAction(ctx, function(action)
-                    return DebindPrivate.CastAutomaticOf(action, row.row) ~= nil;
-                end);
-            end,
-            valueOf = function(action)
-                return DebindPrivate.CastAutomaticOf(action, row.row);
-            end,
-        }, ctx);
-
-        local function Choice(text, choice)
-            return CreateRadio(rowDescription, ctx, text,
-                function()
-                    return CastAutomaticIs(ctx, row.row, choice);
-                end,
-                function()
-                    return SetCastAutomatic(ctx, row.row, choice);
-                end);
-        end
-
-        SetInstructionTooltip(Choice(LLL["AUTOMATIC_GAME_SETTING"], nil),
-            LLL["AUTOMATIC_GAME_SETTING_DESC"]);
-        Choice(VIDEO_OPTIONS_ENABLED, true);
-        Choice(VIDEO_OPTIONS_DISABLED, false);
-    end
-
     -- **Three answers over three modes.** Which unit the pointed press means is this action's to say
     -- (§6), and that question does not exist for a key that names its own unit.
     --
@@ -584,6 +531,61 @@ local function CreateCastingMenu(parentDescription, ctx)
             return ToggleNormalCast(ctx);
         end);
     SetInstructionTooltip(normal, LLL["CASTING_NORMAL_DESC"]);
+
+    description:CreateDivider();
+
+    -- The four things the game does around a cast on its own, each set for this action alone and
+    -- put back the moment the press is over.
+    --
+    -- **Not set is the game's own setting**, so a reader who never opens these rows keeps exactly
+    -- what the game gives everybody else
+    -- (`setting-the-clients-cast-automatics-per-action.md` §2).
+    local function automaticsReason()
+        local reason = AllActions(ctx, function(action)
+            return DebindPrivate.CastAutomaticsBlockedReason(action) ~= nil;
+        end) and DebindPrivate.CastAutomaticsBlockedReason(ctx.actions[1]);
+        if (reason == "gamemacro") then
+            return LLL["AUTOMATIC_GAME_MACRO"];
+        elseif (reason == "presshold") then
+            return LLL["AUTOMATIC_PRESS_AND_HOLD"];
+        end
+    end
+
+    for _, row in ipairs({
+        { row = "autoSelfCast", instruction = LLL["AUTOMATIC_SELF_CAST_DESC"] },
+        { row = "autoUnshift", instruction = LLL["AUTOMATIC_CANCEL_FORM_DESC"] },
+        { row = "autoDismount", instruction = LLL["AUTOMATIC_DISMOUNT_DESC"] },
+        { row = "autoDismountFlying", instruction = LLL["AUTOMATIC_DISMOUNT_FLYING_DESC"] },
+    }) do
+        local rowDescription = ActionMenus:BuildNode(description, {
+            label = DebindPrivate.CastAutomaticLabel(row.row),
+            instruction = row.instruction,
+            blocked = automaticsReason,
+            isActive = function()
+                return AnyAction(ctx, function(action)
+                    return DebindPrivate.CastAutomaticOf(action, row.row) ~= nil;
+                end);
+            end,
+            valueOf = function(action)
+                return DebindPrivate.CastAutomaticOf(action, row.row);
+            end,
+        }, ctx);
+
+        local function Choice(text, choice)
+            return CreateRadio(rowDescription, ctx, text,
+                function()
+                    return CastAutomaticIs(ctx, row.row, choice);
+                end,
+                function()
+                    return SetCastAutomatic(ctx, row.row, choice);
+                end);
+        end
+
+        SetInstructionTooltip(Choice(LLL["AUTOMATIC_GAME_SETTING"], nil),
+            LLL["AUTOMATIC_GAME_SETTING_DESC"]);
+        Choice(LLL["AUTOMATIC_ON"], true);
+        Choice(LLL["AUTOMATIC_OFF"], false);
+    end
 
     description:CreateDivider();
     MenuKit.CreateHelpButton(description, "cast-options", LLL["HELP_CAST_OPTIONS_TITLE"]);

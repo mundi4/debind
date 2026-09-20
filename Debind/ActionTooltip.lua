@@ -487,7 +487,7 @@ do
 					local value = DebindPrivate.CastAutomaticOf(action, rows[i]);
 					if (value ~= nil) then
 						tinsert(_lines, LabelledValue(DebindPrivate.CastAutomaticLabel(rows[i]),
-							value and VIDEO_OPTIONS_ENABLED or VIDEO_OPTIONS_DISABLED));
+							value and LLL["AUTOMATIC_ON"] or LLL["AUTOMATIC_OFF"]));
 					end
 				end
 			end
