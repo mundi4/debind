@@ -239,6 +239,27 @@ return function(DebindPrivate)
         check(not named, "the click-cast branch carried press and hold");
     end);
 
+    -- **The spell the press will cast rides the record**, as the very value `*spell-` was baked
+    -- with. The click path asks the client about that spell at the press, and asking by name is
+    -- what follows an override: the name resolves to whatever it names right now.
+    --
+    -- **Only where there is one.** An item or a macro has no spell, and a field that is absent is
+    -- what tells the click path not to ask.
+    test("a spell binding carries the spell it will cast", function()
+        local spell = recordFor({
+            type = Constants.SPELL, value = 585, castSpell = "Renew",
+            clickframe = true, clickbutton = "deb1",
+        }, false, true);
+        check(fieldOf(spell, "spell") == "Renew", "the spell did not ride the record");
+
+        local item = recordFor({
+            type = Constants.ITEM, value = 6948,
+            clickframe = true, clickbutton = "deb1",
+        }, false, true);
+        local _, named = fieldOf(item, "spell");
+        check(not named, "an item carried a spell");
+    end);
+
     -- A `known` condition bakes **the whole macro conditional, brackets and all**, naming the
     -- action's own value. The click path hands that string straight to `SecureCmdOptionParse` and
     -- the poll uses the same string as a key in `States`; splitting it would either join it on

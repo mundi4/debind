@@ -303,6 +303,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=2
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
@@ -316,6 +317,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=4
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
@@ -329,6 +331,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
@@ -415,6 +418,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unitAlias"]="unitframe"
   | t["frameTypes"]=8
@@ -431,6 +435,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unitAlias"]="unitframe"
   | t["frameTypes"]=8
@@ -447,6 +452,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t["unitAlias"]="unitframe"
   | t["frameTypes"]=8
@@ -472,6 +478,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
+  | t["spell"]="Will of the Necropolis"
   | t["pressAndHold"]=true
   | t["castModifier"]=2
   | t["unit"]="player"
@@ -481,6 +488,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
+  | t["spell"]="Will of the Necropolis"
   | t["pressAndHold"]=true
   | t["castModifier"]=4
   | t["unit"]="focus"
@@ -490,6 +498,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
+  | t["spell"]="Will of the Necropolis"
   | t["pressAndHold"]=true
   | t["castModifier"]=1
   | t.holdsKey=true
@@ -507,6 +516,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb106"
+  | t["spell"]=5176
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.holdsKey=true
@@ -515,6 +525,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb106"
+  | t["spell"]=5176
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.holdsKey=true
@@ -523,6 +534,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb106"
+  | t["spell"]=5176
   | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -539,6 +551,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["combat"]=true
@@ -552,6 +565,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["combat"]=true
@@ -565,6 +579,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
@@ -617,6 +632,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unitAlias"]="custom1"
   | t.holdsKey=true
@@ -625,6 +641,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unitAlias"]="custom1"
   | t.holdsKey=true
@@ -633,6 +650,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["unitAlias"]="custom1"
   | t.holdsKey=true
@@ -650,12 +668,14 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.units=newtable()
@@ -670,12 +690,14 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.units=newtable()
@@ -690,11 +712,13 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
@@ -717,12 +741,14 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.units=newtable()
@@ -738,12 +764,14 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.units=newtable()
@@ -759,11 +787,13 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
@@ -787,6 +817,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["forms"]=3
@@ -796,6 +827,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["forms"]=3
@@ -805,6 +837,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["forms"]=3
   | t.holdsKey=true
@@ -822,6 +855,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.units=newtable()
@@ -835,6 +869,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.units=newtable()
@@ -848,6 +883,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
@@ -869,6 +905,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.units=newtable()
@@ -880,6 +917,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.units=newtable()
@@ -891,6 +929,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
@@ -910,6 +949,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=2
   | t["unitAlias"]="healer"
   | t.holdsKey=true
@@ -918,6 +958,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=4
   | t["unitAlias"]="healer"
   | t.holdsKey=true
@@ -926,6 +967,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
   | t["unitAlias"]="healer"
   | t.holdsKey=true
@@ -943,6 +985,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["bonusbars"]=5
@@ -952,6 +995,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["bonusbars"]=5
@@ -961,6 +1005,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["bonusbars"]=5
   | t.holdsKey=true
@@ -978,6 +1023,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["specialbar"]=true
@@ -987,6 +1033,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["specialbar"]=true
@@ -996,6 +1043,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["specialbar"]=true
   | t.holdsKey=true
@@ -1013,6 +1061,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["extrabar"]=true
@@ -1022,6 +1071,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["extrabar"]=true
@@ -1031,6 +1081,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["extrabar"]=true
   | t.holdsKey=true
@@ -1048,6 +1099,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.units=newtable()
@@ -1059,6 +1111,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.units=newtable()
@@ -1070,6 +1123,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
@@ -1089,6 +1143,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["known"]="[known:Regrowth]"
@@ -1098,6 +1153,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["known"]="[known:Regrowth]"
@@ -1107,6 +1163,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
   | t["known"]="[known:Regrowth]"
   | t.holdsKey=true
@@ -1124,6 +1181,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.switches=newtable()
@@ -1134,6 +1192,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.switches=newtable()
@@ -1144,6 +1203,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t.switches=newtable()
   | t.switches["$burst"]=true
@@ -1162,6 +1222,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="target"
   | t.units=newtable()
@@ -1175,6 +1236,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="target"
   | t.units=newtable()
@@ -1188,6 +1250,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["unit"]="target"
   | t.units=newtable()
@@ -1210,6 +1273,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=2
   | t["unit"]="target"
   | t.units=newtable()
@@ -1225,6 +1289,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=4
   | t["unit"]="target"
   | t.units=newtable()
@@ -1240,6 +1305,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
   | t["unit"]="target"
   | t.units=newtable()
@@ -1264,6 +1330,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb109"
+  | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.holdsKey=true
@@ -1272,6 +1339,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb109"
+  | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.holdsKey=true
@@ -1280,6 +1348,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb109"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1389,6 +1458,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["combat"]=true
@@ -1404,6 +1474,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["combat"]=true
@@ -1419,6 +1490,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
   | t["combat"]=true
   | t.holdsKey=true
@@ -1441,12 +1513,14 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["petbattle"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb113"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t["petbattle"]=false
@@ -1456,12 +1530,14 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["petbattle"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb113"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t["petbattle"]=false
@@ -1471,11 +1547,13 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t["petbattle"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb113"
+  | t["spell"]="Rejuvenation"
   | t["castModifier"]=1
   | t["petbattle"]=false
   | t.holdsKey=true
@@ -1687,6 +1765,7 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.holdsKey=true
@@ -1695,6 +1774,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.holdsKey=true
@@ -1703,6 +1783,7 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
+  | t["spell"]="Renew"
   | t["castModifier"]=1
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
@@ -1713,6 +1794,7 @@ Execute DebindBindingDriver
   | t.isClickCast=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
+  | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)

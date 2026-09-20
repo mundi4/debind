@@ -928,6 +928,7 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
             out.cacheKey = NIL;
             out.castsAtUnit = false;
             out.pressAndHold = false;
+            out.castSpell = nil;
             return out;
         end
         type = Constants.SPELL;
@@ -939,6 +940,7 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     out.actionSlot = nil;
     out.barButton = nil;
     out.overrideButton = nil;
+    out.castSpell = nil;
 
     -- **The key the stamp files this button under**, taken before any branch below rewrites the
     -- value for its own attribute. It used to be read after, and only the item branch rewrites --
@@ -997,8 +999,10 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         -- `GetBaseSpell` walks from one to the other, so an id baked here dies the moment the
         -- reader changes specialization. The subtext comes along because that is what tells two
         -- same-named spells apart (`Spells.lua`'s `ComposeSpellCastName`).
-        attr(out, "*spell-",
-            ComposeSpellCastName(facts.spellName, facts.spellSubtext) or facts.spellID);
+        -- **레코드가 싣는 것도 이 값 그대로다.** 클릭 때 이 주문을 다시 묻는 쪽이 있고
+        -- (`BuildKeyRecord`), 둘을 따로 만들면 언젠가 갈린다.
+        out.castSpell = ComposeSpellCastName(facts.spellName, facts.spellSubtext) or facts.spellID;
+        attr(out, "*spell-", out.castSpell);
 
         -- what if 'IsPressHoldReleaseSpell' value is changed by a talent or something? is there a such situation?
         --
@@ -1266,7 +1270,7 @@ function SetBindingAttributes(type, value, unit, automatics)
         addMacrotextBinding(buttonname, descriptor.value);
     end
 
-    return clickframe, buttonname, pressAndHold;
+    return clickframe, buttonname, pressAndHold, descriptor.castSpell;
 end
 
 local REACTION_NAMES = {
@@ -1482,7 +1486,7 @@ local function PrepareKeyBindings(key, bindingArray)
         if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
             bindingValue = binding.spell;
         end
-        binding.clickframe, binding.clickbutton, binding.pressAndHold =
+        binding.clickframe, binding.clickbutton, binding.pressAndHold, binding.castSpell =
             SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
                 binding.automatics);
 
@@ -1672,6 +1676,16 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
 
     if (binding.clickframe and binding.clickbutton) then
         field(out, "clickbutton", binding.clickbutton);
+    end
+
+    -- **이 누름이 시전할 주문**, `*spell-`에 구운 그 값 그대로. 클릭 때 클라이언트에 다시 묻는
+    -- 쪽이 있고, **이름으로 물으면 덮인 주문이 답한다** - `GetSpellInfo("Celestial Alignment")`가
+    -- `Incarnation: Chosen of Elune`를 낸다(2026-09-21, 소유자가 게임에서). 빌드 때 구운 답은
+    -- 원래 주문의 것이라 그 자리를 못 따라간다.
+    --
+    -- **없으면 안 묻는다는 뜻이다.** 아이템·매크로·탈것에는 시전할 주문이 없다.
+    if (binding.castSpell) then
+        field(out, "spell", binding.castSpell);
     end
 
     -- **The target rides on the record**, because the wrapper is what puts it on the button, at
