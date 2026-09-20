@@ -186,6 +186,19 @@
 	</Button>
 
 	<!--
+		One of the two tabs over the right column, measured the way the window's bottom tabs are.
+
+		**Only the width rule is ours** (`DebindSwitchDetailTabMixin:UpdateTabWidth`). The art, the
+		rotation and everything a press does stay the template's.
+	-->
+	<Button name="DebindSwitchDetailTabTemplate" inherits="TabSystemTopButtonTemplate"
+		mixin="DebindSwitchDetailTabMixin" virtual="true">
+		<!-- The art follows this height and the text does not, which is the whole reason it is a
+		     size and not a scale (`DebindSwitchDetailTabMixin:Init`). -->
+		<Size x="10" y="28"/>
+	</Button>
+
+	<!--
 		What this switch is set to, as one element of the right column's list.
 
 		**`<Size>` and `SETTINGS_EXTENT` in the Lua are one value written twice.** A linear list
@@ -203,32 +216,32 @@
 			<Layer level="ARTWORK">
 				<FontString parentKey="NameLabel" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="16" y="-14"/>
+						<Anchor point="TOPLEFT" x="10" y="-14"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="NameText" inherits="GameFontHighlightLarge" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="16" y="-36"/>
+						<Anchor point="TOPLEFT" x="10" y="-36"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="16" y="-74"/>
+						<Anchor point="TOPLEFT" x="10" y="-74"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="ModeLabel" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="16" y="-134"/>
+						<Anchor point="TOPLEFT" x="10" y="-134"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="16" y="-194"/>
+						<Anchor point="TOPLEFT" x="10" y="-194"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="ExprLabel" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="16" y="-254"/>
+						<Anchor point="TOPLEFT" x="10" y="-254"/>
 					</Anchors>
 				</FontString>
 			</Layer>
@@ -259,7 +272,7 @@
 			<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
 				<Size x="260" y="26"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="16" y="-96"/>
+					<Anchor point="TOPLEFT" x="10" y="-96"/>
 				</Anchors>
 			</DropdownButton>
 
@@ -275,7 +288,7 @@
 			<DropdownButton parentKey="ModeDropdown" inherits="WowStyle1DropdownTemplate">
 				<Size x="260" y="26"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="16" y="-156"/>
+					<Anchor point="TOPLEFT" x="10" y="-156"/>
 				</Anchors>
 			</DropdownButton>
 
@@ -288,7 +301,7 @@
 			<DropdownButton parentKey="StartDropdown" inherits="WowStyle1DropdownTemplate">
 				<Size x="260" y="26"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="16" y="-216"/>
+					<Anchor point="TOPLEFT" x="10" y="-216"/>
 				</Anchors>
 			</DropdownButton>
 
@@ -300,9 +313,13 @@
 				is one per layer.
 			-->
 			<EditBox parentKey="ExprBox" inherits="InputBoxTemplate" autoFocus="false" letters="100">
-				<Size x="320" y="22"/>
+				<Size y="22"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="22" y="-276"/>
+					<!-- 5 more than the rest: the template's left border art hangs that far
+					     outside the box (`InputBoxVisualTemplate`), and the drawn edge is what
+					     lines up with the dropdowns above. -->
+					<Anchor point="TOPLEFT" x="15" y="-276"/>
+					<Anchor point="TOPRIGHT" x="-10" y="-276"/>
 				</Anchors>
 				<Scripts>
 					<OnEnterPressed>
@@ -326,7 +343,7 @@
 			<Button parentKey="DeleteButton" inherits="UIPanelButtonTemplate" text="DELETE">
 				<Size x="100" y="22"/>
 				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-16" y="16"/>
+					<Anchor point="BOTTOMRIGHT" x="-10" y="16"/>
 				</Anchors>
 				<Scripts>
 					<OnClick>
@@ -415,6 +432,45 @@
 					<Anchor point="TOPLEFT" relativeKey="$parent.List" relativePoint="TOPRIGHT" x="22" y="0"/>
 					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
 				</Anchors>
+				<Frames>
+					<!--
+						The two faces of this column, as tabs.
+
+						They were a heading apiece in one scroll until now. What that cost is the
+						settings block: it is fixed height and first in the list, so a short window
+						spent its scroll on the half the reader was not reading.
+
+						**The client's own top tab**, the shape the housing dashboard puts over its
+						house info (`Blizzard_HousingDashboardHouseInfoContent.xml`).
+
+						**`TabSystemOwnerTemplate` is not inherited**, which is the part of that
+						shape we leave behind: it swaps a frame per tab, and both of these draw
+						into the one scroll box under them (`RefreshDetail`).
+
+						**The strip stands above the box and the box keeps its height**
+						(2026-09-21, 소유자). The band it reaches into is empty on this tab: the
+						[+] over the left list is the only thing up there and it sits against the
+						right edge, past where two tabs of this width end.
+					-->
+					<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
+						<KeyValues>
+							<!-- **The window's own bottom tabs, down to the numbers.** Those stand
+							     3 apart (`PanelTemplates_AnchorTabs`) where this template's own
+							     value is 1, and the button below carries the width rule. Two kinds
+							     of tab in one window measured differently read as two kinds of
+							     tab.
+
+							     No min and no max: both are read inside the rule we replace, so
+							     leaving them out is what keeps this row on the bottom tabs'
+							     numbers alone. -->
+							<KeyValue key="spacing" value="0" type="number"/>
+							<KeyValue key="tabTemplate" value="DebindSwitchDetailTabTemplate" type="string"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="8" y="-1"/>
+						</Anchors>
+					</Frame>
+				</Frames>
 			</Frame>
 		</Frames>
 		<Scripts>

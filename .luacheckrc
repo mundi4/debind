@@ -290,6 +290,7 @@ globals = {
 	"SettingsTooltip",
 	"DefaultTooltipMixin",
 	"ButtonStateBehaviorMixin",
+	"TabSystemButtonMixin",
 	"Mixin",
 	"CreateSettingsListSectionHeaderInitializer",
 	"MinimalSliderWithSteppersMixin",
@@ -453,6 +454,7 @@ globals = {
 	"DebindSwitchUsageActionMixin",
 	"DebindSwitchSettingsMixin",
 	"DebindSwitchGroupHeaderMixin",
+	"DebindSwitchDetailTabMixin",
 
 	-- Named frames
 	"DebindFrame",

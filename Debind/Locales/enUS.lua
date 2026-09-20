@@ -1200,7 +1200,9 @@ L["SWITCH_START_VALUE"] = "Starts as"
 -- Covers all three answers below it, including the one that is not a way of setting the switch.
 L["SWITCH_MODE_LABEL"] = "How it works here"
 L["SWITCH_EXPR_LABEL"] = "Macro conditional"
-L["SWITCH_GROUP_SETTINGS"] = "Settings"
+-- The two tabs over the right column.
+L["SWITCH_TAB_SETTINGS"] = "Settings"
+L["SWITCH_TAB_USAGE"] = "Used by"
 -- The three groups of places under it, and what separates the third from the first is **whether
 -- you would have to log in somewhere else to fix it**, not whose it is: another character of your
 -- own class is in both, its class layers here and its own layers below.

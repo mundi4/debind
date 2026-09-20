@@ -444,6 +444,55 @@ end
 
 
 --------------------------------------------------------------------------------
+-- A tab over the right column
+--------------------------------------------------------------------------------
+
+DebindSwitchDetailTabMixin = {};
+
+--- **The art is brought to the button's own height**, which is what makes this a size rather than
+--- a scale: a scaled tab takes its label down with it, and the row this one stands in reads the
+--- window's other tabs' text at full size.
+---
+--- **One factor over all nine pieces, not one height.** The picked tab's art is a taller atlas
+--- than the rest (`uiframe-activetab-*` against `uiframe-tab-*`), and that difference is how the
+--- row says which tab is picked. Setting them all to the same number takes it away.
+---
+--- The unpicked side is the reference, so the button's height is the height of a tab that is not
+--- picked. Only the height is set: the sides keep their width, and the middle's comes from its
+--- anchors.
+---
+--- **Before the template's own `Init`**, which measures the sides to floor the tab's width.
+function DebindSwitchDetailTabMixin:Init(tabID, tabText)
+    -- The atlas heights, before anything here has moved them. A tab out of the pool is initialized
+    -- again, and a factor over an already scaled piece compounds.
+    if (not self.artHeights) then
+        self.artHeights = {};
+        for i, texture in ipairs(self.RotatedTextures) do
+            self.artHeights[i] = texture:GetHeight();
+        end
+        self.artReference = self.Left:GetHeight();
+    end
+
+    local factor = self:GetHeight() / self.artReference;
+    for i, texture in ipairs(self.RotatedTextures) do
+        texture:SetHeight(self.artHeights[i] * factor);
+    end
+    TabSystemButtonMixin.Init(self, tabID, tabText);
+end
+
+--- **The window's bottom tabs' width, in place of the tab system's own.**
+--- `TabSystemButtonMixin:UpdateTabWidth` floors every tab at the side art plus 20, so a short
+--- label comes out 20 wider here than the same label does on the bottom row. Both rows draw the
+--- same atlases, and the gap is the one thing that would say they are two kinds of tab.
+---
+--- The template's part names are the ones `PanelTemplates_TabResize` reads (`Text`, `Left`,
+--- `Right`), so the bottom row's own call is what goes here.
+function DebindSwitchDetailTabMixin:UpdateTabWidth()
+    PanelTemplates_TabResize(self, 0);
+end
+
+
+--------------------------------------------------------------------------------
 -- The settings block
 --------------------------------------------------------------------------------
 
@@ -583,7 +632,7 @@ function DebindSwitchesPanelMixin:OnLoad()
     self.layerID = ROOT_LAYER_ID;
     self:InitializeScrollBox();
     self:InitializeDetailScrollBox();
-    self.Detail.ContentArea.ScrollBox.EmptyText:SetText(LLL["SWITCHES_DETAIL_EMPTY"]);
+    self:InitializeDetailTabs();
 end
 
 function DebindSwitchesPanelMixin:OnNewClick()
@@ -675,7 +724,7 @@ function DebindSwitchesPanelMixin:InitializeDetailScrollBox()
     end);
 
     view:SetElementIndentCalculator(function(elementData)
-        if (elementData.spacer or elementData.header or elementData.action) then
+        if (elementData.spacer or elementData.header or elementData.action or elementData.settings) then
             return 0;
         end
         return ROW_INDENT;
@@ -683,6 +732,33 @@ function DebindSwitchesPanelMixin:InitializeDetailScrollBox()
 
     local content = detail.ContentArea;
     ScrollUtil.InitScrollBoxListWithScrollBar(content.ScrollBox, content.ScrollBar, view);
+end
+
+--- The two faces of the right column.
+---
+--- **The tab is picked here and nothing under it is swapped.** `TabSystemOwnerTemplate` shows one
+--- frame per tab, and both of these are lists in the one scroll box, so what a press moves is which
+--- rows are handed to it.
+function DebindSwitchesPanelMixin:InitializeDetailTabs()
+    local tabs = self.Detail.TabSystem;
+    self.settingsTabID = tabs:AddTab(LLL["SWITCH_TAB_SETTINGS"]);
+    self.usageTabID = tabs:AddTab(LLL["SWITCH_TAB_USAGE"]);
+    tabs:SetTabSelectedCallback(function(tabID)
+        self:PickDetailTab(tabID);
+    end);
+    tabs:SetTab(self.settingsTabID);
+end
+
+--- **The expression field lets go first**, the same rule the layer dropdown goes by
+--- (`PickLayer`): letting go is what writes it back, and the press that moves the tab is also what
+--- takes the block off the list.
+function DebindSwitchesPanelMixin:PickDetailTab(tabID)
+    local box = self:ExprBox();
+    if (box) then
+        box:ClearFocus();
+    end
+    self.detailTabID = tabID;
+    self:RefreshDetail();
 end
 
 --- **Called from the block's own `Init`, not from the panel's `OnLoad`.** The list's pool makes
@@ -926,16 +1002,33 @@ end
 --- on it that read a value was a second copy of the toggle already on the row. So this runs off a
 --- pick, a rebuild and a specialization change, and the value loop leaves it alone.
 function DebindSwitchesPanelMixin:RefreshDetail()
-    local detail = self.Detail;
+    local scrollBox = self.Detail.ContentArea.ScrollBox;
     local name = self.selectedName;
 
-    detail.ContentArea.ScrollBox.EmptyText:SetShown(name == nil);
+    -- The box stands empty rather than folding away, and the tabs over it do fold: there is
+    -- nothing behind either face to go to.
+    self.Detail.TabSystem:SetShown(name ~= nil);
 
+    local list, empty;
     if (not name) then
-        detail.ContentArea.ScrollBox:SetDataProvider(CreateDataProvider({}));
-        return;
+        list, empty = {}, LLL["SWITCHES_DETAIL_EMPTY"];
+    elseif (self.detailTabID == self.usageTabID) then
+        list, empty = self:UsageList(), LLL["SWITCH_USAGE_EMPTY"];
+    else
+        list = { { settings = true } };
     end
-    self:RefreshUsage();
+
+    scrollBox.EmptyText:SetShown(empty ~= nil and #list == 0);
+    if (empty) then
+        scrollBox.EmptyText:SetText(empty);
+    end
+
+    -- **Kept only where the same tab is being drawn again.** A redraw arrives on every rebuild and
+    -- throwing the reader back to the top of a long list of places would be its own bug; the tab
+    -- moving is the one case where the offset means nothing.
+    local sameTab = self.drawnTabID == self.detailTabID;
+    self.drawnTabID = self.detailTabID;
+    scrollBox:SetDataProvider(CreateDataProvider(list), sameTab);
 end
 
 --- Every layer this character reaches, and which of them decides this switch.
@@ -1157,36 +1250,29 @@ end
 --- **The third group is "you would have to log in there to fix it"**, which is not the same as
 --- "somebody else owns it": another character of this class is split between the first group and
 --- the third, because what it has on the class layers is reachable from here.
-function DebindSwitchesPanelMixin:RefreshUsage()
-    local name = self.selectedName;
-    local usage = self.usage[name];
-    local list = {
-        { header = "SWITCH_GROUP_SETTINGS" },
-        { settings = true },
-    };
+function DebindSwitchesPanelMixin:UsageList()
+    local usage = self.usage[self.selectedName];
+    local list = {};
 
     local function AddGroup(header, rows)
         if (#rows == 0) then
             return;
         end
-        list[#list + 1] = { spacer = true };
+        -- Air above every heading but the first, which the list already stands off the top of its
+        -- box for (the left column's own rule).
+        if (#list > 0) then
+            list[#list + 1] = { spacer = true };
+        end
         list[#list + 1] = { header = header };
         for i = 1, #rows do
             list[#list + 1] = rows[i];
         end
     end
 
-    local places = #list;
     AddGroup("SWITCH_USAGE_HERE", self:ActionRows(usage));
     AddGroup("SWITCH_USAGE_EXPRS", self:ExprRows(usage));
     AddGroup("SWITCH_USAGE_ELSEWHERE", self:ElsewhereRows(usage));
-
-    if (#list == places) then
-        list[#list + 1] = { spacer = true };
-        list[#list + 1] = { text = LLL["SWITCH_USAGE_EMPTY"] };
-    end
-
-    self.Detail.ContentArea.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
+    return list;
 end
 
 --- The layers this character can open, as a set. **A stored layer can be outside it**: an import
