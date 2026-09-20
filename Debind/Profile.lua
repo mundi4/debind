@@ -1902,6 +1902,15 @@ function DebindPrivate.ResolveSwitchAnswer(name)
     return definition.mode or SWITCH_DEFAULTS.mode, definition.resetValue, definition.expr, nil;
 end
 
+--- Is this name to be left out of whatever reads it, here, on this character and specialization?
+---
+--- **A name nothing defines is not ignored.** It is false, and it has to stay false: dropping an
+--- undefined name would widen every binding that carries it, which is the accident
+--- `EmitMacroTextArg` bakes `known:0` to avoid.
+function DebindPrivate.IsSwitchIgnored(name)
+    return DebindPrivate.ResolveSwitchAnswer(name) == Constants.SWITCH_MODES.IGNORE;
+end
+
 --- The answer one layer gives, or nil where that layer has no row. `layerKey` nil is the root,
 --- which always answers.
 ---

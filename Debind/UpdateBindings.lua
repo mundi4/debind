@@ -2069,6 +2069,15 @@ local function EmitMacroTextArg(index, arg, ownerName, isState)
         return;
     end
 
+    -- **Ignored erases the term, comma and all left behind.** `SecureCmdOptionParse` drops empty
+    -- options wherever they fall, measured 2026-09-20 on `[,,,exists,,,,nodead,]`, so nothing has to
+    -- reach back into the fragments to take the separator with it. A clause that held nothing else
+    -- becomes `[]`, which is always true, and that is what being ignored means here.
+    if (DebindPrivate.IsSwitchIgnored(arg.name)) then
+        appendLine([[t.args[%d].fixed=""]], index);
+        return;
+    end
+
     local selfReference = isState and arg.name == ownerName;
     if (selfReference or not addSwitch(arg.name)) then
         local fixed = "known:0";

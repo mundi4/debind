@@ -14,6 +14,12 @@ return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
     local normalize = DebindPrivate.GetBindingInfoForAction;
 
+    -- 이 스펙은 프로필을 안 올린다. 정의 표는 `LoadProfile`이 붙이므로 여기서는 비어 있는 표를
+    -- 세워 준다. 게임에는 없는 상태다 - 바인딩 파생은 전부 프로필이 올라온 뒤의 길이다.
+    -- **빈 표여야 한다.** 아래 `$state` 조건들이 정의 없는 이름으로 남아야 무시 판정
+    -- (`IsSwitchIgnored`)이 안 걸리고, 이 파일이 재는 것은 그 판정이 아니다.
+    DebindPrivate.Switches = DebindPrivate.Switches or {};
+
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)

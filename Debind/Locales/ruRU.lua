@@ -76,7 +76,6 @@ L["COPY_TO"] = "Скопировать в..."
 -- 근거는 enUS 쪽 주석에.
 L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(текущая)|r"
 L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "Введите макро-условие.\n(Пример: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)"
-L["CUSTOM_STATE_EDIT_VALUE"] = "Введите макро-условие."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "Эта опция позволяет аддону определять значение состояния на основе макро-условий (Пример: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "Устанавливать автоматически"
 L["CUSTOM_STATE_OFF"] = "Выкл"

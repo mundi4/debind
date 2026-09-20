@@ -341,42 +341,67 @@
 							<Anchor point="TOPLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT"/>
 							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Background" relativePoint="BOTTOMRIGHT"/>
 						</Anchors>
+						<!--
+							**Before `<Frames>`, so the rename button can hang off the name.** Every
+							caption here is placed outright rather than off the control under it,
+							which is what lets the block come first.
+						-->
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="NameLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="16" y="-14"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="NameText" inherits="GameFontHighlightLarge" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="16" y="-36"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="16" y="-74"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="ModeLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="16" y="-134"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="16" y="-194"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="ExprLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="16" y="-254"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
 						<Frames>
-							<!--
-								Renaming, where the name is. The `$` is drawn beside the box and not
-								in it: it is on every switch name and on nothing else, so it is
-								furniture - shown so the reader knows the shape, kept out of the
-								field so it cannot be deleted, doubled or left off.
-
-								`letters` is one less than a stored name allows, the sigil not being
-								typed here.
-							-->
-							<EditBox parentKey="NameBox" inherits="InputBoxTemplate" autoFocus="false" letters="31">
-								<Size x="180" y="22"/>
+							<Button parentKey="RenameButton" inherits="UIPanelButtonTemplate">
+								<Size x="100" y="22"/>
 								<Anchors>
-									<Anchor point="TOPLEFT" x="30" y="-36"/>
+									<Anchor point="LEFT" relativeKey="$parent.NameText" relativePoint="RIGHT" x="12" y="0"/>
 								</Anchors>
 								<Scripts>
-									<OnEnterPressed>
-										self:ClearFocus();
-									</OnEnterPressed>
-									<OnEditFocusLost>
-										self:GetParent():GetParent():GetParent():OnNameCommitted();
-									</OnEditFocusLost>
-									<OnEscapePressed>
-										self:GetParent():GetParent():GetParent():OnNameCancelled();
-									</OnEscapePressed>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnRenameClick();
+									</OnClick>
 								</Scripts>
-							</EditBox>
+							</Button>
 
 							<!--
 								Which layer the answers below are being read and written at. It opens
 								on the layer in force, and the one in force is marked in the list, so
 								a reader who has walked off it can find the way back.
 
-								**It lists only where this switch is already decided**, and puts the
-								rest under a divider as places to start deciding it
-								(`BuildLayerMenu`).
+								**Every layer is in the list and picking one only reads it.** The
+								ones with nothing set are marked out and the row is made from the
+								button below, because a list that wrote as it was walked left a row
+								behind at every layer the reader passed through (2026-09-20, 소유자).
 							-->
 							<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
 								<Size x="260" y="26"/>
@@ -386,41 +411,21 @@
 							</DropdownButton>
 
 							<!--
-								Takes the picked layer away again. **The button the sharing tab gets
-								rid of an entry with** (`StorageUI.xml`), so the glyph means one thing
-								across the addon.
+								How this layer decides the switch: by hand, from a macro conditional,
+								or not at all.
 
-								Hidden on the account-wide row, which cannot be taken away (§4-6 of
-								`redesigning-custom-states.md`).
+								**A layer that is read here answers one of them.** A layer the reader
+								wants to stop deciding is one they take away, and an answer that did
+								the same thing would be a second control for one job (2026-09-20,
+								소유자). Ignoring is not that: the switch goes on being decided here,
+								and what goes away is the condition on the actions that read it.
 							-->
-							<Button parentKey="LayerRemoveButton" inherits="UIPanelCloseButtonNoScripts" hidden="true">
-								<Size x="24" y="24"/>
+							<DropdownButton parentKey="ModeDropdown" inherits="WowStyle1DropdownTemplate">
+								<Size x="260" y="26"/>
 								<Anchors>
-									<Anchor point="LEFT" relativeKey="$parent.LayerDropdown" relativePoint="RIGHT" x="4" y="0"/>
+									<Anchor point="TOPLEFT" x="16" y="-156"/>
 								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnLayerRemoveClick();
-									</OnClick>
-								</Scripts>
-							</Button>
-
-							<!--
-								The two answers one layer can give. **A layer that is read here answers
-								one of them.** A layer the reader wants to stop deciding is one they
-								take away with the button above, and an answer that did the same
-								thing would be a second control for one job (2026-09-20, 소유자).
-							-->
-							<CheckButton parentKey="ManualRadio" inherits="UIRadioButtonTemplate">
-								<Anchors>
-									<Anchor point="TOPLEFT" x="20" y="-136"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnAnswerClick("manual");
-									</OnClick>
-								</Scripts>
-							</CheckButton>
+							</DropdownButton>
 
 							<!--
 								What a hand-worked switch comes up as. **Its own axis**, under the
@@ -428,47 +433,12 @@
 								whether the switch is hand-worked at all, and folding them into one
 								list of four put the second question two levels down (§4-6).
 							-->
-							<CheckButton parentKey="StartOnRadio" inherits="UIRadioButtonTemplate">
+							<DropdownButton parentKey="StartDropdown" inherits="WowStyle1DropdownTemplate">
+								<Size x="260" y="26"/>
 								<Anchors>
-									<Anchor point="TOPLEFT" x="48" y="-190"/>
+									<Anchor point="TOPLEFT" x="16" y="-216"/>
 								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnStartValueClick("on");
-									</OnClick>
-								</Scripts>
-							</CheckButton>
-							<CheckButton parentKey="StartOffRadio" inherits="UIRadioButtonTemplate">
-								<Anchors>
-									<Anchor point="TOPLEFT" x="48" y="-212"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnStartValueClick("off");
-									</OnClick>
-								</Scripts>
-							</CheckButton>
-							<CheckButton parentKey="StartRememberRadio" inherits="UIRadioButtonTemplate">
-								<Anchors>
-									<Anchor point="TOPLEFT" x="48" y="-234"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnStartValueClick("remember");
-									</OnClick>
-								</Scripts>
-							</CheckButton>
-
-							<CheckButton parentKey="AutoRadio" inherits="UIRadioButtonTemplate">
-								<Anchors>
-									<Anchor point="TOPLEFT" x="20" y="-266"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnAnswerClick("auto");
-									</OnClick>
-								</Scripts>
-							</CheckButton>
+							</DropdownButton>
 
 							<!--
 								The macro conditional this layer works the switch out from.
@@ -480,7 +450,7 @@
 							<EditBox parentKey="ExprBox" inherits="InputBoxTemplate" autoFocus="false" letters="100">
 								<Size x="320" y="22"/>
 								<Anchors>
-									<Anchor point="TOPLEFT" x="52" y="-292"/>
+									<Anchor point="TOPLEFT" x="22" y="-276"/>
 								</Anchors>
 								<Scripts>
 									<OnEnterPressed>
@@ -513,37 +483,6 @@
 								</Scripts>
 							</Button>
 						</Frames>
-						<!--
-							**After `<Frames>`, not before.** These hang off boxes declared above, and
-							a layer read before the frames are built gets its anchor dropped without a
-							word (`tools/check-xml-anchors.js`).
-						-->
-						<Layers>
-							<Layer level="ARTWORK">
-								<FontString parentKey="NameSigil" inherits="GameFontHighlight" justifyH="RIGHT">
-									<Anchors>
-										<Anchor point="RIGHT" relativeKey="$parent.NameBox" relativePoint="LEFT" x="-4" y="0"/>
-									</Anchors>
-								</FontString>
-								<!-- Level with the dropdown's caption below, so the two fields read as
-								     two rows of one form. -->
-								<FontString parentKey="NameLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="BOTTOMLEFT" relativeKey="$parent.NameBox" relativePoint="TOPLEFT" x="-14" y="4"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="BOTTOMLEFT" relativeKey="$parent.LayerDropdown" relativePoint="TOPLEFT" x="0" y="4"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="44" y="-166"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
 					</Frame>
 
 					<!--

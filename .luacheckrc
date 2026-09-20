@@ -298,6 +298,8 @@ globals = {
 	"Menu",
 	"MenuUtil",
 	"MenuResponse",
+	"MenuTemplates",
+	"MenuVariants",
 	"IconSelectorPopupFrameModes",
 	"IconSelectorPopupFrameIconFilterTypes",
 	"IconSelectorPopupFrameTemplateMixin",

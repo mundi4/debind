@@ -5153,19 +5153,19 @@ RegisterTest("Switches tab: picking a switch fills the right column", {
         if not settings:IsShown() then
             return Fail(NAME, "a row was clicked and the settings side of the column did not come up")
         end
-        -- The `$` is drawn beside the field and never inside it, so what the field holds is the
-        -- name minus its sigil.
-        local typed = settings.NameBox:GetText()
-        if typed ~= strsub(SWITCH, 2) then
-            return Fail(NAME, format("the name field holds %q, the switch is %s", typed, SWITCH))
+        -- The name is read here and typed in the box the button beside it opens, so the sigil is
+        -- drawn with it.
+        local shown = settings.NameText:GetText()
+        if shown ~= SWITCH then
+            return Fail(NAME, format("the name reads %q, the switch is %s", shown, SWITCH))
         end
         local expr = settings.ExprBox:GetText()
         if expr ~= EXPR then
             return Fail(NAME, format(
                 "the expression field holds %q, the expression on record was not carried", expr))
         end
-        if not settings.AutoRadio:GetChecked() then
-            return Fail(NAME, "the switch is worked out from an expression and that answer is not ticked")
+        if panel:CurrentMode() ~= Constants.SWITCH_MODES.EXPR then
+            return Fail(NAME, "the switch is worked out from an expression and the mode does not say so")
         end
 
         return Pass(NAME, format("%s -> %q", SWITCH, expr))
@@ -5382,7 +5382,7 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         end)
         -- `resetValue` and not `value`, for the reason the toggle test above spells out. The
         -- account-wide row starts off and the override starts on, so which of the two the column
-        -- is reading comes apart on the radio that is ticked.
+        -- is reading comes apart on the starting value it shows.
         DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
         local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
@@ -5406,10 +5406,10 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         end
 
         local settings = panel.Detail.Settings
-        if not settings.StartOnRadio:GetChecked() then
+        if panel:CurrentStartValue() ~= "on" then
             return Fail(NAME, format(
-                "the override says it starts on and the column does not say so. what is ticked: %s",
-                settings.StartOffRadio:GetChecked() and "starts off" or "neither"))
+                "the override says it starts on and the column reads %s",
+                tostring(panel:CurrentStartValue())))
         end
         -- The dropdown's own text, because that is where the reader reads the layer off. A column
         -- standing on the right layer with the wrong name on the button is the same fault seen
@@ -5424,20 +5424,22 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
     end,
 })
 
--- **The two ends of a layer's life, in one run.** The dropdown lists only the layers that already
--- decide this switch, so making one and taking it away are the only ways a layer enters and leaves
--- that list; measured apart, either could pass on a list that never changed.
+-- **The two ends of a layer's life, in one run.** Measured apart, either could pass on a column
+-- that never changed what it was drawing.
 --
--- **The seed is half of what is measured.** A new row starts from the answer the column was showing
+-- **The list holds only the layers that decide this switch**, so making one and taking it away are
+-- the only ways a layer enters and leaves it; measured apart, either could pass on a list that
+-- never changed.
+--
+-- **The seed is half of what is measured.** A new row starts from what the switch is doing here
 -- (`CreateOverrideAt`), so making a place to set something is not itself a change to what the
 -- switch does. A row seeded with the plain default passes "the row is there" and fails this.
 --
 -- Headless goes as far as the row being written and taken away (`tests/switch_spec.lua`). What only
--- this layer can answer is that the button stands on an overriding layer and not on the
--- account-wide one, and that the pick lands back on the layer in force once the row it was on is
--- gone.
+-- this layer can answer is that the column lands on the layer it just made, and that the pick goes
+-- back to the layer in force once the row it was on is gone.
 RegisterTest("Switches tab: a layer is made from the dropdown and taken away again", {
-    description = "Picking a layer that was not set yet makes its row from what is on screen, and the button beside the dropdown takes it away",
+    description = "Making a layer from the list writes its row from what is on screen and reads it there, and taking that row away sends the column back to the layer in force",
     run = function()
         local NAME = "Switch layer make and remove"
         local SWITCH = "$rowmakelayer"
@@ -5451,8 +5453,10 @@ RegisterTest("Switches tab: a layer is made from the dropdown and taken away aga
                 DebindPrivate.UpdateBindings()
             end
         end)
-        -- Off account-wide, so the seeded row can be told from a row built out of the defaults:
-        -- `remember` is what a fresh row comes up as, and this is `off`.
+        -- The confirmation is the client's and outlives a failed run, so it goes whatever happens.
+        AddTeardown(function() StaticPopup_Hide("GENERIC_CONFIRMATION") end)
+        -- Off account-wide, so a row that copied what is set elsewhere can be told from one built
+        -- out of the defaults: a fresh row comes up `remember`, and this is `off`.
         DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
         local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
@@ -5468,31 +5472,33 @@ RegisterTest("Switches tab: a layer is made from the dropdown and taken away aga
         end
         row:Click()
 
-        local settings = panel.Detail.Settings
-        if settings.LayerRemoveButton:IsShown() then
-            return Fail(NAME, "the column opened on the account-wide row and offered to take it away")
-        end
-
         panel:CreateOverrideAt(layerID)
 
         if panel.layerID ~= layerID then
             return Fail(NAME, format("a layer was made at %s and the column is reading %s",
                 tostring(layerID), tostring(panel.layerID)))
         end
-        if not settings.LayerRemoveButton:IsShown() then
-            return Fail(NAME, "the column is on an overriding layer and offers no way to take it away")
-        end
+        -- A new row starts from the plain default, whatever the account-wide row says: it is a
+        -- place to set something and not a copy of what is set elsewhere (2026-09-20, 소유자).
+        -- The account-wide row above is `off`, so a row that copied would read `off` here.
         local mode, resetValue = DebindPrivate.GetSwitchAnswerAt(SWITCH, layerKey)
-        if mode ~= MODES.MANUAL or resetValue ~= false then
-            return Fail(NAME, format(
-                "the new row says %s/%s and what was on screen was manual/off",
+        if mode ~= MODES.MANUAL or resetValue ~= nil then
+            return Fail(NAME, format("the new row says %s/%s and a fresh one is manual/nil",
                 tostring(mode), tostring(resetValue)))
         end
 
-        settings.LayerRemoveButton:Click()
+        -- **Asked through the dialog, not around it.** Taking a row away puts a confirmation up,
+        -- and calling `RemoveSwitchOverride` from here would pass on a press that never reaches it.
+        panel:RemoveOverrideAt(layerID)
+        local _, dialog = StaticPopup_Visible("GENERIC_CONFIRMATION")
+        if not dialog or not dialog.data
+            or dialog.data.referenceKey ~= "DebindSwitchOverrideRemove" then
+            return Fail(NAME, "taking the row away brought up no confirmation of ours")
+        end
+        dialog:GetButton1():Click()
 
         if DebindPrivate.GetSwitchAnswerAt(SWITCH, layerKey) ~= nil then
-            return Fail(NAME, "the button was pressed and the row still answers")
+            return Fail(NAME, "the confirmation was accepted and the row is still set there")
         end
         -- The account-wide row is the only one left, so that is where the pick has to land.
         if panel.layerID ~= DebindPrivate.GetLayerID(nil, false) then

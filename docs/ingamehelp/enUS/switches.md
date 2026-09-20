@@ -32,10 +32,10 @@ Two places take one: *Switches* in an action's menu, where you pick on or off, a
 
 Work one with a key: put *Switch* on it from the *Special* tab of *Add an Action*, then pick in its menu which switch the key works and whether the press turns that switch on, off or over. A key does it in combat, which is where a switch earns its place. The *Turn On* button beside it on the *Switches* tab does the same out of combat.
 
-Each switch says what it comes up as when you log in and when you change specialization: *Starts on*, *Starts off*, or *As you left it*. Pick a switch on the *Switches* tab and that is the first thing the right-hand side asks. *Set it for* above it picks which situation you are answering about: the whole account, one class, one specialization or one character. The narrowest one that fits is what counts, and the one that does is marked *in force* in that list.
+Each switch says what it comes up as when you log in and when you change specialization. *Starts as* on the *Switches* tab takes *On*, *Off*, or *As you left it*. *Set it for* above it picks which situation you are answering about: the whole account, one class, one specialization or one character. The narrowest one that fits is what counts, and the one that does is coloured in that list.
 
 That is how one macro does the right thing on every character. Where only some of your characters have the trinket, put a switch on the *use* line and turn that switch on where the trinket is.
 
 **/use [$onusetrinket] 14**
 
-When the condition menu has nothing for what you want, a switch can work itself out. *Set Automatically* takes a macro conditional such as **[@tank,exists]**, and the switch is on exactly while that is true. One set this way cannot be turned over by hand or by a key.
+When the condition menu has nothing for what you want, a switch can work itself out. *Set automatically* takes a macro conditional such as **[@tank,exists]**, and the switch is on exactly while that is true. One set this way cannot be turned over by hand or by a key.

@@ -1034,7 +1034,16 @@ do
         end
         if (action.conditions) then
             for k, v in pairs(action.conditions) do
-                conditions[k] = v;
+                -- **무시로 지정된 스위치는 안 담는다.** 값을 거짓으로 답하는 것이 아니라 조건
+                -- 항 자체가 없던 것이 되므로, 이 표에 안 들어오는 것이 그대로 뜻이다. 솔버는
+                -- 표에 있는 이름으로만 컬럼을 세우고(`Solver.lua`), `CollectRecordNeeds`도
+                -- 여기서 나온 것만 거둔다.
+                --
+                -- 리빌드 때 펴도 되는 이유: `mode`는 사용자 편집이나 전문화 전환에서만 움직이고
+                -- 둘 다 전투 중이 아니다. 누를 때 다시 잴 것이 없다.
+                if (not (Constants.IsSwitchName(k) and DebindPrivate.IsSwitchIgnored(k))) then
+                    conditions[k] = v;
+                end
             end
         end
 

@@ -176,6 +176,41 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
+    -- Ignoring a switch
+    ---------------------------------------------------------------------------
+
+    -- **Ignored is not off.** Off answers the condition with false and the key goes quiet; ignored
+    -- takes the condition away, and a binding that had only that one is unconditional afterwards.
+    -- The two are a press apart and nothing downstream tells them apart on its own, so each half
+    -- below stands the other one up first.
+    pressTest("an ignored switch takes the condition away instead of answering it", function()
+        Bind({ spell({ key = "F1", conditions = { ["$state1"] = true } }) }, {
+            ["$state1"] = { mode = MODES.MANUAL, resetValue = false },
+        });
+        check(not Fires("F1"), "an off switch fired the key, so the half below proves nothing");
+
+        DebindPrivate.Switches["$state1"].mode = MODES.IGNORE;
+        Rebuild();
+        check(Fires("F1"), "the switch was ignored and the condition still held the key down");
+    end);
+
+    -- **The other half of the same rule, on the side no condition table reaches.** A name inside a
+    -- macro conditional is not a condition on the binding -- it is a clause the restricted side
+    -- rebuilds every press -- so dropping the condition says nothing about it. An ignored name
+    -- leaves the clause, `[$inner]` becomes `[]`, and `[]` is true.
+    pressTest("an ignored name is erased from a macro conditional", function()
+        Bind({ spell({ key = "F1", conditions = { ["$outer"] = true } }) }, {
+            ["$outer"] = { mode = MODES.EXPR, expr = "[$inner]" },
+            ["$inner"] = { mode = MODES.MANUAL, resetValue = false },
+        });
+        check(not Fires("F1"), "the inner switch was off and the key fired anyway");
+
+        DebindPrivate.Switches["$inner"].mode = MODES.IGNORE;
+        Rebuild();
+        check(Fires("F1"), "the ignored name stayed in the clause");
+    end);
+
+    ---------------------------------------------------------------------------
     -- Renaming, from the key's end
     ---------------------------------------------------------------------------
 

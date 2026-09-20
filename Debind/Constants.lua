@@ -345,8 +345,14 @@ Constants.SWITCH_NAMES = { "$state1", "$state2", "$state3", "$state4", "$state5"
 
 --- **Strings, so a mode nothing wrote matches nothing.** A number carries neighbours: one that is
 --- off by one is a different mode, and a gap in the numbering can never be closed without silently
---- reinterpreting every stored definition. A name that is neither of these two matches neither
---- reader, and every reader compares with `==` -- no arithmetic, no index, no sort.
+--- reinterpreting every stored definition. A name that is none of these three matches no reader,
+--- and every reader compares with `==` -- no arithmetic, no index, no sort.
+---
+--- **`IGNORE` is not a value the switch has, it is the condition going away.** The other two answer
+--- true or false; this one takes the term out of the binding (`GetBindingInfoForAction`) and out of
+--- the macro conditional (`EmitMacroTextArg`), so what was written `[$name]` reads as if nothing had
+--- been written there. Off and ignored are opposite answers for a binding carrying only that one
+--- condition: off kills it, ignored makes it unconditional.
 ---
 --- The old numbers live on in three places, all of which have to keep speaking a language this
 --- table no longer does: `MigrateSwitches` in `Profile.lua`, the v1 step in `Export.lua` that
@@ -355,6 +361,7 @@ Constants.SWITCH_NAMES = { "$state1", "$state2", "$state3", "$state4", "$state5"
 Constants.SWITCH_MODES = {
     MANUAL = "manual",
     EXPR   = "expr",
+    IGNORE = "ignore",
 };
 
 --- The three types, to the mode string the restricted side is handed. **Telling the type and

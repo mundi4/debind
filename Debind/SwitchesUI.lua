@@ -41,19 +41,24 @@ local GROUPS = {
     { header = "SWITCHES_GROUP_UNUSED", used = false },
 };
 
---- The two answers one layer can give, in the order the radios stand in.
+--- The three answers one layer can give, in the order they stand in the mode dropdown.
 ---
 --- **"Says nothing" is not one of them** (2026-09-20, 소유자). A layer the reader wants to stop
---- deciding is one they take away, and the button beside the layer list does that; an answer that
---- did the same thing would be a second control for one job.
+--- deciding is one they take away, and the row's own delete does that; an answer that did the same
+--- thing would be a second control for one job. `ignore` is not that answer: the layer goes on
+--- deciding, and what goes away is the condition on everything that reads the switch
+--- (`IsSwitchIgnored`).
 local ANSWERS = {
-    { key = "manual", label = "SWITCH_ANSWER_MANUAL", desc = "SWITCH_ANSWER_MANUAL_DESC" },
+    { key = Constants.SWITCH_MODES.MANUAL, label = "SWITCH_ANSWER_MANUAL",
+                                           desc  = "SWITCH_ANSWER_MANUAL_DESC" },
     -- The expression's own words. The key kept its `CUSTOM_STATE_` name from when the settings
     -- menu on the portrait used it for the same choice, and that menu is gone (3c); the string is
     -- one rule, and a second key for it would be a second thing to translate that can then
     -- disagree inside one window.
-    { key = "auto",   label = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL",
-                      desc  = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC" },
+    { key = Constants.SWITCH_MODES.EXPR,   label = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL",
+                                           desc  = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC" },
+    { key = Constants.SWITCH_MODES.IGNORE, label = "SWITCH_ANSWER_IGNORE",
+                                           desc  = "SWITCH_ANSWER_IGNORE_DESC" },
 };
 
 --- What a hand-worked switch comes up as, in the order the radios stand in.
@@ -66,6 +71,24 @@ local START_VALUES = {
     { key = "remember", label = "SWITCH_ANSWER_REMEMBER", desc = "SWITCH_ANSWER_REMEMBER_DESC" },
 };
 
+--- The label on the closed dropdown, for a key out of either list above.
+local function LabelIn(list, key)
+    for _, entry in ipairs(list) do
+        if (entry.key == key) then
+            return entry.label;
+        end
+    end
+    return nil;
+end
+
+local function LabelForMode(mode)
+    return LabelIn(ANSWERS, mode);
+end
+
+local function LabelForStartValue(startKey)
+    return LabelIn(START_VALUES, startKey);
+end
+
 --- Which of the three starting values a manual answer is.
 local function StartValueFor(resetValue)
     if (resetValue == true) then
@@ -77,45 +100,23 @@ local function StartValueFor(resetValue)
     return "remember";
 end
 
---- Puts the words on a radio and stretches the button out over them.
+--- Which layers this switch is already set at, keyed by `layerID`.
 ---
---- **`UIRadioButtonTemplate`'s label is a FontString anchored outside the 16px button**, so without
---- this the words are dead to the mouse and only the circle can be hit. The client stretches the
---- hit rect over its own check labels with the same call (`Blizzard_Calendar.lua`). The 5 is the
---- gap the template anchors the label at.
----
---- **Called again whenever the words change**, because the rect is measured off them. The template
---- also hands the label `GameFontNormalSmall`, which is a dropdown row's font; these are rows of a
---- panel and take the panel's.
-local function SetRadioText(radio, text)
-    radio.text:SetFontObject(GameFontNormal);
-    radio.text:SetText(text);
-    radio:SetHitRectInsets(0, -radio.text:GetStringWidth() - 5, 0, 0);
-end
-
---- The layer list, in two parts: the ones this switch is already set at, and the ones it is not.
----
---- **The root is always in the first part**: it is a row the reader edits like the others, it
---- cannot be missing (§4-6), and leaving it out would put the account-wide answer behind a
---- different control from the ones that override it.
----
---- **Eleven rows every time was the first cut, and it went** (2026-09-20, 소유자). Ten of them
---- said nothing about this switch, and the one place a reader looks to find out where a switch is
---- decided read as a list of specializations.
-local function LayerChoices(name)
-    local set, unset = { ROOT_LAYER_ID }, {};
+--- **The root is always one of them**: it is a row the reader edits like the others and it cannot
+--- be missing (§4-6), which is why `GetSwitchLayerKey` gives it no key and it is put in here by
+--- hand.
+local function LayersThatDecide(name)
+    local set = { [ROOT_LAYER_ID] = true };
     local overridable = DebindPrivate.GetOverridableLayerIDs();
     for i = 1, #overridable do
         local layerID = overridable[i];
         local layerKey = DebindPrivate.GetSwitchLayerKey(layerID);
         -- A row that is there answers, so an answer here is the whole of "this layer has a row".
         if (layerKey and DebindPrivate.GetSwitchAnswerAt(name, layerKey)) then
-            set[#set + 1] = layerID;
-        else
-            unset[#unset + 1] = layerID;
+            set[layerID] = true;
         end
     end
-    return set, unset;
+    return set;
 end
 
 --- Which layer is deciding this switch here, as a `layerID`.
@@ -214,17 +215,24 @@ function DebindSwitchRowMixin:Update(inCombat)
         return;
     end
 
-    -- **A switch worked out from its expression has no value to draw and no press to offer.** It
-    -- is computed at a press and at no other moment (`COMPUTE_SWITCHES_SNIPPET`), so a value drawn
-    -- here would read as what the switch is now, which nothing has measured since -- and the press
-    -- cannot be offered either, since the next one overwrites it.
-    local automatic = DebindPrivate.ResolveSwitchAnswer(name) == Constants.SWITCH_MODES.EXPR;
+    -- **Only a hand-worked switch has a value to draw and a press to offer**, and the other two
+    -- answers say so in words where the toggle would be.
+    --
+    -- A computed one is worked out at a press and at no other moment
+    -- (`COMPUTE_SWITCHES_SNIPPET`), so a value drawn here would read as what the switch is now,
+    -- which nothing has measured since -- and the press cannot be offered either, since the next
+    -- one overwrites it. An ignored one has a value that nothing reads, which is worse: it would
+    -- be a toggle that works, on a switch that changes nothing.
+    local mode = DebindPrivate.ResolveSwitchAnswer(name);
+    local manual = mode == Constants.SWITCH_MODES.MANUAL;
     local isOn = definition.value and true or false;
 
-    self.ToggleButton:SetShown(not automatic);
-    self.Status:SetShown(automatic);
-    if (automatic) then
+    self.ToggleButton:SetShown(manual);
+    self.Status:SetShown(not manual);
+    if (mode == Constants.SWITCH_MODES.EXPR) then
         self.Status:SetText(LLL["SWITCH_AUTOMATIC"]);
+    elseif (not manual) then
+        self.Status:SetText(LLL["SWITCH_IGNORED"]);
     end
 
     self.SelectedHighlight:SetShown(self.panel and self.panel.selectedName == name);
@@ -236,7 +244,7 @@ function DebindSwitchRowMixin:Update(inCombat)
     -- label used to be both: it read "On" while the switch was on, in the place a label says what
     -- pressing will do. In one string rather than two font strings, so the state lands right
     -- after however long the name is, and a name too long for the row clips the pair together.
-    if (automatic) then
+    if (not manual) then
         self.Name:SetText(name);
     else
         self.Name:SetText(name .. "  " .. HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(
@@ -450,8 +458,8 @@ end
 --- 3c: making a switch belongs wherever the reader turns out to need one, not on a trip to a
 --- tab they have to know about first (§6-2 of `redesigning-custom-states.md`).
 ---
---- **Renaming is not one of these any more.** It is the field at the top of the right column, and
---- a dialog asking for a name the panel is already showing is a second place to read it.
+--- **Renaming goes through the box beside this one** (`ShowRenameSwitchBox`), which is the same
+--- dialog with the same rule in it and a different call behind the button.
 function DebindUI.ShowNewSwitchBox(onCreated)
     DebindUI.ShowInputBox({
         text = LLL["SWITCH_CREATE_PROMPT"],
@@ -477,6 +485,36 @@ function DebindUI.ShowNewSwitchBox(onCreated)
         -- **The sigil is beside the box, not in it.** The rule is in the prompt above, but a
         -- reader handed an empty field still has to act on a sentence rather than on the box;
         -- the glyph says the same thing where it applies, and cannot be typed over.
+        prefix = "$",
+    });
+end
+
+--- Asking for a new name for a switch that is already there. `onRenamed` is handed the name it was
+--- filed under, for the same reason the box above hands one over.
+---
+--- **The field opens holding the current name.** Most renames are an edit to what is there rather
+--- than a name thought up from nothing, and an empty field makes the reader type the part they
+--- were keeping.
+function DebindUI.ShowRenameSwitchBox(name, onRenamed)
+    DebindUI.ShowInputBox({
+        text = LLL["SWITCH_RENAME_PROMPT"],
+        currentValue = strsub(name, 2),
+        callback = function(value)
+            local typed = "$" .. strtrim(value);
+            local ok, reason = DebindPrivate.RenameSwitch(name, typed);
+            if (not ok) then
+                if (reason) then
+                    DebindPrivate.DisplayMessage(LLL[reason]);
+                end
+                return;
+            end
+            if (onRenamed) then
+                -- **`RenameSwitch` answers whether it moved, not what it filed**, unlike
+                -- `CreateSwitch` beside it. The fold is the same one and it is done here.
+                onRenamed(strlower(typed));
+            end
+        end,
+        maxLetters = 31,
         prefix = "$",
     });
 end
@@ -586,28 +624,53 @@ function DebindSwitchesPanelMixin:InitializeDetail()
 
     detail.Background.EmptyText:SetText(LLL["SWITCHES_DETAIL_EMPTY"]);
 
-    settings.NameSigil:SetText("$");
     settings.NameLabel:SetText(LLL["SWITCH_NAME_LABEL"]);
     settings.LayerLabel:SetText(LLL["SWITCH_LAYER_PICKER"]);
     settings.StartLabel:SetText(LLL["SWITCH_START_VALUE"]);
-
-    for _, answer in ipairs(ANSWERS) do
-        local radio = settings[self:RadioKeyFor(answer.key)];
-        SetRadioText(radio, LLL[answer.label]);
-        radio.tooltipTitle = LLL[answer.label];
-        radio.tooltipText = LLL[answer.desc];
-        self:WireTooltip(radio);
-    end
-    for _, start in ipairs(START_VALUES) do
-        local radio = settings[self:StartRadioKeyFor(start.key)];
-        SetRadioText(radio, LLL[start.label]);
-        radio.tooltipTitle = LLL[start.label];
-        radio.tooltipText = LLL[start.desc];
-        self:WireTooltip(radio);
-    end
+    settings.ExprLabel:SetText(LLL["SWITCH_EXPR_LABEL"]);
+    settings.ModeLabel:SetText(LLL["SWITCH_MODE_LABEL"]);
+    settings.RenameButton:SetText(LLL["SWITCH_RENAME"]);
 
     settings.LayerDropdown:SetupMenu(function(_, rootDescription)
         self:BuildLayerMenu(rootDescription);
+    end);
+
+    -- **The two lists are built the same way and differ only in what one press writes**, so the
+    -- tooltip on each entry is the one the radio beside it used to carry.
+    settings.ModeDropdown:SetupMenu(function(_, rootDescription)
+        for _, answer in ipairs(ANSWERS) do
+            local entry = rootDescription:CreateRadio(LLL[answer.label], function()
+                return self:CurrentMode() == answer.key;
+            end, function()
+                self:SetMode(answer.key);
+                return MenuResponse.CloseAll;
+            end);
+            entry:SetTooltip(function(tooltip)
+                GameTooltip_SetTitle(tooltip, LLL[answer.label]);
+                GameTooltip_AddNormalLine(tooltip, LLL[answer.desc]);
+            end);
+        end
+    end);
+    settings.ModeDropdown:SetSelectionText(function()
+        return LLL[LabelForMode(self:CurrentMode())];
+    end);
+
+    settings.StartDropdown:SetupMenu(function(_, rootDescription)
+        for _, start in ipairs(START_VALUES) do
+            local entry = rootDescription:CreateRadio(LLL[start.label], function()
+                return self:CurrentStartValue() == start.key;
+            end, function()
+                self:SetStartValue(start.key);
+                return MenuResponse.CloseAll;
+            end);
+            entry:SetTooltip(function(tooltip)
+                GameTooltip_SetTitle(tooltip, LLL[start.label]);
+                GameTooltip_AddNormalLine(tooltip, LLL[start.desc]);
+            end);
+        end
+    end);
+    settings.StartDropdown:SetSelectionText(function()
+        return LLL[LabelForStartValue(self:CurrentStartValue())];
     end);
     -- **The closed button says the layer's name and nothing else.** The mark on the winning entry
     -- belongs in the list, where the reader is comparing the layers against each other; on the
@@ -618,28 +681,29 @@ function DebindSwitchesPanelMixin:InitializeDetail()
     settings.LayerDropdown.tooltipTitle = LLL["SWITCH_LAYER_PICKER"];
     settings.LayerDropdown.tooltipText = LLL["SWITCH_OVERRIDE_DESC"];
     self:WireTooltip(settings.LayerDropdown);
-
-    settings.LayerRemoveButton.tooltipTitle = LLL["SWITCH_OVERRIDE_REMOVE"];
-    settings.LayerRemoveButton.tooltipText = LLL["SWITCH_OVERRIDE_REMOVE_DESC"];
-    self:WireTooltip(settings.LayerRemoveButton);
 end
 
---- Which radio carries which answer. The two are separate frames rather than a pool, because
---- their places are laid out in the XML along with what hangs under each of them.
-function DebindSwitchesPanelMixin:RadioKeyFor(answerKey)
-    if (answerKey == "manual") then
-        return "ManualRadio";
+--- The picked layer's own answer, for the two dropdowns that read it.
+function DebindSwitchesPanelMixin:CurrentMode()
+    local name = self.selectedName;
+    if (not name) then
+        return nil;
     end
-    return "AutoRadio";
+    return (DebindPrivate.GetSwitchAnswerAt(name,
+        DebindPrivate.GetSwitchLayerKey(self.layerID or ROOT_LAYER_ID)));
 end
 
-function DebindSwitchesPanelMixin:StartRadioKeyFor(startKey)
-    if (startKey == "on") then
-        return "StartOnRadio";
-    elseif (startKey == "off") then
-        return "StartOffRadio";
+--- **Which of the three the row is on, whichever answer it gives.** The starting value outlives a
+--- move to another answer (`SetSwitchAnswer` leaves it alone), so the dropdown goes on showing what
+--- it will come back to.
+function DebindSwitchesPanelMixin:CurrentStartValue()
+    local name = self.selectedName;
+    if (not name) then
+        return nil;
     end
-    return "StartRememberRadio";
+    local _, resetValue = DebindPrivate.GetSwitchAnswerAt(name,
+        DebindPrivate.GetSwitchLayerKey(self.layerID or ROOT_LAYER_ID));
+    return StartValueFor(resetValue);
 end
 
 --- The tooltip a control on this column opens, from `tooltipTitle` and `tooltipText` on it.
@@ -748,11 +812,10 @@ function DebindSwitchesPanelMixin:SetSelection(name)
     if (self.selectedName == name) then
         return;
     end
-    -- **The fields let go before the pick moves, not after.** Letting go is what writes a field
-    -- back (`OnNameCommitted`), and it writes it to whichever switch the panel is pointing at --
-    -- so clearing focus after the move renames the switch that was just clicked to what was half
-    -- typed for the one before it.
-    self.Detail.Settings.NameBox:ClearFocus();
+    -- **The field lets go before the pick moves, not after.** Letting go is what writes it back
+    -- (`OnExprCommitted`), and it writes to whichever switch the panel is pointing at -- so
+    -- clearing focus after the move files what was half typed for the switch before it under the
+    -- one that was just clicked.
     self.Detail.Settings.ExprBox:ClearFocus();
 
     self.selectedName = name;
@@ -807,47 +870,90 @@ function DebindSwitchesPanelMixin:RefreshDetail()
     end
 end
 
---- Where this switch is decided, and under a divider, where it could be.
+--- Every layer this character reaches, and which of them decides this switch.
 ---
---- **The mark is on the entry and not next to the dropdown**, because what it answers is "where
+--- **The colour is on the entry and not next to the dropdown**, because what it answers is "where
 --- did the answer I am reading come from" while the reader is walking the list. The picked layer
 --- and the one in force come apart the moment they read down it, and this is the way back.
 ---
---- **The second half makes the row it names.** The list above it is only the layers that already
---- decide something, so a layer that is not there yet has to be reachable from the same control -
---- otherwise the one place the layers are named is a place none of them can be added at.
+--- **Taking a row away is in the row.** It was a button beside the dropdown, which put the layer it
+--- would take away one control over from the layer it named; the layout dropdown in HUD edit mode
+--- is the client's own answer to the same shape (`EditModeManager.lua`).
+---
+--- **Making one is the last row and its submenu, and nothing above it writes.** Picking off the
+--- list used to make the row it named, so a reader walking down to see where the switch is decided
+--- left a row behind at every layer they passed (2026-09-20, 소유자).
 function DebindSwitchesPanelMixin:BuildLayerMenu(rootDescription)
     local name = self.selectedName;
     if (not name) then
         return;
     end
     local winner = WinningLayerID(name);
-    local set, unset = LayerChoices(name);
-    for i = 1, #set do
-        local layerID = set[i];
+    local decidesAt = LayersThatDecide(name);
+
+    local function AddLayer(layerID)
         local label = DebindUI.GetLayerLabel(layerID);
         if (layerID == winner) then
-            -- **A mark, not a word.** `checkmark-minimal` is what this addon already puts on "this
-            -- one" (`StorageUI.lua`), and the radio's own tick beside it says which layer is being
-            -- read, which is a different question.
-            label = label .. "  " .. CreateAtlasMarkup("checkmark-minimal", 12, 12);
+            -- The colour the action menus put on the one that is in force (`MenuKit.lua`). The
+            -- radio's own tick beside it says which layer is being read, which is a different
+            -- question, so the two cannot share a mark.
+            label = BLUE_FONT_COLOR:WrapTextInColorCode(label);
         end
-        rootDescription:CreateRadio(label, function()
+
+        local radio = rootDescription:CreateRadio(label, function()
             return self.layerID == layerID;
         end, function()
             self:PickLayer(layerID);
             return MenuResponse.CloseAll;
         end);
+
+        -- The root cannot be taken away (§4-6 of `redesigning-custom-states.md`).
+        if (layerID == ROOT_LAYER_ID) then
+            return;
+        end
+        radio:AddInitializer(function(button, _, menu)
+            local cancelButton = MenuTemplates.AttachAutoHideCancelButton(button);
+            -- **Hooked rather than `SetUtilityButtonTooltipText`**, which puts up a title and
+            -- nothing else: what goes with the row is the half a reader cannot see from the list.
+            MenuUtil.HookTooltipScripts(cancelButton, function(tooltip)
+                GameTooltip_SetTitle(tooltip, LLL["SWITCH_OVERRIDE_REMOVE"]);
+                GameTooltip_AddNormalLine(tooltip, LLL["SWITCH_OVERRIDE_REMOVE_DESC"]);
+            end);
+            -- **`GearButtonAnchor`, which is the row's right edge.** `CancelButtonAnchor` is the
+            -- place left of a gear button, and there is no gear here.
+            MenuTemplates.SetUtilityButtonAnchor(cancelButton, MenuVariants.GearButtonAnchor,
+                button);
+            MenuTemplates.SetUtilityButtonClickHandler(cancelButton, function()
+                self:RemoveOverrideAt(layerID);
+                menu:Close();
+            end);
+        end);
+    end
+
+    -- **In the order the window's own tabs stand.** Every other list of layers in the window runs
+    -- that way (`GetOverridableLayerIDs`).
+    AddLayer(ROOT_LAYER_ID);
+    local overridable = DebindPrivate.GetOverridableLayerIDs();
+    local unset = {};
+    for i = 1, #overridable do
+        if (decidesAt[overridable[i]]) then
+            AddLayer(overridable[i]);
+        else
+            unset[#unset + 1] = overridable[i];
+        end
     end
 
     if (#unset == 0) then
         return;
     end
     rootDescription:CreateDivider();
-    rootDescription:CreateTitle(LLL["SWITCH_LAYER_UNSET_GROUP"]);
+    -- The client's own row for the same gesture, colour and [+] and all: the layout dropdown's
+    -- `HUD_EDIT_MODE_NEW_LAYOUT` takes the atlas as its one argument.
+    local newRow = rootDescription:CreateButton(
+        format(LLL["SWITCH_OVERRIDE_NEW"], CreateAtlasMarkup("editmode-new-layout-plus")));
     for i = 1, #unset do
         local layerID = unset[i];
-        rootDescription:CreateButton(DebindUI.GetLayerLabel(layerID), function()
+        newRow:CreateButton(DebindUI.GetLayerLabel(layerID), function()
             self:CreateOverrideAt(layerID);
             return MenuResponse.CloseAll;
         end);
@@ -865,50 +971,51 @@ function DebindSwitchesPanelMixin:PickLayer(layerID)
     self:RefreshSettings();
 end
 
---- Starts deciding this switch at a layer that was not deciding it.
----
---- **The new row starts from what is on screen**, which is the answer the picked layer was giving
---- a moment ago. Making a place to set something is not itself a change to what the switch does,
---- and a row seeded with the plain default would turn a computed switch hand-worked in one
---- specialization without saying so.
+--- Starts deciding this switch at a layer that was not deciding it, and reads it there.
 function DebindSwitchesPanelMixin:CreateOverrideAt(layerID)
     local name = self.selectedName;
     local layerKey = DebindPrivate.GetSwitchLayerKey(layerID);
     if (not name or layerKey == nil) then
         return;
     end
-    local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name,
-        DebindPrivate.GetSwitchLayerKey(self.layerID or ROOT_LAYER_ID));
-    if (not mode) then
-        -- Only the layers that answer are in the list above the divider, so the pick answers. The
-        -- root does too, and it is what is left if that ever stops being true.
-        mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, nil);
-    end
-    DebindPrivate.SetSwitchAnswer(name, layerKey, mode, resetValue);
-    DebindPrivate.SetSwitchExpression(name, layerKey, expr);
+    DebindPrivate.SetSwitchAnswer(name, layerKey, DebindPrivate.SWITCH_DEFAULTS.mode, nil);
 
     DebindPrivate.UpdateBindings();
     self:PickLayer(layerID);
     self:UpdateRows();
 end
 
---- Takes the picked layer's row away. The root has none, and its button is hidden.
+--- Takes one layer's row away, from the row in the list that names it.
 ---
---- **The pick goes back to the layer in force**, because the one it was on is not in the list any
---- more: an empty dropdown button would be the only thing on screen saying the press worked.
-function DebindSwitchesPanelMixin:OnLayerRemoveClick()
+--- **The pick follows it when it was the layer being read**, because that layer is not in the list
+--- any more: a dropdown naming a layer no row stands at would be the only thing on screen saying
+--- the press worked.
+function DebindSwitchesPanelMixin:RemoveOverrideAt(layerID)
     local name = self.selectedName;
     if (not name) then
         return;
     end
-    local layerKey = DebindPrivate.GetSwitchLayerKey(self.layerID or ROOT_LAYER_ID);
-    if (not DebindPrivate.RemoveSwitchOverride(name, layerKey)) then
-        return;
-    end
 
-    DebindPrivate.UpdateBindings();
-    self:PickLayer(WinningLayerID(name));
-    self:UpdateRows();
+    StaticPopup_ShowCustomGenericConfirmation({
+        text = format(LLL["SWITCH_OVERRIDE_REMOVE_CONFIRM"], DebindUI.GetLayerLabel(layerID), name),
+        callback = function()
+            if (not DebindPrivate.RemoveSwitchOverride(name,
+                    DebindPrivate.GetSwitchLayerKey(layerID))) then
+                return;
+            end
+            DebindPrivate.UpdateBindings();
+            if (self.layerID == layerID) then
+                self:PickLayer(WinningLayerID(name));
+            else
+                self:RefreshSettings();
+            end
+            self:UpdateRows();
+        end,
+        acceptText = YES,
+        cancelText = NO,
+        showAlert = true,
+        referenceKey = "DebindSwitchOverrideRemove",
+    });
 end
 
 function DebindSwitchesPanelMixin:RefreshSettings()
@@ -919,47 +1026,33 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     local settings = self.Detail.Settings;
     local layerID = self.layerID or ROOT_LAYER_ID;
     local layerKey = DebindPrivate.GetSwitchLayerKey(layerID);
-    local isRoot = layerKey == nil;
 
-    -- **Not while it is being typed into.** A rebuild arrives from a key press or the expression
-    -- loop at any moment, and putting the stored name back would eat what is half typed.
-    if (not settings.NameBox:HasFocus()) then
-        settings.NameBox:SetText(strsub(name, 2));
-    end
-
+    settings.NameText:SetText(name);
     settings.LayerDropdown:GenerateMenu();
-    -- The root is the answer everything falls back to. It cannot be taken away (§4-6), so it is
-    -- the one layer with nothing to take away here.
-    settings.LayerRemoveButton:SetShown(not isRoot);
 
-    local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
+    -- The starting value is not read here: the dropdown that shows it reads the same row when it
+    -- builds its own list, and two reads of one row is one of them going stale.
+    --
+    -- **Every layer in the list has a row**, so this always answers. The ones that have none are in
+    -- the submenu under the last entry, and picking one there makes the row before the panel is
+    -- pointed at it (`CreateOverrideAt`).
+    local mode, _, expr = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
 
-    settings.ManualRadio:SetChecked(mode == Constants.SWITCH_MODES.MANUAL);
-    settings.AutoRadio:SetChecked(mode == Constants.SWITCH_MODES.EXPR);
+    settings.ModeDropdown:GenerateMenu();
 
     -- **Both blocks stand whichever answer is picked**, the one that is not answering greyed. The
-    -- starting value and the expression are kept when the other answer is chosen
+    -- starting value and the expression are kept when another answer is chosen
     -- (`SetSwitchAnswer`), and hiding the block would put one of them back on screen at a press
     -- the reader has not seen since they typed it.
     local manualHere = mode == Constants.SWITCH_MODES.MANUAL;
-    local startKey;
-    if (manualHere) then
-        startKey = StartValueFor(resetValue);
-    elseif (resetValue == true) then
-        startKey = "on";
-    elseif (resetValue == false) then
-        startKey = "off";
-    end
-    for _, start in ipairs(START_VALUES) do
-        local radio = settings[self:StartRadioKeyFor(start.key)];
-        radio:SetChecked(startKey == start.key);
-        radio:SetEnabled(manualHere);
-        radio.text:SetTextColor((manualHere and NORMAL_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
-    end
+    settings.StartDropdown:GenerateMenu();
+    settings.StartDropdown:SetEnabled(manualHere);
     settings.StartLabel:SetTextColor(
         (manualHere and NORMAL_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
 
     local autoHere = mode == Constants.SWITCH_MODES.EXPR;
+    settings.ExprLabel:SetTextColor(
+        (autoHere and NORMAL_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
     if (not settings.ExprBox:HasFocus()) then
         settings.ExprBox:SetText(expr or "");
     end
@@ -1091,34 +1184,23 @@ end
 -- What the right column writes back
 --------------------------------------------------------------------------------
 
---- Writes one of the two answers at the picked layer, and the rebuild that makes it true.
----
---- **The rebuild is what applies it**, not just stores it: it is where the new answer reaches the
---- value at the layer it has moved to (`ApplySwitchResets`), so the toggle is showing the result
---- of this press by the time the column is redrawn.
-function DebindSwitchesPanelMixin:OnAnswerClick(answerKey)
+--- **The rebuild is what applies it**, not just stores it: it is where the new mode reaches the
+--- value at the layer it has moved to (`ApplySwitchResets`).
+function DebindSwitchesPanelMixin:SetMode(mode)
     local name = self.selectedName;
     if (not name) then
         return;
     end
     local layerKey = DebindPrivate.GetSwitchLayerKey(self.layerID or ROOT_LAYER_ID);
-    local MODES = Constants.SWITCH_MODES;
-
-    if (answerKey == "manual") then
-        -- **What the row was holding, not a fresh default.** Somebody coming back to this answer
-        -- after trying the other has not asked to lose the starting value they picked.
-        local _, resetValue = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
-        DebindPrivate.SetSwitchAnswer(name, layerKey, MODES.MANUAL, resetValue);
-    else
-        DebindPrivate.SetSwitchAnswer(name, layerKey, MODES.EXPR, nil);
-    end
+    local _, resetValue = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
+    DebindPrivate.SetSwitchAnswer(name, layerKey, mode, resetValue);
 
     DebindPrivate.UpdateBindings();
     self:RefreshSettings();
     self:UpdateRows();
 end
 
-function DebindSwitchesPanelMixin:OnStartValueClick(startKey)
+function DebindSwitchesPanelMixin:SetStartValue(startKey)
     local name = self.selectedName;
     if (not name) then
         return;
@@ -1136,41 +1218,21 @@ function DebindSwitchesPanelMixin:OnStartValueClick(startKey)
     self:UpdateRows();
 end
 
---- Renaming, from the field the name is read in.
+--- Renaming, through the box that asks for a name.
 ---
---- **It says no in chat rather than in a dialog.** The field is still on screen holding what was
---- typed, so the sentence has somewhere to be read against, and the name goes back to what it was.
-function DebindSwitchesPanelMixin:OnNameCommitted()
+--- **The same box making one opens** (`ShowNewSwitchBox`), so the rule about what a name may hold
+--- is read in one place and refused in one place.
+function DebindSwitchesPanelMixin:OnRenameClick()
     local name = self.selectedName;
-    local box = self.Detail.Settings.NameBox;
     if (not name) then
         return;
     end
-    local typed = "$" .. strtrim(box:GetText());
-    if (typed == name) then
-        return;
-    end
-
-    local ok, reason = DebindPrivate.RenameSwitch(name, typed);
-    if (not ok) then
-        if (reason) then
-            DebindPrivate.DisplayMessage(LLL[reason]);
-        end
-        box:SetText(strsub(name, 2));
-        return;
-    end
-    -- **The name it was filed under, not the one that was typed.** `RenameSwitch` folds the case,
-    -- and the column would otherwise go on pointing at a name nothing defines.
-    self.selectedName = strlower(typed);
-    DebindPrivate.UpdateBindings();
-end
-
-function DebindSwitchesPanelMixin:OnNameCancelled()
-    local box = self.Detail.Settings.NameBox;
-    if (self.selectedName) then
-        box:SetText(strsub(self.selectedName, 2));
-    end
-    box:ClearFocus();
+    DebindUI.ShowRenameSwitchBox(name, function(renamed)
+        -- **The name it was filed under, not the one that was typed.** `RenameSwitch` folds the
+        -- case, and the column would otherwise go on pointing at a name nothing defines.
+        self.selectedName = renamed;
+        DebindPrivate.UpdateBindings();
+    end);
 end
 
 --- The macro conditional the picked layer works the switch out from.
@@ -1215,7 +1277,7 @@ end
 function DebindSwitchesPanelMixin:OnExprEnter()
     local box = self.Detail.Settings.ExprBox;
     GameTooltip:SetOwner(box, "ANCHOR_RIGHT");
-    GameTooltip_SetTitle(GameTooltip, LLL["CUSTOM_STATE_EDIT_VALUE"]);
+    GameTooltip_SetTitle(GameTooltip, LLL["SWITCH_EXPR_LABEL"]);
     GameTooltip_AddNormalLine(GameTooltip, LLL["CUSTOM_STATE_EDIT_VALUE_DESC"]);
     GameTooltip:Show();
 end
@@ -1235,11 +1297,13 @@ function DebindSwitchesPanelMixin:OnDeleteClick()
     if (not name) then
         return;
     end
-    local text = format(LLL["SWITCH_DELETE_CONFIRM"], name,
-        DebindPrivate.CountSwitchReferences(name));
-    local overrides = DebindPrivate.CountSwitchOverrides(name);
-    if (overrides > 0) then
-        text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_OVERRIDES"], overrides);
+    local text = format(LLL["SWITCH_DELETE_CONFIRM"], name);
+    local references = DebindPrivate.CountSwitchReferences(name);
+    if (references > 0) then
+        text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_ACTIONS"], references);
+    end
+    if (DebindPrivate.CountSwitchOverrides(name) > 0) then
+        text = text .. "\n" .. LLL["SWITCH_DELETE_CONFIRM_OVERRIDES"];
     end
 
     StaticPopup_ShowCustomGenericConfirmation({
