@@ -281,7 +281,7 @@
 			-->
 			<Frame parentKey="Detail" useParentLevel="true">
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="22" y="0"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="22" y="32"/>
 					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
 				</Anchors>
 				<Frames>
