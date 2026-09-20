@@ -61,7 +61,7 @@ local SetBindingAttributes;
 --- a macro body has no other scope, and the cast frame is protected from where this runs.
 ---
 --- `key` is `CastAutomaticsKeyOf`'s, one character per row.
-local function AutomaticsBody(key, buttonname)
+local function AutomaticsLines(key)
     local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
     local save, restore = {}, {};
     for i = 1, #rows do
@@ -73,9 +73,24 @@ local function AutomaticsBody(key, buttonname)
             restore[#restore + 1] = format('SetCVar("%s",%s)', row, global);
         end
     end
-    return "/run " .. tconcat(save, ";") .. "\n"
+    return "/run " .. tconcat(save, ";"), "/run " .. tconcat(restore, ";");
+end
+
+--- Around a `/click` at the real button, for the actions that reach the cast through one.
+local function AutomaticsBody(key, buttonname)
+    local save, restore = AutomaticsLines(key);
+    return save .. "\n"
         .. format("/click %s %s\n", DebindPrivate.CastFrameName, buttonname)
-        .. "/run " .. tconcat(restore, ";");
+        .. restore;
+end
+
+--- Around a body we wrote ourselves. **A macro inside a macro does not run**, so these actions
+--- cannot be reached through a `/click` the way a spell is; their bodies are our strings, so the
+--- lines go straight in front and behind
+--- (`setting-the-clients-cast-automatics-per-action.md` §5).
+local function AutomaticsWrap(body, key)
+    local save, restore = AutomaticsLines(key);
+    return save .. "\n" .. body .. "\n" .. restore;
 end
 
 --- `type -> cacheKey -> automatics key -> button name`, beside `BindingAttrsCache` and kept the
@@ -869,7 +884,7 @@ end
 --- binding is the case.
 ---
 --- Nothing here asks the client anything. Everything it needs is in `facts`.
-local function DescribeBinding(type, value, unit, facts, out)
+local function DescribeBinding(type, value, unit, facts, out, automatics)
     out = out or { attrNames = {}, attrValues = {} };
     out.count = 0;
 
@@ -940,12 +955,22 @@ local function DescribeBinding(type, value, unit, facts, out)
     -- Pet commands are the one type that breaks the premise, and they dodge it above rather than
     -- here: the target goes into the macro body and the body becomes the value, so it is in the key
     -- after all. A type that cannot do that needs the key widened instead.
+    -- **우리가 쓴 본문은 CVar 줄을 스스로 나른다.** 매크로 안에서 매크로가 안 돌아서 주문처럼
+    -- `/click`으로 감쌀 수가 없고, 감쌀 필요도 없다. 본문이 우리 문자열이다.
+    if (automatics) then
+        if (type == Constants.MACROTEXT) then
+            value = AutomaticsWrap(value, automatics);
+        elseif (type == Constants.MOUNT and facts.mountMacrotext) then
+            facts.mountMacrotext = AutomaticsWrap(facts.mountMacrotext, automatics);
+        end
+    end
+
     out.cacheKey = value or NIL;
 
-    -- **탈것의 본문은 탈것 하나로 안 정해진다.** `/cancelform` 줄이 `autoUnshift`를 따르므로
-    -- 같은 탈것이 붙은 꼴과 안 붙은 꼴 둘로 구워지고, 열쇠가 탈것 번호뿐이면 먼저 구운 것이
-    -- 나중 것에게 간다. 이 캐시는 한 번도 안 지워지므로 CVar가 움직인 뒤에도 같은 일이 난다.
-    -- 본문을 value로 만들 수 없는 타입이라 열쇠를 넓힌다(위 펫 명령 주석의 마지막 문장).
+    -- **탈것의 본문은 탈것 하나로 안 정해진다.** `/cancelform` 줄이 `autoUnshift`를 따르고 CVar
+    -- 줄도 액션마다 달라서, 같은 탈것이 여러 꼴로 구워진다. 열쇠가 탈것 번호뿐이면 먼저 구운
+    -- 것이 나중 것에게 간다. 이 캐시는 한 번도 안 지워지므로 CVar가 움직인 뒤에도 같은 일이
+    -- 난다. 본문을 value로 만들 수 없는 타입이라 열쇠를 넓힌다(위 펫 명령 주석의 마지막 문장).
     if (type == Constants.MOUNT and facts.mountMacrotext) then
         out.cacheKey = facts.mountMacrotext;
     end
@@ -1220,7 +1245,7 @@ DebindPrivate.StampBinding = StampBinding;
 function SetBindingAttributes(type, value, unit, automatics)
     local facts = CollectBindingFacts(type, value, unit, _facts, automatics);
 
-    local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
+    local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor, automatics);
     if (not descriptor) then
         if (DEBUG and reason ~= "block") then
             DebindPrivate.log("No attributes for:", type, value, reason);

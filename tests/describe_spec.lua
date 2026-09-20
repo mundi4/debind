@@ -34,8 +34,8 @@ return function(DebindPrivate)
 
     --- Describes one binding against facts written out here, into a table of its own so two
     --- descriptors can be held side by side.
-    local function describe(type, value, unit, facts)
-        return DebindPrivate.DescribeBinding(type, value, unit, facts or {}, nil);
+    local function describe(type, value, unit, facts, automatics)
+        return DebindPrivate.DescribeBinding(type, value, unit, facts or {}, nil, automatics);
     end
 
     --- The value a descriptor would put on one attribute, and whether it names it at all. The two
@@ -184,6 +184,32 @@ return function(DebindPrivate)
             "type: " .. tostring(attribute(spellless, "*type-")));
         check(attribute(spellless, "*macrotext-") == "/script C_MountJournal.SummonByID(7)",
             "body is missing");
+    end);
+
+    -- **A body we write carries the CVar lines itself.** Wrapping it in a second macro is not an
+    -- option -- a macro inside a macro does not run -- and it does not have to be: the body is our
+    -- string, so the lines go in front of it and behind it
+    -- (`setting-the-clients-cast-automatics-per-action.md` §5).
+    test("our own macro bodies carry the automatics as lines", function()
+        local macro = describe(Constants.MACROTEXT, "/cast Renew", nil, {}, "0---");
+        check(attribute(macro, "*macrotext-") ==
+            '/run DebindAuto_autoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
+            .. '/cast Renew\n'
+            .. '/run SetCVar("autoSelfCast",DebindAuto_autoSelfCast)',
+            "body: " .. tostring(attribute(macro, "*macrotext-")));
+
+        local mount = describe(Constants.MOUNT, 7, nil,
+            { mountMacrotext = "/script C_MountJournal.SummonByID(7)" }, "--1-");
+        check(attribute(mount, "*macrotext-") ==
+            '/run DebindAuto_autoDismount=GetCVar("autoDismount");SetCVar("autoDismount","1")\n'
+            .. '/script C_MountJournal.SummonByID(7)\n'
+            .. '/run SetCVar("autoDismount",DebindAuto_autoDismount)',
+            "mount body: " .. tostring(attribute(mount, "*macrotext-")));
+
+        -- **The key follows the body**, or the wrapped and the bare shape share a button.
+        local bare = describe(Constants.MACROTEXT, "/cast Renew", nil, {});
+        check(bare.cacheKey ~= macro.cacheKey,
+            "one key for two bodies: " .. tostring(macro.cacheKey));
     end);
 
     ---------------------------------------------------------------------------
