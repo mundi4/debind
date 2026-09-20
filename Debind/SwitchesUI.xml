@@ -157,6 +157,18 @@
 	</Button>
 
 	<!--
+		**The Overview's row, its look alone.** `DebindLineVisualTemplate` carries no behaviour:
+		this row is not picked, takes no drop and opens no menu.
+	-->
+	<Button name="DebindSwitchUsageActionTemplate" inherits="DebindLineVisualTemplate"
+		mixin="DebindSwitchUsageActionMixin" virtual="true">
+		<Scripts>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
 		The heading over each group, in both lists.
 
 		**Overview's heading, minus what makes it a control.** That one is picked and right-clicked
@@ -172,6 +184,158 @@
 			<OnLoad method="OnLoad"/>
 		</Scripts>
 	</Button>
+
+	<!--
+		What this switch is set to, as one element of the right column's list.
+
+		**`<Size>` and `SETTINGS_EXTENT` in the Lua are one value written twice.** A linear list
+		view is asked for an element's extent before there is a frame to measure, so changing one
+		without the other clips the block.
+	-->
+	<Frame name="DebindSwitchSettingsTemplate" mixin="DebindSwitchSettingsMixin" virtual="true">
+		<Size x="400" y="348"/>
+		<!--
+			**Before `<Frames>`, so the rename button can hang off the name.** Every caption here is
+			placed outright rather than off the control under it, which is what lets the block come
+			first.
+		-->
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="NameLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="16" y="-14"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="NameText" inherits="GameFontHighlightLarge" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="16" y="-36"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="16" y="-74"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="ModeLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="16" y="-134"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="16" y="-194"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="ExprLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="16" y="-254"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Button parentKey="RenameButton" inherits="UIPanelButtonTemplate">
+				<Size x="100" y="22"/>
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.NameText" relativePoint="RIGHT" x="12" y="0"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						self:GetParent().panel:OnRenameClick();
+					</OnClick>
+				</Scripts>
+			</Button>
+
+			<!--
+				Which layer the answers below are being read and written at. It opens on the layer
+				in force, and the one in force is marked in the list, so a reader who has walked off
+				it can find the way back.
+
+				**Every layer is in the list and picking one only reads it.** The ones with nothing
+				set are marked out and the row is made from the button below, because a list that
+				wrote as it was walked left a row behind at every layer the reader passed through
+				(2026-09-20, 소유자).
+			-->
+			<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
+				<Size x="260" y="26"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="16" y="-96"/>
+				</Anchors>
+			</DropdownButton>
+
+			<!--
+				How this layer decides the switch: by hand, from a macro conditional, or not at all.
+
+				**A layer that is read here answers one of them.** A layer the reader wants to stop
+				deciding is one they take away, and an answer that did the same thing would be a
+				second control for one job (2026-09-20, 소유자). Ignoring is not that: the switch
+				goes on being decided here, and what goes away is the condition on the actions that
+				read it.
+			-->
+			<DropdownButton parentKey="ModeDropdown" inherits="WowStyle1DropdownTemplate">
+				<Size x="260" y="26"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="16" y="-156"/>
+				</Anchors>
+			</DropdownButton>
+
+			<!--
+				What a hand-worked switch comes up as. **Its own axis**, under the answer that has
+				one: which of the three is a separate question from whether the switch is
+				hand-worked at all, and folding them into one list of four put the second question
+				two levels down (§4-6).
+			-->
+			<DropdownButton parentKey="StartDropdown" inherits="WowStyle1DropdownTemplate">
+				<Size x="260" y="26"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="16" y="-216"/>
+				</Anchors>
+			</DropdownButton>
+
+			<!--
+				The macro conditional this layer works the switch out from.
+
+				**It follows the picked layer while the button above follows the answer in force**,
+				and the two axes really are different: the value is one per switch, the expression
+				is one per layer.
+			-->
+			<EditBox parentKey="ExprBox" inherits="InputBoxTemplate" autoFocus="false" letters="100">
+				<Size x="320" y="22"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="22" y="-276"/>
+				</Anchors>
+				<Scripts>
+					<OnEnterPressed>
+						self:ClearFocus();
+					</OnEnterPressed>
+					<OnEditFocusLost>
+						self:GetParent().panel:OnExprCommitted();
+					</OnEditFocusLost>
+					<OnEscapePressed>
+						self:GetParent().panel:OnExprCancelled();
+					</OnEscapePressed>
+					<OnEnter>
+						self:GetParent().panel:OnExprEnter();
+					</OnEnter>
+					<OnLeave>
+						GameTooltip:Hide();
+					</OnLeave>
+				</Scripts>
+			</EditBox>
+
+			<Button parentKey="DeleteButton" inherits="UIPanelButtonTemplate" text="DELETE">
+				<Size x="100" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-16" y="16"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						self:GetParent().panel:OnDeleteClick();
+					</OnClick>
+				</Scripts>
+			</Button>
+		</Frames>
+	</Frame>
 
 	<!--
 		**A panel, not a window.** It is the second seat in `PANELS` (`DebindUI.lua`), reached by
@@ -193,49 +357,16 @@
 		</KeyValues>
 		<Frames>
 			<!--
-				The switch list's inset. **Overview's rectangle down to the number**, the same three
-				values the sharing tab writes: 405 wide at 4/-85, so the black box does not move as
-				the reader crosses between the tabs.
+				The switch list. **Overview's rectangle down to the number**, so the black box does
+				not move as the reader crosses between the tabs.
 			-->
-			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
+			<Frame parentKey="List" inherits="DebindListColumnTemplate">
 				<Size x="405" y="0"/>
-				<KeyValues>
-					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
-					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
-				</KeyValues>
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
 					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
 				</Anchors>
 			</Frame>
-
-			<!--
-				**Declared after the inset, because it hangs off it.** An anchor pointing at a
-				sibling that does not exist yet is dropped without a word
-				(`tools/check-xml-anchors.js`).
-			-->
-			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y="-5"/>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y="5"/>
-				</Anchors>
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
-							<Size x="345" y="0"/>
-							<Anchors>
-								<Anchor point="TOP" x="0" y="-40"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-			</Button>
-			<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
-				</Anchors>
-			</EventFrame>
 
 			<!--
 				**The one thing this tab does that is not on a row**, and since 3c the only visible
@@ -279,248 +410,11 @@
 				the tab does not change under a click - the sharing tab settled that for its own
 				preview (12절 of `building-export-import.md`).
 			-->
-			<Frame parentKey="Detail" useParentLevel="true">
+			<Frame parentKey="Detail" inherits="DebindListColumnTemplate">
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="22" y="32"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.List" relativePoint="TOPRIGHT" x="22" y="0"/>
 					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
 				</Anchors>
-				<Frames>
-					<!--
-						The column's own inset, dropped by the height of the tab strip that stands on
-						it. Both faces of the column draw inside this one box, so switching between
-						them moves nothing but what is in it.
-					-->
-					<Frame parentKey="Background" useParentLevel="true" inherits="TooltipBackdropTemplate">
-						<KeyValues>
-							<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
-							<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
-						</KeyValues>
-						<Anchors>
-							<Anchor point="TOPLEFT" x="0" y="-32"/>
-							<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
-						</Anchors>
-						<Layers>
-							<Layer level="ARTWORK">
-								<FontString parentKey="EmptyText" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
-									<Size x="345" y="0"/>
-									<Anchors>
-										<Anchor point="TOP" x="0" y="-60"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
-					</Frame>
-
-					<!--
-						**The client's own tab system, hung on top of the box it heads.** Two faces
-						of one column is what `TabSystemTemplate` is for, and the tabs are built in
-						`OnLoad` from a pool rather than written out here, which is how every
-						Blizzard frame that uses it does it.
-
-						**Declared after the box**, so the tab art draws over its top border the way
-						a tab is supposed to.
-					-->
-					<Frame parentKey="TabSystem" inherits="TabSystemTemplate" useParentLevel="true">
-						<KeyValues>
-							<KeyValue key="tabTemplate" value="TabSystemTopButtonTemplate" type="string"/>
-							<KeyValue key="minTabWidth" value="110" type="number"/>
-							<KeyValue key="maxTabWidth" value="190" type="number"/>
-						</KeyValues>
-						<Anchors>
-							<Anchor point="BOTTOMLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT" x="8" y="0"/>
-						</Anchors>
-					</Frame>
-
-					<!--
-						**The first face: what this switch is set to.** Everything on it was a
-						right-click menu until now, two levels deep in two menus
-						(`reworking-the-switches-tab.md`).
-					-->
-					<Frame parentKey="Settings" useParentLevel="true" hidden="true">
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT"/>
-							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Background" relativePoint="BOTTOMRIGHT"/>
-						</Anchors>
-						<!--
-							**Before `<Frames>`, so the rename button can hang off the name.** Every
-							caption here is placed outright rather than off the control under it,
-							which is what lets the block come first.
-						-->
-						<Layers>
-							<Layer level="ARTWORK">
-								<FontString parentKey="NameLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="16" y="-14"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="NameText" inherits="GameFontHighlightLarge" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="16" y="-36"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="16" y="-74"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="ModeLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="16" y="-134"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="16" y="-194"/>
-									</Anchors>
-								</FontString>
-								<FontString parentKey="ExprLabel" inherits="GameFontNormal" justifyH="LEFT">
-									<Anchors>
-										<Anchor point="TOPLEFT" x="16" y="-254"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
-						<Frames>
-							<Button parentKey="RenameButton" inherits="UIPanelButtonTemplate">
-								<Size x="100" y="22"/>
-								<Anchors>
-									<Anchor point="LEFT" relativeKey="$parent.NameText" relativePoint="RIGHT" x="12" y="0"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnRenameClick();
-									</OnClick>
-								</Scripts>
-							</Button>
-
-							<!--
-								Which layer the answers below are being read and written at. It opens
-								on the layer in force, and the one in force is marked in the list, so
-								a reader who has walked off it can find the way back.
-
-								**Every layer is in the list and picking one only reads it.** The
-								ones with nothing set are marked out and the row is made from the
-								button below, because a list that wrote as it was walked left a row
-								behind at every layer the reader passed through (2026-09-20, 소유자).
-							-->
-							<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
-								<Size x="260" y="26"/>
-								<Anchors>
-									<Anchor point="TOPLEFT" x="16" y="-96"/>
-								</Anchors>
-							</DropdownButton>
-
-							<!--
-								How this layer decides the switch: by hand, from a macro conditional,
-								or not at all.
-
-								**A layer that is read here answers one of them.** A layer the reader
-								wants to stop deciding is one they take away, and an answer that did
-								the same thing would be a second control for one job (2026-09-20,
-								소유자). Ignoring is not that: the switch goes on being decided here,
-								and what goes away is the condition on the actions that read it.
-							-->
-							<DropdownButton parentKey="ModeDropdown" inherits="WowStyle1DropdownTemplate">
-								<Size x="260" y="26"/>
-								<Anchors>
-									<Anchor point="TOPLEFT" x="16" y="-156"/>
-								</Anchors>
-							</DropdownButton>
-
-							<!--
-								What a hand-worked switch comes up as. **Its own axis**, under the
-								answer that has one: which of the three is a separate question from
-								whether the switch is hand-worked at all, and folding them into one
-								list of four put the second question two levels down (§4-6).
-							-->
-							<DropdownButton parentKey="StartDropdown" inherits="WowStyle1DropdownTemplate">
-								<Size x="260" y="26"/>
-								<Anchors>
-									<Anchor point="TOPLEFT" x="16" y="-216"/>
-								</Anchors>
-							</DropdownButton>
-
-							<!--
-								The macro conditional this layer works the switch out from.
-
-								**It follows the picked layer while the button above follows the
-								answer in force**, and the two axes really are different: the value
-								is one per switch, the expression is one per layer.
-							-->
-							<EditBox parentKey="ExprBox" inherits="InputBoxTemplate" autoFocus="false" letters="100">
-								<Size x="320" y="22"/>
-								<Anchors>
-									<Anchor point="TOPLEFT" x="22" y="-276"/>
-								</Anchors>
-								<Scripts>
-									<OnEnterPressed>
-										self:ClearFocus();
-									</OnEnterPressed>
-									<OnEditFocusLost>
-										self:GetParent():GetParent():GetParent():OnExprCommitted();
-									</OnEditFocusLost>
-									<OnEscapePressed>
-										self:GetParent():GetParent():GetParent():OnExprCancelled();
-									</OnEscapePressed>
-									<OnEnter>
-										self:GetParent():GetParent():GetParent():OnExprEnter();
-									</OnEnter>
-									<OnLeave>
-										GameTooltip:Hide();
-									</OnLeave>
-								</Scripts>
-							</EditBox>
-
-							<Button parentKey="DeleteButton" inherits="UIPanelButtonTemplate" text="DELETE">
-								<Size x="100" y="22"/>
-								<Anchors>
-									<Anchor point="BOTTOMRIGHT" x="-16" y="16"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent():GetParent():GetParent():OnDeleteClick();
-									</OnClick>
-								</Scripts>
-							</Button>
-						</Frames>
-					</Frame>
-
-					<!--
-						**The second face: every place that names this switch.** Places and not
-						counts - the reader is emptying the list before deleting, and a number two
-						places both feed into cannot be worked down to zero.
-					-->
-					<Frame parentKey="Usage" useParentLevel="true" hidden="true">
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT"/>
-							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Background" relativePoint="BOTTOMRIGHT"/>
-						</Anchors>
-						<Frames>
-							<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
-								<Anchors>
-									<Anchor point="TOPLEFT" x="5" y="-5"/>
-									<Anchor point="BOTTOMRIGHT" x="-5" y="5"/>
-								</Anchors>
-								<Layers>
-									<Layer level="ARTWORK">
-										<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
-											<Size x="345" y="0"/>
-											<Anchors>
-												<Anchor point="TOP" x="0" y="-40"/>
-											</Anchors>
-										</FontString>
-									</Layer>
-								</Layers>
-							</Button>
-							<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
-								<Anchors>
-									<Anchor point="TOPLEFT" relativePoint="TOPRIGHT" x="5" y="-5"/>
-									<Anchor point="BOTTOMLEFT" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
-								</Anchors>
-							</EventFrame>
-						</Frames>
-					</Frame>
-				</Frames>
 			</Frame>
 		</Frames>
 		<Scripts>

@@ -780,14 +780,15 @@ function DebindStoragePanelMixin:OnLoad()
 end
 
 function DebindStoragePanelMixin:InitializeScrollBoxes()
-    local entryView = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
+    local entryView = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
     entryView:SetElementFactory(function(factory)
         factory("DebindStorageEntryRowTemplate", function(frame, data) frame:Init(data); end);
     end);
     entryView:SetElementExtentCalculator(function() return ENTRY_ROW_HEIGHT; end);
-    ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, entryView);
+    local listContent = self.List.ContentArea;
+    ScrollUtil.InitScrollBoxListWithScrollBar(listContent.ScrollBox, listContent.ScrollBar, entryView);
 
-    local previewView = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
+    local previewView = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
     previewView:SetElementFactory(function(factory, elementData)
         if (elementData.isLayer) then
             factory("DebindStoragePreviewLayerTemplate",
@@ -803,7 +804,8 @@ function DebindStoragePanelMixin:InitializeScrollBoxes()
     previewView:SetElementIndentCalculator(function(elementData)
         return elementData.isLayer and 0 or ROW_INDENT;
     end);
-    ScrollUtil.InitScrollBoxListWithScrollBar(self.Preview.ScrollBox, self.Preview.ScrollBar,
+    local previewContent = self.Preview.ContentArea;
+    ScrollUtil.InitScrollBoxListWithScrollBar(previewContent.ScrollBox, previewContent.ScrollBar,
         previewView);
 end
 
@@ -829,15 +831,16 @@ function DebindStoragePanelMixin:RefreshEntries()
         self:SelectEntry(nil);
     end
 
-    self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
-    self.ScrollBox.EmptyText:SetText(LLL["IMPORT_DRAWER_EMPTY"]);
-    self.ScrollBox.EmptyText:SetShown(#list == 0);
+    local scrollBox = self.List.ContentArea.ScrollBox;
+    scrollBox:SetDataProvider(CreateDataProvider(list), true);
+    scrollBox.EmptyText:SetText(LLL["IMPORT_DRAWER_EMPTY"]);
+    scrollBox.EmptyText:SetShown(#list == 0);
 
     self:UpdateEntrySelectionDisplay();
 end
 
 function DebindStoragePanelMixin:UpdateEntrySelectionDisplay()
-    self.ScrollBox:ForEachFrame(function(frame)
+    self.List.ContentArea.ScrollBox:ForEachFrame(function(frame)
         frame:UpdateSelectionDisplay();
     end);
 end
@@ -934,7 +937,8 @@ end
 --- that cannot be read, or an entry with nothing in it.
 function DebindStoragePanelMixin:RefreshPreview()
     local list = self:BuildPreviewDisplayList();
-    self.Preview.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
+    local scrollBox = self.Preview.ContentArea.ScrollBox;
+    scrollBox:SetDataProvider(CreateDataProvider(list), true);
 
     local emptyText;
     if (not self.selectedEntry) then
@@ -945,8 +949,8 @@ function DebindStoragePanelMixin:RefreshPreview()
         emptyText = LLL["EXPORT_EMPTY"];
     end
 
-    self.Preview.ScrollBox.EmptyText:SetText(emptyText or "");
-    self.Preview.ScrollBox.EmptyText:SetShown(emptyText ~= nil);
+    scrollBox.EmptyText:SetText(emptyText or "");
+    scrollBox.EmptyText:SetShown(emptyText ~= nil);
 
     self:UpdateSelectionState();
 end
@@ -979,7 +983,7 @@ end
 --- Redraws the boxes without rebuilding the list. Rebuilding would drop the scroll position, and
 --- ticking is the one gesture where the row you just touched must stay under the cursor.
 function DebindStoragePanelMixin:UpdateSelectionState()
-    self.Preview.ScrollBox:ForEachFrame(function(frame)
+    self.Preview.ContentArea.ScrollBox:ForEachFrame(function(frame)
         if (frame.UpdateSelectionDisplay) then
             frame:UpdateSelectionDisplay();
         end

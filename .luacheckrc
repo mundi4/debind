@@ -450,6 +450,8 @@ globals = {
 	"DebindSwitchesPanelMixin",
 	"DebindSwitchRowMixin",
 	"DebindSwitchUsageRowMixin",
+	"DebindSwitchUsageActionMixin",
+	"DebindSwitchSettingsMixin",
 	"DebindSwitchGroupHeaderMixin",
 
 	-- Named frames

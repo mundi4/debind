@@ -1200,11 +1200,8 @@ L["SWITCH_START_VALUE"] = "Starts as"
 -- Covers all three answers below it, including the one that is not a way of setting the switch.
 L["SWITCH_MODE_LABEL"] = "How it works here"
 L["SWITCH_EXPR_LABEL"] = "Macro conditional"
-L["SWITCH_TAB_SETTINGS"] = "Settings"
--- **Not "Usage"** (2026-09-20, 소유자), which reads as how much the switch is used rather than
--- where.
-L["SWITCH_TAB_USAGE"] = "Used By"
--- The three groups on that second face, and what separates the third from the first is **whether
+L["SWITCH_GROUP_SETTINGS"] = "Settings"
+-- The three groups of places under it, and what separates the third from the first is **whether
 -- you would have to log in somewhere else to fix it**, not whose it is: another character of your
 -- own class is in both, its class layers here and its own layers below.
 L["SWITCH_USAGE_HERE"] = "This character"

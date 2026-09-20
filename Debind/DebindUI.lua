@@ -1006,19 +1006,20 @@ function DebindLineMixin:Init(elementData)
 	self:Update();
 end
 
-function DebindLineMixin:Update()
-	local elementData = self:GetElementData();
-	local action = elementData.action;
-
+--- Puts an action on a `DebindLineVisualTemplate` row: everything the reader sees and nothing it
+--- does. **Two lists draw the same action** (the Overview's and the switches tab's usage list),
+--- and each field filled in only one of them is a mark that means something on one screen and is
+--- missing on the other.
+function DebindUI.FillActionLine(self, action, layerID)
 	-- **The same test as the name beside it** (`LayerDisplay.lua`'s `IsActionLive`), and not
 	-- `IsInactiveAction`. That one also drops an action whose specialization condition is false
 	-- right now, which greyed four things at once for a condition the reader set like any other:
 	-- the key, the target, the question mark that says conditions exist, and the problem lookup
 	-- below. The question mark was the worst of them, dimmed by the very condition it announces.
-	local isInactive = not IsActionLive(action, elementData.layer);
+	local isInactive = not IsActionLive(action, layerID);
 	local issue = not isInactive and GetBindingIssue(action) or nil;
 
-	local name, icon = ColoredNameAndIconForAction(action, elementData.layer);
+	local name, icon = ColoredNameAndIconForAction(action, layerID);
 	self.Name:SetText(name);
 
 	SetActionIcon(self.Icon, icon);
@@ -1106,6 +1107,14 @@ function DebindLineMixin:Update()
 	end
 
 	self.Icon:SetDesaturated(false);
+end
+
+function DebindLineMixin:Update()
+	local elementData = self:GetElementData();
+	local action = elementData.action;
+
+	DebindUI.FillActionLine(self, action, elementData.layer);
+
 	-- 강조는 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를 새로 만들어도
 	-- 강조가 유지된다.
 	--
@@ -1203,7 +1212,7 @@ function DebindLineMixin:OnClick(buttonName)
 	end
 
 	if (buttonName == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
-		DebindLayerPanel.ScrollBox:OnClick();
+		DebindLayerPanel.List.ContentArea.ScrollBox:OnClick();
 		return;
 	end
 
@@ -1288,7 +1297,20 @@ local KEY_GROUP_GAP = 8;
 -- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;
+local RESULT_HEADER_HEIGHT = 28;
 local ORDER_LINE_HEIGHT = 28;
+
+--- Stands a header row in a list column and moves the list under it
+--- (`DebindListColumnTemplate`).
+---
+--- **The body's top anchor moves here rather than being written against the header in the XML.**
+--- A column with no header leaves that frame with no height, and a frame with no height has no
+--- rectangle to anchor to: the body would go unresolved and the column would not be drawn at all.
+function DebindUI.SetListColumnHeader(column, height)
+	column.HeaderArea:SetHeight(height);
+	column.HeaderArea:Show();
+	column.ContentArea:SetPoint("TOPLEFT", column.HeaderArea, "BOTTOMLEFT", 0, 0);
+end
 
 DebindDialogMixin = {};
 
@@ -2005,10 +2027,10 @@ function DebindFrameMixin:UpdateEmptyText()
 		elseif (_searchText) then
 			emptyKey = "NO_SEARCH_RESULTS";
 		end
-		self.LayerPanel.ScrollBox.EmptyText:SetText(LLL[emptyKey]);
-		self.LayerPanel.ScrollBox.EmptyText:Show();
+		self.LayerPanel.List.ContentArea.ScrollBox.EmptyText:SetText(LLL[emptyKey]);
+		self.LayerPanel.List.ContentArea.ScrollBox.EmptyText:Show();
 	else
-		self.LayerPanel.ScrollBox.EmptyText:Hide();
+		self.LayerPanel.List.ContentArea.ScrollBox.EmptyText:Hide();
 	end
 end
 
@@ -2118,9 +2140,8 @@ local function ScrollBox_OnReceiveDrag(self)
 end
 
 function DebindLayerPanelMixin:InitializeScrollBox()
-	local padding = 7;
 	local spacing = 4;
-	local view = CreateScrollBoxListLinearView(0, 0, padding, padding, spacing);
+	local view = CreateScrollBoxListLinearView(2, 2, 2, 2, spacing);
 
 	-- 이 목록에는 행 한 종류뿐이다. 키 헤더는 왼쪽 열에만 있다 - 여기서 키로 묶는 것은
 	-- 없앴고, 발동 순서를 말하는 자리는 처음부터 저쪽 하나였다.
@@ -2129,14 +2150,16 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 	end);
 	view:SetElementExtent(LINE_HEIGHT);
 
-	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
+	local content = self.List.ContentArea;
+	local scrollBox = content.ScrollBox;
+	ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, content.ScrollBar, view);
 
-	self.ScrollBox.OnClick = ScrollBox_OnClick;
-	self.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
+	scrollBox.OnClick = ScrollBox_OnClick;
+	scrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
 
-	self.ScrollBox:RegisterForClicks("AnyUp");
-	self.ScrollBox:SetScript("OnClick", self.ScrollBox.OnClick);
-	self.ScrollBox:SetScript("OnReceiveDrag", self.ScrollBox.OnReceiveDrag);
+	scrollBox:RegisterForClicks("AnyUp");
+	scrollBox:SetScript("OnClick", scrollBox.OnClick);
+	scrollBox:SetScript("OnReceiveDrag", scrollBox.OnReceiveDrag);
 end
 
 --- The plate laid over Overview's two columns (`HelpPlate.lua`), and the identity `IsShowing`
@@ -2197,7 +2220,7 @@ function DebindFrameMixin:UpdateHelpPlate()
 	-- 덮어서, 설명하는 동안 설명 대상의 절반이 가려진다.
 	OVERVIEW_HELP_PLATE[1] = HelpPlateSectionFor(self.OverviewPanel.ResultPanel,
 		relativeScale, left, top, "LEFT", LLL["OVERVIEW_HELP_RESULT"]);
-	OVERVIEW_HELP_PLATE[2] = HelpPlateSectionFor(self.OverviewPanel.LayerPanel.ScrollBoxBackground,
+	OVERVIEW_HELP_PLATE[2] = HelpPlateSectionFor(self.OverviewPanel.LayerPanel.List,
 		relativeScale, left, top, "RIGHT", LLL["OVERVIEW_HELP_LAYER"]);
 end
 
@@ -3260,7 +3283,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	end
 
 	self.dataProvider = dataProvider;
-	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
+	self.List.ContentArea.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
 	-- **The selection lets go only when the action is gone from the profile**, never because this list
 	-- does not draw it. The left column picks and edits actions of every layer, and no tab or side tab
@@ -3548,7 +3571,7 @@ end
 --- never scrolls: the cursor is in the other column, and moving this one under it is not asked for.
 function DebindLayerPanelMixin:SetLinkedAction(action)
 	_linkedAction = action;
-	self.ScrollBox:ForEachFrame(function(button)
+	self.List.ContentArea.ScrollBox:ForEachFrame(function(button)
 		button:Update();
 	end);
 end
@@ -3578,7 +3601,7 @@ function DebindLayerPanelMixin:ScrollActionIntoView(action)
 	end
 
 	-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
-	self.ScrollBox:ScrollToNearest(index);
+	self.List.ContentArea.ScrollBox:ScrollToNearest(index);
 	return elementData;
 end
 
@@ -3732,7 +3755,7 @@ function DebindFrameMixin:Update()
 	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
 
-	self.LayerPanel.ScrollBox:ForEachFrame(function(button)
+	self.LayerPanel.List.ContentArea.ScrollBox:ForEachFrame(function(button)
 		button:Update();
 	end);
 
@@ -3865,7 +3888,7 @@ end
 --- **The cursor is asked each time.** A copy kept beside it can drift, and drawing off the drifted
 --- one gives a window saying "nothing held" that will still take a spell dropped on the list.
 function DebindFrameMixin:UpdateDropHighlight()
-	self.LayerPanel.ScrollBoxBackground.Highlight:SetShown(GetActionTypeAndValueFromCursorInfo() ~= nil);
+	self.LayerPanel.List.Highlight:SetShown(GetActionTypeAndValueFromCursorInfo() ~= nil);
 end
 
 --- 아이콘 선택기가 떠 있는 동안 잠기는 것들.
@@ -4463,7 +4486,7 @@ function DebindResultPanelMixin:OnLoad()
 	-- 만드는 행들과 어느 쪽이 위인지가 우연에 걸리므로(행 키 버튼이 그렇게 강조에 덮였다),
 	-- 목록보다 위라는 사실을 여기서 관계로 적는다.
 	local overlay = self.BindOverlay;
-	overlay:SetFrameLevel(self.ContentArea.OrderArea.ScrollBox:GetFrameLevel() + 10);
+	overlay:SetFrameLevel(self.ContentArea.ScrollBox:GetFrameLevel() + 10);
 	overlay.DoneButton:SetText(LLL["BIND_MODE_STOP"]);
 	overlay.CancelButton:SetText(LLL["BIND_MODE_CANCEL"]);
 	-- **Written once, because the mode listens for one thing: the row under the cursor.** A whole
@@ -4472,7 +4495,8 @@ function DebindResultPanelMixin:OnLoad()
 	overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
 	overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
 
-	self.ContentArea.HelpButton:SetHelpTopic("ordering");
+	DebindUI.SetListColumnHeader(self, RESULT_HEADER_HEIGHT);
+	self.HelpButton:SetHelpTopic("ordering");
 
 	self.initialized = true;
 	self:Refresh();
@@ -4699,7 +4723,7 @@ end
 --- 가르치는 몇 안 되는 자리다.
 function DebindOrderLineMixin:OnMoveEnter(button)
 	-- The (i) lights while the cursor is on an arrow: the help is where the arrows are explained.
-	DebindResultPanel.ContentArea.HelpButton:LockHighlight();
+	DebindResultPanel.HelpButton:LockHighlight();
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
 	GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
@@ -4718,7 +4742,7 @@ end
 
 function DebindOrderLineMixin:OnMoveLeave()
 	GameTooltip:Hide();
-	DebindResultPanel.ContentArea.HelpButton:UnlockHighlight();
+	DebindResultPanel.HelpButton:UnlockHighlight();
 end
 
 --- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.
@@ -4897,8 +4921,8 @@ end
 local ORDER_LINE_INDENT = 10;
 
 function DebindResultPanelMixin:InitializeOrderScrollBox()
-	local orderArea = self.ContentArea.OrderArea;
-	local view = CreateScrollBoxListLinearView(0, 0, 0, 0, 3);
+	local content = self.ContentArea;
+	local view = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
 	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 오른쪽 목록과 같은 방식이고,
 	-- 키 헤더도 **같은 템플릿**이다 - 한 창의 두 목록이 키를 다른 그림으로 가르면 안 된다.
 	view:SetElementFactory(function(factory, elementData)
@@ -4924,7 +4948,7 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 		return elementData.row and ORDER_LINE_INDENT or 0;
 	end);
 
-	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
+	ScrollUtil.InitScrollBoxListWithScrollBar(content.ScrollBox, content.ScrollBar, view);
 end
 
 --- 프로필에 있는, 키가 걸린 액션 전부. 키로 묶고, 그룹 안은 발동 순서다.
@@ -5210,7 +5234,7 @@ end
 --- **It scrolls only when asked** (`_revealAction`). A rebuild runs on every selection change, and
 --- one that scrolled each time would take the reader's place away from them.
 function DebindResultPanelMixin:RefreshKeyboard()
-	local orderArea = self.ContentArea.OrderArea;
+	local scrollBox = self.ContentArea.ScrollBox;
 
 	local revealAction = _revealAction;
 	_revealAction = nil;
@@ -5223,7 +5247,7 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	--
 	-- 검색은 여기서 따로 말하지 않는다. 이 열이 비었는데 검색어를 친 사람은 자기가 무엇을 쳤는지
 	-- 알고 있고, 지운 값이 무엇인지는 드롭다운을 열어야 보이는 것과 사정이 다르다.
-	self.ContentArea.EmptyText:SetText(
+	scrollBox.EmptyText:SetText(
 		LLL[DebindFrame:AreFiltersDefault() and "OVERVIEW_EMPTY" or "OVERVIEW_EMPTY_FILTERED"]);
 
 	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 빈 상자만 남기지 않는다.
@@ -5233,14 +5257,12 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	-- `DebindOrderLineMixin:OnMoveClick`은 `self:GetElementData().row.action`을 확인 없이 읽는다.
 	-- 다른 갈래는 전부 provider를 갈아끼우므로 이 자리만 예외였다.
 	if (#elements == 0) then
-		orderArea.ScrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
-		orderArea:Hide();
-		self.ContentArea.EmptyText:Show();
+		scrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
+		scrollBox.EmptyText:Show();
 		return;
 	end
 
-	self.ContentArea.EmptyText:Hide();
-	orderArea:Show();
+	scrollBox.EmptyText:Hide();
 
 	-- 보여줄 행과 **그 행이 딸린 머리글**을 여기서 같이 집는다. 액션에서 그룹을 다시 계산하는
 	-- 대신 지나온 머리글을 기억하는 쪽이, 묶는 규칙이 하나로 남는다.
@@ -5248,7 +5270,11 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	local headerIndex, revealIndex, revealHeaderIndex;
 	for _, elementData in ipairs(elements) do
 		if (elementData.isHeader) then
-			dataProvider:Insert({ isSpacer = true });
+			-- The gap belongs between two groups, so the first heading does not get one: at the
+			-- top of the list there is nothing above it to be apart from.
+			if (dataProvider:GetSize() > 0) then
+				dataProvider:Insert({ isSpacer = true });
+			end
 			dataProvider:Insert(elementData);
 			headerIndex = dataProvider:GetSize();
 		else
@@ -5258,11 +5284,11 @@ function DebindResultPanelMixin:RefreshKeyboard()
 			end
 		end
 	end
-	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
+	scrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
 
 	-- 없을 수 있다 - 지워진 액션을 부탁받았거나, [들어온 것만]이 그 그룹을 통째로 걷어냈거나.
 	if (revealIndex) then
-		RevealRow(orderArea.ScrollBox, revealHeaderIndex, revealIndex,
+		RevealRow(scrollBox, revealHeaderIndex, revealIndex,
 			dataProvider:Find(revealHeaderIndex).key == nil);
 	end
 end
@@ -5375,7 +5401,7 @@ end
 --- so a group is taken whole whichever side of the anchor it is on. `additive` (CTRL+SHIFT) keeps what
 --- was picked. With no anchor drawn here, only what was pressed is picked.
 function DebindResultPanelMixin:SelectRangeTo(elementData, additive)
-	local dataProvider = self.ContentArea.OrderArea.ScrollBox:GetDataProvider();
+	local dataProvider = self.ContentArea.ScrollBox:GetDataProvider();
 	local targetFirst, targetLast = ElementSpan(dataProvider, elementData);
 	if (not targetFirst) then
 		return;
@@ -5560,7 +5586,7 @@ end
 --- 판정은 `DebindLineMixin:HasCursor`이고, `Update`가 키보드를 넘길 때 보는 것도 그것이다.
 local function GetHoveredLine()
 	local hovered;
-	DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
+	DebindLayerPanel.List.ContentArea.ScrollBox:ForEachFrame(function(frame)
 		if (not hovered and frame.HasCursor and frame:HasCursor()) then
 			hovered = frame;
 		end

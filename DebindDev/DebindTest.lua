@@ -1617,7 +1617,7 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
         DebindResultPanel:RefreshKeyboard()
 
         local elementData
-        for _, data in DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider():Enumerate() do
+        for _, data in DebindResultPanel.ContentArea.ScrollBox:GetDataProvider():Enumerate() do
             if data.isHeader and data.key == KEY then
                 elementData = data
             end
@@ -1708,7 +1708,7 @@ RegisterTest("Key group: the heading's [Unbind key] takes the whole group off", 
         DebindResultPanel:RefreshKeyboard()
 
         local elementData
-        for _, data in DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider():Enumerate() do
+        for _, data in DebindResultPanel.ContentArea.ScrollBox:GetDataProvider():Enumerate() do
             if data.isHeader and data.key == KEY then
                 elementData = data
             end
@@ -1792,7 +1792,7 @@ RegisterTest("Key group: the heading's right-click folds the pick onto the group
         DebindResultPanel:RefreshKeyboard()
 
         local elementData
-        for _, data in DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider():Enumerate() do
+        for _, data in DebindResultPanel.ContentArea.ScrollBox:GetDataProvider():Enumerate() do
             if data.isHeader and data.key == KEY then
                 elementData = data
             end
@@ -2636,7 +2636,7 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
 --- list that never ran.
 local function FindOrderLine(action)
     local found
-    DebindResultPanel.ContentArea.OrderArea.ScrollBox:ForEachFrame(function(frame)
+    DebindResultPanel.ContentArea.ScrollBox:ForEachFrame(function(frame)
         local elementData = frame.GetElementData and frame:GetElementData()
         if elementData and elementData.row and elementData.row.action == action then
             found = frame
@@ -2791,7 +2791,7 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
         -- **The lock, not the highlight texture.** The texture answers to where the cursor
         -- physically is as well, and nothing here can place that; the lock is the whole of what
         -- `OnMoveEnter` and `OnMoveLeave` set.
-        local help = DebindResultPanel.ContentArea.HelpButton
+        local help = DebindResultPanel.HelpButton
         line:OnMoveEnter(up)
         if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on a locked arrow did not light the (i)")
@@ -2858,7 +2858,7 @@ RegisterTest("Overview header: the (i) opens the ordering help", {
         AddTeardown(function() DebindMessageFrame:Hide() end)
         DebindMessageFrame:Hide()
 
-        local help = DebindResultPanel.ContentArea.HelpButton
+        local help = DebindResultPanel.HelpButton
         if not help:IsVisible() then
             return Fail(NAME, "the (i) is not on screen with the window open")
         end
@@ -3040,7 +3040,7 @@ end
 -----------------------------------------------------------
 
 local function LeftColumnProvider()
-    return DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider()
+    return DebindResultPanel.ContentArea.ScrollBox:GetDataProvider()
 end
 
 --- The first drawn element of the left column `predicate` answers for, and its index.
@@ -3062,7 +3062,7 @@ end
 
 local function FindHeadingFrame(key)
     local found
-    DebindResultPanel.ContentArea.OrderArea.ScrollBox:ForEachFrame(function(frame)
+    DebindResultPanel.ContentArea.ScrollBox:ForEachFrame(function(frame)
         local elementData = frame.GetElementData and frame:GetElementData()
         if elementData and elementData.isHeader and elementData.key == key then
             found = frame
@@ -3371,7 +3371,7 @@ RegisterTest("Left column: the layer list lights a linked action only where it d
         DebindLayerPanel:Refresh(true)
 
         local line
-        DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
+        DebindLayerPanel.List.ContentArea.ScrollBox:ForEachFrame(function(frame)
             if frame:GetElementData().action == mine then
                 line = frame
             end
@@ -3391,7 +3391,7 @@ RegisterTest("Left column: the layer list lights a linked action only where it d
 
         DebindLayerPanel:SetLinkedAction(other)
         local lit = 0
-        DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
+        DebindLayerPanel.List.ContentArea.ScrollBox:ForEachFrame(function(frame)
             if frame:IsHighlightLocked() then
                 lit = lit + 1
             end
@@ -4944,7 +4944,7 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
 --- the frames that exist, so a caller matches on the name rather than on a position in the list.
 local function SwitchRow(panel, name)
     local found
-    panel.ScrollBox:ForEachFrame(function(frame)
+    panel.List.ContentArea.ScrollBox:ForEachFrame(function(frame)
         if frame.switchName == name then
             found = frame
         end
@@ -5149,9 +5149,9 @@ RegisterTest("Switches tab: picking a switch fills the right column", {
         -- got wired.
         row:Click()
 
-        local settings = panel.Detail.Settings
-        if not settings:IsShown() then
-            return Fail(NAME, "a row was clicked and the settings side of the column did not come up")
+        local settings = panel.settingsFrame
+        if not settings then
+            return Fail(NAME, "a row was clicked and the settings block did not come up")
         end
         -- The name is read here and typed in the box the button beside it opens, so the sigil is
         -- drawn with it.
@@ -5405,7 +5405,10 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
                 tostring(panel.layerID), tostring(layerID)))
         end
 
-        local settings = panel.Detail.Settings
+        local settings = panel.settingsFrame
+        if not settings then
+            return Fail(NAME, "a row was clicked and the settings block did not come up")
+        end
         if panel:CurrentStartValue() ~= "on" then
             return Fail(NAME, format(
                 "the override says it starts on and the column reads %s",
@@ -5567,7 +5570,10 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         end
         row:Click()
 
-        local box = panel.Detail.Settings.ExprBox
+        local box = panel:ExprBox()
+        if not box then
+            return Fail(NAME, "a row was clicked and the settings block did not come up")
+        end
         if IsRed(box) then
             return Fail(NAME, format("the premise is gone: %s is still there and the field is already red", SOURCE))
         end
@@ -5575,10 +5581,12 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         DebindPrivate.DeleteSwitch(SOURCE)
 
         -- Deleting fires `OnSwitchesChanged` and the whole tab stands up again, which can move the
-        -- picked switch. So this waits on the field rather than reading back what was true above.
+        -- picked switch and hands the settings block out afresh. So this waits on the field the
+        -- panel is holding now rather than reading back what was true above.
         local reddened = WaitUntil(function()
-            if panel.selectedName == DERIVED and IsRed(box) then
-                return box
+            local current = panel:ExprBox()
+            if panel.selectedName == DERIVED and current and IsRed(current) then
+                return current
             end
         end, 2)
         if not reddened then

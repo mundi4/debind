@@ -15,9 +15,10 @@ local HEADER_ROW_HEIGHT = 26;
 local ROW_INDENT        = 10;
 --- The air above a heading, as an element of its own. Overview's `KEY_GROUP_GAP`.
 local GROUP_GAP         = 8;
---- A row on the second face of the right column. Shorter than a switch row: these are read down
---- rather than acted on, and there can be a great many of them.
+--- A row on the right column that is a name and nothing else. Shorter than a switch row: these
+--- are read down rather than acted on, and there can be a great many of them.
 local USAGE_ROW_HEIGHT  = 20;
+local ACTION_ROW_HEIGHT = 46;
 
 --- The root's own layer, which is `GetLayerID(nil, false)`. It is drawn like the overrides and
 --- edited like them, and it is the one row that is always there and cannot be taken away (§4-6 of
@@ -25,8 +26,9 @@ local USAGE_ROW_HEIGHT  = 20;
 --- is the one layer `GetSwitchLayerKey` gives no key for.
 local ROOT_LAYER_ID     = 1;
 
-local TAB_SETTINGS      = 1;
-local TAB_USAGE         = 2;
+--- **Kept the same as the `<Size>` on `DebindSwitchSettingsTemplate`.** A linear view is asked for
+--- an element's extent before there is a frame to measure, so the two cannot come apart.
+local SETTINGS_EXTENT   = 348;
 
 --- The two halves the list is drawn in, in the order they stand. **Both headings are drawn even
 --- where one half is empty**: the two sit in the same place every time, and which half a switch is
@@ -411,6 +413,56 @@ end
 
 
 --------------------------------------------------------------------------------
+-- A row for one of this character's actions
+--------------------------------------------------------------------------------
+
+DebindSwitchUsageActionMixin = {};
+
+function DebindSwitchUsageActionMixin:Init(elementData)
+    self.action = elementData.action;
+    self.layerID = elementData.layer;
+
+    DebindUI.FillActionLine(self, elementData.action, elementData.layer);
+
+    self.Marks:Hide();
+
+    -- **The layer, which the Overview's own row leaves empty.** There the reader already knows
+    -- which layer they are looking at; here the rows come from several.
+    self.InfoText2:SetText(GRAY_FONT_COLOR:WrapTextInColorCode(
+        DebindUI.GetLayerLabel(elementData.layer)));
+end
+
+function DebindSwitchUsageActionMixin:OnEnter()
+    DebindPrivate.AddActionToTooltip(GameTooltip, self.action, {
+        offWorld = DebindUI.IsLayerOffWorld(self.layerID),
+    });
+end
+
+function DebindSwitchUsageActionMixin:OnLeave()
+    DebindPrivate.HideActionTooltip(GameTooltip);
+end
+
+
+--------------------------------------------------------------------------------
+-- The settings block
+--------------------------------------------------------------------------------
+
+DebindSwitchSettingsMixin = {};
+
+--- **`settingsFrame` is nil whenever the list is not holding this block**, and everything that
+--- writes to the block goes through it.
+function DebindSwitchSettingsMixin:Init(panel)
+    self.panel = panel;
+    panel.settingsFrame = self;
+    if (not self.wired) then
+        self.wired = true;
+        panel:SetupSettings(self);
+    end
+    panel:RefreshSettings();
+end
+
+
+--------------------------------------------------------------------------------
 -- A group's heading
 --------------------------------------------------------------------------------
 
@@ -528,11 +580,10 @@ DebindSwitchesPanelMixin = {};
 
 function DebindSwitchesPanelMixin:OnLoad()
     self.usage = {};
-    self.detailTab = TAB_SETTINGS;
     self.layerID = ROOT_LAYER_ID;
     self:InitializeScrollBox();
-    self:InitializeUsageScrollBox();
-    self:InitializeDetail();
+    self:InitializeDetailScrollBox();
+    self.Detail.ContentArea.ScrollBox.EmptyText:SetText(LLL["SWITCHES_DETAIL_EMPTY"]);
 end
 
 function DebindSwitchesPanelMixin:OnNewClick()
@@ -540,7 +591,7 @@ function DebindSwitchesPanelMixin:OnNewClick()
 end
 
 function DebindSwitchesPanelMixin:InitializeScrollBox()
-    local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
+    local view = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
         if (elementData.spacer) then
@@ -572,20 +623,33 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
         return ROW_INDENT;
     end);
 
-    ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
+    local content = self.List.ContentArea;
+    ScrollUtil.InitScrollBoxListWithScrollBar(content.ScrollBox, content.ScrollBar, view);
 end
 
-function DebindSwitchesPanelMixin:InitializeUsageScrollBox()
-    local usage = self.Detail.Usage;
-    local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
+function DebindSwitchesPanelMixin:InitializeDetailScrollBox()
+    local detail = self.Detail;
+    local view = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
         if (elementData.spacer) then
             factory("Frame");
+        elseif (elementData.settings) then
+            factory("DebindSwitchSettingsTemplate", function(frame) frame:Init(self); end);
         elseif (elementData.header) then
             factory("DebindSwitchGroupHeaderTemplate", function(frame) frame:Init(elementData); end);
+        elseif (elementData.action) then
+            factory("DebindSwitchUsageActionTemplate", function(frame) frame:Init(elementData); end);
         else
             factory("DebindSwitchUsageRowTemplate", function(frame) frame:Init(elementData); end);
+        end
+    end);
+
+    -- Scrolling far enough down releases the block, and a refresh reaching a released frame
+    -- writes onto a widget nobody can see.
+    view:SetElementResetter(function(frame)
+        if (frame == self.settingsFrame) then
+            self.settingsFrame = nil;
         end
     end);
 
@@ -593,37 +657,32 @@ function DebindSwitchesPanelMixin:InitializeUsageScrollBox()
         if (elementData.spacer) then
             return GROUP_GAP;
         end
+        if (elementData.settings) then
+            return SETTINGS_EXTENT;
+        end
         if (elementData.header) then
             return HEADER_ROW_HEIGHT;
+        end
+        if (elementData.action) then
+            return ACTION_ROW_HEIGHT;
         end
         return USAGE_ROW_HEIGHT;
     end);
 
     view:SetElementIndentCalculator(function(elementData)
-        if (elementData.spacer or elementData.header) then
+        if (elementData.spacer or elementData.header or elementData.action) then
             return 0;
         end
         return ROW_INDENT;
     end);
 
-    ScrollUtil.InitScrollBoxListWithScrollBar(usage.ScrollBox, usage.ScrollBar, view);
+    local content = detail.ContentArea;
+    ScrollUtil.InitScrollBoxListWithScrollBar(content.ScrollBox, content.ScrollBar, view);
 end
 
---- The words on the right column that never change, and the two controls that are wired once.
-function DebindSwitchesPanelMixin:InitializeDetail()
-    local detail = self.Detail;
-    local settings = detail.Settings;
-
-    detail.TabSystem:SetTabSelectedCallback(function(tabID)
-        self.detailTab = tabID;
-        self:RefreshDetail();
-    end);
-    detail.TabSystem:AddTab(LLL["SWITCH_TAB_SETTINGS"]);
-    detail.TabSystem:AddTab(LLL["SWITCH_TAB_USAGE"]);
-    detail.TabSystem:SetTabVisuallySelected(TAB_SETTINGS);
-
-    detail.Background.EmptyText:SetText(LLL["SWITCHES_DETAIL_EMPTY"]);
-
+--- **Called from the block's own `Init`, not from the panel's `OnLoad`.** The list's pool makes
+--- the block the first time a switch is picked, so there is no frame to wire before that.
+function DebindSwitchesPanelMixin:SetupSettings(settings)
     settings.NameLabel:SetText(LLL["SWITCH_NAME_LABEL"]);
     settings.LayerLabel:SetText(LLL["SWITCH_LAYER_PICKER"]);
     settings.StartLabel:SetText(LLL["SWITCH_START_VALUE"]);
@@ -776,9 +835,10 @@ function DebindSwitchesPanelMixin:RefreshRows()
     -- lit state has the answer by the time it is built.
     self:ResolveSelection(names);
 
-    self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
-    self.ScrollBox.EmptyText:SetText(LLL["SWITCHES_EMPTY"]);
-    self.ScrollBox.EmptyText:SetShown(#names == 0);
+    local scrollBox = self.List.ContentArea.ScrollBox;
+    scrollBox:SetDataProvider(CreateDataProvider(list), true);
+    scrollBox.EmptyText:SetText(LLL["SWITCHES_EMPTY"]);
+    scrollBox.EmptyText:SetShown(#names == 0);
 
     self:RefreshDetail();
 end
@@ -808,6 +868,12 @@ function DebindSwitchesPanelMixin:ResolveSelection(names)
     self:SetSelection(names[#names]);
 end
 
+--- **Nil while the block is off the list**, which every caller has to take.
+function DebindSwitchesPanelMixin:ExprBox()
+    local settings = self.settingsFrame;
+    return settings and settings.ExprBox;
+end
+
 function DebindSwitchesPanelMixin:SetSelection(name)
     if (self.selectedName == name) then
         return;
@@ -816,7 +882,10 @@ function DebindSwitchesPanelMixin:SetSelection(name)
     -- (`OnExprCommitted`), and it writes to whichever switch the panel is pointing at -- so
     -- clearing focus after the move files what was half typed for the switch before it under the
     -- one that was just clicked.
-    self.Detail.Settings.ExprBox:ClearFocus();
+    local box = self:ExprBox();
+    if (box) then
+        box:ClearFocus();
+    end
 
     self.selectedName = name;
     -- **The dropdown opens on the layer in force**, every time a different switch is picked. It is
@@ -835,7 +904,7 @@ end
 --- `inCombat` is given only from the regen dispatch, where the flag cannot be asked (`OnEvent`).
 --- Everywhere else it is nil and each row asks for itself.
 function DebindSwitchesPanelMixin:UpdateRows(inCombat)
-    self.ScrollBox:ForEachFrame(function(frame)
+    self.List.ContentArea.ScrollBox:ForEachFrame(function(frame)
         -- A heading has nothing on it that moves, so it carries no `Update` to call.
         if (frame.Update) then
             frame:Update(inCombat);
@@ -855,19 +924,13 @@ function DebindSwitchesPanelMixin:RefreshDetail()
     local detail = self.Detail;
     local name = self.selectedName;
 
-    detail.Background.EmptyText:SetShown(name == nil);
-    detail.TabSystem:SetShown(name ~= nil);
-    detail.Settings:SetShown(name ~= nil and self.detailTab == TAB_SETTINGS);
-    detail.Usage:SetShown(name ~= nil and self.detailTab == TAB_USAGE);
+    detail.ContentArea.ScrollBox.EmptyText:SetShown(name == nil);
 
     if (not name) then
+        detail.ContentArea.ScrollBox:SetDataProvider(CreateDataProvider({}));
         return;
     end
-    if (self.detailTab == TAB_SETTINGS) then
-        self:RefreshSettings();
-    else
-        self:RefreshUsage();
-    end
+    self:RefreshUsage();
 end
 
 --- Every layer this character reaches, and which of them decides this switch.
@@ -966,7 +1029,10 @@ end
 --- (`OnExprCommitted`), and it writes to whichever layer the panel is pointing at, so moving the
 --- pick first would file what was half typed for one layer under another.
 function DebindSwitchesPanelMixin:PickLayer(layerID)
-    self.Detail.Settings.ExprBox:ClearFocus();
+    local box = self:ExprBox();
+    if (box) then
+        box:ClearFocus();
+    end
     self.layerID = layerID;
     self:RefreshSettings();
 end
@@ -1018,12 +1084,14 @@ function DebindSwitchesPanelMixin:RemoveOverrideAt(layerID)
     });
 end
 
+--- **Does nothing while the block is off the list.** Coming back onto it runs this again
+--- (`DebindSwitchSettingsMixin:Init`).
 function DebindSwitchesPanelMixin:RefreshSettings()
     local name = self.selectedName;
-    if (not name) then
+    local settings = self.settingsFrame;
+    if (not name or not settings) then
         return;
     end
-    local settings = self.Detail.Settings;
     local layerID = self.layerID or ROOT_LAYER_ID;
     local layerKey = DebindPrivate.GetSwitchLayerKey(layerID);
 
@@ -1081,37 +1149,39 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     end
 end
 
---- Every place that names the picked switch, in three groups.
----
 --- **The third group is "you would have to log in there to fix it"**, which is not the same as
 --- "somebody else owns it": another character of this class is split between the first group and
 --- the third, because what it has on the class layers is reachable from here.
 function DebindSwitchesPanelMixin:RefreshUsage()
     local name = self.selectedName;
     local usage = self.usage[name];
-    local list = {};
+    local list = {
+        { header = "SWITCH_GROUP_SETTINGS" },
+        { settings = true },
+    };
 
     local function AddGroup(header, rows)
         if (#rows == 0) then
             return;
         end
-        if (#list > 0) then
-            list[#list + 1] = { spacer = true };
-        end
+        list[#list + 1] = { spacer = true };
         list[#list + 1] = { header = header };
         for i = 1, #rows do
             list[#list + 1] = rows[i];
         end
     end
 
+    local places = #list;
     AddGroup("SWITCH_USAGE_HERE", self:ActionRows(usage));
     AddGroup("SWITCH_USAGE_EXPRS", self:ExprRows(usage));
     AddGroup("SWITCH_USAGE_ELSEWHERE", self:ElsewhereRows(usage));
 
-    local scrollBox = self.Detail.Usage.ScrollBox;
-    scrollBox:SetDataProvider(CreateDataProvider(list), true);
-    scrollBox.EmptyText:SetText(LLL["SWITCH_USAGE_EMPTY"]);
-    scrollBox.EmptyText:SetShown(#list == 0);
+    if (#list == places) then
+        list[#list + 1] = { spacer = true };
+        list[#list + 1] = { text = LLL["SWITCH_USAGE_EMPTY"] };
+    end
+
+    self.Detail.ContentArea.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
 end
 
 --- The layers this character can open, as a set. **A stored layer can be outside it**: an import
@@ -1136,15 +1206,8 @@ function DebindSwitchesPanelMixin:ActionRows(usage)
     for i = 1, #usage.here do
         local place = usage.here[i];
         if (openable[place.layerID]) then
-            local actionName = DebindUI.NameAndIconForAction(place.action);
-            rows[#rows + 1] = {
-                text = format("%s  %s", actionName,
-                    GRAY_FONT_COLOR:WrapTextInColorCode(DebindUI.GetLayerLabel(place.layerID))),
-                -- **The key, because the tab the reader goes to fix this is laid out by key.** The
-                -- same spell on two keys is two rows here and two rows there, and a name alone
-                -- cannot say which of them this is.
-                key = place.action.key and DebindPrivate.GetKeyDisplayText(place.action.key) or nil,
-            };
+            -- **`layer`, because that is the key the row reads** (`DebindLineMixin:Update`).
+            rows[#rows + 1] = { action = place.action, layer = place.layerID };
         end
     end
     return rows;
@@ -1242,8 +1305,8 @@ end
 --- overwrite the wrong one.
 function DebindSwitchesPanelMixin:OnExprCommitted()
     local name = self.selectedName;
-    local box = self.Detail.Settings.ExprBox;
-    if (not name) then
+    local box = self:ExprBox();
+    if (not name or not box) then
         return;
     end
     local layerKey = DebindPrivate.GetSwitchLayerKey(self.layerID or ROOT_LAYER_ID);
@@ -1264,7 +1327,10 @@ function DebindSwitchesPanelMixin:OnExprCommitted()
 end
 
 function DebindSwitchesPanelMixin:OnExprCancelled()
-    local box = self.Detail.Settings.ExprBox;
+    local box = self:ExprBox();
+    if (not box) then
+        return;
+    end
     local name = self.selectedName;
     if (name) then
         local _, _, storedExpr = DebindPrivate.GetSwitchAnswerAt(name,
@@ -1275,7 +1341,10 @@ function DebindSwitchesPanelMixin:OnExprCancelled()
 end
 
 function DebindSwitchesPanelMixin:OnExprEnter()
-    local box = self.Detail.Settings.ExprBox;
+    local box = self:ExprBox();
+    if (not box) then
+        return;
+    end
     GameTooltip:SetOwner(box, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, LLL["SWITCH_EXPR_LABEL"]);
     GameTooltip_AddNormalLine(GameTooltip, LLL["CUSTOM_STATE_EDIT_VALUE_DESC"]);
