@@ -1,8 +1,9 @@
 # 클라이언트의 자동 동작을 액션마다 정하기 (2026-09-21 시작)
 
-> 상태: **설계만 섰다. 코드는 한 줄도 안 건드렸다.** 값의 모양(세 값), 기본값, 기존 프로필
-> 처리까지 2026-09-21에 소유자와 정했고, 실행 경로가 이미 서 있다는 것도 확인했다. 남은 것은
-> 화면 문구와 잠금 규칙의 세부, 그리고 구현이다.
+> 상태: **값이 저장되고 바인딩까지 나간다. 화면이 남았다.** 2026-09-21에 저장·정리·공유(§6의
+> 앞 네 줄), 감싼 버튼과 게이트 걷기(§4), 탈것 본문의 `/cancelform`과 우리 본문의 CVar 줄(§5)이
+> 들어갔다. 남은 것은 메뉴와 툴팁과 문구, 그리고 잠금 규칙이다. **값을 켤 화면이 없으므로
+> 사용자에게는 아직 아무 변화도 없다.**
 >
 > 이 문서는 `implementing-focus-and-self-cast.md` §3-13(보류)을 대신하고,
 > `matching-the-clients-cast-targeting.md` §2-2의 결정 하나를 뒤집는다.
@@ -157,9 +158,8 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
 
 ## 6. 손댈 자리
 
-- `Misc.lua` 값 읽기. `CastingValue`를 쓰는 헬퍼로 네 줄을 답한다.
-- `Misc.lua` `GetMountMacroText`. `/cancelform` 줄을 `autoUnshift`와 액션의 값으로 가르려면 탈것
-  ID 말고 액션이 들어와야 하고, 로드 때 한 번 정해지는 `SUMMON_MOUNT_MACROTEXT`가 풀려야 한다.
+**아래 목록에서 화면 셋(`ActionMenuItems.lua`, `ActionTooltip.lua`, `Locales/*.lua`)만 남았다.**
+
 - `ActionMenuItems.lua` `CreateCastingMenu`에 네 줄. 잠금 이유 문구는 `CAST_KEY_TARGET_PICKED`가
   쓰는 방식을 따른다.
 - `ActionTooltip.lua` 기본이 아닌 줄만 그린다.
@@ -167,16 +167,13 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
   (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`). 자동 변신 해제와 **비행이 아닌 자동 탈것
   내리기**는 클라이언트 문자열이 없어서 새로 짜야 한다. 설정 패널이 안 내는 CVar 둘이 그대로
   문자열 없는 둘이다.
-- `DebindStorage/Export.lua`의 `CASTING_TYPES`에 이름 넷. 가져오기가 같은 표를 쓰므로 빠지면
-  공유된 액션에서 값이 조용히 사라진다.
-- `Profile.lua` 정리기에 기본값 지우는 줄.
-- `SecureBindings.lua`에서 `SELFCAST_OFF_SNIPPET`과 `SelfCastWrappers`를 걷는다. 남는 것은
-  누름의 대상을 `CastFrame`에 얹는 줄이다.
-- `UpdateBindings.lua` 스탬프. `cacheKey`에 조합이 들어가고, `SELFCAST_OFF_BODY`가 CVar 넷을
-  앞뒤로 나르며, `_selfCastWrappers`와 `SELFCAST_OFF_SUFFIX`가 없어진다.
-- `Debind.lua` `CastFrame`의 `unit` 비우기.
 
 **마이그레이션은 없다.** 값이 없는 것이 새 기본값이고, 모르는 값은 기본으로 읽힌다.
+
+**들어간 자리.** `Misc.lua`의 `CastAutomaticOf`·`CastAutomaticsKeyOf`·`CastAutomaticInKey`와
+`UnshiftsWith`, 바인딩 파생의 `binding.automatics`, `Profile.lua` 정리기, `Export.lua`의
+`CASTING_TYPES`, `UpdateBindings.lua`의 `AutomaticsLines`·`AutomaticsBody`·`AutomaticsWrap`과
+감싼 버튼 캐시, `SecureBindings.lua`의 `CAST_BUTTON_SNIPPET`, `Debind.lua`의 캐스트 프레임 주석.
 
 ## 7. 측정 (2026-09-21, 소유자, 게임에서)
 
@@ -208,8 +205,11 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
 
 ## 8. 커버리지
 
-**헤드리스로 재는 것.** 액션의 값에서 바인딩이 어떻게 파생되는지, 정리기가 기본값을 지우는지,
-내보내기와 가져오기가 네 이름을 나르는지.
+**헤드리스로 재는 것.** 값 읽기와 정리기(`automatics_spec`), 내보내기와 가져오기가 네 이름을
+나르는 것(`import_spec`), 값을 켠 액션이 감싼 버튼을 받고 그 본문이 무엇인지, 값이 다른 같은
+주문이 안쪽 버튼은 공유하고 감싼 것만 가르는 것, 값을 안 켠 액션이 그대로 나가는 것(`eval_spec`),
+우리 본문이 CVar 줄을 나르는 것과 탈것 본문 두 꼴이 버튼을 안 나눠 쓰는 것(`describe_spec`),
+그리고 리빌드가 내보내는 바이트 전체(`emit_spec`의 골든).
 
 **헤드리스가 못 보는 것.** 구운 본문이 실제로 CVar를 움직이는지, 그래서 시전이 어디로 가는지.
 본문 문자열까지는 검사가 볼 수 있지만 그 본문이 게임에서 하는 일은 못 본다.
@@ -220,6 +220,7 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
 ## 9. 아직 안 정한 것
 
 - 화면 문구와 네 줄의 배치. 메뉴가 이미 길다.
-- 잠금 규칙의 정확한 조건. 게임 매크로를 가리키는 액션은 확실하고, 액션 종류마다 뜻이 없는 줄이
-  더 있는지는 안 봤다.
+- 잠금 규칙의 정확한 조건. **지금 값이 아무 일도 안 하는 액션이 둘이다**: 게임 매크로를 가리키는
+  것(얹을 문자열이 없다)과 유지·시전 주문(감싸면 안 놓인다). 화면이 서기 전에 둘을 잠가야 켰는데
+  아무 일도 안 나는 자리가 안 생긴다. 액션 종류마다 뜻이 없는 줄이 더 있는지는 안 봤다.
 - 유지·시전 주문을 이 트랙에서 어디까지 할지. 머리글대로 소유자에게 묻는다.
