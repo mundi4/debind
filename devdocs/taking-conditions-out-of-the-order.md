@@ -4,7 +4,7 @@
 >
 > 1. 조건 유무 단계를 뺀다. 먼저 내보내고 싶다는 말을 적는 자리는 Importance이고, 조건 단계는 그
 >    판정을 사용자가 안 적었는데 대신 내려 준다.
- 2. **옛 순서로 돌리는 옵션을 둔다**(소유자, 2026-09-21). 임시임을 그 자리에 적어 두고, 다음
+> 2. **옛 순서로 돌리는 옵션을 둔다**(소유자, 2026-09-21). 임시임을 그 자리에 적어 두고, 다음
 >    판에서 상황을 보고 걷는다. 내가 반대한 근거는 그 옵션이 안 없어진다는 것이었는데, 없앨
 >    작정으로 넣는 것이면 그 근거가 서지 않는다. 7절이 값과 걷는 길을 든다.
 > 3. 순서가 움직이는 것은 옵션을 안 켠 사람이 이번 릴리즈에서 한 번에 받는다. 켠 사람은 옵션을
@@ -121,6 +121,8 @@ Importance 안에서는 진짜가 된다.
 - **조건부 마크와 그 툴팁.** `IsConditionalAction`이 `DebindUI`의 `Marks.Conditional`을 켜고
   `MARK_TOOLTIP_CONDITIONAL`을 붙인다. 순서와 무관하게 "지정된 조건이 맞을 때만 실행됩니다"를
   말하는 것이라 남는다. **그래서 `IsConditionalBinding`도 남는다.**
+- **순서 레코드의 `isConditional`.** 기본 비교자는 안 읽지만 7절의 옵션을 켠 비교자가 읽으므로
+  `MakeOrderRecord`는 그대로 채운다. 옵션까지 걷는 판에서 같이 빠진다.
 - **빈 조건 표를 저장에 남기지 않는 규칙**(`CleanUpDB`, `TableFor`의 `create` 게이트). 이유가
   하나 줄지만(순서) 마크와 이슈 검사가 그대로 그 게이트를 쓴다. 그 규칙을 말하는 주석 중 순서를
   이유로 든 것은 8절에 있다.
@@ -272,11 +274,11 @@ ack이 없으면 남는 것은 재는 값 하나다. 끄는 것은 **계정 단�
 | 자리 | 무엇 |
 |---|---|
 | `Ordering.lua` | `CompareActionOrder`, `GetDecidingOrderAxis`의 단계, 머리주석의 사다리, `ComputeOrderSwap`의 사유 목록 |
-| `Misc.lua` | `MakeOrderRecord`가 `isConditional`을 안 쓴다. `IsConditionalBinding`의 머리주석이 "발동 순서의 세 번째 단계가 이걸 읽는다"고 말한다 |
-| `Debind.lua` | `BuildKeyMap` 머리주석이 바인딩에 써넣던 필드로 `isConditional`을 든다 |
+| `Misc.lua` | `IsConditionalBinding`의 머리주석이 "발동 순서의 세 번째 단계가 이걸 읽는다"고 말한다. 읽는 것은 이제 7절의 옵션을 켠 비교자뿐이다. **`MakeOrderRecord`는 `isConditional`을 계속 쓴다**(7-1) |
 | `Profile.lua` | `RenumberKeyGroup`의 밴드 설명(밴드가 priority 하나로 줄어든다), `MakeRow` 주변, 그리고 6절의 새 단계 |
 | `ActionMenuModel.lua` | `OnActionsChanged`의 "Conditions and importance are steps in the ordering", `TableFor`의 `create` 게이트 이유 |
-| `Locales/enUS.lua` | `IMPORTANCE_DESC`의 사다리에서 1번을 뺀다. `LAYER_DESC_*` 다섯과 `TAB_DESC_*` 둘의 "unless conditions or Importance say otherwise". `ORDER_BLOCKED_CONDITIONAL`은 7절 때문에 남는다 |
+| `Locales/enUS.lua` | `IMPORTANCE_DESC`의 사다리에서 1번을 빼고 나머지를 둘로 번호 매긴다. "unless conditions or Importance say otherwise"를 든 다섯 줄, `LAYER_DESC_SHARED_CLASS`, `LAYER_DESC_SHARED_SPEC`, `LAYER_DESC_CHARACTER_GENERAL`, `LAYER_DESC_CHARACTER_SPEC`, `TAB_DESC_CHARACTER`(나머지 `LAYER_DESC_SHARED_GENERAL`과 `TAB_DESC_SHARED`에는 그 절이 없다). `ORDER_BLOCKED_CONDITIONAL`은 7절 때문에 남는다 |
+| `Locales/enUS.lua`의 주석 둘 | 레이어 설명 줄 위의 주석이 "레이어는 실행 순서의 네 번째 축"과 "IMPORTANCE_DESC가 다섯 축을 순서대로 적어 둔다"를, `ORDER_BLOCKED_*` 위의 주석이 "IMPORTANCE_DESC가 다섯 단계로 가르친다"와 "IMPORTANCE 아래 셋"을 말한다. **둘 다 지금 이미 거짓이다.** `IMPORTANCE_DESC`는 세 항목이고 마우스 올림은 비교자에서 층으로 옮겨 갔다. 여는 파일이니 이 변경에서 같이 바로잡는다 |
 | `Locales/koKR.lua`, `Locales/ruRU.lua` | 같은 키들. enUS에서 지운 키가 남아 있으면 `check:locales`가 빨개진다 |
 | `docs/ingamehelp/enUS/ordering.md` | 2번 항목을 빼고 나머지를 셋으로 번호 매긴다. "all three are equal", "one of the three above"도 함께. `Locales/Help/enUS.lua`는 `npm run help`가 내는 파일이라 손으로 고치지 않는다 |
 | `which-action-a-key-runs.md` | §2의 "조건 유무", 그리고 §S2의 "얹힌 [없음]은 순서의 조건 유무에 들지 않는다"(2절에 따라 문장 자체가 없어진다) |
@@ -299,11 +301,17 @@ ack이 없으면 남는 것은 재는 값 하나다. 끄는 것은 **계정 단�
 
 ### 갱신
 
-- `tests/ordering_spec.lua` 1절의 단계별 테스트. 단계가 하나 빠지고 번호가 밀린다.
+- `tests/ordering_spec.lua` 1절의 단계별 테스트. 단계가 하나 빠지고 번호가 밀린다. 빠진 단계를
+  재던 두 테스트는 버리지 않고 옵션을 켠 모드로 옮긴다.
+- `tests/normalize_spec.lua`. "조건부 판정" 절의 머리가 "발동 순서의 셋째 단계가
+  `isConditional`을 읽는다"고 말하고, 그 아래 절의 주석도 같은 단계를 든다. `IsConditionalBinding`
+  자체를 재는 테스트라 판정은 그대로 통과한다.
 - `tests/keygroup_spec.lua`, `tests/specid_spec.lua`, `tests/renumber_spec.lua`,
   `tests/keymap_spec.lua`, `tests/hovertwin_spec.lua`의 설정과 주석. 이들 중 여럿이 "둘 다
   조건부여야 비교자가 `seq`까지 내려온다"를 이유로 조건을 하나씩 걸어 두고 있다. 판정은 그대로
-  통과하지만 그 이유는 거짓이 된다.
+  통과하지만 그 이유는 거짓이 된다. `hovertwin_spec`의 `MakeOrderRecord(...).isConditional` 단언
+  둘과 `keymap_spec`의 필드 목록은 **레코드가 그 필드를 계속 들기 때문에**(4절) 손댈 것이 없다.
+  그 결정이 뒤집히면 이 셋이 같이 빨개진다.
 - `DebindDev/DebindTest.lua`의 `PlantConditionLockedPair`. 잠긴 화살표를 만드는 값을 조건에서
   Importance로 바꾼다. 그 위에 선 두 케이스(잠긴 화살표가 (i)를 켠다, 잠긴 툴팁이 규칙을 말한다)는
   그대로 남는다. "Accept all: an occupied key" 케이스는 두 액션이 `seq`까지 내려오는 이유를 적은
@@ -322,7 +330,7 @@ ack이 없으면 남는 것은 재는 값 하나다. 끄는 것은 **계정 단�
 ### 새로 필요한 것
 
 마이그레이션 단계의 테스트이고, **본도 이미 있다.** `tests/migration_spec.lua`의 `dbver 7` 절이
-개체창 축이 빠진 단계를 여섯 케이스로 잡는다. `seqsAfterMigrate`가 레이어 하나를 `MigrateLayer`에
+개체창 축이 빠진 단계를 일곱 케이스로 잡는다. `seqsAfterMigrate`가 레이어 하나를 `MigrateLayer`에
 넣고 번호를 돌려주고, 케이스들이 옛 비교자의 단계마다 하나씩이다. 새 절은 같은 꼴에 축만 바꾼
 것이다.
 
