@@ -647,8 +647,13 @@ function DebindSwitchesPanelMixin:InitializeDetailScrollBox()
 
     -- Scrolling far enough down releases the block, and a refresh reaching a released frame
     -- writes onto a widget nobody can see.
+    --
+    -- **The field lets go while the panel is still holding the block.** The view resets a frame
+    -- before the pool hides it, and hiding is what takes focus off the field: dropping the block
+    -- first would leave `OnExprCommitted` with nothing to read and file nothing.
     view:SetElementResetter(function(frame)
         if (frame == self.settingsFrame) then
+            frame.ExprBox:ClearFocus();
             self.settingsFrame = nil;
         end
     end);
