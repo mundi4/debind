@@ -60,10 +60,15 @@ DebindPrivate.DefaultClickFrame = DefaultClickFrame;
 -- the very thing this route exists to keep. Nothing wraps this frame, so what is written here
 -- stands until the cast reads it.
 --
--- `useOnKeyDown` is pinned rather than left to the reader's CVar: the inner `/click` carries no
+-- `useOnKeyDown` is pinned rather than left to the reader's CVar: the `/click` we bake carries no
 -- edge, so it always arrives as up, and with the CVar on the gate's `clickAction` would be false
 -- and the cast would go nowhere with nothing said (`SecureTemplates.lua`'s 795-814, the same trap
 -- the click-cast branch pins it for).
+--
+-- **A `/click` can carry an edge; ours does not.** The third token goes through `StringToBoolean`
+-- into `Click(mouseButton, down)`, so `true` there would arrive as a down edge (2026-09-21, in the
+-- game). This pin stays because the baked body has no reason to send one, not because sending one
+-- is impossible -- which is what this said until it was measured.
 --- **The action attributes are written here as well as on the click frame, and `useparent*` is not
 --- how this frame gets them.** It used to be a child of the click frame carrying `useparent*` with
 --- `useparent-unit` off, which reads back exactly right -- `GetEffectiveAttribute("*type-deb103")`

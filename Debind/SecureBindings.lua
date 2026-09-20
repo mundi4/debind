@@ -458,9 +458,14 @@ local RESOLVE_UNIT_SNIPPET = [==[
 --- guard with nothing happening at all
 --- (`matching-the-clients-cast-targeting.md` §2-2).
 ---
---- **Press-and-hold keeps the direct route.** The macro runs once, and the hold the gate starts on
---- the down edge has no release to pair with inside one; wrapping it would trade a chosen target
---- for a spell that never finishes.
+--- **Press-and-hold keeps the direct route.** One baked body is sent on both edges, and the hold
+--- the gate starts on the down edge has no release to pair with inside one; wrapping it would trade
+--- a chosen target for a spell that never finishes.
+---
+--- **Two bodies would carry it, and that was measured** (2026-09-21, `matching-the-clients-cast-targeting.md`
+--- §2-2). A `/click` takes an edge in its third token, and a route that sends `true` on the down
+--- edge and `false` on the up edge charges an empowered spell and ends it on the release. What
+--- keeps these spells out is that this route bakes one body, not that a macro cannot carry a hold.
 ---
 --- Needs `winner` and `unit` declared by the caller.
 local SELFCAST_OFF_SNIPPET = [==[
