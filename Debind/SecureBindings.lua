@@ -1661,11 +1661,45 @@ end, [==[
 	-- **down에서만 켠다.** up에서 다시 골라 나온 승자가 press-hold라고 여기서 켜면,
 	-- 게이트가 `clickAction`을 거짓으로 만들고 `releasePressAndHoldAction`으로 넘어가
 	-- **누른 적 없는 주문의 `typerelease`가 나간다.** 놓기는 위의 캐리 자리에서만 켠다.
+	-- **유지·시전인지는 여기서 묻는다.** 버튼에 구운 것은 주문 **이름**이고, 클라이언트는 그
+	-- 이름을 시전 순간에 푼다 - 덮인 주문이 있으면 그쪽이 답한다. 리빌드 때 구운 답은 원래
+	-- 주문의 것이라 그 자리를 못 따라가고, 어긋나면 차오르고 안 놓인다.
+	--
+	-- **두 번 누르기에서는 켜지 않는다.** 그 설정에서는 쥐는 구간이 없고 두 번째 누름이 방출이라,
+	-- 뗌 엣지로 놓을 것이 없다.
+	--
+	-- **키 갈래에서만 묻는다.** 클릭캐스팅은 `delegate:Click(button)`으로 오는데 그 호출이
+	-- 엣지를 안 실어서 언제나 `down=false`로 도착한다. 거기서 켜면 게이트가 `useOnKeyDown`을
+	-- 강제로 참으로 만들고(SecureTemplates.lua:813) `clickAction = (down and useOnKeyDown)`이
+	-- 거짓이 되어, **누른 적 없는 주문의 `typerelease`만 나간다.** 안 켜는 쪽이 평범한 시전으로
+	-- 떨어져서 낫다. 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서 놓는 동작이
+	-- 안 된다. 고치려면 엣지를 실어 올 길이 필요한데 `SECURE_ACTIONS.click`에는 없다.
+	local pressAndHold = false
+	if (winner.holdsKey and winner.spell and not EmpowerTapControls) then
+		pressAndHold = IsPressHoldReleaseSpell(winner.spell) and true or false
+	end
+
+	-- **B-11.** 게이트는 이 값을 맨이름으로만 읽는다(SecureTemplates.lua:812). 버튼별로
+	-- 구운 `*pressAndHoldAction-<버튼>`은 거기 안 닿아서 유지·시전 주문이 눌러도 시작을 안
+	-- 하고 뗄 때 평범하게 시전됐다. 클릭 순간에 맨이름으로 쓰면 닿는다.
+	--
+	-- 이게 켜지면 게이트가 `useOnKeyDown`을 CVar와 무관하게 강제로 참으로 만든다(813) -
+	-- **누를 때 시작하고 뗄 때 놓는다.** 액션바가 하는 것과 같아진다.
+	--
+	-- **down에서만 켠다.** up에서 다시 골라 나온 승자가 press-hold라고 여기서 켜면,
+	-- 게이트가 `clickAction`을 거짓으로 만들고 `releasePressAndHoldAction`으로 넘어가
+	-- **누른 적 없는 주문의 `typerelease`가 나간다.** 놓기는 위의 캐리 자리에서만 켠다.
+	--
+	-- **`*typerelease-`도 같은 조건으로 같이 쓴다.** 게이트가 놓기 갈래에서 읽는 값이
+	-- 그것이고(SecureTemplates.lua:727), 하나만 켜면 갈래로 들어가서 아무 일도 안 하거나
+	-- 갈래로 아예 안 들어간다. 둘은 한 판단이다.
 	if (down) then
-		if (winner.pressAndHold) then
-			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		if (pressAndHold) then
+			self:SetAttribute("pressAndHoldAction", true)
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
 		end
 	end
 
@@ -1674,7 +1708,7 @@ end, [==[
 	-- 돌거나, 바인딩이 바뀌면 안 온다. 그러면 앞의 기록이 남고, 다음에 press-hold가 아닌
 	-- 액션을 눌렀다 뗄 때 그 낡은 것이 재사용된다. 맨이름 속성과 같은 규칙이다.
 	if (down) then
-		if (winner.pressAndHold) then
+		if (pressAndHold) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else

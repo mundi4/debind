@@ -236,6 +236,49 @@ return function(DebindPrivate, _, ctx)
         check(chosen ~= two, "two sets of values shared one wrapper");
     end);
 
+    -- **Whether a spell is empowered is asked at the press, not at the rebuild.** The name baked on
+    -- the button is what the client resolves at the cast, so an override makes the two disagree:
+    -- the base spell is not empowered and the one that actually goes out is. An answer baked at
+    -- the rebuild is the base spell's and cannot follow that, and getting it wrong leaves a spell
+    -- that charges and never lets go.
+    test("an empowered spell is told apart at the press", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        shim.world.spells[102560] = { name = "Chosen of Elune", pressAndHold = true };
+        Bind({
+            action({ value = 585, key = "F1" }),
+            action({ value = 774, key = "F2" }),
+        });
+
+        local clickFrame = DebindPrivate.DefaultClickFrame;
+        local function Press(key)
+            interp:runWrapped(clickFrame, "OnClick", Constants.CLICKTIME_BUTTON_PREFIX .. key, true);
+            local _, button = interp:evalKey(key);
+            return clickFrame:GetAttribute("*typerelease-" .. button);
+        end
+
+        check(Press("F1") == nil, "an ordinary spell named typerelease: " .. tostring(Press("F1")));
+
+        -- **The override**: the baked name now resolves to a spell that is empowered.
+        shim.world.castNames["Renew"] = 102560;
+        check(Press("F1") == "spell", "the override did not reach the press");
+
+        -- **Press and Tap leaves it alone.** There is no held key there, so the release edge has
+        -- nothing to let go of; a second press is what finishes the spell.
+        interp.env.EmpowerTapControls = true;
+        check(Press("F1") == nil, "tap controls still named typerelease");
+        interp.env.EmpowerTapControls = false;
+
+        shim.world.castNames["Renew"] = nil;
+        check(Press("F2") == nil, "a second ordinary spell named typerelease");
+
+        -- **A click-cast press is never told it holds the key.** It arrives through
+        -- `delegate:Click(button)` with no edge, so `down` is always false; turning it on there
+        -- makes the gate force `useOnKeyDown` and send the release of a spell nobody pressed.
+        check(DebindPrivate.DefaultClickFrame:GetAttribute("pressAndHoldAction") == nil,
+            "the bare name survived the press");
+    end);
+
     ---------------------------------------------------------------------------
     -- The binding types
     ---------------------------------------------------------------------------

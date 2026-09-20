@@ -333,6 +333,12 @@ local function buildEnv(interp)
     env.GetShapeshiftForm = function() return state.form; end
     env.GetBonusBarOffset = function() return state.bonusbar; end
     env.PlayerIsChanneling = function() return state.channeling; end
+    --- **The client answers, not a stand-in.** What the press asks is whether the spell it is
+    --- about to cast is empowered, and the whole point of asking at the press is that a name
+    --- resolves to whatever it names right now (`RestrictedEnvironment.lua` exposes this one).
+    env.IsPressHoldReleaseSpell = function(identifier)
+        return _G.C_Spell.IsPressHoldReleaseSpell(identifier);
+    end
     --- **인자에 따라 다른 자리에서 답한다.** `conditions.groups`는 이 둘을 `"player"`로
     --- 물어서 읽는 자리라 인터프리터가 들고 있는 플레이어의 그룹 상태가 답이고, 유닛 소속
     --- 축은 남에 대해 묻는 것이라 세계가 답한다. 인자를 무시하던 동안은 후자를 가르는 스펙이

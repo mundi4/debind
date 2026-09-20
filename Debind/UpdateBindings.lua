@@ -31,15 +31,6 @@ local GetMountInfoByID                   = C_MountJournal.GetMountInfoByID;
 
 local BindingAttrsCache                  = {};
 
---- 버튼 이름 -> 그 이름으로 `*typerelease-`를 구웠는가.
----
---- **구운 사실과 같은 출처에서 읽어야 한다.** 래퍼는 맨이름 `pressAndHoldAction`을 이 값으로
---- 쓰는데, 그걸 `IsPressHoldReleaseSpell`로 매번 다시 물으면 캐시 적중으로 속성을 안 건드린
---- 경우와 어긋난다. 그러면 눌러서 시작은 되는데 `*typerelease-`가 없어서 **안 놓인다.**
---- (500행 주석의 그 질문 - 특성으로 값이 바뀌는 경우)
-local BindingPressHoldCache              = {};
-
-
 local NextButtonName;
 do
     local _nextId = 100;
@@ -1004,16 +995,10 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         out.castSpell = ComposeSpellCastName(facts.spellName, facts.spellSubtext) or facts.spellID;
         attr(out, "*spell-", out.castSpell);
 
-        -- what if 'IsPressHoldReleaseSpell' value is changed by a talent or something? is there a such situation?
-        --
-        -- 그렇다면 이 블록이 캐시 적중으로 통째로 건너뛰어지는 것이 문제가 된다. 답이
-        -- 바뀌어도 `*typerelease-`는 옛날 그대로다. 그래서 **구웠다는 사실 자체를 남긴다** -
-        -- 래퍼가 맨이름 `pressAndHoldAction`을 쓸 때 이 값을 보므로, 다시 물어서 답이
-        -- 달라지면 "시작은 되는데 안 놓이는" 상태가 된다.
-        if (facts.pressAndHold) then
-            attr(out, "*typerelease-", "spell");
-            attr(out, "*pressAndHoldAction-", true);
-        end
+        -- **유지·시전 주문의 `*typerelease-`는 여기서 안 굽는다.** 클릭 때 쓴다
+        -- (`SecureBindings.lua`). 여기 구우면 이 블록이 캐시 적중으로 통째로 건너뛰어지는 것도
+        -- 문제고, 무엇보다 위의 `*spell-`이 **이름**이라 그 이름이 가리키는 주문이 덮이면 구운
+        -- 답이 틀린 답이 된다.
     elseif (type == Constants.ITEM) then
         attr(out, "*type-", "item");
         attr(out, "*item-", format("item:%d", value));
@@ -1124,9 +1109,7 @@ end
 ---
 --- **The cache is this side's business, and `DescribeBinding` knows nothing about it.** A hit
 --- means the attributes are already there under a button name we handed out earlier, so nothing
---- is written at all -- and `pressAndHold` comes back out of `BindingPressHoldCache` rather than
---- off the descriptor, because what the wrapper reads is what was **baked**, not what the client
---- would answer if asked again.
+--- is written at all.
 --- A button on the click frame that clicks one of Blizzard's bar buttons, made once per bar button.
 --- Cached for the session the way `BindingAttrsCache` is: the bar buttons never go away.
 local function BarClickButton(frame)
@@ -1164,10 +1147,6 @@ local function StampBinding(descriptor, automatics)
         local names, values = descriptor.attrNames, descriptor.attrValues;
         for i = 1, descriptor.count do
             clickframe:SetAttribute(names[i] .. buttonname, values[i]);
-        end
-
-        if (descriptor.pressAndHold) then
-            BindingPressHoldCache[buttonname] = true;
         end
 
         if (descriptor.actionSlot) then
@@ -1241,10 +1220,10 @@ local function StampBinding(descriptor, automatics)
 
         -- **대리 프레임으로 안 간다.** 나가는 것이 매크로라 버튼의 `unit`을 아무도 안 읽는다.
         -- 누름의 대상은 클릭 때 캐스트 프레임에 얹힌다(`SecureBindings.lua`).
-        return DefaultClickFrame, wrapped, false;
+        return DefaultClickFrame, wrapped;
     end
 
-    return delegate or clickframe, buttonname, BindingPressHoldCache[buttonname];
+    return delegate or clickframe, buttonname;
 end
 
 DebindPrivate.DescribeBinding = DescribeBinding;
@@ -1264,13 +1243,13 @@ function SetBindingAttributes(type, value, unit, automatics)
         return;
     end
 
-    local clickframe, buttonname, pressAndHold = StampBinding(descriptor, automatics);
+    local clickframe, buttonname = StampBinding(descriptor, automatics);
 
     if (descriptor.type == Constants.MACROTEXT) then
         addMacrotextBinding(buttonname, descriptor.value);
     end
 
-    return clickframe, buttonname, pressAndHold, descriptor.castSpell;
+    return clickframe, buttonname, descriptor.castSpell;
 end
 
 local REACTION_NAMES = {
@@ -1486,7 +1465,7 @@ local function PrepareKeyBindings(key, bindingArray)
         if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
             bindingValue = binding.spell;
         end
-        binding.clickframe, binding.clickbutton, binding.pressAndHold, binding.castSpell =
+        binding.clickframe, binding.clickbutton, binding.castSpell =
             SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
                 binding.automatics);
 
@@ -1691,28 +1670,6 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     -- **The target rides on the record**, because the wrapper is what puts it on the button, at
     -- the click, for a key and a unit-frame click alike.
     local carriesTarget = isClickCast or holdsKey;
-
-    -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의 선택을 붙들어야 하는지를
-    -- 이걸로 가른다 - 그 밖의 액션은 up에서 `typerelease` 조회가 nil이라 아무 일도 안 나므로
-    -- 붙들 이유가 없고, 괜히 붙들면 낡은 판단을 재사용하게 된다.
-    --
-    -- **press-and-hold는 키 갈래에만 싣는다.**
-    --
-    -- 클릭캐스팅은 `delegate:Click(button)`으로 오는데 그 호출이 엣지를 안 싣는다. 그래서
-    -- 언제나 `down=false`로 도착하고, 래퍼의 `if (down)` 갈래가 영영 안 돌아 이 값을 읽을
-    -- 자리가 없다.
-    --
-    -- **읽을 자리를 만들어서도 안 된다.** 여기서 `pressAndHoldAction`을 켜면 게이트가
-    -- `useOnKeyDown`을 강제로 참으로 만드는데 (SecureTemplates.lua:813), 도착이 `down=false`라
-    -- `clickAction = (down and useOnKeyDown)`이 거짓이 되고 `releasePressAndHoldAction`으로
-    -- 넘어가 **누른 적 없는 주문의 `typerelease`만 나간다.** 지금처럼 안 싣는 쪽이 평범한
-    -- 시전으로 떨어져서 낫다.
-    --
-    -- 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서 놓는 동작이 안 된다.
-    -- 고치려면 엣지를 실어 올 길이 필요한데 `SECURE_ACTIONS.click`에는 없다.
-    if (holdsKey and binding.pressAndHold) then
-        field(out, "pressAndHold", true);
-    end
 
     if (binding.castModifier) then
         field(out, "castModifier", binding.castModifier);

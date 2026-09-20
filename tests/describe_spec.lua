@@ -139,19 +139,21 @@ return function(DebindPrivate)
             "id: " .. tostring(attribute(descriptor, "*spell-")));
     end);
 
-    -- Press and hold bakes two extra attributes. **The fact that it was baked is what the wrapper
-    -- reads**, so a descriptor that says press and hold and a stamp that did not write these two
-    -- would be a spell that starts on the press and never lets go.
-    test("press and hold bakes the release attributes", function()
+    -- **Press and hold bakes nothing.** What the gate reads is written at the press instead
+    -- (`SecureBindings.lua`), because `*spell-` above is a name and the spell that name reaches
+    -- can be overridden between the rebuild and the cast. A baked answer is the base spell's.
+    test("press and hold bakes no release attributes", function()
         local held = describe(Constants.SPELL, 271466, nil,
             { spellID = 271466, spellName = "Will of the Necropolis", pressAndHold = true });
-        check(attribute(held, "*typerelease-") == "spell", "no typerelease");
-        check(attribute(held, "*pressAndHoldAction-") == true, "no pressAndHoldAction");
-        check(held.pressAndHold == true, "the descriptor does not say press and hold");
+        local _, releaseNamed = attribute(held, "*typerelease-");
+        check(releaseNamed == false, "typerelease was baked");
+        local _, actionNamed = attribute(held, "*pressAndHoldAction-");
+        check(actionNamed == false, "pressAndHoldAction was baked");
 
+        -- The descriptor still answers it, and the stamp is its one reader: a wrapped button
+        -- carries one body on both edges, which a spell you hold cannot use.
+        check(held.pressAndHold == true, "the descriptor does not say press and hold");
         local ordinary = describe(Constants.SPELL, 585, nil, { spellID = 585, spellName = "Renew" });
-        local _, named = attribute(ordinary, "*typerelease-");
-        check(named == false, "an ordinary spell named typerelease");
         check(ordinary.pressAndHold == false, "an ordinary spell says press and hold");
     end);
 

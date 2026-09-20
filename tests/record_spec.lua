@@ -221,22 +221,25 @@ return function(DebindPrivate)
         check(record == nil, "a binding that can never fire got a record");
     end);
 
-    -- **Press and hold rides the key branch only.** A click-cast record arrives through
-    -- `delegate:Click(button)`, which carries no edge, so the wrapper's `if (down)` branch never
-    -- runs and there is nowhere to read it -- and turning it on anyway makes the gate force
-    -- `useOnKeyDown`, which sends the release of a spell nobody pressed.
-    test("press and hold is carried on the key branch and not the click-cast one", function()
+    -- **Press and hold is not a field any more**; the press works it out from the spell, and which
+    -- branch a record is on rides on `holdsKey`, which every record carries. A click-cast record
+    -- arrives through `delegate:Click(button)`, which carries no edge, so the wrapper's `if (down)`
+    -- branch never runs -- and turning it on anyway makes the gate force `useOnKeyDown`, which
+    -- sends the release of a spell nobody pressed (`SecureBindings.lua`).
+    test("no record carries press and hold", function()
         local binding = {
             type = Constants.SPELL, value = 271466, unit = "unitframe", hover = true,
-            clickframe = true, clickbutton = "deb1", pressAndHold = true,
+            castSpell = "Will of the Necropolis",
+            clickframe = true, clickbutton = "deb1",
         };
 
         local held = recordFor(binding, false, true);
-        check(fieldOf(held, "pressAndHold") == true, "the key branch did not carry it");
+        local _, named = fieldOf(held, "pressAndHold");
+        check(not named, "the key branch carried press and hold");
+        check(held.holdsKey == true, "the key branch did not say so");
 
         local clickCast = recordFor(binding, true, false);
-        local _, named = fieldOf(clickCast, "pressAndHold");
-        check(not named, "the click-cast branch carried press and hold");
+        check(clickCast.holdsKey == false, "the click-cast branch said it holds the key");
     end);
 
     -- **The spell the press will cast rides the record**, as the very value `*spell-` was baked

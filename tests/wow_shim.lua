@@ -15,6 +15,14 @@ M.world = {
     spellbook = {},
     baseSpells = {},
     overrideSpells = {},
+    --- 이름으로 물었을 때 답할 주문 id. **비워 두면 `spells`에서 이름이 같은 것을 찾는다**,
+    --- 그러니까 덮인 것이 없는 평범한 상태다.
+    ---
+    --- **오버라이드를 세우는 자리가 여기다.** 클라이언트는 이름을 그때그때 풀고, 덮인 주문이
+    --- 있으면 그쪽을 답한다 - `GetSpellInfo("Celestial Alignment")`가
+    --- `Incarnation: Chosen of Elune`를 낸다(2026-09-21, 소유자가 게임에서). 그래서 굽힌 이름
+    --- 하나가 상황에 따라 다른 주문을 가리킨다.
+    castNames = {},
     --- Which spell ids `[known:<id>]` answers true for. Empty is a character who knows none of
     --- them, which is what a spec that never mentions one gets.
     knownSpells = {},
@@ -754,18 +762,43 @@ function M.install()
         local worn = M.world.equipped[slot];
         return worn and worn.texture or nil;
     end;
+    --- **`SpellIdentifier`는 id도 이름도 받는다**, 그리고 이름 쪽이 이 저장소에 중요하다.
+    --- 버튼에 굽는 것은 이름이고(`*spell-`), 클릭 때 그 이름으로 다시 묻는 자리가 있다.
+    ---
+    --- 이름은 `castNames`가 먼저 답하고, 없으면 `spells`에서 이름이 같은 것을 찾는다. 부제까지
+    --- 붙은 꼴(`이름(부제)`)도 같은 이름으로 읽는다 - `ComposeSpellCastName`이 굽는 모양이다.
+    local function SpellFor(identifier)
+        if (type(identifier) == "number") then
+            return M.world.spells[identifier];
+        end
+        if (type(identifier) ~= "string") then
+            return nil;
+        end
+        local byName = M.world.castNames[identifier];
+        if (byName) then
+            return M.world.spells[byName];
+        end
+        local bare = identifier:match("^(.-)%b()$") or identifier;
+        for _, spell in pairs(M.world.spells) do
+            if (spell.name == bare or spell.name == identifier) then
+                return spell;
+            end
+        end
+        return nil;
+    end
+
     _G.C_Spell = {
-        GetSpellInfo = function(spellID) return M.world.spells[spellID]; end,
-        GetSpellName = function(spellID)
-            local spell = M.world.spells[spellID];
+        GetSpellInfo = function(identifier) return SpellFor(identifier); end,
+        GetSpellName = function(identifier)
+            local spell = SpellFor(identifier);
             return spell and spell.name;
         end,
-        GetSpellSubtext = function(spellID)
-            local spell = M.world.spells[spellID];
+        GetSpellSubtext = function(identifier)
+            local spell = SpellFor(identifier);
             return spell and spell.subtext;
         end,
-        IsPressHoldReleaseSpell = function(spellID)
-            local spell = M.world.spells[spellID];
+        IsPressHoldReleaseSpell = function(identifier)
+            local spell = SpellFor(identifier);
             return (spell and spell.pressAndHold) and true or false;
         end,
     };

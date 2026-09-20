@@ -159,8 +159,6 @@ SetAttribute DebindClickButton *type-deb104 = "spell"
 SetAttribute DebindClickButton *spell-deb104 = "Rejuvenation"
 SetAttribute DebindClickButton *type-deb105 = "spell"
 SetAttribute DebindClickButton *spell-deb105 = "Will of the Necropolis"
-SetAttribute DebindClickButton *typerelease-deb105 = "spell"
-SetAttribute DebindClickButton *pressAndHoldAction-deb105 = true
 SetAttribute DebindClickButton *type-deb106 = "spell"
 SetAttribute DebindClickButton *spell-deb106 = 5176
 SetAttribute DebindClickButton *type-deb107 = "spell"
@@ -474,7 +472,6 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
   | t["spell"]="Will of the Necropolis"
-  | t["pressAndHold"]=true
   | t["castModifier"]=2
   | t["unit"]="player"
   | t.holdsKey=true
@@ -484,7 +481,6 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
   | t["spell"]="Will of the Necropolis"
-  | t["pressAndHold"]=true
   | t["castModifier"]=4
   | t["unit"]="focus"
   | t.holdsKey=true
@@ -494,7 +490,6 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb105"
   | t["spell"]="Will of the Necropolis"
-  | t["pressAndHold"]=true
   | t["castModifier"]=1
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)

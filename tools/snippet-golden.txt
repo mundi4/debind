@@ -1817,11 +1817,45 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+	local pressAndHold = false
+	if (winner.holdsKey and winner.spell and not EmpowerTapControls) then
+		pressAndHold = IsPressHoldReleaseSpell(winner.spell) and true or false
+	end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	if (down) then
-		if (winner.pressAndHold) then
-			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		if (pressAndHold) then
+			self:SetAttribute("pressAndHoldAction", true)
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
 		end
 	end
 
@@ -1830,7 +1864,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		if (winner.pressAndHold) then
+		if (pressAndHold) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -2609,11 +2643,45 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+	local pressAndHold = false
+	if (winner.holdsKey and winner.spell and not EmpowerTapControls) then
+		pressAndHold = IsPressHoldReleaseSpell(winner.spell) and true or false
+	end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	if (down) then
-		if (winner.pressAndHold) then
-			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		if (pressAndHold) then
+			self:SetAttribute("pressAndHoldAction", true)
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
 		end
 	end
 
@@ -2622,7 +2690,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		if (winner.pressAndHold) then
+		if (pressAndHold) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
