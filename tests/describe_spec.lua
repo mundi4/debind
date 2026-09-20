@@ -206,6 +206,14 @@ return function(DebindPrivate)
             .. '/run SetCVar("autoDismount",DebindAuto_autoDismount)',
             "mount body: " .. tostring(attribute(mount, "*macrotext-")));
 
+            -- **A mount the journal names a spell for reaches them through a `/click`**, not through
+        -- its body: it has none. Both forks of one mount answer the values, or the same action
+        -- would take them or ignore them depending on what the journal happens to hold.
+        local named = describe(Constants.MOUNT, 6, nil,
+            { mountSpellID = 458, mountSpellName = "Brown Horse" }, "1---");
+        check(named.castsAtUnit == true,
+            "a mount that is a spell cannot be wrapped: " .. tostring(named.castsAtUnit));
+
         -- **The key follows the body**, or the wrapped and the bare shape share a button.
         local bare = describe(Constants.MACROTEXT, "/cast Renew", nil, {});
         check(bare.cacheKey ~= macro.cacheKey,

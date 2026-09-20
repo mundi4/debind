@@ -978,8 +978,15 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     -- **Which actions the engine's automatic self-cast can reach**, and equally which ones may be
     -- fired from inside a macro body -- a `macro` type nested in one does not run. The three
     -- spec-resolved types are already rewritten to `SPELL` above, so they are in.
+    --
+    -- **A mount goes out as one of two things and only one of them belongs here.** Where the
+    -- journal names a spell it is stamped `*type-="spell"` and a `/click` fires it; where it does
+    -- not, the body is a macro of ours and carries what it needs itself. Reading the type alone
+    -- would leave the same mount answering the action's values or ignoring them depending on what
+    -- the journal happens to hold.
     out.castsAtUnit = type == Constants.SPELL or type == Constants.ITEM
-        or type == Constants.USESLOT;
+        or type == Constants.USESLOT
+        or (type == Constants.MOUNT and facts.mountSpellID ~= nil);
 
     if (type == Constants.SPELL) then
         attr(out, "*type-", "spell");
