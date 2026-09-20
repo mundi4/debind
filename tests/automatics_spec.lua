@@ -96,5 +96,28 @@ return function(DebindPrivate)
         check(action.casting == nil, "빈 표가 남았다");
     end);
 
+    --- **자동 변신 해제가 안 닿는 자리를 그 줄이 메운다** (2026-09-21, 소유자가 게임에서). 주문
+    --- 150544를 액션바에서 쓰면 변신을 풀고 타는데 `SummonByID`는 `autoUnshift`가 켜져 있어도
+    --- 안 푼다. 그래서 켬에서는 줄이 서고, 끔에서는 서면 안 된다.
+    test("탈것 본문의 변신 해제 줄이 값을 따른다", function()
+        local shim = require("wow_shim");
+        local on = { casting = { autoUnshift = true } };
+        local off = { casting = { autoUnshift = false } };
+
+        check(DebindPrivate.GetMountMacroText(0, DebindPrivate.UnshiftsForAction(on))
+            :find(SLASH_CANCELFORM1, 1, true) ~= nil, "켬인데 줄이 없다");
+        check(DebindPrivate.GetMountMacroText(0, DebindPrivate.UnshiftsForAction(off))
+            :find(SLASH_CANCELFORM1, 1, true) == nil, "끔인데 줄이 섰다");
+
+        -- 값이 없으면 게임 설정이 답한다.
+        shim.world.cvars.autoUnshift = true;
+        check(DebindPrivate.GetMountMacroText(0, DebindPrivate.UnshiftsForAction(nil))
+            :find(SLASH_CANCELFORM1, 1, true) ~= nil, "게임 설정이 켬인데 줄이 없다");
+        shim.world.cvars.autoUnshift = false;
+        check(DebindPrivate.GetMountMacroText(0, DebindPrivate.UnshiftsForAction(nil))
+            :find(SLASH_CANCELFORM1, 1, true) == nil, "게임 설정이 끔인데 줄이 섰다");
+        shim.world.cvars.autoUnshift = nil;
+    end);
+
     return T;
 end

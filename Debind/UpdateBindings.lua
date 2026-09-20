@@ -806,7 +806,7 @@ end
 ---
 --- A spec hands these in as plain values instead: it is standing a world up, not imitating an API
 --- (`going-headless-outside-the-ui.md` §4).
-local function CollectBindingFacts(type, value, unit, facts)
+local function CollectBindingFacts(type, value, unit, facts, automatics)
     wipe(facts);
 
     -- A resolved spec type is a spell from here on; one that resolved to nothing asks nothing.
@@ -849,7 +849,9 @@ local function CollectBindingFacts(type, value, unit, facts)
         if (spellID) then
             facts.mountSpellName = GetSpellNameAndIconID(spellID);
         else
-            facts.mountMacrotext = DebindPrivate.GetMountMacroText(value);
+            facts.mountMacrotext = DebindPrivate.GetMountMacroText(value,
+                DebindPrivate.UnshiftsWith(
+                    DebindPrivate.CastAutomaticInKey(automatics, "autoUnshift")));
         end
     end
 
@@ -939,6 +941,14 @@ local function DescribeBinding(type, value, unit, facts, out)
     -- here: the target goes into the macro body and the body becomes the value, so it is in the key
     -- after all. A type that cannot do that needs the key widened instead.
     out.cacheKey = value or NIL;
+
+    -- **탈것의 본문은 탈것 하나로 안 정해진다.** `/cancelform` 줄이 `autoUnshift`를 따르므로
+    -- 같은 탈것이 붙은 꼴과 안 붙은 꼴 둘로 구워지고, 열쇠가 탈것 번호뿐이면 먼저 구운 것이
+    -- 나중 것에게 간다. 이 캐시는 한 번도 안 지워지므로 CVar가 움직인 뒤에도 같은 일이 난다.
+    -- 본문을 value로 만들 수 없는 타입이라 열쇠를 넓힌다(위 펫 명령 주석의 마지막 문장).
+    if (type == Constants.MOUNT and facts.mountMacrotext) then
+        out.cacheKey = facts.mountMacrotext;
+    end
 
     -- **Which actions the engine's automatic self-cast can reach**, and equally which ones may be
     -- fired from inside a macro body -- a `macro` type nested in one does not run. The three
@@ -1208,7 +1218,7 @@ DebindPrivate.StampBinding = StampBinding;
 --- because the caller's shape still cannot carry one; stage 3 of
 --- `going-headless-outside-the-ui.md` is where the record loop learns to.
 function SetBindingAttributes(type, value, unit, automatics)
-    local facts = CollectBindingFacts(type, value, unit, _facts);
+    local facts = CollectBindingFacts(type, value, unit, _facts, automatics);
 
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
     if (not descriptor) then

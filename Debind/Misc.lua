@@ -1433,6 +1433,27 @@ do
         return any and key or nil;
     end
 
+    --- 열쇠에서 그 줄의 값을 읽는다. `CastAutomaticOf`의 열쇠 쪽 짝이고, 액션이 안 닿는
+    --- 자리에서 쓴다. 이름으로 자리를 찾으므로 줄의 순서가 바뀌어도 따라간다.
+    function DebindPrivate.CastAutomaticInKey(key, row)
+        if (key == nil) then
+            return nil;
+        end
+        local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+        for i = 1, #rows do
+            if (rows[i] == row) then
+                local mark = strsub(key, i, i);
+                if (mark == "1") then
+                    return true;
+                elseif (mark == "0") then
+                    return false;
+                end
+                return nil;
+            end
+        end
+        return nil;
+    end
+
     --- 그 줄 하나의 값: 켬(`true`), 끔(`false`), 게임 설정 그대로(`nil`).
     ---
     --- **셋째 값에는 이름이 없다.** 값이 없는 것이 그것이고, 그래서 불리언이 아닌 것은 전부
@@ -2895,18 +2916,38 @@ end
 
 
 
--- 행동단축바 끌어다 놓은 탈것을 클릭하면 필요한 경우 자동으로 변신이 해제되지만 C_MountJournal.SummonByID를 사용하는 경우 자동으로 변신이 해제되지 않음.
--- 'autounshift'가 켜져있어도 마찬가지!
 local SUMMON_MOUNT_MACROTEXT = SLASH_SCRIPT1 .. " C_MountJournal.SummonByID(%d)";
-if (select(2, UnitClass("player")) == "DRUID") then
-    SUMMON_MOUNT_MACROTEXT = SLASH_CANCELFORM1 .. " [form:1/2/5/6,nocombat]\n" .. SUMMON_MOUNT_MACROTEXT;
+
+--- **`autoUnshift`가 이 경로에 안 닿아서 그 줄이 CVar의 일을 대신한다** (2026-09-21, 소유자가
+--- 게임에서). 주문 150544를 행동단축바에 놓고 거기서 쓰면 변신 중에도 해제하고 타는데,
+--- `C_MountJournal.SummonByID`로 부르면 `autoUnshift`가 켜져 있어도 해제를 안 한다.
+---
+--- 드루이드가 아니면 줄 자체가 없다. 다른 직업의 변신은 탈것을 막지 않는다.
+local CANCEL_FORM_LINE = select(2, UnitClass("player")) == "DRUID"
+    and (SLASH_CANCELFORM1 .. " [form:1/2/5/6,nocombat]\n") or nil;
+
+--- 이 누름이 변신을 해제하는가. 켬과 끔은 그대로 답하고, 셋째 값(게임 설정 그대로)에서는 CVar가
+--- 답한다.
+function DebindPrivate.UnshiftsWith(value)
+    if (value ~= nil) then
+        return value;
+    end
+    return GetCVarBool("autoUnshift") and true or false;
 end
 
-function DebindPrivate.GetMountMacroText(value)
+function DebindPrivate.UnshiftsForAction(action)
+    return DebindPrivate.UnshiftsWith(DebindPrivate.CastAutomaticOf(action, "autoUnshift"));
+end
+
+function DebindPrivate.GetMountMacroText(value, unshift)
     if (value == 268435455) then
         value = 0;
     end
-    return SUMMON_MOUNT_MACROTEXT:format(value);
+    local body = SUMMON_MOUNT_MACROTEXT:format(value);
+    if (unshift and CANCEL_FORM_LINE) then
+        return CANCEL_FORM_LINE .. body;
+    end
+    return body;
 end
 
 --- The frame an on/off/toggle action clicks, by the name it answers to in a macro body.
@@ -3247,7 +3288,8 @@ function DebindPrivate.ConvertToMacroText(action)
                 value = 0;
                 name, icon = GetSpellNameAndIconID(150544);
             end
-            macrotext = DebindPrivate.GetMountMacroText(value);
+            macrotext = DebindPrivate.GetMountMacroText(value,
+                DebindPrivate.UnshiftsForAction(action));
         end
     elseif (action.type == Constants.PETACTION) then
         -- 이건 이미 매크로텍스트다 - 바인딩이 나갈 때와 **같은 함수로** 본문을 만든다.

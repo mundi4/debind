@@ -201,6 +201,31 @@ return function(DebindPrivate)
             "attribute: " .. tostring(attribute(descriptor, "*item-")));
     end);
 
+    -- **A mount is filed under its body, not under its id.** The `/cancelform` line follows
+    -- `autoUnshift`, so one mount is baked two ways -- and the cache is never cleared, so the first
+    -- shape would go on being handed out after the value moved. A mount cannot put its body in
+    -- `value` the way a pet command does, so the key is what widens instead.
+    test("a mount is filed under the body, so two shapes do not share a button", function()
+        local without = describe(Constants.MOUNT, 7, nil,
+            { mountMacrotext = "/script C_MountJournal.SummonByID(7)" });
+        local with = describe(Constants.MOUNT, 7, nil,
+            { mountMacrotext = "/cancelform [form:1/2/5/6,nocombat]\n"
+                .. "/script C_MountJournal.SummonByID(7)" });
+        check(without.cacheKey ~= with.cacheKey,
+            "one key for two bodies: " .. tostring(without.cacheKey));
+
+        local _, plainButton = DebindPrivate.StampBinding(without);
+        local _, unshiftButton = DebindPrivate.StampBinding(with);
+        check(plainButton ~= unshiftButton,
+            "two bodies on one button: " .. tostring(plainButton));
+
+        -- A mount the journal answers a spell for keeps the id, because there is no body to file
+        -- it under.
+        local named = describe(Constants.MOUNT, 6, nil,
+            { mountSpellID = 458, mountSpellName = "Brown Horse" });
+        check(named.cacheKey == 6, "cacheKey: " .. tostring(named.cacheKey));
+    end);
+
     -- The same thing seen from where it actually hurt: two rebuilds of one item binding used to
     -- hand out two buttons, and the one from the first rebuild stayed on the click frame for the
     -- session. Measured through the whole path, because the fault was the lookup and the filing
