@@ -338,6 +338,22 @@ return function(DebindPrivate)
         check(options.value == true, "창이 읽는 값이 안 따라왔다");
     end);
 
+    -- **기억은 사람이 손으로 둔 값이다.** 계산식이 낸 값이 여기 앉으면, 그 값이 "두던 대로"인
+    -- 다른 전문화가 돌려받는 값이 되고 로그인 때 복원되는 값이 된다. 한 전문화의 식이 다른
+    -- 전문화의 기억을 말없이 고쳐 쓰는 것이다.
+    test("계산식 스위치의 값은 캐릭터 기억에 안 앉는다", function()
+        InitWith(Profile());
+        check(DebindPrivate.db.char.switches["$state2"] == nil, "전제가 깨졌다 - 기억이 이미 있다");
+
+        DebindPrivate.OnSwitchChanged("$state2", true);
+        check(frames.drainTimers() > 0, "미러가 아예 예약되지 않았다");
+
+        check(DebindPrivate.db.char.switches["$state2"] == nil,
+            "계산식이 낸 값이 기억에 앉았다");
+        -- 창이 읽는 값은 따라와야 한다. 둘이 한 번의 쓰기라서 같이 막히면 이 검사가 잡는다.
+        check(DebindPrivate.Switches["$state2"].value == true, "정의의 값이 안 따라왔다");
+    end);
+
     ---------------------------------------------------------------------------
     -- 바뀔 때 적는 줄
     --
@@ -532,6 +548,68 @@ return function(DebindPrivate)
             "현재 캐릭터가 " .. character .. "개다 - 다른 캐릭터 것까지 셌거나 덜 셌다");
         check(live == 4,
             "현재 활성이 " .. live .. "개다 - 지금 안 도는 2특성 레이어까지 셌다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 한 번에 거두기
+    --
+    -- 스위치 탭이 목록을 지을 때 한 번 훑어서 모든 이름의 답을 얻는다
+    -- (`reworking-the-switches-tab.md`). **자리를 세는 것이 아니라 자리를 든다.** 지우기 전에
+    -- 손볼 목록이라 줄 하나가 갈 자리 하나여야 한다.
+    ---------------------------------------------------------------------------
+
+    --- 이름별 자리 수. `here`와 `exprs`는 배열, 나머지 둘은 키가 있는 표다.
+    local function Sizes(entry)
+        local classes, characters = 0, 0;
+        for _ in pairs(entry and entry.classes or {}) do classes = classes + 1; end
+        for _ in pairs(entry and entry.characters or {}) do characters = characters + 1; end
+        return #(entry and entry.here or {}), #(entry and entry.exprs or {}), classes, characters;
+    end
+
+    test("한 번 훑어서 모든 이름의 자리를 든다", function()
+        InitWith(Profile());
+        local usage = DebindPrivate.CollectSwitchUsage();
+
+        -- 이 캐릭터(드루이드, 1특성)가 여는 층: 전역 셋, 드루이드 공용 하나, 드루이드 2특성 하나.
+        local here, exprs, classes, characters = Sizes(usage["$state1"]);
+        check(here == 5, "여기 자리가 " .. here .. "개다");
+        -- 다른 캐릭터의 켜기 액션 하나. 그 캐릭터 전용 레이어라 여기서 못 연다.
+        check(characters == 1, "다른 캐릭터가 " .. characters .. "개다");
+        check(classes == 0, "다른 직업이 " .. classes .. "개다");
+        -- `$state2`의 계산식이 `$state1`을 부른다. 뿌리 행이라 전역으로 선다.
+        check(exprs == 1, "식 자리가 " .. exprs .. "개다");
+        check(usage["$state1"].exprs[1].name == "$state2",
+            "부르는 스위치가 " .. tostring(usage["$state1"].exprs[1].name) .. "다");
+    end);
+
+    -- 본문의 부정형만 부르는 쪽. 이름이 한 번도 안 불리는 스위치와 갈라져야 한다.
+    test("아무도 안 부르는 이름은 아예 안 선다", function()
+        InitWith(Profile());
+        check(DebindPrivate.CreateSwitch("$nobody"), "만들기가 거절됐다");
+        local usage = DebindPrivate.CollectSwitchUsage();
+        check(usage["$nobody"] == nil, "안 불리는 이름에 자리가 생겼다");
+        check(usage["$state2"] ~= nil, "본문이 부르는 이름이 빠졌다");
+    end);
+
+    -- 자기 식이 자기를 부르는 것은 갈 자리가 아니다. 스위치와 함께 사라진다.
+    test("자기 자신을 부르는 식은 자리로 안 센다", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchExpression("$state2", nil, "[$state2] [combat]");
+        local usage = DebindPrivate.CollectSwitchUsage();
+        local _, exprs = Sizes(usage["$state2"]);
+        check(exprs == 0, "자기 참조가 " .. exprs .. "개로 세어졌다");
+    end);
+
+    -- 남의 직업 레이어에 든 식. 여기서는 그 행을 열 수 없으니 직업 이름으로 선다.
+    test("남의 직업 오버라이드의 식은 직업으로 선다", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchAnswer("$state2", "PRIEST:2", MODES.EXPR);
+        DebindPrivate.SetSwitchExpression("$state2", "PRIEST:2", "[$state1]");
+
+        local usage = DebindPrivate.CollectSwitchUsage();
+        check(usage["$state1"].classes["PRIEST"] == true, "사제 자리가 안 섰다");
+        local _, exprs = Sizes(usage["$state1"]);
+        check(exprs == 1, "열 수 없는 행이 여기 자리로 세어졌다");
     end);
 
     ---------------------------------------------------------------------------
@@ -833,8 +911,47 @@ return function(DebindPrivate)
 
         local _, resetValue, _, layerKey = DebindPrivate.ResolveSwitchAnswer("$state1");
         check(layerKey == nil and resetValue == true, "뿌리로 안 돌아갔다");
+        check(DebindPrivate.GetSwitchAnswerAt("$state1", CharKey(1)) == nil,
+            "안 정한 행이 아직 답을 한다");
+    end);
+
+    -- **끄는 것과 지우는 것은 다르다.** 답을 껐다가 다시 켜는 사람이 적어 둔 값을 잃으면 안 된다.
+    test("제거해도 적어 둔 값은 남는다", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.EXPR);
+        DebindPrivate.SetSwitchExpression("$state1", CharKey(1), "[combat]");
+        DebindPrivate.ClearSwitchOverride("$state1", CharKey(1));
+
+        local resetValue, expr, unset = DebindPrivate.GetSwitchHeldAt("$state1", CharKey(1));
+        check(unset == true, "행이 아직 답을 한다");
+        check(expr == "[combat]", "식이 " .. tostring(expr) .. "로 남았다");
+        check(resetValue == nil, "시작값이 " .. tostring(resetValue) .. "로 남았다");
+
+        -- 다시 고르면 그대로 돌아온다.
+        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.EXPR);
+        local mode, _, back = DebindPrivate.ResolveSwitchAnswer("$state1");
+        check(mode == MODES.EXPR and back == "[combat]",
+            "다시 골랐는데 " .. tostring(back) .. "가 돌아왔다");
+    end);
+
+    -- 나머지 절반. 들고 있을 것이 없는 행은 그냥 간다. 한 번 눌러 보고 돌아온 사람은 아무것도
+    -- 안 남긴다.
+    test("들고 있을 것이 없으면 행이 사라진다", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, nil);
+        check(DebindPrivate.ClearSwitchOverride("$state1", CharKey(1)), "제거가 거절됐다");
         check(DebindPrivate.Switches["$state1"].overrides == nil,
-            "마지막 오버라이드를 뺐는데 빈 표가 남았다");
+            "빈 행이 남았다");
+    end);
+
+    -- 답을 안 하는 행은 오버라이드가 아니다. 삭제 확인창이 그 수를 든다.
+    test("답을 안 하는 행은 오버라이드로 안 센다", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, true);
+        check(DebindPrivate.CountSwitchOverrides("$state1") == 1, "세기 전제가 깨졌다");
+        DebindPrivate.ClearSwitchOverride("$state1", CharKey(1));
+        check(DebindPrivate.CountSwitchOverrides("$state1") == 0,
+            "안 정한 행이 " .. DebindPrivate.CountSwitchOverrides("$state1") .. "개로 세어졌다");
     end);
 
     -- 답을 고르는 것과 식을 적는 것은 두 동작이다. 넷을 훑어보고 돌아온 사용자가 적어둔

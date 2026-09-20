@@ -1893,6 +1893,12 @@ function DebindPrivate.ResolveSwitchAnswer(name)
         for i = 1, #layerIDs do
             local key = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
             local row = key and overrides[key];
+            -- **A row saying nothing is walked past**, not answered with. It is there to hold what
+            -- the reader typed, and reading its fields would turn "not set here" into the default
+            -- answer without a word (`ClearSwitchOverride`).
+            if (row and row.unset) then
+                row = nil;
+            end
             if (row) then
                 return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr, key;
             end
@@ -1904,7 +1910,32 @@ end
 
 --- The answer one layer gives, or nil where that layer says nothing. `layerKey` nil is the root,
 --- which always answers.
+---
+--- **A row that is there and says nothing is the same as no row**, which is what `unset` is for:
+--- see `ClearSwitchOverride`.
 function DebindPrivate.GetSwitchAnswerAt(name, layerKey)
+    local definition = DebindPrivate.Switches[name];
+    if (not definition) then
+        return nil;
+    end
+
+    local row = definition;
+    if (layerKey ~= nil) then
+        row = definition.overrides and definition.overrides[layerKey];
+        if (not row or row.unset) then
+            return nil;
+        end
+    end
+    return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr;
+end
+
+--- What one layer is **holding**, answering or not: its reset value, its expression, and whether it
+--- is saying anything at all.
+---
+--- The panel draws a layer that says nothing with what it would go back to still on it, so that
+--- turning the answer back on is not a surprise (`reworking-the-switches-tab.md`). Nothing else may
+--- read these: a row that says nothing decides nothing.
+function DebindPrivate.GetSwitchHeldAt(name, layerKey)
     local definition = DebindPrivate.Switches[name];
     if (not definition) then
         return nil;
@@ -1917,7 +1948,7 @@ function DebindPrivate.GetSwitchAnswerAt(name, layerKey)
             return nil;
         end
     end
-    return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr;
+    return row.resetValue, row.expr, row.unset and true or false;
 end
 
 --- Writes one of the four answers at one layer. `layerKey` nil writes the root.
@@ -1946,6 +1977,8 @@ function DebindPrivate.SetSwitchAnswer(name, layerKey, mode, resetValue)
 
     row.mode = mode;
     row.resetValue = resetValue;
+    -- Picking any of the answers is what makes a row that was saying nothing say something again.
+    row.unset = nil;
     return true;
 end
 
@@ -1970,21 +2003,37 @@ function DebindPrivate.SetSwitchExpression(name, layerKey, expr)
     return true;
 end
 
---- Takes one layer's override away. **The root has none to take**: it is the row §4-6 requires to
+--- Stops one layer answering. **The root has nothing to stop**: it is the row §4-6 requires to
 --- always be there, and without it the references pointing at this switch have nowhere to land.
+---
+--- **Turning a setting off is not the same as throwing it away.** What the reader typed into that
+--- row is kept and the row simply stops answering (`unset`), so picking an answer again gives back
+--- the expression and the starting value they had. Nothing reads a row in that state
+--- (`ResolveSwitchAnswer`, `GetSwitchAnswerAt`), which is what makes keeping it free.
+---
+--- **A row with nothing left to keep goes.** The default answer and an empty expression are what a
+--- row would be rebuilt as, so holding one is holding nothing: somebody who pressed an answer to
+--- see what it did and came straight back leaves no trace.
 function DebindPrivate.ClearSwitchOverride(name, layerKey)
     local definition = DebindPrivate.Switches[name];
     if (layerKey == nil or not definition or not definition.overrides) then
         return false;
     end
-    if (not definition.overrides[layerKey]) then
+    local row = definition.overrides[layerKey];
+    if (not row or row.unset) then
         return false;
     end
 
-    definition.overrides[layerKey] = nil;
-    if (next(definition.overrides) == nil) then
-        definition.overrides = nil;
+    if (row.resetValue == nil and (row.expr == nil or row.expr == "")) then
+        definition.overrides[layerKey] = nil;
+        if (next(definition.overrides) == nil) then
+            definition.overrides = nil;
+        end
+        return true;
     end
+
+    row.unset = true;
+    row.mode = nil;
     return true;
 end
 
@@ -1994,11 +2043,15 @@ end
 --- Switches tab draws the layers one character reaches, so deleting from a priest takes a druid's
 --- overrides with it, and the delete question is the only place that asymmetry is ever on screen
 --- (§6-B).
+--- **A row that says nothing is not an override.** It decides nothing, so a reader told that one
+--- more thing goes with the switch would be counting what they took away themselves.
 function DebindPrivate.CountSwitchOverrides(name)
     local definition = DebindPrivate.Switches[name];
     local count = 0;
-    for _ in pairs(definition and definition.overrides or {}) do
-        count = count + 1;
+    for _, row in pairs(definition and definition.overrides or {}) do
+        if (not row.unset) then
+            count = count + 1;
+        end
     end
     return count;
 end
@@ -2148,35 +2201,52 @@ function DebindPrivate.GetSwitchNames(out)
     return out;
 end
 
---- Does this action name that switch, in any of the four places one can be named?
+--- Every switch name this action holds, in the four places one can be named.
 ---
 --- A condition key, an on/off/toggle target, and a macro body twice over: the conditions in it, and
 --- the `/click DebindStates …` line [Convert to macro text] writes an on/off/toggle action out as.
 --- Both halves of the body are asked through the same doors `GetUndefinedSwitch` uses, so what is
---- counted here is exactly what goes red there.
-local function ActionNamesSwitch(action, name)
+--- reported here is exactly what goes red there.
+---
+--- **One grammar, two readers.** `ActionNamesSwitch` asks about one name and `CollectSwitchUsage`
+--- wants them all; written twice, the day comes when a fifth place is added to one of them.
+local function ForEachSwitchInAction(action, fn)
     local conditions = action.conditions;
-    if (conditions and conditions[name] ~= nil) then
-        return true;
+    if (conditions) then
+        for key in pairs(conditions) do
+            if (strsub(key, 1, 1) == "$") then
+                fn(key);
+            end
+        end
     end
-    if (Constants.SETSTATE_MODES[action.type] and action.value == name) then
-        return true;
+    if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
+        fn(action.value);
     end
     if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
         local _, args = DebindPrivate.ParseMacroText(action.value);
         for i = 1, (args and #args or 0) do
             local arg = args[i];
-            if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name == name) then
-                return true;
+            if (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
+                fn(arg.name);
             end
         end
-        if (DebindPrivate.ForEachClickedSwitch(action.value, function(clicked)
-                return clicked == name;
-            end)) then
-            return true;
-        end
+        -- **Answering nothing is what keeps this walking.** `ForEachClickedSwitch` hands back the
+        -- first answer it gets, so a collector that returned a value would stop at line one.
+        DebindPrivate.ForEachClickedSwitch(action.value, function(clicked)
+            fn(clicked);
+        end);
     end
-    return false;
+end
+
+--- Does this action name that switch?
+local function ActionNamesSwitch(action, name)
+    local found = false;
+    ForEachSwitchInAction(action, function(named)
+        if (named == name) then
+            found = true;
+        end
+    end);
+    return found;
 end
 
 --- How many actions name this switch, at three distances: **the whole account, this character, and
@@ -2235,6 +2305,155 @@ function DebindPrivate.CountSwitchReferences(name)
     end
 
     return account, character, live;
+end
+
+--- The layer the account-wide row is drawn as, which is `LAYER_INFOS`' first.
+local GENERAL_LAYER_ID = 1;
+
+--- Where a layer sits in `LAYER_INFOS`, **without `GetLayerID`'s assertion**. That one refuses a
+--- specialization index this class does not have, and stored data holds them: an import writes into
+--- another class's spec slots (`StoredActionsAt`), and this walk reads every slot there is.
+local function LayerIDAt(spec, isCharacterSpecific)
+    if (spec < 0 or spec > MAX_SPEC) then
+        return nil;
+    end
+    return (isCharacterSpecific and 7 or 2) + spec;
+end
+
+--- Which layer a stored override key belongs to, for the character who is logged in. Nil where
+--- that key is somebody else's, and then the next answer says whose: a class file name, or a
+--- GUID. **Three values in the order the collectors take them**, so it can be handed straight on.
+local function PlaceOfLayerKey(layerKey)
+    for layerID = 2, #LAYER_INFOS do
+        if (DebindPrivate.GetSwitchLayerKey(layerID) == layerKey) then
+            return layerID;
+        end
+    end
+
+    local owner = strsplit(":", layerKey);
+    -- A GUID is the one of the two that carries dashes (`Player-205-0A1B2C3D`), and a class file
+    -- name never does.
+    if (strfind(owner, "-", 1, true)) then
+        return nil, nil, owner;
+    end
+    return nil, owner, nil;
+end
+
+--- Every place this profile names a switch, **gathered in one walk for every name at once**.
+---
+--- The Switches tab asks about all of them: which names nothing anywhere holds is what its list is
+--- split by, and the rest is what somebody has to go and fix before deleting one. Asked one name at
+--- a time that is a walk per switch, which measured 293ms on an account of twenty characters and
+--- forty switches; asked once it is 6ms (`reworking-the-switches-tab.md`).
+---
+--- **Places, not counts.** What the reader is handed is rows to go to, so a number two places both
+--- fed into could not be worked down to zero.
+---
+--- Each name that is named anywhere gets an entry:
+---
+---   * `here`    actions on a layer this character can open. `{ action, layerID }`
+---   * `exprs`   switches whose expression names it, on a layer this character can open.
+---               `{ name, layerID }`
+---   * `classes` / `characters`  the places it cannot open: another class's layers, another
+---               character's own layers. Keyed by class file name and by GUID
+---
+--- **A switch naming itself is not a place.** That expression goes when the switch does, so it is
+--- nothing to fix first.
+function DebindPrivate.CollectSwitchUsage()
+    local usage = {};
+
+    local function entryFor(name)
+        local entry = usage[name];
+        if (not entry) then
+            entry = { here = {}, exprs = {}, classes = {}, characters = {} };
+            usage[name] = entry;
+        end
+        return entry;
+    end
+
+    local function addAction(action, layerID, classKey, guid)
+        ForEachSwitchInAction(action, function(name)
+            local entry = entryFor(name);
+            if (layerID) then
+                entry.here[#entry.here + 1] = { action = action, layerID = layerID };
+            elseif (classKey) then
+                entry.classes[classKey] = true;
+            elseif (guid) then
+                entry.characters[guid] = true;
+            end
+        end);
+    end
+
+    local function walkLayer(layerTbl, layerID, classKey, guid)
+        for i = 1, #(layerTbl or {}) do
+            addAction(layerTbl[i], layerID, classKey, guid);
+        end
+    end
+
+    local db = DebindPrivate.db.global;
+    local charEntry = DebindPrivate.db.char;
+    local playerGUID = DebindPrivate.playerGUID;
+
+    if (db.shared) then
+        walkLayer(db.shared.GENERAL, GENERAL_LAYER_ID);
+        for classKey, classTbl in pairs(db.shared.classes or {}) do
+            local mine = classKey == Constants.PLAYER_CLASS;
+            for spec = 0, MAX_SPEC do
+                walkLayer(classTbl[spec], mine and LayerIDAt(spec, false) or nil,
+                    not mine and classKey or nil);
+            end
+        end
+    end
+
+    -- **The entry this character is using may not be in the account table yet**, since one is
+    -- attached only once it holds something (`CleanUpDB`). Left out, the layers on screen right now
+    -- would be the ones missing from the list.
+    local attached = false;
+    for guid, entry in pairs(db.characters or {}) do
+        attached = attached or entry == charEntry;
+        local mine = guid == playerGUID;
+        for spec = 0, MAX_SPEC do
+            walkLayer(entry.layers and entry.layers[spec],
+                mine and LayerIDAt(spec, true) or nil, nil,
+                not mine and guid or nil);
+        end
+    end
+    if (charEntry and not attached) then
+        for spec = 0, MAX_SPEC do
+            walkLayer(charEntry.layers and charEntry.layers[spec], LayerIDAt(spec, true));
+        end
+    end
+
+    local function addExpr(owner, expr, layerID, classKey, guid)
+        if (luatype(expr) ~= "string") then
+            return;
+        end
+        local _, args = DebindPrivate.ParseMacroText(expr);
+        for i = 1, (args and #args or 0) do
+            local arg = args[i];
+            if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name ~= owner) then
+                local entry = entryFor(arg.name);
+                if (layerID) then
+                    entry.exprs[#entry.exprs + 1] = { name = owner, layerID = layerID };
+                elseif (classKey) then
+                    entry.classes[classKey] = true;
+                elseif (guid) then
+                    entry.characters[guid] = true;
+                end
+            end
+        end
+    end
+
+    for owner, definition in pairs(DebindPrivate.Switches) do
+        -- The root's expression is the definition's own, and the row it is edited on is the one
+        -- every layer falls back to, which is `GENERAL` on screen.
+        addExpr(owner, definition.expr, GENERAL_LAYER_ID);
+        for layerKey, row in pairs(definition.overrides or {}) do
+            addExpr(owner, row.expr, PlaceOfLayerKey(layerKey));
+        end
+    end
+
+    return usage;
 end
 
 --- Renames a switch, **and rewrites every reference to it**. Answers `true`, or `false` and a
@@ -2492,7 +2711,8 @@ function DebindPrivate.BindDerivedTables()
     DebindPrivate.ApplySwitchResets();
 end
 
---- A person changed a switch, **and what the character remembers of it moves with it**.
+--- A person changed a switch, **and what the character remembers of it moves with it** -- where
+--- there is a person behind the value at all, which the body below is where that is decided.
 ---
 --- Those two are one write and were two. A value written without the memory beside it survives
 --- until the next load and then quietly goes back. The restricted side's report comes through here
@@ -2532,7 +2752,13 @@ function DebindPrivate.SetSwitchValue(name, value)
     end
 
     definition.value = value;
-    DebindPrivate.db.char.switches[name] = value;
+    -- **What is remembered is what somebody set by hand.** A computed switch's value is worked out
+    -- from its expression at the press, and written here it becomes the value "as you left it"
+    -- hands back on a specialization that never computed anything, and the value a login restores.
+    -- One specialization's expression would be quietly rewriting another's memory.
+    if (DebindPrivate.ResolveSwitchAnswer(name) == Constants.SWITCH_MODES.MANUAL) then
+        DebindPrivate.db.char.switches[name] = value;
+    end
     DebindPrivate.switchValueSerial = DebindPrivate.switchValueSerial + 1;
 end
 

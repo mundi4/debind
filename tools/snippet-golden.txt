@@ -694,10 +694,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -1315,10 +1312,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -1726,10 +1720,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 		local s
@@ -2118,10 +2109,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -2529,10 +2517,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 		local s
@@ -2833,10 +2818,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -3239,10 +3221,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 		local s
@@ -3497,10 +3476,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -3903,10 +3879,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 		local s
@@ -4164,10 +4137,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -4570,10 +4540,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 		local s
@@ -4776,10 +4743,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 				for state, v in pairs(t.switches) do
@@ -5182,10 +5146,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 		local s

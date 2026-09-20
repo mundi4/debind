@@ -1813,8 +1813,6 @@ SetAttribute <Frame#3> _onattributechanged =
   | 
 Execute <Frame#3>
   | self:RunAttribute("SetSwitch", "$burst", true)
-  | self:RunAttribute("SetSwitch", "$echo", false)
-  | self:RunAttribute("SetSwitch", "$intent", false)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
   | ComputedSwitches[2]="$intent"

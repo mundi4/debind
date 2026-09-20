@@ -403,8 +403,8 @@ end
 --- rebuild has no switch to say anything about.
 ---
 --- Writing into `States` directly would skip the report the insecure side folds back into the
---- definition (`OnSwitchChanged`), which is what the Switches tab reads. The value goes back
---- through `SetSwitch` for that reason.
+--- definition (`OnSwitchChanged`), which is what the Switches tab reads for a switch somebody
+--- works by hand. The value goes back through `SetSwitch` for that reason.
 local function BuildSwitchesSnippet()
     wipe(_orderSeen);
     wipe(_order);
@@ -412,8 +412,12 @@ local function BuildSwitchesSnippet()
     for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
         local stateInfo = _switches[state];
         if (stateInfo) then
-            -- previous switch value
-            if (stateInfo.value ~= nil) then
+            -- previous switch value. **Not for a computed one**: its value belongs to the press
+            -- that worked it out (`COMPUTE_SWITCHES_SNIPPET`), so a stored one is what the last
+            -- press left behind and pushing it in would stand it up as the switch's value until
+            -- the next press. It goes in through `SetSwitch`, which reports it straight back out
+            -- to the definition and to what this character remembers.
+            if (stateInfo.mode ~= SWITCH_MODES.EXPR and stateInfo.value ~= nil) then
                 appendLine([[self:RunAttribute("SetSwitch", %1$q, %s)]], state,
                     tostring(stateInfo.value));
             end

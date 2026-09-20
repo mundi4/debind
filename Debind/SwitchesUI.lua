@@ -151,7 +151,7 @@ end
 ---
 --- **What it comes up as is not on this row any more.** That answer belongs to a layer since stage
 --- 4 and there can be several, so it is drawn once per layer on the rows underneath. What is left
---- here is the switch itself: its name, and what it is right now.
+--- here is the switch itself: its name, and what it is right now where that can be measured.
 --- `inCombat` arrives only from the regen dispatch, which is the one place the flag cannot answer
 --- (`DebindSwitchesPanelMixin:OnEvent`). Nil means "ask".
 function DebindSwitchRowMixin:Update(inCombat)
@@ -161,18 +161,26 @@ function DebindSwitchRowMixin:Update(inCombat)
         return;
     end
 
-    -- **Nothing reads it, so there is no state to draw.** The value on the definition is a memory
-    -- for the next reload, not what the switch is: the live one lives in the restricted
-    -- environment and only tracked names are there. Drawing "Off" here would be a claim about
-    -- something that has none, and pressing it would move a stored number, print nothing, and
-    -- change no binding.
+    -- **Two switches have no value to draw and no press to offer, for two different reasons.**
+    --
+    -- Nothing reads it: the live value lives in the restricted environment and only tracked names
+    -- are there. What is on the definition is a memory for the next reload rather than what the
+    -- switch is, so "Off" would be a claim about something that has none, and pressing it would
+    -- move a stored value, print nothing, and change no binding.
+    --
+    -- It is worked out from its expression: that happens at a press and at no other moment
+    -- (`COMPUTE_SWITCHES_SNIPPET`), so the newest answer there has ever been is the one the last
+    -- press found. Drawn here it would read as what the switch is now, which nothing has measured
+    -- since -- and the press cannot be offered either, since the next one overwrites it.
     local tracked = DebindPrivate.IsSwitchTracked(name);
+    local automatic = DebindPrivate.ResolveSwitchAnswer(name) == Constants.SWITCH_MODES.EXPR;
+    local hasToggle = tracked and not automatic;
     local isOn = definition.value and true or false;
 
-    self.ToggleButton:SetShown(tracked);
-    self.Untracked:SetShown(not tracked);
-    if (not tracked) then
-        self.Untracked:SetText(LLL["SWITCH_NOT_TRACKED"]);
+    self.ToggleButton:SetShown(hasToggle);
+    self.Status:SetShown(not hasToggle);
+    if (not hasToggle) then
+        self.Status:SetText(tracked and LLL["SWITCH_AUTOMATIC"] or LLL["SWITCH_NOT_TRACKED"]);
     end
 
     -- **The `$` is shown, not stripped.** It is what the user has to type in a macro body, and
@@ -182,7 +190,7 @@ function DebindSwitchRowMixin:Update(inCombat)
     -- label used to be both: it read "On" while the switch was on, in the place a label says what
     -- pressing will do. In one string rather than two font strings, so the state lands right
     -- after however long the name is, and a name too long for the row clips the pair together.
-    if (tracked) then
+    if (hasToggle) then
         self.Name:SetText(name .. "  " .. HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(
             isOn and LLL["CUSTOM_STATE_ON"] or LLL["CUSTOM_STATE_OFF"]));
     else
@@ -190,23 +198,18 @@ function DebindSwitchRowMixin:Update(inCombat)
     end
     self.Name:SetTextColor((tracked and NORMAL_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
 
-    if (not tracked) then
+    if (not hasToggle) then
         return;
     end
 
     self.ToggleButton:SetText(isOn and LLL["SWITCH_TURN_OFF"] or LLL["SWITCH_TURN_ON"]);
 
-    -- **Two more reasons to be dead, and only one of them is temporary.** A computed switch
-    -- has no press at all, since the expression decides it and pressing would be overwritten on
-    -- the next pass. A manual one is only out of reach until the fight ends.
-    --
-    -- **Asked of the answer in effect**, not of the root: a switch computed on this specialization
-    -- and pressed on every other one is exactly what an override is for.
-    local mode = DebindPrivate.ResolveSwitchAnswer(name);
+    -- Out of reach until the fight ends, and that is the only reason left for a button that is
+    -- drawn at all.
     if (inCombat == nil) then
         inCombat = InCombatLockdown();
     end
-    self.ToggleButton:SetEnabled(mode ~= Constants.SWITCH_MODES.EXPR and not inCombat);
+    self.ToggleButton:SetEnabled(not inCombat);
 end
 
 function DebindSwitchRowMixin:OnClick(button)
@@ -243,9 +246,7 @@ function DebindSwitchRowMixin:OnToggleEnter()
 
     GameTooltip:SetOwner(self.ToggleButton, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.switchName);
-    if (mode == Constants.SWITCH_MODES.EXPR) then
-        GameTooltip_AddErrorLine(GameTooltip, LLL["SWITCH_TOGGLE_IS_AUTOMATIC"]);
-    elseif (InCombatLockdown()) then
+    if (InCombatLockdown()) then
         GameTooltip_AddErrorLine(GameTooltip, LLL["SWITCH_TOGGLE_IN_COMBAT"]);
     else
         GameTooltip_AddInstructionLine(GameTooltip, LLL["SWITCH_TOGGLE_INSTRUCTION"]);

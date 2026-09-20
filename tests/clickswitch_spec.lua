@@ -97,9 +97,14 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- **The press reports what it found.** The tab reads the value the report writes, and with no
-    -- beat for this switch the press is the only thing left to write it.
-    test("the press reports a switch it moved", function()
+    -- **The press reports nothing back.** A computed switch has a value only at the press that
+    -- worked it out, so a value carried outside is one nobody can measure again: the screen it
+    -- reached drew it as what the switch is now, and the character's memory took it for something
+    -- somebody had set by hand.
+    --
+    -- What is asserted is the insecure side, because that is where the report landed. The press
+    -- itself still has to answer, which the case above covers.
+    test("the press reports nothing about a computed switch", function()
         Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[combat]" } });
         frames.drainTimers();
         check(DebindPrivate.Switches["$s1"].value ~= true, "setup: the switch already reads on");
@@ -107,10 +112,25 @@ return function(DebindPrivate, _, ctx)
         interp.state.combat = true;
         Fires();
         frames.drainTimers();
-        check(DebindPrivate.Switches["$s1"].value == true,
-            "the press moved the switch and the definition still reads "
-            .. tostring(DebindPrivate.Switches["$s1"].value));
+        check(DebindPrivate.Switches["$s1"].value ~= true,
+            "the press wrote what it worked out into the definition");
+        check(DebindPrivate.db.char.switches["$s1"] == nil,
+            "the press wrote what it worked out into this character's memory");
         interp:resetState();
+    end);
+
+    -- **And nothing is pushed in, either.** A stored value for a computed switch is what the last
+    -- press left behind; pushed back in at the next rebuild it would stand as the switch's value
+    -- until a press replaced it -- and it goes in through `SetSwitch`, which reports it straight
+    -- back out to the two places above.
+    test("a rebuild pushes no stored value in for a computed switch", function()
+        local i = Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[combat]" } });
+
+        DebindPrivate.Switches["$s1"].value = true;
+        Rebuild();
+
+        check(i.env.States["$s1"] == nil,
+            "the rebuild pushed a stored value in: " .. tostring(i.env.States["$s1"]));
     end);
 
     -- **A switch built on another computed switch reads that one's answer from the same press.**

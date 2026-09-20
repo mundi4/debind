@@ -296,9 +296,11 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 --- **In `ComputedSwitches` order**, so a switch that reads another reads what this press just got.
 --- The caller has `unitframeUnit` in hand, which is what `@hover` inside a switch aims at.
 ---
---- **A switch that moved is written and reported here.** The Switches tab reads what the report
---- writes, and a computed switch has nothing else to write it: nothing works one out between
---- presses.
+--- **Nothing is reported out of here.** A computed switch has a value at the press that worked it
+--- out and at no other moment, so a value carried outside is one nothing can measure again: it
+--- stood on the Switches tab as what the switch is now, and `SetSwitchValue` took it for a value
+--- somebody had set by hand and wrote it into what this character remembers. The tab draws no
+--- value for a computed switch for that reason (`SwitchesUI.lua`).
 local COMPUTE_SWITCHES_SNIPPET = [==[
 	if (not ClickSwitchesReady) then
 		ClickSwitchesReady = true
@@ -317,10 +319,7 @@ local COMPUTE_SWITCHES_SNIPPET = [==[
 			end
 			local answer = SecureCmdOptionParse(s or "") and true or false
 			ClickSwitches[name] = answer
-			if (States[name] ~= answer) then
-				States[name] = answer
-				debind_driver:CallMethod("OnSwitchChanged", name, answer)
-			end
+			States[name] = answer
 		end
 	end
 ]==];

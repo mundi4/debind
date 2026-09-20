@@ -1850,8 +1850,6 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | 
 Execute DebindBindingDriver
   | self:RunAttribute("SetSwitch", "$burst", true)
-  | self:RunAttribute("SetSwitch", "$echo", false)
-  | self:RunAttribute("SetSwitch", "$intent", false)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
   | ComputedSwitches[2]="$intent"

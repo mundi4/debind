@@ -1218,9 +1218,15 @@ L["SWITCH_TURN_ON"] = "Turn On"
 L["SWITCH_TURN_OFF"] = "Turn Off"
 L["SWITCH_NOT_TRACKED"] = "Not tracked"
 L["SWITCH_NOT_TRACKED_WHY"] = "No action reads it."
+-- Where the button would be on a switch that is set automatically, and the position is what it has
+-- to answer: why there is nothing here to press, and nothing beside the name saying on or off.
+--
+-- **It says what the switch does, not when the addon works it out.** One of these is right at the
+-- moment it is used, which is the whole of what "automatically" promises a reader; when that gets
+-- worked out is ours to arrange and changes nothing they can see.
+L["SWITCH_AUTOMATIC"] = "Updated automatically"
 L["SWITCH_TOGGLE_INSTRUCTION"] = "Click to turn it on or off."
 L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to work the switch does it any time."
-L["SWITCH_TOGGLE_IS_AUTOMATIC"] = "This one is worked out from its macro conditional, so pressing it would not hold."
 L["SWITCH_RENAME"] = "Rename"
 -- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
 -- no learns the rule one refusal at a time; a reader who is told first types a name that takes.

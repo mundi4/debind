@@ -52,12 +52,13 @@
 				</FontString>
 				<!--
 					**Stands where the toggle would, because that is the question it answers.** The
-					button says what the switch is and offers to change it; when nothing reads the
-					switch there is no answer to either, so the slot says why rather than going
-					blank. Wider than the button and right aligned, so a longer translation grows
-					leftwards into the empty middle of the row instead of being cut.
+					button says what the switch is and offers to change it, and two switches can
+					answer neither: one nothing reads, and one worked out from its expression. So
+					the slot says which rather than going blank. Wider than the button and right
+					aligned, so a longer translation grows leftwards into the empty middle of the
+					row instead of being cut.
 				-->
-				<FontString parentKey="Untracked" inherits="GameFontDisableSmall" maxLines="1"
+				<FontString parentKey="Status" inherits="GameFontDisableSmall" maxLines="1"
 					justifyH="RIGHT" hidden="true">
 					<Size x="140" y="20"/>
 					<Anchors>
