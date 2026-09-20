@@ -3054,6 +3054,16 @@ function DebindPrivate.CleanUpDB()
                 if (casting.normalCast ~= false) then
                     casting.normalCast = nil;
                 end
+                -- 자동 동작 네 줄의 셋째 값은 **값이 없는 것**이라, 불리언이 아닌 것은 읽는
+                -- 쪽에서 이미 셋째로 읽히고 저장에만 남는다(`CastAutomaticOf`).
+                local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+                for i = 1, #rows do
+                    local row = rows[i];
+                    local value = casting[row];
+                    if (value ~= true and value ~= false) then
+                        casting[row] = nil;
+                    end
+                end
                 if (next(casting) == nil) then
                     action.casting = nil;
                 end

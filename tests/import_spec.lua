@@ -416,7 +416,12 @@ return function(DebindPrivate, DebindStorage)
         -- 하다 - 조건이 아니라 액션 최상단이다.
         disabled = true,
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
-        casting = { hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false },
+        casting = {
+            hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,
+            selfCastKey = "skip", focusCastKey = "skip",
+            autoSelfCast = true, autoUnshift = false,
+            autoDismount = true, autoDismountFlying = false,
+        },
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,
         value = 774,
@@ -444,6 +449,11 @@ return function(DebindPrivate, DebindStorage)
                 field .. "이 조건 명단에 늘었는데 이 표에는 없다");
         end
 
+        for field in pairs(DebindStorage.CASTING_TYPES) do
+            check(REAL_VALUES.casting[field] ~= nil,
+                field .. "이 누름 명단에 늘었는데 이 표에는 없다");
+        end
+
         local action = PlanOne(General({ sent }));
         for field, want in pairs(REAL_CONDITIONS) do
             local got = action.conditions and action.conditions[field];
@@ -461,6 +471,14 @@ return function(DebindPrivate, DebindStorage)
             else
                 check(got == want, field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));
             end
+        end
+
+        -- **위 반복은 `casting`이 테이블로 왔는지까지만 본다.** 명단에서 빠진 안쪽 이름은
+        -- 표가 도착하는 것을 안 막고 그 값만 지워지므로, 안쪽은 이름마다 따로 묻는다.
+        for field, want in pairs(REAL_VALUES.casting) do
+            local got = action.casting and action.casting[field];
+            check(got == want,
+                "casting." .. field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));
         end
     end);
 

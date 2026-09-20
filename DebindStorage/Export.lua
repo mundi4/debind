@@ -203,6 +203,13 @@ local CASTING_TYPES      = {
     hoverCast = "string",
     hoverCastMode = "string",
     normalCast = "boolean",
+    -- **네 이름은 클라이언트 CVar 이름 그대로다**, 그 값을 누르는 동안만 그 값으로 두는 줄들이라
+    -- (`setting-the-clients-cast-automatics-per-action.md`). 셋째 값인 "게임 설정 그대로"는
+    -- 이름이 없다: 값이 없는 것이 그것이다.
+    autoSelfCast = "boolean",
+    autoUnshift = "boolean",
+    autoDismount = "boolean",
+    autoDismountFlying = "boolean",
 };
 
 --- Read by `Import.lua`, which filters the incoming table through the **same** list. One side a

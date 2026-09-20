@@ -1397,6 +1397,28 @@ do
         return not (casting and casting.normalCast == false);
     end
 
+    --- 누르는 동안 클라이언트의 자동 동작을 액션이 정하는 네 줄. **이름이 CVar 이름 그대로이고,
+    --- 순서가 화면에 서는 순서다** (`setting-the-clients-cast-automatics-per-action.md` §1).
+    DebindPrivate.CAST_AUTOMATIC_ROWS = {
+        "autoSelfCast",
+        "autoUnshift",
+        "autoDismount",
+        "autoDismountFlying",
+    };
+
+    --- 그 줄 하나의 값: 켬(`true`), 끔(`false`), 게임 설정 그대로(`nil`).
+    ---
+    --- **셋째 값에는 이름이 없다.** 값이 없는 것이 그것이고, 그래서 불리언이 아닌 것은 전부
+    --- 셋째로 읽힌다 -- 공유 문자열은 우리가 모르는 값을 실어 올 수 있고, 모르는 값이
+    --- 기본으로 읽혀야 한다는 것은 `casting` 전체의 규칙이다(`CastingValue`).
+    function DebindPrivate.CastAutomaticOf(action, row)
+        local value = CastingValue(action, row);
+        if (value == true or value == false) then
+            return value;
+        end
+        return nil;
+    end
+
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
     local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeCache = setmetatable({}, { __mode = "kv" });

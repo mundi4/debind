@@ -237,6 +237,7 @@ local specs = {
     { name = "actionmenu", path = root .. "/actionmenu_spec.lua" },
     { name = "actionmenutree", path = root .. "/actionmenutree_spec.lua" },
     { name = "pet", path = root .. "/pet_spec.lua" },
+    { name = "automatics", path = root .. "/automatics_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
 };
 
