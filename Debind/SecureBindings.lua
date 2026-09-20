@@ -149,6 +149,7 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 클릭 시전이 어느 엣지에 발동하는가. `ApplyOptions`가 매번 다시 쓴다. 여기 기본값은
 	-- 그 전에 클릭이 도착해도 답이 있게 하려는 것이고, 블리자드 개체창의 기본값과 같다.
 	ClickCastOnMouseDown = false
+	EmpowerTapControls = false
 
 	-- Whether a press asks about the Self Cast Key and the Focus Cast Key. Every rebuild writes both
 	-- (`UpdateBindingsMap`); before the first one there is no key to press.

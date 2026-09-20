@@ -2056,6 +2056,6 @@ Execute DebindBindingDriver
 Execute DebindBindingDriver
   | self:RunAttribute("UpdateGivenBackKeys")
 Execute DebindBindingDriver
-  | ClickCastOnMouseDown=false
+  | ClickCastOnMouseDown=false EmpowerTapControls=false
 SetAttribute <Button#52> showPlayer = true
 SetAttribute <Button#49> showPlayer = true

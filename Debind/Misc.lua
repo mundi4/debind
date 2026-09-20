@@ -3945,7 +3945,7 @@ end
 --- **The stored value is read here rather than carried in.** Two changes during one fight leave
 --- two queued rebuilds and one answer, and it has to be the second one.
 function DebindPrivate.ApplyOptions(option)
-    if (option == nil or option == "unitframeUseMouseDown") then
+    if (option == nil or option == "unitframeUseMouseDown" or option == "empowerTapControls") then
         --- **Three answers folded into one boolean before it crosses.** The restricted side
         --- cannot read a CVar, so `nil` - the reader not having chosen - is resolved here, and
         --- re-resolved whenever the CVar moves (`Events.CVAR_UPDATE`).
@@ -3968,12 +3968,30 @@ function DebindPrivate.ApplyOptions(option)
         --- The value is not carried, only the fact that one is owed. Whatever is read when the
         --- fight ends is the answer that stands then, which is the right one if the reader moved
         --- it twice while it could not cross.
+        --- **강화 주문 입력도 같은 문으로 간다.** 설정의 값이 `0`이면 길게 누르기, `1`이면 두 번
+        --- 누르기다(`Blizzard_SettingsDefinitions_Frame/Combat.lua`). 두 번 누르기에서는 쥐는
+        --- 구간이 없어서 뗌 엣지로 놓을 것이 없고, 그 판단을 클릭 때 해야 한다.
+        ---
+        --- **빌드 때 읽으면 안 된다.** 버튼 캐시는 한 번도 안 지워지므로 이 값으로 구운 것이
+        --- 설정을 바꾼 뒤에도 계속 나간다(`UpdateBindings.lua`의 `BindingAttrsCache`).
+        local tapControls = GetCVarBool("empowerTapControls") and true or false;
+        --- **A lockdown blocks the only door these have.** `SecureHandlerExecute` cannot cross
+        --- one, and no other path pushes them, so an answer given during a fight used to
+        --- reach nothing and go on not reaching it for the rest of the session while the menu
+        --- showed it as the one chosen. Both doors are open in combat: the CVar moves whenever the
+        --- game says so (`Events.CVAR_UPDATE`), and the options menu takes the answer with the
+        --- window up. Login is a third, since a reconnect into an encounter arrives locked down.
+        ---
+        --- The values are not carried, only the fact that one is owed. Whatever is read when the
+        --- fight ends is the answer that stands then, which is the right one if the reader moved
+        --- it twice while it could not cross.
         if (InCombatLockdown()) then
-            DebindPrivate.clickEdgeSuspended = true;
+            DebindPrivate.secureValuesSuspended = true;
         else
-            DebindPrivate.clickEdgeSuspended = nil;
+            DebindPrivate.secureValuesSuspended = nil;
             SecureHandlerExecute(DebindPrivate.BindingDriver,
-                format("ClickCastOnMouseDown=%s", tostring(onMouseDown)));
+                format("ClickCastOnMouseDown=%s EmpowerTapControls=%s",
+                    tostring(onMouseDown), tostring(tapControls)));
         end
     end
 

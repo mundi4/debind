@@ -191,10 +191,10 @@ function Events.PLAYER_REGEN_ENABLED()
         end
         wipe(DebindPrivate.RegisterClickQueue);
     end
-    -- The click edge could not cross while the fight was on (`ApplyOptions`), and this is the only
-    -- place it is asked for again. It reads the answer as it stands now rather than one recorded
-    -- when the crossing was refused.
-    if (DebindPrivate.clickEdgeSuspended) then
+    -- The values that cross to a secure frame could not while the fight was on (`ApplyOptions`),
+    -- and this is the only place they are asked for again. It reads the answers as they stand now
+    -- rather than ones recorded when the crossing was refused.
+    if (DebindPrivate.secureValuesSuspended) then
         DebindPrivate.ApplyOptions("unitframeUseMouseDown");
     end
 
@@ -262,6 +262,10 @@ function Events.CVAR_UPDATE(_, name, value)
         -- The click edge too, where the reader left that one to the game (`ApplyOptions`).
         DebindPrivate.ApplyOptions("unitframeUseMouseDown");
         DebindPrivate.QueueUpdateBindings();
+    elseif (name == "empowerTapControls") then
+        -- **No rebuild.** What this answers is read at the press, so nothing baked moves with it
+        -- (`ApplyOptions`).
+        DebindPrivate.ApplyOptions("empowerTapControls");
     end
 end
 

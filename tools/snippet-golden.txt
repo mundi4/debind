@@ -150,6 +150,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	ClickCastOnMouseDown = false
+	EmpowerTapControls = false
 
 
 

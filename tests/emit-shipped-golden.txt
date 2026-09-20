@@ -2019,6 +2019,6 @@ Execute <Frame#3>
 Execute <Frame#3>
   | self:RunAttribute("UpdateGivenBackKeys")
 Execute <Frame#3>
-  | ClickCastOnMouseDown=false
+  | ClickCastOnMouseDown=false EmpowerTapControls=false
 SetAttribute <Button#52> showPlayer = true
 SetAttribute <Button#49> showPlayer = true
