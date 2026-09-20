@@ -3678,6 +3678,32 @@ end
 
 local _changedStates = {};
 
+--- The line a switch prints when it moves, and **the only place it is written**. A key, a macro
+--- and the button on the Switches tab all turn the same switch, and a second copy of these two
+--- tests would be a second answer to "does this print" for one of them.
+---
+--- **Whether it moved is the caller's to know.** The report coming back out of the restricted side
+--- carries no such thing -- a rebuild pushes the stored values in and they are reported straight
+--- back (`BuildSwitchesSnippet`) -- so the caller that can tell an echo from a change is the one
+--- holding the value it moved from.
+---
+--- **Only a switch this character works by hand announces itself.** A computed one answers a
+--- conditional, so its value moves with the world rather than with anything the user did, and
+--- there is nobody to read the line. Which kind it is is the winning layer's answer
+--- (`ResolveSwitchAnswer`) and not the account-wide definition's: a layer can override manual with
+--- an expression and the other way round.
+function DebindPrivate.AnnounceSwitchChange(name, value)
+    if (not DebindPrivate.SwitchMessagesEnabled()) then
+        return;
+    end
+    if (DebindPrivate.ResolveSwitchAnswer(name) ~= Constants.SWITCH_MODES.MANUAL) then
+        return;
+    end
+
+    local valueText = value and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
+    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], name, valueText));
+end
+
 --- What the restricted side reported back, folded into the stored definitions.
 ---
 --- **It walks what changed, not the five numbers.** A macro can name any switch
@@ -3699,13 +3725,7 @@ local _changedStates = {};
 --- remembered (§4-9).
 ---
 --- What is left here is what only this path knows: that the value came from outside, and whether
---- it is the kind of switch a change is worth a line for.
----
---- **Only a switch this character works by hand announces itself.** A computed one answers a
---- conditional, so its value moves with the world rather than with anything the user did, and
---- there was nobody to read the line. Which kind it is is the winning layer's answer
---- (`ResolveSwitchAnswer`) and not the account-wide definition's: a layer can override manual with
---- an expression and the other way round.
+--- it moved the switch.
 ---
 --- **What the line is worth saying about is a report that moved the switch**, and the definition's
 --- value is what it moved from. Every rebuild pushes the stored values in and the restricted side
@@ -3719,6 +3739,7 @@ local _changedStates = {};
 --- (`trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
 --- which `SetSwitchValue` above still fills in, so what it lost was a reason to redraw rather
 --- than the value to draw.
+
 local function SwitchesChangedCallback()
     for state, newValue in pairs(_changedStates) do
         local options = DebindPrivate.ResolveSwitchDefinition(state);
@@ -3726,11 +3747,8 @@ local function SwitchesChangedCallback()
             local moved = options.value ~= newValue;
             DebindPrivate.SetSwitchValue(state, newValue);
 
-            if (moved and DebindPrivate.SwitchMessagesEnabled()
-                    and DebindPrivate.ResolveSwitchAnswer(state) == Constants.SWITCH_MODES.MANUAL) then
-                local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
-                DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], state,
-                    valueText));
+            if (moved) then
+                DebindPrivate.AnnounceSwitchChange(state, newValue);
             end
         end
     end

@@ -898,7 +898,7 @@ return function(DebindPrivate)
     test("전역 행은 제거할 수 없다", function()
         InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", nil, MODES.MANUAL, true);
-        check(not DebindPrivate.ClearSwitchOverride("$state1", nil), "뿌리 값을 지웠다");
+        check(not DebindPrivate.RemoveSwitchOverride("$state1", nil), "뿌리 값을 지웠다");
         local _, resetValue = DebindPrivate.ResolveSwitchAnswer("$state1");
         check(resetValue == true, "뿌리 값이 흔들렸다");
     end);
@@ -907,51 +907,45 @@ return function(DebindPrivate)
         InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", nil, MODES.MANUAL, true);
         DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, false);
-        check(DebindPrivate.ClearSwitchOverride("$state1", CharKey(1)), "제거가 거절됐다");
+        check(DebindPrivate.RemoveSwitchOverride("$state1", CharKey(1)), "제거가 거절됐다");
 
         local _, resetValue, _, layerKey = DebindPrivate.ResolveSwitchAnswer("$state1");
         check(layerKey == nil and resetValue == true, "뿌리로 안 돌아갔다");
         check(DebindPrivate.GetSwitchAnswerAt("$state1", CharKey(1)) == nil,
-            "안 정한 행이 아직 답을 한다");
+            "지운 행이 아직 답을 한다");
     end);
 
-    -- **끄는 것과 지우는 것은 다르다.** 답을 껐다가 다시 켜는 사람이 적어 둔 값을 잃으면 안 된다.
-    test("제거해도 적어 둔 값은 남는다", function()
+    -- **적어 둔 것을 남기지 않는다.** 답만 끄고 식과 시작 값을 들고 있는 상태가 있었고,
+    -- 2026-09-20에 소유자가 걷어냈다. 지우는 자리가 버튼 하나로 남으면 그 상태에 들어갈 문이
+    -- 없고, 아무것도 안 정하는 행이 저장에만 남는다.
+    test("제거하면 적어 둔 것도 같이 간다", function()
         InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.EXPR);
         DebindPrivate.SetSwitchExpression("$state1", CharKey(1), "[combat]");
-        DebindPrivate.ClearSwitchOverride("$state1", CharKey(1));
+        check(DebindPrivate.RemoveSwitchOverride("$state1", CharKey(1)), "제거가 거절됐다");
 
-        local resetValue, expr, unset = DebindPrivate.GetSwitchHeldAt("$state1", CharKey(1));
-        check(unset == true, "행이 아직 답을 한다");
-        check(expr == "[combat]", "식이 " .. tostring(expr) .. "로 남았다");
-        check(resetValue == nil, "시작값이 " .. tostring(resetValue) .. "로 남았다");
-
-        -- 다시 고르면 그대로 돌아온다.
-        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.EXPR);
-        local mode, _, back = DebindPrivate.ResolveSwitchAnswer("$state1");
-        check(mode == MODES.EXPR and back == "[combat]",
-            "다시 골랐는데 " .. tostring(back) .. "가 돌아왔다");
-    end);
-
-    -- 나머지 절반. 들고 있을 것이 없는 행은 그냥 간다. 한 번 눌러 보고 돌아온 사람은 아무것도
-    -- 안 남긴다.
-    test("들고 있을 것이 없으면 행이 사라진다", function()
-        InitWith(Profile());
-        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, nil);
-        check(DebindPrivate.ClearSwitchOverride("$state1", CharKey(1)), "제거가 거절됐다");
         check(DebindPrivate.Switches["$state1"].overrides == nil,
             "빈 행이 남았다");
+        check(DebindPrivate.GetSwitchAnswerAt("$state1", CharKey(1)) == nil,
+            "지운 행이 아직 답을 한다");
     end);
 
-    -- 답을 안 하는 행은 오버라이드가 아니다. 삭제 확인창이 그 수를 든다.
-    test("답을 안 하는 행은 오버라이드로 안 센다", function()
+    -- 없는 행을 지우라는 말은 거절이다. 화면의 버튼은 걸린 층에만 서지만, 답이 거절이어야
+    -- 부르는 쪽이 지워진 것과 원래 없던 것을 가릴 수 있다.
+    test("없는 행은 제거가 거절된다", function()
+        InitWith(Profile());
+        check(not DebindPrivate.RemoveSwitchOverride("$state1", CharKey(1)),
+            "없는 행을 지웠다고 한다");
+    end);
+
+    -- 삭제 확인창이 드는 숫자다. 행이 있으면 답을 하므로, 행을 세는 것이 오버라이드를 세는 것이다.
+    test("제거하면 오버라이드 수가 준다", function()
         InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, true);
         check(DebindPrivate.CountSwitchOverrides("$state1") == 1, "세기 전제가 깨졌다");
-        DebindPrivate.ClearSwitchOverride("$state1", CharKey(1));
+        DebindPrivate.RemoveSwitchOverride("$state1", CharKey(1));
         check(DebindPrivate.CountSwitchOverrides("$state1") == 0,
-            "안 정한 행이 " .. DebindPrivate.CountSwitchOverrides("$state1") .. "개로 세어졌다");
+            "지운 행이 " .. DebindPrivate.CountSwitchOverrides("$state1") .. "개로 세어졌다");
     end);
 
     -- 답을 고르는 것과 식을 적는 것은 두 동작이다. 넷을 훑어보고 돌아온 사용자가 적어둔

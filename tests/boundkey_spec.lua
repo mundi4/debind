@@ -234,7 +234,7 @@ return function(DebindPrivate, _, ctx)
         Rebuild();
         check(Fires("F1"), "the override says on and the key does not fire");
 
-        DebindPrivate.ClearSwitchOverride("$ovr", layerKey);
+        DebindPrivate.RemoveSwitchOverride("$ovr", layerKey);
         Rebuild();
         check(not Fires("F1"), "the override came off and the key did not go back to the root answer");
     end);

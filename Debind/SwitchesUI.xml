@@ -373,6 +373,10 @@
 								Which layer the answers below are being read and written at. It opens
 								on the layer in force, and the one in force is marked in the list, so
 								a reader who has walked off it can find the way back.
+
+								**It lists only where this switch is already decided**, and puts the
+								rest under a divider as places to start deciding it
+								(`BuildLayerMenu`).
 							-->
 							<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
 								<Size x="260" y="26"/>
@@ -382,27 +386,34 @@
 							</DropdownButton>
 
 							<!--
-								The three answers one layer can give. **Nothing ticked is not one of
-								them**: a layer either says something or it does not, and "says
-								nothing" is the first radio rather than an empty row.
+								Takes the picked layer away again. **The button the sharing tab gets
+								rid of an entry with** (`StorageUI.xml`), so the glyph means one thing
+								across the addon.
 
-								The account-wide row has no such radio - it is the answer everything
-								else falls back to and cannot be taken away (§4-6 of
+								Hidden on the account-wide row, which cannot be taken away (§4-6 of
 								`redesigning-custom-states.md`).
 							-->
-							<CheckButton parentKey="UnsetRadio" inherits="UIRadioButtonTemplate">
+							<Button parentKey="LayerRemoveButton" inherits="UIPanelCloseButtonNoScripts" hidden="true">
+								<Size x="24" y="24"/>
 								<Anchors>
-									<Anchor point="TOPLEFT" x="20" y="-136"/>
+									<Anchor point="LEFT" relativeKey="$parent.LayerDropdown" relativePoint="RIGHT" x="4" y="0"/>
 								</Anchors>
 								<Scripts>
 									<OnClick>
-										self:GetParent():GetParent():GetParent():OnAnswerClick("unset");
+										self:GetParent():GetParent():GetParent():OnLayerRemoveClick();
 									</OnClick>
 								</Scripts>
-							</CheckButton>
+							</Button>
+
+							<!--
+								The two answers one layer can give. **A layer that is read here answers
+								one of them.** A layer the reader wants to stop deciding is one they
+								take away with the button above, and an answer that did the same
+								thing would be a second control for one job (2026-09-20, 소유자).
+							-->
 							<CheckButton parentKey="ManualRadio" inherits="UIRadioButtonTemplate">
 								<Anchors>
-									<Anchor point="TOPLEFT" x="20" y="-162"/>
+									<Anchor point="TOPLEFT" x="20" y="-136"/>
 								</Anchors>
 								<Scripts>
 									<OnClick>
@@ -419,7 +430,7 @@
 							-->
 							<CheckButton parentKey="StartOnRadio" inherits="UIRadioButtonTemplate">
 								<Anchors>
-									<Anchor point="TOPLEFT" x="48" y="-216"/>
+									<Anchor point="TOPLEFT" x="48" y="-190"/>
 								</Anchors>
 								<Scripts>
 									<OnClick>
@@ -429,7 +440,7 @@
 							</CheckButton>
 							<CheckButton parentKey="StartOffRadio" inherits="UIRadioButtonTemplate">
 								<Anchors>
-									<Anchor point="TOPLEFT" x="48" y="-238"/>
+									<Anchor point="TOPLEFT" x="48" y="-212"/>
 								</Anchors>
 								<Scripts>
 									<OnClick>
@@ -439,7 +450,7 @@
 							</CheckButton>
 							<CheckButton parentKey="StartRememberRadio" inherits="UIRadioButtonTemplate">
 								<Anchors>
-									<Anchor point="TOPLEFT" x="48" y="-260"/>
+									<Anchor point="TOPLEFT" x="48" y="-234"/>
 								</Anchors>
 								<Scripts>
 									<OnClick>
@@ -450,7 +461,7 @@
 
 							<CheckButton parentKey="AutoRadio" inherits="UIRadioButtonTemplate">
 								<Anchors>
-									<Anchor point="TOPLEFT" x="20" y="-292"/>
+									<Anchor point="TOPLEFT" x="20" y="-266"/>
 								</Anchors>
 								<Scripts>
 									<OnClick>
@@ -469,7 +480,7 @@
 							<EditBox parentKey="ExprBox" inherits="InputBoxTemplate" autoFocus="false" letters="100">
 								<Size x="320" y="22"/>
 								<Anchors>
-									<Anchor point="TOPLEFT" x="52" y="-318"/>
+									<Anchor point="TOPLEFT" x="52" y="-292"/>
 								</Anchors>
 								<Scripts>
 									<OnEnterPressed>
@@ -528,7 +539,7 @@
 								</FontString>
 								<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
 									<Anchors>
-										<Anchor point="TOPLEFT" x="44" y="-192"/>
+										<Anchor point="TOPLEFT" x="44" y="-166"/>
 									</Anchors>
 								</FontString>
 							</Layer>

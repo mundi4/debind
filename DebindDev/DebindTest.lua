@@ -4474,7 +4474,10 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
 --- **Switches sits second, ahead of sharing.** There were four seats while making a string and
 --- taking one in were separate tabs; they are one now. Numbers that drift here do not error: they
 --- measure a different panel and pass.
-local OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID = 1, 2
+--- **Settings is a seat with no tab**, reached by the gear (`SETTINGS_PANEL` in `DebindUI.lua`),
+--- and it is the only panel left that asks for a width of its own: the two width tests below need
+--- two panels that disagree, and the three tabs all ask for the same number now.
+local OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID, SETTINGS_PANEL_ID = 1, 2, 4
 
 RegisterTest("Panels: every tab resolves to a panel of its own", {
     description = "All three tabs resolve to a panel of their own, neither collapsing onto one nor falling through to MissingPanel",
@@ -4515,16 +4518,17 @@ RegisterTest("Panels: the window takes each tab's own width", {
     run = function()
         local NAME = "Panel width"
 
-        -- **The pair is Overview and Switches.** It was Overview and the export tab until the two
-        -- sharing tabs became one that has two columns -- which asks for Overview's own width, and
-        -- two panels legitimately wanting the same number leave this nothing to measure.
+        -- **The pair is Overview and Settings.** It was Overview and the export tab, then Overview
+        -- and Switches; both of those grew a second column and came to ask for Overview's own
+        -- width, and two panels legitimately wanting the same number leave this nothing to measure.
+        -- Settings is the one panel left that is not a list beside a list.
         local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
-        local narrow = DebindFrame:ResolvePanel(SWITCHES_PANEL_ID)
+        local narrow = DebindFrame:ResolvePanel(SETTINGS_PANEL_ID)
         if not overview or not narrow then
             return Fail(NAME, "could not get the panel")
         end
         if not overview.preferredWidth or not narrow.preferredWidth then
-            return Fail(NAME, format("it is not holding a width (overview=%s, switches=%s)",
+            return Fail(NAME, format("it is not holding a width (overview=%s, settings=%s)",
                 tostring(overview.preferredWidth), tostring(narrow.preferredWidth)))
         end
         if overview.preferredWidth == narrow.preferredWidth then
@@ -4538,7 +4542,7 @@ RegisterTest("Panels: the window takes each tab's own width", {
 
         -- And that the frame actually listens. Asking the panels alone would pass on a
         -- `SelectPanel` that stopped applying it.
-        DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
+        DebindFrame:SelectPanel(SETTINGS_PANEL_ID)
         local narrowWidth = DebindFrame:GetWidth()
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
         local overviewWidth = DebindFrame:GetWidth()
@@ -4549,11 +4553,11 @@ RegisterTest("Panels: the window takes each tab's own width", {
         -- the panel at all, which an exact compare answers wrongly rather than more strictly.
         local function Off(got, want) return math.abs(got - want) > 1 end
         if Off(narrowWidth, narrow.preferredWidth) or Off(overviewWidth, overview.preferredWidth) then
-            return Fail(NAME, format("the window does not follow: switches %d (wanted %d), overview %d (wanted %d)",
+            return Fail(NAME, format("the window does not follow: settings %d (wanted %d), overview %d (wanted %d)",
                 narrowWidth, narrow.preferredWidth, overviewWidth, overview.preferredWidth))
         end
 
-        return Pass(NAME, format("overview %d, switches %d", overviewWidth, narrowWidth))
+        return Pass(NAME, format("overview %d, settings %d", overviewWidth, narrowWidth))
     end,
 })
 
@@ -4572,14 +4576,14 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         local NAME = "Left edge"
 
         local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
-        local narrow = DebindFrame:ResolvePanel(SWITCHES_PANEL_ID)
+        local narrow = DebindFrame:ResolvePanel(SETTINGS_PANEL_ID)
         if not overview or not narrow then
             return Fail(NAME, "could not get the panel")
         end
-        -- Two tabs of the same width would leave nothing to measure, and this would pass on any
-        -- anchor at all. **Switches is the narrow one**; the storage tab asks for Overview's width.
+        -- Two panels of the same width would leave nothing to measure, and this would pass on any
+        -- anchor at all. **Settings is the narrow one**; all three tabs ask for Overview's width.
         if overview.preferredWidth == narrow.preferredWidth then
-            return Fail(NAME, format("both tabs ask for the same width (%s)", tostring(overview.preferredWidth)))
+            return Fail(NAME, format("both panels ask for the same width (%s)", tostring(overview.preferredWidth)))
         end
 
         if not DebindFrame:IsShown() then
@@ -4610,7 +4614,7 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         dragStop(DebindFrame)
 
         local before = DebindFrame:GetLeft()
-        DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
+        DebindFrame:SelectPanel(SETTINGS_PANEL_ID)
         local after = DebindFrame:GetLeft()
         if not before or not after then
             return Fail(NAME, "could not read the window's left edge")
@@ -5038,6 +5042,78 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
     end,
 })
 
+-- **A switch nothing binds has no value on the restricted side**, and the press has to work
+-- anyway. `States` is filled only for the names the compile put in front of that side
+-- (`IsSwitchTracked`), and the second half of this list is made of exactly the names it did not.
+-- A press that asked that side to flip what it holds flipped a `nil`, landed on on, and left a
+-- switch that was already on sitting there until it was pressed a second time.
+--
+-- **The one above cannot see this.** Its switch stands under a key, which is what puts it in front
+-- of the restricted side, so the value the press flips is really there.
+RegisterTest("Switches tab: the toggle turns off a switch nothing binds", {
+    description = "A switch no action reads goes off on the first press, not the second",
+    run = function()
+        local NAME = "Switch row toggle, unbound"
+        local SWITCH = "$rowunbound"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "this button is disabled in combat, so nothing can be judged")
+        end
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.db.char.switches[SWITCH] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        -- **`resetValue`, so it comes up on** whatever this character was left holding from an
+        -- earlier run of this test (`ApplySwitchResets`).
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true }
+
+        -- No action names it. That is the whole of the setup, and it is what the test is about.
+        ApplyBindings()
+
+        local definition = DebindPrivate.ResolveSwitchDefinition(SWITCH)
+        if not definition or definition.value ~= true then
+            return Fail(NAME, format("the premise is gone: the switch did not come up on (value=%s)",
+                definition and tostring(definition.value) or "no definition"))
+        end
+        if DebindPrivate.IsSwitchTracked(SWITCH) then
+            return Fail(NAME, "the premise is gone: nothing binds this switch and the compile tracked it anyway")
+        end
+        local st = ReadSecureState(SWITCH)
+        if st and st.present then
+            return Fail(NAME, "the premise is gone: the restricted side holds a value for a switch nothing binds")
+        end
+
+        local panel = OpenSwitchesTab()
+        local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
+        if not row then
+            local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
+            return Fail(NAME, format("no row for that switch in the list. names: [%s]", names))
+        end
+        if not row.ToggleButton:IsEnabled() then
+            return Fail(NAME, "a switch turned on and off by hand and the button is disabled")
+        end
+
+        -- Pressed rather than called, for the reason the test above is pressed.
+        row.ToggleButton:Click()
+
+        -- **Read on the spot and not after a frame.** The press writes the value itself
+        -- (`OnToggleClick`), and waiting here would pass on a press that left it to a report the
+        -- restricted side has no value to send.
+        if definition.value ~= false then
+            return Fail(NAME, format(
+                "one press on a switch that was on and it is %s -- it takes two",
+                tostring(definition.value)))
+        end
+
+        return Pass(NAME, "on -> one press -> off")
+    end,
+})
+
 -- **A column that fills itself from a pick is a wire, and a wire fails without a word.** Every
 -- field on the right is written from the definition when a row on the left is clicked, and a field
 -- that is never written sits there blank or holding the switch before it -- which reads exactly
@@ -5345,6 +5421,86 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         end
 
         return Pass(NAME, format("%s -> %s", SWITCH, want))
+    end,
+})
+
+-- **The two ends of a layer's life, in one run.** The dropdown lists only the layers that already
+-- decide this switch, so making one and taking it away are the only ways a layer enters and leaves
+-- that list; measured apart, either could pass on a list that never changed.
+--
+-- **The seed is half of what is measured.** A new row starts from the answer the column was showing
+-- (`CreateOverrideAt`), so making a place to set something is not itself a change to what the
+-- switch does. A row seeded with the plain default passes "the row is there" and fails this.
+--
+-- Headless goes as far as the row being written and taken away (`tests/switch_spec.lua`). What only
+-- this layer can answer is that the button stands on an overriding layer and not on the
+-- account-wide one, and that the pick lands back on the layer in force once the row it was on is
+-- gone.
+RegisterTest("Switches tab: a layer is made from the dropdown and taken away again", {
+    description = "Picking a layer that was not set yet makes its row from what is on screen, and the button beside the dropdown takes it away",
+    run = function()
+        local NAME = "Switch layer make and remove"
+        local SWITCH = "$rowmakelayer"
+        local MODES = Constants.SWITCH_MODES
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.db.char.switches[SWITCH] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        -- Off account-wide, so the seeded row can be told from a row built out of the defaults:
+        -- `remember` is what a fresh row comes up as, and this is `off`.
+        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
+
+        local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
+        local layerKey = DebindPrivate.GetSwitchLayerKey(layerID)
+        if not layerKey then
+            return Fail(NAME, "no layer key for this character and this spec")
+        end
+
+        local panel = OpenSwitchesTab()
+        local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
+        if not row then
+            return Fail(NAME, format("%s did not stand in the list", SWITCH))
+        end
+        row:Click()
+
+        local settings = panel.Detail.Settings
+        if settings.LayerRemoveButton:IsShown() then
+            return Fail(NAME, "the column opened on the account-wide row and offered to take it away")
+        end
+
+        panel:CreateOverrideAt(layerID)
+
+        if panel.layerID ~= layerID then
+            return Fail(NAME, format("a layer was made at %s and the column is reading %s",
+                tostring(layerID), tostring(panel.layerID)))
+        end
+        if not settings.LayerRemoveButton:IsShown() then
+            return Fail(NAME, "the column is on an overriding layer and offers no way to take it away")
+        end
+        local mode, resetValue = DebindPrivate.GetSwitchAnswerAt(SWITCH, layerKey)
+        if mode ~= MODES.MANUAL or resetValue ~= false then
+            return Fail(NAME, format(
+                "the new row says %s/%s and what was on screen was manual/off",
+                tostring(mode), tostring(resetValue)))
+        end
+
+        settings.LayerRemoveButton:Click()
+
+        if DebindPrivate.GetSwitchAnswerAt(SWITCH, layerKey) ~= nil then
+            return Fail(NAME, "the button was pressed and the row still answers")
+        end
+        -- The account-wide row is the only one left, so that is where the pick has to land.
+        if panel.layerID ~= DebindPrivate.GetLayerID(nil, false) then
+            return Fail(NAME, format("the row was taken away and the column is still reading %s",
+                tostring(panel.layerID)))
+        end
+
+        return Pass(NAME, format("%s -> %s", SWITCH, DebindUI.GetLayerLabel(layerID)))
     end,
 })
 
@@ -9729,9 +9885,6 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 -----------------------------------------------------------
 -- The settings window
 -----------------------------------------------------------
-
---- The tab the gear selects, kept in step by hand with `SETTINGS_PANEL` in `DebindUI.lua`.
-local SETTINGS_PANEL_ID = 4
 
 RegisterTest("Settings: the gear opens the settings tab", {
     description = "제목줄 톱니바퀴가 우리 창의 설정 탭을 연다",

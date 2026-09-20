@@ -1893,12 +1893,6 @@ function DebindPrivate.ResolveSwitchAnswer(name)
         for i = 1, #layerIDs do
             local key = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
             local row = key and overrides[key];
-            -- **A row saying nothing is walked past**, not answered with. It is there to hold what
-            -- the reader typed, and reading its fields would turn "not set here" into the default
-            -- answer without a word (`ClearSwitchOverride`).
-            if (row and row.unset) then
-                row = nil;
-            end
             if (row) then
                 return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr, key;
             end
@@ -1908,34 +1902,15 @@ function DebindPrivate.ResolveSwitchAnswer(name)
     return definition.mode or SWITCH_DEFAULTS.mode, definition.resetValue, definition.expr, nil;
 end
 
---- The answer one layer gives, or nil where that layer says nothing. `layerKey` nil is the root,
+--- The answer one layer gives, or nil where that layer has no row. `layerKey` nil is the root,
 --- which always answers.
 ---
---- **A row that is there and says nothing is the same as no row**, which is what `unset` is for:
---- see `ClearSwitchOverride`.
+--- **A row that is there always answers**, which is why this doubles as "does this layer have a
+--- row at all" - what the Switches tab's layer list is built from
+--- (`reworking-the-switches-tab.md`). The row that was there and said nothing went with the answer
+--- that made it: turning one off and taking it away are the same gesture now
+--- (`RemoveSwitchOverride`).
 function DebindPrivate.GetSwitchAnswerAt(name, layerKey)
-    local definition = DebindPrivate.Switches[name];
-    if (not definition) then
-        return nil;
-    end
-
-    local row = definition;
-    if (layerKey ~= nil) then
-        row = definition.overrides and definition.overrides[layerKey];
-        if (not row or row.unset) then
-            return nil;
-        end
-    end
-    return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr;
-end
-
---- What one layer is **holding**, answering or not: its reset value, its expression, and whether it
---- is saying anything at all.
----
---- The panel draws a layer that says nothing with what it would go back to still on it, so that
---- turning the answer back on is not a surprise (`reworking-the-switches-tab.md`). Nothing else may
---- read these: a row that says nothing decides nothing.
-function DebindPrivate.GetSwitchHeldAt(name, layerKey)
     local definition = DebindPrivate.Switches[name];
     if (not definition) then
         return nil;
@@ -1948,7 +1923,7 @@ function DebindPrivate.GetSwitchHeldAt(name, layerKey)
             return nil;
         end
     end
-    return row.resetValue, row.expr, row.unset and true or false;
+    return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr;
 end
 
 --- Writes one of the four answers at one layer. `layerKey` nil writes the root.
@@ -1977,8 +1952,6 @@ function DebindPrivate.SetSwitchAnswer(name, layerKey, mode, resetValue)
 
     row.mode = mode;
     row.resetValue = resetValue;
-    -- Picking any of the answers is what makes a row that was saying nothing say something again.
-    row.unset = nil;
     return true;
 end
 
@@ -2003,37 +1976,28 @@ function DebindPrivate.SetSwitchExpression(name, layerKey, expr)
     return true;
 end
 
---- Stops one layer answering. **The root has nothing to stop**: it is the row §4-6 requires to
---- always be there, and without it the references pointing at this switch have nowhere to land.
+--- Takes one layer's row away, expression and starting value with it. **The root has nothing to
+--- take away**: it is the row §4-6 requires to always be there, and without it the references
+--- pointing at this switch have nowhere to land.
 ---
---- **Turning a setting off is not the same as throwing it away.** What the reader typed into that
---- row is kept and the row simply stops answering (`unset`), so picking an answer again gives back
---- the expression and the starting value they had. Nothing reads a row in that state
---- (`ResolveSwitchAnswer`, `GetSwitchAnswerAt`), which is what makes keeping it free.
----
---- **A row with nothing left to keep goes.** The default answer and an empty expression are what a
---- row would be rebuilt as, so holding one is holding nothing: somebody who pressed an answer to
---- see what it did and came straight back leaves no trace.
-function DebindPrivate.ClearSwitchOverride(name, layerKey)
+--- **Nothing is kept behind.** A row used to be able to stay and stop answering, so that an answer
+--- turned off could be turned back on with what had been typed into it still there. That answer is
+--- gone (2026-09-20, 소유자): with a button that takes the row away standing beside the layer list,
+--- keeping both would be two controls doing one job, and the one that kept the words would leave a
+--- row on screen that decides nothing.
+function DebindPrivate.RemoveSwitchOverride(name, layerKey)
     local definition = DebindPrivate.Switches[name];
     if (layerKey == nil or not definition or not definition.overrides) then
         return false;
     end
-    local row = definition.overrides[layerKey];
-    if (not row or row.unset) then
+    if (not definition.overrides[layerKey]) then
         return false;
     end
 
-    if (row.resetValue == nil and (row.expr == nil or row.expr == "")) then
-        definition.overrides[layerKey] = nil;
-        if (next(definition.overrides) == nil) then
-            definition.overrides = nil;
-        end
-        return true;
+    definition.overrides[layerKey] = nil;
+    if (next(definition.overrides) == nil) then
+        definition.overrides = nil;
     end
-
-    row.unset = true;
-    row.mode = nil;
     return true;
 end
 
@@ -2043,15 +2007,11 @@ end
 --- Switches tab draws the layers one character reaches, so deleting from a priest takes a druid's
 --- overrides with it, and the delete question is the only place that asymmetry is ever on screen
 --- (§6-B).
---- **A row that says nothing is not an override.** It decides nothing, so a reader told that one
---- more thing goes with the switch would be counting what they took away themselves.
 function DebindPrivate.CountSwitchOverrides(name)
     local definition = DebindPrivate.Switches[name];
     local count = 0;
-    for _, row in pairs(definition and definition.overrides or {}) do
-        if (not row.unset) then
-            count = count + 1;
-        end
+    for _ in pairs(definition and definition.overrides or {}) do
+        count = count + 1;
     end
     return count;
 end

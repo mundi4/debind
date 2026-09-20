@@ -1179,28 +1179,28 @@ L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself
 -- set rather than teaching a word for the set of them.
 L["SWITCH_LAYER_PICKER"] = "Set it for"
 L["SWITCH_OVERRIDE_DESC"] = "Say what this switch comes up as for one class, one specialization or one character. Wherever you set none, the account-wide answer wins."
+-- The second half of that list, under a divider: the places this switch is not set for yet.
+-- Picking one starts setting it there.
+L["SWITCH_LAYER_UNSET_GROUP"] = "Not set yet"
+-- The button beside the list. **"What you set" and not "the switch"**: the one next to it deletes
+-- the switch itself, and the two are a press apart.
+L["SWITCH_OVERRIDE_REMOVE"] = "Remove what you set here"
+L["SWITCH_OVERRIDE_REMOVE_DESC"] = "The starting value and the expression here go with it, and the next place out answers instead."
 -- **The client's own, assigned here only**, so every language gets it without a second translation
 -- that can then disagree with the game inside one window.
 L["SWITCH_NAME_LABEL"] = NAME
--- **The three answers one layer can give.** `SWITCH_ANSWER_MANUAL` is worded off
+-- **The two answers one layer can give.** `SWITCH_ANSWER_MANUAL` is worded off
 -- `CUSTOM_STATE_MODE_MACRO_CONDITIONAL` ("Set Automatically"), the two being the same choice.
-L["SWITCH_ANSWER_UNSET"] = "Not set here"
-L["SWITCH_ANSWER_UNSET_DESC"] = "The next layer out answers instead. What you typed here is kept."
 L["SWITCH_ANSWER_MANUAL"] = "Set Manually"
 L["SWITCH_ANSWER_MANUAL_DESC"] = "You turn it on and off, from here, the switch bar or a key."
--- The layer answering instead, as a tag after "Not set here". **The name and nothing else**: which
--- layer that is, is the whole of what this adds.
---
--- **It is the layer actually in force**, read from the narrowest one out, and not the next layer up
--- from the one being looked at: with an answer on your character and Class picked, the next one up
--- is the account-wide row, which is deciding nothing.
-L["SWITCH_ANSWER_UNSET_BY"] = "(%s)"
 -- The heading over the three starting values. **It names neither moment.** "When you log in" is
 -- wrong on its own, since the same three apply again on a specialization change.
 L["SWITCH_START_VALUE"] = "Starts as"
 -- The two faces of the right column.
 L["SWITCH_TAB_SETTINGS"] = "Settings"
-L["SWITCH_TAB_USAGE"] = "Usage"
+-- **Not "Usage"** (2026-09-20, 소유자). What it holds is the list of places that name this switch;
+-- Usage reads as how much or how heavily it is used.
+L["SWITCH_TAB_USAGE"] = "Used By"
 -- The three groups on that second face, and what separates the third from the first is **whether
 -- you would have to log in somewhere else to fix it**, not whose it is: another character of your
 -- own class is in both, its class layers here and its own layers below.
