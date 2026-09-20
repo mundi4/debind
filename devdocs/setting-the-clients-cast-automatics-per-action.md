@@ -1,9 +1,8 @@
 # 클라이언트의 자동 동작을 액션마다 정하기 (2026-09-21 시작)
 
-> 상태: **값이 저장되고 바인딩까지 나간다. 화면이 남았다.** 2026-09-21에 저장·정리·공유(§6의
-> 앞 네 줄), 감싼 버튼과 게이트 걷기(§4), 탈것 본문의 `/cancelform`과 우리 본문의 CVar 줄(§5)이
-> 들어갔다. 남은 것은 메뉴와 툴팁과 문구, 그리고 잠금 규칙이다. **값을 켤 화면이 없으므로
-> 사용자에게는 아직 아무 변화도 없다.**
+> 상태: **§6이 다 들어갔다.** 2026-09-21에 저장·정리·공유, 감싼 버튼과 게이트 걷기(§4), 탈것
+> 본문의 `/cancelform`과 우리 본문의 CVar 줄(§5), 메뉴 네 줄과 잠금 둘, 툴팁, enUS 문구까지.
+> 남은 것은 §9의 열린 둘이다.
 >
 > 이 문서는 `implementing-focus-and-self-cast.md` §3-13(보류)을 대신하고,
 > `matching-the-clients-cast-targeting.md` §2-2의 결정 하나를 뒤집는다.
@@ -158,22 +157,20 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
 
 ## 6. 손댈 자리
 
-**아래 목록에서 화면 셋(`ActionMenuItems.lua`, `ActionTooltip.lua`, `Locales/*.lua`)만 남았다.**
-
-- `ActionMenuItems.lua` `CreateCastingMenu`에 네 줄. 잠금 이유 문구는 `CAST_KEY_TARGET_PICKED`가
-  쓰는 방식을 따른다.
-- `ActionTooltip.lua` 기본이 아닌 줄만 그린다.
-- `Locales/*.lua` 문구. 클라이언트가 이미 가진 이름은 넷 중 **둘**이다
-  (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`). 자동 변신 해제와 **비행이 아닌 자동 탈것
-  내리기**는 클라이언트 문자열이 없어서 새로 짜야 한다. 설정 패널이 안 내는 CVar 둘이 그대로
-  문자열 없는 둘이다.
-
 **마이그레이션은 없다.** 값이 없는 것이 새 기본값이고, 모르는 값은 기본으로 읽힌다.
 
-**들어간 자리.** `Misc.lua`의 `CastAutomaticOf`·`CastAutomaticsKeyOf`·`CastAutomaticInKey`와
-`UnshiftsWith`, 바인딩 파생의 `binding.automatics`, `Profile.lua` 정리기, `Export.lua`의
-`CASTING_TYPES`, `UpdateBindings.lua`의 `AutomaticsLines`·`AutomaticsBody`·`AutomaticsWrap`과
-감싼 버튼 캐시, `SecureBindings.lua`의 `CAST_BUTTON_SNIPPET`, `Debind.lua`의 캐스트 프레임 주석.
+**들어간 자리.** `Misc.lua`의 `CastAutomaticOf`·`CastAutomaticsKeyOf`·`CastAutomaticInKey`·
+`UnshiftsWith`·`CastAutomaticLabel`·`CastAutomaticsBlockedReason`, 바인딩 파생의
+`binding.automatics`, `Profile.lua` 정리기, `Export.lua`의 `CASTING_TYPES`, `UpdateBindings.lua`의
+`AutomaticsLines`·`AutomaticsBody`·`AutomaticsWrap`과 감싼 버튼 캐시, `SecureBindings.lua`의
+`CAST_BUTTON_SNIPPET`, `Debind.lua`의 캐스트 프레임 주석, `ActionMenuModel.lua`의
+`CastAutomaticIs`·`SetCastAutomatic`, `ActionMenuItems.lua`의 `CreateCastingMenu`,
+`ActionTooltip.lua`의 시전 블록, `Locales/enUS.lua`.
+
+**문구.** 클라이언트가 이미 가진 이름은 넷 중 **둘**이고(`AUTO_SELF_CAST_TEXT`,
+`AUTO_DISMOUNT_FLYING_TEXT`) 그 둘을 그대로 쓴다. 값 셋 중 켬과 끔도 설정 패널의
+`VIDEO_OPTIONS_ENABLED`·`VIDEO_OPTIONS_DISABLED`다. 우리가 적은 것은 이름 없는 줄 둘과 셋째
+값, 그리고 잠금 이유 둘뿐이다. koKR과 ruRU는 안 옮겼고 그동안 enUS로 나간다.
 
 ## 7. 측정 (2026-09-21, 소유자, 게임에서)
 
@@ -219,8 +216,7 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
 
 ## 9. 아직 안 정한 것
 
-- 화면 문구와 네 줄의 배치. 메뉴가 이미 길다.
-- 잠금 규칙의 정확한 조건. **지금 값이 아무 일도 안 하는 액션이 둘이다**: 게임 매크로를 가리키는
-  것(얹을 문자열이 없다)과 유지·시전 주문(감싸면 안 놓인다). 화면이 서기 전에 둘을 잠가야 켰는데
-  아무 일도 안 나는 자리가 안 생긴다. 액션 종류마다 뜻이 없는 줄이 더 있는지는 안 봤다.
-- 유지·시전 주문을 이 트랙에서 어디까지 할지. 머리글대로 소유자에게 묻는다.
+- **액션 종류마다 뜻이 없는 줄.** 잠기는 둘(게임 매크로, 유지·시전 주문)은 섰지만, 그건 값이
+  닿을 수 없는 자리다. 대상 지정이나 상태 지정처럼 시전이 아닌 액션에서 네 줄이 뜻을 갖는지는
+  안 봤다. 자동 자가시전은 주문에만, 탈것 내리기는 시전하는 것에만 걸리는 물건이다.
+- 유지·시전 주문을 이 트랙에서 어디까지 할지. 머리글대로 소유자에게 묻는다. 지금은 잠겨 있다.
