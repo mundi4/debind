@@ -546,6 +546,8 @@ local function CreateCastingMenu(parentDescription, ctx)
         end) and DebindPrivate.CastAutomaticsBlockedReason(ctx.actions[1]);
         if (reason == "gamemacro") then
             return LLL["AUTOMATIC_GAME_MACRO"];
+        elseif (reason == "nocast") then
+            return LLL["AUTOMATIC_NOT_A_CAST"];
         end
     end
 

@@ -1700,17 +1700,27 @@ end, [==[
 	-- **감싼 버튼은 올림에 자기 짝이 따로 선다.** 그쪽은 `*typerelease-`가 빌드 때 이미
 	-- `macro`로 박혀 있고 본문도 엣지 토큰까지 구워져 있으니, 여기서 쓸 것이 없다.
 	if (down) then
-		local release = WrappedRelease[winner.clickbutton]
-		if (pressAndHold) then
-			self:SetAttribute("pressAndHoldAction", true)
-			if (not release) then
-				self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+		self:SetAttribute("pressAndHoldAction", pressAndHold or nil)
+
+		local inner = WrappedButtons[winner.clickbutton]
+		if (inner) then
+			-- **감싼 길에서 게이트를 지나는 것은 안쪽 클릭이다.** 그러니 그쪽이 읽는 자리는
+			-- 캐스트 프레임이다. `pressAndHoldAction`은 감싼 누름마다 켠다 - 안 켜면 그 프레임의
+			-- `useOnKeyDown=false`와 겹쳐 `clickAction`이 거짓이 되고, 우리가 `true`를 실어
+			-- 보낸 내림이 **아무 일도 안 한다.**
+			--
+			-- `*typerelease-`는 이 누름이 유지·시전일 때만 켠다. 없으면 올림이 놓기 갈래에
+			-- 들어가도 낼 것이 없어 조용히 끝나고, 그게 평범한 주문에 맞는 동작이다.
+			CastFrame:SetAttribute("pressAndHoldAction", true)
+			if (pressAndHold) then
+				CastFrame:SetAttribute("*typerelease-" .. inner, "spell")
+			else
+				CastFrame:SetAttribute("*typerelease-" .. inner, nil)
 			end
+		elseif (pressAndHold) then
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
 		else
-			self:SetAttribute("pressAndHoldAction", nil)
-			if (not release) then
-				self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
-			end
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
 		end
 	end
 

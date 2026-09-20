@@ -1191,7 +1191,7 @@ L["SWITCH_NAME_LABEL"] = NAME
 -- not an instruction: the first two say how the value is decided and this one says the value is not
 -- read at all, so an imperative beside them puts two kinds of thing in one list.
 L["SWITCH_ANSWER_MANUAL"] = "Set manually"
-L["SWITCH_ANSWER_MANUAL_DESC"] = "You turn it on and off, from here, from the switch bar, or with a key."
+L["SWITCH_ANSWER_MANUAL_DESC"] = "You turn it on and off with a key."
 L["SWITCH_ANSWER_IGNORE"] = "Ignored"
 L["SWITCH_ANSWER_IGNORE_DESC"] = "Actions that use this switch work whether it is on or off."
 -- The heading over the three starting values. **It names neither moment.** "When you log in" is
@@ -1382,6 +1382,7 @@ L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever this is set to in the game's own se
 -- What this addon can or cannot reach, and what the game does with the press instead, are both
 -- ours to know and no part of what the reader is deciding.
 L["AUTOMATIC_GAME_MACRO"] = "This does not apply to a macro from WoW's own list."
+L["AUTOMATIC_NOT_A_CAST"] = "This does not apply to an action that casts nothing."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
 -- literal here; on [Cast as usual] it is why the row stands locked, since with a target picked the

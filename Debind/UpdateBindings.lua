@@ -963,6 +963,10 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     if (automatics) then
         if (type == Constants.MACROTEXT) then
             value = AutomaticsWrap(value, automatics);
+            -- **위에서 잡아 둔 `out.value`를 고쳐 쓴다.** 등록되는 본문이 그 값이고
+            -- (`addMacrotextBinding`), 안 고치면 인자가 든 본문은 첫 누름에 조각에서 다시
+            -- 지어지면서 CVar 줄이 영영 벗겨진다.
+            out.value = value;
         elseif (type == Constants.MOUNT and facts.mountMacrotext) then
             facts.mountMacrotext = AutomaticsWrap(facts.mountMacrotext, automatics);
         end
@@ -1208,18 +1212,22 @@ local function StampBinding(descriptor, automatics)
 
         local wrapped = byAutomatics[automatics];
         if (not wrapped) then
-            -- **쥐는 주문은 엣지마다 버튼 하나씩.** 한 버튼은 본문을 하나만 들 수 있는데 내림과
-            -- 올림이 서로 다른 `/click` 토큰을 실어야 하고, 게이트가 올림에서 읽는 것은
-            -- `*typerelease-`라서 그쪽은 그 속성으로 선다. 클릭 경로가 엣지로 둘을 가른다.
-            local edge = descriptor.pressAndHold or nil;
+            -- **엣지 토큰은 언제나 굽고, 짝도 언제나 만든다.** 유지·시전인지는 누를 때 정해지고
+            -- (`SecureBindings.lua`, 덮인 주문까지 따라가려고 그렇게 한다), 이 버튼은 세션 내내
+            -- 캐시에 남는다. 굽는 쪽이 그 답을 미리 정하면 둘이 갈리는 날 조용히 죽는다.
+            --
+            -- 한 버튼은 본문을 하나만 들 수 있어서 내림과 올림이 버튼 둘로 갈린다. 게이트가
+            -- 올림에서 읽는 것은 `*typerelease-`라 짝은 그 속성으로 선다.
             wrapped = NextButtonName();
             DefaultClickFrame:SetAttribute("*type-" .. wrapped, "macro");
             DefaultClickFrame:SetAttribute("*macrotext-" .. wrapped,
-                AutomaticsBody(automatics, buttonname, edge and "true"));
+                AutomaticsBody(automatics, buttonname, "true"));
             byAutomatics[automatics] = wrapped;
             _wrappedButtons[wrapped] = buttonname;
 
-            if (edge) then
+            -- 주문만 유지·시전이 될 수 있다. 아이템과 장비칸은 그 답이 영영 거짓이라 짝을
+            -- 만들어 둬도 아무도 안 누른다.
+            if (type == Constants.SPELL) then
                 local release = NextButtonName();
                 -- `*type-`은 안 단다. 이 이름은 올림에서만 돌아가고, 달아 두면 내림으로 새어
                 -- 들어올 길이 하나 생긴다.

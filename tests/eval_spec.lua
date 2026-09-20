@@ -195,7 +195,7 @@ return function(DebindPrivate, _, ctx)
             "a set value did not reach a wrapped button: " .. tostring(chosen));
         check(clickFrame:GetAttribute("*macrotext-" .. chosen) ==
             '/run DebindAuto_autoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
-            .. '/click DebindCastButton ' .. interp:actionButton(chosen) .. '\n'
+            .. '/click DebindCastButton ' .. interp:actionButton(chosen) .. ' true\n'
             .. '/run SetCVar("autoSelfCast",DebindAuto_autoSelfCast)',
             "the body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. chosen)));
         check(clickFrame:GetAttribute("*spell-" .. interp:actionButton(chosen)) == "Renew",
@@ -224,7 +224,7 @@ return function(DebindPrivate, _, ctx)
             '/run DebindAuto_autoUnshift=GetCVar("autoUnshift");SetCVar("autoUnshift","1")'
             .. ';DebindAuto_autoDismountFlying=GetCVar("autoDismountFlying")'
             .. ';SetCVar("autoDismountFlying","0")\n'
-            .. '/click DebindCastButton ' .. interp:actionButton(two) .. '\n'
+            .. '/click DebindCastButton ' .. interp:actionButton(two) .. ' true\n'
             .. '/run SetCVar("autoUnshift",DebindAuto_autoUnshift)'
             .. ';SetCVar("autoDismountFlying",DebindAuto_autoDismountFlying)',
             "two rows: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. two)));
@@ -313,6 +313,24 @@ return function(DebindPrivate, _, ctx)
             .. '/run SetCVar("autoSelfCast",DebindAuto_autoSelfCast)',
             "the up body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. up)));
         interp.state.channeling = false;
+
+        -- **The cast frame is where the gate reads for the inner click**, and it is pinned to
+        -- `useOnKeyDown = false`: without the bare name the `true` we send fails `clickAction` and
+        -- the press does nothing at all.
+        local castFrame = DebindPrivate.CastFrame;
+        check(castFrame:GetAttribute("pressAndHoldAction") == true,
+            "the cast frame was not told the press is held");
+        check(castFrame:GetAttribute("*typerelease-" .. inner) == "spell",
+            "the inner button has nothing to release");
+
+        -- **An ordinary spell takes the same route and must not release.** The frame is shared, so
+        -- what the last press left on it is what the next one would fire.
+        shim.world.spells[585] = { name = "Renew" };
+        Bind({ action({ value = 585, key = "F2", casting = { autoSelfCast = false } }) });
+        interp:runWrapped(clickFrame, "OnClick", Constants.CLICKTIME_BUTTON_PREFIX .. "F2", true);
+        local _, plain = interp:evalKey("F2");
+        check(castFrame:GetAttribute("*typerelease-" .. interp:actionButton(plain)) == nil,
+            "an ordinary spell was left something to release");
     end);
 
     ---------------------------------------------------------------------------

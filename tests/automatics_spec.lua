@@ -130,6 +130,22 @@ return function(DebindPrivate)
         check(reason({ type = Constants.MACROTEXT, value = "/cast Renew" }) == nil,
             "직접 쓴 매크로가 걸렸다");
         check(reason(nil) == nil, "액션 없이 물었을 때 이유가 나왔다");
+
+        -- **시전을 안 하는 액션에도 값이 안 닿는다.** 감싸는 두 길 중 어느 쪽도 이 타입들을 안
+        -- 지나서, 켜 두면 조용히 아무 일도 안 난다.
+        for _, actionType in ipairs({ Constants.TARGET, Constants.FOCUS, Constants.TOGGLEMENU,
+                Constants.SETCUSTOM, Constants.WORLDMARKER, Constants.FLYOUT,
+                Constants.ACTIONBUTTON, Constants.COMMAND }) do
+            check(reason({ type = actionType, value = 1 }) == "nocast",
+                actionType .. "이 안 걸렸다");
+        end
+
+        -- 감싸는 길이 닿는 것들은 열려 있어야 한다.
+        for _, actionType in ipairs({ Constants.ITEM, Constants.USESLOT, Constants.MOUNT,
+                Constants.PETACTION }) do
+            check(reason({ type = actionType, value = 1 }) == nil,
+                actionType .. "이 걸렸다");
+        end
     end);
 
     return T;

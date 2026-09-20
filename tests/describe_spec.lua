@@ -220,6 +220,12 @@ return function(DebindPrivate)
         local bare = describe(Constants.MACROTEXT, "/cast Renew", nil, {});
         check(bare.cacheKey ~= macro.cacheKey,
             "one key for two bodies: " .. tostring(macro.cacheKey));
+
+        -- **And so does the value.** That is the body the click path registers for rebaking
+        -- (`addMacrotextBinding`); left unwrapped, the first press of a body with an argument in it
+        -- rebuilds from the fragments and strips the CVar lines for good.
+        check(macro.value == attribute(macro, "*macrotext-"),
+            "the descriptor's value is not the body: " .. tostring(macro.value));
     end);
 
     ---------------------------------------------------------------------------

@@ -1856,17 +1856,27 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		local release = WrappedRelease[winner.clickbutton]
-		if (pressAndHold) then
-			self:SetAttribute("pressAndHoldAction", true)
-			if (not release) then
-				self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+		self:SetAttribute("pressAndHoldAction", pressAndHold or nil)
+
+		local inner = WrappedButtons[winner.clickbutton]
+		if (inner) then
+
+
+
+
+
+
+
+			CastFrame:SetAttribute("pressAndHoldAction", true)
+			if (pressAndHold) then
+				CastFrame:SetAttribute("*typerelease-" .. inner, "spell")
+			else
+				CastFrame:SetAttribute("*typerelease-" .. inner, nil)
 			end
+		elseif (pressAndHold) then
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
 		else
-			self:SetAttribute("pressAndHoldAction", nil)
-			if (not release) then
-				self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
-			end
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
 		end
 	end
 
@@ -2692,17 +2702,27 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		local release = WrappedRelease[winner.clickbutton]
-		if (pressAndHold) then
-			self:SetAttribute("pressAndHoldAction", true)
-			if (not release) then
-				self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+		self:SetAttribute("pressAndHoldAction", pressAndHold or nil)
+
+		local inner = WrappedButtons[winner.clickbutton]
+		if (inner) then
+
+
+
+
+
+
+
+			CastFrame:SetAttribute("pressAndHoldAction", true)
+			if (pressAndHold) then
+				CastFrame:SetAttribute("*typerelease-" .. inner, "spell")
+			else
+				CastFrame:SetAttribute("*typerelease-" .. inner, nil)
 			end
+		elseif (pressAndHold) then
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
 		else
-			self:SetAttribute("pressAndHoldAction", nil)
-			if (not release) then
-				self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
-			end
+			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
 		end
 	end
 

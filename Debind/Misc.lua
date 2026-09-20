@@ -1477,11 +1477,38 @@ do
     --- 네 줄이 이 액션에서 아무 일도 못 하는 이유, 또는 `nil`. **켰는데 조용히 아무 일도 안 나는
     --- 자리를 막는 것이 전부다.**
     ---
-    --- 하나뿐이다. 게임 매크로는 본문이 게임의 것이라 앞뒤에 붙일 문자열이 없다
+    --- 값이 닿는 액션 종류. **감싸는 두 길이 닿는 곳이 곧 이 목록이다**: 매크로 안에서
+    --- `/click`으로 부를 수 있는 것들(주문·아이템·장비칸·주문으로 나가는 탈것)과, 본문이 우리
+    --- 문자열이라 앞뒤에 줄을 붙일 수 있는 것들(직접 쓴 매크로, 펫 명령, 매크로로 나가는 탈것).
+    --- 전문화가 주문을 정하는 셋은 주문으로 다시 쓰이므로 여기 든다
+    --- (`UpdateBindings.lua`의 `castsAtUnit`과 `AutomaticsWrap`).
+    local CAST_AUTOMATIC_TYPES = {
+        [Constants.SPELL] = true,
+        [Constants.ITEM] = true,
+        [Constants.USESLOT] = true,
+        [Constants.MOUNT] = true,
+        [Constants.MACROTEXT] = true,
+        [Constants.PETACTION] = true,
+    };
+    for actionType in pairs(Constants.SPEC_RESOLVED_TYPES) do
+        CAST_AUTOMATIC_TYPES[actionType] = true;
+    end
+
+    --- 네 줄이 이 액션에서 아무 일도 못 하는 이유, 또는 `nil`. **켰는데 조용히 아무 일도 안 나는
+    --- 자리를 막는 것**이 전부다.
+    ---
+    --- 게임 매크로는 본문이 게임의 것이라 앞뒤에 붙일 문자열이 없고, 나머지는 시전이라는 것을
+    --- 아예 안 해서 클라이언트가 그 주위에 할 일도 없다
     --- (`setting-the-clients-cast-automatics-per-action.md` §5).
     function DebindPrivate.CastAutomaticsBlockedReason(action)
-        if (action and action.type == Constants.MACRO) then
+        if (action == nil) then
+            return nil;
+        end
+        if (action.type == Constants.MACRO) then
             return "gamemacro";
+        end
+        if (not CAST_AUTOMATIC_TYPES[action.type]) then
+            return "nocast";
         end
         return nil;
     end
