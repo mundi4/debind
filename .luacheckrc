@@ -447,7 +447,7 @@ globals = {
 	"DebindSpellPickerTabMixin",
 	"DebindSwitchesPanelMixin",
 	"DebindSwitchRowMixin",
-	"DebindSwitchLayerRowMixin",
+	"DebindSwitchUsageRowMixin",
 	"DebindSwitchGroupHeaderMixin",
 
 	-- Named frames

@@ -4936,31 +4936,16 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
 
 --- The row drawn for one switch, once the list has laid itself out.
 ---
---- **`layerID` is what tells the two kinds of row apart.** Since stage 4 a switch's own row is
---- followed by one row per tab that answers for it, and those carry the same `switchName` - without
---- this a test asking for "the row" gets whichever the walk reached last, which is a tab row with
---- no toggle on it.
+--- **Whatever is in view**, like every other walk over a scroll box here: `ForEachFrame` reaches
+--- the frames that exist, so a caller matches on the name rather than on a position in the list.
 local function SwitchRow(panel, name)
     local found
     panel.ScrollBox:ForEachFrame(function(frame)
-        if frame.switchName == name and not frame.layerID then
+        if frame.switchName == name then
             found = frame
         end
     end)
     return found
-end
-
---- The tab rows under one switch. **Whatever is in view**, like every other walk over a scroll box
---- here: `ForEachFrame` reaches the frames that exist, so a caller matches on `layerKey` rather
---- than on a position in the list.
-local function SwitchLayerRows(panel, name)
-    local rows = {}
-    panel.ScrollBox:ForEachFrame(function(frame)
-        if frame.switchName == name and frame.layerID then
-            rows[#rows + 1] = frame
-        end
-    end)
-    return rows
 end
 
 --- Opens the tab and hands back the panel with its rows built. Puts the reader back on Overview
@@ -5053,53 +5038,61 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
     end,
 })
 
--- **A dialog that opens on a value is two things, and only one of them is checkable by eye.** That
--- it opens is obvious; that it opens *carrying* what is already stored is a line of code that runs
--- after the popup is up, reaching into the client's own frame. That reach was written against
--- `popup.editBox`, a field the dialog stopped having when it became `GameDialogMixin`, so the box
--- opened blank and then errored -- and it errored only for callers that pass a value, which is why
--- it lived so long (`ShowInputBox` in `DebindUI.lua`).
+-- **A column that fills itself from a pick is a wire, and a wire fails without a word.** Every
+-- field on the right is written from the definition when a row on the left is clicked, and a field
+-- that is never written sits there blank or holding the switch before it -- which reads exactly
+-- like a switch that has nothing set.
 --
--- The rename box goes through the same function, so this covers both.
-RegisterTest("Switches tab: the expression box opens on the expression", {
-    description = "The expression box opens holding the expression as it stands",
+-- It was a dialog until the tab was split in two, and the dialog's own trap is the reason this test
+-- exists at all: `ShowInputBox` reached for `popup.editBox`, a field the client dropped when the
+-- dialog became `GameDialogMixin`, so the box opened blank for every caller that passed a value.
+-- The fields are ours now and the failure is the same shape.
+RegisterTest("Switches tab: picking a switch fills the right column", {
+    description = "Clicking a row writes that switch's name and expression into the fields on the right",
     run = function()
-        local NAME = "Switch input box"
+        local NAME = "Switch detail fields"
         local SWITCH = "$boxopen"
         local EXPR = "[combat]"
 
         local saved = DebindPrivate.Switches[SWITCH]
         AddTeardown(function()
             DebindPrivate.Switches[SWITCH] = saved
-            local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
-            if dialog then
-                -- **Focus first.** The box takes the keyboard when it opens, and a hidden frame
-                -- that still holds it swallows what the next test types.
-                local editBox = dialog:GetEditBox()
-                if editBox then
-                    editBox:ClearFocus()
-                end
-                dialog:Hide()
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
             end
         end)
         DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = EXPR }
 
-        DebindUI.ShowSwitchExpressionBox(SWITCH)
+        local panel = OpenSwitchesTab()
+        local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
+        if not row then
+            return Fail(NAME, format("%s did not stand in the list", SWITCH))
+        end
+        -- **Clicked, not selected by hand.** What is being measured is the row's own `OnClick`
+        -- reaching the panel; calling `SelectSwitch` outright passes on a row whose script never
+        -- got wired.
+        row:Click()
 
-        local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
-        if not dialog then
-            return Fail(NAME, "the box did not come up")
+        local settings = panel.Detail.Settings
+        if not settings:IsShown() then
+            return Fail(NAME, "a row was clicked and the settings side of the column did not come up")
         end
-        local editBox = dialog:GetEditBox()
-        if not editBox then
-            return Fail(NAME, "the box has no edit field, the client has renamed it again")
+        -- The `$` is drawn beside the field and never inside it, so what the field holds is the
+        -- name minus its sigil.
+        local typed = settings.NameBox:GetText()
+        if typed ~= strsub(SWITCH, 2) then
+            return Fail(NAME, format("the name field holds %q, the switch is %s", typed, SWITCH))
         end
-        local text = editBox:GetText()
-        if text ~= EXPR then
-            return Fail(NAME, format("the box opened holding %q, the expression on record was not carried", text))
+        local expr = settings.ExprBox:GetText()
+        if expr ~= EXPR then
+            return Fail(NAME, format(
+                "the expression field holds %q, the expression on record was not carried", expr))
+        end
+        if not settings.AutoRadio:GetChecked() then
+            return Fail(NAME, "the switch is worked out from an expression and that answer is not ticked")
         end
 
-        return Pass(NAME, format("%q", text))
+        return Pass(NAME, format("%s -> %q", SWITCH, expr))
     end,
 })
 
@@ -5285,26 +5278,21 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
     end,
 })
 
--- **The rows under a switch, and the tick on the one in use** (§6-B). What the list has to answer
--- without a click is *where is this different*, so the tab that is answering right now is marked
--- and the ones that are not are still drawn.
+-- **The right column opens on the layer that is deciding the switch**, and that is the one thing
+-- it cannot get wrong without lying. Every field under the dropdown is read at whatever layer the
+-- dropdown is on, so opening on the account-wide row while a specialization is overriding it shows
+-- the reader an answer their keys are not using, with nothing on screen saying so.
 --
--- **Both halves are the test.** A tick nowhere and a tick on every row look equally like "the mark
--- works" from one row, and the row a reader takes as the answer is whichever one is ticked - if
--- that is the account-wide row while a tab is overriding it, the list is telling them the opposite
--- of what their keys do.
+-- **Both halves are the test.** Opening on the right layer says nothing on a switch that has only
+-- one, so the override is put on first and the answer read back has to be the override's and not
+-- the account-wide one.
 --
--- **A switch nothing reads has no ticked row at all**, and that is the third half. The tick says
--- "this is the answer in force", which a switch outside the compile has none of: which tab would
--- win is still true, but it decides a value nobody collects. So the same rows are read twice here,
--- once with nothing binding the switch and once with an action that does.
---
--- The XML is measured too: `Check` is a `parentKey` on the template, and a texture that lost its
--- key leaves `SetShown` reaching nil.
-RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
-    description = "The override rows are drawn, and where an action reads the switch only the winning row is marked",
+-- Headless goes as far as `ResolveSwitchAnswer` naming the winning layer (`tests/switch_spec.lua`).
+-- What only this layer can answer is whether the column is standing on that layer when it opens.
+RegisterTest("Switches tab: the right column opens on the layer in force", {
+    description = "Picking a switch that one specialization overrides opens the column on that layer, holding its answer",
     run = function()
-        local NAME = "Switch layer rows"
+        local NAME = "Switch detail layer"
         local SWITCH = "$rowlayers"
         local MODES = Constants.SWITCH_MODES
 
@@ -5316,86 +5304,47 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
                 DebindPrivate.UpdateBindings()
             end
         end)
-        -- `resetValue` and not `value`, for the reason the toggle test above spells out.
+        -- `resetValue` and not `value`, for the reason the toggle test above spells out. The
+        -- account-wide row starts off and the override starts on, so which of the two the column
+        -- is reading comes apart on the radio that is ticked.
         DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
-        local layerKey = DebindPrivate.GetSwitchLayerKey(
-            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
+        local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
+        local layerKey = DebindPrivate.GetSwitchLayerKey(layerID)
         if not layerKey then
             return Fail(NAME, "no layer key for this character and this spec")
         end
         DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.MANUAL, true)
 
         local panel = OpenSwitchesTab()
-        local rows = WaitUntil(function()
-            local found = SwitchLayerRows(panel, SWITCH)
-            return #found >= 2 and found or nil
-        end, 2)
-        if not rows then
-            local drawn = #SwitchLayerRows(panel, SWITCH)
+        local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
+        if not row then
+            return Fail(NAME, format("%s did not stand in the list", SWITCH))
+        end
+        row:Click()
+
+        if panel.layerID ~= layerID then
             return Fail(NAME, format(
-                "%d rows, there should be two: the one override put on top and the account-wide one", drawn))
+                "the column opened on layer %s and layer %s is the one deciding the switch",
+                tostring(panel.layerID), tostring(layerID)))
         end
 
-        -- Nothing binds `$rowlayers` yet, so it is outside the compile and no row is the live
-        -- answer to anything.
-        local function ReadTicks()
-            local marked, unmarked = {}, {}
-            for _, row in ipairs(rows) do
-                if not row.Check then
-                    return nil, "the row has no Check, the template lost its parentKey"
-                end
-                local list = row.Check:IsShown() and marked or unmarked
-                list[#list + 1] = row.layerKey or "(account)"
-            end
-            return marked, unmarked
-        end
-
-        local marked, unmarked = ReadTicks()
-        if not marked then
-            return Fail(NAME, unmarked)
-        end
-        if #marked ~= 0 then
+        local settings = panel.Detail.Settings
+        if not settings.StartOnRadio:GetChecked() then
             return Fail(NAME, format(
-                "no action reads this switch and row %d is marked [%s]. there is a place to win, but "
-                .. "nowhere takes that value away", #marked, table.concat(marked, " ")))
+                "the override says it starts on and the column does not say so. what is ticked: %s",
+                settings.StartOffRadio:GetChecked() and "starts off" or "neither"))
+        end
+        -- The dropdown's own text, because that is where the reader reads the layer off. A column
+        -- standing on the right layer with the wrong name on the button is the same fault seen
+        -- from the other side.
+        local shown = settings.LayerDropdown:GetText()
+        local want = DebindUI.GetLayerLabel(layerID)
+        if shown ~= want then
+            return Fail(NAME, format("the dropdown says %q, the layer is %q", tostring(shown), want))
         end
 
-        -- Now one action reads it, which is what puts the name in front of the restricted side.
-        --
-        -- **The rows are read again rather than redrawn by hand.** The switch has just moved from
-        -- the untracked half of the list to the tracked one, so the rebuild stands the whole list
-        -- up (`OnBindingsUpdated`) and the frames caught above went back to the pool with it.
-        InsertAction({ type = Constants.SETSTATE_TOGGLE, value = SWITCH, key = "CTRL-SHIFT-F8" })
-        ApplyBindings()
-        rows = WaitUntil(function()
-            local found = SwitchLayerRows(panel, SWITCH)
-            return #found >= 2 and found or nil
-        end, 2)
-        if not rows then
-            return Fail(NAME, format(
-                "%d rows came back after an action started reading the switch, there should be two",
-                #SwitchLayerRows(panel, SWITCH)))
-        end
-
-        marked, unmarked = ReadTicks()
-        if not marked then
-            return Fail(NAME, unmarked)
-        end
-
-        if #marked ~= 1 then
-            return Fail(NAME, format("%d rows are marked [%s], the winning row is always one",
-                #marked, table.concat(marked, " ")))
-        end
-        if marked[1] ~= layerKey then
-            return Fail(NAME, format(
-                "%q is marked, %q is the one that wins and the list says otherwise", marked[1], layerKey))
-        end
-        if #unmarked == 0 then
-            return Fail(NAME, "not one losing row was drawn, there is no seeing what is different")
-        end
-
-        return Pass(NAME, format("%d rows, unmarked while unread -> %s once read", #rows, marked[1]))
+        return Pass(NAME, format("%s -> %s", SWITCH, want))
     end,
 })
 
@@ -5407,13 +5356,13 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
 -- computed quietly becomes a different one.
 --
 -- Headless goes as far as the function that answers (`tests/issue_spec.lua`). What only this layer
--- can answer is **whether the row really goes red**: the colour is painted by `Update`, deleting
--- stands the whole list up again, and the row that comes back has to be holding the same answer.
+-- can answer is **whether the field really goes red**: the colour is painted by `RefreshSettings`,
+-- deleting stands the whole tab up again, and what comes back has to be reading the same layer.
 --
--- **What it was before the delete is read first.** On a row that was red from the start, "it went
+-- **What it was before the delete is read first.** On a field that was red from the start, "it went
 -- red" says nothing.
 RegisterTest("Switches tab: an expression left naming a deleted switch goes red", {
-    description = "A row goes red where an expression left behind still names a deleted switch",
+    description = "The expression field goes red where an expression left behind still names a deleted switch",
     run = function()
         local NAME = "Expression names a dead switch"
         local MODES = Constants.SWITCH_MODES
@@ -5439,17 +5388,9 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
             expr = format("[%s] [combat]", SOURCE),
         }
 
-        --- The account-wide row. With no override on top, this is the only row this switch has.
-        local function RootRow(panel)
-            for _, row in ipairs(SwitchLayerRows(panel, DERIVED)) do
-                if row.layerKey == nil then
-                    return row
-                end
-            end
-        end
-
-        --- **"Red" means measured against the addon's own red.** The winning row is the highlight
-        --- colour and a losing row is grey, so which of the three it is comes apart on the value alone.
+        --- **"Red" means measured against the addon's own red.** The field is the highlight colour
+        --- while it is being read and grey while it is not, so which of the three it is comes apart
+        --- on the value alone.
         local function IsRed(fontString)
             local r, g, b = fontString:GetTextColor()
             local er, eg, eb = ERROR_COLOR:GetRGB()
@@ -5458,38 +5399,37 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         end
 
         local panel = OpenSwitchesTab()
-        local row = WaitUntil(function() return RootRow(panel) end, 2)
+        local row = WaitUntil(function() return SwitchRow(panel, DERIVED) end, 2)
         if not row then
-            return Fail(NAME, format("%s's account-wide row did not stand", DERIVED))
+            return Fail(NAME, format("%s did not stand in the list", DERIVED))
         end
-        if not row.Setting then
-            return Fail(NAME, "the row has no Setting. the template lost its parentKey")
-        end
-        if IsRed(row.Setting) then
-            return Fail(NAME, format("the premise is gone: %s is still there and the row is already red", SOURCE))
+        row:Click()
+
+        local box = panel.Detail.Settings.ExprBox
+        if IsRed(box) then
+            return Fail(NAME, format("the premise is gone: %s is still there and the field is already red", SOURCE))
         end
 
         DebindPrivate.DeleteSwitch(SOURCE)
 
-        -- Deleting fires `OnSwitchesChanged` and the list stands up again. Frames are recycled, so
-        -- this finds the row again rather than reading back what was held above.
+        -- Deleting fires `OnSwitchesChanged` and the whole tab stands up again, which can move the
+        -- picked switch. So this waits on the field rather than reading back what was true above.
         local reddened = WaitUntil(function()
-            local found = RootRow(panel)
-            if found and found.Setting and IsRed(found.Setting) then
-                return found
+            if panel.selectedName == DERIVED and IsRed(box) then
+                return box
             end
         end, 2)
         if not reddened then
-            if not RootRow(panel) then
-                return Fail(NAME, format("%s's row disappeared from the list", DERIVED))
+            if panel.selectedName ~= DERIVED then
+                return Fail(NAME, format("the column moved off %s after the delete", DERIVED))
             end
             local expr = DebindPrivate.Switches[DERIVED].expr
             return Fail(NAME, format(
-                "the expression is %s and the row did not go red (broken name: %s). there is nowhere to find the deleted reference",
+                "the expression is %s and the field did not go red (broken name: %s). there is nowhere to find the deleted reference",
                 expr, tostring(DebindPrivate.GetUndefinedSwitchInExpr(expr, DERIVED))))
         end
 
-        return Pass(NAME, format("deleted %s -> %s's row is red", SOURCE, DERIVED))
+        return Pass(NAME, format("deleted %s -> %s's expression is red", SOURCE, DERIVED))
     end,
 })
 

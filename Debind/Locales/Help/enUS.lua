@@ -117,9 +117,13 @@ A switch is an on and off value you name yourself. Put it on an action as a cond
 
 Two places take one: |cnBLUE_FONT_COLOR:Switches|r in an action's menu, where you pick on or off, and a Custom Macro, where you write |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r for on and |cnHIGHLIGHT_FONT_COLOR:[no$fishing]|r for off.
 
-Work one with a key: put |cnBLUE_FONT_COLOR:Switch|r on it from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then pick in its menu which switch the key works and whether the press turns that switch on, off or over. A key does it in combat, which is where a switch earns its place. Clicking one on the |cnBLUE_FONT_COLOR:Switches|r tab turns it over as well, out of combat.
+Work one with a key: put |cnBLUE_FONT_COLOR:Switch|r on it from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then pick in its menu which switch the key works and whether the press turns that switch on, off or over. A key does it in combat, which is where a switch earns its place. The |cnBLUE_FONT_COLOR:Turn On|r button beside it on the |cnBLUE_FONT_COLOR:Switches|r tab does the same out of combat.
 
-Each switch says what it comes up as when you log in and when you change specialization: |cnBLUE_FONT_COLOR:Starts on|r, |cnBLUE_FONT_COLOR:Starts off|r, or |cnBLUE_FONT_COLOR:As you left it|r. Right-click it on the |cnBLUE_FONT_COLOR:Switches|r tab to pick that, and to set it differently for one class, one specialization or one character under |cnBLUE_FONT_COLOR:Override|r. The narrowest one that fits is what counts, and it gets a row under the switch so you can read it off the list.
+Each switch says what it comes up as when you log in and when you change specialization: |cnBLUE_FONT_COLOR:Starts on|r, |cnBLUE_FONT_COLOR:Starts off|r, or |cnBLUE_FONT_COLOR:As you left it|r. Pick a switch on the |cnBLUE_FONT_COLOR:Switches|r tab and that is the first thing the right-hand side asks. |cnBLUE_FONT_COLOR:Set it for|r above it picks which situation you are answering about: the whole account, one class, one specialization or one character. The narrowest one that fits is what counts, and the one that does is marked |cnBLUE_FONT_COLOR:in force|r in that list.
+
+That is how one macro does the right thing on every character. Where only some of your characters have the trinket, put a switch on the |cnBLUE_FONT_COLOR:use|r line and turn that switch on where the trinket is.
+
+|cnHIGHLIGHT_FONT_COLOR:/use [$onusetrinket] 14|r
 
 When the condition menu has nothing for what you want, a switch can work itself out. |cnBLUE_FONT_COLOR:Set Automatically|r takes a macro conditional such as |cnHIGHLIGHT_FONT_COLOR:[@tank,exists]|r, and the switch is on exactly while that is true. One set this way cannot be turned over by hand or by a key.
 ]==]

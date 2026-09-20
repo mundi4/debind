@@ -1165,59 +1165,52 @@ L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself
 -- a key in the first slot, reload, bind another in the second, reload, and the first slot is now
 -- the second key. "The first key" would name a different key from one login to the next, which is
 -- not something a checkbox can promise.
--- The rows under a switch: one per override, and the account-wide answer last.
---
--- **"Override" is the client's own word**, and 덮어쓰기 in Korean: `TRANSMOG_ARTIFACT_OPTIONS_HEADER`
--- is "Legion Artifact Override" / "군단 유물 덮어쓰기", `TRANSMOG_SLOT_DISPLAY_TYPE_UNASSIGNED_ARTIFACT`
--- is "Ignore Override" / "덮어쓰기 무시".
+-- What one switch is set to, on the right of the Switches tab.
 --
 -- ⚠ **Not "tab", which is what this said first.** IMPORTANCE_DESC calls a layer a tab, and it is right
--- to: that line compares two actions by *where they were put*. This list answers *when does this
+-- to: that line compares two actions by *where they were put*. These answer *when does this
 -- apply*, the Switches tab has no side tabs to point at, and an override does not live in the tab it
 -- names -- copying a tab copies actions and leaves the override behind (§4-7-1). Naming the tab
 -- would promise the opposite.
 --
 -- **The axis has no name here, only its values**: a class, a specialization, a character. That is
 -- the `reaction` move in `writing-user-facing-text.md`, and it is what keeps the sentence
--- out of the window's furniture.
---
--- ⚠ **The two lines below are what stops the rows reading as an order.** Stacked rows mean "the
--- next one runs when this one does not match" everywhere else in this window; here exactly one is
--- in use and the rest do nothing at all. The tick says which, and these say what the tick means.
-L["SWITCH_OVERRIDE"] = "Override"
+-- out of the window's furniture. So the caption over the dropdown asks which situation is being
+-- set rather than teaching a word for the set of them.
+L["SWITCH_LAYER_PICKER"] = "Set it for"
 L["SWITCH_OVERRIDE_DESC"] = "Say what this switch comes up as for one class, one specialization or one character. Wherever you set none, the account-wide answer wins."
-L["SWITCH_OVERRIDE_REMOVE"] = "Remove this override"
--- **Which one wins, not which one differs.** These rows are not a same-or-different reading of the
--- one above them: exactly one of them decides what the switch comes up as and the rest decide
--- nothing, so what a row has to say is that it won or that it lost. "Different" names the gap
--- between two rows, which is neither.
+-- **The client's own, assigned here only**, so every language gets it without a second translation
+-- that can then disagree with the game inside one window.
+L["SWITCH_NAME_LABEL"] = NAME
+-- **The three answers one layer can give.** `SWITCH_ANSWER_MANUAL` is worded off
+-- `CUSTOM_STATE_MODE_MACRO_CONDITIONAL` ("Set Automatically"), the two being the same choice.
+L["SWITCH_ANSWER_UNSET"] = "Not set here"
+L["SWITCH_ANSWER_UNSET_DESC"] = "The next layer out answers instead. What you typed here is kept."
+L["SWITCH_ANSWER_MANUAL"] = "Set Manually"
+L["SWITCH_ANSWER_MANUAL_DESC"] = "You turn it on and off, from here, the switch bar or a key."
+-- The layer answering instead, as a tag after "Not set here". **The name and nothing else**: which
+-- layer that is, is the whole of what this adds.
 --
--- **"Wins" is this addon's own word for it** and the README teaches it in the same breath as the
--- layers: "The narrowest row that fits wins."
-L["SWITCH_LAYER_WINNING"] = "This one wins here, so it is what the switch comes up as."
--- **Two ways to lose, and the row shows neither.** An override loses either because it is for a
--- character or specialization that is not the one in play, or because a narrower one beat it.
-L["SWITCH_LAYER_LOSING"] = "This one does not win here. Either it is not for this character and specialization, or a narrower override beats it."
-L["SWITCH_LAYER_MENU_INSTRUCTION"] = "Right-click to change this answer or take it away."
--- The row's own tooltip. **The three distances are the point of it**: a switch belongs to the
--- account while the list belongs to the character reading it, and one total cannot separate a
--- switch three characters depend on from one that does nothing here any more.
---
--- Written as label-and-number rather than as sentences. Three sentences saying almost the same
--- thing is a paragraph to read; three labels is a column to compare, which is what the reader is
--- actually doing with them.
-L["SWITCH_USED_BY_HEADER"] = "Actions using it:"
-L["SWITCH_USED_ACCOUNT"] = "Across the account"
-L["SWITCH_USED_CHARACTER"] = "This character"
--- **"Right now" is a specialization, not a session.** This one counts what the current
--- specialization reads, so it drops when the reader changes specialization and the two above do
--- not. That is the whole reason it is a third line.
-L["SWITCH_USED_LIVE"] = "Active right now"
-L["SWITCH_MENU_INSTRUCTION"] = "Right-click for settings, renaming and deleting."
+-- **It is the layer actually in force**, read from the narrowest one out, and not the next layer up
+-- from the one being looked at: with an answer on your character and Class picked, the next one up
+-- is the account-wide row, which is deciding nothing.
+L["SWITCH_ANSWER_UNSET_BY"] = "(%s)"
+-- The heading over the three starting values. **It names neither moment.** "When you log in" is
+-- wrong on its own, since the same three apply again on a specialization change.
+L["SWITCH_START_VALUE"] = "Starts as"
+-- The two faces of the right column.
+L["SWITCH_TAB_SETTINGS"] = "Settings"
+L["SWITCH_TAB_USAGE"] = "Usage"
+-- The three groups on that second face, and what separates the third from the first is **whether
+-- you would have to log in somewhere else to fix it**, not whose it is: another character of your
+-- own class is in both, its class layers here and its own layers below.
+L["SWITCH_USAGE_HERE"] = "This character"
+L["SWITCH_USAGE_EXPRS"] = "Other switches"
+L["SWITCH_USAGE_ELSEWHERE"] = "Other classes and characters"
+L["SWITCH_USAGE_EMPTY"] = "Nothing names this switch."
+L["SWITCHES_DETAIL_EMPTY"] = "Pick a switch."
 L["SWITCH_TURN_ON"] = "Turn On"
 L["SWITCH_TURN_OFF"] = "Turn Off"
-L["SWITCH_NOT_TRACKED"] = "Not tracked"
-L["SWITCH_NOT_TRACKED_WHY"] = "No action reads it."
 -- Where the button would be on a switch that is set automatically, and the position is what it has
 -- to answer: why there is nothing here to press, and nothing beside the name saying on or off.
 --
@@ -1259,33 +1252,42 @@ L["SWITCH_ACTION_TITLE"] = "Pressing the key"
 L["SWITCH_ACTION_ON"] = "Turns it on"
 L["SWITCH_ACTION_OFF"] = "Turns it off"
 L["SWITCH_ACTION_TOGGLE"] = "Turns it over"
--- **Deleting says how much it reaches, because the list cannot.** The definition is the account's
--- and the list shows what this character can see, so the number is the only place a reader learns
--- that deleting here takes conditions off actions on their other characters.
+-- **The first line says the reach, because the tab cannot.** The definition is the account's and
+-- the tab shows what this character can see, so this is the only place a reader learns that
+-- deleting from a priest takes conditions off a druid's actions.
 --
 -- It says the actions keep the name rather than that they lose it: they do, they turn red, and
--- that red is how they get found again.
-L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r?\n|cnHIGHLIGHT_FONT_COLOR:%2$d|r actions across the account name it. They keep the name and go red until you fix them."
+-- that red is how they get found again. Then what happens if the name is made again, because a
+-- reader who sees the red will try it.
+--
+-- ⚠ **That must not read as an undo.** What comes back is the references and nothing else: the
+-- overrides and every character's remembered value went when the switch did, which is what the
+-- second line says out loud.
+--
+-- **And what a red action does in the meantime**, which is nothing at all: the name is undefined,
+-- so no record is built for it (`OMIT`) while the key stays ours. Pressing it sends nothing and
+-- does not fall through to the game either.
+L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r from the whole account?\n|cnHIGHLIGHT_FONT_COLOR:%2$d|r actions name it. They keep the name and go red, and until you make a switch by that name again they do nothing when pressed."
 -- **A second line only when there is one to say.** Appended to the sentence above rather than
 -- written into it, so the ordinary case -- a switch that is the same everywhere -- is not made to
 -- read a sentence about overrides it does not have.
 --
--- It says "this list does not show" for the same reason the line above counts the whole account:
--- the list draws what one character reaches, so a druid's overrides go without ever having been
--- on screen.
-L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r overrides go with it, including ones on your other characters that this list does not show."
+-- It names the other characters for the same reason the line above counts the whole account: the
+-- tab draws what one character reaches, so a druid's overrides go without ever having been on
+-- screen.
+L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r overrides go with it, including ones on your other characters. Making the name again does not bring them back."
 -- **It quoted the button for as long as the button had a label**, and it does not any more: the way
 -- in is the [+] in the corner. A sentence that spells out a picture has the reader hunting for a
 -- control against a description instead of seeing it, and the [+] is the only control on this tab.
 --
--- So it goes back to the one job an empty-list line has, **saying what fills it**. The second line
--- is what a row will be: the switch, and under it the places its answer differs.
-L["SWITCHES_EMPTY"] = "No switches yet.|n|nOne you make stands here, with every place you have set it differently under it."
--- The two headings the list is split under. **The second says what `SWITCH_NOT_TRACKED` says on a
--- row**, because they are the same fact about the same switch, and two wordings for it in one
--- panel leave the reader unable to see that.
-L["SWITCHES_GROUP_TRACKED"] = "Tracked"
-L["SWITCHES_GROUP_UNTRACKED"] = "Not tracked"
+-- So it goes back to the one job an empty-list line has, **saying what fills it**.
+L["SWITCHES_EMPTY"] = "No switches yet.|n|nOne you make stands here, and picking it opens everything it is set to."
+-- The two headings the list is split under, and what splits them is **whether anything anywhere on
+-- the account names the switch**. That is the question somebody sorting through this list is
+-- asking, and it is not the same as whether the addon is tracking the switch right now: a switch
+-- only another specialization reads is still one with work to do before it can go.
+L["SWITCHES_GROUP_USED"] = "In use"
+L["SWITCHES_GROUP_UNUSED"] = "Unused"
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.

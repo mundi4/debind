@@ -4,28 +4,25 @@
 	<Script file="SwitchesUI.lua" />
 
 	<!--
-		One switch. Its name, what it is right now, and the menu.
+		One switch. Its name, what it is right now, and nothing else.
 
 		**The name is drawn with its `$`**, which is the one thing on this row that is not a
 		setting: it is the text the user types into a macro body, so the list is where those glyphs
 		get learned (§6-B of `devdocs/legacy/redesigning-custom-states.md`).
 
-		**What it comes up as is not here.** It was, while there was one answer; since stage 4 there
-		is one per layer and they are drawn on the rows underneath. Leaving a copy of the winning
-		one up here would put the same words on screen twice with nothing saying which of the two
-		is being edited by which menu.
+		**Everything a switch is set to lives on the right** (`reworking-the-switches-tab.md`). The
+		layer rows that used to hang under this one are gone: what the left column answers is "which
+		switch", and a reader scanning twenty of them for one to delete reads names, not settings.
 
 		Art matches the main list, the export list and the spell picker
 		(`ClickCastList-ButtonBackground`). Four lists in one addon that look like four things is
 		four things to learn.
 
-		**The row is not a click target.** Every gesture on it belongs to a named control: the
-		toggle to the button, the menu to the arrow. "Left-click toggles" on a row that also
-		carries a delete is a misclick that costs a switch. Right-click anywhere opens the
-		menu, which is the gesture the main list already teaches.
+		**Left-click picks it.** It took right-clicks only while the row's menu was the only way
+		into a switch's settings; the settings are a column now and picking is what a click means
+		in the other two-column tabs.
 	-->
-	<Button name="DebindSwitchRowTemplate" mixin="DebindSwitchRowMixin" virtual="true"
-		registerForClicks="RightButtonUp">
+	<Button name="DebindSwitchRowTemplate" mixin="DebindSwitchRowMixin" virtual="true">
 		<Size x="400" y="28"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -42,7 +39,7 @@
 					laid out before the frames below are declared, so an anchor naming one of them
 					reaches nothing and is dropped without a word. The string would end up with a
 					single horizontal point, no width, and draw nothing at all. The number is the
-					two buttons plus their gaps: 4 + 22 + 2 + 58 + 6.
+					button plus its gaps: 6 + 72 + 6 + 8.
 				-->
 				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
 					<Anchors>
@@ -52,11 +49,10 @@
 				</FontString>
 				<!--
 					**Stands where the toggle would, because that is the question it answers.** The
-					button says what the switch is and offers to change it, and two switches can
-					answer neither: one nothing reads, and one worked out from its expression. So
-					the slot says which rather than going blank. Wider than the button and right
-					aligned, so a longer translation grows leftwards into the empty middle of the
-					row instead of being cut.
+					button says what the switch is and offers to change it, and a switch worked out
+					from its expression answers neither. So the slot says which rather than going
+					blank. Wider than the button and right aligned, so a longer translation grows
+					leftwards into the empty middle of the row instead of being cut.
 				-->
 				<FontString parentKey="Status" inherits="GameFontDisableSmall" maxLines="1"
 					justifyH="RIGHT" hidden="true">
@@ -66,6 +62,13 @@
 					</Anchors>
 				</FontString>
 			</Layer>
+			<!--
+				**A picked row is lit, not ticked.** Same art and same layer the main window and the
+				sharing tab use, so "this one is picked" looks one way across the addon.
+			-->
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+			</Layer>
 			<Layer level="HIGHLIGHT">
 				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
 					<Color r="1" g="1" b="0" a="1"/>
@@ -73,12 +76,16 @@
 			</Layer>
 		</Layers>
 		<Frames>
-						<!--
+			<!--
 				**A plain button, deliberately.** Making it a secure one would put a protected
 				frame inside the window, and the reason this window can stay open in combat is
 				that it holds none (F-3 of `.zzz/TODO.md`). So it is
 				disabled in combat, and turning a switch on mid-fight is the switch bar's job
 				(`devdocs/switch-bar.md`) or a key carrying an on/off/toggle action.
+
+				**It stands on every switch that is turned on and off by hand**, whether or not
+				anything binds it. A switch outside the compile still carries a value, the press
+				moves it, and the next rebuild takes it along.
 
 				`motionScriptsWhileDisabled` so the tooltip can say why it is greyed.
 			-->
@@ -110,84 +117,51 @@
 	</Button>
 
 	<!--
-		One layer's answer for the switch above it, and the last of them is always the account-wide
-		one the definition itself carries.
+		One place that names the picked switch, on the second tab of the right column.
 
-		**No background and an indent**, so the block reads as one switch rather than as a list of
-		them. The switch rows keep the plate; these hang off the row above.
+		**A place, not a count** (`reworking-the-switches-tab.md`). The reader is here to empty the
+		list before deleting, and a number two rows both feed into cannot be worked down to zero.
 
-		⚠ **Read as a list of situations, not as an order** (§6-B). Only one of these is in use at a
-		time and the rest are simply not, which is the opposite of what a stack of rows means
-		everywhere else in this window - there the one below runs when the one above does not match.
-		Two things are here to stop that reading: **every row is labelled with its layer**, so
-		`Oreo / Balance` says *when* rather than *which is first*, and **the one in use is ticked**,
-		because the value up on the switch row says what the switch is and never says where that
-		came from.
-
-		**Right-click only, and no arrow of its own.** The visible handle belongs to the switch,
-		which is the row a reader arrives at; giving every layer row an arrow as well would put four
-		or five of them down one edge for one switch.
+		**The key is a column of its own**, because the tab the reader goes to fix the action is
+		laid out by key: a spell name alone cannot tell two keys carrying the same spell apart.
+		Rows that are not actions leave it empty.
 	-->
-	<Button name="DebindSwitchLayerRowTemplate" mixin="DebindSwitchLayerRowMixin" virtual="true"
-		registerForClicks="RightButtonUp">
+	<Button name="DebindSwitchUsageRowTemplate" mixin="DebindSwitchUsageRowMixin" virtual="true">
 		<Size x="400" y="20"/>
 		<Layers>
 			<Layer level="ARTWORK">
 				<!--
-					The tick. `checkmark-minimal` is the mark this addon already uses for "this one"
-					(`StorageUI.lua`), at a size of its own rather than the atlas's: the atlas is
-					drawn for a checkbox and comes out taller than this row.
+					**Declared before the name, because the name hangs off it.** A `relativeKey`
+					naming a sibling that does not exist yet is dropped without a word, and a
+					FontString left with one horizontal point has no width and draws nothing
+					(`tools/check-xml-anchors.js`).
 				-->
-				<Texture parentKey="Check" atlas="checkmark-minimal" hidden="true">
-					<Size x="12" y="12"/>
-					<Anchors>
-						<Anchor point="LEFT" x="18" y="0"/>
-					</Anchors>
-				</Texture>
-				<!--
-					**The answer's column is the fixed one and the layer name takes what is left**,
-					which is the way round the export list already does it. The answers are four
-					known strings and the widest of them is what 140 is measured against; a layer
-					name is the window's own tab wording and is the one thing this row's tooltip
-					repeats, so it is the safer of the two to clip.
-				-->
-				<FontString parentKey="Setting" inherits="GameFontDisable" maxLines="1" justifyH="RIGHT">
-					<Size x="140" y="0"/>
+				<FontString parentKey="Key" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="120" y="0"/>
 					<Anchors>
 						<Anchor point="RIGHT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
-				<!--
-					**Declared after the column it hangs off**, so the anchor finds it. Both
-					horizontal points are set, which is what gives the label a width without a
-					number of its own: it ends where the answer begins.
-				-->
-				<FontString parentKey="Layer" inherits="GameFontHighlight" maxLines="1" justifyH="LEFT">
+				<FontString parentKey="Name" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="LEFT" x="34" y="0"/>
-						<Anchor point="RIGHT" relativeKey="$parent.Setting" relativePoint="LEFT" x="-6" y="0"/>
+						<Anchor point="LEFT" x="8" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.Key" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
-					<Color r="1" g="1" b="0" a="1"/>
-				</Texture>
-			</Layer>
 		</Layers>
 		<Scripts>
-			<OnClick method="OnClick"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 		</Scripts>
 	</Button>
 
 	<!--
-		The heading over each half of the list.
+		The heading over each group, in both lists.
 
 		**Overview's heading, minus what makes it a control.** That one is picked and right-clicked
 		and stands for every row under it (`DebindKeyHeaderTemplate`, `DebindKeyHeaderMixin`); this
-		one only names the half. So the look is inherited and `ListHeaderCodeTemplate` is not, and
+		one only names the group. So the look is inherited and `ListHeaderCodeTemplate` is not, and
 		the mouse comes off in `OnLoad` - without that the bar lights up under the cursor and
 		offers a press that does nothing.
 	-->
@@ -205,32 +179,33 @@
 		word for word: no chrome, no ESC, no drag, no `enableMouse`, `useParentLevel`, and a
 		`preferredWidth` the frame reads when the tab is chosen.
 
-		**The rectangle is the one every tab stands its list in.** Left 4, top -85 and right -31 are
-		shared with the storage tab and with Overview's two columns, so the black inset does not move
-		as you switch; the bottom is 8. The control that adds to the list is above it rather than in
-		a band underneath, which is where the storage tab puts its own (`StorageUI.xml`).
+		**Two columns, the shape Overview and the sharing tab already have.** The switch list is on
+		the left and what one switch is set to is on the right. It was one narrow column while the
+		settings lived in right-click menus, and the window changed width every time the reader
+		crossed to this tab (`reworking-the-switches-tab.md`).
 	-->
 	<Frame name="DebindSwitchesPanel" parent="DebindFrame" parentKey="SwitchesPanel" hidden="true"
 		useParentLevel="true" setAllPoints="true" mixin="DebindSwitchesPanelMixin">
 		<KeyValues>
-			<!-- One column: 4 + 405 + 31. The 405 is the black rectangle every tab stands a list
-			     in, and 440 is the width that leaves room for exactly one of them. Overview and
-			     the storage tab put two side by side and come to 867 (`FRAME_WIDTH` in
-			     `DebindUI.lua`), so the window does narrow coming here. What has to hold still
-			     across a tab change is the list, not the frame around it. -->
-			<KeyValue key="preferredWidth" value="440" type="number"/>
+			<!-- Overview's number (`FRAME_WIDTH` in `DebindUI.lua`), because this is now Overview's
+			     shape: 4 + 405 + 22 + 405 + 31. -->
+			<KeyValue key="preferredWidth" value="867" type="number"/>
 		</KeyValues>
 		<Frames>
+			<!--
+				The switch list's inset. **Overview's rectangle down to the number**, the same three
+				values the sharing tab writes: 405 wide at 4/-85, so the black box does not move as
+				the reader crosses between the tabs.
+			-->
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
+				<Size x="405" y="0"/>
 				<KeyValues>
 					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
 					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
 				</KeyValues>
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
-					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="8"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="8"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
 				</Anchors>
 			</Frame>
 
@@ -246,8 +221,8 @@
 				</Anchors>
 				<Layers>
 					<Layer level="ARTWORK">
-						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER">
-							<Size x="320" y="0"/>
+						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+							<Size x="345" y="0"/>
 							<Anchors>
 								<Anchor point="TOP" x="0" y="-40"/>
 							</Anchors>
@@ -268,13 +243,7 @@
 				(§6-C).
 
 				**It is the same [+] Overview wears**, in the same corner, because it is the same
-				job: the one control on the tab that puts a row in the list. It was a labelled button
-				above the list's left edge until then, and the two tabs each had their own answer to
-				where the way in goes.
-
-				**The empty-list text no longer quotes it** (`SWITCHES_EMPTY`). A label could be
-				quoted and a picture cannot, which is the trap §6-C's button left behind. That text
-				says what fills the list instead, and points at nothing.
+				job: the one control on the tab that puts a row in the list.
 
 				**Not disabled in combat, unlike the toggles on the rows.** Those press a value the
 				restricted side has to be told about; this writes a definition nothing is bound to
@@ -296,6 +265,311 @@
 							</OnClick>
 						</Scripts>
 					</Button>
+				</Frames>
+			</Frame>
+
+			<!--
+				**The right column: the one switch that is picked.**
+
+				It takes the 405 the column beside it has, across the 22 gutter Overview and the
+				sharing tab use (2026-08-23, 소유자). **Declared after the left column**, because it
+				hangs off it.
+
+				**It stands empty rather than folding away** when nothing is picked, so the shape of
+				the tab does not change under a click - the sharing tab settled that for its own
+				preview (12절 of `building-export-import.md`).
+			-->
+			<Frame parentKey="Detail" useParentLevel="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="22" y="0"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
+				</Anchors>
+				<Frames>
+					<!--
+						The column's own inset, dropped by the height of the tab strip that stands on
+						it. Both faces of the column draw inside this one box, so switching between
+						them moves nothing but what is in it.
+					-->
+					<Frame parentKey="Background" useParentLevel="true" inherits="TooltipBackdropTemplate">
+						<KeyValues>
+							<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+							<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="TOPLEFT" x="0" y="-32"/>
+							<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+						</Anchors>
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="EmptyText" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+									<Size x="345" y="0"/>
+									<Anchors>
+										<Anchor point="TOP" x="0" y="-60"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
+					</Frame>
+
+					<!--
+						**The client's own tab system, hung on top of the box it heads.** Two faces
+						of one column is what `TabSystemTemplate` is for, and the tabs are built in
+						`OnLoad` from a pool rather than written out here, which is how every
+						Blizzard frame that uses it does it.
+
+						**Declared after the box**, so the tab art draws over its top border the way
+						a tab is supposed to.
+					-->
+					<Frame parentKey="TabSystem" inherits="TabSystemTemplate" useParentLevel="true">
+						<KeyValues>
+							<KeyValue key="tabTemplate" value="TabSystemTopButtonTemplate" type="string"/>
+							<KeyValue key="minTabWidth" value="110" type="number"/>
+							<KeyValue key="maxTabWidth" value="190" type="number"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT" x="8" y="0"/>
+						</Anchors>
+					</Frame>
+
+					<!--
+						**The first face: what this switch is set to.** Everything on it was a
+						right-click menu until now, two levels deep in two menus
+						(`reworking-the-switches-tab.md`).
+					-->
+					<Frame parentKey="Settings" useParentLevel="true" hidden="true">
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT"/>
+							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Background" relativePoint="BOTTOMRIGHT"/>
+						</Anchors>
+						<Frames>
+							<!--
+								Renaming, where the name is. The `$` is drawn beside the box and not
+								in it: it is on every switch name and on nothing else, so it is
+								furniture - shown so the reader knows the shape, kept out of the
+								field so it cannot be deleted, doubled or left off.
+
+								`letters` is one less than a stored name allows, the sigil not being
+								typed here.
+							-->
+							<EditBox parentKey="NameBox" inherits="InputBoxTemplate" autoFocus="false" letters="31">
+								<Size x="180" y="22"/>
+								<Anchors>
+									<Anchor point="TOPLEFT" x="30" y="-36"/>
+								</Anchors>
+								<Scripts>
+									<OnEnterPressed>
+										self:ClearFocus();
+									</OnEnterPressed>
+									<OnEditFocusLost>
+										self:GetParent():GetParent():GetParent():OnNameCommitted();
+									</OnEditFocusLost>
+									<OnEscapePressed>
+										self:GetParent():GetParent():GetParent():OnNameCancelled();
+									</OnEscapePressed>
+								</Scripts>
+							</EditBox>
+
+							<!--
+								Which layer the answers below are being read and written at. It opens
+								on the layer in force, and the one in force is marked in the list, so
+								a reader who has walked off it can find the way back.
+							-->
+							<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
+								<Size x="260" y="26"/>
+								<Anchors>
+									<Anchor point="TOPLEFT" x="16" y="-96"/>
+								</Anchors>
+							</DropdownButton>
+
+							<!--
+								The three answers one layer can give. **Nothing ticked is not one of
+								them**: a layer either says something or it does not, and "says
+								nothing" is the first radio rather than an empty row.
+
+								The account-wide row has no such radio - it is the answer everything
+								else falls back to and cannot be taken away (§4-6 of
+								`redesigning-custom-states.md`).
+							-->
+							<CheckButton parentKey="UnsetRadio" inherits="UIRadioButtonTemplate">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="20" y="-136"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnAnswerClick("unset");
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+							<CheckButton parentKey="ManualRadio" inherits="UIRadioButtonTemplate">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="20" y="-162"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnAnswerClick("manual");
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+
+							<!--
+								What a hand-worked switch comes up as. **Its own axis**, under the
+								answer that has one: which of the three is a separate question from
+								whether the switch is hand-worked at all, and folding them into one
+								list of four put the second question two levels down (§4-6).
+							-->
+							<CheckButton parentKey="StartOnRadio" inherits="UIRadioButtonTemplate">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="48" y="-216"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnStartValueClick("on");
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+							<CheckButton parentKey="StartOffRadio" inherits="UIRadioButtonTemplate">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="48" y="-238"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnStartValueClick("off");
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+							<CheckButton parentKey="StartRememberRadio" inherits="UIRadioButtonTemplate">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="48" y="-260"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnStartValueClick("remember");
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+
+							<CheckButton parentKey="AutoRadio" inherits="UIRadioButtonTemplate">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="20" y="-292"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnAnswerClick("auto");
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+
+							<!--
+								The macro conditional this layer works the switch out from.
+
+								**It follows the picked layer while the button above follows the
+								answer in force**, and the two axes really are different: the value
+								is one per switch, the expression is one per layer.
+							-->
+							<EditBox parentKey="ExprBox" inherits="InputBoxTemplate" autoFocus="false" letters="100">
+								<Size x="320" y="22"/>
+								<Anchors>
+									<Anchor point="TOPLEFT" x="52" y="-318"/>
+								</Anchors>
+								<Scripts>
+									<OnEnterPressed>
+										self:ClearFocus();
+									</OnEnterPressed>
+									<OnEditFocusLost>
+										self:GetParent():GetParent():GetParent():OnExprCommitted();
+									</OnEditFocusLost>
+									<OnEscapePressed>
+										self:GetParent():GetParent():GetParent():OnExprCancelled();
+									</OnEscapePressed>
+									<OnEnter>
+										self:GetParent():GetParent():GetParent():OnExprEnter();
+									</OnEnter>
+									<OnLeave>
+										GameTooltip:Hide();
+									</OnLeave>
+								</Scripts>
+							</EditBox>
+
+							<Button parentKey="DeleteButton" inherits="UIPanelButtonTemplate" text="DELETE">
+								<Size x="100" y="22"/>
+								<Anchors>
+									<Anchor point="BOTTOMRIGHT" x="-16" y="16"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										self:GetParent():GetParent():GetParent():OnDeleteClick();
+									</OnClick>
+								</Scripts>
+							</Button>
+						</Frames>
+						<!--
+							**After `<Frames>`, not before.** These hang off boxes declared above, and
+							a layer read before the frames are built gets its anchor dropped without a
+							word (`tools/check-xml-anchors.js`).
+						-->
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="NameSigil" inherits="GameFontHighlight" justifyH="RIGHT">
+									<Anchors>
+										<Anchor point="RIGHT" relativeKey="$parent.NameBox" relativePoint="LEFT" x="-4" y="0"/>
+									</Anchors>
+								</FontString>
+								<!-- Level with the dropdown's caption below, so the two fields read as
+								     two rows of one form. -->
+								<FontString parentKey="NameLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="BOTTOMLEFT" relativeKey="$parent.NameBox" relativePoint="TOPLEFT" x="-14" y="4"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="BOTTOMLEFT" relativeKey="$parent.LayerDropdown" relativePoint="TOPLEFT" x="0" y="4"/>
+									</Anchors>
+								</FontString>
+								<FontString parentKey="StartLabel" inherits="GameFontNormal" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="TOPLEFT" x="44" y="-192"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
+					</Frame>
+
+					<!--
+						**The second face: every place that names this switch.** Places and not
+						counts - the reader is emptying the list before deleting, and a number two
+						places both feed into cannot be worked down to zero.
+					-->
+					<Frame parentKey="Usage" useParentLevel="true" hidden="true">
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.Background" relativePoint="TOPLEFT"/>
+							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Background" relativePoint="BOTTOMRIGHT"/>
+						</Anchors>
+						<Frames>
+							<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
+								<Anchors>
+									<Anchor point="TOPLEFT" x="5" y="-5"/>
+									<Anchor point="BOTTOMRIGHT" x="-5" y="5"/>
+								</Anchors>
+								<Layers>
+									<Layer level="ARTWORK">
+										<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+											<Size x="345" y="0"/>
+											<Anchors>
+												<Anchor point="TOP" x="0" y="-40"/>
+											</Anchors>
+										</FontString>
+									</Layer>
+								</Layers>
+							</Button>
+							<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+								<Anchors>
+									<Anchor point="TOPLEFT" relativePoint="TOPRIGHT" x="5" y="-5"/>
+									<Anchor point="BOTTOMLEFT" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
+								</Anchors>
+							</EventFrame>
+						</Frames>
+					</Frame>
 				</Frames>
 			</Frame>
 		</Frames>
