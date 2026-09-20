@@ -157,8 +157,13 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 	SecureCmdOptionParse = "SecureCmdOptionParse(%s)",
 	FindSpellBookSlotBySpellID = "FindSpellBookSlotBySpellID(%s)",
 
-	-- Reporting only. Nothing is computed from it, so there is nothing to keep.
+	-- Reporting only. Nothing is computed from them, so there is nothing to keep.
 	Winner = false,
+	--- **The unit the press settled on**, which only the press knows: `@hover` and the custom
+	--- aliases are worked out there, and where it lands afterwards differs by route -- the cast
+	--- frame for a wrapped button, the clicked frame's bare `unit` for every other. A test that
+	--- reads one of those two reads the wrong one half the time.
+	Unit = false,
 
 	-- Injection only. The click path measures its own axes now, and a test that wants to say
 	-- "you are in combat" has to reach the value between the measurement and the comparison --

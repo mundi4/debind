@@ -1783,6 +1783,7 @@ if (DebindPrivate.DEBUG) then
 		end
 ]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET
 		.. CAST_BUTTON_SNIPPET .. [==[
+		PROBE.Unit(unit)
 		-- The winner's place as well, because the button no longer names it: the self and focus
 		-- twins click the same button as their original.
 		-- **대상도 같이 낸다.** 평범한 버튼으로 나가는 누름의 대상은 진짜 클릭 경로에서 맨이름

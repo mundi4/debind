@@ -795,6 +795,8 @@ local probeReports = {}
 local probesOn = false
 --- The key the last evaluation ran for, so a reported record index can be read as a `KeyMap` one.
 local lastEvalKey
+--- The unit the last evaluation settled on, as the snippet reported it.
+local lastEvalUnit
 
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
@@ -806,6 +808,7 @@ local lastEvalKey
 --- would fall straight through an `and`/`or` to the measured one.
 local PROBE_DEV = {
     Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
+    Unit = [[debind_driver:CallMethod("DebindTestUnit", %s)]],
     MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
     MockUnitDead = [[if (MockStatesMap[%1$s .. "-dead"] ~= nil) then dead = MockStatesMap[%1$s .. "-dead"] end]],
     MockUnitGroup = [[if (MockStatesMap[%1$s .. "-group"] ~= nil) then group = MockStatesMap[%1$s .. "-group"] end]],
@@ -834,6 +837,12 @@ local function EnableProbes()
 
     DebindPrivate.BindingDriver.DebindTestWinner = function(_, index)
         probeReports[#probeReports + 1] = BindingIndexForRecord(lastEvalKey, index)
+    end
+
+    --- 그 누름이 겨눈 대상. **어디에 얹히는지는 경로마다 달라서** 프레임에서 읽으면 안 된다 -
+    --- 감싼 버튼은 캐스트 프레임에, 나머지는 눌린 프레임의 맨이름 `unit`에 선다.
+    DebindPrivate.BindingDriver.DebindTestUnit = function(_, unit)
+        lastEvalUnit = unit
     end
 
     DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
@@ -879,6 +888,7 @@ local function EvalClickTimeKey(key)
 
     wipe(probeReports)
     lastEvalKey = key
+    lastEvalUnit = nil
     SecureHandlerExecute(DebindPrivate.BindingDriver, format(
         [[self:RunAttribute("EvalClickTimeKey", %q)]], button))
     return true
@@ -9045,7 +9055,7 @@ RegisterTest("Pointed unit [none]: over a frame the action does not run, off it 
 
 -- **Needs the game.** Which twin a held modifier picks is headless (`tests/eval_spec.lua`); what only
 -- the client can show is that `IsModifiedClick` is callable from inside the restricted environment and
--- that the unit the snippet settles on lands on the cast frame. A name the sandbox does not carry
+-- what unit the snippet settles on with it. A name the sandbox does not carry
 -- raises inside the snippet, and the key does nothing with nothing said.
 --
 -- `SetMockState` overrides the answer after `IsModifiedClick` has been called, so the real call
@@ -9064,9 +9074,8 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        -- **No target picked**, since a held key moves nothing else. The original then carries no unit
-        -- and writes none on the cast frame, so what that frame holds is whatever the twin before it
-        -- left: its row reads the winner's own `unit` instead.
+        -- **No target picked**, since a held key moves nothing else. The original then settles on no
+        -- unit at all, so its row reads the winner's own `unit` rather than what the press reported.
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
@@ -9102,9 +9111,9 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
 
             local unit
             if case[2] then
-                unit = DebindPrivate.CastFrame:GetAttribute("unit")
+                unit = lastEvalUnit
                 if unit ~= case[2] then
-                    return Fail(NAME, format("modifier %d: the cast frame's unit is %s, it should be %s",
+                    return Fail(NAME, format("modifier %d: the press settled on %s, it should be %s",
                         case[1], tostring(unit), case[2]))
                 end
             elseif record.unit ~= nil then
