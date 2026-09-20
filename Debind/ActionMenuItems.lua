@@ -455,17 +455,13 @@ local function CreateCastingMenu(parentDescription, ctx)
     end
 
     for _, row in ipairs({
-        { row = "autoSelfCast", label = AUTO_SELF_CAST_TEXT,
-            instruction = LLL["AUTOMATIC_SELF_CAST_DESC"] },
-        { row = "autoUnshift", label = LLL["AUTO_CANCEL_FORM"],
-            instruction = LLL["AUTOMATIC_CANCEL_FORM_DESC"] },
-        { row = "autoDismount", label = LLL["AUTO_DISMOUNT_TEXT"],
-            instruction = LLL["AUTOMATIC_DISMOUNT_DESC"] },
-        { row = "autoDismountFlying", label = AUTO_DISMOUNT_FLYING_TEXT,
-            instruction = LLL["AUTOMATIC_DISMOUNT_FLYING_DESC"] },
+        { row = "autoSelfCast", instruction = LLL["AUTOMATIC_SELF_CAST_DESC"] },
+        { row = "autoUnshift", instruction = LLL["AUTOMATIC_CANCEL_FORM_DESC"] },
+        { row = "autoDismount", instruction = LLL["AUTOMATIC_DISMOUNT_DESC"] },
+        { row = "autoDismountFlying", instruction = LLL["AUTOMATIC_DISMOUNT_FLYING_DESC"] },
     }) do
         local rowDescription = ActionMenus:BuildNode(description, {
-            label = row.label,
+            label = DebindPrivate.CastAutomaticLabel(row.row),
             instruction = row.instruction,
             blocked = automaticsReason,
             isActive = function()

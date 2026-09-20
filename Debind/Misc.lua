@@ -1455,6 +1455,26 @@ do
         return nil;
     end
 
+    --- 한 줄의 화면 이름. **메뉴와 툴팁이 같은 말을 써야 해서 한 자리에 둔다** -- 툴팁은 메뉴의
+    --- 줄을 열어 보라고 그리는 것이라, 두 곳의 이름이 갈리면 그리는 뜻이 없어진다.
+    ---
+    --- 클라이언트가 가진 둘은 그대로 쓰고, 설정 패널이 안 내는 둘만 우리가 적었다.
+    ---
+    --- **불려야 답한다.** 로케일은 이 파일보다 늦게 설 수 있다.
+    local CAST_AUTOMATIC_LABELS;
+    function DebindPrivate.CastAutomaticLabel(row)
+        if (not CAST_AUTOMATIC_LABELS) then
+            local locale = DebindPrivate.L;
+            CAST_AUTOMATIC_LABELS = {
+                autoSelfCast = AUTO_SELF_CAST_TEXT,
+                autoUnshift = locale["AUTO_CANCEL_FORM"],
+                autoDismount = locale["AUTO_DISMOUNT_TEXT"],
+                autoDismountFlying = AUTO_DISMOUNT_FLYING_TEXT,
+            };
+        end
+        return CAST_AUTOMATIC_LABELS[row];
+    end
+
     --- 네 줄이 이 액션에서 아무 일도 못 하는 이유, 또는 `nil`. **켰는데 조용히 아무 일도 안 나는
     --- 자리를 막는 것이 전부다.**
     ---

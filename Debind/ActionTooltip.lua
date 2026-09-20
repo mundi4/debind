@@ -477,6 +477,21 @@ do
 				tinsert(_lines, LabelledValue(LLL["CASTING_NORMAL"], OFF));
 			end
 
+			-- **A value that cannot reach this action draws nothing**, the way a held key the
+			-- settings turn off draws nothing: the row is stored and does not happen, and a line
+			-- saying otherwise would be the tooltip claiming a press it does not make
+			-- (`CastAutomaticsBlockedReason`).
+			if (not DebindPrivate.CastAutomaticsBlockedReason(action)) then
+				local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+				for i = 1, #rows do
+					local value = DebindPrivate.CastAutomaticOf(action, rows[i]);
+					if (value ~= nil) then
+						tinsert(_lines, LabelledValue(DebindPrivate.CastAutomaticLabel(rows[i]),
+							value and VIDEO_OPTIONS_ENABLED or VIDEO_OPTIONS_DISABLED));
+					end
+				end
+			end
+
 			local notRunning = DebindPrivate.GetNotRunningReason(action);
 			if (#_lines > 0 or notRunning) then
 				addLabelLine(tooltip, LLL["CASTING"]);
