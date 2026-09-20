@@ -546,8 +546,6 @@ local function CreateCastingMenu(parentDescription, ctx)
         end) and DebindPrivate.CastAutomaticsBlockedReason(ctx.actions[1]);
         if (reason == "gamemacro") then
             return LLL["AUTOMATIC_GAME_MACRO"];
-        elseif (reason == "presshold") then
-            return LLL["AUTOMATIC_PRESS_AND_HOLD"];
         end
     end
 

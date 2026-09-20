@@ -73,6 +73,7 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 통째로 다시 쓴다(`UpdateBindingsMap`). 클릭 경로에서 조회 하나로 끝나야 해서 표다 -
 	-- 이름을 결합하면 매 클릭 문자열이 생긴다.
 	WrappedButtons = newtable()
+	WrappedRelease = newtable()
 
 	-- `button name -> where its slot is` for every action button action, rewritten whole by the
 	-- rebuild (`UpdateBindingsMap`). `ACTION_SLOT_SNIPPET` reads it.
@@ -1620,7 +1621,9 @@ end, [==[
 
 			self:SetAttribute("unit", heldUnit)
 			self:SetAttribute("pressAndHoldAction", true)
-			return held.clickbutton
+			-- 감싼 액션이면 올림 본문을 든 짝으로 간다. 한 버튼이 본문을 하나만 들어서,
+			-- `/click`에 실을 엣지가 다르면 버튼도 달라야 한다.
+			return WrappedRelease[held.clickbutton] or held.clickbutton
 		end
 	end
 
@@ -1693,13 +1696,21 @@ end, [==[
 	-- **`*typerelease-`도 같은 조건으로 같이 쓴다.** 게이트가 놓기 갈래에서 읽는 값이
 	-- 그것이고(SecureTemplates.lua:727), 하나만 켜면 갈래로 들어가서 아무 일도 안 하거나
 	-- 갈래로 아예 안 들어간다. 둘은 한 판단이다.
+	--
+	-- **감싼 버튼은 올림에 자기 짝이 따로 선다.** 그쪽은 `*typerelease-`가 빌드 때 이미
+	-- `macro`로 박혀 있고 본문도 엣지 토큰까지 구워져 있으니, 여기서 쓸 것이 없다.
 	if (down) then
+		local release = WrappedRelease[winner.clickbutton]
 		if (pressAndHold) then
 			self:SetAttribute("pressAndHoldAction", true)
-			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+			if (not release) then
+				self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+			end
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
-			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
+			if (not release) then
+				self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
+			end
 		end
 	end
 

@@ -582,9 +582,11 @@ function Interp:runWrapped(frame, script, ...)
     local n = chain and #chain or 0;
     local handle = handleFor(self, frame);
 
+    --- **답은 마지막 래퍼가 넘긴 버튼 이름이다.** 게이트가 읽는 것이 그 이름이라, 누름이 어디서
+    --- 끝났는지를 묻는 스펙은 그걸 봐야 한다. `nil`은 래퍼가 클릭을 물린 것이다.
     local function descend(i, button, down)
         if (i > n) then
-            return;
+            return button;
         end
         local entry = chain[i];
         local allow, message;
@@ -617,7 +619,7 @@ function Interp:runWrapped(frame, script, ...)
             end
         end
 
-        descend(i + 1, button, down);
+        local ended = descend(i + 1, button, down);
 
         if (entry.post and message ~= nil) then
             if (script == "OnClick") then
@@ -627,9 +629,11 @@ function Interp:runWrapped(frame, script, ...)
                 self:run(entry.post, handle, "self,message", self:envFor(entry.header), message);
             end
         end
+
+        return ended;
     end
 
-    descend(1, ...);
+    return descend(1, ...);
 end
 
 --- The cursor arriving on a frame. **Through the wrappers**, so what a spec measures is what the

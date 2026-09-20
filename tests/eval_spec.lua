@@ -211,11 +211,11 @@ return function(DebindPrivate, _, ctx)
         check(clickFrame:GetAttribute("*type-" .. plain) == "spell",
             "an action with nothing set took the wrapped route: " .. tostring(plain));
 
-        -- **Press-and-hold keeps the direct route.** One body goes out on both edges, and the hold
-        -- the gate starts on the down edge has no release to pair with inside one.
+        -- **A press-and-hold spell is wrapped too**, on a button per edge. The test below measures
+        -- the pair; what matters here is that it is not left on the direct route.
         local _, held = interp:evalKey("F3");
-        check(clickFrame:GetAttribute("*type-" .. held) == "spell",
-            "a press-and-hold spell took the wrapped route: " .. tostring(held));
+        check(clickFrame:GetAttribute("*type-" .. held) == "macro",
+            "a press-and-hold spell stayed on the direct route: " .. tostring(held));
 
         -- **Two rows, two pairs of lines, one `/click` between them.** A macro inside a macro does
         -- not run, so the rows stack as lines rather than as nesting.
@@ -277,6 +277,42 @@ return function(DebindPrivate, _, ctx)
         -- makes the gate force `useOnKeyDown` and send the release of a spell nobody pressed.
         check(DebindPrivate.DefaultClickFrame:GetAttribute("pressAndHoldAction") == nil,
             "the bare name survived the press");
+    end);
+
+    -- **An empowered spell reaches the wrapped route too**, and what it takes is a body per edge:
+    -- one `/click` carrying `true` on the way down and one carrying `false` on the way up. One
+    -- body sent on both edges charges the spell and never releases it, which is what kept these
+    -- spells out (`setting-the-clients-cast-automatics-per-action.md` §7).
+    test("an empowered spell that sets a value is wrapped on both edges", function()
+        shim.world.spells[271466] = { name = "Will of the Necropolis", pressAndHold = true };
+        Bind({
+            action({ value = 271466, key = "F1", casting = { autoSelfCast = false } }),
+        });
+
+        local clickFrame = DebindPrivate.DefaultClickFrame;
+        local button = Constants.CLICKTIME_BUTTON_PREFIX .. "F1";
+
+        local down = interp:runWrapped(clickFrame, "OnClick", button, true);
+        check(clickFrame:GetAttribute("*type-" .. down) == "macro",
+            "the down edge did not reach a wrapped button: " .. tostring(down));
+        local inner = interp:actionButton(down);
+        check(clickFrame:GetAttribute("*macrotext-" .. down) ==
+            '/run DebindAuto_autoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
+            .. '/click DebindCastButton ' .. inner .. ' true\n'
+            .. '/run SetCVar("autoSelfCast",DebindAuto_autoSelfCast)',
+            "the down body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. down)));
+
+        interp.state.channeling = true;
+        local up = interp:runWrapped(clickFrame, "OnClick", button, false);
+        check(up ~= down, "both edges went to one button: " .. tostring(up));
+        check(clickFrame:GetAttribute("*typerelease-" .. up) == "macro",
+            "the release button does not fire on the release: " .. tostring(up));
+        check(clickFrame:GetAttribute("*macrotext-" .. up) ==
+            '/run DebindAuto_autoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
+            .. '/click DebindCastButton ' .. inner .. ' false\n'
+            .. '/run SetCVar("autoSelfCast",DebindAuto_autoSelfCast)',
+            "the up body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. up)));
+        interp.state.channeling = false;
     end);
 
     ---------------------------------------------------------------------------

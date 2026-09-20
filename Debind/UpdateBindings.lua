@@ -68,10 +68,17 @@ local function AutomaticsLines(key)
 end
 
 --- Around a `/click` at the real button, for the actions that reach the cast through one.
-local function AutomaticsBody(key, buttonname)
+---
+--- **`edge` is the third token `/click` takes**, and it is what a spell you hold needs: the inner
+--- click has to arrive as a press on the way down and as a release on the way up
+--- (`SlashCommands.lua` hands it to `Click(button, down)`). One body sent on both edges charges
+--- the spell and never lets go, which is the 1.8 seconds §7 of the writeup measured. Left out
+--- everywhere else, so those bodies stay exactly as they were.
+local function AutomaticsBody(key, buttonname, edge)
     local save, restore = AutomaticsLines(key);
     return save .. "\n"
-        .. format("/click %s %s\n", DebindPrivate.CastFrameName, buttonname)
+        .. format("/click %s %s%s\n", DebindPrivate.CastFrameName, buttonname,
+            edge and (" " .. edge) or "")
         .. restore;
 end
 
@@ -99,6 +106,9 @@ local WrappedAttrsCache = {};
 --- Not wiped between rebuilds, because a button outlives the rebuild that stamped it
 --- (`BindingAttrsCache`).
 local _wrappedButtons = {};
+
+--- 감싼 버튼 -> 그 버튼의 올림 엣지가 갈 버튼. 쥐는 주문에만 선다.
+local _wrappedRelease = {};
 --- `button name -> { info, bar, overrideBar }` for every action button action stamped this
 --- session, emitted as `ActionSlots` on every rebuild. `info` is its `ACTION_BUTTON_COMMANDS` row.
 local _actionSlots = {};
@@ -1184,9 +1194,7 @@ local function StampBinding(descriptor, automatics)
     -- 것만 갈린다. `nil`은 넷 다 기본이라는 뜻이고, 그때는 감쌀 것이 없어 이 아래가 통째로
     -- 없는 일이 된다.
     --
-    -- **유지·시전 주문은 아직 안 감싼다.** 본문 하나가 두 엣지에 나가서 차오르기만 하고 안
-    -- 놓인다(§7의 `phOne`). 걷으려면 본문이 엣지마다 갈려야 한다.
-    if (automatics and descriptor.castsAtUnit and not descriptor.pressAndHold) then
+    if (automatics and descriptor.castsAtUnit) then
         local byKey = WrappedAttrsCache[type];
         if (not byKey) then
             byKey = {};
@@ -1200,12 +1208,27 @@ local function StampBinding(descriptor, automatics)
 
         local wrapped = byAutomatics[automatics];
         if (not wrapped) then
+            -- **쥐는 주문은 엣지마다 버튼 하나씩.** 한 버튼은 본문을 하나만 들 수 있는데 내림과
+            -- 올림이 서로 다른 `/click` 토큰을 실어야 하고, 게이트가 올림에서 읽는 것은
+            -- `*typerelease-`라서 그쪽은 그 속성으로 선다. 클릭 경로가 엣지로 둘을 가른다.
+            local edge = descriptor.pressAndHold or nil;
             wrapped = NextButtonName();
             DefaultClickFrame:SetAttribute("*type-" .. wrapped, "macro");
             DefaultClickFrame:SetAttribute("*macrotext-" .. wrapped,
-                AutomaticsBody(automatics, buttonname));
+                AutomaticsBody(automatics, buttonname, edge and "true"));
             byAutomatics[automatics] = wrapped;
             _wrappedButtons[wrapped] = buttonname;
+
+            if (edge) then
+                local release = NextButtonName();
+                -- `*type-`은 안 단다. 이 이름은 올림에서만 돌아가고, 달아 두면 내림으로 새어
+                -- 들어올 길이 하나 생긴다.
+                DefaultClickFrame:SetAttribute("*typerelease-" .. release, "macro");
+                DefaultClickFrame:SetAttribute("*macrotext-" .. release,
+                    AutomaticsBody(automatics, buttonname, "false"));
+                _wrappedRelease[wrapped] = release;
+                _wrappedButtons[release] = buttonname;
+            end
 
             -- **캐스트 프레임은 액션의 사본을 따로 받고, 물려받는 것은 안 된다.** 예전에는
             -- `useparent*`로 닿았는데 그건 읽을 때만 맞고 시전이 안 된다(그 프레임을 세우는
@@ -2047,6 +2070,10 @@ function UpdateBindingsMap()
     -- this belongs to the click frame and not to any one key's records.
     for _, buttonname in ipairs(sortedKeys(_wrappedButtons, _sortedA)) do
         appendLine("WrappedButtons[%q]=%q", buttonname, _wrappedButtons[buttonname]);
+    end
+
+    for _, buttonname in ipairs(sortedKeys(_wrappedRelease, _sortedA)) do
+        appendLine("WrappedRelease[%q]=%q", buttonname, _wrappedRelease[buttonname]);
     end
 
     for _, buttonname in ipairs(sortedKeys(_actionSlots, _sortedA)) do

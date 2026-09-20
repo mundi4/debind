@@ -74,6 +74,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	WrappedButtons = newtable()
+	WrappedRelease = newtable()
 
 
 
@@ -1153,7 +1154,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 			self:SetAttribute("unit", heldUnit)
 			self:SetAttribute("pressAndHoldAction", true)
-			return held.clickbutton
+
+
+			return WrappedRelease[held.clickbutton] or held.clickbutton
 		end
 	end
 
@@ -1849,13 +1852,21 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	if (down) then
+		local release = WrappedRelease[winner.clickbutton]
 		if (pressAndHold) then
 			self:SetAttribute("pressAndHoldAction", true)
-			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+			if (not release) then
+				self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+			end
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
-			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
+			if (not release) then
+				self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
+			end
 		end
 	end
 
@@ -1980,7 +1991,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 			self:SetAttribute("unit", heldUnit)
 			self:SetAttribute("pressAndHoldAction", true)
-			return held.clickbutton
+
+
+			return WrappedRelease[held.clickbutton] or held.clickbutton
 		end
 	end
 
@@ -2675,13 +2688,21 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
 	if (down) then
+		local release = WrappedRelease[winner.clickbutton]
 		if (pressAndHold) then
 			self:SetAttribute("pressAndHoldAction", true)
-			self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+			if (not release) then
+				self:SetAttribute("*typerelease-" .. winner.clickbutton, "spell")
+			end
 		else
 			self:SetAttribute("pressAndHoldAction", nil)
-			self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
+			if (not release) then
+				self:SetAttribute("*typerelease-" .. winner.clickbutton, nil)
+			end
 		end
 	end
 

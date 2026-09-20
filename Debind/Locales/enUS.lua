@@ -1378,11 +1378,10 @@ L["AUTOMATIC_OFF"] = "Off"
 -- than called a default, the way Hover Cast's account row is (`CASTING_HOVER_ACCOUNT`).
 L["AUTOMATIC_GAME_SETTING"] = "Use the game's setting"
 L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever this is set to in the game's own settings, for this action as for every other."
--- Where the four cannot be answered at all. **It says what the row does here and stops.** What
--- this addon can or cannot reach, and what the game does with the press instead, are both ours to
--- know and no part of what the reader is deciding.
+-- The one place the four cannot be answered at all. **It says what the row does here and stops.**
+-- What this addon can or cannot reach, and what the game does with the press instead, are both
+-- ours to know and no part of what the reader is deciding.
 L["AUTOMATIC_GAME_MACRO"] = "This does not apply to a macro from WoW's own list."
-L["AUTOMATIC_PRESS_AND_HOLD"] = "This does not apply to an empowered spell."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
 -- literal here; on [Cast as usual] it is why the row stands locked, since with a target picked the
