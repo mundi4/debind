@@ -119,5 +119,24 @@ return function(DebindPrivate)
         shim.world.cvars.autoUnshift = nil;
     end);
 
+    --- **켰는데 조용히 아무 일도 안 나는 자리를 막는 것**이 이 답의 쓸모다. 둘 다 누름이 나가는
+    --- 모양 때문이지 액션이 유별나서가 아니다.
+    test("값이 닿을 수 없는 액션 둘을 가려낸다", function()
+        local shim = require("wow_shim");
+        shim.world.spells[8936] = { name = "Regrowth", pressAndHold = true };
+        shim.world.spells[585] = { name = "Renew" };
+
+        local reason = DebindPrivate.CastAutomaticsBlockedReason;
+        check(reason({ type = Constants.MACRO, value = "Trinkets" }) == "gamemacro",
+            "게임 매크로가 안 걸렸다");
+        check(reason({ type = Constants.SPELL, value = 8936 }) == "presshold",
+            "유지·시전 주문이 안 걸렸다");
+        check(reason({ type = Constants.SPELL, value = 585 }) == nil,
+            "평범한 주문이 걸렸다");
+        check(reason({ type = Constants.MACROTEXT, value = "/cast Renew" }) == nil,
+            "직접 쓴 매크로가 걸렸다");
+        check(reason(nil) == nil, "액션 없이 물었을 때 이유가 나왔다");
+    end);
+
     return T;
 end

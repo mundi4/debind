@@ -1357,6 +1357,25 @@ L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
 L["CASTING_NORMAL"] = "Normal Cast"
 L["CASTING_NORMAL_DESC"] = "The action runs on a press with nothing held and nothing pointed at. Unticked, that press goes to the next action on the key."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
+-- The four things the game does around a cast on its own. **Two of them the client names itself**
+-- (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`) and those two are used; the other two have
+-- no name in the client because its settings panel does not offer them, so they are written here
+-- in the shape of the two it does name.
+L["AUTO_CANCEL_FORM"] = "Auto Cancel Form"
+L["AUTO_DISMOUNT_TEXT"] = "Auto Dismount"
+L["AUTOMATIC_SELF_CAST_DESC"] = "Casting a helpful spell with no friendly target sends it to you."
+L["AUTOMATIC_CANCEL_FORM_DESC"] = "Casting a spell your current form does not allow leaves the form first."
+L["AUTOMATIC_DISMOUNT_DESC"] = "Casting a spell while mounted gets you off the mount first."
+L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "The same while flying, where getting off means falling."
+-- **The third answer, and the one every action starts on.** Named after the row it follows rather
+-- than called a default, the way Hover Cast's account row is (`CASTING_HOVER_ACCOUNT`).
+L["AUTOMATIC_GAME_SETTING"] = "Use the game's setting"
+L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever this is set to in the game's own settings, for this action as for every other."
+-- Where the four cannot be answered at all. **Both are about how the press has to go out**, not
+-- about the action being unusual: a macro of the game's is a body we never see, and a spell you
+-- hold has to reach the game as the very press you are holding.
+L["AUTOMATIC_GAME_MACRO"] = "This action runs one of the game's macros, and Debind cannot add to it. Write these into the macro itself."
+L["AUTOMATIC_PRESS_AND_HOLD"] = "This spell charges while you hold the key, and that leaves no room for Debind to change a setting around it."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
 -- literal here; on [Cast as usual] it is why the row stands locked, since with a target picked the

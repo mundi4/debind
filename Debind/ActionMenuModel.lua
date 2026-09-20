@@ -643,6 +643,23 @@ local function SetCastKeyChoice(ctx, row, choice)
     return OnActionsChanged(ctx.actions);
 end
 
+local CastAutomaticOf = DebindPrivate.CastAutomaticOf;
+
+--- 클라이언트의 자동 동작 한 줄. **셋째 값에 이름이 없어서 `nil`이 고르는 답이다** -- 값이 없는
+--- 것이 곧 "게임 설정 그대로"이고, 그래서 고르는 것과 안 고른 것이 같은 자리에 선다.
+local function CastAutomaticIs(ctx, row, choice)
+    return AllActions(ctx, function(action)
+        return CastAutomaticOf(action, row) == choice;
+    end);
+end
+
+local function SetCastAutomatic(ctx, row, choice)
+    for _, action in ipairs(ctx.actions) do
+        ActionValues.Set(action, "casting." .. row, choice);
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
 local HoverCastChoiceOf = DebindPrivate.HoverCastChoiceOf;
 
 --- Hover Cast's own three, where the absent value is off rather than the pointed unit
@@ -1068,6 +1085,8 @@ ActionMenu.setActionValue            = setActionValue;
 ActionMenu.CastKeyChoiceOf           = CastKeyChoiceOf;
 ActionMenu.CastKeyChoiceIs           = CastKeyChoiceIs;
 ActionMenu.SetCastKeyChoice          = SetCastKeyChoice;
+ActionMenu.CastAutomaticIs           = CastAutomaticIs;
+ActionMenu.SetCastAutomatic          = SetCastAutomatic;
 ActionMenu.HoverCastChoiceIs         = HoverCastChoiceIs;
 ActionMenu.SetHoverCastChoice        = SetHoverCastChoice;
 ActionMenu.SetHoverCastMode          = SetHoverCastMode;

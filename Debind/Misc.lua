@@ -10,6 +10,7 @@ local bor                     = bit.bor;
 local tinsert, wipe           = tinsert, wipe;
 local pairs, ipairs           = pairs, ipairs;
 local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
+local IsPressHoldReleaseSpell = C_Spell.IsPressHoldReleaseSpell;
 local GetSpellCastName        = DebindPrivate.GetSpellCastName;
 
 
@@ -1450,6 +1451,26 @@ do
                 end
                 return nil;
             end
+        end
+        return nil;
+    end
+
+    --- 네 줄이 이 액션에서 아무 일도 못 하는 이유, 또는 `nil`. **켰는데 조용히 아무 일도 안 나는
+    --- 자리를 막는 것이 전부다.**
+    ---
+    --- 둘 다 누름이 나가는 모양 때문이다. 게임 매크로는 본문이 게임의 것이라 앞뒤에 붙일 문자열이
+    --- 없고, 유지·시전 주문은 본문 하나가 두 엣지에 나가서 감싸면 차오르기만 하고 안 놓인다
+    --- (`setting-the-clients-cast-automatics-per-action.md` §5, §7).
+    function DebindPrivate.CastAutomaticsBlockedReason(action)
+        if (action == nil) then
+            return nil;
+        end
+        if (action.type == Constants.MACRO) then
+            return "gamemacro";
+        end
+        if (action.type == Constants.SPELL and action.value
+                and IsPressHoldReleaseSpell(action.value)) then
+            return "presshold";
         end
         return nil;
     end
