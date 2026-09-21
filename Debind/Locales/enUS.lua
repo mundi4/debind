@@ -1202,16 +1202,20 @@ L["SWITCH_MODE_LABEL"] = "How it works here"
 L["SWITCH_EXPR_LABEL"] = "Macro conditional"
 -- The two tabs over the right column.
 L["SWITCH_TAB_SETTINGS"] = "Settings"
-L["SWITCH_TAB_USAGE"] = "Used by"
+L["SWITCH_TAB_USAGE"] = "Where Used"
 -- The three groups under it. The first is what you can open and fix from this character, the
 -- second is where the name is written across the account, and they count the same reference twice
 -- on purpose: **"Across" is what says the second one is not the rest of the first.** It also
 -- covers the account-wide row, which "Other classes and characters" did not.
-L["SWITCH_USAGE_HERE"] = "This character"
-L["SWITCH_USAGE_ACCOUNT"] = "Across the account"
-L["SWITCH_USAGE_EXPRS"] = "Other switches"
+L["SWITCH_USAGE_HERE"] = "This Character"
+L["SWITCH_USAGE_ACCOUNT"] = "Across the Account"
+L["SWITCH_USAGE_EXPRS"] = "Other Switches"
 -- The two halves of a row's number in the group above, in its tooltip.
 L["SWITCH_USAGE_ACTIONS"] = "Actions"
+-- The last line of that tooltip. Whether you can get at what the row counts is the one thing the
+-- rows stopped saying when the account-wide layer and your own class joined them.
+L["SWITCH_USAGE_OPENABLE"] = "You can open these from this character."
+L["SWITCH_USAGE_LOG_IN"] = "Log in there to change these."
 L["SWITCH_USAGE_GOTO"] = "Click to go to this action."
 L["SWITCH_USAGE_EMPTY"] = "Nothing uses this switch."
 L["SWITCHES_DETAIL_EMPTY"] = "Pick a switch."
@@ -1278,7 +1282,7 @@ L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization
 L["SWITCHES_EMPTY"] = "No switches yet.|n|nSwitches you make are listed here."
 -- Split by whether anything on the account uses the switch, not by whether it is in use right now:
 -- a switch only another specialization reads still has work to do before it can be deleted.
-L["SWITCHES_GROUP_USED"] = "In use"
+L["SWITCHES_GROUP_USED"] = "In Use"
 L["SWITCHES_GROUP_UNUSED"] = "Unused"
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도

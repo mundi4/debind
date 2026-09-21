@@ -159,11 +159,16 @@ local function AccountRows(usage)
         return rows;
     end
 
-    local function RowFor(label, color, bucket)
+    --- `reach` is whether this client can open what the row counts, which is the one thing the
+    --- rows no longer say by standing apart: the account-wide layer, this character's class and
+    --- this character itself are all openable from here and the rest need a login there.
+    local function RowFor(label, color, bucket, reach, entry)
         return {
             text = color:WrapTextInColorCode(label),
             actions = bucket.actions,
             exprs = bucket.exprs,
+            reach = reach,
+            entry = entry,
         };
     end
 
@@ -173,13 +178,14 @@ local function AccountRows(usage)
     local general = usage.general;
     if (general.actions + general.exprs > 0) then
         rows[#rows + 1] = RowFor(DebindUI.GetLayerLabel(ROOT_LAYER_ID),
-            ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color, general);
+            ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color, general, true);
     end
 
     local function Sorted(built)
         sort(built, function(a, b) return a.label < b.label; end);
         for i = 1, #built do
-            rows[#rows + 1] = RowFor(built[i].label, built[i].color, built[i].bucket);
+            local row = built[i];
+            rows[#rows + 1] = RowFor(row.label, row.color, row.bucket, row.reach, row.entry);
         end
     end
 
@@ -189,6 +195,7 @@ local function AccountRows(usage)
             label = Constants.CLASS_NAMES[classKey] or classKey,
             color = GetClassColorObj(classKey) or NORMAL_FONT_COLOR,
             bucket = bucket,
+            reach = classKey == Constants.PLAYER_CLASS,
         };
     end
     Sorted(classes);
@@ -201,6 +208,10 @@ local function AccountRows(usage)
             label = entry and entry.name or guid,
             color = entry and GetClassColorObj(entry.class) or HIGHLIGHT_FONT_COLOR,
             bucket = bucket,
+            reach = guid == DebindPrivate.playerGUID,
+            -- What the row has no room for and the reader needs to tell two alts apart: the realm
+            -- above all, since a name on its own is not unique across an account.
+            entry = entry,
         };
     end
     Sorted(characters);
@@ -441,6 +452,8 @@ function DebindSwitchUsageRowMixin:Init(elementData)
     self.Name:SetText(elementData.text);
     self.actions = elementData.actions;
     self.exprs = elementData.exprs;
+    self.reach = elementData.reach;
+    self.entry = elementData.entry;
     if (self.actions) then
         self.Key:SetText(self.actions + self.exprs);
     else
@@ -448,20 +461,40 @@ function DebindSwitchUsageRowMixin:Init(elementData)
     end
 end
 
---- **Two reasons to open one**: the number is made of two kinds of reference, or the name was cut
---- off by the column.
+--- **Every tally row opens one**, because the last line is the one thing the rows stopped saying
+--- by standing together: whether the reader can get at what the row counts. The expression rows
+--- carry no number and open one only where the column cut the name off.
 function DebindSwitchUsageRowMixin:OnEnter()
-    local split = self.exprs and self.exprs > 0 and self.actions > 0;
-    if (not split and not self.Name:IsTruncated()) then
+    if (not self.actions and not self.Name:IsTruncated()) then
         return;
     end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.Name:GetText());
-    if (split) then
+
+    local entry = self.entry;
+    if (entry) then
+        -- **The realm on its own line.** A name is not unique across an account, and the row has
+        -- no room for the pair.
+        if (entry.realm) then
+            GameTooltip_AddNormalLine(GameTooltip, entry.realm);
+        end
+        if (entry.level) then
+            GameTooltip_AddColoredDoubleLine(GameTooltip, LEVEL, entry.level,
+                NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+        end
+    end
+
+    if (self.actions) then
+        -- **The two halves of the number beside the row**, which is the only place they come
+        -- apart: an action waiting on the switch and another switch computed from it are both
+        -- written here, and the row adds them.
         GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_ACTIONS"], self.actions,
             NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
         GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_EXPRS"], self.exprs,
             NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+        GameTooltip_AddBlankLineToTooltip(GameTooltip);
+        GameTooltip_AddNormalLine(GameTooltip,
+            LLL[self.reach and "SWITCH_USAGE_OPENABLE" or "SWITCH_USAGE_LOG_IN"]);
     end
     GameTooltip:Show();
 end

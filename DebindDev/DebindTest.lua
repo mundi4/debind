@@ -5689,8 +5689,23 @@ RegisterTest("Switches tab: a usage row carries the reader to the action", {
         end)
         DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL }
 
-        local action = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F5",
-            conditions = { [SWITCH] = true } })
+        -- **This one action goes into the real account-wide layer rather than the run's own.**
+        -- The test layer is a scratch table that is never stored (`GetTestLayer`), and this list
+        -- is built by walking the profile (`CollectSwitchUsage`), so a row planted there could
+        -- never stand in it however the panel behaves. The teardown takes it back out.
+        local layer = DebindPrivate.GetProfileLayer(1)
+        local action = NestConditions(DefaultCasting({
+            type = Constants.SPELL, value = 1, key = "CTRL-ALT-F5",
+            conditions = { [SWITCH] = true },
+        }))
+        layer:Insert(action)
+        layer:PlaceInKeyGroup(action)
+        AddTeardown(function()
+            layer:Remove(action)
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
         ApplyBindings()
 
         local panel = OpenSwitchesTab()
