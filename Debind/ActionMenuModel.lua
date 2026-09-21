@@ -316,12 +316,21 @@ local function UnitConditionsOf(action)
     return action.conditions and action.conditions.units;
 end
 
---- This action's set of specialization ids. nil where there is none, and none is made.
+--- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
+--- (`IsConditionalBinding`, `CleanUpDB`) 조건이 없는 액션이 조건부가 된다.
+local function PruneConditions(action)
+    if (action.conditions and next(action.conditions) == nil) then
+        action.conditions = nil;
+    end
+end
+
+--- This action's specialization condition, a mask per class id. nil where there is none, and none
+--- is made.
 local function SpecConditionsOf(action)
     return action.conditions and action.conditions.specs;
 end
 
---- The set, made where it is not there yet.
+--- The table, made where it is not there yet.
 local function SpecConditionsFor(action)
     local conditions = TableFor(action, "specs", true);
     local specs = conditions.specs;
@@ -332,36 +341,62 @@ local function SpecConditionsFor(action)
     return specs;
 end
 
---- Is this one specialization in every selected action's set.
-local function SpecConditionHasID(ctx, specID)
+--- **What is left after a click, written back.** A class this leaves whole loses its mask and a
+--- condition that narrows nothing loses the whole table, so each meaning has one shape
+--- (`giving-the-spec-condition-a-class-key.md` §4).
+local function NormalizeSpecCondition(action)
+    local specs = SpecConditionsOf(action);
+    if (specs == nil) then
+        return;
+    end
+    local catalog = DebindPrivate.ClassSpecCatalog();
+    for i = 1, #catalog do
+        local classID = catalog[i].id;
+        if (specs[classID] ~= nil and DebindPrivate.SpecSetHoldsClass(specs, classID)) then
+            specs[classID] = nil;
+        end
+    end
+    if (not DebindPrivate.SpecSetNarrowsAnything(specs)) then
+        action.conditions.specs = nil;
+        PruneConditions(action);
+    end
+end
+
+--- Is this one specialization held by every selected action. **A class nobody narrowed answers
+--- yes**, which is what draws an untouched class with all of its boxes ticked
+--- (`giving-the-spec-condition-a-class-key.md` §2).
+local function SpecConditionHasIndex(ctx, classID, index)
     return AllActions(ctx, function(action)
-        local specs = SpecConditionsOf(action);
-        return specs ~= nil and specs[specID] ~= nil;
+        return DebindPrivate.SpecSetHoldsIndex(SpecConditionsOf(action), classID, index);
     end);
 end
 
---- **The empty set is written and kept**, the way the all-off masks beside it are. Picking no
---- specialization is not the same as putting no condition on the action: it is an error the
---- reader is meant to see (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the row that says so is the
---- row this leaves behind. [Disable] at the top of the menu is what clears the key.
+--- **The mask is read off each action at click time.** A class starts with none, so a reference
+--- taken while the menu was built is stale the moment one box moves.
 ---
---- **The set is read off each action at click time.** It does not exist until the first box is
---- ticked, so a reference taken while the menu was built is stale the moment one is.
----
---- **Off only when every action has it**, which is also why turning off never meets an action
---- with no set: a selection where one lacks it is drawn off and turns it on.
-local function ToggleSpecConditionID(ctx, specID)
-    local turnOn = not SpecConditionHasID(ctx, specID);
+--- **Off only when every action holds it**, which is also why turning off never meets an action
+--- with no mask: a selection where one lacks it is drawn off and turns it on.
+local function ToggleSpecConditionIndex(ctx, classID, index)
+    local turnOn = not SpecConditionHasIndex(ctx, classID, index);
+    local flag = Constants.SpecIndexFlag(index);
     for _, action in ipairs(ctx.actions) do
-        SpecConditionsFor(action)[specID] = turnOn or nil;
+        local specs = SpecConditionsFor(action);
+        local mask = specs[classID] or DebindPrivate.ClassSpecMask(classID);
+        if (turnOn) then
+            mask = bit.bor(mask, flag);
+        else
+            mask = mask - bit.band(mask, flag);
+        end
+        specs[classID] = mask;
+        NormalizeSpecCondition(action);
     end
     return OnActionsChanged(ctx.actions);
 end
 
---- Is every specialization of this class in every selected action's set. **The same question the
---- tooltip line asks** before it writes the class name in place of the specializations
---- (`Misc.lua`'s `DescribeSpecCondition`), so the box and the line cannot disagree about what a
---- whole class is.
+--- Is this class left whole by every selected action. **The same question the tooltip line asks**
+--- before it writes the class name in place of the specializations (`Misc.lua`'s
+--- `DescribeSpecCondition`), so the box, the row's colour and the line cannot disagree about what
+--- a whole class is.
 local function ClassSpecsAllPicked(ctx, classID)
     return AllActions(ctx, function(action)
         return DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(action), classID);
@@ -375,17 +410,25 @@ end
 local function ToggleClassSpecs(ctx, classID)
     local turnOn = not ClassSpecsAllPicked(ctx, classID);
     for _, action in ipairs(ctx.actions) do
-        DebindPrivate.SetClassInSpecSet(SpecConditionsFor(action), classID, turnOn);
+        local specs = SpecConditionsFor(action);
+        DebindPrivate.SetClassInSpecSet(specs, classID, turnOn);
+        NormalizeSpecCondition(action);
     end
     return OnActionsChanged(ctx.actions);
 end
 
---- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
---- (`IsConditionalBinding`, `CleanUpDB`) 조건이 없는 액션이 조건부가 된다.
-local function PruneConditions(action)
-    if (action.conditions and next(action.conditions) == nil) then
-        action.conditions = nil;
+--- **Every class off in one press.** The axis defaults to every class, so the common condition --
+--- one class narrowed and the rest out -- costs twelve visits to classes the reader has no
+--- interest in. This is that walk (`giving-the-spec-condition-a-class-key.md` §2).
+local function ClearAllSpecConditions(ctx)
+    local catalog = DebindPrivate.ClassSpecCatalog();
+    for _, action in ipairs(ctx.actions) do
+        local specs = SpecConditionsFor(action);
+        for i = 1, #catalog do
+            specs[catalog[i].id] = 0;
+        end
     end
+    return OnActionsChanged(ctx.actions);
 end
 
 --- This action's talent condition. nil where there is none, and none is made.
@@ -1069,8 +1112,9 @@ ActionMenu.TableFor                  = TableFor;
 ActionMenu.PruneConditions           = PruneConditions;
 ActionMenu.UnitConditionsOf          = UnitConditionsOf;
 ActionMenu.SpecConditionsOf          = SpecConditionsOf;
-ActionMenu.SpecConditionHasID        = SpecConditionHasID;
-ActionMenu.ToggleSpecConditionID     = ToggleSpecConditionID;
+ActionMenu.SpecConditionHasIndex     = SpecConditionHasIndex;
+ActionMenu.ToggleSpecConditionIndex  = ToggleSpecConditionIndex;
+ActionMenu.ClearAllSpecConditions    = ClearAllSpecConditions;
 ActionMenu.TalentConditionIs         = TalentConditionIs;
 ActionMenu.TalentConditionTouches    = TalentConditionTouches;
 ActionMenu.HasOtherSpecTalents       = HasOtherSpecTalents;

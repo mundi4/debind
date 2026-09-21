@@ -34,28 +34,49 @@ return function(DebindPrivate)
 
     local ME = "Player-1-SPECCOND";
 
-    --- A set of specialization ids, named by the index each sits at on **this character's class**
-    --- (the shim plays a druid). Written this way so the cases stay readable while the stored
-    --- value is what the addon really keeps, and so no id is copied into this file by hand.
-    local function Specs(...)
-        local set = {};
-        for i = 1, select("#", ...) do
-            local id = DebindPrivate.SpecIDForIndex((select(i, ...)));
-            check(id, "the shim has no specialization at index " .. tostring((select(i, ...))));
-            set[id] = true;
-        end
-        return set;
+    --- This character's class id (the shim plays a druid).
+    local function MyClass()
+        return (select(3, UnitClass("player")));
     end
 
-    --- A set of every specialization one class has, which is what a class condition is.
-    local function ClassSpecs(classID)
-        local set = {};
-        local specs = DebindPrivate.EnumerateClassSpecs(classID);
-        check(#specs > 0, "the shim has no class " .. tostring(classID));
-        for i = 1, #specs do
-            set[specs[i].id] = true;
+    --- A mask out of specialization indices.
+    local function Mask(...)
+        local mask = 0;
+        for i = 1, select("#", ...) do
+            mask = mask + Constants.SpecIndexFlag((select(i, ...)));
         end
-        return set;
+        return mask;
+    end
+
+    --- A condition narrowed to what `picks` names: a class mapped to a mask keeps that mask, a
+    --- class mapped to `true` is left whole, and **every class it does not name is shut out.**
+    ---
+    --- Written the long way round because that is what the shape means. A class with no key is
+    --- whole, so a condition that says "only these" has to say so about each of the others
+    --- (`giving-the-spec-condition-a-class-key.md` §2).
+    local function Pick(picks)
+        local specs = {};
+        local catalog = DebindPrivate.ClassSpecCatalog();
+        for i = 1, #catalog do
+            local classID = catalog[i].id;
+            local pick = picks[classID];
+            if (pick == true) then
+                specs[classID] = nil;
+            else
+                specs[classID] = pick or 0;
+            end
+        end
+        return specs;
+    end
+
+    --- Those specialization indices of **this character's class**, and nothing else anywhere.
+    local function Specs(...)
+        return Pick({ [MyClass()] = Mask(...) });
+    end
+
+    --- One whole class and nothing else.
+    local function ClassSpecs(classID)
+        return Pick({ [classID] = true });
     end
 
     --- Which specialization the world is in. The shim answers 1, and every case here says so
@@ -186,13 +207,13 @@ return function(DebindPrivate)
         check(Values("F1") == "585", "the key came out with " .. Values("F1"));
     end);
 
-    -- **An empty set is a set nothing satisfies**, and it is reported rather than left silent:
-    -- the three mask conditions beside this one all raise on a zero, and a reader who unticked
-    -- the last box otherwise has a key that stopped working and nothing saying why.
+    -- **Every class shut out is a condition nothing satisfies**, and it is reported rather than
+    -- left silent: the three mask conditions beside this one all raise on a zero, and a reader who
+    -- unticked the last box otherwise has a key that stopped working and nothing saying why.
     test("an empty set is reported and reaches no key", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { specs = {} } },
+                conditions = { specs = Pick({}) } },
         }, 1);
 
         local stored = FirstStoredAction();
@@ -219,7 +240,7 @@ return function(DebindPrivate)
     test("an unsettled specialization keeps a conditioned action off the key and leaves the rest alone", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { specs = ClassSpecs(Constants.CLASS_IDS[Constants.PLAYER_CLASS]) } },
+                conditions = { specs = Specs(1) } },
             { type = Constants.SPELL, value = 774, key = "F2", seq = 1 },
         }, 1);
 
@@ -281,7 +302,7 @@ return function(DebindPrivate)
         local stored = FirstStoredAction();
         check(DebindPrivate.ConvertToMacroText(stored), "the conversion declined");
         check(stored.type == Constants.MACROTEXT, "it is still a " .. tostring(stored.type));
-        check(stored.conditions.specs[DebindPrivate.SpecIDForIndex(2)],
+        check(DebindPrivate.SpecSetHoldsIndex(stored.conditions.specs, MyClass(), 2),
             "the condition came out as " .. tostring(stored.conditions and stored.conditions.specs));
 
         DebindPrivate.BuildKeyMap();
@@ -391,7 +412,7 @@ return function(DebindPrivate)
     test("an empty set is a mistake rather than another specialization", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { specs = {} } },
+                conditions = { specs = Pick({}) } },
         }, 1);
 
         local rows = DebindPrivate.CollectActionsForKey("F1");
@@ -420,24 +441,27 @@ return function(DebindPrivate)
     -- `ActionMenuModel.lua` is not on the headless load list (`run.lua`).
     test("the whole-class box ticks every specialization of that class", function()
         local druid = Constants.CLASS_IDS.DRUID;
-        local set = {};
-        check(not DebindPrivate.SpecSetHoldsClass(set, druid), "an empty set read as a whole class");
+        local set = Pick({});
+        check(not DebindPrivate.SpecSetHoldsClass(set, druid), "a class shut out read as a whole one");
 
         DebindPrivate.SetClassInSpecSet(set, druid, true);
         check(DebindPrivate.SpecSetHoldsClass(set, druid), "it did not fill");
 
         local specs = DebindPrivate.EnumerateClassSpecs(druid);
         for i = 1, #specs do
-            check(set[specs[i].id], "specialization " .. i .. " was left out");
+            check(DebindPrivate.SpecSetHoldsIndex(set, druid, specs[i].index),
+                "specialization " .. i .. " was left out");
         end
     end);
 
     -- **The initial specialization goes in with the rest**, which is what lets the tooltip fold
-    -- the set to the class name and still be true: a character sitting in it does fire the key.
+    -- the class to its name and still be true: a character sitting in it does fire the key.
     test("the whole-class box covers the initial specialization", function()
-        local set = DebindPrivate.SetClassInSpecSet({}, Constants.CLASS_IDS.DRUID, true);
+        local druid = Constants.CLASS_IDS.DRUID;
+        local set = DebindPrivate.SetClassInSpecSet(Pick({}), druid, true);
 
-        check(set[DebindPrivate.SpecIDForIndex(5)], "the initial specialization was left out");
+        check(DebindPrivate.SpecSetHoldsIndex(set, druid, Constants.INITIAL_SPEC_INDEX),
+            "the initial specialization was left out");
         check(Line(set) == "Druid", "the tooltip did not fold it: " .. Line(set));
     end);
 
@@ -450,15 +474,40 @@ return function(DebindPrivate)
             "every named one but the initial read as whole");
     end);
 
-    -- **Turning it off leaves the empty set, not an absent condition.** That is the same shape
-    -- unticking the last box by hand leaves, and it is an error the reader is meant to see rather
-    -- than a condition quietly removed. [Disable] is what removes one.
-    test("taking a class back out empties the set rather than removing it", function()
+    -- **Turning a class off writes a zero, not an absent key.** Absent is whole, so removing the
+    -- key would say the opposite of what the reader just pressed.
+    test("taking a class back out shuts that class out", function()
         local druid = Constants.CLASS_IDS.DRUID;
         local set = DebindPrivate.SetClassInSpecSet(ClassSpecs(druid), druid, false);
 
-        check(set ~= nil, "the set itself was thrown away");
-        check(next(set) == nil, "something was left in it: " .. Line(set));
+        check(set[druid] == 0, "the class did not come out: " .. tostring(set[druid]));
+        check(DebindPrivate.SpecSetIsEmpty(set),
+            "it left something behind: " .. Line(set));
+    end);
+
+    -- **A shared string can leave anything under a class id.** The wire types the condition and
+    -- stops, and these values are arithmetic now, so a boolean under a class id raises inside the
+    -- rebuild unless it is caught where it is read. Caught, it narrows rather than widens: the
+    -- direction a keybinding addon must not fail in is the one that takes somebody else's key.
+    test("a value that is not a mask narrows instead of raising", function()
+        local mine = MyClass();
+        local junk = { [mine] = true };
+
+        local ok, held = pcall(DebindPrivate.SpecConditionHolds,
+            { conditions = { specs = junk } }, 1);
+        check(ok, "it raised: " .. tostring(held));
+        check(held == false, "a value nobody can read let the key through");
+        check(not DebindPrivate.SpecSetHoldsClass(junk, mine), "it read as a whole class");
+        check(not DebindPrivate.SpecSetHoldsIndex(junk, mine, 1), "it read as holding one");
+    end);
+
+    -- **A class nobody narrowed is every specialization of it**, which is the default the menu is
+    -- drawn from and the reason an untouched class cannot change what a key does.
+    test("a class with no mask is whole", function()
+        local druid = Constants.CLASS_IDS.DRUID;
+        check(DebindPrivate.SpecSetHoldsClass({}, druid), "a class with no key read as narrowed");
+        check(DebindPrivate.SpecSetHoldsIndex({}, druid, 1), "a class with no key left one out");
+        check(not DebindPrivate.SpecSetIsEmpty({}), "a condition narrowing nothing read as empty");
     end);
 
     ---------------------------------------------------------------------------
@@ -485,7 +534,7 @@ return function(DebindPrivate)
     end);
 
     test("another class is named by class however much of it was picked", function()
-        local set = { [DebindPrivate.EnumerateClassSpecs(Constants.CLASS_IDS.MAGE)[1].id] = true };
+        local set = Pick({ [Constants.CLASS_IDS.MAGE] = Mask(1) });
         check(Line(set) == "Mage", "the line came out as " .. Line(set));
     end);
 
@@ -493,10 +542,12 @@ return function(DebindPrivate)
     -- is specializations on one side and classes on the other, so a number would be counting two
     -- different things at once.
     test("a set wider than the line says so without counting", function()
-        local set = ClassSpecs(Constants.CLASS_IDS.WARRIOR);
-        for id in pairs(ClassSpecs(Constants.CLASS_IDS.PALADIN)) do set[id] = true; end
-        for id in pairs(ClassSpecs(Constants.CLASS_IDS.MAGE)) do set[id] = true; end
-        for id in pairs(Specs(1)) do set[id] = true; end
+        local set = Pick({
+            [Constants.CLASS_IDS.WARRIOR] = true,
+            [Constants.CLASS_IDS.PALADIN] = true,
+            [Constants.CLASS_IDS.MAGE] = true,
+            [MyClass()] = Mask(1),
+        });
 
         check(Line(set) == format(DebindPrivate.L["LINE_TOOLTIP_SPEC_OVERFLOW"], "Balance, Warrior, Paladin"),
             "the line came out as " .. Line(set));
@@ -505,8 +556,10 @@ return function(DebindPrivate)
     -- **This character's class is never what gets dropped.** Four of a druid's five is one more
     -- than the line otherwise holds, and it is the half the reader can act on.
     test("this class keeps every name even past the limit", function()
-        local set = Specs(1, 2, 3, 4);
-        for id in pairs(ClassSpecs(Constants.CLASS_IDS.MAGE)) do set[id] = true; end
+        local set = Pick({
+            [MyClass()] = Mask(1, 2, 3, 4),
+            [Constants.CLASS_IDS.MAGE] = true,
+        });
 
         check(Line(set) == format(DebindPrivate.L["LINE_TOOLTIP_SPEC_OVERFLOW"], "Balance, Feral, Guardian, Restoration"),
             "the line came out as " .. Line(set));
@@ -516,8 +569,10 @@ return function(DebindPrivate)
     -- is for is what the reader has no other way to find, and the line right under this one
     -- already says it does not run here.
     test("a set holding none of this class names the classes it is for", function()
-        local set = ClassSpecs(Constants.CLASS_IDS.MAGE);
-        for id in pairs(ClassSpecs(Constants.CLASS_IDS.PALADIN)) do set[id] = true; end
+        local set = Pick({
+            [Constants.CLASS_IDS.MAGE] = true,
+            [Constants.CLASS_IDS.PALADIN] = true,
+        });
 
         check(Line(set) == "Paladin, Mage", "the line came out as " .. Line(set));
     end);
@@ -526,8 +581,10 @@ return function(DebindPrivate)
     -- knight's, Holy is a priest's and a paladin's, so the colour is the half of the name that
     -- answers which one was picked.
     test("each name is painted in its class's colour", function()
-        local set = Specs(1);
-        for id in pairs(ClassSpecs(Constants.CLASS_IDS.MAGE)) do set[id] = true; end
+        local set = Pick({
+            [MyClass()] = Mask(1),
+            [Constants.CLASS_IDS.MAGE] = true,
+        });
 
         local line = DebindPrivate.DescribeSpecCondition(set);
         local druid = GetClassColorObj("DRUID"):WrapTextInColorCode("Balance");

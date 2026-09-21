@@ -90,11 +90,11 @@ local tconcat            = table.concat;
 --- places gate on the table existing. Two actions that differ only in which of those two shapes
 --- they are written in are the same action.
 ---
---- **`conditions.specs` is the one field that means something by being empty**, and this rule
---- reads it as absent all the same: an action nobody picked a specialization for signs like one
---- carrying no specialization condition. It fires nowhere and the other fires everywhere, so an
---- import holding the two against each other calls them the same and brings one. It stays that
---- way because the rule above is the profile's and not this field's.
+--- **`conditions.specs` is one of the fields this reads as absent when it is empty**, and there it
+--- says the same thing: a class with no mask is every specialization of it
+--- (`giving-the-spec-condition-a-class-key.md` §2), so a table with no class
+--- in it narrows nothing, which is what carrying no specialization condition is. The shape that
+--- fires nowhere is every class at 0, and that one is not empty and does not come through here.
 ---
 --- **Keys are sorted, and by type first.** `pairs` order is not the order anything was written in
 --- and is not stable across two tables holding the same thing.

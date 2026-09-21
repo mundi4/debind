@@ -6097,7 +6097,7 @@ RegisterTest("Switch condition on a name outside the five", {
 -- what tells them apart. **Both halves, because on its own "fires nothing" also describes a key
 -- nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
-    description = "A binding whose specialization set holds this one fires, one whose set leaves it out holds the key and fires nothing",
+    description = "A binding whose specialization mask holds this one fires, one whose mask leaves it out holds the key and fires nothing",
     run = function()
         local NAME = "Spec condition"
         local INSIDE = "CTRL-SHIFT-F6"
@@ -6113,51 +6113,66 @@ RegisterTest("Spec condition: the specialization the character is on decides the
         end
 
         local spec = C_SpecializationInfo.GetSpecialization()
-        local mineID = spec and DebindPrivate.SpecIDForIndex(spec)
-        if not mineID then
+        if not spec then
             return Fail(NAME, "the client has not settled a specialization yet")
+        end
+        local classID = select(3, UnitClass("player"))
+
+        -- **Every other class is shut out on both keys**, because a class with no mask is every
+        -- specialization of it: left alone, the two conditions would both hold here and the second
+        -- key would prove nothing.
+        local function Narrowed(mask)
+            local specs = { [classID] = mask }
+            local catalog = DebindPrivate.ClassSpecCatalog()
+            for i = 1, #catalog do
+                if (catalog[i].id ~= classID) then
+                    specs[catalog[i].id] = 0
+                end
+            end
+            return specs
         end
 
         -- Every specialization of this class but the one being played, so the second key differs
-        -- from the first by which ids are in the set and by nothing else. The whole class rather
-        -- than one other id, because a class sitting in its initial specialization has only the
-        -- named ones to leave it out.
-        local others = {};
-        local classSpecs = DebindPrivate.EnumerateClassSpecs(select(3, UnitClass("player")));
+        -- from the first by which numbers the mask holds and by nothing else. The whole class
+        -- rather than one other number, because a class sitting in its initial specialization has
+        -- only the named ones to leave it out.
+        local others = 0
+        local classSpecs = DebindPrivate.EnumerateClassSpecs(classID);
         for i = 1, #classSpecs do
-            if (classSpecs[i].id ~= mineID) then
-                others[classSpecs[i].id] = true;
+            if (classSpecs[i].index ~= spec) then
+                others = others + Constants.SpecIndexFlag(classSpecs[i].index);
             end
         end
-        if not next(others) then
+        if others == 0 then
             return Fail(NAME, "this class has no second specialization to leave this one out with")
         end
 
-        InsertAction({ type = Constants.SPELL, value = 585, key = INSIDE, specs = { [mineID] = true } })
-        InsertAction({ type = Constants.SPELL, value = 585, key = OUTSIDE, specs = others })
+        InsertAction({ type = Constants.SPELL, value = 585, key = INSIDE,
+            specs = Narrowed(Constants.SpecIndexFlag(spec)) })
+        InsertAction({ type = Constants.SPELL, value = 585, key = OUTSIDE, specs = Narrowed(others) })
         ApplyBindings()
 
         local inside = GetBindingAction(INSIDE, true) or ""
         if inside:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("the set holds id %d and the key is %q", mineID, inside))
+            return Fail(NAME, format("the mask holds %d and the key is %q", spec, inside))
         end
         local ran, rerr = EvalClickTimeKey(INSIDE)
         if not ran then return Fail(NAME, rerr) end
         if WaitForWinner() == nil then
-            return Fail(NAME, format("the set holds id %d and the press fires nothing", mineID))
+            return Fail(NAME, format("the mask holds %d and the press fires nothing", spec))
         end
 
         local outside = GetBindingAction(OUTSIDE, true) or ""
         if outside:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("the set leaves id %d out and the key was handed back: %q", mineID, outside))
+            return Fail(NAME, format("the mask leaves %d out and the key was handed back: %q", spec, outside))
         end
         ran, rerr = EvalClickTimeKey(OUTSIDE)
         if not ran then return Fail(NAME, rerr) end
         if LastWinner() ~= nil then
-            return Fail(NAME, format("the set leaves id %d out and the press fires #%d", mineID, LastWinner()))
+            return Fail(NAME, format("the mask leaves %d out and the press fires #%d", spec, LastWinner()))
         end
 
-        return Pass(NAME, format("id %d: fires / left out: held, fires nothing", mineID))
+        return Pass(NAME, format("number %d: fires / left out: held, fires nothing", spec))
     end,
 })
 

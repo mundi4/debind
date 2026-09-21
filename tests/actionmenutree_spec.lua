@@ -193,14 +193,17 @@ return function(DebindPrivate)
 
     local function Fixtures()
         local catalog = DebindPrivate.ClassSpecCatalog();
-        local firstSpec = catalog[1].specs[1].id;
+        -- One class narrowed to its first specialization, which is what draws a class row with
+        -- some boxes on and some off.
+        local firstClass = catalog[1].id;
+        local firstSpec = Constants.SpecIndexFlag(catalog[1].specs[1].index);
         return ResetProfile({
             Spell(1),
             Spell(2, { units = { unitframe = { exists = true, reaction = Constants.REACTION_HELP } } }),
             Spell(3, { units = { unitframe = { exists = false } } }),
             Spell(4, { units = { target = { exists = true, dead = true } } }),
             Spell(5, { combat = true, stealth = false }),
-            Spell(6, { specs = { [firstSpec] = true } }),
+            Spell(6, { specs = { [firstClass] = firstSpec } }),
             Spell(7, { forms = 1 + 4, disabled = true, unit = "focus" }),
             Spell(8, { units = { player = { exists = true, dead = false } } }),
         });

@@ -975,6 +975,7 @@ function M.install()
     _G.AUTO_SELF_CAST_TEXT = "Auto Self Cast";
     _G.AUTO_DISMOUNT_FLYING_TEXT = "Auto Dismount in Flight";
     _G.ALL_SPECS = "All Specializations";
+    _G.UNCHECK_ALL = "Uncheck All";
     --- The talent condition's pvp branch is named by the client, the way its class, specialization
     --- and hero branches are (`Debind/Talents.lua`).
     _G.PVP_TALENTS = "PvP Talents";

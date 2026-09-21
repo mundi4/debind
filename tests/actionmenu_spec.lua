@@ -156,32 +156,37 @@ return function(DebindPrivate)
         error("no class with two specializations in the catalog");
     end
 
+    -- **Off is what a mixed selection draws**, so one press takes every action to the same place.
+    -- The action that already had the box on keeps whatever else it had picked.
     test("a specialization box goes to one outcome and keeps each action's other picks", function()
         local class = AClass();
-        local picked, other = class.specs[1].id, class.specs[2].id;
+        local picked, other = class.specs[1].index, class.specs[2].index;
+        local pickedFlag = Constants.SpecIndexFlag(picked);
+        local otherFlag = Constants.SpecIndexFlag(other);
         local actions = ResetProfile({
-            Spell(1, { specs = { [picked] = true, [other] = true } }),
-            Spell(2),
+            Spell(1, { specs = { [class.id] = pickedFlag + otherFlag } }),
+            -- A class shut out, so the box under it is off and the press turns it on.
+            Spell(2, { specs = { [class.id] = 0 } }),
         });
         local ctx = Ctx(actions);
 
-        check(not ActionMenu.SpecConditionHasID(ctx, picked), "a mixed selection draws the box on");
-        ActionMenu.ToggleSpecConditionID(ctx, picked);
-        check(Cond(actions[1], "specs")[picked] and Cond(actions[1], "specs")[other], "first lost a pick");
-        check(Cond(actions[2], "specs") and Cond(actions[2], "specs")[picked], "second did not take it");
+        check(not ActionMenu.SpecConditionHasIndex(ctx, class.id, picked),
+            "a mixed selection draws the box on");
+        ActionMenu.ToggleSpecConditionIndex(ctx, class.id, picked);
+        check(ActionMenu.SpecConditionHasIndex(ctx, class.id, picked), "not every action took it");
+        check(DebindPrivate.SpecSetHoldsIndex(Cond(actions[1], "specs"), class.id, other),
+            "first lost its other pick");
 
-        ActionMenu.ToggleSpecConditionID(ctx, picked);
-        check(Cond(actions[1], "specs")[picked] == nil and Cond(actions[1], "specs")[other],
-            "first, off: the pressed one stays or the other one went");
-        local second = Cond(actions[2], "specs");
-        check(second ~= nil and next(second) == nil,
-            "second, off: the empty set is the reader's to see, and it stays as written");
+        ActionMenu.ToggleSpecConditionIndex(ctx, class.id, picked);
+        check(not ActionMenu.SpecConditionHasIndex(ctx, class.id, picked), "the pressed one stayed on");
+        check(DebindPrivate.SpecSetHoldsIndex(Cond(actions[1], "specs"), class.id, other),
+            "first, off: the other one went with it");
     end);
 
     test("a class box over a mixed selection puts the class whole on every action, then takes it off", function()
         local class = AClass();
         local actions = ResetProfile({
-            Spell(1, { specs = { [class.specs[1].id] = true } }),
+            Spell(1, { specs = { [class.id] = Constants.SpecIndexFlag(class.specs[1].index) } }),
             Spell(2),
         });
         local ctx = Ctx(actions);
@@ -194,9 +199,66 @@ return function(DebindPrivate)
 
         ActionMenu.ToggleClassSpecs(ctx, class.id);
         for i, action in ipairs(actions) do
-            check(Cond(action, "specs")[class.specs[1].id] == nil, "off, action " .. i);
+            check(Cond(action, "specs")[class.id] == 0, "off, action " .. i);
         end
     end);
+
+    -- **One meaning, one shape.** A class the reader ticked back to whole has to read as one
+    -- nobody touched, or its row goes on being painted and the key it lets through looks narrowed
+    -- (`giving-the-spec-condition-a-class-key.md` §4).
+    test("a class ticked back to whole keeps no mask", function()
+        local class = AClass();
+        -- **A second class stays shut out**, so the condition still narrows something and the
+        -- table is not dropped by the rule below. Without it this would pass on that rule alone.
+        local other;
+        for _, candidate in ipairs(DebindPrivate.ClassSpecCatalog()) do
+            if (candidate.id ~= class.id) then
+                other = candidate.id;
+                break;
+            end
+        end
+        check(other, "the catalog has one class");
+
+        local actions = ResetProfile({ Spell(1, { specs = { [class.id] = 0, [other] = 0 } }) });
+        local ctx = Ctx(actions);
+
+        for i = 1, #class.specs do
+            ActionMenu.ToggleSpecConditionIndex(ctx, class.id, class.specs[i].index);
+        end
+
+        local specs = Cond(actions[1], "specs");
+        check(specs ~= nil, "the whole condition went");
+        check(specs[class.id] == nil, "the mask stayed: " .. tostring(specs[class.id]));
+        check(specs[other] == 0, "the other class came back: " .. tostring(specs[other]));
+    end);
+
+    -- **And a condition that narrows nothing is no condition.** Every class whole says exactly
+    -- what an action with no `specs` says, and two shapes for it would paint one of them.
+    test("a condition left narrowing nothing goes away", function()
+        local class = AClass();
+        local actions = ResetProfile({ Spell(1, { specs = { [class.id] = 0 } }) });
+        local ctx = Ctx(actions);
+
+        ActionMenu.ToggleClassSpecs(ctx, class.id);
+
+        check(Cond(actions[1], "specs") == nil,
+            "it stayed: " .. tostring(Cond(actions[1], "specs")));
+        check(actions[1].conditions == nil,
+            "the action is still conditional: " .. tostring(actions[1].conditions));
+    end);
+
+    -- **Every class off in one press**, which is what the axis defaulting to every class costs.
+    test("the clear row shuts every class out", function()
+        local actions = ResetProfile({ Spell(1) });
+        local ctx = Ctx(actions);
+
+        ActionMenu.ClearAllSpecConditions(ctx);
+
+        local specs = Cond(actions[1], "specs");
+        check(specs ~= nil, "nothing was written");
+        check(DebindPrivate.SpecSetIsEmpty(specs), "a class was left in: " .. tostring(specs));
+    end);
+
 
     ---------------------------------------------------------------------------
     -- Unit conditions

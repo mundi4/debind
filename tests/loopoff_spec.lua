@@ -163,7 +163,7 @@ return function(DebindPrivate, _, ctx)
 
     -- The shim plays specialization 1.
     local function OtherSpec()
-        return { [DebindPrivate.SpecIDForIndex(2)] = true };
+        return { [select(3, UnitClass("player"))] = Constants.SpecIndexFlag(2) };
     end
 
     test("a key whose one action the specialization condition leaves out stays ours", function()

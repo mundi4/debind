@@ -93,6 +93,7 @@ globals = {
 	-- that is not this character's has no other route, and the namespaced spelling raised in the
 	-- game while luacheck saw an ordinary field read on a known table.
 	"ALL_SPECS",
+	"UNCHECK_ALL",
 	"GetNumClasses",
 	"GetClassInfo",
 	"GetSpecializationInfoForClassID",

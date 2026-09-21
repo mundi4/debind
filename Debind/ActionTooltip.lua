@@ -664,7 +664,7 @@ do
 		if (conditions.specs ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_SPECS"]);
 
-			if (next(conditions.specs) == nil) then
+			if (DebindPrivate.SpecSetIsEmpty(conditions.specs)) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_SPECS_NONE_SELECTED"], true);
 			else
 				addValueLine(tooltip, DebindPrivate.DescribeSpecCondition(conditions.specs),

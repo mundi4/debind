@@ -411,6 +411,14 @@ Constants.FORM_ALL                   = 2 ^ 11 - 1;
 -- in combat, and the change fires `ACTIVE_PLAYER_SPECIALIZATION_CHANGED`, which rebuilds.
 Constants.INITIAL_SPEC_INDEX         = 5;
 
+--- The bit that stands for one specialization index, 1..`INITIAL_SPEC_INDEX`. **A class the
+--- condition leaves whole has no mask at all** rather than one with every bit on
+--- (`giving-the-spec-condition-a-class-key.md` §4), so no constant stands for
+--- all of them.
+function Constants.SpecIndexFlag(index)
+    return 2 ^ (index - 1);
+end
+
 -- **The one place this number is written.** It was two: this, and a
 -- `MAX_BONUS_ACTIONBAR_OFFSET` that the window and the condition menu drew their checkboxes
 -- from. Same fact, two names, and only this one reaching `BONUSBAR_ALL` -- so raising the

@@ -158,11 +158,20 @@ local CONDITION_TYPES    = {
     groups = "number",
     forms = "number",
     bonusbars = "number",
-    -- A set of specialization ids, keyed by id. **What is inside is not filtered**, the way
-    -- `units` is not: an id this client has never heard of can only fail to match the
-    -- specialization being played, which makes the condition true less often, and the direction a
-    -- keybinding addon must not fail in is the other one. The tooltip walks the client's own
-    -- classes rather than the set, so a junk key has nothing to print itself into.
+    -- A specialization mask per class id. **What is inside is not filtered**, the way `units` is
+    -- not: a class id this client has never heard of is never the one being played, and a bit
+    -- standing for a specialization that does not exist matches nothing, so both make the condition
+    -- true less often -- and the direction a keybinding addon must not fail in is the other one.
+    -- The tooltip walks the client's own classes rather than the table, so a junk key has nothing
+    -- to print itself into.
+    --
+    -- **A value that is not a mask is caught where it is read** (`Misc.lua`'s `MaskFor`), the way
+    -- `talents` catches a list that is not a list. These are arithmetic now, and `band` on a
+    -- string raises inside the rebuild rather than failing narrow.
+    --
+    -- **A class with no key is whole**, so a string from a client that knows a class this one does
+    -- not says nothing about it and this one answers the same
+    -- (`giving-the-spec-condition-a-class-key.md` §2).
     specs = "table",
     -- A table of specialization ids, each holding a list of spell ids to have taken and one to
     -- not. **What is inside is not filtered either**, for the reason above: an id this client

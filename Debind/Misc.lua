@@ -1740,7 +1740,11 @@ function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     return dest;
 end
 
---- Every specialization one class has, in the client's order, as `{ id = , name = }`.
+--- Every specialization one class has, in the client's order, as `{ id = , index = , name = }`.
+---
+--- **The index is what the condition stores** and the id is what names a row
+--- (`giving-the-spec-condition-a-class-key.md` §3). They part on a class of
+--- two: its third row is index 5, not 3.
 ---
 --- **The initial specialization is visited on top of the count, not inside it.** The count stops
 --- at the named ones, and a class with two of those has its initial one at index 5 all the same
@@ -1759,18 +1763,17 @@ function DebindPrivate.EnumerateClassSpecs(classID, out)
     for index = 1, count do
         local id, name = GetSpecializationInfoForClassID(classID, index);
         if (id) then
-            out[#out + 1] = { id = id, name = name };
+            out[#out + 1] = { id = id, index = index, name = name };
         end
     end
     local initialID = GetSpecializationInfoForClassID(classID, Constants.INITIAL_SPEC_INDEX);
     if (initialID) then
-        out[#out + 1] = { id = initialID };
+        out[#out + 1] = { id = initialID, index = Constants.INITIAL_SPEC_INDEX };
     end
     return out;
 end
 
-local specCatalog, specsByClassID;
-local EMPTY_SPECS = {};
+local specCatalog, specMaskByClassID;
 
 --- Every class somebody can play, in the client's own order, each carrying its specializations
 --- (`EnumerateClassSpecs`). The one enumeration behind both places that draw specializations by
@@ -1793,7 +1796,7 @@ function DebindPrivate.ClassSpecCatalog()
         return specCatalog;
     end
     specCatalog = {};
-    specsByClassID = {};
+    specMaskByClassID = {};
     for index = 1, GetNumClasses() do
         local _, classFile, classID = GetClassInfo(index);
         if (classFile and classID) then
@@ -1803,56 +1806,139 @@ function DebindPrivate.ClassSpecCatalog()
                 specs = DebindPrivate.EnumerateClassSpecs(classID),
             };
             specCatalog[#specCatalog + 1] = entry;
-            specsByClassID[classID] = entry.specs;
+            -- **Summed here rather than where it is asked.** The specialization judgment asks for
+            -- it once per binding per rebuild, and a second table with a life of its own is a
+            -- second thing to drop.
+            local mask = 0;
+            for i = 1, #entry.specs do
+                mask = mask + Constants.SpecIndexFlag(entry.specs[i].index);
+            end
+            specMaskByClassID[classID] = mask;
         end
     end
     return specCatalog;
 end
 
---- One class's specializations off the catalog, so the two below cost a table lookup rather than
---- a walk of the client's specialization calls. **They are on paths that run per draw**: the
---- whole-class checkbox asks the first of these every time the menu redraws, and the tooltip line
---- asks it once per class per draw. Empty for a class nobody plays, which is a class the catalog
---- does not carry.
-local function ClassSpecsOf(classID)
-    if (specsByClassID == nil) then
-        DebindPrivate.ClassSpecCatalog();
-    end
-    return specsByClassID[classID] or EMPTY_SPECS;
-end
-
 local SPEC_LINE_NAME_LIMIT = 3;
 
---- Does this set hold **every** specialization of one class, which is what a class condition is.
+
+--- The bits one class actually carries. **The initial specialization is one of them**: it is a
+--- state a character of that class can be sitting in, so leaving it out would make "while I am a
+--- druid" false in one of the worlds it names.
 ---
---- **One answer for the two places that ask.** The menu's whole-class box is ticked by it and the
---- line above folds a class to its name by it, so the box and the words cannot disagree about
---- what a whole class is.
+--- **One mask per class and not one for all of them.** A class of two specializations has 1, 2 and
+--- 5 and nothing at 3 or 4, so a shared mask would hold bits that stand for nothing there, and a
+--- stored value carrying one of them would read as a specialization that does not exist.
+---
+--- Off the catalog, which is where it is summed. 0 for a class nobody plays, which is a class the
+--- catalog does not carry.
+function DebindPrivate.ClassSpecMask(classID)
+    if (specMaskByClassID == nil) then
+        DebindPrivate.ClassSpecCatalog();
+    end
+    return specMaskByClassID[classID] or 0;
+end
+
+--- One class's mask off a stored condition. nil where the class is left whole, and **0 where what
+--- is stored is not a mask at all.**
+---
+--- **The wire does not reach this deep.** `ConditionAllowed` types the condition itself and stops
+--- (`DebindStorage/Import.lua`), the way it does for `units` and `talents`, so a hand-made string
+--- can leave anything under a class id. It used to be read by indexing and anything was harmless;
+--- it is arithmetic now, and `band` on a boolean raises inside the rebuild. 0 rather than nil,
+--- because a value nobody can read must make the condition true less often rather than more: the
+--- direction a keybinding addon must not fail in is the one that takes somebody else's key.
+local function MaskFor(specs, classID)
+    local mask = specs[classID];
+    if (mask == nil) then
+        return nil;
+    end
+    if (type(mask) ~= "number") then
+        return 0;
+    end
+    return mask;
+end
+
+--- Does this condition leave one class **whole**, which is the state that constrains nothing there.
+---
+--- **No key is whole**, and that is the default the menu is drawn from: a class nobody opened is
+--- every specialization of it (`giving-the-spec-condition-a-class-key.md` §2).
+---
+--- **One answer for the three places that ask.** The menu's whole-class box is ticked by it, the
+--- class row is left unpainted by it, and the tooltip line folds a class to its name by it, so none
+--- of the three can disagree about what a whole class is.
 function DebindPrivate.SpecSetHoldsClass(specs, classID)
+    if (specs == nil) then
+        return true;
+    end
+    local mask = MaskFor(specs, classID);
+    if (mask == nil) then
+        return true;
+    end
+    local classMask = DebindPrivate.ClassSpecMask(classID);
+    if (classMask == 0) then
+        return false;
+    end
+    return band(mask, classMask) == classMask;
+end
+
+--- Does this condition hold **one** specialization of one class.
+function DebindPrivate.SpecSetHoldsIndex(specs, classID, index)
+    if (specs == nil) then
+        return true;
+    end
+    local mask = MaskFor(specs, classID);
+    if (mask == nil) then
+        return true;
+    end
+    if (index == nil) then
+        return false;
+    end
+    return band(mask, Constants.SpecIndexFlag(index)) ~= 0;
+end
+
+--- Put one whole class in, or take it out. **In is written as no mask at all**, which is the one
+--- shape a whole class has: a specialization added to that class later is held by it without
+--- anything being rewritten (`giving-the-spec-condition-a-class-key.md` §4).
+function DebindPrivate.SetClassInSpecSet(specs, classID, turnOn)
+    if (turnOn) then
+        specs[classID] = nil;
+    else
+        specs[classID] = 0;
+    end
+    return specs;
+end
+
+--- Is there a class this condition still leaves whole. **Nothing is left to narrow when there is
+--- not**, which is the one shape that says the same thing as no condition at all, and the menu
+--- drops it rather than keeping two ways to say it (§4).
+function DebindPrivate.SpecSetNarrowsAnything(specs)
     if (specs == nil) then
         return false;
     end
-    local classSpecs = ClassSpecsOf(classID);
-    if (#classSpecs == 0) then
+    local catalog = DebindPrivate.ClassSpecCatalog();
+    for i = 1, #catalog do
+        if (not DebindPrivate.SpecSetHoldsClass(specs, catalog[i].id)) then
+            return true;
+        end
+    end
+    return false;
+end
+
+--- Does this condition hold no specialization at all, which is the error the reader is meant to
+--- see (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
+function DebindPrivate.SpecSetIsEmpty(specs)
+    if (specs == nil) then
         return false;
     end
-    for i = 1, #classSpecs do
-        if (specs[classSpecs[i].id] == nil) then
+    local catalog = DebindPrivate.ClassSpecCatalog();
+    for i = 1, #catalog do
+        local mask = MaskFor(specs, catalog[i].id);
+        if (mask == nil or band(mask, DebindPrivate.ClassSpecMask(catalog[i].id)) ~= 0) then
             return false;
         end
     end
     return true;
-end
-
---- Put one whole class into the set, or take it out. **The initial specialization goes in with
---- the rest**: it is a state a character of that class can be sitting in, so leaving it out would
---- make "while I am a druid" false in one of the worlds it names.
-function DebindPrivate.SetClassInSpecSet(specs, classID, turnOn)
-    local classSpecs = ClassSpecsOf(classID);
-    for i = 1, #classSpecs do
-        specs[classSpecs[i].id] = turnOn or nil;
-    end
-    return specs;
 end
 
 --- One `conditions.specs` set as a line to read, in one sentence: **this character's class is
@@ -1891,7 +1977,7 @@ function DebindPrivate.DescribeSpecCondition(specs)
 
         local picked = {};
         for j = 1, #classSpecs do
-            if (specs[classSpecs[j].id] ~= nil) then
+            if (DebindPrivate.SpecSetHoldsIndex(specs, class.id, classSpecs[j].index)) then
                 picked[#picked + 1] = classSpecs[j].name or L["NO_SPECIALIZATION"];
             end
         end
@@ -1965,12 +2051,13 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     if (specs == nil) then
         return true;
     end
-    -- **An empty set is not another specialization's.** No specialization satisfies it, so a
-    -- reader waiting for the right one to come round will wait forever: the action is wrong, and
-    -- it already has a word for that (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
+    -- **A condition holding nothing at all is not another specialization's.** No specialization
+    -- satisfies it, so a reader waiting for the right one to come round will wait forever: the
+    -- action is wrong, and it already has a word for that
+    -- (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
     --
     -- Every caller here is asking the same question, "does this belong to a world other than the
-    -- one on screen", and for an empty set the answer is no. Answering `false` instead put it in
+    -- one on screen", and for that shape the answer is no. Answering `false` instead put it in
     -- the same bucket as an off-specialization action three times over: `BuildKeyMap` left it out
     -- of `ActiveActions`, so the key heading -- which asks only active rows whether one is broken
     -- -- drew plain over a dead key while the row under it showed the error; and the tooltip added
@@ -1978,17 +2065,29 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     --
     -- **The error gate is what keeps it off the key**, the same gate every other ERROR goes
     -- through (`Debind.lua`). Nothing is lost by letting it past this one.
-    if (next(specs) == nil) then
+    --
+    -- **Asked only where this character's class is empty**, which is the one path it can be on.
+    local classID = Constants.CLASS_IDS[Constants.PLAYER_CLASS];
+    if (classID == nil) then
+        -- The same direction a specialization that is not settled yet takes, and for the same
+        -- reason: a class nobody can name is a condition nobody can judge, and the answer that
+        -- binds nothing beats the one that fires the wrong thing.
+        return false;
+    end
+    local mask = MaskFor(specs, classID);
+    if (mask == nil) then
         return true;
+    end
+    if (band(mask, DebindPrivate.ClassSpecMask(classID)) == 0) then
+        return DebindPrivate.SpecSetIsEmpty(specs);
     end
     if (spec == nil) then
         spec = C_SpecializationInfo.GetSpecialization();
     end
-    local specID = DebindPrivate.SpecIDForIndex(spec);
-    if (specID == nil) then
+    if (spec == nil) then
         return false;
     end
-    return specs[specID] ~= nil;
+    return band(mask, Constants.SpecIndexFlag(spec)) ~= 0;
 end
 
 --- Does this binding's `known` condition have a spell to ask about? **The second condition the
@@ -2586,7 +2685,7 @@ local ACTION_CHECKS = {
     end },
     { category = "specs", label = "CONDITION_SPEC", check = function(action)
         local specs = (action.conditions or EMPTY_CONDITIONS).specs;
-        if (specs ~= nil and next(specs) == nil) then
+        if (specs ~= nil and DebindPrivate.SpecSetIsEmpty(specs)) then
             return Constants.BINDING_ISSUE_SPECS_NONE_SELECTED;
         end
     end },

@@ -271,7 +271,7 @@ return function(DebindPrivate)
             { [HOUSING] = true });
         DebindPrivate.RefreshYieldedKeys();
 
-        local otherSpec = { [DebindPrivate.SpecIDForIndex(2)] = true };
+        local otherSpec = { [select(3, UnitClass("player"))] = Constants.SpecIndexFlag(2) };
         Profile({
             { type = Constants.SPELL, value = 585, key = "F5", seq = 1,
                 conditions = { specs = otherSpec } },

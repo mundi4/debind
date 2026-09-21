@@ -31,8 +31,9 @@ local TalentConditionTouches         = ActionMenu.TalentConditionTouches;
 local HasOtherSpecTalents            = ActionMenu.HasOtherSpecTalents;
 local ClearOtherSpecTalents          = ActionMenu.ClearOtherSpecTalents;
 local SetTalentCondition             = ActionMenu.SetTalentCondition;
-local SpecConditionHasID             = ActionMenu.SpecConditionHasID;
-local ToggleSpecConditionID          = ActionMenu.ToggleSpecConditionID;
+local SpecConditionHasIndex          = ActionMenu.SpecConditionHasIndex;
+local ToggleSpecConditionIndex       = ActionMenu.ToggleSpecConditionIndex;
+local ClearAllSpecConditions         = ActionMenu.ClearAllSpecConditions;
 local ClassSpecsAllPicked            = ActionMenu.ClassSpecsAllPicked;
 local ToggleClassSpecs               = ActionMenu.ToggleClassSpecs;
 local UnitConditionOnFor             = ActionMenu.UnitConditionOnFor;
@@ -463,57 +464,55 @@ ActionMenus:Define("GROUP", {
     end,
 });
 
---- Does anything under this class's row carry a tick, on any selected action. **That is the whole
---- of the partial state.** A menu checkbox is on or off with nothing in between, so a class whose
---- specializations are half picked cannot be drawn as a third kind of box; what says so is the
---- row's own colour, which every node in this family already gets from `isActive` (`MenuKit.lua`).
-local function ClassSpecConditionIsOn(ctx, specs)
+--- Is this class narrowed on any selected action, which is what paints its row.
+---
+--- **The colour follows what the condition rules out, and here that is the same thing as what the
+--- reader touched.** A class nobody opened is every specialization of it and lets the key through,
+--- so it stays unpainted; a class with one box off is what this axis is doing, and it is painted
+--- (`giving-the-spec-condition-a-class-key.md` §2).
+---
+--- **A class half picked has no box of its own to say so.** A menu checkbox is on or off with
+--- nothing in between, so the row's colour is what carries the partial state, the way it does for
+--- every other node in this family (`MenuKit.lua`).
+local function ClassSpecConditionIsOn(ctx, classID)
     return AnyAction(ctx, function(action)
-        local conditions = SpecConditionsOf(action);
-        if (conditions == nil) then
-            return false;
-        end
-        for i = 1, #specs do
-            if (conditions[specs[i].id] ~= nil) then
-                return true;
-            end
-        end
-        return false;
+        return not DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(action), classID);
     end);
 end
 
---- **Names, one class at a time.** The condition stores specialization ids, so a row means the
---- same specialization wherever the action sits and a class is exactly its own ids: ticking every
---- box under one class is what "while I am a warrior" is
---- (`moving-the-spec-condition-to-spec-ids.md`).
+--- **Names, one class at a time.** The condition is a mask per class, so a class is a key and its
+--- specializations are the bits under it: a class nobody narrowed is every specialization of it
+--- (`giving-the-spec-condition-a-class-key.md`).
 ---
 --- **Every class is offered, not just this character's.** An action moves between tabs and can sit
 --- in General, where it is a character of another class that will press the key.
 ---
 --- The nameless initial specialization sits under each class rather than in a row of its own at
---- the bottom: its id differs by class, so one row for all of them could only tick every class's
---- at once.
+--- the bottom: it is one bit of that class's mask, so one row for all of them could only turn
+--- every class's over at once.
 ActionMenus:Define("SPEC", {
     label = "CONDITION_SPEC",
     key = "specs",
     build = function(kit)
         kit:Disable("CONDITION_SPEC", "specs");
+
         local catalog = DebindPrivate.ClassSpecCatalog();
         for i = 1, #catalog do
             local class = catalog[i];
             local specs = class.specs;
+            local classID = class.id;
             if (#specs > 0) then
                 local classDescription = ActionMenus:BuildNode(kit.description, {
                     label = Constants.CLASS_NAMES[class.classFile],
                     skipTitle = true,
                     isActive = function(ctx)
-                        return ClassSpecConditionIsOn(ctx, specs);
+                        return ClassSpecConditionIsOn(ctx, classID);
                     end,
                     valueOf = function(action)
                         local picked = {};
                         local set = SpecConditionsOf(action);
                         for j = 1, #specs do
-                            picked[j] = set ~= nil and set[specs[j].id] ~= nil;
+                            picked[j] = DebindPrivate.SpecSetHoldsIndex(set, classID, specs[j].index);
                         end
                         return picked;
                     end,
@@ -524,7 +523,6 @@ ActionMenus:Define("SPEC", {
                 -- box under it over on the click that was meant to open it. The client puts the
                 -- same thing in the same place, one row above the specializations and in these
                 -- words (`ALL_SPECS`, `Blizzard_ClassMenu`).
-                local classID = class.id;
                 CreateCheckbox(classDescription, kit.ctx,ALL_SPECS,
                     function()
                         return ClassSpecsAllPicked(kit.ctx, classID);
@@ -534,17 +532,30 @@ ActionMenus:Define("SPEC", {
                     end);
 
                 for j = 1, #specs do
-                    local specID = specs[j].id;
+                    local index = specs[j].index;
                     CreateCheckbox(classDescription, kit.ctx,specs[j].name or LLL["NO_SPECIALIZATION"],
                         function()
-                            return SpecConditionHasID(kit.ctx, specID);
+                            return SpecConditionHasIndex(kit.ctx, classID, index);
                         end,
                         function()
-                            return ToggleSpecConditionID(kit.ctx, specID);
+                            return ToggleSpecConditionIndex(kit.ctx, classID, index);
                         end);
                 end
             end
         end
+
+        -- **The walk the default costs.** Every class starts whole, so "this one specialization
+        -- and nothing else" means turning twelve classes the reader never opened off
+        -- (`giving-the-spec-condition-a-class-key.md` §2).
+        --
+        -- **No row beside it for the other direction.** Taking every class back to whole is what
+        -- `Disable` above already does, and that one is a radio: it says whether the axis is in
+        -- that state, which a second button could not.
+        kit.description:CreateDivider();
+        kit.description:CreateButton(UNCHECK_ALL,
+            function()
+                return ClearAllSpecConditions(kit.ctx);
+            end);
     end,
 });
 
