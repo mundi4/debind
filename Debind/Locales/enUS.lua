@@ -1285,10 +1285,6 @@ L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnNORMAL_FONT_COLOR:%d|r actions use it a
 -- reaches, so that is the one consequence the reader cannot see from where they are standing.
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
 L["SWITCHES_EMPTY"] = "No switches yet.|n|nSwitches you make are listed here."
--- Split by whether anything on the account uses the switch, not by whether it is in use right now:
--- a switch only another specialization reads still has work to do before it can be deleted.
-L["SWITCHES_GROUP_USED"] = "In Use"
-L["SWITCHES_GROUP_UNUSED"] = "Unused"
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.

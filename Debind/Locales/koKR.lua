@@ -435,8 +435,6 @@ L["SWITCH_DELETE_CONFIRM"] = "|cnNORMAL_FONT_COLOR:%s|r을(를) 이 계정 전�
 L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "이 스위치를 쓰는 액션 |cnNORMAL_FONT_COLOR:%d|r개가 작동을 멈춥니다."
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "이 스위치를 직업, 전문화, 캐릭터별로 따로 정해 둔 것도 같이 지워집니다. 다른 캐릭터에 있는 것까지입니다."
 L["SWITCHES_EMPTY"] = "아직 만든 스위치가 없습니다.|n|n만든 스위치가 여기 표시됩니다."
-L["SWITCHES_GROUP_USED"] = "사용 중"
-L["SWITCHES_GROUP_UNUSED"] = "미사용"
 -- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
 L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선합니다."

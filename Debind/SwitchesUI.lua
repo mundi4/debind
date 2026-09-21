@@ -9,9 +9,10 @@ local DebindUI         = DebindPrivate.DebindUI;
 local INDENT            = "   ";
 
 local ROW_HEIGHT        = 28;
---- A group heading. The height Overview's heading stands at, because it is the same bar.
+--- A group heading on the right column. The height Overview's heading stands at, because it is
+--- the same bar.
 local HEADER_ROW_HEIGHT = 26;
---- The air above a heading, as an element of its own. Overview's `KEY_GROUP_GAP`.
+--- The air under a group, as an element of its own. Overview's `KEY_GROUP_GAP`.
 local GROUP_GAP         = 8;
 --- A row on the right column that is a name and nothing else. Shorter than a switch row: these
 --- are read down rather than acted on, and there can be a great many of them.
@@ -28,18 +29,15 @@ local ROOT_LAYER_ID     = 1;
 --- an element's extent before there is a frame to measure, so the two cannot come apart.
 local SETTINGS_EXTENT   = 348;
 
---- The two halves the list is drawn in, in the order they stand. **Both headings are drawn even
---- where one half is empty**: the two sit in the same place every time, and which half a switch is
---- in is read off where it stands rather than off a heading that comes and goes.
+--- The two halves the list is drawn in, in the order they stand. **Nothing marks where one ends
+--- and the other begins**: the tally on the row already says whether anything names the switch,
+--- and a heading over each half said it a second time.
 ---
 --- **The split is "does anything anywhere on the account name it"**, which is what a reader about
 --- to delete one is asking. It was "is this switch in the compile" until now, and that is our own
 --- optimisation talking: a switch only another specialization reads is not one the reader has
 --- nothing to fix before deleting (`reworking-the-switches-tab.md`).
-local GROUPS = {
-    { header = "SWITCHES_GROUP_USED",   used = true },
-    { header = "SWITCHES_GROUP_UNUSED", used = false },
-};
+local HALVES = { true, false };
 
 --- The three answers one layer can give, in the order they stand in the mode dropdown.
 ---
@@ -759,22 +757,10 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
-        if (elementData.spacer) then
-            factory("Frame");
-        elseif (elementData.header) then
-            factory("DebindSwitchGroupHeaderTemplate", function(frame) frame:Init(elementData); end);
-        else
-            factory("DebindSwitchRowTemplate", function(frame) frame:Init(elementData); end);
-        end
+        factory("DebindSwitchRowTemplate", function(frame) frame:Init(elementData); end);
     end);
 
-    view:SetElementExtentCalculator(function(_, elementData)
-        if (elementData.spacer) then
-            return GROUP_GAP;
-        end
-        if (elementData.header) then
-            return HEADER_ROW_HEIGHT;
-        end
+    view:SetElementExtentCalculator(function()
         return ROW_HEIGHT;
     end);
 
@@ -991,20 +977,11 @@ function DebindSwitchesPanelMixin:RefreshRows()
     self.usage = DebindPrivate.CollectSwitchUsage();
 
     local list = {};
-    -- **No headings at all where there is not one switch.** That is the one case the two halves
-    -- say nothing about, and the empty text below is the whole of what the tab has to say then.
-    if (#names > 0) then
-        for _, group in ipairs(GROUPS) do
-            list[#list + 1] = { header = group.header };
-            for _, name in ipairs(names) do
-                if (IsUsed(self.usage, name) == group.used) then
-                    list[#list + 1] = { name = name, panel = self };
-                end
+    for _, used in ipairs(HALVES) do
+        for _, name in ipairs(names) do
+            if (IsUsed(self.usage, name) == used) then
+                list[#list + 1] = { name = name, panel = self };
             end
-            -- **Air under a group's last row, not over the next heading** (2026-09-21, 소유자).
-            -- The gap belongs to the group that just ended, and a heading at the top of the list
-            -- would otherwise be the one row that stands differently from the rest.
-            list[#list + 1] = { spacer = true };
         end
     end
 
@@ -1363,7 +1340,9 @@ function DebindSwitchesPanelMixin:UsageList()
         for i = 1, #rows do
             list[#list + 1] = rows[i];
         end
-        -- The left column's rule: the air belongs under the group that just ended.
+        -- **Air under the group that just ended, not over the next heading** (2026-09-21, 소유자).
+        -- A heading at the top of the list would otherwise be the one that stands differently
+        -- from the rest.
         list[#list + 1] = { spacer = true };
     end
 
