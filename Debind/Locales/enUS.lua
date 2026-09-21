@@ -1203,12 +1203,16 @@ L["SWITCH_EXPR_LABEL"] = "Macro conditional"
 -- The two tabs over the right column.
 L["SWITCH_TAB_SETTINGS"] = "Settings"
 L["SWITCH_TAB_USAGE"] = "Used by"
--- The three groups of places under it, and what separates the third from the first is **whether
--- you would have to log in somewhere else to fix it**, not whose it is: another character of your
--- own class is in both, its class layers here and its own layers below.
+-- The three groups under it. The first is what you can open and fix from this character, the
+-- second is where the name is written across the account, and they count the same reference twice
+-- on purpose: **"Across" is what says the second one is not the rest of the first.** It also
+-- covers the account-wide row, which "Other classes and characters" did not.
 L["SWITCH_USAGE_HERE"] = "This character"
+L["SWITCH_USAGE_ACCOUNT"] = "Across the account"
 L["SWITCH_USAGE_EXPRS"] = "Other switches"
-L["SWITCH_USAGE_ELSEWHERE"] = "Other classes and characters"
+-- The two halves of a row's number in the group above, in its tooltip.
+L["SWITCH_USAGE_ACTIONS"] = "Actions"
+L["SWITCH_USAGE_GOTO"] = "Click to go to this action."
 L["SWITCH_USAGE_EMPTY"] = "Nothing uses this switch."
 L["SWITCHES_DETAIL_EMPTY"] = "Pick a switch."
 L["SWITCH_TURN_ON"] = "Turn On"

@@ -5613,6 +5613,113 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
     end,
 })
 
+--- **The search box takes a switch's name**, which is how the switches tab sends the reader to the
+--- actions waiting on one: those are edited on Overview, not there.
+---
+--- The half that cannot be read off a passing search is the name being matched whole. Everything
+--- else in that box matches a piece of a word, so `$find` would drag in `$findtwo` and the list
+--- would be a list of something the reader did not ask for. Both names are planted here and the
+--- second one has to stay out.
+RegisterTest("Overview search: a switch's name finds what waits on it", {
+    description = "Typing $name into the search box leaves the actions that use that switch and drops the rest, and a longer name that starts the same stays out",
+    run = function()
+        local NAME = "Search by switch name"
+        local SWITCH = "$findme"
+        local LONGER = "$findmetoo"
+
+        local saved, savedLonger = DebindPrivate.Switches[SWITCH], DebindPrivate.Switches[LONGER]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.Switches[LONGER] = savedLonger
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL }
+        DebindPrivate.Switches[LONGER] = { mode = Constants.SWITCH_MODES.MANUAL }
+
+        local wanted = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F5",
+            conditions = { [SWITCH] = true } })
+        local longer = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F6",
+            conditions = { [LONGER] = true } })
+        local unrelated = InsertAction({ type = Constants.SPELL, value = 3, key = "CTRL-ALT-F7" })
+        ApplyBindings()
+        OpenOverviewWithNothingPicked()
+
+        if not LeftRowOf(wanted) or not LeftRowOf(longer) or not LeftRowOf(unrelated) then
+            return Fail(NAME, "setup: a planted row is not in the left column, is a search term or filter on")
+        end
+
+        local searchBox = DebindFrame.OverviewPanel.SearchBox
+        AddTeardown(function() TypeInto(searchBox, "") end)
+        if not TypeInto(searchBox, SWITCH) then
+            return Fail(NAME, "the search box has no OnTextChanged")
+        end
+
+        if not LeftRowOf(wanted) then
+            return Fail(NAME, format("%s is on the action and the search dropped it", SWITCH))
+        end
+        if LeftRowOf(longer) then
+            return Fail(NAME, format("%s dragged in %s: the name is being matched by its first letters", SWITCH, LONGER))
+        end
+        if LeftRowOf(unrelated) then
+            return Fail(NAME, "an action that names no switch survived the search")
+        end
+
+        return Pass(NAME, format("%s found its own action and left %s alone", SWITCH, LONGER))
+    end,
+})
+
+--- **The usage row is a door and nothing else.** What it has to do is carry the reader to the
+--- action, which means three things at once: the window tab, the layer tab, and the selection
+--- (`GoToAction`). The first of those is the one this row added -- every other caller was already
+--- standing on Overview -- and without it the press would land on a panel nobody can see.
+RegisterTest("Switches tab: a usage row carries the reader to the action", {
+    description = "Clicking an action under 'This character' opens Overview with that action picked",
+    run = function()
+        local NAME = "Switch usage row goes to the action"
+        local SWITCH = "$usagegoto"
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL }
+
+        local action = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F5",
+            conditions = { [SWITCH] = true } })
+        ApplyBindings()
+
+        local panel = OpenSwitchesTab()
+        panel:SelectSwitch(SWITCH)
+        panel:PickDetailTab(panel.usageTabID)
+
+        local row
+        panel.Detail.ContentArea.ScrollBox:ForEachFrame(function(frame)
+            if frame.action == action then
+                row = frame
+            end
+        end)
+        if not row then
+            return Fail(NAME, format("%s is on an action of this character and no row stood for it", SWITCH))
+        end
+
+        row:Click("LeftButton")
+
+        if DebindFrame.SwitchesPanel:IsShown() then
+            return Fail(NAME, "the press left the window on the switches tab")
+        end
+        if not DebindFrame:IsActionSelected(action) then
+            return Fail(NAME, "the window moved and the action it moved for is not picked")
+        end
+
+        return Pass(NAME, format("%s's row landed on the action", SWITCH))
+    end,
+})
+
 --- **One press is one rung, and everything registered in `UISpecialFrames` goes down together.**
 --- The window and both sharing dialogs are all in that table, so the sweep behind one ESCAPE hides
 --- all three at once; what puts two of them back and closes exactly one is the pair

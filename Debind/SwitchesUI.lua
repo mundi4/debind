@@ -11,13 +11,11 @@ local INDENT            = "   ";
 local ROW_HEIGHT        = 28;
 --- A group heading. The height Overview's heading stands at, because it is the same bar.
 local HEADER_ROW_HEIGHT = 26;
---- How far a row hangs in from the heading above it. Overview's `ORDER_LINE_INDENT`.
-local ROW_INDENT        = 10;
 --- The air above a heading, as an element of its own. Overview's `KEY_GROUP_GAP`.
 local GROUP_GAP         = 8;
 --- A row on the right column that is a name and nothing else. Shorter than a switch row: these
 --- are read down rather than acted on, and there can be a great many of them.
-local USAGE_ROW_HEIGHT  = 20;
+local USAGE_ROW_HEIGHT  = 24;
 local ACTION_ROW_HEIGHT = 46;
 
 --- The root's own layer, which is `GetLayerID(nil, false)`. It is drawn like the overrides and
@@ -139,32 +137,75 @@ local function WinningLayerID(name)
     return ROOT_LAYER_ID;
 end
 
---- The classes and characters that name this switch somewhere this client cannot reach, by name,
---- sorted.
+--- Where the account has this switch written down, one row apiece: the account-wide layer, then a
+--- row per class, then a row per character.
 ---
---- **A class row and a character row ask for different things.** A class layer is reachable from
---- any character of that class; a character's own layers need that character. So the two are named
---- and not counted: what the reader does about one is log in there.
+--- **These are not the places this client cannot reach.** This character's own class and its own
+--- layers stand here too. What the rows answer is where the name is written, and the same
+--- reference is in `here` as well, so the two numbers are not meant to be added
+--- (`CollectSwitchUsage`). Split the other way, a switch named once on the account-wide layer read
+--- as "this character only".
 ---
 --- **The names come from the profile and not from `GetLayerLabel`.** That one names only the
 --- character who is logged in and spells every other one "character" -- it has nothing else to go
 --- on, since a shared string carries no character name (`building-export-import.md` 3절). What is
 --- in our own file does: `RefreshIdentity` writes `name` and `class` on every login.
-local function UsageElsewhere(usage)
-    local names = {};
+---
+--- **A character is drawn in its class's colour, and so is a class.** Both rows answer "which
+--- class", and two colour rules for one fact is two things to learn.
+local function AccountRows(usage)
+    local rows = {};
     if (not usage) then
-        return names;
+        return rows;
     end
-    for classKey in pairs(usage.classes) do
-        names[#names + 1] = Constants.CLASS_NAMES[classKey] or classKey;
+
+    local function RowFor(label, color, bucket)
+        return {
+            text = color:WrapTextInColorCode(label),
+            actions = bucket.actions,
+            exprs = bucket.exprs,
+        };
     end
-    local characters = DebindPrivate.db.global.characters or {};
-    for guid in pairs(usage.characters) do
-        local entry = characters[guid];
-        names[#names + 1] = entry and entry.name or guid;
+
+    -- **The account-wide layer is not a class and takes the one colour no class owns**
+    -- (2026-09-21, 소유자). White is a priest, gold is close enough to a rogue to be read as one,
+    -- and grey is what this window paints something that is off.
+    local general = usage.general;
+    if (general.actions + general.exprs > 0) then
+        rows[#rows + 1] = RowFor(DebindUI.GetLayerLabel(ROOT_LAYER_ID),
+            ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color, general);
     end
-    sort(names);
-    return names;
+
+    local function Sorted(built)
+        sort(built, function(a, b) return a.label < b.label; end);
+        for i = 1, #built do
+            rows[#rows + 1] = RowFor(built[i].label, built[i].color, built[i].bucket);
+        end
+    end
+
+    local classes = {};
+    for classKey, bucket in pairs(usage.classes) do
+        classes[#classes + 1] = {
+            label = Constants.CLASS_NAMES[classKey] or classKey,
+            color = GetClassColorObj(classKey) or NORMAL_FONT_COLOR,
+            bucket = bucket,
+        };
+    end
+    Sorted(classes);
+
+    local stored = DebindPrivate.db.global.characters or {};
+    local characters = {};
+    for guid, bucket in pairs(usage.characters) do
+        local entry = stored[guid];
+        characters[#characters + 1] = {
+            label = entry and entry.name or guid,
+            color = entry and GetClassColorObj(entry.class) or HIGHLIGHT_FONT_COLOR,
+            bucket = bucket,
+        };
+    end
+    Sorted(characters);
+
+    return rows;
 end
 
 --- Is anything anywhere on the account naming this switch? `CollectSwitchUsage` files an entry only
@@ -367,13 +408,16 @@ function DebindSwitchRowMixin:OnEnter()
     GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_EXPRS"], #usage.exprs,
         NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
 
-    -- **Names and not a number.** The reader cannot count their way to these: what they have to do
-    -- about one is log in there, so the answer is which class and which character.
-    local elsewhere = UsageElsewhere(usage);
-    if (#elsewhere > 0) then
-        GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_USAGE_ELSEWHERE"]);
-        for i = 1, #elsewhere do
-            GameTooltip_AddHighlightLine(GameTooltip, INDENT .. elsewhere[i]);
+    -- **The tally under them counts the two lines above again.** They answer different questions:
+    -- how much of this character the switch touches, and how far it reaches at all.
+    local account = AccountRows(usage);
+    if (#account > 0) then
+        GameTooltip_AddBlankLineToTooltip(GameTooltip);
+        GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_USAGE_ACCOUNT"]);
+        for i = 1, #account do
+            local row = account[i];
+            GameTooltip_AddColoredDoubleLine(GameTooltip, INDENT .. row.text,
+                row.actions + row.exprs, HIGHLIGHT_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
         end
     end
     GameTooltip:Show();
@@ -390,20 +434,35 @@ end
 
 DebindSwitchUsageRowMixin = {};
 
+--- **The number is everything written in that place**, actions and other switches' expressions
+--- together, because the row answers how much of the switch lives there. Which of the two is in
+--- the tooltip, and only where there is anything to tell apart.
 function DebindSwitchUsageRowMixin:Init(elementData)
     self.Name:SetText(elementData.text);
-    self.Key:SetText(elementData.key or "");
-    self.tooltip = elementData.tooltip;
+    self.actions = elementData.actions;
+    self.exprs = elementData.exprs;
+    if (self.actions) then
+        self.Key:SetText(self.actions + self.exprs);
+    else
+        self.Key:SetText("");
+    end
 end
 
---- **Only where the row was cut off.** These rows say nothing a tooltip could add, so the one
---- reason to open one is a name too long for the column.
+--- **Two reasons to open one**: the number is made of two kinds of reference, or the name was cut
+--- off by the column.
 function DebindSwitchUsageRowMixin:OnEnter()
-    if (not self.Name:IsTruncated()) then
+    local split = self.exprs and self.exprs > 0 and self.actions > 0;
+    if (not split and not self.Name:IsTruncated()) then
         return;
     end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.Name:GetText());
+    if (split) then
+        GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_ACTIONS"], self.actions,
+            NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+        GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_EXPRS"], self.exprs,
+            NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+    end
     GameTooltip:Show();
 end
 
@@ -432,14 +491,30 @@ function DebindSwitchUsageActionMixin:Init(elementData)
         DebindUI.GetLayerLabel(elementData.layer)));
 end
 
+--- **The one thing this row does.** The action is edited on the Overview tab, and this list is
+--- what a reader empties before deleting a switch, so the row carries them over rather than
+--- offering the edit here (`GoToAction`).
+---
+--- A left click and no menu: the row has exactly one thing to do, and a menu holding one item
+--- costs two presses for it. It is also a gesture nobody would look for, since the only rows in
+--- this window that open a menu are Overview's.
+function DebindSwitchUsageActionMixin:OnClick()
+    DebindFrame:GoToAction(self.action, self.layerID);
+end
+
+--- **Not the Overview row's tooltip**, which is the whole account of an action: its conditions,
+--- its order, what is wrong with it. The reader is not deciding anything about the action here,
+--- they are on their way to it.
 function DebindSwitchUsageActionMixin:OnEnter()
-    DebindPrivate.AddActionToTooltip(GameTooltip, self.action, {
-        offWorld = DebindUI.IsLayerOffWorld(self.layerID),
-    });
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+    GameTooltip_SetTitle(GameTooltip, (DebindUI.NameAndIconForAction(self.action)));
+    GameTooltip_AddBlankLineToTooltip(GameTooltip);
+    GameTooltip_AddInstructionLine(GameTooltip, LLL["SWITCH_USAGE_GOTO"]);
+    GameTooltip:Show();
 end
 
 function DebindSwitchUsageActionMixin:OnLeave()
-    DebindPrivate.HideActionTooltip(GameTooltip);
+    GameTooltip:Hide();
 end
 
 
@@ -635,8 +710,16 @@ function DebindSwitchesPanelMixin:OnLoad()
     self:InitializeDetailTabs();
 end
 
+--- **The switch that was just made is the one the reader is about to set up**, so the column opens
+--- on it rather than leaving them to find it in a list they just made longer.
+---
+--- **Through the strip and not `PickDetailTab`.** Only `SetTab` moves the artwork, and a settings
+--- block under a tab that still looks like the other one says the press went somewhere else.
 function DebindSwitchesPanelMixin:OnNewClick()
-    DebindUI.ShowNewSwitchBox();
+    DebindUI.ShowNewSwitchBox(function(name)
+        self:SelectSwitch(name);
+        self.Detail.TabSystem:SetTab(self.settingsTabID);
+    end);
 end
 
 function DebindSwitchesPanelMixin:InitializeScrollBox()
@@ -660,16 +743,6 @@ function DebindSwitchesPanelMixin:InitializeScrollBox()
             return HEADER_ROW_HEIGHT;
         end
         return ROW_HEIGHT;
-    end);
-
-    -- The inset Overview's order list puts its rows at under the same heading
-    -- (`ORDER_LINE_INDENT`). Two lists in one window that hang rows off the same bar by different
-    -- amounts read as two kinds of bar.
-    view:SetElementIndentCalculator(function(elementData)
-        if (elementData.spacer or elementData.header) then
-            return 0;
-        end
-        return ROW_INDENT;
     end);
 
     local content = self.List.ContentArea;
@@ -721,13 +794,6 @@ function DebindSwitchesPanelMixin:InitializeDetailScrollBox()
             return ACTION_ROW_HEIGHT;
         end
         return USAGE_ROW_HEIGHT;
-    end);
-
-    view:SetElementIndentCalculator(function(elementData)
-        if (elementData.spacer or elementData.header or elementData.action or elementData.settings) then
-            return 0;
-        end
-        return ROW_INDENT;
     end);
 
     local content = detail.ContentArea;
@@ -895,18 +961,17 @@ function DebindSwitchesPanelMixin:RefreshRows()
     -- **No headings at all where there is not one switch.** That is the one case the two halves
     -- say nothing about, and the empty text below is the whole of what the tab has to say then.
     if (#names > 0) then
-        for index, group in ipairs(GROUPS) do
-            -- Air between the two halves, as its own element (Overview's `KEY_GROUP_GAP`). Not
-            -- above the first: the list already stands off the top of its box.
-            if (index > 1) then
-                list[#list + 1] = { spacer = true };
-            end
+        for _, group in ipairs(GROUPS) do
             list[#list + 1] = { header = group.header };
             for _, name in ipairs(names) do
                 if (IsUsed(self.usage, name) == group.used) then
                     list[#list + 1] = { name = name, panel = self };
                 end
             end
+            -- **Air under a group's last row, not over the next heading** (2026-09-21, 소유자).
+            -- The gap belongs to the group that just ended, and a heading at the top of the list
+            -- would otherwise be the one row that stands differently from the rest.
+            list[#list + 1] = { spacer = true };
         end
     end
 
@@ -1247,9 +1312,12 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     end
 end
 
---- **The third group is "you would have to log in there to fix it"**, which is not the same as
---- "somebody else owns it": another character of this class is split between the first group and
---- the third, because what it has on the class layers is reachable from here.
+--- **The first two groups are not a partition and are not meant to be added.** The first is what
+--- this character can open and fix, as rows to go to; the second is where the name is written
+--- across the account, as a tally that counts those same references again (`AccountRows`).
+---
+--- The third is the switches whose expression names this one, and only the ones on a layer this
+--- character can open: the rest are inside the tally above.
 function DebindSwitchesPanelMixin:UsageList()
     local usage = self.usage[self.selectedName];
     local list = {};
@@ -1258,20 +1326,17 @@ function DebindSwitchesPanelMixin:UsageList()
         if (#rows == 0) then
             return;
         end
-        -- Air above every heading but the first, which the list already stands off the top of its
-        -- box for (the left column's own rule).
-        if (#list > 0) then
-            list[#list + 1] = { spacer = true };
-        end
         list[#list + 1] = { header = header };
         for i = 1, #rows do
             list[#list + 1] = rows[i];
         end
+        -- The left column's rule: the air belongs under the group that just ended.
+        list[#list + 1] = { spacer = true };
     end
 
     AddGroup("SWITCH_USAGE_HERE", self:ActionRows(usage));
+    AddGroup("SWITCH_USAGE_ACCOUNT", AccountRows(usage));
     AddGroup("SWITCH_USAGE_EXPRS", self:ExprRows(usage));
-    AddGroup("SWITCH_USAGE_ELSEWHERE", self:ElsewhereRows(usage));
     return list;
 end
 
@@ -1324,14 +1389,6 @@ function DebindSwitchesPanelMixin:ExprRows(usage)
     return rows;
 end
 
-function DebindSwitchesPanelMixin:ElsewhereRows(usage)
-    local rows = {};
-    local names = UsageElsewhere(usage);
-    for i = 1, #names do
-        rows[#rows + 1] = { text = names[i] };
-    end
-    return rows;
-end
 
 
 --------------------------------------------------------------------------------

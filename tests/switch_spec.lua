@@ -573,9 +573,10 @@ return function(DebindPrivate)
         -- 이 캐릭터(드루이드, 1특성)가 여는 층: 전역 셋, 드루이드 공용 하나, 드루이드 2특성 하나.
         local here, exprs, classes, characters = Sizes(usage["$state1"]);
         check(here == 5, "여기 자리가 " .. here .. "개다");
-        -- 다른 캐릭터의 켜기 액션 하나. 그 캐릭터 전용 레이어라 여기서 못 연다.
-        check(characters == 1, "다른 캐릭터가 " .. characters .. "개다");
-        check(classes == 0, "다른 직업이 " .. classes .. "개다");
+        -- 캐릭터 줄은 다른 캐릭터의 켜기 액션 하나뿐이다. 이 캐릭터는 자기 층에 아무것도 안 적었다.
+        -- 직업 줄은 드루이드 하나다. 여기서 열 수 있는 층이라고 해서 집계에서 빠지지 않는다.
+        check(characters == 1, "캐릭터 줄이 " .. characters .. "개다");
+        check(classes == 1, "직업 줄이 " .. classes .. "개다");
         -- `$state2`의 계산식이 `$state1`을 부른다. 뿌리 행이라 전역으로 선다.
         check(exprs == 1, "식 자리가 " .. exprs .. "개다");
         check(usage["$state1"].exprs[1].name == "$state2",
@@ -607,9 +608,55 @@ return function(DebindPrivate)
         DebindPrivate.SetSwitchExpression("$state2", "PRIEST:2", "[$state1]");
 
         local usage = DebindPrivate.CollectSwitchUsage();
-        check(usage["$state1"].classes["PRIEST"] == true, "사제 자리가 안 섰다");
+        check(usage["$state1"].classes["PRIEST"].exprs == 1, "사제 자리가 안 섰다");
         local _, exprs = Sizes(usage["$state1"]);
         check(exprs == 1, "열 수 없는 행이 여기 자리로 세어졌다");
+    end);
+
+    -- **집계와 `here`는 같은 참조를 둘 다 든다.** 배타로 두면 전역에만 적힌 스위치가 "이 캐릭터
+    -- 3"으로만 보이고, 슬쩍 보는 사람에게 이 캐릭터 것이라고 말한다 (2026-09-21, 소유자).
+    test("전역에 적힌 것은 전역으로 세어지고 여기 자리로도 선다", function()
+        InitWith(Profile());
+        local entry = DebindPrivate.CollectSwitchUsage()["$state1"];
+        check(entry.general.actions == 3, "전역 액션이 " .. entry.general.actions .. "개다");
+        check(entry.classes["DRUID"].actions == 2,
+            "내 직업 액션이 " .. entry.classes["DRUID"].actions .. "개다");
+        check(#entry.here == 5, "같은 참조가 여기 자리에서 빠졌다");
+    end);
+
+    -- 액션과 계산식은 화면에서 다른 묶음이라, 한 숫자로 합치면 그 줄을 눌러 봐야 어느 쪽인지
+    -- 알 수 없다.
+    test("액션과 계산식을 따로 센다", function()
+        InitWith(Profile());
+        local entry = DebindPrivate.CollectSwitchUsage()["$state1"];
+        check(entry.general.exprs == 1, "전역 계산식이 " .. entry.general.exprs .. "개다");
+        check(entry.general.actions == 3, "계산식이 액션 수에 섞였다");
+    end);
+
+    -- 계산식도 같다. 절이 둘이면 파서가 인자를 둘 내는데, 고치러 갈 계산식은 하나다.
+    test("한 계산식이 두 절에서 불러도 한 번만 센다", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchExpression("$state2", nil, "[$state1,combat][$state1,stealth]");
+
+        local entry = DebindPrivate.CollectSwitchUsage()["$state1"];
+        check(entry.general.exprs == 1, "전역 계산식이 " .. entry.general.exprs .. "개다");
+        check(#entry.exprs == 1, "계산식 줄이 " .. #entry.exprs .. "개 선다");
+    end);
+
+    -- 한 액션이 조건과 본문 양쪽에서 같은 이름을 부르는 것은 고치러 갈 자리 하나다. 둘로 세면
+    -- 목록에 같은 줄이 두 번 서고 집계도 부풀려진다.
+    test("한 액션이 두 자리에서 불러도 한 번만 센다", function()
+        local db = Profile();
+        db.shared.GENERAL[#db.shared.GENERAL + 1] = {
+            type = Constants.MACROTEXT, key = "F8", seq = 1,
+            conditions = { ["$state1"] = true },
+            value = "/cast [$state1] Foo",
+        };
+        InitWith(db);
+
+        local entry = DebindPrivate.CollectSwitchUsage()["$state1"];
+        check(entry.general.actions == 4, "전역 액션이 " .. entry.general.actions .. "개다");
+        check(#entry.here == 6, "여기 자리가 " .. #entry.here .. "개다");
     end);
 
     ---------------------------------------------------------------------------

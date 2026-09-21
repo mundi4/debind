@@ -2207,7 +2207,8 @@ local function ForEachSwitchInAction(action, fn)
     end
 end
 
---- Does this action name that switch?
+--- Does this action name that switch? **Exported for Overview's search box**, which takes a
+--- switch's name as a term and has to ask the same question this file answers everywhere else.
 local function ActionNamesSwitch(action, name)
     local found = false;
     ForEachSwitchInAction(action, function(named)
@@ -2217,6 +2218,7 @@ local function ActionNamesSwitch(action, name)
     end);
     return found;
 end
+DebindPrivate.ActionNamesSwitch = ActionNamesSwitch;
 
 --- How many actions name this switch, at three distances: **the whole account, this character, and
 --- what is live right now.** Widest first, and each one contains the next.
@@ -2308,6 +2310,21 @@ local function PlaceOfLayerKey(layerKey)
     return nil, owner, nil;
 end
 
+--- Which of the three scopes one of this character's own layers is written in.
+---
+--- **The scopes are told apart by what holds the actions, not by who can reach them.** This
+--- character reaches all three, and its own class layers are still the class's: another character
+--- of the class reads the very same rows.
+local function ScopeOfLayerID(layerID)
+    if (layerID == GENERAL_LAYER_ID) then
+        return "general";
+    end
+    if (layerID < LayerIDAt(0, true)) then
+        return "classes", Constants.PLAYER_CLASS;
+    end
+    return "characters", DebindPrivate.playerGUID;
+end
+
 --- Every place this profile names a switch, **gathered in one walk for every name at once**.
 ---
 --- The Switches tab asks about all of them: which names nothing anywhere holds is what its list is
@@ -2315,16 +2332,25 @@ end
 --- a time that is a walk per switch, which measured 293ms on an account of twenty characters and
 --- forty switches; asked once it is 6ms (`reworking-the-switches-tab.md`).
 ---
---- **Places, not counts.** What the reader is handed is rows to go to, so a number two places both
---- fed into could not be worked down to zero.
+--- **Two questions, and they are not a partition.** `here` is what the reader can open and fix
+--- from this client, so it is places to go to; the three scope tallies are where the name is
+--- written across the account, so they are counts. The same reference is in both, and adding the
+--- two numbers means nothing.
+---
+--- **Reaching it and holding it came apart on purpose** (2026-09-21, 소유자). They used to be one
+--- axis: anything this character could open went to `here` and the tallies held only what it could
+--- not. A switch named once on the account-wide layer then read as "This character 1", which says
+--- to anyone glancing at it that nothing else uses the switch.
 ---
 --- Each name that is named anywhere gets an entry:
 ---
 ---   * `here`    actions on a layer this character can open. `{ action, layerID }`
 ---   * `exprs`   switches whose expression names it, on a layer this character can open.
 ---               `{ name, layerID }`
----   * `classes` / `characters`  the places it cannot open: another class's layers, another
----               character's own layers. Keyed by class file name and by GUID
+---   * `general` / `classes` / `characters`  where the name is written, and these three are
+---               exclusive: one reference is counted in exactly one of them. The last two are
+---               keyed by class file name and by GUID. Each is `{ actions, exprs }`, counted
+---               apart because the tab shows them as two groups
 ---
 --- **A switch naming itself is not a place.** That expression goes when the switch does, so it is
 --- nothing to fix first.
@@ -2334,28 +2360,57 @@ function DebindPrivate.CollectSwitchUsage()
     local function entryFor(name)
         local entry = usage[name];
         if (not entry) then
-            entry = { here = {}, exprs = {}, classes = {}, characters = {} };
+            entry = {
+                here = {},
+                exprs = {},
+                general = { actions = 0, exprs = 0 },
+                classes = {},
+                characters = {},
+            };
             usage[name] = entry;
         end
         return entry;
     end
 
-    local function addAction(action, layerID, classKey, guid)
+    --- The one tally a reference lands in. `kind` is "general", "classes" or "characters", and
+    --- the last two are keyed.
+    local function bucketFor(entry, kind, key)
+        if (kind == "general") then
+            return entry.general;
+        end
+        local buckets = entry[kind];
+        local bucket = buckets[key];
+        if (not bucket) then
+            bucket = { actions = 0, exprs = 0 };
+            buckets[key] = bucket;
+        end
+        return bucket;
+    end
+
+    local named = {};
+    local function addAction(action, layerID, kind, key)
+        -- **One action is one place however many times it names the switch.** A condition and a
+        -- macro body in the same action are one row to go and fix, and `ForEachSwitchInAction`
+        -- reports the name once per place it is written.
+        wipe(named);
         ForEachSwitchInAction(action, function(name)
+            if (named[name]) then
+                return;
+            end
+            named[name] = true;
+
             local entry = entryFor(name);
             if (layerID) then
                 entry.here[#entry.here + 1] = { action = action, layerID = layerID };
-            elseif (classKey) then
-                entry.classes[classKey] = true;
-            elseif (guid) then
-                entry.characters[guid] = true;
             end
+            local bucket = bucketFor(entry, kind, key);
+            bucket.actions = bucket.actions + 1;
         end);
     end
 
-    local function walkLayer(layerTbl, layerID, classKey, guid)
+    local function walkLayer(layerTbl, layerID, kind, key)
         for i = 1, #(layerTbl or {}) do
-            addAction(layerTbl[i], layerID, classKey, guid);
+            addAction(layerTbl[i], layerID, kind, key);
         end
     end
 
@@ -2364,12 +2419,14 @@ function DebindPrivate.CollectSwitchUsage()
     local playerGUID = DebindPrivate.playerGUID;
 
     if (db.shared) then
-        walkLayer(db.shared.GENERAL, GENERAL_LAYER_ID);
+        walkLayer(db.shared.GENERAL, GENERAL_LAYER_ID, "general");
         for classKey, classTbl in pairs(db.shared.classes or {}) do
+            -- **The layer ID is the only thing `mine` decides.** Which tally the rows land in is
+            -- the class either way: this character's own class layers are the class's rows.
             local mine = classKey == Constants.PLAYER_CLASS;
             for spec = 0, MAX_SPEC do
                 walkLayer(classTbl[spec], mine and LayerIDAt(spec, false) or nil,
-                    not mine and classKey or nil);
+                    "classes", classKey);
             end
         end
     end
@@ -2383,32 +2440,37 @@ function DebindPrivate.CollectSwitchUsage()
         local mine = guid == playerGUID;
         for spec = 0, MAX_SPEC do
             walkLayer(entry.layers and entry.layers[spec],
-                mine and LayerIDAt(spec, true) or nil, nil,
-                not mine and guid or nil);
+                mine and LayerIDAt(spec, true) or nil, "characters", guid);
         end
     end
     if (charEntry and not attached) then
         for spec = 0, MAX_SPEC do
-            walkLayer(charEntry.layers and charEntry.layers[spec], LayerIDAt(spec, true));
+            walkLayer(charEntry.layers and charEntry.layers[spec], LayerIDAt(spec, true),
+                "characters", playerGUID);
         end
     end
 
-    local function addExpr(owner, expr, layerID, classKey, guid)
+    local function addExpr(owner, expr, layerID, kind, key)
         if (luatype(expr) ~= "string") then
             return;
         end
         local _, args = DebindPrivate.ParseMacroText(expr);
+        -- **One expression is one place, the same rule the actions go by.** A name that appears in
+        -- two clauses of it (`[$burst,combat][$burst,stealth]`) is one arg apiece out of the
+        -- parser, and one row to go and edit.
+        wipe(named);
         for i = 1, (args and #args or 0) do
             local arg = args[i];
-            if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name ~= owner) then
+            if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name ~= owner
+                    and not named[arg.name]) then
+                named[arg.name] = true;
+
                 local entry = entryFor(arg.name);
                 if (layerID) then
                     entry.exprs[#entry.exprs + 1] = { name = owner, layerID = layerID };
-                elseif (classKey) then
-                    entry.classes[classKey] = true;
-                elseif (guid) then
-                    entry.characters[guid] = true;
                 end
+                local bucket = bucketFor(entry, kind, key);
+                bucket.exprs = bucket.exprs + 1;
             end
         end
     end
@@ -2416,9 +2478,18 @@ function DebindPrivate.CollectSwitchUsage()
     for owner, definition in pairs(DebindPrivate.Switches) do
         -- The root's expression is the definition's own, and the row it is edited on is the one
         -- every layer falls back to, which is `GENERAL` on screen.
-        addExpr(owner, definition.expr, GENERAL_LAYER_ID);
+        addExpr(owner, definition.expr, GENERAL_LAYER_ID, "general");
         for layerKey, row in pairs(definition.overrides or {}) do
-            addExpr(owner, row.expr, PlaceOfLayerKey(layerKey));
+            local layerID, classKey, guid = PlaceOfLayerKey(layerKey);
+            local kind, key;
+            if (layerID) then
+                kind, key = ScopeOfLayerID(layerID);
+            elseif (classKey) then
+                kind, key = "classes", classKey;
+            else
+                kind, key = "characters", guid;
+            end
+            addExpr(owner, row.expr, layerID, kind, key);
         end
     end
 

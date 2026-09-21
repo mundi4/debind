@@ -117,18 +117,27 @@
 	</Button>
 
 	<!--
-		One place that names the picked switch, on the second tab of the right column.
+		A name and a number, on the usage tab of the right column: one place the account has the
+		picked switch written down, or one switch whose expression names it.
 
-		**A place, not a count** (`reworking-the-switches-tab.md`). The reader is here to empty the
-		list before deleting, and a number two rows both feed into cannot be worked down to zero.
-
-		**The key is a column of its own**, because the tab the reader goes to fix the action is
-		laid out by key: a spell name alone cannot tell two keys carrying the same spell apart.
-		Rows that are not actions leave it empty.
+		**The right-hand column is a number here and nothing else.** It used to be the key an
+		action stands on, from when this row drew the actions too; those are `DebindLineVisualTemplate`
+		rows now, and every row left on this template is a name with a count beside it
+		(`DebindSwitchUsageRowMixin:Init`). The expression rows leave it empty.
 	-->
 	<Button name="DebindSwitchUsageRowTemplate" mixin="DebindSwitchUsageRowMixin" virtual="true">
-		<Size x="400" y="20"/>
+		<Size x="400" y="24"/>
 		<Layers>
+			<!-- The same plate the switch list and the action rows stand on, so a row in this
+			     column reads as a row of the same window. -->
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
 			<Layer level="ARTWORK">
 				<!--
 					**Declared before the name, because the name hangs off it.** A `relativeKey`
@@ -136,13 +145,13 @@
 					FontString left with one horizontal point has no width and draws nothing
 					(`tools/check-xml-anchors.js`).
 				-->
-				<FontString parentKey="Key" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+				<FontString parentKey="Key" inherits="GameFontDisable" maxLines="1" justifyH="RIGHT">
 					<Size x="120" y="0"/>
 					<Anchors>
 						<Anchor point="RIGHT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
-				<FontString parentKey="Name" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+				<FontString parentKey="Name" inherits="GameFontHighlight" maxLines="1" justifyH="LEFT">
 					<Anchors>
 						<Anchor point="LEFT" x="8" y="0"/>
 						<Anchor point="RIGHT" relativeKey="$parent.Key" relativePoint="LEFT" x="-6" y="0"/>
@@ -163,6 +172,7 @@
 	<Button name="DebindSwitchUsageActionTemplate" inherits="DebindLineVisualTemplate"
 		mixin="DebindSwitchUsageActionMixin" virtual="true">
 		<Scripts>
+			<OnClick method="OnClick"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 		</Scripts>

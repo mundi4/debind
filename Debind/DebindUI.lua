@@ -3618,6 +3618,14 @@ function DebindFrameMixin:GoToAction(action, layerID)
 		return;
 	end
 
+	-- **The window tab first, because everything below lands in Overview**: the layer tab, the
+	-- selection and the scroll all belong to that panel, so from another one the trip would end
+	-- with nothing on screen having moved. The switches tab's usage list is a caller that starts
+	-- somewhere else.
+	if (_selectedPanel ~= OVERVIEW_PANEL) then
+		self:SelectPanel(OVERVIEW_PANEL);
+	end
+
 	local tab, sideTab = GetLayerTabs(layerID);
 	-- 사이드탭을 **먼저** 넣는다. SetTab이 사이드탭 갱신과 Refresh까지 하는데, 그 안의
 	-- "안 보이는 사이드탭이면 1로" 가드가 새 좌표를 보고 판단해야 한다.
@@ -4990,6 +4998,24 @@ local function KeyGroupPasses(rows, key)
 	for i = 1, #rows do
 		if (NameMatchesSearch(NameAndIconForAction(rows[i].action))) then
 			return true;
+		end
+	end
+
+	-- **A switch's name finds everything that waits on it**, which is how the switches tab sends
+	-- the reader to the actions it counts: those are edited here, not there.
+	--
+	-- **The whole name, where everything else here matches a piece of one.** `$burst` dragging in
+	-- `$burst2` would be a list the reader cannot trust to be the switch they asked about. The
+	-- sigil is what marks the term as a name rather than a word: it is the glyph the user already
+	-- types into a macro body, and no action name starts with it.
+	--
+	-- Asked of the same door the profile asks everywhere else (`ActionNamesSwitch`), so a
+	-- condition, an on/off/toggle target and a macro body all answer.
+	if (strsub(_searchText, 1, 1) == "$") then
+		for i = 1, #rows do
+			if (DebindPrivate.ActionNamesSwitch(rows[i].action, _searchText)) then
+				return true;
+			end
 		end
 	end
 	return false;
