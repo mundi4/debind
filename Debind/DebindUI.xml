@@ -1260,7 +1260,14 @@
 								시절에 그 베벨을 살리려고 잡은 것인데, 인셋이 이 템플릿으로 바뀌면서 얇은 테두리 두
 								줄이 3px 사이를 두고 나란히 서게 됐다.
 							-->
-							<Frame parentKey="BindOverlay" hidden="true" enableMouse="true" inherits="DebindInsetTemplate" setAllPoints="true">
+							<!--
+								**`useParentLevel="false"` is what the template has to give up here.**
+								`DebindInsetTemplate` carries it because an inset draws under everything in
+								its column, and that is the one thing this cover must not do: on the parent's
+								level it lands below `ScrollBox`'s pinned `frameLevel="3"` and the rows draw
+								over it. The level it does take is set in `OnLoad`.
+							-->
+							<Frame parentKey="BindOverlay" hidden="true" enableMouse="true" useParentLevel="false" inherits="DebindInsetTemplate" setAllPoints="true">
 								<KeyValues>
 									<!--
 										가리는 일을 **백드롭이 직접 한다.** 한때 같은 검정을 텍스처로 한 겹 더
