@@ -4980,6 +4980,11 @@ local function OpenSwitchesTab()
 
     local panel = DebindFrame.SwitchesPanel
     panel:RefreshRows()
+    -- **The detail tab is part of that precondition.** It is not reset when the window closes, so
+    -- a test that moved it hands the next one a right column drawing the other face - which is
+    -- what the settings tests read as "the block did not come up", on the second run of the kit
+    -- and never on the first.
+    panel.Detail.TabSystem:SetTab(panel.settingsTabID)
     return panel
 end
 
@@ -5710,7 +5715,10 @@ RegisterTest("Switches tab: a usage row carries the reader to the action", {
 
         local panel = OpenSwitchesTab()
         panel:SelectSwitch(SWITCH)
-        panel:PickDetailTab(panel.usageTabID)
+        -- **Through the strip.** `PickDetailTab` alone moves `detailTabID` and leaves the tab
+        -- system pointing at the other face, so the reset in `OpenSwitchesTab` would find the
+        -- settings tab already selected and turn back.
+        panel.Detail.TabSystem:SetTab(panel.usageTabID)
 
         local row
         panel.Detail.ContentArea.ScrollBox:ForEachFrame(function(frame)
