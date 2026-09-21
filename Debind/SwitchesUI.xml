@@ -14,13 +14,9 @@
 		layer rows that used to hang under this one are gone: what the left column answers is "which
 		switch", and a reader scanning twenty of them for one to delete reads names, not settings.
 
-		Art matches the main list, the export list and the spell picker. Four lists in one addon
-		that look like four things is four things to learn.
-
-		**The plate is the short-row one** (`voicechat-channellist-row-background`, the channel
-		list's rows at 27). Those lists draw `ClickCastList-ButtonBackground`, which is a 450x46
-		plate: squeezed into a 28 row its edge bands land on top of each other and the border stops
-		reading as one.
+		Art matches the main list, the export list and the spell picker
+		(`ClickCastList-ButtonBackground`). Four lists in one addon that look like four things is
+		four things to learn.
 
 		**Left-click picks it.** It took right-clicks only while the row's menu was the only way
 		into a switch's settings; the settings are a column now and picking is what a click means
@@ -30,7 +26,7 @@
 		<Size x="400" y="28"/>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="voicechat-channellist-row-background" alphaMode="ADD">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
 						<Anchor point="TOPLEFT"/>
 						<Anchor point="BOTTOMRIGHT"/>
@@ -132,10 +128,10 @@
 	<Button name="DebindSwitchUsageRowTemplate" mixin="DebindSwitchUsageRowMixin" virtual="true">
 		<Size x="400" y="24"/>
 		<Layers>
-			<!-- The same plate the switch list stands on, so a row in this column reads as a row
-			     of the same window. -->
+			<!-- The same plate the switch list and the action rows stand on, so a row in this
+			     column reads as a row of the same window. -->
 			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="voicechat-channellist-row-background" alphaMode="ADD">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
 						<Anchor point="TOPLEFT"/>
 						<Anchor point="BOTTOMRIGHT"/>

@@ -114,9 +114,7 @@
 		<Size x="400" y="28"/>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<!-- The short-row plate, as on the switches tab: `ClickCastList-ButtonBackground`
-				     is a 450x46 plate and its edge bands collide at this height. -->
-				<Texture parentKey="Background" atlas="voicechat-channellist-row-background" alphaMode="ADD">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
 						<Anchor point="TOPLEFT"/>
 						<Anchor point="BOTTOMRIGHT"/>
