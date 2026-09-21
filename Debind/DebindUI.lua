@@ -1466,18 +1466,17 @@ local function HeaderMenuActions(elementData)
 	return actions;
 end
 
---- **One line, and it names the right-click.** That gesture is the only thing on this bar nothing
---- points at, and since the row menu stopped carrying the set's own items there is no other way in
---- to them - the whole reason the heading was once rejected as a place to put them.
+--- **One line per gesture**, the same pair the row's tooltip names. The right-click is the one thing
+--- on this bar nothing points at, and since the row menu stopped carrying the set's own items there
+--- is no other way in to them - the whole reason the heading was once rejected as a place to put
+--- them.
 ---
---- **Picking the group is left out.** Not knowing it costs the reader nothing: every row under it can
---- be picked on its own. Not knowing the right-click costs them the menu. That is the test for a line here, and it is why the row's tooltip
---- legitimately names both of its gestures while this one names one.
----
---- **The line is hung on exactly the headings that open something**, which is why the same predicate
---- answers for the tooltip and for the click (`HeaderMenuActions`). A tooltip promising a menu that
---- never comes is worse than no tooltip, and the two conditions written out twice is how they end up
---- disagreeing - the pile at the bottom went from opening nothing to opening one pair inside a day.
+--- **The right-click line is hung on exactly the headings that open something**, which is why the
+--- same predicate answers for the line and for the click (`HeaderMenuActions`). A tooltip promising
+--- a menu that never comes is worse than no tooltip, and the two conditions written out twice is how
+--- they end up disagreeing - the pile at the bottom went from opening nothing to opening one pair
+--- inside a day. **The left-click line carries no such condition** because the gesture carries none:
+--- every heading standing over rows picks them.
 ---
 --- The template's own tooltip is being overridden and it had a job: the full title when the title is
 --- cut (`ListHeaderMixin:CheckUpdateTooltip`). The title line here does that job. Its other two -
@@ -1487,7 +1486,7 @@ function DebindKeyHeaderMixin:OnEnter()
 	ListHeaderMixin.OnEnter(self);
 
 	local elementData = self.elementData;
-	if (elementData == nil or not HeaderMenuActions(elementData)) then
+	if (elementData == nil or not elementData.rows or not elementData.rows[1]) then
 		return;
 	end
 
@@ -1510,7 +1509,11 @@ function DebindKeyHeaderMixin:OnEnter()
 		GameTooltip_AddDisabledLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_KEY_LEFT_TO_GAME"], true);
 	end
 
-	GameTooltip_AddInstructionLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_INSTRUCTION"]);
+	GameTooltip_AddBlankLineToTooltip(GameTooltip);
+	GameTooltip_AddInstructionLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_SELECT"]);
+	if (HeaderMenuActions(elementData)) then
+		GameTooltip_AddInstructionLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_INSTRUCTION"]);
+	end
 	GameTooltip:Show();
 end
 
@@ -4926,8 +4929,6 @@ function DebindOrderLineMixin:OnClick(button)
 	end
 end
 
-local ORDER_LINE_INDENT = 10;
-
 function DebindResultPanelMixin:InitializeOrderScrollBox()
 	local content = self.ContentArea;
 	local view = CreateScrollBoxListLinearView(2, 2, 2, 2, 3);
@@ -4952,10 +4953,6 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 		end
 		return elementData.isHeader and KEY_HEADER_HEIGHT or ORDER_LINE_HEIGHT;
 	end);
-	view:SetElementIndentCalculator(function(elementData)
-		return elementData.row and ORDER_LINE_INDENT or 0;
-	end);
-
 	ScrollUtil.InitScrollBoxListWithScrollBar(content.ScrollBox, content.ScrollBar, view);
 end
 

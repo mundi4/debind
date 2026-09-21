@@ -610,9 +610,9 @@ L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can se
 --- lands in that dialog, so a reader who takes the item and a reader who reads the title are being
 --- told the same thing. Separate keys on purpose - if that dialog is ever renamed, whether this
 --- follows is a decision, not a rename that happens to it.
---- The heading's tooltip, and the only line in it. **It exists because the gesture it names is the
---- one thing on this bar that nothing points at**, and since the row menu stopped offering the set's
---- own items there is no other way in to them.
+--- The heading's tooltip, the second of its two gesture lines. **It exists because the gesture it
+--- names is the one thing on this bar that nothing points at**, and since the row menu stopped
+--- offering the set's own items there is no other way in to them.
 ---
 --- **Folding is not mentioned, and that is the rule rather than an omission.** Not knowing it costs
 --- the reader nothing: the column opens expanded, so a fold they never discover leaves every action
@@ -623,6 +623,11 @@ L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can se
 --- the heading still stands over it - and because that is the phrase the item's own tooltip uses
 --- (`KEY_HEADER_SET_KEY_DESC`). One set, one way of naming it per screen.
 L["KEY_HEADER_TOOLTIP_INSTRUCTION"] = "Right-click for what can be done to everything under this heading."
+--- The heading's other gesture line. **"select" and "under this heading" are both already on this
+--- screen**: the first is how the row's tooltip names the same click
+--- (`LINE_TOOLTIP_INSTRUCTION_MESSAGE1`), the second is how the line above names the same set. One
+--- act and one set, one wording each per screen.
+L["KEY_HEADER_TOOLTIP_SELECT"] = "Left click to select everything under this heading."
 --- What the greyed key name in the column means, said once for the whole group. **The outcome and
 --- not the cause**: a group is grey because every action in it is turned off, because they all
 --- belong to a specialization you are not in, or because it is the key that opens the game menu,
