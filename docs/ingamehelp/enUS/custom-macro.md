@@ -35,12 +35,12 @@ These units can be aimed at. Write them like any other unit.
 - **@unitframe.** The unit on the unit frame you press the key over.
 - **@@.** The unit this press aims at: you while the Self Cast Key is held, your focus while the Focus Cast Key is held, and the unit you point at with *Hover Cast*. With none of these it is your target.
 
-A unit nobody holds counts as not existing. Target and pet can follow any of these names, as in @tanktarget or @@target.
+A unit nobody holds counts as not existing. Target and pet can follow any of these names, as in **@tanktarget** or **@@target**.
 
 @@ always puts a unit in, so with nothing aimed at and no target the action goes nowhere. Write an empty part after it to send it where it would normally go.
 
-**/cast [@@,exists][] Regrowth**
+**/cast [@@,help][] Regrowth**
 
-A switch is a condition of its own: [$fishing] while it is on, [no$fishing] while it is off. The name is the one it has under *Switches*.
+A switch is a condition of its own: **[$fishing]** while it is on, **[no$fishing]** while it is off. The name is the one it has under *Switches*.
 
 Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.

@@ -37,13 +37,13 @@ These units can be aimed at. Write them like any other unit.
 - |cnHIGHLIGHT_FONT_COLOR:@unitframe.|r The unit on the unit frame you press the key over.
 - |cnHIGHLIGHT_FONT_COLOR:@@.|r The unit this press aims at: you while the Self Cast Key is held, your focus while the Focus Cast Key is held, and the unit you point at with |cnBLUE_FONT_COLOR:Hover Cast|r. With none of these it is your target.
 
-A unit nobody holds counts as not existing. Target and pet can follow any of these names, as in @tanktarget or @@target.
+A unit nobody holds counts as not existing. Target and pet can follow any of these names, as in |cnHIGHLIGHT_FONT_COLOR:@tanktarget|r or |cnHIGHLIGHT_FONT_COLOR:@@target|r.
 
 @@ always puts a unit in, so with nothing aimed at and no target the action goes nowhere. Write an empty part after it to send it where it would normally go.
 
-|cnHIGHLIGHT_FONT_COLOR:/cast [@@,exists][] Regrowth|r
+|cnHIGHLIGHT_FONT_COLOR:/cast [@@,help][] Regrowth|r
 
-A switch is a condition of its own: [$fishing] while it is on, [no$fishing] while it is off. The name is the one it has under |cnBLUE_FONT_COLOR:Switches|r.
+A switch is a condition of its own: |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r while it is on, |cnHIGHLIGHT_FONT_COLOR:[no$fishing]|r while it is off. The name is the one it has under |cnBLUE_FONT_COLOR:Switches|r.
 
 Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
 ]==]
