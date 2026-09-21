@@ -1366,7 +1366,7 @@ L["AUTO_DISMOUNT_TEXT"] = "Auto Dismount"
 L["AUTOMATIC_SELF_CAST_DESC"] = "Casting a helpful spell with no friendly target sends it to you."
 L["AUTOMATIC_CANCEL_FORM_DESC"] = "Casting a spell your current form does not allow leaves the form first."
 L["AUTOMATIC_DISMOUNT_DESC"] = "Casting a spell while mounted gets you off the mount first."
-L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "The same while flying, where getting off means falling."
+L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "Casting a spell while flying gets you off the mount first."
 -- **Not `DISABLE` and not `CASTING_OFF`, though the word is the same as the second.** `Disable` is
 -- this window's word for taking an action out (`UNIT_DISABLE`, `ACTION_DISABLED`), and
 -- `CASTING_OFF` is for a row the action sits out. Neither is what these two say: the label above
