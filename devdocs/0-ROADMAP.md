@@ -9,7 +9,6 @@
 
 | | 트랙 | 문서 |
 |---|---|---|
-| **4.0** | 다음 릴리즈 |  |
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
 | **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`legacy/showing-off-spec-actions.md` |
 | **3.2.1 · 3.2.2** | 나갔다 (2026-08-21, 08-22). 무관한 핫픽스 둘 | `CHANGELOG.md` |
@@ -24,15 +23,15 @@
 | **3.5** | 나갔다 (2026-08-31). `flyable` · `advflyable` · `flying` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
 | **3.5에 같이** | 가리킨 그룹 프레임 사람의 역할을 조건으로 묻는다 | `legacy/adding-a-role-condition.md` |
 | **3.5에 같이** | 커스텀 매크로 변환이 키가 하던 일을 바꾸던 것 | `CHANGELOG.md` |
-| **다음 릴리스** | 남의 래퍼 위에 서서 그쪽 본문을 대신 돌린다. 3.5.2가 집던 프레임을 옵션(기본 켬) 뒤에 되살렸고, ~~등록되지 않은 개체창은 건드리지 않는다~~는 그것으로 뒤집혔다(2026-09-07, 소유자). **번호는 낼 때 소유자가 정한다**, `CHANGELOG.md` 머리말은 `3.6`으로 적어 뒀다 | `legacy/standing-on-top-of-foreign-wrappers.md`<br>`legacy/leaving-unregistered-frames-alone.md` |
-| **다음 릴리스에 같이** | 홀더 뒤에서 쓰기를 하나도 놓치지 않는다. 위 줄의 3단계가 남긴 셋. 이름을 되찾지 않는 판단은 그대로다 | `legacy/hearing-every-write-behind-a-holder.md` |
-| **다음 릴리스에 같이** | 알려진 팩의 이름을 표 하나로 들고 팩별로 켜고 끈다 | `legacy/keeping-one-table-of-known-packs.md` |
-| **다음 릴리스에 같이** | 유닛 프레임은 전부 잡고 빼는 것은 블랙리스트 하나. 위 세 줄이 들고 온 스위치 셋을 하나로 접는다. **Clique 사용자의 판이 업데이트로 바뀌므로 릴리스 노트 한 줄이 필요하다** | `legacy/taking-every-unit-frame-with-one-blacklist.md` |
-| **다음 릴리스에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, ~~순서를 강제하는 것은 그 가져오기 트랙이다~~ **그 트랙이 보류다 (2026-09-19, 소유자)**, `0-IDEAS.md` | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
-| **다음 릴리스에 같이** | 전문화가 주문을 정하는 타입 셋(`Dispel`, `External`, `Raid Buff`). EUI의 `dispel`·`external`이 갈 곳이라 ~~순서를 강제하는 것은 그 가져오기 트랙이다~~ **그 트랙이 보류다 (2026-09-19, 소유자)**, `0-IDEAS.md` | `adding-spec-resolved-actions.md`<br>`.zzz/eui-hovercast-savedvars.md` |
+| **4.0** | ~~다음 릴리스~~ **번호가 4.0으로 정해졌다 (2026-09-23, 소유자).** 남의 래퍼 위에 서서 그쪽 본문을 대신 돌린다. 3.5.2가 집던 프레임을 옵션(기본 켬) 뒤에 되살렸고, ~~등록되지 않은 개체창은 건드리지 않는다~~는 그것으로 뒤집혔다(2026-09-07, 소유자) | `legacy/standing-on-top-of-foreign-wrappers.md`<br>`legacy/leaving-unregistered-frames-alone.md` |
+| **4.0에 같이** | 홀더 뒤에서 쓰기를 하나도 놓치지 않는다. 위 줄의 3단계가 남긴 셋. 이름을 되찾지 않는 판단은 그대로다 | `legacy/hearing-every-write-behind-a-holder.md` |
+| **4.0에 같이** | 알려진 팩의 이름을 표 하나로 들고 팩별로 켜고 끈다 | `legacy/keeping-one-table-of-known-packs.md` |
+| **4.0에 같이** | 유닛 프레임은 전부 잡고 빼는 것은 블랙리스트 하나. 위 세 줄이 들고 온 스위치 셋을 하나로 접는다. **Clique 사용자의 판이 업데이트로 바뀌므로 릴리스 노트 한 줄이 필요하다** | `legacy/taking-every-unit-frame-with-one-blacklist.md` |
+| **4.0에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, ~~순서를 강제하는 것은 그 가져오기 트랙이다~~ **그 트랙이 보류다 (2026-09-19, 소유자)**, `0-IDEAS.md` | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
+| **그 뒤** | 전문화가 주문을 정하는 타입 셋(`Dispel`, `External`, `Raid Buff`). ~~4.0에 같이~~ **4.0에는 안 나간다 (2026-09-22, 소유자)**: 코드는 있고 픽커에 세우는 줄이 주석 처리되어 있어 추가할 길이 없다(`ActionCatalog.lua`). EUI의 `dispel`·`external`이 갈 곳이라 ~~순서를 강제하는 것은 그 가져오기 트랙이다~~ **그 트랙이 보류다 (2026-09-19, 소유자)**, `0-IDEAS.md` | `adding-spec-resolved-actions.md`<br>`.zzz/eui-hovercast-savedvars.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, ~~보관함의 남은 넷~~ **보류 (2026-09-19, 소유자)**. 둘 다 `0-IDEAS.md`가 든다 | `legacy/switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
-| ~~**다음 `dbver` 범프에**~~ **3.6에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |
+| ~~**다음 `dbver` 범프에**~~ **4.0에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |
 
 **버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`).
 
@@ -60,7 +59,7 @@
 (`/equipslot 13 <아이템>`은 그 칸에 **장착한다**, `SlashCommands.lua`의 `EQUIP_TO_SLOT`).
 **순서를 강제하는 것은 이 문자열이 프로필의 `type`에 그대로 앉아 있고 공유 페이로드에도 그대로
 실린다는 것이다.** 개명은 `dbver` 단계와 임포트 쪽의 옛 이름 수용을 같이 요구하므로 단독으로는
-못 나간다. **`useslot`으로 3.6에 들어갔다 (2026-09-06)**, `dbver` 7과 함께.
+못 나간다. **`useslot`으로 4.0에 들어갔다 (2026-09-06)**, `dbver` 7과 함께.
 
 **~~3.2.x가 3.3 앞이다. 이것만은 순서가 아니라 조건이다.~~ 그 조건이 깨졌다 (2026-08-22,
 소유자).** 서 있던 것은 이랬다. 되돌림 방어는 되돌려 **받는 쪽** 코드에 있어야 값이 있으니
