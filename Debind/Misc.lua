@@ -1908,25 +1908,14 @@ function DebindPrivate.SetClassInSpecSet(specs, classID, turnOn)
     return specs;
 end
 
---- Is there a class id carrying something `MaskFor` cannot read.
----
---- **It is what tells a set nobody wrote from one the reader emptied.** Both hold no specialization
---- once `MaskFor` has turned the unreadable value into 0, and the two want opposite answers: an
---- empty set is the reader's own mistake and says so in the window
---- (`BINDING_ISSUE_SPECS_NONE_SELECTED`), while a value that arrived over the wire unreadable must
---- make the condition true less often rather than more, for the reason `MaskFor` gives.
-function DebindPrivate.SpecSetHasUnreadable(specs)
+--- One class's mask, guarded, for a caller outside this file. **Every reader of a stored mask goes
+--- through `MaskFor`**, because the value under a class id is whatever a shared string put there
+--- and `band` on a boolean raises inside the rebuild.
+function DebindPrivate.SpecSetMaskFor(specs, classID)
     if (specs == nil) then
-        return false;
+        return nil;
     end
-    local catalog = DebindPrivate.ClassSpecCatalog();
-    for i = 1, #catalog do
-        local stored = specs[catalog[i].id];
-        if (stored ~= nil and type(stored) ~= "number") then
-            return true;
-        end
-    end
-    return false;
+    return MaskFor(specs, classID);
 end
 
 --- Does this condition hold **any** specialization of one class, which is what paints that class's
@@ -2081,13 +2070,6 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     if (specs == nil) then
         return true;
     end
-    -- **A value nobody can read takes the key off, whatever else the set says.** It is arithmetic
-    -- from here down and `MaskFor` turns such a value into 0, which would otherwise be
-    -- indistinguishable from a class the reader left clear. The direction a keybinding addon must
-    -- not fail in is the one that takes somebody else's key.
-    if (DebindPrivate.SpecSetHasUnreadable(specs)) then
-        return false;
-    end
     -- **A condition holding nothing at all is not another specialization's.** No specialization
     -- satisfies it, so a reader waiting for the right one to come round will wait forever: the
     -- action is wrong, and it already has a word for that
@@ -2102,6 +2084,13 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     --
     -- **The error gate is what keeps it off the key**, the same gate every other ERROR goes
     -- through (`Debind.lua`). Nothing is lost by letting it past this one.
+    --
+    -- **A set whose masks are unreadable arrives here as an empty one and takes the same road.**
+    -- `MaskFor` turns a value a shared string left under a class id into 0, so it holds nothing,
+    -- and `SPECS_NONE_SELECTED` is an OMIT outcome (`Constants.BINDING_ISSUE_OUTCOMES`): the key
+    -- is kept clear by the gate rather than by this answer. Answering `false` for it instead would
+    -- set `specExcluded` on a row that is also carrying the error, which is the one pair
+    -- `MakeRow` is written to prevent (`Profile.lua`).
     if (DebindPrivate.SpecSetIsEmpty(specs)) then
         return true;
     end

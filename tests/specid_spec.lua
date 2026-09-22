@@ -496,9 +496,23 @@ return function(DebindPrivate)
         local ok, held = pcall(DebindPrivate.SpecConditionHolds,
             { conditions = { specs = junk } }, 1);
         check(ok, "it raised: " .. tostring(held));
-        check(held == false, "a value nobody can read let the key through");
         check(not DebindPrivate.SpecSetHoldsClass(junk, mine), "it read as a whole class");
         check(not DebindPrivate.SpecSetHoldsIndex(junk, mine, 1), "it read as holding one");
+
+        -- **What has to hold is that the key stays clear, not which of the two gates keeps it
+        -- clear.** A value nobody can read holds no specialization once `MaskFor` has had it, so
+        -- the set reads empty and the error gate omits it (`SPECS_NONE_SELECTED` is OMIT). Pinning
+        -- `SpecConditionHolds` to false instead would mark the row as another specialization's
+        -- while it is also carrying that error, which is the pair `MakeRow` exists to prevent.
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { specs = { [mine] = true } } },
+        }, 1);
+
+        check(Values("F1") == "<none>", "a value nobody can read let the key through: "
+            .. Values("F1"));
+        check(DebindPrivate.GetBindingIssue(FirstStoredAction(), "specs")
+            == Constants.BINDING_ISSUE_SPECS_NONE_SELECTED, "it was not reported");
     end);
 
     -- **A class nobody picked holds nothing**, which is the default the menu is drawn from: every

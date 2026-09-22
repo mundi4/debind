@@ -356,11 +356,14 @@ local function NormalizeSpecCondition(action)
     if (specs == nil) then
         return;
     end
+    -- **Asked through `SpecSetHoldsAnyOfClass` rather than with `bit.band` here.** The value under
+    -- a class id is whatever a shared string put there (`Export.lua` types `specs` and stops), and
+    -- arithmetic on a boolean raises. That walk covers every class, so one imported action would
+    -- otherwise raise on the next click anywhere in this menu.
     local catalog = DebindPrivate.ClassSpecCatalog();
     for i = 1, #catalog do
         local classID = catalog[i].id;
-        local mask = specs[classID];
-        if (mask ~= nil and bit.band(mask, DebindPrivate.ClassSpecMask(classID)) == 0) then
+        if (specs[classID] ~= nil and not DebindPrivate.SpecSetHoldsAnyOfClass(specs, classID)) then
             specs[classID] = nil;
         end
     end
@@ -384,7 +387,9 @@ local function ToggleSpecConditionIndex(ctx, classID, index)
     local flag = Constants.SpecIndexFlag(index);
     for _, action in ipairs(ctx.actions) do
         local specs = SpecConditionsFor(action);
-        local mask = specs[classID] or 0;
+        -- Guarded for the reason `NormalizeSpecCondition` gives: this is arithmetic and the stored
+        -- value came in unchecked.
+        local mask = DebindPrivate.SpecSetMaskFor(specs, classID) or 0;
         if (turnOn) then
             mask = bit.bor(mask, flag);
         else

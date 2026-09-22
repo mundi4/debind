@@ -247,6 +247,51 @@ return function(DebindPrivate)
             "the empty set was not reported");
     end);
 
+    -- **A value that is not a mask under a class id does not raise on the next click.** A shared
+    -- string is typed as far as `specs` being a table and no further (`Export.lua`'s
+    -- `CONDITION_TYPES`), so anything can sit under a class id. Writing here is arithmetic and the
+    -- normalization walks all thirteen classes, which means one imported action like this would
+    -- otherwise raise on **any** box in this menu rather than on its own class's.
+    --- **The junk sits on a class other than the one being clicked**, which is the whole point. The
+    --- pressed class is read through a guard on its way to being written, so it cleans itself up;
+    --- what the walk reaches is every other class, and any one of them holding such a value takes
+    --- the click down with it.
+    test("a click on a condition holding a value that is not a mask does not raise", function()
+        local class = AClass();
+        local other;
+        for _, candidate in ipairs(DebindPrivate.ClassSpecCatalog()) do
+            if (candidate.id ~= class.id and #candidate.specs > 0) then
+                other = candidate.id;
+                break;
+            end
+        end
+        check(other, "the catalog has one class");
+
+        local actions = ResetProfile({ Spell(1, { specs = { [other] = true } }) });
+        local ctx = Ctx(actions);
+
+        local ok, err = pcall(ActionMenu.ToggleSpecConditionIndex, ctx, class.id,
+            class.specs[1].index);
+        check(ok, "it raised: " .. tostring(err));
+
+        check(DebindPrivate.SpecSetHoldsIndex(Cond(actions[1], "specs"), class.id,
+            class.specs[1].index), "the box that was pressed did not come on");
+
+        -- **And the pressed class holding it**, which is the other of the two readers: the mask is
+        -- taken off the action to be written back, and that read is arithmetic too.
+        local own = ResetProfile({ Spell(1, { specs = { [class.id] = true } }) });
+        local ownCtx = Ctx(own);
+
+        local ownOk, ownErr = pcall(ActionMenu.ToggleSpecConditionIndex, ownCtx, class.id,
+            class.specs[1].index);
+        check(ownOk, "the pressed class raised: " .. tostring(ownErr));
+
+        check(DebindPrivate.SpecSetHoldsIndex(Cond(own[1], "specs"), class.id,
+            class.specs[1].index), "the box that was pressed did not come on");
+        check(not DebindPrivate.SpecSetHoldsIndex(Cond(own[1], "specs"), class.id,
+            class.specs[2].index), "a value nobody can read came out holding more than was pressed");
+    end);
+
 
     ---------------------------------------------------------------------------
     -- Unit conditions

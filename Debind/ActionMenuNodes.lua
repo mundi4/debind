@@ -467,9 +467,11 @@ ActionMenus:Define("GROUP", {
 --- build. `Registry:BuildNode` paints the rows it makes (`MenuKit.lua`); a checkbox is made
 --- straight off the description, so the one thing it misses is put back here.
 ---
---- **The tick and the colour answer different questions.** A box says what this row holds and the
---- colour says whether anything under it is picked at all, which is what a reader scanning a closed
---- menu needs before they open anything (2026-09-22, owner).
+--- **On the class row the tick and the colour answer different questions**: the box is on only when
+--- every specialization under it is, while the colour is on as soon as one is, which is the state a
+--- checkbox has no third mark for. On a specialization row the two say the same thing, and it wears
+--- the colour so that a picked one reads the same wherever the reader's eye lands (2026-09-22,
+--- owner).
 local function PaintWhenActive(description, isActive)
     description:AddInitializer(function(button)
         local color = isActive() and BLUE_FONT_COLOR or HIGHLIGHT_FONT_COLOR;
