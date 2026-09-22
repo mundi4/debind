@@ -1003,8 +1003,10 @@ function M.install()
         };
     end
 
-    --- The colour a `MenuKit` row starts from. `GetRGB` is all it asks of one.
+    --- The colour a `MenuKit` row starts from, and the one it turns while active. `GetRGB` is all
+    --- either is asked for.
     _G.HIGHLIGHT_FONT_COLOR = { GetRGB = function() return 1, 1, 1; end };
+    _G.BLUE_FONT_COLOR = { GetRGB = function() return 0, 0, 1; end };
 
     _G.MenuUtil = {
         GetElementText = function(description) return description.text; end,

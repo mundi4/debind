@@ -33,7 +33,6 @@ local ClearOtherSpecTalents          = ActionMenu.ClearOtherSpecTalents;
 local SetTalentCondition             = ActionMenu.SetTalentCondition;
 local SpecConditionHasIndex          = ActionMenu.SpecConditionHasIndex;
 local ToggleSpecConditionIndex       = ActionMenu.ToggleSpecConditionIndex;
-local ClearAllSpecConditions         = ActionMenu.ClearAllSpecConditions;
 local ClassSpecsAllPicked            = ActionMenu.ClassSpecsAllPicked;
 local ToggleClassSpecs               = ActionMenu.ToggleClassSpecs;
 local UnitConditionOnFor             = ActionMenu.UnitConditionOnFor;
@@ -464,25 +463,41 @@ ActionMenus:Define("GROUP", {
     end,
 });
 
---- Is this class narrowed on any selected action, which is what paints its row.
+--- The blue a `MenuKit` row wears while it is doing something, on a checkbox the family did not
+--- build. `Registry:BuildNode` paints the rows it makes (`MenuKit.lua`); a checkbox is made
+--- straight off the description, so the one thing it misses is put back here.
 ---
---- **The colour follows what the condition rules out, and here that is the same thing as what the
---- reader touched.** A class nobody opened is every specialization of it and lets the key through,
---- so it stays unpainted; a class with one box off is what this axis is doing, and it is painted
---- (`giving-the-spec-condition-a-class-key.md` §2).
+--- **The tick and the colour answer different questions.** A box says what this row holds and the
+--- colour says whether anything under it is picked at all, which is what a reader scanning a closed
+--- menu needs before they open anything (2026-09-22, owner).
+local function PaintWhenActive(description, isActive)
+    description:AddInitializer(function(button)
+        local color = isActive() and BLUE_FONT_COLOR or HIGHLIGHT_FONT_COLOR;
+        button.fontString:SetTextColor(color:GetRGB());
+    end);
+    return description;
+end
+
+--- Does this class hold a specialization on any selected action, which is what paints its row.
 ---
---- **A class half picked has no box of its own to say so.** A menu checkbox is on or off with
---- nothing in between, so the row's colour is what carries the partial state, the way it does for
---- every other node in this family (`MenuKit.lua`).
+--- **The colour follows what the condition picks.** A class nobody picked is not what the key is
+--- for and stays unpainted; a class holding one specialization is this axis doing something, and
+--- it is painted (2026-09-22, owner).
+---
+--- **A class half picked has no box of its own to say so.** The class row's own checkbox is
+--- `ClassSpecsAllPicked` -- on when every specialization under it is, off otherwise -- so "off"
+--- alone cannot tell "none picked" from "some picked". The row's colour is what carries that
+--- difference, painted by hand below rather than by the family (`MenuKit.lua`), because a
+--- checkbox row is not one the family builds.
 local function ClassSpecConditionIsOn(ctx, classID)
     return AnyAction(ctx, function(action)
-        return not DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(action), classID);
+        return DebindPrivate.SpecSetHoldsAnyOfClass(SpecConditionsOf(action), classID);
     end);
 end
 
 --- **Names, one class at a time.** The condition is a mask per class, so a class is a key and its
---- specializations are the bits under it: a class nobody narrowed is every specialization of it
---- (`giving-the-spec-condition-a-class-key.md`).
+--- specializations are the bits under it: **what the set holds is what the key is for**, and a class
+--- with no key is one nobody picked (2026-09-22, owner).
 ---
 --- **Every class is offered, not just this character's.** An action moves between tabs and can sit
 --- in General, where it is a character of another class that will press the key.
@@ -490,6 +505,17 @@ end
 --- The nameless initial specialization sits under each class rather than in a row of its own at
 --- the bottom: it is one bit of that class's mask, so one row for all of them could only turn
 --- every class's over at once.
+---
+--- **The class row is itself the whole-class checkbox, not a button that opens one.** Checking it
+--- picks every specialization under it and unchecking clears them (`ClassSpecsAllPicked`,
+--- `ToggleClassSpecs`); ticking every specialization by hand checks it back on the same way. That
+--- makes a separate "All Specs" row under the submenu redundant -- the class row already answers
+--- the question it would ask.
+---
+--- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an error
+--- rather than a destination (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the way out of the axis is
+--- the `Disable` radio one row up. A button offering the error state as a shortcut is the one row
+--- this menu has no use for.
 ActionMenus:Define("SPEC", {
     label = "CONDITION_SPEC",
     key = "specs",
@@ -502,60 +528,35 @@ ActionMenus:Define("SPEC", {
             local specs = class.specs;
             local classID = class.id;
             if (#specs > 0) then
-                local classDescription = ActionMenus:BuildNode(kit.description, {
-                    label = Constants.CLASS_NAMES[class.classFile],
-                    skipTitle = true,
-                    isActive = function(ctx)
-                        return ClassSpecConditionIsOn(ctx, classID);
-                    end,
-                    valueOf = function(action)
-                        local picked = {};
-                        local set = SpecConditionsOf(action);
-                        for j = 1, #specs do
-                            picked[j] = DebindPrivate.SpecSetHoldsIndex(set, classID, specs[j].index);
-                        end
-                        return picked;
-                    end,
-                }, kit.ctx);
-
-                -- **The whole class, from inside the submenu rather than from its row.** The
-                -- class row is the button that opens this, so an action on it would turn every
-                -- box under it over on the click that was meant to open it. The client puts the
-                -- same thing in the same place, one row above the specializations and in these
-                -- words (`ALL_SPECS`, `Blizzard_ClassMenu`).
-                CreateCheckbox(classDescription, kit.ctx,ALL_SPECS,
+                local classDescription = CreateCheckbox(kit.description, kit.ctx,
+                    Constants.CLASS_NAMES[class.classFile],
                     function()
                         return ClassSpecsAllPicked(kit.ctx, classID);
                     end,
                     function()
                         return ToggleClassSpecs(kit.ctx, classID);
                     end);
+                PaintWhenActive(classDescription, function()
+                    return ClassSpecConditionIsOn(kit.ctx, classID);
+                end);
 
                 for j = 1, #specs do
                     local index = specs[j].index;
-                    CreateCheckbox(classDescription, kit.ctx,specs[j].name or LLL["NO_SPECIALIZATION"],
+                    local specDescription = CreateCheckbox(classDescription, kit.ctx,
+                        specs[j].name or LLL["NO_SPECIALIZATION"],
                         function()
                             return SpecConditionHasIndex(kit.ctx, classID, index);
                         end,
                         function()
                             return ToggleSpecConditionIndex(kit.ctx, classID, index);
                         end);
+                    PaintWhenActive(specDescription, function()
+                        return SpecConditionHasIndex(kit.ctx, classID, index);
+                    end);
                 end
             end
         end
 
-        -- **The walk the default costs.** Every class starts whole, so "this one specialization
-        -- and nothing else" means turning twelve classes the reader never opened off
-        -- (`giving-the-spec-condition-a-class-key.md` §2).
-        --
-        -- **No row beside it for the other direction.** Taking every class back to whole is what
-        -- `Disable` above already does, and that one is a radio: it says whether the axis is in
-        -- that state, which a second button could not.
-        kit.description:CreateDivider();
-        kit.description:CreateButton(UNCHECK_ALL,
-            function()
-                return ClearAllSpecConditions(kit.ctx);
-            end);
     end,
 });
 

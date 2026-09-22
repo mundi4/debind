@@ -341,9 +341,16 @@ local function SpecConditionsFor(action)
     return specs;
 end
 
---- **What is left after a click, written back.** A class this leaves whole loses its mask and a
---- condition that narrows nothing loses the whole table, so each meaning has one shape
---- (`giving-the-spec-condition-a-class-key.md` §4).
+--- **What is left after a click, written back.** A class left holding nothing loses its mask, so an
+--- empty mask never has to be told from a missing one.
+---
+--- **The table itself stays when the last box comes off.** Dropping it would make unticking the
+--- last specialization mean the same thing as never having set the axis, and those are opposite:
+--- one is a key that fires nowhere and the other is a key with no specialization condition at all.
+--- It is left standing for `BINDING_ISSUE_SPECS_NONE_SELECTED` to speak for, which is the road
+--- every other mask axis on this menu takes -- `groups` stores its 0 the same way, and so do
+--- `reaction` and `frameTypes` (2026-09-22, owner). Switching the axis off is what the `Disable`
+--- radio is for, and it is one click.
 local function NormalizeSpecCondition(action)
     local specs = SpecConditionsOf(action);
     if (specs == nil) then
@@ -352,19 +359,15 @@ local function NormalizeSpecCondition(action)
     local catalog = DebindPrivate.ClassSpecCatalog();
     for i = 1, #catalog do
         local classID = catalog[i].id;
-        if (specs[classID] ~= nil and DebindPrivate.SpecSetHoldsClass(specs, classID)) then
+        local mask = specs[classID];
+        if (mask ~= nil and bit.band(mask, DebindPrivate.ClassSpecMask(classID)) == 0) then
             specs[classID] = nil;
         end
     end
-    if (not DebindPrivate.SpecSetNarrowsAnything(specs)) then
-        action.conditions.specs = nil;
-        PruneConditions(action);
-    end
 end
 
---- Is this one specialization held by every selected action. **A class nobody narrowed answers
---- yes**, which is what draws an untouched class with all of its boxes ticked
---- (`giving-the-spec-condition-a-class-key.md` §2).
+--- Is this one specialization held by every selected action. **A class nobody picked answers no**,
+--- which is what draws an untouched class with every box clear.
 local function SpecConditionHasIndex(ctx, classID, index)
     return AllActions(ctx, function(action)
         return DebindPrivate.SpecSetHoldsIndex(SpecConditionsOf(action), classID, index);
@@ -381,7 +384,7 @@ local function ToggleSpecConditionIndex(ctx, classID, index)
     local flag = Constants.SpecIndexFlag(index);
     for _, action in ipairs(ctx.actions) do
         local specs = SpecConditionsFor(action);
-        local mask = specs[classID] or DebindPrivate.ClassSpecMask(classID);
+        local mask = specs[classID] or 0;
         if (turnOn) then
             mask = bit.bor(mask, flag);
         else
@@ -393,10 +396,9 @@ local function ToggleSpecConditionIndex(ctx, classID, index)
     return OnActionsChanged(ctx.actions);
 end
 
---- Is this class left whole by every selected action. **The same question the tooltip line asks**
---- before it writes the class name in place of the specializations (`Misc.lua`'s
---- `DescribeSpecCondition`), so the box, the row's colour and the line cannot disagree about what
---- a whole class is.
+--- Is every specialization of this class held by every selected action. **The same question the
+--- tooltip line asks** before it writes the class name in place of the specializations (`Misc.lua`'s
+--- `DescribeSpecCondition`), so the box and the line cannot disagree about what a whole class is.
 local function ClassSpecsAllPicked(ctx, classID)
     return AllActions(ctx, function(action)
         return DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(action), classID);
@@ -413,20 +415,6 @@ local function ToggleClassSpecs(ctx, classID)
         local specs = SpecConditionsFor(action);
         DebindPrivate.SetClassInSpecSet(specs, classID, turnOn);
         NormalizeSpecCondition(action);
-    end
-    return OnActionsChanged(ctx.actions);
-end
-
---- **Every class off in one press.** The axis defaults to every class, so the common condition --
---- one class narrowed and the rest out -- costs twelve visits to classes the reader has no
---- interest in. This is that walk (`giving-the-spec-condition-a-class-key.md` §2).
-local function ClearAllSpecConditions(ctx)
-    local catalog = DebindPrivate.ClassSpecCatalog();
-    for _, action in ipairs(ctx.actions) do
-        local specs = SpecConditionsFor(action);
-        for i = 1, #catalog do
-            specs[catalog[i].id] = 0;
-        end
     end
     return OnActionsChanged(ctx.actions);
 end
@@ -1114,7 +1102,6 @@ ActionMenu.UnitConditionsOf          = UnitConditionsOf;
 ActionMenu.SpecConditionsOf          = SpecConditionsOf;
 ActionMenu.SpecConditionHasIndex     = SpecConditionHasIndex;
 ActionMenu.ToggleSpecConditionIndex  = ToggleSpecConditionIndex;
-ActionMenu.ClearAllSpecConditions    = ClearAllSpecConditions;
 ActionMenu.TalentConditionIs         = TalentConditionIs;
 ActionMenu.TalentConditionTouches    = TalentConditionTouches;
 ActionMenu.HasOtherSpecTalents       = HasOtherSpecTalents;

@@ -411,10 +411,9 @@ Constants.FORM_ALL                   = 2 ^ 11 - 1;
 -- in combat, and the change fires `ACTIVE_PLAYER_SPECIALIZATION_CHANGED`, which rebuilds.
 Constants.INITIAL_SPEC_INDEX         = 5;
 
---- The bit that stands for one specialization index, 1..`INITIAL_SPEC_INDEX`. **A class the
---- condition leaves whole has no mask at all** rather than one with every bit on
---- (`giving-the-spec-condition-a-class-key.md` §4), so no constant stands for
---- all of them.
+--- The bit that stands for one specialization index, 1..`INITIAL_SPEC_INDEX`. **A class held whole
+--- carries every bit it has**, and how many that is differs by class, so what stands for all of
+--- them is `ClassSpecMask` rather than a constant.
 function Constants.SpecIndexFlag(index)
     return 2 ^ (index - 1);
 end

@@ -48,12 +48,12 @@ return function(DebindPrivate)
         return mask;
     end
 
-    --- A condition narrowed to what `picks` names: a class mapped to a mask keeps that mask, a
-    --- class mapped to `true` is left whole, and **every class it does not name is shut out.**
+    --- A condition holding what `picks` names: a class mapped to a mask keeps that mask, a class
+    --- mapped to `true` is held whole, and **every class it does not name holds nothing.**
     ---
-    --- Written the long way round because that is what the shape means. A class with no key is
-    --- whole, so a condition that says "only these" has to say so about each of the others
-    --- (`giving-the-spec-condition-a-class-key.md` §2).
+    --- **A class holding nothing is written as a zero here rather than left out**, which the set
+    --- reads the same way (`MaskFor`). The menu normalizes a zero away; these cases are handed
+    --- straight to the readers, and writing each class out says what the shape means.
     local function Pick(picks)
         local specs = {};
         local catalog = DebindPrivate.ClassSpecCatalog();
@@ -61,7 +61,7 @@ return function(DebindPrivate)
             local classID = catalog[i].id;
             local pick = picks[classID];
             if (pick == true) then
-                specs[classID] = nil;
+                specs[classID] = DebindPrivate.ClassSpecMask(classID);
             else
                 specs[classID] = pick or 0;
             end
@@ -474,13 +474,13 @@ return function(DebindPrivate)
             "every named one but the initial read as whole");
     end);
 
-    -- **Turning a class off writes a zero, not an absent key.** Absent is whole, so removing the
-    -- key would say the opposite of what the reader just pressed.
+    -- **Turning a class off removes the key rather than writing a zero.** Absent and zero read the
+    -- same, so the set keeps one shape for "this class holds nothing" instead of two.
     test("taking a class back out shuts that class out", function()
         local druid = Constants.CLASS_IDS.DRUID;
         local set = DebindPrivate.SetClassInSpecSet(ClassSpecs(druid), druid, false);
 
-        check(set[druid] == 0, "the class did not come out: " .. tostring(set[druid]));
+        check(set[druid] == nil, "the class did not come out: " .. tostring(set[druid]));
         check(DebindPrivate.SpecSetIsEmpty(set),
             "it left something behind: " .. Line(set));
     end);
@@ -501,13 +501,13 @@ return function(DebindPrivate)
         check(not DebindPrivate.SpecSetHoldsIndex(junk, mine, 1), "it read as holding one");
     end);
 
-    -- **A class nobody narrowed is every specialization of it**, which is the default the menu is
-    -- drawn from and the reason an untouched class cannot change what a key does.
-    test("a class with no mask is whole", function()
+    -- **A class nobody picked holds nothing**, which is the default the menu is drawn from: every
+    -- box starts clear and the axis is switched off until one is ticked.
+    test("a class with no mask holds nothing", function()
         local druid = Constants.CLASS_IDS.DRUID;
-        check(DebindPrivate.SpecSetHoldsClass({}, druid), "a class with no key read as narrowed");
-        check(DebindPrivate.SpecSetHoldsIndex({}, druid, 1), "a class with no key left one out");
-        check(not DebindPrivate.SpecSetIsEmpty({}), "a condition narrowing nothing read as empty");
+        check(not DebindPrivate.SpecSetHoldsClass({}, druid), "a class with no key read as whole");
+        check(not DebindPrivate.SpecSetHoldsIndex({}, druid, 1), "a class with no key held one");
+        check(DebindPrivate.SpecSetIsEmpty({}), "a condition holding nothing read as holding some");
     end);
 
     ---------------------------------------------------------------------------

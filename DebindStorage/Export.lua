@@ -169,9 +169,9 @@ local CONDITION_TYPES    = {
     -- `talents` catches a list that is not a list. These are arithmetic now, and `band` on a
     -- string raises inside the rebuild rather than failing narrow.
     --
-    -- **A class with no key is whole**, so a string from a client that knows a class this one does
-    -- not says nothing about it and this one answers the same
-    -- (`giving-the-spec-condition-a-class-key.md` §2).
+    -- **A class with no key holds nothing**, so a string from a client that knows a class this one
+    -- does not says nothing about it and this one answers the same: the key is not for that class
+    -- here either.
     specs = "table",
     -- A table of specialization ids, each holding a list of spell ids to have taken and one to
     -- not. **What is inside is not filtered either**, for the reason above: an id this client

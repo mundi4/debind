@@ -197,29 +197,22 @@ return function(DebindPrivate)
             check(DebindPrivate.SpecSetHoldsClass(Cond(action, "specs"), class.id), "on, action " .. i);
         end
 
+        -- **Off takes the key out and leaves the table standing.** The class loses its mask rather
+        -- than keeping a zero, and the condition itself stays for the issue to speak for.
         ActionMenu.ToggleClassSpecs(ctx, class.id);
         for i, action in ipairs(actions) do
-            check(Cond(action, "specs")[class.id] == 0, "off, action " .. i);
+            local specs = Cond(action, "specs");
+            check(specs ~= nil, "off, action " .. i .. ": the condition went");
+            check(specs[class.id] == nil,
+                "off, action " .. i .. ": the mask stayed " .. tostring(specs[class.id]));
         end
     end);
 
-    -- **One meaning, one shape.** A class the reader ticked back to whole has to read as one
-    -- nobody touched, or its row goes on being painted and the key it lets through looks narrowed
-    -- (`giving-the-spec-condition-a-class-key.md` §4).
-    test("a class ticked back to whole keeps no mask", function()
+    -- **One meaning, one shape.** A class whose every box the reader ticked by hand has to read as
+    -- one ticked in a single press, or the class box draws off over a class that holds everything.
+    test("a class ticked box by box reads as the whole class", function()
         local class = AClass();
-        -- **A second class stays shut out**, so the condition still narrows something and the
-        -- table is not dropped by the rule below. Without it this would pass on that rule alone.
-        local other;
-        for _, candidate in ipairs(DebindPrivate.ClassSpecCatalog()) do
-            if (candidate.id ~= class.id) then
-                other = candidate.id;
-                break;
-            end
-        end
-        check(other, "the catalog has one class");
-
-        local actions = ResetProfile({ Spell(1, { specs = { [class.id] = 0, [other] = 0 } }) });
+        local actions = ResetProfile({ Spell(1) });
         local ctx = Ctx(actions);
 
         for i = 1, #class.specs do
@@ -228,35 +221,30 @@ return function(DebindPrivate)
 
         local specs = Cond(actions[1], "specs");
         check(specs ~= nil, "the whole condition went");
-        check(specs[class.id] == nil, "the mask stayed: " .. tostring(specs[class.id]));
-        check(specs[other] == 0, "the other class came back: " .. tostring(specs[other]));
+        check(specs[class.id] == DebindPrivate.ClassSpecMask(class.id),
+            "the mask came out " .. tostring(specs[class.id]));
+        check(ActionMenu.ClassSpecsAllPicked(ctx, class.id), "the class box stayed off");
     end);
 
-    -- **And a condition that narrows nothing is no condition.** Every class whole says exactly
-    -- what an action with no `specs` says, and two shapes for it would paint one of them.
-    test("a condition left narrowing nothing goes away", function()
+    -- **A condition left holding nothing stays and is reported.** Unticking the last box is not
+    -- the same answer as never having set the axis: this key fires nowhere, and the row is where
+    -- the reader is told so. Dropping the table would make the two indistinguishable, and every
+    -- other mask axis on this menu keeps its zero for the same reason.
+    test("a condition left holding nothing stays, and says so", function()
         local class = AClass();
-        local actions = ResetProfile({ Spell(1, { specs = { [class.id] = 0 } }) });
+        local actions = ResetProfile({
+            Spell(1, { specs = { [class.id] = DebindPrivate.ClassSpecMask(class.id) } }),
+        });
         local ctx = Ctx(actions);
 
         ActionMenu.ToggleClassSpecs(ctx, class.id);
 
-        check(Cond(actions[1], "specs") == nil,
-            "it stayed: " .. tostring(Cond(actions[1], "specs")));
-        check(actions[1].conditions == nil,
-            "the action is still conditional: " .. tostring(actions[1].conditions));
-    end);
-
-    -- **Every class off in one press**, which is what the axis defaulting to every class costs.
-    test("the clear row shuts every class out", function()
-        local actions = ResetProfile({ Spell(1) });
-        local ctx = Ctx(actions);
-
-        ActionMenu.ClearAllSpecConditions(ctx);
-
         local specs = Cond(actions[1], "specs");
-        check(specs ~= nil, "nothing was written");
-        check(DebindPrivate.SpecSetIsEmpty(specs), "a class was left in: " .. tostring(specs));
+        check(specs ~= nil, "the condition went away");
+        check(DebindPrivate.SpecSetIsEmpty(specs), "it left something behind");
+        check(DebindPrivate.GetBindingIssue(actions[1], "specs")
+            == Constants.BINDING_ISSUE_SPECS_NONE_SELECTED,
+            "the empty set was not reported");
     end);
 
 

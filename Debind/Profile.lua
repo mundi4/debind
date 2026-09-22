@@ -90,11 +90,12 @@ local tconcat            = table.concat;
 --- places gate on the table existing. Two actions that differ only in which of those two shapes
 --- they are written in are the same action.
 ---
---- **`conditions.specs` is one of the fields this reads as absent when it is empty**, and there it
---- says the same thing: a class with no mask is every specialization of it
---- (`giving-the-spec-condition-a-class-key.md` §2), so a table with no class
---- in it narrows nothing, which is what carrying no specialization condition is. The shape that
---- fires nowhere is every class at 0, and that one is not empty and does not come through here.
+--- **`conditions.specs` is one of the fields this reads as absent when it is empty, and there the
+--- two are opposite.** A class with no mask holds nothing, so a table with no class in it is a key
+--- that fires nowhere while carrying no specialization condition at all is a key that fires
+--- everywhere. Unticking the last box in the menu writes exactly that empty table
+--- (`NormalizeSpecCondition`), so the two shapes come out of ordinary use and this folds them into
+--- one signature: `CollectDuplicateActions` offers one of them up as a repeat of the other.
 ---
 --- **Keys are sorted, and by type first.** `pairs` order is not the order anything was written in
 --- and is not stable across two tables holding the same thing.

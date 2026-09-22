@@ -6126,9 +6126,10 @@ RegisterTest("Spec condition: the specialization the character is on decides the
         end
         local classID = select(3, UnitClass("player"))
 
-        -- **Every other class is shut out on both keys**, because a class with no mask is every
-        -- specialization of it: left alone, the two conditions would both hold here and the second
-        -- key would prove nothing.
+        -- **Every other class is written out at zero on both keys.** A class with no mask holds
+        -- nothing, so the zeros say what leaving the class out would say anyway; they are spelled
+        -- out because what this case turns on is that the two conditions differ by the played
+        -- class's mask and by nothing else.
         local function Narrowed(mask)
             local specs = { [classID] = mask }
             local catalog = DebindPrivate.ClassSpecCatalog()
