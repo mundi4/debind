@@ -63,19 +63,19 @@ A Switch is a condition of its own: |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r while i
 Write unit and Switch names in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
 ]==]
 
-L["HELP_CUSTOM_TARGET_TITLE"] = "Setting a Custom Target"
+L["HELP_CUSTOM_TARGET_TITLE"] = "What is a Custom Target?"
 L["HELP_CUSTOM_TARGET_BODY"] = [==[
-Two extra targets you set the way you set your focus. Put |cnBLUE_FONT_COLOR:Set Custom Target 1|r or |cnBLUE_FONT_COLOR:Set Custom Target 2|r on a key, from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
+Two extra targets you keep the way you keep your focus. Put |cnBLUE_FONT_COLOR:Set Custom Target 1|r or |cnBLUE_FONT_COLOR:Set Custom Target 2|r on a key, from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
 
-Then use one like any other unit: pick |cnBLUE_FONT_COLOR:Custom Target 1|r or |cnBLUE_FONT_COLOR:Custom Target 2|r in an action's |cnBLUE_FONT_COLOR:Target|r menu, ask about it under |cnBLUE_FONT_COLOR:Units|r, or write |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a Custom Macro, as in |cnGREEN_FONT_COLOR:|Hdebind:help:custom-macro|h[Writing a Custom Macro]|h|r.
+Then use one like any other unit: pick |cnBLUE_FONT_COLOR:Custom Target 1|r or |cnBLUE_FONT_COLOR:Custom Target 2|r in an action's |cnBLUE_FONT_COLOR:Target|r menu, ask about it under |cnBLUE_FONT_COLOR:Units|r, or write |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a |cnBLUE_FONT_COLOR:Custom Macro|r, as in |cnGREEN_FONT_COLOR:|Hdebind:help:custom-macro|h[Writing a Custom Macro]|h|r.
 
 You can set yourself, your pet, somebody in your party or raid, an encounter boss, or an arena opponent. On anything else the press does nothing and a line in chat says why. Each character has its own two, and they are still there at the next login.
 
 Out of combat this works over any unit frame. In combat it works over the Player, Pet, Party, Raid, Boss and Arena frames Debind works on.
 
-A custom target stays on the person you set it on until you set it on somebody else. Set it before the pull, or during a fight before your group changes, and it stays on them through the fight. A boss or an arena opponent is the spot rather than the person, so next time it is whoever stands there.
+A custom target on somebody in your party or raid follows that person, even when the group changes. A boss or an arena opponent is the position rather than the person, so next time it is whoever stands there.
 
-The exception is one you set during a fight your group has already changed in. That one clears if the group changes again before the fight ends, and the line you get when you set it says so.
+The exception is a party or raid custom target you set during a fight your group has already changed in. That one clears if the group changes again before the fight ends, and the line you get when you set it says so.
 ]==]
 
 L["HELP_HOVER_CAST_TITLE"] = "What is Hover Cast?"
