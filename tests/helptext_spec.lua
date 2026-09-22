@@ -73,6 +73,18 @@ return function(DebindPrivate)
         }, ParseHelpText("- Outer.\n  - Inner.\n    1. Innermost."));
     end)
 
+    test("a note ends the block before it, and a following line joins the note", function()
+        same({
+            { kind = "paragraph", text = "Before." },
+            { kind = "note", text = "An aside that goes on." },
+            { kind = "paragraph", text = "After." },
+        }, ParseHelpText("Before.\n> An aside\nthat goes on.\n\nAfter."));
+    end)
+
+    test("a bare angle bracket with no space is not a note", function()
+        same({ { kind = "paragraph", text = ">Not a note." } }, ParseHelpText(">Not a note."));
+    end)
+
     test("a number in running text is not an item", function()
         same({ { kind = "paragraph", text = "It takes 1.5 seconds. 2.Not an item either." } },
             ParseHelpText("It takes 1.5 seconds.\n2.Not an item either."));

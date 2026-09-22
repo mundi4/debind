@@ -47,6 +47,7 @@ function parseBlocks(text) {
     for (const line of text.split("\n")) {
         const [, indent, rest] = line.match(/^( *)(.*?)\s*$/);
         const heading = rest.match(/^#\s+(.*)$/);
+        const note = rest.match(/^>\s+(.*)$/);
         const item = rest.match(/^(\d+\.)\s+(.*)$/) || rest.match(/^(-)\s+(.*)$/);
 
         if (rest === "") {
@@ -54,6 +55,9 @@ function parseBlocks(text) {
         } else if (heading) {
             blocks.push({ kind: "heading", text: heading[1] });
             current = null;
+        } else if (note) {
+            current = { kind: "note", text: note[1] };
+            blocks.push(current);
         } else if (item) {
             current = { kind: "item", marker: item[1], indent: indent.length - (indent.length % 2), text: item[2] };
             blocks.push(current);
@@ -160,6 +164,8 @@ function renderBody(blocks, where, titleOf) {
         const text = convertInline(block.text, where, titleOf);
         if (block.kind === "heading") {
             out.push(`# ${text}`);
+        } else if (block.kind === "note") {
+            out.push(`> ${text}`);
         } else if (block.kind === "item") {
             out.push(`${" ".repeat(block.indent)}${block.marker} ${text}`);
         } else {

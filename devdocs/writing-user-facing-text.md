@@ -106,6 +106,15 @@ before they can act on it.
 Plain verbs the reader already uses for software are what this leaves: set, clear, keep, stop,
 work, do nothing. Reaching past them is where the personification comes from.
 
+**The one way out** (2026-09-22, owner): the plain wording says it less clearly than the personified
+one, or it takes a good deal more room to say it as clearly. Clarity for the reader is what this rule
+serves, so where the rule would cost clarity the rule gives way.
+
+That is judged with the replacement written out, not imagined. Write the plain version, read both,
+and keep the personified one only when the plain one is worse or much longer. A sentence kept on this
+ground says why in a comment, so the next reader does not take it for one that slipped through. Equal
+clarity at similar length means the plain one wins.
+
 ---
 
 ## Register, in Korean
@@ -163,6 +172,23 @@ about the same gesture stays on that gesture's line instead of standing up a new
 Do not use "anything invisible on screen belongs in a HelpTip, not a tooltip" as a rule. A HelpTip
 fires once and is dismissed forever; anything a user may want to look up again has to live in the
 tooltip too, even if a balloon also says it.
+
+## A sentence that only appears in one state is a sentence most readers never get
+
+**A tooltip is read once.** Somebody opens a row, reads it, and from then on they know what the row
+is and never hover it again. So a line that is added only while some other setting is on reaches
+only the readers who happened to arrive in that state, and everybody who read the row first is left
+with the version that does not say it (2026-09-22, owner).
+
+**Say it always, or leave it out.** If the sentence matters, it belongs in the row's own text in
+every state. If it does not matter enough to stand there all the time, it did not need writing.
+
+`CAST_KEY_TARGET_PICKED` was the case that settled it: a line appended to the three cast values
+only while that action has a unit picked under *Target*. A reader who set the cast values first and
+picked the unit later never sees it. This holds for help pages the same way.
+
+Disabling a control in a state is a different thing and stays. That is behaviour, and the reader
+sees it happen.
 
 ---
 

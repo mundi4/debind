@@ -88,7 +88,7 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- action itself has not been told which switch it works. Kept apart from the line below on
 -- purpose. "You have not picked one" and "the one you picked is gone" send the reader to two
 -- different places, and the second names a switch while this one has none to name.
-L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No switch is picked. Until one is, this binding does not fire at all."
+L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, this binding does not fire at all."
 -- **Escape by name, because Escape is what is refused** (`IsKeyInvalidForAction`). It used to name
 -- Toggle Game Menu and follow that binding, which meant it could print about a key the reader had
 -- moved somewhere we could not follow. "Escape" is the client's own word for the key
@@ -103,7 +103,7 @@ L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The Escape key cannot be used."
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
 -- box it belongs to. Neither of these two has a box, so without the name there is nothing on
 -- screen saying what to fix.
-L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
+L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no Switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
@@ -175,8 +175,8 @@ L["CONDITION_COMBAT_NO"] = "While not in combat"
 L["CONDITION_COMBAT_YES"] = "While in combat"
 L["CONDITION_COMBAT"] = "Combat"
 L["CONDITION_CUSTOM_STATES"] = "Switches"
-L["CONDITION_CUSTOM_STATE_NO"] = "When the switch is off"
-L["CONDITION_CUSTOM_STATE_YES"] = "When the switch is on"
+L["CONDITION_CUSTOM_STATE_NO"] = "When the Switch is off"
+L["CONDITION_CUSTOM_STATE_YES"] = "When the Switch is on"
 L["CONDITION_EXTRABAR_NO"] = "When the Extra Action Button is not present"
 L["CONDITION_EXTRABAR_YES"] = "When the Extra Action Button is present"
 L["CONDITION_EXTRABAR"] = "Extra Action Button"
@@ -318,7 +318,7 @@ L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
 --
 -- **The example shows two groups on purpose.** The field goes to `SecureCmdOptionParse`, so the
 -- whole grammar works, and a one-group example reads as the limit.
-L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "The switch is on while this passes, off while it does not. Checked each time you press a key that uses it.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:[combat,nostealth]|r or |cnHIGHLIGHT_FONT_COLOR:[@tank,exists][combat]|r|n|n|cnHIGHLIGHT_FONT_COLOR:@@|r (two at signs) does not work here. The switch is worked out before the press has a unit, so there is nothing for it to point at."
+L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "The Switch is on while this passes, off while it does not. Checked each time you press a key that uses it.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:[combat,nostealth]|r or |cnHIGHLIGHT_FONT_COLOR:[@tank,exists][combat]|r|n|n|cnHIGHLIGHT_FONT_COLOR:@@|r (two at signs) does not work here. The Switch is worked out before the press has a unit, so there is nothing for it to point at."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "The addon turns it on and off from a macro conditional you write (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "Set automatically"
 L["CUSTOM_STATE_OFF"] = "Off"
@@ -330,7 +330,7 @@ L["CUSTOM_STATE_ON"] = "On"
 -- translating the same text twice in every locale.
 --
 -- It said "the tooltip of the SwitchesPortrait button" until 3c took that button off the window.
-L["CUSTOM_STATES_DESC"] = "These are ON/OFF switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these switches on or off at any time, or you can set them as macro conditionals themselves."
+L["CUSTOM_STATES_DESC"] = "These are ON/OFF Switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these Switches on or off at any time, or you can set them as macro conditionals themselves."
 L["CUSTOM_STATES"] = "Switches"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cleared|r - it was held by group slot, not by name, and the group changed. Set it again."
@@ -1128,7 +1128,7 @@ L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back the way you left it when you log 
 -- then watches a switch the addon works out move in silence has no way to tell the option from a
 -- fault, so which switches it covers is said here rather than left to be discovered.
 L["SWITCH_MESSAGES"] = "Switch change messages"
-L["SWITCH_MESSAGES_DESC"] = "Prints a line when a switch changes. Only switches you turn on and off yourself print one, never the ones the addon works out from a macro conditional."
+L["SWITCH_MESSAGES_DESC"] = "Prints a line when a Switch changes. Only Switches you turn on and off yourself print one, never the ones the addon works out from a macro conditional."
 -- The section where Debind hands a key it holds back to the game for as long as something else
 -- needs it.
 --
@@ -1175,7 +1175,7 @@ L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself
 -- out of the window's furniture. So the caption over the dropdown asks which situation is being
 -- set rather than teaching a word for the set of them.
 L["SWITCH_LAYER_PICKER"] = "Set it for"
-L["SWITCH_OVERRIDE_DESC"] = "Say what this switch comes up as for one class, one specialization or one character. Wherever you set none, the account-wide setting is used."
+L["SWITCH_OVERRIDE_DESC"] = "Say what this Switch comes up as for one class, one specialization or one character. Wherever you set none, the account-wide setting is used."
 -- The delete on a row of that list. **"What you set" and not "the switch"**: the button under the
 -- column deletes the switch itself, and a reader who reads this as that one loses every character's
 -- settings from a row that named one class.
@@ -1198,7 +1198,7 @@ L["SWITCH_NAME_LABEL"] = NAME
 L["SWITCH_ANSWER_MANUAL"] = "Set manually"
 L["SWITCH_ANSWER_MANUAL_DESC"] = "You turn it on and off with a key."
 L["SWITCH_ANSWER_IGNORE"] = "Ignored"
-L["SWITCH_ANSWER_IGNORE_DESC"] = "Actions that use this switch work whether it is on or off."
+L["SWITCH_ANSWER_IGNORE_DESC"] = "Actions that use this Switch work whether it is on or off."
 -- The heading over the three starting values. **It names neither moment.** "When you log in" is
 -- wrong on its own, since the same three apply again on a specialization change.
 L["SWITCH_START_VALUE"] = "Starts as"
@@ -1222,8 +1222,8 @@ L["SWITCH_USAGE_ACTIONS"] = "Actions"
 L["SWITCH_USAGE_OPENABLE"] = "You can open these from this character."
 L["SWITCH_USAGE_LOG_IN"] = "Log in there to change these."
 L["SWITCH_USAGE_GOTO"] = "Click to go to this action."
-L["SWITCH_USAGE_EMPTY"] = "Nothing uses this switch."
-L["SWITCHES_DETAIL_EMPTY"] = "Pick a switch."
+L["SWITCH_USAGE_EMPTY"] = "Nothing uses this Switch."
+L["SWITCHES_DETAIL_EMPTY"] = "Pick a Switch."
 L["SWITCH_TURN_ON"] = "Turn On"
 L["SWITCH_TURN_OFF"] = "Turn Off"
 -- Where the button would be on a switch that is set automatically, and the position is what it has
@@ -1237,12 +1237,12 @@ L["SWITCH_AUTOMATIC"] = "Updated automatically"
 -- press. A toggle that worked on a switch nothing reads is worse than one that is missing.
 L["SWITCH_IGNORED"] = "Ignored here"
 L["SWITCH_TOGGLE_INSTRUCTION"] = "Click to turn it on or off."
-L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to work the switch does it any time."
+L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to work the Switch does it any time."
 L["SWITCH_RENAME"] = "Rename"
 -- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
 -- no learns the rule one refusal at a time; a reader who is told first types a name that takes.
-L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
-L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
+L["SWITCH_RENAME_PROMPT"] = "What should this Switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
+L["SWITCH_RENAME_ERROR_GONE"] = "That Switch is not here any more."
 -- Making one. **Three places open this box**: the button under the Switches list, the condition
 -- menu, and an on/off/toggle action's own menu. All three exist because a reader finds out they
 -- want a switch while they are setting up the thing that needs it, not while looking at a list of
@@ -1256,13 +1256,13 @@ L["SWITCH_CREATE_BUTTON"] = "New Switch"
 -- comes up because a name is the one thing making a switch needs and nothing on screen asks for it
 -- yet. A reader expecting a row to appear presses once and gets a dialog instead.
 L["SWITCH_CREATE_BUTTON_INSTRUCTION"] = "Click and it asks what to call it."
-L["SWITCH_CREATE_DESC"] = "Makes a switch and puts it on this action straight away."
-L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
+L["SWITCH_CREATE_DESC"] = "Makes a Switch and puts it on this action straight away."
+L["SWITCH_CREATE_PROMPT"] = "What should the new Switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
 -- **The two refusals a typed name gets, and they are about the name rather than about which box
 -- it was typed into.** Renaming and creating both hand them back (`RenameSwitch`, `CreateSwitch`),
 -- which is why they are not called SWITCH_RENAME_ERROR_* any more.
-L["SWITCH_NAME_ERROR_INVALID"] = "A switch name can hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
-L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a switch by that name."
+L["SWITCH_NAME_ERROR_INVALID"] = "A Switch name can hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a Switch by that name."
 -- The [Set Switch] menu on an on/off/toggle action: which switch the key works, and what it does
 -- to it. **The verbs are worded as what the key does, not as what the switch is.** "On" beside a
 -- list of switches reads as the switch's own value, which is the one thing this menu cannot set.
@@ -1284,7 +1284,7 @@ L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnNORMAL_FONT_COLOR:%d|r actions use it a
 -- The other characters are the reason the line is here at all: the tab draws what one character
 -- reaches, so that is the one consequence the reader cannot see from where they are standing.
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
-L["SWITCHES_EMPTY"] = "No switches yet.|n|nSwitches you make are listed here."
+L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
@@ -1332,12 +1332,20 @@ L["CASTING_FOCUS_CAST_DESC"] = "Holding the Focus Cast Key sends this action to 
 -- **One label for the middle value of all three rows**, because it is one answer: the action takes
 -- its turn on that press and the press does not move it. The sentence under it is written per row,
 -- since what is being turned down differs.
-L["CASTING_AS_USUAL"] = "Cast as usual"
+--
+-- **"as usual" names the target, not the behaviour** (2026-09-22, owner). Written as "Cast as
+-- usual" it read as "this action behaves normally", which is what the Hover Cast row's Off does, so
+-- the two values on that row looked like the same thing. Pinned to the noun it can only be read as
+-- the unit.
+L["CASTING_AS_USUAL"] = "Cast on the usual target"
 L["CASTING_SELF_USUAL_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_FOCUS_USUAL_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to it. It goes where it would with nothing pointed at, and keeps its place among the actions on the key."
--- **One word for the same value on all three rows.** Turned off, the action makes no binding for
--- that press; what that leaves behind differs by row, and each row's own sentence says it.
+-- **Two labels, because the same stored value leaves two different things behind** (2026-09-22,
+-- owner). On the two key rows the action is taken off that press and the next one gets it, which is
+-- an effect the reader sees; on the Hover Cast row nothing about the action changes, which is what
+-- "Off" says. One word over both made the key rows read as "this row does not apply".
+L["CASTING_SKIP"] = "Skip this action"
 L["CASTING_OFF"] = "Off"
 L["CASTING_SKIP_DESC"] = "The action sits this press out, and the next action on the key takes it."
 -- **Off does not take the action off the pointed press**, and the sentence has to say so, because
@@ -1355,16 +1363,20 @@ L["CASTING_HOVER_ACCOUNT"] = "Use the mode in Debind's settings"
 L["CASTING_HOVER_ACCOUNT_DESC"] = "Whatever Hover Cast is set to in Debind's settings, which is %s right now."
 L["CASTING_POINTED_CAST"] = "Cast on the unit you point at"
 L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
--- **The fourth press has no key and no unit to name it by**, so it is named as the plain one: the
--- key pressed with nothing held and nothing pointed at. Ticked is what every action did before any
--- of these values existed.
+-- **The fourth press has no key and no unit to name it by**, so it is named by the key alone.
+-- Ticked is what every action did before any of these values existed.
+--
+-- **It is not "nothing pointed at"** (2026-09-22, `which-action-a-key-runs.md` §3). A press with no
+-- key held is one path: the hover twin is tried and the original catches whatever it does not take.
+-- An action with Hover Cast off has no twin, so a press made while pointing is this press, and
+-- unticking takes that one away as well.
 --
 -- **What is left once it is unticked is not listed here.** It used to end "and this action is only
 -- reached by a held key or by pointing at a unit", which was true while every action answered a
 -- pointed press; with Hover Cast off by default that half names a way in the reader does not have.
 -- The three rows above each say what they answer, so the reader has the list already.
 L["CASTING_NORMAL"] = "Normal Cast"
-L["CASTING_NORMAL_DESC"] = "The action runs on a press with nothing held and nothing pointed at. Unticked, that press goes to the next action on the key."
+L["CASTING_NORMAL_DESC"] = "The action runs on a press with no key held, unless Hover Cast takes that press for this action. Unticked, that press goes to the next action on the key."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
 -- The four things the game does around a cast on its own. **Two of them the client names itself**
 -- (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`) and those two are used; the other two have
@@ -1394,9 +1406,13 @@ L["AUTOMATIC_GAME_MACRO"] = "This does not apply to a macro from WoW's own list.
 L["AUTOMATIC_NOT_A_CAST"] = "This does not apply to an action that casts nothing."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
--- literal here; on [Cast as usual] it is why the row stands locked, since with a target picked the
+-- literal there; on the middle one it is why the row stands locked, since with a target picked the
 -- two say the same thing.
-L["CAST_KEY_TARGET_PICKED"] = "This action has a target of its own, and it goes there on this press as well."
+--
+-- **Written as the rule, so it can stand in every state** (2026-09-22, owner). Appended only while
+-- a target was picked, it reached nobody who read these rows first and picked the target later; a
+-- tooltip is opened once. The same reason it is phrased "if" rather than "this action has".
+L["CAST_KEY_TARGET_PICKED"] = "If this action has a target of its own, it goes there on this press instead."
 -- **Named apart from `TARGET_UNIT`.** That one is the target the reader picks; this row is what the
 -- pick turns into at the press, once a held key or Hover Cast has had its say, and that is you or
 -- your focus as often as a target. The two sit in one menu tree, where "Target" twice would read as
@@ -1437,7 +1453,7 @@ L["TYPE_USESLOT"] = "Equipment Slot"
 L["TYPE_USESLOT_DESC"] = "Uses whatever you are wearing in this slot."
 L["TYPE_ITEM"] = "Item"
 L["TYPE_MACRO"] = "Macro"
-L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read your switches, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"
+L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read your Switches, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"
 L["TYPE_MACROTEXT"] = "Custom Macro"
 L["TYPE_MOUNT"] = "Mount"
 L["TYPE_PETACTION"] = "Pet Command"
@@ -1445,7 +1461,7 @@ L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as t
 L["TYPE_SETCUSTOM"] = "Set Custom Target"
 L["TYPE_SETCUSTOM1"] = "Set Custom Target 1"
 L["TYPE_SETCUSTOM2"] = "Set Custom Target 2"
-L["TYPE_SETSTATE_DESC"] = "Turns a switch on or off. A switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which switch it works, and whether the key turns that switch on, turns it off, or flips it.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
+L["TYPE_SETSTATE_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or flips it.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
 L["TYPE_SETSTATE_ANY"] = "a Switch"
 L["TYPE_SETSTATE_OFF"] = "Turn Off %s"
 L["TYPE_SETSTATE_ON"] = "Turn On %s"

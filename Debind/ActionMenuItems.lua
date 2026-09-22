@@ -354,18 +354,19 @@ end
 --- a held key reaches a macro or a mount as well, and taking one out of that press is the same
 --- choice there.
 local function CreateCastingMenu(parentDescription, ctx)
-    local function everyUnitPicked()
-        return AllActions(ctx, DebindPrivate.ActionHasPickedUnit);
-    end
-
-    --- **The note on the first row and the reason the second stands locked are one sentence.** A
-    --- picked unit is not moved by any of these presses (`ActionHasPickedUnit`), so "cast on that
-    --- unit" and "cast as usual" are the same cast there, and the first row's label is the half
-    --- that stops being literal.
-    local function pickedReason()
-        if (everyUnitPicked()) then
-            return LLL["CAST_KEY_TARGET_PICKED"];
-        end
+    --- The two values a picked unit changes the meaning of: it is not moved by any of these presses
+    --- (`ActionHasPickedUnit`), so "cast on that unit" and "cast on the usual target" are the same
+    --- cast there, and both labels stop being literal.
+    ---
+    --- **Neither is locked** (2026-09-22, owner). Locking one leaves the other reading as the value
+    --- that still does what its label says, which is the half that just stopped being true. Two
+    --- values that come to the same cast are better both open with the sentence under them.
+    ---
+    --- **The sentence stands in every state.** Added only while a unit was picked, it never reached
+    --- anyone who read these values first and picked the unit afterwards, because a tooltip is opened
+    --- once. The lock-reason slot is not the place for it either: that one draws a disabled line.
+    local function withPickedNote(text)
+        return text .. "|n|n" .. LLL["CAST_KEY_TARGET_PICKED"];
     end
 
     local description = ActionMenus:BuildNode(parentDescription, {
@@ -423,17 +424,14 @@ local function CreateCastingMenu(parentDescription, ctx)
                     end);
             end
 
-            -- **Off is first on all three rows.** Which of them is the default differs, and a reader
-            -- looking for the same value on the next row down should not have to read the list again.
-            SetInstructionTooltip(Choice(LLL["CASTING_OFF"], "skip"), LLL["CASTING_SKIP_DESC"]);
+            -- **The value that takes the action out of the press is first on all three rows.** Which
+            -- of them is the default differs, and a reader looking for the same value on the next row
+            -- down should not have to read the list again.
+            SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_SKIP_DESC"]);
 
-            SetInstructionTooltip(Choice(LLL[row.cast], "cast"), LLL[row.cast .. "_DESC"], pickedReason);
+            SetInstructionTooltip(Choice(LLL[row.cast], "cast"), withPickedNote(LLL[row.cast .. "_DESC"]));
 
-            local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
-            usual:SetEnabled(function()
-                return not everyUnitPicked();
-            end);
-            SetInstructionTooltip(usual, LLL[row.usual], pickedReason);
+            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"), withPickedNote(LLL[row.usual]));
         end
     end
 
@@ -485,14 +483,11 @@ local function CreateCastingMenu(parentDescription, ctx)
 
         SetInstructionTooltip(Choice(LLL["CASTING_OFF"], nil), LLL["CASTING_HOVER_OFF_DESC"]);
 
-        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"), LLL["CASTING_POINTED_CAST_DESC"],
-            pickedReason);
+        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"),
+            withPickedNote(LLL["CASTING_POINTED_CAST_DESC"]));
 
-        local usual = Choice(LLL["CASTING_AS_USUAL"], "usual");
-        usual:SetEnabled(function()
-            return not everyUnitPicked();
-        end);
-        SetInstructionTooltip(usual, LLL["CASTING_HOVER_USUAL_DESC"], pickedReason);
+        SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"),
+            withPickedNote(LLL["CASTING_HOVER_USUAL_DESC"]));
 
         hoverDescription:CreateDivider();
     end

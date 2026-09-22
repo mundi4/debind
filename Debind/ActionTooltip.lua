@@ -117,7 +117,7 @@ do
 
 	--- A Cast Options press row's value in the menu's words. On the two cast key rows `"cast"` is the
 	--- default and has none; on Hover Cast the default is off, so that row names what it holds.
-	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_OFF"] };
+	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_SKIP"] };
 	local HOVER_TEXT = { cast = LLL["CASTING_POINTED_CAST"], usual = LLL["CASTING_AS_USUAL"] };
 
 	local function addErrorLine(tooltip, message, wrap, leftOffset)

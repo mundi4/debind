@@ -80,6 +80,19 @@ end
 local INDENT = 20;
 local MARKER_GAP = 4;
 
+--- **Asked for, not built at load.** A font object named here is a global this file would read
+--- before the frame XML that declares it has run.
+local BODY_FONTS;
+local function BodyFont(kind)
+    if (not BODY_FONTS) then
+        BODY_FONTS = {
+            heading = GameFontHighlightMedium,
+            note = GameFontDisable,
+        };
+    end
+    return BODY_FONTS[kind] or GameFontNormal;
+end
+
 local function GapBefore(previous, block)
     if (not previous) then
         return 0;
@@ -145,7 +158,7 @@ function DebindMessageFrameMixin:ShowTopic(name, scroll)
 
         used = used + 1;
         local fontString = AcquireFontString(self, used);
-        fontString:SetFontObject(block.kind == "heading" and GameFontHighlightMedium or GameFontNormal);
+        fontString:SetFontObject(BodyFont(block.kind));
         fontString:SetJustifyH("LEFT");
         fontString:SetWidth(width - x);
         fontString:SetText(block.text);

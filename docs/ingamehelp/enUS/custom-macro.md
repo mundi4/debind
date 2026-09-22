@@ -24,7 +24,7 @@ else tells a reader in the edit box that `[$name]` is a thing the body can hold.
 
 # Writing a Custom Macro
 
-Anything a macro in the game's own list holds, and two things it cannot: the units below, and your switches.
+Anything a macro in the game's own list holds, and two things it cannot: the units below, and your Switches.
 
 These units can be aimed at. Write them like any other unit.
 
@@ -41,6 +41,6 @@ A unit nobody holds counts as not existing. Target and pet can follow any of the
 
 **/cast [@@,help][] Regrowth**
 
-A switch is a condition of its own: **[$fishing]** while it is on, **[no$fishing]** while it is off. The name is the one it has under *Switches*.
+A Switch is a condition of its own: **[$fishing]** while it is on, **[no$fishing]** while it is off. The name is the one it has under *Switches*.
 
-Write units and switches in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
+Write unit and Switch names in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.

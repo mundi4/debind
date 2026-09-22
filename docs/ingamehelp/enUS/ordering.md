@@ -6,9 +6,19 @@
 
 <!--
 **"The key does nothing" is the line that matters to someone upgrading.** Up to the previous release a key with nothing to run was handed back to the game and its own keybinding ran; that path is gone (`devdocs/legacy/dropping-the-game-fallback.md`). It also covers a held key no action answers, so the paragraph at the end needs no sentence of its own for that. Pet battles handing keys back are left out: there the key does what the battle bar shows.
+
+**What to do about it stands with it** (2026-09-22, owner). Saying only what was lost leaves a reader who cannot form the question: the symptom is an action bar key that stopped working, which reads as a broken keybinding, not as something to look up.
+
+**`Action Button` is named because it is the only type that reaches the slot.** `Use WoW's Own Binding` and every other `Binding Command` become a block on the binding (`Misc.lua`, `dropping-the-game-fallback.md` §3), so the one whose name invites the guess is the one that does not work.
+
+**Turning every action off is the opposite case and sits next to it.** That one does hand the key back (`BuildKeyMap` in `Debind.lua`), and the two are a step apart on screen.
 -->
 
-A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing.
+A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing: Debind keeps the key, and what WoW has bound to it does not run.
+
+To have something happen instead, put an action with no conditions last on the key and it takes those presses. To reach the action bar slot that key used to press, make that last one an *Action Button*.
+
+Turning every action on a key off is the other way, and it gives the key back: WoW's own binding runs again until you turn one on.
 
 <!--
 **"Grouped by key" is what points at the left list.** The Overview tab has two, and the one on the right is a layer's actions; the shape tells them apart where "left" alone would not survive a layout change.

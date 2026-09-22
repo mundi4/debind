@@ -32,6 +32,7 @@ a list of changes they never had. Same ladder `dbver` is, and it is written when
 
 ## Cast Options: what each press does
 
+<!-- The value labels have moved since these two bullets were written. Read them off the menu. -->
 - The three rows (Self Cast Key, Focus Cast Key, Hover Cast) each take Off, cast at that press's
   unit, or Cast as usual.
 - Off is one word on all three rows now. There is no "Skip this action".
@@ -51,6 +52,18 @@ a list of changes they never had. Same ladder `dbver` is, and it is written when
   action off rather than turning a press back on.
 - A left or right click with no modifier, with a condition that rules out the only click it can
   answer, is marked on the key and on that condition.
+
+## A key with nothing to run no longer falls back to the game
+
+- What changed: a key whose actions all fail their conditions used to be handed back, and WoW's own
+  binding for it ran. Now the key is held and the press does nothing.
+- Who this reaches: anybody with a conditional action on a key WoW also binds. An action bar key is
+  the common one, and the symptom reads as a broken keybinding rather than as a setting.
+- What to do instead: put an action with no conditions last on the key to catch the press. For the
+  action bar slot that is Action Button. Say plainly that Use WoW's Own Binding is not it, since the
+  name invites exactly that guess.
+- The other direction: turning every action on a key off does hand the key back, which is the
+  entry above.
 
 ## The order on a key
 

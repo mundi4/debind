@@ -451,7 +451,7 @@ return function(DebindPrivate)
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         local text = Tooltip(row);
-        check(text:find(LLL["CASTING_OFF"], 1, true), "the changed value is missing: " .. text);
+        check(text:find(LLL["CASTING_SKIP"], 1, true), "the changed value is missing: " .. text);
         check(not text:find(FOCUS_CAST_KEY_TEXT, 1, true), "an unchanged row was drawn: " .. text);
         check(not text:find(LLL["CASTING_NORMAL"], 1, true), "an unchanged row was drawn: " .. text);
         check(not Says(row, "LINE_TOOLTIP_CASTING_NONE_LEFT"), "a reason with presses left: " .. text);

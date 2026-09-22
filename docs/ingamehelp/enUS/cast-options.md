@@ -1,28 +1,29 @@
 <!--
-**One list for three rows.** Off means the same on the Self Cast Key, Focus Cast Key and Hover Cast rows, a twin that is not made (`devdocs/which-action-a-key-runs.md` §6), so the answers are written once instead of once per row. What is left behind differs, and that difference is the second bullet.
+**Two lists, not one** (2026-09-22, owner). The first setting leaves different things behind: on the two key rows the action is out of that press, on Hover Cast nothing about it changes. Written as one list, *Off* and *Cast on the usual target* read as the same setting.
 
-**The unit frame click is here and not on the targeting page** because it is an exception to the two key rows: a click on a frame never reaches them (`devdocs/which-action-a-key-runs.md` §7).
+**The bare mouse button rule is stated here and not only as a locked row** (2026-09-18, owner; `devdocs/which-action-a-key-runs.md` §7).
 -->
 
-# What do the Cast Options do?
+# What do Cast Options do?
 
-*Cast Options* in an action's right-click menu says what the action does on each kind of press. The Self Cast Key, Focus Cast Key and *Hover Cast* rows each take one of three answers:
+*Cast Options* in an action's right-click menu sets what this action does on each kind of press.
 
-- *Cast on yourself*, *Cast on your focus* or *Cast on the unit you point at* sends the action to that unit. The two key rows do this unless you change them; *Hover Cast* starts off, so pointing at a unit does nothing until you turn it on.
-- *Cast as usual* keeps the action's place on the key and sends it where it would go with nothing held or pointed at.
-- *Off* makes no binding for that press. On the two key rows the action is out of that press and the next action on the key takes it. On *Hover Cast* the action still runs, behind every action on the key that does answer a pointed press.
+The *Self Cast Key* and *Focus Cast Key* rows each take one of three settings:
 
-To keep an action from running while you point at a unit, put a condition on that unit instead: under *Units*, pick *Unit Frame* (or *Mouseover*) and choose *When the unit doesn't exist*.
+- *Cast on yourself* or *Cast on your focus* sends the action to that unit while you hold the key. A new action is set to this.
+- *Cast on the usual target* keeps the action in that press and sends it where it would go with no key held.
+- *Skip this action* takes it out of that press, and the press goes to the next action on the key.
 
-When a unit is chosen under *Target*, the first answer on each row sends the action to that unit instead, and *Cast as usual* is locked. Which of the target, a held key and a pointed unit comes first is in [](targeting.md).
+> The *Self Cast Key* and the *Focus Cast Key* are the game's own keys, under Options > Gameplay > Combat.
 
-*Hover Cast* also says which units count as pointed at for this action: *Use the mode in Debind's settings*, or *Unit Frames* or *Mouseover* for this action alone.
+*Hover Cast* is a row of the same shape for the unit you point at, holding *Cast on the unit you point at*, *Cast on the usual target* and *Off*. A new action is set to *Off*, which does not stop the action from running: pointing at a unit simply does not change where it goes.
 
-*Normal Cast* is the press with nothing held and nothing pointed at. Untick it and the action runs only on a held key or a pointed unit, and that plain press goes to the next action on the key.
+*Off* and *Cast on the usual target* both send it where it would go with nothing pointed at. What differs is the turn it takes. With *Off*, this action is tried after every action on the key whose *Hover Cast* is set to something else; with *Cast on the usual target*, it keeps its usual place among them. The order itself is in [](ordering.md).
 
-Clicking a unit frame does not use the Self Cast Key or the Focus Cast Key. A key held on the click picks the binding you made for that exact combination, so the click still goes to the frame's unit.
+To keep an action from running at all while you point at a unit, give it a condition under *Units*. That, and the mode row under the three *Hover Cast* settings that says which units count as pointed at, are in [](hover-cast.md).
 
-<!--
-**The rule is here and not in a warning** (2026-09-17, owner; the row is locked instead, 2026-09-18). Nothing stored reaches that key, so a warning would ask the reader to change values it ignores. `devdocs/which-action-a-key-runs.md` §7.
--->
-An action on the left or right mouse button with no modifier runs only when you click a unit frame. There it ignores *Normal Cast* and *Hover Cast*, using *Unit Frames* and the unit you click, so a click anywhere else still reaches the game.
+> When a unit is chosen under *Target* in the same menu, every press that runs this action sends it to that unit, so *Cast on yourself* and *Cast on the usual target* come to the same cast. Which of a picked target, a held key and a pointed unit comes first is in [](targeting.md).
+
+*Normal Cast* covers the press with no key held, unless *Hover Cast* takes that press for this action. Untick it and that press goes to the next action on the key.
+
+> On the left or right mouse button with no modifier these rows are locked and nothing set here is read, because that action runs only on a unit frame: [](clicking-a-unit-frame.md).
