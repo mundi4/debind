@@ -43,24 +43,24 @@ L["HELP_CUSTOM_MACRO_TITLE"] = "Writing a Custom Macro"
 L["HELP_CUSTOM_MACRO_BODY"] = [==[
 Anything a macro in the game's own list holds, and two things it cannot: the units below, and your Switches.
 
-These units can be aimed at. Write them like any other unit.
+Write a unit after @, where you would name any other unit.
 
-|cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation; Regrowth|r
+|cnHIGHLIGHT_FONT_COLOR:/cast [@healer,exists,nodead][] Innervate|r
 
 - |cnHIGHLIGHT_FONT_COLOR:@tank, @healer, @maintank, @mainassist.|r The member of your group who holds that role, only while exactly one member holds it. Debind's settings can leave you out of each.
-- |cnHIGHLIGHT_FONT_COLOR:@custom1, @custom2.|r The unit you pinned with |cnBLUE_FONT_COLOR:Set Custom Target|r.
-- |cnHIGHLIGHT_FONT_COLOR:@unitframe.|r The unit on the unit frame you press the key over.
+- |cnHIGHLIGHT_FONT_COLOR:@custom1, @custom2.|r The unit you set with |cnBLUE_FONT_COLOR:Set Custom Target|r.
+- |cnHIGHLIGHT_FONT_COLOR:@unitframe.|r The unit on a unit frame Debind works on that your cursor is over as you press the key.
 - |cnHIGHLIGHT_FONT_COLOR:@@.|r The unit this press aims at: you while the Self Cast Key is held, your focus while the Focus Cast Key is held, and the unit you point at with |cnBLUE_FONT_COLOR:Hover Cast|r. With none of these it is your target.
 
-A unit nobody holds counts as not existing. Target and pet can follow any of these names, as in |cnHIGHLIGHT_FONT_COLOR:@tanktarget|r or |cnHIGHLIGHT_FONT_COLOR:@@target|r.
+A name with nobody behind it is a unit that does not exist, so exists is false for it. Target and pet can follow any of these names, as in |cnHIGHLIGHT_FONT_COLOR:@tanktarget|r or |cnHIGHLIGHT_FONT_COLOR:@@target|r.
 
-@@ always puts a unit in, so with nothing aimed at and no target the action goes nowhere. Write an empty part after it to send it where it would normally go.
+@@ always puts a unit in, so with nothing aimed at and no target nothing happens. Put a conditional on that part and an empty part after it, and the cast goes where it normally would.
 
 |cnHIGHLIGHT_FONT_COLOR:/cast [@@,help][] Regrowth|r
 
-A Switch is a condition of its own: |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r while it is on, |cnHIGHLIGHT_FONT_COLOR:[no$fishing]|r while it is off. The name is the one it has under |cnBLUE_FONT_COLOR:Switches|r.
+A Switch works as a conditional too: |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r while it is on, |cnHIGHLIGHT_FONT_COLOR:[no$fishing]|r while it is off. Use the name from |cnBLUE_FONT_COLOR:Switches|r.
 
-Write unit and Switch names in lower case, in the brackets that open each part of a line. Anywhere else they are left as plain text.
+Write these names in lower case and inside the brackets that open a part of a line, a unit straight after @ and a Switch straight after $. Written any other way they are left as plain text. Write |cnHIGHLIGHT_FONT_COLOR:[@tank]|r and not |cnHIGHLIGHT_FONT_COLOR:[target=tank]|r.
 ]==]
 
 L["HELP_CUSTOM_TARGET_TITLE"] = "What is a Custom Target?"
