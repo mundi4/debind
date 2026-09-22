@@ -13,19 +13,21 @@ The |cnBLUE_FONT_COLOR:Self Cast Key|r and |cnBLUE_FONT_COLOR:Focus Cast Key|r r
 - |cnBLUE_FONT_COLOR:Cast on the usual target|r keeps the action in that press and sends it where it would go with no key held.
 - |cnBLUE_FONT_COLOR:Skip this action|r takes it out of that press, and the press goes to the next action on the key.
 
-> The |cnBLUE_FONT_COLOR:Self Cast Key|r and the |cnBLUE_FONT_COLOR:Focus Cast Key|r are the game's own keys, under Options > Gameplay > Combat.
+> If a self cast or focus cast works on every key but one, look for a binding on the two keys together, in the game's Keybindings or in Debind. Holding the key reaches an action only while that combination has nothing bound to it: with ALT as your Self Cast Key, anything bound to ALT-X runs when you press X with ALT held.
+
+> The Self Cast Key and the Focus Cast Key are the game's own keys, under Options > Gameplay > Combat.
 
 |cnBLUE_FONT_COLOR:Hover Cast|r is a row of the same shape for the unit you point at, holding |cnBLUE_FONT_COLOR:Cast on the unit you point at|r, |cnBLUE_FONT_COLOR:Cast on the usual target|r and |cnBLUE_FONT_COLOR:Off|r. A new action is set to |cnBLUE_FONT_COLOR:Off|r, which does not stop the action from running: pointing at a unit simply does not change where it goes.
 
-|cnBLUE_FONT_COLOR:Off|r and |cnBLUE_FONT_COLOR:Cast on the usual target|r both send it where it would go with nothing pointed at. What differs is the turn it takes. With |cnBLUE_FONT_COLOR:Off|r, this action is tried after every action on the key whose |cnBLUE_FONT_COLOR:Hover Cast|r is set to something else; with |cnBLUE_FONT_COLOR:Cast on the usual target|r, it keeps its usual place among them. The order itself is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.
+|cnBLUE_FONT_COLOR:Off|r and |cnBLUE_FONT_COLOR:Cast on the usual target|r differ only in the turn this action takes. With |cnBLUE_FONT_COLOR:Off|r, it is tried after every action on the key whose |cnBLUE_FONT_COLOR:Hover Cast|r is set to something else; with |cnBLUE_FONT_COLOR:Cast on the usual target|r, it keeps its usual place among them. The order itself is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.
 
-To keep an action from running at all while you point at a unit, give it a condition under |cnBLUE_FONT_COLOR:Units|r. That, and the mode row under the three |cnBLUE_FONT_COLOR:Hover Cast|r settings that says which units count as pointed at, are in |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
+To keep an action from running at all while you point at a unit, give it a condition under |cnBLUE_FONT_COLOR:Units|r. Under the three |cnBLUE_FONT_COLOR:Hover Cast|r settings is a mode row that says which units count as pointed at. Both are in |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
 
 > When a unit is chosen under |cnBLUE_FONT_COLOR:Target|r in the same menu, every press that runs this action sends it to that unit, so |cnBLUE_FONT_COLOR:Cast on yourself|r and |cnBLUE_FONT_COLOR:Cast on the usual target|r come to the same cast. Which of a picked target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
 
 |cnBLUE_FONT_COLOR:Normal Cast|r covers the press with no key held, unless |cnBLUE_FONT_COLOR:Hover Cast|r takes that press for this action. Untick it and that press goes to the next action on the key.
 
-> On the left or right mouse button with no modifier these rows are locked and nothing set here is read, because that action runs only on a unit frame: |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
+> On the left or right mouse button with no modifier nothing set in these rows is read, because that action runs only on a unit frame: |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
 ]==]
 
 L["HELP_CLICKING_A_UNIT_FRAME_TITLE"] = "What happens when you click a unit frame?"
