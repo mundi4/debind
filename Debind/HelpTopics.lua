@@ -11,7 +11,6 @@ DebindPrivate.HELP_SECTIONS = {
             { name = "hover-cast", title = "HELP_HOVER_CAST_TITLE", body = "HELP_HOVER_CAST_BODY" },
             { name = "cast-options", title = "HELP_CAST_OPTIONS_TITLE", body = "HELP_CAST_OPTIONS_BODY" },
             { name = "clicking-a-unit-frame", title = "HELP_CLICKING_A_UNIT_FRAME_TITLE", body = "HELP_CLICKING_A_UNIT_FRAME_BODY" },
-            { name = "stopping-an-action", title = "HELP_STOPPING_AN_ACTION_TITLE", body = "HELP_STOPPING_AN_ACTION_BODY" },
             { name = "custom-target", title = "HELP_CUSTOM_TARGET_TITLE", body = "HELP_CUSTOM_TARGET_BODY" },
             { name = "switches", title = "HELP_SWITCHES_TITLE", body = "HELP_SWITCHES_BODY" },
             { name = "custom-macro", title = "HELP_CUSTOM_MACRO_TITLE", body = "HELP_CUSTOM_MACRO_BODY" },

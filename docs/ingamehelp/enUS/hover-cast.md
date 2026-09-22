@@ -6,45 +6,78 @@ anything. The explanation used to be the row's own tooltip and outgrew it.
 **What it does not carry**: the three Cast Options rows and their values. That is `cast-options.md`,
 and saying it twice is saying it two ways by next month.
 
-**Not yet fixed, raised 2026-09-22 and left for a pass of its own.** Every one of these is in text
-older than that day.
+**Hover Cast is never something you turn on** (2026-09-22). The row holds three values and `Cast on
+the usual target` is neither on nor off, so a reader arriving here from `cast-options.md` would have
+to unlearn a binary this page had invented.
 
-- The opening puts the picked-`Target` clause inside the "point at nothing" sentence, which says a
-  picked target holds only while nothing is pointed at. It holds on every press that runs the
-  action, and `cast-options.md` already says so.
-- This page calls Hover Cast a thing you turn on, while `cast-options.md` has it as three settings
-  in which `Cast on the usual target` is neither on nor off. A reader arriving from here has to
-  unlearn the binary.
-- `cast-options.md` sends the reader here for the mode row under the three Hover Cast settings, and
-  this page documents only the two account modes. `Use the mode in Debind's settings` is never
-  named, and neither is what picking a mode for one action does against the account one.
-- The bold on "It is off on each action until you turn it on" is neither a list lead-in nor an
-  example line, which are the only two things `**` means (`writing-a-help-page.md`).
-- "what the action can do with it is the action's own business" and "Debind does not ask whether the
-  spell is friendly or harmful" are the anthropomorphism `writing-user-facing-text.md` rules out.
-  "an attack aimed at a party member goes nowhere" invents an outcome where the client's own word is
-  that the spell does not cast.
-- "It is used as it is, too" says what the sentence after it already says.
-- The *Unit Frames* mode is given as "the unit of the unit frame under your cursor" and stops there.
-  Which frames those are is the half a reader cannot work out, and `targeting.md` now carries it for
-  the *Unit Frame* target: the frames Debind works on, the game's own and a unit frame addon's, with
-  the settings deciding which of the game's own count. The same holds for this mode, and saying it
-  in one place only leaves the other half-answered.
+**The opening names `Cast on the unit you point at` because nothing else on the page can** (review,
+2026-09-22). Taking the binary out left no value named but `Off`, and a reader who went looking for
+the switch had the two modes to pick from and picked one of those. The third value stays with
+`cast-options.md`; this one is what the page is about.
+
+**The picked-`Target` clause is its own aside.** It used to sit inside the "point at nothing"
+sentence, which said a picked target holds only while nothing is pointed at; it holds on every press
+that runs the action (`which-action-a-key-runs.md` §5, `TARGET_UNIT_FIXED`).
 -->
 
 # What is Hover Cast?
 
-While you point at a unit, a key sends its action to that unit instead of where it would normally go. Point at nothing and the action goes where it normally would, and an action with a target picked under *Target* keeps going there.
+*Hover Cast* sends an action to the unit you point at instead of the usual target. You set it on each action: open *Cast Options* in its right-click menu, then *Hover Cast*, and pick *Cast on the unit you point at*. A new action is set to *Off*.
 
-**It is off on each action until you turn it on**, in the action's right-click menu under *Cast Options*. You can turn it on for several actions at once. The same menu lets one action use a mode of its own.
+> An action with a unit picked under *Target* goes to that unit whether you point at something or not.
 
-Which units count as pointed at is the mode in Debind's settings:
+<!--
+**The frames are named the way `targeting.md` names them for the *Unit Frame* target**: the ones
+Debind works on, the game's own and a unit frame addon's. Given as "the unit of the unit frame under
+your cursor" and nothing more, the half a reader cannot work out is which frames those are, and
+answering it on one page only leaves the other half-answered.
 
-- *Unit Frames*, the unit of the unit frame under your cursor. Away from a unit frame nothing is pointed at.
+**The aside says every frame counts to begin with** (review, 2026-09-22). Naming the setting and
+stopping there read as a step to carry out before the mode works, in the same shape as the settings
+tab sentence below, and the bullet above names a subset without saying the subset starts as
+everything. The default is every box ticked (`SettingsTab.lua`), and a frame taken out is never
+registered, so *Unit Frames* does not see it.
+
+**It stays under the bullet it qualifies**, although it splits the two mode paragraphs (review,
+2026-09-22, dropped). Which frames the first bullet means is what it answers.
+
+**Mouseover is not explained** (2026-09-22, owner, `targeting.md`): every player knows it, and it is
+the yardstick the other mode is read against.
+-->
+
+Which units count as pointed at is a mode:
+
+- *Unit Frames*, the unit on a unit frame Debind works on, the game's own or a unit frame addon's. Away from one, nothing is pointed at.
 - *Mouseover*, a unit frame, a nameplate, or the unit itself in the world.
 
-The unit is handed to the action, and what the action can do with it is the action's own business: a macro or a mount takes no unit and runs the way it always does. It is used as it is, too. Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters.
+> *Unit Frame Support* in Debind's settings lists the frames Debind works on. Every one counts until you take it out.
 
-To keep an action from running at all while you point at a unit, put a condition on that unit: under *Units*, pick *Unit Frames* (or *Mouseover*) and choose *When the unit doesn't exist*. Turning *Hover Cast* off does not do this, since the action still runs with the target it would have anyway.
+<!--
+**The per-action mode row is the reason `cast-options.md` links here** and this page left it out
+until 2026-09-22. It is the same two values plus `Use the mode in Debind's settings`, under a
+divider on the same submenu (`ActionMenuItems.lua`), and an action that names one is not asking the
+settings tab any more (`HoverCastMode` in `Misc.lua`).
 
-What each row of *Cast Options* does is in [](cast-options.md). Which of a picked target, a held key and a pointed unit comes first is in [](targeting.md).
+**Which of the two wins is said and not left to be inferred** (review, 2026-09-22). "One action can
+use a mode of its own" was read as a second place to set the same thing rather than as one
+overriding the other.
+
+**The reader picks, not the action.** Written as "an action that picks one there uses it", the
+sentence gave the action the choice and left the next "it" with nothing to stand on.
+-->
+
+One mode on the settings tab covers the whole account. The same two are also on an action's own *Hover Cast* row. Pick one there and that action uses it instead of the account's; until you do, the row is set to *Use the mode in Debind's settings*.
+
+<!--
+**The menu entry is *Unit Frame*, singular** (`UNIT_HOVER`). The plural is the settings tab's mode
+name, and this paragraph used it for the menu entry until 2026-09-22.
+
+**What the action does with the unit is not on this page.** A macro and a mount carry no unit at all
+(`TYPES_WITH_UNIT`), and that Debind does not check whether a spell suits the unit is the last
+paragraph but one of `targeting.md`. The sentences that stood here said it a second way and invented
+an outcome for the spell that does not cast.
+-->
+
+*Off* does not keep an action from running while you point at a unit: it runs with the target it would have anyway. To stop it there, put a condition on the unit you point at. Under *Units*, pick *Unit Frame* (or *Mouseover*) and choose *When the unit doesn't exist*.
+
+The other rows of *Cast Options* are in [](cast-options.md). Which of a picked target, a held key and the unit you point at comes first is in [](targeting.md).

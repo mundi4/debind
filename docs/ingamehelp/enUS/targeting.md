@@ -29,7 +29,7 @@ Where an action goes is settled in this order, and the first that applies decide
 3. **The unit you point at.** Which units count is the *Hover Cast* mode in Debind's settings. The game's own Mouseover Cast does not apply to Debind keys.
 4. **None of these.** The game places the cast as it does on an action bar.
 
-*Unit Frame* under *Target* is narrower than *Mouseover*: only the unit on a unit frame Debind works on, whether that frame belongs to the game or to a unit frame addon. Which of the game's own frames count is set in Debind's settings.
+*Unit Frame* under *Target* is narrower than *Mouseover*: only the unit on a unit frame Debind works on, whether that frame belongs to the game or to a unit frame addon. Which frames those are is set in Debind's settings.
 
 Auto Self Cast is the game's own, and a Debind key goes out with it as an action bar button does. The *Auto Self Cast* row under *Cast Options* sets it for one action.
 

@@ -78,20 +78,22 @@ The exception is one you set during a fight your group has already changed in. T
 
 L["HELP_HOVER_CAST_TITLE"] = "What is Hover Cast?"
 L["HELP_HOVER_CAST_BODY"] = [==[
-While you point at a unit, a key sends its action to that unit instead of where it would normally go. Point at nothing and the action goes where it normally would, and an action with a target picked under |cnBLUE_FONT_COLOR:Target|r keeps going there.
+|cnBLUE_FONT_COLOR:Hover Cast|r sends an action to the unit you point at instead of the usual target. You set it on each action: open |cnBLUE_FONT_COLOR:Cast Options|r in its right-click menu, then |cnBLUE_FONT_COLOR:Hover Cast|r, and pick |cnBLUE_FONT_COLOR:Cast on the unit you point at|r. A new action is set to |cnBLUE_FONT_COLOR:Off|r.
 
-|cnHIGHLIGHT_FONT_COLOR:It is off on each action until you turn it on|r, in the action's right-click menu under |cnBLUE_FONT_COLOR:Cast Options|r. You can turn it on for several actions at once. The same menu lets one action use a mode of its own.
+> An action with a unit picked under |cnBLUE_FONT_COLOR:Target|r goes to that unit whether you point at something or not.
 
-Which units count as pointed at is the mode in Debind's settings:
+Which units count as pointed at is a mode:
 
-- |cnBLUE_FONT_COLOR:Unit Frames|r, the unit of the unit frame under your cursor. Away from a unit frame nothing is pointed at.
+- |cnBLUE_FONT_COLOR:Unit Frames|r, the unit on a unit frame Debind works on, the game's own or a unit frame addon's. Away from one, nothing is pointed at.
 - |cnBLUE_FONT_COLOR:Mouseover|r, a unit frame, a nameplate, or the unit itself in the world.
 
-The unit is handed to the action, and what the action can do with it is the action's own business: a macro or a mount takes no unit and runs the way it always does. It is used as it is, too. Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters.
+> |cnBLUE_FONT_COLOR:Unit Frame Support|r in Debind's settings lists the frames Debind works on. Every one counts until you take it out.
 
-To keep an action from running at all while you point at a unit, put a condition on that unit: under |cnBLUE_FONT_COLOR:Units|r, pick |cnBLUE_FONT_COLOR:Unit Frames|r (or |cnBLUE_FONT_COLOR:Mouseover|r) and choose |cnBLUE_FONT_COLOR:When the unit doesn't exist|r. Turning |cnBLUE_FONT_COLOR:Hover Cast|r off does not do this, since the action still runs with the target it would have anyway.
+One mode on the settings tab covers the whole account. The same two are also on an action's own |cnBLUE_FONT_COLOR:Hover Cast|r row. Pick one there and that action uses it instead of the account's; until you do, the row is set to |cnBLUE_FONT_COLOR:Use the mode in Debind's settings|r.
 
-What each row of |cnBLUE_FONT_COLOR:Cast Options|r does is in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r. Which of a picked target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+|cnBLUE_FONT_COLOR:Off|r does not keep an action from running while you point at a unit: it runs with the target it would have anyway. To stop it there, put a condition on the unit you point at. Under |cnBLUE_FONT_COLOR:Units|r, pick |cnBLUE_FONT_COLOR:Unit Frame|r (or |cnBLUE_FONT_COLOR:Mouseover|r) and choose |cnBLUE_FONT_COLOR:When the unit doesn't exist|r.
+
+The other rows of |cnBLUE_FONT_COLOR:Cast Options|r are in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r. Which of a picked target, a held key and the unit you point at comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
 ]==]
 
 L["HELP_ORDERING_TITLE"] = "When a key holds more than one action"
@@ -117,17 +119,6 @@ Some of the |cnBLUE_FONT_COLOR:Cast Options|r change which of a key's actions ar
 > Debind gives a key back when nothing on it is in play: every action either turned off in its own menu, or sitting in a specialization tab you are not in. WoW's own binding works there again, and the key's header is grey in the |cnBLUE_FONT_COLOR:Overview|r tab.
 ]==]
 
-L["HELP_STOPPING_AN_ACTION_TITLE"] = "How do I stop an action from running?"
-L["HELP_STOPPING_AN_ACTION_BODY"] = [==[
-|cnHIGHLIGHT_FONT_COLOR:Turn it off.|r |cnBLUE_FONT_COLOR:Turn this action off|r in its right-click menu stops the action. The key goes to the next action on it, and when every action on it is off, back to whatever WoW has bound to it. It keeps everything you set on it, so turning it back on puts it where it was.
-
-|cnHIGHLIGHT_FONT_COLOR:Cover it.|r Put an action above it on the same key with a condition for the case you want stopped. The one above runs in that case and the one below never gets the press. When you want nothing to happen there, give the action above the type |cnBLUE_FONT_COLOR:Nothing|r.
-
-|cnHIGHLIGHT_FONT_COLOR:Delete it.|r |cnBLUE_FONT_COLOR:Delete|r takes the action and everything set on it: the conditions, the importance and its place in the key.
-
-To stop an action on one kind of press only, use |cnBLUE_FONT_COLOR:Cast Options|r instead: |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
-]==]
-
 L["HELP_SWITCHES_TITLE"] = "What are Switches for?"
 L["HELP_SWITCHES_BODY"] = [==[
 A Switch is a value of your own, either on or off. Put it on an action as a condition and that action runs only while the Switch is on, leaving the key to the next action while it is off, or to nothing at all. Make one with |cnBLUE_FONT_COLOR:New Switch|r on the |cnBLUE_FONT_COLOR:Switches|r tab, or with |cnBLUE_FONT_COLOR:Switches|r in an action's right-click menu, which makes it and puts it on that action in one step.
@@ -150,7 +141,7 @@ Where an action goes is settled in this order, and the first that applies decide
 3. |cnHIGHLIGHT_FONT_COLOR:The unit you point at.|r Which units count is the |cnBLUE_FONT_COLOR:Hover Cast|r mode in Debind's settings. The game's own Mouseover Cast does not apply to Debind keys.
 4. |cnHIGHLIGHT_FONT_COLOR:None of these.|r The game places the cast as it does on an action bar.
 
-|cnBLUE_FONT_COLOR:Unit Frame|r under |cnBLUE_FONT_COLOR:Target|r is narrower than |cnBLUE_FONT_COLOR:Mouseover|r: only the unit on a unit frame Debind works on, whether that frame belongs to the game or to a unit frame addon. Which of the game's own frames count is set in Debind's settings.
+|cnBLUE_FONT_COLOR:Unit Frame|r under |cnBLUE_FONT_COLOR:Target|r is narrower than |cnBLUE_FONT_COLOR:Mouseover|r: only the unit on a unit frame Debind works on, whether that frame belongs to the game or to a unit frame addon. Which frames those are is set in Debind's settings.
 
 Auto Self Cast is the game's own, and a Debind key goes out with it as an action bar button does. The |cnBLUE_FONT_COLOR:Auto Self Cast|r row under |cnBLUE_FONT_COLOR:Cast Options|r sets it for one action.
 

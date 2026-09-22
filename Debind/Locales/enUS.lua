@@ -404,8 +404,8 @@ L["GROUP_RAID"] = "When in a raid";
 L["INACTIVE_SPEC_DESC"] = "Keys you put here start working when you're in this spec."
 L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 -- **Named for what it does to the action, beside Delete, which is the other way to stop one.** What
--- turning off keeps is said in the help instead (`HELP_STOPPING_AN_ACTION_BODY`): a checkbox already
--- promises the way back, and the tooltip's one job is the key, which several actions can share.
+-- turning off keeps is left out: a checkbox already promises the way back, and the tooltip's one job
+-- is the key, which several actions can share.
 L["ACTION_DISABLED"] = "Turn this action off"
 L["ACTION_DISABLED_DESC"] = "The action stops running. The key goes to the next action on it, and when every action on it is off, back to whatever WoW has bound to it."
 L["KEY"] = "Key"
