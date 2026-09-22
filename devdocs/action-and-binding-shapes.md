@@ -282,7 +282,8 @@ conditions.units[유닛]
 
 **빈 표는 안 남긴다.** 저장 쪽은 `CleanUpDB`가, 편집 쪽은 `DropDownMenus.lua`의
 `PruneConditions`가 지운다. 표가 있느냐를 게이트로 쓰는 자리가 있어서, 빈 표는 조건이 하나도
-없는 액션을 조건부로 만든다. 그러면 발동 순서가 바뀐다.
+없는 액션을 조건부로 만든다. 그러면 조건부 마크가 서고, 옛 순서 옵션을 켠 사람에게는 발동
+순서까지 바뀐다.
 
 **`hover`와 `reactions`는 더 이상 저장되지 않는다.** `dbver <= 4`가 둘을 `units["hover"]`로
 접었다(그때 이름은 `checkedUnits`였고, `dbver <= 5`가 옮기면서 바꿨다). 마이그레이션이 안 닿은
@@ -390,6 +391,10 @@ placement (`MakeOrderRecord`)
     priority hover isConditional            액션/바인딩에서 파생된다
     layerRank specRank seq                  프로필에서의 자리
 ```
+
+`isConditional`은 **기본 비교자가 안 읽는다.** 조건 유무 단계가 빠졌고
+(`taking-conditions-out-of-the-order.md`), 남아서 그것을 읽는 것은 옛 순서를 돌려주는
+`CompareActionOrderWithConditions`와 그것을 부르는 두 자리(옵션, 갈린 키를 재는 검사)뿐이다.
 
 `CompareActionOrder`가 받는 것은 이것 하나다. 만드는 곳은 셋이고
 (`BuildKeyMap` / `MakeRow` / `RenumberKeyGroup`) 셋 다 `MakeOrderRecord`를 거친다.

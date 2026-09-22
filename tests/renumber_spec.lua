@@ -1,10 +1,15 @@
 -- Renumbering a key group's ordering numbers. `renumbering-a-key-group.md` is the spec.
 --
--- **What this measures is where an action stands after it crosses a band.** The five steps above
--- `seq` in `CompareActionOrder` (importance, hover, conditions, layer, specialization) are what that
--- document calls a band. Turning a condition on sends the action into another band, and while the
--- number it carries is a history unrelated to that band it landed **at the front, in the middle or
--- at the back** -- one gesture with three outcomes, and nothing on screen saying which.
+-- **What this measures is where an action stands after it crosses a band.** The steps above `seq`
+-- in `CompareActionOrder` (importance, layer, specialization) are what that document calls a band.
+-- Raising an action's Importance sends it into another band, and while the number it carries is a
+-- history unrelated to that band it landed **at the front, in the middle or at the back** -- one
+-- gesture with three outcomes, and nothing on screen saying which.
+--
+-- **Conditions were a band and are not one any more**
+-- (`taking-conditions-out-of-the-order.md`), so the axis this file splits on is Importance. Turning
+-- a condition on is now the example of an edit that crosses **no** band, which is what `Settle`
+-- below uses it for.
 --
 -- Renumbering is what puts the premise under it. Once the number is "where this stands in its group
 -- right now", the bands divide the range in order, so a number carried in can only be outside the
@@ -48,31 +53,11 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
     end
 
-    --- An action with a condition on it. `combat` touches only the band's `conditions` step -- hover
-    --- is an independent step above it, and mixing the two blurs what split the band.
-    --- 스펙 리터럴을 **프로덕션과 같은 모양**으로 세운다: 조건은 `conditions` 안에 산다
-    --- (`Profile.lua`의 `KEYS_TO_SAVE`, `Misc.GetBindingInfoForAction`).
-    ---
-    --- 리터럴은 평평하게 쓴다. 자리마다 `conditions = { ... }`를 손으로 적으면 한 줄
-    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 빠진 액션은 넓어진다** - 스펙이 잡아야
-    --- 할 바로 그 종류의 잘못이 스펙 안에서 난다.
-    ---
-    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
-    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
-    local function nest(action)
-        local conditions = action.conditions;
-        for k, v in pairs(action) do
-            if (Constants.IsConditionField(k)) then
-                conditions = conditions or {};
-                conditions[k] = v;
-                action[k] = nil;
-            end
-        end
-        action.conditions = conditions;
-        return action;
-    end
-    local function Cond(value, key, seq)
-        return nest({ type = Constants.SPELL, value = value, key = key, seq = seq, combat = true });
+    --- An action one band above the default. Importance is the one axis left that a reader moves an
+    --- action across on purpose, so it is what the band cases below are built from. Smaller is
+    --- earlier, and `DEFAULT_IMPORTANCE` is 3.
+    local function High(value, key, seq)
+        return { type = Constants.SPELL, value = value, key = key, seq = seq, priority = 2 };
     end
 
     local function Plain(value, key, seq)
@@ -152,10 +137,10 @@ return function(DebindPrivate)
 
     --- One key holding two bands, with the numbers **deliberately planted out of step**.
     ---
-    --- The conditional band holds 10, 20 and 30 while the unconditional one holds 2, 25 and 99. Turn
-    --- a condition on for one of the unconditional three and its number falls in front of the 10-30
-    --- range, inside it, or behind it -- values picked so all three outcomes are reachable. Had the
-    --- numbers lined up with the drawn order, this file would measure nothing.
+    --- The important band holds 10, 20 and 30 while the ordinary one holds 2, 25 and 99. Raise the
+    --- Importance of one of the ordinary three and its number falls in front of the 10-30 range,
+    --- inside it, or behind it -- values picked so all three outcomes are reachable. Had the numbers
+    --- lined up with the drawn order, this file would measure nothing.
     ---
     --- **The stored array's order is out of step with the drawn order too.** Renumbering in array
     --- order would turn that mismatch into the firing order, and what has to be numbered is what is
@@ -164,11 +149,11 @@ return function(DebindPrivate)
         ResetProfile({
             general = {
                 Plain(23, "F", 99),
-                Cond(11, "F", 10),
+                High(11, "F", 10),
                 Plain(22, "F", 25),
-                Cond(13, "F", 30),
+                High(13, "F", 30),
                 Plain(21, "F", 2),
-                Cond(12, "F", 20),
+                High(12, "F", 20),
             },
         });
         check(Order("F") == "11 12 13 21 22 23", "planted order: " .. Order("F"));
@@ -193,8 +178,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- Refining conditions is most of what editing is, and losing the place every time is not on.
-    -- `isConditional` is derived, so one more condition on an action that already has one leaves the
-    -- band where it was.
+    -- Conditions are no longer a band at all, so any number of them leaves the band where it was.
     test("an edit that crosses no band moves nothing", function()
         TwoBands();
 
@@ -218,44 +202,44 @@ return function(DebindPrivate)
     -- Crossing a band lands at the end facing where it came from
     ---------------------------------------------------------------------------
 
-    --- Whether the action whose condition was turned on stands at the **back** of the conditional
-    --- band. That band is the earlier one, so a number arriving from behind it is larger than
-    --- everything in its range, which is the back.
-    local function ExpectBackOfConditionalBand(value, expected)
+    --- Whether the action whose Importance was raised stands at the **back** of the important band.
+    --- That band is the earlier one, so a number arriving from behind it is larger than everything
+    --- in its range, which is the back.
+    local function ExpectBackOfImportantBand(value, expected)
         TwoBands();
         Settle();
 
-        Edit(Find("F", value), "combat", true);
+        Edit(Find("F", value), "priority", 2);
 
         check(Order("F") == expected, "order: " .. Order("F"));
     end
 
     -- **All three land in the same place.** Without renumbering these three were exactly the front,
-    -- the middle and the back: 21 holds 2 and so came before the whole conditional band (10-30), 22
+    -- the middle and the back: 21 holds 2 and so came before the whole important band (10-30), 22
     -- holds 25 and landed between 20 and 30, 23 holds 99 and landed behind. One gesture with three
     -- outcomes, and nothing on screen said which.
-    test("turning a condition on lands at the back of the conditional band -- the one that went first", function()
-        ExpectBackOfConditionalBand(21, "11 12 13 21 22 23");
+    test("raising Importance lands at the back of that band -- the one that went first", function()
+        ExpectBackOfImportantBand(21, "11 12 13 21 22 23");
     end);
 
-    test("turning a condition on lands at the back of the conditional band -- the one that went middle", function()
-        ExpectBackOfConditionalBand(22, "11 12 13 22 21 23");
+    test("raising Importance lands at the back of that band -- the one that went middle", function()
+        ExpectBackOfImportantBand(22, "11 12 13 22 21 23");
     end);
 
-    test("turning a condition on lands at the back of the conditional band -- the one that went last", function()
-        ExpectBackOfConditionalBand(23, "11 12 13 23 21 22");
+    test("raising Importance lands at the back of that band -- the one that went last", function()
+        ExpectBackOfImportantBand(23, "11 12 13 23 21 22");
     end);
 
-    -- The other direction. The unconditional band is the later one, so a number arriving from in
-    -- front is smaller than everything in its range and lands at the **front**. Leaving is "the near
-    -- front" and returning is "the near back", so toggling off and on does not put the action back
+    -- The other direction. The ordinary band is the later one, so a number arriving from in front is
+    -- smaller than everything in its range and lands at the **front**. Leaving is "the near front"
+    -- and returning is "the near back", so lowering and raising again does not put the action back
     -- where it was -- an unavoidable cost of renumbering at all, which the document argues out
     -- under "복구 불가는 구조적이다".
-    test("turning a condition off lands at the front of the unconditional band", function()
+    test("lowering Importance lands at the front of the ordinary band", function()
         TwoBands();
         Settle();
 
-        Edit(Find("F", 11), "combat", nil);
+        Edit(Find("F", 11), "priority", nil);
 
         check(Order("F") == "12 13 11 21 22 23", "order: " .. Order("F"));
     end);
@@ -322,15 +306,15 @@ return function(DebindPrivate)
     -- always starting behind what was already there is why `seq` exists (`SetActionKey`).
     test("a first key lands at the back of that band", function()
         ResetProfile({
-            general = { Cond(11, "F", 1), Cond(12, "F", 2), Plain(21, "F", 3) },
+            general = { High(11, "F", 1), High(12, "F", 2), Plain(21, "F", 3) },
         });
 
-        local fresh = nest({ type = Constants.SPELL, value = 14, combat = true });
+        local fresh = { type = Constants.SPELL, value = 14, priority = 2 };
         DebindPrivate.GetProfileLayer(1):Insert(fresh);
         fresh.key = "F";
         DebindPrivate.PlaceActionInKeyGroup(fresh);
 
-        -- The back of the conditional band, which is in front of the unconditional 21.
+        -- The back of the important band, which is in front of the ordinary 21.
         check(Order("F") == "11 12 14 21", "order: " .. Order("F"));
     end);
 
@@ -446,8 +430,8 @@ return function(DebindPrivate)
     -- landed in.
     test("arriving in another layer lands at the back of that band", function()
         ResetProfile({
-            general = { Cond(11, "F", 1) },
-            class = { [0] = { Cond(51, "F", 1), Cond(52, "F", 2), Plain(61, "F", 3) } },
+            general = { High(11, "F", 1) },
+            class = { [0] = { High(51, "F", 1), High(52, "F", 2), Plain(61, "F", 3) } },
         });
 
         -- Move 11 out of the general layer into class/shared. It arrives holding that layer's 1.
@@ -488,14 +472,14 @@ return function(DebindPrivate)
     test("another key in the same layer is left alone", function()
         ResetProfile({
             general = {
-                Cond(11, "F", 10),
+                High(11, "F", 10),
                 Plain(21, "F", 2),
                 Plain(31, "G", 7),
                 Plain(32, "G", 9),
             },
         });
 
-        Edit(Find("F", 21), "combat", true);
+        Edit(Find("F", 21), "priority", 2);
 
         check(Seqs("G") == "7 9", "G's numbers changed: " .. Seqs("G"));
     end);
@@ -529,20 +513,20 @@ return function(DebindPrivate)
     -- Every layer counts from 1 again. `seq` means something inside one layer only (the comparator
     -- splits on layerRank first), so numbers repeating across layers never meet.
     --
-    -- **A band is wider than a layer.** The `conditions` step sits above the `layer` step, so the
-    -- conditional band crosses layers (51 and 11 come together, then 61 and 21). Filtering that
-    -- order down to one layer still leaves the relative order it had in the whole list, which is why
-    -- a renumber running inside one layer still numbers by the drawn order.
+    -- **A band is wider than a layer.** The `importance` step sits above the `layer` step, so the
+    -- important band crosses layers (51 and 11 come together, then 61 and 21). Filtering that order
+    -- down to one layer still leaves the relative order it had in the whole list, which is why a
+    -- renumber running inside one layer still numbers by the drawn order.
     test("a key spanning layers counts from 1 in each", function()
         ResetProfile({
-            general = { Cond(11, "F", 40), Plain(21, "F", 50) },
-            class = { [0] = { Cond(51, "F", 60), Plain(61, "F", 70) } },
+            general = { High(11, "F", 40), Plain(21, "F", 50) },
+            class = { [0] = { High(51, "F", 60), Plain(61, "F", 70) } },
         });
 
         Edit(Find("F", 11), "stealth", true);
         Edit(Find("F", 51), "stealth", true);
 
-        -- The conditional band (51, 11) comes first, and inside it class/shared outranks general.
+        -- The important band (51, 11) comes first, and inside it class/shared outranks general.
         check(Order("F") == "51 11 61 21", "order: " .. Order("F"));
         check(Seqs("F") == "1 1 2 2", "numbers: " .. Seqs("F"));
     end);

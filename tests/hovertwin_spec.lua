@@ -380,12 +380,13 @@ return function(DebindPrivate)
             check(states(list[1], mode) == NONE,
                 mode .. ": 원본의 상자가 " .. tostring(states(list[1], mode)));
             check(DebindPrivate.MakeOrderRecord(action, 1, 1).isConditional,
-                mode .. ": 조건 액션으로 안 섰다");
+                mode .. ": 조건부로 안 읽혔다");
         end
     end);
 
-    --- **Off moves nothing in the order**, because nothing is written into the condition table. An
-    --- action with Hover Cast on and one with it off sort the same way.
+    --- **Off writes nothing into the condition table.** An action with Hover Cast on and one with
+    --- it off read the same way, so neither the conditional mark nor the old-order comparator can
+    --- tell them apart.
     test("Hover Cast 값은 조건 표와 순서 레코드를 안 바꾼다", function()
         local on, off = spell(), spell();
         off.casting = {};

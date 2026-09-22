@@ -2167,11 +2167,13 @@ function DebindPrivate.KnownConditionCanHold(binding)
     return binding.spell ~= nil;
 end
 
---- 이 바인딩에 조건이 하나라도 걸려 있나. 발동 순서의 세 번째 단계가 이걸 읽는다
---- (`Ordering.lua`).
+--- 이 바인딩에 조건이 하나라도 걸려 있나. 조건부 마크(`MARK_TOOLTIP_CONDITIONAL`)와, 옛
+--- 순서를 되돌려 주는 비교자(`Ordering.lua`의 `CompareActionOrderWithConditions`)가 이걸 읽는다.
+--- **기본 발동 순서는 안 읽는다** - 조건 유무 단계가 빠졌다
+--- (`taking-conditions-out-of-the-order.md`).
 ---
 --- 축마다 `nil` 검사를 쓴 열두 갈래가 여기 있었다. 축이 하나 늘 때마다 갈래를 잊으면 그 조건이
---- 걸린 바인딩이 무조건짜리로 분류돼 **발동 순서가 조용히 바뀌었고**, 그 잘못은 화면에
+--- 걸린 바인딩이 무조건짜리로 분류돼 **마크가 조용히 사라졌고**, 그 잘못은 화면에
 --- 아무것도 안 남긴다.
 ---
 --- **바인딩 쪽 표는 비어 있을 수 있다.** 리빌드마다 제자리에서 다시 채우느라 늘 존재하기

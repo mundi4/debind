@@ -214,30 +214,40 @@ return function(DebindPrivate)
     -- Which record goes first
     ---------------------------------------------------------------------------
 
-    -- **A conditional record goes ahead of an unconditional one on the same key**, whatever order
-    -- they were written in. The other way round the unconditional one matches everything and the
-    -- conditional one below it can never be reached -- the reader's narrower answer would be the
-    -- one that never runs.
-    test("a conditional record comes before an unconditional one", function()
+    -- **Having conditions does not move a record** (`taking-conditions-out-of-the-order.md`). The
+    -- number the reader set is what decides, so a conditional record placed behind one that matches
+    -- everything stays behind it -- and the solver then drops it, because the one in front covers it
+    -- whole. What is left is the one record, and the window says so on the row it came from
+    -- (`IsUnreachableAction`) instead of the order being rearranged to avoid it.
+    test("a conditional record does not jump ahead of an unconditional one", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 },
             { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
                 conditions = { combat = true } },
         });
+        check(Values("DELETE") == "585", "the order came out " .. Values("DELETE"));
+    end);
+
+    test("the number the reader set is what orders two records", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "DELETE", seq = 2 },
+            { type = Constants.SPELL, value = 116, key = "DELETE", seq = 1,
+                conditions = { combat = true } },
+        });
         check(Values("DELETE") == "116 585", "the order came out " .. Values("DELETE"));
     end);
 
-    -- **A condition on the resolved target makes the action conditional, target or not.** An
-    -- action with no target and nothing but that condition used to read as unconditional, so it sat
-    -- behind an unconditional one placed earlier, and that one's self twin covered its own: held or
-    -- not, the key never reached it (`implementing-focus-and-self-cast.md` §3-6).
-    test("a resolved target condition with no target picked sorts as conditional", function()
-        Bind({
-            { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 },
-            { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
-                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } },
-        });
-        check(Values("DELETE") == "116 585", "the order came out " .. Values("DELETE"));
+    -- **A condition on the resolved target makes the action conditional, target or not.** An action
+    -- with no target and nothing but that condition used to read as unconditional. The order no
+    -- longer reads that answer, but the conditional mark and the option that hands back the old
+    -- firing order both do (`Ordering.lua`'s `CompareActionOrderWithConditions`), so it is asked of
+    -- the record here.
+    test("a resolved target condition with no target picked reads as conditional", function()
+        local action = { type = Constants.SPELL, value = 116, key = "DELETE", seq = 1,
+            conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
+        Bind({ action });
+        check(DebindPrivate.MakeOrderRecord(action).isConditional == true,
+            "read as unconditional");
     end);
 
     -- **What arrives keeps the sender's key and the sender's order.** The badge is the only thing
@@ -354,8 +364,8 @@ return function(DebindPrivate)
     -- would have come out ahead of 1.
     test("the hover tier stands in the originals' order", function()
         Bind({
-            -- 둘 다 조건부라 정렬을 가르는 것은 자리 번호뿐이다. 한쪽만 조건부면 조건 유무가
-            -- 먼저 갈라서 이 케이스가 제 물음을 못 묻는다.
+            -- 둘 다 조건을 지되 축이 다르다. 축이 달라야 솔버가 둘 다 남기고, 그래야 층 안의
+            -- 차례를 물을 것이 둘이 된다.
             { type = Constants.SPELL, value = 1, key = "F5", seq = 1,
                 conditions = { combat = true } },
             { type = Constants.SPELL, value = 2, key = "F5", seq = 2,

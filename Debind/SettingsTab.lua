@@ -361,6 +361,17 @@ local function Build()
         DebindPrivate.GiveBackInBindingContext, "giveBackInBindingContext", true);
 
     Header(MISCELLANEOUS);
+    -- **Temporary, and it goes** (`taking-conditions-out-of-the-order.md` §7). What it turns back
+    -- on is a step the firing order no longer has, so the row's own wording is what says it will
+    -- not be here forever.
+    --
+    -- No reload: the comparator is read on every rebuild, and the list is redrawn beside it.
+    Checkbox(L["LEGACY_ORDER"], L["LEGACY_ORDER_DESC"], DebindPrivate.IsLegacyOrderOn,
+        function(value)
+            Options().legacyOrder = value or nil;
+            DebindPrivate.QueueUpdateBindings();
+            DebindFrame:Update();
+        end);
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
         function(value)
             if (value) then

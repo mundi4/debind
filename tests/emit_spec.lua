@@ -128,7 +128,7 @@ return function(DebindPrivate, _, ctx)
     test("the fixture drives every key it defines", function()
         local keys = 0;
         for _ in pairs(DebindPrivate.KeyMap) do keys = keys + 1; end
-        check(keys == 37, "keys in KeyMap: " .. keys);
+        check(keys == 39, "keys in KeyMap: " .. keys);
     end);
 
     test("what the rebuild emitted has not moved", function()

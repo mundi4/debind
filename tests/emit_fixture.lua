@@ -184,9 +184,15 @@ return function(DebindPrivate, shim)
             --- cells**, so the golden is where that translation is pinned. The second one is the
             --- pair that has no single box: `PARTY` and `RAID` share the "in the raid, in my own
             --- subgroup" cell, and adding the two covered sets instead of or-ing them drops it.
-            action({ type = Constants.SPELL, value = 774, key = "ALT-F8",
+            ---
+            --- **These two hold keys of their own.** They shared `ALT-F8` and `ALT-F9` with the
+            --- character layer's drop cases, and having conditions used to carry them in front of
+            --- the unconditional action there. It does not any more
+            --- (`taking-conditions-out-of-the-order.md`), so they sat behind one that matches
+            --- every press, the solver covered them whole, and this translation left the golden.
+            action({ type = Constants.SPELL, value = 774, key = "SHIFT-F1",
                 conditions = { units = { target = { group = Constants.UNITGROUP_PARTY } } } }),
-            action({ type = Constants.SPELL, value = 774, key = "ALT-F9",
+            action({ type = Constants.SPELL, value = 774, key = "SHIFT-F2",
                 conditions = { units = {
                     focus = { group = Constants.UNITGROUP_PARTY + Constants.UNITGROUP_RAID },
                 } } }),

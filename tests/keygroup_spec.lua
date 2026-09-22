@@ -206,9 +206,9 @@ return function(DebindPrivate)
     -- **승인이 도착분을 내 그룹 뒤에 세운다.** `/debtest`가 재던 것인데 거기서 두 번 빨개졌고
     -- 둘 다 이 층에서 1초면 났을 것이다. 여기 있는 이유가 그거다.
     --
-    -- **둘 다 조건을 지되 축이 다르다.** 축이 달라야 둘 다 남고, 둘 다 조건부여야 비교자가
-    -- `seq`까지 내려온다 - `isConditional`이 3단계고 `seq`는 6단계다(`Ordering.lua`). 한쪽만
-    -- 조건부면 이 테스트는 순서와 무관하게 그쪽을 먼저 낸다.
+    -- **둘 다 조건을 지되 축이 다르다.** 축이 달라야 둘 다 남는다. 조건 유무는 이제 순서를
+    -- 안 가르므로(`taking-conditions-out-of-the-order.md`) 이 배치에서 비교자는 곧바로 `seq`로
+    -- 내려온다. 아래 테스트가 한쪽만 조건부인 꼴로 같은 것을 한 번 더 못 박는다.
     test("승인하면 도착분이 내 그룹 뒤에 선다", function()
         ResetProfile({
             general = {
@@ -227,10 +227,11 @@ return function(DebindPrivate)
         check(Values(rows) == "1 2", "차례: " .. Values(rows));
     end);
 
-    -- 같은 자리에서 **한쪽만 조건부이면 순서가 뒤집힌다**는 것도 못 박는다. 위 테스트가 그
-    -- 이유로 두 번 빨개졌으니, 그것이 규칙이라는 것을 여기 적어두지 않으면 다음 사람이 위
-    -- 테스트의 조건 하나를 지우고 같은 하루를 다시 산다.
-    test("한쪽만 조건부면 조건부가 먼저다 - seq는 안 읽힌다", function()
+    -- **조건부 도착분도 무조건인 기존 액션을 못 앞지른다.** 조건 유무가 순서 단계였을 때는
+    -- 앞질렀고, 그래서 `SetKeyForActions`의 "방금 들어온 세트가 원래 있던 것 뒤에 선다"가 이
+    -- 배치에서만 거짓이었다. 단계가 빠지면서 그 약속이 참이 된다
+    -- (`taking-conditions-out-of-the-order.md` §3-4).
+    test("한쪽만 조건부여도 도착분이 뒤에 선다", function()
         ResetProfile({
             general = {
                 { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
@@ -242,7 +243,7 @@ return function(DebindPrivate)
         DebindPrivate.SetKeyForActions(DebindPrivate.CollectKeyGroupActions("F", 7), "F");
 
         local rows = DebindPrivate.CollectActionsForKey("F");
-        check(Values(rows) == "2 1", "차례: " .. Values(rows));
+        check(Values(rows) == "1 2", "차례: " .. Values(rows));
     end);
 
     -- 한쪽에 키를 줘도 다른 쪽 번호는 그대로다. 번호가 그룹 밖으로 새면 조용히 순서가 밀린다.

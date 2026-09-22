@@ -139,15 +139,16 @@ A switch can also drive itself from a macro conditional: hand it `[@tank,exists]
 
 Debind checks them in order and runs the first one that fits. If none of them fit, the key does whatever your WoW keybinding says — the last row of that table.
 
-Three things decide that order, and they're all the same idea — the narrower case is checked first:
+Two things decide that order before you do:
 
 - **Hovering a unit frame comes first.** Otherwise the action that runs anywhere would take the key, and the one meant for the frame under your mouse would never run.
-- **Then having conditions at all.** An action with conditions is checked before one without, for the same reason: an action with no conditions always fits.
 - **Then the layer.** The narrower one goes first.
 
-![Four actions on the F key in the overview, each row saying why it beats the one below: unit frame rule, has conditions, spec over class — and one marked Never runs.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/run-order.png)
+Everything else is yours. Within one layer an action added to a key goes last, so put the one with no conditions at the bottom and it takes the presses nothing above it wanted.
 
-If that ordering isn't what you want, set the action's **Importance** — what you set yourself wins over anything the addon worked out on its own. The overview column shows the order you'll actually get, and each row says why it beats the one under it. Select a row and you get **Run Sooner** and **Run Later**. When an action can't move, the button says which rule is holding it instead of doing nothing.
+![Four actions on the F key in the overview, each row saying why it beats the one below: unit frame rule, spec over class — and one marked Never runs.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/run-order.png)
+
+If that ordering isn't what you want, select a row and you get **Run Sooner** and **Run Later**. To put an action in front of a whole layer, set its **Importance** — that beats everything else. The overview column shows the order you'll actually get, and each row says why it beats the one under it. When an action can't move, the button says which rule is holding it instead of doing nothing.
 
 When an action can't be reached at all, the overview marks it **Never runs**. Sometimes that's a mistake worth catching. Sometimes it's the layer above doing exactly what you told it to — give Balance Starfall on `R` and Rebirth is dead on `R` for Balance, which was the whole point.
 

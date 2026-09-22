@@ -240,12 +240,12 @@ local NodeMixedCount;
 
 --- The menu has changed values on these actions.
 ---
---- **It does not look at which value.** Conditions and importance are steps in the ordering, so
---- changing one changes what an action is up against -- and rather than work out
---- which step moved, each action's key group is renumbered. If nothing moved the renumber moves
---- nothing (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing each action
---- before and after, and putting that pair of snapshots across the dozen call sites in this menu
---- means missing one someday.
+--- **It does not look at which value.** Importance is a step in the ordering, so changing it
+--- changes what an action is up against -- and rather than work out which step moved, each
+--- action's key group is renumbered. If nothing moved the renumber moves nothing
+--- (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing each action before and
+--- after, and putting that pair of snapshots across the dozen call sites in this menu means
+--- missing one someday.
 ---
 --- **One rebuild for the whole selection.** Two actions sharing a group renumber it twice, which
 --- moves nothing the second time.
