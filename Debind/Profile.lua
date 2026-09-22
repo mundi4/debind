@@ -84,18 +84,18 @@ local tconcat            = table.concat;
 --- character this uses as punctuation. `n1` and `s1:1` keep the number `1` apart from the string
 --- `"1"`, which a plain `tostring` would not.
 ---
---- **A table with nothing left in it comes back nil, and the caller drops the whole entry.** An
---- action with no conditions is written both ways in this profile: `Misc.lua` clears
---- `conditions.units` down to nil rather than leaving an empty table, precisely because several
---- places gate on the table existing. Two actions that differ only in which of those two shapes
---- they are written in are the same action.
+--- **An empty table is a value here, not an absence.** It used to come back nil so that an action
+--- written with `conditions = {}` and one written without conditions at all came out the same, on
+--- the grounds that both say "no conditions". That reading belongs to the field, not to this
+--- function: the moment one field gives `{}` a meaning of its own, folding it here says the wrong
+--- thing about that field and nothing announces it. `conditions.specs` is that field. A table with
+--- no class in it is a key that fires nowhere, while no `specs` at all is a key that fires
+--- everywhere, and the fold made `CollectDuplicateActions` offer one up as a repeat of the other.
 ---
---- **`conditions.specs` is one of the fields this reads as absent when it is empty, and there the
---- two are opposite.** A class with no mask holds nothing, so a table with no class in it is a key
---- that fires nowhere while carrying no specialization condition at all is a key that fires
---- everywhere. Unticking the last box in the menu writes exactly that empty table
---- (`NormalizeSpecCondition`), so the two shapes come out of ordinary use and this folds them into
---- one signature: `CollectDuplicateActions` offers one of them up as a repeat of the other.
+--- **A field that really does mean `{}` the same as nil is written as nil by whoever writes it**,
+--- which is where that knowledge already lives: `Misc.lua` clears `conditions.units` down to nil
+--- and `PruneConditions` drops an emptied `conditions`, both because several places gate on the
+--- table existing. Identity stays faithful to the shape and the writers keep the shapes canonical.
 ---
 --- **Keys are sorted, and by type first.** `pairs` order is not the order anything was written in
 --- and is not stable across two tables holding the same thing.
@@ -126,15 +126,11 @@ local function Canonical(value)
         return lhs < rhs;
     end);
 
+    -- **Every key is written.** `pairs` never hands out a nil value and nothing else here comes
+    -- back nil, so there is nothing to skip: a key holding an empty table writes that table.
     local parts = {};
     for i = 1, #names do
-        local piece = Canonical(value[names[i]]);
-        if (piece ~= nil) then
-            parts[#parts + 1] = Canonical(names[i]) .. "=" .. piece;
-        end
-    end
-    if (#parts == 0) then
-        return nil;
+        parts[#parts + 1] = Canonical(names[i]) .. "=" .. Canonical(value[names[i]]);
     end
     return "{" .. tconcat(parts, ",") .. "}";
 end

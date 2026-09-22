@@ -172,11 +172,38 @@ return function(DebindPrivate)
         check(ActionsAreEqual(one, other), "표를 채운 차례는 정체가 아니다");
     end);
 
-    test("빈 조건 표는 조건 없음과 같다", function()
-        check(ActionsAreEqual(action({ conditions = {} }), action({ conditions = "\0nil" })),
-            "남는 조건이 없으면 표를 안 만드는 자리가 있다 (`Misc.lua`)");
-        check(ActionsAreEqual(action({ conditions = { units = {} } }), action({ conditions = "\0nil" })),
-            "빈 중첩 표도 마찬가지다");
+    --- **빈 표는 값이고, 정체는 모양을 그대로 잰다.** 예전에는 둘을 같다고 봤다. 남는 조건이
+    --- 없으면 표를 안 남기는 자리가 있으니(`Misc.lua`의 `conditions.units`, `PruneConditions`)
+    --- 두 모양은 같은 것을 적은 두 방식이라는 것이었다. 그 읽기는 필드의 것이지 `Canonical`의
+    --- 것이 아니다. `conditions.specs`가 빈 표에 자기 뜻을 주자마자 - 클래스가 하나도 없는 표는
+    --- 아무 데서도 안 터지는 키이고 `specs`가 아예 없는 것은 늘 터지는 키다 - 접기가 그 필드에
+    --- 대해 틀린 말을 했고 아무것도 알려주지 않았다.
+    ---
+    --- **`{}`를 nil과 같이 두겠다는 필드는 쓰는 쪽이 nil로 쓴다.** 그것이 지켜지는지는 그쪽에서
+    --- 잰다(`actionmenu_spec`, `replace_spec`, `talents_spec`, `migration_spec`). 여기서 재는
+    --- 것은 이 함수가 받은 모양을 그대로 옮기느냐다.
+    test("빈 조건 표는 조건 없음과 다르다", function()
+        check(not ActionsAreEqual(action({ conditions = {} }), action({ conditions = "\0nil" })),
+            "빈 표를 없는 것으로 접었다");
+        check(not ActionsAreEqual(action({ conditions = { units = {} } }), action({ conditions = "\0nil" })),
+            "빈 중첩 표를 없는 것으로 접었다");
+        check(not ActionsAreEqual(action({ conditions = { units = {} } }), action({ conditions = {} })),
+            "빈 중첩 표와 빈 바깥 표가 같아졌다");
+    end);
+
+    --- **아무 전문화도 안 고른 액션은 전문화 조건이 없는 액션과 다른 액션이다.** 앞은 아무
+    --- 데서도 안 터지고 뒤는 늘 터진다. 메뉴에서 마지막 확인란을 끄면 앞의 모양이 나오므로
+    --- (`NormalizeSpecCondition`이 표를 남긴다) 둘 다 보통 쓰다가 나오는 모양이고, 서명이
+    --- 같아지면 `CollectDuplicateActions`가 한쪽을 다른 쪽의 중복이라고 내민다. 사용자에게
+    --- 지울 후보로 제시되는 값이라 없는 중복을 만들어내는 쪽으로 틀리면 안 된다.
+    test("전문화를 하나도 안 고른 것은 전문화 조건 없음과 다르다", function()
+        local none = action({ conditions = { specs = {} } });
+        local unconditioned = action({ conditions = "\0nil" });
+
+        check(not ActionsAreEqual(none, unconditioned),
+            "아무 데서도 안 터지는 액션이 조건 없는 액션의 중복으로 읽힌다");
+        check(ActionSignature(none) ~= ActionSignature(unconditioned),
+            "서명이 같다: " .. ActionSignature(none));
     end);
 
     ---------------------------------------------------------------------------
