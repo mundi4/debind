@@ -1743,7 +1743,7 @@ end
 --- Every specialization one class has, in the client's order, as `{ id = , index = , name = }`.
 ---
 --- **The index is what the condition stores** and the id is what names a row
---- (`giving-the-spec-condition-a-class-key.md` §3). They part on a class of
+--- (`legacy/giving-the-spec-condition-a-class-key.md` §3). They part on a class of
 --- two: its third row is index 5, not 3.
 ---
 --- **The initial specialization is visited on top of the count, not inside it.** The count stops
