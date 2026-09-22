@@ -2264,9 +2264,27 @@ end
 --- never takes it as a key, because a capture dialog reads it as cancel and bind mode reads it as
 --- "clear this row" (`KeyCapture.lua`, `DebindUI.lua`). An action sitting on it arrived from an
 --- import or a hand-edited file.
-function DebindPrivate.IsKeyInvalidForAction(_, key)
+--- **The second one is a mouse button with META held, and only over a unit frame.** The click
+--- arrives at the wrapper as a bare button name, and which key it was is recovered there from the
+--- modifiers held at that instant -- but the restricted environment has no `IsMetaKeyDown`
+--- (`RestrictedEnvironment.lua` lists Alt, Ctrl and Shift and stops), so META cannot be read, and
+--- `GetModifierIndex` folds the prefix to 0 on the insecure side. That is the unmodified click's
+--- slot, and keys are walked in alphabetical order, so `META-BUTTON2` overwrites the working
+--- `BUTTON2`.
+---
+--- **Off a frame the same key is fine.** It holds itself (`BuildKeyMap`'s `KeysToHold`) and the
+--- game's own binding system answers the press, which takes a `META-` prefix like any other.
+---
+--- The raw key is asked rather than the prefix `GetMouseButtonAndPrefix` returns: that one is
+--- canonicalized, and `META-CTRL-BUTTON2` comes back as `CTRL-` with the META already dropped.
+function DebindPrivate.IsKeyInvalidForAction(action, key)
     if (key == "ESCAPE") then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
+    end
+    if (type(key) == "string" and key:find("META-", 1, true)
+            and DebindPrivate.GetMouseButtonAndPrefix(key)
+            and DebindPrivate.ActionUnitFrameIsOn(action)) then
+        return Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK;
     end
 end
 

@@ -580,6 +580,10 @@ Constants.UNITGROUP_TO_CELLS = {
 
 -- Binding Issues
 Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
+--- The restricted environment has no `IsMetaKeyDown` (`RestrictedEnvironment.lua` lists Alt, Ctrl
+--- and Shift and stops), so the snippet that picks a click's list cannot tell META apart, and
+--- `GetModifierIndex` folds the prefix to 0 -- the unmodified click's slot.
+Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK          = "NOT_SUPPORTED_META_CLICK";
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
@@ -677,6 +681,7 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK]          = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
@@ -717,6 +722,9 @@ Constants.ISSUE_OUTCOME_KEEP    = 3;
 Constants.BINDING_ISSUE_OUTCOMES = {
     -- The game menu key cannot be taken at all.
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_OUTCOME_RELEASE,
+    -- **Not RELEASE.** The key is fine; this action cannot go out on it. Left out, the key writes no
+    -- click-casting list, which is what stops it taking the unmodified click's slot.
+    [Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK]          = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_OUTCOME_OMIT,

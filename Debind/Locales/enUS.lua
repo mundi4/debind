@@ -98,6 +98,14 @@ L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, th
 -- inside it reads as a second thing being said rather than as emphasis. The other errors highlight
 -- a value they were handed (`%s`); there is no value here, only the one key this is about.
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The Escape key cannot be used."
+-- **META, because that is the word the reader has already seen on this key.** It is what the client
+-- writes wherever the key is named (`META_KEY_TEXT`), including in the key this very line is about.
+-- The Mac keyboard says Command, and naming it that would put a second word on one key.
+--
+-- **Unit frames, because that is where it fails and the only place it fails.** The same key on an
+-- action that does not run over a frame works, so a line saying the key cannot be used would be
+-- wrong twice over.
+L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "A mouse button with META held cannot be used on unit frames."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
 -- action sets. **This line and the macro one below are the only errors that take an argument** --
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the

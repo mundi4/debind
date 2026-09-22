@@ -47,6 +47,8 @@ L["BINDING_ERROR_KNOWN_NAME_UNPARSABLE"] = "이 주문의 이름은 이 조건�
 L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "선택된 전문화가 없습니다."
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "고른 스위치가 없습니다. 고르기 전까지 이 지정은 아예 발동하지 않습니다."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "ESC 키는 쓸 수 없습니다."
+-- 근거는 enUS 쪽 주석에.
+L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "META를 누른 채로 하는 마우스 클릭은 개체창에서 쓸 수 없습니다."
 L["BINDING_ERROR_MISSING_MACRO"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 매크로가 이 계정에도 이 캐릭터에도 없습니다."
 L["BINDING_ERROR_TYPE_RETIRED"] = "이제 Debind는 키를 와우 기본 단축키로 넘기지 않아서, 이 행동은 누름을 가져가도 아무 일도 하지 않습니다. 지우거나, 같은 일을 하는 슬래시 명령이 있으면 사용자 지정 매크로로 바꿔 주세요."
 L["BINDING_ERROR_UNDEFINED_STATE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 스위치가 없습니다."

@@ -343,6 +343,32 @@ return function(DebindPrivate)
         }), "BUTTON3") == nil, "호버를 켠 명령 액션에 이슈가 났다");
     end);
 
+    -- **A mouse button with META held cannot be told apart on a frame.** The restricted environment
+    -- has no `IsMetaKeyDown` (`RestrictedEnvironment.lua`), so the snippet that picks the list at the
+    -- click reads Alt, Ctrl and Shift only, and `GetModifierIndex` folds the `META-` prefix to 0 --
+    -- the unmodified click's slot. The keys are walked in alphabetical order, so the one overwritten
+    -- is the working `BUTTON2`.
+    --
+    -- **The code is named twice on purpose.** Compared against the constant alone, the assertion
+    -- passes while both sides are `nil`, which is every state before the branch exists.
+    test("a mouse button with META held is refused on a unit frame", function()
+        check(Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK == "NOT_SUPPORTED_META_CLICK",
+            "이슈 코드가 없다");
+        check(DebindPrivate.IsKeyInvalidForAction(nest({
+            type = Constants.SPELL, value = 100, key = "META-BUTTON2",
+            units = { unitframe = {} },
+        }), "META-BUTTON2") == Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK,
+            "META를 쥔 개체창 클릭에 이슈가 안 났다");
+    end);
+
+    -- Off a frame the same key holds itself (`BuildKeyMap`'s `KeysToHold`) and the game's own
+    -- binding system answers the press, which takes `META-` prefixes. Nothing to refuse.
+    test("a mouse button with META held is left alone off a unit frame", function()
+        check(DebindPrivate.IsKeyInvalidForAction(nest({
+            type = Constants.SPELL, value = 100, key = "META-BUTTON4",
+        }), "META-BUTTON4") == nil, "개체창을 안 타는 META 클릭에 이슈가 났다");
+    end);
+
     test("an old hover the migration has not reached gives the same answer", function()
         check(unitFrameIsOn({ hover = true }) == true, "the old shape was not read");
         check(unitFrameIsOn({ hover = false }) == false, "the old false was not read");
