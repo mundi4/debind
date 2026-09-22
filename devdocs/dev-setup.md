@@ -28,14 +28,20 @@ already, which is the name everything here calls. A `lua` 5.4 next to it is harm
 Gitignored, read-only, and none of it ours. Two things live there, both fetched by a script.
 
 ```
-npm run ui-source            # move to the newest retail build
-npm run ui-source -- 12.0.7  # pin one build
-npm run globalstrings        # refresh the client strings
+npm run ui-source             # move every client to its newest build
+npm run ui-source -- forever  # move just that one
+npm run ui-source -- 12.0.7   # pin mainline to one build
+npm run globalstrings         # refresh the client strings
 ```
 
-`reference/wow-ui-source/` is Blizzard's interface code — a junction to a shallow clone of
-`Gethe/wow-ui-source` kept outside the project, so every worktree shares one copy. Its push URL is
-deliberately broken.
+`reference/wow-ui-source/` is Blizzard's interface code, one folder per client: `mainline/` and
+`forever/`. Each is a junction to a checkout of `Gethe/wow-ui-source` kept outside the project, so
+every worktree shares one copy. One shallow clone holds both, `forever` being a `git worktree` of
+it, and the push URL is deliberately broken. The mirror calls retail `live`, and these folders are
+named after the client instead, because no client is called that.
+
+**Every tag in the mirror is a retail build**, so a build number pins `mainline` and there is no
+way to pin `forever` to anything but its branch head.
 
 `reference/globalstrings/` is the client's own strings, one file per locale. `writing-user-facing-
 text.md` is what they are for: the game's word for a thing beats one the addon invents.
@@ -88,14 +94,17 @@ package nor a user. Without the hook there is no file and the label reads `dev`.
 
 ## Worktrees
 
-**`reference/` needs a junction, and it is two rather than one.** It is gitignored, so a new
-worktree has nothing there: `reference/globalstrings` (what
-`npm run globalstrings` fetched) and `reference/wow-ui-source` (itself a junction to the shallow
-clone kept outside the project) both have to be pointed at the same places the main worktree points
-at. `npm run check` passes without them, which is exactly why this is easy to miss — what breaks is
+**`reference/` needs a junction, and it is three rather than one.** It is gitignored, so a new
+worktree has nothing there: `reference/globalstrings` (what `npm run globalstrings` fetched) and
+`reference/wow-ui-source/mainline` and `reference/wow-ui-source/forever` (each itself a junction to
+a checkout kept outside the project) all have to be pointed at the same places the main worktree
+points at. `reference/wow-ui-source` itself is a real folder, not a junction, so it has to be
+created before the two inside it. `npm run check` passes without any of them, which is exactly why
+this is easy to miss — what breaks is
 reading Blizzard's own code and strings, and that failure looks like "the file is not there" rather
 than like a setup step nobody did.
 
 **Before removing a worktree, break those junctions first.** `git worktree remove`, and anything
 else that deletes the directory recursively, walks through a junction and takes what it points at
-with it. That is the shallow clone of Blizzard's interface code, shared by every worktree.
+with it. That is the clone of Blizzard's interface code and the `forever` worktree cut from it,
+both shared by every worktree here.

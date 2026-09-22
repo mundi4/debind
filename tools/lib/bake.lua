@@ -36,7 +36,7 @@ end
 ---
 --- **None of these is a rule of ours.** They are the client's own values, so a wrong one here is a
 --- lie rather than a drift, and there is nothing in the repo to compare it against. Take them from
---- `reference/wow-ui-source/` when adding one.
+--- `reference/wow-ui-source/mainline/` when adding one.
 local function installWowGlobals()
     _G.format = string.format;
     _G.tremove = table.remove;

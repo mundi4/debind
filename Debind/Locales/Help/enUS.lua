@@ -121,6 +121,37 @@ Some of the |cnBLUE_FONT_COLOR:Cast Options|r change which of a key's actions ar
 > Debind gives a key back when nothing on it is in play: every action either turned off in its own menu, or sitting in a specialization tab you are not in. WoW's own binding works there again, and the key's header is grey in the |cnBLUE_FONT_COLOR:Overview|r tab.
 ]==]
 
+L["HELP_SETTING_KEYS_UP_TITLE"] = "How do I set my keys up?"
+L["HELP_SETTING_KEYS_UP_BODY"] = [==[
+# Where an action goes
+
+Put an action in the layer that covers the most characters, and use a narrower layer only where a class or a specialization should run something else. A key in a narrower layer beats the same key in a broader one.
+
+A mount every character uses sits in |cnBLUE_FONT_COLOR:Account|r / |cnBLUE_FONT_COLOR:General|r. Travel form sits in the druid layer, and a character who rides something else keeps that in its own.
+
+Picking an entry in |cnBLUE_FONT_COLOR:Add an Action|r puts the new action in the layer you have open, and right-clicking the entry instead offers |cnBLUE_FONT_COLOR:Add to...|r, which lists every layer. |cnBLUE_FONT_COLOR:Move to...|r in an action's right-click menu moves one you already have.
+
+You do not have to bind everything at once.
+
+# Assigning a key, and everything else
+
+Right-clicking an action sets everything about it, its key included, in either list on the |cnBLUE_FONT_COLOR:Overview|r tab. |cnBLUE_FONT_COLOR:Assign a key|r is the item that gives it one.
+
+Left-click picks an action, and shift-click or control-click picks more than one, after which the menu writes to all of them. The |cnBLUE_FONT_COLOR:Overview|r tab also gathers each key's actions from every layer into one group, and clicking a key's heading picks everything under it, ready for that same menu.
+
+# Conditions all have to be true
+
+Give each action only the conditions it needs. Everything you pick under |cnBLUE_FONT_COLOR:Conditions|r has to be true at once, so an action that should run in two different situations is two actions.
+
+# One key for a friend and an enemy
+
+Both actions go on the same key. Which one is reached first is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r. The harmful one goes above, carrying |cnBLUE_FONT_COLOR:Resolved Unit|r under |cnBLUE_FONT_COLOR:Conditions|r with |cnBLUE_FONT_COLOR:Enemy|r ticked, and the helpful one below it with no |cnBLUE_FONT_COLOR:Resolved Unit|r condition at all. The press then attacks an enemy and heals a friend. With nothing targeted the game places the cast, which is how Auto Self Cast puts a helpful spell on you.
+
+# You may not need a Custom Macro
+
+Conditions and a few actions on one key cover most of what a macro would, and the one above is an example. Writing one for what they leave out is in |cnGREEN_FONT_COLOR:|Hdebind:help:custom-macro|h[Writing a Custom Macro]|h|r.
+]==]
+
 L["HELP_SWITCHES_TITLE"] = "What are Switches for?"
 L["HELP_SWITCHES_BODY"] = [==[
 A Switch is a value of your own, either on or off. Put it on an action as a condition and that action runs only while the Switch is on, leaving the key to the next action while it is off, or to nothing at all. Make one with |cnBLUE_FONT_COLOR:New Switch|r on the |cnBLUE_FONT_COLOR:Switches|r tab, or with |cnBLUE_FONT_COLOR:Switches|r in an action's right-click menu, which makes it and puts it on that action in one step.

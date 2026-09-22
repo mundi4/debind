@@ -1,5 +1,6 @@
 # HELP_TOPICS
 
+- setting-keys-up
 - ordering
 - targeting
 - hover-cast

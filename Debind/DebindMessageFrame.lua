@@ -61,12 +61,40 @@ function DebindMessageFrameMixin:OnLoad()
     end);
 end
 
+--- **Lit whatever page is on it** (2026-09-22, owner): each button names a page, but the ring says
+--- this window is up, and walking to another page through the dropdown never left it.
+local function SetHelpButtonsLit(lit)
+    local frame = DebindFrame;
+    if (frame == nil) then
+        return;
+    end
+    frame.OverviewPanel.PortraitRow.HelpPortrait:SetSelectedState(lit);
+    frame.SwitchesPanel.PortraitRow.HelpPortrait:SetSelectedState(lit);
+end
+
+function DebindMessageFrameMixin:OnShow()
+    SetHelpButtonsLit(true);
+end
+
+--- One of the question marks that open a page. **Hooked rather than set**: the portrait mixin runs
+--- its own load on the first `OnShow` and clears the ring there, so a tab first opened while this
+--- window is already up would come in unlit.
+function DebindUI.WireHelpPortrait(button, page)
+    button:SetScript("OnClick", function()
+        DebindUI.ToggleHelp(page);
+    end);
+    button:HookScript("OnShow", function(self)
+        self:SetSelectedState(DebindMessageFrame:IsShown());
+    end);
+end
+
 --- **History lasts as long as the window is up.** Whoever opens it again came for the page they
 --- opened, and a Back into whatever they read last time would take them somewhere unasked
 --- (2026-09-17, owner).
 function DebindMessageFrameMixin:OnHide()
     wipe(self.history);
     self.BackButton:SetEnabledState(false);
+    SetHelpButtonsLit(false);
 end
 
 function DebindMessageFrameMixin:GoBack()

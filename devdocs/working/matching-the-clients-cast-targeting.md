@@ -129,7 +129,7 @@ end
 
 ## 2-2. 대상을 지정하면 자동 자가시전이 절반만 돈다
 
-`UnitExists` 가드([SecureTemplates.lua:721-723](../reference/wow-ui-source/Interface/AddOns/Blizzard_FrameXML/SecureTemplates.lua))가
+`UnitExists` 가드([SecureTemplates.lua:721-723](../reference/wow-ui-source/mainline/Interface/AddOns/Blizzard_FrameXML/SecureTemplates.lua))가
 `unit`이 붙었는데 그 유닛이 없는 클릭을 **시전 핸들러에 닿기 전에** 버린다. 자동 자가시전은 시전이
 일어난 뒤의 일이라 낄 자리가 없다.
 

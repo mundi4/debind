@@ -21,7 +21,9 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const reference = path.join(root, "reference", "wow-ui-source");
+// Mainline only: what we ship goes there, and a name that exists in one client and not the other
+// is still a name we must not write.
+const reference = path.join(root, "reference", "wow-ui-source", "mainline");
 
 // `<Tag a="1" b='2'/>`의 속성 이름만. 값 안의 `=`는 따옴표가 막는다.
 const ATTR = /([A-Za-z][\w.]*)\s*=\s*("[^"]*"|'[^']*')/g;
@@ -54,7 +56,7 @@ function attrsIn(text, each) {
 }
 
 if (!fs.existsSync(reference)) {
-    console.log("reference/wow-ui-source가 없어 XML 속성 이름을 대조하지 못했다 (npm run ui-source).");
+    console.log("reference/wow-ui-source/mainline이 없어 XML 속성 이름을 대조하지 못했다 (npm run ui-source).");
     process.exit(0);
 }
 

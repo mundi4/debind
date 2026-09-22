@@ -423,6 +423,15 @@
 							</OnClick>
 						</Scripts>
 					</Button>
+
+					<Button parentKey="HelpPortrait" inherits="DebindPortraitTemplate">
+						<KeyValues>
+							<KeyValue key="layoutIndex" value="2" type="number"/>
+							<KeyValue key="PortraitTexture" value="A:questlog-questtypeicon-quest" type="string"/>
+							<KeyValue key="TooltipTitle" value="HELP_TOPICS" type="string"/>
+							<KeyValue key="TooltipText" value="HELP_PORTRAIT_SWITCHES_DESC" type="string"/>
+						</KeyValues>
+					</Button>
 				</Frames>
 			</Frame>
 
@@ -482,6 +491,18 @@
 					</Frame>
 				</Frames>
 			</Frame>
+
+			<!--
+				**The (?) that lays the help plate over the two columns**, the same seat and the same
+				corner Overview's has (`DebindUI.xml`). It stands in the panel rather than in the
+				window because the plate points at this tab's two columns: hiding with the tab is
+				what takes the plate down (`DebindSwitchesPanelMixin:OnLoad`).
+			-->
+			<Button parentKey="HelpPlateButton" inherits="MainHelpPlateButton">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="39" y="20"/>
+				</Anchors>
+			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

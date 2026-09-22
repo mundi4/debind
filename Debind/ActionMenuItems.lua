@@ -348,6 +348,10 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
         end
     end
 
+    description:CreateDivider();
+    MenuKit.CreateHelpButton(description, "targeting", LLL["HELP_TARGETING_TITLE"]);
+    MenuKit.CreateHelpButton(description, "custom-target", LLL["HELP_CUSTOM_TARGET_TITLE"]);
+
     return description;
 end
 
@@ -522,6 +526,9 @@ local function CreateCastingMenu(parentDescription, ctx)
         end
     end
 
+    hoverDescription:CreateDivider();
+    MenuKit.CreateHelpButton(hoverDescription, "hover-cast", LLL["HELP_HOVER_CAST_TITLE"]);
+
     local normal = CreateCheckbox(description, ctx, LLL["CASTING_NORMAL"],
         function()
             return NormalCastIsOn(ctx);
@@ -588,6 +595,7 @@ local function CreateCastingMenu(parentDescription, ctx)
 
     description:CreateDivider();
     MenuKit.CreateHelpButton(description, "cast-options", LLL["HELP_CAST_OPTIONS_TITLE"]);
+    MenuKit.CreateHelpButton(description, "targeting", LLL["HELP_TARGETING_TITLE"]);
 end
 
 --- Importance is **the value with the widest reach** in this menu, on both axes: it reorders every

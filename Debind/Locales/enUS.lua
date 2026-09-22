@@ -145,6 +145,16 @@ L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
 -- **Not the client's `HELP_LABEL`.** That one is the game menu's entry into customer support, so the
 -- same word would point somewhere else.
 L["HELP_TOPICS"] = "Help"
+-- The question mark on the Overview tab's portrait row. **It says which page opens and that the
+-- rest are behind it**: the button lands on one page, and a reader who wanted a different one has
+-- no way to know the window it opens lists them all.
+--
+-- **It does not name the page.** The title is drawn at the top of the window the press opens, and
+-- a copy of it here is a second place to keep that title current.
+L["HELP_PORTRAIT_DESC"] = "Opens the help, at the page on setting your keys up. Every other page is in the dropdown there."
+-- The same seat on the Switches tab. **It names that tab's page instead**, and says the same second
+-- sentence, because the reader who wants another page has the same question here.
+L["HELP_PORTRAIT_SWITCHES_DESC"] = "Opens the help, at the page on Switches. Every other page is in the dropdown there."
 --- The second line of the (i) tooltip, under the topic's own title.
 ---
 --- **Not the client's `CLICK_FOR_MORE_INFO`** ("Click for more information"). That line stands under
@@ -239,10 +249,19 @@ L["CONDITION_TALENT_CLEAR_OTHERS_DESC"] = "Removes the talents set on every othe
 -- The same block with nothing in it. **A line and not an empty space**: the reader came here to
 -- find out whether anything is set elsewhere, and silence does not answer that.
 L["CONDITION_TALENT_NO_OTHERS"] = "None"
--- **Two things a reader cannot see on the rows.** The condition is kept per specialization and
--- this menu writes the one being played, so the rows say nothing about the others; and both hero
--- trees are offered, while the game runs one of them at a time.
-L["CONDITION_TALENT_DESC"] = "Only what you set here, on the specialization you are playing, is shown. Both hero talent trees are offered, and a talent in the one you have not chosen counts as not taken."
+-- **Three things a reader cannot see on the rows.** The condition is kept per specialization and
+-- this menu writes the one being played, so the rows say nothing about the others; what that costs
+-- them in another specialization is the second sentence; and both hero trees are offered, while
+-- the game runs one of them at a time.
+--
+-- **The second sentence is the one nothing else says** (2026-09-22, owner). `Talents.Holds`
+-- answers true where the condition has no entry for the specialization being played, so the action
+-- runs there carrying nothing, and the axis beside it in the same menu goes the other way:
+-- `SpecConditionHolds` answers false for a class it was not written for and the action does not
+-- run. Two conditions that look alike in one menu and part on that is not something a reader
+-- arrives at, and the one that passes is the one that surprises them. It was drafted as a help
+-- page paragraph and belongs here instead, where they are standing when they pick a talent.
+L["CONDITION_TALENT_DESC"] = "Only what you set here, on the specialization you are playing, is shown. In another specialization the action runs as though it carried no talent condition. Both hero talent trees are offered, and a talent in the one you have not chosen counts as not taken."
 L["CONDITION_TALENT_VALUE_TAKEN"] = "While %s is taken"
 L["CONDITION_TALENT_VALUE_NOT_TAKEN"] = "While %s is not taken"
 -- The submenu that holds the four conditions too small to hold a row of the main list each. It
@@ -1334,6 +1353,23 @@ L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnNORMAL_FONT_COLOR:%d|r actions use it a
 -- reaches, so that is the one consequence the reader cannot see from where they are standing.
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
 L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
+-- The two balloons on the Switches tab's help plate, one per column.
+--
+-- **Not `CUSTOM_STATES_DESC` split in two.** That one hangs off the tab and off the condition menu,
+-- and it answers "what is a Switch at all" for a reader who has never made one. These two are read
+-- with the plate up and both columns lit, so the question is which of the two am I looking at and
+-- what do I do to it.
+--
+-- **The left one names both places a Switch is used, in that order.** Hanging one on an action as a
+-- condition is the common case and needs no typing at all (`CreateSwitchConditionMenu` in
+-- `DropDownMenus.lua`); a Custom Macro body is the other, and it is the one that needs the `$`. An
+-- earlier wording gave the macro alone, which read as the only thing a Switch is for.
+--
+-- **Neither names a tab or a button by its label.** The right column's two tabs are pointed at by
+-- position and by what each holds, so renaming either one cannot leave a sentence pointing at
+-- something that is not on screen.
+L["SWITCHES_HELP_LIST"] = "Every Switch on this account, and whether each one is on or off right now. You can hang a Switch on any action as a condition, or write it into a Custom Macro as |cnHIGHLIGHT_FONT_COLOR:[$state1]|r.|n|nClick one and the right side shows what it is set to. The button in the corner above makes a new Switch."
+L["SWITCHES_HELP_DETAIL"] = "What the Switch picked on the left is set to: how it is decided, and what it comes up as when you log in. You can set that one way for the whole account and another way for one class, one specialization or one character.|n|nThe two tabs above pick between those settings and a list of everything that uses this Switch."
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.

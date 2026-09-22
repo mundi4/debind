@@ -35,7 +35,7 @@ leave가 죽는다는 것, 그리고 `SecureHandlerUnwrapScript`가 주인을 �
 
 ## 근거가 되는 사실
 
-전부 `reference/wow-ui-source/.../Blizzard_RestrictedAddOnEnvironment/`에서 읽었고 PoC가 게임에서
+전부 `reference/wow-ui-source/mainline/.../Blizzard_RestrictedAddOnEnvironment/`에서 읽었고 PoC가 게임에서
 확인했다. 다시 조사할 것은 없다.
 
 - `Wrapped_OnLeave`는 프레임 속성 `_wrapentered`가 서 있을 때만 pre 본문을 돌리고, 돌리기 전에

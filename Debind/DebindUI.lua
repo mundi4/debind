@@ -2182,80 +2182,37 @@ end
 
 --- The plate laid over Overview's two columns (`HelpPlate.lua`), and the identity `IsShowing`
 --- compares against - it takes this table, not its contents, so it is built once and refilled.
----
---- **The rectangles are measured when it opens, not written down here.** The window is 867 wide on
---- this tab and 440 on the others, the two columns are anchored to each other, and the user moves
---- the whole thing around the screen; coordinates fixed at load would point at empty air after any
---- of that.
 local OVERVIEW_HELP_PLATE = {};
 
---- **The title bar stays outside the plate, and that is what this number is for.**
---- The canvas takes the mouse over everything it covers and hands nothing through, so a
---- plate that started at the very top of the window left it impossible to drag and impossible to
---- close while the help was up. The close button is 24 tall in its corner
---- (`UIPanelCloseButtonNoScripts`), so 26 clears it, the gear beside it and the title strip the
---- window is dragged by. It also clears the (?) itself, which hangs 26 below the window's top edge
---- and has to stay pressable to put the plate away. Blizzard's own windows inset the same way
---- (world map -26, spell book -22).
-local HELP_PLATE_TOP_INSET = 26;
-
-local HELP_PLATE_BUTTON_SIZE = 46;
-
---- One (i) in the middle of `frame`, with the whole of `frame` lit behind it. `left` and `top` are
---- the window's own corner, already in the plate's scale.
-local function HelpPlateSectionFor(frame, relativeScale, left, top, tooltipDir, tooltipText)
-	local x = (frame:GetLeft() * relativeScale) - left;
-	local y = (frame:GetTop() * relativeScale) - top;
-	local width = frame:GetWidth() * relativeScale;
-	local height = frame:GetHeight() * relativeScale;
-
-	return {
-		ButtonPos = {
-			x = x + (width - HELP_PLATE_BUTTON_SIZE) / 2,
-			y = y - (height - HELP_PLATE_BUTTON_SIZE) / 2,
-		},
-		HighLightBox = { x = x, y = y, width = width, height = height },
-		ToolTipDir = tooltipDir,
-		ToolTipText = tooltipText,
-	};
-end
-
 function DebindFrameMixin:UpdateHelpPlate()
-	-- The canvas is parented to the top level, not to us, so everything measured on this window
-	-- has to be carried into that scale first (`Blizzard_SpellBookFrameTutorials.lua` does the
-	-- same arithmetic for the same reason).
-	local relativeScale = self:GetEffectiveScale() / HelpPlate.GetEffectiveScale();
-	local left = self:GetLeft() * relativeScale;
-	local top = (self:GetTop() * relativeScale) - HELP_PLATE_TOP_INSET;
-
-	OVERVIEW_HELP_PLATE.FramePos = { x = 0, y = -HELP_PLATE_TOP_INSET };
-	OVERVIEW_HELP_PLATE.FrameSize = {
-		width = self:GetWidth() * relativeScale,
-		height = (self:GetHeight() * relativeScale) - HELP_PLATE_TOP_INSET,
-	};
+	local Section = HelpPlate.Measure(OVERVIEW_HELP_PLATE, self);
 
 	-- 말풍선은 각자 자기 열의 바깥쪽으로 편다. 안쪽으로 펴면 220px짜리 상자가 옆 열을
 	-- 덮어서, 설명하는 동안 설명 대상의 절반이 가려진다.
-	OVERVIEW_HELP_PLATE[1] = HelpPlateSectionFor(self.OverviewPanel.ResultPanel,
-		relativeScale, left, top, "LEFT", LLL["OVERVIEW_HELP_RESULT"]);
-	OVERVIEW_HELP_PLATE[2] = HelpPlateSectionFor(self.OverviewPanel.LayerPanel.List,
-		relativeScale, left, top, "RIGHT", LLL["OVERVIEW_HELP_LAYER"]);
+	OVERVIEW_HELP_PLATE[1] = Section(self.OverviewPanel.ResultPanel, "LEFT", LLL["OVERVIEW_HELP_RESULT"]);
+	OVERVIEW_HELP_PLATE[2] = Section(self.OverviewPanel.LayerPanel.List, "RIGHT", LLL["OVERVIEW_HELP_LAYER"]);
+end
+
+function DebindFrameMixin:ShowHelpPlate()
+	self:UpdateHelpPlate();
+	HelpPlate.Show(OVERVIEW_HELP_PLATE, self);
 end
 
 function DebindFrameMixin:ToggleHelpPlate()
 	if (HelpPlate.IsShowing(OVERVIEW_HELP_PLATE)) then
-		HelpPlate.Hide();
+		HelpPlate.Dismiss(true);
 		return;
 	end
 
-	self:UpdateHelpPlate();
-	HelpPlate.Show(OVERVIEW_HELP_PLATE, self);
+	self:ShowHelpPlate();
 end
 
 function DebindFrameMixin:InitializeButtons()
 	-- [+]는 이제 **창을 연다.** 예전에는 여기 드롭다운이 매달려 있었는데, 그 안에 있던
 	-- 항목이 전부 주문 선택 창으로 옮겨갔다(주문·매크로·탈것·장난감은 목록으로, 명령과
 	-- 애드온 고유 액션은 각자 탭으로, 매크로 텍스트는 그 창의 버튼으로).
+	DebindUI.WireHelpPortrait(self.OverviewPanel.PortraitRow.HelpPortrait, "setting-keys-up");
+
 	self.OverviewPanel.PortraitRow.AddPortrait:SetScript("OnClick", function()
 		DebindSpellPickerFrame:Toggle();
 	end)
@@ -2284,9 +2241,22 @@ function DebindFrameMixin:InitializeButtons()
 
 	-- **The canvas is not our child** - it hangs off `UIParent`, so closing the window or moving to
 	-- another tab would leave it lying over the screen on its own.
+	--
+	-- **No animation here**, unlike the press above: the plate is not being dismissed, it is going
+	-- off screen with the tab, and the (i) would fly across a window the reader has already left.
 	helpPlateButton:SetScript("OnHide", function()
 		HelpPlate.HideTooltip();
 		HelpPlate.Hide();
+	end);
+
+	-- **The help follows the reader across the tabs.** What the plate points at is this tab's two
+	-- columns, so it cannot simply stay up; it comes down with the tab and the next tab raises its
+	-- own in its place, slide-in and all. The asking is what crosses over (`HelpPlate.IsWanted`),
+	-- not the plate.
+	helpPlateButton:SetScript("OnShow", function()
+		if (HelpPlate.IsWanted()) then
+			self:ShowHelpPlate();
+		end
 	end);
 
 	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 처음 한 번의 툴팁이다.
@@ -3014,6 +2984,11 @@ function DebindFrameMixin:OnHide()
 	self:SetBindingMode(false);
 	DebindPasteFrame:CloseDialog();
 
+	-- **The plate crosses tabs but not a close.** The (?) on the tab takes the canvas down on its
+	-- own `OnHide`; what is cleared here is the asking behind it, so the window does not open again
+	-- with the help still laid over it.
+	HelpPlate.Dismiss();
+
 	-- **The sharing window is not on this line.** It is opened from here but it is a window of its
 	-- own: nothing it does needs this one to be up, and closing the thing you exported from should
 	-- not take the string you were about to copy with it. It handles its own ESC through
@@ -3213,8 +3188,10 @@ function DebindFrameMixin:OnKeyDown(input)
 		-- 사다리의 한 칸이 아니라 여기인 것은, 사다리가 걸어올 때는 판이 이미 없기 때문이다.
 		-- 이 press가 창을 숨기면서 (?)도 같이 숨고, 그 `OnHide`가 판을 내린다
 		-- (`InitializeButtons`). 그래서 서 있는지 물을 수 있는 자리는 여기뿐이다.
-		if (HelpPlate.IsShowing(OVERVIEW_HELP_PLATE)) then
-			HelpPlate.Hide();
+		--
+		-- 어느 탭의 판인지는 안 묻는다. 탭마다 판이 따로 있고 이 press는 서 있는 쪽을 걷는다.
+		if (HelpPlate.IsShowing()) then
+			HelpPlate.Dismiss(true);
 			return;
 		end
 		self.escAt = GetTime();
@@ -4557,7 +4534,6 @@ function DebindResultPanelMixin:OnLoad()
 	overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
 
 	DebindUI.SetListColumnHeader(self, RESULT_HEADER_HEIGHT);
-	self.HelpButton:SetHelpTopic("ordering");
 
 	self.initialized = true;
 	self:Refresh();
@@ -4783,8 +4759,6 @@ end
 --- 막힌 버튼은 **왜 막혔는지**를 말한다. 그 사유는 순서 규칙 자체라, 이 애드온에서 규칙을
 --- 가르치는 몇 안 되는 자리다.
 function DebindOrderLineMixin:OnMoveEnter(button)
-	-- The (i) lights while the cursor is on an arrow: the help is where the arrows are explained.
-	DebindResultPanel.HelpButton:LockHighlight();
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
 	GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
@@ -4803,7 +4777,6 @@ end
 
 function DebindOrderLineMixin:OnMoveLeave()
 	GameTooltip:Hide();
-	DebindResultPanel.HelpButton:UnlockHighlight();
 end
 
 --- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.

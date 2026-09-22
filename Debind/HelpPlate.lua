@@ -24,6 +24,12 @@ DebindPrivate.HelpPlate = HelpPlate;
 local _shownInfo;
 local _tiles = {};
 
+--- **Whether the reader asked for help, which is not whether a plate is up.** A plate is one tab's
+--- and goes down when that tab does; this does not, so crossing to another tab raises that tab's
+--- plate in the first one's place. Only the (?), Escape and the window closing clear it
+--- (`HelpPlate.Dismiss`).
+local _wanted = false;
+
 local function GetTile(index)
 	local tile = _tiles[index];
 	if (not tile) then
@@ -33,14 +39,64 @@ local function GetTile(index)
 	return tile;
 end
 
---- The scale everything handed to `Show` has to be in. The canvas hangs off `UIParent`, not off the
---- window being explained, so a window at another scale has to carry its numbers over first.
-function HelpPlate.GetEffectiveScale()
-	return DebindHelpPlateCanvas:GetEffectiveScale();
+--- **The title bar stays outside the plate, and that is what this number is for.**
+--- The canvas takes the mouse over everything it covers and hands nothing through, so a
+--- plate that started at the very top of the window left it impossible to drag and impossible to
+--- close while the help was up. The close button is 24 tall in its corner
+--- (`UIPanelCloseButtonNoScripts`), so 26 clears it, the gear beside it and the title strip the
+--- window is dragged by. It also clears the (?) itself, which hangs 26 below the window's top edge
+--- and has to stay pressable to put the plate away. Blizzard's own windows inset the same way
+--- (world map -26, spell book -22).
+local TOP_INSET = 26;
+
+local BUTTON_SIZE = 46;
+
+--- Lays `plate` over `parent` and hands back the maker for its sections: `section(frame, dir,
+--- text)` lights the whole of `frame` and puts one (i) in the middle of it.
+---
+--- **Every rectangle is measured here, at the moment the plate opens.** The window changes width
+--- with the tab, the columns are anchored to each other, and the user moves the whole thing around
+--- the screen; coordinates fixed at load would point at empty air after any of that.
+---
+--- The canvas is parented to the top level, not to the window, so everything measured on the
+--- window has to be carried into that scale first (`Blizzard_SpellBookFrameTutorials.lua` does the
+--- same arithmetic for the same reason).
+function HelpPlate.Measure(plate, parent)
+	local relativeScale = parent:GetEffectiveScale() / DebindHelpPlateCanvas:GetEffectiveScale();
+	local left = parent:GetLeft() * relativeScale;
+	local top = (parent:GetTop() * relativeScale) - TOP_INSET;
+
+	plate.FramePos = { x = 0, y = -TOP_INSET };
+	plate.FrameSize = {
+		width = parent:GetWidth() * relativeScale,
+		height = (parent:GetHeight() * relativeScale) - TOP_INSET,
+	};
+
+	return function(frame, tooltipDir, tooltipText)
+		local x = (frame:GetLeft() * relativeScale) - left;
+		local y = (frame:GetTop() * relativeScale) - top;
+		local width = frame:GetWidth() * relativeScale;
+		local height = frame:GetHeight() * relativeScale;
+
+		return {
+			ButtonPos = {
+				x = x + (width - BUTTON_SIZE) / 2,
+				y = y - (height - BUTTON_SIZE) / 2,
+			},
+			HighLightBox = { x = x, y = y, width = width, height = height },
+			ToolTipDir = tooltipDir,
+			ToolTipText = tooltipText,
+		};
+	end;
 end
 
+--- With no argument, whether any plate is up at all. That is what the window's Escape asks, since
+--- the press takes down whichever tab's plate is standing.
 function HelpPlate.IsShowing(helpInfo)
-	return _shownInfo ~= nil and _shownInfo == helpInfo;
+	if (_shownInfo == nil) then
+		return false;
+	end
+	return helpInfo == nil or _shownInfo == helpInfo;
 end
 
 function HelpPlate.ShowTooltip(anchorTo, text, direction)
@@ -57,12 +113,33 @@ function HelpPlate.ShowButtonTooltip(button)
 	HelpPlate.ShowTooltip(button, button.mainHelpPlateButtonTooltipText, "RIGHT");
 end
 
+--- Everything down at once, and the tiles put back in the state `Show` expects to find them in.
+---
+--- **`Button:Reset` is what makes a tile reusable.** It stops the slide animation and drops the
+--- `OnFinished` a fly-out left on it, so the next `Show` starts from a button at full alpha in its
+--- own place and no stale callback fires into a plate that has already gone.
+local function FinalizeHide()
+	for _, tile in ipairs(_tiles) do
+		tile.Button:Reset();
+		tile.Button:Hide();
+		tile:Hide();
+	end
+
+	DebindHelpPlateCanvas:Hide();
+	HelpPlate.HideTooltip();
+end
+
 --- `helpInfo` is the shape Blizzard's plate takes, so a reader can hold one description against the
 --- other: `FramePos` and `FrameSize` place the canvas over `parent`, and each numbered entry carries
 --- `HighLightBox`, `ButtonPos`, `ToolTipDir` and `ToolTipText`.
+---
+--- **It clears up through the finaliser rather than through `Hide`.** A fly-out from the last
+--- dismissal can still be in the air, and `_shownInfo` is already nil by then, so `Hide` would
+--- return having touched nothing and leave those animations to land on top of this plate.
 function HelpPlate.Show(helpInfo, parent)
-	HelpPlate.Hide();
+	FinalizeHide();
 	_shownInfo = helpInfo;
+	_wanted = true;
 
 	local canvas = DebindHelpPlateCanvas;
 
@@ -98,18 +175,51 @@ function HelpPlate.Show(helpInfo, parent)
 	canvas:Show();
 end
 
-function HelpPlate.Hide()
+--- **`fromUserInput` is what buys the animation**, the same split Blizzard's plate makes. Each (i)
+--- flies back to the canvas's corner and fades as it goes (`HelpPlateButtonMixin:AnimateOut`,
+--- 0.3s), which is the way it arrived played backwards; the yellow boxes and the canvas stay until
+--- the last one lands. Everywhere else the plate is not being dismissed but replaced or carried
+--- off screen, and a fly-out there would animate something the reader is not looking at any more.
+function HelpPlate.Hide(fromUserInput)
 	if (not _shownInfo) then
 		return;
 	end
 
 	_shownInfo = nil;
 
-	for _, tile in ipairs(_tiles) do
-		tile:Hide();
-		tile.Button:Hide();
+	if (not fromUserInput) then
+		FinalizeHide();
+		return;
 	end
 
-	DebindHelpPlateCanvas:Hide();
-	HelpPlate.HideTooltip();
+	local flying = 0;
+	for _, tile in ipairs(_tiles) do
+		if (tile:IsShown()) then
+			flying = flying + 1;
+			tile.Button:AnimateOut(function(button)
+				button:Hide();
+				flying = flying - 1;
+				if (flying == 0) then
+					FinalizeHide();
+				end
+			end);
+		end
+	end
+
+	if (flying == 0) then
+		FinalizeHide();
+	end
+end
+
+--- Whether the plate the reader asked for is owed to whichever tab comes up next.
+function HelpPlate.IsWanted()
+	return _wanted;
+end
+
+--- The plate goes down **and is not owed to the next tab.** This is the (?) pressed again, Escape,
+--- and the window closing; everything else takes the plate down through `Hide` and leaves the
+--- asking in place.
+function HelpPlate.Dismiss(fromUserInput)
+	_wanted = false;
+	HelpPlate.Hide(fromUserInput);
 end

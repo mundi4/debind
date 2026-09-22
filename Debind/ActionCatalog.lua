@@ -1155,14 +1155,14 @@ local function BuildSpecialActions(entries)
 	-- the three, because what they share is the whole of what a row says: the addon picks the
 	-- spell, not the reader. No value to store; the row's icon is today's spell and is drawn by
 	-- `NameAndIconForAction`.
-	local specGroup = LLL["TYPE_SPEC_RESOLVED_HEADER"];
-	for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
-		AddEntry(entries, seen, {
-			type = actionType,
-			group = specGroup,
-			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
-		});
-	end
+	-- local specGroup = LLL["TYPE_SPEC_RESOLVED_HEADER"];
+	-- for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
+	-- 	AddEntry(entries, seen, {
+	-- 		type = actionType,
+	-- 		group = specGroup,
+	-- 		tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
+	-- 	});
+	-- end
 
 	-- Taking a key and doing nothing with it. It stores no value, and what makes it worth a row is
 	-- the conditions that go on it afterwards: they are what turn it into "not in this case".

@@ -3,6 +3,7 @@ local _, DebindPrivate = ...;
 local Constants        = DebindPrivate.Constants;
 local LLL              = DebindPrivate.L;
 local DebindUI         = DebindPrivate.DebindUI;
+local HelpPlate        = DebindPrivate.HelpPlate;
 
 --- What the counts in the row tooltip are pushed in by. **In code and not in the strings**: it is
 --- layout, and a translator handed leading spaces will lose them or double them.
@@ -739,6 +740,71 @@ function DebindSwitchesPanelMixin:OnLoad()
     self:InitializeScrollBox();
     self:InitializeDetailScrollBox();
     self:InitializeDetailTabs();
+    self:InitializeHelpPlateButton();
+
+    DebindUI.WireHelpPortrait(self.PortraitRow.HelpPortrait, "switches");
+end
+
+--- The plate laid over this tab's two columns (`HelpPlate.lua`), and the identity `IsShowing`
+--- compares against - it takes this table, not its contents, so it is built once and refilled.
+local HELP_PLATE = {};
+
+--- **The three handlers the template brings are replaced, not kept**, for the reason Overview's
+--- copy of this records (`DebindFrameMixin:InitializeButtons`): `MainHelpPlateButtonMixin` puts up
+--- the client's single shared balloon, which is the thing `HelpPlate.lua` exists to stay out of.
+function DebindSwitchesPanelMixin:InitializeHelpPlateButton()
+    local helpPlateButton = self.HelpPlateButton;
+    helpPlateButton:SetScript("OnClick", function()
+        self:ToggleHelpPlate();
+    end);
+    helpPlateButton:SetScript("OnEnter", function(button)
+        HelpPlate.ShowButtonTooltip(button);
+    end);
+    helpPlateButton:SetScript("OnLeave", function()
+        HelpPlate.HideTooltip();
+    end);
+
+    -- **The canvas is not our child** - it hangs off `UIParent`, so closing the window or moving to
+    -- another tab would leave it lying over the screen on its own.
+    --
+    -- **No animation here**, unlike the press above: the plate is not being dismissed, it is going
+    -- off screen with the tab, and the (i) would fly across a window the reader has already left.
+    helpPlateButton:SetScript("OnHide", function()
+        HelpPlate.HideTooltip();
+        HelpPlate.Hide();
+    end);
+
+    -- **The help follows the reader across the tabs.** What crosses is the asking, not the plate:
+    -- this one points at this tab's two columns, so arriving here with the help up raises ours in
+    -- the other tab's place, slide-in and all.
+    helpPlateButton:SetScript("OnShow", function()
+        if (HelpPlate.IsWanted()) then
+            self:ShowHelpPlate();
+        end
+    end);
+end
+
+function DebindSwitchesPanelMixin:UpdateHelpPlate()
+    local Section = HelpPlate.Measure(HELP_PLATE, self);
+
+    -- 말풍선은 각자 자기 열의 바깥쪽으로 편다. 안쪽으로 펴면 220px짜리 상자가 옆 열을
+    -- 덮어서, 설명하는 동안 설명 대상의 절반이 가려진다.
+    HELP_PLATE[1] = Section(self.List, "LEFT", LLL["SWITCHES_HELP_LIST"]);
+    HELP_PLATE[2] = Section(self.Detail, "RIGHT", LLL["SWITCHES_HELP_DETAIL"]);
+end
+
+function DebindSwitchesPanelMixin:ShowHelpPlate()
+    self:UpdateHelpPlate();
+    HelpPlate.Show(HELP_PLATE, self);
+end
+
+function DebindSwitchesPanelMixin:ToggleHelpPlate()
+    if (HelpPlate.IsShowing(HELP_PLATE)) then
+        HelpPlate.Dismiss(true);
+        return;
+    end
+
+    self:ShowHelpPlate();
 end
 
 --- **The switch that was just made is the one the reader is about to set up**, so the column opens

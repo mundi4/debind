@@ -1,4 +1,9 @@
-## Interface: 120000, 120001, 120005, 120007, 120100, 120105
+## Interface: 120000, 120001, 120005, 120007, 120100, 120105, 16000, 16001, 16002, 16005
+
+# **The five-digit `16xxx` numbers are the camelot client and they are a guess.** The packager reads
+# `16???` as that game type, and its build is 1.60.1, so 16001 is the likely one. `/camelot` prints
+# what `GetBuildInfo` actually answers; put that number here and drop the others. Until then, a miss
+# only means the addon list shows this one out of date.
 
 ## Title: Debind Dev
 ## Notes: Development-only addon for Debind: the in-game test kit, the written development profile, and one-shot probes.
@@ -15,6 +20,7 @@
 DevSeed.lua
 
 DebindTest.lua
+Probe_Camelot.lua
 # Probe_BindingContext.lua
 # Probe_BindingList.lua
 # Probe_ForbiddenFrames.lua

@@ -2776,10 +2776,10 @@ local function PlantImportanceLockedPair(key)
     return first, second, FindOrderLine(second)
 end
 
--- What the game does: a click on a locked arrow, and on the (i), opens a window. These need the
--- window, the tooltip and the real button scripts, none of which the headless run has.
-RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
-    description = "An arrow a rule holds is disabled; the cursor on it lights the (i) and leaving puts it out. One dead at the end lights it the same way",
+-- What the game does: the window, the tooltip and the real button scripts, none of which the
+-- headless run has.
+RegisterTest("Order arrows: an arrow a rule holds is dead", {
+    description = "An arrow held by the Importance step is disabled, and so is one at the end of its group",
     run = function()
         local NAME = "Locked arrow"
         local KEY = "CTRL-ALT-F11"
@@ -2799,33 +2799,15 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
             return Fail(NAME, "the arrow a rule holds is live")
         end
 
-        -- **The lock, not the highlight texture.** The texture answers to where the cursor
-        -- physically is as well, and nothing here can place that; the lock is the whole of what
-        -- `OnMoveEnter` and `OnMoveLeave` set.
-        local help = DebindResultPanel.HelpButton
-        line:OnMoveEnter(up)
-        if not help:IsHighlightLocked() then
-            return Fail(NAME, "the cursor on a locked arrow did not light the (i)")
-        end
-        line:OnMoveLeave()
-        if help:IsHighlightLocked() then
-            return Fail(NAME, "the (i) stayed lit after the cursor left")
-        end
-
-        -- The arrow at the end of the group is dead too, and lights the (i) the same way.
+        -- The arrow at the end of the group is dead too, for a reason of its own.
         if down.reason ~= "ALREADY_LAST" then
             return Fail(NAME, format("setup: the downward arrow is not at the end: %s", tostring(down.reason)))
         end
         if down:IsEnabled() then
             return Fail(NAME, "an arrow at the end of its group is live")
         end
-        line:OnMoveEnter(down)
-        if not help:IsHighlightLocked() then
-            return Fail(NAME, "the cursor on the end arrow did not light the (i)")
-        end
-        line:OnMoveLeave()
 
-        return Pass(NAME, "both dead arrows light the (i), and it goes out when the cursor leaves")
+        return Pass(NAME, "both arrows are dead, one by the Importance step and one at the end of its group")
     end,
 })
 
@@ -2859,36 +2841,62 @@ RegisterTest("Order arrows: the locked tooltip says the rule", {
     end,
 })
 
-RegisterTest("Overview header: the (i) opens the ordering help", {
-    description = "The (i) at the right end of the search row is up; one press opens the ordering help and the next closes it",
+RegisterTest("Overview: the question mark opens its page and wears the ring", {
+    description = "The (?) on the portrait row opens the setting-keys-up page and closes it again, and it is lit for as long as the help window is up",
     run = function()
-        local NAME = "Header (i)"
+        local NAME = "Help portrait"
 
         DebindFrame:Show()
         AddTeardown(function() DebindFrame:CloseWindow() end)
         AddTeardown(function() DebindMessageFrame:Hide() end)
         DebindMessageFrame:Hide()
 
-        local help = DebindResultPanel.HelpButton
+        local help = DebindFrame.OverviewPanel.PortraitRow.HelpPortrait
         if not help:IsVisible() then
-            return Fail(NAME, "the (i) is not on screen with the window open")
+            return Fail(NAME, "the (?) is not on screen with the window open")
+        end
+        if help.UnselectedFrame:IsShown() == false then
+            return Fail(NAME, "the (?) is lit with no help window up")
         end
 
         help:Click()
         if not DebindMessageFrame:IsShown() then
-            return Fail(NAME, "the press on the (i) opened no help")
+            return Fail(NAME, "the press on the (?) opened no help")
         end
-        if DebindMessageFrame.Dropdown:GetText() ~= LLL["HELP_ORDERING_TITLE"] then
+        if DebindMessageFrame.Dropdown:GetText() ~= LLL["HELP_SETTING_KEYS_UP_TITLE"] then
             return Fail(NAME, format("the help that opened is titled %q",
+                tostring(DebindMessageFrame.Dropdown:GetText())))
+        end
+        if help.UnselectedFrame:IsShown() then
+            return Fail(NAME, "the (?) is not lit while the help is up")
+        end
+
+        -- **The ring says the window, not the page.** Walking to another page through the dropdown
+        -- never left it, so the light stays on.
+        DebindUI.ShowHelp("switches")
+        if help.UnselectedFrame:IsShown() then
+            return Fail(NAME, "the (?) went out when the help moved to another page")
+        end
+
+        -- A press while another page is up swaps to this one rather than closing (`ToggleHelp`).
+        help:Click()
+        if not DebindMessageFrame:IsShown() then
+            return Fail(NAME, "the press closed the help instead of coming back to its page")
+        end
+        if DebindMessageFrame.Dropdown:GetText() ~= LLL["HELP_SETTING_KEYS_UP_TITLE"] then
+            return Fail(NAME, format("the press from another page landed on %q",
                 tostring(DebindMessageFrame.Dropdown:GetText())))
         end
 
         help:Click()
         if DebindMessageFrame:IsShown() then
-            return Fail(NAME, "a second press on the (i) left the help up")
+            return Fail(NAME, "a press on its own page left the help up")
+        end
+        if help.UnselectedFrame:IsShown() == false then
+            return Fail(NAME, "the (?) stayed lit after the help closed")
         end
 
-        return Pass(NAME, "the (i) opened the ordering help, and closed it again")
+        return Pass(NAME, "the (?) opened its page, stayed lit across a page change, came back to it, and closed it")
     end,
 })
 

@@ -66,7 +66,7 @@
 
 **부드러운 드래그는 어떤 구조로도 못 만든다.** 제한 환경에는 `HANDLE:SetPoint`가 있고
 `$cursor`를 주면 그 순간 커서 좌표를 읽어 앉히지만
-([RestrictedFrames.lua](reference/wow-ui-source/Interface/AddOns/Blizzard_RestrictedAddOnEnvironment/RestrictedFrames.lua)의
+([RestrictedFrames.lua](reference/wow-ui-source/mainline/Interface/AddOns/Blizzard_RestrictedAddOnEnvironment/RestrictedFrames.lua)의
 `SetPoint`), 그건 스냅샷 한 번이고 제한 환경엔 `OnUpdate`가 없어서 커서를 따라다니게 할 방법이
 없다. 남는 것은 **집었다 놓는 방식**뿐이다. 제목줄을 누르면 커서 자리로 한 번 뛰고, 다시 눌러
 놓는다.

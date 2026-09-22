@@ -70,7 +70,7 @@ same.
 **Look up the key, not the word — in that order.**
 
 1. Find the **key** whose English value carries the concept you mean, in `enUS.lua` or in
-   `reference/wow-ui-source/`. Confirm it by where the interface code uses it. An English word does
+   `reference/wow-ui-source/mainline/`. Confirm it by where the interface code uses it. An English word does
    not pin a concept down either: two keys can hold the same word for different things, and a word
    the client used for one thing years ago can belong to another now.
 2. Read **that key** in `koKR.lua` and `ruRU.lua`.

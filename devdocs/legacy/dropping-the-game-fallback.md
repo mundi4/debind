@@ -578,7 +578,7 @@ S2로 넘기는 것이 프로브가 한 방법이고, 결정은 아니다.
   아니다.
 - **스니펫 본문을 고치기 전에 `restricted-environment.md`를 읽는다.** 틀리면 오류 없이 키 하나가 죽는다.
   `tools/snippet-golden.txt`가 구운 바이트를 잠그고 있다.
-- **블리자드 코드는 `reference/wow-ui-source`에 있다**(`dev-setup.md`). 이 문서의 줄 번호는 거기 기준이다.
+- **블리자드 코드는 `reference/wow-ui-source/mainline`에 있다**(`dev-setup.md`). 이 문서의 줄 번호는 거기 기준이다.
 
 ### 9-2. 코드가 틀리기 쉬운 자리
 

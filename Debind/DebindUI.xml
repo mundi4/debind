@@ -1206,24 +1206,6 @@
 								답이 없다.
 							-->
 							<!--
-								**The ordering help, at the right end of the header row.** The rule that
-								decides a key's order shows itself in this column - the locks on the arrows -
-								so this is where its help is reached from. The title bar's big (i) is not
-								used: that seat is a whole window's help.
-
-								There is no room for the page's title beside it, so it is the icon alone and
-								its tooltip says which page it is.
-							-->
-							<Button parentKey="HelpButton" inherits="DebindHelpLinkTemplate">
-								<KeyValues>
-									<KeyValue key="iconSize" value="36" type="number"/>
-									<KeyValue key="iconOnly" value="true" type="boolean"/>
-								</KeyValues>
-								<Anchors>
-									<Anchor point="RIGHT" relativeKey="$parent.HeaderArea" relativePoint="RIGHT" x="-10" y="0"/>
-								</Anchors>
-							</Button>
-							<!--
 								**지정 모드 동안 이 열을 덮는다.** 모드의 대상은 오른쪽 목록뿐이라, 왼쪽은 그동안
 								판 밖이다. 그걸 사람이 알고 있으라고 두지 않고 화면이 말하게 한다.
 
@@ -1503,6 +1485,15 @@
 									<KeyValue key="PortraitTexture" value="A:bags-button-autosort-up" type="string"/>
 									<KeyValue key="TooltipTitle" value="REMOVE_DUPLICATES" type="string"/>
 									<KeyValue key="TooltipText" value="REMOVE_DUPLICATES_DESC" type="string"/>
+								</KeyValues>
+							</Button>
+
+							<Button parentKey="HelpPortrait" inherits="DebindPortraitTemplate">
+								<KeyValues>
+									<KeyValue key="layoutIndex" value="4" type="number"/>
+									<KeyValue key="PortraitTexture" value="A:questlog-questtypeicon-quest" type="string"/>
+									<KeyValue key="TooltipTitle" value="HELP_TOPICS" type="string"/>
+									<KeyValue key="TooltipText" value="HELP_PORTRAIT_DESC" type="string"/>
 								</KeyValues>
 							</Button>
 						</Frames>

@@ -241,6 +241,7 @@ local function Build()
     -- within reach of the row that asks a reader to pick a mode for it, and a reader who has not met
     -- the name yet cannot know to scroll to a list of page titles.
     HelpLink(L["HELP_HOVER_CAST_TITLE"], "hover-cast");
+    HelpLink(L["HELP_TARGETING_TITLE"], "targeting");
 
     Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;

@@ -12,9 +12,9 @@
 // The source is the `live` branch of Gethe/wow-ui-source. What we ship goes to live, so live is
 // what it is judged against.
 //
-// **Not the local `reference/wow-ui-source/`, even though it is a checkout of the same repo.**
-// That one is whatever build somebody pinned it to, and a checkout sitting a patch ahead answers
-// "does this template exist" for a client the reader is not on.
+// **Not the local `reference/wow-ui-source/mainline/`, even though it is a checkout of that same
+// branch.** That one is whatever build somebody pinned it to, and a checkout sitting a patch
+// ahead answers "does this template exist" for a client the reader is not on.
 
 const fs = require("fs");
 const path = require("path");
