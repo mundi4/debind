@@ -497,7 +497,7 @@ end
 --- Moves the conditions into `action.conditions`.
 ---
 --- Tests write conditions flat: `InsertAction({ ..., combat = true })`. The stored shape is
---- nested (`action-and-binding-shapes.md`), so planting one flat leaves the condition
+--- nested, so planting one flat leaves the condition
 --- short of the binding and the action runs **without the condition the test believes it set**.
 --- An action missing a condition is the wider one, so it usually goes green.
 ---
@@ -1472,7 +1472,7 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
         ---
         --- **Both carry one condition, on different axes.** Different axes are what make the
         --- solver keep both, so a board with one of them dropped measures nothing. Having
-        --- conditions no longer decides the order (`taking-conditions-out-of-the-order.md`), so
+        --- conditions no longer decides the order (`legacy/taking-conditions-out-of-the-order.md`), so
         --- what settles these two is `seq` either way.
         ---
         --- **The layer is emptied for every board.** The kit does not empty it between tests and
@@ -2401,8 +2401,7 @@ RegisterTest("Menu: casting a cast key as usual aims that key's twin where the a
 --- What it is guarding is the shape rather than the wording. A mode that leaves no value behind
 --- rides on the table being empty, and the rest of the addon reads an empty table as nothing at
 --- all -- `ActionSignature` folds one away, which is what made a unit-conditioned action and an
---- unconditional one come out as duplicates of each other
---- (`action-and-binding-shapes.md` §3-2).
+--- unconditional one come out as duplicates of each other.
 RegisterTest("Unit condition: each mode writes a value of its own", {
     description = "[When it exists] stores exists, [Disable] stores disabled and keeps the axes, and a mode with nothing to remember leaves no table behind",
     run = function()
@@ -2763,7 +2762,7 @@ end
 -- order, so the arrows between them are locked by a rule and the ones at the ends are not.
 --
 -- **It was a condition on one of them.** Conditions stopped settling the order
--- (`taking-conditions-out-of-the-order.md`), and with the two tied at that step the arrows came
+-- (`legacy/taking-conditions-out-of-the-order.md`), and with the two tied at that step the arrows came
 -- alive and these cases measured nothing.
 local function PlantImportanceLockedPair(key)
     local first = InsertAction({ type = Constants.SPELL, value = 1, key = key, priority = 2 })

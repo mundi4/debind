@@ -1176,7 +1176,7 @@ return function(DebindPrivate, _, ctx)
     test("a macro placed ahead of a spell answers a held focus cast key as a focus cast", function()
         shim.world.spells[585] = { name = "Renew" };
         -- **The spell is placed first.** Having conditions stopped being an ordering step
-        -- (`taking-conditions-out-of-the-order.md`), so what puts the narrow action in front is the
+        -- (`legacy/taking-conditions-out-of-the-order.md`), so what puts the narrow action in front is the
         -- number now. Behind the macro it would be covered and never reach a press at all, and this
         -- case is about which tier answers a held modifier rather than about which of the two wins.
         Bind({

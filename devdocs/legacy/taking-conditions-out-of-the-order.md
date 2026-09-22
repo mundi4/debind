@@ -1,6 +1,8 @@
 # 발동 순서에서 조건 유무를 뺀다
 
-> 상태: **조사 문서다. 결정은 났고 코드는 아직 안 건드렸다** (2026-09-21). 셋이 정해졌다.
+> 상태: **구현했다** (2026-09-22, `ec0bf78`).
+>
+> 아래 셋이 이 변경의 결정이고, 2026-09-21에 정해졌다.
 >
 > 1. 조건 유무 단계를 뺀다. 먼저 내보내고 싶다는 말을 적는 자리는 Importance이고, 조건 단계는 그
 >    판정을 사용자가 안 적었는데 대신 내려 준다.
@@ -387,7 +389,6 @@ ack이 없으면 남는 것은 재는 값 하나다. **키 그룹별 ack도 두�
 | `Locales/koKR.lua`, `Locales/ruRU.lua` | 같은 키들. enUS에서 지운 키가 남아 있으면 `check:locales`가 빨개진다 |
 | `docs/ingamehelp/enUS/ordering.md` | 2번 항목을 빼고 나머지를 셋으로 번호 매긴다. "all three are equal", "one of the three above"도 함께. `Locales/Help/enUS.lua`는 `npm run help`가 내는 파일이라 손으로 고치지 않는다 |
 | `which-action-a-key-runs.md` | §2의 "조건 유무", 그리고 §S2의 "얹힌 [없음]은 순서의 조건 유무에 들지 않는다"(2절에 따라 문장 자체가 없어진다) |
-| `action-and-binding-shapes.md` | 순서 레코드 표의 `isConditional` |
 | `README.md` | "Then having conditions at all" 항목과 그 위의 "a couple of other things get checked before the layer does". 순서 설명에 붙은 스크린샷은 사유로 "has conditions"를 보여준다 |
 | `0-ROADMAP.md` | 순서 규칙을 건드리는 트랙은 없다. 같은 릴리즈를 노리는 두 트랙(전문화 번호 조건, 전문화가 주문을 정하는 타입 셋)은 조건 축을 더하는 쪽이라 이 변경에 안 걸린다 |
 

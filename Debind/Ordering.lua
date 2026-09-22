@@ -12,7 +12,7 @@ local CompareBelowImportance;
 
 --- Is the reader running on the firing order from before the conditional step went?
 ---
---- **A temporary option** (`taking-conditions-out-of-the-order.md` §7), and it goes with the step
+--- **A temporary option** (`legacy/taking-conditions-out-of-the-order.md` §7), and it goes with the step
 --- that `CompareActionOrderWithConditions` holds. Absent reads as off, which is what the headless
 --- specs and every profile that never ticked it get.
 function DebindPrivate.IsLegacyOrderOn()
@@ -73,7 +73,7 @@ end
 
 --- The comparator as it stood before the conditional step went, **frozen**. Two callers, and
 --- neither may have a copy of its own: the option that hands a reader the old firing order
---- (`taking-conditions-out-of-the-order.md` §7-1), and `KeyGroupOrderMoved` below, which tells a
+--- (`legacy/taking-conditions-out-of-the-order.md` §7-1), and `KeyGroupOrderMoved` below, which tells a
 --- reader which keys the step's removal moved. Two copies drifting apart puts a warning on a key
 --- the option then does not move, and nothing on screen says which of the two is lying.
 function DebindPrivate.CompareActionOrderWithConditions(lhs, rhs)

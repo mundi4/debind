@@ -341,8 +341,7 @@ if (Constants.DEBUG) then
         __index = function(_, k)
             if (Constants.IsConditionField(k)) then
                 error("action." .. tostring(k) .. "를 최상단에서 읽었다." ..
-                    " 조건은 action.conditions 안이다" ..
-                    " (action-and-binding-shapes.md)", 2);
+                    " 조건은 action.conditions 안이다", 2);
             end
             return nil;
         end,
@@ -1665,7 +1664,7 @@ local function MigrateDB(db, charEntry)
         -- **"이 프로필은 조건 단계가 있던 판에서 올라왔다."** 그 판을 써 본 적 없는 사람의
         -- 프로필에서도 두 비교자는 갈릴 수 있는데, 그 사람에게는 바뀐 것이 없다. 이 값이 없으면
         -- 경고 문구가 그 사람들 때문에 "바뀌었을 수 있습니다"로 물러서야 하고, 그 문장은 정작
-        -- 바뀐 사람에게도 덜 말한다(`taking-conditions-out-of-the-order.md` §7-2).
+        -- 바뀐 사람에게도 덜 말한다(`legacy/taking-conditions-out-of-the-order.md` §7-2).
         --
         -- **`dbver`로는 못 묻는다.** 아래 줄이 그것을 현재 값으로 덮으므로 다음 로그인에는 답이
         -- 없다. 확인을 받아 낸 캐릭터는 제 항목에 적고(§7-4), 이 값은 그대로 둔다 - 캐릭터마다
@@ -2824,7 +2823,7 @@ end
 --- **확인이 캐릭터 단위인 이유는 재는 값이 캐릭터 단위이기 때문이다.** 모으는 것이 이 캐릭터가
 --- 보는 열한 레이어라, 다른 캐릭터에서 무엇이 움직였는지는 그 캐릭터로 들어가야 보인다. 계정
 --- 하나로 끄면 아직 한 번도 안 들어가 본 캐릭터의 표시까지 지워진다
---- (`taking-conditions-out-of-the-order.md` §7-4).
+--- (`legacy/taking-conditions-out-of-the-order.md` §7-4).
 function DebindPrivate.ShouldWarnOrderMoved()
     return DebindPrivate.db.global.orderChangedFrom == true
         and DebindPrivate.db.char.orderMovedSeen ~= true;

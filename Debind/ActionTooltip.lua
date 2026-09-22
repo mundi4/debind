@@ -1055,7 +1055,7 @@ do
 	---
 	--- **`orderMoved` is not one of the rows' issues** and cannot be found by walking them: it is a
 	--- fact about the group, measured where the group is assembled
-	--- (`taking-conditions-out-of-the-order.md` §7-3). It is handed in separately for that reason.
+	--- (`legacy/taking-conditions-out-of-the-order.md` §7-3). It is handed in separately for that reason.
 	function DebindPrivate.AddGroupIssuesToTooltip(tooltip, rows, orderMoved)
 		if (orderMoved) then
 			GameTooltip_AddNormalLine(tooltip, LLL["ORDER_MOVED_GROUP"], true);

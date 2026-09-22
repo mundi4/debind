@@ -801,7 +801,7 @@ L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- 사람은 IMPORTANCE_DESC가 축을 순서대로 적어 둔다.
 --
 -- **조건은 이제 이 절에 안 든다.** 조건 유무가 순서를 가르던 단계가 없어졌으므로
--- (`taking-conditions-out-of-the-order.md`) 조건이 붙었다고 탭을 이기는 일이 없다.
+-- (`legacy/taking-conditions-out-of-the-order.md`) 조건이 붙었다고 탭을 이기는 일이 없다.
 --
 -- 지는 쪽은 **레이어 이름 전체**로 부른다("Account / Druid"). 툴팁 제목이 그 형식이라 참조도
 -- 같아야 화면에서 찾을 수 있다 - 근거는 GetSideTabDescription 주석에.
@@ -972,7 +972,7 @@ L["ORDER_MOVE_UP"] = "Run Sooner"
 L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key."
 L["ORDER_MOVE_DOWN"] = "Run Later"
 L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key."
--- 조건 단계가 빠지면서 순서가 움직인 자리의 넉 줄(`taking-conditions-out-of-the-order.md` §7).
+-- 조건 단계가 빠지면서 순서가 움직인 자리의 넉 줄(`legacy/taking-conditions-out-of-the-order.md` §7).
 --
 -- **개수가 0이어도 서는 문장이라야 한다.** 옛 판에서 올라온 프로필이면 이 캐릭터에서 하나도 안
 -- 움직였어도 알림이 뜬다 - "이 캐릭터는 안 움직였다"는 말해 주지 않으면 알 길이 없는 사실이다.
@@ -1147,7 +1147,7 @@ L["SWITCH_ANSWER_OFF"] = "Off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
 L["SWITCH_ANSWER_REMEMBER"] = "As you left it"
 L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back the way you left it when you log in and when you change specialization. Every character remembers this separately."
--- **임시 옵션이고, 그 말이 툴팁 안에 있다**(`taking-conditions-out-of-the-order.md` §7). 다음
+-- **임시 옵션이고, 그 말이 툴팁 안에 있다**(`legacy/taking-conditions-out-of-the-order.md` §7). 다음
 -- 판에서 걷을 작정으로 넣는 것이라, 체크해 두고 잊은 사람이 그날 처음 알게 되면 안 된다. 라벨이
 -- 아니라 툴팁에 두는 이유는 라벨이 이름이기 때문이다.
 --
@@ -1479,7 +1479,7 @@ L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pre
 L["TYPE_BLOCK"] = "Nothing"
 -- **둘째 문단 끝의 자리 문장.** "under it"은 자리를 가리키는 말인데, 조건을 걸면 저절로
 -- 위에 서던 시절에는 그 자리가 그냥 주어졌다. 이제는 키에 더한 액션이 맨 뒤에 서므로
--- (`taking-conditions-out-of-the-order.md`), 이 설명을 읽고 만든 Block은 멈출 것이 하나도
+-- (`legacy/taking-conditions-out-of-the-order.md`), 이 설명을 읽고 만든 Block은 멈출 것이 하나도
 -- 없는 자리에 놓인다.
 L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only. An action added to a key goes last, so use Run Sooner to put it above the ones it should stop."
 L["TYPE_COMMAND"] = "Binding Command"

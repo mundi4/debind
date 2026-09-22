@@ -188,7 +188,7 @@ return function(DebindPrivate, shim)
             --- **These two hold keys of their own.** They shared `ALT-F8` and `ALT-F9` with the
             --- character layer's drop cases, and having conditions used to carry them in front of
             --- the unconditional action there. It does not any more
-            --- (`taking-conditions-out-of-the-order.md`), so they sat behind one that matches
+            --- (`legacy/taking-conditions-out-of-the-order.md`), so they sat behind one that matches
             --- every press, the solver covered them whole, and this translation left the golden.
             action({ type = Constants.SPELL, value = 774, key = "SHIFT-F1",
                 conditions = { units = { target = { group = Constants.UNITGROUP_PARTY } } } }),

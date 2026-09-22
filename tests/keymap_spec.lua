@@ -214,7 +214,7 @@ return function(DebindPrivate)
     -- Which record goes first
     ---------------------------------------------------------------------------
 
-    -- **Having conditions does not move a record** (`taking-conditions-out-of-the-order.md`). The
+    -- **Having conditions does not move a record** (`legacy/taking-conditions-out-of-the-order.md`). The
     -- number the reader set is what decides, so a conditional record placed behind one that matches
     -- everything stays behind it -- and the solver then drops it, because the one in front covers it
     -- whole. What is left is the one record, and the window says so on the row it came from

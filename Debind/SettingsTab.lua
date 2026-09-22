@@ -361,7 +361,7 @@ local function Build()
         DebindPrivate.GiveBackInBindingContext, "giveBackInBindingContext", true);
 
     Header(MISCELLANEOUS);
-    -- **Temporary, and it goes** (`taking-conditions-out-of-the-order.md` §7). What it turns back
+    -- **Temporary, and it goes** (`legacy/taking-conditions-out-of-the-order.md` §7). What it turns back
     -- on is a step the firing order no longer has, so the row's own wording is what says it will
     -- not be here forever.
     --

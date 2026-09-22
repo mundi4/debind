@@ -80,7 +80,7 @@ return function(DebindPrivate)
 
     --- **두 단계가 있었다.** 개체창 단계는 가리킨 개체창의 유닛에 조건이 걸린 액션을 앞세우던
     --- 것이고 그 유닛이 보통 유닛이 되면서 없어졌다(`which-action-a-key-runs.md` §2). 조건
-    --- 유무 단계는 그 뒤에 없어졌다(`taking-conditions-out-of-the-order.md`). 둘 중 뒤엣것만
+    --- 유무 단계는 그 뒤에 없어졌다(`legacy/taking-conditions-out-of-the-order.md`). 둘 중 뒤엣것만
     --- 옵션으로 되살릴 수 있고, 아래 두 테스트가 그쪽이다.
 
     test("조건 유무는 기본 순서를 안 가른다", function()

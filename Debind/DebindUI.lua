@@ -5144,7 +5144,7 @@ function BuildKeyboardElements()
 		end
 
 		-- **이 키의 순서가 조건 단계와 함께 움직였나.** 마이그레이션을 거친 프로필에서만 묻고,
-		-- 이 캐릭터가 확인을 누르면 그날로 끝난다(`taking-conditions-out-of-the-order.md` §7).
+		-- 이 캐릭터가 확인을 누르면 그날로 끝난다(`legacy/taking-conditions-out-of-the-order.md` §7).
 		--
 		-- **재는 자리가 여기인 이유는 여기가 그릴 것을 이미 모아 놨기 때문이다.** `BuildKeyMap`은
 		-- 배지 달린 행을 빼고 돌아서 머리글이 서는 그룹과 목록이 다르고, 캐시를 따로 두면 그 둘을

@@ -207,7 +207,7 @@ return function(DebindPrivate)
     -- 둘 다 이 층에서 1초면 났을 것이다. 여기 있는 이유가 그거다.
     --
     -- **둘 다 조건을 지되 축이 다르다.** 축이 달라야 둘 다 남는다. 조건 유무는 이제 순서를
-    -- 안 가르므로(`taking-conditions-out-of-the-order.md`) 이 배치에서 비교자는 곧바로 `seq`로
+    -- 안 가르므로(`legacy/taking-conditions-out-of-the-order.md`) 이 배치에서 비교자는 곧바로 `seq`로
     -- 내려온다. 아래 테스트가 한쪽만 조건부인 꼴로 같은 것을 한 번 더 못 박는다.
     test("승인하면 도착분이 내 그룹 뒤에 선다", function()
         ResetProfile({
@@ -230,7 +230,7 @@ return function(DebindPrivate)
     -- **조건부 도착분도 무조건인 기존 액션을 못 앞지른다.** 조건 유무가 순서 단계였을 때는
     -- 앞질렀고, 그래서 `SetKeyForActions`의 "방금 들어온 세트가 원래 있던 것 뒤에 선다"가 이
     -- 배치에서만 거짓이었다. 단계가 빠지면서 그 약속이 참이 된다
-    -- (`taking-conditions-out-of-the-order.md` §3-4).
+    -- (`legacy/taking-conditions-out-of-the-order.md` §3-4).
     test("한쪽만 조건부여도 도착분이 뒤에 선다", function()
         ResetProfile({
             general = {

@@ -7,7 +7,7 @@
 -- gesture with three outcomes, and nothing on screen saying which.
 --
 -- **Conditions were a band and are not one any more**
--- (`taking-conditions-out-of-the-order.md`), so the axis this file splits on is Importance. Turning
+-- (`legacy/taking-conditions-out-of-the-order.md`), so the axis this file splits on is Importance. Turning
 -- a condition on is now the example of an edit that crosses **no** band, which is what `Settle`
 -- below uses it for.
 --

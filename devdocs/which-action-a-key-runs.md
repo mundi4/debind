@@ -206,7 +206,7 @@ Frames, Mouseover)만 있고, 끄는 것은 액션마다 한다(§6). 계정에�
 
 키에 걸린 액션은 화면의 개요 탭이 보여주는 순서로 한 줄로 선다. 그 순서는 중요도, 층, 그리고
 사용자가 옮긴 자리로 정해진다. 도움말이 말하던 "Unit Frame" 물음은 없어진다. 조건 유무 물음도
-없어졌다(`taking-conditions-out-of-the-order.md`). **이 문서에서 "원본 순서"는 화면의 그 순서다.** 화면이 보여주는
+없어졌다(`legacy/taking-conditions-out-of-the-order.md`). **이 문서에서 "원본 순서"는 화면의 그 순서다.** 화면이 보여주는
 순서가 사용자가 아는 유일한 순서이고, 그것과 다르게 서는 순서는 전부 틀린 순서다 (2026-09-15,
 소유자).
 
@@ -497,7 +497,7 @@ action.casting = {
 대상에, `"skip"`이면 그 누름에서 빠진다. Hover Cast만 적지 않은 것이 꺼진 것이고, `hoverCastMode`가 없으면
 설정 탭 모드다. 모드는 Hover Cast에만 있다. 조합키는 유닛이 정해져 있다. 빈 표는 `CleanUpDB`가 지운다.
 한 필드에 불리언과 문자열을 섞지 않는다. `Options.selfCast`, `Options.focusCast`는 설정 탭의 켜고 끄기라
-그대로 둔다. 값의 계약은 `action-and-binding-shapes.md` §1이 든다.
+그대로 둔다.
 
 **옛 개체창 조건 액션은 쌍둥이만 있는 액션으로 옮긴다** (2026-09-16, 소유자). 옛 뜻이 "가리킨 누름에서만,
 층을 뛰어넘어"이고, 그것을 새 모양으로 정확히 적으면 Hover Cast를 Unit Frames로 두고 Normal Cast를
