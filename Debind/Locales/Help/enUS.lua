@@ -96,20 +96,25 @@ What each row of |cnBLUE_FONT_COLOR:Cast Options|r does is in |cnGREEN_FONT_COLO
 
 L["HELP_ORDERING_TITLE"] = "When a key holds more than one action"
 L["HELP_ORDERING_BODY"] = [==[
-A key can hold more than one action. Press it and Debind runs the first one whose conditions are met. If none of them does, the key does nothing: Debind keeps the key, and what WoW has bound to it does not run.
+Press a key that holds more than one action and Debind runs the first one whose conditions are met. If no action's conditions are met, the key does nothing: Debind keeps the key, and what WoW has bound to it does not run.
 
-To have something happen instead, put an action with no conditions last on the key and it takes those presses. To reach the action bar slot that key used to press, make that last one an |cnBLUE_FONT_COLOR:Action Button|r.
+The |cnBLUE_FONT_COLOR:Overview|r tab lists actions grouped by key, and under one key they stand in the order they are tried. Three things put them in that order, and the first of the three where two actions differ settles which stands higher.
 
-Turning every action on a key off is the other way, and it gives the key back: WoW's own binding runs again until you turn one on.
+1. |cnHIGHLIGHT_FONT_COLOR:Importance, where the other two cannot do it.|r A higher |cnBLUE_FONT_COLOR:Importance|r stands above the rest whatever they say. It is set on the action, and an Account action is the same action on every character, so the order you give it here is the order it has on characters you are not playing and cannot see.
+2. |cnHIGHLIGHT_FONT_COLOR:The layer it is in.|r |cnBLUE_FONT_COLOR:Move to...|r moves it between them, and the narrower layer stands higher, from this character and specialization down to Account.
+3. |cnHIGHLIGHT_FONT_COLOR:Where you put it in that layer.|r |cnBLUE_FONT_COLOR:Run Sooner|r and |cnBLUE_FONT_COLOR:Run Later|r move the action one place. They are greyed out when one of the two above already settles the order, and the tooltip says which one.
 
-The order is the one under the key in the list on the left of the |cnBLUE_FONT_COLOR:Overview|r tab, where actions are grouped by key. It is decided by these, from the top. The first one where two actions differ settles it.
+Putting a condition on an action does not move it.
 
-1. |cnBLUE_FONT_COLOR:Importance|r. The higher one goes first.
-2. |cnBLUE_FONT_COLOR:Conditions|r. An action with conditions goes before one without.
-3. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer goes first, from this character and specialization down to Account. Set with |cnBLUE_FONT_COLOR:Move to...|r.
-4. |cnHIGHLIGHT_FONT_COLOR:Position.|r When all three are equal, |cnBLUE_FONT_COLOR:Run Sooner|r and |cnBLUE_FONT_COLOR:Run Later|r move the action one place. They are greyed out when one of the three above already decides, and the tooltip says which.
+> |cnBLUE_FONT_COLOR:Use the old run order|r in Debind's settings adds a fourth test above the layer, for the whole account: an action with conditions is tried before one without. It is there for keys you set up under an earlier version, and it will be removed in a later version.
 
-While you hold the Self Cast Key or the Focus Cast Key, unless it is turned off in Debind's settings, only the actions that answer that key are tried. While you point at a unit, the actions that answer that are tried first, and the rest after them. What each action answers is set under |cnBLUE_FONT_COLOR:Cast Options|r, explained in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+An action with no conditions is tried on every press, so nothing below it is ever reached. Give each one the conditions for the case it is meant for, and a press that meets none of them moves on to the next action down.
+
+The last action on a key is the one to leave without conditions, so that it is tried when nothing above it ran. To reach the action bar slot that key used to press, pick that last one from the |cnBLUE_FONT_COLOR:Commands|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, where the action bar buttons are listed.
+
+Some of the |cnBLUE_FONT_COLOR:Cast Options|r change which of a key's actions are tried, and in what order. While you hold the Self Cast Key or the Focus Cast Key, only the actions set to use that key are tried, and if none of their conditions are met the key does nothing. While |cnBLUE_FONT_COLOR:Hover Cast|r has a unit under your cursor, the actions set to use it are tried first and the rest after them. You set these per action, and |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r explains them.
+
+> Debind gives a key back when nothing on it is in play: every action either turned off in its own menu, or sitting in a specialization tab you are not in. WoW's own binding works there again, and the key's header is grey in the |cnBLUE_FONT_COLOR:Overview|r tab.
 ]==]
 
 L["HELP_STOPPING_AN_ACTION_TITLE"] = "How do I stop an action from running?"

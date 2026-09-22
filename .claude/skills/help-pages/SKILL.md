@@ -69,13 +69,35 @@ is easier than deciding.
 
 A page that reads fine to whoever wrote it is the normal outcome. Send it out.
 
+**Put the questions to the owner before you send them.** Handing over answers to questions they
+never saw leaves them unable to weigh either (2026-09-22, owner).
+
 The prompt has to stand alone, because the agent must not read this repo: give it the context a
 player has, the exact labels as they appear on screen, the ground truth for what each control does,
 the house rules, and the page. Ask for **factual errors first** and say that a false finding costs
 more than a missed one. Ask whether a reader could do the thing the page teaches after one read;
 that question finds what "is it clear" does not.
 
+**Say which words are not on screen.** Without that the agent cannot check the markup, and a page
+that paints a word blue the client never shows is making a promise the screen does not keep.
+
+**Continue the same agent with `SendMessage` rather than spawning a new one.** It keeps the ground
+truth and its own earlier findings, so a follow-up costs a question instead of a whole prompt, and
+it can say whether a rewrite is worse than what it replaced.
+
 Review again after fixing. Every round of this found something real.
+
+## What body text cannot fix
+
+**A finding about where the reader's eye goes is not answerable in a paragraph.** A caution moved
+from below a list, into the item, then to the item's first sentence, and read as ignorable all three
+times, because a reader who stops at the bold lead-ins never reaches any of them. What reaches them
+is the lead-in, the numbering and the order, and nothing else.
+
+**That does not make reordering free.** Reversing a list so the weakest thing comes first was put up
+and dropped: the page's own frame is that higher in the list runs first, and numbers running against
+precedence hand a skimmer the answer backwards. Spend the lead-in before you spend a convention the
+rest of the page rests on.
 
 ## Checks
 
