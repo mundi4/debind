@@ -20,9 +20,9 @@
 --
 -- **The restricted environment is asked by running one expression per snippet.** A missing function
 -- raises inside the body rather than answering nil, so each call gets its own `SecureHandlerExecute`
--- and the failure names it. The file the whitelist lives in is byte-identical between the two
--- clients (`shipping-on-the-camelot-client.md` §3), so a red line here means that comparison was
--- read wrong.
+-- and the failure names it. **On 1.60.1.69913 every one of them raises**, because that build never
+-- hands the restricted environment its compiler (`shipping-on-the-camelot-client.md` §3). A line
+-- answering a value instead is the news that the client was fixed.
 --
 -- **Blizzard templates are not in here.** `npm run check:templates` answers that one without the
 -- game: `WOW_UI_BRANCH=forever` judged all 58 of our inherited templates against this client's
@@ -184,23 +184,38 @@ end
 
 local function Classes()
     Emit("== classes and specializations");
-    for index = 1, GetNumClasses() do
-        local className, classFile, classID = GetClassInfo(index);
-        local count = C_SpecializationInfo.GetNumSpecializationsForClassID(classID) or 0;
-        local specs = {};
-        for i = 1, count do
-            local id, name = GetSpecializationInfoForClassID(classID, i);
-            specs[#specs + 1] = format("%s=%s", tostring(id), tostring(name));
+    -- **`GetNumClasses` is a count and not the last index.** On 1.60.1.69913 it answers 9 while
+    -- index 6 is empty, so an index is walked for its answer and skipped when it has none. This is
+    -- what `Misc.lua`'s `ClassSpecCatalog` and `Constants.lua`'s class loop already do.
+    local last = 0;
+    for index = 1, 30 do
+        if (select(3, GetClassInfo(index))) then
+            last = index;
         end
-        -- Index 5 is where retail keeps the initial specialization, which is a state a character
-        -- can actually stand in (`Misc.lua`'s `EnumerateClassSpecs`).
-        local initialID, initialName = GetSpecializationInfoForClassID(classID, 5);
-        if (initialID) then
-            specs[#specs + 1] = format("initial(5) %s=%s", tostring(initialID), tostring(initialName));
-        end
-        Emit("  %2d %-13s count %d  %s", classID, classFile or className or "?", count,
-            table.concat(specs, "  "));
     end
+    for index = 1, last do
+        local className, classFile, classID = GetClassInfo(index);
+        if (classID) then
+            local count = C_SpecializationInfo.GetNumSpecializationsForClassID(classID) or 0;
+            local specs = {};
+            for i = 1, count do
+                local id, name = GetSpecializationInfoForClassID(classID, i);
+                specs[#specs + 1] = format("%s=%s", tostring(id), tostring(name));
+            end
+            -- Index 5 is where retail keeps the initial specialization, which is a state a
+            -- character can actually stand in (`Misc.lua`'s `EnumerateClassSpecs`).
+            local initialID, initialName = GetSpecializationInfoForClassID(classID, 5);
+            if (initialID) then
+                specs[#specs + 1] = format("initial(5) %s=%s",
+                    tostring(initialID), tostring(initialName));
+            end
+            Emit("  idx %2d  id %2d  %-13s count %d  %s", index, classID,
+                classFile or className or "?", count, table.concat(specs, "  "));
+        else
+            Emit("  idx %2d  (empty)", index);
+        end
+    end
+    Emit("  GetNumClasses %s, highest index answering %d", tostring(GetNumClasses()), last);
     local index = C_SpecializationInfo.GetSpecialization();
     Emit("  mine          index %s  id %s", tostring(index),
         index and tostring((C_SpecializationInfo.GetSpecializationInfo(index))) or "nil");
@@ -217,11 +232,21 @@ local function Conditionals()
     end
 end
 
+-- **`pcall` does not catch this one.** The raise happens inside the secure call, so the call
+-- returns normally and only the error frame shows it; what comes back is an attribute nobody wrote.
+-- So the gate reads the answer rather than the failure: one body is tried, and nothing written
+-- means no body compiles on this client (3절), so the other 37 are not asked.
 local function Restricted()
     Emit("== restricted environment");
+    local value, err = RestrictedAnswer("1");
+    if (value == nil or value == "nil") then
+        Emit("  no snippet compiles on this client, so the rest was not asked");
+        Emit("  %s", tostring(err or "the body wrote nothing back"));
+        return;
+    end
     for i = 1, #RESTRICTED do
-        local value, err = RestrictedAnswer(RESTRICTED[i]);
-        Emit("  %-40s %s", RESTRICTED[i], value or ("RAISED " .. tostring(err)));
+        local answer, raised = RestrictedAnswer(RESTRICTED[i]);
+        Emit("  %-40s %s", RESTRICTED[i], answer or ("RAISED " .. tostring(raised)));
     end
 end
 
@@ -295,17 +320,25 @@ local function Apis()
     end
 end
 
+-- A section that raises must not take the other sections' values down with it.
+local function Section(label, fn)
+    local ok, err = pcall(fn);
+    if (not ok) then
+        Emit("  !! %s raised: %s", label, tostring(err));
+    end
+end
+
 local function Measure()
     Lines = {};
     Emit("Debind camelot probe, %s", date("%Y-%m-%d %H:%M"));
-    Client();
-    Classes();
-    Conditionals();
-    Restricted();
-    Atlases();
-    Talents();
-    SpecResolved();
-    Apis();
+    Section("client", Client);
+    Section("classes", Classes);
+    Section("conditionals", Conditionals);
+    Section("restricted", Restricted);
+    Section("atlases", Atlases);
+    Section("talents", Talents);
+    Section("specspells", SpecResolved);
+    Section("apis", Apis);
     return table.concat(Lines, "\n");
 end
 
