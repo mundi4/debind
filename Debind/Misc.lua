@@ -939,8 +939,7 @@ do
     -- nothing at the moment nothing is pointed at.
     local UNIT_IS_THERE = {};
 
-    --- 액션을 바인딩으로. **두 모양이 무엇을 드는지는 `action-and-binding-shapes.md`가
-    --- 든다** - 여기서 되풀이하면 둘째 진실이 생긴다.
+    --- 액션을 바인딩으로.
     ---
     --- 이 함수에만 있는 사실 셋:
     ---
@@ -1286,8 +1285,7 @@ do
 
     --- One value of `action.casting`. **The stored table is not trusted to hold a name we know**: a
     --- payload carries whatever it was written with, so an unknown value has to read as the default,
-    --- which is what an action with no `casting` at all has
-    --- (`action-and-binding-shapes.md` §1).
+    --- which is what an action with no `casting` at all has.
     local function CastingValue(action, name)
         local casting = action and action.casting;
         return casting and casting[name];
@@ -2170,7 +2168,7 @@ end
 --- 이 바인딩에 조건이 하나라도 걸려 있나. 조건부 마크(`MARK_TOOLTIP_CONDITIONAL`)와, 옛
 --- 순서를 되돌려 주는 비교자(`Ordering.lua`의 `CompareActionOrderWithConditions`)가 이걸 읽는다.
 --- **기본 발동 순서는 안 읽는다** - 조건 유무 단계가 빠졌다
---- (`taking-conditions-out-of-the-order.md`).
+--- (`legacy/taking-conditions-out-of-the-order.md`).
 ---
 --- 축마다 `nil` 검사를 쓴 열두 갈래가 여기 있었다. 축이 하나 늘 때마다 갈래를 잊으면 그 조건이
 --- 걸린 바인딩이 무조건짜리로 분류돼 **마크가 조용히 사라졌고**, 그 잘못은 화면에

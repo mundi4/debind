@@ -8,7 +8,7 @@ custom1, custom2, unitframe and @@).
 
 **A unit nobody holds is named as "counts as not existing"** because that is what the body sees: an unset alias goes out as `raid41` (`COMPOSE_MACROTEXT_SNIPPET` in `SecureBindings.lua`). What to do about it is left to the reader: `exists` is the game's own rule and this page is not the place that teaches it (2026-09-18, owner).
 
-**`@@` with nothing to aim at is named as the target** (2026-09-18, owner), which is what it bakes to (`devdocs/implementing-focus-and-self-cast.md` §4). It read "as if it were not written" while the value was a lone `@`.
+**`@@` with nothing to aim at is named as the target** (2026-09-18, owner), which is what it bakes to (`implementing-focus-and-self-cast.md` §4). It read "as if it were not written" while the value was a lone `@`.
 
 **The empty part is written out because `@@` took the automatic self-cast with it** (2026-09-18, owner): the body now always names a unit, so a helpful spell with no target no longer falls back to the reader. `[@@,exists][]` is how they get that back, and it is the one thing the change costs them.
 

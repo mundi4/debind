@@ -208,8 +208,9 @@ Constants.CASTMOD_FOCUS = 4;
 Constants.CASTMOD_ALL   = 7;
 
 
---- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
---- 왜 조건이 아닌지는 `action-and-binding-shapes.md` §2에 있다.
+--- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들은
+--- 언제 발동하느냐를 말하지 않는다. `unit`은 겨누는 대상이고 `casting`은 어느 누름의 줄에
+--- 서느냐다. 높이가 갈린 이유는 `Profile.lua`의 `dbver <= 5` 단계가 든다.
 ---
 --- **이 표를 직접 보지 말 것.** 묻는 것은 `IsConditionField`이고, 그쪽만이 달러로 시작하는
 --- 이름까지 같이 답한다.
@@ -254,7 +255,8 @@ Constants.CONDITION_FIELDS = {
 };
 
 --- 이슈 갈래의 이름들. **어느 컨트롤을 빨갛게 칠할지의 이름이지 필드 이름이 아니다.**
---- 왜 그 둘이 안 겹치는지는 `action-and-binding-shapes.md` §7에 있다.
+--- `macro` `states` `retired`처럼 그 이름의 액션 필드가 아예 없는 것도 있고, 거꾸로 조건인데
+--- 갈래가 없는 것도 있다.
 ---
 --- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
 --- 비켜가 언제나 nil이 나오는데, 그건 "문제 없음"과 구별되지 않는다.

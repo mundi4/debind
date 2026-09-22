@@ -1,10 +1,20 @@
 # action / binding / placement 모양
 
-> **표준 문서다.** 규칙이라서 자리를 안 옮긴다. 이 모양이 왜 이 모양인지, 그리고 무엇을 대신
-> 기각했는지는 `legacy/straightening-out-action-and-binding.md`에 있다.
+> **낡았다. 근거로 쓰지 말 것** (2026-09-22). 표준 문서에서 내려왔고, 아래 내용이 참이라는
+> 보장이 없다. 액션과 바인딩의 모양을 물을 곳은 코드다.
 >
-> **여기 적힌 것이 계약이다.** 코드 주석은 이 문서를 되풀이하지 않고, 자기 자리에서만 뜻이
-> 있는 것을 적는다.
+> 2026-09-22에 대조해 보니 아홉 군데가 틀려 있었다. `conditions.specs`가 클래스 id별 마스크
+> 집합이 된 것(§3-1), 그래서 정규화가 그것만 `_ALL`로 안 접는 것(§3), 빈 집합이 nil과 다른
+> 값이라는 것, `talents` 축이 생기고 `frameTypes`가 `units.unitframe`으로 들어간 것,
+> `PruneConditions`가 사는 파일, 이름이 바뀐 `UnitFrameConditionFromLegacy`, 없어진
+> `SWITCH_GATE_UNITS`, 필드가 아니라 매번 읽는 `unitframe` 조건(§4), `isConditional`을 읽는
+> 자리 열거(§6)다.
+>
+> **틀린 자리마다 코드 주석은 맞았다.** 이 문서가 코드의 사실을 사본으로 들고 있었고 사본만
+> 낡았다. 그래서 고치는 대신 내렸다. 옮긴 것은 없다. 여기서만 읽히던 줄로 보였던 §2와 §8도
+> 코드가 이미 들고 있었다. `unit`이 왜 조건이 아닌지는 `Profile.lua`의 `dbver <= 5` 단계가,
+> `dbver`를 나가기 전까지 하나만 올리는 이유는 `Constants.lua`의 `DB_VERSION` 위가, 전송
+> 포맷을 같이 보는 이유는 `Export.lua`의 `ACTION_FIELDS` 위가 든다.
 
 리포에 도는 액션 모양은 셋이고, 넷째가 있다.
 
@@ -393,7 +403,7 @@ placement (`MakeOrderRecord`)
 ```
 
 `isConditional`은 **기본 비교자가 안 읽는다.** 조건 유무 단계가 빠졌고
-(`taking-conditions-out-of-the-order.md`), 남아서 그것을 읽는 것은 옛 순서를 돌려주는
+(`legacy/taking-conditions-out-of-the-order.md`), 남아서 그것을 읽는 것은 옛 순서를 돌려주는
 `CompareActionOrderWithConditions`와 그것을 부르는 두 자리(옵션, 갈린 키를 재는 검사)뿐이다.
 
 `CompareActionOrder`가 받는 것은 이것 하나다. 만드는 곳은 셋이고

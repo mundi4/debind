@@ -1,12 +1,15 @@
-# 키 하나가 무엇을 실행하나: Hover Cast, Focus Cast Key, Self Cast Key의 스펙 (2026-09-16 시작)
+# 키 하나가 무엇을 실행하나: Hover Cast, Focus Cast Key, Self Cast Key의 스펙
 
-> 상태: **스펙이고, 코드가 이 문서대로다**(2026-09-16). 2026-09-15 문답으로 세우고 2026-09-16에 이름과
-> 조건 축을 합쳤다. 구현 순서와 각 단계가 건드리는 자리는 `implementing-the-casting-spec.md`가 든다.
-> 인게임 도움말 "Which action a key runs"와 "Which unit an action is used on"도 §9대로 다시 썼다.
+> **표준 문서다.** 2026-09-15 문답으로 세우고 2026-09-16에 이름과 조건 축을 합쳤다. 구현 순서와
+> 각 단계가 건드리는 자리는 `implementing-the-casting-spec.md`가 든다. 인게임 도움말
+> "Which action a key runs"와 "Which unit an action is used on"도 §9대로 다시 썼다.
 >
 > **코드는 근거가 아니다** (2026-09-15, 소유자). 이 문서는 사용자가 무엇을 적었고 무엇을 눌렀는지로만
-> 쓴다. 지금 구현이 어떻게 되어 있는지는 `implementing-focus-and-self-cast.md`가 들고, 둘이 갈리면
-> 이 문서가 맞고 코드가 틀린 것이다.
+> 쓴다. 지금 구현이 어떻게 되어 있는지는 `implementing-focus-and-self-cast.md`가 들고, 둘이
+> 갈리면 이 문서가 맞고 코드가 틀린 것이다.
+>
+> **낡지 않는 이유가 여기 있다.** §S5의 각 줄이 헤드리스 테스트 하나이고(`tests/eval_spec.lua`가
+> `§S5 #n`으로 돈다), 표와 코드가 갈리면 빨개진다. 표에 줄을 더하면 테스트도 같이 는다.
 
 한 키에 여러 액션이 걸린다. 키를 누르면 그중 하나가 나간다. 어느 것이 나가고 어느 유닛에게 가는지를
 정하는 규칙 전부가 여기 있다.
@@ -19,14 +22,14 @@
 
 ## S1. 어느 누름에 어느 바인딩이 있나
 
-`H`는 그 액션의 가리킨 유닛이다. `casting.hoverCast.mode`가 있으면 그것, 없으면 설정 탭의 모드. 값은
+`H`는 그 액션의 가리킨 유닛이다. `casting.hoverCastMode`가 있으면 그것, 없으면 설정 탭의 모드. 값은
 `unitframe` 또는 `mouseover`.
 
 | 누름 | 바인딩 | 있는 조건 | 층 |
 |---|---|---|---|
-| Self Cast Key를 쥔 누름 | self 쌍둥이 | 설정 탭 Self Cast Key 켬, 그리고 `selfCastKey.aim ~= "skip"` | 1 |
-| Focus Cast Key를 쥔 누름 | focus 쌍둥이 | 설정 탭 Focus Cast Key 켬, 그리고 `focusCastKey.aim ~= "skip"` | 2 |
-| 가리킨 누름 | hover 쌍둥이 | `hoverCast.aim ~= "skip"`, 그리고 사용자 조건과 [`H` 있음]이 만날 자리가 있음(S2) | 3 |
+| Self Cast Key를 쥔 누름 | self 쌍둥이 | 설정 탭 Self Cast Key 켬, 그리고 `selfCastKey ~= "skip"` | 1 |
+| Focus Cast Key를 쥔 누름 | focus 쌍둥이 | 설정 탭 Focus Cast Key 켬, 그리고 `focusCastKey ~= "skip"` | 2 |
+| 가리킨 누름 | hover 쌍둥이 | `hoverCast ~= nil`, 그리고 사용자 조건과 [`H` 있음]이 만날 자리가 있음(S2) | 3 |
 | 보통 누름 | 원본 | `normalCast ~= false`, 그리고 원본의 조건이 만날 자리가 있음(S2) | 4 |
 
 둘 다 쥐면 Self Cast Key 누름이다. **마우스 버튼 액션 중 개체창 위에서 서는 것**(유닛 조건에
@@ -47,7 +50,7 @@
 |---|---|
 | self 쌍둥이, focus 쌍둥이 | `U` 그대로 |
 | hover 쌍둥이 | `U` + [`H` 있음]. `U`에 `H` [없음]이 있으면 만날 자리가 없어 쌍둥이 없음 |
-| 원본 | `U`. `hoverCast.aim == "skip"`이면 + [`H` 없음]. 마우스 버튼이고 `U`에 `unitframe` 조건이 없으면 + [`unitframe` 없음](키의 규칙). `U`에 `H` [있음]이나 `H` C가 있는데 [`H` 없음]이 얹히면 만날 자리가 없어 원본 없음 |
+| 원본 | `U`. 마우스 버튼이고 `U`에 `unitframe` 조건이 없으면 + [`unitframe` 없음](키의 규칙) |
 
 얹힌 [없음]은 사용자가 건 것이 아니라 키의 규칙이 만든 것이고, 조건 표에 안 들어간다.
 `BuildUnitStates`가 솔버 상자를 직접 좁히는 것이라 `IsConditionalBinding`이 볼 일이 없다.
@@ -108,7 +111,7 @@ Off인 줄은 그렇게 적는다. "다음"은 그 액션에 바인딩이 없어
 | 1 | 기본 | 개체창 가리킴 | hover 쌍둥이, 그 개체창의 유닛 |
 | 2 | 기본 | 월드 유닛 가리킴 | 3층 없음([`unitframe` 있음] 안 맞음), 원본, 게임이 놓음 |
 | 3 | 기본, 설정 탭 Mouseover | 월드 유닛 가리킴 | hover 쌍둥이, 그 유닛 |
-| 4 | `hoverCast.mode = "mouseover"`, 설정 탭 Unit Frames | 월드 유닛 가리킴 | hover 쌍둥이, 그 유닛 |
+| 4 | `hoverCastMode = "mouseover"`, 설정 탭 Unit Frames | 월드 유닛 가리킴 | hover 쌍둥이, 그 유닛 |
 | 5 | `hoverCast = "usual"` | 개체창 가리킴 | hover 쌍둥이, 게임이 놓음 |
 | 6 | `unitframe` [없음] | 개체창 가리킴 | 다음. 쌍둥이가 만날 자리가 없고 원본도 안 맞음 |
 | 7 | `unitframe` [없음] | 아무것도 안 가리킴 | 원본, 게임이 놓음 |
@@ -123,19 +126,19 @@ Off인 줄은 그렇게 적는다. "다음"은 그 액션에 바인딩이 없어
 | 16 | 대상 `focus` | 개체창 가리킴 | hover 쌍둥이, `focus` |
 | 17 | 대상 `focus` | Self Cast Key 쥠 | self 쌍둥이, `focus` |
 | 18 | 대상 `mouseover`, 설정 탭 Unit Frames, 앞에 기본 액션 X | 월드 유닛 가리킴 | X의 원본(3층은 둘 다 안 맞음, 4층 순서). 이 액션은 안 나감 |
-| 19 | 18에서 이 액션에 `hoverCast.mode = "mouseover"` | 월드 유닛 가리킴 | 이 액션의 hover 쌍둥이, 그 유닛 |
+| 19 | 18에서 이 액션에 `hoverCastMode = "mouseover"` | 월드 유닛 가리킴 | 이 액션의 hover 쌍둥이, 그 유닛 |
 | 20 | 대상 `unitframe` | 아무것도 안 가리킴 | 원본, 유닛 없음. 아무 일 없음, 삼킴 |
 | 21 | 기본 | Self Cast Key 쥠 | self 쌍둥이, `player` |
 | 22 | 기본 | Focus Cast Key 쥠 | focus 쌍둥이, `focus` |
 | 23 | 기본 | 둘 다 쥠 | self 쌍둥이, `player` |
-| 24 | `selfCastKey.aim = "skip"` | Self Cast Key 쥠 | 다음 |
-| 25 | `selfCastKey.aim = "usual"` | Self Cast Key 쥠 | self 쌍둥이, 게임이 놓음 |
+| 24 | `selfCastKey = "skip"` | Self Cast Key 쥠 | 다음 |
+| 25 | `selfCastKey = "usual"` | Self Cast Key 쥠 | self 쌍둥이, 게임이 놓음 |
 | 26 | 기본, 설정 탭 Focus Cast Key 끔 | Focus Cast Key 쥠 | 쥐지 않은 것과 같음. 3층, 4층 |
 | 27 | 액션 A(기본), B(Hover Cast 끔), 순서 A, B | 개체창 가리킴 | A의 hover 쌍둥이 |
 | 28 | 27에서 순서 B, A | 개체창 가리킴 | A의 hover 쌍둥이. B는 3층에 없고 B의 원본은 4층이라 뒤다 |
 | 29 | 27에서 순서 B, A | 아무것도 안 가리킴 | B의 원본 |
 | 30 | 액션 A(계정 층, `unitframe` [있음]), B(캐릭터 층, [전투 중]) | 전투 중 개체창 가리킴 | 3층 원본 순서. 둘 다 조건 있음이라 층으로 갈려 B의 hover 쌍둥이. 옛 순서(개체창 조건이 먼저)와 다르다(§8) |
-| 31 | 30에서 B의 `hoverCast.aim = "usual"` | 전투 중 개체창 가리킴 | B의 hover 쌍둥이, 게임이 놓음 |
+| 31 | 30에서 B의 `hoverCast = "usual"` | 전투 중 개체창 가리킴 | B의 hover 쌍둥이, 게임이 놓음 |
 | 32 | 30에서 B의 Hover Cast 끔 | 전투 중 개체창 가리킴 | A의 hover 쌍둥이 |
 | 33 | 마우스 버튼, 기본 | 개체창 클릭 | hover 쌍둥이, 그 개체창의 유닛 |
 | 34 | 마우스 버튼, Hover Cast 끔 | 개체창 클릭 | 다음. 쌍둥이가 없고 원본에는 키의 [`unitframe` 없음]이 붙는다(§7). 개체창 자체의 클릭으로 간다 |
@@ -150,7 +153,7 @@ Off인 줄은 그렇게 적는다. "다음"은 그 액션에 바인딩이 없어
 | 43 | 41의 액션을 사용자가 비활성화함 | 어느 누름이든 | 다음. 키를 안 잡아서 키에 이 액션뿐이면 게임의 바인딩이 나간다. WARNING 없이 흐린 이유 한 줄 |
 | 44 | 수식키 없는 왼클릭, 기본 | 개체창 클릭, Self Cast Key를 쥐어도 | hover 쌍둥이, 그 개체창의 유닛. 이슈 없음 |
 | 45 | 44 | 개체창 밖 클릭 | 키를 안 잡는다. 원본이 없어 Normal Cast가 켜져 있어도 클릭은 월드로 간다 |
-| 46 | 수식키 없는 오른클릭, `hoverCast.mode = "mouseover"`, 또는 설정 탭 Mouseover | 개체창 클릭 | 44와 같음. 키를 안 잡는다. 이슈 없음 |
+| 46 | 수식키 없는 오른클릭, `hoverCastMode = "mouseover"`, 또는 설정 탭 Mouseover | 개체창 클릭 | 44와 같음. 키를 안 잡는다. 이슈 없음 |
 | 47 | 수식키 없는 왼클릭, Hover Cast 끔 | 개체창 클릭 | 44와 같음. 이 키는 값을 안 본다(§7). 이슈 없음 |
 | 48 | 수식키 없는 왼클릭, `unitframe` [없음] | 개체창 클릭 | 다음. 개체창 자체의 클릭으로 간다. **ERROR**, 키 줄과 그 유닛 줄에. 조건이 틀린 것도 키가 틀린 것도 아니고 둘이 같이 설 수 없다고 말한다 |
 | 49 | 수식키 없는 왼클릭, `mouseover` [없음] | 개체창 클릭 | 48과 같음. 개체창을 가리키면 `mouseover`가 그 유닛이라(§0) 이 조건도 그 클릭을 막는다. 모드가 무엇이든 같다 |

@@ -279,8 +279,7 @@ local function TableFor(action, key, create)
 end
 
 --- Every Casting value is a scalar one level down (`action.casting.hoverCast`) and the kit addresses
---- a value by one key, so the key spells the whole address: `casting.<name>`
---- (`action-and-binding-shapes.md` §1).
+--- a value by one key, so the key spells the whole address: `casting.<name>`.
 ---
 --- Returns the table the value lives in and its name, or nil for a key that is not one of these.
 --- **Reading makes nothing**: an action with no `casting` answers off the empty table, the way

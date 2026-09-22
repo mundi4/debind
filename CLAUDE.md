@@ -217,16 +217,22 @@ line still exits 0, where Edit stops.
 - `reference/` is gitignored and read-only: Blizzard's interface code and the client's own strings,
   fetched by a script. None of it is ours — **never commit or push inside it.** What is in there,
   which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
-- `devdocs/` holds three kinds of file, and the file name says which task it is for — never just the
-  topic (`testing.md` read as the test suite; `release.md` read as the release notes).
-  - **Standing documents** are the rules, and they stay put: `dev-setup.md`,
-    `testing-a-change.md`, `cutting-a-release.md`, `restricted-environment.md`,
-    `writing-user-facing-text.md`, `reading-back-what-you-just-set.md`,
-    `how-unit-frames-reach-us.md`.
-  - **Work documents** are a design, a plan, an implementation order, a status writeup. **A new one
-    of those is written here**, opening with a status header (`> 상태: …`). When the whole thing has
-    been implemented the file moves to `devdocs/legacy/`, so a work document still at the top level
-    is one that still has work in it.
+- `devdocs/` holds three kinds of file, and **the folder says which kind.** No list here names them,
+  because a list is a second answer that has to be kept current and the folder already answers.
+  The file name still says which task it is for — never just the topic (`testing.md` read as the
+  test suite; `release.md` read as the release notes).
+  - **Standing documents** sit at the top level and carry **no status header**. They are the rules
+    (how a job is done here) and the specs (what the addon's behaviour has to be), and they stay put.
+    - **A standing document about our own code lives only as long as something outside it keeps it
+      true.** `which-action-a-key-runs.md` earns its place because each row of its §S5 is a headless
+      test, so the document and the code cannot drift without going red. One that merely restates
+      what the code already says is a second copy, and it goes stale in silence with no check able
+      to see it: `action-and-binding-shapes.md` is what that ends up looking like. Before writing
+      one, say what would fail if it were wrong. No answer, no document.
+  - **Work documents** are a design, a plan, an implementation order, a status writeup. They live in
+    `devdocs/working/` and open with a status header (`> 상태: …`), and **a new one of those is
+    written there**. When the whole thing has been implemented the file moves to `devdocs/legacy/`,
+    so `working/` is exactly the list of what still has work in it.
   - **Meta documents are the third kind: they are about the project rather than about a task**,
     they are never finished and never moved, and their names carry a `0-` prefix so they sort above
     everything else. The prefix marks the kind and not a rank — a third one would take `0-` too, so
@@ -237,19 +243,26 @@ line still exits 0, where Edit stops.
       logical or stubborn the owner was, and what I made of losing or winning. **Its own header
       carries the rules** (what earns an entry, both positions at full strength, the grumbling that
       is allowed and the facts it has to stay tied to). Read that header before writing an entry.
-      One rule is repeated here because it binds the commit, not the file: **the day's entry goes
-      in the same commit as the decision.** Catching up later makes it a second source of truth,
+      One rule is repeated here because it is the one most easily put off: **the entry is written
+      the moment the thing happens, and it does not wait for a commit** (owner, 2026-09-08). Which
+      commit it lands in does not matter. Catching up later makes it a second source of truth,
       which is the one thing this repo will not carry.
     - `0-DECISION-LOG.md` is the diary's predecessor, **frozen** at 2026-09-02. Documents still
       point into its dated entries and those pointers stay valid. Never append to it.
     - **`0-ROADMAP.md` — which version a track is aimed at, and what forces the order.** Those two
       are written nowhere else. **How far along a track is does not go here**: that is what its own
-      document's status header answers, and the open-work list is the top level of `devdocs/`
-      itself.
+      document's status header answers, and the open-work list is `devdocs/working/` itself.
     - **`0-IDEAS.md` — what was floated and not taken up.** Each entry says what it is, why not
       now, and what would reopen it. It is not a plan and not a promise; when an entry grows into a
       work document it leaves here, and when it is dropped the reason stays so nobody proposes it
       twice. Its header carries the rules.
+  - **A document is cited by its file name alone**, never with the folder
+    (`implementing-the-casting-spec.md`, not `devdocs/working/implementing-the-casting-spec.md`).
+    A document moves between the three folders over its life and the name is the one part that
+    does not, so a path written into a comment or another document is a sentence that goes false
+    on a move nobody connected to it. Write the path only where it has to resolve, such as a link
+    that is actually followed. **That is what forbids two files under `devdocs/` sharing a name**:
+    the name is the address, and two of them leave a citation with no answer.
   - A work document is a proposal, not an order — read its status header first.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
