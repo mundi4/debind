@@ -33,7 +33,7 @@ local REACTION_ITEMS        = {
 --- The life radios. **`value` is what gets stored, verbatim** -- the first row clears the `dead`
 --- field, so it carries no `value` at all (a table cannot hold a `nil` one).
 ---
---- It says `Disable`, the same word every other three-way radio here opens with. The row is not a
+--- It says `Off`, the same word every other three-way radio here opens with. The row is not a
 --- third value to pick from; it is this axis constraining nothing, which is what every other
 --- first row means too.
 local LIFE_ITEMS            = {
@@ -348,7 +348,7 @@ end
 --- one is a key that fires nowhere and the other is a key with no specialization condition at all.
 --- It is left standing for `BINDING_ISSUE_SPECS_NONE_SELECTED` to speak for, which is the road
 --- every other mask axis on this menu takes -- `groups` stores its 0 the same way, and so do
---- `reaction` and `frameTypes` (2026-09-22, owner). Switching the axis off is what the `Disable`
+--- `reaction` and `frameTypes` (2026-09-22, owner). Switching the axis off is what the `Off`
 --- radio is for, and it is one click.
 local function NormalizeSpecCondition(action)
     local specs = SpecConditionsOf(action);
@@ -783,8 +783,8 @@ local ActionMenus = MenuKit.NewRegistry({
     --- 이슈 코드를 문장과 색으로. **등급이 색을 고른다** (`Misc.lua`의 `GetIssueColor`).
     --- Clique가 개체창을 가져간 것처럼 **그 묶음에서 고칠 것이 없는** 문제까지 빨갛게
     --- 칠하면, 열어 본 사람이 고칠 것을 찾다가 못 찾는다.
-    resolveIssue = function(issue)
-        return DebindPrivate.IssueSentence(issue), DebindPrivate.GetIssueColor(issue);
+    resolveIssue = function(issue, name)
+        return DebindPrivate.IssueSentence(issue, name), DebindPrivate.GetIssueColor(issue);
     end,
 });
 

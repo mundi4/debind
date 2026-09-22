@@ -1949,7 +1949,7 @@ end
 --- meant to see (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
 ---
 --- **Unticking the last box is how the reader reaches it**, and the table is left standing for
---- exactly that (`NormalizeSpecCondition`): switching the axis off is the `Disable` radio, and a
+--- exactly that (`NormalizeSpecCondition`): switching the axis off is the `Off` radio, and a
 --- key that fires nowhere is told so rather than quietly becoming a key with no condition.
 function DebindPrivate.SpecSetIsEmpty(specs)
     if (specs == nil) then

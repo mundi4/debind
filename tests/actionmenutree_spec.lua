@@ -72,7 +72,7 @@ return function(DebindPrivate)
         end
         function element:AddInitializer(fn) self.initializers[#self.initializers + 1] = fn; end
         function element:SetEnabled(enabled) self.enabled = enabled; end
-        function element:SetTooltip() end
+        function element:SetTooltip(fn) self.tooltipFn = fn; end
         function element:SetTag() end
         function element:HasElements() return #self.children > 0; end
         function element:AddQueuedDescription(child) table.insert(self.children, 1, child); end
@@ -98,6 +98,18 @@ return function(DebindPrivate)
             fn(frame, element);
         end
         return (text:gsub(" ?|A:[^|]*|a", ""));
+    end
+
+    --- The lines a row's tooltip draws, once every initializer on it has run. The issue sentence is
+    --- written there and nowhere else, so a row's label says only that something is wrong.
+    local function TooltipLines(element)
+        Drawn(element);
+        if (element.tooltipFn == nil) then
+            return {};
+        end
+        local tooltip = require("wow_shim").newTooltip();
+        element.tooltipFn(tooltip, element);
+        return tooltip.lines;
     end
 
     --- The menu over `actions`, and the ctx its rows read.
@@ -290,6 +302,35 @@ return function(DebindPrivate)
 
         root = BuildIn({ actions[2] }, { inOrderList = true });
         check(TopRow(root, LLL["ACTION_SET_KEY"]) ~= nil, "an action of the reader's own lost the plain key row");
+    end);
+
+    --- The issue a node reports is a **code**, and the family turns it into a sentence
+    --- (`resolveIssue` in ActionMenuModel.lua). A node that handed over the finished sentence
+    --- instead had it run through the resolver a second time, and the reader got the locale key
+    --- with the sentence stuck to the end of it.
+    local function SwitchRowSentence(action)
+        local root = Build({ action });
+        local row = TopRow(root, LLL["TYPE_SETSTATE"]);
+        check(row ~= nil, "the menu over an on/off action has no Switch row");
+        for _, line in ipairs(TooltipLines(row)) do
+            if (line.kind == "colored") then
+                return line.text;
+            end
+        end
+    end
+
+    test("the Switch row says which of the two ways it is wrong, in words", function()
+        local actions = ResetProfile({
+            { type = Constants.SETSTATE_ON, key = "F" },
+            { type = Constants.SETSTATE_TOGGLE, value = "$nosuchswitch", key = "F" },
+        });
+
+        check(SwitchRowSentence(actions[1]) == LLL["BINDING_ERROR_SWITCH_NONE_SELECTED"],
+            format("no switch picked drew %q", tostring(SwitchRowSentence(actions[1]))));
+
+        check(SwitchRowSentence(actions[2])
+                == format(LLL["BINDING_ERROR_UNDEFINED_STATE"], "$nosuchswitch"),
+            format("a switch that is gone drew %q", tostring(SwitchRowSentence(actions[2]))));
     end);
 
     test("an arrival gets no order rows", function()

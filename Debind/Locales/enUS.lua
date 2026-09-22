@@ -370,8 +370,19 @@ L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
 -- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
 -- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
 L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
-L["DISABLE"] = "Disable"
-L["DISABLE_ALL"] = "Disable All"
+-- The row every condition group opens with, and the one at the top of Units that covers all of
+-- them. **It describes application, not storage** (review, 2026-09-22): most groups clear the
+-- value when it is picked, the per-unit ones keep what was picked and stop applying it, and a word
+-- like "Not set" or "Unused" would be false for the second kind.
+--
+-- **Not "Any".** That claims something about the game rather than about the setting, so it has to
+-- read true against whatever the list under it holds -- and over the spell list of Known Spell it
+-- reads as "any spell".
+--
+-- `All` stays on the Units one because that row has no values beside it to be read against, only
+-- the unit submenus under it, each carrying an `Off` of its own.
+L["DISABLE"] = "Off"
+L["DISABLE_ALL"] = "All Off"
 L["EDIT_MACRO"] = "Edit this Custom Macro"
 L["ERROR_MESSAGE_CANNOT_SET_CUSTOM_TARGET_IN_COMBAT"] = "Cannot set a custom target by command while in combat."
 L["EXCLUDE_PLAYER_DESC"] = "An action aimed at Tank, Healer, Main Tank or Main Assist goes to whoever in your group holds it, and a ticked one never resolves to you. These targets stand only while exactly one member holds them, so excluding yourself is how a tank aims at the other tank."
@@ -1307,7 +1318,7 @@ L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a Switch by that name."
 L["SWITCH_ACTION_TITLE"] = "Pressing the key"
 L["SWITCH_ACTION_ON"] = "Turns it on"
 L["SWITCH_ACTION_OFF"] = "Turns it off"
-L["SWITCH_ACTION_TOGGLE"] = "Turns it over"
+L["SWITCH_ACTION_TOGGLE"] = "Toggles it"
 L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole account?"
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
@@ -1426,11 +1437,11 @@ L["AUTOMATIC_SELF_CAST_DESC"] = "Casting a helpful spell with no friendly target
 L["AUTOMATIC_CANCEL_FORM_DESC"] = "Casting a spell your current form does not allow leaves the form first."
 L["AUTOMATIC_DISMOUNT_DESC"] = "Casting a spell while mounted gets you off the mount first."
 L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "Casting a spell while flying gets you off the mount first."
--- **Not `DISABLE` and not `CASTING_OFF`, though the word is the same as the second.** `Disable` is
--- this window's word for taking an action out (`UNIT_DISABLE`, `ACTION_DISABLED`), and
--- `CASTING_OFF` is for a row the action sits out. Neither is what these two say: the label above
--- them names a setting of the game's, so they are that setting's two states and nothing else. Kept
--- as their own keys so a translator can part them where one word will not carry both.
+-- **Their own keys, though `DISABLE` and `CASTING_OFF` say `Off` in this window too.** Those two
+-- are a condition that constrains nothing and a press the action sits out. These are neither: the
+-- label above them names a setting of the game's, so they are that setting's two states and
+-- nothing else. Kept apart so a translator can use different words where one will not carry all
+-- three.
 L["AUTOMATIC_ON"] = "On"
 L["AUTOMATIC_OFF"] = "Off"
 -- **The third answer, and the one every action starts on.** Named after the row it follows rather
@@ -1913,6 +1924,20 @@ L["REMOVE_DUPLICATES_DESC"] = "Looks for actions that are exactly the same - sam
 -- 골라야 끝나므로 옆의 MOVE_TO / COPY_TO와 같은 꼴이다. EDIT_MACRO와 CONVERT_TO_MACRO_TEXT는
 -- 창이 뜨지만 더 묻는 것이 없어서 안 단다.
 L["REPLACE_ACTION"] = "Replace..."
+-- **It opens on what the row does, and then on what survives it** (2026-09-22, owner). The second
+-- half is what separates this from deleting the row and adding another, and it is the whole reason
+-- the row is here; it matters more now that the row stands beside [Delete].
+--
+-- **No list of what can be picked.** Spell, item, macro, mount, toy: the picker holds them and
+-- naming them here is a second list to keep current.
+--
+-- **What is dropped is not named.** `ReplaceLostSettings` decides that, and a list written out here
+-- goes quietly wrong the day it grows; no check can see it. The confirmation names them, which is
+-- the copy that cannot drift.
+--
+-- **Written as a rule rather than as "if anything does not fit".** A tooltip is read once, so a
+-- clause that is false for half the readers who open it is a clause that misleads half of them.
+L["REPLACE_ACTION_DESC"] = "You pick something else for this action to do. The key, the conditions, the Importance and the place in the run order stay.|n|nAnything set on it that the new one cannot use is removed, and you see what goes before anything changes."
 --- 무엇을 고른 **뒤에** 서는 확인 창이라, 머리줄이 바꿀 것의 이름을 댈 수 있다. 고르기 전에는
 --- 못 하던 것이고, 이 창이 언제나 설 수 있는 이유이기도 하다.
 L["REPLACE_CONFIRM_ONE"] = "Replace this action with |cnHIGHLIGHT_FONT_COLOR:%s|r?"

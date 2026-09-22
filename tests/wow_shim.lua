@@ -875,12 +875,20 @@ function M.install()
     _G.Menu = { ModifyMenu = function() end };
     _G.MenuResponse = { Close = 1, Refresh = 2, Open = 3 };
 
-    --- The client's colour objects, down to the one method the addon uses on them. The wrap is the
+    --- The client's colour objects, down to the two methods the addon uses on them. The wrap is the
     --- real escape sequence rather than a passthrough, so a spec reading a tooltip line back sees
     --- what a reader would -- including a colour that swallowed the text it was meant to wrap.
+    ---
+    --- **`GetRGB` is here because a `MenuKit` row paints its label with whatever colour an issue
+    --- resolved to** (`MenuKit.lua`), so a colour without it turned every row carrying a problem
+    --- into a crash the moment a spec drew one.
     local function color(code)
+        local r = tonumber(code:sub(3, 4), 16) / 255;
+        local g = tonumber(code:sub(5, 6), 16) / 255;
+        local b = tonumber(code:sub(7, 8), 16) / 255;
         return {
             WrapTextInColorCode = function(_, text) return "|c" .. code .. text .. "|r"; end,
+            GetRGB = function() return r, g, b; end,
         };
     end
     _G.DISABLED_FONT_COLOR = color("ff808080");

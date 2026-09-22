@@ -126,10 +126,6 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     -- does nothing, and what fixes it is this box.
     CreateSetSwitchMenuItem(rootDescription, ctx);
 
-    CreateReplaceActionMenuItem(rootDescription, ctx);
-
-    CreateConvertToMacroTextMenuItem(rootDescription, ctx);
-
     EditMacroTextMenuItem(rootDescription, ctx);
 
     CreateAssignKeyMenuItem(rootDescription, ctx);
@@ -205,6 +201,22 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     -- **Turning off sits beside deleting**, because it is the same question answered two ways: stop
     -- this action, keeping what it was set with or not.
     CreateDisableMenuItem(rootDescription, ctx);
+
+    -- **The two that make the row a different kind of action, down here rather than at the top**
+    -- (2026-09-22, owner). What they share with turning off and deleting is that the row stops
+    -- being what it was, and all four ask first. Neither is reached twice: converting happens once
+    -- in an action's life, and a row that is already what it should be is never replaced.
+    --
+    -- **Edit stays up there and is not split from convert**, because the two never stand together.
+    -- `CanConvertToMacroText` leaves `MACROTEXT` out, so on one action exactly one of them is
+    -- drawn; a selection that raises both has both locked.
+    --
+    -- Convert first: it has one destination, keeps the body it derives, and the macro window it
+    -- opens puts the action back as it was when that window is cancelled. Replacing drops what no
+    -- longer applies (`ReplaceLostSettings`) and has no way back.
+    CreateConvertToMacroTextMenuItem(rootDescription, ctx);
+
+    CreateReplaceActionMenuItem(rootDescription, ctx);
 
     -- **Delete takes badged rows with the rest.** Nothing is relocated and nothing duplicated, so
     -- neither reason above reaches it; what it does to an arrival is what [Reject] does, and a reader

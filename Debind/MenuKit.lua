@@ -288,8 +288,8 @@ function Appender:Decorate(description, isSelected, data)
     return description;
 end
 
---- The row every axis opens with. It says `Disable`, which is this axis constraining nothing
---- rather than a third value to pick from.
+--- The row every axis opens with. It says `Off`, which is this axis constraining nothing rather
+--- than a third value to pick from.
 function Appender:Disable(prefix, key)
     local text = rawget(LLL, prefix .. "_DISABLE") or LLL["DISABLE"];
     local data = { ctx = self.ctx, key = key, value = nil };
@@ -360,8 +360,10 @@ Registry.__index = Registry;
 --- * `accessor` -- the default `Get`/`Set` pair. A node may name its own.
 --- * `issueForKey(ctx, key)` -- optional. What is wrong with the value under `key`, or nil.
 --- * `isActiveForKey(ctx, key)` -- optional. Whether that value is set to anything.
---- * `resolveIssue(issue)` -- returns the sentence and the colour for an issue. **The issue itself
----   is opaque here**: only the family knows whether it is a code, a sentence or something else.
+--- * `resolveIssue(issue, arg)` -- returns the sentence and the colour for an issue. **The issue
+---   itself is opaque here**: only the family knows whether it is a code, a sentence or something
+---   else. `arg` is the second value a producer returned beside it, carried through untouched --
+---   a sentence with a name in it has nowhere else to get the name from.
 function MenuKit.NewRegistry(config)
     local newFeatures = {};
     for _, tag in ipairs(config.newFeatures or {}) do
@@ -443,21 +445,21 @@ end
 --- checks and only the screen shows. The tree already says who the children are, so it is asked
 --- instead of told.
 function Registry:IssueOf(node, ctx)
-    local issue;
+    local issue, arg;
     if (node.issue) then
-        issue = node.issue(ctx);
+        issue, arg = node.issue(ctx);
     elseif (node.key and self.config.issueForKey) then
-        issue = self.config.issueForKey(ctx, node.key);
+        issue, arg = self.config.issueForKey(ctx, node.key);
     end
     if (issue) then
-        return issue;
+        return issue, arg;
     end
     local children = node.children;
     if (children) then
         for i = 1, #children do
-            issue = self:IssueOf(self:Get(children[i]), ctx);
+            issue, arg = self:IssueOf(self:Get(children[i]), ctx);
             if (issue) then
-                return issue;
+                return issue, arg;
             end
         end
     end
@@ -521,13 +523,13 @@ function Registry:BuildNode(parentDescription, node, ctx)
     local registry = self;
     description:AddInitializer(function(button, elementDescription)
         local color = HIGHLIGHT_FONT_COLOR;
-        local err = registry:IssueOf(node, ctx);
+        local err, errArg = registry:IssueOf(node, ctx);
         local errColor;
         if (err) then
             -- **The grade picks the colour** (`resolveIssue`), for the label and for the sentence
             -- in the tooltip alike. Painting a problem this group holds nothing to fix about the
             -- same red as one it does sends the reader looking for a fix that is not in there.
-            local text, issueColor = registry.config.resolveIssue(err);
+            local text, issueColor = registry.config.resolveIssue(err, errArg);
             err = text;
             errColor = issueColor or ERROR_COLOR;
             color = errColor;

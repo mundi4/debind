@@ -58,18 +58,22 @@ local function SomeCannotReason(acceptance)
     end
 end
 
---- 타입과 값을 그 자리에서 바꾼다. 확인 창이 먼저 서고, 승낙해야 선택 창이 바꾸기 모드로 뜬다
---- (`changing-what-an-action-does.md`).
+--- **The picker opens first and the confirmation comes after it**
+--- (`changing-what-an-action-does.md`). `BeginReplaceActions` puts the picker straight into replace
+--- mode; the box that asks is raised once something has been picked, because it names what was
+--- picked and the count it is about to overwrite.
 ---
---- **여러 줄을 한꺼번에 받는다.** 조건을 여러 액션에 한 번에 거는 것이 이 애드온에서 키 하나를
---- 세우는 일 자체인데, 액션을 바꾸는 것만 한 줄씩 할 이유가 없다.
+--- **Several rows at once.** Putting one condition on a dozen actions is how a key is built here,
+--- so convert and edit, which open on one action's own body, are the exception and this is not.
 ---
---- **도착한 액션도 받는다.** 옮기기와 복사를 막는 것은 `seq`가 (레이어, 키, 도착) 그룹 안에서
---- 다시 매겨져 보낸 사람의 순서가 사라지기 때문인데, 바꾸기는 `seq`를 안 건드린다.
+--- **An arrival is taken too.** What blocks move and copy is `seq` being handed out again inside a
+--- different (layer, key, arrival) group, which loses the order its sender designed; replacing
+--- never touches `seq`.
 local function CreateReplaceActionMenuItem(parentDescription, ctx)
-    parentDescription:CreateButton(LLL["REPLACE_ACTION"], function()
+    local description = parentDescription:CreateButton(LLL["REPLACE_ACTION"], function()
         DebindUI.BeginReplaceActions(ctx.actions);
     end);
+    SetInstructionTooltip(description, LLL["REPLACE_ACTION_DESC"]);
 end
 
 --- **One action at a time**: the body it opens on is that action's own. Over several rows it stands
@@ -180,10 +184,10 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
             for _, action in ipairs(ctx.actions) do
                 local value = action.value;
                 if (type(value) ~= "string") then
-                    return LLL["BINDING_ERROR_SWITCH_NONE_SELECTED"];
+                    return Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
                 end
                 if (not DebindPrivate.ResolveSwitchDefinition(value)) then
-                    return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], value);
+                    return Constants.BINDING_ISSUE_UNDEFINED_STATE, value;
                 end
             end
         end,

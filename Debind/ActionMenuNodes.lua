@@ -274,7 +274,7 @@ end
 
 --- Whether this menu has a row for `unit`, which is also whether it counts it.
 --- `"player"` is edited by the life menu under `Group`. **Counting it here changes a condition this
---- menu does not show**: while it was missing from this test, [Disable All] switched the reader's
+--- menu does not show**: while it was missing from this test, [All Off] switched the reader's
 --- own life condition off, and nothing here could bring it back.
 ---
 --- **Outside the node.** Inside it, the `isActive` closure would capture a name that is not there
@@ -516,7 +516,7 @@ end
 ---
 --- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an error
 --- rather than a destination (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the way out of the axis is
---- the `Disable` radio one row up. A button offering the error state as a shortcut is the one row
+--- the `Off` radio one row up. A button offering the error state as a shortcut is the one row
 --- this menu has no use for.
 ActionMenus:Define("SPEC", {
     label = "CONDITION_SPEC",
@@ -759,7 +759,7 @@ ActionMenus:Define("KNOWN", {
         -- each call, so the rows are taken here rather than asked for one at a time.
         -- **The rows are names and nothing else.** The title above them says what picking one
         -- does, the way the specialization list's rows are bare names too; a sentence on every
-        -- row would repeat it four times and sit oddly beside `Disable`. The sentence is in the
+        -- row would repeat it four times and sit oddly beside `Off`. The sentence is in the
         -- tooltip, where the condition is read rather than picked (`ActionTooltip.lua`).
         local rows = KnownRows(action);
         for i = 1, #rows do
@@ -940,7 +940,7 @@ local function BuildSwitchConditionMenu(kit, ctx)
     -- **어느 것인지**다.
     local function UndefinedSwitchError(name)
         if (not DebindPrivate.ResolveSwitchDefinition(name)) then
-            return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], name);
+            return Constants.BINDING_ISSUE_UNDEFINED_STATE, name;
         end
     end
 
@@ -1025,7 +1025,7 @@ ActionMenus:Define("SWITCHES", {
         for _, action in ipairs(ctx.actions) do
             local name = DebindPrivate.GetUndefinedSwitchCondition(action);
             if (name) then
-                return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], name);
+                return Constants.BINDING_ISSUE_UNDEFINED_STATE, name;
             end
         end
     end,
