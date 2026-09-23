@@ -1140,7 +1140,13 @@ local function MigrateLayer(layerTbl, dbver)
                     group[j].unitFrame = folded ~= nil
                         or (casting ~= nil and casting.normalCast == false
                             and casting.hoverCastMode == "unitframe");
-                    group[j].conditional = HasAnyCondition(action);
+                    -- **The same second pass reaches this line too**, and for the same reason. An
+                    -- action whose only condition was that bare one is left with an empty table,
+                    -- which reads as never having carried a condition at all -- so it drops out of
+                    -- the old comparator's conditional band while every neighbour stays, and the
+                    -- second run hands back a different order from the first. The unit frame
+                    -- answer above is exactly "it had one", so it settles this as well.
+                    group[j].conditional = HasAnyCondition(action) or group[j].unitFrame;
                 end
                 sort(group, OlderOrder);
                 for j = 1, #group do
