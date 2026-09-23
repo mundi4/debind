@@ -1570,7 +1570,6 @@ L["TYPE_SETSTATE"] = "Switch"
 L["TYPE_SPELL"] = "Spell"
 L["TYPE_TARGET"] = "Set Target"
 L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
-L["TYPE_SPEC_RESOLVED_HEADER"] = "Class and Specialization"
 -- The second half of both descriptions below: with nothing to cast, the key is still spent.
 --
 -- **It asks what you have, not which specialization you are in.** A specialization that has the
