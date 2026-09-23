@@ -84,6 +84,7 @@ for a person to do, and it does not go stale the moment somebody runs them.
 | `Debounce/` | code-less dummy. The only path that reads pre-rename SavedVariables. Removing it orphans every existing user's config (`Debind/Legacy.lua`) |
 | `DebindCliqueFake/` | stands in for Clique so unit-frame addons wire up to us |
 | `DebindDev/` | everything development only, not shipped (`.pkgmeta` ignore): the in-game test kit, the written dev profile (`DevSeed.lua`), one-shot probes. **Loads ahead of Debind**, because `Debind.toc` names it in `OptionalDeps` and it declares no dependency of its own |
+| `DebindCamelotProbe/` | development only, not shipped: measures the camelot client by itself and keeps it in its own SavedVariables. Its TOC names only camelot's interface number |
 
 `.pkgmeta` has long comments on why the folder names are what they are. Read them before renaming
 anything there — SavedVariables file names come out of `move-folders`.

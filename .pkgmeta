@@ -31,6 +31,7 @@ externals:
 # the first place. That is also why the `.luacheckrc` line below is not doing anything.
 ignore:
   - DebindDev
+  - DebindCamelotProbe
   - docs
   - devdocs
   - tests

@@ -55,7 +55,7 @@ if (!fs.existsSync(binPath)) {
 //
 // `--no-config` is what reaches them: `exclude_files` applies even to a file named on the command
 // line, so the second pass has to leave the config behind and restate `--std`.
-const SYNTAX_ONLY_DIRS = ["DebindDev", "tests"];
+const SYNTAX_ONLY_DIRS = ["DebindDev", "DebindCamelotProbe", "tests"];
 
 function runLuacheck(args) {
     const run = spawnSync(binPath, args, { cwd: repoRoot, stdio: "inherit" });
@@ -70,7 +70,7 @@ function runLuacheck(args) {
 // It cost a red CI on the v3.3 tag: two files had carried a mark since the rename, and nothing
 // noticed until the harness started loading them (`tests/run.lua`). An editor writing one back is
 // a keystroke, so the answer is a check rather than a fixed file.
-const BOM_DIRS = ["Debind", "DebindStorage", "DebindDev", "DebindCliqueFake", "tests", "tools"];
+const BOM_DIRS = ["Debind", "DebindStorage", "DebindDev", "DebindCamelotProbe", "DebindCliqueFake", "tests", "tools"];
 
 function luaFiles(dir, out) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

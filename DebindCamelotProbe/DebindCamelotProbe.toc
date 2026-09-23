@@ -1,0 +1,11 @@
+## Interface: 16001
+
+## Title: Debind Camelot Probe
+## Notes: Development-only: measures the camelot client for Debind and keeps what it finds.
+## Author: mundi4
+## Group: Debind
+## SavedVariables: DebindCamelotProbeDB
+
+# **Its own addon rather than a file in DebindDev**, so that retail work on DebindDev never reaches
+# this client, and `DevSeed.lua`'s wipe of `DebindDevDB` never takes a camelot record with it.
+Probe_Camelot.lua

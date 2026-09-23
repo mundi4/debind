@@ -8,6 +8,7 @@ exclude_files = {
 	-- was linted while it lived in `Debind/`, and moving an addon is no reason to stop.
 	"DebindDev/DebindTest.lua",
 	"DebindDev/Probe_*.lua",
+	"DebindCamelotProbe/**",
 	"tests/**",
 	"node_modules/**",
 	-- A worktree of this same repo, checked out **inside** it. Without this line `luacheck .`
