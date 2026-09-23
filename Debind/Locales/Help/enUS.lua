@@ -40,21 +40,19 @@ Press a key whose actions all fail their conditions and the key does nothing. Un
 
 It does nothing on a press and cannot be added any more. One saved on a key reads |cnBLUE_FONT_COLOR:Needs fixing|r in the |cnBLUE_FONT_COLOR:Overview|r tab and still holds that key, so an action under it does not run either. Every other |cnBLUE_FONT_COLOR:Binding Command|r action is in the same state, except one that pressed an action bar button, which was moved across and works as it did.
 
-# The order on a key no longer counts conditions
-
-An action with conditions used to be tried before one without, and one that ran over a unit frame stood above both. Neither step is there now, so nothing about an action's conditions moves it in the list. The keys whose order moved on this character are marked in the |cnBLUE_FONT_COLOR:Overview|r tab, where |cnBLUE_FONT_COLOR:Run Order Changed|r says how many, and the order they are in now is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.
-
-> |cnBLUE_FONT_COLOR:Use the old run order|r in Debind's settings puts the old order back for the whole account.
-
-An action set to |cnBLUE_FONT_COLOR:Hover Cast|r still runs ahead of the others while you point at a unit. That is decided at the press now, so the list no longer shows it above them.
-
 # What each press does is set on the action
 
 |cnBLUE_FONT_COLOR:Cast Options|r in an action's right-click menu sets what that action does on each kind of press. It holds four rows, |cnBLUE_FONT_COLOR:Self Cast Key|r, |cnBLUE_FONT_COLOR:Focus Cast Key|r, |cnBLUE_FONT_COLOR:Hover Cast|r and |cnBLUE_FONT_COLOR:Normal Cast|r, and everything you already have does what it did. The four are gone through in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
 
 # Unit frame actions now use Hover Cast
 
-|cnBLUE_FONT_COLOR:Hover Cast|r sends an action to the unit you point at while you are pointing at one, and leaves it where it would go otherwise. An action that carried a |cnBLUE_FONT_COLOR:Unit Frame|r condition now carries |cnBLUE_FONT_COLOR:Hover Cast|r on |cnBLUE_FONT_COLOR:Unit Frames|r instead and works as it did, and an action you make from now on starts with it set to |cnBLUE_FONT_COLOR:Off|r. That row has a page of its own, |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
+|cnBLUE_FONT_COLOR:Hover Cast|r sends an action to the unit you point at while you are pointing at one, and leaves it where it would go otherwise. An action that carried a |cnBLUE_FONT_COLOR:Unit Frame|r condition now carries |cnBLUE_FONT_COLOR:Hover Cast|r on |cnBLUE_FONT_COLOR:Unit Frames|r instead and works as it did, and an action you make from now on starts with it set to |cnBLUE_FONT_COLOR:Off|r. The |cnBLUE_FONT_COLOR:Hover Cast|r row has a page of its own, |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
+
+# A unit frame action no longer stands first in the list
+
+An action with a |cnBLUE_FONT_COLOR:Unit Frame|r condition used to stand above the others on its key. It still runs ahead of them while you point at a unit frame, through |cnBLUE_FONT_COLOR:Hover Cast|r, so the list shows it in its own place, and how that place is decided is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.
+
+One case runs differently: two actions on one key that both had a |cnBLUE_FONT_COLOR:Unit Frame|r condition, the lower one with more conditions. The lower one never ran before; now it runs while you point at a unit frame and its other conditions hold.
 
 # A unit picked under Target now holds on every press
 
@@ -141,19 +139,20 @@ L["HELP_ORDERING_TITLE"] = "When a key holds more than one action"
 L["HELP_ORDERING_BODY"] = [==[
 Press a key that holds more than one action and Debind runs the first one whose conditions are met. If no action's conditions are met, the key does nothing: Debind keeps the key, and what WoW has bound to it does not run.
 
-The |cnBLUE_FONT_COLOR:Overview|r tab lists actions grouped by key, and under one key they stand in the order they are tried. Three things put them in that order, and the first of the three where two actions differ settles which stands higher.
+The |cnBLUE_FONT_COLOR:Overview|r tab lists actions grouped by key, and under one key they stand in the order they are tried. Four things put them in that order, and the first of the four where two actions differ settles which stands higher.
 
-1. |cnHIGHLIGHT_FONT_COLOR:Importance, where the other two cannot do it.|r A higher |cnBLUE_FONT_COLOR:Importance|r stands above the rest whatever they say. It is set on the action, and an Account action is the same action on every character, so the order you give it here is the order it has on characters you are not playing and cannot see.
-2. |cnHIGHLIGHT_FONT_COLOR:The layer it is in.|r |cnBLUE_FONT_COLOR:Move to...|r moves it between them, and the narrower layer stands higher, from this character and specialization down to Account.
-3. |cnHIGHLIGHT_FONT_COLOR:Where you put it in that layer.|r |cnBLUE_FONT_COLOR:Run Sooner|r and |cnBLUE_FONT_COLOR:Run Later|r move the action one place. They are greyed out when one of the two above already settles the order, and the tooltip says which one.
+1. |cnHIGHLIGHT_FONT_COLOR:Importance, where the other three cannot do it.|r A higher |cnBLUE_FONT_COLOR:Importance|r stands above the rest, however they compare on the other three. It is set on the action, and an Account action is the same action on every character, so the order you give it here is the order it has on characters you are not playing and cannot see.
+2. |cnHIGHLIGHT_FONT_COLOR:Whether it has conditions.|r An action with conditions stands above one without. One with no conditions runs on every press, so nothing under it would ever be reached.
+3. |cnHIGHLIGHT_FONT_COLOR:The layer it is in.|r The narrower layer stands higher: this character in this specialization, then this character, then the class in this specialization, then the class, then Account. |cnBLUE_FONT_COLOR:Move to...|r moves an action to another layer.
+4. |cnHIGHLIGHT_FONT_COLOR:Where you put it in that layer.|r |cnBLUE_FONT_COLOR:Run Sooner|r and |cnBLUE_FONT_COLOR:Run Later|r move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
 
-Putting a condition on an action does not move it.
+So an Account action with conditions stands above a character's action without them on the same key, unless their |cnBLUE_FONT_COLOR:Importance|r differs. That is how an action for one situation on every character, such as one set to |cnBLUE_FONT_COLOR:While skyriding|r, stays in front of each character's everyday action on that key.
 
-> |cnBLUE_FONT_COLOR:Use the old run order|r in Debind's settings adds a fourth test above the layer, for the whole account: an action with conditions is tried before one without. It is there for keys you set up under an earlier version, and it will be removed in a later version.
+|cnHIGHLIGHT_FONT_COLOR:An Account action runs before this character's action on the same key.|r That happens when the action in the broader layer (Account here) has conditions and the one in the narrower layer (this character's) does not. Give the narrower one a condition too and it stands above again, because the layer then decides. If no condition fits, give it |cnBLUE_FONT_COLOR:Class/Specialization|r and tick its class: that always holds where the action runs, and it still counts as a condition. If the Account action has the higher |cnBLUE_FONT_COLOR:Importance|r, that decides first; lower it to match.
 
-An action with no conditions is tried on every press, so nothing below it is ever reached. Give each one the conditions for the case it is meant for, and a press that meets none of them moves on to the next action down.
+|cnHIGHLIGHT_FONT_COLOR:This character's action takes the presses an Account action on the same key should get.|r If neither has conditions, give the one in the broader layer (Account here) a condition: it then stands above and takes the press whenever that condition holds, unless this character's action has the higher |cnBLUE_FONT_COLOR:Importance|r. If the one in the narrower layer (this character's) has conditions, add more to it so that it holds in fewer cases, and every press it does not take goes on to the broader one. Only when neither can be done, raise the broader one's |cnBLUE_FONT_COLOR:Importance|r.
 
-The last action on a key is the one to leave without conditions, so that it is tried when nothing above it ran. To reach the action bar slot that key used to press, pick that last one from the |cnBLUE_FONT_COLOR:Commands|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, where the action bar buttons are listed.
+Leave one action on a key without conditions and it runs whenever nothing above it did. If the key used to press an action bar slot, that action can press the slot: pick it from the |cnBLUE_FONT_COLOR:Commands|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, where the action bar buttons are listed.
 
 Some of the |cnBLUE_FONT_COLOR:Cast Options|r change which of a key's actions are tried, and in what order. While you hold the Self Cast Key or the Focus Cast Key, only the actions set to use that key are tried, and if none of their conditions are met the key does nothing. While |cnBLUE_FONT_COLOR:Hover Cast|r has a unit under your cursor, the actions set to use it are tried first and the rest after them. You set these per action, and |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r explains them.
 
@@ -164,7 +163,7 @@ L["HELP_SETTING_KEYS_UP_TITLE"] = "How do I set my keys up?"
 L["HELP_SETTING_KEYS_UP_BODY"] = [==[
 # Where an action goes
 
-Put an action in the layer that covers the most characters, and use a narrower layer only where a class or a specialization should run something else. A key in a narrower layer beats the same key in a broader one.
+Put an action in the layer that covers the most characters, and use a narrower layer only where a class or a specialization should run something else. A key in a narrower layer beats the same key in a broader one, unless only the broader one has conditions, which |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r explains.
 
 A mount every character uses sits in |cnBLUE_FONT_COLOR:Account|r / |cnBLUE_FONT_COLOR:General|r. Travel form sits in the druid layer, and a character who rides something else keeps that in its own.
 

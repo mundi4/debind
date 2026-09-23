@@ -39,11 +39,11 @@ So the binds have to be layered, and one key has to be able to mean more than on
 | Account / Specialization | every Druid you own, while Balance |
 | Account / Class | every Druid you own |
 | Account / General | every character on the account |
-| *WoW's own keybindings* | *whatever you already had. Debind doesn't touch it.* |
+| *WoW's own keybindings* | *whatever you already had, on any key Debind has nothing in play on. Debind doesn't touch it.* |
 
 **A layer holds only the keys you put in it — never a whole keyboard.** So the question is asked one key at a time: for *this* key, which rows have something to say?
 
-The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does — and to your WoW keybinding if none of them do. Nothing is switched off on the way: the rows below are still answering for every other key. (Put two actions on the same key and a couple of other things get checked before the layer does — *When a key holds several actions*, further down.)
+The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does, and does nothing if none of them do. Your WoW keybinding only comes back on a key where every action is turned off or sits in a spec you're not in. Nothing is switched off on the way: the rows below are still answering for every other key. (Put two actions on the same key and a couple of other things get checked before the layer does — *When a key holds several actions*, further down.)
 
 Say `R` is Rebirth, in Account / Class. Every druid you have presses `R` for a battle rez, and so does the next one you roll. Then Balance wants `R` for Starfall — put Starfall in Account / Specialization and you're done. **The narrow layer takes over there, the broad one keeps everything else.** Balance gets Starfall, every other druid still gets Rebirth. You didn't copy Rebirth anywhere, you didn't delete it, and it's still in one place when you want to change it.
 
@@ -137,19 +137,20 @@ A switch can also drive itself from a macro conditional: hand it `[@tank,exists]
 
 ## When a key holds several actions
 
-Debind checks them in order and runs the first one that fits. If none of them fit, the key does whatever your WoW keybinding says — the last row of that table.
+Debind checks them in order and runs the first one that fits. If none of them fit, the key does nothing.
 
-Three things decide that order before you do, and they're all the same idea — the narrower case is checked first:
+Two things decide that order before you do, and they're the same idea — the narrower case is checked first:
 
-- **Hovering a unit frame comes first.** Otherwise the action that runs anywhere would take the key, and the one meant for the frame under your mouse would never run.
-- **Then having conditions at all.** An action with conditions is checked before one without, for the same reason: an action with no conditions always fits.
+- **Having conditions at all.** An action with conditions is checked before one without: an action with no conditions always fits, so nothing under it would ever run.
 - **Then the layer.** The narrower one goes first.
 
 Everything else is yours. Within one layer an action added to a key goes last.
 
+While you point at a unit, the actions with **Hover Cast** on are tried before the rest, wherever they stand in the list.
+
 ![Four actions on the F key in the overview, each row saying why it beats the one below: unit frame rule, has conditions, spec over class — and one marked Never runs.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/run-order.png)
 
-If that ordering isn't what you want, select a row and you get **Run Sooner** and **Run Later**. To put an action in front of a whole layer, set its **Importance** — that beats everything else. The overview column shows the order you'll actually get, and each row says why it beats the one under it. When an action can't move, the button says which rule is holding it instead of doing nothing.
+If that ordering isn't what you want, select a row and you get **Run Sooner** and **Run Later**. To get ahead of a narrower layer's action that has no conditions, give yours a condition; to stay ahead of a broader one that has conditions, give yours one too — a Class/Specialization condition always holds and still counts. **Importance** beats all of it, so it's the last thing to reach for: on an Account action it changes the order on every character. The overview column shows the order you'll actually get, and each row says why it beats the one under it. When an action can't move, the button says which rule is holding it instead of doing nothing.
 
 When an action can't be reached at all, the overview marks it **Never runs**. Sometimes that's a mistake worth catching. Sometimes it's the layer above doing exactly what you told it to — give Balance Starfall on `R` and Rebirth is dead on `R` for Balance, which was the whole point.
 

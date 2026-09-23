@@ -38,21 +38,27 @@ Press a key whose actions all fail their conditions and the key does nothing. Un
 
 It does nothing on a press and cannot be added any more. One saved on a key reads *Needs fixing* in the *Overview* tab and still holds that key, so an action under it does not run either. Every other *Binding Command* action is in the same state, except one that pressed an action bar button, which was moved across and works as it did.
 
-# The order on a key no longer counts conditions
-
-An action with conditions used to be tried before one without, and one that ran over a unit frame stood above both. Neither step is there now, so nothing about an action's conditions moves it in the list. The keys whose order moved on this character are marked in the *Overview* tab, where *Run Order Changed* says how many, and the order they are in now is in [](ordering.md).
-
-> *Use the old run order* in Debind's settings puts the old order back for the whole account.
-
-An action set to *Hover Cast* still runs ahead of the others while you point at a unit. That is decided at the press now, so the list no longer shows it above them.
-
 # What each press does is set on the action
 
 *Cast Options* in an action's right-click menu sets what that action does on each kind of press. It holds four rows, *Self Cast Key*, *Focus Cast Key*, *Hover Cast* and *Normal Cast*, and everything you already have does what it did. The four are gone through in [](cast-options.md).
 
 # Unit frame actions now use Hover Cast
 
-*Hover Cast* sends an action to the unit you point at while you are pointing at one, and leaves it where it would go otherwise. An action that carried a *Unit Frame* condition now carries *Hover Cast* on *Unit Frames* instead and works as it did, and an action you make from now on starts with it set to *Off*. That row has a page of its own, [](hover-cast.md).
+*Hover Cast* sends an action to the unit you point at while you are pointing at one, and leaves it where it would go otherwise. An action that carried a *Unit Frame* condition now carries *Hover Cast* on *Unit Frames* instead and works as it did, and an action you make from now on starts with it set to *Off*. The *Hover Cast* row has a page of its own, [](hover-cast.md).
+
+<!--
+**What the reader meets is a row that moved** (`which-action-a-key-runs.md` §2). The unit frame step is the only one that left the order; having conditions was taken out and put back before 4.0 shipped, so it is not news to anyone (`putting-conditions-back-in-the-order.md`).
+
+**It follows the Hover Cast section** (review, 2026-09-23), because "through Hover Cast" is what explains why nothing fires differently for the move, and the reader has met Hover Cast one section earlier.
+
+**The one case that fires differently is here and not in the section above**, since it comes out of the order: the bare action loses its condition in the upgrade, and having conditions puts the other one above it (`orderupgrade_spec`).
+-->
+
+# A unit frame action no longer stands first in the list
+
+An action with a *Unit Frame* condition used to stand above the others on its key. It still runs ahead of them while you point at a unit frame, through *Hover Cast*, so the list shows it in its own place, and how that place is decided is in [](ordering.md).
+
+One case runs differently: two actions on one key that both had a *Unit Frame* condition, the lower one with more conditions. The lower one never ran before; now it runs while you point at a unit frame and its other conditions hold.
 
 # A unit picked under Target now holds on every press
 

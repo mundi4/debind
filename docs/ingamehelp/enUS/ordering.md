@@ -3,7 +3,7 @@
 
 **The constraint on Importance is in the lead-in, because that is the whole skim path** (2026-09-22). Four rounds of review said it still read as the handle to reach for, and each round moved it further up inside the item: below the list, then into the item, then to the item's first sentence. All three were body text, which the reader who stops at the bolds never sees.
 
-**The other two lead-ins were going to name their controls for the same reason**, since Importance was the only one of the three with an on-screen name on it and so the only thing on that path that looked like something to press. A name carries `*` and a lead-in carries `**`, and one inside the other is unbalanced to the parser, so the names sit at the front of each body instead.
+**The other lead-ins were going to name their controls for the same reason**, since Importance was the only one of them with an on-screen name on it and so the only thing on that path that looked like something to press. A name carries `*` and a lead-in carries `**`, and one inside the other is unbalanced to the parser, so the names sit at the front of each body instead.
 
 **Reversing the list, weakest first, was put up and dropped** (2026-09-22). It leaves an unqualified name on the skim path either way, and it spends the one convention the page cannot afford: higher in this list means tried first. The numbers would then run against the precedence, and the two cross-references inside the items would have to argue with them rather than confirm them.
 
@@ -27,39 +27,42 @@ Press a key that holds more than one action and Debind runs the first one whose 
 <!--
 **"Grouped by key" is what points at the left list.** The Overview tab has two, and the one on the right is a layer's actions; the shape tells them apart where "left" alone would not survive a layout change.
 
-**The list is the answer, not a third place the order shows up** (2026-09-22, owner). All three sort it, so what the reader sees under a key already is the run order, and the three are what puts a row where it is rather than a calculation to run. That is why the items say "stands higher" and not "goes first", and why the third is named by the list rather than by the field behind it, which has no name on screen at all.
+**The list is the answer, not a third place the order shows up** (2026-09-22, owner). All four sort it, so what the reader sees under a key already is the run order, and the four are what puts a row where it is rather than a calculation to run. That is why the items say "stands higher" and not "goes first", and why the last is named by the list rather than by the field behind it, which has no name on screen at all.
 
-**Conditions came out of the axis** (`taking-conditions-out-of-the-order.md`, implemented 2026-09-22). The sentence after the list is there because a reader who knew the old rule looks for the step and finds nothing, and a list that is silent about it cannot tell them it is gone on purpose.
-
-**The one-time move on upgrade is not on this page.** It needs a key used in two layers with the broader one conditional and the narrower one not (§3-2), the action it covers is marked Never runs on screen, and the fix is a condition on the narrower one. That is a changelog line, not a rule of how the order works.
+**The second item carries its own reason.** An action with no conditions matches every press, and that is the whole case for the step; without it the item reads as an arbitrary rule to memorise.
 -->
 
-The *Overview* tab lists actions grouped by key, and under one key they stand in the order they are tried. Three things put them in that order, and the first of the three where two actions differ settles which stands higher.
+The *Overview* tab lists actions grouped by key, and under one key they stand in the order they are tried. Four things put them in that order, and the first of the four where two actions differ settles which stands higher.
 
-1. **Importance, where the other two cannot do it.** A higher *Importance* stands above the rest whatever they say. It is set on the action, and an Account action is the same action on every character, so the order you give it here is the order it has on characters you are not playing and cannot see.
-2. **The layer it is in.** *Move to...* moves it between them, and the narrower layer stands higher, from this character and specialization down to Account.
-3. **Where you put it in that layer.** *Run Sooner* and *Run Later* move the action one place. They are greyed out when one of the two above already settles the order, and the tooltip says which one.
-
-Putting a condition on an action does not move it.
-
-> *Use the old run order* in Debind's settings adds a fourth test above the layer, for the whole account: an action with conditions is tried before one without. It is there for keys you set up under an earlier version, and it will be removed in a later version.
+1. **Importance, where the other three cannot do it.** A higher *Importance* stands above the rest, however they compare on the other three. It is set on the action, and an Account action is the same action on every character, so the order you give it here is the order it has on characters you are not playing and cannot see.
+2. **Whether it has conditions.** An action with conditions stands above one without. One with no conditions runs on every press, so nothing under it would ever be reached.
+3. **The layer it is in.** The narrower layer stands higher: this character in this specialization, then this character, then the class in this specialization, then the class, then Account. *Move to...* moves an action to another layer.
+4. **Where you put it in that layer.** *Run Sooner* and *Run Later* move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
 
 <!--
-**The two halves of one fact are one paragraph** (2026-09-22). An action with no conditions taking everything below it, and a last action put there on purpose to catch what nothing else took, were a paragraph apart with the whole list between them.
+**These two paragraphs are the one place conditions and layers meet, and the one a reader gets wrong.** They read "the narrower layer stands higher" and expect a character's action to beat any Account action. The first says why the step is there, with the case it exists for (`putting-conditions-back-in-the-order.md` §1).
 
+**The two after it open with the reader's own question, one for each direction** (2026-09-23, owner), because that is what they arrive with, and each answer is a way that keeps them off Importance until nothing else works. Neither answer opens on Importance, since a skimmer takes the first words of an answer as the answer. Each still says what a different Importance does to it, at the end: left out, the fix silently does nothing in that case, and the Importance behind it may have been set while playing another character (second review, 2026-09-23).
+
+The first falls back on a *Class/Specialization* condition on the narrower action rather than on the Account one: it touches nothing shared, and it holds on every character the narrower action runs on, so it changes nothing but the order.
+
+**The second is a symptom, not an order** (2026-09-23, owner). Its main fix leaves the narrower action on top and lets the presses it no longer takes go on to the broader one; only the case with no conditions on either moves a row. Promising "runs before" there would send the reader to the list to see a move that does not happen. Importance comes last, the same last resort item 1 says it is.
+-->
+
+So an Account action with conditions stands above a character's action without them on the same key, unless their *Importance* differs. That is how an action for one situation on every character, such as one set to *While skyriding*, stays in front of each character's everyday action on that key.
+
+**An Account action runs before this character's action on the same key.** That happens when the action in the broader layer (Account here) has conditions and the one in the narrower layer (this character's) does not. Give the narrower one a condition too and it stands above again, because the layer then decides. If no condition fits, give it *Class/Specialization* and tick its class: that always holds where the action runs, and it still counts as a condition. If the Account action has the higher *Importance*, that decides first; lower it to match.
+
+**This character's action takes the presses an Account action on the same key should get.** If neither has conditions, give the one in the broader layer (Account here) a condition: it then stands above and takes the press whenever that condition holds, unless this character's action has the higher *Importance*. If the one in the narrower layer (this character's) has conditions, add more to it so that it holds in fewer cases, and every press it does not take goes on to the broader one. Only when neither can be done, raise the broader one's *Importance*.
+
+<!--
 **The fallback is named by where it is picked, not by its type name** (2026-09-22, owner). `Action Button` reads as the bar button itself, not as something to choose, and the sentence names an action bar slot one clause earlier. `Use WoW's Own Binding` and every other `Binding Command` become a block on the binding (`Misc.lua`, `dropping-the-game-fallback.md` §3), so the type whose name invites the guess is the one that does not reach the slot.
 -->
 
-An action with no conditions is tried on every press, so nothing below it is ever reached. Give each one the conditions for the case it is meant for, and a press that meets none of them moves on to the next action down.
-
-The last action on a key is the one to leave without conditions, so that it is tried when nothing above it ran. To reach the action bar slot that key used to press, pick that last one from the *Commands* tab of *Add an Action*, where the action bar buttons are listed.
+Leave one action on a key without conditions and it runs whenever nothing above it did. If the key used to press an action bar slot, that action can press the slot: pick it from the *Commands* tab of *Add an Action*, where the action bar buttons are listed.
 
 <!--
 **Kept to one paragraph.** Which press an action is set to use, and where it goes, is the targeting page; here it is only what moves an action in or out of the list above.
-
-**It opens by saying it is not a fourth thing.** The list says three decide the order, and this paragraph adds two more influences; without the opening clause the reader's count breaks.
-
-**The cast key clause names the Debind setting because the sentence is false without it**: a key unticked there counts as not held. A key the game has no binding for needs no clause, since there is nothing to hold.
 
 **Nothing here says what the cursor is over** (2026-09-22, owner). In Unit Frames mode it is over a frame, not over a unit, so "point at a unit" is true of one mode only; and which of the two counts is the account mode or the action's own, which this page does not own. `Hover Cast has a unit for this press` holds either way, and the two hover pages answer the rest.
 

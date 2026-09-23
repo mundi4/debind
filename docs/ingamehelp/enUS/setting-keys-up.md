@@ -118,7 +118,7 @@ recommending a Custom Macro, and this page is for the people who do not need one
 
 # Where an action goes
 
-Put an action in the layer that covers the most characters, and use a narrower layer only where a class or a specialization should run something else. A key in a narrower layer beats the same key in a broader one.
+Put an action in the layer that covers the most characters, and use a narrower layer only where a class or a specialization should run something else. A key in a narrower layer beats the same key in a broader one, unless only the broader one has conditions, which [](ordering.md) explains.
 
 A mount every character uses sits in *Account* / *General*. Travel form sits in the druid layer, and a character who rides something else keeps that in its own.
 
