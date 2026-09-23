@@ -138,6 +138,9 @@ globals = {
 	"UnitSelectionColor",
 	"InCombatLockdown",
 	"SecureCmdOptionParse",
+	-- The one question `[known:<id>]` cannot answer, asked on both sides of the fence
+	-- (`SpecSpells.lua`). The restricted environment is handed the same global.
+	"FindSpellBookSlotBySpellID",
 	"IsInRaid",
 	"IsInGroup",
 	-- 12.1 secret-value probe; nil on older clients, callers must guard

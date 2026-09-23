@@ -884,15 +884,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then
@@ -1504,15 +1507,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then
@@ -2351,15 +2357,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then
@@ -3108,15 +3117,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then
@@ -3766,15 +3778,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then
@@ -4427,15 +4442,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then
@@ -5033,15 +5051,18 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-
-
-
-			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then

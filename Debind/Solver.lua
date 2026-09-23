@@ -419,13 +419,6 @@ local function buildLayout(bindings)
             _opaque[binding] = true;
         end
 
-        -- A spellbook-gated binding (`spellbook`, `SpecSpells.lua`) is decided at the press by a
-        -- question no column here can hold, so it covers nothing. Left as a box it would be an
-        -- unconditional one and delete the original standing behind it.
-        if (binding.spellbook) then
-            _opaque[binding] = true;
-        end
-
         local states = binding.unitStates;
         if (states) then
             for unit in pairs(states) do

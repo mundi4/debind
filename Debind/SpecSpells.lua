@@ -20,6 +20,10 @@ local EVOKER_DEVASTATION, EVOKER_PRESERVATION, EVOKER_AUGMENTATION = 1467, 1468,
 --- Friendly dispels. Exactly one per specialization that has any; the warlock is the exception
 --- and is below.
 local DISPEL_BY_SPEC = {
+    -- **The shadow priest's is a talent**, so `C_Spell.GetSpellInfo(213634)` answers nothing on a
+    -- character that has not taken it (2026-09-23, owner). It is still the right id: a spell this
+    -- specialization can obtain is what the table is for, and §4 already covers the press that
+    -- finds nothing there.
     [PRIEST_DISCIPLINE] = 527, [PRIEST_HOLY] = 527, [PRIEST_SHADOW] = 213634,
     [MONK_MISTWEAVER] = 115450, [MONK_BREWMASTER] = 218164, [MONK_WINDWALKER] = 218164,
     [PALADIN_HOLY] = 4987, [PALADIN_PROTECTION] = 213644, [PALADIN_RETRIBUTION] = 213644,
@@ -33,12 +37,28 @@ local DISPEL_BY_CLASS = {
     MAGE = 475,
 };
 
---- The warlock's dispel is the imp's, cast through the player's own Command Demon (119905) while
---- the imp is out, and the player's own Singe Magic (132411) under Grimoire of Sacrifice. Neither
---- is visible to `[known:]`; the restricted environment's `FindSpellBookSlotBySpellID` is what
---- tells the two apart at the press (`adding-spec-resolved-actions.md` §3-1).
-local WARLOCK_DISPEL = 132411;
-local WARLOCK_DISPEL_PET = 119905;
+--- **The warlock's dispel is three spells wearing one name** (`adding-spec-resolved-actions.md`
+--- §3-1, measured 2026-09-23 by the owner).
+---
+--- The spell is the imp's, and the imp is either out or swallowed by Grimoire of Sacrifice. The
+--- book holds 119905 in the first case and 132411 in the second, and **Command Demon casts it in
+--- both**, so what goes out never depends on which one is there.
+---
+--- `known` does: the reader asking "only while I have it" is asking about those two ids, and
+--- neither `[known:]` shape answers for them -- by id it is false whatever the state and by name
+--- it is true whatever the state. `FindSpellBookSlotBySpellID` is the only thing that answers, and
+--- the answer moves in combat where nothing can be rebuilt.
+---
+---   `cast`   the spell the button carries, whichever id is there
+---   `known`  the ids a `known` on this action asks about, one binding each
+local WARLOCK_DISPEL_GATE = {
+    cast = 119898,
+    known = { 119905, 132411 },
+};
+
+--- What the row draws and the tooltip names. 119905 and 132411 both carry Singe Magic's name and
+--- icon, so one of the asked ids answers that too and no fourth id is kept.
+local WARLOCK_DISPEL = WARLOCK_DISPEL_GATE.known[1];
 
 --- Single-target damage reduction or absorb cast on somebody else.
 local EXTERNAL_BY_SPEC = {
@@ -65,10 +85,10 @@ end
 --- rebuild is the only caller that matters and it runs after every specialization change, so a
 --- cache would only be one more thing to invalidate.
 ---
----   dispel, dispelPet   the friendly dispel; `dispelPet` only for the warlock, the id the press
----                       asks the spellbook about and casts when it answers
----   external            the external
----   raidbuff            the raid buff
+---   dispel, dispelGate   the friendly dispel and, for the warlock alone, what it is cast under
+---                        and which ids a `known` on it asks about
+---   external             the external
+---   raidbuff             the raid buff
 function SpecSpells.Resolve(out)
     out = out or {};
     local class = Constants.PLAYER_CLASS;
@@ -76,10 +96,10 @@ function SpecSpells.Resolve(out)
 
     if (class == "WARLOCK") then
         out.dispel = WARLOCK_DISPEL;
-        out.dispelPet = WARLOCK_DISPEL_PET;
+        out.dispelGate = WARLOCK_DISPEL_GATE;
     else
         out.dispel = (spec and DISPEL_BY_SPEC[spec]) or DISPEL_BY_CLASS[class];
-        out.dispelPet = nil;
+        out.dispelGate = nil;
     end
     out.external = spec and EXTERNAL_BY_SPEC[spec] or nil;
     out.raidbuff = RAID_BUFF_BY_CLASS[class];
@@ -96,12 +116,13 @@ SpecSpells.KIND_BY_TYPE = {
 local _resolved = {};
 
 --- The spell one of the three types resolves to right now, or nil where this specialization has
---- none. The second value is the warlock's probe id, for the dispel only.
+--- none. **The second value is `{ cast, known }`** and it is there only for the warlock's dispel.
+--- Everything that names or draws the action reads the first.
 function SpecSpells.SpellForType(type)
     local kind = SpecSpells.KIND_BY_TYPE[type];
     if (not kind) then
         return nil;
     end
     local resolved = SpecSpells.Resolve(_resolved);
-    return resolved[kind], kind == "dispel" and resolved.dispelPet or nil;
+    return resolved[kind], kind == "dispel" and resolved.dispelGate or nil;
 end

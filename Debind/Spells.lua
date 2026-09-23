@@ -340,12 +340,21 @@ end
 --- What `[known:<spell>]` answers for the rest of this rebuild: `true` if it holds, `false` if it
 --- cannot, and **nil where the answer can still move**, which is the axis staying as it was.
 ---
---- **Measured with the string the snippet itself would have used**, so the two cannot part.
+--- **Measured the way the press measures it**, so the two cannot part. An id is asked of the
+--- spell book as well, because `[known:<id>]` answers false for a spell the book holds under an
+--- override -- the warlock's dispel is the case (`SpecSpells.lua`) -- and the press takes either
+--- answer (`SecureBindings.lua`).
 function Spells.SettleKnown(value)
     if (not IsFixed(value)) then
         return nil;
     end
-    return SecureCmdOptionParse("[known:" .. value .. "]") and true or false;
+    if (SecureCmdOptionParse("[known:" .. value .. "]")) then
+        return true;
+    end
+    if (type(value) == "number" and FindSpellBookSlotBySpellID(value)) then
+        return true;
+    end
+    return false;
 end
 
 --- The value a spell goes on a secure button under. **A name and not an id**, because spells share

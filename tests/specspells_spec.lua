@@ -238,83 +238,206 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = nil;
     end);
 
-    -- The warlock's shape, driven directly: the dispel resolves to one spell and a probe id, and
-    -- the probe becomes a derived binding ahead of the original that the press gates on the
-    -- spellbook.
-    test("a probe id derives a spellbook-gated binding ahead of the original", function()
+    --- What the click frame casts when that button is pressed.
+    local function spellOn(button)
+        return DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. tostring(button));
+    end
+
+    --- Stands the warlock's dispel up. `Constants.PLAYER_CLASS` is read once at load so the class
+    --- itself cannot be set here; what the rest of the addon sees of it is `SpellForType`'s pair,
+    --- and that is handed over directly.
+    local function withGate(gate, fn)
         local SpecSpells = DebindPrivate.SpecSpells;
         local saved = SpecSpells.SpellForType;
         SpecSpells.SpellForType = function(type)
             if (type == Constants.DISPEL) then
-                return 132411, 119905;
+                return gate.known[1], gate;
             end
             return saved(type);
         end
-
-        local ok, err = pcall(function()
-            shim.world.spells[132411] = { name = "Singe Magic" };
-            shim.world.spells[119905] = { name = "Command Demon" };
-
-            local a = action({ type = Constants.DISPEL, key = "F3" });
-            local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
-            check(#list == 2, "list length: " .. #list);
-            check(list[1].spell == 132411 and list[1].spellbook == nil, "the original is not the player's spell");
-            check(list[2].spell == 119905 and list[2].spellbook == 119905, "the derived is not the probe");
-
-            Bind({ a });
-            check(recordField("F3", 1, "spellbook") == 119905, "the derived record carries no probe");
-            check(recordField("F3", 2, "spellbook") == nil, "the original record carries a probe");
-
-            if (not shipped) then
-                shim.world.spellbook[119905] = nil;
-                check(winner("F3") == 2, "without the imp the original did not win");
-                shim.world.spellbook[119905] = true;
-                check(winner("F3") == 1, "with the imp the probe binding did not win");
-                shim.world.spellbook[119905] = nil;
-            end
-
-            -- Every binding has a probe of its own, and **the probe moves into whichever tier its
-            -- binding lands in, right ahead of it** (`implementing-focus-and-self-cast.md`
-            -- §3-4). A plain spell behind the dispel is what shows the tiers: each tier holds the
-            -- dispel's pair and then the spell. The dispel is in combat only, so the spell's
-            -- bindings are not covered by it.
-            --- 이 케이스만 Hover Cast를 켠다. 켜면 설정 탭의 모드를 따르는 쌍둥이가 선다.
-            local castOnHover = require("casting").castOnHover;
-            local twinned = castOnHover(
-                action({ type = Constants.DISPEL, key = "F4", conditions = { combat = true } }));
-            local behind = castOnHover(action({ type = Constants.SPELL, key = "F4", value = 774 }));
-            Bind({ twinned, behind });
-
-            local twinnedList = castmod.without(Constants, DebindPrivate.GetBindingsForAction(twinned));
-            check(#twinnedList == 4, "twinned list length: " .. #twinnedList);
-            check(twinnedList[2].unit == nil and twinnedList[2].spellbook == 119905, "probe");
-            check(twinnedList[3].unit == "unitframe" and twinnedList[3].spellbook == nil, "twin");
-            check(twinnedList[4].unit == "unitframe" and twinnedList[4].spellbook == 119905, "probe twin");
-
-            local keyed = interp:recordsFor("F4");
-            local shape = {};
-            for i = 1, #(keyed or {}) do
-                local record = keyed[i];
-                local tier = (record.castModifier == Constants.CASTMOD_SELF and "self")
-                    or (record.castModifier == Constants.CASTMOD_FOCUS and "focus")
-                    or (record.units and record.units.unitframe and "hover")
-                    or "original";
-                local who = (castmod.isBlock(Constants, record) and "block")
-                    or (record.spellbook and "probe") or (record.combat and "dispel") or "spell";
-                shape[i] = tier .. ":" .. who;
-            end
-            shape = table.concat(shape, " ");
-            check(shape == "self:probe self:dispel self:spell self:block "
-                .. "focus:probe focus:dispel focus:spell focus:block "
-                .. "hover:probe hover:dispel hover:spell "
-                .. "original:probe original:dispel original:spell original:block",
-                "F4 came out as " .. shape);
-        end);
-
+        local ok, err = pcall(fn);
         SpecSpells.SpellForType = saved;
         if (not ok) then
             error(err, 0);
         end
+    end
+
+    local WARLOCK_GATE = { cast = 119898, known = { 119905, 132411 } };
+
+    local function warlockWorld()
+        shim.world.spells[119898] = { name = "Command Demon", iconID = 136122 };
+        shim.world.spells[119905] = { name = "Singe Magic", iconID = 135795 };
+        shim.world.spells[132411] = { name = "Singe Magic", iconID = 135795 };
+        shim.world.spellbook[119905] = nil;
+        shim.world.spellbook[132411] = nil;
+    end
+
+    -- **Nothing ticked is one ordinary binding.** It is named and drawn after the spell in the
+    -- book and cast under another one, and that is the whole of what the gate does here.
+    test("a gated dispel with no known is one binding cast under another spell", function()
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+
+            local a = action({ type = Constants.DISPEL, key = "F3" });
+            local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
+            check(#list == 1, "list length: " .. #list);
+            check(list[1].spell == 119905, "named after: " .. tostring(list[1].spell));
+            check(list[1].spellToCast == 119898, "cast under: " .. tostring(list[1].spellToCast));
+
+            Bind({ a });
+            check(recordField("F3", 1, "known") == nil,
+                "a condition stood with nothing ticked: " .. tostring(recordField("F3", 1, "known")));
+            check(recordField("F3", 1, "knownID") == nil, "an id went out with no condition");
+            local button = recordField("F3", 1, "clickbutton");
+            check(spellOn(button) == "Command Demon", "*spell-: " .. tostring(spellOn(button)));
+
+            -- **The row is drawn off the first id and not off what is cast.** Taken from the
+            -- button, a warlock's dispel would wear Command Demon's icon.
+            local _, icon = DebindPrivate.DebindUI.NameAndIconForAction(a);
+            check(icon == 135795, "row icon: " .. tostring(icon));
+        end);
+    end);
+
+    -- **Ticking `known` splits the action into one binding per id.** "Either of these two is in
+    -- the book" is not something one condition can say, and each binding says half of it on the
+    -- ordinary `known` axis.
+    test("a ticked known derives one binding per id", function()
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+
+            local a = action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } });
+            local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
+            check(#list == 2, "list length: " .. #list);
+            check(list[1].conditions.known == 119905, "first: " .. tostring(list[1].conditions.known));
+            check(list[2].conditions.known == 132411, "second: " .. tostring(list[2].conditions.known));
+
+            -- The derived one stands ahead of the original, the way every derived binding does
+            -- (`GetBindingsForAction` fills the list back to front). Which of the two comes first
+            -- changes nothing here: the book never holds both.
+            Bind({ a });
+            check(recordField("F3", 1, "known") == "[known:132411]",
+                "record 1 known: " .. tostring(recordField("F3", 1, "known")));
+            check(recordField("F3", 1, "knownID") == 132411,
+                "record 1 id: " .. tostring(recordField("F3", 1, "knownID")));
+            check(recordField("F3", 2, "known") == "[known:119905]",
+                "record 2 known: " .. tostring(recordField("F3", 2, "known")));
+            check(recordField("F3", 2, "knownID") == 119905,
+                "record 2 id: " .. tostring(recordField("F3", 2, "knownID")));
+
+            -- Both cast the same spell, so the attribute cache hands back one button.
+            check(recordField("F3", 1, "clickbutton") == recordField("F3", 2, "clickbutton"),
+                "one spell came out as two buttons");
+        end);
+    end);
+
+    -- A `known` naming a spell is a different question and takes the ordinary road: no split, and
+    -- no id on the record because the conditional carries a name.
+    test("a named known on a gated dispel stays one binding", function()
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+            shim.world.spells[8936] = { name = "Regrowth" };
+
+            local a = action({ type = Constants.DISPEL, key = "F4",
+                conditions = { known = "Regrowth" } });
+            local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
+            check(#list == 1, "list length: " .. #list);
+
+            Bind({ a });
+            check(recordField("F4", 1, "known") == "[known:Regrowth]",
+                "known: " .. tostring(recordField("F4", 1, "known")));
+            check(recordField("F4", 1, "knownID") == nil, "a name went out with an id beside it");
+        end);
+    end);
+
+    -- **A gate is not a condition.** With nothing ticked the dispel fires in every state, neither
+    -- id in the book included: the action carries no condition saying otherwise, so it goes out and
+    -- the game refuses it (§4 of the design).
+    test("a gate on its own never keeps the press from running", function()
+        if (shipped) then
+            return;
+        end
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+            shim.world.spells[8936] = { name = "Regrowth" };
+            Bind({
+                action({ type = Constants.DISPEL, key = "F3" }),
+                action({ type = Constants.SPELL, key = "F3", value = 8936 }),
+            });
+
+            shim.world.spellbook[119905] = true;
+            check(winner("F3") == 1, "with the imp out the dispel did not fire");
+
+            shim.world.spellbook[119905] = nil;
+            shim.world.spellbook[132411] = true;
+            check(winner("F3") == 1, "with the imp swallowed the dispel did not fire");
+
+            shim.world.spellbook[132411] = nil;
+            check(winner("F3") == 1, "with neither in the book the dispel stopped firing");
+        end);
+    end);
+
+    -- **Nothing here is opaque to the solver** (`Solver.lua`). Each id stands on the ordinary
+    -- `known` axis, so a gated dispel is covered and ordered like any other binding. It used to be
+    -- opaque, and then an unconditional action in front of it left it on the key with no mark and
+    -- no press it could ever win.
+    test("a gated dispel behind an unconditional action is unreachable", function()
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+            shim.world.spells[8936] = { name = "Regrowth" };
+
+            local spell = action({ type = Constants.SPELL, key = "F3", value = 8936 });
+            local ticked = action({ type = Constants.DISPEL, key = "F3",
+                conditions = { known = true } });
+            local plain = action({ type = Constants.DISPEL, key = "F4" });
+            local ahead = action({ type = Constants.SPELL, key = "F4", value = 8936 });
+            ahead.seq, plain.seq = plain.seq, ahead.seq;
+            Bind({ spell, ticked, plain, ahead });
+
+            check(DebindPrivate.IsUnreachableAction(ticked) == true,
+                "a ticked one behind an unconditional action was left reachable");
+            check(DebindPrivate.IsUnreachableAction(plain) == true,
+                "a plain one behind an unconditional action was left reachable");
+            check(DebindPrivate.IsUnreachableAction(spell) == false,
+                "the action in front was deleted");
+        end);
+    end);
+
+    -- The press takes either answer for an id: the conditional, or the spell book. Neither is what
+    -- sends the key on to the action behind it.
+    test("an id in the book answers a known the conditional cannot", function()
+        if (shipped) then
+            return;
+        end
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+            shim.world.spells[8936] = { name = "Regrowth" };
+            Bind({
+                action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } }),
+                action({ type = Constants.SPELL, key = "F3", value = 8936 }),
+            });
+
+            -- Records 1 and 2 are the dispel's two ids and 3 is the spell behind it.
+            shim.world.spellbook[119905] = true;
+            check(winner("F3") == 2, "with the imp out the dispel did not fire");
+
+            shim.world.spellbook[119905] = nil;
+            shim.world.spellbook[132411] = true;
+            check(winner("F3") == 1, "with the imp swallowed the dispel did not fire");
+
+            shim.world.spellbook[132411] = nil;
+            check(winner("F3") == 3, "with neither in the book the key did not fall through");
+        end);
+    end);
+
+    -- An action that derives two bindings cannot be written as one body.
+    test("a ticked known keeps a gated dispel out of custom macro conversion", function()
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+            local ticked = action({ type = Constants.DISPEL, key = "F3",
+                conditions = { known = true } });
+            check(DebindPrivate.CanConvertToMacroText(ticked) == false,
+                "the split dispel offered conversion");
+        end);
     end);
 
     return T;

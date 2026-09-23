@@ -1272,15 +1272,18 @@ local EVAL_SNIPPET = [==[
 			--
 			-- `t.known`은 대괄호까지 포함해 구워둔다. 여기서 결합하면 클릭마다 문자열이
 			-- 하나씩 나고, 이 판은 할당을 안 하는 판이다.
+			-- **An id is asked of the spell book too, and either answer is enough.**
+			-- `[known:<id>]` answers false for a spell the book holds under an override -- the
+			-- warlock's dispel is in the book as one id while the imp is out and as another while
+			-- it is swallowed, and the conditional never sees either (`SpecSpells.lua`).
+			--
+			-- `knownID` is on the record only where the condition names an id, so a `known` asking
+			-- by name pays for nothing. The book is asked only where the conditional already said
+			-- no.
 			if (match and t.known ~= nil and not PROBE.SecureCmdOptionParse(t.known)) then
-				match = false
-			end
-
-			-- The spellbook gate, for the one spell `[known:]` cannot see: the warlock's pet dispel is
-			-- in the spellbook only while the imp is out, and by name it answers true without one
-			-- (`SpecSpells.lua`). Right under `known` for the same reason: a per-record check, cheaper than units.
-			if (match and t.spellbook ~= nil and not PROBE.FindSpellBookSlotBySpellID(t.spellbook)) then
-				match = false
+				if (t.knownID == nil or not PROBE.FindSpellBookSlotBySpellID(t.knownID)) then
+					match = false
+				end
 			end
 
 			if (match and t.units) then

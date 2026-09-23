@@ -7093,4 +7093,4 @@ skip, hold, release도 같다. 그 목록을 문자 그대로 밀면 정확한 �
 굽고 누를 때 고르는 기전이 부활에 그대로 쓰인다. 소유자가 받았고, 흑마법사는 두 버튼 이름이
 같다는 것까지 그 자리에서 채웠다.
 
-`adding-spec-resolved-actions.md`의 해제 절, `adding-a-resurrect-action-type.md`
+`adding-spec-resolved-actions.md`의 해제 절과 부활 절

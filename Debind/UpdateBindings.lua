@@ -1492,9 +1492,13 @@ local function PrepareKeyBindings(key, bindingArray)
         --
         -- **`if`, not `and`/`or`.** The ternary shape falls through to `value` when the spell is
         -- nil, which is the one answer this branch exists to produce.
+        --
+        -- **`spellToCast` first where it is there.** The warlock's dispel is named and drawn after
+        -- the spell in the book and cast under another one (`SpecSpells.lua`); this is the one
+        -- place that reads it, so nothing on screen follows it.
         local bindingValue = binding.value;
         if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
-            bindingValue = binding.spell;
+            bindingValue = binding.spellToCast or binding.spell;
         end
         binding.clickframe, binding.clickbutton, binding.castSpell =
             SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
@@ -1754,17 +1758,20 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
                     return nil;
                 end
                 omit = settled == true;
+                -- **An id goes out twice: as the conditional and as itself.** `[known:<id>]`
+                -- answers false for a spell the book holds under an override, so the press asks
+                -- the book as well and takes either answer (`SpecSpells.lua`). The conditional
+                -- cannot carry that question and the id cannot be read back out of the baked
+                -- string.
+                if (not omit and type(spell) == "number") then
+                    field(out, "knownID", spell);
+                end
                 value = spell and ("[known:" .. spell .. "]") or "[known:0]";
             end
             if (not omit) then
                 field(out, axis.field, value);
             end
         end
-    end
-
-    -- The learned check `[known:]` cannot make (`SpecSpells.lua`): the press asks the spellbook.
-    if (binding.spellbook) then
-        field(out, "spellbook", binding.spellbook);
     end
 
     -- **A switch is used by acting on it too, not only by being a condition.** An on/off/toggle

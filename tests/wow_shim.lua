@@ -592,8 +592,10 @@ function M.install()
         return class[1], class[2], class[3];
     end
 
-    --- The spellbook as the restricted environment's `FindSpellBookSlotBySpellID` sees it: a set
-    --- of ids, and a slot for any id in it.
+    --- The spellbook as `FindSpellBookSlotBySpellID` sees it: a set of ids, and a slot for any id
+    --- in it. **One stub for both sides** -- the restricted environment gets this global handed to
+    --- it (`ENV.FindSpellBookSlotBySpellID`) and the insecure side calls the same name
+    --- (`Spells.SettleKnown`), so a spec that stands an id in the book gets one answer everywhere.
     _G.FindSpellBookSlotBySpellID = function(spellID)
         return M.world.spellbook[spellID] and 1 or nil;
     end

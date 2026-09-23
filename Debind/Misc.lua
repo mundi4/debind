@@ -968,7 +968,8 @@ do
     --- **`unitSources` keeps what narrowed each unit's mask**, because a zero does not say which
     --- menu made it. `twinOwnUnit` is what tells the hover twin's own [the unit is there] apart from
     --- a row the reader wrote: both sit in `conditions.units` by the time `BuildUnitStates` reads it.
-    local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit)
+    local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
+            knownSpell)
         local twin = castModifier ~= nil;
         -- **The pre-rename spelling of the target, for the profiles the ladder has not reached.**
         -- `dbver <= 6` renames a stored `unit = "hover"` alongside the condition; the unit table
@@ -988,14 +989,18 @@ do
         -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
         -- action stores is the kind; which spell that is today is this specialization's answer
         -- (`SpecSpells.lua`), and every reader of the binding that wants a spell id reads this
-        -- field ahead of `value`. `spellbook` is the derived-binding probe and is set by the
-        -- derivation, never here.
-        binding.spellbook = nil;
+        -- field ahead of `value`.
+        --
+        -- `spellGate` is the second answer and is almost always nil. The warlock's dispel is the
+        -- one that has it: it goes out under a spell it is not named after, and a `known` on it
+        -- asks about ids of its own (`SpecSpells.lua`). `spellToCast` is what the button carries;
+        -- the row, the tooltip and the name stay on `spell`.
         if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
-            binding.spell = DebindPrivate.SpecSpells.SpellForType(action.type);
+            binding.spell, binding.spellGate = DebindPrivate.SpecSpells.SpellForType(action.type);
         else
-            binding.spell = nil;
+            binding.spell, binding.spellGate = nil, nil;
         end
+        binding.spellToCast = binding.spellGate and binding.spellGate.cast or nil;
         -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
         -- the original's field: the twins each stand in a tier of their own and Normal Cast says
         -- nothing about those tiers. `BuildKeyMap` reads it to leave the original out of the last
@@ -1151,6 +1156,19 @@ do
                 and not Constants.SPEC_RESOLVED_TYPES[binding.type])) then
             conditions.known = nil;
         end
+
+        -- **A gated `known` is asked about one id per binding** (`SpecSpells.lua`). The reader
+        -- ticked one box and the ids behind it are the addon's, so each binding takes the one it
+        -- stands for and the ordinary `known` axis carries it the rest of the way. `true` here
+        -- would name the action's own spell, which is not what the book holds.
+        --
+        -- **The first id is the default rather than the derivation's business**, because this
+        -- function is what every caller of `GetBindingInfoForAction` gets and it has to answer the
+        -- same thing every time it runs.
+        if (conditions.known == true and binding.spellGate) then
+            conditions.known = knownSpell or binding.spellGate.known[1];
+        end
+
 
         -- `"@"` and an explicit condition on the same unit used to be folded into one key here, by
         -- hand, for the scalar shape. **Both consumers intersect them themselves now**:
@@ -1526,12 +1544,15 @@ do
 
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
     local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
-    local _ActionToProbeCache = setmetatable({}, { __mode = "kv" });
-    local _ActionToProbeTwinCache = setmetatable({}, { __mode = "kv" });
     local _ActionToFocusCache = setmetatable({}, { __mode = "kv" });
-    local _ActionToProbeFocusCache = setmetatable({}, { __mode = "kv" });
     local _ActionToSelfCache = setmetatable({}, { __mode = "kv" });
-    local _ActionToProbeSelfCache = setmetatable({}, { __mode = "kv" });
+
+    --- The second `known` id's binding, one per tier (`GetBindingsForAction`). Empty on every
+    --- action but a gated one whose reader ticked the box.
+    local _ActionToKnownCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToKnownTwinCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToKnownFocusCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToKnownSelfCache = setmetatable({}, { __mode = "kv" });
 
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
@@ -1594,29 +1615,43 @@ do
         list[1] = original;
         local n = 1;
 
-        -- **The warlock's dispel is two bindings.** The original casts the player's own Singe Magic
-        -- and a derived one casts the pet's through Command Demon, gated at the press by
-        -- `FindSpellBookSlotBySpellID` (`SpecSpells.lua`). Every binding here gets its own probe,
-        -- which stays right ahead of it in whichever tier it lands.
+        -- **A ticked `known` on a gated action becomes one binding per id, and it has to be
+        -- bindings rather than one binding with a cleverer field** (2026-09-23; the same ground was
+        -- walked and lost once before). The warlock's dispel is the case and the reasoning is
+        -- `SpecSpells.lua`'s:
         --
-        -- **The list is filled back to front.** `BuildKeyMap` walks a list from its last entry down,
-        -- so each probe is written after the binding it goes ahead of.
-        local probe;
-        if (original.spell ~= nil) then
-            probe = select(2, DebindPrivate.SpecSpells.SpellForType(action.type));
-        end
+        --   1. The book holds it as one id while the imp is out and as another while it is
+        --      swallowed. `[known:]` tells the two apart in neither direction -- false by id
+        --      whatever the state, true by name whatever the state -- so a conditional cannot
+        --      carry the question at all.
+        --   2. `FindSpellBookSlotBySpellID` can, and its answer moves **in combat**, where nothing
+        --      can be rebuilt. So it is asked at the press.
+        --   3. "Either of these two ids" is not one condition. Said on one binding it needs a field
+        --      of its own and a check of its own in the press path, and **the solver has no column
+        --      for that check** -- which makes the binding opaque, and an opaque binding is left
+        --      out of coverage in both directions. It then sits on a key behind an unconditional
+        --      action, wearing no mark, winning no press ever. That was built on 2026-09-23 and
+        --      the screen is where it showed.
+        --
+        -- Two bindings say the same thing with what already exists: each asks about its own id on
+        -- the ordinary `known` axis, so the solver sees two real boxes, coverage and the
+        -- unreachable mark work, and the press path gains no new idea.
+        --
+        -- **Only when the box is ticked.** With no `known` the action has no condition and one
+        -- binding does, whichever id is in the book: both cast the same spell.
+        -- Read off the action, because the original has already taken the first id by the time it
+        -- is looked at (`FillBinding`).
+        local knownSpells = original.spellGate and action.conditions
+            and action.conditions.known == true and original.spellGate.known or nil;
 
-        local function fill(cache, aimedUnit, twinCondition, spell, castModifier, pointedUnit)
+        local function fill(cache, aimedUnit, twinCondition, castModifier, pointedUnit, knownSpell)
             local binding = cache[action];
             if (not binding) then
                 binding = {};
                 cache[action] = binding;
             end
-            FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit);
-            if (spell) then
-                binding.spell = spell;
-                binding.spellbook = spell;
-            end
+            FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
+                knownSpell);
             n = n + 1;
             list[n] = binding;
         end
@@ -1640,14 +1675,18 @@ do
             return list;
         end
 
-        if (probe) then
-            fill(_ActionToProbeCache, action.unit, nil, probe);
+        -- **The list is filled back to front.** `BuildKeyMap` walks a list from its last entry
+        -- down, so each id's extra binding is written after the one it stands beside and lands in
+        -- the same tier.
+        local knownSecond = knownSpells and knownSpells[2];
+        if (knownSecond) then
+            fill(_ActionToKnownCache, action.unit, nil, nil, nil, knownSecond);
         end
         if (pointedUnit) then
-            fill(_ActionToTwinCache, pointedAim, pointedCondition, nil, Constants.CASTMOD_NONE, pointedUnit);
-            if (probe) then
-                fill(_ActionToProbeTwinCache, pointedAim, pointedCondition, probe, Constants.CASTMOD_NONE,
-                    pointedUnit);
+            fill(_ActionToTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE, pointedUnit);
+            if (knownSecond) then
+                fill(_ActionToKnownTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE,
+                    pointedUnit, knownSecond);
             end
         end
 
@@ -1670,15 +1709,17 @@ do
             selfAim = original.unit;
         end
         if (focusTwin) then
-            fill(_ActionToFocusCache, focusAim, nil, nil, Constants.CASTMOD_FOCUS);
-            if (probe) then
-                fill(_ActionToProbeFocusCache, focusAim, nil, probe, Constants.CASTMOD_FOCUS);
+            fill(_ActionToFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
+            if (knownSecond) then
+                fill(_ActionToKnownFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS, nil,
+                    knownSecond);
             end
         end
         if (selfTwin) then
-            fill(_ActionToSelfCache, selfAim, nil, nil, Constants.CASTMOD_SELF);
-            if (probe) then
-                fill(_ActionToProbeSelfCache, selfAim, nil, probe, Constants.CASTMOD_SELF);
+            fill(_ActionToSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
+            if (knownSecond) then
+                fill(_ActionToKnownSelfCache, selfAim, nil, Constants.CASTMOD_SELF, nil,
+                    knownSecond);
             end
         end
 
@@ -3315,18 +3356,17 @@ local function ConditionsSurviveMacroText(action)
         return false;
     end
 
-    -- A probe has no macro-text form: it is a second spell gated on the spell book, and the body can
-    -- only hold one. Dropping it would leave the converted key firing the wrong half.
+    -- An action that derives more than one binding has no macro-text form: a body holds one
+    -- condition set and one spell, and the second binding is there exactly because one of each was
+    -- not enough. Dropping it would leave the converted key firing the wrong half
+    -- (`SpecSpells.lua`, the warlock's dispel).
     --
     -- **쌍둥이는 변환을 막지 않는다** (2026-09-16, 소유자). 쌍둥이는 액션이 유닛을 받든 못 받든 서고
     -- 유닛을 받아 간다(`which-action-a-key-runs.md` §3). 매크로 본문이 그 유닛을 읽느냐는
     -- 그 액션의 몫이고, 읽게 하고 싶으면 `@@`가 그 자리다
     -- (`implementing-focus-and-self-cast.md` §4).
-    local list = DebindPrivate.GetBindingsForAction(action);
-    for i = 2, #list do
-        if (list[i].spellbook ~= nil) then
-            return false;
-        end
+    if (binding.spellGate and binding.conditions and binding.conditions.known ~= nil) then
+        return false;
     end
 
     local unit, units = AimedUnitKeyForMacroText(action, binding);

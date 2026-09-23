@@ -569,6 +569,21 @@ local function AddExtraSpellEntries(entries, seen)
 	AddSpellEntry(collected, seen, REVIVE_BATTLE_PETS_SPELL_ID, group);
 	AddSpellEntry(collected, seen, SUMMON_RANDOM_FAVORITE_PET_SPELL_ID, group);
 
+	-- 전문화가 주문을 정하는 타입들. **타입이 `spell`은 아니지만 주문 탭의 이 그룹에 선다**
+	-- (2026-09-23, 소유자). 찾는 사람은 주문을 찾으러 이 탭에 오고, 특수 탭은 주문이 아닌
+	-- 것들의 자리다. 이 그룹에 단일 버튼 도우미가 이미 서 있어서 결이 같다 - 누르는 사람이
+	-- 주문을 안 고르고 누를 때 정해지는 것들이다.
+	--
+	-- 값은 안 든다. 이름과 아이콘은 `AddEntry`가 `NameAndIconForAction`에 물어 채우므로
+	-- 아래 이름순 정렬에 그대로 섞인다.
+	for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
+		AddEntry(collected, seen, {
+			type = actionType,
+			group = group,
+			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
+		});
+	end
+
 	sort(collected, function(a, b) return a.name < b.name; end);
 
 	for i = 1, #collected do
@@ -1150,19 +1165,6 @@ local function BuildSpecialActions(entries)
 		tooltipText = LLL["TYPE_SETSTATE_DESC"],
 		helpPage = "switches",
 	});
-
-	-- The three types the class and specialization resolve (`SpecSpells.lua`). One heading for
-	-- the three, because what they share is the whole of what a row says: the addon picks the
-	-- spell, not the reader. No value to store; the row's icon is today's spell and is drawn by
-	-- `NameAndIconForAction`.
-	-- local specGroup = LLL["TYPE_SPEC_RESOLVED_HEADER"];
-	-- for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
-	-- 	AddEntry(entries, seen, {
-	-- 		type = actionType,
-	-- 		group = specGroup,
-	-- 		tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
-	-- 	});
-	-- end
 
 	-- Taking a key and doing nothing with it. It stores no value, and what makes it worth a row is
 	-- the conditions that go on it afterwards: they are what turn it into "not in this case".
