@@ -1,7 +1,7 @@
 # 카멜롯을 받을 수 있게 코드 정리하기 (2026-09-24 시작)
 
-> 상태: **계획이고, 아무것도 안 들어갔다** (2026-09-24). 프로브(`DebindCamelotProbe` 애드온)는 이
-> 문서가 필요로 하는 값을 재도록 고쳐 두었다.
+> 상태: **7절의 1단계가 들어갔다** (2026-09-24). 나머지는 계획이다. 프로브(`DebindCamelotProbe`
+> 애드온)는 이 문서가 필요로 하는 값을 잰다.
 >
 > 무엇을 왜 싣는지는 `shipping-on-the-camelot-client.md`가 들고, 이 문서는 그것을 받칠 코드 정리의
 > 순서를 든다. 클라이언트 차이를 받는 층을 먼저 세우고, 쪼개기와 폴더 정리는 그 뒤에 순수한 이동으로
@@ -182,10 +182,11 @@
 **폴더로 옮기는 것은 주석 인용을 안 깬다.** 코드와 문서는 파일을 이름으로 부른다. 깨지는 것은
 경로를 손으로 든 도구들이다.
 
-- `tools/lib/snippets.js`의 `forEachSnippet`는 `Debind/`의 맨 위만 읽는다. 스니펫이 든 파일이 하위
-  폴더로 가면 `check:snippets`에서 **말없이 빠진다.** 옮기기 전에 재귀로 바꾼다.
-- `tests/run.lua`는 불러올 파일 30개를 손으로 들고 있고, 그것을 XML과 맞춰 보는 검사가 없다. 옮기기
-  전에 그 검사를 세운다(2절의 파일 가르기도 이 검사를 기다린다).
+- **들어갔다.** `tools/lib/snippets.js`의 `forEachSnippet`는 `Debind/` 아래를 `Libs`만 빼고 재귀로
+  읽는다. 전에는 맨 위만 읽어서 하위 폴더의 스니펫이 `check:snippets`에서 말없이 빠졌다.
+- **들어갔다.** `tests/run.lua`의 `CheckLoadList`가 손으로 든 파일 목록을 TOC와 XML이 싣는 것에 맞춰
+  본다. `Debind.xml`의 파일이 빠지거나, 게임이 그 경로로 싣지 않는 파일이 있거나, 같은 XML에서 온
+  파일의 순서가 뒤집히면 스펙이 돌기 전에 멈춘다.
 - 경로를 손으로 든 도구: `bake.lua`, `check-state-eval`, `check-dbver`, `check-reload-options`,
   `check-export-fields`, `check-menu-ctx`, `stamp-dev`, `build-help`. 옮긴 파일마다 같이 고친다.
 - XML의 `<Script file=>`은 그 XML이 있는 폴더를 기준으로 푼다.
@@ -231,7 +232,7 @@
 
 ## 7. 순서
 
-1. **검사 먼저.** `forEachSnippet` 재귀, `tests/run.lua`와 XML 목록 대조. 코드는 안 바뀐다.
+1. **검사 먼저.** `forEachSnippet` 재귀, `tests/run.lua`와 XML 목록 대조. 코드는 안 바뀐다. 들어갔다.
 2. **`Client/`와 3-1**, shim의 카멜롯 세계. 층의 모양이 여기서 선다. 카멜롯의 실제 고장 하나를 고친다.
 3. **3-2, 3-3, 3-4.** 프로브 값이 입력이다. 3-3의 레이어 결정은 3-2와 무관하다.
 4. **`Misc.lua`와 `Profile.lua` 쪼개기**, 이어서 폴더. 단계마다 골든이 바이트 그대로인 순수 이동이다.

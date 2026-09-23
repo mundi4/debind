@@ -98,13 +98,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---     cuts a help page into blocks
 ---   `DevSeed.lua` is not Debind's at all any more - it is `DebindDev/`, a separate addon that
 ---     loads ahead of Debind in the game and is on no list here
---- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
---- state from crossing between them: `BindingAttrsCache`, `KeyMap`, the switch table and the
---- counter the button names come off all start where the game starts them
---- (`going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
---- a fraction of one spec.
-local function loadAddons(withCliqueFake)
-    local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
+local DEBIND_FILES = {
     "Constants.lua",
     "SpecSpells.lua",
     "Spells.lua",
@@ -135,7 +129,83 @@ local function loadAddons(withCliqueFake)
     "UpdateBindings.lua",
     "Switches.lua",
     "HelpText.lua",
-    }, nil, loadOpts);
+};
+
+--- **The list above is held against what the game loads, because nothing else would notice it
+--- drift.** A file added to `Debind.xml` and not here, or moved into a folder, leaves every spec
+--- running without it and still green. Three things are asked:
+---
+---   every file `Debind.xml` loads is on the list
+---   every file on the list is one the game loads, by the path the game loads it from
+---   files that come from the same XML keep that XML's order
+---
+--- The last one is all the order there is to hold. The files from `DebindUI.xml` and friends sit
+--- earlier here than in the game on purpose (the block above says why), so the order across XMLs
+--- is this list's own.
+local function CheckLoadList(list)
+    local origin = {};
+    local function walkXml(rel)
+        local dir = rel:match("^(.*)/[^/]*$");
+        local xml = assert(readFile(repoRoot .. "/Debind/" .. rel), rel):gsub("<!%-%-.-%-%->", "");
+        local position = 0;
+        for tag, file in xml:gmatch("<(%a+)%s+file%s*=%s*\"([^\"]+)\"") do
+            file = file:gsub("\\", "/");
+            file = dir and (dir .. "/" .. file) or file;
+            if (tag == "Include") then
+                walkXml(file);
+            elseif (tag == "Script") then
+                position = position + 1;
+                origin[file] = { xml = rel, position = position };
+            end
+        end
+    end
+    local toc = assert(readFile(repoRoot .. "/Debind/Debind.toc"));
+    local tocPosition = 0;
+    for line in toc:gmatch("[^\r\n]+") do
+        line = line:gsub("\\", "/"):match("^%s*(.-)%s*$");
+        if (line ~= "" and not line:match("^#")) then
+            if (line:match("%.xml$")) then
+                walkXml(line);
+            else
+                tocPosition = tocPosition + 1;
+                origin[line] = { xml = "Debind.toc", position = tocPosition };
+            end
+        end
+    end
+
+    local problems = {};
+    local listed, lastInXml = {}, {};
+    for _, file in ipairs(list) do
+        listed[file] = true;
+        local from = origin[file];
+        if (not from) then
+            problems[#problems + 1] = file .. " is not loaded by the game under that path";
+        elseif ((lastInXml[from.xml] or 0) > from.position) then
+            problems[#problems + 1] = file .. " comes earlier in " .. from.xml .. " than the file above it here";
+        else
+            lastInXml[from.xml] = from.position;
+        end
+    end
+    for file, from in pairs(origin) do
+        if (from.xml == "Debind.xml" and not listed[file]) then
+            problems[#problems + 1] = file .. " is in Debind.xml and not on the list";
+        end
+    end
+    if (#problems > 0) then
+        table.sort(problems);
+        error("tests/run.lua's file list has drifted from the game's:\n  "
+            .. table.concat(problems, "\n  "), 0);
+    end
+end
+CheckLoadList(DEBIND_FILES);
+
+--- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
+--- state from crossing between them: `BindingAttrsCache`, `KeyMap`, the switch table and the
+--- counter the button names come off all start where the game starts them
+--- (`going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
+--- a fraction of one spec.
+local function loadAddons(withCliqueFake)
+    local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", DEBIND_FILES, nil, loadOpts);
 
     --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
     --- table and Debind hands its private table across for the length of `LoadAddOn`, so the spec

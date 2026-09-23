@@ -243,6 +243,26 @@ function collectSnippetLocals(src, code) {
 }
 
 /**
+ * Every Lua file under `srcDir`, as a path relative to it with `/` separators, sorted.
+ *
+ * **Recursive, because a file in a subfolder used to drop out of every snippet check in silence.**
+ * A top-level file's path is its bare name, so the golden's keys for those did not move. `Libs` is
+ * other people's code and holds no snippet of ours.
+ */
+function luaFilesUnder(srcDir, rel = "") {
+    const out = [];
+    for (const entry of fs.readdirSync(path.join(srcDir, rel), { withFileTypes: true })) {
+        const child = rel ? `${rel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+            if (entry.name !== "Libs") out.push(...luaFilesUnder(srcDir, child));
+        } else if (entry.name.endsWith(".lua")) {
+            out.push(child);
+        }
+    }
+    return out.sort();
+}
+
+/**
  * `Debind/`의 모든 스니펫 본문을 순서대로 넘긴다. 콜백 인자:
  *   { file, line, call, label, body }
  *
@@ -251,9 +271,7 @@ function collectSnippetLocals(src, code) {
  * 문제가 실제로 있을 수 있다.
  */
 function forEachSnippet(srcDir, cb) {
-    const files = fs.readdirSync(srcDir).filter((f) => f.endsWith(".lua")).sort();
-
-    for (const file of files) {
+    for (const file of luaFilesUnder(srcDir)) {
         const src = fs.readFileSync(path.join(srcDir, file), "utf8");
         // 위치를 보존하는 마스크. 여기서 찾은 인덱스를 원본에 그대로 쓴다.
         const code = blankNonCode(src);
