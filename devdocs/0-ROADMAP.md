@@ -28,7 +28,7 @@
 | **4.0에 같이** | 알려진 팩의 이름을 표 하나로 들고 팩별로 켜고 끈다 | `legacy/keeping-one-table-of-known-packs.md` |
 | **4.0에 같이** | 유닛 프레임은 전부 잡고 빼는 것은 블랙리스트 하나. 위 세 줄이 들고 온 스위치 셋을 하나로 접는다. **Clique 사용자의 판이 업데이트로 바뀌므로 릴리스 노트 한 줄이 필요하다** | `legacy/taking-every-unit-frame-with-one-blacklist.md` |
 | **4.0에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, ~~순서를 강제하는 것은 그 가져오기 트랙이다~~ **그 트랙이 보류다 (2026-09-19, 소유자)**, `0-IDEAS.md` | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
-| **그 뒤** | 전문화가 주문을 정하는 타입들. ~~4.0에 같이~~ **4.0에는 안 나간다 (2026-09-22, 소유자)**: ~~코드는 있고 픽커에 세우는 줄이 주석 처리되어 있어 추가할 길이 없다~~ **그 줄은 켰다 (2026-09-23, 소유자)**. ~~EUI의 `dispel`·`external`이 갈 곳이라 순서를 강제하는 것은 그 가져오기 트랙이다~~ **가져오기는 예정에 없다 (2026-09-23, 소유자)**. `External`은 뺐고 `Resurrect`가 들어올 자리다 | `adding-spec-resolved-actions.md` |
+| **4.0에 같이** | 전문화가 주문을 정하는 타입들. ~~4.0에 같이~~ ~~**4.0에는 안 나간다 (2026-09-22, 소유자)**~~ **4.0에 나간다 (2026-09-23, 소유자)**: ~~코드는 있고 픽커에 세우는 줄이 주석 처리되어 있어 추가할 길이 없다~~ **그 줄은 켰다 (2026-09-23, 소유자)**. `Resurrect`도 같이 나간다. ~~EUI의 `dispel`·`external`이 갈 곳이라 순서를 강제하는 것은 그 가져오기 트랙이다~~ **가져오기는 예정에 없다 (2026-09-23, 소유자)**. `External`은 뺐고 `Resurrect`가 들어올 자리다 | `adding-spec-resolved-actions.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, ~~보관함의 남은 넷~~ **보류 (2026-09-19, 소유자)**. 둘 다 `0-IDEAS.md`가 든다 | `legacy/switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | ~~**다음 `dbver` 범프에**~~ **4.0에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |
