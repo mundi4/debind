@@ -3369,11 +3369,17 @@ end
 --- nothing at all when it cannot build a body, and a menu item that does nothing when pressed says
 --- why nowhere. A `MACRO` naming one that is not there is that case, and so is one holding no name.
 ---
---- **`WORLDMARKER` is absent on purpose.** The action places or takes back, because the binding
---- leaves `*action-` unwritten and the client's default is `toggle` (`SECURE_ACTIONS.worldmarker`).
---- `/wm` only places (`SlashCommands.lua`), taking back is `/cwm`, no conditional tells the two
---- apart, and `PlaceRaidMarker` / `ClearRaidMarker` both carry `HasRestrictions` so `/run` cannot
---- reach them either. Every body that can be written here does half of what the key did.
+--- **`WORLDMARKER` is offered although the body does half of what the key did** (2026-09-23,
+--- owner). The action places or takes back, because the binding leaves `*action-` unwritten and the
+--- client's default is `toggle` (`SECURE_ACTIONS.worldmarker`). `/wm` only places
+--- (`SlashCommands.lua`), taking back is `/cwm`, no conditional tells the two apart, and
+--- `PlaceRaidMarker` / `ClearRaidMarker` both carry `HasRestrictions` so `/run` cannot reach them
+--- either. What is lost is written in the body the window opens on.
+---
+--- **`COMMAND` and `UNUSED` convert to an empty body.** Both are retired and already do nothing
+--- when pressed (`BINDING_ISSUE_TYPE_RETIRED`), so there is no behaviour to carry over and nothing
+--- to lose; what the conversion keeps is the key, the layer and the conditions the row was built
+--- with.
 function DebindPrivate.CanConvertToMacroText(action)
     if (not ConditionsSurviveMacroText(action)) then
         return false;
@@ -3394,7 +3400,10 @@ function DebindPrivate.CanConvertToMacroText(action)
         or action.type == Constants.USESLOT
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
-        or action.type == Constants.SETCUSTOM;
+        or action.type == Constants.SETCUSTOM
+        or action.type == Constants.WORLDMARKER
+        or action.type == Constants.COMMAND
+        or action.type == Constants.UNUSED;
 end
 
 function DebindPrivate.ConvertToMacroText(action)
@@ -3419,13 +3428,11 @@ function DebindPrivate.ConvertToMacroText(action)
         unit = nil;
     end
 
-    -- **No unit picked is `@@`, on a type that takes one** (`implementing-focus-and-self-cast.md`
-    -- §4). The twins pass `player`, `focus` and the pointed unit, and a body that does not read them
-    -- takes the cast keys and Hover Cast off the key. The original aims at nothing and `@@` goes out
-    -- as `@target`.
-    if (unit == nil and DebindPrivate.ActionTakesUnit(action)) then
-        unit = "@";
-    end
+    -- **No unit picked writes no target at all** (2026-09-23, owner). This used to write `@@` so the
+    -- twins kept reaching the body, but `@@` falls back to `"target"` when the press carries no unit
+    -- (`COMPOSE_MACROTEXT_SNIPPET`), which nails a key that followed the client's own targeting to
+    -- the current target. Losing the cast keys and Hover Cast on a body the reader now owns is the
+    -- smaller change.
 
     if (action.type == Constants.SPELL or action.type == Constants.ITEM) then
         local slashCommand, spellOrItemName;
@@ -3503,6 +3510,24 @@ function DebindPrivate.ConvertToMacroText(action)
         macrotext = format("/click DebindCustom%d unitframe", action.value);
         name = L["TYPE_SETCUSTOM" .. action.value];
         icon = 1505950;
+    elseif (action.type == Constants.WORLDMARKER) then
+        macrotext = format("/wm %d", action.value);
+        name = _G["WORLD_MARKER" .. action.value];
+        icon = 4238933;
+    elseif (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
+        -- **Empty, and that is the whole body.** Neither type does anything when pressed any more,
+        -- so there is nothing to write out; the reader writes what the key should do now.
+        --
+        -- The name is what the row already draws (`ActionDisplay.lua`), which for `UNUSED` is a
+        -- description of the retired behaviour rather than a name, so that one is left unset and
+        -- draws as `UNNAMED_ACTION`. The icon is the question mark on purpose: the row resolves it
+        -- out of the body once there is one (`GetMacrotextIcon`), and the red "not ready" texture
+        -- these two wear is an error mark that stops being true here.
+        if (action.type == Constants.COMMAND) then
+            name = _G["BINDING_NAME_" .. action.value] or action.value;
+        end
+        macrotext = "";
+        icon = Constants.QUESTION_MARK_ICON;
     elseif (Constants.SETSTATE_MODES[action.type]) then
         -- **The body needs a name and a mode, and the action already holds both** -- the name in
         -- `value`, the mode decided by the type. The locale key assembles off the type for the
@@ -3513,6 +3538,9 @@ function DebindPrivate.ConvertToMacroText(action)
         icon = 254885;
     end
 
+    -- **nil is "nothing to convert" and `""` is a body.** The retired types convert to an empty
+    -- one, so this gate has to keep telling the two apart; a truthiness test that grew an `~= ""`
+    -- would turn those conversions into a menu item that does nothing when pressed.
     if (macrotext) then
         if (atUnit and atUnits) then
             atUnits[atUnit] = IntersectStoredUnitConditions(atUnits[atUnit], atUnits["@"]);

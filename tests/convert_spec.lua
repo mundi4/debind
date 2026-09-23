@@ -63,11 +63,63 @@ return function(DebindPrivate)
     --- **매크로에는 그 절반이 없다.** `/wm N`의 핸들러는 `PlaceRaidMarker`만 부르고
     --- (`SlashCommands.lua`), 거두는 것은 `/cwm`이라 명령이 따로다. 둘을 갈라주는 조건절도
     --- 없고, `PlaceRaidMarker`와 `ClearRaidMarker`는 `HasRestrictions`라 `/run`으로도 못
-    --- 부른다. 그래서 변환 자체를 안 내준다.
-    test("월드 표식은 매크로로 못 바꾼다", function()
+    --- 부른다.
+    ---
+    --- **그래도 내준다** (2026-09-23, 소유자). 잃는 절반은 창이 열면서 보여주는 본문에 그대로
+    --- 적혀 있고, 놓기만 하는 키에 조건을 얹으려면 지금은 새 매크로를 짜면서 키와 레이어와
+    --- 조건을 다시 세우는 수밖에 없다.
+    test("월드 표식은 /wm <번호>가 된다", function()
         installWorld();
-        check(not Can({ type = Constants.WORLDMARKER, value = 5 }),
-            "놓기만 되는 본문으로 바꿔주겠다고 나선다");
+        _G.WORLD_MARKER5 = "파랑";
+        local action = { type = Constants.WORLDMARKER, value = 5 };
+        check(Can(action), "월드 표식에 변환이 안 선다");
+        check(Convert(action), "변환이 거절됐다");
+        check(action.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(action.type));
+        check(action.value == "/wm 5", "본문이 " .. tostring(action.value) .. "다");
+        check(action.name == "파랑", "이름이 " .. tostring(action.name) .. "다");
+        check(action.icon == 4238933, "아이콘이 " .. tostring(action.icon) .. "다");
+    end);
+
+    --- **은퇴한 두 타입은 빈 본문으로 바뀐다** (2026-09-23, 소유자). 둘 다 눌러도 아무 일이
+    --- 없으므로(`BINDING_ISSUE_TYPE_RETIRED`) 옮길 동작이 없고, 변환이 지키는 것은 그 줄이
+    --- 들고 있던 키와 레이어와 조건이다.
+    ---
+    --- 이름은 행이 이미 그리는 것을 그대로 받는다(`ActionDisplay.lua`). `UNUSED`의 것은 이름이
+    --- 아니라 은퇴한 동작의 설명이라 안 받고, 행은 `UNNAMED_ACTION`을 그린다.
+    ---
+    --- **아이콘이 물음표인 것은 없어서가 아니다.** 행은 저장된 아이콘이 물음표일 때만 본문에서
+    --- 아이콘을 풀어내므로(`GetMacrotextIcon`), 이 값이 사용자가 본문을 적은 뒤 그림이 붙는
+    --- 유일한 길이다.
+    test("은퇴한 타입은 빈 본문으로 바뀐다", function()
+        installWorld();
+        _G.BINDING_NAME_TOGGLEWORLDMAP = "지도 표시";
+
+        local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP" };
+        check(Can(command), "은퇴한 명령에 변환이 안 선다");
+        check(Convert(command), "변환이 거절됐다");
+        check(command.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(command.type));
+        check(command.value == "", "본문이 비어 있지 않다: " .. tostring(command.value));
+        check(command.name == "지도 표시", "이름이 " .. tostring(command.name) .. "다");
+        check(command.icon == Constants.QUESTION_MARK_ICON,
+            "아이콘이 " .. tostring(command.icon) .. "다");
+
+        local unused = { type = Constants.UNUSED };
+        check(Can(unused), "와우 기본 단축키 액션에 변환이 안 선다");
+        check(Convert(unused), "변환이 거절됐다");
+        check(unused.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(unused.type));
+        check(unused.value == "", "본문이 비어 있지 않다: " .. tostring(unused.value));
+        check(unused.name == nil, "이름이 붙었다: " .. tostring(unused.name));
+        check(unused.icon == Constants.QUESTION_MARK_ICON,
+            "아이콘이 " .. tostring(unused.icon) .. "다");
+    end);
+
+    --- 클라이언트가 그 명령의 이름을 모르면 명령 이름 자체가 이름이 된다. 행이 같은 자리에서
+    --- 같은 답을 낸다.
+    test("이름 없는 명령은 명령 이름을 쓴다", function()
+        installWorld();
+        local action = { type = Constants.COMMAND, value = "ZZZUNKNOWNCOMMAND" };
+        check(Convert(action), "변환이 거절됐다");
+        check(action.name == "ZZZUNKNOWNCOMMAND", "이름이 " .. tostring(action.name) .. "다");
     end);
 
     --- 이름은 문자열인데 그 이름의 매크로가 없는 경우. `ConvertToMacroText`는 본문을 못 지어서
@@ -97,7 +149,7 @@ return function(DebindPrivate)
         check(Can(action), "착용 칸에 변환이 안 선다");
         check(Convert(action), "변환이 거절됐다");
         check(action.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(action.type));
-        check(action.value == "/use [@@] 13", "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/use 13", "본문이 " .. tostring(action.value) .. "다");
         check(action.name == DebindPrivate.EquipSlotFacts(13),
             "이름이 " .. tostring(action.name) .. "다");
         check(action.icon ~= nil, "아이콘이 안 붙었다");
@@ -130,8 +182,8 @@ return function(DebindPrivate)
 
     --- **쌍둥이는 변환을 막지 않는다** (2026-09-16, 소유자). 쌍둥이는 액션이 유닛을 받든 못 받든
     --- 서고 유닛을 받아 간다. 주문도 유닛을 쓰는 것이 있고 안 쓰는 것이 있는데 넘기는 쪽은 언제나
-    --- 넘기고, 매크로 본문이 그 유닛을 읽느냐도 똑같이 그 액션의 몫이다. 읽게 하고 싶으면 `@@`가
-    --- 그 자리다 (`implementing-focus-and-self-cast.md` §4).
+    --- 넘기고, 매크로 본문이 그 유닛을 읽느냐도 똑같이 그 액션의 몫이다. 읽게 하고 싶으면 사용자가
+    --- 본문에 적는다.
     test("Hover Cast가 켜져 있어도 변환이 선다", function()
         installWorld();
         check(DebindPrivate.CanConvertToMacroText({ type = Constants.SPELL, value = 774 }),
@@ -142,21 +194,20 @@ return function(DebindPrivate)
             "Cast as usual인 액션에서 변환이 안 선다");
     end);
 
-    --- **An action with no unit picked converts to `[@@]`** (`implementing-focus-and-self-cast.md`
-    --- §4). Its twins pass `player`, `focus` and the pointed unit, and a body with no `@@` reads none
-    --- of them, so the conversion would take the cast keys and Hover Cast off the key. On the
-    --- original the press aims at nothing and `@@` goes out as `@target`.
-    ---
-    --- A type that takes no unit keeps its body as it is: whether a body reads the unit is the
-    --- action's business, and those never did.
-    test("대상을 안 고른 액션은 [@@]로 겨눈다", function()
+    --- **대상을 안 고른 액션은 본문에도 대상을 안 적는다** (2026-09-23, 소유자). 한때 여기에
+    --- `@@`를 적었다. 쌍둥이가 넘기는 `player`, `focus`, 가리킨 유닛을 본문이 읽게 하려는
+    --- 것이었는데, 누름이 유닛을 안 넘기면 `@@`가 `"target"`으로 떨어진다
+    --- (`SecureBindings.lua`의 `COMPOSE_MACROTEXT_SNIPPET`). 클라이언트 기본 타게팅을 따르던
+    --- 키가 변환 한 번으로 현재 대상 고정이 되는 것이라, 조합키 시전과 Hover Cast를 잃는 쪽이
+    --- 작은 변화다.
+    test("대상을 안 고른 액션은 본문에 대상을 안 적는다", function()
         installWorld();
         _G.SLASH_PET_ATTACK1 = "/petattack";
         _G.SLASH_PET_FOLLOW1 = "/petfollow";
         for _, case in ipairs({
-            { { type = Constants.SPELL, value = 774 }, "/cast [@@] Rejuvenation" },
-            { { type = Constants.USESLOT, value = 13 }, "/use [@@] 13" },
-            { { type = Constants.PETACTION, value = "PET_ATTACK" }, "/petattack [@@]" },
+            { { type = Constants.SPELL, value = 774 }, "/cast Rejuvenation" },
+            { { type = Constants.USESLOT, value = 13 }, "/use 13" },
+            { { type = Constants.PETACTION, value = "PET_ATTACK" }, "/petattack" },
             { { type = Constants.PETACTION, value = "PET_FOLLOW" }, "/petfollow" },
         }) do
             local action = case[1];
@@ -172,7 +223,7 @@ return function(DebindPrivate)
         local action = { type = Constants.SPELL, value = 774,
             conditions = { units = { unitframe = false } } };
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast [@@] Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
     end);
 
     --- **개체창 조건은 대상을 안 정하므로 본문에도 안 실린다** (§5), 그리고 조건 자체는 제 축에
@@ -184,7 +235,7 @@ return function(DebindPrivate)
                 unitframe = {} } } };
         local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(Convert(action), "변환이 거절됐다");
-        check(action.value == "/cast [@@] Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
+        check(action.value == "/cast Rejuvenation", "본문이 " .. tostring(action.value) .. "다");
 
         local after = DebindPrivate.GetBindingInfoForAction(action).unitStates.unitframe;
         check(after == before, "개체창 축이 " .. tostring(before) .. "에서 "

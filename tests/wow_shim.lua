@@ -1183,6 +1183,11 @@ local ALLOWED_ABSENT = {
     -- would have been shaped so that it could not catch the thing that made it necessary. Only one
     -- name is built by concatenation in practice, so there is nothing a prefix buys.
     SLASH_PETNOSUCHCOMMAND1 = true,
+
+    -- **The same shape, for a binding command the client does not name.** `convert_spec` converts a
+    -- retired `COMMAND` whose `BINDING_NAME_*` is missing, which is what a command from an older
+    -- build or another locale looks like; the conversion has to fall back to the command itself.
+    BINDING_NAME_ZZZUNKNOWNCOMMAND = true,
 };
 
 local _absent = {};

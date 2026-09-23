@@ -34,7 +34,7 @@ local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 --- 더 있으면 원본이 움직이는 날 그쪽이 안 따라온다.
 local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
 
-local QUESTION_MARK_ICON_NUM = 134400;
+local QUESTION_MARK_ICON_NUM = Constants.QUESTION_MARK_ICON;
 local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
 
 local _macrotextIconCache    = {};

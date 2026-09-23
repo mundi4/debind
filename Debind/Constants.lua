@@ -29,6 +29,12 @@ Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 --- parses the toc before any of our Lua runs, so changing the picture stays two edits.
 Constants.ADDON_ICON                      = 133015;
 
+--- The client's question mark. **Two files have to agree on the number**: the row draws it where an
+--- action has no icon of its own (`ActionDisplay.lua`), and [Convert to a Custom Macro] writes it
+--- onto a body it cannot name an icon for -- where it is not a fallback but the signal that the row
+--- should resolve one out of the body (`GetMacrotextIcon`).
+Constants.QUESTION_MARK_ICON              = 134400;
+
 --- Every class this client has: `classFile` (`"DRUID"`) -> `classID`.
 ---
 --- **The one enumeration.** The loop stood written out in three places -- the pre-rename import,
