@@ -3602,10 +3602,10 @@ RegisterTest("Macro editor: the body reaches the profile when the window closes"
     end,
 })
 
-RegisterTest("Macro editor: [Cancel] lights up only when there is something to put back", {
+RegisterTest("Macro editor: [Revert] lights up only when there is something to put back", {
     description = "Dark while nothing has been edited, and pressing it restores the box alone without moving the profile",
     run = function()
-        local NAME = "Macro cancel"
+        local NAME = "Macro revert"
 
         local action, box = OpenMacroEditor("/say one")
         local button = DebindMacroFrame.Editor.RevertButton
@@ -3613,8 +3613,8 @@ RegisterTest("Macro editor: [Cancel] lights up only when there is something to p
         if button:IsEnabled() then
             return Fail(NAME, "just opened and it says there is something to put back")
         end
-        if button:GetText() ~= CANCEL then
-            return Fail(NAME, format("the label is not [Cancel]: %q", tostring(button:GetText())))
+        if button:GetText() ~= LLL["MACROFRAME_REVERT"] then
+            return Fail(NAME, format("the label is not [Revert]: %q", tostring(button:GetText())))
         end
 
         if not TypeInto(box, "/say two") then
@@ -3635,26 +3635,26 @@ RegisterTest("Macro editor: [Cancel] lights up only when there is something to p
         if button:IsEnabled() then
             return Fail(NAME, "the button is still lit after putting it back")
         end
-        -- **It does not close.** The reverted body has to be there to be edited again.
+        -- **It does not close.** The restored body has to be there to be edited again.
         if not DebindMacroFrame:IsShown() then
-            return Fail(NAME, "[Cancel] closed the window too")
+            return Fail(NAME, "[Revert] closed the window too")
         end
 
         return Pass(NAME, "dark -> lit -> put back and dark again")
     end,
 })
 
-RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
-    description = "Opened by a conversion, the label reads REVERT and pressing it runs the function that undoes it",
+RegisterTest("Macro editor: [Cancel] gives the conversion its action back", {
+    description = "Opened by a conversion, the label reads [Cancel] and pressing it runs the function that undoes it",
     run = function()
-        local NAME = "Macro revert"
+        local NAME = "Macro conversion cancel"
 
         local reverted = false
         local action, box = OpenMacroEditor("/cast Fireball", function() reverted = true end)
         local button = DebindMacroFrame.Editor.RevertButton
 
-        if button:GetText() ~= REVERT then
-            return Fail(NAME, format("the label is not REVERT: %q", tostring(button:GetText())))
+        if button:GetText() ~= LLL["MACROFRAME_CANCEL"] then
+            return Fail(NAME, format("the label is not [Cancel]: %q", tostring(button:GetText())))
         end
         -- What there is to revert is a conversion that already happened, so it has to be lit even
         -- with nothing typed.
@@ -3676,7 +3676,7 @@ RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
             return Fail(NAME, format("the body that was thrown away got saved: %q", action.value))
         end
 
-        return Pass(NAME, "REVERT stood, pressing it put things back, and the body did not leak")
+        return Pass(NAME, "[Cancel] stood, pressing it put things back, and the body did not leak")
     end,
 })
 

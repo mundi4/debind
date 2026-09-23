@@ -6678,7 +6678,7 @@ end
 --- path changes the action first, so it does not go down that branch.
 ---
 --- `cancelFunc` is how the conversion path gets its action back, and it is also what turns the
---- bottom-right button into [Revert] (`UpdateRevertButton`). It goes on **after** `Refresh`, which
+--- bottom-left button into [Cancel] (`UpdateRevertButton`). It goes on **after** `Refresh`, which
 --- clears it while loading the body: the one it clears belongs to whatever was being edited before.
 function DebindMacroFrameMixin:Open(action, cancelFunc)
 	if (not action) then
@@ -6790,12 +6790,12 @@ end
 function DebindMacroFrameMixin:UpdateRevertButton()
 	local button = self.Editor.RevertButton;
 	if (self.macroCancelFunc) then
-		button:SetText(REVERT);
+		button:SetText(LLL["MACROFRAME_CANCEL"]);
 		button:Enable();
 		return;
 	end
 
-	button:SetText(CANCEL);
+	button:SetText(LLL["MACROFRAME_REVERT"]);
 	button:SetEnabled(self.Editor.ScrollFrame.EditBox:GetText() ~= (self.macroOriginalText or ""));
 end
 
@@ -6804,27 +6804,27 @@ function DebindMacroFrameMixin:RevertButton_OnEnter(button)
 		return;
 	end
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, REVERT);
-	GameTooltip_AddNormalLine(GameTooltip, LLL["MACROFRAME_REVERT_DESC"]);
+	GameTooltip_SetTitle(GameTooltip, LLL["MACROFRAME_CANCEL"]);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["MACROFRAME_CANCEL_DESC"]);
 	GameTooltip:Show();
 end
 
---- [Cancel], or [Revert] when the conversion opened this window.
+--- [Revert], or [Cancel] when the conversion opened this window.
 ---
---- **[Cancel] moves the edit box and nothing else.** Nothing has committed the body since the
+--- **[Revert] moves the edit box and nothing else.** Nothing has committed the body since the
 --- window opened, so `action.value` is still what `macroOriginalText` holds and there is nothing to
 --- put back in the profile. It used to write the action too, from the days when the window followed
 --- the selection and saved on the way past; both of those are gone.
 ---
---- [Revert] puts back the **action** rather than the body: `cancelFunc` restores the type, name,
+--- [Cancel] puts back the **action** rather than the body: `cancelFunc` restores the type, name,
 --- icon and unit it had before it became macrotext, and whatever was typed here goes with it. That
 --- action is no longer macrotext, so `Refresh` closes the window.
 ---
---- **[Cancel] does not close, unlike [Close].** Two buttons that both leave would be tidier, but
---- they are not the same risk: [Close] keeps what you see and [Cancel] throws it away. Leaving the
---- window up puts the reverted body in front of you before anything is final, and if the revert was
---- not what you wanted, it is still there to edit. Costing one more click to leave is the cheaper
---- side of that trade.
+--- **[Revert] does not close, unlike [Close].** Two buttons that both leave would be tidier, but
+--- they are not the same risk: [Close] keeps what you see and [Revert] throws it away. Leaving the
+--- window up puts the restored body in front of you before anything is final, and if it was not
+--- what you wanted, it is still there to edit. Costing one more click to leave is the cheaper side
+--- of that trade.
 function DebindMacroFrameMixin:Revert_OnClick()
 	local action = self.macroAction;
 	if (not action) then

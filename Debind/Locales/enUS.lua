@@ -860,13 +860,21 @@ L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats
 -- 남의 문자열에서 온 레이어의 캐릭터 자리. 이름이 없어서() 낱말로 대신한다.
 L["LAYER_SHORT_CHARACTER"] = "Character"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
+-- The macro editor's bottom-left button carries this label only when the conversion menu item
+-- opened the window. Pressing it there undoes the conversion and the window closes with it, which
+-- is what cancelling the conversion means; [Revert] below is the other label on that one button.
+L["MACROFRAME_CANCEL"] = "Cancel"
+-- The tooltip on that button while it reads [Cancel]. The label alone would be read as "undo my
+-- typing", and this button is bigger than that: the action goes back to what it was and the body
+-- goes with it. The second sentence is the one that has to be there, since nothing on screen shows
+-- that cost.
+L["MACROFRAME_CANCEL_DESC"] = "Puts this action back to what it was before it became a Custom Macro. Anything typed here is lost."
 -- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
 L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d Characters Used"
--- The tooltip on the same button when it reads REVERT, which happens only on an action the
--- conversion menu item just made. The label alone would be read as "undo my typing", and this
--- button is bigger than that: the action goes back to what it was and the body goes with it. The
--- second sentence is the one that has to be there, since nothing on screen shows that cost.
-L["MACROFRAME_REVERT_DESC"] = "Puts this action back to what it was before it became a Custom Macro. Anything typed here is lost."
+-- The same button's other label, the one it carries while the window was opened to edit a body.
+-- It puts the edit box back and leaves the window standing, so [Cancel] is the wrong word for it:
+-- in every dialog the client has, cancelling is leaving.
+L["MACROFRAME_REVERT"] = "Revert"
 L["MOVE_TO"] = "Move to..."
 -- Tooltip on the greyed-out row for the layer the action is already in. One action and several get
 -- the same sentence, so it names no subject.

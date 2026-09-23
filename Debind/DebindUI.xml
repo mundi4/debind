@@ -1877,16 +1877,17 @@
 						</ScrollChild>
 					</ScrollFrame>
 					<!--
-						One button, two labels. CANCEL puts the edit box back; REVERT, when the
+						One button, two labels. [Revert] puts the edit box back; [Cancel], when the
 						conversion menu item opened this window, puts the whole action back. Both
 						are "undo what I just did here", which is why one button carries them, and
-						which of the two is showing is decided in UpdateRevertButton - the label
-						and the enabled state are set there and not here.
+						which of the two is showing is decided in UpdateRevertButton. The label and
+						the enabled state are set there and not here, which is why no text attribute
+						stands on this button.
 					-->
-					<Button parentKey="RevertButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+					<Button parentKey="RevertButton" inherits="UIPanelButtonTemplate">
 						<Size x="90" y="22"/>
 						<Anchors>
-							<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+							<Anchor point="BOTTOMLEFT" x="0" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
@@ -1903,9 +1904,9 @@
 					<!--
 						[Close] and not [Okay]. Closing this window is what commits the body, by
 						every path it can close by, so a button that reads as the one that saves
-						would promise the opposite - that nothing is written until it is pressed.
-						Standing next to the button that puts the body back, "close" says which of
-						the two keeps what is on screen without claiming to be the only way there.
+						would promise the opposite, that nothing is written until it is pressed.
+						Against the button that puts the body back, "close" says which of the two
+						keeps what is on screen without claiming to be the only way there.
 
 						parentKey CloseButton twice over is not a collision: the X belongs to the
 						frame and this one to Editor.
@@ -1913,7 +1914,7 @@
 					<Button parentKey="CloseButton" inherits="UIPanelButtonTemplate" text="CLOSE">
 						<Size x="90" y="22"/>
 						<Anchors>
-							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.RevertButton" relativePoint="BOTTOMLEFT" x="-2" y="0"/>
+							<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
