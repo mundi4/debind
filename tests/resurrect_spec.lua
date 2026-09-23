@@ -265,32 +265,24 @@ return function(DebindPrivate, _, ctx)
         reset();
     end);
 
-    test("a soulstone goes on a living friend, and on you, only when allowed", function()
+    -- **Soulstone is a resurrection here and nothing else** (2026-09-23, owner). On a living friend
+    -- the key is held and nothing goes out; a plain Soulstone action does that job.
+    test("a warlock's resurrection puts no Soulstone on a living friend", function()
         shim.world.spells[SOULSTONE] = { name = "Soulstone" };
         shim.world.spellbook[SOULSTONE] = true;
-        withSpells({ battle = SOULSTONE, soulstone = true }, function()
+        withSpells({ battle = SOULSTONE }, function()
             Bind({ action({ type = Constants.RESURRECT, key = "F1" }) });
             shim.world.units = { target = LIVE_FRIEND };
-            check(fired("F1") == false, "off, a living friend: " .. tostring(fired("F1")));
-
-            Bind({ action({ type = Constants.RESURRECT, key = "F1", soulstoneLiving = true }) });
-            shim.world.units = { target = LIVE_FRIEND };
-            check(fired("F1") == "Soulstone", "on, a living friend: " .. tostring(fired("F1")));
-
+            check(fired("F1") == false, "a living friend: " .. tostring(fired("F1")));
             shim.world.units = { target = DEAD_FRIEND };
-            check(fired("F1") == false, "on, a dead friend out of combat: " .. tostring(fired("F1")));
-
-            shim.world.units = { target = DEAD_FRIEND, player = { id = "me", reaction = "help" } };
-            interp.state.modifiedClick.SELFCAST = true;
-            local _, _, record = interp:evalKey("F1");
-            check(record and record.castModifier == Constants.CASTMOD_SELF and record.spell == "Soulstone",
-                "on, the self cast key: " .. tostring(record and record.spell));
+            inCombat(true);
+            check(fired("F1") == "Soulstone", "a dead friend in combat: " .. tostring(fired("F1")));
         end);
         shim.world.spellbook[SOULSTONE] = nil;
         reset();
     end);
 
-    -- **No self tier otherwise.** Nobody resurrects themselves, so a held self cast key reaches
+    -- **No self tier aimed at you.** Nobody resurrects themselves, so a held self cast key reaches
     -- nothing of this action and the tier's own block takes the press.
     test("a held self cast key resurrects nobody", function()
         druidWorld();
@@ -414,18 +406,18 @@ return function(DebindPrivate, _, ctx)
         reset();
     end);
 
-    -- The menu offers the three on this type alone, so a stored one anywhere else is taken off.
+    -- The menu offers the switches on this type alone, so a stored one anywhere else is taken off.
     test("the resurrection switches are kept on a resurrection and taken off a spell", function()
         local rez = { type = Constants.RESURRECT, key = "F1", seq = 1, noTargetMassRez = false,
-            battleRezOutOfCombat = true, soulstoneLiving = true };
+            battleRezOutOfCombat = true };
         local spell = { type = Constants.SPELL, value = REGROWTH, key = "F2", seq = 1,
-            noTargetMassRez = false, battleRezOutOfCombat = true, soulstoneLiving = true };
+            noTargetMassRez = false, battleRezOutOfCombat = true };
         Bind({ rez, spell });
         DebindPrivate.CleanUpDB();
-        check(rez.noTargetMassRez == false and rez.battleRezOutOfCombat and rez.soulstoneLiving,
+        check(rez.noTargetMassRez == false and rez.battleRezOutOfCombat,
             "taken off the resurrection");
-        check(spell.noTargetMassRez == nil and spell.battleRezOutOfCombat == nil
-            and spell.soulstoneLiving == nil, "left on the spell");
+        check(spell.noTargetMassRez == nil and spell.battleRezOutOfCombat == nil,
+            "left on the spell");
         reset();
     end);
 

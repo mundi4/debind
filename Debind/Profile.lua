@@ -43,11 +43,10 @@ local KEYS_TO_SAVE       = {
     -- held for nothing. Only the spec-resolved types offer it (`adding-spec-resolved-actions.md`
     -- §4), because only they can be left with nothing to cast by the class or the specialization.
     skipWhenUnusable = true,
-    -- A resurrection's three switches (`adding-spec-resolved-actions.md` §6). `noTargetMassRez`
-    -- is on unless stored false, the other two are off unless stored true.
+    -- A resurrection's two switches (`adding-spec-resolved-actions.md` §6). `noTargetMassRez` is
+    -- on unless stored false, `battleRezOutOfCombat` off unless stored true.
     noTargetMassRez = true,
     battleRezOutOfCombat = true,
-    soulstoneLiving = true,
     -- **Which presses this action stands on**, as one table of four values
     -- (`which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
@@ -3132,7 +3131,6 @@ function DebindPrivate.CleanUpDB()
             if (action.type ~= Constants.RESURRECT) then
                 action.noTargetMassRez = nil;
                 action.battleRezOutOfCombat = nil;
-                action.soulstoneLiving = nil;
             end
 
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션

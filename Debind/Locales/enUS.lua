@@ -1591,7 +1591,7 @@ L["TYPE_DISPEL"] = "Dispel"
 L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
 L["TYPE_RESURRECT"] = "Resurrect"
 L["TYPE_RESURRECT_DESC"] = "Casts the resurrection that fits the press: your battle resurrection in combat, your mass resurrection on a dead group member or with no target, and your single one on any other dead friend."
--- The three switches in a Resurrect action's own submenu beside Cast Options (2026-09-23, owner).
+-- The switches in a Resurrect action's own submenu beside Cast Options (2026-09-23, owner).
 -- **Worded as what is allowed**, so ticked always means one more thing the key can do.
 -- The submenu's name is the type's name the list draws, so it reads as that action's own.
 L["RESURRECT_OPTIONS"] = "Resurrect Options"
@@ -1601,9 +1601,6 @@ L["REZ_NO_TARGET_MASS"] = "Allow mass resurrection with no target"
 L["REZ_NO_TARGET_MASS_DESC"] = "Out of combat with no target, a press casts your mass resurrection, on a specialization that has one."
 L["REZ_BATTLE_OUT_OF_COMBAT"] = "Allow battle resurrection out of combat"
 L["REZ_BATTLE_OUT_OF_COMBAT_DESC"] = "Out of combat, a press on a dead friend casts your battle resurrection when you have no other resurrection for them, on a class that has one."
--- `%s` is the spell's name as the client spells it.
-L["REZ_SOULSTONE_LIVING"] = "Allow %s on a living friend"
-L["REZ_SOULSTONE_LIVING_DESC"] = "On a warlock, a press on a living friend, or with the Self Cast Key held, casts %s on them ahead of time."
 L["TYPE_RAIDBUFF"] = "Raid Buff"
 L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect."
 -- The addon's own name, since the client has none for it: the game has no notion of a unit frame an

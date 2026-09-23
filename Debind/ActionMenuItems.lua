@@ -399,7 +399,7 @@ local function ToggleResurrectSwitch(data)
     return OnActionsChanged(data.ctx.actions);
 end
 
---- A resurrection's three switches (`adding-spec-resolved-actions.md` §6), beside Cast Options
+--- A resurrection's switches (`adding-spec-resolved-actions.md` §6), beside Cast Options
 --- (2026-09-23, owner).
 local function CreateResurrectMenu(parentDescription, ctx)
     if (not AnyAction(ctx, IsResurrect)) then
@@ -410,7 +410,7 @@ local function CreateResurrectMenu(parentDescription, ctx)
         isActive = function()
             return AnyAction(ctx, function(action)
                 return IsResurrect(action) and (action.noTargetMassRez ~= nil
-                    or action.battleRezOutOfCombat ~= nil or action.soulstoneLiving ~= nil);
+                    or action.battleRezOutOfCombat ~= nil);
             end);
         end,
     }, ctx);
@@ -420,16 +420,12 @@ local function CreateResurrectMenu(parentDescription, ctx)
             ToggleResurrectSwitch, { ctx = ctx, key = key, default = default }), instruction);
     end
 
-    -- **All three on every character, whatever it can cast** (2026-09-23, owner). An action on the
-    -- account layer is set from whichever character is logged in, and a warlock's Soulstone
-    -- should not need a warlock to set it. On a class a switch does nothing for, it does nothing.
+    -- **On every character, whatever it can cast** (2026-09-23, owner). An action on the account
+    -- layer is set from whichever character is logged in. On a class a switch does nothing for, it
+    -- does nothing.
     Switch(LLL["REZ_NO_TARGET_MASS"], "noTargetMassRez", true, LLL["REZ_NO_TARGET_MASS_DESC"]);
     Switch(LLL["REZ_BATTLE_OUT_OF_COMBAT"], "battleRezOutOfCombat", false,
         LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
-    local soulstone = DebindPrivate.SpecSpells.SOULSTONE;
-    local name = DebindPrivate.GetSpellNameAndIconID(soulstone) or tostring(soulstone);
-    Switch(format(LLL["REZ_SOULSTONE_LIVING"], name), "soulstoneLiving", false,
-        format(LLL["REZ_SOULSTONE_LIVING_DESC"], name));
 end
 
 --- The four presses an action can stand on, and where it goes on each

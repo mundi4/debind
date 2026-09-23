@@ -1690,7 +1690,11 @@ do
     ---                 while no single one is known: none in the class, or not learned yet
     ---                 (2026-09-23, owner)
     ---   4  mass       [out of combat, no target], unless `noTargetMassRez` is false
-    ---   5  soulstone  [target alive, target friendly], with `soulstoneLiving` on
+    ---
+    --- **No Soulstone for the living** (2026-09-23, owner). It would have to fall back to you the way
+    --- Auto Self Cast does, which cannot be told in combat, and left to the game it would take every
+    --- press the Spell to Cast condition should hand on. A plain Soulstone action at the end of the
+    --- key does it.
     local function ResurrectBranches(action)
         local spells = DebindPrivate.SpecSpells.ResurrectSpells();
         local out = {};
@@ -1709,10 +1713,6 @@ do
         end
         if (spells.mass and action.noTargetMassRez ~= false) then
             out[#out + 1] = { spell = spells.mass, combat = false, unit = false };
-        end
-        if (spells.soulstone and spells.battle and action.soulstoneLiving) then
-            out[#out + 1] = { spell = spells.battle, self = true,
-                unit = { dead = false, reaction = Constants.REACTION_HELP } };
         end
         return out;
     end
@@ -1831,10 +1831,10 @@ do
 
         --- The casting bindings of one tier, after its original or twin so they land ahead of it.
         ---
-        --- `aimsAt` narrows a resurrection's branches to the ones that tier's unit can take:
-        --- `"self"` is a tier aimed at you, where only the branch for a living friend stands, and
-        --- `"pointed"` one aimed at a unit that has to be there, where the no-target branch cannot.
-        local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit, aimsAt)
+        --- `aimsPointed` is a tier aimed at a unit that has to be there, where a resurrection's
+        --- no-target branch cannot stand.
+        local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit,
+                aimsPointed)
             if (firstDerived > #asks) then
                 return;
             end
@@ -1846,8 +1846,7 @@ do
             -- Back to front, for the reason the whole list is: the first branch has to land first.
             for i = #asks, firstDerived, -1 do
                 local branch = branches and asks[i];
-                if (not branch or (aimsAt ~= "self" or branch.self)
-                        and (aimsAt ~= "pointed" or branch.unit ~= false)) then
+                if (not branch or not aimsPointed or branch.unit ~= false) then
                     local binding = bindings[i];
                     if (not binding) then
                         binding = {};
@@ -1888,7 +1887,7 @@ do
             -- Aimed at the pointed unit, which the twin needs to be there, the no-target branch can
             -- never stand. Cast as usual aims at the target instead, and there it can.
             fillKnown(_ActionToKnownTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE,
-                pointedUnit, pointedAim == pointedUnit and "pointed" or nil);
+                pointedUnit, pointedAim == pointedUnit);
         end
 
         -- **Twins on every action, a picked unit and one that takes no unit included**: the original
@@ -1913,21 +1912,15 @@ do
             fill(_ActionToFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
             fillKnown(_ActionToKnownFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
         end
-        -- **Nobody resurrects themselves**, so a self tier aimed at you stands only for the soulstone
-        -- that goes on a living friend, you included (2026-09-23, owner). Aimed at a picked unit or
-        -- cast as usual, it is an ordinary tier and every branch stands in it. Decided here and not
-        -- before the four-values check above, which is about the reader's switches.
-        local selfOnlySoulstone = branches ~= nil and selfAim == "player";
-        if (selfTwin and selfOnlySoulstone) then
+        -- **Nobody resurrects themselves**, so a resurrection has no self tier aimed at you. Aimed at a
+        -- picked unit or cast as usual, it is an ordinary tier and every branch stands in it. Decided
+        -- here and not before the four-values check above, which is about the reader's switches.
+        if (branches and selfAim == "player") then
             selfTwin = false;
-            for i = 1, #branches do
-                selfTwin = selfTwin or branches[i].self == true;
-            end
         end
         if (selfTwin) then
             fill(_ActionToSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
-            fillKnown(_ActionToKnownSelfCache, selfAim, nil, Constants.CASTMOD_SELF, nil,
-                selfOnlySoulstone and "self" or nil);
+            fillKnown(_ActionToKnownSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
         end
 
         for i = n + 1, #list do

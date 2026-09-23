@@ -130,10 +130,9 @@ local ACTION_FIELDS      = {
     disabled = "boolean",
     -- The spec-resolved types' switch for handing the key on when there is nothing to cast.
     skipWhenUnusable = "boolean",
-    -- A resurrection's three switches.
+    -- A resurrection's two switches.
     noTargetMassRez = "boolean",
     battleRezOutOfCombat = "boolean",
-    soulstoneLiving = "boolean",
     -- Which presses the action stands on. What may sit inside is `CASTING_TYPES` below, and the
     -- import filters that level the way it filters `conditions`.
     casting = "table",

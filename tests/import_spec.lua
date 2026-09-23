@@ -418,10 +418,9 @@ return function(DebindPrivate, DebindStorage)
         -- Skip when there is nothing to cast. Only the spec-resolved types offer it, but the list
         -- carries it whatever the type.
         skipWhenUnusable = true,
-        -- A resurrection's three switches, carried whatever the type.
+        -- A resurrection's two switches, carried whatever the type.
         noTargetMassRez = false,
         battleRezOutOfCombat = true,
-        soulstoneLiving = true,
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,

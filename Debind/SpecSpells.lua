@@ -80,10 +80,9 @@ local REZ_MASS_BY_SPEC = {
     [EVOKER_PRESERVATION] = 361178,
 };
 
---- The warlock's is Soulstone, which also goes on a living friend ahead of time.
-SpecSpells.SOULSTONE = 20707;
+--- The warlock's is Soulstone.
 local REZ_BATTLE_BY_CLASS = {
-    PALADIN = 391054, DRUID = 20484, DEATHKNIGHT = 61999, WARLOCK = SpecSpells.SOULSTONE,
+    PALADIN = 391054, DRUID = 20484, DEATHKNIGHT = 61999, WARLOCK = 20707,
 };
 
 local function CurrentSpecID()
@@ -128,7 +127,6 @@ SpecSpells.KIND_BY_TYPE = {
 ---   single     one friend, out of combat
 ---   mass       everyone in the group, out of combat
 ---   battle     one friend, in combat
----   soulstone  true where `battle` also goes on a living friend
 ---
 --- **`out` is how a rebuild asks without allocating**: `SpellForType` runs for every binding it
 --- fills, as `Resolve` does with `_resolved`.
@@ -139,7 +137,6 @@ function SpecSpells.ResurrectSpells(out)
     out.single = REZ_SINGLE_BY_CLASS[class];
     out.mass = spec and REZ_MASS_BY_SPEC[spec] or nil;
     out.battle = REZ_BATTLE_BY_CLASS[class];
-    out.soulstone = class == "WARLOCK" or nil;
     return out;
 end
 
