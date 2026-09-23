@@ -1848,15 +1848,6 @@ do
         if (DebindPrivate.KeyTakesCastKeyTwins(action)) then
             focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
         end
-        -- **Nobody resurrects themselves**, so the self tier stands only for the soulstone that goes
-        -- on a living friend, you included (2026-09-23, owner).
-        if (branches and selfTwin) then
-            selfTwin = false;
-            for i = 1, #branches do
-                selfTwin = selfTwin or branches[i].self == true;
-            end
-        end
-
         -- **Four values off is an action with no bindings at all** (`which-action-a-key-runs.md`
         -- §6). It is not blocked: the row says why it does not run (`GetCastingOffReason`), and the
         -- key carries on with whatever else is on it. Answered before anything is filled, so the caches
@@ -1868,6 +1859,16 @@ do
                 list[i] = nil;
             end
             return list;
+        end
+
+        -- **Nobody resurrects themselves**, so the self tier stands only for the soulstone that goes
+        -- on a living friend, you included (2026-09-23, owner). **After the check above**, which is
+        -- about the reader's four values: a Self Cast Key row left on is not a press turned off.
+        if (branches and selfTwin) then
+            selfTwin = false;
+            for i = 1, #branches do
+                selfTwin = selfTwin or branches[i].self == true;
+            end
         end
 
         -- **The list is filled back to front.** `BuildKeyMap` walks a list from its last entry
@@ -3243,11 +3244,16 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
         elseif (category ~= "casting" and category ~= "key") then
             -- **Only an action none of whose bindings stands is in trouble** (2026-09-17, owner).
             -- One that cannot stand beside one that does is only left off the key.
+            --
+            -- **A binding that casts nothing is not one that stands**: `omitted` never reaches the
+            -- key and `holdsOnly` only keeps it. A resurrection's branches carry conditions of their
+            -- own, so they can all die under the reader's while the original lives.
             local standing, dead = false, false;
             for i = 1, #list do
                 if (list[i].dead) then
                     dead = true;
-                elseif (list[i].normalCast ~= false) then
+                elseif (list[i].normalCast ~= false and not list[i].omitted
+                        and not list[i].holdsOnly) then
                     standing = true;
                     break;
                 end

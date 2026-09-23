@@ -287,6 +287,37 @@ return function(DebindPrivate, _, ctx)
         reset();
     end);
 
+    -- **An original that never reaches the key is not one that stands.** With the key handed on
+    -- it is `omitted`, and unticked it only holds; a target the reader requires alive leaves no
+    -- branch able to cast, and that has to be said on the row.
+    test("every branch ruled out by the reader's own target row is an issue", function()
+        druidWorld();
+        for _, extra in ipairs({ { skipWhenUnusable = true }, {} }) do
+            local a = { type = Constants.RESURRECT, key = "F1", seq = 1, unit = "target",
+                conditions = { units = { target = { exists = true, dead = false } } } };
+            for k, v in pairs(extra) do
+                a[k] = v;
+            end
+            Bind({ a });
+            check(DebindPrivate.GetBindingIssue(a) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
+                "no issue, skip " .. tostring(a.skipWhenUnusable) .. ": "
+                .. tostring(DebindPrivate.GetBindingIssue(a)));
+        end
+        reset();
+    end);
+
+    -- **"Every press is off" is about the reader's switches**, not about which tiers a resurrection
+    -- has use for. With the Self Cast Key row left on, it is not every press.
+    test("a resurrection with only the self cast key on is not every press off", function()
+        druidWorld();
+        local a = { type = Constants.RESURRECT, key = "F1", seq = 1,
+            casting = { normalCast = false, focusCastKey = "skip" } };
+        Bind({ a });
+        check(DebindPrivate.GetBindingIssue(a) ~= Constants.BINDING_ISSUE_NOTHING_RUNS,
+            "reported every press off");
+        reset();
+    end);
+
     -- The menu offers the three on this type alone, so a stored one anywhere else is taken off.
     test("the resurrection switches are kept on a resurrection and taken off a spell", function()
         local rez = { type = Constants.RESURRECT, key = "F1", seq = 1, noTargetMassRez = false,

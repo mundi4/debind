@@ -850,8 +850,13 @@ end
 
 --- **Stored false while unticked, nil while ticked**, because it is on by default: a healer's
 --- mass resurrection goes out with no target (2026-09-23, owner).
+local function NoTargetMassRezAllowed(action)
+    return action.noTargetMassRez ~= false;
+end
+
+--- Ticked only where every picked action allows it, as every other box here reads a selection.
 local function noTargetMassRezOn(data)
-    return not actionValueEquals({ ctx = data.ctx, key = "noTargetMassRez", value = false });
+    return AllActions(data.ctx, NoTargetMassRezAllowed);
 end
 
 local function toggleNoTargetMassRez(data)
