@@ -95,6 +95,22 @@ return function(DebindPrivate)
             "it came out under the Units label: " .. text);
     end);
 
+    -- **A resurrection names every branch this character has**, since which one goes out is the
+    -- press's (§6-5 of `adding-spec-resolved-actions.md`). Restoration has all three.
+    test("a resurrection's tooltip names each of its spells", function()
+        shim.world.specIndex = 4;
+        shim.world.spells[50769] = { name = "Revive" };
+        shim.world.spells[212040] = { name = "Revitalize" };
+        shim.world.spells[20484] = { name = "Rebirth" };
+        Bind({ { type = Constants.RESURRECT, key = "F1", seq = 1 } }, {});
+
+        local text = Tooltip(DebindPrivate.CollectActionsForKey("F1")[1]);
+        for _, name in ipairs({ "Revive", "Revitalize", "Rebirth" }) do
+            check(text:find(name, 1, true), name .. " is not named: " .. text);
+        end
+        shim.world.specIndex = nil;
+    end);
+
     -- 순서까지 잰다. 위 테스트는 `Units` 묶음에서 빠졌다는 것만 말하는데, 이 줄의 뜻은
     -- **어느 줄들 사이에 있느냐**로 정해지므로 그것만으로는 모자란다.
     test("the reader's own life is drawn after the group line", function()

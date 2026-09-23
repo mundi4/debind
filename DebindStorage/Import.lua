@@ -305,6 +305,7 @@ local VALUE_SHAPES = {
     -- specialization's to decide (`SpecSpells.lua`).
     [Constants.DISPEL]      = false,
     [Constants.RAIDBUFF]    = false,
+    [Constants.RESURRECT]   = false,
 };
 
 --- Is this a shape **this addon could have produced**? Asked of the built action, not of the wire

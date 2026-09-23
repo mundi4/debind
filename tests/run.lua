@@ -199,6 +199,7 @@ local specs = {
     { name = "issue", path = root .. "/issue_spec.lua" },
     { name = "hovertwin", path = root .. "/hovertwin_spec.lua" },
     { name = "specspells", path = root .. "/specspells_spec.lua" },
+    { name = "resurrect", path = root .. "/resurrect_spec.lua" },
     { name = "knownspells", path = root .. "/knownspells_spec.lua" },
     { name = "talents", path = root .. "/talents_spec.lua" },
     { name = "grade", path = root .. "/grade_spec.lua" },

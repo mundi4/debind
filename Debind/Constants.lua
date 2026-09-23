@@ -103,6 +103,9 @@ Constants.TOGGLEMENU                      = "togglemenu";
 --- time (`SpecSpells.lua`, `adding-spec-resolved-actions.md`).
 Constants.DISPEL                          = "dispel";
 Constants.RAIDBUFF                        = "raidbuff";
+--- Several spells, one per branch, each picked by the target and combat
+--- (`adding-spec-resolved-actions.md` §6).
+Constants.RESURRECT                       = "resurrect";
 Constants.COMMAND                         = "command";
 Constants.WORLDMARKER                     = "worldmarker";
 Constants.SETCUSTOM                       = "setcustom";
@@ -200,6 +203,7 @@ Constants.TYPES_WITH_UNIT                 = {
     [Constants.TOGGLEMENU] = true,
     [Constants.DISPEL] = true,
     [Constants.RAIDBUFF] = true,
+    [Constants.RESURRECT] = true,
 };
 
 --- The types whose spell the class and specialization decide (`SpecSpells.lua`). They resolve to
@@ -207,6 +211,7 @@ Constants.TYPES_WITH_UNIT                 = {
 Constants.SPEC_RESOLVED_TYPES             = {
     [Constants.DISPEL] = true,
     [Constants.RAIDBUFF] = true,
+    [Constants.RESURRECT] = true,
 };
 
 --- Which of the client's cast modifiers the press is holding, as one value: the self-cast one wins

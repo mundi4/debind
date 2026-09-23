@@ -418,6 +418,10 @@ return function(DebindPrivate, DebindStorage)
         -- Skip when there is nothing to cast. Only the spec-resolved types offer it, but the list
         -- carries it whatever the type.
         skipWhenUnusable = true,
+        -- A resurrection's three switches, carried whatever the type.
+        noTargetMassRez = false,
+        battleRezOutOfCombat = true,
+        soulstoneLiving = true,
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,
@@ -516,7 +520,7 @@ return function(DebindPrivate, DebindStorage)
     -- 값 없는 타입 셋. `VALUE_SHAPES`에 없는 타입은 문자열 전체를 거절하므로, 셋 다 값 없이 통과해야
     -- 한다 (`SpecSpells.lua`).
     test("전문화가 주문을 정하는 타입 셋은 값 없이 들어온다", function()
-        for _, actionType in ipairs({ Constants.DISPEL, Constants.RAIDBUFF }) do
+        for _, actionType in ipairs({ Constants.DISPEL, Constants.RAIDBUFF, Constants.RESURRECT }) do
             ResetProfile();
             local action = PlanOne(General({ { type = actionType, key = "F", seq = 1 } }));
             check(action.type == actionType, actionType .. "이 " .. tostring(action.type) .. "로 왔다");

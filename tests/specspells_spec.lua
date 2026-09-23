@@ -319,11 +319,12 @@ return function(DebindPrivate, _, ctx)
 
             local a = action({ type = Constants.DISPEL, key = "F3" });
             Bind({ a });
-            check(recordField("F3", 1, "known") == "[known:132411]",
+            -- In the gate's own order. Which comes first changes nothing: the book never holds both.
+            check(recordField("F3", 1, "known") == "[known:119905]",
                 "record 1 known: " .. tostring(recordField("F3", 1, "known")));
-            check(recordField("F3", 1, "knownID") == 132411,
+            check(recordField("F3", 1, "knownID") == 119905,
                 "record 1 id: " .. tostring(recordField("F3", 1, "knownID")));
-            check(recordField("F3", 2, "known") == "[known:119905]",
+            check(recordField("F3", 2, "known") == "[known:132411]",
                 "record 2 known: " .. tostring(recordField("F3", 2, "known")));
             check(recordField("F3", 3, "known") == nil,
                 "the holding record asks: " .. tostring(recordField("F3", 3, "known")));

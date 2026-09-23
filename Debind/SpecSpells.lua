@@ -65,6 +65,27 @@ local RAID_BUFF_BY_CLASS = {
     PRIEST = 21562, DRUID = 1126, MAGE = 1459, WARRIOR = 6673, SHAMAN = 462854, EVOKER = 364342,
 };
 
+--- Resurrection (`adding-spec-resolved-actions.md` §3-3). **The ids were copied from another
+--- addon's table and not checked in the client.** A single and a battle resurrection are the
+--- class's; a mass one belongs to the healing specialization alone.
+local REZ_SINGLE_BY_CLASS = {
+    PRIEST = 2006, PALADIN = 7328, SHAMAN = 2008, DRUID = 50769, MONK = 115178, EVOKER = 361227,
+};
+
+local REZ_MASS_BY_SPEC = {
+    [PRIEST_DISCIPLINE] = 212036, [PRIEST_HOLY] = 212036,
+    [PALADIN_HOLY] = 212056,
+    [SHAMAN_RESTORATION] = 212048,
+    [DRUID_RESTORATION] = 212040,
+    [MONK_MISTWEAVER] = 212051,
+    [EVOKER_PRESERVATION] = 361178,
+};
+
+--- The warlock's is Soulstone, which also goes on a living friend ahead of time.
+local REZ_BATTLE_BY_CLASS = {
+    PALADIN = 391054, DRUID = 20484, DEATHKNIGHT = 61999, WARLOCK = 20707,
+};
+
 local function CurrentSpecID()
     local index = C_SpecializationInfo.GetSpecialization();
     if (not index) then
@@ -102,12 +123,37 @@ SpecSpells.KIND_BY_TYPE = {
     [Constants.RAIDBUFF] = "raidbuff",
 };
 
+--- The resurrections this class and specialization have, a fresh table per call:
+---
+---   single     one friend, out of combat
+---   mass       everyone in the group, out of combat
+---   battle     one friend, in combat
+---   soulstone  true where `battle` also goes on a living friend
+function SpecSpells.ResurrectSpells()
+    local class = Constants.PLAYER_CLASS;
+    local spec = CurrentSpecID();
+    return {
+        single = REZ_SINGLE_BY_CLASS[class],
+        mass = spec and REZ_MASS_BY_SPEC[spec] or nil,
+        battle = REZ_BATTLE_BY_CLASS[class],
+        soulstone = class == "WARLOCK" or nil,
+    };
+end
+
 local _resolved = {};
 
---- The spell one of the three types resolves to right now, or nil where this specialization has
---- none. **The second value is `{ cast, known }`** and it is there only for the warlock's dispel.
---- Everything that names or draws the action reads the first.
+--- The spell a type resolves to right now, or nil where this specialization has none. **The
+--- second value is `{ cast, known }`** and it is there only for the warlock's dispel. Everything
+--- that names or draws the action reads the first.
+---
+--- A resurrection answers with the spell the row is drawn with (§6-5 of the design): the single
+--- one, or the battle or the mass one where there is none. Which one a press casts is the
+--- derivation's (`GetBindingsForAction`).
 function SpecSpells.SpellForType(type)
+    if (type == Constants.RESURRECT) then
+        local spells = SpecSpells.ResurrectSpells();
+        return spells.single or spells.battle or spells.mass, nil;
+    end
     local kind = SpecSpells.KIND_BY_TYPE[type];
     if (not kind) then
         return nil;

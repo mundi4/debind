@@ -506,13 +506,26 @@ do
 		-- **What this character casts, first.** The three spec-resolved types are the only actions
 		-- whose value is not on the row, so the tooltip is where the spell is named -- and where a
 		-- specialization with nothing to cast is told so, since the key still takes the press.
+		-- A resurrection has one spell per branch and which one goes out is the press's, so every
+		-- one this character has is named (§6-5 of `adding-spec-resolved-actions.md`).
 		if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
 			addLabelLine(tooltip, LLL["LINE_TOOLTIP_SPEC_SPELL"]);
-			local spellID = DebindPrivate.SpecSpells.SpellForType(action.type);
-			local name = spellID and DebindPrivate.GetSpellNameAndIconID(spellID);
-			if (name) then
-				addValueLine(tooltip, name);
+			local spellIDs;
+			if (action.type == Constants.RESURRECT) then
+				local spells = DebindPrivate.SpecSpells.ResurrectSpells();
+				spellIDs = { spells.single, spells.mass, spells.battle };
 			else
+				spellIDs = { (DebindPrivate.SpecSpells.SpellForType(action.type)) };
+			end
+			local any = false;
+			for i = 1, 3 do
+				local name = spellIDs[i] and DebindPrivate.GetSpellNameAndIconID(spellIDs[i]);
+				if (name) then
+					addValueLine(tooltip, name);
+					any = true;
+				end
+			end
+			if (not any) then
 				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_SPEC_SPELL_NONE"]));
 			end
 		end

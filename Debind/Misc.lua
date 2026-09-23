@@ -939,6 +939,72 @@ do
     -- nothing at the moment nothing is pointed at.
     local UNIT_IS_THERE = {};
 
+    --- A resurrection branch's own condition on the aimed unit, met with the reader's on the same
+    --- `"@"`. Answers the table to store, `false` for [when there is none], or nil where the two
+    --- cannot both hold -- a branch that asks for a corpse under a reader who asked for no target.
+    --- **Nil is not stored as a binding at all**: a box with nothing in it would only be a row the
+    --- solver has to find empty.
+    local function MeetResurrectUnit(existing, want)
+        if (existing == nil) then
+            if (want == false) then
+                return false;
+            end
+            local out = {};
+            for k, v in pairs(want) do
+                out[k] = v;
+            end
+            return out;
+        end
+        if (existing == false or want == false) then
+            if (existing == false and want == false) then
+                return false;
+            end
+            return nil;
+        end
+        local out = {};
+        for k, v in pairs(existing) do
+            out[k] = v;
+        end
+        if (want.reaction ~= nil) then
+            out.reaction = out.reaction and band(out.reaction, want.reaction) or want.reaction;
+            if (out.reaction == 0) then
+                return nil;
+            end
+        end
+        if (want.dead ~= nil) then
+            if (out.dead ~= nil and out.dead ~= want.dead) then
+                return nil;
+            end
+            out.dead = want.dead;
+        end
+        if (want.group ~= nil) then
+            out.group = out.group and band(out.group, want.group) or want.group;
+            if (out.group == 0) then
+                return nil;
+            end
+        end
+        return out;
+    end
+
+    --- Puts a resurrection branch's combat and target conditions on top of the reader's. False
+    --- where the two contradict.
+    local function ApplyResurrectBranch(conditions, branch)
+        if (branch.combat ~= nil) then
+            if (conditions.combat ~= nil and conditions.combat ~= branch.combat) then
+                return false;
+            end
+            conditions.combat = branch.combat;
+        end
+        local units = conditions.units;
+        local met = MeetResurrectUnit(units and units["@"], branch.unit);
+        if (met == nil) then
+            return false;
+        end
+        conditions.units = units or {};
+        conditions.units["@"] = met;
+        return true;
+    end
+
     --- 액션을 바인딩으로.
     ---
     --- 이 함수에만 있는 사실 셋:
@@ -969,7 +1035,7 @@ do
     --- menu made it. `twinOwnUnit` is what tells the hover twin's own [the unit is there] apart from
     --- a row the reader wrote: both sit in `conditions.units` by the time `BuildUnitStates` reads it.
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
-            knownSpell)
+            knownSpell, branch)
         local twin = castModifier ~= nil;
         -- **The pre-rename spelling of the target, for the profiles the ladder has not reached.**
         -- `dbver <= 6` renames a stored `unit = "hover"` alongside the condition; the unit table
@@ -1179,12 +1245,27 @@ do
                 and Constants.SPEC_RESOLVED_TYPES[binding.type]) then
             conditions.known = true;
         end
+        --
+        -- **A resurrection's branch is a binding like the dispel's ids**, with its own spell and the
+        -- conditions that pick it on top of the reader's (`ApplyResurrectBranch`). Its original has
+        -- no one spell to cast, so ticked it is `omitted` rather than asking about one.
         binding.holdsOnly = nil;
-        if (binding.spell ~= nil) then
+        binding.omitted = nil;
+        if (branch ~= nil) then
+            conditions.known = branch.spell;
+            binding.spellToCast = branch.spell;
+            if (not ApplyResurrectBranch(conditions, branch)) then
+                return false;
+            end
+        elseif (binding.spell ~= nil) then
             if (knownSpell ~= nil) then
                 conditions.known = knownSpell;
             elseif (conditions.known == true) then
-                conditions.known = gate and gate.known[1] or true;
+                if (binding.type == Constants.RESURRECT) then
+                    binding.omitted = true;
+                else
+                    conditions.known = gate and gate.known[1] or true;
+                end
             elseif (conditions.known == nil) then
                 binding.holdsOnly = true;
             end
@@ -1578,6 +1659,48 @@ do
     local ASK_OWN_SPELL = { true };
     local NO_KNOWN = {};
 
+    local HELP_DEAD = { dead = true, reaction = Constants.REACTION_HELP };
+
+    --- A resurrection's branches, in the order a press tries them (`adding-spec-resolved-actions.md`
+    --- §6). Each asks `known` about its own spell, so one not known gives way to the next and "the
+    --- single one where there is no mass one" is written by order alone.
+    ---
+    --- **Only 1 goes out in combat**, since it is the only one the game casts there; the rest would
+    --- send a cast for the game to refuse. **4 asks for no target** rather than standing as a last
+    --- catch-all: a catch-all would send a mass resurrection at a living friend as well, and a
+    --- [Friendly] the reader puts on the target would leave it standing, which nobody could guess
+    --- from the screen (2026-09-23, owner).
+    ---
+    ---   1  battle     [combat, target dead]
+    ---   2  mass       [out of combat, target dead, target in my group]
+    ---   3  single     [out of combat, target dead, target friendly]; the battle one where the class
+    ---                 has no single one and `battleRezOutOfCombat` is on
+    ---   4  mass       [out of combat, no target], unless `noTargetMassRez` is false
+    ---   5  soulstone  [target alive, target friendly], with `soulstoneLiving` on
+    local function ResurrectBranches(action)
+        local spells = DebindPrivate.SpecSpells.ResurrectSpells();
+        local out = {};
+        if (spells.battle) then
+            out[#out + 1] = { spell = spells.battle, combat = true, unit = { dead = true } };
+        end
+        if (spells.mass) then
+            out[#out + 1] = { spell = spells.mass, combat = false, unit = { dead = true,
+                group = bor(Constants.UNITGROUP_PARTY, Constants.UNITGROUP_RAID) } };
+        end
+        local single = spells.single or (action.battleRezOutOfCombat and spells.battle);
+        if (single) then
+            out[#out + 1] = { spell = single, combat = false, unit = HELP_DEAD };
+        end
+        if (spells.mass and action.noTargetMassRez ~= false) then
+            out[#out + 1] = { spell = spells.mass, combat = false, unit = false };
+        end
+        if (spells.soulstone and spells.battle and action.soulstoneLiving) then
+            out[#out + 1] = { spell = spells.battle, self = true,
+                unit = { dead = false, reaction = Constants.REACTION_HELP } };
+        end
+        return out;
+    end
+
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
     ---
@@ -1666,8 +1789,11 @@ do
         -- Read off the original, which is where `FillBinding` settled what the box, a stored
         -- `false` and `skipWhenUnusable` add up to. A gated one that took the first id is ticked;
         -- a `known` naming some other spell is neither.
-        local asks, firstDerived = NO_KNOWN, 1;
-        if (original.spell ~= nil) then
+        local asks, firstDerived, branches = NO_KNOWN, 1, nil;
+        if (action.type == Constants.RESURRECT) then
+            branches = ResurrectBranches(action);
+            asks = branches;
+        elseif (original.spell ~= nil) then
             local _, gate = DebindPrivate.SpecSpells.SpellForType(action.type);
             if (original.holdsOnly) then
                 asks = gate and gate.known or ASK_OWN_SPELL;
@@ -1688,6 +1814,8 @@ do
         end
 
         --- The casting bindings of one tier, after its original or twin so they land ahead of it.
+        --- A resurrection branch that cannot hold under the reader's conditions is left out, and in
+        --- the self tier only the branch that goes on a living friend stands.
         local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit)
             if (firstDerived > #asks) then
                 return;
@@ -1697,16 +1825,21 @@ do
                 bindings = {};
                 cache[action] = bindings;
             end
-            for i = firstDerived, #asks do
-                local binding = bindings[i];
-                if (not binding) then
-                    binding = {};
-                    bindings[i] = binding;
+            -- Back to front, for the reason the whole list is: the first branch has to land first.
+            for i = #asks, firstDerived, -1 do
+                local branch = branches and asks[i];
+                if (not branch or castModifier ~= Constants.CASTMOD_SELF or branch.self) then
+                    local binding = bindings[i];
+                    if (not binding) then
+                        binding = {};
+                        bindings[i] = binding;
+                    end
+                    if (FillBinding(binding, action, aimedUnit, twinCondition, castModifier,
+                            pointedUnit, not branch and asks[i] or nil, branch or nil)) then
+                        n = n + 1;
+                        list[n] = binding;
+                    end
                 end
-                FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
-                    asks[i]);
-                n = n + 1;
-                list[n] = binding;
             end
         end
 
@@ -1714,6 +1847,14 @@ do
         local focusTwin, selfTwin = false, false;
         if (DebindPrivate.KeyTakesCastKeyTwins(action)) then
             focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
+        end
+        -- **Nobody resurrects themselves**, so the self tier stands only for the soulstone that goes
+        -- on a living friend, you included (2026-09-23, owner).
+        if (branches and selfTwin) then
+            selfTwin = false;
+            for i = 1, #branches do
+                selfTwin = selfTwin or branches[i].self == true;
+            end
         end
 
         -- **Four values off is an action with no bindings at all** (`which-action-a-key-runs.md`

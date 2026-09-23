@@ -844,6 +844,49 @@ local function CreateSkipWhenUnusableMenuItem(rootDescription, ctx)
     SetInstructionTooltip(description, LLL["SKIP_WHEN_UNUSABLE_DESC"]);
 end
 
+local function IsResurrect(action)
+    return action.type == Constants.RESURRECT;
+end
+
+--- **Stored false while unticked, nil while ticked**, because it is on by default: a healer's
+--- mass resurrection goes out with no target (2026-09-23, owner).
+local function noTargetMassRezOn(data)
+    return not actionValueEquals({ ctx = data.ctx, key = "noTargetMassRez", value = false });
+end
+
+local function toggleNoTargetMassRez(data)
+    local value = false;
+    if (not noTargetMassRezOn(data)) then
+        value = nil;
+    end
+    return setActionValue({ ctx = data.ctx, key = "noTargetMassRez", value = value });
+end
+
+--- A resurrection's three switches (`adding-spec-resolved-actions.md` §6). **The Soulstone one
+--- stands only for a class that has it.**
+local function CreateResurrectMenuItems(rootDescription, ctx)
+    if (not AllActions(ctx, IsResurrect)) then
+        return;
+    end
+    local massDescription = CreateCheckbox(rootDescription, ctx, LLL["REZ_NO_TARGET_MASS"],
+        noTargetMassRezOn, toggleNoTargetMassRez, { ctx = ctx });
+    SetInstructionTooltip(massDescription, LLL["REZ_NO_TARGET_MASS_DESC"]);
+
+    local battleDescription = CreateCheckbox(rootDescription, ctx, LLL["REZ_BATTLE_OUT_OF_COMBAT"],
+        actionValueEquals, setActionValue,
+        { ctx = ctx, key = "battleRezOutOfCombat", value = USE_CHECKED_VALUE });
+    SetInstructionTooltip(battleDescription, LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
+
+    local spells = DebindPrivate.SpecSpells.ResurrectSpells();
+    if (spells.soulstone and spells.battle) then
+        local name = C_Spell.GetSpellName(spells.battle) or tostring(spells.battle);
+        local stoneDescription = CreateCheckbox(rootDescription, ctx,
+            format(LLL["REZ_SOULSTONE_LIVING"], name), actionValueEquals, setActionValue,
+            { ctx = ctx, key = "soulstoneLiving", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(stoneDescription, format(LLL["REZ_SOULSTONE_LIVING_DESC"], name));
+    end
+end
+
 local function CreateDeleteMenu(rootDescription, ctx)
     rootDescription:CreateButton(LLL["DELETE"], function()
         DebindUI.ShowDeleteConfirmationPopup(ctx.actions);
@@ -867,4 +910,5 @@ ActionMenu.CreateBlockedMenuItem              = CreateBlockedMenuItem;
 ActionMenu.CreateOrderMenuItems               = CreateOrderMenuItems;
 ActionMenu.CreateDisableMenuItem              = CreateDisableMenuItem;
 ActionMenu.CreateSkipWhenUnusableMenuItem     = CreateSkipWhenUnusableMenuItem;
+ActionMenu.CreateResurrectMenuItems           = CreateResurrectMenuItems;
 ActionMenu.CreateDeleteMenu                   = CreateDeleteMenu;

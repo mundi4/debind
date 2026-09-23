@@ -745,7 +745,7 @@ function DebindPrivate.IsUnreachableAction(action)
         or DebindPrivate.GetBindingsForAction(action);
     local standing = false;
     for i = 1, #list do
-        if (not list[i].dead) then
+        if (not list[i].dead and not list[i].omitted) then
             if (not UnreachableBindingCache[list[i]]) then
                 return false;
             end

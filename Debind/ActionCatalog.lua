@@ -576,7 +576,7 @@ local function AddExtraSpellEntries(entries, seen)
 	--
 	-- 값은 안 든다. 이름과 아이콘은 `AddEntry`가 `NameAndIconForAction`에 물어 채우므로
 	-- 아래 이름순 정렬에 그대로 섞인다.
-	for _, actionType in ipairs({ Constants.DISPEL, Constants.RAIDBUFF }) do
+	for _, actionType in ipairs({ Constants.DISPEL, Constants.RAIDBUFF, Constants.RESURRECT }) do
 		AddEntry(collected, seen, {
 			type = actionType,
 			group = group,
