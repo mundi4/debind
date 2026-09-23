@@ -22,7 +22,8 @@ local CreateMoveCopyMenu                      = ActionMenu.CreateMoveCopyMenu;
 local CreateBlockedMenuItem                   = ActionMenu.CreateBlockedMenuItem;
 local CreateOrderMenuItems                    = ActionMenu.CreateOrderMenuItems;
 local CreateDisableMenuItem                   = ActionMenu.CreateDisableMenuItem;
-local CreateDeleteMenu                        = ActionMenu.CreateDeleteMenu;
+local CreateSkipWhenUnusableMenuItem          = ActionMenu.CreateSkipWhenUnusableMenuItem;
+local CreateDeleteMenu                       = ActionMenu.CreateDeleteMenu;
 local GetTabList                              = ActionMenu.GetTabList;
 local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip;
 local MenuKit                                 = DebindPrivate.MenuKit;
@@ -159,6 +160,8 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     --
     rootDescription:CreateDivider();
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
+
+    CreateSkipWhenUnusableMenuItem(rootDescription, ctx);
 
     CreateImportanceMenu(rootDescription, ctx);
 

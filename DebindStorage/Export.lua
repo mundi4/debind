@@ -128,6 +128,8 @@ local ACTION_FIELDS      = {
     -- a running action the sender had stopped, and turning something on is not a thing an import may
     -- do by itself.
     disabled = "boolean",
+    -- The spec-resolved types' switch for handing the key on when there is nothing to cast.
+    skipWhenUnusable = "boolean",
     -- Which presses the action stands on. What may sit inside is `CASTING_TYPES` below, and the
     -- import filters that level the way it filters `conditions`.
     casting = "table",

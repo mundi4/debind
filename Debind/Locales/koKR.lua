@@ -92,6 +92,8 @@ L["CONDITION_INDOORS"] = "실내"
 L["CONDITION_KNOWN"] = "배운 주문"
 L["CONDITION_KNOWN_YES"] = "주문을 배웠을 때만"
 L["CONDITION_KNOWN_VALUE"] = "%s을(를) 배웠을 때만"
+L["SKIP_WHEN_UNUSABLE"] = "시전할 주문이 없으면 건너뛰기"
+L["SKIP_WHEN_UNUSABLE_DESC"] = "이 액션으로 시전할 수 있는 주문이 없으면 이 액션은 누름을 건너뛰고, 키의 다음 액션이 받습니다. 끄면 키는 그대로 잡혀 있고 눌러도 아무 일이 없습니다."
 L["CONDITION_MISC"] = "기타"
 -- 클라이언트가 쓰는 말 그대로다(`TALENTS`). "찍다"도 클라이언트의 동사다
 -- (`ERR_CANT_EQUIP_NEED_TALENT` = "필요한 특성을 찍지 않았으므로 착용할 수 없습니다.").

@@ -1571,19 +1571,20 @@ L["TYPE_SPELL"] = "Spell"
 L["TYPE_TARGET"] = "Set Target"
 L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
 L["TYPE_SPEC_RESOLVED_HEADER"] = "Class and Specialization"
--- The second half of all three descriptions below. They say one thing between them: the action
--- carries no condition, so it matches everywhere and the key is spent even where there is nothing
--- to cast.
+-- The second half of both descriptions below: with nothing to cast, the key is still spent.
 --
--- **It asks what you have, not which specialization you are in.** The spell comes out of the
--- specialization table without anyone checking whether it has been learned
--- (`SpecSpells.SpellForType`), so a specialization that has one on paper is the same case while
--- the spell is still unlearned, and a sentence naming the specialization would miss it.
+-- **It asks what you have, not which specialization you are in.** A specialization that has the
+-- spell on paper is the same case while it is still unlearned, and a sentence naming the
+-- specialization would miss it.
 --
--- **It names `CONDITION_KNOWN` in words.** Renaming that row leaves this sentence pointing at
--- something that is not on screen, which is the cost; without the name the reader is told a
--- condition exists and not which one, and the sentence stops being actionable.
-L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To have the key only when you have one, turn on the Known Spell condition."
+-- **`%s` is `SKIP_WHEN_UNUSABLE`**, passed by the caller, so a rename of that checkbox reaches
+-- this sentence.
+L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, turn on %s."
+-- **One switch for every reason there is nothing to cast** (2026-09-23, owner): the spell is not
+-- learned, the specialization has none, or neither of a warlock's two is there. The reader is not
+-- asked to know which it is.
+L["SKIP_WHEN_UNUSABLE"] = "Skip when there is nothing to cast"
+L["SKIP_WHEN_UNUSABLE_DESC"] = "When you have nothing this action can cast, it sits the press out and the next action on the key takes it. Unticked, the key is kept and the press does nothing."
 L["TYPE_DISPEL"] = "Dispel"
 L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
 L["TYPE_RAIDBUFF"] = "Raid Buff"

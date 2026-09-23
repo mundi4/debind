@@ -828,6 +828,22 @@ local function CreateDisableMenuItem(rootDescription, ctx)
     SetInstructionTooltip(description, LLL["ACTION_DISABLED_DESC"]);
 end
 
+local function IsSpecResolved(action)
+    return Constants.SPEC_RESOLVED_TYPES[action.type] == true;
+end
+
+--- **Only the types that can be left with nothing to cast** (`adding-spec-resolved-actions.md`
+--- §4). On any other type the field would be stored and read by nothing.
+local function CreateSkipWhenUnusableMenuItem(rootDescription, ctx)
+    if (not AllActions(ctx, IsSpecResolved)) then
+        return;
+    end
+    local description = CreateCheckbox(rootDescription, ctx, LLL["SKIP_WHEN_UNUSABLE"],
+        actionValueEquals, setActionValue,
+        { ctx = ctx, key = "skipWhenUnusable", value = USE_CHECKED_VALUE });
+    SetInstructionTooltip(description, LLL["SKIP_WHEN_UNUSABLE_DESC"]);
+end
+
 local function CreateDeleteMenu(rootDescription, ctx)
     rootDescription:CreateButton(LLL["DELETE"], function()
         DebindUI.ShowDeleteConfirmationPopup(ctx.actions);
@@ -850,4 +866,5 @@ ActionMenu.CreateMoveCopyMenu                 = CreateMoveCopyMenu;
 ActionMenu.CreateBlockedMenuItem              = CreateBlockedMenuItem;
 ActionMenu.CreateOrderMenuItems               = CreateOrderMenuItems;
 ActionMenu.CreateDisableMenuItem              = CreateDisableMenuItem;
+ActionMenu.CreateSkipWhenUnusableMenuItem     = CreateSkipWhenUnusableMenuItem;
 ActionMenu.CreateDeleteMenu                   = CreateDeleteMenu;

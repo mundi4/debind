@@ -1170,6 +1170,15 @@ do
         -- being the derivation's business, because this function is what every caller of
         -- `GetBindingInfoForAction` gets and it has to answer the same thing every time it runs.
         -- A `known` naming a spell is a different question and is left as it is.
+        --
+        -- **`skipWhenUnusable` is the ticked box under the reader's own name for it** (2026-09-23,
+        -- owner): "hand the key on when there is nothing to cast", whatever the reason is. Ticking
+        -- `known` as well changes nothing. With no spell at all it reaches `KnownConditionCanHold`
+        -- the same way, and the action leaves the build.
+        if (conditions.known == nil and action.skipWhenUnusable
+                and Constants.SPEC_RESOLVED_TYPES[binding.type]) then
+            conditions.known = true;
+        end
         binding.holdsOnly = nil;
         if (binding.spell ~= nil) then
             if (knownSpell ~= nil) then
@@ -1654,16 +1663,15 @@ do
         --
         -- **Ticked, the original asks about the first spell and the rest are derived. Unticked,
         -- every one is derived** and the original holds the key behind them (`FillBinding`).
-        -- Read off the action, because the original has already taken the first id by the time it
-        -- is looked at.
+        -- Read off the original, which is where `FillBinding` settled what the box, a stored
+        -- `false` and `skipWhenUnusable` add up to. A gated one that took the first id is ticked;
+        -- a `known` naming some other spell is neither.
         local asks, firstDerived = NO_KNOWN, 1;
         if (original.spell ~= nil) then
             local _, gate = DebindPrivate.SpecSpells.SpellForType(action.type);
-            local known = action.conditions and action.conditions.known;
-            -- `false` is no condition (`FillBinding`), so the original already holds.
-            if (known == nil or known == false) then
+            if (original.holdsOnly) then
                 asks = gate and gate.known or ASK_OWN_SPELL;
-            elseif (known == true and gate) then
+            elseif (gate and original.conditions.known == gate.known[1]) then
                 asks, firstDerived = gate.known, 2;
             end
         end

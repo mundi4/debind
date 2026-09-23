@@ -82,6 +82,14 @@ return function(DebindPrivate, _, ctx)
         return castmod.index(Constants, interp:recordsFor(key), (interp:evalKey(key)));
     end
 
+    --- The spell the winning record casts, nil for one that holds the key and casts nothing.
+    --- **Asked by what fires rather than by index**: a record that holds the key covers every
+    --- action behind it, the solver drops those, and an index then names a different record.
+    local function firedSpell(key)
+        local _, _, record = interp:evalKey(key);
+        return record and record.spell;
+    end
+
     ---------------------------------------------------------------------------
     -- Resolution
     ---------------------------------------------------------------------------
@@ -383,7 +391,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     -- **Unticked, neither id in the book is a press that does nothing**, and not one handed to the
-    -- action behind. Records 1 and 2 are the two ids, 3 holds the key and 4 is the spell behind.
+    -- action behind.
     test("an unticked gated dispel keeps the key with neither id in the book", function()
         if (shipped) then
             return;
@@ -397,15 +405,16 @@ return function(DebindPrivate, _, ctx)
             });
 
             shim.world.spellbook[119905] = true;
-            check(winner("F3") == 2, "with the imp out the dispel did not fire");
+            check(firedSpell("F3") == "Command Demon", "with the imp out the dispel did not fire");
 
             shim.world.spellbook[119905] = nil;
             shim.world.spellbook[132411] = true;
-            check(winner("F3") == 1, "with the imp swallowed the dispel did not fire");
+            check(firedSpell("F3") == "Command Demon", "with the imp swallowed the dispel did not fire");
 
             shim.world.spellbook[132411] = nil;
-            check(winner("F3") == 3, "with neither in the book the key was not held: "
-                .. tostring(winner("F3")));
+            local index, _, record = interp:evalKey("F3");
+            check(index ~= nil and record.spell == nil,
+                "with neither in the book the key was not held: " .. tostring(record and record.spell));
         end);
     end);
 
@@ -428,9 +437,12 @@ return function(DebindPrivate, _, ctx)
         check(recordField("F5", 2, "spell") == nil,
             "the holding record casts: " .. tostring(recordField("F5", 2, "spell")));
 
-        check(winner("F5") == 2, "unlearned, the key was not held: " .. tostring(winner("F5")));
+        local index, _, record = interp:evalKey("F5");
+        check(index ~= nil and record.spell == nil,
+            "unlearned, the key was not held: " .. tostring(record and record.spell));
         interp.state.known["Remove Corruption"] = true;
-        check(winner("F5") == 1, "learned, the dispel did not fire");
+        check(firedSpell("F5") == "Remove Corruption", "learned, the dispel did not fire");
+        interp:resetState();
         shim.world.specIndex = nil;
     end);
 
@@ -450,6 +462,77 @@ return function(DebindPrivate, _, ctx)
         check(record and record.spell ~= nil, "learned, the dispel did not cast");
         interp:resetState();
         shim.world.specIndex = nil;
+    end);
+
+    -- **"Skip when nothing to cast" hands the key on** (2026-09-23, owner). It is the reader's one
+    -- switch for every reason the action has nothing to cast, so it does what ticking `known` does
+    -- without the reader having to know that `known` is the reason.
+    test("skipping hands the key on while the dispel is not known", function()
+        if (shipped) then
+            return;
+        end
+        shim.world.specIndex = 1;
+        shim.world.spells[2782] = { name = "Remove Corruption" };
+        shim.world.spells[8936] = { name = "Regrowth" };
+        Bind({
+            action({ type = Constants.DISPEL, key = "F9", skipWhenUnusable = true }),
+            action({ type = Constants.SPELL, key = "F9", value = 8936 }),
+        });
+        check(firedSpell("F9") == "Regrowth",
+            "unlearned, the spell behind did not take the key: " .. tostring(firedSpell("F9")));
+        interp.state.known["Remove Corruption"] = true;
+        check(firedSpell("F9") == "Remove Corruption",
+            "learned, the dispel did not fire: " .. tostring(firedSpell("F9")));
+        interp:resetState();
+        shim.world.specIndex = nil;
+    end);
+
+    test("skipping hands the key on where there is no dispel", function()
+        if (shipped) then
+            return;
+        end
+        shim.world.specIndex = 1;
+        shim.world.spells[8936] = { name = "Regrowth" };
+        withNoDispel(function()
+            Bind({
+                action({ type = Constants.DISPEL, key = "F9", skipWhenUnusable = true }),
+                action({ type = Constants.SPELL, key = "F9", value = 8936 }),
+            });
+            check(firedSpell("F9") == "Regrowth",
+                "the spell behind did not take the key: " .. tostring(firedSpell("F9")));
+        end);
+        shim.world.specIndex = nil;
+    end);
+
+    test("skipping hands the key on with neither warlock id in the book", function()
+        if (shipped) then
+            return;
+        end
+        withGate(WARLOCK_GATE, function()
+            warlockWorld();
+            shim.world.spells[8936] = { name = "Regrowth" };
+            Bind({
+                action({ type = Constants.DISPEL, key = "F9", skipWhenUnusable = true }),
+                action({ type = Constants.SPELL, key = "F9", value = 8936 }),
+            });
+            shim.world.spellbook[132411] = true;
+            check(firedSpell("F9") == "Command Demon",
+                "with the imp swallowed the dispel did not fire: " .. tostring(firedSpell("F9")));
+            shim.world.spellbook[132411] = nil;
+            check(firedSpell("F9") == "Regrowth",
+                "with neither in the book the spell behind did not win: " .. tostring(firedSpell("F9")));
+        end);
+    end);
+
+    -- The menu offers the switch on these types alone, so a stored one anywhere else is taken off.
+    test("skipping is kept on a dispel and taken off a spell", function()
+        local dispel = { type = Constants.DISPEL, key = "F1", seq = 1, skipWhenUnusable = true };
+        local spell = { type = Constants.SPELL, value = 8936, key = "F2", seq = 1,
+            skipWhenUnusable = true };
+        Bind({ dispel, spell });
+        DebindPrivate.CleanUpDB();
+        check(dispel.skipWhenUnusable == true, "taken off the dispel");
+        check(spell.skipWhenUnusable == nil, "left on the spell");
     end);
 
     -- **Every tier the action stands in splits the same way**: a held self cast key reaches the self

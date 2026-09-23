@@ -39,6 +39,10 @@ local KEYS_TO_SAVE       = {
     -- presses are all off (`which-action-a-key-runs.md` §6). Deleting is the other way to
     -- stop an action, and it takes the conditions, the importance and the place in the key with it.
     disabled = true,
+    -- **With nothing to cast, the next action on the key takes the press** instead of the key being
+    -- held for nothing. Only the spec-resolved types offer it (`adding-spec-resolved-actions.md`
+    -- §4), because only they can be left with nothing to cast by the class or the specialization.
+    skipWhenUnusable = true,
     -- **Which presses this action stands on**, as one table of four values
     -- (`which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
@@ -3113,6 +3117,12 @@ function DebindPrivate.CleanUpDB()
                 if (KEYS_TO_SAVE[k] == nil) then
                     action[k] = nil;
                 end
+            end
+
+            -- The menu offers it on the spec-resolved types alone, so anywhere else it is a value
+            -- the reader could not have set and cannot see to clear.
+            if (action.skipWhenUnusable ~= nil and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
+                action.skipWhenUnusable = nil;
             end
 
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션

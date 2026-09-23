@@ -415,6 +415,9 @@ return function(DebindPrivate, DebindStorage)
         -- 보낸 쪽이 꺼 둔 액션은 꺼진 채로 도착한다. `setActionValue`의 체크박스 갈래이기도
         -- 하다 - 조건이 아니라 액션 최상단이다.
         disabled = true,
+        -- Skip when there is nothing to cast. Only the spec-resolved types offer it, but the list
+        -- carries it whatever the type.
+        skipWhenUnusable = true,
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,
