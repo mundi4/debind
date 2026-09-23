@@ -867,8 +867,7 @@ local function toggleNoTargetMassRez(data)
     return setActionValue({ ctx = data.ctx, key = "noTargetMassRez", value = value });
 end
 
---- A resurrection's three switches (`adding-spec-resolved-actions.md` §6). **The Soulstone one
---- stands only for a class that has it.**
+--- A resurrection's three switches (`adding-spec-resolved-actions.md` §6).
 local function CreateResurrectMenuItems(rootDescription, ctx)
     if (not AllActions(ctx, IsResurrect)) then
         return;
@@ -877,14 +876,19 @@ local function CreateResurrectMenuItems(rootDescription, ctx)
         noTargetMassRezOn, toggleNoTargetMassRez, { ctx = ctx });
     SetInstructionTooltip(massDescription, LLL["REZ_NO_TARGET_MASS_DESC"]);
 
-    local battleDescription = CreateCheckbox(rootDescription, ctx, LLL["REZ_BATTLE_OUT_OF_COMBAT"],
-        actionValueEquals, setActionValue,
-        { ctx = ctx, key = "battleRezOutOfCombat", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(battleDescription, LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
-
+    -- **Only where it changes something**: a class with a battle resurrection and no single one.
+    -- The class does not change on a character, so the box is not offered to one it can never
+    -- reach.
     local spells = DebindPrivate.SpecSpells.ResurrectSpells();
+    if (spells.battle and not spells.single) then
+        local battleDescription = CreateCheckbox(rootDescription, ctx,
+            LLL["REZ_BATTLE_OUT_OF_COMBAT"], actionValueEquals, setActionValue,
+            { ctx = ctx, key = "battleRezOutOfCombat", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(battleDescription, LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
+    end
+
     if (spells.soulstone and spells.battle) then
-        local name = C_Spell.GetSpellName(spells.battle) or tostring(spells.battle);
+        local name = DebindPrivate.GetSpellNameAndIconID(spells.battle) or tostring(spells.battle);
         local stoneDescription = CreateCheckbox(rootDescription, ctx,
             format(LLL["REZ_SOULSTONE_LIVING"], name), actionValueEquals, setActionValue,
             { ctx = ctx, key = "soulstoneLiving", value = USE_CHECKED_VALUE });

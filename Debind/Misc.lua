@@ -941,9 +941,11 @@ do
 
     --- A resurrection branch's own condition on the aimed unit, met with the reader's on the same
     --- `"@"`. Answers the table to store, `false` for [when there is none], or nil where the two
-    --- cannot both hold -- a branch that asks for a corpse under a reader who asked for no target.
-    --- **Nil is not stored as a binding at all**: a box with nothing in it would only be a row the
-    --- solver has to find empty.
+    --- cannot both hold. A branch that asks for a corpse under a reader who asked for no target is
+    --- one of those.
+    ---
+    --- **The group axis is met in cells**, as `IntersectStoredUnitConditions` does: the three values
+    --- overlap, so a bit mask `band` is not the intersection in general.
     local function MeetResurrectUnit(existing, want)
         if (existing == nil) then
             if (want == false) then
@@ -978,31 +980,42 @@ do
             out.dead = want.dead;
         end
         if (want.group ~= nil) then
-            out.group = out.group and band(out.group, want.group) or want.group;
-            if (out.group == 0) then
-                return nil;
+            if (out.group == nil) then
+                out.group = want.group;
+            else
+                local cells = band(UnitGroupToCells(out.group), UnitGroupToCells(want.group));
+                if (cells == 0) then
+                    return nil;
+                end
+                out.group = CellsToUnitGroup(cells);
             end
         end
         return out;
     end
 
-    --- Puts a resurrection branch's combat and target conditions on top of the reader's. False
-    --- where the two contradict.
+    --- No unit satisfies it: exists, and in none of the three reactions. The shape
+    --- `IntersectStoredUnitConditions` uses for the same answer.
+    local NO_UNIT = { reaction = 0 };
+
+    --- Puts a resurrection branch's combat and target conditions on top of the reader's.
+    ---
+    --- **Where the two contradict, the branch still stands as one that cannot**, so the issue check
+    --- sees it (`EvaluateIssues`). Left out of the list, every branch ruled out by the reader's own
+    --- conditions left only the original holding the key and no mark on the row. A contradiction
+    --- on the target writes a unit nothing satisfies, which the unit menus are painted for; one on
+    --- combat has no such shape and answers `"combat"` for the caller to mark.
     local function ApplyResurrectBranch(conditions, branch)
+        local units = conditions.units;
+        local met = MeetResurrectUnit(units and units["@"], branch.unit);
+        conditions.units = units or {};
+        conditions.units["@"] = met == nil and NO_UNIT or met;
         if (branch.combat ~= nil) then
             if (conditions.combat ~= nil and conditions.combat ~= branch.combat) then
-                return false;
+                return "combat";
             end
             conditions.combat = branch.combat;
         end
-        local units = conditions.units;
-        local met = MeetResurrectUnit(units and units["@"], branch.unit);
-        if (met == nil) then
-            return false;
-        end
-        conditions.units = units or {};
-        conditions.units["@"] = met;
-        return true;
+        return nil;
     end
 
     --- 액션을 바인딩으로.
@@ -1251,12 +1264,11 @@ do
         -- no one spell to cast, so ticked it is `omitted` rather than asking about one.
         binding.holdsOnly = nil;
         binding.omitted = nil;
+        binding.combatContradicts = nil;
         if (branch ~= nil) then
             conditions.known = branch.spell;
             binding.spellToCast = branch.spell;
-            if (not ApplyResurrectBranch(conditions, branch)) then
-                return false;
-            end
+            binding.combatContradicts = ApplyResurrectBranch(conditions, branch) == "combat" or nil;
         elseif (binding.spell ~= nil) then
             if (knownSpell ~= nil) then
                 conditions.known = knownSpell;
@@ -1347,7 +1359,7 @@ do
         -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
 
         BuildUnitStates(binding);
-        binding.dead = CannotStand(binding) or nil;
+        binding.dead = (CannotStand(binding) or binding.combatContradicts) or nil;
 
         return binding;
     end
@@ -1671,7 +1683,7 @@ do
     --- [Friendly] the reader puts on the target would leave it standing, which nobody could guess
     --- from the screen (2026-09-23, owner).
     ---
-    ---   1  battle     [combat, target dead]
+    ---   1  battle     [combat, target dead, target friendly]
     ---   2  mass       [out of combat, target dead, target in my group]
     ---   3  single     [out of combat, target dead, target friendly]; the battle one where the class
     ---                 has no single one and `battleRezOutOfCombat` is on
@@ -1681,7 +1693,7 @@ do
         local spells = DebindPrivate.SpecSpells.ResurrectSpells();
         local out = {};
         if (spells.battle) then
-            out[#out + 1] = { spell = spells.battle, combat = true, unit = { dead = true } };
+            out[#out + 1] = { spell = spells.battle, combat = true, unit = HELP_DEAD };
         end
         if (spells.mass) then
             out[#out + 1] = { spell = spells.mass, combat = false, unit = { dead = true,
@@ -1814,9 +1826,11 @@ do
         end
 
         --- The casting bindings of one tier, after its original or twin so they land ahead of it.
-        --- A resurrection branch that cannot hold under the reader's conditions is left out, and in
-        --- the self tier only the branch that goes on a living friend stands.
-        local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit)
+        ---
+        --- `aimsAt` narrows a resurrection's branches to the ones that tier's unit can take:
+        --- `"self"` is a tier aimed at you, where only the branch for a living friend stands, and
+        --- `"pointed"` one aimed at a unit that has to be there, where the no-target branch cannot.
+        local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit, aimsAt)
             if (firstDerived > #asks) then
                 return;
             end
@@ -1828,17 +1842,17 @@ do
             -- Back to front, for the reason the whole list is: the first branch has to land first.
             for i = #asks, firstDerived, -1 do
                 local branch = branches and asks[i];
-                if (not branch or castModifier ~= Constants.CASTMOD_SELF or branch.self) then
+                if (not branch or (aimsAt ~= "self" or branch.self)
+                        and (aimsAt ~= "pointed" or branch.unit ~= false)) then
                     local binding = bindings[i];
                     if (not binding) then
                         binding = {};
                         bindings[i] = binding;
                     end
-                    if (FillBinding(binding, action, aimedUnit, twinCondition, castModifier,
-                            pointedUnit, not branch and asks[i] or nil, branch or nil)) then
-                        n = n + 1;
-                        list[n] = binding;
-                    end
+                    FillBinding(binding, action, aimedUnit, twinCondition, castModifier,
+                        pointedUnit, not branch and asks[i] or nil, branch or nil);
+                    n = n + 1;
+                    list[n] = binding;
                 end
             end
         end
@@ -1861,24 +1875,16 @@ do
             return list;
         end
 
-        -- **Nobody resurrects themselves**, so the self tier stands only for the soulstone that goes
-        -- on a living friend, you included (2026-09-23, owner). **After the check above**, which is
-        -- about the reader's four values: a Self Cast Key row left on is not a press turned off.
-        if (branches and selfTwin) then
-            selfTwin = false;
-            for i = 1, #branches do
-                selfTwin = selfTwin or branches[i].self == true;
-            end
-        end
-
         -- **The list is filled back to front.** `BuildKeyMap` walks a list from its last entry
         -- down, so each casting binding is written after the one it stands beside and lands in
         -- the same tier, ahead of it.
         fillKnown(_ActionToKnownCache, action.unit);
         if (pointedUnit) then
             fill(_ActionToTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE, pointedUnit);
+            -- Aimed at the pointed unit, which the twin needs to be there, the no-target branch can
+            -- never stand. Cast as usual aims at the target instead, and there it can.
             fillKnown(_ActionToKnownTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE,
-                pointedUnit);
+                pointedUnit, pointedAim == pointedUnit and "pointed" or nil);
         end
 
         -- **Twins on every action, a picked unit and one that takes no unit included**: the original
@@ -1903,9 +1909,21 @@ do
             fill(_ActionToFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
             fillKnown(_ActionToKnownFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
         end
+        -- **Nobody resurrects themselves**, so a self tier aimed at you stands only for the soulstone
+        -- that goes on a living friend, you included (2026-09-23, owner). Aimed at a picked unit or
+        -- cast as usual, it is an ordinary tier and every branch stands in it. Decided here and not
+        -- before the four-values check above, which is about the reader's switches.
+        local selfOnlySoulstone = branches ~= nil and selfAim == "player";
+        if (selfTwin and selfOnlySoulstone) then
+            selfTwin = false;
+            for i = 1, #branches do
+                selfTwin = selfTwin or branches[i].self == true;
+            end
+        end
         if (selfTwin) then
             fill(_ActionToSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
-            fillKnown(_ActionToKnownSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
+            fillKnown(_ActionToKnownSelfCache, selfAim, nil, Constants.CASTMOD_SELF, nil,
+                selfOnlySoulstone and "self" or nil);
         end
 
         for i = n + 1, #list do
@@ -3066,7 +3084,8 @@ local ACTION_CHECKS = {
     { category = "bonusbars", label = "CONDITION_BONUSBAR", check = SkyridingAgainstBonusBars },
 };
 
-local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting = true, key = true };
+local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting = true, key = true,
+    combat = true };
 
 --- Why an action makes no binding at all, given its list; nil where the list has one.
 ---
@@ -3187,13 +3206,15 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
     -- **The binding issue reads the list `BuildKeyMap` binds**
     -- (`rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row, no
     -- `casting` and no old `hover` pair, no binding can be empty and none can be dropped, so the
-    -- list is not made: that is most rows the window draws.
+    -- list is not made: that is most rows the window draws. **A resurrection is the exception**: its
+    -- branches carry conditions of their own, so a combat condition alone can rule them all out.
     --
     -- **`key` reaches it only on the bare click**, the one key a contradiction here is painted on.
     -- `BuildKeyMap` asks `key` of every action, and nothing else there has a list to make.
     if (Looking() and (not category or BINDING_CATEGORIES[category])
             and (category ~= "key" or DebindPrivate.IsBareWorldClick(action.key))
-            and (StoredUnitRows(action) or action.casting or action.hover ~= nil)) then
+            and (StoredUnitRows(action) or action.casting or action.hover ~= nil
+                or action.type == Constants.RESURRECT)) then
         local list = DebindPrivate.GetBindingsForAction(action);
         -- **The key and one condition, neither of them wrong on its own** (S5 #48, #49). Told before
         -- the list is looked at, because `mouseover` [when there is none] does not empty the list:
@@ -3311,6 +3332,17 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
                 end
                 if (toGroups) then
                     Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");
+                end
+                -- A resurrection branch the reader's combat condition rules out
+                -- (`ApplyResurrectBranch`). It has no unit to paint, so it is told on the menu that
+                -- set it.
+                if ((not category or category == "combat") and notCategory ~= "combat") then
+                    for i = 1, #list do
+                        if (list[i].combatContradicts) then
+                            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_COMBAT");
+                            break;
+                        end
+                    end
                 end
             end
         end

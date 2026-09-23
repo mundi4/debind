@@ -40,6 +40,12 @@ return function(DebindPrivate, _, ctx)
     local interp;
     local seq = 0;
 
+    -- Registered before the first rebuild, the way `eval_spec` does it: the interpreter is stood up
+    -- on what was recorded before it existed.
+    local unitFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
+    DebindPrivate.RegisterFrame(unitFrame, "group");
+    unitFrame:SetAttribute("unit", "party1");
+
     local function action(t)
         seq = seq + 1;
         t.seq = seq;
@@ -315,6 +321,87 @@ return function(DebindPrivate, _, ctx)
         Bind({ a });
         check(DebindPrivate.GetBindingIssue(a) ~= Constants.BINDING_ISSUE_NOTHING_RUNS,
             "reported every press off");
+        reset();
+    end);
+
+    -- **Every branch that aims at someone asks for a friend**, the battle one included
+    -- (2026-09-23, owner): a dead enemy still targeted in combat is not somebody to raise.
+    test("a dead enemy in combat is not resurrected", function()
+        druidWorld();
+        Bind({ action({ type = Constants.RESURRECT, key = "F1" }) });
+        shim.world.units = { target = { id = "enemy", reaction = "harm", dead = true } };
+        inCombat(true);
+        check(fired("F1") == false, "a dead enemy in combat: " .. tostring(fired("F1")));
+        shim.world.units = { target = DEAD_FRIEND };
+        check(fired("F1") == "Rebirth", "a dead friend in combat: " .. tostring(fired("F1")));
+        reset();
+    end);
+
+    -- **A branch the reader's own conditions rule out still stands as one that cannot**, so the
+    -- row can say so. Dropped, a target required alive left only the original holding the key and
+    -- no mark anywhere.
+    test("a target required alive is an issue", function()
+        druidWorld();
+        local a = { type = Constants.RESURRECT, key = "F1", seq = 1,
+            conditions = { units = { ["@"] = { exists = true, dead = false } } } };
+        Bind({ a });
+        check(DebindPrivate.GetBindingIssue(a) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
+            "no issue: " .. tostring(DebindPrivate.GetBindingIssue(a)));
+        reset();
+    end);
+
+    test("in combat with no battle resurrection is an issue", function()
+        shim.world.spells[REVIVE] = { name = "Revive" };
+        withSpells({ single = REVIVE }, function()
+            local a = { type = Constants.RESURRECT, key = "F1", seq = 1,
+                conditions = { combat = true } };
+            Bind({ a });
+            check(DebindPrivate.GetBindingIssue(a) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
+                "no issue: " .. tostring(DebindPrivate.GetBindingIssue(a)));
+        end);
+        reset();
+    end);
+
+    -- **The self tier is only dropped where it aims at you.** An action with a unit picked keeps
+    -- its twins aimed at that unit (`ActionHasPickedUnit`), so a held self cast key resurrects it.
+    test("a picked unit is resurrected with the self cast key held", function()
+        druidWorld();
+        Bind({ action({ type = Constants.RESURRECT, key = "F1", unit = "party1" }) });
+        shim.world.units = { party1 = DEAD_FRIEND };
+        interp.state.modifiedClick.SELFCAST = true;
+        check(fired("F1") == "Revive", "the self cast key: " .. tostring(fired("F1")));
+        reset();
+    end);
+
+    --- The hover twins of the no-target branch, counted off the derived list.
+    local function hoverNoTarget(casting)
+        local a = action({ type = Constants.RESURRECT, key = "F1", casting = casting });
+        local list = DebindPrivate.GetBindingsForAction(a);
+        local standing, dead = 0, 0;
+        for i = 1, #list do
+            local b = list[i];
+            local at = b.conditions and b.conditions.units and b.conditions.units["@"];
+            if (b.hoverTwin and at == false and b.spellToCast) then
+                if (b.dead) then
+                    dead = dead + 1;
+                else
+                    standing = standing + 1;
+                end
+            end
+        end
+        return standing, dead;
+    end
+
+    -- **Aimed at the pointed unit, the hover tier cannot hold "no target"**, so that branch is not
+    -- built there. Cast as usual aims the twin at the target instead, and there it can.
+    test("the no-target branch is built in the hover tier only where it can stand", function()
+        druidWorld();
+        local standing, dead = hoverNoTarget({ hoverCast = "cast" });
+        check(standing == 0 and dead == 0,
+            "pointed: " .. standing .. " standing, " .. dead .. " dead");
+        standing, dead = hoverNoTarget({ hoverCast = "usual" });
+        check(standing == 1 and dead == 0,
+            "as usual: " .. standing .. " standing, " .. dead .. " dead");
         reset();
     end);
 

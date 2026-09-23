@@ -65,9 +65,8 @@ local RAID_BUFF_BY_CLASS = {
     PRIEST = 21562, DRUID = 1126, MAGE = 1459, WARRIOR = 6673, SHAMAN = 462854, EVOKER = 364342,
 };
 
---- Resurrection (`adding-spec-resolved-actions.md` §3-3). **The ids were copied from another
---- addon's table and not checked in the client.** A single and a battle resurrection are the
---- class's; a mass one belongs to the healing specialization alone.
+--- Resurrection (`adding-spec-resolved-actions.md` §3-3). A single and a battle resurrection are
+--- the class's; a mass one belongs to the healing specialization alone.
 local REZ_SINGLE_BY_CLASS = {
     PRIEST = 2006, PALADIN = 7328, SHAMAN = 2008, DRUID = 50769, MONK = 115178, EVOKER = 361227,
 };
@@ -123,24 +122,28 @@ SpecSpells.KIND_BY_TYPE = {
     [Constants.RAIDBUFF] = "raidbuff",
 };
 
---- The resurrections this class and specialization have, a fresh table per call:
+--- The resurrections this class and specialization have, into `out` or a fresh table:
 ---
 ---   single     one friend, out of combat
 ---   mass       everyone in the group, out of combat
 ---   battle     one friend, in combat
 ---   soulstone  true where `battle` also goes on a living friend
-function SpecSpells.ResurrectSpells()
+---
+--- **`out` is how a rebuild asks without allocating**: `SpellForType` runs for every binding it
+--- fills, as `Resolve` does with `_resolved`.
+function SpecSpells.ResurrectSpells(out)
     local class = Constants.PLAYER_CLASS;
     local spec = CurrentSpecID();
-    return {
-        single = REZ_SINGLE_BY_CLASS[class],
-        mass = spec and REZ_MASS_BY_SPEC[spec] or nil,
-        battle = REZ_BATTLE_BY_CLASS[class],
-        soulstone = class == "WARLOCK" or nil,
-    };
+    out = out or {};
+    out.single = REZ_SINGLE_BY_CLASS[class];
+    out.mass = spec and REZ_MASS_BY_SPEC[spec] or nil;
+    out.battle = REZ_BATTLE_BY_CLASS[class];
+    out.soulstone = class == "WARLOCK" or nil;
+    return out;
 end
 
 local _resolved = {};
+local _rezSpells = {};
 
 --- The spell a type resolves to right now, or nil where this specialization has none. **The
 --- second value is `{ cast, known }`** and it is there only for the warlock's dispel. Everything
@@ -151,7 +154,7 @@ local _resolved = {};
 --- derivation's (`GetBindingsForAction`).
 function SpecSpells.SpellForType(type)
     if (type == Constants.RESURRECT) then
-        local spells = SpecSpells.ResurrectSpells();
+        local spells = SpecSpells.ResurrectSpells(_rezSpells);
         return spells.single or spells.battle or spells.mass, nil;
     end
     local kind = SpecSpells.KIND_BY_TYPE[type];
