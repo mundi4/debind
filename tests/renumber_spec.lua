@@ -1,15 +1,13 @@
 -- Renumbering a key group's ordering numbers. `renumbering-a-key-group.md` is the spec.
 --
 -- **What this measures is where an action stands after it crosses a band.** The steps above `seq`
--- in `CompareActionOrder` (importance, layer, specialization) are what that document calls a band.
--- Raising an action's Importance sends it into another band, and while the number it carries is a
--- history unrelated to that band it landed **at the front, in the middle or at the back** -- one
--- gesture with three outcomes, and nothing on screen saying which.
+-- in `CompareActionOrder` (importance, conditions, layer, specialization) are what that document
+-- calls a band. Raising an action's Importance sends it into another band, and while the number it
+-- carries is a history unrelated to that band it landed **at the front, in the middle or at the
+-- back** -- one gesture with three outcomes, and nothing on screen saying which.
 --
--- **Conditions were a band and are not one any more**
--- (`legacy/taking-conditions-out-of-the-order.md`), so the axis this file splits on is Importance. Turning
--- a condition on is now the example of an edit that crosses **no** band, which is what `Settle`
--- below uses it for.
+-- **Importance is the band this file crosses.** Every action `TwoBands` plants already carries a
+-- condition, so one more crosses **no** band, which is what `Settle` below uses it for.
 --
 -- Renumbering is what puts the premise under it. Once the number is "where this stands in its group
 -- right now", the bands divide the range in order, so a number carried in can only be outside the
@@ -145,15 +143,22 @@ return function(DebindPrivate)
     --- **The stored array's order is out of step with the drawn order too.** Renumbering in array
     --- order would turn that mismatch into the firing order, and what has to be numbered is what is
     --- drawn.
+    ---
+    --- **Each one carries `combat`.** Without it the first condition an edit puts on crosses the
+    --- conditions band, and the cases below that mean to cross none would cross one.
     local function TwoBands()
+        local function Conditional(action)
+            action.conditions = { combat = true };
+            return action;
+        end
         ResetProfile({
             general = {
-                Plain(23, "F", 99),
-                High(11, "F", 10),
-                Plain(22, "F", 25),
-                High(13, "F", 30),
-                Plain(21, "F", 2),
-                High(12, "F", 20),
+                Conditional(Plain(23, "F", 99)),
+                Conditional(High(11, "F", 10)),
+                Conditional(Plain(22, "F", 25)),
+                Conditional(High(13, "F", 30)),
+                Conditional(Plain(21, "F", 2)),
+                Conditional(High(12, "F", 20)),
             },
         });
         check(Order("F") == "11 12 13 21 22 23", "planted order: " .. Order("F"));
@@ -178,7 +183,8 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- Refining conditions is most of what editing is, and losing the place every time is not on.
-    -- Conditions are no longer a band at all, so any number of them leaves the band where it was.
+    -- `isConditional` is derived, so one more condition on an action that already has one leaves the
+    -- band where it was.
     test("an edit that crosses no band moves nothing", function()
         TwoBands();
 

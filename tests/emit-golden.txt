@@ -674,6 +674,18 @@ Execute DebindBindingDriver
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -684,6 +696,18 @@ Execute DebindBindingDriver
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -693,10 +717,21 @@ Execute DebindBindingDriver
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
+  | t["castModifier"]=1
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
   | t.holdsKey=true
-  | bindings.focusFrom=3
-  | bindings.noneFrom=5
+  | bindings.focusFrom=4
+  | bindings.noneFrom=7
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F8"]=bindings
   | self:SetBindingClick(true,"ALT-F8",DefaultClickFrameName,"@ALT-F8")
@@ -712,6 +747,19 @@ Execute DebindBindingDriver
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
+  | t["castModifier"]=2
+  | t["unit"]="player"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.raid=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -722,6 +770,19 @@ Execute DebindBindingDriver
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
+  | t["castModifier"]=4
+  | t["unit"]="focus"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.raid=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -731,10 +792,22 @@ Execute DebindBindingDriver
   | t["combat"]=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["spell"]="Rejuvenation"
+  | t["castModifier"]=1
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.raid=true
+  | u.group.both=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
   | t.holdsKey=true
-  | bindings.focusFrom=3
-  | bindings.noneFrom=5
+  | bindings.focusFrom=4
+  | bindings.noneFrom=7
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F9"]=bindings
   | self:SetBindingClick(true,"ALT-F9",DefaultClickFrameName,"@ALT-F9")
@@ -1736,59 +1809,6 @@ Execute DebindBindingDriver
   | self:SetBindingClick(true,"SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2")
   | BoundKeys["SHIFT-BUTTON2"]=bindings
   | bindings.clickButton="@SHIFT-BUTTON2"
-  | -- SHIFT-F1
-  | bindings=newtable()
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["spell"]="Rejuvenation"
-  | t["castModifier"]=2
-  | t["unit"]="player"
-  | t.units=newtable()
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.both=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=2
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["spell"]="Rejuvenation"
-  | t["castModifier"]=4
-  | t["unit"]="focus"
-  | t.units=newtable()
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.both=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["spell"]="Rejuvenation"
-  | t["castModifier"]=1
-  | t.units=newtable()
-  | u=newtable();t.units["target"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.both=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=1
-  | t.holdsKey=true
-  | bindings.focusFrom=3
-  | bindings.noneFrom=5
-  | bindings.hasKeyRecord=true
-  | ClickTimeKeys["@SHIFT-F1"]=bindings
-  | self:SetBindingClick(true,"SHIFT-F1",DefaultClickFrameName,"@SHIFT-F1")
-  | BoundKeys["SHIFT-F1"]=bindings
-  | bindings.clickButton="@SHIFT-F1"
   | -- SHIFT-F12
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
@@ -1821,62 +1841,6 @@ Execute DebindBindingDriver
   | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
   | BoundKeys["SHIFT-F12"]=bindings
   | bindings.clickButton="@SHIFT-F12"
-  | -- SHIFT-F2
-  | bindings=newtable()
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["spell"]="Rejuvenation"
-  | t["castModifier"]=2
-  | t["unit"]="player"
-  | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.raid=true
-  | u.group.both=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=2
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["spell"]="Rejuvenation"
-  | t["castModifier"]=4
-  | t["unit"]="focus"
-  | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.raid=true
-  | u.group.both=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=4
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["clickbutton"]="deb104"
-  | t["spell"]="Rejuvenation"
-  | t["castModifier"]=1
-  | t.units=newtable()
-  | u=newtable();t.units["focus"]=u
-  | u.exists=true
-  | u.group=newtable()
-  | u.group.party=true
-  | u.group.raid=true
-  | u.group.both=true
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=1
-  | t.holdsKey=true
-  | bindings.focusFrom=3
-  | bindings.noneFrom=5
-  | bindings.hasKeyRecord=true
-  | ClickTimeKeys["@SHIFT-F2"]=bindings
-  | self:SetBindingClick(true,"SHIFT-F2",DefaultClickFrameName,"@SHIFT-F2")
-  | BoundKeys["SHIFT-F2"]=bindings
-  | bindings.clickButton="@SHIFT-F2"
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
   | WrappedRelease["deb109"]="deb110"

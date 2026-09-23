@@ -1,10 +1,10 @@
 -- The 3.5.2 -> 4.0 run order upgrade, measured against **v3.5.2's own comparator**.
 --
--- `legacy/taking-conditions-out-of-the-order.md` §6: the `dbver <= 6` renumber in `MigrateLayer`
--- bakes v3.5.2's order into `seq`, so the new comparator -- which has neither the unit frame step
--- nor the conditional one -- reproduces it. That claim holds for **every** arrangement or it holds
--- for none, and a handful of hand-written cases cannot say which. This file generates the
--- arrangements instead.
+-- `taking-conditions-out-of-the-order.md` §6: the `dbver <= 6` renumber in `MigrateLayer` bakes
+-- v3.5.2's order into `seq`, so the new comparator -- which has no unit frame step -- reproduces
+-- it, tier by tier, for every action v3.5.2 ran (the main test says why those two limits). That
+-- claim holds for **every** arrangement or it holds for none, and a handful of hand-written cases
+-- cannot say which. This file generates the arrangements instead.
 --
 -- **The oracle is the real v3.5.2 source, frozen under `tests/v3.5.2/`.** Comparing against
 -- `Profile.lua`'s own `OlderOrder` would be the migration marking its own paper: that function is
@@ -264,8 +264,57 @@ return function(DebindPrivate, _, ctx)
 
     local CORPUS_SEEDS = 400;
 
-    --- **The whole of this file.** For every generated layer, what v3.5.2 drew and what this build
-    --- draws after the migration are the same list, key group by key group.
+    --- Whether the migration left this action standing only in the hover tier.
+    local function IsTwinOnly(action)
+        return action.casting ~= nil and action.casting.normalCast == false;
+    end
+
+    --- `values` with only the ones `keep` says yes to, order kept.
+    local function Filter(values, keep)
+        local out = {};
+        for i = 1, #values do
+            if (keep(values[i])) then
+                out[#out + 1] = values[i];
+            end
+        end
+        return out;
+    end
+
+    --- The twin-only actions v3.5.2 never ran: those standing behind a bare Unit Frame action, which
+    --- matches every pointed press (`"frame"` is the generator's name for that shape, read here so
+    --- the answer does not come from the code under test). None of them has an original of its own
+    --- to reach a plain press with.
+    local function DeadInOld(oldValues, byValue)
+        local dead, bareSeen = {}, false;
+        for i = 1, #oldValues do
+            local action = byValue[oldValues[i]];
+            if (IsTwinOnly(action)) then
+                if (bareSeen) then
+                    dead[oldValues[i]] = true;
+                end
+                if (action.shapeName == "frame") then
+                    bareSeen = true;
+                end
+            end
+        end
+        return dead;
+    end
+
+    --- **The whole of this file.** For every generated layer, v3.5.2's order and the order this build
+    --- stands the actions in after the migration are the same, **tier by tier**, key group by key
+    --- group.
+    ---
+    --- **Tier by tier, because the tier is what fires.** A v3.5.2 Unit Frame action becomes twin-only
+    --- (`IsTwinOnly`) and fires in the hover tier ahead of every plain original whatever the list
+    --- says, so its place against the others in the drawn list decides nothing. A bare one carries no
+    --- condition after the upgrade and is drawn below actions with conditions; what it fires ahead of
+    --- is unchanged.
+    ---
+    --- **Actions v3.5.2 never ran are left out** (`DeadInOld`). Inside the hover tier a bare one
+    --- now stands behind the twin-only actions with conditions, so one that sat dead behind it runs
+    --- again after the upgrade. Counting Normal Cast set to Skip as a condition would keep them dead,
+    --- and it was not taken: it is one more exception to explain for an arrangement whose action never
+    --- ran (2026-09-23, owner).
     test("the corpus keeps v3.5.2's order through the upgrade", function()
         for seed = 1, CORPUS_SEEDS do
             local rnd = Rng(seed * 7919 + 13);
@@ -276,12 +325,43 @@ return function(DebindPrivate, _, ctx)
             MigrateLayer(layer, 6);
             local _, new = NewOrders(layer);
 
+            local byValue = {};
+            for i = 1, #layer do byValue[layer[i].value] = layer[i]; end
+
             for _, name in ipairs(names) do
-                check(Join(old[name]) == Join(new[name]), string.format(
-                    "seed %d, 키 묶음 %q\n  옛 순서: %s\n  새 순서: %s\n  입력: %s",
-                    seed, (name:gsub("%z", "/")), Join(old[name]), Join(new[name]), before));
+                local dead = DeadInOld(old[name], byValue);
+                for _, tier in ipairs({ true, false }) do
+                    local function keep(value)
+                        return IsTwinOnly(byValue[value]) == tier and not dead[value];
+                    end
+                    local oldTier, newTier = Filter(old[name], keep), Filter(new[name], keep);
+                    check(Join(oldTier) == Join(newTier), string.format(
+                        "seed %d, 키 묶음 %q, %s\n  옛 순서: %s\n  새 순서: %s\n  입력: %s",
+                        seed, (name:gsub("%z", "/")), tier and "hover층" or "원본층",
+                        Join(oldTier), Join(newTier), before));
+                end
             end
         end
+    end);
+
+    --- **The exemption above has to be one the corpus reaches, and has to stay narrow.** With no dead
+    --- actions generated it would be untested; with most actions dead it would be measuring nothing.
+    test("the corpus holds actions v3.5.2 never ran, and not many", function()
+        local dead, total = 0, 0;
+        for seed = 1, CORPUS_SEEDS do
+            local rnd = Rng(seed * 7919 + 13);
+            local layer = GenerateLayer(rnd, 2 + (seed % 7));
+            local names, old = OldOrders(layer);
+            MigrateLayer(layer, 6);
+            local byValue = {};
+            for i = 1, #layer do byValue[layer[i].value] = layer[i]; end
+            for _, name in ipairs(names) do
+                for _ in pairs(DeadInOld(old[name], byValue)) do dead = dead + 1; end
+            end
+            total = total + #layer;
+        end
+        check(dead > 0, "코퍼스에 옛날에 죽어 있던 액션이 없다: 예외가 한 번도 안 쓰인다");
+        check(dead * 10 < total, string.format("죽은 액션이 너무 많다 (%d / %d)", dead, total));
     end);
 
     --- **A sweep that never disagrees with `seq` is measuring nothing.** If every generated group

@@ -203,12 +203,12 @@ return function(DebindPrivate)
         check(#DebindPrivate.CollectKeyGroupActions("F", 9) == 1, "9번 arrival이 하나");
     end);
 
-    -- **승인이 도착분을 내 그룹 뒤에 세운다.** `/debtest`가 재던 것인데 거기서 두 번 빨개졌고
-    -- 둘 다 이 층에서 1초면 났을 것이다. 여기 있는 이유가 그거다.
+    -- **Accepting stands the arrival behind the reader's own group.**
     --
-    -- **둘 다 조건을 지되 축이 다르다.** 축이 달라야 둘 다 남는다. 조건 유무는 이제 순서를
-    -- 안 가르므로(`legacy/taking-conditions-out-of-the-order.md`) 이 배치에서 비교자는 곧바로 `seq`로
-    -- 내려온다. 아래 테스트가 한쪽만 조건부인 꼴로 같은 것을 한 번 더 못 박는다.
+    -- **Both carry a condition, on different axes.** Different axes keep both, and both being
+    -- conditional is what takes the comparator down to `seq`: `isConditional` is step 2 and `seq`
+    -- step 5 (`Ordering.lua`). With only one conditional, that one comes first whatever the
+    -- numbers say, and this case measures nothing.
     test("승인하면 도착분이 내 그룹 뒤에 선다", function()
         ResetProfile({
             general = {
@@ -227,11 +227,10 @@ return function(DebindPrivate)
         check(Values(rows) == "1 2", "차례: " .. Values(rows));
     end);
 
-    -- **조건부 도착분도 무조건인 기존 액션을 못 앞지른다.** 조건 유무가 순서 단계였을 때는
-    -- 앞질렀고, 그래서 `SetKeyForActions`의 "방금 들어온 세트가 원래 있던 것 뒤에 선다"가 이
-    -- 배치에서만 거짓이었다. 단계가 빠지면서 그 약속이 참이 된다
-    -- (`legacy/taking-conditions-out-of-the-order.md` §3-4).
-    test("한쪽만 조건부여도 도착분이 뒤에 선다", function()
+    -- **With only one of them conditional, the order turns over**, arrival or not: the conditions
+    -- step decides before `seq` is read. The case above depends on this, so it is pinned here
+    -- rather than left for someone to find by dropping one of its conditions.
+    test("한쪽만 조건부면 조건부가 먼저다 - seq는 안 읽힌다", function()
         ResetProfile({
             general = {
                 { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
@@ -243,7 +242,7 @@ return function(DebindPrivate)
         DebindPrivate.SetKeyForActions(DebindPrivate.CollectKeyGroupActions("F", 7), "F");
 
         local rows = DebindPrivate.CollectActionsForKey("F");
-        check(Values(rows) == "1 2", "차례: " .. Values(rows));
+        check(Values(rows) == "2 1", "차례: " .. Values(rows));
     end);
 
     -- 한쪽에 키를 줘도 다른 쪽 번호는 그대로다. 번호가 그룹 밖으로 새면 조용히 순서가 밀린다.

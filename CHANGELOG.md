@@ -2,7 +2,7 @@
 
 **Each action now says what it does on each kind of press, under Cast Options in its right-click menu.** The Self Cast Key and Focus Cast Key rows each take Cast on yourself, or on your focus, Cast on the usual target, or Skip this action, which hands that press to the next action on the key. Hover Cast is a row of the same shape for the unit you point at, and Normal Cast covers a press with no key held. So one key can carry one action for a held key and a different one for a plain press. Several actions can be set at once.
 
-**Hover casting is set on each action now, and it starts off.** It takes the place of the Unit Frame condition, and everything you set up under that condition does what it did before. Debind's settings now hold only which units count as pointed at, Unit Frames or Mouseover; an action can name a mode of its own instead.
+**Hover casting is set on each action now, and it starts off.** It takes the place of the Unit Frame condition, and everything you set up under that condition does what it did before. The one exception is an action whose Unit Frame condition had more conditions with it, placed below one on the same key that had the Unit Frame condition alone: it never ran before, and now it runs when its conditions are met. Debind's settings now hold only which units count as pointed at, Unit Frames or Mouseover; an action can name a mode of its own instead.
 
 **A target picked under Target is where the action goes, on every press that runs it.** Holding the Self Cast Key or the Focus Cast Key does not move it: the action takes that press and still goes to its own unit. Neither does the unit you are pointing at. And Auto Self Cast does not send a friendly spell back to you when the unit you picked cannot take it; the action simply does not go out. That last one used to depend on the unit: a friendly spell aimed at your target came back to you while you had a target and did nothing at all while you had none. Disable under Target hands the decision back to the game, and the menu says so on every entry.
 
@@ -15,10 +15,6 @@
 **The Self Cast Key and the Focus Cast Key can each be turned off for Debind keys**, in Debind's settings. Holding a key turned off there is the same as not holding it. One action can sit out a held key instead, with Skip this action on that row under Cast Options, and the press goes to the next action on the key.
 
 **Four things the game does for you are now set on each action**: Auto Self Cast, Auto Cancel Form, Auto Dismount and Auto Dismount while flying. Each one is On, Off, or whatever the game's own settings say, which is what every action does until you change it. A spell you hold to empower answers these as well.
-
-**The order Debind tries the actions on one key has changed.** An action with conditions used to be tried before one without, wherever the two sat. Now Importance is compared first, then the tab the action is in, then the place you gave it in that tab, and putting a condition on an action does not move it.
-
-**Inside one tab nothing moved.** An order changes only where one key is used in two tabs and the broader tab holds the action with conditions: the one without conditions now goes first, and the other is marked Never runs. Put a condition on the action in the narrower tab saying when it takes the press, and a press that does not meet it goes on to the broader tab. The first time you log in, Run Order Changed in the Overview says how many of this character's keys moved and marks them in the list, and the filter above it can show only the marked ones. Use the old run order in Debind's settings puts the old rule back for the whole account; that option will be removed in a later update.
 
 **An action can be turned off without deleting it.** It keeps its key, its conditions, its Importance and its place on the key, and it stops running. When every action on a key is turned off, the key goes back to whatever WoW has bound to it.
 

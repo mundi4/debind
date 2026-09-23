@@ -1949,6 +1949,17 @@ function DebindPrivate.IsConditionalAction(action)
     return DebindPrivate.IsConditionalBinding(binding);
 end
 
+local function HasSwitchCondition(action)
+    if (action.conditions) then
+        for k in pairs(action.conditions) do
+            if (Constants.IsSwitchName(k)) then
+                return true;
+            end
+        end
+    end
+    return false;
+end
+
 --- The record `CompareActionOrder` reads, and **the only place its shape is written.**
 ---
 --- Three callers build one: `Debind.lua`'s `BuildKeyMap`, and `Profile.lua`'s `MakeRow` and
@@ -1968,11 +1979,23 @@ end
 --- **One record per action, twins included.** Every tier stands in the originals' order, which is
 --- the order the window draws (`which-action-a-key-runs.md` §2), so a twin is never ordered
 --- against anything on its own terms.
+---
+--- **An ignored Switch still counts as a condition here** (2026-09-23, owner), although the binding
+--- leaves it out (`FillBinding`). The reader still sees a condition on the action, and Ignored says
+--- the action works whether the Switch is on or off, not that the condition is gone. A
+--- Class/Specialization condition is the same: always true on this character, and still a
+--- condition. Ignoring is also decided per character and specialization (`ResolveSwitchAnswer`), so
+--- reading it here would order one shared layer differently on each character, and
+--- `RenumberKeyGroup` would write one character's order into the number the others read.
+---
+--- **Normal Cast set to Skip is not counted**, although no plain press reaches such an action
+--- (2026-09-23, owner). It is a cast option and not a condition, and counting it would be one more
+--- exception for the reader to learn. What it costs is in `orderupgrade_spec`'s main test.
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     local binding = GetBindingInfoForAction(action);
     dest = dest or {};
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
-    dest.isConditional = DebindPrivate.IsConditionalBinding(binding);
+    dest.isConditional = DebindPrivate.IsConditionalBinding(binding) or HasSwitchCondition(action);
     dest.layerRank = layerRank;
     dest.specRank = specRank;
     dest.seq = action.seq;
@@ -2406,21 +2429,20 @@ function DebindPrivate.KnownConditionCanHold(binding)
     return binding.spell ~= nil;
 end
 
---- 이 바인딩에 조건이 하나라도 걸려 있나. 조건부 마크(`MARK_TOOLTIP_CONDITIONAL`)와, 옛
---- 순서를 되돌려 주는 비교자(`Ordering.lua`의 `CompareActionOrderWithConditions`)가 이걸 읽는다.
---- **기본 발동 순서는 안 읽는다** - 조건 유무 단계가 빠졌다
---- (`legacy/taking-conditions-out-of-the-order.md`).
+--- Does this binding carry any condition at all? The conditions step of the run order reads it
+--- (`MakeOrderRecord`), and so does the conditional mark (`MARK_TOOLTIP_CONDITIONAL`).
 ---
---- 축마다 `nil` 검사를 쓴 열두 갈래가 여기 있었다. 축이 하나 늘 때마다 갈래를 잊으면 그 조건이
---- 걸린 바인딩이 무조건짜리로 분류돼 **마크가 조용히 사라졌고**, 그 잘못은 화면에
---- 아무것도 안 남긴다.
+--- Twelve branches stood here, a `nil` check per axis. Each new axis whose branch was forgotten
+--- filed a binding carrying it as unconditional, **the run order moved in silence**, and nothing on
+--- screen showed it.
 ---
---- **바인딩 쪽 표는 비어 있을 수 있다.** 리빌드마다 제자리에서 다시 채우느라 늘 존재하기
---- 때문이다(`GetBindingInfoForAction`). 저장 쪽은 반대로 빈 표를 안 남긴다(`CleanUpDB`).
+--- **The binding's table can be empty.** It always exists, because every rebuild refills it in
+--- place (`GetBindingInfoForAction`). Storage is the opposite and keeps no empty table
+--- (`CleanUpDB`).
 ---
---- **표에 든 것은 전부 조건이다.** 이 애드온이 쓰는 이름 밖의 것은 여기까지 오는 길이 없다.
---- 저장 쪽은 `CleanUpDB`가 걷어내고, 가져오기는 그런 이름을 실은 문자열을 통째로 거절한다
---- (`Import.lua`의 `IsUsableAction`). 손으로 고친 SavedVariables는 방어하지 않는다.
+--- **Everything in the table is a condition.** A name this addon does not write has no way here:
+--- `CleanUpDB` takes it out of storage, and an import carrying one is refused whole (`Import.lua`'s
+--- `IsUsableAction`). A hand-edited SavedVariables is not defended against.
 function DebindPrivate.IsConditionalBinding(binding)
     local conditions = binding.conditions;
     return conditions ~= nil and next(conditions) ~= nil;

@@ -8,18 +8,6 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 -- 액션을 수집하는 쪽은 레이어를 훑어야 하므로 Profile.lua에 있다
 -- (DebindPrivate.CollectActionsForKey).
 
-local CompareBelowImportance;
-
---- Is the reader running on the firing order from before the conditional step went?
----
---- **A temporary option** (`legacy/taking-conditions-out-of-the-order.md` §7), and it goes with the step
---- that `CompareActionOrderWithConditions` holds. Absent reads as off, which is what the headless
---- specs and every profile that never ticked it get.
-function DebindPrivate.IsLegacyOrderOn()
-    local options = DebindPrivate.Options;
-    return options ~= nil and options.legacyOrder == true;
-end
-
 
 --- Which of two actions on one key fires first.
 ---
@@ -28,8 +16,8 @@ end
 ---
 --- Record fields: priority, isConditional, layerRank, specRank, seq
 ---   priority      - `Constants.DEFAULT_IMPORTANCE` when nil
----   isConditional - `DebindPrivate.IsConditionalBinding(binding)`. **Not read here any more**;
----                   `CompareActionOrderWithConditions` is the only comparator left that does
+---   isConditional - `DebindPrivate.IsConditionalBinding(binding)`, or a Switch among the action's
+---                   stored conditions (`MakeOrderRecord`)
 ---   layerRank     - the scope's rank (smaller is narrower): character/spec -> character/shared ->
 ---                   class/spec -> class/shared -> general. **The specialization number is not read
 ---                   here** - an off-spec action goes in the same band as an active one
@@ -51,32 +39,22 @@ end
 --- write. Do not touch it. specRank slipping in does not break that rule - everything that actually
 --- fires is in an active layer, so that step is always a tie for them.
 ---
---- **Two steps have gone.** The unit-frame one ranked a binding carrying a condition on the pointed
+--- **The unit-frame step has gone.** It ranked a binding carrying a condition on the pointed
 --- frame's unit ahead of one that did not; that unit is an ordinary unit now, so what that step said
---- is said by the tier a hover twin stands in (`which-action-a-key-runs.md` §3). The second was
---- **having conditions at all**, and it is the one `CompareActionOrderWithConditions` below still
---- holds. Each `dbver` step that took one away renumbers every key group with the comparator of the
---- day before, so nobody's order inside a layer moved.
+--- is said by the tier a hover twin stands in (`which-action-a-key-runs.md` §3). The `dbver` step
+--- that took the condition apart renumbers every key group with the old comparator, which keeps
+--- each tier's order for every action v3.5.2 ran; what it does not keep is in
+--- `orderupgrade_spec`'s main test.
+---
+--- **Having conditions stands above the layer** (`putting-conditions-back-in-the-order.md`). A
+--- broader layer's action with conditions is usually one meant for every character in some
+--- situation, laid over a narrower layer's everyday action on the same key. Without this step the
+--- narrower action covers it, and the way out is a condition on the narrower action saying the
+--- opposite of the broader one's, which often cannot be written (a resurrection's branches are not
+--- one binding's worth), leaving Importance as the only way. The other way round, a narrower layer
+--- that wants the key to itself takes its class out of the broader action with a
+--- Class/Specialization condition.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
-    if (DebindPrivate.IsLegacyOrderOn()) then
-        return DebindPrivate.CompareActionOrderWithConditions(lhs, rhs);
-    end
-
-    local lhsImportance = lhs.priority or DEFAULT_IMPORTANCE;
-    local rhsImportance = rhs.priority or DEFAULT_IMPORTANCE;
-    if (lhsImportance ~= rhsImportance) then
-        return lhsImportance < rhsImportance;
-    end
-
-    return CompareBelowImportance(lhs, rhs);
-end
-
---- The comparator as it stood before the conditional step went, **frozen**. Two callers, and
---- neither may have a copy of its own: the option that hands a reader the old firing order
---- (`legacy/taking-conditions-out-of-the-order.md` §7-1), and `KeyGroupOrderMoved` below, which tells a
---- reader which keys the step's removal moved. Two copies drifting apart puts a warning on a key
---- the option then does not move, and nothing on screen says which of the two is lying.
-function DebindPrivate.CompareActionOrderWithConditions(lhs, rhs)
     local lhsImportance = lhs.priority or DEFAULT_IMPORTANCE;
     local rhsImportance = rhs.priority or DEFAULT_IMPORTANCE;
     if (lhsImportance ~= rhsImportance) then
@@ -89,12 +67,6 @@ function DebindPrivate.CompareActionOrderWithConditions(lhs, rhs)
         return false;
     end
 
-    return CompareBelowImportance(lhs, rhs);
-end
-
---- Everything under Importance, shared by the two comparators above so that the step one of them
---- carries is the only difference between them.
-function CompareBelowImportance(lhs, rhs)
     if (lhs.layerRank ~= rhs.layerRank) then
         return lhs.layerRank < rhs.layerRank;
     end
@@ -126,28 +98,6 @@ function CompareBelowImportance(lhs, rhs)
 end
 
 
---- Did taking the conditional step out move this key group's order? `rows` is one key group in
---- firing order, which is what `CollectActionsForKey` hands back.
----
---- **One walk, no second sort.** The rows already stand in the current comparator's order, so the
---- question is only whether that same line is sorted under the old one too, and a line is sorted
---- exactly when no neighbouring pair is out of order. Sorting a copy and comparing the two would
---- answer the same question and get it wrong: `sort` is not stable, so two records the old
---- comparator calls equal come back in either order and a difference appears that nobody would see
---- on screen (`RenumberKeyGroup` carries the array position for the same reason). A tie walks
---- straight through here.
----
---- **One answer per key group.** Order is a thing between two actions, so a group holding one has
---- none and the loop does not run.
-function DebindPrivate.KeyGroupOrderMoved(rows)
-    for i = 1, #rows - 1 do
-        if (DebindPrivate.CompareActionOrderWithConditions(rows[i + 1], rows[i])) then
-            return true;
-        end
-    end
-    return false;
-end
-
 --- 저장할 priority 값. 기본값이면 nil이다 - CleanUpDB가 어차피 지운다
 --- (Profile.lua:286-287). UI가 저장하기 전에 반드시 이걸 거친다.
 function DebindPrivate.ImportanceToStored(priority)
@@ -169,11 +119,7 @@ function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
         return "IMPORTANCE";
     end
 
-    -- **Gated on the same answer the comparator asks.** With the option off the arrows are free to
-    -- move a conditional row past one without conditions, because the firing order no longer reads
-    -- that field; with it on they are not, and this is the sentence that says so.
-    if (DebindPrivate.IsLegacyOrderOn()
-        and (lhs.isConditional and true or false) ~= (rhs.isConditional and true or false)) then
+    if ((lhs.isConditional and true or false) ~= (rhs.isConditional and true or false)) then
         return "CONDITIONAL";
     end
 

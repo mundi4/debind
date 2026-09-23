@@ -1028,13 +1028,13 @@ return function(DebindPrivate)
         return out;
     end
 
-    -- 개체창 조건이 뒤 번호에 있었다. 옛 비교자는 그것을 앞세웠으므로 번호가 1로 와야 한다.
-    -- 안 매기면 새 비교자에서 둘 다 조건부로 동률이 되어 `seq`가 정하고, 순서가 뒤집힌다.
+    -- The unit frame condition was on the later number, and the old comparator put it first, so it
+    -- has to come out as 1. Left unrenumbered, the new comparator finds two conditional actions
+    -- tied and lets `seq` decide, which turns the order over.
     --
-    -- **개체창 쪽에도 조건이 하나 더 있다.** 맨 개체창 조건은 이 단계 뒤에 Casting 값으로
-    -- 접히면서 사라지고, 그러면 아래 `dbver <= 7` 단계가 그 액션을 무조건으로 읽어 조건부
-    -- 밴드 뒤로 보낸다. 그건 그쪽 단계가 제 일을 한 것이지 이 단계가 틀린 것이 아니므로,
-    -- 여기서 재려는 것만 남기려면 두 액션이 같은 밴드에 있어야 한다.
+    -- **Both carry `combat`**, so both are still conditional after the upgrade and nothing but
+    -- `seq` stands between them. With the first one unconditional, the conditions step would put
+    -- the second in front on its own, and this case would pass with no renumbering at all.
     test("dbver 7 renumbers so the old unit frame tier keeps its order", function()
         local seqs = seqsAfterMigrate({
             { key = "F1", seq = 1, type = Constants.SPELL, value = 1,
@@ -1215,81 +1215,6 @@ return function(DebindPrivate)
             -- 조건이 하나 더 있는 이유는 위 renumber 테스트와 같다.
             { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
                 conditions = { combat = true, units = { unitframe = { exists = true } } } },
-        };
-        MigrateLayer(layer, 6);
-        MigrateLayer(layer, 6);
-        check(layer[2].seq == 1 and layer[1].seq == 2, "두 번째에 뭉개짐: "
-            .. tostring(layer[2].seq) .. "," .. tostring(layer[1].seq));
-    end);
-
-    ---------------------------------------------------------------------------
-    -- 같은 단계의 둘째 재번호: 발동 순서에서 **조건 유무** 단계가 빠진 자리를 번호가 받는다.
-    --
-    -- **위 케이스들과 축이 다르다.** 저쪽은 개체창 조건이 있나를 재고 이쪽은 조건이 하나라도
-    -- 있나를 잰다. 그래서 여기 액션들은 개체창 축을 안 쓴다 - 쓰면 앞의 재번호가 먼저 자리를
-    -- 정해서 이 재번호가 무엇을 했는지 안 보인다.
-    --
-    -- **이 단계가 틀리면 화면에 아무것도 안 뜬 채 순서가 뒤집힌다.** 비교자가 조건부 액션을
-    -- 앞세우고 있었고, 그 단계가 없어지면 그 자리를 `seq`가 들어야 한다.
-    ---------------------------------------------------------------------------
-
-    test("dbver 7 renumbers so the old conditional step keeps its order", function()
-        local seqs = seqsAfterMigrate({
-            { key = "F1", seq = 1, type = Constants.SPELL, value = 1 },
-            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
-                conditions = { combat = true } },
-        });
-        check(seqs[2] == 1, "조건부가 1번이 아니다: " .. tostring(seqs[2]));
-        check(seqs[1] == 2, "무조건이 2번이 아니다: " .. tostring(seqs[1]));
-    end);
-
-    -- 꺼진 유닛 조건은 조건이 아니다(`UnitConditionForBinding`이 nil을 낸다). 그것만 든 액션은
-    -- 무조건이라 앞으로 안 나와야 한다.
-    test("dbver 7 does not count a disabled unit condition as a condition", function()
-        -- **앞의 것이 무조건이라야 이 케이스가 제 물음을 묻는다.** 둘 다 조건부면 어느 쪽으로
-        -- 세든 동률이라 `seq`가 정하고, 답이 안 갈린다.
-        local seqs = seqsAfterMigrate({
-            { key = "F1", seq = 1, type = Constants.SPELL, value = 1 },
-            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
-                conditions = { units = { focus = { disabled = true } } } },
-        });
-        check(seqs[1] == 1, "무조건이 1번이 아니다: " .. tostring(seqs[1]));
-        check(seqs[2] == 2, "꺼진 조건이 앞질렀다: " .. tostring(seqs[2]));
-    end);
-
-    -- 중요도가 조건 유무보다 위다. 옛 비교자의 첫 단계라 조건부가 밴드를 못 넘는다.
-    test("dbver 7 keeps importance above the old conditional step", function()
-        local seqs = seqsAfterMigrate({
-            { key = "F1", seq = 1, type = Constants.SPELL, value = 1, priority = 1 },
-            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
-                conditions = { combat = true } },
-        });
-        check(seqs[1] == 1, "중요도가 밀렸다: " .. tostring(seqs[1]));
-        check(seqs[2] == 2, "조건부가 중요도를 넘었다: " .. tostring(seqs[2]));
-    end);
-
-    -- 키 묶음마다 1부터고, 받은 묶음은 제 번호 공간이다. 한 묶음으로 세면 도착분이 내 것 번호를
-    -- 밀어낸다.
-    test("dbver 7 numbers each key group from 1, arrivals on their own", function()
-        local seqs = seqsAfterMigrate({
-            { key = "F1", seq = 1, type = Constants.SPELL, value = 1 },
-            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
-                conditions = { combat = true } },
-            { key = "F2", seq = 1, type = Constants.SPELL, value = 3 },
-            { key = "F1", arrivalID = 7, seq = 1, type = Constants.SPELL, value = 4 },
-            { key = "F1", arrivalID = 7, seq = 2, type = Constants.SPELL, value = 5,
-                conditions = { combat = true } },
-        });
-        check(seqs[2] == 1 and seqs[1] == 2, "내 F1 묶음: " .. tostring(seqs[2]) .. "," .. tostring(seqs[1]));
-        check(seqs[3] == 1, "F2가 1부터가 아니다: " .. tostring(seqs[3]));
-        check(seqs[5] == 1 and seqs[4] == 2, "도착 묶음: " .. tostring(seqs[5]) .. "," .. tostring(seqs[4]));
-    end);
-
-    test("dbver 7 conditional renumbering is safe to run twice", function()
-        local layer = {
-            { key = "F1", seq = 1, type = Constants.SPELL, value = 1 },
-            { key = "F1", seq = 2, type = Constants.SPELL, value = 2,
-                conditions = { combat = true } },
         };
         MigrateLayer(layer, 6);
         MigrateLayer(layer, 6);

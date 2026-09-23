@@ -240,9 +240,9 @@ local NodeMixedCount;
 
 --- The menu has changed values on these actions.
 ---
---- **It does not look at which value.** Importance is a step in the ordering, so changing it
---- changes what an action is up against -- and rather than work out which step moved, each
---- action's key group is renumbered. If nothing moved the renumber moves nothing
+--- **It does not look at which value.** Conditions and importance are steps in the ordering, so
+--- changing one changes what an action is up against -- and rather than work out which step moved,
+--- each action's key group is renumbered. If nothing moved the renumber moves nothing
 --- (`Profile.lua`'s `RenumberKeyGroup`). Working it out would mean seeing each action before and
 --- after, and putting that pair of snapshots across the dozen call sites in this menu means
 --- missing one someday.
@@ -646,9 +646,9 @@ local ActionValues = {
         end
     end,
 
-    -- The checkbox branch comes through here as well. No checkbox in this menu is a step in the
-    -- ordering today, so the renumber moves nothing -- but the day one that is arrives here, that
-    -- group alone would quietly keep the old symptom.
+    -- The checkbox branch comes through here as well. The first box ticked on an action with no
+    -- conditions crosses the conditions step, and without the renumber that action would carry a
+    -- number from the band it left.
     Commit = function(ctx)
         return OnActionsChanged(ctx.actions);
     end,

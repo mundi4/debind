@@ -135,7 +135,7 @@ local function IssueMarkTooltip(tooltip, mark)
 end
 
 local function GroupIssueMarkTooltip(tooltip, mark)
-	DebindPrivate.AddGroupIssuesToTooltip(tooltip, mark.rows, mark.orderMoved);
+	DebindPrivate.AddGroupIssuesToTooltip(tooltip, mark.rows);
 end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
@@ -214,18 +214,7 @@ local _filters = {
 	keyed        = true,
 	unkeyed      = true,
 	pending      = true,
-	-- **The third axis is a property of the key group, not of a row** (`marked` is "the heading
-	-- carries a mark"), so it is asked where the group is assembled rather than in
-	-- `ActionPassesFilters`. Its two values keep the menu's one polarity: both mean "show these
-	-- too".
-	marked       = true,
-	unmarked     = true,
 };
-
---- How many key groups this character has whose order moved when the conditional step went. Filled
---- by the last `BuildKeyboardElements` and read by the button that opens the notice, which stands
---- outside the list and so cannot count them itself.
-local _orderMovedGroups = 0;
 
 --- The row the left column has been asked to put on screen the next time it is built. Four places
 --- set it and `RefreshKeyboard` spends it. **The group it is in is unfolded** as part of that - a
@@ -1590,12 +1579,8 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- **집 편집기나 바뀐 바에 넘겨준 키도 흰색이다.** 잠깐 비켜 준 것이고 저절로 돌아온다.
 		-- 탈것을 타는 동안 이름 색이 변하면 키를 잃은 것처럼 읽힌다.
 		self.IssueIcon.rows = elementData.rows;
-		-- **순서가 움직인 것은 에러가 아니다.** 액션은 전부 저장된 대로 돌고 자리만 달라졌다
-		-- (`Constants.BINDING_ISSUE_GRADES` 머리주석의 ERROR 정의). 그래서 warning 자리에 선다.
-		self.IssueIcon.orderMoved = elementData.orderMoved;
 		self.IssueIcon:SetKind(elementData.hasError and "error"
-			or (elementData.hasWarning or elementData.orderMoved) and "warning" or nil,
-			GroupIssueMarkTooltip);
+			or elementData.hasWarning and "warning" or nil, GroupIssueMarkTooltip);
 
 		local label = KeyGroupLabel(elementData.key);
 		if (not DebindPrivate.IsKeyHandled(elementData.key)) then
@@ -2344,9 +2329,6 @@ local FILTER_MENU = {
 	{ "keyed",        "FILTER_KEYED"         },
 	{ "unkeyed",      "FILTER_UNKEYED"       },
 	{ "pending",      "FILTER_PENDING"       },
-	false,
-	{ "marked",       "FILTER_MARKED"        },
-	{ "unmarked",     "FILTER_UNMARKED"      },
 };
 
 function DebindFrameMixin:InitializeFilterDropdown()
@@ -3758,7 +3740,6 @@ function DebindFrameMixin:Update()
 	self:UpdateButtons();
 	self.LayerPanel:UpdateListStrip();
 	self:UpdatePendingImports();
-	self:UpdateOrderChanged();
 	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
 
@@ -3866,37 +3847,6 @@ function DebindFrameMixin:UpdatePendingImports()
 	button:SetFormattedText(LLL["IMPORT_PENDING"], count);
 	button:SetWidth(max(120, button:GetFontString():GetStringWidth() + 30));
 	button:SetEnabled(not self:IsCapturingKey() and not IsEditingAction());
-end
-
---- The button that opens the notice about the run order having moved.
----
---- **The count comes off the last build of the left column** (`_orderMovedGroups`), which is the
---- same walk the headings' marks come from. Counting here would be a second answer to "how many
---- keys moved", and the two would part the moment one of them was filtered.
----
---- **Nothing moved is still worth the button.** A profile that came from the old order gets the
---- notice whether or not any of this character's keys came out differently, because what the
---- acknowledgement records is that the reader looked -- and "none on this character" is something
---- they can only learn by being told.
-function DebindFrameMixin:UpdateOrderChanged()
-	local button = self.OverviewPanel.OrderChanged;
-	local shown = DebindPrivate.ShouldWarnOrderMoved();
-
-	button:SetShown(shown);
-	if (not shown) then
-		return;
-	end
-
-	button:SetText(LLL["ORDER_MOVED_BUTTON"]);
-	button:SetWidth(max(120, button:GetFontString():GetStringWidth() + 30));
-	button:SetEnabled(not self:IsCapturingKey() and not IsEditingAction());
-end
-
---- **The acknowledgement is taken by a dialog rather than by this button.** The press is what
---- clears the marks the reader is being sent to look at, and it does not come back, so the sentence
---- that says both has to stand between the press and the change.
-function DebindFrameMixin:ShowOrderChangedNotice()
-	StaticPopup_Show("DEBIND_ORDER_MOVED", _orderMovedGroups);
 end
 
 --- **The window's tab row is named, the layer tabs inside Overview are not.** The title once read
@@ -5088,10 +5038,10 @@ function BuildKeyboardElements()
 	end);
 
 	local elements, visible = {}, {};
-	_orderMovedGroups = 0;
 	for _, group in ipairs(groups) do
 		local key, arrivalID = group.key, group.arrivalID;
 		local rows = DebindPrivate.CollectActionsForKey(key, nil, arrivalID);
+		local shown = KeyGroupPasses(rows, key);
 
 		-- **Is one of the ones that would run broken?** Only rows that got into the build are asked,
 		-- which is what keeps this from reddening over things the reader cannot act on now: an
@@ -5116,29 +5066,6 @@ function BuildKeyboardElements()
 			end
 		end
 
-		-- **이 키의 순서가 조건 단계와 함께 움직였나.** 마이그레이션을 거친 프로필에서만 묻고,
-		-- 이 캐릭터가 확인을 누르면 그날로 끝난다(`legacy/taking-conditions-out-of-the-order.md` §7).
-		--
-		-- **재는 자리가 여기인 이유는 여기가 그릴 것을 이미 모아 놨기 때문이다.** `BuildKeyMap`은
-		-- 배지 달린 행을 빼고 돌아서 머리글이 서는 그룹과 목록이 다르고, 캐시를 따로 두면 그 둘을
-		-- 맞춰 둬야 한다. 훑기는 정렬 없는 한 번의 이웃 비교라 그릴 때마다 물어도 된다.
-		--
-		-- **도착분은 안 센다.** 아직 아무 키에도 안 닿았으니 이 판이 움직인 순서가 아니라 보낸
-		-- 쪽의 순서이고, 무엇보다 머리글이 배지 갈래로 빠져서 마크를 안 그린다
-		-- (`DebindKeyHeaderMixin:Init`). 세기만 하면 팝업이 가리키는 수가 화면에 선 마크보다
-		-- 많아지고, 아래 축이 마크 없는 머리글을 "표시가 있는 키"로 낸다.
-		local orderMoved = arrivalID == nil and DebindPrivate.ShouldWarnOrderMoved()
-			and DebindPrivate.KeyGroupOrderMoved(rows) or false;
-		if (orderMoved) then
-			_orderMovedGroups = _orderMovedGroups + 1;
-		end
-
-		-- **그룹 축은 행 축과 함께 물어야 한다.** 행 축은 `ActionPassesFilters`가 행마다 답하고
-		-- 이것은 그룹 하나의 값이라, 게이트가 여기 서고 `KeyGroupPasses`가 나머지를 본다.
-		local marked = hasError or hasWarning or orderMoved;
-		local shown = (marked and _filters.marked or (not marked) and _filters.unmarked)
-			and KeyGroupPasses(rows, key);
-
 		if (shown) then
 			-- 그룹이 남으면 **멤버 전부가** 집합에 든다. 통째로 남기는 것과 같은 이유다 -
 			-- 오른쪽 목록이 여기서 매치된 하나만 받으면 두 열이 다른 그룹을 말하게 된다.
@@ -5153,7 +5080,6 @@ function BuildKeyboardElements()
 				rows = rows,
 				hasError = hasError,
 				hasWarning = hasWarning,
-				orderMoved = orderMoved,
 				-- Which arrival this group is, or nil for the reader's own. The heading reads it to
 				-- know whether to tint, and the menu and a group anchor are filed under it.
 				arrivalID = arrivalID,
@@ -6383,27 +6309,6 @@ StaticPopupDialogs["DEBIND_REPLACE_ACTIONS"] = {
 	-- `CloseActionWindows`이고, 취소는 아무것도 안 불러서 그 창을 그대로 둔다.
 	OnAccept = function(_, data)
 		DebindFrame:ReplaceActions(data.actions, data.type, data.value, nil, nil, data.props);
-	end,
-	hideOnEscape = 1,
-	timeout = 0,
-	whileDead = 1,
-};
-
---- The run order moved on this character, and this takes the reader's word that they have looked.
----
---- **Accepting is the only answer, and it is not a confirmation.** Nothing in the profile changes:
---- what the press clears is the marks on the headings and the button that opened this. So the one
---- button says "I have looked at it" rather than OK, and the body says the marks go with it.
----
---- **The count is `text_arg1`**, put up by `ShowOrderChangedNotice` off the last draw of the left
---- column.
-StaticPopupDialogs["DEBIND_ORDER_MOVED"] = {
-	text = LLL["ORDER_MOVED_POPUP"],
-	button1 = LLL["ORDER_MOVED_POPUP_SEEN"],
-	button2 = CANCEL,
-	OnAccept = function()
-		DebindPrivate.AcknowledgeOrderMoved();
-		DebindFrame:Update();
 	end,
 	hideOnEscape = 1,
 	timeout = 0,

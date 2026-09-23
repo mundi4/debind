@@ -829,33 +829,31 @@ L["LINE_TOOLTIP_SPEC_OVERFLOW"] = "%s and others"
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebindUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
--- 세로 탭(사이드탭) 툴팁의 설명 줄. 다섯 레이어에 하나씩이고, 세 마디로 고정한다:
--- **누가 쓰는가**, **무엇보다 우선하는가**, 그리고 **언제 그 말이 안 맞는가.**
+-- The side tabs' description lines, one per layer, held to three parts: **who uses it**, **what it
+-- beats**, and **when that does not hold.**
 --
--- 셋째 마디를 빼면 **거짓말이 된다.** 탭은 실행 순서의 두 번째 축이라(IMPORTANCE_DESC:
--- 중요도, 탭, 순서), 중요도를 올려 둔 공유/일반 액션은 공유/야성 액션보다 먼저 실행된다.
--- 툴팁은 일부러 불러서 읽는 글이라 이 길이가 부담이 아니고, 탭마다 반복돼도 한 번에 하나만
--- 보인다.
+-- **Without the third part it is a lie.** The tab is the third step of the run order
+-- (IMPORTANCE_DESC: Importance, conditions, tab, order), so an Account action with conditions, or
+-- with its Importance raised, runs before a Druid action on the same key. A tooltip is called up
+-- on purpose, so the length costs nothing, and only one of them shows at a time.
 --
--- **마우스 올림은 절에 안 적는다.** 그것도 탭을 이기는 축이 맞지만, 그 액션을 만든 사람은
--- 자기가 만든 줄 알고 있다 - 중요도처럼 나중에 잊고 부딪히는 것이 아니다. 전부 알고 싶은
--- 사람은 IMPORTANCE_DESC가 축을 순서대로 적어 둔다.
+-- **Hover is left out of the clause.** It beats the tab as well, but whoever set it up knows they
+-- did; it is not something forgotten and run into later the way conditions and Importance are.
+-- IMPORTANCE_DESC lists the other steps in order for anyone who wants them.
 --
--- **조건은 이제 이 절에 안 든다.** 조건 유무가 순서를 가르던 단계가 없어졌으므로
--- (`legacy/taking-conditions-out-of-the-order.md`) 조건이 붙었다고 탭을 이기는 일이 없다.
+-- The loser is called by its **full layer name** ("Account / Druid"). The tooltip title uses that
+-- form, and a reference has to match it to be found on screen; the reason is in
+-- GetSideTabDescription's comment.
 --
--- 지는 쪽은 **레이어 이름 전체**로 부른다("Account / Druid"). 툴팁 제목이 그 형식이라 참조도
--- 같아야 화면에서 찾을 수 있다 - 근거는 GetSideTabDescription 주석에.
---
--- 영어는 README의 Layers 표 오른쪽 열과 **같은 말**로 적는다. 표를 읽고 온 사람과 툴팁만
--- 보는 사람이 같은 문장을 읽어야 둘이 같은 것이라는 걸 안다.
+-- The English is **the same words** as the right column of README's Layers table, so someone who
+-- read the table and someone who only sees the tooltip can tell they read one thing.
 L["LAYER_DESC_SHARED_GENERAL"] = "Every character on the account."
 -- %s 둘은 차례로 직업명(UnitClass), 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same key in %2$s, unless Importance says otherwise."
+L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same key in %2$s, unless conditions or Importance say otherwise."
 -- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless Importance says otherwise."
+L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless conditions or Importance say otherwise."
 -- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
-L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Account, unless Importance says otherwise."
+L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Account, unless conditions or Importance say otherwise."
 -- **This is the narrowest layer, so it beats every other one** -- not the one directly below it.
 -- Naming a single loser here was wrong, and naming all four would be a list nobody reads, so it
 -- says "everywhere else", the same move `LAYER_DESC_CHARACTER_GENERAL` makes with "in Account".
@@ -864,7 +862,7 @@ L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same k
 -- so "this spec" has something to point at. Korean still needs the spec name and takes it as the
 -- only `%s`. The two locales therefore disagree on format specifiers, which check-locales knows
 -- about through EXTRA_SPECS_OK.
-L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key everywhere else, unless Importance says otherwise."
+L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key everywhere else, unless conditions or Importance say otherwise."
 -- 남의 문자열에서 온 레이어의 캐릭터 자리. 이름이 없어서() 낱말로 대신한다.
 L["LAYER_SHORT_CHARACTER"] = "Character"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
@@ -941,10 +939,13 @@ L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action. Hold CTRL or SHIFT while clicking to select more than one."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
--- **2번의 주어가 "먼저 바인딩한 것"이 아니다.** 조건 유무 단계가 빠지면서 이 항목이 가장
--- 자주 순서를 정하는 자리가 됐는데, 복사도 이동도 레이어 이동도 전부 그 키 그룹의 맨 뒤에
--- 놓인다(`Profile.lua`의 `PlaceInKeyGroup`). 앞의 셋과 탭이 가려 주던 동안에는 안 드러났다.
-L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met. Only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Tab. The more specific tab is tried first, from this character and specialization down to Account.|n2. Order. Within one tab, an action added to the key goes last. Run Sooner and Run Later move it, and that is the only step you can move an action within."
+-- **The subject of item 3 is not "the one bound first".** A copy, a move and a move to another
+-- layer all land at the end of the key group (`Profile.lua`'s `PlaceInKeyGroup`), so "added" is
+-- what is true.
+--
+-- **The arrows are not named.** A sentence spelling out another control's label goes on pointing at
+-- it after a rename.
+L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met. Only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Conditions. An action with conditions is tried before one without.|n2. Tab. The more specific tab is tried first, from this character and specialization down to Account.|n3. Order. When everything above is equal, an action added to the key goes last. This is the only step you can move an action within."
 -- 끝의 이유절에 **주어를 세웠다.** 원래는 "their own bindings are not loaded this session"이라
 -- 누가 안 불러왔는지가 없었는데, 3.1 전까지는 읽을 갈래가 하나뿐이라 그래도 됐다 - 캐릭터
 -- 전용 지정이 진짜 캐릭터별 SavedVariables(`DebounceVarsPerChar`)에 있어서, 그 캐릭터로
@@ -1021,45 +1022,29 @@ L["ORDER_MOVE_UP"] = "Run Sooner"
 L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key."
 L["ORDER_MOVE_DOWN"] = "Run Later"
 L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key."
--- 조건 단계가 빠지면서 순서가 움직인 자리의 넉 줄(`legacy/taking-conditions-out-of-the-order.md` §7).
---
--- **개수가 0이어도 서는 문장이라야 한다.** 옛 판에서 올라온 프로필이면 이 캐릭터에서 하나도 안
--- 움직였어도 알림이 뜬다 - "이 캐릭터는 안 움직였다"는 말해 주지 않으면 알 길이 없는 사실이다.
--- 그래서 개수를 문장 안에 녹이지 않고 제 줄에 둔다.
---
--- **"캐릭터마다 봐야 한다"를 적는다.** 재는 것이 지금 들어온 캐릭터가 보는 레이어뿐이라,
--- 공유 레이어의 같은 액션이 다른 캐릭터에서는 다른 자리에 설 수 있다.
---
--- **되돌릴 수 없다는 말이 승낙 앞에 선다.** 누르면 표시가 이 캐릭터에서 다시 안 뜬다.
-L["ORDER_MOVED_BUTTON"] = "Run Order Changed"
-L["ORDER_MOVED_POPUP"] = "Debind used to try an action with conditions before one without. It does not any more: after Importance it goes by the tab, then by the order you set.|n|nKeys whose order changed on this character: %d|n|nThey are marked in the Overview list, and the filter above that list can show only the keys with a mark. Other characters have their own keys to look at.|n|nThis notice and those marks do not come back on this character."
-L["ORDER_MOVED_POPUP_SEEN"] = "I have looked at it"
-L["ORDER_MOVED_GROUP"] = "This key's order changed in this update."
 L["ORDER_BLOCKED_ALREADY_FIRST"] = "This action already runs first on this key."
 L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
--- 아래 넷은 위의 ALREADY_* 둘과 **틀이 다르다.** 저 둘은 그 자체로 막는 이유이고 주어도
--- 제 안에 있다("This action already runs first"). 이 넷은 **두 액션 사이의 관계**라, 한때
--- "They have different importance."처럼 관계만 적어놨었다 - 그런데 이 툴팁은 죽은 버튼 하나에
--- 딸려 뜨고 두 번째 액션을 꺼낸 적이 없다. they가 누구인지 화면 어디에도 없었다.
+-- The ones below are **shaped differently from the two ALREADY_* above.** Those are a reason in
+-- themselves and carry their own subject ("This action already runs first"). These are **a relation
+-- between two actions**, and once said only the relation ("They have different importance.") --
+-- but the tooltip hangs off one dead button and never named the second action, so nothing on
+-- screen said who "they" were.
 --
--- 그래서 셋을 한 문장에 담는다: **막혔다는 것**(제목과 설명은 일어날 일을 말하는데 그 일은
--- 안 일어난다), **누구와 누구인지**, 그리고 **무엇이 순서를 정하고 있는지**. 마지막이 이
--- 자리의 값어치다 - UpdateMoveButtons 주석대로 규칙을 가르치는 몇 안 되는 자리다.
+-- So each holds three things in one sentence: **that the move is blocked** (the title and
+-- description say what would happen, and it does not), **which two actions**, and **what is
+-- deciding their order.** The last is what the position is worth: as `UpdateMoveButtons`' comment
+-- says, it is one of the few places that teach the rule.
 --
--- **방향을 안 짚는다.** 위/아래 버튼이 이 문자열을 같이 쓰므로, 위아래를 적으면 방향마다
--- 문자열을 따로 둬야 하고 늘어난 만큼 로케일이 갈라진다. 어느 쪽인지는 누른 화살표가 말한다.
+-- **No direction.** The up and down buttons share these strings, and naming one would mean a string
+-- per direction and that many more lines in every locale. The arrow pressed says which way.
 --
--- **뒷절은 규칙이지 비교 절차가 아니다.** 넷 다 "...is compared before the order on this key"로
--- 끝났었는데, 사다리가 있다는 것 자체가 읽는 사람에게 없는 개념이라 그 문장은 물음에 답을
--- 안 하고 우리가 무엇을 먼저 비교하는지만 말했다. 사다리 전체는 IMPORTANCE_DESC가 가르치고
--- 같은 화면에서 닿는다.
+-- **The second half is the rule, not the comparison.** They all once ended "...is compared before
+-- the order on this key", but a ladder of comparisons is not an idea the reader has, so that
+-- sentence answered nothing and only said what we compare first. The whole ladder is in
+-- IMPORTANCE_DESC, reachable from the same screen.
 --
--- **어느 것도 절대화하지 않는다.** IMPORTANCE 아래 것들은 전부 위에 다른 축이 있어서
--- "always"가 거짓이 된다. 제 축의 규칙만 말하고 멈춘다.
---
--- **CONDITIONAL은 옛 순서 옵션을 켠 사람만 본다.** 조건 유무는 기본 순서를 안 가르므로
--- 화살표도 안 막는다(`Ordering.lua`의 `GetDecidingOrderAxis`). 켠 사람에게는 실제로 막히고,
--- 이 문장이 그 이유를 말한다.
+-- **None of them says "always".** Everything under Importance has another step above it, which
+-- would make "always" false. Each states its own step's rule and stops.
 L["ORDER_BLOCKED_CONDITIONAL"] = "This action cannot move past the one next to it -- only one of the two has conditions, and an action with conditions is tried before one without."
 -- **layer이고 scope가 아니다.** README가 "Layers, not profiles"로 가르치고 CurseForge 설명도
 -- layered bindings라 읽는 사람이 이미 만난 말이다. scope는 덮는다는 뜻을 안 나르고, tab은
@@ -1196,21 +1181,6 @@ L["SWITCH_ANSWER_OFF"] = "Off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
 L["SWITCH_ANSWER_REMEMBER"] = "As you left it"
 L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back the way you left it when you log in and when you change specialization. Every character remembers this separately."
--- **임시 옵션이고, 그 말이 툴팁 안에 있다**(`legacy/taking-conditions-out-of-the-order.md` §7). 다음
--- 판에서 걷을 작정으로 넣는 것이라, 체크해 두고 잊은 사람이 그날 처음 알게 되면 안 된다. 라벨이
--- 아니라 툴팁에 두는 이유는 라벨이 이름이기 때문이다.
---
--- **"conditions"를 쓴다.** 이 줄을 찾아올 사람은 예전 순서를 기억하는 사람이고, 그 사람에게
--- 그 규칙의 이름이 그것이다.
---
--- **"예전 판 그대로"라고 쓰면 거짓이 된다.** 이 판은 개체창 단계도 비교자에서 층으로 옮겨
--- 왔고(`which-action-a-key-runs.md` §3) 이 체크는 그걸 안 되돌린다. 되돌리는 한 가지만 적는다.
---
--- **"이것 하나만 바꾼다"고도 못 쓴다.** 켜 둔 채로 액션을 편집하면 `RenumberKeyGroup`이 그
--- 차례를 그대로 `action.seq`에 저장하고, 그건 체크를 끈 뒤에도 남는다. 화면에 그려진 차례를
--- 번호에 적는 것이 그 함수의 규칙이라 동작은 맞지만, 안 바뀐다고 말한 것은 거짓이 된다.
-L["LEGACY_ORDER"] = "Use the old run order"
-L["LEGACY_ORDER_DESC"] = "Goes back to trying an action with conditions before one without. Nothing else about the run order comes back with it.|n|nThis option will be removed in a later update, and the order will then be the new one for everyone."
 -- **The second sentence is the whole reason the tooltip exists.** A reader who ticks this and
 -- then watches a switch the addon works out move in silence has no way to tell the option from a
 -- fault, so which switches it covers is said here rather than left to be discovered.
@@ -1393,7 +1363,7 @@ L["SWITCHES_HELP_DETAIL"] = "What the Switch picked on the left is set to: how i
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
-L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Account, unless Importance says otherwise."
+L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Account, unless conditions or Importance say otherwise."
 -- The instruction line on the `Target` row (`MenuKit`'s `<label>_DESC` rule).
 --
 -- **The second sentence is the surprising half.** A picked target is taken out of every
@@ -1543,11 +1513,7 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 -- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
 L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while %5$s is on for this action and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
 L["TYPE_BLOCK"] = "Nothing"
--- **둘째 문단 끝의 자리 문장.** "under it"은 자리를 가리키는 말인데, 조건을 걸면 저절로
--- 위에 서던 시절에는 그 자리가 그냥 주어졌다. 이제는 키에 더한 액션이 맨 뒤에 서므로
--- (`legacy/taking-conditions-out-of-the-order.md`), 이 설명을 읽고 만든 Block은 멈출 것이 하나도
--- 없는 자리에 놓인다.
-L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only. An action added to a key goes last, so use Run Sooner to put it above the ones it should stop."
+L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only."
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"
@@ -2057,14 +2023,6 @@ L["FILTER_UNKEYED"] = "No Key Bound"
 -- **"Accepted" is the word the rest of the import uses** (`APPROVE_IMPORT`, `LINE_TOOLTIP_IMPORTED`),
 -- so this is not a new idea for the reader - it is the same state named where it can be filtered on.
 L["FILTER_PENDING"] = "Not Accepted Yet"
--- 셋째 축. 행이 아니라 **단축키 그룹**을 가르고, 묻는 것은 그 머리글에 마크가 섰나이다. 이슈와
--- 도달 불가와 순서가 움직인 표시가 전부 그 아이콘 하나로 나오므로, 화면에서 보이는 것과 거른
--- 것이 같으려면 축도 그 아이콘을 따라가야 한다.
---
--- **"Issues"라고 못 적는다.** 순서가 움직인 표시는 이슈가 아니고, 도달 불가도 이슈 표 밖이다
--- (`Constants.BINDING_ISSUE_GRADES` 머리주석).
-L["FILTER_MARKED"] = "Keys with a Mark"
-L["FILTER_UNMARKED"] = "Keys with No Mark"
 -- Empty right-hand list because a filter took everything out. **Different from the search one**:
 -- that reader knows what they typed, and this one has to open the dropdown to see which value is
 -- switched off.

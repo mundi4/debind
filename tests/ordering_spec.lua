@@ -1,28 +1,15 @@
--- 순서 비교 함수 테스트. 와우 클라이언트 불필요.
+-- The ordering comparators. No WoW client needed.
 --
--- 두 층으로 되어 있음:
---   1. 단계별 테스트 - CompareActionOrder의 네 단계(priority > layerRank > specRank > seq)와
---      CompareKeys의 규칙을 하나씩 고정한다
---   2. 무차별 대조 테스트 - (layerRank, seq)로 쪼개기 전의 통짜 ordinal 비교자를
---      그대로 옮겨와서, 작은 조건 공간의 모든 쌍에 대해 두 비교자가 같은 답을 내는지 본다.
---      **옛 순서 옵션을 켜고 돈다.** 그 옵션이 약속하는 것이 정확히 이 동일성이고, 기본값에서는
---      조건 단계가 빠졌으므로 일부러 깨진다.
+-- Two layers:
+--   1. Step by step - pins the five steps of CompareActionOrder (priority > isConditional >
+--      layerRank > specRank > seq) and the rules of CompareKeys one at a time
+--   2. Brute force - the single-ordinal comparator from before (layerRank, seq) were split, moved
+--      here as it was, asked about every pair in a small space alongside the real one. This is
+--      what says the sort comes out exactly as it did before that split.
 
 return function(DebindPrivate)
     local CompareActionOrder = DebindPrivate.CompareActionOrder;
     local CompareKeys = DebindPrivate.CompareKeys;
-
-    --- 옛 순서 옵션을 켜고 fn을 돌린다. 켜고 끄는 것이 비교자가 읽는 계정 값 하나뿐이라
-    --- (`Ordering.lua`의 `IsLegacyOrderOn`) 다른 준비가 없다.
-    local function withLegacyOrder(fn)
-        local saved = DebindPrivate.Options;
-        DebindPrivate.Options = { legacyOrder = true };
-        local ok, err = pcall(fn);
-        DebindPrivate.Options = saved;
-        if (not ok) then
-            error(err, 0);
-        end
-    end
 
     local T = { passed = 0, failures = {} };
 
@@ -78,43 +65,33 @@ return function(DebindPrivate)
         expectTie(rec({ priority = 3 }), rec({}), "3과 nil은 동률");
     end);
 
-    --- **두 단계가 있었다.** 개체창 단계는 가리킨 개체창의 유닛에 조건이 걸린 액션을 앞세우던
-    --- 것이고 그 유닛이 보통 유닛이 되면서 없어졌다(`which-action-a-key-runs.md` §2). 조건
-    --- 유무 단계는 그 뒤에 없어졌다(`legacy/taking-conditions-out-of-the-order.md`). 둘 중 뒤엣것만
-    --- 옵션으로 되살릴 수 있고, 아래 두 테스트가 그쪽이다.
+    --- **There was a unit frame step.** It stood second and put an action with a condition on the
+    --- pointed frame's unit ahead of one without; it went when that unit became an ordinary unit
+    --- (`which-action-a-key-runs.md` §2). A condition on that unit now counts under `isConditional`
+    --- below like any other.
 
-    test("조건 유무는 기본 순서를 안 가른다", function()
-        expectTie(rec({ isConditional = true }), rec({ isConditional = false }), "isConditional");
-        expectTie(rec({ isConditional = true }), rec({}), "nil도 마찬가지");
-        expectBefore(rec({ isConditional = false, seq = 1 }), rec({ isConditional = true, seq = 2 }),
-            "갈리는 것은 seq다");
+    test("2단계 isConditional - 조건부가 먼저", function()
+        expectBefore(rec({ isConditional = true }), rec({ isConditional = false }), "isConditional");
+        expectBefore(rec({ isConditional = true }), rec({}), "nil은 비조건부");
+        expectTie(rec({ isConditional = false }), rec({}), "false와 nil은 동률");
     end);
 
-    test("옛 순서 옵션 - 조건부가 먼저", function()
-        withLegacyOrder(function()
-            expectBefore(rec({ isConditional = true }), rec({ isConditional = false }), "isConditional");
-            expectBefore(rec({ isConditional = true }), rec({}), "nil은 비조건부");
-            expectTie(rec({ isConditional = false }), rec({}), "false와 nil은 동률");
-            expectBefore(rec({ priority = 1 }), rec({ priority = 2, isConditional = true }),
-                "priority 우선");
-            expectBefore(rec({ layerRank = 5, isConditional = true }), rec({ layerRank = 1 }),
-                "레이어보다 위다");
-        end);
+    test("2단계 isConditional - priority가 먼저 갈리면 안 본다", function()
+        expectBefore(rec({ priority = 1 }), rec({ priority = 2, isConditional = true }), "priority 우선");
     end);
 
-    test("2단계 layerRank - 작은 값(구체적인 레이어)이 먼저", function()
+    test("3단계 layerRank - 작은 값(구체적인 레이어)이 먼저", function()
         expectBefore(rec({ layerRank = 1, seq = 99 }), rec({ layerRank = 2, seq = 1 }), "layerRank");
     end);
 
-    test("2단계 layerRank - priority가 먼저 갈리면 안 본다", function()
-        expectBefore(rec({ priority = 1, layerRank = 5 }), rec({ priority = 2, layerRank = 1 }),
-            "priority 우선");
+    test("3단계 layerRank - isConditional이 먼저 갈리면 안 본다", function()
+        expectBefore(rec({ layerRank = 5, isConditional = true }), rec({ layerRank = 1 }), "isConditional 우선");
     end);
 
     -- **오프스펙 액션은 활성 액션과 같은 밴드에 들어간다.** layerRank가 스코프까지만 좁히므로
     -- (직업/특성1과 직업/특성3이 같은 값), 그 안에서 자리를 마저 정하는 것이 이 단계다.
     -- 활성이 0이라 언제나 앞이고, 오프끼리는 특성 번호 차례다.
-    test("3단계 specRank - 활성이 먼저, 오프스펙은 특성 번호 차례", function()
+    test("4단계 specRank - 활성이 먼저, 오프스펙은 특성 번호 차례", function()
         expectBefore(rec({ specRank = 0, seq = 99 }), rec({ specRank = 1, seq = 1 }), "활성 우선");
         expectBefore(rec({ specRank = 1, seq = 99 }), rec({ specRank = 3, seq = 1 }), "특성 번호");
         -- 없으면 0, 즉 활성이다. 활성 레이어에서 온 레코드는 이 필드를 안 달고 온다.
@@ -123,12 +100,12 @@ return function(DebindPrivate)
 
     -- **seq보다 앞이어야 한다.** seq는 한 레이어 안에서만 믿을 수 있는 값이라, 레이어 하나로
     -- 좁혀지기 전에 비교하면 서로 다른 번호 공간을 견주게 된다.
-    test("3단계 specRank - layerRank가 먼저 갈리면 안 본다", function()
+    test("4단계 specRank - layerRank가 먼저 갈리면 안 본다", function()
         expectBefore(rec({ layerRank = 1, specRank = 4 }), rec({ layerRank = 2, specRank = 0 }),
             "layerRank 우선");
     end);
 
-    test("4단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
+    test("5단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
         expectBefore(rec({ seq = 1 }), rec({ seq = 2 }), "seq");
         -- 번호가 없는 쪽은 0으로 본다. 키가 걸린 액션에는 마이그레이션과 CleanUpDB가 번호를
         -- 보장하므로 정상 데이터에는 없는 경우지만, 정렬 안에서 터지지는 않아야 한다.
@@ -141,7 +118,7 @@ return function(DebindPrivate)
             rec({ priority = 2, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
     end);
 
-    test("sort 통합 - 네 단계가 순서대로 적용된다", function()
+    test("sort 통합 - 다섯 단계가 순서대로 적용된다", function()
         local arr = {
             rec({ seq = 2 }),
             rec({ seq = 1 }),
@@ -152,8 +129,7 @@ return function(DebindPrivate)
         };
         sort(arr, CompareActionOrder);
 
-        -- 조건부인 seq=3은 아무 데도 안 뛴다. 같은 레이어의 1, 2와 번호 차례로 선다.
-        local expected = { 5, 6, 1, 2, 3, 7 };
+        local expected = { 5, 3, 6, 1, 2, 7 };
         for i = 1, #expected do
             check(arr[i].seq == expected[i],
                 ("%d번째가 seq=%d, 기대값 %d"):format(i, arr[i].seq, expected[i]));
@@ -180,10 +156,7 @@ return function(DebindPrivate)
         return lhs.ordinal < rhs.ordinal;
     end
 
-    -- **옵션을 켜고 돈다.** 켠 사람에게 옛 순서를 돌려준다는 것이 그 옵션의 전부이고, 그 약속을
-    -- 재는 것이 이 대조뿐이다.
-    test("무차별 대조 - 옛 순서 옵션을 켜면 모든 쌍에서 옛 비교자와 답이 같다", function()
-      withLegacyOrder(function()
+    test("무차별 대조 - 모든 쌍에서 옛 비교자와 답이 같다", function()
         local PRIORITIES = { 1, 3, 5, "nil" };
         local CONDITIONALS = { "nil", false, true };
         local INDICES_PER_LAYER = 3;
@@ -215,62 +188,6 @@ return function(DebindPrivate)
                     :format(i, j, tostring(new), tostring(old)));
             end
         end
-      end);
-    end);
-
-    ---------------------------------------------------------------------------
-    -- 2-2. KeyGroupOrderMoved - 조건 단계가 빠지면서 이 키 묶음의 순서가 움직였나
-    --
-    -- 이미 새 순서로 선 줄을 옛 비교자로 이웃만 훑는다. 정렬을 한 번도 안 하므로 `sort`가
-    -- 안정적이지 않아서 동률 자리에 없는 차이가 나는 일이 없다.
-    ---------------------------------------------------------------------------
-
-    local KeyGroupOrderMoved = DebindPrivate.KeyGroupOrderMoved;
-
-    --- 새 비교자 순서로 세운 줄. 실제 호출부가 넘기는 것이 그것이다
-    --- (`CollectActionsForKey`가 정렬해서 돌려준다).
-    local function sortedGroup(...)
-        local rows = { ... };
-        sort(rows, CompareActionOrder);
-        return rows;
-    end
-
-    test("이웃 훑기 - 조건부가 무조건 뒤에 서 있으면 움직였다", function()
-        check(KeyGroupOrderMoved(sortedGroup(
-            rec({ seq = 1 }),
-            rec({ isConditional = true, seq = 2 }))) == true, "조건부가 2번이면 움직인 것");
-    end);
-
-    test("이웃 훑기 - 조건부가 이미 앞이면 안 움직였다", function()
-        check(KeyGroupOrderMoved(sortedGroup(
-            rec({ isConditional = true, seq = 1 }),
-            rec({ seq = 2 }))) == false, "옛 순서와 같다");
-    end);
-
-    test("이웃 훑기 - 중요도가 조건 유무보다 위다", function()
-        -- 조건부가 뒤에 있지만 중요도에서 이미 갈렸으므로 옛 비교자도 같은 순서를 냈다.
-        check(KeyGroupOrderMoved(sortedGroup(
-            rec({ priority = 1, seq = 1 }),
-            rec({ priority = 5, isConditional = true, seq = 2 }))) == false, "중요도 우선");
-    end);
-
-    test("이웃 훑기 - 액션이 하나뿐인 묶음은 언제나 거짓", function()
-        check(KeyGroupOrderMoved(sortedGroup(rec({ isConditional = true }))) == false, "하나짜리");
-        check(KeyGroupOrderMoved({}) == false, "빈 묶음");
-    end);
-
-    -- **동률은 움직인 것이 아니다.** 옛 비교자가 양쪽 다 거짓을 내는 쌍은 화면 순서도 그대로다.
-    -- 표를 두 벌 정렬해 견주는 방식이었으면 여기서 없는 차이가 나왔을 자리다.
-    test("이웃 훑기 - 옛 비교자가 동률인 쌍은 안 센다", function()
-        check(KeyGroupOrderMoved(sortedGroup(
-            rec({ isConditional = true, seq = 1 }),
-            rec({ isConditional = true, seq = 2 }))) == false, "둘 다 조건부");
-    end);
-
-    test("이웃 훑기 - 제 답에 영향을 안 받는다", function()
-        local rows = sortedGroup(rec({ seq = 1 }), rec({ isConditional = true, seq = 2 }));
-        check(KeyGroupOrderMoved(rows) == true, "첫 물음");
-        check(KeyGroupOrderMoved(rows) == true, "두 번째 물음도 같아야 한다");
     end);
 
     ---------------------------------------------------------------------------
@@ -519,20 +436,8 @@ return function(DebindPrivate)
         expectBlocked(rec({ name = "t" }), rec({ name = "n", priority = 2 }), "IMPORTANCE");
     end);
 
-    -- 조건 유무는 기본값에서 아무것도 안 막는다. 막는 것은 옛 순서 옵션을 켠 비교자뿐이고,
-    -- `GetDecidingOrderAxis`가 발동 순서와 같은 답을 봐야 화살표가 참말을 한다.
-    test("막힘 - 조건부 여부는 기본값에서 안 막는다", function()
-        local target, neighbor = rec({ name = "t", seq = 2 }), rec({ name = "n", isConditional = true, seq = 1 });
-        local rows = sorted(makeLayer(neighbor, target));
-        check(rows[2] == target, "준비 - target이 두 번째여야 함");
-        local moved = ComputeOrderSwap(rows, 2, UP);
-        check(moved == neighbor, "이웃과 맞바꿀 수 있어야 한다");
-    end);
-
-    test("막힘 - 옛 순서 옵션을 켜면 조건부 여부가 CONDITIONAL로 막는다", function()
-        withLegacyOrder(function()
-            expectBlocked(rec({ name = "t" }), rec({ name = "n", isConditional = true }), "CONDITIONAL");
-        end);
+    test("막힘 - 조건부 여부가 다르면 CONDITIONAL", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", isConditional = true }), "CONDITIONAL");
     end);
 
     test("막힘 - 레이어가 다르면 LAYER", function()

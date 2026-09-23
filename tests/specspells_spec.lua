@@ -598,12 +598,16 @@ return function(DebindPrivate, _, ctx)
     -- `known` axis, so a gated dispel is covered and ordered like any other binding. It used to be
     -- opaque, and then an unconditional action in front of it left it on the key with no mark and
     -- no press it could ever win.
+    --
+    -- **Importance is what puts the spell in front of the ticked one.** A ticked dispel carries
+    -- `known` and so has conditions, which stand it ahead of an action without them on its own.
     test("a gated dispel behind an unconditional action is unreachable", function()
         withGate(WARLOCK_GATE, function()
             warlockWorld();
             shim.world.spells[8936] = { name = "Regrowth" };
 
-            local spell = action({ type = Constants.SPELL, key = "F3", value = 8936 });
+            local spell = action({ type = Constants.SPELL, key = "F3", value = 8936,
+                priority = Constants.DEFAULT_IMPORTANCE - 1 });
             local ticked = action({ type = Constants.DISPEL, key = "F3",
                 conditions = { known = true } });
             local plain = action({ type = Constants.DISPEL, key = "F4" });

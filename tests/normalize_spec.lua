@@ -71,9 +71,9 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- 조건부 판정
     --
-    -- 조건부 마크(`MARK_TOOLTIP_CONDITIONAL`)와 옛 순서를 돌려주는 비교자가 `isConditional`을
-    -- 읽는다. 기본 발동 순서는 안 읽는다(`legacy/taking-conditions-out-of-the-order.md`).
-    -- 물음은 `next` 하나다 - 표에 든 것은 전부 조건이다.
+    -- The run order's conditions step reads this, through `isConditional`, and so does the
+    -- conditional mark (`MARK_TOOLTIP_CONDITIONAL`). The question is one `next`: everything in the
+    -- table is a condition.
     ---------------------------------------------------------------------------
 
     test("아는 상태 이름 하나면 조건부다", function()

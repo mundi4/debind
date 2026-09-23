@@ -185,6 +185,38 @@ return function(DebindPrivate, _, ctx)
         reset();
     end);
 
+    -- **Once, on Account, with a class's own spell under it** (`putting-conditions-back-in-the-order.md`).
+    -- That is what this type is for, and the spell below is the fallback the warlock's Soulstone
+    -- first asked for. Skipping counts as having conditions, and having conditions stands above the
+    -- layer, so the broader action is tried first. Without that the class's spell covers every
+    -- press and a dead friend gets Regrowth.
+    test("on Account with skipping on, it stands above a class spell on the same key", function()
+        druidWorld();
+        local mark = frames.mark();
+        _G.DebindVars = {
+            dbver = Constants.DB_VERSION,
+            shared = {
+                GENERAL = { action({ type = Constants.RESURRECT, key = "F1", skipWhenUnusable = true }) },
+                classes = { [Constants.PLAYER_CLASS] = {
+                    [0] = { action({ type = Constants.SPELL, key = "F1", value = REGROWTH }) },
+                } },
+            },
+            characters = { [GUID] = { layers = {}, switches = {} } },
+            migrated = {},
+            switches = {},
+        };
+        DebindPrivate.InitDB();
+        check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+        interp:replay(frames.since(mark));
+        interp:resetState();
+
+        shim.world.units = { target = DEAD_FRIEND };
+        check(fired("F1") == "Revive", "a dead friend: " .. tostring(fired("F1")));
+        shim.world.units = { target = LIVE_FRIEND };
+        check(fired("F1") == "Regrowth", "a living friend: " .. tostring(fired("F1")));
+        reset();
+    end);
+
     -- A branch not known is passed over for the next one, which is how "Revive if there is no
     -- Revitalize" is written without a `noknown`.
     test("a branch not known gives way to the next", function()

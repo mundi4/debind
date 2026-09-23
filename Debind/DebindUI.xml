@@ -1552,30 +1552,6 @@
 					</Button>
 
 					<!--
-						**The run order moved on this character, and nobody has looked yet.**
-
-						It stands only while both are true (`DebindPrivate.ShouldWarnOrderMoved`), and
-						the press opens the notice that takes the acknowledgement. Once that is given
-						it never comes back on this character, so nothing is nailed to the window of
-						somebody who has already read it or who never had the old order at all.
-
-						**It does not say how many.** The count is in the notice, where there is room
-						for the sentence it belongs to; a number on the button would be the second
-						place holding it.
-					-->
-					<Button parentKey="OrderChanged" inherits="UIPanelButtonTemplate" hidden="true">
-						<Size x="1" y="22"/>
-						<Anchors>
-							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ResultPanel" relativePoint="TOPRIGHT" x="-2" y="0"/>
-						</Anchors>
-						<Scripts>
-							<OnClick>
-								DebindFrame:ShowOrderChangedNotice();
-							</OnClick>
-						</Scripts>
-					</Button>
-
-					<!--
 						**The (?) that lays the help plate over the two columns.** It sits in this
 						panel rather than in the window, because the plate points at Overview's two
 						columns and nothing else in the window has them - hiding with the tab is the

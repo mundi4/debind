@@ -1471,9 +1471,11 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
         --- the quietest place in this window to get wrong.
         ---
         --- **Both carry one condition, on different axes.** Different axes are what make the
-        --- solver keep both, so a board with one of them dropped measures nothing. Having
-        --- conditions no longer decides the order (`legacy/taking-conditions-out-of-the-order.md`), so
-        --- what settles these two is `seq` either way.
+        --- solver keep both, and **both being conditional** is what takes the comparator down as
+        --- far as `seq`: `isConditional` is step 2 and `seq` is step 5 (`Ordering.lua`), so with
+        --- only one of them conditional that one leads at the merge regardless of whether the
+        --- arrival stands behind. Drop either condition and this test goes red against correct
+        --- code.
         ---
         --- **The layer is emptied for every board.** The kit does not empty it between tests and
         --- this one reuses a single key three times, so without that the third board's order is
@@ -2758,14 +2760,10 @@ local function HasLine(lines, text)
     return false
 end
 
--- Two rows on one key in this layer, one of them more important. The Importance step settles their
+-- Two rows on one key in this layer, one with a condition. The conditions step settles their
 -- order, so the arrows between them are locked by a rule and the ones at the ends are not.
---
--- **It was a condition on one of them.** Conditions stopped settling the order
--- (`legacy/taking-conditions-out-of-the-order.md`), and with the two tied at that step the arrows came
--- alive and these cases measured nothing.
-local function PlantImportanceLockedPair(key)
-    local first = InsertAction({ type = Constants.SPELL, value = 1, key = key, priority = 2 })
+local function PlantConditionLockedPair(key)
+    local first = InsertAction({ type = Constants.SPELL, value = 1, key = key, combat = true })
     local second = InsertAction({ type = Constants.SPELL, value = 2, key = key })
     ApplyBindings()
 
@@ -2779,20 +2777,20 @@ end
 -- What the game does: the window, the tooltip and the real button scripts, none of which the
 -- headless run has.
 RegisterTest("Order arrows: an arrow a rule holds is dead", {
-    description = "An arrow held by the Importance step is disabled, and so is one at the end of its group",
+    description = "An arrow held by the conditions step is disabled, and so is one at the end of its group",
     run = function()
         local NAME = "Locked arrow"
         local KEY = "CTRL-ALT-F11"
 
-        local _, _, line = PlantImportanceLockedPair(KEY)
+        local _, _, line = PlantConditionLockedPair(KEY)
         if not line then
             return Fail(NAME, format("no row for %s in the left column, is a search term or filter on", KEY))
         end
         AddTeardown(function() line:OnMoveLeave() end)
 
         local up, down = line.MoveUpButton, line.MoveDownButton
-        if up.reason ~= "IMPORTANCE" then
-            return Fail(NAME, format("setup: the upward arrow is not held by the Importance step: %s",
+        if up.reason ~= "CONDITIONAL" then
+            return Fail(NAME, format("setup: the upward arrow is not held by the conditions step: %s",
                 tostring(up.reason)))
         end
         if up:IsEnabled() then
@@ -2807,7 +2805,7 @@ RegisterTest("Order arrows: an arrow a rule holds is dead", {
             return Fail(NAME, "an arrow at the end of its group is live")
         end
 
-        return Pass(NAME, "both arrows are dead, one by the Importance step and one at the end of its group")
+        return Pass(NAME, "both arrows are dead, one by the conditions step and one at the end of its group")
     end,
 })
 
@@ -2817,7 +2815,7 @@ RegisterTest("Order arrows: the locked tooltip says the rule", {
         local NAME = "Locked arrow tooltip"
         local KEY = "CTRL-ALT-F12"
 
-        local _, _, line = PlantImportanceLockedPair(KEY)
+        local _, _, line = PlantConditionLockedPair(KEY)
         if not line then
             return Fail(NAME, format("no row for %s in the left column, is a search term or filter on", KEY))
         end
@@ -2825,7 +2823,7 @@ RegisterTest("Order arrows: the locked tooltip says the rule", {
 
         line:OnMoveEnter(line.MoveUpButton)
         local lines = TooltipLines()
-        if not HasLine(lines, LLL["ORDER_BLOCKED_IMPORTANCE"]) then
+        if not HasLine(lines, LLL["ORDER_BLOCKED_CONDITIONAL"]) then
             return Fail(NAME, format("the locked tooltip does not say the rule: %s", table.concat(lines, " | ")))
         end
         line:OnMoveLeave()

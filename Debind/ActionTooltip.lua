@@ -1065,15 +1065,7 @@ do
 	--- **A code that names something counts as one sentence per name.** Two rows missing two
 	--- different macros are two problems, and folding them on the code alone would print one of
 	--- the names and drop the other.
-	---
-	--- **`orderMoved` is not one of the rows' issues** and cannot be found by walking them: it is a
-	--- fact about the group, measured where the group is assembled
-	--- (`legacy/taking-conditions-out-of-the-order.md` §7-3). It is handed in separately for that reason.
-	function DebindPrivate.AddGroupIssuesToTooltip(tooltip, rows, orderMoved)
-		if (orderMoved) then
-			GameTooltip_AddNormalLine(tooltip, LLL["ORDER_MOVED_GROUP"], true);
-		end
-
+	function DebindPrivate.AddGroupIssuesToTooltip(tooltip, rows)
 		local seen = {};
 		for i = 1, #rows do
 			local row = rows[i];

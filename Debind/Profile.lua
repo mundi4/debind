@@ -488,8 +488,9 @@ function ProfileLayerProto:RenumberKeyGroup(key, arrivalID)
     end
 end
 
---- An action has **arrived** in this layer: whatever number it came with is dropped and it stands
---- at the back of its key group. Called for one that was just made, copied, or moved in.
+--- An action has **arrived** in this layer: whatever number it came with is dropped and it is
+--- numbered after the rest of its key group, so it stands at the back of the band it lands in.
+--- Called for one that was just made, copied, or moved in.
 ---
 --- **Placing and renumbering are one function.** There is then nowhere for the arrival number to
 --- leak out of, and nobody has to remember a rule that says "and then renumber".
@@ -1674,16 +1675,6 @@ local function MigrateDB(db, charEntry)
     --- The unreleased step; see `MigrateLayer`'s comment on the same one.
     if (dbver <= 6) then
         DebindPrivate.MigrateOptions(db);
-
-        -- **"이 프로필은 조건 단계가 있던 판에서 올라왔다."** 그 판을 써 본 적 없는 사람의
-        -- 프로필에서도 두 비교자는 갈릴 수 있는데, 그 사람에게는 바뀐 것이 없다. 이 값이 없으면
-        -- 경고 문구가 그 사람들 때문에 "바뀌었을 수 있습니다"로 물러서야 하고, 그 문장은 정작
-        -- 바뀐 사람에게도 덜 말한다(`legacy/taking-conditions-out-of-the-order.md` §7-2).
-        --
-        -- **`dbver`로는 못 묻는다.** 아래 줄이 그것을 현재 값으로 덮으므로 다음 로그인에는 답이
-        -- 없다. 확인을 받아 낸 캐릭터는 제 항목에 적고(§7-4), 이 값은 그대로 둔다 - 캐릭터마다
-        -- 따로 묻는 것이 이 표시의 규칙이다.
-        db.orderChangedFrom = true;
     end
 
     db.dbver = Constants.DB_VERSION;
@@ -1745,12 +1736,6 @@ end
 --- time (`redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
 local function HasCharContent(entry)
     if (entry.CustomTargets and next(entry.CustomTargets) ~= nil) then
-        return true;
-    end
-    -- **"봤다"는 내용이다.** 이 캐릭터에 제 레이어가 하나도 없어도 공유 레이어의 순서는 움직일
-    -- 수 있고, 항목이 안 붙으면 확인을 누른 것이 로그아웃에 사라져 다음 로그인에 같은 팝업이
-    -- 다시 뜬다.
-    if (entry.orderMovedSeen) then
         return true;
     end
     if (entry.switches and next(entry.switches) ~= nil) then
@@ -2829,25 +2814,6 @@ function DebindPrivate.SetSwitchValue(name, value)
     DebindPrivate.switchValueSerial = DebindPrivate.switchValueSerial + 1;
 end
 
---- 조건 단계가 빠지면서 이 키의 순서가 움직였다는 표시를, 지금 이 캐릭터에게 아직 띄우나.
----
---- 둘이 다 참이어야 한다. 프로필이 그 판 전에서 올라왔고(`MigrateDB`의 `orderChangedFrom`),
---- 이 캐릭터가 아직 확인을 안 눌렀고.
----
---- **확인이 캐릭터 단위인 이유는 재는 값이 캐릭터 단위이기 때문이다.** 모으는 것이 이 캐릭터가
---- 보는 열한 레이어라, 다른 캐릭터에서 무엇이 움직였는지는 그 캐릭터로 들어가야 보인다. 계정
---- 하나로 끄면 아직 한 번도 안 들어가 본 캐릭터의 표시까지 지워진다
---- (`legacy/taking-conditions-out-of-the-order.md` §7-4).
-function DebindPrivate.ShouldWarnOrderMoved()
-    return DebindPrivate.db.global.orderChangedFrom == true
-        and DebindPrivate.db.char.orderMovedSeen ~= true;
-end
-
---- 이 캐릭터는 훑어봤다. 되돌릴 수 없는 누름이고, 팝업이 그 말을 한다.
-function DebindPrivate.AcknowledgeOrderMoved()
-    DebindPrivate.db.char.orderMovedSeen = true;
-end
-
 --- The set of switches changed: one was made, renamed or deleted.
 ---
 --- **Only the set.** A switch's value flipping stopped being an event on 2026-08-22 and the
@@ -3795,7 +3761,9 @@ end
 ---
 --- Every action goes to the **back** of the key group it lands in, in that order. It is what
 --- `PlaceInKeyGroup` does for anything arriving somewhere, and it is what merging onto an occupied
---- key should mean: the set that just moved in stands behind the one that was already there.
+--- key should mean: the set that just moved in stands behind the one that was already there, **as
+--- far as `seq` decides.** The steps above it still apply, so an arrival with conditions stands
+--- ahead of an action already there without them (`keygroup_spec`).
 --- Numbers stay per (layer, key), which is the only scope they mean anything in
 --- (`RenumberKeyGroup`), so a set spread over layers is ordered inside each of them and the
 --- comparator's layer step keeps the layers apart.
