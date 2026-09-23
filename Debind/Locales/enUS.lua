@@ -1596,12 +1596,14 @@ L["TYPE_RESURRECT_DESC"] = "Casts the resurrection that fits the press: your bat
 -- The submenu's name is the type's name the list draws, so it reads as that action's own.
 L["RESURRECT_OPTIONS"] = "Resurrect Options"
 L["REZ_NO_TARGET_MASS"] = "Allow mass resurrection with no target"
-L["REZ_NO_TARGET_MASS_DESC"] = "Out of combat with no target, a press casts your mass resurrection."
+-- **Every description is read on every class** (2026-09-23, owner): the switches stand on any
+-- character, so each one says where it applies rather than assuming the reader's class.
+L["REZ_NO_TARGET_MASS_DESC"] = "Out of combat with no target, a press casts your mass resurrection, on a specialization that has one."
 L["REZ_BATTLE_OUT_OF_COMBAT"] = "Allow battle resurrection out of combat"
-L["REZ_BATTLE_OUT_OF_COMBAT_DESC"] = "For a class with no other resurrection, a press on a dead friend out of combat casts your battle resurrection."
+L["REZ_BATTLE_OUT_OF_COMBAT_DESC"] = "Out of combat, a press on a dead friend casts your battle resurrection when you have no other resurrection for them, on a class that has one."
 -- `%s` is the spell's name as the client spells it.
 L["REZ_SOULSTONE_LIVING"] = "Allow %s on a living friend"
-L["REZ_SOULSTONE_LIVING_DESC"] = "A press on a living friend, or with the Self Cast Key held, casts %s on them ahead of time."
+L["REZ_SOULSTONE_LIVING_DESC"] = "On a warlock, a press on a living friend, or with the Self Cast Key held, casts %s on them ahead of time."
 L["TYPE_RAIDBUFF"] = "Raid Buff"
 L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect."
 -- The addon's own name, since the client has none for it: the game has no notion of a unit frame an

@@ -81,8 +81,9 @@ local REZ_MASS_BY_SPEC = {
 };
 
 --- The warlock's is Soulstone, which also goes on a living friend ahead of time.
+SpecSpells.SOULSTONE = 20707;
 local REZ_BATTLE_BY_CLASS = {
-    PALADIN = 391054, DRUID = 20484, DEATHKNIGHT = 61999, WARLOCK = 20707,
+    PALADIN = 391054, DRUID = 20484, DEATHKNIGHT = 61999, WARLOCK = SpecSpells.SOULSTONE,
 };
 
 local function CurrentSpecID()

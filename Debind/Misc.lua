@@ -1685,8 +1685,10 @@ do
     ---
     ---   1  battle     [combat, target dead, target friendly]
     ---   2  mass       [out of combat, target dead, target in my group]
-    ---   3  single     [out of combat, target dead, target friendly]; the battle one where the class
-    ---                 has no single one and `battleRezOutOfCombat` is on
+    ---   3  single     [out of combat, target dead, target friendly]
+    ---   3b battle     the same, with `battleRezOutOfCombat` on. Behind 3, so it stands in only
+    ---                 while no single one is known: none in the class, or not learned yet
+    ---                 (2026-09-23, owner)
     ---   4  mass       [out of combat, no target], unless `noTargetMassRez` is false
     ---   5  soulstone  [target alive, target friendly], with `soulstoneLiving` on
     local function ResurrectBranches(action)
@@ -1699,9 +1701,11 @@ do
             out[#out + 1] = { spell = spells.mass, combat = false, unit = { dead = true,
                 group = bor(Constants.UNITGROUP_PARTY, Constants.UNITGROUP_RAID) } };
         end
-        local single = spells.single or (action.battleRezOutOfCombat and spells.battle);
-        if (single) then
-            out[#out + 1] = { spell = single, combat = false, unit = HELP_DEAD };
+        if (spells.single) then
+            out[#out + 1] = { spell = spells.single, combat = false, unit = HELP_DEAD };
+        end
+        if (spells.battle and action.battleRezOutOfCombat) then
+            out[#out + 1] = { spell = spells.battle, combat = false, unit = HELP_DEAD };
         end
         if (spells.mass and action.noTargetMassRez ~= false) then
             out[#out + 1] = { spell = spells.mass, combat = false, unit = false };

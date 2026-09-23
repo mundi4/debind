@@ -246,13 +246,22 @@ return function(DebindPrivate, _, ctx)
             reset();
         end);
 
-    -- A class that has a resurrection keeps using it out of combat, whatever the switch says.
-    test("the out-of-combat battle resurrection leaves a class with Revive alone", function()
+    -- **"No other resurrection" is what you have, not what the class has** (2026-09-23, owner). A
+    -- class with Revive keeps using it out of combat whatever the switch says, and falls back to
+    -- its battle resurrection only while Revive is not known, the way a low level character is.
+    test("the out-of-combat battle resurrection stands in only for a single one not known", function()
         druidWorld();
         shim.world.specIndex = 1;
         Bind({ action({ type = Constants.RESURRECT, key = "F1", battleRezOutOfCombat = true }) });
         shim.world.units = { target = DEAD_FRIEND };
-        check(fired("F1") == "Revive", "a dead friend: " .. tostring(fired("F1")));
+        check(fired("F1") == "Revive", "Revive known: " .. tostring(fired("F1")));
+
+        shim.world.spellbook[REVIVE] = nil;
+        check(fired("F1") == "Rebirth", "Revive not known: " .. tostring(fired("F1")));
+
+        Bind({ action({ type = Constants.RESURRECT, key = "F1" }) });
+        shim.world.units = { target = DEAD_FRIEND };
+        check(fired("F1") == false, "switch off, Revive not known: " .. tostring(fired("F1")));
         reset();
     end);
 

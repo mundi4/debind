@@ -420,21 +420,16 @@ local function CreateResurrectMenu(parentDescription, ctx)
             ToggleResurrectSwitch, { ctx = ctx, key = key, default = default }), instruction);
     end
 
+    -- **All three on every character, whatever it can cast** (2026-09-23, owner). An action on the
+    -- account layer is set from whichever character is logged in, and a warlock's Soulstone
+    -- should not need a warlock to set it. On a class a switch does nothing for, it does nothing.
     Switch(LLL["REZ_NO_TARGET_MASS"], "noTargetMassRez", true, LLL["REZ_NO_TARGET_MASS_DESC"]);
-
-    -- **Only where it changes something**: a class with a battle resurrection and no single one.
-    -- The class does not change on a character, so the box is not offered to one it can never
-    -- reach.
-    local spells = DebindPrivate.SpecSpells.ResurrectSpells();
-    if (spells.battle and not spells.single) then
-        Switch(LLL["REZ_BATTLE_OUT_OF_COMBAT"], "battleRezOutOfCombat", false,
-            LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
-    end
-    if (spells.soulstone and spells.battle) then
-        local name = DebindPrivate.GetSpellNameAndIconID(spells.battle) or tostring(spells.battle);
-        Switch(format(LLL["REZ_SOULSTONE_LIVING"], name), "soulstoneLiving", false,
-            format(LLL["REZ_SOULSTONE_LIVING_DESC"], name));
-    end
+    Switch(LLL["REZ_BATTLE_OUT_OF_COMBAT"], "battleRezOutOfCombat", false,
+        LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
+    local soulstone = DebindPrivate.SpecSpells.SOULSTONE;
+    local name = DebindPrivate.GetSpellNameAndIconID(soulstone) or tostring(soulstone);
+    Switch(format(LLL["REZ_SOULSTONE_LIVING"], name), "soulstoneLiving", false,
+        format(LLL["REZ_SOULSTONE_LIVING_DESC"], name));
 end
 
 --- The four presses an action can stand on, and where it goes on each
