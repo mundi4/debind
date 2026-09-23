@@ -61,15 +61,6 @@ local WARLOCK_DISPEL_GATE = {
 --- icon, so one of the asked ids answers that too and no fourth id is kept.
 local WARLOCK_DISPEL = WARLOCK_DISPEL_GATE.known[1];
 
---- Single-target damage reduction or absorb cast on somebody else.
-local EXTERNAL_BY_SPEC = {
-    [PRIEST_DISCIPLINE] = 33206, [PRIEST_HOLY] = 47788,
-    [DRUID_RESTORATION] = 102342,
-    [PALADIN_HOLY] = 6940, [PALADIN_PROTECTION] = 6940, [PALADIN_RETRIBUTION] = 6940,
-    [EVOKER_PRESERVATION] = 357170,
-    [MONK_MISTWEAVER] = 116849,
-};
-
 local RAID_BUFF_BY_CLASS = {
     PRIEST = 21562, DRUID = 1126, MAGE = 1459, WARRIOR = 6673, SHAMAN = 462854, EVOKER = 364342,
 };
@@ -88,7 +79,6 @@ end
 ---
 ---   dispel, dispelGate   the friendly dispel and, for the warlock alone, what it is cast under
 ---                        and which ids a `known` on it asks about
----   external             the external
 ---   raidbuff             the raid buff
 function SpecSpells.Resolve(out)
     out = out or {};
@@ -102,15 +92,13 @@ function SpecSpells.Resolve(out)
         out.dispel = (spec and DISPEL_BY_SPEC[spec]) or DISPEL_BY_CLASS[class];
         out.dispelGate = nil;
     end
-    out.external = spec and EXTERNAL_BY_SPEC[spec] or nil;
     out.raidbuff = RAID_BUFF_BY_CLASS[class];
     return out;
 end
 
---- Which resolved spell an action type stands for. The three types that carry no value.
+--- Which resolved spell an action type stands for.
 SpecSpells.KIND_BY_TYPE = {
     [Constants.DISPEL] = "dispel",
-    [Constants.EXTERNAL] = "external",
     [Constants.RAIDBUFF] = "raidbuff",
 };
 

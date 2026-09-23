@@ -919,7 +919,7 @@ L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- it reads as "some specialization elsewhere" when what matters is that this one is switched off.
 L["ORDER_FLAG_OFFSPEC"] = "Inactive specialization"
 -- **No specialization is named, on purpose.** Some classes have no such spell in any of their
--- specializations (a Restoration shaman and the external), and naming one would promise a
+-- specializations (a warrior and the dispel), and naming one would promise a
 -- specialization that does not exist.
 --
 -- The tooltip is where the reader learns which spell is missing: `LINE_TOOLTIP_SPEC_SPELL_NONE`
@@ -1586,8 +1586,6 @@ L["TYPE_SPEC_RESOLVED_HEADER"] = "Class and Specialization"
 L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To have the key only when you have one, turn on the Known Spell condition."
 L["TYPE_DISPEL"] = "Dispel"
 L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
-L["TYPE_EXTERNAL"] = "External"
-L["TYPE_EXTERNAL_DESC"] = "Casts your specialization's damage reduction or absorb for another player, such as Pain Suppression, Ironbark or Blessing of Sacrifice."
 L["TYPE_RAIDBUFF"] = "Raid Buff"
 L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect."
 -- The addon's own name, since the client has none for it: the game has no notion of a unit frame an

@@ -90,15 +90,31 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = 1;
         local balance = DebindPrivate.SpecSpells.Resolve();
         check(balance.dispel == 2782, "balance dispel: " .. tostring(balance.dispel));
-        check(balance.external == nil, "balance external: " .. tostring(balance.external));
         check(balance.raidbuff == 1126, "balance raid buff: " .. tostring(balance.raidbuff));
 
         shim.world.specIndex = 4;
         local resto = DebindPrivate.SpecSpells.Resolve();
         check(resto.dispel == 88423, "restoration dispel: " .. tostring(resto.dispel));
-        check(resto.external == 102342, "restoration external: " .. tostring(resto.external));
         shim.world.specIndex = nil;
     end);
+
+    --- A dispel with nothing to cast, the way a warrior's is. Every druid specialization has one,
+    --- and `Constants.PLAYER_CLASS` is read once at load, so `SpellForType` is handed the answer.
+    local function withNoDispel(fn)
+        local SpecSpells = DebindPrivate.SpecSpells;
+        local saved = SpecSpells.SpellForType;
+        SpecSpells.SpellForType = function(type)
+            if (type == Constants.DISPEL) then
+                return nil;
+            end
+            return saved(type);
+        end
+        local ok, err = pcall(fn);
+        SpecSpells.SpellForType = saved;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
 
     ---------------------------------------------------------------------------
     -- The binding
@@ -115,10 +131,12 @@ return function(DebindPrivate, _, ctx)
         check(dispel.value == nil, "value leaked onto the binding: " .. tostring(dispel.value));
         check(dispel.conditions.known == true, "known was dropped");
 
-        local external = DebindPrivate.GetBindingInfoForAction(
-            { type = Constants.EXTERNAL, key = "F2", conditions = { known = true } });
-        check(external.spell == nil, "balance has an external: " .. tostring(external.spell));
-        check(external.conditions.known == true, "known was dropped where there is no spell");
+        withNoDispel(function()
+            local none = DebindPrivate.GetBindingInfoForAction(
+                { type = Constants.DISPEL, key = "F2", conditions = { known = true } });
+            check(none.spell == nil, "a dispel resolved: " .. tostring(none.spell));
+            check(none.conditions.known == true, "known was dropped where there is no spell");
+        end);
         shim.world.specIndex = nil;
     end);
 
@@ -129,10 +147,10 @@ return function(DebindPrivate, _, ctx)
     -- A specialization with nothing to cast is **not a refusal**: a refusal eats the key, and the
     -- design wants the key kept and the press to do nothing. So the descriptor names no attribute.
     test("no spell stamps nothing and is not refused", function()
-        local descriptor, reason = DebindPrivate.DescribeBinding(Constants.EXTERNAL, nil, nil, {}, nil);
+        local descriptor, reason = DebindPrivate.DescribeBinding(Constants.DISPEL, nil, nil, {}, nil);
         check(descriptor, "refused: " .. tostring(reason));
         check(descriptor.count == 0, "attributes were written: " .. descriptor.count);
-        check(descriptor.type == Constants.EXTERNAL, "type: " .. tostring(descriptor.type));
+        check(descriptor.type == Constants.DISPEL, "type: " .. tostring(descriptor.type));
     end);
 
     test("a resolved spell is stamped as a spell", function()
@@ -180,14 +198,16 @@ return function(DebindPrivate, _, ctx)
     -- **Out of the build, not off the key**: the key stays ours and the press does nothing.
     test("a known with no spell is left out of the build", function()
         shim.world.specIndex = 1;
-        Bind({
-            action({ type = Constants.EXTERNAL, key = "F2", conditions = { known = true } }),
-        });
-        check(DebindPrivate.KeyMap["F2"] == nil, "the action reached the key map anyway");
-        check(DebindPrivate.IsKeyOurs("F2"), "the key was handed back");
-        if (not shipped) then
-            check(interp:evalKey("F2") == nil, "the press fired something");
-        end
+        withNoDispel(function()
+            Bind({
+                action({ type = Constants.DISPEL, key = "F2", conditions = { known = true } }),
+            });
+            check(DebindPrivate.KeyMap["F2"] == nil, "the action reached the key map anyway");
+            check(DebindPrivate.IsKeyOurs("F2"), "the key was handed back");
+            if (not shipped) then
+                check(interp:evalKey("F2") == nil, "the press fired something");
+            end
+        end);
         shim.world.specIndex = nil;
     end);
 
@@ -198,12 +218,14 @@ return function(DebindPrivate, _, ctx)
     test("a known that names a spell survives a specialization with none", function()
         shim.world.specIndex = 1;
         shim.world.spells[8936] = { name = "Regrowth" };
-        Bind({
-            action({ type = Constants.EXTERNAL, key = "F2",
-                conditions = { known = "Regrowth" } }),
-        });
-        check(recordField("F2", 1, "known") == "[known:Regrowth]",
-            "known: " .. tostring(recordField("F2", 1, "known")));
+        withNoDispel(function()
+            Bind({
+                action({ type = Constants.DISPEL, key = "F2",
+                    conditions = { known = "Regrowth" } }),
+            });
+            check(recordField("F2", 1, "known") == "[known:Regrowth]",
+                "known: " .. tostring(recordField("F2", 1, "known")));
+        end);
         shim.world.specIndex = nil;
     end);
 
@@ -211,17 +233,19 @@ return function(DebindPrivate, _, ctx)
     test("the action behind it takes the key", function()
         shim.world.specIndex = 1;
         shim.world.spells[774] = { name = "Rejuvenation" };
-        Bind({
-            action({ type = Constants.EXTERNAL, key = "F3", conditions = { known = true } }),
-            action({ type = Constants.SPELL, key = "F3", value = 774 }),
-        });
-        local records = castmod.without(Constants, interp:recordsFor("F3"));
-        check(records and #records == 1, "records on F3: " .. tostring(records and #records));
-        check(recordField("F3", 1, "known") == nil,
-            "the spell row carries a known: " .. tostring(recordField("F3", 1, "known")));
-        if (not shipped) then
-            check(winner("F3") == 1, "the spell behind it did not fire");
-        end
+        withNoDispel(function()
+            Bind({
+                action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } }),
+                action({ type = Constants.SPELL, key = "F3", value = 774 }),
+            });
+            local records = castmod.without(Constants, interp:recordsFor("F3"));
+            check(records and #records == 1, "records on F3: " .. tostring(records and #records));
+            check(recordField("F3", 1, "known") == nil,
+                "the spell row carries a known: " .. tostring(recordField("F3", 1, "known")));
+            if (not shipped) then
+                check(winner("F3") == 1, "the spell behind it did not fire");
+            end
+        end);
         shim.world.specIndex = nil;
     end);
 
@@ -230,11 +254,16 @@ return function(DebindPrivate, _, ctx)
     test("no known keeps the action on the key", function()
         shim.world.specIndex = 1;
         shim.world.spells[774] = { name = "Rejuvenation" };
-        Bind({
-            action({ type = Constants.EXTERNAL, key = "F4" }),
-            action({ type = Constants.SPELL, key = "F4", value = 774 }),
-        });
-        check(recordField("F4", 1, "clickbutton") ~= nil, "the external lost its button");
+        withNoDispel(function()
+            Bind({
+                action({ type = Constants.DISPEL, key = "F4" }),
+                action({ type = Constants.SPELL, key = "F4", value = 774 }),
+            });
+            check(recordField("F4", 1, "clickbutton") ~= nil, "the dispel lost its button");
+            if (not shipped) then
+                check(winner("F4") == 1, "the key went to the spell behind");
+            end
+        end);
         shim.world.specIndex = nil;
     end);
 

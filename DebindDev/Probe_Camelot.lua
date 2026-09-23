@@ -117,11 +117,9 @@ local APIS = {
 --- holds today. The question each row asks is whether that spell exists here at all; the number a
 --- camelot key needs is whatever the answer names.
 local SPEC_RESOLVED = {
-    PRIEST = { { "dispel", 527 }, { "dispel/shadow", 213634 }, { "external/disc", 33206 },
-        { "external/holy", 47788 }, { "raidbuff", 21562 } },
-    PALADIN = { { "dispel/holy", 4987 }, { "dispel/other", 213644 }, { "external", 6940 } },
-    DRUID = { { "dispel/resto", 88423 }, { "dispel/other", 2782 }, { "external", 102342 },
-        { "raidbuff", 1126 } },
+    PRIEST = { { "dispel", 527 }, { "dispel/shadow", 213634 }, { "raidbuff", 21562 } },
+    PALADIN = { { "dispel/holy", 4987 }, { "dispel/other", 213644 } },
+    DRUID = { { "dispel/resto", 88423 }, { "dispel/other", 2782 }, { "raidbuff", 1126 } },
     SHAMAN = { { "dispel/resto", 77130 }, { "dispel/other", 51886 }, { "raidbuff", 462854 } },
     MAGE = { { "dispel", 475 }, { "raidbuff", 1459 } },
     WARLOCK = { { "dispel", 132411 }, { "dispel/pet", 119905 } },
