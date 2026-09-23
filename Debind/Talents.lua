@@ -236,6 +236,12 @@ end
 --- list has the class's first and the specialization's second, which is the split the talent frame
 --- itself resets by (`Blizzard_ClassTalentsFrame.lua:821-827`).
 ---
+--- **Where the client names groups of the tree, those are the lists instead** (camelot): one
+--- currency for every node, so the split above puts all of them in the class's list, and the talent
+--- frame there draws three trees out of `GetGroupDisplayInfoByTreeID` (a druid on 69977: Balance,
+--- Feral Combat, Restoration). A node also sits in groups that call has nothing for, and those are
+--- not trees. No hero trees there either.
+---
 --- **Built on demand and not kept**, the way `Spells.BuildBranches` is: only a menu asks, and a
 --- second cache is a second thing to invalidate.
 function Talents.BuildMenu(api)
@@ -245,7 +251,39 @@ function Talents.BuildMenu(api)
     local treeIDs = configInfo and configInfo.treeIDs;
     local treeID = treeIDs and treeIDs[1];
 
-    if (treeID) then
+    local named = treeID and api.GetGroupDisplayInfoByTreeID and api.GetGroupDisplayInfoByTreeID(treeID);
+    if (named and #named > 0) then
+        local groups = {};
+        for i = 1, #named do
+            groups[i] = named[i];
+        end
+        table.sort(groups, function(a, b) return a.orderIndex < b.orderIndex; end);
+        local rowsByGroup, seenByGroup = {}, {};
+        for i = 1, #groups do
+            rowsByGroup[groups[i].groupID], seenByGroup[groups[i].groupID] = {}, {};
+        end
+        local nodes = api.GetTreeNodes(treeID) or {};
+        for i = 1, #nodes do
+            local node = api.GetNodeInfo(configID, nodes[i]);
+            if (node and node.isVisible) then
+                for _, groupID in ipairs(node.groupIDs or {}) do
+                    local list = rowsByGroup[groupID];
+                    if (list) then
+                        for j = 1, (node.entryIDs and #node.entryIDs or 0) do
+                            AddRow(list, seenByGroup[groupID], api, configID, node.entryIDs[j]);
+                        end
+                    end
+                end
+            end
+        end
+        for i = 1, #groups do
+            out[#out + 1] = {
+                key = "tree",
+                name = groups[i].displayName,
+                rows = SortRows(rowsByGroup[groups[i].groupID]),
+            };
+        end
+    elseif (treeID) then
         local currencies = api.GetTreeCurrencyInfo(configID, treeID, false) or {};
         local classCurrency = currencies[1] and currencies[1].traitCurrencyID;
 
@@ -380,6 +418,8 @@ function Talents.GetMenu()
     api.GetTreeCurrencyInfo = C_Traits.GetTreeCurrencyInfo;
     api.GetNodeCost = C_Traits.GetNodeCost;
     api.GetSubTreeInfo = C_Traits.GetSubTreeInfo;
+    --- Camelot only; nil on retail, which is what keeps the class and specialization split there.
+    api.GetGroupDisplayInfoByTreeID = C_Traits.GetGroupDisplayInfoByTreeID;
     --- **`MayReturnNothing`**, so it is wrapped rather than called into a list.
     api.GetHeroTalentSpecs = function()
         return (C_ClassTalents.GetHeroTalentSpecsForClassSpec());

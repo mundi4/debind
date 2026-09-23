@@ -527,7 +527,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     --- A world the menu walk reads: `nodes` is a list of
-    --- `{ currency =, sub =, vis =, entries = { {id=,name=}, ... } }`.
+    --- `{ currency =, sub =, vis =, groups = { groupID… }, entries = { {id=,name=}, ... } }`.
     local function MenuAPI(world)
         local entries, definitions, names = {}, {}, {};
         local nodes, order, costs = {}, {}, {};
@@ -547,6 +547,7 @@ return function(DebindPrivate)
                 subTreeID = node.sub,
                 isVisible = node.vis ~= false,
                 entryIDs = ids,
+                groupIDs = node.groups or {},
             };
             costs[i] = { { ID = node.currency or 1 } };
             order[i] = i;
@@ -559,8 +560,11 @@ return function(DebindPrivate)
             GetActiveConfigID = function() return 7; end,
             GetConfigInfo = function() return { treeIDs = { 1 } }; end,
             GetTreeCurrencyInfo = function()
-                return { { traitCurrencyID = 1 }, { traitCurrencyID = 2 } };
+                return world.currencies or { { traitCurrencyID = 1 }, { traitCurrencyID = 2 } };
             end,
+            --- Camelot's call only: `world.groups` is its answer, a list of
+            --- `{ groupID =, displayName =, orderIndex = }`.
+            GetGroupDisplayInfoByTreeID = world.groups and function() return world.groups; end,
             GetTreeNodes = function() return order; end,
             GetNodeInfo = function(_, nodeID) return nodes[nodeID]; end,
             GetNodeCost = function(_, nodeID) return costs[nodeID]; end,
@@ -608,6 +612,36 @@ return function(DebindPrivate)
         } });
         check(Names(byKey.class) == "Thick Hide", "class: " .. Names(byKey.class));
         check(Names(byKey.spec) == "Starfire", "spec: " .. Names(byKey.spec));
+    end);
+
+    -- **Camelot's tree is one currency and three named groups**, the classic talent trees (a druid
+    -- on 69977: 3820 for all 51 nodes; Balance, Feral Combat, Restoration). A node also sits in
+    -- groups with no display info, which are not trees. Split by currency, every node is the
+    -- class's and the specialization's list is empty.
+    test("where the tree comes in named groups, each group is a list", function()
+        local groups = Talents.BuildMenu(MenuAPI({
+            currencies = { { traitCurrencyID = 3820 } },
+            groups = {
+                { groupID = 11340, displayName = "Restoration", orderIndex = 2 },
+                { groupID = 11328, displayName = "Balance", orderIndex = 0 },
+                { groupID = 11347, displayName = "Feral Combat", orderIndex = 1 },
+            },
+            nodes = {
+                { currency = 3820, groups = { 11328, 12704 }, entries = { { id = 1, name = "Moonfury" } } },
+                { currency = 3820, groups = { 12705, 11347 }, entries = { { id = 2, name = "Ferocity" } } },
+                { currency = 3820, groups = { 11340 }, entries = { { id = 3, name = "Furor" } } },
+                { currency = 3820, groups = { 11328 }, entries = { { id = 4, name = "Starlight Wrath" } } },
+            },
+        }));
+        local seen = {};
+        for i = 1, #groups do
+            if (groups[i].key ~= "pvp") then
+                seen[#seen + 1] = tostring(groups[i].name) .. "=" .. Names(groups[i]);
+            end
+        end
+        local got = table.concat(seen, " ");
+        check(got == "Balance=Moonfury,Starlight Wrath Feral Combat=Ferocity Restoration=Furor",
+            "lists: " .. got);
     end);
 
     -- A node another specialization owns is in the same tree and has to stay out of these lists
