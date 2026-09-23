@@ -22,8 +22,6 @@ local CreateMoveCopyMenu                      = ActionMenu.CreateMoveCopyMenu;
 local CreateBlockedMenuItem                   = ActionMenu.CreateBlockedMenuItem;
 local CreateOrderMenuItems                    = ActionMenu.CreateOrderMenuItems;
 local CreateDisableMenuItem                   = ActionMenu.CreateDisableMenuItem;
-local CreateSkipWhenUnusableMenuItem          = ActionMenu.CreateSkipWhenUnusableMenuItem;
-local CreateResurrectMenuItems                = ActionMenu.CreateResurrectMenuItems;
 local CreateDeleteMenu                       = ActionMenu.CreateDeleteMenu;
 local GetTabList                              = ActionMenu.GetTabList;
 local SetInstructionTooltip                   = ActionMenu.SetInstructionTooltip;
@@ -149,7 +147,7 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     --- **This list is the order the condition groups are drawn in.** One name is one node; moving
     --- a group is moving its name here. Whether a node stands at all is its own `shown`.
     local conditionNodes = {
-        "UNITS", "GROUP", "SELFLIFE", "SPEC", "TALENT", "KNOWN",
+        "UNITS", "GROUP", "SELFLIFE", "SPEC", "TALENT", "KNOWN", "SPELL_TO_CAST",
         "COMBAT", "SHAPESHIFT", "STEALTH", "ACTIONBAR", "MISC", "SWITCHES",
     };
     for i = 1, #conditionNodes do
@@ -161,9 +159,6 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     --
     rootDescription:CreateDivider();
     rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
-
-    CreateResurrectMenuItems(rootDescription, ctx);
-    CreateSkipWhenUnusableMenuItem(rootDescription, ctx);
 
     CreateImportanceMenu(rootDescription, ctx);
 

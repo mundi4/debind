@@ -222,6 +222,14 @@ L["CONDITION_KNOWN_YES"] = "While you know the spell"
 -- The row names the spell it asks about, and the rows are a list to pick one from. A talent that
 -- replaces a spell is its own row, which is the whole point of naming them.
 L["CONDITION_KNOWN_VALUE"] = "While you know %s"
+-- **Named for what is checked, like the rows around it** (2026-09-23, owner, after a UX review).
+-- "Usable" was the first candidate and is what the action bar greys out for: out of mana, wrong
+-- form. This asks something else, whether this press has any spell at all, for whatever reason:
+-- not learned, none in this specialization, neither of a warlock's two there, or no resurrection
+-- that fits the target.
+L["CONDITION_SPELL_TO_CAST"] = "Spell to Cast"
+L["CONDITION_SPELL_TO_CAST_YES"] = "While there is a spell to cast"
+L["CONDITION_SPELL_TO_CAST_YES_DESC"] = "With no spell this action can cast on this press, the next action on the key takes it. Off, the key is kept and the press does nothing."
 -- **The client's own word for the thing** (`TALENTS`), and the branches under it are named by the
 -- client too: the class, the specialization, each hero tree and `PVP_TALENTS`. The reader has one
 -- name for each of those already and a second one would put two names on one thing.
@@ -1576,20 +1584,17 @@ L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
 -- spell on paper is the same case while it is still unlearned, and a sentence naming the
 -- specialization would miss it.
 --
--- **`%s` is `SKIP_WHEN_UNUSABLE`**, passed by the caller, so a rename of that checkbox reaches
--- this sentence.
-L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, turn on %s."
--- **One switch for every reason there is nothing to cast** (2026-09-23, owner): the spell is not
--- learned, the specialization has none, or neither of a warlock's two is there. The reader is not
--- asked to know which it is.
-L["SKIP_WHEN_UNUSABLE"] = "Skip when there is nothing to cast"
-L["SKIP_WHEN_UNUSABLE_DESC"] = "When you have nothing this action can cast, it sits the press out and the next action on the key takes it. Unticked, the key is kept and the press does nothing."
+-- **`%s` is `CONDITION_SPELL_TO_CAST`**, passed by the caller, so a rename of that row reaches this
+-- sentence.
+L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, set the %s condition."
 L["TYPE_DISPEL"] = "Dispel"
 L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
 L["TYPE_RESURRECT"] = "Resurrect"
 L["TYPE_RESURRECT_DESC"] = "Casts the resurrection that fits the press: your battle resurrection in combat, your mass resurrection on a dead group member or with no target, and your single one on any other dead friend."
--- The three switches under a Resurrect action's Other Options. **Worded as what is allowed**
--- (2026-09-23, owner), so ticked always means one more thing the key can do.
+-- The three switches in a Resurrect action's own submenu under Cast Options (2026-09-23, owner).
+-- **Worded as what is allowed**, so ticked always means one more thing the key can do.
+-- The submenu's name is the type's name the list draws, so it reads as that action's own.
+L["RESURRECT_OPTIONS"] = "Resurrect Options"
 L["REZ_NO_TARGET_MASS"] = "Allow mass resurrection with no target"
 L["REZ_NO_TARGET_MASS_DESC"] = "Out of combat with no target, a press casts your mass resurrection."
 L["REZ_BATTLE_OUT_OF_COMBAT"] = "Allow battle resurrection out of combat"

@@ -355,6 +355,88 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     return description;
 end
 
+local function IsResurrect(action)
+    return action.type == Constants.RESURRECT;
+end
+
+--- Whether every resurrection picked has `data.key` on, and there is at least one. `data.default`
+--- is the value a switch reads as while nothing is stored.
+local function ResurrectSwitchOn(data)
+    local any = false;
+    for _, action in ipairs(data.ctx.actions) do
+        if (IsResurrect(action)) then
+            any = true;
+            local value = action[data.key];
+            if (value == nil) then
+                value = data.default;
+            end
+            if (not value) then
+                return false;
+            end
+        end
+    end
+    return any;
+end
+
+--- **Written to the resurrections alone**, so a mixed pick leaves the others untouched. A switch
+--- that is on by default stores `false` to turn off and nothing to turn back on; the others the
+--- other way round.
+local function ToggleResurrectSwitch(data)
+    local turnOn = not ResurrectSwitchOn(data);
+    local stored;
+    if (data.default) then
+        if (not turnOn) then
+            stored = false;
+        end
+    elseif (turnOn) then
+        stored = true;
+    end
+    for _, action in ipairs(data.ctx.actions) do
+        if (IsResurrect(action)) then
+            action[data.key] = stored;
+        end
+    end
+    return OnActionsChanged(data.ctx.actions);
+end
+
+--- A resurrection's three switches (`adding-spec-resolved-actions.md` §6), inside Cast Options
+--- (2026-09-23, owner).
+local function CreateResurrectMenu(parentDescription, ctx)
+    if (not AnyAction(ctx, IsResurrect)) then
+        return;
+    end
+    local description = ActionMenus:BuildNode(parentDescription, {
+        label = "RESURRECT_OPTIONS",
+        isActive = function()
+            return AnyAction(ctx, function(action)
+                return IsResurrect(action) and (action.noTargetMassRez ~= nil
+                    or action.battleRezOutOfCombat ~= nil or action.soulstoneLiving ~= nil);
+            end);
+        end,
+    }, ctx);
+
+    local function Switch(text, key, default, instruction)
+        SetInstructionTooltip(CreateCheckbox(description, ctx, text, ResurrectSwitchOn,
+            ToggleResurrectSwitch, { ctx = ctx, key = key, default = default }), instruction);
+    end
+
+    Switch(LLL["REZ_NO_TARGET_MASS"], "noTargetMassRez", true, LLL["REZ_NO_TARGET_MASS_DESC"]);
+
+    -- **Only where it changes something**: a class with a battle resurrection and no single one.
+    -- The class does not change on a character, so the box is not offered to one it can never
+    -- reach.
+    local spells = DebindPrivate.SpecSpells.ResurrectSpells();
+    if (spells.battle and not spells.single) then
+        Switch(LLL["REZ_BATTLE_OUT_OF_COMBAT"], "battleRezOutOfCombat", false,
+            LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
+    end
+    if (spells.soulstone and spells.battle) then
+        local name = DebindPrivate.GetSpellNameAndIconID(spells.battle) or tostring(spells.battle);
+        Switch(format(LLL["REZ_SOULSTONE_LIVING"], name), "soulstoneLiving", false,
+            format(LLL["REZ_SOULSTONE_LIVING_DESC"], name));
+    end
+end
+
 --- The four presses an action can stand on, and where it goes on each
 --- (`which-action-a-key-runs.md` §6).
 ---
@@ -593,6 +675,8 @@ local function CreateCastingMenu(parentDescription, ctx)
         Choice(LLL["AUTOMATIC_OFF"], false);
     end
 
+    CreateResurrectMenu(description, ctx);
+
     description:CreateDivider();
     MenuKit.CreateHelpButton(description, "cast-options", LLL["HELP_CAST_OPTIONS_TITLE"]);
     MenuKit.CreateHelpButton(description, "targeting", LLL["HELP_TARGETING_TITLE"]);
@@ -828,74 +912,6 @@ local function CreateDisableMenuItem(rootDescription, ctx)
     SetInstructionTooltip(description, LLL["ACTION_DISABLED_DESC"]);
 end
 
-local function IsSpecResolved(action)
-    return Constants.SPEC_RESOLVED_TYPES[action.type] == true;
-end
-
---- **Only the types that can be left with nothing to cast** (`adding-spec-resolved-actions.md`
---- §4). On any other type the field would be stored and read by nothing.
-local function CreateSkipWhenUnusableMenuItem(rootDescription, ctx)
-    if (not AllActions(ctx, IsSpecResolved)) then
-        return;
-    end
-    local description = CreateCheckbox(rootDescription, ctx, LLL["SKIP_WHEN_UNUSABLE"],
-        actionValueEquals, setActionValue,
-        { ctx = ctx, key = "skipWhenUnusable", value = USE_CHECKED_VALUE });
-    SetInstructionTooltip(description, LLL["SKIP_WHEN_UNUSABLE_DESC"]);
-end
-
-local function IsResurrect(action)
-    return action.type == Constants.RESURRECT;
-end
-
---- **Stored false while unticked, nil while ticked**, because it is on by default: a healer's
---- mass resurrection goes out with no target (2026-09-23, owner).
-local function NoTargetMassRezAllowed(action)
-    return action.noTargetMassRez ~= false;
-end
-
---- Ticked only where every picked action allows it, as every other box here reads a selection.
-local function noTargetMassRezOn(data)
-    return AllActions(data.ctx, NoTargetMassRezAllowed);
-end
-
-local function toggleNoTargetMassRez(data)
-    local value = false;
-    if (not noTargetMassRezOn(data)) then
-        value = nil;
-    end
-    return setActionValue({ ctx = data.ctx, key = "noTargetMassRez", value = value });
-end
-
---- A resurrection's three switches (`adding-spec-resolved-actions.md` §6).
-local function CreateResurrectMenuItems(rootDescription, ctx)
-    if (not AllActions(ctx, IsResurrect)) then
-        return;
-    end
-    local massDescription = CreateCheckbox(rootDescription, ctx, LLL["REZ_NO_TARGET_MASS"],
-        noTargetMassRezOn, toggleNoTargetMassRez, { ctx = ctx });
-    SetInstructionTooltip(massDescription, LLL["REZ_NO_TARGET_MASS_DESC"]);
-
-    -- **Only where it changes something**: a class with a battle resurrection and no single one.
-    -- The class does not change on a character, so the box is not offered to one it can never
-    -- reach.
-    local spells = DebindPrivate.SpecSpells.ResurrectSpells();
-    if (spells.battle and not spells.single) then
-        local battleDescription = CreateCheckbox(rootDescription, ctx,
-            LLL["REZ_BATTLE_OUT_OF_COMBAT"], actionValueEquals, setActionValue,
-            { ctx = ctx, key = "battleRezOutOfCombat", value = USE_CHECKED_VALUE });
-        SetInstructionTooltip(battleDescription, LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
-    end
-
-    if (spells.soulstone and spells.battle) then
-        local name = DebindPrivate.GetSpellNameAndIconID(spells.battle) or tostring(spells.battle);
-        local stoneDescription = CreateCheckbox(rootDescription, ctx,
-            format(LLL["REZ_SOULSTONE_LIVING"], name), actionValueEquals, setActionValue,
-            { ctx = ctx, key = "soulstoneLiving", value = USE_CHECKED_VALUE });
-        SetInstructionTooltip(stoneDescription, format(LLL["REZ_SOULSTONE_LIVING_DESC"], name));
-    end
-end
-
 local function CreateDeleteMenu(rootDescription, ctx)
     rootDescription:CreateButton(LLL["DELETE"], function()
         DebindUI.ShowDeleteConfirmationPopup(ctx.actions);
@@ -918,6 +934,4 @@ ActionMenu.CreateMoveCopyMenu                 = CreateMoveCopyMenu;
 ActionMenu.CreateBlockedMenuItem              = CreateBlockedMenuItem;
 ActionMenu.CreateOrderMenuItems               = CreateOrderMenuItems;
 ActionMenu.CreateDisableMenuItem              = CreateDisableMenuItem;
-ActionMenu.CreateSkipWhenUnusableMenuItem     = CreateSkipWhenUnusableMenuItem;
-ActionMenu.CreateResurrectMenuItems           = CreateResurrectMenuItems;
 ActionMenu.CreateDeleteMenu                   = CreateDeleteMenu;

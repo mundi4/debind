@@ -218,6 +218,11 @@ return function(DebindPrivate)
             Spell(6, { specs = { [firstClass] = firstSpec } }),
             Spell(7, { forms = 1 + 4, disabled = true, unit = "focus" }),
             Spell(8, { units = { player = { exists = true, dead = false } } }),
+            -- The rows only the spec-resolved types and a resurrection carry, so a selection mixes
+            -- actions they apply to with ones they do not.
+            { type = Constants.DISPEL, key = "F" },
+            { type = Constants.DISPEL, key = "F", skipWhenUnusable = true },
+            { type = Constants.RESURRECT, key = "F", noTargetMassRez = false },
         });
     end
 
@@ -272,6 +277,42 @@ return function(DebindPrivate)
         DebindUI.SetupActionDropdownMenu(nil, root, ctx);
         return root;
     end
+
+    --- The first choice drawn with `text`, anywhere in the menu.
+    local function FindChoice(root, text)
+        local found;
+        EachChoice(root, function(choice)
+            if (found == nil and choice.text == text) then
+                found = choice;
+            end
+        end);
+        return found;
+    end
+
+    -- **A row a mixed pick shows is written to the actions it applies to alone** (2026-09-23,
+    -- owner). The spell beside them has nothing either value could mean.
+    test("the spec-resolved rows write only to the actions they apply to", function()
+        local spell, dispel, rez = Spell(1), { type = Constants.DISPEL, key = "F" },
+            { type = Constants.RESURRECT, key = "F" };
+        ResetProfile({ spell, dispel, rez });
+
+        local root = Build({ spell, dispel });
+        local on = FindChoice(root, LLL["CONDITION_SPELL_TO_CAST_YES"]);
+        check(on, "no Spell to Cast row over a spell and a dispel");
+        on.setSelected(on.data);
+        check(dispel.skipWhenUnusable == true, "the dispel was not set");
+        check(spell.skipWhenUnusable == nil, "the spell was set");
+
+        root = Build({ spell, rez });
+        local mass = FindChoice(root, LLL["REZ_NO_TARGET_MASS"]);
+        check(mass, "no resurrection switch over a spell and a resurrection");
+        mass.setSelected(mass.data);
+        check(rez.noTargetMassRez == false, "the resurrection was not turned off: "
+            .. tostring(rez.noTargetMassRez));
+        check(spell.noTargetMassRez == nil, "the spell was written to");
+        mass.setSelected(mass.data);
+        check(rez.noTargetMassRez == nil, "it did not turn back on: " .. tostring(rez.noTargetMassRez));
+    end);
 
     test("the order rows stand only where the menu opened over the order list", function()
         local actions = ResetProfile({ Spell(1), Spell(2) });

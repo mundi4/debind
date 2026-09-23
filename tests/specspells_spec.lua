@@ -525,6 +525,17 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
+    -- **Known Spell is not offered on these types any more** (Spell to Cast is), so a `known` of
+    -- `true` stored on one moves to the switch it reads as. Left, the row would say Off over an
+    -- action that hands the key on.
+    test("a stored known on a dispel moves to the Spell to Cast switch", function()
+        local dispel = { type = Constants.DISPEL, key = "F1", seq = 1, conditions = { known = true } };
+        Bind({ dispel });
+        DebindPrivate.CleanUpDB();
+        check(dispel.skipWhenUnusable == true, "the switch was not set");
+        check(dispel.conditions == nil or dispel.conditions.known == nil, "known was left");
+    end);
+
     -- The menu offers the switch on these types alone, so a stored one anywhere else is taken off.
     test("skipping is kept on a dispel and taken off a spell", function()
         local dispel = { type = Constants.DISPEL, key = "F1", seq = 1, skipWhenUnusable = true };

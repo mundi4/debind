@@ -581,7 +581,7 @@ local function AddExtraSpellEntries(entries, seen)
 			type = actionType,
 			group = group,
 			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n"
-				.. format(LLL["TYPE_SPEC_RESOLVED_NONE_DESC"], LLL["SKIP_WHEN_UNUSABLE"]),
+				.. format(LLL["TYPE_SPEC_RESOLVED_NONE_DESC"], LLL["CONDITION_SPELL_TO_CAST"]),
 		});
 	end
 

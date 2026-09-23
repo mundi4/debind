@@ -727,12 +727,11 @@ local function KnownRows(action)
 end
 
 local function AsksKnown(action)
-    return action.type == Constants.SPELL or Constants.SPEC_RESOLVED_TYPES[action.type] == true;
+    return action.type == Constants.SPELL;
 end
 
---- **Spells only.** An item or a macro is not something you can fail to know. The three
---- spec-resolved types are spells too, and what the condition asks about is the spell this
---- specialization resolves to (`SpecSpells.lua`).
+--- **Spells only.** An item or a macro is not something you can fail to know. The spec-resolved
+--- types ask the wider question below instead (`SPELL_TO_CAST`).
 ---
 --- **One action at a time.** The rows come out of the action's own spell, so a selection has no one
 --- list to offer.
@@ -745,14 +744,6 @@ ActionMenus:Define("KNOWN", {
     blocked = OnlyOneReason,
     build = function(kit)
         local action = kit.ctx.actions[1];
-        -- **A box and not a list**, because these three carry no spell to list. Which spell the
-        -- key casts is decided at the rebuild, so `true` -- "whatever this action casts" -- is the
-        -- only question that survives a specialization change here.
-        if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
-            kit:ClearingCheckbox(LLL["CONDITION_KNOWN_YES"], "known", true);
-            return;
-        end
-
         kit:Disable("CONDITION_KNOWN", "known");
 
         -- **Walked once per open.** `GetBranches` walks the spellbook and every talent tree on
@@ -766,6 +757,55 @@ ActionMenus:Define("KNOWN", {
             CreateRadio(kit.description, kit.ctx, rows[i], kit.handlers.equals, kit.handlers.set,
                 { ctx = kit.ctx, key = "known", value = rows[i] });
         end
+    end,
+});
+
+local function IsSpecResolved(action)
+    return Constants.SPEC_RESOLVED_TYPES[action.type] == true;
+end
+
+--- Whether every spec-resolved action picked stands at `data.value`. **An action this does not
+--- apply to reads as Off**, which is what it does; with none that it applies to, Off is the one lit.
+local function SpellToCastIs(data)
+    local any = false;
+    for _, action in ipairs(data.ctx.actions) do
+        if (IsSpecResolved(action)) then
+            any = true;
+            if ((action.skipWhenUnusable and true or false) ~= data.value) then
+                return false;
+            end
+        end
+    end
+    return any or data.value == false;
+end
+
+--- **Written to the spec-resolved actions alone** (2026-09-23, owner). A mixed pick shows the row,
+--- and the other actions in it have nothing this could mean.
+local function SetSpellToCast(data)
+    for _, action in ipairs(data.ctx.actions) do
+        if (IsSpecResolved(action)) then
+            action.skipWhenUnusable = data.value or nil;
+        end
+    end
+    return OnActionsChanged(data.ctx.actions);
+end
+
+--- **Known Spell is too narrow for these three** (2026-09-23, owner). A resurrection can know
+--- every spell it has and still have none for a living target, so the row asks whether there is a
+--- spell to cast at all (`skipWhenUnusable`). A stored `known` on them reads the same way.
+ActionMenus:Define("SPELL_TO_CAST", {
+    label = "CONDITION_SPELL_TO_CAST",
+    key = "skipWhenUnusable",
+    shown = function(ctx)
+        return AnyAction(ctx, IsSpecResolved);
+    end,
+    build = function(kit)
+        local off = CreateRadio(kit.description, kit.ctx, LLL["DISABLE"], SpellToCastIs,
+            SetSpellToCast, { ctx = kit.ctx, value = false });
+        local on = CreateRadio(kit.description, kit.ctx, LLL["CONDITION_SPELL_TO_CAST_YES"],
+            SpellToCastIs, SetSpellToCast, { ctx = kit.ctx, value = true });
+        SetInstructionTooltip(on, LLL["CONDITION_SPELL_TO_CAST_YES_DESC"]);
+        return off, on;
     end,
 });
 

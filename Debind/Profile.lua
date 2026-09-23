@@ -3153,14 +3153,21 @@ function DebindPrivate.CleanUpDB()
                         conditions[k] = nil;
                     end
                 end
-                -- **만들 수 없는 값은 저장에도 안 둔다.** `known`을 세우는 메뉴는 주문과
-                -- 전문화가 주문을 정하는 셋에서만 뜨므로, 다른 타입에 붙은 `known`은 사용자가
-                -- 만들 수 없고 화면에서 끌 수도 없다(`making-known-a-spell-name.md`).
-                -- 바인딩을 세울 때 무시되기만 하던 동안에는 조용히 누워 있었는데, 값이 이름이
-                -- 되면서 굽는 쪽이 쓸 수 있는 값이 됐다.
+                -- **A value nobody can set is not kept.** Known Spell is offered on a spell
+                -- alone (`ActionMenuNodes.lua`), so on any type but a spell and the spec-resolved
+                -- ones a `known` could not have been set and cannot be cleared on screen
+                -- (`making-known-a-spell-name.md`). It was harmless while the binding ignored it;
+                -- once the value named a spell, the bake could use it.
+                --
+                -- **On a spec-resolved type `true` moves to Spell to Cast**, which took its row
+                -- there and reads the same (`FillBinding`). Left, that row would say Off over an
+                -- action that hands the key on.
                 if (conditions.known ~= nil and action.type ~= Constants.SPELL
                         and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
                     conditions.known = nil;
+                elseif (conditions.known == true and Constants.SPEC_RESOLVED_TYPES[action.type]) then
+                    conditions.known = nil;
+                    action.skipWhenUnusable = true;
                 end
                 -- **빈 칸은 조건이 아니다.** `talents`는 두 겹이라 아래의 `next` 한 번이 못
                 -- 닿는다. 아무것도 안 든 전문화 칸은 "그 전문화에 대해 아무 말도 안 했다"와
