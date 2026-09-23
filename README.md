@@ -23,7 +23,7 @@ So the binds have to be layered, and one key has to be able to mean more than on
 - **Layers, not profiles.** account → class → spec → this character → that character's spec. The narrowest layer holding that key wins; the rest keep every other key. Nothing to switch by hand — the layers follow your character and spec.
 - **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
 - **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
-- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons work with it whether or not they support Clique, and Clique itself can run alongside.
+- **Click casting built in.** A key can go to the unit you point at, so one key heals off the raid frames and stays a normal key everywhere else. Unit frame addons work with it whether or not they support Clique, and Clique itself can run alongside.
 - **Flip what a key does mid-fight.** Switches of your own, usable in combat, without spending a real modifier.
 
 **Debind is for the keys where the answer isn't "all of them."** Put in the ones you want now — every other key goes on working exactly as it did.
@@ -39,11 +39,10 @@ So the binds have to be layered, and one key has to be able to mean more than on
 | Account / Specialization | every Druid you own, while Balance |
 | Account / Class | every Druid you own |
 | Account / General | every character on the account |
-| *WoW's own keybindings* | *whatever you already had, on any key Debind has nothing in play on. Debind doesn't touch it.* |
 
 **A layer holds only the keys you put in it — never a whole keyboard.** So the question is asked one key at a time: for *this* key, which rows have something to say?
 
-The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does, and does nothing if none of them do. Your WoW keybinding only comes back on a key where every action is turned off or sits in a spec you're not in. Nothing is switched off on the way: the rows below are still answering for every other key. (Put two actions on the same key and a couple of other things get checked before the layer does — *When a key holds several actions*, further down.)
+The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does, and does nothing if none of them do. Nothing is switched off on the way: the rows below are still answering for every other key.
 
 Say `R` is Rebirth, in Account / Class. Every druid you have presses `R` for a battle rez, and so does the next one you roll. Then Balance wants `R` for Starfall — put Starfall in Account / Specialization and you're done. **The narrow layer takes over there, the broad one keeps everything else.** Balance gets Starfall, every other druid still gets Rebirth. You didn't copy Rebirth anywhere, you didn't delete it, and it's still in one place when you want to change it.
 
@@ -51,43 +50,21 @@ No profiles to pick. The layers follow your character and spec, and change when 
 
 ![Two layer tabs and their tooltips: Account / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
 
-**That last row stays out of it.** When nothing you put on a key applies, Debind's binding comes off and the game handles the press itself — Debind never runs your binding for you. A key you never gave to Debind was never involved at all.
-
 WoW's keybinding window has an *account-wide* / *character-specific* switch. It makes no difference to Debind either way — leave yours where it is.
-
-## Getting started
-
-`/deb` opens the window. So does the addon compartment button by the minimap.
-
-The list you land on is the layer you're editing. The tabs along the bottom pick **Account** or **this character**; the tabs down the side pick **General**, **Class**, or one specialization. Those two together are the five layers in that table — hover a tab and it says which one it is and who it covers. The number on a tab is how many actions are in it. Dragging an action onto another tab moves it there.
-
-**Overview**, the tab at the bottom left, opens a second column beside it: every key you have bound, grouped by key, in the order Debind tries them, for the character and spec you're on. Read this one when you want to know what a key actually does — it covers every tab at once, not just the one you have open. Click a row and you land on that action in whichever layer it lives in.
-
-The **+** at the top opens **Add an Action**, with a search box over everything in it. It stays open while you work, and every click adds to whichever layer tab you have open. Dragging a spell, item, macro or mount onto the list works too.
-
-![The Add an Action window on its Spells tab, listing the character's spells with tabs for Macros, Mounts, Toys, Commands and Special.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/add-an-action.png)
-
-To give something a key, turn on **Bind Mode** — the keycap button at the top of the window, next to the **+** — then point at the action and press the key. Mouse buttons and the wheel count. While that mode is on:
-
-- **Escape, pointing at an action** — clears that action's key.
-- **Escape, pointing at nothing** — puts back every key you've changed since you turned the mode on.
-- **Done** — keeps them.
-
-Everything else about an action — conditions, targets, importance, moving and copying — is on its right-click menu. Ctrl-click and shift-click pick out more than one at a time, and the menu then applies to the lot, which is how you move a tab's worth of bindings somewhere else or empty one out.
 
 ## What a key can hold
 
-**Add an Action** has six tabs: **Spells**, **Macros**, **Mounts**, **Toys**, **Commands** and **Special**. The first four are what you already own — **Spells** has your flyouts and your pet's commands in it too. Items come in by dragging. The rest are Debind's own:
+A key can hold your spells, items, macros, mounts and toys, your flyouts and your pet's commands. And a few of Debind's own:
 
-- **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`. **New Custom Macro**, above the picker's list, starts an empty one.
-- **Action Button**, on **Commands** — presses one of your action bar buttons, and follows the bar when a vehicle or a form swaps it out.
-- **Set Custom Target** and **Set Switch**, on **Special** — the next two sections.
+- **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`.
+- **Action Button** — for a key that already presses a bar button. Give that key a Debind action for one situation and put an Action Button under it, and every other press still goes to the bar, whatever a vehicle or a form has put there.
+- **Set Custom Target** and **Switch** — the next two sections.
+
+![The Add an Action window on its Spells tab, listing the character's spells with tabs for Macros, Mounts, Toys, Commands and Special.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/add-an-action.png)
 
 ![A Custom Macro named "Innervate the healer" open in the editor — kept in the addon, costing none of WoW's macro slots.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/custom-macro.png)
 
-The **Commands** tab has a few more of ours, above the action buttons: world markers, targeting, focus, the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
-
-**A key with a Debind action on it is Debind's in every situation.** When none of its actions apply, pressing it does nothing; it doesn't fall back to whatever WoW's own keybinding window has on that key. So WoW's binding commands and Use WoW's Own Binding are gone from the list. Ones you already saved stay where they were, do nothing, and are marked so you can replace them. Those that pressed an action bar button were turned into Action Buttons for you. During a pet battle, the keys WoW has on action buttons 1 to 5 go back to the battle.
+There are a few more for world markers, targeting, focus and the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
 
 ## Conditions
 
@@ -99,7 +76,7 @@ These get re-checked as things change around you, in combat as much as out of it
 
 ## Role targets
 
-Beyond WoW's units, you get `tank`, `healer`, `maintank`, `mainassist`, `custom1`, `custom2`, and `hover` — the frame under your pointer.
+Beyond WoW's units, you get `tank`, `healer`, `maintank`, `mainassist`, `custom1`, `custom2`, and `unitframe`, the unit on the unit frame under your pointer.
 
 Take Innervate. Balance druid, keystones, and it wants to go out to the healer over and over. Without `@healer` the choices are: retype the healer's name into a macro before every key, hunt for their frame with the mouse mid-pull, or park your focus on them — the focus you wanted for something else. WoW's macro conditionals have no idea what a healer is, so there is no fourth option.
 
@@ -113,13 +90,11 @@ The other place is a **Custom Macro**, where one line can try the healer first a
 /cast [@healer,exists][] Innervate
 ```
 
-The same **Target** submenu also has **No Target**, which is none of the above: it lets the key pick up a new target even when you already have one, and it ignores auto self cast. And **Only if unit exists** holds the action back unless somebody is actually there — anyone, friendly only, or enemy only.
-
 **A role only works when exactly one person in the group has it.** With two tanks, `@tank` points at nobody rather than guessing.
 
 ### Custom targets
 
-Two more slots that behave like extra focus targets, and don't cost you the real one. Bind **Set Custom Target**, then press it while hovering a frame. Out of combat it works over any unit frame. In combat it works over the frames Debind is wired to, and only the player, pet, party, raid, boss and arena frames among them.
+Two more slots that behave like extra focus targets, and don't cost you the real one. Bind **Set Custom Target**, then press it while hovering a frame.
 
 A custom target follows the person, not their spot in the raid frames — shuffle the group and it goes with them.
 
@@ -127,9 +102,7 @@ A custom target follows the person, not their spot in the raid frames — shuffl
 
 On/off switches of your own, as many as you want. You name each one, and the name is what you write: an action can require `$fishing` to be on, or off, and a Custom Macro reads it as `[$fishing]` / `[no$fishing]`.
 
-The **Switches** tab, along the top of the window, is the list of them: what each one is right now, a button to turn it over, and under each one a row per answer to *what does this come up as*. **New Switch...** under the list makes one, and so does the same entry on an action's condition menu, which hangs the new switch on that action as it makes it.
-
-A switch has one name and one meaning everywhere, but what it comes up as can be **overridden** for one class, one spec or one character. Most have a single row, the account-wide one; add an override and that row answers instead whenever it applies. A tick marks the row in use, so a switch that behaves differently on one spec says so without a click.
+A switch has one name and one meaning everywhere, but what it comes up as can be **overridden** for one class, one spec or one character.
 
 They can be flipped **in combat**, which is the point of them — it's how you change what a key does in the middle of a fight. G Shift or Hypershift, without spending a real modifier key.
 
@@ -137,36 +110,32 @@ A switch can also drive itself from a macro conditional: hand it `[@tank,exists]
 
 ## When a key holds several actions
 
-Debind checks them in order and runs the first one that fits. If none of them fit, the key does nothing.
+Debind checks them in order and runs the first one that fits. If none of them fit, the key does nothing, even where WoW has something bound to it.
 
 Two things decide that order before you do, and they're the same idea — the narrower case is checked first:
 
 - **Having conditions at all.** An action with conditions is checked before one without: an action with no conditions always fits, so nothing under it would ever run.
 - **Then the layer.** The narrower one goes first.
 
-Everything else is yours. Within one layer an action added to a key goes last.
-
-While you point at a unit, the actions with **Hover Cast** on are tried before the rest, wherever they stand in the list.
+Everything else is yours to reorder.
 
 ![Four actions on the F key in the overview, each row saying why it beats the one below: unit frame rule, has conditions, spec over class — and one marked Never runs.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/run-order.png)
 
-If that ordering isn't what you want, select a row and you get **Run Sooner** and **Run Later**. To get ahead of a narrower layer's action that has no conditions, give yours a condition; to stay ahead of a broader one that has conditions, give yours one too — a Class/Specialization condition always holds and still counts. **Importance** beats all of it, so it's the last thing to reach for: on an Account action it changes the order on every character. The overview column shows the order you'll actually get, and each row says why it beats the one under it. When an action can't move, the button says which rule is holding it instead of doing nothing.
+The overview column shows the order you'll actually get, and each row says why it beats the one under it.
 
 When an action can't be reached at all, the overview marks it **Never runs**. Sometimes that's a mistake worth catching. Sometimes it's the layer above doing exactly what you told it to — give Balance Starfall on `R` and Rebirth is dead on `R` for Balance, which was the whole point.
 
 ## Unit frames
 
-Hovering a unit frame is a condition like any other, so click casting is just a binding with that condition on it.
-
-**`[@mouseover]` is whoever your cursor happens to be over** — a raid frame, a boss frame, or a character standing out in the world, all the same to it, and the game never says which. Debind's hover is unit frames only — and when the one out in the world is what you meant, **mouseover** is a target you pick off the menu like any other.
-
-It's not one switch, either. You pick which frames count — player, pet, party and raid, target and focus, boss, arena — and which reactions, friendly, enemy or neither. So one key can heal off raid frames, do something else on the boss frames, and go back to being a normal key everywhere else.
+Each action can go to the unit you point at, on a unit frame or, if you'd rather, on a nameplate or out in the world too. Put conditions on that unit and one key can heal off raid frames, do something else on the boss frames, and go back to being a normal key everywhere else.
 
 ![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which frame types count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
 
-Debind works on unit frames whoever draws them. An addon that supports Clique registers with Debind the same way it registers with Clique; one that keeps its frames for its own hover casting is found anyway, and Debind works there without stopping anything that addon does. Clique itself can be installed and running at the same time, and both engines work on the frame — where you have bound the same key in both, Debind's is what fires.
+Debind works on unit frames whoever draws them. An addon that supports Clique registers with Debind the same way it registers with Clique; one that keeps its frames for its own hover casting is found anyway, and Debind works there without stopping anything that addon does. Clique itself can be installed and running at the same time, and both engines work on the frame — where you have bound the same key in both, Debind's is what fires. Debind can also stay off any of those frames, if you'd rather.
 
-If you would rather Debind left some of them alone, "Leave these unit frames alone" under Unit frame options lists the game's own seven windows and every unit frame addon Debind knows by name. Tick one and Debind stays off those frames from the next login.
+## Getting started
+
+`/deb` opens the window. So does the addon compartment button by the minimap. Its tabs are the five layers, and **Overview** lists every key you have bound, in the order Debind tries them, for the character and spec you're on. The portrait button opens the help pages.
 
 ## A few things worth knowing
 
@@ -175,10 +144,6 @@ If you would rather Debind left some of them alone, "Leave these unit frames alo
 **You don't have to move everything into it.** Movement, the UI toggles, screenshot, bags — none of that has ever needed to differ by character, and mine are still in WoW's own window. The keys worth moving are the ones you'd otherwise keep in sync across characters by hand, or the ones you want behaving differently depending on what's going on. And if one character really does want a different bag key, that one key goes in that character's layer and no other character changes.
 
 **These don't go on your action bars.** A Debind action is a binding, not a bar button — there's nothing to drag out. If you want to keep watching something, leave it on the bar where it already is and let Debind take the key; the button carries on doing everything it always did. And if one really needs a slot of its own, that one's a WoW macro — see below.
-
-**Custom targets have one gap, and it's a narrow one.** Say the group changes mid-fight. Anyone you pinned before that is unaffected, but a party or raid member you pin *after that* only lasts until the group changes again. At that point Debind can no longer tell whether the pin is still on the same person. Pointing at the wrong one is worse than pointing at nobody, so it's cleared, and Debind says so in chat. Pin them again once the fight is over and it behaves like any other.
-
-**A few keys stop working in the house editor.** While it's open the editor claims some keys for its own shortcuts, and Debind leaves those alone — so an action bound to one of them does nothing until you close the editor. If you'd rather keep one of yours, there's a setting on the action for that.
 
 **Macros are still good.** If one macro solves your problem, write the macro — it's less machinery and it doesn't depend on me. This is for when the list stops being one macro.
 
