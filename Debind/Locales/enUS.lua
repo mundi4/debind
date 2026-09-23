@@ -153,16 +153,11 @@ L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
 -- **Not the client's `HELP_LABEL`.** That one is the game menu's entry into customer support, so the
 -- same word would point somewhere else.
 L["HELP_TOPICS"] = "Help"
--- The question mark on the Overview tab's portrait row. **It says which page opens and that the
--- rest are behind it**: the button lands on one page, and a reader who wanted a different one has
--- no way to know the window it opens lists them all.
---
--- **It does not name the page.** The title is drawn at the top of the window the press opens, and
--- a copy of it here is a second place to keep that title current.
-L["HELP_PORTRAIT_DESC"] = "Opens the help, at the page on setting your keys up. Every other page is in the dropdown there."
--- The same seat on the Switches tab. **It names that tab's page instead**, and says the same second
--- sentence, because the reader who wants another page has the same question here.
-L["HELP_PORTRAIT_SWITCHES_DESC"] = "Opens the help, at the page on Switches. Every other page is in the dropdown there."
+-- The question mark on the portrait row, on the Overview tab and on the Switches tab both. **It
+-- does not name the page either one opens**, because the window moves between pages on its own:
+-- naming the landing page is a detail the reader passes through and a second place to keep it
+-- current.
+L["HELP_PORTRAIT_DESC"] = "Opens the help."
 --- The second line of the (i) tooltip, under the topic's own title.
 ---
 --- **Not the client's `CLICK_FOR_MORE_INFO`** ("Click for more information"). That line stands under

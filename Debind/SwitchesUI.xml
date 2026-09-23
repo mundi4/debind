@@ -429,7 +429,7 @@
 							<KeyValue key="layoutIndex" value="2" type="number"/>
 							<KeyValue key="PortraitTexture" value="A:questlog-questtypeicon-quest" type="string"/>
 							<KeyValue key="TooltipTitle" value="HELP_TOPICS" type="string"/>
-							<KeyValue key="TooltipText" value="HELP_PORTRAIT_SWITCHES_DESC" type="string"/>
+							<KeyValue key="TooltipText" value="HELP_PORTRAIT_DESC" type="string"/>
 						</KeyValues>
 					</Button>
 				</Frames>
