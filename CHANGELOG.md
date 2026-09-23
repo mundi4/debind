@@ -1,3 +1,7 @@
+# 4.0.1
+
+**Party/Raid Frames in a unit condition no longer carries a New mark.** The mark was for the role checkboxes under it, which came in with 3.5, and should have come off in 4.0.
+
 # 4.0
 
 **Each action now says what it does on each kind of press, under Cast Options in its right-click menu.** The Self Cast Key and Focus Cast Key rows each take Cast on yourself, or on your focus, Cast on the usual target, or Skip this action, which hands that press to the next action on the key. Hover Cast is a row of the same shape for the unit you point at, and Normal Cast covers a press with no key held. So one key can carry one action for a held key and a different one for a plain press. Several actions can be set at once.
