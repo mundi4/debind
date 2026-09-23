@@ -12,6 +12,14 @@ Constants.NIL                             = "\0";
 --- a ladder**: every change to the stored shape that lands in it goes into that one step. What has
 --- to move together when a change joins it is in `cutting-a-release.md`.
 Constants.DB_VERSION                      = 7;
+
+--- The changelog page's number. Raise it by one whenever that page has something a reader has to
+--- be shown, and the next login opens it for everyone whose profile is behind
+--- (`showing-the-changelog-on-login.md`).
+---
+--- **Not the addon's version.** A release with nothing to say leaves this where it is.
+Constants.CHANGELOG_VERSION               = 1;
+
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;

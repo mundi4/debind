@@ -4,6 +4,7 @@ local LLL = DebindPrivate.L;
 --- **The functions that open it hang on `DebindUI`.** `DebindPrivate` is the core's table and
 --- everything here is UI, so opening a window has no place there.
 local DebindUI = DebindPrivate.DebindUI;
+local Constants = DebindPrivate.Constants;
 
 --- The help window. What it is made of is in `DebindMessageFrame.xml`; what is here is which page
 --- it shows.
@@ -27,7 +28,14 @@ function DebindMessageFrameMixin:OnLoad()
     self:SetTitle(LLL["ADDON_NAME"]);
     self:RegisterForDrag("LeftButton");
     self:SetScript("OnDragStart", self.StartMoving);
-    self:SetScript("OnDragStop", self.StopMovingOrSizing);
+    self:SetScript("OnDragStop", function()
+        self:StopMovingOrSizing();
+        --- **The drag is for this session only.** A frame with a name that has been moved is
+        --- user-placed, and the client then writes its corner to `layout-cache.txt` and puts it
+        --- back there on the next login, per character. Taking the flag off leaves the window
+        --- where it was dropped and opens it where the XML says next time.
+        self:SetUserPlaced(false);
+    end);
 
     -- ESC is left to the game's net; the reason is on `DebindDialogMixin:InitDialog` in
     -- `DebindUI.lua`.
@@ -48,8 +56,14 @@ function DebindMessageFrameMixin:OnLoad()
     self.BackButton:SetEnabledState(false);
 
     self.Dropdown:SetupMenu(function(_, rootDescription)
-        for _, section in ipairs(DebindPrivate.HELP_SECTIONS) do
-            rootDescription:CreateTitle(LLL[section.title]);
+        for index, section in ipairs(DebindPrivate.HELP_SECTIONS) do
+            if (section.title) then
+                rootDescription:CreateTitle(LLL[section.title]);
+            elseif (index > 1) then
+                -- A nameless section is a line and nothing else (`index.md`'s `---`). Leading the
+                -- menu it would be a line above the first row with nothing over it.
+                rootDescription:CreateDivider();
+            end
             for _, topic in ipairs(section.topics) do
                 rootDescription:CreateRadio(LLL[topic.title], function()
                     return self.topic == topic.name;
@@ -235,6 +249,28 @@ function DebindUI.ShowHelp(name)
     frame:ShowTopic(name);
     frame:Show();
     frame:Raise();
+end
+
+--- The changelog page, once per number. Called from `PLAYER_ENTERING_WORLD`
+--- (`showing-the-changelog-on-login.md`).
+---
+--- **Raised once the window is up, and not when it is closed.** Closing is not the only way out of
+--- a page -- the dropdown walks off it, and a logout leaves it up -- and each of those would bring
+--- the same window back on the next login.
+---
+--- **And not before the window is up either.** That is what the 2026-09-23 login cost: the number
+--- was raised first, the window never came, and the page was then unreachable for good. Left
+--- unraised, the next `PLAYER_ENTERING_WORLD` tries again.
+function DebindUI.ShowChangelogIfUnread()
+    local db = DebindPrivate.db.global;
+    if (db.changelogSeen >= Constants.CHANGELOG_VERSION) then
+        return;
+    end
+
+    DebindUI.ShowHelp("changelog");
+    if (DebindMessageFrame:IsShown()) then
+        db.changelogSeen = Constants.CHANGELOG_VERSION;
+    end
 end
 
 --- The (i)'s press: the same page closes, any other opens. Judged by the page on the frame and not

@@ -17,4 +17,9 @@ DebindPrivate.HELP_SECTIONS = {
             { name = "custom-macro", title = "HELP_CUSTOM_MACRO_TITLE", body = "HELP_CUSTOM_MACRO_BODY" },
         },
     },
+    {
+        topics = {
+            { name = "changelog", title = "HELP_CHANGELOG_TITLE", body = "HELP_CHANGELOG_BODY" },
+        },
+    },
 };

@@ -46,6 +46,12 @@ substitutes it from the tag. A number typed into a TOC is a number that will dis
 `SEEDS[N]`. **현재 판의 씨앗은 결과를 든다** - `/deb seed`를 인자 없이 치면 그것이 서므로, 그
 판이 저장하는 모양 그대로여야 한다. 그 아래 판의 씨앗이 입력이다.
 
+**변경 로그 페이지를 고쳤으면 `Constants.CHANGELOG_VERSION`을 하나 올린다.** 그 번호가 프로필에
+든 번호보다 커야 다음 로그인에 페이지가 뜬다(`showing-the-changelog-on-login.md`). 페이지의 제목이
+판 번호를 들고 있으므로 그것도 같이 간다(`docs/ingamehelp/<로케일>/changelog.md`의 첫 제목, 고친
+뒤 `npm run help`). **할 말이 없는 판은 둘 다 그대로 둔다** - 번호를 올리면 읽을 것이 없는 창이
+모두에게 뜬다.
+
 **`CHANGELOG.md` is written, not generated.** `.pkgmeta` sets `manual-changelog`, so whatever is in
 that file becomes the release notes on CurseForge. Without it the packager scrapes commit subjects.
 

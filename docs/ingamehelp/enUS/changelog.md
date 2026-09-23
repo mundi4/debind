@@ -9,7 +9,9 @@
 
 **When this page opens is not written here**, it is `showing-the-changelog-on-login.md`.
 
-**The version number stays out of the title.** A title goes to the dropdown, the menu row and a tooltip, and one carrying a number is a value that has to be edited every release in a string nothing checks.
+**The title says what the page is and which release it covers** (2026-09-23, owner). It goes to the dropdown, where it stands in one list with pages that are about the addon itself, and a title describing what changed reads there as another one of those. *What's New* is the client's own wording for this (`GAMEMENU_NEW_BUTTON`, `SPLASH_BASE_HEADER`).
+
+What that costs is a number that goes stale on its own, so raising it is on the release list (`cutting-a-release.md`) beside `Constants.CHANGELOG_VERSION`, which is what decides whose login opens this page.
 
 **This page uses section headings** (`writing-a-help-page.md`). No control on screen opens it, and the headings are the whole skim path, so each one says what changed rather than naming a feature.
 
@@ -26,7 +28,7 @@
 **The root `CHANGELOG.md` is the long form of the same release and is not the source.** Its 4.0 section holds entries this page deliberately leaves out.
 -->
 
-# What changed in this update
+# What's New in 4.0
 
 # A key with nothing to run no longer goes to WoW
 

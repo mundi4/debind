@@ -265,7 +265,10 @@ function build() {
     return outputs;
 }
 
-// index.md: `# KEY` opens a section whose name is that locale key, `- page` puts a page in it.
+// index.md: `# KEY` opens a section whose name is that locale key, `---` opens one with no name at
+// all, and `- page` puts a page in it. A nameless section is a line across the picker: what is
+// under it belongs apart, and naming the group would be a heading to word and translate for a
+// split the line already makes.
 function buildRegistry(basePages) {
     const where = "docs/ingamehelp/index.md";
     const file = path.join(sourceDir, "index.md");
@@ -287,6 +290,8 @@ function buildRegistry(basePages) {
         const page = line.match(/^-\s+(\S+)$/);
         if (line === "") {
             continue;
+        } else if (line === "---") {
+            sections.push({ title: null, topics: [] });
         } else if (section) {
             if (!new RegExp(`^L\\["${section[1]}"\\]\\s*=`, "m").test(enUS)) {
                 fail(at, `section name ${section[1]} is not a key in Locales/${BASE}.lua`);
@@ -304,11 +309,11 @@ function buildRegistry(basePages) {
                 sections[sections.length - 1].topics.push(page[1]);
             }
         } else {
-            fail(at, `neither "# SECTION" nor "- page": ${line}`);
+            fail(at, `none of "# SECTION", "---" or "- page": ${line}`);
         }
     }
     for (const s of sections.filter((s) => s.topics.length === 0)) {
-        fail(where, `section ${s.title} has no pages`);
+        fail(where, `section ${s.title || "---"} has no pages`);
     }
 
     const lines = [
@@ -320,7 +325,9 @@ function buildRegistry(basePages) {
     ];
     for (const s of sections) {
         lines.push("    {");
-        lines.push(`        title = "${s.title}",`);
+        if (s.title) {
+            lines.push(`        title = "${s.title}",`);
+        }
         lines.push("        topics = {");
         for (const page of s.topics) {
             const key = keyFor(page);

@@ -194,6 +194,7 @@ local specs = {
     { name = "macrotext", path = root .. "/macrotext_spec.lua" },
     { name = "catalog", path = root .. "/catalog_spec.lua" },
     { name = "migration", path = root .. "/migration_spec.lua" },
+    { name = "changelog", path = root .. "/changelog_spec.lua" },
     { name = "issue", path = root .. "/issue_spec.lua" },
     { name = "hovertwin", path = root .. "/hovertwin_spec.lua" },
     { name = "specspells", path = root .. "/specspells_spec.lua" },

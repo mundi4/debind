@@ -150,6 +150,14 @@ function Events.PLAYER_ENTERING_WORLD()
         DebindPrivate.AttachClickCastFrames();
     end
     DebindPrivate.CollectOUFFrames();
+
+    --- **Here and not at `PLAYER_LOGIN`.** It was called there first, and on 2026-09-23 a login
+    --- came back with the number stored as read and no window ever on screen. What this event
+    --- gives it is a client that has finished loading in: the window is a `UISpecialFrames` entry,
+    --- and anything closing those on the way out of the load takes it with them.
+    ---
+    --- **Last in this handler**, behind the frame attach above, which has a tick it has to make.
+    DebindPrivate.DebindUI.ShowChangelogIfUnread();
 end
 
 function Events.PLAYER_LOGOUT()

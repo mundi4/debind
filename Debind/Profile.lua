@@ -2878,6 +2878,7 @@ end
 
 function DebindPrivate.InitDB()
     local db = _G.DebindVars;
+    local profileIsNew = (db == nil);
     if (not db) then
         db = {};
         _G.DebindVars = db;
@@ -2896,6 +2897,20 @@ function DebindPrivate.InitDB()
     end
 
     db.dbver = db.dbver or Constants.DB_VERSION;
+
+    --- The changelog number this account has read. `Constants.CHANGELOG_VERSION` above it opens
+    --- the page at login (`showing-the-changelog-on-login.md`).
+    ---
+    --- **A profile made right now starts at the current number; one that was already on disk
+    --- starts at zero.** Whoever just installed the addon has met none of what that page lists,
+    --- and everyone whose profile predates this field lived through all of it.
+    if (db.changelogSeen == nil) then
+        if (profileIsNew) then
+            db.changelogSeen = Constants.CHANGELOG_VERSION;
+        else
+            db.changelogSeen = 0;
+        end
+    end
 
     db.shared = db.shared or {};
     db.shared.classes = db.shared.classes or {};

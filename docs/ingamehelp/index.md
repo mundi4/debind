@@ -9,3 +9,7 @@
 - custom-target
 - switches
 - custom-macro
+
+---
+
+- changelog

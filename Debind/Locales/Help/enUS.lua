@@ -30,6 +30,45 @@ To keep an action from running at all while you point at a unit, give it a condi
 > On the left or right mouse button with no modifier nothing set in these rows is read, because that action runs only on a unit frame: |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
 ]==]
 
+L["HELP_CHANGELOG_TITLE"] = "What's New in 4.0"
+L["HELP_CHANGELOG_BODY"] = [==[
+# A key with nothing to run no longer goes to WoW
+
+Press a key whose actions all fail their conditions and the key does nothing. Until this update WoW's own binding for that key ran, so an action bar key still pressed its button. To catch those presses again, leave the last action on the key without conditions, and which one is last is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.
+
+# Use WoW's Own Binding is retired
+
+It does nothing on a press and cannot be added any more. One saved on a key reads |cnBLUE_FONT_COLOR:Needs fixing|r in the |cnBLUE_FONT_COLOR:Overview|r tab and still holds that key, so an action under it does not run either. Every other |cnBLUE_FONT_COLOR:Binding Command|r action is in the same state, except one that pressed an action bar button, which was moved across and works as it did.
+
+# The order on a key no longer counts conditions
+
+An action with conditions used to be tried before one without, and one that ran over a unit frame stood above both. Neither step is there now, so nothing about an action's conditions moves it in the list. The keys whose order moved on this character are marked in the |cnBLUE_FONT_COLOR:Overview|r tab, where |cnBLUE_FONT_COLOR:Run Order Changed|r says how many, and the order they are in now is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.
+
+> |cnBLUE_FONT_COLOR:Use the old run order|r in Debind's settings puts the old order back for the whole account.
+
+An action set to |cnBLUE_FONT_COLOR:Hover Cast|r still runs ahead of the others while you point at a unit. That is decided at the press now, so the list no longer shows it above them.
+
+# What each press does is set on the action
+
+|cnBLUE_FONT_COLOR:Cast Options|r in an action's right-click menu sets what that action does on each kind of press. It holds four rows, |cnBLUE_FONT_COLOR:Self Cast Key|r, |cnBLUE_FONT_COLOR:Focus Cast Key|r, |cnBLUE_FONT_COLOR:Hover Cast|r and |cnBLUE_FONT_COLOR:Normal Cast|r, and everything you already have does what it did. The four are gone through in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
+
+# Unit frame actions now use Hover Cast
+
+|cnBLUE_FONT_COLOR:Hover Cast|r sends an action to the unit you point at while you are pointing at one, and leaves it where it would go otherwise. An action that carried a |cnBLUE_FONT_COLOR:Unit Frame|r condition now carries |cnBLUE_FONT_COLOR:Hover Cast|r on |cnBLUE_FONT_COLOR:Unit Frames|r instead and works as it did, and an action you make from now on starts with it set to |cnBLUE_FONT_COLOR:Off|r. That row has a page of its own, |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
+
+# A unit picked under Target now holds on every press
+
+Pick a unit under |cnBLUE_FONT_COLOR:Target|r and the action goes there on every press that runs it. Neither cast key moves it, the unit you point at does not move it, and Auto Self Cast no longer sends the spell back to you when the unit you picked cannot take it. With nothing picked there a held cast key comes before the unit you point at, which is the other way round from WoW's own settings, and the order in full is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+
+# An action can be turned off
+
+|cnBLUE_FONT_COLOR:Turn this action off|r is new, in the action's right-click menu. The action stops running and keeps the key it is on, its conditions and its place in the order.
+
+# Debind works on more of your unit frames
+
+Debind now binds its keys on a frame another addon is hover casting on, and on the frames it used to leave to Clique. That addon keeps doing what it did, and where you have the same key bound in both, Debind's is what fires. This reaches the addons Debind knows by name, which |cnBLUE_FONT_COLOR:Unit Frame Support|r in Debind's settings lists.
+]==]
+
 L["HELP_CLICKING_A_UNIT_FRAME_TITLE"] = "What happens when you click a unit frame?"
 L["HELP_CLICKING_A_UNIT_FRAME_BODY"] = [==[
 An action on the left or right mouse button with no modifier runs only when you click a unit frame, so a click anywhere else still reaches the game. On a frame it goes to the unit you click, and nothing set under |cnBLUE_FONT_COLOR:Cast Options|r is read.
