@@ -15,6 +15,7 @@ local CreateAssignKeyMenuItem                 = ActionMenu.CreateAssignKeyMenuIt
 local CreateUnbindMenuItem                    = ActionMenu.CreateUnbindMenuItem;
 local CreateTargetUnitMenuItem                = ActionMenu.CreateTargetUnitMenuItem;
 local CreateCastingMenu                       = ActionMenu.CreateCastingMenu;
+local CreateResurrectMenu                     = ActionMenu.CreateResurrectMenu;
 local CreateImportanceMenu                    = ActionMenu.CreateImportanceMenu;
 local CreateApproveImportMenuItem             = ActionMenu.CreateApproveImportMenuItem;
 local CreateRejectImportMenuItem              = ActionMenu.CreateRejectImportMenuItem;
@@ -137,6 +138,7 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     CreateTargetUnitMenuItem(rootDescription, ctx);
 
     CreateCastingMenu(rootDescription, ctx);
+    CreateResurrectMenu(rootDescription, ctx);
 
     --
     -- Conditions

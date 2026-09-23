@@ -399,7 +399,7 @@ local function ToggleResurrectSwitch(data)
     return OnActionsChanged(data.ctx.actions);
 end
 
---- A resurrection's three switches (`adding-spec-resolved-actions.md` §6), inside Cast Options
+--- A resurrection's three switches (`adding-spec-resolved-actions.md` §6), beside Cast Options
 --- (2026-09-23, owner).
 local function CreateResurrectMenu(parentDescription, ctx)
     if (not AnyAction(ctx, IsResurrect)) then
@@ -675,8 +675,6 @@ local function CreateCastingMenu(parentDescription, ctx)
         Choice(LLL["AUTOMATIC_OFF"], false);
     end
 
-    CreateResurrectMenu(description, ctx);
-
     description:CreateDivider();
     MenuKit.CreateHelpButton(description, "cast-options", LLL["HELP_CAST_OPTIONS_TITLE"]);
     MenuKit.CreateHelpButton(description, "targeting", LLL["HELP_TARGETING_TITLE"]);
@@ -927,6 +925,7 @@ ActionMenu.CreateAssignKeyMenuItem            = CreateAssignKeyMenuItem;
 ActionMenu.CreateUnbindMenuItem               = CreateUnbindMenuItem;
 ActionMenu.CreateTargetUnitMenuItem           = CreateTargetUnitMenuItem;
 ActionMenu.CreateCastingMenu                  = CreateCastingMenu;
+ActionMenu.CreateResurrectMenu                = CreateResurrectMenu;
 ActionMenu.CreateImportanceMenu               = CreateImportanceMenu;
 ActionMenu.CreateApproveImportMenuItem        = CreateApproveImportMenuItem;
 ActionMenu.CreateRejectImportMenuItem         = CreateRejectImportMenuItem;

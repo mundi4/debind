@@ -1591,7 +1591,7 @@ L["TYPE_DISPEL"] = "Dispel"
 L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
 L["TYPE_RESURRECT"] = "Resurrect"
 L["TYPE_RESURRECT_DESC"] = "Casts the resurrection that fits the press: your battle resurrection in combat, your mass resurrection on a dead group member or with no target, and your single one on any other dead friend."
--- The three switches in a Resurrect action's own submenu under Cast Options (2026-09-23, owner).
+-- The three switches in a Resurrect action's own submenu beside Cast Options (2026-09-23, owner).
 -- **Worded as what is allowed**, so ticked always means one more thing the key can do.
 -- The submenu's name is the type's name the list draws, so it reads as that action's own.
 L["RESURRECT_OPTIONS"] = "Resurrect Options"
