@@ -94,17 +94,33 @@ hand-translate them into a second wording that can then disagree with the client
 ## Nothing here has a will of its own
 
 **Write what happens, not what something decided.** The addon, a key, an action, a slot, the game:
-none of them want, refuse, agree, give up, let go, hold on, or decide. A sentence that hands one of
-them an intention reads as a small story, and the reader has to translate it back into the event
-before they can act on it.
+none of them want, refuse, agree, prefer, or decide. A sentence that hands one of them an
+intention reads as a small story, and the reader has to translate it back into the event before they
+can act on it.
 
 * "Anybody else is turned down" → "on anybody else the press does nothing".
 * "Press it to let the person go" → "press it to clear it".
 * "The key gives the press to the next action" is on the edge and is fine: it is the key's own rule,
   said in one clause, with no wish behind it.
 
+**What the verb means now decides it, not where the verb came from** (2026-09-23). A verb is out
+when it names a state of mind: want, refuse, agree, decide, prefer. A verb that only names an action
+is ordinary English for software even though it was a person's once, and it stays: take over,
+ignore, handle, wait for, skip, hold, release. Neither list is closed. They are worked examples of
+where the line runs, and a word nobody wrote down (insists, is happy to, knows best) is caught by
+the principle rather than let through for being absent from a list.
+
+**A phrasal verb usually lands on the wrong side.** Give up, let go of and hold on to carry
+resignation, reluctance and clinging that the bare root does not: "the key is held" is an event,
+"Debind holds on to the key" is a character. The roots stay available and the phrasal forms do not.
+
+**Read the subject too, not only the verb** (2026-09-23). The same verb passes with a concrete
+subject and fails with the addon standing in as an actor: "these keys are not bound during a pet
+battle" is what happens, "Debind refuses these keys" is somebody.
+
 Plain verbs the reader already uses for software are what this leaves: set, clear, keep, stop,
-work, do nothing. Reaching past them is where the personification comes from.
+work, do nothing. Reaching past them for something more vivid is where the personification comes
+from.
 
 **The one way out** (2026-09-22, owner): the plain wording says it less clearly than the personified
 one, or it takes a good deal more room to say it as clearly. Clarity for the reader is what this rule
@@ -158,13 +174,20 @@ This is why the capture dialog's [Cancel] is `CANCEL` and its [Unbind key] is `L
 
 | where | budget |
 |---|---|
-| tooltips | long is fine — see below |
+| tooltips | long is fine when the order is right, see below |
 | chat output | one line, it scrolls away |
 | buttons, tabs, column headers, labels | short, and shorter than you think |
 | empty-list text | say **what fills it**, not that it is empty |
 
 **A tooltip is where discovery lives.** The user hovered — they asked for this text and are ready
-to read it. Never trim a tooltip for length; trim it only when a sentence is not carrying meaning.
+to read it. They still skim it, though, and every line standing in front of the answer lowers the
+odds that the answer is the line they land on.
+
+**So length is not the test. Order is** (2026-09-23). The first line says what the thing does, and
+whatever qualifies, explains or expands it stands behind that. A tooltip written in that order may
+run as long as it needs to, and a sentence carrying no meaning comes out at any length. A tooltip
+whose first line is background gets trimmed however short it already is.
+
 `GameTooltip_AddInstructionLine` wraps by default, so a long sentence makes the tooltip taller, not
 wider. The cost that actually matters is **the number of instruction lines**: a follow-on clause
 about the same gesture stays on that gesture's line instead of standing up a new one.
@@ -287,9 +310,12 @@ Three habits that keep it from happening:
   the game's rule and ours are the same rule. Two of our own screens sharing one key is real reuse
   when they genuinely say one thing (`CUSTOM_STATES_DESC` is passed explicitly to the condition
   menu so a twin key cannot drift); pasting a sentence sideways is not.
-* **Do not quote another control's label inside a string.** The moment a sentence spells out what a
+* **Do not retype another control's label inside a string.** The moment a sentence spells out what a
   button says, renaming that button leaves the sentence pointing at something that is not there. A
-  line already died this way.
+  line already died this way. Where the sentence stands without naming the control, it does not name
+  it. Where the reader has to be pointed at one ("Hold Shift and click Unbind"), the sentence takes a
+  `%s` and the call passes the very key that control reads, so the name lives in one place and every
+  sentence pointing at it follows the rename (2026-09-23).
 * **One thing has one name per screen.** `BULK_MENU_TITLE` and `BULK_SELECTED_COUNT` deliberately
   use the same word for the same set.
 
