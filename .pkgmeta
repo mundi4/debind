@@ -44,6 +44,13 @@ ignore:
   # that "this one never goes to a user" is stated where the shipping list is decided.
   - Debind/DevStamp.lua
 
+# Other people's libraries go out byte for byte. Keyword substitution runs over every line of a
+# file, comments included, and LibDeflate's header holds three keywords meant for its own author's
+# packaging: through 4.0.1 each release stamped our version and commit into it.
+plain-copy:
+  - Debind/Libs
+  - DebindStorage/Libs
+
 move-folders:
   # 값이 곧 게임이 보는 폴더 이름이고, **SavedVariables 파일 이름이 여기서 나온다.**
   #

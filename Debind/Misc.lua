@@ -4365,17 +4365,8 @@ function DebindPrivate.OnSwitchChanged(name, value)
     _changedStates[name] = value;
 end
 
---- What this build calls itself, for the two places a user can read it off before writing a bug
---- report: the window title and the login line.
----
---- **A released build needs nothing written down.** The packager stamps `## Version:` from the tag,
---- so the TOC already holds the answer and there is no second copy to fall out of step with it.
----
---- A working copy has no version to read -- `@project-version@` is still sitting there literally,
---- never having been through the packager -- and that unsubstituted token is what identifies a
---- working copy. It names the checkout instead, which `DevStamp.lua` writes; that file is
---- gitignored and its TOC line is inside `#@debug@`, so neither reaches a user. Without the hook
---- that writes it there is simply no stamp, and the fallback covers it.
+--- A working copy's TOC still holds the packager's keyword unsubstituted, which is what the `@`
+--- test catches.
 function DebindPrivate.GetVersionLabel()
     local version = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version");
     if (version and not version:find("@", 1, true)) then
