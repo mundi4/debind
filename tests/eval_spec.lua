@@ -502,15 +502,17 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- **The same two outcomes, reached at the rebuild instead of at the press.** A `known` the
-    -- rebuild can settle carries no axis at all, or takes its record out of the key
-    -- (`baking-the-known-condition.md` §5) -- and the press has to land where it lands
-    -- today either way. That is the whole claim the optimization rests on, and the restricted
-    -- side is the only thing that can check it.
+    -- **A true reached at the rebuild instead of at the press.** A `known` the rebuild can settle
+    -- true carries no axis at all (`baking-the-known-condition.md` §5), and the press has to
+    -- land where it lands today. That is the whole claim the optimization rests on, and the
+    -- restricted side is the only thing that can check it.
     --
-    -- **The restricted side is never told about either spell.** A record that still carried the
-    -- axis would ask `[known:]` here and lose, so the settled-true action winning is what says
+    -- **The restricted side is not told about either spell at first.** A record that still carried
+    -- the axis would ask `[known:]` here and lose, so the settled-true action winning is what says
     -- the axis is really gone rather than merely quiet.
+    --
+    -- **A false is not settled** (2026-09-23, owner): something can teach the spell in the fight,
+    -- so the record stays on the key and the press asks.
     test("a known settled at the rebuild lands where a measured one does", function()
         for spellID, learned in pairs({ [1000] = true, [1001] = false }) do
             shim.world.spellbook[spellID] = true;
@@ -527,13 +529,14 @@ return function(DebindPrivate, _, ctx)
 
         check(winner("F1") == 1, "the settled-true action did not win");
 
-        -- **The record count, not only the winner.** With the dropped record still emitted, the
-        -- fallback would sit at index 2 and this key would answer 2; asserting the count is what
-        -- keeps "it was dropped" apart from "it lost".
+        -- **The record count, not only the winner.** A dropped record would leave the fallback at
+        -- index 1, so the count is what keeps "it lost" apart from "it was dropped".
         local f2 = castmod.without(Constants,
             interp.env.ClickTimeKeys[Constants.CLICKTIME_BUTTON_PREFIX .. "F2"]);
-        check(#f2 == 1, "the settled-false record was emitted: " .. #f2);
-        check(winner("F2") == 1, "the fallback did not win the key");
+        check(#f2 == 2, "records on F2: " .. #f2);
+        check(winner("F2") == 2, "the fallback did not win the key");
+        interp.state.known["Spell 1001"] = true;
+        check(winner("F2") == 1, "the spell learned after the rebuild did not win");
         interp:resetState();
     end);
 

@@ -67,9 +67,8 @@ local function RecordName(out, api, spellID)
     return name;
 end
 
---- The higher level wins when two walks name the same spell, because a level the character has
---- not reached yet is the one thing that can still flip the answer inside a fight. Merging the
---- other way would bake a `false` that a level-up undoes with no rebuild behind it.
+--- The higher level wins when two walks name the same spell. Only a `true` is settled
+--- (`SettleKnown`), which the lower would carry as safely; the higher is the stricter of the two.
 ---
 --- **The name's level is merged here and not where the name is asked.** One id is filed again and
 --- again (two book rows can share a base) and `RecordName` asks the client only the first time, so
@@ -181,9 +180,9 @@ end
 --- nobody picked is exactly what moves once somebody picks it -- returning the three indexes over
 --- it.
 ---
---- First: which spells' `[known:]` answer cannot move before the next rebuild
---- (`baking-the-known-condition.md`). `spellID -> level`: the answer is fixed once the
---- character has reached that level, and `0` is a spell whose answer never depended on level.
+--- First: which spells' `[known:]` answer, once true, stands until the next rebuild
+--- (`baking-the-known-condition.md`). `spellID -> level`: fixed once the character has reached
+--- that level, and `0` is a spell whose answer never depended on level.
 ---
 --- **That table says only that the answer is fixed, never what it is.** What it is gets measured
 --- with `SecureCmdOptionParse` at the bake, against the same string the snippet would have used,
@@ -320,8 +319,8 @@ function Spells.GetBranches()
     return Spells.BuildBranches(LiveAPI());
 end
 
---- Whether this spell's `[known:]` answer can still move before the next rebuild. A spell in the
---- table but below its level is **not** fixed: a level-up flips it with no rebuild behind it.
+--- Whether a `true` from this spell's `[known:]` stands until the next rebuild. A spell in the
+--- table but above the character's level is **not** fixed.
 ---
 --- **A name asks the same question of the name index.** That is what a `known` condition stores
 --- (`making-known-a-spell-name.md`), and the value handed here is the one that goes into
@@ -337,24 +336,40 @@ local function IsFixed(value)
     return level ~= nil and level <= (UnitLevel("player") or 0);
 end
 
---- What `[known:<spell>]` answers for the rest of this rebuild: `true` if it holds, `false` if it
---- cannot, and **nil where the answer can still move**, which is the axis staying as it was.
----
 --- **Measured the way the press measures it**, so the two cannot part. An id is asked of the
 --- spell book as well, because `[known:<id>]` answers false for a spell the book holds under an
 --- override -- the warlock's dispel is the case (`SpecSpells.lua`) -- and the press takes either
 --- answer (`SecureBindings.lua`).
-function Spells.SettleKnown(value)
-    if (not IsFixed(value)) then
-        return nil;
-    end
+local function MeasureKnown(value)
     if (SecureCmdOptionParse("[known:" .. value .. "]")) then
         return true;
     end
-    if (type(value) == "number" and FindSpellBookSlotBySpellID(value)) then
+    return type(value) == "number" and FindSpellBookSlotBySpellID(value) ~= nil;
+end
+
+--- What `[known:<spell>]` answers for the rest of this rebuild: `true` if it holds, and nil for
+--- everything else, which is the axis staying as it was.
+---
+--- **Only a true is settled** (2026-09-23, owner). A spell learned by level is not unlearned, and a
+--- talent cannot change in combat; a spell a talent replaces still answers known through its
+--- base. A false has no such floor: a buff or a cast can teach a spell or put one over another
+--- for a while, and a false baked here would stand through a fight nothing can rebuild in.
+---
+--- **The book's true is settled as well.** A spell the table dates is one the character learns for
+--- good; one it does not date is not fixed and never reaches the measure. The ids that come and go
+--- with a demon (the warlock's 119905 and 132411) are in no learn-level table (measured 2026-09-23,
+--- owner), so a summon in combat cannot strand a settled one.
+function Spells.SettleKnown(value)
+    if (IsFixed(value) and MeasureKnown(value)) then
         return true;
     end
-    return false;
+    return nil;
+end
+
+--- Whether the row should say the spell is not there. **Not a settled answer**: the binding stays
+--- on the key and the press asks again, so this is what the row shows until the next rebuild.
+function Spells.KnownMissing(value)
+    return IsFixed(value) and not MeasureKnown(value);
 end
 
 --- The value a spell goes on a secure button under. **A name and not an id**, because spells share

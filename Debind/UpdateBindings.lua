@@ -1496,9 +1496,16 @@ local function PrepareKeyBindings(key, bindingArray)
         -- **`spellToCast` first where it is there.** The warlock's dispel is named and drawn after
         -- the spell in the book and cast under another one (`SpecSpells.lua`); this is the one
         -- place that reads it, so nothing on screen follows it.
+        --
+        -- **`holdsOnly` goes out as the specialization with nothing to cast does**: the key taken
+        -- and the press doing nothing (`FillBinding`).
         local bindingValue = binding.value;
         if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
-            bindingValue = binding.spellToCast or binding.spell;
+            if (binding.holdsOnly) then
+                bindingValue = nil;
+            else
+                bindingValue = binding.spellToCast or binding.spell;
+            end
         end
         binding.clickframe, binding.clickbutton, binding.castSpell =
             SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
@@ -1748,16 +1755,9 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
                 -- to nothing asks a conditional that is always false (`known:0` is the fixed
                 -- false elsewhere in this file too).
                 local spell = DebindPrivate.KnownSpellAsked(binding);
-                -- A spell whose answer cannot move before the next rebuild is settled here
-                -- instead of going out as an axis (`baking-the-known-condition.md`), so
-                -- the press stops parsing it.
-                local settled = spell and Spells.SettleKnown(spell);
-                if (settled == false) then
-                    -- No state can bring this record back for the rest of the rebuild. Dropping
-                    -- it reaches what the click path reaches by skipping it at the press.
-                    return nil;
-                end
-                omit = settled == true;
+                -- A true that stands until the next rebuild is settled here instead of going out
+                -- as an axis (`baking-the-known-condition.md`), so the press stops parsing it.
+                omit = spell ~= nil and Spells.SettleKnown(spell) == true;
                 -- **An id goes out twice: as the conditional and as itself.** `[known:<id>]`
                 -- answers false for a spell the book holds under an override, so the press asks
                 -- the book as well and takes either answer (`SpecSpells.lua`). The conditional

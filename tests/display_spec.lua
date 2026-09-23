@@ -618,16 +618,15 @@ return function(DebindPrivate)
     -- A `known` the rebuild has already settled
     ---------------------------------------------------------------------------
 
-    -- **A binding the rebuild drops has to say why on the row.** A `known` whose answer is settled
-    -- false for this rebuild takes the binding out of the key entirely
-    -- (`baking-the-known-condition.md` §6-1), and with nothing on the row a reader is
-    -- looking at a binding that is simply not firing and no word about it.
+    -- **A spell that is not there has to say so on the row**, though the rebuild no longer settles
+    -- that answer and the press asks it again (`Spells.KnownMissing`). With nothing on the row a
+    -- reader is looking at a binding that is not firing and no word about it.
     --
     -- It takes `noSpell`, the flag that already means "that spell is not there". **It stays with
     -- the live layer's rows in the filter**, which goes by the layer and not by whether a row fires.
     --
     -- The world is stood up before the first rebuild: `Spells` builds its table once.
-    test("a known settled false marks the row, and one settled true does not", function()
+    test("a known that does not hold marks the row, and one that holds does not", function()
         for spellID, learned in pairs({ [1000] = true, [1001] = false }) do
             shim.world.spellbook[spellID] = true;
             shim.world.spells[spellID] = { name = "Spell " .. spellID, levelLearned = 10 };
@@ -641,14 +640,14 @@ return function(DebindPrivate)
                 conditions = { known = true } },
         }, {});
 
-        local dropped = DebindPrivate.CollectActionsForKey("F1")[1];
-        check(dropped.noSpell == true,
-            "the settled-false row was not marked: " .. tostring(dropped.noSpell));
-        check(not DebindPrivate.IsRowOffSpec(dropped), "it was filed with the inactive layers");
+        local missing = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(missing.noSpell == true,
+            "the row that does not hold was not marked: " .. tostring(missing.noSpell));
+        check(not DebindPrivate.IsRowOffSpec(missing), "it was filed with the inactive layers");
 
         local held = DebindPrivate.CollectActionsForKey("F2")[1];
         check(held.noSpell == nil,
-            "the settled-true row was marked: " .. tostring(held.noSpell));
+            "the row that holds was marked: " .. tostring(held.noSpell));
     end);
 
     return T;

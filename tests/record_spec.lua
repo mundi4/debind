@@ -304,8 +304,14 @@ return function(DebindPrivate)
         check(not named, "known was carried anyway: " .. tostring(value));
     end);
 
-    test("a fixed known that does not hold drops the record", function()
-        check(knownRecord(1001) == nil, "the record survived");
+    -- **Only a true is settled** (2026-09-23, owner). A buff or a cast can teach a spell or put one
+    -- over another for a while, and a false baked at the rebuild would stand through the fight
+    -- where nothing can be rebuilt.
+    test("a fixed known that does not hold stays an axis", function()
+        local record = knownRecord(1001);
+        check(record ~= nil, "the record was dropped");
+        check(fieldOf(record, "known") == "[known:Spell 1001]",
+            "known: " .. tostring(fieldOf(record, "known")));
     end);
 
     test("a known the book dates above the character stays an axis", function()
@@ -338,8 +344,8 @@ return function(DebindPrivate)
         local Spells = DebindPrivate.Spells;
         check(Spells.SettleKnown("Spell 1000") == true,
             "holds: " .. tostring(Spells.SettleKnown("Spell 1000")));
-        check(Spells.SettleKnown("Spell 1001") == false,
-            "does not hold: " .. tostring(Spells.SettleKnown("Spell 1001")));
+        check(Spells.SettleKnown("Spell 1001") == nil,
+            "does not hold, settled anyway: " .. tostring(Spells.SettleKnown("Spell 1001")));
         check(Spells.SettleKnown("Spell 1002") == nil,
             "above the character's level, settled anyway: "
             .. tostring(Spells.SettleKnown("Spell 1002")));

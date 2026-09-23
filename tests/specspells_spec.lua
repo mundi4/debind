@@ -272,22 +272,26 @@ return function(DebindPrivate, _, ctx)
         shim.world.spellbook[132411] = nil;
     end
 
-    -- **Nothing ticked is one ordinary binding.** It is named and drawn after the spell in the
-    -- book and cast under another one, and that is the whole of what the gate does here.
-    test("a gated dispel with no known is one binding cast under another spell", function()
+    -- **Nothing ticked still asks the book before it casts** (2026-09-23, owner). Command Demon
+    -- casts whatever the demon that is out has, so without the question the key sent a Spell Lock
+    -- where the reader asked for a dispel. One binding per id casts, and the last one holds the key
+    -- and casts nothing: the reader did not ask for the key to be handed on.
+    test("an unticked gated dispel casts only under an id and holds the key otherwise", function()
         withGate(WARLOCK_GATE, function()
             warlockWorld();
 
             local a = action({ type = Constants.DISPEL, key = "F3" });
-            local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
-            check(#list == 1, "list length: " .. #list);
-            check(list[1].spell == 119905, "named after: " .. tostring(list[1].spell));
-            check(list[1].spellToCast == 119898, "cast under: " .. tostring(list[1].spellToCast));
-
             Bind({ a });
-            check(recordField("F3", 1, "known") == nil,
-                "a condition stood with nothing ticked: " .. tostring(recordField("F3", 1, "known")));
-            check(recordField("F3", 1, "knownID") == nil, "an id went out with no condition");
+            check(recordField("F3", 1, "known") == "[known:132411]",
+                "record 1 known: " .. tostring(recordField("F3", 1, "known")));
+            check(recordField("F3", 1, "knownID") == 132411,
+                "record 1 id: " .. tostring(recordField("F3", 1, "knownID")));
+            check(recordField("F3", 2, "known") == "[known:119905]",
+                "record 2 known: " .. tostring(recordField("F3", 2, "known")));
+            check(recordField("F3", 3, "known") == nil,
+                "the holding record asks: " .. tostring(recordField("F3", 3, "known")));
+            check(recordField("F3", 3, "spell") == nil,
+                "the holding record casts: " .. tostring(recordField("F3", 3, "spell")));
             local button = recordField("F3", 1, "clickbutton");
             check(spellOn(button) == "Command Demon", "*spell-: " .. tostring(spellOn(button)));
 
@@ -349,10 +353,9 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
-    -- **A gate is not a condition.** With nothing ticked the dispel fires in every state, neither
-    -- id in the book included: the action carries no condition saying otherwise, so it goes out and
-    -- the game refuses it (§4 of the design).
-    test("a gate on its own never keeps the press from running", function()
+    -- **Unticked, neither id in the book is a press that does nothing**, and not one handed to the
+    -- action behind. Records 1 and 2 are the two ids, 3 holds the key and 4 is the spell behind.
+    test("an unticked gated dispel keeps the key with neither id in the book", function()
         if (shipped) then
             return;
         end
@@ -365,15 +368,106 @@ return function(DebindPrivate, _, ctx)
             });
 
             shim.world.spellbook[119905] = true;
-            check(winner("F3") == 1, "with the imp out the dispel did not fire");
+            check(winner("F3") == 2, "with the imp out the dispel did not fire");
 
             shim.world.spellbook[119905] = nil;
             shim.world.spellbook[132411] = true;
             check(winner("F3") == 1, "with the imp swallowed the dispel did not fire");
 
             shim.world.spellbook[132411] = nil;
-            check(winner("F3") == 1, "with neither in the book the dispel stopped firing");
+            check(winner("F3") == 3, "with neither in the book the key was not held: "
+                .. tostring(winner("F3")));
         end);
+    end);
+
+    -- **The same for every dispel, not only the gated one** (2026-09-23, owner). A class with no
+    -- dispel already holds the key and sends nothing (§4); one that has a dispel it has not learned
+    -- yet has to look the same, not send a cast for the game to refuse.
+    test("an unticked dispel holds the key while its spell is not known", function()
+        if (shipped) then
+            return;
+        end
+        shim.world.specIndex = 1;
+        shim.world.spells[2782] = { name = "Remove Corruption" };
+        shim.world.spells[8936] = { name = "Regrowth" };
+        Bind({
+            action({ type = Constants.DISPEL, key = "F5" }),
+            action({ type = Constants.SPELL, key = "F5", value = 8936 }),
+        });
+        check(recordField("F5", 1, "known") == "[known:Remove Corruption]",
+            "record 1 known: " .. tostring(recordField("F5", 1, "known")));
+        check(recordField("F5", 2, "spell") == nil,
+            "the holding record casts: " .. tostring(recordField("F5", 2, "spell")));
+
+        check(winner("F5") == 2, "unlearned, the key was not held: " .. tostring(winner("F5")));
+        interp.state.known["Remove Corruption"] = true;
+        check(winner("F5") == 1, "learned, the dispel did not fire");
+        shim.world.specIndex = nil;
+    end);
+
+    -- **A stored `false` is no condition** (`FillBinding` strips it; a shared profile can carry one),
+    -- so it splits like nothing ticked. Read raw, it held the key with nothing ahead to cast.
+    test("a stored false known behaves as unticked", function()
+        if (shipped) then
+            return;
+        end
+        shim.world.specIndex = 1;
+        shim.world.spells[2782] = { name = "Remove Corruption" };
+        Bind({
+            action({ type = Constants.DISPEL, key = "F8", conditions = { known = false } }),
+        });
+        interp.state.known["Remove Corruption"] = true;
+        local _, _, record = interp:evalKey("F8");
+        check(record and record.spell ~= nil, "learned, the dispel did not cast");
+        interp:resetState();
+        shim.world.specIndex = nil;
+    end);
+
+    -- **Every tier the action stands in splits the same way**: a held self cast key reaches the self
+    -- tier's own holding binding and its own casting one, not the plain tier's.
+    test("an unticked dispel splits in the self cast tier too", function()
+        if (shipped) then
+            return;
+        end
+        shim.world.specIndex = 1;
+        shim.world.spells[2782] = { name = "Remove Corruption" };
+        shim.world.spells[8936] = { name = "Regrowth" };
+        Bind({
+            action({ type = Constants.DISPEL, key = "F7" }),
+            action({ type = Constants.SPELL, key = "F7", value = 8936 }),
+        });
+        interp.state.modifiedClick.SELFCAST = true;
+
+        local _, _, record = interp:evalKey("F7");
+        check(record and record.castModifier == Constants.CASTMOD_SELF,
+            "unlearned, the self tier did not answer");
+        check(record.spell == nil, "unlearned, the self tier cast " .. tostring(record.spell));
+
+        interp.state.known["Remove Corruption"] = true;
+        _, _, record = interp:evalKey("F7");
+        check(record and record.castModifier == Constants.CASTMOD_SELF and record.spell ~= nil,
+            "learned, the self tier did not cast the dispel: " .. tostring(record and record.spell));
+
+        interp:resetState();
+        shim.world.specIndex = nil;
+    end);
+
+    -- Ticked is the reader asking for the key to be handed on, so nothing holds it.
+    test("a ticked dispel hands the key on while its spell is not known", function()
+        if (shipped) then
+            return;
+        end
+        shim.world.specIndex = 1;
+        shim.world.spells[2782] = { name = "Remove Corruption" };
+        shim.world.spells[8936] = { name = "Regrowth" };
+        Bind({
+            action({ type = Constants.DISPEL, key = "F6", conditions = { known = true } }),
+            action({ type = Constants.SPELL, key = "F6", value = 8936 }),
+        });
+        local records = castmod.without(Constants, interp:recordsFor("F6"));
+        check(#records == 2, "records on F6: " .. #records);
+        check(winner("F6") == 2, "the spell behind did not take the key");
+        shim.world.specIndex = nil;
     end);
 
     -- **Nothing here is opaque to the solver** (`Solver.lua`). Each id stands on the ordinary
@@ -429,14 +523,15 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
-    -- An action that derives two bindings cannot be written as one body.
-    test("a ticked known keeps a gated dispel out of custom macro conversion", function()
+    -- A body names one spell, and these three have none of their own to name: the specialization
+    -- picks it at the rebuild.
+    test("a spec-resolved type is not offered custom macro conversion", function()
         withGate(WARLOCK_GATE, function()
             warlockWorld();
-            local ticked = action({ type = Constants.DISPEL, key = "F3",
-                conditions = { known = true } });
-            check(DebindPrivate.CanConvertToMacroText(ticked) == false,
-                "the split dispel offered conversion");
+            check(DebindPrivate.CanConvertToMacroText(action({ type = Constants.DISPEL, key = "F3" }))
+                == false, "the dispel offered conversion");
+            check(DebindPrivate.CanConvertToMacroText(action({ type = Constants.DISPEL, key = "F3",
+                conditions = { known = true } })) == false, "the ticked dispel offered conversion");
         end);
     end);
 

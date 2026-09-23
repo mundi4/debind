@@ -44,13 +44,14 @@ local DISPEL_BY_CLASS = {
 --- book holds 119905 in the first case and 132411 in the second, and **Command Demon casts it in
 --- both**, so what goes out never depends on which one is there.
 ---
---- `known` does: the reader asking "only while I have it" is asking about those two ids, and
---- neither `[known:]` shape answers for them -- by id it is false whatever the state and by name
---- it is true whatever the state. `FindSpellBookSlotBySpellID` is the only thing that answers, and
---- the answer moves in combat where nothing can be rebuilt.
+--- **Whether one of the two is there does**, because with neither Command Demon casts whatever the
+--- demon that is out has: a Spell Lock where the reader asked for a dispel. Neither `[known:]`
+--- shape answers for them -- by id it is false whatever the state and by name it is true whatever
+--- the state. `FindSpellBookSlotBySpellID` is the only thing that answers, and the answer moves in
+--- combat where nothing can be rebuilt.
 ---
 ---   `cast`   the spell the button carries, whichever id is there
----   `known`  the ids a `known` on this action asks about, one binding each
+---   `known`  the ids asked before it casts, one binding each (`GetBindingsForAction`)
 local WARLOCK_DISPEL_GATE = {
     cast = 119898,
     known = { 119905, 132411 },

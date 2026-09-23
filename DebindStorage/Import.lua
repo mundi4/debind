@@ -385,6 +385,11 @@ local function BuildAction(source)
                 conditions[k] = nil;
             end
         end
+        -- **`known = false` is a boolean the addon never writes.** It passes the type check above,
+        -- and on a spec-resolved type the rebuild's two readers of it disagreed.
+        if (conditions.known == false) then
+            conditions.known = nil;
+        end
         -- An empty table is not "no conditions" downstream, it is an action that reads as
         -- conditional with nothing on it (`IsConditionalBinding`).
         if (next(conditions) == nil) then

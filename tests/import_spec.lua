@@ -497,6 +497,19 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
+    -- **A `false` is not a shape the addon writes**, and on a spec-resolved type it split the rebuild's
+    -- two readers of `known`. It is dropped, which is what "no condition" already means.
+    test("a false known is dropped on the way in", function()
+        ResetProfile();
+        local action = PlanOne(General({ {
+            type = Constants.DISPEL, key = "F", seq = 1,
+            conditions = { known = false, combat = true },
+        } }));
+        check(action.conditions and action.conditions.known == nil,
+            "known arrived: " .. tostring(action.conditions and action.conditions.known));
+        check(action.conditions.combat == true, "the other condition went with it");
+    end);
+
     -- 값 없는 타입 셋. `VALUE_SHAPES`에 없는 타입은 문자열 전체를 거절하므로, 셋 다 값 없이 통과해야
     -- 한다 (`SpecSpells.lua`).
     test("전문화가 주문을 정하는 타입 셋은 값 없이 들어온다", function()

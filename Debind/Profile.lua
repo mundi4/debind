@@ -3535,15 +3535,12 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- not that row's.
     --
     -- **The second way, and it is a different question.** Above is "there is no spell to ask
-    -- about"; here the spell exists and the answer is already settled false for this rebuild
-    -- (`baking-the-known-condition.md` §6-1), which is what takes the binding out of the
-    -- key. A reader sees one thing either way -- that spell is not there -- so both take the same
-    -- word.
+    -- about"; here the spell exists and is not known (`Spells.KnownMissing`). A reader sees one
+    -- thing either way -- that spell is not there -- so both take the same word.
     local knownAsked = DebindPrivate.KnownSpellAsked(binding);
     row.noSpell = (not offWorld)
         and (not DebindPrivate.KnownConditionCanHold(binding)
-            or (knownAsked ~= nil
-                and DebindPrivate.Spells.SettleKnown(knownAsked) == false))
+            or (knownAsked ~= nil and DebindPrivate.Spells.KnownMissing(knownAsked)))
         or nil;
 
     -- **The fourth way: the reader turned the action off.** Not an issue, because they asked for it
