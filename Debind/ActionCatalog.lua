@@ -626,7 +626,9 @@ local function BuildPlayerSpells(entries)
 		local first = skillLineInfo.itemIndexOffset + 1;
 		local last = skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems;
 		for slotIndex = first, last do
-			AddSpellBookItem(entries, seen, slotIndex, Enum.SpellBookSpellBank.Player, isOffSpec, group);
+			if (not DebindPrivate.Client.IsHiddenLowRank(slotIndex, Enum.SpellBookSpellBank.Player)) then
+				AddSpellBookItem(entries, seen, slotIndex, Enum.SpellBookSpellBank.Player, isOffSpec, group);
+			end
 		end
 	end
 

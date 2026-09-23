@@ -124,23 +124,30 @@
 `C_SpellBook.GetClassSkillLineInfo()`로 따로 얻는다(`Camelot/SpellBook/Blizzard_SpellBookFrame.lua`).
 **잰 값으로 줄 2는 Restoration이다**(드루이드). 직업 줄 "Druid"는 `GetClassSkillLineInfo`에서만 나온다.
 
-**`Client.ClassSkillLine()`.** 직업 줄의 이름과 아이콘을 낸다. 정식 서비스에서는 지금처럼 줄 2다.
+**들어갔다: `Client.ClassSkillLine()`** (`Client/Spells.lua`). `GetClassSkillLineInfo`가 있으면 그것,
+없으면 줄 2다. 직업 탭 아이콘이 이것을 읽는다.
 
-**주문 등급.** 카멜롯은 등급마다 주문 번호가 따로이고 주문책에 등급마다 항목이 있다
-(`IsSpellBookItemLowRank`는 카멜롯에만 있다). `ActionCatalog.lua`의 `BuildPlayerSpells`가 항목마다
-한 줄을 만들므로 등급 수만큼 줄이 선다. 블리자드 주문책은 CVar `ShowAllSpellRanks`가 꺼져 있으면
-낮은 등급을 숨긴다(`Blizzard_SpellBookFrame.lua`). 우리 목록도 같은 CVar를 따른다.
+**들어갔다: 주문 등급.** 카멜롯은 등급마다 주문 번호가 따로이고 주문책에 등급마다 항목이 있다
+(`IsSpellBookItemLowRank`는 카멜롯에만 있다). 블리자드 주문책은 CVar `ShowAllSpellRanks`가 꺼져
+있으면 낮은 등급을 숨기고, `BuildPlayerSpells`도 `Client.IsHiddenLowRank`로 같이 숨긴다.
 
-**시전 이름이 등급에 묶인다.** 카멜롯은 주문 부제로 "Rank 1"을 준다(잰 값). `Spells.lua`의
-`ComposeSpellCastName`은 부제를 괄호로 붙이므로 `Healing Touch(Rank 1)`을 만들고, 그 액션은 2등급을
-배운 뒤에도 1등급을 쓴다. 등급 부제는 붙이지 않아야 한다. 등급을 가리는 법은 층의
-`Client.IsRankSubtext` 같은 이름으로 한 곳에 둔다.
+**들어갔다: 시전 이름에서 등급을 뺀다.** 카멜롯은 주문 부제로 "Rank 1"을 준다(잰 값). 부제를 괄호로
+붙이면 `Healing Touch(Rank 1)`이 되어 2등급을 배운 뒤에도 1등급을 쓴다. 부제는 게임 데이터라 언어마다
+달라서 글자로 가리지 않는다. 대신 등급이 있는 클라이언트(`Client.SPELLS_HAVE_RANKS`)에서는
+`ComposeSpellCastName`이 부제를 아예 안 붙인다. 부제가 가르던 것은 전문화마다 같은 이름의 주문인데,
+등급이 있는 클라이언트는 직업마다 전문화가 하나다.
+
+**주문 목록의 스펙 경로는 전에 헤드리스에서 돈 적이 없었다.** shim에 `C_Spell.IsSpellPassive`,
+`C_SpellBook.HasPetSpells`, `C_AssistedCombat`이 없어서 `BuildPlayerSpells`가 첫 줄에서 멈췄다. 이
+단계의 케이스를 세우며 채웠다.
 
 **전문 기술 주문은 스킬 라인에 없다.** 약초 채집의 주문 둘은 주문책 오프셋 10에 있는데,
 `GetNumSpellBookSkillLines`는 줄 셋(8 + 1 + 1 = 10개 항목)만 센다. 스킬 라인을 도는
 `BuildPlayerSpells`는 이 주문을 못 본다. `GetProfessions`가 슬롯 일곱 개를 주고, 약초 채집은 스킬
 라인 182다. 전문 기술 주문은 스킬 라인들의 항목 바로 뒤에 붙는다. Restoration 줄이 한 항목 늘자
 오프셋도 10에서 11로 밀렸다. 그러니 오프셋은 고정값으로 못 쓰고 `GetProfessionInfo`에게 매번 묻는다.
+정식 서비스도 전문 기술을 `GetProfessions`로 따로 두므로 카멜롯만의 빈틈은 아니다. 목록에 넣을지는
+아직 정하지 않았다.
 
 ### 3-5. 층이 아닌 것
 

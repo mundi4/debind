@@ -64,5 +64,71 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **A spell's subtext rides into its cast name to tell same-named spells apart**, which retail
+    -- needs for a specialization's own version of a shapeshift. On camelot the subtext is the rank
+    -- ("Rank 1", measured on 69977), and a cast name carrying it keeps casting that rank after the
+    -- next one is learned; the bare name casts the highest known.
+    test("a cast name keeps the subtext only where it tells spells apart", function()
+        local name = DebindPrivate.ComposeSpellCastName("Healing Touch", "Rank 1");
+        local expected = camelot and "Healing Touch" or "Healing Touch(Rank 1)";
+        check(name == expected, "cast name " .. tostring(name) .. ", expected " .. expected);
+    end);
+
+    -- **The class tab's icon is the class line's.** Retail's book keeps that at index 2; camelot's
+    -- index 2 is a talent tree (Restoration for a druid) and the class line is asked for apart.
+    -- Retail's shim book holds one line, so this is asked of camelot alone.
+    if (camelot) then
+        test("the class line is the class's, not the book's second line", function()
+            local line = DebindPrivate.Client.ClassSkillLine();
+            check(line and line.name == "Druid", "class line " .. tostring(line and line.name));
+        end);
+    end
+
+    -- **Each rank is its own book item and its own id.** With every rank listed, the spell list
+    -- stands one row per rank, and a cast name without its rank casts the highest anyway. The
+    -- client's own book hides the lower ranks unless `ShowAllSpellRanks` is on, and the list
+    -- follows the same setting.
+    local function SpellRowIds()
+        local ActionCatalog = DebindPrivate.ActionCatalog;
+        local ids = {};
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.source == "spellbook") then
+                ActionCatalog.Invalidate(category.source);
+                for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
+                    if (entry.value ~= nil) then
+                        ids[entry.value] = true;
+                    end
+                end
+            end
+        end
+        return ids;
+    end
+
+    local function TwoRanks()
+        shim.world.spells[5185] = { name = "Healing Touch", subtext = "Rank 1" };
+        shim.world.spells[5186] = { name = "Healing Touch", subtext = "Rank 2" };
+        shim.world.spellbook[5185] = true;
+        shim.world.spellbook[5186] = true;
+        shim.world.lowRanks[5185] = true;
+    end
+
+    test("the spell list holds one row per spell, not per rank", function()
+        TwoRanks();
+        local ids = SpellRowIds();
+        check(ids[5186], "the highest rank has no row");
+        if (camelot) then
+            check(not ids[5185], "the lower rank has a row of its own");
+        else
+            check(ids[5185], "a spell the client does not call a low rank lost its row");
+        end
+    end);
+
+    test("with every rank shown in the book, every rank has a row", function()
+        TwoRanks();
+        shim.world.cvars.ShowAllSpellRanks = true;
+        local ids = SpellRowIds();
+        check(ids[5185] and ids[5186], "a rank lost its row");
+    end);
+
     return T;
 end

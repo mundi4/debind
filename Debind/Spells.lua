@@ -381,13 +381,18 @@ end
 --- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
 --- holds every call in that path). It arrives here with the two halves already in hand.
 ---
+--- **Where spells have ranks the subtext stays off.** It is the rank there, and a name carrying it
+--- keeps casting that rank after a higher one is learned; the bare name casts the highest known.
+--- A client with ranks has one specialization per class, so there are no same-named spells for
+--- the subtext to tell apart.
+---
 --- Nil name in, nil out. The callers fall back to the id, which at least fires for the reader who
 --- is on the specialization that has it.
 function DebindPrivate.ComposeSpellCastName(name, subtext)
     if (not name) then
         return nil;
     end
-    if (subtext and subtext ~= "") then
+    if (subtext and subtext ~= "" and not DebindPrivate.Client.SPELLS_HAVE_RANKS) then
         return name .. "(" .. subtext .. ")";
     end
     return name;

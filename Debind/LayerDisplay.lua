@@ -179,9 +179,12 @@ end
 --- 되어 뒤 둘이 wrapMode 인자로 먹힌다. 사이드탭은 `SetNormalTexture`라 인자를 하나만 받아
 --- 티가 안 났고, 순서 목록의 레이어 아이콘에서만 드러난다.
 local function GetSideTabIcon(sideTabID)
-	if (sideTabID <= 2) then
+	if (sideTabID == 1) then
 		local _, icon = GetSpellTabNameAndIcon(sideTabID);
 		return icon;
+	elseif (sideTabID == 2) then
+		local line = DebindPrivate.Client.ClassSkillLine();
+		return line and line.iconID;
 	end
 	local icon = select(4, C_SpecializationInfo.GetSpecializationInfo(sideTabID - 2));
 	return icon;

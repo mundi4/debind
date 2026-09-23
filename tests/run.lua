@@ -101,6 +101,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 local DEBIND_FILES = {
     "Constants.lua",
     "Client/Classes.lua",
+    "Client/Spells.lua",
     "SpecSpells.lua",
     "Spells.lua",
     "Talents.lua",

@@ -2,6 +2,7 @@
 
     <Script file="Constants.lua"/>
     <Script file="Client/Classes.lua"/>
+    <Script file="Client/Spells.lua"/>
     <Script file="SpecSpells.lua"/>
     <Script file="Spells.lua"/>
     <Script file="Talents.lua"/>

@@ -13,6 +13,8 @@ M.world = {
     cvars = {},
     spells = {},
     spellbook = {},
+    --- The ids in `spellbook` that are a lower rank of another. Only the camelot world reads it.
+    lowRanks = {},
     baseSpells = {},
     overrideSpells = {},
     --- 이름으로 물었을 때 답할 주문 id. **비워 두면 `spells`에서 이름이 같은 것을 찾는다**,
@@ -846,6 +848,15 @@ function M.install()
             local spell = SpellFor(identifier);
             return (spell and spell.pressAndHold) and true or false;
         end,
+        IsSpellPassive = function(identifier)
+            local spell = SpellFor(identifier);
+            return (spell and spell.passive) and true or false;
+        end,
+    };
+    --- Both clients have it (the camelot probe found it). Nothing to suggest, which is what a
+    --- character without assisted combat set up gets.
+    _G.C_AssistedCombat = {
+        GetActionSpell = function() return nil; end,
     };
     _G.C_SpellBook = {
         --- The id an override points back at. Absent from the table means "this id is its own
@@ -865,6 +876,9 @@ function M.install()
         --- thing on two reads. What a spell is learned at comes off
         --- `M.world.spells[id].levelLearned`, and an id without one answers no level at all --
         --- the shape `Spells` reads as a spell the book cannot date.
+        --- No pet, which is what a spec that does not stand one up gets. The client answers nil
+        --- rather than 0 then.
+        HasPetSpells = function() return nil; end,
         GetNumSpellBookSkillLines = function() return 1; end,
         GetSpellBookSkillLineInfo = function(index)
             if (index ~= 1) then return nil; end
@@ -885,6 +899,30 @@ function M.install()
             return spell and spell.levelLearned;
         end,
     };
+    --- **Only camelot has spell ranks, and only it has this call.** A low rank is an id in
+    --- `M.world.lowRanks`.
+    ---
+    --- **Camelot's book has a line per talent tree and none for the class** (a druid on 69977:
+    --- General, Restoration, Balance). The class line comes from a call only that client has. The
+    --- book's spells stay on the first line, so a walk reads the same ids either way.
+    if (camelot) then
+        _G.C_SpellBook.IsSpellBookItemLowRank = function(slot, bank)
+            local spellID = bank == Enum.SpellBookSpellBank.Player and BookSlots()[slot];
+            return spellID and M.world.lowRanks[spellID] or false;
+        end
+        local LINES = { { "General", 136830 }, { "Restoration", 136041 }, { "Balance", 136096 } };
+        _G.C_SpellBook.GetNumSpellBookSkillLines = function() return #LINES; end
+        _G.C_SpellBook.GetSpellBookSkillLineInfo = function(index)
+            local line = LINES[index];
+            if (not line) then return nil; end
+            local count = #BookSlots();
+            return { name = line[1], iconID = line[2], itemIndexOffset = index == 1 and 0 or count,
+                numSpellBookItems = index == 1 and count or 0 };
+        end
+        _G.C_SpellBook.GetClassSkillLineInfo = function()
+            return { name = "Druid", iconID = 625999, itemIndexOffset = 0, numSpellBookItems = 0 };
+        end
+    end
     --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
     --- flyout the world does not name answers with no slot count at all, which is the "not
     --- learned" case and the one that makes `SetBindingAttributes` refuse to bind the key.
