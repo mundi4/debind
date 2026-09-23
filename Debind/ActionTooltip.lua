@@ -63,9 +63,12 @@ do
 	local _bonusbarLabels;
 	function GetActionBarTypeLabel(index)
 		if (_bonusbarLabels == nil) then
+			-- **Offset 5 takes the skyriding flyout's name, and a client without that flyout
+			-- raises rather than answering nil** (camelot, "No flyout found for ID").
+			local hasSkyriding, skyriding = pcall(GetFlyoutInfo, 229);
 			_bonusbarLabels = {
 				[0] = LLL["DEFAULT"],
-				[5] = GetFlyoutInfo(229),
+				[5] = hasSkyriding and skyriding or nil,
 			};
 			if (Constants.PLAYER_CLASS == "DRUID") then
 				_bonusbarLabels[1] = GetSpellNameAndIconID(768);
@@ -84,6 +87,8 @@ do
 		end
 		return _bonusbarLabels[index];
 	end
+	--- The condition menu's rows read the same labels (`ActionMenuNodes.lua`'s `BONUSBAR`).
+	DebindPrivate.BonusBarLabel = GetActionBarTypeLabel;
 end
 
 local AddActionToTooltip, HideActionTooltip;

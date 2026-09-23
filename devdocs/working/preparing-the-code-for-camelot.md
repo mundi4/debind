@@ -1,6 +1,6 @@
 # 카멜롯을 받을 수 있게 코드 정리하기 (2026-09-24 시작)
 
-> 상태: **7절의 1단계가 들어갔다** (2026-09-24). 나머지는 계획이다. 프로브(`DebindCamelotProbe`
+> 상태: **7절의 1, 2단계가 들어갔다** (2026-09-24). 나머지는 계획이다. 프로브(`DebindCamelotProbe`
 > 애드온)는 이 문서가 필요로 하는 값을 잰다.
 >
 > 무엇을 왜 싣는지는 `shipping-on-the-camelot-client.md`가 들고, 이 문서는 그것을 받칠 코드 정리의
@@ -65,9 +65,9 @@
 `1..GetNumClasses()`를 돌고, 카멜롯 쪽은 카멜롯에만 있는 `C_SpecializationInfo.GetAllClassIDs()`를
 돈다.
 
-**`Client.ClassIDs()`.** 직업 번호 목록을 낸다. `GetAllClassIDs`가 있으면 그것을 쓰고, 없으면
-`GetClassInfo`를 인덱스로 돌아 답하는 것만 모은다. 정식 서비스에서는 인덱스가 빈틈없이 이어져
-있으므로 지금과 같은 목록이 나온다.
+**들어갔다: `Client.PlayableClasses()`** (`Client/Classes.lua`). `{ id, classFile }` 목록을 낸다.
+`GetAllClassIDs`가 있으면 그 번호를 블리자드처럼 `GetClassInfo`에 그대로 넘기고, 없으면 지금까지처럼
+인덱스로 돈다. `ClassSpecCatalog`가 이것을 읽는다.
 
 ### 3-2. 특성 트리: 뽑는 법이 다르고 조립할 모양은 하나다
 
@@ -156,23 +156,28 @@
 
 ### 3-6. 잰 값이 드러낸 고장 둘
 
-- **`GetFlyoutInfo(229)`가 카멜롯에서 에러를 던진다.** nil을 돌려주는 것이 아니라 "No flyout found"로
-  raise한다(69977). `ActionTooltip.lua`의 `GetActionBarTypeLabel`과 `ActionMenuNodes.lua`의 `BONUSBAR`
-  메뉴가 처음 그려질 때 이것을 부르므로, 카멜롯에서는 보너스 바 조건의 툴팁과 메뉴가 에러로 멈춘다.
+- **들어갔다. `GetFlyoutInfo(229)`가 카멜롯에서 에러를 던진다.** nil을 돌려주는 것이 아니라
+  "No flyout found"로 raise한다(69977). 보너스 바 조건의 툴팁과 메뉴가 같은 이름 표를 따로 들고
+  있었는데, 이제 `ActionTooltip.lua`의 것 하나(`DebindPrivate.BonusBarLabel`)를 둘이 읽고, 그 안에서
+  `pcall`로 묻는다.
 - **아틀라스 `common-icon-minus`가 없다.** `StorageUI.lua`의 `CHECK_SOME`이다. 나머지 20개는 있다.
+  대체 후보 여섯은 프로브의 `minus candidates` 구역이 잰다. 고르는 방식은 "`common-icon-minus`가
+  있으면 그것, 없으면 잰 후보"다.
 
 ## 4. 헤드리스
 
-`tests/wow_shim.lua`는 정식 서비스 하나만 흉내 낸다. 여기에 **카멜롯 세계**를 하나 더한다. 인덱스
-6과 10이 빈 직업 목록과 `GetAllClassIDs`, 직업마다 전문화 하나(1482, 1484~1491), 그룹을 든 특성 노드와
-`GetGroupDisplayInfoByTreeID`, 전문화 그룹 둘. 정식 서비스 세계에는 카멜롯에만 있는 API가 없어야
-정식 서비스 쪽 가지가 돈다.
+**들어갔다: 카멜롯 세계.** `tests/wow_shim.lua`의 `resetWorld(client)`가 `"camelot"`을 받으면, 인덱스
+6과 10이 빈 직업 목록과 `GetAllClassIDs`, 직업마다 전문화 하나(1482, 1484~1491), 없는 플라이아웃에
+raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 그룹 둘은 3-2와 3-3을 할 때 더한다.
+정식 서비스 세계에는 카멜롯에만 있는 API가 없어서 정식 서비스 쪽 가지가 돈다.
+
+`tests/client_spec.lua`가 층의 케이스를 들고, `run.lua`가 그것을 두 세계에서 한 번씩 돌린다.
 
 **스위트 전체를 두 번 돌리지 않는다.** 정식 서비스가 전체 스위트를 그대로 들고, 카멜롯 세계는 층의
 구현마다 붙는 케이스로 돈다. 층의 모든 함수는 두 세계에서 케이스를 가진다.
 
-3-1이 첫 케이스다. 카멜롯 세계에서 `ClassSpecCatalog`에 드루이드가 있는지 묻는 케이스는 지금 코드에서
-빨갛다.
+3-1이 첫 케이스였다. 카멜롯 세계에서 `ClassSpecCatalog`에 드루이드가 있는지 묻는 케이스는 고치기 전
+코드에서 빨갰다("catalog 1,2,3,4,5,7,8,9").
 
 `tools/lib/bake.lua`는 `Constants.lua`와 `Snippets.lua`를 자기 흉내로 싣는다. 층의 파일이 그 둘보다
 먼저 서더라도 둘이 층을 부르지 않는 한 손댈 것이 없다.
@@ -234,6 +239,7 @@
 
 1. **검사 먼저.** `forEachSnippet` 재귀, `tests/run.lua`와 XML 목록 대조. 코드는 안 바뀐다. 들어갔다.
 2. **`Client/`와 3-1**, shim의 카멜롯 세계. 층의 모양이 여기서 선다. 카멜롯의 실제 고장 하나를 고친다.
+   들어갔다. 3-6의 플라이아웃도 같이 들어갔고, 아틀라스는 후보를 잰 뒤다.
 3. **3-2, 3-3, 3-4.** 프로브 값이 입력이다. 3-3의 레이어 결정은 3-2와 무관하다.
 4. **`Misc.lua`와 `Profile.lua` 쪼개기**, 이어서 폴더. 단계마다 골든이 바이트 그대로인 순수 이동이다.
 5. **로케일**(6절).

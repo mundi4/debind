@@ -60,8 +60,6 @@ local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local range                          = ActionMenu.range;
 local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
 
-local BONUSBAR_NAMES;
-
 
 local UnitConditionIsOff             = ActionMenu.UnitConditionIsOff;
 local UnitConditionIsAbsent          = ActionMenu.UnitConditionIsAbsent;
@@ -895,28 +893,9 @@ ActionMenus:Define("BONUSBAR", {
     label = "CONDITION_BONUSBAR",
     key = "bonusbars",
     build = function(kit)
-        if (BONUSBAR_NAMES == nil) then
-            BONUSBAR_NAMES = {
-                [0] = LLL["DEFAULT"],
-                [5] = GetFlyoutInfo(229)
-            };
-            if (Constants.PLAYER_CLASS == "DRUID") then
-                BONUSBAR_NAMES[1] = GetSpellNameAndIconID(768);
-                BONUSBAR_NAMES[3] = GetSpellNameAndIconID(5487);
-                BONUSBAR_NAMES[4] = GetSpellNameAndIconID(24858);
-            elseif (Constants.PLAYER_CLASS == "ROGUE") then
-                BONUSBAR_NAMES[1] = GetSpellNameAndIconID(1784);
-            end
-        end
-
         kit:Disable("CONDITION_BONUSBAR", "bonusbars");
         kit:Checkboxes("bonusbars", range(0, Constants.MAX_BONUSBAR_OFFSET, function(offset)
-            local name = BONUSBAR_NAMES[offset];
-            local label = format("[bonusbar:%d]", offset);
-            if (name) then
-                label = format("%s (%s)", label, name);
-            end
-            return { text = label, value = 2 ^ offset };
+            return { text = DebindPrivate.BonusBarLabel(offset), value = 2 ^ offset };
         end));
     end,
 });

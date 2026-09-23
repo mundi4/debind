@@ -51,7 +51,12 @@ M.world = {
 --- inherits a client somebody else configured. That was not theoretical: `emit_fixture` never
 --- installed a macro store and passed anyway, on whichever `_G.GetMacroInfo` the spec before it
 --- had left behind, and reversing the spec list was what said so (§10-1).
-function M.resetWorld()
+---
+--- `client` picks which client the stand-ins answer as: nil is retail, `"camelot"` is the camelot
+--- client as `DebindCamelotProbe` measured it (`preparing-the-code-for-camelot.md` §4). **It has to
+--- be chosen here, before the addon loads**, because files take client answers into upvalues as
+--- they are read (`NUM_SPECS` in `Profile.lua`).
+function M.resetWorld(client)
     for key, value in pairs(M.world) do
         if (type(value) == "table") then
             for k in pairs(value) do value[k] = nil; end
@@ -59,6 +64,7 @@ function M.resetWorld()
     end
     M.world.inCombat = false;
     M.world.specIndex = nil;
+    M.world.client = client;
     --- **The one global an addon instance leaves behind.** `ClickCastTable.lua` puts its own table
     --- under this name at file scope, and the next instance would meet it as a foreign holder and
     --- wrap its metatable, one more layer per spec (code review, 2026-09-08).
@@ -541,6 +547,22 @@ function M.install()
                            { 105, "Restoration" } }, initial = 1447 },
     };
 
+    --- **Camelot: nine classes, one specialization each, and no initial one** (probe, 69977).
+    local camelot = M.world.client == "camelot";
+    if (camelot) then
+        SPECS_BY_CLASS = {
+            [1] = { named = { { 1491, "Warrior" } } },
+            [2] = { named = { { 1486, "Paladin" } } },
+            [3] = { named = { { 1485, "Hunter" } } },
+            [4] = { named = { { 1488, "Rogue" } } },
+            [5] = { named = { { 1487, "Priest" } } },
+            [7] = { named = { { 1489, "Shaman" } } },
+            [8] = { named = { { 1482, "Mage" } } },
+            [9] = { named = { { 1490, "Warlock" } } },
+            [11] = { named = { { 1484, "Druid" } } },
+        };
+    end
+
     --- One class's specialization at one index, as the two calls below both answer it.
     local function SpecOfClass(classID, index)
         local specs = SPECS_BY_CLASS[classID];
@@ -583,7 +605,22 @@ function M.install()
         { "Mage", "MAGE", 8 },
         { "Druid", "DRUID", 11 },
     };
-    _G.GetNumClasses = function() return #PLAYABLE_CLASSES; end
+    local numClasses = #PLAYABLE_CLASSES;
+    --- **Camelot answers by class id with holes, and counts only the classes that are there**: 9,
+    --- while index 6 and 10 are empty and Druid is at 11. The list of ids the client itself walks
+    --- is `GetAllClassIDs`, which only camelot has (probe, 69977).
+    if (camelot) then
+        PLAYABLE_CLASSES = {
+            [1] = { "Warrior", "WARRIOR", 1 }, [2] = { "Paladin", "PALADIN", 2 },
+            [3] = { "Hunter", "HUNTER", 3 }, [4] = { "Rogue", "ROGUE", 4 },
+            [5] = { "Priest", "PRIEST", 5 }, [7] = { "Shaman", "SHAMAN", 7 },
+            [8] = { "Mage", "MAGE", 8 }, [9] = { "Warlock", "WARLOCK", 9 },
+            [11] = { "Druid", "DRUID", 11 },
+        };
+        numClasses = 9;
+        _G.C_SpecializationInfo.GetAllClassIDs = function() return { 1, 2, 3, 4, 5, 7, 8, 9, 11 }; end
+    end
+    _G.GetNumClasses = function() return numClasses; end
     _G.GetClassInfo = function(index)
         local class = PLAYABLE_CLASSES[index];
         if (not class) then
@@ -662,6 +699,12 @@ function M.install()
         [8] = { "MAGE", "Mage" },
         [11] = { "DRUID", "Druid" },
     };
+    if (camelot) then
+        CLASS_FILES = {};
+        for id, class in pairs(PLAYABLE_CLASSES) do
+            CLASS_FILES[id] = { class[2], class[1] };
+        end
+    end
     _G.C_CreatureInfo = {
         GetClassInfo = function(classId)
             local class = CLASS_FILES[classId];
@@ -845,8 +888,14 @@ function M.install()
     --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
     --- flyout the world does not name answers with no slot count at all, which is the "not
     --- learned" case and the one that makes `SetBindingAttributes` refuse to bind the key.
+    ---
+    --- **Camelot raises instead** for a flyout it does not have: `GetFlyoutInfo(229)`, the
+    --- skyriding one, came back "No flyout found for ID" on 69977.
     _G.GetFlyoutInfo = function(flyoutID)
         local flyout = M.world.flyouts[flyoutID];
+        if (not flyout and camelot) then
+            error("No flyout found for ID=" .. tostring(flyoutID), 2);
+        end
         if (not flyout) then return; end
         return flyout.name, flyout.description, #flyout.slots, true;
     end

@@ -100,6 +100,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---     loads ahead of Debind in the game and is on no list here
 local DEBIND_FILES = {
     "Constants.lua",
+    "Client/Classes.lua",
     "SpecSpells.lua",
     "Spells.lua",
     "Talents.lua",
@@ -312,6 +313,9 @@ local specs = {
     { name = "pet", path = root .. "/pet_spec.lua" },
     { name = "automatics", path = root .. "/automatics_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
+    -- The client layer, once per client (`wow_shim.lua`'s `resetWorld`).
+    { name = "client", path = root .. "/client_spec.lua" },
+    { name = "client/camelot", path = root .. "/client_spec.lua", client = "camelot" },
 };
 
 --- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is
@@ -329,7 +333,7 @@ local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
-    shim.resetWorld();
+    shim.resetWorld(spec.client);
     require("wow_frames").reset();
     local DebindPrivate, DebindStorage = loadAddons(spec.cliqueFake);
     local result = chunk()(DebindPrivate, DebindStorage, ctx);

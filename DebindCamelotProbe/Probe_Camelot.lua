@@ -286,6 +286,24 @@ local function Atlases()
     end
 end
 
+--- Stand-ins for `common-icon-minus`, the tri-state checkbox's middle mark (`StorageUI.lua`'s
+--- `CHECK_SOME`), which this client does not have. Each is a dash the interface source uses; the
+--- source proves nothing about the client's atlas data, so they are asked. Sizes are asked too,
+--- since the mark is scaled against the box.
+local MINUS_CANDIDATES = {
+    "common-button-list-minus", "voicechat-channellist-category-minus", "communities-icon-minus",
+    "UI-HUD-Minimap-Zoom-Out", "Campaign_HeaderIcon_Minus", "common-icon-minus",
+};
+
+local function MinusCandidates()
+    Emit("== atlas candidates for the middle mark");
+    for i = 1, #MINUS_CANDIDATES do
+        local info = C_Texture.GetAtlasInfo(MINUS_CANDIDATES[i]);
+        Emit("  %-42s %s", MINUS_CANDIDATES[i],
+            info and format("ok %dx%d", info.width or 0, info.height or 0) or "MISSING");
+    end
+end
+
 local function Talents()
     Emit("== talent tree");
     local configID = C_ClassTalents.GetActiveConfigID();
@@ -479,6 +497,7 @@ end
 local CLIENT_SECTIONS = {
     "client", Client, "classes", Classes, "conditionals", Conditionals,
     "restricted", Restricted, "atlases", Atlases, "specspells", SpecResolved, "apis", Apis,
+    "minus candidates", MinusCandidates,
 };
 
 local CHARACTER_SECTIONS = {

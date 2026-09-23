@@ -2043,9 +2043,8 @@ local specCatalog, specMaskByClassID;
 ---
 --- **Not `Constants.CLASS_IDS`, which holds more than the playable classes.** That table is built
 --- from `C_CreatureInfo.GetClassInfo` over a range of ids, and ids nobody can play answer it too:
---- `Adventurer` came out as a class of its own in the condition menu. `GetNumClasses` with
---- `GetClassInfo` is what the client's own class menu walks (`Blizzard_ClassMenu`), and its index
---- is a position in that list rather than a class id, so the id comes back as a return value.
+--- `Adventurer` came out as a class of its own in the condition menu. The playable ones are what
+--- the client's own class menu walks, which is `Client.PlayableClasses`.
 ---
 --- **Built once and kept.** Nothing in it moves while the client is up, and both readers are on a
 --- path that runs per draw.
@@ -2059,24 +2058,21 @@ function DebindPrivate.ClassSpecCatalog()
     end
     specCatalog = {};
     specMaskByClassID = {};
-    for index = 1, GetNumClasses() do
-        local _, classFile, classID = GetClassInfo(index);
-        if (classFile and classID) then
-            local entry = {
-                id = classID,
-                classFile = classFile,
-                specs = DebindPrivate.EnumerateClassSpecs(classID),
-            };
-            specCatalog[#specCatalog + 1] = entry;
-            -- **Summed here rather than where it is asked.** The specialization judgment asks for
-            -- it once per binding per rebuild, and a second table with a life of its own is a
-            -- second thing to drop.
-            local mask = 0;
-            for i = 1, #entry.specs do
-                mask = mask + Constants.SpecIndexFlag(entry.specs[i].index);
-            end
-            specMaskByClassID[classID] = mask;
+    for _, class in ipairs(DebindPrivate.Client.PlayableClasses()) do
+        local entry = {
+            id = class.id,
+            classFile = class.classFile,
+            specs = DebindPrivate.EnumerateClassSpecs(class.id),
+        };
+        specCatalog[#specCatalog + 1] = entry;
+        -- **Summed here rather than where it is asked.** The specialization judgment asks for it
+        -- once per binding per rebuild, and a second table with a life of its own is a second
+        -- thing to drop.
+        local mask = 0;
+        for i = 1, #entry.specs do
+            mask = mask + Constants.SpecIndexFlag(entry.specs[i].index);
         end
+        specMaskByClassID[class.id] = mask;
     end
     return specCatalog;
 end
