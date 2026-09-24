@@ -67,7 +67,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 --- `local BindingDriver = DebindPrivate.BindingDriver` -- so a file read before the one that puts
 --- the value there binds nil and fails much later, somewhere else.
 ---
---- **This is `Debind.xml` plus two, and it is not "everything but the UI".** §11 of
+--- **This is `Debind.xml` plus part of `DebindUI.xml`, and it is not "everything but the UI".** §11 of
 --- `going-headless-outside-the-ui.md` says which rule decides: whether the
 --- **function** needs a frame, not whether the file is UI.
 ---
@@ -77,6 +77,8 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---     client's `GameTooltip_Add…` functions. Everything drawn anywhere reads through them, so
 ---     leaving them out put the words a reader sees out of reach of every spec -- and put
 ---     `ActionCatalog` out of reach too, since it asks the first one to name a row
+---   `LayerDisplay.lua` sits between them in that XML and needs no frame either: it names a layer
+---     out of what the client answers, which is where a client's extra return value leaks through
 ---   `MenuKit.lua` is `DebindUI.xml`'s too, and only its drawing half needs a frame. The value
 ---     handlers and the issue rollup are asked about tables, which is what `menukit_spec.lua`
 ---     reaches; `Registry:Build` makes rows on a description and is out of reach here
@@ -121,6 +123,7 @@ local DEBIND_FILES = {
     "BindingContexts.lua",
     "Debind.lua",
     "ActionDisplay.lua",
+    "LayerDisplay.lua",
     "ActionTooltip.lua",
     "Menus/MenuKit.lua",
     "Menus/ActionMenuModel.lua",

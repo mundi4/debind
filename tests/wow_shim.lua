@@ -479,6 +479,7 @@ function M.install()
         SpellBookSpellBank = { Player = 0, Pet = 1 },
         SpellBookItemType = { Spell = 1, Flyout = 2, PetAction = 3, FutureSpell = 4 },
         SpellBookSkillLineIndex = { Class = 2, General = 1 },
+        ItemQuality = { Artifact = 6 },
     };
     _G.C_KeyBindings = {
         GetBindingContextForAction = function(action)
@@ -566,6 +567,9 @@ function M.install()
             [9] = { named = { { 1490, "Warlock" } } },
             [11] = { named = { { 1484, "Druid" } } },
         };
+        --- **Camelot names the player's own realm too**, where retail answers nil for it: a tab
+        --- tooltip on 70009 got "Smelly", "Pitt" and took the realm for its colour.
+        _G.UnitName = function() return "Tester", "Test Realm"; end
     end
 
     --- One class's specialization at one index, as the two calls below both answer it.
@@ -981,8 +985,9 @@ function M.install()
     --- flyout the world does not name answers with no slot count at all, which is the "not
     --- learned" case and the one that makes `SetBindingAttributes` refuse to bind the key.
     ---
-    --- **Camelot raises instead** for a flyout it does not have: `GetFlyoutInfo(229)`, the
-    --- skyriding one, came back "No flyout found for ID" on 69977.
+    --- **Camelot 69977 raised instead** for a flyout it does not have: `GetFlyoutInfo(229)`, the
+    --- skyriding one, came back "No flyout found for ID". 70009 answers nothing, as retail does;
+    --- the world keeps the raise so `Client.FlyoutInfo`'s guard stays exercised.
     _G.GetFlyoutInfo = function(flyoutID)
         local flyout = M.world.flyouts[flyoutID];
         if (not flyout and camelot) then
@@ -1041,6 +1046,7 @@ function M.install()
     _G.ORANGE_FONT_COLOR = color("ffff7f3f");
     _G.NORMAL_FONT_COLOR = color("ffffd100");
     _G.GREEN_FONT_COLOR = color("ff19ff19");
+    _G.ITEM_QUALITY_COLORS = { [6] = { color = color("ffe6cc80") } };
 
     --- **A colour per class, so a spec reading a line back can tell two of them apart.** The codes
     --- are this file's own rather than the client's; what a case asks is which class a name was

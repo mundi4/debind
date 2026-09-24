@@ -32,11 +32,15 @@ end
 --- 탭 라벨은 **낱말 하나**다. 예전에는 "공유 바인딩" / "%s 전용 바인딩"이었는데, 탭이
 --- 셋이 되면서 줄에 안 들어간다. "바인딩"은 어느 탭에서나 참이라 셋을 가르는 일을 안 하고,
 --- 창 제목이 같은 값을 한 번 더 말하므로 뜻도 안 잃는다.
+---
+--- **One value, which is what the parentheses are for.** A label goes last into
+--- `GameTooltip_SetTitle`, where a second return is the colour: camelot's `UnitName("player")`
+--- adds the realm (70009), and `UnitClass` always carries the class file and id.
 local function GetTabLabel(tabID)
 	if (tabID == 1) then
 		return LLL["SHARED_BINDINGS"];
 	else
-		return UnitName("player");
+		return (UnitName("player"));
 	end
 end
 
@@ -44,7 +48,7 @@ local function GetSideTabLabel(sideTabID)
 	if (sideTabID == 1) then
 		return LLL["GENERAL"];
 	elseif (sideTabID == 2) then
-		return UnitClass("player");
+		return (UnitClass("player"));
 	else
 		local _, specName = C_SpecializationInfo.GetSpecializationInfo(sideTabID - 2);
 		return specName;

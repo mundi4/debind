@@ -75,6 +75,21 @@ return function(DebindPrivate)
         check(ok, tostring(err));
     end);
 
+    -- **A layer label is one value.** It goes last into `GameTooltip_SetTitle`, `format` and
+    -- `SetText`, so a second return from the client call behind it lands in the next parameter:
+    -- camelot's `UnitName("player")` adds the realm and the tab tooltip took it for its colour.
+    test("the tab and side tab labels are one value each", function()
+        local DebindUI = DebindPrivate.DebindUI;
+        for tab = 1, 2 do
+            local n = select("#", DebindUI.GetTabLabel(tab));
+            check(n == 1, "tab " .. tab .. " answers " .. n .. " values");
+        end
+        for sideTab = 1, 3 do
+            local n = select("#", DebindUI.GetSideTabLabel(sideTab));
+            check(n == 1, "side tab " .. sideTab .. " answers " .. n .. " values");
+        end
+    end);
+
     -- **A spell's subtext rides into its cast name to tell same-named spells apart**, which retail
     -- needs for a specialization's own version of a shapeshift. On camelot the subtext is the rank
     -- ("Rank 1", measured on 69977), and a cast name carrying it keeps casting that rank after the
