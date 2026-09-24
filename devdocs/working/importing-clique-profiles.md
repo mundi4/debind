@@ -1,8 +1,9 @@
 # Clique 프로필 가져오기 (2026-09-24 시작)
 
-> 상태: **설계는 다 정했다(§8이 비었다). 구현은 §4가 다 들어갔다.** 주문 이름 값, 곁에 두는
-> `resolvedSpellID`와 그것으로 되돌아가는 리빌드 갈래, 아이템 이름 값이다. 남은 것은 드롭다운 입구와
-> 변환기(§1, §6), 출처와 `untranslated`, 추가 다이얼로그(§2, §3)다.
+> 상태: **설계는 다 정했다(§8이 비었다).** 들어간 것은 §4 전부(주문 이름 값과 `resolvedSpellID`, 아이템
+> 이름 값)와 §6의 변환기(`DebindStorage/Clique.lua`), payload의 `source`와 액션의 `untranslated`다. 남은
+> 것은 드롭다운 입구와 Clique 공유 문자열 풀기(§1), 추가 다이얼로그(§3)다. 그 다이얼로그 전까지는 Clique
+> Payload를 추가하면 `untranslated`가 옮겨지지 않은 채 프로필에 들어가고, 로그아웃 때 `CleanUpDB`가 걷는다.
 >
 > Clique의 저장 모양과 조합의 뜻을 코드에서 읽은 원문은 `.zzz/clique-savedvars.md`가 든다. 여기는
 > 그 조사에서 나온 결론과 이유만 담는다.
@@ -227,7 +228,8 @@ Payload는 액션을 담는 그릇이라 설정이 들어갈 자리도 없다.
 ## 7. 검사
 
 변환기는 client를 부르지 않는 순수 함수로 짜서 헤드리스 스펙이 §6의 표를 한 줄씩 잡는다. 입력은
-Clique 바인딩 표, 출력은 payload다. 이름 색인을 거치는 리빌드 갈래(§4)는 `CollectBindingFacts`가
+Clique 바인딩 표, 출력은 payload다. `clique_spec.lua`가 그것이고, xptr 저장 파일의 실제 프로필 하나와
+`CliqueDB3`에서 프로필 목록과 쓰는 캐릭터를 읽는 것도 든다. 이름 색인을 거치는 리빌드 갈래(§4)는 `CollectBindingFacts`가
 client 호출을 한 곳에 모아 두었으므로 같은 식으로 세계를 넘겨 잡는다. `spellname_spec.lua`가 드는
 것은 이름이 풀리는 경우, 안 풀리는 경우, id가 여럿인 이름, 다음 리빌드에서 다시 풀리는 경우, 이름이 안
 풀려 `resolvedSpellID`로 되돌아가는 경우와 풀리는 이름이 그것을 이기는 경우, 표시와 매크로 변환, 들어올

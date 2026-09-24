@@ -2,9 +2,9 @@
 //   npm run check:export-fields
 //
 // `KEYS_TO_SAVE` in `Profile.lua` is the one list of "fields that get saved", and `ACTION_FIELDS`
-// in `DebindStorage/Export.lua` is the list of "fields that go out on the wire". They must differ by
-// exactly one (`imported`), which is the only field that describes **this drawer** rather than the
-// action (the comment in `Export.lua` has the detail).
+// in `DebindStorage/Export.lua` is the list of "fields that go out on the wire". They may differ only
+// by the fields named in `EXPECTED_ONLY_IN_PROFILE` and `EXPECTED_ONLY_ON_WIRE` below, each with the
+// reason it belongs to one side.
 //
 // Why this exists: adding a field to only one of them raises **nothing anywhere**. The action saves
 // fine and the export quietly drops it, so it arrives on the far side as an action with one
@@ -28,6 +28,14 @@ const EXPECTED_ONLY_IN_PROFILE = {
     // just received had already been received, and it would number their groups off a counter only
     // this machine has ever run.
     arrivalID: "which arrival put it here - meaningless in someone else's store",
+};
+
+// The other direction: a field that travels and is never saved. `CleanUpDB` takes anything not in
+// `KEYS_TO_SAVE` off a saved action, which is the guarantee these want.
+const EXPECTED_ONLY_ON_WIRE = {
+    // Another addon's value that waits in a payload until it is added, where it is translated or
+    // dropped (`importing-clique-profiles.md` §2). Left on a saved action it would mean nothing.
+    untranslated: "another addon's untranslated values - resolved when the payload is added",
 };
 
 // This list used to hold `key` and `seq` as well, under a format that carried the key on a group
@@ -130,7 +138,7 @@ for (const field of saved) {
 }
 
 for (const field of exported) {
-    if (!saved.has(field)) {
+    if (!saved.has(field) && !EXPECTED_ONLY_ON_WIRE[field]) {
         problems.push(
             `익스포트는 하는데 저장이 안 된다: ${field}\n` +
             `    Profile.lua의 KEYS_TO_SAVE에 없는 필드는 CleanUpDB가 걷어내므로 늘 nil이다.`
@@ -153,6 +161,21 @@ for (const field of Object.keys(EXPECTED_ONLY_IN_PROFILE)) {
     }
 }
 
+for (const field of Object.keys(EXPECTED_ONLY_ON_WIRE)) {
+    if (!exported.has(field)) {
+        problems.push(
+            `예외 명단에 있는데 ACTION_FIELDS에는 없다: ${field}\n` +
+            `    필드가 사라졌으면 EXPECTED_ONLY_ON_WIRE에서도 지울 것.`
+        );
+    }
+    if (saved.has(field)) {
+        problems.push(
+            `예외 명단에 있는데 KEYS_TO_SAVE에도 있다: ${field}\n` +
+            `    둘 중 하나가 틀렸다.`
+        );
+    }
+}
+
 if (problems.length > 0) {
     for (const problem of problems) {
         process.stderr.write(`  ${problem}\n`);
@@ -163,5 +186,6 @@ if (problems.length > 0) {
 
 process.stdout.write(
     `익스포트 필드 ${exported.size}개가 KEYS_TO_SAVE와 맞는다 ` +
-    `(안 보내는 것 ${Object.keys(EXPECTED_ONLY_IN_PROFILE).length}개 제외), 조건 ${conditions.size}개가 CONDITION_TYPES와 맞는다.\n`
+    `(안 보내는 것 ${Object.keys(EXPECTED_ONLY_IN_PROFILE).length}개, 저장 안 하는 것 ` +
+    `${Object.keys(EXPECTED_ONLY_ON_WIRE).length}개 제외), 조건 ${conditions.size}개가 CONDITION_TYPES와 맞는다.\n`
 );

@@ -224,6 +224,7 @@ local function loadAddons(withCliqueFake)
     local DebindStorage = shim.loadAddon(repoRoot .. "/DebindStorage", {
     "Export.lua",
     "Import.lua",
+    "Clique.lua",
     }, { DebindPrivate = DebindPrivate }, loadOpts);
 
     --- What `DebindStorage.lua` does the instant the game loads that addon. It is not in the list
@@ -304,6 +305,7 @@ local specs = {
     { name = "castname", path = root .. "/castname_spec.lua" },
     { name = "spellname", path = root .. "/spellname_spec.lua" },
     { name = "itemname", path = root .. "/itemname_spec.lua" },
+    { name = "clique", path = root .. "/clique_spec.lua" },
     { name = "convert", path = root .. "/convert_spec.lua" },
     { name = "record", path = root .. "/record_spec.lua" },
     { name = "context", path = root .. "/context_spec.lua" },

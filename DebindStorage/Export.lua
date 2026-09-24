@@ -142,6 +142,10 @@ local ACTION_FIELDS      = {
     -- Which presses the action stands on. What may sit inside is `CASTING_TYPES` below, and the
     -- import filters that level the way it filters `conditions`.
     casting = "table",
+    -- What another addon stored that cannot be translated until the payload is added, kept as that
+    -- addon wrote it. The payload's `source` says whose shape it is, and adding reads it and drops it
+    -- (`importing-clique-profiles.md` §2). Never saved: it is not in `KEYS_TO_SAVE`.
+    untranslated = "table",
     -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
     -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
     conditions = "table",
@@ -616,7 +620,7 @@ function DebindStorage.FilterPayload(payload, selection)
         return payload;
     end
 
-    local out = { v = payload.v, dbver = payload.dbver, class = payload.class };
+    local out = { v = payload.v, dbver = payload.dbver, class = payload.class, source = payload.source };
     local kept = {};
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, scope, class, spec)
