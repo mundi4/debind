@@ -423,6 +423,8 @@ return function(DebindPrivate, DebindStorage)
         battleRezOutOfCombat = true,
         -- A spell held at its own rank, on a client whose spells have ranks.
         pinRank = true,
+        -- The id a spell stored by name resolved to, carried whatever the value.
+        resolvedSpellID = 774,
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,

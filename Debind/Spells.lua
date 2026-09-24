@@ -522,10 +522,19 @@ local _resolveAPI = {
 ---
 --- **A stored name goes through `ResolveName` instead**, and is the one input that can come back
 --- nil. `FindBaseSpellByID` takes a number only.
-function DebindPrivate.ResolveBaseSpell(value)
+---
+--- **`resolvedSpellID` is asked only where the name resolves to nothing.** It is what the name
+--- resolved to on the character that added the action, kept for a client that cannot read the name
+--- at all -- another locale. Asked ahead of the name, it would pin the one id of the several a name
+--- can stand for (`importing-clique-profiles.md` §4).
+function DebindPrivate.ResolveBaseSpell(value, resolvedSpellID)
     _resolveAPI.obtainableIDsByName = Spells.GetObtainableIDsByName();
     if (type(value) == "string") then
-        return Spells.ResolveName(value, _resolveAPI);
+        local spellID = Spells.ResolveName(value, _resolveAPI);
+        if (spellID == nil and type(resolvedSpellID) == "number") then
+            spellID = Spells.ResolveBase(resolvedSpellID, _resolveAPI);
+        end
+        return spellID;
     end
     return Spells.ResolveBase(value, _resolveAPI);
 end

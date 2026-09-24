@@ -709,7 +709,7 @@ local function KnownRows(action)
 
     Add(action.conditions and action.conditions.known);
 
-    local root = DebindPrivate.ResolveBaseSpell(action.value);
+    local root = DebindPrivate.ResolveBaseSpell(action.value, action.resolvedSpellID);
     local family = root and DebindPrivate.Spells.GetBranches()[root];
     for i = 1, (family and #family or 0) do
         Add((GetSpellNameAndIconID(family[i])));

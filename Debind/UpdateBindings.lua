@@ -822,7 +822,7 @@ end
 ---
 --- A spec hands these in as plain values instead: it is standing a world up, not imitating an API
 --- (`going-headless-outside-the-ui.md` §4).
-local function CollectBindingFacts(type, value, unit, facts, automatics, pinRank)
+local function CollectBindingFacts(type, value, unit, facts, automatics, pinRank, resolvedSpellID)
     wipe(facts);
     facts.pinRank = pinRank;
 
@@ -850,10 +850,11 @@ local function CollectBindingFacts(type, value, unit, facts, automatics, pinRank
         -- `ResolveBaseSpell` and not `FindBaseSpellByID`: the client places a stored id only while
         -- the talent combination that created it still stands, and the name index is what reaches
         -- the base after that (`Spells.lua`).
-        local spellID = DebindPrivate.ResolveBaseSpell(value);
+        local spellID = DebindPrivate.ResolveBaseSpell(value, resolvedSpellID);
         -- **A stored name is asked again at every rebuild** and from here on is the id it resolved
-        -- to, so a specialization change resolves it through the new one's index. One this
-        -- specialization cannot obtain goes on the button as it is.
+        -- to, so a specialization change resolves it through the new one's index. One that
+        -- resolves to nothing, not even through the id stored beside it, goes on the button as it
+        -- is.
         if (luatype(value) == "string") then
             facts.namedSpellID = spellID;
             if (spellID == nil) then
@@ -1289,8 +1290,8 @@ DebindPrivate.StampBinding = StampBinding;
 --- Asks, describes, stamps. **The reason a binding was refused is dropped here and nowhere else**,
 --- because the caller's shape still cannot carry one; stage 3 of
 --- `going-headless-outside-the-ui.md` is where the record loop learns to.
-function SetBindingAttributes(type, value, unit, automatics, pinRank)
-    local facts = CollectBindingFacts(type, value, unit, _facts, automatics, pinRank);
+function SetBindingAttributes(type, value, unit, automatics, pinRank, resolvedSpellID)
+    local facts = CollectBindingFacts(type, value, unit, _facts, automatics, pinRank, resolvedSpellID);
 
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor, automatics);
     if (not descriptor) then
@@ -1535,7 +1536,7 @@ local function PrepareKeyBindings(key, bindingArray)
         end
         binding.clickframe, binding.clickbutton, binding.castSpell =
             SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
-                binding.automatics, binding.pinRank);
+                binding.automatics, binding.pinRank, binding.resolvedSpellID);
 
         -- **DEBUG only.** Which key ended up on which spell id, which nothing else records: the
         -- action keeps the id the reader picked, `_facts` is wiped per binding, and the button name
@@ -1550,7 +1551,7 @@ local function PrepareKeyBindings(key, bindingArray)
         -- exactly where this dump is worth reading.
         if (DEBUG and binding.type == Constants.SPELL) then
             -- Nil for a stored name this specialization cannot obtain.
-            local base = DebindPrivate.ResolveBaseSpell(bindingValue);
+            local base = DebindPrivate.ResolveBaseSpell(bindingValue, binding.resolvedSpellID);
             tinsert(DebindPrivate.SpellFacts, {
                 key = binding.key,
                 stored = bindingValue,

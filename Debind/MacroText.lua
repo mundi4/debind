@@ -328,7 +328,7 @@ function DebindPrivate.ConvertToMacroText(action)
             -- nothing, the way the button is stamped (`CollectBindingFacts`).
             local stored = action.value;
             if (type(stored) == "string") then
-                stored = DebindPrivate.ResolveBaseSpell(stored) or stored;
+                stored = DebindPrivate.ResolveBaseSpell(stored, action.resolvedSpellID) or stored;
             end
             if (type(stored) == "string") then
                 spellOrItemName = stored;

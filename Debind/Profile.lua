@@ -53,6 +53,11 @@ local KEYS_TO_SAVE       = {
     -- ranks (`Client.SPELLS_HAVE_RANKS`). The stored id cannot say it alone: the highest rank on
     -- the day it was picked is a lower one after the next is learned.
     pinRank = true,
+    -- **What a spell stored by name resolved to when it arrived**, beside a `value` that stays the
+    -- name. A name stands for several ids, so the id is one guess and the name is what was meant;
+    -- this is asked only where the name resolves to nothing, which is a client in another locale
+    -- (`importing-clique-profiles.md` §4). Only a `SPELL` holding a name keeps it (`CleanUpDB`).
+    resolvedSpellID = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.
@@ -62,7 +67,7 @@ local KEYS_TO_SAVE       = {
 --- direction it would drift in is the dangerous one: a field left out makes two different actions
 --- answer "same".
 ---
---- **Two are left out.**
+--- **Three are left out.**
 ---
 ---   * `seq` is a place inside a key group, not a property of the action. Comparing it would make
 ---     the one case worth finding impossible to find: `RenumberKeyGroup` numbers a layer's key group
@@ -71,13 +76,15 @@ local KEYS_TO_SAVE       = {
 ---     while two layers number from 1 each and match only by coincidence.
 ---   * `arrivalID` is which arrival brought it. Comparing it means the same payload brought twice is
 ---     never the same thing, which is the whole of what the duplicate check exists to catch.
+---   * `resolvedSpellID` is what the name resolved to in the specialization that added it. The same
+---     named spell added from two specializations would otherwise be two different actions.
 ---
 --- **The layer is not in here either, and cannot be.** An import holds a payload's layer against the
 --- profile layer it would land in, so the caller pairs the addresses up and the answer wanted is
 --- about the rest. A signature carrying the address would never match across that pair.
 local IDENTITY_FIELDS    = {};
 do
-    local NOT_IDENTITY = { seq = true, arrivalID = true };
+    local NOT_IDENTITY = { seq = true, arrivalID = true, resolvedSpellID = true };
     for name in pairs(KEYS_TO_SAVE) do
         if (not NOT_IDENTITY[name]) then
             IDENTITY_FIELDS[#IDENTITY_FIELDS + 1] = name;
@@ -1988,6 +1995,10 @@ function DebindPrivate.CleanUpDB()
             if (action.type ~= Constants.SPELL) then
                 action.pinRank = nil;
             end
+            if (action.type ~= Constants.SPELL or luatype(action.value) ~= "string"
+                    or luatype(action.resolvedSpellID) ~= "number") then
+                action.resolvedSpellID = nil;
+            end
 
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
             -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
@@ -2576,6 +2587,15 @@ function DebindPrivate.PlaceArrivedActions(placements)
             scratch.actions = actions;
             scratch:Insert(action);
 
+            -- **A spell name is resolved once, here, and only kept beside the name**
+            -- (`importing-clique-profiles.md` §4). This is the one moment the reader's own index is
+            -- standing, and the rebuild only reads. A name this specialization cannot resolve keeps
+            -- whatever id it arrived with.
+            if (action.type == Constants.SPELL and luatype(action.value) == "string") then
+                action.resolvedSpellID = DebindPrivate.ResolveBaseSpell(action.value)
+                    or action.resolvedSpellID;
+            end
+
             -- **Arrival number plus the number it came with.** Every one of these is new to its
             -- group, so renumbering alone cannot say which of them goes first. The arrival number
             -- dominates, so they land behind whatever the receiving group already held, and the low
@@ -2895,6 +2915,8 @@ function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, pro
     -- **The pin was the old spell's.** Carried across, it would hold the new one at whatever rank
     -- it is stored at; an entry that means a rank brings its own in `props`.
     action.pinRank = nil;
+    -- Kept, it would stand in for the new value wherever that resolves to nothing.
+    action.resolvedSpellID = nil;
 
     if (props) then
         for k, v in pairs(props) do

@@ -133,6 +133,9 @@ local ACTION_FIELDS      = {
     -- A spell held at its own rank rather than the highest. A client without ranks has nothing to
     -- hold, and casts the one spell there is.
     pinRank = "boolean",
+    -- The id a spell stored by name resolved to where it was added. It travels because a reader
+    -- in another locale cannot resolve the name at all.
+    resolvedSpellID = "number",
     -- A resurrection's two switches.
     noTargetMassRez = "boolean",
     battleRezOutOfCombat = "boolean",

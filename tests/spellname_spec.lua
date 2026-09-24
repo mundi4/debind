@@ -161,6 +161,94 @@ return function(DebindPrivate, DebindStorage)
         check(convert("Starsurge") == "/cast Starsurge", "unresolved: " .. convert("Starsurge"));
     end);
 
+    -- **What the stored id is for is a name this client cannot read**, which is what a profile
+    -- written under another locale looks like. `Regrowth` in the index, `Nachwachsen` on disk.
+    local FOREIGN = "Nachwachsen";
+
+    test("a name the index does not hold casts as the id stored beside it", function()
+        installWorld(1);
+        Bind({
+            { type = SPELL, value = FOREIGN, resolvedSpellID = 8936, key = "F1", seq = 1 },
+            { type = SPELL, value = FOREIGN, key = "F2", seq = 1 },
+        });
+        ExpectCast("F1", "Regrowth(Restoration)");
+        ExpectCast("F2", FOREIGN);
+    end);
+
+    -- The other half: the stored id is a fallback, not a second opinion. It was right for the
+    -- character that added the action, and the name is what this one resolves.
+    test("a name the index holds wins over the id stored beside it", function()
+        installWorld(1);
+        Bind({ { type = SPELL, value = "Regrowth", resolvedSpellID = 102560, key = "F1", seq = 1 } });
+        ExpectCast("F1", "Regrowth(Restoration)");
+    end);
+
+    test("the stored id reaches the row and the macro conversion", function()
+        installWorld(1);
+        local _, icon, name = DebindPrivate.DebindUI.NameAndIconForAction(
+            { type = SPELL, value = FOREIGN, resolvedSpellID = 8936 });
+        check(name == "Regrowth" and icon == 136085, "row: " .. tostring(name) .. " / " .. tostring(icon));
+
+        local action = { type = SPELL, value = FOREIGN, resolvedSpellID = 8936 };
+        check(DebindPrivate.ConvertToMacroText(action), "the conversion refused");
+        check(action.value == "/cast Regrowth(Restoration)", "macro: " .. tostring(action.value));
+    end);
+
+    test("an arriving name has the id it resolves to stored beside it", function()
+        installWorld(1);
+        Bind({});
+        local resolved = { type = SPELL, value = "Regrowth", key = "F1", seq = 1, arrivalID = 1 };
+        local unresolved = { type = SPELL, value = "Starsurge", key = "F2", seq = 1, arrivalID = 1 };
+        local carried = { type = SPELL, value = FOREIGN, resolvedSpellID = 8936, key = "F3", seq = 1,
+            arrivalID = 1 };
+        local byID = { type = SPELL, value = 8936, key = "F4", seq = 1, arrivalID = 1 };
+        DebindPrivate.PlaceArrivedActions({
+            { scope = "general", action = resolved },
+            { scope = "general", action = unresolved },
+            { scope = "general", action = carried },
+            { scope = "general", action = byID },
+        });
+        check(resolved.value == "Regrowth" and resolved.resolvedSpellID == 8936,
+            "resolved: " .. tostring(resolved.value) .. " / " .. tostring(resolved.resolvedSpellID));
+        check(unresolved.value == "Starsurge" and unresolved.resolvedSpellID == nil,
+            "unresolved: " .. tostring(unresolved.resolvedSpellID));
+        check(carried.resolvedSpellID == 8936, "carried: " .. tostring(carried.resolvedSpellID));
+        check(byID.resolvedSpellID == nil, "by id: " .. tostring(byID.resolvedSpellID));
+    end);
+
+    test("the stored id survives a save only beside a spell name", function()
+        installWorld(1);
+        local byName = { type = SPELL, value = "Regrowth", resolvedSpellID = 8936, key = "F1", seq = 1 };
+        local byID = { type = SPELL, value = 8936, resolvedSpellID = 8936, key = "F2", seq = 1 };
+        local macro = { type = Constants.MACRO, value = "Regrowth", resolvedSpellID = 8936, key = "F3",
+            seq = 1 };
+        Bind({ byName, byID, macro });
+        DebindPrivate.CleanUpDB();
+        check(byName.resolvedSpellID == 8936, "name: " .. tostring(byName.resolvedSpellID));
+        check(byID.resolvedSpellID == nil, "id: " .. tostring(byID.resolvedSpellID));
+        check(macro.resolvedSpellID == nil, "macro: " .. tostring(macro.resolvedSpellID));
+    end);
+
+    test("picking another spell drops the stored id", function()
+        local action = { type = SPELL, value = "Regrowth", resolvedSpellID = 8936 };
+        DebindPrivate.SetActionEntry(action, SPELL, 78674, nil, nil, nil);
+        check(action.resolvedSpellID == nil, "kept: " .. tostring(action.resolvedSpellID));
+    end);
+
+    test("the stored id travels in a payload", function()
+        installWorld(1);
+        Bind({});
+        local payload = {
+            v = 1, class = Constants.PLAYER_CLASS,
+            shared = { GENERAL = { { type = SPELL, value = FOREIGN, resolvedSpellID = 8936, key = "F1",
+                seq = 1 } } },
+        };
+        local placements = DebindStorage.PlanArrival(payload);
+        check(#placements == 1, "placements: " .. #placements);
+        check(placements[1].action.resolvedSpellID == 8936,
+            "arrived: " .. tostring(placements[1].action.resolvedSpellID));
+    end);
+
     test("a payload holding a name is taken in with the name for its value", function()
         installWorld(1);
         Bind({});

@@ -217,6 +217,7 @@ do
         end
         binding.type, binding.value = action.type, action.value;
         binding.pinRank = action.pinRank;
+        binding.resolvedSpellID = action.resolvedSpellID;
         -- **Only the binding changes.** The action keeps the type it was saved with, so its row
         -- still says what it was, and an older build reading the same SavedVariables still runs it.
         if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then

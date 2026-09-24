@@ -287,7 +287,7 @@ local function NameAndIconForAction(action)
 		-- A stored name is drawn as the id it resolves to, the way the button is stamped
 		-- (`CollectBindingFacts`), and as the name itself where it resolves to nothing.
 		if (luatype(value) == "string") then
-			value = DebindPrivate.ResolveBaseSpell(value) or value;
+			value = DebindPrivate.ResolveBaseSpell(value, action.resolvedSpellID) or value;
 		end
 		if (luatype(value) == "string") then
 			actionName = value;
