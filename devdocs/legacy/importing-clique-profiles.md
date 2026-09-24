@@ -1,6 +1,6 @@
 # Clique 프로필 가져오기 (2026-09-24 시작)
 
-> 상태: **설계는 다 정했다(§8이 비었다).** 들어간 것은 §4 전부(주문 이름 값과 `resolvedSpellID`, 아이템
+> 상태: **다 들어갔다** (2026-09-24). 들어간 것은 §4 전부(주문 이름 값과 `resolvedSpellID`, 아이템
 > 이름 값), §6의 변환기(`DebindStorage/Clique.lua`), payload의 `source`와 액션의 `untranslated`, 그리고 §3의
 > 추가 논리(`PlanArrival`의 `options.layer`와 `options.specs`), Clique 공유 코드 풀기(`CL02:`, `CL01:`,
 > `ImportEntry`가 받는다)와 `StorePayload`, 그리고 화면이다. + 버튼의 드롭다운과 From Clique의 프로필
@@ -186,8 +186,8 @@ Payload는 액션을 담는 그릇이라 설정이 들어갈 자리도 없다.
 `*item-`이 그렇게 읽고, Clique의 `item = "13"`이 뜻하는 것도 장비칸 13번이다. 숫자 값(우리 아이템 id)만
 `item:%d`로 간다.
 
-**`spellSubName`이 등급이면 `pinRank`로 옮긴다.** 등급 처리는 `shipping-on-the-camelot-client.md`가
-들인다.
+**`spellSubName`은 버린다.** 이 클라이언트에서는 등급이 아니라 전문화 이름이고, 이름만으로 전문화마다
+풀리는 것이 Clique의 버튼이 하던 일이다.
 
 손볼 곳은 `value`를 id로 가정하고 client에 묻는 자리다. `CollectBindingFacts`, 표시의
 `FindBaseSpellByID`(`ActionDisplay.lua`), `ConvertToMacroText`, 보관함의 `VALUE_SHAPES`.
