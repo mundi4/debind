@@ -35,11 +35,11 @@ DevStamp.lua
 
 Debind.xml
 
-HelpPlate.xml
+Help/HelpPlate.xml
 
 # **The Lua first**, for the XML's `mixin=` (the same reason `HelpText.lua` is ordered below).
-HelpTip.lua
-HelpTip.xml
+Help/HelpTip.lua
+Help/HelpTip.xml
 
 DebindUI.xml
 
@@ -47,8 +47,8 @@ DebindUI.xml
 # leaves the frame without its methods and the client says "Unknown method OnLoad".
 #
 # **After `DebindUI.xml`**, whose `DebindScrollFrameTemplate` this frame inherits.
-HelpText.lua
-HelpTopics.lua
+Help/HelpText.lua
+Help/HelpTopics.lua
 DebindMessageFrame.lua
 DebindMessageFrame.xml
 

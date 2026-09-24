@@ -1,8 +1,7 @@
 # Misc.lua와 Profile.lua 쪼개기 (2026-09-24, 인계용)
 
-> 상태: **`Misc.lua`와 `Profile.lua` 쪼개기는 들어갔다** (2026-09-24, 4절). 남은 것은 폴더 옮기기
-> (5절)다. `preparing-the-code-for-camelot.md` 7절의 4단계를 모은 문서다. 무엇을 왜 쪼개는지의 결정은
-> 그 문서 5절이 들고, 여기는 작업 방법과 들어간 자리를 든다. 4단계가 끝나면 이 문서는 `legacy/`로 간다.
+> 상태: **다 들어갔다** (2026-09-24). `preparing-the-code-for-camelot.md` 7절의 4단계를 모은 문서다.
+> 무엇을 왜 쪼개는지의 결정은 그 문서 5절이 들고, 여기는 작업 방법과 들어간 자리를 든다.
 
 ## 1. 지킬 것
 
@@ -82,31 +81,9 @@ SavedVariables)이라 합치지 않았다.
 것(`UnitConditionToState`, `RoleMeasuredUnder`, `CannotStand`, `UNIT_SOURCE_ROW`, `UNIT_SOURCE_AT`)은
 그래서 `DebindPrivate`에 올라갔다.
 
-## 5. 남은 것: 폴더
+## 5. 폴더
 
-`preparing-the-code-for-camelot.md` 5절이 든 둘이다. 액션 메뉴 넷과 `MenuKit.lua`(`check-menu-ctx`가
-다섯 경로를 든다), 도움말 넷(`HelpPlate`, `HelpTip`, `HelpText`, `HelpTopics`. `build-help`가
-`HelpTopics.lua`를 쓰고 TOC의 순서를 확인한다).
-
-## 6. 4단계 밖에서 열려 있는 것
-
-- **아틀라스 `common-icon-minus` 대체.** 카멜롯에 없다. 후보 여섯을 프로브의 `minus candidates` 구역이
-  재는데, 기록은 `/reload` 두 번 뒤에 파일로 나온다(한 번은 재고, 한 번은 쓴다). 들어오면
-  `StorageUI.lua`의 `CHECK_SOME`을 "있으면 `common-icon-minus`, 없으면 잰 후보"로 층에서 고른다.
-- **로케일**(`preparing-the-code-for-camelot.md` 6절), **배포 줄**(`shipping-on-the-camelot-client.md`
-  9절), **`SpecSpells` 카멜롯 키**(그 문서 6절, 드루이드 말고 다른 직업의 측정이 필요하다).
-- **이중 전문화**(계획 3-3)는 캐릭터가 진행해야 잴 수 있다. 기록이 생기기 전에는 보고에서 꺼내지 않는다.
-- **전문 기술 주문을 주문 목록에 넣을지**는 정하지 않았다(계획 3-4).
-
-## 7. 프로브 기록 읽기
-
-카멜롯 SavedVariables:
-`C:\Games\World of Warcraft\_classic_beta_\WTF\Account\10179303#1\SavedVariables\DebindCamelotProbe.lua`
-
-```
-lua5.1 -e 'dofile("DebindCamelotProbe.lua"); for b,r in pairs(DebindCamelotProbeDB.builds) do for k,v in pairs(r) do print(v) end end'
-```
-
-캐릭터 기록은 `DebindCamelotProbeDB.characters["<빌드> <이름-서버>"][<레벨>][<구역>]`, 이벤트는
-`.events`다. 프로브를 고칠 때는 구역을 더하기만 한다(`shipping-on-the-camelot-client.md` 12절). 새로
-알게 된 사실은 그 자리에서 해당 작업 문서에 적는다.
+`Debind/Menus/`에 액션 메뉴 넷과 `MenuKit.lua`, `Debind/Help/`에 도움말 넷(`HelpPlate`, `HelpTip`,
+`HelpText`, `HelpTopics`)과 그 XML 둘이 갔다. 경로를 든 것은 `DebindUI.xml`, TOC, `tests/run.lua`,
+`check-menu-ctx`, `build-help`였다. `build-help`는 TOC에서 `HelpTopics.lua`를 파일 이름이 아니라
+`Debind/` 아래 경로로 찾는다.

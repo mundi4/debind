@@ -267,6 +267,14 @@
   `characters[<빌드> <캐릭터>][<레벨>][<구역>]`에 둔다.
 - 이중 전문화를 바꿀 때 오는 이벤트는 그때의 그룹과 활성 설정과 함께 `events`에 쌓인다.
 
+**기록 읽기.** 파일은
+`C:\Games\World of Warcraft\_classic_beta_\WTF\Account\10179303#1\SavedVariables\DebindCamelotProbe.lua`
+이고, 빌드 값은 이렇게 찍는다.
+
+```
+lua5.1 -e 'dofile("DebindCamelotProbe.lua"); for b,r in pairs(DebindCamelotProbeDB.builds) do for k,v in pairs(r) do print(v) end end'
+```
+
 **Debind가 안 실려도 도는 것이 이 프로브의 조건이다.** 카멜롯이 Debind의 TOC에 없는 번호를 들고
 있으면 Debind는 안 실리고 `DebindDev`는 실린다. 그래서 프로브는 `DebindPrivate`에 손대지 않는다.
 

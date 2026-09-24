@@ -19,11 +19,11 @@ const fs = require("fs");
 const path = require("path");
 
 const FILES = [
-    "Debind/MenuKit.lua",
-    "Debind/ActionMenuModel.lua",
-    "Debind/ActionMenuNodes.lua",
-    "Debind/ActionMenuItems.lua",
-    "Debind/DropDownMenus.lua",
+    "Debind/Menus/MenuKit.lua",
+    "Debind/Menus/ActionMenuModel.lua",
+    "Debind/Menus/ActionMenuNodes.lua",
+    "Debind/Menus/ActionMenuItems.lua",
+    "Debind/Menus/DropDownMenus.lua",
 ];
 
 const root = path.resolve(__dirname, "..");

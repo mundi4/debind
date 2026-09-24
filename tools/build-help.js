@@ -1,5 +1,5 @@
 // Help pages: docs/ingamehelp/<locale>/<page>.md in, Debind/Locales/Help/<locale>.lua out, and
-// docs/ingamehelp/index.md in, Debind/HelpTopics.lua out.
+// docs/ingamehelp/index.md in, Debind/Help/HelpTopics.lua out.
 //   npm run help           write the Lua
 //   npm run check:help     fail when the Lua on disk is not what the sources make
 //
@@ -15,7 +15,7 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const sourceDir = path.join(root, "docs", "ingamehelp");
 const HELP_DIR = "Debind/Locales/Help";
-const REGISTRY_FILE = "Debind/HelpTopics.lua";
+const REGISTRY_FILE = "Debind/Help/HelpTopics.lua";
 const outDir = path.join(root, HELP_DIR);
 const localesXml = path.join(root, "Debind", "locales.xml");
 const BASE = "enUS";
@@ -344,11 +344,12 @@ function buildRegistry(basePages) {
 // shows the key name where the page should be, or no page at all.
 function checkLoaded(outputs) {
     const toc = fs.readFileSync(path.join(root, "Debind", "Debind.toc"), "utf8").split(/\r?\n/);
-    const registryAt = toc.indexOf(path.basename(REGISTRY_FILE));
+    const tocLine = path.posix.relative("Debind", REGISTRY_FILE);
+    const registryAt = toc.indexOf(tocLine);
     if (registryAt < 0) {
-        fail("Debind/Debind.toc", `does not load ${path.basename(REGISTRY_FILE)}`);
+        fail("Debind/Debind.toc", `does not load ${tocLine}`);
     } else if (registryAt > toc.indexOf("DebindMessageFrame.lua")) {
-        fail("Debind/Debind.toc", `${path.basename(REGISTRY_FILE)} has to come before DebindMessageFrame.lua, which reads it as it loads`);
+        fail("Debind/Debind.toc", `${tocLine} has to come before DebindMessageFrame.lua, which reads it as it loads`);
     }
 
     const xml = fs.readFileSync(localesXml, "utf8");

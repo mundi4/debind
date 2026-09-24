@@ -162,9 +162,9 @@ ID는 그 이식성을 버린다. 250이 걸린 액션은 죽음의 기사가 �
     값이 없고, 한 직업을 다 켠 집합은 접어야 할 중복이 아니라 그 자체로 뜻이 있는 조건이다.
   - `GetBindingIssue`의 빈 집합 갈래(`BINDING_ISSUE_SPECS_NONE_SELECTED`)는 남는다.
     `specs == 0`이 "빈 집합"으로 바뀐다.
-- `Debind/ActionMenuNodes.lua`: `SPEC` 노드를 §5의 모양으로 다시 쓴다. 직업 서브메뉴마다
+- `Debind/Menus/ActionMenuNodes.lua`: `SPEC` 노드를 §5의 모양으로 다시 쓴다. 직업 서브메뉴마다
   「모든 전문화」 한 줄이 먼저 선다.
-- `Debind/ActionMenuModel.lua`: `SpecConditionHasID`/`ToggleSpecConditionID`와, 「모든 전문화」가
+- `Debind/Menus/ActionMenuModel.lua`: `SpecConditionHasID`/`ToggleSpecConditionID`와, 「모든 전문화」가
   읽고 쓰는 `ClassSpecsAllPicked`/`ToggleClassSpecs`. 집합을 다루는 알맹이는 `Specs.lua`의
   `SpecSetHoldsClass`/`SetClassInSpecSet`이고 여기 있는 것은 ctx를 씌우는 세 줄이다. 이 파일은
   헤드리스 목록에 없다.

@@ -121,11 +121,11 @@ local DEBIND_FILES = {
     "Debind.lua",
     "ActionDisplay.lua",
     "ActionTooltip.lua",
-    "MenuKit.lua",
-    "ActionMenuModel.lua",
-    "ActionMenuNodes.lua",
-    "ActionMenuItems.lua",
-    "DropDownMenus.lua",
+    "Menus/MenuKit.lua",
+    "Menus/ActionMenuModel.lua",
+    "Menus/ActionMenuNodes.lua",
+    "Menus/ActionMenuItems.lua",
+    "Menus/DropDownMenus.lua",
     "KeyCapture.lua",
     "Flyout.lua",
     "Profile.lua",
@@ -138,7 +138,7 @@ local DEBIND_FILES = {
     "ClickCastTable.lua",
     "UpdateBindings.lua",
     "Switches.lua",
-    "HelpText.lua",
+    "Help/HelpText.lua",
 };
 
 --- **The list above is held against what the game loads, because nothing else would notice it

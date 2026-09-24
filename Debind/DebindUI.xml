@@ -24,11 +24,11 @@
 		because every file that uses it draws menus. The two drawing files take their names off
 		`ActionMenuModel.lua`, and `DropDownMenus.lua` takes the items off both.
 	-->
-	<Script file="MenuKit.lua" />
-	<Script file="ActionMenuModel.lua" />
-	<Script file="ActionMenuNodes.lua" />
-	<Script file="ActionMenuItems.lua" />
-	<Script file="DropDownMenus.lua" />
+	<Script file="Menus/MenuKit.lua" />
+	<Script file="Menus/ActionMenuModel.lua" />
+	<Script file="Menus/ActionMenuNodes.lua" />
+	<Script file="Menus/ActionMenuItems.lua" />
+	<Script file="Menus/DropDownMenus.lua" />
 
 	<!--
 		**Every dialog this addon puts up over its own window.** Three of them exist (copy the

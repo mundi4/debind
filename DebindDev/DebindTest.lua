@@ -3995,7 +3995,7 @@ RegisterTest("Spell picker: [+] while replacing", {
 -----------------------------------------------------------
 -- Test Cases: Our own help tip
 --
--- **The client's `HelpTip` is not called and must not be** (`Debind/HelpTip.lua`): one frame pool
+-- **The client's `HelpTip` is not called and must not be** (`Debind/Help/HelpTip.lua`): one frame pool
 -- for the whole game, so taking a frame out of it from here taints what the action bar reads. That
 -- is why there is a copy at all, and none of it runs without frames.
 -----------------------------------------------------------

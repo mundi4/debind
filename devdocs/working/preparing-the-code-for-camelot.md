@@ -189,8 +189,9 @@
   문자열로 건너온 플라이아웃 액션도 이 클라이언트에 없는 번호를 들고 온다. 보너스 바 조건의 툴팁과
   메뉴가 따로 들던 이름 표는 `DebindPrivate.BonusBarLabel` 하나로 합쳤다.
 - **아틀라스 `common-icon-minus`가 없다.** `StorageUI.lua`의 `CHECK_SOME`이다. 나머지 20개는 있다.
-  대체 후보 여섯은 프로브의 `minus candidates` 구역이 잰다. 고르는 방식은 "`common-icon-minus`가
-  있으면 그것, 없으면 잰 후보"다.
+  대체 후보 여섯은 프로브의 `minus candidates` 구역이 잰다. 기록은 `/reload` 두 번 뒤에 파일로
+  나온다(한 번은 재고, 한 번은 쓴다). 고르는 방식은 "`common-icon-minus`가 있으면 그것, 없으면 잰
+  후보"다.
 
 ## 4. 헤드리스
 
@@ -233,17 +234,14 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
   전문화 카탈로그, 이슈 판정, 매크로 문자열 변환과 해석으로 가른다.
 - **`Profile.lua`.** 마이그레이션이 1100줄로 따로 선다.
 
-지금 코드를 잰 구역 지도, 구역을 넘나드는 지역 변수, 같이 움직이는 도구와 작업 방법은
-`splitting-misc-and-profile.md`가 든다.
+들어간 자리와 같이 움직인 도구는 `splitting-misc-and-profile.md`가 든다.
 
 **안 쪼갤 것.** `UpdateBindings.lua`는 재빌드마다 쓰는 파일 지역 상태가 파일 전체에 걸쳐 있다.
 `SecureBindings.lua`는 `check-state-eval`이 파일과 지역 변수 이름으로 찾고, 스니펫 골든이 파일
 이름을 키로 쓴다. 둘 다 쪼개서 얻는 것보다 깨질 것이 많다. `DebindUI.lua`는 이 계획에서 뺀다.
 
-**폴더.** `Client/`가 첫 폴더다. 그 밖에는 묶음이 분명한 것만 옮긴다. 액션 메뉴 넷과 `MenuKit.lua`
-(`check-menu-ctx`가 다섯 경로를 든다), 도움말 넷(`HelpPlate`, `HelpTip`, `HelpText`, `HelpTopics`.
-`build-help`가 `HelpTopics.lua`를 쓰고 TOC의 순서를 확인한다), 그리고 조건들의 `Conditions/`다(무엇이
-드는지는 `splitting-misc-and-profile.md` 6절). 파이프라인의 중심 파일은 맨 위에 남는다.
+**폴더.** `Client/`가 첫 폴더다. 그 밖에는 묶음이 분명한 것만 옮긴다. 액션 메뉴 넷과 `MenuKit.lua`의
+`Menus/`, 도움말 넷의 `Help/`, 조건들의 `Conditions/`다. 파이프라인의 중심 파일은 맨 위에 남는다.
 
 ## 6. 로케일
 
@@ -271,7 +269,7 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
    들어갔다. 3-3은 그룹을 바꾸는 순간의 측정을 기다린다.
    이어서 **등급 고정**(3-4). 들어갔다.
 4. **`Misc.lua`와 `Profile.lua` 쪼개기**, 이어서 폴더. 단계마다 골든이 바이트 그대로인 순수 이동이다.
-   쪼개기는 들어갔고 폴더가 남았다. 자리와 방법은 `splitting-misc-and-profile.md`가 든다.
+   들어갔다(`splitting-misc-and-profile.md`).
 5. **로케일**(6절).
 6. **`shipping-on-the-camelot-client.md`의 나머지**: 5절의 전문화 하나일 때의 화면(3-3 결정 뒤),
    6절 `SpecSpells`, 9절 배포.
