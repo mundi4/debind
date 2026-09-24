@@ -42,6 +42,9 @@ M.world = {
     activeBindingContexts = {},
     inPetBattle = false,
     macros = {},
+    --- `[itemID] = { name = ..., icon = ... }`: the items the client's cache holds. An item left out
+    --- is one this session has not seen, which is when the client answers nil by id and by name.
+    items = {},
     equipped = {},
     --- The dialogs `StaticPopup_Show` was asked for, in order, as `{ which, ... }`.
     popups = {},
@@ -809,6 +812,28 @@ function M.install()
         local worn = M.world.equipped[slot];
         return worn and worn.texture or nil;
     end;
+    --- **`ItemInfo` takes an id or a name** (`ItemDocumentation.lua`), and the name is what an item
+    --- imported by name asks with. Either way it answers only for an item `items` holds.
+    local function ItemFor(itemInfo)
+        if (type(itemInfo) == "number") then
+            return M.world.items[itemInfo];
+        end
+        for _, item in pairs(M.world.items) do
+            if (item.name == itemInfo) then
+                return item;
+            end
+        end
+    end
+    _G.C_Item = {
+        GetItemNameByID = function(itemInfo)
+            local item = ItemFor(itemInfo);
+            return item and item.name;
+        end,
+        GetItemIconByID = function(itemInfo)
+            local item = ItemFor(itemInfo);
+            return item and item.icon;
+        end,
+    };
     --- **`SpellIdentifier`는 id도 이름도 받는다**, 그리고 이름 쪽이 이 저장소에 중요하다.
     --- 버튼에 굽는 것은 이름이고(`*spell-`), 클릭 때 그 이름으로 다시 묻는 자리가 있다.
     ---

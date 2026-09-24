@@ -264,13 +264,16 @@ end
 --- the two applies is the **action's type**, and the table has no column for that.
 ---
 --- Read by `IsUsableAction`, which is the whole use. Every entry was taken from what the binding
---- builder does with the value (`UpdateBindings.lua`): `item` goes through `format("item:%d", …)`,
---- `worldmarker` through `_G["WORLD_MARKER" .. value]`, `petaction` through
---- `_G["SLASH_" .. value .. "1"]`, `macro` straight into the `*macro-` attribute.
+--- builder does with the value (`UpdateBindings.lua`): `item` goes through `format("item:%d", …)`
+--- as a number and onto `*item-` as it is as a string, `worldmarker` through
+--- `_G["WORLD_MARKER" .. value]`, `petaction` through `_G["SLASH_" .. value .. "1"]`, `macro`
+--- straight into the `*macro-` attribute.
 local VALUE_SHAPES = {
     -- A name is what a Clique profile stores (`importing-clique-profiles.md` §4).
     [Constants.SPELL]       = "number|string",
-    [Constants.ITEM]        = "number",
+    -- A name, or a string of digits for a slot, is what a Clique profile stores
+    -- (`importing-clique-profiles.md` §4). Both go on `*item-` as they are.
+    [Constants.ITEM]        = "number|string",
     -- An `INVSLOT_*` number, which reaches the `*item-` attribute as a bare string and is read
     -- there as an inventory slot rather than an item id (`UpdateBindings.lua`).
     [Constants.USESLOT]   = "number",

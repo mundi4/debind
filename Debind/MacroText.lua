@@ -342,9 +342,16 @@ function DebindPrivate.ConvertToMacroText(action)
             name = spellOrItemName;
         else
             slashCommand = SLASH_USE1;
-            spellOrItemName = format("item:%d", action.value);
             name = C_Item.GetItemNameByID(action.value);
             icon = C_Item.GetItemIconByID(action.value);
+            -- A stored name goes in as it is, the way the button is stamped (`DescribeBinding`), and
+            -- names the macro where the cache has not seen the item.
+            if (type(action.value) == "string") then
+                spellOrItemName = action.value;
+                name = name or action.value;
+            else
+                spellOrItemName = format("item:%d", action.value);
+            end
         end
 
         if (spellOrItemName) then

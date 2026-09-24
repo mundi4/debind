@@ -324,6 +324,10 @@ local function NameAndIconForAction(action)
 	elseif (type == Constants.ITEM) then
 		local name = C_Item.GetItemNameByID(value);
 		local icon = C_Item.GetItemIconByID(value);
+		-- A stored name the cache has not seen yet is drawn as itself.
+		if (luatype(value) == "string") then
+			name = name or value;
+		end
 		actionName = name;
 		actionIcon = icon;
 	elseif (type == Constants.USESLOT) then

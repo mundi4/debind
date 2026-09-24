@@ -1042,7 +1042,14 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         -- 답이 틀린 답이 된다.
     elseif (type == Constants.ITEM) then
         attr(out, "*type-", "item");
-        attr(out, "*item-", format("item:%d", value));
+        -- **A stored name goes on as it is**, since `*item-` takes what `/use` takes
+        -- (`importing-clique-profiles.md` §4). So does a string of digits, which `*item-` reads as
+        -- an inventory slot -- the meaning it had in the Clique profile it came from.
+        if (luatype(value) == "string") then
+            attr(out, "*item-", value);
+        else
+            attr(out, "*item-", format("item:%d", value));
+        end
     elseif (type == Constants.USESLOT) then
         -- **A bare number, and that is what makes it a slot.** `SecureCmdItemParse` reads two
         -- numbers as a bag pair and one as an inventory slot, so `"13"` reaches
