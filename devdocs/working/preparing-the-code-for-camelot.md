@@ -83,11 +83,12 @@
 그룹은 셋이고 클래식의 특성 트리 셋 그대로다. Balance 16, Feral Combat 19, Restoration 16으로 합이
 51이다. 노드는 그 밖에 이름 없는 그룹 수십 개에도 들지만, 구역은 이름을 든 그룹으로 나누면 된다.
 
-**들어갔다, `Client/`가 아니라 `Talents.BuildMenu` 안에.** `BuildMenu`는 클라이언트 API를 표로 받으므로
-그 표가 이미 층이다. 따로 파일을 두면 같은 코드를 옮기기만 한다. 표에
-`GetGroupDisplayInfoByTreeID`가 있으면(카멜롯) 이름을 든 그룹마다 `orderIndex` 순으로 목록 하나를
-내고, 없으면 지금처럼 직업, 전문화, 영웅 트리로 나눈다. 어느 쪽이든 모양은 `{ key, name, rows }`
-목록이라 메뉴는 그대로다. 조건이 저장하는 것은 주문 번호뿐이라 저장 형식도 안 바뀐다.
+**들어갔다: `Client.TalentSections`** (`Client/TalentTree.lua`). 트리를 구역으로 자르는 두 방법이 여기
+있다. `GetGroupDisplayInfoByTreeID`가 있으면(카멜롯) 이름을 든 그룹마다 `orderIndex` 순으로 한
+구역, 없으면 화폐로 직업과 전문화를 가르고 영웅 트리를 붙인다. 둘 다
+`{ key, name, subTreeID, nodes }` 목록을 내고, `Talents.BuildMenu`는 그 노드로 줄을 만드는 일만
+한다. 클라이언트 호출은 지금처럼 표(`api`)로 받아서 스펙이 대신 세울 수 있다. 조건이 저장하는 것은
+주문 번호뿐이라 저장 형식은 안 바뀐다.
 
 ### 3-3. 활성 특성 설정과 이중 전문화
 
@@ -125,7 +126,7 @@
 `C_SpellBook.GetClassSkillLineInfo()`로 따로 얻는다(`Camelot/SpellBook/Blizzard_SpellBookFrame.lua`).
 **잰 값으로 줄 2는 Restoration이다**(드루이드). 직업 줄 "Druid"는 `GetClassSkillLineInfo`에서만 나온다.
 
-**들어갔다: `Client.ClassSkillLine()`** (`Client/Spells.lua`). `GetClassSkillLineInfo`가 있으면 그것,
+**들어갔다: `Client.ClassSkillLine()`** (`Client/SpellBook.lua`). `GetClassSkillLineInfo`가 있으면 그것,
 없으면 줄 2다. 직업 탭 아이콘이 이것을 읽는다.
 
 **들어갔다: 주문 등급.** 카멜롯은 등급마다 주문 번호가 따로이고 주문책에 등급마다 항목이 있다

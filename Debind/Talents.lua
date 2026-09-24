@@ -228,19 +228,8 @@ end
 --- are reachable through a view config, but its pvp talents are not reachable at all, and a branch
 --- that opens four specializations beside one that opens one is worse than either.
 ---
---- **`isVisible` is what makes a node this specialization's.** The conditions a node carries name
---- specialization sets too, and those are not the same question: some of them grant a free rank on
---- a node every specialization sees (§6-1).
----
---- **Class and specialization are told apart by the currency the node costs.** The tree's currency
---- list has the class's first and the specialization's second, which is the split the talent frame
---- itself resets by (`Blizzard_ClassTalentsFrame.lua:821-827`).
----
---- **Where the client names groups of the tree, those are the lists instead** (camelot): one
---- currency for every node, so the split above puts all of them in the class's list, and the talent
---- frame there draws three trees out of `GetGroupDisplayInfoByTreeID` (a druid on 69977: Balance,
---- Feral Combat, Restoration). A node also sits in groups that call has nothing for, and those are
---- not trees. No hero trees there either.
+--- **The sections are the client layer's** (`Client.TalentSections`): the two clients cut the tree
+--- differently, and this only turns each section's nodes into rows.
 ---
 --- **Built on demand and not kept**, the way `Spells.BuildBranches` is: only a menu asks, and a
 --- second cache is a second thing to invalidate.
@@ -251,107 +240,20 @@ function Talents.BuildMenu(api)
     local treeIDs = configInfo and configInfo.treeIDs;
     local treeID = treeIDs and treeIDs[1];
 
-    local named = treeID and api.GetGroupDisplayInfoByTreeID and api.GetGroupDisplayInfoByTreeID(treeID);
-    if (named and #named > 0) then
-        local groups = {};
-        for i = 1, #named do
-            groups[i] = named[i];
-        end
-        table.sort(groups, function(a, b) return a.orderIndex < b.orderIndex; end);
-        local rowsByGroup, seenByGroup = {}, {};
-        for i = 1, #groups do
-            rowsByGroup[groups[i].groupID], seenByGroup[groups[i].groupID] = {}, {};
-        end
-        local nodes = api.GetTreeNodes(treeID) or {};
-        for i = 1, #nodes do
-            local node = api.GetNodeInfo(configID, nodes[i]);
-            if (node and node.isVisible) then
-                for _, groupID in ipairs(node.groupIDs or {}) do
-                    local list = rowsByGroup[groupID];
-                    if (list) then
-                        for j = 1, (node.entryIDs and #node.entryIDs or 0) do
-                            AddRow(list, seenByGroup[groupID], api, configID, node.entryIDs[j]);
-                        end
-                    end
-                end
-            end
-        end
-        for i = 1, #groups do
-            out[#out + 1] = {
-                key = "tree",
-                name = groups[i].displayName,
-                rows = SortRows(rowsByGroup[groups[i].groupID]),
-            };
-        end
-    elseif (treeID) then
-        local currencies = api.GetTreeCurrencyInfo(configID, treeID, false) or {};
-        local classCurrency = currencies[1] and currencies[1].traitCurrencyID;
-
-        local classRows, classSeen = {}, {};
-        local specRows, specSeen = {}, {};
-        local heroRows, heroSeen, heroOrder = {}, {}, {};
-
-        local nodes = api.GetTreeNodes(treeID) or {};
-        for i = 1, #nodes do
-            local nodeID = nodes[i];
-            local node = api.GetNodeInfo(configID, nodeID);
-            if (node and node.isVisible) then
-                local list, seen;
-                if (node.subTreeID) then
-                    list = heroRows[node.subTreeID];
-                    if (not list) then
-                        list, seen = {}, {};
-                        heroRows[node.subTreeID] = list;
-                        heroSeen[node.subTreeID] = seen;
-                        heroOrder[#heroOrder + 1] = node.subTreeID;
-                    else
-                        seen = heroSeen[node.subTreeID];
-                    end
-                else
-                    local cost = api.GetNodeCost(configID, nodeID);
-                    local currency = cost and cost[1] and cost[1].ID;
-                    if (currency == classCurrency) then
-                        list, seen = classRows, classSeen;
-                    else
-                        list, seen = specRows, specSeen;
-                    end
-                end
-
-                local entryIDs = node.entryIDs;
+    if (treeID) then
+        for _, section in ipairs(DebindPrivate.Client.TalentSections(api, configID, treeID)) do
+            local rows, seen = {}, {};
+            for i = 1, #section.nodes do
+                local entryIDs = section.nodes[i].entryIDs;
                 for j = 1, (entryIDs and #entryIDs or 0) do
-                    AddRow(list, seen, api, configID, entryIDs[j]);
+                    AddRow(rows, seen, api, configID, entryIDs[j]);
                 end
             end
-        end
-
-        out[#out + 1] = { key = "class", name = api.className, rows = SortRows(classRows) };
-        out[#out + 1] = { key = "spec", name = api.specName, rows = SortRows(specRows) };
-
-        -- **The client's own order, not the id's.** `GetHeroTalentSpecsForClassSpec` hands them
-        -- over the way the talent window lays them out, and a reader who has both windows open is
-        -- reading one list (2026-09-19, owner). Anything the call does not name keeps its place
-        -- behind them, by id, so a tree that appears without being offered still has a row.
-        local offered = api.GetHeroTalentSpecs and api.GetHeroTalentSpecs() or nil;
-        local at = {};
-        for i = 1, (offered and #offered or 0) do
-            at[offered[i]] = i;
-        end
-        table.sort(heroOrder, function(a, b)
-            local left, right = at[a], at[b];
-            if (left ~= right) then
-                return (left or math.huge) < (right or math.huge);
-            end
-            return a < b;
-        end);
-
-        for i = 1, #heroOrder do
-            local subTreeID = heroOrder[i];
-            local info = api.GetSubTreeInfo(configID, subTreeID);
             out[#out + 1] = {
-                key = "hero",
-                subTreeID = subTreeID,
-                name = info and info.name,
-                rows = SortRows(heroRows[subTreeID]),
+                key = section.key,
+                subTreeID = section.subTreeID,
+                name = section.name,
+                rows = SortRows(rows),
             };
         end
     end
