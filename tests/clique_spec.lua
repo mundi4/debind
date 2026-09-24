@@ -267,6 +267,65 @@ return function(DebindPrivate, DebindStorage)
         check(placements[1].action.conditions == nil, "general converted");
     end);
 
+    --- `Plan`'s three actions with the first one's numbers swapped for `sets`.
+    local function PlanFirst(sets, options)
+        FreshProfile();
+        local _, payload = Convert({ Spell("F", sets) });
+        return DebindStorage.PlanArrival(payload, options), payload;
+    end
+
+    -- The shim's druid has four named specializations and an initial one at 5 (`wow_shim.lua`).
+    test("every specialization of this class ticked is no condition at all", function()
+        local all = { default = true, spec1 = true, spec2 = true, spec3 = true, spec4 = true };
+        local placements, payload = PlanFirst(all, { layer = "class", specs = "convert" });
+        check(#placements == 1 and placements[1].action.conditions == nil,
+            "converted to a condition on every specialization");
+        check(not DebindStorage.CliqueActionHasSpecs(payload.shared.GENERAL[1]), "still asked about");
+
+        placements = PlanFirst(all, { layer = "character", specs = "layers" });
+        check(#placements == 1 and placements[1].spec == 0, "spread over the specialization layers");
+
+        local three = { default = true, spec1 = true, spec2 = true, spec3 = true };
+        placements, payload = PlanFirst(three, { layer = "class", specs = "convert" });
+        check(placements[1].action.conditions and placements[1].action.conditions.specs,
+            "three of four read as all of them");
+        check(DebindStorage.CliqueActionHasSpecs(payload.shared.GENERAL[1]), "three of four not asked about");
+    end);
+
+    test("each specialization's layer gets its own copy", function()
+        local placements = PlanFirst({ default = true, spec1 = true, spec3 = true },
+            { layer = "class", specs = "layers" });
+        check(#placements == 2, #placements .. " placements");
+        check(placements[1].scope == "class" and placements[1].class == Constants.PLAYER_CLASS
+            and placements[1].spec == 1, "first: " .. tostring(placements[1].spec));
+        check(placements[2].scope == "class" and placements[2].spec == 3,
+            "second: " .. tostring(placements[2].spec));
+        check(placements[1].action ~= placements[2].action, "one table in two layers");
+        check(placements[1].action.arrivalID == placements[2].action.arrivalID, "two arrivals");
+        for _, placement in ipairs(placements) do
+            check(placement.action.conditions == nil, "a condition beside the layer");
+            check(placement.action.untranslated == nil, "untranslated left on a copy");
+        end
+
+        placements = PlanFirst({ default = true, spec2 = true }, { layer = "character", specs = "layers" });
+        check(#placements == 1 and placements[1].scope == "character" and placements[1].spec == 2,
+            "character: " .. tostring(placements[1].scope) .. " " .. tostring(placements[1].spec));
+    end);
+
+    test("a specialization this class does not have has no layer", function()
+        FreshProfile();
+        local _, payload = Convert({ Spell("F", { default = true, spec5 = true }) });
+        local placements, skipped = DebindStorage.PlanArrival(payload, { layer = "class", specs = "layers" });
+        check(#placements == 0 and skipped == 1, #placements .. " placed, " .. tostring(skipped) .. " skipped");
+    end);
+
+    test("General takes no specialization layers either", function()
+        local placements = PlanFirst({ default = true, spec1 = true, spec3 = true },
+            { layer = "general", specs = "layers" });
+        check(#placements == 1 and placements[1].scope == "general"
+            and placements[1].action.conditions == nil, "general spread");
+    end);
+
     test("nothing untranslated reaches the profile", function()
         for _, options in ipairs({ { layer = "general" }, { layer = "class", specs = "convert" },
                 { layer = "character", specs = "drop" } }) do

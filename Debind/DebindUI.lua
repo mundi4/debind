@@ -1354,7 +1354,15 @@ end
 
 --- The one deliberate close, stamped the way `DebindFrameMixin:CloseWindow` is stamped and for the
 --- reason given there.
+---
+--- **Only a dialog that is up is stamped.** Leaving a tab closes its dialogs whether or not they are
+--- up, and a stamp on a hidden one has no `OnHide` to read it. It stays current for the rest of the
+--- frame instead, and a sweep of the same dialog opened later in that frame reads as deliberate and
+--- is not put back.
 function DebindDialogMixin:CloseDialog()
+	if (not self:IsShown()) then
+		return;
+	end
 	self.closeAt = GetTime();
 	self:Hide();
 end
@@ -2959,12 +2967,14 @@ function DebindFrameMixin:OnHide()
 	-- 반대 방향은 없다 - 그 창을 닫아도 이 창은 남는다.
 	DebindSpellPickerFrame:Hide();
 
-	-- **Two more that belong to the window rather than to the frame that owns them**, and for one
+	-- **More that belong to the window rather than to the frame that owns them**, and for one
 	-- reason: their own hide runs on a sweep the window comes straight back from, which is not the
 	-- reader leaving. Bind mode ended and took `bindEdits` with it (`DebindUI.xml`), and the paste
-	-- box threw away a half-typed string (`DebindStoragePanelMixin:OnHide`).
+	-- box threw away a half-typed string (`DebindStoragePanelMixin:OnHide`). The add dialog is a
+	-- top-level frame and would be left standing, holding a press for a tab that is gone.
 	self:SetBindingMode(false);
 	DebindPasteFrame:CloseDialog();
+	DebindAddFrame:CloseDialog();
 
 	-- **The plate crosses tabs but not a close.** The (?) on the tab takes the canvas down on its
 	-- own `OnHide`; what is cleared here is the asking behind it, so the window does not open again
@@ -3040,6 +3050,14 @@ end
 --- The only caller is `OnHide`; it is split out because **this order is the window's contract** and
 --- nothing about the key plumbing belongs in the middle of it.
 function DebindFrameMixin:HandleEscape()
+	-- **The add dialog first** (소유자, 2026-09-24). It is a top-level frame, so without its rung the
+	-- sweep puts it back (`OnDialogHide`) and the ladder walks on down to closing the window,
+	-- leaving the dialog standing over nothing.
+	if (DebindAddFrame:IsShown()) then
+		DebindAddFrame:CloseDialog();
+		return true;
+	end
+
 	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:ClearMouse();
 		return true;
@@ -3984,10 +4002,12 @@ function DebindFrameMixin:SelectPanel(id, force)
 
 	if (self.shownPanel ~= panel) then
 		if (self.shownPanel) then
-			-- Half-typed input does not follow the reader to another tab. It cannot live on the
-			-- panel's own `OnHide`, which also runs for a sweep the window comes straight back
+			-- Half-typed input does not follow the reader to another tab, and neither does the
+			-- add dialog, which belongs to the Storage tab (소유자, 2026-09-24). It cannot live on
+			-- the panel's own `OnHide`, which also runs for a sweep the window comes straight back
 			-- from (`DebindStoragePanelMixin:OnHide`).
 			DebindPasteFrame:CloseDialog();
+			DebindAddFrame:CloseDialog();
 			self.shownPanel:Hide();
 		end
 		self.shownPanel = panel;

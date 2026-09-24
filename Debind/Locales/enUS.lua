@@ -2102,34 +2102,48 @@ L["STORAGE_CREATE_INSTRUCTION"] = "Click to choose where it comes from."
 -- The three sources behind the [+] (`importing-clique-profiles.md` §1).
 L["STORAGE_CREATE_FROM_CHARACTER"] = "From This Character"
 -- Says "Share Code" because `STORAGE_COPY` does, and the two are the same code going opposite ways.
--- The ellipsis because it opens the box to paste into rather than making the row.
-L["STORAGE_CREATE_FROM_CODE"] = "From Share Code..."
-L["STORAGE_CREATE_FROM_CLIQUE"] = "From Clique"
+-- **No ellipsis**, though it opens a box rather than making the row: in a menu one reads as a
+-- submenu behind the item (소유자, 2026-09-24).
+L["STORAGE_CREATE_FROM_CODE"] = "From Share Code"
+-- The one item with a submenu behind it, and the ellipsis says so (소유자, 2026-09-24).
+L["STORAGE_CREATE_FROM_CLIQUE"] = "From Clique..."
 -- Why that item is grey. It reads Clique's own saved variables, which exist only while it is loaded.
 L["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"] = "Clique is not loaded."
 -- The row a Clique profile becomes. `%s` is the profile's name, which is the character's
 -- ("Name - Realm") unless the reader named it.
 L["STORAGE_CLIQUE_ENTRY_NAME"] = "Imported Clique Profile (%s)"
+-- The row a pasted Clique code becomes when the reader typed no name. The code carries no profile
+-- name to put in brackets.
+L["STORAGE_CLIQUE_CODE_NAME"] = "Imported Clique Share Code"
 -- A profile's tooltip. Both lines stand whatever the profile holds: the characters that use it, and
 -- how many actions it becomes -- Clique's two starting bindings are not counted, since nothing of
--- ours stands in for them.
+-- ours stands in for them. **A profile nobody uses gets a line of its own** rather than a word
+-- dropped into `%s`, which read "Used by: no character".
 L["STORAGE_CLIQUE_PROFILE_USERS"] = "Used by: %s"
-L["STORAGE_CLIQUE_PROFILE_NO_USERS"] = "no character"
-L["STORAGE_CLIQUE_PROFILE_COUNT"] = "Actions: %d"
--- The dialog adding a Clique entry asks in (`importing-clique-profiles.md` §3). The layers are
--- named with the window's own layer labels, so they have no keys here.
-L["STORAGE_CLIQUE_ADD_TITLE"] = "Add Clique Profile"
-L["STORAGE_CLIQUE_LAYER"] = "Add to"
-L["STORAGE_CLIQUE_SPECS"] = "Specialization conditions"
+L["STORAGE_CLIQUE_PROFILE_NO_USERS"] = "No character uses it."
+-- Counted the way the storage row counts them (`IMPORT_ENTRY_COUNTS`).
+L["STORAGE_CLIQUE_PROFILE_COUNT"] = "%d |4action:actions;"
+-- **Both texts end on moving**, because pending actions cannot be moved or copied: the way to split
+-- them up comes after accepting.
+L["STORAGE_ADD_TEXT"] = "These actions go into the same layers they came from. Once accepted, they can be moved to other layers."
+L["STORAGE_ADD_CLIQUE_TEXT"] = "This payload was made from a Clique profile, so all of its actions go into one layer. Once accepted, they can be moved to other layers."
+-- The layers are named with the window's own layer labels, so they have no keys here.
+L["STORAGE_ADD_LAYER"] = "Which layer should these actions go into?"
+-- Stands only when a ticked action is left restricted once one that ticks every specialization of
+-- this class counts as none (`importing-clique-profiles.md` §3).
+L["STORAGE_ADD_SPECS_TEXT"] = "Some of these actions had specialization conditions in Clique."
+L["STORAGE_ADD_SPECS"] = "What should happen to their specialization conditions?"
+-- In `STORAGE_ADD_SPECS_TEXT`'s place, in red, when General is picked; the question and its
+-- dropdown go, since there is nothing left to choose (소유자, 2026-09-24).
+L["STORAGE_ADD_SPECS_GENERAL"] = "Some of these actions had specialization conditions in Clique. This layer is not tied to a class, so they are removed. To keep them, pick another layer."
+L["STORAGE_ADD_SPECS_LAYERS"] = "Add to each specialization's layer"
+L["STORAGE_ADD_SPECS_LAYERS_DESC"] = "An action with more than one specialization is added to each of their layers, one copy per layer."
 -- Clique numbers a specialization without a class, so a profile two classes shared bound one
--- binding to different specializations in each. Keeping them means this class's.
-L["STORAGE_CLIQUE_SPECS_CONVERT"] = "Keep, as this class's specializations"
-L["STORAGE_CLIQUE_SPECS_DROP"] = "Remove"
--- Pending actions cannot be moved or copied, so the way to split them up comes after accepting.
-L["STORAGE_CLIQUE_ADD_NOTE"] = "Added actions can be moved to another layer after you accept them."
--- The client's own word, taken whole.
-L["STORAGE_CLIQUE_ADD_ACCEPT"] = ADD
--- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
+-- binding to different specializations in each. Keeping them means this class's. **`%s` is the
+-- class by name**: "this class" left the reader to work out which class that is, at the one moment
+-- the answer decides what the numbers turn into.
+L["STORAGE_ADD_SPECS_CONVERT"] = "Keep as %s specializations"
+L["STORAGE_ADD_SPECS_DROP"] = "Remove"-- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
 --
 -- **"String" is our word, not the client's, and this key is the first to stop using it.**
@@ -2140,9 +2154,10 @@ L["STORAGE_CLIQUE_ADD_ACCEPT"] = ADD
 -- its own key names, which is the same line this file is supposed to draw. koKR says 코드
 -- throughout.
 --
--- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
--- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
--- when it is done is enUS and koKR only.
+-- **The paste dialog followed on 2026-09-24**, when it began taking Clique's codes too: its title,
+-- its placeholder and the `IMPORT_FAILED_*` lines it shows. **The rest are not renamed, and that is
+-- still a finding rather than a decision.** ruRU carries none of them, so the cost when it is done
+-- is enUS and koKR only.
 -- **"With Their Keys" came off** (2026-08-23, 소유자). It named the whole of what the answer decided
 -- while an arrival was parked on a number of ours; since the badge became the only thing holding
 -- one back, an arrival carries the sender's key from the moment it lands and accepting is what lets
@@ -2163,7 +2178,7 @@ L["STORAGE_ADD_ACCEPTED_DESC"] = "They start working straight away, on the keys 
 -- accepting is offered - the row's own button and its menu are the others - so the sentence was
 -- wrong about the only part it added, and the count is on screen the moment the reader gets there.
 L["STORAGE_ADD_QUARANTINED_DESC"] = "They go into your bindings doing nothing, and none of your keys change until you accept them."
--- The other item on that menu, and the one the reader wants nine times out of ten.
+-- The other button in that dialog, and the one the reader wants nine times out of ten.
 --
 -- **No switch on this tab** (2026-08-23, 소유자). It read "Switched Off Until I Accept Them", which
 -- drags a word this addon has a whole tab of into a screen that has nothing to do with one - and
@@ -2194,9 +2209,10 @@ L["STORAGE_COPY"] = "Create Share Code"
 -- which is a word of ours that says less. This one is the client's, it is what this window edits,
 -- and the item's own tooltip was already saying it.
 --
--- **It breaks off, because the press asks rather than acts** (2026-08-23, 소유자). The two ways the
--- actions can land are the reader's to pick, so the menu finishes the sentence the label starts.
-L["STORAGE_ADD"] = "Add to My Bindings..."
+-- **The press asks rather than acts** (2026-08-23, 소유자): the dialog it opens is where the two
+-- ways the actions can land are picked, and it takes this as its title. **No ellipsis**, which
+-- reads as a menu behind the button (소유자, 2026-09-24).
+L["STORAGE_ADD"] = "Add to My Bindings"
 -- **The date has to say which date it is.** The row shows it bare, where it is one of two lines
 -- and the reader is scanning rather than reading; the tooltip is where somebody stops to ask, and
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
@@ -2225,25 +2241,26 @@ L["STORAGE_PREVIEW_ELSEWHERE"] = "Nowhere to put these"
 -- in the list had no name to call it by, which is what a screen that will not name its object is
 -- reduced to. It has one now (`STORAGE_CREATE`), so the sentence says which thing to pick.
 L["STORAGE_NOTHING_PICKED"] = "Pick a payload on the left to see what is in it."
-L["STORAGE_MENU_DESC"] = "Where payloads are kept: ones you save from this character, and ones you paste in from somebody else.|n|nAdding one puts its actions in as pending, so none of your keys change until you accept them."
+L["STORAGE_MENU_DESC"] = "Where payloads are kept: ones you save from this character, ones you paste in, and ones made from your Clique profiles.|n|nAdding one puts its actions in as pending, so none of your keys change until you accept them."
 
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills
 -- it rather than what to do next - there is no next step until something is in there.
 --
--- **The instruction came out when the button moved** and stays out for a second reason now. It stood
--- in the far bottom corner and this sentence was the only thing pointing at it; the two ways in are
--- portraits in the tab's corner since then, and a sentence pointing at one of those would have to
--- spell out a picture to say which. What is left is the half a visible button cannot say: that
--- anything landing here stays.
-L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nA string you paste will sit here until you decide what to do with it, and it is kept afterwards - so you can come back and finish later."
-L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
+-- **No instruction.** The way in is the [+] in the tab's corner, and a sentence pointing at it would
+-- have to spell out a picture. What is left is the half a visible button cannot say: that anything
+-- landing here stays. It names both ways a row lands, making and pasting, because the [+] offers
+-- both.
+L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nWhatever you make or paste in stays here until you delete it, so you can come back and add it later."
+-- **Says "share code" because the menu item opening it does** (`STORAGE_CREATE_FROM_CODE`), and it
+-- names no addon since it takes Clique's as well as ours. The placeholder is where that is said.
+L["IMPORT_PASTE_TITLE"] = "Paste a share code"
 -- The two halves of the game's own import dialog, which this one is shaped after: a caption over
 -- the box, and the instruction **inside** it. The caption names what the box holds; the
 -- instruction says what to do and then gets out of the way the moment anything is typed. Blizzard
 -- runs them as "Import Text" over "Paste loadout code here" - the caption deliberately does not
 -- repeat the instruction, and the instruction deliberately does not repeat the title.
 L["IMPORT_PASTE_INPUT_LABEL"] = "Text to import"
-L["IMPORT_PASTE_INSTRUCTIONS"] = "Paste the Debind string here"
+L["IMPORT_PASTE_INSTRUCTIONS"] = "Paste a Debind or Clique share code here"
 -- **A name, not a sender.** It asked "Who it came from", which presumes something the game cannot
 -- do: no string is sent anywhere. One is copied off a page, out of a chat window, out of your own
 -- notes - and the reader pasting their own backup had nothing to put there, which is the case a
@@ -2267,10 +2284,6 @@ L["IMPORT_PASTE_ACCEPT"] = HUD_CLASS_TALENTS_IMPORT_LOADOUT_ACCEPT_BUTTON
 -- order.
 L["IMPORT_ENTRY_LINE"] = "%1$s  %2$s"
 L["IMPORT_ENTRY_COUNTS"] = "%1$d keys, %2$d actions"
--- The free text typed at paste time, on the row's tooltip. **The only human writing about an
--- entry**, and optional - so it is a line that may not be there rather than the name the entry is
--- known by. The class it came from is in that name already (`IMPORT_ENTRY_LINE`), which is why the
--- line that used to say it here is gone.
 -- **The first line is the title**: this popup has no title bar, so it is what the reader reads
 -- first and it has to name what goes.
 --
@@ -2283,14 +2296,18 @@ L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r?|n|nThis is th
 -- has three things they might do about one - look again at what they pasted, update, ask for it
 -- again - and a sentence per step would spread those three over eight that all end the same way.
 -- The mapping is `REASON_TEXT` in `StorageUI.lua`.
-L["IMPORT_FAILED_NOT_OURS"] = "That is not a Debind string."
-L["IMPORT_FAILED_TOO_NEW"] = "That string was made by a newer version of Debind. Update and try again."
+--
+-- **The paste box takes Clique's codes too** (`DecodeCliqueString`), so `NOT_OURS` names both and
+-- `DAMAGED` and `LIBS_MISSING` name neither: a broken `CL02:` reaches them with the same codes.
+L["IMPORT_FAILED_NOT_OURS"] = "That is not a Debind or Clique share code."
+L["IMPORT_FAILED_TOO_NEW"] = "That share code was made by a newer version of Debind. Update and try again."
 -- The same refusal pointing the other way, and it must not borrow the sentence above: updating is
 -- what the reader already did. There is nothing for them to do here, so this says so rather than
--- asking - and it says where the string can still be used, because it can.
-L["IMPORT_FAILED_TOO_OLD"] = "That string was made by a version of Debind too old for this one to read.|n|nNothing you can do here changes that. The string still works in the version it came from."
-L["IMPORT_FAILED_DAMAGED"] = "That string is a Debind string but could not be read. It was most likely copied only part of the way - ask for it again and copy the whole thing."
-L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries it reads strings with. Downloading Debind again puts them back."
+-- asking - and it says where the code can still be used, because it can.
+L["IMPORT_FAILED_TOO_OLD"] = "That share code was made by a version of Debind too old for this one to read.|n|nNothing you can do here changes that. The code still works in the version it came from."
+-- "Ask for it again" is gone: a Clique code is as often the reader's own, copied out of Clique.
+L["IMPORT_FAILED_DAMAGED"] = "That share code could not be read. It was most likely copied only part of the way - copy the whole thing and paste it again."
+L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries it reads share codes with. Downloading Debind again puts them back."
 -- **What is missing is what this tab reads, not the tab.** Import and Export are Debind's own
 -- panels now; `Debind Storage` is the load-on-demand part that keeps the strings, and without it
 -- there is nothing for either to show. Switching it off in the AddOns list is the one way here.

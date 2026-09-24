@@ -171,13 +171,10 @@ local function AccountRows(usage)
         };
     end
 
-    -- **The account-wide layer is not a class and takes the one colour no class owns**
-    -- (2026-09-21, 소유자). White is a priest, gold is close enough to a rogue to be read as one,
-    -- and grey is what this window paints something that is off.
     local general = usage.general;
     if (general.actions + general.exprs > 0) then
         rows[#rows + 1] = RowFor(DebindUI.GetLayerLabel(ROOT_LAYER_ID),
-            ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color, general, true);
+            DebindUI.ACCOUNT_COLOR, general, true);
     end
 
     local function Sorted(built)

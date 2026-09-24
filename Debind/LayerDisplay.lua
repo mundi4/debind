@@ -190,6 +190,11 @@ local function GetSideTabIcon(sideTabID)
 	return icon;
 end
 
+--- **The account-wide layer is not a class and takes the one colour no class owns**
+--- (2026-09-21, 소유자). White is a priest, gold is close enough to a rogue to be read as one,
+--- and grey is what this window paints something that is off.
+DebindUI.ACCOUNT_COLOR = ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color;
+
 DebindUI.GetLayerTabs = GetLayerTabs;
 DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabLabel = GetSideTabLabel;

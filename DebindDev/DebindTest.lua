@@ -260,6 +260,7 @@ end
 --- `coroutine.yield(0)`. One frame, once, at the top.
 local function PressEscape()
     DebindFrame:OnKeyDown("ESCAPE")
+    DebindAddFrame:Hide()
     DebindPasteFrame:Hide()
     DebindCopyFrame:Hide()
     DebindMessageFrame:Hide()
@@ -4401,7 +4402,13 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
             return Fail(NAME, "the premise is gone: the entry holds no action at all")
         end
 
-        panel:OnAddClicked(true)
+        -- The press, then the button in the dialog it opens (`DebindAddFrame`).
+        AddTeardown(function() DebindAddFrame:CloseDialog() end)
+        panel:OnAddClicked()
+        if not DebindAddFrame:IsShown() then
+            return Fail(NAME, "[Add to My Bindings] did not open the add dialog")
+        end
+        DebindAddFrame.AcceptedButton:Click()
 
         local dialog = StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED")
         if not dialog then
@@ -5801,8 +5808,8 @@ RegisterTest("Switches tab: a usage row carries the reader to the action", {
 })
 
 --- **One press is one rung, and everything registered in `UISpecialFrames` goes down together.**
---- The window and both sharing dialogs are all in that table, so the sweep behind one ESCAPE hides
---- all three at once; what puts two of them back and closes exactly one is the pair
+--- The window and the sharing dialogs are all in that table, so the sweep behind one ESCAPE hides
+--- them all at once; what puts the rest back and closes exactly one is the pair
 --- `DebindDialogMixin:OnDialogHide` and `DebindFrameMixin:OnHide`. Break either and one press takes
 --- the dialog and the window together, or leaves a dialog standing over nothing.
 ---
@@ -5825,16 +5832,20 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         AddTeardown(function()
             DebindCopyFrame.Output.EditBox:ClearFocus()
             DebindPasteFrame.Input.EditBox:ClearFocus()
+            DebindAddFrame:CloseDialog()
             DebindPasteFrame:CloseDialog()
             DebindCopyFrame:CloseDialog()
             DebindFrame:CloseWindow()
         end)
 
-        -- Both are stood up.
+        -- All three are stood up. **The add dialog is a top-level frame**, so a missing rung does
+        -- not just take two at once: the window goes and the dialog stays up over nothing.
         DebindCopyFrame:ShowText("DEBIND-TEST")
         DebindPasteFrame:Open()
+        DebindAddFrame:Open(true, true, nil)
 
         local steps = {
+            { frame = DebindAddFrame,   name = "the add dialog" },
             { frame = DebindPasteFrame, name = "the paste dialog" },
             { frame = DebindCopyFrame,  name = "the copy dialog" },
         }
@@ -5862,14 +5873,14 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
             end
         end
 
-        -- And the window closes only **after** all three are gone. Without this line, the pass above
+        -- And the window closes only **after** every dialog is gone. Without this line, the pass above
         -- is explained just as well by "ESC does nothing".
         PressEscape()
         if DebindFrame:IsShown() then
             return Fail(NAME, "every dialog has closed and the window does not close on ESC")
         end
 
-        return Pass(NAME, "stepped back one at a time: import, paste, copy, then the window")
+        return Pass(NAME, "stepped back one at a time: add, paste, copy, then the window")
     end,
 })
 
@@ -5938,9 +5949,20 @@ RegisterTest("Escape: a close the window did not ask for is undone", {
             return Fail(NAME, "a sweep with the Sharing tab up threw away what was typed")
         end
 
+        -- The add dialog belongs to the tab the same way, and a sweep brings it back the same way.
+        DebindAddFrame:Open(false, false, nil)
+        AddTeardown(function() DebindAddFrame:CloseDialog() end)
+        DebindAddFrame:Hide()
+        if not DebindAddFrame:IsShown() then
+            return Fail(NAME, "the add dialog was swept out and stayed down")
+        end
+
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
         if DebindPasteFrame:IsShown() then
             return Fail(NAME, "leaving the tab left the paste box up")
+        end
+        if DebindAddFrame:IsShown() then
+            return Fail(NAME, "leaving the tab left the add dialog up")
         end
 
         DebindPasteFrame.Input.EditBox:ClearFocus()

@@ -223,7 +223,8 @@ local function ClassIcon(class)
     return CreateAtlasMarkup(GetClassAtlas(strlower(class)), 16, 16);
 end
 
---- Who made it, or what it came from: the class icon, then a name, in the class's colour.
+--- The row's name if it has one, else who made it or what it came from: the class icon, then
+--- that, in the class's colour.
 ---
 --- **The icon is where the class lives, and it is in the same place on every row** (2026-08-22,
 --- 소유자). The words beside it are not the same thing twice: a row made here says which character,
@@ -246,7 +247,12 @@ local function EntrySender(entry)
     local class = EntryClass(entry);
     local text;
 
-    if (entry.character and entry.realm) then
+    -- **A name, where the row has one, is what it is called** (소유자, 2026-09-24). Only a paste
+    -- the reader named and a Clique profile carry one, and the second has no class or character to
+    -- fall back to.
+    if (entry.name and entry.name ~= "") then
+        text = entry.name;
+    elseif (entry.character and entry.realm) then
         text = format(FULL_PLAYER_NAME, entry.character, entry.realm);
     elseif (entry.character) then
         text = entry.character;
@@ -377,13 +383,6 @@ function DebindStorageEntryRowMixin:OnEnter()
         EntryDate(entry)));
     GameTooltip_AddNormalLine(GameTooltip,
         format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry)));
-
-    -- **What the reader called it, which is the only thing here a person wrote.** No caption in
-    -- front of it: it is their own words, and a label on them would be the tooltip explaining the
-    -- reader to themselves.
-    if (entry.name and entry.name ~= "") then
-        GameTooltip_AddNormalLine(GameTooltip, entry.name);
-    end
 
     GameTooltip:Show();
 end
@@ -707,27 +706,6 @@ local function BuildPreviewLayers(payload)
     return order;
 end
 
---- The two ways the same press can land, behind the [Add] button (2026-08-23, 소유자).
----
---- **The button asks rather than doing.** Adding is the one press on this screen that changes the
---- reader's own bindings, and the two ways it can land are not a detail: one leaves everything
---- switched off for them to go through, the other switches it on where the sender had it. A button
---- that picked one of those on their behalf would be picking the interesting half.
----
---- **The items say how, because the button already said what.** Repeating the verb inside would
---- leave the reader reading the same words twice to find the one clause that differs.
-local function SetupAddMenu(_, rootDescription)
-    local description = rootDescription:CreateButton(LLL["STORAGE_ADD_QUARANTINED"], function()
-        DebindStoragePanel:OnAddClicked();
-    end);
-    DebindUI.SetInstructionTooltip(description, LLL["STORAGE_ADD_QUARANTINED_DESC"]);
-
-    description = rootDescription:CreateButton(LLL["STORAGE_ADD_ACCEPTED"], function()
-        DebindStoragePanel:OnAddClicked(true);
-    end);
-    DebindUI.SetInstructionTooltip(description, LLL["STORAGE_ADD_ACCEPTED_DESC"]);
-end
-
 --- The Clique profiles, one row each, with who uses it and how many actions it becomes.
 local function AddCliqueProfiles(parent)
     for _, profile in ipairs(Store().CliqueProfiles(_G.CliqueDB3)) do
@@ -735,11 +713,12 @@ local function AddCliqueProfiles(parent)
             DebindStoragePanel:OnCliqueProfileClicked(profile);
         end);
         local _, count = Store().PayloadFromCliqueBindings(profile.bindings);
-        local users = #profile.characters > 0 and table.concat(profile.characters, ", ")
+        local users = #profile.characters > 0
+            and format(LLL["STORAGE_CLIQUE_PROFILE_USERS"], table.concat(profile.characters, ", "))
             or LLL["STORAGE_CLIQUE_PROFILE_NO_USERS"];
         description:SetTooltip(function(tooltip)
             GameTooltip_SetTitle(tooltip, profile.name);
-            GameTooltip_AddNormalLine(tooltip, format(LLL["STORAGE_CLIQUE_PROFILE_USERS"], users));
+            GameTooltip_AddNormalLine(tooltip, users);
             GameTooltip_AddNormalLine(tooltip, format(LLL["STORAGE_CLIQUE_PROFILE_COUNT"], count));
         end);
     end
@@ -763,8 +742,9 @@ local function SetupCreateMenu(_, rootDescription)
     if (DebindPrivate.CliqueDetected and _G.CliqueDB3) then
         AddCliqueProfiles(clique);
     else
+        -- The error line, which is what the action menus give a greyed item (`CreateBlockedMenuItem`).
         clique:SetEnabled(false);
-        DebindUI.SetInstructionTooltip(clique, LLL["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"]);
+        DebindPrivate.MenuKit.SetErrorTooltip(clique, LLL["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"]);
     end
 end
 
@@ -804,9 +784,7 @@ function DebindStoragePanelMixin:OnLoad()
     self.PortraitRow.CreatePortrait:SetScript("OnClick", function(button)
         MenuUtil.CreateContextMenu(button, SetupCreateMenu);
     end);
-    self.Preview.AddButton:SetScript("OnClick", function(button)
-        MenuUtil.CreateContextMenu(button, SetupAddMenu);
-    end);
+    self.Preview.AddButton:SetScript("OnClick", function() self:OnAddClicked(); end);
     self.Preview.CopyButton:SetScript("OnClick", function() self:OnCopyClicked(); end);
     self.Preview.SelectAllCheck:SetScript("OnClick", function() self:OnSelectAllClicked(); end);
 
@@ -926,6 +904,10 @@ end
 --- (`OnShow`), and cutting actions out of the entry that is showing is not either
 --- (`RebuildPreviewLayers`).
 function DebindStoragePanelMixin:SelectEntry(entry)
+    -- The add dialog answers for the entry that was picked when it opened (소유자, 2026-09-24).
+    if (entry ~= self.selectedEntry) then
+        DebindAddFrame:CloseDialog();
+    end
     self.selectedEntry = entry;
     wipe(self.selected);
     wipe(self.collapsed);
@@ -1173,13 +1155,42 @@ function DebindStoragePanelMixin:OnCliqueProfileClicked(profile)
     self:SelectEntry(entry);
 end
 
+--- [Add to My Bindings]: the dialog that asks how, and for a Clique entry where
+--- (`importing-clique-profiles.md` §3), since the file names no layer and no class for its
+--- specialization numbers.
+function DebindStoragePanelMixin:OnAddClicked()
+    local entry = self.selectedEntry;
+    if (not entry) then
+        return;
+    end
+
+    local payload = entry.payload;
+    local fromClique = payload and payload.source == Store().SOURCE_CLIQUE;
+    DebindAddFrame:Open(fromClique, fromClique and self:SelectionHasCliqueSpecs(),
+        function(accept, layer, specs)
+            self:CommitSelected(entry, accept, layer, specs);
+        end);
+end
+
+--- Whether any ticked action still carries a specialization restriction once one that ticks every
+--- specialization of this class counts as none (`CliqueActionHasSpecs`). That is when the dialog
+--- asks about them at all.
+function DebindStoragePanelMixin:SelectionHasCliqueSpecs()
+    for action in pairs(self.selected) do
+        if (Store().CliqueActionHasSpecs(action)) then
+            return true;
+        end
+    end
+    return false;
+end
+
 --- An entry's ticked actions go into the profile.
 ---
---- **Both menu items land the same way**, badged, and `accept` says whether to take the badges off
+--- **Both buttons land the same way**, badged, and `accept` says whether to take the badges off
 --- again on the spot. It used to be a flag that reached down into the plan and left the badge off,
 --- which put the actions live on the sender's keys with nothing asked -- and where the reader
 --- already used one of those keys, that is a merge they never chose. Accepting is the path that
---- asks about exactly that, so the second item goes through it (2026-08-23, 소유자).
+--- asks about exactly that, so the second button goes through it (2026-08-23, 소유자).
 ---
 --- **The message afterwards is not decoration.** What lands is quarantined and greyed out, so from
 --- the reader's side the screen barely moves: without a line saying what happened and where to go
@@ -1187,38 +1198,7 @@ end
 ---
 --- **Which line depends on what the approval did, not on what was asked for.** A key nobody uses is
 --- accepted where it stands and the actions are live; an occupied one puts a prompt up, and until
---- it is answered the true thing to say is what the other item's line says.
----
---- **A Clique entry asks two things first** (`importing-clique-profiles.md` §3): which layer, since
---- the file names none, and what to do with its specialization numbers, since the file names no
---- class for them either. The dialog answers and then this lands the same way.
-function DebindStoragePanelMixin:OnAddClicked(accept)
-    local entry = self.selectedEntry;
-    if (not entry) then
-        return;
-    end
-
-    local payload = entry.payload;
-    if (payload and payload.source == Store().SOURCE_CLIQUE) then
-        DebindCliqueAddFrame:Open(self:SelectionHasCliqueSpecs(), function(layer, specs)
-            self:CommitSelected(entry, accept, layer, specs);
-        end);
-        return;
-    end
-    self:CommitSelected(entry, accept);
-end
-
---- Whether any ticked action carries Clique's specialization numbers, which is when the dialog asks
---- about them at all.
-function DebindStoragePanelMixin:SelectionHasCliqueSpecs()
-    for action in pairs(self.selected) do
-        if (type(action.untranslated) == "table" and next(action.untranslated) ~= nil) then
-            return true;
-        end
-    end
-    return false;
-end
-
+--- it is answered the true thing to say is what the other button's line says.
 function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs)
     local placed, skipped, actions = Store().CommitEntry(entry, {
         selection = self.selected,
@@ -1401,9 +1381,14 @@ end
 --- text that caused it. Closing first and reporting into the chat frame would leave the reader with
 --- a message and nothing to fix.
 function DebindPasteFrameMixin:Accept()
+    local text = self.Input.EditBox:GetText();
     local name = strtrim(self.NameBox:GetText());
-    local entry, reason = Store().ImportEntry(self.Input.EditBox:GetText(),
-        name ~= "" and name or nil);
+    -- **A Clique code left unnamed is named for what it is** (`importing-clique-profiles.md` §1).
+    -- It carries no profile name, and no class or character for the row to fall back to either.
+    if (name == "" and Store().IsCliqueString(text)) then
+        name = LLL["STORAGE_CLIQUE_CODE_NAME"];
+    end
+    local entry, reason = Store().ImportEntry(text, name ~= "" and name or nil);
 
     if (not entry) then
         self.ErrorHolder.Text:SetText(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"]);
@@ -1420,38 +1405,60 @@ end
 
 
 --------------------------------------------------------------------------------
--- Adding a Clique entry
+-- Adding an entry
 --------------------------------------------------------------------------------
 
---- Where a Clique entry goes and what becomes of its specialization numbers
---- (`importing-clique-profiles.md` §3). **Two axes, two dropdowns**: the specialization answer does
---- not depend on the layer except that General has only one, and a single list of every pair would
---- run to five lines that hide it.
+--- How an entry's ticked actions go in, and for a Clique entry where and what becomes of its
+--- specialization numbers (`importing-clique-profiles.md` §3).
+---
+--- **Two axes, two dropdowns**: the specialization answer does not depend on the layer except that
+--- General has only one, and a single list of every pair would run to lines that hide it.
 ---
 --- **Only this character's class and this character.** What is added has to be checkable on the
 --- spot, and another class's or another character's layer cannot be looked at from here (소유자).
-DebindCliqueAddFrameMixin = {};
+DebindAddFrameMixin = {};
 
 local CLIQUE_LAYERS = { "general", "class", "character" };
-local CLIQUE_SPECS = { "convert", "drop" };
+--- In the order offered, the first being the default: a specialization's actions belong on its own
+--- layer, which is how this addon is meant to be used (소유자, 2026-09-24).
+local CLIQUE_SPECS = { "layers", "convert", "drop" };
 
 --- **The window's own name for each layer** (`GetLayerLabel`), so the dialog says what the layer
 --- list on the left says once the actions are there.
+---
+--- **Coloured the way the Switches tab colours them** (소유자, 2026-09-24): the account-wide layer
+--- in `ACCOUNT_COLOR`, the other two in this character's class colour.
 local function CliqueLayerLabel(layer)
-    return DebindUI.GetLayerLabel(DebindUI.GetLayerIDForAddress(layer, 0));
+    local label = DebindUI.GetLayerLabel(DebindUI.GetLayerIDForAddress(layer, 0));
+    local color = layer == "general" and DebindUI.ACCOUNT_COLOR
+        or GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
+    return color:WrapTextInColorCode(label);
 end
 
 local CLIQUE_SPEC_LABELS = {
-    convert = "STORAGE_CLIQUE_SPECS_CONVERT",
-    drop = "STORAGE_CLIQUE_SPECS_DROP",
+    layers = "STORAGE_ADD_SPECS_LAYERS",
+    convert = "STORAGE_ADD_SPECS_CONVERT",
+    drop = "STORAGE_ADD_SPECS_DROP",
 };
 
-function DebindCliqueAddFrameMixin:OnLoad()
-    self:InitDialog(LLL["STORAGE_CLIQUE_ADD_TITLE"]);
-    self.LayerLabel:SetText(LLL["STORAGE_CLIQUE_LAYER"]);
-    self.SpecsLabel:SetText(LLL["STORAGE_CLIQUE_SPECS"]);
-    self.Note:SetText(LLL["STORAGE_CLIQUE_ADD_NOTE"]);
-    self.AcceptButton:SetText(LLL["STORAGE_CLIQUE_ADD_ACCEPT"]);
+local function SetButtonTooltip(button, text)
+    button:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+        GameTooltip_SetTitle(GameTooltip, button:GetText());
+        GameTooltip_AddNormalLine(GameTooltip, text);
+        GameTooltip:Show();
+    end);
+    button:SetScript("OnLeave", GameTooltip_Hide);
+end
+
+function DebindAddFrameMixin:OnLoad()
+    self:InitDialog(LLL["STORAGE_ADD"]);
+    self.LayerLabel:SetText(LLL["STORAGE_ADD_LAYER"]);
+    self.SpecsLabel:SetText(LLL["STORAGE_ADD_SPECS"]);
+    self.PendingButton:SetText(LLL["STORAGE_ADD_QUARANTINED"]);
+    self.AcceptedButton:SetText(LLL["STORAGE_ADD_ACCEPTED"]);
+    SetButtonTooltip(self.PendingButton, LLL["STORAGE_ADD_QUARANTINED_DESC"]);
+    SetButtonTooltip(self.AcceptedButton, LLL["STORAGE_ADD_ACCEPTED_DESC"]);
 
     self.LayerDropdown:SetupMenu(function(_, rootDescription)
         for _, layer in ipairs(CLIQUE_LAYERS) do
@@ -1464,58 +1471,98 @@ function DebindCliqueAddFrameMixin:OnLoad()
         end
     end);
 
-    -- **General has one answer, so the other is greyed rather than taken away.** A condition naming
-    -- one class on a layer every class reads means nothing.
     self.SpecsDropdown:SetupMenu(function(_, rootDescription)
+        local className = Constants.CLASS_NAMES[Constants.PLAYER_CLASS];
         for _, specs in ipairs(CLIQUE_SPECS) do
-            local description = rootDescription:CreateRadio(LLL[CLIQUE_SPEC_LABELS[specs]], function()
+            local label = format(LLL[CLIQUE_SPEC_LABELS[specs]], className);
+            local description = rootDescription:CreateRadio(label, function()
                 return self:SpecsAnswer() == specs;
             end, function()
                 self.specs = specs;
                 self:Refresh();
             end);
-            if (specs == "convert" and self.layer == "general") then
-                description:SetEnabled(false);
+            if (specs == "layers") then
+                description:SetTooltip(function(tooltip, elementDescription)
+                    GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
+                    GameTooltip_AddNormalLine(tooltip, LLL["STORAGE_ADD_SPECS_LAYERS_DESC"]);
+                end);
             end
         end
     end);
 
-    self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
+    self.PendingButton:SetScript("OnClick", function() self:Accept(false); end);
+    self.AcceptedButton:SetScript("OnClick", function() self:Accept(true); end);
     self.CancelButton:SetScript("OnClick", function() self:CloseDialog(); end);
 end
 
 --- What the specialization dropdown stands on: the reader's pick, except on General.
-function DebindCliqueAddFrameMixin:SpecsAnswer()
+function DebindAddFrameMixin:SpecsAnswer()
     if (self.layer == "general") then
         return "drop";
     end
     return self.specs;
 end
 
-function DebindCliqueAddFrameMixin:Refresh()
+--- Stacks what is shown from the top of `ContentArea` and fits the dialog's height to it.
+function DebindAddFrameMixin:Layout()
+    local GROUP_GAP, LABEL_GAP = 16, 6;
+    local width = self.ContentArea:GetWidth();
+    local y = 0;
+    local function Stack(region, gap)
+        if (not region:IsShown()) then
+            return;
+        end
+        region:ClearAllPoints();
+        region:SetPoint("TOPLEFT", self.ContentArea, "TOPLEFT", 0, -(y + gap));
+        region:SetWidth(width);
+        y = y + gap + (region.GetStringHeight and region:GetStringHeight() or region:GetHeight());
+    end
+    Stack(self.Text, 0);
+    Stack(self.LayerLabel, GROUP_GAP);
+    Stack(self.LayerDropdown, LABEL_GAP);
+    -- The red text on General says "this layer", so it hangs off the dropdown that picked it.
+    Stack(self.SpecsText, self.layer == "general" and LABEL_GAP or GROUP_GAP);
+    Stack(self.SpecsLabel, GROUP_GAP);
+    Stack(self.SpecsDropdown, LABEL_GAP);
+    -- `ContentArea`'s insets (40 above, 25 below) and the button row under the stack.
+    self:SetHeight(40 + y + 24 + self.AcceptedButton:GetHeight() + 25);
+end
+
+--- **On General the specialization text turns red and says they are removed**, and the question
+--- under it goes: there is one answer and nothing to pick (소유자, 2026-09-24).
+function DebindAddFrameMixin:Refresh()
+    local general = self.layer == "general";
     self.LayerDropdown:GenerateMenu();
     self.SpecsDropdown:GenerateMenu();
-    self.SpecsDropdown:SetEnabled(self.layer ~= "general");
+    self.SpecsText:SetText(LLL[general and "STORAGE_ADD_SPECS_GENERAL" or "STORAGE_ADD_SPECS_TEXT"]);
+    self.SpecsText:SetTextColor((general and RED_FONT_COLOR or NORMAL_FONT_COLOR):GetRGB());
+    self.SpecsLabel:SetShown(self.asksSpecs and not general);
+    self.SpecsDropdown:SetShown(self.asksSpecs and not general);
+    self:Layout();
 end
 
---- `hasSpecs` is whether the ticked actions carry any specialization numbers. **Without them the
---- second question is not asked at all**, rather than asked about nothing.
-function DebindCliqueAddFrameMixin:Open(hasSpecs, onAccept)
+--- `fromClique` puts up the layer question; `hasSpecs` is whether any ticked action still carries a
+--- specialization restriction (`CliqueActionHasSpecs`). **Without one the specialization question
+--- is not asked at all**, rather than asked about nothing. `onAccept(accept, layer, specs)`.
+function DebindAddFrameMixin:Open(fromClique, hasSpecs, onAccept)
     self.onAccept = onAccept;
-    self.layer = "character";
-    self.specs = "convert";
-    self.SpecsLabel:SetShown(hasSpecs);
-    self.SpecsDropdown:SetShown(hasSpecs);
-    self:Refresh();
+    self.layer = "class";
+    self.specs = CLIQUE_SPECS[1];
+    self.Text:SetText(LLL[fromClique and "STORAGE_ADD_CLIQUE_TEXT" or "STORAGE_ADD_TEXT"]);
+    self.LayerLabel:SetShown(fromClique);
+    self.LayerDropdown:SetShown(fromClique);
+    self.asksSpecs = fromClique and hasSpecs;
+    self.SpecsText:SetShown(self.asksSpecs);
     self:Show();
+    self:Refresh();
 end
 
-function DebindCliqueAddFrameMixin:Accept()
+function DebindAddFrameMixin:Accept(accept)
     local onAccept = self.onAccept;
     self.onAccept = nil;
     self:CloseDialog();
     if (onAccept) then
-        onAccept(self.layer, self:SpecsAnswer());
+        onAccept(accept, self.layer, self:SpecsAnswer());
     end
 end
 

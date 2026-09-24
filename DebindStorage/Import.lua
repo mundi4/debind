@@ -774,8 +774,24 @@ end
 --- The storage scope each answer to "which layer" for a Clique payload is (`PlanArrival`).
 local CLIQUE_ADDRESSES = { general = "general", class = "class", character = "character" };
 
---- Clique's `spec1`..`spec5` flags as our index mask, or nil where none is set. They are numbers
---- with no class (Clique's `IsBindingCorrectSpec` compares them to `GetSpecialization()`).
+--- This character's class's specializations as an index mask, **without the initial one**
+--- (소유자, 2026-09-24).
+local function NamedSpecMask()
+    local mask = 0;
+    for _, spec in ipairs(DebindPrivate.EnumerateClassSpecs(Constants.CLASS_IDS[Constants.PLAYER_CLASS])) do
+        if (spec.index ~= Constants.INITIAL_SPEC_INDEX) then
+            mask = mask + Constants.SpecIndexFlag(spec.index);
+        end
+    end
+    return mask;
+end
+
+--- Clique's `spec1`..`spec5` flags as our index mask, or nil where they restrict nothing. They are
+--- numbers with no class (Clique's `IsBindingCorrectSpec` compares them to `GetSpecialization()`).
+---
+--- **Every one of this class's specializations ticked is no condition at all** (소유자, 2026-09-24),
+--- and it is settled here, before anything is asked: the dialog asks about specializations only
+--- when an action is left that this answers for.
 local function CliqueSpecMask(untranslated)
     if (luatype(untranslated) ~= "table") then
         return nil;
@@ -786,7 +802,18 @@ local function CliqueSpecMask(untranslated)
             mask = mask + Constants.SpecIndexFlag(index);
         end
     end
-    return mask > 0 and mask or nil;
+    local named = NamedSpecMask();
+    if (mask == 0 or bit.band(mask, named) == named) then
+        return nil;
+    end
+    return mask;
+end
+
+--- Whether an action of a Clique payload still carries a specialization restriction for this
+--- character's class once `CliqueSpecMask` has had its say. The add dialog asks it of the ticked
+--- actions to decide whether to ask about specializations at all.
+function DebindStorage.CliqueActionHasSpecs(action)
+    return luatype(action) == "table" and CliqueSpecMask(action.untranslated) ~= nil;
 end
 
 --- Where each action of `payload` lands, and what it becomes.
@@ -830,20 +857,22 @@ end
 --- preview column replaced both: a reader looking at the actions themselves has no reason to be
 --- asked about the layers first, and the answer is no longer worth a window of its own
 --- (`building-export-import.md` 12절). **A Clique entry is the exception** (below): it has no
---- layers to show, so where it goes is a question and `DebindCliqueAddFrame` asks it.
+--- layers to show, so where it goes is a question and `DebindAddFrame` asks it.
 ---
 --- **A Clique payload is the one that is asked where to go** (`importing-clique-profiles.md` §3).
 --- The file names no layer and no class, so it waits in General and `options.layer` (`"general"`,
 --- `"class"` or `"character"`, this character's own) places all of it. `options.specs` says what
---- becomes of the specialization numbers waiting in `untranslated`: `"convert"` makes them this
---- class's condition and `"drop"` drops them. General drops them whatever is asked: one class's
---- condition on a layer every class reads means nothing.
+--- becomes of the specialization numbers waiting in `untranslated`: `"layers"` puts a copy of the
+--- action in each of those specializations' layers under the picked one, `"convert"` makes them
+--- this class's condition and `"drop"` drops them. General drops them whatever is asked: one
+--- class's condition on a layer every class reads means nothing.
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
     local fromClique = payload.source == DebindStorage.SOURCE_CLIQUE;
     local layer = fromClique and options and options.layer or "general";
-    local convertSpecs = fromClique and layer ~= "general" and options.specs == "convert";
+    local specsAnswer = fromClique and layer ~= "general" and options.specs;
+    local named = fromClique and NamedSpecMask();
     -- **One number for the whole call**, because one call is one arrival. Every action of it lands
     -- badged with the same value, which is what keeps a set that spans four layers one set.
     --
@@ -865,36 +894,65 @@ function DebindStorage.PlanArrival(payload, options)
             return;
         end
 
+        --- One action built from `source`, badged, with nothing untranslated left on it.
+        local function Build(source)
+            local action = BuildAction(source);
+
+            -- **The badge. Nothing else is done to the key**: it is the sender's, it is a real
+            -- key, and it is half of the group this action lands in.
+            arrivalID = arrivalID or DebindPrivate.NextArrivalID();
+            action.arrivalID = arrivalID;
+
+            -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
+            -- here as well so a hand-made string cannot walk one in: a number is a place among
+            -- the actions sharing a key, and there is no key to be a place in.
+            if (action.key == nil) then
+                action.seq = nil;
+            end
+
+            -- **Nothing untranslated goes past here.** It is read only as the shape its source
+            -- wrote, and a source this version does not know has no shape to read.
+            action.untranslated = nil;
+            return action;
+        end
+
         for _, source in ipairs(list) do
             -- Unticked is offered and turned down, which is an answer rather than a failure, so it
             -- is passed over rather than counted.
             if (not selection or selection[source]) then
-                local action = BuildAction(source);
+                local specMask = fromClique and CliqueSpecMask(source.untranslated);
 
-                -- **The badge. Nothing else is done to the key**: it is the sender's, it is a real
-                -- key, and it is half of the group this action lands in.
-                arrivalID = arrivalID or DebindPrivate.NextArrivalID();
-                action.arrivalID = arrivalID;
-
-                -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
-                -- here as well so a hand-made string cannot walk one in: a number is a place among
-                -- the actions sharing a key, and there is no key to be a place in.
-                if (action.key == nil) then
-                    action.seq = nil;
+                if (specsAnswer == "layers" and specMask) then
+                    -- **Numbers this class has no specialization for have no layer**, and an action
+                    -- left with none of its own is counted as having nowhere to go.
+                    local placed = false;
+                    for index = 1, MAX_SPEC do
+                        local flag = Constants.SpecIndexFlag(index);
+                        if (bit.band(specMask, flag) ~= 0 and bit.band(named, flag) ~= 0) then
+                            local specScope, specClass, specIndex =
+                                DebindStorage.ImportAddress(listScope, listClass, index);
+                            if (specScope) then
+                                placements[#placements + 1] = {
+                                    scope = specScope, class = specClass, spec = specIndex,
+                                    action = Build(source),
+                                };
+                                placed = true;
+                            end
+                        end
+                    end
+                    if (not placed) then
+                        skipped = skipped + 1;
+                    end
+                else
+                    local action = Build(source);
+                    if (specsAnswer == "convert" and specMask) then
+                        action.conditions = action.conditions or {};
+                        action.conditions.specs = { [Constants.CLASS_IDS[Constants.PLAYER_CLASS]] = specMask };
+                    end
+                    placements[#placements + 1] = {
+                        scope = scope, class = class, spec = spec, action = action,
+                    };
                 end
-
-                -- **Nothing untranslated goes past here.** It is read only as the shape its source
-                -- wrote, and a source this version does not know has no shape to read.
-                local specMask = fromClique and CliqueSpecMask(action.untranslated);
-                action.untranslated = nil;
-                if (convertSpecs and specMask) then
-                    action.conditions = action.conditions or {};
-                    action.conditions.specs = { [Constants.CLASS_IDS[Constants.PLAYER_CLASS]] = specMask };
-                end
-
-                placements[#placements + 1] = {
-                    scope = scope, class = class, spec = spec, action = action,
-                };
             end
         end
     end);
