@@ -234,7 +234,7 @@ local FIXED_COLUMNS = {
     -- there is where that reasoning lives. What arrives is a set of bindings whose specialization
     -- condition is true everywhere in this space, and the full mask is how that is spelled.
     --
-    -- **`talents` is the same, and for the same reason** (`Debind/Talents.lua`). A talent cannot
+    -- **`talents` is the same, and for the same reason** (`Talents.lua`). A talent cannot
     -- change in combat and every change that moves one rebuilds everything, so the answer is a
     -- constant for the life of this build and `BuildKeyMap` has already spent it.
 };

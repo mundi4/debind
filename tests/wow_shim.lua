@@ -672,7 +672,7 @@ function M.install()
         GetDefinitionInfo = function(definitionID)
             return (M.world.traits.definitions or {})[definitionID];
         end,
-        --- The three the talent condition's **menu** reads (`Debind/Talents.lua`): the tree's
+        --- The three the talent condition's **menu** reads (`Talents.lua`): the tree's
         --- currencies tell the class panel from the specialization one, a node's cost says which
         --- of them it belongs to, and a subtree is a hero tree. Empty is a world that says every
         --- node is the specialization's, which is what a spec that does not care about the split
@@ -1074,7 +1074,7 @@ function M.install()
     _G.ALL_SPECS = "All Specializations";
     _G.UNCHECK_ALL = "Uncheck All";
     --- The talent condition's pvp branch is named by the client, the way its class, specialization
-    --- and hero branches are (`Debind/Talents.lua`).
+    --- and hero branches are (`Talents.lua`).
     _G.PVP_TALENTS = "PvP Talents";
 
     --- **One binding command that resolves.** `ActionDisplay` asks `_G["BINDING_NAME_" .. value]`

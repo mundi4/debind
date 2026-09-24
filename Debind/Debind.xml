@@ -6,7 +6,7 @@
     <Script file="Client/TalentTree.lua"/>
     <Script file="SpecSpells.lua"/>
     <Script file="Spells.lua"/>
-    <Script file="Talents.lua"/>
+    <Script file="Conditions/Talents.lua"/>
     <Script file="Snippets.lua"/>
     <Script file="Ordering.lua"/>
     <Script file="Solver.lua"/>

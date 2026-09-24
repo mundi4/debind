@@ -185,7 +185,7 @@ local CONDITION_TYPES    = {
     -- not. **What is inside is not filtered either**, for the reason above: an id this client
     -- cannot name matches no talent, which makes the condition true less often. The reader walks
     -- the two lists rather than indexing them, so it skips what is not a number
-    -- (`Debind/Talents.lua`).
+    -- (`Talents.lua`).
     talents = "table",
     known = "boolean|number|string",
     combat = "boolean",

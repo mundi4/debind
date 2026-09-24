@@ -105,7 +105,7 @@ local DEBIND_FILES = {
     "Client/TalentTree.lua",
     "SpecSpells.lua",
     "Spells.lua",
-    "Talents.lua",
+    "Conditions/Talents.lua",
     "Snippets.lua",
     "Ordering.lua",
     "Solver.lua",
