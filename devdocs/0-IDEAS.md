@@ -137,3 +137,20 @@ SavedVariables에 모은다. 조회는 `setmetatable`로 한 표처럼 보이게
 
 **무엇이 바뀌면 다시 보나.** 그 판이 나가고 나면. `DebindUI.lua` 가르기의 C안이 이 넷 뒤에 서 있어서
 (`breaking-up-debindui.md`), 같이 풀린다.
+
+## 공유 코드를 클라이언트 API로 (2026-09-24)
+
+**무엇.** 공유 코드의 직렬화, 압축, 인코딩을 `DebindStorage`에 실은 LibSerialize와 LibDeflate 대신
+클라이언트의 `C_EncodingUtil`로 한다. `Serialize`/`Deserialize`(JSON, CBOR), `CompressString`/
+`DecompressString`, `EncodeBase64`/`EncodeHex`가 다 있고, reference의 mainline과 forever 문서에 둘 다
+있다. Clique 5.0.14가 이 API로 `CL02:`를 내보내면서 알았다(`importing-clique-profiles.md`). 우리 쪽이면
+CBOR이다. JSON은 표의 키를 전부 문자열로 만들어서, 전문화 층 `[0]`~`[4]`와 `conditions.specs`의 직업 id 키가
+`"102"`처럼 되어 돌아온다. 이미 나간 `DEB1:`은 계속 풀어야 하므로, 새 접두어로 내보내고 옛 것은 받기만
+하는 모양이 된다. Clique가 `CL01`에서 `CL02`로 간 모양과 같다. 라이브러리를 버리는 날 Clique의 `CL01:`
+받기도 같이 버린다(`importing-clique-profiles.md` §1).
+
+**왜 지금 안 하나.** 이 세션은 Clique 가져오기다. 후속 세션에서 다룬다 (2026-09-24, 소유자). 게임에서 잰
+것도 아직 없다.
+
+**무엇이 바뀌면 다시 보나.** 후속 세션이 이것을 잡을 때. 그때 앞에 서는 물음은 두 클라이언트에서 CBOR이
+우리 payload를 그대로 되돌려주는지다.
