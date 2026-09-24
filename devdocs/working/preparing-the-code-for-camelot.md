@@ -9,8 +9,8 @@
 
 ## 1. 목표와 지킬 것
 
-**목표.** `loadstring` 게이트(`shipping-on-the-camelot-client.md` 3절)가 풀리는 날 카멜롯 판을 태그
-하나로 낼 수 있는 상태.
+**목표.** 카멜롯 판을 태그 하나로 낼 수 있는 상태. 막던 `loadstring` 게이트
+(`shipping-on-the-camelot-client.md` 3절)는 1.60.1.70009에서 풀렸다.
 
 **지킬 것: 정식 서비스에서 동작이 안 바뀐다.** 단계마다 `npm run check`가 초록이고,
 `tools/snippet-golden.txt`와 emit 골든의 바이트가 그대로다. 바이트를 바꾸는 단계는 왜 바뀌는지를
@@ -99,7 +99,8 @@
 `LiveAPI`, 그리고 `Events.lua`의 `TRAIT_CONFIG_UPDATED` 처리다. 그룹을 바꿀 때 이 값이 따라오는지,
 어떤 이벤트가 오는지는 소스로 안 닿는다. 프로브의 spec groups 구역과 events 구역이 잰다.
 
-2레벨까지는 그룹이 하나뿐이라(`GetNumSpecGroups` 1, 그룹 2의 설정 nil) 바꾸는 순간은 아직 못 쟀다.
+7레벨까지는 그룹이 하나뿐이라(`GetNumSpecGroups` 1, 그룹 2의 설정 nil) 바꾸는 순간은 아직 못 쟀다
+(드루이드 2레벨, 마법사 7레벨, 70009까지).
 
 - 따라오면 층이 필요 없다. 재빌드 트리거만 확인한다.
 - 안 따라오면 **`Client.ActiveConfigID()`**가 카멜롯에서 `GetCombatConfigIDForSpecGroup(GetActiveSpecGroup())`를
@@ -185,7 +186,8 @@ Fireball 2등급(143)을 배우자 1등급이 낮은 등급으로 잡혔다(2026
 ### 3-6. 잰 값이 드러낸 고장 둘
 
 - **들어갔다. `GetFlyoutInfo(229)`가 카멜롯에서 에러를 던진다.** nil을 돌려주는 것이 아니라
-  "No flyout found"로 raise한다(69977, 레벨 2부터 5까지 매번). 모든 호출이 `Client.FlyoutInfo`
+  "No flyout found"로 raise한다(69977, 레벨 2부터 7까지 매번). 70009에서는 raise 없이 nil을 돌려준다
+  (2026-09-25). 모든 호출이 `Client.FlyoutInfo`
   (`Client/SpellBook.lua`)를 거치고, 그것이 raise를 nil로 바꾼다. 보너스 바 이름만이 아니라 공유
   문자열로 건너온 플라이아웃 액션도 이 클라이언트에 없는 번호를 들고 온다. 보너스 바 조건의 툴팁과
   메뉴가 따로 들던 이름 표는 `DebindPrivate.BonusBarLabel` 하나로 합쳤다.

@@ -43,9 +43,9 @@ end
 
 --- `GetFlyoutInfo`, answering nothing for a flyout the client does not have.
 ---
---- **Camelot raises for one instead** ("No flyout found for ID", 69977), where retail answers
---- nothing. A flyout id can come from somewhere other than this client's own book: the skyriding
---- one the bonus bar labels name, and any flyout action in a string brought over from retail.
+--- **Camelot 69977 raised for one instead** ("No flyout found for ID"), where retail answers
+--- nothing; 70009 answers nothing too. A flyout id can come from somewhere other than this
+--- client's own book: the skyriding one the bonus bar labels name, and any flyout action in a string brought over from retail.
 function Client.FlyoutInfo(flyoutID)
     local ok, name, description, numSlots, isKnown = pcall(GetFlyoutInfo, flyoutID);
     if (not ok) then

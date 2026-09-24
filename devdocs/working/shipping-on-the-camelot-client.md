@@ -1,9 +1,10 @@
 # 카멜롯 클라이언트에 올리기 (2026-09-22 시작)
 
-> 상태: **제안이고, 지금은 클라이언트가 막고 있다** (2026-09-22). 아무것도 안 들어갔다.
+> 상태: **제안이다. 클라이언트가 막던 것은 1.60.1.70009에서 풀렸다** (2026-09-25). 아무것도 안
+> 들어갔다.
 >
-> **1.60.1.69913과 69977에서는 스니펫이 컴파일되지 않는다.** 클라이언트 쪽 로드 순서 게이트가 빠진
-> 것이고 우리가 우회할 수 없다. 3절이 근거와 기다릴 것을 든다.
+> **1.60.1.69913과 69977에서는 스니펫이 컴파일되지 않았고, 70009에서는 컴파일된다.** 3절이 원인과
+> 고쳐진 줄을 든다.
 >
 > 그 밖의 근거는 `reference/wow-ui-source`의 두 체크아웃을 맞춰 본 것이다. `forever`가
 > 1.60.1.69913이고 `mainline`이 12.1.0.69587이다. 소스로 닿지 않는 것은 11절이 들고, 그것을
@@ -94,8 +95,10 @@
 > 2021년 불성 클래식 베타에서 같은 일이 있었고 그때는 고쳐졌다고 적혀 있다. 블리자드 답은 아직
 > 없다.
 >
-> 그래서 **기다릴 것은 블리자드가 그 `Dep` 줄에 `camelot`을 넣는 것**이고, 그 전까지 아래 계획은
-> 프로브로 값을 모으는 데까지만 갈 수 있다. 우리 쪽에 남은 확인은 이 줄이 고쳐졌는지 하나다.
+> **1.60.1.70009에서 고쳐졌다.** 2026-09-25에 소유자가 그 빌드에서 추출한 인터페이스 코드에서는
+> 그 줄이 게임 타입 조건 없는 `## OptionalDep: Blizzard_RestrictedAddOnEnvironment`로 바뀌었다.
+> 같은 날 프로브가 제한 환경에 있는 함수 36개를 전부 값으로 받았다(11절). `reference/wow-ui-source`의
+> `forever`는 아직 69913이라 옛 줄을 든다.
 
 우리 동작의 뼈대가 두 클라이언트에서 같다는 것은 파일 단위로 확인했다. **파일이 같다는 것이
 클라이언트가 그것을 받친다는 뜻은 아니라는 것이 위의 내용이다.**
@@ -105,7 +108,7 @@
 | `Blizzard_RestrictedAddOnEnvironment` 13개 파일 | **전부 diff 0.** `RestrictedEnvironment.lua`, `SecureHandlers.lua`, `SecureStateDriver.lua`, `SecureGroupHeaders.lua`가 바이트 단위로 같다 |
 | `SECURE_ACTIONS` 타입 집합 | 양쪽 29종이 완전히 같다. `worldmarker` `flyout` `toy` `pet` `equipmentset` `multispell` 포함 |
 | 우리가 부르는 `C_*` 함수 63개 | 전부 `forever`의 생성 문서에 있다 |
-| 스니펫 본문이 부르는 제한 환경 함수 전부 | 있다. `GetBonusBarOffset` `HasVehicleActionBar` `PlayerCanAssist` `FindSpellBookSlotBySpellID` 부류는 `RestrictedEnvironment.lua`, `SetBindingClick` · `ClearBinding` · `PetHasActionBar`는 `RestrictedFrames.lua`에 있고 두 파일 모두 diff 0이다 |
+| 스니펫 본문이 부르는 제한 환경 함수 전부 | 있다. `GetBonusBarOffset` `HasVehicleActionBar` `PlayerCanAssist` `FindSpellBookSlotBySpellID` 부류는 `RestrictedEnvironment.lua`, `SetBindingClick` · `ClearBinding`은 `RestrictedFrames.lua`에 있고 두 파일 모두 diff 0이다 |
 | 우리 XML이 상속하는 블리자드 템플릿 58개 | **전부 존재한다.** `WOW_UI_BRANCH=forever npm run check:templates`로 2026-09-22에 판정 |
 
 **생성 문서는 게임 타입으로 걸러진 목록이 아니다.** 두 클라이언트 모두 주택 관련 문서 20개를
@@ -223,12 +226,12 @@
 - `SpecSpells`의 카멜롯 아홉 키(6절). 프로브가 준 주문 번호가 입력이다.
 - 배포 갈래(9절). 이것만 태그 앞에 서야 하고 나머지와 순서가 엮이지 않는다.
 
-3절의 게이트가 고쳐지기 전에는 이 중 어느 것도 게임에서 확인할 수 없다. 스니펫이 안 서면 키가
-한 개도 안 나간다.
+3절의 게이트는 70009에서 고쳐졌으므로 이제 게임에서 확인할 수 있다.
 
 ## 11. 게임에서 잰 값
 
 **2026-09-22, 1.60.1.69913, 드루이드로.** 2026-09-23에 1.60.1.69977에서 다시 쟀고 아래 값은 그대로였다.
+2026-09-25에 1.60.1.70009에서 마법사로 다시 쟀고, 제한 환경 말고는 그대로였다.
 
 | 무엇 | 답 |
 |---|---|
@@ -242,7 +245,7 @@
 | 아틀라스 13개 | **전부 있다** |
 | 특성 트리 | 노드 51개가 전부 보인다. `subTreeID`를 든 노드 0개, 영웅 특성 nil, **PvP 슬롯은 있다** |
 | 비보안 호출 32개 | 전부 있다. `C_ToyBox` `C_AssistedCombat` `issecretvalue` 포함 |
-| 제한 환경 37개 | **전부 nil.** 3절이 그 이유다 |
+| 제한 환경 37개 | 69913과 69977에서는 **전부 nil.** 3절이 그 이유다. **70009에서는 36개가 값을 답한다** (2026-09-25, 마법사 7레벨). 남은 `PetHasActionBar()`는 제한 환경에 원래 없는 함수라 raise했고, 프로브 목록에서 뺐다 |
 | `SpecSpells` 후보 | 바닐라 주문만 있다. 4987 · 475 · 527 · 2782 · 1126 · 6673 · 21562 · 6940은 있고, 나머지 정식 서비스 번호는 없다 |
 
 **조건문이 하나도 안 빠졌다는 것이 4절을 다시 읽게 한다.** 축은 전부 설 수 있고, 갈리는 것은 그

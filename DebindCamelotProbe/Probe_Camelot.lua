@@ -29,9 +29,9 @@
 -- raises inside the body rather than answering nil, so each call gets its own `SecureHandlerExecute`
 -- and the failure names it. **On 1.60.1.69913 and 69977 every one of them raises**, because those
 -- builds never hand the restricted environment its compiler (`shipping-on-the-camelot-client.md`
--- §3). The raise lands in the error frame, which is why this is part of the once-per-build record:
--- one error per build rather than one per login. A line answering a value instead is the news that
--- the client was fixed.
+-- §3); 70009 answers all of them.
+-- A raise leaves the attribute unset, which reads back as "nil" just like a nil answer. The raise lands in the error frame, which is why this is part of
+-- the once-per-build record: one error per build rather than one per login.
 --
 -- **Blizzard templates are not in here.** `npm run check:templates` answers that one without the
 -- game: `WOW_UI_BRANCH=forever` judged all 58 of our inherited templates against this client's
@@ -99,7 +99,7 @@ local RESTRICTED = {
     "GetShapeshiftForm()", "GetBonusBarOffset()", "GetBonusBarIndex()", "GetActionBarPage()",
     "GetOverrideBarIndex()", "GetTempShapeshiftBarIndex()", "GetVehicleBarIndex()",
     "HasVehicleActionBar()", "HasOverrideActionBar()", "HasTempShapeshiftActionBar()",
-    "HasExtraActionBar()", "HasBonusActionBar()", "PetHasActionBar()", "HasAction(1)",
+    "HasExtraActionBar()", "HasBonusActionBar()", "HasAction(1)",
     "GetActionInfo(1)", "UnitExists('player')", "UnitIsDead('player')", "UnitIsGhost('player')",
     "UnitPlayerOrPetInParty('player')", "UnitPlayerOrPetInRaid('player')",
     "PlayerCanAssist('player')", "PlayerCanAttack('target')", "IsShiftKeyDown()",
@@ -263,7 +263,7 @@ end
 -- **`pcall` does not catch this one.** The raise happens inside the secure call, so the call
 -- returns normally and only the error frame shows it; what comes back is an attribute nobody wrote.
 -- So the gate reads the answer rather than the failure: one body is tried, and nothing written
--- means no body compiles on this client (3절), so the other 37 are not asked.
+-- means no body compiles on this client (§3), so the rest are not asked.
 local function Restricted()
     Emit("== restricted environment");
     local value, err = RestrictedAnswer("1");
@@ -454,8 +454,8 @@ local function FormsAndBars()
     end
     Emit("  GetBonusBarOffset %s  GetShapeshiftForm %s", tostring(GetBonusBarOffset()),
         tostring(GetShapeshiftForm()));
-    -- **This client raises for a flyout it does not have** rather than answering nil (69977), and
-    -- the raise used to end the section before the lines below.
+    -- **69977 raised for a flyout it does not have** rather than answering nil (70009 answers nil),
+    -- and the raise used to end the section before the lines below.
     local okFlyout, flyoutName = pcall(GetFlyoutInfo, 229);
     Emit("  GetFlyoutInfo(229) %s", okFlyout and tostring(flyoutName) or "RAISED");
     Emit("  CompactArenaFrame %s", Yes(_G.CompactArenaFrame));
