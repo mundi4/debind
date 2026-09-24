@@ -198,11 +198,102 @@ return function(DebindPrivate, DebindStorage)
 
         local placements = DebindStorage.PlanArrival(payload);
         check(#placements == 1 and placements[1].scope == "general", "placed");
-        check(placements[1].action.untranslated and placements[1].action.untranslated.spec2 == true,
-            "untranslated arrives");
 
         local filtered = DebindStorage.FilterPayload(payload, { [payload.shared.GENERAL[1]] = true });
         check(filtered.source == DebindStorage.SOURCE_CLIQUE, "a narrowed payload keeps its source");
+    end);
+
+    -- **Adding is where the layer and the class are known** (§3), so `PlanArrival` is where a
+    -- Clique payload leaves General and its specialization numbers become a condition or go.
+    local function FreshProfile()
+        local ME = "Player-1-CLIQUE";
+        _G.UnitGUID = function() return ME; end
+        _G.DebindVars = {
+            dbver = Constants.DB_VERSION,
+            shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+            characters = { [ME] = { layers = {}, switches = {} } },
+            migrated = {},
+            switches = {},
+        };
+        DebindPrivate.InitDB();
+    end
+
+    local function Plan(options)
+        FreshProfile();
+        local _, payload = Convert({
+            Spell("F", { default = true, spec1 = true, spec3 = true }),
+            { type = "spell", spell = "Regrowth", key = "G", sets = { default = true, friend = true,
+                spec2 = true } },
+            { type = "spell", spell = "Regrowth", key = "H", sets = { default = true } },
+        });
+        local placements = DebindStorage.PlanArrival(payload, options);
+        check(#placements == 3, #placements .. " placements");
+        return placements;
+    end
+
+    local CLASS_ID = Constants.CLASS_IDS[Constants.PLAYER_CLASS];
+
+    test("an added Clique payload lands in the layer picked", function()
+        local placements = Plan({ layer = "general" });
+        check(placements[1].scope == "general", "general: " .. tostring(placements[1].scope));
+
+        placements = Plan({ layer = "class" });
+        check(placements[1].scope == "class" and placements[1].class == Constants.PLAYER_CLASS
+            and placements[1].spec == 0, "class: " .. tostring(placements[1].scope));
+
+        placements = Plan({ layer = "character" });
+        check(placements[1].scope == "character" and placements[1].spec == 0,
+            "character: " .. tostring(placements[1].scope));
+    end);
+
+    test("the specialization numbers become this class's condition, or go", function()
+        local placements = Plan({ layer = "class", specs = "convert" });
+        local specs = placements[1].action.conditions and placements[1].action.conditions.specs;
+        check(specs and specs[CLASS_ID] == Constants.SpecIndexFlag(1) + Constants.SpecIndexFlag(3),
+            "converted: " .. tostring(specs and specs[CLASS_ID]));
+        local second = placements[2].action.conditions;
+        check(second.specs[CLASS_ID] == Constants.SpecIndexFlag(2), "beside another condition");
+        check(second.units["@"].reaction == Constants.REACTION_HELP, "the other condition kept");
+        check(placements[3].action.conditions == nil, "no numbers, no condition");
+
+        placements = Plan({ layer = "character", specs = "drop" });
+        check(placements[1].action.conditions == nil, "dropped");
+        check(placements[2].action.conditions.specs == nil, "dropped beside another");
+    end);
+
+    -- A condition naming one class on a layer every class reads means nothing (§3).
+    test("General drops the specialization numbers whatever is asked", function()
+        local placements = Plan({ layer = "general", specs = "convert" });
+        check(placements[1].action.conditions == nil, "general converted");
+    end);
+
+    test("nothing untranslated reaches the profile", function()
+        for _, options in ipairs({ { layer = "general" }, { layer = "class", specs = "convert" },
+                { layer = "character", specs = "drop" } }) do
+            for _, placement in ipairs(Plan(options)) do
+                check(placement.action.untranslated == nil, "left on an action under " .. options.layer);
+            end
+        end
+    end);
+
+    -- **The narrower answer when nobody said.** Dropping the numbers widens a binding to every
+    -- specialization, which is the direction a keybinding addon must not fail in.
+    test("with no answer the numbers become the condition", function()
+        local placements = Plan({ layer = "class" });
+        check(placements[1].action.conditions and placements[1].action.conditions.specs,
+            "no answer dropped them");
+    end);
+
+    test("a payload from nowhere we know has its untranslated dropped", function()
+        FreshProfile();
+        local payload = {
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            shared = { GENERAL = { { type = Constants.SPELL, value = "Regrowth", key = "F", seq = 1,
+                untranslated = { spec1 = true } } } },
+        };
+        local placements = DebindStorage.PlanArrival(payload);
+        check(placements[1].action.untranslated == nil and placements[1].action.conditions == nil,
+            "kept or read");
     end);
 
     test("the profiles of a CliqueDB3 come with the characters that use them", function()

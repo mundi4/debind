@@ -749,6 +749,24 @@ end
 -- The whole entry
 -- ---------------------------------------------------------------------------------------------
 
+--- The storage scope each answer to "which layer" for a Clique payload is (`PlanArrival`).
+local CLIQUE_ADDRESSES = { general = "general", class = "class", character = "character" };
+
+--- Clique's `spec1`..`spec5` flags as our index mask, or nil where none is set. They are numbers
+--- with no class (Clique's `IsBindingCorrectSpec` compares them to `GetSpecialization()`).
+local function CliqueSpecMask(untranslated)
+    if (luatype(untranslated) ~= "table") then
+        return nil;
+    end
+    local mask = 0;
+    for index = 1, 5 do
+        if (untranslated["spec" .. index] == true) then
+            mask = mask + Constants.SpecIndexFlag(index);
+        end
+    end
+    return mask > 0 and mask or nil;
+end
+
 --- Where each action of `payload` lands, and what it becomes.
 ---
 --- Returns a flat list of `{ scope, class, spec, action }`. **Nothing is written here** - building
@@ -790,9 +808,20 @@ end
 --- preview column replaced both: a reader looking at the actions themselves has no reason to be
 --- asked about the layers first, and the answer is no longer worth a window of its own
 --- (`building-export-import.md` 12절).
+---
+--- **A Clique payload is the one that is asked where to go** (`importing-clique-profiles.md` §3).
+--- The file names no layer and no class, so it waits in General and `options.layer` (`"general"`,
+--- `"class"` or `"character"`, this character's own) places all of it. `options.specs` says what
+--- becomes of the specialization numbers waiting in `untranslated`: `"convert"` makes them this
+--- class's condition and `"drop"` drops them. General drops them whatever is asked -- one class's
+--- condition on a layer every class reads means nothing -- and no answer converts, since dropping
+--- widens a binding to every specialization.
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
+    local fromClique = payload.source == DebindStorage.SOURCE_CLIQUE;
+    local layer = fromClique and options and options.layer or "general";
+    local convertSpecs = fromClique and layer ~= "general" and not (options and options.specs == "drop");
     -- **One number for the whole call**, because one call is one arrival. Every action of it lands
     -- badged with the same value, which is what keeps a set that spans four layers one set.
     --
@@ -805,6 +834,9 @@ function DebindStorage.PlanArrival(payload, options)
         -- to go is counted whatever the tick says: what has no address was never drawn for them to
         -- turn down, so reading the filter first would make those vanish silently - the window
         -- saying "brought in 2" and never mentioning the five that did not fit.
+        if (fromClique) then
+            listScope, listClass, listSpec = CLIQUE_ADDRESSES[layer], Constants.PLAYER_CLASS, 0;
+        end
         local scope, class, spec = DebindStorage.ImportAddress(listScope, listClass, listSpec);
         if (not scope) then
             skipped = skipped + #list;
@@ -827,6 +859,15 @@ function DebindStorage.PlanArrival(payload, options)
                 -- the actions sharing a key, and there is no key to be a place in.
                 if (action.key == nil) then
                     action.seq = nil;
+                end
+
+                -- **Nothing untranslated goes past here.** It is read only as the shape its source
+                -- wrote, and a source this version does not know has no shape to read.
+                local specMask = fromClique and CliqueSpecMask(action.untranslated);
+                action.untranslated = nil;
+                if (convertSpecs and specMask) then
+                    action.conditions = action.conditions or {};
+                    action.conditions.specs = { [Constants.CLASS_IDS[Constants.PLAYER_CLASS]] = specMask };
                 end
 
                 placements[#placements + 1] = {

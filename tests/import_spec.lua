@@ -476,9 +476,14 @@ return function(DebindPrivate, DebindStorage)
             end
         end
 
+        -- **`untranslated` is read and dropped on the way in** (`PlanArrival`), so there is nothing
+        -- to see here. That it passes the whitelist is what `clique_spec.lua` holds: a Clique
+        -- payload's numbers become a condition only if it got through.
         for field, want in pairs(REAL_VALUES) do
             local got = action[field];
-            if (type(want) == "table") then
+            if (field == "untranslated") then
+                check(got == nil, "untranslated이 프로필까지 왔다");
+            elseif (type(want) == "table") then
                 check(type(got) == "table", field .. "이 테이블로 안 왔다: " .. tostring(got));
             else
                 check(got == want, field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));

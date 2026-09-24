@@ -1,9 +1,10 @@
 # Clique 프로필 가져오기 (2026-09-24 시작)
 
 > 상태: **설계는 다 정했다(§8이 비었다).** 들어간 것은 §4 전부(주문 이름 값과 `resolvedSpellID`, 아이템
-> 이름 값)와 §6의 변환기(`DebindStorage/Clique.lua`), payload의 `source`와 액션의 `untranslated`다. 남은
-> 것은 드롭다운 입구와 Clique 공유 문자열 풀기(§1), 추가 다이얼로그(§3)다. 그 다이얼로그 전까지는 Clique
-> Payload를 추가하면 `untranslated`가 옮겨지지 않은 채 프로필에 들어가고, 로그아웃 때 `CleanUpDB`가 걷는다.
+> 이름 값), §6의 변환기(`DebindStorage/Clique.lua`), payload의 `source`와 액션의 `untranslated`, 그리고 §3의
+> 추가 논리(`PlanArrival`의 `options.layer`와 `options.specs`)다. 남은 것은 화면이다. 드롭다운 입구와 Clique
+> 공유 문자열 풀기(§1), 층과 전문화 처리를 묻는 추가 다이얼로그(§3). 다이얼로그 전까지는 Clique Payload를
+> 추가하면 General에 들어가고 전문화 번호는 버려진다.
 >
 > Clique의 저장 모양과 조합의 뜻을 코드에서 읽은 원문은 `.zzz/clique-savedvars.md`가 든다. 여기는
 > 그 조사에서 나온 결론과 이유만 담는다.
