@@ -35,13 +35,17 @@ npm run globalstrings         # refresh the client strings
 ```
 
 `reference/wow-ui-source/` is Blizzard's interface code, one folder per client: `mainline/` and
-`forever/`. Each is a junction to a checkout of `Gethe/wow-ui-source` kept outside the project, so
-every worktree shares one copy. One shallow clone holds both, `forever` being a `git worktree` of
-it, and the push URL is deliberately broken. The mirror calls retail `live`, and these folders are
-named after the client instead, because no client is called that.
+`forever/`. Each is a junction to a folder kept outside the project, so every worktree shares one
+copy. The mirror calls retail `live`, and these folders are named after the client instead, because
+no client is called that.
 
-**Every tag in the mirror is a retail build**, so a build number pins `mainline` and there is no
-way to pin `forever` to anything but its branch head.
+- **`mainline/` is a shallow clone of `Gethe/wow-ui-source`**, with its push URL deliberately
+  broken. Every tag in the mirror is a retail build, so a build number pins it.
+- **`forever/` is copied out of the beta client's own export** (`_classic_beta_\BlizzardInterfaceCode`),
+  into `..\wow-ui-source-forever-export`. The mirror's `forever` branch trailed the client: it sat at
+  69913 while 70009 was the build that fixed what blocked us. Run `/exportInterfaceFiles code` in that
+  client after a patch, then `npm run ui-source -- forever`. `version.txt` is the build the client
+  had installed at copy time, and `SOURCE.txt` says when the export was written.
 
 `reference/globalstrings/` is the client's own strings, one file per locale. `writing-user-facing-
 text.md` is what they are for: the game's word for a thing beats one the addon invents.
@@ -50,9 +54,11 @@ text.md` is what they are for: the game's word for a thing beats one the addon i
 `SOURCE.txt` say which one is currently there. Read them before calling anything in there live, or
 unreleased.
 
-**Do not go back to the in-game `exportInterfaceFiles` export.** It writes files without ever
-deleting them, so an export folder accumulates files the client dropped years ago — the one this
-replaced held 678 of them, and a grep cannot tell them from live code.
+**Do not read the in-game export folder directly.** It writes files without ever deleting them, so
+an export folder accumulates files the client dropped years ago — the one `mainline/` replaced held
+678 of them, and a grep cannot tell them from live code. The `forever/` copy leaves those out: one
+export writes every file in one pass, so a file more than an hour older than the newest is an earlier
+export's.
 
 ## Pointing a client at a checkout
 
@@ -97,7 +103,7 @@ package nor a user. Without the hook there is no file and the label reads `dev`.
 **`reference/` needs a junction, and it is three rather than one.** It is gitignored, so a new
 worktree has nothing there: `reference/globalstrings` (what `npm run globalstrings` fetched) and
 `reference/wow-ui-source/mainline` and `reference/wow-ui-source/forever` (each itself a junction to
-a checkout kept outside the project) all have to be pointed at the same places the main worktree
+a folder kept outside the project) all have to be pointed at the same places the main worktree
 points at. `reference/wow-ui-source` itself is a real folder, not a junction, so it has to be
 created before the two inside it. `npm run check` passes without any of them, which is exactly why
 this is easy to miss — what breaks is
@@ -106,5 +112,5 @@ than like a setup step nobody did.
 
 **Before removing a worktree, break those junctions first.** `git worktree remove`, and anything
 else that deletes the directory recursively, walks through a junction and takes what it points at
-with it. That is the clone of Blizzard's interface code and the `forever` worktree cut from it,
-both shared by every worktree here.
+with it. That is the clone of Blizzard's interface code and the `forever` copy, both shared by
+every worktree here.
