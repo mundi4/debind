@@ -78,6 +78,7 @@ globals = {
 	"C_ClassTalents",
 	"C_ActionBar",
 	"C_CreatureInfo",
+	"C_EncodingUtil",
 	"C_Item",
 	"C_KeyBindings",
 	"C_MountJournal",

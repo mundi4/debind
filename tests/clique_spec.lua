@@ -288,6 +288,100 @@ return function(DebindPrivate, DebindStorage)
             "kept or read");
     end);
 
+    -- **The shim has no deflate or JSON**, so these stand the three client calls in with a table of
+    -- known answers. What they hold is the path: which prefix goes where, what each step's failure
+    -- is called, and that what comes out is converted and kept. Whether the client reads a real
+    -- `CL02:` is a question only the game can answer.
+    local function WithEncoding(answers, fn)
+        -- `rawget`: the shim reports every read of a global nothing defined, and this one is put
+        -- back afterwards rather than used.
+        local previous = rawget(_G, "C_EncodingUtil");
+        _G.C_EncodingUtil = {
+            DecodeHex = function(s)
+                if (answers.hex[s] == nil) then error("bad hex"); end
+                return answers.hex[s];
+            end,
+            DecompressString = function(s)
+                if (answers.inflate[s] == nil) then error("bad deflate"); end
+                return answers.inflate[s];
+            end,
+            DeserializeJSON = function(s)
+                if (answers.json[s] == nil) then error("bad json"); end
+                return answers.json[s];
+            end,
+        };
+        local ok, err = pcall(fn);
+        _G.C_EncodingUtil = previous;
+        if (not ok) then error(err, 0); end
+    end
+
+    local CODE_ANSWERS = {
+        hex = { ["AB"] = "deflated", ["CD"] = "junk", ["EF"] = "notjson" },
+        inflate = { ["deflated"] = "json", ["notjson"] = "text" },
+        json = { ["json"] = { Spell("F", { default = true, spec1 = true }) }, ["text"] = "a string" },
+    };
+
+    test("a CL02 share code becomes a Clique payload entry", function()
+        FreshProfile();
+        WithEncoding(CODE_ANSWERS, function()
+            local entry, reason = DebindStorage.ImportEntry("  CL02:AB \n", "named");
+            check(entry, "refused: " .. tostring(reason));
+            check(entry.name == "named", "name " .. tostring(entry.name));
+            check(entry.payload.source == DebindStorage.SOURCE_CLIQUE, "source");
+            local action = entry.payload.shared.GENERAL[1];
+            check(action and action.value == "Rejuvenation" and action.untranslated.spec1 == true,
+                "converted");
+        end);
+    end);
+
+    test("each step of a CL02 code that fails says which", function()
+        FreshProfile();
+        WithEncoding(CODE_ANSWERS, function()
+            local _, reason = DebindStorage.ImportEntry("CL02:ZZ");
+            check(reason == "BAD_ENCODING", "hex: " .. tostring(reason));
+            _, reason = DebindStorage.ImportEntry("CL02:CD");
+            check(reason == "BAD_COMPRESSION", "deflate: " .. tostring(reason));
+            _, reason = DebindStorage.ImportEntry("CL02:EF");
+            check(reason == "BAD_PAYLOAD", "json: " .. tostring(reason));
+        end);
+    end);
+
+    -- **`CL01:` is the real thing here**: the libraries Clique made it with are the ones this addon
+    -- ships, so the code below is what Clique's `GetExportString` wrote before `CL02:`. Loaded here
+    -- rather than left to whichever spec registered them first.
+    local repoRoot = (arg and arg[0] or ""):match("^(.*)[/\\]tests[/\\]run%.lua$") or ".";
+    for _, path in ipairs({
+        "/DebindStorage/Libs/LibDeflate/LibDeflate.lua",
+        "/DebindStorage/Libs/LibSerialize/LibSerialize.lua",
+    }) do
+        assert(loadfile(repoRoot .. path), "could not read " .. path)();
+    end
+
+    test("a CL01 share code, as Clique wrote it, becomes a Clique payload entry", function()
+        FreshProfile();
+        local LibSerialize, LibDeflate = LibStub("LibSerialize"), LibStub("LibDeflate");
+        local code = "CL01:" .. LibDeflate:EncodeForPrint(LibDeflate:CompressDeflate(
+            LibSerialize:Serialize({ Spell("F", { default = true, spec2 = true }) })));
+        local entry, reason = DebindStorage.ImportEntry(code);
+        check(entry, "refused: " .. tostring(reason));
+        local action = entry.payload.shared.GENERAL[1];
+        check(action and action.value == "Rejuvenation" and action.untranslated.spec2 == true,
+            "converted");
+
+        local _;
+        _, reason = DebindStorage.ImportEntry(code:sub(1, #code - 10));
+        check(reason == "BAD_COMPRESSION" or reason == "BAD_ENCODING" or reason == "BAD_PAYLOAD",
+            "a cut code: " .. tostring(reason));
+    end);
+
+    test("a Clique profile read off disk is kept as an entry", function()
+        FreshProfile();
+        local payload = DebindStorage.PayloadFromCliqueBindings({ Spell("F", { default = true }) });
+        local entry = DebindStorage.StorePayload(payload, "Healer");
+        check(entry and entry.name == "Healer" and entry.payload == payload, "kept");
+        check(entry.character == nil, "not marked as made here");
+    end);
+
     test("the profiles of a CliqueDB3 come with the characters that use them", function()
         local list = DebindStorage.CliqueProfiles({
             profileKeys = { ["Jancity - Fyrakk"] = "Healer", ["Arill - Fyrakk"] = "Healer",

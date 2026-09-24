@@ -224,6 +224,80 @@ function DebindStorage.PayloadFromCliqueBindings(bindings)
     return payload, #actions;
 end
 
+--- A Clique share code's binding list, or nil and the reason (`DecodeExportString`'s codes).
+---
+--- **`CL02:` is what Clique 5.0.14 writes** and the client alone reads it (`C_EncodingUtil`: hex, then
+--- deflate, then JSON). **`CL01:` is the older one** and needs the two libraries this addon ships;
+--- it is read for as long as they ship and goes with them (`importing-clique-profiles.md` §1). Both
+--- unpack to `profile.bindings` as it is, which Clique itself drops straight into the profile
+--- (`ImportBindings`).
+---
+--- Every step may meet anything, because the code is somebody's clipboard. The client calls are
+--- wrapped since they raise on input they cannot read.
+function DebindStorage.DecodeCliqueString(text)
+    if (luatype(text) ~= "string") then
+        return nil, "NOT_A_STRING";
+    end
+    text = strtrim(text);
+    local header, body = text:sub(1, 5), text:sub(6);
+
+    local bindings;
+    if (header == "CL02:") then
+        local util = C_EncodingUtil;
+        if (not util) then
+            return nil, "LIBS_MISSING";
+        end
+        local ok, decoded = pcall(util.DecodeHex, body);
+        if (not ok or luatype(decoded) ~= "string" or decoded == "") then
+            return nil, "BAD_ENCODING";
+        end
+        local decompressed;
+        ok, decompressed = pcall(util.DecompressString, decoded);
+        if (not ok or luatype(decompressed) ~= "string") then
+            return nil, "BAD_COMPRESSION";
+        end
+        ok, bindings = pcall(util.DeserializeJSON, decompressed);
+        if (not ok) then
+            return nil, "BAD_PAYLOAD";
+        end
+    elseif (header == "CL01:") then
+        local LibSerialize = LibStub and LibStub("LibSerialize", true);
+        local LibDeflate = LibStub and LibStub("LibDeflate", true);
+        if (not LibSerialize or not LibDeflate) then
+            return nil, "LIBS_MISSING";
+        end
+        local decoded = LibDeflate:DecodeForPrint(body);
+        if (not decoded) then
+            return nil, "BAD_ENCODING";
+        end
+        local decompressed = LibDeflate:DecompressDeflate(decoded);
+        if (not decompressed) then
+            return nil, "BAD_COMPRESSION";
+        end
+        local ok;
+        ok, bindings = LibSerialize:Deserialize(decompressed);
+        if (not ok) then
+            return nil, "BAD_PAYLOAD";
+        end
+    else
+        return nil, "NOT_A_CLIQUE_STRING";
+    end
+
+    if (luatype(bindings) ~= "table") then
+        return nil, "BAD_PAYLOAD";
+    end
+    return bindings;
+end
+
+--- Whether a pasted text is a Clique share code at all, as against one that is broken.
+function DebindStorage.IsCliqueString(text)
+    if (luatype(text) ~= "string") then
+        return false;
+    end
+    local header = strtrim(text):sub(1, 5);
+    return header == "CL01:" or header == "CL02:";
+end
+
 --- The profiles in a `CliqueDB3`, sorted by name: `{ name, characters, bindings }`. `characters` are
 --- the `profileKeys` that point at it, as Clique spells them ("Name - Realm").
 function DebindStorage.CliqueProfiles(db)

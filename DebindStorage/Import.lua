@@ -608,6 +608,17 @@ end
 --- meant for a public channel does not carry a character name. Their absence is what says this came
 --- from somebody else.
 function DebindStorage.ImportEntry(text, name)
+    -- **A Clique share code comes through the same box** (`importing-clique-profiles.md` §1). It
+    -- holds a binding list, which becomes a payload here, and from then on it is an entry like any
+    -- other.
+    if (DebindStorage.IsCliqueString(text)) then
+        local bindings, reason = DebindStorage.DecodeCliqueString(text);
+        if (not bindings) then
+            return nil, reason;
+        end
+        return DebindStorage.StorePayload((DebindStorage.PayloadFromCliqueBindings(bindings)), name);
+    end
+
     local payload, reason = DebindStorage.DecodeExportString(text);
     if (not payload) then
         return nil, reason;
@@ -619,6 +630,17 @@ function DebindStorage.ImportEntry(text, name)
         return nil, "IMPOSSIBLE_PAYLOAD";
     end
 
+    return StoreEntry(payload, { name = name });
+end
+
+--- Keeps a payload that did not come in as one of our strings -- a Clique profile read off disk, or
+--- a Clique share code -- as an entry. `ImportEntry` without the decoding, and with the same gate:
+--- a converter can be wrong too, and what it made is refused where the reader is looking rather
+--- than on every later open.
+function DebindStorage.StorePayload(payload, name)
+    if (DebindStorage.PayloadIsImpossible(payload)) then
+        return nil, "IMPOSSIBLE_PAYLOAD";
+    end
     return StoreEntry(payload, { name = name });
 end
 
