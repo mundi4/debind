@@ -141,5 +141,87 @@ return function(DebindPrivate)
         check(ids[5185] and ids[5186], "a rank lost its row");
     end);
 
+    -- **A rank can also be pinned, per action** (2026-09-24, owner): classic players cast a lower
+    -- rank on purpose. The stored id cannot say it on its own, since the highest rank on the day it
+    -- was picked is a lower one after the next is learned, so `pinRank` says it.
+    local ME = "Player-1-CLIENTRANK";
+
+    local function Bind(actions)
+        _G.UnitGUID = function() return ME; end
+        _G.DebindVars = {
+            dbver = DebindPrivate.Constants.DB_VERSION,
+            shared = { GENERAL = actions, classes = { [DebindPrivate.Constants.PLAYER_CLASS] = {} } },
+            characters = { [ME] = { layers = {}, switches = {} } },
+            migrated = {},
+            switches = {},
+        };
+        DebindPrivate.InitDB();
+        check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+    end
+
+    local function CastOn(key)
+        local records = require("castmod").without(DebindPrivate.Constants, DebindPrivate.KeyMap[key]);
+        return records and records[1] and records[1].castSpell;
+    end
+
+    test("a pinned rank casts that rank, an unpinned action the highest", function()
+        shim.world.spells[5185] = { name = "Healing Touch", subtext = "Rank 1" };
+        shim.world.spellbook[5185] = true;
+        local SPELL = DebindPrivate.Constants.SPELL;
+        Bind({
+            { type = SPELL, value = 5185, key = "F1", seq = 1, pinRank = true },
+            { type = SPELL, value = 5185, key = "F2", seq = 1 },
+        });
+        check(CastOn("F1") == "Healing Touch(Rank 1)", "pinned casts " .. tostring(CastOn("F1")));
+        local highest = camelot and "Healing Touch" or "Healing Touch(Rank 1)";
+        check(CastOn("F2") == highest, "unpinned casts " .. tostring(CastOn("F2")));
+    end);
+
+    -- The pin belongs to the spell it was set on. Putting another spell in the action's place
+    -- keeps everything else about the action, and a pin carried across would pin the new spell to
+    -- whatever rank it happens to be stored at.
+    test("putting another spell in an action's place drops the pin", function()
+        local action = { type = DebindPrivate.Constants.SPELL, value = 5185, pinRank = true };
+        DebindPrivate.SetActionEntry(action, DebindPrivate.Constants.SPELL, 774, "Rejuvenation", nil, nil);
+        check(action.pinRank == nil, "the pin stayed on the new spell");
+    end);
+
+    -- The ranks the rank menu offers: every book item under the spell's name, in book order.
+    test("a spell's ranks are the book's items under its name", function()
+        TwoRanks();
+        shim.world.spells[774] = { name = "Rejuvenation", subtext = "Rank 1" };
+        shim.world.spellbook[774] = true;
+        local ranks = DebindPrivate.Client.SpellRanks(5186);
+        local got = {};
+        for i = 1, #ranks do
+            got[i] = ranks[i].id .. "=" .. tostring(ranks[i].subtext);
+        end
+        local expected = camelot and "5185=Rank 1,5186=Rank 2" or "";
+        check(table.concat(got, ",") == expected, "ranks " .. table.concat(got, ","));
+    end);
+
+    if (camelot) then
+        -- **A lower rank's row is there only because the reader asked the book for every rank**,
+        -- and picking it is picking that rank.
+        test("a lower rank picked from the list comes pinned", function()
+            TwoRanks();
+            shim.world.cvars.ShowAllSpellRanks = true;
+            local ActionCatalog = DebindPrivate.ActionCatalog;
+            local pinned = {};
+            for _, category in ipairs(ActionCatalog.GetCategories()) do
+                if (category.source == "spellbook") then
+                    ActionCatalog.Invalidate(category.source);
+                    for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
+                        if (entry.value ~= nil) then
+                            pinned[entry.value] = entry.props and entry.props.pinRank or false;
+                        end
+                    end
+                end
+            end
+            check(pinned[5185] == true, "the lower rank's row is not pinned");
+            check(pinned[5186] == false, "the highest rank's row is pinned");
+        end);
+    end
+
     return T;
 end

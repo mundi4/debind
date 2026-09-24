@@ -230,6 +230,12 @@ L["CONDITION_KNOWN_VALUE"] = "While you know %s"
 L["CONDITION_SPELL_TO_CAST"] = "Spell to Cast"
 L["CONDITION_SPELL_TO_CAST_YES"] = "While there is a spell to cast"
 L["CONDITION_SPELL_TO_CAST_YES_DESC"] = "With no spell this action can cast on this press, the next action on the key takes it. Off, the key is kept and the press does nothing."
+-- The rank menu, on a client whose spells come in ranks. **Not the client's `RANK`**: that one is
+-- a guild rank, and its ruRU value ("Звание") is a title. The client's word for a spell's rank is
+-- in `SHOW_ALL_SPELL_RANKS` ("모든 주문 등급 표시"), and the rows under this are the client's own
+-- subtexts ("Rank 1").
+L["SPELL_RANK"] = "Spell Rank"
+L["SPELL_RANK_HIGHEST"] = "Highest Rank"
 -- **The client's own word for the thing** (`TALENTS`), and the branches under it are named by the
 -- client too: the class, the specialization, each hero tree and `PVP_TALENTS`. The reader has one
 -- name for each of those already and a second one would put two names on one thing.

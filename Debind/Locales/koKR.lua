@@ -95,6 +95,8 @@ L["CONDITION_KNOWN_VALUE"] = "%s을(를) 배웠을 때만"
 L["CONDITION_SPELL_TO_CAST"] = "시전할 주문"
 L["CONDITION_SPELL_TO_CAST_YES"] = "시전할 주문이 있을 때만"
 L["CONDITION_SPELL_TO_CAST_YES_DESC"] = "이번 누름에 이 액션이 시전할 주문이 없으면 키의 다음 액션이 받습니다. 끄면 키는 그대로 잡혀 있고 눌러도 아무 일이 없습니다."
+L["SPELL_RANK"] = "주문 등급"
+L["SPELL_RANK_HIGHEST"] = "최고 등급"
 L["CONDITION_MISC"] = "기타"
 -- 클라이언트가 쓰는 말 그대로다(`TALENTS`). "찍다"도 클라이언트의 동사다
 -- (`ERR_CANT_EQUIP_NEED_TALENT` = "필요한 특성을 찍지 않았으므로 착용할 수 없습니다.").

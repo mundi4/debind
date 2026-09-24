@@ -381,18 +381,18 @@ end
 --- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
 --- holds every call in that path). It arrives here with the two halves already in hand.
 ---
---- **Where spells have ranks the subtext stays off.** It is the rank there, and a name carrying it
---- keeps casting that rank after a higher one is learned; the bare name casts the highest known.
+--- **Where spells have ranks the subtext stays off unless `pinRank` asks for it.** It is the rank
+--- there: a name carrying it casts that rank for good, and the bare name casts the highest known.
 --- A client with ranks has one specialization per class, so there are no same-named spells for
 --- the subtext to tell apart.
 ---
 --- Nil name in, nil out. The callers fall back to the id, which at least fires for the reader who
 --- is on the specialization that has it.
-function DebindPrivate.ComposeSpellCastName(name, subtext)
+function DebindPrivate.ComposeSpellCastName(name, subtext, pinRank)
     if (not name) then
         return nil;
     end
-    if (subtext and subtext ~= "" and not DebindPrivate.Client.SPELLS_HAVE_RANKS) then
+    if (subtext and subtext ~= "" and (pinRank or not DebindPrivate.Client.SPELLS_HAVE_RANKS)) then
         return name .. "(" .. subtext .. ")";
     end
     return name;
@@ -404,11 +404,11 @@ local ComposeSpellCastName = DebindPrivate.ComposeSpellCastName;
 --- and they do not resolve it alike. A stored action holds whatever id the reader picked and needs
 --- `FindBaseSpellByID` first; a flyout slot is handed its base id and its override as two separate
 --- returns, so resolving again there would be asking a question already answered.
-function DebindPrivate.GetSpellCastName(spellID)
+function DebindPrivate.GetSpellCastName(spellID, pinRank)
     -- Reached through `DebindPrivate` rather than an upvalue: `Misc.lua` defines it and loads
     -- after this file (`Debind.xml`).
     local name = DebindPrivate.GetSpellNameAndIconID(spellID);
-    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID));
+    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID), pinRank);
 end
 
 --- The id a spell should be **stored** under: the topmost base, resolved at the moment the reader

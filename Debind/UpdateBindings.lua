@@ -822,8 +822,9 @@ end
 ---
 --- A spec hands these in as plain values instead: it is standing a world up, not imitating an API
 --- (`going-headless-outside-the-ui.md` §4).
-local function CollectBindingFacts(type, value, unit, facts, automatics)
+local function CollectBindingFacts(type, value, unit, facts, automatics, pinRank)
     wipe(facts);
+    facts.pinRank = pinRank;
 
     -- A resolved spec type is a spell from here on; one that resolved to nothing asks nothing.
     if (Constants.SPEC_RESOLVED_TYPES[type] and value ~= nil) then
@@ -853,7 +854,8 @@ local function CollectBindingFacts(type, value, unit, facts, automatics)
         facts.spellID = spellID;
         facts.spellName = GetSpellNameAndIconID(spellID);
         if (facts.spellName) then
-            facts.spellSubtext = GetSpellSubtext(spellID);
+            -- **A pinned rank is the stored id's own**, since the rank is what the reader picked.
+            facts.spellSubtext = GetSpellSubtext(pinRank and value or spellID);
         end
         facts.pressAndHold = IsPressHoldReleaseSpell(value) and true or false;
     elseif (type == Constants.MOUNT) then
@@ -973,6 +975,11 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     end
 
     out.cacheKey = value or NIL;
+    -- **A pinned rank is another button than the highest rank of the same spell**, which shares the
+    -- id and would otherwise be handed the other's.
+    if (facts.pinRank and type == Constants.SPELL and value ~= nil) then
+        out.cacheKey = tostring(value) .. ":rank";
+    end
 
     -- **탈것의 본문은 탈것 하나로 안 정해진다.** `/cancelform` 줄이 `autoUnshift`를 따르고 CVar
     -- 줄도 액션마다 달라서, 같은 탈것이 여러 꼴로 구워진다. 열쇠가 탈것 번호뿐이면 먼저 구운
@@ -1006,7 +1013,8 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         -- same-named spells apart (`Spells.lua`'s `ComposeSpellCastName`).
         -- **레코드가 싣는 것도 이 값 그대로다.** 클릭 때 이 주문을 다시 묻는 쪽이 있고
         -- (`BuildKeyRecord`), 둘을 따로 만들면 언젠가 갈린다.
-        out.castSpell = ComposeSpellCastName(facts.spellName, facts.spellSubtext) or facts.spellID;
+        out.castSpell = ComposeSpellCastName(facts.spellName, facts.spellSubtext, facts.pinRank)
+            or facts.spellID;
         attr(out, "*spell-", out.castSpell);
 
         -- **유지·시전 주문의 `*typerelease-`는 여기서 안 굽는다.** 클릭 때 쓴다
@@ -1263,8 +1271,8 @@ DebindPrivate.StampBinding = StampBinding;
 --- Asks, describes, stamps. **The reason a binding was refused is dropped here and nowhere else**,
 --- because the caller's shape still cannot carry one; stage 3 of
 --- `going-headless-outside-the-ui.md` is where the record loop learns to.
-function SetBindingAttributes(type, value, unit, automatics)
-    local facts = CollectBindingFacts(type, value, unit, _facts, automatics);
+function SetBindingAttributes(type, value, unit, automatics, pinRank)
+    local facts = CollectBindingFacts(type, value, unit, _facts, automatics, pinRank);
 
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor, automatics);
     if (not descriptor) then
@@ -1509,7 +1517,7 @@ local function PrepareKeyBindings(key, bindingArray)
         end
         binding.clickframe, binding.clickbutton, binding.castSpell =
             SetBindingAttributes(binding.type, bindingValue, DebindPrivate.CastUnitOf(binding),
-                binding.automatics);
+                binding.automatics, binding.pinRank);
 
         -- **DEBUG only.** Which key ended up on which spell id, which nothing else records: the
         -- action keeps the id the reader picked, `_facts` is wiped per binding, and the button name

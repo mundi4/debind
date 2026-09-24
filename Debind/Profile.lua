@@ -51,6 +51,10 @@ local KEYS_TO_SAVE       = {
     -- (`which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
     casting = true,
+    -- **This spell's rank rather than the highest one known**, on a client whose spells come in
+    -- ranks (`Client.SPELLS_HAVE_RANKS`). The stored id cannot say it alone: the highest rank on
+    -- the day it was picked is a lower one after the next is learned.
+    pinRank = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.
@@ -3098,6 +3102,9 @@ function DebindPrivate.CleanUpDB()
                 action.noTargetMassRez = nil;
                 action.battleRezOutOfCombat = nil;
             end
+            if (action.type ~= Constants.SPELL) then
+                action.pinRank = nil;
+            end
 
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
             -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
@@ -4002,6 +4009,9 @@ function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, pro
     action.value = value;
     action.name = name;
     action.icon = icon;
+    -- **The pin was the old spell's.** Carried across, it would hold the new one at whatever rank
+    -- it is stored at; an entry that means a rank brings its own in `props`.
+    action.pinRank = nil;
 
     if (props) then
         for k, v in pairs(props) do

@@ -139,6 +139,7 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
 
     CreateCastingMenu(rootDescription, ctx);
     CreateResurrectMenu(rootDescription, ctx);
+    ActionMenus:Build(rootDescription, "SPELL_RANK", ctx);
 
     --
     -- Conditions

@@ -1060,6 +1060,7 @@ do
             aimedUnit = "unitframe";
         end
         binding.type, binding.value = action.type, action.value;
+        binding.pinRank = action.pinRank;
         -- **Only the binding changes.** The action keeps the type it was saved with, so its row
         -- still says what it was, and an older build reading the same SavedVariables still runs it.
         if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
@@ -3709,7 +3710,8 @@ function DebindPrivate.ConvertToMacroText(action)
             local spellID = C_SpellBook.FindBaseSpellByID(action.value) or action.value;
             local _, spellIcon = GetSpellNameAndIconID(spellID);
             icon = spellIcon;
-            spellOrItemName = GetSpellCastName(spellID);
+            -- A pinned rank is the stored id's own, the way the button spells it (`CollectBindingFacts`).
+            spellOrItemName = GetSpellCastName(action.pinRank and action.value or spellID, action.pinRank);
             name = spellOrItemName;
         else
             slashCommand = SLASH_USE1;

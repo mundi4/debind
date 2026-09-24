@@ -788,6 +788,69 @@ local function SetSpellToCast(data)
     return OnActionsChanged(data.ctx.actions);
 end
 
+local function AsksRank(action)
+    return action.type == Constants.SPELL and DebindPrivate.Client.SPELLS_HAVE_RANKS;
+end
+
+--- `data.id` nil is the highest rank, which is no pin at all.
+local function RankIs(data)
+    local action = data.ctx.actions[1];
+    if (data.id == nil) then
+        return not action.pinRank;
+    end
+    return action.pinRank == true and action.value == data.id;
+end
+
+--- **A rank is picked by holding its id**, the way a lower rank's row in the spell list stores it.
+--- Going back to the highest keeps the id: the bare name casts the highest whichever rank is held.
+local function SetRank(data)
+    local action = data.ctx.actions[1];
+    if (data.id == nil) then
+        action.pinRank = nil;
+    else
+        action.value = data.id;
+        action.pinRank = true;
+    end
+    return OnActionsChanged(data.ctx.actions);
+end
+
+--- **Which rank a spell casts, where spells have ranks** (2026-09-24, owner): the highest known,
+--- or one held on purpose, which classic players do to spend less mana.
+---
+--- **One action at a time**, because the rows are that action's spell's ranks.
+---
+--- **The rank rows are the client's own subtexts** ("Rank 1"): the word is the game's, and so is
+--- the numbering.
+ActionMenus:Define("SPELL_RANK", {
+    label = "SPELL_RANK",
+    key = "pinRank",
+    shown = function(ctx)
+        return AnyAction(ctx, AsksRank);
+    end,
+    blocked = OnlyOneReason,
+    build = function(kit)
+        local action = kit.ctx.actions[1];
+        CreateRadio(kit.description, kit.ctx, LLL["SPELL_RANK_HIGHEST"], RankIs, SetRank,
+            { ctx = kit.ctx });
+        local ranks = DebindPrivate.Client.SpellRanks(action.value);
+        -- **The held rank stays a row even where the book has it no more**, as with a string
+        -- brought over from a character that has learned more; otherwise nothing shows it is held.
+        local held = action.pinRank and action.value;
+        for i = 1, #ranks do
+            if (ranks[i].id == held) then
+                held = nil;
+            end
+        end
+        if (held) then
+            ranks[#ranks + 1] = { id = held, subtext = C_Spell.GetSpellSubtext(held) };
+        end
+        for i = 1, #ranks do
+            CreateRadio(kit.description, kit.ctx, ranks[i].subtext or tostring(ranks[i].id),
+                RankIs, SetRank, { ctx = kit.ctx, id = ranks[i].id });
+        end
+    end,
+});
+
 --- **Known Spell is too narrow for these three** (2026-09-23, owner). A resurrection can know
 --- every spell it has and still have none for a living target, so the row asks whether there is a
 --- spell to cast at all (`skipWhenUnusable`). A stored `known` on them reads the same way.

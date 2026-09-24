@@ -497,6 +497,9 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 		group = group,
 		isOffSpec = isOffSpec or nil,
 		isUnlearned = isUnlearned or nil,
+		-- **A lower rank's row is picking that rank**: it is listed only when the reader has the
+		-- book show every rank, and unpinned it would cast the highest.
+		props = DebindPrivate.Client.IsLowRank(slotIndex, bank) and { pinRank = true } or nil,
 	});
 end
 

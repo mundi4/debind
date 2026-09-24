@@ -7,14 +7,38 @@ local Client = DebindPrivate.Client;
 --- anything (it spells the value `DescribeBinding` does).
 Client.SPELLS_HAVE_RANKS = C_SpellBook.IsSpellBookItemLowRank ~= nil;
 
+--- Whether a book item is a lower rank of a spell the book holds a higher rank of.
+function Client.IsLowRank(slotIndex, bank)
+    return Client.SPELLS_HAVE_RANKS and C_SpellBook.IsSpellBookItemLowRank(slotIndex, bank) or false;
+end
+
 --- Whether a book item is a lower rank the client's own book would hide. That book hides them
 --- unless `ShowAllSpellRanks` is on (`Blizzard_SpellBookFrame.lua`), and a list of spells to bind
---- follows it: the cast name carries no rank, so a lower rank's row casts the highest anyway.
+--- follows it: an unpinned cast name carries no rank, so a lower rank's row would cast the highest.
 function Client.IsHiddenLowRank(slotIndex, bank)
-    if (not Client.SPELLS_HAVE_RANKS or GetCVarBool("ShowAllSpellRanks")) then
-        return false;
+    return not GetCVarBool("ShowAllSpellRanks") and Client.IsLowRank(slotIndex, bank);
+end
+
+--- The ranks of a spell the character has, as `{ id =, subtext = }` in book order: every player
+--- book item under the spell's name. Empty where spells have no ranks.
+function Client.SpellRanks(spellID)
+    local out = {};
+    local name = Client.SPELLS_HAVE_RANKS and C_Spell.GetSpellName(spellID);
+    if (not name) then
+        return out;
     end
-    return C_SpellBook.IsSpellBookItemLowRank(slotIndex, bank);
+    local bank = Enum.SpellBookSpellBank.Player;
+    for line = 1, C_SpellBook.GetNumSpellBookSkillLines() or 0 do
+        local info = C_SpellBook.GetSpellBookSkillLineInfo(line);
+        for slot = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+            local item = C_SpellBook.GetSpellBookItemInfo(slot, bank);
+            local id = item and item.spellID;
+            if (id and C_Spell.GetSpellName(id) == name) then
+                out[#out + 1] = { id = id, subtext = C_Spell.GetSpellSubtext(id) };
+            end
+        end
+    end
+    return out;
 end
 
 --- `GetFlyoutInfo`, answering nothing for a flyout the client does not have.
