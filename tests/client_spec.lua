@@ -177,6 +177,18 @@ return function(DebindPrivate)
         check(CastOn("F2") == highest, "unpinned casts " .. tostring(CastOn("F2")));
     end);
 
+    -- **The name a row and a tooltip show is the name the button casts by**, so a held rank is on
+    -- screen without a line of its own.
+    test("a pinned rank shows in the action's name", function()
+        shim.world.spells[5185] = { name = "Healing Touch", subtext = "Rank 1" };
+        local SPELL = DebindPrivate.Constants.SPELL;
+        local shown = select(3, DebindPrivate.DebindUI.NameAndIconForAction(
+            { type = SPELL, value = 5185, pinRank = true }));
+        local plain = select(3, DebindPrivate.DebindUI.NameAndIconForAction({ type = SPELL, value = 5185 }));
+        check(tostring(shown):find("Healing Touch(Rank 1)", 1, true), "pinned shows " .. tostring(shown));
+        check(not tostring(plain):find("Rank", 1, true), "unpinned shows " .. tostring(plain));
+    end);
+
     -- The pin belongs to the spell it was set on. Putting another spell in the action's place
     -- keeps everything else about the action, and a pin carried across would pin the new spell to
     -- whatever rank it happens to be stored at.

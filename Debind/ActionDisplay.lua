@@ -287,6 +287,11 @@ local function NameAndIconForAction(action)
 		local baseSpellID = C_SpellBook.FindBaseSpellByID(value) or value;
 		local overrideID = C_SpellBook.FindSpellOverrideByID(baseSpellID) or baseSpellID;
 		actionName, actionIcon = GetSpellNameAndIconID(overrideID);
+		-- **A held rank is named the way the button casts it** (`Healing Touch(Rank 1)`), so the row
+		-- and the tooltip say which rank without a line of their own.
+		if (action.pinRank and actionName) then
+			actionName = DebindPrivate.GetSpellCastName(value, true) or actionName;
+		end
 	elseif (type == Constants.MACRO) then
 		local macroName;
 		-- **Asked only when the value is a name.** A `MACRO` that holds anything else is one
