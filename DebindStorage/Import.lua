@@ -268,7 +268,8 @@ end
 --- `worldmarker` through `_G["WORLD_MARKER" .. value]`, `petaction` through
 --- `_G["SLASH_" .. value .. "1"]`, `macro` straight into the `*macro-` attribute.
 local VALUE_SHAPES = {
-    [Constants.SPELL]       = "number",
+    -- A name is what a Clique profile stores (`importing-clique-profiles.md` §4).
+    [Constants.SPELL]       = "number|string",
     [Constants.ITEM]        = "number",
     -- An `INVSLOT_*` number, which reaches the `*item-` attribute as a bare string and is read
     -- there as an inventory slot rather than an item id (`UpdateBindings.lua`).

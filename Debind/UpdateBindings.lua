@@ -851,6 +851,18 @@ local function CollectBindingFacts(type, value, unit, facts, automatics, pinRank
         -- the talent combination that created it still stands, and the name index is what reaches
         -- the base after that (`Spells.lua`).
         local spellID = DebindPrivate.ResolveBaseSpell(value);
+        -- **A stored name is asked again at every rebuild** and from here on is the id it resolved
+        -- to, so a specialization change resolves it through the new one's index. One this
+        -- specialization cannot obtain goes on the button as it is.
+        if (luatype(value) == "string") then
+            facts.namedSpellID = spellID;
+            if (spellID == nil) then
+                facts.spellName = value;
+                facts.pressAndHold = false;
+                return facts;
+            end
+            value = spellID;
+        end
         facts.spellID = spellID;
         facts.spellName = GetSpellNameAndIconID(spellID);
         if (facts.spellName) then
@@ -975,10 +987,16 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     end
 
     out.cacheKey = value or NIL;
+    -- **A stored name is filed under the id it resolved to.** What it resolves to moves with the
+    -- specialization, and a hit writes nothing, so filed under the name the button would go on
+    -- casting whatever the first rebuild resolved.
+    if (type == Constants.SPELL and facts.namedSpellID) then
+        out.cacheKey = facts.namedSpellID;
+    end
     -- **A pinned rank is another button than the highest rank of the same spell**, which shares the
     -- id and would otherwise be handed the other's.
     if (facts.pinRank and type == Constants.SPELL and value ~= nil) then
-        out.cacheKey = tostring(value) .. ":rank";
+        out.cacheKey = tostring(out.cacheKey) .. ":rank";
     end
 
     -- **탈것의 본문은 탈것 하나로 안 정해진다.** `/cancelform` 줄이 `autoUnshift`를 따르고 CVar
@@ -1531,14 +1549,15 @@ local function PrepareKeyBindings(key, bindingArray)
         -- (`Spells.lua`). A row showing the client's answer alone would disagree with the button
         -- exactly where this dump is worth reading.
         if (DEBUG and binding.type == Constants.SPELL) then
+            -- Nil for a stored name this specialization cannot obtain.
             local base = DebindPrivate.ResolveBaseSpell(bindingValue);
             tinsert(DebindPrivate.SpellFacts, {
                 key = binding.key,
                 stored = bindingValue,
                 base = base,
-                baseName = GetSpellNameAndIconID(base),
-                subtext = GetSpellSubtext(base),
-                override = C_Spell.GetOverrideSpell and C_Spell.GetOverrideSpell(base, 0, true, 0),
+                baseName = base and GetSpellNameAndIconID(base),
+                subtext = base and GetSpellSubtext(base),
+                override = base and C_Spell.GetOverrideSpell and C_Spell.GetOverrideSpell(base, 0, true, 0),
                 button = binding.clickbutton,
             });
         end

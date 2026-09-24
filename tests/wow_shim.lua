@@ -874,10 +874,22 @@ function M.install()
             return { width = size[1], height = size[2] };
         end,
     };
+    --- **These two take an id and nothing else**, where `C_Spell` above also takes a name: the
+    --- client's own documentation types the argument `number` (`SpellBookDocumentation.lua`).
+    --- Answering a name with nil instead would let a stored spell name reach them unnoticed. A nil
+    --- is let through, since the documentation's `Nilable` is not to be trusted.
+    local function RequireSpellID(spellID, api)
+        if (spellID ~= nil and type(spellID) ~= "number") then
+            error(format("bad argument #1 to '%s' (number expected, got %s)", api, type(spellID)), 3);
+        end
+    end
     _G.C_SpellBook = {
         --- The id an override points back at. Absent from the table means "this id is its own
         --- base", which is what the client answers for every spell that is not overridden.
-        FindBaseSpellByID = function(spellID) return M.world.baseSpells[spellID]; end,
+        FindBaseSpellByID = function(spellID)
+            RequireSpellID(spellID, "FindBaseSpellByID");
+            return M.world.baseSpells[spellID];
+        end,
         --- The other direction: what this spell has *become*. A talent or a form replaces a spell
         --- while it holds, and the name a reader is shown is the replacement's -- so a stand-in
         --- that always answered the id back would hide the whole branch.
@@ -885,6 +897,7 @@ function M.install()
         --- `M.world.overrideSpells[id]` is the replacement; absent means nothing is overriding it,
         --- which the client answers as the id itself.
         FindSpellOverrideByID = function(spellID)
+            RequireSpellID(spellID, "FindSpellOverrideByID");
             return M.world.overrideSpells[spellID] or spellID;
         end,
         --- `M.world.spellbook` again, this time as the **skill-line walk** sees it: one

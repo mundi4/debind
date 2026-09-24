@@ -324,11 +324,21 @@ function DebindPrivate.ConvertToMacroText(action)
         local slashCommand, spellOrItemName;
         if (action.type == Constants.SPELL) then
             slashCommand = SLASH_CAST1;
-            local spellID = C_SpellBook.FindBaseSpellByID(action.value) or action.value;
-            local _, spellIcon = GetSpellNameAndIconID(spellID);
-            icon = spellIcon;
-            -- A pinned rank is the stored id's own, the way the button spells it (`CollectBindingFacts`).
-            spellOrItemName = GetSpellCastName(action.pinRank and action.value or spellID, action.pinRank);
+            -- A stored name casts as the id it resolves to, or as itself where it resolves to
+            -- nothing, the way the button is stamped (`CollectBindingFacts`).
+            local stored = action.value;
+            if (type(stored) == "string") then
+                stored = DebindPrivate.ResolveBaseSpell(stored) or stored;
+            end
+            if (type(stored) == "string") then
+                spellOrItemName = stored;
+            else
+                local spellID = C_SpellBook.FindBaseSpellByID(stored) or stored;
+                local _, spellIcon = GetSpellNameAndIconID(spellID);
+                icon = spellIcon;
+                -- A pinned rank is the stored id's own, the way the button spells it.
+                spellOrItemName = GetSpellCastName(action.pinRank and stored or spellID, action.pinRank);
+            end
             name = spellOrItemName;
         else
             slashCommand = SLASH_USE1;

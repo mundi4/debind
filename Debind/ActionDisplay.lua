@@ -284,13 +284,22 @@ local function NameAndIconForAction(action)
 
 	local actionName, actionIcon;
 	if (type == Constants.SPELL) then
-		local baseSpellID = C_SpellBook.FindBaseSpellByID(value) or value;
-		local overrideID = C_SpellBook.FindSpellOverrideByID(baseSpellID) or baseSpellID;
-		actionName, actionIcon = GetSpellNameAndIconID(overrideID);
-		-- **A held rank is named the way the button casts it** (`Healing Touch(Rank 1)`), so the row
-		-- and the tooltip say which rank without a line of their own.
-		if (action.pinRank and actionName) then
-			actionName = DebindPrivate.GetSpellCastName(value, true) or actionName;
+		-- A stored name is drawn as the id it resolves to, the way the button is stamped
+		-- (`CollectBindingFacts`), and as the name itself where it resolves to nothing.
+		if (luatype(value) == "string") then
+			value = DebindPrivate.ResolveBaseSpell(value) or value;
+		end
+		if (luatype(value) == "string") then
+			actionName = value;
+		else
+			local baseSpellID = C_SpellBook.FindBaseSpellByID(value) or value;
+			local overrideID = C_SpellBook.FindSpellOverrideByID(baseSpellID) or baseSpellID;
+			actionName, actionIcon = GetSpellNameAndIconID(overrideID);
+			-- **A held rank is named the way the button casts it** (`Healing Touch(Rank 1)`), so the
+			-- row and the tooltip say which rank without a line of their own.
+			if (action.pinRank and actionName) then
+				actionName = DebindPrivate.GetSpellCastName(value, true) or actionName;
+			end
 		end
 	elseif (type == Constants.MACRO) then
 		local macroName;

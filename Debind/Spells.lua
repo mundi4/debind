@@ -491,6 +491,27 @@ function Spells.ResolveBase(spellID, api)
     return spellID;
 end
 
+--- The id a spell stored by name stands for in this specialization, or nil where the index files
+--- nothing under it. A Clique profile stores spells by name only (`importing-clique-profiles.md`
+--- §4).
+---
+--- **The root, and not the first id under the name.** Several ids under one name are a talent
+--- version and the spell it replaces, and the root is where a stored id of either one lands
+--- (`ResolveBase`), so the name reaches the same button, subtext and icon.
+function Spells.ResolveName(name, api)
+    local ids = api.obtainableIDsByName[name];
+    if (not ids) then
+        return nil;
+    end
+    for i = 1, #ids do
+        local climbed = Climb(ids[i], api.FindBaseSpellByID);
+        if (climbed ~= ids[i]) then
+            return climbed;
+        end
+    end
+    return ids[1];
+end
+
 local _resolveAPI = {
     FindBaseSpellByID = function(spellID) return C_SpellBook.FindBaseSpellByID(spellID); end,
     GetSpellName = function(spellID) return C_Spell.GetSpellName(spellID); end,
@@ -498,9 +519,15 @@ local _resolveAPI = {
 
 --- **For a stored id**: one read back out of SavedVariables, which may have been written under a
 --- talent build that is gone. Walks the name index where the client has nothing left to say.
-function DebindPrivate.ResolveBaseSpell(spellID)
+---
+--- **A stored name goes through `ResolveName` instead**, and is the one input that can come back
+--- nil. `FindBaseSpellByID` takes a number only.
+function DebindPrivate.ResolveBaseSpell(value)
     _resolveAPI.obtainableIDsByName = Spells.GetObtainableIDsByName();
-    return Spells.ResolveBase(spellID, _resolveAPI);
+    if (type(value) == "string") then
+        return Spells.ResolveName(value, _resolveAPI);
+    end
+    return Spells.ResolveBase(value, _resolveAPI);
 end
 
 --- **For an id that just came from the client**: a spellbook row, a flyout slot, the cursor. It is

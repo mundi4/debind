@@ -1,7 +1,7 @@
 # Clique 프로필 가져오기 (2026-09-24 시작)
 
-> 상태: **설계 중. 코드는 하나도 안 건드렸다.** 정한 것은 §1부터 §6까지이고, 안 정한 것은 §8에
-> 모았다.
+> 상태: **설계 중. §4는 id로 바꿔 저장하는 것만 빼고 구현했다.** 정한 것은 §1부터 §6까지이고, 안
+> 정한 것은 §8에 모았다.
 >
 > Clique의 저장 모양과 조합의 뜻을 코드에서 읽은 원문은 `.zzz/clique-savedvars.md`가 든다. 여기는
 > 그 조사에서 나온 결론과 이유만 담는다.
@@ -72,8 +72,18 @@ General과 캐릭터 층만 쓴다.
 들인다.
 
 손볼 곳은 `value`를 id로 가정하고 client에 묻는 자리다. `CollectBindingFacts`, 표시의
-`FindBaseSpellByID`(`ActionDisplay.lua`), `Misc.lua`에서 `SPELL`로 갈리는 자리, 보관함의
-`VALUE_SHAPES`.
+`FindBaseSpellByID`(`ActionDisplay.lua`), `ConvertToMacroText`, 보관함의 `VALUE_SHAPES`.
+`ResolveBaseSpell`이 이름을 받으므로(`Spells.ResolveName`) 그것을 거치는 자리(`KnownRows`, DEBUG의
+`SpellFacts`)는 따로 손대지 않았다.
+
+**이름 하나에 id가 여럿이면 뿌리를 쓴다.** 재능판과 그것이 덮는 주문이 한 이름을 나누고, 어느 쪽 id로
+저장했든 `ResolveBase`가 닿는 곳이 뿌리라서 이름도 같은 버튼, 부제, 아이콘에 닿는다.
+
+**버튼 캐시는 이름이 아니라 풀린 id로 잡는다.** 캐시는 적중하면 속성을 안 쓰고 한 번도 안 지워지므로,
+이름으로 잡으면 전문화를 바꿔 다르게 풀려도 첫 리빌드가 구운 `*spell-`이 계속 나간다.
+
+**`wow_shim.lua`의 `C_SpellBook`은 id만 받는다.** 클라이언트 문서가 인자를 `number`로 적는다. 전에는
+이름에 nil로 답해서, 이름이 `FindBaseSpellByID`에 닿아도 헤드리스가 몰랐다.
 
 ## 5. Hover Cast 모드는 계정 설정을 따른다
 
@@ -115,7 +125,8 @@ General과 캐릭터 층만 쓴다.
 변환기는 client를 부르지 않는 순수 함수로 짜서 헤드리스 스펙이 §6의 표를 한 줄씩 잡는다. 입력은
 Clique 바인딩 표, 출력은 payload다. 이름 색인을 거치는 리빌드 갈래(§4)는 `CollectBindingFacts`가
 client 호출을 한 곳에 모아 두었으므로 같은 식으로 세계를 넘겨 잡는다. 이름이 풀리는 경우, 안 풀리는
-경우, 풀린 뒤 id로 바꿔 저장하는 경우가 그것이다. `CliqueDB3`를 실제로 읽는 입구와 보관함 화면은
+경우, 풀린 뒤 id로 바꿔 저장하는 경우가 그것이다. 앞의 둘과 id가 여럿인 이름, 다음 리빌드에서 다시
+풀리는 경우, 표시와 매크로 변환, `VALUE_SHAPES`는 `spellname_spec.lua`가 잡는다. `CliqueDB3`를 실제로 읽는 입구와 보관함 화면은
 헤드리스가 닿지 않는다.
 
 ## 8. 안 정한 것
