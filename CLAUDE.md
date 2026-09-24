@@ -265,6 +265,12 @@ line still exits 0, where Edit stops.
     that is actually followed. **That is what forbids two files under `devdocs/` sharing a name**:
     the name is the address, and two of them leave a citation with no answer.
   - A work document is a proposal, not an order — read its status header first.
+  - **A handover names the session that wrote it.** A work document or a prompt written for another
+    session carries the writer's session name as `ListAgents` shows it (`debind-21`) and its session
+    ID, so the receiver can put a missing piece to that session with `SendMessage` instead of
+    guessing. The name reaches nobody once that session has ended, and from then on the document is
+    all there is, so it is written as though it already has. If an ended session really has to be
+    asked, ask the owner to resume it; the ID is what they resume it by.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
     that ground still holds. An outcome with no reason shuts both doors.
