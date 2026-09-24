@@ -276,14 +276,6 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
-    -- **The narrower answer when nobody said.** Dropping the numbers widens a binding to every
-    -- specialization, which is the direction a keybinding addon must not fail in.
-    test("with no answer the numbers become the condition", function()
-        local placements = Plan({ layer = "class" });
-        check(placements[1].action.conditions and placements[1].action.conditions.specs,
-            "no answer dropped them");
-    end);
-
     test("a payload from nowhere we know has its untranslated dropped", function()
         FreshProfile();
         local payload = {

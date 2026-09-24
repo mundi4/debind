@@ -813,15 +813,14 @@ end
 --- The file names no layer and no class, so it waits in General and `options.layer` (`"general"`,
 --- `"class"` or `"character"`, this character's own) places all of it. `options.specs` says what
 --- becomes of the specialization numbers waiting in `untranslated`: `"convert"` makes them this
---- class's condition and `"drop"` drops them. General drops them whatever is asked -- one class's
---- condition on a layer every class reads means nothing -- and no answer converts, since dropping
---- widens a binding to every specialization.
+--- class's condition and `"drop"` drops them. General drops them whatever is asked: one class's
+--- condition on a layer every class reads means nothing.
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
     local fromClique = payload.source == DebindStorage.SOURCE_CLIQUE;
     local layer = fromClique and options and options.layer or "general";
-    local convertSpecs = fromClique and layer ~= "general" and not (options and options.specs == "drop");
+    local convertSpecs = fromClique and layer ~= "general" and options.specs == "convert";
     -- **One number for the whole call**, because one call is one arrival. Every action of it lands
     -- badged with the same value, which is what keeps a set that spans four layers one set.
     --
