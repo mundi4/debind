@@ -481,6 +481,19 @@ local function NameMatchesSearch(name)
 	return strfind(strlower(name or ""), _searchText, 1, true) ~= nil;
 end
 
+local function IsSearchMiss(action)
+	if (_searchText == nil) then
+		return false;
+	end
+	if (action.key ~= nil and NameMatchesSearch(DebindPrivate.GetKeyDisplayText(action.key))) then
+		return false;
+	end
+	if (NameMatchesSearch(NameAndIconForAction(action))) then
+		return false;
+	end
+	return not (strsub(_searchText, 1, 1) == "$" and DebindPrivate.ActionNamesSwitch(action, _searchText));
+end
+
 --- 지금 무엇이든 좁혀져 있나. 값 하나라도 꺼져 있거나 검색어가 있으면 참이다.
 ---
 --- 탭 숫자의 색이 이 답을 쓴다. 좁혀져 있을 때만 초록/회색으로 갈라서 "찾는 게 여기 있다"를
@@ -529,16 +542,20 @@ end
 --- 아무것도 안 걸려 있으면 레이어에 그냥 물어본다. 걸을 것이 없는데 훑을 이유가 없다.
 local function CountActionsInLayer(layer, visible)
 	if (visible == nil) then
-		return layer:GetNumActions();
+		local count = layer:GetNumActions();
+		return count, count;
 	end
 
-	local count = 0;
+	local count, hits = 0, 0;
 	for _, action in layer:Enumerate() do
 		if (visible[action]) then
 			count = count + 1;
+			if (not IsSearchMiss(action)) then
+				hits = hits + 1;
+			end
 		end
 	end
-	return count;
+	return count, hits;
 end
 
 
@@ -1109,6 +1126,7 @@ function DebindLineMixin:Update()
 	local action = elementData.action;
 
 	DebindUI.FillActionLine(self, action, elementData.layer);
+	self:SetAlpha(elementData.searchMiss and 0.5 or 1);
 
 	-- 강조는 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를 새로 만들어도
 	-- 강조가 유지된다.
@@ -1146,8 +1164,6 @@ function DebindLineMixin:Update()
 	else
 		self:UnlockHighlight();
 	end
-
-	self:SetAlpha(1);
 end
 
 --- **지정 모드 중에는 안내 줄을 갈아 끼운다.** 평소의 세 줄이 그 모드에서는 전부 거짓이다 -
@@ -2068,7 +2084,10 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 	--
 	-- Recolouring is the mark that **the number means something else right now**. Count a different
 	-- thing in the same place in the same shape and clearing the filter reads as actions having
-	-- appeared. **Zero is grey.** Green means "what you are after is in here", so green on tabs
+	-- appeared. **Zero is grey, and so is a count made only of rows that came along with their key
+	-- group without matching the search** (`IsSearchMiss`, owner 2026-09-24): the number still says
+	-- how many rows the list will show, but none of them is what was searched for. Green means "what
+	-- you are after is in here", so green on tabs
 	-- that have none takes that meaning away - an eye running down the tab row should have the
 	-- colour do the discarding for it.
 	--
@@ -2086,13 +2105,13 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 		local label = GetTabLabel(tabId);
 
 		do
-			local sum = 0;
+			local sum, hitSum = 0, 0;
 			local countedLayers = {};
 			for sideTabId, sideTab in ipairs(self.SideTabs) do
 				if (sideTabId <= 2 + NUM_SPECS) then
 					local layerId = GetLayerID(tabId, sideTabId);
 					local layer = DebindPrivate.GetProfileLayer(layerId);
-					local count = CountActionsInLayer(layer, visible);
+					local count, hits = CountActionsInLayer(layer, visible);
 
 					-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
 					-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
@@ -2102,7 +2121,7 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 						sideTab.Count:SetText(count);
 						if (not narrowed) then
 							sideTab.Count:SetTextColor(1, 1, 1);
-						elseif (count > 0) then
+						elseif (hits > 0) then
 							sideTab.Count:SetTextColor(GREEN_FONT_COLOR:GetRGB());
 						else
 							sideTab.Count:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
@@ -2112,6 +2131,7 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 					if (not countedLayers[layerId]) then
 						countedLayers[layerId] = true;
 						sum = sum + count;
+						hitSum = hitSum + hits;
 					end
 				end
 			end
@@ -2120,7 +2140,7 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 			-- 숫자가 제 FontString이라 위에서 색을 직접 준다.
 			local text = "(" .. sum .. ")";
 			if (narrowed) then
-				local color = (sum > 0) and GREEN_FONT_COLOR or DISABLED_FONT_COLOR;
+				local color = (hitSum > 0) and GREEN_FONT_COLOR or DISABLED_FONT_COLOR;
 				text = color:WrapTextInColorCode(text);
 			end
 			label = label .. " " .. text;
@@ -3323,7 +3343,8 @@ local function BuildSortedElements(layer, layerID, visible)
 				layer = layerID,
 				index = i,
 				sortName = strlower(NameAndIconForAction(action) or ""),
-				order = _sortMode == "key" and action.key ~= nil
+				searchMiss = IsSearchMiss(action),
+				order =_sortMode == "key" and action.key ~= nil
 					and DebindPrivate.MakeOrderRecord(action, nil, nil) or nil,
 			};
 		end
@@ -4916,6 +4937,7 @@ function DebindOrderLineMixin:Update()
 	local row = elementData.row;
 
 	self:UpdateMoveButtons(elementData);
+	self:SetAlpha(elementData.searchMiss and 0.5 or 1);
 
 	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
 	local name, icon = ColoredNameAndIconForAction(row.action, row.layerID);
@@ -5191,6 +5213,7 @@ function BuildKeyboardElements()
 		end
 		for i, row in ipairs(rows) do
 			elements[#elements + 1] = {
+				searchMiss = IsSearchMiss(row.action),
 				row = row,
 				isCurrent = row.action == _selectedAction,
 				-- 이동 버튼이 `ComputeOrderSwap(rows, index, ±1)`을 물으려면 **그룹 전체와
