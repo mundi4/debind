@@ -235,5 +235,14 @@ return function(DebindPrivate)
         end);
     end
 
+    -- **The tri-state checkbox's middle mark is an atlas camelot does not have** (`common-icon-minus`,
+    -- 69977), and a missing atlas is a mark that draws nothing. The first of the names the client
+    -- has is the one drawn.
+    test("an atlas the client lacks gives way to one it has", function()
+        local name = DebindPrivate.Client.FirstAtlas("common-icon-minus", "common-button-list-minus");
+        local expected = camelot and "common-button-list-minus" or "common-icon-minus";
+        check(name == expected, "drawn with " .. tostring(name));
+    end);
+
     return T;
 end

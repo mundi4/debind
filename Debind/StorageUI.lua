@@ -98,7 +98,13 @@ local STATE_ALL        = 2;
 --- of them", which is the one thing this state must not say. Shape carries further than shade, so
 --- the dash is what changes.
 local CHECK_ALL        = "checkmark-minimal";
-local CHECK_SOME       = "common-icon-minus";
+--- **Camelot has no `common-icon-minus`** (69977), and there the dash is `common-button-list-minus`,
+--- a 13x4 bar. That one is drawn to its own proportions below; the first is drawn square, as it was
+--- sized for.
+local CHECK_SOME, CHECK_SOME_INFO = DebindPrivate.Client.FirstAtlas("common-icon-minus",
+    "common-button-list-minus");
+local SOME_MARK_ASPECT = (CHECK_SOME ~= "common-icon-minus" and CHECK_SOME_INFO)
+    and CHECK_SOME_INFO.height / CHECK_SOME_INFO.width or 1;
 
 --- How much of the box the mark fills. Neither atlas is drawn to sit inside `checkbox-minimal` -
 --- at their own sizes the tick overflows the box and the dash is unrelated to it again - so the
@@ -116,7 +122,7 @@ local function SetMark(checkButton, atlas)
         * (atlas == CHECK_SOME and SOME_MARK_SCALE or MARK_SCALE);
     -- `false`, not `true`: the atlas must not take the size back, or the `SetSize` below is undone.
     mark:SetAtlas(atlas, false);
-    mark:SetSize(size, size);
+    mark:SetSize(size, atlas == CHECK_SOME and size * SOME_MARK_ASPECT or size);
 end
 
 --- **Every checkbox in this panel goes through here once, tri-state or not.**

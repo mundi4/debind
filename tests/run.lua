@@ -103,6 +103,7 @@ local DEBIND_FILES = {
     "Client/Classes.lua",
     "Client/SpellBook.lua",
     "Client/TalentTree.lua",
+    "Client/Atlases.lua",
     "SpecSpells.lua",
     "Spells.lua",
     "Conditions/Talents.lua",

@@ -84,6 +84,7 @@ globals = {
 	"C_PaperDollInfo",
 	"C_PetBattles",
 	"C_Spell",
+	"C_Texture",
 	"C_Traits",
 	"C_UnitAuras",
 	"C_ToyBox",

@@ -858,6 +858,22 @@ function M.install()
     _G.C_AssistedCombat = {
         GetActionSpell = function() return nil; end,
     };
+    --- Every atlas answers, square, except the ones camelot was measured without (69977).
+    local CAMELOT_MISSING_ATLASES = {
+        ["common-icon-minus"] = true,
+        ["communities-icon-minus"] = true,
+        ["Campaign_HeaderIcon_Minus"] = true,
+    };
+    local ATLAS_SIZES = { ["common-button-list-minus"] = { 13, 4 } };
+    _G.C_Texture = {
+        GetAtlasInfo = function(name)
+            if (camelot and CAMELOT_MISSING_ATLASES[name]) then
+                return nil;
+            end
+            local size = ATLAS_SIZES[name] or { 16, 16 };
+            return { width = size[1], height = size[2] };
+        end,
+    };
     _G.C_SpellBook = {
         --- The id an override points back at. Absent from the table means "this id is its own
         --- base", which is what the client answers for every spell that is not overridden.

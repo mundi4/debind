@@ -131,7 +131,8 @@
 
 **들어갔다: 주문 등급.** 카멜롯은 등급마다 주문 번호가 따로이고 주문책에 등급마다 항목이 있다
 (`IsSpellBookItemLowRank`는 카멜롯에만 있다). 블리자드 주문책은 CVar `ShowAllSpellRanks`가 꺼져
-있으면 낮은 등급을 숨기고, `BuildPlayerSpells`도 `Client.IsHiddenLowRank`로 같이 숨긴다.
+있으면 낮은 등급을 숨기고, `BuildPlayerSpells`도 `Client.IsHiddenLowRank`로 같이 숨긴다. 마법사가
+Fireball 2등급(143)을 배우자 1등급이 낮은 등급으로 잡혔다(2026-09-24, 69977).
 
 **들어갔다: 시전 이름에서 등급을 뺀다.** 카멜롯은 주문 부제로 "Rank 1"을 준다(잰 값). 부제를 괄호로
 붙이면 `Healing Touch(Rank 1)`이 되어 2등급을 배운 뒤에도 1등급을 쓴다. 부제는 게임 데이터라 언어마다
@@ -188,10 +189,11 @@
   (`Client/SpellBook.lua`)를 거치고, 그것이 raise를 nil로 바꾼다. 보너스 바 이름만이 아니라 공유
   문자열로 건너온 플라이아웃 액션도 이 클라이언트에 없는 번호를 들고 온다. 보너스 바 조건의 툴팁과
   메뉴가 따로 들던 이름 표는 `DebindPrivate.BonusBarLabel` 하나로 합쳤다.
-- **아틀라스 `common-icon-minus`가 없다.** `StorageUI.lua`의 `CHECK_SOME`이다. 나머지 20개는 있다.
-  대체 후보 여섯은 프로브의 `minus candidates` 구역이 잰다. 기록은 `/reload` 두 번 뒤에 파일로
-  나온다(한 번은 재고, 한 번은 쓴다). 고르는 방식은 "`common-icon-minus`가 있으면 그것, 없으면 잰
-  후보"다.
+- **들어갔다. 아틀라스 `common-icon-minus`가 없다.** `StorageUI.lua`의 `CHECK_SOME`이다. 나머지 20개는
+  있다. 후보 여섯을 쟀다(69977): `common-button-list-minus` 13×4, `voicechat-channellist-category-minus`
+  7×7, `UI-HUD-Minimap-Zoom-Out` 17×9는 있고, `communities-icon-minus`와 `Campaign_HeaderIcon_Minus`는
+  없다. `Client.FirstAtlas`(`Client/Atlases.lua`)가 `common-icon-minus`가 있으면 그것, 없으면
+  `common-button-list-minus`를 낸다. 대신 쓰는 막대는 정사각형이 아니라 제 비율(13×4)로 그린다.
 
 ## 4. 헤드리스
 
@@ -264,7 +266,7 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
 
 1. **검사 먼저.** `forEachSnippet` 재귀, `tests/run.lua`와 XML 목록 대조. 코드는 안 바뀐다. 들어갔다.
 2. **`Client/`와 3-1**, shim의 카멜롯 세계. 층의 모양이 여기서 선다. 카멜롯의 실제 고장 하나를 고친다.
-   들어갔다. 3-6의 플라이아웃도 같이 들어갔고, 아틀라스는 후보를 잰 뒤다.
+   들어갔다. 3-6의 플라이아웃과 아틀라스도 들어갔다.
 3. **3-2, 3-3, 3-4.** 프로브 값이 입력이다. 3-3의 레이어 결정은 3-2와 무관하다. 3-2와 3-4는
    들어갔다. 3-3은 그룹을 바꾸는 순간의 측정을 기다린다.
    이어서 **등급 고정**(3-4). 들어갔다.

@@ -4,6 +4,7 @@
     <Script file="Client/Classes.lua"/>
     <Script file="Client/SpellBook.lua"/>
     <Script file="Client/TalentTree.lua"/>
+    <Script file="Client/Atlases.lua"/>
     <Script file="SpecSpells.lua"/>
     <Script file="Spells.lua"/>
     <Script file="Conditions/Talents.lua"/>
