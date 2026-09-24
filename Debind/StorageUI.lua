@@ -728,6 +728,46 @@ local function SetupAddMenu(_, rootDescription)
     DebindUI.SetInstructionTooltip(description, LLL["STORAGE_ADD_ACCEPTED_DESC"]);
 end
 
+--- The Clique profiles, one row each, with who uses it and how many actions it becomes.
+local function AddCliqueProfiles(parent)
+    for _, profile in ipairs(Store().CliqueProfiles(_G.CliqueDB3)) do
+        local description = parent:CreateButton(profile.name, function()
+            DebindStoragePanel:OnCliqueProfileClicked(profile);
+        end);
+        local _, count = Store().PayloadFromCliqueBindings(profile.bindings);
+        local users = #profile.characters > 0 and table.concat(profile.characters, ", ")
+            or LLL["STORAGE_CLIQUE_PROFILE_NO_USERS"];
+        description:SetTooltip(function(tooltip)
+            GameTooltip_SetTitle(tooltip, profile.name);
+            GameTooltip_AddNormalLine(tooltip, format(LLL["STORAGE_CLIQUE_PROFILE_USERS"], users));
+            GameTooltip_AddNormalLine(tooltip, format(LLL["STORAGE_CLIQUE_PROFILE_COUNT"], count));
+        end);
+    end
+end
+
+--- Where a new entry comes from, behind the [+] (`importing-clique-profiles.md` §1). **The press
+--- asks rather than making one**, which puts a step in front of making from this character. That is
+--- fine: making an entry is not something done often (2026-09-24, 소유자).
+---
+--- **From Clique is always there**, and greyed where Clique is not loaded. It is read straight out of
+--- Clique's own saved variables, which exist only while that addon is loaded.
+local function SetupCreateMenu(_, rootDescription)
+    rootDescription:CreateButton(LLL["STORAGE_CREATE_FROM_CHARACTER"], function()
+        DebindStoragePanel:OnCreateClicked();
+    end);
+    rootDescription:CreateButton(LLL["STORAGE_CREATE_FROM_CODE"], function()
+        DebindPasteFrame:Open();
+    end);
+
+    local clique = rootDescription:CreateButton(LLL["STORAGE_CREATE_FROM_CLIQUE"]);
+    if (DebindPrivate.CliqueDetected and _G.CliqueDB3) then
+        AddCliqueProfiles(clique);
+    else
+        clique:SetEnabled(false);
+        DebindUI.SetInstructionTooltip(clique, LLL["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"]);
+    end
+end
+
 function DebindStoragePanelMixin:OnLoad()
     -- **What this panel asks the frame to be** is a `KeyValue` in the XML, read by `SelectPanel`.
     -- Two columns now, so it asks for Overview's width rather than a single list's.
@@ -761,15 +801,9 @@ function DebindStoragePanelMixin:OnLoad()
     -- lines now (`STORAGE_CREATE_TOOLTIP`, `STORAGE_CREATE_INSTRUCTION`), declared in the XML rather
     -- than written out here. The list names payloads all over itself and nothing on screen says what
     -- one is; a tooltip is read by somebody who stopped to ask, which is exactly who needs it.
-    self.PortraitRow.CreatePortrait:SetScript("OnClick", function() self:OnCreateClicked(); end);
-    self.PortraitRow.PastePortrait:SetScript("OnClick", function() DebindPasteFrame:Open(); end);
-    -- **A rotation and not `SetTexCoord`.** The arrow is an atlas, so `SetAtlas` has already written
-    -- that one piece's UV into the texture; coordinates laid over it would flip the whole sheet. The
-    -- client turns the same family's arrow over this way (`Blizzard_HouseEditorLayoutModePin.lua`).
-    --
-    -- The texture itself arrives later than this line, on the button's first `OnShow`
-    -- (`DebindPortraitMixin:OnLoad`), and a rotation survives the `SetAtlas` that sets it.
-    self.PortraitRow.PastePortrait.Portrait:SetRotation(math.pi);
+    self.PortraitRow.CreatePortrait:SetScript("OnClick", function(button)
+        MenuUtil.CreateContextMenu(button, SetupCreateMenu);
+    end);
     self.Preview.AddButton:SetScript("OnClick", function(button)
         MenuUtil.CreateContextMenu(button, SetupAddMenu);
     end);
@@ -1122,6 +1156,20 @@ function DebindStoragePanelMixin:OnCreateClicked()
 
     -- **Landed on, not just listed.** A new row at the top of a list the reader is already looking
     -- at is easy to miss, and the right column standing empty beside it says nothing happened.
+    self:SelectEntry(entry);
+end
+
+--- A Clique profile becomes an entry, all of it in General, since the file names no layer
+--- (`importing-clique-profiles.md` §3). Where it goes is asked when it is added.
+function DebindStoragePanelMixin:OnCliqueProfileClicked(profile)
+    local payload = Store().PayloadFromCliqueBindings(profile.bindings);
+    local entry, reason = Store().StorePayload(payload,
+        format(LLL["STORAGE_CLIQUE_ENTRY_NAME"], profile.name));
+    if (not entry) then
+        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
+        return;
+    end
+    DebindFrame:NotifyStoreChanged();
     self:SelectEntry(entry);
 end
 

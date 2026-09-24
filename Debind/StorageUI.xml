@@ -284,13 +284,12 @@
 			</Frame>
 
 			<!--
-				**The two ways a row gets into the list**, in the corner every tab's controls stand in
-				(`DebindPortraitRowTemplate`). They were labelled buttons above the list's left edge,
-				each as wide as its own label (2026-08-23, 소유자); what that decision was about is
-				width, and a portrait has none to get wrong.
+				**The one way a row gets into the list**, in the corner every tab's controls stand in
+				(`DebindPortraitRowTemplate`). Its press opens a menu of where the row comes from: this
+				character, a share code, a Clique profile (`importing-clique-profiles.md` §1).
 
 				**`CreatePortrait` wears Overview's [+]**, because it is the same job on a different
-				list. Paste does not: nothing about it is "one more".
+				list.
 			-->
 			<Frame parentKey="PortraitRow" inherits="DebindPortraitRowTemplate">
 				<Frames>
@@ -301,24 +300,6 @@
 							<KeyValue key="TooltipTitle" value="STORAGE_CREATE" type="string"/>
 							<KeyValue key="TooltipText" value="STORAGE_CREATE_TOOLTIP" type="string"/>
 							<KeyValue key="TooltipInstruction" value="STORAGE_CREATE_INSTRUCTION" type="string"/>
-						</KeyValues>
-					</Button>
-					<!--
-						**An arrow coming in, and nothing else on it** (2026-09-19, 소유자). An envelope
-						stood here first and read as sending rather than receiving; a [+] with the arrow
-						as a badge on it was next, and what it bought was a second button that looks like
-						`CreatePortrait` at a glance. The arrow alone says the one thing that makes the
-						two different, which is where the row comes from.
-
-						`house-reward-green-arrow-up` points up, the client having no green arrow that
-						points down, so it is turned over (`SetRotation`, in `OnLoad`).
-					-->
-					<Button parentKey="PastePortrait" inherits="DebindPortraitTemplate">
-						<KeyValues>
-							<KeyValue key="layoutIndex" value="2" type="number"/>
-							<KeyValue key="PortraitTexture" value="A:house-reward-green-arrow-up" type="string"/>
-							<KeyValue key="TooltipTitle" value="STORAGE_PASTE" type="string"/>
-							<KeyValue key="TooltipInstruction" value="STORAGE_PASTE_INSTRUCTION" type="string"/>
 						</KeyValues>
 					</Button>
 				</Frames>

@@ -2097,26 +2097,25 @@ L["STORAGE_CREATE"] = "New Payload"
 -- It says the two directions rather than the contents: a payload is worth having because it goes
 -- somewhere, and both places it goes are one press away on this screen.
 L["STORAGE_CREATE_TOOLTIP"] = "A payload is a saved set of actions, kept outside your bindings. Add one to your bindings later, or send it to somebody as a share code."
--- The press, in the line the client keeps for what a click does.
-L["STORAGE_CREATE_INSTRUCTION"] = "Click to make one out of everything this character has right now."
--- **Not "Import", which the client owns and spends on something else.** Every one of those buttons
--- takes a code and makes it yours in one press. This one takes a code and puts a row in a list, and
--- nothing the reader has is any different afterwards, so the word would promise the half of the
--- client's gesture that only happens later and on another button (2026-08-22, 소유자).
---
+-- The press, in the line the client keeps for what a click does. It opens the menu below.
+L["STORAGE_CREATE_INSTRUCTION"] = "Click to choose where it comes from."
+-- The three sources behind the [+] (`importing-clique-profiles.md` §1).
+L["STORAGE_CREATE_FROM_CHARACTER"] = "From This Character"
 -- Says "Share Code" because `STORAGE_COPY` does, and the two are the same code going opposite ways.
---
--- **It keeps "Paste", where the other one names what it makes.** The two doors are not the same
--- shape: one takes what the reader already has and the other wants something out of their
--- clipboard, and the verb is the part of that they have to know before pressing.
-L["STORAGE_PASTE"] = "Paste Share Code"
--- **The button lost its label to an icon, so the verb has to be said again here.** "Paste" was the
--- half of the old label the reader had to know before pressing, and a picture cannot carry it.
---
--- It names the clipboard because that is where the code has to already be: the box that opens has
--- nowhere to get one from, and a reader who presses this without a code in hand has opened a dialog
--- for nothing.
-L["STORAGE_PASTE_INSTRUCTION"] = "Click with a share code on your clipboard and it opens the box to paste it into."
+-- The ellipsis because it opens the box to paste into rather than making the row.
+L["STORAGE_CREATE_FROM_CODE"] = "From Share Code..."
+L["STORAGE_CREATE_FROM_CLIQUE"] = "From Clique"
+-- Why that item is grey. It reads Clique's own saved variables, which exist only while it is loaded.
+L["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"] = "Clique is not loaded."
+-- The row a Clique profile becomes. `%s` is the profile's name, which is the character's
+-- ("Name - Realm") unless the reader named it.
+L["STORAGE_CLIQUE_ENTRY_NAME"] = "Imported Clique Profile (%s)"
+-- A profile's tooltip. Both lines stand whatever the profile holds: the characters that use it, and
+-- how many actions it becomes -- Clique's two starting bindings are not counted, since nothing of
+-- ours stands in for them.
+L["STORAGE_CLIQUE_PROFILE_USERS"] = "Used by: %s"
+L["STORAGE_CLIQUE_PROFILE_NO_USERS"] = "no character"
+L["STORAGE_CLIQUE_PROFILE_COUNT"] = "Actions: %d"
 -- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
 --
