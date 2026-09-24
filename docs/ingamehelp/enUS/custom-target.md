@@ -20,7 +20,7 @@ reaches any unit frame through `mouseover` (`_onattributechanged` in `UnitWatch.
 it still has to be one of those six.
 
 **Combat is the only axis the page splits on.** Which press reaches us over an unwired frame is the
-bare left and right click's own rule, which holds no key (`IsBareWorldClick` in `Misc.lua`,
+bare left and right click's own rule, which holds no key (`IsBareWorldClick` in `ActionBindings.lua`,
 `which-action-a-key-runs.md` §7) and is the same for every action, so saying it here would teach it
 twice. The CHANGELOG for 3.6 names the keyboard and the mouse button, which is that rule under the
 names of its two usual cases.

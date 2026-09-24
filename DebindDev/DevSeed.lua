@@ -62,7 +62,7 @@ SEEDS[5] = function(guid)
             ---   * `SPELL`, `FLYOUT`, `PETACTION` name something a class has. Seeded, they come up
             ---     as red rows on every character that is not that class, which is the one thing
             ---     this seed exists to avoid.
-            ---   * `known` is dropped on anything that is not a `SPELL` (`Misc.lua`), so it cannot
+            ---   * `known` is dropped on anything that is not a `SPELL` (`FillBinding`), so it cannot
             ---     be reached from here at all while `SPELL` is out.
             GENERAL = {
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F1", seq = 1 },
@@ -182,7 +182,7 @@ SEEDS[5] = function(guid)
                 --- a seed of nothing but `true` leaves half of every one of them unseen.
                 ---
                 --- **`petbattle` and `specialbar` cannot share an action** - the second is
-                --- dropped when both are set (`Misc.lua`), so the bar row below is a row of its
+                --- dropped when both are set (`FillBinding`), so the bar row below is a row of its
                 --- own rather than more fields on this one.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F8", seq = 1,
                     stealth = true, petbattle = true },

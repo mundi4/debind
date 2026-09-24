@@ -644,10 +644,10 @@ return function(DebindPrivate)
             "known: " .. tostring(layer[1].conditions.known));
     end);
 
-    -- **주문이 아닌 타입의 `known`은 올라가는 것이 아니라 지워진다.** 옛 정규화가 그런 줄을
-    -- 통째로 버렸으므로(`Misc.lua`) 저장에 남아 있어도 아무 일도 안 하던 값이다. 이름으로
-    -- 올려 두면 그 이름이 조건문으로 구워지고, 매크로 이름이나 아이템 id의 이름은 영원히
-    -- 거짓이라 그 키가 조용히 죽는다.
+    -- **A `known` on a type that is not a spell is dropped, not raised.** The old normalization threw
+    -- such a line away whole (`FillBinding`), so the stored value was doing nothing. Raised to a
+    -- name, that name bakes into the conditional, and the name of a macro or an item id is false
+    -- for good, so the key dies in silence.
     test("dbver 7 drops a known on a type that has no spell", function()
         local layer = knownLayer({ type = Constants.MACROTEXT, value = "/cast Foo" });
         MigrateLayer(layer, 6);

@@ -1,16 +1,17 @@
--- **[사용자 지정 매크로로 바꾸기]가 무엇을 내주고 무엇을 거절하나** (`Misc.lua`의
+-- **What [Convert to macro text] hands out and what it turns away** (`MacroText.lua`'s
 -- `CanConvertToMacroText` / `ConvertToMacroText`).
 --
--- 이 변환은 액션을 **제자리에서 갈아치운다.** 되돌리는 길은 메뉴가 들고 있는 [취소] 하나뿐이고
--- (`DropDownMenus.lua`), 그 창을 닫고 나면 원래 타입은 어디에도 안 남는다. 그래서 **바뀐 키가
--- 바뀌기 전과 다른 일을 하면 아무도 못 잡는다** - 화면에는 사용자가 적은 매크로 한 줄이 서 있고,
--- 그 줄은 제 본문대로 정확히 동작한다.
+-- The conversion **replaces the action in place.** The only way back is the [Cancel] the menu
+-- holds (`DropDownMenus.lua`), and once that window closes the original type is kept nowhere. So
+-- **a converted key doing something other than it did before is caught by nobody**: the screen
+-- shows one macro line the reader wrote, and that line does exactly what its body says.
 --
--- 여기 있는 것은 그 한 가지 규칙이다. **매크로 본문으로 못 옮기는 것을 들고 있으면 변환을
--- 안 내준다.** 내주면서 조용히 떨어뜨리지 않는다.
+-- What is here is that one rule. **An action carrying something a macro body cannot take is not
+-- offered the conversion.** It is not offered it with that thing quietly dropped.
 --
--- 몇 가지는 다른 스펙이 든다. 주문 본문이 시전 이름과 같은 문자열인지는 `castname_spec`이,
--- 스위치를 안 고른 액션이 거절되는지는 `switch_spec`이 든다.
+-- A few cases belong to other specs: whether a spell body is the same string as the cast name is
+-- `castname_spec`'s, and whether an action with no switch picked is turned away is
+-- `switch_spec`'s.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -246,10 +247,10 @@ return function(DebindPrivate)
     -- 조건은 따라오거나, 못 따라오면 변환이 안 선다
     ---------------------------------------------------------------------------
 
-    --- `known`은 **이 액션 제 주문**에 대한 물음이라 `SPELL`에만 뜻이 있다. 매크로텍스트가 되면
-    --- 물어볼 id가 사라지고, `GetBindingInfoForAction`이 그 조건을 바인딩에서 지운다
-    --- (`Misc.lua`). 저장에는 남은 채로 아무 일도 안 하므로, **화면에는 조건이 걸린 것으로
-    --- 보이는데 키는 늘 발동한다.**
+    --- `known` asks about **this action's own spell**, so it means something on `SPELL` only. Made
+    --- macro text, the action has no id left to ask about, and `GetBindingInfoForAction` drops the
+    --- condition off the binding. It stays in storage doing nothing, so **the screen shows a
+    --- condition and the key always fires.**
     test("배웠을 때만 조건이 걸린 액션은 못 바꾼다", function()
         installWorld();
         check(not Can({ type = Constants.SPELL, value = 774, conditions = { known = true } }),
@@ -361,8 +362,9 @@ return function(DebindPrivate)
         check(action.conditions.units.focus.group == PARTY,
             "`@`의 소속이 사라졌다: " .. tostring(action.conditions.units.focus.group));
 
-        -- 양쪽이 다 들고 있으면 교집합이다. 겹치는 축이라 이 둘은 **하나로 안 접힌다** -
-        -- 저장은 상자를 그대로 들고 파생이 칸으로 편다(`Misc.UnitGroupToCells`).
+        -- With both sides carrying one, it is the intersection. The axis overlaps, so these two
+        -- **do not fold into one**: storage keeps the boxes as they are and the derivation spreads
+        -- them into cells (`UnitGroupToCells`).
         action = { type = Constants.SPELL, value = 774, unit = "focus",
             conditions = { units = {
                 ["@"] = { group = PARTY + RAID },

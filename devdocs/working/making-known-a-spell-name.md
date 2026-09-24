@@ -87,16 +87,16 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 주문이 아닌 액션에 이 조건을 세우는 메뉴가 없어서 그런 값은 애당초 만들 수 없고 화면에서 끌 수도
 없다. 좁아지는 것은 `KnownConditionCanHold` 쪽뿐이다.
 
-- `Misc.lua`의 정규화: 주문과 전문화 타입 셋 밖에서는 값이 무엇이든 지운다. `false`도 그대로
+- `ActionBindings.lua`의 정규화: 주문과 전문화 타입 셋 밖에서는 값이 무엇이든 지운다. `false`도 그대로
   지운다.
 - `Profile.lua`의 청소와 사다리: **저장에서도 지운다.** 바인딩에서만 무시하면 그 값이 파일에
   남아 되돌릴 수단이 없다.
-- `KnownConditionCanHold`(`Misc.lua`)와 그것을 쓰는 키맵 필터(`Debind.lua`): `true`만 "물을 것이
+- `KnownConditionCanHold`(`Known.lua`)와 그것을 쓰는 키맵 필터(`Debind.lua`): `true`만 "물을 것이
   없다"를 답할 수 있다. 이름은 이 전문화에 그 주문이 없어도 물음이 서고, 답이 거짓일 뿐이다.
-- `ConditionsSurviveMacroText`(`Misc.lua`): `known`이 걸린 액션은 그대로 변환을 막는다. 본문이
+- `ConditionsSurviveMacroText`(`MacroText.lua`): `known`이 걸린 액션은 그대로 변환을 막는다. 본문이
   되는 순간 위 규칙이 그 조건을 지우므로, 변환을 세워 주면 조건이 조용히 사라지는 것이 된다.
 - `Profile.lua`의 `row.noSpell`: 두 갈래 다 살고, 둘째가 묻는 값이 `KnownSpellAsked`로 바뀐다.
-- 그 파생을 한 군데로 모은 것이 `DebindPrivate.KnownSpellAsked`(`Misc.lua`)다. 굽는 자리, 솔버
+- 그 파생을 한 군데로 모은 것이 `DebindPrivate.KnownSpellAsked`(`Known.lua`)다. 굽는 자리, 솔버
   컬럼, 목록의 표시가 같은 답을 써야 해서 셋이 따로 적던 것을 합쳤다.
 
 ### 3-5. 솔버

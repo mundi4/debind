@@ -6099,7 +6099,7 @@ RegisterTest("Switch condition on a name outside the five", {
 
 -- **The specialization condition, at the key.** It never reaches the restricted side:
 -- `BuildKeyMap` reads the specialization being played and leaves the bindings it rules out of the
--- key map (`Misc.lua`'s `SpecConditionHolds`).
+-- key map (`Specs.lua`'s `SpecConditionHolds`).
 --
 -- **What the client answers here the harness cannot.** `tests/specid_spec.lua` runs the whole set
 -- of cases against ids the shim was told to report; the ids read here are the ones the game hands

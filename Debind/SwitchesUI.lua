@@ -1368,7 +1368,7 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     -- **This is the only place a dead name inside an expression is ever shown.** Every other
     -- reference to a switch rides on an action, which goes red and drops out of `KeyMap`; an
     -- expression belongs to a definition and reaches neither (`GetUndefinedSwitchInExpr` in
-    -- `Misc.lua`). Deleting a switch leaves its references where they are on purpose
+    -- `Issues.lua`). Deleting a switch leaves its references where they are on purpose
     -- (`DeleteSwitch`), and this is what makes that promise true for the one kind that is not an
     -- action.
     --

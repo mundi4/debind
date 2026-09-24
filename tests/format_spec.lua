@@ -40,7 +40,7 @@ return function()
     end);
 
     test("a skipped argument", function()
-        -- `Misc.lua` builds a macro body this way. The unit is argument 2 and the string that
+        -- The unit is argument 2 and the string that
         -- wants no unit reaches past it, so **the specifiers are not a permutation of the
         -- arguments** and an implementation that walks them in order cannot serve this.
         eq(format("%1$s %3$s", "/cast", "target", "Rejuvenation"), "/cast Rejuvenation");

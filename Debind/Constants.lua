@@ -51,7 +51,7 @@ Constants.QUESTION_MARK_ICON              = 134400;
 --- answers is filed, which is more than the playable classes: `Adventurer` answers too. That is
 --- right for what this table is asked -- whether a name a profile or a payload carries is a class
 --- this client knows -- and wrong for a list somebody picks from, which walks `GetNumClasses`
---- instead (`Misc.lua`'s `ClassSpecCatalog`).
+--- instead (`Specs.lua`'s `ClassSpecCatalog`).
 ---
 --- Here rather than beside any one caller because `Constants.lua` is the first file read
 --- (`Debind.xml`) and the load-on-demand addon reads this table too.
@@ -180,14 +180,13 @@ do
     end
 end
 
---- 대상(unit)을 가질 수 있는 액션 타입.
+--- The action types that can take a unit.
 ---
---- **한 군데에서만 적는다.** 이 목록은 원래 두 곳에 손으로 복사돼 있었다 -
---- `Misc.lua`의 `GetBindingInfoForAction`(목록에 없으면 `binding.unit`을 nil로 지운다)과
---- `DropDownMenus.lua`의 `CreateTargetUnitMenuItem`(목록에 없으면 대상 메뉴를 안 연다).
---- 소환수 명령을 붙이면서 메뉴 쪽에만 넣었더니, **대상은 고를 수 있는데 바인딩으로 가는
---- 길에서 조용히 지워졌다.** 화면에는 "포커스"라고 적혀 있고 나가는 매크로에는 없었다.
---- 한쪽만 고쳐도 티가 안 나는 종류의 중복이라 값을 하나로 만든다.
+--- **Written in one place.** This list used to be copied by hand into two: `FillBinding` (a type
+--- not on it has `binding.unit` cleared) and `CreateTargetUnitMenuItem` (a type not on it gets no
+--- target menu). Pet commands went into the menu's copy only, and **a target could be picked and
+--- was then quietly dropped on the way to the binding**: the screen said "Focus" and the macro that
+--- went out had none. Fixing one copy shows nothing, which is why there is one value.
 Constants.TYPES_WITH_UNIT                 = {
     [Constants.SPELL] = true,
     [Constants.ITEM] = true,
@@ -267,7 +266,7 @@ Constants.CONDITION_FIELDS = {
     -- **Reads the same value as `bonusbars`**, and that is deliberate rather than a duplicate.
     -- Nobody looking for "while flying" finds it behind a bar offset, so the one offset worth
     -- naming gets its own axis. The pair a user can set that never holds is what
-    -- `GetBindingIssue` reports (`Misc.lua`).
+    -- `GetBindingIssue` reports (`Issues.lua`).
     skyriding = true,
 };
 
@@ -477,7 +476,7 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 -- one is true of a unit at any moment, which is what lets `Solver.lua` treat a unit condition
 -- as a set on this axis and reason about coverage with plain bit ops.
 --
--- The pointed frame's unit rides this axis under the name "unitframe" (`Misc.BuildUnitStates`),
+-- The pointed frame's unit rides this axis under the name "unitframe" (`BuildUnitStates`),
 -- so a `unitframe` condition and a unit condition aimed at the same unit cannot describe it two
 -- different ways.
 --
@@ -497,7 +496,7 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 --
 -- Only the solver sees the product. The runtime keeps one field per axis and compares them
 -- separately, because it never has to reason about coverage -- it only asks whether the unit's
--- current value is in the condition. `Misc.BuildUnitStates` is the seam between the two.
+-- current value is in the condition. `BuildUnitStates` is the seam between the two.
 Constants.UNITSTATE_NONE        = 2 ^ 0;
 Constants.UNITSTATE_HELP_ALIVE  = 2 ^ 1;
 Constants.UNITSTATE_HELP_DEAD   = 2 ^ 2;
@@ -557,7 +556,7 @@ Constants.MAX_ROLE_SLOTS   = MAX_RAID_MEMBERS;
 -- **These three overlap, which is what parts them from every other mask here.** A raid member in
 -- the reader's own subgroup answers true to both `UnitPlayerOrPetInParty` and
 -- `UnitPlayerOrPetInRaid` (measured 2026-09-07). So they are not a partition and cannot be a
--- solver column: what the solver gets is `UNITGROUPCELL_*` below, and `Misc.BuildUnitStates` is
+-- solver column: what the solver gets is `UNITGROUPCELL_*` below, and `BuildUnitStates` is
 -- the seam.
 --
 -- That overlap is the whole point of the axis. Ticking `PARTY` alone still reaches the people
@@ -693,7 +692,7 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- code in here, a covered action reported that instead of its own warning and the warning left
 --- the screen.
 ---
---- **A code with no row here is treated as ERROR** (`Misc.lua`'s `IssueGrade`). Failing loud is the
+--- **A code with no row here is treated as ERROR** (`Issues.lua`'s `IssueGrade`). Failing loud is the
 --- safe direction in a keybinding addon: a grade nobody wrote would otherwise leave a binding that
 --- does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
@@ -734,7 +733,7 @@ Constants.ISSUE_OUTCOME_RELEASE = 1;
 Constants.ISSUE_OUTCOME_OMIT    = 2;
 Constants.ISSUE_OUTCOME_KEEP    = 3;
 
---- **A code with no row here is OMIT** (`Misc.lua`'s `IssueOutcome`), for the reason a missing grade
+--- **A code with no row here is OMIT** (`Issues.lua`'s `IssueOutcome`), for the reason a missing grade
 --- is ERROR: leaving the action out is the direction that cannot fire something nobody meant.
 Constants.BINDING_ISSUE_OUTCOMES = {
     -- The game menu key cannot be taken at all.

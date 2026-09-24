@@ -164,7 +164,7 @@
 `IsRowOffSpec`(`Ordering.lua:168`)이 이미 `noSpell`을 전문화 행들과 같이 묶어두고 있다. 이
 경우를 되돌리는 것이 특성 변경이므로 그 분류가 그대로 맞다.
 
-`KnownConditionCanHold`(`Misc.lua:1316`)는 안 건드린다. 다른 물음이다.
+`KnownConditionCanHold`(`Known.lua`)는 안 건드린다. 다른 물음이다.
 
 ### 6-2. 스위치 게이트
 

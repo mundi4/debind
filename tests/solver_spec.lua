@@ -32,19 +32,20 @@ return function(DebindPrivate)
         end
     end
 
-    --- 바인딩 목록을 solver에 넣고 살아남은 것들의 name 집합을 돌려준다.
-    -- The solver reads binding.unitStates, which Misc.lua derives while building a binding.
+    --- Puts a list of bindings through the solver and answers the set of names that survive.
+    -- The solver reads binding.unitStates, which `BuildUnitStates` derives while building a binding.
     -- These bindings are hand-written tables that never went through it, so the derivation runs
     -- here -- which also puts it under test, since it is the half that turns hover and
     -- units into one mask per unit.
     local BuildUnitStates = DebindPrivate.BuildUnitStates;
 
-    --- 손으로 쓴 바인딩을 **프로덕션과 같은 모양**으로 세운다: 조건은 `binding.conditions`
-    --- 안에 산다(`Misc.GetBindingInfoForAction`).
+    --- Stands a hand-written binding up in **the shape production gives it**: conditions live in
+    --- `binding.conditions` (`GetBindingInfoForAction`).
     ---
-    --- 스펙 리터럴은 평평하게 쓴다. 여든 줄에 `conditions = { ... }`를 손으로 적으면 한 줄
-    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 사라진 바인딩은 넓어져서** 남을 잘못
-    --- 덮는다 - 스펙이 잡아야 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    --- The spec literals are written flat. With `conditions = { ... }` typed by hand on eighty lines,
+    --- one line left out drops its condition in silence, and **a binding that lost a condition is
+    --- wider and wrongly covers others**: the very kind of mistake the spec is there to catch,
+    --- made inside the spec.
     ---
     --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
     --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
@@ -155,12 +156,14 @@ return function(DebindPrivate)
         }, "tankmode");
     end);
 
-    -- 유닛 소속 축. **저장은 겹치는 세 상자이고 컬럼은 배타 네 칸이라**, 그 사이를 펴는
-    -- `Misc.UnitGroupToCells`가 이 컬럼이 분할이냐를 혼자 정한다.
+    -- The unit group axis. **Storage is three overlapping boxes and the column is four exclusive
+    -- cells**, so `UnitGroupToCells`, which spreads one into the other, alone decides whether this
+    -- column is a partition.
     --
-    -- [파티]와 [공대]가 같이 덮는 칸이 하나 있다(공대이면서 같은 소그룹). 펴는 쪽이 그 칸을
-    -- 두 번 세면 마스크가 축 밖으로 넘치면서 **정작 그 칸의 비트가 꺼진다** - 겹치는 축에서
-    -- `bor` 대신 `+`를 쓰면 나는 일이다. 그러면 아래 셋이 전체를 안 덮고 `always`가 남는다.
+    -- [party] and [raid] both cover one cell (in a raid and in my subgroup). Counting that cell
+    -- twice overflows the mask past the axis and **turns that very cell's bit off**, which is what
+    -- `+` in place of `bor` does on an overlapping axis. The three below then fail to cover the
+    -- whole and `always` is left standing.
     local UNITGROUP_PARTY = Constants.UNITGROUP_PARTY;
     local UNITGROUP_RAID = Constants.UNITGROUP_RAID;
     local UNITGROUP_NONE = Constants.UNITGROUP_NONE;
@@ -379,7 +382,7 @@ return function(DebindPrivate)
         }, "hover");
     end);
 
-    -- **Where that fold lives is decided by this case.** Folded into the mask `Misc.lua` builds,
+    -- **Where that fold lives is decided by this case.** Folded into the mask `Units.lua` builds,
     -- the column stands on a key where nobody named `mouseover`, and then two bindings splitting
     -- the hover axis between them stop covering an unconditional one -- the phantom point is
     -- theirs to cover and neither reaches it. Measured against that placement, this went red.

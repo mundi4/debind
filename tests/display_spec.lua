@@ -326,7 +326,7 @@ return function(DebindPrivate)
 
     --- **Cast as usual is drawn on an action that has a target of its own.** The line used to be
     --- gated on the action having none, on the grounds that the value only kept a unit out of an
-    --- empty slot; it also aims the twin where the original aims (`Misc.lua`'s `TwinUnitFor`),
+    --- empty slot; it also aims the twin where the original aims (`ActionBindings.lua`'s `TwinUnitFor`),
     --- which is a thing it does exactly for an action that has a target. The reader saw no line on
     --- the one action where it was the only thing stopping the cast from following the cursor.
     test("the cast as usual line is drawn on an action that has a target of its own", function()

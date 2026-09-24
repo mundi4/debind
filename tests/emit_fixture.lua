@@ -46,7 +46,7 @@ return function(DebindPrivate, shim)
         world.mounts[7] = { name = "Summoned Horse" };
         --- **And the game's own automatic unshift is on**, which is what most readers run and what
         --- puts the `/cancelform` line into that generated body. `SummonByID` does not unshift on
-        --- its own, so the line is what stands in for the CVar (`Misc.lua`).
+        --- its own, so the line is what stands in for the CVar (`MacroText.lua`).
         world.cvars.autoUnshift = true;
 
         --- A flyout with slots in it. Flyout 900 is **not** here, and that absence is the point:

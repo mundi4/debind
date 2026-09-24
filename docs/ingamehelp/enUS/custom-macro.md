@@ -31,7 +31,7 @@ drift, since neither is a claim about behaviour.
 **Switches are here, and were once left to the switches' own text** (2026-09-18, owner). Nothing
 else tells a reader in the edit box that `[$name]` is a thing the body can hold.
 
-**The writing rule is one sentence** for the three ways a unit silently stays plain text: upper case, `target=`, and brackets that do not open a part of the line (`ParseMacroText` in `Misc.lua`). A switch name goes the same way through the same parser.
+**The writing rule is one sentence** for the three ways a unit silently stays plain text: upper case, `target=`, and brackets that do not open a part of the line (`ParseMacroText` in `MacroText.lua`). A switch name goes the same way through the same parser.
 
 **`target=` is named in the body, not only here** (2026-09-22). The sentence carried two of the three and this comment claimed all three, so the one a reader is most likely to write was the one nowhere on the page: `parseOptions` reads an option only where it opens with `@`, and `[target=tank]` never reaches `SPECIAL_UNITS`. `[target=focus]` is the commoner spelling in the game's own macros, so this is the form they arrive with.
 

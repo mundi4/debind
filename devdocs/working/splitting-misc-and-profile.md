@@ -1,9 +1,8 @@
 # Misc.lua와 Profile.lua 쪼개기 (2026-09-24, 인계용)
 
-> 상태: **`Profile.lua`의 마이그레이션이 `Migration.lua`로 나갔다** (2026-09-24). `Misc.lua`는 남았고,
-> 나눌 자리는 6절에 정했다. `preparing-the-code-for-camelot.md` 7절의 4단계를 모은 문서다. 무엇을 왜
-> 쪼개는지의 결정은 그 문서 5절이 들고, 여기는 지금 코드를 잰 값과 작업 방법을 든다. 4단계가 끝나면
-> 이 문서는 `legacy/`로 간다.
+> 상태: **`Misc.lua`와 `Profile.lua` 쪼개기는 들어갔다** (2026-09-24, 4절). 남은 것은 폴더 옮기기
+> (5절)다. `preparing-the-code-for-camelot.md` 7절의 4단계를 모은 문서다. 무엇을 왜 쪼개는지의 결정은
+> 그 문서 5절이 들고, 여기는 작업 방법과 들어간 자리를 든다. 4단계가 끝나면 이 문서는 `legacy/`로 간다.
 
 ## 1. 지킬 것
 
@@ -46,79 +45,50 @@
   - `tools/check-dbver.js`: `Migration.lua`만 읽고 `if (dbver <= N)` 단계를 가장 가까운 `function`
     머리로 묶는다.
   - `tools/check-export-fields.js`: `Profile.lua`의 `KEYS_TO_SAVE`를 읽는다. 그 표는 `Profile.lua`에 둔다.
-- **인용.** `Misc.lua`나 `Profile.lua`를 이름으로 든 곳이 코드에 168곳, 문서(`devdocs/`, `docs/`,
-  `CLAUDE.md`)에 153곳이다(2026-09-24). 옮긴 이름을 "`Misc.lua`의 X"로 든 인용만 고친다. 파일 이름만
-  든 인용은 남은 쪽을 가리키면 그대로 둔다.
+- **인용.** 옮긴 이름을 "`X.lua`의 Y"로 든 인용은 옮긴 파일을 가리키게 고친다. 파일 이름만 든 인용은
+  남은 쪽을 가리키면 그대로 둔다. `legacy/`, `0-DIARY.md`, `0-DECISION-LOG.md`는 그때의 자리를 적은
+  기록이라 안 고친다.
 - **폴더로 옮기는 것은 인용을 안 깬다.** 경로를 든 도구만 고치면 된다. `forEachSnippet`는 하위 폴더까지
   읽는다(1단계에서 고쳤다).
 
-## 4. Misc.lua 지도 (4464줄, 2026-09-24)
+## 4. 들어간 자리 (2026-09-24)
 
-맨 위 수준 정의의 줄 번호다. 구역 경계는 이것으로 잡고, 자르기 전에 다시 잰다.
+**`Profile.lua`.** 마이그레이션 사다리 셋(`MigrateLayer`, `MigrateSwitches`, `MigrateDB`)과 그 도움
+함수, `MigrateOptions`가 `Migration.lua`로 갔다. `Profile.lua` 바로 뒤에 실린다. `ForEachStoredAction`은
+스위치 이름 바꾸기와 쓰임 모으기도 쓰므로 `Profile.lua`에 남았다. `Legacy.lua`는 따로 있는 파일(개명 전
+SavedVariables)이라 합치지 않았다.
 
-| 줄 | 무엇 |
+**`Misc.lua`.** 조건은 `Debind/Conditions/`에 모은다(소유자). 앞으로 조건마다 파일이 하나씩 늘 자리이고,
+드는 것은 조건의 모델과 판정까지다. 솔버의 컬럼, 메뉴, 툴팁은 제자리에 둔다. 솔버 컬럼까지 조건이 답하게
+할지는 따로 논의한다(`.zzz/conditions-own-their-solver-columns.md`, main 워크트리).
+
+| 파일 | 든 것 |
 |---|---|
-| 16-275 | 주문 이름과 아이콘, 빈 펫 부르기 칸, 장비 칸, 플라이아웃 아이콘(자기 이벤트 프레임 161), `GetFlyoutNameAndIcon`, `GetFlyoutCastableSlots`, `GetSpellTabNameAndIcon` |
-| 277-418 | 펫 명령 표와 매크로, `ActionTakesUnit`, `GetMacroSlotLimits` |
-| 420-837 | 유닛 조건 모델: `UnitConditionForBinding`, 옛 조건 변환, `UnitConditionToState`, 그룹 칸, `ResolvedUnitOf`, `CastUnitOf`, `SOURCE_*`, `BuildUnitStates` |
-| 839-927 | 역할 측정, `CannotStand` |
-| 929-1942 | `do` 블록 하나: 액션에서 바인딩으로. `FillBinding`, `GetBindingInfoForAction`, 옵션 읽기, 시전 선택, 쌍둥이 |
-| 1943-2021 | `IsConditionalAction`, `MakeOrderRecord` |
-| 2023-2397 | 직업과 전문화 카탈로그, 전문화 집합 마스크, `DescribeSpecCondition`, `SpecIDForIndex`, `SpecConditionHolds` |
-| 2399-2782 | 알려진 주문 조건, 키 표시와 유효성, 정의 안 된 스위치, 없는 매크로 |
-| 2784-3398 | 이슈 등급과 판정: `ACTION_CHECKS` 2977, `EvaluateIssues` 3168, `GetBindingIssue(s)`, `GetNotRunningReason` |
-| 3400-3828 | 탈것 매크로, `CANCEL_FORM_LINE`, `CanConvertToMacroText`, `ConvertToMacroText` |
-| 3829-4064 | `do`: `ParseMacroText`, 매크로 문자열 캐시, 유닛 이름 바꾸기 |
-| 4065-4253 | `do`: 매크로 문자열 속 스위치 |
-| 4254-4464 | 실행 중 도움: 이름, 특수 유닛과 스위치 알림, `GetVersionLabel`, `DisplayMessage`, `ApplyOptions` 4397 |
+| `Conditions/Units.lua` | 유닛 조건 모델, `ResolvedUnitOf`, `BuildUnitStates`, 역할 측정, `CannotStand` |
+| `Conditions/Specs.lua` | 직업과 전문화 카탈로그, 전문화 집합, `DescribeSpecCondition`, `SpecConditionHolds` |
+| `Conditions/Known.lua` | `KnownSpellAsked`, `KnownConditionCanHold` |
+| `Conditions/Talents.lua` | 옛 `Talents.lua` 통째로 |
+| `ActionBindings.lua` | `CastUnitOf`, 액션에서 바인딩으로(`FillBinding`, 시전 선택, 쌍둥이), `MakeOrderRecord`, `IsConditionalBinding`, `IsBareWorldClick`, `ActionUnitFrameIsOn` |
+| `Issues.lua` | 키 유효성, 정의 안 된 스위치, 없는 매크로, 이슈 등급과 판정 |
+| `MacroText.lua` | 탈것 본문, 매크로 변환, `ParseMacroText`, 본문 속 유닛과 스위치 |
+| `Misc.lua`에 남은 것 | 주문 이름과 아이콘, 장비 칸, 플라이아웃, 펫 명령과 `ActionTakesUnit`, 키 표시, 실행 중 도움, `ApplyOptions` |
 
-**구역을 넘나드는 파일 지역 변수** (정의 줄, 쓰는 줄. 주석 속 이름도 섞여 있으니 자를 때 다시 본다):
+**`ActionTakesUnit`은 `Misc.lua`에 남았다.** 조건이 아니라 액션이 겨누는 대상에 대한 물음이고, 펫
+명령 표를 읽는다. `ActionBindings.lua`, `Issues.lua`, `MacroText.lua`는 파이프라인 파일이라 폴더에 넣지
+않고 맨 위에 둔다(`preparing-the-code-for-camelot.md` 5절).
 
-| 이름 | 정의 | 쓰는 줄 |
-|---|---|---|
-| `BuildUnitStates` | 709 | 1039 1049 1166 1205 1290 1362 2884 3485 3537 3583 |
-| `UnitConditionForBinding` | 455 | 1163 2505 2872 2893 3139 3140 |
-| `UnitFrameConditionFromLegacy` | 508 | 1181 2477 3490 |
-| `UnitConditionToState` | 569 | 808 936 2904 |
-| `RoleMeasuredUnder` | 840 | 2889 2902 |
-| `CannotStand` | 878 | 1363 3304 |
-| `SOURCE_ROW`, `SOURCE_AT` | 692-693 | 3309-3336 |
-| `IntersectStoredUnitConditions` | 3499 | 3583 3816 (481 947 997은 확인할 것) |
-| `SWITCH_CLICK_TARGET` | 3441 | 3805 4144 4177 4193 4234 |
-| `GetBindingInfoForAction` | 1943 | 그 뒤 전역(2325 2392 2437 2471 3446 3572 3588 3683 3693) |
+**로드 순서는 `Misc.lua`, `Conditions/`의 셋, `ActionBindings.lua`, `Issues.lua`, `MacroText.lua`다.**
+나중 파일이 앞 파일의 이름을 읽는 순간 `DebindPrivate`에서 잡는다. 옛 `Misc.lua` 안의 파일 지역 변수였던
+것(`UnitConditionToState`, `RoleMeasuredUnder`, `CannotStand`, `UNIT_SOURCE_ROW`, `UNIT_SOURCE_AT`)은
+그래서 `DebindPrivate`에 올라갔다.
 
-유닛 조건 모델(420-837)은 바인딩 파생, 이슈 판정, 매크로 변환이 다 쓴다. 쪼개면 그 이름들을
-`DebindPrivate`에 올리고 나머지 파일이 읽는 순간 잡게 하거나, 유닛 조건 파일을 그것들보다 앞에 싣는다.
+## 5. 남은 것: 폴더
 
-## 5. Profile.lua
+`preparing-the-code-for-camelot.md` 5절이 든 둘이다. 액션 메뉴 넷과 `MenuKit.lua`(`check-menu-ctx`가
+다섯 경로를 든다), 도움말 넷(`HelpPlate`, `HelpTip`, `HelpText`, `HelpTopics`. `build-help`가
+`HelpTopics.lua`를 쓰고 TOC의 순서를 확인한다).
 
-**끝났다.** 마이그레이션 사다리 셋(`MigrateLayer`, `MigrateSwitches`, `MigrateDB`)과 그 도움 함수,
-`MigrateOptions`가 `Migration.lua`로 갔고, 그 파일은 `Profile.lua` 바로 뒤에 실린다.
-`ForEachStoredAction`은 스위치 이름 바꾸기와 쓰임 모으기도 쓰므로 `Profile.lua`에 남았고,
-`Migration.lua`가 읽는 순간 `DebindPrivate`에서 잡는다. `InitDB`는 `DebindPrivate.MigrateDB`를 부른다.
-`Legacy.lua`는 따로 있는 파일(개명 전 SavedVariables)이라 합치지 않았다.
-
-## 6. Misc.lua를 나눌 자리 (소유자, 2026-09-24)
-
-조건은 `Debind/Conditions/` 폴더에 모은다. 앞으로 조건마다 파일이 하나씩 늘 자리다. 폴더에 드는 것은
-조건의 모델과 판정까지이고, 솔버의 컬럼, 메뉴, 툴팁은 지금 자리에 둔다.
-
-| 파일 | 4절 지도의 줄 |
-|---|---|
-| `Conditions/Units.lua` | 420-927 (유닛 조건, 역할), 277-418의 `ActionTakesUnit` 묶음 |
-| `Conditions/Specs.lua` | 2023-2397 (카탈로그, 전문화 집합, `DescribeSpecCondition`, `SpecConditionHolds`) |
-| `Conditions/Known.lua` | 2399-2442 (`KnownSpellAsked`, `KnownConditionCanHold`) |
-| `Conditions/Talents.lua` | 지금의 `Talents.lua` 통째로 |
-| `ActionBindings.lua` | 929-2021 |
-| `Issues.lua` | 2443-3398 (키 유효성, 정의 안 된 스위치, 없는 매크로, 이슈 판정) |
-| `MacroText.lua` | 3400-4253 |
-| `Misc.lua`에 남는 것 | 16-275, 펫 명령, 4254-4464 (`ApplyOptions`) |
-
-맨 위의 새 파일 셋은 파이프라인 파일이라 폴더에 넣지 않는다(`preparing-the-code-for-camelot.md` 5절).
-`ActionBindings.lua`가 읽는 순간 `BuildUnitStates` 같은 이름을 잡으므로 `Conditions/`의 파일이
-그보다 먼저 실린다.
-
-## 7. 4단계 밖에서 열려 있는 것
+## 6. 4단계 밖에서 열려 있는 것
 
 - **아틀라스 `common-icon-minus` 대체.** 카멜롯에 없다. 후보 여섯을 프로브의 `minus candidates` 구역이
   재는데, 기록은 `/reload` 두 번 뒤에 파일로 나온다(한 번은 재고, 한 번은 쓴다). 들어오면
@@ -128,7 +98,7 @@
 - **이중 전문화**(계획 3-3)는 캐릭터가 진행해야 잴 수 있다. 기록이 생기기 전에는 보고에서 꺼내지 않는다.
 - **전문 기술 주문을 주문 목록에 넣을지**는 정하지 않았다(계획 3-4).
 
-## 8. 프로브 기록 읽기
+## 7. 프로브 기록 읽기
 
 카멜롯 SavedVariables:
 `C:\Games\World of Warcraft\_classic_beta_\WTF\Account\10179303#1\SavedVariables\DebindCamelotProbe.lua`

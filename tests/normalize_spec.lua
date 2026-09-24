@@ -37,17 +37,17 @@ return function(DebindPrivate)
         end
     end
 
-    --- 타입을 안 적으면 주문으로 본다. 대상을 가질 수 있는 타입 중 제일 흔한 것이라
-    --- 대부분의 갈래에서 "정상적인 액션"의 대역이 된다.
-    --- 스펙 리터럴을 **프로덕션과 같은 모양**으로 세운다: 조건은 `conditions` 안에 산다
-    --- (`Profile.lua`의 `KEYS_TO_SAVE`, `Misc.GetBindingInfoForAction`).
+    --- With no type written, the action is a spell: the most common type that can take a unit,
+    --- so it stands in for "an ordinary action" in most branches.
+    --- Stands the spec literal up in **the shape production gives it**: conditions live in
+    --- `conditions` (`Profile.lua`'s `KEYS_TO_SAVE`, `GetBindingInfoForAction`).
     ---
-    --- 리터럴은 평평하게 쓴다. 자리마다 `conditions = { ... }`를 손으로 적으면 한 줄
-    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 빠진 액션은 넓어진다** - 스펙이 잡아야
-    --- 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    --- The literals are written flat. With `conditions = { ... }` typed by hand at every site, one
+    --- line left out drops its condition in silence, and **an action that lost a condition is
+    --- wider**: the very kind of mistake the spec is there to catch, made inside the spec.
     ---
-    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
-    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
+    --- **What counts as a condition is not decided here.** `Constants.IsConditionField` is called
+    --- as it stands, so a new axis leaves this function alone and it cannot part from production.
     local function nest(action)
         local conditions = action.conditions;
         for k, v in pairs(action) do
@@ -83,15 +83,16 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 바인딩은 액션 하나의 순수 파생이다
+    -- A binding is a pure derivation of one action
     --
-    -- 순서를 정하는 값은 액션 하나로 답이 안 나온다 - 프로필 안에서의 자리이기 때문이다.
-    -- 그래서 그것은 `Misc.MakeOrderRecord`가 따로 들고, 바인딩에는 안 앉는다.
+    -- The values that decide the order cannot be answered from one action, because they are its
+    -- place in the profile. So `MakeOrderRecord` holds them apart, and none of them sits on the
+    -- binding.
     --
-    -- 여기서 보는 것은 `GetBindingInfoForAction`이 낸 바인딩이다. `layerRank`/`seq`/
-    -- `isConditional`을 써넣던 것은 `Debind.lua`의 `BuildKeyMap`이고, **그 파일도 이 하네스가
-    -- 싣는다** - `KeyMap`을 거쳐 나온 쪽은 아직 `/debtest`의 `Binding carries no ordering
-    -- fields`가 보고 있고, 여기로 내려올 수 있다.
+    -- What is looked at here is the binding `GetBindingInfoForAction` hands out. What used to write
+    -- `layerRank`/`seq`/`isConditional` was `Debind.lua`'s `BuildKeyMap`, and **this harness loads
+    -- that file too**: the side that comes out through `KeyMap` is still watched by `/debtest`'s
+    -- `Binding carries no ordering fields`, and can move down here.
     ---------------------------------------------------------------------------
 
     test("바인딩은 순서 필드를 안 든다", function()

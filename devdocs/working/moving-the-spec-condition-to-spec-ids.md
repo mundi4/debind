@@ -98,7 +98,7 @@ ID는 그 이식성을 버린다. 250이 걸린 액션은 죽음의 기사가 �
 ## 5-2. 툴팁 한 줄
 
 한 줄에 담을 말은 **지금 직업 것은 전문화 단위로, 남의 직업 것은 직업 단위로** 정했다.
-`Misc.lua`의 `DescribeSpecCondition` 하나가 만든다.
+`Specs.lua`의 `DescribeSpecCondition` 하나가 만든다.
 
 ```
 암흑, 신성                     지금 직업 것 일부
@@ -149,7 +149,7 @@ ID는 그 이식성을 버린다. 250이 걸린 액션은 죽음의 기사가 �
   - `CLASS_NAMES`가 새로 선다. `CLASS_IDS`를 만드는 그 호출이 이름도 같이 주는데 버리고
     있었고, 이름이 필요한 화면 셋이 대신 `LOCALIZED_CLASS_NAMES_MALE`를 각자 읽으면서
     저마다 폴백을 들고 있었다. 그 폴백이 타면 화면에 `DRUID`가 뜬다.
-- `Debind/Misc.lua`
+- `Debind/Conditions/Specs.lua`
   - `ClassSpecCatalog`와 `EnumerateClassSpecs`가 새로 선다. 직업과 전문화를 이름으로 그리는
     자리 둘(메뉴, 툴팁)이 같은 목록을 본다. 카탈로그는 직업 id로 찾는 색인도 같이 들어서,
     아래 둘이 클라이언트 호출을 다시 도는 대신 표를 한 번 찾는다. 둘 다 그릴 때마다 도는
@@ -165,7 +165,7 @@ ID는 그 이식성을 버린다. 250이 걸린 액션은 죽음의 기사가 �
 - `Debind/ActionMenuNodes.lua`: `SPEC` 노드를 §5의 모양으로 다시 쓴다. 직업 서브메뉴마다
   「모든 전문화」 한 줄이 먼저 선다.
 - `Debind/ActionMenuModel.lua`: `SpecConditionHasID`/`ToggleSpecConditionID`와, 「모든 전문화」가
-  읽고 쓰는 `ClassSpecsAllPicked`/`ToggleClassSpecs`. 집합을 다루는 알맹이는 `Misc.lua`의
+  읽고 쓰는 `ClassSpecsAllPicked`/`ToggleClassSpecs`. 집합을 다루는 알맹이는 `Specs.lua`의
   `SpecSetHoldsClass`/`SetClassInSpecSet`이고 여기 있는 것은 ctx를 씌우는 세 줄이다. 이 파일은
   헤드리스 목록에 없다.
 - `Debind/ActionTooltip.lua`: 번호를 늘어놓던 자리가 §5-2의 한 줄을 부른다. `~= SPEC_ALL`로

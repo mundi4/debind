@@ -536,9 +536,9 @@ end
 local REVIVE_BATTLE_PETS_SPELL_ID = 125439;
 local SUMMON_RANDOM_FAVORITE_PET_SPELL_ID = 243819;
 
---- 무작위 즐겨찾는 탈것. 저장값은 mountID `0`이고, 그게 `SummonByID(0)`이다.
---- 이름·아이콘은 주문 150544에서 온다 - 애드온의 다른 곳도 그렇게 푼다
---- (`NameAndIconForAction`, `Misc.lua`).
+--- The random favourite mount. It is stored as mountID `0`, which is `SummonByID(0)`. Its name and
+--- icon come from spell 150544, the way the rest of the addon resolves them
+--- (`NameAndIconForAction`, `ConvertToMacroText`).
 local RANDOM_FAVORITE_MOUNT_SPELL_ID = 150544;
 
 --- **이 그룹만 이름순으로 세운다.** 주문서에서 온 그룹들은 정렬하면 안 된다 - 거기서는

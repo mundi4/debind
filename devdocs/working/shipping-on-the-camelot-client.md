@@ -141,7 +141,7 @@
 **제안: 코드에서 축을 지우지 않고, 클라이언트가 답하는 대로 비운다.** 전문화가 하나뿐인 직업에는
 그 레이어 탭과 그 조건 줄을 세우지 않는 규칙 하나를 둔다. 이유 셋이다.
 
-1. **우리 코드가 이미 전부 클라이언트에 물어서 만든다.** `Misc.lua`의 `EnumerateClassSpecs`가
+1. **우리 코드가 이미 전부 클라이언트에 물어서 만든다.** `Specs.lua`의 `EnumerateClassSpecs`가
    `C_SpecializationInfo.GetNumSpecializationsForClassID`를 센다. 지울 코드가 아니라 하나뿐일
    때의 그림을 정하는 일이다.
 2. **저장 형식은 한 벌이어야 한다.** 축을 빼면 두 판의 SavedVariables 모양이 갈린다.
@@ -168,7 +168,7 @@
 
 ## 7. 직업 아홉 개
 
-**드루이드가 빠진다.** 전에 이 절은 손댈 것이 없다고 했는데 틀렸다. `Misc.lua`의
+**드루이드가 빠진다.** 전에 이 절은 손댈 것이 없다고 했는데 틀렸다. `Specs.lua`의
 `ClassSpecCatalog`가 `1..GetNumClasses()`를 도는데, 카멜롯은 `GetNumClasses()`가 9이고 인덱스 6과
 10이 비어 드루이드가 11에 있다(11절). 그래서 루프가 드루이드 앞에서 멈춘다. `Constants.CLASS_IDS`는
 번호를 끝까지 돌아서 이 문제가 없다. 고치는 법은 `preparing-the-code-for-camelot.md` 3-1이다.

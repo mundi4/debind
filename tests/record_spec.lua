@@ -79,7 +79,7 @@ return function(DebindPrivate)
             "reaction: " .. tostring(folded.target.reaction));
     end);
 
-    -- **A `"@"` on an action with no target is asked of `target`** (`Misc.lua`'s `ResolvedUnitOf`,
+    -- **A `"@"` on an action with no target is asked of `target`** (`Units.lua`'s `ResolvedUnitOf`,
     -- `implementing-focus-and-self-cast.md` §3-6). The record still carries no unit, so the
     -- game places the cast; only the condition lands on `target`, folding with one set there by name.
     test("\"@\" with no target lands on target and folds with it", function()

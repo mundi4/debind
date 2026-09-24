@@ -137,7 +137,7 @@ do
 
 	--- The sentence a code prints, in the colour its grade asks for.
 	---
-	--- **The grade paints, never the code** (`Misc.lua`'s `GetIssueColor`). This drew every sentence
+	--- **The grade paints, never the code** (`Issues.lua`'s `GetIssueColor`). This drew every sentence
 	--- red, which is the colour that says the key is dead, and the one WARNING says the opposite:
 	--- the key works and one thing it was told to do is missing. The row mark, the group heading and
 	--- the order flag were already asking the grade, so the tooltip was the one surface saying
@@ -179,7 +179,7 @@ do
 	local function FlagNames(mask, names, prefix, all)
 		-- **Nil for the full mask, so the caller drops the line.** All of them on filters nothing
 		-- out, which is the same condition as the axis being unset: `FillBinding` folds the one
-		-- into the other before a binding is built (`Misc.lua`), and `frameTypes` is not written
+		-- into the other before a binding is built (`ActionBindings.lua`), and `frameTypes` is not written
 		-- as an attribute either (`UpdateBindings.lua`). A line for it says a condition is at work
 		-- where none is.
 		--
@@ -219,7 +219,7 @@ do
 	--- a joined line wraps somewhere arbitrary.
 	---
 	--- **No role line without party or raid frames.** A role is only measured on those
-	--- (`Misc.lua`'s `RoleMeasuredUnder`), so there it narrows nothing, which is also why the menu
+	--- (`Units.lua`'s `RoleMeasuredUnder`), so there it narrows nothing, which is also why the menu
 	--- locks it.
 	local function AddUnitFrameAxes(tooltip, value, said)
 		if (type(value) ~= "table") then
@@ -742,7 +742,7 @@ do
 				addLabelLine(tooltip, LLL["CONDITION_TALENT"]);
 			end
 			-- The error rides on the lines the way every other condition's does: two hero trees on
-			-- one list is a contradiction the reader undoes here (`Misc.lua`'s `ACTION_CHECKS`).
+			-- one list is a contradiction the reader undoes here (`Issues.lua`'s `ACTION_CHECKS`).
 			local talentError = hasIssues and GetIssue("talents");
 			if (taken) then
 				addValueLine(tooltip, format(LLL["CONDITION_TALENT_VALUE_TAKEN"], taken),

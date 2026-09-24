@@ -187,7 +187,7 @@ return function(DebindPrivate)
     end);
 
     -- **A record is a pure derivation of one action**, and the numbers that order it are not: where
-    -- an action stands is a fact about the profile around it, so `Misc.MakeOrderRecord` holds those
+    -- an action stands is a fact about the profile around it, so `MakeOrderRecord` holds those
     -- beside the record rather than on it.
     --
     -- **Going back is silent.** `BuildKeyMap` used to write these fields on and nobody wiped them,

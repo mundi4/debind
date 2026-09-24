@@ -56,7 +56,7 @@ Which units count as pointed at is a mode:
 **The per-action mode row is the reason `cast-options.md` links here** and this page left it out
 until 2026-09-22. It is the same two values plus `Use the mode in Debind's settings`, under a
 divider on the same submenu (`ActionMenuItems.lua`), and an action that names one is not asking the
-settings tab any more (`HoverCastMode` in `Misc.lua`).
+settings tab any more (`HoverCastMode` in `ActionBindings.lua`).
 
 **Which of the two wins is said and not left to be inferred** (review, 2026-09-22). "One action can
 use a mode of its own" was read as a second place to set the same thing rather than as one

@@ -990,7 +990,7 @@ local function BuildSwitchConditionMenu(kit, ctx)
     --
     -- **The dead end is marked, and that is not a reason to offer it.** `GetUndefinedSwitch`
     -- reads condition keys as well as bodies and targets, so such an action goes red and drops
-    -- out of `KeyMap` (`Misc.lua`). The mark is there for the ways a name goes undefined *after*
+    -- out of `KeyMap` (`Issues.lua`). The mark is there for the ways a name goes undefined *after*
     -- the condition was hung - a switch deleted, a string from someone else - and a list that
     -- lets the reader build one on purpose is a list that manufactures work for it.
     --

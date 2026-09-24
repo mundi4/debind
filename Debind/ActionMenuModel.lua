@@ -401,7 +401,7 @@ local function ToggleSpecConditionIndex(ctx, classID, index)
 end
 
 --- Is every specialization of this class held by every selected action. **The same question the
---- tooltip line asks** before it writes the class name in place of the specializations (`Misc.lua`'s
+--- tooltip line asks** before it writes the class name in place of the specializations (`Specs.lua`'s
 --- `DescribeSpecCondition`), so the box and the line cannot disagree about what a whole class is.
 local function ClassSpecsAllPicked(ctx, classID)
     return AllActions(ctx, function(action)
@@ -698,7 +698,7 @@ end
 local HoverCastChoiceOf = DebindPrivate.HoverCastChoiceOf;
 
 --- Hover Cast's own three, where the absent value is off rather than the pointed unit
---- (`Misc.lua`'s `HoverCastChoiceOf`). nil is the choice here, not the lack of one.
+--- (`ActionBindings.lua`'s `HoverCastChoiceOf`). nil is the choice here, not the lack of one.
 local function HoverCastChoiceIs(ctx, choice)
     return AllActions(ctx, function(action)
         return HoverCastChoiceOf(action) == choice;
@@ -780,9 +780,9 @@ local ActionMenus = MenuKit.NewRegistry({
         end);
     end,
 
-    --- 이슈 코드를 문장과 색으로. **등급이 색을 고른다** (`Misc.lua`의 `GetIssueColor`).
-    --- Clique가 개체창을 가져간 것처럼 **그 묶음에서 고칠 것이 없는** 문제까지 빨갛게
-    --- 칠하면, 열어 본 사람이 고칠 것을 찾다가 못 찾는다.
+    --- An issue code as a sentence and a colour. **The grade picks the colour** (`Issues.lua`'s
+    --- `GetIssueColor`). Painting red a problem that has **nothing to fix in that group**, the way
+    --- Clique taking the unit frames is, sends whoever opens it looking for a fix that is not there.
     resolveIssue = function(issue, name)
         return DebindPrivate.IssueSentence(issue, name), DebindPrivate.GetIssueColor(issue);
     end,
@@ -937,7 +937,7 @@ end
 
 --- What the three radios at the top write into one action. **It moves the mode and leaves the axes
 --- alone**: a reader who switches to [Disable] and back has to find the reaction and the life they
---- picked still there. Ignoring them while the condition is off is `Misc.UnitConditionForBinding`'s
+--- picked still there. Ignoring them while the condition is off is `UnitConditionForBinding`'s
 --- job.
 ---
 --- **Each of the three modes carries a value of its own.** While an empty table meant [when there

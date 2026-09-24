@@ -756,8 +756,8 @@ function M.install()
         GetAddOnInfo = function() return nil; end,
     };
 
-    -- Misc.lua가 파일 스코프에서 건드리는 것들. 매크로텍스트 파서와는 무관하지만
-    -- 파일이 로드되려면 있어야 한다.
+    -- What `MacroText.lua` reaches at file scope. It has nothing to do with the macro text parser,
+    -- but the file does not load without it.
     --
     -- **They answer out of `M.world`, and it starts empty.** Every one of these is a query
     -- returning a value, which is the cheap side to mock (§4 of
@@ -1018,7 +1018,7 @@ function M.install()
     _G.GameTooltip_AddHighlightLine = addLine("highlight");
     _G.GameTooltip_AddInstructionLine = addLine("instruction");
 
-    --- **The colour comes along.** A grade decides it (`Misc.lua`'s `GetIssueColor`), so a spec
+    --- **The colour comes along.** A grade decides it (`Issues.lua`'s `GetIssueColor`), so a spec
     --- that only saw "not an error line" could not tell the warning colour from any other.
     _G.GameTooltip_AddColoredLine = function(tooltip, text, color, wrap, leftOffset)
         tooltip.lines[#tooltip.lines + 1] = {

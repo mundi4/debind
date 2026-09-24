@@ -172,16 +172,18 @@ return function(DebindPrivate)
         check(ActionsAreEqual(one, other), "표를 채운 차례는 정체가 아니다");
     end);
 
-    --- **빈 표는 값이고, 정체는 모양을 그대로 잰다.** 예전에는 둘을 같다고 봤다. 남는 조건이
-    --- 없으면 표를 안 남기는 자리가 있으니(`Misc.lua`의 `conditions.units`, `PruneConditions`)
-    --- 두 모양은 같은 것을 적은 두 방식이라는 것이었다. 그 읽기는 필드의 것이지 `Canonical`의
-    --- 것이 아니다. `conditions.specs`가 빈 표에 자기 뜻을 주자마자 - 클래스가 하나도 없는 표는
-    --- 아무 데서도 안 터지는 키이고 `specs`가 아예 없는 것은 늘 터지는 키다 - 접기가 그 필드에
-    --- 대해 틀린 말을 했고 아무것도 알려주지 않았다.
+    --- **An empty table is a value, and identity measures the shape as it is.** The two used to be
+    --- taken as the same: some places leave no table when no condition remains (`FillBinding`'s
+    --- `conditions.units`, `PruneConditions`), so the two shapes were read as two ways of writing
+    --- one thing. That reading belongs to the field, not to `Canonical`. The moment
+    --- `conditions.specs` gave an empty table a meaning of its own (a table with no class is a key
+    --- that fires nowhere, no `specs` at all is a key that always fires), the fold said the wrong
+    --- thing about that field and nothing announced it.
     ---
-    --- **`{}`를 nil과 같이 두겠다는 필드는 쓰는 쪽이 nil로 쓴다.** 그것이 지켜지는지는 그쪽에서
-    --- 잰다(`actionmenu_spec`, `replace_spec`, `talents_spec`, `migration_spec`). 여기서 재는
-    --- 것은 이 함수가 받은 모양을 그대로 옮기느냐다.
+    --- **A field that means `{}` the same as nil is written as nil by whoever writes it.** Whether
+    --- that holds is measured there (`actionmenu_spec`, `replace_spec`, `talents_spec`,
+    --- `migration_spec`). What is measured here is whether this function carries the shape it is
+    --- handed as it is.
     test("빈 조건 표는 조건 없음과 다르다", function()
         check(not ActionsAreEqual(action({ conditions = {} }), action({ conditions = "\0nil" })),
             "빈 표를 없는 것으로 접었다");

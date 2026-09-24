@@ -195,8 +195,7 @@ end
 local function Classes()
     Emit("== classes and specializations");
     -- **`GetNumClasses` is a count and not the last index.** On 1.60.1 it answers 9 while indices 6
-    -- and 10 are empty and Druid sits at 11, so every index is walked for its answer. `Misc.lua`'s
-    -- `ClassSpecCatalog` stops at `GetNumClasses()` and loses Druid on this client.
+    -- and 10 are empty and Druid sits at 11, so every index is walked for its answer.
     local last = 0;
     for index = 1, 30 do
         if (select(3, GetClassInfo(index))) then
@@ -213,7 +212,7 @@ local function Classes()
                 specs[#specs + 1] = format("%s=%s", tostring(id), tostring(name));
             end
             -- Index 5 is where retail keeps the initial specialization, which is a state a
-            -- character can actually stand in (`Misc.lua`'s `EnumerateClassSpecs`).
+            -- character can actually stand in (`Specs.lua`'s `EnumerateClassSpecs`).
             local initialID, initialName = GetSpecializationInfoForClassID(classID, 5);
             if (initialID) then
                 specs[#specs + 1] = format("initial(5) %s=%s",
@@ -444,7 +443,7 @@ local function Professions()
     end
 end
 
---- `Misc.lua`'s `CANCEL_FORM_LINE` writes druid forms as retail form indices, and the bonus bar
+--- `MacroText.lua`'s `CANCEL_FORM_LINE` writes druid forms as retail form indices, and the bonus bar
 --- labels read skyriding off flyout 229 and `GetBonusBarOffset() == 5`.
 local function FormsAndBars()
     Emit("== forms and bars");

@@ -74,11 +74,12 @@ local STATE_ANY = STATE_ON + STATE_OFF;
 local KNOWN_YES, KNOWN_NO = 1, 2;
 local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 
--- 유닛 축은 `Constants.UNITSTATE_*`. 값들이 배타적이라는 것이 이 컬럼의 전제고, 런타임도
--- 유닛 하나를 한 값으로 푼다 (`UpdateBindings.lua`의 unitStateExpression). 블리자드도 같은
--- 자리를 if/elseif로 푼다 (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환).
+-- The unit axis is `Constants.UNITSTATE_*`. The column rests on those values being exclusive, and
+-- the runtime resolves one unit to one value as well: the reaction chain the header lists. Blizzard
+-- resolves the same place with if/elseif (`SecureTemplates.lua`'s `helpbutton`/`harmbutton`
+-- substitution).
 --
--- The mask itself is built in `Misc.lua` (BuildUnitStates), which is also where the `unitframe`
+-- The mask itself is built in `Units.lua` (BuildUnitStates), which is also where the `unitframe`
 -- condition is folded in -- the pointed frame's unit is a unit named "unitframe", so it belongs
 -- on this axis rather than in a column of its own.
 
@@ -124,7 +125,7 @@ local FIXED_COLUMNS = {
         -- keeps this column free -- every cover that reaches the not-pointing point reaches it
         -- for all seven frame types at once, so the point never splits across covers.
         --
-        -- That is what `Misc.BuildUnitStates` hands over: the mask is folded only off
+        -- That is what `BuildUnitStates` hands over: the mask is folded only off
         -- `units["unitframe"]`, so a binding with no condition on that unit arrives with nil.
         name = "frameTypes",
         make = function(binding)
@@ -266,7 +267,7 @@ end
 --- `mouseover` action never covers a `unitframe` action it always beats to the press -- the shape
 --- a key with both casts on it has.
 ---
---- **Here rather than in the mask `Misc.lua` builds**, because narrowing it there would create
+--- **Here rather than in the mask `Units.lua` builds**, because narrowing it there would create
 --- this column on a key where nobody named `mouseover`, and then a pair of bindings splitting the
 --- `unitframe` axis between them would stop covering an unconditional one: the phantom point is
 --- theirs to cover and neither reaches it. Done at column-build time, the space only grows the
@@ -301,7 +302,7 @@ end
 --- `UNITSTATE_NONE` says why a per-unit axis does not widen that product.
 ---
 --- What arrives here is already the four-cell partition. The three boxes a user ticks overlap --
---- a raid member in their own subgroup is in both -- and `Misc.BuildUnitStates` is where that
+--- a raid member in their own subgroup is in both -- and `BuildUnitStates` is where that
 --- overlap is resolved. **A mask of the stored three would not be a partition**, and the set
 --- algebra below has no way to notice that.
 local function makeUnitGroupFlags(binding, unit)
@@ -314,7 +315,7 @@ local function makeUnitGroupFlags(binding, unit)
 end
 
 --- The spell a `known` condition asks about, which is **the condition's own value** and not the
---- action's (`Misc.lua`'s `KnownSpellAsked`). Two actions on one spell asking about two different
+--- action's (`Known.lua`'s `KnownSpellAsked`). Two actions on one spell asking about two different
 --- talents are two axes; folding them into one column keyed by the action would call the second a
 --- repeat of the first.
 ---
@@ -508,7 +509,7 @@ end
 --- region it meets no cover and survives, as a cover it meets no region and deletes nothing.
 ---
 --- **One such box arrives on purpose: a role column at 0 from a row with no role picked, beside
---- frame types other than party and raid frames** (`Misc.lua`'s `RoleLeavesNothing`). A role is only
+--- frame types other than party and raid frames** (`Units.lua`'s `RoleLeavesNothing`). A role is only
 --- measured on those frames, so the binding still runs over the rest, which this column cannot say.
 --- Falling out of both roles is the safe answer for it: it deletes nothing it does not cover, and
 --- nothing deletes it. Every other zero is left off the key before it gets here (`dead`, and the

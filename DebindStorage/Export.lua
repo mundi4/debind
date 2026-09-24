@@ -173,7 +173,7 @@ local CONDITION_TYPES    = {
     -- The tooltip walks the client's own classes rather than the table, so a junk key has nothing
     -- to print itself into.
     --
-    -- **A value that is not a mask is caught where it is read** (`Misc.lua`'s `MaskFor`), the way
+    -- **A value that is not a mask is caught where it is read** (`Specs.lua`'s `MaskFor`), the way
     -- `talents` catches a list that is not a list. These are arithmetic now, and `band` on a
     -- string raises inside the rebuild rather than failing narrow.
     --
@@ -212,7 +212,7 @@ local CONDITION_TYPES    = {
 ---
 --- **Every value is a scalar, so this whitelist reaches all of them.** A spelling nobody knows still
 --- gets through when it is a string of the right name, and every reader compares it against a
---- spelling it does know (`Misc.lua`'s `CastingValue`), so it reads as the default, which is the
+--- spelling it does know (`ActionBindings.lua`'s `CastingValue`), so it reads as the default, which is the
 --- value an action with no `casting` at all has.
 local CASTING_TYPES      = {
     selfCastKey = "string",
@@ -376,7 +376,7 @@ end
 ---
 --- The other types never needed anything here, and why still holds.
 ---
---- **`MACRO`** carries a name and only ever a name (`GetMissingMacroName` in `Misc.lua`), so what
+--- **`MACRO`** carries a name and only ever a name (`GetMissingMacroName` in `Issues.lua`), so what
 --- is stored already means the same thing on the far side -- or means nothing, which is what
 --- `BINDING_ISSUE_MISSING_MACRO` is for. **The body does not travel**: it is text the user wrote
 --- freely, and the sender knows only that this action calls their macro named X, not that its

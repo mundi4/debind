@@ -6,7 +6,7 @@
 local _, DebindPrivate             = ...;
 
 -- **The global name stays `DebindStates`.** A user types it in a macro body
--- (`/click DebindStates $state1-on`, `Misc.lua`) and `Legacy.lua` rewrites pre-rename bodies to
+-- (`/click DebindStates $state1-on`, `MacroText.lua`) and `Legacy.lua` rewrites pre-rename bodies to
 -- it, so it is a name that is already out there rather than one this file is free to pick.
 local SwitchesUpdaterFrame         = CreateFrame("Button", "DebindStates", nil, "SecureFrameTemplate,SecureHandlerClickTemplate,SecureHandlerAttributeTemplate");
 DebindPrivate.SwitchesUpdaterFrame = SwitchesUpdaterFrame;

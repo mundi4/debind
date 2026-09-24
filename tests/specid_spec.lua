@@ -435,7 +435,7 @@ return function(DebindPrivate)
     -- **What the menu's whole-class box is made of.** That box stands inside a class submenu and
     -- ticks or clears the class in one press, and it reads its own state through the same pair,
     -- so the box and the tooltip line cannot disagree about what a whole class is
-    -- (`ActionMenuModel.lua`'s `ClassSpecsAllPicked`, `Misc.lua`'s `DescribeSpecCondition`).
+    -- (`ActionMenuModel.lua`'s `ClassSpecsAllPicked`, `Specs.lua`'s `DescribeSpecCondition`).
     --
     -- The three lines of ctx wrapping around them are the menu's and are not reachable here:
     -- `ActionMenuModel.lua` is not on the headless load list (`run.lua`).
@@ -530,7 +530,7 @@ return function(DebindPrivate)
 
     -- **The reader plays one class, and only that class's specializations can ever fire.** So the
     -- line names those and says the rest by class, and what it drops when it runs out of room is
-    -- other classes rather than this one's (`Misc.lua`'s `DescribeSpecCondition`).
+    -- other classes rather than this one's (`Specs.lua`'s `DescribeSpecCondition`).
     --
     -- The shim plays a druid, and its classes are warrior, paladin, mage and druid.
     --

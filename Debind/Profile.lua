@@ -103,7 +103,7 @@ local tconcat            = table.concat;
 --- everywhere, and the fold made `CollectDuplicateActions` offer one up as a repeat of the other.
 ---
 --- **A field that really does mean `{}` the same as nil is written as nil by whoever writes it**,
---- which is where that knowledge already lives: `Misc.lua` clears `conditions.units` down to nil
+--- which is where that knowledge already lives: `FillBinding` clears `conditions.units` down to nil
 --- and `PruneConditions` drops an emptied `conditions`, both because several places gate on the
 --- table existing. Identity stays faithful to the shape and the writers keep the shapes canonical.
 ---
@@ -2343,7 +2343,7 @@ function DebindPrivate.CollectKeylessActionRows(spec)
     return rows;
 end
 
---- The record the two collectors above hand out. Its ordering half is `Misc.lua`'s
+--- The record the two collectors above hand out. Its ordering half is `ActionBindings.lua`'s
 --- `MakeOrderRecord`, shared with `BuildKeyMap` and `RenumberKeyGroup`; what is written here is
 --- the half only a drawn row needs.
 ---
@@ -2361,8 +2361,8 @@ end
 function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec)
     local offWorld = simulated or (specRank ~= nil and specRank ~= 0) or nil;
 
-    -- 순서를 정하는 여섯 필드는 `Misc.lua`의 `MakeOrderRecord`가 채운다. 그 위에 얹는 것이
-    -- 아래 넷이고, 그리는 쪽과 편집 메뉴가 그것을 읽는다.
+    -- The fields that decide the order are filled by `MakeOrderRecord` (`ActionBindings.lua`).
+    -- What goes on top below is what the drawing side and the edit menu read.
     local row = DebindPrivate.MakeOrderRecord(action, layerRank, specRank);
 
     row.action = action;
@@ -2387,7 +2387,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- row and its tooltip from disagreeing.
     row.offWorld = offWorld;
     -- **The action's own condition leaving this specialization out**, answered the way the rebuild
-    -- answers it when it keeps the action off the key (`Misc.lua`'s `SpecConditionHolds`).
+    -- answers it when it keeps the action off the key (`Specs.lua`'s `SpecConditionHolds`).
     --
     -- **It is deliberately not folded into `specRank`.** That field is a step of the comparator
     -- (`Ordering.lua`), and this action sits in a layer that is live: the place it takes among its
@@ -2407,7 +2407,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
 
     -- **The other way a row does not fire in this world: `known` with no spell to ask about.**
     -- Same answer the rebuild gives when it leaves the action out of the key map
-    -- (`Misc.lua`'s `KnownConditionCanHold`). It gets a word of its own in the reason column: some
+    -- (`Known.lua`'s `KnownConditionCanHold`). It gets a word of its own in the reason column: some
     -- classes have no such spell in any specialization, and "Never runs" would not say which thing
     -- is missing.
     --

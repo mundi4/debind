@@ -57,7 +57,7 @@
 
 ### 3-1. 직업 목록: 지금 카멜롯에서 드루이드가 빠진다
 
-`Misc.lua`의 `ClassSpecCatalog`가 `1..GetNumClasses()`를 돈다. 카멜롯은 `GetNumClasses()`가 9인데
+`Specs.lua`의 `ClassSpecCatalog`가 `1..GetNumClasses()`를 돈다. 카멜롯은 `GetNumClasses()`가 9인데
 인덱스 6과 10이 비고 드루이드가 11에 있다(2026-09-23 프로브). 그래서 드루이드가 목록에서 빠지고,
 드루이드만 고른 전문화 조건은 "고른 것이 없다"는 이슈를 낸다.
 
@@ -171,7 +171,7 @@
 ### 3-5. 층이 아닌 것
 
 - **정식 서비스의 번호로 잡힌 표.** `SpecSpells.lua`의 카멜롯 키(`shipping-on-the-camelot-client.md`
-  6절), `Misc.lua`의 `CANCEL_FORM_LINE`의 드루이드 변신 인덱스, `ActionTooltip.lua`와
+  6절), `MacroText.lua`의 `CANCEL_FORM_LINE`의 드루이드 변신 인덱스, `ActionTooltip.lua`와
   `ActionMenuNodes.lua`의 보너스 바 이름(스카이라이딩 플라이아웃 229). 같은 표에 카멜롯 값을 더하는
   일이고, 값은 프로브의 forms 구역이 잰다. `PET_ACTION_SLASH_BY_ID`는 펫 직업으로 재야 해서 이
   프로브가 못 잰다.
@@ -271,7 +271,7 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
    들어갔다. 3-3은 그룹을 바꾸는 순간의 측정을 기다린다.
    이어서 **등급 고정**(3-4). 들어갔다.
 4. **`Misc.lua`와 `Profile.lua` 쪼개기**, 이어서 폴더. 단계마다 골든이 바이트 그대로인 순수 이동이다.
-   다음 세션이 `splitting-misc-and-profile.md`부터 읽고 시작한다.
+   쪼개기는 들어갔고 폴더가 남았다. 자리와 방법은 `splitting-misc-and-profile.md`가 든다.
 5. **로케일**(6절).
 6. **`shipping-on-the-camelot-client.md`의 나머지**: 5절의 전문화 하나일 때의 화면(3-3 결정 뒤),
    6절 `SpecSpells`, 9절 배포.

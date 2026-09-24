@@ -1337,7 +1337,7 @@ local ROLE_NAMES = {
 ---   reactions do not overlap       `band(reaction, reaction)`   == 0
 ---   life asked both ways           `band(ALIVE, DEAD)`          == 0
 ---
---- `Misc.BuildUnitStates` folds the same conditions with the same intersection, `FillBinding` marks
+--- `BuildUnitStates` folds the same conditions with the same intersection, `FillBinding` marks
 --- a binding with a zero `dead`, and `BuildKeyMap`'s `UnrollIntoTiers` leaves every such binding off
 --- the key, one binding at a time. So a binding that cannot stand reaches **neither the solver nor
 --- this file**, whatever its action's other bindings do.
@@ -1390,7 +1390,7 @@ local function mergeUnitConditions(a, b)
 
     -- **Only two picked sets that do not meet are NEVER.** A row with no role picked is already
     -- empty and still runs over every frame that is not a party or raid frame, which is the only
-    -- kind a role is measured on (`Misc.lua`'s `RoleLeavesNothing`); meeting it keeps that.
+    -- kind a role is measured on (`Units.lua`'s `RoleLeavesNothing`); meeting it keeps that.
     local role = a.role;
     if (role == nil) then
         role = b.role;
@@ -1653,14 +1653,14 @@ local function MergeKeyUnitConditions(binding, out)
         -- nil is a `unit` that is not a string at all, and `BuildUnitStates` has already taken
         -- that binding out of both solver roles, so the condition is dropped quietly here.
         if (k ~= nil) then
-            -- **저장은 겹치는 세 상자, 여기서부터는 네 칸이다.** 세 상자는 교집합에 안 닫혀
-            -- 있다: {파티}와 {공대}가 만나는 곳은 "공대이면서 같은 소그룹" 한 칸인데 그 칸만
-            -- 가리키는 상자 조합이 없다. 상자끼리 `band`를 걸면 그 교집합이 0으로 나와
-            -- **발동할 수 있는 바인딩이 통째로 빠진다.** 솔버도 같은 칸을 쓰므로
-            -- (`Misc.BuildUnitStates`) 두 쪽이 한 어휘가 된다.
+            -- **Storage holds three overlapping boxes; from here on it is four cells.** The boxes
+            -- are not closed under intersection: {party} and {raid} meet on the one cell "in a raid
+            -- and in my subgroup", and no combination of boxes names that cell alone. `band` on the
+            -- boxes answers 0 for it, and **a binding that can fire drops out whole.** The solver
+            -- uses the same cells (`BuildUnitStates`), so the two sides share one vocabulary.
             --
-            -- 조건 표의 값을 그대로 고칠 수는 없어서 새 표를 만든다. 소속을 건 유닛에만,
-            -- 리빌드 한 번에 한 번이다.
+            -- The value in the condition table cannot be changed in place, so a new table is made:
+            -- only for a unit with a group on it, once per rebuild.
             if (type(v) == "table" and v.group) then
                 v = {
                     reaction = v.reaction,
@@ -1739,7 +1739,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     -- the snippet for that reason.
     --
     -- Read off the merged table, so a mask on `"@"` where the action aims at the frame's unit meets
-    -- the one on `units["unitframe"]` -- the same fold `Misc.BuildUnitStates` does for the solver.
+    -- the one on `units["unitframe"]` -- the same fold `BuildUnitStates` does for the solver.
     local pointedFrame = out.units.unitframe;
     if (type(pointedFrame) == "table" and pointedFrame.frameTypes
             and pointedFrame.frameTypes ~= Constants.FRAMETYPE_ALL) then
@@ -1904,10 +1904,11 @@ local function EmitRecord(record)
                     end
                 end
             end
-            -- **unitframe에만 나간다**, `Misc.BuildUnitStates`가 unitframe에만 축을 세우는 것과
-            -- 같은 이유로. 다른 유닛에도 내보내면 재는 쪽이 그 행을 안 채워서 `cond.role[nil]`이
-            -- 되고 그 키가 조용히 죽는다. 게다가 솔버는 그 조건을 무시하므로 둘이 갈린다.
-            -- 메뉴로는 못 만드는 모양이지만 손으로 고친 프로필과 옛 문자열이 이리로 온다.
+            -- **Emitted for `unitframe` only**, for the reason `BuildUnitStates` gives that axis to
+            -- `unitframe` only. Emitted for another unit, the measuring side never fills that row, so
+            -- it reads `cond.role[nil]` and the key goes quietly dead; and the solver ignores the
+            -- condition there, so the two part ways. The menu cannot make that shape, but a
+            -- hand-edited profile or an old string arrives here with it.
             if (unit == "unitframe" and condition.role) then
                 appendLine("u.role=newtable()");
                 for _, bit in ipairs(sortedKeys(ROLE_NAMES, _sortedC)) do

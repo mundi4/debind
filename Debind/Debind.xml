@@ -11,6 +11,12 @@
     <Script file="Ordering.lua"/>
     <Script file="Solver.lua"/>
     <Script file="Misc.lua"/>
+    <Script file="Conditions/Units.lua"/>
+    <Script file="Conditions/Specs.lua"/>
+    <Script file="Conditions/Known.lua"/>
+    <Script file="ActionBindings.lua"/>
+    <Script file="Issues.lua"/>
+    <Script file="MacroText.lua"/>
     <Script file="ActionCatalog.lua"/>
     <Script file="BindingContexts.lua"/>
     <Script file="Debind.lua"/>

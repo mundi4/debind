@@ -334,7 +334,7 @@ XML 참조뿐이다.
 
 34개를 하나씩 봤다. 헤더의 죽은 지역 캐시가 대부분이었고, 실제로 아무도 안 부르는 함수 넷
 (`_GetKeyInfo`+`_keyInfoCache`+`_mods`, `_isSelected`, `_setSelected`, `formatValue`), 아무도 안
-읽는 표 둘(`GROUP_ROLE_UNITS`, `_mergedUnits`), 값이 안 읽히는 대입 둘(`Misc.lua`의 `token`,
+읽는 표 둘(`GROUP_ROLE_UNITS`, `_mergedUnits`), 값이 안 읽히는 대입 둘(`MacroText.lua`의 `token`,
 `UnitWatch.lua`의 `tmp`)이 나왔다.
 
 **일괄로 지우면 안 되는 이유가 그 자리에서 하나 나왔다.** W231은 "안 쓴다"가 아니라 **"읽는 데가

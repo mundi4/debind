@@ -200,17 +200,17 @@ do
 	dump("KeyMap", KeyMap);
 	dump("ActiveActions", ActiveActions);
 
-	--- 어느 바인딩이 이 키에서 몇 번째로 서는지. `Misc.lua`의 `MakeOrderRecord`가 채우고,
-	--- 규칙 자체는 `Ordering.lua`에 있다.
+	--- Where each binding stands on its key. `MakeOrderRecord` (`ActionBindings.lua`) fills it, and
+	--- the rule itself is in `Ordering.lua`.
 	---
-	--- **바인딩 옆에 두고 바인딩 안에 안 넣는다.** 바인딩은 액션 하나의 순수 파생이라,
-	--- 프로필 안에서의 자리처럼 액션만 봐서는 안 나오는 값이 거기 앉으면 그 성질이 깨진다.
-	--- 예전에는 아래 루프가 `layerRank`/`seq`/`isConditional`을 바인딩에 직접 써넣었고,
-	--- 아무도 그것을 지우지 않아서 다음 리빌드까지 남아 있었다.
+	--- **Beside the binding, not inside it.** A binding is a pure derivation of one action, and a
+	--- value the action alone cannot give, such as its place in the profile, breaks that the moment
+	--- it sits there. The loop below used to write `layerRank`/`seq`/`isConditional` straight onto
+	--- the binding, and nothing cleared them, so they stayed until the next rebuild.
 	---
-	--- 키가 약해서(weak) 바인딩이 죽으면 같이 사라진다. `wipe`하지 않는 것은 레코드 표를
-	--- 재사용하기 위해서다. 이 함수는 리빌드마다 모든 바인딩을 도는데, 예전에는 여기서
-	--- 아무것도 할당하지 않았다.
+	--- Weak keys, so an entry goes with its binding. It is not wiped, so the record tables are
+	--- reused: this function walks every binding on every rebuild, and it used to allocate nothing
+	--- here.
 	local Placements = setmetatable({}, { __mode = "k" });
 	local CompareActionOrder = DebindPrivate.CompareActionOrder;
 
@@ -218,13 +218,13 @@ do
 		return CompareActionOrder(Placements[lhs], Placements[rhs]);
 	end
 
-	--- The full list an original binding stands for (`Misc.lua`'s `GetBindingsForAction`), and the
+	--- The full list an original binding stands for (`ActionBindings.lua`'s `GetBindingsForAction`), and the
 	--- hover twin in it where there is one.
 	---
 	--- **Wiped each rebuild rather than made weak like `Placements` above.** The value here is the
 	--- list whose `[1]` is the key, and Lua 5.1 marks a weak-keyed table's values strongly -- so
 	--- the entry would keep its own key reachable and never be collected (ephemerons are 5.2).
-	--- Nothing is allocated by the wipe: the lists themselves are `Misc.lua`'s to keep.
+	--- Nothing is allocated by the wipe: the lists themselves are `ActionBindings.lua`'s to keep.
 	local Lists = {};
 	local _unroll = {};
 
@@ -369,7 +369,7 @@ do
 				-- **The specialization index is filtered here and nowhere below.** It is the only
 				-- condition the insecure side settles by itself: it cannot change in combat, and a
 				-- change rebuilds everything, so the world this build is made for has one answer to
-				-- it (`Misc.lua`'s `SpecConditionHolds`).
+				-- it (`Specs.lua`'s `SpecConditionHolds`).
 				--
 				-- **Which is also why the solver needs no column for it.** Every binding that gets
 				-- past this line satisfies its own specialization condition, so the condition is

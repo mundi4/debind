@@ -202,7 +202,7 @@ return function(DebindPrivate, _, ctx)
 
     -- **A `known` this specialization has no spell for never reaches the build.** The condition is
     -- false for every press this build will see, so the rebuild leaves the action out the way it
-    -- leaves out an action for another specialization (`Misc.lua`'s `KnownConditionCanHold`).
+    -- leaves out an action for another specialization (`Known.lua`'s `KnownConditionCanHold`).
     -- **Out of the build, not off the key**: the key stays ours and the press does nothing.
     test("a known with no spell is left out of the build", function()
         shim.world.specIndex = 1;

@@ -1,15 +1,15 @@
--- 매크로텍스트 파서(`Misc.lua` `ParseMacroText`) 테스트. 와우 클라이언트 불필요.
+-- Tests for the macro text parser (`MacroText.lua`'s `ParseMacroText`). No game client needed.
 --
--- 이 파서가 하는 일: 매크로 본문에서 애드온 전용 토큰(@tank 같은 특수 유닛,
--- $state1 같은 커스텀 상태)을 찾아 **보안 환경이 런타임에 갈아끼울 자리**로
--- 바꿔 놓는다. 놓치면 토큰이 글자 그대로 와우에 넘어가고, 와우는 모르는
--- 유닛이라 조용히 실패한다 -- 오류 한 줄 없이.
+-- What the parser does: it finds the addon's own tokens in a macro body (special units such as
+-- @tank, switches such as $state1) and turns them into **slots the restricted side fills in at
+-- run time**. A token it misses goes to the game as literal text, and the game, not knowing the
+-- unit, fails quietly, without a single error line.
 --
--- 세 층:
---   1. 이름 붙은 회귀 테스트 - 각 버그가 무엇이었는지 문서화
---   2. 계약 테스트 - SecureBindings.lua가 의존하는 반환값 모양
---   3. 무차별 대조 테스트 - 조건 그룹을 조합해서 정답을 직접 만들고 대조.
---      "N번째 그룹만 안 된다" 부류는 이쪽이 잡는다.
+-- Three layers:
+--   1. Named regression tests, each recording what its bug was
+--   2. Contract tests: the shape of the answer `SecureBindings.lua` depends on
+--   3. Brute-force comparison: condition groups are combined, the right answer is built by hand,
+--      and the two are compared. The "only the Nth group fails" kind is caught here.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;

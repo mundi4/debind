@@ -160,8 +160,8 @@ CVar를 그 값으로 두고, 누름이 끝나면 되돌린다.
 
 **마이그레이션은 없다.** 값이 없는 것이 새 기본값이고, 모르는 값은 기본으로 읽힌다.
 
-**들어간 자리.** `Misc.lua`의 `CastAutomaticOf`·`CastAutomaticsKeyOf`·`CastAutomaticInKey`·
-`UnshiftsWith`·`CastAutomaticLabel`·`CastAutomaticsBlockedReason`, 바인딩 파생의
+**들어간 자리.** `ActionBindings.lua`의 `CastAutomaticOf`·`CastAutomaticsKeyOf`·`CastAutomaticInKey`·
+`CastAutomaticLabel`·`CastAutomaticsBlockedReason`, `MacroText.lua`의 `UnshiftsWith`, 바인딩 파생의
 `binding.automatics`, `Profile.lua` 정리기, `Export.lua`의 `CASTING_TYPES`, `UpdateBindings.lua`의
 `AutomaticsLines`·`AutomaticsBody`·`AutomaticsWrap`과 감싼 버튼 캐시, `SecureBindings.lua`의
 `CAST_BUTTON_SNIPPET`, `Debind.lua`의 캐스트 프레임 주석, `ActionMenuModel.lua`의

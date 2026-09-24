@@ -102,24 +102,26 @@ local function MigrateLayer(layerTbl, dbver)
     end
 
     if (dbver <= 4) then
-        -- 유닛 조건을 **축별 마스크**로. 스칼라 네 값(`true`/`false`/`"help"`/`"harm"`)으로는
-        -- "우호 또는 기타"도 "우호이면서 살아있음"도 못 쓴다 - 값 하나에 존재와 반응이
-        -- 뭉쳐 있어서 축을 하나 더 얹을 자리가 없다.
+        -- Unit conditions become **one mask per axis**. The four scalars (`true`/`false`/`"help"`/
+        -- `"harm"`) can say neither "friendly or other" nor "friendly and alive": presence and
+        -- reaction are packed into one value, with no room to put another axis on top.
         --
-        -- **뭉친 열거 대신 축마다 필드를 둔다.** 생사·소속이 올 때 열거였다면 같은 숫자의
-        -- 뜻이 바뀌어 마이그레이션을 또 해야 하는데, 필드면 하나 늘 뿐이고 **옛 데이터에
-        -- 그 필드가 없다는 것 자체가 "이 축은 제약 안 함"이라 이미 맞는 답**이다.
+        -- **A field per axis instead of a packed enum.** Had life and group arrived as an enum, a
+        -- number would change meaning and need another migration. As fields, one more is added, and
+        -- **old data lacking the field already says "this axis constrains nothing"**, which is
+        -- already the right answer.
         --
-        --   없음        { exists = false }   축을 기억할 자리가 있어야 해서 표가 된다
-        --   존재        {}                   제약하는 축이 없음
-        --   우호/적대   { reaction = ... }
+        --   absent             { exists = false }   a table, so there is somewhere to keep the axes
+        --   present            {}                   no axis constrains it
+        --   friendly/hostile   { reaction = ... }
         --
-        -- `false`가 표가 되는 이유는 **끈 값을 기억하기 위해서다.** 라디오를 [없을 때]로
-        -- 옮겼다고 골라둔 반응·생사를 지우면 되돌렸을 때 처음부터 다시 골라야 한다. 끄는 것과
-        -- 지우는 것은 다르다 - `frameTypes`가 개체창 조건을 껐다 켜도 남아 있는 것과 같다.
-        -- 무시하는 것은 `Misc.UnitConditionForBinding`이 한다.
+        -- `false` becomes a table **so that values switched off are remembered.** Clearing the
+        -- reaction and life picked when the radio moves to [when there is none] would make the
+        -- reader pick them again on the way back. Turning off is not deleting, the same way
+        -- `frameTypes` stays when the unit frame condition is turned off and on. Ignoring them is
+        -- `UnitConditionForBinding`'s job.
         --
-        -- 다시 돌아도 안전하다 - 이미 테이블이면 건드리지 않는다.
+        -- Safe to run again: a value already a table is left alone.
         for i = 1, #layerTbl do
             local checkedUnits = layerTbl[i].checkedUnits;
             if (checkedUnits) then
@@ -137,15 +139,16 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
 
-        -- 그리고 hover 조건을 그 유닛들 옆으로 옮긴다. 접는 규칙은 `Misc.lua`에 있다 -
-        -- 바인딩을 만들 때도 같은 규칙으로 들어올려야 해서(마이그레이션이 아직 안 닿은
-        -- 프로필), 두 군데 적으면 갈라지는 종류의 규칙이다.
+        -- Then the hover condition moves in beside those units. The folding rule is
+        -- `UnitFrameConditionFromLegacy`'s (`Units.lua`): building a binding has to raise a profile
+        -- the migration has not reached by the same rule, and written twice that rule would part.
         --
-        -- `frameTypes`/`ignoreHoverUnit`은 여기서 안 옮긴다. 둘 다 **아래 `dbver <= 6`이** 든다.
-        -- 마스크는 같은 행 안으로 들어가고(개체창의 유닛도 유닛이니 그 유닛에 대해 하는 말이다),
-        -- 체크박스 하나는 조건이 아니라 쌍둥이를 어디로 내보내느냐라 `casting`으로 간다.
+        -- `frameTypes`/`ignoreHoverUnit` are not moved here; **the `dbver <= 6` step below** takes
+        -- both. The mask goes inside the same row (the pointed frame's unit is a unit, so the mask
+        -- is said about it), and the checkbox goes to `casting`, because it decides where the twin
+        -- goes out rather than being a condition.
         --
-        -- 다시 돌아도 안전하다 - `hover`가 없으면 아무것도 안 한다.
+        -- Safe to run again: with no `hover` it does nothing.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.hover ~= nil) then
@@ -456,7 +459,7 @@ local function MigrateLayer(layerTbl, dbver)
         -- spelling comes back meaning something else.
         --
         -- **The step hands the old name in** rather than asking `ParseMacroText`, which cannot see
-        -- it any more (`Misc.lua`'s `RenameUnitInMacroText` says why).
+        -- it any more (`MacroText.lua`'s `RenameUnitInMacroText` says why).
         --
         -- Running twice is safe: nothing carries the old spelling once this has passed.
         for i = 1, #layerTbl do
