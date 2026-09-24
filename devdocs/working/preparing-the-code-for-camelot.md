@@ -229,13 +229,12 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
 
 **쪼갤 것.**
 
-- **`Misc.lua` (4466줄).** 서로 무관한 것들의 모음이고, 구역을 넘나드는 파일 지역 변수는 여섯
-  개뿐이다(`UnitConditionToState`, `RoleMeasuredUnder`, `CannotStand`, `SOURCE_ROW`와 `SOURCE_AT`,
-  `IntersectStoredUnitConditions`, `SWITCH_CLICK_TARGET`). 유닛 조건과 역할, 액션에서 바인딩으로의
-  파생, 직업과 전문화 카탈로그, 이슈 판정, 매크로 문자열 변환과 해석으로 가른다. `ApplyOptions`는
-  `check-reload-options`가 `Misc.lua`에서 찾으므로 남는 쪽에 둔다.
-- **`Profile.lua` (4105줄).** 마이그레이션(`MigrateLayer`, `MigrateSwitches`, `MigrateDB`)이 1100줄로
-  따로 선다. `check-dbver`가 `Profile.lua`를 경로로 읽으므로 같이 고친다.
+- **`Misc.lua`.** 서로 무관한 것들의 모음이다. 유닛 조건과 역할, 액션에서 바인딩으로의 파생, 직업과
+  전문화 카탈로그, 이슈 판정, 매크로 문자열 변환과 해석으로 가른다.
+- **`Profile.lua`.** 마이그레이션이 1100줄로 따로 선다.
+
+지금 코드를 잰 구역 지도, 구역을 넘나드는 지역 변수, 같이 움직이는 도구와 작업 방법은
+`splitting-misc-and-profile.md`가 든다.
 
 **안 쪼갤 것.** `UpdateBindings.lua`는 재빌드마다 쓰는 파일 지역 상태가 파일 전체에 걸쳐 있다.
 `SecureBindings.lua`는 `check-state-eval`이 파일과 지역 변수 이름으로 찾고, 스니펫 골든이 파일
@@ -272,6 +271,7 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
    들어갔다. 3-3은 그룹을 바꾸는 순간의 측정을 기다린다.
    이어서 **등급 고정**(3-4). 들어갔다.
 4. **`Misc.lua`와 `Profile.lua` 쪼개기**, 이어서 폴더. 단계마다 골든이 바이트 그대로인 순수 이동이다.
+   다음 세션이 `splitting-misc-and-profile.md`부터 읽고 시작한다.
 5. **로케일**(6절).
 6. **`shipping-on-the-camelot-client.md`의 나머지**: 5절의 전문화 하나일 때의 화면(3-3 결정 뒤),
    6절 `SpecSpells`, 9절 배포.
