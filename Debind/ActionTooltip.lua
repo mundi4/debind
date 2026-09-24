@@ -63,12 +63,9 @@ do
 	local _bonusbarLabels;
 	function GetActionBarTypeLabel(index)
 		if (_bonusbarLabels == nil) then
-			-- **Offset 5 takes the skyriding flyout's name, and a client without that flyout
-			-- raises rather than answering nil** (camelot, "No flyout found for ID").
-			local hasSkyriding, skyriding = pcall(GetFlyoutInfo, 229);
 			_bonusbarLabels = {
 				[0] = LLL["DEFAULT"],
-				[5] = hasSkyriding and skyriding or nil,
+				[5] = (DebindPrivate.Client.FlyoutInfo(229)),
 			};
 			if (Constants.PLAYER_CLASS == "DRUID") then
 				_bonusbarLabels[1] = GetSpellNameAndIconID(768);

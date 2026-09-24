@@ -17,6 +17,19 @@ function Client.IsHiddenLowRank(slotIndex, bank)
     return C_SpellBook.IsSpellBookItemLowRank(slotIndex, bank);
 end
 
+--- `GetFlyoutInfo`, answering nothing for a flyout the client does not have.
+---
+--- **Camelot raises for one instead** ("No flyout found for ID", 69977), where retail answers
+--- nothing. A flyout id can come from somewhere other than this client's own book: the skyriding
+--- one the bonus bar labels name, and any flyout action in a string brought over from retail.
+function Client.FlyoutInfo(flyoutID)
+    local ok, name, description, numSlots, isKnown = pcall(GetFlyoutInfo, flyoutID);
+    if (not ok) then
+        return nil;
+    end
+    return name, description, numSlots, isKnown;
+end
+
 --- The spellbook's class line, as `GetSpellBookSkillLineInfo` answers a line.
 ---
 --- **Camelot's book has no class line among its lines**: one line per talent tree, so its second

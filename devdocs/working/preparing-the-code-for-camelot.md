@@ -177,16 +177,18 @@
   일이고, 값은 프로브의 forms 구역이 잰다. `PET_ACTION_SLASH_BY_ID`는 펫 직업으로 재야 해서 이
   프로브가 못 잰다.
 - **카멜롯에 없는 기능.** 투기장 프레임(`SettingsTab.lua`의 블리자드 프레임 체크박스 목록)은
-  "`CompactArenaFrame`이 있는가"를 묻는다. 투기장 유닛 자체는 카멜롯에서도 답한다(프로브).
+  "`CompactArenaFrame`이 있는가"를 묻는다. 카멜롯에는 없다(69977). 투기장 유닛 자체는 카멜롯에서도
+  답한다(프로브).
   스카이라이딩 축은 남기고, 언제나 거짓이다.
 - **이미 가드된 자리.** `C_AssistedCombat`, 하우징 바인딩 컨텍스트, `OverrideActionBar`. 할 일이 없다.
 
 ### 3-6. 잰 값이 드러낸 고장 둘
 
 - **들어갔다. `GetFlyoutInfo(229)`가 카멜롯에서 에러를 던진다.** nil을 돌려주는 것이 아니라
-  "No flyout found"로 raise한다(69977). 보너스 바 조건의 툴팁과 메뉴가 같은 이름 표를 따로 들고
-  있었는데, 이제 `ActionTooltip.lua`의 것 하나(`DebindPrivate.BonusBarLabel`)를 둘이 읽고, 그 안에서
-  `pcall`로 묻는다.
+  "No flyout found"로 raise한다(69977, 레벨 2부터 5까지 매번). 모든 호출이 `Client.FlyoutInfo`
+  (`Client/SpellBook.lua`)를 거치고, 그것이 raise를 nil로 바꾼다. 보너스 바 이름만이 아니라 공유
+  문자열로 건너온 플라이아웃 액션도 이 클라이언트에 없는 번호를 들고 온다. 보너스 바 조건의 툴팁과
+  메뉴가 따로 들던 이름 표는 `DebindPrivate.BonusBarLabel` 하나로 합쳤다.
 - **아틀라스 `common-icon-minus`가 없다.** `StorageUI.lua`의 `CHECK_SOME`이다. 나머지 20개는 있다.
   대체 후보 여섯은 프로브의 `minus candidates` 구역이 잰다. 고르는 방식은 "`common-icon-minus`가
   있으면 그것, 없으면 잰 후보"다.

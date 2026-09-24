@@ -365,7 +365,7 @@ end
 --- 시전 쪽(`GetFlyoutCastableSlots`)도 같은 것을 부른다 - 갈리면 **팝업에는 안 뜨는 칸이
 --- 목록에는 뜨는** 상태가 된다(실제로 그랬다).
 local function AddFlyoutEntries(entries, seen, flyoutID, isOffSpec, group)
-	local _, _, numSlots = GetFlyoutInfo(flyoutID);
+	local _, _, numSlots = DebindPrivate.Client.FlyoutInfo(flyoutID);
 	if (not numSlots) then
 		return;
 	end

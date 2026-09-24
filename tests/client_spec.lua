@@ -64,6 +64,17 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **A flyout action can name a flyout this client does not have**: a string from retail carries
+    -- its flyout ids across. Camelot raises for one where retail answers nothing, and the list, the
+    -- icon and the button all ask.
+    test("a flyout the client does not have answers nothing rather than raising", function()
+        local ok, err = pcall(function()
+            DebindPrivate.GetFlyoutNameAndIcon(229);
+            DebindPrivate.GetFlyoutCastableSlots(229);
+        end);
+        check(ok, tostring(err));
+    end);
+
     -- **A spell's subtext rides into its cast name to tell same-named spells apart**, which retail
     -- needs for a specialization's own version of a shapeshift. On camelot the subtext is the rank
     -- ("Rank 1", measured on 69977), and a cast name carrying it keeps casting that rank after the

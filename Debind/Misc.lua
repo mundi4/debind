@@ -182,7 +182,7 @@ end);
 --- 아이콘을 첫 슬롯에서 빌려오던 시절에는 같은 말이었지만, 지금은 플라이아웃 자기 아이콘이
 --- 빈 칸에도 나오므로 갈라놔야 한다.
 function DebindPrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec)
-    local name, _, numSlots, isKnown = GetFlyoutInfo(flyoutID);
+    local name, _, numSlots, isKnown = DebindPrivate.Client.FlyoutInfo(flyoutID);
     if (not name or not numSlots or numSlots == 0) then
         return nil, nil, nil, false;
     end
@@ -217,7 +217,7 @@ function DebindPrivate.GetFlyoutCastableSlots(flyoutID, out)
     out = out or {};
     wipe(out);
 
-    local _, _, numSlots = GetFlyoutInfo(flyoutID);
+    local _, _, numSlots = DebindPrivate.Client.FlyoutInfo(flyoutID);
     if (not numSlots) then
         return out;
     end
