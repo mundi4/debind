@@ -2143,7 +2143,8 @@ L["STORAGE_ADD_SPECS_LAYERS_DESC"] = "An action with more than one specializatio
 -- class by name**: "this class" left the reader to work out which class that is, at the one moment
 -- the answer decides what the numbers turn into.
 L["STORAGE_ADD_SPECS_CONVERT"] = "Keep as %s specializations"
-L["STORAGE_ADD_SPECS_DROP"] = "Remove"-- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
+L["STORAGE_ADD_SPECS_DROP"] = "Remove"
+-- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
 --
 -- **"String" is our word, not the client's, and this key is the first to stop using it.**

@@ -571,7 +571,8 @@
 				<FontString parentKey="Text" inherits="GameFontNormal" justifyH="LEFT" wordwrap="true"/>
 				<FontString parentKey="LayerLabel" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>
 				<FontString parentKey="SpecsText" inherits="GameFontNormal" justifyH="LEFT" wordwrap="true"/>
-				<FontString parentKey="SpecsLabel" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>			</Layer>
+				<FontString parentKey="SpecsLabel" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>
+			</Layer>
 		</Layers>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

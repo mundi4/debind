@@ -1035,13 +1035,16 @@ function DebindStoragePanelMixin:UpdateSelectionState()
     self.Preview.CopyButton:SetEnabled(selectedCount > 0);
 end
 
---- A string already on screen describes a set that no longer exists, so it goes.
+--- A string already on screen describes a set that no longer exists, so it goes. **So does the add
+--- dialog**: whether it asks about specializations was read off the ticks it opened on, and a
+--- question it left out would be answered by a default the reader never saw.
 ---
 --- **Not in `UpdateSelectionState`.** That runs for collapsing too, and collapsing changes nothing
 --- about what would go out -- dropping the string there would contradict the rule the collapse
 --- makes two functions away.
-local function DropStaleString()
+local function DropStaleDialogs()
     DebindCopyFrame:CloseDialog();
+    DebindAddFrame:CloseDialog();
 end
 --- Cuts a set of actions out of the entry that is showing, and draws what is left.
 ---
@@ -1076,7 +1079,7 @@ function DebindStoragePanelMixin:DeleteActions(actions)
         self.selected[action] = nil;
     end
 
-    DropStaleString();
+    DropStaleDialogs();
     self:RebuildPreviewLayers();
     self:RefreshPreview();
 
@@ -1086,7 +1089,7 @@ end
 
 
 function DebindStoragePanelMixin:SelectAll(selected)
-    DropStaleString();
+    DropStaleDialogs();
     local listed = self:EnumerateListedActions();
     for i = 1, #listed do
         self.selected[listed[i]] = selected or nil;
@@ -1095,7 +1098,7 @@ function DebindStoragePanelMixin:SelectAll(selected)
 end
 
 function DebindStoragePanelMixin:ToggleAction(action)
-    DropStaleString();
+    DropStaleDialogs();
     self.selected[action] = not self.selected[action] or nil;
     self:UpdateSelectionState();
 end
@@ -1103,7 +1106,7 @@ end
 --- A layer toggles as a whole, and "some" counts as off -- one more click gets all of it, which is
 --- what the middle state is asking for.
 function DebindStoragePanelMixin:ToggleLayer(actions)
-    DropStaleString();
+    DropStaleDialogs();
     local turnOn = CombineState(actions, self.selected) ~= STATE_ALL;
     for i = 1, #actions do
         self.selected[actions[i]] = turnOn or nil;
@@ -1368,6 +1371,9 @@ end
 --- every time `CloseSpecialWindows` sweeps this dialog and `DebindDialogMixin:OnDialogHide` puts it
 --- back. This is the only way the dialog opens, so the move covers the same ground.
 function DebindPasteFrameMixin:Open()
+    -- **The add dialog goes first.** It takes the first rung of the ESC ladder, so standing it
+    -- under this one would have ESC close the dialog the reader is not looking at.
+    DebindAddFrame:CloseDialog();
     self.Input.EditBox:SetText("");
     self.NameBox:SetText("");
     self.ErrorHolder.Text:SetText("");
