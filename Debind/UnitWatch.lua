@@ -356,7 +356,7 @@ do
     --- than listed again. `showSolo = false` is the whole of what makes one of them empty solo, so a
     --- header added with that property joins this set without anyone remembering to.
     ---
-    --- `Units.lua`'s `CannotStand` reads it to mark a binding `dead` where "only while solo" is set
+    --- `ActionBindings.lua`'s `CannotStand` reads it to mark a binding `dead` where "only while solo" is set
     --- against a unit that needs a group.
     --- **Party and raid are not told apart here, and that is measured rather than assumed.** Main
     --- tank and main assist are assigned in a raid, but the assignment survives converting the group

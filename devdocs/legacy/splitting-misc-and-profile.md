@@ -63,22 +63,24 @@ SavedVariables)이라 합치지 않았다.
 
 | 파일 | 든 것 |
 |---|---|
-| `Conditions/Units.lua` | 유닛 조건 모델, `ResolvedUnitOf`, `BuildUnitStates`, 역할 측정, `CannotStand` |
+| `Conditions/Units.lua` | 유닛 조건 모델, `ResolvedUnitOf`, `BuildUnitStates`, 역할 측정 |
 | `Conditions/Specs.lua` | 직업과 전문화 카탈로그, 전문화 집합, `DescribeSpecCondition`, `SpecConditionHolds` |
 | `Conditions/Known.lua` | `KnownSpellAsked`, `KnownConditionCanHold` |
 | `Conditions/Talents.lua` | 옛 `Talents.lua` 통째로 |
-| `ActionBindings.lua` | `CastUnitOf`, 액션에서 바인딩으로(`FillBinding`, 시전 선택, 쌍둥이), `MakeOrderRecord`, `IsConditionalBinding`, `IsBareWorldClick`, `ActionUnitFrameIsOn` |
+| `ActionBindings.lua` | `CastUnitOf`, `CannotStand`, 액션에서 바인딩으로(`FillBinding`, 시전 선택, 쌍둥이), `MakeOrderRecord`, `IsConditionalBinding`, `IsBareWorldClick`, `ActionUnitFrameIsOn` |
 | `Issues.lua` | 키 유효성, 정의 안 된 스위치, 없는 매크로, 이슈 등급과 판정 |
 | `MacroText.lua` | 탈것 본문, 매크로 변환, `ParseMacroText`, 본문 속 유닛과 스위치 |
 | `Misc.lua`에 남은 것 | 주문 이름과 아이콘, 장비 칸, 플라이아웃, 펫 명령과 `ActionTakesUnit`, 키 표시, 실행 중 도움, `ApplyOptions` |
 
 **`ActionTakesUnit`은 `Misc.lua`에 남았다.** 조건이 아니라 액션이 겨누는 대상에 대한 물음이고, 펫
-명령 표를 읽는다. `ActionBindings.lua`, `Issues.lua`, `MacroText.lua`는 파이프라인 파일이라 폴더에 넣지
+명령 표를 읽는다. **`CannotStand`는 `ActionBindings.lua`에 있다**(소유자). 혼자일 때 규칙이 `groups`
+조건과 유닛 조건을 맞대는 바인딩 전체의 판정이라 한 조건의 것이 아니다. `ActionBindings.lua`, `Issues.lua`, `MacroText.lua`는 파이프라인 파일이라 폴더에 넣지
 않고 맨 위에 둔다(`preparing-the-code-for-camelot.md` 5절).
 
 **로드 순서는 `Misc.lua`, `Conditions/`의 셋, `ActionBindings.lua`, `Issues.lua`, `MacroText.lua`다.**
 나중 파일이 앞 파일의 이름을 읽는 순간 `DebindPrivate`에서 잡는다. 옛 `Misc.lua` 안의 파일 지역 변수였던
-것(`UnitConditionToState`, `RoleMeasuredUnder`, `CannotStand`, `UNIT_SOURCE_ROW`, `UNIT_SOURCE_AT`)은
+것(`UnitConditionToState`, `RoleMeasuredUnder`, `RoleLeavesNothing`, `CannotStand`, `UNIT_SOURCE_ROW`,
+`UNIT_SOURCE_AT`)은
 그래서 `DebindPrivate`에 올라갔다.
 
 ## 5. 폴더

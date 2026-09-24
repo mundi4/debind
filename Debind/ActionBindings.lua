@@ -9,7 +9,7 @@ local UnitFrameConditionFromLegacy = DebindPrivate.UnitFrameConditionFromLegacy;
 local UnitGroupToCells             = DebindPrivate.UnitGroupToCells;
 local CellsToUnitGroup             = DebindPrivate.CellsToUnitGroup;
 local BuildUnitStates              = DebindPrivate.BuildUnitStates;
-local CannotStand                  = DebindPrivate.CannotStand;
+local RoleLeavesNothing            = DebindPrivate.RoleLeavesNothing;
 
 --- The unit a binding's cast goes out at: its `unit`, except on `none`, where `unit` is only what the
 --- press aims at and the cast itself always asks (`ActionHasPickedUnit`).
@@ -19,6 +19,68 @@ function DebindPrivate.CastUnitOf(binding)
     end
     return binding.unit;
 end
+
+--- Whether this binding cannot stand. **Given `visit`, every reason is handed to it** as the unit
+--- the zero sits on and whether it is the solo rule, until `visit` returns true. The issue check
+--- paints from those reasons, and a second copy of the rule there would drift from the one
+--- `BuildKeyMap` leaves bindings out by.
+---
+--- **The solo reasons skip a zero**: that unit already has a reason of its own, and handing it
+--- twice would paint the groups menu for a contradiction it has no part in.
+---
+--- **A verdict on the binding, not on one condition**, which is why it is not in `Units.lua`: the
+--- solo rule holds the `groups` condition against the unit ones.
+local function CannotStand(binding, visit)
+    if (binding.unitStatesOpaque) then
+        return false;
+    end
+    local function found(unit, solo)
+        return visit == nil or visit(unit, solo) == true;
+    end
+
+    local states = binding.unitStates;
+    if (states) then
+        for unit, mask in pairs(states) do
+            if (mask == 0 and found(unit, false)) then
+                return true;
+            end
+        end
+    end
+    if (binding.unitGroups) then
+        for unit, mask in pairs(binding.unitGroups) do
+            if (mask == 0 and found(unit, false)) then
+                return true;
+            end
+        end
+    end
+    -- Only a `unitframe` row, or a `"@"` landing there, narrows these two (`BuildUnitStates`).
+    if ((binding.unitFrameTypes == 0 or (binding.unitRole == 0 and RoleLeavesNothing(binding)))
+            and found("unitframe", false)) then
+        return true;
+    end
+
+    -- **Solo only, against a unit that has to be there.** The role aliases and the role map are empty
+    -- while the reader is alone (`showSolo = false`, `UnitWatch.lua`). `UNITSTATE_NONE` or
+    -- `ROLE_NONE` still in the mask is [when there is none] or [unknown], which solo satisfies.
+    local groups = binding.conditions and binding.conditions.groups;
+    if (groups and band(groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
+        local role = binding.unitRole;
+        if (role and role ~= 0 and band(role, Constants.ROLE_NONE) == 0 and found("unitframe", true)) then
+            return true;
+        end
+        if (states) then
+            local absentWhenSolo = DebindPrivate.UNITS_ABSENT_WHEN_SOLO;
+            for unit, mask in pairs(states) do
+                if (absentWhenSolo[unit] and mask ~= 0 and band(mask, Constants.UNITSTATE_NONE) == 0
+                        and found(unit, true)) then
+                    return true;
+                end
+            end
+        end
+    end
+    return false;
+end
+DebindPrivate.CannotStand = CannotStand;
 
 do
     local _ActionToBindingCache = setmetatable({}, { __mode = "kv" });
