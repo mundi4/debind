@@ -829,7 +829,8 @@ end
 --- -- four of them, one per place a payload could land, offered by a dialog the press opened. The
 --- preview column replaced both: a reader looking at the actions themselves has no reason to be
 --- asked about the layers first, and the answer is no longer worth a window of its own
---- (`building-export-import.md` 12절).
+--- (`building-export-import.md` 12절). **A Clique entry is the exception** (below): it has no
+--- layers to show, so where it goes is a question and `DebindCliqueAddFrame` asks it.
 ---
 --- **A Clique payload is the one that is asked where to go** (`importing-clique-profiles.md` §3).
 --- The file names no layer and no class, so it waits in General and `options.layer` (`"general"`,

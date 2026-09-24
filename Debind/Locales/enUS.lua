@@ -2116,6 +2116,19 @@ L["STORAGE_CLIQUE_ENTRY_NAME"] = "Imported Clique Profile (%s)"
 L["STORAGE_CLIQUE_PROFILE_USERS"] = "Used by: %s"
 L["STORAGE_CLIQUE_PROFILE_NO_USERS"] = "no character"
 L["STORAGE_CLIQUE_PROFILE_COUNT"] = "Actions: %d"
+-- The dialog adding a Clique entry asks in (`importing-clique-profiles.md` §3). The layers are
+-- named with the window's own layer labels, so they have no keys here.
+L["STORAGE_CLIQUE_ADD_TITLE"] = "Add Clique Profile"
+L["STORAGE_CLIQUE_LAYER"] = "Add to"
+L["STORAGE_CLIQUE_SPECS"] = "Specialization conditions"
+-- Clique numbers a specialization without a class, so a profile two classes shared bound one
+-- binding to different specializations in each. Keeping them means this class's.
+L["STORAGE_CLIQUE_SPECS_CONVERT"] = "Keep, as this class's specializations"
+L["STORAGE_CLIQUE_SPECS_DROP"] = "Remove"
+-- Pending actions cannot be moved or copied, so the way to split them up comes after accepting.
+L["STORAGE_CLIQUE_ADD_NOTE"] = "Added actions can be moved to another layer after you accept them."
+-- The client's own word, taken whole.
+L["STORAGE_CLIQUE_ADD_ACCEPT"] = ADD
 -- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
 --

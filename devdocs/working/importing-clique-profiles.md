@@ -3,9 +3,9 @@
 > 상태: **설계는 다 정했다(§8이 비었다).** 들어간 것은 §4 전부(주문 이름 값과 `resolvedSpellID`, 아이템
 > 이름 값), §6의 변환기(`DebindStorage/Clique.lua`), payload의 `source`와 액션의 `untranslated`, 그리고 §3의
 > 추가 논리(`PlanArrival`의 `options.layer`와 `options.specs`), Clique 공유 코드 풀기(`CL02:`, `CL01:`,
-> `ImportEntry`가 받는다)와 `StorePayload`다. 남은 것은 화면과 그 문구이고, 따로 세션을 둔다(소유자,
-> 2026-09-24). + 버튼의 드롭다운과 From Clique의 프로필 목록(§1), 층과 전문화 처리를 묻는 추가
-> 다이얼로그(§3)다. 다이얼로그 전까지는 Clique Payload를 추가하면 General에 들어가고 전문화 번호는 버려진다.
+> `ImportEntry`가 받는다)와 `StorePayload`, 그리고 화면이다. + 버튼의 드롭다운과 From Clique의 프로필
+> 목록(§1), 층과 전문화 처리를 묻는 추가 다이얼로그(`DebindCliqueAddFrame`, §3). **화면 문구는 초안이고, 다듬는
+> 것은 따로 세션을 둔다**(소유자, 2026-09-24). 다이얼로그의 층 기본값은 지금 캐릭터, 전문화 기본값은 바꾸기다.
 >
 > Clique의 저장 모양과 조합의 뜻을 코드에서 읽은 원문은 `.zzz/clique-savedvars.md`가 든다. 여기는
 > 그 조사에서 나온 결론과 이유만 담는다.

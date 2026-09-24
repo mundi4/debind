@@ -529,6 +529,73 @@
 	</Frame>
 
 	<!--
+		Where a Clique entry goes when it is added (`importing-clique-profiles.md` §3).
+
+		**The paste dialog's chrome and button pair**, and the Switches editor's dropdowns for the
+		two answers (`SwitchesUI.xml`), since a choice of a few named values is a dropdown
+		everywhere else in this window.
+	-->
+	<Frame name="DebindCliqueAddFrame" inherits="DebindDialogTemplate" mixin="DebindCliqueAddFrameMixin">
+		<Size x="460" y="250"/>
+		<Frames>
+			<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
+				<Size y="26"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT" x="0" y="-24"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT" x="0" y="-24"/>
+				</Anchors>
+			</DropdownButton>
+
+			<DropdownButton parentKey="SpecsDropdown" inherits="WowStyle1DropdownTemplate">
+				<Size y="26"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.LayerDropdown" relativePoint="BOTTOMLEFT" x="0" y="-34"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.LayerDropdown" relativePoint="BOTTOMRIGHT" x="0" y="-34"/>
+				</Anchors>
+			</DropdownButton>
+
+			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="5" y="0"/>
+				</Anchors>
+			</Button>
+
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<!-- After `<Frames>`, for the reason the paste dialog's caption is: these lean on them. -->
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="LayerLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.LayerDropdown" relativePoint="TOPLEFT" x="0" y="6"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="SpecsLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.SpecsDropdown" relativePoint="TOPLEFT" x="0" y="6"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="Note" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOMLEFT" x="0" y="34"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOMRIGHT" x="0" y="34"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnHide method="OnDialogHide"/>
+		</Scripts>
+	</Frame>
+
+	<!--
 		Where the finished string is handed over.
 
 		**A dialog rather than a box in the window.** The string is read once, selected, copied and
