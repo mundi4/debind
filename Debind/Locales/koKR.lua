@@ -577,6 +577,8 @@ L["FILTER_INACTIVE_LAYER"] = "비활성 레이어"
 L["FILTER_KEYED"] = "키 지정됨"
 L["FILTER_UNKEYED"] = "키 지정 안 됨"
 L["FILTER_PENDING"] = "아직 안 받음"
+L["SORT"] = "정렬"
+L["SORT_BY_KEY"] = "키와 순서"
 L["NO_ACTIONS_MATCH_FILTERS"] = "이 탭에는 조건에 맞는 것이 없습니다. 무엇이 꺼져 있는지는 왼쪽 열 위의 목록에 있습니다."
 L["OVERVIEW_EMPTY_FILTERED"] = "조건에 맞는 것이 없습니다. 무엇이 꺼져 있는지는 이 열 위의 목록에 있습니다."
 -- 부호와 숫자뿐이라 번역할 것이 없다. 그래도 키를 두는 것은, 언젠가 "외 %d개" 같은 말로 바뀔

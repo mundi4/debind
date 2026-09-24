@@ -832,11 +832,6 @@ local function MoveAction(elementData, destLayerID, copying)
 		end
 	end
 
-	local insertIndex;
-	if (copying and fromLayerID == destLayerID) then
-		insertIndex = elementData.index + 1;
-	end
-
 	-- **A move carries the table itself.** The selection, the anchor and the linked highlight hold the
 	-- action by table, so a fresh one would leave each of them on something no layer holds. Nothing derived goes stale with it: the binding caches read no layer,
 	-- and what does depend on one is rebuilt by the `UpdateBindings` below.
@@ -844,7 +839,7 @@ local function MoveAction(elementData, destLayerID, copying)
 		action = CopyTable(action);
 	end
 	local destLayer = DebindPrivate.GetProfileLayer(destLayerID);
-	destLayer:Insert(action, insertIndex);
+	destLayer:Insert(action);
 	-- The ordering number is handed out fresh. A copy is born holding the original's, which would
 	-- leave the two tied; one moved from another layer holds a number belonging to that group, which
 	-- means nothing here. "The back of this key group" is the answer to both.
@@ -2164,10 +2159,11 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 	local header = self.List.HeaderArea;
 	header.LayerName = header:CreateFontString(nil, "ARTWORK", "GameFontNormal");
 	header.LayerName:SetPoint("LEFT", 8, 0);
-	header.LayerName:SetPoint("RIGHT", -8, 0);
+	header.LayerName:SetPoint("RIGHT", self.SortDropdown, "LEFT", -6, 0);
 	header.LayerName:SetJustifyH("LEFT");
 	header.LayerName:SetTextColor(GRAY_FONT_COLOR:GetRGB());
 	DebindUI.SetListColumnHeader(self.List, RESULT_HEADER_HEIGHT);
+	self:InitializeSortDropdown();
 
 	local content = self.List.ContentArea;
 	local scrollBox = content.ScrollBox;
@@ -3215,16 +3211,6 @@ function DebindFrameMixin:OnBindingsUpdated(_, skipped)
 	self:Update();
 end
 
--- 목록의 줄 순서는 **언제나 이름순**이고, 남은 선택은 "키 경계에 선을 그을 것인가" 하나다.
---
--- 예전에는 키순/이름순 두 모드였고 키순은 한 키 안을 발동 순서로 그렸다. 그 순서는 말할
--- 자격이 없는 순서였다: 이 목록은 **한 레이어만** 보여준다(그래서 layerRank가 상수였다).
--- 더 구체적인 레이어의 액션이 같은 키를 전부 이기고 있어도 여기엔 안 나오므로, 화면에
--- 보이는 위아래가 실제로 무엇이 먼저 나가는지와 어긋날 수 있었다. 진짜 순서는 레이어를
--- 가로질러 모으는 상세 패널 단축키 탭에 있다(CollectActionsForKey).
---
--- 그래서 이 목록은 **언제나 이름순**이다. 목록 어디에도 "위에 있는 게 먼저 나간다"가 없다.
--- 발동 순서를 말하는 자리는 왼쪽 열 하나뿐이고, 거기는 키로 묶여 있다.
 local function CompareByName(lhs, rhs)
 	if (lhs.sortName ~= rhs.sortName) then
 		return lhs.sortName < rhs.sortName;
@@ -3234,10 +3220,82 @@ local function CompareByName(lhs, rhs)
 	return lhs.index < rhs.index;
 end
 
---- 이 레이어의 액션을 이름순으로 놓는다. 검색어가 있으면 거른다.
+local function CompareByIndex(lhs, rhs)
+	return lhs.index < rhs.index;
+end
+
+--- **Key order is this layer's order and no more** (owner, 2026-09-24, over the earlier rule that
+--- this list is always by name). A more specific layer's action on the same key can beat every row
+--- here and is not drawn in this list; the order across layers is the left column's.
 ---
---- **`index`는 거르기 전의 자리다.** `MoveAction`이 같은 레이어 안에서 복사할 때 넣을 자리로
---- 쓰는 값이라(`elementData.index + 1`) 화면에 몇 번째로 보이는지와는 상관이 없다.
+--- The groups stand the way the left column stands them (`BuildKeyboardElements`): own keys, then
+--- arrivals, then no key at all by name.
+local function CompareByKey(lhs, rhs)
+	local lhsKey, rhsKey = lhs.action.key, rhs.action.key;
+	if ((lhsKey == nil) ~= (rhsKey == nil)) then
+		return rhsKey == nil;
+	end
+	if (lhsKey == nil) then
+		return CompareByName(lhs, rhs);
+	end
+	local lhsArrival, rhsArrival = lhs.action.arrivalID, rhs.action.arrivalID;
+	if ((lhsArrival == nil) ~= (rhsArrival == nil)) then
+		return lhsArrival == nil;
+	end
+	if (lhsKey ~= rhsKey) then
+		return DebindPrivate.CompareKeys(lhsKey, rhsKey);
+	end
+	if (lhsArrival ~= rhsArrival) then
+		return lhsArrival < rhsArrival;
+	end
+	if (DebindPrivate.CompareActionOrder(lhs.order, rhs.order)) then
+		return true;
+	elseif (DebindPrivate.CompareActionOrder(rhs.order, lhs.order)) then
+		return false;
+	end
+	return lhs.index < rhs.index;
+end
+
+local SORT_COMPARATORS = {
+	name  = CompareByName,
+	added = CompareByIndex,
+	key   = CompareByKey,
+};
+
+local SORT_MENU = {
+	{ "name",  HOUSING_CHEST_SORT_TYPE_ALPHABETICAL },
+	{ "added", HOUSING_CHEST_SORT_TYPE_DATE_ADDED },
+	{ "key",   LLL["SORT_BY_KEY"] },
+};
+
+local _sortMode = "name";
+
+function DebindLayerPanelMixin:InitializeSortDropdown()
+	local ui = DebindPrivate.db.global.ui or {};
+	DebindPrivate.db.global.ui = ui;
+	if (SORT_COMPARATORS[ui.binSort]) then
+		_sortMode = ui.binSort;
+	end
+
+	self.SortDropdown:SetText(LLL["SORT"]);
+	self.SortDropdown:SetupMenu(function(_, rootDescription)
+		for _, entry in ipairs(SORT_MENU) do
+			local mode = entry[1];
+			rootDescription:CreateRadio(entry[2],
+				function() return _sortMode == mode; end,
+				function()
+					if (mode == _sortMode) then
+						return;
+					end
+					_sortMode = mode;
+					DebindPrivate.db.global.ui.binSort = mode;
+					self:Refresh(false);
+				end);
+		end
+	end);
+end
+
+--- 이 레이어의 액션을 `_sortMode` 순으로 놓는다. 검색어가 있으면 거른다.
 ---
 --- **여기는 선택을 안 본다. 목록은 (레이어, 검색어)만의 함수다.**
 ---
@@ -3265,11 +3323,13 @@ local function BuildSortedElements(layer, layerID, visible)
 				layer = layerID,
 				index = i,
 				sortName = strlower(NameAndIconForAction(action) or ""),
+				order = _sortMode == "key" and action.key ~= nil
+					and DebindPrivate.MakeOrderRecord(action, nil, nil) or nil,
 			};
 		end
 	end
 
-	sort(elements, CompareByName);
+	sort(elements, SORT_COMPARATORS[_sortMode]);
 	return elements;
 end
 

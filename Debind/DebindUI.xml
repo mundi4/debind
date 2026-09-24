@@ -1087,6 +1087,13 @@
 								</Frames>
 							</Frame>
 
+							<DropdownButton parentKey="SortDropdown" inherits="WowStyle1FilterDropdownTemplate">
+								<Size x="97" y="18"/>
+								<Anchors>
+									<Anchor point="RIGHT" relativeKey="$parent.List.HeaderArea" relativePoint="RIGHT" x="-8" y="0"/>
+								</Anchors>
+							</DropdownButton>
+
 							<!--
 								레이어 탭은 **통 아래**에 선다. 고르는 것이 "어느 통을 보고 있나"라서 그
 								열에 붙어 있어야 하고, 왼쪽(결과)에는 고를 통이 없다.

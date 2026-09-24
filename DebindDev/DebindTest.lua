@@ -3462,6 +3462,41 @@ RegisterTest("Move: a moved action is the same action, still picked", {
     end,
 })
 
+RegisterTest("Move: a copy in its own layer goes to the back", {
+    description = "Copying an action within its layer appends the copy after every action already there",
+    run = function()
+        local NAME = "Copy goes to the back"
+
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F5" })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F6" })
+        local layer = GetTestLayer()
+        ApplyBindings()
+
+        local realGetProfileLayer = DebindPrivate.GetProfileLayer
+        DebindPrivate.GetProfileLayer = function(layerID)
+            if layerID == layer.layerID then
+                return layer
+            end
+            return realGetProfileLayer(layerID)
+        end
+        AddTeardown(function() DebindPrivate.GetProfileLayer = realGetProfileLayer end)
+
+        OpenOverviewWithNothingPicked()
+        DebindUI.MoveActions({ first }, layer.layerID, true)
+
+        local count = layer:GetNumActions()
+        local last = layer:GetAction(count)
+        if count ~= 3 or layer:GetAction(1) ~= first or layer:GetAction(2) ~= second then
+            return Fail(NAME, format("%d actions, the first two not where they were", count))
+        end
+        if last == first or last.value ~= first.value then
+            return Fail(NAME, "the last action is not the copy")
+        end
+
+        return Pass(NAME, "the copy stands after both")
+    end,
+})
+
 --- Shows the window, plants one macrotext action and opens the editor on it. Putting things back is
 --- the runner's job.
 ---

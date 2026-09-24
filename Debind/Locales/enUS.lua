@@ -2029,6 +2029,8 @@ L["FILTER_UNKEYED"] = "No Key Bound"
 -- **"Accepted" is the word the rest of the import uses** (`APPROVE_IMPORT`, `LINE_TOOLTIP_IMPORTED`),
 -- so this is not a new idea for the reader - it is the same state named where it can be filtered on.
 L["FILTER_PENDING"] = "Not Accepted Yet"
+L["SORT"] = "Sort"
+L["SORT_BY_KEY"] = "Key & Order"
 -- Empty right-hand list because a filter took everything out. **Different from the search one**:
 -- that reader knows what they typed, and this one has to open the dropdown to see which value is
 -- switched off.
