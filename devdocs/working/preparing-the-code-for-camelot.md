@@ -242,8 +242,8 @@ raise하는 `GetFlyoutInfo`로 답한다. 특성 노드의 그룹과 전문화 �
 
 **폴더.** `Client/`가 첫 폴더다. 그 밖에는 묶음이 분명한 것만 옮긴다. 액션 메뉴 넷과 `MenuKit.lua`
 (`check-menu-ctx`가 다섯 경로를 든다), 도움말 넷(`HelpPlate`, `HelpTip`, `HelpText`, `HelpTopics`.
-`build-help`가 `HelpTopics.lua`를 쓰고 TOC의 순서를 확인한다)이다. 파이프라인의 중심 파일은 맨 위에
-남는다.
+`build-help`가 `HelpTopics.lua`를 쓰고 TOC의 순서를 확인한다), 그리고 조건들의 `Conditions/`다(무엇이
+드는지는 `splitting-misc-and-profile.md` 6절). 파이프라인의 중심 파일은 맨 위에 남는다.
 
 ## 6. 로케일
 

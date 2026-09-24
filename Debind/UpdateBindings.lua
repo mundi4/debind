@@ -1323,7 +1323,7 @@ local ROLE_NAMES = {
 --- own, both are written under the same key of `t.units`. Unmerged, `pairs` order decides which one
 --- survives, and a condition the reader set disappears at random.
 ---
---- Values carry one field per axis (`Profile.lua`'s `dbver <= 4` step), so merging is an
+--- Values carry one field per axis (`Migration.lua`'s `dbver <= 4` step), so merging is an
 --- intersection **per axis**. One empty axis leaves no state at all, which is `NEVER` for the
 --- whole condition.
 ---

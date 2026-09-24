@@ -54,7 +54,7 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
   **안 고치면 공유된 액션에서 `known`이 조용히 사라진다.** `Import.lua`의 `ConditionAllowed`가
   같은 표를 본다.
 - `SCHEMA_VERSION`은 안 올린다(`Export.lua:53-58`의 선례).
-- 사다리는 **새 칸을 안 붙이고** 기존 `dbver <= 6` 단계에 얹는다(`Profile.lua:795`). 공유
+- 사다리는 **새 칸을 안 붙이고** 기존 `dbver <= 6` 단계에 얹는다(`Migration.lua`의 `MigrateLayer`). 공유
   문자열도 같은 사다리를 타므로 받은 페이로드의 `known = true`도 같이 올라간다.
 
 ### 3-2. 이름 색인과 고정 판정

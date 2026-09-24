@@ -834,7 +834,7 @@ function NodeMixedCount(node, ctx)
     return active;
 end
 
---- Read and write one unit condition, one field per axis (`Profile.lua`'s `dbver <= 4` step).
+--- Read and write one unit condition, one field per axis (`Migration.lua`'s `dbver <= 4` step).
 ---
 --- Three radios at the top of the submenu line up with the three shapes storage has: no key
 --- (unconstrained), a table (exists, plus whatever axes it names), `false` (absent). Every

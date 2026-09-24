@@ -659,7 +659,7 @@ end
 
 --- `dbver` 6, the manifest side. A switch definition's `mode` goes from a number to a string and
 --- `initialValue` becomes `resetValue` -- the same transformation `MigrateSwitches` makes in
---- `Profile.lua`, which is why it hangs off `dbver` rather than off the envelope: a definition is
+--- `Migration.lua`, which is why it hangs off `dbver` rather than off the envelope: a definition is
 --- profile data and `dbver` is what versions that. Every payload it actually meets is a v1 one, as
 --- v2 can only have come from a profile already at 6.
 ---

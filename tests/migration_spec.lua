@@ -1276,11 +1276,11 @@ return function(DebindPrivate)
         return ("{reaction=%s,dead=%s}"):format(tostring(value.reaction), tostring(value.dead));
     end
 
-    --- 저장된 유닛 조건 하나 -> 소비자 둘이 보는 답.
+    --- One stored unit condition, and the answer both consumers see for it.
     ---
-    --- 옛 스칼라 넷은 `Profile.lua`의 `dbver <= 1` 단계가 `checkedUnitValue`를 그대로 옮겨
-    --- 넣은 것이라 그 시절 값도 이 안에 있다. 표 모양은 `dbver <= 4`가 낸 것과 메뉴가 지금
-    --- 쓰는 것 전부다.
+    --- The four old scalars are what the `dbver <= 1` step in `Migration.lua` carried across from
+    --- `checkedUnitValue` unchanged, so values from that era are in here too. The table shapes are
+    --- every one `dbver <= 4` produced and every one the menu writes now.
     local UNIT_CONDITION_CASES = {
         -- 옛 스칼라
         { "true", true, Constants.UNITSTATE_EXISTS, {} },

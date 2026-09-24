@@ -1,8 +1,9 @@
 # Misc.lua와 Profile.lua 쪼개기 (2026-09-24, 인계용)
 
-> 상태: **아무것도 안 들어갔다** (2026-09-24). `preparing-the-code-for-camelot.md` 7절의 4단계를 다음
-> 세션이 바로 시작할 수 있게 모은 문서다. 무엇을 왜 쪼개는지의 결정은 그 문서 5절이 들고, 여기는 지금
-> 코드를 잰 값과 작업 방법을 든다. 4단계가 끝나면 이 문서는 `legacy/`로 간다.
+> 상태: **`Profile.lua`의 마이그레이션이 `Migration.lua`로 나갔다** (2026-09-24). `Misc.lua`는 남았고,
+> 나눌 자리는 6절에 정했다. `preparing-the-code-for-camelot.md` 7절의 4단계를 모은 문서다. 무엇을 왜
+> 쪼개는지의 결정은 그 문서 5절이 들고, 여기는 지금 코드를 잰 값과 작업 방법을 든다. 4단계가 끝나면
+> 이 문서는 `legacy/`로 간다.
 
 ## 1. 지킬 것
 
@@ -42,8 +43,8 @@
   - `tools/check-reload-options.js`: `Profile.lua`의 `RELOAD_REQUIRED_OPTIONS`와 `Misc.lua`의
     `ApplyOptions` 본문을 경로로 읽는다. `ApplyOptions`는 맨 위 수준 함수이고 `end`가 0열이어야 한다.
     둘 다 제자리에 두거나 도구를 같이 고친다.
-  - `tools/check-dbver.js`: `Profile.lua`만 읽고 `if (dbver <= N)` 단계를 가장 가까운 `function` 머리로
-    묶는다. 마이그레이션을 옮기면 새 파일도 읽게 고친다.
+  - `tools/check-dbver.js`: `Migration.lua`만 읽고 `if (dbver <= N)` 단계를 가장 가까운 `function`
+    머리로 묶는다.
   - `tools/check-export-fields.js`: `Profile.lua`의 `KEYS_TO_SAVE`를 읽는다. 그 표는 `Profile.lua`에 둔다.
 - **인용.** `Misc.lua`나 `Profile.lua`를 이름으로 든 곳이 코드에 168곳, 문서(`devdocs/`, `docs/`,
   `CLAUDE.md`)에 153곳이다(2026-09-24). 옮긴 이름을 "`Misc.lua`의 X"로 든 인용만 고친다. 파일 이름만
@@ -89,26 +90,35 @@
 유닛 조건 모델(420-837)은 바인딩 파생, 이슈 판정, 매크로 변환이 다 쓴다. 쪼개면 그 이름들을
 `DebindPrivate`에 올리고 나머지 파일이 읽는 순간 잡게 하거나, 유닛 조건 파일을 그것들보다 앞에 싣는다.
 
-## 5. Profile.lua 지도 (4115줄, 2026-09-24)
+## 5. Profile.lua
 
-| 줄 | 무엇 |
+**끝났다.** 마이그레이션 사다리 셋(`MigrateLayer`, `MigrateSwitches`, `MigrateDB`)과 그 도움 함수,
+`MigrateOptions`가 `Migration.lua`로 갔고, 그 파일은 `Profile.lua` 바로 뒤에 실린다.
+`ForEachStoredAction`은 스위치 이름 바꾸기와 쓰임 모으기도 쓰므로 `Profile.lua`에 남았고,
+`Migration.lua`가 읽는 순간 `DebindPrivate`에서 잡는다. `InitDB`는 `DebindPrivate.MigrateDB`를 부른다.
+`Legacy.lua`는 따로 있는 파일(개명 전 SavedVariables)이라 합치지 않았다.
+
+## 6. Misc.lua를 나눌 자리 (소유자, 2026-09-24)
+
+조건은 `Debind/Conditions/` 폴더에 모은다. 앞으로 조건마다 파일이 하나씩 늘 자리다. 폴더에 드는 것은
+조건의 모델과 판정까지이고, 솔버의 컬럼, 메뉴, 툴팁은 지금 자리에 둔다.
+
+| 파일 | 4절 지도의 줄 |
 |---|---|
-| 1-306 | 정체와 서명, 중복 찾기. `KEYS_TO_SAVE` 14 (도구가 읽는다), `IDENTITY_FIELDS` 80 |
-| 313-531 | `LAYER_INFOS`, `MAX_SPEC`, `ProfileLayerProto`, `ARRIVAL_SEQ` |
-| 532-1686 | **마이그레이션.** `MigrateLayer` 532-1255, `MigrateSpecTable`, `MigrateShared`(1284에서 `LayerArray`를 읽는다), `ForEachStoredAction`, 스위치 옮기기, `MigrateSwitches` 1468, `DebindPrivate.MigrateOptions` 1640(`Legacy.lua:188`도 부른다), `MigrateDB` 1655 |
-| 1687-1766 | `LoadLayer`, `LoadProfile` |
-| 1767-2650 | 스위치 정의, 답, 덮어쓰기, 만들기, 이름 바꾸기, 지우기, 쓰임 모으기 |
-| 2651-2862 | 옵션, `RELOAD_REQUIRED_OPTIONS` 2667 (도구가 읽는다) |
-| 2863-3268 | `InitDB`(2919에서 `MigrateDB`를 부른다), 더 새 프로필 처리, `CleanUpDB` 3061 |
-| 3269-3556 | 레이어 나열, `CollectActionsForKey`, `MakeRow` |
-| 3557-4115 | 키 묶음과 액션 편집, 도착한 액션, `SetActionEntry` 4007 |
+| `Conditions/Units.lua` | 420-927 (유닛 조건, 역할), 277-418의 `ActionTakesUnit` 묶음 |
+| `Conditions/Specs.lua` | 2023-2397 (카탈로그, 전문화 집합, `DescribeSpecCondition`, `SpecConditionHolds`) |
+| `Conditions/Known.lua` | 2399-2442 (`KnownSpellAsked`, `KnownConditionCanHold`) |
+| `Conditions/Talents.lua` | 지금의 `Talents.lua` 통째로 |
+| `ActionBindings.lua` | 929-2021 |
+| `Issues.lua` | 2443-3398 (키 유효성, 정의 안 된 스위치, 없는 매크로, 이슈 판정) |
+| `MacroText.lua` | 3400-4253 |
+| `Misc.lua`에 남는 것 | 16-275, 펫 명령, 4254-4464 (`ApplyOptions`) |
 
-**마이그레이션(532-1686)은 거의 혼자 선다.** 바깥 파일 지역 변수로는 `LayerArray` 하나만 읽고,
-바깥에서 들어오는 호출은 `InitDB`의 `MigrateDB`와 `Legacy.lua`의 `MigrateOptions`다. 새 파일로 옮기면
-`MigrateDB`를 `DebindPrivate`에 올리고, `check-dbver`가 새 파일을 읽게 고친다. `Legacy.lua`는 따로
-있는 파일(개명 전 SavedVariables)이라 합치지 않는다.
+맨 위의 새 파일 셋은 파이프라인 파일이라 폴더에 넣지 않는다(`preparing-the-code-for-camelot.md` 5절).
+`ActionBindings.lua`가 읽는 순간 `BuildUnitStates` 같은 이름을 잡으므로 `Conditions/`의 파일이
+그보다 먼저 실린다.
 
-## 6. 4단계 밖에서 열려 있는 것
+## 7. 4단계 밖에서 열려 있는 것
 
 - **아틀라스 `common-icon-minus` 대체.** 카멜롯에 없다. 후보 여섯을 프로브의 `minus candidates` 구역이
   재는데, 기록은 `/reload` 두 번 뒤에 파일로 나온다(한 번은 재고, 한 번은 쓴다). 들어오면
@@ -118,7 +128,7 @@
 - **이중 전문화**(계획 3-3)는 캐릭터가 진행해야 잴 수 있다. 기록이 생기기 전에는 보고에서 꺼내지 않는다.
 - **전문 기술 주문을 주문 목록에 넣을지**는 정하지 않았다(계획 3-4).
 
-## 7. 프로브 기록 읽기
+## 8. 프로브 기록 읽기
 
 카멜롯 SavedVariables:
 `C:\Games\World of Warcraft\_classic_beta_\WTF\Account\10179303#1\SavedVariables\DebindCamelotProbe.lua`

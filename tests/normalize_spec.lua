@@ -169,11 +169,11 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 옛 `hover`/`reactions`를 들어올린다
+    -- Raising the old `hover`/`reactions`
     --
-    -- 마이그레이션이 아직 안 닿은 프로필(가져오기 도중, 손으로 고친 것)이 여기로 온다.
-    -- 들어올림은 **바인딩 사본에만** 일어나고 액션은 안 건드린다 - 저장을 고치는 것은
-    -- `Profile.lua`의 마이그레이션 몫이다.
+    -- A profile the migration has not reached yet (mid-import, or edited by hand) arrives here.
+    -- The raise happens **on the binding's copy only** and leaves the action alone. Rewriting what
+    -- is stored is `Migration.lua`'s job.
     ---------------------------------------------------------------------------
 
     test("옛 hover/reactions가 같은 답을 낸다", function()
@@ -460,11 +460,12 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 저장 형식: 축별 마스크 (`Profile.lua`의 `dbver <= 4`)
+    -- Storage shape: one mask per axis (the `dbver <= 4` step in `Migration.lua`)
     --
-    -- 값 하나에 열거를 packing하지 않는다. 축이 늘 때 같은 숫자의 뜻이 바뀌면 마이그레이션을
-    -- 또 해야 하고, "제약 안 함"과 "전부 선택"이 구분되지 않는다. 축마다 필드를 두면
-    -- **필드가 없다는 것 자체가 "이 축은 제약 안 함"**이라 옛 데이터가 그대로 유효하다.
+    -- No enum is packed into one value. When an axis is added, a number whose meaning moves needs
+    -- another migration, and "no constraint" cannot be told apart from "all selected". With a
+    -- field per axis, **a missing field is itself "this axis is unconstrained"**, so old data stays
+    -- valid.
     ---------------------------------------------------------------------------
 
     test("빈 테이블은 존재만 요구한다", function()

@@ -224,12 +224,13 @@ Constants.CASTMOD_FOCUS = 4;
 Constants.CASTMOD_ALL   = 7;
 
 
---- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들은
---- 언제 발동하느냐를 말하지 않는다. `unit`은 겨누는 대상이고 `casting`은 어느 누름의 줄에
---- 서느냐다. 높이가 갈린 이유는 `Profile.lua`의 `dbver <= 5` 단계가 든다.
+--- Which of an action's fields are **conditions**. Conditions live inside `action.conditions`, and
+--- what stays outside says nothing about when the action fires: `unit` is what it aims at and
+--- `casting` is which press's row it stands in. Why the two heights split is carried by the
+--- `dbver <= 5` step in `Migration.lua`.
 ---
---- **이 표를 직접 보지 말 것.** 묻는 것은 `IsConditionField`이고, 그쪽만이 달러로 시작하는
---- 이름까지 같이 답한다.
+--- **Do not read this table directly.** Ask `IsConditionField`; only it also answers for the names
+--- that start with a dollar sign.
 Constants.CONDITION_FIELDS = {
     units = true,
     groups = true,
@@ -349,7 +350,7 @@ end
 --- longer an identity a switch has. §6-B's list took that away and the `dbver` 6 step moved the
 --- numbered rows over.
 ---
---- **One job is left, and it belongs to migration.** `MigrateSwitches` in `Profile.lua` reads a
+--- **One job is left, and it belongs to migration.** `MigrateSwitches` in `Migration.lua` reads a
 --- stored number and needs the name that row becomes, and the `dbver` 5 SETSTATE bitpack carries an
 --- index that needs the same. Nothing on the live path asks: a profile holding `$state3` holds it
 --- exactly the way it holds `$burst`, and every list, menu and tooltip calls it by the name it is
@@ -373,7 +374,7 @@ Constants.SWITCH_NAMES = { "$state1", "$state2", "$state3", "$state4", "$state5"
 --- condition: off kills it, ignored makes it unconditional.
 ---
 --- The old numbers live on in three places, all of which have to keep speaking a language this
---- table no longer does: `MigrateSwitches` in `Profile.lua`, the v1 step in `Export.lua` that
+--- table no longer does: `MigrateSwitches` in `Migration.lua`, the v1 step in `Export.lua` that
 --- raises a shared string's manifest, and the `dbver` 5 builder in `DevSeed.lua` that plants what
 --- those two read.
 Constants.SWITCH_MODES = {

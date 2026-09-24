@@ -88,7 +88,7 @@ end
 ---
 --- **Imports arrive carrying their own version.** Raising them before they are attached is what
 --- keeps two different versions from ever coexisting inside `characters`/`shared` (see the
---- `MigrateDB` comment in `Profile.lua`).
+--- `MigrateDB` comment in `Migration.lua`).
 local function ImportSpecTable(source, dbver)
     if (source == nil) then
         return nil;

@@ -493,7 +493,7 @@ end
 --- The old `hover` / `reactions` pair -> the unit condition they became.
 ---
 --- The pointed frame's unit is a unit, so it is stored as one: `units["unitframe"]`
---- (`Profile.lua`'s `dbver <= 4` step). Kept in its own pair of fields it was one unit described
+--- (`Migration.lua`'s `dbver <= 4` step). Kept in its own pair of fields it was one unit described
 --- by two columns, meeting only in `BuildUnitStates` -- which meant two runtime paths measuring
 --- the same thing about the same unit.
 ---
@@ -561,7 +561,7 @@ end
 ---
 --- Storage keeps **one field per axis** (`{ reaction = ... }`), not one packed enum, so that a
 --- new axis is a new field and old data stays valid: a field that is absent constrains nothing,
---- which is already the right answer. See `Profile.lua`'s `dbver <= 4` step.
+--- which is already the right answer. See `Migration.lua`'s `dbver <= 4` step.
 ---
 --- An axis that is absent contributes its whole range, which is why an empty table means
 --- "exists, nothing else asked". `false` is the one non-table value -- the absent point is not
@@ -1174,7 +1174,7 @@ do
         end
 
         -- Same idea for the old hover pair. It is raised **onto the copy**, never onto the
-        -- action: `Profile.lua`'s migration owns rewriting what is stored, and an action this
+        -- action: `Migration.lua` owns rewriting what is stored, and an action this
         -- reached first would otherwise be rewritten by whoever read it.
         if (action.hover ~= nil) then
             conditions.units = conditions.units or {};

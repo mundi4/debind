@@ -490,7 +490,7 @@ end
 --- string were written down and all four turned out to be true of both shapes
 --- (`building-export-import.md`). What decided it points the other way: `DecodeExportString`
 --- refuses a string outright once its schema has moved, so stored strings are stored values nothing
---- can bring forward, while a payload can be walked the way `Profile.lua` walks `dbver`. What is
+--- can bring forward, while a payload can be walked the way `Migration.lua` walks `dbver`. What is
 --- left over is disk size, and holding a smaller thing we cannot read is the worse end of that
 --- trade.
 ---

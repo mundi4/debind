@@ -7,7 +7,7 @@
 -- cannot say which. This file generates the arrangements instead.
 --
 -- **The oracle is the real v3.5.2 source, frozen under `tests/v3.5.2/`.** Comparing against
--- `Profile.lua`'s own `OlderOrder` would be the migration marking its own paper: that function is
+-- `Migration.lua`'s own `OlderOrder` would be the migration marking its own paper: that function is
 -- the thing under test, and a corpus checked against it goes green on any input. The three files
 -- are `Constants.lua`, `Ordering.lua` and `Misc.lua` at the tag, byte for byte, loaded into a
 -- private table of their own. `Misc.lua` is in because the old record's two derived fields

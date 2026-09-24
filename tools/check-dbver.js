@@ -1,7 +1,7 @@
 // Is `DB_VERSION` in step with the migration ladder?
 //   npm run check:dbver
 //
-// A ladder in `Profile.lua` opens its steps with `dbver <= N`, and `MigrateDB` stops when the
+// A ladder in `Migration.lua` opens its steps with `dbver <= N`, and `MigrateDB` stops when the
 // stored version is already `Constants.DB_VERSION`. So the highest step and the constant have to
 // agree: the last step raises data to `N + 1`, and that is what `DB_VERSION` must be.
 //
@@ -35,7 +35,7 @@ if (!declared) {
 }
 const dbVersion = Number(declared[1]);
 
-const profile = read("Debind/Profile.lua");
+const migration = read("Debind/Migration.lua");
 
 // Which function a step sits in, by the nearest `function` header above it. Lua has no block marker
 // this can key on, and these migrations are declared at the top level, so the header line is what
@@ -46,7 +46,7 @@ const steps = [];
     const token = /^[ \t]*(?:local[ \t]+)?function[ \t]+([\w.:]+)|if[ \t]*\([ \t]*dbver[ \t]*<=[ \t]*(\d+)[ \t]*\)[ \t]*then/gm;
     let where = "(파일 머리)";
     let m;
-    while ((m = token.exec(profile)) !== null) {
+    while ((m = token.exec(migration)) !== null) {
         if (m[1] !== undefined) {
             where = m[1];
             continue;
@@ -60,7 +60,7 @@ const steps = [];
     }
 }
 if (steps.length === 0) {
-    process.stderr.write("Profile.lua에서 마이그레이션 단계를 하나도 못 읽었다.\n");
+    process.stderr.write("Migration.lua에서 마이그레이션 단계를 하나도 못 읽었다.\n");
     process.exit(1);
 }
 

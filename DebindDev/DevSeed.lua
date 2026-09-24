@@ -160,7 +160,7 @@ SEEDS[5] = function(guid)
                 --- into the high bits over the state index, and neither that type name nor the
                 --- mode flags survive in `Constants.lua` -- reaching for a constant would plant
                 --- `dbver` 6 data under a `dbver` 5 stamp, and `/deb seed 5` is what the step
-                --- that unpacks it is verified against (`MigrateLayer` in `Profile.lua`).
+                --- that unpacks it is verified against (`MigrateLayer` in `Migration.lua`).
                 --- `0x400` is toggle, and state 2 is one the seed actually defines below.
                 { type = "setstate", value = 0x400 + 2, key = "CTRL-F4", seq = 1 },
                 --- [Unused], which carries no value at all: it stands on the key as a block, so the
@@ -266,7 +266,7 @@ SEEDS[5] = function(guid)
         --- and `Constants.SWITCH_MODES` no longer holds a word for it -- reaching for the constant
         --- would plant `dbver` 6 data under a `dbver` 5 stamp, and `/deb seed 5` is what a
         --- migration is verified against. `0` is manual and `3` is the expression mode
-        --- (`MigrateSwitches` in `Profile.lua` is the other half of this pair).
+        --- (`MigrateSwitches` in `Migration.lua` is the other half of this pair).
         customStates = {
             [1] = { mode = 0, initialValue = true, displayMessage = true },
             [2] = { mode = 3, expr = "[combat]" },

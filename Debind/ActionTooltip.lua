@@ -610,7 +610,7 @@ do
 
 					local under, said = UnitRowIssues(checkedUnit);
 					local unitStr = UNIT_INFO[checkedUnit].name;
-					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
+					-- Storage keeps one field per axis (`Migration.lua`'s `dbver <= 4` step). One
 					-- line says whether the unit has to be there, and each constrained axis adds
 					-- a line below it in the shape the unit frame block already uses. A new axis is
 					-- one more branch here.

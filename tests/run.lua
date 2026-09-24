@@ -123,6 +123,7 @@ local DEBIND_FILES = {
     "KeyCapture.lua",
     "Flyout.lua",
     "Profile.lua",
+    "Migration.lua",
     "Legacy.lua",
     "SecureBindings.lua",
     "Events.lua",
