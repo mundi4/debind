@@ -4311,6 +4311,56 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
     end,
 })
 
+--- **The client is the only thing that can read a `CL02:` code.** Headless has no deflate and no
+--- JSON, so `clique_spec.lua` stands the three calls in with known answers; this makes the code the
+--- way Clique 5.0.14's `GetExportString` does, with the client's own `C_EncodingUtil`, and asks
+--- whether what comes back out is the binding list that went in (`importing-clique-profiles.md` §1).
+RegisterTest("Clique CL02 code", {
+    description = "A share code made the way Clique makes one comes in as a Clique payload",
+    run = function()
+        local NAME = "Clique CL02 code"
+
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not DebindPrivate.Store then
+            return Fail(NAME, "could not load the storage, check the tab number or LoadAddOn")
+        end
+        if not C_EncodingUtil then
+            return Fail(NAME, "this client has no C_EncodingUtil")
+        end
+
+        local bindings = {
+            { type = "spell", spell = "Rejuvenation", key = "SHIFT-BUTTON1",
+                sets = { default = true, spec3 = true } },
+            { type = "item", item = "13", key = "ALT-F", sets = { global = true } },
+        }
+        local code = "CL02:" .. C_EncodingUtil.EncodeHex(C_EncodingUtil.CompressString(
+            C_EncodingUtil.SerializeJSON(bindings)))
+
+        local entry, reason = DebindPrivate.Store.ImportEntry(code)
+        if not entry then
+            return Fail(NAME, format("the code was refused: %s", tostring(reason)))
+        end
+        AddTeardown(function() DebindPrivate.Store.DeleteEntry(entry.id) end)
+
+        local actions = entry.payload.shared and entry.payload.shared.GENERAL or {}
+        if #actions ~= 2 then
+            return Fail(NAME, format("%d actions came out of 2 bindings", #actions))
+        end
+        local spell, slot = actions[1], actions[2]
+        if spell.type ~= Constants.SPELL or spell.value ~= "Rejuvenation" or spell.key ~= "SHIFT-BUTTON1" then
+            return Fail(NAME, format("the spell came out as %s / %s / %s",
+                tostring(spell.type), tostring(spell.value), tostring(spell.key)))
+        end
+        if not (spell.untranslated and spell.untranslated.spec3 == true) then
+            return Fail(NAME, "the specialization number did not survive the JSON")
+        end
+        if slot.type ~= Constants.USESLOT or slot.value ~= 13 then
+            return Fail(NAME, format("the trinket came out as %s / %s", tostring(slot.type), tostring(slot.value)))
+        end
+        return Pass(NAME, "the client reads it back into the bindings that went in")
+    end,
+})
+
 --- **The second door to the same outcome asks the same question** (2026-08-23, the owner). [Add and
 --- Accept] used to reach down into the plan and leave the badge off, which put the arrivals live on
 --- the sender's keys with nothing asked - and on a key the reader already uses, that is a merge
