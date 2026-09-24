@@ -2161,6 +2161,14 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 	end);
 	view:SetElementExtent(LINE_HEIGHT);
 
+	local header = self.List.HeaderArea;
+	header.LayerName = header:CreateFontString(nil, "ARTWORK", "GameFontNormal");
+	header.LayerName:SetPoint("LEFT", 8, 0);
+	header.LayerName:SetPoint("RIGHT", -8, 0);
+	header.LayerName:SetJustifyH("LEFT");
+	header.LayerName:SetTextColor(GRAY_FONT_COLOR:GetRGB());
+	DebindUI.SetListColumnHeader(self.List, RESULT_HEADER_HEIGHT);
+
 	local content = self.List.ContentArea;
 	local scrollBox = content.ScrollBox;
 	ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, content.ScrollBar, view);
@@ -3265,6 +3273,16 @@ local function BuildSortedElements(layer, layerID, visible)
 	return elements;
 end
 
+local function ColoredLayerLabel(layerID)
+	local classColor = GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
+	local tab, sideTab = DebindUI.GetLayerTabs(layerID);
+	local scopeColor = tab == 1 and DebindUI.ACCOUNT_COLOR or classColor;
+	local sideColor = layerID == 1 and DebindUI.ACCOUNT_COLOR or classColor;
+	return format(LLL["ORDER_LAYER_LABEL"],
+		scopeColor:WrapTextInColorCode(DebindUI.GetTabLabel(tab)),
+		sideColor:WrapTextInColorCode(DebindUI.GetSideTabLabel(sideTab)));
+end
+
 function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	HideDeleteConfirmationPopup();
 
@@ -3297,6 +3315,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	-- 돌아갈 자리가 같이 없어진다. 닫는 방아쇠는 넷뿐이다
 	-- (`closing-the-windows-that-stand-on-an-action.md`).
 
+	self.List.HeaderArea.LayerName:SetText(ColoredLayerLabel(layerID));
 	DebindFrame:UpdateTitle();
 	self:UpdateActionCounts(visible);
 	DebindFrame:UpdateEmptyText();
