@@ -428,7 +428,10 @@ local function TalentSpells()
                     local entry = C_Traits.GetEntryInfo(configID, entryID);
                     local definition = entry and entry.definitionID
                         and C_Traits.GetDefinitionInfo(entry.definitionID);
-                    local taken = node.activeEntry and node.activeEntry.entryID == entryID;
+                    -- **`activeEntry` is there on a node nobody bought** (a mage on 70009: every
+                    -- node, every rank 0), so the rank is what says it is taken.
+                    local taken = node.activeEntry and node.activeEntry.entryID == entryID
+                        and (node.activeEntry.rank or 0) > 0;
                     Emit("  node=%d entry=%d spell=%s %s | group %s  rank %d/%d%s", nodeID, entryID,
                         definition and tostring(definition.spellID) or "nil", TalentEntryName(definition),
                         tostring(groups[1]), node.currentRank or 0, node.maxRanks or 0,
