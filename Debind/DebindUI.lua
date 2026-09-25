@@ -1,6 +1,13 @@
 local _, DebindPrivate     = ...;
 
-local NUM_SPECS              = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player")));
+--- The specialization side tabs that stand, one per specialization layer the character can open
+--- (`GetOpenableLayerIDs`). None for a class of one specialization.
+local NUM_SPEC_TABS = 0;
+for spec = 1, C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player"))) do
+	if (DebindPrivate.IsLayerOpenable(DebindPrivate.GetLayerID(spec, false))) then
+		NUM_SPEC_TABS = spec;
+	end
+end
 local Constants              = DebindPrivate.Constants;
 local LLL                    = DebindPrivate.L;
 local DebindUI             = DebindPrivate.DebindUI;
@@ -1972,7 +1979,7 @@ function DebindLayerPanelMixin:InitializeSideTabs()
 		else
 			local spec = i - 2;
 			tab.spec = spec;
-			if (spec > NUM_SPECS) then
+			if (spec > NUM_SPEC_TABS) then
 				tab.notUsed = true;
 				tab:Hide();
 				break;
@@ -1992,11 +1999,11 @@ function DebindLayerPanelMixin:UpdateSideTabs()
 	local currentSpec = C_SpecializationInfo.GetSpecialization();
 
 	local tabOrders = { 1, 2 };
-	if (currentSpec and currentSpec <= NUM_SPECS) then
+	if (currentSpec and currentSpec <= NUM_SPEC_TABS) then
 		tinsert(tabOrders, currentSpec + 2);
 	end
 
-	for i = 1, NUM_SPECS do
+	for i = 1, NUM_SPEC_TABS do
 		if (i ~= currentSpec) then
 			tinsert(tabOrders, i + 2);
 		end
@@ -2063,13 +2070,13 @@ end
 -- 탭1을 보는 동안 탭2 라벨은 레이어 7을 두 번 셌고, 탭2를 보는 동안 탭1 라벨은
 -- 레이어 2(공용/직업)를 통째로 빠뜨렸다 - 탭을 클릭하기만 해도 남의 개수가 변했다.
 --
--- 대신 레이어 집합에서 직접 센다. 존재하는 사이드탭(1..2+NUM_SPECS)을 layerID로
+-- 대신 레이어 집합에서 직접 센다. 존재하는 사이드탭(1..2+NUM_SPEC_TABS)을 layerID로
 -- 옮기고, 같은 layerID가 두 번 나오면 한 번만 센다. 중복은 실재한다: 캐릭터 전용
 -- 탭에서는 GetLayerID가 (nil, true)와 (0, true) 양쪽에 7을 준다. 사이드탭2가 탭2에서
 -- 숨는 것도 바로 그 중복 때문이니, 여기서 layerID로 거르는 건 숨김 규칙을 흉내내는
 -- 게 아니라 숨김의 원인을 그대로 다시 말하는 것이다 - 화면이 어떻든 답이 같다.
 --
--- 없는 특성을 NUM_SPECS로 거르는 것도 프레임 상태(notUsed)를 안 믿기 때문이다.
+-- 없는 특성을 NUM_SPEC_TABS로 거르는 것도 프레임 상태(notUsed)를 안 믿기 때문이다.
 -- InitializeSideTabs는 첫 초과 사이드탭에서 break하므로 그 뒤 사이드탭에는 notUsed가
 -- 붙지 않는다. 그런 사이드탭을 GetLayerID에 넘기면 Profile의 assert에 걸린다.
 --
@@ -2108,7 +2115,7 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 			local sum, hitSum = 0, 0;
 			local countedLayers = {};
 			for sideTabId, sideTab in ipairs(self.SideTabs) do
-				if (sideTabId <= 2 + NUM_SPECS) then
+				if (sideTabId <= 2 + NUM_SPEC_TABS) then
 					local layerId = GetLayerID(tabId, sideTabId);
 					local layer = DebindPrivate.GetProfileLayer(layerId);
 					local count, hits = CountActionsInLayer(layer, visible);

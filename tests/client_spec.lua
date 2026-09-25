@@ -75,6 +75,21 @@ return function(DebindPrivate)
         check(ok, tostring(err));
     end);
 
+    -- **A class of one specialization has no specialization layers to open.** Its one
+    -- specialization is the class itself, so those two layers would hold what the class and
+    -- character layers already hold. Retail's druid has four and opens all eleven.
+    test("the layers a character can open skip specializations when the class has one", function()
+        local expected = camelot and { 1, 2, 7 } or { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+        check(Ids(DebindPrivate.GetOpenableLayerIDs()) == Ids(expected),
+            "openable " .. Ids(DebindPrivate.GetOpenableLayerIDs()) .. ", expected " .. Ids(expected));
+        local overridable = {};
+        for i = 2, #expected do
+            overridable[#overridable + 1] = expected[i];
+        end
+        check(Ids(DebindPrivate.GetOverridableLayerIDs()) == Ids(overridable),
+            "overridable " .. Ids(DebindPrivate.GetOverridableLayerIDs()) .. ", expected " .. Ids(overridable));
+    end);
+
     -- **A layer label is one value.** It goes last into `GameTooltip_SetTitle`, `format` and
     -- `SetText`, so a second return from the client call behind it lands in the next parameter:
     -- camelot's `UnitName("player")` adds the realm and the tab tooltip took it for its colour.

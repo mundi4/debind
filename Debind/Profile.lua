@@ -707,8 +707,45 @@ function DebindPrivate.GetSwitchLayerKey(layerID)
     return layerInfo.key .. ":" .. layerInfo.spec;
 end
 
---- Every layer this character can file an override at, in the order the window's own tabs stand
---- in. **`GENERAL` is not among them**: that is the root, and the root is the definition.
+--- Every layer this character can open, in the order the window's own tabs stand in: general, the
+--- class and its specializations, the character and its specializations. The side tabs, the move,
+--- copy and add menus and the Switches tab all read it, so they cannot disagree about which exist.
+---
+--- **A class of one specialization has no specialization layers.** Its one specialization is the
+--- class itself (every camelot class), so those two layers would say what the class and character
+--- layers already say, under a second tab with the same name.
+---
+--- The table is shared and must not be written to.
+local OPENABLE_LAYERS, OPENABLE_SET;
+function DebindPrivate.GetOpenableLayerIDs()
+    if (not OPENABLE_LAYERS) then
+        OPENABLE_LAYERS, OPENABLE_SET = {}, {};
+        local specLayers = NUM_SPECS > 1 and NUM_SPECS or 0;
+        local function Add(spec, isCharacterSpecific)
+            local layerID = DebindPrivate.GetLayerID(spec, isCharacterSpecific);
+            OPENABLE_LAYERS[#OPENABLE_LAYERS + 1] = layerID;
+            OPENABLE_SET[layerID] = true;
+        end
+        Add(nil, false);
+        Add(0, false);
+        for spec = 1, specLayers do
+            Add(spec, false);
+        end
+        Add(0, true);
+        for spec = 1, specLayers do
+            Add(spec, true);
+        end
+    end
+    return OPENABLE_LAYERS;
+end
+
+function DebindPrivate.IsLayerOpenable(layerID)
+    DebindPrivate.GetOpenableLayerIDs();
+    return OPENABLE_SET[layerID] == true;
+end
+
+--- `GetOpenableLayerIDs` without its first entry. **`GENERAL` is not among them**: that is the
+--- root, and the root is the definition.
 ---
 --- **Read in, not resolved in.** Narrowest first is the order an override is *looked up* through
 --- (`ActiveOverrideLayers` below), and nothing here is looked up: the reader picks a situation off
@@ -720,23 +757,14 @@ end
 --- and its override menu from, and setting a switch up for a specialization you are not currently
 --- in is the ordinary case - the same reason the window's own side tabs reach all of them.
 ---
---- The table is shared and must not be written to. It cannot change during a session: what is in it
---- is the class's specialization count, which is fixed for the character who is logged in.
+--- The table is shared and must not be written to.
 local OVERRIDABLE_LAYERS;
 function DebindPrivate.GetOverridableLayerIDs()
     if (not OVERRIDABLE_LAYERS) then
         OVERRIDABLE_LAYERS = {};
-        local function Add(spec, isCharacterSpecific)
-            OVERRIDABLE_LAYERS[#OVERRIDABLE_LAYERS + 1] =
-                DebindPrivate.GetLayerID(spec, isCharacterSpecific);
-        end
-        Add(0, false);
-        for spec = 1, NUM_SPECS do
-            Add(spec, false);
-        end
-        Add(0, true);
-        for spec = 1, NUM_SPECS do
-            Add(spec, true);
+        local openable = DebindPrivate.GetOpenableLayerIDs();
+        for i = 2, #openable do
+            OVERRIDABLE_LAYERS[#OVERRIDABLE_LAYERS + 1] = openable[i];
         end
     end
     return OVERRIDABLE_LAYERS;

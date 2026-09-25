@@ -117,7 +117,7 @@ local function GetTabList()
                     local sideTabLabel = DebindUI.GetSideTabLabel(sideTabID);
                     if (sideTabLabel) then
                         local layerID = DebindUI.GetLayerID(tabID, sideTabID);
-                        if (not seenLayers[layerID]) then
+                        if (not seenLayers[layerID] and DebindPrivate.IsLayerOpenable(layerID)) then
                             seenLayers[layerID] = true;
                             tinsert(TAB_LIST, {
                                 layerID = layerID,
