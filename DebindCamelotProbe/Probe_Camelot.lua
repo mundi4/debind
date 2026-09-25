@@ -389,6 +389,73 @@ local function Talents()
     Emit("  pvp slot 1    %s", slots and "present" or "nil");
 end
 
+--- Every talent's spell by id and name, the walk `DebindDev`'s `Probe_TalentNodes.lua` does. With
+--- the spellbook section this is every spell a class learns, which is where `SpecSpells.lua`'s ids
+--- for this client come from. Groups stand where retail's panels do (`Client.TalentSections`).
+local function TalentEntryName(definition)
+    if (not definition) then
+        return "?";
+    end
+    if (definition.overrideName) then
+        return definition.overrideName;
+    end
+    if (definition.spellID) then
+        return tostring(C_Spell.GetSpellName(definition.spellID));
+    end
+    return "?";
+end
+
+local function TalentSpells()
+    Emit("== talent spells");
+    local configID = C_ClassTalents.GetActiveConfigID();
+    local configInfo = configID and C_Traits.GetConfigInfo(configID);
+    local treeIDs = configInfo and configInfo.treeIDs;
+    if (not treeIDs) then
+        Emit("  no talent config");
+        return;
+    end
+    for i = 1, #treeIDs do
+        local nodes = C_Traits.GetTreeNodes(treeIDs[i]) or {};
+        for j = 1, #nodes do
+            local nodeID = nodes[j];
+            local node = C_Traits.GetNodeInfo(configID, nodeID);
+            local entryIDs = node and node.entryIDs;
+            if (entryIDs and #entryIDs > 0) then
+                local groups = node.groupIDs or {};
+                -- **Every entry, not only the bought one.** A selection node offers two.
+                for k = 1, #entryIDs do
+                    local entryID = entryIDs[k];
+                    local entry = C_Traits.GetEntryInfo(configID, entryID);
+                    local definition = entry and entry.definitionID
+                        and C_Traits.GetDefinitionInfo(entry.definitionID);
+                    local taken = node.activeEntry and node.activeEntry.entryID == entryID;
+                    Emit("  node=%d entry=%d spell=%s %s | group %s  rank %d/%d%s", nodeID, entryID,
+                        definition and tostring(definition.spellID) or "nil", TalentEntryName(definition),
+                        tostring(groups[1]), node.currentRank or 0, node.maxRanks or 0,
+                        taken and " *taken" or "");
+                end
+            end
+        end
+    end
+
+    local slot = 1;
+    while (true) do
+        local info = C_SpecializationInfo.GetPvpTalentSlotInfo(slot);
+        if (not info) then
+            break;
+        end
+        local available = info.availableTalentIDs or {};
+        for i = 1, #available do
+            local talent = C_SpecializationInfo.GetPvpTalentInfo(available[i]);
+            if (talent) then
+                Emit("  pvp slot=%d talent=%d spell=%s %s%s", slot, available[i],
+                    tostring(talent.spellID), tostring(talent.name), talent.selected and " *taken" or "");
+            end
+        end
+        slot = slot + 1;
+    end
+end
+
 --- `LayerDisplay.lua` takes skill line 2 as the class line (`GetSpellTabNameAndIcon(2)`). This
 --- client's spellbook is classic-style, one skill line per talent tree, and borrows the class line
 --- from `GetClassSkillLineInfo`. Spell ranks: each rank is its own book item, and the subtext our
@@ -533,6 +600,7 @@ local CLIENT_SECTIONS = {
 local CHARACTER_SECTIONS = {
     "spec groups", SpecGroups, "talents", Talents, "skill lines", SkillLines,
     "professions", Professions, "forms", FormsAndBars, "spellbook", Spellbook,
+    "talent spells", TalentSpells,
 };
 
 --- One section's text, stamped with when it was taken. A section that raises records the raise
