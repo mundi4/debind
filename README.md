@@ -1,5 +1,7 @@
 # Debind
 
+**Supports Retail and World of Warcraft: Forever.**
+
 **Set a key once, for every character you have. Override it on one class, one spec, or a single alt — and only that key changes.**
 
 A key in Debind goes straight to a spell, an item, or a macro — no action bar slot involved — and the layers decide which characters it covers. Whatever you already bound in WoW's own keybinding window stays exactly where it is, and stays there if you ever remove Debind.

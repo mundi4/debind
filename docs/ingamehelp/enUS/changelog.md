@@ -28,6 +28,20 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 **The root `CHANGELOG.md` is the long form of the same release and is not the source.** Its 4.0 section holds entries this page deliberately leaves out.
 -->
 
+# What's New in 4.1
+
+# Debind runs on World of Warcraft: Forever
+
+Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. *Dispel*, *Raid Buff* and *Resurrect* may not work as they should, and dual specialization is not handled, because the author's characters are still too low level to reach it.
+
+# Your bindings from the current game can come along
+
+A share code made in the current game can be pasted on Forever, through *New Payload* and *From Share Code* in the *Storage* tab. Many of the spells and items in it do not exist on Forever.
+
+# Clique bindings can be brought in
+
+*New Payload* in the *Storage* tab takes a Clique share code under *From Share Code*, and *From Clique...* reads the profiles of the Clique you have installed. Either way *Add to My Bindings* puts them into the layer you pick.
+
 # What's New in 4.0
 
 # A key with nothing to run no longer goes to WoW

@@ -30,8 +30,22 @@ To keep an action from running at all while you point at a unit, give it a condi
 > On the left or right mouse button with no modifier nothing set in these rows is read, because that action runs only on a unit frame: |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
 ]==]
 
-L["HELP_CHANGELOG_TITLE"] = "What's New in 4.0"
+L["HELP_CHANGELOG_TITLE"] = "What's New in 4.1"
 L["HELP_CHANGELOG_BODY"] = [==[
+# Debind runs on World of Warcraft: Forever
+
+Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. |cnBLUE_FONT_COLOR:Dispel|r, |cnBLUE_FONT_COLOR:Raid Buff|r and |cnBLUE_FONT_COLOR:Resurrect|r may not work as they should, and dual specialization is not handled, because the author's characters are still too low level to reach it.
+
+# Your bindings from the current game can come along
+
+A share code made in the current game can be pasted on Forever, through |cnBLUE_FONT_COLOR:New Payload|r and |cnBLUE_FONT_COLOR:From Share Code|r in the |cnBLUE_FONT_COLOR:Storage|r tab. Many of the spells and items in it do not exist on Forever.
+
+# Clique bindings can be brought in
+
+|cnBLUE_FONT_COLOR:New Payload|r in the |cnBLUE_FONT_COLOR:Storage|r tab takes a Clique share code under |cnBLUE_FONT_COLOR:From Share Code|r, and |cnBLUE_FONT_COLOR:From Clique...|r reads the profiles of the Clique you have installed. Either way |cnBLUE_FONT_COLOR:Add to My Bindings|r puts them into the layer you pick.
+
+# What's New in 4.0
+
 # A key with nothing to run no longer goes to WoW
 
 Press a key whose actions all fail their conditions and the key does nothing. Until this update WoW's own binding for that key ran, so an action bar key still pressed its button. To catch those presses again, leave the last action on the key without conditions, and which one is last is in |cnGREEN_FONT_COLOR:|Hdebind:help:ordering|h[When a key holds more than one action]|h|r.

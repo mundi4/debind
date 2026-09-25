@@ -18,7 +18,7 @@ Constants.DB_VERSION                      = 7;
 --- (`showing-the-changelog-on-login.md`).
 ---
 --- **Not the addon's version.** A release with nothing to say leaves this where it is.
-Constants.CHANGELOG_VERSION               = 1;
+Constants.CHANGELOG_VERSION               = 2;
 
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
