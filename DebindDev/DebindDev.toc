@@ -29,3 +29,4 @@ DebindTest.lua
 # Probe_CombatUI.lua
 # Probe_TalentCondition.lua
 # Probe_PressHold.lua
+Probe_InitialSpecs.lua
