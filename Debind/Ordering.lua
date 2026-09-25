@@ -53,7 +53,7 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- opposite of the broader one's, which often cannot be written (a resurrection's branches are not
 --- one binding's worth), leaving Importance as the only way. The other way round, a narrower layer
 --- that wants the key to itself takes its class out of the broader action with a
---- Class/Specialization condition.
+--- `specs` condition.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
     local lhsImportance = lhs.priority or DEFAULT_IMPORTANCE;
     local rhsImportance = rhs.priority or DEFAULT_IMPORTANCE;

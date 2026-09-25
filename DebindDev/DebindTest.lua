@@ -10173,19 +10173,23 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 -- `Locales/Camelot/enUS.lua` with `[AllowLoadGameType camelot]`; headless loads no locale at all.
 -- The interface number is how this case knows which client it is on: camelot's is 16001, and
 -- `WOW_PROJECT_ID` answers 1 on both.
-RegisterTest("Locales: camelot's own file loads on camelot and nowhere else", {
-    description = "On camelot the specialization condition is named with the client's CLASS; on retail it is not",
+--
+-- **What it reads is the menu row and the tooltip heading coming out the same.** They differ in every
+-- base locale ("Classes/Specializations" over "Specializations") and camelot's file gives both one
+-- word, so the pair answers without this case holding a copy of the strings.
+RegisterTest("Locales: camelot's own files load on camelot and nowhere else", {
+    description = "On camelot the class condition's row and its tooltip heading share one word; on retail they do not",
     run = function()
-        local NAME = "camelot locale file"
+        local NAME = "camelot locale files"
         local camelot = select(4, GetBuildInfo()) < 100000
-        local label = LLL["CONDITION_SPEC"]
-        if camelot and label ~= CLASS then
-            return Fail(NAME, format("camelot names the condition %q, so the file did not load", label))
+        local row, heading = LLL["CONDITION_SPEC"], LLL["CONDITION_SPECS"]
+        if camelot and row ~= heading then
+            return Fail(NAME, format("camelot has %q over %q, so the files did not load", row, heading))
         end
-        if not camelot and label == CLASS then
-            return Fail(NAME, "this client is not camelot and still loaded camelot's file")
+        if not camelot and row == heading then
+            return Fail(NAME, format("this client is not camelot and still has %q for both", row))
         end
-        return Pass(NAME, label)
+        return Pass(NAME, row)
     end,
 })
 

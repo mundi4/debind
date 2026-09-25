@@ -319,12 +319,12 @@ L["CONDITION_SKYRIDING"] = "Skyriding"
 -- several classes share, so every class is on the list and not only the one being played. Both
 -- halves are the client's own words (`CLASS`, `SPECIALIZATION`).
 --
--- **Singular, because the row names the one thing it opens** rather than counting what is behind
--- it. `CONDITION_SPECS` below is the plural, and it heads a list.
+-- **Plural like the rows around it** (`Talents`, `Units`): the row opens a list to tick, and a
+-- singular here sat straight above `Talents` (2026-09-25, owner).
 --
 -- One specialization of each class has no name, so `NO_SPECIALIZATION` fills that row instead. It
 -- is the specialization a character has before choosing one.
-L["CONDITION_SPEC"] = "Class/Specialization"
+L["CONDITION_SPEC"] = "Classes/Specializations"
 -- The tooltip lists several at once, where the menu row names the one thing it opens. The client
 -- heads its own list the same way (`CLUB_FINDER_SPECIALIZATIONS`).
 L["CONDITION_SPECS"] = "Specializations"

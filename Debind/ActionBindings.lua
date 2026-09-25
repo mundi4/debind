@@ -1141,7 +1141,7 @@ end
 --- **An ignored Switch still counts as a condition here** (2026-09-23, owner), although the binding
 --- leaves it out (`FillBinding`). The reader still sees a condition on the action, and Ignored says
 --- the action works whether the Switch is on or off, not that the condition is gone. A
---- Class/Specialization condition is the same: always true on this character, and still a
+--- `specs` condition is the same: always true on this character, and still a
 --- condition. Ignoring is also decided per character and specialization (`ResolveSwitchAnswer`), so
 --- reading it here would order one shared layer differently on each character, and
 --- `RenumberKeyGroup` would write one character's order into the number the others read.
