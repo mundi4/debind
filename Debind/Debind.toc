@@ -28,6 +28,10 @@ locales.xml
 # Blizzard's `standard, camelot` lines show, and both clients know the word.
 Locales\Camelot\enUS.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
+# One of the two, the same shape (`SpecSpells.lua`). Retail is `standard`, which both clients know.
+SpecSpells_Mainline.lua [AllowLoadGameType standard]
+SpecSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
+
 #@debug@
 # The packager deletes this block, contents and all, from a released build. What it holds is one
 # generated line naming the checkout the game is loading, which the window title and the login

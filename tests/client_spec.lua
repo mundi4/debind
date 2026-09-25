@@ -115,6 +115,24 @@ return function(DebindPrivate, DebindStorage)
         check(not DebindStorage.PayloadIsImpossible(payload), "refused as impossible");
     end);
 
+    -- **Each client reads its own spell data** (`SpecSpells.lua`). The shim's character is a druid,
+    -- Balance on retail and the one specialization on camelot. A class-name fallback used to hand
+    -- camelot retail's Revive, which that client does not have, and a dispel it has two of.
+    test("a druid resolves its own client's spells", function()
+        shim.world.specIndex = 1;
+        local SpecSpells = DebindPrivate.SpecSpells;
+        local C = DebindPrivate.Constants;
+        local want = camelot and { dispel = nil, raidbuff = 1126, rez = 437138 }
+            or { dispel = 2782, raidbuff = 1126, rez = 50769 };
+        check(SpecSpells.SpellForType(C.DISPEL) == want.dispel,
+            "dispel " .. tostring(SpecSpells.SpellForType(C.DISPEL)));
+        check(SpecSpells.SpellForType(C.RAIDBUFF) == want.raidbuff,
+            "raid buff " .. tostring(SpecSpells.SpellForType(C.RAIDBUFF)));
+        check(SpecSpells.SpellForType(C.RESURRECT) == want.rez,
+            "resurrect " .. tostring(SpecSpells.SpellForType(C.RESURRECT)));
+        shim.world.specIndex = nil;
+    end);
+
     -- **A layer label is one value.** It goes last into `GameTooltip_SetTitle`, `format` and
     -- `SetText`, so a second return from the client call behind it lands in the next parameter:
     -- camelot's `UnitName("player")` adds the realm and the tab tooltip took it for its colour.

@@ -176,7 +176,8 @@ local function CheckLoadList(list)
     local toc = assert(readFile(repoRoot .. "/Debind/Debind.toc"));
     local tocPosition = 0;
     for line in toc:gmatch("[^\r\n]+") do
-        line = line:gsub("\\", "/"):match("^%s*(.-)%s*$");
+        -- A game type condition after the path is the client's to read, not part of the path.
+        line = line:gsub("\\", "/"):gsub("%s*%[[%a]+LoadGameType[^%]]*%]", ""):match("^%s*(.-)%s*$");
         if (line ~= "" and not line:match("^#")) then
             if (line:match("%.xml$")) then
                 walkXml(line);
@@ -211,7 +212,18 @@ local function CheckLoadList(list)
             .. table.concat(problems, "\n  "), 0);
     end
 end
-CheckLoadList(DEBIND_FILES);
+--- **The client's spell data, one file per game type** (`SpecSpells.lua`). The game loads one of the
+--- two by the conditions on its `Debind.toc` line, and a spec does the same by the world it runs
+--- in. Both are held against the TOC with the list below.
+local SPEC_SPELL_DATA = { mainline = "SpecSpells_Mainline.lua", camelot = "SpecSpells_Camelot.lua" };
+
+do
+    local checked = { SPEC_SPELL_DATA.mainline, SPEC_SPELL_DATA.camelot };
+    for _, file in ipairs(DEBIND_FILES) do
+        checked[#checked + 1] = file;
+    end
+    CheckLoadList(checked);
+end
 
 --- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
 --- state from crossing between them: `BindingAttrsCache`, `KeyMap`, the switch table and the
@@ -219,7 +231,11 @@ CheckLoadList(DEBIND_FILES);
 --- (`going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
 --- a fraction of one spec.
 local function loadAddons(withCliqueFake)
-    local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", DEBIND_FILES, nil, loadOpts);
+    local files = { SPEC_SPELL_DATA[shim.world.client or "mainline"] };
+    for _, file in ipairs(DEBIND_FILES) do
+        files[#files + 1] = file;
+    end
+    local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", files, nil, loadOpts);
 
     --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
     --- table and Debind hands its private table across for the length of `LoadAddOn`, so the spec
