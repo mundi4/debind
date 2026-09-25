@@ -419,6 +419,37 @@ local function SkillLines()
     Emit("  GetClassSkillLineInfo %s", classLine and tostring(classLine.name) or "nil");
 end
 
+--- Every item in the player's book, not only each line's first: the ids `SpecSpells.lua` needs for
+--- this client's dispels, buffs and resurrections are in here once a character of that class has
+--- them. A future spell is listed with its id too, so a low character already shows what it will
+--- learn.
+local ITEM_TYPE_NAMES = {};
+for name, value in pairs(Enum.SpellBookItemType or {}) do
+    ITEM_TYPE_NAMES[value] = name;
+end
+
+local function Spellbook()
+    Emit("== spellbook, every item");
+    local bank = Enum.SpellBookSpellBank.Player;
+    for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
+        local info = C_SpellBook.GetSpellBookSkillLineInfo(line);
+        if (info) then
+            Emit("  line %d  %s", line, tostring(info.name));
+            for slot = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+                local item = C_SpellBook.GetSpellBookItemInfo(slot, bank);
+                if (item) then
+                    local low = C_SpellBook.IsSpellBookItemLowRank
+                        and C_SpellBook.IsSpellBookItemLowRank(slot, bank);
+                    Emit("    %-8s %-7s %-28s %s%s", tostring(ITEM_TYPE_NAMES[item.itemType] or item.itemType),
+                        tostring(item.spellID or item.actionID), tostring(item.name),
+                        tostring(item.spellID and C_Spell.GetSpellSubtext(item.spellID) or ""),
+                        low and "  (low rank)" or "");
+                end
+            end
+        end
+    end
+end
+
 --- This client's `GetProfessions` answers seven slots (two primary, five secondary) where retail
 --- answers fewer (`Camelot/Blizzard_ProfessionsFrame.lua`), and a profession's spells sit at
 --- `spellOffset` in the player's book. Whether they also show up as a skill line above decides
@@ -501,7 +532,7 @@ local CLIENT_SECTIONS = {
 
 local CHARACTER_SECTIONS = {
     "spec groups", SpecGroups, "talents", Talents, "skill lines", SkillLines,
-    "professions", Professions, "forms", FormsAndBars,
+    "professions", Professions, "forms", FormsAndBars, "spellbook", Spellbook,
 };
 
 --- One section's text, stamped with when it was taken. A section that raises records the raise
