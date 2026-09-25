@@ -456,6 +456,28 @@ local function TalentSpells()
     end
 end
 
+--- Talent spell id -> which talent it is, for the spellbook section to say where a spell comes from.
+local function TalentsBySpell()
+    local out = {};
+    local configID = C_ClassTalents.GetActiveConfigID();
+    local configInfo = configID and C_Traits.GetConfigInfo(configID);
+    for _, treeID in ipairs(configInfo and configInfo.treeIDs or {}) do
+        for _, nodeID in ipairs(C_Traits.GetTreeNodes(treeID) or {}) do
+            local node = C_Traits.GetNodeInfo(configID, nodeID);
+            for _, entryID in ipairs(node and node.entryIDs or {}) do
+                local entry = C_Traits.GetEntryInfo(configID, entryID);
+                local definition = entry and entry.definitionID
+                    and C_Traits.GetDefinitionInfo(entry.definitionID);
+                if (definition and definition.spellID) then
+                    out[definition.spellID] = format("talent node=%d %s, group %s", nodeID,
+                        TalentEntryName(definition), tostring(node.groupIDs and node.groupIDs[1]));
+                end
+            end
+        end
+    end
+    return out;
+end
+
 --- `LayerDisplay.lua` takes skill line 2 as the class line (`GetSpellTabNameAndIcon(2)`). This
 --- client's spellbook is classic-style, one skill line per talent tree, and borrows the class line
 --- from `GetClassSkillLineInfo`. Spell ranks: each rank is its own book item, and the subtext our
@@ -496,8 +518,9 @@ for name, value in pairs(Enum.SpellBookItemType or {}) do
 end
 
 local function Spellbook()
-    Emit("== spellbook, every item");
+    Emit("== spellbook, every item: type, id, name, subtext, level learned, where from");
     local bank = Enum.SpellBookSpellBank.Player;
+    local talents = TalentsBySpell();
     for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
         local info = C_SpellBook.GetSpellBookSkillLineInfo(line);
         if (info) then
@@ -507,9 +530,13 @@ local function Spellbook()
                 if (item) then
                     local low = C_SpellBook.IsSpellBookItemLowRank
                         and C_SpellBook.IsSpellBookItemLowRank(slot, bank);
-                    Emit("    %-8s %-7s %-28s %s%s", tostring(ITEM_TYPE_NAMES[item.itemType] or item.itemType),
+                    local level = C_SpellBook.GetSpellBookItemLevelLearned
+                        and C_SpellBook.GetSpellBookItemLevelLearned(slot, bank);
+                    Emit("    %-8s %-7s %-28s %-8s lv %-3s %s%s",
+                        tostring(ITEM_TYPE_NAMES[item.itemType] or item.itemType),
                         tostring(item.spellID or item.actionID), tostring(item.name),
                         tostring(item.spellID and C_Spell.GetSpellSubtext(item.spellID) or ""),
+                        tostring(level), item.spellID and talents[item.spellID] or "",
                         low and "  (low rank)" or "");
                 end
             end
