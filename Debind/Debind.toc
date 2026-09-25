@@ -19,6 +19,9 @@
 
 libs.xml
 locales.xml
+# **The client picks the file, not the addon** (per-file directives, 11.1.5). Here rather than in
+# `locales.xml`, since a TOC line is where the directive is documented to work.
+Locales\Camelot\enUS.lua [AllowLoadGameType camelot]
 
 #@debug@
 # The packager deletes this block, contents and all, from a released build. What it holds is one

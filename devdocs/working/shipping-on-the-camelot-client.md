@@ -38,10 +38,10 @@
 "Build type version keywords are not allowed in a multi-version build"로 빌드를 멈춘다
 (`BigWigsMods/packager`의 `release.sh`, 2026-09-24에 읽음).
 
-**나는 된다. 다만 지금 가를 파일이 없다.** 루트 `## Interface:`가 한 게임 타입의 번호만 들면
-패키저는 갈래별 TOC마다 그 갈래의 `version-*` 필터를 TOC 줄에 건다. TOC 한 벌에서 파일 줄을 태그로
-가를 수 있다는 뜻이다. 가를 파일은 TOC에 직접 적혀야 한다. XML의 `<Script>` 줄은 위의 금지에
-걸린다. 가를 때가 언제인지는 아래 "다시 열릴 자리"가 든다.
+**나는 된다, 패키저 없이.** TOC 파일 줄에 `[AllowLoadGameType camelot]`을 달면 클라이언트가 그
+게임 타입에서만 그 파일을 싣는다(11.1.5부터, 블리자드 TOC도 같은 줄을 쓴다). 개발 중인 작업 트리에서도
+같게 돌아서 패키저 태그보다 낫다. 가를 파일은 TOC에 직접 적힌다. 첫 사례는 카멜롯의 로케일 덮어쓰기다
+(`preparing-the-code-for-camelot.md` 6절). 코드 파일을 가를 때는 아래 "다시 열릴 자리"가 든다.
 
 전에 이 절은 나를 "패키저가 `## Interface` 줄만 바꿔 복사하니 TOC를 손으로 두 벌 들어야 한다"로,
 다를 "검사가 사용자 판을 못 본다"로 기각했다. 앞의 것은 사실이 아니었고, 뒤의 것은 `--shipped`에

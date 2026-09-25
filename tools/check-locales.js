@@ -113,10 +113,13 @@ function contract(specs) {
 // (`tools/build-help.js`). They load one after the other into the same `L`, so a key set in both
 // is a duplicate like any other.
 function readKeys(locale) {
+    return readFiles([path.join(localesDir, `${locale}.lua`), path.join(localesDir, "Help", `${locale}.lua`)]);
+}
+
+function readFiles(files) {
     const keys = new Set();
     const dupes = [];
     const contracts = new Map();
-    const files = [path.join(localesDir, `${locale}.lua`), path.join(localesDir, "Help", `${locale}.lua`)];
     for (const file of files.filter((f) => fs.existsSync(f))) {
         const src = fs.readFileSync(file, "utf8");
         for (const m of src.matchAll(ASSIGN)) {
@@ -262,6 +265,51 @@ for (const file of files) {
     }
     if (stale.length === 0 && dupes.length === 0 && vague.length === 0 && badSpecs.length === 0) {
         console.log(`${locale}: 옮긴 키 ${keys.size}개, 서식까지 ${BASE}와 일치.`);
+    }
+}
+
+// **A game type's own file only overrides.** `Debind.toc` loads `Locales/Camelot/*.lua` after the
+// locales, on that game type alone (`[AllowLoadGameType camelot]`), so every key there has to be
+// one enUS carries and take the placeholders enUS's callers pass.
+const camelotDir = path.join(localesDir, "Camelot");
+const camelotFiles = fs.existsSync(camelotDir)
+    ? fs.readdirSync(camelotDir).filter((f) => f.endsWith(".lua")) : [];
+for (const file of camelotFiles) {
+    const name = `Camelot/${path.basename(file, ".lua")}`;
+    const { keys, dupes, contracts } = readFiles([path.join(camelotDir, file)]);
+    const stale = [...keys].filter((k) => !base.keys.has(k)).sort();
+    const badSpecs = [...keys]
+        .filter((k) => base.keys.has(k) && !contracts.get(k).error && !base.contracts.get(k).error
+            && contracts.get(k).sig !== base.contracts.get(k).sig)
+        .sort();
+    const vague = [...contracts].filter(([, c]) => c.error);
+    if (dupes.length > 0) {
+        failed = true;
+        console.log(`${name}: 중복 키 ${dupes.length}개 - ${dupes.join(", ")}`);
+    }
+    if (stale.length > 0) {
+        failed = true;
+        console.log(`${name}: ${BASE}에 없는 키 ${stale.length}개 (덮어쓸 원래 키가 없다)`);
+        for (const k of stale) {
+            console.log(`  - ${k}`);
+        }
+    }
+    if (vague.length > 0) {
+        failed = true;
+        console.log(`${name}: 자리표시자가 애매한 키 ${vague.length}개`);
+        for (const [k, c] of vague) {
+            console.log(`  - ${k}: ${c.error}`);
+        }
+    }
+    if (badSpecs.length > 0) {
+        failed = true;
+        console.log(`${name}: 서식 지정자가 ${BASE}와 어긋나는 키 ${badSpecs.length}개`);
+        for (const k of badSpecs) {
+            console.log(`  - ${k}: 기대값 [${base.contracts.get(k).sig || "없음"}], 여기는 [${contracts.get(k).sig || "없음"}]`);
+        }
+    }
+    if (stale.length === 0 && dupes.length === 0 && vague.length === 0 && badSpecs.length === 0) {
+        console.log(`${name}: 덮어쓰는 키 ${keys.size}개, 전부 ${BASE}에 있고 서식이 같다.`);
     }
 }
 
