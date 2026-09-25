@@ -55,17 +55,25 @@ local ENTRY_VERSION             = 1;
 --- is a number no client produces -- so it is refused rather than folded to something nearby.
 local MAX_SPEC                = 4;
 
---- The class names this client has (`Constants.CLASS_IDS`, keyed by `classFile`).
+--- The classes somebody can play on this client, `classFile` -> id (`Client.PlayableClasses`).
 ---
 --- **A descriptor's class is a key straight into storage** (`shared.classes[class]`), so one that
---- names no class would stand up a table no screen can reach and nothing ever clears -- `CleanUpDB`
---- walks the eleven loaded layers and would never see it. Every paste of a made-up name would grow
---- the account file by another one.
+--- no character here can be would stand up a table no screen can reach and nothing ever clears --
+--- `CleanUpDB` walks the eleven loaded layers and would never see it. A made-up name is one; a death
+--- knight's layer on camelot is the other (2026-09-25, owner).
 ---
---- Only presence is read here. The value is the class id, which is what a caller that has to
---- **name** something needs (`LayerDisplay.lua`) -- the same table answering both is why the loop
---- that built it is not written out here any more.
-local KNOWN_CLASSES           = Constants.CLASS_IDS;
+--- **Not `Constants.CLASS_IDS`**, which is built from `C_CreatureInfo` and answers for classes
+--- nobody plays (`Specs.lua`'s `ClassSpecCatalog` says which).
+local playableClasses;
+local function PlayableClassID(class)
+    if (not playableClasses) then
+        playableClasses = {};
+        for _, entry in ipairs(DebindPrivate.Client.PlayableClasses()) do
+            playableClasses[entry.classFile] = entry.id;
+        end
+    end
+    return class and playableClasses[class];
+end
 
 --- **There is no expiry.** Two constants and two functions stood here, and a pin on the row to
 --- opt out of them: an entry was judged old after a month and called out three days before, and
@@ -184,15 +192,25 @@ function DebindStorage.ImportAddress(scope, class, spec)
         return nil;
     end
 
+    -- **A class with no specialization layers takes them into its class or character layer**
+    -- (2026-09-25, owner). Every camelot class has one specialization and so no such layer, and a
+    -- string from retail carries them; left where they are, they sit in a layer no tab opens. The
+    -- one place above that refuses to fall back is about a layer that exists.
     if (scope == "class") then
-        if (not KNOWN_CLASSES[class]) then
-            return nil;
+        local classID = PlayableClassID(class);
+        if (not classID) then
+            return nil, "UNKNOWN_CLASS";
+        end
+        if (DebindPrivate.SpecLayerCount(classID) == 0) then
+            spec = 0;
         end
         return "class", class, spec;
     end
 
     if (scope == "character") then
-        if (spec > NUM_SPECS) then
+        if (DebindPrivate.SpecLayerCount(PlayableClassID(Constants.PLAYER_CLASS)) == 0) then
+            spec = 0;
+        elseif (spec > NUM_SPECS) then
             return nil;
         end
         return "character", nil, spec;
@@ -438,13 +456,15 @@ end
 ---
 ---   * `class` reaches `format("%s", …)` in the caller, and WoW's Lua 5.1 throws on a table
 ---     there. Refusing it here is what keeps a payload on disk from being one nobody can open.
+---     **The type is asked, not the name**: the sender's class is only drawn, and a name this
+---     client lacks is the other game type's class, not an edited string (2026-09-25, owner).
 ---   * a `key` of NaN raises the moment it is used as a table index, which the count below does.
 ---     `ImportAddress` turns the same value away for `spec` and says why.
 ---
 --- Neither needs its own guard downstream now, because nothing downstream runs on a payload this
 --- refuses -- `ImportEntry` asks before it stores, and an entry is the only way in.
 function DebindStorage.PayloadIsImpossible(payload)
-    if (payload.class ~= nil and not KNOWN_CLASSES[payload.class]) then
+    if (payload.class ~= nil and luatype(payload.class) ~= "string") then
         return true;
     end
 

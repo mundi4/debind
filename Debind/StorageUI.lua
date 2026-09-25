@@ -646,6 +646,11 @@ local ELSEWHERE = "elsewhere";
 --- A number above every real `layerID`, so the bucket with no layer sorts last.
 local ELSEWHERE_ORDER = 100;
 
+--- **A class nobody can play here gets a bucket of its own name**, not the typo bucket: it is the
+--- other game type's class and the string is fine (2026-09-25, owner). Placed nowhere either way.
+local UNKNOWN_CLASS = "unknownclass";
+local UNKNOWN_CLASS_ORDER = ELSEWHERE_ORDER - 1;
+
 --- What there is to show for one payload, before anything is collapsed.
 ---
 --- **Every count the panel prints comes out of this**, and so does what a press hands over: the
@@ -654,15 +659,17 @@ local ELSEWHERE_ORDER = 100;
 --- idea written twice -- the fault being guarded against is the panel saying 12 while the string
 --- carries 9 (`building-export-import.md` 2절).
 ---
---- **The address is walked, not translated.** `ForEachPayloadLayer` hands out the same three
---- coordinates the profile is keyed by, so nothing here has to know whose payload it is except to
---- write the label -- which is exactly the one argument `GetLayerLabel` takes.
+--- **The address is the one `ImportAddress` answers**, which is where Add to My Bindings puts it.
+--- Walking the payload's own coordinates instead drew a camelot reader a Fire layer for a retail
+--- mage's string that the press then folded into the class layer.
 local function BuildPreviewLayers(payload)
     local buckets, order = {}, {};
 
     Store().ForEachPayloadLayer(payload, function(list, scope, class, spec)
-        local layerID = DebindUI.GetLayerIDForAddress(scope, spec);
-        local key = layerID or ELSEWHERE;
+        local toScope, toClass, toSpec = Store().ImportAddress(scope, class, spec);
+        local layerID = toScope and DebindUI.GetLayerIDForAddress(toScope, toSpec);
+        local unknownClass = not toScope and toClass == "UNKNOWN_CLASS";
+        local key = layerID or (unknownClass and UNKNOWN_CLASS) or ELSEWHERE;
 
         local bucket = buckets[key];
         if (not bucket) then
@@ -670,9 +677,9 @@ local function BuildPreviewLayers(payload)
                 key = key,
                 -- Sorted by `layerID` so the preview reads in the profile's own order: general,
                 -- then the class by specialization, then the character.
-                sortKey = layerID or ELSEWHERE_ORDER,
-                label = layerID
-                    and DebindUI.GetLayerLabel(layerID, class or payload.class)
+                sortKey = layerID or (unknownClass and UNKNOWN_CLASS_ORDER) or ELSEWHERE_ORDER,
+                label = (layerID and DebindUI.GetLayerLabel(layerID, toClass or payload.class))
+                    or (unknownClass and LLL["STORAGE_PREVIEW_UNKNOWN_CLASS"])
                     or LLL["STORAGE_PREVIEW_ELSEWHERE"],
                 actions = {},
             };

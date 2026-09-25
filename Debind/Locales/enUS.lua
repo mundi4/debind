@@ -2240,6 +2240,9 @@ L["STORAGE_TITLE"] = "Storage"
 -- dropped**, so what the preview counts is what the string holds - and adding them puts them
 -- nowhere, which is the number said separately after a press.
 L["STORAGE_PREVIEW_ELSEWHERE"] = "Nowhere to put these"
+-- The header over a class's layers when nobody can play that class here: the other game type's
+-- class. Adding them puts them nowhere, like the header above.
+L["STORAGE_PREVIEW_UNKNOWN_CLASS"] = "Unknown class"
 -- The right column's resting state: nothing picked. **It said "pick something"** because the thing
 -- in the list had no name to call it by, which is what a screen that will not name its object is
 -- reduced to. It has one now (`STORAGE_CREATE`), so the sentence says which thing to pick.

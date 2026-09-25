@@ -4,7 +4,7 @@
 -- `run.lua` picks with the spec entry's `client`. A case states what both clients must end up with,
 -- and the world decides what it takes to get there.
 
-return function(DebindPrivate)
+return function(DebindPrivate, DebindStorage)
     local shim = require("wow_shim");
     local camelot = shim.world.client == "camelot";
 
@@ -88,6 +88,31 @@ return function(DebindPrivate)
         end
         check(Ids(DebindPrivate.GetOverridableLayerIDs()) == Ids(overridable),
             "overridable " .. Ids(DebindPrivate.GetOverridableLayerIDs()) .. ", expected " .. Ids(overridable));
+    end);
+
+    -- **A string lands where this client has a place for it** (2026-09-25, owner). A specialization
+    -- layer of a class that has none here goes up to its class or character layer; a class nobody
+    -- can play here has no place at all. Retail keeps every address it had.
+    test("an arriving specialization layer goes up where the class has none", function()
+        local Address = DebindStorage.ImportAddress;
+        local scope, class, spec = Address("class", "MAGE", 2);
+        check(scope == "class" and class == "MAGE" and spec == (camelot and 0 or 2),
+            "class MAGE 2 -> " .. tostring(scope) .. "/" .. tostring(class) .. "/" .. tostring(spec));
+        scope, class, spec = Address("character", nil, 3);
+        check(scope == "character" and spec == (camelot and 0 or 3),
+            "character 3 -> " .. tostring(scope) .. "/" .. tostring(spec));
+    end);
+
+    test("a class this client cannot play has no place, and says so", function()
+        local scope, reason = DebindStorage.ImportAddress("class", "DEATHKNIGHT", 0);
+        check(scope == nil and reason == "UNKNOWN_CLASS",
+            "DEATHKNIGHT -> " .. tostring(scope) .. ", " .. tostring(reason));
+    end);
+
+    -- **The sender's class is only drawn**, so a name this client lacks is not a broken string.
+    test("a string sent by a class this client does not have is not refused", function()
+        local payload = { v = 2, class = "DEATHKNIGHT", shared = { GENERAL = {} } };
+        check(not DebindStorage.PayloadIsImpossible(payload), "refused as impossible");
     end);
 
     -- **A layer label is one value.** It goes last into `GameTooltip_SetTitle`, `format` and

@@ -904,14 +904,18 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in
-    -- WoW's Lua 5.1, out of the drawer row's tooltip, for an entry already written to disk. Our
-    -- export only ever writes this character's class.
-    test("모르는 class를 든 페이로드는 걸린다", function()
-        for _, class in ipairs({ "없는직업", 5 }) do
+    -- WoW's Lua 5.1, out of the drawer row's tooltip, for an entry already written to disk. A name
+    -- this client does not have is a class of the other game type and only drawn (2026-09-25,
+    -- owner), so it is the type that is refused and not the name.
+    test("문자열이 아닌 class를 든 페이로드는 걸린다", function()
+        for _, class in ipairs({ 5, {} }) do
             local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1 } });
             payload.class = class;
             check(DebindStorage.PayloadIsImpossible(payload), "안 걸렸다: " .. tostring(class));
         end
+        local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1 } });
+        payload.class = "없는직업";
+        check(not DebindStorage.PayloadIsImpossible(payload), "모르는 이름을 거절했다");
     end);
 
     -- **NaN survives the round trip** and raises the moment it is used as a table index, which the

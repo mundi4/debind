@@ -717,10 +717,19 @@ end
 ---
 --- The table is shared and must not be written to.
 local OPENABLE_LAYERS, OPENABLE_SET;
+
+--- How many specialization layers a class has: its specializations, or none when it has only one.
+--- The one place that rule is written, for this character's layers and for where an arriving
+--- string's layers go (`ImportAddress`).
+function DebindPrivate.SpecLayerCount(classID)
+    local count = classID and C_SpecializationInfo.GetNumSpecializationsForClassID(classID) or 0;
+    return count > 1 and count or 0;
+end
+
 function DebindPrivate.GetOpenableLayerIDs()
     if (not OPENABLE_LAYERS) then
         OPENABLE_LAYERS, OPENABLE_SET = {}, {};
-        local specLayers = NUM_SPECS > 1 and NUM_SPECS or 0;
+        local specLayers = DebindPrivate.SpecLayerCount(Constants.CLASS_IDS[Constants.PLAYER_CLASS]);
         local function Add(spec, isCharacterSpecific)
             local layerID = DebindPrivate.GetLayerID(spec, isCharacterSpecific);
             OPENABLE_LAYERS[#OPENABLE_LAYERS + 1] = layerID;
