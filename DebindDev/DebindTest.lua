@@ -5499,7 +5499,12 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         -- is reading comes apart on the starting value it shows.
         DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
+        -- The character's specialization layer, or the character's own where the class has no
+        -- specialization layers to open (every camelot class, `GetOpenableLayerIDs`).
         local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
+        if not DebindPrivate.IsLayerOpenable(layerID) then
+            layerID = DebindPrivate.GetLayerID(0, true)
+        end
         local layerKey = DebindPrivate.GetSwitchLayerKey(layerID)
         if not layerKey then
             return Fail(NAME, "no layer key for this character and this spec")
@@ -6220,6 +6225,14 @@ RegisterTest("Switch condition on a name outside the five", {
 -- nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
     description = "A binding whose specialization mask holds this one fires, one whose mask leaves it out holds the key and fires nothing",
+    -- **A class of one specialization has nothing to leave out** (every camelot class), so the
+    -- second key cannot be built there.
+    applies = function()
+        if #DebindPrivate.EnumerateClassSpecs(select(3, UnitClass("player"))) < 2 then
+            return false, "this class has one specialization"
+        end
+        return true
+    end,
     run = function()
         local NAME = "Spec condition"
         local INSIDE = "CTRL-SHIFT-F6"
