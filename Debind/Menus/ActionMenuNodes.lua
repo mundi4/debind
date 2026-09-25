@@ -512,6 +512,9 @@ end
 --- makes a separate "All Specs" row under the submenu redundant -- the class row already answers
 --- the question it would ask.
 ---
+--- **A class of one specialization gets no submenu.** Camelot gives every class exactly one, named
+--- after the class, so the one box under it would write the same bit as the class box.
+---
 --- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an error
 --- rather than a destination (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the way out of the axis is
 --- the `Off` radio one row up. A button offering the error state as a shortcut is the one row
@@ -540,7 +543,7 @@ ActionMenus:Define("SPEC", {
                     return ClassSpecConditionIsOn(kit.ctx, classID);
                 end);
 
-                for j = 1, #specs do
+                for j = 1, #specs > 1 and #specs or 0 do
                     local index = specs[j].index;
                     local specDescription = CreateCheckbox(classDescription, kit.ctx,
                         specs[j].name or LLL["NO_SPECIALIZATION"],

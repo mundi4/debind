@@ -374,6 +374,21 @@ return function(DebindPrivate)
             format("a switch that is gone drew %q", tostring(SwitchRowSentence(actions[2]))));
     end);
 
+    -- **A class of one specialization is its class box and nothing under it.** Camelot gives every
+    -- class exactly one, named after the class, so a submenu there was "Mage" under "Mage" with both
+    -- boxes writing the same bit.
+    test("a class row opens its specializations only when it has more than one", function()
+        local actions = ResetProfile({ Spell(1) });
+        local root = Build(actions);
+        for _, class in ipairs(DebindPrivate.ClassSpecCatalog()) do
+            local row = FindChoice(root, Constants.CLASS_NAMES[class.classFile]);
+            check(row ~= nil, "no row for " .. class.classFile);
+            local expected = #class.specs > 1 and #class.specs or 0;
+            check(#row.children == expected, format("%s has %d specializations and %d rows under it",
+                class.classFile, #class.specs, #row.children));
+        end
+    end);
+
     test("an arrival gets no order rows", function()
         local actions = ResetProfile({ Spell(1, { arrivalID = 1 }), Spell(2, { arrivalID = 1 }) });
         local root = BuildIn({ actions[1] }, { inOrderList = true });
