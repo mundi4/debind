@@ -10193,6 +10193,31 @@ RegisterTest("Locales: camelot's own files load on camelot and nowhere else", {
     end,
 })
 
+-- **The spell data is the other file the client picks** (`SpecSpells.lua`), and a retail client
+-- that skipped `SpecSpells_Mainline.lua` would leave every Dispel, Raid Buff and Resurrect with
+-- nothing to cast, raising nothing. Druid ids are asked because both files carry one.
+RegisterTest("Spec spells: this client's own data file loads", {
+    description = "Retail has retail's specialization ids in the spell data, camelot has camelot's, and never both",
+    run = function()
+        local NAME = "spec spell data"
+        local camelot = select(4, GetBuildInfo()) < 100000
+        local data = DebindPrivate.SpecSpellData
+        if not data then
+            return Fail(NAME, "no spell data file loaded at all")
+        end
+        local retailDruid, camelotDruid = data[102] ~= nil, data[1484] ~= nil
+        if camelot and (not camelotDruid or retailDruid) then
+            return Fail(NAME, format("camelot has camelot's %s and retail's %s", tostring(camelotDruid),
+                tostring(retailDruid)))
+        end
+        if not camelot and (not retailDruid or camelotDruid) then
+            return Fail(NAME, format("retail has retail's %s and camelot's %s", tostring(retailDruid),
+                tostring(camelotDruid)))
+        end
+        return Pass(NAME)
+    end,
+})
+
 -----------------------------------------------------------
 -- The settings window
 -----------------------------------------------------------
