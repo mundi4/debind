@@ -678,7 +678,7 @@ end
 
 --- Unlike the client, the character is measured again every time: what it records is how the
 --- character stands now. One record per level keeps what an earlier level looked like.
-local function MeasureCharacter()
+local function CharacterRecord()
     local name, realm = UnitFullName("player");
     local key = format("%s %s-%s", BuildKey(), tostring(name), tostring(realm or GetRealmName()));
     local characters = Store().characters;
@@ -687,9 +687,47 @@ local function MeasureCharacter()
     local level = UnitLevel("player");
     local atLevel = record[level] or {};
     record[level] = atLevel;
+    return atLevel;
+end
+
+local function MeasureCharacter()
+    local atLevel = CharacterRecord();
     for i = 1, #CHARACTER_SECTIONS, 2 do
         atLevel[CHARACTER_SECTIONS[i]] = Measure(CHARACTER_SECTIONS[i], CHARACTER_SECTIONS[i + 1]);
     end
+end
+
+--- **What a trainer sells, which the book does not hold until it is bought** (a level 1 warrior on
+--- 70009 had no Battle Shout in the book). Every service with the level it needs and, off its
+--- tooltip, the spell id: with that, one visit per class gives every spell the class trains.
+---
+--- The window lists only what its filters let through, so all three are turned on for the read and
+--- put back after. The read waits a moment for the list the filters produce.
+local TRAINER_FILTERS = { "available", "unavailable", "used" };
+
+local function MeasureTrainer()
+    local npc = UnitName("npc");
+    local trainerType = C_Trainer and C_Trainer.GetTrainerType and C_Trainer.GetTrainerType();
+    local saved = {};
+    for _, filter in ipairs(TRAINER_FILTERS) do
+        saved[filter] = GetTrainerServiceTypeFilter(filter);
+        SetTrainerServiceTypeFilter(filter, true);
+    end
+    C_Timer.After(0.5, function()
+        CharacterRecord()["trainer " .. tostring(npc)] = Measure("trainer " .. tostring(npc), function()
+            Emit("== trainer %s, type %s: index, spell id, name, rank, level required, service type",
+                tostring(npc), tostring(trainerType));
+            for i = 1, GetNumTrainerServices() do
+                local name, serviceType, _, reqLevel, subText = GetTrainerServiceInfo(i);
+                local data = C_TooltipInfo and C_TooltipInfo.GetTrainerService(i);
+                Emit("  %3d %-7s %-28s %-8s lv %-3s %s", i, tostring(data and data.id), tostring(name),
+                    tostring(subText), tostring(reqLevel), tostring(serviceType));
+            end
+        end);
+        for filter, value in pairs(saved) do
+            SetTrainerServiceTypeFilter(filter, value);
+        end
+    end);
 end
 
 --- What playing can change about the character. Each of these schedules one measurement a moment
@@ -738,6 +776,7 @@ end
 
 local frame = CreateFrame("Frame");
 frame:RegisterEvent("PLAYER_LOGIN");
+frame:RegisterEvent("TRAINER_SHOW");
 local logged, measured = {}, {};
 for i = 1, #LOGGED_EVENTS do
     logged[LOGGED_EVENTS[i]] = true;
@@ -761,6 +800,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
     end
     -- Events before login would be written into a table the saved one is about to replace.
     if (not loggedIn) then
+        return;
+    end
+    if (event == "TRAINER_SHOW") then
+        MeasureTrainer();
         return;
     end
     if (logged[event]) then
