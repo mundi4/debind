@@ -34,7 +34,7 @@ L["HELP_CHANGELOG_TITLE"] = "What's New in 4.1"
 L["HELP_CHANGELOG_BODY"] = [==[
 # Debind runs on World of Warcraft: Forever
 
-Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. |cnBLUE_FONT_COLOR:Dispel|r, |cnBLUE_FONT_COLOR:Raid Buff|r and |cnBLUE_FONT_COLOR:Resurrect|r may not work as they should, and dual specialization is not handled, because the author's characters are still too low level to reach it.
+Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. The |cnBLUE_FONT_COLOR:Dispel|r, |cnBLUE_FONT_COLOR:Raid Buff|r and |cnBLUE_FONT_COLOR:Resurrect|r actions, which cast whichever spell your class has rather than one you picked, may not work as they should. Dual specialization is not handled, because the author's characters are still too low level to reach it.
 
 # Your bindings from the current game can come along
 

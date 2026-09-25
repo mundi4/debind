@@ -1,6 +1,6 @@
 # 4.1
 
-**Debind now runs on World of Warcraft: Forever as well as the current game.** Some of it has not been tried there yet. Dispel, Raid Buff and Resurrect may not work as they should, and dual specialization is not handled, because the author's characters are still too low level to reach it.
+**Debind now runs on World of Warcraft: Forever as well as the current game.** Some of it has not been tried there yet. The Dispel, Raid Buff and Resurrect actions, which cast whichever spell your class has rather than one you picked, may not work as they should. Dual specialization is not handled, because the author's characters are still too low level to reach it.
 
 **Your bindings from the current game can come along.** A share code made in the current game can be pasted on Forever, through New Payload and From Share Code in the Storage tab. Many of the spells and items in it do not exist on Forever.
 

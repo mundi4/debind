@@ -32,7 +32,7 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 
 # Debind runs on World of Warcraft: Forever
 
-Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. *Dispel*, *Raid Buff* and *Resurrect* may not work as they should, and dual specialization is not handled, because the author's characters are still too low level to reach it.
+Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. The *Dispel*, *Raid Buff* and *Resurrect* actions, which cast whichever spell your class has rather than one you picked, may not work as they should. Dual specialization is not handled, because the author's characters are still too low level to reach it.
 
 # Your bindings from the current game can come along
 
