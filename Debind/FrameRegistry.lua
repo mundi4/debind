@@ -911,7 +911,7 @@ function RetopPending()
 				--- nothing with it, and what it costs is this one frame's hover and click.
 				local ok, err = pcall(Reassemble, frame, script);
 				if (Constants.DEBUG and not ok) then
-					print(format("[Debind] RetopPending: %s on %s raised: %s",
+					DebindPrivate.log(format("[Debind] RetopPending:%s on %s raised: %s",
 						script, tostring(frame.GetName and frame:GetName() or frame), tostring(err)));
 				end
 			end
@@ -1234,7 +1234,7 @@ function DebindPrivate.UpdateRegisteredClicks(button)
     _walkRefused = 0;
     SetPropagate(button:GetChildren());
     if (Constants.DEBUG and _walkRefused > 0) then
-        print(format("[Debind] SetPropagate: %d refused frame(s) under %s",
+        DebindPrivate.log(format("[Debind] SetPropagate: %d refused frame(s) under %s",
             _walkRefused, button:GetName() or tostring(button)));
     end
 end
