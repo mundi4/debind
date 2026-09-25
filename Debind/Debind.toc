@@ -21,7 +21,12 @@ libs.xml
 locales.xml
 # **The client picks the file, not the addon** (per-file directives, 11.1.5). Here rather than in
 # `locales.xml`, since a TOC line is where the directive is documented to work.
-Locales\Camelot\enUS.lua [AllowLoadGameType camelot]
+#
+# **`ExcludeLoadGameType standard` is what keeps it off retail.** A condition naming only game types
+# the client does not recognise is satisfied, and retail's TOCs never name `camelot`: with the first
+# condition alone this file loaded there (2026-09-25). Retail is `standard` and camelot is not, as
+# Blizzard's `standard, camelot` lines show, and both clients know the word.
+Locales\Camelot\enUS.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
 #@debug@
 # The packager deletes this block, contents and all, from a released build. What it holds is one

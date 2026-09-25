@@ -269,7 +269,7 @@ for (const file of files) {
 }
 
 // **A game type's own file only overrides.** `Debind.toc` loads `Locales/Camelot/*.lua` after the
-// locales, on that game type alone (`[AllowLoadGameType camelot]`), so every key there has to be
+// locales, on that game type alone (the conditions on its line say how), so every key there has to be
 // one enUS carries and take the placeholders enUS's callers pass.
 const camelotDir = path.join(localesDir, "Camelot");
 const camelotFiles = fs.existsSync(camelotDir)

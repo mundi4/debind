@@ -10170,7 +10170,7 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 -----------------------------------------------------------
 
 -- **The client decides which files load, so only the client can say.** `Debind.toc` loads
--- `Locales/Camelot/enUS.lua` with `[AllowLoadGameType camelot]`; headless loads no locale at all.
+-- `Locales/Camelot/enUS.lua` behind game type conditions; headless loads no locale at all.
 -- The interface number is how this case knows which client it is on: camelot's is 16001, and
 -- `WOW_PROJECT_ID` answers 1 on both.
 --
