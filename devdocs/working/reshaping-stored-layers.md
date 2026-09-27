@@ -1,7 +1,7 @@
 # 저장된 레이어 모양 바꾸기 (2026-09-27 시작)
 
-> 상태: **계획. 코드는 아직 한 줄도 안 바뀌었다.** 모양(1절)과 그 이유(2절)는 소유자와 정했다.
-> 5절의 물음들은 아직 답이 없다.
+> 상태: **1단계(4절) 진행 중.** 모양(1절)과 그 이유(2절)는 소유자와 정했다. 5절에 남은 물음은 2단계와
+> 3단계의 것이다.
 >
 > 쓴 세션: `debind-43`, 세션 ID `8661be18-b7a9-47ca-9014-f4260da6eec7`.
 
@@ -31,35 +31,92 @@ DebindVars = {
         },
     },
     switches = {
-        account = { burst = { ...정의... }, aoe = { ... } },
-        ["Player-3041-0A1B2C3D"] = { burst = true },
+        account = {
+            GENERAL = { [0] = { burst = { mode, resetValue, expr }, aoe = { ... } } },
+            MAGE    = { [2] = { burst = { mode = ... } } },
+        },
+        ["Player-3041-0A1B2C3D"] = {
+            MAGE = { [2] = { burst = { mode = ... } } },
+        },
     },
     characters = {
         ["Player-3041-0A1B2C3D"] = {
             name, realm, class, race, sex, level, faction, firstSeen, lastSeen, origin,
+            switches      = { burst = true },   -- 기억한 값
+            CustomTargets = { ... },
         },
     },
-    -- CustomTargets도 characters를 떠나 guid로 묶인 형제 표가 된다(이름은 5절)
-    -- dbver, options, ui, tipsSeen, migrated, ... 그대로
+    options = { frameBlacklist, excludePlayer, unitframeUseMouseDown, ... },
+    dbver, changelogSeen, nextArrivalID, legacyNeeded, legacyAccountPulled, migrated,
+}
+
+DebindUIVars = {
+    main        = { pos = { x, y }, binSort = ... },
+    spellPicker = { pos = { x, y }, filters = { spell = { showOffSpec, favoritesOnly }, item = ..., ... } },
+    tipsSeen    = { settingsGear = true },
 }
 ```
 
 - **레이어는 `layers` 한 곳에 모인다.** 계정 칸(`account`)과 캐릭터 칸(`[guid]`)이 같은 모양이다. 칸
-  안의 키는 직업이고, 그 밑은 `{ [0] = 직업 전체, [1..4] = 전문화 }`다. 공유 일반은 직업이 아니므로
+  안의 키는 직업이고, 그 밑은 `{ [0] = 직업 전체, [1..5] = 전문화 }`다. 공유 일반은 직업이 아니므로
   같은 모양의 칸 `GENERAL`을 하나 따로 두고 `[0]`만 쓴다.
 - **전문화 키는 인덱스 그대로다.** `LAYER_INFOS`의 `spec`, `GetSpecialization()`, 발동 순서의
   `specRank`가 모두 이 번호를 쓴다.
+  - **5는 초기 전문화다.** `GetSpecialization()`이 실제로 돌려주는 번호이고, 지금도 `ForEachStoredAction`,
+    `HasCharContent`, `MigrateSpecTable`, Legacy가 0..5를 돈다. 옮기는 단계도 0..5를 빠짐없이 옮긴다.
+  - **번호에는 구멍이 있다.** 전문화가 둘인 직업은 1, 2, 5를 갖는다. 전문화 표는 `ipairs`나 `#`으로
+    돌지 않는다. 그러면 2에서 멈추고 5를 놓친다.
 - **캐릭터 칸은 직업 키를 늘 하나만 가진다.** 캐릭터의 직업은 바뀌지 않는다. 그 한 겹은 정보가 아니라
   계정 칸과 모양을 맞추는 값이고, 그 덕에 칸 하나만 떼어 놓아도 누구의 전문화인지가 읽힌다.
-- **스위치도 `layers`의 형제로, 같은 규칙으로 둔다** (소유자). 계정 칸은 지금의 `db.switches`(정의),
-  캐릭터 칸은 지금의 `characters[guid].switches`(그 캐릭터가 기억한 값)다. 두 칸이 담는 것의 종류는
-  다르지만 "계정 것은 `account`, 캐릭터 것은 guid"라는 읽는 규칙은 같다.
-- **`characters`는 표시용 메타데이터일 뿐이다** (소유자). `RefreshIdentity`가 3.1부터 로그인마다 쓰는
-  값들이고, 사람에게 누구의 칸인지 보여 주는 데만 쓴다. **동작을 정하는 코드는 이것을 읽지 않는다.**
-  캐릭터 칸의 직업도 `characters[guid].class`가 아니라 `layers[guid]`의 키가 답한다. 그래서 여기 있을 수
-  있는 것은 신원뿐이고, 켜고 끌 때마다 바뀌는 스위치 값이나 `CustomTargets` 같은 상태는 들어오지 않는다.
-  - 예외는 옮기는 단계 한 번이다. `layers[guid]`의 직업 키를 세우려면 `characters[guid].class`를
+- **스위치는 정의만 담고, 칸과 주소는 `layers`와 같다** (소유자). `GENERAL[0]`이 정의 전체(뿌리 답)를
+  들고, 나머지 칸은 그 레이어의 오버라이드 행을 든다. 끝에 닿으면 액션 배열이 아니라 `이름 → 행` 표라는
+  것만 `layers`와 다르다.
+  - **오버라이드가 정의 밖으로 나온다.** 지금 `definition.overrides`는 `GetSwitchLayerKey`가 만드는
+    `"MAGE:2"`, `"Player-…:2"` 문자열 키로 계정 쪽 정의 안에 캐릭터의 답까지 든다. 그대로 두면 계정 칸이
+    캐릭터의 것을 들게 되고, 레이어 주소를 문자열로 한 번 더 적는 두 번째 주소 체계가 남는다. 새 모양에서
+    캐릭터 행은 `switches[guid]`에 가므로 캐릭터 칸을 떼어 백업하면 그 캐릭터의 오버라이드가 따라간다.
+  - **정의의 `value`는 저장하지 않는다.** 실행 중의 값이고 로그인마다 `ApplySwitchResets`가 다시 쓴다.
+    수동 모드는 `resetValue`나 기억한 값으로 덮고, 식 모드는 첫 평가까지만 옛 값을 들고 간다. 정의 안에
+    두면 설정 표가 실행 상태를 들게 되니, 저장하지 않는 실행용 표로 뺀다.
+- **`characters`는 캐릭터의 신원과 그 캐릭터가 들고 있는 상태를 든다** (소유자). 신원은
+  `RefreshIdentity`가 3.1부터 로그인마다 쓰는 값들이고, 상태는 기억한 스위치 값과 `CustomTargets`다.
+  - **상태를 따로 떼지 않는 이유.** 신원은 UI를 위한 값이지만 UI와 상관없이 로그인마다 채워지므로,
+    guid로 묶인 캐릭터의 기록으로 믿을 수 있다(소유자). 상태를 형제 표로 떼면 guid로 묶인 표가 하나 늘고
+    붙이고 떼는 규칙이 볼 표도 는다. 뗀다고 덜어지는 것은 없다. `HasCharContent`는 신원을 골라내는
+    함수가 아니라 내용 필드를 이름으로 세는 함수라, 표가 따로여도 그 표를 세야 하는 것은 같다.
+    기억한 값을 `switches[guid]`에 두지 않는 것은 그 칸의 모양을 `layers`와 같게 두기 위해서다.
+  - **레이어의 직업은 여기서 읽지 않는다.** 캐릭터 칸의 직업은 `characters[guid].class`가 아니라
+    `layers[guid]`의 키가 답한다.
+  - **상태는 `Profile.lua`의 함수로만 읽고 쓴다** (소유자). 저장 모양과 지연 생성(내용이 생기면 붙이고
+    비면 떼기)을 그 파일 하나만 알게 하기 위해서다. 지금 저장 테이블을 직접 짚는 바깥은 `UnitWatch.lua`의
+    `CustomTargets` 읽기와 쓰기, `DebindTest.lua`의 `db.char.switches` 열한 군데다.
+  - 직업을 읽는 예외는 옮기는 단계 한 번이다. `layers[guid]`의 직업 키를 세우려면 `characters[guid].class`를
     읽을 수밖에 없다. 옮긴 뒤로는 읽지 않는다.
+  - **붙어 있는 캐릭터 항목은 모두 `class`를 가진다.** 항목을 `characters`에 붙이는 것은 로그아웃 때의
+    `CleanUpDB`뿐이고, 같은 세션의 PLAYER_LOGIN에서 `RefreshIdentity`가 먼저 쓴다. 둘은 개명 커밋
+    (27348de)에서 같이 들어왔다. 없는 것은 손으로 고친 파일뿐이다.
+  - **손으로 고친 파일은 의도를 되살려 주지 않는다. 모르는 값은 거부하거나 지운다** (소유자). 우리가 할
+    일은 그런 파일을 만나도 애드온이 터지지 않게 막는 것까지다. 살리려 들면 그것이 족쇄가 된다. 옮기는
+    단계는 `class`가 없는 항목의 레이어를 지운다. 접속할 때 되살리는 길도 두지 않는다.
+- **붙이고 떼는 규칙.** `layers[guid]`와 `switches[guid]`는 비면 뗀다. `characters[guid]`는 그 guid 아래
+  무엇이든 있으면 둔다. 레이어, 오버라이드, 기억한 값, `CustomTargets` 중 하나라도 있으면 된다. 신원
+  필드는 지금처럼 내용으로 세지 않는다. 레이어가 있는 캐릭터는 백업에서 이름을 보여 줘야 하므로 신원이
+  함께 남아야 한다.
+- **창이 안 열리면 뜻이 없는 값은 `DebindUIVars`로 간다** (소유자). 창 위치, `binSort`, 스펠 선택창의
+  필터, `tipsSeen`이다. 코드의 대부분이 화면이라 나중에 화면을 LoadOnDemand 애드온으로 떼어 낼
+  생각이고(`DebindStorage`와 합칠 수도 있다), 그날 그 애드온이 이 전역 하나만 가져가면 되게 하려는 것이다.
+  - **`changelogSeen`은 본체에 남는다** (소유자). 창을 한 번도 안 여는 사람에게도 로그인 때 도움말 창을
+    띄우는 값이라, 창이 안 열려도 뜻이 있다. 화면을 떼어 낸 뒤에는 새 번호가 나올 때 한 번 화면 애드온을
+    로드하게 된다. 창이 실제로 떴을 때만 번호를 올리므로 로드가 실패해도 다음 로그인에 다시 시도하고,
+    화면 쪽 XML에 secure 템플릿이 없어 전투 중 로드도 막히지 않는다.
+  - **선언은 `Debind.toc`에 둔다.** `## SavedVariables: DebindVars, DebindUIVars`. SavedVariables 파일
+    이름은 선언한 애드온의 폴더를 따르므로, 화면 애드온의 TOC로 옮기면 `Debind.lua`에 있던 값을 새 파일이
+    못 읽어 Legacy 같은 이전이 한 번 더 필요해진다. 본체에 남겨 두면 늦게 로드되는 화면 애드온이 이미
+    올라온 전역을 그대로 쓴다. 대가는 창을 안 여는 사람도 로그인 때 이 작은 표를 읽는 것뿐이다.
+  - **`DebindUIVars`는 사다리를 타지 않는다. 모양이 바뀌면 옮기지 않고 비운다** (소유자). 잃는 것은 창
+    위치와 필터뿐이고 처음 상태로 돌아갈 뿐이다. **`tipsSeen`만은 남긴다** (소유자). 비우면 이미 본 팁이
+    모두 다시 떠서, 창 위치와 달리 사람이 눈으로 겪는다. 모양이 바뀌었는지는 표 안의 번호 하나로 알고,
+    코드의 번호와 다르면 `tipsSeen`을 뺀 나머지를 비운다.
 
 ### 1-1. 페이로드 (제안)
 
@@ -102,7 +159,7 @@ payload = {
 - **두 용도가 모양 하나를 쓴다.** 가르는 것은 캐릭터 칸의 키와 거기 딸린 신원뿐이다. 읽는 코드는
   `layers`를 도는 한 갈래이고, `account`가 아닌 키는 모두 캐릭터 칸이다.
 - **공유용의 캐릭터 칸 키는 그 문자열 안에서만 겹치지 않으면 된다** (소유자). `"1"`, `"2"`처럼 쓰고,
-  숫자 키여도 된다. 다만 숫자 키가 그대로 돌아오는 것은 1-2절의 CBOR을 잰 뒤에 확정된다. 받는 쪽은 칸을 골라 제 guid 자리에
+  숫자 키여도 된다. 숫자 키가 그대로 돌아오는 것은 1-2절에서 쟀다. 받는 쪽은 칸을 골라 제 guid 자리에
   넣으므로 키는 거기서 버려진다. guid도 캐릭터를 가리키는 식별자라 공유
   문자열에 싣지 않는다는 원칙(`building-export-import.md` 3절)이 그대로 선다. 공유 문자열에도 캐릭터가
   여럿 들어갈 수 있어야 해서 번호다. 고정된 `character`는 칸이 하나일 때만 맞고, `character-1`처럼
@@ -112,7 +169,7 @@ payload = {
 - **받는 쪽은 캐릭터 칸 중 하나를 골라 넣는다.** 받는 캐릭터는 하나다. 칸마다 직업이 키로 붙어 있으니
   다른 직업의 칸은 고를 수 없게 한다. 고르는 화면에 보여 줄 것은 5절.
 - **`characters`는 캐릭터 칸의 신원이다.** 되돌릴 때 누구의 칸인지 보여 주고 짝을 맞추는 데 쓴다.
-  공유용에는 넣지 않는다. `switches`, `CustomTargets`를 백업에 넣을지는 5절.
+  공유용에는 넣지 않는다. `switches`와 `characters`의 상태 필드를 백업에 넣을지는 5절.
 - **`payload.class`는 없다.** 직업은 모든 칸이 키로 들고 있다.
 - **`source`는 지금처럼 남는다.** Clique로 만든 항목은 `layers.account.GENERAL[0]` 하나만 가진다.
 
@@ -170,7 +227,7 @@ payload = {
 **새 버전은 LibSerialize와 LibDeflate를 쓰지 않고 클라이언트의 `C_EncodingUtil`로 포장한다** (소유자).
 `0-IDEAS.md`의 "공유 코드를 클라이언트 API로"가 여기로 자라 왔다.
 
-- **CBOR이다.** `C_EncodingUtil`의 JSON은 표의 키를 전부 문자열로 만든다. 전문화 칸 `[0]`~`[4]`,
+- **CBOR이다.** `C_EncodingUtil`의 JSON은 표의 키를 전부 문자열로 만든다. 전문화 칸 `[0]`~`[5]`,
   `conditions.specs`의 직업 id 키, 숫자로 된 캐릭터 칸 키가 `"2"`처럼 되어 돌아온다.
 - **포장 번호를 올린다.** `Export.lua`가 스키마(`SCHEMA_VERSION`)와 포장(`ENVELOPE_VERSION`, 접두어
   `DEB1:`)을 처음부터 따로 센다. 포장을 바꾸면 옛 문자열이 무효가 되고 필드를 더하는 것은 그러면 안
@@ -183,8 +240,10 @@ payload = {
     되면 옛 문자열 하나를 받자고 모든 사용자가 쓰지 않는 의존을 계속 지고 있어야 한다(소유자).
 - **보관함에 쌓인 항목은 영향이 없다.** `DebindStorageVars`에는 문자열이 아니라 페이로드 테이블이
   들어 있다.
-- **이 절이 서려면 먼저 재야 한다.** CBOR이 우리 페이로드(숫자 키 `[0]`, 숫자와 문자열이 섞인 키,
-  빈 테이블, 중첩)를 두 클라이언트에서 그대로 되돌려주는지. 헤드리스로는 잴 수 없다.
+- **CBOR은 키의 타입까지 그대로 되돌려준다** (2026-09-27, 12.1.5.69952, `Probe_CBOR.lua`). 직렬화,
+  압축, base64를 거쳐 되돌린 14가지가 모두 같았다. `[0]`, 중간이 빈 전문화 표(0·1·2·5, 1·2·5), 한 표에
+  같이 있는 `1`과 `"1"`, 빈 표, 구멍 난 배열, 음수와 소수 키, 1절의 `layers` 모양이 들었다. 카멜롯
+  클라이언트는 아직 재지 않았다.
 
 ## 2. 왜 이 모양인가
 
@@ -228,13 +287,25 @@ payload = {
   `charEntry.layers`를 세우는 곳), `CleanUpDB`와 `HasCharContent`(캐릭터 칸을 붙이고 떼는 곳),
   `ForEachStoredAction`, `StoredActionsAt`(가져오기가 남의 좌표에 쓰는 곳), 모든 저장 액션을 훑어
   목록을 만드는 곳(`walkLayer`로 `shared`와 `characters`를 도는 함수), `LAYER_INFOS`.
+- `Profile.lua`의 `StandDown`: 더 새 프로필을 만나 물러설 때 옛 모양의 db를 손으로 세운다.
 - `Profile.lua`의 스위치 쪽: `BindDerivedTables`(`db.switches`를 `DebindPrivate.Switches`로 묶는 곳),
-  `db.char.switches`를 읽고 쓰는 자리들.
-- `Migration.lua`: `MigrateDB`, `MigrateShared`, `MigrateSpecTable`, `MigrateSwitches`. 옮기는 단계가
-  여기 들어간다.
+  `db.char.switches`를 읽고 쓰는 자리들, 그리고 오버라이드: `GetSwitchLayerKey`와 그 키로
+  `definition.overrides`를 읽고 쓰는 자리들(`ResolveSwitchAnswer`, 행을 만들고 지우는 함수, 이름 바꾸기와
+  지우기).
+- `SwitchesUI.lua`: `GetSwitchLayerKey`로 오버라이드 행을 찾고 그리는 곳.
+- `UnitWatch.lua`: `LoadCustomTargets`와 저장하는 콜백이 `db.char.CustomTargets`를 직접 읽고 쓴다.
+- `Events.lua`: `RefreshIdentity`가 `db.char`에 신원을 쓴다. 지금 `db.char`는 레이어, 스위치 값, 신원이
+  한 테이블이라, 새 모양에서는 이것이 무엇을 가리키는지부터 다시 정한다.
+- `Migration.lua`: `MigrateDB`, `MigrateShared`, `MigrateSpecTable`, `MigrateSwitches`(오버라이드를 도는
+  자리 포함). 옮기는 단계가 여기 들어간다.
 - `Legacy.lua`: 개명 전 SavedVariables를 옮겨 오는 곳이 `shared.GENERAL`, `shared.classes`,
-  `charEntry.layers`에 직접 쓴다. 이 이전은 캐릭터마다 그 캐릭터로 접속할 때 돈다.
+  `charEntry.layers`에 직접 쓴다. 이 이전은 캐릭터마다 그 캐릭터로 접속할 때 돈다. PLAYER_LOGIN에서
+  돌아 `MigrateDB`(ADDON_LOADED)보다 늦고, 지금은 사다리의 단계를 하나씩 골라 부른다(`MigrateLayer`,
+  `MigrateSwitches`, `MigrateOptions`). 4절 1단계가 이것을 사다리 전체를 타게 바꾼다.
 - `Constants.lua`: `DB_VERSION`.
+- `Debind.toc`: `## SavedVariables`에 `DebindUIVars`를 더한다.
+- `DebindUI.lua`(창 위치, `binSort`), `SpellPicker.lua`(위치와 필터), `Help/HelpTip.lua`(`tipsSeen`):
+  `db.global.ui`, `db.global.spellPicker`, `db.global.tipsSeen`을 짚는 자리가 `DebindUIVars`로 간다.
 
 **DebindStorage (페이로드)**
 
@@ -255,31 +326,54 @@ payload = {
 
 - 헤드리스: `tests/`의 `export_spec`, `import_spec`, `entry_spec`, `clique_spec`, `migration_spec`,
   `keygroup_spec`, `switch_spec`, `automatics_spec`.
-- 인게임 킷: `DebindDev/DebindTest.lua`가 페이로드의 `shared`, `char`를 직접 짚는 자리가 있다.
+- 인게임 킷: `DebindDev/DebindTest.lua`가 페이로드의 `shared`, `char`를 직접 짚는 자리가 있고,
+  `db.char.switches`를 직접 짚는 자리가 열한 군데다.
 
 ## 4. 순서
 
 1. **저장 데이터의 모양만 바꾼다.** `dbver`를 올리고 옮기는 단계를 넣고, 저장 모양을 짚는 자리를
    모두 새 모양으로 바꾼다. 화면에 보이는 것은 아무것도 안 바뀌어야 하고, 헤드리스 전부와 옮기기
    전후의 발동 순서가 같다는 것이 이 단계의 합격선이다.
+   - **Legacy는 사다리를 통째로 탄다** (소유자). 옛 `DebounceVars`와 `DebounceVarsPerChar`를 개명
+     당시의 `DebindVars` 모양(`shared`, `characters[guid]`)으로만 옮겨 옛 `dbver`를 찍은 임시 테이블에
+     담고, 거기에 `MigrateDB`를 돌린 뒤 결과를 붙인다. 그러면 Legacy가 아는 모양은 개명 당시로 고정되고,
+     이번을 포함한 앞으로의 모양 변경은 사다리 한 곳에만 들어간다. 단계를 하나씩 골라 부르는 지금 방식은
+     모양이 바뀔 때마다 빠진 단계를 메워야 했다(`Legacy.lua`의 `MigrateSwitches`, `MigrateOptions` 호출이
+     그렇게 들어왔다).
+   - 모양을 아는 것은 붙이는 자리 하나만 남는다. 계정 몫은 옮겨진 최상위 키를 그대로 덮는다. 답하기
+     전에는 창이 안 열리므로 덮일 사용자 설정이 없다. 캐릭터 몫은 각 표의 `[guid]` 칸만 옮긴다. 계정 몫이
+     먼저 넘어온 뒤 다른 캐릭터로 접속해서 돌기 때문이다.
+   - 기억한 스위치 값과 `CustomTargets`를 `Profile.lua`의 함수로 돌리는 것도 이 단계다. `UnitWatch.lua`와
+     `DebindTest.lua`가 모양을 모르게 된다.
+   - **같은 단계에서 치운다** (소유자, 리팩터링은 dbver를 올릴 때 같이). 아래는 읽는 코드가 없거나
+     로그인마다 다시 계산되는 값이라 지워도 동작이 안 바뀐다. 2026-09-27에 SavedVariables 세 벌
+     (`_retail_` 하나, `_xptr_` 둘)을 열어 확인했다.
+     - 최상위 `global`, `char`, `class`, `profileKeys`: `_retail_` 파일에 있다. 이 저장소의 어느 커밋도 쓴
+       적이 없고, Legacy가 옛 `DebounceVars`의 나머지 키를 그대로 복사하면서 따라 들어온 것으로 보인다.
+       Legacy가 개명 당시 모양으로 옮기도록 바꿀 때 이 키들은 건넌다.
+     - 최상위 `unitFrameNoticeSeen`.
+     - `options`의 `overviewui`, `stateDriverUpdateThrottle`, `removeStateDriverUpdateThrottle`,
+       `addCustomTargetMenusOnUnitPopup`, `addCustomTargetMenusToUnitPopup`, 그리고 dbver 7 파일에 남은
+       `blizzframes`(`MigrateOptions`가 `frameBlacklist`로 옮기는 옛 이름).
+     - 스위치 정의의 `value`(1절)와 `displayMessage`.
+     - 레이어 배열 안의 `customStates = {}`처럼 액션이 아닌 키. 옮길 때 액션 표가 아닌 것은 버린다.
+   - **`tipsSeen`만 `DebindUIVars`로 옮기고, `ui`와 `spellPicker`는 지운다** (1절, `tipsSeen` 말고는
+     비워도 되는 값이다).
 2. **페이로드를 같은 모양으로 올린다.** `SCHEMA_VERSION` 3, v2를 올리는 단계, `payload.class` 제거,
    다른 직업의 캐릭터 칸을 가져오지 않는 것.
 3. **전체 백업.** 5절의 물음에 답이 나온 뒤.
 
-2의 앞에는 1-2절의 측정이 선다. 1과 2를 한 릴리스에 묶을지는 5절.
+2의 앞에는 1-2절의 측정이 선다. 정식 서비스는 쟀고, 카멜롯이 남았다. **1과 2는 한 릴리스로 나간다** (소유자). 1은 페이로드 없이도 설 수 있지만(보관함 애드온은
+저장 테이블을 직접 짚지 않고 `EnumerateAllProfileLayers`, `ResolveSwitchDefinition`, `PlaceArrivedActions`만
+거친다), 1만 나가면 `DB_VERSION`이 올라 새 문자열이 `dbver = 8`을 달고, 업데이트 안 한 사람의 애드온은 액션
+모양이 같은데도 그것을 `UNSUPPORTED_SCHEMA`로 거절한다. 나눠 내면 그 거절을 두 번 겪는다.
 
 ## 5. 정할 것
 
-- **옮길 때 직업을 모르는 캐릭터 칸.** 3.1부터 로그인마다 `class`가 쓰이니 캐릭터 칸이 있는 캐릭터는
-  모두 가진 값이어야 한다. 없는 칸이 실제로 있는지는 아직 안 봤다. 있으면 그 칸은 그 캐릭터로 접속할
-  때 옮기는 안이 있다(`Legacy.lua`의 `migrated`와 같은 방식).
-- **`layers[guid]`와 `characters[guid]`를 붙이고 떼는 규칙.** 지금은 캐릭터 칸에 내용이 생겨야
-  붙이고(`CleanUpDB`), 비면 뗀다. 레이어가 떨어져 나가면 `HasCharContent`가 `layers[guid]`도 봐야 하고,
-  레이어가 있는 캐릭터는 백업에서 이름을 보여 줘야 하니 신원 칸도 함께 있어야 한다.
-- **`CustomTargets`의 형제 표 이름과 모양.** `characters`에서 나가는 것은 정해졌다(표시용이 아니다).
-  `switches`처럼 `account` 칸도 두는지는 계정 단위로 기억할 값이 있느냐에 달렸다.
-- **백업에 스위치를 어디까지 싣나.** 정의는 지금도 공유 문자열에 `states`로 실린다. 캐릭터가 기억한
-  값(`switches[guid]`)과 `CustomTargets`를 백업에 넣을지. 레이어만 되돌리면 스위치를 조건으로 쓰는
+- **Legacy의 세 값을 묶을지.** `legacyNeeded`, `legacyAccountPulled`, `migrated`를 `legacy = { ... }`
+  하나로. 동작은 안 바뀌고 모양의 취향이다.
+- **백업에 스위치를 어디까지 싣나.** 정의의 뿌리 답은 지금도 공유 문자열에 `states`로 실린다. 오버라이드
+  (`switches`의 나머지 칸)와 `characters`의 상태 필드를 백업에 넣을지. 레이어만 되돌리면 스위치를 조건으로 쓰는
   액션이 그 값 없이 돌아온다.
 - **백업을 되돌릴 때 캐릭터 칸을 누구에게 넣나.** guid가 맞으면 그 캐릭터다. 서버 이전 등으로 안
   맞을 때 사람이 고르는 화면이 필요한지.
