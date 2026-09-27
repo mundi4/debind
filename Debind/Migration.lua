@@ -2,15 +2,14 @@ local _, DebindPrivate = ...;
 
 local Constants           = DebindPrivate.Constants;
 local luatype             = type;
--- One caller: the `dbver` 5 step that opens the old SETSTATE bitpack.
+-- One caller: the `dbver` 5 step that opens the old `setstate` bitpack.
 local band                = bit.band;
-local ForEachStoredAction = DebindPrivate.ForEachStoredAction;
 
 --- Raises one layer's array of actions from `dbver` to `Constants.DB_VERSION`.
 ---
---- **Every step opens with `dbver <= N`, never `== N`.** With `==`, a profile two versions behind
---- walks the first step and leaves. And each step has to be safe to run again on data it has
---- already finished.
+--- **Every step opens with `dbver <= N and N < to`, never `== N`.** With `==`, a profile two
+--- versions behind walks the first step and leaves. And each step has to be safe to run again on
+--- data it has already finished.
 ---
 --- **What comes through here is not only the profile.** A received payload's action array rides
 --- the same ladder (`BringPayloadForward` in `Export.lua`). That is what keeps one transformation
@@ -22,12 +21,16 @@ local ForEachStoredAction = DebindPrivate.ForEachStoredAction;
 --- So **the steps a payload can reach** ask about types, and the rest stand as they were written
 --- when only the profile came through. A payload's `dbver` cannot go below 5
 --- (`OLDEST_PAYLOAD_DBVER` in `Export.lua`), which is what keeps it out of them.
-local function MigrateLayer(layerTbl, dbver)
+---
+--- **`to` stops it short of the end.** `MigrateDB` raises every ladder one version at a time, so a
+--- step never meets data another ladder has already carried further (`MigrateDB`).
+local function MigrateLayer(layerTbl, dbver, to)
     if (layerTbl == nil) then
         return;
     end
+    to = to or Constants.DB_VERSION;
 
-    if (dbver <= 1) then
+    if (dbver <= 1 and 1 < to) then
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.checkUnitExists and (Constants.BASIC_UNITS[action.unit] or Constants.SPECIAL_UNITS[action.unit])) then
@@ -73,7 +76,7 @@ local function MigrateLayer(layerTbl, dbver)
         end
     end
 
-    if (dbver <= 2) then
+    if (dbver <= 2 and 2 < to) then
         -- 발동 순서의 마지막 단계를 **배열 자리에서 저장값으로** 옮긴다.
         --
         -- 예전에는 비교자가 레이어 배열의 자리(index)를 읽었다. 그 자리는 목록이 배열
@@ -101,7 +104,7 @@ local function MigrateLayer(layerTbl, dbver)
         end
     end
 
-    if (dbver <= 4) then
+    if (dbver <= 4 and 4 < to) then
         -- Unit conditions become **one mask per axis**. The four scalars (`true`/`false`/`"help"`/
         -- `"harm"`) can say neither "friendly or other" nor "friendly and alive": presence and
         -- reaction are packed into one value, with no room to put another axis on top.
@@ -168,7 +171,7 @@ local function MigrateLayer(layerTbl, dbver)
         end
     end
 
-    if (dbver <= 5) then
+    if (dbver <= 5 and 5 < to) then
         -- Shipped in 3.3. **An unshipped step takes every storage change until it ships**, rather
         -- than opening the next number: splitting a number nobody has met makes a step for an
         -- intermediate shape that never existed, and that step meets no data forever.
@@ -219,12 +222,13 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
 
-        -- SETSTATE's `mode | index` bitpack, opened out into three types and a name.
+        -- `setstate`'s `mode | index` bitpack, opened out into three types and a name.
         --
-        -- **The step holds the old name and the old numbers itself.** Neither the type `"setstate"`
-        -- nor the `SETCUSTOM_MODE_*` flags is a language this build speaks any more, and left in
-        -- `Constants.lua` a dead name sits next to the live ones forever. A step is frozen once it
-        -- is written, so there is nothing here for it to drift from (`0-DECISION-LOG.md`,
+        -- **The step holds the old name, the old numbers and the names it writes itself.** Neither
+        -- the type `"setstate"` nor the `SETCUSTOM_MODE_*` flags is a language this build speaks
+        -- any more, and left in `Constants.lua` a dead name sits next to the live ones forever. The
+        -- three it writes are version 6's, which the `dbver <= 7` step renames. A step is frozen
+        -- once it is written, so there is nothing here for it to drift from (`0-DECISION-LOG.md`,
         -- 2026-08-21; `MigrateSwitches` below holds its own old numbers for the same reason).
         --
         -- **A mode this does not recognise is left alone.** A bitpack that is none of the three
@@ -236,9 +240,9 @@ local function MigrateLayer(layerTbl, dbver)
         -- **The payload side stands on that.** The v1 adapter opens its subtable straight into the
         -- new types, and this block walks past what it produced (`Export.lua`).
         local SETSTATE_BY_FLAG = {
-            [0x100] = Constants.SETSTATE_ON,
-            [0x200] = Constants.SETSTATE_OFF,
-            [0x400] = Constants.SETSTATE_TOGGLE,
+            [0x100] = "setstate_on",
+            [0x200] = "setstate_off",
+            [0x400] = "setstate_toggle",
         };
         for i = 1, #layerTbl do
             local action = layerTbl[i];
@@ -293,9 +297,8 @@ local function MigrateLayer(layerTbl, dbver)
         end
     end
 
-    --- **The unreleased step.** Everything raised here landed after the last tag, so it is one
-    --- step rather than a rung each, and unrelated jobs share it (`Constants.DB_VERSION`).
-    if (dbver <= 6) then
+    --- Shipped in 4.0.
+    if (dbver <= 6 and 6 < to) then
         -- `equipslot` becomes `useslot`. The action uses what is worn in a slot and equips nothing,
         -- and the game's own `/equipslot 13 <item>` means the opposite (`0-ROADMAP.md`,
         -- 2026-08-28). **The step holds the old string itself**: the constant is gone, and a dead
@@ -482,14 +485,10 @@ local function MigrateLayer(layerTbl, dbver)
             if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
                 action.value = DebindPrivate.RenameUnitInMacroText(action.value, "hover", "unitframe");
                 -- **A whole token after the frame name**, the way `/click` reads it and the way
-                -- `renameClickedSwitch` reads the switch in the same position.
-                --
-                -- **Both spellings of the frame, which is why the name is matched loosely.**
-                -- `Legacy.lua` rewrites `DebounceCustom` into `DebindCustom` **after** this ladder
-                -- has run (`ImportLayer` migrates first and repairs second), so a pre-rename body
-                -- still says `DebounceCustom<n>` when it passes here -- and `dbver` is stamped by
-                -- then, so the ladder never comes back for it.
-                action.value = action.value:gsub("(Deb%a+Custom%d+%s+)(%S+)", function(head, token)
+                -- `renameClickedSwitch` reads the switch in the same position. A pre-rename body
+                -- already says `DebindCustom` here: `Legacy.lua` repairs its copies before the
+                -- ladder runs.
+                action.value = action.value:gsub("(DebindCustom%d+%s+)(%S+)", function(head, token)
                     if (token ~= "hover") then
                         return nil;
                     end
@@ -745,43 +744,101 @@ local function MigrateLayer(layerTbl, dbver)
 
     end
 
+    --- **The unreleased step.** Everything raised here landed after the last tag, so it is one
+    --- step rather than a rung each, and unrelated jobs share it (`Constants.DB_VERSION`).
+    if (dbver <= 7 and 7 < to) then
+        -- A switch stops being called a state (`reshaping-stored-layers.md` §4, 1-2): the three
+        -- on/off/toggle types, and the frame a converted body clicks. A body left behind clicks a
+        -- frame that no longer exists, and nothing says so. **No alias frame answers to the old
+        -- name** (owner), so a line copied into the game's own macro window stays broken; the
+        -- rename to Debind shipped the same way.
+        --
+        -- **The step holds the old names itself**, for the reason the `dbver <= 5` step does.
+        --
+        -- Running twice is safe: neither old name is left after the first pass.
+        local RENAMED_TYPES = {
+            setstate_on     = Constants.SETSWITCH_ON,
+            setstate_off    = Constants.SETSWITCH_OFF,
+            setstate_toggle = Constants.SETSWITCH_TOGGLE,
+        };
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local renamed = luatype(action.type) == "string" and RENAMED_TYPES[action.type];
+            if (renamed) then
+                action.type = renamed;
+            end
+            if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+                action.value = (action.value:gsub("DebindStates", "DebindSwitch"));
+            end
+        end
+    end
+
 end
 
---- Raises one whole per-spec table (`{[0]=…, [1]=…}`). Class entries and character entries have
---- the same shape, so both go through here.
-local function MigrateSpecTable(specTbl, dbver)
-    if (specTbl == nil) then
-        return;
+--- Every stored list of actions, in whichever containers the data is in at this point of the
+--- ladder: up to 7 in `shared` (`GENERAL` a bare list, `classes[class][spec]`) and on the character
+--- entries (`layers[spec]`); from the `dbver <= 7` step of `MigrateContainers` on in
+--- `layers[owner][class][spec]`. `ForEachStoredAction` in `Profile.lua` knows only the last.
+local function ForEachActionList(db, fn)
+    local function EachSpec(specTbl)
+        if (luatype(specTbl) == "table") then
+            for spec = 0, 5 do
+                if (luatype(specTbl[spec]) == "table") then
+                    fn(specTbl[spec]);
+                end
+            end
+        end
     end
-    for spec = 0, 5 do
-        MigrateLayer(specTbl[spec], dbver);
+
+    local shared = db.shared;
+    if (luatype(shared) == "table") then
+        if (luatype(shared.GENERAL) == "table") then
+            fn(shared.GENERAL);
+        end
+        for _, specTbl in pairs(luatype(shared.classes) == "table" and shared.classes or {}) do
+            EachSpec(specTbl);
+        end
+    end
+    for _, entry in pairs(luatype(db.characters) == "table" and db.characters or {}) do
+        if (luatype(entry) == "table") then
+            EachSpec(entry.layers);
+        end
+    end
+    for _, classes in pairs(luatype(db.layers) == "table" and db.layers or {}) do
+        for _, specTbl in pairs(classes) do
+            EachSpec(specTbl);
+        end
     end
 end
 
 --- Every switch name this profile still names, gathered from all five layers of every character
 --- and every class.
 ---
---- **Conditions and `SETSTATE` targets, and nothing else.** Those two are the places a switch is
+--- **Conditions and on/off/toggle targets, and nothing else.** Those two are the places a switch is
 --- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
 --- `[$burst]` is typed by hand and is deliberately left out (`redesigning-custom-states.md`
 --- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
 --- how the user finds out about the typo at all.
 ---
---- **No `charEntry`, unlike the callers further down.** This runs inside the migration, where the
---- entry for the character logging in has just been made and holds nothing but what the ladder
---- itself writes there.
+--- **The `dbver <= 5` step's helper, so it reads version 6's names**: the types that version's
+--- layer step has just opened the bitpack into.
+local SETSTATE_TYPES_AT_6 = { setstate_on = true, setstate_off = true, setstate_toggle = true };
+
 local function CollectReferencedSwitches(db, found)
-    ForEachStoredAction(db, function(action)
-        local conditions = action.conditions;
-        if (conditions) then
-            for name in pairs(conditions) do
-                if (Constants.IsSwitchName(name)) then
-                    found[name] = true;
+    ForEachActionList(db, function(list)
+        for i = 1, #list do
+            local action = list[i];
+            local conditions = action.conditions;
+            if (luatype(conditions) == "table") then
+                for name in pairs(conditions) do
+                    if (Constants.IsSwitchName(name)) then
+                        found[name] = true;
+                    end
                 end
             end
-        end
-        if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
-            found[action.value] = true;
+            if (SETSTATE_TYPES_AT_6[action.type] and luatype(action.value) == "string") then
+                found[action.value] = true;
+            end
         end
     end);
 end
@@ -792,10 +849,8 @@ end
 --- the character's stored value, so it is on every definition including the ones nobody ever
 --- touched. Everything else on a definition got there because somebody chose it.
 ---
---- **Pressing a switch leaves nothing here**, and that is the one thing this cannot answer on its
---- own. The remembered value sits on the character now, so a switch somebody has used and never
---- configured looks exactly like one nobody made. `CollectStoredSwitchValues` is what the caller
---- asks instead.
+--- **A remembered value is not asked here.** It is evidence of use rather than a setting, and the
+--- caller reads it before dropping it.
 local function SwitchIsUntouched(definition)
     for key, value in pairs(definition) do
         if (key == "mode") then
@@ -807,65 +862,6 @@ local function SwitchIsUntouched(definition)
         end
     end
     return true;
-end
-
---- Every switch name some character remembers a value for.
----
---- **Having a value is evidence the switch was used**, and after the `dbver` 6 move it is the only
---- evidence left for one nobody configured (`SwitchIsUntouched`). Reading it back out of the
---- characters rather than remembering what the move just wrote is what keeps that step safe to run
---- twice: the answer is derived from the shape the step produces, not from the one it consumed.
-local function CollectStoredSwitchValues(db, charEntry, out)
-    for _, entry in pairs(db.characters) do
-        for name in pairs(entry.switches or {}) do
-            out[name] = true;
-        end
-    end
-    if (charEntry) then
-        for name in pairs(charEntry.switches or {}) do
-            out[name] = true;
-        end
-    end
-end
-
---- The remembered value leaves the account table and lands on the characters.
----
---- **`db.characters` is inside the account file and all of it is in memory on every login**, so
---- the design's "each character migrates on its own first login" does not hold here -- the ladder
---- runs once per account. What that one pass can reach is every entry that already exists plus the
---- character logging in, and between them they cover everyone who could notice: an alt with no
---- entry has no character-specific anything, which is the case the entry is lazily withheld for.
----
---- **Copied to all of them rather than to one.** Handing the value only to the character present
---- would silently flip the switch off on every other one at their next login, and which key does
---- what hangs off that. They diverge from here on, which is the point of the move.
----
---- **A value already on a character wins.** Nothing on the ordinary path has one -- `dbver` 5 data
---- has nowhere to keep it -- but `Legacy.lua` runs this at PLAYER_LOGIN on an account that has been
---- writing values since it was installed, and the account share it carries is older than any of
---- them. Whichever value arrives, the one the user set on that character is the newer answer.
-local function MoveSavedValues(db, switches, charEntry)
-    local function Give(entry, name, value)
-        entry.switches = entry.switches or {};
-        if (entry.switches[name] == nil) then
-            entry.switches[name] = value;
-        end
-    end
-
-    for index, definition in pairs(switches) do
-        if (luatype(definition) == "table" and definition.savedValue ~= nil) then
-            local name = Constants.SWITCH_NAMES[index];
-            if (name) then
-                for _, entry in pairs(db.characters) do
-                    Give(entry, name, definition.savedValue);
-                end
-                if (charEntry) then
-                    Give(charEntry, name, definition.savedValue);
-                end
-            end
-            definition.savedValue = nil;
-        end
-    end
 end
 
 --- The switch definitions, which sit at the top of the global table rather than inside a layer.
@@ -881,12 +877,10 @@ end
 --- only there is judged on whether anything was ever set on it. That is enough for a switch the
 --- user actually used: pressing one leaves a remembered value, and both of the other modes write a
 --- field of their own.
----
---- **`charEntry` is this character's entry, and it is handed in because it may not be in
---- `db.characters` yet** -- `InitDB` withholds an entry until there is something in it. Without it
---- the remembered value would reach every alt that has an entry and miss the person logging in.
-local function MigrateSwitches(db, dbver, charEntry)
-    if (dbver <= 5) then
+local function MigrateSwitches(db, dbver, to)
+    to = to or Constants.DB_VERSION;
+
+    if (dbver <= 5 and 5 < to) then
         -- Three stored shapes of a definition move at once: the table's name `customStates`
         -- becomes `switches`, `mode` goes from a number to a string, and `initialValue` becomes
         -- `resetValue`.
@@ -924,36 +918,41 @@ local function MigrateSwitches(db, dbver, charEntry)
                 end
             end
 
-            -- **다섯을 미리 만들어두던 것을 여기서 되돌린다.** 매 로드마다 빈 정의 다섯 개를
-            -- 심던 자리가 `BindDerivedTables`였고, 그래서 이 기능을 한 번도 안 쓴 프로필에도
-            -- 아무도 만든 적 없는 스위치 다섯이 앉아 있다. 만드는 것은 이제 사용자가 이름을
-            -- 적는 것뿐이라(`CreateSwitch`), 그때 심긴 것은 여기서 한 번 걷어낸다.
+            -- **The five a load used to plant are taken back out here.** `BindDerivedTables`
+            -- planted five empty definitions on every load, so a profile that never used the
+            -- feature holds five switches nobody made. Making one is now only the user writing a
+            -- name (`CreateSwitch`), so what was planted goes once, here.
             --
-            -- **한 번이지 매 로드 수리가 아니다.** 참조를 훑어 정의를 되살리거나 지우는 것이
-            -- 로그인마다 돈다면, 사용자가 지운 스위치가 참조 때문에 돌아오거나 아직 아무 데도
-            -- 안 건 새 스위치가 사라진다 (`redesigning-custom-states.md` §9-3).
+            -- **Once, not a repair on every load.** A walk that revived or deleted definitions by
+            -- their references at every login would bring back a switch the user deleted, or take
+            -- away a new one not yet on anything (`redesigning-custom-states.md` §9-3).
             --
-            -- 지우는 것은 **손댄 적도 없고, 참조도 없고, 어느 캐릭터도 값을 기억하지 않는**
-            -- (아래 `dbver <= 6` 단계가 계산식 안의 유닛 이름을 옮긴다)
-            -- 것뿐이다. 셋 중 하나라도 있으면 남는다: 설정을 해뒀는데 아직 아무 액션에도 안 건
-            -- 스위치가 조용히 사라지면 안 되고, 조건이 거는 이름의 정의가 사라지면 그 조건은
-            -- 영영 거짓인 채로 남는다.
+            -- What goes is only a definition **never touched, never referenced, and never
+            -- pressed**. Any one of the three keeps it: a switch set up but not yet on an action
+            -- must not vanish quietly, and a condition naming a vanished definition stays false
+            -- for good.
             --
-            -- **다른 스위치의 계산식은 그 셋에 없고, 없는 것이 맞다.** 계산식은 손으로 치는
-            -- 글자라 오타 하나가 정의를 살려두게 되는데, 그건 `CollectReferencedSwitches`가
-            -- 매크로 본문을 일부러 뺀 이유 그대로다. 그래서 `[$state3]`만 가리키던 손 안 댄
-            -- 정의는 여기서 지워지고, 그것을 부르던 스위치가 `Switches` 탭에서 빨개진다
-            -- (`GetUndefinedSwitchInExpr`). 지우고 말해주는 쪽이지 조용히 살려두는 쪽이 아니다.
+            -- **Another switch's expression is not among the three, rightly.** An expression is
+            -- typed by hand, so one typo would keep a definition alive, which is the reason
+            -- `CollectReferencedSwitches` leaves macro bodies out. A definition only `[$state3]`
+            -- pointed at goes here, and the switch that read it turns red on the Switches tab
+            -- (`GetUndefinedSwitchInExpr`).
             --
-            -- **값을 옮기는 것이 먼저다.** 옮기고 나면 눌러보기만 한 스위치의 정의에는 모드
-            -- 하나만 남아 손 안 댄 것과 모양이 같아진다. 눌러본 증거를 계정이 아니라 캐릭터
-            -- 쪽에서 읽는 것이 그것을 받는 자리이고(`CollectStoredSwitchValues`), 옛 판정을
-            -- 그대로 뒀으면 실제로 쓰던 스위치가 값을 옮긴 바로 그 단계에 지워졌다.
-            MoveSavedValues(db, switches, charEntry);
-
+            -- **The remembered value is dropped** (owner, 2026-09-27). It was one for the whole
+            -- account, and from 6 a character remembers its own; which character this one belonged
+            -- to is not in the data. It is read first as the evidence of a press: without it, a
+            -- switch only ever pressed has nothing left but `mode`, the shape of an untouched one.
             local keep = {};
+            for index, definition in pairs(switches) do
+                if (luatype(definition) == "table" and definition.savedValue ~= nil) then
+                    local name = Constants.SWITCH_NAMES[index];
+                    if (name) then
+                        keep[name] = true;
+                    end
+                    definition.savedValue = nil;
+                end
+            end
             CollectReferencedSwitches(db, keep);
-            CollectStoredSwitchValues(db, charEntry, keep);
 
             for index, definition in pairs(switches) do
                 local name = Constants.SWITCH_NAMES[index];
@@ -998,7 +997,7 @@ local function MigrateSwitches(db, dbver, charEntry)
         end
     end
 
-    if (dbver <= 6) then
+    if (dbver <= 6 and 6 < to) then
         -- The unit rename, on this ladder. A computed switch's expression is macro text and can
         -- name the pointed frame's unit, which `MigrateLayer`'s step at the same number renames
         -- everywhere else -- that step's comment carries the reasoning, and an expression left
@@ -1025,7 +1024,7 @@ local function MigrateSwitches(db, dbver, charEntry)
         end
     end
 
-    if (dbver <= 7) then
+    if (dbver <= 7 and 7 < to) then
         -- The definitions lay out the way `layers` does (`reshaping-stored-layers.md` §1): the
         -- root rows under `account.GENERAL[0]`, a class's override rows under `account[class][spec]`
         -- and a character's under `[guid][class][spec]`, each a table of `name -> row`. The
@@ -1109,13 +1108,10 @@ end
 
 --- The containers around the layers, which neither ladder above can reach: `MigrateLayer` is handed
 --- one array and `MigrateSwitches` one set of definitions.
----
---- **Runs ahead of both**, because both walk the shape it leaves (`ForEachStoredAction` reads
---- `layers`).
-local function MigrateContainers(db)
-    local dbver = db.dbver;
+local function MigrateContainers(db, dbver, to)
+    to = to or Constants.DB_VERSION;
 
-    if (dbver <= 7) then
+    if (dbver <= 7 and 7 < to) then
         -- The layers leave `shared` and the character entries and gather in `layers`, the account's
         -- under `account` and each character's under its GUID, both keyed by class and then spec
         -- (`reshaping-stored-layers.md` §1).
@@ -1178,32 +1174,11 @@ local function MigrateContainers(db)
     end
 end
 
---- **When the version goes up, everything is raised in one pass.** Every entry in `characters` is
---- in memory on every login, so a single login by any character brings all twenty alts forward on
---- the spot. Nothing can fall behind, which is why there is no per-entry version - `dbver` is the
---- only one.
----
---- The paths that join late (pre-rename SavedVariables, someone else's export file) **arrive
---- carrying their own version and are raised to the current one before being attached**
---- (`Legacy.lua`). Once attached, everything is on the same version.
----
---- `uiVars` is `DebindUIVars`, where a step can hand on what only the window reads. Nil for a
---- profile that is not the one being loaded.
-local function MigrateDB(db, charEntry, uiVars)
-    local dbver = db.dbver;
-    if (dbver >= Constants.DB_VERSION) then
-        return;
-    end
+--- The rest of the account table: what no other ladder holds. `uiVars` as in `MigrateDB`.
+local function MigrateAccount(db, dbver, to, uiVars)
+    to = to or Constants.DB_VERSION;
 
-    MigrateContainers(db);
-    for _, classes in pairs(db.layers) do
-        for _, specTbl in pairs(classes) do
-            MigrateSpecTable(specTbl, dbver);
-        end
-    end
-    MigrateSwitches(db, dbver, charEntry);
-
-    if (dbver <= 5) then
+    if (dbver <= 5 and 5 < to) then
         -- `MigrateLayer`'s step above stamps every badge it finds as arrival 1, so the next one
         -- handed out has to be 2. **Here and not there**, because that ladder runs once per layer
         -- and is also what a pasted payload rides -- a payload has no business writing this
@@ -1215,12 +1190,29 @@ local function MigrateDB(db, charEntry, uiVars)
         db.nextSyntheticKey = nil;
     end
 
-    --- The unreleased step; see `MigrateLayer`'s comment on the same one.
-    if (dbver <= 6) then
+    if (dbver <= 6 and 6 < to) then
         MigrateOptions(db);
     end
 
-    if (dbver <= 7) then
+    if (dbver <= 7 and 7 < to) then
+        -- **What a character carries leaves its entry for `states`**, so `characters` holds identity
+        -- and nothing else (`reshaping-stored-layers.md` §1). An empty table is no state: every
+        -- entry used to be handed one on load.
+        local function NonEmpty(tbl)
+            return luatype(tbl) == "table" and next(tbl) ~= nil and tbl or nil;
+        end
+        for owner, entry in pairs(db.characters or {}) do
+            if (luatype(entry) == "table") then
+                local switches, targets = NonEmpty(entry.switches), NonEmpty(entry.CustomTargets);
+                if (switches or targets) then
+                    db.states = db.states or {};
+                    db.states[owner] = { switches = switches, CustomTargets = targets };
+                end
+                entry.switches = nil;
+                entry.CustomTargets = nil;
+            end
+        end
+
         -- What only the window reads leaves for `DebindUIVars`. **Only the closed tips are carried**
         -- (owner): positions, the sort and the picker's filters start over, which costs a drag and
         -- a click, while a tip somebody closed coming back is noticed.
@@ -1250,6 +1242,40 @@ local function MigrateDB(db, charEntry, uiVars)
             -- copy, and moving it now would overwrite what the reader has ticked since.
             options.blizzframes = nil;
         end
+    end
+end
+
+--- **When the version goes up, everything is raised in one pass.** Every entry in `characters` is
+--- in memory on every login, so a single login by any character brings all twenty alts forward on
+--- the spot. Nothing can fall behind, which is why there is no per-entry version - `dbver` is the
+--- only one.
+---
+--- **One version at a time, every ladder at each.** A step raises its own version to the next and
+--- reads that version's shape only (owner, `reshaping-stored-layers.md` §4 1-2). Run ladder by
+--- ladder, an early step of one would meet data another had already carried to the end: the
+--- `dbver <= 5` switch step read actions from containers that only exist at 8. Within a version
+--- the containers go first, then the actions, then the definitions that name them, then the rest.
+---
+--- The paths that join late (pre-rename SavedVariables, someone else's export file) **arrive
+--- carrying their own version and are raised to the current one before being attached**
+--- (`Legacy.lua`). Once attached, everything is on the same version.
+---
+--- `uiVars` is `DebindUIVars`, where a step can hand on what only the window reads. Nil for a
+--- profile that is not the one being loaded.
+local function MigrateDB(db, uiVars)
+    local dbver = db.dbver;
+    if (dbver >= Constants.DB_VERSION) then
+        return;
+    end
+
+    for version = dbver, Constants.DB_VERSION - 1 do
+        local to = version + 1;
+        MigrateContainers(db, version, to);
+        ForEachActionList(db, function(list)
+            MigrateLayer(list, version, to);
+        end);
+        MigrateSwitches(db, version, to);
+        MigrateAccount(db, version, to, uiVars);
     end
 
     db.dbver = Constants.DB_VERSION;

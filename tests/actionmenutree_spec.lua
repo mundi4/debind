@@ -354,7 +354,7 @@ return function(DebindPrivate)
     --- with the sentence stuck to the end of it.
     local function SwitchRowSentence(action)
         local root = Build({ action });
-        local row = TopRow(root, LLL["TYPE_SETSTATE"]);
+        local row = TopRow(root, LLL["TYPE_SETSWITCH"]);
         check(row ~= nil, "the menu over an on/off action has no Switch row");
         for _, line in ipairs(TooltipLines(row)) do
             if (line.kind == "colored") then
@@ -365,15 +365,15 @@ return function(DebindPrivate)
 
     test("the Switch row says which of the two ways it is wrong, in words", function()
         local actions = ResetProfile({
-            { type = Constants.SETSTATE_ON, key = "F" },
-            { type = Constants.SETSTATE_TOGGLE, value = "$nosuchswitch", key = "F" },
+            { type = Constants.SETSWITCH_ON, key = "F" },
+            { type = Constants.SETSWITCH_TOGGLE, value = "$nosuchswitch", key = "F" },
         });
 
         check(SwitchRowSentence(actions[1]) == LLL["BINDING_ERROR_SWITCH_NONE_SELECTED"],
             format("no switch picked drew %q", tostring(SwitchRowSentence(actions[1]))));
 
         check(SwitchRowSentence(actions[2])
-                == format(LLL["BINDING_ERROR_UNDEFINED_STATE"], "$nosuchswitch"),
+                == format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], "$nosuchswitch"),
             format("a switch that is gone drew %q", tostring(SwitchRowSentence(actions[2]))));
     end);
 

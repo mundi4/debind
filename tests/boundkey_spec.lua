@@ -322,7 +322,7 @@ return function(DebindPrivate, _, ctx)
     -- **The key is asked first.** With it unbound, the answer below cannot tell "the state was not
     -- registered" from "the action never went out at all".
     test("an action that only sets a switch still registers it", function()
-        Bind({ spell({ type = Constants.SETSTATE_TOGGLE, value = "$state4", key = "F1" }) },
+        Bind({ spell({ type = Constants.SETSWITCH_TOGGLE, value = "$state4", key = "F1" }) },
             { ["$state4"] = { mode = MODES.MANUAL } });
         DebindPrivate.SetSwitchValue("$state4", true);
         Rebuild();

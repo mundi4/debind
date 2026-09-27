@@ -102,7 +102,7 @@ The pipeline, roughly:
    reorders every existing user's binds; the file says don't.
 3. **`Solver.lua`** — condition sets as boxes in a bitmask space; drops bindings that are fully
    covered by higher-priority ones. The invariant that matters: *one column is exactly one axis*.
-   Folding independent axes (each custom state, each unit, each known spell) into one word breaks
+   Folding independent axes (each switch, each unit, each known spell) into one word breaks
    the set algebra. Read the header comment before touching it.
 4. **`UpdateBindings.lua`** — the insecure side. Builds attributes, `SetBindingAttributes`.
 5. **`SecureBindings.lua`** + **`Snippets.lua`** — the restricted side. Snippet bodies are Lua

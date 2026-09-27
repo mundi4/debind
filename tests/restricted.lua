@@ -264,6 +264,7 @@ local function buildEnv(interp)
     env.tremove = table.remove;
     env.format = string.format;
     env.strsub = string.sub;
+    env.strsplit = _G.strsplit;
     env.strtrim = function(s) return (s:gsub("^%s*(.-)%s*$", "%1")); end;
     env.strfind = string.find;
     env.strmatch = string.match;

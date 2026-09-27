@@ -125,11 +125,11 @@ Constants.SETCUSTOM                       = "setcustom";
 --- meaning nothing at all to the other fourteen types.
 ---
 --- **Underscored.** The other type constants run words together (`"macrotext"`), but those read as
---- one word and `setstateon` does not. `-` is out: the runtime already uses that character to join
---- a name to a mode (`/click DebindStates $state3-on`).
-Constants.SETSTATE_ON                     = "setstate_on";
-Constants.SETSTATE_OFF                    = "setstate_off";
-Constants.SETSTATE_TOGGLE                 = "setstate_toggle";
+--- one word and `setswitchon` does not. `-` is out: the runtime already uses that character to join
+--- a name to a mode (`/click DebindSwitch $state3-on`).
+Constants.SETSWITCH_ON                    = "setswitch_on";
+Constants.SETSWITCH_OFF                   = "setswitch_off";
+Constants.SETSWITCH_TOGGLE                = "setswitch_toggle";
 Constants.UNUSED                          = "unused";
 --- A record that wins the press and does nothing: what closes each tier of a key that holds one, so
 --- no press falls through to the game (`dropping-the-game-fallback.md` §3).
@@ -301,7 +301,7 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     macro = true,
     -- 액션이 스위치를 잘못 가리킨다. 정의가 없는 이름을 부르거나(매크로 본문·조건·켜기 대상),
     -- 켜기/끄기/전환인데 아직 어느 스위치인지 안 골랐거나. 위와 같은 자리다.
-    states = true,
+    switches = true,
     -- 묻는 주문 이름이 조건문 파서를 못 탄다(`making-known-a-spell-name.md`).
     known = true,
     -- Cast Options, where one side of a contradiction can be undone: Normal, Self and Focus turned
@@ -354,7 +354,7 @@ end
 --- numbered rows over.
 ---
 --- **One job is left, and it belongs to migration.** `MigrateSwitches` in `Migration.lua` reads a
---- stored number and needs the name that row becomes, and the `dbver` 5 SETSTATE bitpack carries an
+--- stored number and needs the name that row becomes, and the `dbver` 5 `setstate` bitpack carries an
 --- index that needs the same. Nothing on the live path asks: a profile holding `$state3` holds it
 --- exactly the way it holds `$burst`, and every list, menu and tooltip calls it by the name it is
 --- filed under.
@@ -387,16 +387,15 @@ Constants.SWITCH_MODES = {
 };
 
 --- The three types, to the mode string the restricted side is handed. **Telling the type and
---- reading the mode out of it are one lookup** -- every `if (type == Constants.SETSTATE)` became
---- this table.
+--- reading the mode out of it are one lookup.
 ---
 --- The values are attribute values, not locale keys. Where they go out is the second half of
---- `/click DebindStates $state3-on` (`UpdateBindings.lua`); what goes on screen is keyed off the
+--- `/click DebindSwitch $state3-on` (`UpdateBindings.lua`); what goes on screen is keyed off the
 --- type name instead.
-Constants.SETSTATE_MODES = {
-    [Constants.SETSTATE_ON]     = "on",
-    [Constants.SETSTATE_OFF]    = "off",
-    [Constants.SETSTATE_TOGGLE] = "toggle",
+Constants.SETSWITCH_MODES = {
+    [Constants.SETSWITCH_ON]     = "on",
+    [Constants.SETSWITCH_OFF]    = "off",
+    [Constants.SETSWITCH_TOGGLE] = "toggle",
 };
 
 
@@ -632,7 +631,7 @@ Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED           = "REACTIONS_NONE_SELE
 -- party and raid frames, the role narrows nothing and there is no code at all.
 Constants.BINDING_ISSUE_ROLES_NONE_SELECTED               = "ROLES_NONE_SELECTED";
 Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES        = "ROLES_NONE_ON_GROUP_FRAMES";
-Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
+Constants.BINDING_ISSUE_UNDEFINED_SWITCH                   = "UNDEFINED_SWITCH";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
 -- own menu afterwards (§6-C of `redesigning-custom-states.md`).
@@ -713,7 +712,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES]        = Constants.ISSUE_GRADE_WARNING,
-    [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNDEFINED_SWITCH]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
@@ -758,7 +757,7 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
     -- It still runs over every frame that is not a party or raid frame.
     [Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES]        = Constants.ISSUE_OUTCOME_KEEP,
-    [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_UNDEFINED_SWITCH]                   = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
     -- Left in, the press finds no macro and does nothing where the next action could have run.
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_OUTCOME_OMIT,

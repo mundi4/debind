@@ -50,12 +50,11 @@ local HALVES = { true, false };
 local ANSWERS = {
     { key = Constants.SWITCH_MODES.MANUAL, label = "SWITCH_ANSWER_MANUAL",
                                            desc  = "SWITCH_ANSWER_MANUAL_DESC" },
-    -- The expression's own words. The key kept its `CUSTOM_STATE_` name from when the settings
-    -- menu on the portrait used it for the same choice, and that menu is gone (3c); the string is
-    -- one rule, and a second key for it would be a second thing to translate that can then
-    -- disagree inside one window.
-    { key = Constants.SWITCH_MODES.EXPR,   label = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL",
-                                           desc  = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC" },
+    -- The expression's own words, not a `SWITCH_ANSWER_` key of its own: the string is one rule,
+    -- and a second key for it would be a second thing to translate that can then disagree inside
+    -- one window.
+    { key = Constants.SWITCH_MODES.EXPR,   label = "SWITCH_MODE_MACRO_CONDITIONAL",
+                                           desc  = "SWITCH_MODE_MACRO_CONDITIONAL_DESC" },
     { key = Constants.SWITCH_MODES.IGNORE, label = "SWITCH_ANSWER_IGNORE",
                                            desc  = "SWITCH_ANSWER_IGNORE_DESC" },
 };
@@ -298,7 +297,7 @@ function DebindSwitchRowMixin:Update(inCombat)
         self.Name:SetText(name);
     else
         self.Name:SetText(name .. "  " .. HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(
-            isOn and LLL["CUSTOM_STATE_ON"] or LLL["CUSTOM_STATE_OFF"]));
+            isOn and LLL["SWITCH_ON"] or LLL["SWITCH_OFF"]));
         self.ToggleButton:SetText(isOn and LLL["SWITCH_TURN_OFF"] or LLL["SWITCH_TURN_ON"]);
 
         -- Out of reach until the fight ends, and that is the only reason left for a button that is
@@ -394,7 +393,7 @@ function DebindSwitchRowMixin:OnEnter()
         local undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
         if (undefined) then
             GameTooltip_AddErrorLine(GameTooltip,
-                format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefined));
+                format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefined));
         end
     end
 
@@ -1565,7 +1564,7 @@ function DebindSwitchesPanelMixin:OnExprEnter()
     end
     GameTooltip:SetOwner(box, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, LLL["SWITCH_EXPR_LABEL"]);
-    GameTooltip_AddNormalLine(GameTooltip, LLL["CUSTOM_STATE_EDIT_VALUE_DESC"]);
+    GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_EDIT_VALUE_DESC"]);
     GameTooltip:Show();
 end
 

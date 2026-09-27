@@ -55,7 +55,7 @@ end
 --- switch this way is a reference the same as a condition is. Written once because the readers
 --- below have to be looking for exactly what the writer put down (`Switches.lua` gives the frame
 --- this name).
-local SWITCH_CLICK_TARGET = "DebindStates";
+local SWITCH_CLICK_TARGET = "DebindSwitch";
 
 --- The unit key a live `"@"` has to become, and **the stored table it has to be rewritten in**.
 --- Nil where it stays `"@"`; a unit with no table where there is one this cannot rewrite.
@@ -276,8 +276,8 @@ function DebindPrivate.CanConvertToMacroText(action)
     end
 
     -- An on/off/toggle action that has not been told which switch yet is the same case: the body
-    -- is `/click DebindStates <name>-<mode>`, and there is no name to put in it (§6-C).
-    if (Constants.SETSTATE_MODES[action.type]) then
+    -- is `/click DebindSwitch <name>-<mode>`, and there is no name to put in it (§6-C).
+    if (Constants.SETSWITCH_MODES[action.type]) then
         return type(action.value) == "string";
     end
 
@@ -432,12 +432,12 @@ function DebindPrivate.ConvertToMacroText(action)
         end
         macrotext = "";
         icon = Constants.QUESTION_MARK_ICON;
-    elseif (Constants.SETSTATE_MODES[action.type]) then
+    elseif (Constants.SETSWITCH_MODES[action.type]) then
         -- **The body needs a name and a mode, and the action already holds both** -- the name in
         -- `value`, the mode decided by the type. The locale key assembles off the type for the
         -- same reason, which is half of why the type names are underscored (`Constants.lua`).
         macrotext = format("/click %s %s-%s", SWITCH_CLICK_TARGET, action.value,
-            Constants.SETSTATE_MODES[action.type]);
+            Constants.SETSWITCH_MODES[action.type]);
         name = format(L["TYPE_" .. strupper(action.type)], action.value);
         icon = 254885;
     end
@@ -769,7 +769,7 @@ do
         return "[" .. table.concat(tokens, ",") .. "]";
     end
 
-    --- Every `/click DebindStates <button>` in a body, button by button. `fn` is handed the raw
+    --- Every `/click DebindSwitch <button>` in a body, button by button. `fn` is handed the raw
     --- button token and whatever it answers, if anything, is answered from here.
     ---
     --- **The button is one whitespace-run token**, because `/click` reads it that way: a third
@@ -800,7 +800,7 @@ do
         return name;
     end
 
-    --- The switch each `/click DebindStates …` line in this body works. `fn` is called with each
+    --- The switch each `/click DebindSwitch …` line in this body works. `fn` is called with each
     --- name in the order they appear and the first answer it gives is handed back.
     ---
     --- **This is a fifth place a body names a switch, and we are the ones who put it there.**
@@ -819,7 +819,7 @@ do
         end);
     end
 
-    --- The same body with every `/click DebindStates <from>` pointed at `to`.
+    --- The same body with every `/click DebindSwitch <from>` pointed at `to`.
     ---
     --- The mode is left exactly as it was: it is not part of the name, and a button written with a
     --- trailing `-` or with no mode at all means the same thing after the rename as before it.
@@ -836,7 +836,7 @@ do
         end));
     end
 
-    --- The same macro text with every `[$from]`, `[no$from]` and `/click DebindStates <from>`
+    --- The same macro text with every `[$from]`, `[no$from]` and `/click DebindSwitch <from>`
     --- renamed to `to`.
     ---
     --- **Whole tokens, never substrings.** A plain `gsub` on the name would also rewrite `$burstx`
@@ -846,7 +846,7 @@ do
     ---
     --- **Inside `[...]`, and after the frame name, and nowhere else.** The first boundary is the
     --- one `StripSwitchConditions` keeps and for the same reason: `/say [$burst]` outside a
-    --- condition position is text. The second is a position too - what follows `DebindStates` is
+    --- condition position is text. The second is a position too - what follows `DebindSwitch` is
     --- read as a switch by the handler on the other end, so a name there is as much a reference as
     --- one in a condition.
     ---
@@ -863,7 +863,7 @@ do
             str = (str:gsub("%[([^%[%]]*)%]", renameGroup));
         end
         -- **Asked separately, because the number shorthand carries no `$` to find.**
-        -- `/click DebindStates 1` names `$state1` without those seven characters appearing in the
+        -- `/click DebindSwitch 1` names `$state1` without those seven characters appearing in the
         -- body at all, so the guard above would answer no for a body that has to be rewritten.
         if (strfind(str, SWITCH_CLICK_TARGET, 1, true)) then
             str = renameClickedSwitch(str, from, to);

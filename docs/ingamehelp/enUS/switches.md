@@ -6,7 +6,7 @@ in.
 **The order is make, use, work, and only then what it starts as.** The last two answer a reader who
 already has one running, so they cannot stand in front of the two that get them there.
 
-**The automatic kind is one paragraph at the end** (`CUSTOM_STATE_MODE_MACRO_CONDITIONAL`). It is the
+**The automatic kind is one paragraph at the end** (`SWITCH_MODE_MACRO_CONDITIONAL`). It is the
 one shape of switch a key cannot press, and a reader who never sets it never meets it.
 
 **It opens on what sends a reader there** (2026-09-20, owner): the condition menu holding nothing for
@@ -16,7 +16,7 @@ as a second way to do what the menu already does.
 **In combat is named on the key rather than on the switch**, because that is where the difference is:
 the tab refuses during a fight (`SWITCH_TOGGLE_IN_COMBAT`) and a key does not.
 
-**"Flips" is the word the menu already uses** (`TYPE_SETSTATE_DESC`), so the third choice is named
+**"Flips" is the word the menu already uses** (`TYPE_SETSWITCH_DESC`), so the third choice is named
 here the way the reader meets it there.
 
 **The row's button carries both labels** (`SWITCH_TURN_ON`, `SWITCH_TURN_OFF`), named by what the

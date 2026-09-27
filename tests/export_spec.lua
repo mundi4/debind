@@ -432,15 +432,15 @@ return function(DebindPrivate, DebindStorage)
     -- hung on the copy and `value` was cleared, which put the same action in two shapes and the
     -- migration for it in two copies (`unifying-action-migration.md`). What is asked
     -- now is that nothing is rewritten at all.
-    test("SETSTATE도 저장된 모양 그대로 나간다", function()
+    test("SETSWITCH도 저장된 모양 그대로 나간다", function()
         ResetProfile({
             general = {
-                { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "F" },
+                { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "F" },
             },
         });
 
         local action = OneOn(DebindStorage.BuildExportPayload(), "F");
-        check(action.type == Constants.SETSTATE_TOGGLE, "타입 " .. tostring(action.type));
+        check(action.type == Constants.SETSWITCH_TOGGLE, "타입 " .. tostring(action.type));
         check(action.value == "$state3", "값 " .. tostring(action.value));
         check(action.setstate == nil, "선에만 있는 모양을 아직 만들고 있다");
     end);
@@ -498,13 +498,13 @@ return function(DebindPrivate, DebindStorage)
         check(manifest and manifest["$state3"], "본문 안 이름이 안 걷혔다");
     end);
 
-    test("SETSTATE가 가리킨 상태도 걷힌다", function()
+    test("SETSWITCH가 가리킨 스위치도 걷힌다", function()
         StatefulProfile({
-            { type = Constants.SETSTATE_ON, value = "$state3", key = "F" },
+            { type = Constants.SETSWITCH_ON, value = "$state3", key = "F" },
         });
 
         local manifest = DebindStorage.BuildExportPayload().states;
-        check(manifest and manifest["$state3"], "SETSTATE가 가리킨 상태가 빠졌다");
+        check(manifest and manifest["$state3"], "SETSWITCH가 가리킨 스위치가 빠졌다");
     end);
 
     test("상태의 expr이 부르는 상태까지 따라간다", function()
@@ -550,7 +550,7 @@ return function(DebindPrivate, DebindStorage)
         StatefulProfile({
             { type = Constants.SPELL, value = 774, key = "SHIFT-F", combat = true },
             { type = Constants.MACRO, value = "내매크로", key = "SHIFT-F" },
-            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "G" },
+            { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "G" },
         });
         return DebindStorage.BuildExportPayload();
     end
@@ -699,7 +699,7 @@ return function(DebindPrivate, DebindStorage)
         ResetStore();
         StatefulProfile({
             { type = Constants.SPELL, value = 1, key = "F" },
-            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "G" },
+            { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "G" },
         });
         LayerActions(1)[1].conditions = { ["$state1"] = true };
 
@@ -716,7 +716,7 @@ return function(DebindPrivate, DebindStorage)
 
     test("골라낼 때 정의는 페이로드 것을 쓴다", function()
         ResetStore();
-        StatefulProfile({ { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "G" } });
+        StatefulProfile({ { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "G" } });
 
         local payload = DebindStorage.CreateEntry().payload;
         -- 남이 준 문자열이면 정의가 내 것과 다르다. 여기서 프로필을 다시 물으면 그 순간
@@ -877,7 +877,7 @@ return function(DebindPrivate, DebindStorage)
             check(action.conditions and action.conditions.combat == true,
                 "조건이 안 내려갔다");
             check(action.combat == nil, "최상단에 조건이 남았다");
-            check(action.type == Constants.SETSTATE_TOGGLE,
+            check(action.type == Constants.SETSWITCH_TOGGLE,
                 "타입이 안 갈렸다: " .. tostring(action.type));
             check(action.value == "$state3", "이름 " .. tostring(action.value));
             check(payload.dbver == Constants.DB_VERSION,

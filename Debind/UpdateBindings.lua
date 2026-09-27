@@ -201,16 +201,16 @@ end
 ---
 --- `false` is memoized alongside a real one so an undefined name is resolved once per rebuild
 --- rather than once per reference.
-function addSwitch(stateName)
-    local info = _switches[stateName];
+function addSwitch(switchName)
+    local info = _switches[switchName];
     if (info == nil) then
-        local options = DebindPrivate.ResolveSwitchDefinition(stateName);
+        local options = DebindPrivate.ResolveSwitchDefinition(switchName);
         if (options) then
-            local mode, _, expr = DebindPrivate.ResolveSwitchAnswer(stateName);
+            local mode, _, expr = DebindPrivate.ResolveSwitchAnswer(switchName);
             info = {
-                name = stateName,
+                name = switchName,
                 mode = mode,
-                value = DebindPrivate.GetSwitchValue(stateName),
+                value = DebindPrivate.GetSwitchValue(switchName),
             };
             if (mode == SWITCH_MODES.EXPR) then
                 info.expr = expr or "";
@@ -218,7 +218,7 @@ function addSwitch(stateName)
             end
         end
         info = info or false;
-        _switches[stateName] = info;
+        _switches[switchName] = info;
     end
     return info;
 end
@@ -249,8 +249,8 @@ function addMacrotext(macrotext)
     return ret;
 end
 
-function addMacrotextBinding(buttonOrStateName, macrotext)
-    _macrotextBindings[buttonOrStateName] = addMacrotext(macrotext)
+function addMacrotextBinding(buttonOrSwitchName, macrotext)
+    _macrotextBindings[buttonOrSwitchName] = addMacrotext(macrotext)
 end
 
 -- **`> 0`, because `select("#")` answers `0` and `0` is true in Lua.** The guard never held, so a
@@ -450,26 +450,26 @@ local function BuildSwitchesSnippet()
     wipe(_orderSeen);
     wipe(_order);
 
-    for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
-        local stateInfo = _switches[state];
-        if (stateInfo) then
+    for _, name in ipairs(sortedKeys(_switches, _sortedA)) do
+        local info = _switches[name];
+        if (info) then
             -- previous switch value. **Not for a computed one**: its value belongs to the press
             -- that worked it out (`COMPUTE_SWITCHES_SNIPPET`), so a stored one is what the last
             -- press left behind and pushing it in would stand it up as the switch's value until
             -- the next press. It goes in through `SetSwitch`, which reports it straight back out
             -- to the definition and to what this character remembers.
-            if (stateInfo.mode ~= SWITCH_MODES.EXPR and stateInfo.value ~= nil) then
-                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s)]], state,
-                    tostring(stateInfo.value));
+            if (info.mode ~= SWITCH_MODES.EXPR and info.value ~= nil) then
+                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s)]], name,
+                    tostring(info.value));
             end
 
             -- fixed macro conditional
-            if (stateInfo.mode == SWITCH_MODES.EXPR and not addMacrotext(stateInfo.expr)) then
-                appendLine([[SwitchExpressions[%q]=%q]], state, stateInfo.expr);
+            if (info.mode == SWITCH_MODES.EXPR and not addMacrotext(info.expr)) then
+                appendLine([[SwitchExpressions[%q]=%q]], name, info.expr);
             end
 
-            if (stateInfo.mode == SWITCH_MODES.EXPR) then
-                OrderComputedSwitch(state);
+            if (info.mode == SWITCH_MODES.EXPR) then
+                OrderComputedSwitch(name);
             end
         end
     end
@@ -1085,7 +1085,7 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         attr(out, "*attribute-frame-", DebindPrivate.UnitWatch);
         attr(out, "*attribute-name-", "custom" .. value);
         attr(out, "*attribute-value-", "unitframe");
-    elseif (Constants.SETSTATE_MODES[type]) then
+    elseif (Constants.SETSWITCH_MODES[type]) then
         -- **The type decides the mode, so the name is all that is left to be wrong.** What
         -- this guard turned away while the value was a bitpack was an undecodable mode; the
         -- name inherits the place. Handing `SetAttribute` a nil name raises nothing -- it
@@ -1096,7 +1096,7 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         attr(out, "*type-", "attribute");
         attr(out, "*attribute-frame-", DebindPrivate.SwitchesUpdaterFrame);
         attr(out, "*attribute-name-", value);
-        attr(out, "*attribute-value-", Constants.SETSTATE_MODES[type]);
+        attr(out, "*attribute-value-", Constants.SETSWITCH_MODES[type]);
     elseif (type == Constants.FLYOUT) then
         -- **`*type- = "flyout"`을 안 쓴다.** 블리자드의 그 갈래는 `SpellFlyout:Toggle(self, ...)`
         -- 한 줄이고 그 `self`는 `FlyoutButtonMixin`이어야 한다(`GetPopupDirection`을 부른다).
@@ -1818,7 +1818,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     --
     -- No flag: this key's own wiring does not depend on the switch, so there is nothing to
     -- re-decide when it changes.
-    if (Constants.SETSTATE_MODES[binding.type] and luatype(binding.value) == "string") then
+    if (Constants.SETSWITCH_MODES[binding.type] and luatype(binding.value) == "string") then
         out.setsSwitch = binding.value;
     end
 
@@ -1845,9 +1845,9 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     -- 불가가 됐다. **그렇다고 지우지 말 것** - 스위치의 계산식은 액션이 아니라 이 길로 그대로
     -- 내려오고, 무엇보다 이건 위험한 방향을 막는 마지막 겹이다. 마커 하나가 빠지거나 좁아지는
     -- 날 여기가 없으면 ⚑2가 그대로 돌아온다.
-    for state, value in pairs(conditions) do
-        if (Constants.IsSwitchName(state)) then
-            out.switches[state] = value and true or false;
+    for name, value in pairs(conditions) do
+        if (Constants.IsSwitchName(name)) then
+            out.switches[name] = value and true or false;
         end
     end
 
@@ -1874,8 +1874,8 @@ local function CollectRecordNeeds(record)
         addSwitch(record.setsSwitch);
     end
 
-    for state in pairs(record.switches) do
-        addSwitch(state);
+    for name in pairs(record.switches) do
+        addSwitch(name);
     end
 
     if (record.targetUnit) then
@@ -1948,12 +1948,12 @@ local function EmitRecord(record)
     end
 
     local switchesTblCreated;
-    for _, state in ipairs(sortedKeys(record.switches, _sortedB)) do
+    for _, name in ipairs(sortedKeys(record.switches, _sortedB)) do
         if (not switchesTblCreated) then
             appendLine([[t.switches=newtable()]]);
             switchesTblCreated = true;
         end
-        appendLine([[t.switches[%q]=%s]], state, record.switches[state] and "true" or "false");
+        appendLine([[t.switches[%q]=%s]], name, record.switches[name] and "true" or "false");
     end
 
     -- **유닛 프레임은 매크로를 거치지 않는다.**
@@ -2174,11 +2174,11 @@ end
 --- Undefined is the opposite. `""` turns `[$typo]` into `[]`, which is **always true**, so one
 --- typo makes a binding fire more rather than less. It falls to false instead.
 ---
---- `GetBindingIssue`'s `UNDEFINED_STATE` keeps such an action out of `KeyMap`, **and that is no
+--- `GetBindingIssue`'s `UNDEFINED_SWITCH` keeps such an action out of `KeyMap`, **and that is no
 --- reason to leave this empty.** That side judges by the name the parser saw and this one by the
 --- definition the compile actually found; folding two judges into one is how a quiet accident
 --- happens. (A switch's own `expr` is not an action, so that check never sees it at all.)
-local function EmitMacroTextArg(index, arg, ownerName, isState)
+local function EmitMacroTextArg(index, arg, ownerName, isSwitch)
     appendLine([[t.args[%d]=newtable()]], index);
 
     if (arg.type == Constants.MACROTEXT_ARG_UNIT) then
@@ -2190,7 +2190,7 @@ local function EmitMacroTextArg(index, arg, ownerName, isState)
     -- winner, and the records of one press aim at different units, so there is no one unit to put
     -- there. `@@` reaches the client as the unit `@`, which never exists.
     if (arg.type == Constants.MACROTEXT_ARG_PRESS_UNIT) then
-        if (isState) then
+        if (isSwitch) then
             appendLine([[t.args[%d].fixed="@"]], index);
         else
             appendLine([[t.args[%d].pressUnit=true]], index);
@@ -2211,7 +2211,7 @@ local function EmitMacroTextArg(index, arg, ownerName, isState)
         return;
     end
 
-    local selfReference = isState and arg.name == ownerName;
+    local selfReference = isSwitch and arg.name == ownerName;
     if (selfReference or not addSwitch(arg.name)) then
         local fixed = "known:0";
         if (selfReference and not arg.reverse) then
@@ -2219,7 +2219,7 @@ local function EmitMacroTextArg(index, arg, ownerName, isState)
         end
         appendLine([[t.args[%d].fixed=%q]], index, fixed);
     else
-        appendLine([[t.args[%d].state=%q]], index, arg.name);
+        appendLine([[t.args[%d].switch=%q]], index, arg.name);
         if (arg.reverse) then
             appendLine([[t.args[%d].reverse=true]], index);
         end
@@ -2237,21 +2237,19 @@ end
 local function EmitMacroTextEntries()
     local index = 0;
 
-    for _, buttonOrStateName in ipairs(sortedKeys(_macrotextBindings, _sortedA)) do
-        local data = _macrotextBindings[buttonOrStateName];
+    for _, buttonOrSwitchName in ipairs(sortedKeys(_macrotextBindings, _sortedA)) do
+        local data = _macrotextBindings[buttonOrSwitchName];
         if (data) then
             index = index + 1;
             appendLine("t=newtable()");
             appendLine("t.id=%d", index);
 
-            -- **Where the rebuilt body lands.** A switch's expression is written into
-            -- `SwitchExpressions` under its own name; everything else is a button's
-            -- `*macrotext-` attribute.
-            local isState = strsub(buttonOrStateName, 1, 1) == "$";
-            if (isState) then
-                appendLine("t.state=%q", buttonOrStateName);
-            else
-                appendLine("t.attr=%q", "*macrotext-" .. buttonOrStateName);
+            -- **Where the rebuilt body lands.** A button's goes to its `*macrotext-` attribute. A
+            -- switch's is composed by the press that works it out, which finds the entry by name
+            -- in `SwitchEntries`, so the entry carries no target.
+            local isSwitch = strsub(buttonOrSwitchName, 1, 1) == "$";
+            if (not isSwitch) then
+                appendLine("t.attr=%q", "*macrotext-" .. buttonOrSwitchName);
             end
 
             appendLine("t.fragments,t.args=newtable(),newtable()");
@@ -2259,16 +2257,16 @@ local function EmitMacroTextEntries()
                 appendLine([[t.fragments[%d]=%q]], i, data.fragments[i]);
             end
             for i = 1, #data.args do
-                EmitMacroTextArg(i, data.args[i], buttonOrStateName, isState);
+                EmitMacroTextArg(i, data.args[i], buttonOrSwitchName, isSwitch);
             end
 
-            if (not isState) then
-                appendLine("DeferredMacroTexts[%q]=t", buttonOrStateName);
+            if (not isSwitch) then
+                appendLine("DeferredMacroTexts[%q]=t", buttonOrSwitchName);
             else
                 -- **A computed switch keeps its entry for the press, and the press is the only
                 -- reader.** Nothing works one out between presses, so there is nobody to recompose
                 -- the body for either.
-                appendLine("SwitchEntries[%q]=t", buttonOrStateName);
+                appendLine("SwitchEntries[%q]=t", buttonOrSwitchName);
             end
         end
     end

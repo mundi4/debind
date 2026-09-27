@@ -394,7 +394,7 @@ return function(DebindPrivate)
     -- "이슈가 나면 안 되는" 절반이 나는 쪽만큼 중요하다.
     ---------------------------------------------------------------------------
 
-    local UNDEFINED = Constants.BINDING_ISSUE_UNDEFINED_STATE;
+    local UNDEFINED = Constants.BINDING_ISSUE_UNDEFINED_SWITCH;
 
     local function macroAction(body)
         return { type = Constants.MACROTEXT, value = body, key = "F1" };
@@ -469,7 +469,7 @@ return function(DebindPrivate)
     test("다른 갈래를 물으면 안 나온다", function()
         check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "key") == nil, "단축키 칸이 빨개진다");
         check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "unit") == nil, "대상 메뉴가 빨개진다");
-        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), nil, "states") == nil,
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), nil, "switches") == nil,
             "갈래를 껐는데도 나온다");
     end);
 
@@ -525,7 +525,7 @@ return function(DebindPrivate)
         check(DebindPrivate.GetUndefinedSwitchCondition(body) == nil,
             "본문 오타에 조건 칸이 빨개진다");
 
-        local target = { type = Constants.SETSTATE_ON, value = "$typo", key = "F1" };
+        local target = { type = Constants.SETSWITCH_ON, value = "$typo", key = "F1" };
         check(DebindPrivate.GetUndefinedSwitchCondition(target) == nil,
             "대상 오타에 조건 칸이 빨개진다");
 
@@ -564,26 +564,26 @@ return function(DebindPrivate)
     end
 
     test("정의 없는 이름을 가리키는 스위치 액션은 이슈가 난다", function()
-        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_ON, "$typo")) == UNDEFINED,
+        check(GetBindingIssue(setSwitchAction(Constants.SETSWITCH_ON, "$typo")) == UNDEFINED,
             "켜기가 아무 데도 없는 이름을 가리킨 채 멀쩡한 줄로 그려진다");
-        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_OFF, "$typo")) == UNDEFINED,
+        check(GetBindingIssue(setSwitchAction(Constants.SETSWITCH_OFF, "$typo")) == UNDEFINED,
             "끄기가 아무 데도 없는 이름을 가리킨 채 멀쩡한 줄로 그려진다");
-        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_TOGGLE, "$typo")) == UNDEFINED,
+        check(GetBindingIssue(setSwitchAction(Constants.SETSWITCH_TOGGLE, "$typo")) == UNDEFINED,
             "전환이 아무 데도 없는 이름을 가리킨 채 멀쩡한 줄로 그려진다");
     end);
 
     -- The other half, and it is the expensive one to get wrong: a false positive here takes a
     -- working switch action out of `KeyMap`.
     test("정의된 이름을 가리키는 스위치 액션은 이슈가 아니다", function()
-        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_ON, "$state1")) == nil,
+        check(GetBindingIssue(setSwitchAction(Constants.SETSWITCH_ON, "$state1")) == nil,
             "오탐 - 키가 죽는다");
-        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_TOGGLE, "$burst")) == nil,
+        check(GetBindingIssue(setSwitchAction(Constants.SETSWITCH_TOGGLE, "$burst")) == nil,
             "다섯 밖의 이름을 정의해둔 채로 미정의로 읽었다");
     end);
 
     -- 같은 갈래다. 갈래를 끈 호출에서도 같이 꺼져야 둘이 한 갈래로 산다.
     test("스위치 액션도 states 갈래다", function()
-        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_ON, "$typo"), nil, "states") == nil,
+        check(GetBindingIssue(setSwitchAction(Constants.SETSWITCH_ON, "$typo"), nil, "switches") == nil,
             "갈래를 껐는데도 나온다");
     end);
 
@@ -1411,12 +1411,12 @@ return function(DebindPrivate)
     test("an undefined switch is labelled where it is written", function()
         local cases = {
             { "condition", { type = Constants.SPELL, value = 1, key = "F1", conditions = { ["$typo"] = true } },
-                "CONDITION_CUSTOM_STATES" },
-            { "switch action", { type = Constants.SETSTATE_ON, value = "$typo", key = "F1" }, "TYPE_SETSTATE" },
+                "CONDITION_SWITCHES" },
+            { "switch action", { type = Constants.SETSWITCH_ON, value = "$typo", key = "F1" }, "TYPE_SETSWITCH" },
             { "macro body", { type = Constants.MACROTEXT, value = "/cast [$typo] Foo", key = "F1" },
                 "TYPE_MACROTEXT" },
             { "converted click", { type = Constants.MACROTEXT,
-                value = "/click DebindStates $typo-on", key = "F1" }, "TYPE_MACROTEXT" },
+                value = "/click DebindSwitch $typo-on", key = "F1" }, "TYPE_MACROTEXT" },
         };
         for _, case in ipairs(cases) do
             local label = labelOf(case[2], UNDEFINED);
@@ -1431,13 +1431,13 @@ return function(DebindPrivate)
         for _, issue in ipairs(GetBindingIssues(action)) do
             labels[issue.label] = issue.arg;
         end
-        check(labels.CONDITION_CUSTOM_STATES == "$typo", "the condition: " .. tostring(labels.CONDITION_CUSTOM_STATES));
+        check(labels.CONDITION_SWITCHES == "$typo", "the condition: " .. tostring(labels.CONDITION_SWITCHES));
         check(labels.TYPE_MACROTEXT == "$other", "the body: " .. tostring(labels.TYPE_MACROTEXT));
     end);
 
     test("a switch action with no switch picked is labelled on the switch action", function()
-        check(labelOf({ type = Constants.SETSTATE_ON, key = "F1" }, Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED)
-            == "TYPE_SETSTATE", "wrong label");
+        check(labelOf({ type = Constants.SETSWITCH_ON, key = "F1" }, Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED)
+            == "TYPE_SETSWITCH", "wrong label");
     end);
 
     return T;

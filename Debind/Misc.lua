@@ -454,7 +454,7 @@ function DebindPrivate.OnSpecialUnitChanged(alias, value)
     end
 end
 
-local _changedStates = {};
+local _changedSwitches = {};
 
 --- The line a switch prints when it moves, and **the only place it is written**. A key, a macro
 --- and the button on the Switches tab all turn the same switch, and a second copy of these two
@@ -478,14 +478,14 @@ function DebindPrivate.AnnounceSwitchChange(name, value)
         return;
     end
 
-    local valueText = value and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
-    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], name, valueText));
+    local valueText = value and L["SWITCH_CHANGED_MESSAGE_ON"] or L["SWITCH_CHANGED_MESSAGE_OFF"];
+    DebindPrivate.DisplayMessage(format(L["SWITCH_CHANGED_MESSAGE"], name, valueText));
 end
 
 --- What the restricted side reported back, folded into the stored definitions.
 ---
 --- **It walks what changed, not the five numbers.** A macro can name any switch
---- (`/click DebindStates $burst-on`, `Switches.lua`), so names outside the five have always been
+--- (`/click DebindSwitch $burst-on`, `Switches.lua`), so names outside the five have always been
 --- able to arrive here -- the number loop simply never looked at them.
 ---
 --- **A name nothing defines is left alone rather than defined.** There is no row to write the
@@ -519,25 +519,25 @@ end
 --- than the value to draw.
 
 local function SwitchesChangedCallback()
-    for state, newValue in pairs(_changedStates) do
-        if (DebindPrivate.ResolveSwitchDefinition(state)) then
-            local moved = DebindPrivate.GetSwitchValue(state) ~= newValue;
-            DebindPrivate.SetSwitchValue(state, newValue);
+    for name, newValue in pairs(_changedSwitches) do
+        if (DebindPrivate.ResolveSwitchDefinition(name)) then
+            local moved = DebindPrivate.GetSwitchValue(name) ~= newValue;
+            DebindPrivate.SetSwitchValue(name, newValue);
 
             if (moved) then
-                DebindPrivate.AnnounceSwitchChange(state, newValue);
+                DebindPrivate.AnnounceSwitchChange(name, newValue);
             end
         end
     end
-    wipe(_changedStates);
+    wipe(_changedSwitches);
 end
 
 function DebindPrivate.OnSwitchChanged(name, value)
-    if (not next(_changedStates)) then
+    if (not next(_changedSwitches)) then
         C_Timer.After(0, SwitchesChangedCallback);
     end
 
-    _changedStates[name] = value;
+    _changedSwitches[name] = value;
 end
 
 --- A working copy's TOC still holds the packager's keyword unsubstituted, which is what the `@`

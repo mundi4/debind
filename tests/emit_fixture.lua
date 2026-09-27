@@ -124,9 +124,9 @@ return function(DebindPrivate, shim)
                 value = "/cast [@tank,$burst] Swiftmend\n/cast [no$intent] Rejuvenation" }),
 
             --- The three switch verbs. Each stamps an attribute naming the switch and a mode.
-            action({ type = Constants.SETSTATE_TOGGLE, value = "$burst", key = "F5" }),
-            action({ type = Constants.SETSTATE_ON, value = "$intent", key = "F6" }),
-            action({ type = Constants.SETSTATE_OFF, value = "$echo", key = "F7" }),
+            action({ type = Constants.SETSWITCH_TOGGLE, value = "$burst", key = "F5" }),
+            action({ type = Constants.SETSWITCH_ON, value = "$intent", key = "F6" }),
+            action({ type = Constants.SETSWITCH_OFF, value = "$echo", key = "F7" }),
 
             --- The types that carry no value at all, and a command, which stands on its key as a
             --- block.

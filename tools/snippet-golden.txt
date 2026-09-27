@@ -675,10 +675,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -699,10 +699,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -1298,10 +1298,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -1322,10 +1322,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -1709,10 +1709,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -1752,10 +1752,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -2148,10 +2148,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -2172,10 +2172,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -2559,10 +2559,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -2602,10 +2602,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -2908,10 +2908,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -2932,10 +2932,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -3314,10 +3314,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -3357,10 +3357,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -3569,10 +3569,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -3593,10 +3593,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -3975,10 +3975,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -4018,10 +4018,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -4233,10 +4233,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -4257,10 +4257,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -4639,10 +4639,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -4682,10 +4682,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -4842,10 +4842,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -4866,10 +4866,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = answer
 		end
 	end
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false
@@ -5248,10 +5248,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -5291,10 +5291,10 @@ DelegateFrameNames[frame] = frame:GetName()
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -5339,23 +5339,23 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### Switches.lua #3 SetAttribute
-    local state, type = strsplit("-", button, 2)
+    local switch, type = strsplit("-", button, 2)
     if (not type or type == "") then
         type = "toggle"
     end
 
-    local num = tonumber(state)
+    local num = tonumber(switch)
     if (num) then
-        state = "$state"..num
+        switch = "$state"..num
     end
 
-    if (type and state and strsub(state, 1, 1) == "$") then
+    if (type and switch and strsub(switch, 1, 1) == "$") then
         if (type == "on") then
-            self:SetAttribute(state, true)
+            self:SetAttribute(switch, true)
         elseif (type == "off") then
-            self:SetAttribute(state, false)
+            self:SetAttribute(switch, false)
         elseif (type == "toggle") then
-            self:SetAttribute(state, "toggle")
+            self:SetAttribute(switch, "toggle")
         end
     end
 

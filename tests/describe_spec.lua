@@ -88,7 +88,7 @@ return function(DebindPrivate)
     -- left to be wrong once the type has decided the mode, and handing `SetAttribute` a nil name
     -- raises nothing -- it clears the attribute and the key dies quietly on the restricted side.
     test("a switch action with no switch named is refused", function()
-        local descriptor, reason = describe(Constants.SETSTATE_TOGGLE, 3, nil, {});
+        local descriptor, reason = describe(Constants.SETSWITCH_TOGGLE, 3, nil, {});
         check(descriptor == nil, "it described a switch action with a number for a name");
         check(reason == "switch-not-chosen", "reason: " .. tostring(reason));
     end);
@@ -308,7 +308,7 @@ return function(DebindPrivate)
             { Constants.FOCUS, nil, "target", {} },
             { Constants.TOGGLEMENU, nil, "player", {} },
             { Constants.SETCUSTOM, 1, nil, {} },
-            { Constants.SETSTATE_ON, "$burst", nil, {} },
+            { Constants.SETSWITCH_ON, "$burst", nil, {} },
             { Constants.FLYOUT, 66, nil, { flyoutOpener = "opener" } },
             { Constants.WORLDMARKER, 3, nil, {} },
             { Constants.PETACTION, "PETATTACK", "target", { petMacrotext = "/petattack" } },

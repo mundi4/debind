@@ -1046,10 +1046,10 @@ local function WaitForRoleMap(limit)
     return WaitUntil(function() return lastRoleMap end, limit)
 end
 
---- What the restricted environment holds for a custom state: `{ present = bool, value = bool }`.
+--- What the restricted environment holds for a switch: `{ present = bool, value = bool }`.
 ---
---- **`present` is the half that cannot be got any other way.** `States` carries a custom state only
---- once a rebuild has registered it, and a state that was never registered is indistinguishable
+--- **`present` is the half that cannot be got any other way.** `States` carries a switch only
+--- once a rebuild has registered it, and a switch that was never registered is indistinguishable
 --- from an off one by its value alone -- which is exactly the pair that goes wrong: the window
 --- reads the stored value, the restricted side reads nothing, and a press spends itself matching
 --- them up.
@@ -1061,7 +1061,7 @@ end
 --- Asked of `States` rather than of `DebindPrivate.Switches`, because the stored table is the
 --- source that was *supposed* to reach the restricted side; reading it back would only confirm that
 --- the test wrote what the test wrote.
-local function ReadSecureState(state)
+local function ReadSecureState(name)
     local answer
     DebindPrivate.BindingDriver.DebindTestSecureState = function(_, present, value)
         answer = { present = present, value = value }
@@ -1069,7 +1069,7 @@ local function ReadSecureState(state)
 
     SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
         self:CallMethod("DebindTestSecureState", States[%1$q] ~= nil, States[%1$q] == true)
-    ]], state))
+    ]], name))
 
     return answer
 end
@@ -6040,10 +6040,10 @@ RegisterTest("Escape: a close the window did not ask for is undone", {
 --
 -- What it does not prove: that a real keypress arrives. The test above asks that, with
 -- `GetBindingAction`.
-RegisterTest("Custom state toggle flips the value", {
+RegisterTest("Switch toggle flips the value", {
     description = "The toggle flips States and what the window reads together, twice running",
     run = function()
-        local NAME = "Custom state toggle"
+        local NAME = "Switch toggle"
         local KEY = "ALT-F7"
         local MODES = Constants.SWITCH_MODES
 
@@ -6368,11 +6368,11 @@ RegisterTest("Switch override: the layer key carries this character", {
     end,
 })
 
--- **Holds down why the custom-target action owes no registration.** A custom state's value lives in
+-- **Holds down why the custom-target action owes no registration.** A switch's value lives in
 -- `States`, which a rebuild wipes and refills from the registered ones only -- registration is what
 -- carries the value across. A custom target's value lives in `UnitAliasMap` and UnitWatch's
--- `unitMap`, and nobody wipes either after they are created at load, so unlike the state action the
--- target action has nothing to register.
+-- `unitMap`, and nobody wipes either after they are created at load, so unlike the switch action
+-- the target action has nothing to register.
 --
 -- That rests on three things standing in three places. Any one of them changing loses a chosen
 -- target at the next rebuild, silently:
@@ -9475,7 +9475,7 @@ RegisterTest("@@ in a macro body: the held modifier's unit is written in at the 
 
 --- The states swept, in the order the cross product is taken. Every value here has to be one the
 --- press can be forced to through `PROBE.MockState`, which only an axis measured under its own
---- name allows (so no unit axis, no `known`, no custom state -- see `SetMockState`).
+--- name allows (so no unit axis, no `known`, no switch -- see `SetMockState`).
 local SWEEP_ORDER = { "combat", "stealth", "form", "group" }
 
 --- Both read `Constants`, so both are built by `BuildConstantTables` rather than here.

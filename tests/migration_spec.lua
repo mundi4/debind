@@ -205,14 +205,16 @@ return function(DebindPrivate)
         local mine = charLayers[DebindPrivate.Constants.PLAYER_CLASS];
         check(mine and #mine[0] == 1, "character layer did not arrive");
         check(mine[0][1].key == "F3", "character layer contents differ");
-        local charEntry = DebindPrivate.db.char;
-        check(charEntry.CustomTargets.custom1 == "focus", "CustomTargets did not arrive");
+        check(DebindPrivate.GetSavedCustomTarget("custom1") == "focus", "CustomTargets did not arrive");
 
         DebindPrivate.CleanUpDB();
         check(_G.DebindVars.layers[GUID] == charLayers,
             "there are layers but they were not attached");
-        check(_G.DebindVars.characters[GUID] == charEntry,
+        check(_G.DebindVars.states[GUID] == DebindPrivate.db.charState,
+            "there are custom targets but the state was not attached");
+        check(_G.DebindVars.characters[GUID] == DebindPrivate.db.char,
             "there is content but the entry was not attached");
+        check(DebindPrivate.db.char.CustomTargets == nil, "the entry holds the custom targets too");
     end);
 
     test("the old globals are never modified - the copy must be deep", function()
@@ -225,7 +227,7 @@ return function(DebindPrivate)
         _G.DebindVars.layers.account.GENERAL[0][1].key = "CHANGED";
         _G.DebindVars.layers.account.DRUID[0][1].key = "CHANGED";
         DebindPrivate.db.charLayers[DebindPrivate.Constants.PLAYER_CLASS][0][1].key = "CHANGED";
-        DebindPrivate.db.char.CustomTargets.custom1 = "CHANGED";
+        DebindPrivate.SaveCustomTarget("custom1", "CHANGED");
 
         check(_G.DebounceVars.GENERAL[1].key == "F1", "the old GENERAL changed along with it");
         check(_G.DebounceVars.DRUID[0][1].key == "F2", "the old class layer changed along with it");
@@ -271,19 +273,21 @@ return function(DebindPrivate)
         };
         DebindPrivate.RunLegacyMigration();
 
-        -- **개명 둘이 한 본문에서 만난다.** 프레임 이름은 이 파일이 고치고, 그 뒤에 오는 유닛
-        -- 이름은 `dbver <= 6`이 고친다.
+        -- **Three renames meet in one body.** This file repairs the addon's rename before the
+        -- ladder runs, `dbver <= 6` renames the unit after it, and `dbver <= 7` carries the switch
+        -- frame on to its current name. Repaired after the ladder, `DebindStates` would stay.
         local account = _G.DebindVars.layers.account;
         check(account.GENERAL[0][1].value == "/click DebindCustom1 unitframe",
             "a shared layer kept an old name: " .. tostring(account.GENERAL[0][1].value));
-        check(account.DRUID[0][1].value == "/click DebindStates $state1-on",
-            "a class layer kept the old frame name: " .. tostring(account.DRUID[0][1].value));
+        check(account.DRUID[0][1].value == "/click DebindSwitch $state1-on",
+            "a class layer kept an old frame name: " .. tostring(account.DRUID[0][1].value));
 
         local charBody =
             DebindPrivate.db.charLayers[DebindPrivate.Constants.PLAYER_CLASS][0][1].value;
-        check(not charBody:find("Debounce"), "the character layer kept an old frame name: " .. charBody);
+        check(not charBody:find("Debounce") and not charBody:find("DebindStates"),
+            "the character layer kept an old frame name: " .. charBody);
         check(charBody:find("/cast Rejuvenation", 1, true), "the rewrite ate the rest of the body");
-        check(charBody:find("DebindCustom2", 1, true) and charBody:find("DebindStates", 1, true),
+        check(charBody:find("DebindCustom2", 1, true) and charBody:find("DebindSwitch", 1, true),
             "only one of the two targets was rewritten: " .. charBody);
 
         -- The old file is read-only. Repairing on the way in must not repair in place.
@@ -818,17 +822,6 @@ return function(DebindPrivate)
             value = "/click DebindCustom1 hover" } };
         MigrateLayer(layer, 6);
         check(layer[1].value == "/click DebindCustom1 unitframe",
-            "본문이 " .. tostring(layer[1].value) .. "다");
-    end);
-
-    --- **개명 전 프레임 이름을 단 본문도 같은 단계가 만난다.** `Legacy.lua`는 사다리를 **먼저**
-    --- 돌리고 `DebounceCustom` -> `DebindCustom`을 그 뒤에 고친다(`ImportLayer`). 그래서 이 단계가
-    --- 볼 때 본문은 아직 옛 프레임 이름이고, `dbver`는 이미 찍혀서 사다리가 다시 올 일이 없다.
-    test("dbver 7 renames the unit under the pre-rename frame name too", function()
-        local layer = { { key = "A", type = Constants.MACROTEXT,
-            value = "/click DebounceCustom2 hover" } };
-        MigrateLayer(layer, 6);
-        check(layer[1].value == "/click DebounceCustom2 unitframe",
             "본문이 " .. tostring(layer[1].value) .. "다");
     end);
 
@@ -1602,7 +1595,7 @@ return function(DebindPrivate)
             local layer = { { key = "A", type = "setstate", value = flag + 3, seq = 1 } };
             MigrateLayer(layer, 5);
             local action = layer[1];
-            check(Constants.SETSTATE_MODES[action.type] == mode,
+            check(Constants.SETSWITCH_MODES[action.type] == mode,
                 mode .. " -> " .. tostring(action.type));
             check(action.value == "$state3", "이름 " .. tostring(action.value));
         end
@@ -1634,7 +1627,7 @@ return function(DebindPrivate)
         local layer = { { key = "A", type = "setstate", value = 0x400 + 2 } };
         MigrateLayer(layer, 5);
         MigrateLayer(layer, 5);
-        check(layer[1].type == Constants.SETSTATE_TOGGLE, "타입 " .. tostring(layer[1].type));
+        check(layer[1].type == Constants.SETSWITCH_TOGGLE, "타입 " .. tostring(layer[1].type));
         check(layer[1].value == "$state2", "이름 " .. tostring(layer[1].value));
     end);
 
@@ -2103,7 +2096,8 @@ return function(DebindPrivate)
         local Get = DebindPrivate.GetSwitchValue;
         check(Get("$state1") == true, "로그인 때 켜짐이 안 켜졌다");
         check(Get("$state3") == false, "로그인 때 꺼짐이 안 꺼졌다");
-        check(Get("$state4") == true, "기억한 값으로 안 돌아갔다");
+        -- The account's remembered value is dropped (owner), so "as you left it" starts off.
+        check(Get("$state4") == false, "the dropped account value came back as " .. tostring(Get("$state4")));
     end);
 
     -- **The number was a second identity and it is gone.** A definition is filed under its own
@@ -2120,22 +2114,19 @@ return function(DebindPrivate)
             "저장과 살아 있는 표가 서로 다른 정의를 들고 있다");
     end);
 
-    -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
-    -- 두 번째 바퀴가 문자열 `mode`를 숫자로 못 읽어 수동으로 떨어뜨리면 계산식 스위치가
-    -- 조용히 손으로 켜는 것이 된다.
+    -- A step has to be safe to run again over what it already finished (`MigrateLayer`'s comment).
+    -- A second pass that cannot read the string `mode` as a number and drops it to manual turns a
+    -- computed switch quietly into one worked by hand.
     --
-    -- **값을 옮기는 것이 다시 도는 쪽에서 제일 위험하다.** 두 번째 바퀴에는 옮길 것이 안
-    -- 남아 있는데, 걷어내는 쪽이 그것을 계정에서 읽으면 첫 바퀴가 살려둔 정의를 두 번째
-    -- 바퀴가 지운다.
+    -- **The dropped value is the riskiest part of a second pass.** It is gone after the first, so a
+    -- second pass that judged use by it alone would delete the definition the first one kept.
     test("dbver 6 is safe to run twice", function()
         local db = OldSwitchAccount();
-        local charEntry = { layers = {}, switches = {} };
-        DebindPrivate.MigrateSwitches(db, 5, charEntry);
-        DebindPrivate.MigrateSwitches(db, 5, charEntry);
+        DebindPrivate.MigrateSwitches(db, 5);
+        DebindPrivate.MigrateSwitches(db, 5);
         check(Defs(db)["$state2"].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
         check(Defs(db)["$state1"].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
         check(Defs(db)["$state3"].resetValue == false, "두 번째에 false가 뭉개졌다");
-        check(charEntry.switches["$state4"] == true, "두 번째에 기억한 값이 뭉개졌다");
         check(Defs(db)["$state4"] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
     end);
 
@@ -2154,7 +2145,7 @@ return function(DebindPrivate)
                 },
             },
         };
-        DebindPrivate.MigrateSwitches(db, 6, { layers = {}, switches = {} });
+        DebindPrivate.MigrateSwitches(db, 6);
         check(Defs(db)["$s1"].expr == "[@unitframe,harm]",
             "뿌리 계산식이 " .. tostring(Defs(db)["$s1"].expr) .. "다");
         -- `Player-1` has no entry in `characters`, so its row waits under `"*"` (the `dbver` 8 step).
@@ -2277,7 +2268,7 @@ return function(DebindPrivate)
         check(not names["$state1"], "아무도 안 부른 것까지 남았다 - 전제가 깨졌다");
 
         local action = db.layers.account.GENERAL[0][1];
-        check(action.type == Constants.SETSTATE_TOGGLE, "액션이 안 갈렸다: " .. tostring(action.type));
+        check(action.type == Constants.SETSWITCH_TOGGLE, "액션이 안 갈렸다: " .. tostring(action.type));
         check(action.value == "$state2", "이름 " .. tostring(action.value));
     end);
 
@@ -2321,59 +2312,49 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- dbver 6: 기억한 값이 계정에서 캐릭터로
+    -- dbver 6: the account's remembered value is dropped (owner, 2026-09-27)
     --
-    -- **저장되는 값은 하나뿐이다.** 계산식 스위치는 파생값이라 저장할 것이 없고, 남는 것은
-    -- 수동 + "기억하기"(`resetValue == nil`)의 `savedValue` 하나다. 그것이 계정에 앉아 있는
-    -- 동안 "기억하기"는 **마지막에 로그아웃한 캐릭터가 남긴 값 기억하기**였다
-    -- (`redesigning-custom-states.md` §5).
-    --
-    -- **`db.characters`는 계정 파일 안에 있고 전부 한꺼번에 메모리에 올라온다.** 그래서
-    -- "캐릭터마다 자기 첫 로그인에 알아서 마이그레이션된다"가 여기서는 성립하지 않는다 -
-    -- 사다리는 계정당 한 번 돈다. 그 한 번에 항목이 있는 캐릭터 전부와 지금 들어온 캐릭터가
-    -- 값을 나눠 받는다.
+    -- Up to 5, "as you left it" was one `savedValue` on the account's definition. From 6 a
+    -- character remembers its own, and the account's one goes to nobody: which character it
+    -- belongs to is not in the data.
     ---------------------------------------------------------------------------
 
-    test("dbver 6 hands the remembered value to this character", function()
-        local db = InitWith(OldSwitchAccount());
-        check(type(DebindPrivate.db.char.switches) == "table", "캐릭터 쪽에 표가 없다");
-        check(DebindPrivate.db.char.switches["$state4"] == true,
-            "기억한 값이 캐릭터로 안 왔다");
-        check(Defs(db)["$state4"].savedValue == nil,
-            "정의에 값이 남았다 - 두 자리가 같은 것을 말하면 어느 쪽이 답인지가 없다");
-    end);
-
-    -- 항목이 이미 있는 다른 캐릭터도 같은 값을 받는다. 안 받으면 마이그레이션 다음 로그인에
-    -- 스위치가 저 혼자 꺼지고, 그 스위치가 어느 키에 무엇이 걸리는지를 가른다.
-    test("dbver 6 hands the same value to the alts that have an entry", function()
+    test("dbver 6 drops the account's remembered value", function()
         local ALT = "Player-1234-0000ABCD";
         local account = OldSwitchAccount();
         account.characters[ALT] = {
+            class = "PRIEST",
             layers = { [0] = { { type = "spell", value = 9, key = "F9", seq = 1 } } },
         };
         local db = InitWith(account);
-        check(type(db.characters[ALT].switches) == "table", "다른 캐릭터에 표가 없다");
-        check(db.characters[ALT].switches["$state4"] == true, "다른 캐릭터가 값을 못 받았다");
+        check(Defs(db)["$state4"].savedValue == nil, "the value stayed on the definition");
+        check(DebindPrivate.GetRememberedSwitch("$state4") == nil, "this character got the value");
+        check(db.states[ALT] == nil and db.characters[ALT].switches == nil, "another character got the value");
     end);
 
-    -- 값을 옮기고 나면 그 정의에 남는 것은 `mode` 하나, 곧 **손 안 댄 기본값과 같은 모양**이다.
-    -- 걷어내는 쪽이 눌러본 증거를 계정이 아니라 캐릭터에서 읽지 않으면, 실제로 쓰던 스위치가
-    -- 값을 옮긴 바로 그 단계에 지워진다.
-    test("dbver 6 keeps a definition whose only trace is the value it moved", function()
+    -- With the value gone, all a definition that was only ever pressed has left is `mode`: **the
+    -- same shape as an untouched one.** The value is evidence of use and has to be read before it
+    -- goes, or a switch in use is deleted by the very step that drops the value.
+    test("dbver 6 keeps a definition whose only trace is the value it dropped", function()
         local db = InitWith(OldSwitchAccount());
-        check(Defs(db)["$state4"] ~= nil, "눌러본 적 있는 정의가 값을 옮기면서 같이 사라졌다");
-        check(DebindPrivate.Switches["$state4"] ~= nil, "살아 있는 표에서도 사라졌다");
+        check(Defs(db)["$state4"] ~= nil, "a definition that was pressed went with its value");
+        check(DebindPrivate.Switches["$state4"] ~= nil, "the live table lost it too");
     end);
 
-    -- 개명 전 SavedVariables를 얹는 길은 이 계정이 **이미 값을 쓰고 있는 동안** 열린다
-    -- (`Legacy.lua`의 `ImportAccount`는 PLAYER_LOGIN에 돈다). 실려 오는 계정 값은 그것들보다
-    -- 오래된 것이라, 덮으면 사용자가 방금 이 캐릭터에서 정한 것이 옛 값으로 되돌아간다.
-    test("dbver 6 does not overwrite a value the character already has", function()
-        local db = OldSwitchAccount();
-        local charEntry = { layers = {}, switches = { ["$state4"] = false } };
-        DebindPrivate.MigrateSwitches(db, 5, charEntry);
-        check(charEntry.switches["$state4"] == false,
-            "이 캐릭터가 정해둔 값이 실려 온 계정 값으로 덮였다");
+    --- The pre-rename import rides the same step, so it brings the old account value to nobody,
+    --- and a value a character already has stays as it is.
+    test("the pre-rename import drops the account's remembered value", function()
+        local ALT = "Player-1234-0000ABCD";
+        FreshInit();
+        _G.DebindVars.characters[ALT] = { class = "PRIEST" };
+        _G.DebindVars.states[ALT] = { switches = { ["$state4"] = false } };
+        local old = LegacyAccount();
+        old.customStates = { [4] = { mode = 0, savedValue = true } };
+        _G.DebounceVars = old;
+
+        DebindPrivate.RunLegacyMigration();
+        check(DebindPrivate.GetRememberedSwitch("$state4") == nil, "this character got the value");
+        check(_G.DebindVars.states[ALT].switches["$state4"] == false, "another character's value moved");
     end);
 
     ---------------------------------------------------------------------------
@@ -2383,12 +2364,12 @@ return function(DebindPrivate)
 
     test("a character whose only content is a switch value keeps its entry", function()
         FreshInit();
-        DebindPrivate.db.char.switches = DebindPrivate.db.char.switches or {};
-        DebindPrivate.db.char.switches["$state1"] = true;
+        DebindPrivate.SetRememberedSwitch("$state1", true);
         DebindPrivate.CleanUpDB();
-        local entry = _G.DebindVars.characters[GUID];
-        check(entry ~= nil, "값만 있는 항목이 로그아웃 한 번에 통째로 사라졌다");
-        check(entry.switches["$state1"] == true, "항목은 붙었는데 값이 없다");
+        check(_G.DebindVars.characters[GUID] ~= nil, "값만 있는 캐릭터의 항목이 로그아웃 한 번에 통째로 사라졌다");
+        local state = _G.DebindVars.states[GUID];
+        check(state ~= nil, "값만 있는 상태가 로그아웃 한 번에 통째로 사라졌다");
+        check(state.switches["$state1"] == true, "상태는 붙었는데 값이 없다");
     end);
 
     ---------------------------------------------------------------------------
@@ -2487,18 +2468,107 @@ return function(DebindPrivate)
             "another character's layer did not move under its class");
         check(db.shared == nil, "shared is still there");
         check(db.characters[ALT].layers == nil, "the character entry still holds layers");
-        check(db.characters[ALT].switches["$state1"] == true,
-            "the rest of the character entry went with the layers");
+        check(db.characters[ALT].name == "Alt", "the identity went with the layers");
+    end);
+
+    --- **`characters` keeps identity only.** Backing up an account copies `characters` as it stands
+    --- and carries no state (`reshaping-stored-layers.md` §1-1), so state left on the entry would
+    --- have to be picked out on every export.
+    test("dbver 8 moves what a character carries into states", function()
+        local profile = ProfileAt7();
+        profile.characters[ALT].CustomTargets = { custom1 = "focus" };
+        profile.characters[GUID] = {
+            name = "Me", class = "DRUID",
+            switches = { ["$state2"] = false },
+            CustomTargets = { custom2 = "party1" },
+        };
+        local db = InitWith(profile);
+        check(db.states and db.states[ALT], "the alt's state did not move");
+        check(db.states[ALT].switches["$state1"] == true, "the alt's remembered value did not move");
+        check(db.states[ALT].CustomTargets.custom1 == "focus", "the alt's custom targets did not move");
+        check(db.characters[ALT].switches == nil and db.characters[ALT].CustomTargets == nil,
+            "the alt's entry still holds its state");
+        check(db.characters[ALT].name == "Alt" and db.characters[ALT].class == "PRIEST",
+            "the alt's identity went with its state");
+        check(DebindPrivate.GetRememberedSwitch("$state2") == false,
+            "this character's remembered value is not read from where it moved");
+        check(DebindPrivate.GetSavedCustomTarget("custom2") == "party1",
+            "this character's custom targets are not read from where they moved");
+        check(DebindPrivate.db.char.switches == nil and DebindPrivate.db.char.CustomTargets == nil,
+            "this character's entry still holds its state");
+    end);
+
+    --- An empty table the old load planted is no state, and moving it would give every alt a place
+    --- in `states`.
+    test("dbver 8 leaves an empty state behind", function()
+        local profile = ProfileAt7();
+        profile.characters[ALT].switches = {};
+        local db = InitWith(profile);
+        check(db.states[ALT] == nil, "an empty state moved");
     end);
 
     --- Read off `MigrateDB` itself, since a load makes the lists this character reads again.
     test("dbver 8 drops what is not an action list", function()
         local db = ProfileAt7();
-        DebindPrivate.MigrateDB(db, {});
+        DebindPrivate.MigrateDB(db);
         local general = db.layers.account.GENERAL[0];
         check(general.customStates == nil, "a string key beside the actions came across");
         check(#general == 1, "GENERAL holds " .. #general);
         check(db.layers.account.DRUID[1] == nil, "an empty list came across");
+    end);
+
+    --- **A step reads its own version's data and nothing later.** Raised one version, the bitpack
+    --- opens into version 6's type names and goes no further; the `dbver <= 7` step is what renames
+    --- them.
+    test("a layer raised one version runs that version's step only", function()
+        local layer = { { key = "A", type = "setstate", value = 0x400 + 2, seq = 1 } };
+        DebindPrivate.MigrateLayer(layer, 5, 6);
+        check(layer[1].type == "setstate_toggle", "the type is " .. tostring(layer[1].type));
+    end);
+
+    --- The switch step at 5 meets version 5's containers (`shared`, character entries) and the type
+    --- names its own version's layer step just wrote. Reading later shapes, it found no reference
+    --- and deleted every definition.
+    test("the dbver 5 switch step finds references in version 5's shape", function()
+        local db = {
+            shared = {
+                GENERAL = { { type = "setstate_toggle", value = "$state2", key = "F1", seq = 1 } },
+                classes = { DRUID = { [0] = {
+                    { type = "spell", value = 1, key = "F2", seq = 1, conditions = { ["$state3"] = true } },
+                } } },
+            },
+            characters = {},
+            customStates = { [1] = { mode = 0 }, [2] = { mode = 0 }, [3] = { mode = 0 } },
+        };
+        DebindPrivate.MigrateSwitches(db, 5, 6);
+        check(db.switches["$state2"] ~= nil, "the definition an on/off/toggle action names was deleted");
+        check(db.switches["$state3"] ~= nil, "the definition a condition names was deleted");
+        check(db.switches["$state1"] == nil, "an untouched, unnamed definition stayed");
+    end);
+
+    --- **A switch stops being called a state in what is stored.** The three action types and the
+    --- frame a converted macro clicks both carried the old word; a body left behind clicks a frame
+    --- that no longer exists, and nothing says so.
+    test("dbver 8 renames the switch action types and the frame a body clicks", function()
+        local layer = {
+            { type = "setstate_on", value = "$burst", key = "F1", seq = 1 },
+            { type = "setstate_off", value = "$burst", key = "F2", seq = 1 },
+            { type = "setstate_toggle", value = "$burst", key = "F3", seq = 1 },
+            { type = Constants.MACROTEXT, value = "/cast Foo\n/click DebindStates $burst-on",
+              key = "F4", seq = 1 },
+            { type = Constants.SPELL, value = 5, key = "F5", seq = 1 },
+        };
+        DebindPrivate.MigrateLayer(layer, 7);
+        check(layer[1].type == Constants.SETSWITCH_ON, "on is " .. tostring(layer[1].type));
+        check(layer[2].type == Constants.SETSWITCH_OFF, "off is " .. tostring(layer[2].type));
+        check(layer[3].type == Constants.SETSWITCH_TOGGLE, "toggle is " .. tostring(layer[3].type));
+        check(layer[4].value == "/cast Foo\n/click DebindSwitch $burst-on",
+            "the body is " .. tostring(layer[4].value));
+        check(layer[5].value == 5, "another type's value was touched");
+
+        DebindPrivate.MigrateLayer(layer, 7);
+        check(layer[1].type == Constants.SETSWITCH_ON and layer[4].value
+            == "/cast Foo\n/click DebindSwitch $burst-on", "a second run changed the result");
     end);
 
     --- **A hand-edited file is not ours to read.** The class is written on every login, so an entry
@@ -2570,7 +2640,7 @@ return function(DebindPrivate)
             },
         };
         local db = profile;
-        DebindPrivate.MigrateDB(db, {});
+        DebindPrivate.MigrateDB(db);
         local switches = db.switches;
         local root = switches.account.GENERAL[0]["$burst"];
         check(root and root.mode == MODES.MANUAL and root.resetValue == true, "the root row moved wrong");
@@ -2582,7 +2652,7 @@ return function(DebindPrivate)
         check(switches["Player-9-FFFF"]["*"][3]["$burst"].mode == MODES.IGNORE,
             "the row of a character with no entry did not wait under *");
 
-        DebindPrivate.MigrateSwitches(db, 7, {});
+        DebindPrivate.MigrateSwitches(db, 7);
         check(switches == db.switches and db.switches.account.GENERAL[0]["$burst"] == root,
             "a second run moved the new shape again");
     end);

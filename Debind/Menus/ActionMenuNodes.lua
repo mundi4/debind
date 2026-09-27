@@ -1025,20 +1025,20 @@ local function BuildSwitchConditionMenu(kit, ctx)
     -- **어느 것인지**다.
     local function UndefinedSwitchError(name)
         if (not DebindPrivate.ResolveSwitchDefinition(name)) then
-            return Constants.BINDING_ISSUE_UNDEFINED_STATE, name;
+            return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, name;
         end
     end
 
-    for _, stateName in ipairs(switchNames) do
+    for _, switchName in ipairs(switchNames) do
         -- isActive는 안 준다. 키로 조건 표를 읽는 기본 판정이 맞다.
         ActionMenus:BuildNode(description, {
-            label = stateName,
-            key = stateName,
+            label = switchName,
+            key = switchName,
             issue = function()
-                return UndefinedSwitchError(stateName);
+                return UndefinedSwitchError(switchName);
             end,
-            build = function(stateKit)
-                stateKit:DisableYesNo("CONDITION_CUSTOM_STATE", stateName);
+            build = function(switchKit)
+                switchKit:DisableYesNo("CONDITION_SWITCH", switchName);
             end,
         }, ctx);
     end
@@ -1067,14 +1067,13 @@ local function BuildSwitchConditionMenu(kit, ctx)
 end
 
 ActionMenus:Define("SWITCHES", {
-    label = "CONDITION_CUSTOM_STATES",
+    label = "CONDITION_SWITCHES",
 
-    -- 설명은 **명시적으로** 찍어 넘긴다. 안 넘기면 `CONDITION_CUSTOM_STATES_DESC`를
-    -- 찾아가는데, 그건 `CUSTOM_STATES_DESC`와 글자 하나 다르지 않은 문단이었다. 같은
-    -- 말을 로케일마다 두 번 번역하게 만드는 자리라 키를 없애고 이쪽으로 붙였다.
-    -- 저쪽 키는 초상화의 스위치 단추 툴팁이었고, 3c가 그 단추를 걷은 뒤로는
-    -- `Switches` 탭 자신의 툴팁이다(`DebindUI.lua`의 `PANELS`).
-    instruction = LLL["CUSTOM_STATES_DESC"],
+    -- **Handed in explicitly.** Left out, the node looks up `CONDITION_SWITCHES_DESC`, and there
+    -- is no such key on purpose: it would say word for word what `SWITCHES_DESC` says as the
+    -- Switches tab's own tooltip (`PANELS` in `DebindUI.lua`), and every locale would translate it
+    -- twice.
+    instruction = LLL["SWITCHES_DESC"],
 
     -- **조건 표에 스위치 이름이 하나라도 있느냐.** 다섯 번호를 돌던 자리인데, 이 갈래가
     -- 켜져 보이느냐는 액션에 실제로 걸린 것을 따라가야 한다 - 다섯 밖의 이름이 걸린
@@ -1110,7 +1109,7 @@ ActionMenus:Define("SWITCHES", {
         for _, action in ipairs(ctx.actions) do
             local name = DebindPrivate.GetUndefinedSwitchCondition(action);
             if (name) then
-                return Constants.BINDING_ISSUE_UNDEFINED_STATE, name;
+                return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, name;
             end
         end
     end,

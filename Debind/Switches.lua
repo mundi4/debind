@@ -5,10 +5,11 @@
 -- runner does not load it (`tests/run.lua`) and two of that function's callers are specs.
 local _, DebindPrivate             = ...;
 
--- **The global name stays `DebindStates`.** A user types it in a macro body
--- (`/click DebindStates $state1-on`, `MacroText.lua`) and `Legacy.lua` rewrites pre-rename bodies to
--- it, so it is a name that is already out there rather than one this file is free to pick.
-local SwitchesUpdaterFrame         = CreateFrame("Button", "DebindStates", nil, "SecureFrameTemplate,SecureHandlerClickTemplate,SecureHandlerAttributeTemplate");
+-- **The global name is out there in stored macro bodies.** A user types it (`/click DebindSwitch
+-- $state1-on`) and [Convert to macro text] writes it (`MacroText.lua`), so a new name means the
+-- ladder rewriting every stored body, as `Migration.lua`'s `dbver <= 7` step did from
+-- `DebindStates`. A line copied into the game's own macro window is out of the ladder's reach.
+local SwitchesUpdaterFrame         = CreateFrame("Button", "DebindSwitch", nil, "SecureFrameTemplate,SecureHandlerClickTemplate,SecureHandlerAttributeTemplate");
 DebindPrivate.SwitchesUpdaterFrame = SwitchesUpdaterFrame;
 
 SecureHandlerSetFrameRef(SwitchesUpdaterFrame, "debind_driver", DebindPrivate.BindingDriver);
@@ -39,7 +40,7 @@ SwitchesUpdaterFrame:SetAttribute("_onattributechanged", [==[
 ]==]);
 
 
--- **A number is a shorthand for a name.** A user can type `/click DebindStates 3` in a macro
+-- **A number is a shorthand for a name.** A user can type `/click DebindSwitch 3` in a macro
 -- body, so a numeric button becomes `$state3` here. This is the only door it comes through.
 -- Everything that sets an attribute on this frame either passes the `$` guard below or is a
 -- stored switch name (`*attribute-name-` in `UpdateBindings.lua`), so `_onattributechanged`
@@ -52,23 +53,23 @@ SwitchesUpdaterFrame:SetAttribute("_onattributechanged", [==[
 
 -- TODO validate the switch name.
 SwitchesUpdaterFrame:SetAttribute("_onclick", [==[
-    local state, type = strsplit("-", button, 2)
+    local switch, type = strsplit("-", button, 2)
     if (not type or type == "") then
         type = "toggle"
     end
 
-    local num = tonumber(state)
+    local num = tonumber(switch)
     if (num) then
-        state = "$state"..num
+        switch = "$state"..num
     end
 
-    if (type and state and strsub(state, 1, 1) == "$") then
+    if (type and switch and strsub(switch, 1, 1) == "$") then
         if (type == "on") then
-            self:SetAttribute(state, true)
+            self:SetAttribute(switch, true)
         elseif (type == "off") then
-            self:SetAttribute(state, false)
+            self:SetAttribute(switch, false)
         elseif (type == "toggle") then
-            self:SetAttribute(state, "toggle")
+            self:SetAttribute(switch, "toggle")
         end
     end
 ]==]);

@@ -43,7 +43,10 @@ const migration = read("Debind/Migration.lua");
 const ladders = new Map();
 const steps = [];
 {
-    const token = /^[ \t]*(?:local[ \t]+)?function[ \t]+([\w.:]+)|if[ \t]*\([ \t]*dbver[ \t]*<=[ \t]*(\d+)[ \t]*\)[ \t]*then/gm;
+    // A step reads `if (dbver <= N and N < to) then`: `to` is where `MigrateDB` stops the ladder for
+    // this version. The two numbers have to be the same one, which the backreference asks. A header
+    // that does not match is counted below and reported, rather than dropping out of the count.
+    const token = /^[ \t]*(?:local[ \t]+)?function[ \t]+([\w.:]+)|if[ \t]*\([ \t]*dbver[ \t]*<=[ \t]*(\d+)[ \t]+and[ \t]+\2[ \t]*<[ \t]*to[ \t]*\)[ \t]*then/gm;
     let where = "(파일 머리)";
     let m;
     while ((m = token.exec(migration)) !== null) {
@@ -65,6 +68,14 @@ if (steps.length === 0) {
 }
 
 const problems = [];
+
+const headers = (migration.match(/if[ \t]*\([ \t]*dbver[ \t]*<=/g) || []).length;
+if (headers !== steps.length) {
+    problems.push(
+        `\`if (dbver <=\`로 여는 줄이 ${headers}개인데 단계로 읽힌 것은 ${steps.length}개다.` +
+        ` 단계는 \`if (dbver <= N and N < to) then\` 꼴이어야 하고 두 N이 같아야 한다.`
+    );
+}
 
 const highest = Math.max(...steps);
 if (highest + 1 !== dbVersion) {

@@ -289,17 +289,17 @@ return function(DebindPrivate)
     --
     -- **The passing half first.** Without it a missing key reads as "switch actions do not bind at
     -- all" rather than as the marker doing its job.
-    test("a setstate action naming an undefined switch reaches no key", function()
+    test("a switch action naming an undefined switch reaches no key", function()
         Bind({
-            { type = Constants.SETSTATE_TOGGLE, value = "$defined", key = "F1", seq = 1 },
-            { type = Constants.SETSTATE_TOGGLE, value = "$nodefinition", key = "F2", seq = 2 },
+            { type = Constants.SETSWITCH_TOGGLE, value = "$defined", key = "F1", seq = 1 },
+            { type = Constants.SETSWITCH_TOGGLE, value = "$nodefinition", key = "F2", seq = 2 },
         }, { ["$defined"] = { mode = Constants.SWITCH_MODES.MANUAL } });
 
         check(Records("F1"), "an action naming a defined switch was kept out too -- bad premise");
         check(Records("F2") == nil, "an action naming nothing that exists bound anyway");
 
-        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_TOGGLE,
-            value = "$nodefinition", key = "F2" }) == Constants.BINDING_ISSUE_UNDEFINED_STATE,
+        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSWITCH_TOGGLE,
+            value = "$nodefinition", key = "F2" }) == Constants.BINDING_ISSUE_UNDEFINED_SWITCH,
             "the row is drawn as though nothing were wrong with it");
     end);
 

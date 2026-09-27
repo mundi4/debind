@@ -121,23 +121,23 @@ local function EditMacroTextMenuItem(parentDescription, ctx)
     end);
 end
 
---- The three verbs, top to bottom. `Constants.SETSTATE_MODES` is a lookup and would order this
+--- The three verbs, top to bottom. `Constants.SETSWITCH_MODES` is a lookup and would order this
 --- differently on every client; a menu whose rows move is one the hand cannot learn.
-local SETSTATE_VERBS = {
-    { type = Constants.SETSTATE_ON,     label = "SWITCH_ACTION_ON" },
-    { type = Constants.SETSTATE_OFF,    label = "SWITCH_ACTION_OFF" },
-    { type = Constants.SETSTATE_TOGGLE, label = "SWITCH_ACTION_TOGGLE" },
+local SETSWITCH_VERBS = {
+    { type = Constants.SETSWITCH_ON,     label = "SWITCH_ACTION_ON" },
+    { type = Constants.SETSWITCH_OFF,    label = "SWITCH_ACTION_OFF" },
+    { type = Constants.SETSWITCH_TOGGLE, label = "SWITCH_ACTION_TOGGLE" },
 };
 
-local function IsSetStateAction(action)
-    return Constants.SETSTATE_MODES[action.type] ~= nil;
+local function IsSetSwitchAction(action)
+    return Constants.SETSWITCH_MODES[action.type] ~= nil;
 end
 
 --- The stored name goes with every target or verb change. `NameAndIconForAction` builds the row's
 --- text from the type and the target every time it draws, so that follows on its own. But an action
 --- that came in from a shared string can be carrying `action.name`, and that one would go on saying
 --- `Toggle $burst` after the target moved (`ACTION_FIELDS`, §6-C).
-local function WriteSetState(actions, field, value)
+local function WriteSetSwitch(actions, field, value)
     for _, action in ipairs(actions) do
         action[field] = value;
         action.name = nil;
@@ -157,17 +157,17 @@ end
 --- says it does, and a reader who has the verb in one menu and the target in another has to
 --- hold half of it in their head while they open the other.
 local function CreateSetSwitchMenuItem(parentDescription, ctx)
-    local acceptance = HowManyAccept(ctx, IsSetStateAction);
+    local acceptance = HowManyAccept(ctx, IsSetSwitchAction);
     if (acceptance == "none") then
         return;
     end
 
     -- The box goes red for both of this action's two ways of being wrong, and the sentence has
-    -- to say which. Passed in rather than left to the `states` category, which would find the
-    -- right issue code and then print `BINDING_ERROR_UNDEFINED_STATE` with its `%s` unfilled.
+    -- to say which. Passed in rather than left to the `switches` category, which would find the
+    -- right issue code and then print `BINDING_ERROR_UNDEFINED_SWITCH` with its `%s` unfilled.
     local description = ActionMenus:BuildNode(parentDescription, {
-        label = "TYPE_SETSTATE",
-        instruction = LLL["TYPE_SETSTATE_DESC"],
+        label = "TYPE_SETSWITCH",
+        instruction = LLL["TYPE_SETSWITCH_DESC"],
         blocked = function()
             return SomeCannotReason(acceptance);
         end,
@@ -187,7 +187,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
                     return Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
                 end
                 if (not DebindPrivate.ResolveSwitchDefinition(value)) then
-                    return Constants.BINDING_ISSUE_UNDEFINED_STATE, value;
+                    return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, value;
                 end
             end
         end,
@@ -216,17 +216,17 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     end
     sort(switchNames);
 
-    for _, stateName in ipairs(switchNames) do
-        local stateDescription = CreateRadio(description, ctx,stateName, function()
+    for _, switchName in ipairs(switchNames) do
+        local switchDescription = CreateRadio(description, ctx,switchName, function()
             return AllActions(ctx, function(action)
-                return action.value == stateName;
+                return action.value == switchName;
             end);
         end, function()
-            return WriteSetState(ctx.actions, "value", stateName);
+            return WriteSetSwitch(ctx.actions, "value", switchName);
         end);
-        if (not DebindPrivate.ResolveSwitchDefinition(stateName)) then
-            SetErrorTooltip(stateDescription,
-                format(LLL["BINDING_ERROR_UNDEFINED_STATE"], stateName));
+        if (not DebindPrivate.ResolveSwitchDefinition(switchName)) then
+            SetErrorTooltip(switchDescription,
+                format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], switchName));
         end
     end
 
@@ -236,7 +236,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
         local actions = ctx.actions;
         local newDescription = description:CreateButton(LLL["SWITCH_CREATE"], function()
             DebindUI.ShowNewSwitchBox(function(name)
-                WriteSetState(actions, "value", name);
+                WriteSetSwitch(actions, "value", name);
             end);
         end);
         SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
@@ -245,13 +245,13 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     description:CreateDivider();
     MenuKit.CreateTitle(description, LLL["SWITCH_ACTION_TITLE"]);
 
-    for _, verb in ipairs(SETSTATE_VERBS) do
+    for _, verb in ipairs(SETSWITCH_VERBS) do
         CreateRadio(description, ctx,LLL[verb.label], function()
             return AllActions(ctx, function(action)
                 return action.type == verb.type;
             end);
         end, function()
-            return WriteSetState(ctx.actions, "type", verb.type);
+            return WriteSetSwitch(ctx.actions, "type", verb.type);
         end);
     end
 

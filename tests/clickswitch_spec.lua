@@ -50,7 +50,7 @@ return function(DebindPrivate, _, ctx)
                 } } },
                 [GUID] = { [Constants.PLAYER_CLASS] = {} },
             },
-            characters = { [GUID] = { switches = {} } },
+            characters = { [GUID] = { class = Constants.PLAYER_CLASS } },
             migrated = {},
             switches = { account = { GENERAL = { [0] = switches or {} } } },
         };
@@ -117,7 +117,7 @@ return function(DebindPrivate, _, ctx)
         frames.drainTimers();
         check(DebindPrivate.Switches["$s1"].value ~= true,
             "the press wrote what it worked out into the definition");
-        check(DebindPrivate.db.char.switches["$s1"] == nil,
+        check(DebindPrivate.db.charState.switches["$s1"] == nil,
             "the press wrote what it worked out into this character's memory");
         interp:resetState();
     end);
@@ -219,7 +219,7 @@ return function(DebindPrivate, _, ctx)
         local i = Bind({ ["$s1"] = { mode = MODES.MANUAL } });
 
         DebindPrivate.SetSwitchValue("$s1", true);
-        check(DebindPrivate.db.char.switches["$s1"] == true, "setup: nothing was remembered");
+        check(DebindPrivate.db.charState.switches["$s1"] == true, "setup: nothing was remembered");
 
         -- **Giving it a starting value is what moves the answer**, and a moved answer is the only
         -- thing that makes the next rebuild re-apply one (`ApplySwitchResets` compares
@@ -231,8 +231,60 @@ return function(DebindPrivate, _, ctx)
         check(i.env.States["$s1"] == false, "the reset did not reach the restricted side");
         frames.drainTimers();
 
-        check(DebindPrivate.db.char.switches["$s1"] == true,
+        check(DebindPrivate.db.charState.switches["$s1"] == true,
             "the reset's echo was taken for a person and ate the memory");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- A click on the switch frame
+    ---------------------------------------------------------------------------
+
+    --- **What `/click DebindSwitch $s1-on` runs**: the frame's own `_onclick` with the button the line
+    --- carries, then the attribute write it makes, into `SetSwitch`. The game cannot be asked this
+    --- from the kit: a `Click()` from addon code is tainted, and `CallRestrictedClosure` refuses to
+    --- run a body for it, while a macro's `/click` is secure.
+    ---
+    --- The frame is not among the ones the interpreter replays, so its own setup (the reference to
+    --- the driver) is replayed here.
+    local function ClickSwitchFrame(i, button)
+        local frame = DebindPrivate.SwitchesUpdaterFrame;
+        if (not i.replayFrames[frame]) then
+            i.replayFrames[frame] = true;
+            local own = {};
+            for _, entry in ipairs(frames.all()) do
+                if (entry.frame == frame) then
+                    own[#own + 1] = entry;
+                end
+            end
+            i:replay(own);
+        end
+        i:run(frame:GetAttribute("_onclick"), restricted.handleFor(i, frame), "self,button,down",
+            i:envFor(frame), button, false);
+    end
+
+    test("a click on the switch frame sets the switch its button names", function()
+        local i = Bind({ ["$s1"] = { mode = MODES.MANUAL, resetValue = false } });
+        check(i.env.States["$s1"] == false, "setup: the switch is not registered off");
+
+        ClickSwitchFrame(i, "$s1-on");
+        check(i.env.States["$s1"] == true, "-on left it " .. tostring(i.env.States["$s1"]));
+
+        ClickSwitchFrame(i, "$s1-off");
+        check(i.env.States["$s1"] == false, "-off left it " .. tostring(i.env.States["$s1"]));
+
+        ClickSwitchFrame(i, "$s1");
+        check(i.env.States["$s1"] == true, "no mode did not toggle: " .. tostring(i.env.States["$s1"]));
+    end);
+
+    -- **A number is shorthand for `$state<n>`** (`_onclick`), the one door a bare number comes
+    -- through.
+    test("a click on the switch frame reads a number as $state<n>", function()
+        local i = Bind({ ["$state1"] = { mode = MODES.MANUAL, resetValue = false } }, "F1", {
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { ["$state1"] = true } },
+        });
+        ClickSwitchFrame(i, "1-on");
+        check(i.env.States["$state1"] == true, "1-on left $state1 " .. tostring(i.env.States["$state1"]));
     end);
 
     return T;

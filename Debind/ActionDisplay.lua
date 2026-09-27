@@ -131,10 +131,10 @@ local BINDING_TYPE_NAMES   = {
 	-- **Three types, one answer.** What sits in this table is what kind of action it is, and
 	-- turning one on, off, or over are all setting a switch. It is also what puts the catalog's
 	-- fifteen rows under one heading (`ActionCatalog.lua`). It is not printed beside the row: the
-	-- SETSTATE branch below raises `skipTypeName`.
-	[Constants.SETSTATE_ON] = LLL["TYPE_SETSTATE"],
-	[Constants.SETSTATE_OFF] = LLL["TYPE_SETSTATE"],
-	[Constants.SETSTATE_TOGGLE] = LLL["TYPE_SETSTATE"],
+	-- `SETSWITCH_MODES` branch below raises `skipTypeName`.
+	[Constants.SETSWITCH_ON] = LLL["TYPE_SETSWITCH"],
+	[Constants.SETSWITCH_OFF] = LLL["TYPE_SETSWITCH"],
+	[Constants.SETSWITCH_TOGGLE] = LLL["TYPE_SETSWITCH"],
 	[Constants.UNUSED] = LLL["TYPE_UNUSED"],
 	[Constants.BLOCK] = LLL["TYPE_BLOCK"],
 };
@@ -360,8 +360,8 @@ local function NameAndIconForAction(action)
 		actionName = LLL["TYPE_SETCUSTOM" .. value];
 		actionIcon = 1505950;
 		skipTypeName = true;
-	elseif (Constants.SETSTATE_MODES[type]) then
-		-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`), and what goes into
+	elseif (Constants.SETSWITCH_MODES[type]) then
+		-- The locale key assembles straight off the type (`TYPE_SETSWITCH_ON`), and what goes into
 		-- it is the switch's name, `$` and all. Those are the glyphs the Switches tab draws and the
 		-- ones a macro body has to say (§6-B).
 		--
@@ -371,7 +371,7 @@ local function NameAndIconForAction(action)
 		-- a name says what the action is, and telling the reader to go pick one is the job of the
 		-- red the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.
 		actionName = format(LLL["TYPE_" .. strupper(type)],
-			luatype(value) == "string" and value or LLL["TYPE_SETSTATE_ANY"]);
+			luatype(value) == "string" and value or LLL["TYPE_SETSWITCH_ANY"]);
 		actionIcon = 254885;
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then

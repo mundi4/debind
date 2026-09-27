@@ -274,10 +274,10 @@ local COMPOSE_MACROTEXT_SNIPPET = [==[
 			value = value or "raid41"
 		elseif (arg.pressUnit) then
 			value = pressUnit or "target"
-		elseif (arg.state) then
-			value = clickSwitches and clickSwitches[arg.state]
+		elseif (arg.switch) then
+			value = clickSwitches and clickSwitches[arg.switch]
 			if (value == nil) then
-				value = States[arg.state]
+				value = States[arg.switch]
 			end
 			value = value and true or false
 			if (arg.reverse) then
@@ -1087,10 +1087,10 @@ local EVAL_SNIPPET = [==[
 			-- below.
 			if (match and t.switches) then
 ]==] .. COMPUTE_SWITCHES_SNIPPET .. [==[
-				for state, v in pairs(t.switches) do
-					local value = ClickSwitches[state]
+				for switch, v in pairs(t.switches) do
+					local value = ClickSwitches[switch]
 					if (value == nil) then
-						value = States[state]
+						value = States[switch]
 					end
 					if (value ~= v) then
 						match = false

@@ -1166,9 +1166,9 @@ local function BuildSpecialActions(entries)
 	-- halves and take two keys to get anywhere, so a reader who presses the row they just made and
 	-- sees something happen got the useful default.
 	AddEntry(entries, seen, {
-		type = Constants.SETSTATE_TOGGLE,
-		group = typeNames[Constants.SETSTATE_TOGGLE],
-		tooltipText = LLL["TYPE_SETSTATE_DESC"],
+		type = Constants.SETSWITCH_TOGGLE,
+		group = typeNames[Constants.SETSWITCH_TOGGLE],
+		tooltipText = LLL["TYPE_SETSWITCH_DESC"],
 		helpPage = "switches",
 	});
 

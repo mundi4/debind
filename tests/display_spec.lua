@@ -580,7 +580,7 @@ return function(DebindPrivate)
 
             local rows, sample = 0, nil;
             for _, entry in ipairs(DebindPrivate.ActionCatalog.GetEntries(special)) do
-                if (Constants.SETSTATE_MODES[entry.type]) then
+                if (Constants.SETSWITCH_MODES[entry.type]) then
                     rows = rows + 1;
                     sample = entry;
                 end

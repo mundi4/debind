@@ -111,7 +111,7 @@ L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "A mouse button with META held can
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
 -- box it belongs to. Neither of these two has a box, so without the name there is nothing on
 -- screen saying what to fix.
-L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no Switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
+L["BINDING_ERROR_UNDEFINED_SWITCH"] = "There is no Switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
@@ -187,9 +187,9 @@ L["CONDITION_BONUSBAR"] = "Stance Bar"
 L["CONDITION_COMBAT_NO"] = "While not in combat"
 L["CONDITION_COMBAT_YES"] = "While in combat"
 L["CONDITION_COMBAT"] = "Combat"
-L["CONDITION_CUSTOM_STATES"] = "Switches"
-L["CONDITION_CUSTOM_STATE_NO"] = "When the Switch is off"
-L["CONDITION_CUSTOM_STATE_YES"] = "When the Switch is on"
+L["CONDITION_SWITCHES"] = "Switches"
+L["CONDITION_SWITCH_NO"] = "When the Switch is off"
+L["CONDITION_SWITCH_YES"] = "When the Switch is on"
 L["CONDITION_EXTRABAR_NO"] = "When the Extra Action Button is not present"
 L["CONDITION_EXTRABAR_YES"] = "When the Extra Action Button is present"
 L["CONDITION_EXTRABAR"] = "Extra Action Button"
@@ -354,20 +354,16 @@ L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
 --
 -- **The example shows two groups on purpose.** The field goes to `SecureCmdOptionParse`, so the
 -- whole grammar works, and a one-group example reads as the limit.
-L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "The Switch is on while this passes, off while it does not. Checked each time you press a key that uses it.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:[combat,nostealth]|r or |cnHIGHLIGHT_FONT_COLOR:[@tank,exists][combat]|r|n|n|cnHIGHLIGHT_FONT_COLOR:@@|r (two at signs) does not work here. The Switch is worked out before the press has a unit, so there is nothing for it to point at."
-L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "The addon turns it on and off from a macro conditional you write (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
-L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "Set automatically"
-L["CUSTOM_STATE_OFF"] = "Off"
-L["CUSTOM_STATE_ON"] = "On"
+L["SWITCH_EDIT_VALUE_DESC"] = "The Switch is on while this passes, off while it does not. Checked each time you press a key that uses it.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:[combat,nostealth]|r or |cnHIGHLIGHT_FONT_COLOR:[@tank,exists][combat]|r|n|n|cnHIGHLIGHT_FONT_COLOR:@@|r (two at signs) does not work here. The Switch is worked out before the press has a unit, so there is nothing for it to point at."
+L["SWITCH_MODE_MACRO_CONDITIONAL_DESC"] = "The addon turns it on and off from a macro conditional you write (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
+L["SWITCH_MODE_MACRO_CONDITIONAL"] = "Set automatically"
+L["SWITCH_OFF"] = "Off"
+L["SWITCH_ON"] = "On"
 -- What a switch is, said once. The Switches tab's own tooltip prints it (PANELS in DebindUI.lua)
 -- and so does the condition menu's switch group, which is handed this key explicitly
--- (CreateSwitchConditionMenu in DropDownMenus.lua). A twin key, CONDITION_CUSTOM_STATES_DESC, used
--- to hold a paragraph that did not differ from this one by a single character, which meant
--- translating the same text twice in every locale.
---
--- It said "the tooltip of the SwitchesPortrait button" until 3c took that button off the window.
-L["CUSTOM_STATES_DESC"] = "These are ON/OFF Switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these Switches on or off at any time, or you can set them as macro conditionals themselves."
-L["CUSTOM_STATES"] = "Switches"
+-- (`ActionMenuNodes.lua`), so no locale translates the same paragraph twice.
+L["SWITCHES_DESC"] = "These are ON/OFF Switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these Switches on or off at any time, or you can set them as macro conditionals themselves."
+L["SWITCHES"] = "Switches"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cleared|r - it was held by group slot, not by name, and the group changed. Set it again."
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
@@ -1162,9 +1158,9 @@ L["SPELL_PICKER_TAB_SPELL"] = "Spells"
 -- 버튼 쪽은 "Add..."라는 따로 놀던 낱말을 쓰고 있었는데, 눌러서 열리는 창이 다른 이름을
 -- 달고 있으면 같은 것인지 알 수가 없다.
 L["SPELL_PICKER_TITLE"] = "Add an Action"
-L["STATE_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
-L["STATE_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
-L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
+L["SWITCH_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
+L["SWITCH_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
+L["SWITCH_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
 -- **Blizzard's own name for the machinery, kept.** "Condition Update Interval" was tried and reads
 -- as the interval every condition the reader wrote is worked out on, which is not what this is
 -- (2026-09-12, owner). It is even less that now: a condition is worked out at the press, and what
@@ -1350,7 +1346,7 @@ L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization
 L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
 -- The two balloons on the Switches tab's help plate, one per column.
 --
--- **Not `CUSTOM_STATES_DESC` split in two.** That one hangs off the tab and off the condition menu,
+-- **Not `SWITCHES_DESC` split in two.** That one hangs off the tab and off the condition menu,
 -- and it answers "what is a Switch at all" for a reader who has never made one. These two are read
 -- with the plate up and both columns lit, so the question is which of the two am I looking at and
 -- what do I do to it.
@@ -1541,12 +1537,12 @@ L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as t
 L["TYPE_SETCUSTOM"] = "Set Custom Target"
 L["TYPE_SETCUSTOM1"] = "Set Custom Target 1"
 L["TYPE_SETCUSTOM2"] = "Set Custom Target 2"
-L["TYPE_SETSTATE_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or flips it.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
-L["TYPE_SETSTATE_ANY"] = "a Switch"
-L["TYPE_SETSTATE_OFF"] = "Turn Off %s"
-L["TYPE_SETSTATE_ON"] = "Turn On %s"
-L["TYPE_SETSTATE_TOGGLE"] = "Toggle %s"
-L["TYPE_SETSTATE"] = "Switch"
+L["TYPE_SETSWITCH_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or flips it.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
+L["TYPE_SETSWITCH_ANY"] = "a Switch"
+L["TYPE_SETSWITCH_OFF"] = "Turn Off %s"
+L["TYPE_SETSWITCH_ON"] = "Turn On %s"
+L["TYPE_SETSWITCH_TOGGLE"] = "Toggle %s"
+L["TYPE_SETSWITCH"] = "Switch"
 L["TYPE_SPELL"] = "Spell"
 L["TYPE_TARGET"] = "Set Target"
 L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"

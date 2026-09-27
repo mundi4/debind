@@ -755,7 +755,7 @@ local ActionMenus = MenuKit.NewRegistry({
     newFeatures = {},
 
     -- **Not every group's key is an issue category.** Half the keys this menu writes have no check
-    -- by that name (`combat`, `known`, `stealth`, `extrabar`, custom states, importance). Asking
+    -- by that name (`combat`, `known`, `stealth`, `extrabar`, switch names, importance). Asking
     -- anyway would answer nil all the same, but asking for a category that does not exist trips
     -- DEBUG. The first action in the selection with a problem is the one the row speaks for.
     issueForKey = function(ctx, key)

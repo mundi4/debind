@@ -224,8 +224,12 @@ SEEDS[5] = function(guid)
         --- being surprised, so a GUID written into a seed would only ever sit there unreachable.
         --- Planting is inside the addon, where the GUID is available, so the two character tiers
         --- can be filled after all.
+        ---
+        --- **The class goes in with it**, as `RefreshIdentity` has written it on every login since
+        --- the entry could exist. Without it the `dbver <= 7` step drops the entry's layers.
         characters = {
             [guid] = {
+                class = Constants.PLAYER_CLASS,
                 layers = {
                     [0] = {
                         { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
@@ -373,6 +377,7 @@ SEEDS[6] = function(guid)
         --- `redesigning-custom-states.md`).
         characters = {
             [guid] = {
+                class = Constants.PLAYER_CLASS,
                 switches = { ["$state3"] = true },
             },
         },
@@ -495,6 +500,7 @@ SEEDS[7] = function(guid)
 
         characters = {
             [guid] = {
+                class = Constants.PLAYER_CLASS,
                 switches = { ["$state3"] = true },
             },
         },
@@ -525,7 +531,8 @@ end;
 --- `dbver` 8, the current version. `/deb seed` with no argument stands this one up.
 ---
 --- The seed above is that step's **input** and this one is its **result**: the same rows, with the
---- layers under `layers.account` and the override that hung off `$state1` in a cell of its own.
+--- layers under `layers.account`, the override that hung off `$state1` in a cell of its own, and the
+--- remembered value in `states` rather than on the character entry.
 --- What only the window read (`ui`, `spellPicker`, `tipsSeen`) is in `DebindUIVars` now, and the
 --- seed above had none of it.
 SEEDS[8] = function(guid)
@@ -589,6 +596,9 @@ SEEDS[8] = function(guid)
         },
 
         characters = {
+            [guid] = { class = Constants.PLAYER_CLASS },
+        },
+        states = {
             [guid] = {
                 switches = { ["$state3"] = true },
             },

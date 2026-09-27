@@ -53,13 +53,18 @@ local LEGACY_ADDON     = "Debounce";
 
 --- The addon's own click targets were renamed along with the addon, and **the old names are sitting
 --- inside users' saved macros.** "Convert to a Custom Macro" writes the frame name into the macro
---- body (`MacroText.lua`: `/click DebindCustom1 unitframe`, `/click DebindStates $state1-on`), so an action
---- converted before the rename now clicks a frame that does not exist. Nothing errors - the key just
---- stops doing anything, which is the one outcome this whole file exists to prevent.
+--- body (`/click DebounceCustom1 hover`, `/click DebounceStates $state1-on` before the rename), so
+--- an action converted before the rename now clicks a frame that does not exist. Nothing errors -
+--- the key just stops doing anything, which is the one outcome this whole file exists to prevent.
 ---
 --- Rewritten on the way in rather than papered over with alias frames: the old names have no reason
 --- to exist in a running client, and 3.1 is the first release carrying the new ones, so every macro
 --- body that could hold an old name passes through here exactly once.
+---
+--- **To the names the rename gave them, and before the ladder.** Those are the names of the shape
+--- this file knows, and a later rename of a frame is a ladder step that carries them on from there.
+--- Repaired after the ladder, a body would come out holding the rename's name and miss every step
+--- after it.
 ---
 --- **A substring rewrite, not a whole-body match.** The generated bodies are only the common case -
 --- the same `/click` line can be typed by hand into a Custom Macro, or pasted next to other lines,
@@ -100,7 +105,7 @@ end
 --- anything else in those files: they cost a drag and a click to set again, and a key the old
 --- addon never wrote was never ours to read.
 
---- A copy of spec 0..5 of an old spec table, or nil when there is none.
+--- A copy of spec 0..5 of an old spec table, its click targets repaired, or nil when there is none.
 local function CopySpecTable(source)
     if (type(source) ~= "table") then
         return nil;
@@ -109,6 +114,7 @@ local function CopySpecTable(source)
     for spec = 0, 5 do
         if (type(source[spec]) == "table") then
             copy[spec] = CopyTable(source[spec]);
+            RepairLegacyClickTargets(copy[spec]);
         end
     end
     return copy;
@@ -133,43 +139,34 @@ local function MergeLayers(into, from)
     end
 end
 
-local function RepairAllClickTargets(layers)
-    for _, classes in pairs(layers or {}) do
-        for _, specTbl in pairs(classes) do
-            for spec = 0, 5 do
-                RepairLegacyClickTargets(specTbl[spec]);
-            end
-        end
-    end
-end
-
 --- The account's share, raised: `DebounceVars` laid out as a rename-era profile and run through
 --- `MigrateDB`.
 ---
 --- **Runs exactly once**, guarded by `legacyAccountPulled` - otherwise a second character loading
 --- the dummy for its own per-character data would resurrect shared bindings deleted in between.
 ---
---- **The live `characters` goes in with it**, because the step that moves remembered switch values
---- onto the characters hands them to every entry it finds, and the account share is where the old
---- values ride in. Those entries are already in the current shape, so no other step touches them.
+--- **The profile holds the old file and nothing live.** Every step of the ladder reads one version's
+--- shape, and a live table in there would be the current one. What the old file carries is joined
+--- to the live tables after the ladder, below.
 local function ImportAccount(db, old)
     local classes = {};
     for class in pairs(Constants.CLASS_IDS) do
         classes[class] = CopySpecTable(old[class]);
     end
 
+    local general = type(old.GENERAL) == "table" and CopyTable(old.GENERAL) or nil;
+    RepairLegacyClickTargets(general);
+
     local profile = {
         dbver = old.dbver or 1,
         shared = {
-            GENERAL = type(old.GENERAL) == "table" and CopyTable(old.GENERAL) or nil,
+            GENERAL = general,
             classes = classes,
         },
-        characters = db.characters,
         customStates = type(old.customStates) == "table" and CopyTable(old.customStates) or nil,
         options = type(old.options) == "table" and CopyTable(old.options) or nil,
     };
-    DebindPrivate.MigrateDB(profile, DebindPrivate.db.char);
-    RepairAllClickTargets(profile.layers);
+    DebindPrivate.MigrateDB(profile);
 
     -- **Only what the old file had.** The ladder makes some tables whether or not there was
     -- anything to raise (`layers.account`, `options`), so what is laid down is asked of the old
@@ -201,10 +198,10 @@ local function ImportCharacter(old)
         CustomTargets = type(old.CustomTargets) == "table" and CopyTable(old.CustomTargets) or nil,
     };
     local profile = { dbver = old.dbver or 1, characters = { [guid] = entry } };
-    DebindPrivate.MigrateDB(profile, entry);
-    RepairAllClickTargets(profile.layers);
+    DebindPrivate.MigrateDB(profile);
 
     MergeLayers(DebindPrivate.db.charLayers, profile.layers[guid]);
+    local targets = profile.states and profile.states[guid] and profile.states[guid].CustomTargets;
 
     -- **Layers can be attached unconditionally; custom targets cannot.** The file header's argument
     -- for an unconditional import is that bindings can only be made through the main window, and the
@@ -214,9 +211,9 @@ local function ImportCharacter(old)
     -- The gap is narrow: the import runs at login, so it only opens when the companion failed to
     -- load and the user played on anyway. Narrow is not none, and an overwrite here is silent and
     -- unrecoverable, so the newer value wins.
-    local charEntry = DebindPrivate.db.char;
-    if (entry.CustomTargets and charEntry.CustomTargets == nil) then
-        charEntry.CustomTargets = entry.CustomTargets;
+    local state = DebindPrivate.db.charState;
+    if (targets and state.CustomTargets == nil) then
+        state.CustomTargets = targets;
     end
 end
 

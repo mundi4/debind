@@ -279,12 +279,14 @@ function M.install()
     _G.CreateSimpleTextureMarkup = function(file, width, height, xOffset, yOffset)
         return format("|T%s:%d:%d:%d:%d|t", file, height or width, width, xOffset or 0, yOffset or 0);
     end
-    -- 와우의 strsplit: 첫 인자의 **각 문자**가 개별 구분자. 빈 필드도 그대로 남는다.
-    _G.strsplit = function(delims, s)
+    -- WoW's strsplit: **each character** of the first argument is a delimiter, and empty fields
+    -- stay. `pieces` caps how many come back, the last one holding the rest unsplit, which is how
+    -- `_onclick` keeps a mode apart from a name (`Switches.lua`).
+    _G.strsplit = function(delims, s, pieces)
         local out, cur = {}, {};
         for i = 1, #s do
             local c = s:sub(i, i);
-            if (delims:find(c, 1, true)) then
+            if (delims:find(c, 1, true) and not (pieces and #out + 1 >= pieces)) then
                 out[#out + 1] = table.concat(cur);
                 cur = {};
             else

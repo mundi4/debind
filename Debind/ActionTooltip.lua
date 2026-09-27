@@ -843,19 +843,19 @@ do
 		end
 		sort(_switchNames);
 		for i = 1, #_switchNames do
-			local state = _switchNames[i];
-			addLabelLine(tooltip, state);
-			addValueLine(tooltip, conditions[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
+			local switchName = _switchNames[i];
+			addLabelLine(tooltip, switchName);
+			addValueLine(tooltip, conditions[switchName] == true and LLL["CONDITION_SWITCH_YES"] or LLL["CONDITION_SWITCH_NO"]);
 		end
 
 		-- 매크로 본문의 `[$이름]`은 위 조건 칸들과 달리 그릴 자리가 없다 - 저장에는 본문
 		-- 문자열 하나로만 있다. 그래서 이슈 코드만으로는 **어느 이름이 틀렸는지**를 못 말하고,
 		-- 그걸 말하는 것이 이 마커의 존재 이유라 여기서만 이름을 붙여 적는다.
 		if (hasIssues) then
-			local undefinedState = DebindPrivate.GetUndefinedSwitch(action);
-			if (undefinedState) then
+			local undefinedSwitch = DebindPrivate.GetUndefinedSwitch(action);
+			if (undefinedSwitch) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
+				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefinedSwitch), true);
 			end
 
 			-- Named here for the same reason. The macro name is the action's `value`, so no
@@ -938,10 +938,10 @@ do
 	--- with no frames at all.
 	local ISSUE_ORDER = {};
 	for i, label in ipairs({
-		"TYPE_MACRO", "TYPE_MACROTEXT", "TYPE_SETSTATE", "KEY",
+		"TYPE_MACRO", "TYPE_MACROTEXT", "TYPE_SETSWITCH", "KEY",
 		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC", "CONDITION_TALENT",
 		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
-		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_CUSTOM_STATES",
+		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_SWITCHES",
 	}) do
 		ISSUE_ORDER[label] = i;
 	end
@@ -1056,7 +1056,7 @@ do
 		[Constants.BINDING_ISSUE_MISSING_MACRO] = function(action)
 			return DebindPrivate.GetMissingMacroName(action);
 		end,
-		[Constants.BINDING_ISSUE_UNDEFINED_STATE] = function(action)
+		[Constants.BINDING_ISSUE_UNDEFINED_SWITCH] = function(action)
 			return DebindPrivate.GetUndefinedSwitch(action);
 		end,
 	};

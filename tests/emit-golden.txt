@@ -280,15 +280,15 @@ SetAttribute DebindClickButton *macrotext-deb115 =
   | /cast [@tank,$burst] Swiftmend
   | /cast [no$intent] Rejuvenation
 SetAttribute DebindClickButton *type-deb116 = "attribute"
-SetAttribute DebindClickButton *attribute-frame-deb116 = <frame DebindStates>
+SetAttribute DebindClickButton *attribute-frame-deb116 = <frame DebindSwitch>
 SetAttribute DebindClickButton *attribute-name-deb116 = "$burst"
 SetAttribute DebindClickButton *attribute-value-deb116 = "toggle"
 SetAttribute DebindClickButton *type-deb117 = "attribute"
-SetAttribute DebindClickButton *attribute-frame-deb117 = <frame DebindStates>
+SetAttribute DebindClickButton *attribute-frame-deb117 = <frame DebindSwitch>
 SetAttribute DebindClickButton *attribute-name-deb117 = "$intent"
 SetAttribute DebindClickButton *attribute-value-deb117 = "on"
 SetAttribute DebindClickButton *type-deb118 = "attribute"
-SetAttribute DebindClickButton *attribute-frame-deb118 = <frame DebindStates>
+SetAttribute DebindClickButton *attribute-frame-deb118 = <frame DebindSwitch>
 SetAttribute DebindClickButton *attribute-name-deb118 = "$echo"
 SetAttribute DebindClickButton *attribute-value-deb118 = "off"
 SetAttribute DebindClickButton *type-deb119 = "target"
@@ -1848,13 +1848,12 @@ Execute DebindBindingDriver
   | local t
   | t=newtable()
   | t.id=1
-  | t.state="$echo"
   | t.fragments,t.args=newtable(),newtable()
   | t.fragments[1]="[@$burst]["
   | t.fragments[2]="$burst"
   | t.fragments[3]="]"
   | t.args[1]=newtable()
-  | t.args[1].state="$burst"
+  | t.args[1].switch="$burst"
   | SwitchEntries["$echo"]=t
   | t=newtable()
   | t.id=2
@@ -1871,9 +1870,9 @@ Execute DebindBindingDriver
   | t.args[1]=newtable()
   | t.args[1].unit="tank"
   | t.args[2]=newtable()
-  | t.args[2].state="$burst"
+  | t.args[2].switch="$burst"
   | t.args[3]=newtable()
-  | t.args[3].state="$intent"
+  | t.args[3].switch="$intent"
   | t.args[3].reverse=true
   | DeferredMacroTexts["deb115"]=t
 SetAttribute DebindBindingDriver _onattributechanged =

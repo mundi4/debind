@@ -134,7 +134,7 @@ function readFiles(files) {
 }
 
 // **A key the code asks for and enUS does not carry.** `L`'s metatable answers an unknown key
-// with the key itself, so the failure is a screen reading `TYPE_SETSTATE_NONE` where a sentence
+// with the key itself, so the failure is a screen reading `TYPE_SETSWITCH_NONE` where a sentence
 // belongs: no error, no empty label, nothing a locale comparison can see. That is what shipped,
 // and it is why this half exists at all.
 //

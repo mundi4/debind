@@ -1,11 +1,12 @@
 # 저장된 레이어 모양 바꾸기 (2026-09-27 시작)
 
-> 상태: **1단계(4절) 구현됨, 다음은 1-2 뒷정리, 그다음 2단계.** 모양(1절)과 그 이유(2절)는 소유자와
-> 정했다. 4절 1-2에 답이 없는 물음이 둘 있다(액션 타입 문자열을 옮길지, 별칭 프레임을 둘지). 5절에 남은 물음은 2단계와 3단계의 것이다.
+> 상태: **1단계와 1-2 뒷정리(4절) 구현됨, 다음은 2단계.** 모양(1절)과 그 이유(2절)는 소유자와
+> 정했다. 5절에 남은 물음은 2단계와 3단계의 것이다.
 > 1단계와 2단계는 한 릴리스로 나간다.
 >
-> 쓴 세션: `debind-43`, 세션 ID `8661be18-b7a9-47ca-9014-f4260da6eec7`. 1단계 구현과 1-2, 1-1절의
-> `switches`: `debind-d0`, 세션 ID `2a9fdeca-0bbb-4a0c-b443-336064187474`.
+> 쓴 세션: `debind-43`, 세션 ID `8661be18-b7a9-47ca-9014-f4260da6eec7`. 1단계 구현과 1-2 계획, 1-1절의
+> `switches`: `debind-d0`, 세션 ID `2a9fdeca-0bbb-4a0c-b443-336064187474`. 1-2 구현: `debind-95`,
+> 세션 ID `eb79d1d0-eebb-4a2c-8fa5-fb654ab3d0c9`.
 
 저장 탭 오른쪽 열에 키별 보기를 넣다가 나온 일이다. 행마다 레이어를 칠해 보여 주려고 보니 캐릭터
 레이어는 누구의 직업인지를 자기 주소로 말하지 못했고, 거기서 두 가지가 드러났다.
@@ -101,8 +102,10 @@ DebindUIVars = {
   - **레이어의 직업은 여기서 읽지 않는다.** 캐릭터 칸의 직업은 `characters[guid].class`가 아니라
     `layers[guid]`의 키가 답한다.
   - **상태는 `Profile.lua`의 함수로만 읽고 쓴다** (소유자). 저장 모양과 지연 생성(내용이 생기면 붙이고
-    비면 떼기)을 그 파일 하나만 알게 하기 위해서다. 지금 저장 테이블을 직접 짚는 바깥은 `UnitWatch.lua`의
-    `CustomTargets` 읽기와 쓰기, `DebindTest.lua`의 `db.char.switches` 열한 군데다.
+    비면 떼기)을 그 파일 하나만 알게 하기 위해서다. 사다리와 `Legacy.lua`는 예외다. 둘은 로드 전에
+    저장 모양을 직접 옮기는 자리다.
+  - `states[guid]`의 필드 이름은 `characters[guid]`에 있을 때와 같다(`switches`, `CustomTargets`).
+    옮기는 단계가 필드를 통째로 옮기기만 하게 하려는 것이다.
   - 직업을 읽는 예외는 옮기는 단계 한 번이다. `layers[guid]`의 직업 키를 세우려면 `characters[guid].class`를
     읽을 수밖에 없다. 옮긴 뒤로는 읽지 않는다.
   - **붙어 있는 캐릭터 항목은 모두 `class`를 가진다.** 항목을 `characters`에 붙이는 것은 로그아웃 때의
@@ -403,19 +406,62 @@ payload = {
    - **스위치를 "state"라고 부르는 이름을 `switch`로 바꾼다** (소유자). 이름 한 번 바꾸는 비용보다
      뒤의 세션들이 매번 헷갈림을 피해 가는 비용이 크다. 크기는 `States` 약 340곳, `SETSTATE` 약
      160곳, `customStates` 약 20곳이다.
-     - **코드 이름**: 제한 환경의 `States` 표, `STATE_FIELDS`, `stateName` 같은 지역 이름, 주석의
+     - **코드 이름**: `STATE_FIELDS`, `stateName` 같은 지역 이름, 스니펫의 `arg.state`, 주석의
        "custom state". 제한 환경 쪽은 스니펫 골든이 바뀌므로 `restricted-environment.md`를 따른다.
-     - **저장된 액션 타입 문자열** `"setstate_on"`, `"setstate_off"`, `"setstate_toggle"`: 이번 단계에서
-       옮길지 정해야 한다(권고: 옮긴다. 저장값을 옮기는 단계가 한 번 더 생기는 것을 피한다. v2 공유
-       문자열의 액션도 `MigrateLayer`를 타니 같이 풀린다).
-     - **클릭 대상 프레임 `DebindStates`도 바꾼다** (소유자). [매크로로 바꾸기]가 켜기/끄기/전환 액션을
+     - **제한 환경의 `States` 표는 그대로다** (소유자, 2026-09-27). 스위치만의 표가 아니라
+       `States.combat`, `States.unitframe` 같은 게임 상태를 함께 들고, 스위치 값은 그 옆에 앉을 뿐이다.
+       스위치만 드는 표는 이미 `ClickSwitches`, `ComputedSwitches`, `SwitchEntries`다.
+     - **저장된 액션 타입 문자열** `"setstate_on"`, `"setstate_off"`, `"setstate_toggle"`도 이번 단계에서
+       옮긴다 (소유자, 2026-09-27). 따로 두면 저장값을 옮기는 단계가 나중에 한 번 더 생긴다. v2 공유
+       문자열의 액션도 `MigrateLayer`를 타니 같이 풀린다.
+     - **클릭 대상 프레임 `DebindStates`도 `DebindSwitch`로 바꾼다** (소유자, 이름은 2026-09-27).
+       복수형 `DebindSwitches`는 값을 모아 둔 표처럼 읽히고 정의 모음 `DebindPrivate.Switches`와도
+       겹친다. 매크로 한 줄은 스위치 하나를 누르므로 단수다. 뒤에 `Button`은 붙이지 않는다. `/click`의
+       대상은 늘 버튼이라 알려 주는 것이 없고, 이 이름은 액션마다 255자 제한인 매크로 본문에 들어간다. [매크로로 바꾸기]가 켜기/끄기/전환 액션을
        `/click DebindStates $burst-on`으로 펴서 액션의 매크로 본문에 써 넣으므로, 옮기는 단계가
        `MigrateLayer`에서 그 본문을 새 이름으로 고쳐 쓴다(v2 공유 문자열도 같이 풀린다). 개명 때
        `Legacy.lua`의 `RepairLegacyClickTargets`가 `DebounceStates`를 같은 방식으로 고쳤다. 사다리가
-       닿지 않는 곳, 곧 사용자가 그 줄을 게임의 매크로 창으로 옮겨 적은 것은 고칠 수 없다. 옛 이름을
-       받아 주는 별칭 프레임을 둘지는 정해야 한다(개명 때는 두지 않았다).
+       닿지 않는 곳, 곧 사용자가 그 줄을 게임의 매크로 창으로 옮겨 적은 것은 고칠 수 없다. **옛 이름을
+       받아 주는 별칭 프레임은 두지 않는다** (소유자, 2026-09-27). 개명 때 `DebounceStates`에도 두지
+       않았다.
      - **바꾸지 않는 것**: 옛 데이터의 실제 키라서 사다리 단계 안에만 남는 `customStates`와 v2 페이로드의
-       `states`.
+       `states`. 옛 `setstate` 비트팩 타입과 v1 선의 `setstate` 서브테이블도 같은 이유로 남는다.
+       **v2의 `payload.states`는 지금도 내보내는 필드라** 2단계가 `switches`로 바꿀 때까지 선에 남고,
+       안에서 쓰는 이름(`SWITCH_FIELDS`, `BuildSwitchManifest`)만 바꿨다.
+   - **구현하며 정한 것** (2026-09-27).
+     - **타입 이름은 `SETSWITCH_ON`/`_OFF`/`_TOGGLE`, 저장값은 `"setswitch_on"` 등.** 제한 환경의
+       `SetSwitch`와 같은 말이고, `SWITCH_MODES`는 이미 수동/계산식이 쓰고 있어서 `SETSWITCH_MODES`로
+       둔다. 로케일 키는 타입에서 조립되므로(`"TYPE_" .. strupper(type)`) `TYPE_SETSWITCH_*`로 같이 간다.
+     - **목록에 없던 것도 같은 기준으로 바꿨다.** `BINDING_ISSUE_UNDEFINED_STATE`와 그 값(오류 문구 키가
+       `"BINDING_ERROR_" .. 코드`로 조립되므로 로케일 키도 같이), 이슈 분류 `states`, 로케일 키
+       `CUSTOM_STATE*`와 `STATE_CHANGED_MESSAGE*`, 솔버의 스위치 축 상수, 스니펫의 `arg.state`와 `t.state`.
+     - **단계는 자기 판에서 다음 판으로 가는 일만 한다** (소유자). 한 판 안에서는 이름도 모양도 하나다.
+       - **`MigrateDB`는 모든 사다리를 한 판씩 함께 올린다.** 판마다 칸(`MigrateContainers`), 액션
+         (`MigrateLayer`), 정의(`MigrateSwitches`), 나머지 계정 표(`MigrateAccount`) 순서로 그 판의
+         단계만 돌리고 다음 판으로 간다. 단계 머리는 `if (dbver <= N and N < to) then`이고
+         `check:dbver`가 두 N이 같은지까지 본다. 전에는 사다리마다 끝까지 돌려서, 5에서 6의 정의
+         단계가 8의 칸(`db.layers`)과 8의 타입 이름을 읽고 있었다. 액션 목록은 `ForEachActionList`가
+         그 판의 칸 모양대로 찾는다.
+       - `states`로 옮기는 것은 7에서 8의 일이라 `MigrateAccount`의 `dbver <= 7` 단계에 있다.
+       - 옛 타입 비트팩을 푸는 `dbver <= 5` 단계와 v1 어댑터는 6의 이름(`"setstate_on"` 등)을 문자
+         그대로 쓰고, 8의 이름으로 바꾸는 것은 `dbver <= 7` 단계가 한다.
+     - **5까지 계정에 하나 있던 기억한 값은 버린다** (소유자, 2026-09-27, "주지마"). 6부터는 캐릭터가
+       제 값을 기억하는데, 그 하나가 어느 캐릭터의 것이었는지는 데이터에 없다. 전에는 항목이 있는
+       캐릭터 모두에게 나눠 주느라 이 단계가 `db.characters`와 접속 중인 캐릭터를 알아야 했고,
+       항목이 없으면 사다리 안에서 직업 없는 항목을 붙였다. 값은 버리기 전에 "눌러 본 적 있다"는
+       증거로만 읽어 정의를 걷어낼지 정한다. `MigrateDB`는 캐릭터를 받지 않는다.
+     - **스위치 프레임을 누르는 경로는 헤드리스가 잰다** (`clickswitch_spec`). 킷에서 `Click()`으로 재려던
+       두 테스트는 게임에서 실패했는데, 기능이 아니라 측정이 틀렸다. 애드온 코드의 `Click()`은
+       테인트된 실행이라 `CallRestrictedClosure`가 `_onclick`과 감싼 `OnClick`의 몸통을 돌리지 않는다.
+       매크로의 `/click`은 보안 실행이라 여기 걸리지 않는다. 헤드리스 제한 환경에 없던 `strsplit`를
+       넣었다.
+     - **개명 전 데이터의 3에서 4는 `Legacy.lua`의 가져오기가 겸한다.** 3.1의 사다리에 그 단계가
+       없었다. 그래서 가져오기는 옛 파일의 복사본을 개명 당시 이름(`DebindStates`, `DebindCustom`)으로
+       고친 뒤 사다리에 넣고, 이번 단계는 `DebindStates`를 `DebindSwitch`로 바꾸는 일만 한다. 전에는
+       사다리 뒤에 고쳐서 `dbver <= 6` 단계가 개명 전 이름까지 느슨하게 맞췄고, 그 우회는 걷었다.
+     - **가져오기는 옛 파일만으로 된 프로필을 올리고, 현재 표와는 사다리 뒤에 합친다.** 전에는 현재
+       `characters`를 옛 판 프로필에 끼워 넣어 `dbver <= 5` 단계가 "이미 있는 값이 이긴다"를 들고
+       있었다. 계정 몫의 기억한 값을 버리면서 그 규칙도 필요 없어졌다.
 2. **페이로드를 같은 모양으로 올린다.** `SCHEMA_VERSION` 3, v2를 올리는 단계, `payload.class` 제거,
    다른 직업의 캐릭터 칸을 가져오지 않는 것.
 3. **전체 백업.** 5절의 물음에 답이 나온 뒤.

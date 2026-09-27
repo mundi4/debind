@@ -298,6 +298,14 @@ nothing and reported a bug the addon did not have. Set the text, then run that w
 Fail when there is no script to run: skipping it quietly means the day the XML wiring goes missing,
 those tests pass (`TypeInto` in `DebindTest.lua`).
 
+**A `Click()` from the kit never runs a secure handler's body.** The kit is addon code, so the
+click is tainted, and `CallRestrictedClosure` refuses it ("Cannot call restricted closure from
+insecure code"): an `_onclick`, or an `OnClick` wrapped with `SecureHandlerWrapScript`, does
+nothing and the assertion reads a feature as broken. A macro's `/click` is secure and does run. What
+such a body does with its button is asked headless instead, by running the body through
+`restricted.lua` (`clickswitch_spec.lua`). Writing an attribute is different: `_onattributechanged`
+does run for a `SetAttribute` from the kit, which is what the switch toggle test stands on.
+
 **Assert the negative too.** Set the condition, check the effect appears; then unset it and check
 it goes away. Without the second half the test also passes on something that was true the whole
 time.

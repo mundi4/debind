@@ -1653,7 +1653,7 @@ local PANELS = {
 	{ title = "OVERVIEW",     desc = "OVERVIEW_DESC",      panelKey = "OverviewPanel" },
 	-- **Ahead of the sharing pair, and the only seat that is not about actions.** It reads the
 	-- switch definitions, which are ordinary profile data, so it needs nothing loaded on demand.
-	{ title = "CUSTOM_STATES", desc = "CUSTOM_STATES_DESC", panelKey = "SwitchesPanel" },
+	{ title = "SWITCHES", desc = "SWITCHES_DESC", panelKey = "SwitchesPanel" },
 	-- **One seat where there were two.** Making a string and taking one in are the same list read
 	-- in two directions, and what they had in common is the list (12절 of
 	-- `building-export-import.md`).

@@ -66,9 +66,9 @@ local pairs = pairs;
     roles, rather than being ignored.
 ]]
 
--- 커스텀 상태 축: on / off
-local STATE_ON, STATE_OFF = 1, 2;
-local STATE_ANY = STATE_ON + STATE_OFF;
+-- The switch axis: on / off.
+local SWITCH_ON, SWITCH_OFF = 1, 2;
+local SWITCH_ANY = SWITCH_ON + SWITCH_OFF;
 
 -- known 축: 앎 / 모름
 local KNOWN_YES, KNOWN_NO = 1, 2;
@@ -247,9 +247,9 @@ local FIXED_COLUMNS = {
 local function makeSwitchFlags(binding, name)
     local value = binding.conditions[name];
     if (value == nil) then
-        return STATE_ANY;
+        return SWITCH_ANY;
     end
-    return value and STATE_ON or STATE_OFF;
+    return value and SWITCH_ON or SWITCH_OFF;
 end
 
 local function makeUnitFlags(binding, unit)
@@ -342,7 +342,7 @@ local _numColumns = 0;
 local _unitSeen = {};
 local _unitGroupSeen = {};
 local _knownSeen = {};
-local _stateSeen = {};
+local _switchSeen = {};
 local _roleSeen = false;
 local _opaque = {};
 local _conditionsMap = {};
@@ -401,7 +401,7 @@ local function buildLayout(bindings)
     wipe(_unitSeen);
     wipe(_unitGroupSeen);
     wipe(_knownSeen);
-    wipe(_stateSeen);
+    wipe(_switchSeen);
     _roleSeen = false;
     wipe(_opaque);
 
@@ -455,8 +455,8 @@ local function buildLayout(bindings)
         local conditions = binding.conditions;
 
         for name in pairs(conditions) do
-            if (not _stateSeen[name] and IsSwitchName(name)) then
-                _stateSeen[name] = true;
+            if (not _switchSeen[name] and IsSwitchName(name)) then
+                _switchSeen[name] = true;
                 _numColumns = _numColumns + 1;
                 _colMake[_numColumns] = makeSwitchFlags;
                 _colArg[_numColumns] = name;

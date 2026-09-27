@@ -74,7 +74,7 @@ end
 --- mark is the only thing that can say so out loud.
 ---
 --- The last is that same target after [Convert to macro text] has opened it out into
---- `/click DebindStates $burst-on` (`ForEachClickedSwitch`). It fails the way the third one does,
+--- `/click DebindSwitch $burst-on` (`ForEachClickedSwitch`). It fails the way the third one does,
 --- and it is here because otherwise converting an action would be a way of taking the mark off it.
 ---
 --- Either way the action is marked, and the mark's outcome keeps it out of `KeyMap` entirely
@@ -131,7 +131,7 @@ function DebindPrivate.GetUndefinedSwitch(action)
         return nil;
     end
 
-    if (Constants.SETSTATE_MODES[action.type]) then
+    if (Constants.SETSWITCH_MODES[action.type]) then
         if (DebindPrivate.ResolveSwitchDefinition(action.value)) then
             return nil;
         end
@@ -165,7 +165,7 @@ function DebindPrivate.GetUndefinedSwitchInBody(action)
 
     -- **A body can work a switch as well as read one**, and the parser above only sees the reading.
     -- [Convert to macro text] opens an on/off/toggle action out into
-    -- `/click DebindStates $burst-on`, so the reference the branch further up catches while it
+    -- `/click DebindSwitch $burst-on`, so the reference the branch further up catches while it
     -- sits in `action.value` moves inside a string the moment the reader converts. Left out here,
     -- converting an action is a way to take the mark off it.
     return DebindPrivate.ForEachClickedSwitch(action.value, function(name)
@@ -525,27 +525,27 @@ local ACTION_CHECKS = {
     -- **Not chosen yet is asked first**: an on/off/toggle action arrives from the picker with no
     -- target, and "nothing defines nil" has no name to print. The binding builder keeps the same
     -- guard (`UpdateBindings.lua`); an action drawn clean must not be one it turns back.
-    { category = "states", label = "TYPE_SETSTATE", check = function(action)
-        if (not Constants.SETSTATE_MODES[action.type]) then
+    { category = "switches", label = "TYPE_SETSWITCH", check = function(action)
+        if (not Constants.SETSWITCH_MODES[action.type]) then
             return nil;
         end
         if (type(action.value) ~= "string") then
             return Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
         end
         if (not DebindPrivate.ResolveSwitchDefinition(action.value)) then
-            return Constants.BINDING_ISSUE_UNDEFINED_STATE, action.value;
+            return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, action.value;
         end
     end },
-    { category = "states", label = "CONDITION_CUSTOM_STATES", check = function(action)
+    { category = "switches", label = "CONDITION_SWITCHES", check = function(action)
         local undefined = DebindPrivate.GetUndefinedSwitchCondition(action);
         if (undefined) then
-            return Constants.BINDING_ISSUE_UNDEFINED_STATE, undefined;
+            return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, undefined;
         end
     end },
-    { category = "states", label = "TYPE_MACROTEXT", check = function(action)
+    { category = "switches", label = "TYPE_MACROTEXT", check = function(action)
         local undefined = DebindPrivate.GetUndefinedSwitchInBody(action);
         if (undefined) then
-            return Constants.BINDING_ISSUE_UNDEFINED_STATE, undefined;
+            return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, undefined;
         end
     end },
     { category = "macro", label = "TYPE_MACRO", check = function(action)

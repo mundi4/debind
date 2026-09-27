@@ -69,7 +69,7 @@ return function(DebindPrivate)
                             -- started being a search and replace over what the user typed.
                             { type = Constants.MACROTEXT, key = "F2", seq = 1,
                                 value = "/cast [$state1,no$state2] Foo\n/say $state1 is on" },
-                            { type = Constants.SETSTATE_TOGGLE, value = "$state1", key = "F3",
+                            { type = Constants.SETSWITCH_TOGGLE, value = "$state1", key = "F3",
                                 seq = 1 },
                         },
                     },
@@ -91,13 +91,16 @@ return function(DebindPrivate)
                 [ALT] = {
                     PRIEST = {
                         [0] = {
-                            { type = Constants.SETSTATE_ON, value = "$state1", key = "F5",
+                            { type = Constants.SETSWITCH_ON, value = "$state1", key = "F5",
                                 seq = 1 },
                         },
                     },
                 },
             },
             characters = {
+                [ALT] = { class = "PRIEST" },
+            },
+            states = {
                 [ALT] = {
                     switches = { ["$state1"] = true },
                 },
@@ -230,10 +233,9 @@ return function(DebindPrivate)
             "조건절 밖의 글자까지 바꿨다 - 사용자가 친 문장이다: " .. body);
     end);
 
-    --- 본문 안에 조건절 말고 스위치 이름이 앉는 자리가 하나 더 있다. **우리가 써넣은
-    --- 자리다** - [매크로로 바꾸기]가 켜기/끄기/전환 액션을 `/click DebindStates $이름-모드`로
-    --- 펴고(`ConvertToMacroText`), 개명 전 이름을 그 본문 안에서 고치는 코드까지 있다
-    --- (`Legacy.lua`). 그러니 이 꼴은 이미 사용자 프로필에 들어 있다.
+    --- A body holds a switch name in one more place than a conditional, and **it is one we write**:
+    --- [Convert to macro text] opens an on/off/toggle action out into `/click DebindSwitch
+    --- $name-mode` (`ConvertToMacroText`), so this shape is already in users' profiles.
     local function ClickBody(body)
         local db = Profile();
         table.insert(db.layers.account.GENERAL[0],
@@ -242,27 +244,41 @@ return function(DebindPrivate)
     end
 
     test("[매크로로 바꾸기]가 낸 본문의 대상이 따라온다", function()
-        local db = ClickBody("/cast Foo\n/click DebindStates $state1-toggle");
+        local db = ClickBody("/cast Foo\n/click DebindSwitch $state1-toggle");
         DebindPrivate.RenameSwitch("$state1", "$burst");
         local body = General(db)[4].value;
-        check(body == "/cast Foo\n/click DebindStates $burst-toggle",
+        check(body == "/cast Foo\n/click DebindSwitch $burst-toggle",
             "본문이 옛 이름을 누른다 - 눌러도 아무 일이 없다: " .. body);
     end);
 
-    -- 번호는 이름의 줄임말이다(`Switches.lua`의 `_onclick`). `/click DebindStates 1`은
-    -- `$state1`을 누르는 것이고, 개명이 안 따라가면 없어진 이름을 누르게 된다.
+    --- **The body clicks the frame by name, and the two names are written in two files**
+    --- (`SWITCH_CLICK_TARGET` in `MacroText.lua`, the frame in `Switches.lua`). One moved without the
+    --- other is a body clicking nothing, silently. The name itself is asked too: it is what a user
+    --- types into a macro (owner, `reshaping-stored-layers.md` §4 1-2).
+    test("a converted switch action clicks the switch frame by its name", function()
+        InitWith(Profile());
+        local action = { type = Constants.SETSWITCH_ON, value = "$state1", key = "F9" };
+        check(DebindPrivate.ConvertToMacroText(action), "the conversion refused");
+        local frameName = DebindPrivate.SwitchesUpdaterFrame:GetName();
+        check(frameName == "DebindSwitch", "the frame is named " .. tostring(frameName));
+        check(action.type == Constants.MACROTEXT and action.value == "/click DebindSwitch $state1-on",
+            "the body is " .. tostring(action.value));
+    end);
+
+    -- A number is shorthand for a name (`_onclick` in `Switches.lua`). `/click DebindSwitch 1`
+    -- presses `$state1`, and a rename that does not follow it presses a name that is gone.
     test("본문의 번호 줄임말도 따라온다", function()
-        local db = ClickBody("/click DebindStates 1-on");
+        local db = ClickBody("/click DebindSwitch 1-on");
         DebindPrivate.RenameSwitch("$state1", "$burst");
-        check(General(db)[4].value == "/click DebindStates $burst-on",
+        check(General(db)[4].value == "/click DebindSwitch $burst-on",
             "번호가 안 따라왔다: " .. General(db)[4].value);
     end);
 
     -- 반대쪽. 같은 줄에 있어도 다른 스위치를 누르는 것은 안 건드린다.
     test("남의 이름을 누르는 줄은 안 건드린다", function()
-        local db = ClickBody("/click DebindStates $state2-off");
+        local db = ClickBody("/click DebindSwitch $state2-off");
         DebindPrivate.RenameSwitch("$state1", "$burst");
-        check(General(db)[4].value == "/click DebindStates $state2-off",
+        check(General(db)[4].value == "/click DebindSwitch $state2-off",
             "남의 이름까지 바꿨다: " .. General(db)[4].value);
     end);
 
@@ -277,12 +293,12 @@ return function(DebindPrivate)
     -- 개명 다음 로그인에 저 혼자 꺼진 채로 올라온다.
     test("캐릭터가 기억하는 값이 따라온다", function()
         local db = InitWith(Profile());
-        DebindPrivate.db.char.switches["$state1"] = true;
+        DebindPrivate.db.charState.switches["$state1"] = true;
         DebindPrivate.RenameSwitch("$state1", "$burst");
-        check(db.characters[ALT].switches["$burst"] == true,
+        check(db.states[ALT].switches["$burst"] == true,
             "다른 캐릭터의 기억한 값이 안 따라왔다");
-        check(db.characters[ALT].switches["$state1"] == nil, "옛 이름이 남았다");
-        check(DebindPrivate.db.char.switches["$burst"] == true,
+        check(db.states[ALT].switches["$state1"] == nil, "옛 이름이 남았다");
+        check(DebindPrivate.db.charState.switches["$burst"] == true,
             "이 캐릭터의 기억한 값이 안 따라왔다");
     end);
 
@@ -324,7 +340,7 @@ return function(DebindPrivate)
         InitWith(Profile());
         DebindPrivate.SetSwitchValue("$state1", true);
         check(DebindPrivate.GetSwitchValue("$state1") == true, "값이 안 켜졌다");
-        check(DebindPrivate.db.char.switches["$state1"] == true,
+        check(DebindPrivate.db.charState.switches["$state1"] == true,
             "기억을 안 남겼다 - 다음 로드에 도로 꺼진다");
     end);
 
@@ -342,7 +358,7 @@ return function(DebindPrivate)
         DebindPrivate.OnSwitchChanged("$state1", true);
         check(frames.drainTimers() > 0, "미러가 아예 예약되지 않았다");
 
-        check(DebindPrivate.db.char.switches["$state1"] == true,
+        check(DebindPrivate.db.charState.switches["$state1"] == true,
             "이 캐릭터에 안 쓰였다");
         -- 정의는 계정 전체가 나눠 쓴다. 여기에 값이 남으면 다음 캐릭터가 그걸 물려받는다.
         check(options.savedValue == nil, "정의에도 값이 남았다");
@@ -354,12 +370,12 @@ return function(DebindPrivate)
     -- 전문화의 기억을 말없이 고쳐 쓰는 것이다.
     test("계산식 스위치의 값은 캐릭터 기억에 안 앉는다", function()
         InitWith(Profile());
-        check(DebindPrivate.db.char.switches["$state2"] == nil, "전제가 깨졌다 - 기억이 이미 있다");
+        check(DebindPrivate.db.charState.switches["$state2"] == nil, "전제가 깨졌다 - 기억이 이미 있다");
 
         DebindPrivate.OnSwitchChanged("$state2", true);
         check(frames.drainTimers() > 0, "미러가 아예 예약되지 않았다");
 
-        check(DebindPrivate.db.char.switches["$state2"] == nil,
+        check(DebindPrivate.db.charState.switches["$state2"] == nil,
             "계산식이 낸 값이 기억에 앉았다");
         -- 창이 읽는 값은 따라와야 한다. 둘이 한 번의 쓰기라서 같이 막히면 이 검사가 잡는다.
         check(DebindPrivate.GetSwitchValue("$state2") == true, "정의의 값이 안 따라왔다");
@@ -477,8 +493,8 @@ return function(DebindPrivate)
     test("지운 스위치를 가리키는 액션은 빨개진다", function()
         InitWith(Profile());
         DebindPrivate.DeleteSwitch("$state1");
-        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_TOGGLE, value = "$state1",
-                key = "F3" }) == Constants.BINDING_ISSUE_UNDEFINED_STATE,
+        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSWITCH_TOGGLE, value = "$state1",
+                key = "F3" }) == Constants.BINDING_ISSUE_UNDEFINED_SWITCH,
             "지운 이름을 가리키는 액션이 멀쩡한 줄로 남는다");
     end);
 
@@ -502,10 +518,10 @@ return function(DebindPrivate)
     -- 같은 액션을 [매크로로 바꾸기]로 편 것도 같은 말을 해야 한다. 안 그러면 바꾸기 하나로
     -- 빨간 줄이 멀쩡한 줄이 되고, 그 키가 아무 일도 안 한다는 것을 말해주는 자리가 사라진다.
     test("지운 스위치를 누르는 본문도 빨개진다", function()
-        ClickBody("/click DebindStates $state1-toggle");
+        ClickBody("/click DebindSwitch $state1-toggle");
         DebindPrivate.DeleteSwitch("$state1");
         check(DebindPrivate.GetBindingIssue(General(DebindPrivate.db.global)[4])
-                == Constants.BINDING_ISSUE_UNDEFINED_STATE,
+                == Constants.BINDING_ISSUE_UNDEFINED_SWITCH,
             "지운 이름을 누르는 본문이 멀쩡한 줄로 남는다");
     end);
 
@@ -513,10 +529,10 @@ return function(DebindPrivate)
     -- 물려받는다.
     test("지우면 기억한 값도 간다", function()
         local db = InitWith(Profile());
-        DebindPrivate.db.char.switches["$state1"] = true;
+        DebindPrivate.db.charState.switches["$state1"] = true;
         DebindPrivate.DeleteSwitch("$state1");
-        check(db.characters[ALT].switches["$state1"] == nil, "다른 캐릭터의 값이 남았다");
-        check(DebindPrivate.db.char.switches["$state1"] == nil, "이 캐릭터의 값이 남았다");
+        check(db.states[ALT].switches["$state1"] == nil, "다른 캐릭터의 값이 남았다");
+        check(DebindPrivate.db.charState.switches["$state1"] == nil, "이 캐릭터의 값이 남았다");
     end);
 
     ---------------------------------------------------------------------------
@@ -540,7 +556,7 @@ return function(DebindPrivate)
     -- 지우기 문장이 드는 숫자다. 누르는 본문을 안 세면 "0개가 이 이름을 쓴다"고 물어놓고
     -- 지운 다음 키 하나가 죽는다.
     test("누르는 본문도 걸린 것으로 센다", function()
-        ClickBody("/click DebindStates $state1-toggle");
+        ClickBody("/click DebindSwitch $state1-toggle");
         local account = DebindPrivate.CountSwitchReferences("$state1");
         check(account == 7, "센 것이 " .. account .. "개다");
     end);
@@ -726,13 +742,13 @@ return function(DebindPrivate)
     test("스위치를 안 고른 켜기/끄기/전환은 빨개진다", function()
         InitWith(Profile());
         local NONE = Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
-        for _, actionType in ipairs({ Constants.SETSTATE_ON, Constants.SETSTATE_OFF,
-                Constants.SETSTATE_TOGGLE }) do
+        for _, actionType in ipairs({ Constants.SETSWITCH_ON, Constants.SETSWITCH_OFF,
+                Constants.SETSWITCH_TOGGLE }) do
             local issue = DebindPrivate.GetBindingIssue({ type = actionType, key = "F1" });
             check(issue == NONE, actionType .. "이 " .. tostring(issue) .. "다");
         end
         -- 고르고 나면 사라진다. 이게 없으면 위는 "이 타입은 늘 빨갛다"와 구별이 안 된다.
-        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_TOGGLE,
+        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSWITCH_TOGGLE,
             value = "$state1", key = "F1" }) == nil, "고른 뒤에도 빨갛다");
     end);
 
@@ -740,17 +756,17 @@ return function(DebindPrivate)
     -- 문장이 "안 골랐다"인데 실제로는 "고른 것이 없어졌다"가 된다.
     test("안 고른 것과 없는 것을 가르는 코드가 다르다", function()
         InitWith(Profile());
-        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_ON, value = "$typo",
-                key = "F1" }) == Constants.BINDING_ISSUE_UNDEFINED_STATE,
+        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSWITCH_ON, value = "$typo",
+                key = "F1" }) == Constants.BINDING_ISSUE_UNDEFINED_SWITCH,
             "없는 이름이 안 고른 것으로 보고된다");
     end);
 
     -- 본문을 지을 수 없는 액션에 [매크로로 바꾸기]를 세우면 눌러도 아무 일이 없다.
     test("스위치를 안 고르면 매크로로 못 바꾼다", function()
         InitWith(Profile());
-        check(not DebindPrivate.CanConvertToMacroText({ type = Constants.SETSTATE_TOGGLE }),
+        check(not DebindPrivate.CanConvertToMacroText({ type = Constants.SETSWITCH_TOGGLE }),
             "이름이 없는데도 바꾸기를 내준다");
-        check(DebindPrivate.CanConvertToMacroText({ type = Constants.SETSTATE_TOGGLE,
+        check(DebindPrivate.CanConvertToMacroText({ type = Constants.SETSWITCH_TOGGLE,
             value = "$state1" }), "이름이 있는데 바꾸기가 안 선다");
     end);
 
@@ -908,7 +924,7 @@ return function(DebindPrivate)
         DebindPrivate.Switches["$state1"].resetValue = false;
         DebindPrivate.SetSwitchValue("$state1", true);
         check(DebindPrivate.GetSwitchValue("$state1") == true, "값이 안 켜졌다");
-        check(DebindPrivate.db.char.switches["$state1"] == true,
+        check(DebindPrivate.db.charState.switches["$state1"] == true,
             "기억을 안 남겼다 - 강제된 레이어를 떠나면 돌아갈 값이 없다");
     end);
 
@@ -923,7 +939,7 @@ return function(DebindPrivate)
         SetSpec(2);
         DebindPrivate.ApplySwitchResets();
         check(DebindPrivate.GetSwitchValue("$state1") == false, "2특성에서 안 꺼졌다");
-        check(DebindPrivate.db.char.switches["$state1"] == true,
+        check(DebindPrivate.db.charState.switches["$state1"] == true,
             "강제된 값이 기억을 덮었다 - 돌아갈 곳이 없어졌다");
 
         SetSpec(1);
@@ -937,7 +953,7 @@ return function(DebindPrivate)
     test("되돌아온 리셋은 기억이 되지 않는다", function()
         InitWith(Profile());
         DebindPrivate.SetSwitchValue("$state1", true);
-        check(DebindPrivate.db.char.switches["$state1"] == true, "전제가 깨졌다");
+        check(DebindPrivate.db.charState.switches["$state1"] == true, "전제가 깨졌다");
 
         DebindPrivate.Switches["$state1"].resetValue = false;
         DebindPrivate.ApplySwitchResets();
@@ -945,7 +961,7 @@ return function(DebindPrivate)
 
         -- 제한 환경이 방금 밀어넣은 값을 그대로 돌려준다.
         DebindPrivate.SetSwitchValue("$state1", false);
-        check(DebindPrivate.db.char.switches["$state1"] == true,
+        check(DebindPrivate.db.charState.switches["$state1"] == true,
             "리셋의 메아리가 기억을 덮었다");
     end);
 

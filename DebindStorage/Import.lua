@@ -235,7 +235,7 @@ end
 --- red text included - while a guessed one is a binding that fires when it should not.
 ---
 --- `$`-prefixed names pass unlisted, the same escape hatch the export copies out through
---- (`CopyFields`) and `CleanUpDB` keeps: a custom state condition is stored under its own name, and
+--- (`CopyFields`) and `CleanUpDB` keeps: a switch condition is stored under its own name, and
 --- the redesign turns those into arbitrary names. They still have to be booleans - `$state1..5` are
 --- declared as such and an arbitrary name does not make the value freer.
 local function FieldAllowed(name, value)
@@ -309,9 +309,9 @@ local VALUE_SHAPES = {
     -- refusing it here would turn away the whole string over a half-finished row, which is the one
     -- thing the receiving side is built not to do. It lands, it is red
     -- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`), and it does not bind.
-    [Constants.SETSTATE_ON]     = "string|nil",
-    [Constants.SETSTATE_OFF]    = "string|nil",
-    [Constants.SETSTATE_TOGGLE] = "string|nil",
+    [Constants.SETSWITCH_ON]     = "string|nil",
+    [Constants.SETSWITCH_OFF]    = "string|nil",
+    [Constants.SETSWITCH_TOGGLE] = "string|nil",
     [Constants.MACRO]       = "string",
     [Constants.MACROTEXT]   = "string",
     [Constants.COMMAND]     = "string",
@@ -376,7 +376,7 @@ end
 --- as long as everyone remembered that writing there put a value in the profile unread.
 ---
 --- **Nothing is rebuilt on the way in any more, and the whitelist is the whole of it.** A
---- `SETSTATE` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
+--- `setstate` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
 --- where it was turned back into the bitpack the profile stored. §9-1 made the stored form a `type`
 --- and a name, so what arrives is what lands and the loop below just copies it
 --- (`unifying-action-migration.md` §3-1). Reading the old subtable is
@@ -988,11 +988,11 @@ end
 --- gets something other than what they asked for -- "leave the keys out" was one of these, before
 --- it stopped being a question at all.
 ---
---- **Custom state definitions are not touched.** A state is shared by everything in the profile, so
+--- **Switch definitions are not touched.** A switch is shared by everything in the profile, so
 --- writing one would change what the reader's *existing* actions do - before they approved
 --- anything, and past the one thing quarantine is for. So an imported action that names `$state3`
 --- uses the reader's `$state3`, which is the "keep mine" answer, and a name nothing defines is
---- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_STATE`).
+--- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_SWITCH`).
 ---
 --- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
 --- put to the reader, and it is not built yet (`building-export-import.md`). Until it is, the answer is

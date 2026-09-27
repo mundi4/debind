@@ -26,7 +26,7 @@ drift, since neither is a claim about behaviour.
 
 **The empty part is written out because `@@` took the automatic self-cast with it** (2026-09-18, owner): the body now always names a unit, so a helpful spell with no target no longer falls back to the reader. `[@@,exists][]` is how they get that back, and it is the one thing the change costs them.
 
-**The last sentence covers the switch name too** because it goes through the same parser, and a page about the body is not where `@@` in a switch expression belongs. The expression box says that itself (`CUSTOM_STATE_EDIT_VALUE_DESC`).
+**The last sentence covers the switch name too** because it goes through the same parser, and a page about the body is not where `@@` in a switch expression belongs. The expression box says that itself (`SWITCH_EDIT_VALUE_DESC`).
 
 **Switches are here, and were once left to the switches' own text** (2026-09-18, owner). Nothing
 else tells a reader in the edit box that `[$name]` is a thing the body can hold.

@@ -164,10 +164,10 @@ local ACTION_FIELDS      = {
 --- the question is about a spell the action casts, so "only while it is unlearned" has no state
 --- that satisfies it.
 ---
---- **A `$`-prefixed name passes unlisted, as a boolean.** Custom state conditions are stored
+--- **A `$`-prefixed name passes unlisted, as a boolean.** Switch conditions are stored
 --- under their own name and the redesign turns the five slots into arbitrary ones
 --- (`redesigning-custom-states.md`); listing five and stopping there would drop every
---- named state the day it lands.
+--- named switch the day it lands.
 local CONDITION_TYPES    = {
     -- Bit masks.
     groups = "number",
@@ -263,7 +263,7 @@ DebindStorage.CASTING_TYPES = CASTING_TYPES;
 ---
 --- **These names are the wire's, and 3.2 wrote the older ones.** A v1 payload carries a numeric
 --- `mode` and `initialValue`, so the step that raises v1 renames them (`BringPayloadForward`).
-local STATE_FIELDS       = {
+local SWITCH_FIELDS      = {
     mode = true,
     resetValue = true,
     expr = true,
@@ -276,13 +276,13 @@ local STATE_FIELDS       = {
 
 --- A field-by-field copy, tables included. Copying by reference here would put live profile
 --- tables inside the payload, and `LibSerialize` would happily write them out -- but anything
---- that edited the payload afterwards (stripping keys, renaming a state) would be editing the
+--- that edited the payload afterwards (stripping keys, renaming a switch) would be editing the
 --- user's profile.
 local function CopyFields(source, allowed)
     local copy = {};
     for k, v in pairs(source) do
         -- The `$` escape that used to sit here is one level down now, in `CONDITION_TYPES`.
-        -- Custom state conditions are stored under their own name, and those names live inside
+        -- Switch conditions are stored under their own name, and those names live inside
         -- `conditions` -- nothing at the top of an action starts with `$` any more, so an escape
         -- here would only let through whatever else happened to.
         if (allowed[k]) then
@@ -369,7 +369,7 @@ end
 
 --- **An action goes out in the shape it is stored in. Nothing here rewrites one.**
 ---
---- `NormalizeAction` stood in this spot and rewrote exactly one type. It cleared `SETSTATE`'s
+--- `NormalizeAction` stood in this spot and rewrote exactly one type. It cleared `setstate`'s
 --- bitpacked `value` and hung a `setstate = { mode, state }` subtable off the copy -- a field that
 --- is not in `ACTION_FIELDS` and therefore outside the contract `check-export-fields.js` holds. The
 --- same action existed in two shapes, in the profile and on the wire, and the migration for it was
@@ -394,16 +394,16 @@ end
 
 
 -- ---------------------------------------------------------------------------------------------
--- Custom states referenced by what is being sent
+-- Switches referenced by what is being sent
 -- ---------------------------------------------------------------------------------------------
 
---- Every custom state the exported actions name, by name.
+--- Every switch the exported actions name, by name.
 ---
 --- Four places hold a reference (`redesigning-custom-states.md` §3-4) and three of them are
 --- reachable from an action: the condition fields on the action itself, an on/off/toggle action's
---- `value`, and names typed into macro text. The fourth is a state's own `expr` naming another
---- state, which is why this closes transitively rather than doing one pass.
-local function CollectStateNames(actions, found)
+--- `value`, and names typed into macro text. The fourth is a switch's own `expr` naming another
+--- switch, which is why this closes transitively rather than doing one pass.
+local function CollectSwitchNames(actions, found)
     for i = 1, #actions do
         local action = actions[i];
 
@@ -417,7 +417,7 @@ local function CollectStateNames(actions, found)
             end
         end
 
-        if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
+        if (Constants.SETSWITCH_MODES[action.type] and luatype(action.value) == "string") then
             found[action.value] = true;
         end
 
@@ -435,14 +435,14 @@ local function CollectStateNames(actions, found)
     end
 end
 
---- The manifest: every referenced state, definition included, keyed by name.
+--- The manifest: every referenced switch, definition included, keyed by name.
 ---
 --- Names, not indices, because the receiving side has to be able to *ask* about a collision, and
---- `$state3` on two machines is two different states that an index can never tell apart. A name
---- nothing defines is also the one broken state reference red text already catches
---- (`BINDING_ISSUE_UNDEFINED_STATE`), so the reader is not left guessing.
+--- `$state3` on two machines is two different switches that an index can never tell apart. A name
+--- nothing defines is also the one broken switch reference red text already catches
+--- (`BINDING_ISSUE_UNDEFINED_SWITCH`), so the reader is not left guessing.
 ---
---- A referenced state with no definition is left out rather than sent empty. The sender has
+--- A referenced switch with no definition is left out rather than sent empty. The sender has
 --- nothing to say about it, and an empty definition would read as "defined, and blank".
 ---
 --- **Where a definition comes from is the caller's to say.** Building a payload out of the profile
@@ -451,9 +451,9 @@ end
 --- somebody else's definitions, and resolving those names here would quietly swap them for this
 --- reader's. Everything else about the walk is the same, transitive close included, so it is one
 --- function taking a resolver rather than two that drift.
-local function BuildStateManifest(actions, Resolve)
+local function BuildSwitchManifest(actions, Resolve)
     local referenced = {};
-    CollectStateNames(actions, referenced);
+    CollectSwitchNames(actions, referenced);
 
     local manifest, any = {}, false;
     local pending = referenced;
@@ -465,10 +465,10 @@ local function BuildStateManifest(actions, Resolve)
             if (manifest[name] == nil) then
                 local definition = Resolve(name);
                 if (definition) then
-                    manifest[name] = CopyFields(definition, STATE_FIELDS);
+                    manifest[name] = CopyFields(definition, SWITCH_FIELDS);
                     any = true;
 
-                    -- A conditional state's expression can name other states, and those have to
+                    -- A computed switch's expression can name other switches, and those have to
                     -- travel too or the definition arrives referring to nothing.
                     if (definition.mode == Constants.SWITCH_MODES.EXPR
                             and luatype(definition.expr) == "string") then
@@ -559,7 +559,7 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- **Nothing is validated, and nothing is rewritten.** A broken action exports exactly as it sits.
 --- The receiving side shows it in red and the user deletes it, and that one rule is what removes a
 --- whole class of questions about spells the reader does not have. The one standing exception was
---- `SETSTATE`, whose stored index would have arrived **unbroken and wrong** where red text cannot
+--- `setstate`, whose stored index would have arrived **unbroken and wrong** where red text cannot
 --- see it; §9-1 made the stored form a name, so there is nothing left to rewrite.
 function DebindStorage.BuildExportPayload(selection)
 
@@ -594,7 +594,7 @@ function DebindStorage.BuildExportPayload(selection)
         end
     end
 
-    payload.states = BuildStateManifest(exported, DebindPrivate.ResolveSwitchDefinition);
+    payload.states = BuildSwitchManifest(exported, DebindPrivate.ResolveSwitchDefinition);
     return payload;
 end
 
@@ -634,7 +634,7 @@ function DebindStorage.FilterPayload(payload, selection)
     end);
 
     local states = luatype(payload.states) == "table" and payload.states or nil;
-    out.states = states and BuildStateManifest(kept, function(name)
+    out.states = states and BuildSwitchManifest(kept, function(name)
         return states[name];
     end) or nil;
 
@@ -679,7 +679,7 @@ end
 --- frozen. Adding it then would mean a later step correcting a field whose meaning moved here --
 --- a ladder that lies about which version changed what.
 ---
---- The step holds its own literals, for the reason the SETSTATE step in `Profile.lua` does.
+--- The step holds its own literals, for the reason the `setstate` step in `Migration.lua` does.
 local function RenameManifestSwitchFields(states)
     if (luatype(states) ~= "table") then
         return;
@@ -703,7 +703,7 @@ local function RenameManifestSwitchFields(states)
     end
 end
 
---- v1 -> v2, the action side. The wire spelled a `SETSTATE` as a `setstate = { mode, state }`
+--- v1 -> v2, the action side. The wire spelled a `setstate` as a `setstate = { mode, state }`
 --- subtable with no `value`; it is opened out into the `type` and the name the profile stores
 --- (`unifying-action-migration.md` §3-2).
 ---
@@ -725,12 +725,15 @@ end
 --- **Asked whether it is a table, not whether it is there.** A hand-made `setstate = 5` would raise
 --- here and take down a commit with half an entry already placed. A mode or a name this build cannot
 --- read leaves the action under the old type, which is a type nothing knows -- `IsUsableAction`
---- turns it down and the whole string with it, and that is the right end for a `SETSTATE` with
+--- turns it down and the whole string with it, and that is the right end for a `setstate` with
 --- nothing to set.
+---
+--- **The three types are literals, the ones the `dbver <= 5` step writes**, and the `dbver <= 7`
+--- step renames them the way it renames a stored one.
 local V1_SETSTATE_TYPES = {
-    on     = Constants.SETSTATE_ON,
-    off    = Constants.SETSTATE_OFF,
-    toggle = Constants.SETSTATE_TOGGLE,
+    on     = "setstate_on",
+    off    = "setstate_off",
+    toggle = "setstate_toggle",
 };
 
 local function OpenV1Setstate(payload)

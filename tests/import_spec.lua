@@ -7,7 +7,7 @@
 --
 -- Two of those are the whole reason the format is shaped the way it is:
 --
---   * a `SETSTATE` value is a switch **name**, on the wire and in the profile alike (§9-1 of
+--   * a `SETSWITCH` value is a switch **name**, on the wire and in the profile alike (§9-1 of
 --     `redesigning-custom-states.md`). What still has to be rebuilt is v1's `setstate`
 --     subtable, and that happens at the door rather than here.
 --   * a `MACRO` carries a **name**, and only a name. A slot index would resolve on any install and
@@ -346,8 +346,8 @@ return function(DebindPrivate, DebindStorage)
     test("setstate가 테이블이 아니어도 안 터진다", function()
         ResetProfile();
         local action = PlanOne(General({
-            { type = Constants.SETSTATE, key = "F", seq = 1, setstate = 5 } }));
-        check(action.type == Constants.SETSTATE, "타입이 바뀌었다");
+            { type = "setstate", key = "F", seq = 1, setstate = 5 } }));
+        check(action.type == "setstate", "타입이 바뀌었다");
         check(action.setstate == nil, "포맷 필드가 액션에 남았다");
     end);
 
@@ -693,9 +693,9 @@ return function(DebindPrivate, DebindStorage)
 
     test("v1의 서브테이블이 타입과 이름으로 도착한다", function()
         for _, case in ipairs({
-            { mode = "on", type = Constants.SETSTATE_ON },
-            { mode = "off", type = Constants.SETSTATE_OFF },
-            { mode = "toggle", type = Constants.SETSTATE_TOGGLE },
+            { mode = "on", type = Constants.SETSWITCH_ON },
+            { mode = "off", type = Constants.SETSWITCH_OFF },
+            { mode = "toggle", type = Constants.SETSWITCH_TOGGLE },
         }) do
             ResetProfile();
             local action = PlanOne(Forwarded(V1Setstate(case.mode, "$state3")));
@@ -713,7 +713,7 @@ return function(DebindPrivate, DebindStorage)
         local fromV1 = PlanOne(Forwarded(V1Setstate("toggle", "$state3")));
 
         local current = General({
-            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "F", seq = 1 } });
+            { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "F", seq = 1 } });
         current.v = DebindStorage.EXPORT_SCHEMA_VERSION;
         current.dbver = Constants.DB_VERSION;
 
@@ -789,7 +789,7 @@ return function(DebindPrivate, DebindStorage)
     test("정의가 없는 이름도 그대로 도착한다", function()
         ResetProfile();
         local action = PlanOne(Forwarded(V1Setstate("toggle", "$nosuchswitch")));
-        check(action.type == Constants.SETSTATE_TOGGLE, "타입 " .. tostring(action.type));
+        check(action.type == Constants.SETSWITCH_TOGGLE, "타입 " .. tostring(action.type));
         check(action.value == "$nosuchswitch", "이름 " .. tostring(action.value));
     end);
 
@@ -861,7 +861,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SETCUSTOM, value = 1, key = "M", seq = 1 },
             { type = Constants.TARGET, key = "N", seq = 1 },
             { type = Constants.UNUSED, key = "O", seq = 1 },
-            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "P", seq = 1 } })),
+            { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "P", seq = 1 } })),
             "멀쩡한 것이 걸렸다");
     end);
 
@@ -892,18 +892,18 @@ return function(DebindPrivate, DebindStorage)
 
     -- The three that replaced it carry a name, and a number there is a reference to nothing: it
     -- reaches `SetAttribute` as the name of the attribute to set (`UpdateBindings.lua`).
-    test("이름 대신 숫자를 든 SETSTATE도 걸린다", function()
+    test("이름 대신 숫자를 든 SETSWITCH도 걸린다", function()
         check(DebindStorage.PayloadIsImpossible(General({
-            { type = Constants.SETSTATE_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");
+            { type = Constants.SETSWITCH_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");
     end);
 
     -- **값이 아예 없는 것은 반대다.** 3c부터 선택 창이 대상 없는 켜기/끄기/전환을 하나 넣으므로
     -- (§6-C), 그 상태로 내보낸 문자열은 **이 애드온이 만들 수 있는 모양**이다. 여기서 걸면
     -- 반쯤 만든 줄 하나 때문에 문자열이 통째로 거절되는데, 받는 쪽 규칙은 그 반대다. 깨진
     -- 것도 보내고 읽는 사람이 빨간 줄을 보고 지운다.
-    test("스위치를 안 고른 SETSTATE는 안 걸린다", function()
+    test("스위치를 안 고른 SETSWITCH는 안 걸린다", function()
         check(not DebindStorage.PayloadIsImpossible(General({
-            { type = Constants.SETSTATE_TOGGLE, key = "F", seq = 1 } })), "걸렸다");
+            { type = Constants.SETSWITCH_TOGGLE, key = "F", seq = 1 } })), "걸렸다");
     end);
 
     -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in

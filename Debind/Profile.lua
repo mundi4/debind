@@ -624,19 +624,17 @@ function DebindPrivate.LoadProfile()
     DebindPrivate.callbacks:Fire("OnProfileLoaded");
 end
 
---- Does this character entry hold any **content**? The identity fields (`name`, `class`,
---- `lastSeen`, …) do not count - we write those ourselves on every login, so treating them as
---- content would give every single alt an entry.
+--- Does this character's `states[guid]` hold anything?
 ---
---- **Everything a character can hold has to be listed here**, and the one that is missing is
---- silent: `CleanUpDB` detaches the whole entry on the way out, so a character whose only content
---- this does not recognise loses it at logout rather than at the write, with nothing said either
---- time (`redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
-local function HasCharContent(entry)
-    if (entry.CustomTargets and next(entry.CustomTargets) ~= nil) then
+--- **Every field a state can hold has to be listed here**, and the one that is missing is silent:
+--- `CleanUpDB` detaches the whole state on the way out, so a character whose only content this
+--- does not recognise loses it at logout rather than at the write, with nothing said either time
+--- (`redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
+local function HasStateContent(state)
+    if (state.CustomTargets and next(state.CustomTargets) ~= nil) then
         return true;
     end
-    if (entry.switches and next(entry.switches) ~= nil) then
+    if (state.switches and next(state.switches) ~= nil) then
         return true;
     end
     return false;
@@ -678,7 +676,7 @@ DebindPrivate.SWITCH_DEFAULTS = SWITCH_DEFAULTS;
 --- only made for switches somebody set up. Every caller has to have an answer for a name nothing
 --- defines, and everywhere the answer is the same: **it is false, and it stays false.** A macro
 --- body's `[$typo]` bakes to `known:0`, a condition compares against a value nothing ever writes,
---- and the action carries `BINDING_ISSUE_UNDEFINED_STATE` so the user is told which name it was.
+--- and the action carries `BINDING_ISSUE_UNDEFINED_SWITCH` so the user is told which name it was.
 ---
 --- What it must not do is error. It did until now, on `nil <= 5` for any name it did not know
 --- (⚑7), which was unreachable only because every caller passed a gate first.
@@ -773,6 +771,18 @@ local function ForEachOverrideCell(fn)
             end
         end
     end
+end
+
+--- Every character's `states[guid]`, this character's included. **This one may not be in `states`
+--- yet** (lazy creation, `CleanUpDB`), so it is handed over on its own when it is not.
+local function ForEachState(fn)
+    local mine = DebindPrivate.db.charState;
+    for _, state in pairs(DebindPrivate.db.global.states or {}) do
+        if (state ~= mine) then
+            fn(state);
+        end
+    end
+    fn(mine);
 end
 
 --- Drops every empty table under `switches` that is not the root, so a cell whose last row went
@@ -1112,32 +1122,32 @@ function DebindPrivate.GetSwitchValue(name)
     return _switchValues[name] or false;
 end
 
---- What this character remembers of a switch, or nil. The state a character carries lives in its
---- `characters` entry, and only this file knows where (`reshaping-stored-layers.md` §1).
+--- What this character remembers of a switch, or nil. The state a character carries lives in
+--- `states[guid]`, and only this file knows where (`reshaping-stored-layers.md` §1).
 function DebindPrivate.GetRememberedSwitch(name)
-    return DebindPrivate.db.char.switches[name];
+    return DebindPrivate.db.charState.switches[name];
 end
 
 --- Sets or, with nil, forgets what this character remembers of a switch. **Not a press**: the
 --- value in effect does not move (`SetSwitchValue` is the door that moves both).
 function DebindPrivate.SetRememberedSwitch(name, value)
-    DebindPrivate.db.char.switches[name] = value;
+    DebindPrivate.db.charState.switches[name] = value;
 end
 
 --- The unit this character saved for a custom target alias (`custom1`, `custom2`), or nil.
 function DebindPrivate.GetSavedCustomTarget(alias)
-    local saved = DebindPrivate.db.char.CustomTargets;
+    local saved = DebindPrivate.db.charState.CustomTargets;
     return saved and saved[alias];
 end
 
 function DebindPrivate.SaveCustomTarget(alias, value)
-    local charEntry = DebindPrivate.db.char;
-    charEntry.CustomTargets = charEntry.CustomTargets or {};
-    charEntry.CustomTargets[alias] = value;
+    local state = DebindPrivate.db.charState;
+    state.CustomTargets = state.CustomTargets or {};
+    state.CustomTargets[alias] = value;
 end
 
 function DebindPrivate.ApplySwitchResets()
-    local savedValues = DebindPrivate.db.char.switches;
+    local savedValues = DebindPrivate.db.charState.switches;
 
     for name in pairs(DebindPrivate.Switches) do
         local mode, resetValue, _, layerKey = DebindPrivate.ResolveSwitchAnswer(name);
@@ -1271,7 +1281,7 @@ end
 --- Every switch name this action holds, in the four places one can be named.
 ---
 --- A condition key, an on/off/toggle target, and a macro body twice over: the conditions in it, and
---- the `/click DebindStates …` line [Convert to macro text] writes an on/off/toggle action out as.
+--- the `/click DebindSwitch …` line [Convert to macro text] writes an on/off/toggle action out as.
 --- Both halves of the body are asked through the same doors `GetUndefinedSwitch` uses, so what is
 --- reported here is exactly what goes red there.
 ---
@@ -1286,7 +1296,7 @@ local function ForEachSwitchInAction(action, fn)
             end
         end
     end
-    if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
+    if (Constants.SETSWITCH_MODES[action.type] and luatype(action.value) == "string") then
         fn(action.value);
     end
     if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
@@ -1582,7 +1592,7 @@ end
 ---   * a condition key, `action.conditions["$burst"]`
 ---   * an on/off/toggle action's target, `action.value`
 ---   * a macro body's `[$burst]` and `no$burst`
----   * a macro body's `/click DebindStates $burst-on`, which is that same target after
+---   * a macro body's `/click DebindSwitch $burst-on`, which is that same target after
 ---     [Convert to macro text] opened the action out (`RenameSwitchInMacroText`). We write that
 ---     line ourselves, so the name being inside a string here is our doing rather than the user's
 ---   * **another switch's expression**, which is the one that gets forgotten. An expression is a
@@ -1625,7 +1635,7 @@ function DebindPrivate.RenameSwitch(oldName, newName)
             conditions[newName] = conditions[oldName];
             conditions[oldName] = nil;
         end
-        if (Constants.SETSTATE_MODES[action.type] and action.value == oldName) then
+        if (Constants.SETSWITCH_MODES[action.type] and action.value == oldName) then
             action.value = newName;
         end
         if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
@@ -1658,17 +1668,13 @@ function DebindPrivate.RenameSwitch(oldName, newName)
         end
     end);
 
-    for _, entry in pairs(db.characters) do
-        if (entry.switches and entry.switches[oldName] ~= nil) then
-            entry.switches[newName] = entry.switches[oldName];
-            entry.switches[oldName] = nil;
+    ForEachState(function(state)
+        local remembered = state.switches;
+        if (remembered and remembered[oldName] ~= nil) then
+            remembered[newName] = remembered[oldName];
+            remembered[oldName] = nil;
         end
-    end
-    local charSwitches = DebindPrivate.db.char.switches;
-    if (charSwitches[oldName] ~= nil) then
-        charSwitches[newName] = charSwitches[oldName];
-        charSwitches[oldName] = nil;
-    end
+    end);
 
     DebindPrivate.Switches[newName] = definition;
     DebindPrivate.Switches[oldName] = nil;
@@ -1702,12 +1708,11 @@ function DebindPrivate.DeleteSwitch(name)
         cell[name] = nil;
     end);
     PruneSwitchCells();
-    for _, entry in pairs(DebindPrivate.db.global.characters) do
-        if (entry.switches) then
-            entry.switches[name] = nil;
+    ForEachState(function(state)
+        if (state.switches) then
+            state.switches[name] = nil;
         end
-    end
-    DebindPrivate.db.char.switches[name] = nil;
+    end);
 
     DebindPrivate.OnSwitchesChanged();
     return true;
@@ -1889,7 +1894,7 @@ function DebindPrivate.SetSwitchValue(name, value)
     -- hands back on a specialization that never computed anything, and the value a login restores.
     -- One specialization's expression would be quietly rewriting another's memory.
     if (DebindPrivate.ResolveSwitchAnswer(name) == Constants.SWITCH_MODES.MANUAL) then
-        DebindPrivate.db.char.switches[name] = value;
+        DebindPrivate.db.charState.switches[name] = value;
     end
     DebindPrivate.switchValueSerial = DebindPrivate.switchValueSerial + 1;
 end
@@ -1952,8 +1957,9 @@ end
 local function StandDown()
     DebindPrivate.playerGUID = UnitGUID("player");
     DebindPrivate.db = {
-        global = { layers = {}, characters = {}, migrated = {} },
-        char = { switches = {} },
+        global = { layers = {}, characters = {}, states = {}, migrated = {} },
+        char = {},
+        charState = { switches = {} },
         charLayers = {},
     };
     DebindPrivate.UIVars = {};
@@ -2002,31 +2008,29 @@ function DebindPrivate.InitDB()
     -- Which characters have already had the pre-rename SavedVariables pulled across. `Legacy.lua`.
     db.migrated = db.migrated or {};
 
-    -- **Lazy creation.** If there is no entry we hand out a **detached** table rather than putting
-    -- one in `characters`. Attaching it is `CleanUpDB`'s job, once there is something in it. An alt
-    -- that never used a character-specific binding therefore never gets an entry in the account
-    -- file - one of the two things bounding how far deleted characters can pile up (the other is
-    -- removing empty entries, in the same place).
-    --
-    -- **Made before the migration rather than after**, because a step can have something to write
-    -- here: `MigrateSwitches` hands this character the remembered switch values that used to sit on
-    -- the account table, and a detached entry is the one place it could not otherwise reach.
     local guid = UnitGUID("player");
-    local charEntry = db.characters[guid] or {};
-    charEntry.switches = charEntry.switches or {};
-
     DebindPrivate.UIVars = PrepareUIVars();
-    DebindPrivate.MigrateDB(db, charEntry, DebindPrivate.UIVars);
+    DebindPrivate.MigrateDB(db, DebindPrivate.UIVars);
 
-    -- The same lazy creation for this character's layers, and after the migration, which is what
-    -- moves them out of the entry and into `layers`.
-    local charLayers = db.layers[guid] or {};
+    -- **Lazy creation.** Where there is no entry, state or layers we hand out a **detached** table
+    -- rather than putting one in `characters`, `states` or `layers`. Attaching them is
+    -- `CleanUpDB`'s job, once there is something in them. An alt that never used a
+    -- character-specific anything therefore never gets a place in the account file - one of the
+    -- two things bounding how far deleted characters can pile up (the other is removing empty
+    -- ones, in the same place).
+    --
+    -- **After the migration**, which is what moves the state out of the entry and the layers into
+    -- `layers`.
+    db.states = db.states or {};
+    local charState = db.states[guid] or {};
+    charState.switches = charState.switches or {};
 
     DebindPrivate.playerGUID = guid;
     DebindPrivate.db = {
         global = db,
-        char = charEntry,
-        charLayers = charLayers,
+        char = db.characters[guid] or {},
+        charState = charState,
+        charLayers = db.layers[guid] or {},
     };
 
     -- Ahead of `BindDerivedTables`, whose resets have to read the healed rows.
@@ -2349,11 +2353,10 @@ function DebindPrivate.CleanUpDB()
         end
     end
 
-    -- **Attach or detach this character's entry and layers.** `InitDB` does not create either up
-    -- front (lazy creation), so this is where anything actually enters `characters` or `layers`.
-    -- The decision is remade on
-    -- every logout, which is how the entry disappears for someone who just deleted their last
-    -- character-specific binding.
+    -- **Attach or detach this character's entry, state and layers.** `InitDB` does not create any
+    -- of them up front (lazy creation), so this is where anything actually enters `characters`,
+    -- `states` or `layers`. The decision is remade on every logout, which is how the entry
+    -- disappears for someone who just deleted their last character-specific binding.
     --
     -- **Empty entries are removed without asking**, because there is nothing to lose. That does not
     -- contradict "never delete an entry that has content automatically" - these two together are
@@ -2376,10 +2379,12 @@ function DebindPrivate.CleanUpDB()
         db.layers[guid] = hasLayers and DebindPrivate.db.charLayers or nil;
         PruneSwitchCells();
         local hasOverrides = db.switches ~= nil and db.switches[guid] ~= nil;
-        -- **The entry stays while the layers or the override rows do**, because it is what names
-        -- them: whoever reads `layers[guid]` or `switches[guid]` from somewhere else has only this
-        -- to tell them whose they are, and the class in it is what a later reshape files them by.
-        if (hasLayers or hasOverrides or HasCharContent(DebindPrivate.db.char)) then
+        local hasState = HasStateContent(DebindPrivate.db.charState);
+        db.states[guid] = hasState and DebindPrivate.db.charState or nil;
+        -- **The entry stays while anything under this GUID does**, because it is what names them:
+        -- whoever reads `layers[guid]`, `switches[guid]` or `states[guid]` from somewhere else has
+        -- only this to tell them whose they are.
+        if (hasLayers or hasOverrides or hasState) then
             db.characters[guid] = DebindPrivate.db.char;
         else
             db.characters[guid] = nil;
