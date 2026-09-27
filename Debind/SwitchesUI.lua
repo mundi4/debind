@@ -960,12 +960,8 @@ function DebindSwitchesPanelMixin:SetupSettings(settings)
     settings.StartDropdown:SetSelectionText(function()
         return LLL[LabelForStartValue(self:CurrentStartValue())];
     end);
-    -- **The closed button says the layer's name and nothing else.** The mark on the winning entry
-    -- belongs in the list, where the reader is comparing the layers against each other; on the
-    -- button it would ride along after the name as though it were part of it.
-    settings.LayerDropdown:SetSelectionText(function()
-        return DebindUI.GetLayerLabel(self.layerID);
-    end);
+    -- **No `SetSelectionText` here.** The closed button shows the picked radio's own text, so the
+    -- colour `BuildLayerMenu` puts on the layer in force stays on the button too.
     settings.LayerDropdown.tooltipTitle = LLL["SWITCH_LAYER_PICKER"];
     settings.LayerDropdown.tooltipText = LLL["SWITCH_OVERRIDE_DESC"];
     self:WireTooltip(settings.LayerDropdown);
