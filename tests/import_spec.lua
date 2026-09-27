@@ -71,7 +71,23 @@ return function(DebindPrivate, DebindStorage)
     --- A payload holding one general layer. **The path is the address** -- there is no descriptor
     --- to write, so a test that is not about addressing says nothing about it at all.
     local function General(actions)
+        return {
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = actions } } },
+        };
+    end
+
+    --- The same in the shape 3.2 wrote, for the cases about that shape.
+    local function V1General(actions)
         return { v = 1, class = CLASS, shared = { GENERAL = actions } };
+    end
+
+    --- A payload of one account class cell, `layers.account[class][spec]`.
+    local function ClassCell(class, spec, actions)
+        return {
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = { account = { [class] = { [spec] = actions } } },
+        };
     end
 
     --- Plans a payload holding exactly one action and hands it back.
@@ -214,11 +230,8 @@ return function(DebindPrivate, DebindStorage)
     test("다른 직업 레이어에 놓아도 번호는 이어진다", function()
         ResetProfile();
 
-        local mage = DebindStorage.PlanArrival({
-            v = 1, class = CLASS,
-            shared = { classes = { MAGE = { [2] = {
-                { type = Constants.SPELL, value = 1, key = "F", seq = 1 } } } } },
-        });
+        local mage = DebindStorage.PlanArrival(ClassCell("MAGE", 2, {
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1 } }));
         DebindPrivate.PlaceArrivedActions(mage);
 
         -- The premise: it really did land somewhere the layer view does not reach.
@@ -575,14 +588,10 @@ return function(DebindPrivate, DebindStorage)
     test("한 키가 레이어 여럿에 걸쳐도 묶음 하나로 들어온다", function()
         ResetProfile();
 
-        local placements = DebindStorage.PlanArrival({
-            v = 1, class = CLASS,
-            shared = {
-                GENERAL = { { type = Constants.SPELL, value = 1, key = "F", seq = 1 } },
-                classes = { [CLASS] = { [0] = {
-                    { type = Constants.SPELL, value = 2, key = "F", seq = 1 } } } },
-            },
-        });
+        local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1 } });
+        payload.layers.account[CLASS] = { [0] = {
+            { type = Constants.SPELL, value = 2, key = "F", seq = 1 } } };
+        local placements = DebindStorage.PlanArrival(payload);
 
         check(#placements == 2, "액션 수 " .. #placements);
         local scopes, oneKey = {}, nil;
@@ -608,10 +617,7 @@ return function(DebindPrivate, DebindStorage)
         local _, general = PlanOne(General({ { type = Constants.SPELL, value = 1 } }));
         check(general.scope == "general", "일반이 아니다: " .. tostring(general.scope));
 
-        local _, foreign = PlanOne({
-            v = 1, class = CLASS,
-            shared = { classes = { MAGE = { [2] = { { type = Constants.SPELL, value = 1 } } } } },
-        });
+        local _, foreign = PlanOne(ClassCell("MAGE", 2, { { type = Constants.SPELL, value = 1 } }));
         check(foreign.scope == "class" and foreign.class == "MAGE" and foreign.spec == 2,
             "남의 직업 좌표를 내 것으로 바꿨다: " .. tostring(foreign.class)
                 .. "/" .. tostring(foreign.spec));
@@ -621,13 +627,9 @@ return function(DebindPrivate, DebindStorage)
     -- did not land.
     test("갈 데 없는 주소는 세어서 빠진다", function()
         ResetProfile();
-        local placements, skipped = DebindStorage.PlanArrival({
-            v = 1, class = CLASS,
-            shared = {
-                GENERAL = { { type = Constants.SPELL, value = 2 } },
-                classes = { NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } } },
-            },
-        });
+        local payload = General({ { type = Constants.SPELL, value = 2 } });
+        payload.layers.account.NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } };
+        local placements, skipped = DebindStorage.PlanArrival(payload);
         check(#placements == 1, "빠뜨릴 것을 안 빠뜨렸다");
         check(skipped == 1, "안 센다 - 조용히 사라진다");
     end);
@@ -637,15 +639,41 @@ return function(DebindPrivate, DebindStorage)
     -- 놓을 데가 없는 것이라 세어야 한다.
     test("이 캐릭터에 없는 특성 번호도 세어서 뺀다", function()
         ResetProfile();
-        local placements, skipped = DebindStorage.PlanArrival({
-            v = 1, class = CLASS,
-            shared = { GENERAL = { { type = Constants.SPELL, value = 3 } } },
-            char = { [5] = { { type = Constants.SPELL, value = 1 },
-                             { type = Constants.SPELL, value = 2 } } },
-        });
+        local payload = General({ { type = Constants.SPELL, value = 3 } });
+        payload.layers["1"] = { [CLASS] = { [5] = { { type = Constants.SPELL, value = 1 },
+                                                     { type = Constants.SPELL, value = 2 } } } };
+        local placements, skipped = DebindStorage.PlanArrival(payload);
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 2, "못 놓은 둘을 안 세었다: " .. skipped);
+    end);
+
+    -- **The receiving character is one**, and a character cell of its class is what it takes. The
+    -- key says nothing about where it goes: a guid of some other install and an anonymised number
+    -- both land on this character.
+    test("이 직업의 캐릭터 칸은 이 캐릭터로 간다", function()
+        for _, owner in ipairs({ "Player-99-ELSEWHERE", "1" }) do
+            ResetProfile();
+            local payload = General({});
+            payload.layers.account.GENERAL = nil;
+            payload.layers[owner] = { [CLASS] = { [2] = { { type = Constants.SPELL, value = 1 } } } };
+            local _, placement = PlanOne(payload);
+            check(placement.scope == "character" and placement.spec == 2,
+                owner .. ": " .. tostring(placement.scope) .. "/" .. tostring(placement.spec));
+        end
+    end);
+
+    -- **A mage's character layer is not a druid's** (`reshaping-stored-layers.md` 2절). Put in by
+    -- number it would land in the druid's spec 2, which is Feral and not Fire. It stays out and is
+    -- counted, and the window says how many did not land.
+    test("다른 직업의 캐릭터 칸은 안 들어오고 세어진다", function()
+        ResetProfile();
+        local payload = General({ { type = Constants.SPELL, value = 3 } });
+        payload.layers["1"] = { MAGE = { [2] = { { type = Constants.SPELL, value = 1 } } } };
+        local placements, skipped = DebindStorage.PlanArrival(payload);
+
+        check(#placements == 1, "남의 직업 캐릭터 칸이 들어왔다: " .. #placements);
+        check(skipped == 1, "안 센다: " .. skipped);
     end);
 
     -- **틱은 이제 액션에 붙는다.** 미리보기가 액션을 그리고 거기서 고르므로, 놓이는 것도 액션
@@ -686,7 +714,7 @@ return function(DebindPrivate, DebindStorage)
     --- The wire shape 3.2 wrote. `Constants.SETSTATE` is gone, so the old type is a literal here
     --- for the same reason the migration step holds one.
     local function V1Setstate(mode, state)
-        return General({
+        return V1General({
             { type = "setstate", key = "F", seq = 1,
               setstate = { mode = mode, state = state } } });
     end
@@ -714,8 +742,6 @@ return function(DebindPrivate, DebindStorage)
 
         local current = General({
             { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "F", seq = 1 } });
-        current.v = DebindStorage.EXPORT_SCHEMA_VERSION;
-        current.dbver = Constants.DB_VERSION;
 
         ResetProfile();
         local fromCurrent = PlanOne(Forwarded(current));
@@ -728,11 +754,14 @@ return function(DebindPrivate, DebindStorage)
 
     -- 3.5 이하가 내보낸 문자열에는 `equipslot`이 그대로 실려 온다. 페이로드는 프로필과 같은
     -- 사다리를 타므로(`Export.lua`의 `BringPayloadDataForward`) 도착하는 것은 새 이름이어야 한다.
+    --- A v2 general layer at `dbver`, the shape 3.3 to 4.0 wrote.
+    local function V2General(actions, dbver)
+        return { v = 2, dbver = dbver, class = CLASS, shared = { GENERAL = actions } };
+    end
+
     test("dbver 6 페이로드의 equipslot은 useslot으로 들어온다", function()
         ResetProfile();
-        local old = General({ { type = "equipslot", value = 13, key = "F", seq = 1 } });
-        old.v = DebindStorage.EXPORT_SCHEMA_VERSION;
-        old.dbver = 6;
+        local old = V2General({ { type = "equipslot", value = 13, key = "F", seq = 1 } }, 6);
         local action = PlanOne(Forwarded(old));
         check(action.type == Constants.USESLOT, "타입이 " .. tostring(action.type));
         check(action.value == 13, "값이 " .. tostring(action.value));
@@ -740,9 +769,7 @@ return function(DebindPrivate, DebindStorage)
 
     test("dbver 6 페이로드의 행동 칸 명령은 행동 단축키 액션으로 들어온다", function()
         ResetProfile();
-        local old = General({ { type = Constants.COMMAND, value = "ACTIONBUTTON3", key = "F", seq = 1 } });
-        old.v = DebindStorage.EXPORT_SCHEMA_VERSION;
-        old.dbver = 6;
+        local old = V2General({ { type = Constants.COMMAND, value = "ACTIONBUTTON3", key = "F", seq = 1 } }, 6);
         local action = PlanOne(Forwarded(old));
         check(action.type == Constants.ACTIONBUTTON, "타입이 " .. tostring(action.type));
         check(action.value == "ACTIONBUTTON3", "값이 " .. tostring(action.value));
@@ -760,7 +787,7 @@ return function(DebindPrivate, DebindStorage)
 
     test("dbver 없는 v1 페이로드의 equipslot도 useslot으로 들어온다", function()
         ResetProfile();
-        local action = PlanOne(Forwarded(General({ { type = "equipslot", value = 13, key = "F", seq = 1 } })));
+        local action = PlanOne(Forwarded(V1General({ { type = "equipslot", value = 13, key = "F", seq = 1 } })));
         check(action.type == Constants.USESLOT, "타입이 " .. tostring(action.type));
     end);
 
@@ -772,7 +799,7 @@ return function(DebindPrivate, DebindStorage)
     -- 앉아 있는 문자열은 손으로 만든 것이고, 그 숫자는 어떤 것이든 어떤 스위치로 풀린다.
     test("모르는 모드는 안 갈리고, 그래서 못 쓰는 액션이 된다", function()
         local payload = Forwarded(V1Setstate("없는모드", "$state3"));
-        local action = payload.shared.GENERAL[1];
+        local action = payload.layers.account.GENERAL[0][1];
         check(action.type == "setstate", "타입 " .. tostring(action.type));
         check(action.setstate == nil, "서브테이블이 남았다");
         check(DebindStorage.PayloadIsImpossible(payload), "문자열이 안 거절됐다");
@@ -904,21 +931,6 @@ return function(DebindPrivate, DebindStorage)
     test("스위치를 안 고른 SETSWITCH는 안 걸린다", function()
         check(not DebindStorage.PayloadIsImpossible(General({
             { type = Constants.SETSWITCH_TOGGLE, key = "F", seq = 1 } })), "걸렸다");
-    end);
-
-    -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in
-    -- WoW's Lua 5.1, out of the drawer row's tooltip, for an entry already written to disk. A name
-    -- this client does not have is a class of the other game type and only drawn (2026-09-25,
-    -- owner), so it is the type that is refused and not the name.
-    test("문자열이 아닌 class를 든 페이로드는 걸린다", function()
-        for _, class in ipairs({ 5, {} }) do
-            local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1 } });
-            payload.class = class;
-            check(DebindStorage.PayloadIsImpossible(payload), "안 걸렸다: " .. tostring(class));
-        end
-        local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1 } });
-        payload.class = "없는직업";
-        check(not DebindStorage.PayloadIsImpossible(payload), "모르는 이름을 거절했다");
     end);
 
     -- **NaN survives the round trip** and raises the moment it is used as a table index, which the

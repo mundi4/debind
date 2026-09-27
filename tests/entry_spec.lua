@@ -65,32 +65,52 @@ return function(DebindPrivate, DebindStorage)
     ---------------------------------------------------------------------------
     -- Where an action goes
     --
-    -- The answer is the address the profile stores by - `(scope, class, spec)`, the same three
-    -- `layers.account.GENERAL[0]` / `layers.account[class][spec]` / `layers[guid][class][spec]` are keyed
-    -- on. Not a layer ID: those are this character's view of the store, and half of what arrives
-    -- has no ID in it at all.
+    -- Asked with the payload's own cell, `(owner, class, spec)`, and answered with the address the
+    -- profile stores by - `(scope, class, spec)`, the same three `layers.account.GENERAL[0]` /
+    -- `layers.account[class][spec]` / `layers[guid][class][spec]` are keyed on. Not a layer ID:
+    -- those are this character's view of the store, and half of what arrives has no ID in it at all.
     ---------------------------------------------------------------------------
 
     local Address = DebindStorage.ImportAddress;
 
+    --- A character cell's key. What it is does not matter, only that it is not `"account"`.
+    local SOMEONE = "1";
+
     test("일반은 일반으로", function()
-        check(Address("general") == "general", "일반이 아니다");
+        check(Address("account", "GENERAL", 0) == "general", "일반이 아니다");
+    end);
+
+    -- `GENERAL` holds one layer, the one at 0. A number past it is a hand-made string.
+    test("일반의 다른 번호는 자리가 없다", function()
+        check(Address("account", "GENERAL", 2) == nil, "일반 2를 받았다");
     end);
 
     test("내 직업 레이어는 그 자리 그대로", function()
-        local scope, class, spec = Address("class", CLASS, 0);
+        local scope, class, spec = Address("account", CLASS, 0);
         check(scope == "class" and class == CLASS and spec == 0, "직업 공용");
 
-        scope, class, spec = Address("class", CLASS, 2);
+        scope, class, spec = Address("account", CLASS, 2);
         check(scope == "class" and class == CLASS and spec == 2, "특성 2");
     end);
 
     test("캐릭터 레이어는 이 캐릭터로", function()
-        local scope, class, spec = Address("character", nil, 0);
+        local scope, class, spec = Address(SOMEONE, CLASS, 0);
         check(scope == "character" and class == nil and spec == 0, "캐릭터 공용");
 
-        scope, _, spec = Address("character", nil, 2);
+        scope, _, spec = Address(GUID, CLASS, 2);
         check(scope == "character" and spec == 2, "특성 2");
+    end);
+
+    test("다른 직업의 캐릭터 레이어는 자리가 없고 그렇다고 말한다", function()
+        local scope, reason = Address(SOMEONE, "MAGE", 2);
+        check(scope == nil, "남의 직업 캐릭터 칸을 받았다");
+        check(reason == "OTHER_CLASS", "이유 " .. tostring(reason));
+    end);
+
+    test("모르는 직업의 캐릭터 레이어도 자리가 없다", function()
+        local scope, reason = Address(SOMEONE, "NOSUCHCLASS", 0);
+        check(scope == nil, "받았다");
+        check(reason == "UNKNOWN_CLASS", "이유 " .. tostring(reason));
     end);
 
     -- **The case a same-class test cannot reach, and the one that used to be wrong.** Spec 2 is
@@ -101,21 +121,12 @@ return function(DebindPrivate, DebindStorage)
     -- It goes to the mage's own spec 2 instead, which is where it belongs on every account. The
     -- reader does not see it in this session; they see it when they log a mage.
     test("남의 직업 레이어는 직업도 특성도 그대로 간다", function()
-        local scope, class, spec = Address("class", "MAGE", 2);
+        local scope, class, spec = Address("account", "MAGE", 2);
         check(scope == "class" and class == "MAGE" and spec == 2,
             "남의 좌표를 내 것으로 밀어 넣었다: " .. tostring(class) .. "/" .. tostring(spec));
 
-        scope, class, spec = Address("class", "MAGE", 0);
+        scope, class, spec = Address("account", "MAGE", 0);
         check(scope == "class" and class == "MAGE" and spec == 0, "직업 공용");
-    end);
-
-    -- `spec` absent and `spec = 0` are the same layer. A hand-made string can leave the number out,
-    -- and both spellings have to mean the layer the profile stores at 0.
-    test("빠진 spec은 0과 같다", function()
-        local _, _, spec = Address("class", CLASS);
-        check(spec == 0, "직업 " .. tostring(spec));
-        _, _, spec = Address("character");
-        check(spec == 0, "캐릭터 " .. tostring(spec));
     end);
 
     -- **The one address with nowhere to go.** A character-scoped layer means *this* character, and
@@ -125,15 +136,15 @@ return function(DebindPrivate, DebindStorage)
     -- The class side is not the same question: `layers.account.MAGE[4]` is a coordinate that stops being
     -- ours to judge, so it travels and waits.
     test("이 캐릭터에 없는 특성은 자리가 없다", function()
-        check(Address("character", nil, 5) == nil, "5는 어디에도 없다");
+        check(Address(SOMEONE, CLASS, 5) == nil, "5는 어디에도 없다");
         -- The shim's class is a druid (four specs), so spec 4 is the last one that does exist.
-        check(Address("character", nil, 4) ~= nil, "있는 특성을 거절했다");
+        check(Address(SOMEONE, CLASS, 4) ~= nil, "있는 특성을 거절했다");
     end);
 
     test("저장이 담지 못하는 번호는 거절한다", function()
-        check(Address("class", CLASS, 5) == nil, "5번 칸은 없다");
-        check(Address("class", CLASS, -1) == nil, "음수");
-        check(Address("class", nil, 0) == nil, "직업 이름이 없다");
+        check(Address("account", CLASS, 5) == nil, "5번 칸은 없다");
+        check(Address("account", CLASS, -1) == nil, "음수");
+        check(Address("account", CLASS, nil) == nil, "번호가 없다");
     end);
 
     -- **In range is not the same as a slot number.** What this function is there to refuse is "a
@@ -141,25 +152,25 @@ return function(DebindPrivate, DebindStorage)
     -- checks and makes `layers.account.DRUID[1.5]`, an orphan every paste adds to the account file.
     -- NaN is worse: every comparison is false, so it passes and raises where it is used as an index.
     test("정수가 아닌 특성 번호는 자리를 안 만든다", function()
-        check(Address("class", CLASS, 1.5) == nil, "소수");
-        check(Address("character", nil, 1.5) == nil, "캐릭터 쪽 소수");
-        check(Address("class", CLASS, 0 / 0) == nil, "NaN");
-        check(Address("class", CLASS, 1 / 0) == nil, "무한대");
-        check(Address("class", CLASS, 2) ~= nil, "멀쩡한 번호를 거절했다");
+        check(Address("account", CLASS, 1.5) == nil, "소수");
+        check(Address(SOMEONE, CLASS, 1.5) == nil, "캐릭터 쪽 소수");
+        check(Address("account", CLASS, 0 / 0) == nil, "NaN");
+        check(Address("account", CLASS, 1 / 0) == nil, "무한대");
+        check(Address("account", CLASS, "2") == nil, "문자열 번호");
+        check(Address("account", CLASS, 2) ~= nil, "멀쩡한 번호를 거절했다");
     end);
 
     -- **A class name is a key straight into storage.** `layers.account[<name>]` gets made on the
     -- spot, no screen reaches it, and `CleanUpDB` walks the eleven loaded layers so it never sees
     -- it either - every paste of a made-up name would leave one more behind in the account file.
     test("직업 이름이 아닌 것은 자리를 안 만든다", function()
-        check(Address("class", "NOSUCHCLASS", 0) == nil, "지어낸 이름");
-        check(Address("class", 3, 0) == nil, "문자열이 아닌 것");
-        check(Address("class", "MAGE", 0) ~= nil, "진짜 직업을 거절했다");
+        check(Address("account", "NOSUCHCLASS", 0) == nil, "지어낸 이름");
+        check(Address("account", 3, 0) == nil, "문자열이 아닌 것");
+        check(Address("account", "MAGE", 0) ~= nil, "진짜 직업을 거절했다");
     end);
 
-    test("모르는 scope는 주소가 없다", function()
-        check(Address("raid") == nil, "주소를 지어냈다");
-        check(Address(nil) == nil, "nil");
+    test("주인 키가 없으면 주소가 없다", function()
+        check(Address(nil, CLASS, 0) == nil, "nil");
     end);
 
     --- A payload built from `{ scope, class, spec, count }` entries, one layer each.
@@ -175,8 +186,15 @@ return function(DebindPrivate, DebindStorage)
         local payload = {
             v = DebindStorage.EXPORT_SCHEMA_VERSION,
             dbver = Constants.DB_VERSION,
-            class = CLASS,
+            layers = {},
         };
+
+        --- `layers[owner][class][spec]`, made on the way down.
+        local function Cell(owner, class, spec, actions)
+            payload.layers[owner] = payload.layers[owner] or {};
+            payload.layers[owner][class] = payload.layers[owner][class] or {};
+            payload.layers[owner][class][spec] = actions;
+        end
 
         for _, entry in ipairs(layers) do
             local actions = {};
@@ -188,22 +206,25 @@ return function(DebindPrivate, DebindStorage)
             end
 
             if (entry.scope == "general") then
-                payload.shared = payload.shared or {};
-                payload.shared.GENERAL = actions;
+                Cell("account", "GENERAL", 0, actions);
             elseif (entry.scope == "class") then
-                payload.shared = payload.shared or {};
-                payload.shared.classes = payload.shared.classes or {};
-                payload.shared.classes[entry.class] = payload.shared.classes[entry.class] or {};
-                payload.shared.classes[entry.class][entry.spec or 0] = actions;
+                Cell("account", entry.class, entry.spec or 0, actions);
             elseif (entry.scope == "character") then
-                payload.char = payload.char or {};
-                payload.char[entry.spec or 0] = actions;
+                Cell(GUID, CLASS, entry.spec or 0, actions);
+                payload.characters = { [GUID] = { name = "Tester", class = CLASS } };
             else
                 payload[entry.scope] = actions;
             end
         end
 
         return payload;
+    end
+
+    --- `payload.layers[owner][class][spec]`, or nil anywhere along the way.
+    local function LayerAt(payload, owner, class, spec)
+        local classes = payload.layers and payload.layers[owner];
+        local specTbl = classes and classes[class];
+        return specTbl and specTbl[spec];
     end
 
     ---------------------------------------------------------------------------
@@ -259,7 +280,6 @@ return function(DebindPrivate, DebindStorage)
         local groupCount, actionCount = DebindStorage.CountEntry(entry);
         check(groupCount == 2, "그룹 수 " .. tostring(groupCount));
         check(actionCount == 5, "액션 수 " .. tostring(actionCount));
-        check(entry.payload.class == CLASS, "보낸 쪽 클래스");
         check(entry.groupCount == nil and entry.actionCount == nil,
             "개수를 배치에 또 적어뒀다 - 페이로드와 갈릴 자리가 생긴다");
     end);
@@ -299,9 +319,57 @@ return function(DebindPrivate, DebindStorage)
         local entry = DebindStorage.ImportEntry(GOOD);
         -- 문을 지나 저장된 뒤에 버전만 바꾼다. 붙여넣는 쪽 문은 이 값을 이미 봤으므로,
         -- 여기서 걸리는 것은 **서랍에서 여는 문**뿐이다.
-        entry.payload = { v = version, class = CLASS, shared = { GENERAL = {} } };
+        if (version == 1) then
+            entry.payload = { v = version, class = CLASS, shared = { GENERAL = {} } };
+        else
+            entry.payload = Payload({ { scope = "general", key = "F", count = 0 } });
+            entry.payload.v = version;
+        end
         return entry;
     end
+
+    -- **The drawer holds payloads, and the ones from before 3 are v2.** The row is drawn from its
+    -- payload before anyone opens it (`CountEntry`), so the step has to have run by then, not only
+    -- when the entry is opened.
+    test("서랍의 v2 배치는 서랍을 열 때 v3로 올라간다", function()
+        ResetDrawer();
+        _G.DebindStorageVars = { version = 1, nextID = 2, entries = { {
+            id = 1, received = 0,
+            payload = { v = 2, dbver = 7, class = CLASS, shared = { GENERAL = {
+                { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
+                { type = Constants.SPELL, value = 2, key = "G", seq = 1 } } } },
+        } } };
+
+        local entry = DebindStorage.GetEntries()[1];
+        check(entry.payload.v == DebindStorage.EXPORT_SCHEMA_VERSION,
+            "판이 안 올라갔다: " .. tostring(entry.payload.v));
+        local groups, actions = DebindStorage.CountEntry(entry);
+        check(groups == 2 and actions == 2, "그룹 " .. groups .. ", 액션 " .. actions);
+    end);
+
+    -- **One entry the ladder raises on must not take the drawer with it.** Its row still has to
+    -- draw, because deleting it is the one thing left to do with it and the button is on the row.
+    test("올리다 터지는 배치가 서랍 전체를 막지 않는다", function()
+        ResetDrawer();
+        _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
+            { id = 1, received = 0, payload = { v = 2, dbver = 7, class = CLASS } },
+            { id = 2, received = 0, payload = { v = 2, dbver = 7, class = CLASS } },
+        } };
+        local real = DebindStorage.BringPayloadForward;
+        DebindStorage.BringPayloadForward = function(payload)
+            if (payload == _G.DebindStorageVars.entries[1].payload) then
+                error("a step raised");
+            end
+            return real(payload);
+        end;
+
+        local ok, entries = pcall(DebindStorage.GetEntries);
+        DebindStorage.BringPayloadForward = real;
+        check(ok, "서랍이 터졌다: " .. tostring(entries));
+        check(#entries == 2, "배치 수 " .. #entries);
+        check(entries[2].payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "뒤의 배치가 안 올라갔다");
+        check(DebindStorage.DeleteEntry(1), "터진 배치를 못 지웠다");
+    end);
 
     test("서랍에 있는 배치가 더 새 스키마면 거절한다", function()
         local entry = StoredEntryWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1);
@@ -455,14 +523,14 @@ return function(DebindPrivate, DebindStorage)
 
     test("고른 것만 빠진다", function()
         local payload = Payload({ { scope = "general", key = "F", count = 3 } });
-        local list = payload.shared.GENERAL;
+        local list = LayerAt(payload, "account", "GENERAL", 0);
         local doomed = list[2];
 
         local removed = DebindStorage.RemoveEntryActions(EntryOf(payload), { [doomed] = true });
 
         check(removed == 1, "지운 수 " .. tostring(removed));
-        check(#payload.shared.GENERAL == 2, "남은 수 " .. #payload.shared.GENERAL);
-        for _, action in ipairs(payload.shared.GENERAL) do
+        check(#list == 2, "남은 수 " .. #list);
+        for _, action in ipairs(list) do
             check(action ~= doomed, "지운 것이 남아 있다");
         end
     end);
@@ -472,14 +540,13 @@ return function(DebindPrivate, DebindStorage)
             { scope = "general", key = "F", count = 2 },
             { scope = "character", spec = 1, key = "F", count = 2 },
         });
-        local doomed = {
-            [payload.shared.GENERAL[1]] = true,
-            [payload.char[1][1]] = true,
-        };
+        local general = LayerAt(payload, "account", "GENERAL", 0);
+        local char = LayerAt(payload, GUID, CLASS, 1);
+        local doomed = { [general[1]] = true, [char[1]] = true };
 
         check(DebindStorage.RemoveEntryActions(EntryOf(payload), doomed) == 2, "지운 수");
-        check(#payload.shared.GENERAL == 1, "일반이 안 줄었다");
-        check(#payload.char[1] == 1, "캐릭터가 안 줄었다");
+        check(#general == 1, "일반이 안 줄었다");
+        check(#char == 1, "캐릭터가 안 줄었다");
     end);
 
     -- **빈 자리는 자리가 아니다.** 액션이 하나도 없는 주소가 남으면 그리는 쪽은 머리글을 세우고
@@ -491,23 +558,41 @@ return function(DebindPrivate, DebindStorage)
             { scope = "character", spec = 0, key = "H", count = 1 },
         });
         local doomed = {
-            [payload.shared.GENERAL[1]] = true,
-            [payload.shared.classes[CLASS][2][1]] = true,
-            [payload.char[0][1]] = true,
+            [LayerAt(payload, "account", "GENERAL", 0)[1]] = true,
+            [LayerAt(payload, "account", CLASS, 2)[1]] = true,
+            [LayerAt(payload, GUID, CLASS, 0)[1]] = true,
         };
 
         check(DebindStorage.RemoveEntryActions(EntryOf(payload), doomed) == 3, "지운 수");
-        check(payload.shared.GENERAL == nil, "빈 일반 목록이 남았다");
-        check(payload.shared.classes[CLASS] == nil, "빈 직업 표가 남았다");
-        check(payload.char[0] == nil, "빈 캐릭터 목록이 남았다");
+        check(payload.layers.account == nil, "빈 계정 칸이 남았다");
+        check(payload.layers[GUID] == nil, "빈 캐릭터 칸이 남았다");
+    end);
+
+    -- `characters` holds the character keys the payload names and no others.
+    test("캐릭터 칸이 비면 그 신원도 걷힌다", function()
+        local payload = Payload({
+            { scope = "general", key = "F", count = 1 },
+            { scope = "character", spec = 0, key = "H", count = 1 },
+        });
+        DebindStorage.RemoveEntryActions(EntryOf(payload),
+            { [LayerAt(payload, GUID, CLASS, 0)[1]] = true });
+        check(payload.characters == nil or payload.characters[GUID] == nil, "칸 없는 신원이 남았다");
+    end);
+
+    test("스위치 칸이 남은 캐릭터의 신원은 그대로 둔다", function()
+        local payload = Payload({ { scope = "character", spec = 0, key = "H", count = 1 } });
+        payload.switches = { [GUID] = { [CLASS] = { [0] = { ["$burst"] = { mode = "manual" } } } } };
+        DebindStorage.RemoveEntryActions(EntryOf(payload),
+            { [LayerAt(payload, GUID, CLASS, 0)[1]] = true });
+        check(payload.characters and payload.characters[GUID], "스위치 칸의 신원을 걷었다");
     end);
 
     test("일부만 지운 레이어는 그대로 선다", function()
         local payload = Payload({ { scope = "general", key = "F", count = 2 } });
-        DebindStorage.RemoveEntryActions(EntryOf(payload),
-            { [payload.shared.GENERAL[1]] = true });
-        check(payload.shared.GENERAL ~= nil, "안 빈 목록을 걷었다");
-        check(#payload.shared.GENERAL == 1, "남은 수");
+        local list = LayerAt(payload, "account", "GENERAL", 0);
+        DebindStorage.RemoveEntryActions(EntryOf(payload), { [list[1]] = true });
+        check(LayerAt(payload, "account", "GENERAL", 0) == list, "안 빈 목록을 걷었다");
+        check(#list == 1, "남은 수");
     end);
 
     -- 원래 비어 있던 것을 치우지 않는다. 아무것도 안 지운 호출이 페이로드를 바꾸면, 눌러도
@@ -518,18 +603,18 @@ return function(DebindPrivate, DebindStorage)
 
         check(DebindStorage.RemoveEntryActions(EntryOf(payload), { [stranger] = true }) == 0,
             "없는 것을 지웠다고 답했다");
-        check(payload.shared.GENERAL ~= nil, "원래 비어 있던 목록을 걷었다");
+        check(LayerAt(payload, "account", "GENERAL", 0) ~= nil, "원래 비어 있던 목록을 걷었다");
     end);
 
     -- 매니페스트는 안 건드린다. 무엇을 참조했었나는 만들 때의 사실이고, 실제로 나가는 것만
     -- 남기는 것은 문자열을 만드는 순간의 일이다(`FilterPayload`).
     test("매니페스트는 그대로 둔다", function()
         local payload = Payload({ { scope = "general", key = "F", count = 1 } });
-        payload.states = { ["$state3"] = { mode = "manual" } };
+        payload.switches = { account = { GENERAL = { [0] = { ["$state3"] = { mode = "manual" } } } } };
 
         DebindStorage.RemoveEntryActions(EntryOf(payload),
-            { [payload.shared.GENERAL[1]] = true });
-        check(payload.states and payload.states["$state3"], "매니페스트가 사라졌다");
+            { [LayerAt(payload, "account", "GENERAL", 0)[1]] = true });
+        check(payload.switches.account.GENERAL[0]["$state3"], "매니페스트가 사라졌다");
     end);
 
     DebindStorage.DecodeExportString = realDecode;

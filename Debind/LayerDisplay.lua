@@ -56,8 +56,8 @@ local function GetSideTabLabel(sideTabID)
 end
 
 
---- A payload's address as a `layerID`. `scope` is the `"general"` / `"class"` / `"character"` a
---- payload is keyed by (`ForEachPayloadLayer`).
+--- A storage address as a `layerID`. `scope` is the `"general"` / `"class"` / `"character"` that
+--- `ImportAddress` answers for a payload's cell.
 ---
 --- **The numbers describe anybody's layers.** Which class they belong to is not in them, which is
 --- why it is the second argument to the label rather than something the id has to carry -- and why
@@ -86,7 +86,7 @@ end
 --- The side tab version reads `UnitClass("player")` and `GetSpecializationInfo`, which is right for
 --- that row -- it is this character's layers -- and wrong for anything else. Nil for a spec number
 --- past the end of a real class, which only a hand-made string carries: one naming a class this
---- client does not have never reaches a screen (`PayloadIsImpossible`).
+--- client does not have is never asked, since it has no address here (`ImportAddress`).
 local function GetSideLabelForClass(class, spec)
 	if (spec == 0) then
 		return Constants.CLASS_NAMES[class] or class;
@@ -102,23 +102,18 @@ end
 --- **The tab labels, reused verbatim.** They are already the class, specialization and character
 --- names the reader picked the layer with, so a label built from them teaches nothing new.
 ---
---- **`class` says whose layer it is, and nil means this character's.** A `layerID` is a coordinate
---- that never mentions a class -- it says general, class, class-by-spec, character, character-by-
---- spec -- so the same eleven numbers describe anybody's layers and what was missing was only the
---- one value. Every call site that means "mine" passes nothing and reads as it did.
----
---- The one thing a foreign layer cannot have is a **name**: a string carries no character name on
---- purpose (`building-export-import.md` 3절), so the character scope falls back to the bare
---- word. Naming it would print *this* reader's character over somebody else's layer, which is the
---- fault that made the bring dialog write a second set of labels of its own (`IMPORT_BRING_LINE_*`).
+--- **`class` says whose class layer it is, and nil means this character's.** A `layerID` is a
+--- coordinate that never mentions a class -- it says general, class, class-by-spec, character,
+--- character-by-spec -- so the same eleven numbers describe anybody's class layers and what was
+--- missing was only the one value. Every call site that means "mine" passes nothing and reads as it
+--- did. A character layer is always this character's: one of another class has no layer here
+--- (`ImportAddress`).
 local function GetLayerLabel(layerID, class)
 	local tab, sideTab = GetLayerTabs(layerID);
 	local scope;
 
 	if (tab ~= 2) then
 		scope = LLL["SHARED_BINDINGS"];
-	elseif (class) then
-		scope = LLL["LAYER_SHORT_CHARACTER"];
 	else
 		scope = UnitName("player");
 	end

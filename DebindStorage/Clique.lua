@@ -219,7 +219,7 @@ function DebindStorage.PayloadFromCliqueBindings(bindings)
         v = DebindStorage.EXPORT_SCHEMA_VERSION,
         dbver = Constants.DB_VERSION,
         source = DebindStorage.SOURCE_CLIQUE,
-        shared = { GENERAL = actions },
+        layers = { [DebindStorage.ACCOUNT_OWNER] = { GENERAL = { [0] = actions } } },
     };
     return payload, #actions;
 end

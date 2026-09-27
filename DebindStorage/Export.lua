@@ -60,7 +60,12 @@ local luatype            = type;
 ---
 --- So there are two versions, and what separates them is **whether the payload carries its own
 --- `dbver`**. v1 does not: its version number is the answer, and the branch below stamps 5.
-local SCHEMA_VERSION     = 2;
+---
+--- **3 (2026-09-27) carries the saved shape**: `layers[owner][class][spec]`, `switches` in the same
+--- cells, and `characters` for who a character cell is (`reshaping-stored-layers.md` 1-1). v2's
+--- character layer named no class of its own and leaned on `payload.class`, so a mage's character
+--- layer went into a druid's spec of the same number; every cell carries its class as a key now.
+local SCHEMA_VERSION     = 3;
 
 --- The lowest `dbver` a payload can carry.
 ---
@@ -76,7 +81,15 @@ local OLDEST_PAYLOAD_DBVER = 5;
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
 --- the compressor later has to invalidate old strings; adding a payload field must not. One
 --- number for both would force every reader to treat those two as the same event.
-local ENVELOPE_VERSION   = 1;
+---
+--- **2 is the client's own packing** (`C_EncodingUtil`: CBOR, deflate, base64). CBOR and not the
+--- client's JSON, which turns every table key into a string and so the spec cells `[0]`..`[5]` into
+--- `"0"`..`"5"`. Both clients were measured handing every key back with its type
+--- (`reshaping-stored-layers.md` 1-2).
+local ENVELOPE_VERSION   = 2;
+--- 1 was LibSerialize and LibDeflate. **It is still read** until the two libraries leave the addon,
+--- and then it cannot be (`reshaping-stored-layers.md` 1-2).
+local ENVELOPE_LIBS      = 1;
 local ENVELOPE_PREFIX    = "DEB";
 local ENVELOPE_SEPARATOR = ":";
 
@@ -251,11 +264,7 @@ DebindStorage.CASTING_TYPES = CASTING_TYPES;
 --- rather than a setting: the person reading the string is not that character. A v1 payload
 --- carries a `savedValue` and nothing reads it.
 ---
---- **The override rows do not travel either, and that is a decision.** They sit in cells of
---- *this* installation's characters and classes (`switches[owner][class][spec]`), so a
---- character's row addresses somebody the receiver has never had. What travels is the answer
---- everything falls back to, which is the one a definition always has. §4-6 of
---- `redesigning-custom-states.md`.
+--- An override row has the same three fields, so this list copies both.
 ---
 --- ⚠ **Nothing checks this table.** `check:export-fields` compares `ACTION_FIELDS` and the
 --- condition table and never looks here, so a definition field added without a line here simply
@@ -268,6 +277,23 @@ local SWITCH_FIELDS      = {
     resetValue = true,
     expr = true,
 };
+
+--- What `characters` says about a character cell: who it is, for a reader who has to pick where
+--- it goes. `firstSeen`, `lastSeen` and `origin` stay home: they are this install's record of
+--- seeing the character and mean nothing on another one.
+local IDENTITY_FIELDS    = {
+    name = true,
+    realm = true,
+    class = true,
+    race = true,
+    sex = true,
+    level = true,
+    faction = true,
+};
+
+--- The owner key of the account's cells, beside one per character.
+local ACCOUNT_OWNER      = "account";
+DebindStorage.ACCOUNT_OWNER = ACCOUNT_OWNER;
 
 
 -- ---------------------------------------------------------------------------------------------
@@ -296,75 +322,55 @@ local function CopyFields(source, allowed)
     return copy;
 end
 
---- The list in `payload` this layer's actions go into, built on the way down.
+--- `tbl[owner][class][spec]`, built on the way down. `tbl` is `payload.layers` or
+--- `payload.switches`, which share their cells.
 ---
---- **The path is the address.** It is the shape the profile stores under
---- (`shared.GENERAL`, `shared.classes[class][spec]`, `char[spec]`), so nothing describes a layer and
---- nothing translates one -- the two profiles use the same coordinate system and what differs is
---- only *which class*, which is a value of the coordinate. Which is also what lets the drawing code
---- be reused on a payload later without a translation step in front of it
---- (`building-export-import.md`).
----
---- Layer **IDs** are what cannot travel: 2..6 are "my class", and the sender's class is not the
---- reader's. The character block drops the guid for the same reason -- "their character" means
---- nothing here, so it says *this* character at that spec.
---- **Addressed the way `ForEachPayloadLayer` reads one**, so writing a payload and walking one name
---- the same three places. `BucketForLayer` translates a profile layer into that address and this
---- builds the tables along it; the second caller already has the address, having read it off a
---- payload (`FilterPayload`).
-local function BucketAt(payload, scope, class, spec)
-    local specTbl;
-
-    if (scope == "character") then
-        specTbl = payload.char;
-        if (not specTbl) then
-            specTbl = {};
-            payload.char = specTbl;
-        end
-    else
-        local shared = payload.shared;
-        if (not shared) then
-            shared = {};
-            payload.shared = shared;
-        end
-
-        if (scope == "general") then
-            local general = shared.GENERAL;
-            if (not general) then
-                general = {};
-                shared.GENERAL = general;
-            end
-            return general;
-        end
-
-        local classes = shared.classes;
-        if (not classes) then
-            classes = {};
-            shared.classes = classes;
-        end
-        specTbl = classes[class];
-        if (not specTbl) then
-            specTbl = {};
-            classes[class] = specTbl;
-        end
+--- **The path is the address, and it is the one the profile stores under**
+--- (`layers[owner][class][spec]`), so nothing describes a layer and nothing translates one. Layer
+--- **IDs** are what cannot travel: 2..6 are "my class", and the sender's class is not the reader's.
+local function CellAt(tbl, owner, class, spec)
+    local classes = tbl[owner];
+    if (not classes) then
+        classes = {};
+        tbl[owner] = classes;
     end
-
-    local tbl = specTbl[spec];
-    if (not tbl) then
-        tbl = {};
-        specTbl[spec] = tbl;
+    local specTbl = classes[class];
+    if (not specTbl) then
+        specTbl = {};
+        classes[class] = specTbl;
     end
-    return tbl;
+    local cell = specTbl[spec];
+    if (not cell) then
+        cell = {};
+        specTbl[spec] = cell;
+    end
+    return cell;
 end
 
-local function BucketForLayer(payload, layer)
+--- The cell one of this character's layers sits at: `owner, class, spec`.
+local function LayerCell(layer)
     if (layer.isCharacterSpecific) then
-        return BucketAt(payload, "character", nil, layer.spec or 0);
+        return DebindPrivate.playerGUID, Constants.PLAYER_CLASS, layer.spec or 0;
     end
     if (layer.layerID == 1) then
-        return BucketAt(payload, "general", nil, 0);
+        return ACCOUNT_OWNER, "GENERAL", 0;
     end
-    return BucketAt(payload, "class", Constants.PLAYER_CLASS, layer.spec or 0);
+    return ACCOUNT_OWNER, Constants.PLAYER_CLASS, layer.spec or 0;
+end
+
+--- The character keys a payload names, in `layers` or in `switches`, as a set.
+local function CharacterOwners(payload)
+    local out = {};
+    for _, tbl in ipairs({ payload.layers, payload.switches }) do
+        if (luatype(tbl) == "table") then
+            for owner in pairs(tbl) do
+                if (owner ~= ACCOUNT_OWNER) then
+                    out[owner] = true;
+                end
+            end
+        end
+    end
+    return out;
 end
 
 --- **An action goes out in the shape it is stored in. Nothing here rewrites one.**
@@ -435,48 +441,51 @@ local function CollectSwitchNames(actions, found)
     end
 end
 
---- The manifest: every referenced switch, definition included, keyed by name.
+--- `payload.switches`: every referenced switch, keyed by name, in the cells it has rows in. The
+--- definition is the row at `account.GENERAL[0]`, and a layer's override is the row at that layer's
+--- own cell.
 ---
 --- Names, not indices, because the receiving side has to be able to *ask* about a collision, and
 --- `$state3` on two machines is two different switches that an index can never tell apart. A name
 --- nothing defines is also the one broken switch reference red text already catches
 --- (`BINDING_ISSUE_UNDEFINED_SWITCH`), so the reader is not left guessing.
 ---
---- A referenced switch with no definition is left out rather than sent empty. The sender has
---- nothing to say about it, and an empty definition would read as "defined, and blank".
+--- A referenced switch with no rows is left out rather than sent empty. The sender has nothing to
+--- say about it, and an empty definition would read as "defined, and blank".
 ---
---- **Where a definition comes from is the caller's to say.** Building a payload out of the profile
---- asks the profile; narrowing a payload that is already made asks that payload's own manifest
---- (`FilterPayload`), and must not ask the profile -- an entry that arrived in a string carries
---- somebody else's definitions, and resolving those names here would quietly swap them for this
---- reader's. Everything else about the walk is the same, transitive close included, so it is one
---- function taking a resolver rather than two that drift.
-local function BuildSwitchManifest(actions, Resolve)
+--- **Where the rows come from is the caller's to say.** `RowsOf(name)` hands back a list of
+--- `{ owner, class, spec, row }`. Building a payload out of the profile asks the profile; narrowing
+--- a payload that is already made asks that payload's own cells (`FilterPayload`), and must not ask
+--- the profile -- an entry that arrived in a string carries somebody else's definitions, and
+--- resolving those names here would quietly swap them for this reader's. Everything else about the
+--- walk is the same, transitive close included, so it is one function taking a resolver rather than
+--- two that drift.
+local function BuildSwitchCells(actions, RowsOf)
     local referenced = {};
     CollectSwitchNames(actions, referenced);
 
-    local manifest, any = {}, false;
+    local switches, seen, any = {}, {}, false;
     local pending = referenced;
 
     while (pending) do
         local nextPending;
 
         for name in pairs(pending) do
-            if (manifest[name] == nil) then
-                local definition = Resolve(name);
-                if (definition) then
-                    manifest[name] = CopyFields(definition, SWITCH_FIELDS);
+            if (not seen[name]) then
+                seen[name] = true;
+                for _, found in ipairs(RowsOf(name)) do
+                    local row = found.row;
+                    CellAt(switches, found.owner, found.class, found.spec)[name] =
+                        CopyFields(row, SWITCH_FIELDS);
                     any = true;
 
-                    -- A computed switch's expression can name other switches, and those have to
-                    -- travel too or the definition arrives referring to nothing.
-                    if (definition.mode == Constants.SWITCH_MODES.EXPR
-                            and luatype(definition.expr) == "string") then
-                        local _, args = DebindPrivate.ParseMacroText(definition.expr);
+                    -- A computed row's expression can name other switches, and those have to
+                    -- travel too or the row arrives referring to nothing.
+                    if (row.mode == Constants.SWITCH_MODES.EXPR and luatype(row.expr) == "string") then
+                        local _, args = DebindPrivate.ParseMacroText(row.expr);
                         for j = 1, (args and #args or 0) do
                             local arg = args[j];
-                            if (arg.type == Constants.MACROTEXT_ARG_SWITCH
-                                    and manifest[arg.name] == nil) then
+                            if (arg.type == Constants.MACROTEXT_ARG_SWITCH and not seen[arg.name]) then
                                 nextPending = nextPending or {};
                                 nextPending[arg.name] = true;
                             end
@@ -492,7 +501,49 @@ local function BuildSwitchManifest(actions, Resolve)
     if (not any) then
         return nil;
     end
-    return manifest;
+    return switches;
+end
+
+--- Hands every row of a payload's `switches` to `fn(row, name, owner, class, spec)`, skipping what
+--- is not a table. **The cells are v3's**, and every step that reaches for a definition goes
+--- through here: the envelope is raised before any `dbver` step runs (`BringPayloadForward`).
+local function ForEachPayloadSwitchRow(payload, fn)
+    local switches = payload.switches;
+    if (luatype(switches) ~= "table") then
+        return;
+    end
+    for owner, classes in pairs(switches) do
+        if (luatype(classes) == "table") then
+            for class, specTbl in pairs(classes) do
+                if (luatype(specTbl) == "table") then
+                    for spec, cell in pairs(specTbl) do
+                        if (luatype(cell) == "table") then
+                            for name, row in pairs(cell) do
+                                if (luatype(row) == "table") then
+                                    fn(row, name, owner, class, spec);
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+--- `payload.characters` for the character keys `payload.layers` and `payload.switches` name,
+--- each answered by `IdentityOf(owner)`. Nil where there are none.
+local function BuildCharacters(payload, IdentityOf)
+    local owners = CharacterOwners(payload);
+    local characters;
+    for owner in pairs(owners) do
+        local identity = IdentityOf(owner);
+        if (luatype(identity) == "table") then
+            characters = characters or {};
+            characters[owner] = CopyFields(identity, IDENTITY_FIELDS);
+        end
+    end
+    return characters;
 end
 
 
@@ -542,10 +593,8 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 ---
 --- **The sender's keys go out as they are.** There used to be an option to replace them with
 --- numbers, and it withheld nothing worth withholding: somebody who hands their setup to another
---- player is showing it off, and the keys are the part worth showing -- they are not a name, a
---- realm, or anything else a string pasted into a public channel should not carry. The receiving
---- side keeps them and holds the actions back with a badge instead
---- (`building-export-import.md` 12절).
+--- player is showing it off, and the keys are the part worth showing. The receiving side keeps them
+--- and holds the actions back with a badge instead (`building-export-import.md` 12절).
 ---
 --- A number still travels: that is a key group the sender has not given a key to, which is a fact
 --- about their setup rather than something withheld.
@@ -570,21 +619,20 @@ function DebindStorage.BuildExportPayload(selection)
         -- at login -- so this says what these actions are, and the reading side raises them with the
         -- same ladder the profile uses (`BringPayloadForward`).
         dbver = Constants.DB_VERSION,
-        -- The sender's class, because `shared.classes` cannot be read without knowing whose it is.
-        -- Nothing else about the sender travels: a string meant to be pasted into a public channel
-        -- should not carry a character name the user did not choose to type.
-        class = Constants.PLAYER_CLASS,
+        layers = {},
     };
     local exported = {};
+    local layers = {};
 
     for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        layers[#layers + 1] = layer;
         -- Made on the first action that is actually taken, so an empty layer -- or one the reader
         -- unticked whole -- leaves no empty table behind for the far side to walk.
         local bucket;
 
         for _, action in layer:Enumerate() do
             if (DebindStorage.IsExportable(action) and (selection == nil or selection[action])) then
-                bucket = bucket or BucketForLayer(payload, layer);
+                bucket = bucket or CellAt(payload.layers, LayerCell(layer));
 
                 local copy = CopyFields(action, ACTION_FIELDS);
 
@@ -594,7 +642,29 @@ function DebindStorage.BuildExportPayload(selection)
         end
     end
 
-    payload.states = BuildSwitchManifest(exported, DebindPrivate.ResolveSwitchDefinition);
+    -- **Every layer this character resolves a switch through**, not only the ones an action was
+    -- taken from: an override on the class layer changes the switch for an action in general.
+    payload.switches = BuildSwitchCells(exported, function(name)
+        local rows = {};
+        for _, layer in ipairs(layers) do
+            local layerKey = layer.layerID ~= 1 and DebindPrivate.GetSwitchLayerKey(layer.layerID) or nil;
+            if (layer.layerID == 1 or layerKey) then
+                local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
+                if (mode ~= nil) then
+                    local owner, class, spec = LayerCell(layer);
+                    rows[#rows + 1] = {
+                        owner = owner, class = class, spec = spec,
+                        row = { mode = mode, resetValue = resetValue, expr = expr },
+                    };
+                end
+            end
+        end
+        return rows;
+    end);
+
+    payload.characters = BuildCharacters(payload, function(owner)
+        return owner == DebindPrivate.playerGUID and DebindPrivate.GetPlayerIdentity() or nil;
+    end);
     return payload;
 end
 
@@ -606,10 +676,9 @@ end
 --- press, and so it is never written down (`building-export-import.md`). Deleting from the
 --- entry is the other verb and it is permanent -- one narrows a copy, the other narrows the thing.
 ---
---- **The fields an entry carries about itself do not travel, and nothing here has to drop them.**
---- They sit on the row, outside the payload, so what a payload holds is exactly what a string
---- holds: the reader's character name, realm and guid cannot reach a string that gets pasted into a
---- public channel because they were never in the table this encodes.
+--- **The fields an entry carries about the row do not travel, and nothing here has to drop them.**
+--- They sit on the row, outside the payload. Who a character cell is travels in `characters`,
+--- which is the payload's, and only the cells still in it keep theirs.
 ---
 --- The actions are carried over by reference. Nothing downstream writes to one -- this table is
 --- built to be encoded and dropped -- and copying them would only make the entry's own copies
@@ -619,26 +688,77 @@ function DebindStorage.FilterPayload(payload, selection)
         return payload;
     end
 
-    local out = { v = payload.v, dbver = payload.dbver, class = payload.class, source = payload.source };
+    local out = { v = payload.v, dbver = payload.dbver, source = payload.source, layers = {} };
     local kept = {};
 
-    DebindStorage.ForEachPayloadLayer(payload, function(list, scope, class, spec)
+    DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class, spec)
         local bucket;
         for _, action in ipairs(list) do
             if (selection[action]) then
-                bucket = bucket or BucketAt(out, scope, class, spec);
+                bucket = bucket or CellAt(out.layers, owner, class, spec);
                 bucket[#bucket + 1] = action;
                 kept[#kept + 1] = action;
             end
         end
     end);
 
-    local states = luatype(payload.states) == "table" and payload.states or nil;
-    out.states = states and BuildSwitchManifest(kept, function(name)
-        return states[name];
-    end) or nil;
+    out.switches = BuildSwitchCells(kept, function(name)
+        local rows = {};
+        ForEachPayloadSwitchRow(payload, function(row, rowName, owner, class, spec)
+            if (rowName == name) then
+                rows[#rows + 1] = { owner = owner, class = class, spec = spec, row = row };
+            end
+        end);
+        return rows;
+    end);
+
+    local characters = luatype(payload.characters) == "table" and payload.characters or {};
+    out.characters = BuildCharacters(out, function(owner)
+        return characters[owner];
+    end);
 
     return out;
+end
+
+--- The same payload with every character cell renumbered `"1"`, `"2"`, ... and no `characters`,
+--- for a string whose writer chose not to say who they are (`reshaping-stored-layers.md` 1-1).
+---
+--- **One number per owner across `layers` and `switches`**, so a character's override rows still
+--- sit beside its layers. The numbers go in the order of the owner keys as strings, so the same
+--- entry makes the same string.
+---
+--- Nothing marks the result as anonymised. A character key with no `characters` entry already
+--- says it, and a second place saying it could disagree with the first.
+---
+--- A new table down to the owner level, so the entry it was made from keeps its keys. Below that
+--- the tables are shared, the way `FilterPayload` shares its actions.
+function DebindStorage.AnonymizePayload(payload)
+    local owners = {};
+    for owner in pairs(CharacterOwners(payload)) do
+        owners[#owners + 1] = owner;
+    end
+    table.sort(owners, function(lhs, rhs) return tostring(lhs) < tostring(rhs); end);
+    local numbers = {};
+    for i, owner in ipairs(owners) do
+        numbers[owner] = tostring(i);
+    end
+
+    local function Renumbered(tbl)
+        if (luatype(tbl) ~= "table") then
+            return nil;
+        end
+        local out = {};
+        for owner, classes in pairs(tbl) do
+            out[numbers[owner] or owner] = classes;
+        end
+        return out;
+    end
+
+    return {
+        v = payload.v, dbver = payload.dbver, source = payload.source,
+        layers = Renumbered(payload.layers),
+        switches = Renumbered(payload.switches),
+    };
 end
 
 --- LibStub is asked at call time, not at load. This file is loaded by the headless specs, which
@@ -653,14 +773,65 @@ end
 --- `DEB<envelope>:<printable>`. The version is outside the compressed blob so a reader can turn
 --- down a string it cannot decode without first trying to decompress it.
 function DebindStorage.EncodeExportPayload(payload)
+    local util = C_EncodingUtil;
+    if (not util) then
+        return nil, "LIBS_MISSING";
+    end
+
+    local compressed = util.CompressString(util.SerializeCBOR(payload),
+        Enum.CompressionMethod.Deflate, Enum.CompressionLevel.OptimizeForSize);
+    return ENVELOPE_PREFIX .. ENVELOPE_VERSION .. ENVELOPE_SEPARATOR .. util.EncodeBase64(compressed);
+end
+
+--- A `DEB2:` body back into a table, or nil and the step that failed. The client's calls raise on
+--- input they cannot read, and a pasted string is anything at all, so each is asked under `pcall`.
+local function DecodeClientBody(encoded)
+    local util = C_EncodingUtil;
+    if (not util) then
+        return nil, "LIBS_MISSING";
+    end
+
+    local ok, compressed = pcall(util.DecodeBase64, encoded);
+    if (not ok or luatype(compressed) ~= "string" or compressed == "") then
+        return nil, "BAD_ENCODING";
+    end
+
+    local serialized;
+    ok, serialized = pcall(util.DecompressString, compressed, Enum.CompressionMethod.Deflate);
+    if (not ok or luatype(serialized) ~= "string") then
+        return nil, "BAD_COMPRESSION";
+    end
+
+    local payload;
+    ok, payload = pcall(util.DeserializeCBOR, serialized);
+    if (not ok) then
+        return nil, "BAD_PAYLOAD";
+    end
+    return payload;
+end
+
+--- A `DEB1:` body, through the two libraries.
+local function DecodeLibsBody(encoded)
     local LibSerialize, LibDeflate = GetLibs();
     if (not LibSerialize or not LibDeflate) then
         return nil, "LIBS_MISSING";
     end
 
-    local compressed = LibDeflate:CompressDeflate(LibSerialize:Serialize(payload), { level = 9 });
-    return ENVELOPE_PREFIX .. ENVELOPE_VERSION .. ENVELOPE_SEPARATOR
-        .. LibDeflate:EncodeForPrint(compressed);
+    local compressed = LibDeflate:DecodeForPrint(encoded);
+    if (not compressed) then
+        return nil, "BAD_ENCODING";
+    end
+
+    local serialized = LibDeflate:DecompressDeflate(compressed);
+    if (not serialized) then
+        return nil, "BAD_COMPRESSION";
+    end
+
+    local ok, payload = LibSerialize:Deserialize(serialized);
+    if (not ok) then
+        return nil, "BAD_PAYLOAD";
+    end
+    return payload;
 end
 
 --- `dbver` 6, the manifest side. A switch definition's `mode` goes from a number to a string and
@@ -680,25 +851,48 @@ end
 --- a ladder that lies about which version changed what.
 ---
 --- The step holds its own literals, for the reason the `setstate` step in `Migration.lua` does.
-local function RenameManifestSwitchFields(states)
-    if (luatype(states) ~= "table") then
-        return;
+local function RenameManifestSwitchFields(definition)
+    if (luatype(definition.mode) == "number") then
+        if (definition.mode == 3) then
+            definition.mode = Constants.SWITCH_MODES.EXPR;
+        else
+            definition.mode = Constants.SWITCH_MODES.MANUAL;
+        end
     end
-    for _, definition in pairs(states) do
-        if (luatype(definition) == "table") then
-            if (luatype(definition.mode) == "number") then
-                if (definition.mode == 3) then
-                    definition.mode = Constants.SWITCH_MODES.EXPR;
-                else
-                    definition.mode = Constants.SWITCH_MODES.MANUAL;
+    if (definition.initialValue ~= nil) then
+        if (definition.resetValue == nil) then
+            definition.resetValue = definition.initialValue;
+        end
+        definition.initialValue = nil;
+    end
+end
+
+--- Every action list of a v1 or v2 payload, `fn(list)`: `shared.GENERAL`,
+--- `shared.classes[class][spec]` and `char[spec]`, the addresses those two versions shared. Only
+--- the steps that raise those versions call it.
+local function ForEachV2List(payload, fn)
+    local shared = luatype(payload.shared) == "table" and payload.shared or nil;
+    local lists = {};
+    if (shared) then
+        lists[#lists + 1] = shared.GENERAL;
+        if (luatype(shared.classes) == "table") then
+            for _, specTbl in pairs(shared.classes) do
+                if (luatype(specTbl) == "table") then
+                    for _, list in pairs(specTbl) do
+                        lists[#lists + 1] = list;
+                    end
                 end
             end
-            if (definition.initialValue ~= nil) then
-                if (definition.resetValue == nil) then
-                    definition.resetValue = definition.initialValue;
-                end
-                definition.initialValue = nil;
-            end
+        end
+    end
+    if (luatype(payload.char) == "table") then
+        for _, list in pairs(payload.char) do
+            lists[#lists + 1] = list;
+        end
+    end
+    for _, list in ipairs(lists) do
+        if (luatype(list) == "table") then
+            fn(list);
         end
     end
 end
@@ -737,10 +931,10 @@ local V1_SETSTATE_TYPES = {
 };
 
 local function OpenV1Setstate(payload)
-    DebindStorage.ForEachPayloadLayer(payload, function(actions)
+    ForEachV2List(payload, function(actions)
         for i = 1, #actions do
             local action = actions[i];
-            if (luatype(action.setstate) == "table") then
+            if (luatype(action) == "table" and luatype(action.setstate) == "table") then
                 local newType = V1_SETSTATE_TYPES[action.setstate.mode];
                 local name = action.setstate.state;
                 if (newType and luatype(name) == "string") then
@@ -753,6 +947,53 @@ local function OpenV1Setstate(payload)
     end);
 end
 
+--- v2 -> v3: the v2 addresses into the saved shape (`reshaping-stored-layers.md` 1-1).
+---
+--- **v2 carried no identity**, so its character layer lands the way an anonymised v3 one does:
+--- under `"1"`, keyed by the class `payload.class` named. **Without a class it is dropped.** Every
+--- string since 3.2 carries one (9b57dc4), so a v2 without it was edited by hand, and a hand-edited
+--- file is not read for what it meant (`reshaping-stored-layers.md` 1절).
+---
+--- `shared.classes.GENERAL` is dropped for the same reason: no class is called that, and in v3 the
+--- name is the general layer's.
+---
+--- v2 sent no override rows, so the definitions are the whole of `switches`.
+local function RaiseV2(payload)
+    local account = {};
+    local shared = luatype(payload.shared) == "table" and payload.shared or nil;
+    if (shared) then
+        if (luatype(shared.classes) == "table") then
+            for class, specTbl in pairs(shared.classes) do
+                if (class ~= "GENERAL") then
+                    account[class] = specTbl;
+                end
+            end
+        end
+        if (shared.GENERAL ~= nil) then
+            account.GENERAL = { [0] = shared.GENERAL };
+        end
+    end
+
+    local layers = {};
+    if (next(account) ~= nil) then
+        layers[ACCOUNT_OWNER] = account;
+    end
+    if (luatype(payload.char) == "table" and luatype(payload.class) == "string") then
+        layers["1"] = { [payload.class] = payload.char };
+    end
+    payload.layers = layers;
+
+    if (luatype(payload.states) == "table") then
+        payload.switches = { [ACCOUNT_OWNER] = { GENERAL = { [0] = payload.states } } };
+    end
+
+    payload.shared = nil;
+    payload.char = nil;
+    payload.states = nil;
+    payload.class = nil;
+    payload.v = 3;
+end
+
 --- Raises a payload's **contents** to this build's `dbver`, action arrays and manifest alike.
 ---
 --- **The actions go up the profile's own ladder.** `MigrateLayer` walks an array of actions and
@@ -763,11 +1004,14 @@ end
 ---
 --- **What is walked is still each side's own.** Layer addresses and key mapping are different
 --- things in a profile and in a payload; only the per-action ladder is shared.
+---
+--- **The envelope is already current here** (`BringPayloadForward`), so the definitions are found
+--- in v3's cells whatever version the payload came in as.
 local function BringPayloadDataForward(payload)
     local dbver = payload.dbver;
 
     if (dbver <= 5) then
-        RenameManifestSwitchFields(payload.states);
+        ForEachPayloadSwitchRow(payload, RenameManifestSwitchFields);
     end
 
     if (dbver <= 6) then
@@ -775,13 +1019,12 @@ local function BringPayloadDataForward(payload)
         -- name the pointed frame's unit, which is called `unitframe` from `dbver` 7 on
         -- (`Profile.lua`'s step says why a body has to move and not only a field). The actions in
         -- the payload ride the profile's own ladder below and are already covered.
-        local states = luatype(payload.states) == "table" and payload.states or nil;
-        for _, definition in pairs(states or {}) do
-            if (luatype(definition) == "table" and luatype(definition.expr) == "string") then
+        ForEachPayloadSwitchRow(payload, function(definition)
+            if (luatype(definition.expr) == "string") then
                 definition.expr = DebindPrivate.RenameUnitInMacroText(
                     definition.expr, "hover", "unitframe");
             end
-        end
+        end);
     end
 
     DebindStorage.ForEachPayloadLayer(payload, function(actions)
@@ -795,10 +1038,9 @@ end
 --- plus a reason.
 ---
 --- **Two ladders, and they are asked in this order.** `payload.v` describes the envelope -- the
---- `shared` / `classes` / `char` addresses, the `states` manifest, what `seq` means -- and
---- `payload.dbver` describes the actions inside it. The envelope has to be raised first, because
---- v1 does not carry a `dbver` and the step that raises it is what stamps one on
---- (`unifying-action-migration.md` §3-3).
+--- `layers` and `switches` cells, `characters`, what `seq` means -- and `payload.dbver` describes the
+--- actions inside it. The envelope has to be raised first, because v1 does not carry a `dbver` and
+--- the step that raises it is what stamps one on (`unifying-action-migration.md` §3-3).
 ---
 --- **An envelope step names the exact version it raises (`== 1`), not `<=`.** A payload two
 --- versions back then walks every step in turn, and a number nothing ever wrote falls through to
@@ -844,10 +1086,14 @@ function DebindStorage.BringPayloadForward(payload)
         payload.v = 2;
     end
 
-    if (payload.v < SCHEMA_VERSION) then
+    if (payload.v ~= 2 and payload.v ~= SCHEMA_VERSION) then
         return nil, "SCHEMA_TOO_OLD";
     end
 
+    -- **Asked before the v2 step**, so a payload refused here is left in the shape it came in. The
+    -- drawer raises its entries in place (`Import.lua`'s `Vars`), and a refused one moved halfway
+    -- would be stored in a shape no version wrote.
+    --
     -- **NaN passes every comparison below**, and a payload claiming it would walk through the range
     -- check and reach `MigrateLayer` with a version no step can match. It is asked about the same
     -- way a NaN key is (`PayloadIsImpossible`).
@@ -860,6 +1106,10 @@ function DebindStorage.BringPayloadForward(payload)
     end
     if (dbver < OLDEST_PAYLOAD_DBVER) then
         return nil, "SCHEMA_TOO_OLD";
+    end
+
+    if (payload.v == 2) then
+        RaiseV2(payload);
     end
 
     BringPayloadDataForward(payload);
@@ -882,28 +1132,17 @@ function DebindStorage.DecodeExportString(str)
     if (not version) then
         return nil, "NOT_A_DEBIND_STRING";
     end
-    if (tonumber(version) ~= ENVELOPE_VERSION) then
+
+    local payload, reason;
+    if (tonumber(version) == ENVELOPE_VERSION) then
+        payload, reason = DecodeClientBody(encoded);
+    elseif (tonumber(version) == ENVELOPE_LIBS) then
+        payload, reason = DecodeLibsBody(encoded);
+    else
         return nil, "UNSUPPORTED_ENVELOPE";
     end
-
-    local LibSerialize, LibDeflate = GetLibs();
-    if (not LibSerialize or not LibDeflate) then
-        return nil, "LIBS_MISSING";
-    end
-
-    local compressed = LibDeflate:DecodeForPrint(encoded);
-    if (not compressed) then
-        return nil, "BAD_ENCODING";
-    end
-
-    local serialized = LibDeflate:DecompressDeflate(compressed);
-    if (not serialized) then
-        return nil, "BAD_COMPRESSION";
-    end
-
-    local ok, payload = LibSerialize:Deserialize(serialized);
-    if (not ok) then
-        return nil, "BAD_PAYLOAD";
+    if (reason) then
+        return nil, reason;
     end
 
     -- Whether what came back is a table at all is asked below, with the same answer, on the door a
@@ -911,17 +1150,22 @@ function DebindStorage.DecodeExportString(str)
     return DebindStorage.BringPayloadForward(payload);
 end
 
---- What the window calls: an entry and what is ticked in it, string out.
+--- What the window calls: an entry and what is ticked in it, string out. `anonymize` renumbers the
+--- character cells and leaves out who they were (`AnonymizePayload`).
 ---
 --- **The profile is not read here.** It was, while the export window built a string straight out of
 --- the layers, and the entry is what stands between them now: making one is the moment the profile
 --- is read (`CreateEntry`), and everything after that -- deleting from it, ticking part of it,
 --- handing it out -- is about the entry. So an entry that arrived in somebody else's string goes
 --- back out through this same call, which is what makes passing one on cost nothing to build.
-function DebindStorage.ExportEntry(entry, selection)
+function DebindStorage.ExportEntry(entry, selection, anonymize)
     local payload, reason = DebindStorage.GetEntryPayload(entry);
     if (not payload) then
         return nil, reason;
     end
-    return DebindStorage.EncodeExportPayload(DebindStorage.FilterPayload(payload, selection));
+    payload = DebindStorage.FilterPayload(payload, selection);
+    if (anonymize) then
+        payload = DebindStorage.AnonymizePayload(payload);
+    end
+    return DebindStorage.EncodeExportPayload(payload);
 end

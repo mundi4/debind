@@ -865,8 +865,6 @@ L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same k
 -- only `%s`. The two locales therefore disagree on format specifiers, which check-locales knows
 -- about through EXTRA_SPECS_OK.
 L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key everywhere else, unless conditions or Importance say otherwise."
--- 남의 문자열에서 온 레이어의 캐릭터 자리. 이름이 없어서() 낱말로 대신한다.
-L["LAYER_SHORT_CHARACTER"] = "Character"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 -- The macro editor's bottom-left button carries this label only when the conversion menu item
 -- opened the window. Pressing it there undoes the conversion and the window closes with it, which

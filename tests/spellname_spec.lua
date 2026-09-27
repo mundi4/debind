@@ -239,9 +239,9 @@ return function(DebindPrivate, DebindStorage)
         installWorld(1);
         Bind({});
         local payload = {
-            v = 1, class = Constants.PLAYER_CLASS,
-            shared = { GENERAL = { { type = SPELL, value = FOREIGN, resolvedSpellID = 8936, key = "F1",
-                seq = 1 } } },
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {
+                { type = SPELL, value = FOREIGN, resolvedSpellID = 8936, key = "F1", seq = 1 } } } } },
         };
         local placements = DebindStorage.PlanArrival(payload);
         check(#placements == 1, "placements: " .. #placements);
@@ -253,8 +253,9 @@ return function(DebindPrivate, DebindStorage)
         installWorld(1);
         Bind({});
         local payload = {
-            v = 1, class = Constants.PLAYER_CLASS,
-            shared = { GENERAL = { { type = SPELL, value = "Regrowth", key = "F1", seq = 1 } } },
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {
+                { type = SPELL, value = "Regrowth", key = "F1", seq = 1 } } } } },
         };
         check(not DebindStorage.PayloadIsImpossible(payload), "the payload was refused");
         local placements = DebindStorage.PlanArrival(payload);

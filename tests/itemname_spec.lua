@@ -105,8 +105,9 @@ return function(DebindPrivate, DebindStorage)
         installWorld();
         Bind({});
         local payload = {
-            v = 1, class = Constants.PLAYER_CLASS,
-            shared = { GENERAL = { { type = ITEM, value = "Healthstone", key = "F1", seq = 1 } } },
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {
+                { type = ITEM, value = "Healthstone", key = "F1", seq = 1 } } } } },
         };
         check(not DebindStorage.PayloadIsImpossible(payload), "the payload was refused");
         local placements = DebindStorage.PlanArrival(payload);

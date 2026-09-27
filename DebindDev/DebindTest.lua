@@ -4109,28 +4109,11 @@ RegisterTest("Help tip: closed once, gone for good", {
 -- would decode it, and the count in it is set against the count the window drew.
 -----------------------------------------------------------
 
---- The payload inside an exported string, undone the way the far side undoes it. LibStub is global
---- and the two libraries register with it, so this needs nothing private.
+--- The payload inside an exported string, undone by the door a pasted string goes through.
 local function DecodeExportedString(str)
-    local body = type(str) == "string" and str:match("^DEB1:(.+)$")
-    if not body then
-        return nil, format("not an envelope: %s", tostring(str and str:sub(1, 12)))
-    end
-
-    local LibSerialize, LibDeflate = LibStub("LibSerialize", true), LibStub("LibDeflate", true)
-    if not LibSerialize or not LibDeflate then
-        return nil, "no library"
-    end
-
-    local compressed = LibDeflate:DecodeForPrint(body)
-    local serialized = compressed and LibDeflate:DecompressDeflate(compressed)
-    if not serialized then
-        return nil, "cannot decompress"
-    end
-
-    local ok, payload = LibSerialize:Deserialize(serialized)
-    if not ok or type(payload) ~= "table" then
-        return nil, "deserialisation failed"
+    local payload, why = DebindPrivate.Store.DecodeExportString(str)
+    if not payload then
+        return nil, tostring(why)
     end
     return payload
 end
@@ -4139,22 +4122,15 @@ end
 --- the walk a reader makes (`building-export-import.md`).
 local function PayloadActions(payload)
     local out = {}
-    local function Take(list)
-        for _, action in ipairs(list or {}) do
-            out[#out + 1] = action
+    for _, classes in pairs(payload.layers or {}) do
+        for _, specTbl in pairs(classes) do
+            for _, list in pairs(specTbl) do
+                for _, action in ipairs(list) do
+                    out[#out + 1] = action
+                end
+            end
         end
     end
-    local function TakeSpecTable(specTbl)
-        for _, list in pairs(specTbl or {}) do
-            Take(list)
-        end
-    end
-
-    Take(payload.shared and payload.shared.GENERAL)
-    for _, classTbl in pairs(payload.shared and payload.shared.classes or {}) do
-        TakeSpecTable(classTbl)
-    end
-    TakeSpecTable(payload.char)
     return out
 end
 
@@ -4168,116 +4144,112 @@ local STORAGE_PANEL_ID = 3
 --- `PlanArrival`), so a filter read in one place and not another is silent everywhere else: the
 --- window says 12, the string carries 9, and nobody sees the difference until somebody else opens
 --- it (section 12 of `building-export-import.md`).
--- **꺼둔 케이스.** 이 테스트는 `LibSerialize`가 직렬화 도중 나눗셈에서 터진다
--- (`LibSerialize.lua:1562`, division by zero). 터지는 자리가 우리 코드가 아니라 라이브러리
--- 안이라 여기서 고칠 것이 없고, 켜두면 실행할 때마다 오류 하나가 선다. 소유자가 꺼두라고
--- 했다 (2026-09-09).
--- RegisterTest("Storage: the preview, the string and the add all count the same", {
---     description = "What the preview counts, what the string carries and what Add places are one number, and the badge is left out",
---     run = function()
---         local NAME = "Export counts"
--- 
---         -- Two the tester owns and one still quarantined. A key with both on it is the sharpest
---         -- case: the group goes out half, which is right, and a filter that worked per key rather
---         -- than per action would send three or one.
---         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F5", combat = true })
---         InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F5" })
---         local badged = InsertAction({ type = Constants.SPELL, value = 6603, key = "CTRL-ALT-F6" })
---         badged.arrivalID = 99
---         ApplyBindings()
--- 
---         -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
---         -- `DebindStorage` in, and stopping there is enough: nothing below needs a frame on screen.
---         --
---         -- The run's own layer has an id past every real one (`GetTestLayer`), and that used to be a
---         -- reason not to build the list at all. It is not one any more: the preview names a layer by
---         -- the **payload's address** rather than by that id, and `BuildExportPayload` files a layer
---         -- with no character flag and no spec under the class block -- an address every client has.
---         local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
---         if not panel or not panel.SelectEntry then
---             return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
---         end
--- 
---         -- **The entry is real and it stays until teardown.** Making one is the only way into the
---         -- list, and a row the runner leaves behind is a row the tester finds later - so it goes,
---         -- along with the panel's own view state, which `OnHide` would normally clear and cannot on
---         -- a panel that was never shown.
---         --
---         -- The copy dialog goes too: it takes keyboard focus when it opens, which is what it is for,
---         -- and it must not hold it over whatever runs next.
---         local entry = DebindPrivate.Store.CreateEntry()
---         AddTeardown(function()
---             DebindCopyFrame.Output.EditBox:ClearFocus()
---             DebindCopyFrame:Hide()
---             panel:SelectEntry(nil)
---             DebindPrivate.Store.DeleteEntry(entry.id)
---         end)
--- 
---         -- What `OnShow` does: pick the row, which builds the preview and ticks all of it.
---         panel:SelectEntry(entry)
--- 
---         -- What the window says, counted twice the way the window counts it: the [select all] total
---         -- walks every listed action, and each header prints its own layer's length.
---         local listed = panel:EnumerateListedActions()
---         local headerTotal = 0
---         for _, layer in ipairs(panel.previewLayers or {}) do
---             headerTotal = headerTotal + #layer.actions
---         end
---         if headerTotal ~= #listed then
---             return Fail(NAME, format("headings total %d, whole list %d", headerTotal, #listed))
---         end
--- 
---         for _, action in ipairs(listed) do
---             if action == badged then
---                 return Fail(NAME, "an isolated action is in the list")
---             end
---         end
--- 
---         -- And what leaves. `OnCopyClicked` is the button, and the box it fills is the one the
---         -- reader copies out of. **The dialog keeps no copy of the string beside that box**, so the
---         -- box is the only place to read it from (`ShowText`).
---         panel:OnCopyClicked()
---         local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
---         if not payload then
---             return Fail(NAME, format("could not read the string: %s", why))
---         end
--- 
---         local sent = PayloadActions(payload)
---         if #sent ~= #listed then
---             return Fail(NAME, format("the window said %d and it sent %d", #listed, #sent))
---         end
---         for _, action in ipairs(sent) do
---             if action.value == badged.value then
---                 return Fail(NAME, "an isolated action was carried into the string")
---             end
---         end
--- 
---         -- **The third number.** Adding puts the same set into the profile and gets there through
---         -- `PlanArrival` rather than through the string, so this is what catches a tick set one of the
---         -- two reads and the other does not. Planned rather than placed: the count is what is being
---         -- asked, and placing would leave the run's layer holding a second copy of everything.
---         --
---         -- **The entry's own payload, not the one decoded above.** A tick is the action table
---         -- itself, so a payload built by decoding holds a second set of tables that nothing has
---         -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanArrival`
---         -- through `CommitEntry`, which opens the entry the same way the preview did
---         -- (`GetEntryPayload`).
---         local stored = DebindPrivate.Store.GetEntryPayload(entry)
---         if not stored then
---             return Fail(NAME, "could not open the entry payload")
---         end
--- 
---         local planned, skipped = DebindPrivate.Store.PlanArrival(stored, { selection = panel.selected })
---         if #planned ~= #listed then
---             return Fail(NAME, format("the window said %d and it places %d", #listed, #planned))
---         end
---         if skipped ~= 0 then
---             return Fail(NAME, format("%d came back with nowhere to go, those are addresses this board made", skipped))
---         end
--- 
---         return Pass(NAME, format("%d = %d = %d, and the badge did not go out", #listed, #sent, #planned))
---     end,
--- })
+RegisterTest("Storage: the preview, the string and the add all count the same", {
+    description = "What the preview counts, what the string carries and what Add places are one number, and the badge is left out",
+    run = function()
+        local NAME = "Export counts"
+
+        -- Two the tester owns and one still quarantined. A key with both on it is the sharpest
+        -- case: the group goes out half, which is right, and a filter that worked per key rather
+        -- than per action would send three or one.
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F5", combat = true })
+        InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F5" })
+        local badged = InsertAction({ type = Constants.SPELL, value = 6603, key = "CTRL-ALT-F6" })
+        badged.arrivalID = 99
+        ApplyBindings()
+
+        -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
+        -- `DebindStorage` in, and stopping there is enough: nothing below needs a frame on screen.
+        --
+        -- The run's own layer has an id past every real one (`GetTestLayer`), and that used to be a
+        -- reason not to build the list at all. It is not one any more: the preview names a layer by
+        -- the **payload's address** rather than by that id, and `BuildExportPayload` files a layer
+        -- with no character flag and no spec under the class block -- an address every client has.
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
+        end
+
+        -- **The entry is real and it stays until teardown.** Making one is the only way into the
+        -- list, and a row the runner leaves behind is a row the tester finds later - so it goes,
+        -- along with the panel's own view state, which `OnHide` would normally clear and cannot on
+        -- a panel that was never shown.
+        --
+        -- The copy dialog goes too: it takes keyboard focus when it opens, which is what it is for,
+        -- and it must not hold it over whatever runs next.
+        local entry = DebindPrivate.Store.CreateEntry()
+        AddTeardown(function()
+            DebindCopyFrame.Output.EditBox:ClearFocus()
+            DebindCopyFrame:Hide()
+            panel:SelectEntry(nil)
+            DebindPrivate.Store.DeleteEntry(entry.id)
+        end)
+
+        -- What `OnShow` does: pick the row, which builds the preview and ticks all of it.
+        panel:SelectEntry(entry)
+
+        -- What the window says, counted twice the way the window counts it: the [select all] total
+        -- walks every listed action, and each header prints its own layer's length.
+        local listed = panel:EnumerateListedActions()
+        local headerTotal = 0
+        for _, layer in ipairs(panel.previewLayers or {}) do
+            headerTotal = headerTotal + #layer.actions
+        end
+        if headerTotal ~= #listed then
+            return Fail(NAME, format("headings total %d, whole list %d", headerTotal, #listed))
+        end
+
+        for _, action in ipairs(listed) do
+            if action == badged then
+                return Fail(NAME, "an isolated action is in the list")
+            end
+        end
+
+        -- And what leaves. `OnCopyClicked` is the button, and the box it fills is the one the
+        -- reader copies out of. **The dialog keeps no copy of the string beside that box**, so the
+        -- box is the only place to read it from (`ShowText`).
+        panel:OnCopyClicked()
+        local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
+        if not payload then
+            return Fail(NAME, format("could not read the string: %s", why))
+        end
+
+        local sent = PayloadActions(payload)
+        if #sent ~= #listed then
+            return Fail(NAME, format("the window said %d and it sent %d", #listed, #sent))
+        end
+        for _, action in ipairs(sent) do
+            if action.value == badged.value then
+                return Fail(NAME, "an isolated action was carried into the string")
+            end
+        end
+
+        -- **The third number.** Adding puts the same set into the profile and gets there through
+        -- `PlanArrival` rather than through the string, so this is what catches a tick set one of the
+        -- two reads and the other does not. Planned rather than placed: the count is what is being
+        -- asked, and placing would leave the run's layer holding a second copy of everything.
+        --
+        -- **The entry's own payload, not the one decoded above.** A tick is the action table
+        -- itself, so a payload built by decoding holds a second set of tables that nothing has
+        -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanArrival`
+        -- through `CommitEntry`, which opens the entry the same way the preview did
+        -- (`GetEntryPayload`).
+        local stored = DebindPrivate.Store.GetEntryPayload(entry)
+        if not stored then
+            return Fail(NAME, "could not open the entry payload")
+        end
+
+        local planned, skipped = DebindPrivate.Store.PlanArrival(stored, { selection = panel.selected })
+        if #planned ~= #listed then
+            return Fail(NAME, format("the window said %d and it places %d", #listed, #planned))
+        end
+        if skipped ~= 0 then
+            return Fail(NAME, format("%d came back with nowhere to go, those are addresses this board made", skipped))
+        end
+
+        return Pass(NAME, format("%d = %d = %d, and the badge did not go out", #listed, #sent, #planned))
+    end,
+})
 
 --- **The two verbs grey out, they do not leave** (2026-08-23, the owner). A control that disappears
 --- takes with it the answer to "what can I do here", and the screen where nothing is picked is
@@ -4378,7 +4350,7 @@ RegisterTest("Clique CL02 code", {
         end
         AddTeardown(function() DebindPrivate.Store.DeleteEntry(entry.id) end)
 
-        local actions = entry.payload.shared and entry.payload.shared.GENERAL or {}
+        local actions = PayloadActions(entry.payload)
         if #actions ~= 2 then
             return Fail(NAME, format("%d actions came out of 2 bindings", #actions))
         end
@@ -4394,6 +4366,68 @@ RegisterTest("Clique CL02 code", {
             return Fail(NAME, format("the trinket came out as %s / %s", tostring(slot.type), tostring(slot.value)))
         end
         return Pass(NAME, "the client reads it back into the bindings that went in")
+    end,
+})
+
+--- **`DEB2:` is packed by the client**, and headless stands a library in for it (`export_spec.lua`).
+--- The probes measured the client's CBOR on hand-built tables; this puts a payload through the
+--- addon's own `EncodeExportPayload` and `DecodeExportString`, so the calls and the enum names they
+--- pass are the ones that ship. The cell keys are the part that can go wrong in silence: a spec
+--- number or the guid coming back as another type puts every action somewhere else.
+RegisterTest("Storage: a DEB2 string keeps its cells", {
+    description = "A string packed by the client comes back with its spec numbers, its guid cell and who it is, and an anonymised one with a numbered cell and no name",
+    run = function()
+        local NAME = "DEB2 cells"
+
+        local Store = DebindPrivate.Store
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not Store then
+            return Fail(NAME, "could not load the storage, check the tab number or LoadAddOn")
+        end
+
+        local guid, class = UnitGUID("player"), Constants.PLAYER_CLASS
+        local function Spell(value)
+            return { { type = Constants.SPELL, value = value, key = "CTRL-ALT-F7", seq = 1 } }
+        end
+        local payload = {
+            v = Store.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = {
+                account = { GENERAL = { [0] = Spell(1) }, [class] = { [0] = Spell(2), [2] = Spell(3) } },
+                [guid] = { [class] = { [0] = Spell(4), [5] = Spell(5) } },
+            },
+            characters = { [guid] = { name = UnitName("player"), class = class } },
+        }
+
+        local back, why = Store.DecodeExportString(Store.EncodeExportPayload(payload))
+        if not back then
+            return Fail(NAME, format("the string did not come back: %s", tostring(why)))
+        end
+        local account, mine = back.layers.account, back.layers[guid]
+        if not (account and account.GENERAL and account.GENERAL[0]) then
+            return Fail(NAME, "the general cell is not at [0] any more")
+        end
+        if not (account[class] and account[class][2] and account[class][2][1].value == 3) then
+            return Fail(NAME, "the class spec 2 cell is not at the number 2 any more")
+        end
+        if not (mine and mine[class] and mine[class][5] and mine[class][5][1].value == 5) then
+            return Fail(NAME, "the guid cell or its spec 5 did not come back")
+        end
+        if not (back.characters and back.characters[guid] and back.characters[guid].name == UnitName("player")) then
+            return Fail(NAME, "who the cell is did not come back")
+        end
+
+        local anon = Store.DecodeExportString(Store.EncodeExportPayload(Store.AnonymizePayload(payload)))
+        if not anon then
+            return Fail(NAME, "the anonymised string did not come back")
+        end
+        if anon.layers[guid] or anon.characters then
+            return Fail(NAME, "the anonymised string still says who it is")
+        end
+        if not (anon.layers["1"] and anon.layers["1"][class] and anon.layers["1"][class][5]) then
+            return Fail(NAME, "the anonymised cell is not at \"1\"")
+        end
+
+        return Pass(NAME, "every cell came back at its own key, and the anonymised one at \"1\" with no name")
     end,
 })
 

@@ -56,7 +56,8 @@ return function(DebindPrivate, DebindStorage)
 
     --- Builds SavedVariables exactly as `InitDB` reads them and reopens the profile.
     --- Layer numbering follows `LAYER_INFOS` (Profile.lua): 1 = general, 2..6 = class (spec 0..4),
-    --- 7..11 = character (spec 0..4).
+    --- 7..11 = character (spec 0..4). `classOverrides` and `charOverrides` are override cells by
+    --- spec, `switches[owner][CLASS][spec]`.
     local function ResetProfile(layout)
         layout = layout or {};
         _G.DebindVars = {
@@ -68,8 +69,17 @@ return function(DebindPrivate, DebindStorage)
                 },
                 [GUID] = { [CLASS] = layout.char or {} },
             },
-            characters = { [GUID] = {} },
-            switches = { account = { GENERAL = { [0] = layout.switches or {} } } },
+            characters = { [GUID] = {
+                name = "Tester", realm = "TestRealm", class = CLASS, level = 80,
+                firstSeen = 1, lastSeen = 2, origin = "local",
+            } },
+            switches = {
+                account = {
+                    GENERAL = { [0] = layout.switches or {} },
+                    [CLASS] = layout.classOverrides,
+                },
+                [GUID] = layout.charOverrides and { [CLASS] = layout.charOverrides } or nil,
+            },
             migrated = {},
         };
         DebindPrivate.InitDB();
@@ -89,23 +99,34 @@ return function(DebindPrivate, DebindStorage)
     --- now, so walking it is what a reader has to do too.
     local function AllActions(payload)
         local out = {};
-        local function Take(list)
-            for _, action in ipairs(list or {}) do
-                out[#out + 1] = action;
+        for _, classes in pairs(payload.layers or {}) do
+            for _, specTbl in pairs(classes) do
+                for _, list in pairs(specTbl) do
+                    for _, action in ipairs(list) do
+                        out[#out + 1] = action;
+                    end
+                end
             end
         end
-        local function TakeSpecTable(specTbl)
-            for _, list in pairs(specTbl or {}) do
-                Take(list);
-            end
-        end
-
-        Take(payload.shared and payload.shared.GENERAL);
-        for _, classTbl in pairs(payload.shared and payload.shared.classes or {}) do
-            TakeSpecTable(classTbl);
-        end
-        TakeSpecTable(payload.char);
         return out;
+    end
+
+    --- `payload.layers[owner][class][spec]`, or nil anywhere along the way.
+    local function LayerAt(payload, owner, class, spec)
+        local classes = payload.layers and payload.layers[owner];
+        local specTbl = classes and classes[class];
+        return specTbl and specTbl[spec];
+    end
+
+    --- The general layer, `layers.account.GENERAL[0]`.
+    local function General(payload)
+        return LayerAt(payload, "account", "GENERAL", 0);
+    end
+
+    --- The switch definitions, `switches.account.GENERAL[0]`.
+    local function Definitions(payload)
+        local classes = payload.switches and payload.switches.account;
+        return classes and classes.GENERAL and classes.GENERAL[0];
     end
 
     local function CountActions(payload)
@@ -163,8 +184,8 @@ return function(DebindPrivate, DebindStorage)
 
         local payload = DebindStorage.BuildExportPayload();
         check(#GroupFor(payload, "F") == 2, "그룹이 갈렸다");
-        check(#payload.shared.GENERAL == 1, "일반 자리");
-        check(#payload.shared.classes[CLASS][0] == 1, "직업 공용 자리");
+        check(#General(payload) == 1, "일반 자리");
+        check(#LayerAt(payload, "account", CLASS, 0) == 1, "직업 공용 자리");
     end);
 
     test("키 없는 액션은 키 없이 나간다", function()
@@ -353,8 +374,8 @@ return function(DebindPrivate, DebindStorage)
     ---------------------------------------------------------------------------
 
     -- **Layer IDs are the one thing that cannot travel** - 2..6 are "my class", so the sender's
-    -- number does not point at the same layer on the reader's account. The path does: both profiles
-    -- store under one general layer, then class by spec, then character by spec.
+    -- number does not point at the same layer on the reader's account. The path does: it is the
+    -- saved shape, `layers[owner][class][spec]`, and every cell carries its class as a key.
     test("레이어는 번호가 아니라 저장 경로로 나간다", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F" } },
@@ -364,12 +385,11 @@ return function(DebindPrivate, DebindStorage)
         });
 
         local payload = DebindStorage.BuildExportPayload();
-        check(payload.class == CLASS, "보내는 쪽 클래스가 없다");
-        check(payload.shared.GENERAL[1].value == 1, "공용");
-        check(payload.shared.classes[CLASS][0][1].value == 2, "클래스 스펙0");
-        check(payload.shared.classes[CLASS][1][1].value == 3, "클래스 스펙1");
-        -- The guid is dropped: "their character" means nothing here, so it says *this* character.
-        check(payload.char[0][1].value == 4, "캐릭터 전용");
+        check(General(payload)[1].value == 1, "공용");
+        check(LayerAt(payload, "account", CLASS, 0)[1].value == 2, "클래스 스펙0");
+        check(LayerAt(payload, "account", CLASS, 1)[1].value == 3, "클래스 스펙1");
+        check(LayerAt(payload, GUID, CLASS, 0)[1].value == 4, "캐릭터 전용");
+        check(payload.class == nil, "직업은 칸의 키가 드는데 꼭대기에 또 섰다");
     end);
 
     test("비활성 스펙 레이어도 나간다", function()
@@ -378,7 +398,7 @@ return function(DebindPrivate, DebindStorage)
 
         local payload = DebindStorage.BuildExportPayload();
         check(CountActions(payload) == 1, "안 쓰는 스펙이 빠졌다");
-        check(payload.shared.classes[CLASS][3][1].value == 1, "스펙 번호");
+        check(LayerAt(payload, "account", CLASS, 3)[1].value == 1, "스펙 번호");
     end);
 
     -- An address with nothing at it is not the same as an address with nothing in it. Standing an
@@ -387,8 +407,43 @@ return function(DebindPrivate, DebindStorage)
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
         local payload = DebindStorage.BuildExportPayload();
-        check(payload.shared.classes == nil, "빈 직업 경로가 섰다");
-        check(payload.char == nil, "빈 캐릭터 경로가 섰다");
+        check(payload.layers.account[CLASS] == nil, "빈 직업 경로가 섰다");
+        check(payload.layers[GUID] == nil, "빈 캐릭터 경로가 섰다");
+        check(payload.characters == nil, "캐릭터 칸이 없는데 신원이 실렸다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Who a character cell is
+    --
+    -- **A cell keeps its guid and says who it is** (2026-09-27, owner; `reshaping-stored-layers.md`
+    -- 1-1). Renumbered cells cannot be put back: a backup kept as a string would not know which
+    -- character `"1"` was.
+    ---------------------------------------------------------------------------
+
+    test("캐릭터 칸의 신원이 실린다", function()
+        ResetProfile({ char = { [0] = { { type = Constants.SPELL, value = 1, key = "F" } } } });
+
+        local who = (DebindStorage.BuildExportPayload().characters or {})[GUID];
+        check(who, "신원이 없다");
+        check(who.name == "Tester" and who.realm == "TestRealm", "이름 " .. tostring(who.name));
+        check(who.class == CLASS and who.level == 80, "직업 " .. tostring(who.class));
+    end);
+
+    -- They count this install's sightings of the character, and mean nothing on another one.
+    test("이 설치의 기록은 신원에 안 실린다", function()
+        ResetProfile({ char = { [0] = { { type = Constants.SPELL, value = 1, key = "F" } } } });
+
+        local who = DebindStorage.BuildExportPayload().characters[GUID];
+        for _, field in ipairs({ "firstSeen", "lastSeen", "origin" }) do
+            check(who[field] == nil, field .. "가 실렸다");
+        end
+    end);
+
+    test("신원은 사본이라 고쳐도 프로필이 안 바뀐다", function()
+        ResetProfile({ char = { [0] = { { type = Constants.SPELL, value = 1, key = "F" } } } });
+
+        DebindStorage.BuildExportPayload().characters[GUID].name = "바꾼이름";
+        check(_G.DebindVars.characters[GUID].name == "Tester", "프로필의 신원이 바뀌었다");
     end);
 
     ---------------------------------------------------------------------------
@@ -477,7 +532,7 @@ return function(DebindPrivate, DebindStorage)
         local stored = LayerActions(1)[1];
         stored.conditions = { ["$state3"] = true };
 
-        local manifest = DebindStorage.BuildExportPayload().states;
+        local manifest = Definitions(DebindStorage.BuildExportPayload());
         check(manifest, "매니페스트가 없다");
         check(manifest["$state3"], "조건이 가리킨 상태가 빠졌다");
         check(manifest["$state3"].resetValue == false, "정의가 안 실렸다");
@@ -486,7 +541,7 @@ return function(DebindPrivate, DebindStorage)
 
     test("아무 상태도 안 쓰면 매니페스트가 없다", function()
         StatefulProfile({ { type = Constants.SPELL, value = 1, key = "F" } });
-        check(DebindStorage.BuildExportPayload().states == nil, "빈 매니페스트가 붙었다");
+        check(DebindStorage.BuildExportPayload().switches == nil, "빈 매니페스트가 붙었다");
     end);
 
     test("매크로텍스트에 손으로 적은 이름도 걷힌다", function()
@@ -494,7 +549,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.MACROTEXT, value = "/cast [$state3] 화염구", key = "F" },
         });
 
-        local manifest = DebindStorage.BuildExportPayload().states;
+        local manifest = Definitions(DebindStorage.BuildExportPayload());
         check(manifest and manifest["$state3"], "본문 안 이름이 안 걷혔다");
     end);
 
@@ -503,7 +558,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SETSWITCH_ON, value = "$state3", key = "F" },
         });
 
-        local manifest = DebindStorage.BuildExportPayload().states;
+        local manifest = Definitions(DebindStorage.BuildExportPayload());
         check(manifest and manifest["$state3"], "SETSWITCH가 가리킨 스위치가 빠졌다");
     end);
 
@@ -512,7 +567,7 @@ return function(DebindPrivate, DebindStorage)
         local stored = LayerActions(1)[1];
         stored.conditions = { ["$state4"] = true };
 
-        local manifest = DebindStorage.BuildExportPayload().states;
+        local manifest = Definitions(DebindStorage.BuildExportPayload());
         check(manifest["$state4"], "직접 참조");
         check(manifest["$state5"], "expr이 부르는 상태가 안 따라왔다");
     end);
@@ -522,17 +577,78 @@ return function(DebindPrivate, DebindStorage)
         local stored = LayerActions(1)[1];
         stored.conditions = { ["$state1"] = true };
 
-        local definition = DebindStorage.BuildExportPayload().states["$state1"];
+        local definition = Definitions(DebindStorage.BuildExportPayload())["$state1"];
         -- `BindDerivedTables` recomputes this from resetValue. It is a reading, not a setting.
         check(definition.value == nil, "value가 실렸다");
         check(definition.resetValue == true, "resetValue는 실려야 한다");
     end);
 
+    -- **Override rows travel now**, in the cell they sit in (`reshaping-stored-layers.md` 1-1). v2
+    -- left them home because their key named this install's characters; a cell's key is the layer's
+    -- own address now, the same one `layers` uses.
+    test("참조한 스위치의 오버라이드 행이 제 칸으로 실린다", function()
+        ResetProfile({
+            general = { { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "F" } },
+            switches = {
+                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL },
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+            },
+            classOverrides = { [2] = {
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
+                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
+            } },
+            charOverrides = { [0] = {
+                ["$state3"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+            } },
+        });
+
+        local switches = DebindStorage.BuildExportPayload().switches;
+        local classRow = switches.account[CLASS] and switches.account[CLASS][2]["$state3"];
+        check(classRow and classRow.resetValue == true, "직업 칸의 행이 빠졌다");
+        check(switches.account[CLASS][2]["$state1"] == nil, "안 쓰는 스위치의 행이 실렸다");
+        local charRow = switches[GUID] and switches[GUID][CLASS][0]["$state3"];
+        check(charRow and charRow.expr == "[combat]", "캐릭터 칸의 행이 빠졌다");
+    end);
+
+    -- `characters` holds every character key the payload names, and `switches` names one too.
+    test("오버라이드만 있는 캐릭터 칸도 신원을 든다", function()
+        ResetProfile({
+            general = { { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "F" } },
+            switches = { ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL } },
+            charOverrides = { [0] = { ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL } } },
+        });
+
+        local payload = DebindStorage.BuildExportPayload();
+        check(payload.layers[GUID] == nil, "전제: 캐릭터 레이어는 비어 있다");
+        check(payload.characters and payload.characters[GUID], "신원이 없다");
+    end);
+
+    -- A switch a row's expression names has to travel too, or the row arrives naming nothing.
+    test("오버라이드 행의 expr이 부르는 스위치도 따라간다", function()
+        ResetProfile({
+            general = { { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "F" } },
+            switches = {
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+                ["$state5"] = { mode = Constants.SWITCH_MODES.MANUAL },
+            },
+            classOverrides = { [0] = {
+                ["$state3"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state5]" },
+            } },
+        });
+
+        check(Definitions(DebindStorage.BuildExportPayload())["$state5"],
+            "행의 expr이 부르는 스위치가 안 따라왔다");
+    end);
+
     ---------------------------------------------------------------------------
     -- The string round trip
     --
-    -- The libraries are stood up for real, both of them pure Lua, so what runs here is what the
-    -- game runs.
+    -- **`DEB2:` is packed by the client** (`C_EncodingUtil`, CBOR), which headless does not have.
+    -- The stand-in below keeps what the probes measured on both clients, a table coming back with
+    -- its key types, by serializing with LibSerialize, which keeps them too. What CBOR itself does
+    -- with our shape is the probes' answer (`reshaping-stored-layers.md` 1-2), not this file's.
+    --
+    -- `DEB1:` still goes through the two libraries, stood up for real.
     ---------------------------------------------------------------------------
 
     local repoRoot = (arg and arg[0] or ""):match("^(.*)[/\\]tests[/\\]run%.lua$") or ".";
@@ -542,6 +658,42 @@ return function(DebindPrivate, DebindStorage)
         "/DebindStorage/Libs/LibSerialize/LibSerialize.lua",
     }) do
         assert(loadfile(repoRoot .. path), "라이브러리를 못 읽었다: " .. path)();
+    end
+
+    do
+        local LibSerialize, LibDeflate = LibStub("LibSerialize"), LibStub("LibDeflate");
+        --- The client raises on input it cannot read, so the stand-in does too.
+        local function Must(value, what)
+            if (value == nil) then
+                error("bad " .. what);
+            end
+            return value;
+        end
+        Enum.CompressionMethod = { Deflate = 0, Zlib = 1, Gzip = 2 };
+        Enum.CompressionLevel = { Default = 0, OptimizeForSpeed = 1, OptimizeForSize = 2 };
+        _G.C_EncodingUtil = {
+            SerializeCBOR = function(value)
+                return LibSerialize:Serialize(value);
+            end,
+            DeserializeCBOR = function(text)
+                local ok, value = LibSerialize:Deserialize(text);
+                return Must(ok and value or nil, "cbor");
+            end,
+            CompressString = function(text, method)
+                assert(method == Enum.CompressionMethod.Deflate, "method");
+                return LibDeflate:CompressDeflate(text);
+            end,
+            DecompressString = function(text, method)
+                assert(method == Enum.CompressionMethod.Deflate, "method");
+                return Must(LibDeflate:DecompressDeflate(text), "deflate");
+            end,
+            EncodeBase64 = function(text)
+                return LibDeflate:EncodeForPrint(text);
+            end,
+            DecodeBase64 = function(text)
+                return Must(LibDeflate:DecodeForPrint(text), "base64");
+            end,
+        };
     end
 
     --- Built once and read by both checks below.
@@ -561,27 +713,19 @@ return function(DebindPrivate, DebindStorage)
         check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "스키마 버전");
         -- 액션 모양의 버전은 봉투와 따로 실린다. 안 실리면 받는 쪽이 그것을 거절한다.
         check(payload.dbver == Constants.DB_VERSION, "dbver " .. tostring(payload.dbver));
-        check(payload.class == CLASS, "클래스");
         check(CountActions(payload) == 3, "액션 수 " .. CountActions(payload));
         local shiftF = GroupFor(payload, "SHIFT-F");
         check(#shiftF == 2, "SHIFT-F 그룹 크기 " .. #shiftF);
         local macro = shiftF[1].type == Constants.MACRO and shiftF[1] or shiftF[2];
         check(macro.value == "내매크로", "매크로 이름 " .. tostring(macro.value));
         check(OneOn(payload, "G").value == "$state3", "상태 이름");
-        check(payload.states["$state3"].resetValue == false, "매니페스트");
+        check(Definitions(payload)["$state3"].resetValue == false, "매니페스트");
     end
-
-    test("페이로드가 직렬화를 건너 살아 돌아온다", function()
-        local LibSerialize = LibStub("LibSerialize");
-        local ok, back = LibSerialize:Deserialize(LibSerialize:Serialize(SamplePayload()));
-        check(ok, "역직렬화 실패");
-        CheckSurvived(back);
-    end);
 
     test("봉투 모양", function()
         local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
         check(type(str) == "string", "문자열이 아니다: " .. tostring(str));
-        check(str:sub(1, 5) == "DEB1:", "봉투 머리 " .. str:sub(1, 8));
+        check(str:sub(1, 5) == "DEB2:", "봉투 머리 " .. str:sub(1, 8));
         check(not str:find("%s"), "공백이 섞이면 채팅으로 못 나른다");
     end);
 
@@ -593,21 +737,100 @@ return function(DebindPrivate, DebindStorage)
         CheckSurvived(payload);
     end);
 
+    -- **`DEB1:` is read for as long as the libraries ship** (`reshaping-stored-layers.md` 1-2). It
+    -- carries v2, so what comes out has been through the v2 step too.
+    test("DEB1 문자열도 읽혀서 v3로 올라온다", function()
+        local LibSerialize, LibDeflate = LibStub("LibSerialize"), LibStub("LibDeflate");
+        local str = "DEB1:" .. LibDeflate:EncodeForPrint(LibDeflate:CompressDeflate(
+            LibSerialize:Serialize({
+                v = 2, dbver = 7, class = CLASS,
+                shared = { GENERAL = { { type = Constants.SPELL, value = 1, key = "F", seq = 1 } } },
+            }), { level = 9 }));
+
+        local payload, err = DebindStorage.DecodeExportString(str);
+        check(payload, "디코드 실패: " .. tostring(err));
+        check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "판 " .. tostring(payload.v));
+        check(General(payload) and General(payload)[1].value == 1, "일반 레이어가 안 옮겨졌다");
+    end);
+
     ---------------------------------------------------------------------------
-    -- 보관함에 앉는 것
+    -- Anonymising
     --
-    -- 프로필에서 만든 엔트리는 **누구 것인지를 셋으로 든다**. 그 셋이 페이로드 밖에 있는 것이
-    -- 곧 그것이 문자열에 안 실린다는 뜻이라, 여기서 재는 것은 값이 맞느냐만이 아니라
-    -- **어디에 앉느냐**다 (`building-export-import.md` 12절).
+    -- **Chosen when a string is made** (`reshaping-stored-layers.md` 1-1). The cells are
+    -- renumbered in that one string and nothing says who they were; nothing marks the string
+    -- either, since a character key with no `characters` entry already says it.
+    ---------------------------------------------------------------------------
+
+    --- A profile with a character layer and a character override, made into an entry.
+    local function EntryWithCharacter()
+        _G.DebindStorageVars = nil;
+        ResetProfile({
+            general = { { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "G" } },
+            char = { [2] = { { type = Constants.SPELL, value = 1, key = "F" } } },
+            switches = { ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL } },
+            charOverrides = { [0] = { ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL } } },
+        });
+        return DebindStorage.CreateEntry();
+    end
+
+    --- Every string anywhere in `value`, keys included.
+    local function AnyStringContains(value, needle)
+        if (type(value) == "string") then
+            return value:find(needle, 1, true) ~= nil;
+        end
+        if (type(value) == "table") then
+            for k, v in pairs(value) do
+                if (AnyStringContains(k, needle) or AnyStringContains(v, needle)) then
+                    return true;
+                end
+            end
+        end
+        return false;
+    end
+
+    test("익명화 안 한 문자열은 guid와 신원을 그대로 싣는다", function()
+        local str = DebindStorage.ExportEntry(EntryWithCharacter(), nil, false);
+        local payload = DebindStorage.DecodeExportString(str);
+        check(LayerAt(payload, GUID, CLASS, 2), "guid 칸이 없다");
+        check(payload.characters[GUID].name == "Tester", "신원이 없다");
+    end);
+
+    test("익명화한 문자열에는 guid도 이름도 없다", function()
+        local str = DebindStorage.ExportEntry(EntryWithCharacter(), nil, true);
+        local payload = DebindStorage.DecodeExportString(str);
+        check(payload, "디코드 실패");
+        check(not AnyStringContains(payload, GUID), "guid가 남았다");
+        check(not AnyStringContains(payload, "Tester"), "이름이 남았다");
+        check(payload.characters == nil, "신원 표가 남았다");
+    end);
+
+    test("익명화는 칸을 번호로 바꾸고 스위치 칸도 같은 번호를 쓴다", function()
+        local payload = DebindStorage.DecodeExportString(
+            DebindStorage.ExportEntry(EntryWithCharacter(), nil, true));
+        check(LayerAt(payload, "1", CLASS, 2)[1].value == 1, "레이어 칸이 1이 아니다");
+        check(payload.switches["1"] and payload.switches["1"][CLASS][0]["$state3"],
+            "스위치 칸이 레이어 칸과 다른 번호다");
+        check(General(payload)[1].value == "$state3", "계정 칸이 흔들렸다");
+    end);
+
+    test("익명화는 보관함의 항목을 안 건드린다", function()
+        local entry = EntryWithCharacter();
+        DebindStorage.ExportEntry(entry, nil, true);
+        check(LayerAt(entry.payload, GUID, CLASS, 2), "저장된 칸의 키가 바뀌었다");
+        check(entry.payload.characters[GUID], "저장된 신원이 지워졌다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- What an entry holds
     --
-    -- 그 셋이 페이로드 안으로 들어가는 편집은 어떤 검사도 못 잡는다. 문자열은 그대로 만들어지고
-    -- 남의 화면에서 캐릭터 이름이 보인다.
+    -- An entry made from the profile carries three fields on the row (`CreateEntry`). They are the
+    -- row's, not the payload's: who a character cell is travels in the payload's `characters`.
     ---------------------------------------------------------------------------
 
     --- 페이로드 최상단에 설 수 있는 이름 전부. 닫힌 목록이라 새 필드가 붙으면 여기가 먼저
     --- 빨개진다.
     local PAYLOAD_KEYS = {
-        v = true, dbver = true, class = true, states = true, shared = true, char = true,
+        v = true, dbver = true, layers = true, switches = true, characters = true,
     };
 
     local function ResetStore()
@@ -681,10 +904,23 @@ return function(DebindPrivate, DebindStorage)
         check(OneOn(out, "F").value == 1, "일반 레이어 것이 빠졌다");
         check(OneOn(out, "H").value == 3, "캐릭터 레이어 것이 빠졌다");
         -- 주소는 경로 그 자체다. 골라낸 뒤에도 같은 자리에 있어야 받는 쪽이 같은 곳에 놓는다.
-        check(out.char and out.char[0], "캐릭터 자리가 안 섰다");
-        check(out.shared and out.shared.GENERAL, "일반 자리가 안 섰다");
-        check(out.v == payload.v and out.dbver == payload.dbver and out.class == payload.class,
-            "봉투 필드가 안 따라왔다");
+        check(LayerAt(out, GUID, CLASS, 0), "캐릭터 자리가 안 섰다");
+        check(General(out), "일반 자리가 안 섰다");
+        check(out.characters and out.characters[GUID], "캐릭터 칸의 신원이 안 따라왔다");
+        check(out.v == payload.v and out.dbver == payload.dbver, "봉투 필드가 안 따라왔다");
+    end);
+
+    test("캐릭터 칸이 다 빠지면 신원도 빠진다", function()
+        ResetStore();
+        ResetProfile({
+            general = { { type = Constants.SPELL, value = 1, key = "F" } },
+            char = { [0] = { { type = Constants.SPELL, value = 3, key = "H" } } },
+        });
+
+        local payload = DebindStorage.CreateEntry().payload;
+        local out = DebindStorage.FilterPayload(payload, { [OneOn(payload, "F")] = true });
+        check(out.layers[GUID] == nil, "빈 캐릭터 칸이 섰다");
+        check(out.characters == nil, "칸이 없는 신원이 남았다");
     end);
 
     test("안 고르면 페이로드가 그대로 나간다", function()
@@ -704,12 +940,12 @@ return function(DebindPrivate, DebindStorage)
         LayerActions(1)[1].conditions = { ["$state1"] = true };
 
         local payload = DebindStorage.CreateEntry().payload;
-        check(payload.states["$state1"] and payload.states["$state3"], "둘 다 안 실렸다");
+        check(Definitions(payload)["$state1"] and Definitions(payload)["$state3"], "둘 다 안 실렸다");
 
         local selection = {};
         selection[OneOn(payload, "G")] = true;
 
-        local states = DebindStorage.FilterPayload(payload, selection).states;
+        local states = Definitions(DebindStorage.FilterPayload(payload, selection));
         check(states["$state3"], "고른 것이 쓰는 상태가 빠졌다");
         check(states["$state1"] == nil, "안 고른 것이 쓰던 상태가 남았다");
     end);
@@ -721,14 +957,38 @@ return function(DebindPrivate, DebindStorage)
         local payload = DebindStorage.CreateEntry().payload;
         -- 남이 준 문자열이면 정의가 내 것과 다르다. 여기서 프로필을 다시 물으면 그 순간
         -- **남의 정의가 내 것으로 바뀐 채** 나간다.
-        payload.states["$state3"].resetValue = true;
+        Definitions(payload)["$state3"].resetValue = true;
 
         local selection = {};
         selection[OneOn(payload, "G")] = true;
 
-        local states = DebindStorage.FilterPayload(payload, selection).states;
+        local states = Definitions(DebindStorage.FilterPayload(payload, selection));
         check(states["$state3"].resetValue == true,
             "프로필 정의로 바뀌었다: " .. tostring(states["$state3"].resetValue));
+    end);
+
+    test("골라낼 때 오버라이드 행도 참조된 것만 남는다", function()
+        ResetStore();
+        ResetProfile({
+            general = {
+                { type = Constants.SETSWITCH_TOGGLE, value = "$state1", key = "F" },
+                { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "G" },
+            },
+            switches = {
+                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL },
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+            },
+            classOverrides = { [2] = {
+                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL },
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+            } },
+        });
+
+        local payload = DebindStorage.CreateEntry().payload;
+        local out = DebindStorage.FilterPayload(payload, { [OneOn(payload, "G")] = true });
+        local cell = out.switches.account[CLASS][2];
+        check(cell["$state3"], "고른 것이 쓰는 행이 빠졌다");
+        check(cell["$state1"] == nil, "안 고른 것이 쓰던 행이 남았다");
     end);
 
     ---------------------------------------------------------------------------
@@ -748,10 +1008,10 @@ return function(DebindPrivate, DebindStorage)
 
         local payload = DebindStorage.BuildExportPayload();
         check(payload.groups == nil, "그룹 층이 아직 있다");
-        check(payload.shared and #payload.shared.GENERAL == 1, "일반이 저장 경로에 없다");
-        check(payload.shared.classes[CLASS][2][1].value == 2, "직업/특성2 경로");
-        check(payload.char[0][1].value == 3, "캐릭터 경로");
-        check(payload.shared.GENERAL[1].layer == nil, "레이어 서술이 남았다");
+        check(General(payload) and #General(payload) == 1, "일반이 저장 경로에 없다");
+        check(LayerAt(payload, "account", CLASS, 2)[1].value == 2, "직업/특성2 경로");
+        check(LayerAt(payload, GUID, CLASS, 0)[1].value == 3, "캐릭터 경로");
+        check(General(payload)[1].layer == nil, "레이어 서술이 남았다");
     end);
 
     test("key가 액션에 실려 그룹을 나른다", function()
@@ -762,7 +1022,7 @@ return function(DebindPrivate, DebindStorage)
             },
         });
 
-        local actions = DebindStorage.BuildExportPayload().shared.GENERAL;
+        local actions = General(DebindStorage.BuildExportPayload());
         check(#actions == 2, "액션 수 " .. #actions);
         check(actions[1].key == "F" and actions[2].key == "F", "키가 액션에 없다");
     end);
@@ -775,7 +1035,7 @@ return function(DebindPrivate, DebindStorage)
             },
         });
 
-        for _, action in ipairs(DebindStorage.BuildExportPayload().shared.GENERAL) do
+        for _, action in ipairs(General(DebindStorage.BuildExportPayload())) do
             check(action.seq == (action.value == 10 and 1 or 2),
                 "seq가 안 실렸다: " .. tostring(action.seq));
         end
@@ -788,6 +1048,7 @@ return function(DebindPrivate, DebindStorage)
             { "!WEAKAURAS:abcdef", "NOT_A_DEBIND_STRING" },
             { "DEB9:abcdef", "UNSUPPORTED_ENVELOPE" },
             { "DEB1:!!!!!!", "BAD_ENCODING" },
+            { "DEB2:!!!!!!", "BAD_ENCODING" },
         };
         for _, case in ipairs(cases) do
             local payload, reason = DebindStorage.DecodeExportString(case[1]);
@@ -830,7 +1091,7 @@ return function(DebindPrivate, DebindStorage)
         });
         check(payload, "v1이 거절당했다");
 
-        local states = payload.states;
+        local states = Definitions(payload);
         check(states["$state1"].mode == Constants.SWITCH_MODES.MANUAL, "수동 모드");
         check(states["$state2"].mode == Constants.SWITCH_MODES.EXPR,
             "계산식 모드가 " .. tostring(states["$state2"].mode) .. "로 남았다");
@@ -840,6 +1101,74 @@ return function(DebindPrivate, DebindStorage)
         check(states["$state3"].resetValue == false,
             "false가 " .. tostring(states["$state3"].resetValue) .. "가 됐다");
         check(states["$state2"].expr == "[combat]", "나머지가 안 따라왔다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- v2 to v3
+    --
+    -- v2 carried no identity, so its character layer arrives as an anonymised v3 would: under
+    -- `"1"`, keyed by the class `payload.class` named (`reshaping-stored-layers.md` 1-1).
+    ---------------------------------------------------------------------------
+
+    local function V2()
+        return {
+            v = 2, dbver = 7, class = "MAGE",
+            shared = {
+                GENERAL = { { type = Constants.SPELL, value = 1, key = "F", seq = 1 } },
+                classes = { MAGE = { [2] = { { type = Constants.SPELL, value = 2, key = "G", seq = 1 } } } },
+            },
+            char = { [0] = { { type = Constants.SPELL, value = 3, key = "H", seq = 1 } } },
+            states = { ["$burst"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true } },
+        };
+    end
+
+    test("v2의 주소가 v3의 칸으로 간다", function()
+        local payload, reason = DebindStorage.BringPayloadForward(V2());
+        check(payload, "거절당했다: " .. tostring(reason));
+        check(payload.v == 3, "판 " .. tostring(payload.v));
+        check(General(payload)[1].value == 1, "일반");
+        check(LayerAt(payload, "account", "MAGE", 2)[1].value == 2, "직업");
+        check(LayerAt(payload, "1", "MAGE", 0)[1].value == 3, "캐릭터가 보낸 쪽 직업의 칸으로 안 갔다");
+        check(Definitions(payload)["$burst"].resetValue == true, "정의");
+    end);
+
+    test("v2의 이름은 v3에 안 남는다", function()
+        local payload = DebindStorage.BringPayloadForward(V2());
+        for _, name in ipairs({ "shared", "char", "states", "class" }) do
+            check(payload[name] == nil, name .. "가 남았다");
+        end
+        check(payload.characters == nil, "v2에 없던 신원이 생겼다");
+    end);
+
+    -- Every string since 3.2 carries `class` (9b57dc4), so one without it was edited by hand, and a
+    -- hand-edited file is not read for what it meant (`reshaping-stored-layers.md` 1절).
+    test("class 없는 v2의 캐릭터 레이어는 버린다", function()
+        local old = V2();
+        old.class = nil;
+        local payload = DebindStorage.BringPayloadForward(old);
+        check(payload, "나머지까지 거절했다");
+        check(payload.layers["1"] == nil, "직업 모를 캐릭터 칸이 섰다");
+        check(General(payload)[1].value == 1, "나머지가 빠졌다");
+    end);
+
+    -- A refused payload is left as it came. The drawer raises every entry in place on open, so one
+    -- refused after its shape moved would be stored in a shape no version wrote.
+    test("거절되는 v2는 모양이 안 바뀐다", function()
+        for _, dbver in ipairs({ 99, 0 / 0, 4 }) do
+            local old = V2();
+            old.dbver = dbver;
+            local payload = DebindStorage.BringPayloadForward(old);
+            check(payload == nil, "받아들였다: " .. tostring(dbver));
+            check(old.v == 2 and old.shared and old.char and old.class, "모양이 바뀌었다: " .. tostring(dbver));
+            check(old.layers == nil, "v3 칸이 섰다: " .. tostring(dbver));
+        end
+    end);
+
+    test("문자열이 아닌 class도 없는 것과 같다", function()
+        local old = V2();
+        old.class = {};
+        local payload = DebindStorage.BringPayloadForward(old);
+        check(payload and payload.layers["1"] == nil, "표를 직업 키로 세웠다");
     end);
 
     ---------------------------------------------------------------------------
@@ -873,7 +1202,7 @@ return function(DebindPrivate, DebindStorage)
             });
             check(payload, "v1이 거절당했다");
 
-            local action = payload.shared.GENERAL[1];
+            local action = General(payload)[1];
             check(action.conditions and action.conditions.combat == true,
                 "조건이 안 내려갔다");
             check(action.combat == nil, "최상단에 조건이 남았다");

@@ -121,7 +121,6 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Левый клик, чтобы выб
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Нажмите любую клавишу или кнопку мыши, чтобы назначить её этому действию."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Правый клик для дополнительных опций."
 L["LOGIN_MESSAGE"] = "Выполните команду /deb для открытия интерфейса."
-L["LAYER_SHORT_CHARACTER"] = "Персонаж"
 L["MACRO_POPUP_TEXT"] = "Введите имя макроса (макс. %d символа):"
 L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d символов использовано"
 L["MOVE_TO"] = "Переместить в..."

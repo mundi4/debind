@@ -25,7 +25,7 @@ return function(DebindPrivate, DebindStorage)
 
     local function Convert(bindings)
         local payload, count = DebindStorage.PayloadFromCliqueBindings(bindings);
-        local actions = payload.shared.GENERAL;
+        local actions = payload.layers.account.GENERAL[0];
         check(#actions == count, "count " .. tostring(count) .. " for " .. #actions .. " actions");
         return actions, payload;
     end
@@ -202,7 +202,7 @@ return function(DebindPrivate, DebindStorage)
         local placements = DebindStorage.PlanArrival(payload);
         check(#placements == 1 and placements[1].scope == "general", "placed");
 
-        local filtered = DebindStorage.FilterPayload(payload, { [payload.shared.GENERAL[1]] = true });
+        local filtered = DebindStorage.FilterPayload(payload, { [payload.layers.account.GENERAL[0][1]] = true });
         check(filtered.source == DebindStorage.SOURCE_CLIQUE, "a narrowed payload keeps its source");
     end);
 
@@ -286,7 +286,7 @@ return function(DebindPrivate, DebindStorage)
         local placements, payload = PlanFirst(all, { layer = "class", specs = "convert" });
         check(#placements == 1 and placements[1].action.conditions == nil,
             "converted to a condition on every specialization");
-        check(not DebindStorage.CliqueActionHasSpecs(payload.shared.GENERAL[1]), "still asked about");
+        check(not DebindStorage.CliqueActionHasSpecs(payload.layers.account.GENERAL[0][1]), "still asked about");
 
         placements = PlanFirst(all, { layer = "character", specs = "layers" });
         check(#placements == 1 and placements[1].spec == 0, "spread over the specialization layers");
@@ -295,7 +295,7 @@ return function(DebindPrivate, DebindStorage)
         placements, payload = PlanFirst(three, { layer = "class", specs = "convert" });
         check(placements[1].action.conditions and placements[1].action.conditions.specs,
             "three of four read as all of them");
-        check(DebindStorage.CliqueActionHasSpecs(payload.shared.GENERAL[1]), "three of four not asked about");
+        check(DebindStorage.CliqueActionHasSpecs(payload.layers.account.GENERAL[0][1]), "three of four not asked about");
     end);
 
     test("each specialization's layer gets its own copy", function()
@@ -345,8 +345,9 @@ return function(DebindPrivate, DebindStorage)
         FreshProfile();
         local payload = {
             v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
-            shared = { GENERAL = { { type = Constants.SPELL, value = "Regrowth", key = "F", seq = 1,
-                untranslated = { spec1 = true } } } },
+            layers = { account = { GENERAL = { [0] = {
+                { type = Constants.SPELL, value = "Regrowth", key = "F", seq = 1,
+                    untranslated = { spec1 = true } } } } } },
         };
         local placements = DebindStorage.PlanArrival(payload);
         check(placements[1].action.untranslated == nil and placements[1].action.conditions == nil,
@@ -393,7 +394,7 @@ return function(DebindPrivate, DebindStorage)
             check(entry, "refused: " .. tostring(reason));
             check(entry.name == "named", "name " .. tostring(entry.name));
             check(entry.payload.source == DebindStorage.SOURCE_CLIQUE, "source");
-            local action = entry.payload.shared.GENERAL[1];
+            local action = entry.payload.layers.account.GENERAL[0][1];
             check(action and action.value == "Rejuvenation" and action.untranslated.spec1 == true,
                 "converted");
         end);
@@ -429,7 +430,7 @@ return function(DebindPrivate, DebindStorage)
             LibSerialize:Serialize({ Spell("F", { default = true, spec2 = true }) })));
         local entry, reason = DebindStorage.ImportEntry(code);
         check(entry, "refused: " .. tostring(reason));
-        local action = entry.payload.shared.GENERAL[1];
+        local action = entry.payload.layers.account.GENERAL[0][1];
         check(action and action.value == "Rejuvenation" and action.untranslated.spec2 == true,
             "converted");
 

@@ -91,12 +91,16 @@ end
 -- Source layers
 -- ---------------------------------------------------------------------------------------------
 
---- Every layer list in a payload, handed its address: `fn(list, scope, class, spec)`.
+--- Every layer list in a payload, handed its cell: `fn(list, owner, class, spec)`.
 ---
---- **The path is the address.** The payload nests the way storage does -- `shared.GENERAL`,
---- `shared.classes[class][spec]`, `char[spec]` -- so there is no descriptor to read and nothing to
---- translate; walking the string and walking the profile are the same walk
---- (`building-export-import.md`).
+--- **The path is the address.** The payload nests the way storage does --
+--- `layers[owner][class][spec]` -- so there is no descriptor to read and nothing to translate;
+--- walking the string and walking the profile are the same walk (`reshaping-stored-layers.md`
+--- 1-1).
+---
+--- **The keys are handed over as they are**, whatever their type. What they may be is
+--- `ImportAddress`'s question, so a cell under a key nobody can place is counted rather than left
+--- out of the walk unseen.
 ---
 --- The address is only where it *claims* to be. `ImportAddress` is what says whether it is one this
 --- profile has a place for, and the two are separate so a caller can count what it turned down.
@@ -112,50 +116,43 @@ end
 ---
 --- **The stored list comes last, and only one caller takes it.** Everything that reads a payload
 --- wants the filtered copy; the one that *edits* one has to reach the table the payload actually
---- holds (`RemoveEntryAction`). Handing it over here rather than walking the three addresses again
---- is what keeps the shape of a payload written down once.
+--- holds (`RemoveEntryActions`). Handing it over here rather than walking the cells again is what
+--- keeps the shape of a payload written down once.
 function DebindStorage.ForEachPayloadLayer(payload, fn)
-    --- The list handed on, with anything that is not an action table left out. A copy, because the
-    --- callers walk it with `ipairs` and one hole would stop them early -- and because what is
-    --- dropped has to be dropped for every caller alike, not per caller.
-    local function Visit(list, scope, class, spec)
-        if (luatype(list) ~= "table") then
-            return;
-        end
-        local actions = {};
-        for i = 1, #list do
-            if (luatype(list[i]) == "table") then
-                actions[#actions + 1] = list[i];
-            end
-        end
-        fn(actions, scope, class, spec, list);
+    local layers = luatype(payload.layers) == "table" and payload.layers or nil;
+    if (not layers) then
+        return;
     end
 
-    local shared = luatype(payload.shared) == "table" and payload.shared or nil;
-
-    if (shared) then
-        Visit(shared.GENERAL, "general", nil, 0);
-        if (luatype(shared.classes) == "table") then
-            for class, specTbl in pairs(shared.classes) do
+    for owner, classes in pairs(layers) do
+        if (luatype(classes) == "table") then
+            for class, specTbl in pairs(classes) do
                 if (luatype(specTbl) == "table") then
                     for spec, list in pairs(specTbl) do
-                        Visit(list, "class", class, spec);
+                        -- The list handed on, with anything that is not an action table left out.
+                        -- A copy, because the callers walk it with `ipairs` and one hole would stop
+                        -- them early -- and because what is dropped has to be dropped for every
+                        -- caller alike, not per caller.
+                        if (luatype(list) == "table") then
+                            local actions = {};
+                            for i = 1, #list do
+                                if (luatype(list[i]) == "table") then
+                                    actions[#actions + 1] = list[i];
+                                end
+                            end
+                            fn(actions, owner, class, spec, list);
+                        end
                     end
                 end
             end
         end
     end
-
-    if (luatype(payload.char) == "table") then
-        for spec, list in pairs(payload.char) do
-            Visit(list, "character", nil, spec);
-        end
-    end
 end
 
---- Does this profile have a place for that address? Returns `scope, class, spec` -- the three the
---- profile is keyed by (`layers.account.GENERAL[0]`, `layers.account[class][spec]`,
---- `layers[guid][class][spec]`) -- or nil.
+--- Does this profile have a place for the payload cell `owner, class, spec`? Returns
+--- `scope, class, spec` -- the three the profile is keyed by (`layers.account.GENERAL[0]`,
+--- `layers.account[class][spec]`, `layers[guid][class][spec]`) -- or nil and, where there is one to
+--- say, the reason.
 ---
 --- **A layer is not something to translate.** Both profiles use the same coordinate system: one
 --- general layer, then class by spec, then character by spec. What differs between two accounts is
@@ -169,13 +166,22 @@ end
 --- in "all my druids" -- where the reader is asked a question they cannot answer, every line red
 --- because they cannot learn any of it -- and refusing the string outright.
 ---
---- **The one real translation is the character.** "Their character" has no meaning here, so a
---- character-scoped layer means *this* character at that spec. A spec this character does not have
---- is the only address with nowhere to go: `layers[guid][class][4]` on a three-spec class is a
---- table nothing will ever read and nothing will ever clean up. Answering nil is what gets it
---- counted and said out loud instead.
-function DebindStorage.ImportAddress(scope, class, spec)
-    if (scope == "general") then
+--- **The one real translation is the character.** The receiving character is one, so a character
+--- cell of its class means *this* character at that spec, whatever the cell's key. **One of
+--- another class has nowhere to go** (`OTHER_CLASS`): put in by number, a mage's spec 2 would land
+--- in a druid's spec 2, which is Feral and not Fire (`reshaping-stored-layers.md` 2절).
+---
+--- A spec this character does not have has nowhere to go either: `layers[guid][class][4]` on a
+--- three-spec class is a table nothing will ever read and nothing will ever clean up. Answering nil
+--- is what gets it counted and said out loud instead.
+function DebindStorage.ImportAddress(owner, class, spec)
+    if (owner == nil) then
+        return nil;
+    end
+    if (owner == DebindStorage.ACCOUNT_OWNER and class == "GENERAL") then
+        if (spec ~= 0) then
+            return nil;
+        end
         return "general";
     end
 
@@ -186,37 +192,36 @@ function DebindStorage.ImportAddress(scope, class, spec)
     -- false, so it passes the range check and raises where the value is used as an index, halfway
     -- through placing an entry. `spec ~= floor(spec)` is false for both a fraction and an infinity,
     -- and `spec ~= spec` is the only thing that catches NaN.
-    spec = spec or 0;
     if (luatype(spec) ~= "number" or spec ~= spec or spec ~= floor(spec)
         or spec < 0 or spec > MAX_SPEC) then
         return nil;
+    end
+
+    local classID = PlayableClassID(class);
+    if (not classID) then
+        return nil, "UNKNOWN_CLASS";
     end
 
     -- **A class with no specialization layers takes them into its class or character layer**
     -- (2026-09-25, owner). Every camelot class has one specialization and so no such layer, and a
     -- string from retail carries them; left where they are, they sit in a layer no tab opens. The
     -- one place above that refuses to fall back is about a layer that exists.
-    if (scope == "class") then
-        local classID = PlayableClassID(class);
-        if (not classID) then
-            return nil, "UNKNOWN_CLASS";
-        end
+    if (owner == DebindStorage.ACCOUNT_OWNER) then
         if (DebindPrivate.SpecLayerCount(classID) == 0) then
             spec = 0;
         end
         return "class", class, spec;
     end
 
-    if (scope == "character") then
-        if (DebindPrivate.SpecLayerCount(PlayableClassID(Constants.PLAYER_CLASS)) == 0) then
-            spec = 0;
-        elseif (spec > NUM_SPECS) then
-            return nil;
-        end
-        return "character", nil, spec;
+    if (class ~= Constants.PLAYER_CLASS) then
+        return nil, "OTHER_CLASS";
     end
-
-    return nil;
+    if (DebindPrivate.SpecLayerCount(classID) == 0) then
+        spec = 0;
+    elseif (spec > NUM_SPECS) then
+        return nil;
+    end
+    return "character", nil, spec;
 end
 
 -- ---------------------------------------------------------------------------------------------
@@ -451,23 +456,11 @@ end
 --- above this section. The two differ by what the whitelist drops, and asking about the wire table
 --- would be asking about fields that never land.
 ---
---- The other two are the values that are **used as something before anything checks them**, and
---- both crash rather than misbehave:
----
----   * `class` reaches `format("%s", …)` in the caller, and WoW's Lua 5.1 throws on a table
----     there. Refusing it here is what keeps a payload on disk from being one nobody can open.
----     **The type is asked, not the name**: the sender's class is only drawn, and a name this
----     client lacks is the other game type's class, not an edited string (2026-09-25, owner).
----   * a `key` of NaN raises the moment it is used as a table index, which the count below does.
----     `ImportAddress` turns the same value away for `spec` and says why.
----
---- Neither needs its own guard downstream now, because nothing downstream runs on a payload this
---- refuses -- `ImportEntry` asks before it stores, and an entry is the only way in.
+--- **A `key` of NaN is refused too.** It raises the moment it is used as a table index, which the
+--- count in the caller does, rather than misbehaving. `ImportAddress` turns the same value away for
+--- `spec` and says why. It needs no guard downstream, because nothing downstream runs on a payload
+--- this refuses -- `ImportEntry` asks before it stores, and an entry is the only way in.
 function DebindStorage.PayloadIsImpossible(payload)
-    if (payload.class ~= nil and luatype(payload.class) ~= "string") then
-        return true;
-    end
-
     local found = false;
     DebindStorage.ForEachPayloadLayer(payload, function(list)
         for _, source in ipairs(list) do
@@ -493,8 +486,16 @@ end
 --- moment for a handler to be the right answer to.
 ---
 --- **Which makes this the only moment a migration could run**, for the same reason: there is no
---- earlier one. There is nothing to migrate yet and there cannot be until this addon ships, so the
---- version is stamped and nothing reads it back.
+--- earlier one. The entry version is stamped and nothing reads it back.
+---
+--- **The payloads are raised here, once a session** (`BringPayloadForward`, in place). The row is
+--- drawn from its payload before anybody opens it (`CountEntry`, `EntryClass`), so an entry stored
+--- as v2 has to be v3 by the time the list is drawn, not only once it is opened. One that cannot be
+--- raised is left as it was: its row still draws, and opening it says why (`GetEntryPayload`).
+---
+--- **Each under its own `pcall`.** A step that raises on one entry would otherwise raise out of
+--- every call that reaches the drawer, the delete that is the only way out for that entry included.
+local broughtForward;
 local function Vars()
     local vars = _G.DebindStorageVars;
     if (not vars) then
@@ -504,6 +505,13 @@ local function Vars()
     vars.version = vars.version or ENTRY_VERSION;
     vars.entries = vars.entries or {};
     vars.nextID = vars.nextID or 1;
+
+    if (broughtForward ~= vars) then
+        broughtForward = vars;
+        for _, entry in ipairs(vars.entries) do
+            pcall(DebindStorage.BringPayloadForward, entry.payload);
+        end
+    end
 
     return vars;
 end
@@ -596,9 +604,7 @@ local function StoreEntry(payload, extra)
     entry.id = vars.nextID;
     -- **When this row appeared here**, which is what the list sorts and dates by. For a pasted
     -- string that is when it was pasted; for one made here it is when it was made. What it is not
-    -- is when the setting it holds was *exported* -- a string carries nothing about its sender but
-    -- their class, so that is a second question with no answer on the wire yet
-    -- (`building-export-import.md`).
+    -- is when the setting it holds was *exported*, which a string does not carry.
     entry.received = time();
     -- **What arrived, not the string it arrived in.** The string is not kept: nothing reads it
     -- back, and a copy of the same contents in a form we may one day be unable to decode is worth
@@ -623,10 +629,10 @@ end
 --- copied off a page or out of a notes file, and the reader restoring their own backup had no
 --- answer to give, so the field stayed empty exactly where a name would have been most use.
 ---
---- **Nothing about the sender lands here.** A row made from a profile carries three fields saying
---- whose it is (`CreateEntry`), and a pasted one has none of them -- deliberately, since a string
---- meant for a public channel does not carry a character name. Their absence is what says this came
---- from somebody else.
+--- **Nothing about the sender lands on the row.** A row made from a profile carries three fields
+--- saying it was made here (`CreateEntry`), and a pasted one has none of them. Their absence is what
+--- says this came from a string, even one this character wrote: who a character cell is rides in
+--- the payload (`characters`) and says nothing about who pasted it.
 function DebindStorage.ImportEntry(text, name)
     -- **A Clique share code comes through the same box** (`importing-clique-profiles.md` §1). It
     -- holds a binding list, which becomes a payload here, and from then on it is an entry like any
@@ -684,9 +690,9 @@ end
 --- custom-state question could never be decided on, because nothing on the wire tells the two apart
 --- (`building-export-import.md`).
 ---
---- **They are outside the payload**, which is what keeps them off the wire. A string is made by
---- encoding `entry.payload`, so there is no step that has to remember to drop them and no way for a
---- later edit to forget.
+--- **They are outside the payload**, because they are about the row: a string is made by encoding
+--- `entry.payload`, and a string pasted back in is a different row. Who a character cell is travels
+--- in the payload's own `characters`.
 function DebindStorage.CreateEntry(selection)
     return StoreEntry(DebindStorage.BuildExportPayload(selection), {
         character = UnitName("player"),
@@ -714,12 +720,16 @@ end
 --- **The stored lists, not the copies `ForEachPayloadLayer` hands out.** Removing from a copy would
 --- report success and change nothing.
 ---
---- An emptied list goes with its actions. A payload carrying `char = { [0] = {} }` claims a layer
---- it has nothing for, and everything downstream would have to know an address can be empty -- the
---- preview would draw a header over nothing and `PlanArrival` would offer somewhere to put it.
+--- An emptied list goes with its actions, and so does every table above it that it leaves empty. A
+--- payload carrying `layers.account.GENERAL = { [0] = {} }` claims a layer it has nothing for, and
+--- everything downstream would have to know an address can be empty -- the preview would draw a
+--- header over nothing and `PlanArrival` would offer somewhere to put it.
 ---
---- **The manifest is left alone.** It says which switches the entry referred to when it was made,
---- and a definition nothing points at costs a reader nothing: `FilterPayload` narrows it to what is
+--- **A character nothing names any more loses its `characters` entry**, which holds the keys the
+--- payload names and no others. A character whose override rows are still in `switches` keeps it.
+---
+--- **The switches are left alone.** They say which switches the entry referred to when it was made,
+--- and a row nothing points at costs a reader nothing: `FilterPayload` narrows them to what is
 --- actually going out at the moment a string is made, which is the only moment it matters.
 function DebindStorage.RemoveEntryActions(entry, actions)
     local payload = entry and entry.payload;
@@ -728,8 +738,9 @@ function DebindStorage.RemoveEntryActions(entry, actions)
     end
 
     local removed = 0;
+    local emptied = {};
 
-    DebindStorage.ForEachPayloadLayer(payload, function(_, scope, class, spec, list)
+    DebindStorage.ForEachPayloadLayer(payload, function(_, owner, class, spec, list)
         local took = 0;
         -- Backwards, because removing shifts everything above the index down.
         for i = #list, 1, -1 do
@@ -743,21 +754,31 @@ function DebindStorage.RemoveEntryActions(entry, actions)
         -- **Only a layer this emptied.** A payload that arrived holding an empty list is left as it
         -- arrived: tidying one nobody touched would make an untouched entry change on a press that
         -- did nothing to it.
-        if (took == 0 or #list > 0) then
-            return;
-        end
-
-        if (scope == "general") then
-            payload.shared.GENERAL = nil;
-        elseif (scope == "class") then
-            payload.shared.classes[class][spec] = nil;
-            if (next(payload.shared.classes[class]) == nil) then
-                payload.shared.classes[class] = nil;
-            end
-        else
-            payload.char[spec] = nil;
+        if (took > 0 and #list == 0) then
+            emptied[#emptied + 1] = { owner, class, spec };
         end
     end);
+
+    -- After the walk, so nothing it is standing on is taken out from under it.
+    local layers = payload.layers;
+    for _, cell in ipairs(emptied) do
+        local owner, class, spec = cell[1], cell[2], cell[3];
+        local classes = layers[owner];
+        classes[class][spec] = nil;
+        if (next(classes[class]) == nil) then
+            classes[class] = nil;
+        end
+        if (next(classes) == nil) then
+            layers[owner] = nil;
+            local switches = luatype(payload.switches) == "table" and payload.switches or {};
+            if (luatype(payload.characters) == "table" and switches[owner] == nil) then
+                payload.characters[owner] = nil;
+                if (next(payload.characters) == nil) then
+                    payload.characters = nil;
+                end
+            end
+        end
+    end
 
     return removed;
 end
@@ -791,8 +812,13 @@ end
 -- The whole entry
 -- ---------------------------------------------------------------------------------------------
 
---- The storage scope each answer to "which layer" for a Clique payload is (`PlanArrival`).
-local CLIQUE_ADDRESSES = { general = "general", class = "class", character = "character" };
+--- The payload cell each answer to "which layer" for a Clique payload stands for (`PlanArrival`),
+--- `owner, class`. The character's owner key is any that is not the account's.
+local CLIQUE_CELLS = {
+    general = { DebindStorage.ACCOUNT_OWNER, "GENERAL" },
+    class = { DebindStorage.ACCOUNT_OWNER, Constants.PLAYER_CLASS },
+    character = { "1", Constants.PLAYER_CLASS },
+};
 
 --- This character's class's specializations as an index mask, **without the initial one**
 --- (소유자, 2026-09-24).
@@ -900,15 +926,16 @@ function DebindStorage.PlanArrival(payload, options)
     -- counts up, so a plan that is built and then thrown away costs nothing but a gap.
     local arrivalID;
 
-    DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
+    DebindStorage.ForEachPayloadLayer(payload, function(list, listOwner, listClass, listSpec)
         -- **Asked for an address first, and the reader's answer second.** Every action with nowhere
         -- to go is counted whatever the tick says: what has no address was never drawn for them to
         -- turn down, so reading the filter first would make those vanish silently - the window
         -- saying "brought in 2" and never mentioning the five that did not fit.
         if (fromClique) then
-            listScope, listClass, listSpec = CLIQUE_ADDRESSES[layer], Constants.PLAYER_CLASS, 0;
+            local cell = CLIQUE_CELLS[layer];
+            listOwner, listClass, listSpec = cell and cell[1], cell and cell[2], 0;
         end
-        local scope, class, spec = DebindStorage.ImportAddress(listScope, listClass, listSpec);
+        local scope, class, spec = DebindStorage.ImportAddress(listOwner, listClass, listSpec);
         if (not scope) then
             skipped = skipped + #list;
             return;
@@ -950,7 +977,7 @@ function DebindStorage.PlanArrival(payload, options)
                         local flag = Constants.SpecIndexFlag(index);
                         if (bit.band(specMask, flag) ~= 0 and bit.band(named, flag) ~= 0) then
                             local specScope, specClass, specIndex =
-                                DebindStorage.ImportAddress(listScope, listClass, index);
+                                DebindStorage.ImportAddress(listOwner, listClass, index);
                             if (specScope) then
                                 placements[#placements + 1] = {
                                     scope = specScope, class = specClass, spec = specIndex,

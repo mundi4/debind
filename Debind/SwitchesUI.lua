@@ -145,9 +145,8 @@ end
 --- as "this character only".
 ---
 --- **The names come from the profile and not from `GetLayerLabel`.** That one names only the
---- character who is logged in and spells every other one "character" -- it has nothing else to go
---- on, since a shared string carries no character name (`building-export-import.md` 3절). What is
---- in our own file does: `RefreshIdentity` writes `name` and `class` on every login.
+--- character who is logged in. What is in our own file names the others: `RefreshIdentity` writes
+--- `name` and `class` on every login.
 ---
 --- **A character is drawn in its class's colour, and so is a class.** Both rows answer "which
 --- class", and two colour rules for one fact is two things to learn.

@@ -1146,6 +1146,12 @@ function DebindPrivate.SaveCustomTarget(alias, value)
     state.CustomTargets[alias] = value;
 end
 
+--- This character's `characters[guid]` entry, read only. The table itself, so a caller copies what
+--- it keeps.
+function DebindPrivate.GetPlayerIdentity()
+    return DebindPrivate.db.char;
+end
+
 function DebindPrivate.ApplySwitchResets()
     local savedValues = DebindPrivate.db.charState.switches;
 

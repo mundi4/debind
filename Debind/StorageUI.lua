@@ -35,9 +35,8 @@ end
 --- profile they scatter, and the group identity the string arrived with is held nowhere.
 ---
 --- **The right column shows what a payload holds, not what the profile holds.** Everything it
---- names comes out of the payload's own addresses and the payload's own manifest -- a label built
---- from this character would caption somebody else's layers with this reader's class and name
---- (`GetLayerLabel`, and 3절 on why the bring dialog needed labels of its own).
+--- names comes out of the payload's own cells, `layers` and `switches` -- a label built from this
+--- character would caption another class's layers with this reader's class (`GetLayerLabel`).
 
 --- One row of the left column: two lines and a delete button.
 local ENTRY_ROW_HEIGHT   = 44;
@@ -189,16 +188,24 @@ end
 
 DebindStorageEntryRowMixin = {};
 
---- The class the entry says it came from, or nil.
+--- The class the entry came from, or nil.
 ---
---- **Read off the payload, which is what the drawer stores.** The record carried a copy of this
---- while the drawer stored the string instead, because reading it meant decoding
---- (`DebindStorage/Import.lua`).
+--- **Read off the payload's cells, which carry their class as a key** (`reshaping-stored-layers.md`
+--- 1-1). The one class every cell names but `GENERAL`; none where there is none, and none where
+--- there are several, since then no one of them is where it came from. A payload holding only the
+--- general layer says nothing about a class, and its row is drawn without one, as a Clique one is.
 local function EntryClass(entry)
-    if (not entry.payload) then
+    if (type(entry.payload) ~= "table") then
         return nil;
     end
-    return entry.payload.class;
+    local found, several = nil, false;
+    Store().ForEachPayloadLayer(entry.payload, function(_, _, class)
+        if (type(class) == "string" and class ~= "GENERAL") then
+            several = several or (found ~= nil and found ~= class);
+            found = class;
+        end
+    end);
+    return not several and found or nil;
 end
 
 --- The row's top line: **the date it arrived, and for now nothing else.**
@@ -229,10 +236,9 @@ end
 --- **The icon is where the class lives, and it is in the same place on every row** (2026-08-22,
 --- 소유자). The words beside it are not the same thing twice: a row made here says which character,
 --- which is the one thing that tells two of your own backups apart, since they carry the same class
---- and often the same date. A row that came from a string cannot say it. The string does not carry
---- a character name and is not meant to (`building-export-import.md` 3절), so the class
---- name is what the words fall back to. Spelling the class only in that second case is what used to
---- move it between the title and a line of its own.
+--- and often the same date. A row that came from a string has no such fields on the row, so the
+--- class name is what the words fall back to. Spelling the class only in that second case is what
+--- used to move it between the title and a line of its own.
 ---
 --- **The realm rides with the name, in the client's form.** `FULL_PLAYER_NAME` is what the friends
 --- list joins the two with and every locale carries it, so this is not a format of ours.
@@ -240,9 +246,9 @@ end
 --- Answers nil for an entry that says nothing about where it came from. The two below decide what
 --- to put in its place, because they have different room for it.
 ---
---- `GetClassColorObj` answers nil for a token it does not know. A payload carrying a class name
---- this client has never heard of is turned away long before here (`PayloadIsImpossible`), but the
---- fallback costs one `or`.
+--- `GetClassColorObj` answers nil for a token it does not know, and `EntryClass` hands over any class
+--- key a payload's cells carry, one this client has never heard of included. So the colour falls
+--- back and the icon is asked for only where the client knows the name (`ClassIcon`).
 local function EntrySender(entry)
     local class = EntryClass(entry);
     local text;
@@ -638,9 +644,9 @@ end
 --- The key a layer group is collapsed and counted under.
 ---
 --- A `layerID` where the address has one. **Where it has none it is one bucket, not one per
---- address**: what lands there is a specialization number past the end of a real class, which only
---- a hand-made string carries, and splitting those apart would put a header on the screen for each
---- of somebody's typos.
+--- address**: what lands there is a character layer of another class, or a specialization number
+--- past the end of a real class, which only a hand-made string carries. Splitting those apart would
+--- put a header on the screen for each of somebody's typos.
 local ELSEWHERE = "elsewhere";
 
 --- A number above every real `layerID`, so the bucket with no layer sorts last.
@@ -665,8 +671,8 @@ local UNKNOWN_CLASS_ORDER = ELSEWHERE_ORDER - 1;
 local function BuildPreviewLayers(payload)
     local buckets, order = {}, {};
 
-    Store().ForEachPayloadLayer(payload, function(list, scope, class, spec)
-        local toScope, toClass, toSpec = Store().ImportAddress(scope, class, spec);
+    Store().ForEachPayloadLayer(payload, function(list, owner, class, spec)
+        local toScope, toClass, toSpec = Store().ImportAddress(owner, class, spec);
         local layerID = toScope and DebindUI.GetLayerIDForAddress(toScope, toSpec);
         local unknownClass = not toScope and toClass == "UNKNOWN_CLASS";
         local key = layerID or (unknownClass and UNKNOWN_CLASS) or ELSEWHERE;
@@ -678,7 +684,7 @@ local function BuildPreviewLayers(payload)
                 -- Sorted by `layerID` so the preview reads in the profile's own order: general,
                 -- then the class by specialization, then the character.
                 sortKey = layerID or (unknownClass and UNKNOWN_CLASS_ORDER) or ELSEWHERE_ORDER,
-                label = (layerID and DebindUI.GetLayerLabel(layerID, toClass or payload.class))
+                label = (layerID and DebindUI.GetLayerLabel(layerID, toClass))
                     or (unknownClass and LLL["STORAGE_PREVIEW_UNKNOWN_CLASS"])
                     or LLL["STORAGE_PREVIEW_ELSEWHERE"],
                 actions = {},

@@ -95,23 +95,27 @@ return function(DebindPrivate, DebindStorage)
     -- can play here has no place at all. Retail keeps every address it had.
     test("an arriving specialization layer goes up where the class has none", function()
         local Address = DebindStorage.ImportAddress;
-        local scope, class, spec = Address("class", "MAGE", 2);
+        local scope, class, spec = Address("account", "MAGE", 2);
         check(scope == "class" and class == "MAGE" and spec == (camelot and 0 or 2),
             "class MAGE 2 -> " .. tostring(scope) .. "/" .. tostring(class) .. "/" .. tostring(spec));
-        scope, class, spec = Address("character", nil, 3);
+        scope, class, spec = Address("1", DebindPrivate.Constants.PLAYER_CLASS, 3);
         check(scope == "character" and spec == (camelot and 0 or 3),
             "character 3 -> " .. tostring(scope) .. "/" .. tostring(spec));
     end);
 
     test("a class this client cannot play has no place, and says so", function()
-        local scope, reason = DebindStorage.ImportAddress("class", "DEATHKNIGHT", 0);
+        local scope, reason = DebindStorage.ImportAddress("account", "DEATHKNIGHT", 0);
         check(scope == nil and reason == "UNKNOWN_CLASS",
             "DEATHKNIGHT -> " .. tostring(scope) .. ", " .. tostring(reason));
     end);
 
-    -- **The sender's class is only drawn**, so a name this client lacks is not a broken string.
-    test("a string sent by a class this client does not have is not refused", function()
-        local payload = { v = 2, class = "DEATHKNIGHT", shared = { GENERAL = {} } };
+    -- **A class cell is only placed or not**, so a name this client lacks is not a broken string.
+    test("a string holding a class this client does not have is not refused", function()
+        local payload = {
+            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = DebindPrivate.Constants.DB_VERSION,
+            layers = { account = { DEATHKNIGHT = { [0] = {
+                { type = DebindPrivate.Constants.SPELL, value = 1 } } } } },
+        };
         check(not DebindStorage.PayloadIsImpossible(payload), "refused as impossible");
     end);
 

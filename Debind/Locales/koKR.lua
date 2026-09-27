@@ -266,8 +266,6 @@ L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도�
 -- 영어는 인자가 하나도 없고(툴팁 제목이 전문화를 이미 보여준다) 여기는 전문화명 하나를 받는다.
 -- 근거는 enUS 쪽 주석에.
 L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %s일 때. 조건과 중요도가 같다면 여기 있는 키가 다른 모든 탭의 같은 키보다 우선합니다."
--- 레이어의 짧은 이름. 근거는 enUS 쪽 주석에.
-L["LAYER_SHORT_CHARACTER"] = "캐릭터"
 L["MACRO_POPUP_TEXT"] = "매크로 이름 입력 (최대 %d자):"
 -- 근거는 enUS 쪽 주석에.
 L["MACROFRAME_CANCEL"] = "취소"
