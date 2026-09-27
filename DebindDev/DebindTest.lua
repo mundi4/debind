@@ -5536,11 +5536,15 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         end
         -- The dropdown's own text, because that is where the reader reads the layer off. A column
         -- standing on the right layer with the wrong name on the button is the same fault seen
-        -- from the other side.
+        -- from the other side. **In blue**, since this layer is the one in force and the closed
+        -- button keeps the colour the menu puts on it (`BuildLayerMenu`).
         local shown = settings.LayerDropdown:GetText()
-        local want = DebindUI.GetLayerLabel(layerID)
+        local want = BLUE_FONT_COLOR:WrapTextInColorCode(DebindUI.GetLayerLabel(layerID))
         if shown ~= want then
-            return Fail(NAME, format("the dropdown says %q, the layer is %q", tostring(shown), want))
+            -- `||` so the colour codes print as text rather than being drawn: two strings that
+            -- differ only in a colour code otherwise read as the same line.
+            return Fail(NAME, format("the dropdown says %q, the layer is %q",
+                (tostring(shown):gsub("|", "||")), (want:gsub("|", "||"))))
         end
 
         return Pass(NAME, format("%s -> %s", SWITCH, want))
