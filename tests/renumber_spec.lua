@@ -44,8 +44,11 @@ return function(DebindPrivate)
         layout = layout or {};
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = layout.general or {}, classes = { [CLASS] = layout.class or {} } },
-            characters = { [GUID] = { layers = layout.char or {} } },
+            layers = {
+                account = { GENERAL = { [0] = layout.general or {} }, [CLASS] = layout.class or {} },
+                [GUID] = { [CLASS] = layout.char or {} },
+            },
+            characters = { [GUID] = {} },
             migrated = {},
         };
         DebindPrivate.InitDB();

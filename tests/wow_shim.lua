@@ -1290,7 +1290,8 @@ end
 local ALLOWED_ABSENT = {
     -- Set by the addon itself while it loads, so they read nil right up until they do not. Every
     -- one is reached back through `_G` by another of our own files.
-    DebindPublic = true, DebindPrivate = true, DebindVars = true, DebindVarsPerChar = true,
+    DebindPublic = true, DebindPrivate = true, DebindVars = true, DebindUIVars = true,
+    DebindVarsPerChar = true,
     DebindDevDB = true, DebindStorageVars = true, DebouncePublic = true, DebounceVars = true,
     DebounceVarsPerChar = true, Debounce_CompartmentFunc = true, DebindStorage = true,
 

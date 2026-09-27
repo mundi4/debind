@@ -43,13 +43,16 @@ return function(DebindPrivate, _, ctx)
         _G.UnitGUID = function() return GUID; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions or {
-                { type = Constants.SPELL, value = 585, key = key or "F1", seq = 1,
-                    conditions = { ["$s1"] = true } },
-            }, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = {
+                account = { GENERAL = { [0] = actions or {
+                    { type = Constants.SPELL, value = 585, key = key or "F1", seq = 1,
+                        conditions = { ["$s1"] = true } },
+                } } },
+                [GUID] = { [Constants.PLAYER_CLASS] = {} },
+            },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
-            switches = switches,
+            switches = { account = { GENERAL = { [0] = switches or {} } } },
         };
         DebindPrivate.InitDB();
         return Rebuild();
@@ -126,7 +129,7 @@ return function(DebindPrivate, _, ctx)
     test("a rebuild pushes no stored value in for a computed switch", function()
         local i = Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[combat]" } });
 
-        DebindPrivate.Switches["$s1"].value = true;
+        DebindPrivate.SetSwitchValue("$s1", true);
         Rebuild();
 
         check(i.env.States["$s1"] == nil,

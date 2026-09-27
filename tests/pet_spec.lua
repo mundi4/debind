@@ -31,13 +31,12 @@ return function(DebindPrivate)
     end
 
     local GUID = "Player-1-TESTGUID";
-    local CLASS = Constants.PLAYER_CLASS;
 
     local function Profile(actions)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions, classes = { [CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = { account = { GENERAL = { [0] = actions } } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = {},
         };

@@ -55,8 +55,8 @@ return function(DebindPrivate, _, ctx)
     local function Bind(actions)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = { account = { GENERAL = { [0] = actions } } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = {},
         };
@@ -195,13 +195,17 @@ return function(DebindPrivate, _, ctx)
         local mark = frames.mark();
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = {
-                GENERAL = { action({ type = Constants.RESURRECT, key = "F1", skipWhenUnusable = true }) },
-                classes = { [Constants.PLAYER_CLASS] = {
-                    [0] = { action({ type = Constants.SPELL, key = "F1", value = REGROWTH }) },
-                } },
+            layers = {
+                account = {
+                    GENERAL = { [0] = {
+                        action({ type = Constants.RESURRECT, key = "F1", skipWhenUnusable = true }),
+                    } },
+                    [Constants.PLAYER_CLASS] = {
+                        [0] = { action({ type = Constants.SPELL, key = "F1", value = REGROWTH }) },
+                    },
+                },
             },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = {},
         };

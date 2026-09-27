@@ -758,23 +758,6 @@ local function MigrateSpecTable(specTbl, dbver)
     end
 end
 
---- Everything on the shared side (layers 1-6).
----
---- This used to build class names with `C_CreatureInfo.GetClassInfo` and look each one up, because
---- `dbver` and `options` sat right next to the class names and `pairs` would have walked them too.
---- `shared.classes` holds nothing but classes, so it can just be iterated.
-local function MigrateShared(shared, dbver)
-    if (shared == nil) then
-        return;
-    end
-    MigrateLayer(shared.GENERAL, dbver);
-    if (shared.classes) then
-        for _, classTbl in pairs(shared.classes) do
-            MigrateSpecTable(classTbl, dbver);
-        end
-    end
-end
-
 --- Every switch name this profile still names, gathered from all five layers of every character
 --- and every class.
 ---
@@ -892,12 +875,9 @@ end
 --- the same `MigrateDB` pass, so nothing is ever half raised, and `check:dbver` asks each about its
 --- own order because two ladders carrying the same step number is not a fault.
 ---
---- **`Legacy.lua`'s `ImportAccount` is the other caller**, and it is the one that had to be found:
---- the pre-rename share is laid on top of a table `MigrateDB` has already stamped.
----
 --- **It is handed the whole account table, not just the definitions**, because the step below has
---- to know which switches the layers still name. On the `ImportAccount` path this character's own
---- pre-rename layers have not arrived yet (`ImportCharacter` runs after), so a definition used
+--- to know which switches the layers still name. On `Legacy.lua`'s `ImportAccount` path this
+--- character's own pre-rename layers have not arrived yet (`ImportCharacter` runs after), so a definition used
 --- only there is judged on whether anything was ever set on it. That is enough for a switch the
 --- user actually used: pressing one leaves a remembered value, and both of the other modes write a
 --- field of their own.
@@ -907,23 +887,18 @@ end
 --- the remembered value would reach every alt that has an entry and miss the person logging in.
 local function MigrateSwitches(db, dbver, charEntry)
     if (dbver <= 5) then
-        -- **아직 안 나간 단계다** - `MigrateLayer`의 같은 단계 주석을 볼 것.
+        -- Three stored shapes of a definition move at once: the table's name `customStates`
+        -- becomes `switches`, `mode` goes from a number to a string, and `initialValue` becomes
+        -- `resetValue`.
         --
-        -- 정의의 저장 모양 셋을 한 번에 옮긴다. 표 이름 `customStates` -> `switches`,
-        -- `mode`의 숫자 -> 문자열, `initialValue` -> `resetValue`.
+        -- **The step holds the old numbers itself.** `Constants.SWITCH_MODES` no longer speaks
+        -- that language, and a dead name left there would sit beside the live ones for good. A
+        -- step is frozen once written, so there is nothing to drift (`NestPayloadConditions` in
+        -- `Export.lua` holds `checkedUnits` as a literal for the same reason).
         --
-        -- **단계가 옛 숫자를 직접 든다.** `Constants.SWITCH_MODES`는 이 판이 더 이상 모르는
-        -- 언어라, 거기에 옛 값을 남겨두면 죽은 이름이 산 것 옆에 영원히 앉는다. 단계는 한 번
-        -- 쓰면 얼어붙어서 갈릴 것이 없다 (`Export.lua`의 `NestPayloadConditions`가 같은
-        -- 이유로 `checkedUnits`라는 글자를 직접 든다).
-        --
-        -- 다시 돌아도 안전하다. 옮길 이름이 안 남아 있으면 아무것도 안 한다 - `mode`는 이미
-        -- 문자열이면 건드리지 않고, `initialValue`는 옮기면서 지운다.
+        -- Safe to run again: with nothing left under an old name it does nothing. A `mode` that is
+        -- already a string is left alone, and `initialValue` is cleared as it moves.
         if (db.customStates ~= nil) then
-            -- **옛 이름이 있으면 그것이 정의다.** 개명 전 SavedVariables는 `MigrateDB`가
-            -- 지나간 **뒤에** `customStates`를 통째로 얹으므로(`Legacy.lua`의
-            -- `ImportAccount`), 그 길에서는 새 이름이 이미 있는 채로 여기 들어온다. 그때
-            -- 지켜야 하는 것은 방금 들어온 쪽이다.
             db.switches = db.customStates;
             db.customStates = nil;
         end
@@ -1049,27 +1024,75 @@ local function MigrateSwitches(db, dbver, charEntry)
             end
         end
     end
+
+    if (dbver <= 7) then
+        -- The definitions lay out the way `layers` does (`reshaping-stored-layers.md` §1): the
+        -- root rows under `account.GENERAL[0]`, a class's override rows under `account[class][spec]`
+        -- and a character's under `[guid][class][spec]`, each a table of `name -> row`. The
+        -- overrides used to hang off the definition under a string naming the layer, which put a
+        -- character's answer inside the account's definition.
+        --
+        -- **A character whose class the file does not hold** waits under `"*"` until it logs in
+        -- (`HealSwitchCells` in `Profile.lua`). An alt whose only content was an override never had
+        -- an entry in `characters`, and its rows are still its own.
+        --
+        -- **Only the three fields that are settings come across** (`mode`, `resetValue`, `expr`).
+        -- `value` is worked out at every load and `displayMessage` nothing reads.
+        --
+        -- Running twice is safe: the new shape has an `account` key, and no switch can be named
+        -- that (a switch name starts with `$`).
+        local old = db.switches;
+        if (luatype(old) == "table" and old.account == nil) then
+            local function Row(row)
+                return { mode = row.mode, resetValue = row.resetValue, expr = row.expr };
+            end
+            local function Cell(switches, owner, class, spec)
+                switches[owner] = switches[owner] or {};
+                switches[owner][class] = switches[owner][class] or {};
+                switches[owner][class][spec] = switches[owner][class][spec] or {};
+                return switches[owner][class][spec];
+            end
+
+            local switches = {};
+            local root = Cell(switches, "account", "GENERAL", 0);
+            for name, definition in pairs(old) do
+                if (luatype(name) == "string" and luatype(definition) == "table") then
+                    root[name] = Row(definition);
+                    for key, row in pairs(luatype(definition.overrides) == "table"
+                            and definition.overrides or {}) do
+                        local owner, spec = strmatch(luatype(key) == "string" and key or "",
+                            "^(.+):(%d+)$");
+                        spec = tonumber(spec);
+                        if (owner and spec and luatype(row) == "table") then
+                            if (strfind(owner, "-", 1, true)) then
+                                local entry = db.characters and db.characters[owner];
+                                local class = luatype(entry) == "table"
+                                    and luatype(entry.class) == "string" and entry.class or "*";
+                                Cell(switches, owner, class, spec)[name] = Row(row);
+                            else
+                                Cell(switches, "account", owner, spec)[name] = Row(row);
+                            end
+                        end
+                    end
+                end
+            end
+            db.switches = switches;
+        end
+    end
 end
 
--- Used by `Legacy.lua` to raise imported data to the current version before attaching it.
+-- `MigrateLayer` is what a received payload rides (`BringPayloadForward`).
 DebindPrivate.MigrateLayer     = MigrateLayer;
-DebindPrivate.MigrateSpecTable = MigrateSpecTable;
-DebindPrivate.MigrateShared    = MigrateShared;
 DebindPrivate.MigrateSwitches  = MigrateSwitches;
 
 --- The excluded frames, gathered into `options.frameBlacklist`.
----
---- **Named and public because two paths reach it.** The ladder below runs it for a stored profile,
---- and `Legacy.lua` runs it by hand for a pre-rename one: that import copies `options` verbatim at
---- PLAYER_LOGIN, long after the ladder stamped `db.dbver`, so an old shape arriving that way meets
---- no step at all. `MigrateSwitches` is hand-called from the same place for the same reason.
 ---
 --- **`db.packFrames` moves along although no tag has ever carried it.** It was written outside
 --- `options` by mistake and only a worktree can hold one, but a worktree is a profile somebody is
 --- using and there is nothing gained by dropping it.
 ---
 --- Safe to run again: the second time there is nothing under either old name.
-function DebindPrivate.MigrateOptions(db)
+local function MigrateOptions(db)
     local options = db.options or {};
     local blacklist = options.frameBlacklist or {};
     if (type(options.blizzframes) == "table") then
@@ -1084,6 +1107,77 @@ function DebindPrivate.MigrateOptions(db)
     db.options = options;
 end
 
+--- The containers around the layers, which neither ladder above can reach: `MigrateLayer` is handed
+--- one array and `MigrateSwitches` one set of definitions.
+---
+--- **Runs ahead of both**, because both walk the shape it leaves (`ForEachStoredAction` reads
+--- `layers`).
+local function MigrateContainers(db)
+    local dbver = db.dbver;
+
+    if (dbver <= 7) then
+        -- The layers leave `shared` and the character entries and gather in `layers`, the account's
+        -- under `account` and each character's under its GUID, both keyed by class and then spec
+        -- (`reshaping-stored-layers.md` §1).
+        --
+        -- **What does not fit is dropped rather than carried.** Only tables under spec 0..5 come
+        -- across, and only the array part of each, so a `customStates = {}` an old build left
+        -- beside the actions goes. Empty lists go too; `LoadLayer` makes the ones it needs.
+        --
+        -- **A character entry with no `class` loses its layers.** `RefreshIdentity` has written the
+        -- class on every login since the entry could exist, so only a hand-edited file lacks one,
+        -- and what a hand edit meant is not ours to work out.
+        --
+        -- Running twice is safe: the second time there is no `shared` and no `entry.layers`.
+        local function CleanSpecTable(specTbl)
+            if (luatype(specTbl) ~= "table") then
+                return nil;
+            end
+            local out;
+            for spec = 0, 5 do
+                local list = specTbl[spec];
+                if (luatype(list) == "table") then
+                    local kept = {};
+                    for i = 1, #list do
+                        if (luatype(list[i]) == "table") then
+                            kept[#kept + 1] = list[i];
+                        end
+                    end
+                    if (#kept > 0) then
+                        out = out or {};
+                        out[spec] = kept;
+                    end
+                end
+            end
+            return out;
+        end
+
+        db.layers = db.layers or {};
+        local shared = db.shared;
+        if (luatype(shared) == "table") then
+            local account = db.layers.account or {};
+            account.GENERAL = CleanSpecTable({ [0] = shared.GENERAL });
+            for class, specTbl in pairs(luatype(shared.classes) == "table" and shared.classes or {}) do
+                if (luatype(class) == "string") then
+                    account[class] = CleanSpecTable(specTbl);
+                end
+            end
+            db.layers.account = account;
+        end
+        db.shared = nil;
+
+        for guid, entry in pairs(db.characters or {}) do
+            if (luatype(entry) == "table") then
+                local specTbl = CleanSpecTable(entry.layers);
+                if (specTbl and luatype(entry.class) == "string") then
+                    db.layers[guid] = { [entry.class] = specTbl };
+                end
+                entry.layers = nil;
+            end
+        end
+    end
+end
+
 --- **When the version goes up, everything is raised in one pass.** Every entry in `characters` is
 --- in memory on every login, so a single login by any character brings all twenty alts forward on
 --- the spot. Nothing can fall behind, which is why there is no per-entry version - `dbver` is the
@@ -1092,15 +1186,20 @@ end
 --- The paths that join late (pre-rename SavedVariables, someone else's export file) **arrive
 --- carrying their own version and are raised to the current one before being attached**
 --- (`Legacy.lua`). Once attached, everything is on the same version.
-local function MigrateDB(db, charEntry)
+---
+--- `uiVars` is `DebindUIVars`, where a step can hand on what only the window reads. Nil for a
+--- profile that is not the one being loaded.
+local function MigrateDB(db, charEntry, uiVars)
     local dbver = db.dbver;
     if (dbver >= Constants.DB_VERSION) then
         return;
     end
 
-    MigrateShared(db.shared, dbver);
-    for _, entry in pairs(db.characters) do
-        MigrateSpecTable(entry.layers, dbver);
+    MigrateContainers(db);
+    for _, classes in pairs(db.layers) do
+        for _, specTbl in pairs(classes) do
+            MigrateSpecTable(specTbl, dbver);
+        end
     end
     MigrateSwitches(db, dbver, charEntry);
 
@@ -1118,7 +1217,39 @@ local function MigrateDB(db, charEntry)
 
     --- The unreleased step; see `MigrateLayer`'s comment on the same one.
     if (dbver <= 6) then
-        DebindPrivate.MigrateOptions(db);
+        MigrateOptions(db);
+    end
+
+    if (dbver <= 7) then
+        -- What only the window reads leaves for `DebindUIVars`. **Only the closed tips are carried**
+        -- (owner): positions, the sort and the picker's filters start over, which costs a drag and
+        -- a click, while a tip somebody closed coming back is noticed.
+        if (uiVars and luatype(db.tipsSeen) == "table" and uiVars.tipsSeen == nil) then
+            uiVars.tipsSeen = db.tipsSeen;
+        end
+        db.tipsSeen = nil;
+        db.ui = nil;
+        db.spellPicker = nil;
+
+        -- Keys nothing reads. The four at the top came in with the pre-rename import, which copied
+        -- every key it did not know; the options are ones no build reads any more.
+        db.global = nil;
+        db.char = nil;
+        db.class = nil;
+        db.profileKeys = nil;
+        db.unitFrameNoticeSeen = nil;
+        local options = db.options;
+        if (luatype(options) == "table") then
+            options.overviewui = nil;
+            options.stateDriverUpdateThrottle = nil;
+            options.removeStateDriverUpdateThrottle = nil;
+            options.addCustomTargetMenusOnUnitPopup = nil;
+            options.addCustomTargetMenusToUnitPopup = nil;
+            -- **Dropped, not moved.** On a profile below 7 the step above has just moved it; one
+            -- still on a profile at 7 arrived afterwards through the pre-rename import's verbatim
+            -- copy, and moving it now would overwrite what the reader has ticked since.
+            options.blizzframes = nil;
+        end
     end
 
     db.dbver = Constants.DB_VERSION;

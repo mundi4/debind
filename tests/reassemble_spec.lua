@@ -138,10 +138,9 @@ return function(DebindPrivate)
 
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = { action({ value = 585, key = "F1",
-                conditions = { units = { unitframe = {} } } }) },
-                classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = { account = { GENERAL = { [0] = { action({ value = 585, key = "F1",
+                conditions = { units = { unitframe = {} } } }) } } } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = {},
         };

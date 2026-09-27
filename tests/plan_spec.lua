@@ -38,7 +38,6 @@ return function(DebindPrivate)
     end
 
     local GUID = "Player-1-TESTGUID";
-    local CLASS = Constants.PLAYER_CLASS;
 
     --- A profile holding exactly the actions handed in, and nothing else. Every test starts from
     --- one: what gets registered depends on what is in the profile, so a leftover action from the
@@ -46,10 +45,10 @@ return function(DebindPrivate)
     local function Profile(actions, switches)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions, classes = { [CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = { account = { GENERAL = { [0] = actions } } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
-            switches = switches or {},
+            switches = { account = { GENERAL = { [0] = switches or {} } } },
         };
         DebindPrivate.InitDB();
     end

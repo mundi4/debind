@@ -505,7 +505,7 @@ end
 --- What is left here is what only this path knows: that the value came from outside, and whether
 --- it moved the switch.
 ---
---- **What the line is worth saying about is a report that moved the switch**, and the definition's
+--- **What the line is worth saying about is a report that moved the switch**, and the switch's
 --- value is what it moved from. Every rebuild pushes the stored values in and the restricted side
 --- reports them straight back (`BuildSwitchesSnippet`), so without that test a login says one line
 --- per switch -- the §4-9 echo again, from the side that prints rather than the side that
@@ -514,15 +514,14 @@ end
 --- **Nothing is broadcast any more.** `SWITCH_CHANGED` went on 2026-08-22. A listener on it
 --- meant every switch value had to be right the moment it moved, and that reachability is what
 --- kept a computed switch from being worked out lazily
---- (`trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
+--- (`trimming-the-restricted-hot-paths.md`). The Switches tab reads `GetSwitchValue`,
 --- which `SetSwitchValue` above still fills in, so what it lost was a reason to redraw rather
 --- than the value to draw.
 
 local function SwitchesChangedCallback()
     for state, newValue in pairs(_changedStates) do
-        local options = DebindPrivate.ResolveSwitchDefinition(state);
-        if (options) then
-            local moved = options.value ~= newValue;
+        if (DebindPrivate.ResolveSwitchDefinition(state)) then
+            local moved = DebindPrivate.GetSwitchValue(state) ~= newValue;
             DebindPrivate.SetSwitchValue(state, newValue);
 
             if (moved) then

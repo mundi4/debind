@@ -413,7 +413,6 @@ local function ResetToDefaults()
     options.hoverCastMode = nil;
     options.switchMessages = nil;
     options.excludePlayer = nil;
-    options.stateDriverUpdateThrottle = nil;
     options.unitframeUseMouseDown = nil;
     options.giveBackOnReplacedBar = nil;
     options.giveBackWhenActionExists = nil;

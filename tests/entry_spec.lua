@@ -50,8 +50,11 @@ return function(DebindPrivate, DebindStorage)
     local function ResetProfile()
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {}, classes = { [CLASS] = {} } },
-            characters = { [GUID] = { layers = {} } },
+            layers = {
+                account = { GENERAL = { [0] = {} } },
+                [GUID] = { [CLASS] = {} },
+            },
+            characters = { [GUID] = {} },
             migrated = {},
         };
         DebindPrivate.InitDB();
@@ -63,7 +66,7 @@ return function(DebindPrivate, DebindStorage)
     -- Where an action goes
     --
     -- The answer is the address the profile stores by - `(scope, class, spec)`, the same three
-    -- `shared.GENERAL` / `shared.classes[class][spec]` / `characters[guid].layers[spec]` are keyed
+    -- `layers.account.GENERAL[0]` / `layers.account[class][spec]` / `layers[guid][class][spec]` are keyed
     -- on. Not a layer ID: those are this character's view of the store, and half of what arrives
     -- has no ID in it at all.
     ---------------------------------------------------------------------------
@@ -119,7 +122,7 @@ return function(DebindPrivate, DebindStorage)
     -- a spec this character's class does not have is a table nothing would ever read and nothing
     -- would ever clean up. Answering nil is what gets it counted and said out loud.
     --
-    -- The class side is not the same question: `classes.MAGE[4]` is a coordinate that stops being
+    -- The class side is not the same question: `layers.account.MAGE[4]` is a coordinate that stops being
     -- ours to judge, so it travels and waits.
     test("이 캐릭터에 없는 특성은 자리가 없다", function()
         check(Address("character", nil, 5) == nil, "5는 어디에도 없다");
@@ -133,10 +136,10 @@ return function(DebindPrivate, DebindStorage)
         check(Address("class", nil, 0) == nil, "직업 이름이 없다");
     end);
 
-    -- **범위 안이라고 칸 번호인 것은 아니다.** 이 함수가 막으라고 있는 것이 "아무 화면도 안 읽고
-    -- `CleanUpDB`도 안 훑는 자리"인데, 소수는 범위 검사 셋을 그대로 통과해서
-    -- `shared.classes.DRUID[1.5]`를 만든다 - 붙여넣을 때마다 계정 파일에 하나씩 쌓이는 고아다.
-    -- NaN은 더 나쁘다: 비교 셋이 전부 거짓이라 통과한 뒤 인덱스로 쓰이는 자리에서 터진다.
+    -- **In range is not the same as a slot number.** What this function is there to refuse is "a
+    -- place no screen reads and `CleanUpDB` never walks", and a fraction passes all three range
+    -- checks and makes `layers.account.DRUID[1.5]`, an orphan every paste adds to the account file.
+    -- NaN is worse: every comparison is false, so it passes and raises where it is used as an index.
     test("정수가 아닌 특성 번호는 자리를 안 만든다", function()
         check(Address("class", CLASS, 1.5) == nil, "소수");
         check(Address("character", nil, 1.5) == nil, "캐릭터 쪽 소수");
@@ -145,7 +148,7 @@ return function(DebindPrivate, DebindStorage)
         check(Address("class", CLASS, 2) ~= nil, "멀쩡한 번호를 거절했다");
     end);
 
-    -- **A class name is a key straight into storage.** `shared.classes[<name>]` gets made on the
+    -- **A class name is a key straight into storage.** `layers.account[<name>]` gets made on the
     -- spot, no screen reaches it, and `CleanUpDB` walks the eleven loaded layers so it never sees
     -- it either - every paste of a made-up name would leave one more behind in the account file.
     test("직업 이름이 아닌 것은 자리를 안 만든다", function()

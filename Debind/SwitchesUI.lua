@@ -275,7 +275,7 @@ function DebindSwitchRowMixin:Update(inCombat)
     -- be a toggle that works, on a switch that changes nothing.
     local mode = DebindPrivate.ResolveSwitchAnswer(name);
     local manual = mode == Constants.SWITCH_MODES.MANUAL;
-    local isOn = definition.value and true or false;
+    local isOn = DebindPrivate.GetSwitchValue(name);
 
     self.ToggleButton:SetShown(manual);
     self.Status:SetShown(not manual);
@@ -346,12 +346,11 @@ end
 --- The report still arrives and turns back at that function's echo guard, having nothing left to
 --- move.
 function DebindSwitchRowMixin:OnToggleClick()
-    local definition = DebindPrivate.ResolveSwitchDefinition(self.switchName);
-    if (not definition) then
+    if (not DebindPrivate.ResolveSwitchDefinition(self.switchName)) then
         return;
     end
 
-    local value = not definition.value;
+    local value = not DebindPrivate.GetSwitchValue(self.switchName);
     DebindPrivate.SetSwitchValue(self.switchName, value);
     DebindPrivate.SwitchesUpdaterFrame:SetAttribute(self.switchName, value);
     -- **Said here because the report can no longer say it.** The line goes out where a switch
@@ -1669,7 +1668,7 @@ function DebindSwitchesPanelMixin:OnEvent(event)
     end
 end
 
---- **The list pulls the values.** What a row draws is `definition.value`, which the report out of
+--- **The list pulls the values.** What a row draws is `GetSwitchValue`, which the report out of
 --- the restricted environment still fills in; what went away is the event that used to say when.
 ---
 --- **A counter, not a clock.** Redrawing on a beat would repaint every row for nothing most of

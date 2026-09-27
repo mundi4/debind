@@ -325,8 +325,8 @@ return function(DebindPrivate)
         SetWorld();
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [ME] = { layers = {}, switches = {} } },
+            layers = { account = { GENERAL = { [0] = actions } } },
+            characters = { [ME] = { switches = {} } },
             migrated = {},
             switches = {},
         };
@@ -459,11 +459,11 @@ return function(DebindPrivate)
         SetHeroWorld();
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {
+            layers = { account = { GENERAL = { [0] = {
                 { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                     conditions = { talents = { [MySpec()] = { taken = { 800, 801 } } } } },
-            }, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [ME] = { layers = {}, switches = {} } },
+            } } } },
+            characters = { [ME] = { switches = {} } },
             migrated = {},
             switches = {},
         };
@@ -483,11 +483,11 @@ return function(DebindPrivate)
         SetHeroWorld();
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {
+            layers = { account = { GENERAL = { [0] = {
                 { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                     conditions = { talents = { [MySpec()] = { taken = { 800 } } } } },
-            }, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [ME] = { layers = {}, switches = {} } },
+            } } } },
+            characters = { [ME] = { switches = {} } },
             migrated = {},
             switches = {},
         };

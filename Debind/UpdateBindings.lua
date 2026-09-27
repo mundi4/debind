@@ -210,7 +210,7 @@ function addSwitch(stateName)
             info = {
                 name = stateName,
                 mode = mode,
-                value = options.value,
+                value = DebindPrivate.GetSwitchValue(stateName),
             };
             if (mode == SWITCH_MODES.EXPR) then
                 info.expr = expr or "";

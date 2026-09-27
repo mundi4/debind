@@ -421,10 +421,8 @@ SEEDS[6] = function(guid)
 end;
 
 
---- `dbver` 7, the current version. `/deb seed` with no argument stands this one up.
----
---- The seed above is that step's **input** and this one is its **result**, which is why the same
---- rows carry the new shape.
+--- `dbver` 7. The seed above is the input of the step that raises it to here, and this one is the
+--- input of the step above it, which lays the layers and the switches out by owner and class.
 SEEDS[7] = function(guid)
     --- 위 판과 같은 행이지만 값이 다르다. **같은 값을 두 번 적는 것이 이 파일의 규칙이다** -
     --- 씨앗은 그 `dbver`가 저장하던 모양을 통째로 든다. 위를 참조하면 6을 고칠 때 7이 따라
@@ -519,6 +517,105 @@ SEEDS[7] = function(guid)
             },
             ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
             ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+        },
+    };
+end;
+
+
+--- `dbver` 8, the current version. `/deb seed` with no argument stands this one up.
+---
+--- The seed above is that step's **input** and this one is its **result**: the same rows, with the
+--- layers under `layers.account` and the override that hung off `$state1` in a cell of its own.
+--- What only the window read (`ui`, `spellPicker`, `tipsSeen`) is in `DebindUIVars` now, and the
+--- seed above had none of it.
+SEEDS[8] = function(guid)
+    --- The same rows as the seed above, written out again for the reason that one gives.
+    local function UnitCondition(seq, name, condition)
+        return {
+            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+            value = format("/script print(\"unit-%s\")", name), name = "Unit " .. name,
+            key = "CTRL-F9", seq = seq,
+            conditions = { units = { target = condition } },
+        };
+    end
+
+    local function Hover(seq, frameType, name)
+        return {
+            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+            value = format("/script print(\"hover-%s\")", name), name = "Hover " .. name,
+            key = "ALT-BUTTON1", seq = seq,
+            conditions = { units = { unitframe = { exists = true, frameTypes = frameType } } },
+        };
+    end
+
+    return {
+        dbver = 8,
+
+        layers = {
+            account = {
+                GENERAL = {
+                    [0] = {
+                        UnitCondition(1, "exists", { exists = true }),
+                        UnitCondition(2, "axis only", { exists = true,
+                            reaction = Constants.REACTION_HELP }),
+                        UnitCondition(3, "absent", { exists = false, dead = true }),
+                        UnitCondition(4, "off", { disabled = true, reaction = Constants.REACTION_HARM,
+                            group = Constants.UNITGROUP_PARTY }),
+
+                        Hover(1, Constants.FRAMETYPE_UNKNOWN, "unknown"),
+                        Hover(2, Constants.FRAMETYPE_PLAYER, "player"),
+                        Hover(3, Constants.FRAMETYPE_PET, "pet"),
+                        Hover(4, Constants.FRAMETYPE_GROUP, "group"),
+                        Hover(5, Constants.FRAMETYPE_TARGET, "target"),
+                        Hover(6, Constants.FRAMETYPE_BOSS, "boss"),
+                        Hover(7, Constants.FRAMETYPE_ARENA, "arena"),
+
+                        { type = Constants.USESLOT, value = 13, key = "CTRL-F10", seq = 1 },
+
+                        { type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON3", key = "CTRL-F11", seq = 1 },
+                        { type = Constants.ACTIONBUTTON, value = "MULTIACTIONBAR1BUTTON5", key = "CTRL-F12", seq = 1 },
+                        { type = Constants.ACTIONBUTTON, value = "EXTRAACTIONBUTTON1", key = "ALT-F11", seq = 1 },
+                        { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
+                        { type = Constants.UNUSED, key = "ALT-F10", seq = 1 },
+
+                        {
+                            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/script print(\"escape\")", name = "Game menu key",
+                            key = "ESCAPE", seq = 1,
+                        },
+                    },
+                },
+            },
+        },
+
+        characters = {
+            [guid] = {
+                switches = { ["$state3"] = true },
+            },
+        },
+
+        migrated = { [guid] = true },
+        legacyNeeded = false,
+
+        options = {
+            frameBlacklist = { blizzard = {}, addons = {} },
+        },
+
+        switches = {
+            account = {
+                GENERAL = {
+                    [0] = {
+                        ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
+                        ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+                        ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+                    },
+                },
+                [Constants.PLAYER_CLASS] = {
+                    [1] = {
+                        ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
+                    },
+                },
+            },
         },
     };
 end;

@@ -336,6 +336,36 @@ local LAYER_INFOS        = {
 --- 것은 내 직업 특성 수가 아니라 이 숫자다.
 local MAX_SPEC           = 4;
 
+--- How far a walk over stored spec tables goes, one past `MAX_SPEC`. 5 is the initial
+--- specialization's index, and a two-specialization class holds 1, 2 and 5 with a hole between, so
+--- a walk that stops at 4 or goes by `#` skips whatever sits there.
+local MAX_STORED_SPEC    = 5;
+
+--- The owner key the account's own layers sit under in `layers`, beside one per character GUID.
+local ACCOUNT_OWNER      = "account";
+
+--- `db.layers[owner]`, made on the way down.
+local function OwnerLayers(db, owner)
+    db.layers = db.layers or {};
+    local classes = db.layers[owner];
+    if (not classes) then
+        classes = {};
+        db.layers[owner] = classes;
+    end
+    return classes;
+end
+
+--- One owner's spec table for `class`, made on the way down. `class` is a class file name, or
+--- `GENERAL` under the account.
+local function SpecTableIn(classes, class)
+    local specTbl = classes[class];
+    if (not specTbl) then
+        specTbl = {};
+        classes[class] = specTbl;
+    end
+    return specTbl;
+end
+
 
 --- 액션 최상단에서 조건 이름을 읽으면 **그 자리에서 터진다.** DEBUG 전용.
 ---
@@ -525,14 +555,14 @@ end
 --- references to one has to reach the druid's layers while the priest is logged in. Otherwise a
 --- rename fixes what is on screen and quietly breaks what is not.
 ---
---- **`charEntry` is this character's entry and it is handed in, because it may not be in
---- `db.characters` yet.** An entry is attached once there is something in it (`CleanUpDB`), so
---- everything a character puts in its own layers this session lives in a table the account walk
---- cannot see. That is not an edge: it is the layer the reader is looking at while they rename.
+--- **`charLayers` is this character's `layers[guid]` and it is handed in, because it may not be in
+--- `db.layers` yet.** It is attached once there is something in it (`CleanUpDB`), so everything a
+--- character puts in its own layers this session lives in a table the account walk cannot see.
+--- That is not an edge: it is the layer the reader is looking at while they rename.
 ---
 --- Takes the account table rather than reading `DebindPrivate.db`, because the migration walks
 --- this on a profile that is not attached yet.
-local function ForEachStoredAction(db, fn, charEntry)
+local function ForEachStoredAction(db, fn, charLayers)
     local function walkLayer(layerTbl)
         if (layerTbl == nil) then
             return;
@@ -542,34 +572,21 @@ local function ForEachStoredAction(db, fn, charEntry)
         end
     end
 
-    local function walkSpecTable(specTbl)
-        if (specTbl == nil) then
-            return;
-        end
-        for spec = 0, 5 do
-            walkLayer(specTbl[spec]);
+    local function walkOwner(classes)
+        for _, specTbl in pairs(classes) do
+            for spec = 0, MAX_STORED_SPEC do
+                walkLayer(specTbl[spec]);
+            end
         end
     end
 
-    if (db.shared) then
-        walkLayer(db.shared.GENERAL);
-        if (db.shared.classes) then
-            for _, classTbl in pairs(db.shared.classes) do
-                walkSpecTable(classTbl);
-            end
-        end
-    end
     local attached = false;
-    if (db.characters) then
-        for _, entry in pairs(db.characters) do
-            if (entry == charEntry) then
-                attached = true;
-            end
-            walkSpecTable(entry.layers);
-        end
+    for _, classes in pairs(db.layers or {}) do
+        attached = attached or classes == charLayers;
+        walkOwner(classes);
     end
-    if (charEntry and not attached) then
-        walkSpecTable(charEntry.layers);
+    if (charLayers and not attached) then
+        walkOwner(charLayers);
     end
 end
 DebindPrivate.ForEachStoredAction = ForEachStoredAction;
@@ -582,29 +599,16 @@ local function LoadLayer(layerID)
 
     local tbl;
     if (layerInfo.isCharacterSpecific) then
-        tbl = DebindPrivate.db.char.layers;
-    elseif (layerInfo.key == "GENERAL") then
-        tbl = DebindPrivate.db.global.shared.GENERAL;
-        if (not tbl) then
-            tbl = {};
-            DebindPrivate.db.global.shared.GENERAL = tbl;
-        end
+        tbl = SpecTableIn(DebindPrivate.db.charLayers, Constants.PLAYER_CLASS);
     else
-        assert(layerInfo.key);
-        local classes = DebindPrivate.db.global.shared.classes;
-        tbl = classes[layerInfo.key];
-        if (not tbl) then
-            tbl = {};
-            classes[layerInfo.key] = tbl;
-        end
+        tbl = SpecTableIn(OwnerLayers(DebindPrivate.db.global, ACCOUNT_OWNER), layerInfo.key);
     end
 
-    if (layerInfo.spec) then
-        if (not tbl[layerInfo.spec]) then
-            tbl[layerInfo.spec] = {};
-        end
-        tbl = tbl[layerInfo.spec];
+    local spec = layerInfo.spec or 0;
+    if (not tbl[spec]) then
+        tbl[spec] = {};
     end
+    tbl = tbl[spec];
 
     local layer = setmetatable({ layerID = layerID, spec = layerInfo.spec, isCharacterSpecific = layerInfo.isCharacterSpecific, actions = tbl, }, { __index = ProfileLayerProto });
     return layer;
@@ -635,10 +639,14 @@ local function HasCharContent(entry)
     if (entry.switches and next(entry.switches) ~= nil) then
         return true;
     end
-    local layers = entry.layers;
-    if (layers) then
-        for spec = 0, 5 do
-            local layerTbl = layers[spec];
+    return false;
+end
+
+--- Does this character's `layers[guid]` hold an action anywhere?
+local function HasLayerContent(charLayers)
+    for _, specTbl in pairs(charLayers) do
+        for spec = 0, MAX_STORED_SPEC do
+            local layerTbl = specTbl[spec];
             if (layerTbl and #layerTbl > 0) then
                 return true;
             end
@@ -654,7 +662,7 @@ end
 --- ticks have to be the ones the user gets if they press the row next to them. Two copies of this
 --- would let the drawing and the making drift apart, which reads as a click that changed something
 --- nobody touched.
-local SWITCH_DEFAULTS = { mode = Constants.SWITCH_MODES.MANUAL, value = false };
+local SWITCH_DEFAULTS = { mode = Constants.SWITCH_MODES.MANUAL };
 DebindPrivate.SWITCH_DEFAULTS = SWITCH_DEFAULTS;
 
 --- The definition behind a switch name, or nil when nothing defines that name.
@@ -678,20 +686,16 @@ function DebindPrivate.ResolveSwitchDefinition(name)
     return DebindPrivate.Switches[name];
 end
 
---- The absolute key a layer's override is filed under, or nil where a layer has none.
+--- The name one layer's override place goes by, or nil where a layer has none. It names the place
+--- in calls and on screen and is never stored: the rows sit at that place's address in `switches`
+--- (`OverrideCell`).
 ---
---- ⚠ **`LAYER_INFOS` 7..11 mean "whoever is logged in".** Overrides hang off the definition and
---- definitions are account-wide, so filing one under the layer's own number would have the next
---- character to log in read this one's setting, and write over it. The key has to say *which*
---- character, the way `characters[guid]` already does
---- (`redesigning-custom-states.md` §4-7-3).
+--- ⚠ **`LAYER_INFOS` 7..11 mean "whoever is logged in".** A name built from the layer's own number
+--- would have the next character to log in read this one's setting, and write over it. The name has
+--- to say *which* character (`redesigning-custom-states.md` §4-7-3).
 ---
---- **Layer 1 has no key, and that is not a gap.** `GENERAL` is the root answer; it lives on the
+--- **Layer 1 has no key, and that is not a gap.** `GENERAL` is the root answer; it is the
 --- definition itself and cannot be missing, which is what the whole cascade stands on (§4-6).
----
---- **The specialization half is still the index and not the specialization's own id.** `DRUID:2`
---- has to be read knowing the class, and the key carries the class, so it is readable. §4-7-3 has
---- the swap to ids written up along with why it needs no version bump, so it stays available.
 function DebindPrivate.GetSwitchLayerKey(layerID)
     local layerInfo = LAYER_INFOS[layerID];
     if (not layerInfo or layerInfo.key == "GENERAL") then
@@ -705,6 +709,116 @@ function DebindPrivate.GetSwitchLayerKey(layerID)
         return guid .. ":" .. layerInfo.spec;
     end
     return layerInfo.key .. ":" .. layerInfo.spec;
+end
+
+--- The class key a character's override rows sit under **before that character has been seen**.
+--- The step that gave overrides their own place could not always tell a character's class: an alt
+--- whose only content was an override never had an entry in `characters`. Its rows wait here, where
+--- nothing applies them, until it logs in (`HealSwitchCells`).
+local UNKNOWN_CLASS = "*";
+
+--- One cell of override rows, `switches[owner][class][spec]`, a table of `name -> row`. Nil when it
+--- does not exist and `create` is not set.
+local function CellAt(owner, class, spec, create)
+    local switches = DebindPrivate.db.global.switches;
+    if (create) then
+        local specs = SpecTableIn(SpecTableIn(switches, owner), class);
+        specs[spec] = specs[spec] or {};
+        return specs[spec];
+    end
+    local classes = switches[owner];
+    local specs = classes and classes[class];
+    return specs and specs[spec];
+end
+
+--- The cell of one of this character's layers, read off `LAYER_INFOS`. Nil for `GENERAL`, whose
+--- answer is the definition itself.
+local function OverrideCellOfLayer(layerID, create)
+    local layerInfo = LAYER_INFOS[layerID];
+    if (not layerInfo or layerInfo.key == "GENERAL") then
+        return nil;
+    end
+    local owner = layerInfo.isCharacterSpecific and DebindPrivate.playerGUID or ACCOUNT_OWNER;
+    if (not owner) then
+        return nil;
+    end
+    return CellAt(owner, Constants.PLAYER_CLASS, layerInfo.spec, create);
+end
+
+--- The cell a `GetSwitchLayerKey` name points at. Those name this character or a class, and the
+--- callers that hold one are the Switches tab's edits, not the per-rebuild lookup.
+local function OverrideCell(layerKey, create)
+    local owner, spec = strmatch(layerKey, "^(.+):(%d+)$");
+    spec = tonumber(spec);
+    if (not owner or not spec) then
+        return nil;
+    end
+    -- A GUID is the one of the two that carries dashes (`Player-205-0A1B2C3D`), and a class file
+    -- name never does.
+    if (strfind(owner, "-", 1, true)) then
+        return CellAt(owner, Constants.PLAYER_CLASS, spec, create);
+    end
+    return CellAt(ACCOUNT_OWNER, owner, spec, create);
+end
+
+--- Every override cell there is, every owner and class and spec, handed to `fn(cell, owner, class,
+--- spec)`. The root (`account.GENERAL[0]`) is not among them.
+local function ForEachOverrideCell(fn)
+    for owner, classes in pairs(DebindPrivate.db.global.switches or {}) do
+        for class, specs in pairs(classes) do
+            if (not (owner == ACCOUNT_OWNER and class == "GENERAL")) then
+                for spec, cell in pairs(specs) do
+                    fn(cell, owner, class, spec);
+                end
+            end
+        end
+    end
+end
+
+--- Drops every empty table under `switches` that is not the root, so a cell whose last row went
+--- leaves nothing behind in the account file.
+local function PruneSwitchCells()
+    local switches = DebindPrivate.db.global.switches or {};
+    for owner, classes in pairs(switches) do
+        for class, specs in pairs(classes) do
+            if (not (owner == ACCOUNT_OWNER and class == "GENERAL")) then
+                for spec, cell in pairs(specs) do
+                    if (next(cell) == nil) then
+                        specs[spec] = nil;
+                    end
+                end
+                if (next(specs) == nil) then
+                    classes[class] = nil;
+                end
+            end
+        end
+        if (owner ~= ACCOUNT_OWNER and next(classes) == nil) then
+            switches[owner] = nil;
+        end
+    end
+end
+
+--- Moves this character's waiting rows (`UNKNOWN_CLASS`) under its own class, now that its class
+--- is known. A row already under the class is newer and stays; the waiting cell goes either way.
+local function HealSwitchCells(guid)
+    local classes = DebindPrivate.db.global.switches[guid];
+    local waiting = classes and classes[UNKNOWN_CLASS];
+    if (not waiting) then
+        return;
+    end
+    local mine = classes[Constants.PLAYER_CLASS] or {};
+    classes[Constants.PLAYER_CLASS] = mine;
+    for spec, cell in pairs(waiting) do
+        local target = mine[spec] or {};
+        mine[spec] = target;
+        for name, row in pairs(cell) do
+            if (target[name] == nil) then
+                target[name] = row;
+            end
+        end
+    end
+    classes[UNKNOWN_CLASS] = nil;
+    PruneSwitchCells();
 end
 
 --- Every layer this character can open, in the order the window's own tabs stand in: general, the
@@ -830,15 +944,13 @@ function DebindPrivate.ResolveSwitchAnswer(name)
         return nil;
     end
 
-    local overrides = definition.overrides;
-    if (overrides) then
-        local layerIDs = ActiveOverrideLayers();
-        for i = 1, #layerIDs do
-            local key = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
-            local row = key and overrides[key];
-            if (row) then
-                return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr, key;
-            end
+    local layerIDs = ActiveOverrideLayers();
+    for i = 1, #layerIDs do
+        local cell = OverrideCellOfLayer(layerIDs[i]);
+        local row = cell and cell[name];
+        if (row) then
+            return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr,
+                DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
         end
     end
 
@@ -870,7 +982,8 @@ function DebindPrivate.GetSwitchAnswerAt(name, layerKey)
 
     local row = definition;
     if (layerKey ~= nil) then
-        row = definition.overrides and definition.overrides[layerKey];
+        local cell = OverrideCell(layerKey);
+        row = cell and cell[name];
         if (not row) then
             return nil;
         end
@@ -894,11 +1007,14 @@ function DebindPrivate.SetSwitchAnswer(name, layerKey, mode, resetValue)
 
     local row = definition;
     if (layerKey ~= nil) then
-        definition.overrides = definition.overrides or {};
-        row = definition.overrides[layerKey];
+        local cell = OverrideCell(layerKey, true);
+        if (not cell) then
+            return false;
+        end
+        row = cell[name];
         if (not row) then
             row = {};
-            definition.overrides[layerKey] = row;
+            cell[name] = row;
         end
     end
 
@@ -918,7 +1034,8 @@ function DebindPrivate.SetSwitchExpression(name, layerKey, expr)
 
     local row = definition;
     if (layerKey ~= nil) then
-        row = definition.overrides and definition.overrides[layerKey];
+        local cell = OverrideCell(layerKey);
+        row = cell and cell[name];
         if (not row) then
             return false;
         end
@@ -938,18 +1055,16 @@ end
 --- keeping both would be two controls doing one job, and the one that kept the words would leave a
 --- row on screen that decides nothing.
 function DebindPrivate.RemoveSwitchOverride(name, layerKey)
-    local definition = DebindPrivate.Switches[name];
-    if (layerKey == nil or not definition or not definition.overrides) then
+    if (layerKey == nil or not DebindPrivate.Switches[name]) then
         return false;
     end
-    if (not definition.overrides[layerKey]) then
+    local cell = OverrideCell(layerKey);
+    if (not cell or not cell[name]) then
         return false;
     end
 
-    definition.overrides[layerKey] = nil;
-    if (next(definition.overrides) == nil) then
-        definition.overrides = nil;
-    end
+    cell[name] = nil;
+    PruneSwitchCells();
     return true;
 end
 
@@ -960,11 +1075,12 @@ end
 --- overrides with it, and the delete question is the only place that asymmetry is ever on screen
 --- (§6-B).
 function DebindPrivate.CountSwitchOverrides(name)
-    local definition = DebindPrivate.Switches[name];
     local count = 0;
-    for _ in pairs(definition and definition.overrides or {}) do
-        count = count + 1;
-    end
+    ForEachOverrideCell(function(cell)
+        if (cell[name]) then
+            count = count + 1;
+        end
+    end);
     return count;
 end
 
@@ -986,10 +1102,44 @@ end
 --- none of them. The expression loop recomputes the value on the next pass anyway.
 local _appliedAnswers = {};
 
+--- What each switch is at this moment, by name. **Not stored**: it is worked out again at every
+--- load from the answer in effect and what the character remembers, so a copy on disk would be a
+--- runtime reading sitting in a table of settings.
+local _switchValues = {};
+
+--- A switch's value right now. A switch nothing has set yet is off.
+function DebindPrivate.GetSwitchValue(name)
+    return _switchValues[name] or false;
+end
+
+--- What this character remembers of a switch, or nil. The state a character carries lives in its
+--- `characters` entry, and only this file knows where (`reshaping-stored-layers.md` §1).
+function DebindPrivate.GetRememberedSwitch(name)
+    return DebindPrivate.db.char.switches[name];
+end
+
+--- Sets or, with nil, forgets what this character remembers of a switch. **Not a press**: the
+--- value in effect does not move (`SetSwitchValue` is the door that moves both).
+function DebindPrivate.SetRememberedSwitch(name, value)
+    DebindPrivate.db.char.switches[name] = value;
+end
+
+--- The unit this character saved for a custom target alias (`custom1`, `custom2`), or nil.
+function DebindPrivate.GetSavedCustomTarget(alias)
+    local saved = DebindPrivate.db.char.CustomTargets;
+    return saved and saved[alias];
+end
+
+function DebindPrivate.SaveCustomTarget(alias, value)
+    local charEntry = DebindPrivate.db.char;
+    charEntry.CustomTargets = charEntry.CustomTargets or {};
+    charEntry.CustomTargets[alias] = value;
+end
+
 function DebindPrivate.ApplySwitchResets()
     local savedValues = DebindPrivate.db.char.switches;
 
-    for name, definition in pairs(DebindPrivate.Switches) do
+    for name in pairs(DebindPrivate.Switches) do
         local mode, resetValue, _, layerKey = DebindPrivate.ResolveSwitchAnswer(name);
         -- One string rather than three values kept side by side: what is being asked is "the same
         -- answer from the same row", and three compared one at a time is three chances to forget
@@ -997,17 +1147,17 @@ function DebindPrivate.ApplySwitchResets()
         local applied = tostring(layerKey) .. "|" .. mode .. "|" .. tostring(resetValue);
         if (_appliedAnswers[name] ~= applied) then
             _appliedAnswers[name] = applied;
-            local was = definition.value;
+            local was = _switchValues[name];
             if (mode == Constants.SWITCH_MODES.MANUAL) then
                 -- **`resetValue == nil` is an answer, not a missing value** - come back to what
                 -- this character was left on. That link is invisible in either field's name.
                 if (resetValue ~= nil) then
-                    definition.value = resetValue;
+                    _switchValues[name] = resetValue;
                 else
-                    definition.value = savedValues[name] and true or false;
+                    _switchValues[name] = savedValues[name] and true or false;
                 end
             else
-                definition.value = definition.value or false;
+                _switchValues[name] = _switchValues[name] or false;
             end
             -- **The counter is how the Switches tab finds out** (`SwitchesUI.lua`). It cannot be
             -- left to `SetSwitchValue`: the field is written here rather than through it, because
@@ -1016,7 +1166,7 @@ function DebindPrivate.ApplySwitchResets()
             -- guard. Nor is the tab's own specialization event enough - a rebuild can be put off
             -- 0.05s waiting for the new specialization to be readable (`Events.lua`), and by then
             -- the tab has already redrawn.
-            if (definition.value ~= was) then
+            if (_switchValues[name] ~= was) then
                 DebindPrivate.switchValueSerial = DebindPrivate.switchValueSerial + 1;
             end
         end
@@ -1027,17 +1177,20 @@ function DebindPrivate.ApplySwitchResets()
     for name in pairs(_appliedAnswers) do
         if (not DebindPrivate.Switches[name]) then
             _appliedAnswers[name] = nil;
+            _switchValues[name] = nil;
         end
     end
 end
 
---- Forgets what was last applied, so the next `ApplySwitchResets` applies every switch again.
+--- Forgets what was last applied and the values in effect, so the next `ApplySwitchResets` applies
+--- every switch again.
 ---
 --- One caller: `BindDerivedTables`, which runs at load and again after the pre-rename import swaps
---- the tables out (`Legacy.lua`). Both are a new world, and a memo carried across it would answer
---- for switches that are no longer the same switches.
+--- the tables out (`Legacy.lua`). Both are a new world, and a memo or a value carried across it
+--- would answer for switches that are no longer the same switches.
 local function ForgetAppliedAnswers()
     wipe(_appliedAnswers);
+    wipe(_switchValues);
 end
 
 --- Carries what was last applied over to a new name.
@@ -1050,6 +1203,8 @@ end
 local function MoveAppliedAnswer(oldName, newName)
     _appliedAnswers[newName] = _appliedAnswers[oldName];
     _appliedAnswers[oldName] = nil;
+    _switchValues[newName] = _switchValues[oldName];
+    _switchValues[oldName] = nil;
 end
 
 --- Makes a switch under this name. Answers `true` **and the name it was filed under**, or `false`
@@ -1197,7 +1352,7 @@ function DebindPrivate.CountSwitchReferences(name)
         if (ActionNamesSwitch(action, name)) then
             account = account + 1;
         end
-    end, DebindPrivate.db.char);
+    end, DebindPrivate.db.charLayers);
 
     -- **The layer walks, not a second pass over the same tables.** The eleven layers are the
     -- addon's own answer to "what does this character read", and going through them is what keeps
@@ -1232,40 +1387,6 @@ local function LayerIDAt(spec, isCharacterSpecific)
         return nil;
     end
     return (isCharacterSpecific and 7 or 2) + spec;
-end
-
---- Which layer a stored override key belongs to, for the character who is logged in. Nil where
---- that key is somebody else's, and then the next answer says whose: a class file name, or a
---- GUID. **Three values in the order the collectors take them**, so it can be handed straight on.
-local function PlaceOfLayerKey(layerKey)
-    for layerID = 2, #LAYER_INFOS do
-        if (DebindPrivate.GetSwitchLayerKey(layerID) == layerKey) then
-            return layerID;
-        end
-    end
-
-    local owner = strsplit(":", layerKey);
-    -- A GUID is the one of the two that carries dashes (`Player-205-0A1B2C3D`), and a class file
-    -- name never does.
-    if (strfind(owner, "-", 1, true)) then
-        return nil, nil, owner;
-    end
-    return nil, owner, nil;
-end
-
---- Which of the three scopes one of this character's own layers is written in.
----
---- **The scopes are told apart by what holds the actions, not by who can reach them.** This
---- character reaches all three, and its own class layers are still the class's: another character
---- of the class reads the very same rows.
-local function ScopeOfLayerID(layerID)
-    if (layerID == GENERAL_LAYER_ID) then
-        return "general";
-    end
-    if (layerID < LayerIDAt(0, true)) then
-        return "classes", Constants.PLAYER_CLASS;
-    end
-    return "characters", DebindPrivate.playerGUID;
 end
 
 --- Every place this profile names a switch, **gathered in one walk for every name at once**.
@@ -1358,39 +1479,47 @@ function DebindPrivate.CollectSwitchUsage()
     end
 
     local db = DebindPrivate.db.global;
-    local charEntry = DebindPrivate.db.char;
+    local charLayers = DebindPrivate.db.charLayers;
     local playerGUID = DebindPrivate.playerGUID;
 
-    if (db.shared) then
-        walkLayer(db.shared.GENERAL, GENERAL_LAYER_ID, "general");
-        for classKey, classTbl in pairs(db.shared.classes or {}) do
-            -- **The layer ID is the only thing `mine` decides.** Which tally the rows land in is
-            -- the class either way: this character's own class layers are the class's rows.
-            local mine = classKey == Constants.PLAYER_CLASS;
-            for spec = 0, MAX_SPEC do
-                walkLayer(classTbl[spec], mine and LayerIDAt(spec, false) or nil,
-                    "classes", classKey);
+    -- The walks below go to `MAX_STORED_SPEC` for the tallies. A spec past `MAX_SPEC` has no layer
+    -- this character can open, so `LayerIDAt` answers nil for it and it is counted, not listed.
+    local function walkCharacter(guid, classes)
+        local mine = guid == playerGUID;
+        for _, specTbl in pairs(classes) do
+            for spec = 0, MAX_STORED_SPEC do
+                walkLayer(specTbl[spec], mine and LayerIDAt(spec, true) or nil, "characters", guid);
             end
         end
     end
 
-    -- **The entry this character is using may not be in the account table yet**, since one is
-    -- attached only once it holds something (`CleanUpDB`). Left out, the layers on screen right now
-    -- would be the ones missing from the list.
+    -- **This character's layers may not be in the account table yet**, since they are attached
+    -- only once they hold something (`CleanUpDB`). Left out, the layers on screen right now would
+    -- be the ones missing from the list.
     local attached = false;
-    for guid, entry in pairs(db.characters or {}) do
-        attached = attached or entry == charEntry;
-        local mine = guid == playerGUID;
-        for spec = 0, MAX_SPEC do
-            walkLayer(entry.layers and entry.layers[spec],
-                mine and LayerIDAt(spec, true) or nil, "characters", guid);
+    for owner, classes in pairs(db.layers or {}) do
+        if (owner == ACCOUNT_OWNER) then
+            for classKey, specTbl in pairs(classes) do
+                if (classKey == "GENERAL") then
+                    walkLayer(specTbl[0], GENERAL_LAYER_ID, "general");
+                else
+                    -- **The layer ID is the only thing `mine` decides.** Which tally the rows land
+                    -- in is the class either way: this character's own class layers are the
+                    -- class's rows.
+                    local mine = classKey == Constants.PLAYER_CLASS;
+                    for spec = 0, MAX_STORED_SPEC do
+                        walkLayer(specTbl[spec], mine and LayerIDAt(spec, false) or nil,
+                            "classes", classKey);
+                    end
+                end
+            end
+        else
+            attached = attached or classes == charLayers;
+            walkCharacter(owner, classes);
         end
     end
-    if (charEntry and not attached) then
-        for spec = 0, MAX_SPEC do
-            walkLayer(charEntry.layers and charEntry.layers[spec], LayerIDAt(spec, true),
-                "characters", playerGUID);
-        end
+    if (charLayers and not attached) then
+        walkCharacter(playerGUID, charLayers);
     end
 
     local function addExpr(owner, expr, layerID, kind, key)
@@ -1422,19 +1551,23 @@ function DebindPrivate.CollectSwitchUsage()
         -- The root's expression is the definition's own, and the row it is edited on is the one
         -- every layer falls back to, which is `GENERAL` on screen.
         addExpr(owner, definition.expr, GENERAL_LAYER_ID, "general");
-        for layerKey, row in pairs(definition.overrides or {}) do
-            local layerID, classKey, guid = PlaceOfLayerKey(layerKey);
-            local kind, key;
-            if (layerID) then
-                kind, key = ScopeOfLayerID(layerID);
-            elseif (classKey) then
-                kind, key = "classes", classKey;
-            else
-                kind, key = "characters", guid;
-            end
+    end
+    -- **The scopes are told apart by what holds the row, not by who can reach it.** This
+    -- character reaches its class's rows too, and they are still the class's.
+    ForEachOverrideCell(function(cell, cellOwner, class, spec)
+        local kind, key, layerID;
+        if (cellOwner == ACCOUNT_OWNER) then
+            kind, key = "classes", class;
+            layerID = class == Constants.PLAYER_CLASS and LayerIDAt(spec, false) or nil;
+        else
+            kind, key = "characters", cellOwner;
+            layerID = (cellOwner == playerGUID and class == Constants.PLAYER_CLASS)
+                and LayerIDAt(spec, true) or nil;
+        end
+        for owner, row in pairs(cell) do
             addExpr(owner, row.expr, layerID, kind, key);
         end
-    end
+    end);
 
     return usage;
 end
@@ -1462,8 +1595,8 @@ end
 ---
 --- **Every character and every class, not the layers on screen** (`ForEachStoredAction`).
 ---
---- The live table is re-keyed rather than rebuilt, because `BindDerivedTables` recomputes `value`
---- from `resetValue`, and rebuilding here would reset a switch the user has on right now as a
+--- The live table is re-keyed rather than rebuilt, because `BindDerivedTables` recomputes every
+--- value from `resetValue`, and rebuilding here would reset a switch the user has on right now as a
 --- side effect of renaming it.
 function DebindPrivate.RenameSwitch(oldName, newName)
     local definition = DebindPrivate.Switches[oldName];
@@ -1498,7 +1631,7 @@ function DebindPrivate.RenameSwitch(oldName, newName)
         if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
             action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName);
         end
-    end, DebindPrivate.db.char);
+    end, DebindPrivate.db.charLayers);
 
     -- **Every row, not only the root's.** A layer override carries an expression of its own, and
     -- one left behind is the quietest failure this function has: the switch computed from the old
@@ -1511,10 +1644,19 @@ function DebindPrivate.RenameSwitch(oldName, newName)
     end
     for _, other in pairs(DebindPrivate.Switches) do
         RenameInRow(other);
-        for _, row in pairs(other.overrides or {}) do
+    end
+    -- **Every cell, the waiting ones included** (`UNKNOWN_CLASS`). The rows are filed by the
+    -- switch's name, so a cell left out keeps a row under the old name, and the character it
+    -- belongs to brings it back as a switch nothing defines once its class is known.
+    ForEachOverrideCell(function(cell)
+        for _, row in pairs(cell) do
             RenameInRow(row);
         end
-    end
+        if (cell[oldName] ~= nil) then
+            cell[newName] = cell[oldName];
+            cell[oldName] = nil;
+        end
+    end);
 
     for _, entry in pairs(db.characters) do
         if (entry.switches and entry.switches[oldName] ~= nil) then
@@ -1547,14 +1689,19 @@ end
 --- silently would be worse than the red (§9-3 of `redesigning-custom-states.md` turns the
 --- same argument the other way round: a reference must not resurrect a definition either).
 ---
---- **The remembered values go**, because they are this switch's and nothing else's. Leaving them
---- would hand its value to the next switch that happens to take the name.
+--- **The remembered values and every override row go**, because they are this switch's and
+--- nothing else's. Leaving them would hand them to the next switch that happens to take the name,
+--- the waiting cells (`UNKNOWN_CLASS`) included.
 function DebindPrivate.DeleteSwitch(name)
     if (not DebindPrivate.Switches[name]) then
         return false;
     end
 
     DebindPrivate.Switches[name] = nil;
+    ForEachOverrideCell(function(cell)
+        cell[name] = nil;
+    end);
+    PruneSwitchCells();
     for _, entry in pairs(DebindPrivate.db.global.characters) do
         if (entry.switches) then
             entry.switches[name] = nil;
@@ -1660,11 +1807,12 @@ end
 --- has to be recomputed from the answer in effect and `savedValue`, so copying the contents across
 --- would not be enough - that calculation has to run again.
 ---
---- **`DebindPrivate.Switches` is `db.switches`.** Both are keyed by name, so there is nothing left
---- to join: a condition, a macro body and an on/off/toggle target all name a switch by string, and
---- the stored table now answers under the same key (`ResolveSwitchDefinition`). It used to be a
---- second table built here, because storage filed a definition by index and the index was a second
---- identity a switch could not be renamed while it had.
+--- **`DebindPrivate.Switches` is `db.switches.account.GENERAL[0]`,** the root rows. Both are keyed
+--- by name, so there is nothing left to join: a condition, a macro body and an on/off/toggle target
+--- all name a switch by string, and the stored table answers under the same key
+--- (`ResolveSwitchDefinition`). It used to be a second table built here, because storage filed a
+--- definition by index and the index was a second identity a switch could not be renamed while it
+--- had.
 ---
 --- **The remembered value comes off this character, not off the definition.** The definition is
 --- account-wide and a name raises an expectation of scope that a number never did, so "remember"
@@ -1685,7 +1833,9 @@ function DebindPrivate.BindDerivedTables()
     DebindPrivate.Options = db.options;
 
     db.switches = db.switches or {};
-    DebindPrivate.Switches = db.switches;
+    local general = SpecTableIn(SpecTableIn(db.switches, ACCOUNT_OWNER), "GENERAL");
+    general[0] = general[0] or {};
+    DebindPrivate.Switches = general[0];
 
     -- **The value is not computed here any more.** Which answer a switch is giving depends on the
     -- character and the specialization now (§4-6), so the same calculation has to run again every
@@ -1710,8 +1860,8 @@ end
 --- last real value and the answer in effect decides only whether to apply its own
 --- (`ApplySwitchResets`) - one branch fewer, and no observable difference where nothing overrides.
 ---
---- **A value the definition already holds is a reset coming back, not news.** Applying a reset
---- writes the field here and hands it to the restricted side, which reports it straight back
+--- **A value the switch already holds is a reset coming back, not news.** Applying a reset
+--- writes the value here and hands it to the restricted side, which reports it straight back
 --- (`OnSwitchChanged`); taking that report as a memory is exactly the throwing-away above, from the
 --- other direction. Everything a person does arrives as a change, so equality is what tells the two
 --- apart.
@@ -1729,12 +1879,11 @@ end
 DebindPrivate.switchValueSerial = 0;
 
 function DebindPrivate.SetSwitchValue(name, value)
-    local definition = DebindPrivate.Switches[name];
-    if (not definition or definition.value == value) then
+    if (not DebindPrivate.Switches[name] or _switchValues[name] == value) then
         return;
     end
 
-    definition.value = value;
+    _switchValues[name] = value;
     -- **What is remembered is what somebody set by hand.** A computed switch's value is worked out
     -- from its expression at the press, and written here it becomes the value "as you left it"
     -- hands back on a specialization that never computed anything, and the value a login restores.
@@ -1763,6 +1912,29 @@ function DebindPrivate.OnSwitchesChanged()
     end
 end
 
+--- What only the window reads, kept in `DebindUIVars`: window positions, the sort, the picker's
+--- filters and the tips somebody closed. It is its own global so that the window can one day leave
+--- for an addon of its own and take it along (`reshaping-stored-layers.md` §1).
+---
+--- **Not raised by the ladder.** When its shape changes, `UI_VARS_VERSION` goes up and everything
+--- but `tipsSeen` is dropped: what is lost is a position and a filter, while a closed tip coming
+--- back is a loss the reader would notice. **A newer version is dropped the same way**, since
+--- this build cannot read that shape and a downgrade costs the same position and filter.
+local function PrepareUIVars()
+    local vars = _G.DebindUIVars;
+    if (type(vars) ~= "table") then
+        vars = {};
+        _G.DebindUIVars = vars;
+    end
+    if (vars.version ~= Constants.UI_VARS_VERSION) then
+        local tipsSeen = type(vars.tipsSeen) == "table" and vars.tipsSeen or nil;
+        wipe(vars);
+        vars.tipsSeen = tipsSeen;
+        vars.version = Constants.UI_VARS_VERSION;
+    end
+    return vars;
+end
+
 --- The stored profile was written by a build newer than this one. **Stand down without touching
 --- one thing in it.**
 ---
@@ -1780,9 +1952,11 @@ end
 local function StandDown()
     DebindPrivate.playerGUID = UnitGUID("player");
     DebindPrivate.db = {
-        global = { shared = { classes = {} }, characters = {}, migrated = {} },
-        char = { layers = {}, switches = {} },
+        global = { layers = {}, characters = {}, migrated = {} },
+        char = { switches = {} },
+        charLayers = {},
     };
+    DebindPrivate.UIVars = {};
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
 end
@@ -1823,8 +1997,7 @@ function DebindPrivate.InitDB()
         end
     end
 
-    db.shared = db.shared or {};
-    db.shared.classes = db.shared.classes or {};
+    db.layers = db.layers or {};
     db.characters = db.characters or {};
     -- Which characters have already had the pre-rename SavedVariables pulled across. `Legacy.lua`.
     db.migrated = db.migrated or {};
@@ -1840,16 +2013,25 @@ function DebindPrivate.InitDB()
     -- the account table, and a detached entry is the one place it could not otherwise reach.
     local guid = UnitGUID("player");
     local charEntry = db.characters[guid] or {};
-    charEntry.layers = charEntry.layers or {};
     charEntry.switches = charEntry.switches or {};
 
-    DebindPrivate.MigrateDB(db, charEntry);
+    DebindPrivate.UIVars = PrepareUIVars();
+    DebindPrivate.MigrateDB(db, charEntry, DebindPrivate.UIVars);
+
+    -- The same lazy creation for this character's layers, and after the migration, which is what
+    -- moves them out of the entry and into `layers`.
+    local charLayers = db.layers[guid] or {};
 
     DebindPrivate.playerGUID = guid;
     DebindPrivate.db = {
         global = db,
         char = charEntry,
+        charLayers = charLayers,
     };
+
+    -- Ahead of `BindDerivedTables`, whose resets have to read the healed rows.
+    db.switches = db.switches or {};
+    HealSwitchCells(guid);
 
     --- **Before the Clique header is attached below**, because attaching sweeps what Clique's
     --- header already holds into `RegisterFrame`, and that gate reads the snapshot: with it still
@@ -2167,8 +2349,9 @@ function DebindPrivate.CleanUpDB()
         end
     end
 
-    -- **Attach or detach this character's entry.** `InitDB` does not create one up front (lazy
-    -- creation), so this is where anything actually enters `characters`. The decision is remade on
+    -- **Attach or detach this character's entry and layers.** `InitDB` does not create either up
+    -- front (lazy creation), so this is where anything actually enters `characters` or `layers`.
+    -- The decision is remade on
     -- every logout, which is how the entry disappears for someone who just deleted their last
     -- character-specific binding.
     --
@@ -2189,7 +2372,14 @@ function DebindPrivate.CleanUpDB()
 
     local guid = DebindPrivate.playerGUID;
     if (db and guid) then
-        if (HasCharContent(DebindPrivate.db.char)) then
+        local hasLayers = HasLayerContent(DebindPrivate.db.charLayers);
+        db.layers[guid] = hasLayers and DebindPrivate.db.charLayers or nil;
+        PruneSwitchCells();
+        local hasOverrides = db.switches ~= nil and db.switches[guid] ~= nil;
+        -- **The entry stays while the layers or the override rows do**, because it is what names
+        -- them: whoever reads `layers[guid]` or `switches[guid]` from somewhere else has only this
+        -- to tell them whose they are, and the class in it is what a later reshape files them by.
+        if (hasLayers or hasOverrides or HasCharContent(DebindPrivate.db.char)) then
             db.characters[guid] = DebindPrivate.db.char;
         else
             db.characters[guid] = nil;
@@ -2534,14 +2724,14 @@ function DebindPrivate.PlaceActionInKeyGroup(action)
     end
 end
 
---- 저장된 액션 목록 하나. `(scope, class, spec)` 주소가 가리키는 자리이며, 없으면 만든다.
+--- One stored action list, the one the `(scope, class, spec)` address points at, made if missing.
 ---
---- **`LayerArray`를 안 거친다.** 그쪽은 *지금 캐릭터가 보는 뷰*라 열한 자리밖에 없다 - 드루이드
---- 세션에서 `classes.MAGE`는 그 배열에 아예 없다. 임포트는 남의 좌표에 그대로 써야 하므로
---- (`DebindStorage/Import.lua`의 `ImportAddress`) 저장 구조를 직접 짚는다.
+--- **It does not go through `LayerArray`.** That is the view of the character logged in and has
+--- eleven places; a druid's session has no mage layer in it at all. An import writes into another
+--- class's coordinates as they are (`ImportAddress`), so this reaches the stored tables directly.
 ---
---- 이미 로드된 레이어를 가리키면 **같은 테이블이 나온다.** `LoadLayer`가 저장 테이블을 그대로
---- `layer.actions`에 물려두기 때문에, 여기에 넣은 것은 그 레이어에 넣은 것과 같다.
+--- **An address of a loaded layer hands back that layer's own table**, because `LoadLayer` binds
+--- the stored table to `layer.actions`. Putting an action here is putting it in that layer.
 local function StoredActionsAt(scope, class, spec)
     local db = DebindPrivate.db and DebindPrivate.db.global;
     if (not db) then
@@ -2550,26 +2740,18 @@ local function StoredActionsAt(scope, class, spec)
 
     local specTbl;
     if (scope == "general") then
-        local tbl = db.shared.GENERAL;
-        if (not tbl) then
-            tbl = {};
-            db.shared.GENERAL = tbl;
-        end
-        return tbl;
+        specTbl = SpecTableIn(OwnerLayers(db, ACCOUNT_OWNER), "GENERAL");
+        spec = 0;
     elseif (scope == "class") then
         if (luatype(class) ~= "string") then
             return nil;
         end
-        specTbl = db.shared.classes[class];
-        if (not specTbl) then
-            specTbl = {};
-            db.shared.classes[class] = specTbl;
-        end
+        specTbl = SpecTableIn(OwnerLayers(db, ACCOUNT_OWNER), class);
     elseif (scope == "character") then
-        -- **이 캐릭터의 것은 `db.char`에서 받는다.** `characters[guid]`가 아직 비어 있을 수 있고
-        -- (`InitDB`의 지연 생성), 그때 `db.char`는 아직 안 붙은 테이블이다. `characters`를 짚으면
-        -- 나중에 `CleanUpDB`가 붙일 그 테이블이 아니라 딴 데다 쓰게 된다.
-        specTbl = DebindPrivate.db.char.layers;
+        -- **This character's layers come from `db.charLayers`, not `db.layers[guid]`.** That one may
+        -- not be attached yet (lazy creation in `InitDB`), and writing through `db.layers` would
+        -- land somewhere other than the table `CleanUpDB` attaches.
+        specTbl = SpecTableIn(DebindPrivate.db.charLayers, Constants.PLAYER_CLASS);
     else
         return nil;
     end

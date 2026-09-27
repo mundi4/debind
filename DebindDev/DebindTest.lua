@@ -4702,10 +4702,11 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
 
         -- Where the tester had the window, and what they had saved. `OnDragStop` writes both.
         local point, relativeTo, relativePoint, x, y = DebindFrame:GetPoint(1)
-        local saved = DebindPrivate.db.global.ui.main
+        local saved = DebindPrivate.UIVars.main and DebindPrivate.UIVars.main.pos
         AddTeardown(function()
             DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
-            DebindPrivate.db.global.ui.main = saved
+            DebindPrivate.UIVars.main = DebindPrivate.UIVars.main or {}
+            DebindPrivate.UIVars.main.pos = saved
             if point then
                 DebindFrame:ClearAllPoints()
                 DebindFrame:SetPoint(point, relativeTo, relativePoint, x, y)
@@ -5106,7 +5107,7 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
         local saved = DebindPrivate.Switches[SWITCH]
         AddTeardown(function()
             DebindPrivate.Switches[SWITCH] = saved
-            DebindPrivate.db.char.switches[SWITCH] = nil
+            DebindPrivate.SetRememberedSwitch(SWITCH, nil)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -5177,7 +5178,7 @@ RegisterTest("Switches tab: the toggle turns off a switch nothing binds", {
         local saved = DebindPrivate.Switches[SWITCH]
         AddTeardown(function()
             DebindPrivate.Switches[SWITCH] = saved
-            DebindPrivate.db.char.switches[SWITCH] = nil
+            DebindPrivate.SetRememberedSwitch(SWITCH, nil)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -5189,10 +5190,10 @@ RegisterTest("Switches tab: the toggle turns off a switch nothing binds", {
         -- No action names it. That is the whole of the setup, and it is what the test is about.
         ApplyBindings()
 
-        local definition = DebindPrivate.ResolveSwitchDefinition(SWITCH)
-        if not definition or definition.value ~= true then
+        if not DebindPrivate.ResolveSwitchDefinition(SWITCH)
+                or DebindPrivate.GetSwitchValue(SWITCH) ~= true then
             return Fail(NAME, format("the premise is gone: the switch did not come up on (value=%s)",
-                definition and tostring(definition.value) or "no definition"))
+                tostring(DebindPrivate.GetSwitchValue(SWITCH))))
         end
         if DebindPrivate.IsSwitchTracked(SWITCH) then
             return Fail(NAME, "the premise is gone: nothing binds this switch and the compile tracked it anyway")
@@ -5218,10 +5219,10 @@ RegisterTest("Switches tab: the toggle turns off a switch nothing binds", {
         -- **Read on the spot and not after a frame.** The press writes the value itself
         -- (`OnToggleClick`), and waiting here would pass on a press that left it to a report the
         -- restricted side has no value to send.
-        if definition.value ~= false then
+        if DebindPrivate.GetSwitchValue(SWITCH) ~= false then
             return Fail(NAME, format(
                 "one press on a switch that was on and it is %s -- it takes two",
-                tostring(definition.value)))
+                tostring(DebindPrivate.GetSwitchValue(SWITCH))))
         end
 
         return Pass(NAME, "on -> one press -> off")
@@ -5302,7 +5303,7 @@ RegisterTest("Switches tab: the New switch button makes one", {
 
         AddTeardown(function()
             DebindPrivate.Switches[SWITCH] = nil
-            DebindPrivate.db.char.switches[SWITCH] = nil
+            DebindPrivate.SetRememberedSwitch(SWITCH, nil)
             local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
             if dialog then
                 -- Focus first: a hidden box that still holds the keyboard swallows what the next
@@ -5400,7 +5401,7 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
 
         AddTeardown(function()
             DebindPrivate.Switches[STORED] = nil
-            DebindPrivate.db.char.switches[STORED] = nil
+            DebindPrivate.SetRememberedSwitch(STORED, nil)
             local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
             if dialog then
                 -- Focus first: a hidden box that still holds the keyboard swallows what the next
@@ -5489,7 +5490,7 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         local saved = DebindPrivate.Switches[SWITCH]
         AddTeardown(function()
             DebindPrivate.Switches[SWITCH] = saved
-            DebindPrivate.db.char.switches[SWITCH] = nil
+            DebindPrivate.SetRememberedSwitch(SWITCH, nil)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -5570,7 +5571,7 @@ RegisterTest("Switches tab: a layer is made from the dropdown and taken away aga
         local saved = DebindPrivate.Switches[SWITCH]
         AddTeardown(function()
             DebindPrivate.Switches[SWITCH] = saved
-            DebindPrivate.db.char.switches[SWITCH] = nil
+            DebindPrivate.SetRememberedSwitch(SWITCH, nil)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -5658,8 +5659,8 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         AddTeardown(function()
             DebindPrivate.Switches[SOURCE] = savedSource
             DebindPrivate.Switches[DERIVED] = savedDerived
-            DebindPrivate.db.char.switches[SOURCE] = nil
-            DebindPrivate.db.char.switches[DERIVED] = nil
+            DebindPrivate.SetRememberedSwitch(SOURCE, nil)
+            DebindPrivate.SetRememberedSwitch(DERIVED, nil)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -6049,7 +6050,7 @@ RegisterTest("Custom state toggle flips the value", {
         local saved = DebindPrivate.Switches["$state4"]
         AddTeardown(function()
             DebindPrivate.Switches["$state4"] = saved
-            DebindPrivate.db.char.switches["$state4"] = nil
+            DebindPrivate.SetRememberedSwitch("$state4", nil)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -6091,8 +6092,9 @@ RegisterTest("Custom state toggle flips the value", {
         -- the window reads, so a mirror that does not follow leaves the restricted side right and
         -- the screen lying.
         coroutine.yield(0)
-        if options.value ~= false then
-            return Fail(NAME, format("what the window reads did not follow (options.value=%s)", tostring(options.value)))
+        local value = DebindPrivate.GetSwitchValue("$state4")
+        if value ~= false then
+            return Fail(NAME, format("what the window reads did not follow (value=%s)", tostring(value)))
         end
 
         return Pass(NAME, "off -> on -> off, mirror included")
@@ -6128,10 +6130,10 @@ RegisterTest("Switch condition on a name outside the five", {
         -- Why only the slot is swapped is in the comment on `Undefined $state inside a state's own
         -- expression` above. `$burst` will not be in a user's profile, and is put back even if it is.
         local saved = DebindPrivate.Switches["$burst"]
-        local savedStored = DebindPrivate.db.char.switches["$burst"]
+        local savedStored = DebindPrivate.GetRememberedSwitch("$burst")
         AddTeardown(function()
             DebindPrivate.Switches["$burst"] = saved
-            DebindPrivate.db.char.switches["$burst"] = savedStored
+            DebindPrivate.SetRememberedSwitch("$burst", savedStored)
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end

@@ -11,7 +11,11 @@ Constants.NIL                             = "\0";
 --- Anything above it is a number nobody has ever stored, so **the unreleased span is one step, not
 --- a ladder**: every change to the stored shape that lands in it goes into that one step. What has
 --- to move together when a change joins it is in `cutting-a-release.md`.
-Constants.DB_VERSION                      = 7;
+Constants.DB_VERSION                      = 8;
+
+--- The shape of `DebindUIVars`, which does not ride the ladder: when this goes up, everything in it
+--- but `tipsSeen` is dropped (`PrepareUIVars` in `Profile.lua`).
+Constants.UI_VARS_VERSION                 = 1;
 
 --- The changelog page's number. Raise it by one whenever that page has something a reader has to
 --- be shown, and the next login opens it for everyone whose profile is behind
@@ -43,7 +47,7 @@ Constants.QUESTION_MARK_ICON              = 134400;
 --- value as a flag, which the id answers as well.
 ---
 --- `classFile` is the key because that is what the profile files a class under
---- (`shared.classes[class]`) and what a payload carries. The id is what the client wants back when
+--- (`layers.account[class]`) and what a payload carries. The id is what the client wants back when
 --- something has to be named -- a specialization of a class that is not this character's has no
 --- other way in (`GetSpecializationInfoForClassID`, a global rather than one of `C_SpecializationInfo`'s).
 ---

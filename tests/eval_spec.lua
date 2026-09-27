@@ -94,10 +94,10 @@ return function(DebindPrivate, _, ctx)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             options = options,
-            shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = { account = { GENERAL = { [0] = actions } } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
-            switches = switches or {},
+            switches = { account = { GENERAL = { [0] = switches or {} } } },
         };
         DebindPrivate.InitDB();
 
@@ -1997,8 +1997,11 @@ return function(DebindPrivate, _, ctx)
             local mark = frames.mark();
             _G.DebindVars = {
                 dbver = Constants.DB_VERSION,
-                shared = { GENERAL = { a }, classes = { [Constants.PLAYER_CLASS] = {} } },
-                characters = { [GUID] = { layers = { [0] = { b } }, switches = {} } },
+                layers = {
+                    account = { GENERAL = { [0] = { a } } },
+                    [GUID] = { [Constants.PLAYER_CLASS] = { [0] = { b } } },
+                },
+                characters = { [GUID] = { switches = {} } },
                 migrated = {},
                 switches = {},
             };

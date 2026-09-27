@@ -273,11 +273,13 @@ return function(DebindPrivate)
     local function ResetProfile(general, classSpec0)
         _G.DebindVars = {
             dbver = DebindPrivate.Constants.DB_VERSION,
-            shared = {
-                GENERAL = general or {},
-                classes = { [DebindPrivate.Constants.PLAYER_CLASS] = { [0] = classSpec0 or {} } },
+            layers = {
+                account = {
+                    GENERAL = { [0] = general or {} },
+                    [DebindPrivate.Constants.PLAYER_CLASS] = { [0] = classSpec0 or {} },
+                },
             },
-            characters = { ["Player-1-TESTGUID"] = { layers = {} } },
+            characters = { ["Player-1-TESTGUID"] = {} },
             migrated = {},
         };
         DebindPrivate.InitDB();

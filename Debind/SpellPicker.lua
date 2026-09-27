@@ -274,23 +274,14 @@ DebindSpellPickerFrameMixin = {};
 --- 켠 적 없는 필터가 목록을 비우는** 것이라 원인을 찾을 데가 없다. 개수가 수백인 두 탭이라
 --- 같은 값을 쓰고 싶은 상황도 아니다. X 버튼이 지금 탭만 되돌리는 것도 같은 이유다.
 local function GetOptions(categoryKey)
-	local db = DebindPrivate.db.global;
-	db.spellPicker = db.spellPicker or {};
+	local picker = DebindPrivate.UIVars.spellPicker or {};
+	DebindPrivate.UIVars.spellPicker = picker;
+	picker.filters = picker.filters or {};
 
-	-- 예전에는 값이 탭 구분 없이 평평하게 저장됐다. 남아 있으면 통째로 버린다 - 필터 몇 개의
-	-- 기본값으로 돌아가는 것뿐이라 옮겨줄 값어치가 없고, 섞여 있으면 아래 인덱싱이 불리언을
-	-- 테이블처럼 읽는다.
-	for _, value in pairs(db.spellPicker) do
-		if (type(value) ~= "table") then
-			wipe(db.spellPicker);
-			break;
-		end
-	end
-
-	local options = db.spellPicker[categoryKey];
+	local options = picker.filters[categoryKey];
 	if (not options) then
 		options = {};
-		db.spellPicker[categoryKey] = options;
+		picker.filters[categoryKey] = options;
 	end
 
 	for _, filter in pairs(ActionCatalog.Filters) do
@@ -321,8 +312,8 @@ function DebindSpellPickerFrameMixin:OnLoad()
 		self:StopMovingOrSizing();
 		self:SetUserPlaced(false);
 		local x, y = self:GetCenter();
-		DebindPrivate.db.global.ui = DebindPrivate.db.global.ui or {};
-		DebindPrivate.db.global.ui.spellPicker = { x = x, y = y };
+		DebindPrivate.UIVars.spellPicker = DebindPrivate.UIVars.spellPicker or {};
+		DebindPrivate.UIVars.spellPicker.pos = { x = x, y = y };
 	end);
 
 	self:InitializeTabs();
@@ -620,7 +611,7 @@ end
 --- 첫 자리는 메인 창 오른쪽이다. 이 창은 메인 창과 **함께** 쓰는 물건이라 가운데에
 --- 띄우면 십중팔구 메인 창을 덮는다. 한 번 끌어 옮기고 나면 저장된 자리가 이긴다.
 function DebindSpellPickerFrameMixin:ApplyPosition()
-	local pos = DebindPrivate.db.global.ui and DebindPrivate.db.global.ui.spellPicker;
+	local pos = DebindPrivate.UIVars.spellPicker and DebindPrivate.UIVars.spellPicker.pos;
 
 	self:ClearAllPoints();
 	if (pos) then

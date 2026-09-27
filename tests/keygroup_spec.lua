@@ -40,18 +40,18 @@ return function(DebindPrivate)
     check(C_SpecializationInfo.GetSpecialization() == 1,
         "활성 특성 1 전제: " .. tostring(C_SpecializationInfo.GetSpecialization()));
 
-    --- `InitDB`가 읽는 모양 그대로. `otherClass`는 이 세션이 못 보는 자리를 세우는 칸이다 -
-    --- 드루이드 세션에서 `classes.MAGE`는 `LayerArray`에 아예 없다.
+    --- The shape `InitDB` reads. `otherClass` stands up a place this session cannot see: a druid's
+    --- `LayerArray` has no `layers.account.MAGE` in it at all.
     local function ResetProfile(layout)
         layout = layout or {};
-        local classes = { [CLASS] = layout.class or {} };
+        local account = { GENERAL = { [0] = layout.general or {} }, [CLASS] = layout.class or {} };
         if (layout.otherClass) then
-            classes.MAGE = layout.otherClass;
+            account.MAGE = layout.otherClass;
         end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = layout.general or {}, classes = classes },
-            characters = { [GUID] = { layers = layout.char or {} } },
+            layers = { account = account, [GUID] = { [CLASS] = layout.char or {} } },
+            characters = { [GUID] = {} },
             migrated = {},
         };
         DebindPrivate.InitDB();
@@ -395,7 +395,7 @@ return function(DebindPrivate)
 
         DebindPrivate.SetKeyForActions(group, "F");
 
-        local stranger = _G.DebindVars.shared.classes.MAGE[0];
+        local stranger = _G.DebindVars.layers.account.MAGE[0];
         check(stranger[1].key == "Q", "남의 레이어의 멤버까지 키가 바뀌었다");
         check(stranger[2].seq == 1, "남의 레이어의 번호가 바뀌었다");
     end);

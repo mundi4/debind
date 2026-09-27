@@ -742,7 +742,7 @@ return function(DebindPrivate)
     --- 재는 동안만 켠다 - 켜 둔 채로 두면 바로 위의 "옵션 없는 액션" 테스트가 쌍둥이를 받는다.
     _G.DebindVars = {
         dbver = Constants.DB_VERSION,
-        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        layers = { account = { GENERAL = { [0] = {} } } },
         characters = {},
         migrated = {},
         switches = {},

@@ -243,20 +243,19 @@ DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 DebindStorage.CASTING_TYPES = CASTING_TYPES;
 
 --- Which fields of a switch definition describe the switch, as opposed to what it happens
---- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it on
---- every login from `resetValue` and what the character remembers, so sending it would ship a
---- runtime reading as if it were a setting.
+--- to be doing right now. The value in effect is not stored at all (`GetSwitchValue`), and a v1
+--- payload's `value` is a runtime reading nothing takes as a setting.
 ---
 --- **The remembered value is not on this list and does not belong on it.** It lives on the
 --- character now (`redesigning-custom-states.md` §5), and it is one character's on or off
 --- rather than a setting: the person reading the string is not that character. A v1 payload
 --- carries a `savedValue` and nothing reads it.
 ---
---- **`overrides` is not on this list either, and that is a decision.** A layer answer is filed
---- under an absolute key naming *this* installation's characters and classes
---- (`GetSwitchLayerKey`), so `Player-1329-0004AB27:2` addresses somebody the receiver has never
---- had. What travels is the answer everything falls back to, which is the one a definition always
---- has. §4-6 of `redesigning-custom-states.md`.
+--- **The override rows do not travel either, and that is a decision.** They sit in cells of
+--- *this* installation's characters and classes (`switches[owner][class][spec]`), so a
+--- character's row addresses somebody the receiver has never had. What travels is the answer
+--- everything falls back to, which is the one a definition always has. §4-6 of
+--- `redesigning-custom-states.md`.
 ---
 --- ⚠ **Nothing checks this table.** `check:export-fields` compares `ACTION_FIELDS` and the
 --- condition table and never looks here, so a definition field added without a line here simply

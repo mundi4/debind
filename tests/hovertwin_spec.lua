@@ -21,7 +21,7 @@ return function(DebindPrivate)
     --- 레이어는 비어 있어도 되고, 필요한 것은 `Options`가 서 있는 것뿐이다.
     _G.DebindVars = {
         dbver = Constants.DB_VERSION,
-        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        layers = { account = { GENERAL = { [0] = {} } } },
         characters = {},
         migrated = {},
         switches = {},

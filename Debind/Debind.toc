@@ -7,7 +7,7 @@
 ##   ZamestoTV – Russian localization (ruRU)
 ## IconTexture: 133015
 ## Group: Debind
-## SavedVariables: DebindVars
+## SavedVariables: DebindVars, DebindUIVars
 ## OptionalDeps: DebindDev, Clique, Grid2, DevTool, ViragDevTool
 ## AddonCompartmentFunc: Debind_CompartmentFunc
 ## AddonCompartmentFuncOnEnter: Debind_CompartmentOnEnter

@@ -26,17 +26,18 @@ return function(DebindPrivate)
     local function FreshDB(casting)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = {
-                GENERAL = { { type = Constants.SPELL, value = 774, key = "F", seq = 1,
-                    casting = casting } },
-                classes = { [Constants.PLAYER_CLASS] = {} },
+            layers = {
+                account = {
+                    GENERAL = { [0] = { { type = Constants.SPELL, value = 774, key = "F", seq = 1,
+                        casting = casting } } },
+                },
             },
             characters = {},
             migrated = {},
             switches = {},
         };
         DebindPrivate.InitDB();
-        return _G.DebindVars.shared.GENERAL[1];
+        return _G.DebindVars.layers.account.GENERAL[0][1];
     end
 
     test("켬과 끔은 그대로 답하고, 안 적힌 줄은 게임 설정 그대로다", function()

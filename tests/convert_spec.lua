@@ -46,7 +46,7 @@ return function(DebindPrivate)
     --- 만들어 넘기므로 레이어는 비어 있어도 된다.
     _G.DebindVars = {
         dbver = Constants.DB_VERSION,
-        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        layers = { account = { GENERAL = { [0] = {} } } },
         characters = {},
         migrated = {},
         switches = {},

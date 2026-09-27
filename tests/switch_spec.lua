@@ -58,21 +58,25 @@ return function(DebindPrivate)
     local function Profile()
         return {
             dbver = Constants.DB_VERSION,
-            shared = {
-                GENERAL = {
-                    { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
-                        conditions = { ["$state1"] = true } },
-                    -- The `$state1` after the group is chat text. It is here because a rename that
-                    -- reaches it has stopped being a rename of a reference and started being a
-                    -- search and replace over what the user typed.
-                    { type = Constants.MACROTEXT, key = "F2", seq = 1,
-                        value = "/cast [$state1,no$state2] Foo\n/say $state1 is on" },
-                    { type = Constants.SETSTATE_TOGGLE, value = "$state1", key = "F3", seq = 1 },
-                },
-                -- **This character's class, and the shim's character is a druid on spec 1.** Two
-                -- layers, and the second one is the one that makes the three counts differ: an
-                -- action in specialization 2 is stored, is this character's, and is not live.
-                classes = {
+            layers = {
+                account = {
+                    GENERAL = {
+                        [0] = {
+                            { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
+                                conditions = { ["$state1"] = true } },
+                            -- The `$state1` after the group is chat text. It is here because a
+                            -- rename that reaches it has stopped being a rename of a reference and
+                            -- started being a search and replace over what the user typed.
+                            { type = Constants.MACROTEXT, key = "F2", seq = 1,
+                                value = "/cast [$state1,no$state2] Foo\n/say $state1 is on" },
+                            { type = Constants.SETSTATE_TOGGLE, value = "$state1", key = "F3",
+                                seq = 1 },
+                        },
+                    },
+                    -- **This character's class, and the shim's character is a druid on spec 1.**
+                    -- Two layers, and the second one is the one that makes the three counts
+                    -- differ: an action in specialization 2 is stored, is this character's, and
+                    -- is not live.
                     DRUID = {
                         [0] = {
                             { type = Constants.SPELL, value = 2, key = "F4", seq = 1,
@@ -84,26 +88,33 @@ return function(DebindPrivate)
                         },
                     },
                 },
-            },
-            characters = {
                 [ALT] = {
-                    layers = {
+                    PRIEST = {
                         [0] = {
                             { type = Constants.SETSTATE_ON, value = "$state1", key = "F5",
                                 seq = 1 },
                         },
                     },
+                },
+            },
+            characters = {
+                [ALT] = {
                     switches = { ["$state1"] = true },
                 },
             },
             migrated = {},
-            switches = {
+            switches = { account = { GENERAL = { [0] = {
                 ["$state1"] = { mode = MODES.MANUAL },
                 -- One switch computed from another. This is the reference the design calls the
                 -- easy one to forget, and the only one that is not inside an action at all.
                 ["$state2"] = { mode = MODES.EXPR, expr = "[$state1] [combat]" },
-            },
+            } } } },
         };
+    end
+
+    --- The stored definitions, the root rows.
+    local function Defs(db)
+        return db.switches.account.GENERAL[0];
     end
 
     --- Which specialization the world is in. The shim answers 1; a test that changes it is
@@ -137,7 +148,7 @@ return function(DebindPrivate)
     end
 
     local function General(db)
-        return db.shared.GENERAL;
+        return db.layers.account.GENERAL[0];
     end
 
     ---------------------------------------------------------------------------
@@ -147,8 +158,8 @@ return function(DebindPrivate)
     test("이름을 바꾸면 정의가 새 이름으로만 열린다", function()
         local db = InitWith(Profile());
         check(DebindPrivate.RenameSwitch("$state1", "$burst"), "개명이 거절됐다");
-        check(db.switches["$burst"] ~= nil, "정의가 새 이름 아래 없다");
-        check(db.switches["$state1"] == nil, "옛 이름이 남았다 - 스위치가 둘로 보인다");
+        check(Defs(db)["$burst"] ~= nil, "정의가 새 이름 아래 없다");
+        check(Defs(db)["$state1"] == nil, "옛 이름이 남았다 - 스위치가 둘로 보인다");
         check(DebindPrivate.ResolveSwitchDefinition("$burst") ~= nil,
             "살아 있는 표가 새 이름을 모른다");
     end);
@@ -167,35 +178,35 @@ return function(DebindPrivate)
     test("다른 직업·다른 캐릭터의 레이어까지 따라온다", function()
         local db = InitWith(Profile());
         DebindPrivate.RenameSwitch("$state1", "$burst");
-        local druid = db.shared.classes.DRUID[0][1];
+        local druid = db.layers.account.DRUID[0][1];
         check(druid.conditions["$burst"] == false,
             "다른 직업 레이어의 조건이 안 따라왔다");
         check(druid.conditions["$state1"] == nil, "옛 조건이 남았다");
         -- 지금 안 도는 전문화의 레이어. 여기가 빠지면 전문화를 바꾼 날에야 끊긴 것이 보인다.
-        check(db.shared.classes.DRUID[2][1].conditions["$burst"] == true,
+        check(db.layers.account.DRUID[2][1].conditions["$burst"] == true,
             "지금 안 도는 전문화 레이어의 조건이 안 따라왔다");
-        local alt = db.characters[ALT].layers[0][1];
+        local alt = db.layers[ALT].PRIEST[0][1];
         check(alt.value == "$burst", "다른 캐릭터의 켜기 액션이 안 따라왔다");
     end);
 
-    -- **이 캐릭터의 항목은 계정 표에 아직 안 붙어 있을 수 있다.** 내용이 생겨야 붙이므로
-    -- (`CleanUpDB`의 게으른 생성), 캐릭터 레이어에 방금 만든 액션은 `db.characters` 어디에도
-    -- 없고 `db.char`에만 있다. 거기를 안 훑으면 **지금 화면에 보이는 바로 그 액션**이 개명에서
-    -- 빠진다.
+    -- **This character's layers may not be attached to the account table yet.** They are attached
+    -- once they hold something (lazy creation, `CleanUpDB`), so an action just made on a character
+    -- layer is nowhere in `db.layers` and only in `db.charLayers`. A walk that skips it leaves out
+    -- **the very action on screen** from the rename.
     test("아직 계정 표에 안 붙은 이 캐릭터의 레이어까지 따라온다", function()
         local db = InitWith(Profile());
-        local charEntry = DebindPrivate.db.char;
-        for _, entry in pairs(db.characters) do
-            check(entry ~= charEntry, "전제가 깨졌다 - 항목이 이미 계정 표에 붙어 있다");
+        local charLayers = DebindPrivate.db.charLayers;
+        for _, classes in pairs(db.layers) do
+            check(classes ~= charLayers, "전제가 깨졌다 - 레이어가 이미 계정 표에 붙어 있다");
         end
-        charEntry.layers[0] = {
+        charLayers[Constants.PLAYER_CLASS][0] = {
             { type = Constants.SPELL, value = 3, key = "F6", seq = 1,
                 conditions = { ["$state1"] = true } },
         };
 
         DebindPrivate.RenameSwitch("$state1", "$burst");
 
-        local action = charEntry.layers[0][1];
+        local action = charLayers[Constants.PLAYER_CLASS][0][1];
         check(action.conditions["$burst"] == true,
             "안 붙은 항목의 조건이 안 따라왔다 - 지금 보고 있는 액션이 조용히 끊긴다");
         check(action.conditions["$state1"] == nil, "옛 조건이 남았다");
@@ -225,7 +236,7 @@ return function(DebindPrivate)
     --- (`Legacy.lua`). 그러니 이 꼴은 이미 사용자 프로필에 들어 있다.
     local function ClickBody(body)
         local db = Profile();
-        table.insert(db.shared.GENERAL,
+        table.insert(db.layers.account.GENERAL[0],
             { type = Constants.MACROTEXT, key = "F8", seq = 1, value = body });
         return InitWith(db);
     end
@@ -258,8 +269,8 @@ return function(DebindPrivate)
     test("다른 스위치의 계산식이 따라온다", function()
         local db = InitWith(Profile());
         DebindPrivate.RenameSwitch("$state1", "$burst");
-        check(db.switches["$state2"].expr == "[$burst] [combat]",
-            "계산식이 " .. tostring(db.switches["$state2"].expr) .. "로 남았다");
+        check(Defs(db)["$state2"].expr == "[$burst] [combat]",
+            "계산식이 " .. tostring(Defs(db)["$state2"].expr) .. "로 남았다");
     end);
 
     -- 참조는 아니지만 이름으로 앉아 있는 다섯 번째 자리. 안 옮기면 "기억하기" 스위치가
@@ -279,9 +290,9 @@ return function(DebindPrivate)
     -- `resetValue`에서 값을 다시 계산해서, 지금 켜져 있는 것이 개명 부작용으로 꺼진다.
     test("켜져 있는 값은 개명에 안 흔들린다", function()
         InitWith(Profile());
-        DebindPrivate.Switches["$state1"].value = true;
+        DebindPrivate.SetSwitchValue("$state1", true);
         DebindPrivate.RenameSwitch("$state1", "$burst");
-        check(DebindPrivate.Switches["$burst"].value == true,
+        check(DebindPrivate.GetSwitchValue("$burst") == true,
             "개명이 켜져 있던 스위치를 껐다");
     end);
 
@@ -298,7 +309,7 @@ return function(DebindPrivate)
         DebindPrivate.RenameSwitch("$state1", "$burst");
         DebindPrivate.ApplySwitchResets();
 
-        check(DebindPrivate.Switches["$burst"].value == true,
+        check(DebindPrivate.GetSwitchValue("$burst") == true,
             "개명 다음 리빌드가 켜져 있던 스위치를 껐다");
     end);
 
@@ -312,7 +323,7 @@ return function(DebindPrivate)
     test("두던 대로인 스위치는 캐릭터가 값을 기억한다", function()
         InitWith(Profile());
         DebindPrivate.SetSwitchValue("$state1", true);
-        check(DebindPrivate.Switches["$state1"].value == true, "값이 안 켜졌다");
+        check(DebindPrivate.GetSwitchValue("$state1") == true, "값이 안 켜졌다");
         check(DebindPrivate.db.char.switches["$state1"] == true,
             "기억을 안 남겼다 - 다음 로드에 도로 꺼진다");
     end);
@@ -326,7 +337,7 @@ return function(DebindPrivate)
     test("제한 환경의 되보고도 값을 캐릭터에 쓴다", function()
         InitWith(Profile());
         local options = DebindPrivate.Switches["$state1"];
-        check(options.value ~= true, "전제가 깨졌다 - 시작부터 켜져 있다");
+        check(DebindPrivate.GetSwitchValue("$state1") ~= true, "전제가 깨졌다 - 시작부터 켜져 있다");
 
         DebindPrivate.OnSwitchChanged("$state1", true);
         check(frames.drainTimers() > 0, "미러가 아예 예약되지 않았다");
@@ -335,7 +346,7 @@ return function(DebindPrivate)
             "이 캐릭터에 안 쓰였다");
         -- 정의는 계정 전체가 나눠 쓴다. 여기에 값이 남으면 다음 캐릭터가 그걸 물려받는다.
         check(options.savedValue == nil, "정의에도 값이 남았다");
-        check(options.value == true, "창이 읽는 값이 안 따라왔다");
+        check(DebindPrivate.GetSwitchValue("$state1") == true, "창이 읽는 값이 안 따라왔다");
     end);
 
     -- **기억은 사람이 손으로 둔 값이다.** 계산식이 낸 값이 여기 앉으면, 그 값이 "두던 대로"인
@@ -351,7 +362,7 @@ return function(DebindPrivate)
         check(DebindPrivate.db.char.switches["$state2"] == nil,
             "계산식이 낸 값이 기억에 앉았다");
         -- 창이 읽는 값은 따라와야 한다. 둘이 한 번의 쓰기라서 같이 막히면 이 검사가 잡는다.
-        check(DebindPrivate.Switches["$state2"].value == true, "정의의 값이 안 따라왔다");
+        check(DebindPrivate.GetSwitchValue("$state2") == true, "정의의 값이 안 따라왔다");
     end);
 
     ---------------------------------------------------------------------------
@@ -377,8 +388,7 @@ return function(DebindPrivate)
 
     test("우리가 밀어 넣은 값이 되돌아온 것은 안 적는다", function()
         InitWith(Profile());
-        local options = DebindPrivate.Switches["$state1"];
-        options.value = true;
+        DebindPrivate.SetSwitchValue("$state1", true);
 
         local said = CaptureMessages(function()
             DebindPrivate.OnSwitchChanged("$state1", true);
@@ -390,7 +400,7 @@ return function(DebindPrivate)
 
     test("사람이 넘긴 수동 스위치는 적는다", function()
         InitWith(Profile());
-        DebindPrivate.Switches["$state1"].value = false;
+        DebindPrivate.SetSwitchValue("$state1", false);
 
         local said = CaptureMessages(function()
             DebindPrivate.OnSwitchChanged("$state1", true);
@@ -404,7 +414,7 @@ return function(DebindPrivate)
 
     test("계산식 스위치는 값이 움직여도 안 적는다", function()
         InitWith(Profile());
-        DebindPrivate.Switches["$state2"].value = false;
+        DebindPrivate.SetSwitchValue("$state2", false);
 
         local said = CaptureMessages(function()
             DebindPrivate.OnSwitchChanged("$state2", true);
@@ -428,7 +438,7 @@ return function(DebindPrivate)
             check(not ok, "매크로에 칠 수 없는 이름 " .. bad .. "을 받았다");
             check(reason == "SWITCH_NAME_ERROR_INVALID", "이유가 " .. tostring(reason));
         end
-        check(db.switches["$state1"] ~= nil, "거절해놓고 정의를 옮겼다");
+        check(Defs(db)["$state1"] ~= nil, "거절해놓고 정의를 옮겼다");
         check(General(db)[1].conditions["$state1"] == true, "거절해놓고 조건을 옮겼다");
     end);
 
@@ -437,7 +447,7 @@ return function(DebindPrivate)
         local ok, reason = DebindPrivate.RenameSwitch("$state1", "$state2");
         check(not ok, "두 스위치가 한 이름을 갖게 뒀다");
         check(reason == "SWITCH_NAME_ERROR_TAKEN", "이유가 " .. tostring(reason));
-        check(db.switches["$state2"].mode == MODES.EXPR, "남의 정의를 덮어썼다");
+        check(Defs(db)["$state2"].mode == MODES.EXPR, "남의 정의를 덮어썼다");
         check(General(db)[3].value == "$state1", "거절해놓고 액션을 옮겼다");
     end);
 
@@ -459,7 +469,7 @@ return function(DebindPrivate)
     test("지워도 참조는 그 자리에 남는다", function()
         local db = InitWith(Profile());
         check(DebindPrivate.DeleteSwitch("$state1"), "지우기가 거절됐다");
-        check(db.switches["$state1"] == nil, "정의가 안 지워졌다");
+        check(Defs(db)["$state1"] == nil, "정의가 안 지워졌다");
         check(General(db)[1].conditions["$state1"] == true, "조건까지 지웠다");
         check(General(db)[3].value == "$state1", "액션의 대상까지 지웠다");
     end);
@@ -647,7 +657,8 @@ return function(DebindPrivate)
     -- 목록에 같은 줄이 두 번 서고 집계도 부풀려진다.
     test("한 액션이 두 자리에서 불러도 한 번만 센다", function()
         local db = Profile();
-        db.shared.GENERAL[#db.shared.GENERAL + 1] = {
+        local general = db.layers.account.GENERAL[0];
+        general[#general + 1] = {
             type = Constants.MACROTEXT, key = "F8", seq = 1,
             conditions = { ["$state1"] = true },
             value = "/cast [$state1] Foo",
@@ -671,9 +682,9 @@ return function(DebindPrivate)
     test("붙박이 다섯 밖의 이름으로도 만들어진다", function()
         local db = InitWith(Profile());
         check(DebindPrivate.CreateSwitch("$newname"), "다섯 밖의 이름이 거절됐다");
-        check(db.switches["$newname"] ~= nil, "정의가 안 앉았다");
-        check(db.switches["$newname"].mode == MODES.MANUAL,
-            "기본값이 안 들어갔다: " .. tostring(db.switches["$newname"].mode));
+        check(Defs(db)["$newname"] ~= nil, "정의가 안 앉았다");
+        check(Defs(db)["$newname"].mode == MODES.MANUAL,
+            "기본값이 안 들어갔다: " .. tostring(Defs(db)["$newname"].mode));
     end);
 
     -- 씨앗에 둘이 있고 여덟을 더 만든다. 상한이 다시 서면 여섯째에서 걸린다.
@@ -685,7 +696,7 @@ return function(DebindPrivate)
         local names = DebindPrivate.GetSwitchNames();
         check(#names == 10, "정의가 " .. #names .. "개다");
         for i = 1, 8 do
-            check(db.switches["$extra" .. i] ~= nil, "$extra" .. i .. "이 안 남았다");
+            check(Defs(db)["$extra" .. i] ~= nil, "$extra" .. i .. "이 안 남았다");
         end
     end);
 
@@ -835,11 +846,11 @@ return function(DebindPrivate)
         InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", ClassKey(2), MODES.MANUAL, true);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == false, "1특성에서 벌써 켜졌다");
+        check(DebindPrivate.GetSwitchValue("$state1") == false, "1특성에서 벌써 켜졌다");
 
         SetSpec(2);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == true,
+        check(DebindPrivate.GetSwitchValue("$state1") == true,
             "2특성으로 들어왔는데 '항상 켜짐'이 안 걸렸다");
     end);
 
@@ -849,11 +860,11 @@ return function(DebindPrivate)
         InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", nil, MODES.MANUAL, true);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == true, "시작값이 안 걸렸다");
+        check(DebindPrivate.GetSwitchValue("$state1") == true, "시작값이 안 걸렸다");
 
         DebindPrivate.SetSwitchValue("$state1", false);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == false,
+        check(DebindPrivate.GetSwitchValue("$state1") == false,
             "리빌드가 사용자가 끈 스위치를 도로 켰다");
     end);
 
@@ -869,7 +880,7 @@ return function(DebindPrivate)
         local before = DebindPrivate.switchValueSerial;
         DebindPrivate.SetSwitchAnswer("$state1", nil, MODES.MANUAL, true);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == true, "시작값이 안 걸렸다");
+        check(DebindPrivate.GetSwitchValue("$state1") == true, "시작값이 안 걸렸다");
         check(DebindPrivate.switchValueSerial ~= before,
             "값이 켜졌는데 카운터가 그대로다 - 탭이 옛 값을 계속 그린다");
     end);
@@ -896,7 +907,7 @@ return function(DebindPrivate)
         InitWith(Profile());
         DebindPrivate.Switches["$state1"].resetValue = false;
         DebindPrivate.SetSwitchValue("$state1", true);
-        check(DebindPrivate.Switches["$state1"].value == true, "값이 안 켜졌다");
+        check(DebindPrivate.GetSwitchValue("$state1") == true, "값이 안 켜졌다");
         check(DebindPrivate.db.char.switches["$state1"] == true,
             "기억을 안 남겼다 - 강제된 레이어를 떠나면 돌아갈 값이 없다");
     end);
@@ -907,17 +918,17 @@ return function(DebindPrivate)
         DebindPrivate.SetSwitchAnswer("$state1", ClassKey(2), MODES.MANUAL, false);
         DebindPrivate.SetSwitchValue("$state1", true);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == true, "1특성에서 안 켜져 있다");
+        check(DebindPrivate.GetSwitchValue("$state1") == true, "1특성에서 안 켜져 있다");
 
         SetSpec(2);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == false, "2특성에서 안 꺼졌다");
+        check(DebindPrivate.GetSwitchValue("$state1") == false, "2특성에서 안 꺼졌다");
         check(DebindPrivate.db.char.switches["$state1"] == true,
             "강제된 값이 기억을 덮었다 - 돌아갈 곳이 없어졌다");
 
         SetSpec(1);
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == true,
+        check(DebindPrivate.GetSwitchValue("$state1") == true,
             "돌아왔는데 켜져 있지 않다");
     end);
 
@@ -930,7 +941,7 @@ return function(DebindPrivate)
 
         DebindPrivate.Switches["$state1"].resetValue = false;
         DebindPrivate.ApplySwitchResets();
-        check(DebindPrivate.Switches["$state1"].value == false, "시작값이 안 걸렸다");
+        check(DebindPrivate.GetSwitchValue("$state1") == false, "시작값이 안 걸렸다");
 
         -- 제한 환경이 방금 밀어넣은 값을 그대로 돌려준다.
         DebindPrivate.SetSwitchValue("$state1", false);
@@ -971,8 +982,7 @@ return function(DebindPrivate)
         DebindPrivate.SetSwitchExpression("$state1", CharKey(1), "[combat]");
         check(DebindPrivate.RemoveSwitchOverride("$state1", CharKey(1)), "제거가 거절됐다");
 
-        check(DebindPrivate.Switches["$state1"].overrides == nil,
-            "빈 행이 남았다");
+        check(_G.DebindVars.switches[ME] == nil, "빈 칸이 남았다");
         check(DebindPrivate.GetSwitchAnswerAt("$state1", CharKey(1)) == nil,
             "지운 행이 아직 답을 한다");
     end);
@@ -1009,8 +1019,8 @@ return function(DebindPrivate)
         check(expr == "[combat]", "식이 " .. tostring(expr) .. "로 남았다");
     end);
 
-    -- 오버라이드가 정의 안에 사는 이유 하나(§4-7-1). 레이어 쪽에 뒀으면 개명이 훑을 자리가
-    -- 하나 더 늘고, 탭 복사가 오버라이드를 데려가야 하는지를 물어야 했다.
+    -- **The rows are filed by the switch's name**, in cells of their own, so a rename has to re-key
+    -- every cell. One left behind holds a row under a name nothing defines.
     test("개명이 오버라이드를 데려간다", function()
         local db = InitWith(Profile());
         DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, true);
@@ -1018,7 +1028,9 @@ return function(DebindPrivate)
 
         local _, resetValue, _, layerKey = DebindPrivate.ResolveSwitchAnswer("$burst");
         check(layerKey == CharKey(1) and resetValue == true, "오버라이드가 안 따라왔다");
-        check(db.switches["$burst"].overrides[CharKey(1)] ~= nil, "저장에 안 앉았다");
+        local cell = db.switches[ME][Constants.PLAYER_CLASS][1];
+        check(cell["$burst"] ~= nil, "저장에 안 앉았다");
+        check(cell["$state1"] == nil, "옛 이름의 행이 남았다");
     end);
 
     -- **오버라이드에도 계산식이 산다.** 뿌리의 식만 훑으면 탭에서만 계산하는 스위치가
@@ -1032,9 +1044,8 @@ return function(DebindPrivate)
 
         DebindPrivate.RenameSwitch("$state1", "$burst");
 
-        check(db.switches["$state2"].overrides[key].expr == "[$burst] [stealth]",
-            "오버라이드의 식이 " .. tostring(db.switches["$state2"].overrides[key].expr)
-                .. "로 남았다");
+        local row = db.switches.account[Constants.PLAYER_CLASS][1]["$state2"];
+        check(row.expr == "[$burst] [stealth]", "오버라이드의 식이 " .. tostring(row.expr) .. "로 남았다");
     end);
 
     -- 지울 때 묻는 문장이 드는 두 번째 숫자. 정의는 계정 것인데 목록은 이 캐릭터가 닿는
@@ -1050,6 +1061,97 @@ return function(DebindPrivate)
         check(DebindPrivate.CountSwitchOverrides("$nosuch") == 0, "없는 이름이 세어졌다");
     end);
 
+    --- **A new world carries no value over.** `BindDerivedTables` runs again when the pre-rename
+    --- import swaps the tables out, and a computed switch has no answer to reset to, so a value
+    --- left from before would stand until its next press.
+    test("reloading the tables drops the values in effect", function()
+        InitWith(Profile());
+        DebindPrivate.SetSwitchValue("$state2", true);
+        DebindPrivate.BindDerivedTables();
+        check(DebindPrivate.GetSwitchValue("$state2") == false,
+            "a computed switch kept the value it had before the tables were swapped");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Rows waiting for their character's class (`"*"`, `reshaping-stored-layers.md` §1)
+    --
+    -- The step that gave overrides their own place files a character's rows under its class, and
+    -- an alt whose only content was an override has no entry to read one from. Its rows wait under
+    -- `"*"`, where nothing applies them, until it logs in.
+    ---------------------------------------------------------------------------
+
+    --- A profile at the current version with rows of `ME` waiting, one of them under a name the
+    --- class cell already holds.
+    local function WaitingProfile()
+        local db = Profile();
+        db.switches[ME] = {
+            ["*"] = {
+                [1] = {
+                    ["$state1"] = { mode = MODES.MANUAL, resetValue = true },
+                    ["$state2"] = { mode = MODES.MANUAL, resetValue = false },
+                },
+            },
+            [Constants.PLAYER_CLASS] = {
+                [1] = { ["$state2"] = { mode = MODES.EXPR, expr = "[combat]" } },
+            },
+        };
+        return db;
+    end
+
+    test("a waiting row moves under the class when its character logs in", function()
+        local db = InitWith(WaitingProfile());
+        local mine = db.switches[ME];
+        check(mine["*"] == nil, "the waiting cell is still there");
+        check(mine[Constants.PLAYER_CLASS][1]["$state1"].resetValue == true,
+            "the waiting row did not move under the class");
+        local _, resetValue, _, key = DebindPrivate.ResolveSwitchAnswer("$state1");
+        check(key == CharKey(1) and resetValue == true, "the healed row does not answer");
+    end);
+
+    test("a row already under the class wins over a waiting one", function()
+        local db = InitWith(WaitingProfile());
+        check(db.switches[ME][Constants.PLAYER_CLASS][1]["$state2"].mode == MODES.EXPR,
+            "the waiting row overwrote the one under the class");
+    end);
+
+    test("another character's waiting rows are left waiting", function()
+        local db = WaitingProfile();
+        db.switches[ALT] = db.switches[ME];
+        db.switches[ME] = nil;
+        db = InitWith(db);
+        check(db.switches[ALT]["*"] ~= nil, "someone else's rows were moved");
+    end);
+
+    test("a rename reaches a waiting row", function()
+        local db = WaitingProfile();
+        db.switches[ALT] = db.switches[ME];
+        db.switches[ME] = nil;
+        db = InitWith(db);
+        DebindPrivate.RenameSwitch("$state1", "$burst");
+        local cell = db.switches[ALT]["*"][1];
+        check(cell["$burst"] ~= nil and cell["$state1"] == nil,
+            "the waiting row kept the old name");
+    end);
+
+    test("a delete reaches a waiting row and leaves no empty table", function()
+        local db = WaitingProfile();
+        db.switches[ALT] = { ["*"] = { [2] = { ["$state1"] = { mode = MODES.MANUAL } } } };
+        db = InitWith(db);
+        DebindPrivate.DeleteSwitch("$state1");
+        check(db.switches[ALT] == nil, "the waiting row or its empty tables stayed");
+    end);
+
+    --- **The entry names the rows.** Whoever reads `switches[guid]` from another character has only
+    --- `characters[guid]` to tell whose they are, and the class in it is what a later reshape files
+    --- them under.
+    test("a character whose only content is an override keeps its entry", function()
+        local db = InitWith(Profile());
+        DebindPrivate.SetSwitchAnswer("$state1", CharKey(1), MODES.MANUAL, true);
+        DebindPrivate.CleanUpDB();
+        check(db.characters[ME] == DebindPrivate.db.char,
+            "the override stayed without the entry that names it");
+    end);
+
     ---------------------------------------------------------------------------
     -- 대소문자
     ---------------------------------------------------------------------------
@@ -1057,8 +1159,8 @@ return function(DebindPrivate)
     test("만들 때 이름이 소문자로 내려간다", function()
         local db = InitWith(Profile());
         check(DebindPrivate.CreateSwitch("$ZZZ"), "만들기가 거절됐다");
-        check(db.switches["$zzz"] ~= nil, "소문자 이름으로 안 앉았다");
-        check(db.switches["$ZZZ"] == nil, "친 대로 앉았다 - 대소문자만 다른 둘이 생긴다");
+        check(Defs(db)["$zzz"] ~= nil, "소문자 이름으로 안 앉았다");
+        check(Defs(db)["$ZZZ"] == nil, "친 대로 앉았다 - 대소문자만 다른 둘이 생긴다");
     end);
 
     -- **The lower-cased name goes back to whoever asked for it.** Two of the three places a switch
@@ -1084,15 +1186,15 @@ return function(DebindPrivate)
     test("이름을 바꿀 때도 소문자로 내려간다", function()
         local db = InitWith(Profile());
         check(DebindPrivate.RenameSwitch("$state1", "$Burst"), "개명이 거절됐다");
-        check(db.switches["$burst"] ~= nil, "소문자 이름으로 안 앉았다");
-        check(db.switches["$Burst"] == nil, "친 대로 앉았다");
+        check(Defs(db)["$burst"] ~= nil, "소문자 이름으로 안 앉았다");
+        check(Defs(db)["$Burst"] == nil, "친 대로 앉았다");
     end);
 
     test("대소문자만 바꾸는 개명은 아무 일도 아니다", function()
         local db = InitWith(Profile());
         check(DebindPrivate.RenameSwitch("$state1", "$STATE1"),
             "자기 자신으로 바꾸는 것이 '이미 있음'으로 거절됐다");
-        check(db.switches["$state1"] ~= nil, "정의가 사라졌다");
+        check(Defs(db)["$state1"] ~= nil, "정의가 사라졌다");
     end);
 
     return T;

@@ -183,8 +183,11 @@ return function(DebindPrivate, DebindStorage)
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [ME] = { layers = {}, switches = {} } },
+            layers = {
+                account = { GENERAL = { [0] = {} } },
+                [ME] = { [Constants.PLAYER_CLASS] = {} },
+            },
+            characters = { [ME] = { switches = {} } },
             migrated = {},
             switches = {},
         };
@@ -210,8 +213,11 @@ return function(DebindPrivate, DebindStorage)
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [ME] = { layers = {}, switches = {} } },
+            layers = {
+                account = { GENERAL = { [0] = {} } },
+                [ME] = { [Constants.PLAYER_CLASS] = {} },
+            },
+            characters = { [ME] = { switches = {} } },
             migrated = {},
             switches = {},
         };

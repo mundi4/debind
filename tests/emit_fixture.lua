@@ -57,17 +57,20 @@ return function(DebindPrivate, shim)
         world.spells[83242] = { name = "Call Pet 2" };
     end
 
-    --- `InitDB` reads exactly this shape. `switches` is account-wide and sits beside `shared`.
+    --- `InitDB` reads exactly this shape. `switches` is account-wide and sits beside `layers`.
     function M.profile()
         return {
             dbver = Constants.DB_VERSION,
-            shared = {
-                GENERAL = M.generalLayer(),
-                classes = { DRUID = { [0] = M.classLayer() } },
+            layers = {
+                account = {
+                    GENERAL = { [0] = M.generalLayer() },
+                    DRUID = { [0] = M.classLayer() },
+                },
+                [GUID] = { [Constants.PLAYER_CLASS] = { [1] = M.characterLayer() } },
             },
-            characters = { [GUID] = { layers = { [1] = M.characterLayer() }, switches = {} } },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
-            switches = {
+            switches = { account = { GENERAL = { [0] = {
                 --- Manual: its stored value is put back into `States` at every rebuild.
                 ["$burst"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
                 --- Computed: emits a `SwitchExpressions` entry and a line in the state loop.
@@ -75,7 +78,7 @@ return function(DebindPrivate, shim)
                 --- Computed **from a macro conditional the parser can read**, which is the branch
                 --- that turns the expression into a macro text binding instead of a fixed string.
                 ["$echo"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@$burst][$burst]" },
-            },
+            } } } },
         };
     end
 

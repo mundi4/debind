@@ -28,8 +28,11 @@ return function(DebindPrivate)
     local function StoredProfile()
         return {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { ["Player-1-TESTGUID"] = { layers = {}, switches = {} } },
+            layers = {
+                account = { GENERAL = { [0] = {} } },
+                ["Player-1-TESTGUID"] = { [Constants.PLAYER_CLASS] = {} },
+            },
+            characters = { ["Player-1-TESTGUID"] = { switches = {} } },
             migrated = {},
             switches = {},
         };

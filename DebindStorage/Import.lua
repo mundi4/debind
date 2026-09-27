@@ -57,7 +57,7 @@ local MAX_SPEC                = 4;
 
 --- The classes somebody can play on this client, `classFile` -> id (`Client.PlayableClasses`).
 ---
---- **A descriptor's class is a key straight into storage** (`shared.classes[class]`), so one that
+--- **A descriptor's class is a key straight into storage** (`layers.account[class]`), so one that
 --- no character here can be would stand up a table no screen can reach and nothing ever clears --
 --- `CleanUpDB` walks the eleven loaded layers and would never see it. A made-up name is one; a death
 --- knight's layer on camelot is the other (2026-09-25, owner).
@@ -154,8 +154,8 @@ function DebindStorage.ForEachPayloadLayer(payload, fn)
 end
 
 --- Does this profile have a place for that address? Returns `scope, class, spec` -- the three the
---- profile is keyed by (`shared.GENERAL`, `shared.classes[class][spec]`,
---- `characters[guid].layers[spec]`) -- or nil.
+--- profile is keyed by (`layers.account.GENERAL[0]`, `layers.account[class][spec]`,
+--- `layers[guid][class][spec]`) -- or nil.
 ---
 --- **A layer is not something to translate.** Both profiles use the same coordinate system: one
 --- general layer, then class by spec, then character by spec. What differs between two accounts is
@@ -164,14 +164,14 @@ end
 --- back, no dropping the spec, no swapping the class for the reader's. `building-export-import.md`.
 ---
 --- The cost is that a mage's string read by a druid lands somewhere this session cannot see: the
---- druid's `LayerArray` has no `classes.MAGE` in it, so nothing about it is on screen until they
+--- druid's `LayerArray` has no mage layer in it, so nothing about it is on screen until they
 --- log the mage. That is the answer, not a gap. The two alternatives were putting a mage's spells
 --- in "all my druids" -- where the reader is asked a question they cannot answer, every line red
 --- because they cannot learn any of it -- and refusing the string outright.
 ---
 --- **The one real translation is the character.** "Their character" has no meaning here, so a
 --- character-scoped layer means *this* character at that spec. A spec this character does not have
---- is the only address with nowhere to go: `characters[guid].layers[4]` on a three-spec class is a
+--- is the only address with nowhere to go: `layers[guid][class][4]` on a three-spec class is a
 --- table nothing will ever read and nothing will ever clean up. Answering nil is what gets it
 --- counted and said out loud instead.
 function DebindStorage.ImportAddress(scope, class, spec)
@@ -180,7 +180,7 @@ function DebindStorage.ImportAddress(scope, class, spec)
     end
 
     -- **A slot number, not just a number in range.** `1.5` passes all three comparisons and becomes
-    -- `shared.classes.DRUID[1.5]` - a table no `GetProfileLayer` reads and `CleanUpDB` never walks,
+    -- `layers.account.DRUID[1.5]` - a table no `GetProfileLayer` reads and `CleanUpDB` never walks,
     -- so every paste of such a string leaves one more behind in the account file. That is precisely
     -- the outcome this function exists to refuse. NaN is worse: **every** comparison against it is
     -- false, so it passes the range check and raises where the value is used as an index, halfway

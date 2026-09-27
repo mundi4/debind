@@ -113,15 +113,16 @@ local WIDTH              = 226;
 -- 무엇을 닫았는지
 --------------------------------------------------------------------------------
 
---- 닫은 사람은 다시 안 본다. 표는 `db.global`에 있다 - 캐릭터가 아니라 **읽은 사람**의
---- 것이라서, 알트로 창을 열 때마다 같은 말을 다시 듣게 두지 않는다.
+--- Whoever closed a tip does not see it again. The table is account-wide in `DebindUIVars`, not
+--- per character: it belongs to the person reading, so an alt opening the window is not told the
+--- same thing again.
 ---
---- 키는 부르는 쪽이 준다(`seenKey`). 안 주면 기록하지 않는다 - 커서가 올라올 때만 뜨고
---- 커서를 떼면 사라지는 말풍선에는 닫는 버튼도, 닫았다는 사실도 없다.
+--- The caller gives the key (`seenKey`). Without one nothing is recorded: a bubble that shows only
+--- while the cursor is over something has no close button and nothing to remember.
 local function SeenTable()
-	local db = DebindPrivate.db.global;
-	db.tipsSeen = db.tipsSeen or {};
-	return db.tipsSeen;
+	local vars = DebindPrivate.UIVars;
+	vars.tipsSeen = vars.tipsSeen or {};
+	return vars.tipsSeen;
 end
 
 function HelpTip.WasSeen(seenKey)
@@ -138,7 +139,7 @@ function HelpTip.ForgetSeen(seenKey)
 	if (seenKey) then
 		SeenTable()[seenKey] = nil;
 	else
-		DebindPrivate.db.global.tipsSeen = nil;
+		DebindPrivate.UIVars.tipsSeen = nil;
 	end
 end
 

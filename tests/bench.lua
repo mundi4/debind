@@ -152,7 +152,7 @@ return function(DebindPrivate)
     -- focus tier and the two [none held] tiers can never cover one another.
     _G.DebindVars = {
         dbver = Constants.DB_VERSION,
-        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        layers = { account = { GENERAL = { [0] = {} } } },
         characters = {},
         migrated = {},
         switches = {},

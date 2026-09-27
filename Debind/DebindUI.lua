@@ -2742,14 +2742,14 @@ function DebindFrameMixin:OnLoad()
 		-- because the load path below is where that anchor was set.
 		local x, y = self:GetLeft(), self:GetTop();
 		AnchorTopLeft(x, y);
-		DebindPrivate.db.global.ui.main = { x = x, y = y };
+		DebindPrivate.UIVars.main = DebindPrivate.UIVars.main or {};
+		DebindPrivate.UIVars.main.pos = { x = x, y = y };
 
 		-- 이 창의 새 자리에 따라 매크로 편집창이 설 쪽이 바뀐다.
 		DebindMacroFrame:UpdateSide();
 	end);
 
-	DebindPrivate.db.global.ui = DebindPrivate.db.global.ui or {};
-	local pos = DebindPrivate.db.global.ui.main;
+	local pos = DebindPrivate.UIVars.main and DebindPrivate.UIVars.main.pos;
 	if (pos) then
 		AnchorTopLeft(pos.x, pos.y);
 	else
@@ -3298,10 +3298,10 @@ local SORT_MENU = {
 local _sortMode = "name";
 
 function DebindLayerPanelMixin:InitializeSortDropdown()
-	local ui = DebindPrivate.db.global.ui or {};
-	DebindPrivate.db.global.ui = ui;
-	if (SORT_COMPARATORS[ui.binSort]) then
-		_sortMode = ui.binSort;
+	local main = DebindPrivate.UIVars.main or {};
+	DebindPrivate.UIVars.main = main;
+	if (SORT_COMPARATORS[main.binSort]) then
+		_sortMode = main.binSort;
 	end
 
 	self.SortDropdown:SetText(LLL["SORT"]);
@@ -3315,7 +3315,7 @@ function DebindLayerPanelMixin:InitializeSortDropdown()
 						return;
 					end
 					_sortMode = mode;
-					DebindPrivate.db.global.ui.binSort = mode;
+					main.binSort = mode;
 					self:Refresh(false);
 				end);
 		end

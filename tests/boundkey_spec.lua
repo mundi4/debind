@@ -53,10 +53,13 @@ return function(DebindPrivate, _, ctx)
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [ME] = { layers = {}, switches = {} } },
+            layers = {
+                account = { GENERAL = { [0] = actions } },
+                [ME] = { [Constants.PLAYER_CLASS] = {} },
+            },
+            characters = { [ME] = { switches = {} } },
             migrated = {},
-            switches = switches,
+            switches = { account = { GENERAL = { [0] = switches or {} } } },
         };
         DebindPrivate.InitDB();
         return Rebuild();

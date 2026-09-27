@@ -33,8 +33,8 @@ return function(DebindPrivate)
     --- DB가 서 있어야 한다.
     _G.DebindVars = {
         dbver = Constants.DB_VERSION,
-        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
-        characters = { ["Player-1-TESTGUID"] = { layers = {}, switches = {} } },
+        layers = { account = { GENERAL = { [0] = {} } } },
+        characters = { ["Player-1-TESTGUID"] = { switches = {} } },
         migrated = {},
         switches = {},
     };

@@ -84,127 +84,127 @@ local function RepairLegacyClickTargets(layerTbl)
     end
 end
 
---- Copies an old per-spec table (`{[0]=…, [1]=…}`) and brings it up to the current version.
+--- ## The old data rides the whole ladder
 ---
---- **Imports arrive carrying their own version.** Raising them before they are attached is what
---- keeps two different versions from ever coexisting inside `characters`/`shared` (see the
---- `MigrateDB` comment in `Migration.lua`).
-local function ImportSpecTable(source, dbver)
-    if (source == nil) then
+--- Each share is laid out the way `DebindVars` stood at the rename, stamped with the `dbver` the old
+--- file carries, and handed to `MigrateDB` like any stored profile. **This file knows that one
+--- shape and nothing later.** It used to call single steps of the ladder by hand, and every change
+--- to the stored shape left one of them missing here until somebody noticed (`options` and the
+--- switch definitions both arrived that way). Now a change goes into the ladder and reaches this
+--- path with nothing to remember.
+---
+--- **What is taken is the pre-rename addon's own keys and nothing else.** Its last build wrote
+--- `GENERAL`, one spec table per class, `customStates`, `options`, `ui`, `spellPickerUI` and
+--- `spellPicker` on the account and spec tables plus `CustomTargets` on the character. The three
+--- that only the window read (window positions and the picker's filters) are left behind with
+--- anything else in those files: they cost a drag and a click to set again, and a key the old
+--- addon never wrote was never ours to read.
+
+--- A copy of spec 0..5 of an old spec table, or nil when there is none.
+local function CopySpecTable(source)
+    if (type(source) ~= "table") then
         return nil;
     end
-    local copy = CopyTable(source);
-    DebindPrivate.MigrateSpecTable(copy, dbver);
+    local copy = {};
     for spec = 0, 5 do
-        RepairLegacyClickTargets(copy[spec]);
+        if (type(source[spec]) == "table") then
+            copy[spec] = CopyTable(source[spec]);
+        end
     end
     return copy;
 end
 
---- Same, for a single layer array. Layer 1 (`GENERAL`) has no specs, so its shape differs.
-local function ImportLayer(source, dbver)
-    if (source == nil) then
-        return nil;
-    end
-    local copy = CopyTable(source);
-    DebindPrivate.MigrateLayer(copy, dbver);
-    RepairLegacyClickTargets(copy);
-    return copy;
+--- `db.layers[owner]`, made on the way down.
+local function OwnerLayersOf(db, owner)
+    db.layers[owner] = db.layers[owner] or {};
+    return db.layers[owner];
 end
 
---- Top-level keys whose shape we change, or that we drop on purpose. Everything else is carried
---- over untouched.
----
---- This is a deny list rather than an allow list because the import is **one-shot and
---- irreversible**: a key that is not named here is far more likely to be one we *forgot* than one
---- that was meant to be dropped. That is not hypothetical - the first version listed the keys to
---- copy by hand and lost `spellPicker` (the spell picker's per-tab filters) outright, because the
---- list was transcribed from a structure diagram that had already gone stale.
-local RESHAPED_KEYS = {
-    -- The container changes.
-    dbver         = true,
-    GENERAL       = true,
-    ui            = true,
-    spellPickerUI = true,
-    -- Already gone from the code - zero references left, so there is nothing to carry it into.
-    overviewui    = true,
-};
-
---- The account's share: `DebounceVars` -> `DebindVars.shared` plus the housekeeping tables.
----
---- **Runs exactly once**, guarded by `legacyAccountPulled` - otherwise a second character loading
---- the dummy for its own per-character data would resurrect shared bindings deleted in between.
-local function ImportAccount(db, old)
-    local dbver = old.dbver or 1;
-
-    if (old.GENERAL) then
-        db.shared.GENERAL = ImportLayer(old.GENERAL, dbver);
-    end
-
-    -- **The one enumeration of the client's classes** (`Constants.CLASS_IDS`). The loop that built
-    -- it stood here as well and the local below is what it was for: telling a class key in the old
-    -- table apart from the housekeeping keys sitting beside it.
-    local isClassKey = Constants.CLASS_IDS;
-    for class in pairs(isClassKey) do
-        if (old[class]) then
-            db.shared.classes[class] = ImportSpecTable(old[class], dbver);
-        end
-    end
-
-    -- Window positions were folded into one table.
-    local ui = {};
-    if (old.ui and old.ui.anchorPos) then
-        ui.main = CopyTable(old.ui.anchorPos);
-    end
-    if (old.spellPickerUI and old.spellPickerUI.pos) then
-        ui.spellPicker = CopyTable(old.spellPickerUI.pos);
-    end
-    if (next(ui) ~= nil) then
-        db.ui = ui;
-    end
-
-    -- Everything else verbatim: `options`, `customStates`, `spellPicker`, and whatever anyone adds
-    -- after this was written.
-    for key, value in pairs(old) do
-        if (not RESHAPED_KEYS[key] and not isClassKey[key]) then
-            db[key] = (type(value) == "table") and CopyTable(value) or value;
-        end
-    end
-
-    -- **The switch definitions arrive through that loop, and a copy is all it does.** Layers get
-    -- raised on the way in, each through `MigrateLayer` before it is attached; a definition is not
-    -- in a layer, so nothing above raises one. And nothing below will: this runs at PLAYER_LOGIN,
-    -- long after `MigrateDB` stamped `db.dbver` at the current version, so the ladder never comes
-    -- round again and the old shape would sit there being read as the new one.
-    --
-    -- **This character's entry goes with it**, because the step moves the remembered switch values
-    -- onto the characters and the account share is where the old ones ride in.
-    DebindPrivate.MigrateSwitches(db, dbver, DebindPrivate.db.char);
-
-    -- **`options` rides the loop above and a copy is all it does either**, so the same hole is
-    -- here: the excluded Blizzard unit frames arrive under the name the ladder folds away, and no
-    -- ladder will ever come round to fold them. Left alone, a reader who had taken those frames
-    -- out gets them taken over instead, and nothing on screen says why.
-    DebindPrivate.MigrateOptions(db);
-end
-
---- This character's share: `DebounceVarsPerChar` -> `DebindVars.characters[guid]`.
----
---- Nothing is written into `characters[guid]` here. Whether the entry gets attached at all is
---- decided by `CleanUpDB` from its contents (lazy creation), so an alt that never used a
---- character-specific binding - and therefore has only empty tables in the old file - still ends up
---- with no entry.
-local function ImportCharacter(charEntry, old)
-    local dbver = old.dbver or 1;
-
-    local layers = ImportSpecTable(old, dbver);
-    if (layers) then
+--- Lays each spec list of `from` (`class -> spec -> actions`) over the same place in `into`. A spec
+--- the old file did not carry is left as it is.
+local function MergeLayers(into, from)
+    for class, specTbl in pairs(from or {}) do
+        into[class] = into[class] or {};
         for spec = 0, 5 do
-            if (layers[spec]) then
-                charEntry.layers[spec] = layers[spec];
+            if (specTbl[spec]) then
+                into[class][spec] = specTbl[spec];
             end
         end
     end
+end
+
+local function RepairAllClickTargets(layers)
+    for _, classes in pairs(layers or {}) do
+        for _, specTbl in pairs(classes) do
+            for spec = 0, 5 do
+                RepairLegacyClickTargets(specTbl[spec]);
+            end
+        end
+    end
+end
+
+--- The account's share, raised: `DebounceVars` laid out as a rename-era profile and run through
+--- `MigrateDB`.
+---
+--- **Runs exactly once**, guarded by `legacyAccountPulled` - otherwise a second character loading
+--- the dummy for its own per-character data would resurrect shared bindings deleted in between.
+---
+--- **The live `characters` goes in with it**, because the step that moves remembered switch values
+--- onto the characters hands them to every entry it finds, and the account share is where the old
+--- values ride in. Those entries are already in the current shape, so no other step touches them.
+local function ImportAccount(db, old)
+    local classes = {};
+    for class in pairs(Constants.CLASS_IDS) do
+        classes[class] = CopySpecTable(old[class]);
+    end
+
+    local profile = {
+        dbver = old.dbver or 1,
+        shared = {
+            GENERAL = type(old.GENERAL) == "table" and CopyTable(old.GENERAL) or nil,
+            classes = classes,
+        },
+        characters = db.characters,
+        customStates = type(old.customStates) == "table" and CopyTable(old.customStates) or nil,
+        options = type(old.options) == "table" and CopyTable(old.options) or nil,
+    };
+    DebindPrivate.MigrateDB(profile, DebindPrivate.db.char);
+    RepairAllClickTargets(profile.layers);
+
+    -- **Only what the old file had.** The ladder makes some tables whether or not there was
+    -- anything to raise (`layers.account`, `options`), so what is laid down is asked of the old
+    -- file, one layer at a time, and what it did not carry leaves the live one where it is.
+    MergeLayers(OwnerLayersOf(db, "account"), profile.layers.account);
+    if (type(old.customStates) == "table") then
+        db.switches = profile.switches;
+    end
+    if (type(old.options) == "table") then
+        db.options = profile.options;
+    end
+    -- **The higher of the two.** The ladder stamps every badge in old data as arrival 1 and sets
+    -- its own counter past it; the live one may still be at 1 on a profile made this session.
+    db.nextArrivalID = max(db.nextArrivalID or 1, profile.nextArrivalID or 1);
+end
+
+--- This character's share, raised the same way: `DebounceVarsPerChar` as a rename-era entry, with
+--- the class of the character logging in, which is whose file it is.
+---
+--- Nothing is written into `characters` or `layers` here. Whether either gets attached is decided
+--- by `CleanUpDB` from its contents (lazy creation), so an alt that never used a
+--- character-specific binding - and therefore has only empty tables in the old file - still ends up
+--- with nothing.
+local function ImportCharacter(old)
+    local guid = DebindPrivate.playerGUID;
+    local entry = {
+        class = Constants.PLAYER_CLASS,
+        layers = CopySpecTable(old),
+        CustomTargets = type(old.CustomTargets) == "table" and CopyTable(old.CustomTargets) or nil,
+    };
+    local profile = { dbver = old.dbver or 1, characters = { [guid] = entry } };
+    DebindPrivate.MigrateDB(profile, entry);
+    RepairAllClickTargets(profile.layers);
+
+    MergeLayers(DebindPrivate.db.charLayers, profile.layers[guid]);
 
     -- **Layers can be attached unconditionally; custom targets cannot.** The file header's argument
     -- for an unconditional import is that bindings can only be made through the main window, and the
@@ -214,8 +214,9 @@ local function ImportCharacter(charEntry, old)
     -- The gap is narrow: the import runs at login, so it only opens when the companion failed to
     -- load and the user played on anyway. Narrow is not none, and an overwrite here is silent and
     -- unrecoverable, so the newer value wins.
-    if (old.CustomTargets and charEntry.CustomTargets == nil) then
-        charEntry.CustomTargets = CopyTable(old.CustomTargets);
+    local charEntry = DebindPrivate.db.char;
+    if (entry.CustomTargets and charEntry.CustomTargets == nil) then
+        charEntry.CustomTargets = entry.CustomTargets;
     end
 end
 
@@ -295,7 +296,7 @@ function DebindPrivate.RunLegacyMigration()
 
     local oldChar = _G.DebounceVarsPerChar;
     if (oldChar) then
-        ImportCharacter(DebindPrivate.db.char, oldChar);
+        ImportCharacter(oldChar);
         changed = true;
     end
 

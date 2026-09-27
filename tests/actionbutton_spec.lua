@@ -51,8 +51,11 @@ return function(DebindPrivate, _, ctx)
     local function Bind(actions)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
-            characters = { [GUID] = { layers = {}, switches = {} } },
+            layers = {
+                account = { GENERAL = { [0] = actions } },
+                [GUID] = { [Constants.PLAYER_CLASS] = {} },
+            },
+            characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = {},
         };

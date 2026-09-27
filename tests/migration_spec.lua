@@ -55,14 +55,14 @@ return function(DebindPrivate)
                 [0] = { { type = "spell", value = 2, key = "F2", seq = 1 } },
                 [1] = {},
             },
-            -- **The excluded Blizzard frames as the old build stored them.** `options` rides in
-            -- verbatim, so this is the shape the ladder folds and this path has to fold too.
-            options = { stateDriverUpdateThrottle = 0.25, blizzframes = { player = false } },
+            -- **The excluded Blizzard frames as the old build stored them**, which is the shape the
+            -- ladder folds, beside an option whose shape never changed.
+            options = { unitframeUseMouseDown = true, blizzframes = { player = false } },
             ui = { anchorPos = { x = 100, y = 200 } },
             spellPickerUI = { pos = { x = 300, y = 400 } },
             overviewui = { pos = { x = 500, y = 600 } },
-            -- Keys whose shape does not change. `spellPicker` is one that was actually lost once;
-            -- `somethingAddedLater` stands for a key someone adds after this code was written.
+            -- `spellPicker` is the one key an earlier version of the import lost outright.
+            -- `somethingAddedLater` stands for a key the pre-rename addon never wrote.
             spellPicker = { spell = { showOffSpec = true, favoritesOnly = false } },
             somethingAddedLater = { deep = { value = 7 } },
         };
@@ -88,9 +88,9 @@ return function(DebindPrivate)
     test("a fresh install comes up with no old file present", function()
         FreshInit();
         check(_G.DebindVars ~= nil, "DebindVars was not created");
-        check(_G.DebindVars.shared ~= nil, "no shared");
+        check(_G.DebindVars.layers ~= nil, "no layers");
         check(_G.DebindVars.characters ~= nil, "no characters");
-        check(DebindPrivate.db.char.layers ~= nil, "no char.layers");
+        check(DebindPrivate.db.charLayers ~= nil, "no charLayers");
     end);
 
     test("an empty character gets no entry in characters", function()
@@ -98,44 +98,40 @@ return function(DebindPrivate)
         DebindPrivate.CleanUpDB();
         check(_G.DebindVars.characters[GUID] == nil,
             "a character with no content created an entry (lazy creation is not working)");
+        check(_G.DebindVars.layers[GUID] == nil,
+            "a character with no layers got a place in layers (lazy creation is not working)");
     end);
 
-    test("the account's share moves into shared", function()
+    test("the account's share moves into layers.account", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
         DebindPrivate.RunLegacyMigration();
 
-        local shared = _G.DebindVars.shared;
-        check(shared.GENERAL and #shared.GENERAL == 1, "GENERAL did not arrive");
-        check(shared.GENERAL[1].key == "F1", "GENERAL contents differ");
-        check(shared.classes.DRUID and #shared.classes.DRUID[0] == 1, "class layer did not arrive");
-        check(shared.classes.DRUID[0][1].key == "F2", "class layer contents differ");
+        local account = _G.DebindVars.layers.account;
+        check(account.GENERAL and #account.GENERAL[0] == 1, "GENERAL did not arrive");
+        check(account.GENERAL[0][1].key == "F1", "GENERAL contents differ");
+        check(account.DRUID and #account.DRUID[0] == 1, "class layer did not arrive");
+        check(account.DRUID[0][1].key == "F2", "class layer contents differ");
     end);
 
-    -- **Pins something that was actually lost.** The first version listed the keys to copy by hand,
-    -- and because that list was transcribed from a stale structure diagram, `spellPicker` (the
-    -- picker's per-tab filters) disappeared entirely. The import is one-shot and irreversible, so
-    -- an unrecognised key must be **carried over, not dropped**.
-    test("keys whose shape does not change come across without being named", function()
+    -- **What only the old window read is left behind, and so is a stranger.** Window positions and
+    -- the picker's filters cost a drag and a click to set again; a key the pre-rename addon never
+    -- wrote was never ours to read.
+    test("the old window state and a stranger key stay behind", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
         DebindPrivate.RunLegacyMigration();
 
         local db = _G.DebindVars;
-        check(db.spellPicker and db.spellPicker.spell.showOffSpec == true,
-            "spellPicker did not arrive");
-        check(db.somethingAddedLater and db.somethingAddedLater.deep.value == 7,
-            "an unrecognised key was dropped - this went back to an allow list");
-
-        -- What is carried over must be deep-copied too, or the old file gets contaminated.
-        db.spellPicker.spell.showOffSpec = false;
-        check(_G.DebounceVars.spellPicker.spell.showOffSpec == true,
-            "a carried-over key was copied shallowly");
+        check(db.spellPicker == nil and db.ui == nil, "the old window state came across");
+        check(DebindPrivate.UIVars.spellPicker == nil and DebindPrivate.UIVars.main == nil,
+            "the old window state came across into DebindUIVars");
+        check(db.somethingAddedLater == nil, "a key the pre-rename addon never wrote came across");
+        check(db.overviewui == nil, "the dead key overviewui came across");
     end);
 
-    --- **가져오기는 사다리를 안 탄다.** `MigrateDB`가 이미 `db.dbver`를 찍은 뒤 PLAYER_LOGIN에서
-    --- 도는 경로라, 옛 이름으로 들어온 값은 어느 단계도 안 만난다. 안 접으면 읽는 쪽이 빈
-    --- `frameBlacklist`를 보고 빼둔 개체창을 전부 가져간다.
+    --- **The import rides the ladder like a stored profile.** Left unfolded, the reader's side
+    --- would see an empty `frameBlacklist` and take every frame they had excluded.
     test("the excluded Blizzard frames are folded on the way in", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
@@ -145,10 +141,10 @@ return function(DebindPrivate)
         check(options.blizzframes == nil, "옛 칸이 남았다");
         check(options.frameBlacklist and options.frameBlacklist.blizzard.player == false,
             "빼둔 블리자드 개체창이 안 옮겨졌다");
-        check(options.stateDriverUpdateThrottle == 0.25, "옆 옵션이 같이 날아갔다");
+        check(options.unitframeUseMouseDown == true, "옆 옵션이 같이 날아갔다");
     end);
 
-    test("class keys go only to shared.classes and do not leak to the top level", function()
+    test("class keys go only to layers.account and do not leak to the top level", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
         DebindPrivate.RunLegacyMigration();
@@ -161,15 +157,28 @@ return function(DebindPrivate)
         check(_G.DebindVars.GENERAL == nil, "GENERAL stayed at the top level");
     end);
 
-    test("window positions fold into one table and overviewui is dropped", function()
+    --- **Only what the old file had is laid down.** The ladder makes `layers.account` and `options`
+    --- whether or not there was anything to raise, so taking its tables whole would replace live
+    --- ones the old file never mentioned.
+    test("the import leaves alone what the old file did not carry", function()
         FreshInit();
-        _G.DebounceVars = LegacyAccount();
+        local class = DebindPrivate.Constants.PLAYER_CLASS;
+        DebindPrivate.db.global.options.unitframeUseMouseDown = true;
+        DebindPrivate.db.global.layers.account[class] = { [3] = { { type = "spell", value = 9, key = "F9" } } };
+        DebindPrivate.db.charLayers[class] = { [3] = { { type = "spell", value = 8, key = "F8" } } };
+        local old = LegacyAccount();
+        old.options = nil;
+        _G.DebounceVars = old;
+        _G.DebounceVarsPerChar = LegacyChar();
         DebindPrivate.RunLegacyMigration();
 
-        local ui = _G.DebindVars.ui;
-        check(ui and ui.main and ui.main.x == 100, "ui.main did not arrive");
-        check(ui.spellPicker and ui.spellPicker.x == 300, "ui.spellPicker did not arrive");
-        check(ui.overviewui == nil and ui.overview == nil, "the dead key overviewui was imported");
+        check(_G.DebindVars.options.unitframeUseMouseDown == true,
+            "the live options were replaced though the old file had none");
+        check(_G.DebindVars.layers.account[class][3][1].value == 9,
+            "a live class layer the old file lacked was dropped");
+        check(DebindPrivate.db.charLayers[class][3][1].value == 8,
+            "a live character layer the old file lacked was dropped");
+        check(DebindPrivate.db.charLayers[class][0][1].key == "F3", "the old character layer did not arrive");
     end);
 
     test("the options reference survives the import", function()
@@ -180,10 +189,10 @@ return function(DebindPrivate)
 
         check(DebindPrivate.Options == _G.DebindVars.options,
             "Options still points at the pre-import empty table");
-        check(DebindPrivate.Options.stateDriverUpdateThrottle == 0.25, "the old option did not arrive");
+        check(DebindPrivate.Options.unitframeUseMouseDown == true, "the old option did not arrive");
     end);
 
-    test("the character's share moves into the char entry", function()
+    test("the character's share moves into this character's layers", function()
         FreshInit();
         -- The account file has to be there too. Every version that could write a per-character
         -- file created this one on its first run, so its absence is what tells us the account
@@ -192,12 +201,16 @@ return function(DebindPrivate)
         _G.DebounceVarsPerChar = LegacyChar();
         DebindPrivate.RunLegacyMigration();
 
+        local charLayers = DebindPrivate.db.charLayers;
+        local mine = charLayers[DebindPrivate.Constants.PLAYER_CLASS];
+        check(mine and #mine[0] == 1, "character layer did not arrive");
+        check(mine[0][1].key == "F3", "character layer contents differ");
         local charEntry = DebindPrivate.db.char;
-        check(#charEntry.layers[0] == 1, "character layer did not arrive");
-        check(charEntry.layers[0][1].key == "F3", "character layer contents differ");
         check(charEntry.CustomTargets.custom1 == "focus", "CustomTargets did not arrive");
 
         DebindPrivate.CleanUpDB();
+        check(_G.DebindVars.layers[GUID] == charLayers,
+            "there are layers but they were not attached");
         check(_G.DebindVars.characters[GUID] == charEntry,
             "there is content but the entry was not attached");
     end);
@@ -209,9 +222,9 @@ return function(DebindPrivate)
         DebindPrivate.RunLegacyMigration();
 
         -- Edit the imported side. If references were plugged in, the old tables change with it.
-        _G.DebindVars.shared.GENERAL[1].key = "CHANGED";
-        _G.DebindVars.shared.classes.DRUID[0][1].key = "CHANGED";
-        DebindPrivate.db.char.layers[0][1].key = "CHANGED";
+        _G.DebindVars.layers.account.GENERAL[0][1].key = "CHANGED";
+        _G.DebindVars.layers.account.DRUID[0][1].key = "CHANGED";
+        DebindPrivate.db.charLayers[DebindPrivate.Constants.PLAYER_CLASS][0][1].key = "CHANGED";
         DebindPrivate.db.char.CustomTargets.custom1 = "CHANGED";
 
         check(_G.DebounceVars.GENERAL[1].key == "F1", "the old GENERAL changed along with it");
@@ -260,12 +273,14 @@ return function(DebindPrivate)
 
         -- **개명 둘이 한 본문에서 만난다.** 프레임 이름은 이 파일이 고치고, 그 뒤에 오는 유닛
         -- 이름은 `dbver <= 6`이 고친다.
-        check(_G.DebindVars.shared.GENERAL[1].value == "/click DebindCustom1 unitframe",
-            "a shared layer kept an old name: " .. tostring(_G.DebindVars.shared.GENERAL[1].value));
-        check(_G.DebindVars.shared.classes.DRUID[0][1].value == "/click DebindStates $state1-on",
-            "a class layer kept the old frame name: " .. tostring(_G.DebindVars.shared.classes.DRUID[0][1].value));
+        local account = _G.DebindVars.layers.account;
+        check(account.GENERAL[0][1].value == "/click DebindCustom1 unitframe",
+            "a shared layer kept an old name: " .. tostring(account.GENERAL[0][1].value));
+        check(account.DRUID[0][1].value == "/click DebindStates $state1-on",
+            "a class layer kept the old frame name: " .. tostring(account.DRUID[0][1].value));
 
-        local charBody = DebindPrivate.db.char.layers[0][1].value;
+        local charBody =
+            DebindPrivate.db.charLayers[DebindPrivate.Constants.PLAYER_CLASS][0][1].value;
         check(not charBody:find("Debounce"), "the character layer kept an old frame name: " .. charBody);
         check(charBody:find("/cast Rejuvenation", 1, true), "the rewrite ate the rest of the body");
         check(charBody:find("DebindCustom2", 1, true) and charBody:find("DebindStates", 1, true),
@@ -286,7 +301,7 @@ return function(DebindPrivate)
         };
         DebindPrivate.RunLegacyMigration();
 
-        check(_G.DebindVars.shared.GENERAL[1].value == 774,
+        check(_G.DebindVars.layers.account.GENERAL[0][1].value == 774,
             "a spell action's value was altered by the click-target rewrite");
     end);
 
@@ -299,10 +314,10 @@ return function(DebindPrivate)
     -- 그대로다. 실제로 그 상태로 배포될 뻔했다.
     local function LoadLayerAndClean(actions)
         FreshInit();
-        _G.DebindVars.shared.GENERAL = actions;
+        _G.DebindVars.layers.account = { GENERAL = { [0] = actions } };
         DebindPrivate.LoadProfile();
         DebindPrivate.CleanUpDB();
-        return _G.DebindVars.shared.GENERAL;
+        return _G.DebindVars.layers.account.GENERAL[0];
     end
 
     local function checkDistinctSeq(actions, msg)
@@ -383,13 +398,13 @@ return function(DebindPrivate)
         DebindPrivate.RunLegacyMigration();
 
         -- The user deletes a shared binding.
-        _G.DebindVars.shared.GENERAL = {};
+        _G.DebindVars.layers.account.GENERAL[0] = {};
 
         -- An alt logs in. Same account file, different character.
         _G.DebindVars.migrated = {};
         DebindPrivate.RunLegacyMigration();
 
-        check(#_G.DebindVars.shared.GENERAL == 0,
+        check(#_G.DebindVars.layers.account.GENERAL[0] == 0,
             "a deleted shared binding came back through re-import (legacyAccountPulled failed)");
     end);
 
@@ -422,7 +437,7 @@ return function(DebindPrivate)
         _G.C_AddOns.LoadAddOn = realLoadAddOn;
 
         check(loads == 0, "the dummy was loaded even though the account is not a migration target");
-        check(#(_G.DebindVars.shared.GENERAL or {}) == 0, "something was imported after false");
+        check(#_G.DebindVars.layers.account.GENERAL[0] == 0, "something was imported after false");
     end);
 
     -- The user pressed "start fresh without them". That is recorded as the **same value a fresh
@@ -439,7 +454,7 @@ return function(DebindPrivate)
         check(DebindPrivate.IsLegacyPending() == false, "the overlay would still be shown");
 
         DebindPrivate.RunLegacyMigration();
-        check(#(_G.DebindVars.shared.GENERAL or {}) == 0, "the import ran after being declined");
+        check(#_G.DebindVars.layers.account.GENERAL[0] == 0, "the import ran after being declined");
     end);
 
     test("the account's settings arrive along with its bindings", function()
@@ -447,8 +462,8 @@ return function(DebindPrivate)
         _G.DebounceVars = LegacyAccount();
         DebindPrivate.RunLegacyMigration();
 
-        check(_G.DebindVars.options.stateDriverUpdateThrottle == 0.25, "the old options did not arrive");
-        check(_G.DebindVars.shared.GENERAL[1].key == "F1", "the bindings did not arrive");
+        check(_G.DebindVars.options.unitframeUseMouseDown == true, "the old options did not arrive");
+        check(_G.DebindVars.layers.account.GENERAL[0][1].key == "F1", "the bindings did not arrive");
     end);
 
     test("a character already migrated is not read again", function()
@@ -458,10 +473,11 @@ return function(DebindPrivate)
         DebindPrivate.RunLegacyMigration();
 
         -- The user deletes a character-specific binding.
-        DebindPrivate.db.char.layers[0] = {};
+        local mine = DebindPrivate.db.charLayers[DebindPrivate.Constants.PLAYER_CLASS];
+        mine[0] = {};
         DebindPrivate.RunLegacyMigration();
 
-        check(#DebindPrivate.db.char.layers[0] == 0, "a deleted character binding came back");
+        check(#mine[0] == 0, "a deleted character binding came back");
     end);
 
     -- With the dummy unavailable there is nothing to decide from, so **nothing at all happens** -
@@ -484,7 +500,7 @@ return function(DebindPrivate)
         -- Once the dummy is back, the next login does the whole job.
         DebindPrivate.RunLegacyMigration();
         check(_G.DebindVars.legacyNeeded == true, "the retry did not settle the account");
-        check(#_G.DebindVars.shared.GENERAL == 1, "the retry did not import");
+        check(#_G.DebindVars.layers.account.GENERAL[0] == 1, "the retry did not import");
     end);
 
     test("actions from an older version (dbver=1) are raised to the current one", function()
@@ -496,7 +512,7 @@ return function(DebindPrivate)
         _G.DebounceVars = old;
 
         DebindPrivate.RunLegacyMigration();
-        check(_G.DebindVars.shared.GENERAL[1].seq == 1,
+        check(_G.DebindVars.layers.account.GENERAL[0][1].seq == 1,
             "the import was not raised to the current version - MigrateLayer did not run");
     end);
 
@@ -670,19 +686,19 @@ return function(DebindPrivate)
     test("cleanup drops a known that its action's type cannot carry", function()
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {
+            layers = { account = { GENERAL = { [0] = {
                 { key = "F1", seq = 1, type = Constants.MACROTEXT, value = "/cast Foo",
                     conditions = { known = "Regrowth" } },
                 { key = "F2", seq = 1, type = Constants.SPELL, value = 8936,
                     conditions = { known = "Regrowth" } },
-            }, classes = {} },
+            } } } },
             characters = {},
             migrated = {},
         };
         DebindPrivate.InitDB();
         DebindPrivate.CleanUpDB();
 
-        local general = _G.DebindVars.shared.GENERAL;
+        local general = _G.DebindVars.layers.account.GENERAL[0];
         check(general[1].conditions == nil or general[1].conditions.known == nil,
             "매크로 액션에 남음: " .. tostring(general[1].conditions and general[1].conditions.known));
         check(general[2].conditions.known == "Regrowth",
@@ -1698,7 +1714,7 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
 
         local db = _G.DebindVars;
-        check(db.shared.GENERAL[1].arrivalID == 1, "배지가 안 올라감 - 전제가 깨졌다");
+        check(db.layers.account.GENERAL[0][1].arrivalID == 1, "배지가 안 올라감 - 전제가 깨졌다");
         check(db.nextArrivalID == 2, "다음 도착 번호 " .. tostring(db.nextArrivalID));
         check(DebindPrivate.NextArrivalID() == 2, "새 도착분이 마이그레이션된 것과 같은 번호를 받는다");
         check(db.nextSyntheticKey == nil, "아무도 안 읽는 옛 카운터가 남음");
@@ -1756,6 +1772,7 @@ return function(DebindPrivate)
             },
             characters = {
                 [GUID] = {
+                    class = "DRUID",
                     layers = {
                         [0] = { { key = "D", type = 1, value = 1, checkedUnits = { mouseover = "help" } } },
                     },
@@ -1767,13 +1784,13 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
 
         local db = _G.DebindVars;
-        check(type(db.shared.GENERAL[1].conditions.units.target) == "table",
+        check(type(db.layers.account.GENERAL[0][1].conditions.units.target) == "table",
             "공유 GENERAL이 안 올라감");
-        check(type(db.shared.classes.DRUID[0][1].conditions.units.focus) == "table",
+        check(type(db.layers.account.DRUID[0][1].conditions.units.focus) == "table",
             "공유 클래스 레이어가 안 올라감");
-        check(type(db.shared.classes.DRUID[2][1].conditions.units.tank) == "table",
+        check(type(db.layers.account.DRUID[2][1].conditions.units.tank) == "table",
             "특성이 0이 아닌 레이어가 안 올라감");
-        check(type(db.characters[GUID].layers[0][1].conditions.units.mouseover) == "table",
+        check(type(db.layers[GUID].DRUID[0][1].conditions.units.mouseover) == "table",
             "캐릭터별 레이어가 안 올라감");
         check(db.dbver == Constants.DB_VERSION, "dbver가 안 올라감");
     end);
@@ -1843,7 +1860,7 @@ return function(DebindPrivate)
 
         DebindPrivate.RunLegacyMigration();
 
-        check(_G.DebindVars.shared.GENERAL[1].conditions.units.target.reaction
+        check(_G.DebindVars.layers.account.GENERAL[0][1].conditions.units.target.reaction
             == Constants.REACTION_HELP, "가져온 쪽이 안 올라감 - 전제가 깨졌다");
         check(old.GENERAL[1].checkedUnits.target == "help",
             "옛 파일의 조건이 새 형식으로 덮어써짐 - 롤백이 깨진다");
@@ -1992,7 +2009,7 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
         check(DebindPrivate.RunLegacyMigration() == false,
             "리셋 직후인데 옛 파일을 가져왔다");
-        check(#DebindPrivate.db.global.shared.GENERAL == 0,
+        check(#DebindPrivate.db.global.layers.account.GENERAL[0] == 0,
             "리셋 직후인데 공유 레이어에 액션이 있다");
     end);
 
@@ -2044,44 +2061,49 @@ return function(DebindPrivate)
         return _G.DebindVars;
     end
 
+    --- The definitions where the ladder leaves them, the root rows.
+    local function Defs(db)
+        return db.switches.account.GENERAL[0];
+    end
+
     test("dbver 6 moves the switch definitions under their new name", function()
         local db = InitWith(OldSwitchAccount());
         check(db.customStates == nil,
             "옛 이름이 남았다 - 읽는 쪽이 없으니 로그아웃마다 죽은 표가 같이 저장된다");
         check(type(db.switches) == "table", "switches가 없다");
-        check(db.switches["$state1"].displayMessage == true, "정의가 안 따라왔다");
-        check(db.switches["$state2"].expr == "[combat]", "계산식이 안 따라왔다");
+        check(Defs(db)["$state1"].resetValue == true, "정의가 안 따라왔다");
+        check(Defs(db)["$state2"].expr == "[combat]", "계산식이 안 따라왔다");
     end);
 
     test("dbver 6 turns the mode numbers into names", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches["$state1"].mode == MODES.MANUAL,
-            "수동이 " .. tostring(db.switches["$state1"].mode) .. "로 남았다");
-        check(db.switches["$state2"].mode == MODES.EXPR,
-            "계산식이 " .. tostring(db.switches["$state2"].mode) .. "로 남았다 - 숫자는 어느 쪽과도 안 맞는다");
+        check(Defs(db)["$state1"].mode == MODES.MANUAL,
+            "수동이 " .. tostring(Defs(db)["$state1"].mode) .. "로 남았다");
+        check(Defs(db)["$state2"].mode == MODES.EXPR,
+            "계산식이 " .. tostring(Defs(db)["$state2"].mode) .. "로 남았다 - 숫자는 어느 쪽과도 안 맞는다");
     end);
 
     -- **`false`와 없는 것은 다른 답이다.** 뭉개면 "로그인 때 꺼짐"으로 해둔 스위치가 지난
     -- 세션의 값을 들고 올라온다.
     test("dbver 6 renames initialValue without flattening its three answers", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches["$state1"].initialValue == nil and db.switches["$state3"].initialValue == nil,
+        check(Defs(db)["$state1"].initialValue == nil and Defs(db)["$state3"].initialValue == nil,
             "옛 필드가 남았다");
-        check(db.switches["$state1"].resetValue == true, "true가 안 옮겨졌다");
-        check(db.switches["$state3"].resetValue == false,
-            "false가 " .. tostring(db.switches["$state3"].resetValue) .. "가 됐다");
-        check(db.switches["$state4"].resetValue == nil, "없던 값이 생겼다");
+        check(Defs(db)["$state1"].resetValue == true, "true가 안 옮겨졌다");
+        check(Defs(db)["$state3"].resetValue == false,
+            "false가 " .. tostring(Defs(db)["$state3"].resetValue) .. "가 됐다");
+        check(Defs(db)["$state4"].resetValue == nil, "없던 값이 생겼다");
     end);
 
-    -- 이름이 아니라 **그 이름으로 나오는 답**을 본다. `value`를 정하는 것은 저장이 아니라
-    -- `BindDerivedTables`이고, 그것이 새 이름을 못 읽으면 위가 다 초록이어도 스위치는 틀린
-    -- 값으로 켜진다.
+    -- **What each name comes up as, not only the name.** The value is set by `BindDerivedTables`
+    -- and not by storage, so if that cannot read the new name everything above is green and the
+    -- switch still comes up wrong.
     test("dbver 6 keeps what each switch comes up as", function()
         InitWith(OldSwitchAccount());
-        local switches = DebindPrivate.Switches;
-        check(switches["$state1"].value == true, "로그인 때 켜짐이 안 켜졌다");
-        check(switches["$state3"].value == false, "로그인 때 꺼짐이 안 꺼졌다");
-        check(switches["$state4"].value == true, "기억한 값으로 안 돌아갔다");
+        local Get = DebindPrivate.GetSwitchValue;
+        check(Get("$state1") == true, "로그인 때 켜짐이 안 켜졌다");
+        check(Get("$state3") == false, "로그인 때 꺼짐이 안 꺼졌다");
+        check(Get("$state4") == true, "기억한 값으로 안 돌아갔다");
     end);
 
     -- **The number was a second identity and it is gone.** A definition is filed under its own
@@ -2091,10 +2113,10 @@ return function(DebindPrivate)
     -- everything set on that switch is gone from the screen while still sitting in the file.
     test("dbver 6 files the definitions by name", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches[1] == nil and db.switches[2] == nil,
+        check(Defs(db)[1] == nil and Defs(db)[2] == nil,
             "번호로도 열린다 - 한 스위치에 두 이름이 남았다");
-        check(db.switches["$state1"] ~= nil, "이름으로 안 옮겨졌다");
-        check(db.switches["$state1"] == DebindPrivate.Switches["$state1"],
+        check(Defs(db)["$state1"] ~= nil, "이름으로 안 옮겨졌다");
+        check(Defs(db)["$state1"] == DebindPrivate.Switches["$state1"],
             "저장과 살아 있는 표가 서로 다른 정의를 들고 있다");
     end);
 
@@ -2110,11 +2132,11 @@ return function(DebindPrivate)
         local charEntry = { layers = {}, switches = {} };
         DebindPrivate.MigrateSwitches(db, 5, charEntry);
         DebindPrivate.MigrateSwitches(db, 5, charEntry);
-        check(db.switches["$state2"].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
-        check(db.switches["$state1"].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
-        check(db.switches["$state3"].resetValue == false, "두 번째에 false가 뭉개졌다");
+        check(Defs(db)["$state2"].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
+        check(Defs(db)["$state1"].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
+        check(Defs(db)["$state3"].resetValue == false, "두 번째에 false가 뭉개졌다");
         check(charEntry.switches["$state4"] == true, "두 번째에 기억한 값이 뭉개졌다");
-        check(db.switches["$state4"] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
+        check(Defs(db)["$state4"] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
     end);
 
     --- 계산식도 매크로 본문이라 유닛을 이름으로 든다. 액션 사다리가 옮기는 것과 같은 이름이고,
@@ -2133,10 +2155,11 @@ return function(DebindPrivate)
             },
         };
         DebindPrivate.MigrateSwitches(db, 6, { layers = {}, switches = {} });
-        check(db.switches["$s1"].expr == "[@unitframe,harm]",
-            "뿌리 계산식이 " .. tostring(db.switches["$s1"].expr) .. "다");
-        check(db.switches["$s1"].overrides["Player-1:2"].expr == "[@unitframetarget]",
-            "덮어쓴 줄이 " .. tostring(db.switches["$s1"].overrides["Player-1:2"].expr) .. "다");
+        check(Defs(db)["$s1"].expr == "[@unitframe,harm]",
+            "뿌리 계산식이 " .. tostring(Defs(db)["$s1"].expr) .. "다");
+        -- `Player-1` has no entry in `characters`, so its row waits under `"*"` (the `dbver` 8 step).
+        local row = db.switches["Player-1"]["*"][2]["$s1"];
+        check(row.expr == "[@unitframetarget]", "덮어쓴 줄이 " .. tostring(row.expr) .. "다");
     end);
 
     ---------------------------------------------------------------------------
@@ -2172,7 +2195,7 @@ return function(DebindPrivate)
 
     local function switchNames(db)
         local names = {};
-        for name in pairs(db.switches or {}) do
+        for name in pairs(Defs(db)) do
             names[name] = true;
         end
         return names;
@@ -2180,7 +2203,7 @@ return function(DebindPrivate)
 
     test("dbver 6 drops the definitions nobody made", function()
         local db = InitWith(AccountWithUntouchedSwitches());
-        check(next(db.switches) == nil,
+        check(next(Defs(db)) == nil,
             "아무도 안 건드린 정의가 남았다 - 목록이 빈 줄로 시작한다");
         check(next(DebindPrivate.Switches) == nil, "살아 있는 표에도 남았다");
     end);
@@ -2191,7 +2214,7 @@ return function(DebindPrivate)
     test("BindDerivedTables no longer plants the five", function()
         local db = InitWith(AccountWithUntouchedSwitches());
         DebindPrivate.BindDerivedTables();
-        check(next(db.switches) == nil, "로드가 빈 정의를 다시 심었다");
+        check(next(Defs(db)) == nil, "로드가 빈 정의를 다시 심었다");
     end);
 
     -- 설정을 해뒀지만 아직 아무 액션에도 안 건 스위치. 참조만 보면 조용히 사라진다.
@@ -2223,6 +2246,7 @@ return function(DebindPrivate)
                 [0] = { { type = "spell", value = 2, key = "F2", seq = 1, conditions = { ["$state2"] = false } } },
             };
             account.characters[GUID] = {
+                class = "DRUID",
                 layers = {
                     [3] = { { type = "spell", value = 3, key = "F3", seq = 1, conditions = { ["$state3"] = true } } },
                 },
@@ -2238,9 +2262,10 @@ return function(DebindPrivate)
     -- 켜기/끄기/전환 액션은 대상을 `value`에 싣는다. 조건 표를 안 지나가므로 조건만 훑으면
     -- 안 보이고, 그 정의가 사라지면 그 액션이 켜는 것이 아무 데도 없는 이름이 된다.
     --
-    -- **한 판 안에서 두 단계의 차례를 같이 본다.** 씨앗은 `dbver` 5라 액션이 아직 비트팩이고,
-    -- 참조를 걷는 쪽은 이름으로 읽는다. `MigrateShared`가 `MigrateSwitches`보다 먼저 돌지
-    -- 않으면 여기서 걷히는 이름이 하나도 없고, 정의는 전부 지워진다.
+    -- **This also pins the order of two ladders in one pass.** The seed is at `dbver` 5, so the
+    -- action is still a bitpack, while the walk that collects references reads names. Unless
+    -- `MigrateDB` raises the layers before `MigrateSwitches` runs, no name is collected here and
+    -- every definition is deleted.
     test("dbver 6 keeps a definition a SETSTATE action names", function()
         local db = InitWith(AccountWithUntouchedSwitches(function(account)
             account.shared.GENERAL = {
@@ -2251,7 +2276,7 @@ return function(DebindPrivate)
         check(names["$state2"], "전환 액션이 가리킨 정의가 사라졌다");
         check(not names["$state1"], "아무도 안 부른 것까지 남았다 - 전제가 깨졌다");
 
-        local action = db.shared.GENERAL[1];
+        local action = db.layers.account.GENERAL[0][1];
         check(action.type == Constants.SETSTATE_TOGGLE, "액션이 안 갈렸다: " .. tostring(action.type));
         check(action.value == "$state2", "이름 " .. tostring(action.value));
     end);
@@ -2265,13 +2290,13 @@ return function(DebindPrivate)
                 { type = "macrotext", value = "/cast [$state1] Foo", key = "F5", seq = 1 },
             };
         end));
-        check(next(db.switches) == nil, "본문의 이름이 정의를 살려뒀다");
+        check(next(Defs(db)) == nil, "본문의 이름이 정의를 살려뒀다");
     end);
 
-    -- **개명 전 파일의 정의는 `MigrateDB`가 지나간 뒤에 도착한다.** 계정 몫은 덩어리째 얹히는
-    -- 길이고(`Legacy.lua`의 `ImportAccount`), 레이어와 달리 정의를 올려주는 것이 그 위에
-    -- 아무것도 없다. 거기서 사다리를 안 밟으면 옛 모양이 그대로 앉는데 `db.dbver`는 이미
-    -- 찍혀 있어서 다시 돌 기회가 없다.
+    -- **The pre-rename definitions arrive after the stored profile has been raised**
+    -- (`Legacy.lua`'s `ImportAccount` runs at PLAYER_LOGIN). Unless they ride the ladder on the
+    -- way in, the old shape sits there under a `db.dbver` already stamped, and nothing raises it
+    -- again.
     test("the pre-rename import raises the switch definitions too", function()
         FreshInit();
         local old = LegacyAccount();
@@ -2288,10 +2313,10 @@ return function(DebindPrivate)
 
         local db = _G.DebindVars;
         check(db.customStates == nil, "옛 이름 그대로 앉았다 - 읽는 쪽이 없다");
-        check(db.switches["$state1"].mode == MODES.MANUAL and db.switches["$state1"].resetValue == true,
+        check(Defs(db)["$state1"].mode == MODES.MANUAL and Defs(db)["$state1"].resetValue == true,
             "수동 정의가 안 올라왔다");
-        check(db.switches["$state2"].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
-        check(DebindPrivate.Switches["$state1"].displayMessage == true,
+        check(Defs(db)["$state2"].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
+        check(DebindPrivate.Switches["$state1"] == Defs(db)["$state1"],
             "올라온 정의가 살아 있는 표에 안 걸렸다");
     end);
 
@@ -2314,7 +2339,7 @@ return function(DebindPrivate)
         check(type(DebindPrivate.db.char.switches) == "table", "캐릭터 쪽에 표가 없다");
         check(DebindPrivate.db.char.switches["$state4"] == true,
             "기억한 값이 캐릭터로 안 왔다");
-        check(db.switches["$state4"].savedValue == nil,
+        check(Defs(db)["$state4"].savedValue == nil,
             "정의에 값이 남았다 - 두 자리가 같은 것을 말하면 어느 쪽이 답인지가 없다");
     end);
 
@@ -2336,7 +2361,7 @@ return function(DebindPrivate)
     -- 값을 옮긴 바로 그 단계에 지워진다.
     test("dbver 6 keeps a definition whose only trace is the value it moved", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches["$state4"] ~= nil, "눌러본 적 있는 정의가 값을 옮기면서 같이 사라졌다");
+        check(Defs(db)["$state4"] ~= nil, "눌러본 적 있는 정의가 값을 옮기면서 같이 사라졌다");
         check(DebindPrivate.Switches["$state4"] ~= nil, "살아 있는 표에서도 사라졌다");
     end);
 
@@ -2396,13 +2421,13 @@ return function(DebindPrivate)
     test("dbver 7 folds blizzframes into the one blacklist cell", function()
         local db = InitWith({
             dbver = 6,
-            options = { blizzframes = { player = false }, stateDriverUpdateThrottle = 0.25 },
+            options = { blizzframes = { player = false }, unitframeUseMouseDown = true },
         });
         check(db.options.blizzframes == nil,
             "옛 칸이 남았다 - 읽는 쪽이 없으니 로그아웃마다 죽은 표가 같이 저장된다");
         check(db.options.frameBlacklist.blizzard.player == false,
             "빼둔 블리자드 개체창이 안 옮겨졌다");
-        check(db.options.stateDriverUpdateThrottle == 0.25,
+        check(db.options.unitframeUseMouseDown == true,
             "옆 옵션이 같이 날아갔다");
     end);
 
@@ -2414,6 +2439,216 @@ return function(DebindPrivate)
         check(db.options.frameBlacklist.addons.Grid2 == false, "꺼둔 팩이 안 옮겨졌다");
         check(DebindPrivate.TakesPackFrames("Grid2") == false,
             "옮겨는 놨는데 관문이 못 읽는다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 8: the layers gather in `layers` (`reshaping-stored-layers.md` §1)
+    ---------------------------------------------------------------------------
+
+    local ALT = "Player-1234-0000ABCD";
+
+    --- A profile at 7 with a layer in every place 7 kept one, plus the leftovers the step has to
+    --- drop: a string key beside the actions, an empty list, and a spec 5 behind a hole at 3 and 4.
+    local function ProfileAt7()
+        return {
+            dbver = 7,
+            migrated = {},
+            shared = {
+                GENERAL = {
+                    { type = Constants.SPELL, value = 1, key = "F1", seq = 1 },
+                    customStates = {},
+                },
+                classes = {
+                    DRUID = {
+                        [0] = { { type = Constants.SPELL, value = 2, key = "F2", seq = 1 } },
+                        [1] = {},
+                        [5] = { { type = Constants.SPELL, value = 5, key = "F5", seq = 1 } },
+                    },
+                },
+            },
+            characters = {
+                [ALT] = {
+                    name = "Alt", class = "PRIEST",
+                    layers = { [2] = { { type = Constants.SPELL, value = 3, key = "F3", seq = 1 } } },
+                    switches = { ["$state1"] = true },
+                },
+            },
+        };
+    end
+
+    test("dbver 8 moves every layer into layers under its owner and class", function()
+        local db = InitWith(ProfileAt7());
+        local account = db.layers.account;
+        check(account and account.GENERAL[0][1].value == 1, "GENERAL did not move");
+        check(account.DRUID[0][1].value == 2, "the class layer did not move");
+        check(account.DRUID[5] and account.DRUID[5][1].value == 5,
+            "spec 5 behind the hole was left behind");
+        check(db.layers[ALT] and db.layers[ALT].PRIEST[2][1].value == 3,
+            "another character's layer did not move under its class");
+        check(db.shared == nil, "shared is still there");
+        check(db.characters[ALT].layers == nil, "the character entry still holds layers");
+        check(db.characters[ALT].switches["$state1"] == true,
+            "the rest of the character entry went with the layers");
+    end);
+
+    --- Read off `MigrateDB` itself, since a load makes the lists this character reads again.
+    test("dbver 8 drops what is not an action list", function()
+        local db = ProfileAt7();
+        DebindPrivate.MigrateDB(db, {});
+        local general = db.layers.account.GENERAL[0];
+        check(general.customStates == nil, "a string key beside the actions came across");
+        check(#general == 1, "GENERAL holds " .. #general);
+        check(db.layers.account.DRUID[1] == nil, "an empty list came across");
+    end);
+
+    --- **A hand-edited file is not ours to read.** The class is written on every login, so an entry
+    --- without one did not come from the addon; what is asked is only that it does not raise.
+    test("dbver 8 drops the layers of a character entry that has no class", function()
+        local profile = ProfileAt7();
+        profile.characters[ALT].class = nil;
+        local ok, err = pcall(InitWith, profile);
+        check(ok, "a class-less entry raised: " .. tostring(err));
+        local db = _G.DebindVars;
+        check(db.layers[ALT] == nil, "the layers of a class-less entry came across");
+        check(db.characters[ALT].layers == nil, "the layers stayed on the entry");
+    end);
+
+    test("dbver 8 drops the keys nothing reads", function()
+        local profile = ProfileAt7();
+        profile.global = { customStates = {} };
+        profile.char = { ["Name - Realm"] = {} };
+        profile.class = { DRUID = {} };
+        profile.profileKeys = { ["Name - Realm"] = "Default" };
+        profile.unitFrameNoticeSeen = true;
+        profile.options = {
+            overviewui = { pos = {} },
+            stateDriverUpdateThrottle = 0.2,
+            removeStateDriverUpdateThrottle = true,
+            addCustomTargetMenusOnUnitPopup = true,
+            addCustomTargetMenusToUnitPopup = true,
+            unitframeUseMouseDown = true,
+        };
+        local db = InitWith(profile);
+        for _, key in ipairs({ "global", "char", "class", "profileKeys", "unitFrameNoticeSeen" }) do
+            check(db[key] == nil, key .. " is still there");
+        end
+        for _, key in ipairs({ "overviewui", "stateDriverUpdateThrottle",
+                "removeStateDriverUpdateThrottle", "addCustomTargetMenusOnUnitPopup",
+                "addCustomTargetMenusToUnitPopup" }) do
+            check(db.options[key] == nil, "options." .. key .. " is still there");
+        end
+        check(db.options.unitframeUseMouseDown == true, "an option something reads went too");
+    end);
+
+    --- **At 7 the old cell is a stray, not an answer.** The `dbver` 7 step moved it long ago; one
+    --- still there came in afterwards, and folding it now would put back frames the reader has
+    --- since taken.
+    test("dbver 8 drops a stray blizzframes without folding it", function()
+        local profile = ProfileAt7();
+        profile.options = {
+            blizzframes = { player = false },
+            frameBlacklist = { blizzard = { player = true }, addons = {} },
+        };
+        local db = InitWith(profile);
+        check(db.options.blizzframes == nil, "the stray cell is still there");
+        check(db.options.frameBlacklist.blizzard.player == true,
+            "the stray cell overwrote what the reader has ticked since");
+    end);
+
+    --- **A switch lays out the way the layers do.** The overrides leave the definition for cells of
+    --- their own; a character whose class the file does not hold waits under `"*"`.
+    test("dbver 8 files every override row in a cell of its layer", function()
+        local profile = ProfileAt7();
+        profile.switches = {
+            ["$burst"] = {
+                mode = MODES.MANUAL, resetValue = true, value = true, displayMessage = true,
+                overrides = {
+                    ["DRUID:2"] = { mode = MODES.EXPR, expr = "[combat]" },
+                    [ALT .. ":1"] = { mode = MODES.MANUAL, resetValue = false },
+                    ["Player-9-FFFF:3"] = { mode = MODES.IGNORE },
+                },
+            },
+        };
+        local db = profile;
+        DebindPrivate.MigrateDB(db, {});
+        local switches = db.switches;
+        local root = switches.account.GENERAL[0]["$burst"];
+        check(root and root.mode == MODES.MANUAL and root.resetValue == true, "the root row moved wrong");
+        check(root.value == nil and root.displayMessage == nil and root.overrides == nil,
+            "a field that is not a setting came across");
+        check(switches.account.DRUID[2]["$burst"].expr == "[combat]", "the class row did not move");
+        check(switches[ALT].PRIEST[1]["$burst"].resetValue == false,
+            "the character row did not move under the class its entry holds");
+        check(switches["Player-9-FFFF"]["*"][3]["$burst"].mode == MODES.IGNORE,
+            "the row of a character with no entry did not wait under *");
+
+        DebindPrivate.MigrateSwitches(db, 7, {});
+        check(switches == db.switches and db.switches.account.GENERAL[0]["$burst"] == root,
+            "a second run moved the new shape again");
+    end);
+
+    --- **Only the closed tips cross over** to `DebindUIVars`; positions, the sort and the filters
+    --- start over.
+    test("dbver 8 carries the closed tips into DebindUIVars and drops the rest", function()
+        local profile = ProfileAt7();
+        profile.tipsSeen = { settingsGear = true };
+        profile.ui = { main = { x = 1, y = 2 }, binSort = "key" };
+        profile.spellPicker = { spell = { showOffSpec = true } };
+        _G.DebindUIVars = nil;
+        local db = InitWith(profile);
+        check(db.tipsSeen == nil and db.ui == nil and db.spellPicker == nil,
+            "the window's values stayed in DebindVars");
+        check(_G.DebindUIVars and _G.DebindUIVars.tipsSeen
+            and _G.DebindUIVars.tipsSeen.settingsGear == true, "the closed tips did not cross over");
+        check(_G.DebindUIVars.main == nil and _G.DebindUIVars.spellPicker == nil,
+            "a position or a filter crossed over");
+    end);
+
+    --- **A new shape empties the table and keeps the tips.** It does not ride the ladder.
+    test("a DebindUIVars of another version is emptied but for the closed tips", function()
+        _G.DebindUIVars = {
+            version = Constants.UI_VARS_VERSION - 1,
+            main = { pos = { x = 1, y = 2 } },
+            tipsSeen = { settingsGear = true },
+        };
+        InitWith({});
+        local vars = _G.DebindUIVars;
+        check(vars.version == Constants.UI_VARS_VERSION, "the version was not stamped");
+        check(vars.main == nil, "a value of the old shape stayed");
+        check(vars.tipsSeen and vars.tipsSeen.settingsGear == true, "the closed tips were dropped");
+        check(DebindPrivate.UIVars == vars, "the addon reads another table than the one saved");
+    end);
+
+    --- **The entry names the layers.** Whoever reads `layers[guid]` from another character has only
+    --- `characters[guid]` to tell them whose they are, so a character whose only content is a layer
+    --- keeps its entry.
+    test("a character whose only content is a layer keeps its entry", function()
+        FreshInit();
+        DebindPrivate.GetProfileLayer(DebindPrivate.GetLayerID(0, true)):Insert(
+            { type = Constants.SPELL, value = 1, key = "F1", seq = 1 });
+        DebindPrivate.CleanUpDB();
+        check(_G.DebindVars.layers[GUID] == DebindPrivate.db.charLayers,
+            "the layers were not attached");
+        check(_G.DebindVars.characters[GUID] == DebindPrivate.db.char,
+            "the layers were attached without the entry that names them");
+    end);
+
+    --- **The higher of the two counters.** The ladder stamps every badge in the old file as arrival
+    --- 1; a live counter left at 1 hands the next arrival the same number, and a group is
+    --- `(key, arrivalID)`, so accepting one would accept both.
+    test("the pre-rename import raises the arrival counter past its badges", function()
+        FreshInit();
+        local old = LegacyAccount();
+        old.GENERAL[1].key = 777;
+        old.GENERAL[1].imported = "F1";
+        old.dbver = 3;
+        _G.DebounceVars = old;
+        DebindPrivate.RunLegacyMigration();
+
+        check(_G.DebindVars.layers.account.GENERAL[0][1].arrivalID == 1,
+            "the badge was not raised - the premise broke");
+        check(DebindPrivate.NextArrivalID() == 2,
+            "a new arrival gets the number the imported badge already holds");
     end);
 
     ---------------------------------------------------------------------------

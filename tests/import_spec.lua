@@ -58,8 +58,11 @@ return function(DebindPrivate, DebindStorage)
         MACROS = {};
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
-            shared = { GENERAL = {}, classes = { [CLASS] = {} } },
-            characters = { [GUID] = { layers = {} } },
+            layers = {
+                account = { GENERAL = { [0] = {} } },
+                [GUID] = { [CLASS] = {} },
+            },
+            characters = { [GUID] = {} },
             migrated = {},
         };
         DebindPrivate.InitDB();
@@ -1009,7 +1012,7 @@ return function(DebindPrivate, DebindStorage)
               action = { type = Constants.SPELL, value = 1, key = "F", arrivalID = 3 } },
         });
 
-        local stored = _G.DebindVars.shared.classes.MAGE;
+        local stored = _G.DebindVars.layers.account.MAGE;
         check(stored and stored[2] and #stored[2] == 1,
             "마법사 특성2 자리에 안 들어갔다");
         check(stored[2][1].seq ~= nil, "순서 번호를 안 받았다");
