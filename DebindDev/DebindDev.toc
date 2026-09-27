@@ -30,4 +30,3 @@ DebindTest.lua
 # Probe_TalentCondition.lua
 # Probe_PressHold.lua
 Probe_InitialSpecs.lua
-# Probe_CBOR.lua

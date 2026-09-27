@@ -616,6 +616,114 @@ local function Apis()
     end
 end
 
+--- `reshaping-stored-layers.md` §1-2 packs the payload with `C_EncodingUtil` in CBOR, and the shape
+--- it packs leans on keys JSON would turn into strings: the `[0]` spec slot, specs with a hole where
+--- a two-specialization class has no 3 and 4, number and string keys side by side. Retail kept every
+--- case on 12.1.5.69952; this client's build is the one still unmeasured.
+---
+--- Each case goes through the whole string path (serialize, compress, base64, and back), and the
+--- first difference is recorded by path with both types, since a key coming back as `"2"` instead
+--- of `2` is exactly the failure being looked for.
+local function CborAction(name)
+    return { type = "spell", value = name, key = "SHIFT-1", seq = 1, conditions = { combat = true } };
+end
+
+local CBOR_CASES = {
+    { "spec 0..4", { [0] = { CborAction("a") }, [1] = { CborAction("b") }, [2] = { CborAction("c") },
+        [3] = { CborAction("d") }, [4] = { CborAction("e") } } },
+    { "spec 0,1,2,5", { [0] = { CborAction("a") }, [1] = { CborAction("b") }, [2] = { CborAction("c") },
+        [5] = { CborAction("f") } } },
+    { "spec 1,2,5", { [1] = { CborAction("b") }, [2] = { CborAction("c") }, [5] = { CborAction("f") } } },
+    { "spec 0 only", { [0] = { CborAction("a") } } },
+    { "spec 2 only", { [2] = { CborAction("c") } } },
+    { "number and string key", { [1] = "number", ["1"] = "string" } },
+    { "string key only", { ["1"] = { CborAction("a") } } },
+    { "empty table", {} },
+    { "empty table inside", { list = {}, spec = { [0] = {} } } },
+    { "array with hole", { 1, nil, 3 } },
+    { "class id keys", { specs = { [11] = 5, [8] = 2, [102] = 1 } } },
+    { "negative and float keys", { [-1] = "neg", [1.5] = "float" } },
+    { "values", { f = 1.5, big = 2 ^ 40, neg = -7, no = false, yes = true,
+        nul = "a\0b", utf8 = "가나다", long = string.rep("x", 300) } },
+    { "layers shape", {
+        v = 3, dbver = 8,
+        layers = {
+            account = {
+                GENERAL = { [0] = { CborAction("g") } },
+                MAGE = { [0] = { CborAction("m0") }, [2] = { CborAction("m2") } },
+                DRUID = { [1] = { CborAction("d1") }, [5] = { CborAction("d5") } },
+            },
+            ["Player-3041-0A1B2C3D"] = { MAGE = { [0] = { CborAction("c0") } } },
+            [1] = { MAGE = { [2] = { CborAction("n2") } } },
+            ["*"] = { ["*"] = { [4] = { CborAction("s4") } } },
+        },
+    } },
+};
+
+local function Describe(v)
+    return format("%s(%s)", type(v), tostring(v));
+end
+
+--- The first place `got` differs from `want`, or nil. Keys are compared by value and type, so
+--- a number key answered by a string key is reported as missing on one side and extra on the other.
+local function FirstDiff(want, got, path)
+    if (type(want) ~= type(got)) then
+        return format("%s: want %s, got %s", path, Describe(want), Describe(got));
+    end
+    if (type(want) ~= "table") then
+        if (want ~= got) then
+            return format("%s: want %s, got %s", path, Describe(want), Describe(got));
+        end
+        return nil;
+    end
+    for k, v in pairs(want) do
+        local diff = FirstDiff(v, rawget(got, k), path .. "[" .. Describe(k) .. "]");
+        if (diff) then
+            return diff;
+        end
+    end
+    for k, v in pairs(got) do
+        if (rawget(want, k) == nil) then
+            return format("%s[%s]: extra, got %s", path, Describe(k), Describe(v));
+        end
+    end
+    return nil;
+end
+
+local function CborRoundTrip(value)
+    local util = C_EncodingUtil;
+    local packed = util.EncodeBase64(util.CompressString(util.SerializeCBOR(value),
+        Enum.CompressionMethod.Deflate, Enum.CompressionLevel.OptimizeForSize));
+    local back = util.DeserializeCBOR(util.DecompressString(util.DecodeBase64(packed),
+        Enum.CompressionMethod.Deflate));
+    return back, #packed;
+end
+
+local function Cbor()
+    Emit("== cbor round trip");
+    if (not C_EncodingUtil or not C_EncodingUtil.SerializeCBOR) then
+        Emit("  this client has no C_EncodingUtil CBOR");
+        return;
+    end
+    local passed = 0;
+    for i = 1, #CBOR_CASES do
+        local name, value = CBOR_CASES[i][1], CBOR_CASES[i][2];
+        local ok, back, size = pcall(CborRoundTrip, value);
+        local result;
+        if (not ok) then
+            result = "raised: " .. tostring(back);
+        else
+            local diff = FirstDiff(value, back, "");
+            if (not diff) then
+                passed = passed + 1;
+            end
+            result = format("%s (%d chars)", diff or "ok", size);
+        end
+        Emit("  %02d %-24s %s", i, name, result);
+    end
+    Emit("  %d/%d cases round-trip", passed, #CBOR_CASES);
+end
+
 --- **Records are kept per section, under the section's name, and a later change to this file only
 --- ever adds.** A client section is measured once per build: a record already holding it is never
 --- measured again, so a section added later is measured on the next login on its own and nothing
@@ -624,7 +732,7 @@ end
 local CLIENT_SECTIONS = {
     "client", Client, "classes", Classes, "conditionals", Conditionals,
     "restricted", Restricted, "atlases", Atlases, "specspells", SpecResolved, "apis", Apis,
-    "minus candidates", MinusCandidates,
+    "minus candidates", MinusCandidates, "cbor", Cbor,
 };
 
 local CHARACTER_SECTIONS = {
