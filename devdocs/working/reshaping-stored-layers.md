@@ -1,9 +1,11 @@
 # 저장된 레이어 모양 바꾸기 (2026-09-27 시작)
 
-> 상태: **1단계(4절) 구현됨, 2단계가 다음.** 모양(1절)과 그 이유(2절)는 소유자와 정했다. 5절에 남은
-> 물음은 2단계와 3단계의 것이다. 1단계와 2단계는 한 릴리스로 나간다.
+> 상태: **1단계(4절) 구현됨, 다음은 1-2 뒷정리, 그다음 2단계.** 모양(1절)과 그 이유(2절)는 소유자와
+> 정했다. 4절 1-2에 답이 없는 물음이 둘 있다(액션 타입 문자열을 옮길지, 별칭 프레임을 둘지). 5절에 남은 물음은 2단계와 3단계의 것이다.
+> 1단계와 2단계는 한 릴리스로 나간다.
 >
-> 쓴 세션: `debind-43`, 세션 ID `8661be18-b7a9-47ca-9014-f4260da6eec7`.
+> 쓴 세션: `debind-43`, 세션 ID `8661be18-b7a9-47ca-9014-f4260da6eec7`. 1단계 구현과 1-2, 1-1절의
+> `switches`: `debind-d0`, 세션 ID `2a9fdeca-0bbb-4a0c-b443-336064187474`.
 
 저장 탭 오른쪽 열에 키별 보기를 넣다가 나온 일이다. 행마다 레이어를 칠해 보여 주려고 보니 캐릭터
 레이어는 누구의 직업인지를 자기 주소로 말하지 못했고, 거기서 두 가지가 드러났다.
@@ -85,13 +87,17 @@ DebindUIVars = {
   - **정의의 `value`는 저장하지 않는다.** 실행 중의 값이고 로그인마다 `ApplySwitchResets`가 다시 쓴다.
     수동 모드는 `resetValue`나 기억한 값으로 덮고, 식 모드는 첫 평가까지만 옛 값을 들고 간다. 정의 안에
     두면 설정 표가 실행 상태를 들게 되니, 저장하지 않는 실행용 표로 뺀다.
-- **`characters`는 캐릭터의 신원과 그 캐릭터가 들고 있는 상태를 든다** (소유자). 신원은
-  `RefreshIdentity`가 3.1부터 로그인마다 쓰는 값들이고, 상태는 기억한 스위치 값과 `CustomTargets`다.
-  - **상태를 따로 떼지 않는 이유.** 신원은 UI를 위한 값이지만 UI와 상관없이 로그인마다 채워지므로,
-    guid로 묶인 캐릭터의 기록으로 믿을 수 있다(소유자). 상태를 형제 표로 떼면 guid로 묶인 표가 하나 늘고
-    붙이고 떼는 규칙이 볼 표도 는다. 뗀다고 덜어지는 것은 없다. `HasCharContent`는 신원을 골라내는
-    함수가 아니라 내용 필드를 이름으로 세는 함수라, 표가 따로여도 그 표를 세야 하는 것은 같다.
-    기억한 값을 `switches[guid]`에 두지 않는 것은 그 칸의 모양을 `layers`와 같게 두기 위해서다.
+- **`characters`는 캐릭터의 신원만 든다. 그 캐릭터가 들고 있는 상태는 `states[guid]`로 뗀다** (소유자,
+  2026-09-27에 한 번 합쳤다가 같은 날 뒤집었다). 신원은 `RefreshIdentity`가 3.1부터 로그인마다 쓰는
+  값들이고, 상태는 기억한 스위치 값과 `CustomTargets`다.
+  - **뒤집은 이유.** 합칠 때의 근거는 guid로 묶인 표가 하나 준다는 것이었다. 그 뒤에 페이로드의
+    `characters`가 신원만 싣고 상태는 공유에도 백업에도 싣지 않기로 정해졌다(1-1절). 저장 쪽에 상태가
+    섞여 있으면 내보낼 때마다 상태 필드를 골라내야 하고, 떼면 저장과 페이로드의 `characters`가 같은
+    모양이라 백업이 그 표를 그대로 옮긴다. 상태는 이미 `Profile.lua`의 함수로만 읽고 쓰므로 떼는 비용도
+    작다.
+  - **`states`라는 이름은 스위치 쪽의 "state" 이름을 걷어낸 뒤에야 겹치지 않는다** (4절 1-2).
+  - 기억한 값을 `switches[guid]`에 두지 않는 것은 그 칸의 모양을 `layers`와 같게 두기 위해서다.
+  - `characters[guid]`는 그 guid의 `layers`, `switches`, `states` 칸 중 하나라도 있으면 남는다.
   - **레이어의 직업은 여기서 읽지 않는다.** 캐릭터 칸의 직업은 `characters[guid].class`가 아니라
     `layers[guid]`의 키가 답한다.
   - **상태는 `Profile.lua`의 함수로만 읽고 쓴다** (소유자). 저장 모양과 지연 생성(내용이 생기면 붙이고
@@ -143,7 +149,13 @@ payload = {
             MAGE = { [0] = {...}, [2] = {...} },
         },
     },
-    states = { ... },   -- 지금과 같다
+    switches = {
+        account = {
+            GENERAL = { [0] = { ["$burst"] = { mode, resetValue, expr } } },
+            MAGE    = { [2] = { ["$burst"] = { mode = ... } } },
+        },
+        ["1"] = { MAGE = { [0] = { ["$burst"] = { ... } } } },
+    },
 }
 
 -- 백업: 계정 전체
@@ -155,11 +167,14 @@ payload = {
         ["Player-3041-0A1B2C3D"] = { MAGE = {...} },
         ["Player-3041-0B2C3D4E"] = { DRUID = {...} },
     },
+    switches = {
+        account = { GENERAL = { [0] = {...} }, MAGE = {...} },
+        ["Player-3041-0A1B2C3D"] = { MAGE = {...} },
+    },
     characters = {
         ["Player-3041-0A1B2C3D"] = { name = ..., realm = ..., class = "MAGE" },
         ["Player-3041-0B2C3D4E"] = { name = ..., realm = ..., class = "DRUID" },
     },
-    states = { ... },
 }
 ```
 
@@ -175,8 +190,20 @@ payload = {
   위해서다.
 - **받는 쪽은 캐릭터 칸 중 하나를 골라 넣는다.** 받는 캐릭터는 하나다. 칸마다 직업이 키로 붙어 있으니
   다른 직업의 칸은 고를 수 없게 한다. 고르는 화면에 보여 줄 것은 5절.
+- **`switches`도 저장 데이터와 같은 이름, 같은 모양으로 싣는다** (소유자). v2의 `states`(이름 →
+  정의의 평평한 표)는 없어진다. 정의는 `account.GENERAL[0]`에, 오버라이드는 그 층의 칸에 싣고, 캐릭터
+  칸의 키는 `layers`와 같은 번호로 바꾼다. 받는 쪽이 캐릭터 칸을 고르면 같은 번호의 스위치 칸도 함께
+  고른 것이다.
+  - **오버라이드도 싣는다.** v2가 싣지 않은 이유는 키가 `"Player-1329-…:2"`처럼 이 설치의 캐릭터를
+    가리킨다는 것이었다(`Export.lua`의 `STATE_FIELDS` 주석). 새 모양에서 직업 칸은 직업 레이어와 같은
+    주소라 어느 계정에서나 뜻이 같고, 캐릭터 칸은 레이어처럼 번호로 바뀌니 그 이유가 없어진다.
+  - 무엇을 싣나는 지금처럼 액션이 참조하는 스위치와 그 식이 부르는 스위치까지다(`BuildStateManifest`).
+  - 받는 쪽이 정의를 쓰지 않는다는 결정(`building-export-import.md`, 2026-08-21)은 그대로다. 싣는
+    모양만 바뀐다.
 - **`characters`는 캐릭터 칸의 신원이다.** 되돌릴 때 누구의 칸인지 보여 주고 짝을 맞추는 데 쓴다.
-  공유용에는 넣지 않는다. `switches`와 `characters`의 상태 필드를 백업에 넣을지는 5절.
+  **`layers`나 `switches`에 캐릭터 칸으로 나오는 키만 든다** (소유자). 공유용에는 이름과 서버를 넣지
+  않는다(무엇을 넣어 고르게 할지는 5절).
+  - **기억한 스위치 값과 `CustomTargets`는 싣지 않는다** (소유자). 백업에도 싣지 않는다.
 - **`payload.class`는 없다.** 직업은 모든 칸이 키로 들고 있다.
 - **`source`는 지금처럼 남는다.** Clique로 만든 항목은 `layers.account.GENERAL[0]` 하나만 가진다.
 
@@ -225,6 +252,7 @@ payload = {
 - `shared.classes[C]`는 `layers.account[C]`로 간다.
 - `char`는 `layers["1"][payload.class]`로 간다. `payload.class`가 없으면(손으로 고친 문자열만
   해당) 5절.
+- `states`는 `switches.account.GENERAL[0]`으로 간다. v2는 오버라이드를 싣지 않았으니 다른 칸은 없다.
 - `payload.class`를 지운다.
 
 `DebindStorageVars`에 쌓인 v2 항목도 열 때 이 단계를 거친다.
@@ -366,6 +394,28 @@ payload = {
      - 레이어 배열 안의 `customStates = {}`처럼 액션이 아닌 키. 옮길 때 액션 표가 아닌 것은 버린다.
    - **`tipsSeen`만 `DebindUIVars`로 옮기고, `ui`와 `spellPicker`는 지운다** (1절, `tipsSeen` 말고는
      비워도 되는 값이다).
+1-2. **뒷정리** (소유자, 2단계보다 먼저). 같은 `dbver <= 7` 단계에 넣는다.
+   - **캐릭터 상태를 `states[guid]`로 뗀다** (1절 `characters`). 기억한 스위치 값과 `CustomTargets`가
+     옮겨 간다. 읽고 쓰는 문은 이미 `Profile.lua`의 `GetRememberedSwitch`, `SetRememberedSwitch`,
+     `GetSavedCustomTarget`, `SaveCustomTarget`이다. 안에서 `db.char`를 짚는 자리(`SetSwitchValue`,
+     `ApplySwitchResets`, 이름 바꾸기와 지우기, `HasCharContent`, `MigrateSwitches`의 값 옮기기,
+     `Legacy.lua`의 `CustomTargets`)와 `CleanUpDB`의 붙이고 떼는 규칙이 바뀐다.
+   - **스위치를 "state"라고 부르는 이름을 `switch`로 바꾼다** (소유자). 이름 한 번 바꾸는 비용보다
+     뒤의 세션들이 매번 헷갈림을 피해 가는 비용이 크다. 크기는 `States` 약 340곳, `SETSTATE` 약
+     160곳, `customStates` 약 20곳이다.
+     - **코드 이름**: 제한 환경의 `States` 표, `STATE_FIELDS`, `stateName` 같은 지역 이름, 주석의
+       "custom state". 제한 환경 쪽은 스니펫 골든이 바뀌므로 `restricted-environment.md`를 따른다.
+     - **저장된 액션 타입 문자열** `"setstate_on"`, `"setstate_off"`, `"setstate_toggle"`: 이번 단계에서
+       옮길지 정해야 한다(권고: 옮긴다. 저장값을 옮기는 단계가 한 번 더 생기는 것을 피한다. v2 공유
+       문자열의 액션도 `MigrateLayer`를 타니 같이 풀린다).
+     - **클릭 대상 프레임 `DebindStates`도 바꾼다** (소유자). [매크로로 바꾸기]가 켜기/끄기/전환 액션을
+       `/click DebindStates $burst-on`으로 펴서 액션의 매크로 본문에 써 넣으므로, 옮기는 단계가
+       `MigrateLayer`에서 그 본문을 새 이름으로 고쳐 쓴다(v2 공유 문자열도 같이 풀린다). 개명 때
+       `Legacy.lua`의 `RepairLegacyClickTargets`가 `DebounceStates`를 같은 방식으로 고쳤다. 사다리가
+       닿지 않는 곳, 곧 사용자가 그 줄을 게임의 매크로 창으로 옮겨 적은 것은 고칠 수 없다. 옛 이름을
+       받아 주는 별칭 프레임을 둘지는 정해야 한다(개명 때는 두지 않았다).
+     - **바꾸지 않는 것**: 옛 데이터의 실제 키라서 사다리 단계 안에만 남는 `customStates`와 v2 페이로드의
+       `states`.
 2. **페이로드를 같은 모양으로 올린다.** `SCHEMA_VERSION` 3, v2를 올리는 단계, `payload.class` 제거,
    다른 직업의 캐릭터 칸을 가져오지 않는 것.
 3. **전체 백업.** 5절의 물음에 답이 나온 뒤.
@@ -379,9 +429,6 @@ payload = {
 
 - **Legacy의 세 값을 묶을지.** `legacyNeeded`, `legacyAccountPulled`, `migrated`를 `legacy = { ... }`
   하나로. 동작은 안 바뀌고 모양의 취향이다.
-- **백업에 스위치를 어디까지 싣나.** 정의의 뿌리 답은 지금도 공유 문자열에 `states`로 실린다. 오버라이드
-  (`switches`의 나머지 칸)와 `characters`의 상태 필드를 백업에 넣을지. 레이어만 되돌리면 스위치를 조건으로 쓰는
-  액션이 그 값 없이 돌아온다.
 - **백업을 되돌릴 때 캐릭터 칸을 누구에게 넣나.** guid가 맞으면 그 캐릭터다. 서버 이전 등으로 안
   맞을 때 사람이 고르는 화면이 필요한지.
 - **v2 문자열의 캐릭터 레이어.** 올릴 때 `payload.class`를 그 칸의 직업으로 쓴다. `payload.class`가
