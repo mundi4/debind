@@ -590,6 +590,8 @@ L["STORAGE_DELETE_SELECTED"] = "선택한 %d개 삭제"
 L["STORAGE_DELETE_SELECTED_CONFIRM"] = "여기서 행동 %1$d개를 빼낼까요? 되돌릴 수 없어서 다시 만들어야 해요."
 L["STORAGE_PREVIEW_ELSEWHERE"] = "둘 자리가 없는 것"
 L["STORAGE_VIEW_LAYER"] = "레이어"
+L["STORAGE_EXPAND_ALL"] = "모두 펼치기"
+L["STORAGE_COLLAPSE_ALL"] = "모두 접기"
 L["STORAGE_TITLE"] = "창고"
 L["STORAGE_MENU_DESC"] = "설정을 따로 담아 둡니다. 이 캐릭터에서 만든 것, 붙여넣은 것, Clique 프로필에서 만든 것이 여기 있어요.|n|n넣으면 그 안의 행동이 대기 중으로 들어오니까, 받기 전까지는 어떤 키도 달라지지 않아요."
 

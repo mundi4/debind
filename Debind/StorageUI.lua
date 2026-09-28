@@ -44,8 +44,9 @@ local ENTRY_ROW_HEIGHT   = 44;
 --- The right column, which is the export list's three rungs.
 local PREVIEW_ROW_HEIGHT = 28;
 local LAYER_HEIGHT       = 26;
-local ROW_INDENT         = 10;
-local OWNER_INDENT       = 10;
+--- The air between two groups, as an element of its own. Overview's `KEY_GROUP_GAP`.
+local PREVIEW_GROUP_GAP  = 1;
+local PREVIEW_ROW_INDENT = 18;
 local PREVIEW_KEY_TEXT_WIDTH   = 120;
 local PREVIEW_LAYER_TEXT_WIDTH = 180;
 
@@ -562,6 +563,11 @@ local NO_INSTRUCTIONS = {};
 
 DebindStoragePreviewRowMixin = {};
 
+function DebindStoragePreviewRowMixin:OnLoad()
+    self.Check:EnableMouse(false);
+    NormalizeCheckMark(self.Check);
+end
+
 function DebindStoragePreviewRowMixin:Init(elementData)
     self.elementData = elementData;
 
@@ -572,24 +578,21 @@ function DebindStoragePreviewRowMixin:Init(elementData)
     DebindUI.SetActionIcon(self.Icon, icon);
     -- The key view's header already says the key, so the right-hand column says the layer instead
     -- (`grouping-the-storage-preview-by-key.md` 3절).
+    local maxWidth;
     if (elementData.layerText) then
-        self.Key:SetWidth(PREVIEW_LAYER_TEXT_WIDTH);
+        maxWidth = PREVIEW_LAYER_TEXT_WIDTH;
         self.Key:SetText(elementData.layerText);
     else
-        self.Key:SetWidth(PREVIEW_KEY_TEXT_WIDTH);
+        maxWidth = PREVIEW_KEY_TEXT_WIDTH;
         self.Key:SetText(action.key and DebindPrivate.GetKeyDisplayText(action.key) or "");
     end
-
-    -- The line marks where one key's group ends and the next begins. The first row under a layer
-    -- gets none: the layer's own divider is already the line there, and two rules on top of each
-    -- other read as a heavier rule, not as two boundaries.
-    self.GroupBorder:SetShown(elementData.startsGroup and not elementData.firstInLayer);
+    self.Key:SetWidth(math.min(self.Key:GetUnboundedStringWidth(), maxWidth));
 
     self:UpdateSelectionDisplay();
 end
 
 function DebindStoragePreviewRowMixin:UpdateSelectionDisplay()
-    self.SelectedHighlight:SetShown(DebindStoragePanel.selected[self.elementData.action] == true);
+    self.Check:SetChecked(DebindStoragePanel.selected[self.elementData.action] == true);
 end
 
 --- The row's menu: taking things out of the entry, which is the only edit an entry has (12절).
@@ -672,29 +675,23 @@ function DebindStoragePreviewRowMixin:OnLeave()
     DebindPrivate.HideActionTooltip(GameTooltip);
 end
 
---- A layer header: the game's own collapsible list header (`ListHeaderThreeSliceTemplate`), with a
---- tri-state checkbox added on the left.
----
---- The quiet bar, not the quest log's `ListHeaderVisualTemplate`: a layer is the divider this list
---- is cut on rather than the thing being chosen, and the louder art reads as the latter.
----
---- The bar carries **two** gestures and they are split by area: the checkbox selects the layer,
---- everything else collapses it, and the bar's right-hand cap says which way it currently sits.
 DebindStoragePreviewLayerMixin = {};
 
+--- Dressed the way `DebindKeyHeaderMixin:OnLoad` dresses Overview's, so the two read as one kind of
+--- bar.
 function DebindStoragePreviewLayerMixin:OnLoad()
-    -- Clear of the checkbox. `ListHeaderThreeSliceMixin` owns the text's anchor and hands out this
-    -- call for moving it, so the offset lives here instead of a second anchor in the XML.
-    self:AdjustTextOffset(22, 0);
+    self:SetTitleColor(false, HIGHLIGHT_FONT_COLOR);
+    self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
 
-    -- One colour for both states, which is what every three-slice header in the client does. The
-    -- bar's own HIGHLIGHT layer answers the mouse, and a title that changed colour alongside it
-    -- would be a second answer to the one question. Neither call paints: `SetHeaderText` does.
-    self:SetTitleColor(false, NORMAL_FONT_COLOR);
-    self:SetTitleColor(true, NORMAL_FONT_COLOR);
+    self:GetNormalTexture():SetDesaturated(true);
+    self:GetNormalTexture():SetAlpha(0.5);
+    self:GetHighlightTexture():SetDesaturated(true);
+
+    -- Only the left end moves. `AdjustTextOffset` would carry the right one along with it, into the
+    -- fold button it is anchored to.
+    self.ButtonText:SetPoint("LEFT", self.Check, "RIGHT", 4, 1);
 
     NormalizeCheckMark(self.Check);
-
     self.Check:SetScript("OnClick", function()
         DebindStoragePanel:ToggleLayer(self.elementData.actions);
         self:UpdateSelectionDisplay();
@@ -722,13 +719,13 @@ function DebindStoragePreviewLayerMixin:UpdateSelectionDisplay()
     SetTriState(self.Check, state or STATE_NONE);
 end
 
---- The bar collapses. Selecting is the checkbox's job and it swallows its own clicks, so a click
---- arriving here is always about showing and hiding.
 function DebindStoragePreviewLayerMixin:OnClick()
     DebindStoragePanel:ToggleLayerCollapsed(self.elementData.key);
 end
 
 function DebindStoragePreviewLayerMixin:OnEnter()
+    ListHeaderMixin.OnEnter(self);
+
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.elementData.label);
     GameTooltip_AddNormalLine(GameTooltip,
@@ -737,6 +734,7 @@ function DebindStoragePreviewLayerMixin:OnEnter()
 end
 
 function DebindStoragePreviewLayerMixin:OnLeave()
+    ListHeaderMixin.OnLeave(self);
     GameTooltip:Hide();
 end
 
@@ -752,8 +750,8 @@ DebindStoragePanelMixin = {};
 --- Ordered by name, **with a key's actions kept together**. Those two pull against each other and
 --- both are wanted: the main list settled on name order because a single-layer list has no
 --- standing to claim firing order, and this list inherits that; but the group is the thing that
---- travels, so it has to be visible as one block. Ordering the groups by the name of their first
---- action gives a list that reads alphabetically and still has boundaries that mean something.
+--- travels, so it has to stand together. Ordering the groups by the name of their first action
+--- gives a list that reads alphabetically and still keeps each key's actions in one run.
 local function SortLayerActions(actions)
     local groups, byKey = {}, {};
 
@@ -838,7 +836,7 @@ local function PreviewLayerOf(owner, class, spec, ownerLabel, ownerName)
         local text = LLL[toClass == "UNKNOWN_CLASS" and "STORAGE_PREVIEW_UNKNOWN_CLASS"
             or "STORAGE_PREVIEW_ELSEWHERE"];
         return "~" .. tostring(toClass), toClass == "UNKNOWN_CLASS" and "3" or "4", text,
-            format(LLL["ORDER_LAYER_LABEL"], ownerLabel, text), 6, 0;
+            ownerName and format(LLL["ORDER_LAYER_LABEL"], ownerLabel, text) or text, 6, 0;
     end
     local sortKey = layerID == 1 and "0"
         or ((class == Constants.PLAYER_CLASS and "1" or "2") .. class .. format("%02d", layerID));
@@ -910,8 +908,6 @@ local function BuildPreviewKeyGroups(ownerOrder)
             action = item.source,
             layerLabel = item.place.label,
             layerText = item.place.label,
-            keyView = true,
-            firstInLayer = #current.rows == 0,
         };
     end
     return groups;
@@ -926,8 +922,8 @@ end
 --- idea written twice -- the fault being guarded against is the panel saying 12 while the string
 --- carries 9 (`building-export-import.md` 2절).
 ---
---- **Grouped by whose cells they are**, account first and then each character. Adding takes one
---- character, and the reader picks it by ticking, so a character's layers have to be one tick.
+--- **Grouped by whose cells they are**, account first and then each character, so one owner's
+--- layers stand together.
 local function BuildPreviewLayers(payload)
     local owners, ownerOrder = {}, {};
     local identities = type(payload.characters) == "table" and payload.characters or {};
@@ -976,16 +972,13 @@ local function BuildPreviewLayers(payload)
         group.byKey = nil;
         sort(group.layers, function(lhs, rhs) return lhs.sortKey < rhs.sortKey; end);
         for _, bucket in ipairs(group.layers) do
-            local rows, firstInLayer = {}, true;
+            local rows = {};
             for _, sorted in ipairs(SortLayerActions(bucket.actions)) do
-                for index, entry in ipairs(sorted.actions) do
+                for _, entry in ipairs(sorted.actions) do
                     rows[#rows + 1] = {
                         action = entry.action,
                         layerLabel = bucket.place.label,
-                        startsGroup = index == 1,
-                        firstInLayer = firstInLayer,
                     };
-                    firstInLayer = false;
                 end
             end
             bucket.rows = rows;
@@ -1060,6 +1053,15 @@ function DebindStoragePanelMixin:OnLoad()
                 self:SetPreviewView(view);
             end);
         end
+        -- The collections journals keep their check all / uncheck all in the filter menu the same way
+        -- (`Blizzard_MountCollection.lua`).
+        rootDescription:CreateDivider();
+        rootDescription:CreateButton(LLL["STORAGE_EXPAND_ALL"], function()
+            self:SetAllCollapsed(false);
+        end);
+        rootDescription:CreateButton(LLL["STORAGE_COLLAPSE_ALL"], function()
+            self:SetAllCollapsed(true);
+        end);
     end);
 
     --- Which entry the right column is showing. **Held by reference**, so deleting the row it
@@ -1116,22 +1118,21 @@ function DebindStoragePanelMixin:InitializeScrollBoxes()
         if (elementData.isLayer) then
             factory("DebindStoragePreviewLayerTemplate",
                 function(frame, data) frame:Init(data); end);
+        elseif (elementData.isSpacer) then
+            factory("Frame");
         else
             factory("DebindStoragePreviewRowTemplate",
                 function(frame, data) frame:Init(data); end);
         end
     end);
     previewView:SetElementExtentCalculator(function(_, elementData)
+        if (elementData.isSpacer) then
+            return PREVIEW_GROUP_GAP;
+        end
         return elementData.isLayer and LAYER_HEIGHT or PREVIEW_ROW_HEIGHT;
     end);
     previewView:SetElementIndentCalculator(function(elementData)
-        if (elementData.isOwner or elementData.isKeyGroup) then
-            return 0;
-        end
-        if (elementData.keyView) then
-            return ROW_INDENT;
-        end
-        return elementData.isLayer and OWNER_INDENT or OWNER_INDENT + ROW_INDENT;
+        return (elementData.isLayer or elementData.isSpacer) and 0 or PREVIEW_ROW_INDENT;
     end);
     local previewContent = self.Preview.ContentArea;
     ScrollUtil.InitScrollBoxListWithScrollBar(previewContent.ScrollBox, previewContent.ScrollBar,
@@ -1212,12 +1213,6 @@ end
 function DebindStoragePanelMixin:PreviewKeys()
     if (not self.previewKeys and self.previewOwners) then
         self.previewKeys = BuildPreviewKeyGroups(self.previewOwners);
-        if (self.shutNewKeys) then
-            self.shutNewKeys = nil;
-            for _, keyGroup in ipairs(self.previewKeys) do
-                self.collapsed[keyGroup.id] = true;
-            end
-        end
     end
     return self.previewKeys or {};
 end
@@ -1244,34 +1239,37 @@ function DebindStoragePanelMixin:SelectEntry(entry)
     self:RebuildPreviewLayers();
 
     if (self.previewLayers) then
-        -- **Every layer starts shut, and every owner open.** Open, the column is one long run of
-        -- actions and the layers, the axis it is cut on, are lost in it. Shut, the first screen is
-        -- the whole shape of what is in the entry, and opening one is how you go and look.
-        for _, layer in ipairs(self.previewLayers) do
-            self.collapsed[layer.key] = true;
-        end
-        -- The key groups are shut the same way, when they are first built.
-        self.shutNewKeys = true;
-
         self:SelectAll(true);
     end
 
     self:UpdateEntrySelectionDisplay();
-    self:RefreshPreview();
+    self:RefreshPreview(true);
+end
+
+--- No spacer at all when the gap is 0: the view takes an element of extent 0 for the end of the
+--- data (`ScrollBoxListStrideMixin:CalculateDataIndices`) and draws nothing after it.
+local function AddGroupGap(list)
+    if (PREVIEW_GROUP_GAP > 0) then
+        list[#list + 1] = { isSpacer = true };
+    end
 end
 
 --- The rows actually drawn. **Collapsing hides, it does not untick** - a collapsed layer's actions
 --- still travel and still count toward the header and the total. That is why the two lists are
 --- separate: everything that asks "what is picked" reads `previewLayers`, and only drawing reads
 --- this one.
+---
+--- **Headings stand in one rung.** A layer's heading names its owner, since nothing above it does.
 function DebindStoragePanelMixin:BuildPreviewDisplayList()
     local list = {};
 
     if (self:GetPreviewView() == "key") then
-        for _, keyGroup in ipairs(self:PreviewKeys()) do
+        for i, keyGroup in ipairs(self:PreviewKeys()) do
+            if (i > 1) then
+                AddGroupGap(list);
+            end
             list[#list + 1] = {
                 isLayer = true,
-                isKeyGroup = true,
                 key = keyGroup.id,
                 label = keyGroup.label,
                 actions = keyGroup.actions,
@@ -1286,25 +1284,19 @@ function DebindStoragePanelMixin:BuildPreviewDisplayList()
     end
 
     for _, owner in ipairs(self.previewOwners or {}) do
-        list[#list + 1] = {
-            isLayer = true,
-            isOwner = true,
-            key = owner.key,
-            label = owner.label,
-            actions = owner.actions,
-        };
-        if (not self:IsLayerCollapsed(owner.key)) then
-            for _, layer in ipairs(owner.layers) do
-                list[#list + 1] = {
-                    isLayer = true,
-                    key = layer.key,
-                    label = layer.label,
-                    actions = layer.actions,
-                };
-                if (not self:IsLayerCollapsed(layer.key)) then
-                    for _, row in ipairs(layer.rows) do
-                        list[#list + 1] = row;
-                    end
+        for _, layer in ipairs(owner.layers) do
+            if (#list > 0) then
+                AddGroupGap(list);
+            end
+            list[#list + 1] = {
+                isLayer = true,
+                key = layer.key,
+                label = layer.place.label,
+                actions = layer.actions,
+            };
+            if (not self:IsLayerCollapsed(layer.key)) then
+                for _, row in ipairs(layer.rows) do
+                    list[#list + 1] = row;
                 end
             end
         end
@@ -1317,10 +1309,12 @@ end
 ---
 --- **Three things it can be showing**, and the empty line says which: nothing picked, an entry
 --- that cannot be read, or an entry with nothing in it.
-function DebindStoragePanelMixin:RefreshPreview()
+function DebindStoragePanelMixin:RefreshPreview(resetScroll)
     local list = self:BuildPreviewDisplayList();
     local scrollBox = self.Preview.ContentArea.ScrollBox;
-    scrollBox:SetDataProvider(CreateDataProvider(list), true);
+    -- `retainScrollPosition` is a boolean, so this is its negation rather than an `and`/`or`
+    -- picking between the two constants: `DiscardScrollPosition` is `false`.
+    scrollBox:SetDataProvider(CreateDataProvider(list), not resetScroll);
 
     local emptyText;
     if (not self.selectedEntry) then
@@ -1360,6 +1354,18 @@ function DebindStoragePanelMixin:ToggleLayerCollapsed(key)
     self:RefreshPreview();
 end
 
+function DebindStoragePanelMixin:SetAllCollapsed(collapsed)
+    wipe(self.collapsed);
+    if (collapsed) then
+        for _, elementData in ipairs(self:BuildPreviewDisplayList()) do
+            if (elementData.isLayer) then
+                self.collapsed[elementData.key] = true;
+            end
+        end
+    end
+    self:RefreshPreview();
+end
+
 --- Every action in the preview, collapsed layers included.
 function DebindStoragePanelMixin:EnumerateListedActions()
     local actions = {};
@@ -1389,10 +1395,9 @@ function DebindStoragePanelMixin:UpdateSelectionState()
     local state, selectedCount = CombineState(listed, self.selected);
 
     SetTriState(self.Preview.SelectAllCheck, state or STATE_NONE);
-    -- **A state, not a verb** (2026-08-22, 소유자). One box does both jobs: it picks everything up
-    -- and it puts everything down, so a label naming either one is wrong at the moment the other is
-    -- what a click would do. It says what is true instead. Both numbers are there because one on
-    -- its own reads as the total, which had a half picked entry announcing that it held eight.
+    -- **A state, not a verb.** One box picks everything up and puts everything down, so a label
+    -- naming either is wrong whenever the other is what a click would do. Both numbers, because one
+    -- on its own reads as the total.
     self.Preview.SelectAllCheck.Text:SetText(
         format(LLL["EXPORT_SELECTED_COUNT"], selectedCount, #listed));
     ExtendHitRectOverLabel(self.Preview.SelectAllCheck);
@@ -1883,12 +1888,11 @@ local CLIQUE_SPEC_LABELS = {
     drop = "STORAGE_ADD_SPECS_DROP",
 };
 
---- A character key of the payload as the dropdown shows it: the owner half of its character layer's
---- label, the way the preview heads it. Always this class.
+--- A character key of the payload as the dropdown shows it: its character layer's label. Always
+--- this class.
 local function CharacterChoiceLabel(owner, identity)
-    local _, label = DebindUI.GetColoredLayerLabel(DebindUI.GetLayerIDForAddress("character", 0), nil,
-        CharacterName(owner, identity));
-    return label;
+    return (DebindUI.GetColoredLayerLabel(DebindUI.GetLayerIDForAddress("character", 0), nil,
+        CharacterName(owner, identity)));
 end
 
 local function SetButtonTooltip(button, text)

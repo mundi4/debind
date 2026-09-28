@@ -2262,6 +2262,8 @@ L["STORAGE_PREVIEW_UNKNOWN_CLASS"] = "Unknown class"
 -- The preview's [View] menu, beside `SORT_BY_KEY` ("Key & Order"), which is the other item and is
 -- Overview's word for the same grouping.
 L["STORAGE_VIEW_LAYER"] = "Layer"
+L["STORAGE_EXPAND_ALL"] = "Expand All"
+L["STORAGE_COLLAPSE_ALL"] = "Collapse All"
 -- The right column's resting state: nothing picked. **It said "pick something"** because the thing
 -- in the list had no name to call it by, which is what a screen that will not name its object is
 -- reduced to. It has one now (`STORAGE_CREATE`), so the sentence says which thing to pick.

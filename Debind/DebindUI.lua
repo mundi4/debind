@@ -1311,7 +1311,7 @@ function DebindLineMixin:OnReceiveDrag()
 end
 
 local KEY_HEADER_HEIGHT = 26;
-local KEY_GROUP_GAP = 8;
+local KEY_GROUP_GAP = 1;
 -- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;

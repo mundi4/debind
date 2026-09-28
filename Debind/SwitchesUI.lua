@@ -14,7 +14,7 @@ local ROW_HEIGHT        = 28;
 --- the same bar.
 local HEADER_ROW_HEIGHT = 26;
 --- The air under a group, as an element of its own. Overview's `KEY_GROUP_GAP`.
-local GROUP_GAP         = 8;
+local GROUP_GAP         = 1;
 --- A row on the right column that is a name and nothing else. Shorter than a switch row: these
 --- are read down rather than acted on, and there can be a great many of them.
 local USAGE_ROW_HEIGHT  = 24;
@@ -144,9 +144,8 @@ end
 --- (`CollectSwitchUsage`). Split the other way, a switch named once on the account-wide layer read
 --- as "this character only".
 ---
---- **The names come from the profile and not from `GetLayerLabel`.** That one names only the
---- character who is logged in. What is in our own file names the others: `RefreshIdentity` writes
---- `name` and `class` on every login.
+--- **Another character's name and class come from the profile**, which `RefreshIdentity` writes on
+--- every login; the client names only the one logged in.
 ---
 --- **A character is drawn in its class's colour, and so is a class.** Both rows answer "which
 --- class", and two colour rules for one fact is two things to learn.
@@ -182,14 +181,12 @@ local function AccountRows(usage)
         end
     end
 
-    -- A class row is its class layer's side half, and a character row its character layer's owner
-    -- half, both painted by `GetColoredLayerLabel`.
     local classLayerID = DebindUI.GetLayerIDForAddress("class", 0);
     local characterLayerID = DebindUI.GetLayerIDForAddress("character", 0);
 
     local classes = {};
     for classKey, bucket in pairs(usage.classes) do
-        local _, _, text = DebindUI.GetColoredLayerLabel(classLayerID, classKey);
+        local text = DebindUI.GetColoredLayerLabel(classLayerID, classKey);
         classes[#classes + 1] = {
             label = Constants.CLASS_NAMES[classKey] or classKey,
             text = text,
@@ -207,7 +204,7 @@ local function AccountRows(usage)
         -- A character with no entry has no class to paint it with.
         local text = HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(label);
         if (entry and entry.class) then
-            text = select(2, DebindUI.GetColoredLayerLabel(characterLayerID, entry.class, label));
+            text = (DebindUI.GetColoredLayerLabel(characterLayerID, entry.class, label));
         end
         characters[#characters + 1] = {
             label = label,

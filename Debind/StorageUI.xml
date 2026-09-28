@@ -115,33 +115,12 @@
 	<Button name="DebindStoragePreviewRowTemplate" mixin="DebindStoragePreviewRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
 		<Size x="400" y="28"/>
 		<Layers>
-			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
-				<!--
-					The key boundary. Groups are drawn as a **line**, not a header row - the same
-					choice the main list made, and for the same reason: a header would promise
-					that what follows fires in the order shown, and this window shows one layer
-					at a time so it has no standing to say that.
-				-->
-				<Texture parentKey="GroupBorder" atlas="Options_HorizontalDivider" hidden="true">
-					<Size y="1"/>
-					<Anchors>
-						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT"/>
-					</Anchors>
-				</Texture>
-			</Layer>
 			<Layer level="ARTWORK">
-				<!-- Level with the header's checkbox, which starts at the same inset. -->
 				<Texture parentKey="Icon">
 					<Size x="20" y="20"/>
 					<Anchors>
-						<Anchor point="LEFT" x="5" y="0"/>
+						<!-- Clear of `Check`, which is declared below and so cannot be anchored to. -->
+						<Anchor point="LEFT" x="28" y="0"/>
 					</Anchors>
 				</Texture>
 				<!--
@@ -167,24 +146,30 @@
 					</Anchors>
 				</FontString>
 			</Layer>
-			<!--
-				**A picked row is lit, not ticked.** Same art and same layer the main window uses on
-				its selected rows, so "this one is picked" looks one way across the addon.
-
-				It also settles which rung is which. A checkbox on every row put three columns of
-				boxes down the list and the eye could not tell the layer's box from an action's; a
-				lit row cannot be mistaken for the header above it.
-			-->
-			<Layer level="OVERLAY">
-				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
-					<Color r="1" g="1" b="0" a="1"/>
-				</Texture>
-			</Layer>
 		</Layers>
+		<!-- The AddOns list's row highlight (`AddonListBaseTemplate`), starting clear of the box. -->
+		<HighlightTexture file="Interface\QuestFrame\UI-QuestTitleHighlight" alphaMode="ADD">
+			<Size x="0" y="22"/>
+			<Anchors>
+				<Anchor point="LEFT" x="28"/>
+				<Anchor point="RIGHT"/>
+			</Anchors>
+		</HighlightTexture>
+		<Frames>
+			<!--
+				Level with the header's, at the same inset. **The row takes the click, not the box**
+				(`OnLoad` turns its mouse off): the whole row ticks, and the right-click menu has to
+				open from the box too.
+			-->
+			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="LEFT" x="2" y="0"/>
+				</Anchors>
+			</CheckButton>
+		</Frames>
 		<Scripts>
+			<OnLoad method="OnLoad"/>
 			<OnClick method="OnClick"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
@@ -197,22 +182,17 @@
 
 		Its checkbox is the middle rung of the three: all -> layer -> action.
 	-->
-	<Button name="DebindStoragePreviewLayerTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindStoragePreviewLayerMixin" virtual="true">
+	<Button name="DebindStoragePreviewLayerTemplate" inherits="ListHeaderVisualTemplate, ListHeaderCodeTemplate" mixin="DebindStoragePreviewLayerMixin" virtual="true">
 		<Size x="400" y="26"/>
 		<Frames>
 			<!--
-				**This checkbox takes its own clicks**, unlike the one on a row. Here the two
-				gestures mean different things - the bar collapses, the box selects - so the box has
-				to be able to say "not me" by swallowing the click itself.
-
-				The header text is pushed clear of it in `OnLoad` rather than re-anchored here.
-				`ListHeaderThreeSliceMixin` owns that anchor and offers `AdjustTextOffset` for
-				exactly this, and writing a second anchor would leave two rules for one position.
+				**The box takes its own click and the bar folds**, as in the AddOns list
+				(`AddonListNodeMixin:OnClick`). Unlike the one on a row, whose click is the row's.
 			-->
 			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
 				<Size x="24" y="24"/>
 				<Anchors>
-					<Anchor point="LEFT" x="5" y="0"/>
+					<Anchor point="LEFT" x="2" y="0"/>
 				</Anchors>
 			</CheckButton>
 		</Frames>

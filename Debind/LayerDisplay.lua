@@ -4,8 +4,7 @@ local _, DebindPrivate = ...;
 ---
 --- Five layers, and every one of them is named to the reader out of the words the client already
 --- has: the character's name, the class, the specialization. Nothing here invents a word
---- (`writing-user-facing-text.md`), which is also why the labels are assembled from the tab labels
---- rather than written out again - the reader picked the layer with those.
+--- (`writing-user-facing-text.md`).
 ---
 --- **The tab coordinates go in and out of here, and nothing further.** Which tab is open is the
 --- overview window's business and stays there (`GetLayerID`); a `layerID` is enough for everything
@@ -99,9 +98,6 @@ local function GetSideLabelForClass(class, spec)
 	return specName;
 end
 
---- **The tab labels, reused verbatim.** They are already the class, specialization and character
---- names the reader picked the layer with, so a label built from them teaches nothing new.
----
 --- **`class` says whose class layer it is, and nil means this character's.** A `layerID` is a
 --- coordinate that never mentions a class -- it says general, class, class-by-spec, character,
 --- character-by-spec -- so the same eleven numbers describe anybody's class layers and what was
@@ -109,10 +105,9 @@ end
 --- did. **`owner` is the same for a character layer's character**: nil is this one, and a stored
 --- payload names its own (`StorageUI.lua`'s preview).
 ---
---- Answers the label and its two halves, which `GetColoredLayerLabel` paints.
+--- Answers the tab and side tab halves, which `GetColoredLayerLabel` paints, and the class name
+--- an account specialization layer is named under.
 ---
---- **A named class's specialization under the account names the class too**: one label can stand
---- beside another class's, and Restoration, Holy, Protection and Frost are each two classes' name.
 --- **A specialization number the class has no name for has no label** (nil), which only a hand-made
 --- string carries; its caller says it has nowhere to go rather than calling it General.
 local function GetLayerLabelParts(layerID, class, owner)
@@ -125,26 +120,39 @@ local function GetLayerLabelParts(layerID, class, owner)
 		scope = owner or UnitName("player");
 	end
 
-	local side;
+	local side, className;
 	if (not class) then
 		side = GetSideTabLabel(sideTab);
-	elseif (sideTab == 1) then
-		side = LLL["GENERAL"];
-	elseif (sideTab == 2) then
-		side = GetSideLabelForClass(class, 0);
+		className = GetSideTabLabel(2);
 	else
-		side = GetSideLabelForClass(class, sideTab - 2);
-		if (side and tab == 1) then
-			side = format(LLL["ORDER_LAYER_LABEL"], GetSideLabelForClass(class, 0), side);
+		className = GetSideLabelForClass(class, 0);
+		if (sideTab == 1) then
+			side = LLL["GENERAL"];
+		elseif (sideTab == 2) then
+			side = className;
+		else
+			side = GetSideLabelForClass(class, sideTab - 2);
 		end
 	end
 
-	return tab, scope, side;
+	return tab, scope, side, className;
+end
+
+--- **A layer is named by what sets it apart, not by the tabs that lead to it**: General, Mage,
+--- Mage / Arcane, Oreo, Oreo / Balance. The account tab's own word is left out, since a name with
+--- no character in it can only be the account's. An account specialization is named under its
+--- class because Restoration, Holy, Protection and Frost are each two classes' name.
+local function ComposeLayerLabel(layerID, scope, side, className)
+	local tab, sideTab = GetLayerTabs(layerID);
+	if (sideTab <= 2) then
+		return tab == 2 and scope or side;
+	end
+	return format(LLL["ORDER_LAYER_LABEL"], tab == 2 and scope or className, side);
 end
 
 local function GetLayerLabel(layerID, class, owner)
-	local _, scope, side = GetLayerLabelParts(layerID, class, owner);
-	return side and format(LLL["ORDER_LAYER_LABEL"], scope, side);
+	local _, scope, side, className = GetLayerLabelParts(layerID, class, owner);
+	return side and ComposeLayerLabel(layerID, scope, side, className);
 end
 
 --- Is this layer outside the world the live key map was built for?
@@ -211,14 +219,15 @@ DebindUI.ACCOUNT_COLOR = ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color;
 --- class's colour (`class`, this character's where nil). Answers the label and its two halves,
 --- painted the same way, for a caller that draws one of them on its own.
 local function GetColoredLayerLabel(layerID, class, owner)
-	local tab, scope, side = GetLayerLabelParts(layerID, class, owner);
+	local tab, scope, side, className = GetLayerLabelParts(layerID, class, owner);
 	if (not side) then
 		return nil;
 	end
 	local classColor = GetClassColorObj(class or Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
 	scope = (tab == 1 and DebindUI.ACCOUNT_COLOR or classColor):WrapTextInColorCode(scope);
 	side = (layerID == 1 and DebindUI.ACCOUNT_COLOR or classColor):WrapTextInColorCode(side);
-	return format(LLL["ORDER_LAYER_LABEL"], scope, side), scope, side;
+	className = className and classColor:WrapTextInColorCode(className);
+	return ComposeLayerLabel(layerID, scope, side, className), scope, side;
 end
 
 DebindUI.GetLayerTabs = GetLayerTabs;

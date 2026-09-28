@@ -180,6 +180,25 @@ return function(DebindPrivate, DebindStorage)
         check(theirs and theirs:find(mage, 1, true), "named side half " .. tostring(theirs) .. ", expected " .. mage);
     end);
 
+    -- **A layer is named by what sets it apart and nothing more**: the account-wide layer is
+    -- General, an account class layer its class, a character layer its character. "Account" is a
+    -- tab's word and is left out; a name with no character in it is the account's.
+    test("a layer below the specializations is one word", function()
+        local DebindUI = DebindPrivate.DebindUI;
+        local LLL = DebindPrivate.L;
+        local mage = DebindPrivate.Constants.CLASS_NAMES.MAGE;
+        local cases = {
+            { DebindUI.GetLayerLabel(1), LLL["GENERAL"] },
+            { DebindUI.GetLayerLabel(2), (UnitClass("player")) },
+            { DebindUI.GetLayerLabel(2, "MAGE"), mage },
+            { DebindUI.GetLayerLabel(7), (UnitName("player")) },
+            { DebindUI.GetLayerLabel(7, "MAGE", "Bob"), "Bob" },
+        };
+        for i, case in ipairs(cases) do
+            check(case[1] == case[2], "case " .. i .. ": " .. tostring(case[1]) .. ", expected " .. case[2]);
+        end
+    end);
+
     -- **A spell's subtext rides into its cast name to tell same-named spells apart**, which retail
     -- needs for a specialization's own version of a shapeshift. On camelot the subtext is the rank
     -- ("Rank 1", measured on 69977), and a cast name carrying it keeps casting that rank after the
