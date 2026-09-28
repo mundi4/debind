@@ -230,8 +230,8 @@ return function(DebindPrivate, DebindStorage)
     test("다른 직업 레이어에 놓아도 번호는 이어진다", function()
         ResetProfile();
 
-        local mage = DebindStorage.PlanArrival(ClassCell("MAGE", 2, {
-            { type = Constants.SPELL, value = 1, key = "F", seq = 1 } }));
+        local mage = { { scope = "class", class = "MAGE", spec = 2, action = {
+            type = Constants.SPELL, value = 1, key = "F", arrivalID = DebindPrivate.NextArrivalID() } } };
         DebindPrivate.PlaceArrivedActions(mage);
 
         -- The premise: it really did land somewhere the layer view does not reach.
@@ -608,19 +608,100 @@ return function(DebindPrivate, DebindStorage)
             "직업 공용 자리에 안 갔다");
     end);
 
-    -- **A layer is a coordinate, not something to translate.** Both profiles use the same one, so
-    -- another class's layer keeps its class *and* its spec: a mage's spec 2 is a mage's spec 2 on
-    -- every account. `entry_spec` measures the addressing in detail; here it just has to be
-    -- what the placement actually uses.
+    -- **A layer is a coordinate, not something to translate.** `entry_spec` measures the addressing
+    -- in detail; here it just has to be what the placement actually uses.
     test("목적지는 보낸 쪽 좌표 그대로다", function()
         ResetProfile();
         local _, general = PlanOne(General({ { type = Constants.SPELL, value = 1 } }));
         check(general.scope == "general", "일반이 아니다: " .. tostring(general.scope));
 
-        local _, foreign = PlanOne(ClassCell("MAGE", 2, { { type = Constants.SPELL, value = 1 } }));
-        check(foreign.scope == "class" and foreign.class == "MAGE" and foreign.spec == 2,
-            "남의 직업 좌표를 내 것으로 바꿨다: " .. tostring(foreign.class)
-                .. "/" .. tostring(foreign.spec));
+        local _, class = PlanOne(ClassCell(CLASS, 2, { { type = Constants.SPELL, value = 1 } }));
+        check(class.scope == "class" and class.class == CLASS and class.spec == 2,
+            "직업 좌표가 바뀌었다: " .. tostring(class.class) .. "/" .. tostring(class.spec));
+    end);
+
+    -- **Adding takes this class only** (`reshaping-stored-layers.md` 6-2). Another class's account
+    -- cell has a place, but this character cannot see it, so what lands there would sit pending
+    -- where nobody here can approve or reject it. Ticked, so it is counted.
+    test("다른 직업의 계정 칸은 안 들어오고 세어진다", function()
+        ResetProfile();
+        local payload = General({ { type = Constants.SPELL, value = 3 } });
+        payload.layers.account.MAGE = { [2] = { { type = Constants.SPELL, value = 1 },
+                                                { type = Constants.SPELL, value = 2 } } };
+        local placements, skipped = DebindStorage.PlanArrival(payload);
+        check(#placements == 1, "남의 직업 계정 칸이 들어왔다: " .. #placements);
+        check(skipped == 2, "안 센다: " .. skipped);
+    end);
+
+    test("다른 직업의 계정 칸은 체크된 것만 센다", function()
+        ResetProfile();
+        local ticked = { type = Constants.SPELL, value = 1 };
+        local payload = ClassCell("MAGE", 2, { ticked, { type = Constants.SPELL, value = 2 } });
+        local placements, skipped = DebindStorage.PlanArrival(payload,
+            { selection = { [ticked] = true } });
+        check(#placements == 0, "남의 직업 계정 칸이 들어왔다: " .. #placements);
+        check(skipped == 1, "센 수 " .. skipped);
+    end);
+
+    -- The dialog's two boxes. Left out on purpose is an answer, not something with nowhere to go.
+    test("일반과 이 직업은 고른 것만 들어간다", function()
+        ResetProfile();
+        local payload = General({ { type = Constants.SPELL, value = 1 } });
+        payload.layers.account[CLASS] = { [0] = { { type = Constants.SPELL, value = 2 } } };
+
+        local placements, skipped = DebindStorage.PlanArrival(payload,
+            { parts = { general = false, class = true } });
+        check(#placements == 1 and placements[1].scope == "class", "일반을 뺐는데 들어왔다");
+        check(skipped == 0, "뺀 것을 세었다: " .. skipped);
+
+        placements = DebindStorage.PlanArrival(payload, { parts = { general = true, class = false } });
+        check(#placements == 1 and placements[1].scope == "general", "직업을 뺐는데 들어왔다");
+    end);
+
+    --- A payload with two characters of this class, `A` and `B`, one action each.
+    local function TwoCharacters(a, b)
+        local payload = General({});
+        payload.layers.account.GENERAL = nil;
+        payload.layers[a] = { [CLASS] = { [0] = { { type = Constants.SPELL, value = 1 } } } };
+        payload.layers[b] = { [CLASS] = { [0] = { { type = Constants.SPELL, value = 2 } } } };
+        return payload;
+    end
+
+    -- **One character only** (6-2). Two would stack on the same layers and their overrides would
+    -- meet in one cell.
+    test("캐릭터는 고른 하나만 들어간다", function()
+        ResetProfile();
+        local payload = TwoCharacters("Player-9-A", "Player-9-B");
+        local placements, skipped = DebindStorage.PlanArrival(payload,
+            { parts = { general = true, class = true, character = "Player-9-B" } });
+        check(#placements == 1 and placements[1].action.value == 2, "고른 캐릭터가 아닌 것이 들어왔다");
+        check(placements[1].scope == "character", "캐릭터 자리가 아니다");
+        check(skipped == 0, "안 고른 캐릭터를 세었다: " .. skipped);
+    end);
+
+    test("고를 근거가 없으면 캐릭터는 안 들어간다", function()
+        ResetProfile();
+        local placements = DebindStorage.PlanArrival(TwoCharacters("Player-9-A", "Player-9-B"));
+        check(#placements == 0, "둘 중 하나를 멋대로 골랐다: " .. #placements);
+    end);
+
+    test("guid가 같은 캐릭터가 처음 고른 것이다", function()
+        ResetProfile();
+        local choices = DebindStorage.AddChoices(TwoCharacters("Player-9-A", GUID));
+        check(choices.character == GUID, "처음 값 " .. tostring(choices.character));
+        check(#choices.characters == 2, "후보 수 " .. #choices.characters);
+    end);
+
+    test("후보는 체크된 이 직업 캐릭터뿐이다", function()
+        ResetProfile();
+        local payload = TwoCharacters("Player-9-A", "Player-9-B");
+        payload.layers["Player-9-C"] = { MAGE = { [0] = { { type = Constants.SPELL, value = 3 } } } };
+        local onlyA = { [payload.layers["Player-9-A"][CLASS][0][1]] = true };
+        local choices = DebindStorage.AddChoices(payload, onlyA);
+        check(#choices.characters == 1 and choices.characters[1] == "Player-9-A",
+            "후보 " .. #choices.characters);
+        check(choices.character == "Player-9-A", "하나뿐인 후보가 처음 값이 아니다");
+        check(not choices.general and not choices.class, "없는 칸을 있다고 했다");
     end);
 
     -- A class name no client has. Counted rather than dropped in silence: the window says how many

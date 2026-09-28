@@ -533,12 +533,42 @@
 		the two ways to add, and a Clique entry then put a dialog of its own on top of that: two
 		popups for one decision.
 
-		**Everything between the text and the buttons is a Clique entry's only**, and is stacked
-		from Lua (`DebindAddFrameMixin:Layout`), since which of it stands decides the height.
+		**Everything between the text and the buttons depends on the entry**: the layer and
+		specialization questions are a Clique entry's, the two boxes and the character dropdown every
+		other entry's (`reshaping-stored-layers.md` 6-2). It is stacked from Lua
+		(`DebindAddFrameMixin:Layout`), since which of it stands decides the height.
 	-->
 	<Frame name="DebindAddFrame" inherits="DebindDialogTemplate" mixin="DebindAddFrameMixin">
 		<Size x="460" y="200"/>
 		<Frames>
+			<CheckButton parentKey="GeneralCheck" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="LEFT" relativePoint="RIGHT" x="4" y="0"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</CheckButton>
+			<CheckButton parentKey="ClassCheck" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="LEFT" relativePoint="RIGHT" x="4" y="0"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</CheckButton>
+			<DropdownButton parentKey="CharacterDropdown" inherits="WowStyle1DropdownTemplate">
+				<Size y="26"/>
+			</DropdownButton>
+
 			<DropdownButton parentKey="LayerDropdown" inherits="WowStyle1DropdownTemplate">
 				<Size y="26"/>
 			</DropdownButton>
@@ -569,6 +599,7 @@
 		<Layers>
 			<Layer level="ARTWORK">
 				<FontString parentKey="Text" inherits="GameFontNormal" justifyH="LEFT" wordwrap="true"/>
+				<FontString parentKey="CharacterLabel" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>
 				<FontString parentKey="LayerLabel" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>
 				<FontString parentKey="SpecsText" inherits="GameFontNormal" justifyH="LEFT" wordwrap="true"/>
 				<FontString parentKey="SpecsLabel" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>

@@ -199,6 +199,7 @@ DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabLabel = GetSideTabLabel;
 DebindUI.GetLayerLabel = GetLayerLabel;
 DebindUI.GetLayerIDForAddress = GetLayerIDForAddress;
+DebindUI.GetSideLabelForClass = GetSideLabelForClass;
 DebindUI.IsLayerOffWorld = IsLayerOffWorld;
 DebindUI.IsActionLive = IsActionLive;
 DebindUI.GetSideTabIcon = GetSideTabIcon;

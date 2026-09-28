@@ -4593,6 +4593,56 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
     end,
 })
 
+--- **The preview is grouped by whose cells they are** (`reshaping-stored-layers.md` 6-2). Adding
+--- takes one character and the reader picks it by ticking, so two characters of this class have to
+--- stand under two headers. Grouped by where the press would put them, they merged into one.
+RegisterTest("Storage: two characters of this class stand under two owners", {
+    description = "An entry with the account and two characters of this class shows three owner headers",
+    run = function()
+        local NAME = "Storage owners"
+        local class = Constants.PLAYER_CLASS
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
+        end
+        DebindFrame:Show()
+
+        local store = DebindPrivate.Store
+        local entry = store.StorePayload({
+            v = store.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = {
+                account = { GENERAL = { [0] = { { type = Constants.SPELL, value = 585, key = "CTRL-ALT-F8" } } } },
+                ["Player-9-DEBTESTA"] = { [class] = { [0] = { { type = Constants.SPELL, value = 589 } } } },
+                ["Player-9-DEBTESTB"] = { [class] = { [0] = { { type = Constants.SPELL, value = 17 } } } },
+            },
+            characters = {
+                ["Player-9-DEBTESTA"] = { name = "Debtesta", class = class },
+                ["Player-9-DEBTESTB"] = { name = "Debtestb", class = class },
+            },
+        }, "Debtest owners")
+        if not entry then
+            return Fail(NAME, "the payload was not stored")
+        end
+        AddTeardown(function()
+            panel:SelectEntry(nil)
+            store.DeleteEntry(entry.id)
+            DebindFrame:CloseWindow()
+        end)
+
+        panel:SelectEntry(entry)
+        local owners = panel.previewOwners or {}
+        if #owners ~= 3 then
+            return Fail(NAME, format("%d owner headers, not 3", #owners))
+        end
+        for _, owner in ipairs(owners) do
+            if #owner.actions ~= 1 then
+                return Fail(NAME, format("%s holds %d actions, not 1", owner.label, #owner.actions))
+            end
+        end
+        return Pass(NAME, "the account and each character stand on their own")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: The window's three panels
 --
@@ -5921,7 +5971,7 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         -- not just take two at once: the window goes and the dialog stays up over nothing.
         DebindCopyFrame:ShowText("DEBIND-TEST")
         DebindPasteFrame:Open()
-        DebindAddFrame:Open(true, true, nil)
+        DebindAddFrame:Open({ fromClique = true, hasSpecs = true })
 
         local steps = {
             { frame = DebindAddFrame,   name = "the add dialog" },
@@ -6029,7 +6079,7 @@ RegisterTest("Escape: a close the window did not ask for is undone", {
         end
 
         -- The add dialog belongs to the tab the same way, and a sweep brings it back the same way.
-        DebindAddFrame:Open(false, false, nil)
+        DebindAddFrame:Open({ fromClique = false })
         AddTeardown(function() DebindAddFrame:CloseDialog() end)
         DebindAddFrame:Hide()
         if not DebindAddFrame:IsShown() then

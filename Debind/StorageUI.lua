@@ -45,6 +45,7 @@ local ENTRY_ROW_HEIGHT   = 44;
 local PREVIEW_ROW_HEIGHT = 28;
 local LAYER_HEIGHT       = 26;
 local ROW_INDENT         = 10;
+local OWNER_INDENT       = 10;
 
 --- **Which failures the reader can tell apart, which is fewer than the decoder reports.**
 --- `DecodeExportString` answers with eight reasons because each is a different step; a reader has
@@ -641,23 +642,60 @@ local function SortLayerActions(actions)
     return groups;
 end
 
---- The key a layer group is collapsed and counted under.
+--- A character key of a payload by name: what `characters` says, or its number where the string was
+--- anonymised and says nothing.
+local function CharacterName(owner, identity)
+    if (type(identity) == "table" and type(identity.name) == "string") then
+        if (type(identity.realm) == "string" and identity.realm ~= "") then
+            return identity.name .. "-" .. identity.realm;
+        end
+        return identity.name;
+    end
+    return format(LLL["STORAGE_ADD_CHARACTER_UNNAMED"], tostring(owner));
+end
+
+--- One layer's header under its owner, and where it sorts among that owner's layers: general, this
+--- class, other classes by name, then what has no place. **Where it has none it is one bucket per
+--- owner, not one per address**: a specialization number past the end of a real class is something
+--- only a hand-made string carries, and a header for each would put somebody's typos on screen.
 ---
---- A `layerID` where the address has one. **Where it has none it is one bucket, not one per
---- address**: what lands there is a character layer of another class, or a specialization number
---- past the end of a real class, which only a hand-made string carries. Splitting those apart would
---- put a header on the screen for each of somebody's typos.
-local ELSEWHERE = "elsewhere";
+--- **The class and spec are the ones `ImportAddress` answers where it answers**, which is where Add
+--- to My Bindings puts them. The payload's own coordinates drew a camelot reader a Fire layer for a
+--- retail mage's string that the press then folded into the class layer.
+local function PreviewLayerOf(owner, class, spec)
+    local toScope, toClass, toSpec = Store().ImportAddress(owner, class, spec);
+    local account = owner == Store().ACCOUNT_OWNER;
+    if (toScope == "general") then
+        return "GENERAL", "0", LLL["GENERAL"];
+    end
+    if (not toScope and toClass ~= "OTHER_CLASS") then
+        -- **A class nobody can play here gets a bucket of its own name**, not the typo bucket: it
+        -- is the other game type's class and the string is fine (2026-09-25, owner).
+        if (toClass == "UNKNOWN_CLASS") then
+            return "~UNKNOWN", "3", LLL["STORAGE_PREVIEW_UNKNOWN_CLASS"];
+        end
+        return "~ELSEWHERE", "4", LLL["STORAGE_PREVIEW_ELSEWHERE"];
+    end
+    -- Without an address the second value is the reason, not a class.
+    if (toScope) then
+        class = toClass or class;
+        spec = toSpec or spec;
+    end
+    local side = DebindUI.GetSideLabelForClass(class, spec) or tostring(spec);
+    local classOrder = class == Constants.PLAYER_CLASS and "1" or "2";
+    if (not account) then
+        -- A character's cells are all one class, so the class says nothing; its whole-class cell is
+        -- the character's general layer, the name the window's tab gives it.
+        return class .. "|" .. spec, classOrder .. class .. format("%02d", spec),
+            spec == 0 and LLL["GENERAL"] or side;
+    end
+    local label = spec == 0 and side
+        or format(LLL["ORDER_LAYER_LABEL"], Constants.CLASS_NAMES[class] or class, side);
+    return class .. "|" .. spec, classOrder .. class .. format("%02d", spec), label;
+end
 
---- A number above every real `layerID`, so the bucket with no layer sorts last.
-local ELSEWHERE_ORDER = 100;
-
---- **A class nobody can play here gets a bucket of its own name**, not the typo bucket: it is the
---- other game type's class and the string is fine (2026-09-25, owner). Placed nowhere either way.
-local UNKNOWN_CLASS = "unknownclass";
-local UNKNOWN_CLASS_ORDER = ELSEWHERE_ORDER - 1;
-
---- What there is to show for one payload, before anything is collapsed.
+--- What there is to show for one payload, before anything is collapsed: the owners, each with its
+--- layers (`reshaping-stored-layers.md` 6-2), and the same layers flat.
 ---
 --- **Every count the panel prints comes out of this**, and so does what a press hands over: the
 --- header fractions, the [select all] total, which rows can be ticked, and the set `FilterPayload`
@@ -665,58 +703,74 @@ local UNKNOWN_CLASS_ORDER = ELSEWHERE_ORDER - 1;
 --- idea written twice -- the fault being guarded against is the panel saying 12 while the string
 --- carries 9 (`building-export-import.md` 2절).
 ---
---- **The address is the one `ImportAddress` answers**, which is where Add to My Bindings puts it.
---- Walking the payload's own coordinates instead drew a camelot reader a Fire layer for a retail
---- mage's string that the press then folded into the class layer.
+--- **Grouped by whose cells they are**, account first and then each character. Adding takes one
+--- character, and the reader picks it by ticking, so a character's layers have to be one tick.
 local function BuildPreviewLayers(payload)
-    local buckets, order = {}, {};
+    local owners, ownerOrder = {}, {};
+    local identities = type(payload.characters) == "table" and payload.characters or {};
 
     Store().ForEachPayloadLayer(payload, function(list, owner, class, spec)
-        local toScope, toClass, toSpec = Store().ImportAddress(owner, class, spec);
-        local layerID = toScope and DebindUI.GetLayerIDForAddress(toScope, toSpec);
-        local unknownClass = not toScope and toClass == "UNKNOWN_CLASS";
-        local key = layerID or (unknownClass and UNKNOWN_CLASS) or ELSEWHERE;
+        local group = owners[owner];
+        if (not group) then
+            local account = owner == Store().ACCOUNT_OWNER;
+            local label, sortKey;
+            if (account) then
+                label = DebindUI.ACCOUNT_COLOR:WrapTextInColorCode(LLL["SHARED_BINDINGS"]);
+                sortKey = "0";
+            else
+                local name = CharacterName(owner, identities[owner]);
+                local color = GetClassColorObj(class) or NORMAL_FONT_COLOR;
+                label = color:WrapTextInColorCode(name);
+                sortKey = (owner == DebindPrivate.playerGUID and "1" or "2") .. name;
+            end
+            group = { key = "owner|" .. tostring(owner), label = label, sortKey = sortKey,
+                      actions = {}, layers = {}, byKey = {} };
+            owners[owner] = group;
+            ownerOrder[#ownerOrder + 1] = group;
+        end
 
-        local bucket = buckets[key];
+        local layerKey, layerSort, layerLabel = PreviewLayerOf(owner, class, spec);
+        local bucket = group.byKey[layerKey];
         if (not bucket) then
-            bucket = {
-                key = key,
-                -- Sorted by `layerID` so the preview reads in the profile's own order: general,
-                -- then the class by specialization, then the character.
-                sortKey = layerID or (unknownClass and UNKNOWN_CLASS_ORDER) or ELSEWHERE_ORDER,
-                label = (layerID and DebindUI.GetLayerLabel(layerID, toClass))
-                    or (unknownClass and LLL["STORAGE_PREVIEW_UNKNOWN_CLASS"])
-                    or LLL["STORAGE_PREVIEW_ELSEWHERE"],
-                actions = {},
-            };
-            buckets[key] = bucket;
-            order[#order + 1] = bucket;
+            bucket = { key = group.key .. "|" .. layerKey, sortKey = layerSort, label = layerLabel,
+                       actions = {} };
+            group.byKey[layerKey] = bucket;
+            group.layers[#group.layers + 1] = bucket;
         end
 
         for _, action in ipairs(list) do
             bucket.actions[#bucket.actions + 1] = action;
+            group.actions[#group.actions + 1] = action;
         end
     end);
 
-    sort(order, function(lhs, rhs) return lhs.sortKey < rhs.sortKey; end);
+    sort(ownerOrder, function(lhs, rhs) return lhs.sortKey < rhs.sortKey; end);
 
-    for _, bucket in ipairs(order) do
-        local rows, firstInLayer = {}, true;
-        for _, group in ipairs(SortLayerActions(bucket.actions)) do
-            for index, entry in ipairs(group.actions) do
-                rows[#rows + 1] = {
-                    action = entry.action,
-                    layerLabel = bucket.label,
-                    startsGroup = index == 1,
-                    firstInLayer = firstInLayer,
-                };
-                firstInLayer = false;
+    local flat = {};
+    for _, group in ipairs(ownerOrder) do
+        group.byKey = nil;
+        sort(group.layers, function(lhs, rhs) return lhs.sortKey < rhs.sortKey; end);
+        for _, bucket in ipairs(group.layers) do
+            -- The row's tooltip names the layer with its owner, since the row sits under both.
+            local rowLabel = format(LLL["ORDER_LAYER_LABEL"], group.label, bucket.label);
+            local rows, firstInLayer = {}, true;
+            for _, sorted in ipairs(SortLayerActions(bucket.actions)) do
+                for index, entry in ipairs(sorted.actions) do
+                    rows[#rows + 1] = {
+                        action = entry.action,
+                        layerLabel = rowLabel,
+                        startsGroup = index == 1,
+                        firstInLayer = firstInLayer,
+                    };
+                    firstInLayer = false;
+                end
             end
+            bucket.rows = rows;
+            flat[#flat + 1] = bucket;
         end
-        bucket.rows = rows;
     end
 
-    return order;
+    return flat, ownerOrder;
 end
 
 --- The Clique profiles, one row each, with who uses it and how many actions it becomes.
@@ -836,7 +890,10 @@ function DebindStoragePanelMixin:InitializeScrollBoxes()
         return elementData.isLayer and LAYER_HEIGHT or PREVIEW_ROW_HEIGHT;
     end);
     previewView:SetElementIndentCalculator(function(elementData)
-        return elementData.isLayer and 0 or ROW_INDENT;
+        if (elementData.isOwner) then
+            return 0;
+        end
+        return elementData.isLayer and OWNER_INDENT or OWNER_INDENT + ROW_INDENT;
     end);
     local previewContent = self.Preview.ContentArea;
     ScrollUtil.InitScrollBoxListWithScrollBar(previewContent.ScrollBox, previewContent.ScrollBar,
@@ -890,6 +947,7 @@ end
 --- through this and keep them. Picking an entry throws them away on purpose, and does it itself.
 function DebindStoragePanelMixin:RebuildPreviewLayers()
     self.previewLayers = nil;
+    self.previewOwners = nil;
     self.previewReason = nil;
 
     local entry = self.selectedEntry;
@@ -899,7 +957,7 @@ function DebindStoragePanelMixin:RebuildPreviewLayers()
 
     local payload, reason = Store().GetEntryPayload(entry);
     if (payload) then
-        self.previewLayers = BuildPreviewLayers(payload);
+        self.previewLayers, self.previewOwners = BuildPreviewLayers(payload);
         return;
     end
 
@@ -931,9 +989,9 @@ function DebindStoragePanelMixin:SelectEntry(entry)
     self:RebuildPreviewLayers();
 
     if (self.previewLayers) then
-        -- **Everything starts shut.** Open, the column is one long run of actions and the layers,
-        -- the axis it is cut on, are lost in it. Shut, the first screen is the whole shape of what
-        -- is in the entry, and opening one is how you go and look.
+        -- **Every layer starts shut, and every owner open.** Open, the column is one long run of
+        -- actions and the layers, the axis it is cut on, are lost in it. Shut, the first screen is
+        -- the whole shape of what is in the entry, and opening one is how you go and look.
         for _, layer in ipairs(self.previewLayers) do
             self.collapsed[layer.key] = true;
         end
@@ -952,16 +1010,27 @@ end
 function DebindStoragePanelMixin:BuildPreviewDisplayList()
     local list = {};
 
-    for _, layer in ipairs(self.previewLayers or {}) do
+    for _, owner in ipairs(self.previewOwners or {}) do
         list[#list + 1] = {
             isLayer = true,
-            key = layer.key,
-            label = layer.label,
-            actions = layer.actions,
+            isOwner = true,
+            key = owner.key,
+            label = owner.label,
+            actions = owner.actions,
         };
-        if (not self:IsLayerCollapsed(layer.key)) then
-            for _, row in ipairs(layer.rows) do
-                list[#list + 1] = row;
+        if (not self:IsLayerCollapsed(owner.key)) then
+            for _, layer in ipairs(owner.layers) do
+                list[#list + 1] = {
+                    isLayer = true,
+                    key = layer.key,
+                    label = layer.label,
+                    actions = layer.actions,
+                };
+                if (not self:IsLayerCollapsed(layer.key)) then
+                    for _, row in ipairs(layer.rows) do
+                        list[#list + 1] = row;
+                    end
+                end
             end
         end
     end
@@ -1185,10 +1254,15 @@ function DebindStoragePanelMixin:OnAddClicked()
 
     local payload = entry.payload;
     local fromClique = payload and payload.source == Store().SOURCE_CLIQUE;
-    DebindAddFrame:Open(fromClique, fromClique and self:SelectionHasCliqueSpecs(),
-        function(accept, layer, specs)
-            self:CommitSelected(entry, accept, layer, specs);
-        end);
+    DebindAddFrame:Open({
+        fromClique = fromClique,
+        hasSpecs = fromClique and self:SelectionHasCliqueSpecs(),
+        choices = payload and not fromClique and Store().AddChoices(payload, self.selected) or nil,
+        identities = payload and payload.characters,
+        onAccept = function(accept, layer, specs, parts)
+            self:CommitSelected(entry, accept, layer, specs, parts);
+        end,
+    });
 end
 
 --- Whether any ticked action still carries a specialization restriction once one that ticks every
@@ -1218,11 +1292,12 @@ end
 --- **Which line depends on what the approval did, not on what was asked for.** A key nobody uses is
 --- accepted where it stands and the actions are live; an occupied one puts a prompt up, and until
 --- it is answered the true thing to say is what the other button's line says.
-function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs)
+function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs, parts)
     local placed, skipped, actions = Store().CommitEntry(entry, {
         selection = self.selected,
         layer = layer,
         specs = specs,
+        parts = parts,
     });
 
     -- **The second return is a reason code while the first is nil, and a count once it is not.**
@@ -1450,7 +1525,7 @@ local CLIQUE_SPECS = { "layers", "convert", "drop" };
 ---
 --- **Coloured the way the Switches tab colours them** (소유자, 2026-09-24): the account-wide layer
 --- in `ACCOUNT_COLOR`, the other two in this character's class colour.
-local function CliqueLayerLabel(layer)
+local function AddLayerLabel(layer)
     local label = DebindUI.GetLayerLabel(DebindUI.GetLayerIDForAddress(layer, 0));
     local color = layer == "general" and DebindUI.ACCOUNT_COLOR
         or GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
@@ -1462,6 +1537,12 @@ local CLIQUE_SPEC_LABELS = {
     convert = "STORAGE_ADD_SPECS_CONVERT",
     drop = "STORAGE_ADD_SPECS_DROP",
 };
+
+--- A character key of the payload as the dropdown shows it. Always this class, so its colour.
+local function CharacterChoiceLabel(owner, identity)
+    local color = GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
+    return color:WrapTextInColorCode(CharacterName(owner, identity));
+end
 
 local function SetButtonTooltip(button, text)
     button:SetScript("OnEnter", function()
@@ -1475,6 +1556,7 @@ end
 
 function DebindAddFrameMixin:OnLoad()
     self:InitDialog(LLL["STORAGE_ADD"]);
+    self.CharacterLabel:SetText(LLL["STORAGE_ADD_CHARACTER"]);
     self.LayerLabel:SetText(LLL["STORAGE_ADD_LAYER"]);
     self.SpecsLabel:SetText(LLL["STORAGE_ADD_SPECS"]);
     self.PendingButton:SetText(LLL["STORAGE_ADD_QUARANTINED"]);
@@ -1482,9 +1564,32 @@ function DebindAddFrameMixin:OnLoad()
     SetButtonTooltip(self.PendingButton, LLL["STORAGE_ADD_QUARANTINED_DESC"]);
     SetButtonTooltip(self.AcceptedButton, LLL["STORAGE_ADD_ACCEPTED_DESC"]);
 
+    self.GeneralCheck.Text:SetText(AddLayerLabel("general"));
+    self.ClassCheck.Text:SetText(AddLayerLabel("class"));
+    for _, check in ipairs({ self.GeneralCheck, self.ClassCheck }) do
+        NormalizeCheckMark(check);
+        ExtendHitRectOverLabel(check);
+        check:SetScript("OnClick", function() self:Refresh(); end);
+    end
+
+    self.CharacterDropdown:SetupMenu(function(_, rootDescription)
+        for _, owner in ipairs(self.characters or {}) do
+            rootDescription:CreateRadio(CharacterChoiceLabel(owner, self.identities and self.identities[owner]),
+                function() return self.character == owner; end,
+                function()
+                    self.character = owner;
+                    self:Refresh();
+                end);
+        end
+        rootDescription:CreateRadio(NONE, function() return self.character == nil; end, function()
+            self.character = nil;
+            self:Refresh();
+        end);
+    end);
+
     self.LayerDropdown:SetupMenu(function(_, rootDescription)
         for _, layer in ipairs(CLIQUE_LAYERS) do
-            rootDescription:CreateRadio(CliqueLayerLabel(layer), function()
+            rootDescription:CreateRadio(AddLayerLabel(layer), function()
                 return self.layer == layer;
             end, function()
                 self.layer = layer;
@@ -1530,16 +1635,22 @@ function DebindAddFrameMixin:Layout()
     local GROUP_GAP, LABEL_GAP = 16, 6;
     local width = self.ContentArea:GetWidth();
     local y = 0;
-    local function Stack(region, gap)
+    local function Stack(region, gap, keepWidth)
         if (not region:IsShown()) then
             return;
         end
         region:ClearAllPoints();
         region:SetPoint("TOPLEFT", self.ContentArea, "TOPLEFT", 0, -(y + gap));
-        region:SetWidth(width);
+        if (not keepWidth) then
+            region:SetWidth(width);
+        end
         y = y + gap + (region.GetStringHeight and region:GetStringHeight() or region:GetHeight());
     end
     Stack(self.Text, 0);
+    Stack(self.GeneralCheck, GROUP_GAP, true);
+    Stack(self.ClassCheck, self.GeneralCheck:IsShown() and 0 or GROUP_GAP, true);
+    Stack(self.CharacterLabel, GROUP_GAP);
+    Stack(self.CharacterDropdown, LABEL_GAP);
     Stack(self.LayerLabel, GROUP_GAP);
     Stack(self.LayerDropdown, LABEL_GAP);
     -- The red text on General says "this layer", so it hangs off the dropdown that picked it.
@@ -1554,27 +1665,65 @@ end
 --- under it goes: there is one answer and nothing to pick (소유자, 2026-09-24).
 function DebindAddFrameMixin:Refresh()
     local general = self.layer == "general";
+    self.CharacterDropdown:GenerateMenu();
     self.LayerDropdown:GenerateMenu();
     self.SpecsDropdown:GenerateMenu();
     self.SpecsText:SetText(LLL[general and "STORAGE_ADD_SPECS_GENERAL" or "STORAGE_ADD_SPECS_TEXT"]);
     self.SpecsText:SetTextColor((general and RED_FONT_COLOR or NORMAL_FONT_COLOR):GetRGB());
     self.SpecsLabel:SetShown(self.asksSpecs and not general);
     self.SpecsDropdown:SetShown(self.asksSpecs and not general);
+
+    -- Nothing picked is nothing to add, and a press that adds nothing only says so afterwards.
+    local parts = self:Parts();
+    local any = self.fromClique or (parts and (parts.general or parts.class or parts.character ~= nil));
+    self.PendingButton:SetEnabled(any);
+    self.AcceptedButton:SetEnabled(any);
     self:Layout();
 end
 
---- `fromClique` puts up the layer question; `hasSpecs` is whether any ticked action still carries a
---- specialization restriction (`CliqueActionHasSpecs`). **Without one the specialization question
---- is not asked at all**, rather than asked about nothing. `onAccept(accept, layer, specs)`.
-function DebindAddFrameMixin:Open(fromClique, hasSpecs, onAccept)
-    self.onAccept = onAccept;
+--- What the two boxes and the dropdown answer, in `PlanArrival`'s `options.parts` shape. Nil for a
+--- Clique entry, which is asked where to go instead.
+function DebindAddFrameMixin:Parts()
+    if (self.fromClique) then
+        return nil;
+    end
+    return {
+        general = self.GeneralCheck:IsShown() and self.GeneralCheck:GetChecked(),
+        class = self.ClassCheck:IsShown() and self.ClassCheck:GetChecked(),
+        character = self.character,
+    };
+end
+
+--- `opts.fromClique` puts up the layer question; `opts.hasSpecs` is whether any ticked action still
+--- carries a specialization restriction (`CliqueActionHasSpecs`). **Without one the specialization
+--- question is not asked at all**, rather than asked about nothing.
+---
+--- Any other entry is asked what to take (`AddChoices` in `opts.choices`): a box for the general
+--- layer and one for this class's where the ticked actions have any, and the character dropdown
+--- where there is a character of this class to pick. `opts.identities` is the payload's
+--- `characters`, for the names. `opts.onAccept(accept, layer, specs, parts)`.
+function DebindAddFrameMixin:Open(opts)
+    self.onAccept = opts.onAccept;
+    self.fromClique = opts.fromClique;
     self.layer = "class";
     self.specs = CLIQUE_SPECS[1];
-    self.Text:SetText(LLL[fromClique and "STORAGE_ADD_CLIQUE_TEXT" or "STORAGE_ADD_TEXT"]);
-    self.LayerLabel:SetShown(fromClique);
-    self.LayerDropdown:SetShown(fromClique);
-    self.asksSpecs = fromClique and hasSpecs;
+    self.Text:SetText(LLL[opts.fromClique and "STORAGE_ADD_CLIQUE_TEXT" or "STORAGE_ADD_TEXT"]);
+    self.LayerLabel:SetShown(opts.fromClique);
+    self.LayerDropdown:SetShown(opts.fromClique);
+    self.asksSpecs = opts.fromClique and opts.hasSpecs;
     self.SpecsText:SetShown(self.asksSpecs);
+
+    local choices = not opts.fromClique and opts.choices or nil;
+    self.identities = opts.identities;
+    self.characters = choices and choices.characters or {};
+    self.character = choices and choices.character;
+    self.GeneralCheck:SetShown(choices and choices.general or false);
+    self.ClassCheck:SetShown(choices and choices.class or false);
+    self.GeneralCheck:SetChecked(true);
+    self.ClassCheck:SetChecked(true);
+    self.CharacterLabel:SetShown(#self.characters > 0);
+    self.CharacterDropdown:SetShown(#self.characters > 0);
+
     self:Show();
     self:Refresh();
 end
@@ -1582,9 +1731,10 @@ end
 function DebindAddFrameMixin:Accept(accept)
     local onAccept = self.onAccept;
     self.onAccept = nil;
+    local parts = self:Parts();
     self:CloseDialog();
     if (onAccept) then
-        onAccept(accept, self.layer, self:SpecsAnswer());
+        onAccept(accept, self.layer, self:SpecsAnswer(), parts);
     end
 end
 

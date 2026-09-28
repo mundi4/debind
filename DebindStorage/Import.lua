@@ -872,6 +872,49 @@ function DebindStorage.CliqueActionHasSpecs(action)
     return luatype(action) == "table" and CliqueSpecMask(action.untranslated) ~= nil;
 end
 
+--- What adding the ticked actions of `payload` can take for this character: `general` and `class`
+--- say whether any ticked action sits in the account's general cell or in this class's account
+--- cells, `characters` lists the character keys with a ticked action in a cell of this class, and
+--- `character` is the one picked before anybody chooses (`reshaping-stored-layers.md` 6-2).
+---
+--- **The key that is this character wins, then a lone candidate, then nobody.** Two strangers of
+--- this class give no ground to pick one, and one picked anyway would be a guess the reader did
+--- not see.
+function DebindStorage.AddChoices(payload, selection)
+    local choices = { general = false, class = false, characters = {} };
+    local seen = {};
+    DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class)
+        local ticked = false;
+        for _, action in ipairs(list) do
+            if (not selection or selection[action]) then
+                ticked = true;
+                break;
+            end
+        end
+        if (not ticked) then
+            return;
+        end
+        if (owner == DebindStorage.ACCOUNT_OWNER) then
+            if (class == "GENERAL") then
+                choices.general = true;
+            elseif (class == Constants.PLAYER_CLASS) then
+                choices.class = true;
+            end
+        elseif (class == Constants.PLAYER_CLASS and not seen[owner]) then
+            seen[owner] = true;
+            choices.characters[#choices.characters + 1] = owner;
+        end
+    end);
+    sort(choices.characters, function(lhs, rhs) return tostring(lhs) < tostring(rhs); end);
+
+    if (seen[DebindPrivate.playerGUID]) then
+        choices.character = DebindPrivate.playerGUID;
+    elseif (#choices.characters == 1) then
+        choices.character = choices.characters[1];
+    end
+    return choices;
+end
+
 --- Where each action of `payload` lands, and what it becomes.
 ---
 --- Returns a flat list of `{ scope, class, spec, action }`. **Nothing is written here** - building
@@ -922,10 +965,18 @@ end
 --- action in each of those specializations' layers under the picked one, `"convert"` makes them
 --- this class's condition and `"drop"` drops them. General drops them whatever is asked: one
 --- class's condition on a layer every class reads means nothing.
+---
+--- **Any other payload adds for this class only** (`reshaping-stored-layers.md` 6-2).
+--- `options.parts` is the dialog's answer, `{ general, class, character }`: whether to take the
+--- general cell, whether to take this class's account cells, and the one character key whose cells
+--- go into this character's. Left out, it is `AddChoices`'s answer. What the reader left out is not
+--- counted. Another class's cells are counted: ticked, and this character cannot see where they
+--- would land, so a pending action there could not be approved or rejected from here.
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
     local fromClique = payload.source == DebindStorage.SOURCE_CLIQUE;
+    local parts = not fromClique and (options and options.parts or DebindStorage.AddChoices(payload, selection));
     local layer = fromClique and options and options.layer or "general";
     local specsAnswer = fromClique and layer ~= "general" and options.specs;
     local named = fromClique and NamedSpecMask();
@@ -944,6 +995,25 @@ function DebindStorage.PlanArrival(payload, options)
         if (fromClique) then
             local cell = CLIQUE_CELLS[layer];
             listOwner, listClass, listSpec = cell and cell[1], cell and cell[2], 0;
+        elseif (listOwner == DebindStorage.ACCOUNT_OWNER) then
+            if (listClass == "GENERAL") then
+                if (not parts.general) then
+                    return;
+                end
+            elseif (listClass == Constants.PLAYER_CLASS) then
+                if (not parts.class) then
+                    return;
+                end
+            elseif (DebindStorage.ImportAddress(listOwner, listClass, listSpec)) then
+                for _, source in ipairs(list) do
+                    if (not selection or selection[source]) then
+                        skipped = skipped + 1;
+                    end
+                end
+                return;
+            end
+        elseif (listClass == Constants.PLAYER_CLASS and listOwner ~= parts.character) then
+            return;
         end
         local scope, class, spec = DebindStorage.ImportAddress(listOwner, listClass, listSpec);
         if (not scope) then

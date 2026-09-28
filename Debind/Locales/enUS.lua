@@ -2050,10 +2050,10 @@ L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anyw
 -- way everything else does.
 L["IMPORT_COMMITTED_KEYED"] = "Brought in %d actions on the keys they came with. Anything that arrived without one is unbound until you give it a key."
 L["IMPORT_COMMITTED"] = "Brought in %d actions. They are pending until you accept them - a row for doing that is now at the top of the window."
--- **Two things reach this and neither is the reader's doing**, so it names both rather than picking
--- one: a specialization this character's class does not have, and a layer a newer Debind invented.
--- It used to say only the second, and the first is the one that actually turns up.
-L["IMPORT_COMMITTED_SKIPPED"] = "%d of them had nowhere to go here and were left out - a specialization this character does not have, or a layer this version does not know."
+-- **Three things reach this and none is left out by the dialog**, so it names all three: another
+-- class's layers, which adding does not take (`reshaping-stored-layers.md` 6-2), a specialization
+-- this character's class does not have, and a layer a newer Debind invented.
+L["IMPORT_COMMITTED_SKIPPED"] = "%d of them were left out - another class's, a specialization this character does not have, or a layer this version does not know."
 -- The right-click menu on an action in the preview. **Taking things out is the only edit an entry
 -- has**, so these two are the whole menu.
 --
@@ -2126,6 +2126,11 @@ L["STORAGE_ADD_TEXT"] = "These actions go into the same layers they came from. O
 L["STORAGE_ADD_CLIQUE_TEXT"] = "This payload was made from a Clique profile, so all of its actions go into one layer. Once accepted, they can be moved to other layers."
 -- The layers are named with the window's own layer labels, so they have no keys here.
 L["STORAGE_ADD_LAYER"] = "Which layer should these actions go into?"
+-- Over the dropdown of the payload's characters of this class. One of them goes into this
+-- character's layers (`reshaping-stored-layers.md` 6-2).
+L["STORAGE_ADD_CHARACTER"] = "Which character's layers should this character get?"
+-- A character of an anonymised string, which carries no name. %s is its number in that string.
+L["STORAGE_ADD_CHARACTER_UNNAMED"] = "Character %s"
 -- Stands only when a ticked action is left restricted once one that ticks every specialization of
 -- this class counts as none (`importing-clique-profiles.md` §3).
 L["STORAGE_ADD_SPECS_TEXT"] = "Some of these actions had specialization conditions in Clique."
