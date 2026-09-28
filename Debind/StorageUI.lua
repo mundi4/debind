@@ -194,13 +194,23 @@ end
 
 DebindStorageEntryRowMixin = {};
 
---- A character's name with its realm. **In the client's form**: `FULL_PLAYER_NAME` is what the
---- friends list joins the two with and every locale carries it, so this is not a format of ours.
+--- A character's name, with its realm only where that is not this one: what `Ambiguate(full,
+--- "none")` does, and the client's way everywhere it names a player. Camelot has one realm, so there
+--- it never shows (소유자, 2026-09-28). **In the client's form** where it does: `FULL_PLAYER_NAME` is
+--- what the friends list joins the two with and every locale carries it.
+---
+--- Compared without spaces and dashes, because the two places a realm comes from spell it
+--- differently: a character's identity keeps `GetNormalizedRealmName` and a row made here keeps
+--- `GetRealmName`.
 local function NameWithRealm(name, realm)
-    if (type(realm) == "string" and realm ~= "") then
-        return format(FULL_PLAYER_NAME, name, realm);
+    if (type(realm) ~= "string" or realm == "") then
+        return name;
     end
-    return name;
+    local here = GetNormalizedRealmName and GetNormalizedRealmName();
+    if (here and realm:gsub("[%s%-]", "") == here) then
+        return name;
+    end
+    return format(FULL_PLAYER_NAME, name, realm);
 end
 
 --- The class the entry came from, or nil.
@@ -261,11 +271,11 @@ local NAME_MAX_CHARS = 48;
 local DESCRIPTION_MAX_CHARS = 300;
 
 --- What a payload holds, as a name (`showing-what-an-entry-holds.md` 3절): **a small one by what is
---- in it, a large one by how far it reaches.** One action is that action and one key is that key,
---- and a backup is told from the next by whose layers it carries. Nil for a payload holding
---- nothing.
-local function ContentsTitle(entry)
-    local held = Store().DescribePayload(entry.payload);
+--- in it, a large one by how far it reaches.** One action is that action and one key is that key.
+--- Past that, the one scope that covers the rest (`DescribePayload`'s `only`), whose class the
+--- colour says, so the words need not; and where scopes do not nest, how many there are. Nil for a
+--- payload holding nothing.
+local function ContentsTitle(entry, held)
     if (held.action) then
         local name = DebindUI.NameAndIconForAction(held.action);
         if (name) then
@@ -276,10 +286,16 @@ local function ContentsTitle(entry)
         return DebindPrivate.GetKeyDisplayText(held.key);
     end
 
-    local parts = {};
-    if (held.general) then
-        parts[#parts + 1] = LLL["GENERAL"];
+    local only = held.only;
+    if (only and only.kind == "character") then
+        return CharacterName(only.owner, PayloadCharacters(entry)[only.owner]);
+    elseif (only and only.kind == "class") then
+        return Constants.CLASS_NAMES[only.class] or only.class;
+    elseif (only) then
+        return LLL["GENERAL"];
     end
+
+    local parts = {};
     if (#held.classes == 1) then
         parts[#parts + 1] = Constants.CLASS_NAMES[held.classes[1]] or held.classes[1];
     elseif (#held.classes > 1) then
@@ -294,34 +310,48 @@ local function ContentsTitle(entry)
     return #parts > 0 and table.concat(parts, LIST_DELIMITER) or nil;
 end
 
---- What the row is called: its name, else what it holds (`ContentsTitle`), in the class's colour
---- where it holds one class's.
+--- The colour a row's title is drawn in: the one scope's (the class's, or `ACCOUNT_COLOR` for
+--- general alone), else the class every cell shares, else none.
+---
+--- `GetClassColorObj` answers nil for a token it does not know, and a payload's class keys can be
+--- one this client has never heard of, so the colour falls back.
+local function TitleColor(entry, held)
+    local only = held.only;
+    if (only and only.kind == "general") then
+        return DebindUI.ACCOUNT_COLOR;
+    end
+    local class = only and only.class or EntryClass(entry);
+    return class and (GetClassColorObj(class) or NORMAL_FONT_COLOR) or nil;
+end
+
+--- What the row is called: its name, else what it holds (`ContentsTitle`), in `TitleColor`.
 ---
 --- **What is in it, not who made it** (소유자, 2026-09-28). A row made here used to be called by
 --- its character, which told two backups of one character apart by nothing at all and told a
---- whole-account backup nothing either. Who made it is the tooltip's to say.
+--- whole-account backup nothing either.
+---
+--- **A name nobody gave is drawn, never stored** (소유자, 2026-09-28): `payload.name` holds only what
+--- a person typed, and its absence is itself what the row shows. A Clique share code carries no
+--- name at all, and shows as unnamed until somebody gives it one.
 ---
 --- **No class icon** (소유자, 2026-09-28). The colour stays.
 ---
 --- Nil for an entry that holds nothing and has no name. The two below decide what to put in its
 --- place, because they have different room for it.
----
---- `GetClassColorObj` answers nil for a token it does not know, and `EntryClass` hands over any class
---- key a payload's cells carry, one this client has never heard of included, so the colour falls
---- back.
 local function EntryName(entry)
-    local payload = entry.payload;
-    local text = Store().PlainText(type(payload) == "table" and payload.name, NAME_MAX_CHARS)
-        or ContentsTitle(entry);
+    local payload = type(entry.payload) == "table" and entry.payload or {};
+    local held = Store().DescribePayload(payload);
+    local text = Store().PlainText(payload.name, NAME_MAX_CHARS);
+    if (not text and payload.source == Store().SOURCE_CLIQUE) then
+        text = LLL["STORAGE_CLIQUE_UNNAMED"];
+    end
+    text = text or ContentsTitle(entry, held);
     if (not text) then
         return nil;
     end
 
-    local class = EntryClass(entry);
-    if (not class) then
-        return text;
-    end
-    return (GetClassColorObj(class) or NORMAL_FONT_COLOR):WrapTextInColorCode(text);
+    local color = TitleColor(entry, held);
+    return color and color:WrapTextInColorCode(text) or text;
 end
 
 --- The row's top line. A payload with nothing in it reaches this, and the date is the one thing
@@ -361,6 +391,27 @@ function DebindStorageEntryRowMixin:Init(elementData)
     local counts = format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry));
     self.Counts:SetText(format(LLL["IMPORT_ENTRY_LINE"], EntryDate(entry), counts));
 
+    -- **Where it came from, as a picture beside the words and never in them** (소유자, 2026-09-28):
+    -- a name given later replaces the words and leaves this. Our own rows show nothing.
+    --
+    -- Clique draws its icon from its own folder rather than the game's files, so it is asked for
+    -- through Clique's TOC and is there only while Clique is installed. Without it the question
+    -- mark stands in, which is what the client's own addon list shows for an addon with no icon.
+    local fromClique = type(entry.payload) == "table" and entry.payload.source == Store().SOURCE_CLIQUE;
+    if (fromClique) then
+        self.SourceIcon:SetTexture(C_AddOns.GetAddOnMetadata("Clique", "IconTexture")
+            or Constants.QUESTION_MARK_ICON);
+    end
+    self.SourceIcon:SetShown(fromClique);
+    self.Name:ClearAllPoints();
+    if (fromClique) then
+        self.Name:SetPoint("LEFT", self.SourceIcon, "RIGHT", 4, 0);
+        self.Name:SetWidth(315);
+    else
+        self.Name:SetPoint("LEFT", 10, 7);
+        self.Name:SetWidth(335);
+    end
+
     -- **No pin, because nothing sweeps.** A pin takes an entry out of a clear-out, and there is no
     -- clear-out: nothing appends but a paste or a make, and only this row's delete button ever
     -- removes one. A control that exempts you from something that does not happen is a control
@@ -377,6 +428,7 @@ function DebindStorageEntryRowMixin:Init(elementData)
             text = LLL["IMPORT_DELETE_CONFIRM"],
             text_arg1 = EntryLabel(entry),
             callback = function()
+                DebindEntryTextFrame:CloseFor(entry);
                 Store().DeleteEntry(entry.id);
                 DebindFrame:NotifyStoreChanged();
             end,
@@ -402,8 +454,19 @@ end
 --- **Pressing the picked row lets it go.** One row is showing at a time, so without this there is
 --- no way back to nothing once anything has been picked - and the empty column is a real state
 --- rather than a gap, since the two buttons under it turn off with it.
-function DebindStorageEntryRowMixin:OnClick()
+---
+--- **The right button opens the row's menu instead**, and picks nothing: the one item in it is about
+--- the row, not about what the right column shows.
+function DebindStorageEntryRowMixin:OnClick(button)
     local entry = self.elementData.entry;
+    if (button == "RightButton") then
+        MenuUtil.CreateContextMenu(self, function(_, rootDescription)
+            rootDescription:CreateButton(LLL["STORAGE_ENTRY_EDIT"], function()
+                DebindEntryTextFrame:Open(entry);
+            end);
+        end);
+        return;
+    end
     if (DebindStoragePanel:GetSelectedEntry() == entry) then
         entry = nil;
     end
@@ -419,16 +482,19 @@ function DebindStorageEntryRowMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, EntryTitle(entry));
 
-    local description = Store().PlainText(payload.description, DESCRIPTION_MAX_CHARS);
+    local description = Store().PlainText(payload.description, DESCRIPTION_MAX_CHARS, true);
     if (description) then
         GameTooltip_AddHighlightLine(GameTooltip, description);
+        GameTooltip_AddBlankLineToTooltip(GameTooltip);
     end
 
-    -- **Where it came from** (소유자, 2026-09-28). Only a row made here carries a character, and
-    -- only a Clique conversion carries `source`.
+    -- **Where it came from, and not which character made it** (소유자, 2026-09-28). What a
+    -- character's own entry holds is the layers that character reaches, which the class and
+    -- character lines below already name; an account entry is the same whichever character made it.
+    -- Only a row made here carries a character, and only a Clique conversion carries `source`.
     local source;
     if (entry.character) then
-        source = format(LLL["STORAGE_ENTRY_SOURCE_MADE"], NameWithRealm(entry.character, entry.realm));
+        source = LLL["STORAGE_ENTRY_SOURCE_MADE"];
     elseif (payload.source == Store().SOURCE_CLIQUE) then
         source = LLL["STORAGE_ENTRY_SOURCE_CLIQUE"];
     else
@@ -1456,8 +1522,9 @@ end
 --- (`importing-clique-profiles.md` §3). Where it goes is asked when it is added.
 function DebindStoragePanelMixin:OnCliqueProfileClicked(profile)
     local payload = Store().PayloadFromCliqueBindings(profile.bindings, Constants.GAME_TYPE);
-    local entry, reason = Store().StorePayload(payload,
-        format(LLL["STORAGE_CLIQUE_ENTRY_NAME"], profile.name));
+    -- The profile's own name and nothing wrapped round it: that it came from Clique is the row's
+    -- icon and the tooltip's to say.
+    local entry, reason = Store().StorePayload(payload, profile.name);
     if (not entry) then
         DebindPrivate.DisplayMessage(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
         return;
@@ -1703,11 +1770,8 @@ end
 function DebindPasteFrameMixin:Accept()
     local text = self.Input.EditBox:GetText();
     local name = strtrim(self.NameBox:GetText());
-    -- **A Clique code left unnamed is named for what it is** (`importing-clique-profiles.md` §1).
-    -- It carries no profile name, and no class or character for the row to fall back to either.
-    if (name == "" and Store().IsCliqueString(text)) then
-        name = LLL["STORAGE_CLIQUE_CODE_NAME"];
-    end
+    -- **A Clique code left unnamed stays unnamed.** It carries no profile name, and what the row
+    -- shows in its place is drawn rather than stored (`EntryName`).
     local entry, reason = Store().ImportEntry(text, name ~= "" and name or nil);
 
     if (not entry) then
@@ -1721,6 +1785,70 @@ function DebindPasteFrameMixin:Accept()
     -- and the row would be easy to miss at the top of one the reader is already looking at.
     DebindFrame:NotifyStoreChanged();
     DebindStoragePanel:SelectEntry(entry);
+end
+
+
+--------------------------------------------------------------------------------
+-- Naming and describing an entry
+--------------------------------------------------------------------------------
+
+--- The row menu's one item (`showing-what-an-entry-holds.md` 4절): a name and a description, both
+--- optional, in one dialog rather than one each. The paste dialog's shape, since that one already
+--- has a line for a name beside a box that takes line breaks.
+DebindEntryTextFrameMixin = {};
+
+function DebindEntryTextFrameMixin:OnLoad()
+    self:InitDialog(LLL["STORAGE_ENTRY_EDIT"]);
+    self.NameBox.Label:SetText(LLL["IMPORT_PASTE_NAME"]);
+    self.InputLabel:SetText(LLL["STORAGE_ENTRY_EDIT_DESCRIPTION"]);
+    self.AcceptButton:SetText(SAVE);
+
+    -- **The same limits the row and the tooltip draw to** (`PlainText`), so what is typed is what
+    -- shows. Longer, and the rest would be kept and never seen.
+    self.NameBox:SetMaxLetters(NAME_MAX_CHARS);
+    local editBox = self.Input.EditBox;
+    editBox:SetMaxLetters(DESCRIPTION_MAX_CHARS);
+    editBox:SetFontObject(ChatFontNormal);
+    editBox:SetScript("OnEscapePressed", function()
+        editBox:ClearFocus();
+        self:CloseDialog();
+    end);
+    self.NameBox:SetScript("OnEscapePressed", function()
+        self.NameBox:ClearFocus();
+        self:CloseDialog();
+    end);
+    self.NameBox:SetScript("OnEnterPressed", function() self:Accept(); end);
+
+    self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
+    self.CancelButton:SetScript("OnClick", function() self:CloseDialog(); end);
+end
+
+--- Opens on the entry's current text, the name selected so the first keystroke replaces it.
+function DebindEntryTextFrameMixin:Open(entry)
+    DebindAddFrame:CloseDialog();
+    DebindPasteFrame:CloseDialog();
+    local payload = type(entry.payload) == "table" and entry.payload or {};
+    self.entry = entry;
+    self.NameBox:SetText(type(payload.name) == "string" and payload.name or "");
+    self.Input.EditBox:SetText(type(payload.description) == "string" and payload.description or "");
+    self:Show();
+    self.NameBox:SetFocus();
+    self.NameBox:HighlightText();
+end
+
+--- The dialog answers for the entry it was opened on, so one that is gone takes it down.
+function DebindEntryTextFrameMixin:CloseFor(entry)
+    if (self.entry == entry) then
+        self:CloseDialog();
+    end
+end
+
+function DebindEntryTextFrameMixin:Accept()
+    local entry = self.entry;
+    self:CloseDialog();
+    if (entry and Store().SetEntryText(entry, self.NameBox:GetText(), self.Input.EditBox:GetText())) then
+        DebindFrame:NotifyStoreChanged();
+    end
 end
 
 

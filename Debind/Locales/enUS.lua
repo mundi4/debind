@@ -2106,12 +2106,10 @@ L["STORAGE_CREATE_FROM_CODE"] = "From Share Code"
 L["STORAGE_CREATE_FROM_CLIQUE"] = "From Clique..."
 -- Why that item is grey. It reads Clique's own saved variables, which exist only while it is loaded.
 L["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"] = "Clique is not loaded."
--- The row a Clique profile becomes. `%s` is the profile's name, which is the character's
--- ("Name - Realm") unless the reader named it.
-L["STORAGE_CLIQUE_ENTRY_NAME"] = "Imported Clique Profile (%s)"
--- The row a pasted Clique code becomes when the reader typed no name. The code carries no profile
--- name to put in brackets.
-L["STORAGE_CLIQUE_CODE_NAME"] = "Imported Clique Share Code"
+-- What a row from a Clique share code is called until somebody names it. The code carries no
+-- profile name, and this is drawn, never stored as one. **For now** (소유자, 2026-09-28): what such a
+-- row should show is still open.
+L["STORAGE_CLIQUE_UNNAMED"] = "Unnamed Profile"
 -- A profile's tooltip. Both lines stand whatever the profile holds: the characters that use it, and
 -- how many actions it becomes -- Clique's two starting bindings are not counted, since nothing of
 -- ours stands in for them. **A profile nobody uses gets a line of its own** rather than a word
@@ -2224,9 +2222,9 @@ L["STORAGE_ADD"] = "Add to My Bindings"
 -- this list. A row made here has only the first. %s is a date and a time.
 L["STORAGE_ENTRY_MADE"] = "Created %s"
 L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
--- Where the row came from, the tooltip's first line under the title. %s is the character it was
--- made on, in the client's "Name-Realm" form.
-L["STORAGE_ENTRY_SOURCE_MADE"] = "Made on %s"
+-- Where the row came from, the tooltip's first line under the title. **Not which character made
+-- it**: what is in it says that already (소유자, 2026-09-28).
+L["STORAGE_ENTRY_SOURCE_MADE"] = "Made on this account"
 L["STORAGE_ENTRY_SOURCE_PASTED"] = "Pasted from a string"
 L["STORAGE_ENTRY_SOURCE_CLIQUE"] = "Imported from Clique"
 -- Whose layers are in it. %s is a list of class names, or of character names.
@@ -2238,6 +2236,10 @@ L["STORAGE_ENTRY_ANONYMOUS"] = "Character names left out"
 -- them, and the tooltip lists them. %d is how many.
 L["STORAGE_TITLE_CLASSES"] = "%d classes"
 L["STORAGE_TITLE_CHARACTERS"] = "%d characters"
+-- The row menu's one item, and the title of the dialog it opens. The name box above reuses
+-- `IMPORT_PASTE_NAME`: it is the same field the paste dialog fills.
+L["STORAGE_ENTRY_EDIT"] = "Edit Name and Description"
+L["STORAGE_ENTRY_EDIT_DESCRIPTION"] = "Description (optional)"
 -- The tab. **A place, not the thing kept in it** - the client has no empty word for one of these
 -- (Blueprint, Layout and Loadout are each already something else) and naming a place needs none.
 --

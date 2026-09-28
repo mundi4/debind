@@ -3008,6 +3008,7 @@ function DebindFrameMixin:OnHide()
 	self:SetBindingMode(false);
 	DebindPasteFrame:CloseDialog();
 	DebindAddFrame:CloseDialog();
+	DebindEntryTextFrame:CloseDialog();
 
 	-- **The plate crosses tabs but not a close.** The (?) on the tab takes the canvas down on its
 	-- own `OnHide`; what is cleared here is the asking behind it, so the window does not open again
@@ -3088,6 +3089,13 @@ function DebindFrameMixin:HandleEscape()
 	-- leaving the dialog standing over nothing.
 	if (DebindAddFrame:IsShown()) then
 		DebindAddFrame:CloseDialog();
+		return true;
+	end
+
+	-- The name and description dialog, for the same reason. Opening it closes the add and paste
+	-- dialogs, so it never stands with either and its place among them is not an order.
+	if (DebindEntryTextFrame:IsShown()) then
+		DebindEntryTextFrame:CloseDialog();
 		return true;
 	end
 
@@ -4109,6 +4117,7 @@ function DebindFrameMixin:SelectPanel(id, force)
 			-- from (`DebindStoragePanelMixin:OnHide`).
 			DebindPasteFrame:CloseDialog();
 			DebindAddFrame:CloseDialog();
+			DebindEntryTextFrame:CloseDialog();
 			self.shownPanel:Hide();
 		end
 		self.shownPanel = panel;

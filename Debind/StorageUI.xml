@@ -15,7 +15,7 @@
 		was nothing to choose it *for* until there was a second column to read. The delete button
 		still takes its own click.
 	-->
-	<Button name="DebindStorageEntryRowTemplate" mixin="DebindStorageEntryRowMixin" virtual="true">
+	<Button name="DebindStorageEntryRowTemplate" mixin="DebindStorageEntryRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
 		<Size x="400" y="44"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -28,14 +28,9 @@
 			</Layer>
 			<Layer level="ARTWORK">
 				<!--
-					**Who it came from**: the class icon, then the character and realm that made it,
-					in that class's colour. A row taken in from a string has no character to name and
-					spells the class instead, which is the only thing about its sender that travels.
-
-					It used to be the free text typed at paste time, falling back to a stand-in that
-					said "Received string" - which is what three rows in a row read like, so the
-					line told them apart from nothing. That text is optional and now lives in the
-					tooltip, where being absent costs the list nothing.
+					**What is in it**: the name somebody gave it, else what it holds, in its class's
+					colour (`EntryName`). It was who made it, which told two of one character's
+					backups apart by nothing.
 				-->
 				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
 					<Size x="335" y="0"/>
@@ -98,9 +93,16 @@
 				<FontString parentKey="Counts" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
 					<Size x="335" y="0"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="LEFT" x="0" y="-15"/>
+						<Anchor point="LEFT" x="10" y="-8"/>
 					</Anchors>
 				</FontString>
+				<!-- Where it came from, for a row that is not ours (`DebindStorageEntryRowMixin:Init`). -->
+				<Texture parentKey="SourceIcon" hidden="true">
+					<Size x="16" y="16"/>
+					<Anchors>
+						<Anchor point="LEFT" x="10" y="7"/>
+					</Anchors>
+				</Texture>
 			</Layer>
 		</Layers>
 		<Scripts>
@@ -517,6 +519,72 @@
 			the caption came loose, `Input` hung off it, and the box the game measures ended up with
 			no rectangle to measure.
 		-->
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.Input" relativePoint="TOPLEFT" x="0" y="10"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Input" relativePoint="TOPRIGHT" x="0" y="10"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnHide method="OnDialogHide"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		An entry's name and description, from the row's right-click menu. The paste dialog's
+		geometry turned the other way up: the one-line box first, since it is the one most people
+		fill, and the box that takes line breaks under it.
+	-->
+	<Frame name="DebindEntryTextFrame" inherits="DebindDialogTemplate" mixin="DebindEntryTextFrameMixin">
+		<Size x="460" y="315"/>
+		<Frames>
+			<EditBox parentKey="NameBox" inherits="InputBoxTemplate" autoFocus="false">
+				<Size y="22"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT" x="6" y="-24"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT" x="-6" y="-24"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Label" inherits="GameFontNormal" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-6" y="4"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</EditBox>
+
+			<ScrollFrame parentKey="Input" inherits="InputScrollFrameTemplate">
+				<KeyValues>
+					<KeyValue key="hideCharCount" value="true" type="boolean"/>
+				</KeyValues>
+				<Size y="100"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.NameBox" relativePoint="BOTTOMLEFT" x="-6" y="-34"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.NameBox" relativePoint="BOTTOMRIGHT" x="6" y="-34"/>
+				</Anchors>
+			</ScrollFrame>
+
+			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="5" y="0"/>
+				</Anchors>
+			</Button>
+
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>
+				</Anchors>
+			</Button>
+		</Frames>
 		<Layers>
 			<Layer level="ARTWORK">
 				<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">

@@ -709,11 +709,67 @@ return function(DebindPrivate, DebindStorage)
         check(not Describe(Payload({ { scope = "general" } })).anonymous, "캐릭터 없는 것을 익명으로 읽었다");
     end);
 
+    -- **Scopes nest** (3-2): a character's layers come with its class and general, so the one
+    -- character is the whole answer - as long as no other class and no other character is in it.
+    test("가장 좁은 범위 하나가 나머지를 품을 때만 선다", function()
+        local only = Describe(Payload({
+            { scope = "general" }, { scope = "class", class = CLASS }, { scope = "character" },
+        })).only;
+        check(only and only.kind == "character" and only.owner == GUID and only.class == CLASS,
+            "캐릭터 " .. tostring(only and only.kind));
+
+        only = Describe(Payload({ { scope = "general" }, { scope = "class", class = "MAGE", spec = 2 } })).only;
+        check(only and only.kind == "class" and only.class == "MAGE", "직업");
+
+        only = Describe(Payload({ { scope = "general" } })).only;
+        check(only and only.kind == "general", "일반");
+
+        -- Another class's layer beside the character is not covered by it.
+        check(Describe(Payload({ { scope = "class", class = "MAGE" }, { scope = "character" } })).only == nil,
+            "다른 직업을 캐릭터가 품었다");
+        check(Describe(Payload({ { scope = "class", class = "MAGE" }, { scope = "class", class = "PRIEST" } })).only
+            == nil, "직업 둘");
+        check(Describe(Payload({})).only == nil, "빈 것");
+
+        local two = Payload({ { scope = "character" } });
+        two.layers["Player-1-OTHER"] = { [CLASS] = { [0] = { { type = Constants.SPELL, value = 9, seq = 1 } } } };
+        check(Describe(two).only == nil, "캐릭터 둘을 하나로 불렀다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- What the reader types as a name and a description (`SetEntryText`)
+    ---------------------------------------------------------------------------
+
+    test("이름과 설명은 앞뒤를 잘라 저장하고 빈 것은 nil이다", function()
+        local entry = { payload = Payload({ { scope = "general" } }) };
+        check(DebindStorage.SetEntryText(entry, "  이름 ", "\n 첫 줄\n둘째 줄 \n"), "저장 못 함");
+        check(entry.payload.name == "이름", "이름 " .. tostring(entry.payload.name));
+        check(entry.payload.description == "첫 줄\n둘째 줄", "설명 " .. tostring(entry.payload.description));
+
+        DebindStorage.SetEntryText(entry, "   ", "\n\t\n");
+        check(entry.payload.name == nil and entry.payload.description == nil, "빈 글이 남았다");
+        check(not DebindStorage.SetEntryText({}, "x", "y"), "페이로드 없는 행에 썼다");
+    end);
+
+    -- One field of each, in the payload: the sender's own is replaced, which is the point.
+    test("받은 행의 이름과 설명도 그 자리에서 바뀐다", function()
+        local payload = Payload({ { scope = "general" } });
+        payload.name, payload.description = "보낸 이름", "보낸 설명";
+        local entry = { payload = payload };
+        DebindStorage.SetEntryText(entry, "내 이름", "");
+        check(payload.name == "내 이름" and payload.description == nil, "보낸 것이 남았다");
+    end);
+
     ---------------------------------------------------------------------------
     -- A sender's text on our screen (`PlainText`)
     ---------------------------------------------------------------------------
 
     local Plain = DebindStorage.PlainText;
+
+    test("설명은 줄바꿈을 살리고 이름은 한 줄로 접는다", function()
+        check(Plain("첫\r\n둘\r셋\t넷", 100, true) == "첫\n둘\n셋 넷", tostring(Plain("첫\r\n둘\r셋\t넷", 100, true)));
+        check(Plain("첫\n둘", 100) == "첫 둘", "이름이 두 줄이 됐다");
+    end);
 
     test("마크업은 글자 그대로 그려진다", function()
         check(Plain("|cffff0000빨강|r |Hitem:1|h[링크]|h |T1:0|t", 100)

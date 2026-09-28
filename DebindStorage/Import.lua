@@ -613,6 +613,11 @@ end
 ---   characters   the character keys with a layer, sorted
 ---   anonymous    whether a character key the payload names has no `characters` entry, which is
 ---                what `AnonymizePayload` leaves and nothing else marks
+---   only         the narrowest scope, where one covers everything in it (3-2): `{ kind =
+---                "character", owner =, class = }`, `{ kind = "class", class = }` or
+---                `{ kind = "general" }`. **Scopes nest**: a character's layers come with its class
+---                and general, so naming the character says all three. Nil where they do not nest,
+---                which is two characters, or a class layer that is not the one character's class.
 function DebindStorage.DescribePayload(payload)
     local out = { actions = 0, general = false, classes = {}, characters = {}, anonymous = false };
     if (luatype(payload) ~= "table") then
@@ -621,6 +626,7 @@ function DebindStorage.DescribePayload(payload)
 
     local key, sameKey = nil, true;
     local classSeen, characterSeen = {}, {};
+    local characterClasses = {};
     DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class)
         if (#list == 0) then
             return;
@@ -640,9 +646,12 @@ function DebindStorage.DescribePayload(payload)
                 classSeen[class] = true;
                 out.classes[#out.classes + 1] = class;
             end
-        elseif (not characterSeen[owner]) then
-            characterSeen[owner] = true;
-            out.characters[#out.characters + 1] = owner;
+        else
+            if (not characterSeen[owner]) then
+                characterSeen[owner] = true;
+                out.characters[#out.characters + 1] = owner;
+            end
+            characterClasses[class] = true;
         end
     end);
 
@@ -654,6 +663,19 @@ function DebindStorage.DescribePayload(payload)
     local function ByString(lhs, rhs) return tostring(lhs) < tostring(rhs); end
     table.sort(out.classes, ByString);
     table.sort(out.characters, ByString);
+
+    if (#out.characters == 1) then
+        local class = next(characterClasses);
+        local fits = next(characterClasses, class) == nil
+            and (#out.classes == 0 or (#out.classes == 1 and out.classes[1] == class));
+        if (fits) then
+            out.only = { kind = "character", owner = out.characters[1], class = class };
+        end
+    elseif (#out.characters == 0 and #out.classes == 1) then
+        out.only = { kind = "class", class = out.classes[1] };
+    elseif (#out.characters == 0 and #out.classes == 0 and out.general) then
+        out.only = { kind = "general" };
+    end
 
     local characters = luatype(payload.characters) == "table" and payload.characters or {};
     for _, tbl in ipairs({ payload.layers, payload.switches }) do
@@ -669,18 +691,28 @@ function DebindStorage.DescribePayload(payload)
     return out;
 end
 
---- A sender's free text (`payload.name`, `payload.description`) made safe to draw: one line, at most
+--- A sender's free text (`payload.name`, `payload.description`) made safe to draw: at most
 --- `maxChars` characters, and every `|` doubled. **A `|` is the client's markup** (`|c` colour,
 --- `|H` link, `|T` texture, `|n` line break), and text from a string somebody else wrote could
 --- recolour a row, fake a link or stretch the list. Doubled, it draws as itself.
 ---
+--- One line unless `multiline`: a name sits on a row, and a description is typed in a box that
+--- takes line breaks. Every other control character is a space either way.
+---
 --- Cut before it is escaped, so the cut cannot split a doubled `|` and leave a live one. Nil for
 --- anything that is not a string or is empty once trimmed.
-function DebindStorage.PlainText(text, maxChars)
+function DebindStorage.PlainText(text, maxChars, multiline)
     if (luatype(text) ~= "string") then
         return nil;
     end
-    text = strtrim((text:gsub("[%c]+", " ")));
+    if (multiline) then
+        text = text:gsub("\r\n?", "\n"):gsub("[^%S\n]+", " "):gsub("[%c]", function(c)
+            return c == "\n" and c or " ";
+        end);
+        text = strtrim(text);
+    else
+        text = strtrim((text:gsub("[%c]+", " ")));
+    end
     if (text == "") then
         return nil;
     end
@@ -784,6 +816,27 @@ function DebindStorage.StorePayload(payload, name)
     end
     payload.name = name or payload.name;
     return StoreEntry(payload);
+end
+
+--- Writes what the reader typed as an entry's name and description (`showing-what-an-entry-holds.md`
+--- 4절). Each is trimmed, and nothing left is nil: a name of spaces is no name, and **no name is
+--- itself something the row shows** rather than a gap to fill.
+---
+--- **A received entry is written the same way, and the sender's own text is gone.** There is one
+--- field of each, in the payload, so the next string made from this row carries what the reader
+--- wrote. Received is the reader's copy from the moment it arrives.
+function DebindStorage.SetEntryText(entry, name, description)
+    local payload = entry and entry.payload;
+    if (luatype(payload) ~= "table") then
+        return false;
+    end
+    local function Clean(text)
+        text = luatype(text) == "string" and strtrim(text) or "";
+        return text ~= "" and text or nil;
+    end
+    payload.name = Clean(name);
+    payload.description = Clean(description);
+    return true;
 end
 
 --- The three fields a row made here carries (`CreateEntry` says what they answer).
