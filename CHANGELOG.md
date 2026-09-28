@@ -1,3 +1,7 @@
+# 4.1.1
+
+**Entering an arena with Clique or another click casting addon installed no longer raises a Lua error from Debind.**
+
 # 4.1
 
 **Debind now runs on World of Warcraft: Forever as well as the current game.** Some of it has not been tried there yet. The Dispel, Raid Buff and Resurrect actions, which cast whichever spell your class has rather than one you picked, may not work as they should. Dual specialization is not handled, because the author's characters are still too low level to reach it.

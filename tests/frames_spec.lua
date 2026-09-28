@@ -587,6 +587,23 @@ return function(DebindPrivate)
             .. tostring(DebindPrivate.ccframes[blizzard]));
     end);
 
+    -- **12.1 hands the arena frames' `OnClick` back as a secret, and comparing one raises** (issue
+    -- #12). Lua 5.1 has no value that raises on `==`, so what is held here is the other half: a
+    -- secret is never taken as the template's handler, even when it is that very function.
+    test("a secret OnClick is not read as the unit button template", function()
+        local frame = ForeignFrame("SomeUISecretFrame1", "arena1");
+        local prior = _G.issecretvalue;
+        _G.issecretvalue = function(value) return value == SecureUnitButton_OnClick; end;
+        local ok, err = pcall(SecureHandlerWrapScript, frame, "OnEnter", ForeignHeader(), "-- theirs");
+        _G.issecretvalue = prior;
+        if (not ok) then
+            error(err, 0);
+        end
+
+        check(DebindPrivate.ccframes[frame] == nil,
+            "a frame whose OnClick is secret was taken: " .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
     -- **Every door takes what nobody named, which is the whole decision.** The frames a pack keeps
     -- to itself used to sit behind an option, and the option is gone
     -- (`taking-every-unit-frame-with-one-blacklist.md` §1-3): a listed name and a

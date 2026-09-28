@@ -1346,8 +1346,10 @@ local function IsUnitButtonTemplate(frame)
     if (not SecureUnitButton_OnClick or not frame.GetScript) then
         return false;
     end
+    -- **The `pcall` does not cover the compare.** 12.1 answers `GetScript` on the arena frames with
+    -- a secret function, the call itself returns fine, and it is the `==` that raises (issue #12).
     local ok, handler = pcall(frame.GetScript, frame, "OnClick");
-    return ok and handler == SecureUnitButton_OnClick;
+    return ok and DebindPrivate.PlainOrNil(handler) == SecureUnitButton_OnClick;
 end
 
 --- Whether the client's own door owns this frame.
