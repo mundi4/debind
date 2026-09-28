@@ -701,6 +701,16 @@ function DebindStorage.CreateEntry(selection)
     });
 end
 
+--- `CreateEntry` for the whole account (`BuildAccountPayload`). The row still names the character
+--- it was made on.
+function DebindStorage.CreateAccountEntry()
+    return StoreEntry(DebindStorage.BuildAccountPayload(), {
+        character = UnitName("player"),
+        realm = GetRealmName(),
+        guid = DebindPrivate.playerGUID,
+    });
+end
+
 --- Takes a set of actions out of an entry, for good. Answers how many it found.
 ---
 --- **The one edit an entry has** (`building-export-import.md` 12절). Adding, reordering and

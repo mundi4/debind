@@ -591,6 +591,32 @@ local function ForEachStoredAction(db, fn, charLayers)
 end
 DebindPrivate.ForEachStoredAction = ForEachStoredAction;
 
+--- Every stored action list in the account, handed to `fn(list, owner, class, spec)`. This
+--- character's layers are reached even before they are attached, for the reason
+--- `ForEachStoredAction` gives.
+function DebindPrivate.ForEachAccountLayer(fn)
+    local db, charLayers = DebindPrivate.db.global, DebindPrivate.db.charLayers;
+
+    local function walkOwner(owner, classes)
+        for class, specTbl in pairs(classes) do
+            for spec = 0, MAX_STORED_SPEC do
+                if (specTbl[spec]) then
+                    fn(specTbl[spec], owner, class, spec);
+                end
+            end
+        end
+    end
+
+    local attached = false;
+    for owner, classes in pairs(db.layers or {}) do
+        attached = attached or classes == charLayers;
+        walkOwner(owner, classes);
+    end
+    if (charLayers and not attached) then
+        walkOwner(DebindPrivate.playerGUID, charLayers);
+    end
+end
+
 local function LoadLayer(layerID)
     local layerInfo = assert(LAYER_INFOS[layerID]);
     if (layerInfo.spec and layerInfo.spec > NUM_SPECS) then
@@ -771,6 +797,19 @@ local function ForEachOverrideCell(fn)
             end
         end
     end
+end
+
+--- Every override row there is, handed to `fn(row, name, owner, class, spec)`. **Rows still
+--- waiting under `UNKNOWN_CLASS` are left out**: a cell's class is what places it, and `"*"` in a
+--- payload means "the reader's class" (`reshaping-stored-layers.md` §1-1), which is not what they are.
+function DebindPrivate.ForEachSwitchOverride(fn)
+    ForEachOverrideCell(function(cell, owner, class, spec)
+        if (class ~= UNKNOWN_CLASS) then
+            for name, row in pairs(cell) do
+                fn(row, name, owner, class, spec);
+            end
+        end
+    end);
 end
 
 --- Every character's `states[guid]`, this character's included. **This one may not be in `states`
@@ -1150,6 +1189,16 @@ end
 --- it keeps.
 function DebindPrivate.GetPlayerIdentity()
     return DebindPrivate.db.char;
+end
+
+--- Any character's `characters[guid]` entry, read only, or nil. This character's is answered even
+--- before it is attached (`CleanUpDB`).
+function DebindPrivate.GetCharacterIdentity(guid)
+    if (guid == DebindPrivate.playerGUID) then
+        return DebindPrivate.db.char;
+    end
+    local characters = DebindPrivate.db.global.characters;
+    return characters and characters[guid];
 end
 
 function DebindPrivate.ApplySwitchResets()

@@ -2095,8 +2095,9 @@ L["STORAGE_CREATE"] = "New Payload"
 L["STORAGE_CREATE_TOOLTIP"] = "A payload is a saved set of actions, kept outside your bindings. Add one to your bindings later, or send it to somebody as a share code."
 -- The press, in the line the client keeps for what a click does. It opens the menu below.
 L["STORAGE_CREATE_INSTRUCTION"] = "Click to choose where it comes from."
--- The three sources behind the [+] (`importing-clique-profiles.md` §1).
+-- The sources behind the [+] (`importing-clique-profiles.md` §1).
 L["STORAGE_CREATE_FROM_CHARACTER"] = "From This Character"
+L["STORAGE_CREATE_FROM_ACCOUNT"] = "From This Account"
 -- Says "Share Code" because `STORAGE_COPY` does, and the two are the same code going opposite ways.
 -- **No ellipsis**, though it opens a box rather than making the row: in a menu one reads as a
 -- submenu behind the item (소유자, 2026-09-24).

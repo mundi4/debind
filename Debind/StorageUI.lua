@@ -747,6 +747,9 @@ local function SetupCreateMenu(_, rootDescription)
     rootDescription:CreateButton(LLL["STORAGE_CREATE_FROM_CHARACTER"], function()
         DebindStoragePanel:OnCreateClicked();
     end);
+    rootDescription:CreateButton(LLL["STORAGE_CREATE_FROM_ACCOUNT"], function()
+        DebindStoragePanel:OnCreateClicked(true);
+    end);
     rootDescription:CreateButton(LLL["STORAGE_CREATE_FROM_CODE"], function()
         DebindPasteFrame:Open();
     end);
@@ -1148,8 +1151,8 @@ end
 ---
 --- **It goes through the bus**, even though this panel is the one that pressed it. The other maker
 --- is the overview's key group menu, and one path is what keeps the two from drifting.
-function DebindStoragePanelMixin:OnCreateClicked()
-    local entry = Store().CreateEntry();
+function DebindStoragePanelMixin:OnCreateClicked(wholeAccount)
+    local entry = wholeAccount and Store().CreateAccountEntry() or Store().CreateEntry();
     DebindFrame:NotifyStoreChanged();
 
     -- **Landed on, not just listed.** A new row at the top of a list the reader is already looking

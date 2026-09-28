@@ -668,6 +668,46 @@ function DebindStorage.BuildExportPayload(selection)
     return payload;
 end
 
+--- `BuildExportPayload` for every cell the account holds rather than the layers this character
+--- reaches: other classes' account cells and every character's own.
+function DebindStorage.BuildAccountPayload()
+    local payload = { v = SCHEMA_VERSION, dbver = Constants.DB_VERSION, layers = {} };
+    local exported = {};
+
+    DebindPrivate.ForEachAccountLayer(function(list, owner, class, spec)
+        local bucket;
+        for i = 1, #list do
+            local action = list[i];
+            if (DebindStorage.IsExportable(action)) then
+                bucket = bucket or CellAt(payload.layers, owner, class, spec);
+                local copy = CopyFields(action, ACTION_FIELDS);
+                bucket[#bucket + 1] = copy;
+                exported[#exported + 1] = copy;
+            end
+        end
+    end);
+
+    payload.switches = BuildSwitchCells(exported, function(name)
+        local rows = {};
+        local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, nil);
+        if (mode ~= nil) then
+            rows[1] = {
+                owner = ACCOUNT_OWNER, class = "GENERAL", spec = 0,
+                row = { mode = mode, resetValue = resetValue, expr = expr },
+            };
+        end
+        DebindPrivate.ForEachSwitchOverride(function(row, rowName, owner, class, spec)
+            if (rowName == name) then
+                rows[#rows + 1] = { owner = owner, class = class, spec = spec, row = row };
+            end
+        end);
+        return rows;
+    end);
+
+    payload.characters = BuildCharacters(payload, DebindPrivate.GetCharacterIdentity);
+    return payload;
+end
+
 --- The same payload with only `selection`'s actions in it. `nil` selection hands the payload back
 --- as it is.
 ---

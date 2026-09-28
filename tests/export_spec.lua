@@ -848,6 +848,76 @@ return function(DebindPrivate, DebindStorage)
         check(CountActions(entry.payload) == 1, "액션이 안 담겼다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- An entry made from the whole account (`CreateAccountEntry`)
+    --
+    -- Every cell the account file holds, not the eleven this character reaches.
+    ---------------------------------------------------------------------------
+
+    local ALT = "Player-1-ALTGUID";
+    local SWITCHED = { mode = Constants.SWITCH_MODES.MANUAL };
+
+    --- This character's profile, plus a priest's account cell, a priest alt with a layer and an
+    --- override, and a character whose override rows still wait for its class (`"*"`).
+    local function AccountProfile()
+        ResetStore();
+        ResetProfile({
+            general = { { type = Constants.SETSWITCH_TOGGLE, value = "$state1", key = "G" } },
+            char = { [0] = { { type = Constants.SPELL, value = 1, key = "F" } } },
+            switches = { ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL },
+                         ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL } },
+        });
+        local db = DebindPrivate.db.global;
+        db.layers.account.PRIEST = { [2] = { { type = Constants.SPELL, value = 2, key = "P" } } };
+        db.layers[ALT] = { PRIEST = { [1] = {
+            { type = Constants.SPELL, value = 3, key = "A" },
+            { type = Constants.SPELL, value = 4, key = "B", arrivalID = 7 },
+        } } };
+        db.characters[ALT] = { name = "Alt", realm = "TestRealm", class = "PRIEST", lastSeen = 5 };
+        db.switches.account.PRIEST = { [2] = { ["$state1"] = SWITCHED, ["$state2"] = SWITCHED } };
+        db.switches[ALT] = { PRIEST = { [1] = { ["$state1"] = SWITCHED } } };
+        db.switches["Player-1-WAITING"] = { ["*"] = { [0] = { ["$state1"] = SWITCHED } } };
+    end
+
+    test("계정에서 만든 것은 다른 직업의 계정 칸과 다른 캐릭터의 칸을 든다", function()
+        AccountProfile();
+        local payload = DebindStorage.CreateAccountEntry().payload;
+        check(General(payload)[1].value == "$state1", "일반 칸이 없다");
+        check(LayerAt(payload, "account", "PRIEST", 2)[1].value == 2, "다른 직업의 계정 칸이 없다");
+        check(LayerAt(payload, GUID, CLASS, 0)[1].value == 1, "이 캐릭터의 칸이 없다");
+        local alt = LayerAt(payload, ALT, "PRIEST", 1);
+        check(alt and #alt == 1 and alt[1].value == 3, "다른 캐릭터의 칸이 틀렸다");
+        check(payload.characters[ALT].name == "Alt", "다른 캐릭터의 신원이 없다");
+        check(payload.characters[ALT].lastSeen == nil, "이 설치의 기록이 실렸다");
+        check(payload.characters[GUID].name == "Tester", "이 캐릭터의 신원이 없다");
+    end);
+
+    test("계정에서 만든 것은 어느 칸의 오버라이드든 참조된 스위치만 싣는다", function()
+        AccountProfile();
+        local switches = DebindStorage.CreateAccountEntry().payload.switches;
+        check(switches.account.PRIEST[2]["$state1"], "다른 직업의 오버라이드가 없다");
+        check(switches[ALT].PRIEST[1]["$state1"], "다른 캐릭터의 오버라이드가 없다");
+        check(switches.account.PRIEST[2]["$state2"] == nil, "아무도 안 부르는 스위치가 실렸다");
+        check(switches.account.GENERAL[0]["$state2"] == nil, "아무도 안 부르는 정의가 실렸다");
+    end);
+
+    test("계정에서 만든 것은 직업을 기다리는 칸을 안 싣는다", function()
+        AccountProfile();
+        local switches = DebindStorage.CreateAccountEntry().payload.switches;
+        check(switches["Player-1-WAITING"] == nil, "직업 모르는 칸이 실렸다");
+    end);
+
+    test("계정에서 만든 것은 아직 안 붙은 이 캐릭터의 칸과 신원도 든다", function()
+        AccountProfile();
+        local db = DebindPrivate.db.global;
+        db.layers[GUID] = nil;
+        db.characters[GUID] = nil;
+        local payload = DebindStorage.CreateAccountEntry().payload;
+        check(LayerAt(payload, GUID, CLASS, 0), "붙기 전의 칸이 빠졌다");
+        check(payload.characters[GUID] and payload.characters[GUID].name == "Tester",
+            "붙기 전의 신원이 빠졌다");
+    end);
+
     test("그 셋은 페이로드 밖이다", function()
         ResetStore();
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
