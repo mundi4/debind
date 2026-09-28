@@ -48,6 +48,18 @@ return function(DebindPrivate, DebindStorage)
             "catalog " .. Ids(ids) .. ", client has " .. Ids(EXPECTED_CLASSES));
     end);
 
+    -- **What a payload says it was made on** (`Constants.GAME_TYPE`), from the file this world
+    -- loaded the way the TOC has the client load one.
+    test("the game type is this client's, and a payload made here carries it", function()
+        local expected = camelot and "camelot" or "standard";
+        check(DebindPrivate.Constants.GAME_TYPE == expected,
+            "GAME_TYPE " .. tostring(DebindPrivate.Constants.GAME_TYPE));
+        _G.DebindVars = { dbver = DebindPrivate.Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {} } } }, characters = {}, migrated = {} };
+        DebindPrivate.InitDB();
+        check(DebindStorage.BuildAccountPayload().gameType == expected, "payload");
+    end);
+
     test("a class the client has is one a specialization condition can hold", function()
         check(DebindPrivate.ClassSpecMask(11) ~= 0, "Druid's mask is 0");
     end);

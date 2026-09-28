@@ -588,8 +588,44 @@ local function NewPayload()
         -- at login -- so this says what these actions are, and the reading side raises them with the
         -- same ladder the profile uses (`BringPayloadForward`).
         dbver = Constants.DB_VERSION,
+        -- **When and where the setting was made, which the string carries and the row cannot.** A
+        -- row's `received` is when it reached that list, and a pasted string reaches it long after.
+        created = time(),
+        gameType = Constants.GAME_TYPE,
         layers = {},
     };
+end
+
+--- The fields about the payload as a whole, carried by every copy made of one (`FilterPayload`,
+--- `AnonymizePayload`), and the type each has to be. **`name` and `description` are free text a
+--- sender wrote**: whoever draws them owes them `PlainText`.
+local META_FIELDS = {
+    source = "string",
+    created = "number",
+    gameType = "string",
+    name = "string",
+    description = "string",
+};
+
+--- `META_FIELDS` of `from`, copied onto `to`.
+local function CopyMeta(from, to)
+    for field in pairs(META_FIELDS) do
+        to[field] = from[field];
+    end
+    return to;
+end
+
+--- Drops a `META_FIELDS` value of the wrong type, in place. **The field goes and the string stays**:
+--- none of these says anything about the actions, so a bad one is no reason to refuse them. NaN and
+--- the infinities are not a time.
+local function DropBadMeta(payload)
+    for field, want in pairs(META_FIELDS) do
+        local value = payload[field];
+        if (value ~= nil and (luatype(value) ~= want
+                or (want == "number" and (value ~= value or value == math.huge or value == -math.huge)))) then
+            payload[field] = nil;
+        end
+    end
 end
 
 --- Copies `action` into its cell of `payload` and onto `exported`. The cell is made by the first
@@ -714,7 +750,9 @@ end
 ---
 --- **The fields an entry carries about the row do not travel, and nothing here has to drop them.**
 --- They sit on the row, outside the payload. Who a character cell is travels in `characters`,
---- which is the payload's, and only the cells still in it keep theirs.
+--- which is the payload's, and only the cells still in it keep theirs. What is about the payload as
+--- a whole travels whole (`META_FIELDS`): a narrower copy was still made then, there, under that
+--- name.
 ---
 --- The actions are carried over by reference. Nothing downstream writes to one -- this table is
 --- built to be encoded and dropped -- and copying them would only make the entry's own copies
@@ -724,7 +762,7 @@ function DebindStorage.FilterPayload(payload, selection)
         return payload;
     end
 
-    local out = { v = payload.v, dbver = payload.dbver, source = payload.source, layers = {} };
+    local out = CopyMeta(payload, { v = payload.v, dbver = payload.dbver, layers = {} });
     local kept = {};
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class, spec)
@@ -790,11 +828,11 @@ function DebindStorage.AnonymizePayload(payload)
         return out;
     end
 
-    return {
-        v = payload.v, dbver = payload.dbver, source = payload.source,
+    return CopyMeta(payload, {
+        v = payload.v, dbver = payload.dbver,
         layers = Renumbered(payload.layers),
         switches = Renumbered(payload.switches),
-    };
+    });
 end
 
 --- LibStub is asked at call time, not at load. This file is loaded by the headless specs, which
@@ -1152,6 +1190,7 @@ function DebindStorage.BringPayloadForward(payload)
     end
 
     BringPayloadDataForward(payload);
+    DropBadMeta(payload);
 
     return payload;
 end

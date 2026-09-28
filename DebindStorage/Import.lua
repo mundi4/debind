@@ -48,7 +48,10 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- instead of the string it arrived in. **The same payload either way** - compressed in a `text`
 --- field or sitting there decoded - so nothing about the serialized shape moved. What moved was
 --- where it lived.
-local ENTRY_VERSION             = 1;
+---
+--- **2 (2026-09-28) moved the name into the payload.** `entry.name` was the reader's label for the
+--- row alone; `payload.name` travels with the string, and one place holds it.
+local ENTRY_VERSION             = 2;
 
 --- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
 --- block from 0 to 4). A descriptor naming a spec past this is not a spec we cannot represent, it
@@ -487,7 +490,7 @@ end
 --- moment for a handler to be the right answer to.
 ---
 --- **Which makes this the only moment a migration could run**, for the same reason: there is no
---- earlier one. The entry version is stamped and nothing reads it back.
+--- earlier one. The entry version's steps run here (`ENTRY_VERSION`).
 ---
 --- **The payloads are raised here, once a session** (`BringPayloadForward`, in place). The row is
 --- drawn from its payload before anybody opens it (`CountEntry`, `EntryClass`), so an entry stored
@@ -503,9 +506,19 @@ local function Vars()
         vars = {};
         _G.DebindStorageVars = vars;
     end
-    vars.version = vars.version or ENTRY_VERSION;
     vars.entries = vars.entries or {};
     vars.nextID = vars.nextID or 1;
+    -- A table with no version is one this call just made, or one nothing was ever stored in.
+    vars.version = vars.version or ENTRY_VERSION;
+    if (vars.version < 2) then
+        for _, entry in ipairs(vars.entries) do
+            if (entry.name ~= nil and luatype(entry.payload) == "table" and entry.payload.name == nil) then
+                entry.payload.name = entry.name;
+            end
+            entry.name = nil;
+        end
+        vars.version = 2;
+    end
 
     if (broughtForward ~= vars) then
         broughtForward = vars;
@@ -589,6 +602,104 @@ function DebindStorage.CountEntry(entry)
     return groupCount, actionCount;
 end
 
+--- What a payload holds, for a row to be called by and a tooltip to list
+--- (`showing-what-an-entry-holds.md` 3절). Only cells with an action in them count.
+---
+---   actions      how many
+---   action       the one action, where there is exactly one
+---   key          the one key, where every action is on it
+---   general      whether the account's general layer has any
+---   classes      the class keys of the account's class layers, sorted
+---   characters   the character keys with a layer, sorted
+---   anonymous    whether a character key the payload names has no `characters` entry, which is
+---                what `AnonymizePayload` leaves and nothing else marks
+function DebindStorage.DescribePayload(payload)
+    local out = { actions = 0, general = false, classes = {}, characters = {}, anonymous = false };
+    if (luatype(payload) ~= "table") then
+        return out;
+    end
+
+    local key, sameKey = nil, true;
+    local classSeen, characterSeen = {}, {};
+    DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class)
+        if (#list == 0) then
+            return;
+        end
+        for _, action in ipairs(list) do
+            out.actions = out.actions + 1;
+            out.action = action;
+            if (action.key == nil or (key ~= nil and action.key ~= key)) then
+                sameKey = false;
+            end
+            key = key or action.key;
+        end
+        if (owner == DebindStorage.ACCOUNT_OWNER) then
+            if (class == "GENERAL") then
+                out.general = true;
+            elseif (not classSeen[class]) then
+                classSeen[class] = true;
+                out.classes[#out.classes + 1] = class;
+            end
+        elseif (not characterSeen[owner]) then
+            characterSeen[owner] = true;
+            out.characters[#out.characters + 1] = owner;
+        end
+    end);
+
+    if (out.actions ~= 1) then
+        out.action = nil;
+    end
+    out.key = sameKey and key or nil;
+
+    local function ByString(lhs, rhs) return tostring(lhs) < tostring(rhs); end
+    table.sort(out.classes, ByString);
+    table.sort(out.characters, ByString);
+
+    local characters = luatype(payload.characters) == "table" and payload.characters or {};
+    for _, tbl in ipairs({ payload.layers, payload.switches }) do
+        if (luatype(tbl) == "table") then
+            for owner in pairs(tbl) do
+                if (owner ~= DebindStorage.ACCOUNT_OWNER and luatype(characters[owner]) ~= "table") then
+                    out.anonymous = true;
+                end
+            end
+        end
+    end
+
+    return out;
+end
+
+--- A sender's free text (`payload.name`, `payload.description`) made safe to draw: one line, at most
+--- `maxChars` characters, and every `|` doubled. **A `|` is the client's markup** (`|c` colour,
+--- `|H` link, `|T` texture, `|n` line break), and text from a string somebody else wrote could
+--- recolour a row, fake a link or stretch the list. Doubled, it draws as itself.
+---
+--- Cut before it is escaped, so the cut cannot split a doubled `|` and leave a live one. Nil for
+--- anything that is not a string or is empty once trimmed.
+function DebindStorage.PlainText(text, maxChars)
+    if (luatype(text) ~= "string") then
+        return nil;
+    end
+    text = strtrim((text:gsub("[%c]+", " ")));
+    if (text == "") then
+        return nil;
+    end
+
+    local count, cut = 0, nil;
+    for start in text:gmatch("()[%z\1-\127\194-\244][\128-\191]*") do
+        count = count + 1;
+        if (count > maxChars) then
+            cut = start;
+            break;
+        end
+    end
+    if (cut) then
+        text = strtrim(text:sub(1, cut - 1)) .. "...";
+    end
+
+    return (text:gsub("|", "||"));
+end
+
 --- Seats a payload in the store and hands back the row it became.
 ---
 --- **Both ways in end here**, so an entry made from this profile and one pasted out of a string are
@@ -605,8 +716,8 @@ local function StoreEntry(payload, extra)
 
     entry.id = vars.nextID;
     -- **When this row appeared here**, which is what the list sorts and dates by. For a pasted
-    -- string that is when it was pasted; for one made here it is when it was made. What it is not
-    -- is when the setting it holds was *exported*, which a string does not carry.
+    -- string that is when it was pasted; for one made here it is when it was made. When the setting
+    -- itself was made is `payload.created`, which travels with the string.
     entry.received = time();
     -- **What arrived, not the string it arrived in.** The string is not kept: nothing reads it
     -- back, and a copy of the same contents in a form we may one day be unable to decode is worth
@@ -626,8 +737,9 @@ end
 --- Returns the entry, or nil plus the same reason codes `DecodeExportString` uses, plus
 --- `IMPOSSIBLE_PAYLOAD` for the check below.
 ---
---- **`name` is what the reader chose to call it.** Free text, optional, purely for the list --
---- nothing reads it back. It asked who the string came from once: nothing *sends* a string, it is
+--- **`name` is what the reader chose to call it**, and it goes into the payload over whatever name
+--- the string carried: the reader is the one looking at this list. Free text and optional. It asked
+--- who the string came from once: nothing *sends* a string, it is
 --- copied off a page or out of a notes file, and the reader restoring their own backup had no
 --- answer to give, so the field stayed empty exactly where a name would have been most use.
 ---
@@ -658,7 +770,8 @@ function DebindStorage.ImportEntry(text, name)
         return nil, "IMPOSSIBLE_PAYLOAD";
     end
 
-    return StoreEntry(payload, { name = name });
+    payload.name = name or payload.name;
+    return StoreEntry(payload);
 end
 
 --- Keeps a payload that did not come in as one of our strings -- a Clique profile read off disk, or
@@ -669,7 +782,8 @@ function DebindStorage.StorePayload(payload, name)
     if (DebindStorage.PayloadIsImpossible(payload)) then
         return nil, "IMPOSSIBLE_PAYLOAD";
     end
-    return StoreEntry(payload, { name = name });
+    payload.name = name or payload.name;
+    return StoreEntry(payload);
 end
 
 --- The three fields a row made here carries (`CreateEntry` says what they answer).
@@ -704,7 +818,7 @@ function DebindStorage.CreateEntry(selection)
     return StoreEntry(DebindStorage.BuildExportPayload(selection), MadeHere());
 end
 
---- `CreateEntry` for the whole account (`BuildAccountPayload`). The row still names the character
+--- `CreateEntry` for the whole account (`BuildAccountPayload`). The row still carries the character
 --- it was made on.
 function DebindStorage.CreateAccountEntry()
     return StoreEntry(DebindStorage.BuildAccountPayload(), MadeHere());

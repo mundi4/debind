@@ -29,6 +29,15 @@ Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
 Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 
+--- The client's game type in the TOC's own words (`AllowLoadGameType`): `"standard"` or `"camelot"`.
+--- Set by whichever of `GameType_*.lua` the client loaded, since no API answers it and
+--- `WOW_PROJECT_ID` is 1 on both (`preparing-the-code-for-camelot.md`).
+---
+--- **Written into a payload, never branched on.** What differs between the clients is asked as the
+--- capability that differs (`shipping-on-the-camelot-client.md` 2절); this says where a string was
+--- made, for the reader of that string.
+Constants.GAME_TYPE                       = DebindPrivate.GAME_TYPE;
+
 --- **`Debind.toc`'s `## IconTexture` is the same number and cannot read this one.** The client
 --- parses the toc before any of our Lua runs, so changing the picture stays two edits.
 Constants.ADDON_ICON                      = 133015;

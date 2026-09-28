@@ -15,9 +15,9 @@
 -- **The drawer** holds work across a `/reload`, so what it stores has to survive being written to
 -- SavedVariables and read back. What it stores is the payload.
 --
--- **There is no migration to test.** `PAYLOAD_VERSION` versions the payload's shape, and that shape
--- has never changed. A block of cases here brought a "v1" store forward: what it converted was a
--- record holding the string instead of the payload, which is the same payload either way.
+-- **The payload's own ladder is `export_spec`'s**; what the drawer adds is that its stored payloads
+-- walk it too. The drawer's one step of its own is `ENTRY_VERSION` 2, which moved the row's name into
+-- the payload.
 
 return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };
@@ -261,7 +261,8 @@ return function(DebindPrivate, DebindStorage)
 
         local entry = DebindStorage.ImportEntry(GOOD, "친구 세팅");
         check(entry, "배치가 안 만들어짐");
-        check(entry.name == "친구 세팅", "이름");
+        check(entry.payload.name == "친구 세팅", "이름 " .. tostring(entry.payload.name));
+        check(entry.name == nil, "이름이 행에도 남았다");
         check(#DebindStorage.GetEntries() == 1, "서랍에 안 들어감");
         check(DebindStorage.GetEntry(entry.id) == entry, "id로 못 찾음");
     end);
@@ -617,6 +618,122 @@ return function(DebindPrivate, DebindStorage)
         DebindStorage.RemoveEntryActions(EntryOf(payload),
             { [LayerAt(payload, "account", "GENERAL", 0)[1]] = true });
         check(payload.switches.account.GENERAL[0]["$state3"], "매니페스트가 사라졌다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The name lives in the payload (`ENTRY_VERSION` 2)
+    ---------------------------------------------------------------------------
+
+    -- A string can carry its sender's name now; the reader's own, when typed, is the one kept.
+    test("이름 없이 붙이면 문자열의 이름이 남고, 붙이며 적은 이름이 그 위에 선다", function()
+        ResetDrawer();
+        local sent = Payload({ { scope = "general", key = "F" } });
+        sent.name = "보낸 이름";
+        STORED["DEB2:named"] = sent;
+        check(DebindStorage.ImportEntry("DEB2:named").payload.name == "보낸 이름", "보낸 이름이 사라졌다");
+
+        local again = Payload({ { scope = "general", key = "F" } });
+        again.name = "보낸 이름";
+        STORED["DEB2:again"] = again;
+        check(DebindStorage.ImportEntry("DEB2:again", "내 이름").payload.name == "내 이름",
+            "적은 이름이 안 섰다");
+    end);
+
+    -- A drawer from 4.1 holds the name on the row. Nothing but this step moves it, and a row whose
+    -- name stayed behind would draw as if it had none.
+    test("옛 서랍의 행 이름은 페이로드로 옮겨진다", function()
+        ResetDrawer();
+        local named = Payload({ { scope = "general", key = "F" } });
+        _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
+            { id = 1, received = 0, name = "옛 이름", payload = named },
+            { id = 2, received = 0, name = "짝 없는 이름" },
+        } };
+
+        local entries = DebindStorage.GetEntries();
+        check(_G.DebindStorageVars.version == 2, "판 " .. tostring(_G.DebindStorageVars.version));
+        check(entries[1].payload.name == "옛 이름", "이름이 안 옮겨졌다: " .. tostring(entries[1].payload.name));
+        check(entries[1].name == nil, "행에 이름이 남았다");
+        check(entries[2].name == nil and #entries == 2, "페이로드 없는 행에서 터지거나 이름이 남았다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- What a payload holds (`DescribePayload`), which names a row that has no name
+    ---------------------------------------------------------------------------
+
+    local Describe = DebindStorage.DescribePayload;
+
+    test("액션 하나는 그 액션이고 키도 그 키다", function()
+        local held = Describe(Payload({ { scope = "general", key = "F" } }));
+        check(held.actions == 1 and held.action and held.action.value == 1, "액션");
+        check(held.key == "F", "키 " .. tostring(held.key));
+    end);
+
+    test("한 키에 여럿이면 키만 선다", function()
+        local held = Describe(Payload({
+            { scope = "general", key = "F", count = 2 },
+            { scope = "class", class = "MAGE", key = "F" },
+        }));
+        check(held.action == nil, "액션 하나로 읽었다");
+        check(held.key == "F", "키 " .. tostring(held.key));
+    end);
+
+    test("키가 둘이거나 키 없는 것이 섞이면 키도 안 선다", function()
+        check(Describe(Payload({
+            { scope = "general", key = "F" }, { scope = "class", class = "MAGE", key = "G" },
+        })).key == nil, "두 키");
+        check(Describe(Payload({
+            { scope = "general", key = "F" }, { scope = "class", class = "MAGE" },
+        })).key == nil, "키 없는 것");
+    end);
+
+    test("일반, 직업, 캐릭터를 액션이 든 칸에서만 센다", function()
+        local held = Describe(Payload({
+            { scope = "general" },
+            { scope = "class", class = "PRIEST" },
+            { scope = "class", class = "MAGE", spec = 2 },
+            { scope = "class", class = "SHAMAN", count = 0 },
+            { scope = "character" },
+        }));
+        check(held.general, "일반");
+        check(#held.classes == 2 and held.classes[1] == "MAGE" and held.classes[2] == "PRIEST",
+            "직업 " .. table.concat(held.classes, ","));
+        check(#held.characters == 1 and held.characters[1] == GUID, "캐릭터");
+        check(not held.anonymous, "이름 있는 캐릭터를 익명으로 읽었다");
+    end);
+
+    -- `AnonymizePayload` leaves a character key with no `characters` entry and marks nothing else.
+    test("신원 없는 캐릭터 칸이 있으면 익명이다", function()
+        local payload = Payload({ { scope = "character" } });
+        payload.characters = nil;
+        check(Describe(payload).anonymous, "익명이 아니라고 읽었다");
+        check(not Describe(Payload({ { scope = "general" } })).anonymous, "캐릭터 없는 것을 익명으로 읽었다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- A sender's text on our screen (`PlainText`)
+    ---------------------------------------------------------------------------
+
+    local Plain = DebindStorage.PlainText;
+
+    test("마크업은 글자 그대로 그려진다", function()
+        check(Plain("|cffff0000빨강|r |Hitem:1|h[링크]|h |T1:0|t", 100)
+            == "||cffff0000빨강||r ||Hitem:1||h[링크]||h ||T1:0||t", Plain("|cffff0000빨강|r", 100));
+    end);
+
+    test("줄바꿈은 한 줄로, 앞뒤 공백은 떼고, 빈 것은 없다", function()
+        check(Plain("  첫 줄\n둘째\r\n셋째  ", 100) == "첫 줄 둘째 셋째", Plain("  첫 줄\n둘째\r\n셋째  ", 100));
+        check(Plain(" \n ", 100) == nil, "빈 글");
+        check(Plain(5, 100) == nil and Plain(nil, 100) == nil, "글이 아닌 것");
+    end);
+
+    test("글자 수로 자르고 한글을 가르지 않는다", function()
+        check(Plain("가나다라", 3) == "가나다...", tostring(Plain("가나다라", 3)));
+        check(Plain("가나다", 3) == "가나다", "딱 맞는 것을 잘랐다");
+    end);
+
+    -- Cut before it is escaped: escaped first, the cut could fall between the two of a `||`.
+    test("자른 끝에 살아 있는 |가 안 남는다", function()
+        check(Plain("ab|c", 3) == "ab||...", tostring(Plain("ab|c", 3)));
     end);
 
     DebindStorage.DecodeExportString = realDecode;

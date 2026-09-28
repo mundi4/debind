@@ -10371,6 +10371,20 @@ RegisterTest("Spec spells: this client's own data file loads", {
     end,
 })
 
+-- **`Constants.GAME_TYPE` is a third file the client picks** (`GameType_*.lua`), and a payload made
+-- on a client that loaded neither, or both, carries the wrong answer about where it was made.
+RegisterTest("Game type: this client's own file loads", {
+    description = "Retail says standard and camelot says camelot, read off the file the TOC let in",
+    run = function()
+        local NAME = "game type"
+        local expected = select(4, GetBuildInfo()) < 100000 and "camelot" or "standard"
+        if Constants.GAME_TYPE ~= expected then
+            return Fail(NAME, format("expected %q, got %q", expected, tostring(Constants.GAME_TYPE)))
+        end
+        return Pass(NAME, Constants.GAME_TYPE)
+    end,
+})
+
 -----------------------------------------------------------
 -- The settings window
 -----------------------------------------------------------

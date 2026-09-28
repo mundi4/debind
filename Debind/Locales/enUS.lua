@@ -2220,10 +2220,24 @@ L["STORAGE_ADD"] = "Add to My Bindings"
 -- and the reader is scanning rather than reading; the tooltip is where somebody stops to ask, and
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
 --
--- Which word applies is which way the entry got here, and the character name is what says so: only
--- an entry made on this account carries one.
+-- Two different moments: when the setting was made, which the string carries, and when it reached
+-- this list. A row made here has only the first. %s is a date and a time.
 L["STORAGE_ENTRY_MADE"] = "Created %s"
 L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
+-- Where the row came from, the tooltip's first line under the title. %s is the character it was
+-- made on, in the client's "Name-Realm" form.
+L["STORAGE_ENTRY_SOURCE_MADE"] = "Made on %s"
+L["STORAGE_ENTRY_SOURCE_PASTED"] = "Pasted from a string"
+L["STORAGE_ENTRY_SOURCE_CLIQUE"] = "Imported from Clique"
+-- Whose layers are in it. %s is a list of class names, or of character names.
+L["STORAGE_ENTRY_CLASSES"] = "Classes: %s"
+L["STORAGE_ENTRY_CHARACTERS"] = "Characters: %s"
+-- A string whose writer left the character names out: the characters above are numbered instead.
+L["STORAGE_ENTRY_ANONYMOUS"] = "Character names left out"
+-- A row with no name is called by what it holds. Past one class or one character the title counts
+-- them, and the tooltip lists them. %d is how many.
+L["STORAGE_TITLE_CLASSES"] = "%d classes"
+L["STORAGE_TITLE_CHARACTERS"] = "%d characters"
 -- The tab. **A place, not the thing kept in it** - the client has no empty word for one of these
 -- (Blueprint, Layout and Loadout are each already something else) and naming a place needs none.
 --

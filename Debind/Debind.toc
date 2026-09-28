@@ -32,6 +32,10 @@ Locales\Camelot\enUS.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standa
 SpecSpells_Mainline.lua [AllowLoadGameType standard]
 SpecSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
+# One of the two, under the same conditions (`Constants.GAME_TYPE`).
+GameType_Standard.lua [AllowLoadGameType standard]
+GameType_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
+
 #@debug@
 # The packager deletes this block, contents and all, from a released build. What it holds is one
 # generated line naming the checkout the game is loading, which the window title and the login

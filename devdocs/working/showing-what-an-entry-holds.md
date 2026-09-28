@@ -1,7 +1,7 @@
 # 보관함 행이 무엇이 들었는지 말하게 하기 (2026-09-28 시작)
 
-> 상태: **계획. 구현 전.** 1절의 열 항목은 소유자가 정했다. 2절은 그 열 항목을 코드에 옮기는
-> 방법이고, 3절은 소유자가 맡긴 제목 모양이다. 4절은 이 계획 다음에 붙일 입력 UI다.
+> 상태: **1~3절 구현됨 (2026-09-28). 남은 것은 4절의 입력 UI다.** 1절의 열 항목은 소유자가 정했다.
+> 2절은 그 열 항목을 코드에 옮긴 방법이고, 3절은 소유자가 맡긴 제목 모양이다.
 >
 > 쓴 세션: `debind-02`, 세션 ID `74a57376-a8ec-45da-a9f3-4553ea5bbb45`.
 
@@ -90,13 +90,15 @@
 - **들어 있는 캐릭터와 직업.** 캐릭터는 `CharacterName`이 이미 `characters`의 이름을 읽고, 없으면
   `STORAGE_ADD_CHARACTER_UNNAMED`로 번호를 낸다. 직업은 `ForEachPayloadLayer`의 칸 키다.
 - **익명화 여부.** 표시는 따로 없고 판별만 된다. `characters`에 항목이 없는 캐릭터 칸이 있으면
-  익명화된 것이다(`AnonymizePayload` 주석). 위 캐릭터 목록이 번호로 나오는 것이 이미 그 말이므로,
-  따로 줄을 세울지는 목록 모양을 보고 정한다. 캐릭터 칸이 없는 payload는 가릴 이름이 없으니 따질 것도
-  없다.
-- **생성 시각, 분까지.** `created`가 있을 때. 지금의 `EntryDate`는 `FormatShortDate`로 날짜만 낸다.
-- **출처.** 지금 첫 줄이 `entry.character`로 `STORAGE_ENTRY_MADE`와 `STORAGE_ENTRY_RECEIVED`를 가른다.
-  Clique에서 온 것은 `payload.source`로 가를 수 있다.
-- **`description`.** 있을 때.
+  익명화된 것이다(`AnonymizePayload` 주석). 판별은 `DescribePayload`의 `anonymous`이고, 툴팁은 캐릭터
+  목록 아래에 `STORAGE_ENTRY_ANONYMOUS` 한 줄을 세운다. 캐릭터 칸이 없는 payload는 가릴 이름이 없으니
+  따질 것도 없다.
+- **생성 시각, 분까지.** `STORAGE_ENTRY_MADE`는 `created`를 쓰고, 여기서 만든 행에 `created`가 없으면
+  `received`를 쓴다(그 행은 둘이 같은 순간이다). 여기서 만들지 않은 행은 `STORAGE_ENTRY_RECEIVED`가
+  따로 선다. 둘 다 `DateTimeText`로 분까지 낸다. 행의 둘째 줄은 날짜만 그대로다.
+- **출처.** 첫 줄: 여기서 만든 행은 만든 캐릭터(`STORAGE_ENTRY_SOURCE_MADE`), Clique 변환은
+  `STORAGE_ENTRY_SOURCE_CLIQUE`, 나머지는 붙여 넣은 문자열(`STORAGE_ENTRY_SOURCE_PASTED`).
+- **`description`.** 있을 때 제목 바로 아래 흰 글씨로.
 
 ### 2-4. 거짓이 되는 주석
 
@@ -119,7 +121,11 @@
 - 인코딩과 디코딩을 한 바퀴 돌아도 넷이 남는다.
 - 붙여 넣을 때 적은 이름이 `payload.name`에 들어가고, 옛 `entry.name`은 `Vars()`에서 옮겨진다.
 
-제목 짓기와 마크업 막기는 순수 함수로 떼어 헤드리스에서 잰다. 툴팁 배선은 재지 않는다.
+제목 짓기의 재료(`DescribePayload`)와 마크업 막기(`PlainText`)는 `DebindStorage`의 순수 함수라
+`entry_spec`이 잰다. `clique_spec`은 공유 코드에 게임 타입이 안 붙는 것을, `client_spec`은 두 세계에서
+`Constants.GAME_TYPE`과 payload의 값을 잰다. 툴팁과 제목의 배선(`StorageUI.lua`)은 헤드리스 목록에
+없고 재지 않는다. 클라이언트가 TOC 조건대로 `GameType_*.lua` 하나를 싣는지는 게임만 답하므로
+인게임 킷의 "Game type: this client's own file loads"가 잰다.
 
 ## 3. payload에서 짓는 제목
 

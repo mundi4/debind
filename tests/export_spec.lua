@@ -831,6 +831,7 @@ return function(DebindPrivate, DebindStorage)
     --- 빨개진다.
     local PAYLOAD_KEYS = {
         v = true, dbver = true, layers = true, switches = true, characters = true,
+        created = true, gameType = true,
     };
 
     local function ResetStore()
@@ -978,6 +979,77 @@ return function(DebindPrivate, DebindStorage)
         check(General(out), "일반 자리가 안 섰다");
         check(out.characters and out.characters[GUID], "캐릭터 칸의 신원이 안 따라왔다");
         check(out.v == payload.v and out.dbver == payload.dbver, "판 필드가 안 따라왔다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- What a payload says about itself (`META_FIELDS`)
+    ---------------------------------------------------------------------------
+
+    test("만든 페이로드는 만든 시각과 게임 타입을 든다", function()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+        local before = time();
+        for _, payload in ipairs({ DebindStorage.BuildExportPayload(), DebindStorage.BuildAccountPayload() }) do
+            check(type(payload.created) == "number" and payload.created >= before
+                and payload.created <= time(), "시각 " .. tostring(payload.created));
+            check(payload.gameType == "standard", "게임 타입 " .. tostring(payload.gameType));
+        end
+    end);
+
+    --- A made payload with a name and a description, as the reader would have given it.
+    local function NamedEntry()
+        ResetStore();
+        ResetProfile({
+            general = { { type = Constants.SPELL, value = 1, key = "F" } },
+            char = { [0] = { { type = Constants.SPELL, value = 3, key = "H" } } },
+        });
+        local entry = DebindStorage.CreateEntry();
+        entry.payload.name = "이름";
+        entry.payload.description = "설명";
+        return entry;
+    end
+
+    local function CheckMeta(out, from, what)
+        for _, field in ipairs({ "created", "gameType", "name", "description" }) do
+            check(out[field] ~= nil and out[field] == from[field],
+                what .. "에서 " .. field .. "가 빠졌다: " .. tostring(out[field]));
+        end
+    end
+
+    test("골라내도, 익명화해도, 문자열을 돌아도 제 것을 들고 간다", function()
+        local entry = NamedEntry();
+        local payload = entry.payload;
+        CheckMeta(DebindStorage.FilterPayload(payload, { [OneOn(payload, "F")] = true }), payload, "골라내기");
+        CheckMeta(DebindStorage.AnonymizePayload(payload), payload, "익명화");
+        for _, anonymize in ipairs({ false, true }) do
+            CheckMeta(DebindStorage.DecodeExportString(
+                DebindStorage.ExportEntry(entry, { [OneOn(payload, "H")] = true }, anonymize)),
+                payload, "문자열");
+        end
+    end);
+
+    -- **The field goes and the string stays**: none of these says anything about the actions.
+    test("타입이 틀린 것은 그 필드만 버리고 받는다", function()
+        for _, bad in ipairs({
+            { name = 5 }, { description = {} }, { gameType = true }, { source = 1 },
+            { created = "어제" }, { created = 0 / 0 }, { created = 1 / 0 }, { created = -1 / 0 },
+        }) do
+            local field, value = next(bad);
+            local payload = { v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
+                layers = { account = { GENERAL = { [0] = {
+                    { type = Constants.SPELL, value = 1, key = "F", seq = 1 } } } } } };
+            payload[field] = value;
+            local out, reason = DebindStorage.BringPayloadForward(payload);
+            check(out, field .. " 때문에 거절: " .. tostring(reason));
+            check(out[field] == nil, field .. "가 남았다: " .. tostring(out[field]));
+        end
+
+        local good = { v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION, layers = {},
+            name = "n", description = "d", gameType = "camelot", created = 5, source = "clique" };
+        local out = DebindStorage.BringPayloadForward(good);
+        check(out.name == "n" and out.description == "d" and out.gameType == "camelot"
+            and out.created == 5 and out.source == "clique", "멀쩡한 것까지 버렸다");
     end);
 
     test("캐릭터 칸이 다 빠지면 신원도 빠진다", function()

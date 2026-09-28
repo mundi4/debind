@@ -223,7 +223,7 @@ local function EntryClass(entry)
     return not several and found or nil;
 end
 
---- The row's top line: **the date it arrived, and for now nothing else.**
+--- The row's second line leads with this: **the date it arrived, and for now nothing else.**
 ---
 --- **The date, not how old it is.** A relative age answers "is this the one I just pasted", which
 --- is only a question for a minute or two; a list that piles up is read by when things came in.
@@ -232,70 +232,102 @@ local function EntryDate(entry)
     return FormatShortDate(when.day, when.month, when.year);
 end
 
---- The class's own icon, inline, or nil for a class this client does not have.
----
---- **Gated on the client knowing the name**, because the atlas is built out of it
---- (`GetClassAtlas`) and one that does not exist draws nothing at all. A payload naming a class
---- nobody has cannot be opened (`PayloadIsImpossible`), but its row is still drawn: deleting it is
---- the only thing left to do with it and the delete button is on the row.
-local function ClassIcon(class)
-    if (not Constants.CLASS_NAMES[class]) then
-        return nil;
-    end
-    return CreateAtlasMarkup(GetClassAtlas(strlower(class)), 16, 16);
+--- A moment to the minute, for the tooltip (소유자, 2026-09-28): two entries made the same day are
+--- told apart by the time.
+local function DateTimeText(stamp)
+    local when = date("*t", stamp);
+    return format(LLL["IMPORT_ENTRY_LINE"], FormatShortDate(when.day, when.month, when.year),
+        date("%H:%M", stamp));
 end
 
---- The row's name if it has one, else who made it or what it came from: the class icon, then
---- that, in the class's colour.
----
---- **The icon is where the class lives, and it is in the same place on every row** (2026-08-22,
---- 소유자). The words beside it are not the same thing twice: a row made here says which character,
---- which is the one thing that tells two of your own backups apart, since they carry the same class
---- and often the same date. A row that came from a string has no such fields on the row, so the
---- class name is what the words fall back to. Spelling the class only in that second case is what
---- used to move it between the title and a line of its own.
----
---- Answers nil for an entry that says nothing about where it came from. The two below decide what
---- to put in its place, because they have different room for it.
----
---- `GetClassColorObj` answers nil for a token it does not know, and `EntryClass` hands over any class
---- key a payload's cells carry, one this client has never heard of included. So the colour falls
---- back and the icon is asked for only where the client knows the name (`ClassIcon`).
-local function EntrySender(entry)
-    local class = EntryClass(entry);
-    local text;
+--- A character key of a payload by name: what `characters` says, in the client's form, or its
+--- number where the string was anonymised and says nothing.
+local function CharacterName(owner, identity)
+    if (type(identity) == "table" and type(identity.name) == "string") then
+        return NameWithRealm(identity.name, identity.realm);
+    end
+    return format(LLL["STORAGE_ADD_CHARACTER_UNNAMED"], tostring(owner));
+end
 
-    -- **A name, where the row has one, is what it is called** (소유자, 2026-09-24). Only a paste
-    -- the reader named and a Clique profile carry one, and the second has no class or character to
-    -- fall back to.
-    if (entry.name and entry.name ~= "") then
-        text = entry.name;
-    elseif (entry.character) then
-        text = NameWithRealm(entry.character, entry.realm);
-    elseif (class) then
-        text = Constants.CLASS_NAMES[class];
+--- `payload.characters`, or an empty table for a payload without one.
+local function PayloadCharacters(entry)
+    local payload = entry.payload;
+    return type(payload) == "table" and type(payload.characters) == "table" and payload.characters or {};
+end
+
+--- The longest `payload.name` a row draws (`PlainText`). A row is one line wide.
+local NAME_MAX_CHARS = 48;
+--- The longest `payload.description` the tooltip draws.
+local DESCRIPTION_MAX_CHARS = 300;
+
+--- What a payload holds, as a name (`showing-what-an-entry-holds.md` 3절): **a small one by what is
+--- in it, a large one by how far it reaches.** One action is that action and one key is that key,
+--- and a backup is told from the next by whose layers it carries. Nil for a payload holding
+--- nothing.
+local function ContentsTitle(entry)
+    local held = Store().DescribePayload(entry.payload);
+    if (held.action) then
+        local name = DebindUI.NameAndIconForAction(held.action);
+        if (name) then
+            return name;
+        end
+    end
+    if (held.key) then
+        return DebindPrivate.GetKeyDisplayText(held.key);
     end
 
+    local parts = {};
+    if (held.general) then
+        parts[#parts + 1] = LLL["GENERAL"];
+    end
+    if (#held.classes == 1) then
+        parts[#parts + 1] = Constants.CLASS_NAMES[held.classes[1]] or held.classes[1];
+    elseif (#held.classes > 1) then
+        parts[#parts + 1] = format(LLL["STORAGE_TITLE_CLASSES"], #held.classes);
+    end
+    if (#held.characters == 1) then
+        local owner = held.characters[1];
+        parts[#parts + 1] = CharacterName(owner, PayloadCharacters(entry)[owner]);
+    elseif (#held.characters > 1) then
+        parts[#parts + 1] = format(LLL["STORAGE_TITLE_CHARACTERS"], #held.characters);
+    end
+    return #parts > 0 and table.concat(parts, LIST_DELIMITER) or nil;
+end
+
+--- What the row is called: its name, else what it holds (`ContentsTitle`), in the class's colour
+--- where it holds one class's.
+---
+--- **What is in it, not who made it** (소유자, 2026-09-28). A row made here used to be called by
+--- its character, which told two backups of one character apart by nothing at all and told a
+--- whole-account backup nothing either. Who made it is the tooltip's to say.
+---
+--- **No class icon** (소유자, 2026-09-28). The colour stays.
+---
+--- Nil for an entry that holds nothing and has no name. The two below decide what to put in its
+--- place, because they have different room for it.
+---
+--- `GetClassColorObj` answers nil for a token it does not know, and `EntryClass` hands over any class
+--- key a payload's cells carry, one this client has never heard of included, so the colour falls
+--- back.
+local function EntryName(entry)
+    local payload = entry.payload;
+    local text = Store().PlainText(type(payload) == "table" and payload.name, NAME_MAX_CHARS)
+        or ContentsTitle(entry);
     if (not text) then
         return nil;
     end
+
+    local class = EntryClass(entry);
     if (not class) then
         return text;
     end
-
-    local color = GetClassColorObj(class) or NORMAL_FONT_COLOR;
-    local icon = ClassIcon(class);
-    text = color:WrapTextInColorCode(text);
-    if (not icon) then
-        return text;
-    end
-    return icon .. " " .. text;
+    return (GetClassColorObj(class) or NORMAL_FONT_COLOR):WrapTextInColorCode(text);
 end
 
---- The row's top line. A payload with no class at all reaches this, and the date is the one thing
+--- The row's top line. A payload with nothing in it reaches this, and the date is the one thing
 --- every row has.
 local function EntryTitle(entry)
-    return EntrySender(entry) or EntryDate(entry);
+    return EntryName(entry) or EntryDate(entry);
 end
 
 --- What to call one entry in a sentence. The delete prompt is the one place there is: it names
@@ -310,7 +342,7 @@ end
 --- only the one. Without it two entries from the same character read identically at the one moment
 --- there is no undo.
 local function EntryLabel(entry)
-    local sender = EntrySender(entry);
+    local sender = EntryName(entry);
     local stamp = EntryDate(entry);
     if (not sender) then
         return stamp;
@@ -381,22 +413,64 @@ end
 function DebindStorageEntryRowMixin:OnEnter()
     local entry = self.elementData.entry;
 
-    -- **The row's own two lines, in the same order.** A tooltip that regroups them reads as being
-    -- about something else. The title is the row's own first line, realm and all, so neither the
-    -- realm nor the class needs a line of its own down here.
+    local payload = type(entry.payload) == "table" and entry.payload or {};
+    local held = Store().DescribePayload(payload);
+
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, EntryTitle(entry));
 
-    -- **A line each.** The row runs the two together because it has two lines for everything it
-    -- holds. Here there is room, and they answer different questions.
-    --
-    -- **A date on its own is any date.** Which one this is depends on where the entry came from: one
-    -- made here is dated when it was made, one that arrived is dated when it was pasted, and both
-    -- are the same field. There is no third answer to confuse it with, since a string carries no
-    -- date of its own (7절).
-    GameTooltip_AddNormalLine(GameTooltip, format(
-        LLL[entry.character and "STORAGE_ENTRY_MADE" or "STORAGE_ENTRY_RECEIVED"],
-        EntryDate(entry)));
+    local description = Store().PlainText(payload.description, DESCRIPTION_MAX_CHARS);
+    if (description) then
+        GameTooltip_AddHighlightLine(GameTooltip, description);
+    end
+
+    -- **Where it came from** (소유자, 2026-09-28). Only a row made here carries a character, and
+    -- only a Clique conversion carries `source`.
+    local source;
+    if (entry.character) then
+        source = format(LLL["STORAGE_ENTRY_SOURCE_MADE"], NameWithRealm(entry.character, entry.realm));
+    elseif (payload.source == Store().SOURCE_CLIQUE) then
+        source = LLL["STORAGE_ENTRY_SOURCE_CLIQUE"];
+    else
+        source = LLL["STORAGE_ENTRY_SOURCE_PASTED"];
+    end
+    GameTooltip_AddNormalLine(GameTooltip, source);
+
+    -- **Two moments, which are one only for a row made here.** `created` travels in the string and
+    -- `received` is when it reached this list. A string from before `created` existed has no
+    -- moment of making to show (소유자, 2026-09-28).
+    local created = type(payload.created) == "number" and payload.created
+        or (entry.character and entry.received);
+    if (created) then
+        GameTooltip_AddNormalLine(GameTooltip, format(LLL["STORAGE_ENTRY_MADE"], DateTimeText(created)));
+    end
+    if (not entry.character) then
+        GameTooltip_AddNormalLine(GameTooltip,
+            format(LLL["STORAGE_ENTRY_RECEIVED"], DateTimeText(entry.received)));
+    end
+
+    -- **Whose layers are in it** (소유자, 2026-09-28): the title names them only while there is one.
+    if (#held.classes > 0) then
+        local names = {};
+        for i, class in ipairs(held.classes) do
+            local color = GetClassColorObj(class) or NORMAL_FONT_COLOR;
+            names[i] = color:WrapTextInColorCode(Constants.CLASS_NAMES[class] or class);
+        end
+        GameTooltip_AddNormalLine(GameTooltip,
+            format(LLL["STORAGE_ENTRY_CLASSES"], table.concat(names, LIST_DELIMITER)));
+    end
+    if (#held.characters > 0) then
+        local characters, names = PayloadCharacters(entry), {};
+        for i, owner in ipairs(held.characters) do
+            names[i] = CharacterName(owner, characters[owner]);
+        end
+        GameTooltip_AddNormalLine(GameTooltip,
+            format(LLL["STORAGE_ENTRY_CHARACTERS"], table.concat(names, LIST_DELIMITER)));
+    end
+    if (held.anonymous) then
+        GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_ENTRY_ANONYMOUS"]);
+    end
+
     GameTooltip_AddNormalLine(GameTooltip,
         format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry)));
 
@@ -657,15 +731,6 @@ local function SortLayerActions(actions)
     end);
 
     return groups;
-end
-
---- A character key of a payload by name: what `characters` says, in the client's form as the row
---- says it (`EntrySender`), or its number where the string was anonymised and says nothing.
-local function CharacterName(owner, identity)
-    if (type(identity) == "table" and type(identity.name) == "string") then
-        return NameWithRealm(identity.name, identity.realm);
-    end
-    return format(LLL["STORAGE_ADD_CHARACTER_UNNAMED"], tostring(owner));
 end
 
 --- One payload cell as the preview draws it: the key it is bucketed under inside its owner, where
@@ -1390,7 +1455,7 @@ end
 --- A Clique profile becomes an entry, all of it in General, since the file names no layer
 --- (`importing-clique-profiles.md` §3). Where it goes is asked when it is added.
 function DebindStoragePanelMixin:OnCliqueProfileClicked(profile)
-    local payload = Store().PayloadFromCliqueBindings(profile.bindings);
+    local payload = Store().PayloadFromCliqueBindings(profile.bindings, Constants.GAME_TYPE);
     local entry, reason = Store().StorePayload(payload,
         format(LLL["STORAGE_CLIQUE_ENTRY_NAME"], profile.name));
     if (not entry) then

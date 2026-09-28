@@ -392,8 +392,11 @@ return function(DebindPrivate, DebindStorage)
         WithEncoding(CODE_ANSWERS, function()
             local entry, reason = DebindStorage.ImportEntry("  CL02:AB \n", "named");
             check(entry, "refused: " .. tostring(reason));
-            check(entry.name == "named", "name " .. tostring(entry.name));
+            check(entry.payload.name == "named" and entry.name == nil,
+                "name " .. tostring(entry.payload.name) .. " / " .. tostring(entry.name));
             check(entry.payload.source == DebindStorage.SOURCE_CLIQUE, "source");
+            -- A share code could have been written on either client.
+            check(entry.payload.gameType == nil, "game type " .. tostring(entry.payload.gameType));
             local action = entry.payload.layers.account.GENERAL[0][1];
             check(action and action.value == "Rejuvenation" and action.untranslated.spec1 == true,
                 "converted");
@@ -442,9 +445,12 @@ return function(DebindPrivate, DebindStorage)
 
     test("a Clique profile read off disk is kept as an entry", function()
         FreshProfile();
-        local payload = DebindStorage.PayloadFromCliqueBindings({ Spell("F", { default = true }) });
+        local payload = DebindStorage.PayloadFromCliqueBindings({ Spell("F", { default = true }) },
+            Constants.GAME_TYPE);
         local entry = DebindStorage.StorePayload(payload, "Healer");
-        check(entry and entry.name == "Healer" and entry.payload == payload, "kept");
+        check(entry and entry.payload == payload and payload.name == "Healer" and entry.name == nil,
+            "kept");
+        check(payload.gameType == "standard", "game type " .. tostring(payload.gameType));
         check(entry.character == nil, "not marked as made here");
     end);
 

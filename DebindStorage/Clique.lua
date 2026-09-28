@@ -189,10 +189,13 @@ end
 --- A Clique binding list as a payload, everything in General (§3). **Returns the payload and how
 --- many actions it holds**, which is what the profile list shows.
 ---
+--- `gameType` is the caller's to give, because only the caller knows where the list was written: a
+--- profile read off this client's disk is this client's, and a share code could be anybody's.
+---
 --- **An `ooc` binding takes its key out of combat and the others on it into it.** Clique clears a
 --- non-`ooc` binding sharing an `ooc` key whenever the player is out of combat (`oocKeys`), where
 --- ours would fall through to the next action once the first one's condition failed.
-function DebindStorage.PayloadFromCliqueBindings(bindings)
+function DebindStorage.PayloadFromCliqueBindings(bindings, gameType)
     local oocKeys = {};
     for _, binding in ipairs(bindings) do
         if (luatype(binding) == "table" and luatype(binding.sets) == "table" and binding.sets.ooc
@@ -219,6 +222,7 @@ function DebindStorage.PayloadFromCliqueBindings(bindings)
         v = DebindStorage.PAYLOAD_VERSION,
         dbver = Constants.DB_VERSION,
         source = DebindStorage.SOURCE_CLIQUE,
+        gameType = gameType,
         layers = { [DebindStorage.ACCOUNT_OWNER] = { GENERAL = { [0] = actions } } },
     };
     return payload, #actions;
