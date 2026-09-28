@@ -855,10 +855,10 @@ L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same ke
 -- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
 L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless conditions or Importance say otherwise."
 -- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
-L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Account, unless conditions or Importance say otherwise."
+L["LAYER_DESC_CHARACTER_CLASS"] = "This character. A key here beats the same key everywhere in Account, unless conditions or Importance say otherwise."
 -- **This is the narrowest layer, so it beats every other one** -- not the one directly below it.
 -- Naming a single loser here was wrong, and naming all four would be a list nobody reads, so it
--- says "everywhere else", the same move `LAYER_DESC_CHARACTER_GENERAL` makes with "in Account".
+-- says "everywhere else", the same move `LAYER_DESC_CHARACTER_CLASS` makes with "in Account".
 --
 -- That leaves English with no argument at all: the tooltip title already reads "Oreo / Balance",
 -- so "this spec" has something to point at. Korean still needs the spec name and takes it as the

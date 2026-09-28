@@ -37,7 +37,7 @@ So the binds have to be layered, and one key has to be able to mean more than on
 | Where a key can come from | Who it applies to |
 |---|---|
 | Character / Specialization | this character, in this spec |
-| Character / General | this character |
+| Character / Class | this character |
 | Account / Specialization | every Druid you own, while Balance |
 | Account / Class | every Druid you own |
 | Account / General | every character on the account |

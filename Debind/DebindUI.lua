@@ -315,12 +315,12 @@ end
 --- 그 탭의 제목은 "공유 / 드루이드"다. 영어에서는 "Beats Druid."가 "드루이드를 이긴다"로도
 --- 읽혀서 더 나빴다. 그래서 이 함수가 `GetLayerLabel`을 부르지, 짧은 이름을 안 쓴다.
 ---
---- 탭2에는 사이드탭2(직업)가 없다 - UpdateSideTabs가 숨긴다 - 그래서 그 조합은 안 적는다.
+--- Tab 2 has no General side tab (`UpdateSideTabs` hides it), so that pair gets no line.
 local function GetSideTabDescription(sideTabID, tabID)
 	tabID = tabID or _selectedTab;
 	if (tabID == 2) then
-		if (sideTabID == 1) then
-			return LLL["LAYER_DESC_CHARACTER_GENERAL"];
+		if (sideTabID == 2) then
+			return LLL["LAYER_DESC_CHARACTER_CLASS"];
 		end
 		-- **The losing layer is not passed.** This is the narrowest of the five, so it beats
 		-- every other one rather than the one below it, and the line says "everywhere else"
@@ -2015,19 +2015,25 @@ function DebindLayerPanelMixin:UpdateSideTabs()
 		local tabID = tabOrders[i];
 		local tab = self.SideTabs[tabID];
 
-		if (tabID == 2 and _selectedTab == 2) then
+		if (tabID == 1 and _selectedTab == 2) then
 			tab:Hide();
 		else
 			tab.isOffSpec = tabID > 2 and currentSpec ~= (tabID - 2);
 			tab:GetNormalTexture():SetDesaturated(tab.isOffSpec);
 			tab:SetChecked(_selectedSideTab == tabID);
 
+			-- Only Tab1 has an anchor in the XML. The class tab heads the column under tab 2 and
+			-- takes Tab1's place there, which stays laid out while hidden.
 			if (prevTab) then
+				tab:ClearAllPoints();
 				if (tab.isOffSpec and not prevTab.isOffSpec) then
 					tab:SetPoint("TOP", prevTab, "BOTTOM", 0, -40);
 				else
 					tab:SetPoint("TOP", prevTab, "BOTTOM", 0, -17);
 				end
+			elseif (tab ~= self.SideTabs[1]) then
+				tab:ClearAllPoints();
+				tab:SetPoint("TOP", self.SideTabs[1], "TOP");
 			end
 
 			tab:Show();
@@ -2064,25 +2070,21 @@ function DebindFrameMixin:UpdateEmptyText()
 	end
 end
 
--- 탭 라벨의 개수는 "그 탭이 가진 액션 수"이지 "지금 화면에 뭐가 보이는가"가 아니다.
--- 그래서 셀 대상을 sideTab:IsShown()으로 고르면 안 된다. 사이드탭의 가시성은
--- _selectedTab의 함수이고(UpdateSideTabs: 탭2가 선택되면 사이드탭2를 숨긴다), 그걸
--- 빌려 쓰면 "지금 고른 탭"의 사정이 **모든 탭**의 개수에 새어 들어간다. 실제로
--- 탭1을 보는 동안 탭2 라벨은 레이어 7을 두 번 셌고, 탭2를 보는 동안 탭1 라벨은
--- 레이어 2(공용/직업)를 통째로 빠뜨렸다 - 탭을 클릭하기만 해도 남의 개수가 변했다.
+-- A tab's count is how many actions the tab holds, not what is on screen, so it is not chosen by
+-- `sideTab:IsShown()`. Which side tabs show is a function of `_selectedTab` (`UpdateSideTabs`
+-- hides General under tab 2), and borrowing it leaks the open tab into every tab's count: clicking
+-- a tab would change the other one's number.
 --
--- 대신 레이어 집합에서 직접 센다. 존재하는 사이드탭(1..2+NUM_SPEC_TABS)을 layerID로
--- 옮기고, 같은 layerID가 두 번 나오면 한 번만 센다. 중복은 실재한다: 캐릭터 전용
--- 탭에서는 GetLayerID가 (nil, true)와 (0, true) 양쪽에 7을 준다. 사이드탭2가 탭2에서
--- 숨는 것도 바로 그 중복 때문이니, 여기서 layerID로 거르는 건 숨김 규칙을 흉내내는
--- 게 아니라 숨김의 원인을 그대로 다시 말하는 것이다 - 화면이 어떻든 답이 같다.
+-- Counted from the layers instead: every side tab that exists (1..2+NUM_SPEC_TABS) goes to its
+-- layerID, and a layerID seen twice counts once. Under tab 2, `GetLayerID` gives 7 for both
+-- (nil, true) and (0, true); that duplicate is also why a side tab hides there, so this answers
+-- the same whichever one does.
 --
--- 없는 특성을 NUM_SPEC_TABS로 거르는 것도 프레임 상태(notUsed)를 안 믿기 때문이다.
--- InitializeSideTabs는 첫 초과 사이드탭에서 break하므로 그 뒤 사이드탭에는 notUsed가
--- 붙지 않는다. 그런 사이드탭을 GetLayerID에 넘기면 Profile의 assert에 걸린다.
+-- NUM_SPEC_TABS rather than the frame's `notUsed`: `InitializeSideTabs` breaks at the first
+-- surplus side tab, so the ones after it never get the flag, and `GetLayerID` asserts on them.
 --
--- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
--- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
+-- The overview tab never gets here. It counts something else (problems) and shows nothing when
+-- there are none, and it has no side tabs.
 function DebindLayerPanelMixin:UpdateActionCounts(visible)
 	-- **While something is filtering, the number becomes how many got through, and turns green.**
 	--
@@ -2121,10 +2123,9 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 					local layer = DebindPrivate.GetProfileLayer(layerId);
 					local count, hits = CountActionsInLayer(layer, visible);
 
-					-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
-					-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
-					-- 한다 - 어느 쪽을 숨길지는 UpdateSideTabs의 사정이고, 여기가 그걸
-					-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
+					-- Every side tab gets its layer's number, the duplicate left out of the sum
+					-- included. Which one hides is `UpdateSideTabs`' business; deciding it here
+					-- leaves the shown one blank when that rule changes.
 					if (tabId == _selectedTab) then
 						sideTab.Count:SetText(count);
 						if (not narrowed) then
@@ -4133,8 +4134,9 @@ function DebindFrameMixin:SetTab(id)
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 	self.LayerPanel:UpdateSideTabs();
 
+	-- The one side tab a tab hides is General under tab 2, and the class tab heads that column.
 	if (not self.LayerPanel.SideTabs[_selectedSideTab]:IsShown()) then
-		_selectedSideTab = 1;
+		_selectedSideTab = 2;
 		self.LayerPanel:UpdateSideTabs();
 	end
 

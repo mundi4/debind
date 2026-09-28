@@ -98,18 +98,13 @@ local SetErrorTooltip = MenuKit.SetErrorTooltip;
 --- The destination list every "where does this go" menu reads. Move, copy, and the picker's
 --- "add to" all take the same one - two copies drift the day a tab is added.
 ---
---- 목록은 **레이어**의 목록이지 탭 좌표의 목록이 아니다.
----
---- 같은 레이어를 두 좌표가 가리키는 일이 실재한다: 캐릭터 전용 탭에서 (탭2, 사이드탭1)과
---- (탭2, 사이드탭2)가 **둘 다 레이어 7**이다. 그래서 layerID로 접는다 - 안 접으면 같은
---- 곳으로 가는 항목이 이름만 다르게 둘 나오고, "이동"으로 그 둘째를 고르면
---- `MoveAction`의 `assert(copying, "cannot move to same layer")`에 걸린다.
---- 남는 이름은 사이드탭1 쪽인데, 화면에서 레이어 7이 실제로 서 있는 자리가 거기다
---- (`UpdateSideTabs`가 탭2에서 사이드탭2를 숨긴다).
+--- The list is one of **layers**, not of tab coordinates: (tab 2, side tab 1) and (tab 2, side
+--- tab 2) are both layer 7. The entry kept is the one at the side tab layer 7 stands on
+--- (`GetLayerTabs`). Two entries for it would be one place under two names, and picking the second
+--- for "move" trips `MoveAction`'s `assert(copying, "cannot move to same layer")`.
 local function GetTabList()
     if (TAB_LIST == nil) then
         TAB_LIST = {};
-        local seenLayers = {};
         for tabID = 1, #DebindLayerPanel.Tabs do
             local tabLabel = DebindUI.GetTabLabel(tabID);
             if (tabLabel) then
@@ -117,8 +112,8 @@ local function GetTabList()
                     local sideTabLabel = DebindUI.GetSideTabLabel(sideTabID);
                     if (sideTabLabel) then
                         local layerID = DebindUI.GetLayerID(tabID, sideTabID);
-                        if (not seenLayers[layerID] and DebindPrivate.IsLayerOpenable(layerID)) then
-                            seenLayers[layerID] = true;
+                        if (select(2, DebindUI.GetLayerTabs(layerID)) == sideTabID
+                                and DebindPrivate.IsLayerOpenable(layerID)) then
                             tinsert(TAB_LIST, {
                                 layerID = layerID,
                                 label = format("%s - %s", tabLabel, sideTabLabel),

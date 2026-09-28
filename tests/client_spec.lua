@@ -152,6 +152,22 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
+    -- **A character has one class, so its layer below the specializations is that class** and sits
+    -- on the class side tab. A label reading "General" there names a side tab the account tab has
+    -- too, and a reader following it lands in the account-wide layer.
+    test("the character's own layer is its class", function()
+        local DebindUI = DebindPrivate.DebindUI;
+        local tab, sideTab = DebindUI.GetLayerTabs(7);
+        check(tab == 2 and sideTab == 2, "layer 7 sits at " .. tostring(tab) .. ", " .. tostring(sideTab));
+        -- The side half: the shim's locale answers "ORDER_LAYER_LABEL" for the whole label.
+        local mine = select(3, DebindUI.GetColoredLayerLabel(7));
+        local class = UnitClass("player");
+        check(mine and mine:find(class, 1, true), "own side half " .. tostring(mine) .. ", expected " .. class);
+        local theirs = select(3, DebindUI.GetColoredLayerLabel(7, "MAGE", "Bob"));
+        local mage = DebindPrivate.Constants.CLASS_NAMES.MAGE;
+        check(theirs and theirs:find(mage, 1, true), "named side half " .. tostring(theirs) .. ", expected " .. mage);
+    end);
+
     -- **A spell's subtext rides into its cast name to tell same-named spells apart**, which retail
     -- needs for a specialization's own version of a shapeshift. On camelot the subtext is the rank
     -- ("Rank 1", measured on 69977), and a cast name carrying it keeps casting that rank after the

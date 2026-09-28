@@ -18,13 +18,13 @@ local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
 --- GetLayerID의 역방향. 레이어가 어느 탭 좌표에 사는지 돌려준다.
 ---
---- 레이어 7은 (nil, true)와 (0, true) 양쪽에서 나오지만 - 탭2에는 "직업 공용"에 해당하는
---- 사이드탭이 없어서 UpdateSideTabs가 사이드탭2를 숨긴다 - 되돌릴 때는 사이드탭 1을 준다.
---- 탭2에서 레이어 7이 실제로 서 있는 자리가 그것이다.
+--- Layer 7 comes out of both (nil, true) and (0, true), and it goes back to side tab 2, the class.
+--- A character has one class, so what covers all of its specializations is that class; side tab
+--- 1 would be "General", a name the account tab also has, and a label saying it sends the reader
+--- to the account-wide layer. `UpdateSideTabs` hides side tab 1 under tab 2 for the same reason.
 local function GetLayerTabs(layerID)
 	if (layerID >= 7) then
-		local spec = layerID - 7;
-		return 2, spec > 0 and spec + 2 or 1;
+		return 2, layerID - 7 + 2;
 	end
 	return 1, layerID == 1 and 1 or layerID;
 end
@@ -129,8 +129,6 @@ local function GetLayerLabelParts(layerID, class, owner)
 	if (not class) then
 		side = GetSideTabLabel(sideTab);
 	elseif (sideTab == 1) then
-		-- Side tab 1 is "general" under either tab, and 2 is the class itself; 3 and up are that
-		-- class's specializations, counted the way the side tab row counts them.
 		side = LLL["GENERAL"];
 	elseif (sideTab == 2) then
 		side = GetSideLabelForClass(class, 0);
