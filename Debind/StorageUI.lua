@@ -60,14 +60,14 @@ local REASON_TEXT   = {
     NOT_A_STRING          = "IMPORT_FAILED_NOT_OURS",
     NOT_A_DEBIND_STRING   = "IMPORT_FAILED_NOT_OURS",
     -- Made by a newer Debind. Both of these mean the same thing to the reader even though one is
-    -- the envelope and the other the schema.
+    -- the envelope and the other the payload inside it.
     UNSUPPORTED_ENVELOPE  = "IMPORT_FAILED_TOO_NEW",
-    UNSUPPORTED_SCHEMA    = "IMPORT_FAILED_TOO_NEW",
+    PAYLOAD_TOO_NEW       = "IMPORT_FAILED_TOO_NEW",
     -- **The other direction, and the advice is opposite.** "Update and try again" is what the line
     -- above says, and saying it here would tell a reader to do the thing they have already done -
-    -- this is a string from *before* the schema they are on. Nothing they can do fixes it, so the
-    -- sentence says that instead of asking.
-    SCHEMA_TOO_OLD        = "IMPORT_FAILED_TOO_OLD",
+    -- this is a string from *before* the payload version they are on. Nothing they can do fixes it,
+    -- so the sentence says that instead of asking.
+    PAYLOAD_TOO_OLD       = "IMPORT_FAILED_TOO_OLD",
     -- It began as one of ours and stopped being readable partway. Far and away the likeliest cause
     -- is a copy that lost its tail, which is worth saying because the fix is to copy it again.
     BAD_ENCODING          = "IMPORT_FAILED_DAMAGED",
@@ -1472,7 +1472,7 @@ function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs, par
 
     DebindPrivate.DisplayMessage(format(
         LLL[accepted and "IMPORT_COMMITTED_KEYED" or "IMPORT_COMMITTED"], placed));
-    -- Layers a newer schema invented and this one cannot place. Said separately because it is the
+    -- Layers a newer payload version invented and this one cannot place. Said separately because it is the
     -- one case where the count above is not the whole string. **Actions the reader unticked are
     -- not in here** - they said no, which is not this version having nowhere to put it.
     if (skipped and skipped > 0) then

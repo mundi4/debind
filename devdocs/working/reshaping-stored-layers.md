@@ -143,7 +143,7 @@ DebindUIVars = {
 
 ### 1-1. 페이로드 (제안)
 
-저장 데이터와 같은 `layers`를 싣는다. `SCHEMA_VERSION` 3.
+저장 데이터와 같은 `layers`를 싣는다. `PAYLOAD_VERSION` 3.
 
 ```lua
 -- 익명화한 문자열
@@ -284,7 +284,7 @@ payload = {
 
 - **CBOR이다.** `C_EncodingUtil`의 JSON은 표의 키를 전부 문자열로 만든다. 전문화 칸 `[0]`~`[5]`,
   `conditions.specs`의 직업 id 키, 숫자로 된 캐릭터 칸 키가 `"2"`처럼 되어 돌아온다.
-- **포장 번호를 올린다.** `Export.lua`가 스키마(`SCHEMA_VERSION`)와 포장(`ENVELOPE_VERSION`, 접두어
+- **포장 번호를 올린다.** `Export.lua`가 payload(`PAYLOAD_VERSION`)와 포장(`ENVELOPE_VERSION`, 접두어
   `DEB1:`)을 처음부터 따로 센다. 포장을 바꾸면 옛 문자열이 무효가 되고 필드를 더하는 것은 그러면 안
   된다는 이유였는데, 이번이 그 첫 경우다. 새 문자열은 `DEB2:`이고 스키마 3을 싣는다.
 - **라이브러리는 뺀다. 다만 `DEB2:`와 같은 때가 아니라 그 뒤다** (소유자, "당장은 아니지만 언젠가
@@ -368,7 +368,7 @@ payload = {
 
 **DebindStorage (페이로드)**
 
-- `Export.lua`: `SCHEMA_VERSION`, `BucketAt`, `BucketForLayer`, `BuildExportPayload`, `FilterPayload`,
+- `Export.lua`: `PAYLOAD_VERSION`, `BucketAt`, `BucketForLayer`, `BuildExportPayload`, `FilterPayload`,
   `BringPayloadForward`(여기에 v2를 새 모양으로 올리는 단계가 들어간다).
 - `Import.lua`: `ForEachPayloadLayer`, `ImportAddress`, `PayloadIsImpossible`, 항목에서 액션을 지우는
   곳(`payload.shared.GENERAL = nil` 등).
@@ -486,7 +486,7 @@ payload = {
 1-3. **`origin`을 걷는다** (소유자, 2026-09-28, 1절 `characters`). `RefreshIdentity`가 더 쓰지 않고,
    저장된 값은 `MigrateAccount`의 `dbver <= 7` 단계가 지운다. 1, 2와 같은 릴리스라 `dbver`를 더
    올리지 않는다.
-2. **페이로드를 같은 모양으로 올린다.** `SCHEMA_VERSION` 3, v2를 올리는 단계, `payload.class` 제거,
+2. **페이로드를 같은 모양으로 올린다.** `PAYLOAD_VERSION` 3, v2를 올리는 단계, `payload.class` 제거,
    다른 직업의 캐릭터 칸을 가져오지 않는 것.
    - **구현하며 정한 것** (2026-09-27).
      - **오버라이드 행은 이 캐릭터가 스위치를 풀어 가는 레이어 전부에서 싣는다.** 액션을 실은 레이어만이
@@ -524,8 +524,8 @@ payload = {
 1-2절의 측정은 두 클라이언트 모두 끝났다. **1과 2는 한 릴리스로 나간다** (소유자). 1은 페이로드
 없이도 설 수 있지만(보관함 애드온은 저장 테이블을 직접 짚지 않고 `EnumerateAllProfileLayers`,
 `ResolveSwitchDefinition`, `PlaceArrivedActions`만 거친다), 1만 나가면 `DB_VERSION`이 올라 새 문자열이
-`dbver = 8`을 달고, 업데이트 안 한 사람의 애드온은 액션 모양이 같은데도 그것을 `UNSUPPORTED_SCHEMA`로
-거절한다. 나눠 내면 그 거절을 두 번 겪는다.
+`dbver = 8`을 달고, 업데이트 안 한 사람의 애드온은 액션 모양이 같은데도 그것을 더 새 판이라며
+거절한다(`PAYLOAD_TOO_NEW`. 배포된 판의 이름으로는 `UNSUPPORTED_SCHEMA`). 나눠 내면 그 거절을 두 번 겪는다.
 
 ## 5. 정할 것
 

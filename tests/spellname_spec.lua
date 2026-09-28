@@ -239,7 +239,7 @@ return function(DebindPrivate, DebindStorage)
         installWorld(1);
         Bind({});
         local payload = {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = {
                 { type = SPELL, value = FOREIGN, resolvedSpellID = 8936, key = "F1", seq = 1 } } } } },
         };
@@ -253,7 +253,7 @@ return function(DebindPrivate, DebindStorage)
         installWorld(1);
         Bind({});
         local payload = {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = {
                 { type = SPELL, value = "Regrowth", key = "F1", seq = 1 } } } } },
         };

@@ -38,7 +38,7 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- here would have to move the wire number, and every string sitting in somebody else's notes would
 --- be turned away for a change that never left this disk.
 ---
---- **A field added is not a bump** - the rule `SCHEMA_VERSION` states, for the same reason: a reader
+--- **A field added is not a bump** - the rule `PAYLOAD_VERSION` states, for the same reason: a reader
 --- that skips what it does not know survives an addition on its own. That is what the three an
 --- entry made from a profile carries are. A row without them is a row that came from a string,
 --- which is exactly what their absence should mean.
@@ -522,7 +522,7 @@ end
 --- **The payload is what is stored, not the string it came in.** Four reasons for keeping the
 --- string were written down and all four turned out to be true of both shapes
 --- (`building-export-import.md`). What decided it points the other way: `DecodeExportString`
---- refuses a string outright once its schema has moved, so stored strings are stored values nothing
+--- refuses a string outright once its `payload.v` has moved, so stored strings are stored values nothing
 --- can bring forward, while a payload can be walked the way `Migration.lua` walks `dbver`. What is
 --- left over is disk size, and holding a smaller thing we cannot read is the worse end of that
 --- trade.
@@ -537,14 +537,15 @@ end
 --- entry that this refuses -- deleting it is the only thing left to do with it, and the delete
 --- button is on the row. So they guard the one field they touch and read nothing else.
 ---
---- **The schema is asked first, and it is asked for the same reason.** `ImportEntry` asks it of a
+--- **The payload version is asked first, and it is asked for the same reason.** `ImportEntry` asks it of a
 --- string through `DecodeExportString`; this asks it of a payload that has been sitting in
 --- SavedVariables since some earlier version. The two questions used to be one door apart: what is
 --- pasted was asked and what is stored was not, so the entries most likely to be old were the ones
 --- nothing asked. It answers the same thing on every payload there is today, and stops doing so the
---- day a schema step is written -- which is what `BringPayloadForward` is for, and why it comes
+--- day a `payload.v` step is written -- which is what `BringPayloadForward` is for, and why it comes
 --- before the check below rather than after. `PayloadIsImpossible` reads fields whose meaning the
---- schema decides, so asking it about a payload of an unknown schema is asking the wrong question.
+--- payload version decides, so asking it about a payload of an unknown version is asking the wrong
+--- question.
 function DebindStorage.GetEntryPayload(entry)
     local payload, reason = DebindStorage.BringPayloadForward(entry.payload);
     if (not payload) then

@@ -14,7 +14,7 @@ local luatype            = type;
 --- Design notes and the open questions this file does **not** answer: `building-export-import.md`.
 
 
---- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
+--- The version of `payload` itself, carried as `payload.v`. Bump when a field changes meaning, not when one is added -- a reader
 --- that skips fields it does not know survives additions on its own.
 ---
 --- **The rule is live from 3.2, the release that carries sharing.** Before it this stayed 1 through
@@ -39,7 +39,7 @@ local luatype            = type;
 --- gone out -- the `dbver` 6 on the profile side sits in the same place for the same reason.
 ---
 --- **And 2 carries a `dbver` alongside.** This one number was counting two things: the shape of the
---- envelope and the shape of an action. It went up when only the addressing moved and the actions
+--- payload around the actions and the shape of an action. It went up when only the addressing moved and the actions
 --- did not, and it would have to go up the other way round as well. The profile already versions
 --- the action shape and calls that number `dbver`, so the payload carries the same one
 --- (`unifying-action-migration.md` §3-3) -- which is what lets the two ladders be
@@ -65,7 +65,7 @@ local luatype            = type;
 --- cells, and `characters` for who a character cell is (`reshaping-stored-layers.md` 1-1). v2's
 --- character layer named no class of its own and leaned on `payload.class`, so a mage's character
 --- layer went into a druid's spec of the same number; every cell carries its class as a key now.
-local SCHEMA_VERSION     = 3;
+local PAYLOAD_VERSION    = 3;
 
 --- The lowest `dbver` a payload can carry.
 ---
@@ -78,7 +78,7 @@ local SCHEMA_VERSION     = 3;
 --- that may raise.
 local OLDEST_PAYLOAD_DBVER = 5;
 
---- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
+--- How the bytes are packed, which is a **separate** number from `PAYLOAD_VERSION` on purpose. Swapping
 --- the compressor later has to invalidate old strings; adding a payload field must not. One
 --- number for both would force every reader to treat those two as the same event.
 ---
@@ -506,7 +506,7 @@ end
 
 --- Hands every row of a payload's `switches` to `fn(row, name, owner, class, spec)`, skipping what
 --- is not a table. **The cells are v3's**, and every step that reaches for a definition goes
---- through here: the envelope is raised before any `dbver` step runs (`BringPayloadForward`).
+--- through here: `payload.v` is raised before any `dbver` step runs (`BringPayloadForward`).
 local function ForEachPayloadSwitchRow(payload, fn)
     local switches = payload.switches;
     if (luatype(switches) ~= "table") then
@@ -578,11 +578,11 @@ end
 -- Public
 -- ---------------------------------------------------------------------------------------------
 
-DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
+DebindStorage.PAYLOAD_VERSION = PAYLOAD_VERSION;
 
 local function NewPayload()
     return {
-        v = SCHEMA_VERSION,
+        v = PAYLOAD_VERSION,
         -- **The shape of the actions below, which is not the same question as `v`.** The profile is
         -- already at `Constants.DB_VERSION` by the time anything can be exported -- `MigrateDB` runs
         -- at login -- so this says what these actions are, and the reading side raises them with the
@@ -872,7 +872,7 @@ end
 
 --- `dbver` 6, the manifest side. A switch definition's `mode` goes from a number to a string and
 --- `initialValue` becomes `resetValue` -- the same transformation `MigrateSwitches` makes in
---- `Migration.lua`, which is why it hangs off `dbver` rather than off the envelope: a definition is
+--- `Migration.lua`, which is why it hangs off `dbver` rather than off `payload.v`: a definition is
 --- profile data and `dbver` is what versions that. Every payload it actually meets is a v1 one, as
 --- v2 can only have come from a profile already at 6.
 ---
@@ -1041,7 +1041,7 @@ end
 --- **What is walked is still each side's own.** Layer addresses and key mapping are different
 --- things in a profile and in a payload; only the per-action ladder is shared.
 ---
---- **The envelope is already current here** (`BringPayloadForward`), so the definitions are found
+--- **`payload.v` is already current here** (`BringPayloadForward`), so the definitions are found
 --- in v3's cells whatever version the payload came in as.
 local function BringPayloadDataForward(payload)
     local dbver = payload.dbver;
@@ -1073,12 +1073,15 @@ end
 --- Raises a payload to what this version reads, or says why it cannot. Returns the payload, or nil
 --- plus a reason.
 ---
---- **Two ladders, and they are asked in this order.** `payload.v` describes the envelope -- the
---- `layers` and `switches` cells, `characters`, what `seq` means -- and `payload.dbver` describes the
---- actions inside it. The envelope has to be raised first, because v1 does not carry a `dbver` and
---- the step that raises it is what stamps one on (`unifying-action-migration.md` §3-3).
+--- **Two ladders, and they are asked in this order.** `payload.v` describes the payload around the
+--- actions -- the `layers` and `switches` cells, `characters`, what `seq` means -- and
+--- `payload.dbver` describes the actions inside it. `payload.v` has to be raised first, because v1
+--- does not carry a `dbver` and the step that raises it is what stamps one on
+--- (`unifying-action-migration.md` §3-3). The envelope is a third number and not asked here: it is
+--- the packing around the whole payload (`ENVELOPE_VERSION`), and `DecodeExportString` has already
+--- unpacked it.
 ---
---- **An envelope step names the exact version it raises (`== 1`), not `<=`.** A payload two
+--- **A `payload.v` step names the exact version it raises (`== 1`), not `<=`.** A payload two
 --- versions back then walks every step in turn, and a number nothing ever wrote falls through to
 --- the refusal instead of being guessed at. The `dbver` ladder is the opposite and opens with
 --- `<=`, because that one is the profile's and every version between the ends of it is real.
@@ -1086,17 +1089,17 @@ end
 --- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
 --- moment it is pasted (`DecodeExportString`, below) and a stored entry is asked when the drawer
 --- opens it (`GetEntryPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
---- payload it was handed and gave it straight back. That is invisible while there is one schema
---- and it stops being invisible the day one is added, because the entries already sitting in the
+--- payload it was handed and gave it straight back. That is invisible while there is one payload
+--- version and it stops being invisible the day one is added, because the entries already sitting in the
 --- drawer are exactly the ones that would go into the new code unasked.
 ---
 --- **Two directions, and opposite advice.** These were one reason and one sentence, "made by a
 --- newer version, update and try again", which is true one way and useless the other: on the first
---- schema bump every entry already received would fail with it, told to update by the version they
---- just updated to.
+--- `PAYLOAD_VERSION` bump every entry already received would fail with it, told to update by the
+--- version they just updated to.
 ---
---- `SCHEMA_TOO_OLD` is the answer for a version **no step covers**, on either ladder. A bump
---- means a field changed meaning (`SCHEMA_VERSION`'s own note), so such a payload cannot be read
+--- `PAYLOAD_TOO_OLD` is the answer for a version **no step covers**, on either ladder. A bump
+--- means a field changed meaning (`PAYLOAD_VERSION`'s own note), so such a payload cannot be read
 --- by guessing, and guessing is how a condition silently changes sides.
 ---
 --- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
@@ -1109,8 +1112,8 @@ function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
     end
-    if (luatype(payload.v) ~= "number" or payload.v > SCHEMA_VERSION) then
-        return nil, "UNSUPPORTED_SCHEMA";
+    if (luatype(payload.v) ~= "number" or payload.v > PAYLOAD_VERSION) then
+        return nil, "PAYLOAD_TOO_NEW";
     end
     if (payload.v == 1) then
         OpenV1Setstate(payload);
@@ -1122,8 +1125,8 @@ function DebindStorage.BringPayloadForward(payload)
         payload.v = 2;
     end
 
-    if (payload.v ~= 2 and payload.v ~= SCHEMA_VERSION) then
-        return nil, "SCHEMA_TOO_OLD";
+    if (payload.v ~= 2 and payload.v ~= PAYLOAD_VERSION) then
+        return nil, "PAYLOAD_TOO_OLD";
     end
 
     -- **Asked before the v2 step**, so a payload refused here is left in the shape it came in. The
@@ -1138,10 +1141,10 @@ function DebindStorage.BringPayloadForward(payload)
         return nil, "BAD_PAYLOAD";
     end
     if (dbver > Constants.DB_VERSION) then
-        return nil, "UNSUPPORTED_SCHEMA";
+        return nil, "PAYLOAD_TOO_NEW";
     end
     if (dbver < OLDEST_PAYLOAD_DBVER) then
-        return nil, "SCHEMA_TOO_OLD";
+        return nil, "PAYLOAD_TOO_OLD";
     end
 
     if (payload.v == 2) then

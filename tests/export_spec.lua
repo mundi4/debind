@@ -710,8 +710,8 @@ return function(DebindPrivate, DebindStorage)
     --- Is what came back what went out? Every value checked here exists to stop a local reference
     --- from resolving wrongly, so if this falls the format has stopped doing its whole job.
     local function CheckSurvived(payload)
-        check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "스키마 버전");
-        -- 액션 모양의 버전은 봉투와 따로 실린다. 안 실리면 받는 쪽이 그것을 거절한다.
+        check(payload.v == DebindStorage.PAYLOAD_VERSION, "페이로드 판");
+        -- The actions' version rides apart from `v`. Without it the reader refuses the payload.
         check(payload.dbver == Constants.DB_VERSION, "dbver " .. tostring(payload.dbver));
         check(CountActions(payload) == 3, "액션 수 " .. CountActions(payload));
         local shiftF = GroupFor(payload, "SHIFT-F");
@@ -749,7 +749,7 @@ return function(DebindPrivate, DebindStorage)
 
         local payload, err = DebindStorage.DecodeExportString(str);
         check(payload, "디코드 실패: " .. tostring(err));
-        check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "판 " .. tostring(payload.v));
+        check(payload.v == DebindStorage.PAYLOAD_VERSION, "판 " .. tostring(payload.v));
         check(General(payload) and General(payload)[1].value == 1, "일반 레이어가 안 옮겨졌다");
     end);
 
@@ -977,7 +977,7 @@ return function(DebindPrivate, DebindStorage)
         check(LayerAt(out, GUID, CLASS, 0), "캐릭터 자리가 안 섰다");
         check(General(out), "일반 자리가 안 섰다");
         check(out.characters and out.characters[GUID], "캐릭터 칸의 신원이 안 따라왔다");
-        check(out.v == payload.v and out.dbver == payload.dbver, "봉투 필드가 안 따라왔다");
+        check(out.v == payload.v and out.dbver == payload.dbver, "판 필드가 안 따라왔다");
     end);
 
     test("캐릭터 칸이 다 빠지면 신원도 빠진다", function()
@@ -1128,23 +1128,24 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
-    -- **모르는 스키마는 두 방향이 있고, 할 수 있는 일이 반대다.** 하나로 묶여 있던 동안 사유가
-    -- 하나였고 그 문구가 "더 새 버전에서 만들었으니 업데이트하라"였다 - 스키마를 처음 올리는 날
-    -- 서랍에 이미 들어 있던 배치가 전부 그 문장을 달고 못 읽히게 된다. 업데이트는 이미 했는데.
-    test("옛 스키마와 새 스키마를 갈라서 답한다", function()
+    -- **An unknown payload version goes two ways, and what can be done about each is opposite.**
+    -- While they were one, the reason was one and its sentence was "made by a newer version,
+    -- update" - the first time `PAYLOAD_VERSION` went up, every entry already in the drawer would
+    -- fail with that sentence, for a reader who had just updated.
+    test("옛 판과 새 판을 갈라서 답한다", function()
         local function DecodeWithVersion(v)
             local _, reason = DebindStorage.DecodeExportString(
                 DebindStorage.EncodeExportPayload({ v = v, class = CLASS }));
             return reason;
         end
 
-        check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1) == "UNSUPPORTED_SCHEMA",
+        check(DecodeWithVersion(DebindStorage.PAYLOAD_VERSION + 1) == "PAYLOAD_TOO_NEW",
             "더 새 것");
         -- v1은 사다리가 받는다. 거절이 아니다.
         check(DecodeWithVersion(1) == nil, "v1을 거절했다");
         -- 사다리에 단계가 없는 판은 여전히 거절이다. 추측으로 읽으면 조건이 조용히
         -- 편을 바꾼다.
-        check(DecodeWithVersion(0) == "SCHEMA_TOO_OLD", "단계 없는 옛 판");
+        check(DecodeWithVersion(0) == "PAYLOAD_TOO_OLD", "단계 없는 옛 판");
     end);
 
     -- **v1 매니페스트도 같은 단계가 받는다.** 3.2가 이 표를 실어 보냈으므로 v1 문자열이

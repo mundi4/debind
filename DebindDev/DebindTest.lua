@@ -4390,7 +4390,7 @@ RegisterTest("Storage: a DEB2 string keeps its cells", {
             return { { type = Constants.SPELL, value = value, key = "CTRL-ALT-F7", seq = 1 } }
         end
         local payload = {
-            v = Store.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = Store.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = {
                 account = { GENERAL = { [0] = Spell(1) }, [class] = { [0] = Spell(2), [2] = Spell(3) } },
                 [guid] = { [class] = { [0] = Spell(4), [5] = Spell(5) } },
@@ -4609,7 +4609,7 @@ RegisterTest("Storage: two characters of this class stand under two owners", {
 
         local store = DebindPrivate.Store
         local entry = store.StorePayload({
-            v = store.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = store.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = {
                 account = { GENERAL = { [0] = { { type = Constants.SPELL, value = 585, key = "CTRL-ALT-F8" } } } },
                 ["Player-9-DEBTESTA"] = { [class] = { [0] = { { type = Constants.SPELL, value = 589 } } } },
@@ -4662,7 +4662,7 @@ RegisterTest("Storage: the key view orders a key by layer", {
         local general = { type = Constants.MACROTEXT, value = "/say a", name = "AAA debtest", key = KEY, seq = 1 }
         local mine = { type = Constants.MACROTEXT, value = "/say z", name = "ZZZ debtest", key = KEY, seq = 1 }
         local entry = store.StorePayload({
-            v = store.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = store.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = {
                 account = { GENERAL = { [0] = { general } } },
                 ["Player-9-DEBTESTA"] = { [class] = { [0] = { mine } } },

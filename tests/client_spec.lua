@@ -112,7 +112,7 @@ return function(DebindPrivate, DebindStorage)
     -- **A class cell is only placed or not**, so a name this client lacks is not a broken string.
     test("a string holding a class this client does not have is not refused", function()
         local payload = {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = DebindPrivate.Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = DebindPrivate.Constants.DB_VERSION,
             layers = { account = { DEATHKNIGHT = { [0] = {
                 { type = DebindPrivate.Constants.SPELL, value = 1 } } } } },
         };

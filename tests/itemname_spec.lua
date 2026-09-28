@@ -105,7 +105,7 @@ return function(DebindPrivate, DebindStorage)
         installWorld();
         Bind({});
         local payload = {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = {
                 { type = ITEM, value = "Healthstone", key = "F1", seq = 1 } } } } },
         };

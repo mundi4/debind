@@ -344,7 +344,7 @@ return function(DebindPrivate, DebindStorage)
     test("a payload from nowhere we know has its untranslated dropped", function()
         FreshProfile();
         local payload = {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = {
                 { type = Constants.SPELL, value = "Regrowth", key = "F", seq = 1,
                     untranslated = { spec1 = true } } } } } },

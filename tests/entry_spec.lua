@@ -177,14 +177,15 @@ return function(DebindPrivate, DebindStorage)
     --- `count = 0` stands an **empty** layer up, and `junk` puts a non-action in the list -- both
     --- are shapes a hand-made string carries and neither may raise.
     local function Payload(layers)
-        -- 상수를 읽는다. 숫자를 적어두면 스키마가 올라가는 날 이 파일의 케이스가 전부
-        -- **버전 때문에** 빨개지는데, 여기서 묻는 것은 버전이 아니라 서랍의 행동이다.
-        -- 버전을 묻는 케이스는 아래에서 값을 직접 만들어 쓴다.
+        -- Reads the constants. A number written here would turn every case in this file red **over
+        -- the version** the day `PAYLOAD_VERSION` goes up, and what these ask is how the drawer
+        -- behaves, not the version. The cases that ask about the version build their values below.
         --
-        -- **둘을 다 든다.** 봉투 모양은 `v`가, 그 안의 액션 모양은 `dbver`가 센다
-        -- (`unifying-action-migration.md` §3-3). 하나만 들면 서랍 문이 거절한다.
+        -- **Both are carried.** `v` counts the payload's own shape and `dbver` the shape of the
+        -- actions inside it (`unifying-action-migration.md` §3-3). With only one, the drawer's door
+        -- refuses it.
         local payload = {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION,
             dbver = Constants.DB_VERSION,
             layers = {},
         };
@@ -295,7 +296,7 @@ return function(DebindPrivate, DebindStorage)
         check(#DebindStorage.GetEntries() == 0, "서랍에 들어갔다");
     end);
 
-    -- What SavedVariables holds is the payload. The string is refused outright once the schema
+    -- What SavedVariables holds is the payload. The string is refused outright once `payload.v`
     -- moves past it, so a drawer of strings is a drawer nothing can bring forward.
     test("서랍에 남는 것은 페이로드지 문자열이 아니다", function()
         ResetDrawer();
@@ -310,9 +311,10 @@ return function(DebindPrivate, DebindStorage)
     -- **서랍에서 여는 문도 버전을 묻는다.** 붙여넣는 쪽은 `DecodeExportString`이 물어서
     -- `export_spec`이 그것을 잡고 있는데, 서랍은 저장된 페이로드를 그대로 내주고 있었다.
     --
-    -- 스키마가 하나뿐인 동안은 두 경로가 같은 답을 낸다. **갈리는 것은 스키마가 올라간
-    -- 다음이고, 그때 서랍에 쌓여 있던 것이 검사 없이 새 코드로 들어간다** - 붙여넣기 쪽에만
-    -- 마이그레이션을 얹으면 조용히 그렇게 된다. 그래서 저장된 배치를 손으로 만들어 묻는다.
+    -- While there is one payload version the two doors answer alike. **They part once
+    -- `PAYLOAD_VERSION` goes up, and then what was sitting in the drawer walks into the new code
+    -- unasked** - which is what happens, silently, if a step is added on the paste side only. So a
+    -- stored entry is built by hand and asked.
     local function StoredEntryWithVersion(version)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
@@ -341,7 +343,7 @@ return function(DebindPrivate, DebindStorage)
         } } };
 
         local entry = DebindStorage.GetEntries()[1];
-        check(entry.payload.v == DebindStorage.EXPORT_SCHEMA_VERSION,
+        check(entry.payload.v == DebindStorage.PAYLOAD_VERSION,
             "판이 안 올라갔다: " .. tostring(entry.payload.v));
         local groups, actions = DebindStorage.CountEntry(entry);
         check(groups == 2 and actions == 2, "그룹 " .. groups .. ", 액션 " .. actions);
@@ -367,20 +369,20 @@ return function(DebindPrivate, DebindStorage)
         DebindStorage.BringPayloadForward = real;
         check(ok, "서랍이 터졌다: " .. tostring(entries));
         check(#entries == 2, "배치 수 " .. #entries);
-        check(entries[2].payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "뒤의 배치가 안 올라갔다");
+        check(entries[2].payload.v == DebindStorage.PAYLOAD_VERSION, "뒤의 배치가 안 올라갔다");
         check(DebindStorage.DeleteEntry(1), "터진 배치를 못 지웠다");
     end);
 
-    test("서랍에 있는 배치가 더 새 스키마면 거절한다", function()
-        local entry = StoredEntryWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1);
+    test("서랍에 있는 배치가 더 새 판이면 거절한다", function()
+        local entry = StoredEntryWithVersion(DebindStorage.PAYLOAD_VERSION + 1);
         local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
-        check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+        check(reason == "PAYLOAD_TOO_NEW", "이유 " .. tostring(reason));
     end);
 
-    -- **여기가 갈릴 자리라고 적어둔 그 자리다.** v1을 읽어야 하는 날 답이 거절에서
-    -- 마이그레이션으로 바뀐다고 되어 있었고, 그날이 왔다(`SCHEMA_VERSION` 2, 조건이
-    -- `action.conditions` 안으로 들어감).
+    -- **This is the place marked as where the answer would change.** The day v1 had to be read,
+    -- refusing was to become migrating, and that day came (`PAYLOAD_VERSION` 2, when the conditions
+    -- moved into `action.conditions`).
     --
     -- **서랍에 쌓인 배치가 이 길로 온다.** 여기서 거절하면 받아둔 것이 전부 못 읽히고,
     -- 조용히 통과시키면 조건이 전부 버려진 채 무조건 액션으로 도착한다.
@@ -388,7 +390,7 @@ return function(DebindPrivate, DebindStorage)
         local entry = StoredEntryWithVersion(1);
         local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload ~= nil, "거절당했다: " .. tostring(reason));
-        check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION,
+        check(payload.v == DebindStorage.PAYLOAD_VERSION,
             "판 번호가 안 올라갔다: " .. tostring(payload.v));
     end);
 
@@ -396,23 +398,23 @@ return function(DebindPrivate, DebindStorage)
         local entry = StoredEntryWithVersion(0);
         local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
-        check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
+        check(reason == "PAYLOAD_TOO_OLD", "이유 " .. tostring(reason));
     end);
 
     test("버전이 숫자가 아닌 배치도 거절한다", function()
         local entry = StoredEntryWithVersion(nil);
         local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
-        check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+        check(reason == "PAYLOAD_TOO_NEW", "이유 " .. tostring(reason));
     end);
 
-    -- **봉투 위에 사다리가 하나 더 있다.** `v`는 주소 체계를 세고 `dbver`는 그 안의 액션
-    -- 모양을 센다. 두 질문이 한 숫자에 얹혀 있던 것을 가른 것이 이 변경이고, 그래서 봉투가
-    -- 통과한 뒤에도 물어볼 것이 남는다.
+    -- **There is a second ladder under `payload.v`.** `v` counts the addressing and `dbver` counts
+    -- the shape of the actions inside it. They used to ride on one number, and splitting them is
+    -- why something is still left to ask once `v` has passed.
     --
     -- v1은 이 자리에 안 걸린다. 판 번호가 곧 답이라 어댑터가 5를 찍고 지나간다.
     local function StoredEntryWithDbver(dbver)
-        local entry = StoredEntryWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION);
+        local entry = StoredEntryWithVersion(DebindStorage.PAYLOAD_VERSION);
         entry.payload.dbver = dbver;
         return entry;
     end
@@ -429,7 +431,7 @@ return function(DebindPrivate, DebindStorage)
         local payload, reason = DebindStorage.GetEntryPayload(
             StoredEntryWithDbver(Constants.DB_VERSION + 1));
         check(payload == nil, "읽어버렸다");
-        check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+        check(reason == "PAYLOAD_TOO_NEW", "이유 " .. tostring(reason));
     end);
 
     -- **바닥은 공유가 나간 판이다.** 그 밑으로 내려가면 `MigrateLayer`의 옛 단계들에 닿는데,
@@ -438,7 +440,7 @@ return function(DebindPrivate, DebindStorage)
     test("공유가 나가기 전 dbver를 든 배치는 거절한다", function()
         local payload, reason = DebindStorage.GetEntryPayload(StoredEntryWithDbver(4));
         check(payload == nil, "읽어버렸다");
-        check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
+        check(reason == "PAYLOAD_TOO_OLD", "이유 " .. tostring(reason));
     end);
 
     -- NaN은 위아래 비교를 전부 빠져나간다. 통과시키면 어느 단계도 안 맞는 판으로 사다리에

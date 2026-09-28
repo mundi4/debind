@@ -72,7 +72,7 @@ return function(DebindPrivate, DebindStorage)
     --- to write, so a test that is not about addressing says nothing about it at all.
     local function General(actions)
         return {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = actions } } },
         };
     end
@@ -85,7 +85,7 @@ return function(DebindPrivate, DebindStorage)
     --- A payload of one account class cell, `layers.account[class][spec]`.
     local function ClassCell(class, spec, actions)
         return {
-            v = DebindStorage.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
             layers = { account = { [class] = { [spec] = actions } } },
         };
     end
