@@ -442,6 +442,7 @@ local function BuildAction(source)
 
     return action;
 end
+DebindStorage.BuildAction = BuildAction;
 
 --- Does this payload hold something **this addon could not have made**?
 ---
@@ -670,6 +671,11 @@ function DebindStorage.StorePayload(payload, name)
     return StoreEntry(payload, { name = name });
 end
 
+--- The three fields a row made here carries (`CreateEntry` says what they answer).
+local function MadeHere()
+    return { character = UnitName("player"), realm = GetRealmName(), guid = DebindPrivate.playerGUID };
+end
+
 --- Makes an entry out of this character's profile and keeps it.
 ---
 --- `selection` is a set of action tables, or nil for the whole profile. **The button that makes one
@@ -694,21 +700,13 @@ end
 --- `entry.payload`, and a string pasted back in is a different row. Who a character cell is travels
 --- in the payload's own `characters`.
 function DebindStorage.CreateEntry(selection)
-    return StoreEntry(DebindStorage.BuildExportPayload(selection), {
-        character = UnitName("player"),
-        realm = GetRealmName(),
-        guid = DebindPrivate.playerGUID,
-    });
+    return StoreEntry(DebindStorage.BuildExportPayload(selection), MadeHere());
 end
 
 --- `CreateEntry` for the whole account (`BuildAccountPayload`). The row still names the character
 --- it was made on.
 function DebindStorage.CreateAccountEntry()
-    return StoreEntry(DebindStorage.BuildAccountPayload(), {
-        character = UnitName("player"),
-        realm = GetRealmName(),
-        guid = DebindPrivate.playerGUID,
-    });
+    return StoreEntry(DebindStorage.BuildAccountPayload(), MadeHere());
 end
 
 --- Takes a set of actions out of an entry, for good. Answers how many it found.

@@ -548,6 +548,30 @@ function ProfileLayerProto:PlaceInKeyGroup(action)
     end
 end
 
+--- `ForEachStoredAction`'s walk a list at a time, with the list's address
+--- `fn(list, owner, class, spec)`. `charOwner` is the key `charLayers` goes by while it is not
+--- attached.
+local function ForEachStoredList(db, fn, charLayers, charOwner)
+    local function walkOwner(owner, classes)
+        for class, specTbl in pairs(classes) do
+            for spec = 0, MAX_STORED_SPEC do
+                if (specTbl[spec] ~= nil) then
+                    fn(specTbl[spec], owner, class, spec);
+                end
+            end
+        end
+    end
+
+    local attached = false;
+    for owner, classes in pairs(db.layers or {}) do
+        attached = attached or classes == charLayers;
+        walkOwner(owner, classes);
+    end
+    if (charLayers and not attached) then
+        walkOwner(charOwner, charLayers);
+    end
+end
+
 --- Every action stored anywhere in this account file, handed to `fn`.
 ---
 --- **Wider than `LayerArray`, and it has to be.** That array is the eleven layers this character
@@ -563,58 +587,17 @@ end
 --- Takes the account table rather than reading `DebindPrivate.db`, because the migration walks
 --- this on a profile that is not attached yet.
 local function ForEachStoredAction(db, fn, charLayers)
-    local function walkLayer(layerTbl)
-        if (layerTbl == nil) then
-            return;
+    ForEachStoredList(db, function(list)
+        for i = 1, #list do
+            fn(list[i]);
         end
-        for i = 1, #layerTbl do
-            fn(layerTbl[i]);
-        end
-    end
-
-    local function walkOwner(classes)
-        for _, specTbl in pairs(classes) do
-            for spec = 0, MAX_STORED_SPEC do
-                walkLayer(specTbl[spec]);
-            end
-        end
-    end
-
-    local attached = false;
-    for _, classes in pairs(db.layers or {}) do
-        attached = attached or classes == charLayers;
-        walkOwner(classes);
-    end
-    if (charLayers and not attached) then
-        walkOwner(charLayers);
-    end
+    end, charLayers);
 end
 DebindPrivate.ForEachStoredAction = ForEachStoredAction;
 
---- Every stored action list in the account, handed to `fn(list, owner, class, spec)`. This
---- character's layers are reached even before they are attached, for the reason
---- `ForEachStoredAction` gives.
+--- Every stored action list in this account, `ForEachStoredList` over the attached profile.
 function DebindPrivate.ForEachAccountLayer(fn)
-    local db, charLayers = DebindPrivate.db.global, DebindPrivate.db.charLayers;
-
-    local function walkOwner(owner, classes)
-        for class, specTbl in pairs(classes) do
-            for spec = 0, MAX_STORED_SPEC do
-                if (specTbl[spec]) then
-                    fn(specTbl[spec], owner, class, spec);
-                end
-            end
-        end
-    end
-
-    local attached = false;
-    for owner, classes in pairs(db.layers or {}) do
-        attached = attached or classes == charLayers;
-        walkOwner(owner, classes);
-    end
-    if (charLayers and not attached) then
-        walkOwner(DebindPrivate.playerGUID, charLayers);
-    end
+    ForEachStoredList(DebindPrivate.db.global, fn, DebindPrivate.db.charLayers, DebindPrivate.playerGUID);
 end
 
 local function LoadLayer(layerID)
@@ -2520,6 +2503,18 @@ function DebindPrivate.EnumerateProfileLayers(spec)
     return Enumerator, indexArray, 0;
 end
 
+--- A layer's scope rank, the `layerRank` the comparator is handed (below, and `Ordering.lua`).
+function DebindPrivate.GetLayerScopeRank(layerID)
+    local layerInfo = LAYER_INFOS[layerID];
+    local layerSpec = layerInfo.spec or 0;
+    if (layerInfo.isCharacterSpecific) then
+        return layerSpec > 0 and 1 or 2;
+    elseif (layerInfo.key == "GENERAL") then
+        return 5;
+    end
+    return layerSpec > 0 and 3 or 4;
+end
+
 --- 열한 레이어 **전부**를, 스코프 순위와 특성 번호를 달아서.
 ---
 --- `EnumerateProfileLayers`는 "지금 이 특성에서 도는 것"을 답한다. 오버뷰는 오프스펙 액션까지
@@ -2543,17 +2538,9 @@ function DebindPrivate.EnumerateAllProfileLayers(spec)
             index = index + 1;
             local layer = DebindPrivate.GetProfileLayer(index);
             if (layer) then
-                local layerInfo = LAYER_INFOS[index];
-                local layerSpec = layerInfo.spec or 0;
-                local scopeRank;
-                if (layerInfo.isCharacterSpecific) then
-                    scopeRank = layerSpec > 0 and 1 or 2;
-                elseif (layerInfo.key == "GENERAL") then
-                    scopeRank = 5;
-                else
-                    scopeRank = layerSpec > 0 and 3 or 4;
-                end
-                return index, layer, scopeRank, layerSpec ~= spec and layerSpec or 0;
+                local layerSpec = LAYER_INFOS[index].spec or 0;
+                return index, layer, DebindPrivate.GetLayerScopeRank(index),
+                    layerSpec ~= spec and layerSpec or 0;
             end
         end
     end

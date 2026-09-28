@@ -11,8 +11,8 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 
 --- Which of two actions on one key fires first.
 ---
---- **The record comes from `ActionBindings.lua`'s `MakeOrderRecord` and nowhere else.** Three callers build
---- one (`BuildKeyMap`, `MakeRow`, `RenumberKeyGroup`) and none of them spells the fields out.
+--- **The record comes from `ActionBindings.lua`'s `MakeOrderRecord` and nowhere else.** No caller
+--- spells the fields out.
 ---
 --- Record fields: priority, isConditional, layerRank, specRank, seq
 ---   priority      - `Constants.DEFAULT_IMPORTANCE` when nil

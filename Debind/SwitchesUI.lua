@@ -159,9 +159,9 @@ local function AccountRows(usage)
     --- `reach` is whether this client can open what the row counts, which is the one thing the
     --- rows no longer say by standing apart: the account-wide layer, this character's class and
     --- this character itself are all openable from here and the rest need a login there.
-    local function RowFor(label, color, bucket, reach, entry)
+    local function RowFor(text, bucket, reach, entry)
         return {
-            text = color:WrapTextInColorCode(label),
+            text = text,
             actions = bucket.actions,
             exprs = bucket.exprs,
             reach = reach,
@@ -171,23 +171,28 @@ local function AccountRows(usage)
 
     local general = usage.general;
     if (general.actions + general.exprs > 0) then
-        rows[#rows + 1] = RowFor(DebindUI.GetLayerLabel(ROOT_LAYER_ID),
-            DebindUI.ACCOUNT_COLOR, general, true);
+        rows[#rows + 1] = RowFor((DebindUI.GetColoredLayerLabel(ROOT_LAYER_ID)), general, true);
     end
 
     local function Sorted(built)
         sort(built, function(a, b) return a.label < b.label; end);
         for i = 1, #built do
             local row = built[i];
-            rows[#rows + 1] = RowFor(row.label, row.color, row.bucket, row.reach, row.entry);
+            rows[#rows + 1] = RowFor(row.text, row.bucket, row.reach, row.entry);
         end
     end
 
+    -- A class row is its class layer's side half, and a character row its character layer's owner
+    -- half, both painted by `GetColoredLayerLabel`.
+    local classLayerID = DebindUI.GetLayerIDForAddress("class", 0);
+    local characterLayerID = DebindUI.GetLayerIDForAddress("character", 0);
+
     local classes = {};
     for classKey, bucket in pairs(usage.classes) do
+        local _, _, text = DebindUI.GetColoredLayerLabel(classLayerID, classKey);
         classes[#classes + 1] = {
             label = Constants.CLASS_NAMES[classKey] or classKey,
-            color = GetClassColorObj(classKey) or NORMAL_FONT_COLOR,
+            text = text,
             bucket = bucket,
             reach = classKey == Constants.PLAYER_CLASS,
         };
@@ -198,9 +203,15 @@ local function AccountRows(usage)
     local characters = {};
     for guid, bucket in pairs(usage.characters) do
         local entry = stored[guid];
+        local label = entry and entry.name or guid;
+        -- A character with no entry has no class to paint it with.
+        local text = HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(label);
+        if (entry and entry.class) then
+            text = select(2, DebindUI.GetColoredLayerLabel(characterLayerID, entry.class, label));
+        end
         characters[#characters + 1] = {
-            label = entry and entry.name or guid,
-            color = entry and GetClassColorObj(entry.class) or HIGHLIGHT_FONT_COLOR,
+            label = label,
+            text = text,
             bucket = bucket,
             reach = guid == DebindPrivate.playerGUID,
             -- What the row has no room for and the reader needs to tell two alts apart: the realm

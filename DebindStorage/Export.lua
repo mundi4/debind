@@ -580,6 +580,34 @@ end
 
 DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 
+local function NewPayload()
+    return {
+        v = SCHEMA_VERSION,
+        -- **The shape of the actions below, which is not the same question as `v`.** The profile is
+        -- already at `Constants.DB_VERSION` by the time anything can be exported -- `MigrateDB` runs
+        -- at login -- so this says what these actions are, and the reading side raises them with the
+        -- same ladder the profile uses (`BringPayloadForward`).
+        dbver = Constants.DB_VERSION,
+        layers = {},
+    };
+end
+
+--- Copies `action` into its cell of `payload` and onto `exported`. The cell is made by the first
+--- action actually taken, so an empty layer -- or one the reader unticked whole -- leaves no empty
+--- table behind for the far side to walk.
+local function TakeAction(payload, exported, action, owner, class, spec)
+    local cell = CellAt(payload.layers, owner, class, spec);
+    local copy = CopyFields(action, ACTION_FIELDS);
+    cell[#cell + 1] = copy;
+    exported[#exported + 1] = copy;
+end
+
+--- One of `BuildSwitchCells`'s rows: an answer and the cell it is given at.
+local function AnswerRow(owner, class, spec, mode, resetValue, expr)
+    return { owner = owner, class = class, spec = spec,
+             row = { mode = mode, resetValue = resetValue, expr = expr } };
+end
+
 --- The table that becomes the string.
 ---
 --- `selection` is a set of the action tables to send, or nil for everything stored. The export
@@ -611,33 +639,13 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- `setstate`, whose stored index would have arrived **unbroken and wrong** where red text cannot
 --- see it; §9-1 made the stored form a name, so there is nothing left to rewrite.
 function DebindStorage.BuildExportPayload(selection)
-
-    local payload = {
-        v = SCHEMA_VERSION,
-        -- **The shape of the actions below, which is not the same question as `v`.** The profile is
-        -- already at `Constants.DB_VERSION` by the time anything can be exported -- `MigrateDB` runs
-        -- at login -- so this says what these actions are, and the reading side raises them with the
-        -- same ladder the profile uses (`BringPayloadForward`).
-        dbver = Constants.DB_VERSION,
-        layers = {},
-    };
-    local exported = {};
-    local layers = {};
+    local payload, exported, layers = NewPayload(), {}, {};
 
     for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
         layers[#layers + 1] = layer;
-        -- Made on the first action that is actually taken, so an empty layer -- or one the reader
-        -- unticked whole -- leaves no empty table behind for the far side to walk.
-        local bucket;
-
         for _, action in layer:Enumerate() do
             if (DebindStorage.IsExportable(action) and (selection == nil or selection[action])) then
-                bucket = bucket or CellAt(payload.layers, LayerCell(layer));
-
-                local copy = CopyFields(action, ACTION_FIELDS);
-
-                bucket[#bucket + 1] = copy;
-                exported[#exported + 1] = copy;
+                TakeAction(payload, exported, action, LayerCell(layer));
             end
         end
     end
@@ -652,10 +660,7 @@ function DebindStorage.BuildExportPayload(selection)
                 local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
                 if (mode ~= nil) then
                     local owner, class, spec = LayerCell(layer);
-                    rows[#rows + 1] = {
-                        owner = owner, class = class, spec = spec,
-                        row = { mode = mode, resetValue = resetValue, expr = expr },
-                    };
+                    rows[#rows + 1] = AnswerRow(owner, class, spec, mode, resetValue, expr);
                 end
             end
         end
@@ -671,18 +676,12 @@ end
 --- `BuildExportPayload` for every cell the account holds rather than the layers this character
 --- reaches: other classes' account cells and every character's own.
 function DebindStorage.BuildAccountPayload()
-    local payload = { v = SCHEMA_VERSION, dbver = Constants.DB_VERSION, layers = {} };
-    local exported = {};
+    local payload, exported = NewPayload(), {};
 
     DebindPrivate.ForEachAccountLayer(function(list, owner, class, spec)
-        local bucket;
         for i = 1, #list do
-            local action = list[i];
-            if (DebindStorage.IsExportable(action)) then
-                bucket = bucket or CellAt(payload.layers, owner, class, spec);
-                local copy = CopyFields(action, ACTION_FIELDS);
-                bucket[#bucket + 1] = copy;
-                exported[#exported + 1] = copy;
+            if (DebindStorage.IsExportable(list[i])) then
+                TakeAction(payload, exported, list[i], owner, class, spec);
             end
         end
     end);
@@ -691,14 +690,11 @@ function DebindStorage.BuildAccountPayload()
         local rows = {};
         local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, nil);
         if (mode ~= nil) then
-            rows[1] = {
-                owner = ACCOUNT_OWNER, class = "GENERAL", spec = 0,
-                row = { mode = mode, resetValue = resetValue, expr = expr },
-            };
+            rows[1] = AnswerRow(ACCOUNT_OWNER, "GENERAL", 0, mode, resetValue, expr);
         end
         DebindPrivate.ForEachSwitchOverride(function(row, rowName, owner, class, spec)
             if (rowName == name) then
-                rows[#rows + 1] = { owner = owner, class = class, spec = spec, row = row };
+                rows[#rows + 1] = AnswerRow(owner, class, spec, row.mode, row.resetValue, row.expr);
             end
         end);
         return rows;

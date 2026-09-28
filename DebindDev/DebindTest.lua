@@ -4643,6 +4643,56 @@ RegisterTest("Storage: two characters of this class stand under two owners", {
     end,
 })
 
+--- **The key view stands a key's actions in firing order** (`grouping-the-storage-preview-by-key.md`
+--- 2절): the narrower layer first, the way Overview's left column does. Name order would put the
+--- general layer's action first here.
+RegisterTest("Storage: the key view orders a key by layer", {
+    description = "One key in the general layer and a character layer: the character's action stands first",
+    run = function()
+        local NAME = "Storage key view"
+        local class = Constants.PLAYER_CLASS
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
+        end
+        DebindFrame:Show()
+
+        local store = DebindPrivate.Store
+        local KEY = "CTRL-ALT-F8"
+        local general = { type = Constants.MACROTEXT, value = "/say a", name = "AAA debtest", key = KEY, seq = 1 }
+        local mine = { type = Constants.MACROTEXT, value = "/say z", name = "ZZZ debtest", key = KEY, seq = 1 }
+        local entry = store.StorePayload({
+            v = store.EXPORT_SCHEMA_VERSION, dbver = Constants.DB_VERSION,
+            layers = {
+                account = { GENERAL = { [0] = { general } } },
+                ["Player-9-DEBTESTA"] = { [class] = { [0] = { mine } } },
+            },
+        }, "Debtest key view")
+        if not entry then
+            return Fail(NAME, "the payload was not stored")
+        end
+        AddTeardown(function()
+            panel:SelectEntry(nil)
+            store.DeleteEntry(entry.id)
+            DebindFrame:CloseWindow()
+        end)
+
+        panel:SelectEntry(entry)
+        local groups = panel:PreviewKeys()
+        if #groups ~= 1 or groups[1].key ~= KEY then
+            return Fail(NAME, format("%d key groups, the first on %s", #groups, tostring(groups[1] and groups[1].key)))
+        end
+        local actions = groups[1].actions
+        if #actions ~= 2 then
+            return Fail(NAME, format("the key holds %d actions, not 2", #actions))
+        end
+        if actions[1].value ~= mine.value then
+            return Fail(NAME, "the general layer's action stands before the character's")
+        end
+        return Pass(NAME, "the character's action stands first")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: The window's three panels
 --

@@ -1120,10 +1120,9 @@ end
 
 --- The record `CompareActionOrder` reads, and **the only place its shape is written.**
 ---
---- Three callers build one: `Debind.lua`'s `BuildKeyMap`, and `Profile.lua`'s `MakeRow` and
---- `RenumberKeyGroup`. Each used to spell the fields out for itself, and the three lists had
---- drifted apart -- they are never sorted against each other, so nothing was wrong today and
---- nothing would have said so on the day one of them lost a field.
+--- Every caller builds its record here. Three used to spell the fields out for themselves, and the
+--- three lists had drifted apart -- they are never sorted against each other, so nothing was wrong
+--- today and nothing would have said so on the day one of them lost a field.
 ---
 --- **Where an action stands is the one thing not derived from the action.** `priority` and
 --- `isConditional` are; `layerRank`, `specRank` and `seq` are its place in the profile. Those

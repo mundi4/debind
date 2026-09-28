@@ -1316,6 +1316,7 @@ local KEY_GROUP_GAP = 8;
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;
 local RESULT_HEADER_HEIGHT = 28;
+DebindUI.LIST_HEADER_HEIGHT = RESULT_HEADER_HEIGHT;
 local ORDER_LINE_HEIGHT = 28;
 
 --- Stands a header row in a list column and moves the list under it
@@ -3288,6 +3289,7 @@ local SORT_COMPARATORS = {
 	added = CompareByIndex,
 	key   = CompareByKey,
 };
+DebindUI.CompareByKey = CompareByKey;
 
 local SORT_MENU = {
 	{ "name",  HOUSING_CHEST_SORT_TYPE_ALPHABETICAL },
@@ -3361,15 +3363,6 @@ local function BuildSortedElements(layer, layerID, visible)
 	return elements;
 end
 
-local function ColoredLayerLabel(layerID)
-	local classColor = GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
-	local tab, sideTab = DebindUI.GetLayerTabs(layerID);
-	local scopeColor = tab == 1 and DebindUI.ACCOUNT_COLOR or classColor;
-	local sideColor = layerID == 1 and DebindUI.ACCOUNT_COLOR or classColor;
-	return format(LLL["ORDER_LAYER_LABEL"],
-		scopeColor:WrapTextInColorCode(DebindUI.GetTabLabel(tab)),
-		sideColor:WrapTextInColorCode(DebindUI.GetSideTabLabel(sideTab)));
-end
 
 function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	HideDeleteConfirmationPopup();
@@ -3403,7 +3396,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	-- 돌아갈 자리가 같이 없어진다. 닫는 방아쇠는 넷뿐이다
 	-- (`closing-the-windows-that-stand-on-an-action.md`).
 
-	self.List.HeaderArea.LayerName:SetText(ColoredLayerLabel(layerID));
+	self.List.HeaderArea.LayerName:SetText((DebindUI.GetColoredLayerLabel(layerID)));
 	DebindFrame:UpdateTitle();
 	self:UpdateActionCounts(visible);
 	DebindFrame:UpdateEmptyText();

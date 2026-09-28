@@ -46,6 +46,11 @@ local PREVIEW_ROW_HEIGHT = 28;
 local LAYER_HEIGHT       = 26;
 local ROW_INDENT         = 10;
 local OWNER_INDENT       = 10;
+local PREVIEW_KEY_TEXT_WIDTH   = 120;
+local PREVIEW_LAYER_TEXT_WIDTH = 180;
+
+local PREVIEW_VIEWS = { "layer", "key" };
+local PREVIEW_VIEW_LABELS = { layer = "STORAGE_VIEW_LAYER", key = "SORT_BY_KEY" };
 
 --- **Which failures the reader can tell apart, which is fewer than the decoder reports.**
 --- `DecodeExportString` answers with eight reasons because each is a different step; a reader has
@@ -189,6 +194,15 @@ end
 
 DebindStorageEntryRowMixin = {};
 
+--- A character's name with its realm. **In the client's form**: `FULL_PLAYER_NAME` is what the
+--- friends list joins the two with and every locale carries it, so this is not a format of ours.
+local function NameWithRealm(name, realm)
+    if (type(realm) == "string" and realm ~= "") then
+        return format(FULL_PLAYER_NAME, name, realm);
+    end
+    return name;
+end
+
 --- The class the entry came from, or nil.
 ---
 --- **Read off the payload's cells, which carry their class as a key** (`reshaping-stored-layers.md`
@@ -241,9 +255,6 @@ end
 --- class name is what the words fall back to. Spelling the class only in that second case is what
 --- used to move it between the title and a line of its own.
 ---
---- **The realm rides with the name, in the client's form.** `FULL_PLAYER_NAME` is what the friends
---- list joins the two with and every locale carries it, so this is not a format of ours.
----
 --- Answers nil for an entry that says nothing about where it came from. The two below decide what
 --- to put in its place, because they have different room for it.
 ---
@@ -259,10 +270,8 @@ local function EntrySender(entry)
     -- fall back to.
     if (entry.name and entry.name ~= "") then
         text = entry.name;
-    elseif (entry.character and entry.realm) then
-        text = format(FULL_PLAYER_NAME, entry.character, entry.realm);
     elseif (entry.character) then
-        text = entry.character;
+        text = NameWithRealm(entry.character, entry.realm);
     elseif (class) then
         text = Constants.CLASS_NAMES[class];
     end
@@ -421,7 +430,15 @@ function DebindStoragePreviewRowMixin:Init(elementData)
 
     self.Name:SetText(name or "");
     DebindUI.SetActionIcon(self.Icon, icon);
-    self.Key:SetText(action.key and DebindPrivate.GetKeyDisplayText(action.key) or "");
+    -- The key view's header already says the key, so the right-hand column says the layer instead
+    -- (`grouping-the-storage-preview-by-key.md` 3절).
+    if (elementData.layerText) then
+        self.Key:SetWidth(PREVIEW_LAYER_TEXT_WIDTH);
+        self.Key:SetText(elementData.layerText);
+    else
+        self.Key:SetWidth(PREVIEW_KEY_TEXT_WIDTH);
+        self.Key:SetText(action.key and DebindPrivate.GetKeyDisplayText(action.key) or "");
+    end
 
     -- The line marks where one key's group ends and the next begins. The first row under a layer
     -- gets none: the layer's own divider is already the line there, and two rules on top of each
@@ -642,56 +659,131 @@ local function SortLayerActions(actions)
     return groups;
 end
 
---- A character key of a payload by name: what `characters` says, or its number where the string was
---- anonymised and says nothing.
+--- A character key of a payload by name: what `characters` says, in the client's form as the row
+--- says it (`EntrySender`), or its number where the string was anonymised and says nothing.
 local function CharacterName(owner, identity)
     if (type(identity) == "table" and type(identity.name) == "string") then
-        if (type(identity.realm) == "string" and identity.realm ~= "") then
-            return identity.name .. "-" .. identity.realm;
-        end
-        return identity.name;
+        return NameWithRealm(identity.name, identity.realm);
     end
     return format(LLL["STORAGE_ADD_CHARACTER_UNNAMED"], tostring(owner));
 end
 
---- One layer's header under its owner, and where it sorts among that owner's layers: general, this
---- class, other classes by name, then what has no place. **Where it has none it is one bucket per
---- owner, not one per address**: a specialization number past the end of a real class is something
---- only a hand-made string carries, and a header for each would put somebody's typos on screen.
+--- One payload cell as the preview draws it: the key it is bucketed under inside its owner, where
+--- it sorts there (general, this class, other classes by name, then what has no place), the header
+--- under the owner, the full label a row carries, and its place in the firing order
+--- (`layerRank, specRank`) for the key view.
 ---
 --- **The class and spec are the ones `ImportAddress` answers where it answers**, which is where Add
 --- to My Bindings puts them. The payload's own coordinates drew a camelot reader a Fire layer for a
 --- retail mage's string that the press then folded into the class layer.
-local function PreviewLayerOf(owner, class, spec)
+---
+--- **The spec is the number itself, whatever this character is playing**
+--- (`grouping-the-storage-preview-by-key.md` 2절): an entry need not be this character's, and
+--- actions of two specializations never compete in the game. What has no place ranks after general.
+---
+--- **Where it has no layer it is one bucket per owner, not one per address**: a specialization
+--- number past the end of a real class, or one the class has no name for, is something only a
+--- hand-made string carries, and a header for each would put somebody's typos on screen.
+local function PreviewLayerOf(owner, class, spec, ownerLabel, ownerName)
     local toScope, toClass, toSpec = Store().ImportAddress(owner, class, spec);
-    local account = owner == Store().ACCOUNT_OWNER;
-    if (toScope == "general") then
-        return "GENERAL", "0", LLL["GENERAL"];
+    local scope;
+    if (toScope) then
+        scope, class, spec = toScope, toClass or class, toSpec or spec;
+    elseif (toClass == "OTHER_CLASS") then
+        -- Without an address the second value is the reason, not a class.
+        scope = "character";
     end
-    if (not toScope and toClass ~= "OTHER_CLASS") then
+    local layerID = scope and DebindUI.GetLayerIDForAddress(scope, spec);
+    if (layerID == 1) then
+        class = nil;
+    end
+    local label, _, side;
+    if (layerID) then
+        label, _, side = DebindUI.GetColoredLayerLabel(layerID, class, ownerName);
+    end
+    if (not label) then
         -- **A class nobody can play here gets a bucket of its own name**, not the typo bucket: it
         -- is the other game type's class and the string is fine (2026-09-25, owner).
-        if (toClass == "UNKNOWN_CLASS") then
-            return "~UNKNOWN", "3", LLL["STORAGE_PREVIEW_UNKNOWN_CLASS"];
+        local text = LLL[toClass == "UNKNOWN_CLASS" and "STORAGE_PREVIEW_UNKNOWN_CLASS"
+            or "STORAGE_PREVIEW_ELSEWHERE"];
+        return "~" .. tostring(toClass), toClass == "UNKNOWN_CLASS" and "3" or "4", text,
+            format(LLL["ORDER_LAYER_LABEL"], ownerLabel, text), 6, 0;
+    end
+    local sortKey = layerID == 1 and "0"
+        or ((class == Constants.PLAYER_CLASS and "1" or "2") .. class .. format("%02d", layerID));
+    return tostring(class) .. "|" .. layerID, sortKey, side, label,
+        DebindPrivate.GetLayerScopeRank(layerID), spec;
+end
+
+--- The key view (`grouping-the-storage-preview-by-key.md`), in the order Overview's [Sort] by key
+--- stands a layer's actions (`DebindUI.CompareByKey`): keys in key order, each in firing order, and
+--- the keyless ones last by name.
+---
+--- **Sorted as the actions would land** (`BuildAction`), not as the string wrote them. The whitelist
+--- drops a key or an importance of the wrong type, which is what the comparators cannot read, and
+--- what is dropped is what the press would drop too.
+---
+--- **The stored number is taken out of the record and put into the walk's index instead.** Two
+--- characters' actions tie up to that number, and it is counted in each character's own layer, so
+--- compared across them it interleaves the two on numbers that mean nothing side by side. Walked
+--- owner by owner and each layer by that number, the index keeps an owner's actions together and
+--- keeps the number's order inside each. Equal numbers keep the order the layer stores them in.
+local function BuildPreviewKeyGroups(ownerOrder)
+    local items = {};
+    for _, group in ipairs(ownerOrder) do
+        for _, bucket in ipairs(group.layers) do
+            local built = {};
+            for position, source in ipairs(bucket.actions) do
+                local action = Store().BuildAction(source);
+                built[position] = { source = source, action = action, position = position,
+                                    seq = tonumber(action.seq) or math.huge };
+            end
+            sort(built, function(lhs, rhs)
+                if (lhs.seq ~= rhs.seq) then
+                    return lhs.seq < rhs.seq;
+                end
+                return lhs.position < rhs.position;
+            end);
+            for _, entry in ipairs(built) do
+                local order = DebindPrivate.MakeOrderRecord(entry.action,
+                    bucket.place.layerRank, bucket.place.specRank);
+                order.seq = nil;
+                items[#items + 1] = {
+                    action = entry.action,
+                    source = entry.source,
+                    place = bucket.place,
+                    order = order,
+                    sortName = strlower(DebindUI.NameAndIconForAction(entry.source) or ""),
+                    index = #items + 1,
+                };
+            end
         end
-        return "~ELSEWHERE", "4", LLL["STORAGE_PREVIEW_ELSEWHERE"];
     end
-    -- Without an address the second value is the reason, not a class.
-    if (toScope) then
-        class = toClass or class;
-        spec = toSpec or spec;
+    sort(items, DebindUI.CompareByKey);
+
+    local groups, current = {}, nil;
+    for _, item in ipairs(items) do
+        local key = item.action.key;
+        if (not current or current.key ~= key) then
+            current = {
+                key = key,
+                id = "key|" .. tostring(key),
+                label = key and DebindPrivate.GetKeyDisplayText(key) or LLL["OVERVIEW_NO_KEY"],
+                actions = {},
+                rows = {},
+            };
+            groups[#groups + 1] = current;
+        end
+        current.actions[#current.actions + 1] = item.source;
+        current.rows[#current.rows + 1] = {
+            action = item.source,
+            layerLabel = item.place.label,
+            layerText = item.place.label,
+            keyView = true,
+            firstInLayer = #current.rows == 0,
+        };
     end
-    local side = DebindUI.GetSideLabelForClass(class, spec) or tostring(spec);
-    local classOrder = class == Constants.PLAYER_CLASS and "1" or "2";
-    if (not account) then
-        -- A character's cells are all one class, so the class says nothing; its whole-class cell is
-        -- the character's general layer, the name the window's tab gives it.
-        return class .. "|" .. spec, classOrder .. class .. format("%02d", spec),
-            spec == 0 and LLL["GENERAL"] or side;
-    end
-    local label = spec == 0 and side
-        or format(LLL["ORDER_LAYER_LABEL"], Constants.CLASS_NAMES[class] or class, side);
-    return class .. "|" .. spec, classOrder .. class .. format("%02d", spec), label;
+    return groups;
 end
 
 --- What there is to show for one payload, before anything is collapsed: the owners, each with its
@@ -713,27 +805,29 @@ local function BuildPreviewLayers(payload)
         local group = owners[owner];
         if (not group) then
             local account = owner == Store().ACCOUNT_OWNER;
-            local label, sortKey;
-            if (account) then
-                label = DebindUI.ACCOUNT_COLOR:WrapTextInColorCode(LLL["SHARED_BINDINGS"]);
-                sortKey = "0";
-            else
-                local name = CharacterName(owner, identities[owner]);
-                local color = GetClassColorObj(class) or NORMAL_FONT_COLOR;
-                label = color:WrapTextInColorCode(name);
-                sortKey = (owner == DebindPrivate.playerGUID and "1" or "2") .. name;
-            end
-            group = { key = "owner|" .. tostring(owner), label = label, sortKey = sortKey,
-                      actions = {}, layers = {}, byKey = {} };
+            local name = not account and CharacterName(owner, identities[owner]) or nil;
+            local _, label = DebindUI.GetColoredLayerLabel(
+                DebindUI.GetLayerIDForAddress(account and "general" or "character", 0),
+                not account and class or nil, name);
+            group = {
+                key = "owner|" .. tostring(owner), label = label, name = name,
+                sortKey = account and "0" or ((owner == DebindPrivate.playerGUID and "1" or "2") .. name),
+                actions = {}, layers = {}, byKey = {},
+            };
             owners[owner] = group;
             ownerOrder[#ownerOrder + 1] = group;
         end
 
-        local layerKey, layerSort, layerLabel = PreviewLayerOf(owner, class, spec);
+        local layerKey, layerSort, header, rowLabel, layerRank, specRank =
+            PreviewLayerOf(owner, class, spec, group.label, group.name);
         local bucket = group.byKey[layerKey];
         if (not bucket) then
-            bucket = { key = group.key .. "|" .. layerKey, sortKey = layerSort, label = layerLabel,
-                       actions = {} };
+            bucket = {
+                key = group.key .. "|" .. layerKey, sortKey = layerSort, label = header, actions = {},
+                -- What a row says about where it sits: its owner and its layer, since the row sits
+                -- under both in one view and under a key in the other.
+                place = { label = rowLabel, layerRank = layerRank, specRank = specRank },
+            };
             group.byKey[layerKey] = bucket;
             group.layers[#group.layers + 1] = bucket;
         end
@@ -751,14 +845,12 @@ local function BuildPreviewLayers(payload)
         group.byKey = nil;
         sort(group.layers, function(lhs, rhs) return lhs.sortKey < rhs.sortKey; end);
         for _, bucket in ipairs(group.layers) do
-            -- The row's tooltip names the layer with its owner, since the row sits under both.
-            local rowLabel = format(LLL["ORDER_LAYER_LABEL"], group.label, bucket.label);
             local rows, firstInLayer = {}, true;
             for _, sorted in ipairs(SortLayerActions(bucket.actions)) do
                 for index, entry in ipairs(sorted.actions) do
                     rows[#rows + 1] = {
                         action = entry.action,
-                        layerLabel = rowLabel,
+                        layerLabel = bucket.place.label,
                         startsGroup = index == 1,
                         firstInLayer = firstInLayer,
                     };
@@ -827,6 +919,18 @@ function DebindStoragePanelMixin:OnLoad()
     DynamicResizeButton_Resize(self.Preview.AddButton);
     DynamicResizeButton_Resize(self.Preview.CopyButton);
 
+    DebindUI.SetListColumnHeader(self.Preview, DebindUI.LIST_HEADER_HEIGHT);
+    self.Preview.ViewDropdown:SetText(VIEW);
+    self.Preview.ViewDropdown:SetupMenu(function(_, rootDescription)
+        for _, view in ipairs(PREVIEW_VIEWS) do
+            rootDescription:CreateRadio(LLL[PREVIEW_VIEW_LABELS[view]], function()
+                return self:GetPreviewView() == view;
+            end, function()
+                self:SetPreviewView(view);
+            end);
+        end
+    end);
+
     --- Which entry the right column is showing. **Held by reference**, so deleting the row it
     --- points at has to clear it and nothing else has to be reconciled.
     self.selectedEntry = nil;
@@ -890,8 +994,11 @@ function DebindStoragePanelMixin:InitializeScrollBoxes()
         return elementData.isLayer and LAYER_HEIGHT or PREVIEW_ROW_HEIGHT;
     end);
     previewView:SetElementIndentCalculator(function(elementData)
-        if (elementData.isOwner) then
+        if (elementData.isOwner or elementData.isKeyGroup) then
             return 0;
+        end
+        if (elementData.keyView) then
+            return ROW_INDENT;
         end
         return elementData.isLayer and OWNER_INDENT or OWNER_INDENT + ROW_INDENT;
     end);
@@ -948,6 +1055,7 @@ end
 function DebindStoragePanelMixin:RebuildPreviewLayers()
     self.previewLayers = nil;
     self.previewOwners = nil;
+    self.previewKeys = nil;
     self.previewReason = nil;
 
     local entry = self.selectedEntry;
@@ -965,6 +1073,22 @@ function DebindStoragePanelMixin:RebuildPreviewLayers()
     -- delete, and the delete button is on the row, so the failure belongs in the column that was
     -- going to show it rather than in a message that takes the row away.
     self.previewReason = LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"];
+end
+
+--- The key view's groups (`BuildPreviewKeyGroups`), **built the first time that view asks for
+--- them** after the layers were. They cost a binding per action, which the layer view has no use
+--- for.
+function DebindStoragePanelMixin:PreviewKeys()
+    if (not self.previewKeys and self.previewOwners) then
+        self.previewKeys = BuildPreviewKeyGroups(self.previewOwners);
+        if (self.shutNewKeys) then
+            self.shutNewKeys = nil;
+            for _, keyGroup in ipairs(self.previewKeys) do
+                self.collapsed[keyGroup.id] = true;
+            end
+        end
+    end
+    return self.previewKeys or {};
 end
 
 --- Picks the entry the right column shows, and **starts its selection over**.
@@ -995,6 +1119,8 @@ function DebindStoragePanelMixin:SelectEntry(entry)
         for _, layer in ipairs(self.previewLayers) do
             self.collapsed[layer.key] = true;
         end
+        -- The key groups are shut the same way, when they are first built.
+        self.shutNewKeys = true;
 
         self:SelectAll(true);
     end
@@ -1009,6 +1135,24 @@ end
 --- this one.
 function DebindStoragePanelMixin:BuildPreviewDisplayList()
     local list = {};
+
+    if (self:GetPreviewView() == "key") then
+        for _, keyGroup in ipairs(self:PreviewKeys()) do
+            list[#list + 1] = {
+                isLayer = true,
+                isKeyGroup = true,
+                key = keyGroup.id,
+                label = keyGroup.label,
+                actions = keyGroup.actions,
+            };
+            if (not self:IsLayerCollapsed(keyGroup.id)) then
+                for _, row in ipairs(keyGroup.rows) do
+                    list[#list + 1] = row;
+                end
+            end
+        end
+        return list;
+    end
 
     for _, owner in ipairs(self.previewOwners or {}) do
         list[#list + 1] = {
@@ -1060,6 +1204,20 @@ function DebindStoragePanelMixin:RefreshPreview()
     scrollBox.EmptyText:SetShown(emptyText ~= nil);
 
     self:UpdateSelectionState();
+end
+
+--- Which way the right column is grouped. **Kept across sessions**, the way Overview keeps its
+--- [Sort] (`binSort`).
+function DebindStoragePanelMixin:GetPreviewView()
+    local main = DebindPrivate.UIVars and DebindPrivate.UIVars.main;
+    return main and main.storageView == "key" and "key" or "layer";
+end
+
+function DebindStoragePanelMixin:SetPreviewView(view)
+    local main = DebindPrivate.UIVars.main or {};
+    DebindPrivate.UIVars.main = main;
+    main.storageView = view ~= "layer" and view or nil;
+    self:RefreshPreview();
 end
 
 function DebindStoragePanelMixin:IsLayerCollapsed(key)
@@ -1520,16 +1678,10 @@ local CLIQUE_LAYERS = { "general", "class", "character" };
 --- layer, which is how this addon is meant to be used (소유자, 2026-09-24).
 local CLIQUE_SPECS = { "layers", "convert", "drop" };
 
---- **The window's own name for each layer** (`GetLayerLabel`), so the dialog says what the layer
---- list on the left says once the actions are there.
----
---- **Coloured the way the Switches tab colours them** (소유자, 2026-09-24): the account-wide layer
---- in `ACCOUNT_COLOR`, the other two in this character's class colour.
+--- **The window's own name for each layer**, so the dialog says what the layer list on the left
+--- says once the actions are there.
 local function AddLayerLabel(layer)
-    local label = DebindUI.GetLayerLabel(DebindUI.GetLayerIDForAddress(layer, 0));
-    local color = layer == "general" and DebindUI.ACCOUNT_COLOR
-        or GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
-    return color:WrapTextInColorCode(label);
+    return (DebindUI.GetColoredLayerLabel(DebindUI.GetLayerIDForAddress(layer, 0)));
 end
 
 local CLIQUE_SPEC_LABELS = {
@@ -1538,10 +1690,12 @@ local CLIQUE_SPEC_LABELS = {
     drop = "STORAGE_ADD_SPECS_DROP",
 };
 
---- A character key of the payload as the dropdown shows it. Always this class, so its colour.
+--- A character key of the payload as the dropdown shows it: the owner half of its character layer's
+--- label, the way the preview heads it. Always this class.
 local function CharacterChoiceLabel(owner, identity)
-    local color = GetClassColorObj(Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
-    return color:WrapTextInColorCode(CharacterName(owner, identity));
+    local _, label = DebindUI.GetColoredLayerLabel(DebindUI.GetLayerIDForAddress("character", 0), nil,
+        CharacterName(owner, identity));
+    return label;
 end
 
 local function SetButtonTooltip(button, text)

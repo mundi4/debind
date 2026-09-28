@@ -106,32 +106,47 @@ end
 --- coordinate that never mentions a class -- it says general, class, class-by-spec, character,
 --- character-by-spec -- so the same eleven numbers describe anybody's class layers and what was
 --- missing was only the one value. Every call site that means "mine" passes nothing and reads as it
---- did. A character layer is always this character's: one of another class has no layer here
---- (`ImportAddress`).
-local function GetLayerLabel(layerID, class)
+--- did. **`owner` is the same for a character layer's character**: nil is this one, and a stored
+--- payload names its own (`StorageUI.lua`'s preview).
+---
+--- Answers the label and its two halves, which `GetColoredLayerLabel` paints.
+---
+--- **A named class's specialization under the account names the class too**: one label can stand
+--- beside another class's, and Restoration, Holy, Protection and Frost are each two classes' name.
+--- **A specialization number the class has no name for has no label** (nil), which only a hand-made
+--- string carries; its caller says it has nowhere to go rather than calling it General.
+local function GetLayerLabelParts(layerID, class, owner)
 	local tab, sideTab = GetLayerTabs(layerID);
 	local scope;
 
 	if (tab ~= 2) then
 		scope = LLL["SHARED_BINDINGS"];
 	else
-		scope = UnitName("player");
+		scope = owner or UnitName("player");
 	end
 
-	if (not class) then
-		return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabLabel(sideTab));
-	end
-
-	-- Side tab 1 is "general" under either tab, and 2 is the class itself; 3 and up are that
-	-- class's specializations, counted the way the side tab row counts them.
 	local side;
-	if (sideTab == 1) then
+	if (not class) then
+		side = GetSideTabLabel(sideTab);
+	elseif (sideTab == 1) then
+		-- Side tab 1 is "general" under either tab, and 2 is the class itself; 3 and up are that
+		-- class's specializations, counted the way the side tab row counts them.
 		side = LLL["GENERAL"];
+	elseif (sideTab == 2) then
+		side = GetSideLabelForClass(class, 0);
 	else
-		side = GetSideLabelForClass(class, sideTab == 2 and 0 or sideTab - 2);
+		side = GetSideLabelForClass(class, sideTab - 2);
+		if (side and tab == 1) then
+			side = format(LLL["ORDER_LAYER_LABEL"], GetSideLabelForClass(class, 0), side);
+		end
 	end
 
-	return format(LLL["ORDER_LAYER_LABEL"], scope, side or LLL["GENERAL"]);
+	return tab, scope, side;
+end
+
+local function GetLayerLabel(layerID, class, owner)
+	local _, scope, side = GetLayerLabelParts(layerID, class, owner);
+	return side and format(LLL["ORDER_LAYER_LABEL"], scope, side);
 end
 
 --- Is this layer outside the world the live key map was built for?
@@ -194,12 +209,26 @@ end
 --- and grey is what this window paints something that is off.
 DebindUI.ACCOUNT_COLOR = ITEM_QUALITY_COLORS[Enum.ItemQuality.Artifact].color;
 
+--- `GetLayerLabel`, painted: the account and the general layer in `ACCOUNT_COLOR`, the rest in the
+--- class's colour (`class`, this character's where nil). Answers the label and its two halves,
+--- painted the same way, for a caller that draws one of them on its own.
+local function GetColoredLayerLabel(layerID, class, owner)
+	local tab, scope, side = GetLayerLabelParts(layerID, class, owner);
+	if (not side) then
+		return nil;
+	end
+	local classColor = GetClassColorObj(class or Constants.PLAYER_CLASS) or NORMAL_FONT_COLOR;
+	scope = (tab == 1 and DebindUI.ACCOUNT_COLOR or classColor):WrapTextInColorCode(scope);
+	side = (layerID == 1 and DebindUI.ACCOUNT_COLOR or classColor):WrapTextInColorCode(side);
+	return format(LLL["ORDER_LAYER_LABEL"], scope, side), scope, side;
+end
+
 DebindUI.GetLayerTabs = GetLayerTabs;
 DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabLabel = GetSideTabLabel;
 DebindUI.GetLayerLabel = GetLayerLabel;
+DebindUI.GetColoredLayerLabel = GetColoredLayerLabel;
 DebindUI.GetLayerIDForAddress = GetLayerIDForAddress;
-DebindUI.GetSideLabelForClass = GetSideLabelForClass;
 DebindUI.IsLayerOffWorld = IsLayerOffWorld;
 DebindUI.IsActionLive = IsActionLive;
 DebindUI.GetSideTabIcon = GetSideTabIcon;
