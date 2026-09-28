@@ -5,13 +5,14 @@ local LLL                             = DebindPrivate.L;
 local BindingDriver                   = DebindPrivate.BindingDriver;
 local UnitWatch                       = CreateFrame("Frame", nil, nil, "SecureFrameTemplate,SecureHandlerAttributeTemplate");
 local dump                            = DebindPrivate.dump;
-local issecretvalue                   = issecretvalue;
 
 --- 12.1 answers some unit APIs with secrets for units outside our access (arena enemies,
 --- mostly). A secret survives being stored, but a boolean test, a compare, a concat or a
 --- format on one raises - so any insecure-side read that feeds those goes through here:
 --- a secret becomes nil, and the caller treats it as "no answer", which is what it is.
 --- (`issecretvalue` does not exist before 12.1; the guard short-circuits away there.)
+--- **Read as a global on every call, not cached in a local**, because the headless specs install
+--- one after this file has loaded to drive this guard.
 local function PlainOrNil(value)
     if (issecretvalue and issecretvalue(value)) then
         return nil;
