@@ -279,7 +279,7 @@ local SWITCH_FIELDS      = {
 };
 
 --- What `characters` says about a character cell: who it is, for a reader who has to pick where
---- it goes. `firstSeen`, `lastSeen` and `origin` stay home: they are this install's record of
+--- it goes. `firstSeen` and `lastSeen` stay home: they are this install's record of
 --- seeing the character and mean nothing on another one.
 local IDENTITY_FIELDS    = {
     name = true,

@@ -2583,6 +2583,17 @@ return function(DebindPrivate)
         check(db.characters[ALT].layers == nil, "the layers stayed on the entry");
     end);
 
+    test("dbver 8 drops origin and keeps when the character was seen", function()
+        local profile = ProfileAt7();
+        profile.characters[ALT].origin = "local";
+        profile.characters[ALT].firstSeen = 1;
+        profile.characters[ALT].lastSeen = 2;
+        local db = InitWith(profile);
+        check(db.characters[ALT].origin == nil, "origin is still there");
+        check(db.characters[ALT].firstSeen == 1 and db.characters[ALT].lastSeen == 2,
+            "when the character was seen went with it");
+    end);
+
     test("dbver 8 drops the keys nothing reads", function()
         local profile = ProfileAt7();
         profile.global = { customStates = {} };

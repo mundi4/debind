@@ -1210,6 +1210,9 @@ local function MigrateAccount(db, dbver, to, uiVars)
                 end
                 entry.switches = nil;
                 entry.CustomTargets = nil;
+                -- Only ever `"local"`, and read by nothing. An entry that has not logged in here is
+                -- told by having no `lastSeen`.
+                entry.origin = nil;
             end
         end
 

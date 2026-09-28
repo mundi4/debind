@@ -71,7 +71,7 @@ return function(DebindPrivate, DebindStorage)
             },
             characters = { [GUID] = {
                 name = "Tester", realm = "TestRealm", class = CLASS, level = 80,
-                firstSeen = 1, lastSeen = 2, origin = "local",
+                firstSeen = 1, lastSeen = 2,
             } },
             switches = {
                 account = {
@@ -434,7 +434,7 @@ return function(DebindPrivate, DebindStorage)
         ResetProfile({ char = { [0] = { { type = Constants.SPELL, value = 1, key = "F" } } } });
 
         local who = DebindStorage.BuildExportPayload().characters[GUID];
-        for _, field in ipairs({ "firstSeen", "lastSeen", "origin" }) do
+        for _, field in ipairs({ "firstSeen", "lastSeen" }) do
             check(who[field] == nil, field .. "가 실렸다");
         end
     end);

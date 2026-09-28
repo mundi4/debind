@@ -40,7 +40,6 @@ local function RefreshIdentity()
 
     entry.firstSeen = entry.firstSeen or time();
     entry.lastSeen  = time();
-    entry.origin    = entry.origin or "local";
 end
 
 function Events.PLAYER_LOGIN()
