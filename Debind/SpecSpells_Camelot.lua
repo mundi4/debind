@@ -63,3 +63,6 @@ data[PALADIN] = {
 };
 
 DebindPrivate.SpecSpellData = data;
+
+--- The types the spell list offers (`ActionCatalog.lua`).
+DebindPrivate.SpecSpellPickerTypes = { "dispel", "dispel2", "raidbuff", "resurrect" };

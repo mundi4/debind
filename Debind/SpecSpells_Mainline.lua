@@ -110,3 +110,8 @@ Set("rezBattle", 61999, unpack(DEATHKNIGHT));
 Set("rezBattle", 20707, unpack(WARLOCK));
 
 DebindPrivate.SpecSpellData = data;
+
+--- The types the spell list offers (`ActionCatalog.lua`). **No `dispel2`** (2026-09-29, owner):
+--- here it is `dispel` under the same name and description, so the list would show one row twice.
+--- One brought over from camelot keeps its type, which that client reads as the other dispel.
+DebindPrivate.SpecSpellPickerTypes = { "dispel", "raidbuff", "resurrect" };

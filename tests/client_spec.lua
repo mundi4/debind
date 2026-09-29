@@ -305,6 +305,28 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
+    -- **Retail's picker has no Dispel 2** (2026-09-29, owner): there it casts Dispel's spell under
+    -- Dispel's name and description, so the reader would see one row twice. Camelot's two dispels
+    -- remove different debuffs and both are offered.
+    test("the spell list offers the second dispel only where it differs", function()
+        local C = DebindPrivate.Constants;
+        local ActionCatalog = DebindPrivate.ActionCatalog;
+        local offered = {};
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.source == "spellbook") then
+                ActionCatalog.Invalidate(category.source);
+                for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
+                    if (C.SPEC_RESOLVED_TYPES[entry.type]) then
+                        offered[#offered + 1] = entry.type;
+                    end
+                end
+            end
+        end
+        table.sort(offered);
+        local expected = camelot and "dispel,dispel2,raidbuff,resurrect" or "dispel,raidbuff,resurrect";
+        check(table.concat(offered, ",") == expected, "offered " .. table.concat(offered, ","));
+    end);
+
     test("with every rank shown in the book, every rank has a row", function()
         TwoRanks();
         shim.world.cvars.ShowAllSpellRanks = true;
