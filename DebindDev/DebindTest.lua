@@ -4554,12 +4554,14 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
                 #listed, tostring(layer and layer.key)))
         end
 
-        -- Straight after picking, everything is ticked and everything is collapsed. This turns over
-        -- one of each of the things a reader would touch.
+        -- Straight after picking, everything is ticked. This turns over one of each of the things a
+        -- reader would touch. **Which way a layer starts is not assumed**: whatever it was, the
+        -- tab change has to keep the other way.
         local untickedAction = listed[1]
+        local collapsedAfterToggle = not panel:IsLayerCollapsed(layer.key)
         panel:ToggleAction(untickedAction)
         panel:ToggleLayerCollapsed(layer.key)
-        if panel.selected[untickedAction] or panel:IsLayerCollapsed(layer.key) then
+        if panel.selected[untickedAction] or panel:IsLayerCollapsed(layer.key) ~= collapsedAfterToggle then
             return Fail(NAME, "the premise is gone: what was touched did not turn over on the spot")
         end
 
@@ -4573,8 +4575,8 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
         if panel.selected[untickedAction] then
             return Fail(NAME, "a tick that was cleared is back on")
         end
-        if panel:IsLayerCollapsed(layer.key) then
-            return Fail(NAME, "a layer that was opened is collapsed again")
+        if panel:IsLayerCollapsed(layer.key) ~= collapsedAfterToggle then
+            return Fail(NAME, "a layer that was opened or collapsed went back")
         end
 
         -- It also checks that the rest stayed as they were. On the two above alone, "everything went
@@ -4589,7 +4591,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
             return Fail(NAME, format("%d ticks should be left and there are %d", #listed - 1, stillTicked))
         end
 
-        return Pass(NAME, format("%d ticks and the open layer survived the tab change", stillTicked))
+        return Pass(NAME, format("%d ticks and the toggled layer survived the tab change", stillTicked))
     end,
 })
 
