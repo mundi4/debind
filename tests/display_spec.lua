@@ -494,6 +494,29 @@ return function(DebindPrivate)
 
 
     ---------------------------------------------------------------------------
+    -- The Hover Cast mark
+    ---------------------------------------------------------------------------
+
+    --- **The mark says what the action tooltip's Hover Cast line says, in the same words.** Two
+    --- wordings of one setting on one row leave the reader to work out whether they agree.
+    test("the Hover Cast mark draws the action tooltip's Hover Cast line", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                casting = { hoverCast = "usual", hoverCastMode = "mouseover" } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        local _, line = LineIndex(row, LLL["POINTED_UNIT_CAST"] .. ":");
+        check(line, "the action tooltip has no Hover Cast line: " .. Tooltip(row));
+
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddHoverCastMarkToTooltip(tooltip, row.action);
+        check(#tooltip.lines == 1 and tooltip.lines[1].text == line.text,
+            "the mark says something else: " .. tooltip:text() .. "\nagainst: " .. line.text);
+    end);
+
+    ---------------------------------------------------------------------------
     -- The group heading's issue mark
     ---------------------------------------------------------------------------
 

@@ -62,6 +62,8 @@ local MARK_SIZE                      = 15;
 --- 지워야 한다 - 이 프레임들은 풀에서 돌아오므로 앞 행이 남긴 것을 들고 온다. 좌표가 그중
 --- 물리는 것이라, 안 자르는 그림도 자기가 안 자른다고 말해야 한다.
 local MARK_KINDS = {
+	--- Hover Cast is on (`HoverCastChoiceOf`).
+	hover       = { file = "Interface\\Cursor\\Point", offsetY = -1 },
 	--- 조건이 붙어 있다는 것만 말한다. 그 조건이 틀렸는지는 아래 두 마크가 말한다.
 	conditional = { atlas = "questlog-questtypeicon-quest" },
 	--- 키가 아예 안 먹는다.
@@ -133,6 +135,10 @@ end
 --- The conditional mark: that conditions exist. Which ones is the row's own tooltip.
 local function ConditionalMarkTooltip(tooltip)
 	GameTooltip_AddNormalLine(tooltip, LLL["MARK_TOOLTIP_CONDITIONAL"], true);
+end
+
+local function HoverCastMarkTooltip(tooltip, mark)
+	DebindPrivate.AddHoverCastMarkToTooltip(tooltip, mark.action);
 end
 
 --- A mark hands its tooltip function itself; the tooltip knows only the action and the rows it
@@ -978,7 +984,8 @@ function DebindLineMixin:HasCursor()
 		return true;
 	end
 	local marks = self.Marks;
-	return marks.Conditional:IsMouseMotionFocus()
+	return marks.Hover:IsMouseMotionFocus()
+		or marks.Conditional:IsMouseMotionFocus()
 		or marks.Issue:IsMouseMotionFocus();
 end
 
@@ -1069,6 +1076,10 @@ function DebindUI.FillActionLine(self, action, layerID)
 		self.InfoText:SetText("");
 	end
 
+	self.Marks.Hover.action = action;
+	self.Marks.Hover:SetKind(DebindPrivate.HoverCastChoiceOf(action) ~= nil and "hover" or nil,
+		HoverCastMarkTooltip);
+
 	-- **조건 마크는 조건이 있다는 것만 말한다.** 그중 하나가 틀렸는지는 두 번째 마크가 말한다
 	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이
 	-- 어느 쪽 답인지를 먼저 알아야 했다.
@@ -1087,6 +1098,7 @@ function DebindUI.FillActionLine(self, action, layerID)
 	self.Marks.Issue:SetKind(grade, IssueMarkTooltip);
 
 	if (isInactive) then
+		self.Marks.Hover:SetInactive(true);
 		self.Marks.Conditional:SetInactive(true);
 	end
 	self.Marks:Layout();

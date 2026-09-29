@@ -211,6 +211,24 @@ do
 		return format("|cnWHITE_FONT_COLOR:%s:|r %s", label, value);
 	end
 
+	--- The Casting block's Hover Cast line, or nil where the action has nothing off the default.
+	--- Its two questions share one line, as they share one submenu. The row's Hover Cast mark draws
+	--- the same line (`AddHoverCastMarkToTooltip`).
+	local function HoverCastLine(action)
+		local mode = action.casting and action.casting.hoverCastMode;
+		local hover;
+		if (mode == "unitframe") then
+			hover = LLL["POINTED_UNIT_CAST_FRAMES"];
+		elseif (mode == "mouseover") then
+			hover = LLL["POINTED_UNIT_CAST_MOUSEOVER"];
+		end
+		local hoverChoice = HOVER_TEXT[DebindPrivate.HoverCastChoiceOf(action)];
+		if (hoverChoice) then
+			hover = hover and (hover .. ", " .. hoverChoice) or hoverChoice;
+		end
+		return hover and LabelledValue(LLL["POINTED_UNIT_CAST"], hover);
+	end
+
 	--- The two axes only a unit frame can answer, each on its own labelled line under the unit's.
 	--- `said` carries a problem for either axis, and the problem's sentence stands where that axis's
 	--- line would.
@@ -459,20 +477,9 @@ do
 				end
 			end
 
-			-- Hover Cast's two questions share one line, as they share one submenu.
-			local mode = action.casting and action.casting.hoverCastMode;
-			local hover;
-			if (mode == "unitframe") then
-				hover = LLL["POINTED_UNIT_CAST_FRAMES"];
-			elseif (mode == "mouseover") then
-				hover = LLL["POINTED_UNIT_CAST_MOUSEOVER"];
-			end
-			local hoverChoice = HOVER_TEXT[DebindPrivate.HoverCastChoiceOf(action)];
-			if (hoverChoice) then
-				hover = hover and (hover .. ", " .. hoverChoice) or hoverChoice;
-			end
+			local hover = HoverCastLine(action);
 			if (hover) then
-				tinsert(_lines, LabelledValue(LLL["POINTED_UNIT_CAST"], hover));
+				tinsert(_lines, hover);
 			end
 
 			if (not DebindPrivate.NormalCastEnabled(action)) then
@@ -905,6 +912,12 @@ do
 		---@diagnostic disable-next-line: redundant-parameter
 		tooltip:SetMinimumWidth(0, false);
 		tooltip:Hide();
+	end
+
+	--- The row's Hover Cast mark. The mark goes up only where Hover Cast is on, which always has
+	--- a line.
+	function DebindPrivate.AddHoverCastMarkToTooltip(tooltip, action)
+		GameTooltip_AddNormalLine(tooltip, HoverCastLine(action));
 	end
 
 	DebindPrivate.AddActionToTooltip = AddActionToTooltip;
