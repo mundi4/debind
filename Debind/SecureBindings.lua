@@ -969,7 +969,13 @@ function BindingDriver:OnClickCastArrival(button, mod, n)
 end
 
 function BindingDriver:OnSpecialUnitChanged(alias, value)
-	DebindPrivate.OnSpecialUnitChanged(alias, value);
+	local unit = value or nil;
+	local prev = DebindPrivate.Units[alias];
+	DebindPrivate.Units[alias] = unit;
+
+	if (prev ~= unit) then
+		DebindPrivate.callbacks:Fire("UNIT_CHANGED", alias, unit);
+	end
 end
 
 function BindingDriver:OnSwitchChanged(name, value)

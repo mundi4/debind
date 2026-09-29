@@ -6226,7 +6226,7 @@ RegisterTest("Switch toggle flips the value", {
             return Fail(NAME, "the second toggle did not take, writing the same attribute value again does not carry")
         end
 
-        -- The mirror arrives on `C_Timer.After(0)` (`OnSwitchChanged`, `Misc.lua`). It is what
+        -- The mirror arrives on `C_Timer.After(0)` (`OnSwitchChanged`). It is what
         -- the window reads, so a mirror that does not follow leaves the restricted side right and
         -- the screen lying.
         coroutine.yield(0)

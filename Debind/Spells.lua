@@ -400,14 +400,21 @@ end
 
 local ComposeSpellCastName = DebindPrivate.ComposeSpellCastName;
 
+function DebindPrivate.GetSpellNameAndIconID(spellId)
+    local spellInfo = C_Spell.GetSpellInfo(spellId);
+    if (spellInfo) then
+        return spellInfo.name, spellInfo.iconID;
+    end
+end
+
+local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
+
 --- The same value, asked of the client. **The id is taken as given**: each caller resolves its own,
 --- and they do not resolve it alike. A stored action holds whatever id the reader picked and needs
 --- `FindBaseSpellByID` first; a flyout slot is handed its base id and its override as two separate
 --- returns, so resolving again there would be asking a question already answered.
 function DebindPrivate.GetSpellCastName(spellID, pinRank)
-    -- Reached through `DebindPrivate` rather than an upvalue: `Misc.lua` defines it and loads
-    -- after this file (`Debind.xml`).
-    local name = DebindPrivate.GetSpellNameAndIconID(spellID);
+    local name = GetSpellNameAndIconID(spellID);
     return ComposeSpellCastName(name, name and GetSpellSubtext(spellID), pinRank);
 end
 

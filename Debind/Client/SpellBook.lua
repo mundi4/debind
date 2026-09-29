@@ -65,3 +65,8 @@ function Client.ClassSkillLine()
     end
     return C_SpellBook.GetSpellBookSkillLineInfo(Enum.SpellBookSkillLineIndex.Class);
 end
+
+--- The spellbook's General line, as `GetSpellBookSkillLineInfo` answers a line.
+function Client.GeneralSkillLine()
+    return C_SpellBook.GetSpellBookSkillLineInfo(Enum.SpellBookSkillLineIndex.General);
+end

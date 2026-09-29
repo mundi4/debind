@@ -351,9 +351,10 @@ local function RebuildFlyout(entry, flyoutID)
 			button:SetPoint("TOP", buttons[i - 1], "BOTTOM", 0, -SPACING);
 		end
 
-		-- 이름으로 건다. id는 다른데 이름이 같은 주문이 있어서 id로 걸면 다른 특성에서
-		-- 안 나간다 - `UpdateBindings.lua`의 `Constants.SPELL` 갈래와 같은 규칙이고,
-		-- 값을 만드는 곳은 `Misc.lua`의 `GetFlyoutCastableSlots` 하나다.
+		-- Set by name. Some spells share a name under different ids, and set by id one of them
+		-- does not go out in another specialization. The same rule as the `Constants.SPELL`
+		-- branch in `UpdateBindings.lua`, and `GetFlyoutCastableSlots` is the one place the value
+		-- is made.
 		button:SetAttribute("spell", slot.cast);
 		button.spellID = slot.spellID;
 		button.icon:SetTexture(slot.icon);
@@ -493,3 +494,168 @@ EventFrame:SetScript("OnEvent", function(_, event)
 	end
 	RebuildAll();
 end);
+
+local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
+local GetSpellCastName      = DebindPrivate.GetSpellCastName;
+
+--- 야수 소환 플라이아웃의 **빈 칸**인가.
+---
+--- 야수 소환은 슬롯 수가 마구간 칸 수로 고정돼 있어서, 그 자리에 야수가 없어도 슬롯은
+--- `isKnown`으로 남는다. 그래서 `isKnown` 검사만으로는 안 걸러지고, 아무것도 안 나가는
+--- 칸이 목록과 팝업에 그대로 선다. 블리자드 플라이아웃도 같은 검사를 한다
+--- (`SpellFlyout.lua`가 `GetCallPetSpellInfo`로 `visible`을 끈다).
+---
+--- **이 검사가 한 군데인 것이 요점이다.** 처음엔 시전 쪽(`GetFlyoutCastableSlots`)에만
+--- 있었고, 선택 창은 안 걸러서 **팝업에는 안 뜨는 칸이 목록에는 뜨는** 상태가 됐다.
+--- 지금은 `ActionCatalog.lua`의 `AddFlyoutEntries`도 이것을 부른다.
+function DebindPrivate.IsEmptyCallPetSlot(spellID)
+	local petIndex, petName = GetCallPetSpellInfo(spellID);
+	return petIndex ~= nil and (not petName or petName == "");
+end
+
+local IsEmptyCallPetSlot = DebindPrivate.IsEmptyCallPetSlot;
+
+--- 플라이아웃 **자기 아이콘**. flyoutID -> iconID.
+---
+--- 게임에는 플라이아웃 자기 아이콘이 있다 - 주문책이 "야수 소환" 칸에 그리는 그 그림이고,
+--- 첫 슬롯의 것이 아니다. 문제는 그걸 내주는 API가 `C_SpellBook.GetSpellBookItemTexture`
+--- 하나뿐이고 **flyoutID로는 못 묻는다**는 것이다 - 주문서 슬롯 번호가 있어야 한다
+--- (`GetFlyoutInfo`가 내는 것은 이름·설명·슬롯 수·습득 여부뿐이다). 그래서 주문서를 한 번
+--- 훑어 표를 만들어 둔다.
+---
+--- **찾은 값은 안 지운다.** 아이콘은 플라이아웃 정의에 박힌 것이라 특성이나 야수에 따라
+--- 안 바뀐다. 다시 훑는 것은 **못 찾은 것** 때문이다 - 특성을 바꾸면 없던 플라이아웃이
+--- 주문서에 생기고, 그 전까지는 물어볼 슬롯 자체가 없었다.
+---
+--- `shouldHide` 스킬라인도 훑는다. 카탈로그와 달리 여기서 찾는 것은 목록에 세울 줄이 아니라
+--- 그림 한 장이고, 창에 안 보이는 줄에 있는 플라이아웃도 걸어둘 수는 있다.
+local FlyoutIcons = {};
+local flyoutIconsSwept = false;
+
+local function SweepFlyoutIconsInBank(first, last, bank)
+	for slotIndex = first, last do
+		local info = C_SpellBook.GetSpellBookItemInfo(slotIndex, bank);
+		if (info and info.itemType == Enum.SpellBookItemType.Flyout) then
+			local icon = C_SpellBook.GetSpellBookItemTexture(slotIndex, bank);
+			if (icon) then
+				FlyoutIcons[info.actionID] = icon;
+			end
+		end
+	end
+end
+
+local function SweepFlyoutIcons()
+	local playerBank = Enum.SpellBookSpellBank.Player;
+	local numSkillLines = C_SpellBook.GetNumSpellBookSkillLines() or 0;
+	for skillLineIndex = 1, numSkillLines do
+		local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(skillLineIndex);
+		if (skillLineInfo) then
+			SweepFlyoutIconsInBank(skillLineInfo.itemIndexOffset + 1,
+				skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems, playerBank);
+		end
+	end
+
+	local numPetSpells = C_SpellBook.HasPetSpells();
+	if (numPetSpells) then
+		SweepFlyoutIconsInBank(1, numPetSpells, Enum.SpellBookSpellBank.Pet);
+	end
+end
+
+local function GetFlyoutIcon(flyoutID)
+	local icon = FlyoutIcons[flyoutID];
+	if (icon) then
+		return icon;
+	end
+
+	-- 한 번 훑었으면 다시 안 훑는다. 없는 flyoutID를 그릴 때마다 주문서를 통째로 도는 일을
+	-- 막는 것이고, 표를 다시 열어주는 것은 아래 `SPELLS_CHANGED`뿐이다.
+	if (flyoutIconsSwept) then
+		return nil;
+	end
+
+	SweepFlyoutIcons();
+	flyoutIconsSwept = true;
+	return FlyoutIcons[flyoutID];
+end
+
+local FlyoutIconEventFrame = CreateFrame("Frame");
+FlyoutIconEventFrame:RegisterEvent("SPELLS_CHANGED");
+FlyoutIconEventFrame:SetScript("OnEvent", function()
+	flyoutIconsSwept = false;
+end);
+
+--- 플라이아웃의 이름과 아이콘.
+---
+--- 아이콘은 위의 표에서 온다 - 주문책이 그리는 **그 플라이아웃의 그림**이다. 표에 없을 때만
+--- 첫 번째 쓸 수 있는 슬롯의 주문에서 빌려온다. 그 자리는 주문서에 아직 안 뜬 플라이아웃
+--- (특성 변경 직후 등)을 위한 것이지 기본값이 아니다.
+---
+--- **아이콘은 저장하지 않는다.** 이 애드온의 규약대로(`ActionCatalog.lua` 머리주석) 저장은
+--- flyoutID 하나뿐이고 그림은 그릴 때마다 여기서 다시 푼다.
+---
+--- `isOffSpec`은 **오프스펙 플라이아웃을 통째로 안 배운 상태**를 위한 예외다. 그때는 슬롯의
+--- `isKnown`이 전부 거짓이라 그 검사만으로는 쓸 수 있는 슬롯을 하나도 못 고른다.
+---
+--- 네 번째 값 `hasUsableSlot`은 **열면 뭐라도 나오는가**이다. 야수가 하나도 없는 사냥꾼의
+--- 야수 소환이 거짓이고, 부르는 쪽(`AddFlyoutEntry`)이 그 줄을 아예 안 올린다 - 열어도 빈
+--- 상자만 뜨는 것을 목록에 세우지 않는 것이 요점이다. 한때 이 신호가 "아이콘이 안 나온다"였다.
+--- 아이콘을 첫 슬롯에서 빌려오던 시절에는 같은 말이었지만, 지금은 플라이아웃 자기 아이콘이
+--- 빈 칸에도 나오므로 갈라놔야 한다.
+function DebindPrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec)
+	local name, _, numSlots, isKnown = DebindPrivate.Client.FlyoutInfo(flyoutID);
+	if (not name or not numSlots or numSlots == 0) then
+		return nil, nil, nil, false;
+	end
+
+	local hasUsableSlot = false;
+	local fallbackIcon;
+	for slot = 1, numSlots do
+		local spellID, overrideSpellID, isKnownSlot = GetFlyoutSlotInfo(flyoutID, slot);
+		if (spellID and (isKnownSlot or isOffSpec) and not IsEmptyCallPetSlot(spellID)) then
+			hasUsableSlot = true;
+			local _, slotIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
+			if (slotIcon) then
+				fallbackIcon = slotIcon;
+				break;
+			end
+		end
+	end
+
+	return name, GetFlyoutIcon(flyoutID) or fallbackIcon, isKnown, hasUsableSlot;
+end
+
+--- The slots of a flyout that can actually fire, with the value to cast each by.
+---
+--- **Off-spec slots are refused here**, unlike the list that draws them. These go on a button, and
+--- a spell the reader has not learned does nothing when pressed.
+---
+--- **Two icons and they are not the same question.** `icon` comes from the slot's own spell so a
+--- slot always has one, `displayIcon` from whatever is overriding it right now, which is the picture
+--- the spellbook draws. Casting still goes by the base spell's name.
+function DebindPrivate.GetFlyoutCastableSlots(flyoutID, out)
+	out = out or {};
+	wipe(out);
+
+	local _, _, numSlots = DebindPrivate.Client.FlyoutInfo(flyoutID);
+	if (not numSlots) then
+		return out;
+	end
+
+	for slot = 1, numSlots do
+		local spellID, overrideSpellID, isKnown, spellName = GetFlyoutSlotInfo(flyoutID, slot);
+		if (spellID and isKnown and not IsEmptyCallPetSlot(spellID)) then
+			local castName = GetSpellCastName(spellID);
+			local _, icon = GetSpellNameAndIconID(spellID);
+
+			local _, displayIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
+			tinsert(out, {
+				spellID = spellID,
+				cast = castName or spellID,
+				name = spellName or castName,
+				icon = displayIcon or icon,
+			});
+		end
+	end
+
+	return out;
+end

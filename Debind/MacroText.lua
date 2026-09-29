@@ -37,6 +37,139 @@ function DebindPrivate.UnshiftsForAction(action)
     return DebindPrivate.UnshiftsWith(DebindPrivate.CastAutomaticOf(action, "autoUnshift"));
 end
 
+--- 펫 명령(공격·따라가기·대기·태세…)을 보안 슬래시 명령으로 옮기는 표.
+---
+--- **키는 주문서의 `actionID`다.** 펫 바의 텍스처 이름으로 잡았다가 바꿨다 - 펫 바는 10칸뿐이라
+--- 거기 못 올라간 명령(흑마 서큐버스에서 Stay·Defensive가 그랬다)이 목록에서 통째로 사라졌다.
+--- 주문서에는 전부 있고, 주문서가 주는 손잡이는 이 값 하나다.
+---
+--- **값은 위치와 무관하고 클래스·펫이 달라도 같다.** 실측으로 확인했다 - 흑마와 사냥꾼에서
+--- 같은 값이 나왔고, 슬롯 1의 attack이 `…02`, 슬롯 8의 assist가 `…03`이라 슬롯 번호도 아니다.
+---
+--- `(계열 << 24) | 번호` 꼴이다. `0x07`이 명령, `0x06`이 태세인데 **번호가 띄엄띄엄하다**
+--- (명령에 3이 비고, 태세에 1·2가 빈다). 그래서 규칙으로 채우지 않고 확인한 것만 적는다.
+---
+--- **여기 없는 이유가 두 가지다. 섞으면 안 된다:**
+---
+---   값을 못 봤다      `PET_AGGRESSIVE`, `PET_DISMISS`. 없다는 뜻이 아니라 실측을 못 했다는 뜻이다
+---   명령이 죽었다     `PET_DEFENSIVE`(`0x06000004`). **값은 안다** - 아래 주석 참고
+---
+--- 값은 `SlashCommands.lua`가 `CheckAddSecureSlashCommand`로 올린 것들이다.
+---
+--- **자동시전 셋(`PET_AUTOCASTON/OFF/TOGGLE`)은 보안이 아니라서가 아니라 - 그것들도 보안이다
+--- (`Mainline/SlashCommandsOverrides.lua:7-26`) - 주문 이름을 인자로 받기 때문에 여기 없다.**
+--- 펫 명령 하나에 대응하는 물건이 아니다.
+---
+--- 표에 없는 actionID는 목록에 안 올린다. 모르는 것을 대충 걸어두면 눌러도 아무 일이 없는
+--- 바인딩이 되는데, 그게 제일 알아채기 어려운 고장이다.
+local PET_ACTION_SLASH_BY_ID = {
+    [117440512] = "PET_STAY",     -- 0x07000000
+    [117440513] = "PET_FOLLOW",   -- 0x07000001
+    [117440514] = "PET_ATTACK",   -- 0x07000002
+    [117440516] = "PET_MOVE_TO",  -- 0x07000004
+    [100663296] = "PET_PASSIVE",  -- 0x06000000
+    -- 지원 태세는 **`PET_ASSIST`다.** `PET_DEFENSIVEASSIST`가 아니다.
+    --
+    -- 리테일 펫 바의 지원 버튼이 하는 일은 `C_PetInfo.PetAssistMode()`이고, 그걸 부르는 보안
+    -- 슬래시 명령이 `PET_ASSIST`다(`Blizzard_ChatFrameBase/Mainline/SlashCommandsOverrides.lua:1-5`).
+    -- **`PetAssistMode`만 `C_PetInfo`로 옮겨졌고**(`PetInfoDocumentation.lua`) 폐기 shim이 옛
+    -- 전역을 그쪽으로 다시 이어준다(`Deprecated_PetInfo.lua`). `PetDefensiveAssistMode`에는
+    -- 그게 둘 다 없다.
+    --
+    -- ※ 한때 이 자리에 *"`PetDefensiveAssistMode`는 트리에 정의가 없으니 죽었다"*고 적었는데
+    --   **그 논증은 아무것도 못 가른다** - `PetPassiveMode`·`PetAttack`·`PetFollow` 따위가
+    --   전부 똑같이 트리에 정의가 없다(엔진 쪽 전역이다). 위의 "옮겨졌는가"가 진짜 근거다.
+    [100663299] = "PET_ASSIST",   -- 0x06000003
+
+    -- **방어 태세(`0x06000004` = 100663300)는 값을 아는데도 뺐다.**
+    --
+    -- **우리 버그가 아니라 게임 버그다.** `/petdefensive`는 지금도 등록돼 있고
+    -- (`SlashCommands.lua`가 `PET_DEFENSIVE`를 올린다) 슬래시 문자열도 살아 있는데,
+    -- 그게 부르는 `PetDefensiveMode()`가 **최소 5년째 아무 일도 안 한다**(실측).
+    -- 채팅창에 손으로 쳐도 마찬가지다.
+    --
+    -- 그래서 `GetPetActionMacroText`의 가드를 그냥 통과한다 - 그 가드가 보는 것은 슬래시
+    -- **문자열의 존재**뿐이고 그게 부르는 함수가 실제로 무언가를 하는지는 알 수 없다.
+    -- 넣어두면 **목록에 뜨는데 눌러도 아무 일이 없는 항목**이 되고, 그게 이 표가 막으려는
+    -- 바로 그 고장이다(아래 "표에 없는 actionID는 …").
+    --
+    -- 대신 이 애드온에는 **방어 태세를 거는 길이 없다.** 펫 바 버튼은 `CastPetAction(슬롯)`
+    -- 이라 되지만, 슬롯은 펫마다 다르고 전투 중에 못 고친다 - 이 타입을 슬래시로 만든 이유가
+    -- 그것이라 그쪽으로 돌아갈 수는 없다. 열린 항목으로 `.zzz/TODO.md`에 적어뒀다.
+    --
+    -- **블리자드가 고치면 이 한 줄을 되살리는 것으로 끝난다:**
+    --     `[100663300] = "PET_DEFENSIVE", -- 0x06000004`
+    --
+    -- 자동으로 살아나게 두지 않은 이유: 살았는지 물어볼 방법이 없다. 전역이 사라진 것이라면
+    -- `PetDefensiveMode == nil`로 가를 수 있지만, 그 이름이 남은 채 속이 빈 것이면 어떤 검사도
+    -- 통과한다. 게임에서 한 번 쳐보는 것이 유일한 판정이라 사람이 판단할 자리로 남겨둔다.
+};
+
+--- 대상을 **실제로 쓰는** 명령. 확인된 것은 공격 하나다(`SlashCommands.lua:659`,
+--- `PetAttack(target)`). 나머지 핸들러는 조건의 참·거짓만 보고 target을 버린다.
+---
+--- **여기 없는 명령에는 대상 메뉴가 아예 안 열린다**(`DropDownMenus.lua`) - 안 쓰는 값을
+--- 고르게 두면 그 설정이 무언가를 한다고 읽힌다. `GetBindingInfoForAction`도 같은 표를 보고
+--- `binding.unit`을 지운다.
+---
+--- **`PET_MOVE_TO`는 대상을 안 받는다.** 지면을 찍는 명령이라 유닛이 들어갈 자리가 아니다.
+--- 핸들러가 `PetMoveTo(target)`으로 넘기는 것은 소스에 그렇게 적혀 있지만
+--- (`SlashCommands.lua:676`), 그걸 근거로 넣으면 안 된다 - 고를 수는 있는데 아무 일도 안 하는
+--- 항목이 된다.
+local PET_ACTION_TAKES_UNIT = {
+    PET_ATTACK = true,
+};
+
+--- 주문서 `actionID` -> 우리가 저장할 값(슬래시 명령 키). 모르면 nil.
+function DebindPrivate.GetPetActionCommandByActionID(actionID)
+    return actionID and PET_ACTION_SLASH_BY_ID[actionID] or nil;
+end
+
+function DebindPrivate.PetActionTakesUnit(command)
+    return command ~= nil and PET_ACTION_TAKES_UNIT[command] == true;
+end
+
+--- 펫 명령 하나를 매크로 본문으로. 슬래시 명령이 없으면 nil - **부르는 쪽이 그걸로 거른다.**
+--- 카탈로그도 이 함수로 걸러서, 목록에 오르는 것은 실행되는 것만 남는다.
+---
+--- 슬래시 문자열은 전역에서 읽는다. `SLASH_CAST1`을 쓰는 것과 같은 이유 - 로케일마다 다르다.
+---
+--- 대상은 `[@유닛]` 조건절로 나간다. **이 형태는 게임에서 확인했다** - 손으로 만든
+--- `/petattack [@focus]` 매크로가 정상 동작한다. (한때 이 형태를 의심해 본문 형태로 바꾼 적이
+--- 있는데, 진짜 원인은 `SetBindingAttributes`의 캐시였다. `refactor-candidates.md` 참고.)
+---
+--- 조건절의 `@유닛`은 그대로 안 나간다. `SetBindingAttributes`가 이걸 MACROTEXT와 같은 길에
+--- 태우므로, `@custom1`·`@unitframe` 같은 우리 유닛은 `ParseMacroText`가 실행 시점에 진짜 토큰으로
+--- 바꾼다. 여기서 할 일은 문자열을 만드는 것까지다.
+function DebindPrivate.GetPetActionMacroText(command, unit)
+    local slash = command and _G["SLASH_" .. command .. "1"];
+    if (not slash) then
+        return nil;
+    end
+    if (unit and unit ~= "" and DebindPrivate.PetActionTakesUnit(command)) then
+        return format("%s [@%s]", slash, unit);
+    end
+    return slash;
+end
+
+--- 계정 매크로 칸 수와 캐릭터 매크로 칸 수.
+---
+--- **`MAX_ACCOUNT_MACROS` / `MAX_CHARACTER_MACROS` 전역은 없다.** 블리자드 트리 전체에
+--- 그 이름의 정의가 0건이고, `Blizzard_MacroUI`조차 `Constants.MacroConsts`에서 읽는다.
+--- 없는 값을 더하거나 비교하면 그 자리에서 터진다 - `GetMacrotextIcon`이 실제로 그러고
+--- 있었고, 오류를 삼키는 애드온을 쓰면 조용히 그 함수만 죽는다.
+---
+--- 세 단계로 떨어진다. 전역이 살아 있던 클라이언트가 있을 수 있으니 그것도 보고,
+--- 마지막은 상수의 문서값(120 / 30)이다 - 못 찾았다고 기능을 통째로 접는 것보다 낫다.
+---
+--- **`_G.Constants`인 것에 주의.** 애드온 파일들의 `Constants`는 우리 것이라 이름이 겹친다.
+function DebindPrivate.GetMacroSlotLimits()
+    local macroConsts = _G.Constants and _G.Constants.MacroConsts;
+    local account = (macroConsts and macroConsts.MAX_ACCOUNT_MACROS) or _G.MAX_ACCOUNT_MACROS or 120;
+    local character = (macroConsts and macroConsts.MAX_CHARACTER_MACROS) or _G.MAX_CHARACTER_MACROS or 30;
+    return account, character;
+end
+
 function DebindPrivate.GetMountMacroText(value, unshift)
     if (value == 268435455) then
         value = 0;

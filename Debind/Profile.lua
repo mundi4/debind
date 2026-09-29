@@ -968,7 +968,7 @@ end
 --- missing field would mean both "this layer says nothing" and "reset to nothing".
 ---
 --- **Whether a change is announced is read off `mode` here** and nowhere else
---- (`SwitchesChangedCallback`, `Misc.lua`), which is why a layer overriding the mode moves the
+--- (`SwitchesChangedCallback`), which is why a layer overriding the mode moves the
 --- announcement with it.
 function DebindPrivate.ResolveSwitchAnswer(name)
     local definition = DebindPrivate.Switches[name];

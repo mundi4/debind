@@ -13,7 +13,6 @@ local _, DebindPrivate = ...;
 local LLL                    = DebindPrivate.L;
 local Constants              = DebindPrivate.Constants;
 local DebindUI               = DebindPrivate.DebindUI;
-local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
 --- GetLayerID의 역방향. 레이어가 어느 탭 좌표에 사는지 돌려준다.
 ---
@@ -200,8 +199,8 @@ end
 --- 티가 안 났고, 순서 목록의 레이어 아이콘에서만 드러난다.
 local function GetSideTabIcon(sideTabID)
 	if (sideTabID == 1) then
-		local _, icon = GetSpellTabNameAndIcon(sideTabID);
-		return icon;
+		local line = DebindPrivate.Client.GeneralSkillLine();
+		return line and line.iconID;
 	elseif (sideTabID == 2) then
 		local line = DebindPrivate.Client.ClassSkillLine();
 		return line and line.iconID;

@@ -3,7 +3,7 @@
 //
 // `RELOAD_REQUIRED_OPTIONS` in `Profile.lua` names the options this build reads once at login. Its
 // box carries `REQUIRES_RELOAD`, and that is a promise: nothing about the answer changes until the
-// client comes back. `ApplyOptions` in `Misc.lua` is the one place an answer is carried across to a
+// client comes back. `ApplyOptions` in `UpdateBindings.lua` is the one place an answer is carried across to a
 // live frame, so a name that appears in both says the two halves disagree.
 //
 // Why this exists: `blizzframes` sat in both for a release and **went different ways depending on
@@ -37,13 +37,13 @@ if (names.length === 0) {
     process.exit(1);
 }
 
-const misc = read("Debind/Misc.lua");
+const source = read("Debind/UpdateBindings.lua");
 
 // The function body, from its header to the next top-level `end`. Column zero is what closes it:
 // everything inside is indented, so the first `end` at the left margin is the last line of it.
-const bodyMatch = misc.match(/function DebindPrivate\.ApplyOptions\([^)]*\)\n([\s\S]*?)\nend\n/);
+const bodyMatch = source.match(/function DebindPrivate\.ApplyOptions\([^)]*\)\n([\s\S]*?)\nend\n/);
 if (!bodyMatch) {
-    process.stderr.write("Misc.lua에서 ApplyOptions의 본문을 못 읽었다.\n");
+    process.stderr.write("UpdateBindings.lua에서 ApplyOptions의 본문을 못 읽었다.\n");
     process.exit(1);
 }
 // Comments do not apply anything, and one of them is allowed to explain why a name is not here.

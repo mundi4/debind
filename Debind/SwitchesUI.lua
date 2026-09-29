@@ -333,8 +333,8 @@ end
 --- no binding is built out of.
 ---
 --- **Nothing is written on this side at all.** `SetSwitch` reports the value back out and that
---- report is what fills the definition and what this character remembers (`OnSwitchChanged`,
---- `Misc.lua`), so the row redraws off the value counter like every other mover.
+--- report is what fills the definition and what this character remembers (`OnSwitchChanged`), so
+--- the row redraws off the value counter like every other mover.
 ---
 --- **The value, and not `"toggle"`.** The flip has to be made against the value the row is
 --- drawing, because the restricted side may hold none: `States` is only ever filled for a switch
@@ -343,7 +343,7 @@ end
 --- already on stayed on and took two presses to go off.
 ---
 --- **Which is why the value is written here and not left to the report.** `SetSwitch` reports back
---- through `C_Timer.After(0)` (`OnSwitchChanged`, `Misc.lua`), so a second press inside the same
+--- through `C_Timer.After(0)` (`OnSwitchChanged`), so a second press inside the same
 --- frame would read the value the first one has not yet been told about and write it again. Going
 --- through `SetSwitchValue` is what also keeps it on the character: a switch set to come back the
 --- way it was left reads that memory at the next load, and a press that only reached the

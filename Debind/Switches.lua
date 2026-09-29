@@ -1,9 +1,9 @@
--- TODO
--- Move whatever belongs to switches over here where it can go. The definitions are **not** here:
--- `ResolveSwitchDefinition` reads them out of the profile and lives with it (`Profile.lua`), and
--- this file cannot hold it anyway - it builds a secure frame when it is read, so the headless
--- runner does not load it (`tests/run.lua`) and two of that function's callers are specs.
+-- The switches' runtime: the frame a key or a macro turns one with, and the report the restricted
+-- side sends back when one moves. The definitions are **not** here: `ResolveSwitchDefinition`
+-- reads them out of the profile and lives with it (`Profile.lua`).
 local _, DebindPrivate             = ...;
+local L                            = DebindPrivate.L;
+local Constants                    = DebindPrivate.Constants;
 
 -- **The global name is out there in stored macro bodies.** A user types it (`/click DebindSwitch
 -- $state1-on`) and [Convert to macro text] writes it (`MacroText.lua`), so a new name means the
@@ -73,3 +73,88 @@ SwitchesUpdaterFrame:SetAttribute("_onclick", [==[
         end
     end
 ]==]);
+
+local _changedSwitches = {};
+
+--- The line a switch prints when it moves, and **the only place it is written**. A key, a macro
+--- and the button on the Switches tab all turn the same switch, and a second copy of these two
+--- tests would be a second answer to "does this print" for one of them.
+---
+--- **Whether it moved is the caller's to know.** The report coming back out of the restricted side
+--- carries no such thing -- a rebuild pushes the stored values in and they are reported straight
+--- back (`BuildSwitchesSnippet`) -- so the caller that can tell an echo from a change is the one
+--- holding the value it moved from.
+---
+--- **Only a switch this character works by hand announces itself.** A computed one answers a
+--- conditional, so its value moves with the world rather than with anything the user did, and
+--- there is nobody to read the line. Which kind it is is the winning layer's answer
+--- (`ResolveSwitchAnswer`) and not the account-wide definition's: a layer can override manual with
+--- an expression and the other way round.
+function DebindPrivate.AnnounceSwitchChange(name, value)
+    if (not DebindPrivate.SwitchMessagesEnabled()) then
+        return;
+    end
+    if (DebindPrivate.ResolveSwitchAnswer(name) ~= Constants.SWITCH_MODES.MANUAL) then
+        return;
+    end
+
+    local valueText = value and L["SWITCH_CHANGED_MESSAGE_ON"] or L["SWITCH_CHANGED_MESSAGE_OFF"];
+    DebindPrivate.DisplayMessage(format(L["SWITCH_CHANGED_MESSAGE"], name, valueText));
+end
+
+--- What the restricted side reported back, folded into the stored definitions.
+---
+--- **It walks what changed, not the five numbers.** A macro can name any switch
+--- (`/click DebindSwitch $burst-on`, above), so names outside the five have always been able to
+--- arrive here -- the number loop simply never looked at them.
+---
+--- **A name nothing defines is left alone rather than defined.** There is no row to write the
+--- value into and making one here would be the load-time repair §9-3 of
+--- `redesigning-custom-states.md` rules out. The switch still works for this session: the
+--- value lives in the restricted environment's `States`, and what is missing is only the memory of
+--- it across a reload.
+---
+--- **The remembered value goes on the character, the live one on the definition**, and both are
+--- `SetSwitchValue`'s to write (`Profile.lua`). The definition is account-wide, and while the
+--- memory sat there too "remember" meant "remember what the character who logged out last left"
+--- (§5 of `redesigning-custom-states.md`). **Which of these reports becomes a memory is
+--- decided there and not here**: a report carrying the value the definition already holds is a
+--- reset this side pushed a moment ago coming back round, and it is the one that must not be
+--- remembered (§4-9).
+---
+--- What is left here is what only this path knows: that the value came from outside, and whether
+--- it moved the switch.
+---
+--- **What the line is worth saying about is a report that moved the switch**, and the switch's
+--- value is what it moved from. Every rebuild pushes the stored values in and the restricted side
+--- reports them straight back (`BuildSwitchesSnippet`), so without that test a login says one line
+--- per switch -- the §4-9 echo again, from the side that prints rather than the side that
+--- remembers.
+---
+--- **Nothing is broadcast any more.** `SWITCH_CHANGED` went on 2026-08-22. A listener on it
+--- meant every switch value had to be right the moment it moved, and that reachability is what
+--- kept a computed switch from being worked out lazily
+--- (`trimming-the-restricted-hot-paths.md`). The Switches tab reads `GetSwitchValue`,
+--- which `SetSwitchValue` above still fills in, so what it lost was a reason to redraw rather
+--- than the value to draw.
+local function SwitchesChangedCallback()
+    for name, newValue in pairs(_changedSwitches) do
+        if (DebindPrivate.ResolveSwitchDefinition(name)) then
+            local moved = DebindPrivate.GetSwitchValue(name) ~= newValue;
+            DebindPrivate.SetSwitchValue(name, newValue);
+
+            if (moved) then
+                DebindPrivate.AnnounceSwitchChange(name, newValue);
+            end
+        end
+    end
+    wipe(_changedSwitches);
+end
+
+function DebindPrivate.OnSwitchChanged(name, value)
+    if (not next(_changedSwitches)) then
+        C_Timer.After(0, SwitchesChangedCallback);
+    end
+
+    _changedSwitches[name] = value;
+end

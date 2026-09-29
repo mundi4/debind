@@ -1,4 +1,4 @@
-Execute <Frame#3>
+Execute <Frame#2>
   | wipe(OldStates)
   | for k, v in pairs(States) do
   |     OldStates[k] = v
@@ -38,15 +38,15 @@ Execute <Frame#3>
   | wipe(States)
   | States.unitframe = hovered
   | 
-ClearOverrideBindings <Frame#3>
-SetAttribute <Frame#3> _onattributechanged = nil
+ClearOverrideBindings <Frame#2>
+SetAttribute <Frame#2> _onattributechanged = nil
 CreateFrame DebindClickButton_unitframe SecureActionButtonTemplate
 SetAttribute DebindClickButton_unitframe alias = "unitframe"
 SetAttribute DebindClickButton_unitframe unit = "raid41"
 SetAttribute DebindClickButton_unitframe useparent* = true
 SetAttribute DebindClickButton_unitframe useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_unitframe"
-Execute <Frame#3>
+SetFrameRef <Frame#2> clickFrame "DebindClickButton_unitframe"
+Execute <Frame#2>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -98,7 +98,7 @@ SetAttribute <Button#25> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#25> screen "<Frame#6>"
+SetFrameRef <Button#25> screen "<Frame#5>"
 CreateFrame <Button#26> SecureActionButtonTemplate
 SetAttribute <Button#26> type = "spell"
 SetAttribute <Button#26> useOnKeyDown = false
@@ -126,8 +126,8 @@ CreateFrame DebindClickButton_player SecureActionButtonTemplate
 SetAttribute DebindClickButton_player unit = "player"
 SetAttribute DebindClickButton_player useparent* = true
 SetAttribute DebindClickButton_player useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_player"
-Execute <Frame#3>
+SetFrameRef <Frame#2> clickFrame "DebindClickButton_player"
+Execute <Frame#2>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -142,8 +142,8 @@ CreateFrame DebindClickButton_focus SecureActionButtonTemplate
 SetAttribute DebindClickButton_focus unit = "focus"
 SetAttribute DebindClickButton_focus useparent* = true
 SetAttribute DebindClickButton_focus useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_focus"
-Execute <Frame#3>
+SetFrameRef <Frame#2> clickFrame "DebindClickButton_focus"
+Execute <Frame#2>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -172,8 +172,8 @@ SetAttribute DebindClickButton_custom1 alias = "custom1"
 SetAttribute DebindClickButton_custom1 unit = "raid41"
 SetAttribute DebindClickButton_custom1 useparent* = true
 SetAttribute DebindClickButton_custom1 useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_custom1"
-Execute <Frame#3>
+SetFrameRef <Frame#2> clickFrame "DebindClickButton_custom1"
+Execute <Frame#2>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -223,15 +223,15 @@ SetAttribute <Button#46> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#46> screen "<Frame#6>"
+SetFrameRef <Button#46> screen "<Frame#5>"
 SetAttribute <Button#46> frameref-holder = nil
 CreateFrame DebindClickButton_healer SecureActionButtonTemplate
 SetAttribute DebindClickButton_healer alias = "healer"
 SetAttribute DebindClickButton_healer unit = "raid41"
 SetAttribute DebindClickButton_healer useparent* = true
 SetAttribute DebindClickButton_healer useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_healer"
-Execute <Frame#3>
+SetFrameRef <Frame#2> clickFrame "DebindClickButton_healer"
+Execute <Frame#2>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -244,8 +244,8 @@ CreateFrame DebindClickButton_target SecureActionButtonTemplate
 SetAttribute DebindClickButton_target unit = "target"
 SetAttribute DebindClickButton_target useparent* = true
 SetAttribute DebindClickButton_target useparent-unit = false
-SetFrameRef <Frame#3> clickFrame "DebindClickButton_target"
-Execute <Frame#3>
+SetFrameRef <Frame#2> clickFrame "DebindClickButton_target"
+Execute <Frame#2>
   | local frame = self:GetFrameRef("clickFrame")
   | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
   | if (unit) then
@@ -298,7 +298,7 @@ SetAttribute DebindClickButton *macro-deb121 = nil
 SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
-Execute <Frame#3>
+Execute <Frame#2>
   | local bindings,t,u
   | SelfCastKeyOn=true
   | FocusCastKeyOn=true
@@ -1807,7 +1807,7 @@ Execute <Frame#3>
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
   | WrappedRelease["deb109"]="deb110"
-Execute <Frame#3>
+Execute <Frame#2>
   | local t
   | t=newtable()
   | t.id=1
@@ -1838,13 +1838,13 @@ Execute <Frame#3>
   | t.args[3].switch="$intent"
   | t.args[3].reverse=true
   | DeferredMacroTexts["deb115"]=t
-SetAttribute <Frame#3> _onattributechanged =
+SetAttribute <Frame#2> _onattributechanged =
   | if (name == "state-giveback") then
   |     self:RunAttribute("UpdateGivenBackKeys")
   |     return
   | end
   | 
-Execute <Frame#3>
+Execute <Frame#2>
   | self:RunAttribute("SetSwitch", "$burst", true)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
   | ComputedSwitches[1]="$echo"
@@ -1879,7 +1879,7 @@ Execute <Frame#9>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef <Frame#3> rolehdr_healer "<Button#49>"
+SetFrameRef <Frame#2> rolehdr_healer "<Button#49>"
 WrapScript <Button#51> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
@@ -1921,9 +1921,9 @@ WrapScript <Button#51> OnAttributeChanged =
   |     end
   | end
   | 
-Execute <Frame#3>
+Execute <Frame#2>
   | self:RunAttribute("SetUnit", "mainassist", nil)
-Execute <Frame#3>
+Execute <Frame#2>
   | self:RunAttribute("SetUnit", "maintank", nil)
 CreateFrame <Button#52> SecureGroupHeaderTemplate
 SetAttribute <Button#52> alias = "tank"
@@ -1955,7 +1955,7 @@ Execute <Frame#9>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef <Frame#3> rolehdr_tank "<Button#52>"
+SetFrameRef <Frame#2> rolehdr_tank "<Button#52>"
 WrapScript <Button#54> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
@@ -1997,7 +1997,7 @@ WrapScript <Button#54> OnAttributeChanged =
   |     end
   | end
   | 
-Execute <Frame#3>
+Execute <Frame#2>
   |             UnitRoles = false
   |             RoleOwners = false
   |             local unitframe = States.unitframe
@@ -2009,17 +2009,17 @@ UnregisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
 UnregisterEvent SecureStateDriverManager UPDATE_VEHICLE_ACTIONBAR
 RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
 RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
-Execute <Frame#3>
+Execute <Frame#2>
   |         self:RunAttribute("UpdateAllUnits")
   |     
-Execute <Frame#3>
+Execute <Frame#2>
   | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
-RegisterAttributeDriver <Frame#3> state-giveback "[petbattle] b; 0"
-Execute <Frame#3>
+RegisterAttributeDriver <Frame#2> state-giveback "[petbattle] b; 0"
+Execute <Frame#2>
   | wipe(ContextKeys)
-Execute <Frame#3>
+Execute <Frame#2>
   | self:RunAttribute("UpdateGivenBackKeys")
-Execute <Frame#3>
+Execute <Frame#2>
   | ClickCastOnMouseDown=false EmpowerTapControls=false
 SetAttribute <Button#52> showPlayer = true
 SetAttribute <Button#49> showPlayer = true

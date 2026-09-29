@@ -334,9 +334,9 @@ local function AddFlyoutEntry(entries, seen, flyoutID, isOffSpec, group, slotInd
 		return;
 	end
 
-	-- **열어도 빈 칸만 뜨는 것은 안 올린다.** 슬롯이 전부 안 배운 상태(길들인 야수가 없는
-	-- 야수 소환 등)라는 뜻이다. 아이콘 유무로는 못 가린다 - 플라이아웃 자기 아이콘은 칸이
-	-- 비어 있어도 나온다(`Misc.lua`의 `GetFlyoutNameAndIcon`).
+	-- **A flyout that opens onto nothing is left out**: every slot unlearned, like Call Pet with
+	-- no tamed beast. The icon cannot tell, since a flyout's own icon comes up however empty its
+	-- slots are (`GetFlyoutNameAndIcon`).
 	if (not hasUsableSlot) then
 		return;
 	end
@@ -354,16 +354,16 @@ local function AddFlyoutEntry(entries, seen, flyoutID, isOffSpec, group, slotInd
 	});
 end
 
---- 플라이아웃은 **펼친다.** 통째로 버리면 그 안의 주문들에 아예 손이 닿지 않는다
---- (야수 소환, 각인 등이 전부 그 안에 있다).
+--- A flyout **is opened out**. Dropping it whole would put every spell inside it out of reach
+--- (Call Pet, inscriptions and the like all live in one).
 ---
---- 슬롯의 `isKnown`이 거짓이면 건너뛴다 - 다만 오프스펙 플라이아웃은 통째로 안 배운
---- 상태라 그 검사를 통과할 수 없다. 그래서 오프스펙일 때만 예외로 둔다.
+--- A slot whose `isKnown` is false is skipped, except in an off-spec flyout, which is unlearned
+--- as a whole and could never pass that test.
 ---
---- **`isKnown`만으로는 야수 소환의 빈 칸이 안 걸러진다.** 마구간 칸 수만큼 슬롯이 있고
---- 비어 있어도 배운 것으로 나오기 때문이다. 검사는 `Misc.lua`의 `IsEmptyCallPetSlot` 하나이고
---- 시전 쪽(`GetFlyoutCastableSlots`)도 같은 것을 부른다 - 갈리면 **팝업에는 안 뜨는 칸이
---- 목록에는 뜨는** 상태가 된다(실제로 그랬다).
+--- **`isKnown` alone does not catch Call Pet's empty slots.** There is one slot per stable slot
+--- and an empty one still reads as learned. The test is `IsEmptyCallPetSlot` alone, and the casting
+--- side (`GetFlyoutCastableSlots`) asks the same one: when the two differed, a slot the popup did
+--- not show stood in the list.
 local function AddFlyoutEntries(entries, seen, flyoutID, isOffSpec, group)
 	local _, _, numSlots = DebindPrivate.Client.FlyoutInfo(flyoutID);
 	if (not numSlots) then

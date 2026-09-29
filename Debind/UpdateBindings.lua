@@ -726,6 +726,73 @@ local function ApplyBindingPlan(plan)
     ApplyGiveBack(driver, plan.giveBack);
 end
 
+--- Every option whose answer reaches a secure frame is applied from here, and **nothing else
+--- applies one**. The settings panel is open during a fight and every control in it is pressable
+--- there, so a setter that wrote its own answer through would raise inside the panel's own click
+--- handler. A setter writes the stored value and asks for a rebuild instead; `FinishBindingUpdate`
+--- calls this with no argument, and a rebuild that could not run during the fight is replayed at
+--- `PLAYER_REGEN_ENABLED` (`Events.lua`).
+---
+--- **The stored value is read here rather than carried in.** Two changes during one fight leave
+--- two queued rebuilds and one answer, and it has to be the second one.
+function DebindPrivate.ApplyOptions(option)
+    if (option == nil or option == "unitframeUseMouseDown" or option == "empowerTapControls") then
+        --- **Three answers folded into one boolean before it crosses.** The restricted side
+        --- cannot read a CVar, so `nil` - the reader not having chosen - is resolved here, and
+        --- re-resolved whenever the CVar moves (`Events.CVAR_UPDATE`).
+        ---
+        --- **`ActionButtonUseKeyDown` is a setting about keys**, and this is a click on somebody
+        --- else's frame. It is what `nil` follows because it is the only place the game asks the
+        --- question at all, and because the key side of the addon already falls to it: a reader
+        --- who answered it once should not have to answer it twice.
+        local onMouseDown = DebindPrivate.Options.unitframeUseMouseDown;
+        if (onMouseDown == nil) then
+            onMouseDown = GetCVarBool("ActionButtonUseKeyDown") and true or false;
+        end
+        --- **강화 주문 입력도 같은 문으로 간다.** 설정의 값이 `0`이면 길게 누르기, `1`이면 두 번
+        --- 누르기다(`Blizzard_SettingsDefinitions_Frame/Combat.lua`). 두 번 누르기에서는 쥐는
+        --- 구간이 없어서 뗌 엣지로 놓을 것이 없고, 그 판단을 클릭 때 해야 한다.
+        ---
+        --- **빌드 때 읽으면 안 된다.** 버튼 캐시는 한 번도 안 지워지므로 이 값으로 구운 것이
+        --- 설정을 바꾼 뒤에도 계속 나간다(`BindingAttrsCache`).
+        local tapControls = GetCVarBool("empowerTapControls") and true or false;
+        --- **A lockdown blocks the only door these have.** `SecureHandlerExecute` cannot cross
+        --- one, and no other path pushes them, so an answer given during a fight used to
+        --- reach nothing and go on not reaching it for the rest of the session while the menu
+        --- showed it as the one chosen. Both doors are open in combat: the CVar moves whenever the
+        --- game says so (`Events.CVAR_UPDATE`), and the options menu takes the answer with the
+        --- window up. Login is a third, since a reconnect into an encounter arrives locked down.
+        ---
+        --- The values are not carried, only the fact that one is owed. Whatever is read when the
+        --- fight ends is the answer that stands then, which is the right one if the reader moved
+        --- it twice while it could not cross.
+        if (InCombatLockdown()) then
+            DebindPrivate.secureValuesSuspended = true;
+        else
+            DebindPrivate.secureValuesSuspended = nil;
+            SecureHandlerExecute(BindingDriver,
+                format("ClickCastOnMouseDown=%s EmpowerTapControls=%s",
+                    tostring(onMouseDown), tostring(tapControls)));
+        end
+    end
+
+    --- **A unit watch header is a `SecureGroupHeaderTemplate`, so the attribute cannot be written
+    --- during a fight.** A header built later reads the same option for itself
+    --- (`CreateUnitWatchHeader`), so what is left here is the ones that already exist.
+    if (option == nil or option == "excludePlayer") then
+        if (not InCombatLockdown()) then
+            local excluded = DebindPrivate.Options.excludePlayer;
+            local units = DebindPrivate.EXCLUDE_PLAYER_UNITS;
+            for i = 1, #units do
+                local header = DebindPrivate.GetUnitWatchHeader(units[i]);
+                if (header) then
+                    header:SetAttribute("showPlayer", not (excluded and excluded[units[i]]));
+                end
+            end
+        end
+    end
+end
+
 --- What is left once the bindings are up: drop what this rebuild made stale, put the reader's own
 --- options back, and say that it happened.
 ---

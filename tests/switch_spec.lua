@@ -344,12 +344,14 @@ return function(DebindPrivate)
             "기억을 안 남겼다 - 다음 로드에 도로 꺼진다");
     end);
 
-    -- **다른 문이다.** 위는 비보안 쪽이 값을 바꾸는 자리이고, 이쪽은 제한 환경이 바뀐 값을
-    -- 되보고하는 자리다(`OnSwitchChanged`). 사람이 키를 눌러 전환하면 오는 것이 이쪽이라,
-    -- 여기가 정의에 쓰면 "기억하기"가 다시 **마지막에 로그아웃한 캐릭터의 값 기억하기**가 된다.
+    -- **A different door.** The one above is the insecure side changing the value; this one is the
+    -- restricted environment reporting a value that changed (`OnSwitchChanged`). A key pressed to
+    -- turn a switch arrives this way, so if this wrote to the definition, "remember" would again
+    -- mean **remembering what the character who logged out last left**.
     --
-    -- **미러는 `C_Timer.After(0)` 뒤에 온다**(`SwitchesChangedCallback`, `Misc.lua`). 하네스의
-    -- 타이머는 쌓아두고 `drainTimers`가 돌리므로, 그 한 줄이 게임의 다음 프레임 자리다.
+    -- **The mirror arrives after `C_Timer.After(0)`** (`SwitchesChangedCallback`). The harness
+    -- holds timers until `drainTimers` runs them, so that one line stands in for the game's next
+    -- frame.
     test("제한 환경의 되보고도 값을 캐릭터에 쓴다", function()
         InitWith(Profile());
         local options = DebindPrivate.Switches["$state1"];

@@ -11,6 +11,41 @@ local CellsToUnitGroup             = DebindPrivate.CellsToUnitGroup;
 local BuildUnitStates              = DebindPrivate.BuildUnitStates;
 local RoleLeavesNothing            = DebindPrivate.RoleLeavesNothing;
 
+--- Whether an action of this type and value can aim at a unit at all. **One test for both readers**:
+--- the `Target` menu opens on it and `FillBinding` keeps a unit on it. The menu offering a target
+--- the binding drops is a setting that does nothing, which has happened here before.
+---
+--- **Not what decides `"@"`.** That asks the unit the press aims at, which every action has.
+function DebindPrivate.ActionTakesUnit(action)
+    if (not Constants.TYPES_WITH_UNIT[action.type]) then
+        return false;
+    end
+    if (action.type == Constants.PETACTION) then
+        return DebindPrivate.PetActionTakesUnit(action.value);
+    end
+    -- A stance is pressed through its bar button, and a click carries no target.
+    if (action.type == Constants.ACTIONBUTTON) then
+        local info = Constants.ACTION_BUTTON_COMMANDS[action.value];
+        return not (info and info.stance);
+    end
+    return true;
+end
+
+--- Whether the reader picked a unit for this action to go to. **Neither a held cast key nor Hover
+--- Cast moves one** (2026-09-15, owner): a modifier carried over from the key pressed just before,
+--- ALT-1 then 2, reads as held at the press, and the client's own buttons never let it move a unit
+--- set on them either.
+---
+--- **`none` is not one.** It settles nothing before the press, so what the press aims at is worked
+--- out the way it is for an action with no target and only the cast goes out asking
+--- (`binding.castsAtNone`). A `unit` the type cannot take is not one either, nor the `unitframe` a
+--- `unitframe` condition fills in, which is why this reads the action and not `binding.unit`.
+function DebindPrivate.ActionHasPickedUnit(action)
+    local unit = action.unit;
+    return type(unit) == "string" and unit ~= "" and unit ~= "none"
+        and DebindPrivate.ActionTakesUnit(action);
+end
+
 --- The unit a binding's cast goes out at: its `unit`, except on `none`, where `unit` is only what the
 --- press aims at and the cast itself always asks (`ActionHasPickedUnit`).
 function DebindPrivate.CastUnitOf(binding)

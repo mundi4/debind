@@ -411,11 +411,12 @@ local function NameAndIconForAction(action)
 		actionIcon = 4238933;
 		skipTypeName = true;
 	elseif (type == Constants.FLYOUT) then
-		-- 저장된 것은 flyoutID 하나뿐이다. 이름도 아이콘도 여기서 다시 푼다 - 아이콘은
-		-- 주문책이 그 플라이아웃 칸에 그리는 그림이고, 주문서를 훑어야 나온다(`Misc.lua` 참고).
+		-- Only the flyoutID is stored, so the name and the icon are resolved here each time. The icon
+		-- is the one the spellbook draws for that flyout, found by walking the book
+		-- (`GetFlyoutNameAndIcon`).
 		--
-		-- 오프스펙을 허용하는 인자를 켜둔다. 여기는 **그리는** 쪽이라, 다른 특성에서 걸어둔
-		-- 플라이아웃도 이름과 그림이 나와야 목록에서 한 줄을 차지할 수 있다.
+		-- Off-spec is allowed because this side draws: a flyout set up in another specialization
+		-- still needs a name and a picture to take its row in a list.
 		actionName, actionIcon = DebindPrivate.GetFlyoutNameAndIcon(value, true);
 	elseif (type == Constants.UNUSED) then
 		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];

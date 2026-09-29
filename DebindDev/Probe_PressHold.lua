@@ -75,8 +75,8 @@ end
 -- The spell
 ---------------------------------------------------------------------------------------------------
 
---- The first spell in the book the client calls press-and-hold. Same walk `Misc.lua` makes over the
---- player bank.
+--- The first spell in the book the client calls press-and-hold. Same walk `SweepFlyoutIcons` makes
+--- over the player bank.
 local function FindEmpoweredSpell()
     local bank = Enum.SpellBookSpellBank.Player;
     for lineIndex = 1, (C_SpellBook.GetNumSpellBookSkillLines() or 0) do

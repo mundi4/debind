@@ -18,7 +18,7 @@ local BindingDriver                      = CreateFrame("Frame", DEBUG and "Debin
 -- **`unit` stays and the watch is gone.** Blizzard's `RegisterUnitWatch(frame, true)` wrote
 -- `state-unitexists` here five times a second, and the pass it woke measured values that only a
 -- computed switch announcing a change ever read. Those announce nothing now
--- (`SwitchesChangedCallback`, `Misc.lua`), so the pass went with them and every condition is
+-- (`SwitchesChangedCallback`), so the pass went with them and every condition is
 -- measured at the press instead. The attribute is what `RegisterUnitWatch` would resolve, and it
 -- costs nothing standing here.
 BindingDriver:SetAttribute("unit", "player");
@@ -148,6 +148,10 @@ end
 
 DebindPrivate.KeyMap                 = {};
 DebindPrivate.ActiveActions          = {};
+
+function DebindPrivate.IsInactiveAction(action)
+	return not DebindPrivate.ActiveActions[action];
+end
 
 --- The keys this rebuild bound to the click frame, `key -> button name`. The restricted
 --- `ClickTimeKeys` holds the same pairs indexed by button name, which is the way the wrapper looks.
