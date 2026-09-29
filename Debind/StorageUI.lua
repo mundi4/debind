@@ -1229,9 +1229,11 @@ end
 --- (`OnShow`), and cutting actions out of the entry that is showing is not either
 --- (`RebuildPreviewLayers`).
 function DebindStoragePanelMixin:SelectEntry(entry)
-    -- The add dialog answers for the entry that was picked when it opened (소유자, 2026-09-24).
+    -- The add dialog answers for the entry that was picked when it opened (소유자, 2026-09-24), and
+    -- the name dialog goes with it, unsaved (소유자, 2026-09-29).
     if (entry ~= self.selectedEntry) then
         DebindAddFrame:CloseDialog();
+        DebindEntryTextFrame:CloseDialog();
     end
     self.selectedEntry = entry;
     wipe(self.selected);
