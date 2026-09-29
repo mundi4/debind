@@ -1533,12 +1533,14 @@ L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
 L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, set the %s condition."
 L["TYPE_DISPEL"] = "Dispel"
 L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
--- **The same name as Dispel, on purpose** (2026-09-29, owner). On this client both types cast one
--- spell, so there is nothing for a name to tell apart, and the description says they are the same.
--- They differ on World of Warcraft: Forever, whose own file names both after what they remove
--- (`Locales/Camelot/enUS.lua`); a string brought over from there lands here with this name.
-L["TYPE_DISPEL2"] = "Dispel"
-L["TYPE_DISPEL2_DESC"] = "Casts your specialization's friendly dispel, the same spell as the other dispel in this list. The two are different only on World of Warcraft: Forever, where one removes curses and diseases and the other magic and poisons."
+-- **Dispel's own name and description, on purpose** (2026-09-29, owner). On this client both types
+-- cast one spell, so they read as one thing. They differ on World of Warcraft: Forever, whose own
+-- file names both after what they remove (`Locales/Camelot/enUS.lua`).
+--
+-- **Read off the key at load**, so a locale that translates `TYPE_DISPEL` or `TYPE_DISPEL_DESC`
+-- needs these two lines of its own as well, or the second one stays in English.
+L["TYPE_DISPEL2"] = L["TYPE_DISPEL"]
+L["TYPE_DISPEL2_DESC"] = L["TYPE_DISPEL_DESC"]
 L["TYPE_RESURRECT"] = "Resurrect"
 L["TYPE_RESURRECT_DESC"] = "Casts the resurrection that fits the press: your battle resurrection in combat, your mass resurrection on a dead group member or with no target, and your single one on any other dead friend."
 -- The switches in a Resurrect action's own submenu beside Cast Options (2026-09-23, owner).
