@@ -543,12 +543,21 @@ return function(DebindPrivate, DebindStorage)
         check(action.conditions.combat == true, "the other condition went with it");
     end);
 
-    -- 값 없는 타입 셋. `VALUE_SHAPES`에 없는 타입은 문자열 전체를 거절하므로, 셋 다 값 없이 통과해야
-    -- 한다 (`SpecSpells.lua`).
-    test("전문화가 주문을 정하는 타입 셋은 값 없이 들어온다", function()
-        for _, actionType in ipairs({ Constants.DISPEL, Constants.RAIDBUFF, Constants.RESURRECT }) do
+    -- The value-less types. A type missing from `VALUE_SHAPES` turns the whole string away, so each
+    -- has to come through with no value (`SpecSpells.lua`). `DISPEL2` is here because a string
+    -- made on camelot, where it has spells of its own, reaches retail as well.
+    --
+    -- **Asked of `PayloadIsImpossible`, which is where the string is turned away**: `ImportEntry`
+    -- asks it before storing. `PlanArrival` never does, so on its own it passed with a type missing
+    -- from the table.
+    test("전문화가 주문을 정하는 타입은 값 없이 들어온다", function()
+        for _, actionType in ipairs({ Constants.DISPEL, Constants.DISPEL2, Constants.RAIDBUFF,
+                Constants.RESURRECT }) do
             ResetProfile();
-            local action = PlanOne(General({ { type = actionType, key = "F", seq = 1 } }));
+            local payload = General({ { type = actionType, key = "F", seq = 1 } });
+            check(DebindStorage.PayloadIsImpossible(payload) == false,
+                actionType .. " turned the string away");
+            local action = PlanOne(payload);
             check(action.type == actionType, actionType .. "이 " .. tostring(action.type) .. "로 왔다");
             check(action.value == nil, actionType .. "에 값이 붙었다: " .. tostring(action.value));
         end

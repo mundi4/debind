@@ -134,15 +134,20 @@ return function(DebindPrivate, DebindStorage)
 
     -- **Each client reads its own spell data** (`SpecSpells.lua`). The shim's character is a druid,
     -- Balance on retail and the one specialization on camelot. A class-name fallback used to hand
-    -- camelot retail's Revive, which that client does not have, and a dispel it has two of.
+    -- camelot retail's Revive, which that client does not have.
+    --
+    -- The second dispel is the first one again on retail. On camelot it is Abolish Poison over Cure
+    -- Poison, and with neither known the row shows Cure Poison, the one learned first.
     test("a druid resolves its own client's spells", function()
         shim.world.specIndex = 1;
         local SpecSpells = DebindPrivate.SpecSpells;
         local C = DebindPrivate.Constants;
-        local want = camelot and { dispel = nil, raidbuff = 1126, rez = 437138 }
-            or { dispel = 2782, raidbuff = 1126, rez = 50769 };
+        local want = camelot and { dispel = 2782, dispel2 = 8946, raidbuff = 1126, rez = 437138 }
+            or { dispel = 2782, dispel2 = 2782, raidbuff = 1126, rez = 50769 };
         check(SpecSpells.SpellForType(C.DISPEL) == want.dispel,
             "dispel " .. tostring(SpecSpells.SpellForType(C.DISPEL)));
+        check(SpecSpells.SpellForType(C.DISPEL2) == want.dispel2,
+            "dispel 2 " .. tostring(SpecSpells.SpellForType(C.DISPEL2)));
         check(SpecSpells.SpellForType(C.RAIDBUFF) == want.raidbuff,
             "raid buff " .. tostring(SpecSpells.SpellForType(C.RAIDBUFF)));
         check(SpecSpells.SpellForType(C.RESURRECT) == want.rez,

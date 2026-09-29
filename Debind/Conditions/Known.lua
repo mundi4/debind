@@ -3,9 +3,13 @@ local Constants             = DebindPrivate.Constants;
 
 local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 
---- What this binding's `known` condition asks about: the spell it names, or the action's own spell
---- where it says `true` (`making-known-a-spell-name.md`). nil where there is no condition,
+--- What this binding's `known` condition asks about: the spell it names, or where it says `true`
+--- the spell the binding casts (`making-known-a-spell-name.md`). nil where there is no condition,
 --- and where `true` has no spell to fall back on.
+---
+--- **What it casts, not what the row shows.** A spec-resolved binding casts `spellToCast`, and on
+--- camelot the row can show the lower of two spells while this binding casts the upper
+--- (`SpecSpells.lua`); asked about `spell`, it would cast one spell under the other's `known`.
 ---
 --- **One answer for the three places that ask.** The conditional baked into the record, the
 --- solver's column key and the overview's "no spell" mark all have to name the same thing, and
@@ -24,10 +28,16 @@ function DebindPrivate.KnownSpellAsked(binding)
         return nil;
     end
     if (type(asked) == "boolean") then
-        local spell = binding.spell or binding.value;
+        local spell = binding.spellToCast or binding.spell or binding.value;
         return spell and (GetSpellNameAndIconID(spell) or spell);
     end
     return asked;
+end
+
+--- What a binding that takes this entry of `SpecSpells.lua`'s list asks about: the same answer
+--- `KnownSpellAsked` gives once `FillBinding` has put the entry on it.
+function DebindPrivate.KnownSpellOfEntry(entry)
+    return entry.known or GetSpellNameAndIconID(entry.cast) or entry.cast;
 end
 
 --- Does this binding's `known` condition have a spell to ask about? **The second condition the

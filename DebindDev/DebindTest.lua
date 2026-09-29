@@ -10373,6 +10373,45 @@ RegisterTest("Spec spells: this client's own data file loads", {
     end,
 })
 
+-- **Every id in camelot's dispel and buff lists is a spell that client has** (`SpecSpells_Camelot.lua`).
+-- The ids were read off trainer records and wowhead; one mistyped passes every headless spec, which
+-- takes the table as given, and the action then casts nothing on that class. Retail is left out:
+-- the shadow priest's 213634 is a talent and answers nothing on a character without it
+-- (`SpecSpells_Mainline.lua`), so a name check there fails on a correct id.
+RegisterTest("Spec spells: every camelot dispel and buff id is a spell", {
+    description = "Each entry of every class's dispel, dispel2 and raidbuff list in camelot's table has a spell name",
+    applies = function()
+        if select(4, GetBuildInfo()) >= 100000 then
+            return false, "not the camelot client"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "camelot spec spell ids"
+        local data = DebindPrivate.SpecSpellData
+        local missing, count = {}, 0
+        for spec, fields in pairs(data) do
+            for _, field in ipairs({ "dispel", "dispel2", "raidbuff" }) do
+                for _, entry in ipairs(fields[field] or {}) do
+                    for _, spellID in ipairs({ entry.cast, entry.known }) do
+                        count = count + 1
+                        if not DebindPrivate.GetSpellNameAndIconID(spellID) then
+                            missing[#missing + 1] = format("%d %s %d", spec, field, spellID)
+                        end
+                    end
+                end
+            end
+        end
+        if #missing > 0 then
+            return Fail(NAME, "no spell for " .. table.concat(missing, ", "))
+        end
+        if count == 0 then
+            return Fail(NAME, "the table had no entries to ask about")
+        end
+        return Pass(NAME, format("%d ids", count))
+    end,
+})
+
 -- **`Constants.GAME_TYPE` is a third file the client picks** (`GameType_*.lua`), and a payload made
 -- on a client that loaded neither, or both, carries the wrong answer about where it was made.
 RegisterTest("Game type: this client's own file loads", {

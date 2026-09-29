@@ -176,6 +176,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.FOCUS] = LLL["TYPE_FOCUS"],
 	[Constants.TOGGLEMENU] = LLL["TYPE_TOGGLEMENU"],
 	[Constants.DISPEL] = LLL["TYPE_DISPEL"],
+	[Constants.DISPEL2] = LLL["TYPE_DISPEL2"],
 	[Constants.RAIDBUFF] = LLL["TYPE_RAIDBUFF"],
 	[Constants.RESURRECT] = LLL["TYPE_RESURRECT"],
 	[Constants.COMMAND] = LLL["TYPE_COMMAND"],

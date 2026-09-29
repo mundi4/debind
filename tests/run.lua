@@ -359,6 +359,7 @@ local specs = {
     -- The client layer, once per client (`wow_shim.lua`'s `resetWorld`).
     { name = "client", path = root .. "/client_spec.lua" },
     { name = "client/camelot", path = root .. "/client_spec.lua", client = "camelot" },
+    { name = "camelotdispel", path = root .. "/camelotdispel_spec.lua", client = "camelot" },
     { name = "actionmenutree/camelot", path = root .. "/actionmenutree_spec.lua", client = "camelot" },
 };
 

@@ -95,14 +95,34 @@ return function(DebindPrivate, _, ctx)
     ---------------------------------------------------------------------------
 
     test("a druid resolves by specialization", function()
+        local SpellForType = DebindPrivate.SpecSpells.SpellForType;
         shim.world.specIndex = 1;
-        local balance = DebindPrivate.SpecSpells.Resolve();
-        check(balance.dispel == 2782, "balance dispel: " .. tostring(balance.dispel));
-        check(balance.raidbuff == 1126, "balance raid buff: " .. tostring(balance.raidbuff));
+        check(SpellForType(Constants.DISPEL) == 2782,
+            "balance dispel: " .. tostring(SpellForType(Constants.DISPEL)));
+        check(SpellForType(Constants.RAIDBUFF) == 1126,
+            "balance raid buff: " .. tostring(SpellForType(Constants.RAIDBUFF)));
 
         shim.world.specIndex = 4;
-        local resto = DebindPrivate.SpecSpells.Resolve();
-        check(resto.dispel == 88423, "restoration dispel: " .. tostring(resto.dispel));
+        check(SpellForType(Constants.DISPEL) == 88423,
+            "restoration dispel: " .. tostring(SpellForType(Constants.DISPEL)));
+        shim.world.specIndex = nil;
+    end);
+
+    -- **The second dispel is the first one on this client** (2026-09-29, owner). A specialization
+    -- here has one dispel for every kind it removes, so a Dispel 2 brought over from camelot casts
+    -- it rather than holding the key with nothing to cast.
+    test("the second dispel casts the specialization's dispel", function()
+        shim.world.specIndex = 1;
+        shim.world.spells[2782] = { name = "Remove Corruption" };
+        check(DebindPrivate.SpecSpells.SpellForType(Constants.DISPEL2) == 2782,
+            "resolved to " .. tostring(DebindPrivate.SpecSpells.SpellForType(Constants.DISPEL2)));
+        if (not shipped) then
+            Bind({ action({ type = Constants.DISPEL2, key = "F1" }) });
+            interp.state.known["Remove Corruption"] = true;
+            check(firedSpell("F1") == "Remove Corruption",
+                "learned, it cast " .. tostring(firedSpell("F1")));
+            interp:resetState();
+        end
         shim.world.specIndex = nil;
     end);
 
@@ -282,13 +302,13 @@ return function(DebindPrivate, _, ctx)
 
     --- Stands the warlock's dispel up. `Constants.PLAYER_CLASS` is read once at load so the class
     --- itself cannot be set here; what the rest of the addon sees of it is `SpellForType`'s pair,
-    --- and that is handed over directly.
-    local function withGate(gate, fn)
+    --- and that is handed over directly: the id the row is drawn with and the entry list.
+    local function withGate(entries, fn)
         local SpecSpells = DebindPrivate.SpecSpells;
         local saved = SpecSpells.SpellForType;
         SpecSpells.SpellForType = function(type)
             if (type == Constants.DISPEL) then
-                return gate.known[1], gate;
+                return entries[1].known, entries;
             end
             return saved(type);
         end
@@ -299,7 +319,7 @@ return function(DebindPrivate, _, ctx)
         end
     end
 
-    local WARLOCK_GATE = { cast = 119898, known = { 119905, 132411 } };
+    local WARLOCK_GATE = { { cast = 119898, known = 119905 }, { cast = 119898, known = 132411 } };
 
     local function warlockWorld()
         shim.world.spells[119898] = { name = "Command Demon", iconID = 136122 };

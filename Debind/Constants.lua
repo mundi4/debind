@@ -115,6 +115,10 @@ Constants.TOGGLEMENU                      = "togglemenu";
 --- Types that carry no value: the spell is decided by the class and specialization at rebuild
 --- time (`SpecSpells.lua`, `adding-spec-resolved-actions.md`).
 Constants.DISPEL                          = "dispel";
+--- The second kind of friendly dispel, where a client's dispels come in two kinds: magic and
+--- poison, while `DISPEL` is curse and disease. On a client whose table has one list for both
+--- they cast the same spell (`splitting-the-camelot-dispel.md`).
+Constants.DISPEL2                         = "dispel2";
 Constants.RAIDBUFF                        = "raidbuff";
 --- Several spells, one per branch, each picked by the target and combat
 --- (`adding-spec-resolved-actions.md` §6).
@@ -214,6 +218,7 @@ Constants.TYPES_WITH_UNIT                 = {
     [Constants.FOCUS] = true,
     [Constants.TOGGLEMENU] = true,
     [Constants.DISPEL] = true,
+    [Constants.DISPEL2] = true,
     [Constants.RAIDBUFF] = true,
     [Constants.RESURRECT] = true,
 };
@@ -222,6 +227,7 @@ Constants.TYPES_WITH_UNIT                 = {
 --- a `SPELL` at rebuild time and carry no value of their own.
 Constants.SPEC_RESOLVED_TYPES             = {
     [Constants.DISPEL] = true,
+    [Constants.DISPEL2] = true,
     [Constants.RAIDBUFF] = true,
     [Constants.RESURRECT] = true,
 };

@@ -340,7 +340,7 @@ end
 --- spell book as well, because `[known:<id>]` answers false for a spell the book holds under an
 --- override -- the warlock's dispel is the case (`SpecSpells.lua`) -- and the press takes either
 --- answer (`SecureBindings.lua`).
-local function MeasureKnown(value)
+function Spells.MeasureKnown(value)
     if (SecureCmdOptionParse("[known:" .. value .. "]")) then
         return true;
     end
@@ -360,7 +360,7 @@ end
 --- with a demon (the warlock's 119905 and 132411) are in no learn-level table (measured 2026-09-23,
 --- owner), so a summon in combat cannot strand a settled one.
 function Spells.SettleKnown(value)
-    if (IsFixed(value) and MeasureKnown(value)) then
+    if (IsFixed(value) and Spells.MeasureKnown(value)) then
         return true;
     end
     return nil;
@@ -369,7 +369,7 @@ end
 --- Whether the row should say the spell is not there. **Not a settled answer**: the binding stays
 --- on the key and the press asks again, so this is what the row shows until the next rebuild.
 function Spells.KnownMissing(value)
-    return IsFixed(value) and not MeasureKnown(value);
+    return IsFixed(value) and not Spells.MeasureKnown(value);
 end
 
 --- The value a spell goes on a secure button under. **A name and not an id**, because spells share

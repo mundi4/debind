@@ -239,7 +239,7 @@ do
     --- menu made it. `twinOwnUnit` is what tells the hover twin's own [the unit is there] apart from
     --- a row the reader wrote: both sit in `conditions.units` by the time `BuildUnitStates` reads it.
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
-            knownSpell, branch)
+            entry, branch)
         local twin = castModifier ~= nil;
         -- **The pre-rename spelling of the target, for the profiles the ladder has not reached.**
         -- `dbver <= 6` renames a stored `unit = "hover"` alongside the condition; the unit table
@@ -263,16 +263,18 @@ do
         -- (`SpecSpells.lua`), and every reader of the binding that wants a spell id reads this
         -- field ahead of `value`.
         --
-        -- `spellToCast` is what the button carries where it is not `spell`: the warlock's dispel
-        -- goes out under a spell it is not named after (`SpecSpells.lua`). The row, the tooltip and
-        -- the name stay on `spell`.
-        local gate;
+        -- `spellToCast` is what the button carries, set below with the `known` it goes out under:
+        -- one entry of `SpecSpells.lua`'s list is both. It is not `spell`, which is what the row,
+        -- the tooltip and the name show: the warlock's dispel goes out under a spell it is not named
+        -- after, and on camelot the row can show the lower spell while this binding casts the upper.
+        local entries;
         if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
-            binding.spell, gate = DebindPrivate.SpecSpells.SpellForType(action.type);
+            binding.spell, entries = DebindPrivate.SpecSpells.SpellForType(action.type);
         else
             binding.spell = nil;
         end
-        binding.spellToCast = gate and gate.cast or nil;
+        binding.spellToCast = nil;
+        binding.entry = nil;
         -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
         -- the original's field: the twins each stand in a tier of their own and Normal Cast says
         -- nothing about those tiers. `BuildKeyMap` reads it to leave the original out of the last
@@ -430,18 +432,20 @@ do
         end
 
         -- **A spec-resolved spell is cast only under a `known`, ticked or not** (2026-09-23,
-        -- owner). A binding that casts asks about one spell, `knownSpell`: an id of the warlock's
-        -- (`SpecSpells.lua`), or `true` for the spell this specialization resolves to. Unticked,
-        -- the binding the reader sees is `holdsOnly`: it keeps the key and casts nothing, and the
-        -- ones that cast stand ahead of it (`GetBindingsForAction`). A class that has not learned
-        -- its dispel then looks like one that has none (§4 of `adding-spec-resolved-actions.md`)
-        -- instead of sending a cast for the game to refuse, and the warlock's Command Demon, which
-        -- casts whatever the demon that is out has, never goes out as a Spell Lock.
+        -- owner). A binding that casts takes one `entry` of `SpecSpells.lua`'s list, and the entry
+        -- is both what it asks and what it casts: an id of the warlock's under Command Demon, or
+        -- `true` for the spell it casts itself (`KnownSpellAsked` names it). Unticked, the binding
+        -- the reader sees is `holdsOnly`: it keeps the key and casts nothing, and the ones that cast
+        -- stand ahead of it (`GetBindingsForAction`). A class that has not learned its dispel then
+        -- looks like one that has none (§4 of `adding-spec-resolved-actions.md`) instead of sending
+        -- a cast for the game to refuse, and the warlock's Command Demon, which casts whatever the
+        -- demon that is out has, never goes out as a Spell Lock.
         --
-        -- **Ticked, the binding the reader sees asks about the first id itself**, rather than that
+        -- **Ticked, the binding the reader sees takes the first entry itself**, rather than that
         -- being the derivation's business, because this function is what every caller of
         -- `GetBindingInfoForAction` gets and it has to answer the same thing every time it runs.
-        -- A `known` naming a spell is a different question and is left as it is.
+        -- `binding.entry` says it did, for the derivation to start after it. A `known` naming a
+        -- spell is a different question and is left as it is, cast as the first entry.
         --
         -- **`skipWhenUnusable` is the ticked box under the reader's own name for it** (2026-09-23,
         -- owner): "hand the key on when there is nothing to cast", whatever the reason is. Ticking
@@ -463,16 +467,19 @@ do
             binding.spellToCast = branch.spell;
             binding.combatContradicts = ApplyResurrectBranch(conditions, branch) == "combat" or nil;
         elseif (binding.spell ~= nil) then
-            if (knownSpell ~= nil) then
-                conditions.known = knownSpell;
+            if (entry == nil and conditions.known == true and entries) then
+                entry = entries[1];
+            end
+            if (entry ~= nil) then
+                conditions.known = entry.known or true;
+                binding.spellToCast = entry.cast;
+                binding.entry = entry;
             elseif (conditions.known == true) then
-                if (binding.type == Constants.RESURRECT) then
-                    binding.omitted = true;
-                else
-                    conditions.known = gate and gate.known[1] or true;
-                end
+                binding.omitted = true;
             elseif (conditions.known == nil) then
                 binding.holdsOnly = true;
+            elseif (entries) then
+                binding.spellToCast = entries[1].cast;
             end
         end
 
@@ -861,7 +868,6 @@ do
     local _ActionToKnownFocusCache = setmetatable({}, { __mode = "k" });
     local _ActionToKnownSelfCache = setmetatable({}, { __mode = "k" });
 
-    local ASK_OWN_SPELL = { true };
     local NO_KNOWN = {};
 
     local HELP_DEAD = { dead = true, reaction = Constants.REACTION_HELP };
@@ -971,10 +977,11 @@ do
         list[1] = original;
         local n = 1;
 
-        -- **A spec-resolved action casts only through bindings that ask `known`, one per spell it
-        -- asks about, and it has to be bindings rather than one binding with a cleverer field**
-        -- (2026-09-23; the same ground was walked and lost once before). The warlock's dispel is
-        -- the case that needs more than one, and the reasoning is `SpecSpells.lua`'s:
+        -- **A spec-resolved action casts only through bindings that ask `known`, one per entry of
+        -- `SpecSpells.lua`'s list, and it has to be bindings rather than one binding with a cleverer
+        -- field** (2026-09-23; the same ground was walked and lost once before). A camelot class
+        -- with a lower and an upper spell needs more than one because each casts a spell of its own;
+        -- the warlock's dispel needs more than one for the reasons in `SpecSpells_Mainline.lua`:
         --
         --   1. The book holds it as one id while the imp is out and as another while it is
         --      swallowed. `[known:]` tells the two apart in neither direction -- false by id
@@ -993,21 +1000,21 @@ do
         -- the ordinary `known` axis, so the solver sees two real boxes, coverage and the
         -- unreachable mark work, and the press path gains no new idea.
         --
-        -- **Ticked, the original asks about the first spell and the rest are derived. Unticked,
-        -- every one is derived** and the original holds the key behind them (`FillBinding`).
-        -- Read off the original, which is where `FillBinding` settled what the box, a stored
-        -- `false` and `skipWhenUnusable` add up to. A gated one that took the first id is ticked;
-        -- a `known` naming some other spell is neither.
+        -- **Ticked, the original takes the first entry and the rest are derived. Unticked, every
+        -- one is derived** and the original holds the key behind them (`FillBinding`). Read off
+        -- the original, which is where `FillBinding` settled what the box, a stored `false` and
+        -- `skipWhenUnusable` add up to. One that took an entry is ticked; a `known` naming some
+        -- other spell is neither.
         local asks, firstDerived, branches = NO_KNOWN, 1, nil;
         if (action.type == Constants.RESURRECT) then
             branches = ResurrectBranches(action);
             asks = branches;
         elseif (original.spell ~= nil) then
-            local _, gate = DebindPrivate.SpecSpells.SpellForType(action.type);
+            local _, entries = DebindPrivate.SpecSpells.SpellForType(action.type);
             if (original.holdsOnly) then
-                asks = gate and gate.known or ASK_OWN_SPELL;
-            elseif (gate and original.conditions.known == gate.known[1]) then
-                asks, firstDerived = gate.known, 2;
+                asks = entries;
+            elseif (original.entry ~= nil) then
+                asks, firstDerived = entries, 2;
             end
         end
 

@@ -8,40 +8,58 @@ local _, DebindPrivate = ...;
 --- cast by name on a client with ranks (`Spells.lua`), so the highest rank the character has goes
 --- out whatever rank is written here.
 ---
---- **No dispel for a class with two or more** (2026-09-25, owner): the action has one spell to
---- cast and cannot say which of a curse and a poison it meant. Each class it leaves out says which
---- two. A class missing below has none of the three.
+--- **Dispels come in two kinds here, and a class can have one of each** (2026-09-27, owner).
+--- `dispel` removes a curse or a disease and `dispel2` magic or a poison, which is the split that
+--- leaves no class with two kinds inside one type. A reader with several healers presses one key
+--- for the same debuff on every character (`splitting-the-camelot-dispel.md`).
+---
+--- **Where a type has two spells, the upper one is written first** and a press casts it once it is
+--- known. It removes everything the lower one does for the same mana, and the Abolish spells go on
+--- removing for a while after. Cure Poison 8946 is taught by a quest, not a trainer.
+---
+--- A class missing below has none of these.
 local data = {};
 
-local MAGE, DRUID, PRIEST, SHAMAN = 1482, 1484, 1487, 1489;
+local MAGE, DRUID, PRIEST, SHAMAN, PALADIN = 1482, 1484, 1487, 1489, 1486;
 
 data[MAGE] = {
-    dispel = 475,       -- Remove Lesser Curse, level 18
-    raidbuff = 1459,    -- Arcane Intellect
+    dispel = { { cast = 475 } },     -- Remove Lesser Curse, level 18
+    raidbuff = { { cast = 1459 } },  -- Arcane Intellect
 };
 
--- No dispel: Remove Curse 2782 (level 24) and Abolish Poison 2893 (level 26).
 data[DRUID] = {
-    raidbuff = 1126,    -- Mark of the Wild
+    dispel = { { cast = 2782 } },    -- Remove Curse, level 24
+    -- Abolish Poison (26), then Cure Poison (14)
+    dispel2 = { { cast = 2893 }, { cast = 8946 } },
+    raidbuff = { { cast = 1126 } },  -- Mark of the Wild
     rezSingle = 437138, -- Revive, level 12; not retail's 50769
     rezBattle = 20484,  -- Rebirth, level 20
 };
 
 -- **Power Word: Fortitude and not Prayer of Fortitude**, which retail's table names: the single
 -- target one is what a priest has from level 1.
---
--- No dispel: Cure Disease 528 (level 14) and Dispel Magic 527 (level 18).
 data[PRIEST] = {
-    raidbuff = 1243,
+    -- Abolish Disease (32), then Cure Disease (14)
+    dispel = { { cast = 552 }, { cast = 528 } },
+    dispel2 = { { cast = 527 } },    -- Dispel Magic, level 18
+    raidbuff = { { cast = 1243 } },
     rezSingle = 2006,   -- Resurrection, level 10
 };
 
--- No dispel: Cure Poison 526 (level 16) and Cure Disease 2870 (level 22).
 data[SHAMAN] = {
+    dispel = { { cast = 2870 } },    -- Cure Disease, level 22
+    dispel2 = { { cast = 526 } },    -- Cure Poison, level 16
     rezSingle = 2008,   -- Ancestral Spirit, level 12
 };
 
--- The paladin (1486) has no entry. No dispel: Purify 1152 (level 8) and Cleanse 4987 (level 42).
+-- **One list for both types**: Cleanse removes a disease, a poison and magic, and Purify a disease
+-- and a poison, so each is right under either. Cleanse (42), then Purify (8).
+--
 -- No raid buff: the Blessings are several, and the action casts one.
+local PALADIN_DISPEL = { { cast = 4987 }, { cast = 1152 } };
+data[PALADIN] = {
+    dispel = PALADIN_DISPEL,
+    dispel2 = PALADIN_DISPEL,
+};
 
 DebindPrivate.SpecSpellData = data;

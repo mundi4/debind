@@ -2692,10 +2692,23 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- **The second way, and it is a different question.** Above is "there is no spell to ask
     -- about"; here the spell exists and is not known (`Spells.KnownMissing`). A reader sees one
     -- thing either way -- that spell is not there -- so both take the same word.
+    --
+    -- **An original that took the first of several entries is missing only while every entry is**
+    -- (`SpecSpells.lua`). A camelot druid who has not trained Abolish Poison still casts Cure
+    -- Poison from the same key, and the row saying the spell is not there would be wrong.
     local knownAsked = DebindPrivate.KnownSpellAsked(binding);
+    local missing = knownAsked ~= nil and DebindPrivate.Spells.KnownMissing(knownAsked);
+    if (missing and binding.entry ~= nil) then
+        local _, entries = DebindPrivate.SpecSpells.SpellForType(binding.type);
+        for i = 2, #entries do
+            if (not DebindPrivate.Spells.KnownMissing(DebindPrivate.KnownSpellOfEntry(entries[i]))) then
+                missing = false;
+                break;
+            end
+        end
+    end
     row.noSpell = (not offWorld)
-        and (not DebindPrivate.KnownConditionCanHold(binding)
-            or (knownAsked ~= nil and DebindPrivate.Spells.KnownMissing(knownAsked)))
+        and (not DebindPrivate.KnownConditionCanHold(binding) or missing)
         or nil;
 
     -- **The fourth way: the reader turned the action off.** Not an issue, because they asked for it
