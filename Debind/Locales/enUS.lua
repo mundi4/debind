@@ -1532,10 +1532,13 @@ L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
 -- sentence.
 L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, set the %s condition."
 L["TYPE_DISPEL"] = "Dispel"
-L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
--- **Dispel's own name and description, on purpose** (2026-09-29, owner). On this client both types
--- cast one spell, so they read as one thing. They differ on World of Warcraft: Forever, whose own
--- file names both after what they remove (`Locales/Camelot/enUS.lua`).
+-- **Says the two dispels are one spell here, on both of them** (2026-09-29, owner). The picker lists
+-- two entries under one name, and a reader who sees the second one under a key also holding the
+-- first has to be told that is fine. Camelot's own file replaces both descriptions there, where the
+-- two differ (`Locales/Camelot/enUS.lua`).
+L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now. The other dispel in this list casts the same spell, and having both on one key is fine."
+-- **Dispel's own name and description, on purpose** (2026-09-29, owner): on this client both types
+-- cast one spell, so they read as one thing.
 --
 -- **Read off the key at load**, so a locale that translates `TYPE_DISPEL` or `TYPE_DISPEL_DESC`
 -- needs these two lines of its own as well, or the second one stays in English.
