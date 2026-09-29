@@ -382,7 +382,7 @@ L["DEFAULT"] = "Default"
 L["DELETE_CONFIRM_MESSAGE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%s|r?"
 -- 여럿을 한꺼번에 지울 때. **이름 대신 개수로 묻는다** - 열몇 개를 나열하면 팝업이 화면을
 -- 덮고, 몇 개만 적으면 나머지를 숨긴 채로 묻는 꼴이 된다.
-L["DELETE_CONFIRM_MESSAGE_MULTIPLE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%d|r actions?"
+L["DELETE_CONFIRM_MESSAGE_MULTIPLE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%s|r?"
 L["DELETE"] = "Delete"
 -- 클라이언트가 이미 모든 언어로 갖고 있는 말이다. 여기서 한 번 받아두면 로케일 파일이
 -- 없는 언어도 제 나라 말로 나온다.
@@ -571,7 +571,7 @@ L["ACTION_SET_KEY_ACCEPT_DESC"] = "Sets the key for this action and takes it: it
 ---
 --- Numbered placeholders because two of them are strings; the rule is in
 --- `writing-user-facing-text.md`.
-L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$d|r actions on it - everything that key does on this character, whichever specialization they belong to.|n|nWhat should happen to them when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
+L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$s|r on it - everything that key does on this character, whichever specialization |4it belongs:they belong; to.|n|nWhat should happen to |4it:them; when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
 --- Added under the question when any of the ones being counted lives in a shared scope.
 ---
 --- **Only then, because most of the time it is not true**, and a dialog that warns about other
@@ -1309,7 +1309,7 @@ L["SWITCH_ACTION_TOGGLE"] = "Toggles it"
 L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole account?"
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
-L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnNORMAL_FONT_COLOR:%d|r actions use it and will stop working."
+L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; it and will stop working."
 -- Appended only when there are some, so a switch that is the same everywhere is not shown a line
 -- about them.
 --
@@ -1604,7 +1604,7 @@ L["UNBIND"] = "Unbind key"
 --- to lose. What the reader is being told is the size of what comes apart.
 ---
 --- "Separate actions" and not "lose their key", because losing the key is the part they asked for.
-L["UNBIND_SCATTERS_CONFIRM"] = "%d actions share a key here. Taking it off leaves them as separate actions with no key, and nothing records that they went together - if you do not remember, you cannot put them back."
+L["UNBIND_SCATTERS_CONFIRM"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r share a key here. Taking it off leaves them as separate actions with no key, and nothing records that they went together - if you do not remember, you cannot put them back."
 --- **The verb, not [Okay].** The reader is agreeing to the thing the sentence just described rather
 --- than acknowledging that they read it, and the client's own destructive prompts name the act.
 L["UNBIND_SCATTERS_CONFIRM_YES"] = "Unbind and separate"
@@ -1824,7 +1824,7 @@ L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherev
 -- to yours?" while the answers were two, and stayed there when a third was added - at which point
 -- [Merge] was not an answer to the question above it. Every one of the three names a winner, so the
 -- question has to be the one they all answer.
-L["APPROVE_ALL_OCCUPIED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$d|r actions are about to take the keys they came in on, and |cnHIGHLIGHT_FONT_COLOR:%2$d|r of yours are on those keys already.|n|nWho gets those keys?"
+L["APPROVE_ALL_OCCUPIED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r |4is about to take the key it:are about to take the keys they; came in on, and |cnHIGHLIGHT_FONT_COLOR:%2$s|r of yours |4is:are; already there.|n|nWho gets those keys?"
 -- **The answer that changes nothing of what is already there**, and first because that is where
 -- Enter lands.
 --
@@ -1906,7 +1906,7 @@ L["REJECT_IMPORT"] = "Reject"
 L["REJECT_IMPORT_DESC"] = "Removes this one. The string it came from stays in the Import tab, so you can bring it in again."
 -- **The second sentence is what makes this pressable.** Without it this reads as the destructive
 -- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
-L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the Import tab, so you can bring it in again."
+L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%s|r that came in and |4has:have; not been accepted?|n|n|4It is:They are; removed, but the string |4it:they; came from stays in the Import tab, so you can bring it in again."
 --- The one-shot in the options menu. **A sweep of what the reader already has**, not of what is
 --- arriving - two payloads made by the same person share their account layer, and bringing both in
 --- leaves that layer holding the same action twice.
@@ -1945,7 +1945,7 @@ L["REPLACE_ACTION_DESC"] = "You pick something else for this action to do. The k
 --- 무엇을 고른 **뒤에** 서는 확인 창이라, 머리줄이 바꿀 것의 이름을 댈 수 있다. 고르기 전에는
 --- 못 하던 것이고, 이 창이 언제나 설 수 있는 이유이기도 하다.
 L["REPLACE_CONFIRM_ONE"] = "Replace this action with |cnHIGHLIGHT_FONT_COLOR:%s|r?"
-L["REPLACE_CONFIRM_MANY"] = "Replace |cnHIGHLIGHT_FONT_COLOR:%d|r actions with |cnHIGHLIGHT_FONT_COLOR:%s|r?"
+L["REPLACE_CONFIRM_MANY"] = "Replace |cnHIGHLIGHT_FONT_COLOR:%1$s|r with |cnHIGHLIGHT_FONT_COLOR:%2$s|r?"
 --- 목록에 들어가는 이름은 메뉴가 쓰는 것 그대로다(`TARGET_UNIT`, `CONDITION_KNOWN`). 읽는
 --- 사람이 거기서 정해둔 것이라, 낱말이 다르면 무엇을 잃는지 찾아야 한다.
 ---
@@ -1960,7 +1960,7 @@ L["REMOVE_DUPLICATES_NONE"] = "No duplicate actions to remove."
 ---
 --- **And it says nothing is lost**, which is what makes one press over rows the reader has not
 --- looked at offerable at all: every one of these has a twin staying behind.
-L["REMOVE_DUPLICATES_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%d|r duplicate actions?|n|nEach one is an exact copy of another in the same layer, and the copy that fires first is staying. Nothing your keys do will change."
+L["REMOVE_DUPLICATES_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r that |4is a duplicate:are duplicates;?|n|nEach one is an exact copy of another in the same layer, and the copy that fires first is staying. Nothing your keys do will change."
 -- **The filter dropdown, one tick per value.** Two axes, and each is written out value by value
 -- rather than as one switch that hides a side, so that every tick means the same thing: show this
 -- too. A switch called "off-spec" would mean the opposite of its neighbours - ticking it would add
@@ -2026,12 +2026,12 @@ L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anyw
 -- The other way in. **Both halves are said** because a string can hold either kind: what the sender
 -- had on a key is on that key now, and what they had not bound yet cannot be, so it lands the same
 -- way everything else does.
-L["IMPORT_COMMITTED_KEYED"] = "Brought in %d actions on the keys they came with. Anything that arrived without one is unbound until you give it a key."
-L["IMPORT_COMMITTED"] = "Brought in %d actions. They are pending until you accept them - a row for doing that is now at the top of the window."
+L["IMPORT_COMMITTED_KEYED"] = "Brought in %s on the |4key it:keys they; came with. Anything that arrived without one is unbound until you give it a key."
+L["IMPORT_COMMITTED"] = "Brought in %s. |4It is:They are; pending until you accept |4it:them; - a row for doing that is now at the top of the window."
 -- **Three things reach this and none is left out by the dialog**, so it names all three: another
 -- class's layers, which adding does not take (`reshaping-stored-layers.md` 6-2), a specialization
 -- this character's class does not have, and a layer a newer Debind invented.
-L["IMPORT_COMMITTED_SKIPPED"] = "%d of them were left out - another class's, a specialization this character does not have, or a layer this version does not know."
+L["IMPORT_COMMITTED_SKIPPED"] = "%s of them |4was:were; left out - another class's, a specialization this character does not have, or a layer this version does not know."
 -- The right-click menu on an action in the preview. **Taking things out is the only edit an entry
 -- has**, so these two are the whole menu.
 --
@@ -2043,7 +2043,7 @@ L["STORAGE_DELETE_ACTION"] = "Delete this action"
 L["STORAGE_DELETE_SELECTED"] = "Delete %d selected"
 -- Which is why two or more ask. One does not: a menu is already enough hands not to reach by
 -- accident, and the second look is for the count rather than for the act.
-L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take %1$d actions out of this? They do not come back - you would have to make it again."
+L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take |cnHIGHLIGHT_FONT_COLOR:%s|r out of this? They do not come back - you would have to make it again."
 -- The door that makes a row out of what this character has right now, beside the one that makes a
 -- row out of a code somebody sent.
 --
@@ -2084,18 +2084,14 @@ L["STORAGE_CREATE_FROM_CODE"] = "From Share Code"
 L["STORAGE_CREATE_FROM_CLIQUE"] = "From Clique..."
 -- Why that item is grey. It reads Clique's own saved variables, which exist only while it is loaded.
 L["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"] = "Clique is not loaded."
--- What a row from a Clique share code is called until somebody names it. The code carries no
--- profile name, and this is drawn, never stored as one. **For now** (소유자, 2026-09-28): what such a
--- row should show is still open.
-L["STORAGE_CLIQUE_UNNAMED"] = "Unnamed Profile"
+-- What a row nobody named is called, drawn and never stored as a name.
+L["STORAGE_ENTRY_UNNAMED"] = "Unnamed Profile"
 -- A profile's tooltip. Both lines stand whatever the profile holds: the characters that use it, and
 -- how many actions it becomes -- Clique's two starting bindings are not counted, since nothing of
 -- ours stands in for them. **A profile nobody uses gets a line of its own** rather than a word
 -- dropped into `%s`, which read "Used by: no character".
 L["STORAGE_CLIQUE_PROFILE_USERS"] = "Used by: %s"
 L["STORAGE_CLIQUE_PROFILE_NO_USERS"] = "No character uses it."
--- Counted the way the storage row counts them (`IMPORT_ENTRY_COUNTS`).
-L["STORAGE_CLIQUE_PROFILE_COUNT"] = "%d |4action:actions;"
 -- **Both texts end on moving**, because pending actions cannot be moved or copied: the way to split
 -- them up comes after accepting.
 L["STORAGE_ADD_TEXT"] = "These actions go into the same layers they came from. Once accepted, they can be moved to other layers."
@@ -2210,10 +2206,12 @@ L["STORAGE_ENTRY_CLASSES"] = "Classes: %s"
 L["STORAGE_ENTRY_CHARACTERS"] = "Characters: %s"
 -- A string whose writer left the character names out: the characters above are numbered instead.
 L["STORAGE_ENTRY_ANONYMOUS"] = "Character names left out"
--- A row with no name is called by what it holds. Past one class or one character the title counts
--- them, and the tooltip lists them. %d is how many.
-L["STORAGE_TITLE_CLASSES"] = "%d classes"
-L["STORAGE_TITLE_CHARACTERS"] = "%d characters"
+-- **One count each, joined by the caller** (소유자, 2026-09-29): a line that needs three of them
+-- lists three rather than having a string of its own, so a count is worded once. %d is how many.
+L["COUNT_CLASSES"] = "%d |4class:classes;"
+L["COUNT_CHARACTERS"] = "%d |4character:characters;"
+L["COUNT_KEYS"] = "%d |4key:keys;"
+L["COUNT_ACTIONS"] = "%d |4action:actions;"
 -- The row menu's one item, and the title of the dialog it opens. The name box above reuses
 -- `IMPORT_PASTE_NAME`: it is the same field the paste dialog fills.
 L["STORAGE_ENTRY_EDIT"] = "Edit Name and Description"
@@ -2288,7 +2286,6 @@ L["IMPORT_PASTE_ACCEPT"] = HUD_CLASS_TALENTS_IMPORT_LOADOUT_ACCEPT_BUTTON
 -- other way round can swap them, and unnumbered the swap would silently print them in the wrong
 -- order.
 L["IMPORT_ENTRY_LINE"] = "%1$s  %2$s"
-L["IMPORT_ENTRY_COUNTS"] = "%1$d keys, %2$d actions"
 -- **The first line is the title**: this popup has no title bar, so it is what the reader reads
 -- first and it has to name what goes.
 --
@@ -2325,6 +2322,5 @@ L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind S
 L["EXPORT_SELECTED_COUNT"] = "%1$d of %2$d selected"
 L["EXPORT_EMPTY"] = "There is nothing here to export yet."
 L["EXPORT_LAYER_HEADER"] = "%1$s (%2$d/%3$d)"
-L["EXPORT_LAYER_COUNT"] = "%d actions"
 L["EXPORT_FAILED_LIBS_MISSING"] = "The libraries that build the string are missing, which means the install did not finish. Downloading Debind again brings them back."
 L["EXPORT_COPY_TITLE"] = "Copy this string (Ctrl-C)"

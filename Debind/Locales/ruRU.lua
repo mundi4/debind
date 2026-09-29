@@ -87,8 +87,6 @@ L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COL
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Установлено на %2$s - цель удерживается по месту в группе, а не по имени, так как состав группы изменился в этом бою. Установите её заново после боя, и она будет следовать за игроком."
 L["DEFAULT"] = "По умолчанию"
 L["DELETE_CONFIRM_MESSAGE"] = "Вы уверены, что хотите удалить |cnHIGHLIGHT_FONT_COLOR:%s|r?"
--- 근거는 enUS 쪽 주석에.
-L["DELETE_CONFIRM_MESSAGE_MULTIPLE"] = "Вы уверены, что хотите удалить |cnHIGHLIGHT_FONT_COLOR:%d|r действий?"
 L["DELETE"] = "Удалить"
 L["OVERVIEW_EMPTY"] = "Пока нет ни одной привязанной клавиши. Назначьте клавишу действию справа, и оно появится здесь."
 -- OVERVIEW_NO_KEY는 여기 없어야 맞다. enUS가 클라이언트 전역 NOT_BOUND를 담고 있어서

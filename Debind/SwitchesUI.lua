@@ -1593,7 +1593,8 @@ function DebindSwitchesPanelMixin:OnDeleteClick()
     local text = format(LLL["SWITCH_DELETE_CONFIRM"], name);
     local references = DebindPrivate.CountSwitchReferences(name);
     if (references > 0) then
-        text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_ACTIONS"], references);
+        text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_ACTIONS"],
+            DebindPrivate.CountText("actions", references));
     end
     if (DebindPrivate.CountSwitchOverrides(name) > 0) then
         text = text .. "\n" .. LLL["SWITCH_DELETE_CONFIRM_OVERRIDES"];

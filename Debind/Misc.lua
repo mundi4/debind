@@ -70,6 +70,20 @@ function DebindPrivate.GetKeyDisplayText(key)
     return GetBindingText(key);
 end
 
+--- The one wording of each thing the addon counts. A sentence with a count in it takes this as a
+--- `%s`, so "3 actions" is written in one string rather than once per sentence (owner, 2026-09-29).
+local COUNT_KEYS = {
+    actions = "COUNT_ACTIONS",
+    keys = "COUNT_KEYS",
+    classes = "COUNT_CLASSES",
+    characters = "COUNT_CHARACTERS",
+};
+
+--- `n` of `noun`, one of `COUNT_KEYS`'s, in that noun's `COUNT_*` string.
+function DebindPrivate.CountText(noun, n)
+    return format(L[COUNT_KEYS[noun]], n);
+end
+
 
 --- **The name a character is stored and shown by**, the player's included: `UnitName`'s first
 --- return alone is not one on camelot (`JoinUnitName`).

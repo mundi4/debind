@@ -11,6 +11,7 @@ end
 local Constants              = DebindPrivate.Constants;
 local LLL                    = DebindPrivate.L;
 local DebindUI             = DebindPrivate.DebindUI;
+local CountText            = DebindPrivate.CountText;
 
 local MACRO_NAME_CHAR_LIMIT  = 32;
 local MACRO_CHAR_LIMIT       = 1000;
@@ -650,7 +651,7 @@ do
 	function ShowDeleteConfirmationPopup(actions)
 		HideDeleteConfirmationPopup();
 
-		local text, arg = LLL["DELETE_CONFIRM_MESSAGE_MULTIPLE"], #actions;
+		local text, arg = LLL["DELETE_CONFIRM_MESSAGE_MULTIPLE"], CountText("actions", #actions);
 		if (#actions == 1) then
 			text = LLL["DELETE_CONFIRM_MESSAGE"];
 			arg = NameAndIconForAction(actions[1]) or LLL["UNNAMED_ACTION"];
@@ -686,7 +687,7 @@ do
 
 		_deletePopupData = {
 			text = LLL["REJECT_IMPORT_CONFIRM"],
-			text_arg1 = #actions,
+			text_arg1 = CountText("actions", #actions),
 			callback = function()
 				DeleteActions(actions);
 				-- **The narrowing is not touched.** [Pending] is a tick in the filter dropdown now,
@@ -721,7 +722,7 @@ do
 
 		_deletePopupData = {
 			text = LLL["REMOVE_DUPLICATES_CONFIRM"],
-			text_arg1 = #actions,
+			text_arg1 = CountText("actions", #actions),
 			callback = function()
 				DeleteActions(actions);
 			end,
@@ -2506,7 +2507,8 @@ function DebindFrameMixin:ApproveArrivals(arrivals)
 		return true;
 	end
 
-	StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED", #arrivals, #occupants,
+	StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED",
+		CountText("actions", #arrivals), CountText("actions", #occupants),
 		{ arrivals = arrivals, occupants = occupants, contested = contested });
 	return false;
 end
@@ -6180,7 +6182,7 @@ function DebindUI.UnbindActions(actions, accepting)
 		return;
 	end
 
-	StaticPopup_Show("DEBIND_UNBIND_SCATTERS", scattered, nil,
+	StaticPopup_Show("DEBIND_UNBIND_SCATTERS", CountText("actions", scattered), nil,
 		{ actions = actions, accepting = accepting });
 end
 
@@ -6250,7 +6252,8 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 		if (AnySharedOccupant(data.occupants)) then
 			text = text .. "|n|n" .. LLL["KEY_GROUP_CONFLICT_SHARED"];
 		end
-		dialog:SetFormattedText(text, data.label, KeyGroupLabel(data.key), #data.occupants);
+		dialog:SetFormattedText(text, data.label, KeyGroupLabel(data.key),
+			CountText("actions", #data.occupants));
 
 		-- 두 답이 무엇을 하는지는 낱말 두 개로는 안 나온다. **하나는 지정을 걷어내는 답이고**,
 		-- 이 창은 이 애드온에서 되돌리기가 제일 비싼 자리다.
@@ -6338,7 +6341,7 @@ local function ReplaceConfirmText(actions, entryType, value, props)
 
 	local text;
 	if (#actions > 1) then
-		text = format(LLL["REPLACE_CONFIRM_MANY"], #actions, newName);
+		text = format(LLL["REPLACE_CONFIRM_MANY"], CountText("actions", #actions), newName);
 	else
 		text = format(LLL["REPLACE_CONFIRM_ONE"], newName);
 	end

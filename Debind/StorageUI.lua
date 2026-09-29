@@ -3,6 +3,7 @@ local _, DebindPrivate = ...;
 local LLL           = DebindPrivate.L;
 local DebindUI      = DebindPrivate.DebindUI;
 local Constants     = DebindPrivate.Constants;
+local CountText     = DebindPrivate.CountText;
 
 --- The addon that keeps the store, parked here when it loads (`EnsureStore` in `DebindUI.lua`).
 ---
@@ -272,44 +273,27 @@ local NAME_MAX_CHARS = 48;
 --- The longest `payload.description` the tooltip draws.
 local DESCRIPTION_MAX_CHARS = 300;
 
---- What a payload holds, as a name (`showing-what-an-entry-holds.md` 3절): **a small one by what is
---- in it, a large one by how far it reaches.** One action is that action and one key is that key.
---- Past that, the one scope that covers the rest (`DescribePayload`'s `only`), whose class the
---- colour says, so the words need not; and where scopes do not nest, how many there are. Nil for a
---- payload holding nothing.
-local function ContentsTitle(entry, held)
-    if (held.action) then
-        local name = DebindUI.NameAndIconForAction(held.action);
-        if (name) then
-            return name;
+--- `DescribePayload` of an entry, for an entry whose payload may not be a table.
+local function DescribeEntry(entry)
+    return Store().DescribePayload(type(entry.payload) == "table" and entry.payload or {});
+end
+
+--- What an entry holds, counted, as one list: how many classes and characters when `held` is
+--- given, each left out at 0 (소유자, 2026-09-29), then keys and actions. Every count on this
+--- screen is one `COUNT_*` string; this is where the entry's are put together.
+local function EntryCounts(entry, held)
+    local parts = {};
+    if (held) then
+        for _, noun in ipairs({ "classes", "characters" }) do
+            if (#held[noun] > 0) then
+                parts[#parts + 1] = CountText(noun, #held[noun]);
+            end
         end
     end
-    if (held.key) then
-        return DebindPrivate.GetKeyDisplayText(held.key);
-    end
-
-    local only = held.only;
-    if (only and only.kind == "character") then
-        return CharacterName(only.owner, PayloadCharacters(entry)[only.owner]);
-    elseif (only and only.kind == "class") then
-        return Constants.CLASS_NAMES[only.class] or only.class;
-    elseif (only) then
-        return LLL["GENERAL"];
-    end
-
-    local parts = {};
-    if (#held.classes == 1) then
-        parts[#parts + 1] = Constants.CLASS_NAMES[held.classes[1]] or held.classes[1];
-    elseif (#held.classes > 1) then
-        parts[#parts + 1] = format(LLL["STORAGE_TITLE_CLASSES"], #held.classes);
-    end
-    if (#held.characters == 1) then
-        local owner = held.characters[1];
-        parts[#parts + 1] = CharacterName(owner, PayloadCharacters(entry)[owner]);
-    elseif (#held.characters > 1) then
-        parts[#parts + 1] = format(LLL["STORAGE_TITLE_CHARACTERS"], #held.characters);
-    end
-    return #parts > 0 and table.concat(parts, LIST_DELIMITER) or nil;
+    local keys, actions = Store().CountEntry(entry);
+    parts[#parts + 1] = CountText("keys", keys);
+    parts[#parts + 1] = CountText("actions", actions);
+    return table.concat(parts, LIST_DELIMITER);
 end
 
 --- The colour a row's title is drawn in: the one scope's (the class's, or `ACCOUNT_COLOR` for
@@ -326,40 +310,21 @@ local function TitleColor(entry, held)
     return class and (GetClassColorObj(class) or NORMAL_FONT_COLOR) or nil;
 end
 
---- What the row is called: its name, else what it holds (`ContentsTitle`), in `TitleColor`.
----
---- **What is in it, not who made it** (소유자, 2026-09-28). A row made here used to be called by
---- its character, which told two backups of one character apart by nothing at all and told a
---- whole-account backup nothing either.
+--- What the row is called: its name, or `STORAGE_ENTRY_UNNAMED`, in `TitleColor`.
 ---
 --- **A name nobody gave is drawn, never stored** (소유자, 2026-09-28): `payload.name` holds only what
---- a person typed, and its absence is itself what the row shows. A Clique share code carries no
---- name at all, and shows as unnamed until somebody gives it one.
+--- a person typed, and its absence is itself what the row shows.
 ---
---- **No class icon** (소유자, 2026-09-28). The colour stays.
+--- **Not called by what it holds** (소유자, 2026-09-29). The second line says how many classes and
+--- characters, so a title made of the same counts said them twice on one row.
 ---
---- Nil for an entry that holds nothing and has no name. The two below decide what to put in its
---- place, because they have different room for it.
-local function EntryName(entry)
+--- **No class icon** (소유자, 2026-09-28). The colour stays. `held` is `DescribeEntry`'s, for a
+--- caller that has it already.
+local function EntryName(entry, held)
     local payload = type(entry.payload) == "table" and entry.payload or {};
-    local held = Store().DescribePayload(payload);
-    local text = Store().PlainText(payload.name, NAME_MAX_CHARS);
-    if (not text and payload.source == Store().SOURCE_CLIQUE) then
-        text = LLL["STORAGE_CLIQUE_UNNAMED"];
-    end
-    text = text or ContentsTitle(entry, held);
-    if (not text) then
-        return nil;
-    end
-
-    local color = TitleColor(entry, held);
+    local text = Store().PlainText(payload.name, NAME_MAX_CHARS) or LLL["STORAGE_ENTRY_UNNAMED"];
+    local color = TitleColor(entry, held or DescribeEntry(entry));
     return color and color:WrapTextInColorCode(text) or text;
-end
-
---- The row's top line. A payload with nothing in it reaches this, and the date is the one thing
---- every row has.
-local function EntryTitle(entry)
-    return EntryName(entry) or EntryDate(entry);
 end
 
 --- What to call one entry in a sentence. The delete prompt is the one place there is: it names
@@ -374,24 +339,17 @@ end
 --- only the one. Without it two entries from the same character read identically at the one moment
 --- there is no undo.
 local function EntryLabel(entry)
-    local sender = EntryName(entry);
-    local stamp = EntryDate(entry);
-    if (not sender) then
-        return stamp;
-    end
-    return format(LLL["IMPORT_ENTRY_LINE"], sender, stamp);
+    return format(LLL["IMPORT_ENTRY_LINE"], EntryName(entry), EntryDate(entry));
 end
 
 function DebindStorageEntryRowMixin:Init(elementData)
     self.elementData = elementData;
     local entry = elementData.entry;
 
-    self.Name:SetText(EntryTitle(entry));
+    local held = DescribeEntry(entry);
+    self.Name:SetText(EntryName(entry, held));
 
-    -- **The date goes on the lower line, in front of the counts.** The top line says whose it is
-    -- and this one says what is in it and when it turned up.
-    local counts = format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry));
-    self.Counts:SetText(format(LLL["IMPORT_ENTRY_LINE"], EntryDate(entry), counts));
+    self.Counts:SetText(format(LLL["IMPORT_ENTRY_LINE"], EntryDate(entry), EntryCounts(entry, held)));
 
     -- **Where it came from, as a picture beside the words and never in them** (소유자, 2026-09-28):
     -- a name given later replaces the words and leaves this. Our own rows show nothing.
@@ -479,10 +437,10 @@ function DebindStorageEntryRowMixin:OnEnter()
     local entry = self.elementData.entry;
 
     local payload = type(entry.payload) == "table" and entry.payload or {};
-    local held = Store().DescribePayload(payload);
+    local held = DescribeEntry(entry);
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-    GameTooltip_SetTitle(GameTooltip, EntryTitle(entry));
+    GameTooltip_SetTitle(GameTooltip, EntryName(entry, held));
 
     local description = Store().PlainText(payload.description, DESCRIPTION_MAX_CHARS, true);
     if (description) then
@@ -539,8 +497,8 @@ function DebindStorageEntryRowMixin:OnEnter()
         GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_ENTRY_ANONYMOUS"]);
     end
 
-    GameTooltip_AddNormalLine(GameTooltip,
-        format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry)));
+    -- Without the classes and characters, which the two lines above already name.
+    GameTooltip_AddNormalLine(GameTooltip, EntryCounts(entry));
 
     GameTooltip:Show();
 end
@@ -628,7 +586,7 @@ local function SetupPreviewRowMenu(_, rootDescription, action)
             end
             StaticPopup_ShowCustomGenericConfirmation({
                 text = LLL["STORAGE_DELETE_SELECTED_CONFIRM"],
-                text_arg1 = count,
+                text_arg1 = CountText("actions", count),
                 callback = function() DebindStoragePanel:DeleteActions(selected); end,
                 acceptText = YES,
                 cancelText = NO,
@@ -730,7 +688,7 @@ function DebindStoragePreviewLayerMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.elementData.label);
     GameTooltip_AddNormalLine(GameTooltip,
-        format(LLL["EXPORT_LAYER_COUNT"], #self.elementData.actions));
+        CountText("actions", #self.elementData.actions));
     GameTooltip:Show();
 end
 
@@ -1003,7 +961,7 @@ local function AddCliqueProfiles(parent)
         description:SetTooltip(function(tooltip)
             GameTooltip_SetTitle(tooltip, profile.name);
             GameTooltip_AddNormalLine(tooltip, users);
-            GameTooltip_AddNormalLine(tooltip, format(LLL["STORAGE_CLIQUE_PROFILE_COUNT"], count));
+            GameTooltip_AddNormalLine(tooltip, CountText("actions", count));
         end);
     end
 end
@@ -1611,12 +1569,13 @@ function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs, par
     local accepted = accept and DebindFrame:ApproveArrivals(actions);
 
     DebindPrivate.DisplayMessage(format(
-        LLL[accepted and "IMPORT_COMMITTED_KEYED" or "IMPORT_COMMITTED"], placed));
+        LLL[accepted and "IMPORT_COMMITTED_KEYED" or "IMPORT_COMMITTED"], CountText("actions", placed)));
     -- Layers a newer payload version invented and this one cannot place. Said separately because it is the
     -- one case where the count above is not the whole string. **Actions the reader unticked are
     -- not in here** - they said no, which is not this version having nowhere to put it.
     if (skipped and skipped > 0) then
-        DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"], skipped), 1, 0.5, 0);
+        DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"],
+            CountText("actions", skipped)), 1, 0.5, 0);
     end
 
     DebindFrame:NotifyProfileChanged();
