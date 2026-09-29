@@ -290,6 +290,9 @@ L["OVERVIEW_DESC"] = "이 캐릭터의 지정 전부를 걸려 있는 키별로 
 -- 도움말 풍선 둘. 근거는 enUS 쪽 주석에.
 L["OVERVIEW_HELP_RESULT"] = "이 캐릭터가 가진 키 전부와 거기 걸린 것들입니다. 모든 레이어의 행동이 여기 한데 모여, 걸려 있는 키별로 묶이고 Debind가 훑는 순서대로 섭니다.|n|n이쪽에 직접 넣는 것은 없습니다. 오른쪽 레이어들을 합친 결과입니다."
 L["OVERVIEW_HELP_LAYER"] = "한 번에 레이어 하나와 그 안에 든 것입니다. 어느 레이어인지는 아래 탭과 창 옆의 탭이 고릅니다.|n|n주문, 매크로, 아이템, 탈것을 여기로 끌어다 놓으면 추가되고, 왼쪽에 나타납니다."
+-- 모든 and not 전체: 전체 is the client's `ALL` and reads as an item of the filter beside it.
+-- 단축키 is what `COMPARTMENT_TOOLTIP_LEFT_CLICK` calls this column.
+L["OVERVIEW_RESULT_TITLE"] = "모든 단축키"
 -- 순서 이동 버튼. 근거는 enUS 쪽 주석에.
 L["ORDER_ACCEPT"] = "받기"
 L["ORDER_ACCEPT_DESC"] = "이것만 내 것으로 받습니다. 이 키는 바로 동작하고, 같이 온 나머지는 꺼진 채로 남습니다."

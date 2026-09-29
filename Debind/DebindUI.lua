@@ -2180,12 +2180,12 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 	view:SetElementExtent(LINE_HEIGHT);
 
 	local header = self.List.HeaderArea;
-	header.LayerName = header:CreateFontString(nil, "ARTWORK", "GameFontNormalMed2");
+	header.LayerName = header:CreateFontString(nil, "ARTWORK", "GameFontNormal");
 	header.LayerName:SetPoint("LEFT", 8, 0);
 	header.LayerName:SetPoint("RIGHT", self.SortDropdown, "LEFT", -6, 0);
 	header.LayerName:SetJustifyH("LEFT");
 	header.LayerName:SetMaxLines(1);
-	header.LayerName:SetTextColor(GRAY_FONT_COLOR:GetRGB());
+	header.LayerName:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
 	DebindUI.SetListColumnHeader(self.List, RESULT_HEADER_HEIGHT);
 	self:InitializeSortDropdown();
 
@@ -2323,6 +2323,15 @@ function DebindFrameMixin:InitializeButtons()
 	end);
 	self.OverviewPanel.SearchBox:SetScript("OnEditFocusGained", SearchBoxTemplate_OnEditFocusGained);
 	self.OverviewPanel.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
+
+	local resultHeader = self.OverviewPanel.ResultPanel.HeaderArea;
+	resultHeader.Title = resultHeader:CreateFontString(nil, "ARTWORK", "GameFontNormal");
+	resultHeader.Title:SetPoint("LEFT", 8, 0);
+	resultHeader.Title:SetPoint("RIGHT", self.OverviewPanel.SearchBox, "LEFT", -12, 0);
+	resultHeader.Title:SetJustifyH("LEFT");
+	resultHeader.Title:SetMaxLines(1);
+	resultHeader.Title:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
+	resultHeader.Title:SetText(LLL["OVERVIEW_RESULT_TITLE"]);
 
 	self:InitializeFilterDropdown();
 
@@ -3401,7 +3410,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	-- 돌아갈 자리가 같이 없어진다. 닫는 방아쇠는 넷뿐이다
 	-- (`closing-the-windows-that-stand-on-an-action.md`).
 
-	self.List.HeaderArea.LayerName:SetText((DebindUI.GetColoredLayerLabel(layerID)));
+	self.List.HeaderArea.LayerName:SetText(GetLayerLabel(layerID));
 	DebindFrame:UpdateTitle();
 	self:UpdateActionCounts(visible);
 	DebindFrame:UpdateEmptyText();

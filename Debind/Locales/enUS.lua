@@ -971,6 +971,14 @@ L["OVERVIEW_DESC"] = "Everything in this character's bindings, grouped by the ke
 -- (`DebindUI.xml`, `LayerPanel`), and the plate is the only place it is ever said.
 L["OVERVIEW_HELP_RESULT"] = "Every key this character has, and everything on it. Actions from all the layers arrive here together, grouped by the key they are on, in the order Debind tries them.|n|nNothing is put in from this side. It is what the layers on the right add up to."
 L["OVERVIEW_HELP_LAYER"] = "One layer at a time, and what is in it. The tabs underneath and the ones down the side of the window pick which layer.|n|nDrag a spell, a macro, an item or a mount in here to add it, and it shows up on the left."
+-- The left column's title, across from the layer name on the right. It shares a row with the search
+-- box and the filter, and a translation longer than what is left of that row is cut short.
+--
+-- **"Bindings" because the addon already calls this column that** (`COMPARTMENT_TOOLTIP_LEFT_CLICK`),
+-- and keyless actions at its end are no objection (`STORAGE_ADD`). Turned down: "All Layers", which
+-- beside the filter's "Active Layers" reads as that filter's setting and promises a list of layers;
+-- "Combined", an adjective with nothing to attach to that reads as the search box's label.
+L["OVERVIEW_RESULT_TITLE"] = "All Bindings"
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 비교자가 위에서부터 훑으므로 처음 갈린
 -- 축 하나가 곧 답이다 - 그래서 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.

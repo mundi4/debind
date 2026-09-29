@@ -1353,37 +1353,36 @@
 						`HeaderArea`, which the column template keeps out of the scroll
 						(`DebindUI.SetListColumnHeader`).
 
-						**XML order is anchor order.** The search box takes its seat in the inset and the
-						dropdown hangs off it, so the search box is declared first. The spell picker has that
-						relation the other way round and its order is reversed to match. An anchor pointing
-						forward is caught by `check:xml-anchors`.
+						**XML order is anchor order.** The dropdown takes its seat in the inset and the search
+						box hangs off it, so the dropdown is declared first, as in the spell picker. An anchor
+						pointing forward is caught by `check:xml-anchors`.
 
 						**The two stand together.** Split to the column's two ends the middle goes empty, and
 						that gap reads them as unrelated controls; they are one pair doing one job. The 6
 						between them is what the spell picker uses for the same pair.
 
-						**Width 170 is the spell picker's, and it does not grow with the column.** It once
-						filled from the left edge to the dropdown, and at that length it read as an empty box
-						rather than a search term. 170 is also the line Blizzard's collection windows put
-						their search boxes on.
+						**The search box does not grow with the column.** It once filled from the left edge to
+						the dropdown, and at that length it read as an empty box rather than a search term.
+						What is left of the row is the column title's (`OVERVIEW_RESULT_TITLE`, made in
+						`DebindFrameMixin:InitializeButtons`), cut short rather than pushing the pair.
 
 						**The border stands outside the frame.** `InputBoxVisualTemplate`'s `Left` texture
 						starts **5px left** of the EditBox rectangle (`LEFT, x="-5"`); the right side is 0
 						and fits.
 					-->
-					<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
-						<Size x="170" y="20"/>
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.ResultPanel.HeaderArea" relativePoint="TOPLEFT" x="8" y="-4"/>
-						</Anchors>
-					</EditBox>
-
 					<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate">
 						<Size x="97" y="18"/>
 						<Anchors>
-							<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
+							<Anchor point="RIGHT" relativeKey="$parent.ResultPanel.HeaderArea" relativePoint="RIGHT" x="-8" y="0"/>
 						</Anchors>
 					</DropdownButton>
+
+					<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
+						<Size x="120" y="20"/>
+						<Anchors>
+							<Anchor point="RIGHT" relativeKey="$parent.FilterDropdown" relativePoint="LEFT" x="-6" y="0"/>
+						</Anchors>
+					</EditBox>
 
 					<Frame parentKey="PortraitRow" inherits="DebindPortraitRowTemplate">
 						<Frames>
