@@ -609,8 +609,10 @@ end
 ---   action       the one action, where there is exactly one
 ---   key          the one key, where every action is on it
 ---   general      whether the account's general layer has any
----   classes      the class keys of the account's class layers, sorted
----   characters   the character keys with a layer, sorted
+---   classes      every class key with a layer, the account's or a character's, sorted
+---   characters   the character keys with a layer, sorted. **A second axis beside `classes`, not
+---                a part of it** (owner, 2026-09-29): a mage class layer and a druid character are
+---                two classes and one character
 ---   anonymous    whether a character key the payload names has no `characters` entry, which is
 ---                what `AnonymizePayload` leaves and nothing else marks
 ---   only         the narrowest scope, where one covers everything in it (3-2): `{ kind =
@@ -626,7 +628,6 @@ function DebindStorage.DescribePayload(payload)
 
     local key, sameKey = nil, true;
     local classSeen, characterSeen = {}, {};
-    local characterClasses = {};
     DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class)
         if (#list == 0) then
             return;
@@ -639,19 +640,17 @@ function DebindStorage.DescribePayload(payload)
             end
             key = key or action.key;
         end
-        if (owner == DebindStorage.ACCOUNT_OWNER) then
-            if (class == "GENERAL") then
-                out.general = true;
-            elseif (not classSeen[class]) then
-                classSeen[class] = true;
-                out.classes[#out.classes + 1] = class;
-            end
-        else
-            if (not characterSeen[owner]) then
-                characterSeen[owner] = true;
-                out.characters[#out.characters + 1] = owner;
-            end
-            characterClasses[class] = true;
+        if (owner == DebindStorage.ACCOUNT_OWNER and class == "GENERAL") then
+            out.general = true;
+            return;
+        end
+        if (not classSeen[class]) then
+            classSeen[class] = true;
+            out.classes[#out.classes + 1] = class;
+        end
+        if (owner ~= DebindStorage.ACCOUNT_OWNER and not characterSeen[owner]) then
+            characterSeen[owner] = true;
+            out.characters[#out.characters + 1] = owner;
         end
     end);
 
@@ -664,12 +663,10 @@ function DebindStorage.DescribePayload(payload)
     table.sort(out.classes, ByString);
     table.sort(out.characters, ByString);
 
+    -- `classes` holds the character's own class, so one class in all is that one.
     if (#out.characters == 1) then
-        local class = next(characterClasses);
-        local fits = next(characterClasses, class) == nil
-            and (#out.classes == 0 or (#out.classes == 1 and out.classes[1] == class));
-        if (fits) then
-            out.only = { kind = "character", owner = out.characters[1], class = class };
+        if (#out.classes == 1) then
+            out.only = { kind = "character", owner = out.characters[1], class = out.classes[1] };
         end
     elseif (#out.characters == 0 and #out.classes == 1) then
         out.only = { kind = "class", class = out.classes[1] };

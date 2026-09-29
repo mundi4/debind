@@ -695,10 +695,23 @@ return function(DebindPrivate, DebindStorage)
             { scope = "character" },
         }));
         check(held.general, "일반");
-        check(#held.classes == 2 and held.classes[1] == "MAGE" and held.classes[2] == "PRIEST",
-            "직업 " .. table.concat(held.classes, ","));
+        check(#held.classes == 3 and held.classes[1] == CLASS and held.classes[2] == "MAGE"
+            and held.classes[3] == "PRIEST", "직업 " .. table.concat(held.classes, ","));
         check(#held.characters == 1 and held.characters[1] == GUID, "캐릭터");
         check(not held.anonymous, "이름 있는 캐릭터를 익명으로 읽었다");
+    end);
+
+    -- **Two axes, counted apart** (owner, 2026-09-29). A character's class is a class the payload
+    -- holds whether or not an account layer of it is there too, and the character is counted on
+    -- its own axis as well.
+    test("캐릭터 칸의 직업도 직업으로 센다", function()
+        local held = Describe(Payload({ { scope = "class", class = "MAGE" }, { scope = "character" } }));
+        check(#held.classes == 2, "직업 " .. table.concat(held.classes, ","));
+        check(#held.characters == 1, "캐릭터 " .. #held.characters);
+
+        held = Describe(Payload({ { scope = "class", class = CLASS }, { scope = "character" } }));
+        check(#held.classes == 1 and held.classes[1] == CLASS,
+            "같은 직업을 두 번 셌다: " .. table.concat(held.classes, ","));
     end);
 
     -- `AnonymizePayload` leaves a character key with no `characters` entry and marks nothing else.
