@@ -297,47 +297,27 @@ local function GetLayerID(tab, sideTab)
 	return DebindPrivate.GetLayerID(spec, isCharacterSpecific);
 end
 
---- 사이드탭 툴팁의 설명 줄. **탭과 사이드탭을 같이 받는다** - 사이드탭 혼자서는 문장이 안
---- 나온다. "일반"은 탭1에서 계정 전체이고 탭2에서는 이 캐릭터 하나인데, 사이드탭 아이콘은
---- 두 경우에 똑같이 생겼다.
----
---- 문장은 세 마디다: **누가 쓰는가**, **무엇보다 우선하는가**, 그리고 **언제 그 말이 안
---- 맞는가.** 셋째가 없으면 앞의 둘이 거짓말이 된다 - 레이어는 실행 순서의 세 번째 축이라
---- (`IMPORTANCE_DESC`: 중요도, 조건, 탭, 순서), 조건이 붙은 공유/일반 액션이
---- 조건 없는 공유/야성 액션보다 먼저 실행된다. 중요도를 건드렸으면 더 그렇다.
----
---- 그 절이 왜 조건과 중요도만 세는지, 왜 이 길이를 받아들이는지는 로케일 쪽 주석에 있다
---- (enUS의 `LAYER_DESC_*` 위).
----
---- 지는 쪽은 **`GetLayerLabel`로 부른다** - 낱말 하나가 아니라 "공유 / 드루이드" 꼴이다.
---- 툴팁 제목이 그 형식이라 참조도 같아야 화면에서 찾을 수 있다. 한때 "직업보다 우선"이라고
---- 적었는데, "직업"은 **어느 탭에도 안 적혀 있는 이름**이다 -
---- 그 탭의 제목은 "공유 / 드루이드"다. 영어에서는 "Beats Druid."가 "드루이드를 이긴다"로도
---- 읽혀서 더 나빴다. 그래서 이 함수가 `GetLayerLabel`을 부르지, 짧은 이름을 안 쓴다.
+--- Where a side tab's layer is, under its short name. **The short name drops the account tab's
+--- word**, and a side tab is an icon standing in a column that does not say which tab it hangs off.
+--- The account's layers say it as the tabs that lead there; a character's layers already name the
+--- character in their title, so the line says whose they are instead.
 ---
 --- Tab 2 has no General side tab (`UpdateSideTabs` hides it), so that pair gets no line.
-local function GetSideTabDescription(sideTabID, tabID)
+local function GetSideTabPath(sideTabID, tabID)
 	tabID = tabID or _selectedTab;
 	if (tabID == 2) then
 		if (sideTabID == 2) then
-			return LLL["LAYER_DESC_CHARACTER_CLASS"];
+			return LLL["LAYER_PATH_CHARACTER"];
 		end
-		-- **The losing layer is not passed.** This is the narrowest of the five, so it beats
-		-- every other one rather than the one below it, and the line says "everywhere else"
-		-- instead of naming any. English then takes no argument at all -- the tooltip title
-		-- already reads "Oreo / Balance" -- while Korean still needs the spec name, so the one
-		-- value goes out and each locale uses it or does not.
-		return format(LLL["LAYER_DESC_CHARACTER_SPEC"], GetSideTabLabel(sideTabID));
+		return format(LLL["LAYER_PATH_CHARACTER_SPEC"], GetSideTabLabel(sideTabID));
 	end
-	if (sideTabID == 1) then
-		return LLL["LAYER_DESC_SHARED_GENERAL"];
+	local tabLabel, sideLabel = GetTabLabel(1), GetSideTabLabel(min(sideTabID, 2));
+	-- ruRU calls the account tab and its General side tab the same word ("Общие").
+	local path = tabLabel == sideLabel and tabLabel or format(LLL["LAYER_PATH"], tabLabel, sideLabel);
+	if (sideTabID > 2) then
+		path = format(LLL["LAYER_PATH"], path, GetSideTabLabel(sideTabID));
 	end
-	if (sideTabID == 2) then
-		return format(LLL["LAYER_DESC_SHARED_CLASS"],
-			GetSideTabLabel(2), GetLayerLabel(GetLayerID(1, 1)));
-	end
-	return format(LLL["LAYER_DESC_SHARED_SPEC"],
-		GetSideTabLabel(2), GetSideTabLabel(sideTabID), GetLayerLabel(GetLayerID(1, 2)));
+	return path;
 end
 
 --- **매크로 편집창은 여기 없다.** 이 함수가 하는 일은 잠그는 것을 걷어내는 것이고, 잠그는 것은
@@ -1754,6 +1734,8 @@ function DebindTabMixin:OnEnter()
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, GetTabLabel(id));
 	GameTooltip_AddNormalLine(GameTooltip, LLL[id == 2 and "TAB_DESC_CHARACTER" or "TAB_DESC_SHARED"]);
+	GameTooltip_AddBlankLineToTooltip(GameTooltip);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["TAB_LAYERS_TOGETHER"]);
 
 	-- TODO add instruction line. "you can drop here to add/move into this tab"
 
@@ -1798,10 +1780,8 @@ function DebindSideTabMixin:OnClick()
 	end
 end
 
---- 제목은 사이드탭 이름 혼자가 아니라 **레이어 이름 전체**다("공유 / 야성"). 이 줄이 서 있는
---- 곳이 세로 탭이라, 그 사람이 보고 있는 것은 아이콘 하나와 숫자 하나뿐이다 - 어느 쪽 탭에
---- 딸린 세로 탭인지가 화면에 안 적혀 있고, 아래 설명 줄의 "일반보다 우선"도 그걸 알아야
---- 읽힌다. `GetLayerLabel`을 쓰므로 순서 목록의 행 툴팁과 같은 이름이 뜬다.
+--- The title is the layer's name as every other list calls it (`GetLayerLabel`); where the layer
+--- is goes on the line under it (`GetSideTabPath`).
 function DebindSideTabMixin:OnEnter()
 	local id = self:GetID();
 	local text = GetLayerLabel(GetLayerID(_selectedTab, id));
@@ -1810,15 +1790,17 @@ function DebindSideTabMixin:OnEnter()
 		text = format(LLL["INACTIVE_SPEC_LABEL"], text);
 	end
 	GameTooltip_SetTitle(GameTooltip, text);
-	GameTooltip_AddNormalLine(GameTooltip, GetSideTabDescription(id));
+	GameTooltip_AddNormalLine(GameTooltip, GetSideTabPath(id));
 
-	-- **Last, not before the description.** The line it qualifies has to be read first, and
-	-- Blizzard puts the "when does this apply" line at the bottom of a tooltip -- `Requires
-	-- Level 40` sits there. Not coloured: red is for a condition that failed, and this one has
-	-- not failed, it is simply not now.
+	-- **Under the path, above the blank line.** It qualifies this layer, so it stays with the lines
+	-- about this layer rather than after the one about every layer. Not coloured: red is for a
+	-- condition that failed, and this one has not failed, it is simply not now.
 	if (self.isOffSpec) then
 		GameTooltip_AddNormalLine(GameTooltip, LLL["INACTIVE_SPEC_DESC"]);
 	end
+
+	GameTooltip_AddBlankLineToTooltip(GameTooltip);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["TAB_LAYERS_TOGETHER"]);
 
 	-- TODO add instruction line. "you can drop here to add/move into this tab"
 
@@ -2186,10 +2168,11 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 	view:SetElementExtent(LINE_HEIGHT);
 
 	local header = self.List.HeaderArea;
-	header.LayerName = header:CreateFontString(nil, "ARTWORK", "GameFontNormal");
+	header.LayerName = header:CreateFontString(nil, "ARTWORK", "GameFontNormalMed2");
 	header.LayerName:SetPoint("LEFT", 8, 0);
 	header.LayerName:SetPoint("RIGHT", self.SortDropdown, "LEFT", -6, 0);
 	header.LayerName:SetJustifyH("LEFT");
+	header.LayerName:SetMaxLines(1);
 	header.LayerName:SetTextColor(GRAY_FONT_COLOR:GetRGB());
 	DebindUI.SetListColumnHeader(self.List, RESULT_HEADER_HEIGHT);
 	self:InitializeSortDropdown();

@@ -40,10 +40,6 @@ const LIST_MISSING = process.argv.includes("--missing");
 //
 // 넣을 때는 **어느 호출부가 그 인자를 넘기는지** 한 줄 남길 것.
 const EXTRA_SPECS_OK = {
-    // DebindUI.lua의 GetSideTabDescription이 전문화명 하나만 넘긴다. enUS는 그것마저 안 쓴다 -
-    // 툴팁 제목이 이미 "Oreo / Balance"라 "in this spec"으로 가리킬 것이 있어서, 서식이 하나도
-    // 없는 줄이 된다. 한국어는 그 이름이 필요하다.
-    LAYER_DESC_CHARACTER_SPEC: { koKR: "%s" },
     // StorageUI.lua의 UpdateSelectionState가 고른 수, 전체 수 차례로 넘긴다. 한국어는
     // "24개 중 8개 선택됨"이라 전체가 앞에 온다.
     EXPORT_SELECTED_COUNT: { koKR: "%2$d%1$d" },

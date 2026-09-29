@@ -829,42 +829,15 @@ L["LINE_TOOLTIP_NOT_RUNNING_DISABLED"] = "This action is turned off."
 -- it has its own label baked in (`BOSS_INFO_STRING_MANY`, "Boss: %s and others").
 L["LINE_TOOLTIP_SPEC_OVERFLOW"] = "%s and others"
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
+-- Under a side tab's title, where its layer is. The account's layers as the tabs that lead there:
+-- **" > " is the client's own mark for a path** (`HUD_EDIT_MODE_DAMAGE_METER_DISABLED_TOOLTIP`,
+-- "Options > Gameplay Enhancements > Damage Meter"). "/" is taken, by the layer names themselves
+-- ("Druid / Balance") and by the client's fractions.
+L["LAYER_PATH"] = "%1$s > %2$s"
+L["LAYER_PATH_CHARACTER"] = "This character"
+L["LAYER_PATH_CHARACTER_SPEC"] = "This character, in %s"
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebindUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
--- The side tabs' description lines, one per layer, held to three parts: **who uses it**, **what it
--- beats**, and **when that does not hold.**
---
--- **Without the third part it is a lie.** The tab is the third step of the run order
--- (IMPORTANCE_DESC: Importance, conditions, tab, order), so an Account action with conditions, or
--- with its Importance raised, runs before a Druid action on the same key. A tooltip is called up
--- on purpose, so the length costs nothing, and only one of them shows at a time.
---
--- **Hover is left out of the clause.** It beats the tab as well, but whoever set it up knows they
--- did; it is not something forgotten and run into later the way conditions and Importance are.
--- IMPORTANCE_DESC lists the other steps in order for anyone who wants them.
---
--- The loser is called by its **full layer name** ("Account / Druid"). The tooltip title uses that
--- form, and a reference has to match it to be found on screen; the reason is in
--- GetSideTabDescription's comment.
---
--- The English is **the same words** as the right column of README's Layers table, so someone who
--- read the table and someone who only sees the tooltip can tell they read one thing.
-L["LAYER_DESC_SHARED_GENERAL"] = "Every character on the account."
--- %s 둘은 차례로 직업명(UnitClass), 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same key in %2$s, unless conditions or Importance say otherwise."
--- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless conditions or Importance say otherwise."
--- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
-L["LAYER_DESC_CHARACTER_CLASS"] = "This character. A key here beats the same key everywhere in Account, unless conditions or Importance say otherwise."
--- **This is the narrowest layer, so it beats every other one** -- not the one directly below it.
--- Naming a single loser here was wrong, and naming all four would be a list nobody reads, so it
--- says "everywhere else", the same move `LAYER_DESC_CHARACTER_CLASS` makes with "in Account".
---
--- That leaves English with no argument at all: the tooltip title already reads "Oreo / Balance",
--- so "this spec" has something to point at. Korean still needs the spec name and takes it as the
--- only `%s`. The two locales therefore disagree on format specifiers, which check-locales knows
--- about through EXTRA_SPECS_OK.
-L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key everywhere else, unless conditions or Importance say otherwise."
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 -- The macro editor's bottom-left button carries this label only when the conversion menu item
 -- opened the window. Pressing it there undoes the conversion and the window closes with it, which
@@ -1359,11 +1332,10 @@ L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
 -- something that is not on screen.
 L["SWITCHES_HELP_LIST"] = "Every Switch on this account, and whether each one is on or off right now. You can hang a Switch on any action as a condition, or write it into a Custom Macro as |cnHIGHLIGHT_FONT_COLOR:[$state1]|r.|n|nClick one and the right side shows what it is set to. The button in the corner above makes a new Switch."
 L["SWITCHES_HELP_DETAIL"] = "What the Switch picked on the left is set to: how it is decided, and what it comes up as when you log in. You can set that one way for the whole account and another way for one class, one specialization or one character.|n|nThe two tabs above pick between those settings and a list of everything that uses this Switch."
--- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
--- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
--- 같다 - 같은 주장이면 같은 데서 틀린다.
+-- Under a blank line in every layer tab's tooltip, bottom and side.
+L["TAB_LAYERS_TOGETHER"] = "Keys from every layer that covers this character work together."
 L["TAB_DESC_SHARED"] = "Every character on the account."
-L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Account, unless conditions or Importance say otherwise."
+L["TAB_DESC_CHARACTER"] = "This character only."
 -- The instruction line on the `Target` row (`MenuKit`'s `<label>_DESC` rule).
 --
 -- **The second sentence is the surprising half.** A picked target is taken out of every

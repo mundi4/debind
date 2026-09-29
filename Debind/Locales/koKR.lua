@@ -250,22 +250,9 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "왼쪽 클릭하면 이 행동을 선�
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "아무 키나 마우스 버튼을 누르면 이 행동에 지정됩니다."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "오른쪽 클릭하면 다른 항목이 나옵니다."
 L["LOGIN_MESSAGE"] = "/deb 명령어를 입력하면 창이 열립니다."
--- 세로 탭 툴팁의 설명 줄. 근거는 enUS 쪽 주석에.
---
--- 우선 대상은 **화면에 적힌 낱말로 부른다.** 아래 탭은 SHARED_BINDINGS = "공유"라서 여기서도
--- "공유"다 - 툴팁만 "공용"이라 부르면 같은 것을 두 이름으로 부르게 된다.
---
--- 단서는 영어가 뒤에 붙이는 절("unless …")을 한국어에서는 **앞에 세운다.** 뒤에 달면
--- "우선합니다"를 읽은 뒤에 뒤집는 꼴이라 문장을 두 번 읽게 된다.
-L["LAYER_DESC_SHARED_GENERAL"] = "계정 내 모든 캐릭터용."
-L["LAYER_DESC_SHARED_CLASS"] = "계정 내 모든 %1$s용. 조건과 중요도가 같다면 여기 있는 키가 %2$s의 같은 키보다 우선합니다."
--- 조사가 직업명 받침을 타므로 "(가)"를 붙인다(사냥꾼이 / 드루이드가). DELETE_CONFIRM_MESSAGE의
--- "을(를)"과 같은 방식이다.
-L["LAYER_DESC_SHARED_SPEC"] = "계정 내 모든 %1$s이(가) %2$s일 때. 조건과 중요도가 같다면 여기 있는 키가 %3$s의 같은 키보다 우선합니다."
-L["LAYER_DESC_CHARACTER_CLASS"] = "이 캐릭터 전용. 조건과 중요도가 같다면 여기 있는 키가 공유 전체의 같은 키보다 우선합니다."
--- 영어는 인자가 하나도 없고(툴팁 제목이 전문화를 이미 보여준다) 여기는 전문화명 하나를 받는다.
--- 근거는 enUS 쪽 주석에.
-L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %s일 때. 조건과 중요도가 같다면 여기 있는 키가 다른 모든 탭의 같은 키보다 우선합니다."
+L["LAYER_PATH"] = "%1$s > %2$s"
+L["LAYER_PATH_CHARACTER"] = "이 캐릭터"
+L["LAYER_PATH_CHARACTER_SPEC"] = "이 캐릭터가 %s일 때"
 L["MACRO_POPUP_TEXT"] = "매크로 이름 입력 (최대 %d자):"
 -- 근거는 enUS 쪽 주석에.
 L["MACROFRAME_CANCEL"] = "취소"
@@ -447,9 +434,9 @@ L["SWITCHES_EMPTY"] = "아직 만든 스위치가 없습니다.|n|n만든 스위
 -- 도움말 풍선 둘. 근거는 enUS 쪽 주석에.
 L["SWITCHES_HELP_LIST"] = "이 계정에 있는 스위치 전부와, 각각이 지금 켜져 있는지 꺼져 있는지입니다. 스위치는 어느 행동에든 조건으로 걸 수 있고, 사용자 지정 매크로에 |cnHIGHLIGHT_FONT_COLOR:[$state1]|r처럼 적을 수도 있습니다.|n|n하나를 누르면 오른쪽에 그 스위치가 어떻게 정해져 있는지 나옵니다. 새 스위치는 위쪽 구석의 버튼으로 만듭니다."
 L["SWITCHES_HELP_DETAIL"] = "왼쪽에서 고른 스위치가 어떻게 정해져 있는지입니다. 무엇이 값을 정하는지, 접속할 때 무엇으로 시작하는지 두 가지입니다. 계정 전체로 한 번 정하고, 한 직업, 한 전문화, 한 캐릭터에서만 다르게 정할 수도 있습니다.|n|n위의 탭 둘이 그 설정과 이 스위치를 쓰는 곳 목록 사이를 고릅니다."
--- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
+L["TAB_LAYERS_TOGETHER"] = "이 캐릭터에 해당하는 모든 레이어의 키가 함께 적용됩니다."
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
-L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선합니다."
+L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다."
 -- The unit frame section's header and the group names under it. The reasons are on the enUS side.
 L["UNIT_FRAME_SUPPORT"] = "개체창 지원"
 L["FRAME_BLACKLIST_BLIZZARD"] = "블리자드 개체창"

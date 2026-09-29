@@ -2,7 +2,7 @@
 
 > 상태: **1단계, 1-2 뒷정리, 1-3 `origin` 걷기, 2단계(4절) 구현됨. 3단계는 계정 전체로 항목 만들기까지
 > 들어갔고, 6-2절의 이 캐릭터에 넣기(첫 판)도 구현됐다. 다음은 6-3절 복원과 6-4절 스위치다.
-> 6-5절 레이어 이름은 코드에 들어갔고 정할 것이 남았다.**
+> 6-5절 레이어 이름은 코드에 들어갔고 README 스크린샷이 남았다.**
 > 모양(1절)과 그 이유(2절)는 소유자와 정했다. 5절에 남은 물음은 3단계와 그 뒤의 것이다. 1-1절의 guid
 > 전제 몇 개는 6절에서 무너졌다.
 >
@@ -676,7 +676,7 @@ payload = {
   수집품 필터 메뉴가 `CHECK_ALL`/`UNCHECK_ALL`을 같은 식으로 둔다. 리테일에 모두 펼치기를 버튼으로
   둔 목록은 없다.
 
-### 6-5. 레이어 이름 (2026-09-29, 정하는 중)
+### 6-5. 레이어 이름 (2026-09-29)
 
 **코드는 지금 이렇게 부른다** (`LayerDisplay.lua`의 `ComposeLayerLabel`): General, Mage, Mage / Arcane,
 Oreo, Oreo / Balance. 그 레이어를 다른 것과 가르는 것만 말하고, 계정 탭의 낱말 Account는 뺀다.
@@ -692,18 +692,20 @@ Protection, Frost는 두 직업의 이름이라서다.
 이름에서 경로가 빠지는 것은 계정 쪽의 Account 한 마디다. 2026-09-28에 같은 안이 나왔다가 바로 이
 이유로 접혔다(`0-DIARY.md`의 "레이어 이름 줄이기와 레이어 7").
 
-**경로로 쓰이는 자리가 있다.** 걸린 곳 셋이다.
+**경로는 사이드탭 툴팁이 따로 말한다.** 제목은 새 이름이고, 그 밑 한 줄이 어디에 있는 레이어인지다
+(`GetSideTabPath`). 계정 쪽은 "Account > Druid > Balance"처럼 탭을 따라가는 경로이고, 캐릭터 쪽은
+제목이 이미 경로라 "This character", "This character, in Balance"다. 경로 기호 " > "는 클라이언트가
+경로를 적는 모양이다. "/"는 레이어 이름 안과 클라이언트의 분수가 쓰고 있다.
 
-- 레이어 탭 툴팁의 설명 줄(`LAYER_DESC_SHARED_CLASS`, `_SPEC`)이 지는 레이어를 `GetLayerLabel`로
-  부른다. "A key here beats the same key in Druid."가 된다. 이 줄은 "Beats Druid"가 직업을 이긴다로
-  읽혀서 전체 이름을 쓰기로 했던 자리다(`GetSideTabDescription`의 주석, enUS의 `LAYER_DESC_*` 위 주석).
-  그 두 주석은 지금 옛 형식을 말한다.
-- 사이드탭 툴팁 제목(`DebindSideTabMixin:OnEnter`)이 레이어 이름 전체다. 세로 탭만 봐서는 어느 탭에
-  딸렸는지 안 보여서다. 계정의 직업 탭 제목은 이제 "Druid" 한 마디다.
-- README 레이어 스크린샷의 설명과 그림이 "Account / Balance"다.
+전에 있던 설명 줄(`LAYER_DESC_*`, 누가 쓰고 무엇을 이기는가)은 뺐다. 지는 레이어를 레이어 이름으로
+부르던 자리라 "beats the same key in Druid"가 직업을 이긴다로 읽혔고, 탭 버튼 툴팁에 그 설명이 필요
+없다고 봤다. 아래 탭 둘의 `TAB_DESC_*`도 누가 쓰는가만 남기고 무엇을 이기는가를 뺐다.
 
-**정할 것.** 새 이름을 두고 위 세 자리를 따로 부를지, 경로 이름으로 되돌리고 저장 탭의 `class` 가지만
-고칠지.
+레이어 탭 툴팁 전부, 아래 탭과 사이드탭 모두에 한 줄 띄고 `TAB_LAYERS_TOGETHER`("Keys from every
+layer that covers this character work together.")가 붙는다. 같은 키에서 어느 레이어가 이기는지는
+이제 창 안의 툴팁이 말하지 않고, 도움말(`setting-keys-up.md`)과 README가 말한다.
+
+**남은 것.** README 레이어 스크린샷의 설명과 그림이 "Account / Balance"다.
 
 **지금 구현과 다른 점.**
 
