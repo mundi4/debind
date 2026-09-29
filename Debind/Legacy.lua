@@ -186,10 +186,10 @@ end
 --- This character's share, raised the same way: `DebounceVarsPerChar` as a rename-era entry, with
 --- the class of the character logging in, which is whose file it is.
 ---
---- Nothing is written into `characters` or `layers` here. Whether either gets attached is decided
---- by `CleanUpDB` from its contents (lazy creation), so an alt that never used a
+--- Nothing is written into `characters` or `layers` here. Whether the layers get attached is
+--- decided by `CleanUpDB` from their contents (lazy creation), so an alt that never used a
 --- character-specific binding - and therefore has only empty tables in the old file - still ends up
---- with nothing.
+--- with no layers.
 local function ImportCharacter(old)
     local guid = DebindPrivate.playerGUID;
     local entry = {

@@ -93,11 +93,13 @@ return function(DebindPrivate)
         check(DebindPrivate.db.charLayers ~= nil, "no charLayers");
     end);
 
-    test("an empty character gets no entry in characters", function()
+    -- **Every character that logs in is kept**: the entry is what says a GUID has been seen
+    -- before, and a character moved off a hardcore realm arrives under a new one.
+    test("an empty character still gets its entry, and nothing else", function()
         FreshInit();
         DebindPrivate.CleanUpDB();
-        check(_G.DebindVars.characters[GUID] == nil,
-            "a character with no content created an entry (lazy creation is not working)");
+        check(_G.DebindVars.characters[GUID] == DebindPrivate.db.char,
+            "a character with no content left no entry");
         check(_G.DebindVars.layers[GUID] == nil,
             "a character with no layers got a place in layers (lazy creation is not working)");
     end);

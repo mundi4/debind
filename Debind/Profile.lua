@@ -2052,10 +2052,8 @@ function DebindPrivate.InitDB()
 
     -- **Lazy creation.** Where there is no entry, state or layers we hand out a **detached** table
     -- rather than putting one in `characters`, `states` or `layers`. Attaching them is
-    -- `CleanUpDB`'s job, once there is something in them. An alt that never used a
-    -- character-specific anything therefore never gets a place in the account file - one of the
-    -- two things bounding how far deleted characters can pile up (the other is removing empty
-    -- ones, in the same place).
+    -- `CleanUpDB`'s job: state and layers once there is something in them, the entry always. So
+    -- until the first logout, `characters[guid]` being nil is what says this GUID is new here.
     --
     -- **After the migration**, which is what moves the state out of the entry and the layers into
     -- `layers`.
@@ -2391,14 +2389,10 @@ function DebindPrivate.CleanUpDB()
         end
     end
 
-    -- **Attach or detach this character's entry, state and layers.** `InitDB` does not create any
-    -- of them up front (lazy creation), so this is where anything actually enters `characters`,
-    -- `states` or `layers`. The decision is remade on every logout, which is how the entry
-    -- disappears for someone who just deleted their last character-specific binding.
-    --
-    -- **Empty entries are removed without asking**, because there is nothing to lose. That does not
-    -- contradict "never delete an entry that has content automatically" - these two together are
-    -- what stops the account file from growing without bound.
+    -- **Attach or detach this character's state and layers, and attach its entry.** `InitDB` does
+    -- not create any of them up front, so this is where anything actually enters `characters`,
+    -- `states` or `layers`. State and layers are decided again on every logout, which is how they
+    -- disappear for someone who just deleted their last character-specific binding.
     local db = DebindPrivate.db.global;
     if (db) then
         for i = 1, #ORPHANED_GLOBAL_KEYS do
@@ -2416,17 +2410,12 @@ function DebindPrivate.CleanUpDB()
         local hasLayers = HasLayerContent(DebindPrivate.db.charLayers);
         db.layers[guid] = hasLayers and DebindPrivate.db.charLayers or nil;
         PruneSwitchCells();
-        local hasOverrides = db.switches ~= nil and db.switches[guid] ~= nil;
         local hasState = HasStateContent(DebindPrivate.db.charState);
         db.states[guid] = hasState and DebindPrivate.db.charState or nil;
-        -- **The entry stays while anything under this GUID does**, because it is what names them:
-        -- whoever reads `layers[guid]`, `switches[guid]` or `states[guid]` from somewhere else has
-        -- only this to tell them whose they are.
-        if (hasLayers or hasOverrides or hasState) then
-            db.characters[guid] = DebindPrivate.db.char;
-        else
-            db.characters[guid] = nil;
-        end
+        -- **The entry stays whether or not anything under this GUID does.** An entry is how a
+        -- later login tells a GUID it has seen from one it has not, and a character moved to
+        -- another realm, as hardcore does with every death, arrives under a new GUID.
+        db.characters[guid] = DebindPrivate.db.char;
     end
 end
 
