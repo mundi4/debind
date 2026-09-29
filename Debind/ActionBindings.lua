@@ -441,11 +441,13 @@ do
         -- a cast for the game to refuse, and the warlock's Command Demon, which casts whatever the
         -- demon that is out has, never goes out as a Spell Lock.
         --
-        -- **Ticked, the binding the reader sees takes the first entry itself**, rather than that
+        -- **Ticked, the binding the reader sees takes the last entry itself**, rather than that
         -- being the derivation's business, because this function is what every caller of
         -- `GetBindingInfoForAction` gets and it has to answer the same thing every time it runs.
-        -- `binding.entry` says it did, for the derivation to start after it. A `known` naming a
-        -- spell is a different question and is left as it is, cast as the first entry.
+        -- `binding.entry` says it did, for the derivation to leave it out. **The last and not the
+        -- first**: every derived binding stands ahead of the original, so an original holding the
+        -- first entry put the lower spell in front of the upper one. A `known` naming a spell is a
+        -- different question and is left as it is, cast as the first entry.
         --
         -- **`skipWhenUnusable` is the ticked box under the reader's own name for it** (2026-09-23,
         -- owner): "hand the key on when there is nothing to cast", whatever the reason is. Ticking
@@ -468,7 +470,7 @@ do
             binding.combatContradicts = ApplyResurrectBranch(conditions, branch) == "combat" or nil;
         elseif (binding.spell ~= nil) then
             if (entry == nil and conditions.known == true and entries) then
-                entry = entries[1];
+                entry = entries[#entries];
             end
             if (entry ~= nil) then
                 conditions.known = entry.known or true;
@@ -1000,22 +1002,24 @@ do
         -- the ordinary `known` axis, so the solver sees two real boxes, coverage and the
         -- unreachable mark work, and the press path gains no new idea.
         --
-        -- **Ticked, the original takes the first entry and the rest are derived. Unticked, every
-        -- one is derived** and the original holds the key behind them (`FillBinding`). Read off
-        -- the original, which is where `FillBinding` settled what the box, a stored `false` and
-        -- `skipWhenUnusable` add up to. One that took an entry is ticked; a `known` naming some
-        -- other spell is neither.
-        local asks, firstDerived, branches = NO_KNOWN, 1, nil;
+        -- **Ticked, the original takes the last entry and the ones before it are derived.
+        -- Unticked, every one is derived** and the original holds the key behind them
+        -- (`FillBinding`). Read off the original, which is where `FillBinding` settled what the
+        -- box, a stored `false` and `skipWhenUnusable` add up to. One that took an entry is ticked;
+        -- a `known` naming some other spell is neither.
+        local asks, branches = NO_KNOWN, nil;
         if (action.type == Constants.RESURRECT) then
             branches = ResurrectBranches(action);
             asks = branches;
         elseif (original.spell ~= nil) then
             local _, entries = DebindPrivate.SpecSpells.SpellForType(action.type);
-            if (original.holdsOnly) then
+            if (original.holdsOnly or original.entry ~= nil) then
                 asks = entries;
-            elseif (original.entry ~= nil) then
-                asks, firstDerived = entries, 2;
             end
+        end
+        local lastDerived = #asks;
+        if (original.entry ~= nil) then
+            lastDerived = lastDerived - 1;
         end
 
         local function fill(cache, aimedUnit, twinCondition, castModifier, pointedUnit)
@@ -1035,7 +1039,7 @@ do
         --- no-target branch cannot stand.
         local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit,
                 aimsPointed)
-            if (firstDerived > #asks) then
+            if (lastDerived < 1) then
                 return;
             end
             local bindings = cache[action];
@@ -1044,7 +1048,7 @@ do
                 cache[action] = bindings;
             end
             -- Back to front, for the reason the whole list is: the first branch has to land first.
-            for i = #asks, firstDerived, -1 do
+            for i = lastDerived, 1, -1 do
                 local branch = branches and asks[i];
                 if (not branch or not aimsPointed or branch.unit ~= false) then
                     local binding = bindings[i];

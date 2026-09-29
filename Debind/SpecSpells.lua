@@ -85,6 +85,10 @@ end
 --- **Measured with the question the entry's binding asks** (`KnownSpellOfEntry`), a name unless the
 --- entry names an id. An id is answered by the spell book as well, and the book can hold a spell
 --- the character has not learned, so asking by id could show a spell the press does not cast.
+---
+--- **Measured on every call, as `Resolve` reads on every call.** A rebuild asks it a few times per
+--- binding it fills, and only a list of two or more gets measured at all. Keeping the answer
+--- across calls would be one more value to invalidate.
 local function ShownSpell(entries)
     local count = #entries;
     if (count > 1) then
@@ -98,8 +102,9 @@ local function ShownSpell(entries)
 end
 
 --- The spell a type resolves to right now, or nil where this specialization has none. **The
---- second value is the entry list** (see the header), which only the derivation reads. Everything
---- that names or draws the action reads the first.
+--- second value is the entry list** (see the header): `FillBinding` and `GetBindingsForAction` build
+--- the bindings from it, and `Profile.lua`'s row asks every entry before saying the spell is not
+--- there. Everything that names or draws the action reads the first.
 ---
 --- A resurrection answers with the spell the row is drawn with (§6-5 of the design): the single
 --- one, or the battle or the mass one where there is none. Which one a press casts is the

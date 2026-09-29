@@ -1594,9 +1594,11 @@ local function PrepareKeyBindings(key, bindingArray)
         -- **`if`, not `and`/`or`.** The ternary shape falls through to `value` when the spell is
         -- nil, which is the one answer this branch exists to produce.
         --
-        -- **`spellToCast` first where it is there.** The warlock's dispel is named and drawn after
-        -- the spell in the book and cast under another one (`SpecSpells.lua`); this is the one
-        -- place that reads it, so nothing on screen follows it.
+        -- **`spellToCast` first where it is there.** A spec-resolved binding casts its entry's spell
+        -- (`SpecSpells.lua`), which is not always `spell`: the warlock's dispel is named and drawn
+        -- after the spell in the book and cast under another one, and on camelot the row can show
+        -- one of two spells while this binding casts the other. `KnownSpellAsked` reads it too, so
+        -- the `known` this binding goes out under names the spell it casts.
         --
         -- **`holdsOnly` goes out as the specialization with nothing to cast does**: the key taken
         -- and the press doing nothing (`FillBinding`).

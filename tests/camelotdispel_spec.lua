@@ -125,18 +125,21 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = nil;
     end);
 
-    -- **Handed on, the original is the upper spell's binding even while the row shows the lower.**
-    -- The row names what a press would cast now, which with nothing learned is the lower one; the
-    -- binding the reader sees still asks about and casts the upper, or a press would cast the upper
-    -- spell under the lower one's `known`.
-    test("the original casts and asks about the upper spell while the row shows the lower", function()
+    -- **Handed on, the original is the lower spell's binding even while the row shows the upper.**
+    -- It takes the last entry, since every derived binding stands ahead of it and the upper one
+    -- has to come first. The row names what a press would cast now, the upper one once it is
+    -- known; the original still asks about and casts the lower, or a press would cast the lower
+    -- spell under the upper one's `known`.
+    test("handed on, the upper spell comes first and each binding asks about its own", function()
         druidWorld();
+        shim.world.knownSpells[ABOLISH] = true;
         local a = action({ type = Constants.DISPEL2, key = "F2", skipWhenUnusable = true });
         local binding = DebindPrivate.GetBindingInfoForAction(a);
-        check(binding.spell == CURE, "the row shows " .. tostring(binding.spell));
-        check(binding.spellToCast == ABOLISH, "the original casts " .. tostring(binding.spellToCast));
-        check(DebindPrivate.KnownSpellAsked(binding) == "Abolish Poison",
+        check(binding.spell == ABOLISH, "the row shows " .. tostring(binding.spell));
+        check(binding.spellToCast == CURE, "the original casts " .. tostring(binding.spellToCast));
+        check(DebindPrivate.KnownSpellAsked(binding) == "Cure Poison",
             "the original asks about " .. tostring(DebindPrivate.KnownSpellAsked(binding)));
+        shim.world.knownSpells[ABOLISH] = nil;
 
         if (not shipped) then
             Bind({ a, action({ type = Constants.SPELL, key = "F2", value = REGROWTH }) });
@@ -149,6 +152,11 @@ return function(DebindPrivate, _, ctx)
             interp.state.known["Abolish Poison"] = true;
             check(firedSpell("F2") == "Abolish Poison",
                 "with the upper known: " .. tostring(firedSpell("F2")));
+            -- **Both known is the case that tells the order.** An original that took the upper
+            -- spell put the lower one in front of it.
+            interp.state.known["Cure Poison"] = true;
+            check(firedSpell("F2") == "Abolish Poison",
+                "with both known: " .. tostring(firedSpell("F2")));
             interp:resetState();
         end
         shim.world.specIndex = nil;
@@ -173,24 +181,24 @@ return function(DebindPrivate, _, ctx)
     end);
 
     -- **The row says the spell is not there only while no entry is known.** The original asks about
-    -- the upper spell, and a druid who has not trained it still casts the lower one from this key.
+    -- the lower spell, and a druid who knows only the upper one still casts it from this key.
     --
     -- The world is stood up before the rebuild: `Spells` builds its table once, and a spell it
     -- cannot date is never called missing.
-    test("the row is not marked missing while the lower spell is known", function()
+    test("the row is not marked missing while another entry is known", function()
         druidWorld();
         shim.world.spells[ABOLISH].levelLearned = 26;
         shim.world.spells[CURE].levelLearned = 14;
         shim.world.spellbook[ABOLISH] = true;
         shim.world.spellbook[CURE] = true;
 
-        shim.world.knownSpells[CURE] = true;
+        shim.world.knownSpells[ABOLISH] = true;
         Bind({ action({ type = Constants.DISPEL2, key = "F4", skipWhenUnusable = true }) });
         local row = DebindPrivate.CollectActionsForKey("F4")[1];
-        check(row and row.noSpell == nil, "marked with the lower spell known: "
+        check(row and row.noSpell == nil, "marked with the upper spell known: "
             .. tostring(row and row.noSpell));
 
-        shim.world.knownSpells[CURE] = nil;
+        shim.world.knownSpells[ABOLISH] = nil;
         Bind({ action({ type = Constants.DISPEL2, key = "F4", skipWhenUnusable = true }) });
         row = DebindPrivate.CollectActionsForKey("F4")[1];
         check(row and row.noSpell == true, "not marked with neither known: "

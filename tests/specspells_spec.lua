@@ -370,20 +370,22 @@ return function(DebindPrivate, _, ctx)
             local a = action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } });
             local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
             check(#list == 2, "list length: " .. #list);
-            check(list[1].conditions.known == 119905, "first: " .. tostring(list[1].conditions.known));
-            check(list[2].conditions.known == 132411, "second: " .. tostring(list[2].conditions.known));
+            -- The original takes the last entry and the one before it is derived (`FillBinding`).
+            check(list[1].conditions.known == 132411, "first: " .. tostring(list[1].conditions.known));
+            check(list[2].conditions.known == 119905, "second: " .. tostring(list[2].conditions.known));
 
             -- The derived one stands ahead of the original, the way every derived binding does
-            -- (`GetBindingsForAction` fills the list back to front). Which of the two comes first
-            -- changes nothing here: the book never holds both.
+            -- (`GetBindingsForAction` fills the list back to front), so the ids come out in the
+            -- entries' order. Which of the two comes first changes nothing here: the book never
+            -- holds both.
             Bind({ a });
-            check(recordField("F3", 1, "known") == "[known:132411]",
+            check(recordField("F3", 1, "known") == "[known:119905]",
                 "record 1 known: " .. tostring(recordField("F3", 1, "known")));
-            check(recordField("F3", 1, "knownID") == 132411,
+            check(recordField("F3", 1, "knownID") == 119905,
                 "record 1 id: " .. tostring(recordField("F3", 1, "knownID")));
-            check(recordField("F3", 2, "known") == "[known:119905]",
+            check(recordField("F3", 2, "known") == "[known:132411]",
                 "record 2 known: " .. tostring(recordField("F3", 2, "known")));
-            check(recordField("F3", 2, "knownID") == 119905,
+            check(recordField("F3", 2, "knownID") == 132411,
                 "record 2 id: " .. tostring(recordField("F3", 2, "knownID")));
 
             -- Both cast the same spell, so the attribute cache hands back one button.
@@ -658,13 +660,14 @@ return function(DebindPrivate, _, ctx)
                 action({ type = Constants.SPELL, key = "F3", value = 8936 }),
             });
 
-            -- Records 1 and 2 are the dispel's two ids and 3 is the spell behind it.
+            -- Records 1 and 2 are the dispel's two ids, in the entries' order, and 3 is the spell
+            -- behind it.
             shim.world.spellbook[119905] = true;
-            check(winner("F3") == 2, "with the imp out the dispel did not fire");
+            check(winner("F3") == 1, "with the imp out the dispel did not fire");
 
             shim.world.spellbook[119905] = nil;
             shim.world.spellbook[132411] = true;
-            check(winner("F3") == 1, "with the imp swallowed the dispel did not fire");
+            check(winner("F3") == 2, "with the imp swallowed the dispel did not fire");
 
             shim.world.spellbook[132411] = nil;
             check(winner("F3") == 3, "with neither in the book the key did not fall through");

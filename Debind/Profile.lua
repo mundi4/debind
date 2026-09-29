@@ -2693,14 +2693,14 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- about"; here the spell exists and is not known (`Spells.KnownMissing`). A reader sees one
     -- thing either way -- that spell is not there -- so both take the same word.
     --
-    -- **An original that took the first of several entries is missing only while every entry is**
-    -- (`SpecSpells.lua`). A camelot druid who has not trained Abolish Poison still casts Cure
-    -- Poison from the same key, and the row saying the spell is not there would be wrong.
+    -- **An original that took one of several entries is missing only while every entry is**
+    -- (`SpecSpells.lua`). The original asks about one spell, and the key still casts any other
+    -- entry that is known: a camelot druid who has one of Cure Poison and Abolish Poison casts it.
     local knownAsked = DebindPrivate.KnownSpellAsked(binding);
     local missing = knownAsked ~= nil and DebindPrivate.Spells.KnownMissing(knownAsked);
     if (missing and binding.entry ~= nil) then
         local _, entries = DebindPrivate.SpecSpells.SpellForType(binding.type);
-        for i = 2, #entries do
+        for i = 1, #entries do
             if (not DebindPrivate.Spells.KnownMissing(DebindPrivate.KnownSpellOfEntry(entries[i]))) then
                 missing = false;
                 break;
