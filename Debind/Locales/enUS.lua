@@ -1530,7 +1530,7 @@ L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
 --
 -- **`%s` is `CONDITION_SPELL_TO_CAST`**, passed by the caller, so a rename of that row reaches this
 -- sentence.
-L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, set the %s condition."
+L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To hand that press to the next action on the key instead, set the |cnHIGHLIGHT_FONT_COLOR:%s|r condition."
 L["TYPE_DISPEL"] = "Dispel"
 -- **Says the two dispels are one spell here, on both of them** (2026-09-29, owner). The picker lists
 -- two entries under one name, and a reader who sees the second one under a key also holding the
