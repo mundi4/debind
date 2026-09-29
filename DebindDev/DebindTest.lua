@@ -4395,7 +4395,7 @@ RegisterTest("Storage: a DEB2 string keeps its cells", {
                 account = { GENERAL = { [0] = Spell(1) }, [class] = { [0] = Spell(2), [2] = Spell(3) } },
                 [guid] = { [class] = { [0] = Spell(4), [5] = Spell(5) } },
             },
-            characters = { [guid] = { name = UnitName("player"), class = class } },
+            characters = { [guid] = { name = DebindPrivate.GetUnitFullName("player"), class = class } },
         }
 
         local back, why = Store.DecodeExportString(Store.EncodeExportPayload(payload))
@@ -4412,7 +4412,7 @@ RegisterTest("Storage: a DEB2 string keeps its cells", {
         if not (mine and mine[class] and mine[class][5] and mine[class][5][1].value == 5) then
             return Fail(NAME, "the guid cell or its spec 5 did not come back")
         end
-        if not (back.characters and back.characters[guid] and back.characters[guid].name == UnitName("player")) then
+        if not (back.characters and back.characters[guid] and back.characters[guid].name == DebindPrivate.GetUnitFullName("player")) then
             return Fail(NAME, "who the cell is did not come back")
         end
 

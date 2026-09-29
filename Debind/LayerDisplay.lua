@@ -28,18 +28,18 @@ local function GetLayerTabs(layerID)
 	return 1, layerID == 1 and 1 or layerID;
 end
 
---- 탭 라벨은 **낱말 하나**다. 예전에는 "공유 바인딩" / "%s 전용 바인딩"이었는데, 탭이
---- 셋이 되면서 줄에 안 들어간다. "바인딩"은 어느 탭에서나 참이라 셋을 가르는 일을 안 하고,
---- 창 제목이 같은 값을 한 번 더 말하므로 뜻도 안 잃는다.
+--- A tab label is **one word**. It used to be "Shared Bindings" / "%s-only Bindings", which no
+--- longer fits a line once there are three tabs. "Bindings" is true of every tab, so it does not
+--- tell them apart, and the window title says it again, so nothing is lost.
 ---
---- **One value, which is what the parentheses are for.** A label goes last into
---- `GameTooltip_SetTitle`, where a second return is the colour: camelot's `UnitName("player")`
---- adds the realm (70009), and `UnitClass` always carries the class file and id.
+--- **One value.** A label goes last into `GameTooltip_SetTitle`, where a second return is taken for
+--- the colour: camelot's `UnitName("player")` answered the surname there (70009), and `UnitClass`
+--- always carries the class file and id.
 local function GetTabLabel(tabID)
 	if (tabID == 1) then
 		return LLL["SHARED_BINDINGS"];
 	else
-		return (UnitName("player"));
+		return DebindPrivate.GetUnitFullName("player");
 	end
 end
 
@@ -117,7 +117,7 @@ local function GetLayerLabelParts(layerID, class, owner)
 	if (tab ~= 2) then
 		scope = LLL["SHARED_BINDINGS"];
 	else
-		scope = owner or UnitName("player");
+		scope = owner or DebindPrivate.GetUnitFullName("player");
 	end
 
 	local side, className;

@@ -30,7 +30,7 @@ local function RefreshIdentity()
         return;
     end
 
-    entry.name    = UnitName("player");
+    entry.name    = DebindPrivate.GetUnitFullName("player");
     entry.realm   = GetNormalizedRealmName();
     entry.class   = select(2, UnitClass("player"));
     entry.race    = select(2, UnitRace("player"));

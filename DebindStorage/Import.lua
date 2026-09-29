@@ -841,7 +841,7 @@ end
 
 --- The three fields a row made here carries (`CreateEntry` says what they answer).
 local function MadeHere()
-    return { character = UnitName("player"), realm = GetRealmName(), guid = DebindPrivate.playerGUID };
+    return { character = DebindPrivate.GetUnitFullName("player"), realm = GetRealmName(), guid = DebindPrivate.playerGUID };
 end
 
 --- Makes an entry out of this character's profile and keeps it.

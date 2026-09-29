@@ -196,9 +196,10 @@ end
 DebindStorageEntryRowMixin = {};
 
 --- A character's name, with its realm only where that is not this one: what `Ambiguate(full,
---- "none")` does, and the client's way everywhere it names a player. Camelot has one realm, so there
---- it never shows (소유자, 2026-09-28). **In the client's form** where it does: `FULL_PLAYER_NAME` is
---- what the friends list joins the two with and every locale carries it.
+--- "none")` does, and the client's way everywhere it names a player. Camelot's realms are one per
+--- ruleset (`ClassicBetaPvE2`, `ClassicBetaPvP2` on the beta), so a character of another ruleset
+--- shows its realm there too. **In the client's form** where it does: `FULL_PLAYER_NAME` is what
+--- the friends list joins the two with and every locale carries it.
 ---
 --- Compared without spaces and dashes, because the two places a realm comes from spell it
 --- differently: a character's identity keeps `GetNormalizedRealmName` and a row made here keeps

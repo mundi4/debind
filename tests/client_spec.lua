@@ -6,6 +6,7 @@
 
 return function(DebindPrivate, DebindStorage)
     local shim = require("wow_shim");
+    local frames = require("wow_frames");
     local camelot = shim.world.client == "camelot";
 
     local T = { passed = 0, failures = {} };
@@ -149,9 +150,50 @@ return function(DebindPrivate, DebindStorage)
         shim.world.specIndex = nil;
     end);
 
+    -- **A character is named by its whole name.** Camelot's first names repeat on one realm and
+    -- even on one account; the surname is what tells those characters apart.
+    local function WholeName()
+        if (camelot) then
+            return "Tester" .. _G.Constants.CharacterNameSeparatorConsts.CHARACTERNAME_SURNAME_SEPARATOR
+                .. "Surname";
+        end
+        return "Tester";
+    end
+
+    test("a character's stored identity carries its whole name", function()
+        local guid = UnitGUID("player");
+        local C = DebindPrivate.Constants;
+        _G.DebindVars = {
+            dbver = C.DB_VERSION,
+            layers = { [guid] = { [C.PLAYER_CLASS] = { [0] = {
+                { type = C.SPELL, value = 1, key = "F1", seq = 1 } } } } },
+            characters = {}, migrated = {}, legacyNeeded = false,
+        };
+        DebindPrivate.InitDB();
+        DebindPrivate.ShowMigrationDialogIfPending =
+            DebindPrivate.ShowMigrationDialogIfPending or function() end;
+        check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+        DebindPrivate.CleanUpDB();
+        local entry = _G.DebindVars.characters[guid];
+        check(entry and entry.name == WholeName(),
+            "stored " .. tostring(entry and entry.name) .. ", expected " .. WholeName());
+    end);
+
+    test("an entry made here carries the character's whole name", function()
+        _G.DebindStorageVars = nil;
+        _G.DebindVars = { dbver = DebindPrivate.Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {
+                { type = DebindPrivate.Constants.SPELL, value = 1, key = "F1", seq = 1 } } } } },
+            characters = {}, migrated = {} };
+        DebindPrivate.InitDB();
+        local entry = DebindStorage.CreateEntry();
+        check(entry.character == WholeName(),
+            "made by " .. tostring(entry.character) .. ", expected " .. WholeName());
+    end);
+
     -- **A layer label is one value.** It goes last into `GameTooltip_SetTitle`, `format` and
     -- `SetText`, so a second return from the client call behind it lands in the next parameter:
-    -- camelot's `UnitName("player")` adds the realm and the tab tooltip took it for its colour.
+    -- camelot's `UnitName("player")` adds the surname and the tab tooltip took it for its colour.
     test("the tab and side tab labels are one value each", function()
         local DebindUI = DebindPrivate.DebindUI;
         for tab = 1, 2 do
@@ -191,7 +233,7 @@ return function(DebindPrivate, DebindStorage)
             { DebindUI.GetLayerLabel(1), LLL["GENERAL"] },
             { DebindUI.GetLayerLabel(2), (UnitClass("player")) },
             { DebindUI.GetLayerLabel(2, "MAGE"), mage },
-            { DebindUI.GetLayerLabel(7), (UnitName("player")) },
+            { DebindUI.GetLayerLabel(7), WholeName() },
             { DebindUI.GetLayerLabel(7, "MAGE", "Bob"), "Bob" },
         };
         for i, case in ipairs(cases) do

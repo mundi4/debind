@@ -357,7 +357,7 @@ local function Sweep()
 end
 
 local function CharKey()
-    local name = UnitName("player");
+    local name = _G.DebindPrivate.GetUnitFullName("player");
     local realm = GetRealmName();
     return (name or "?") .. "-" .. (realm or "?");
 end

@@ -429,19 +429,17 @@ function DebindPrivate.GetKeyDisplayText(key)
 end
 
 
-local FULL_PLAYER_NAME = FULL_PLAYER_NAME;
+--- **The name a character is stored and shown by**, the player's included: `UnitName`'s first
+--- return alone is not one on camelot (`JoinUnitName`).
 function DebindPrivate.GetUnitFullName(unit)
-    local name, realm = UnitName(unit);
+    local name, second = UnitName(unit);
     -- 12.1 can answer with secrets for units outside our access (arena enemies). A
     -- secret name cannot be formatted or concatenated, and every caller already treats
     -- nil as "nothing to show", so that is what a secret becomes.
-    if (issecretvalue and (issecretvalue(name) or issecretvalue(realm))) then
+    if (issecretvalue and (issecretvalue(name) or issecretvalue(second))) then
         return nil;
     end
-    if (realm and realm ~= "") then
-        name = FULL_PLAYER_NAME:format(name, realm);
-    end
-    return name;
+    return DebindPrivate.JoinUnitName(name, second);
 end
 
 function DebindPrivate.OnSpecialUnitChanged(alias, value)

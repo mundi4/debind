@@ -569,9 +569,12 @@ function M.install()
             [9] = { named = { { 1490, "Warlock" } } },
             [11] = { named = { { 1484, "Druid" } } },
         };
-        --- **Camelot names the player's own realm too**, where retail answers nil for it: a tab
-        --- tooltip on 70009 got "Smelly", "Pitt" and took the realm for its colour.
-        _G.UnitName = function() return "Tester", "Test Realm"; end
+        --- **Camelot's second return is the surname, not a realm**: its own `NameUtil.lua` joins the
+        --- two. A tab tooltip on 70009 got "Smelly", "Pitt" and took the surname for its colour.
+        _G.UnitName = function() return "Tester", "Surname"; end
+        --- **Not the client's value**, which the interface export does not carry. Kept apart from
+        --- `FULL_PLAYER_NAME`'s dash so a name joined through the realm format shows.
+        _G.Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = "~" } };
     end
 
     --- One class's specialization at one index, as the two calls below both answer it.
