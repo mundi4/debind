@@ -295,6 +295,29 @@ function DebindPrivate.IsIssueError(issue)
     return issue ~= nil and IssueGrade(issue) == Constants.ISSUE_GRADE_ERROR;
 end
 
+--- The mark a key group's heading wears, `"error"`, `"warning"` or nil, and the grade its tooltip
+--- names. One function because those two are one answer.
+---
+--- **Only rows that got into the build are asked**, which keeps the heading from reddening over
+--- things the reader cannot act on now: an off-spec or badged row is inactive for a reason of its own
+--- and already says so in its own slot. A problem does not keep an action out of `ActiveActions`
+--- (`BuildKeyMap` sets that outside the gate), so what is left is exactly "would run, except for
+--- this". One broken row is enough, since red points at work waiting in the group.
+function DebindPrivate.GetGroupIssueGrade(rows)
+    local grade;
+    for i = 1, #rows do
+        local issue = rows[i].issue;
+        if (issue and not DebindPrivate.IsInactiveAction(rows[i].action)) then
+            if (DebindPrivate.IsIssueError(issue)) then
+                return "error";
+            elseif (DebindPrivate.IsIssueWarning(issue)) then
+                grade = "warning";
+            end
+        end
+    end
+    return grade;
+end
+
 --- What an issue code does to its action, defaulting to OMIT (`Constants.BINDING_ISSUE_OUTCOMES`).
 local function IssueOutcome(code)
     return Constants.BINDING_ISSUE_OUTCOMES[code] or Constants.ISSUE_OUTCOME_OMIT;

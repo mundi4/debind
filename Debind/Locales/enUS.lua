@@ -772,6 +772,12 @@ L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
 -- said as the action still running, because a reader who arrived at a red-looking mark needs to know
 -- first that nothing is dead.
 L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it was told to do does not."
+-- The same two sentences for the mark on a key's heading. **They say that an action under it has a
+-- problem and never which one**: the heading cannot say which action each problem belongs to, and
+-- the row's own mark does.
+L["MARK_TOOLTIP_GROUP_ISSUE_DESC"] = "An action under this heading does not work until its problem is fixed."
+L["MARK_TOOLTIP_GROUP_ISSUE_DESC_WARNING"] = "An action under this heading still runs, but one thing it was told to do does not."
+L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "Look over that action to see what is wrong."
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.
 --

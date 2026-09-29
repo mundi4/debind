@@ -1586,8 +1586,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- **집 편집기나 바뀐 바에 넘겨준 키도 흰색이다.** 잠깐 비켜 준 것이고 저절로 돌아온다.
 		-- 탈것을 타는 동안 이름 색이 변하면 키를 잃은 것처럼 읽힌다.
 		self.IssueIcon.rows = elementData.rows;
-		self.IssueIcon:SetKind(elementData.hasError and "error"
-			or elementData.hasWarning and "warning" or nil, GroupIssueMarkTooltip);
+		self.IssueIcon:SetKind(elementData.issueGrade, GroupIssueMarkTooltip);
 
 		local label = KeyGroupLabel(elementData.key);
 		if (not DebindPrivate.IsKeyHandled(elementData.key)) then
@@ -5158,29 +5157,6 @@ function BuildKeyboardElements()
 		local rows = DebindPrivate.CollectActionsForKey(key, nil, arrivalID);
 		local shown = KeyGroupPasses(rows, key);
 
-		-- **Is one of the ones that would run broken?** Only rows that got into the build are asked,
-		-- which is what keeps this from reddening over things the reader cannot act on now: an
-		-- off-spec or badged row is inactive for a reason of its own and already says so in its own
-		-- slot. A problem does not keep an action out of `ActiveActions` (`BuildKeyMap` sets that
-		-- outside the gate), so what is left is exactly "would run, except for this".
-		--
-		-- **One is enough.** Red points at work waiting in the group, and one broken row is work.
-		local hasError = false;
-		local hasWarning = false;
-		for i = 1, #rows do
-			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
-				-- **Without a `break` on the warning**: an error further down still has to be
-				-- found, since it is the one that decides which mark goes up.
-				local issue = rows[i].issue;
-				if (DebindPrivate.IsIssueError(issue)) then
-					hasError = true;
-					break;
-				elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
-					hasWarning = true;
-				end
-			end
-		end
-
 		if (shown) then
 			-- 그룹이 남으면 **멤버 전부가** 집합에 든다. 통째로 남기는 것과 같은 이유다 -
 			-- 오른쪽 목록이 여기서 매치된 하나만 받으면 두 열이 다른 그룹을 말하게 된다.
@@ -5193,8 +5169,7 @@ function BuildKeyboardElements()
 				-- What picking the heading picks, and the issue mark's rows. **Emptying `rows` below
 				-- rebinds the local name**, so the table carried here is left as it is.
 				rows = rows,
-				hasError = hasError,
-				hasWarning = hasWarning,
+				issueGrade = DebindPrivate.GetGroupIssueGrade(rows),
 				-- Which arrival this group is, or nil for the reader's own. The heading reads it to
 				-- know whether to tint, and the menu and a group anchor are filed under it.
 				arrivalID = arrivalID,

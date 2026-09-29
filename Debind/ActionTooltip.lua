@@ -1049,38 +1049,19 @@ do
 		AddIssueGroup(tooltip, issues, true, done, warningIsWorst);
 	end
 
-	--- The name a sentence with a `%s` in it prints, asked of the action that raised the code.
-	--- The row-mark tooltip gets this handed to it by `GetBindingIssues`; a group heading has only
-	--- the rows, so it asks the same two functions the branches ask.
-	local ISSUE_NAMES = {
-		[Constants.BINDING_ISSUE_MISSING_MACRO] = function(action)
-			return DebindPrivate.GetMissingMacroName(action);
-		end,
-		[Constants.BINDING_ISSUE_UNDEFINED_SWITCH] = function(action)
-			return DebindPrivate.GetUndefinedSwitch(action);
-		end,
-	};
-
-	--- The group heading's issue mark: every problem in the group, one line per sentence, so a
-	--- folded group still says what is wrong further down.
+	--- The group heading's issue mark: **that something under it is wrong, and where to look.**
 	---
-	--- **A code that names something counts as one sentence per name.** Two rows missing two
-	--- different macros are two problems, and folding them on the code alone would print one of
-	--- the names and drop the other.
+	--- The problems themselves are not listed (2026-09-29, owner). A group holds several actions and
+	--- each can hold several problems, so a list here either drops all but one per action or runs
+	--- to every sentence with nothing saying which action each belongs to. The row mark's tooltip
+	--- already says both, under the action it belongs to.
 	function DebindPrivate.AddGroupIssuesToTooltip(tooltip, rows)
-		local seen = {};
-		for i = 1, #rows do
-			local row = rows[i];
-			local issue = row.issue;
-			if (issue and not DebindPrivate.IsInactiveAction(row.action)) then
-				local named = ISSUE_NAMES[issue];
-				local arg = named and named(row.action);
-				local key = issue .. "\0" .. tostring(arg);
-				if (not seen[key]) then
-					seen[key] = true;
-					AddIssueLine(tooltip, issue, arg);
-				end
-			end
-		end
+		local warning = DebindPrivate.GetGroupIssueGrade(rows) == "warning";
+		GameTooltip_SetTitle(tooltip,
+			warning and LLL["ORDER_FLAG_ISSUE_WARNING"] or LLL["ORDER_FLAG_ISSUE"]);
+		GameTooltip_AddNormalLine(tooltip,
+			warning and LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC_WARNING"]
+				or LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC"], true);
+		GameTooltip_AddInstructionLine(tooltip, LLL["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"], true);
 	end
 end

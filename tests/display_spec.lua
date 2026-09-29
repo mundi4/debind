@@ -494,6 +494,63 @@ return function(DebindPrivate)
 
 
     ---------------------------------------------------------------------------
+    -- The group heading's issue mark
+    ---------------------------------------------------------------------------
+
+    --- **The heading says that something is wrong, never what.** A group holds several actions and
+    --- each can hold several problems, and a list of sentences under the heading cannot say which
+    --- action each belongs to. What they are is the row mark's tooltip, which the heading points at.
+    ---
+    --- **The title is the grade the mark is drawn in**, and an error further down beats a warning
+    --- that comes first.
+    test("the heading's issue mark names the grade and points at the rows", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1,
+                conditions = { units = { unitframe = {
+                    frameTypes = Constants.FRAMETYPE_GROUP + Constants.FRAMETYPE_PLAYER, role = 0 } } } },
+            { type = Constants.SPELL, value = 586, key = "BUTTON3", seq = 2,
+                conditions = { units = { focus = { reaction = 0 } } } },
+        }, {});
+
+        local rows = DebindPrivate.CollectActionsForKey("BUTTON3");
+        local warned, broken;
+        for _, row in ipairs(rows) do
+            check(not DebindPrivate.IsInactiveAction(row.action),
+                "a row is inactive, so the heading would not ask it: " .. tostring(row.issue));
+            if (DebindPrivate.IsIssueError(row.issue)) then
+                broken = row;
+            elseif (row.issue and DebindPrivate.IsIssueWarning(row.issue)) then
+                warned = row;
+            end
+        end
+        check(warned and broken, "the key does not hold one warning row and one error row");
+        check(DebindPrivate.GetGroupIssueGrade(rows) == "error",
+            "the heading's mark: " .. tostring(DebindPrivate.GetGroupIssueGrade(rows)));
+
+        local function Drawn(groupRows)
+            local tooltip = shim.newTooltip();
+            DebindPrivate.AddGroupIssuesToTooltip(tooltip, groupRows);
+            return tooltip, tooltip:text();
+        end
+
+        local tooltip, text = Drawn(rows);
+        check(tooltip.lines[1].kind == "title" and tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE"],
+            "the title is not the error grade: " .. text);
+        for _, row in ipairs({ warned, broken }) do
+            for _, issue in ipairs(DebindPrivate.GetBindingIssues(row.action)) do
+                check(not text:find(DebindPrivate.IssueSentence(issue.code, issue.arg), 1, true),
+                    "a row's own problem is written on the heading: " .. text);
+            end
+        end
+        check(text:find(LLL["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"], 1, true),
+            "nothing points at the rows: " .. text);
+
+        tooltip, text = Drawn({ warned });
+        check(tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE_WARNING"],
+            "a warning-only group is not titled as a warning: " .. text);
+    end);
+
+    ---------------------------------------------------------------------------
     -- Unreachable, and the row that covers it
     ---------------------------------------------------------------------------
 
