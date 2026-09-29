@@ -1,5 +1,4 @@
 local _, DebindPrivate = ...;
-local L                       = DebindPrivate.L;
 local Constants               = DebindPrivate.Constants;
 
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
@@ -9,7 +8,6 @@ local tinsert                 = tinsert;
 local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
 local GetSpellCastName        = DebindPrivate.GetSpellCastName;
 local GetSpellNameAndIconID   = DebindPrivate.GetSpellNameAndIconID;
-local EquipSlotFacts          = DebindPrivate.EquipSlotFacts;
 local GetBindingInfoForAction = DebindPrivate.GetBindingInfoForAction;
 local UnitGroupToCells        = DebindPrivate.UnitGroupToCells;
 local CellsToUnitGroup        = DebindPrivate.CellsToUnitGroup;
@@ -426,7 +424,16 @@ function DebindPrivate.CanConvertToMacroText(action)
 end
 
 function DebindPrivate.ConvertToMacroText(action)
-    local macrotext, name, icon;
+    local macrotext;
+
+    -- **The name is what the row called it a moment ago**, read before anything below rewrites the
+    -- action. A macro text action has nowhere to work a name out from, so this is its label from
+    -- now on. Reached through the table because `ActionDisplay.lua` loads after this file. The
+    -- third return is `"?"` for a name that did not resolve, which is nothing to store.
+    local _, _, name = DebindPrivate.DebindUI.NameAndIconForAction(action);
+    if (name == "?") then
+        name = nil;
+    end
 
     --- **Where the action aims, which is not always the field.** A hover condition with no target
     --- chosen aims at the hovered unit, and that is derived rather than stored
@@ -467,21 +474,14 @@ function DebindPrivate.ConvertToMacroText(action)
                 spellOrItemName = stored;
             else
                 local spellID = C_SpellBook.FindBaseSpellByID(stored) or stored;
-                local _, spellIcon = GetSpellNameAndIconID(spellID);
-                icon = spellIcon;
                 -- A pinned rank is the stored id's own, the way the button spells it.
                 spellOrItemName = GetSpellCastName(action.pinRank and stored or spellID, action.pinRank);
             end
-            name = spellOrItemName;
         else
             slashCommand = SLASH_USE1;
-            name = C_Item.GetItemNameByID(action.value);
-            icon = C_Item.GetItemIconByID(action.value);
-            -- A stored name goes in as it is, the way the button is stamped (`DescribeBinding`), and
-            -- names the macro where the cache has not seen the item.
+            -- A stored name goes in as it is, the way the button is stamped (`DescribeBinding`).
             if (type(action.value) == "string") then
                 spellOrItemName = action.value;
-                name = name or action.value;
             else
                 spellOrItemName = format("item:%d", action.value);
             end
@@ -498,81 +498,49 @@ function DebindPrivate.ConvertToMacroText(action)
         -- **The slot number is the whole body.** `SecureCmdItemParse` reads one bare number as an
         -- inventory slot, which is the same reading the binding's `*item-` gets
         -- (`UpdateBindings.lua`).
-        --
-        -- Name and icon come from where the row draws them (`ActionDisplay.lua`), because a
-        -- macro body's are read out of storage rather than resolved again -- so what is worn
-        -- there today is what this row keeps showing.
-        local slotName, slotTexture = EquipSlotFacts(action.value);
         if (unit) then
             macrotext = format("%s [@%s] %d", SLASH_USE1, unit, action.value);
         else
             macrotext = format("%s %d", SLASH_USE1, action.value);
         end
-        name = slotName;
-        icon = GetInventoryItemTexture("player", action.value) or slotTexture;
     elseif (action.type == Constants.MACRO) then
         -- Asked only when the value is a name. Anything else is the shape `GetMissingMacroName`
         -- reports, and `GetMacroInfo(nil)` raises. Leaving it unanswered is the whole handling
         -- needed: the tail below already treats a nil body as "nothing to convert", which is also
         -- the answer for a name whose macro has since been deleted.
         if (type(action.value) == "string") then
-            name, icon, macrotext = GetMacroInfo(action.value);
+            macrotext = select(3, GetMacroInfo(action.value));
         end
     elseif (action.type == Constants.MOUNT) then
-        local spellID;
-        name, spellID, icon = GetMountInfoByID(action.value);
-        if (spellID) then
-            local spellName = GetSpellNameAndIconID(spellID);
-            if (spellName) then
-                macrotext = SLASH_CAST1 .. " " .. name;
-            end
-        end
-
-        if (not macrotext) then
-            local value = action.value;
-            if (value == 0 or value == 268435455) then
-                value = 0;
-                name, icon = GetSpellNameAndIconID(150544);
-            end
-            macrotext = DebindPrivate.GetMountMacroText(value,
+        local mountName, spellID = GetMountInfoByID(action.value);
+        if (spellID and GetSpellNameAndIconID(spellID)) then
+            macrotext = SLASH_CAST1 .. " " .. mountName;
+        else
+            macrotext = DebindPrivate.GetMountMacroText(action.value,
                 DebindPrivate.UnshiftsForAction(action));
         end
     elseif (action.type == Constants.PETACTION) then
-        -- 이건 이미 매크로텍스트다 - 바인딩이 나갈 때와 **같은 함수로** 본문을 만든다.
-        -- 이름과 아이콘은 액션이 들고 있는 것을 그대로 옮긴다(펫이 없으면 다시 못 푼다).
+        -- The same function the binding writes its body with.
         macrotext = DebindPrivate.GetPetActionMacroText(action.value, unit);
-        name = action.name;
-        icon = action.icon;
     elseif (action.type == Constants.SETCUSTOM) then
         macrotext = format("/click DebindCustom%d unitframe", action.value);
-        name = L["TYPE_SETCUSTOM" .. action.value];
-        icon = 1505950;
     elseif (action.type == Constants.WORLDMARKER) then
         macrotext = format("/wm %d", action.value);
-        name = _G["WORLD_MARKER" .. action.value];
-        icon = 4238933;
     elseif (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
         -- **Empty, and that is the whole body.** Neither type does anything when pressed any more,
         -- so there is nothing to write out; the reader writes what the key should do now.
         --
-        -- The name is what the row already draws (`ActionDisplay.lua`), which for `UNUSED` is a
-        -- description of the retired behaviour rather than a name, so that one is left unset and
-        -- draws as `UNNAMED_ACTION`. The icon is the question mark on purpose: the row resolves it
-        -- out of the body once there is one (`GetMacrotextIcon`), and the red "not ready" texture
-        -- these two wear is an error mark that stops being true here.
-        if (action.type == Constants.COMMAND) then
-            name = _G["BINDING_NAME_" .. action.value] or action.value;
+        -- `UNUSED`'s row name is a description of the retired behaviour rather than a name, so it
+        -- is not carried and the row draws `UNNAMED_ACTION`.
+        if (action.type == Constants.UNUSED) then
+            name = nil;
         end
         macrotext = "";
-        icon = Constants.QUESTION_MARK_ICON;
     elseif (Constants.SETSWITCH_MODES[action.type]) then
         -- **The body needs a name and a mode, and the action already holds both** -- the name in
-        -- `value`, the mode decided by the type. The locale key assembles off the type for the
-        -- same reason, which is half of why the type names are underscored (`Constants.lua`).
+        -- `value`, the mode decided by the type.
         macrotext = format("/click %s %s-%s", SWITCH_CLICK_TARGET, action.value,
             Constants.SETSWITCH_MODES[action.type]);
-        name = format(L["TYPE_" .. strupper(action.type)], action.value);
-        icon = 254885;
     end
 
     -- **nil is "nothing to convert" and `""` is a body.** The retired types convert to an empty
@@ -587,7 +555,12 @@ function DebindPrivate.ConvertToMacroText(action)
         action.type = Constants.MACROTEXT;
         action.value = macrotext;
         action.name = name;
-        action.icon = icon;
+        -- **Always the question mark.** What the row drew was worked out at each draw -- the
+        -- trinket worn today, the spell a talent overrides it with -- and stored here it would be
+        -- that moment's for good. With the question mark the row asks the body instead
+        -- (`GetMacrotextIcon`), the way the client does for a macro of its own, and a body that
+        -- names nothing it can draw is honestly drawn as the question mark.
+        action.icon = Constants.QUESTION_MARK_ICON;
         action.unit = nil;
         return true;
     end

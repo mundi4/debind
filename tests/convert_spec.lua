@@ -78,7 +78,7 @@ return function(DebindPrivate)
         check(action.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(action.type));
         check(action.value == "/wm 5", "본문이 " .. tostring(action.value) .. "다");
         check(action.name == "파랑", "이름이 " .. tostring(action.name) .. "다");
-        check(action.icon == 4238933, "아이콘이 " .. tostring(action.icon) .. "다");
+        check(action.icon == Constants.QUESTION_MARK_ICON, "아이콘이 " .. tostring(action.icon) .. "다");
     end);
 
     --- **은퇴한 두 타입은 빈 본문으로 바뀐다** (2026-09-23, 소유자). 둘 다 눌러도 아무 일이
@@ -141,19 +141,41 @@ return function(DebindPrivate)
     --- 맨 숫자를 적고, `SecureCmdItemParse`가 그것을 가방 쌍이 아니라 인벤토리 칸으로 읽는다
     --- (`UpdateBindings.lua`).
     ---
-    --- **이름과 아이콘은 그리는 쪽과 같은 자리에서 가져온다**(`ActionDisplay.lua`의 같은
-    --- 갈래). 매크로텍스트는 저장된 이름을 그리므로, 여기서 안 적으면 그 줄이 영영 이름 없는
-    --- 줄로 남는다.
+    --- **The name is the one the row showed before the conversion.** A macro text action draws its
+    --- stored name, so without one the row would stay nameless for good.
+    ---
+    --- **The icon is the question mark, which is not a missing icon.** The row reads the icon out
+    --- of the body whenever the stored one is the question mark (`GetMacrotextIcon`), and `/use 13`
+    --- answers with whatever is worn in that slot at the time. Stored at the moment of conversion,
+    --- it would show that day's trinket for good, which is what binding a slot rather than an item
+    --- was for avoiding.
     test("착용 칸은 /use <칸>이 된다", function()
         installWorld();
         local action = { type = Constants.USESLOT, value = 13 };
+        local _, _, rowName = DebindPrivate.DebindUI.NameAndIconForAction(action);
         check(Can(action), "착용 칸에 변환이 안 선다");
         check(Convert(action), "변환이 거절됐다");
         check(action.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(action.type));
         check(action.value == "/use 13", "본문이 " .. tostring(action.value) .. "다");
-        check(action.name == DebindPrivate.EquipSlotFacts(13),
-            "이름이 " .. tostring(action.name) .. "다");
-        check(action.icon ~= nil, "아이콘이 안 붙었다");
+        check(action.name == rowName, "이름이 " .. tostring(action.name) .. "다");
+        check(action.icon == Constants.QUESTION_MARK_ICON, "아이콘이 " .. tostring(action.icon) .. "다");
+    end);
+
+    --- **What the row called it is what the macro is called**, for every type. A spell with a
+    --- subtext is where the two parted: the conversion named it by its cast name, the subtext
+    --- attached, while the row named it by the spell alone.
+    ---
+    --- **The icon is the question mark for every type** (owner, 2026-09-29). What the row drew was
+    --- worked out at each draw; stored, it would be the moment of conversion's for good.
+    test("변환된 매크로의 이름은 변환 전 행의 이름이다", function()
+        installWorld();
+        shim.world.spells[5176] = { name = "Wrath", subtext = "Solar", iconID = 535045 };
+        local action = { type = Constants.SPELL, value = 5176 };
+        local _, _, rowName = DebindPrivate.DebindUI.NameAndIconForAction(action);
+        check(Convert(action), "변환이 거절됐다");
+        check(action.name == rowName,
+            "이름이 " .. tostring(action.name) .. "다. 행은 " .. tostring(rowName) .. "이었다");
+        check(action.icon == Constants.QUESTION_MARK_ICON, "아이콘이 " .. tostring(action.icon) .. "다");
     end);
 
     --- 대상은 본문에 굽는다. 착용 칸은 대상을 갖는 타입이고(`TYPES_WITH_UNIT`), 매크로텍스트는
