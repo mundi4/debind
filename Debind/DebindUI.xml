@@ -171,17 +171,17 @@
 	</Frame>
 
 	<!--
-		**행이 자기에 대해 말하는 작은 그림 하나.** 어떤 종류가 있는지는 `MARK_KINDS`가 답한다
-		(DebindUI.lua) - 그 표가 그림 고르는 유일한 자리라, 같은 뜻이 목록마다 다른 그림으로
-		나가는 일이 없다.
+		**One small picture a row says about itself.** Which kinds there are is `MARK_KINDS`
+		(DebindUI.lua), the one place a picture is chosen, so one meaning cannot go out as a
+		different picture in another list.
 
-		**프레임인 이유는 자기 툴팁 때문이다.** 마크가 뜨면 사람은 그리로 마우스를 대 보는데,
-		거기서 행 툴팁이 서면 그 사람이 온 이유에는 아무도 답하지 않은 것이 된다 - 조건이 열
-		개면 스무 줄이고, 답은 그 안 어딘가다. 텍스처는 마우스를 못 받으므로 프레임이라야 한다.
+		**A frame because of its own tooltip.** A reader who sees a mark puts the mouse on it, and a
+		row tooltip standing up there answers nothing they came for: ten conditions make twenty
+		lines, and the answer is somewhere inside. A texture takes no mouse, so this has to be a frame.
 
-		**클릭도 키도 안 받는다.** `registerForClicks`가 없어 클릭은 행으로 가고, 키보드를 안
-		켜므로 지정 모드에서 이 마크 위에 커서를 둔 채 누른 키도 행의 것이 된다. 커서가 이리로
-		와도 행이 대상 자격을 안 잃게 하는 판정은 `DebindLineMixin:HasCursor`.
+		**It takes neither clicks nor keys.** With no `registerForClicks` a click goes to the row, and
+		with the keyboard off a key pressed in bind mode with the cursor on the mark is the row's too.
+		What keeps the row the target while the cursor is here is `DebindLayerRowMixin:HasCursor`.
 	-->
 	<Frame name="DebindRowMarkTemplate" mixin="DebindRowMarkMixin" enableMouse="true" propagateMouseInput="Clicks" hidden="true" virtual="true">
 		<Layers>
@@ -208,9 +208,6 @@
 		ahead of the original (`which-action-a-key-runs.md` §3), conditions are what the comparator
 		reads next, and last is whether the action works at all. The first two say why it is tried
 		when it is, the last whether it does anything.
-
-		`Layout` measures the children into the width, so whatever asks how wide the name may be
-		measures this one line (`DebindLineMixin:LayoutName`).
 	-->
 	<Frame name="DebindRowMarksTemplate" inherits="HorizontalLayoutFrame" virtual="true">
 		<KeyValues>
@@ -312,19 +309,38 @@
 	</Button>
 
 	<!--
-		**The row's look alone.** Picking, taking a drop and opening a menu live in
-		`DebindLineTemplate`; the switches tab's usage list takes only the picture.
+		**Every row in every list stands on this**, so a change to how a row looks is made once.
+		Each list's row used to declare its own copy, and the copies had drifted apart.
+
+		**The background is what tells one row from the next.** The auction house's row stripes were
+		tried first and all but vanished on the dark inset; that art assumes a lighter ground. This
+		one carries a border.
+
+		**The hover light is a `HIGHLIGHT` layer and not an `OnEnter`**, for two reasons. A script
+		here would be replaced by the row's own `OnEnter`, so every row would have to carry it by
+		hand. And the Overview row lights its twin while the order list is hovered by locking this
+		layer (`LockHighlight`), which a script-drawn light would not answer to.
 	-->
-	<Button name="DebindLineVisualTemplate" virtual="true">
-		<Size x="450" y="46"/>
+	<Button name="DebindListRowTemplate" virtual="true">
+		<Layers>
+			<Layer level="BACKGROUND" textureSubLevel="-1">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground" setAllPoints="true"/>
+			</Layer>
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Button>
+
+	<Button name="DebindTwoLineActionRowTemplate" inherits="DebindListRowTemplate" virtual="true">
+		<Size y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
 				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled">
 					<Size x="39" y="39"/>
 					<Anchors>
@@ -340,29 +356,28 @@
 						<Anchor point="LEFT" relativePoint="LEFT" x="7" y="0"/>
 					</Anchors>
 				</Texture>
-				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="7"/>
-					</Anchors>
-				</FontString>
 				<FontString parentKey="InfoText" inherits="GameFontNormalSmall" justifyH="RIGHT">
-					<Size x="430" y="0"/>
 					<Anchors>
-						<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" x="-12" y="-9"/>
+						<Anchor point="RIGHT" x="-12" y="7"/>
 					</Anchors>
 					<Color color="NORMAL_FONT_COLOR"/>
 				</FontString>
-				<!--
-					**이름이 아니라 아이콘에 매달린다.** 값은 예전과 같다(이름의 왼쪽 앵커를
-					그대로 따라간 자리다). 이름은 레이어 아이콘 때문에 행마다 다른 x에서
-					시작할 수 있는데, 단축키까지 같이 밀리면 이 목록의 조직 축인 키 칸이
-					행마다 들쭉날쭉해진다.
-				-->
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="7"/>
+						<Anchor point="RIGHT" relativeKey="$parent.InfoText" relativePoint="LEFT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="InfoText2" inherits="GameFontNormalSmall" justifyH="RIGHT">
+					<Anchors>
+						<Anchor point="RIGHT" x="-12" y="-8"/>
+					</Anchors>
+					<Color r="1" g="1" b="1" a="1"/>
+				</FontString>
 				<FontString parentKey="BindingText" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
-					<Size x="430" y="0"/>
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="-8"/>
+						<Anchor point="RIGHT" relativeKey="$parent.InfoText2" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 				<!--
@@ -376,35 +391,19 @@
 						<Anchor point="LEFT" relativeKey="$parent.BindingText" relativePoint="LEFT"/>
 					</Anchors>
 				</Texture>
-				<FontString parentKey="InfoText2" inherits="GameFontNormalSmall" justifyH="RIGHT">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-12" y="9"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</FontString>
-				<FontString parentKey="SpecialConditionsText" inherits="GameFontNormalSmall" maxLines="1" justifyH="RIGHT" text="">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-12" y="9"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</FontString>
 			</Layer>
 			<Layer level="OVERLAY">
-				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
 				<!--
-					우클릭 메뉴가 열린 행. 선택 강조(SelectedHighlight)와 색으로 나눌 수가
-					없다 - SetVertexColor는 곱셈이라 노란 아틀라스에서 갈 수 있는 곳이
-					주황~빨강뿐이고, 그건 오류로 읽힌다. 그래서 색이 아니라 모양으로 나눈다:
-					선택은 채우는 막대, 메뉴 대상은 두르는 테두리. 한 행이 둘 다여도 둘 다
-					보인다.
+					The row a right-click menu is open on. **Told apart from `SelectedHighlight` by
+					shape, not colour**: `SetVertexColor` multiplies, so the yellow atlas can only
+					go orange to red, and that reads as an error. Picked is a filled bar, the menu's
+					target a frame around it, and a row that is both shows both.
 
-					FrameHighlight와 같은 아트지만 그건 HIGHLIGHT 레이어라 마우스가 올라가
-					있을 때만 나온다. 메뉴가 떠 있는 동안 마우스는 행 위에 없다.
+					It is `FrameHighlight`'s art, but that one is a `HIGHLIGHT` layer and shows only
+					under the cursor, which is elsewhere while the menu is up.
 
-					아래 둘은 Background와 **같은 사각형**이어야 한다(±7). 두르는 그림이라
-					한 픽셀만 어긋나도 배경 테두리와 두 겹으로 보인다.
+					**The same rectangle as `Background`.** A drawn frame off by a pixel shows as a
+					second border beside the one the background already has.
 				-->
 				<Texture parentKey="MenuHighlight" atlas="ClickCastList-ButtonHighlight" hidden="true" alphaMode="ADD">
 					<Anchors>
@@ -435,15 +434,6 @@
 					</Anchors>
 				</Texture>
 			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-					<Color r="1" g="1" b="0" a="1"/>
-				</Texture>
-			</Layer>
 		</Layers>
 		<Frames>
 			<Frame parentKey="Marks" inherits="DebindRowMarksTemplate">
@@ -454,35 +444,23 @@
 		</Frames>
 	</Button>
 
-	<Button name="DebindLineTemplate" inherits="DebindLineVisualTemplate" mixin="DebindLineMixin" virtual="true">
+	<Button name="DebindLayerRowTemplate" inherits="DebindTwoLineActionRowTemplate" mixin="DebindLayerRowMixin" virtual="true">
 		<Scripts>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 			<OnClick method="OnClick"/>
-			<!-- 지정 모드가 켜진 동안에만 산다(DebindLineMixin:Update의 EnableMouseWheel). -->
+			<!-- Live only while bind mode is on (`EnableMouseWheel` in `DebindLayerRowMixin:Update`). -->
 			<OnMouseWheel method="OnMouseWheel"/>
-			<!-- 모드가 켜져 있고 커서가 이 행 위에 있는 동안만 산다(같은 Update). -->
+			<!-- Live only while bind mode is on and the cursor is on this row (the same `Update`). -->
 			<OnKeyDown method="OnKeyDown"/>
-			<!-- OnDragStart은 없다. 행은 끌 수 없고 받기만 한다(DebindLineMixin 참고). -->
+			<!-- No OnDragStart: a row cannot be dragged, only dropped on (`DebindLayerRowMixin:OnReceiveDrag`). -->
 			<OnReceiveDrag method="OnReceiveDrag"/>
 		</Scripts>
 	</Button>
 
 	<!--
-		순서 리스트 한 줄. 왼쪽 목록(DebindLineTemplate)과 같은 아트를 쓴다 - 한 창 안의
-		두 목록이 다른 애드온처럼 보이면 안 된다. 다른 건 폭(패널에 맞춰 좁다)과, 아래줄에
-		붙는 레이어·플래그 글자뿐이다.
-
-		순위 숫자는 안 붙인다. 이 목록은 위에서부터 시도되는 순서 그대로라 자리가 곧 순위이고,
-		지금 보고 있는 액션은 SelectedHighlight가 짚는다.
-	-->
-	<!--
-		좌우 클릭이 같은 일을 한다 - 둘 다 그 액션이 사는 통으로 데려간다
-		(DebindOrderLineMixin:OnClick). 여기서 버튼을 나눌 뜻이 없다.
-
-		실제로 한 번 열렸다. 좌클릭에 "그 액션으로 가기"를 달았는데, **좌클릭은 습관적으로
-		눌러보는 버튼**이라 그것만으로 탭이 바뀌었다 - 되돌리는 데 두세 번이 든다. 멀리 가는
-		일은 우클릭 메뉴에서 "가기"를 고르는 한 번의 명시적 선택이어야 한다.
+		No rank number: the list is in the order the key tries its actions, so the position is the
+		rank, and the action being looked at is marked by `SelectedHighlight`.
 	-->
 	<!--
 		결과 목록의 한 줄. **표의 한 행이다** - 오른쪽 통 목록과 겉이 닮으면 안 되기 때문이다.
@@ -502,32 +480,9 @@
 		칸은 위아래로 견줘 읽는 값이 아니라 **그 행에 대한 한마디**다 - 견줄 것이 없는 칸을
 		맞춰 세우자고 이름을 자를 이유가 없다.
 	-->
-	<Button name="DebindOrderLineTemplate" mixin="DebindOrderLineMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
-		<Size x="300" y="28"/>
+	<Button name="DebindOrderLineTemplate" inherits="DebindListRowTemplate" mixin="DebindOrderLineMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
+		<Size y="28"/>
 		<Layers>
-			<Layer level="BACKGROUND">
-				<!--
-					줄무늬. 경매장 목록이 쓰는 것과 같은 아트다(Blizzard_AuctionHouseItemList).
-					한 줄짜리 행이 여럿 늘어서면 배경 없이는 어디까지가 한 줄인지 눈이 못 세는데,
-					글자만으로 그걸 하려면 행 간격을 크게 벌려야 하고 그러면 표가 아니라 목록이 된다.
-					줄무늬가 그 일을 대신하므로 간격은 좁게 둘 수 있다.
-				-->
-				<!--
-					행 배경. 오른쪽 통 목록과 **같은 아트**를 쓴다 - 한 창에서 "이것은 액션 한 줄"을
-					말하는 그림이 둘이면 안 된다. 저쪽은 46px 두 줄짜리 카드, 여기는 28px 한 줄이라
-					같은 그림이어도 두 목록이 헷갈릴 일은 없다.
-
-					경매장 줄무늬(auctionhouse-rowstripe-1/2)를 먼저 써봤는데 이 어두운 인셋 위에서는
-					거의 안 보였다 - 그 아트는 더 밝은 바탕을 전제한다. 행이 낱개로 읽히려면 테두리가
-					있어야 하고, 그건 이 아트가 갖고 있다.
-				-->
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
-			</Layer>
 			<Layer level="ARTWORK">
 				<Texture parentKey="Icon">
 					<Size x="20" y="20"/>
@@ -561,22 +516,12 @@
 				</FontString>
 			</Layer>
 			<Layer level="OVERLAY">
-				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
 				<!-- The mark the bin list carries. Reasoning is over there. -->
 				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
 					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP"/>
 					</Anchors>
-				</Texture>
-			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-					<Color r="1" g="1" b="0" a="1"/>
 				</Texture>
 			</Layer>
 		</Layers>
@@ -1460,7 +1405,7 @@
 										built, and `enableKeyboard="false"` on the frame does not change
 										that. A keyboard-enabled frame keeps what it receives, and this one
 										has no key of its own to take: while the mode is on the keys belong
-										to the row under the cursor (`DebindLineMixin:OnKeyDown`).
+										to the row under the cursor (`DebindLayerRowMixin:OnKeyDown`).
 
 										**The mode is not turned off here either.** An OnHide on this button
 										fires whenever anything sweeps the window out of `UISpecialFrames`,

@@ -425,7 +425,7 @@ globals = {
 
 	-- Mixin globals (for XML templates)
 	"DebindDialogMixin",
-	"DebindLineMixin",
+	"DebindLayerRowMixin",
 	"DebindKeyHeaderMixin",
 	"DebindRowMarkMixin",
 	"DebindOrderLineMixin",

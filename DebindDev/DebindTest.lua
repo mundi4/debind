@@ -2591,7 +2591,7 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
             return Fail(NAME, "pressed it and the mode did not come on")
         end
         -- **The keyboard is not this button's, on or off.** It belongs to the row under the cursor
-        -- while the mode is on (`DebindLineMixin:Update`), because a key pressed off a row has no
+        -- while the mode is on (`DebindLayerRowMixin:Update`), because a key pressed off a row has no
         -- row to land on and eating it there costs the reader every key in the game. This button
         -- holds the keyboard from the moment it is built, so the assertion is that it was taken
         -- away and stays away (`DebindUI.xml`).

@@ -515,7 +515,7 @@ function DebindSwitchUsageActionMixin:Init(elementData)
     self.action = elementData.action;
     self.layerID = elementData.layer;
 
-    DebindUI.FillActionLine(self, elementData.action, elementData.layer);
+    DebindUI.FillTwoLineActionRow(self, elementData.action, elementData.layer);
 
     self.Marks:Hide();
 
@@ -1438,7 +1438,7 @@ function DebindSwitchesPanelMixin:ActionRows(usage)
     for i = 1, #usage.here do
         local place = usage.here[i];
         if (openable[place.layerID]) then
-            -- **`layer`, because that is the key the row reads** (`DebindLineMixin:Update`).
+            -- **`layer`, because that is the key the row reads** (`DebindLayerRowMixin:Update`).
             rows[#rows + 1] = { action = place.action, layer = place.layerID };
         end
     end

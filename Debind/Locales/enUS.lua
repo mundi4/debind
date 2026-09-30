@@ -805,9 +805,10 @@ L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you
 -- 한 번 붙잡는 값이 남지 않아 풍선 쪽을 지웠다. 그러니 이 문장에서 수식어를 덜어내면
 -- CTRL/SHIFT-클릭을 알리는 곳이 UI에 하나도 없어진다.
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold CTRL or SHIFT while clicking to select more than one."
--- 지정 모드 중에 이 행을 가리키면 위아래 두 줄 대신 이것만 뜬다(`DebindLineMixin:OnEnter`).
--- **BIND_MODE_OVERLAY와 다른 말이어야 한다.** 저쪽은 "오른쪽에서 행동을 가리키라"고 하는데,
--- 이 줄을 읽는 사람은 이미 가리키는 중이라 그 문장이 할 일이 없다. 남은 물음은 하나다.
+-- In bind mode, pointing at the row shows this alone in place of the two lines above
+-- (`DebindLayerRowMixin:OnEnter`). **It has to say something other than BIND_MODE_OVERLAY**, which
+-- tells the reader to point at an action; whoever reads this line is already pointing, and one
+-- question is left.
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key or mouse button to give it to this action."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
 -- The value the line above pushes aside, where the reader chose no target of their own. It names

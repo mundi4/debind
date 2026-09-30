@@ -40,7 +40,7 @@ end
 --- character would caption another class's layers with this reader's class (`GetLayerLabel`).
 
 --- One row of the left column: two lines and a delete button.
-local ENTRY_ROW_HEIGHT   = 44;
+local ENTRY_ROW_HEIGHT   = 46;
 
 --- The right column, which is the export list's three rungs.
 local PREVIEW_ROW_HEIGHT = 28;
@@ -363,13 +363,11 @@ function DebindStorageEntryRowMixin:Init(elementData)
             or Constants.QUESTION_MARK_ICON);
     end
     self.SourceIcon:SetShown(fromClique);
-    self.Name:ClearAllPoints();
+    -- No `ClearAllPoints`: it would drop the `RIGHT` point the XML hangs off the delete button.
     if (fromClique) then
         self.Name:SetPoint("LEFT", self.SourceIcon, "RIGHT", 4, 0);
-        self.Name:SetWidth(315);
     else
         self.Name:SetPoint("LEFT", 10, 7);
-        self.Name:SetWidth(335);
     end
 
     -- **No pin, because nothing sweeps.** A pin takes an entry out of a clear-out, and there is no

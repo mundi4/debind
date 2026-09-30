@@ -970,7 +970,7 @@ local function ApproveArrivedActions(actions, occupants, contested, answer)
 	DebindFrame:Update();
 end
 
-DebindLineMixin = {};
+DebindLayerRowMixin = {};
 
 --- Is the cursor on this row? **A mark counts as this row.**
 ---
@@ -980,7 +980,7 @@ DebindLineMixin = {};
 ---
 --- **`IsMouseOver` is not it**, for the row's own reason: it is geometry, and it answers true for a
 --- row the ScrollBox has clipped away.
-function DebindLineMixin:HasCursor()
+function DebindLayerRowMixin:HasCursor()
 	if (self:IsMouseMotionFocus()) then
 		return true;
 	end
@@ -1000,24 +1000,24 @@ end
 ---
 --- `GetTime()` holds one value for a whole frame, so this comparison is exactly "the frame the key
 --- arrived in" and expires by itself. From the next frame the focus is back and `HasCursor` answers.
-function DebindLineMixin:ShouldTakeKeyboard()
+function DebindLayerRowMixin:ShouldTakeKeyboard()
 	if (not DebindFrame:IsCapturingKey()) then
 		return false;
 	end
 	return self.keyAt == GetTime() or self:HasCursor();
 end
 
-function DebindLineMixin:Init(elementData)
+function DebindLayerRowMixin:Init(elementData)
 	self:RegisterForClicks("AnyUp");
 	--self:EnableMouseWheel(true);
 	self:Update();
 end
 
---- Puts an action on a `DebindLineVisualTemplate` row: everything the reader sees and nothing it
+--- Puts an action on a `DebindTwoLineActionRowTemplate` row: everything the reader sees and nothing it
 --- does. **Two lists draw the same action** (the Overview's and the switches tab's usage list),
 --- and each field filled in only one of them is a mark that means something on one screen and is
 --- missing on the other.
-function DebindUI.FillActionLine(self, action, layerID)
+function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	-- **The same test as the name beside it** (`LayerDisplay.lua`'s `IsActionLive`), and not
 	-- `IsInactiveAction`. That one also drops an action whose specialization condition is false
 	-- right now, which greyed four things at once for a condition the reader set like any other:
@@ -1121,11 +1121,11 @@ function DebindUI.FillActionLine(self, action, layerID)
 	self.Icon:SetDesaturated(false);
 end
 
-function DebindLineMixin:Update()
+function DebindLayerRowMixin:Update()
 	local elementData = self:GetElementData();
 	local action = elementData.action;
 
-	DebindUI.FillActionLine(self, action, elementData.layer);
+	DebindUI.FillTwoLineActionRow(self, action, elementData.layer);
 	self:SetAlpha(elementData.searchMiss and 0.5 or 1);
 
 	-- 강조는 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를 새로 만들어도
@@ -1166,20 +1166,19 @@ function DebindLineMixin:Update()
 	end
 end
 
---- **지정 모드 중에는 안내 줄을 갈아 끼운다.** 평소의 세 줄이 그 모드에서는 전부 거짓이다 -
---- 좌클릭도 우클릭도 이 행의 것이 아니라 눌린 키 그 자체가 되고(`DebindLineMixin:OnClick`이
---- `BindMode_OnInput`으로 넘긴다), 선택은 아예 멈춘다. CTRL/SHIFT는 그냥 수식어 키다.
+--- **Bind mode swaps the instruction lines.** The usual ones are all false in that mode: left and
+--- right click stop being this row's and become the key pressed (`DebindLayerRowMixin:OnClick`
+--- hands them to `BindMode_OnInput`), picking stops altogether, and CTRL/SHIFT are only modifiers.
 ---
---- 비우지 않고 그 모드의 말을 넣는 이유는, **가리키고 있는 이 행이 곧 대상**이기 때문이다.
---- 오버레이(`BIND_MODE_OVERLAY`)는 "오른쪽에서 행동을 가리키라"고 말하는데 그건 아직 안
---- 가리킨 사람에게 하는 말이고, 이미 가리키는 중이면 남은 물음은 "그래서 지금 뭘 누르나"
---- 하나다. 그 답이 나올 자리는 커서가 있는 여기다.
+--- **Replaced rather than emptied, because the row being pointed at is the target.** The overlay
+--- (`BIND_MODE_OVERLAY`) tells a reader who has not pointed yet to point at an action; one who is
+--- pointing has one question left, what to press now, and the answer belongs where the cursor is.
 ---
---- ESC(지우개)는 여기 안 넣는다. 오버레이가 그 말을 계속 띄우고 있고, 이 줄은 커서를 옮길
---- 때마다 다시 읽히는 자리라 규칙을 둘씩 얹으면 정작 누르라는 말이 묻힌다.
+--- Escape (the eraser) is left out. The overlay keeps saying it, and this line is read again at
+--- every move of the cursor, so a second rule here buries the one that says to press.
 local BIND_MODE_INSTRUCTIONS = { "LINE_TOOLTIP_INSTRUCTION_BIND" };
 
-function DebindLineMixin:OnEnter()
+function DebindLayerRowMixin:OnEnter()
 	local elementData = self:GetElementData();
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	AddActionToTooltip(GameTooltip, elementData.action, {
@@ -1192,7 +1191,7 @@ end
 
 --- 모드가 켜진 동안 이 행 위에서 누른 키가 이 행의 단축키가 된다. 행이 직접 받으므로 커서
 --- 밑을 다시 찾을 일이 없고, 행 밖에서 누른 키는 아무도 안 먹어 게임으로 간다.
-function DebindLineMixin:OnKeyDown(key)
+function DebindLayerRowMixin:OnKeyDown(key)
 	self.keyAt = GetTime();
 	DebindFrame:BindMode_OnKeyDown(key, self);
 end
@@ -1201,18 +1200,18 @@ end
 ---
 --- 행 위에서만 키가 된다 - 목록의 빈 자리나 스크롤바 위에서는 평소대로 굴러간다. 모드를
 --- 켠 채로도 목록을 볼 수 있어야 하고, 그 통로를 남기는 값이 이것뿐이다.
-function DebindLineMixin:OnMouseWheel(delta)
+function DebindLayerRowMixin:OnMouseWheel(delta)
 	DebindFrame:BindMode_OnInput(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN", self);
 end
 
-function DebindLineMixin:OnLeave()
+function DebindLayerRowMixin:OnLeave()
 	HideActionTooltip(GameTooltip);
 	-- **떠난 곳이 마크일 수 있다.** 그것도 이 행의 자식이라 커서는 여전히 이 행 위이고, 지정
 	-- 모드에서 거기 대고 누른 키는 이 행의 것이어야 한다.
 	self:EnableKeyboard(self:ShouldTakeKeyboard());
 end
 
-function DebindLineMixin:OnClick(buttonName)
+function DebindLayerRowMixin:OnClick(buttonName)
 	-- **While the mode is on, every input over this row is a key.** Left and right click are
 	-- legitimate bindings too (they go with the hover condition), so no exception is made for them.
 	-- Selecting and the menu stop for that time - which is why the mode is turned on and off
@@ -1299,7 +1298,7 @@ end
 
 --- 행은 끌 수 없지만(`RegisterForDrag` 없음) **받기는** 한다. 커서에 든 것을 놓는 것은
 --- 어느 행에 놓든 같은 일이라 프레임으로 넘긴다.
-function DebindLineMixin:OnReceiveDrag()
+function DebindLayerRowMixin:OnReceiveDrag()
 	DebindFrame:OnReceiveDrag();
 end
 
@@ -1430,7 +1429,7 @@ end
 function DebindKeyHeaderMixin:OnClick(button)
 	if (button == "RightButton") then
 		-- **What is ticked is what the menu aims at**, the rule a row keeps by folding the set onto
-		-- itself when the menu opens outside it (`DebindLineMixin:OnClick`, which took it from the
+		-- itself when the menu opens outside it (`DebindLayerRowMixin:OnClick`, which took it from the
 		-- file explorer). The heading was the one place standing outside that rule: a menu opened
 		-- here acts on the whole group while the ticks could be showing rows in other layers
 		-- entirely. **It is also what makes an unbind from here recoverable.** The group is still
@@ -2174,7 +2173,7 @@ function DebindLayerPanelMixin:InitializeScrollBox()
 
 	-- 이 목록에는 행 한 종류뿐이다. 키 헤더는 왼쪽 열에만 있다 - 여기서 키로 묶는 것은
 	-- 없앴고, 발동 순서를 말하는 자리는 처음부터 저쪽 하나였다.
-	view:SetElementInitializer("DebindLineTemplate", function(button, elementData)
+	view:SetElementInitializer("DebindLayerRowTemplate", function(button, elementData)
 		button:Init(elementData);
 	end);
 	view:SetElementExtent(LINE_HEIGHT);
@@ -5617,7 +5616,7 @@ function DebindFrameMixin:SetBindingMode(active, button)
 	-- 덮는 방식이었고(CustomBindingButtonTemplate), 31x31 원형 위에서는 그 사각형이 그대로
 	-- 비어져 나온다. 옆의 두 포트레잇이 메뉴를 연 동안 켜는 표시와도 이제 같은 것이다.
 	-- The keyboard is not switched here. It belongs to the row under the cursor while the mode is
-	-- on, and `Update` below is what hands it over (`DebindLineMixin:Update`) -- including for a row
+	-- on, and `Update` below is what hands it over (`DebindLayerRowMixin:Update`) -- including for a row
 	-- the cursor is already sitting on when the mode comes on, which sees no `OnEnter`.
 	button:SetSelectedState(active);
 	button:EnableMouseWheel(active);
@@ -5687,13 +5686,13 @@ function DebindFrameMixin:ToggleBindMode()
 	self:SetBindingMode(not self:IsCapturingKey(), self.OverviewPanel.PortraitRow.BindModePortrait);
 end
 
---- 커서 밑의 행. **들고 있지 않고 그때그때 찾는다.**
+--- The row under the cursor, **looked up each time rather than kept.**
 ---
---- 행은 풀에서 돌아가므로 "지금 호버된 행"을 변수로 들고 있으면 스크롤 한 번에 그 포인터가
---- 남의 행을 가리킨다. 보이는 행은 많아야 열 몇이고 묻는 자리도 하나뿐이라, 그때 훑는 편이
---- 상태를 맞춰 두는 것보다 싸고 틀릴 데가 없다.
+--- Rows are pooled, so a variable holding "the hovered row" points at somebody else's row after one
+--- scroll. There are a dozen or so rows in view and one place that asks, so walking them then is
+--- cheaper than keeping a pointer right, and has nothing to get wrong.
 ---
---- 판정은 `DebindLineMixin:HasCursor`이고, `Update`가 키보드를 넘길 때 보는 것도 그것이다.
+--- The test is `DebindLayerRowMixin:HasCursor`, the same one `Update` hands the keyboard over by.
 local function GetHoveredLine()
 	local hovered;
 	DebindLayerPanel.List.ContentArea.ScrollBox:ForEachFrame(function(frame)

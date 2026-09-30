@@ -383,13 +383,8 @@ C를 한다면 옮기기 **전에** `/debtest`에 기준선을 건다. 무엇을
 
 이 작업과 같은 파일을 건드리는 것들이라 순서를 맞춰야 한다.
 
-- `DebindLineTemplate` / `DebindLineMixin` → `DebindLayerLine*` 리네임. 이름이 "그 줄"이라
-  읽히는데 그게 참이던 것은 목록이 하나였을 때다. 참조 17군데, 파일 넷, 그중 둘은 주석
-- `DebindActionLineMixin`. 액션을 그리는 행 셋(`DebindLineMixin`, `DebindOrderLineMixin`,
-  `DebindExportRowMixin`)이 공유하는 행동. 툴팁 `OnEnter`/`OnLeave`와 이름·아이콘 넣기.
-  **Export 행만 `ColoredNameAndIconForAction`을 안 써서 색 규칙이 없다**
-- 28px 한 줄 행의 밑판 템플릿, 그리고 `ORDER_LINE_INDENT`/`ROW_INDENT`와
-  `ORDER_LINE_HEIGHT`/`ROW_HEIGHT`를 한 곳으로
+- 행 템플릿의 리네임, 액션 행 공통 mixin, 행 밑판 템플릿. 여기 있던 세 항목은
+  `layering-the-list-row-templates.md`가 넘겨받았다 (2026-09-29)
 
 ## 3을 하고 나서 (2026-08-22)
 

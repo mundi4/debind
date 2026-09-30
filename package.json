@@ -9,7 +9,7 @@
     "check:locales": "node tools/check-locales.js",
     "help": "node tools/build-help.js",
     "check:help": "node tools/build-help.js --check",
-    "check": "npm run lint && npm test && npm run check:help && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:xml-attrs && npm run check:snippets && npm run check:snippet-golden && npm run check:state-eval && npm run check:export-fields && npm run check:xml-methods && npm run check:xml-anchors && npm run check:dbver && npm run check:reload-options && npm run check:menu-ctx",
+    "check": "npm run lint && npm test && npm run check:help && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:xml-attrs && npm run check:snippets && npm run check:snippet-golden && npm run check:state-eval && npm run check:export-fields && npm run check:xml-methods && npm run check:xml-anchors && npm run check:list-rows && npm run check:dbver && npm run check:reload-options && npm run check:menu-ctx",
     "check:export-fields": "node tools/check-export-fields.js",
     "check:xml-methods": "node tools/check-xml-methods.js",
     "check:menu-ctx": "node tools/check-menu-ctx.js",
@@ -23,6 +23,7 @@
     "globalstrings": "node tools/fetch-globalstrings.js",
     "ui-source": "node tools/wow-ui-source.js",
     "check:xml-anchors": "node tools/check-xml-anchors.js",
+    "check:list-rows": "node tools/check-list-rows.js",
     "check:dbver": "node tools/check-dbver.js",
     "check:reload-options": "node tools/check-reload-options.js",
     "check:xml-attrs": "node tools/check-xml-attrs.js"

@@ -15,43 +15,8 @@
 		was nothing to choose it *for* until there was a second column to read. The delete button
 		still takes its own click.
 	-->
-	<Button name="DebindStorageEntryRowTemplate" mixin="DebindStorageEntryRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
-		<Size x="400" y="44"/>
-		<Layers>
-			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
-			</Layer>
-			<Layer level="ARTWORK">
-				<!--
-					**What is in it**: the name somebody gave it, else what it holds, in its class's
-					colour (`EntryName`). It was who made it, which told two of one character's
-					backups apart by nothing.
-				-->
-				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
-					<Size x="335" y="0"/>
-					<Anchors>
-						<Anchor point="LEFT" x="10" y="7"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-			<!--
-				**The one way this addon says a row is picked**, and the fourth list to use it: the
-				overview's two columns and the preview beside this one draw it with the same three
-				lines. A row here had no picked state at all until the right column arrived - a click
-				used to open a dialog, so there was nothing to be picked *for*.
-			-->
-			<Layer level="OVERLAY">
-				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD"/>
-			</Layer>
-		</Layers>
+	<Button name="DebindStorageEntryRowTemplate" inherits="DebindListRowTemplate" mixin="DebindStorageEntryRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
+		<Size y="46"/>
 		<Frames>
 			<!--
 				**Declaration order is anchor order.** `relativeKey` is resolved when the frame is
@@ -85,15 +50,26 @@
 		<Layers>
 			<Layer level="ARTWORK">
 				<!--
-					How much is in it, on the line under the title. **The pair sits the way the bin
-					list's two-line card sits** (`DebindLineTemplate`): both lines hang off `LEFT`
-					at +7 and -8 rather than stacking down from the top, so they stay centred as a
-					block instead of leaving the slack at the bottom.
+					**What is in it**: the name somebody gave it, else what it holds, in its class's
+					colour (`EntryName`). It was who made it, which told two of one character's
+					backups apart by nothing.
+				-->
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" x="10" y="7"/>
+						<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-6" y="7"/>
+					</Anchors>
+				</FontString>
+				<!--
+					How much is in it, on the line under the title. **The pair sits the way the
+					two-line action row's does** (`DebindTwoLineActionRowTemplate`): both lines hang off
+					`LEFT` at +7 and -8 rather than stacking down from the top, so they stay centred as
+					a block instead of leaving the slack at the bottom.
 				-->
 				<FontString parentKey="Counts" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
-					<Size x="335" y="0"/>
 					<Anchors>
 						<Anchor point="LEFT" x="10" y="-8"/>
+						<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-6" y="-8"/>
 					</Anchors>
 				</FontString>
 				<!-- Where it came from, for a row that is not ours (`DebindStorageEntryRowMixin:Init`). -->
@@ -112,8 +88,8 @@
 		</Scripts>
 	</Button>
 
-	<Button name="DebindStoragePreviewRowTemplate" mixin="DebindStoragePreviewRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
-		<Size x="400" y="28"/>
+	<Button name="DebindStoragePreviewRowTemplate" inherits="DebindListRowTemplate" mixin="DebindStoragePreviewRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
+		<Size y="28"/>
 		<Layers>
 			<Layer level="ARTWORK">
 				<Texture parentKey="Icon">
@@ -147,14 +123,6 @@
 				</FontString>
 			</Layer>
 		</Layers>
-		<!-- The AddOns list's row highlight (`AddonListBaseTemplate`), starting clear of the box. -->
-		<HighlightTexture file="Interface\QuestFrame\UI-QuestTitleHighlight" alphaMode="ADD">
-			<Size x="0" y="22"/>
-			<Anchors>
-				<Anchor point="LEFT" x="28"/>
-				<Anchor point="RIGHT"/>
-			</Anchors>
-		</HighlightTexture>
 		<Frames>
 			<!--
 				Level with the header's, at the same inset. **The row takes the click, not the box**

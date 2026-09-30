@@ -14,25 +14,13 @@
 		layer rows that used to hang under this one are gone: what the left column answers is "which
 		switch", and a reader scanning twenty of them for one to delete reads names, not settings.
 
-		Art matches the main list, the export list and the spell picker
-		(`ClickCastList-ButtonBackground`). Four lists in one addon that look like four things is
-		four things to learn.
-
 		**Left-click picks it.** It took right-clicks only while the row's menu was the only way
 		into a switch's settings; the settings are a column now and picking is what a click means
 		in the other two-column tabs.
 	-->
-	<Button name="DebindSwitchRowTemplate" mixin="DebindSwitchRowMixin" virtual="true">
-		<Size x="400" y="28"/>
+	<Button name="DebindSwitchRowTemplate" inherits="DebindListRowTemplate" mixin="DebindSwitchRowMixin" virtual="true">
+		<Size y="28"/>
 		<Layers>
-			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
-			</Layer>
 			<Layer level="ARTWORK">
 				<!--
 					**Its right edge is a number rather than the toggle's left edge.** A layer is
@@ -61,18 +49,6 @@
 						<Anchor point="RIGHT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
-			</Layer>
-			<!--
-				**A picked row is lit, not ticked.** Same art and same layer the main window and the
-				sharing tab use, so "this one is picked" looks one way across the addon.
-			-->
-			<Layer level="OVERLAY">
-				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
-					<Color r="1" g="1" b="0" a="1"/>
-				</Texture>
 			</Layer>
 		</Layers>
 		<Frames>
@@ -121,23 +97,13 @@
 		picked switch written down, or one switch whose expression names it.
 
 		**The right-hand column is a number here and nothing else.** It used to be the key an
-		action stands on, from when this row drew the actions too; those are `DebindLineVisualTemplate`
-		rows now, and every row left on this template is a name with a count beside it
-		(`DebindSwitchUsageRowMixin:Init`). The expression rows leave it empty.
+		action stands on, from when this row drew the actions too; those are
+		`DebindTwoLineActionRowTemplate` rows now, and every row left on this template is a name with
+		a count beside it (`DebindSwitchUsageRowMixin:Init`). The expression rows leave it empty.
 	-->
-	<Button name="DebindSwitchUsageRowTemplate" mixin="DebindSwitchUsageRowMixin" virtual="true">
-		<Size x="400" y="24"/>
+	<Button name="DebindSwitchUsageRowTemplate" inherits="DebindListRowTemplate" mixin="DebindSwitchUsageRowMixin" virtual="true">
+		<Size y="24"/>
 		<Layers>
-			<!-- The same plate the switch list and the action rows stand on, so a row in this
-			     column reads as a row of the same window. -->
-			<Layer level="BACKGROUND">
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
-			</Layer>
 			<Layer level="ARTWORK">
 				<!--
 					**Declared before the name, because the name hangs off it.** A `relativeKey`
@@ -166,10 +132,10 @@
 	</Button>
 
 	<!--
-		**The Overview's row, its look alone.** `DebindLineVisualTemplate` carries no behaviour:
-		this row is not picked, takes no drop and opens no menu.
+		**The Overview's row, its look alone.** `DebindTwoLineActionRowTemplate` carries no
+		behaviour: this row is not picked, takes no drop and opens no menu.
 	-->
-	<Button name="DebindSwitchUsageActionTemplate" inherits="DebindLineVisualTemplate"
+	<Button name="DebindSwitchUsageActionTemplate" inherits="DebindTwoLineActionRowTemplate"
 		mixin="DebindSwitchUsageActionMixin" virtual="true">
 		<Scripts>
 			<OnClick method="OnClick"/>
