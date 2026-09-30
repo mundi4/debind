@@ -213,8 +213,9 @@ local function CheckLoadList(list)
     end
 end
 --- **The files the game loads for one game type only**: the spell data (`SpecSpells.lua`),
---- `Constants.GAME_TYPE`, and on camelot the unlearned spells its spellbook does not list. The game picks by the conditions on each `Debind.toc` line, and a spec
---- does the same by the world it runs in. Every one is held against the TOC with the list below.
+--- `Constants.GAME_TYPE`, and on camelot the unlearned spells its spellbook does not list. The game
+--- picks by the conditions on each `Debind.toc` line, and a spec does the same by the world it runs
+--- in. Every one is held against the TOC with the list below.
 local GAME_TYPE_FILES = {
     mainline = { "SpecSpells_Mainline.lua", "GameType_Standard.lua" },
     camelot  = { "SpecSpells_Camelot.lua", "GameType_Camelot.lua", "UnlearnedSpells_Camelot.lua" },
