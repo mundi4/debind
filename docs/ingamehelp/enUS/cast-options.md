@@ -1,66 +1,53 @@
 <!--
-**Two lists, not one** (2026-09-22, owner). The first setting leaves different things behind: on the two key rows the action is out of that press, on Hover Cast nothing about it changes. Written as one list, *Off* and *Cast on the usual target* read as the same setting.
+**One item per row, in menu order, each ending on its default** (2026-09-30). The rows were a list for the two key rows, three paragraphs for *Hover Cast* and a line after an aside for *Normal Cast*, and a reader skimming for one row could not find where it started. The 2026-09-22 rule still holds: the key rows' *Skip this action* and *Hover Cast*'s *Off* never share a list of values, because on a held key the action is out of that press and on a pointed one it only comes later (`which-action-a-key-runs.md` §6).
 
-**The paragraph on the two Hover Cast values says only how they differ** (review, 2026-09-22). It opened by repeating where both send the action, which the paragraph above it had just said, so the one thing it is there for arrived third.
+**The usual target is defined once, above the list** (review, 2026-09-30). Read inside the *Hover Cast* row, "where it would go with no key held" was taken to include the pointed unit.
 
-**One thing a sentence** in the paragraph that hands off to the hover page (review, 2026-09-22). The condition and the mode row were carried by one sentence with the link inside it, and neither came out of a single read.
+**"whose *Hover Cast* is not *Off*", never "has *Hover Cast* set"** (review, 2026-09-30). *Off* is a value too, and "set" read as any value.
 
-**The bare mouse button rule is stated here and not only as a locked row** (2026-09-18, owner; `which-action-a-key-runs.md` §7).
+**The *Off* against *Cast on the usual target* difference lives here, with an example.** `hover-cast.md` carries the modes and deliberately not the three values. The two differ only in when they are tried because what an unticked *Normal Cast* does to *Off* is said in its own item (§6 table).
 
-**One row locks there, not these rows** (review, 2026-09-22). Only *Hover Cast* comes up disabled on a bare click (`ActionMenuItems.lua`); the two key rows lock for a different reason, the key being off account wide, and *Normal Cast* is a tickbox that never locks. What is true of all four is that nothing set in them is read, so that is what the aside says.
+**Skip names the empty case** (review, 2026-09-30): a held press with nothing left does nothing and does not fall back to the unheld actions (§3).
+
+**The bare mouse button rule is stated here and not only as a locked row** (2026-09-18, owner; §7). Only *Hover Cast* comes up disabled there; nothing set in any row is read, so that is what the item says.
+
+**A greyed-out row is not explained here** (review, 2026-09-30, not taken): each one shows its reason in its own tooltip.
 -->
 
 # What do Cast Options do?
 
-*Cast Options* in an action's right-click menu sets what this action does on each kind of press.
+In *Cast Options* in an action's right-click menu, each row covers one way of pressing a key: whether this action takes part, and where it goes. On every row, *Cast on the usual target* means the unit an action bar button would be used on.
 
-The *Self Cast Key* and *Focus Cast Key* rows each take one of three settings:
+- *Self Cast Key*: a press with that key held. *Skip this action* takes the action out of that press. The next action on the key that is not skipped runs instead, and with none left the press does nothing. *Cast on yourself* sends the action to you. *Cast on the usual target* sends it to its usual target. A new action starts on *Cast on yourself*.
+- *Focus Cast Key*: the same, with *Cast on your focus*. A new action starts on *Cast on your focus*.
+- *Hover Cast*: a press with no key held, while you point at a unit. *Cast on the unit you point at* sends the action there. *Off* and *Cast on the usual target* both leave it on its usual target and differ only in when they are tried. With *Off*, it comes after every action on the key whose *Hover Cast* is not *Off*. With *Cast on the usual target*, it keeps its place among them. A new action starts on *Off*.
+- *Normal Cast*: a press with no key held, tried after the actions whose *Hover Cast* is not *Off*. Untick it and the action runs on such a press only while you point at a unit, and only if its *Hover Cast* is not *Off*. Otherwise the press goes to the next action on the key. A new action starts ticked.
 
-- *Cast on yourself* or *Cast on your focus* sends the action to that unit while you hold the key. A new action is set to this.
-- *Cast on the usual target* keeps the action in that press and sends it where it would go with no key held.
-- *Skip this action* takes it out of that press, and the press goes to the next action on the key.
+Say a key holds A and then B, and B is set to *Cast on the unit you point at*. While you point at a unit, B comes first if A is on *Off*. If A is on *Cast on the usual target*, A comes first, on its usual target.
+
+Whether nameplates and units in the world count as pointed at, or only unit frames, is set under the same *Hover Cast* row: [](hover-cast.md).
 
 <!--
-**The rule before the three settings** (`which-action-a-key-runs.md` §3, 2026-09-17 owner). A held
-press reaches Debind at all because the client dropped an unbound ALT-X onto X; with anything bound
-to the two keys together the press never arrives. Nothing in this window can show it, because the
-other binding may be WoW's.
-
-**It opens with the symptom** (review, 2026-09-22). Stated as the rule alone it was followable and
-still useless: the player it is for is looking at one key that does not answer the cast key, and the
-cause is not something they would think to look up. The sentence that sends them to their
-keybindings is the one naming what they are seeing.
-
-**Debind's own keys count too, and that is measured** (2026-09-22). §3 said only that another
-binding takes the press, and Debind's own keys go out through `SetBindingClick` on that same
-combination, so ours takes it the same way.
-
-**Both places are named where the reader is sent, not where the rule is stated** (review,
-2026-09-22). `Keybindings` is the client's own name for that screen (`SETTINGS_KEYBINDINGS_LABEL`)
-and it goes in the clause that tells them to go looking; the example then needs no second list, and
-one thing is no longer called `WoW` here and `the game's own` in the aside below.
-
-**It stands above the Options aside** (review, 2026-09-22). It is what makes the first bullet false,
-so it goes directly under the list; the other one says where the game keeps those keys and waits.
-
-**The two names go plain in the aside below** (review, 2026-09-22). The tag follows what the word
-points at, and that sentence points at the game's own settings, where blue would send the reader
-looking for a row of ours (`writing-a-help-page.md`). Blue is right two blocks up, where the same
-words name our rows.
+**The automatics get one paragraph, not a list** (2026-09-30). Each row's tooltip already says what it does; what the page adds is that they apply to this action alone and where a new action starts. Two labels are the client's (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`) and two ours, and all four are rows of our menu, so all four are blue (`writing-a-help-page.md`).
 -->
 
-> If a self cast or focus cast works on every key but one, look for a binding on the two keys together, in the game's Keybindings or in Debind. Holding the key reaches an action only while that combination has nothing bound to it: with ALT as your Self Cast Key, anything bound to ALT-X runs when you press X with ALT held.
+The four rows below them, *Auto Self Cast*, *Auto Cancel Form*, *Auto Dismount* and *Auto Dismount in Flight*, turn that behaviour of the game on or off for this action alone. A new action starts on *Use the game's setting*, which follows the game's own Options.
 
-> The Self Cast Key and the Focus Cast Key are the game's own keys, under Options > Gameplay > Combat.
+<!--
+**The rest is one list after the answer, not grey asides** (2026-09-30, owner). Four grey paragraphs in a row read as one block to skip, and the last is the fix a player with a broken key came for. A plain lead-in line and not a heading, because this page opens from a menu row (`writing-a-help-page.md`).
 
-*Hover Cast* is a row of the same shape for the unit you point at, holding *Cast on the unit you point at*, *Cast on the usual target* and *Off*. A new action is set to *Off*, which does not stop the action from running: pointing at a unit simply does not change where it goes.
+**Each item leads with what the reader is looking at**, since the lead-ins are what a skimmer reads. They carry no blue name because a bold lead-in cannot hold one; the name opens the sentence after it.
 
-*Off* and *Cast on the usual target* differ only in the turn this action takes. With *Off*, it is tried after every action on the key whose *Hover Cast* is set to something else; with *Cast on the usual target*, it keeps its usual place among them. The order itself is in [](ordering.md).
+**The picked-*Target* item says the casts come out the same, not that a value locks.** A picked target disables nothing under *Cast Options*; `withPickedNote` in `ActionMenuItems.lua` only adds a line.
 
-To keep an action from running at all while you point at a unit, give it a condition under *Units*. Under the three *Hover Cast* settings is a mode row that says which units count as pointed at. Both are in [](hover-cast.md).
+**The key names go plain in the last two items** (review, 2026-09-22). They point at the game's own keys and settings, where blue would send the reader looking for a row of ours.
 
-> When a unit is chosen under *Target* in the same menu, every press that runs this action sends it to that unit, so *Cast on yourself* and *Cast on the usual target* come to the same cast. Which of a picked target, a held key and a pointed unit comes first is in [](targeting.md).
+**The conflict item names the symptom** (review, 2026-09-22): the player it is for is looking at one key that does not answer the cast key. A held press reaches Debind only because the client drops an unbound ALT-X onto X (`which-action-a-key-runs.md` §3), and Debind's own keys go out through `SetBindingClick` on that same combination, so ours take it the same way (measured 2026-09-22). `Keybindings` is the client's name for that screen (`SETTINGS_KEYBINDINGS_LABEL`). It stays on this page because the reader it is for opens this page from the row that is not answering.
+-->
 
-*Normal Cast* covers the press with no key held, unless *Hover Cast* takes that press for this action. Untick it and that press goes to the next action on the key.
+Good to know:
 
-> On the left or right mouse button with no modifier nothing set in these rows is read, because that action runs only on a unit frame: [](clicking-a-unit-frame.md).
+- **With a unit picked.** When a unit is picked under *Target* in the same menu, every value that sends the action somewhere sends it to that unit instead. *Skip this action*, *Off* and an unticked *Normal Cast* still work as above. Which of a picked target, a held key and a pointed unit comes first is in [](targeting.md).
+- **On a plain left or right click.** Nothing set in these rows is read, because that action runs only on a unit frame: [](clicking-a-unit-frame.md).
+- **Where the two keys are set.** The Self Cast Key and the Focus Cast Key are the game's own keys, under Options > Gameplay > Combat.
+- **One key ignores the cast key.** If a self cast or focus cast works on every key but one, look for a binding on the two keys together, in the game's Keybindings or in Debind. With ALT as your Self Cast Key, anything bound to ALT-X runs when you press X with ALT held.
