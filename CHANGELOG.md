@@ -1,3 +1,7 @@
+# 4.1.2
+
+**On World of Warcraft: Forever, spells you have not learned yet can be given a key now.** Talking to a class trainer adds the spells that trainer can teach to an Unlearned group in the spell list. With Unavailable checked in the trainer window's filters, the spells you cannot learn yet are added as well. The group's tooltip says the same.
+
 # 4.1.1
 
 **Entering an arena with Clique or another click casting addon installed no longer raises a Lua error from Debind.**

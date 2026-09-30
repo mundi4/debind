@@ -12,7 +12,7 @@ local _, DebindPrivate = ...;
 --- reward, or a spell only another race is taught. Merged with what trainers were seen selling.
 local data = {
     DRUID = {
-        [8946] = 14, -- Cure Poison, taught by a quest (`SpecSpells_Camelot.lua`)
+        [8946] = 14, -- Cure Poison, taught by a quest and not by a trainer
     },
 };
 
