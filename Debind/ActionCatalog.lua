@@ -595,17 +595,81 @@ local function AddExtraSpellEntries(entries, seen)
 	end
 end
 
---- 그룹 **안**은 정렬하지 않는다. 스킬라인 안의 순서는 주문서가 정한 것이고, 이름순으로
---- 다시 세우면 그 묶음이 흩어진다. 그 묶음이 곧 머리글이다.
+--- **Where the book holds only what is learned** (`UnlearnedSpells_Camelot.lua`), the rest in one
+--- group of their own (2026-09-30, owner) rather than inside the book's lines, which the book has no
+--- row for an unlearned spell to be asked about.
 ---
---- 그룹 **사이**의 순서만 하나 바꾼다 - **일반을 뒤로 보낸다.**
---- `Enum.SpellBookSkillLineIndex`는 `General=1, Class=2, MainSpec=3, OffSpecStart=4`라
---- 인덱스를 그대로 따르면 일반이 맨 앞에 선다. 그런데 여기서 찾는 것은 대개 직업 주문이고
---- 일반은 탈것·화롯불 같은 것들이다. 요즘 주문서 창도 직업을 앞에 두고 일반을 뒤에 둔다.
---- 결과: 직업 -> 현재 특성 -> 다른 특성 -> 일반 -> 소환수 -> 그 밖.
+--- **By name and not by id, both ways.** A trainer sells each rank under an id of its own, so the
+--- rank the book holds does not share an id with the one bought next and `seen` would let it
+--- through. One name is one row, under the id with the lowest level: a spell goes out by name and
+--- casts the highest rank known (`SpecSpells_Camelot.lua`), so which rank's id is stored does not
+--- reach the cast.
+local function AddUnlearnedSpellEntries(entries, seen)
+	if (not DebindPrivate.GetUnlearnedSpellCandidates) then
+		return;
+	end
+
+	local inBook = {};
+	for i = 1, #entries do
+		if (entries[i].type == Constants.SPELL) then
+			inBook[entries[i].name] = true;
+		end
+	end
+
+	local byName = {};
+	local _, classFile = UnitClass("player");
+	for spellID, level in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
+		local spellInfo = C_Spell.GetSpellInfo(spellID);
+		if (spellInfo and not inBook[spellInfo.name] and not C_Spell.IsSpellPassive(spellID)) then
+			local held = byName[spellInfo.name];
+			-- The id breaks a tie so two reads of the same candidates keep the same one.
+			if (not held or level < held.level or (level == held.level and spellID < held.value)) then
+				byName[spellInfo.name] = {
+					type = Constants.SPELL,
+					value = spellID,
+					name = spellInfo.name,
+					icon = spellInfo.iconID,
+					level = level,
+					group = PROFESSIONS_CATEGORY_UNLEARNED,
+					isUnlearned = true,
+				};
+			end
+		end
+	end
+
+	local collected = {};
+	for _, entry in pairs(byName) do
+		collected[#collected + 1] = entry;
+	end
+	sort(collected, function(a, b)
+		if (a.level ~= b.level) then
+			return a.level < b.level;
+		end
+		return a.name < b.name;
+	end);
+
+	local playerLevel = UnitLevel("player");
+	for i = 1, #collected do
+		local entry = collected[i];
+		if (entry.level > playerLevel) then
+			entry.subName = format(SPELLBOOK_AVAILABLE_AT, entry.level);
+		end
+		entry.level = nil;
+		AddEntry(entries, seen, entry);
+	end
+end
+
+--- **Nothing is sorted inside a group.** The order within a skill line is the book's, and sorting
+--- by name would scatter what the heading holds together.
 ---
---- **소환수 주문도 여기 들어온다** - "소환수" 머리글로 붙는다. 탭을 따로 두면
---- 소환수를 가진 절반의 직업만 쓰는 탭이 하나 서 있게 되고, 어차피 같은 주문서다.
+--- **One change to the order between groups: General goes last.**
+--- `Enum.SpellBookSkillLineIndex` is `General=1, Class=2, MainSpec=3, OffSpecStart=4`, so the index
+--- order would put General first, while what a reader comes here for is usually a class spell and
+--- General is mounts and the hearthstone. The current spellbook puts the class first too.
+--- The result: class -> active spec -> other specs -> General -> Pet -> Unlearned -> Others.
+---
+--- **Pet spells are here as well**, under their own heading. A tab of their own would stand for
+--- the half of the classes that have a pet, and it is the same spellbook.
 local function BuildPlayerSpells(entries)
 	local seen = {};
 	local numSkillLines = C_SpellBook.GetNumSpellBookSkillLines() or 0;
@@ -647,6 +711,7 @@ local function BuildPlayerSpells(entries)
 	end
 
 	AddPetSpells(entries, seen);
+	AddUnlearnedSpellEntries(entries, seen);
 
 	-- 주문서 밖의 것들이 맨 끝에 "그 밖" 그룹으로 붙는다. `seen`을 그대로 넘기는 것이
 	-- 핵심이다 - 주문서에 이미 있는 것은 여기서 안 붙는다.

@@ -48,6 +48,9 @@ M.world = {
     equipped = {},
     --- The dialogs `StaticPopup_Show` was asked for, in order, as `{ which, ... }`.
     popups = {},
+    --- What the open trainer window lists, as `{ serviceType =, level =, subText =, id = }`: the
+    --- rows its filters let through. Camelot only. `trainerType` beside it is nil for a class trainer.
+    trainerServices = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -69,6 +72,7 @@ function M.resetWorld(client)
     end
     M.world.inCombat = false;
     M.world.specIndex = nil;
+    M.world.trainerType = nil;
     M.world.client = client;
     --- **The one global an addon instance leaves behind.** `ClickCastTable.lua` puts its own table
     --- under this name at file scope, and the next instance would meet it as a foreign holder and
@@ -480,6 +484,7 @@ function M.install()
         SpellBookItemType = { Spell = 1, Flyout = 2, PetAction = 3, FutureSpell = 4 },
         SpellBookSkillLineIndex = { Class = 2, General = 1 },
         ItemQuality = { Artifact = 6 },
+        TrainerType = { General = 0, TalentsObsolete = 1, Tradeskills = 2, Pet = 3 },
     };
     _G.C_KeyBindings = {
         GetBindingContextForAction = function(action)
@@ -514,6 +519,10 @@ function M.install()
     _G.BINDING_HEADER_RAID_TARGET = "Target Markers";
     _G.BINDING_HEADER_TARGETING = "Targeting";
     _G.BINDING_HEADER_VEHICLE = "Vehicle Controls";
+    -- The spell list's Unlearned group, as enUS has them.
+    _G.PROFESSIONS_CATEGORY_UNLEARNED = "Unlearned";
+    _G.SPELLBOOK_AVAILABLE_AT = "Level %d";
+    _G.SPELL_PASSIVE = "Passive";
     _G.NUM_WORLD_RAID_MARKERS = 8;
     _G.WORLD_RAID_MARKER_ORDER = { 8, 4, 1, 7, 2, 3, 6, 5 };
     for i, colour in ipairs({ "Blue", "Green", "Purple", "Red", "Yellow", "Orange", "Silver", "White" }) do
@@ -980,6 +989,25 @@ function M.install()
         _G.C_SpellBook.GetClassSkillLineInfo = function()
             return { name = "Druid", iconID = 625999, itemIndexOffset = 0, numSpellBookItems = 0 };
         end
+        --- The open trainer window, off `M.world.trainerServices`. The id is on the tooltip only,
+        --- as the probe read it (`MeasureTrainer`).
+        _G.C_Trainer = {
+            GetTrainerType = function() return M.world.trainerType or Enum.TrainerType.General; end,
+        };
+        _G.IsTradeskillTrainer = function() return false; end
+        _G.GetNumTrainerServices = function() return #M.world.trainerServices; end
+        _G.GetTrainerServiceInfo = function(index)
+            local service = M.world.trainerServices[index];
+            local spell = service and M.world.spells[service.id];
+            if (not service) then return nil; end
+            return spell and spell.name, service.serviceType, nil, service.level, service.subText;
+        end
+        _G.C_TooltipInfo = {
+            GetTrainerService = function(index)
+                local service = M.world.trainerServices[index];
+                return service and { id = service.id };
+            end,
+        };
     end
     --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
     --- flyout the world does not name answers with no slot count at all, which is the "not

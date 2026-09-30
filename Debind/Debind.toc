@@ -32,6 +32,9 @@ Locales\Camelot\enUS.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standa
 SpecSpells_Mainline.lua [AllowLoadGameType standard]
 SpecSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
+# Retail's spellbook lists what is not learned yet and this client's does not.
+UnlearnedSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
+
 #@debug@
 # The packager deletes this block, contents and all, from a released build. What it holds is one
 # generated line naming the checkout the game is loading, which the window title and the login

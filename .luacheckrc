@@ -107,6 +107,12 @@ globals = {
 	"C_Timer",
 	"EventRegistry",
 	"C_TradeSkillUI",
+	-- The class trainer's window, read on camelot (`UnlearnedSpells_Camelot.lua`).
+	"C_Trainer",
+	"C_TooltipInfo",
+	"IsTradeskillTrainer",
+	"GetNumTrainerServices",
+	"GetTrainerServiceInfo",
 
 	-- Frame / Secure handler
 	"CreateFrame",

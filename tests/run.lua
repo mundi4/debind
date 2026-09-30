@@ -212,13 +212,20 @@ local function CheckLoadList(list)
             .. table.concat(problems, "\n  "), 0);
     end
 end
---- **The client's spell data, one file per game type** (`SpecSpells.lua`). The game loads one of the
---- two by the conditions on its `Debind.toc` line, and a spec does the same by the world it runs
---- in. Both are held against the TOC with the list below.
-local SPEC_SPELL_DATA = { mainline = "SpecSpells_Mainline.lua", camelot = "SpecSpells_Camelot.lua" };
+--- **The files the game loads for one game type only**: the spell data (`SpecSpells.lua`), and on
+--- camelot the unlearned spells its spellbook does not list. The game picks by the conditions on
+--- each `Debind.toc` line, and a spec does the same by the world it runs in. Every one is held
+--- against the TOC with the list below.
+local GAME_TYPE_FILES = {
+    mainline = { "SpecSpells_Mainline.lua" },
+    camelot  = { "SpecSpells_Camelot.lua", "UnlearnedSpells_Camelot.lua" },
+};
 
 do
-    local checked = { SPEC_SPELL_DATA.mainline, SPEC_SPELL_DATA.camelot };
+    -- In the TOC's order, which `CheckLoadList` holds them to.
+    local checked = {
+        GAME_TYPE_FILES.mainline[1], GAME_TYPE_FILES.camelot[1], GAME_TYPE_FILES.camelot[2],
+    };
     for _, file in ipairs(DEBIND_FILES) do
         checked[#checked + 1] = file;
     end
@@ -231,7 +238,10 @@ end
 --- (`going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
 --- a fraction of one spec.
 local function loadAddons(withCliqueFake)
-    local files = { SPEC_SPELL_DATA[shim.world.client or "mainline"] };
+    local files = {};
+    for _, file in ipairs(GAME_TYPE_FILES[shim.world.client or "mainline"]) do
+        files[#files + 1] = file;
+    end
     for _, file in ipairs(DEBIND_FILES) do
         files[#files + 1] = file;
     end
@@ -349,6 +359,7 @@ local specs = {
     -- The client layer, once per client (`wow_shim.lua`'s `resetWorld`).
     { name = "client", path = root .. "/client_spec.lua" },
     { name = "client/camelot", path = root .. "/client_spec.lua", client = "camelot" },
+    { name = "unlearned", path = root .. "/unlearned_spec.lua", client = "camelot" },
     { name = "actionmenutree/camelot", path = root .. "/actionmenutree_spec.lua", client = "camelot" },
 };
 
