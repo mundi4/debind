@@ -382,6 +382,39 @@ return function(DebindPrivate, _, ctx)
         check(Fires("F1"), "the macro exists and the key is still dead");
     end);
 
+    -- **Learning a spell rebuilds**, so what the client answers about it from then on reaches the
+    -- key. A spell the client could not name at the last rebuild went out by id
+    -- (`DescribeBinding`), and without a rebuild it would go on doing so after it is learned.
+    -- `SPELLS_CHANGED` is not watched for this: it is far too frequent (2026-09-30, owner).
+    --
+    -- ⚠ **What stays out of reach here**: that the client sends either event when a spell is
+    -- learned, and whether it names a spell the character has not learned.
+    for _, event in ipairs({ "PLAYER_LEVEL_UP", "LEARNED_SPELL_IN_SKILL_LINE" }) do
+        pressTest(event .. " puts a newly learned spell's name on the key", function()
+            local LATER = 70001;
+            shim.world.spells[LATER] = nil;
+            Bind({ spell({ value = LATER, key = "F1" }) }, {});
+            local _, _, record = interp:evalKey("F1");
+            check(record and record.spell == LATER, "before: " .. tostring(record and record.spell));
+
+            DebindPrivate.ShowMigrationDialogIfPending =
+                DebindPrivate.ShowMigrationDialogIfPending or function() end;
+            check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+            frames.drainTimers();
+            shim.world.spells[LATER] = { name = "Later Spell" };
+
+            local mark = frames.mark();
+            check(frames.fireEvent(event) > 0, "nobody is listening for " .. event);
+            frames.drainTimers();
+            interp:replay(frames.since(mark));
+            shim.world.spells[LATER] = nil;
+
+            _, _, record = interp:evalKey("F1");
+            check(record and record.spell == "Later Spell",
+                "after: " .. tostring(record and record.spell));
+        end);
+    end
+
     ---------------------------------------------------------------------------
     -- The life axis, at the key
     ---------------------------------------------------------------------------

@@ -43,7 +43,7 @@ local function RefreshIdentity()
 end
 
 function Events.PLAYER_LOGIN()
-    -- **Stood down, so this is where the addon ends.** It returns above the eight
+    -- **Stood down, so this is where the addon ends.** It returns above the
     -- `RegisterEvent` lines below, and the only two registered at file scope are `ADDON_LOADED`
     -- and `PLAYER_LOGIN`, so this one return leaves the addon listening to nothing at all. That is
     -- also why `PLAYER_LOGOUT` never gets to call `CleanUpDB` on the way out.
@@ -80,6 +80,8 @@ function Events.PLAYER_LOGIN()
     EventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
     EventFrame:RegisterEvent("CVAR_UPDATE");
     EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
+    EventFrame:RegisterEvent("PLAYER_LEVEL_UP");
+    EventFrame:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE");
     DebindPrivate.ApplyOptions();
     DebindPrivate.UpdateBlizzardFrames(true);
 
@@ -173,6 +175,23 @@ function Events.TRAIT_CONFIG_UPDATED(_, configID)
 end
 
 function Events.PLAYER_PVP_TALENT_UPDATE()
+    DebindPrivate.QueueUpdateBindings();
+end
+
+--- **A spell learned is an input to the build, and `SPELLS_CHANGED` is too frequent to watch for
+--- it** (2026-09-30, owner). A spell the client could not name at the last rebuild went on its key
+--- by id (`DescribeBinding`), and the rebuild also settles `[known:]` answers against the
+--- character's level (`Spells.lua`'s `IsFixed`) and marks the rows whose spell is missing. All of
+--- that stands as it was until something rebuilds.
+---
+--- Both events, because each one covers a case the other may not: retail teaches on level up, and
+--- camelot at a trainer (`LEARNED_SPELL_IN_SKILL_LINE`, seen there on 70009 by the probe). A level up
+--- that teaches several spells still rebuilds once, on the next frame.
+function Events.PLAYER_LEVEL_UP()
+    DebindPrivate.QueueUpdateBindings();
+end
+
+function Events.LEARNED_SPELL_IN_SKILL_LINE()
     DebindPrivate.QueueUpdateBindings();
 end
 
