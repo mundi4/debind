@@ -99,6 +99,20 @@ function MenuKit.AppendCount(description, count)
     return description;
 end
 
+--- The blue a `Registry:BuildNode` row wears while it is doing something, on a checkbox the family
+--- did not build. A checkbox is made straight off the description, so this is the one thing it
+--- misses.
+---
+--- **Its tick and its colour need not agree.** The tick is the value; the colour says the row holds
+--- something, which is where the blue trail through the parent rows has to end.
+function MenuKit.PaintWhenActive(description, isActive)
+    description:AddInitializer(function(button)
+        local color = isActive() and BLUE_FONT_COLOR or HIGHLIGHT_FONT_COLOR;
+        button.fontString:SetTextColor(color:GetRGB());
+    end);
+    return description;
+end
+
 --- The title that opens the menu this row leads to, **made here so the mark can reach it.**
 ---
 --- A row cannot be asked what it is: the template it was made from is caught in a closure

@@ -8,8 +8,8 @@ local dump                  = DebindPrivate.dump
 
 --- The edit menu's items that are not conditions.
 ---
---- **Not nodes, because a node is a group row.** These are buttons and checkboxes with no colour,
---- no issue and no submenu; making them nodes would need a second kind in the kit.
+--- **Not nodes, because a node is a group row.** These are buttons and checkboxes with no issue and
+--- no submenu; making them nodes would need a second kind in the kit.
 local ActionMenu                     = DebindPrivate.ActionMenu;
 local ActionMenus                    = ActionMenu.ActionMenus;
 local OnActionsChanged               = ActionMenu.OnActionsChanged;
@@ -609,6 +609,12 @@ local function CreateCastingMenu(parentDescription, ctx)
         function()
             return ToggleNormalCast(ctx);
         end);
+    -- **Blue when unticked, because unticked is the value that was set.** It turns Casting blue, and
+    -- with every sibling row a submenu that paints itself, this box is the only place the trail
+    -- could end. An empty box reads as untouched, so the tick alone does not say it.
+    MenuKit.PaintWhenActive(normal, function()
+        return not AllActions(ctx, DebindPrivate.NormalCastEnabled);
+    end);
     SetInstructionTooltip(normal, LLL["CASTING_NORMAL_DESC"]);
 
     description:CreateDivider();

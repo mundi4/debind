@@ -461,22 +461,7 @@ ActionMenus:Define("GROUP", {
     end,
 });
 
---- The blue a `MenuKit` row wears while it is doing something, on a checkbox the family did not
---- build. `Registry:BuildNode` paints the rows it makes (`MenuKit.lua`); a checkbox is made
---- straight off the description, so the one thing it misses is put back here.
----
---- **On the class row the tick and the colour answer different questions**: the box is on only when
---- every specialization under it is, while the colour is on as soon as one is, which is the state a
---- checkbox has no third mark for. On a specialization row the two say the same thing, and it wears
---- the colour so that a picked one reads the same wherever the reader's eye lands (2026-09-22,
---- owner).
-local function PaintWhenActive(description, isActive)
-    description:AddInitializer(function(button)
-        local color = isActive() and BLUE_FONT_COLOR or HIGHLIGHT_FONT_COLOR;
-        button.fontString:SetTextColor(color:GetRGB());
-    end);
-    return description;
-end
+local PaintWhenActive = MenuKit.PaintWhenActive;
 
 --- Does this class hold a specialization on any selected action, which is what paints its row.
 ---
@@ -553,6 +538,9 @@ ActionMenus:Define("SPEC", {
                         function()
                             return ToggleSpecConditionIndex(kit.ctx, classID, index);
                         end);
+                    -- Tick and colour say the same thing here. It wears the colour anyway so
+                    -- that a picked one reads the same wherever the reader's eye lands
+                    -- (2026-09-22, owner).
                     PaintWhenActive(specDescription, function()
                         return SpecConditionHasIndex(kit.ctx, classID, index);
                     end);
