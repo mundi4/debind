@@ -86,6 +86,9 @@ function Events.PLAYER_LOGIN()
     --- Here for the reason the pack boxes below are here: the globals it asks for belong to another
     --- addon, and at our own `ADDON_LOADED` one that loads after us has not run its files yet.
     DebindPrivate.AttachPackHooks();
+    if (DebindPrivate.StartReadingTrainers) then
+        DebindPrivate.StartReadingTrainers();
+    end
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
 
     -- The version rides on the front of a line that was already printed, rather than taking a line

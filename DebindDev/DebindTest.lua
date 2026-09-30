@@ -10426,6 +10426,70 @@ RegisterTest("Game type: this client's own file loads", {
     end,
 })
 
+-- **A fourth file the client picks** (`UnlearnedSpells_Camelot.lua`). Loaded on retail it would put
+-- a second Unlearned group beside the book's own `FutureSpell` rows; missing on camelot, the group
+-- is gone and nothing says so.
+RegisterTest("Unlearned spells: the file loads on camelot and nowhere else", {
+    description = "The trainer reader is there on camelot and absent on retail",
+    run = function()
+        local NAME = "unlearned spells file"
+        local camelot = select(4, GetBuildInfo()) < 100000
+        local loaded = DebindPrivate.GetUnlearnedSpellCandidates ~= nil
+        if loaded ~= camelot then
+            return Fail(NAME, format("camelot %s, file loaded %s", tostring(camelot), tostring(loaded)))
+        end
+        return Pass(NAME, tostring(loaded))
+    end,
+})
+
+-- **The client answers a spell the character has not learned**, which no headless spec can say:
+-- the world there is whatever the spec stood up. A candidate the client cannot name is dropped from
+-- the list without a word (`AddUnlearnedSpellEntries`), so an id the file mistyped, or one a trainer
+-- was read into, would simply never show. Every class the account has read a trainer for is asked,
+-- and the character's own.
+local function UnlearnedCandidates()
+    local classes = { [select(2, UnitClass("player"))] = true }
+    for classFile in pairs(DebindPrivate.db.global.trainerSpells or {}) do
+        classes[classFile] = true
+    end
+    local candidates = {}
+    for classFile in pairs(classes) do
+        for spellID in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
+            candidates[#candidates + 1] = { classFile = classFile, spellID = spellID }
+        end
+    end
+    return candidates
+end
+
+RegisterTest("Unlearned spells: the client names every candidate", {
+    description = "Each id written in the file or read off a trainer has a spell name and icon",
+    applies = function()
+        if not DebindPrivate.GetUnlearnedSpellCandidates then
+            return false, "not the camelot client"
+        end
+        if #UnlearnedCandidates() == 0 then
+            return false, "no class trainer read on this account and no id written for this class"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "unlearned spell ids"
+        local candidates = UnlearnedCandidates()
+        local missing = {}
+        for _, candidate in ipairs(candidates) do
+            local info = C_Spell.GetSpellInfo(candidate.spellID)
+            if not (info and info.name and info.iconID) then
+                missing[#missing + 1] = format("%s %d", candidate.classFile, candidate.spellID)
+            end
+        end
+        if #missing > 0 then
+            table.sort(missing)
+            return Fail(NAME, "no spell for " .. table.concat(missing, ", "))
+        end
+        return Pass(NAME, format("%d ids", #candidates))
+    end,
+})
+
 -----------------------------------------------------------
 -- The settings window
 -----------------------------------------------------------
