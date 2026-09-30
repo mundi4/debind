@@ -525,6 +525,10 @@ function M.install()
     _G.PROFESSIONS_CATEGORY_UNLEARNED = "Unlearned";
     _G.SPELLBOOK_AVAILABLE_AT = "Level %d";
     _G.SPELL_PASSIVE = "Passive";
+    _G.MINIMAP_TRACKING_TRAINER_CLASS = "Class Trainer";
+    _G.SETTINGS = "Settings";
+    _G.FILTERS = "Filters";
+    _G.UNAVAILABLE = "Unavailable";
     _G.NUM_WORLD_RAID_MARKERS = 8;
     _G.WORLD_RAID_MARKER_ORDER = { 8, 4, 1, 7, 2, 3, 6, 5 };
     for i, colour in ipairs({ "Blue", "Green", "Purple", "Red", "Yellow", "Orange", "Silver", "White" }) do

@@ -347,6 +347,7 @@ L["SPELL_PICKER_GROUP_FAVORITE_TOYS"] = "즐겨찾는 장난감"
 L["SPELL_PICKER_GROUP_MOUNTS"] = "탈것"
 L["SPELL_PICKER_GROUP_OTHERS"] = "나머지 전부"
 L["SPELL_PICKER_GROUP_TOYS"] = "장난감"
+L["SPELL_PICKER_GROUP_UNLEARNED_DESC"] = "%1$s에게 말을 걸면 그 상급자가 가르쳐 줄 수 있는 주문이 여기에 추가됩니다. 아직 배울 수 없는 주문까지 추가하려면 상급자 창의 |cnHIGHLIGHT_FONT_COLOR:%2$s > %3$s > %4$s|r에 체크한 채로 말을 걸어 주세요. 추가된 주문은 체크를 풀어도 남습니다."
 -- "layer"가 아니라 탭이라고 쓴다. 근거는 enUS 쪽 주석에.
 L["SPELL_PICKER_MENU_DESC"] = "이미 가지고 있는 것을 둘러봅니다 -- 주문, 매크로, 탈것, 장난감, 그리고 게임 자체의 단축키 명령. 창은 계속 열려 있고, 클릭할 때마다 지금 열어 둔 탭에 추가됩니다."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "새 사용자 지정 매크로"
