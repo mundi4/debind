@@ -1121,6 +1121,14 @@ L["SPELL_PICKER_GROUP_FAVORITE_TOYS"] = "Favorite Toys"
 L["SPELL_PICKER_GROUP_MOUNTS"] = "Mounts"
 L["SPELL_PICKER_GROUP_OTHERS"] = "Everything Else"
 L["SPELL_PICKER_GROUP_TOYS"] = "Toys"
+-- The Unlearned group's tooltip, on camelot only (`UnlearnedSpells_Camelot.lua`). All four names are
+-- the client's own, passed in: the trainer (`MINIMAP_TRACKING_TRAINER_CLASS`) and the path through
+-- the trainer window's menu (`SETTINGS`, `FILTERS`, `UNAVAILABLE`, `Blizzard_TrainerUI.lua`).
+-- A trainer window shows only what its filters let through, and only what it shows is listed here.
+-- **The last sentence keeps the filter from reading as a setting to leave on** (2026-09-30, owner):
+-- what a visit adds is never taken out. **"That trainer" and no "once"**: a trainer in a starting
+-- area may not teach every spell (owner), so what one visit adds is that trainer's, not the class's.
+L["SPELL_PICKER_GROUP_UNLEARNED_DESC"] = "Talking to a %1$s adds the spells that trainer can teach you. To add the ones you cannot learn yet as well, have |cnHIGHLIGHT_FONT_COLOR:%2$s > %3$s > %4$s|r checked while you talk. What is added stays after you uncheck it."
 -- 행 툴팁의 안내 줄 둘(이 줄과 SPELL_PICKER_RIGHT_CLICK_TO_ADD). **왼쪽/오른쪽을 부르는 말은
 -- 왼쪽 목록 행 툴팁의 것을 그대로 쓴다**("Left click to ..." / "Right click ..." -
 -- LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2). 같은 애드온의 두 목록이 같은 조작을 다르게 부르면

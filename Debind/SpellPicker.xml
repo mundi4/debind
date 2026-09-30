@@ -107,6 +107,17 @@
 				<Anchors>
 					<Anchor point="LEFT"/>
 				</Anchors>
+				<Layers>
+					<Layer level="OVERLAY">
+						<!-- Marks a heading that has a tooltip. A picture only: the bar is what answers the mouse. -->
+						<Texture parentKey="InfoIcon" file="Interface\common\help-i" hidden="true">
+							<Size x="24" y="24"/>
+							<Anchors>
+								<Anchor point="LEFT" relativeKey="$parent.Name"/>
+							</Anchors>
+						</Texture>
+					</Layer>
+				</Layers>
 				<Frames>
 					<!-- 자리는 `UpdateHelpLink`가 잡는다. 제목 글자 폭을 재야 나오는 자리라 여기서는 못 적는다. -->
 					<Button parentKey="HelpLink" inherits="DebindHelpLinkTemplate">

@@ -37,6 +37,9 @@ local ClimbBaseSpell     = DebindPrivate.ClimbBaseSpell;
 ---   isOffSpec  지금 특성이 아닌 주문. 기본 필터에서는 **들어온다**
 ---   isUnlearned Not learned yet (`FutureSpell`). Dimmed like isOffSpec, but no filter hides it -
 ---              "다른 특성" would be a lie about a spell of the spec you are standing in
+---   groupTooltip The tooltip of the group's heading, read off the group's first entry
+---   isGroupOnly  Stands for a group with no rows, so its heading and `groupTooltip` still show.
+---              Never drawn as a row, and dropped by a search
 ---   isFavorite 즐겨찾기 여부. **이 개념이 없는 엔트리는 nil로 둔다** - "즐겨찾기만"
 ---              필터가 nil을 안 건드리므로, 탈것 탭의 설정이 주문 탭을 비우지 않는다
 ---   searchName / searchSubName  소문자로 미리 접어둔 검색용 사본
@@ -201,7 +204,9 @@ function ActionCatalog.Filter(entries, options, out)
 		local entry = entries[i];
 		local matched = true;
 
-		if (entry.isOffSpec and not includeOffSpec) then
+		if (entry.isGroupOnly) then
+			matched = search == nil;
+		elseif (entry.isOffSpec and not includeOffSpec) then
 			matched = false;
 		elseif (favoritesOnly and entry.isFavorite == false) then
 			-- `== false`다. 즐겨찾기라는 개념이 없는 엔트리는 nil이라 안 걸린다 - 탈것 탭에서
@@ -604,10 +609,17 @@ end
 --- through. One name is one row, under the id with the lowest level: a spell goes out by name and
 --- casts the highest rank known (`SpecSpells_Camelot.lua`), so which rank's id is stored does not
 --- reach the cast.
+---
+--- **The group stands with no row in it** (2026-09-30, owner): its heading's tooltip is what says
+--- how to fill it, and a character who has not talked to a trainer is the one who needs that.
 local function AddUnlearnedSpellEntries(entries, seen)
 	if (not DebindPrivate.GetUnlearnedSpellCandidates) then
 		return;
 	end
+
+	local group = PROFESSIONS_CATEGORY_UNLEARNED;
+	local groupTooltip = format(LLL["SPELL_PICKER_GROUP_UNLEARNED_DESC"], MINIMAP_TRACKING_TRAINER_CLASS,
+		SETTINGS, FILTERS, UNAVAILABLE);
 
 	local inBook = {};
 	for i = 1, #entries do
@@ -630,7 +642,8 @@ local function AddUnlearnedSpellEntries(entries, seen)
 					name = spellInfo.name,
 					icon = spellInfo.iconID,
 					level = level,
-					group = PROFESSIONS_CATEGORY_UNLEARNED,
+					group = group,
+					groupTooltip = groupTooltip,
 					isUnlearned = true,
 				};
 			end
@@ -656,6 +669,10 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		end
 		entry.level = nil;
 		AddEntry(entries, seen, entry);
+	end
+
+	if (#collected == 0) then
+		tinsert(entries, { group = group, groupTooltip = groupTooltip, isGroupOnly = true });
 	end
 end
 

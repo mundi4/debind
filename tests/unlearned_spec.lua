@@ -159,6 +159,49 @@ return function(DebindPrivate)
         check(groups == wantGroups, "groups " .. groups .. ", expected " .. wantGroups);
     end);
 
+    -- **The heading's tooltip says how to fill the group**, so a character who has not talked to a
+    -- trainer still gets the heading (2026-09-30, owner). A search drops it: nothing under it matches.
+    test("the group stands with its tooltip when no spell is in it, and not in a search", function()
+        local trainerSpells = _G.DebindVars.trainerSpells;
+        _G.DebindVars.trainerSpells = nil;
+        shim.world.spellbook[CURE_POISON] = true;
+        ActionCatalog.Invalidate("spellbook");
+        local entries = ActionCatalog.GetEntries(spellCategory());
+        shim.world.spellbook[CURE_POISON] = nil;
+        _G.DebindVars.trainerSpells = trainerSpells;
+
+        local marker;
+        for _, entry in ipairs(entries) do
+            if (entry.group == PROFESSIONS_CATEGORY_UNLEARNED) then
+                check(marker == nil and entry.isGroupOnly, "a row is in the group: " .. tostring(entry.name));
+                marker = entry;
+            end
+        end
+        check(marker, "no Unlearned group");
+        local want = format(DebindPrivate.L["SPELL_PICKER_GROUP_UNLEARNED_DESC"], "Class Trainer",
+            "Settings", "Filters", "Unavailable");
+        check(marker.groupTooltip == want, "tooltip " .. tostring(marker.groupTooltip));
+
+        local function kept(options)
+            for _, entry in ipairs(ActionCatalog.Filter(entries, options)) do
+                if (entry == marker) then
+                    return true;
+                end
+            end
+            return false;
+        end
+        check(kept({ includeOffSpec = true }), "the empty group was filtered out");
+        check(not kept({ search = "cure", includeOffSpec = true }), "the empty group stood in a search");
+    end);
+
+    test("every row carries the heading's tooltip", function()
+        local rows = unlearnedRows();
+        check(#rows > 0, "no rows");
+        for _, row in ipairs(rows) do
+            check(row.groupTooltip ~= nil and not row.isGroupOnly, row.name .. " has no tooltip");
+        end
+    end);
+
     test("a spell leaves the group once the book holds it", function()
         shim.world.spellbook[WRATH_1] = true;
         local rows = unlearnedRows();
