@@ -853,8 +853,9 @@ end
 --- call reaches that; the tool takes the first to wowhead for the second. Under
 --- `DebindCamelotProbeDB.books[itemID]`, added to and never cleared.
 ---
---- The "Teaches …" tooltip line is kept where the client shows one, which it did for five of 38 on
---- 70124: a check on the tool's answer, not a source.
+--- The "Teaches …" tooltip line is kept where the client shows one: a check on the tool's answer, not
+--- a source. It shows once the item is cached, so a first visit can lack it (five of 38 on 70124,
+--- all 38 on the next).
 local function RecordBook(index, itemID, name, spellID, spellName, npc)
     local store = Store();
     store.books = store.books or {};
