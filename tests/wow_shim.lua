@@ -48,6 +48,9 @@ M.world = {
     equipped = {},
     --- The dialogs `StaticPopup_Show` was asked for, in order, as `{ which, ... }`.
     popups = {},
+    --- `{ name =, spells = { spellID… } }` per profession the character has, in `GetProfessions`
+    --- order. Its spells are not in `spellbook`: the client keeps them past every skill line.
+    professions = {},
     --- What the open trainer window lists, as `{ serviceType =, level =, subText =, id = }`: the
     --- rows its filters let through. Camelot only. `trainerType` beside it is nil for a class trainer.
     trainerServices = {},
@@ -529,6 +532,7 @@ function M.install()
     _G.FILTERS = "Filters";
     _G.UNAVAILABLE = "Unavailable";
     _G.TALENT = "Talent";
+    _G.TRADE_SKILLS = "Professions";
     _G.NUM_WORLD_RAID_MARKERS = 8;
     _G.WORLD_RAID_MARKER_ORDER = { 8, 4, 1, 7, 2, 3, 6, 5 };
     for i, colour in ipairs({ "Blue", "Green", "Purple", "Red", "Yellow", "Orange", "Silver", "White" }) do
@@ -672,6 +676,35 @@ function M.install()
         end
         table.sort(ids);
         return ids;
+    end
+
+    --- The book's slots and, past them, each profession's, which is where the client keeps those:
+    --- outside every skill line, reached through `GetProfessionInfo`'s offset.
+    local function AllSlots()
+        local ids = BookSlots();
+        for _, profession in ipairs(M.world.professions) do
+            for _, spellID in ipairs(profession.spells) do
+                ids[#ids + 1] = spellID;
+            end
+        end
+        return ids;
+    end
+
+    _G.GetProfessions = function()
+        local indices = {};
+        for i = 1, #M.world.professions do
+            indices[i] = i;
+        end
+        return unpack(indices);
+    end
+    _G.GetProfessionInfo = function(index)
+        local profession = M.world.professions[index];
+        if (not profession) then return nil; end
+        local offset = #BookSlots();
+        for i = 1, index - 1 do
+            offset = offset + #M.world.professions[i].spells;
+        end
+        return profession.name, 136243, 1, 75, #profession.spells, offset, profession.skillLine or 0;
     end
 
     --- The talent tree, flat. `M.world.traits` is `{ configID =, treeIDs =, trees =, nodes =,
@@ -961,7 +994,7 @@ function M.install()
             return { itemIndexOffset = 0, numSpellBookItems = #BookSlots() };
         end,
         GetSpellBookItemInfo = function(slot, bank)
-            local spellID = bank == Enum.SpellBookSpellBank.Player and BookSlots()[slot];
+            local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
             if (not spellID) then return nil; end
             return {
                 spellID = spellID,
@@ -970,7 +1003,7 @@ function M.install()
             };
         end,
         GetSpellBookItemLevelLearned = function(slot, bank)
-            local spellID = bank == Enum.SpellBookSpellBank.Player and BookSlots()[slot];
+            local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
             local spell = spellID and M.world.spells[spellID];
             return spell and spell.levelLearned;
         end,
@@ -983,7 +1016,7 @@ function M.install()
     --- book's spells stay on the first line, so a walk reads the same ids either way.
     if (camelot) then
         _G.C_SpellBook.IsSpellBookItemLowRank = function(slot, bank)
-            local spellID = bank == Enum.SpellBookSpellBank.Player and BookSlots()[slot];
+            local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
             return spellID and M.world.lowRanks[spellID] or false;
         end
         local LINES = { { "General", 136830 }, { "Restoration", 136041 }, { "Balance", 136096 } };

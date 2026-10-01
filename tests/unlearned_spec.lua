@@ -72,6 +72,10 @@ return function(DebindPrivate)
     DebindPrivate.CamelotClassSpells = {
         DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30, [ELSEWHERE] = "quest" },
     };
+    -- A profession's spell, offered to every class with the professions' subtitle (2026-10-01, owner).
+    local FISHING = 7620;
+    spells[FISHING] = { name = "Fishing", iconID = 13 };
+    DebindPrivate.CamelotProfessionSpells = { [FISHING] = "profession" };
 
     -- The talent tree, untaken: one spell a key can cast and one passive (probe, 70009, a druid).
     -- Stood up before the login, whose rebuild walks it once for the specialization (`Spells.lua`).
@@ -194,7 +198,7 @@ return function(DebindPrivate)
 
         local want = "Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
             .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Elsewhere Spell:90002:nil"
-            .. " | Swiftmend:18562:Talent";
+            .. " | Fishing:7620:Professions | Swiftmend:18562:Talent";
         check(rowText(rows) == want, "rows " .. rowText(rows) .. "\n  expected " .. want);
         local wantGroups = "General,Unlearned," .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
         check(groups == wantGroups, "groups " .. groups .. ", expected " .. wantGroups);
@@ -204,8 +208,10 @@ return function(DebindPrivate)
     -- trainer still gets the heading (2026-09-30, owner). A search drops it: nothing under it matches.
     test("the group stands with its tooltip when no spell is in it, and not in a search", function()
         local trainerSpells, classSpells = _G.DebindVars.trainerSpells, DebindPrivate.CamelotClassSpells;
+        local professionSpells = DebindPrivate.CamelotProfessionSpells;
         _G.DebindVars.trainerSpells = nil;
         DebindPrivate.CamelotClassSpells = nil;
+        DebindPrivate.CamelotProfessionSpells = nil;
         -- Swiftmend in the book is its talent taken, which takes it out of the group.
         shim.world.spellbook[CURE_POISON] = true;
         shim.world.spellbook[SWIFTMEND] = true;
@@ -215,6 +221,7 @@ return function(DebindPrivate)
         shim.world.spellbook[SWIFTMEND] = nil;
         _G.DebindVars.trainerSpells = trainerSpells;
         DebindPrivate.CamelotClassSpells = classSpells;
+        DebindPrivate.CamelotProfessionSpells = professionSpells;
 
         local marker;
         for _, entry in ipairs(entries) do

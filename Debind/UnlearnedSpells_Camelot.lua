@@ -4,11 +4,12 @@ local _, DebindPrivate = ...;
 --- Unlearned group (`ActionCatalog.lua`). Loaded on that client only (`Debind.toc`): its spellbook
 --- holds only what has been learned, where retail's lists the rest as `FutureSpell`.
 ---
---- **Three sources, merged, and nothing is ever taken out** (`listing-unlearned-spells-on-forever.md`):
---- the class lists generated off wowhead (`ClassSpells_Camelot.lua`), what the class trainers were
---- read selling, and the ids written below. None is complete on its own: the generated lists are
---- wowhead's, a trainer window lists only what its filters let through, and some spells never
---- appear at a trainer at all. The talent tree is a fourth, read where the group is built
+--- **Every source merged, and nothing is ever taken out** (`listing-unlearned-spells-on-forever.md`):
+--- the class lists and the professions' spells generated from the camelot probe's record
+--- (`ClassSpells_Camelot.lua`), what the class trainers were read selling, and the ids written below.
+--- None is complete on its own: the class lists start from wowhead's, the professions are the ones
+--- the probe has met, a trainer window lists only what its filters let through, and some spells
+--- never appear at a trainer at all. The talent tree is one more, read where the group is built
 --- (`ActionCatalog.lua`).
 
 --- `[classFile] = { [spellID] = level required }`, for what the other two miss.
@@ -58,8 +59,10 @@ function DebindPrivate.GetUnlearnedSpellCandidates(classFile)
         data[classFile],
         (DebindPrivate.CamelotClassSpells or {})[classFile],
         (TrainerStore(false) or {})[classFile],
+        -- Every class's.
+        DebindPrivate.CamelotProfessionSpells,
     };
-    for i = 1, 3 do
+    for i = 1, 4 do
         for spellID, value in pairs(sources[i] or {}) do
             if (merged[spellID] == nil or CompareUnlearnedValue(value, merged[spellID]) < 0) then
                 merged[spellID] = value;

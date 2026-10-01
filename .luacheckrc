@@ -107,6 +107,9 @@ globals = {
 	"C_Timer",
 	"EventRegistry",
 	"C_TradeSkillUI",
+	-- The professions' spells, which sit past every skill line (`ActionCatalog.lua`).
+	"GetProfessions",
+	"GetProfessionInfo",
 	-- The class trainer's window, read on camelot (`UnlearnedSpells_Camelot.lua`).
 	"C_Trainer",
 	"C_TooltipInfo",

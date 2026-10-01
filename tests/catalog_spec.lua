@@ -330,5 +330,60 @@ return function(DebindPrivate)
         check(#bad == 0, "없는 소스를 부른다: " .. table.concat(bad, ", "));
     end);
 
+    -- **The professions' spells are listed, in one group after the pet's** (2026-10-01, owner: a
+    -- character who had learned Fishing could not find it; Professions after Pet). They sit past
+    -- every skill line, so a walk of the lines alone never reaches them. A passive one stays out like
+    -- any other.
+    test("the spell list holds the professions' spells, after the book's and the pet's", function()
+        local shim = require("wow_shim");
+        local Constants = DebindPrivate.Constants;
+        shim.world.spells[585] = { name = "Smite", iconID = 1 };
+        shim.world.spells[3110] = { name = "Firebolt", iconID = 5 };
+        shim.world.spells[7620] = { name = "Fishing", iconID = 2 };
+        shim.world.spells[1278067] = { name = "Bait and Tackle", iconID = 3 };
+        shim.world.spells[2575] = { name = "Mining", iconID = 4, passive = true };
+        shim.world.spellbook[585] = true;
+        shim.world.professions = {
+            { name = "Mining", spells = { 2575 } },
+            { name = "Fishing", spells = { 7620, 1278067 } },
+        };
+        -- A pet with one spell. The shim stands none up, so it goes in for this case alone.
+        local hasPetSpells, itemInfo = C_SpellBook.HasPetSpells, C_SpellBook.GetSpellBookItemInfo;
+        C_SpellBook.HasPetSpells = function() return 1; end
+        C_SpellBook.GetSpellBookItemInfo = function(slot, bank)
+            if (bank == Enum.SpellBookSpellBank.Pet) then
+                return slot == 1 and { spellID = 3110, actionID = 3110, itemType = Enum.SpellBookItemType.Spell } or nil;
+            end
+            return itemInfo(slot, bank);
+        end
+
+        local rows, bookAt, petAt, firstProfessionAt = {}, nil, nil, nil;
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.key == "spell") then
+                ActionCatalog.Invalidate("spellbook");
+                for i, row in ipairs(ActionCatalog.GetEntries(category)) do
+                    if (row.value == 585) then
+                        bookAt = i;
+                    elseif (row.value == 3110) then
+                        petAt = i;
+                    end
+                    if (row.group == TRADE_SKILLS and row.type == Constants.SPELL) then
+                        firstProfessionAt = firstProfessionAt or i;
+                        rows[#rows + 1] = row.name .. ":" .. tostring(row.value);
+                    end
+                end
+            end
+        end
+        C_SpellBook.HasPetSpells, C_SpellBook.GetSpellBookItemInfo = hasPetSpells, itemInfo;
+        shim.world.spellbook[585] = nil;
+        shim.world.professions = {};
+
+        local got = table.concat(rows, ",");
+        check(got == "Fishing:7620,Bait and Tackle:1278067", "profession rows: " .. got);
+        check(bookAt and petAt and firstProfessionAt and bookAt < petAt and petAt < firstProfessionAt,
+            ("the book's row at %s, the pet's at %s, the first profession's at %s"):format(tostring(bookAt),
+                tostring(petAt), tostring(firstProfessionAt)));
+    end);
+
     return T;
 end

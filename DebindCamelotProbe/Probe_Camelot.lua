@@ -554,6 +554,9 @@ end
 --- answers fewer (`Camelot/Blizzard_ProfessionsFrame.lua`), and a profession's spells sit at
 --- `spellOffset` in the player's book. Whether they also show up as a skill line above decides
 --- whether the spell list already offers them.
+--- Defined after `Store`, which it writes through.
+local RecordProfessionSpell;
+
 local function Professions()
     Emit("== professions");
     local slots = { GetProfessions() };
@@ -569,6 +572,9 @@ local function Professions()
             for i = 1, numSpells or 0 do
                 local item = C_SpellBook.GetSpellBookItemInfo(spellOffset + i, bank);
                 Emit("          %s %s", tostring(item and item.name), tostring(item and item.spellID));
+                if (item and item.spellID) then
+                    RecordProfessionSpell(item.spellID, item.name, name);
+                end
             end
         end
     end
@@ -847,6 +853,21 @@ end
 --- `GetItemSpell` names, and for a recipe-class item every tooltip line, since which of those
 --- carries the spell the book teaches is the question. The read waits a moment, as the trainer's
 --- does, for items the client has not cached.
+--- **A profession's own spell, kept for a tool to read** (2026-10-01, owner): what Debind offers a
+--- character who has not learned that profession yet, built by `tools/build-camelot-class-spells.js`.
+--- Under `DebindCamelotProbeDB.professionSpells[spellID]`, from every character, added to and never
+--- cleared. Whether it is passive is the client's answer, asked here.
+function RecordProfessionSpell(spellID, spellName, professionName)
+    local store = Store();
+    store.professionSpells = store.professionSpells or {};
+    store.professionSpells[spellID] = {
+        name = spellName,
+        profession = professionName,
+        passive = C_Spell.IsSpellPassive(spellID) and true or false,
+        build = BuildKey(),
+    };
+end
+
 --- **A book a merchant sells, kept for a tool to read** (2026-10-01, owner): a Demon Trainer's
 --- grimoires are the case. `GetItemSpell` names only the spell that does the teaching (20270 for
 --- Grimoire of Firebolt (Rank 2), measured), never the one taught (7799, the imp's), and no client

@@ -520,6 +520,24 @@ local function AddPetSpells(entries, seen)
 	end
 end
 
+--- **The professions' own spells (Fishing, Find Minerals, Cooking), which no skill line holds.** The
+--- client keeps them past the lines, reached through `GetProfessionInfo`'s offset, the way its own
+--- professions book reads them (`Blizzard_ProfessionsBook.lua`); walking the lines alone left a
+--- character who has learned Fishing unable to find it here (2026-10-01, owner). Recipes are not
+--- among them: that book raises an error past two spells a profession.
+local function AddProfessionSpells(entries, seen)
+	local professions = { GetProfessions() };
+	for i = 1, select("#", GetProfessions()) do
+		local index = professions[i];
+		if (index) then
+			local _, _, _, _, numSpells, spellOffset = GetProfessionInfo(index);
+			for slot = spellOffset + 1, spellOffset + (numSpells or 0) do
+				AddSpellBookItem(entries, seen, slot, Enum.SpellBookSpellBank.Player, false, TRADE_SKILLS);
+			end
+		end
+	end
+end
+
 --- 주문서에 없지만 걸고 싶은 주문·탈것들. 전부 **한 자리에 하나씩** 있는 물건이라 열거가
 --- 아니라 목록을 손으로 적는다.
 ---
@@ -683,7 +701,7 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		return a.name < b.name;
 	end);
 
-	local subtitles = { talent = TALENT };
+	local subtitles = { talent = TALENT, profession = TRADE_SKILLS };
 	local playerLevel = UnitLevel("player");
 	for i = 1, #collected do
 		local entry = collected[i];
@@ -708,7 +726,8 @@ end
 --- `Enum.SpellBookSkillLineIndex` is `General=1, Class=2, MainSpec=3, OffSpecStart=4`, so the index
 --- order would put General first, while what a reader comes here for is usually a class spell and
 --- General is mounts and the hearthstone. The current spellbook puts the class first too.
---- The result: class -> active spec -> other specs -> General -> Pet -> Unlearned -> Others.
+--- The result: class -> active spec -> other specs -> General -> Pet -> Professions -> Unlearned ->
+--- Others (2026-10-01, owner: Professions after Pet).
 ---
 --- **Pet spells are here as well**, under their own heading. A tab of their own would stand for
 --- the half of the classes that have a pet, and it is the same spellbook.
@@ -753,6 +772,7 @@ local function BuildPlayerSpells(entries)
 	end
 
 	AddPetSpells(entries, seen);
+	AddProfessionSpells(entries, seen);
 	AddUnlearnedSpellEntries(entries, seen);
 
 	-- 주문서 밖의 것들이 맨 끝에 "그 밖" 그룹으로 붙는다. `seen`을 그대로 넘기는 것이
