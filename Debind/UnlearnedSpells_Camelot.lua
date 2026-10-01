@@ -90,13 +90,14 @@ local function ReadTrainer()
 
     local added = false;
     for i = 1, GetNumTrainerServices() do
-        local _, serviceType, _, reqLevel, subText = GetTrainerServiceInfo(i);
+        local _, serviceType, _, reqLevel = GetTrainerServiceInfo(i);
         local tooltip = (serviceType == "available" or serviceType == "unavailable")
             and C_TooltipInfo.GetTrainerService(i);
         local spellID = tooltip and tooltip.id;
-        -- Passive by the service's own subtext as well, since whether `IsSpellPassive` answers for a
-        -- spell the character does not have is not known. The catalog asks it again.
-        if (spellID and subText ~= SPELL_PASSIVE and not C_Spell.IsSpellPassive(spellID)) then
+        -- **`IsSpellPassive` answers for a spell the character does not have** (measured in game,
+        -- 2026-10-01): the weapon and armour skills a trainer sells come back passive although their
+        -- service has no "Passive" subtext, as Parry's does.
+        if (spellID and not C_Spell.IsSpellPassive(spellID)) then
             local level = reqLevel or 0;
             if (class[spellID] == nil or level < class[spellID]) then
                 class[spellID] = level;

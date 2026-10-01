@@ -54,6 +54,9 @@ return function(DebindPrivate)
     spells[MARK_1] = { name = "Mark of the Wild", iconID = 4 };
     spells[ROAR] = { name = "Demoralizing Roar", iconID = 5 };
     spells[NATURES_GRACE] = { name = "Nature's Grace", iconID = 6, passive = true };
+    -- A weapon skill: passive, though its trainer row has no "Passive" subtext (measured 2026-10-01).
+    local STAVES = 227;
+    spells[STAVES] = { name = "Staves", iconID = 12, passive = true };
     spells[CURE_POISON] = { name = "Cure Poison", iconID = 7 };
 
     -- The generated class lists, set by the spec rather than the shipped ones: a row from those would
@@ -109,6 +112,7 @@ return function(DebindPrivate)
                 { id = TOUCH_2, serviceType = "unavailable", level = 8, subText = "Rank 2" },
                 { id = TOUCH_3, serviceType = "unavailable", level = 14, subText = "Rank 3" },
                 { id = NATURES_GRACE, serviceType = "unavailable", level = 12, subText = "Passive" },
+                { id = STAVES, serviceType = "available", level = 0, subText = "" },
             };
             check(frames.fireEvent("TRAINER_SHOW") > 0, "nothing is listening for TRAINER_SHOW");
             local want = describe({ [WRATH_2] = 6, [TOUCH_2] = 8, [TOUCH_3] = 14 });

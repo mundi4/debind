@@ -524,7 +524,6 @@ function M.install()
     -- The spell list's Unlearned group, as enUS has them.
     _G.PROFESSIONS_CATEGORY_UNLEARNED = "Unlearned";
     _G.SPELLBOOK_AVAILABLE_AT = "Level %d";
-    _G.SPELL_PASSIVE = "Passive";
     _G.MINIMAP_TRACKING_TRAINER_CLASS = "Class Trainer";
     _G.SETTINGS = "Settings";
     _G.FILTERS = "Filters";

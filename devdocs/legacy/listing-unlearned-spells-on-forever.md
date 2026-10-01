@@ -62,8 +62,9 @@ ID를 읽는다. 프로브 기록에 드루이드, 전사, 성기사 트레이�
 트레이너는 모두 `type 0`(General)이었다.
 
 **패시브는 버린다.** 트레이너는 Parry 같은 패시브도 판다. 액션 추가 창이 이미 패시브를 안 올리는 것과 같은
-규칙이다. 서비스의 부제가 `SPELL_PASSIVE`인지와 `C_Spell.IsSpellPassive`를 둘 다 본다. 안 배운 주문에
-뒤의 것이 답하는지는 모른다.
+규칙이다. `C_Spell.IsSpellPassive`로 본다. 안 배운 주문에도 답한다(2026-10-01, 소유자가 게임에서 잼:
+One-Handed Swords, Staves, Mail, Plate Mail, Parry, Moonglow가 참, Swiftmend가 거짓). 무기·방어구 숙련은
+트레이너 행 부제가 비어 있어서 부제로는 못 거른다.
 
 **저장은 계정 전체, 직업별이다.** 한 직업의 트레이너를 캐릭터 하나가 한 번 열면 그 직업의 모든 캐릭터가
 목록을 얻는다. `DebindPrivate.db.global.trainerSpells`에 직업 파일 이름(`"DRUID"`) 아래 주문 ID와 필요
