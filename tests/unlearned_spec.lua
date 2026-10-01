@@ -256,9 +256,9 @@ return function(DebindPrivate)
     end);
 
     -- **A row picked from the list adds the highest rank known**, so a rank under it would say that
-    -- rank is what gets added (2026-10-01, owner). A lower rank's row, shown when the book shows
-    -- every rank, does add that rank and keeps it. A subtitle that is not a rank stays.
-    test("a highest rank's row drops its rank, a lower rank's and a racial keep theirs", function()
+    -- rank is what gets added, and one name is one row whatever the book shows (2026-10-01, owner).
+    -- A subtitle that is not a rank stays.
+    test("a spell's ranks are one row with no rank under it, and a racial keeps its subtitle", function()
         local STONEFORM = 20594;
         spells[STONEFORM] = { name = "Stoneform", iconID = 18, subtext = "Racial" };
         spells[WRATH_1].subtext, spells[WRATH_2].subtext = "Rank 1", "Rank 2";
@@ -275,7 +275,7 @@ return function(DebindPrivate)
                     wrath[#wrath + 1] = row;
                 end
             end
-            local want = "Wrath:5176:Rank 1:learned | Wrath:5177:nil:learned";
+            local want = "Wrath:5177:nil:learned";
             check(rowText(wrath) == want, "wrath " .. rowText(wrath) .. ", expected " .. want);
             want = "Stoneform:20594:Racial:learned";
             check(rowText(byGroup.General) == want, "general " .. rowText(byGroup.General) .. ", expected " .. want);

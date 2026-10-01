@@ -327,11 +327,18 @@ return function(DebindPrivate, DebindStorage)
         check(table.concat(offered, ",") == expected, "offered " .. table.concat(offered, ","));
     end);
 
-    test("with every rank shown in the book, every rank has a row", function()
+    -- **The book showing every rank does not change the list** (2026-10-01, owner): the list adds a
+    -- spell by name at the highest rank known, and a rank is pinned only from the action's own
+    -- settings, so a lower rank's row would add the same thing as the highest's.
+    test("with every rank shown in the book, the list is the same", function()
         TwoRanks();
         shim.world.cvars.ShowAllSpellRanks = true;
         local ids = SpellRowIds();
-        check(ids[5185] and ids[5186], "a rank lost its row");
+        shim.world.cvars.ShowAllSpellRanks = nil;
+        check(ids[5186], "the highest rank has no row");
+        if (camelot) then
+            check(not ids[5185], "the lower rank has a row of its own");
+        end
     end);
 
     -- **A rank can also be pinned, per action** (2026-09-24, owner): classic players cast a lower
@@ -406,25 +413,23 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     if (camelot) then
-        -- **A lower rank's row is there only because the reader asked the book for every rank**,
-        -- and picking it is picking that rank.
-        test("a lower rank picked from the list comes pinned", function()
+        test("a row picked from the list comes unpinned, with every rank shown in the book", function()
             TwoRanks();
             shim.world.cvars.ShowAllSpellRanks = true;
             local ActionCatalog = DebindPrivate.ActionCatalog;
-            local pinned = {};
+            local pinned;
             for _, category in ipairs(ActionCatalog.GetCategories()) do
                 if (category.source == "spellbook") then
                     ActionCatalog.Invalidate(category.source);
                     for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
-                        if (entry.value ~= nil) then
-                            pinned[entry.value] = entry.props and entry.props.pinRank or false;
+                        if (entry.props and entry.props.pinRank) then
+                            pinned = entry.name;
                         end
                     end
                 end
             end
-            check(pinned[5185] == true, "the lower rank's row is not pinned");
-            check(pinned[5186] == false, "the highest rank's row is pinned");
+            shim.world.cvars.ShowAllSpellRanks = nil;
+            check(pinned == nil, tostring(pinned) .. " comes pinned");
         end);
     end
 

@@ -482,12 +482,11 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 	-- Off-spec is excluded here for the same reason Blizzard leaves it blank - the header said it.
 	local subName = info.subName;
 
-	-- **A highest rank's row adds the highest rank known, so its rank is not shown** (2026-10-01,
-	-- owner): under the row it would say that rank is what gets added. A lower rank's row does add
-	-- that rank (`pinRank` below) and keeps it. The client gives a rank only as this text, and a digit
-	-- is what tells it from "Racial" or "Passive" in any language (camelot, 70124).
-	local isLowRank = DebindPrivate.Client.IsLowRank(slotIndex, bank);
-	if (DebindPrivate.Client.SPELLS_HAVE_RANKS and not isLowRank and subName and subName:find("%d")) then
+	-- **A rank is not shown** (2026-10-01, owner): a row adds the highest rank known, and a rank under
+	-- it would say that rank is what gets added. A rank is pinned only from the action's own settings.
+	-- The client gives a rank only as this text, and a digit is what tells it from "Racial" or
+	-- "Passive" in any language (camelot, 70124).
+	if (DebindPrivate.Client.SPELLS_HAVE_RANKS and subName and subName:find("%d")) then
 		subName = nil;
 	end
 
@@ -507,9 +506,8 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 		group = group,
 		isOffSpec = isOffSpec or nil,
 		isUnlearned = isUnlearned or nil,
-		-- **A lower rank's row is picking that rank**: it is listed only when the reader has the
-		-- book show every rank, and unpinned it would cast the highest.
-		props = isLowRank and { pinRank = true } or nil,
+		-- Which of one name's rows the list keeps (`DistinctByName`). Not saved.
+		isLowRank = DebindPrivate.Client.IsLowRank(slotIndex, bank) or nil,
 	});
 end
 
@@ -755,9 +753,7 @@ local function BuildPlayerSpells(entries)
 		local first = skillLineInfo.itemIndexOffset + 1;
 		local last = skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems;
 		for slotIndex = first, last do
-			if (not DebindPrivate.Client.IsHiddenLowRank(slotIndex, Enum.SpellBookSpellBank.Player)) then
-				AddSpellBookItem(entries, seen, slotIndex, Enum.SpellBookSpellBank.Player, isOffSpec, group);
-			end
+			AddSpellBookItem(entries, seen, slotIndex, Enum.SpellBookSpellBank.Player, isOffSpec, group);
 		end
 	end
 
@@ -780,14 +776,35 @@ local function BuildPlayerSpells(entries)
 	AddExtraSpellEntries(entries, seen);
 end
 
+--- **One row per name** (2026-10-01, owner). Each rank is its own book item under one name, and a
+--- row adds the spell by name at the highest rank known, so two of them would add the same thing.
+--- The one kept is the highest rank, whose tooltip is what the row casts; the first one's place in
+--- the list.
+local function DistinctByName(list)
+	local at, out = {}, {};
+	for i = 1, #list do
+		local entry = list[i];
+		local held = at[entry.name];
+		if (not held) then
+			out[#out + 1] = entry;
+			at[entry.name] = #out;
+		elseif (out[held].isLowRank and not entry.isLowRank) then
+			out[held] = entry;
+		end
+	end
+	wipe(list);
+	for i = 1, #out do
+		list[i] = out[i];
+	end
+end
+
 --- **Every line but General under the class's name** (2026-10-01, owner): there the lines are the
 --- talent trees, and a spell learned from a trainer sits in one whatever the reader's talents are.
 --- Then each group's unlearned rows after its learned ones (`AddUnlearnedSpellEntries`):
 --- class -> General -> Pet -> Professions -> Others.
 ---
 --- **The class rows are sorted by name.** Each line comes sorted that way from the client, and run
---- one after another they would make three runs under one heading. Two rows of one name (lower
---- ranks, with `ShowAllSpellRanks` on) keep the book's order.
+--- one after another they would make three runs under one heading.
 function BuildClassSpells(entries)
 	local seen = {};
 	local bank = Enum.SpellBookSpellBank.Player;
@@ -801,24 +818,18 @@ function BuildClassSpells(entries)
 			local list = skillLineIndex == generalIndex and general or rows.class;
 			for slotIndex = skillLineInfo.itemIndexOffset + 1,
 					skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems do
-				if (not DebindPrivate.Client.IsHiddenLowRank(slotIndex, bank)) then
-					AddSpellBookItem(list, seen, slotIndex, bank, false, skillLineInfo.name);
-				end
+				AddSpellBookItem(list, seen, slotIndex, bank, false, skillLineInfo.name);
 			end
 		end
 	end
 	AddPetSpells(rows.pet, seen);
 	AddProfessionSpells(rows.profession, seen);
-
-	local bookOrder = {};
-	for i = 1, #rows.class do
-		bookOrder[rows.class[i]] = i;
+	for _, list in ipairs({ rows.class, general, rows.pet, rows.profession }) do
+		DistinctByName(list);
 	end
+
 	sort(rows.class, function(a, b)
-		if (a.name ~= b.name) then
-			return a.name < b.name;
-		end
-		return bookOrder[a] < bookOrder[b];
+		return a.name < b.name;
 	end);
 
 	local inBook = {};

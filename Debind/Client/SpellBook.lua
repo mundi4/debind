@@ -12,13 +12,6 @@ function Client.IsLowRank(slotIndex, bank)
     return Client.SPELLS_HAVE_RANKS and C_SpellBook.IsSpellBookItemLowRank(slotIndex, bank) or false;
 end
 
---- Whether a book item is a lower rank the client's own book would hide. That book hides them
---- unless `ShowAllSpellRanks` is on (`Blizzard_SpellBookFrame.lua`), and a list of spells to bind
---- follows it: an unpinned cast name carries no rank, so a lower rank's row would cast the highest.
-function Client.IsHiddenLowRank(slotIndex, bank)
-    return not GetCVarBool("ShowAllSpellRanks") and Client.IsLowRank(slotIndex, bank);
-end
-
 --- The ranks of a spell the character has, as `{ id =, subtext = }` in book order: every player
 --- book item under the spell's name. Empty where spells have no ranks.
 function Client.SpellRanks(spellID)
