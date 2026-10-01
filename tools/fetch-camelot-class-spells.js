@@ -10,7 +10,7 @@
 //
 // Why: that client's spellbook holds only what has been learned, and a trainer window lists only
 // what that trainer teaches and its filters let through. The table is the rest of the spell list's
-// unlearned rows (`UnlearnedSpells_Camelot.lua`), and it names each rank's first rank, which is the
+// unlearned rows (`AddUnlearnedSpellEntries`), and it names each rank's first rank, which is the
 // id an action stores (`keeping-a-pinned-rank-apart-from-the-spell.md`). Network-dependent, so it is
 // run by hand and never by CI.
 //
@@ -38,6 +38,10 @@
 // recorded them (`books`), so this step reads its SavedVariables. The probe has only the spell that
 // does the teaching; wowhead's page for that spell names the one taught. A taught spell the pet
 // page already holds is in its chain; one it does not stands on its own.
+//
+// **A name a class trainer sells that its class's page does not carry comes from the trainer**, as
+// the camelot probe recorded it (2026-10-01, owner: what only a trainer lists belongs in the table,
+// not in a read at run time). A row's level is the trainer's, which a learned rank reports as 0.
 //
 // **The professions' own spells come from each profession's page** (2026-10-01, owner): the rank
 // spells (Mining, Fishing) and the ones beside them (Find Minerals, Smelting, Disenchant). What
@@ -146,6 +150,35 @@ async function petSpells(file) {
     return lists;
 }
 
+/** `[{ id, name, level }]` per class trainer the probe read, as `Map(trainer -> rows)`. */
+function readTrainers(file) {
+    const trainers = new Map();
+    const lines = readLines(file, `
+        for character, levels in pairs(DebindCamelotProbeDB.characters or {}) do
+            for _, record in pairs(levels) do
+                if type(record) == "table" then
+                    for what, text in pairs(record) do
+                        if type(text) == "string" and what:find("^trainer ") then
+                            for row in text:gmatch("[^\\n]+") do
+                                print(character .. " " .. what .. "\\t" .. row)
+                            end
+                        end
+                    end
+                end
+            end
+        end`);
+    // `MeasureTrainer`'s row: index, spell id, name, rank, "lv" level, service type.
+    const row = /^\s+\d+\s+(\d+)\s+(.+?)\s{2,}.*?lv (\d+)\s/;
+    for (const l of lines) {
+        const [trainer, text] = l.split("\t");
+        const m = text.match(row);
+        if (!m) continue;
+        if (!trainers.has(trainer)) trainers.set(trainer, []);
+        trainers.get(trainer).push({ id: Number(m[1]), name: m[2], level: Number(m[3]) });
+    }
+    return trainers;
+}
+
 /** The class files wowhead's `reqclass` names on the pet ability page. */
 const PET_CLASSES = { 4: "HUNTER", 256: "WARLOCK" };
 
@@ -218,6 +251,55 @@ function classEntries(spells, runesMet) {
     return entries;
 }
 
+/**
+ * `Map(classFile -> [{ id, first, source, name, comment }])`: the names a class trainer sells that
+ * its class's page does not carry. A trainer is that class's when every id it sells that a class
+ * page holds is on that page; one with none (a profession's, a pet's) or several is not read.
+ */
+function trainerEntries(trainers, pages) {
+    const classOf = new Map();
+    for (const [classFile, entries] of pages) {
+        for (const e of entries) classOf.set(e.id, classFile);
+    }
+    const rowsByClass = new Map();
+    for (const [trainer, rows] of trainers) {
+        const classes = new Set(rows.map((r) => classOf.get(r.id)).filter(Boolean));
+        if (classes.size !== 1) continue;
+        const [classFile] = classes;
+        const onPage = new Set(pages.get(classFile).map((e) => e.name));
+        if (!rowsByClass.has(classFile)) rowsByClass.set(classFile, new Map());
+        const byId = rowsByClass.get(classFile);
+        for (const r of rows) {
+            if (!onPage.has(r.name) && !RUNE_ABILITIES[r.name]) {
+                byId.set(r.id, { ...r, comment: trainer.replace(/^.* trainer /, "trainer ") });
+            }
+        }
+    }
+    // An id two classes' trainers sell would belong to two classes, which the probe's table cannot
+    // hold (`class` is one name).
+    const sellers = new Map();
+    for (const [classFile, byId] of rowsByClass) {
+        for (const id of byId.keys()) sellers.set(id, (sellers.get(id) || []).concat(classFile));
+    }
+    for (const [id, classes] of sellers) {
+        if (classes.length > 1) {
+            console.log(`left out, sold by ${classes.join(" and ")} trainers: ${id} (${rowsByClass.get(classes[0]).get(id).name})`);
+            for (const classFile of classes) rowsByClass.get(classFile).delete(id);
+        }
+    }
+    const lists = new Map();
+    for (const [classFile, byId] of rowsByClass) {
+        const entries = [];
+        for (const [name, ranks] of chains([...byId.values()])) {
+            for (const s of ranks) {
+                entries.push({ id: s.id, first: ranks[0].id, source: s.level, name, comment: s.comment });
+            }
+        }
+        lists.set(classFile, entries);
+    }
+    return lists;
+}
+
 async function professionEntries() {
     const entries = [];
     const seen = new Set();
@@ -250,12 +332,18 @@ async function main() {
     const record = process.argv[2] || findRecord();
     const pets = await petEntries(record);
 
-    const blocks = [];
     const runesMet = new Set();
-    const owner = new Map();
+    const pages = new Map();
     for (const [slug, classFile] of Object.entries(CLASSES)) {
         const url = `https://www.wowhead.com/forever/spells/abilities/${slug}`;
-        const entries = classEntries(readList(await get(url), url), runesMet);
+        pages.set(classFile, classEntries(readList(await get(url), url), runesMet));
+    }
+    const fromTrainers = trainerEntries(readTrainers(record), pages);
+
+    const blocks = [];
+    const owner = new Map();
+    for (const classFile of Object.values(CLASSES)) {
+        const entries = pages.get(classFile).concat(fromTrainers.get(classFile) || []);
         for (const e of entries) {
             // Two pages naming one id would need it to belong to two chains. None did on 2026-10-01;
             // the table has one class per first rank, so one that does now has to be looked at.

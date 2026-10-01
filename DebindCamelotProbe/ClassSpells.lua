@@ -155,6 +155,7 @@ Probe.Spells = {
     [5569] = { first = 679, source = 44, class = "PALADIN" }, -- Holy Strike
     [10332] = { first = 679, source = 52, class = "PALADIN" }, -- Holy Strike
     [10333] = { first = 679, source = 60, class = "PALADIN" }, -- Holy Strike
+    [750] = { first = 750, source = 40, class = "PALADIN" }, -- Plate Mail (trainer Brother Wilhelm)
     [853] = { first = 853, source = 8, class = "PALADIN" }, -- Hammer of Justice
     [5588] = { first = 853, source = 24, class = "PALADIN" }, -- Hammer of Justice
     [5589] = { first = 853, source = 40, class = "PALADIN" }, -- Hammer of Justice
@@ -308,6 +309,7 @@ Probe.Spells = {
     [13542] = { first = 136, source = 44, class = "HUNTER" }, -- Mend Pet
     [13543] = { first = 136, source = 52, class = "HUNTER" }, -- Mend Pet
     [13544] = { first = 136, source = 60, class = "HUNTER" }, -- Mend Pet
+    [674] = { first = 674, source = 20, class = "HUNTER" }, -- Dual Wield (trainer Thorfin Stoneshield)
     [781] = { first = 781, source = 20, class = "HUNTER" }, -- Disengage
     [14272] = { first = 781, source = 34, class = "HUNTER" }, -- Disengage
     [14273] = { first = 781, source = 48, class = "HUNTER" }, -- Disengage
@@ -319,6 +321,7 @@ Probe.Spells = {
     [14324] = { first = 1130, source = 40, class = "HUNTER" }, -- Hunter's Mark
     [14325] = { first = 1130, source = 58, class = "HUNTER" }, -- Hunter's Mark
     [1462] = { first = 1462, source = 24, class = "HUNTER" }, -- Beast Lore
+    [1494] = { first = 1494, source = 1, class = "HUNTER" }, -- Track Beasts (trainer Thorgas Grimson)
     [1495] = { first = 1495, source = 16, class = "HUNTER" }, -- Mongoose Bite
     [14269] = { first = 1495, source = 30, class = "HUNTER" }, -- Mongoose Bite
     [14270] = { first = 1495, source = 44, class = "HUNTER" }, -- Mongoose Bite
@@ -1356,6 +1359,7 @@ Probe.Spells = {
     [1239697] = { first = 1239696, source = 40, class = "MAGE" }, -- Arcane Blast
     [1239699] = { first = 1239696, source = 50, class = "MAGE" }, -- Arcane Blast
     [1239700] = { first = 1239696, source = 60, class = "MAGE" }, -- Arcane Blast
+    [1296017] = { first = 1296017, source = 0, class = "MAGE" }, -- Comprehend Scroll (trainer Magis Sparkmantle)
     [1297659] = { first = 1297659, source = 50, class = "MAGE" }, -- Teleport: Dalaran
     -- WARLOCK
     [126] = { first = 126, source = 22, class = "WARLOCK" }, -- Eye of Kilrogg
