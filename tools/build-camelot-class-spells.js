@@ -4,41 +4,25 @@
 //   npm run camelot-class-spells:build [path to DebindCamelotProbe.lua]
 //
 // A spell the client answered passive is left out, and so is one it has no name for: the release
-// code no longer asks either question. Without a path, the newest DebindCamelotProbe.lua under the
-// camelot client's WTF is read (`WOW_ROOT` as `npm run link` takes it).
+// code no longer asks either question.
+//
+// **The professions' spells the probe found in a character's book (`professionSpells`) are kept
+// beside the ones it was asked about**: what a probe has seen is never left out (2026-10-01,
+// owner). Where both name a spell, the one found in the book gives the id.
 
 const fs = require("fs");
 const path = require("path");
-const { execFileSync } = require("child_process");
+const { findRecord, readLines } = require("./lib/camelot-probe-record");
 
-const WOW_ROOT = process.env.WOW_ROOT || "C:\\Games\\World of Warcraft";
-const CLIENT = "_classic_beta_";
 const out = path.join(__dirname, "..", "Debind", "ClassSpells_Camelot.lua");
 
-function die(msg) {
-    console.error(msg);
-    process.exit(1);
+/** A level is a number in the record; anything else names where the spell comes from. */
+function readValue(text) {
+    return /^\d+$/.test(text) ? Number(text) : text;
 }
 
-function findRecord() {
-    const accounts = path.join(WOW_ROOT, CLIENT, "WTF", "Account");
-    if (!fs.existsSync(accounts)) {
-        die(`No ${accounts}   (pass the file's path, or set WOW_ROOT)`);
-    }
-    const found = fs.readdirSync(accounts)
-        .map((a) => path.join(accounts, a, "SavedVariables", "DebindCamelotProbe.lua"))
-        .filter((f) => fs.existsSync(f))
-        .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-    if (!found.length) {
-        die(`No DebindCamelotProbe.lua under ${accounts}`);
-    }
-    return found[0];
-}
-
-/** The record as rows, read by the same Lua the game uses rather than by a parser of our own. */
 function readRecord(file) {
-    const script = `
-        dofile(arg[1])
+    const lines = readLines(file, `
         local r = DebindCamelotProbeDB and DebindCamelotProbeDB.classSpells
         if not r then io.stderr:write("no classSpells record: run /camelotprobe classspells first\\n") os.exit(2) end
         print(r.build .. "\\t" .. r.measured)
@@ -46,31 +30,35 @@ function readRecord(file) {
             print(id .. "\\t" .. s.class .. "\\t" .. tostring(s.level) .. "\\t" .. tostring(s.name) .. "\\t" .. tostring(s.passive))
         end
         for id, s in pairs(DebindCamelotProbeDB.professionSpells or {}) do
-            print(id .. "\\tprofession\\t" .. tostring(s.profession) .. "\\t" .. tostring(s.name) .. "\\t" .. tostring(s.passive))
-        end`;
-    let text;
-    try {
-        text = execFileSync("lua5.1", ["-e", script.replace("arg[1]", JSON.stringify(file))], { encoding: "utf8" });
-    } catch (err) {
-        die((err.stderr || err.message).trim());
-    }
-    const lines = text.trim().split(/\r?\n/);
+            print(id .. "\\tbook\\t" .. tostring(s.profession) .. "\\t" .. tostring(s.name) .. "\\t" .. tostring(s.passive))
+        end`);
     const [build, measured] = lines.shift().split("\t");
-    const spells = [], professions = [];
+    const spells = [], professions = [], inBook = [];
     for (const l of lines) {
-        const [id, cls, level, name, passive] = l.split("\t");
-        if (cls === "profession") {
-            professions.push({ id: +id, profession: level, name, passive: passive === "true" });
+        const [id, cls, value, name, passive] = l.split("\t");
+        const row = { id: +id, name: name === "false" ? null : name, passive: passive === "true" };
+        if (cls === "book") {
+            inBook.push({ ...row, note: value });
+        } else if (cls === "profession") {
+            professions.push(row);
         } else {
-            spells.push({ id: +id, cls, level: Number(level), name: name === "false" ? null : name, passive: passive === "true" });
+            spells.push({ ...row, cls, value: readValue(value) });
         }
     }
-    return { build, measured, spells, professions };
+    return { build, measured, spells, professions, inBook };
+}
+
+function luaValue(v) {
+    return typeof v === "number" ? String(v) : JSON.stringify(v);
+}
+
+function comment(name) {
+    return name.replace(/[\r\n]/g, " ");
 }
 
 function main() {
     const file = process.argv[2] || findRecord();
-    const { build, measured, spells, professions } = readRecord(file);
+    const { build, measured, spells, professions, inBook } = readRecord(file);
 
     const byClass = new Map();
     const dropped = { passive: [], unknown: [] };
@@ -81,38 +69,55 @@ function main() {
         byClass.get(s.cls).push(s);
     }
 
+    // A level sorts before where a spell comes from, as in the spell list.
+    const order = (a, b) => {
+        const aLevel = typeof a.value === "number", bLevel = typeof b.value === "number";
+        if (aLevel !== bLevel) return aLevel ? -1 : 1;
+        if (aLevel && a.value !== b.value) return a.value - b.value;
+        if (!aLevel && a.value !== b.value) return a.value.localeCompare(b.value);
+        return a.name.localeCompare(b.name);
+    };
     const blocks = [];
     for (const cls of [...byClass.keys()].sort()) {
-        const rows = byClass.get(cls).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-        console.log(`${cls.padEnd(8)} ${rows.length} spells`);
-        const lines = rows.map((s) => `        [${s.id}] = ${s.level}, -- ${s.name.replace(/[\r\n]/g, " ")}`);
+        const rows = byClass.get(cls).sort(order);
+        const pets = rows.filter((s) => s.value === "pet").length;
+        console.log(`${cls.padEnd(8)} ${rows.length - pets} spells, ${pets} pet spells`);
+        const lines = rows.map((s) => `        [${s.id}] = ${luaValue(s.value)}, -- ${comment(s.name)}`);
         blocks.push(`    ${cls} = {\n${lines.join("\n")}\n    },`);
     }
 
-    const professionRows = professions.filter((s) => !s.passive)
-        .sort((a, b) => a.profession.localeCompare(b.profession) || a.name.localeCompare(b.name));
-    const professionLines = professionRows.map((s) =>
-        `    [${s.id}] = "profession", -- ${s.name.replace(/[\r\n]/g, " ")} (${s.profession})`);
-    dropped.passive.push(...professions.filter((s) => s.passive).map((s) => `profession ${s.name}`));
+    const professionByName = new Map();
+    for (const s of inBook) {
+        if (s.passive) { dropped.passive.push(`profession ${s.name}`); continue; }
+        professionByName.set(s.name, s);
+    }
+    for (const s of professions) {
+        if (!s.name) { dropped.unknown.push(`profession ${s.id}`); continue; }
+        if (s.passive) { dropped.passive.push(`profession ${s.name}`); continue; }
+        if (!professionByName.has(s.name)) professionByName.set(s.name, s);
+    }
+    const professionRows = [...professionByName.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const professionLines = professionRows.map((s) => `    [${s.id}] = "profession", -- ${comment(s.name)}`);
     console.log(`PROFESSION ${professionRows.length} spells`);
 
     fs.writeFileSync(out, `local _, DebindPrivate = ...;
 
 --- **Generated by \`tools/build-camelot-class-spells.js\`. Do not edit by hand**: run the three
 --- steps again (\`tools/fetch-camelot-class-spells.js\`). Built from the camelot probe's record of
---- ${build}, ${measured}: wowhead's class lists, as the client answered them, without what it called
---- passive or did not know.
+--- ${build}, ${measured}: wowhead's class lists and a pet's books, as the client answered them,
+--- without what it called passive or did not know.
 ---
---- \`[classFile] = { [spellID] = level required }\`, one id per name; a string in a level's place
---- would name where the spell comes from (\`CompareUnlearnedValue\`). What the Unlearned group
---- offers on World of Warcraft: Forever beside what the class trainers were read selling
+--- \`[classFile] = { [spellID] = level required }\`, one id per name; "pet" in a level's place says
+--- where the spell comes from (\`CompareUnlearnedValue\`). The spell list's unlearned rows on World
+--- of Warcraft: Forever, beside what the class trainers were read selling
 --- (\`UnlearnedSpells_Camelot.lua\`). Loaded on that client only (\`Debind.toc\`).
 DebindPrivate.CamelotClassSpells = {
 ${blocks.join("\n")}
 };
 
---- **Every class's, the professions' own spells** the probe found in a book (\`professionSpells\`),
---- without the passive ones: where they come from in a level's place (2026-10-01, owner).
+--- **Every class's, the professions' own spells**: what the probe found in a character's book and
+--- what it was asked about from wowhead's pages, without the passive ones. Where they come from in
+--- a level's place (2026-10-01, owner).
 DebindPrivate.CamelotProfessionSpells = {
 ${professionLines.join("\n")}
 };

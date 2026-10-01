@@ -1020,16 +1020,22 @@ frame:SetScript("OnEvent", function(_, event, ...)
 end);
 
 --- **Every spell of `ClassSpells.lua` put to the client**: its name here and whether it is passive,
---- with the level it came with, under `DebindCamelotProbeDB.classSpells`. That record is all
---- `tools/build-camelot-class-spells.js` reads to write the release list (2026-10-01, owner), so a
---- passive is judged once, by the client, and never in the release code.
+--- with the value it came with (a level, or where it comes from), under
+--- `DebindCamelotProbeDB.classSpells`. That record is all `tools/build-camelot-class-spells.js` reads
+--- to write the release list (2026-10-01, owner), so a passive is judged once, by the client, and
+--- never in the release code. The professions' spells go there too, under `class = "profession"`.
 ---
 --- **Any class, any character**: the questions are about spell data and not about who asks, which
 --- `IsSpellPassive` answering for spells nobody has learned showed (measured 2026-10-01). Each run
 --- replaces the last.
 local function MeasureClassSpells()
     local spells, count, passives, missing = {}, 0, 0, 0;
+    local lists = {};
     for classFile, list in pairs(Probe.ClassSpells or {}) do
+        lists[classFile] = list;
+    end
+    lists.profession = Probe.ProfessionSpells;
+    for classFile, list in pairs(lists) do
         for spellID, level in pairs(list) do
             local name = C_Spell.GetSpellName(spellID);
             local passive = name and C_Spell.IsSpellPassive(spellID) or false;
@@ -1043,7 +1049,7 @@ local function MeasureClassSpells()
         end
     end
     Store().classSpells = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), spells = spells };
-    print(format("camelot probe: %d class spells asked, %d passive, %d unknown to this client. /reload to save.",
+    print(format("camelot probe: %d class and profession spells asked, %d passive, %d unknown to this client. /reload to save.",
         count, passives, missing));
 end
 
