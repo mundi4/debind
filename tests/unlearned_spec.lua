@@ -60,7 +60,10 @@ return function(DebindPrivate)
     -- depend on which of their ids this world happens to name.
     local REGROWTH = 8936;
     spells[REGROWTH] = { name = "Regrowth", iconID = 10 };
-    DebindPrivate.CamelotClassSpells = { DRUID = { [REGROWTH] = 12 } };
+    -- A higher rank of a talent's spell, the way a trainer sells one (Counterattack's second at 30).
+    local SWIFTMEND_2 = 90001;
+    spells[SWIFTMEND_2] = { name = "Swiftmend", iconID = 8 };
+    DebindPrivate.CamelotClassSpells = { DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30 } };
 
     -- The talent tree, untaken: one spell a key can cast and one passive (probe, 70009, a druid).
     -- Stood up before the login, whose rebuild walks it once for the specialization (`Spells.lua`).
@@ -165,8 +168,9 @@ return function(DebindPrivate)
     -- **One row per name, under the rank the character reaches first**, and nothing the book already
     -- lists under that name. The ids written in the file and the talent tree's spells join what the
     -- trainer gave. Level above the character's is the subtitle, the way retail's unlearned spells
-    -- show it; a talent's spell has no level and says where it comes from instead, after the rest
-    -- (2026-10-01, owner). A passive talent is not offered.
+    -- show it; a talent's spell has no level and says where it comes from instead, after the rest,
+    -- even where another source sells a higher rank of it with one (2026-10-01, owner). A passive
+    -- talent is not offered.
     test("the list merges every source, one row per name, without what the book holds", function()
         _G.DebindVars.trainerSpells.DRUID[THORNS_1] = 6;
         _G.DebindVars.trainerSpells.DRUID[THORNS_2] = 14;

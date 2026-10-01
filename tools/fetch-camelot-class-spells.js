@@ -11,6 +11,10 @@
 // keeps what a trainer, a quest or a book teaches. A variant that shares a name with a trainer
 // spell comes along too and merges into that spell's row, since the list is one row per name.
 //
+// **A spell with no skill line is left out**: those are a pet's (Growl, Great Stamina, a beast's own
+// Lava Breath) or a companion's, cast by something other than the player. Every player spell on
+// these pages carries one of its class's lines.
+//
 // One id per name, the one with the lowest level, since the spell list shows one row per name and
 // a name casts the highest rank known.
 
@@ -57,7 +61,7 @@ async function main() {
 
         const byName = new Map();
         for (const s of spells) {
-            if (!(s.level > 1) || typeof s.id !== "number" || !s.name) {
+            if (!(s.level > 1) || typeof s.id !== "number" || !s.name || !(s.skill && s.skill.length)) {
                 continue;
             }
             const held = byName.get(s.name);

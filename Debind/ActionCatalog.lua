@@ -628,8 +628,12 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		end
 	end
 
-	-- A talent's spell has no level to go by, so it is `level` nil, ranks behind every spell that has
-	-- one and is subtitled with where it comes from instead.
+	-- A talent's spell is `level` nil: it ranks behind every spell that has a level and is subtitled
+	-- with where it comes from instead.
+	--
+	-- **A talent's name wins over a level for it.** A trainer sells a talent spell's higher ranks
+	-- (Counterattack's second at 30), so the other sources list the name with a level, but none of
+	-- those ranks can be learned before the talent is taken (2026-10-01, owner).
 	local byName = {};
 	local function Consider(spellID, level)
 		local spellInfo = C_Spell.GetSpellInfo(spellID);
@@ -638,11 +642,14 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		end
 		local held = byName[spellInfo.name];
 		if (held) then
-			if (held.level ~= nil and (level == nil or level > held.level)) then
+			if ((held.level == nil) ~= (level == nil)) then
+				if (level ~= nil) then
+					return;
+				end
+			elseif (level ~= nil and level > held.level) then
 				return;
-			end
 			-- The id breaks a tie so two reads of the same candidates keep the same one.
-			if (level == held.level and spellID > held.value) then
+			elseif (level == held.level and spellID > held.value) then
 				return;
 			end
 		end
