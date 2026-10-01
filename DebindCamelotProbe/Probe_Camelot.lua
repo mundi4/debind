@@ -838,6 +838,38 @@ local function MeasureTrainer()
     end);
 end
 
+--- **What a merchant sells that teaches a spell** (a Demon Trainer's grimoires, 2026-10-01, owner:
+--- a merchant window, not a trainer one). Neither the event nor the merchant API says what kind of
+--- merchant this is, so every merchant is read: each item with its class and subclass, the spell
+--- `GetItemSpell` names, and for a recipe-class item every tooltip line, since which of those
+--- carries the spell the book teaches is the question. The read waits a moment, as the trainer's
+--- does, for items the client has not cached.
+local function MeasureMerchant()
+    local npc = UnitName("npc");
+    local guid = UnitGUID("npc");
+    C_Timer.After(0.5, function()
+        CharacterRecord()["merchant " .. tostring(npc)] = Measure("merchant " .. tostring(npc), function()
+            Emit("== merchant %s, guid %s: index, item id, name, class/subclass, item spell", tostring(npc),
+                tostring(guid));
+            for i = 1, GetMerchantNumItems() do
+                local itemID = GetMerchantItemID(i);
+                local info = C_MerchantFrame.GetItemInfo(i);
+                local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(itemID or 0);
+                local spellName, spellID = C_Item.GetItemSpell(itemID or 0);
+                Emit("  %3d %-7s %-32s %s/%s  spell %s %s", i, tostring(itemID), tostring(info and info.name),
+                    tostring(classID), tostring(subClassID), tostring(spellID), tostring(spellName));
+                if (classID == Enum.ItemClass.Recipe) then
+                    local data = C_TooltipInfo.GetMerchantItem(i);
+                    for _, line in ipairs(data and data.lines or {}) do
+                        Emit("        line type %s  id %s  %s", tostring(line.type), tostring(line.id),
+                            tostring(line.leftText));
+                    end
+                end
+            end
+        end);
+    end);
+end
+
 --- What playing can change about the character. Each of these schedules one measurement a moment
 --- later, so a burst (a level up raises several) is measured once, after it settles.
 local CHARACTER_EVENTS = {
@@ -885,6 +917,7 @@ end
 local frame = CreateFrame("Frame");
 frame:RegisterEvent("PLAYER_LOGIN");
 frame:RegisterEvent("TRAINER_SHOW");
+frame:RegisterEvent("MERCHANT_SHOW");
 local logged, measured = {}, {};
 for i = 1, #LOGGED_EVENTS do
     logged[LOGGED_EVENTS[i]] = true;
@@ -912,6 +945,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
     end
     if (event == "TRAINER_SHOW") then
         MeasureTrainer();
+        return;
+    end
+    if (event == "MERCHANT_SHOW") then
+        MeasureMerchant();
         return;
     end
     if (logged[event]) then
