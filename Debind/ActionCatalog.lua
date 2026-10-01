@@ -792,12 +792,13 @@ local function AddUnlearnedSpellEntries(rows, seen, inBook)
 	end);
 
 	local subtitles = { talent = TALENT };
-	local playerLevel = UnitLevel("player");
 	for i = 1, #collected do
 		local entry = collected[i];
 		if (type(entry.from) == "string") then
 			entry.subName = subtitles[entry.from];
-		elseif (entry.from > playerLevel) then
+		elseif (entry.from > 0) then
+			-- Even at or below the character's level, unlike retail's `FutureSpell`: there a spell is
+			-- learned on reaching its level, here it waits at a trainer.
 			entry.subName = format(SPELLBOOK_AVAILABLE_AT, entry.from);
 		end
 		local list = rows[entry.from] or rows.class;
