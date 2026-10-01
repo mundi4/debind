@@ -218,8 +218,7 @@ end
 --- in. Every one is held against the TOC with the list below.
 local GAME_TYPE_FILES = {
     mainline = { "SpecSpells_Mainline.lua", "GameType_Standard.lua" },
-    camelot  = { "SpecSpells_Camelot.lua", "GameType_Camelot.lua", "ClassSpells_Camelot.lua",
-        "UnlearnedSpells_Camelot.lua" },
+    camelot  = { "SpecSpells_Camelot.lua", "GameType_Camelot.lua", "ClassSpells_Camelot.lua" },
 };
 
 do
@@ -227,7 +226,7 @@ do
     local checked = {
         GAME_TYPE_FILES.mainline[1], GAME_TYPE_FILES.camelot[1],
         GAME_TYPE_FILES.mainline[2], GAME_TYPE_FILES.camelot[2],
-        GAME_TYPE_FILES.camelot[3], GAME_TYPE_FILES.camelot[4],
+        GAME_TYPE_FILES.camelot[3],
     };
     for _, file in ipairs(DEBIND_FILES) do
         checked[#checked + 1] = file;

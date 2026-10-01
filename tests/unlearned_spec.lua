@@ -1,7 +1,6 @@
--- **Unlearned spells on camelot** (`listing-unlearned-spells-on-forever.md`): what a class
--- trainer's window is read into, and how the spell list's groups take that together with the
--- book and the ids written in `UnlearnedSpells_Camelot.lua`. Run in the camelot world, whose
--- character is a druid.
+-- **Unlearned spells on camelot** (`listing-unlearned-spells-on-forever.md`): how the spell list's
+-- groups take the generated table and the talent tree together with the book. Run in the camelot
+-- world, whose character is a druid.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -26,45 +25,23 @@ return function(DebindPrivate)
         end
     end
 
-    local function describe(t)
-        local ids = {};
-        for id in pairs(t or {}) do
-            ids[#ids + 1] = id;
-        end
-        table.sort(ids);
-        local parts = {};
-        for _, id in ipairs(ids) do
-            parts[#parts + 1] = id .. "=" .. tostring(t[id]);
-        end
-        return "{" .. table.concat(parts, ",") .. "}";
-    end
-
     local WRATH_1, WRATH_2 = 5176, 5177;
-    local TOUCH_1, TOUCH_2, TOUCH_3 = 5185, 5186, 5187;
-    local THORNS_1, THORNS_2 = 467, 782;
-    local MARK_1, ROAR, NATURES_GRACE, CURE_POISON = 1126, 99, 16880, 8946;
+    local TOUCH_1, MARK_1 = 5185, 1126;
 
     local spells = shim.world.spells;
     spells[WRATH_1] = { name = "Wrath", iconID = 1 };
     spells[WRATH_2] = { name = "Wrath", iconID = 1 };
     spells[TOUCH_1] = { name = "Healing Touch", iconID = 2 };
-    spells[TOUCH_2] = { name = "Healing Touch", iconID = 2 };
-    spells[TOUCH_3] = { name = "Healing Touch", iconID = 2 };
-    spells[THORNS_1] = { name = "Thorns", iconID = 3 };
-    spells[THORNS_2] = { name = "Thorns", iconID = 3 };
     spells[MARK_1] = { name = "Mark of the Wild", iconID = 4 };
-    spells[ROAR] = { name = "Demoralizing Roar", iconID = 5 };
-    spells[NATURES_GRACE] = { name = "Nature's Grace", iconID = 6, passive = true };
-    -- A weapon skill: passive, though its trainer row has no "Passive" subtext (measured 2026-10-01).
-    local STAVES = 227;
-    spells[STAVES] = { name = "Staves", iconID = 12, passive = true };
+    -- A druid's spell the client names and the table below does not carry: no row.
+    local CURE_POISON = 8946;
     spells[CURE_POISON] = { name = "Cure Poison", iconID = 7 };
 
     -- The generated class lists, set by the spec rather than the shipped ones: a row from those would
     -- depend on which of their ids this world happens to name.
     local REGROWTH = 8936;
     spells[REGROWTH] = { name = "Regrowth", iconID = 10 };
-    -- A higher rank of a talent's spell, the way a trainer sells one (Counterattack's second at 30).
+    -- A higher rank of a talent's spell, listed with a level (Counterattack's second at 30).
     local SWIFTMEND_2 = 90001;
     spells[SWIFTMEND_2] = { name = "Swiftmend", iconID = 8 };
     -- A string in a level's place names where the spell comes from (2026-10-01, owner).
@@ -126,63 +103,6 @@ return function(DebindPrivate)
     DebindPrivate.ShowMigrationDialogIfPending =
         DebindPrivate.ShowMigrationDialogIfPending or function() end;
     frames.fireEvent("PLAYER_LOGIN");
-
-    local function stored()
-        local store = _G.DebindVars.trainerSpells;
-        return store and store.DRUID;
-    end
-
-    -- **A learned row reports level 0** (probe, 70009), so read it would win the merge over the
-    -- rank still to be bought. A passive one is not something a key can cast.
-    test("a class trainer's rows are kept by id with their level, learned and passive ones not",
-        function()
-            shim.world.trainerServices = {
-                { id = MARK_1, serviceType = "used", level = 0, subText = "Rank 1" },
-                { id = WRATH_2, serviceType = "available", level = 6, subText = "Rank 2" },
-                { id = TOUCH_2, serviceType = "unavailable", level = 8, subText = "Rank 2" },
-                { id = TOUCH_3, serviceType = "unavailable", level = 14, subText = "Rank 3" },
-                { id = NATURES_GRACE, serviceType = "unavailable", level = 12, subText = "Passive" },
-                { id = STAVES, serviceType = "available", level = 0, subText = "" },
-            };
-            check(frames.fireEvent("TRAINER_SHOW") > 0, "nothing is listening for TRAINER_SHOW");
-            local want = describe({ [WRATH_2] = 6, [TOUCH_2] = 8, [TOUCH_3] = 14 });
-            check(describe(stored()) == want, "stored " .. describe(stored()) .. ", expected " .. want);
-        end);
-
-    -- **The reader's filters are left alone**, so each read is a part of the list and what an
-    -- earlier one saw has to stay.
-    test("a later read adds to what is kept and takes nothing away", function()
-        shim.world.trainerServices = {
-            { id = ROAR, serviceType = "unavailable", level = 10, subText = "Rank 1" },
-        };
-        frames.fireEvent("TRAINER_UPDATE");
-        local want = describe({ [WRATH_2] = 6, [TOUCH_2] = 8, [TOUCH_3] = 14, [ROAR] = 10 });
-        check(describe(stored()) == want, "stored " .. describe(stored()) .. ", expected " .. want);
-    end);
-
-    test("a pet trainer is not read", function()
-        local before = describe(stored());
-        shim.world.trainerType = Enum.TrainerType.Pet;
-        shim.world.trainerServices = {
-            { id = THORNS_1, serviceType = "unavailable", level = 6, subText = "Rank 1" },
-        };
-        frames.fireEvent("TRAINER_SHOW");
-        shim.world.trainerType = nil;
-        check(describe(stored()) == before, "stored " .. describe(stored()) .. ", expected " .. before);
-    end);
-
-    -- **A pet trainer answers as a class trainer on this client** (probe, 70124: Karrina Mekenda,
-    -- type 0). What tells it is that it teaches pet spells, which the generated table names; read as
-    -- a class trainer, its Growl stood in the hunter's class group.
-    test("a trainer that teaches pet spells is not read", function()
-        local before = describe(stored());
-        shim.world.trainerServices = {
-            { id = PET_SPELL, serviceType = "unavailable", level = 20, subText = "Rank 3" },
-            { id = THORNS_1, serviceType = "unavailable", level = 6, subText = "Rank 1" },
-        };
-        frames.fireEvent("TRAINER_SHOW");
-        check(describe(stored()) == before, "stored " .. describe(stored()) .. ", expected " .. before);
-    end);
 
     local function spellCategory()
         for _, category in ipairs(ActionCatalog.GetCategories()) do
@@ -247,23 +167,16 @@ return function(DebindPrivate)
         end);
     end);
 
-    -- **One row per name, under the rank the character reaches first**, and nothing the book already
-    -- lists under that name. The ids written in the file and the talent tree's spells join what the
-    -- trainer gave. Level above the character's is the subtitle, the way retail's unlearned spells
-    -- show it; a talent's spell has no level and says where it comes from instead, after the rest,
-    -- even where another source sells a higher rank of it with one (2026-10-01, owner). A passive
-    -- talent is not offered. The learned rows come first, by name across the talent trees' lines.
-    test("the class group: learned by name, then every source merged, one row per name", function()
-        _G.DebindVars.trainerSpells.DRUID[THORNS_1] = 6;
-        _G.DebindVars.trainerSpells.DRUID[THORNS_2] = 14;
-        -- The same id with a level from another source: where it comes from still wins.
-        _G.DebindVars.trainerSpells.DRUID[ELSEWHERE] = 5;
+    -- **One row per name, by name**: the generated table's first ranks and the talent tree's spells,
+    -- nothing else. Level above the character's is the subtitle, the way retail's unlearned spells
+    -- show it; a talent's spell has no level and says where it comes from instead, even where the
+    -- table lists a higher rank of it with one (2026-10-01, owner). A passive talent is not offered.
+    -- The learned rows come first, by name across the talent trees' lines.
+    test("the class group: learned by name, then the table and the talent tree, one row per name", function()
         withBook(function()
             local byGroup = groupedRows();
             local want = "Healing Touch:5185:nil:learned | Mark of the Wild:1126:nil:learned"
-                .. " | Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
-                .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Elsewhere Spell:90002:nil"
-                .. " | Swiftmend:18562:Talent";
+                .. " | Elsewhere Spell:90002:nil | Regrowth:8936:Level 12 | Swiftmend:18562:Talent";
             check(rowText(byGroup.Druid) == want, "rows " .. rowText(byGroup.Druid) .. "\n  expected " .. want);
         end);
     end);
@@ -319,14 +232,19 @@ return function(DebindPrivate)
         end
     end);
 
-    test("a spell leaves the unlearned rows once the book holds it", function()
-        shim.world.spellbook[WRATH_1] = true;
+    -- The book holds a higher rank than the table's id, so only the name can tell.
+    test("a spell leaves the unlearned rows once the book holds any rank of it", function()
+        shim.world.spellbook[REGROWTH_2], shim.world.bookLines[REGROWTH_2] = true, 2;
         local byGroup = groupedRows();
-        shim.world.spellbook[WRATH_1] = nil;
+        shim.world.spellbook[REGROWTH_2], shim.world.bookLines[REGROWTH_2] = nil, nil;
+        local want = "Regrowth:8938:nil:learned";
+        local regrowth = {};
         for _, row in ipairs(byGroup.Druid) do
-            check(not (row.name == "Wrath" and row.isUnlearned), "Wrath is still unlearned: "
-                .. rowText(byGroup.Druid));
+            if (row.name == "Regrowth") then
+                regrowth[#regrowth + 1] = row;
+            end
         end
+        check(rowText(regrowth) == want, "regrowth " .. rowText(regrowth) .. ", expected " .. want);
     end);
 
     return T;

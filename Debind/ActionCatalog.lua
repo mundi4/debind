@@ -698,24 +698,57 @@ function ActionCatalog.RemoveUserSpell(spellID)
 	ActionCatalog.Invalidate("spellbook");
 end
 
+--- Which of two values one spell is offered with wins: below 0 for `a`, above 0 for `b`, 0 for
+--- neither. A value is a level (number) or where the spell comes from (string).
+---
+--- **Where it comes from beats a level.** The case it was written for: the generated table lists a
+--- talent spell's higher ranks with a level, and none of them can be learned before the talent is
+--- taken (2026-10-01, owner). Two levels, the lower: the rank the character reaches first.
+local function CompareUnlearnedValue(a, b)
+	local aSource, bSource = type(a) == "string", type(b) == "string";
+	if (aSource ~= bSource) then
+		return aSource and -1 or 1;
+	end
+	if (aSource or a == b) then
+		return 0;
+	end
+	return a < b and -1 or 1;
+end
+
+--- The generated table's first ranks for one class and every class's (`ClassSpells_Camelot.lua`),
+--- as `spellID -> value`.
+---
+--- **Walked once, the first time the spell list is built, and kept**: the table is fixed at load and
+--- a character's class does not change within a session, so nothing can make it stale.
+local unlearned, unlearnedFor;
+local function UnlearnedSpellCandidates(classFile)
+	if (unlearnedFor ~= classFile) then
+		unlearned, unlearnedFor = {}, classFile;
+		for spellID, entry in pairs(DebindPrivate.CamelotSpells) do
+			if (type(entry) == "table" and (entry.classes == nil or entry.classes[classFile])) then
+				unlearned[spellID] = entry[1];
+			end
+		end
+	end
+	return unlearned;
+end
+
 --- **What the book does not hold yet, after what it does in the group it would be learned into**
---- (2026-10-01, owner), where the book holds only what is learned (`UnlearnedSpells_Camelot.lua`).
+--- (2026-10-01, owner), where the book holds only what is learned: the generated table's first
+--- ranks and the talent tree.
 --- `rows` is `{ class =, pet =, profession = }`, each a list the learned rows are already in. A
 --- candidate whose value names one of those as where it comes from goes there, any other the class.
 --- `inBook` is the name of every spell the book holds, in any group.
 ---
---- **By name and not by id, both ways.** A trainer sells each rank under an id of its own, so the
---- rank the book holds does not share an id with the one bought next and `seen` would let it
---- through. One name is one row, under the id with the lowest level: a spell goes out by name and
---- casts the highest rank known (`SpecSpells_Camelot.lua`), so which rank's id is stored does not
---- reach the cast.
+--- **By name and not by id, both ways.** A candidate is a first rank and the book holds the highest
+--- rank known, so the two do not share an id and `seen` would let it through. One name is one row,
+--- under the id with the lowest level: a spell goes out by name and casts the highest rank known
+--- (`SpecSpells_Camelot.lua`), so which rank's id is stored does not reach the cast.
 local function AddUnlearnedSpellEntries(rows, seen, inBook)
 
 	-- A candidate's value is its level or where it comes from (`CompareUnlearnedValue`), which
-	-- decides the row a name keeps, its place and its subtitle. One that comes from somewhere stands
-	-- behind every one with a level, and only the places named here have a subtitle: a profession's
-	-- spell has its group's heading to say so.
-	local Compare = DebindPrivate.CompareUnlearnedValue;
+	-- decides the row a name keeps and its subtitle. Only the places named here have a subtitle: a
+	-- profession's spell has its group's heading to say so.
 	local byName = {};
 	local function Consider(spellID, from)
 		local spellInfo = C_Spell.GetSpellInfo(spellID);
@@ -724,7 +757,7 @@ local function AddUnlearnedSpellEntries(rows, seen, inBook)
 		end
 		local held = byName[spellInfo.name];
 		if (held) then
-			local order = Compare(from, held.from);
+			local order = CompareUnlearnedValue(from, held.from);
 			-- The id breaks a tie so two reads of the same candidates keep the same one.
 			if (order > 0 or (order == 0 and spellID > held.value)) then
 				return;
@@ -741,7 +774,7 @@ local function AddUnlearnedSpellEntries(rows, seen, inBook)
 	end
 
 	local _, classFile = UnitClass("player");
-	for spellID, from in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
+	for spellID, from in pairs(UnlearnedSpellCandidates(classFile)) do
 		Consider(spellID, from);
 	end
 	-- The tree the walk for `[known:]` reads already (`Spells.lua`), taken or not: a talent's spell
@@ -755,13 +788,6 @@ local function AddUnlearnedSpellEntries(rows, seen, inBook)
 		collected[#collected + 1] = entry;
 	end
 	sort(collected, function(a, b)
-		local aLevel, bLevel = type(a.from) == "number", type(b.from) == "number";
-		if (aLevel ~= bLevel) then
-			return aLevel;
-		end
-		if (aLevel and a.from ~= b.from) then
-			return a.from < b.from;
-		end
 		return a.name < b.name;
 	end);
 
@@ -796,7 +822,7 @@ end
 --- **Where the book holds only what is learned, the class is one group** (`BuildClassSpells`).
 local BuildClassSpells;
 local function BuildPlayerSpells(entries)
-	if (DebindPrivate.GetUnlearnedSpellCandidates) then
+	if (DebindPrivate.CamelotSpells) then
 		BuildClassSpells(entries);
 		return;
 	end

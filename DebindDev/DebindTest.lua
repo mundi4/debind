@@ -10426,15 +10426,15 @@ RegisterTest("Game type: this client's own file loads", {
     end,
 })
 
--- **A fourth file the client picks** (`UnlearnedSpells_Camelot.lua`). Loaded on retail it would fold
+-- **A fourth file the client picks** (`ClassSpells_Camelot.lua`). Loaded on retail it would fold
 -- the spec lines into one class group and add unlearned rows beside the book's own `FutureSpell`
 -- ones; missing on camelot, the unlearned rows are gone and nothing says so.
-RegisterTest("Unlearned spells: the file loads on camelot and nowhere else", {
-    description = "The trainer reader is there on camelot and absent on retail",
+RegisterTest("Unlearned spells: the generated table loads on camelot and nowhere else", {
+    description = "The generated spell table is there on camelot and absent on retail",
     run = function()
-        local NAME = "unlearned spells file"
+        local NAME = "generated spell table"
         local camelot = select(4, GetBuildInfo()) < 100000
-        local loaded = DebindPrivate.GetUnlearnedSpellCandidates ~= nil
+        local loaded = DebindPrivate.CamelotSpells ~= nil
         if loaded ~= camelot then
             return Fail(NAME, format("camelot %s, file loaded %s", tostring(camelot), tostring(loaded)))
         end
@@ -10444,18 +10444,13 @@ RegisterTest("Unlearned spells: the file loads on camelot and nowhere else", {
 
 -- **The client answers a spell the character has not learned**, which no headless spec can say:
 -- the world there is whatever the spec stood up. A candidate the client cannot name is dropped from
--- the list without a word (`AddUnlearnedSpellEntries`), so an id the file mistyped, or one a trainer
--- was read into, would simply never show. Every class the account has read a trainer for is asked,
--- and the character's own.
+-- the list without a word (`AddUnlearnedSpellEntries`), so an id the generated table carries from
+-- an older build would simply never show. Every first rank in the table is asked, every class's.
 local function UnlearnedCandidates()
-    local classes = { [select(2, UnitClass("player"))] = true }
-    for classFile in pairs(DebindPrivate.db.global.trainerSpells or {}) do
-        classes[classFile] = true
-    end
     local candidates = {}
-    for classFile in pairs(classes) do
-        for spellID in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
-            candidates[#candidates + 1] = { classFile = classFile, spellID = spellID }
+    for spellID, entry in pairs(DebindPrivate.CamelotSpells) do
+        if type(entry) == "table" then
+            candidates[#candidates + 1] = spellID
         end
     end
     return candidates
@@ -10516,13 +10511,10 @@ RegisterTest("Spell ranks: a pinned rank's cast text is that rank", {
 })
 
 RegisterTest("Unlearned spells: the client names every candidate", {
-    description = "Each id written in the file or read off a trainer has a spell name and icon",
+    description = "Each first rank in the generated table has a spell name and icon",
     applies = function()
-        if not DebindPrivate.GetUnlearnedSpellCandidates then
+        if not DebindPrivate.CamelotSpells then
             return false, "not the camelot client"
-        end
-        if #UnlearnedCandidates() == 0 then
-            return false, "no class trainer read on this account and no id written for this class"
         end
         return true
     end,
@@ -10530,10 +10522,10 @@ RegisterTest("Unlearned spells: the client names every candidate", {
         local NAME = "unlearned spell ids"
         local candidates = UnlearnedCandidates()
         local missing = {}
-        for _, candidate in ipairs(candidates) do
-            local info = C_Spell.GetSpellInfo(candidate.spellID)
+        for _, spellID in ipairs(candidates) do
+            local info = C_Spell.GetSpellInfo(spellID)
             if not (info and info.name and info.iconID) then
-                missing[#missing + 1] = format("%s %d", candidate.classFile, candidate.spellID)
+                missing[#missing + 1] = spellID
             end
         end
         if #missing > 0 then

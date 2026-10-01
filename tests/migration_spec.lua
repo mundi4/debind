@@ -2822,5 +2822,11 @@ return function(DebindPrivate)
             "takeUnregisteredFrames가 남았다: " .. tostring(db.takeUnregisteredFrames));
     end);
 
+    test("what the class trainers were read selling is swept out of the account file", function()
+        local db = InitWith({ trainerSpells = { DRUID = { [5177] = 6 } } });
+        DebindPrivate.CleanUpDB();
+        check(db.trainerSpells == nil, "trainerSpells is still there");
+    end);
+
     return T;
 end

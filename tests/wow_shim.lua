@@ -54,9 +54,6 @@ M.world = {
     --- `{ name =, spells = { spellID… } }` per profession the character has, in `GetProfessions`
     --- order. Its spells are not in `spellbook`: the client keeps them past every skill line.
     professions = {},
-    --- What the open trainer window lists, as `{ serviceType =, level =, subText =, id = }`: the
-    --- rows its filters let through. Camelot only. `trainerType` beside it is nil for a class trainer.
-    trainerServices = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -78,7 +75,6 @@ function M.resetWorld(client)
     end
     M.world.inCombat = false;
     M.world.specIndex = nil;
-    M.world.trainerType = nil;
     M.world.client = client;
     --- **The one global an addon instance leaves behind.** `ClickCastTable.lua` puts its own table
     --- under this name at file scope, and the next instance would meet it as a foreign holder and
@@ -492,7 +488,6 @@ function M.install()
         SpellBookItemType = { Spell = 1, Flyout = 2, PetAction = 3, FutureSpell = 4 },
         SpellBookSkillLineIndex = { Class = 2, General = 1 },
         ItemQuality = { Artifact = 6 },
-        TrainerType = { General = 0, TalentsObsolete = 1, Tradeskills = 2, Pet = 3 },
     };
     _G.C_KeyBindings = {
         GetBindingContextForAction = function(action)
@@ -1046,25 +1041,6 @@ function M.install()
         _G.C_SpellBook.GetClassSkillLineInfo = function()
             return { name = "Druid", iconID = 625999, itemIndexOffset = 0, numSpellBookItems = 0 };
         end
-        --- The open trainer window, off `M.world.trainerServices`. The id is on the tooltip only,
-        --- as the probe read it (`MeasureTrainer`).
-        _G.C_Trainer = {
-            GetTrainerType = function() return M.world.trainerType or Enum.TrainerType.General; end,
-        };
-        _G.IsTradeskillTrainer = function() return false; end
-        _G.GetNumTrainerServices = function() return #M.world.trainerServices; end
-        _G.GetTrainerServiceInfo = function(index)
-            local service = M.world.trainerServices[index];
-            local spell = service and M.world.spells[service.id];
-            if (not service) then return nil; end
-            return spell and spell.name, service.serviceType, nil, service.level, service.subText;
-        end
-        _G.C_TooltipInfo = {
-            GetTrainerService = function(index)
-                local service = M.world.trainerServices[index];
-                return service and { id = service.id };
-            end,
-        };
     end
     --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
     --- flyout the world does not name answers with no slot count at all, which is the "not

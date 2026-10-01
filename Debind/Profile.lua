@@ -2200,6 +2200,9 @@ local ORPHANED_GLOBAL_KEYS = {
     -- (`taking-every-unit-frame-with-one-blacklist.md`).
     "workAlongsideClique",
     "takeUnregisteredFrames",
+    -- What the class trainers were read selling on camelot, which the generated table carries
+    -- instead (`ClassSpells_Camelot.lua`).
+    "trainerSpells",
 };
 
 --- The same for `options`, which the two above predate. **A name here has to be one no build reads**

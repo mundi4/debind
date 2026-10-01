@@ -38,7 +38,6 @@ GameType_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
 # Retail's spellbook lists what is not learned yet and this client's does not.
 ClassSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
-UnlearnedSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
 #@debug@
 # The packager deletes this block, contents and all, from a released build. What it holds is one

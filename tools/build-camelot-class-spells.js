@@ -191,7 +191,7 @@ function main() {
 --- \`[first rank's id] = { level required, classes = }\`, and \`[higher rank's id] = first rank's id\`.
 --- A string in a level's place says where the spell comes from (\`CompareUnlearnedValue\`); no
 --- \`classes\` is every class's. The first ranks are the spell list's unlearned rows
---- (\`UnlearnedSpells_Camelot.lua\`), and the id an action stores (\`CanonicalSpellID\`). Loaded on
+--- (\`AddUnlearnedSpellEntries\`), and the id an action stores (\`CanonicalSpellID\`). Loaded on
 --- that client only (\`Debind.toc\`).
 ${classes.map((c) => `local ${c} = { ${c} = true };`).join("\n")}
 
