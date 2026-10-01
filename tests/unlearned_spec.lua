@@ -56,6 +56,12 @@ return function(DebindPrivate)
     spells[NATURES_GRACE] = { name = "Nature's Grace", iconID = 6, passive = true };
     spells[CURE_POISON] = { name = "Cure Poison", iconID = 7 };
 
+    -- The generated class lists, set by the spec rather than the shipped ones: a row from those would
+    -- depend on which of their ids this world happens to name.
+    local REGROWTH = 8936;
+    spells[REGROWTH] = { name = "Regrowth", iconID = 10 };
+    DebindPrivate.CamelotClassSpells = { DRUID = { [REGROWTH] = 12 } };
+
     -- The talent tree, untaken: one spell a key can cast and one passive (probe, 70009, a druid).
     -- Stood up before the login, whose rebuild walks it once for the specialization (`Spells.lua`).
     local SWIFTMEND, MOONGLOW = 18562, 16845;
@@ -172,7 +178,7 @@ return function(DebindPrivate)
         shim.world.spellbook[TOUCH_1] = nil;
 
         local want = "Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
-            .. " | Cure Poison:8946:Level 14 | Swiftmend:18562:Talent";
+            .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Swiftmend:18562:Talent";
         check(rowText(rows) == want, "rows " .. rowText(rows) .. "\n  expected " .. want);
         local wantGroups = "General,Unlearned," .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
         check(groups == wantGroups, "groups " .. groups .. ", expected " .. wantGroups);
@@ -181,8 +187,9 @@ return function(DebindPrivate)
     -- **The heading's tooltip says how to fill the group**, so a character who has not talked to a
     -- trainer still gets the heading (2026-09-30, owner). A search drops it: nothing under it matches.
     test("the group stands with its tooltip when no spell is in it, and not in a search", function()
-        local trainerSpells = _G.DebindVars.trainerSpells;
+        local trainerSpells, classSpells = _G.DebindVars.trainerSpells, DebindPrivate.CamelotClassSpells;
         _G.DebindVars.trainerSpells = nil;
+        DebindPrivate.CamelotClassSpells = nil;
         -- Swiftmend in the book is its talent taken, which takes it out of the group.
         shim.world.spellbook[CURE_POISON] = true;
         shim.world.spellbook[SWIFTMEND] = true;
@@ -191,6 +198,7 @@ return function(DebindPrivate)
         shim.world.spellbook[CURE_POISON] = nil;
         shim.world.spellbook[SWIFTMEND] = nil;
         _G.DebindVars.trainerSpells = trainerSpells;
+        DebindPrivate.CamelotClassSpells = classSpells;
 
         local marker;
         for _, entry in ipairs(entries) do

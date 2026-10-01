@@ -21,6 +21,7 @@
     "stamp:install": "node tools/stamp-install.js",
     "link": "node tools/wow-link.js",
     "globalstrings": "node tools/fetch-globalstrings.js",
+    "camelot-class-spells": "node tools/fetch-camelot-class-spells.js",
     "ui-source": "node tools/wow-ui-source.js",
     "check:xml-anchors": "node tools/check-xml-anchors.js",
     "check:list-rows": "node tools/check-list-rows.js",

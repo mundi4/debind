@@ -4,12 +4,14 @@ local _, DebindPrivate = ...;
 --- Unlearned group (`ActionCatalog.lua`). Loaded on that client only (`Debind.toc`): its spellbook
 --- holds only what has been learned, where retail's lists the rest as `FutureSpell`.
 ---
---- **Two sources, merged, and nothing is ever taken out**
---- (`listing-unlearned-spells-on-forever.md`). Neither is complete: a trainer window lists only what
---- its filters let through, and some spells never appear at a trainer at all.
+--- **Three sources, merged, and nothing is ever taken out** (`listing-unlearned-spells-on-forever.md`):
+--- the class lists generated off wowhead (`ClassSpells_Camelot.lua`), what the class trainers were
+--- read selling, and the ids written below. None is complete on its own: the generated lists are
+--- wowhead's, a trainer window lists only what its filters let through, and some spells never
+--- appear at a trainer at all. The talent tree is a fourth, read where the group is built
+--- (`ActionCatalog.lua`).
 
---- `[classFile] = { [spellID] = level required }`, for the spells no class trainer lists: a quest
---- reward, or a spell only another race is taught. Merged with what trainers were seen selling.
+--- `[classFile] = { [spellID] = level required }`, for what the other two miss.
 local data = {
     DRUID = {
         [8946] = 14, -- Cure Poison, taught by a quest (`SpecSpells_Camelot.lua`)
@@ -27,11 +29,16 @@ local function TrainerStore(create)
     return global.trainerSpells;
 end
 
---- `spellID -> level required` for one class: both sources, the lower level where both name an id.
+--- `spellID -> level required` for one class: every source, the lowest level where several name an
+--- id.
 function DebindPrivate.GetUnlearnedSpellCandidates(classFile)
     local merged = {};
-    local sources = { data[classFile], (TrainerStore(false) or {})[classFile] };
-    for i = 1, 2 do
+    local sources = {
+        data[classFile],
+        (DebindPrivate.CamelotClassSpells or {})[classFile],
+        (TrainerStore(false) or {})[classFile],
+    };
+    for i = 1, 3 do
         for spellID, level in pairs(sources[i] or {}) do
             if (merged[spellID] == nil or level < merged[spellID]) then
                 merged[spellID] = level;

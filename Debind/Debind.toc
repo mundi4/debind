@@ -37,6 +37,7 @@ GameType_Standard.lua [AllowLoadGameType standard]
 GameType_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
 # Retail's spellbook lists what is not learned yet and this client's does not.
+ClassSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 UnlearnedSpells_Camelot.lua [AllowLoadGameType camelot] [ExcludeLoadGameType standard]
 
 #@debug@
