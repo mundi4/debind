@@ -14,7 +14,7 @@ Constants.NIL                             = "\0";
 Constants.DB_VERSION                      = 8;
 
 --- The shape of `DebindUIVars`, which does not ride the ladder: when this goes up, everything in it
---- but `tipsSeen` is dropped (`PrepareUIVars` in `Profile.lua`).
+--- but `tipsSeen` and `userSpells` is dropped (`PrepareUIVars` in `Profile.lua`).
 Constants.UI_VARS_VERSION                 = 1;
 
 --- The changelog page's number. Raise it by one whenever that page has something a reader has to

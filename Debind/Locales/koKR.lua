@@ -333,10 +333,10 @@ L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - %2$s(으)로 �
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:해제됨 (개체가 둘 이상 감지됨)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:해제됨|r"
 L["SPECIAL_UNITS"] = "나를 이 역할로 세지 않기"
--- 근거는 enUS 쪽 주석에.
 L["SPELL_PICKER_ADD_SPELL_BY_ID"] = "주문 ID로 추가"
 L["SPELL_PICKER_ADD_SPELL_PROMPT"] = "주문 ID를 입력해 주세요."
 L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "이 ID의 주문이 없습니다."
+-- 근거는 enUS 쪽 주석에.
 L["SPELL_PICKER_ADD_TO"] = "추가할 곳..."
 -- "왼쪽 클릭하면 / 오른쪽 클릭하면"은 LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2의 말이다.
 L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "왼쪽 클릭하면 |cnHIGHLIGHT_FONT_COLOR:%s|r에 추가됩니다."

@@ -489,5 +489,50 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **A spell added by id is resolved when it is added, not when the list is drawn**
+    -- (`ClimbBaseSpell`): an id a talent build made climbs to its base only while that build stands,
+    -- so one climbed again after a respec would come back as itself. Its base typed afterwards is
+    -- the same row.
+    test("a spell added by id is stored on its base while the build stands", function()
+        local shim = require("wow_shim");
+        local L = DebindPrivate.L;
+        shim.world.spells[194223] = { name = "Celestial Alignment", iconID = 1 };
+        shim.world.spells[390414] = { name = "Incarnation: Chosen of Elune", iconID = 2 };
+        shim.world.baseSpells[390414] = 194223;
+        local vars = DebindPrivate.UIVars;
+        DebindPrivate.UIVars = {};
+
+        local ok, err = pcall(function()
+            ActionCatalog.AddUserSpell(390414);
+            shim.world.baseSpells[390414] = nil;
+            ActionCatalog.AddUserSpell(194223);
+
+            local stored = {};
+            for id in pairs(DebindPrivate.UIVars.userSpells or {}) do
+                stored[#stored + 1] = tostring(id);
+            end
+            check(table.concat(stored, ",") == "194223", "stored " .. table.concat(stored, ","));
+
+            local rows = {};
+            for _, category in ipairs(ActionCatalog.GetCategories()) do
+                if (category.key == "spell") then
+                    ActionCatalog.Invalidate("spellbook");
+                    for _, e in ipairs(ActionCatalog.GetEntries(category)) do
+                        if (e.group == L["SPELL_PICKER_GROUP_USER"] and not e.isAddRow) then
+                            rows[#rows + 1] = tostring(e.value);
+                        end
+                    end
+                end
+            end
+            check(table.concat(rows, ",") == "194223", "rows " .. table.concat(rows, ","));
+        end);
+        shim.world.baseSpells[390414] = nil;
+        DebindPrivate.UIVars = vars;
+        ActionCatalog.Invalidate("spellbook");
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     return T;
 end

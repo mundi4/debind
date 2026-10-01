@@ -639,10 +639,15 @@ end
 --- **No subtitle**: on a client with ranks the subtext is the rank, and a row adds the spell by
 --- name at the highest rank known.
 ---
+--- **The stored id is the value as it is.** `AddUserSpell` climbed it to its base when it was
+--- typed in; climbing again here would answer differently once the talents that made it are gone
+--- (`ClimbBaseSpell`).
+---
 --- The Add row is the one entry that is not an action, so it skips `AddEntry` (which needs a type)
 --- and nothing reads it as one: `Filter` drops it during a search and the picker gives it a
 --- template of its own. Without a search it always stands, which keeps the heading on screen
---- while the group is empty.
+--- while the group is empty. **It is made here and not by the picker** so it goes through the
+--- same grouping as the rows above it and its place is a headless spec's to check.
 local function AddUserSpellEntries(entries)
 	local group = LLL["SPELL_PICKER_GROUP_USER"];
 	local seen, collected = {}, {};
@@ -652,7 +657,7 @@ local function AddUserSpellEntries(entries)
 		if (spellInfo) then
 			AddEntry(collected, seen, {
 				type = Constants.SPELL,
-				value = ClimbBaseSpell(spellID),
+				value = spellID,
 				name = spellInfo.name,
 				icon = spellInfo.iconID,
 				group = group,
@@ -679,7 +684,7 @@ end
 function ActionCatalog.AddUserSpell(spellID)
 	local vars = DebindPrivate.UIVars;
 	vars.userSpells = vars.userSpells or {};
-	vars.userSpells[DebindPrivate.CanonicalSpellID(spellID)] = true;
+	vars.userSpells[DebindPrivate.CanonicalSpellID(ClimbBaseSpell(spellID))] = true;
 	ActionCatalog.Invalidate("spellbook");
 end
 

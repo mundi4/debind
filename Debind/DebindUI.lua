@@ -6444,7 +6444,7 @@ local function AddTypedUserSpell(dialog)
 	end
 end
 
---- The line under the box answers what was typed. **A blank line, never an empty one**, so the
+--- The line above the box answers what was typed. **A blank line, never an empty one**, so the
 --- window keeps its height while the answer comes and goes. A found spell shows its name with no
 --- rank: a row adds the spell by name at the highest rank known.
 local function UpdateTypedUserSpell(dialog)
@@ -6467,8 +6467,9 @@ StaticPopupDialogs["DEBIND_ADD_USER_SPELL"] = {
 	button1 = ADD,
 	button2 = CANCEL,
 	hasEditBox = 1,
-	maxLetters = 10,
-	-- `SetText` does not run `OnTextChanged`, so the empty box's state is set here.
+	-- Nine digits stay under 2^31, so no number typed here is out of range for the client's spell
+	-- queries.
+	maxLetters = 9,
 	OnShow = function(dialog)
 		dialog:GetEditBox():SetText("");
 		UpdateTypedUserSpell(dialog);
