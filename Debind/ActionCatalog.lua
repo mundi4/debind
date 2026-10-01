@@ -628,28 +628,21 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		end
 	end
 
-	-- A talent's spell is `level` nil: it ranks behind every spell that has a level and is subtitled
-	-- with where it comes from instead.
-	--
-	-- **A talent's name wins over a level for it.** A trainer sells a talent spell's higher ranks
-	-- (Counterattack's second at 30), so the other sources list the name with a level, but none of
-	-- those ranks can be learned before the talent is taken (2026-10-01, owner).
+	-- A candidate's value is its level or where it comes from (`CompareUnlearnedValue`), which
+	-- decides the row a name keeps, its place and its subtitle. One that comes from somewhere stands
+	-- behind every one with a level, and only the places named here have a subtitle.
+	local Compare = DebindPrivate.CompareUnlearnedValue;
 	local byName = {};
-	local function Consider(spellID, level)
+	local function Consider(spellID, from)
 		local spellInfo = C_Spell.GetSpellInfo(spellID);
 		if (not spellInfo or inBook[spellInfo.name] or C_Spell.IsSpellPassive(spellID)) then
 			return;
 		end
 		local held = byName[spellInfo.name];
 		if (held) then
-			if ((held.level == nil) ~= (level == nil)) then
-				if (level ~= nil) then
-					return;
-				end
-			elseif (level ~= nil and level > held.level) then
-				return;
+			local order = Compare(from, held.from);
 			-- The id breaks a tie so two reads of the same candidates keep the same one.
-			elseif (level == held.level and spellID > held.value) then
+			if (order > 0 or (order == 0 and spellID > held.value)) then
 				return;
 			end
 		end
@@ -658,7 +651,7 @@ local function AddUnlearnedSpellEntries(entries, seen)
 			value = spellID,
 			name = spellInfo.name,
 			icon = spellInfo.iconID,
-			level = level,
+			from = from,
 			group = group,
 			groupTooltip = groupTooltip,
 			isUnlearned = true,
@@ -666,13 +659,13 @@ local function AddUnlearnedSpellEntries(entries, seen)
 	end
 
 	local _, classFile = UnitClass("player");
-	for spellID, level in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
-		Consider(spellID, level);
+	for spellID, from in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
+		Consider(spellID, from);
 	end
 	-- The tree the walk for `[known:]` reads already (`Spells.lua`), taken or not: a talent's spell
 	-- is in the book only once it is taken (2026-10-01, owner).
 	for spellID in pairs(DebindPrivate.Spells.GetTalentSpellIDs() or {}) do
-		Consider(spellID, nil);
+		Consider(spellID, "talent");
 	end
 
 	local collected = {};
@@ -680,24 +673,26 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		collected[#collected + 1] = entry;
 	end
 	sort(collected, function(a, b)
-		if (a.level ~= b.level) then
-			if (a.level == nil or b.level == nil) then
-				return b.level == nil;
-			end
-			return a.level < b.level;
+		local aLevel, bLevel = type(a.from) == "number", type(b.from) == "number";
+		if (aLevel ~= bLevel) then
+			return aLevel;
+		end
+		if (aLevel and a.from ~= b.from) then
+			return a.from < b.from;
 		end
 		return a.name < b.name;
 	end);
 
+	local subtitles = { talent = TALENT };
 	local playerLevel = UnitLevel("player");
 	for i = 1, #collected do
 		local entry = collected[i];
-		if (entry.level == nil) then
-			entry.subName = TALENT;
-		elseif (entry.level > playerLevel) then
-			entry.subName = format(SPELLBOOK_AVAILABLE_AT, entry.level);
+		if (type(entry.from) == "string") then
+			entry.subName = subtitles[entry.from];
+		elseif (entry.from > playerLevel) then
+			entry.subName = format(SPELLBOOK_AVAILABLE_AT, entry.from);
 		end
-		entry.level = nil;
+		entry.from = nil;
 		AddEntry(entries, seen, entry);
 	end
 

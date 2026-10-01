@@ -63,7 +63,12 @@ return function(DebindPrivate)
     -- A higher rank of a talent's spell, the way a trainer sells one (Counterattack's second at 30).
     local SWIFTMEND_2 = 90001;
     spells[SWIFTMEND_2] = { name = "Swiftmend", iconID = 8 };
-    DebindPrivate.CamelotClassSpells = { DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30 } };
+    -- A string in a level's place names where the spell comes from (2026-10-01, owner).
+    local ELSEWHERE = 90002;
+    spells[ELSEWHERE] = { name = "Elsewhere Spell", iconID = 11 };
+    DebindPrivate.CamelotClassSpells = {
+        DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30, [ELSEWHERE] = "quest" },
+    };
 
     -- The talent tree, untaken: one spell a key can cast and one passive (probe, 70009, a druid).
     -- Stood up before the login, whose rebuild walks it once for the specialization (`Spells.lua`).
@@ -174,6 +179,8 @@ return function(DebindPrivate)
     test("the list merges every source, one row per name, without what the book holds", function()
         _G.DebindVars.trainerSpells.DRUID[THORNS_1] = 6;
         _G.DebindVars.trainerSpells.DRUID[THORNS_2] = 14;
+        -- The same id with a level from another source: where it comes from still wins.
+        _G.DebindVars.trainerSpells.DRUID[ELSEWHERE] = 5;
         shim.world.spellbook[TOUCH_1] = true;
         local unitLevel = _G.UnitLevel;
         _G.UnitLevel = function() return 10; end
@@ -182,7 +189,8 @@ return function(DebindPrivate)
         shim.world.spellbook[TOUCH_1] = nil;
 
         local want = "Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
-            .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Swiftmend:18562:Talent";
+            .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Elsewhere Spell:90002:nil"
+            .. " | Swiftmend:18562:Talent";
         check(rowText(rows) == want, "rows " .. rowText(rows) .. "\n  expected " .. want);
         local wantGroups = "General,Unlearned," .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
         check(groups == wantGroups, "groups " .. groups .. ", expected " .. wantGroups);

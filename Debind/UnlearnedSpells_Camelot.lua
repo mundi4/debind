@@ -12,6 +12,9 @@ local _, DebindPrivate = ...;
 --- (`ActionCatalog.lua`).
 
 --- `[classFile] = { [spellID] = level required }`, for what the other two miss.
+---
+--- **A string in a level's place names where the spell comes from instead** (2026-10-01, owner),
+--- in every source here and in the talent tree's (`"talent"`). See `CompareUnlearnedValue`.
 local data = {
     DRUID = {
         [8946] = 14, -- Cure Poison, taught by a quest (`SpecSpells_Camelot.lua`)
@@ -29,8 +32,26 @@ local function TrainerStore(create)
     return global.trainerSpells;
 end
 
---- `spellID -> level required` for one class: every source, the lowest level where several name an
---- id.
+--- Which of two values one spell is listed with wins: below 0 for `a`, above 0 for `b`, 0 for
+--- neither. A value is a level (number) or where the spell comes from (string).
+---
+--- **Where it comes from beats a level.** The case it was written for: a trainer sells a talent
+--- spell's higher ranks with a level, and none of them can be learned before the talent is taken
+--- (2026-10-01, owner). Two levels, the lower: the rank the character reaches first.
+function DebindPrivate.CompareUnlearnedValue(a, b)
+    local aSource, bSource = type(a) == "string", type(b) == "string";
+    if (aSource ~= bSource) then
+        return aSource and -1 or 1;
+    end
+    if (aSource or a == b) then
+        return 0;
+    end
+    return a < b and -1 or 1;
+end
+
+local CompareUnlearnedValue = DebindPrivate.CompareUnlearnedValue;
+
+--- `spellID -> value` for one class, from every source, the winning value where several name an id.
 function DebindPrivate.GetUnlearnedSpellCandidates(classFile)
     local merged = {};
     local sources = {
@@ -39,9 +60,9 @@ function DebindPrivate.GetUnlearnedSpellCandidates(classFile)
         (TrainerStore(false) or {})[classFile],
     };
     for i = 1, 3 do
-        for spellID, level in pairs(sources[i] or {}) do
-            if (merged[spellID] == nil or level < merged[spellID]) then
-                merged[spellID] = level;
+        for spellID, value in pairs(sources[i] or {}) do
+            if (merged[spellID] == nil or CompareUnlearnedValue(value, merged[spellID]) < 0) then
+                merged[spellID] = value;
             end
         end
     end
