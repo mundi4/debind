@@ -18,13 +18,15 @@
 // lowest level, and the lowest id between two of one level. Ranks are grouped by name **within one
 // class** and never across them: the druid's Cure Poison and the shaman's are two spells.
 //
-// **A page's id at level 1 or below is never taken** (2026-10-01, owner). Those are talents (level
-// 0), rune engravings and the abilities shared across classes, and a rune can carry a trained
-// spell's name (Swipe 411128, "Cat", beside 779), where it would stand as that spell's first rank.
-// **But a starting spell's first rank is**: the "Rank 1" at level 1 whose id is below its name's
-// "Rank 2" (Shadow Bolt 686, 695), owner. The runes sharing a name fail one of the two (Raptor Strike
-// 409691 is a "Rank 1" above 14260). Battle Shout fails it the other way (6673, 5242), which the
-// spellbooks below fill.
+// **A name goes in when one of its ids is above level 1** (2026-10-01, owner), which leaves out
+// talents (level 0) and the abilities shared across classes.
+//
+// **Where a name's ids say "Rank N", only those are its ranks, one per number** (2026-10-01): the
+// one wowhead gives a `source` (a trainer, a book, a quest), else the lowest id. A page carries
+// Season of Discovery's runes and variants under a trained spell's name, with no rank of their own
+// (Swipe 411128 "Cat", Flash of Light 1313342) or with the same one and no `source` (Raptor Strike
+// 409693, a "Rank 2" beside 14260). A starting spell has no `source` either, and its "Rank 1" is the
+// lowest id of that number (Raptor Strike 2973, beside runes 409691 and 415335).
 //
 // **A spell with no skill line is left out**: those are a pet's (Growl, Great Stamina, a beast's own
 // Lava Breath) or a companion's, cast by something other than the player. Every player spell on
@@ -45,7 +47,8 @@
 // not in a read at run time). A trainer never sells what a new character already knows, so a
 // starting spell's first rank is in the spellbook alone. A row's level is the one listed, which a
 // trainer reports as 0 for a learned rank. These ids and the page's of one class are chained
-// together.
+// together. **A talent's spell is read too, as the first rank of a name a page carries**: some
+// spells are taken as a talent and their higher ranks bought (Lava Burst 408490, then 1238299).
 //
 // **The professions' own spells come from each profession's page** (2026-10-01, owner): the rank
 // spells (Mining, Fishing) and the ones beside them (Find Minerals, Smelting, Disenchant). What
@@ -62,7 +65,10 @@
 //
 // **Passives are not judged here.** The client is asked in step 2, which is the answer that counts
 // (owner: the release code is no place to ask it).
-//   npm run camelot-class-spells:fetch [path to DebindCamelotProbe.lua]
+//
+// **wowhead's pages are kept in .zzz/wowhead and read from there** (owner): a change to the rules
+// above needs no new download, and wowhead turns away a run of them. `--refresh` downloads again.
+//   npm run camelot-class-spells:fetch [-- --refresh] [path to DebindCamelotProbe.lua]
 
 const fs = require("fs");
 const path = require("path");
@@ -89,13 +95,24 @@ const RUNE_ABILITIES = {
 };
 
 const out = path.join(__dirname, "..", "DebindCamelotProbe", "ClassSpells.lua");
+const pageDir = path.join(__dirname, "..", ".zzz", "wowhead");
+const args = process.argv.slice(2);
+const refresh = args.includes("--refresh");
+const recordArg = args.find((a) => a !== "--refresh");
 
 async function get(url) {
+    const kept = path.join(pageDir, url.replace(/^https:\/\/www\.wowhead\.com\//, "").replace(/[^\w.-]+/g, "_") + ".html");
+    if (!refresh && fs.existsSync(kept)) {
+        return fs.readFileSync(kept, "utf8");
+    }
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
     if (!res.ok) {
         throw new Error(`${res.status} ${res.statusText} - ${url}`);
     }
-    return res.text();
+    const text = await res.text();
+    fs.mkdirSync(pageDir, { recursive: true });
+    fs.writeFileSync(kept, text);
+    return text;
 }
 
 /**
@@ -166,7 +183,8 @@ function readDumps(file) {
             for _, record in pairs(levels) do
                 if type(record) == "table" then
                     for what, text in pairs(record) do
-                        if type(text) == "string" and (what == "spellbook" or what:find("^trainer ")) then
+                        if type(text) == "string" and (what == "spellbook" or what == "talent spells"
+                                or what:find("^trainer ")) then
                             for row in text:gmatch("[^\\n]+") do
                                 print(character .. "\\t" .. what .. "\\t" .. row)
                             end
@@ -179,6 +197,8 @@ function readDumps(file) {
     const trainerRow = /^\s+\d+\s+(\d+)\s+(.+?)\s{2,}.*?lv (\d+)\s/;
     // `Spellbook`'s: type, id, name, subtext, "lv" level learned, under a "line N" heading.
     const bookRow = /^\s+Spell\s+(\d+)\s+(.+?)\s{2,}.*?lv (\d+)/;
+    // `TalentSpells`': node, entry, the spell and its name, then the group.
+    const talentRow = /spell=(\d+)\s+(.+?)\s*\|/;
     let line = 0;
     for (const l of lines) {
         const [character, what, text] = l.split("\t");
@@ -188,11 +208,12 @@ function readDumps(file) {
             continue;
         }
         const book = what === "spellbook";
-        const m = text.match(book ? bookRow : trainerRow);
+        const talent = what === "talent spells";
+        const m = text.match(talent ? talentRow : book ? bookRow : trainerRow);
         if (!m || (book && line === 1)) continue;
         const where = `${character}\t${what}`;
         if (!dumps.has(where)) dumps.set(where, []);
-        dumps.get(where).push({ id: Number(m[1]), name: m[2], level: Number(m[3]) });
+        dumps.get(where).push({ id: Number(m[1]), name: m[2], level: talent ? 0 : Number(m[3]), talent });
     }
     return dumps;
 }
@@ -261,21 +282,35 @@ function classRows(spells, runesMet) {
         }
         return true;
     });
-    const taken = usable.filter((s) => s.level > 1);
-    // The lowest, since a rune sharing the name can be a "Rank 2" too.
-    const secondRank = new Map();
-    for (const s of taken) {
-        if (s.rank === "Rank 2" && !(secondRank.get(s.name) < s.id)) secondRank.set(s.name, s.id);
+    const taken = [];
+    for (const ranks of chains(usable).values()) {
+        if (!ranks.some((s) => s.level > 1)) continue;
+        const numbered = ranks.filter((s) => /^Rank \d+$/.test(s.rank || ""));
+        if (!numbered.length) {
+            taken.push(...ranks.filter((s) => s.level > 1));
+            continue;
+        }
+        const byRank = new Map();
+        for (const s of numbered) {
+            const held = byRank.get(s.rank);
+            if (!held || (!held.source && s.source) || (!held.source === !s.source && s.id < held.id)) {
+                byRank.set(s.rank, s);
+            }
+        }
+        taken.push(...byRank.values());
     }
-    const firstRanks = usable.filter((s) => !(s.level > 1) && s.rank === "Rank 1"
-        && s.id < secondRank.get(s.name));
-    return taken.concat(firstRanks).map((s) => ({ id: s.id, name: s.name, level: s.level }));
+    return taken.map((s) => ({ id: s.id, name: s.name, level: s.level, rank: s.rank }));
 }
 
-/** `[{ id, first, source, name, comment }]`: one class's rows chained by name. */
+/**
+ * `[{ id, first, source, name, comment }]`: one class's rows chained by name. A talent's spell is
+ * its name's first rank, so a page's "Rank 1" beside it is not that spell (Penance 402284 beside
+ * the talent's 402174).
+ */
 function classEntries(rows) {
     const entries = [];
-    for (const [name, ranks] of chains(rows)) {
+    for (const [name, all] of chains(rows)) {
+        const ranks = all.some((s) => s.talent) ? all.filter((s) => s.talent || s.rank !== "Rank 1") : all;
         for (const s of ranks) {
             entries.push({ id: s.id, first: ranks[0].id, source: s.level, name, comment: s.comment });
         }
@@ -304,13 +339,16 @@ function dumpEntries(dumps, pages) {
     const rowsByClass = new Map();
     for (const [where, rows] of dumps) {
         const [character, what] = where.split("\t");
-        const classes = classesIn(what === "spellbook" ? characterRows.get(character) : rows);
+        const classes = classesIn(what.startsWith("trainer ") ? rows : characterRows.get(character));
         if (classes.size !== 1) continue;
         const [classFile] = classes;
         if (!rowsByClass.has(classFile)) rowsByClass.set(classFile, new Map());
         const byId = rowsByClass.get(classFile);
+        const pageNames = new Set(pages.get(classFile).map((s) => s.name));
         for (const r of rows) {
             if (classOf.has(r.id) || RUNE_ABILITIES[r.name]) continue;
+            // A talent's spell only as the first rank of what a trainer sells on (Lava Burst 408490).
+            if (r.talent && !pageNames.has(r.name)) continue;
             // A learned rank reports level 0 at a trainer; another read of the same id may have it.
             const held = byId.get(r.id);
             if (!held || r.level > held.level) {
@@ -366,7 +404,7 @@ function line(e, cls) {
 }
 
 async function main() {
-    const record = process.argv[2] || findRecord();
+    const record = recordArg || findRecord();
     const pets = await petEntries(record);
 
     const runesMet = new Set();

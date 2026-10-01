@@ -9,7 +9,7 @@ local _, Probe = ...;
 --- level or where it comes from, and its class (none for a profession's). What
 --- `/camelotprobe classspells` asks the client about, and carries into its record for the release
 --- table to be built from.
-Probe.SpellsVersion = 3;
+Probe.SpellsVersion = 6;
 Probe.Spells = {
     -- WARRIOR
     [71] = { first = 71, source = 10, class = "WARRIOR" }, -- Defensive Stance
@@ -83,7 +83,7 @@ Probe.Spells = {
     [11600] = { first = 6572, source = 44, class = "WARRIOR" }, -- Revenge
     [11601] = { first = 6572, source = 54, class = "WARRIOR" }, -- Revenge
     [25288] = { first = 6572, source = 60, class = "WARRIOR" }, -- Revenge
-    [6673] = { first = 6673, source = 1, class = "WARRIOR" }, -- Battle Shout (trainer Thran Khorman)
+    [6673] = { first = 6673, source = 1, class = "WARRIOR" }, -- Battle Shout
     [5242] = { first = 6673, source = 12, class = "WARRIOR" }, -- Battle Shout
     [6192] = { first = 6673, source = 22, class = "WARRIOR" }, -- Battle Shout
     [11549] = { first = 6673, source = 32, class = "WARRIOR" }, -- Battle Shout
@@ -99,20 +99,23 @@ Probe.Spells = {
     [8380] = { first = 7386, source = 34, class = "WARRIOR" }, -- Sunder Armor
     [11596] = { first = 7386, source = 46, class = "WARRIOR" }, -- Sunder Armor
     [11597] = { first = 7386, source = 58, class = "WARRIOR" }, -- Sunder Armor
+    [12294] = { first = 12294, source = 0, class = "WARRIOR" }, -- Mortal Strike (talent spells)
+    [21551] = { first = 12294, source = 48, class = "WARRIOR" }, -- Mortal Strike
+    [21552] = { first = 12294, source = 54, class = "WARRIOR" }, -- Mortal Strike
+    [21553] = { first = 12294, source = 60, class = "WARRIOR" }, -- Mortal Strike
     [18499] = { first = 18499, source = 32, class = "WARRIOR" }, -- Berserker Rage
     [20230] = { first = 20230, source = 20, class = "WARRIOR" }, -- Retaliation
     [20252] = { first = 20252, source = 30, class = "WARRIOR" }, -- Intercept
     [20616] = { first = 20252, source = 42, class = "WARRIOR" }, -- Intercept
     [20617] = { first = 20252, source = 52, class = "WARRIOR" }, -- Intercept
-    [21551] = { first = 21551, source = 48, class = "WARRIOR" }, -- Mortal Strike
-    [21552] = { first = 21551, source = 54, class = "WARRIOR" }, -- Mortal Strike
-    [21553] = { first = 21551, source = 60, class = "WARRIOR" }, -- Mortal Strike
-    [23892] = { first = 23892, source = 48, class = "WARRIOR" }, -- Bloodthirst
-    [23893] = { first = 23892, source = 54, class = "WARRIOR" }, -- Bloodthirst
-    [23894] = { first = 23892, source = 60, class = "WARRIOR" }, -- Bloodthirst
-    [23923] = { first = 23923, source = 48, class = "WARRIOR" }, -- Shield Slam
-    [23924] = { first = 23923, source = 54, class = "WARRIOR" }, -- Shield Slam
-    [23925] = { first = 23923, source = 60, class = "WARRIOR" }, -- Shield Slam
+    [23881] = { first = 23881, source = 0, class = "WARRIOR" }, -- Bloodthirst (talent spells)
+    [23892] = { first = 23881, source = 48, class = "WARRIOR" }, -- Bloodthirst
+    [23893] = { first = 23881, source = 54, class = "WARRIOR" }, -- Bloodthirst
+    [23894] = { first = 23881, source = 60, class = "WARRIOR" }, -- Bloodthirst
+    [23922] = { first = 23922, source = 0, class = "WARRIOR" }, -- Shield Slam (talent spells)
+    [23923] = { first = 23922, source = 48, class = "WARRIOR" }, -- Shield Slam
+    [23924] = { first = 23922, source = 54, class = "WARRIOR" }, -- Shield Slam
+    [23925] = { first = 23922, source = 60, class = "WARRIOR" }, -- Shield Slam
     [402927] = { first = 402927, source = 20, class = "WARRIOR" }, -- Victory Rush
     [461475] = { first = 461475, source = 2, class = "WARRIOR" }, -- Valor of Azeroth
     [1240193] = { first = 1240193, source = 20, class = "WARRIOR" }, -- Slam
@@ -139,14 +142,9 @@ Probe.Spells = {
     [647] = { first = 635, source = 14, class = "PALADIN" }, -- Holy Light
     [1026] = { first = 635, source = 22, class = "PALADIN" }, -- Holy Light
     [1042] = { first = 635, source = 30, class = "PALADIN" }, -- Holy Light
-    [1313348] = { first = 635, source = 30, class = "PALADIN" }, -- Holy Light
     [3472] = { first = 635, source = 38, class = "PALADIN" }, -- Holy Light
-    [1313349] = { first = 635, source = 38, class = "PALADIN" }, -- Holy Light
     [10328] = { first = 635, source = 46, class = "PALADIN" }, -- Holy Light
-    [1313350] = { first = 635, source = 46, class = "PALADIN" }, -- Holy Light
-    [1313352] = { first = 635, source = 50, class = "PALADIN" }, -- Holy Light
     [10329] = { first = 635, source = 54, class = "PALADIN" }, -- Holy Light
-    [1313351] = { first = 635, source = 54, class = "PALADIN" }, -- Holy Light
     [25292] = { first = 635, source = 60, class = "PALADIN" }, -- Holy Light
     [642] = { first = 642, source = 34, class = "PALADIN" }, -- Divine Shield
     [1020] = { first = 642, source = 50, class = "PALADIN" }, -- Divine Shield
@@ -164,17 +162,11 @@ Probe.Spells = {
     [5589] = { first = 853, source = 40, class = "PALADIN" }, -- Hammer of Justice
     [10308] = { first = 853, source = 54, class = "PALADIN" }, -- Hammer of Justice
     [879] = { first = 879, source = 20, class = "PALADIN" }, -- Exorcism
-    [415068] = { first = 879, source = 20, class = "PALADIN" }, -- Exorcism
     [5614] = { first = 879, source = 28, class = "PALADIN" }, -- Exorcism
-    [415069] = { first = 879, source = 28, class = "PALADIN" }, -- Exorcism
     [5615] = { first = 879, source = 36, class = "PALADIN" }, -- Exorcism
-    [415070] = { first = 879, source = 36, class = "PALADIN" }, -- Exorcism
     [10312] = { first = 879, source = 44, class = "PALADIN" }, -- Exorcism
-    [415071] = { first = 879, source = 44, class = "PALADIN" }, -- Exorcism
     [10313] = { first = 879, source = 52, class = "PALADIN" }, -- Exorcism
-    [415072] = { first = 879, source = 52, class = "PALADIN" }, -- Exorcism
     [10314] = { first = 879, source = 60, class = "PALADIN" }, -- Exorcism
-    [415073] = { first = 879, source = 60, class = "PALADIN" }, -- Exorcism
     [1022] = { first = 1022, source = 10, class = "PALADIN" }, -- Blessing of Protection
     [5599] = { first = 1022, source = 24, class = "PALADIN" }, -- Blessing of Protection
     [10278] = { first = 1022, source = 38, class = "PALADIN" }, -- Blessing of Protection
@@ -216,15 +208,10 @@ Probe.Spells = {
     [19746] = { first = 19746, source = 22, class = "PALADIN" }, -- Concentration Aura
     [19750] = { first = 19750, source = 20, class = "PALADIN" }, -- Flash of Light
     [19939] = { first = 19750, source = 26, class = "PALADIN" }, -- Flash of Light
-    [1313342] = { first = 19750, source = 26, class = "PALADIN" }, -- Flash of Light
     [19940] = { first = 19750, source = 34, class = "PALADIN" }, -- Flash of Light
-    [1313343] = { first = 19750, source = 34, class = "PALADIN" }, -- Flash of Light
     [19941] = { first = 19750, source = 42, class = "PALADIN" }, -- Flash of Light
-    [1313344] = { first = 19750, source = 42, class = "PALADIN" }, -- Flash of Light
     [19942] = { first = 19750, source = 50, class = "PALADIN" }, -- Flash of Light
-    [1313345] = { first = 19750, source = 50, class = "PALADIN" }, -- Flash of Light
     [19943] = { first = 19750, source = 58, class = "PALADIN" }, -- Flash of Light
-    [1313346] = { first = 19750, source = 58, class = "PALADIN" }, -- Flash of Light
     [19752] = { first = 19752, source = 30, class = "PALADIN" }, -- Divine Intervention
     [19876] = { first = 19876, source = 28, class = "PALADIN" }, -- Shadow Resistance Aura
     [19895] = { first = 19876, source = 40, class = "PALADIN" }, -- Shadow Resistance Aura
@@ -261,15 +248,14 @@ Probe.Spells = {
     [20414] = { first = 20183, source = 58, class = "PALADIN" }, -- Judgement of Fury
     [20217] = { first = 20217, source = 20, class = "PALADIN" }, -- Blessing of Kings
     [20271] = { first = 20271, source = 4, class = "PALADIN" }, -- Judgement
-    [20473] = { first = 20473, source = 40, class = "PALADIN" }, -- Holy Shock
-    [20929] = { first = 20473, source = 48, class = "PALADIN" }, -- Holy Shock
-    [20930] = { first = 20473, source = 56, class = "PALADIN" }, -- Holy Shock
-    [20915] = { first = 20915, source = 30, class = "PALADIN" }, -- Seal of Command
-    [20918] = { first = 20915, source = 40, class = "PALADIN" }, -- Seal of Command
-    [20919] = { first = 20915, source = 50, class = "PALADIN" }, -- Seal of Command
-    [20920] = { first = 20915, source = 60, class = "PALADIN" }, -- Seal of Command
-    [20927] = { first = 20927, source = 50, class = "PALADIN" }, -- Holy Shield
-    [20928] = { first = 20927, source = 60, class = "PALADIN" }, -- Holy Shield
+    [20375] = { first = 20375, source = 0, class = "PALADIN" }, -- Seal of Command (talent spells)
+    [20915] = { first = 20375, source = 30, class = "PALADIN" }, -- Seal of Command
+    [20918] = { first = 20375, source = 40, class = "PALADIN" }, -- Seal of Command
+    [20919] = { first = 20375, source = 50, class = "PALADIN" }, -- Seal of Command
+    [20920] = { first = 20375, source = 60, class = "PALADIN" }, -- Seal of Command
+    [20925] = { first = 20925, source = 0, class = "PALADIN" }, -- Holy Shield (talent spells)
+    [20927] = { first = 20925, source = 50, class = "PALADIN" }, -- Holy Shield
+    [20928] = { first = 20925, source = 60, class = "PALADIN" }, -- Holy Shield
     [21082] = { first = 21082, source = 6, class = "PALADIN" }, -- Seal of the Crusader
     [20162] = { first = 21082, source = 12, class = "PALADIN" }, -- Seal of the Crusader
     [20305] = { first = 21082, source = 22, class = "PALADIN" }, -- Seal of the Crusader
@@ -292,8 +278,13 @@ Probe.Spells = {
     [20922] = { first = 26573, source = 40, class = "PALADIN" }, -- Consecration
     [20923] = { first = 26573, source = 50, class = "PALADIN" }, -- Consecration
     [20924] = { first = 26573, source = 60, class = "PALADIN" }, -- Consecration
-    [1311590] = { first = 1311590, source = 50, class = "PALADIN" }, -- Light's Vigil
-    [1311595] = { first = 1311590, source = 60, class = "PALADIN" }, -- Light's Vigil
+    [1310911] = { first = 1310911, source = 0, class = "PALADIN" }, -- Light's Vigil (talent spells)
+    [1311590] = { first = 1310911, source = 50, class = "PALADIN" }, -- Light's Vigil
+    [1311595] = { first = 1310911, source = 60, class = "PALADIN" }, -- Light's Vigil
+    [1311606] = { first = 1311606, source = 0, class = "PALADIN" }, -- Holy Shock (talent spells)
+    [20473] = { first = 1311606, source = 40, class = "PALADIN" }, -- Holy Shock
+    [20929] = { first = 1311606, source = 48, class = "PALADIN" }, -- Holy Shock
+    [20930] = { first = 1311606, source = 56, class = "PALADIN" }, -- Holy Shock
     [1311649] = { first = 1311649, source = 10, class = "PALADIN" }, -- Seal of Fury
     [1311656] = { first = 1311649, source = 18, class = "PALADIN" }, -- Seal of Fury
     [20163] = { first = 1311649, source = 25, class = "PALADIN" }, -- Seal of Fury
@@ -310,7 +301,6 @@ Probe.Spells = {
     [13542] = { first = 136, source = 44, class = "HUNTER" }, -- Mend Pet
     [13543] = { first = 136, source = 52, class = "HUNTER" }, -- Mend Pet
     [13544] = { first = 136, source = 60, class = "HUNTER" }, -- Mend Pet
-    [674] = { first = 674, source = 20, class = "HUNTER" }, -- Dual Wield (trainer Einris Brightspear)
     [781] = { first = 781, source = 20, class = "HUNTER" }, -- Disengage
     [14272] = { first = 781, source = 34, class = "HUNTER" }, -- Disengage
     [14273] = { first = 781, source = 48, class = "HUNTER" }, -- Disengage
@@ -339,47 +329,24 @@ Probe.Spells = {
     [1515] = { first = 1515, source = 10, class = "HUNTER" }, -- Tame Beast
     [1543] = { first = 1543, source = 32, class = "HUNTER" }, -- Flare
     [1978] = { first = 1978, source = 4, class = "HUNTER" }, -- Serpent Sting
-    [425728] = { first = 1978, source = 4, class = "HUNTER" }, -- Serpent Sting
     [13549] = { first = 1978, source = 10, class = "HUNTER" }, -- Serpent Sting
-    [425729] = { first = 1978, source = 10, class = "HUNTER" }, -- Serpent Sting
     [13550] = { first = 1978, source = 18, class = "HUNTER" }, -- Serpent Sting
-    [425730] = { first = 1978, source = 18, class = "HUNTER" }, -- Serpent Sting
     [13551] = { first = 1978, source = 26, class = "HUNTER" }, -- Serpent Sting
-    [425732] = { first = 1978, source = 26, class = "HUNTER" }, -- Serpent Sting
     [13552] = { first = 1978, source = 34, class = "HUNTER" }, -- Serpent Sting
-    [425733] = { first = 1978, source = 34, class = "HUNTER" }, -- Serpent Sting
     [13553] = { first = 1978, source = 42, class = "HUNTER" }, -- Serpent Sting
-    [425734] = { first = 1978, source = 42, class = "HUNTER" }, -- Serpent Sting
     [13554] = { first = 1978, source = 50, class = "HUNTER" }, -- Serpent Sting
-    [425735] = { first = 1978, source = 50, class = "HUNTER" }, -- Serpent Sting
     [13555] = { first = 1978, source = 58, class = "HUNTER" }, -- Serpent Sting
-    [425736] = { first = 1978, source = 58, class = "HUNTER" }, -- Serpent Sting
     [25295] = { first = 1978, source = 60, class = "HUNTER" }, -- Serpent Sting
-    [425737] = { first = 1978, source = 60, class = "HUNTER" }, -- Serpent Sting
     [2641] = { first = 2641, source = 10, class = "HUNTER" }, -- Dismiss Pet
     [2643] = { first = 2643, source = 18, class = "HUNTER" }, -- Multi-Shot
     [2973] = { first = 2973, source = 1, class = "HUNTER" }, -- Raptor Strike
     [14260] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
-    [409693] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
-    [415336] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
     [14261] = { first = 2973, source = 16, class = "HUNTER" }, -- Raptor Strike
-    [409748] = { first = 2973, source = 16, class = "HUNTER" }, -- Raptor Strike
-    [415337] = { first = 2973, source = 16, class = "HUNTER" }, -- Raptor Strike
     [14262] = { first = 2973, source = 24, class = "HUNTER" }, -- Raptor Strike
-    [409750] = { first = 2973, source = 24, class = "HUNTER" }, -- Raptor Strike
-    [415338] = { first = 2973, source = 24, class = "HUNTER" }, -- Raptor Strike
     [14263] = { first = 2973, source = 32, class = "HUNTER" }, -- Raptor Strike
-    [409751] = { first = 2973, source = 32, class = "HUNTER" }, -- Raptor Strike
-    [415340] = { first = 2973, source = 32, class = "HUNTER" }, -- Raptor Strike
     [14264] = { first = 2973, source = 40, class = "HUNTER" }, -- Raptor Strike
-    [409752] = { first = 2973, source = 40, class = "HUNTER" }, -- Raptor Strike
-    [415341] = { first = 2973, source = 40, class = "HUNTER" }, -- Raptor Strike
     [14265] = { first = 2973, source = 48, class = "HUNTER" }, -- Raptor Strike
-    [409754] = { first = 2973, source = 48, class = "HUNTER" }, -- Raptor Strike
-    [415342] = { first = 2973, source = 48, class = "HUNTER" }, -- Raptor Strike
     [14266] = { first = 2973, source = 56, class = "HUNTER" }, -- Raptor Strike
-    [409755] = { first = 2973, source = 56, class = "HUNTER" }, -- Raptor Strike
-    [415343] = { first = 2973, source = 56, class = "HUNTER" }, -- Raptor Strike
     [2974] = { first = 2974, source = 12, class = "HUNTER" }, -- Wing Clip
     [14267] = { first = 2974, source = 38, class = "HUNTER" }, -- Wing Clip
     [14268] = { first = 2974, source = 60, class = "HUNTER" }, -- Wing Clip
@@ -423,6 +390,10 @@ Probe.Spells = {
     [13813] = { first = 13813, source = 34, class = "HUNTER" }, -- Explosive Trap
     [14316] = { first = 13813, source = 44, class = "HUNTER" }, -- Explosive Trap
     [14317] = { first = 13813, source = 54, class = "HUNTER" }, -- Explosive Trap
+    [19306] = { first = 19306, source = 0, class = "HUNTER" }, -- Counterattack (talent spells)
+    [1242634] = { first = 19306, source = 30, class = "HUNTER" }, -- Counterattack
+    [20909] = { first = 19306, source = 42, class = "HUNTER" }, -- Counterattack
+    [20910] = { first = 19306, source = 54, class = "HUNTER" }, -- Counterattack
     [19434] = { first = 19434, source = 20, class = "HUNTER" }, -- Aimed Shot
     [20900] = { first = 19434, source = 28, class = "HUNTER" }, -- Aimed Shot
     [20901] = { first = 19434, source = 36, class = "HUNTER" }, -- Aimed Shot
@@ -450,18 +421,18 @@ Probe.Spells = {
     [24120] = { first = 24118, source = 50, class = "HUNTER" }, -- Lacerate
     [1299332] = { first = 24118, source = 60, class = "HUNTER" }, -- Lacerate
     [1221404] = { first = 1221404, source = 32, class = "HUNTER" }, -- Enchanted Flare
-    [1242634] = { first = 1242634, source = 30, class = "HUNTER" }, -- Counterattack
-    [20909] = { first = 1242634, source = 42, class = "HUNTER" }, -- Counterattack
-    [20910] = { first = 1242634, source = 54, class = "HUNTER" }, -- Counterattack
-    [1293525] = { first = 1293525, source = 36, class = "HUNTER" }, -- Summon Hawk
-    [1293526] = { first = 1293525, source = 48, class = "HUNTER" }, -- Summon Hawk
-    [1293527] = { first = 1293525, source = 60, class = "HUNTER" }, -- Summon Hawk
-    [1299348] = { first = 1299348, source = 32, class = "HUNTER" }, -- Trueshot Aura
-    [19506] = { first = 1299348, source = 40, class = "HUNTER" }, -- Trueshot Aura
-    [20905] = { first = 1299348, source = 50, class = "HUNTER" }, -- Trueshot Aura
-    [20906] = { first = 1299348, source = 60, class = "HUNTER" }, -- Trueshot Aura
-    [1310785] = { first = 1310785, source = 48, class = "HUNTER" }, -- Sniper Shot
-    [1310786] = { first = 1310785, source = 58, class = "HUNTER" }, -- Sniper Shot
+    [1293241] = { first = 1293241, source = 0, class = "HUNTER" }, -- Summon Hawk (talent spells)
+    [1293525] = { first = 1293241, source = 36, class = "HUNTER" }, -- Summon Hawk
+    [1293526] = { first = 1293241, source = 48, class = "HUNTER" }, -- Summon Hawk
+    [1293527] = { first = 1293241, source = 60, class = "HUNTER" }, -- Summon Hawk
+    [1299346] = { first = 1299346, source = 0, class = "HUNTER" }, -- Trueshot Aura (talent spells)
+    [1299348] = { first = 1299346, source = 32, class = "HUNTER" }, -- Trueshot Aura
+    [19506] = { first = 1299346, source = 40, class = "HUNTER" }, -- Trueshot Aura
+    [20905] = { first = 1299346, source = 50, class = "HUNTER" }, -- Trueshot Aura
+    [20906] = { first = 1299346, source = 60, class = "HUNTER" }, -- Trueshot Aura
+    [1310687] = { first = 1310687, source = 0, class = "HUNTER" }, -- Sniper Shot (talent spells)
+    [1310785] = { first = 1310687, source = 48, class = "HUNTER" }, -- Sniper Shot
+    [1310786] = { first = 1310687, source = 58, class = "HUNTER" }, -- Sniper Shot
     [1742] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
     [1753] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
     [1754] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
@@ -665,6 +636,7 @@ Probe.Spells = {
     [1785] = { first = 1784, source = 20, class = "ROGUE" }, -- Stealth
     [1786] = { first = 1784, source = 40, class = "ROGUE" }, -- Stealth
     [1787] = { first = 1784, source = 60, class = "ROGUE" }, -- Stealth
+    [1804] = { first = 1804, source = 16, class = "ROGUE" }, -- Pick Lock (trainer Keryn Sylvius)
     [1833] = { first = 1833, source = 26, class = "ROGUE" }, -- Cheap Shot
     [1842] = { first = 1842, source = 30, class = "ROGUE" }, -- Disarm Trap
     [1856] = { first = 1856, source = 22, class = "ROGUE" }, -- Vanish
@@ -691,13 +663,19 @@ Probe.Spells = {
     [11299] = { first = 2098, source = 48, class = "ROGUE" }, -- Eviscerate
     [11300] = { first = 2098, source = 56, class = "ROGUE" }, -- Eviscerate
     [31016] = { first = 2098, source = 60, class = "ROGUE" }, -- Eviscerate
+    [2835] = { first = 2835, source = 30, class = "ROGUE" }, -- Deadly Poison (trainer Keryn Sylvius)
     [2836] = { first = 2836, source = 24, class = "ROGUE" }, -- Detect Traps
+    [2837] = { first = 2837, source = 38, class = "ROGUE" }, -- Deadly Poison II (trainer Keryn Sylvius)
     [2983] = { first = 2983, source = 10, class = "ROGUE" }, -- Sprint
     [8696] = { first = 2983, source = 34, class = "ROGUE" }, -- Sprint
     [11305] = { first = 2983, source = 58, class = "ROGUE" }, -- Sprint
+    [3420] = { first = 3420, source = 20, class = "ROGUE" }, -- Crippling Poison (trainer Keryn Sylvius)
+    [3421] = { first = 3421, source = 50, class = "ROGUE" }, -- Crippling Poison II (trainer Keryn Sylvius)
     [5171] = { first = 5171, source = 10, class = "ROGUE" }, -- Slice and Dice
     [6774] = { first = 5171, source = 42, class = "ROGUE" }, -- Slice and Dice
     [5277] = { first = 5277, source = 8, class = "ROGUE" }, -- Evasion
+    [5763] = { first = 5763, source = 24, class = "ROGUE" }, -- Mind-numbing Poison (trainer Keryn Sylvius)
+    [6510] = { first = 6510, source = 34, class = "ROGUE" }, -- Blinding Powder (trainer Keryn Sylvius)
     [6770] = { first = 6770, source = 10, class = "ROGUE" }, -- Sap
     [2070] = { first = 6770, source = 28, class = "ROGUE" }, -- Sap
     [11297] = { first = 6770, source = 48, class = "ROGUE" }, -- Sap
@@ -712,17 +690,23 @@ Probe.Spells = {
     [11267] = { first = 8676, source = 42, class = "ROGUE" }, -- Ambush
     [11268] = { first = 8676, source = 50, class = "ROGUE" }, -- Ambush
     [11269] = { first = 8676, source = 58, class = "ROGUE" }, -- Ambush
-    [1310705] = { first = 1310705, source = 30, class = "ROGUE" }, -- Mutilate
-    [1310706] = { first = 1310705, source = 30, class = "ROGUE" }, -- Mutilate
-    [399956] = { first = 1310705, source = 40, class = "ROGUE" }, -- Mutilate
-    [399960] = { first = 1310705, source = 40, class = "ROGUE" }, -- Mutilate
-    [399961] = { first = 1310705, source = 40, class = "ROGUE" }, -- Mutilate
-    [1241582] = { first = 1310705, source = 50, class = "ROGUE" }, -- Mutilate
-    [1241585] = { first = 1310705, source = 50, class = "ROGUE" }, -- Mutilate
-    [1241588] = { first = 1310705, source = 50, class = "ROGUE" }, -- Mutilate
-    [1241584] = { first = 1310705, source = 60, class = "ROGUE" }, -- Mutilate
-    [1241586] = { first = 1310705, source = 60, class = "ROGUE" }, -- Mutilate
-    [1241590] = { first = 1310705, source = 60, class = "ROGUE" }, -- Mutilate
+    [8687] = { first = 8687, source = 28, class = "ROGUE" }, -- Instant Poison II (trainer Keryn Sylvius)
+    [8691] = { first = 8691, source = 36, class = "ROGUE" }, -- Instant Poison III (trainer Keryn Sylvius)
+    [8694] = { first = 8694, source = 38, class = "ROGUE" }, -- Mind-numbing Poison II (trainer Keryn Sylvius)
+    [11341] = { first = 11341, source = 44, class = "ROGUE" }, -- Instant Poison IV (trainer Keryn Sylvius)
+    [11342] = { first = 11342, source = 52, class = "ROGUE" }, -- Instant Poison V (trainer Keryn Sylvius)
+    [11343] = { first = 11343, source = 60, class = "ROGUE" }, -- Instant Poison VI (trainer Keryn Sylvius)
+    [11357] = { first = 11357, source = 46, class = "ROGUE" }, -- Deadly Poison III (trainer Keryn Sylvius)
+    [11358] = { first = 11358, source = 54, class = "ROGUE" }, -- Deadly Poison IV (trainer Keryn Sylvius)
+    [11400] = { first = 11400, source = 52, class = "ROGUE" }, -- Mind-numbing Poison III (trainer Keryn Sylvius)
+    [13220] = { first = 13220, source = 32, class = "ROGUE" }, -- Wound Poison (trainer Keryn Sylvius)
+    [13228] = { first = 13228, source = 40, class = "ROGUE" }, -- Wound Poison II (trainer Keryn Sylvius)
+    [13229] = { first = 13229, source = 48, class = "ROGUE" }, -- Wound Poison III (trainer Keryn Sylvius)
+    [13230] = { first = 13230, source = 56, class = "ROGUE" }, -- Wound Poison IV (trainer Keryn Sylvius)
+    [1310707] = { first = 1310707, source = 0, class = "ROGUE" }, -- Mutilate (talent spells)
+    [399956] = { first = 1310707, source = 40, class = "ROGUE" }, -- Mutilate
+    [1241582] = { first = 1310707, source = 50, class = "ROGUE" }, -- Mutilate
+    [1241584] = { first = 1310707, source = 60, class = "ROGUE" }, -- Mutilate
     [1310709] = { first = 1310709, source = 30, class = "ROGUE" }, -- Coup de Grace
     -- PRIEST
     [17] = { first = 17, source = 6, class = "PRIEST" }, -- Power Word: Shield
@@ -736,25 +720,15 @@ Probe.Spells = {
     [10900] = { first = 17, source = 54, class = "PRIEST" }, -- Power Word: Shield
     [10901] = { first = 17, source = 60, class = "PRIEST" }, -- Power Word: Shield
     [139] = { first = 139, source = 8, class = "PRIEST" }, -- Renew
-    [425268] = { first = 139, source = 8, class = "PRIEST" }, -- Renew
     [6074] = { first = 139, source = 14, class = "PRIEST" }, -- Renew
-    [425269] = { first = 139, source = 14, class = "PRIEST" }, -- Renew
     [6075] = { first = 139, source = 20, class = "PRIEST" }, -- Renew
-    [425270] = { first = 139, source = 20, class = "PRIEST" }, -- Renew
     [6076] = { first = 139, source = 26, class = "PRIEST" }, -- Renew
-    [425271] = { first = 139, source = 26, class = "PRIEST" }, -- Renew
     [6077] = { first = 139, source = 32, class = "PRIEST" }, -- Renew
-    [425272] = { first = 139, source = 32, class = "PRIEST" }, -- Renew
     [6078] = { first = 139, source = 38, class = "PRIEST" }, -- Renew
-    [425273] = { first = 139, source = 38, class = "PRIEST" }, -- Renew
     [10927] = { first = 139, source = 44, class = "PRIEST" }, -- Renew
-    [425274] = { first = 139, source = 44, class = "PRIEST" }, -- Renew
     [10928] = { first = 139, source = 50, class = "PRIEST" }, -- Renew
-    [425275] = { first = 139, source = 50, class = "PRIEST" }, -- Renew
     [10929] = { first = 139, source = 56, class = "PRIEST" }, -- Renew
-    [425276] = { first = 139, source = 56, class = "PRIEST" }, -- Renew
     [25315] = { first = 139, source = 60, class = "PRIEST" }, -- Renew
-    [425277] = { first = 139, source = 60, class = "PRIEST" }, -- Renew
     [453] = { first = 453, source = 20, class = "PRIEST" }, -- Mind Soothe
     [8192] = { first = 453, source = 36, class = "PRIEST" }, -- Mind Soothe
     [10953] = { first = 453, source = 52, class = "PRIEST" }, -- Mind Soothe
@@ -909,16 +883,18 @@ Probe.Spells = {
     [15266] = { first = 14914, source = 48, class = "PRIEST" }, -- Holy Fire
     [15267] = { first = 14914, source = 54, class = "PRIEST" }, -- Holy Fire
     [15261] = { first = 14914, source = 60, class = "PRIEST" }, -- Holy Fire
-    [15430] = { first = 15430, source = 28, class = "PRIEST" }, -- Holy Nova
-    [15431] = { first = 15430, source = 36, class = "PRIEST" }, -- Holy Nova
-    [27799] = { first = 15430, source = 44, class = "PRIEST" }, -- Holy Nova
-    [27800] = { first = 15430, source = 52, class = "PRIEST" }, -- Holy Nova
-    [27801] = { first = 15430, source = 60, class = "PRIEST" }, -- Holy Nova
-    [17311] = { first = 17311, source = 28, class = "PRIEST" }, -- Mind Flay
-    [17312] = { first = 17311, source = 36, class = "PRIEST" }, -- Mind Flay
-    [17313] = { first = 17311, source = 44, class = "PRIEST" }, -- Mind Flay
-    [17314] = { first = 17311, source = 52, class = "PRIEST" }, -- Mind Flay
-    [18807] = { first = 17311, source = 60, class = "PRIEST" }, -- Mind Flay
+    [15237] = { first = 15237, source = 0, class = "PRIEST" }, -- Holy Nova (talent spells)
+    [15430] = { first = 15237, source = 28, class = "PRIEST" }, -- Holy Nova
+    [15431] = { first = 15237, source = 36, class = "PRIEST" }, -- Holy Nova
+    [27799] = { first = 15237, source = 44, class = "PRIEST" }, -- Holy Nova
+    [27800] = { first = 15237, source = 52, class = "PRIEST" }, -- Holy Nova
+    [27801] = { first = 15237, source = 60, class = "PRIEST" }, -- Holy Nova
+    [15407] = { first = 15407, source = 0, class = "PRIEST" }, -- Mind Flay (talent spells)
+    [17311] = { first = 15407, source = 28, class = "PRIEST" }, -- Mind Flay
+    [17312] = { first = 15407, source = 36, class = "PRIEST" }, -- Mind Flay
+    [17313] = { first = 15407, source = 44, class = "PRIEST" }, -- Mind Flay
+    [17314] = { first = 15407, source = 52, class = "PRIEST" }, -- Mind Flay
+    [18807] = { first = 15407, source = 60, class = "PRIEST" }, -- Mind Flay
     [18137] = { first = 18137, source = 20, class = "PRIEST" }, -- Shadowguard
     [19308] = { first = 18137, source = 28, class = "PRIEST" }, -- Shadowguard
     [19309] = { first = 18137, source = 36, class = "PRIEST" }, -- Shadowguard
@@ -929,25 +905,19 @@ Probe.Spells = {
     [21564] = { first = 21562, source = 60, class = "PRIEST" }, -- Prayer of Fortitude
     [27681] = { first = 27681, source = 60, class = "PRIEST" }, -- Prayer of Spirit
     [27683] = { first = 27683, source = 56, class = "PRIEST" }, -- Prayer of Shadow Protection
-    [401863] = { first = 401863, source = 40, class = "PRIEST" }, -- Prayer of Mending
-    [1240826] = { first = 401863, source = 50, class = "PRIEST" }, -- Prayer of Mending
-    [1240827] = { first = 401863, source = 60, class = "PRIEST" }, -- Prayer of Mending
-    [402284] = { first = 402284, source = 30, class = "PRIEST" }, -- Penance
-    [402289] = { first = 402284, source = 30, class = "PRIEST" }, -- Penance
-    [1240720] = { first = 402284, source = 40, class = "PRIEST" }, -- Penance
-    [1240723] = { first = 402284, source = 40, class = "PRIEST" }, -- Penance
-    [1240727] = { first = 402284, source = 40, class = "PRIEST" }, -- Penance
-    [1240721] = { first = 402284, source = 50, class = "PRIEST" }, -- Penance
-    [1240724] = { first = 402284, source = 50, class = "PRIEST" }, -- Penance
-    [1240730] = { first = 402284, source = 50, class = "PRIEST" }, -- Penance
-    [1316991] = { first = 402284, source = 60, class = "PRIEST" }, -- Penance
-    [1316993] = { first = 402284, source = 60, class = "PRIEST" }, -- Penance
-    [1316995] = { first = 402284, source = 60, class = "PRIEST" }, -- Penance
-    [1240770] = { first = 1240770, source = 32, class = "PRIEST" }, -- Binding Heal
-    [1240771] = { first = 1240770, source = 38, class = "PRIEST" }, -- Binding Heal
-    [1240772] = { first = 1240770, source = 44, class = "PRIEST" }, -- Binding Heal
-    [1240773] = { first = 1240770, source = 50, class = "PRIEST" }, -- Binding Heal
-    [1240774] = { first = 1240770, source = 56, class = "PRIEST" }, -- Binding Heal
+    [401859] = { first = 401859, source = 0, class = "PRIEST" }, -- Prayer of Mending (talent spells)
+    [1240826] = { first = 401859, source = 50, class = "PRIEST" }, -- Prayer of Mending
+    [1240827] = { first = 401859, source = 60, class = "PRIEST" }, -- Prayer of Mending
+    [401937] = { first = 401937, source = 0, class = "PRIEST" }, -- Binding Heal (talent spells)
+    [1240770] = { first = 401937, source = 32, class = "PRIEST" }, -- Binding Heal
+    [1240771] = { first = 401937, source = 38, class = "PRIEST" }, -- Binding Heal
+    [1240772] = { first = 401937, source = 44, class = "PRIEST" }, -- Binding Heal
+    [1240773] = { first = 401937, source = 50, class = "PRIEST" }, -- Binding Heal
+    [1240774] = { first = 401937, source = 56, class = "PRIEST" }, -- Binding Heal
+    [402174] = { first = 402174, source = 0, class = "PRIEST" }, -- Penance (talent spells)
+    [1240720] = { first = 402174, source = 40, class = "PRIEST" }, -- Penance
+    [1240721] = { first = 402174, source = 50, class = "PRIEST" }, -- Penance
+    [1316995] = { first = 402174, source = 60, class = "PRIEST" }, -- Penance
     [1277324] = { first = 1277324, source = 20, class = "PRIEST" }, -- Dark Sacrifice
     [1277325] = { first = 1277324, source = 30, class = "PRIEST" }, -- Dark Sacrifice
     [1277326] = { first = 1277324, source = 40, class = "PRIEST" }, -- Dark Sacrifice
@@ -998,31 +968,18 @@ Probe.Spells = {
     [8012] = { first = 370, source = 32, class = "SHAMAN" }, -- Purge
     [403] = { first = 403, source = 1, class = "SHAMAN" }, -- Lightning Bolt
     [529] = { first = 403, source = 8, class = "SHAMAN" }, -- Lightning Bolt
-    [408440] = { first = 403, source = 8, class = "SHAMAN" }, -- Lightning Bolt
     [548] = { first = 403, source = 14, class = "SHAMAN" }, -- Lightning Bolt
-    [408441] = { first = 403, source = 14, class = "SHAMAN" }, -- Lightning Bolt
     [915] = { first = 403, source = 20, class = "SHAMAN" }, -- Lightning Bolt
-    [408442] = { first = 403, source = 20, class = "SHAMAN" }, -- Lightning Bolt
     [943] = { first = 403, source = 26, class = "SHAMAN" }, -- Lightning Bolt
-    [408443] = { first = 403, source = 26, class = "SHAMAN" }, -- Lightning Bolt
     [6041] = { first = 403, source = 32, class = "SHAMAN" }, -- Lightning Bolt
-    [408472] = { first = 403, source = 32, class = "SHAMAN" }, -- Lightning Bolt
     [10391] = { first = 403, source = 38, class = "SHAMAN" }, -- Lightning Bolt
-    [408473] = { first = 403, source = 38, class = "SHAMAN" }, -- Lightning Bolt
     [10392] = { first = 403, source = 44, class = "SHAMAN" }, -- Lightning Bolt
-    [408474] = { first = 403, source = 44, class = "SHAMAN" }, -- Lightning Bolt
     [15207] = { first = 403, source = 50, class = "SHAMAN" }, -- Lightning Bolt
-    [408475] = { first = 403, source = 50, class = "SHAMAN" }, -- Lightning Bolt
     [15208] = { first = 403, source = 56, class = "SHAMAN" }, -- Lightning Bolt
-    [408477] = { first = 403, source = 56, class = "SHAMAN" }, -- Lightning Bolt
     [421] = { first = 421, source = 32, class = "SHAMAN" }, -- Chain Lightning
-    [408479] = { first = 421, source = 32, class = "SHAMAN" }, -- Chain Lightning
     [930] = { first = 421, source = 40, class = "SHAMAN" }, -- Chain Lightning
-    [408481] = { first = 421, source = 40, class = "SHAMAN" }, -- Chain Lightning
     [2860] = { first = 421, source = 48, class = "SHAMAN" }, -- Chain Lightning
-    [408482] = { first = 421, source = 48, class = "SHAMAN" }, -- Chain Lightning
     [10605] = { first = 421, source = 56, class = "SHAMAN" }, -- Chain Lightning
-    [408484] = { first = 421, source = 56, class = "SHAMAN" }, -- Chain Lightning
     [526] = { first = 526, source = 16, class = "SHAMAN" }, -- Cure Poison
     [546] = { first = 546, source = 28, class = "SHAMAN" }, -- Water Walking
     [556] = { first = 556, source = 30, class = "SHAMAN" }, -- Astral Recall
@@ -1146,8 +1103,9 @@ Probe.Spells = {
     [15107] = { first = 15107, source = 36, class = "SHAMAN" }, -- Windwall Totem
     [15111] = { first = 15107, source = 46, class = "SHAMAN" }, -- Windwall Totem
     [15112] = { first = 15107, source = 56, class = "SHAMAN" }, -- Windwall Totem
-    [17354] = { first = 17354, source = 48, class = "SHAMAN" }, -- Mana Tide Totem
-    [17359] = { first = 17354, source = 58, class = "SHAMAN" }, -- Mana Tide Totem
+    [16190] = { first = 16190, source = 0, class = "SHAMAN" }, -- Mana Tide Totem (talent spells)
+    [17354] = { first = 16190, source = 48, class = "SHAMAN" }, -- Mana Tide Totem
+    [17359] = { first = 16190, source = 58, class = "SHAMAN" }, -- Mana Tide Totem
     [20608] = { first = 20608, source = 30, class = "SHAMAN" }, -- Reincarnation
     [36936] = { first = 36936, source = 20, class = "SHAMAN" }, -- Totemic Recall
     [66842] = { first = 66842, source = 20, class = "SHAMAN" }, -- Call of the Elements
@@ -1158,14 +1116,13 @@ Probe.Spells = {
     [408343] = { first = 408341, source = 32, class = "SHAMAN" }, -- Fire Nova
     [408344] = { first = 408341, source = 42, class = "SHAMAN" }, -- Fire Nova
     [408345] = { first = 408341, source = 52, class = "SHAMAN" }, -- Fire Nova
-    [408491] = { first = 408491, source = 40, class = "SHAMAN" }, -- Lava Burst
-    [1238299] = { first = 408491, source = 50, class = "SHAMAN" }, -- Lava Burst
-    [1238373] = { first = 408491, source = 50, class = "SHAMAN" }, -- Lava Burst
-    [1238300] = { first = 408491, source = 60, class = "SHAMAN" }, -- Lava Burst
-    [1238376] = { first = 408491, source = 60, class = "SHAMAN" }, -- Lava Burst
+    [408490] = { first = 408490, source = 0, class = "SHAMAN" }, -- Lava Burst (talent spells)
+    [1238299] = { first = 408490, source = 50, class = "SHAMAN" }, -- Lava Burst
+    [1238300] = { first = 408490, source = 60, class = "SHAMAN" }, -- Lava Burst
+    [408521] = { first = 408521, source = 0, class = "SHAMAN" }, -- Riptide (talent spells)
+    [1239242] = { first = 408521, source = 50, class = "SHAMAN" }, -- Riptide
+    [1239243] = { first = 408521, source = 60, class = "SHAMAN" }, -- Riptide
     [437009] = { first = 437009, source = 22, class = "SHAMAN" }, -- Totemic Projection
-    [1239242] = { first = 1239242, source = 50, class = "SHAMAN" }, -- Riptide
-    [1239243] = { first = 1239242, source = 60, class = "SHAMAN" }, -- Riptide
     -- MAGE
     [10] = { first = 10, source = 20, class = "MAGE" }, -- Blizzard
     [6141] = { first = 10, source = 28, class = "MAGE" }, -- Blizzard
@@ -1188,8 +1145,6 @@ Probe.Spells = {
     [12824] = { first = 118, source = 20, class = "MAGE" }, -- Polymorph
     [12825] = { first = 118, source = 40, class = "MAGE" }, -- Polymorph
     [12826] = { first = 118, source = 60, class = "MAGE" }, -- Polymorph
-    [28271] = { first = 118, source = 60, class = "MAGE" }, -- Polymorph
-    [28272] = { first = 118, source = 60, class = "MAGE" }, -- Polymorph
     [120] = { first = 120, source = 26, class = "MAGE" }, -- Cone of Cold
     [8492] = { first = 120, source = 34, class = "MAGE" }, -- Cone of Cold
     [10159] = { first = 120, source = 42, class = "MAGE" }, -- Cone of Cold
@@ -1263,19 +1218,12 @@ Probe.Spells = {
     [10215] = { first = 2120, source = 48, class = "MAGE" }, -- Flamestrike
     [10216] = { first = 2120, source = 56, class = "MAGE" }, -- Flamestrike
     [2136] = { first = 2136, source = 6, class = "MAGE" }, -- Fire Blast
-    [400618] = { first = 2136, source = 6, class = "MAGE" }, -- Fire Blast
     [2137] = { first = 2136, source = 14, class = "MAGE" }, -- Fire Blast
-    [400619] = { first = 2136, source = 14, class = "MAGE" }, -- Fire Blast
     [2138] = { first = 2136, source = 22, class = "MAGE" }, -- Fire Blast
-    [400616] = { first = 2136, source = 22, class = "MAGE" }, -- Fire Blast
     [8412] = { first = 2136, source = 30, class = "MAGE" }, -- Fire Blast
-    [400620] = { first = 2136, source = 30, class = "MAGE" }, -- Fire Blast
     [8413] = { first = 2136, source = 38, class = "MAGE" }, -- Fire Blast
-    [400621] = { first = 2136, source = 38, class = "MAGE" }, -- Fire Blast
     [10197] = { first = 2136, source = 46, class = "MAGE" }, -- Fire Blast
-    [400622] = { first = 2136, source = 46, class = "MAGE" }, -- Fire Blast
     [10199] = { first = 2136, source = 54, class = "MAGE" }, -- Fire Blast
-    [400623] = { first = 2136, source = 54, class = "MAGE" }, -- Fire Blast
     [2139] = { first = 2139, source = 24, class = "MAGE" }, -- Counterspell
     [2948] = { first = 2948, source = 22, class = "MAGE" }, -- Scorch
     [8444] = { first = 2948, source = 28, class = "MAGE" }, -- Scorch
@@ -1322,42 +1270,47 @@ Probe.Spells = {
     [10053] = { first = 10053, source = 48, class = "MAGE" }, -- Conjure Mana Citrine
     [10054] = { first = 10054, source = 58, class = "MAGE" }, -- Conjure Mana Ruby
     [10059] = { first = 10059, source = 40, class = "MAGE" }, -- Portal: Stormwind
+    [11113] = { first = 11113, source = 0, class = "MAGE" }, -- Blast Wave (talent spells)
+    [13018] = { first = 11113, source = 36, class = "MAGE" }, -- Blast Wave
+    [13019] = { first = 11113, source = 44, class = "MAGE" }, -- Blast Wave
+    [13020] = { first = 11113, source = 52, class = "MAGE" }, -- Blast Wave
+    [13021] = { first = 11113, source = 60, class = "MAGE" }, -- Blast Wave
+    [11366] = { first = 11366, source = 0, class = "MAGE" }, -- Pyroblast (talent spells)
+    [12505] = { first = 11366, source = 24, class = "MAGE" }, -- Pyroblast
+    [12522] = { first = 11366, source = 30, class = "MAGE" }, -- Pyroblast
+    [12523] = { first = 11366, source = 36, class = "MAGE" }, -- Pyroblast
+    [12524] = { first = 11366, source = 42, class = "MAGE" }, -- Pyroblast
+    [12525] = { first = 11366, source = 48, class = "MAGE" }, -- Pyroblast
+    [12526] = { first = 11366, source = 54, class = "MAGE" }, -- Pyroblast
+    [18809] = { first = 11366, source = 60, class = "MAGE" }, -- Pyroblast
     [11416] = { first = 11416, source = 40, class = "MAGE" }, -- Portal: Ironforge
     [11417] = { first = 11417, source = 40, class = "MAGE" }, -- Portal: Orgrimmar
     [11418] = { first = 11418, source = 40, class = "MAGE" }, -- Portal: Undercity
     [11419] = { first = 11419, source = 50, class = "MAGE" }, -- Portal: Darnassus
     [11420] = { first = 11420, source = 50, class = "MAGE" }, -- Portal: Thunder Bluff
+    [11426] = { first = 11426, source = 0, class = "MAGE" }, -- Ice Barrier (talent spells)
+    [13031] = { first = 11426, source = 46, class = "MAGE" }, -- Ice Barrier
+    [13032] = { first = 11426, source = 52, class = "MAGE" }, -- Ice Barrier
+    [13033] = { first = 11426, source = 58, class = "MAGE" }, -- Ice Barrier
     [12051] = { first = 12051, source = 20, class = "MAGE" }, -- Evocation
-    [12505] = { first = 12505, source = 24, class = "MAGE" }, -- Pyroblast
-    [12522] = { first = 12505, source = 30, class = "MAGE" }, -- Pyroblast
-    [12523] = { first = 12505, source = 36, class = "MAGE" }, -- Pyroblast
-    [12524] = { first = 12505, source = 42, class = "MAGE" }, -- Pyroblast
-    [12525] = { first = 12505, source = 48, class = "MAGE" }, -- Pyroblast
-    [12526] = { first = 12505, source = 54, class = "MAGE" }, -- Pyroblast
-    [18809] = { first = 12505, source = 60, class = "MAGE" }, -- Pyroblast
-    [13018] = { first = 13018, source = 36, class = "MAGE" }, -- Blast Wave
-    [13019] = { first = 13018, source = 44, class = "MAGE" }, -- Blast Wave
-    [13020] = { first = 13018, source = 52, class = "MAGE" }, -- Blast Wave
-    [13021] = { first = 13018, source = 60, class = "MAGE" }, -- Blast Wave
-    [13031] = { first = 13031, source = 46, class = "MAGE" }, -- Ice Barrier
-    [13032] = { first = 13031, source = 52, class = "MAGE" }, -- Ice Barrier
-    [13033] = { first = 13031, source = 58, class = "MAGE" }, -- Ice Barrier
     [23028] = { first = 23028, source = 56, class = "MAGE" }, -- Arcane Brilliance
     [28270] = { first = 28270, source = 60, class = "MAGE" }, -- Polymorph: Cow
-    [400640] = { first = 400640, source = 28, class = "MAGE" }, -- Ice Lance
-    [1240044] = { first = 400640, source = 34, class = "MAGE" }, -- Ice Lance
-    [1240045] = { first = 400640, source = 42, class = "MAGE" }, -- Ice Lance
-    [1240046] = { first = 400640, source = 48, class = "MAGE" }, -- Ice Lance
-    [1240047] = { first = 400640, source = 56, class = "MAGE" }, -- Ice Lance
+    [400574] = { first = 400574, source = 0, class = "MAGE" }, -- Arcane Blast (talent spells)
+    [1239696] = { first = 400574, source = 30, class = "MAGE" }, -- Arcane Blast
+    [1239697] = { first = 400574, source = 40, class = "MAGE" }, -- Arcane Blast
+    [1239699] = { first = 400574, source = 50, class = "MAGE" }, -- Arcane Blast
+    [1239700] = { first = 400574, source = 60, class = "MAGE" }, -- Arcane Blast
     [401502] = { first = 401502, source = 40, class = "MAGE" }, -- Frostfire Bolt
     [1237312] = { first = 401502, source = 50, class = "MAGE" }, -- Frostfire Bolt
     [1237313] = { first = 401502, source = 60, class = "MAGE" }, -- Frostfire Bolt
-    [1239696] = { first = 1239696, source = 30, class = "MAGE" }, -- Arcane Blast
-    [1239697] = { first = 1239696, source = 40, class = "MAGE" }, -- Arcane Blast
-    [1239699] = { first = 1239696, source = 50, class = "MAGE" }, -- Arcane Blast
-    [1239700] = { first = 1239696, source = 60, class = "MAGE" }, -- Arcane Blast
     [1296017] = { first = 1296017, source = 0, class = "MAGE" }, -- Comprehend Scroll (trainer Magis Sparkmantle)
     [1297659] = { first = 1297659, source = 50, class = "MAGE" }, -- Teleport: Dalaran
+    [1312002] = { first = 1312002, source = 0, class = "MAGE" }, -- Ice Lance (talent spells)
+    [400640] = { first = 1312002, source = 28, class = "MAGE" }, -- Ice Lance
+    [1240044] = { first = 1312002, source = 34, class = "MAGE" }, -- Ice Lance
+    [1240045] = { first = 1312002, source = 42, class = "MAGE" }, -- Ice Lance
+    [1240046] = { first = 1312002, source = 48, class = "MAGE" }, -- Ice Lance
+    [1240047] = { first = 1312002, source = 56, class = "MAGE" }, -- Ice Lance
     -- WARLOCK
     [126] = { first = 126, source = 22, class = "WARLOCK" }, -- Eye of Kilrogg
     [132] = { first = 132, source = 26, class = "WARLOCK" }, -- Detect Invisibility
@@ -1393,17 +1346,11 @@ Probe.Spells = {
     [696] = { first = 687, source = 10, class = "WARLOCK" }, -- Demon Skin
     [688] = { first = 688, source = 1, class = "WARLOCK" }, -- Summon Imp (spellbook)
     [689] = { first = 689, source = 14, class = "WARLOCK" }, -- Drain Life
-    [403677] = { first = 689, source = 14, class = "WARLOCK" }, -- Drain Life
     [699] = { first = 689, source = 22, class = "WARLOCK" }, -- Drain Life
-    [403685] = { first = 689, source = 22, class = "WARLOCK" }, -- Drain Life
     [709] = { first = 689, source = 30, class = "WARLOCK" }, -- Drain Life
-    [403686] = { first = 689, source = 30, class = "WARLOCK" }, -- Drain Life
     [7651] = { first = 689, source = 38, class = "WARLOCK" }, -- Drain Life
-    [403687] = { first = 689, source = 38, class = "WARLOCK" }, -- Drain Life
     [11699] = { first = 689, source = 46, class = "WARLOCK" }, -- Drain Life
-    [403688] = { first = 689, source = 46, class = "WARLOCK" }, -- Drain Life
     [11700] = { first = 689, source = 54, class = "WARLOCK" }, -- Drain Life
-    [403689] = { first = 689, source = 54, class = "WARLOCK" }, -- Drain Life
     [691] = { first = 691, source = 30, class = "WARLOCK" }, -- Summon Felhunter
     [693] = { first = 693, source = 18, class = "WARLOCK" }, -- Create Soulstone
     [20752] = { first = 693, source = 30, class = "WARLOCK" }, -- Create Soulstone
@@ -1505,27 +1452,31 @@ Probe.Spells = {
     [6789] = { first = 6789, source = 42, class = "WARLOCK" }, -- Death Coil
     [17925] = { first = 6789, source = 50, class = "WARLOCK" }, -- Death Coil
     [17926] = { first = 6789, source = 58, class = "WARLOCK" }, -- Death Coil
+    [17877] = { first = 17877, source = 0, class = "WARLOCK" }, -- Shadowburn (talent spells)
+    [18867] = { first = 17877, source = 24, class = "WARLOCK" }, -- Shadowburn
+    [18868] = { first = 17877, source = 32, class = "WARLOCK" }, -- Shadowburn
+    [18869] = { first = 17877, source = 40, class = "WARLOCK" }, -- Shadowburn
+    [18870] = { first = 17877, source = 48, class = "WARLOCK" }, -- Shadowburn
+    [18871] = { first = 17877, source = 56, class = "WARLOCK" }, -- Shadowburn
+    [18265] = { first = 18265, source = 0, class = "WARLOCK" }, -- Siphon Life (talent spells)
+    [18879] = { first = 18265, source = 38, class = "WARLOCK" }, -- Siphon Life
+    [18880] = { first = 18265, source = 48, class = "WARLOCK" }, -- Siphon Life
+    [18881] = { first = 18265, source = 58, class = "WARLOCK" }, -- Siphon Life
     [18540] = { first = 18540, source = 60, class = "WARLOCK" }, -- Ritual of Doom
-    [18867] = { first = 18867, source = 24, class = "WARLOCK" }, -- Shadowburn
-    [18868] = { first = 18867, source = 32, class = "WARLOCK" }, -- Shadowburn
-    [18869] = { first = 18867, source = 40, class = "WARLOCK" }, -- Shadowburn
-    [18870] = { first = 18867, source = 48, class = "WARLOCK" }, -- Shadowburn
-    [18871] = { first = 18867, source = 56, class = "WARLOCK" }, -- Shadowburn
-    [18879] = { first = 18879, source = 38, class = "WARLOCK" }, -- Siphon Life
-    [18880] = { first = 18879, source = 48, class = "WARLOCK" }, -- Siphon Life
-    [18881] = { first = 18879, source = 58, class = "WARLOCK" }, -- Siphon Life
+    [412758] = { first = 412758, source = 0, class = "WARLOCK" }, -- Incinerate (talent spells)
+    [1293812] = { first = 412758, source = 50, class = "WARLOCK" }, -- Incinerate
+    [1293813] = { first = 412758, source = 60, class = "WARLOCK" }, -- Incinerate
     [437169] = { first = 437169, source = 60, class = "WARLOCK" }, -- Portal of Summoning
     [440892] = { first = 440892, source = 20, class = "WARLOCK" }, -- Curse of the Elements
     [1311676] = { first = 440892, source = 30, class = "WARLOCK" }, -- Curse of the Elements
     [1311677] = { first = 440892, source = 40, class = "WARLOCK" }, -- Curse of the Elements
     [1311680] = { first = 440892, source = 50, class = "WARLOCK" }, -- Curse of the Elements
-    [1293812] = { first = 1293812, source = 50, class = "WARLOCK" }, -- Incinerate
-    [1293813] = { first = 1293812, source = 60, class = "WARLOCK" }, -- Incinerate
-    [1293818] = { first = 1293818, source = 32, class = "WARLOCK" }, -- Conflagrate
-    [17962] = { first = 1293818, source = 40, class = "WARLOCK" }, -- Conflagrate
-    [18930] = { first = 1293818, source = 48, class = "WARLOCK" }, -- Conflagrate
-    [18931] = { first = 1293818, source = 54, class = "WARLOCK" }, -- Conflagrate
-    [18932] = { first = 1293818, source = 60, class = "WARLOCK" }, -- Conflagrate
+    [1293817] = { first = 1293817, source = 0, class = "WARLOCK" }, -- Conflagrate (talent spells)
+    [1293818] = { first = 1293817, source = 32, class = "WARLOCK" }, -- Conflagrate
+    [17962] = { first = 1293817, source = 40, class = "WARLOCK" }, -- Conflagrate
+    [18930] = { first = 1293817, source = 48, class = "WARLOCK" }, -- Conflagrate
+    [18931] = { first = 1293817, source = 54, class = "WARLOCK" }, -- Conflagrate
+    [18932] = { first = 1293817, source = 60, class = "WARLOCK" }, -- Conflagrate
     [2947] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
     [8316] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
     [8317] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
@@ -1713,6 +1664,11 @@ Probe.Spells = {
     [5225] = { first = 5225, source = 32, class = "DRUID" }, -- Track Humanoids
     [5229] = { first = 5229, source = 12, class = "DRUID" }, -- Enrage
     [5487] = { first = 5487, source = 10, class = "DRUID" }, -- Bear Form
+    [5570] = { first = 5570, source = 0, class = "DRUID" }, -- Insect Swarm (talent spells)
+    [24974] = { first = 5570, source = 30, class = "DRUID" }, -- Insect Swarm
+    [24975] = { first = 5570, source = 40, class = "DRUID" }, -- Insect Swarm
+    [24976] = { first = 5570, source = 50, class = "DRUID" }, -- Insect Swarm
+    [24977] = { first = 5570, source = 60, class = "DRUID" }, -- Insect Swarm
     [6785] = { first = 6785, source = 32, class = "DRUID" }, -- Ravage
     [6787] = { first = 6785, source = 42, class = "DRUID" }, -- Ravage
     [9866] = { first = 6785, source = 50, class = "DRUID" }, -- Ravage
@@ -1779,11 +1735,14 @@ Probe.Spells = {
     [31018] = { first = 22568, source = 60, class = "DRUID" }, -- Ferocious Bite
     [22812] = { first = 22812, source = 44, class = "DRUID" }, -- Barkskin
     [22842] = { first = 22842, source = 36, class = "DRUID" }, -- Frenzied Regeneration
-    [24974] = { first = 24974, source = 30, class = "DRUID" }, -- Insect Swarm
-    [24975] = { first = 24974, source = 40, class = "DRUID" }, -- Insect Swarm
-    [24976] = { first = 24974, source = 50, class = "DRUID" }, -- Insect Swarm
-    [24977] = { first = 24974, source = 60, class = "DRUID" }, -- Insect Swarm
     [29166] = { first = 29166, source = 40, class = "DRUID" }, -- Innervate
+    [407995] = { first = 407995, source = 0, class = "DRUID" }, -- Primal Bite (talent spells)
+    [1238069] = { first = 407995, source = 36, class = "DRUID" }, -- Primal Bite
+    [1238070] = { first = 407995, source = 48, class = "DRUID" }, -- Primal Bite
+    [1238073] = { first = 407995, source = 60, class = "DRUID" }, -- Primal Bite
+    [408120] = { first = 408120, source = 0, class = "DRUID" }, -- Wild Growth (talent spells)
+    [1238214] = { first = 408120, source = 50, class = "DRUID" }, -- Wild Growth
+    [1238215] = { first = 408120, source = 60, class = "DRUID" }, -- Wild Growth
     [414644] = { first = 414644, source = 42, class = "DRUID" }, -- Lacerate
     [1235826] = { first = 414644, source = 50, class = "DRUID" }, -- Lacerate
     [1235827] = { first = 414644, source = 58, class = "DRUID" }, -- Lacerate
@@ -1792,11 +1751,6 @@ Probe.Spells = {
     [1237949] = { first = 437138, source = 36, class = "DRUID" }, -- Revive
     [1237950] = { first = 437138, source = 48, class = "DRUID" }, -- Revive
     [1237951] = { first = 437138, source = 60, class = "DRUID" }, -- Revive
-    [1238069] = { first = 1238069, source = 36, class = "DRUID" }, -- Primal Bite
-    [1238070] = { first = 1238069, source = 48, class = "DRUID" }, -- Primal Bite
-    [1238073] = { first = 1238069, source = 60, class = "DRUID" }, -- Primal Bite
-    [1238214] = { first = 1238214, source = 50, class = "DRUID" }, -- Wild Growth
-    [1238215] = { first = 1238214, source = 60, class = "DRUID" }, -- Wild Growth
     -- every class's, the professions'
     [2259] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
     [3101] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
