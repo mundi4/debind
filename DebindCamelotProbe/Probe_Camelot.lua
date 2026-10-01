@@ -1020,36 +1020,30 @@ frame:SetScript("OnEvent", function(_, event, ...)
 end);
 
 --- **Every spell of `ClassSpells.lua` put to the client**: its name here and whether it is passive,
---- with the value it came with (a level, or where it comes from), under
+--- with what it came with (its first rank, its level or where it comes from, its class), under
 --- `DebindCamelotProbeDB.classSpells`. That record is all `tools/build-camelot-class-spells.js` reads
---- to write the release list (2026-10-01, owner), so a passive is judged once, by the client, and
---- never in the release code. The professions' spells go there too, under `class = "profession"`.
+--- to write the release table (2026-10-01, owner), so a passive is judged once, by the client, and
+--- never in the release code.
 ---
 --- **Any class, any character**: the questions are about spell data and not about who asks, which
 --- `IsSpellPassive` answering for spells nobody has learned showed (measured 2026-10-01). Each run
 --- replaces the last.
 local function MeasureClassSpells()
     local spells, count, passives, missing = {}, 0, 0, 0;
-    local lists = {};
-    for classFile, list in pairs(Probe.ClassSpells or {}) do
-        lists[classFile] = list;
-    end
-    lists.profession = Probe.ProfessionSpells;
-    for classFile, list in pairs(lists) do
-        for spellID, level in pairs(list) do
-            local name = C_Spell.GetSpellName(spellID);
-            local passive = name and C_Spell.IsSpellPassive(spellID) or false;
-            spells[spellID] = { class = classFile, level = level, name = name or false, passive = passive };
-            count = count + 1;
-            if (not name) then
-                missing = missing + 1;
-            elseif (passive) then
-                passives = passives + 1;
-            end
+    for spellID, entry in pairs(Probe.Spells or {}) do
+        local name = C_Spell.GetSpellName(spellID);
+        local passive = name and C_Spell.IsSpellPassive(spellID) or false;
+        spells[spellID] = { first = entry.first, source = entry.source, class = entry.class or false,
+            name = name or false, passive = passive };
+        count = count + 1;
+        if (not name) then
+            missing = missing + 1;
+        elseif (passive) then
+            passives = passives + 1;
         end
     end
-    Store().classSpells = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), spells = spells };
-    print(format("camelot probe: %d class and profession spells asked, %d passive, %d unknown to this client. /reload to save.",
+    Store().classSpells = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), version = 2, spells = spells };
+    print(format("camelot probe: %d spells asked, %d passive, %d unknown to this client. /reload to save.",
         count, passives, missing));
 end
 

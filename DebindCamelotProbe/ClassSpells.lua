@@ -4,488 +4,1694 @@ local _, Probe = ...;
 --- Fetched 2026-10-01 from wowhead.com/forever/spells/abilities/<class>, the
 --- pages its books' learning spells have there, and wowhead.com/forever/spells/<profession>.
 ---
---- `[classFile] = { [spellID] = level required }`, one id per name, "pet" in a level's place for a
---- pet's: what `/camelotprobe classspells` asks the client about, and carries into its record for
---- the release list to be built from.
-Probe.ClassSpells = {
-    WARRIOR = {
-        [461475] = 2, -- Valor of Azeroth
-        [100] = 4, -- Charge
-        [772] = 4, -- Rend
-        [6343] = 6, -- Thunder Clap
-        [1715] = 8, -- Hamstring
-        [284] = 8, -- Heroic Strike
-        [2687] = 10, -- Bloodrage
-        [71] = 10, -- Defensive Stance
-        [7386] = 10, -- Sunder Armor
-        [355] = 10, -- Taunt
-        [5242] = 12, -- Battle Shout
-        [7384] = 12, -- Overpower
-        [72] = 12, -- Shield Bash
-        [1160] = 14, -- Demoralizing Shout
-        [6572] = 14, -- Revenge
-        [1310185] = 14, -- Tactical Mastery
-        [694] = 16, -- Mocking Blow
-        [2565] = 16, -- Shield Block
-        [676] = 18, -- Disarm
-        [845] = 20, -- Cleave
-        [20230] = 20, -- Retaliation
-        [1240193] = 20, -- Slam
-        [402927] = 20, -- Victory Rush
-        [5246] = 22, -- Intimidating Shout
-        [5308] = 24, -- Execute
-        [1161] = 26, -- Challenging Shout
-        [871] = 28, -- Shield Wall
-        [2458] = 30, -- Berserker Stance
-        [20252] = 30, -- Intercept
-        [18499] = 32, -- Berserker Rage
-        [1680] = 36, -- Whirlwind
-        [6552] = 38, -- Pummel
-        [23892] = 48, -- Bloodthirst
-        [21551] = 48, -- Mortal Strike
-        [23923] = 48, -- Shield Slam
-        [1719] = 50, -- Recklessness
-    },
-    PALADIN = {
-        [19740] = 4, -- Blessing of Might
-        [20271] = 4, -- Judgement
-        [498] = 6, -- Divine Protection
-        [639] = 6, -- Holy Light
-        [679] = 6, -- Holy Strike
-        [21082] = 6, -- Seal of the Crusader
-        [853] = 8, -- Hammer of Justice
-        [1152] = 8, -- Purify
-        [1022] = 10, -- Blessing of Protection
-        [10290] = 10, -- Devotion Aura
-        [633] = 10, -- Lay on Hands
-        [1311649] = 10, -- Seal of Fury
-        [20287] = 10, -- Seal of Righteousness
-        [7328] = 12, -- Redemption
-        [19742] = 14, -- Blessing of Wisdom
-        [7294] = 16, -- Retribution Aura
-        [25780] = 16, -- Righteous Fury
-        [1044] = 18, -- Blessing of Freedom
-        [20217] = 20, -- Blessing of Kings
-        [26573] = 20, -- Consecration
-        [879] = 20, -- Exorcism
-        [19750] = 20, -- Flash of Light
-        [5502] = 20, -- Sense Undead
-        [19746] = 22, -- Concentration Aura
-        [20164] = 22, -- Seal of Justice
-        [2878] = 24, -- Turn Undead
-        [20183] = 25, -- Judgement of Fury
-        [1038] = 26, -- Blessing of Salvation
-        [19876] = 28, -- Shadow Resistance Aura
-        [19752] = 30, -- Divine Intervention
-        [20915] = 30, -- Seal of Command
-        [20165] = 30, -- Seal of Light
-        [19888] = 32, -- Frost Resistance Aura
-        [642] = 34, -- Divine Shield
-        [19891] = 36, -- Fire Resistance Aura
-        [20166] = 38, -- Seal of Wisdom
-        [19977] = 40, -- Blessing of Light
-        [20473] = 40, -- Holy Shock
-        [4987] = 42, -- Cleanse
-        [24275] = 44, -- Hammer of Wrath
-        [6940] = 46, -- Blessing of Sacrifice
-        [20927] = 50, -- Holy Shield
-        [2812] = 50, -- Holy Wrath
-        [1311590] = 50, -- Light's Vigil
-        [25782] = 52, -- Greater Blessing of Might
-        [25894] = 54, -- Greater Blessing of Wisdom
-        [25898] = 60, -- Greater Blessing of Kings
-        [25890] = 60, -- Greater Blessing of Light
-        [25895] = 60, -- Greater Blessing of Salvation
-    },
-    HUNTER = {
-        [13163] = 4, -- Aspect of the Monkey
-        [1978] = 4, -- Serpent Sting
-        [3044] = 6, -- Arcane Shot
-        [1130] = 6, -- Hunter's Mark
-        [5116] = 8, -- Concussive Shot
-        [14260] = 8, -- Raptor Strike
-        [13165] = 10, -- Aspect of the Hawk
-        [883] = 10, -- Call Pet
-        [2641] = 10, -- Dismiss Pet
-        [6991] = 10, -- Feed Pet
-        [982] = 10, -- Revive Pet
-        [1515] = 10, -- Tame Beast
-        [19883] = 10, -- Track Humanoids
-        [20736] = 12, -- Distracting Shot
-        [136] = 12, -- Mend Pet
-        [2974] = 12, -- Wing Clip
-        [6197] = 14, -- Eagle Eye
-        [1002] = 14, -- Eyes of the Beast
-        [1513] = 14, -- Scare Beast
-        [13795] = 16, -- Immolation Trap
-        [1495] = 16, -- Mongoose Bite
-        [2643] = 18, -- Multi-Shot
-        [19884] = 18, -- Track Undead
-        [19434] = 20, -- Aimed Shot
-        [5118] = 20, -- Aspect of the Cheetah
-        [781] = 20, -- Disengage
-        [1499] = 20, -- Freezing Trap
-        [3043] = 22, -- Scorpid Sting
-        [1462] = 24, -- Beast Lore
-        [19885] = 24, -- Track Hidden
-        [3045] = 26, -- Rapid Fire
-        [19880] = 26, -- Track Elementals
-        [13809] = 28, -- Frost Trap
-        [13161] = 30, -- Aspect of the Beast
-        [1242634] = 30, -- Counterattack
-        [5384] = 30, -- Feign Death
-        [24118] = 30, -- Lacerate
-        [1221404] = 32, -- Enchanted Flare
-        [1543] = 32, -- Flare
-        [19878] = 32, -- Track Demons
-        [1299348] = 32, -- Trueshot Aura
-        [13813] = 34, -- Explosive Trap
-        [1293525] = 36, -- Summon Hawk
-        [3034] = 36, -- Viper Sting
-        [13159] = 40, -- Aspect of the Pack
-        [19882] = 40, -- Track Giants
-        [1510] = 40, -- Volley
-        [20043] = 46, -- Aspect of the Wild
-        [1310785] = 48, -- Sniper Shot
-        [19879] = 50, -- Track Dragonkin
-        [19801] = 60, -- Tranquilizing Shot
-    },
-    ROGUE = {
-        [53] = 4, -- Backstab
-        [921] = 4, -- Pick Pocket
-        [1776] = 6, -- Gouge
-        [1757] = 6, -- Sinister Strike
-        [5277] = 8, -- Evasion
-        [6760] = 8, -- Eviscerate
-        [6770] = 10, -- Sap
-        [5171] = 10, -- Slice and Dice
-        [2983] = 10, -- Sprint
-        [1766] = 12, -- Kick
-        [8647] = 14, -- Expose Armor
-        [703] = 14, -- Garrote
-        [1966] = 16, -- Feint
-        [8676] = 18, -- Ambush
-        [1943] = 20, -- Rupture
-        [1785] = 20, -- Stealth
-        [1725] = 22, -- Distract
-        [1856] = 22, -- Vanish
-        [2836] = 24, -- Detect Traps
-        [1833] = 26, -- Cheap Shot
-        [1310709] = 30, -- Coup de Grace
-        [1842] = 30, -- Disarm Trap
-        [408] = 30, -- Kidney Shot
-        [1310705] = 30, -- Mutilate
-        [2094] = 34, -- Blind
-        [1860] = 40, -- Safe Fall
-    },
-    PRIEST = {
-        [2052] = 4, -- Lesser Heal
-        [589] = 4, -- Shadow Word: Pain
-        [17] = 6, -- Power Word: Shield
-        [591] = 6, -- Smite
-        [586] = 8, -- Fade
-        [139] = 8, -- Renew
-        [1277455] = 10, -- Confounding Flash
-        [13908] = 10, -- Desperate Prayer
-        [1277370] = 10, -- Divine Grace
-        [9035] = 10, -- Hex of Weakness
-        [8092] = 10, -- Mind Blast
-        [2006] = 10, -- Resurrection
-        [10797] = 10, -- Starshards
-        [2652] = 10, -- Touch of Weakness
-        [588] = 12, -- Inner Fire
-        [1244] = 12, -- Power Word: Fortitude
-        [528] = 14, -- Cure Disease
-        [8122] = 14, -- Psychic Scream
-        [2054] = 16, -- Heal
-        [527] = 18, -- Dispel Magic
-        [1277331] = 20, -- Chastise
-        [1277462] = 20, -- Contingency Plan
-        [1277324] = 20, -- Dark Sacrifice
-        [2944] = 20, -- Devouring Plague
-        [2651] = 20, -- Elune's Grace
-        [6346] = 20, -- Fear Ward
-        [13896] = 20, -- Feedback
-        [2061] = 20, -- Flash Heal
-        [14914] = 20, -- Holy Fire
-        [453] = 20, -- Mind Soothe
-        [9484] = 20, -- Shackle Undead
-        [18137] = 20, -- Shadowguard
-        [2096] = 22, -- Mind Vision
-        [8129] = 24, -- Mana Burn
-        [15430] = 28, -- Holy Nova
-        [17311] = 28, -- Mind Flay
-        [14752] = 30, -- Divine Spirit
-        [605] = 30, -- Mind Control
-        [402284] = 30, -- Penance
-        [596] = 30, -- Prayer of Healing
-        [976] = 30, -- Shadow Protection
-        [552] = 32, -- Abolish Disease
-        [1240770] = 32, -- Binding Heal
-        [1309595] = 32, -- Shadow Word: Death
-        [1706] = 34, -- Levitate
-        [2060] = 40, -- Greater Heal
-        [724] = 40, -- Lightwell
-        [401863] = 40, -- Prayer of Mending
-        [21562] = 48, -- Prayer of Fortitude
-        [27683] = 56, -- Prayer of Shadow Protection
-        [27681] = 60, -- Prayer of Spirit
-    },
-    SHAMAN = {
-        [8042] = 4, -- Earth Shock
-        [8071] = 4, -- Stoneskin Totem
-        [2484] = 6, -- Earthbind Totem
-        [332] = 6, -- Healing Wave
-        [529] = 8, -- Lightning Bolt
-        [324] = 8, -- Lightning Shield
-        [8018] = 8, -- Rockbiter Weapon
-        [5730] = 8, -- Stoneclaw Totem
-        [8050] = 10, -- Flame Shock
-        [8024] = 10, -- Flametongue Weapon
-        [3599] = 10, -- Searing Totem
-        [8075] = 10, -- Strength of Earth Totem
-        [2008] = 12, -- Ancestral Spirit
-        [408341] = 12, -- Fire Nova
-        [370] = 12, -- Purge
-        [526] = 16, -- Cure Poison
-        [8143] = 18, -- Tremor Totem
-        [66842] = 20, -- Call of the Elements
-        [8056] = 20, -- Frost Shock
-        [8033] = 20, -- Frostbrand Weapon
-        [2645] = 20, -- Ghost Wolf
-        [5394] = 20, -- Healing Stream Totem
-        [8004] = 20, -- Lesser Healing Wave
-        [36936] = 20, -- Totemic Recall
-        [2870] = 22, -- Cure Disease
-        [8166] = 22, -- Poison Cleansing Totem
-        [437009] = 22, -- Totemic Projection
-        [131] = 22, -- Water Breathing
-        [8181] = 24, -- Frost Resistance Totem
-        [6196] = 26, -- Far Sight
-        [8190] = 26, -- Magma Totem
-        [5675] = 26, -- Mana Spring Totem
-        [8184] = 28, -- Fire Resistance Totem
-        [8227] = 28, -- Flametongue Totem
-        [546] = 28, -- Water Walking
-        [556] = 30, -- Astral Recall
-        [66843] = 30, -- Call of the Ancestors
-        [8177] = 30, -- Grounding Totem
-        [10595] = 30, -- Nature Resistance Totem
-        [20608] = 30, -- Reincarnation
-        [8232] = 30, -- Windfury Weapon
-        [421] = 32, -- Chain Lightning
-        [8512] = 32, -- Windfury Totem
-        [6495] = 34, -- Sentry Totem
-        [15107] = 36, -- Windwall Totem
-        [8170] = 38, -- Disease Cleansing Totem
-        [66844] = 40, -- Call of the Spirits
-        [1064] = 40, -- Chain Heal
-        [408491] = 40, -- Lava Burst
-        [8835] = 42, -- Grace of Air Totem
-        [17354] = 48, -- Mana Tide Totem
-        [1239242] = 50, -- Riptide
-    },
-    MAGE = {
-        [5504] = 4, -- Conjure Water
-        [116] = 4, -- Frostbolt
-        [587] = 6, -- Conjure Food
-        [2136] = 6, -- Fire Blast
-        [143] = 6, -- Fireball
-        [5143] = 8, -- Arcane Missiles
-        [118] = 8, -- Polymorph
-        [7300] = 10, -- Frost Armor
-        [122] = 10, -- Frost Nova
-        [604] = 12, -- Dampen Magic
-        [130] = 12, -- Slow Fall
-        [1449] = 14, -- Arcane Explosion
-        [1460] = 14, -- Arcane Intellect
-        [2120] = 16, -- Flamestrike
-        [1008] = 18, -- Amplify Magic
-        [475] = 18, -- Remove Lesser Curse
-        [1953] = 20, -- Blink
-        [10] = 20, -- Blizzard
-        [12051] = 20, -- Evocation
-        [543] = 20, -- Fire Ward
-        [1463] = 20, -- Mana Shield
-        [3562] = 20, -- Teleport: Ironforge
-        [3567] = 20, -- Teleport: Orgrimmar
-        [3561] = 20, -- Teleport: Stormwind
-        [3563] = 20, -- Teleport: Undercity
-        [6143] = 22, -- Frost Ward
-        [2948] = 22, -- Scorch
-        [2139] = 24, -- Counterspell
-        [12505] = 24, -- Pyroblast
-        [120] = 26, -- Cone of Cold
-        [759] = 28, -- Conjure Mana Agate
-        [400640] = 28, -- Ice Lance
-        [1239696] = 30, -- Arcane Blast
-        [7302] = 30, -- Ice Armor
-        [3565] = 30, -- Teleport: Darnassus
-        [3566] = 30, -- Teleport: Thunder Bluff
-        [6117] = 34, -- Mage Armor
-        [13018] = 36, -- Blast Wave
-        [3552] = 38, -- Conjure Mana Jade
-        [401502] = 40, -- Frostfire Bolt
-        [11416] = 40, -- Portal: Ironforge
-        [11417] = 40, -- Portal: Orgrimmar
-        [10059] = 40, -- Portal: Stormwind
-        [11418] = 40, -- Portal: Undercity
-        [13031] = 46, -- Ice Barrier
-        [10053] = 48, -- Conjure Mana Citrine
-        [11419] = 50, -- Portal: Darnassus
-        [11420] = 50, -- Portal: Thunder Bluff
-        [1297659] = 50, -- Teleport: Dalaran
-        [23028] = 56, -- Arcane Brilliance
-        [10054] = 58, -- Conjure Mana Ruby
-        [28270] = 60, -- Polymorph: Cow
-    },
-    WARLOCK = {
-        [172] = 4, -- Corruption
-        [702] = 4, -- Curse of Weakness
-        [1454] = 6, -- Life Tap
-        [695] = 6, -- Shadow Bolt
-        [980] = 8, -- Bane of Agony
-        [5782] = 8, -- Fear
-        [6201] = 10, -- Create Healthstone
-        [696] = 10, -- Demon Skin
-        [1120] = 10, -- Drain Soul
-        [707] = 10, -- Immolate
-        [697] = 10, -- Summon Voidwalker
-        [755] = 12, -- Health Funnel
-        [704] = 14, -- Curse of Recklessness
-        [689] = 14, -- Drain Life
-        [5697] = 16, -- Unending Breath
-        [693] = 18, -- Create Soulstone
-        [5676] = 18, -- Searing Pain
-        [440892] = 20, -- Curse of the Elements
-        [706] = 20, -- Demon Armor
-        [5740] = 20, -- Rain of Fire
-        [698] = 20, -- Ritual of Summoning
-        [713] = 20, -- Summon Incubus
-        [712] = 20, -- Summon Succubus
-        [126] = 22, -- Eye of Kilrogg
-        [5138] = 24, -- Drain Mana
-        [5500] = 24, -- Sense Demons
-        [18867] = 24, -- Shadowburn
-        [1714] = 26, -- Curse of Tongues
-        [132] = 26, -- Detect Invisibility
-        [710] = 28, -- Banish
-        [6366] = 28, -- Create Firestone
-        [1949] = 30, -- Hellfire
-        [1098] = 30, -- Subjugate Demon
-        [691] = 30, -- Summon Felhunter
-        [1293818] = 32, -- Conflagrate
-        [6229] = 32, -- Shadow Ward
-        [2362] = 36, -- Create Spellstone
-        [18879] = 38, -- Siphon Life
-        [5484] = 40, -- Howl of Terror
-        [6789] = 42, -- Death Coil
-        [6353] = 48, -- Soul Fire
-        [1293812] = 50, -- Incinerate
-        [1122] = 50, -- Inferno
-        [603] = 60, -- Bane of Doom
-        [437169] = 60, -- Portal of Summoning
-        [18540] = 60, -- Ritual of Doom
-        [6307] = "pet", -- Blood Pact (Grimoire of Blood Pact (Rank 1))
-        [17767] = "pet", -- Consume Shadows (Grimoire of Consume Shadows (Rank 1))
-        [2947] = "pet", -- Fire Shield (Grimoire of Fire Shield (Rank 1))
-        [7799] = "pet", -- Firebolt (Grimoire of Firebolt (Rank 2))
-        [4511] = "pet", -- Phase Shift (Grimoire of Phase Shift)
-        [7812] = "pet", -- Sacrifice (Grimoire of Sacrifice (Rank 1))
-        [17735] = "pet", -- Suffering (Grimoire of Suffering (Rank 1))
-        [7809] = "pet", -- Torment (Grimoire of Torment (Rank 2))
-    },
-    DRUID = {
-        [8921] = 4, -- Moonfire
-        [774] = 4, -- Rejuvenation
-        [467] = 6, -- Thorns
-        [5177] = 6, -- Wrath
-        [339] = 8, -- Entangling Roots
-        [5186] = 8, -- Healing Touch
-        [5487] = 10, -- Bear Form
-        [99] = 10, -- Demoralizing Roar
-        [6795] = 10, -- Growl
-        [5232] = 10, -- Mark of the Wild
-        [6807] = 10, -- Maul
-        [16689] = 10, -- Nature's Grasp
-        [18960] = 10, -- Teleport: Moonglade
-        [5229] = 12, -- Enrage
-        [8936] = 12, -- Regrowth
-        [437138] = 12, -- Revive
-        [5211] = 14, -- Bash
-        [8946] = 14, -- Cure Poison
-        [1066] = 16, -- Aquatic Form
-        [779] = 16, -- Swipe
-        [770] = 18, -- Faerie Fire
-        [2637] = 18, -- Hibernate
-        [768] = 20, -- Cat Form
-        [1082] = 20, -- Claw
-        [16979] = 20, -- Feral Charge (Bear)
-        [16864] = 20, -- Omen of Clarity
-        [5215] = 20, -- Prowl
-        [20484] = 20, -- Rebirth
-        [1079] = 20, -- Rip
-        [2912] = 20, -- Starfire
-        [5221] = 22, -- Shred
-        [2908] = 22, -- Soothe Animal
-        [1822] = 24, -- Rake
-        [2782] = 24, -- Remove Curse
-        [5217] = 24, -- Tiger's Fury
-        [2893] = 26, -- Abolish Poison
-        [1850] = 26, -- Dash
-        [5209] = 28, -- Challenging Roar
-        [8998] = 28, -- Cower
-        [24974] = 30, -- Insect Swarm
-        [740] = 30, -- Tranquility
-        [783] = 30, -- Travel Form
-        [22568] = 32, -- Ferocious Bite
-        [6785] = 32, -- Ravage
-        [5225] = 32, -- Track Humanoids
-        [22842] = 36, -- Frenzied Regeneration
-        [9005] = 36, -- Pounce
-        [1238069] = 36, -- Primal Bite
-        [9634] = 40, -- Dire Bear Form
-        [20719] = 40, -- Feline Grace
-        [16914] = 40, -- Hurricane
-        [29166] = 40, -- Innervate
-        [414644] = 42, -- Lacerate
-        [22812] = 44, -- Barkskin
-        [21849] = 50, -- Gift of the Wild
-        [1238214] = 50, -- Wild Growth
-    },
-};
-
---- `[spellID] = "profession"`, every class's, asked about the same way.
-Probe.ProfessionSpells = {
-    [2259] = "profession", -- Alchemy (professions/alchemy)
-    [9788] = "profession", -- Armorsmith (professions/blacksmithing)
-    [2018] = "profession", -- Blacksmithing (professions/blacksmithing)
-    [17041] = "profession", -- Master Axesmith (professions/blacksmithing)
-    [17040] = "profession", -- Master Hammersmith (professions/blacksmithing)
-    [17039] = "profession", -- Master Swordsmith (professions/blacksmithing)
-    [9787] = "profession", -- Weaponsmith (professions/blacksmithing)
-    [13262] = "profession", -- Disenchant (professions/enchanting)
-    [7411] = "profession", -- Enchanting (professions/enchanting)
-    [4036] = "profession", -- Engineering (professions/engineering)
-    [20219] = "profession", -- Gnomish Engineer (professions/engineering)
-    [20222] = "profession", -- Goblin Engineer (professions/engineering)
-    [2383] = "profession", -- Find Herbs (professions/herbalism)
-    [1278062] = "profession", -- Gardening (professions/herbalism)
-    [1235236] = "profession", -- Herb Gathering (professions/herbalism)
-    [2366] = "profession", -- Herbalism (professions/herbalism)
-    [10656] = "profession", -- Dragonscale Leatherworking (professions/leatherworking)
-    [10658] = "profession", -- Elemental Leatherworking (professions/leatherworking)
-    [2108] = "profession", -- Leatherworking (professions/leatherworking)
-    [10660] = "profession", -- Tribal Leatherworking (professions/leatherworking)
-    [2580] = "profession", -- Find Minerals (professions/mining)
-    [2575] = "profession", -- Mining (professions/mining)
-    [2656] = "profession", -- Smelting (professions/mining)
-    [8613] = "profession", -- Skinning (professions/skinning)
-    [1278068] = "profession", -- Tanning (professions/skinning)
-    [3908] = "profession", -- Tailoring (professions/tailoring)
-    [2550] = "profession", -- Cooking (secondary-skills/cooking)
-    [3273] = "profession", -- First Aid (secondary-skills/first-aid)
-    [1278067] = "profession", -- Bait and Tackle (secondary-skills/fishing)
-    [43308] = "profession", -- Find Fish (secondary-skills/fishing)
-    [7620] = "profession", -- Fishing (secondary-skills/fishing)
+--- `[spellID] = { first =, source =, class = }`: every rank, the id of its name's first rank, its
+--- level or where it comes from, and its class (none for a profession's). What
+--- `/camelotprobe classspells` asks the client about, and carries into its record for the release
+--- table to be built from.
+Probe.Spells = {
+    -- WARRIOR
+    [71] = { first = 71, source = 10, class = "WARRIOR" }, -- Defensive Stance
+    [72] = { first = 72, source = 12, class = "WARRIOR" }, -- Shield Bash
+    [1671] = { first = 72, source = 32, class = "WARRIOR" }, -- Shield Bash
+    [1672] = { first = 72, source = 52, class = "WARRIOR" }, -- Shield Bash
+    [78] = { first = 78, source = 1, class = "WARRIOR" }, -- Heroic Strike
+    [284] = { first = 78, source = 8, class = "WARRIOR" }, -- Heroic Strike
+    [285] = { first = 78, source = 16, class = "WARRIOR" }, -- Heroic Strike
+    [1608] = { first = 78, source = 24, class = "WARRIOR" }, -- Heroic Strike
+    [11564] = { first = 78, source = 32, class = "WARRIOR" }, -- Heroic Strike
+    [11565] = { first = 78, source = 40, class = "WARRIOR" }, -- Heroic Strike
+    [11566] = { first = 78, source = 48, class = "WARRIOR" }, -- Heroic Strike
+    [11567] = { first = 78, source = 56, class = "WARRIOR" }, -- Heroic Strike
+    [25286] = { first = 78, source = 60, class = "WARRIOR" }, -- Heroic Strike
+    [100] = { first = 100, source = 4, class = "WARRIOR" }, -- Charge
+    [6178] = { first = 100, source = 26, class = "WARRIOR" }, -- Charge
+    [11578] = { first = 100, source = 46, class = "WARRIOR" }, -- Charge
+    [355] = { first = 355, source = 10, class = "WARRIOR" }, -- Taunt
+    [676] = { first = 676, source = 18, class = "WARRIOR" }, -- Disarm
+    [694] = { first = 694, source = 16, class = "WARRIOR" }, -- Mocking Blow
+    [7400] = { first = 694, source = 26, class = "WARRIOR" }, -- Mocking Blow
+    [7402] = { first = 694, source = 36, class = "WARRIOR" }, -- Mocking Blow
+    [20559] = { first = 694, source = 46, class = "WARRIOR" }, -- Mocking Blow
+    [20560] = { first = 694, source = 56, class = "WARRIOR" }, -- Mocking Blow
+    [772] = { first = 772, source = 4, class = "WARRIOR" }, -- Rend
+    [6546] = { first = 772, source = 10, class = "WARRIOR" }, -- Rend
+    [6547] = { first = 772, source = 20, class = "WARRIOR" }, -- Rend
+    [6548] = { first = 772, source = 30, class = "WARRIOR" }, -- Rend
+    [11572] = { first = 772, source = 40, class = "WARRIOR" }, -- Rend
+    [11573] = { first = 772, source = 50, class = "WARRIOR" }, -- Rend
+    [11574] = { first = 772, source = 60, class = "WARRIOR" }, -- Rend
+    [845] = { first = 845, source = 20, class = "WARRIOR" }, -- Cleave
+    [7369] = { first = 845, source = 30, class = "WARRIOR" }, -- Cleave
+    [11608] = { first = 845, source = 40, class = "WARRIOR" }, -- Cleave
+    [11609] = { first = 845, source = 50, class = "WARRIOR" }, -- Cleave
+    [20569] = { first = 845, source = 60, class = "WARRIOR" }, -- Cleave
+    [871] = { first = 871, source = 28, class = "WARRIOR" }, -- Shield Wall
+    [1160] = { first = 1160, source = 14, class = "WARRIOR" }, -- Demoralizing Shout
+    [6190] = { first = 1160, source = 24, class = "WARRIOR" }, -- Demoralizing Shout
+    [11554] = { first = 1160, source = 34, class = "WARRIOR" }, -- Demoralizing Shout
+    [11555] = { first = 1160, source = 44, class = "WARRIOR" }, -- Demoralizing Shout
+    [11556] = { first = 1160, source = 54, class = "WARRIOR" }, -- Demoralizing Shout
+    [1161] = { first = 1161, source = 26, class = "WARRIOR" }, -- Challenging Shout
+    [1680] = { first = 1680, source = 36, class = "WARRIOR" }, -- Whirlwind
+    [1715] = { first = 1715, source = 8, class = "WARRIOR" }, -- Hamstring
+    [7372] = { first = 1715, source = 32, class = "WARRIOR" }, -- Hamstring
+    [7373] = { first = 1715, source = 54, class = "WARRIOR" }, -- Hamstring
+    [1719] = { first = 1719, source = 50, class = "WARRIOR" }, -- Recklessness
+    [2458] = { first = 2458, source = 30, class = "WARRIOR" }, -- Berserker Stance
+    [2565] = { first = 2565, source = 16, class = "WARRIOR" }, -- Shield Block
+    [2687] = { first = 2687, source = 10, class = "WARRIOR" }, -- Bloodrage
+    [5246] = { first = 5246, source = 22, class = "WARRIOR" }, -- Intimidating Shout
+    [5308] = { first = 5308, source = 24, class = "WARRIOR" }, -- Execute
+    [20658] = { first = 5308, source = 32, class = "WARRIOR" }, -- Execute
+    [20660] = { first = 5308, source = 40, class = "WARRIOR" }, -- Execute
+    [20661] = { first = 5308, source = 48, class = "WARRIOR" }, -- Execute
+    [20662] = { first = 5308, source = 56, class = "WARRIOR" }, -- Execute
+    [6343] = { first = 6343, source = 6, class = "WARRIOR" }, -- Thunder Clap
+    [8198] = { first = 6343, source = 18, class = "WARRIOR" }, -- Thunder Clap
+    [8204] = { first = 6343, source = 28, class = "WARRIOR" }, -- Thunder Clap
+    [8205] = { first = 6343, source = 38, class = "WARRIOR" }, -- Thunder Clap
+    [11580] = { first = 6343, source = 48, class = "WARRIOR" }, -- Thunder Clap
+    [11581] = { first = 6343, source = 58, class = "WARRIOR" }, -- Thunder Clap
+    [6552] = { first = 6552, source = 38, class = "WARRIOR" }, -- Pummel
+    [6554] = { first = 6552, source = 58, class = "WARRIOR" }, -- Pummel
+    [6572] = { first = 6572, source = 14, class = "WARRIOR" }, -- Revenge
+    [6574] = { first = 6572, source = 24, class = "WARRIOR" }, -- Revenge
+    [7379] = { first = 6572, source = 34, class = "WARRIOR" }, -- Revenge
+    [11600] = { first = 6572, source = 44, class = "WARRIOR" }, -- Revenge
+    [11601] = { first = 6572, source = 54, class = "WARRIOR" }, -- Revenge
+    [25288] = { first = 6572, source = 60, class = "WARRIOR" }, -- Revenge
+    [6673] = { first = 6673, source = 1, class = "WARRIOR" }, -- Battle Shout
+    [5242] = { first = 6673, source = 12, class = "WARRIOR" }, -- Battle Shout
+    [6192] = { first = 6673, source = 22, class = "WARRIOR" }, -- Battle Shout
+    [11549] = { first = 6673, source = 32, class = "WARRIOR" }, -- Battle Shout
+    [11550] = { first = 6673, source = 42, class = "WARRIOR" }, -- Battle Shout
+    [11551] = { first = 6673, source = 52, class = "WARRIOR" }, -- Battle Shout
+    [25289] = { first = 6673, source = 60, class = "WARRIOR" }, -- Battle Shout
+    [7384] = { first = 7384, source = 12, class = "WARRIOR" }, -- Overpower
+    [7887] = { first = 7384, source = 28, class = "WARRIOR" }, -- Overpower
+    [11584] = { first = 7384, source = 44, class = "WARRIOR" }, -- Overpower
+    [11585] = { first = 7384, source = 60, class = "WARRIOR" }, -- Overpower
+    [7386] = { first = 7386, source = 10, class = "WARRIOR" }, -- Sunder Armor
+    [7405] = { first = 7386, source = 22, class = "WARRIOR" }, -- Sunder Armor
+    [8380] = { first = 7386, source = 34, class = "WARRIOR" }, -- Sunder Armor
+    [11596] = { first = 7386, source = 46, class = "WARRIOR" }, -- Sunder Armor
+    [11597] = { first = 7386, source = 58, class = "WARRIOR" }, -- Sunder Armor
+    [18499] = { first = 18499, source = 32, class = "WARRIOR" }, -- Berserker Rage
+    [20230] = { first = 20230, source = 20, class = "WARRIOR" }, -- Retaliation
+    [20252] = { first = 20252, source = 30, class = "WARRIOR" }, -- Intercept
+    [20616] = { first = 20252, source = 42, class = "WARRIOR" }, -- Intercept
+    [20617] = { first = 20252, source = 52, class = "WARRIOR" }, -- Intercept
+    [21551] = { first = 21551, source = 48, class = "WARRIOR" }, -- Mortal Strike
+    [21552] = { first = 21551, source = 54, class = "WARRIOR" }, -- Mortal Strike
+    [21553] = { first = 21551, source = 60, class = "WARRIOR" }, -- Mortal Strike
+    [23892] = { first = 23892, source = 48, class = "WARRIOR" }, -- Bloodthirst
+    [23893] = { first = 23892, source = 54, class = "WARRIOR" }, -- Bloodthirst
+    [23894] = { first = 23892, source = 60, class = "WARRIOR" }, -- Bloodthirst
+    [23923] = { first = 23923, source = 48, class = "WARRIOR" }, -- Shield Slam
+    [23924] = { first = 23923, source = 54, class = "WARRIOR" }, -- Shield Slam
+    [23925] = { first = 23923, source = 60, class = "WARRIOR" }, -- Shield Slam
+    [402927] = { first = 402927, source = 20, class = "WARRIOR" }, -- Victory Rush
+    [461475] = { first = 461475, source = 2, class = "WARRIOR" }, -- Valor of Azeroth
+    [1240193] = { first = 1240193, source = 20, class = "WARRIOR" }, -- Slam
+    [1464] = { first = 1240193, source = 30, class = "WARRIOR" }, -- Slam
+    [8820] = { first = 1240193, source = 38, class = "WARRIOR" }, -- Slam
+    [11604] = { first = 1240193, source = 46, class = "WARRIOR" }, -- Slam
+    [11605] = { first = 1240193, source = 54, class = "WARRIOR" }, -- Slam
+    [1310185] = { first = 1310185, source = 14, class = "WARRIOR" }, -- Tactical Mastery
+    -- PALADIN
+    [465] = { first = 465, source = 1, class = "PALADIN" }, -- Devotion Aura
+    [10290] = { first = 465, source = 10, class = "PALADIN" }, -- Devotion Aura
+    [643] = { first = 465, source = 20, class = "PALADIN" }, -- Devotion Aura
+    [10291] = { first = 465, source = 30, class = "PALADIN" }, -- Devotion Aura
+    [1032] = { first = 465, source = 40, class = "PALADIN" }, -- Devotion Aura
+    [10292] = { first = 465, source = 50, class = "PALADIN" }, -- Devotion Aura
+    [10293] = { first = 465, source = 60, class = "PALADIN" }, -- Devotion Aura
+    [498] = { first = 498, source = 6, class = "PALADIN" }, -- Divine Protection
+    [5573] = { first = 498, source = 18, class = "PALADIN" }, -- Divine Protection
+    [633] = { first = 633, source = 10, class = "PALADIN" }, -- Lay on Hands
+    [2800] = { first = 633, source = 30, class = "PALADIN" }, -- Lay on Hands
+    [10310] = { first = 633, source = 50, class = "PALADIN" }, -- Lay on Hands
+    [635] = { first = 635, source = 1, class = "PALADIN" }, -- Holy Light
+    [639] = { first = 635, source = 6, class = "PALADIN" }, -- Holy Light
+    [647] = { first = 635, source = 14, class = "PALADIN" }, -- Holy Light
+    [1026] = { first = 635, source = 22, class = "PALADIN" }, -- Holy Light
+    [1042] = { first = 635, source = 30, class = "PALADIN" }, -- Holy Light
+    [1313348] = { first = 635, source = 30, class = "PALADIN" }, -- Holy Light
+    [3472] = { first = 635, source = 38, class = "PALADIN" }, -- Holy Light
+    [1313349] = { first = 635, source = 38, class = "PALADIN" }, -- Holy Light
+    [10328] = { first = 635, source = 46, class = "PALADIN" }, -- Holy Light
+    [1313350] = { first = 635, source = 46, class = "PALADIN" }, -- Holy Light
+    [1313352] = { first = 635, source = 50, class = "PALADIN" }, -- Holy Light
+    [10329] = { first = 635, source = 54, class = "PALADIN" }, -- Holy Light
+    [1313351] = { first = 635, source = 54, class = "PALADIN" }, -- Holy Light
+    [25292] = { first = 635, source = 60, class = "PALADIN" }, -- Holy Light
+    [642] = { first = 642, source = 34, class = "PALADIN" }, -- Divine Shield
+    [1020] = { first = 642, source = 50, class = "PALADIN" }, -- Divine Shield
+    [679] = { first = 679, source = 6, class = "PALADIN" }, -- Holy Strike
+    [678] = { first = 679, source = 12, class = "PALADIN" }, -- Holy Strike
+    [1866] = { first = 679, source = 20, class = "PALADIN" }, -- Holy Strike
+    [680] = { first = 679, source = 28, class = "PALADIN" }, -- Holy Strike
+    [2495] = { first = 679, source = 36, class = "PALADIN" }, -- Holy Strike
+    [5569] = { first = 679, source = 44, class = "PALADIN" }, -- Holy Strike
+    [10332] = { first = 679, source = 52, class = "PALADIN" }, -- Holy Strike
+    [10333] = { first = 679, source = 60, class = "PALADIN" }, -- Holy Strike
+    [853] = { first = 853, source = 8, class = "PALADIN" }, -- Hammer of Justice
+    [5588] = { first = 853, source = 24, class = "PALADIN" }, -- Hammer of Justice
+    [5589] = { first = 853, source = 40, class = "PALADIN" }, -- Hammer of Justice
+    [10308] = { first = 853, source = 54, class = "PALADIN" }, -- Hammer of Justice
+    [879] = { first = 879, source = 20, class = "PALADIN" }, -- Exorcism
+    [415068] = { first = 879, source = 20, class = "PALADIN" }, -- Exorcism
+    [5614] = { first = 879, source = 28, class = "PALADIN" }, -- Exorcism
+    [415069] = { first = 879, source = 28, class = "PALADIN" }, -- Exorcism
+    [5615] = { first = 879, source = 36, class = "PALADIN" }, -- Exorcism
+    [415070] = { first = 879, source = 36, class = "PALADIN" }, -- Exorcism
+    [10312] = { first = 879, source = 44, class = "PALADIN" }, -- Exorcism
+    [415071] = { first = 879, source = 44, class = "PALADIN" }, -- Exorcism
+    [10313] = { first = 879, source = 52, class = "PALADIN" }, -- Exorcism
+    [415072] = { first = 879, source = 52, class = "PALADIN" }, -- Exorcism
+    [10314] = { first = 879, source = 60, class = "PALADIN" }, -- Exorcism
+    [415073] = { first = 879, source = 60, class = "PALADIN" }, -- Exorcism
+    [1022] = { first = 1022, source = 10, class = "PALADIN" }, -- Blessing of Protection
+    [5599] = { first = 1022, source = 24, class = "PALADIN" }, -- Blessing of Protection
+    [10278] = { first = 1022, source = 38, class = "PALADIN" }, -- Blessing of Protection
+    [1038] = { first = 1038, source = 26, class = "PALADIN" }, -- Blessing of Salvation
+    [1044] = { first = 1044, source = 18, class = "PALADIN" }, -- Blessing of Freedom
+    [1152] = { first = 1152, source = 8, class = "PALADIN" }, -- Purify
+    [2812] = { first = 2812, source = 50, class = "PALADIN" }, -- Holy Wrath
+    [10318] = { first = 2812, source = 60, class = "PALADIN" }, -- Holy Wrath
+    [2878] = { first = 2878, source = 24, class = "PALADIN" }, -- Turn Undead
+    [5627] = { first = 2878, source = 38, class = "PALADIN" }, -- Turn Undead
+    [10326] = { first = 2878, source = 52, class = "PALADIN" }, -- Turn Undead
+    [4987] = { first = 4987, source = 42, class = "PALADIN" }, -- Cleanse
+    [5502] = { first = 5502, source = 20, class = "PALADIN" }, -- Sense Undead
+    [6940] = { first = 6940, source = 46, class = "PALADIN" }, -- Blessing of Sacrifice
+    [20729] = { first = 6940, source = 54, class = "PALADIN" }, -- Blessing of Sacrifice
+    [7294] = { first = 7294, source = 16, class = "PALADIN" }, -- Retribution Aura
+    [10298] = { first = 7294, source = 26, class = "PALADIN" }, -- Retribution Aura
+    [10299] = { first = 7294, source = 36, class = "PALADIN" }, -- Retribution Aura
+    [10300] = { first = 7294, source = 46, class = "PALADIN" }, -- Retribution Aura
+    [10301] = { first = 7294, source = 56, class = "PALADIN" }, -- Retribution Aura
+    [7328] = { first = 7328, source = 12, class = "PALADIN" }, -- Redemption
+    [10322] = { first = 7328, source = 24, class = "PALADIN" }, -- Redemption
+    [10324] = { first = 7328, source = 36, class = "PALADIN" }, -- Redemption
+    [20772] = { first = 7328, source = 48, class = "PALADIN" }, -- Redemption
+    [20773] = { first = 7328, source = 60, class = "PALADIN" }, -- Redemption
+    [19740] = { first = 19740, source = 4, class = "PALADIN" }, -- Blessing of Might
+    [19834] = { first = 19740, source = 12, class = "PALADIN" }, -- Blessing of Might
+    [19835] = { first = 19740, source = 22, class = "PALADIN" }, -- Blessing of Might
+    [19836] = { first = 19740, source = 32, class = "PALADIN" }, -- Blessing of Might
+    [19837] = { first = 19740, source = 42, class = "PALADIN" }, -- Blessing of Might
+    [19838] = { first = 19740, source = 52, class = "PALADIN" }, -- Blessing of Might
+    [25291] = { first = 19740, source = 60, class = "PALADIN" }, -- Blessing of Might
+    [19742] = { first = 19742, source = 14, class = "PALADIN" }, -- Blessing of Wisdom
+    [19850] = { first = 19742, source = 24, class = "PALADIN" }, -- Blessing of Wisdom
+    [19852] = { first = 19742, source = 34, class = "PALADIN" }, -- Blessing of Wisdom
+    [19853] = { first = 19742, source = 44, class = "PALADIN" }, -- Blessing of Wisdom
+    [19854] = { first = 19742, source = 54, class = "PALADIN" }, -- Blessing of Wisdom
+    [25290] = { first = 19742, source = 60, class = "PALADIN" }, -- Blessing of Wisdom
+    [19746] = { first = 19746, source = 22, class = "PALADIN" }, -- Concentration Aura
+    [19752] = { first = 19752, source = 30, class = "PALADIN" }, -- Divine Intervention
+    [19876] = { first = 19876, source = 28, class = "PALADIN" }, -- Shadow Resistance Aura
+    [19895] = { first = 19876, source = 40, class = "PALADIN" }, -- Shadow Resistance Aura
+    [19896] = { first = 19876, source = 52, class = "PALADIN" }, -- Shadow Resistance Aura
+    [19888] = { first = 19888, source = 32, class = "PALADIN" }, -- Frost Resistance Aura
+    [19897] = { first = 19888, source = 44, class = "PALADIN" }, -- Frost Resistance Aura
+    [19898] = { first = 19888, source = 56, class = "PALADIN" }, -- Frost Resistance Aura
+    [19891] = { first = 19891, source = 36, class = "PALADIN" }, -- Fire Resistance Aura
+    [19899] = { first = 19891, source = 48, class = "PALADIN" }, -- Fire Resistance Aura
+    [19900] = { first = 19891, source = 60, class = "PALADIN" }, -- Fire Resistance Aura
+    [19977] = { first = 19977, source = 40, class = "PALADIN" }, -- Blessing of Light
+    [19978] = { first = 19977, source = 50, class = "PALADIN" }, -- Blessing of Light
+    [19979] = { first = 19977, source = 60, class = "PALADIN" }, -- Blessing of Light
+    [20154] = { first = 20154, source = 1, class = "PALADIN" }, -- Seal of Righteousness
+    [21084] = { first = 20154, source = 1, class = "PALADIN" }, -- Seal of Righteousness
+    [20287] = { first = 20154, source = 10, class = "PALADIN" }, -- Seal of Righteousness
+    [20288] = { first = 20154, source = 18, class = "PALADIN" }, -- Seal of Righteousness
+    [20289] = { first = 20154, source = 26, class = "PALADIN" }, -- Seal of Righteousness
+    [20290] = { first = 20154, source = 34, class = "PALADIN" }, -- Seal of Righteousness
+    [20291] = { first = 20154, source = 42, class = "PALADIN" }, -- Seal of Righteousness
+    [20292] = { first = 20154, source = 50, class = "PALADIN" }, -- Seal of Righteousness
+    [20293] = { first = 20154, source = 58, class = "PALADIN" }, -- Seal of Righteousness
+    [20164] = { first = 20164, source = 22, class = "PALADIN" }, -- Seal of Justice
+    [20165] = { first = 20165, source = 30, class = "PALADIN" }, -- Seal of Light
+    [20347] = { first = 20165, source = 40, class = "PALADIN" }, -- Seal of Light
+    [20348] = { first = 20165, source = 50, class = "PALADIN" }, -- Seal of Light
+    [20349] = { first = 20165, source = 60, class = "PALADIN" }, -- Seal of Light
+    [20166] = { first = 20166, source = 38, class = "PALADIN" }, -- Seal of Wisdom
+    [20356] = { first = 20166, source = 48, class = "PALADIN" }, -- Seal of Wisdom
+    [20357] = { first = 20166, source = 58, class = "PALADIN" }, -- Seal of Wisdom
+    [20183] = { first = 20183, source = 25, class = "PALADIN" }, -- Judgement of Fury
+    [20411] = { first = 20183, source = 34, class = "PALADIN" }, -- Judgement of Fury
+    [20412] = { first = 20183, source = 42, class = "PALADIN" }, -- Judgement of Fury
+    [20413] = { first = 20183, source = 50, class = "PALADIN" }, -- Judgement of Fury
+    [20414] = { first = 20183, source = 58, class = "PALADIN" }, -- Judgement of Fury
+    [20217] = { first = 20217, source = 20, class = "PALADIN" }, -- Blessing of Kings
+    [20271] = { first = 20271, source = 4, class = "PALADIN" }, -- Judgement
+    [20473] = { first = 20473, source = 40, class = "PALADIN" }, -- Holy Shock
+    [20929] = { first = 20473, source = 48, class = "PALADIN" }, -- Holy Shock
+    [20930] = { first = 20473, source = 56, class = "PALADIN" }, -- Holy Shock
+    [20915] = { first = 20915, source = 30, class = "PALADIN" }, -- Seal of Command
+    [20918] = { first = 20915, source = 40, class = "PALADIN" }, -- Seal of Command
+    [20919] = { first = 20915, source = 50, class = "PALADIN" }, -- Seal of Command
+    [20920] = { first = 20915, source = 60, class = "PALADIN" }, -- Seal of Command
+    [20927] = { first = 20927, source = 50, class = "PALADIN" }, -- Holy Shield
+    [20928] = { first = 20927, source = 60, class = "PALADIN" }, -- Holy Shield
+    [21082] = { first = 21082, source = 6, class = "PALADIN" }, -- Seal of the Crusader
+    [20162] = { first = 21082, source = 12, class = "PALADIN" }, -- Seal of the Crusader
+    [20305] = { first = 21082, source = 22, class = "PALADIN" }, -- Seal of the Crusader
+    [20306] = { first = 21082, source = 32, class = "PALADIN" }, -- Seal of the Crusader
+    [20307] = { first = 21082, source = 42, class = "PALADIN" }, -- Seal of the Crusader
+    [20308] = { first = 21082, source = 52, class = "PALADIN" }, -- Seal of the Crusader
+    [24275] = { first = 24275, source = 44, class = "PALADIN" }, -- Hammer of Wrath
+    [24274] = { first = 24275, source = 52, class = "PALADIN" }, -- Hammer of Wrath
+    [24239] = { first = 24275, source = 60, class = "PALADIN" }, -- Hammer of Wrath
+    [25782] = { first = 25782, source = 52, class = "PALADIN" }, -- Greater Blessing of Might
+    [25916] = { first = 25782, source = 60, class = "PALADIN" }, -- Greater Blessing of Might
+    [25890] = { first = 25890, source = 60, class = "PALADIN" }, -- Greater Blessing of Light
+    [25894] = { first = 25894, source = 54, class = "PALADIN" }, -- Greater Blessing of Wisdom
+    [25918] = { first = 25894, source = 60, class = "PALADIN" }, -- Greater Blessing of Wisdom
+    [25895] = { first = 25895, source = 60, class = "PALADIN" }, -- Greater Blessing of Salvation
+    [25898] = { first = 25898, source = 60, class = "PALADIN" }, -- Greater Blessing of Kings
+    [26573] = { first = 26573, source = 20, class = "PALADIN" }, -- Consecration
+    [20116] = { first = 26573, source = 30, class = "PALADIN" }, -- Consecration
+    [20922] = { first = 26573, source = 40, class = "PALADIN" }, -- Consecration
+    [20923] = { first = 26573, source = 50, class = "PALADIN" }, -- Consecration
+    [20924] = { first = 26573, source = 60, class = "PALADIN" }, -- Consecration
+    [407627] = { first = 407627, source = 1, class = "PALADIN" }, -- Righteous Fury
+    [25780] = { first = 407627, source = 16, class = "PALADIN" }, -- Righteous Fury
+    [412020] = { first = 412020, source = 1, class = "PALADIN" }, -- Flash of Light
+    [19750] = { first = 412020, source = 20, class = "PALADIN" }, -- Flash of Light
+    [19939] = { first = 412020, source = 26, class = "PALADIN" }, -- Flash of Light
+    [1313342] = { first = 412020, source = 26, class = "PALADIN" }, -- Flash of Light
+    [19940] = { first = 412020, source = 34, class = "PALADIN" }, -- Flash of Light
+    [1313343] = { first = 412020, source = 34, class = "PALADIN" }, -- Flash of Light
+    [19941] = { first = 412020, source = 42, class = "PALADIN" }, -- Flash of Light
+    [1313344] = { first = 412020, source = 42, class = "PALADIN" }, -- Flash of Light
+    [19942] = { first = 412020, source = 50, class = "PALADIN" }, -- Flash of Light
+    [1313345] = { first = 412020, source = 50, class = "PALADIN" }, -- Flash of Light
+    [19943] = { first = 412020, source = 58, class = "PALADIN" }, -- Flash of Light
+    [1313346] = { first = 412020, source = 58, class = "PALADIN" }, -- Flash of Light
+    [1311590] = { first = 1311590, source = 50, class = "PALADIN" }, -- Light's Vigil
+    [1311595] = { first = 1311590, source = 60, class = "PALADIN" }, -- Light's Vigil
+    [1311649] = { first = 1311649, source = 10, class = "PALADIN" }, -- Seal of Fury
+    [1311656] = { first = 1311649, source = 18, class = "PALADIN" }, -- Seal of Fury
+    [20163] = { first = 1311649, source = 25, class = "PALADIN" }, -- Seal of Fury
+    [20419] = { first = 1311649, source = 34, class = "PALADIN" }, -- Seal of Fury
+    [20421] = { first = 1311649, source = 42, class = "PALADIN" }, -- Seal of Fury
+    [20422] = { first = 1311649, source = 50, class = "PALADIN" }, -- Seal of Fury
+    [20423] = { first = 1311649, source = 58, class = "PALADIN" }, -- Seal of Fury
+    -- HUNTER
+    [136] = { first = 136, source = 12, class = "HUNTER" }, -- Mend Pet
+    [3111] = { first = 136, source = 20, class = "HUNTER" }, -- Mend Pet
+    [3661] = { first = 136, source = 28, class = "HUNTER" }, -- Mend Pet
+    [3662] = { first = 136, source = 36, class = "HUNTER" }, -- Mend Pet
+    [13542] = { first = 136, source = 44, class = "HUNTER" }, -- Mend Pet
+    [13543] = { first = 136, source = 52, class = "HUNTER" }, -- Mend Pet
+    [13544] = { first = 136, source = 60, class = "HUNTER" }, -- Mend Pet
+    [781] = { first = 781, source = 20, class = "HUNTER" }, -- Disengage
+    [14272] = { first = 781, source = 34, class = "HUNTER" }, -- Disengage
+    [14273] = { first = 781, source = 48, class = "HUNTER" }, -- Disengage
+    [883] = { first = 883, source = 10, class = "HUNTER" }, -- Call Pet
+    [982] = { first = 982, source = 10, class = "HUNTER" }, -- Revive Pet
+    [1002] = { first = 1002, source = 14, class = "HUNTER" }, -- Eyes of the Beast
+    [1130] = { first = 1130, source = 6, class = "HUNTER" }, -- Hunter's Mark
+    [14323] = { first = 1130, source = 22, class = "HUNTER" }, -- Hunter's Mark
+    [14324] = { first = 1130, source = 40, class = "HUNTER" }, -- Hunter's Mark
+    [14325] = { first = 1130, source = 58, class = "HUNTER" }, -- Hunter's Mark
+    [1462] = { first = 1462, source = 24, class = "HUNTER" }, -- Beast Lore
+    [1495] = { first = 1495, source = 16, class = "HUNTER" }, -- Mongoose Bite
+    [14269] = { first = 1495, source = 30, class = "HUNTER" }, -- Mongoose Bite
+    [14270] = { first = 1495, source = 44, class = "HUNTER" }, -- Mongoose Bite
+    [14271] = { first = 1495, source = 58, class = "HUNTER" }, -- Mongoose Bite
+    [1499] = { first = 1499, source = 20, class = "HUNTER" }, -- Freezing Trap
+    [14310] = { first = 1499, source = 40, class = "HUNTER" }, -- Freezing Trap
+    [14311] = { first = 1499, source = 60, class = "HUNTER" }, -- Freezing Trap
+    [1510] = { first = 1510, source = 40, class = "HUNTER" }, -- Volley
+    [14294] = { first = 1510, source = 50, class = "HUNTER" }, -- Volley
+    [14295] = { first = 1510, source = 58, class = "HUNTER" }, -- Volley
+    [1513] = { first = 1513, source = 14, class = "HUNTER" }, -- Scare Beast
+    [14326] = { first = 1513, source = 30, class = "HUNTER" }, -- Scare Beast
+    [14327] = { first = 1513, source = 46, class = "HUNTER" }, -- Scare Beast
+    [1515] = { first = 1515, source = 10, class = "HUNTER" }, -- Tame Beast
+    [1543] = { first = 1543, source = 32, class = "HUNTER" }, -- Flare
+    [1978] = { first = 1978, source = 4, class = "HUNTER" }, -- Serpent Sting
+    [425728] = { first = 1978, source = 4, class = "HUNTER" }, -- Serpent Sting
+    [13549] = { first = 1978, source = 10, class = "HUNTER" }, -- Serpent Sting
+    [425729] = { first = 1978, source = 10, class = "HUNTER" }, -- Serpent Sting
+    [13550] = { first = 1978, source = 18, class = "HUNTER" }, -- Serpent Sting
+    [425730] = { first = 1978, source = 18, class = "HUNTER" }, -- Serpent Sting
+    [13551] = { first = 1978, source = 26, class = "HUNTER" }, -- Serpent Sting
+    [425732] = { first = 1978, source = 26, class = "HUNTER" }, -- Serpent Sting
+    [13552] = { first = 1978, source = 34, class = "HUNTER" }, -- Serpent Sting
+    [425733] = { first = 1978, source = 34, class = "HUNTER" }, -- Serpent Sting
+    [13553] = { first = 1978, source = 42, class = "HUNTER" }, -- Serpent Sting
+    [425734] = { first = 1978, source = 42, class = "HUNTER" }, -- Serpent Sting
+    [13554] = { first = 1978, source = 50, class = "HUNTER" }, -- Serpent Sting
+    [425735] = { first = 1978, source = 50, class = "HUNTER" }, -- Serpent Sting
+    [13555] = { first = 1978, source = 58, class = "HUNTER" }, -- Serpent Sting
+    [425736] = { first = 1978, source = 58, class = "HUNTER" }, -- Serpent Sting
+    [25295] = { first = 1978, source = 60, class = "HUNTER" }, -- Serpent Sting
+    [425737] = { first = 1978, source = 60, class = "HUNTER" }, -- Serpent Sting
+    [2641] = { first = 2641, source = 10, class = "HUNTER" }, -- Dismiss Pet
+    [2643] = { first = 2643, source = 18, class = "HUNTER" }, -- Multi-Shot
+    [2973] = { first = 2973, source = 1, class = "HUNTER" }, -- Raptor Strike
+    [409691] = { first = 2973, source = 1, class = "HUNTER" }, -- Raptor Strike
+    [415335] = { first = 2973, source = 1, class = "HUNTER" }, -- Raptor Strike
+    [14260] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
+    [409693] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
+    [415336] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
+    [14261] = { first = 2973, source = 16, class = "HUNTER" }, -- Raptor Strike
+    [409748] = { first = 2973, source = 16, class = "HUNTER" }, -- Raptor Strike
+    [415337] = { first = 2973, source = 16, class = "HUNTER" }, -- Raptor Strike
+    [14262] = { first = 2973, source = 24, class = "HUNTER" }, -- Raptor Strike
+    [409750] = { first = 2973, source = 24, class = "HUNTER" }, -- Raptor Strike
+    [415338] = { first = 2973, source = 24, class = "HUNTER" }, -- Raptor Strike
+    [14263] = { first = 2973, source = 32, class = "HUNTER" }, -- Raptor Strike
+    [409751] = { first = 2973, source = 32, class = "HUNTER" }, -- Raptor Strike
+    [415340] = { first = 2973, source = 32, class = "HUNTER" }, -- Raptor Strike
+    [14264] = { first = 2973, source = 40, class = "HUNTER" }, -- Raptor Strike
+    [409752] = { first = 2973, source = 40, class = "HUNTER" }, -- Raptor Strike
+    [415341] = { first = 2973, source = 40, class = "HUNTER" }, -- Raptor Strike
+    [14265] = { first = 2973, source = 48, class = "HUNTER" }, -- Raptor Strike
+    [409754] = { first = 2973, source = 48, class = "HUNTER" }, -- Raptor Strike
+    [415342] = { first = 2973, source = 48, class = "HUNTER" }, -- Raptor Strike
+    [14266] = { first = 2973, source = 56, class = "HUNTER" }, -- Raptor Strike
+    [409755] = { first = 2973, source = 56, class = "HUNTER" }, -- Raptor Strike
+    [415343] = { first = 2973, source = 56, class = "HUNTER" }, -- Raptor Strike
+    [2974] = { first = 2974, source = 12, class = "HUNTER" }, -- Wing Clip
+    [14267] = { first = 2974, source = 38, class = "HUNTER" }, -- Wing Clip
+    [14268] = { first = 2974, source = 60, class = "HUNTER" }, -- Wing Clip
+    [3034] = { first = 3034, source = 36, class = "HUNTER" }, -- Viper Sting
+    [14279] = { first = 3034, source = 46, class = "HUNTER" }, -- Viper Sting
+    [14280] = { first = 3034, source = 56, class = "HUNTER" }, -- Viper Sting
+    [3043] = { first = 3043, source = 22, class = "HUNTER" }, -- Scorpid Sting
+    [3044] = { first = 3044, source = 6, class = "HUNTER" }, -- Arcane Shot
+    [14281] = { first = 3044, source = 12, class = "HUNTER" }, -- Arcane Shot
+    [14282] = { first = 3044, source = 20, class = "HUNTER" }, -- Arcane Shot
+    [14283] = { first = 3044, source = 28, class = "HUNTER" }, -- Arcane Shot
+    [14284] = { first = 3044, source = 36, class = "HUNTER" }, -- Arcane Shot
+    [14285] = { first = 3044, source = 44, class = "HUNTER" }, -- Arcane Shot
+    [14286] = { first = 3044, source = 52, class = "HUNTER" }, -- Arcane Shot
+    [14287] = { first = 3044, source = 60, class = "HUNTER" }, -- Arcane Shot
+    [3045] = { first = 3045, source = 26, class = "HUNTER" }, -- Rapid Fire
+    [5116] = { first = 5116, source = 8, class = "HUNTER" }, -- Concussive Shot
+    [5118] = { first = 5118, source = 20, class = "HUNTER" }, -- Aspect of the Cheetah
+    [5384] = { first = 5384, source = 30, class = "HUNTER" }, -- Feign Death
+    [6197] = { first = 6197, source = 14, class = "HUNTER" }, -- Eagle Eye
+    [6991] = { first = 6991, source = 10, class = "HUNTER" }, -- Feed Pet
+    [13159] = { first = 13159, source = 40, class = "HUNTER" }, -- Aspect of the Pack
+    [13161] = { first = 13161, source = 30, class = "HUNTER" }, -- Aspect of the Beast
+    [1299445] = { first = 13161, source = 40, class = "HUNTER" }, -- Aspect of the Beast
+    [1299446] = { first = 13161, source = 50, class = "HUNTER" }, -- Aspect of the Beast
+    [1299447] = { first = 13161, source = 60, class = "HUNTER" }, -- Aspect of the Beast
+    [13163] = { first = 13163, source = 4, class = "HUNTER" }, -- Aspect of the Monkey
+    [13165] = { first = 13165, source = 10, class = "HUNTER" }, -- Aspect of the Hawk
+    [14318] = { first = 13165, source = 18, class = "HUNTER" }, -- Aspect of the Hawk
+    [14319] = { first = 13165, source = 28, class = "HUNTER" }, -- Aspect of the Hawk
+    [14320] = { first = 13165, source = 38, class = "HUNTER" }, -- Aspect of the Hawk
+    [14321] = { first = 13165, source = 48, class = "HUNTER" }, -- Aspect of the Hawk
+    [14322] = { first = 13165, source = 58, class = "HUNTER" }, -- Aspect of the Hawk
+    [25296] = { first = 13165, source = 60, class = "HUNTER" }, -- Aspect of the Hawk
+    [13795] = { first = 13795, source = 16, class = "HUNTER" }, -- Immolation Trap
+    [14302] = { first = 13795, source = 26, class = "HUNTER" }, -- Immolation Trap
+    [14303] = { first = 13795, source = 36, class = "HUNTER" }, -- Immolation Trap
+    [14304] = { first = 13795, source = 46, class = "HUNTER" }, -- Immolation Trap
+    [14305] = { first = 13795, source = 56, class = "HUNTER" }, -- Immolation Trap
+    [13809] = { first = 13809, source = 28, class = "HUNTER" }, -- Frost Trap
+    [13813] = { first = 13813, source = 34, class = "HUNTER" }, -- Explosive Trap
+    [14316] = { first = 13813, source = 44, class = "HUNTER" }, -- Explosive Trap
+    [14317] = { first = 13813, source = 54, class = "HUNTER" }, -- Explosive Trap
+    [19434] = { first = 19434, source = 20, class = "HUNTER" }, -- Aimed Shot
+    [20900] = { first = 19434, source = 28, class = "HUNTER" }, -- Aimed Shot
+    [20901] = { first = 19434, source = 36, class = "HUNTER" }, -- Aimed Shot
+    [20902] = { first = 19434, source = 44, class = "HUNTER" }, -- Aimed Shot
+    [20903] = { first = 19434, source = 52, class = "HUNTER" }, -- Aimed Shot
+    [20904] = { first = 19434, source = 60, class = "HUNTER" }, -- Aimed Shot
+    [19801] = { first = 19801, source = 60, class = "HUNTER" }, -- Tranquilizing Shot
+    [19878] = { first = 19878, source = 32, class = "HUNTER" }, -- Track Demons
+    [19879] = { first = 19879, source = 50, class = "HUNTER" }, -- Track Dragonkin
+    [19880] = { first = 19880, source = 26, class = "HUNTER" }, -- Track Elementals
+    [19882] = { first = 19882, source = 40, class = "HUNTER" }, -- Track Giants
+    [19883] = { first = 19883, source = 10, class = "HUNTER" }, -- Track Humanoids
+    [19884] = { first = 19884, source = 18, class = "HUNTER" }, -- Track Undead
+    [19885] = { first = 19885, source = 24, class = "HUNTER" }, -- Track Hidden
+    [20043] = { first = 20043, source = 46, class = "HUNTER" }, -- Aspect of the Wild
+    [20190] = { first = 20043, source = 56, class = "HUNTER" }, -- Aspect of the Wild
+    [20736] = { first = 20736, source = 12, class = "HUNTER" }, -- Distracting Shot
+    [14274] = { first = 20736, source = 20, class = "HUNTER" }, -- Distracting Shot
+    [15629] = { first = 20736, source = 30, class = "HUNTER" }, -- Distracting Shot
+    [15630] = { first = 20736, source = 40, class = "HUNTER" }, -- Distracting Shot
+    [15631] = { first = 20736, source = 50, class = "HUNTER" }, -- Distracting Shot
+    [15632] = { first = 20736, source = 60, class = "HUNTER" }, -- Distracting Shot
+    [24118] = { first = 24118, source = 30, class = "HUNTER" }, -- Lacerate
+    [24119] = { first = 24118, source = 40, class = "HUNTER" }, -- Lacerate
+    [24120] = { first = 24118, source = 50, class = "HUNTER" }, -- Lacerate
+    [1299332] = { first = 24118, source = 60, class = "HUNTER" }, -- Lacerate
+    [1221404] = { first = 1221404, source = 32, class = "HUNTER" }, -- Enchanted Flare
+    [1242634] = { first = 1242634, source = 30, class = "HUNTER" }, -- Counterattack
+    [20909] = { first = 1242634, source = 42, class = "HUNTER" }, -- Counterattack
+    [20910] = { first = 1242634, source = 54, class = "HUNTER" }, -- Counterattack
+    [1293525] = { first = 1293525, source = 36, class = "HUNTER" }, -- Summon Hawk
+    [1293526] = { first = 1293525, source = 48, class = "HUNTER" }, -- Summon Hawk
+    [1293527] = { first = 1293525, source = 60, class = "HUNTER" }, -- Summon Hawk
+    [1299348] = { first = 1299348, source = 32, class = "HUNTER" }, -- Trueshot Aura
+    [19506] = { first = 1299348, source = 40, class = "HUNTER" }, -- Trueshot Aura
+    [20905] = { first = 1299348, source = 50, class = "HUNTER" }, -- Trueshot Aura
+    [20906] = { first = 1299348, source = 60, class = "HUNTER" }, -- Trueshot Aura
+    [1310785] = { first = 1310785, source = 48, class = "HUNTER" }, -- Sniper Shot
+    [1310786] = { first = 1310785, source = 58, class = "HUNTER" }, -- Sniper Shot
+    -- ROGUE
+    [53] = { first = 53, source = 4, class = "ROGUE" }, -- Backstab
+    [2589] = { first = 53, source = 12, class = "ROGUE" }, -- Backstab
+    [2590] = { first = 53, source = 20, class = "ROGUE" }, -- Backstab
+    [2591] = { first = 53, source = 28, class = "ROGUE" }, -- Backstab
+    [8721] = { first = 53, source = 36, class = "ROGUE" }, -- Backstab
+    [11279] = { first = 53, source = 44, class = "ROGUE" }, -- Backstab
+    [11280] = { first = 53, source = 52, class = "ROGUE" }, -- Backstab
+    [11281] = { first = 53, source = 60, class = "ROGUE" }, -- Backstab
+    [25300] = { first = 53, source = 60, class = "ROGUE" }, -- Backstab
+    [408] = { first = 408, source = 30, class = "ROGUE" }, -- Kidney Shot
+    [8643] = { first = 408, source = 50, class = "ROGUE" }, -- Kidney Shot
+    [703] = { first = 703, source = 14, class = "ROGUE" }, -- Garrote
+    [8631] = { first = 703, source = 22, class = "ROGUE" }, -- Garrote
+    [8632] = { first = 703, source = 30, class = "ROGUE" }, -- Garrote
+    [8633] = { first = 703, source = 38, class = "ROGUE" }, -- Garrote
+    [11289] = { first = 703, source = 46, class = "ROGUE" }, -- Garrote
+    [11290] = { first = 703, source = 54, class = "ROGUE" }, -- Garrote
+    [921] = { first = 921, source = 4, class = "ROGUE" }, -- Pick Pocket
+    [1725] = { first = 1725, source = 22, class = "ROGUE" }, -- Distract
+    [1752] = { first = 1752, source = 1, class = "ROGUE" }, -- Sinister Strike
+    [1757] = { first = 1752, source = 6, class = "ROGUE" }, -- Sinister Strike
+    [1758] = { first = 1752, source = 14, class = "ROGUE" }, -- Sinister Strike
+    [1759] = { first = 1752, source = 22, class = "ROGUE" }, -- Sinister Strike
+    [1760] = { first = 1752, source = 30, class = "ROGUE" }, -- Sinister Strike
+    [8621] = { first = 1752, source = 38, class = "ROGUE" }, -- Sinister Strike
+    [11293] = { first = 1752, source = 46, class = "ROGUE" }, -- Sinister Strike
+    [11294] = { first = 1752, source = 54, class = "ROGUE" }, -- Sinister Strike
+    [1766] = { first = 1766, source = 12, class = "ROGUE" }, -- Kick
+    [1767] = { first = 1766, source = 26, class = "ROGUE" }, -- Kick
+    [1768] = { first = 1766, source = 42, class = "ROGUE" }, -- Kick
+    [1769] = { first = 1766, source = 58, class = "ROGUE" }, -- Kick
+    [1776] = { first = 1776, source = 6, class = "ROGUE" }, -- Gouge
+    [1777] = { first = 1776, source = 18, class = "ROGUE" }, -- Gouge
+    [8629] = { first = 1776, source = 32, class = "ROGUE" }, -- Gouge
+    [11285] = { first = 1776, source = 46, class = "ROGUE" }, -- Gouge
+    [11286] = { first = 1776, source = 60, class = "ROGUE" }, -- Gouge
+    [1784] = { first = 1784, source = 1, class = "ROGUE" }, -- Stealth
+    [1785] = { first = 1784, source = 20, class = "ROGUE" }, -- Stealth
+    [1786] = { first = 1784, source = 40, class = "ROGUE" }, -- Stealth
+    [1787] = { first = 1784, source = 60, class = "ROGUE" }, -- Stealth
+    [1833] = { first = 1833, source = 26, class = "ROGUE" }, -- Cheap Shot
+    [1842] = { first = 1842, source = 30, class = "ROGUE" }, -- Disarm Trap
+    [1856] = { first = 1856, source = 22, class = "ROGUE" }, -- Vanish
+    [1857] = { first = 1856, source = 42, class = "ROGUE" }, -- Vanish
+    [1860] = { first = 1860, source = 40, class = "ROGUE" }, -- Safe Fall
+    [1943] = { first = 1943, source = 20, class = "ROGUE" }, -- Rupture
+    [8639] = { first = 1943, source = 28, class = "ROGUE" }, -- Rupture
+    [8640] = { first = 1943, source = 36, class = "ROGUE" }, -- Rupture
+    [11273] = { first = 1943, source = 44, class = "ROGUE" }, -- Rupture
+    [11274] = { first = 1943, source = 52, class = "ROGUE" }, -- Rupture
+    [11275] = { first = 1943, source = 60, class = "ROGUE" }, -- Rupture
+    [1966] = { first = 1966, source = 16, class = "ROGUE" }, -- Feint
+    [6768] = { first = 1966, source = 28, class = "ROGUE" }, -- Feint
+    [8637] = { first = 1966, source = 40, class = "ROGUE" }, -- Feint
+    [11303] = { first = 1966, source = 52, class = "ROGUE" }, -- Feint
+    [25302] = { first = 1966, source = 60, class = "ROGUE" }, -- Feint
+    [2094] = { first = 2094, source = 34, class = "ROGUE" }, -- Blind
+    [2098] = { first = 2098, source = 1, class = "ROGUE" }, -- Eviscerate
+    [6760] = { first = 2098, source = 8, class = "ROGUE" }, -- Eviscerate
+    [6761] = { first = 2098, source = 16, class = "ROGUE" }, -- Eviscerate
+    [6762] = { first = 2098, source = 24, class = "ROGUE" }, -- Eviscerate
+    [8623] = { first = 2098, source = 32, class = "ROGUE" }, -- Eviscerate
+    [8624] = { first = 2098, source = 40, class = "ROGUE" }, -- Eviscerate
+    [11299] = { first = 2098, source = 48, class = "ROGUE" }, -- Eviscerate
+    [11300] = { first = 2098, source = 56, class = "ROGUE" }, -- Eviscerate
+    [31016] = { first = 2098, source = 60, class = "ROGUE" }, -- Eviscerate
+    [2836] = { first = 2836, source = 24, class = "ROGUE" }, -- Detect Traps
+    [2983] = { first = 2983, source = 10, class = "ROGUE" }, -- Sprint
+    [8696] = { first = 2983, source = 34, class = "ROGUE" }, -- Sprint
+    [11305] = { first = 2983, source = 58, class = "ROGUE" }, -- Sprint
+    [5171] = { first = 5171, source = 10, class = "ROGUE" }, -- Slice and Dice
+    [6774] = { first = 5171, source = 42, class = "ROGUE" }, -- Slice and Dice
+    [5277] = { first = 5277, source = 8, class = "ROGUE" }, -- Evasion
+    [6770] = { first = 6770, source = 10, class = "ROGUE" }, -- Sap
+    [2070] = { first = 6770, source = 28, class = "ROGUE" }, -- Sap
+    [11297] = { first = 6770, source = 48, class = "ROGUE" }, -- Sap
+    [8647] = { first = 8647, source = 14, class = "ROGUE" }, -- Expose Armor
+    [8649] = { first = 8647, source = 26, class = "ROGUE" }, -- Expose Armor
+    [8650] = { first = 8647, source = 36, class = "ROGUE" }, -- Expose Armor
+    [11197] = { first = 8647, source = 46, class = "ROGUE" }, -- Expose Armor
+    [11198] = { first = 8647, source = 56, class = "ROGUE" }, -- Expose Armor
+    [8676] = { first = 8676, source = 18, class = "ROGUE" }, -- Ambush
+    [8724] = { first = 8676, source = 26, class = "ROGUE" }, -- Ambush
+    [8725] = { first = 8676, source = 34, class = "ROGUE" }, -- Ambush
+    [11267] = { first = 8676, source = 42, class = "ROGUE" }, -- Ambush
+    [11268] = { first = 8676, source = 50, class = "ROGUE" }, -- Ambush
+    [11269] = { first = 8676, source = 58, class = "ROGUE" }, -- Ambush
+    [1310705] = { first = 1310705, source = 30, class = "ROGUE" }, -- Mutilate
+    [1310706] = { first = 1310705, source = 30, class = "ROGUE" }, -- Mutilate
+    [399956] = { first = 1310705, source = 40, class = "ROGUE" }, -- Mutilate
+    [399960] = { first = 1310705, source = 40, class = "ROGUE" }, -- Mutilate
+    [399961] = { first = 1310705, source = 40, class = "ROGUE" }, -- Mutilate
+    [1241582] = { first = 1310705, source = 50, class = "ROGUE" }, -- Mutilate
+    [1241585] = { first = 1310705, source = 50, class = "ROGUE" }, -- Mutilate
+    [1241588] = { first = 1310705, source = 50, class = "ROGUE" }, -- Mutilate
+    [1241584] = { first = 1310705, source = 60, class = "ROGUE" }, -- Mutilate
+    [1241586] = { first = 1310705, source = 60, class = "ROGUE" }, -- Mutilate
+    [1241590] = { first = 1310705, source = 60, class = "ROGUE" }, -- Mutilate
+    [1310709] = { first = 1310709, source = 30, class = "ROGUE" }, -- Coup de Grace
+    -- PRIEST
+    [17] = { first = 17, source = 6, class = "PRIEST" }, -- Power Word: Shield
+    [592] = { first = 17, source = 12, class = "PRIEST" }, -- Power Word: Shield
+    [600] = { first = 17, source = 18, class = "PRIEST" }, -- Power Word: Shield
+    [3747] = { first = 17, source = 24, class = "PRIEST" }, -- Power Word: Shield
+    [6065] = { first = 17, source = 30, class = "PRIEST" }, -- Power Word: Shield
+    [6066] = { first = 17, source = 36, class = "PRIEST" }, -- Power Word: Shield
+    [10898] = { first = 17, source = 42, class = "PRIEST" }, -- Power Word: Shield
+    [10899] = { first = 17, source = 48, class = "PRIEST" }, -- Power Word: Shield
+    [10900] = { first = 17, source = 54, class = "PRIEST" }, -- Power Word: Shield
+    [10901] = { first = 17, source = 60, class = "PRIEST" }, -- Power Word: Shield
+    [139] = { first = 139, source = 8, class = "PRIEST" }, -- Renew
+    [425268] = { first = 139, source = 8, class = "PRIEST" }, -- Renew
+    [6074] = { first = 139, source = 14, class = "PRIEST" }, -- Renew
+    [425269] = { first = 139, source = 14, class = "PRIEST" }, -- Renew
+    [6075] = { first = 139, source = 20, class = "PRIEST" }, -- Renew
+    [425270] = { first = 139, source = 20, class = "PRIEST" }, -- Renew
+    [6076] = { first = 139, source = 26, class = "PRIEST" }, -- Renew
+    [425271] = { first = 139, source = 26, class = "PRIEST" }, -- Renew
+    [6077] = { first = 139, source = 32, class = "PRIEST" }, -- Renew
+    [425272] = { first = 139, source = 32, class = "PRIEST" }, -- Renew
+    [6078] = { first = 139, source = 38, class = "PRIEST" }, -- Renew
+    [425273] = { first = 139, source = 38, class = "PRIEST" }, -- Renew
+    [10927] = { first = 139, source = 44, class = "PRIEST" }, -- Renew
+    [425274] = { first = 139, source = 44, class = "PRIEST" }, -- Renew
+    [10928] = { first = 139, source = 50, class = "PRIEST" }, -- Renew
+    [425275] = { first = 139, source = 50, class = "PRIEST" }, -- Renew
+    [10929] = { first = 139, source = 56, class = "PRIEST" }, -- Renew
+    [425276] = { first = 139, source = 56, class = "PRIEST" }, -- Renew
+    [25315] = { first = 139, source = 60, class = "PRIEST" }, -- Renew
+    [425277] = { first = 139, source = 60, class = "PRIEST" }, -- Renew
+    [453] = { first = 453, source = 20, class = "PRIEST" }, -- Mind Soothe
+    [8192] = { first = 453, source = 36, class = "PRIEST" }, -- Mind Soothe
+    [10953] = { first = 453, source = 52, class = "PRIEST" }, -- Mind Soothe
+    [527] = { first = 527, source = 18, class = "PRIEST" }, -- Dispel Magic
+    [988] = { first = 527, source = 36, class = "PRIEST" }, -- Dispel Magic
+    [528] = { first = 528, source = 14, class = "PRIEST" }, -- Cure Disease
+    [552] = { first = 552, source = 32, class = "PRIEST" }, -- Abolish Disease
+    [585] = { first = 585, source = 1, class = "PRIEST" }, -- Smite
+    [591] = { first = 585, source = 6, class = "PRIEST" }, -- Smite
+    [598] = { first = 585, source = 14, class = "PRIEST" }, -- Smite
+    [984] = { first = 585, source = 22, class = "PRIEST" }, -- Smite
+    [1004] = { first = 585, source = 30, class = "PRIEST" }, -- Smite
+    [6060] = { first = 585, source = 38, class = "PRIEST" }, -- Smite
+    [10933] = { first = 585, source = 46, class = "PRIEST" }, -- Smite
+    [10934] = { first = 585, source = 54, class = "PRIEST" }, -- Smite
+    [586] = { first = 586, source = 8, class = "PRIEST" }, -- Fade
+    [9578] = { first = 586, source = 20, class = "PRIEST" }, -- Fade
+    [9579] = { first = 586, source = 30, class = "PRIEST" }, -- Fade
+    [9592] = { first = 586, source = 40, class = "PRIEST" }, -- Fade
+    [10941] = { first = 586, source = 50, class = "PRIEST" }, -- Fade
+    [10942] = { first = 586, source = 60, class = "PRIEST" }, -- Fade
+    [588] = { first = 588, source = 12, class = "PRIEST" }, -- Inner Fire
+    [7128] = { first = 588, source = 20, class = "PRIEST" }, -- Inner Fire
+    [602] = { first = 588, source = 30, class = "PRIEST" }, -- Inner Fire
+    [1006] = { first = 588, source = 40, class = "PRIEST" }, -- Inner Fire
+    [10951] = { first = 588, source = 50, class = "PRIEST" }, -- Inner Fire
+    [10952] = { first = 588, source = 60, class = "PRIEST" }, -- Inner Fire
+    [589] = { first = 589, source = 4, class = "PRIEST" }, -- Shadow Word: Pain
+    [594] = { first = 589, source = 10, class = "PRIEST" }, -- Shadow Word: Pain
+    [970] = { first = 589, source = 18, class = "PRIEST" }, -- Shadow Word: Pain
+    [992] = { first = 589, source = 26, class = "PRIEST" }, -- Shadow Word: Pain
+    [2767] = { first = 589, source = 34, class = "PRIEST" }, -- Shadow Word: Pain
+    [10892] = { first = 589, source = 42, class = "PRIEST" }, -- Shadow Word: Pain
+    [10893] = { first = 589, source = 50, class = "PRIEST" }, -- Shadow Word: Pain
+    [10894] = { first = 589, source = 58, class = "PRIEST" }, -- Shadow Word: Pain
+    [596] = { first = 596, source = 30, class = "PRIEST" }, -- Prayer of Healing
+    [996] = { first = 596, source = 40, class = "PRIEST" }, -- Prayer of Healing
+    [10960] = { first = 596, source = 50, class = "PRIEST" }, -- Prayer of Healing
+    [10961] = { first = 596, source = 60, class = "PRIEST" }, -- Prayer of Healing
+    [25316] = { first = 596, source = 60, class = "PRIEST" }, -- Prayer of Healing
+    [605] = { first = 605, source = 30, class = "PRIEST" }, -- Mind Control
+    [10911] = { first = 605, source = 44, class = "PRIEST" }, -- Mind Control
+    [10912] = { first = 605, source = 58, class = "PRIEST" }, -- Mind Control
+    [724] = { first = 724, source = 40, class = "PRIEST" }, -- Lightwell
+    [27870] = { first = 724, source = 50, class = "PRIEST" }, -- Lightwell
+    [27871] = { first = 724, source = 60, class = "PRIEST" }, -- Lightwell
+    [976] = { first = 976, source = 30, class = "PRIEST" }, -- Shadow Protection
+    [10957] = { first = 976, source = 42, class = "PRIEST" }, -- Shadow Protection
+    [10958] = { first = 976, source = 56, class = "PRIEST" }, -- Shadow Protection
+    [1243] = { first = 1243, source = 1, class = "PRIEST" }, -- Power Word: Fortitude
+    [1244] = { first = 1243, source = 12, class = "PRIEST" }, -- Power Word: Fortitude
+    [1245] = { first = 1243, source = 24, class = "PRIEST" }, -- Power Word: Fortitude
+    [2791] = { first = 1243, source = 36, class = "PRIEST" }, -- Power Word: Fortitude
+    [10937] = { first = 1243, source = 48, class = "PRIEST" }, -- Power Word: Fortitude
+    [10938] = { first = 1243, source = 60, class = "PRIEST" }, -- Power Word: Fortitude
+    [1706] = { first = 1706, source = 34, class = "PRIEST" }, -- Levitate
+    [2006] = { first = 2006, source = 10, class = "PRIEST" }, -- Resurrection
+    [2010] = { first = 2006, source = 22, class = "PRIEST" }, -- Resurrection
+    [10880] = { first = 2006, source = 34, class = "PRIEST" }, -- Resurrection
+    [10881] = { first = 2006, source = 46, class = "PRIEST" }, -- Resurrection
+    [20770] = { first = 2006, source = 58, class = "PRIEST" }, -- Resurrection
+    [2050] = { first = 2050, source = 1, class = "PRIEST" }, -- Lesser Heal
+    [2052] = { first = 2050, source = 4, class = "PRIEST" }, -- Lesser Heal
+    [2053] = { first = 2050, source = 10, class = "PRIEST" }, -- Lesser Heal
+    [2054] = { first = 2054, source = 16, class = "PRIEST" }, -- Heal
+    [2055] = { first = 2054, source = 22, class = "PRIEST" }, -- Heal
+    [6063] = { first = 2054, source = 28, class = "PRIEST" }, -- Heal
+    [6064] = { first = 2054, source = 34, class = "PRIEST" }, -- Heal
+    [2060] = { first = 2060, source = 40, class = "PRIEST" }, -- Greater Heal
+    [10963] = { first = 2060, source = 46, class = "PRIEST" }, -- Greater Heal
+    [10964] = { first = 2060, source = 52, class = "PRIEST" }, -- Greater Heal
+    [10965] = { first = 2060, source = 58, class = "PRIEST" }, -- Greater Heal
+    [25314] = { first = 2060, source = 60, class = "PRIEST" }, -- Greater Heal
+    [2061] = { first = 2061, source = 20, class = "PRIEST" }, -- Flash Heal
+    [9472] = { first = 2061, source = 26, class = "PRIEST" }, -- Flash Heal
+    [9473] = { first = 2061, source = 32, class = "PRIEST" }, -- Flash Heal
+    [9474] = { first = 2061, source = 38, class = "PRIEST" }, -- Flash Heal
+    [10915] = { first = 2061, source = 44, class = "PRIEST" }, -- Flash Heal
+    [10916] = { first = 2061, source = 50, class = "PRIEST" }, -- Flash Heal
+    [10917] = { first = 2061, source = 56, class = "PRIEST" }, -- Flash Heal
+    [2096] = { first = 2096, source = 22, class = "PRIEST" }, -- Mind Vision
+    [10909] = { first = 2096, source = 44, class = "PRIEST" }, -- Mind Vision
+    [2651] = { first = 2651, source = 20, class = "PRIEST" }, -- Elune's Grace
+    [2652] = { first = 2652, source = 10, class = "PRIEST" }, -- Touch of Weakness
+    [19261] = { first = 2652, source = 20, class = "PRIEST" }, -- Touch of Weakness
+    [19262] = { first = 2652, source = 30, class = "PRIEST" }, -- Touch of Weakness
+    [19264] = { first = 2652, source = 40, class = "PRIEST" }, -- Touch of Weakness
+    [19265] = { first = 2652, source = 50, class = "PRIEST" }, -- Touch of Weakness
+    [19266] = { first = 2652, source = 60, class = "PRIEST" }, -- Touch of Weakness
+    [2944] = { first = 2944, source = 20, class = "PRIEST" }, -- Devouring Plague
+    [19276] = { first = 2944, source = 28, class = "PRIEST" }, -- Devouring Plague
+    [19277] = { first = 2944, source = 36, class = "PRIEST" }, -- Devouring Plague
+    [19278] = { first = 2944, source = 44, class = "PRIEST" }, -- Devouring Plague
+    [19279] = { first = 2944, source = 52, class = "PRIEST" }, -- Devouring Plague
+    [19280] = { first = 2944, source = 60, class = "PRIEST" }, -- Devouring Plague
+    [6346] = { first = 6346, source = 20, class = "PRIEST" }, -- Fear Ward
+    [8092] = { first = 8092, source = 10, class = "PRIEST" }, -- Mind Blast
+    [8102] = { first = 8092, source = 16, class = "PRIEST" }, -- Mind Blast
+    [8103] = { first = 8092, source = 22, class = "PRIEST" }, -- Mind Blast
+    [8104] = { first = 8092, source = 28, class = "PRIEST" }, -- Mind Blast
+    [8105] = { first = 8092, source = 34, class = "PRIEST" }, -- Mind Blast
+    [8106] = { first = 8092, source = 40, class = "PRIEST" }, -- Mind Blast
+    [10945] = { first = 8092, source = 46, class = "PRIEST" }, -- Mind Blast
+    [10946] = { first = 8092, source = 52, class = "PRIEST" }, -- Mind Blast
+    [10947] = { first = 8092, source = 58, class = "PRIEST" }, -- Mind Blast
+    [8122] = { first = 8122, source = 14, class = "PRIEST" }, -- Psychic Scream
+    [8124] = { first = 8122, source = 28, class = "PRIEST" }, -- Psychic Scream
+    [10888] = { first = 8122, source = 42, class = "PRIEST" }, -- Psychic Scream
+    [10890] = { first = 8122, source = 56, class = "PRIEST" }, -- Psychic Scream
+    [8129] = { first = 8129, source = 24, class = "PRIEST" }, -- Mana Burn
+    [8131] = { first = 8129, source = 32, class = "PRIEST" }, -- Mana Burn
+    [10874] = { first = 8129, source = 40, class = "PRIEST" }, -- Mana Burn
+    [10875] = { first = 8129, source = 48, class = "PRIEST" }, -- Mana Burn
+    [10876] = { first = 8129, source = 56, class = "PRIEST" }, -- Mana Burn
+    [9035] = { first = 9035, source = 10, class = "PRIEST" }, -- Hex of Weakness
+    [19281] = { first = 9035, source = 20, class = "PRIEST" }, -- Hex of Weakness
+    [19282] = { first = 9035, source = 30, class = "PRIEST" }, -- Hex of Weakness
+    [19283] = { first = 9035, source = 40, class = "PRIEST" }, -- Hex of Weakness
+    [19284] = { first = 9035, source = 50, class = "PRIEST" }, -- Hex of Weakness
+    [19285] = { first = 9035, source = 60, class = "PRIEST" }, -- Hex of Weakness
+    [9484] = { first = 9484, source = 20, class = "PRIEST" }, -- Shackle Undead
+    [9485] = { first = 9484, source = 40, class = "PRIEST" }, -- Shackle Undead
+    [10955] = { first = 9484, source = 60, class = "PRIEST" }, -- Shackle Undead
+    [10797] = { first = 10797, source = 10, class = "PRIEST" }, -- Starshards
+    [19296] = { first = 10797, source = 18, class = "PRIEST" }, -- Starshards
+    [19299] = { first = 10797, source = 26, class = "PRIEST" }, -- Starshards
+    [19302] = { first = 10797, source = 34, class = "PRIEST" }, -- Starshards
+    [19303] = { first = 10797, source = 42, class = "PRIEST" }, -- Starshards
+    [19304] = { first = 10797, source = 50, class = "PRIEST" }, -- Starshards
+    [19305] = { first = 10797, source = 58, class = "PRIEST" }, -- Starshards
+    [13896] = { first = 13896, source = 20, class = "PRIEST" }, -- Feedback
+    [19271] = { first = 13896, source = 30, class = "PRIEST" }, -- Feedback
+    [19273] = { first = 13896, source = 40, class = "PRIEST" }, -- Feedback
+    [19274] = { first = 13896, source = 50, class = "PRIEST" }, -- Feedback
+    [19275] = { first = 13896, source = 60, class = "PRIEST" }, -- Feedback
+    [13908] = { first = 13908, source = 10, class = "PRIEST" }, -- Desperate Prayer
+    [19236] = { first = 13908, source = 18, class = "PRIEST" }, -- Desperate Prayer
+    [19238] = { first = 13908, source = 26, class = "PRIEST" }, -- Desperate Prayer
+    [19240] = { first = 13908, source = 34, class = "PRIEST" }, -- Desperate Prayer
+    [19241] = { first = 13908, source = 42, class = "PRIEST" }, -- Desperate Prayer
+    [19242] = { first = 13908, source = 50, class = "PRIEST" }, -- Desperate Prayer
+    [19243] = { first = 13908, source = 58, class = "PRIEST" }, -- Desperate Prayer
+    [14752] = { first = 14752, source = 30, class = "PRIEST" }, -- Divine Spirit
+    [14818] = { first = 14752, source = 40, class = "PRIEST" }, -- Divine Spirit
+    [14819] = { first = 14752, source = 50, class = "PRIEST" }, -- Divine Spirit
+    [27841] = { first = 14752, source = 60, class = "PRIEST" }, -- Divine Spirit
+    [14914] = { first = 14914, source = 20, class = "PRIEST" }, -- Holy Fire
+    [15262] = { first = 14914, source = 24, class = "PRIEST" }, -- Holy Fire
+    [15263] = { first = 14914, source = 30, class = "PRIEST" }, -- Holy Fire
+    [15264] = { first = 14914, source = 36, class = "PRIEST" }, -- Holy Fire
+    [15265] = { first = 14914, source = 42, class = "PRIEST" }, -- Holy Fire
+    [15266] = { first = 14914, source = 48, class = "PRIEST" }, -- Holy Fire
+    [15267] = { first = 14914, source = 54, class = "PRIEST" }, -- Holy Fire
+    [15261] = { first = 14914, source = 60, class = "PRIEST" }, -- Holy Fire
+    [15430] = { first = 15430, source = 28, class = "PRIEST" }, -- Holy Nova
+    [15431] = { first = 15430, source = 36, class = "PRIEST" }, -- Holy Nova
+    [27799] = { first = 15430, source = 44, class = "PRIEST" }, -- Holy Nova
+    [27800] = { first = 15430, source = 52, class = "PRIEST" }, -- Holy Nova
+    [27801] = { first = 15430, source = 60, class = "PRIEST" }, -- Holy Nova
+    [17311] = { first = 17311, source = 28, class = "PRIEST" }, -- Mind Flay
+    [17312] = { first = 17311, source = 36, class = "PRIEST" }, -- Mind Flay
+    [17313] = { first = 17311, source = 44, class = "PRIEST" }, -- Mind Flay
+    [17314] = { first = 17311, source = 52, class = "PRIEST" }, -- Mind Flay
+    [18807] = { first = 17311, source = 60, class = "PRIEST" }, -- Mind Flay
+    [18137] = { first = 18137, source = 20, class = "PRIEST" }, -- Shadowguard
+    [19308] = { first = 18137, source = 28, class = "PRIEST" }, -- Shadowguard
+    [19309] = { first = 18137, source = 36, class = "PRIEST" }, -- Shadowguard
+    [19310] = { first = 18137, source = 44, class = "PRIEST" }, -- Shadowguard
+    [19311] = { first = 18137, source = 52, class = "PRIEST" }, -- Shadowguard
+    [19312] = { first = 18137, source = 60, class = "PRIEST" }, -- Shadowguard
+    [21562] = { first = 21562, source = 48, class = "PRIEST" }, -- Prayer of Fortitude
+    [21564] = { first = 21562, source = 60, class = "PRIEST" }, -- Prayer of Fortitude
+    [27681] = { first = 27681, source = 60, class = "PRIEST" }, -- Prayer of Spirit
+    [27683] = { first = 27683, source = 56, class = "PRIEST" }, -- Prayer of Shadow Protection
+    [401863] = { first = 401863, source = 40, class = "PRIEST" }, -- Prayer of Mending
+    [1240826] = { first = 401863, source = 50, class = "PRIEST" }, -- Prayer of Mending
+    [1240827] = { first = 401863, source = 60, class = "PRIEST" }, -- Prayer of Mending
+    [401955] = { first = 401955, source = 1, class = "PRIEST" }, -- Shadow Word: Death
+    [1309595] = { first = 401955, source = 32, class = "PRIEST" }, -- Shadow Word: Death
+    [1309633] = { first = 401955, source = 40, class = "PRIEST" }, -- Shadow Word: Death
+    [1309635] = { first = 401955, source = 48, class = "PRIEST" }, -- Shadow Word: Death
+    [1309636] = { first = 401955, source = 56, class = "PRIEST" }, -- Shadow Word: Death
+    [402284] = { first = 402284, source = 30, class = "PRIEST" }, -- Penance
+    [402289] = { first = 402284, source = 30, class = "PRIEST" }, -- Penance
+    [1240720] = { first = 402284, source = 40, class = "PRIEST" }, -- Penance
+    [1240723] = { first = 402284, source = 40, class = "PRIEST" }, -- Penance
+    [1240727] = { first = 402284, source = 40, class = "PRIEST" }, -- Penance
+    [1240721] = { first = 402284, source = 50, class = "PRIEST" }, -- Penance
+    [1240724] = { first = 402284, source = 50, class = "PRIEST" }, -- Penance
+    [1240730] = { first = 402284, source = 50, class = "PRIEST" }, -- Penance
+    [1316991] = { first = 402284, source = 60, class = "PRIEST" }, -- Penance
+    [1316993] = { first = 402284, source = 60, class = "PRIEST" }, -- Penance
+    [1316995] = { first = 402284, source = 60, class = "PRIEST" }, -- Penance
+    [1240770] = { first = 1240770, source = 32, class = "PRIEST" }, -- Binding Heal
+    [1240771] = { first = 1240770, source = 38, class = "PRIEST" }, -- Binding Heal
+    [1240772] = { first = 1240770, source = 44, class = "PRIEST" }, -- Binding Heal
+    [1240773] = { first = 1240770, source = 50, class = "PRIEST" }, -- Binding Heal
+    [1240774] = { first = 1240770, source = 56, class = "PRIEST" }, -- Binding Heal
+    [1277324] = { first = 1277324, source = 20, class = "PRIEST" }, -- Dark Sacrifice
+    [1277325] = { first = 1277324, source = 30, class = "PRIEST" }, -- Dark Sacrifice
+    [1277326] = { first = 1277324, source = 40, class = "PRIEST" }, -- Dark Sacrifice
+    [1277327] = { first = 1277324, source = 50, class = "PRIEST" }, -- Dark Sacrifice
+    [1277328] = { first = 1277324, source = 60, class = "PRIEST" }, -- Dark Sacrifice
+    [1277331] = { first = 1277331, source = 20, class = "PRIEST" }, -- Chastise
+    [1277332] = { first = 1277331, source = 30, class = "PRIEST" }, -- Chastise
+    [1277333] = { first = 1277331, source = 40, class = "PRIEST" }, -- Chastise
+    [1277334] = { first = 1277331, source = 50, class = "PRIEST" }, -- Chastise
+    [1277335] = { first = 1277331, source = 60, class = "PRIEST" }, -- Chastise
+    [1277370] = { first = 1277370, source = 10, class = "PRIEST" }, -- Divine Grace
+    [1277371] = { first = 1277370, source = 18, class = "PRIEST" }, -- Divine Grace
+    [1277372] = { first = 1277370, source = 26, class = "PRIEST" }, -- Divine Grace
+    [1277374] = { first = 1277370, source = 34, class = "PRIEST" }, -- Divine Grace
+    [1277376] = { first = 1277370, source = 42, class = "PRIEST" }, -- Divine Grace
+    [1277377] = { first = 1277370, source = 50, class = "PRIEST" }, -- Divine Grace
+    [1277378] = { first = 1277370, source = 58, class = "PRIEST" }, -- Divine Grace
+    [1277455] = { first = 1277455, source = 10, class = "PRIEST" }, -- Confounding Flash
+    [1277462] = { first = 1277462, source = 20, class = "PRIEST" }, -- Contingency Plan
+    [1277634] = { first = 1277462, source = 30, class = "PRIEST" }, -- Contingency Plan
+    [1277638] = { first = 1277462, source = 40, class = "PRIEST" }, -- Contingency Plan
+    [1277639] = { first = 1277462, source = 50, class = "PRIEST" }, -- Contingency Plan
+    [1277640] = { first = 1277462, source = 60, class = "PRIEST" }, -- Contingency Plan
+    -- SHAMAN
+    [131] = { first = 131, source = 22, class = "SHAMAN" }, -- Water Breathing
+    [324] = { first = 324, source = 8, class = "SHAMAN" }, -- Lightning Shield
+    [325] = { first = 324, source = 16, class = "SHAMAN" }, -- Lightning Shield
+    [905] = { first = 324, source = 24, class = "SHAMAN" }, -- Lightning Shield
+    [945] = { first = 324, source = 32, class = "SHAMAN" }, -- Lightning Shield
+    [8134] = { first = 324, source = 40, class = "SHAMAN" }, -- Lightning Shield
+    [10431] = { first = 324, source = 48, class = "SHAMAN" }, -- Lightning Shield
+    [10432] = { first = 324, source = 56, class = "SHAMAN" }, -- Lightning Shield
+    [331] = { first = 331, source = 1, class = "SHAMAN" }, -- Healing Wave
+    [332] = { first = 331, source = 6, class = "SHAMAN" }, -- Healing Wave
+    [547] = { first = 331, source = 12, class = "SHAMAN" }, -- Healing Wave
+    [913] = { first = 331, source = 18, class = "SHAMAN" }, -- Healing Wave
+    [939] = { first = 331, source = 24, class = "SHAMAN" }, -- Healing Wave
+    [959] = { first = 331, source = 32, class = "SHAMAN" }, -- Healing Wave
+    [8005] = { first = 331, source = 40, class = "SHAMAN" }, -- Healing Wave
+    [10395] = { first = 331, source = 48, class = "SHAMAN" }, -- Healing Wave
+    [10396] = { first = 331, source = 56, class = "SHAMAN" }, -- Healing Wave
+    [25357] = { first = 331, source = 60, class = "SHAMAN" }, -- Healing Wave
+    [370] = { first = 370, source = 12, class = "SHAMAN" }, -- Purge
+    [8012] = { first = 370, source = 32, class = "SHAMAN" }, -- Purge
+    [403] = { first = 403, source = 1, class = "SHAMAN" }, -- Lightning Bolt
+    [408439] = { first = 403, source = 1, class = "SHAMAN" }, -- Lightning Bolt
+    [529] = { first = 403, source = 8, class = "SHAMAN" }, -- Lightning Bolt
+    [408440] = { first = 403, source = 8, class = "SHAMAN" }, -- Lightning Bolt
+    [548] = { first = 403, source = 14, class = "SHAMAN" }, -- Lightning Bolt
+    [408441] = { first = 403, source = 14, class = "SHAMAN" }, -- Lightning Bolt
+    [915] = { first = 403, source = 20, class = "SHAMAN" }, -- Lightning Bolt
+    [408442] = { first = 403, source = 20, class = "SHAMAN" }, -- Lightning Bolt
+    [943] = { first = 403, source = 26, class = "SHAMAN" }, -- Lightning Bolt
+    [408443] = { first = 403, source = 26, class = "SHAMAN" }, -- Lightning Bolt
+    [6041] = { first = 403, source = 32, class = "SHAMAN" }, -- Lightning Bolt
+    [408472] = { first = 403, source = 32, class = "SHAMAN" }, -- Lightning Bolt
+    [10391] = { first = 403, source = 38, class = "SHAMAN" }, -- Lightning Bolt
+    [408473] = { first = 403, source = 38, class = "SHAMAN" }, -- Lightning Bolt
+    [10392] = { first = 403, source = 44, class = "SHAMAN" }, -- Lightning Bolt
+    [408474] = { first = 403, source = 44, class = "SHAMAN" }, -- Lightning Bolt
+    [15207] = { first = 403, source = 50, class = "SHAMAN" }, -- Lightning Bolt
+    [408475] = { first = 403, source = 50, class = "SHAMAN" }, -- Lightning Bolt
+    [15208] = { first = 403, source = 56, class = "SHAMAN" }, -- Lightning Bolt
+    [408477] = { first = 403, source = 56, class = "SHAMAN" }, -- Lightning Bolt
+    [421] = { first = 421, source = 32, class = "SHAMAN" }, -- Chain Lightning
+    [408479] = { first = 421, source = 32, class = "SHAMAN" }, -- Chain Lightning
+    [930] = { first = 421, source = 40, class = "SHAMAN" }, -- Chain Lightning
+    [408481] = { first = 421, source = 40, class = "SHAMAN" }, -- Chain Lightning
+    [2860] = { first = 421, source = 48, class = "SHAMAN" }, -- Chain Lightning
+    [408482] = { first = 421, source = 48, class = "SHAMAN" }, -- Chain Lightning
+    [10605] = { first = 421, source = 56, class = "SHAMAN" }, -- Chain Lightning
+    [408484] = { first = 421, source = 56, class = "SHAMAN" }, -- Chain Lightning
+    [526] = { first = 526, source = 16, class = "SHAMAN" }, -- Cure Poison
+    [546] = { first = 546, source = 28, class = "SHAMAN" }, -- Water Walking
+    [556] = { first = 556, source = 30, class = "SHAMAN" }, -- Astral Recall
+    [1064] = { first = 1064, source = 40, class = "SHAMAN" }, -- Chain Heal
+    [10622] = { first = 1064, source = 46, class = "SHAMAN" }, -- Chain Heal
+    [10623] = { first = 1064, source = 54, class = "SHAMAN" }, -- Chain Heal
+    [2008] = { first = 2008, source = 12, class = "SHAMAN" }, -- Ancestral Spirit
+    [20609] = { first = 2008, source = 24, class = "SHAMAN" }, -- Ancestral Spirit
+    [20610] = { first = 2008, source = 36, class = "SHAMAN" }, -- Ancestral Spirit
+    [20776] = { first = 2008, source = 48, class = "SHAMAN" }, -- Ancestral Spirit
+    [20777] = { first = 2008, source = 60, class = "SHAMAN" }, -- Ancestral Spirit
+    [2484] = { first = 2484, source = 6, class = "SHAMAN" }, -- Earthbind Totem
+    [2645] = { first = 2645, source = 20, class = "SHAMAN" }, -- Ghost Wolf
+    [2870] = { first = 2870, source = 22, class = "SHAMAN" }, -- Cure Disease
+    [3599] = { first = 3599, source = 10, class = "SHAMAN" }, -- Searing Totem
+    [6363] = { first = 3599, source = 20, class = "SHAMAN" }, -- Searing Totem
+    [6364] = { first = 3599, source = 30, class = "SHAMAN" }, -- Searing Totem
+    [6365] = { first = 3599, source = 40, class = "SHAMAN" }, -- Searing Totem
+    [10437] = { first = 3599, source = 50, class = "SHAMAN" }, -- Searing Totem
+    [10438] = { first = 3599, source = 60, class = "SHAMAN" }, -- Searing Totem
+    [5394] = { first = 5394, source = 20, class = "SHAMAN" }, -- Healing Stream Totem
+    [6375] = { first = 5394, source = 30, class = "SHAMAN" }, -- Healing Stream Totem
+    [6377] = { first = 5394, source = 40, class = "SHAMAN" }, -- Healing Stream Totem
+    [10462] = { first = 5394, source = 50, class = "SHAMAN" }, -- Healing Stream Totem
+    [10463] = { first = 5394, source = 60, class = "SHAMAN" }, -- Healing Stream Totem
+    [5675] = { first = 5675, source = 26, class = "SHAMAN" }, -- Mana Spring Totem
+    [10495] = { first = 5675, source = 36, class = "SHAMAN" }, -- Mana Spring Totem
+    [10496] = { first = 5675, source = 46, class = "SHAMAN" }, -- Mana Spring Totem
+    [10497] = { first = 5675, source = 56, class = "SHAMAN" }, -- Mana Spring Totem
+    [5730] = { first = 5730, source = 8, class = "SHAMAN" }, -- Stoneclaw Totem
+    [6390] = { first = 5730, source = 18, class = "SHAMAN" }, -- Stoneclaw Totem
+    [6391] = { first = 5730, source = 28, class = "SHAMAN" }, -- Stoneclaw Totem
+    [6392] = { first = 5730, source = 38, class = "SHAMAN" }, -- Stoneclaw Totem
+    [10427] = { first = 5730, source = 48, class = "SHAMAN" }, -- Stoneclaw Totem
+    [10428] = { first = 5730, source = 58, class = "SHAMAN" }, -- Stoneclaw Totem
+    [6196] = { first = 6196, source = 26, class = "SHAMAN" }, -- Far Sight
+    [6495] = { first = 6495, source = 34, class = "SHAMAN" }, -- Sentry Totem
+    [8004] = { first = 8004, source = 20, class = "SHAMAN" }, -- Lesser Healing Wave
+    [8008] = { first = 8004, source = 28, class = "SHAMAN" }, -- Lesser Healing Wave
+    [8010] = { first = 8004, source = 36, class = "SHAMAN" }, -- Lesser Healing Wave
+    [10466] = { first = 8004, source = 44, class = "SHAMAN" }, -- Lesser Healing Wave
+    [10467] = { first = 8004, source = 52, class = "SHAMAN" }, -- Lesser Healing Wave
+    [10468] = { first = 8004, source = 60, class = "SHAMAN" }, -- Lesser Healing Wave
+    [8017] = { first = 8017, source = 1, class = "SHAMAN" }, -- Rockbiter Weapon
+    [8018] = { first = 8017, source = 8, class = "SHAMAN" }, -- Rockbiter Weapon
+    [8019] = { first = 8017, source = 16, class = "SHAMAN" }, -- Rockbiter Weapon
+    [10399] = { first = 8017, source = 24, class = "SHAMAN" }, -- Rockbiter Weapon
+    [16314] = { first = 8017, source = 34, class = "SHAMAN" }, -- Rockbiter Weapon
+    [16315] = { first = 8017, source = 44, class = "SHAMAN" }, -- Rockbiter Weapon
+    [16316] = { first = 8017, source = 54, class = "SHAMAN" }, -- Rockbiter Weapon
+    [8024] = { first = 8024, source = 10, class = "SHAMAN" }, -- Flametongue Weapon
+    [8027] = { first = 8024, source = 18, class = "SHAMAN" }, -- Flametongue Weapon
+    [8030] = { first = 8024, source = 26, class = "SHAMAN" }, -- Flametongue Weapon
+    [16339] = { first = 8024, source = 36, class = "SHAMAN" }, -- Flametongue Weapon
+    [16341] = { first = 8024, source = 46, class = "SHAMAN" }, -- Flametongue Weapon
+    [16342] = { first = 8024, source = 56, class = "SHAMAN" }, -- Flametongue Weapon
+    [8033] = { first = 8033, source = 20, class = "SHAMAN" }, -- Frostbrand Weapon
+    [8038] = { first = 8033, source = 28, class = "SHAMAN" }, -- Frostbrand Weapon
+    [10456] = { first = 8033, source = 38, class = "SHAMAN" }, -- Frostbrand Weapon
+    [16355] = { first = 8033, source = 48, class = "SHAMAN" }, -- Frostbrand Weapon
+    [16356] = { first = 8033, source = 58, class = "SHAMAN" }, -- Frostbrand Weapon
+    [8042] = { first = 8042, source = 4, class = "SHAMAN" }, -- Earth Shock
+    [8044] = { first = 8042, source = 8, class = "SHAMAN" }, -- Earth Shock
+    [8045] = { first = 8042, source = 14, class = "SHAMAN" }, -- Earth Shock
+    [8046] = { first = 8042, source = 24, class = "SHAMAN" }, -- Earth Shock
+    [10412] = { first = 8042, source = 36, class = "SHAMAN" }, -- Earth Shock
+    [10413] = { first = 8042, source = 48, class = "SHAMAN" }, -- Earth Shock
+    [10414] = { first = 8042, source = 60, class = "SHAMAN" }, -- Earth Shock
+    [8050] = { first = 8050, source = 10, class = "SHAMAN" }, -- Flame Shock
+    [8052] = { first = 8050, source = 18, class = "SHAMAN" }, -- Flame Shock
+    [8053] = { first = 8050, source = 28, class = "SHAMAN" }, -- Flame Shock
+    [10447] = { first = 8050, source = 40, class = "SHAMAN" }, -- Flame Shock
+    [10448] = { first = 8050, source = 52, class = "SHAMAN" }, -- Flame Shock
+    [29228] = { first = 8050, source = 60, class = "SHAMAN" }, -- Flame Shock
+    [8056] = { first = 8056, source = 20, class = "SHAMAN" }, -- Frost Shock
+    [8058] = { first = 8056, source = 34, class = "SHAMAN" }, -- Frost Shock
+    [10472] = { first = 8056, source = 46, class = "SHAMAN" }, -- Frost Shock
+    [10473] = { first = 8056, source = 58, class = "SHAMAN" }, -- Frost Shock
+    [8071] = { first = 8071, source = 4, class = "SHAMAN" }, -- Stoneskin Totem
+    [8154] = { first = 8071, source = 14, class = "SHAMAN" }, -- Stoneskin Totem
+    [8155] = { first = 8071, source = 24, class = "SHAMAN" }, -- Stoneskin Totem
+    [10406] = { first = 8071, source = 34, class = "SHAMAN" }, -- Stoneskin Totem
+    [10407] = { first = 8071, source = 44, class = "SHAMAN" }, -- Stoneskin Totem
+    [10408] = { first = 8071, source = 54, class = "SHAMAN" }, -- Stoneskin Totem
+    [8075] = { first = 8075, source = 10, class = "SHAMAN" }, -- Strength of Earth Totem
+    [8160] = { first = 8075, source = 24, class = "SHAMAN" }, -- Strength of Earth Totem
+    [8161] = { first = 8075, source = 38, class = "SHAMAN" }, -- Strength of Earth Totem
+    [10442] = { first = 8075, source = 52, class = "SHAMAN" }, -- Strength of Earth Totem
+    [25361] = { first = 8075, source = 60, class = "SHAMAN" }, -- Strength of Earth Totem
+    [8143] = { first = 8143, source = 18, class = "SHAMAN" }, -- Tremor Totem
+    [8166] = { first = 8166, source = 22, class = "SHAMAN" }, -- Poison Cleansing Totem
+    [8170] = { first = 8170, source = 38, class = "SHAMAN" }, -- Disease Cleansing Totem
+    [8177] = { first = 8177, source = 30, class = "SHAMAN" }, -- Grounding Totem
+    [8181] = { first = 8181, source = 24, class = "SHAMAN" }, -- Frost Resistance Totem
+    [10478] = { first = 8181, source = 38, class = "SHAMAN" }, -- Frost Resistance Totem
+    [10479] = { first = 8181, source = 54, class = "SHAMAN" }, -- Frost Resistance Totem
+    [8184] = { first = 8184, source = 28, class = "SHAMAN" }, -- Fire Resistance Totem
+    [10537] = { first = 8184, source = 42, class = "SHAMAN" }, -- Fire Resistance Totem
+    [10538] = { first = 8184, source = 58, class = "SHAMAN" }, -- Fire Resistance Totem
+    [8190] = { first = 8190, source = 26, class = "SHAMAN" }, -- Magma Totem
+    [10585] = { first = 8190, source = 36, class = "SHAMAN" }, -- Magma Totem
+    [10586] = { first = 8190, source = 46, class = "SHAMAN" }, -- Magma Totem
+    [10587] = { first = 8190, source = 56, class = "SHAMAN" }, -- Magma Totem
+    [8227] = { first = 8227, source = 28, class = "SHAMAN" }, -- Flametongue Totem
+    [8249] = { first = 8227, source = 38, class = "SHAMAN" }, -- Flametongue Totem
+    [10526] = { first = 8227, source = 48, class = "SHAMAN" }, -- Flametongue Totem
+    [16387] = { first = 8227, source = 58, class = "SHAMAN" }, -- Flametongue Totem
+    [8232] = { first = 8232, source = 30, class = "SHAMAN" }, -- Windfury Weapon
+    [8235] = { first = 8232, source = 40, class = "SHAMAN" }, -- Windfury Weapon
+    [10486] = { first = 8232, source = 50, class = "SHAMAN" }, -- Windfury Weapon
+    [16362] = { first = 8232, source = 60, class = "SHAMAN" }, -- Windfury Weapon
+    [8512] = { first = 8512, source = 32, class = "SHAMAN" }, -- Windfury Totem
+    [10613] = { first = 8512, source = 42, class = "SHAMAN" }, -- Windfury Totem
+    [10614] = { first = 8512, source = 52, class = "SHAMAN" }, -- Windfury Totem
+    [8835] = { first = 8835, source = 42, class = "SHAMAN" }, -- Grace of Air Totem
+    [10627] = { first = 8835, source = 56, class = "SHAMAN" }, -- Grace of Air Totem
+    [25359] = { first = 8835, source = 60, class = "SHAMAN" }, -- Grace of Air Totem
+    [10595] = { first = 10595, source = 30, class = "SHAMAN" }, -- Nature Resistance Totem
+    [10600] = { first = 10595, source = 44, class = "SHAMAN" }, -- Nature Resistance Totem
+    [10601] = { first = 10595, source = 60, class = "SHAMAN" }, -- Nature Resistance Totem
+    [15107] = { first = 15107, source = 36, class = "SHAMAN" }, -- Windwall Totem
+    [15111] = { first = 15107, source = 46, class = "SHAMAN" }, -- Windwall Totem
+    [15112] = { first = 15107, source = 56, class = "SHAMAN" }, -- Windwall Totem
+    [17354] = { first = 17354, source = 48, class = "SHAMAN" }, -- Mana Tide Totem
+    [17359] = { first = 17354, source = 58, class = "SHAMAN" }, -- Mana Tide Totem
+    [20608] = { first = 20608, source = 30, class = "SHAMAN" }, -- Reincarnation
+    [36936] = { first = 36936, source = 20, class = "SHAMAN" }, -- Totemic Recall
+    [66842] = { first = 66842, source = 20, class = "SHAMAN" }, -- Call of the Elements
+    [66843] = { first = 66843, source = 30, class = "SHAMAN" }, -- Call of the Ancestors
+    [66844] = { first = 66844, source = 40, class = "SHAMAN" }, -- Call of the Spirits
+    [408341] = { first = 408341, source = 12, class = "SHAMAN" }, -- Fire Nova
+    [408342] = { first = 408341, source = 22, class = "SHAMAN" }, -- Fire Nova
+    [408343] = { first = 408341, source = 32, class = "SHAMAN" }, -- Fire Nova
+    [408344] = { first = 408341, source = 42, class = "SHAMAN" }, -- Fire Nova
+    [408345] = { first = 408341, source = 52, class = "SHAMAN" }, -- Fire Nova
+    [408491] = { first = 408491, source = 40, class = "SHAMAN" }, -- Lava Burst
+    [1238299] = { first = 408491, source = 50, class = "SHAMAN" }, -- Lava Burst
+    [1238373] = { first = 408491, source = 50, class = "SHAMAN" }, -- Lava Burst
+    [1238300] = { first = 408491, source = 60, class = "SHAMAN" }, -- Lava Burst
+    [1238376] = { first = 408491, source = 60, class = "SHAMAN" }, -- Lava Burst
+    [437009] = { first = 437009, source = 22, class = "SHAMAN" }, -- Totemic Projection
+    [1239242] = { first = 1239242, source = 50, class = "SHAMAN" }, -- Riptide
+    [1239243] = { first = 1239242, source = 60, class = "SHAMAN" }, -- Riptide
+    -- MAGE
+    [10] = { first = 10, source = 20, class = "MAGE" }, -- Blizzard
+    [6141] = { first = 10, source = 28, class = "MAGE" }, -- Blizzard
+    [8427] = { first = 10, source = 36, class = "MAGE" }, -- Blizzard
+    [10185] = { first = 10, source = 44, class = "MAGE" }, -- Blizzard
+    [10186] = { first = 10, source = 52, class = "MAGE" }, -- Blizzard
+    [10187] = { first = 10, source = 60, class = "MAGE" }, -- Blizzard
+    [116] = { first = 116, source = 4, class = "MAGE" }, -- Frostbolt
+    [205] = { first = 116, source = 8, class = "MAGE" }, -- Frostbolt
+    [837] = { first = 116, source = 14, class = "MAGE" }, -- Frostbolt
+    [7322] = { first = 116, source = 20, class = "MAGE" }, -- Frostbolt
+    [8406] = { first = 116, source = 26, class = "MAGE" }, -- Frostbolt
+    [8407] = { first = 116, source = 32, class = "MAGE" }, -- Frostbolt
+    [8408] = { first = 116, source = 38, class = "MAGE" }, -- Frostbolt
+    [10179] = { first = 116, source = 44, class = "MAGE" }, -- Frostbolt
+    [10180] = { first = 116, source = 50, class = "MAGE" }, -- Frostbolt
+    [10181] = { first = 116, source = 56, class = "MAGE" }, -- Frostbolt
+    [25304] = { first = 116, source = 60, class = "MAGE" }, -- Frostbolt
+    [118] = { first = 118, source = 8, class = "MAGE" }, -- Polymorph
+    [12824] = { first = 118, source = 20, class = "MAGE" }, -- Polymorph
+    [12825] = { first = 118, source = 40, class = "MAGE" }, -- Polymorph
+    [12826] = { first = 118, source = 60, class = "MAGE" }, -- Polymorph
+    [28271] = { first = 118, source = 60, class = "MAGE" }, -- Polymorph
+    [28272] = { first = 118, source = 60, class = "MAGE" }, -- Polymorph
+    [120] = { first = 120, source = 26, class = "MAGE" }, -- Cone of Cold
+    [8492] = { first = 120, source = 34, class = "MAGE" }, -- Cone of Cold
+    [10159] = { first = 120, source = 42, class = "MAGE" }, -- Cone of Cold
+    [10160] = { first = 120, source = 50, class = "MAGE" }, -- Cone of Cold
+    [10161] = { first = 120, source = 58, class = "MAGE" }, -- Cone of Cold
+    [122] = { first = 122, source = 10, class = "MAGE" }, -- Frost Nova
+    [865] = { first = 122, source = 26, class = "MAGE" }, -- Frost Nova
+    [6131] = { first = 122, source = 40, class = "MAGE" }, -- Frost Nova
+    [10230] = { first = 122, source = 54, class = "MAGE" }, -- Frost Nova
+    [130] = { first = 130, source = 12, class = "MAGE" }, -- Slow Fall
+    [133] = { first = 133, source = 1, class = "MAGE" }, -- Fireball
+    [143] = { first = 133, source = 6, class = "MAGE" }, -- Fireball
+    [145] = { first = 133, source = 12, class = "MAGE" }, -- Fireball
+    [3140] = { first = 133, source = 18, class = "MAGE" }, -- Fireball
+    [8400] = { first = 133, source = 24, class = "MAGE" }, -- Fireball
+    [8401] = { first = 133, source = 30, class = "MAGE" }, -- Fireball
+    [8402] = { first = 133, source = 36, class = "MAGE" }, -- Fireball
+    [10148] = { first = 133, source = 42, class = "MAGE" }, -- Fireball
+    [10149] = { first = 133, source = 48, class = "MAGE" }, -- Fireball
+    [10150] = { first = 133, source = 54, class = "MAGE" }, -- Fireball
+    [10151] = { first = 133, source = 60, class = "MAGE" }, -- Fireball
+    [25306] = { first = 133, source = 60, class = "MAGE" }, -- Fireball
+    [168] = { first = 168, source = 1, class = "MAGE" }, -- Frost Armor
+    [7300] = { first = 168, source = 10, class = "MAGE" }, -- Frost Armor
+    [7301] = { first = 168, source = 20, class = "MAGE" }, -- Frost Armor
+    [475] = { first = 475, source = 18, class = "MAGE" }, -- Remove Lesser Curse
+    [543] = { first = 543, source = 20, class = "MAGE" }, -- Fire Ward
+    [8457] = { first = 543, source = 30, class = "MAGE" }, -- Fire Ward
+    [8458] = { first = 543, source = 40, class = "MAGE" }, -- Fire Ward
+    [10223] = { first = 543, source = 50, class = "MAGE" }, -- Fire Ward
+    [10225] = { first = 543, source = 60, class = "MAGE" }, -- Fire Ward
+    [587] = { first = 587, source = 6, class = "MAGE" }, -- Conjure Food
+    [597] = { first = 587, source = 12, class = "MAGE" }, -- Conjure Food
+    [990] = { first = 587, source = 22, class = "MAGE" }, -- Conjure Food
+    [6129] = { first = 587, source = 32, class = "MAGE" }, -- Conjure Food
+    [10144] = { first = 587, source = 42, class = "MAGE" }, -- Conjure Food
+    [10145] = { first = 587, source = 52, class = "MAGE" }, -- Conjure Food
+    [28612] = { first = 587, source = 60, class = "MAGE" }, -- Conjure Food
+    [604] = { first = 604, source = 12, class = "MAGE" }, -- Dampen Magic
+    [8450] = { first = 604, source = 24, class = "MAGE" }, -- Dampen Magic
+    [8451] = { first = 604, source = 36, class = "MAGE" }, -- Dampen Magic
+    [10173] = { first = 604, source = 48, class = "MAGE" }, -- Dampen Magic
+    [10174] = { first = 604, source = 60, class = "MAGE" }, -- Dampen Magic
+    [759] = { first = 759, source = 28, class = "MAGE" }, -- Conjure Mana Agate
+    [1008] = { first = 1008, source = 18, class = "MAGE" }, -- Amplify Magic
+    [8455] = { first = 1008, source = 30, class = "MAGE" }, -- Amplify Magic
+    [10169] = { first = 1008, source = 42, class = "MAGE" }, -- Amplify Magic
+    [10170] = { first = 1008, source = 54, class = "MAGE" }, -- Amplify Magic
+    [1449] = { first = 1449, source = 14, class = "MAGE" }, -- Arcane Explosion
+    [8437] = { first = 1449, source = 22, class = "MAGE" }, -- Arcane Explosion
+    [8438] = { first = 1449, source = 30, class = "MAGE" }, -- Arcane Explosion
+    [8439] = { first = 1449, source = 38, class = "MAGE" }, -- Arcane Explosion
+    [10201] = { first = 1449, source = 46, class = "MAGE" }, -- Arcane Explosion
+    [10202] = { first = 1449, source = 54, class = "MAGE" }, -- Arcane Explosion
+    [1459] = { first = 1459, source = 1, class = "MAGE" }, -- Arcane Intellect
+    [1460] = { first = 1459, source = 14, class = "MAGE" }, -- Arcane Intellect
+    [1461] = { first = 1459, source = 28, class = "MAGE" }, -- Arcane Intellect
+    [10156] = { first = 1459, source = 42, class = "MAGE" }, -- Arcane Intellect
+    [10157] = { first = 1459, source = 56, class = "MAGE" }, -- Arcane Intellect
+    [1463] = { first = 1463, source = 20, class = "MAGE" }, -- Mana Shield
+    [8494] = { first = 1463, source = 28, class = "MAGE" }, -- Mana Shield
+    [8495] = { first = 1463, source = 36, class = "MAGE" }, -- Mana Shield
+    [10191] = { first = 1463, source = 44, class = "MAGE" }, -- Mana Shield
+    [10192] = { first = 1463, source = 52, class = "MAGE" }, -- Mana Shield
+    [10193] = { first = 1463, source = 60, class = "MAGE" }, -- Mana Shield
+    [1953] = { first = 1953, source = 20, class = "MAGE" }, -- Blink
+    [2120] = { first = 2120, source = 16, class = "MAGE" }, -- Flamestrike
+    [2121] = { first = 2120, source = 24, class = "MAGE" }, -- Flamestrike
+    [8422] = { first = 2120, source = 32, class = "MAGE" }, -- Flamestrike
+    [8423] = { first = 2120, source = 40, class = "MAGE" }, -- Flamestrike
+    [10215] = { first = 2120, source = 48, class = "MAGE" }, -- Flamestrike
+    [10216] = { first = 2120, source = 56, class = "MAGE" }, -- Flamestrike
+    [2136] = { first = 2136, source = 6, class = "MAGE" }, -- Fire Blast
+    [400618] = { first = 2136, source = 6, class = "MAGE" }, -- Fire Blast
+    [2137] = { first = 2136, source = 14, class = "MAGE" }, -- Fire Blast
+    [400619] = { first = 2136, source = 14, class = "MAGE" }, -- Fire Blast
+    [2138] = { first = 2136, source = 22, class = "MAGE" }, -- Fire Blast
+    [400616] = { first = 2136, source = 22, class = "MAGE" }, -- Fire Blast
+    [8412] = { first = 2136, source = 30, class = "MAGE" }, -- Fire Blast
+    [400620] = { first = 2136, source = 30, class = "MAGE" }, -- Fire Blast
+    [8413] = { first = 2136, source = 38, class = "MAGE" }, -- Fire Blast
+    [400621] = { first = 2136, source = 38, class = "MAGE" }, -- Fire Blast
+    [10197] = { first = 2136, source = 46, class = "MAGE" }, -- Fire Blast
+    [400622] = { first = 2136, source = 46, class = "MAGE" }, -- Fire Blast
+    [10199] = { first = 2136, source = 54, class = "MAGE" }, -- Fire Blast
+    [400623] = { first = 2136, source = 54, class = "MAGE" }, -- Fire Blast
+    [2139] = { first = 2139, source = 24, class = "MAGE" }, -- Counterspell
+    [2948] = { first = 2948, source = 22, class = "MAGE" }, -- Scorch
+    [8444] = { first = 2948, source = 28, class = "MAGE" }, -- Scorch
+    [8445] = { first = 2948, source = 34, class = "MAGE" }, -- Scorch
+    [8446] = { first = 2948, source = 40, class = "MAGE" }, -- Scorch
+    [10205] = { first = 2948, source = 46, class = "MAGE" }, -- Scorch
+    [10206] = { first = 2948, source = 52, class = "MAGE" }, -- Scorch
+    [10207] = { first = 2948, source = 58, class = "MAGE" }, -- Scorch
+    [3552] = { first = 3552, source = 38, class = "MAGE" }, -- Conjure Mana Jade
+    [3561] = { first = 3561, source = 20, class = "MAGE" }, -- Teleport: Stormwind
+    [3562] = { first = 3562, source = 20, class = "MAGE" }, -- Teleport: Ironforge
+    [3563] = { first = 3563, source = 20, class = "MAGE" }, -- Teleport: Undercity
+    [3565] = { first = 3565, source = 30, class = "MAGE" }, -- Teleport: Darnassus
+    [3566] = { first = 3566, source = 30, class = "MAGE" }, -- Teleport: Thunder Bluff
+    [3567] = { first = 3567, source = 20, class = "MAGE" }, -- Teleport: Orgrimmar
+    [5143] = { first = 5143, source = 8, class = "MAGE" }, -- Arcane Missiles
+    [5144] = { first = 5143, source = 16, class = "MAGE" }, -- Arcane Missiles
+    [5145] = { first = 5143, source = 24, class = "MAGE" }, -- Arcane Missiles
+    [8416] = { first = 5143, source = 32, class = "MAGE" }, -- Arcane Missiles
+    [8417] = { first = 5143, source = 40, class = "MAGE" }, -- Arcane Missiles
+    [10211] = { first = 5143, source = 48, class = "MAGE" }, -- Arcane Missiles
+    [10212] = { first = 5143, source = 56, class = "MAGE" }, -- Arcane Missiles
+    [25345] = { first = 5143, source = 56, class = "MAGE" }, -- Arcane Missiles
+    [5504] = { first = 5504, source = 4, class = "MAGE" }, -- Conjure Water
+    [5505] = { first = 5504, source = 10, class = "MAGE" }, -- Conjure Water
+    [5506] = { first = 5504, source = 20, class = "MAGE" }, -- Conjure Water
+    [6127] = { first = 5504, source = 30, class = "MAGE" }, -- Conjure Water
+    [10138] = { first = 5504, source = 40, class = "MAGE" }, -- Conjure Water
+    [10139] = { first = 5504, source = 50, class = "MAGE" }, -- Conjure Water
+    [10140] = { first = 5504, source = 60, class = "MAGE" }, -- Conjure Water
+    [468766] = { first = 5504, source = 60, class = "MAGE" }, -- Conjure Water
+    [6117] = { first = 6117, source = 34, class = "MAGE" }, -- Mage Armor
+    [22782] = { first = 6117, source = 46, class = "MAGE" }, -- Mage Armor
+    [22783] = { first = 6117, source = 58, class = "MAGE" }, -- Mage Armor
+    [6143] = { first = 6143, source = 22, class = "MAGE" }, -- Frost Ward
+    [8461] = { first = 6143, source = 32, class = "MAGE" }, -- Frost Ward
+    [8462] = { first = 6143, source = 42, class = "MAGE" }, -- Frost Ward
+    [10177] = { first = 6143, source = 52, class = "MAGE" }, -- Frost Ward
+    [28609] = { first = 6143, source = 60, class = "MAGE" }, -- Frost Ward
+    [7302] = { first = 7302, source = 30, class = "MAGE" }, -- Ice Armor
+    [7320] = { first = 7302, source = 40, class = "MAGE" }, -- Ice Armor
+    [10219] = { first = 7302, source = 50, class = "MAGE" }, -- Ice Armor
+    [10220] = { first = 7302, source = 60, class = "MAGE" }, -- Ice Armor
+    [10053] = { first = 10053, source = 48, class = "MAGE" }, -- Conjure Mana Citrine
+    [10054] = { first = 10054, source = 58, class = "MAGE" }, -- Conjure Mana Ruby
+    [10059] = { first = 10059, source = 40, class = "MAGE" }, -- Portal: Stormwind
+    [11416] = { first = 11416, source = 40, class = "MAGE" }, -- Portal: Ironforge
+    [11417] = { first = 11417, source = 40, class = "MAGE" }, -- Portal: Orgrimmar
+    [11418] = { first = 11418, source = 40, class = "MAGE" }, -- Portal: Undercity
+    [11419] = { first = 11419, source = 50, class = "MAGE" }, -- Portal: Darnassus
+    [11420] = { first = 11420, source = 50, class = "MAGE" }, -- Portal: Thunder Bluff
+    [12051] = { first = 12051, source = 20, class = "MAGE" }, -- Evocation
+    [12505] = { first = 12505, source = 24, class = "MAGE" }, -- Pyroblast
+    [12522] = { first = 12505, source = 30, class = "MAGE" }, -- Pyroblast
+    [12523] = { first = 12505, source = 36, class = "MAGE" }, -- Pyroblast
+    [12524] = { first = 12505, source = 42, class = "MAGE" }, -- Pyroblast
+    [12525] = { first = 12505, source = 48, class = "MAGE" }, -- Pyroblast
+    [12526] = { first = 12505, source = 54, class = "MAGE" }, -- Pyroblast
+    [18809] = { first = 12505, source = 60, class = "MAGE" }, -- Pyroblast
+    [13018] = { first = 13018, source = 36, class = "MAGE" }, -- Blast Wave
+    [13019] = { first = 13018, source = 44, class = "MAGE" }, -- Blast Wave
+    [13020] = { first = 13018, source = 52, class = "MAGE" }, -- Blast Wave
+    [13021] = { first = 13018, source = 60, class = "MAGE" }, -- Blast Wave
+    [13031] = { first = 13031, source = 46, class = "MAGE" }, -- Ice Barrier
+    [13032] = { first = 13031, source = 52, class = "MAGE" }, -- Ice Barrier
+    [13033] = { first = 13031, source = 58, class = "MAGE" }, -- Ice Barrier
+    [23028] = { first = 23028, source = 56, class = "MAGE" }, -- Arcane Brilliance
+    [28270] = { first = 28270, source = 60, class = "MAGE" }, -- Polymorph: Cow
+    [400640] = { first = 400640, source = 28, class = "MAGE" }, -- Ice Lance
+    [1240044] = { first = 400640, source = 34, class = "MAGE" }, -- Ice Lance
+    [1240045] = { first = 400640, source = 42, class = "MAGE" }, -- Ice Lance
+    [1240046] = { first = 400640, source = 48, class = "MAGE" }, -- Ice Lance
+    [1240047] = { first = 400640, source = 56, class = "MAGE" }, -- Ice Lance
+    [401502] = { first = 401502, source = 40, class = "MAGE" }, -- Frostfire Bolt
+    [1237312] = { first = 401502, source = 50, class = "MAGE" }, -- Frostfire Bolt
+    [1237313] = { first = 401502, source = 60, class = "MAGE" }, -- Frostfire Bolt
+    [1239696] = { first = 1239696, source = 30, class = "MAGE" }, -- Arcane Blast
+    [1239697] = { first = 1239696, source = 40, class = "MAGE" }, -- Arcane Blast
+    [1239699] = { first = 1239696, source = 50, class = "MAGE" }, -- Arcane Blast
+    [1239700] = { first = 1239696, source = 60, class = "MAGE" }, -- Arcane Blast
+    [1297659] = { first = 1297659, source = 50, class = "MAGE" }, -- Teleport: Dalaran
+    -- WARLOCK
+    [126] = { first = 126, source = 22, class = "WARLOCK" }, -- Eye of Kilrogg
+    [132] = { first = 132, source = 26, class = "WARLOCK" }, -- Detect Invisibility
+    [2970] = { first = 132, source = 38, class = "WARLOCK" }, -- Detect Invisibility
+    [11743] = { first = 132, source = 50, class = "WARLOCK" }, -- Detect Invisibility
+    [172] = { first = 172, source = 4, class = "WARLOCK" }, -- Corruption
+    [6222] = { first = 172, source = 14, class = "WARLOCK" }, -- Corruption
+    [6223] = { first = 172, source = 24, class = "WARLOCK" }, -- Corruption
+    [7648] = { first = 172, source = 34, class = "WARLOCK" }, -- Corruption
+    [11671] = { first = 172, source = 44, class = "WARLOCK" }, -- Corruption
+    [11672] = { first = 172, source = 54, class = "WARLOCK" }, -- Corruption
+    [25311] = { first = 172, source = 60, class = "WARLOCK" }, -- Corruption
+    [348] = { first = 348, source = 1, class = "WARLOCK" }, -- Immolate
+    [707] = { first = 348, source = 10, class = "WARLOCK" }, -- Immolate
+    [1094] = { first = 348, source = 20, class = "WARLOCK" }, -- Immolate
+    [2941] = { first = 348, source = 30, class = "WARLOCK" }, -- Immolate
+    [11665] = { first = 348, source = 40, class = "WARLOCK" }, -- Immolate
+    [11667] = { first = 348, source = 50, class = "WARLOCK" }, -- Immolate
+    [11668] = { first = 348, source = 60, class = "WARLOCK" }, -- Immolate
+    [25309] = { first = 348, source = 60, class = "WARLOCK" }, -- Immolate
+    [603] = { first = 603, source = 60, class = "WARLOCK" }, -- Bane of Doom
+    [686] = { first = 686, source = 1, class = "WARLOCK" }, -- Shadow Bolt
+    [695] = { first = 686, source = 6, class = "WARLOCK" }, -- Shadow Bolt
+    [705] = { first = 686, source = 12, class = "WARLOCK" }, -- Shadow Bolt
+    [1088] = { first = 686, source = 20, class = "WARLOCK" }, -- Shadow Bolt
+    [1106] = { first = 686, source = 28, class = "WARLOCK" }, -- Shadow Bolt
+    [7641] = { first = 686, source = 36, class = "WARLOCK" }, -- Shadow Bolt
+    [11659] = { first = 686, source = 44, class = "WARLOCK" }, -- Shadow Bolt
+    [11660] = { first = 686, source = 52, class = "WARLOCK" }, -- Shadow Bolt
+    [11661] = { first = 686, source = 60, class = "WARLOCK" }, -- Shadow Bolt
+    [25307] = { first = 686, source = 60, class = "WARLOCK" }, -- Shadow Bolt
+    [687] = { first = 687, source = 1, class = "WARLOCK" }, -- Demon Skin
+    [696] = { first = 687, source = 10, class = "WARLOCK" }, -- Demon Skin
+    [689] = { first = 689, source = 14, class = "WARLOCK" }, -- Drain Life
+    [403677] = { first = 689, source = 14, class = "WARLOCK" }, -- Drain Life
+    [699] = { first = 689, source = 22, class = "WARLOCK" }, -- Drain Life
+    [403685] = { first = 689, source = 22, class = "WARLOCK" }, -- Drain Life
+    [709] = { first = 689, source = 30, class = "WARLOCK" }, -- Drain Life
+    [403686] = { first = 689, source = 30, class = "WARLOCK" }, -- Drain Life
+    [7651] = { first = 689, source = 38, class = "WARLOCK" }, -- Drain Life
+    [403687] = { first = 689, source = 38, class = "WARLOCK" }, -- Drain Life
+    [11699] = { first = 689, source = 46, class = "WARLOCK" }, -- Drain Life
+    [403688] = { first = 689, source = 46, class = "WARLOCK" }, -- Drain Life
+    [11700] = { first = 689, source = 54, class = "WARLOCK" }, -- Drain Life
+    [403689] = { first = 689, source = 54, class = "WARLOCK" }, -- Drain Life
+    [691] = { first = 691, source = 30, class = "WARLOCK" }, -- Summon Felhunter
+    [693] = { first = 693, source = 18, class = "WARLOCK" }, -- Create Soulstone
+    [20752] = { first = 693, source = 30, class = "WARLOCK" }, -- Create Soulstone
+    [20755] = { first = 693, source = 40, class = "WARLOCK" }, -- Create Soulstone
+    [20756] = { first = 693, source = 50, class = "WARLOCK" }, -- Create Soulstone
+    [20757] = { first = 693, source = 60, class = "WARLOCK" }, -- Create Soulstone
+    [697] = { first = 697, source = 10, class = "WARLOCK" }, -- Summon Voidwalker
+    [698] = { first = 698, source = 20, class = "WARLOCK" }, -- Ritual of Summoning
+    [702] = { first = 702, source = 4, class = "WARLOCK" }, -- Curse of Weakness
+    [1108] = { first = 702, source = 12, class = "WARLOCK" }, -- Curse of Weakness
+    [6205] = { first = 702, source = 22, class = "WARLOCK" }, -- Curse of Weakness
+    [7646] = { first = 702, source = 32, class = "WARLOCK" }, -- Curse of Weakness
+    [11707] = { first = 702, source = 42, class = "WARLOCK" }, -- Curse of Weakness
+    [11708] = { first = 702, source = 52, class = "WARLOCK" }, -- Curse of Weakness
+    [704] = { first = 704, source = 14, class = "WARLOCK" }, -- Curse of Recklessness
+    [7658] = { first = 704, source = 28, class = "WARLOCK" }, -- Curse of Recklessness
+    [7659] = { first = 704, source = 42, class = "WARLOCK" }, -- Curse of Recklessness
+    [11717] = { first = 704, source = 56, class = "WARLOCK" }, -- Curse of Recklessness
+    [706] = { first = 706, source = 20, class = "WARLOCK" }, -- Demon Armor
+    [1086] = { first = 706, source = 30, class = "WARLOCK" }, -- Demon Armor
+    [11733] = { first = 706, source = 40, class = "WARLOCK" }, -- Demon Armor
+    [11734] = { first = 706, source = 50, class = "WARLOCK" }, -- Demon Armor
+    [11735] = { first = 706, source = 60, class = "WARLOCK" }, -- Demon Armor
+    [710] = { first = 710, source = 28, class = "WARLOCK" }, -- Banish
+    [18647] = { first = 710, source = 48, class = "WARLOCK" }, -- Banish
+    [712] = { first = 712, source = 20, class = "WARLOCK" }, -- Summon Succubus
+    [713] = { first = 713, source = 20, class = "WARLOCK" }, -- Summon Incubus
+    [755] = { first = 755, source = 12, class = "WARLOCK" }, -- Health Funnel
+    [3698] = { first = 755, source = 20, class = "WARLOCK" }, -- Health Funnel
+    [3699] = { first = 755, source = 28, class = "WARLOCK" }, -- Health Funnel
+    [3700] = { first = 755, source = 36, class = "WARLOCK" }, -- Health Funnel
+    [11693] = { first = 755, source = 44, class = "WARLOCK" }, -- Health Funnel
+    [11694] = { first = 755, source = 52, class = "WARLOCK" }, -- Health Funnel
+    [11695] = { first = 755, source = 60, class = "WARLOCK" }, -- Health Funnel
+    [980] = { first = 980, source = 8, class = "WARLOCK" }, -- Bane of Agony
+    [1014] = { first = 980, source = 18, class = "WARLOCK" }, -- Bane of Agony
+    [6217] = { first = 980, source = 28, class = "WARLOCK" }, -- Bane of Agony
+    [11711] = { first = 980, source = 38, class = "WARLOCK" }, -- Bane of Agony
+    [11712] = { first = 980, source = 48, class = "WARLOCK" }, -- Bane of Agony
+    [11713] = { first = 980, source = 58, class = "WARLOCK" }, -- Bane of Agony
+    [1098] = { first = 1098, source = 30, class = "WARLOCK" }, -- Subjugate Demon
+    [11725] = { first = 1098, source = 44, class = "WARLOCK" }, -- Subjugate Demon
+    [11726] = { first = 1098, source = 58, class = "WARLOCK" }, -- Subjugate Demon
+    [1120] = { first = 1120, source = 10, class = "WARLOCK" }, -- Drain Soul
+    [8288] = { first = 1120, source = 24, class = "WARLOCK" }, -- Drain Soul
+    [8289] = { first = 1120, source = 38, class = "WARLOCK" }, -- Drain Soul
+    [11675] = { first = 1120, source = 52, class = "WARLOCK" }, -- Drain Soul
+    [1122] = { first = 1122, source = 50, class = "WARLOCK" }, -- Inferno
+    [1454] = { first = 1454, source = 6, class = "WARLOCK" }, -- Life Tap
+    [1455] = { first = 1454, source = 16, class = "WARLOCK" }, -- Life Tap
+    [1456] = { first = 1454, source = 26, class = "WARLOCK" }, -- Life Tap
+    [11687] = { first = 1454, source = 36, class = "WARLOCK" }, -- Life Tap
+    [11688] = { first = 1454, source = 46, class = "WARLOCK" }, -- Life Tap
+    [11689] = { first = 1454, source = 56, class = "WARLOCK" }, -- Life Tap
+    [1714] = { first = 1714, source = 26, class = "WARLOCK" }, -- Curse of Tongues
+    [11719] = { first = 1714, source = 50, class = "WARLOCK" }, -- Curse of Tongues
+    [1949] = { first = 1949, source = 30, class = "WARLOCK" }, -- Hellfire
+    [11683] = { first = 1949, source = 42, class = "WARLOCK" }, -- Hellfire
+    [11684] = { first = 1949, source = 54, class = "WARLOCK" }, -- Hellfire
+    [2362] = { first = 2362, source = 36, class = "WARLOCK" }, -- Create Spellstone
+    [17727] = { first = 2362, source = 48, class = "WARLOCK" }, -- Create Spellstone
+    [17728] = { first = 2362, source = 60, class = "WARLOCK" }, -- Create Spellstone
+    [5138] = { first = 5138, source = 24, class = "WARLOCK" }, -- Drain Mana
+    [6226] = { first = 5138, source = 34, class = "WARLOCK" }, -- Drain Mana
+    [11703] = { first = 5138, source = 44, class = "WARLOCK" }, -- Drain Mana
+    [11704] = { first = 5138, source = 54, class = "WARLOCK" }, -- Drain Mana
+    [5484] = { first = 5484, source = 40, class = "WARLOCK" }, -- Howl of Terror
+    [17928] = { first = 5484, source = 54, class = "WARLOCK" }, -- Howl of Terror
+    [5500] = { first = 5500, source = 24, class = "WARLOCK" }, -- Sense Demons
+    [5676] = { first = 5676, source = 18, class = "WARLOCK" }, -- Searing Pain
+    [17919] = { first = 5676, source = 26, class = "WARLOCK" }, -- Searing Pain
+    [17920] = { first = 5676, source = 34, class = "WARLOCK" }, -- Searing Pain
+    [17921] = { first = 5676, source = 42, class = "WARLOCK" }, -- Searing Pain
+    [17922] = { first = 5676, source = 50, class = "WARLOCK" }, -- Searing Pain
+    [17923] = { first = 5676, source = 58, class = "WARLOCK" }, -- Searing Pain
+    [5697] = { first = 5697, source = 16, class = "WARLOCK" }, -- Unending Breath
+    [5740] = { first = 5740, source = 20, class = "WARLOCK" }, -- Rain of Fire
+    [6219] = { first = 5740, source = 34, class = "WARLOCK" }, -- Rain of Fire
+    [11677] = { first = 5740, source = 46, class = "WARLOCK" }, -- Rain of Fire
+    [11678] = { first = 5740, source = 58, class = "WARLOCK" }, -- Rain of Fire
+    [5782] = { first = 5782, source = 8, class = "WARLOCK" }, -- Fear
+    [6213] = { first = 5782, source = 32, class = "WARLOCK" }, -- Fear
+    [6215] = { first = 5782, source = 56, class = "WARLOCK" }, -- Fear
+    [6201] = { first = 6201, source = 10, class = "WARLOCK" }, -- Create Healthstone
+    [6202] = { first = 6201, source = 22, class = "WARLOCK" }, -- Create Healthstone
+    [5699] = { first = 6201, source = 34, class = "WARLOCK" }, -- Create Healthstone
+    [11729] = { first = 6201, source = 46, class = "WARLOCK" }, -- Create Healthstone
+    [11730] = { first = 6201, source = 58, class = "WARLOCK" }, -- Create Healthstone
+    [6229] = { first = 6229, source = 32, class = "WARLOCK" }, -- Shadow Ward
+    [11739] = { first = 6229, source = 42, class = "WARLOCK" }, -- Shadow Ward
+    [11740] = { first = 6229, source = 52, class = "WARLOCK" }, -- Shadow Ward
+    [28610] = { first = 6229, source = 60, class = "WARLOCK" }, -- Shadow Ward
+    [6353] = { first = 6353, source = 48, class = "WARLOCK" }, -- Soul Fire
+    [17924] = { first = 6353, source = 56, class = "WARLOCK" }, -- Soul Fire
+    [6366] = { first = 6366, source = 28, class = "WARLOCK" }, -- Create Firestone
+    [17951] = { first = 6366, source = 36, class = "WARLOCK" }, -- Create Firestone
+    [17952] = { first = 6366, source = 46, class = "WARLOCK" }, -- Create Firestone
+    [17953] = { first = 6366, source = 56, class = "WARLOCK" }, -- Create Firestone
+    [6789] = { first = 6789, source = 42, class = "WARLOCK" }, -- Death Coil
+    [17925] = { first = 6789, source = 50, class = "WARLOCK" }, -- Death Coil
+    [17926] = { first = 6789, source = 58, class = "WARLOCK" }, -- Death Coil
+    [18540] = { first = 18540, source = 60, class = "WARLOCK" }, -- Ritual of Doom
+    [18867] = { first = 18867, source = 24, class = "WARLOCK" }, -- Shadowburn
+    [18868] = { first = 18867, source = 32, class = "WARLOCK" }, -- Shadowburn
+    [18869] = { first = 18867, source = 40, class = "WARLOCK" }, -- Shadowburn
+    [18870] = { first = 18867, source = 48, class = "WARLOCK" }, -- Shadowburn
+    [18871] = { first = 18867, source = 56, class = "WARLOCK" }, -- Shadowburn
+    [18879] = { first = 18879, source = 38, class = "WARLOCK" }, -- Siphon Life
+    [18880] = { first = 18879, source = 48, class = "WARLOCK" }, -- Siphon Life
+    [18881] = { first = 18879, source = 58, class = "WARLOCK" }, -- Siphon Life
+    [437169] = { first = 437169, source = 60, class = "WARLOCK" }, -- Portal of Summoning
+    [440892] = { first = 440892, source = 20, class = "WARLOCK" }, -- Curse of the Elements
+    [1311676] = { first = 440892, source = 30, class = "WARLOCK" }, -- Curse of the Elements
+    [1311677] = { first = 440892, source = 40, class = "WARLOCK" }, -- Curse of the Elements
+    [1311680] = { first = 440892, source = 50, class = "WARLOCK" }, -- Curse of the Elements
+    [1293812] = { first = 1293812, source = 50, class = "WARLOCK" }, -- Incinerate
+    [1293813] = { first = 1293812, source = 60, class = "WARLOCK" }, -- Incinerate
+    [1293818] = { first = 1293818, source = 32, class = "WARLOCK" }, -- Conflagrate
+    [17962] = { first = 1293818, source = 40, class = "WARLOCK" }, -- Conflagrate
+    [18930] = { first = 1293818, source = 48, class = "WARLOCK" }, -- Conflagrate
+    [18931] = { first = 1293818, source = 54, class = "WARLOCK" }, -- Conflagrate
+    [18932] = { first = 1293818, source = 60, class = "WARLOCK" }, -- Conflagrate
+    [6307] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact (Grimoire of Blood Pact (Rank 1))
+    [17767] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows (Grimoire of Consume Shadows (Rank 1))
+    [2947] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield (Grimoire of Fire Shield (Rank 1))
+    [7799] = { first = 7799, source = "pet", class = "WARLOCK" }, -- Firebolt (Grimoire of Firebolt (Rank 2))
+    [4511] = { first = 4511, source = "pet", class = "WARLOCK" }, -- Phase Shift (Grimoire of Phase Shift)
+    [7812] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice (Grimoire of Sacrifice (Rank 1))
+    [17735] = { first = 17735, source = "pet", class = "WARLOCK" }, -- Suffering (Grimoire of Suffering (Rank 1))
+    [7809] = { first = 7809, source = "pet", class = "WARLOCK" }, -- Torment (Grimoire of Torment (Rank 2))
+    -- DRUID
+    [99] = { first = 99, source = 10, class = "DRUID" }, -- Demoralizing Roar
+    [1735] = { first = 99, source = 20, class = "DRUID" }, -- Demoralizing Roar
+    [9490] = { first = 99, source = 32, class = "DRUID" }, -- Demoralizing Roar
+    [9747] = { first = 99, source = 42, class = "DRUID" }, -- Demoralizing Roar
+    [9898] = { first = 99, source = 52, class = "DRUID" }, -- Demoralizing Roar
+    [339] = { first = 339, source = 8, class = "DRUID" }, -- Entangling Roots
+    [1062] = { first = 339, source = 18, class = "DRUID" }, -- Entangling Roots
+    [5195] = { first = 339, source = 28, class = "DRUID" }, -- Entangling Roots
+    [5196] = { first = 339, source = 38, class = "DRUID" }, -- Entangling Roots
+    [9852] = { first = 339, source = 48, class = "DRUID" }, -- Entangling Roots
+    [9853] = { first = 339, source = 58, class = "DRUID" }, -- Entangling Roots
+    [467] = { first = 467, source = 6, class = "DRUID" }, -- Thorns
+    [782] = { first = 467, source = 14, class = "DRUID" }, -- Thorns
+    [1075] = { first = 467, source = 24, class = "DRUID" }, -- Thorns
+    [8914] = { first = 467, source = 34, class = "DRUID" }, -- Thorns
+    [9756] = { first = 467, source = 44, class = "DRUID" }, -- Thorns
+    [9910] = { first = 467, source = 54, class = "DRUID" }, -- Thorns
+    [740] = { first = 740, source = 30, class = "DRUID" }, -- Tranquility
+    [8918] = { first = 740, source = 40, class = "DRUID" }, -- Tranquility
+    [9862] = { first = 740, source = 50, class = "DRUID" }, -- Tranquility
+    [9863] = { first = 740, source = 60, class = "DRUID" }, -- Tranquility
+    [768] = { first = 768, source = 20, class = "DRUID" }, -- Cat Form
+    [770] = { first = 770, source = 18, class = "DRUID" }, -- Faerie Fire
+    [778] = { first = 770, source = 30, class = "DRUID" }, -- Faerie Fire
+    [9749] = { first = 770, source = 42, class = "DRUID" }, -- Faerie Fire
+    [9907] = { first = 770, source = 54, class = "DRUID" }, -- Faerie Fire
+    [774] = { first = 774, source = 4, class = "DRUID" }, -- Rejuvenation
+    [1058] = { first = 774, source = 10, class = "DRUID" }, -- Rejuvenation
+    [1430] = { first = 774, source = 16, class = "DRUID" }, -- Rejuvenation
+    [2090] = { first = 774, source = 22, class = "DRUID" }, -- Rejuvenation
+    [2091] = { first = 774, source = 28, class = "DRUID" }, -- Rejuvenation
+    [3627] = { first = 774, source = 34, class = "DRUID" }, -- Rejuvenation
+    [8910] = { first = 774, source = 40, class = "DRUID" }, -- Rejuvenation
+    [9839] = { first = 774, source = 46, class = "DRUID" }, -- Rejuvenation
+    [9840] = { first = 774, source = 52, class = "DRUID" }, -- Rejuvenation
+    [9841] = { first = 774, source = 58, class = "DRUID" }, -- Rejuvenation
+    [25299] = { first = 774, source = 60, class = "DRUID" }, -- Rejuvenation
+    [783] = { first = 783, source = 30, class = "DRUID" }, -- Travel Form
+    [1066] = { first = 1066, source = 16, class = "DRUID" }, -- Aquatic Form
+    [1079] = { first = 1079, source = 20, class = "DRUID" }, -- Rip
+    [9492] = { first = 1079, source = 28, class = "DRUID" }, -- Rip
+    [9493] = { first = 1079, source = 36, class = "DRUID" }, -- Rip
+    [9752] = { first = 1079, source = 44, class = "DRUID" }, -- Rip
+    [9894] = { first = 1079, source = 52, class = "DRUID" }, -- Rip
+    [9896] = { first = 1079, source = 60, class = "DRUID" }, -- Rip
+    [1082] = { first = 1082, source = 20, class = "DRUID" }, -- Claw
+    [3029] = { first = 1082, source = 28, class = "DRUID" }, -- Claw
+    [5201] = { first = 1082, source = 38, class = "DRUID" }, -- Claw
+    [9849] = { first = 1082, source = 48, class = "DRUID" }, -- Claw
+    [9850] = { first = 1082, source = 58, class = "DRUID" }, -- Claw
+    [1126] = { first = 1126, source = 1, class = "DRUID" }, -- Mark of the Wild
+    [5232] = { first = 1126, source = 10, class = "DRUID" }, -- Mark of the Wild
+    [6756] = { first = 1126, source = 20, class = "DRUID" }, -- Mark of the Wild
+    [5234] = { first = 1126, source = 30, class = "DRUID" }, -- Mark of the Wild
+    [8907] = { first = 1126, source = 40, class = "DRUID" }, -- Mark of the Wild
+    [9884] = { first = 1126, source = 50, class = "DRUID" }, -- Mark of the Wild
+    [9885] = { first = 1126, source = 60, class = "DRUID" }, -- Mark of the Wild
+    [1822] = { first = 1822, source = 24, class = "DRUID" }, -- Rake
+    [1823] = { first = 1822, source = 34, class = "DRUID" }, -- Rake
+    [1824] = { first = 1822, source = 44, class = "DRUID" }, -- Rake
+    [9904] = { first = 1822, source = 54, class = "DRUID" }, -- Rake
+    [1850] = { first = 1850, source = 26, class = "DRUID" }, -- Dash
+    [9821] = { first = 1850, source = 46, class = "DRUID" }, -- Dash
+    [2637] = { first = 2637, source = 18, class = "DRUID" }, -- Hibernate
+    [18657] = { first = 2637, source = 38, class = "DRUID" }, -- Hibernate
+    [18658] = { first = 2637, source = 58, class = "DRUID" }, -- Hibernate
+    [2782] = { first = 2782, source = 24, class = "DRUID" }, -- Remove Curse
+    [2893] = { first = 2893, source = 26, class = "DRUID" }, -- Abolish Poison
+    [2908] = { first = 2908, source = 22, class = "DRUID" }, -- Soothe Animal
+    [8955] = { first = 2908, source = 38, class = "DRUID" }, -- Soothe Animal
+    [9901] = { first = 2908, source = 54, class = "DRUID" }, -- Soothe Animal
+    [2912] = { first = 2912, source = 20, class = "DRUID" }, -- Starfire
+    [8949] = { first = 2912, source = 26, class = "DRUID" }, -- Starfire
+    [8950] = { first = 2912, source = 34, class = "DRUID" }, -- Starfire
+    [8951] = { first = 2912, source = 42, class = "DRUID" }, -- Starfire
+    [9875] = { first = 2912, source = 50, class = "DRUID" }, -- Starfire
+    [9876] = { first = 2912, source = 58, class = "DRUID" }, -- Starfire
+    [25298] = { first = 2912, source = 60, class = "DRUID" }, -- Starfire
+    [5176] = { first = 5176, source = 1, class = "DRUID" }, -- Wrath
+    [5177] = { first = 5176, source = 6, class = "DRUID" }, -- Wrath
+    [5178] = { first = 5176, source = 14, class = "DRUID" }, -- Wrath
+    [5179] = { first = 5176, source = 22, class = "DRUID" }, -- Wrath
+    [5180] = { first = 5176, source = 30, class = "DRUID" }, -- Wrath
+    [6780] = { first = 5176, source = 38, class = "DRUID" }, -- Wrath
+    [8905] = { first = 5176, source = 46, class = "DRUID" }, -- Wrath
+    [9912] = { first = 5176, source = 54, class = "DRUID" }, -- Wrath
+    [5185] = { first = 5185, source = 1, class = "DRUID" }, -- Healing Touch
+    [5186] = { first = 5185, source = 8, class = "DRUID" }, -- Healing Touch
+    [5187] = { first = 5185, source = 14, class = "DRUID" }, -- Healing Touch
+    [5188] = { first = 5185, source = 20, class = "DRUID" }, -- Healing Touch
+    [5189] = { first = 5185, source = 26, class = "DRUID" }, -- Healing Touch
+    [6778] = { first = 5185, source = 32, class = "DRUID" }, -- Healing Touch
+    [8903] = { first = 5185, source = 38, class = "DRUID" }, -- Healing Touch
+    [9758] = { first = 5185, source = 44, class = "DRUID" }, -- Healing Touch
+    [9888] = { first = 5185, source = 50, class = "DRUID" }, -- Healing Touch
+    [9889] = { first = 5185, source = 56, class = "DRUID" }, -- Healing Touch
+    [25297] = { first = 5185, source = 60, class = "DRUID" }, -- Healing Touch
+    [5209] = { first = 5209, source = 28, class = "DRUID" }, -- Challenging Roar
+    [5211] = { first = 5211, source = 14, class = "DRUID" }, -- Bash
+    [6798] = { first = 5211, source = 30, class = "DRUID" }, -- Bash
+    [8983] = { first = 5211, source = 46, class = "DRUID" }, -- Bash
+    [5215] = { first = 5215, source = 20, class = "DRUID" }, -- Prowl
+    [6783] = { first = 5215, source = 40, class = "DRUID" }, -- Prowl
+    [9913] = { first = 5215, source = 60, class = "DRUID" }, -- Prowl
+    [5221] = { first = 5221, source = 22, class = "DRUID" }, -- Shred
+    [6800] = { first = 5221, source = 30, class = "DRUID" }, -- Shred
+    [8992] = { first = 5221, source = 38, class = "DRUID" }, -- Shred
+    [9829] = { first = 5221, source = 46, class = "DRUID" }, -- Shred
+    [9830] = { first = 5221, source = 54, class = "DRUID" }, -- Shred
+    [5225] = { first = 5225, source = 32, class = "DRUID" }, -- Track Humanoids
+    [5229] = { first = 5229, source = 12, class = "DRUID" }, -- Enrage
+    [5487] = { first = 5487, source = 10, class = "DRUID" }, -- Bear Form
+    [6785] = { first = 6785, source = 32, class = "DRUID" }, -- Ravage
+    [6787] = { first = 6785, source = 42, class = "DRUID" }, -- Ravage
+    [9866] = { first = 6785, source = 50, class = "DRUID" }, -- Ravage
+    [9867] = { first = 6785, source = 58, class = "DRUID" }, -- Ravage
+    [6795] = { first = 6795, source = 10, class = "DRUID" }, -- Growl
+    [6807] = { first = 6807, source = 10, class = "DRUID" }, -- Maul
+    [6808] = { first = 6807, source = 18, class = "DRUID" }, -- Maul
+    [6809] = { first = 6807, source = 26, class = "DRUID" }, -- Maul
+    [8972] = { first = 6807, source = 34, class = "DRUID" }, -- Maul
+    [9745] = { first = 6807, source = 42, class = "DRUID" }, -- Maul
+    [9880] = { first = 6807, source = 50, class = "DRUID" }, -- Maul
+    [9881] = { first = 6807, source = 58, class = "DRUID" }, -- Maul
+    [8921] = { first = 8921, source = 4, class = "DRUID" }, -- Moonfire
+    [8924] = { first = 8921, source = 10, class = "DRUID" }, -- Moonfire
+    [8925] = { first = 8921, source = 16, class = "DRUID" }, -- Moonfire
+    [8926] = { first = 8921, source = 22, class = "DRUID" }, -- Moonfire
+    [8927] = { first = 8921, source = 28, class = "DRUID" }, -- Moonfire
+    [8928] = { first = 8921, source = 34, class = "DRUID" }, -- Moonfire
+    [8929] = { first = 8921, source = 40, class = "DRUID" }, -- Moonfire
+    [9833] = { first = 8921, source = 46, class = "DRUID" }, -- Moonfire
+    [9834] = { first = 8921, source = 52, class = "DRUID" }, -- Moonfire
+    [9835] = { first = 8921, source = 58, class = "DRUID" }, -- Moonfire
+    [8936] = { first = 8936, source = 12, class = "DRUID" }, -- Regrowth
+    [8938] = { first = 8936, source = 18, class = "DRUID" }, -- Regrowth
+    [8939] = { first = 8936, source = 24, class = "DRUID" }, -- Regrowth
+    [8940] = { first = 8936, source = 30, class = "DRUID" }, -- Regrowth
+    [8941] = { first = 8936, source = 36, class = "DRUID" }, -- Regrowth
+    [9750] = { first = 8936, source = 42, class = "DRUID" }, -- Regrowth
+    [9856] = { first = 8936, source = 48, class = "DRUID" }, -- Regrowth
+    [9857] = { first = 8936, source = 54, class = "DRUID" }, -- Regrowth
+    [9858] = { first = 8936, source = 60, class = "DRUID" }, -- Regrowth
+    [8946] = { first = 8946, source = 14, class = "DRUID" }, -- Cure Poison
+    [8998] = { first = 8998, source = 28, class = "DRUID" }, -- Cower
+    [9000] = { first = 8998, source = 40, class = "DRUID" }, -- Cower
+    [9892] = { first = 8998, source = 52, class = "DRUID" }, -- Cower
+    [9005] = { first = 9005, source = 36, class = "DRUID" }, -- Pounce
+    [9823] = { first = 9005, source = 46, class = "DRUID" }, -- Pounce
+    [9827] = { first = 9005, source = 56, class = "DRUID" }, -- Pounce
+    [9634] = { first = 9634, source = 40, class = "DRUID" }, -- Dire Bear Form
+    [16689] = { first = 16689, source = 10, class = "DRUID" }, -- Nature's Grasp
+    [16810] = { first = 16689, source = 18, class = "DRUID" }, -- Nature's Grasp
+    [16811] = { first = 16689, source = 28, class = "DRUID" }, -- Nature's Grasp
+    [16812] = { first = 16689, source = 38, class = "DRUID" }, -- Nature's Grasp
+    [16813] = { first = 16689, source = 48, class = "DRUID" }, -- Nature's Grasp
+    [17329] = { first = 16689, source = 58, class = "DRUID" }, -- Nature's Grasp
+    [16864] = { first = 16864, source = 20, class = "DRUID" }, -- Omen of Clarity
+    [16914] = { first = 16914, source = 40, class = "DRUID" }, -- Hurricane
+    [17401] = { first = 16914, source = 50, class = "DRUID" }, -- Hurricane
+    [17402] = { first = 16914, source = 60, class = "DRUID" }, -- Hurricane
+    [16979] = { first = 16979, source = 20, class = "DRUID" }, -- Feral Charge (Bear)
+    [18960] = { first = 18960, source = 10, class = "DRUID" }, -- Teleport: Moonglade
+    [20484] = { first = 20484, source = 20, class = "DRUID" }, -- Rebirth
+    [20739] = { first = 20484, source = 30, class = "DRUID" }, -- Rebirth
+    [20742] = { first = 20484, source = 40, class = "DRUID" }, -- Rebirth
+    [20747] = { first = 20484, source = 50, class = "DRUID" }, -- Rebirth
+    [20748] = { first = 20484, source = 60, class = "DRUID" }, -- Rebirth
+    [20719] = { first = 20719, source = 40, class = "DRUID" }, -- Feline Grace
+    [21849] = { first = 21849, source = 50, class = "DRUID" }, -- Gift of the Wild
+    [21850] = { first = 21849, source = 60, class = "DRUID" }, -- Gift of the Wild
+    [22568] = { first = 22568, source = 32, class = "DRUID" }, -- Ferocious Bite
+    [22827] = { first = 22568, source = 40, class = "DRUID" }, -- Ferocious Bite
+    [22828] = { first = 22568, source = 48, class = "DRUID" }, -- Ferocious Bite
+    [22829] = { first = 22568, source = 56, class = "DRUID" }, -- Ferocious Bite
+    [31018] = { first = 22568, source = 60, class = "DRUID" }, -- Ferocious Bite
+    [22812] = { first = 22812, source = 44, class = "DRUID" }, -- Barkskin
+    [22842] = { first = 22842, source = 36, class = "DRUID" }, -- Frenzied Regeneration
+    [24974] = { first = 24974, source = 30, class = "DRUID" }, -- Insect Swarm
+    [24975] = { first = 24974, source = 40, class = "DRUID" }, -- Insect Swarm
+    [24976] = { first = 24974, source = 50, class = "DRUID" }, -- Insect Swarm
+    [24977] = { first = 24974, source = 60, class = "DRUID" }, -- Insect Swarm
+    [29166] = { first = 29166, source = 40, class = "DRUID" }, -- Innervate
+    [411128] = { first = 411128, source = 1, class = "DRUID" }, -- Swipe
+    [779] = { first = 411128, source = 16, class = "DRUID" }, -- Swipe
+    [780] = { first = 411128, source = 24, class = "DRUID" }, -- Swipe
+    [769] = { first = 411128, source = 34, class = "DRUID" }, -- Swipe
+    [9754] = { first = 411128, source = 44, class = "DRUID" }, -- Swipe
+    [9908] = { first = 411128, source = 54, class = "DRUID" }, -- Swipe
+    [414647] = { first = 414647, source = 1, class = "DRUID" }, -- Lacerate
+    [414644] = { first = 414647, source = 42, class = "DRUID" }, -- Lacerate
+    [1235826] = { first = 414647, source = 50, class = "DRUID" }, -- Lacerate
+    [1235827] = { first = 414647, source = 58, class = "DRUID" }, -- Lacerate
+    [417045] = { first = 417045, source = 1, class = "DRUID" }, -- Tiger's Fury
+    [5217] = { first = 417045, source = 24, class = "DRUID" }, -- Tiger's Fury
+    [437138] = { first = 437138, source = 12, class = "DRUID" }, -- Revive
+    [1237948] = { first = 437138, source = 24, class = "DRUID" }, -- Revive
+    [1237949] = { first = 437138, source = 36, class = "DRUID" }, -- Revive
+    [1237950] = { first = 437138, source = 48, class = "DRUID" }, -- Revive
+    [1237951] = { first = 437138, source = 60, class = "DRUID" }, -- Revive
+    [1238069] = { first = 1238069, source = 36, class = "DRUID" }, -- Primal Bite
+    [1238070] = { first = 1238069, source = 48, class = "DRUID" }, -- Primal Bite
+    [1238073] = { first = 1238069, source = 60, class = "DRUID" }, -- Primal Bite
+    [1238214] = { first = 1238214, source = 50, class = "DRUID" }, -- Wild Growth
+    [1238215] = { first = 1238214, source = 60, class = "DRUID" }, -- Wild Growth
+    -- every class's, the professions'
+    [2259] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [3101] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [3464] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [11611] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [1240943] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [1240954] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [1240965] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [1240977] = { first = 2259, source = "profession" }, -- Alchemy (professions/alchemy)
+    [2018] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [3100] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [3538] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [9785] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [1240944] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [1240955] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [1240966] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [1240979] = { first = 2018, source = "profession" }, -- Blacksmithing (professions/blacksmithing)
+    [9787] = { first = 9787, source = "profession" }, -- Weaponsmith (professions/blacksmithing)
+    [9788] = { first = 9788, source = "profession" }, -- Armorsmith (professions/blacksmithing)
+    [17039] = { first = 17039, source = "profession" }, -- Master Swordsmith (professions/blacksmithing)
+    [17040] = { first = 17040, source = "profession" }, -- Master Hammersmith (professions/blacksmithing)
+    [17041] = { first = 17041, source = "profession" }, -- Master Axesmith (professions/blacksmithing)
+    [7411] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [7412] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [7413] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [13920] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [1240946] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [1240957] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [1240968] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [1240981] = { first = 7411, source = "profession" }, -- Enchanting (professions/enchanting)
+    [13262] = { first = 13262, source = "profession" }, -- Disenchant (professions/enchanting)
+    [4036] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [4037] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [4038] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [12656] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [1235244] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [1240947] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [1240958] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [1240969] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [1240982] = { first = 4036, source = "profession" }, -- Engineering (professions/engineering)
+    [20219] = { first = 20219, source = "profession" }, -- Gnomish Engineer (professions/engineering)
+    [20222] = { first = 20222, source = "profession" }, -- Goblin Engineer (professions/engineering)
+    [2366] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [2368] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [3570] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [11993] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [1240949] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [1240960] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [1240971] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [1240984] = { first = 2366, source = "profession" }, -- Herbalism (professions/herbalism)
+    [2383] = { first = 2383, source = "profession" }, -- Find Herbs (professions/herbalism)
+    [1235236] = { first = 1235236, source = "profession" }, -- Herb Gathering (professions/herbalism)
+    [1278062] = { first = 1278062, source = "profession" }, -- Gardening (professions/herbalism)
+    [2108] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [3104] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [3811] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [10662] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [1240950] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [1240961] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [1240972] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [1240985] = { first = 2108, source = "profession" }, -- Leatherworking (professions/leatherworking)
+    [10656] = { first = 10656, source = "profession" }, -- Dragonscale Leatherworking (professions/leatherworking)
+    [10658] = { first = 10658, source = "profession" }, -- Elemental Leatherworking (professions/leatherworking)
+    [10660] = { first = 10660, source = "profession" }, -- Tribal Leatherworking (professions/leatherworking)
+    [2575] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [2576] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [3564] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [10248] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [1235230] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [1240951] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [1240962] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [1240973] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [1240986] = { first = 2575, source = "profession" }, -- Mining (professions/mining)
+    [2580] = { first = 2580, source = "profession" }, -- Find Minerals (professions/mining)
+    [2656] = { first = 2656, source = "profession" }, -- Smelting (professions/mining)
+    [8613] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [8617] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [8618] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [10768] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [1240952] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [1240963] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [1240974] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [1240987] = { first = 8613, source = "profession" }, -- Skinning (professions/skinning)
+    [1278068] = { first = 1278068, source = "profession" }, -- Tanning (professions/skinning)
+    [3908] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [3909] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [3910] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [12180] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [1240953] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [1240964] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [1240976] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [1240988] = { first = 3908, source = "profession" }, -- Tailoring (professions/tailoring)
+    [2550] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [3102] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [3413] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [18260] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [1240945] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [1240956] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [1240967] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [1240980] = { first = 2550, source = "profession" }, -- Cooking (secondary-skills/cooking)
+    [3273] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [3274] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [7924] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [10846] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [1240927] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [1240928] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [1240929] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [1240930] = { first = 3273, source = "profession" }, -- First Aid (secondary-skills/first-aid)
+    [7620] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [7731] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [7732] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [18248] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [1240948] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [1240959] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [1240970] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [1240983] = { first = 7620, source = "profession" }, -- Fishing (secondary-skills/fishing)
+    [43308] = { first = 43308, source = "profession" }, -- Find Fish (secondary-skills/fishing)
+    [1278067] = { first = 1278067, source = "profession" }, -- Bait and Tackle (secondary-skills/fishing)
 };

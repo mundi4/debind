@@ -5,18 +5,25 @@
 //                                           probe as code (DebindCamelotProbe/ClassSpells.lua)
 //   2. /camelotprobe classspells            in the game: the client is asked about each of them,
 //                                           and the answers go to the probe's SavedVariables
-//   3. npm run camelot-class-spells:build   tools/build-camelot-class-spells.js: the release list,
+//   3. npm run camelot-class-spells:build   tools/build-camelot-class-spells.js: the release table,
 //                                           out of those answers alone
 //
 // Why: that client's spellbook holds only what has been learned, and a trainer window lists only
-// what that trainer teaches and its filters let through. This is the rest of the spell list's
-// unlearned rows (`UnlearnedSpells_Camelot.lua`). Network-dependent, so it is run by hand and never
-// by CI.
+// what that trainer teaches and its filters let through. The table is the rest of the spell list's
+// unlearned rows (`UnlearnedSpells_Camelot.lua`), and it names each rank's first rank, which is the
+// id an action stores (`keeping-a-pinned-rank-apart-from-the-spell.md`). Network-dependent, so it is
+// run by hand and never by CI.
 //
-// **Level above 1 is the main filter** (2026-10-01, owner: "roughly right"). It drops talents
-// (level 0), rune engravings and the abilities shared across classes (level 1 or below), and
-// keeps what a trainer, a quest or a book teaches. A variant that shares a name with a trainer
-// spell comes along too and merges into that spell's row, since the list is one row per name.
+// **Every rank of a name goes in, each pointing at the first** (2026-10-01, owner). The first is the
+// lowest level, level 1 included, and the lowest id between two of one level. Ranks are grouped by
+// name **within one class's page** and never across them: the druid's Cure Poison and the shaman's
+// are two spells.
+//
+// **Level above 1 decides which names go in** (2026-10-01, owner: "roughly right"), and nothing else:
+// a name qualifies when one of its ranks is above level 1. That drops talents (level 0), rune
+// engravings and the abilities shared across classes (level 1 or below), and keeps what a trainer,
+// a quest or a book teaches. Picking the first rank by it as well left a starting spell's second
+// rank standing as its first (Shadow Bolt 695 for 686).
 //
 // **A spell with no skill line is left out**: those are a pet's (Growl, Great Stamina, a beast's own
 // Lava Breath) or a companion's, cast by something other than the player. Every player spell on
@@ -25,11 +32,14 @@
 // **A pet's spells come from the books a merchant sells instead** (a Demon Trainer's grimoires),
 // as the camelot probe recorded them (`books`), so this step reads its SavedVariables too. The
 // probe has only the spell that does the teaching; wowhead's page for that spell names the one
-// taught. They go in their class's list with "pet" where the level would be (2026-10-01, owner).
+// taught. One per name, the lowest book's, with "pet" where the level would be (2026-10-01, owner).
+// **They form no chain**: a book starts at the second rank (Firebolt 7799) and the pet knows the
+// first when summoned (3110), so the books alone would call the wrong id the first.
 //
 // **The professions' own spells come from each profession's page** (2026-10-01, owner): the rank
 // spells (Mining, Fishing) and the ones beside them (Find Minerals, Smelting, Disenchant). What
-// creates an item or takes reagents is a recipe, and recipes are left out.
+// creates an item or takes reagents is a recipe, and recipes are left out. A name's ids on one
+// page form a chain the way a class's do, the lowest id first.
 //
 // **Rune abilities are left out by name, below**: Season of Discovery's, still in the client's data
 // and on wowhead's pages, where nothing tells them apart from a quest spell. Forever's interface code
@@ -41,9 +51,6 @@
 //
 // **Passives are not judged here.** The client is asked in step 2, which is the answer that counts
 // (owner: the release code is no place to ask it).
-//
-// One id per name, the one with the lowest level (the lowest id for a profession's), since the
-// spell list shows one row per name and a name casts the highest rank known.
 //   npm run camelot-class-spells:fetch [path to DebindCamelotProbe.lua]
 
 const fs = require("fs");
@@ -117,6 +124,7 @@ async function taughtSpell(learnSpell) {
     return { id: Number(m[1]), name: m[2] };
 }
 
+/** `Map(classFile -> [{ id, name, book }])`, one per name, the lowest book's. */
 async function petSpells(file) {
     const byClass = new Map();
     for (const book of readBooks(file)) {
@@ -128,24 +136,72 @@ async function petSpells(file) {
             byName.set(taught.name, { ...taught, minLevel: book.minLevel, book: book.name });
         }
     }
-    return byClass;
+    const lists = new Map();
+    for (const [cls, byName] of byClass) {
+        lists.set(cls, [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
+    }
+    return lists;
 }
 
-async function professionSpells() {
+/** Ranks grouped by name, the first rank first: the lowest level, then the lowest id. */
+function chains(spells) {
     const byName = new Map();
+    for (const s of spells) {
+        if (!byName.has(s.name)) byName.set(s.name, []);
+        byName.get(s.name).push(s);
+    }
+    for (const ranks of byName.values()) {
+        ranks.sort((a, b) => (a.level || 0) - (b.level || 0) || a.id - b.id);
+    }
+    return byName;
+}
+
+/** `[{ id, first, source, name, comment }]` for one class page. */
+function classEntries(spells, runesMet) {
+    const usable = spells.filter((s) => typeof s.id === "number" && s.name && s.skill && s.skill.length);
+    const entries = [];
+    for (const [name, ranks] of chains(usable)) {
+        if (!ranks.some((s) => s.level > 1)) {
+            continue;
+        }
+        if (RUNE_ABILITIES[name]) {
+            runesMet.add(name);
+            continue;
+        }
+        const first = ranks[0].id;
+        for (const s of ranks) {
+            entries.push({ id: s.id, first, source: s.level || 0, name });
+        }
+    }
+    return entries;
+}
+
+async function professionEntries() {
+    const entries = [];
+    const seen = new Set();
     for (const page of PROFESSIONS) {
         const url = `https://www.wowhead.com/forever/spells/${page}`;
-        for (const s of readList(await get(url), url)) {
-            if (s.creates || s.reagents || typeof s.id !== "number" || !s.name) {
-                continue;
-            }
-            const held = byName.get(s.name);
-            if (!held || s.id < held.id) {
-                byName.set(s.name, { id: s.id, name: s.name, page });
+        const usable = readList(await get(url), url)
+            .filter((s) => !s.creates && !s.reagents && typeof s.id === "number" && s.name);
+        for (const [name, ranks] of chains(usable)) {
+            ranks.sort((a, b) => a.id - b.id);
+            for (const s of ranks) {
+                if (!seen.has(s.id)) {
+                    seen.add(s.id);
+                    entries.push({ id: s.id, first: ranks[0].id, source: "profession", name, comment: page });
+                }
             }
         }
     }
-    return [...byName.values()].sort((a, b) => a.page.localeCompare(b.page) || a.name.localeCompare(b.name));
+    return entries;
+}
+
+/** One entry as a line of the probe's table. */
+function line(e, cls) {
+    const classPart = cls ? `, class = "${cls}"` : "";
+    const source = typeof e.source === "number" ? e.source : JSON.stringify(e.source);
+    const note = e.comment ? ` (${luaString(e.comment)})` : "";
+    return `    [${e.id}] = { first = ${e.first}, source = ${source}${classPart} }, -- ${luaString(e.name)}${note}`;
 }
 
 async function main() {
@@ -154,36 +210,29 @@ async function main() {
 
     const blocks = [];
     const runesMet = new Set();
+    const owner = new Map();
     for (const [slug, classFile] of Object.entries(CLASSES)) {
         const url = `https://www.wowhead.com/forever/spells/abilities/${slug}`;
-        const spells = readList(await get(url), url);
-
-        const byName = new Map();
-        for (const s of spells) {
-            if (!(s.level > 1) || typeof s.id !== "number" || !s.name || !(s.skill && s.skill.length)) {
-                continue;
+        const entries = classEntries(readList(await get(url), url), runesMet);
+        for (const e of entries) {
+            // Two pages naming one id would need it to belong to two chains. None did on 2026-10-01;
+            // the table has one class per first rank, so one that does now has to be looked at.
+            if (owner.has(e.id)) {
+                throw new Error(`${e.id} (${e.name}) is on the ${owner.get(e.id)} and ${classFile} pages`);
             }
-            if (RUNE_ABILITIES[s.name]) {
-                runesMet.add(s.name);
-                continue;
-            }
-            const held = byName.get(s.name);
-            if (!held || s.level < held.level || (s.level === held.level && s.id < held.id)) {
-                byName.set(s.name, s);
-            }
+            owner.set(e.id, classFile);
         }
-        const rows = [...byName.values()].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-        const petRows = [...(pets.get(classFile) || new Map()).values()].sort((a, b) => a.name.localeCompare(b.name));
-        console.log(`${classFile.padEnd(8)} ${rows.length} spells, ${petRows.length} pet spells`);
-
-        const lines = rows.map((s) => `        [${s.id}] = ${s.level}, -- ${luaString(s.name)}`)
-            .concat(petRows.map((s) => `        [${s.id}] = "pet", -- ${luaString(s.name)} (${luaString(s.book)})`));
-        blocks.push(`    ${classFile} = {\n${lines.join("\n")}\n    },`);
+        const petEntries = (pets.get(classFile) || []).map((s) =>
+            ({ id: s.id, first: s.id, source: "pet", name: s.name, comment: s.book }));
+        const names = new Set(entries.map((e) => e.name)).size;
+        console.log(`${classFile.padEnd(8)} ${names} spells in ${entries.length} ranks, ${petEntries.length} pet spells`);
+        entries.sort((a, b) => a.first - b.first || a.source - b.source || a.id - b.id);
+        blocks.push(`    -- ${classFile}\n${entries.concat(petEntries).map((e) => line(e, classFile)).join("\n")}`);
     }
 
-    const professions = await professionSpells();
+    const professions = await professionEntries();
     console.log(`PROFESSION ${professions.length} spells`);
-    const professionLines = professions.map((s) => `    [${s.id}] = "profession", -- ${luaString(s.name)} (${s.page})`);
+    blocks.push(`    -- every class's, the professions'\n${professions.map((e) => line(e)).join("\n")}`);
 
     fs.writeFileSync(out, `local _, Probe = ...;
 
@@ -191,16 +240,12 @@ async function main() {
 --- Fetched ${new Date().toISOString().slice(0, 10)} from wowhead.com/forever/spells/abilities/<class>, the
 --- pages its books' learning spells have there, and wowhead.com/forever/spells/<profession>.
 ---
---- \`[classFile] = { [spellID] = level required }\`, one id per name, "pet" in a level's place for a
---- pet's: what \`/camelotprobe classspells\` asks the client about, and carries into its record for
---- the release list to be built from.
-Probe.ClassSpells = {
+--- \`[spellID] = { first =, source =, class = }\`: every rank, the id of its name's first rank, its
+--- level or where it comes from, and its class (none for a profession's). What
+--- \`/camelotprobe classspells\` asks the client about, and carries into its record for the release
+--- table to be built from.
+Probe.Spells = {
 ${blocks.join("\n")}
-};
-
---- \`[spellID] = "profession"\`, every class's, asked about the same way.
-Probe.ProfessionSpells = {
-${professionLines.join("\n")}
 };
 `);
     console.log(`\nleft out as rune abilities: ${[...runesMet].join(", ") || "none"}`);
