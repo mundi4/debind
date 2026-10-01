@@ -1,7 +1,7 @@
 local _, DebindPrivate = ...;
 
 --- The spells a character on World of Warcraft: Forever has not learned yet, for the spell list's
---- Unlearned group (`ActionCatalog.lua`). Loaded on that client only (`Debind.toc`): its spellbook
+--- rows of them (`ActionCatalog.lua`). Loaded on that client only (`Debind.toc`): its spellbook
 --- holds only what has been learned, where retail's lists the rest as `FutureSpell`.
 ---
 --- **Every source merged, and nothing is ever taken out** (`listing-unlearned-spells-on-forever.md`):
@@ -16,6 +16,7 @@ local _, DebindPrivate = ...;
 ---
 --- **A string in a level's place names where the spell comes from instead** (2026-10-01, owner),
 --- in every source here and in the talent tree's (`"talent"`). See `CompareUnlearnedValue`.
+--- `"pet"` and `"profession"` also say which group of the spell list the spell joins.
 local data = {
     DRUID = {
         [8946] = 14, -- Cure Poison, taught by a quest (`SpecSpells_Camelot.lua`)

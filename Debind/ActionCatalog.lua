@@ -38,8 +38,6 @@ local ClimbBaseSpell     = DebindPrivate.ClimbBaseSpell;
 ---   isUnlearned Not learned yet (`FutureSpell`). Dimmed like isOffSpec, but no filter hides it -
 ---              "다른 특성" would be a lie about a spell of the spec you are standing in
 ---   groupTooltip The tooltip of the group's heading, read off the group's first entry
----   isGroupOnly  Stands for a group with no rows, so its heading and `groupTooltip` still show.
----              Never drawn as a row, and dropped by a search
 ---   isFavorite 즐겨찾기 여부. **이 개념이 없는 엔트리는 nil로 둔다** - "즐겨찾기만"
 ---              필터가 nil을 안 건드리므로, 탈것 탭의 설정이 주문 탭을 비우지 않는다
 ---   searchName / searchSubName  소문자로 미리 접어둔 검색용 사본
@@ -204,9 +202,7 @@ function ActionCatalog.Filter(entries, options, out)
 		local entry = entries[i];
 		local matched = true;
 
-		if (entry.isGroupOnly) then
-			matched = search == nil;
-		elseif (entry.isOffSpec and not includeOffSpec) then
+		if (entry.isOffSpec and not includeOffSpec) then
 			matched = false;
 		elseif (favoritesOnly and entry.isFavorite == false) then
 			-- `== false`다. 즐겨찾기라는 개념이 없는 엔트리는 nil이라 안 걸린다 - 탈것 탭에서
@@ -618,37 +614,23 @@ local function AddExtraSpellEntries(entries, seen)
 	end
 end
 
---- **Where the book holds only what is learned** (`UnlearnedSpells_Camelot.lua`), the rest in one
---- group of their own (2026-09-30, owner) rather than inside the book's lines, which the book has no
---- row for an unlearned spell to be asked about.
+--- **What the book does not hold yet, after what it does in the group it would be learned into**
+--- (2026-10-01, owner), where the book holds only what is learned (`UnlearnedSpells_Camelot.lua`).
+--- `rows` is `{ class =, pet =, profession = }`, each a list the learned rows are already in. A
+--- candidate whose value names one of those as where it comes from goes there, any other the class.
+--- `inBook` is the name of every spell the book holds, in any group.
 ---
 --- **By name and not by id, both ways.** A trainer sells each rank under an id of its own, so the
 --- rank the book holds does not share an id with the one bought next and `seen` would let it
 --- through. One name is one row, under the id with the lowest level: a spell goes out by name and
 --- casts the highest rank known (`SpecSpells_Camelot.lua`), so which rank's id is stored does not
 --- reach the cast.
----
---- **The group stands with no row in it** (2026-09-30, owner): its heading's tooltip is what says
---- how to fill it, and a character who has not talked to a trainer is the one who needs that.
-local function AddUnlearnedSpellEntries(entries, seen)
-	if (not DebindPrivate.GetUnlearnedSpellCandidates) then
-		return;
-	end
-
-	local group = PROFESSIONS_CATEGORY_UNLEARNED;
-	local groupTooltip = format(LLL["SPELL_PICKER_GROUP_UNLEARNED_DESC"], MINIMAP_TRACKING_TRAINER_CLASS,
-		SETTINGS, FILTERS, UNAVAILABLE);
-
-	local inBook = {};
-	for i = 1, #entries do
-		if (entries[i].type == Constants.SPELL) then
-			inBook[entries[i].name] = true;
-		end
-	end
+local function AddUnlearnedSpellEntries(rows, seen, inBook)
 
 	-- A candidate's value is its level or where it comes from (`CompareUnlearnedValue`), which
 	-- decides the row a name keeps, its place and its subtitle. One that comes from somewhere stands
-	-- behind every one with a level, and only the places named here have a subtitle.
+	-- behind every one with a level, and only the places named here have a subtitle: a profession's
+	-- spell has its group's heading to say so.
 	local Compare = DebindPrivate.CompareUnlearnedValue;
 	local byName = {};
 	local function Consider(spellID, from)
@@ -670,8 +652,6 @@ local function AddUnlearnedSpellEntries(entries, seen)
 			name = spellInfo.name,
 			icon = spellInfo.iconID,
 			from = from,
-			group = group,
-			groupTooltip = groupTooltip,
 			isUnlearned = true,
 		};
 	end
@@ -701,7 +681,7 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		return a.name < b.name;
 	end);
 
-	local subtitles = { talent = TALENT, profession = TRADE_SKILLS };
+	local subtitles = { talent = TALENT };
 	local playerLevel = UnitLevel("player");
 	for i = 1, #collected do
 		local entry = collected[i];
@@ -710,12 +690,9 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		elseif (entry.from > playerLevel) then
 			entry.subName = format(SPELLBOOK_AVAILABLE_AT, entry.from);
 		end
+		local list = rows[entry.from] or rows.class;
 		entry.from = nil;
-		AddEntry(entries, seen, entry);
-	end
-
-	if (#collected == 0) then
-		tinsert(entries, { group = group, groupTooltip = groupTooltip, isGroupOnly = true });
+		AddEntry(list, seen, entry);
 	end
 end
 
@@ -726,12 +703,20 @@ end
 --- `Enum.SpellBookSkillLineIndex` is `General=1, Class=2, MainSpec=3, OffSpecStart=4`, so the index
 --- order would put General first, while what a reader comes here for is usually a class spell and
 --- General is mounts and the hearthstone. The current spellbook puts the class first too.
---- The result: class -> active spec -> other specs -> General -> Pet -> Professions -> Unlearned ->
---- Others (2026-10-01, owner: Professions after Pet).
+--- The result: class -> active spec -> other specs -> General -> Pet -> Professions -> Others
+--- (2026-10-01, owner: Professions after Pet).
 ---
 --- **Pet spells are here as well**, under their own heading. A tab of their own would stand for
 --- the half of the classes that have a pet, and it is the same spellbook.
+---
+--- **Where the book holds only what is learned, the class is one group** (`BuildClassSpells`).
+local BuildClassSpells;
 local function BuildPlayerSpells(entries)
+	if (DebindPrivate.GetUnlearnedSpellCandidates) then
+		BuildClassSpells(entries);
+		return;
+	end
+
 	local seen = {};
 	local numSkillLines = C_SpellBook.GetNumSpellBookSkillLines() or 0;
 
@@ -773,10 +758,83 @@ local function BuildPlayerSpells(entries)
 
 	AddPetSpells(entries, seen);
 	AddProfessionSpells(entries, seen);
-	AddUnlearnedSpellEntries(entries, seen);
 
 	-- 주문서 밖의 것들이 맨 끝에 "그 밖" 그룹으로 붙는다. `seen`을 그대로 넘기는 것이
 	-- 핵심이다 - 주문서에 이미 있는 것은 여기서 안 붙는다.
+	AddExtraSpellEntries(entries, seen);
+end
+
+--- **Every line but General under the class's name** (2026-10-01, owner): there the lines are the
+--- talent trees, and a spell learned from a trainer sits in one whatever the reader's talents are.
+--- Then each group's unlearned rows after its learned ones (`AddUnlearnedSpellEntries`):
+--- class -> General -> Pet -> Professions -> Others.
+---
+--- **The class rows are sorted by name.** Each line comes sorted that way from the client, and run
+--- one after another they would make three runs under one heading. Two rows of one name (lower
+--- ranks, with `ShowAllSpellRanks` on) keep the book's order.
+---
+--- The trainer's tooltip goes on every class row and not only the first, since a search can leave
+--- any of them first under the heading (`BuildDisplayList`).
+function BuildClassSpells(entries)
+	local seen = {};
+	local bank = Enum.SpellBookSpellBank.Player;
+	local generalIndex = Enum.SpellBookSkillLineIndex.General;
+	local rows = { class = {}, pet = {}, profession = {} };
+	local general = {};
+
+	for skillLineIndex = 1, C_SpellBook.GetNumSpellBookSkillLines() or 0 do
+		local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(skillLineIndex);
+		if (skillLineInfo and not skillLineInfo.shouldHide) then
+			local list = skillLineIndex == generalIndex and general or rows.class;
+			for slotIndex = skillLineInfo.itemIndexOffset + 1,
+					skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems do
+				if (not DebindPrivate.Client.IsHiddenLowRank(slotIndex, bank)) then
+					AddSpellBookItem(list, seen, slotIndex, bank, false, skillLineInfo.name);
+				end
+			end
+		end
+	end
+	AddPetSpells(rows.pet, seen);
+	AddProfessionSpells(rows.profession, seen);
+
+	local bookOrder = {};
+	for i = 1, #rows.class do
+		bookOrder[rows.class[i]] = i;
+	end
+	sort(rows.class, function(a, b)
+		if (a.name ~= b.name) then
+			return a.name < b.name;
+		end
+		return bookOrder[a] < bookOrder[b];
+	end);
+
+	local inBook = {};
+	for _, list in ipairs({ rows.class, general, rows.pet, rows.profession }) do
+		for i = 1, #list do
+			if (list[i].type == Constants.SPELL) then
+				inBook[list[i].name] = true;
+			end
+		end
+	end
+	AddUnlearnedSpellEntries(rows, seen, inBook);
+
+	local classLine = DebindPrivate.Client.ClassSkillLine();
+	local groupTooltip = format(LLL["SPELL_PICKER_GROUP_UNLEARNED_DESC"], MINIMAP_TRACKING_TRAINER_CLASS,
+		SETTINGS, FILTERS, UNAVAILABLE);
+	local function Append(list, group, tooltip)
+		for i = 1, #list do
+			list[i].group = group;
+			list[i].groupTooltip = tooltip;
+			tinsert(entries, list[i]);
+		end
+	end
+	Append(rows.class, classLine and classLine.name or UnitClass("player"), groupTooltip);
+	for i = 1, #general do
+		tinsert(entries, general[i]);
+	end
+	Append(rows.pet, LLL["PET"]);
+	Append(rows.profession, TRADE_SKILLS);
+
 	AddExtraSpellEntries(entries, seen);
 end
 

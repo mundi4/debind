@@ -15,6 +15,9 @@ M.world = {
     spellbook = {},
     --- The ids in `spellbook` that are a lower rank of another. Only the camelot world reads it.
     lowRanks = {},
+    --- `[spellID] = line` for an id in `spellbook` that sits on a line other than the first.
+    --- Only the camelot world has more than one line.
+    bookLines = {},
     baseSpells = {},
     overrideSpells = {},
     --- 이름으로 물었을 때 답할 주문 id. **비워 두면 `spells`에서 이름이 같은 것을 찾는다**,
@@ -524,8 +527,7 @@ function M.install()
     _G.BINDING_HEADER_RAID_TARGET = "Target Markers";
     _G.BINDING_HEADER_TARGETING = "Targeting";
     _G.BINDING_HEADER_VEHICLE = "Vehicle Controls";
-    -- The spell list's Unlearned group, as enUS has them.
-    _G.PROFESSIONS_CATEGORY_UNLEARNED = "Unlearned";
+    -- The spell list's unlearned rows, as enUS has them.
     _G.SPELLBOOK_AVAILABLE_AT = "Level %d";
     _G.MINIMAP_TRACKING_TRAINER_CLASS = "Class Trainer";
     _G.SETTINGS = "Settings";
@@ -668,13 +670,21 @@ function M.install()
         return M.world.spellbook[spellID] and 1 or nil;
     end
 
-    --- That same set as an ordered list, which is what a slot number indexes.
+    --- That same set as an ordered list, which is what a slot number indexes: line by line, in id
+    --- order within one.
     local function BookSlots()
         local ids = {};
         for spellID in pairs(M.world.spellbook) do
             ids[#ids + 1] = spellID;
         end
-        table.sort(ids);
+        local lines = M.world.bookLines;
+        table.sort(ids, function(a, b)
+            local aLine, bLine = lines[a] or 1, lines[b] or 1;
+            if (aLine ~= bLine) then
+                return aLine < bLine;
+            end
+            return a < b;
+        end);
         return ids;
     end
 
@@ -1013,7 +1023,7 @@ function M.install()
     ---
     --- **Camelot's book has a line per talent tree and none for the class** (a druid on 69977:
     --- General, Restoration, Balance). The class line comes from a call only that client has. The
-    --- book's spells stay on the first line, so a walk reads the same ids either way.
+    --- book's spells stay on the first line unless `bookLines` names another.
     if (camelot) then
         _G.C_SpellBook.IsSpellBookItemLowRank = function(slot, bank)
             local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
@@ -1024,9 +1034,16 @@ function M.install()
         _G.C_SpellBook.GetSpellBookSkillLineInfo = function(index)
             local line = LINES[index];
             if (not line) then return nil; end
-            local count = #BookSlots();
-            return { name = line[1], iconID = line[2], itemIndexOffset = index == 1 and 0 or count,
-                numSpellBookItems = index == 1 and count or 0 };
+            local offset, count = 0, 0;
+            for _, spellID in ipairs(BookSlots()) do
+                local at = M.world.bookLines[spellID] or 1;
+                if (at < index) then
+                    offset = offset + 1;
+                elseif (at == index) then
+                    count = count + 1;
+                end
+            end
+            return { name = line[1], iconID = line[2], itemIndexOffset = offset, numSpellBookItems = count };
         end
         _G.C_SpellBook.GetClassSkillLineInfo = function()
             return { name = "Druid", iconID = 625999, itemIndexOffset = 0, numSpellBookItems = 0 };

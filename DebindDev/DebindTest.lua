@@ -10426,9 +10426,9 @@ RegisterTest("Game type: this client's own file loads", {
     end,
 })
 
--- **A fourth file the client picks** (`UnlearnedSpells_Camelot.lua`). Loaded on retail it would put
--- a second Unlearned group beside the book's own `FutureSpell` rows; missing on camelot, the group
--- is gone and nothing says so.
+-- **A fourth file the client picks** (`UnlearnedSpells_Camelot.lua`). Loaded on retail it would fold
+-- the spec lines into one class group and add unlearned rows beside the book's own `FutureSpell`
+-- ones; missing on camelot, the unlearned rows are gone and nothing says so.
 RegisterTest("Unlearned spells: the file loads on camelot and nowhere else", {
     description = "The trainer reader is there on camelot and absent on retail",
     run = function()

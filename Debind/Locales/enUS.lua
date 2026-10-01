@@ -1103,7 +1103,7 @@ L["SPELL_PICKER_GROUP_FAVORITE_TOYS"] = "Favorite Toys"
 L["SPELL_PICKER_GROUP_MOUNTS"] = "Mounts"
 L["SPELL_PICKER_GROUP_OTHERS"] = "Everything Else"
 L["SPELL_PICKER_GROUP_TOYS"] = "Toys"
--- The Unlearned group's tooltip, on camelot only (`UnlearnedSpells_Camelot.lua`). All four names are
+-- The class group's tooltip, on camelot only (`UnlearnedSpells_Camelot.lua`). All four names are
 -- the client's own, passed in: the trainer (`MINIMAP_TRACKING_TRAINER_CLASS`) and the path through
 -- the trainer window's menu (`SETTINGS`, `FILTERS`, `UNAVAILABLE`, `Blizzard_TrainerUI.lua`).
 -- A trainer window shows only what its filters let through, and only what it shows is listed here.

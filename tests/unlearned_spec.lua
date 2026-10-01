@@ -1,6 +1,7 @@
--- **The Unlearned group on camelot** (`listing-unlearned-spells-on-forever.md`): what a class
--- trainer's window is read into, and what the spell list makes of that together with the ids
--- written in `UnlearnedSpells_Camelot.lua`. Run in the camelot world, whose character is a druid.
+-- **Unlearned spells on camelot** (`listing-unlearned-spells-on-forever.md`): what a class
+-- trainer's window is read into, and how the spell list's groups take that together with the
+-- book and the ids written in `UnlearnedSpells_Camelot.lua`. Run in the camelot world, whose
+-- character is a druid.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -69,13 +70,24 @@ return function(DebindPrivate)
     -- A string in a level's place names where the spell comes from (2026-10-01, owner).
     local ELSEWHERE = 90002;
     spells[ELSEWHERE] = { name = "Elsewhere Spell", iconID = 11 };
+    -- A pet's, in its class's list with where it comes from (2026-10-01, owner: a warlock's grimoires).
+    local PET_SPELL = 90003;
+    spells[PET_SPELL] = { name = "Pet Spell", iconID = 14 };
     DebindPrivate.CamelotClassSpells = {
-        DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30, [ELSEWHERE] = "quest" },
+        DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30, [ELSEWHERE] = "quest", [PET_SPELL] = "pet" },
     };
-    -- A profession's spell, offered to every class with the professions' subtitle (2026-10-01, owner).
+    -- A profession's spell, offered to every class (2026-10-01, owner).
     local FISHING = 7620;
     spells[FISHING] = { name = "Fishing", iconID = 13 };
     DebindPrivate.CamelotProfessionSpells = { [FISHING] = "profession" };
+
+    -- What the book holds: one spell on General, two class spells on two talent trees' lines in the
+    -- reverse of name order, and a profession's.
+    local HEARTHSTONE, FIND_HERBS = 8690, 2383;
+    spells[HEARTHSTONE] = { name = "Hearthstone", iconID = 15 };
+    spells[FIND_HERBS] = { name = "Find Herbs", iconID = 16 };
+    shim.world.bookLines[MARK_1] = 2;
+    shim.world.bookLines[TOUCH_1] = 3;
 
     -- The talent tree, untaken: one spell a key can cast and one passive (probe, 70009, a druid).
     -- Stood up before the login, whose rebuild walks it once for the specialization (`Spells.lua`).
@@ -153,114 +165,119 @@ return function(DebindPrivate)
         end
     end
 
-    --- The rows under the Unlearned heading, and whether that group stands between the book's and
-    --- Others.
-    local function unlearnedRows()
+    --- The spell list's rows by heading, and the headings in order.
+    local function groupedRows()
         ActionCatalog.Invalidate("spellbook");
-        local rows, groups = {}, {};
+        local byGroup, groups = {}, {};
         for _, entry in ipairs(ActionCatalog.GetEntries(spellCategory())) do
             if (groups[#groups] ~= entry.group) then
                 groups[#groups + 1] = entry.group;
+                byGroup[entry.group] = {};
             end
-            if (entry.group == PROFESSIONS_CATEGORY_UNLEARNED) then
-                rows[#rows + 1] = entry;
-            end
+            table.insert(byGroup[entry.group], entry);
         end
-        return rows, table.concat(groups, ",");
+        return byGroup, table.concat(groups, ",");
     end
 
     local function rowText(rows)
         local parts = {};
-        for _, row in ipairs(rows) do
+        for _, row in ipairs(rows or {}) do
             parts[#parts + 1] = row.name .. ":" .. tostring(row.value) .. ":" .. tostring(row.subName)
-                .. (row.isUnlearned and "" or ":learned?");
+                .. (row.isUnlearned and "" or ":learned");
         end
         return table.concat(parts, " | ");
     end
+
+    --- The book `groupedRows` reads in the tests below, stood up and taken down around `fn`.
+    local function withBook(fn)
+        for _, id in ipairs({ HEARTHSTONE, MARK_1, TOUCH_1 }) do
+            shim.world.spellbook[id] = true;
+        end
+        shim.world.professions[1] = { name = "Herbalism", spells = { FIND_HERBS } };
+        local unitLevel = _G.UnitLevel;
+        _G.UnitLevel = function() return 10; end
+        local ok, err = pcall(fn);
+        _G.UnitLevel = unitLevel;
+        shim.world.professions[1] = nil;
+        for _, id in ipairs({ HEARTHSTONE, MARK_1, TOUCH_1 }) do
+            shim.world.spellbook[id] = nil;
+        end
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    -- **The class is one group under its name, and General, Pet and Professions follow** (2026-10-01,
+    -- owner). Each holds what is learned, then what is not; no group of unlearned spells of its own.
+    test("the groups are the class, General, Pet, Professions and Others", function()
+        withBook(function()
+            local _, groups = groupedRows();
+            local want = "Druid,General," .. DebindPrivate.L["PET"] .. ",Professions,"
+                .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
+            check(groups == want, "groups " .. groups .. ", expected " .. want);
+        end);
+    end);
 
     -- **One row per name, under the rank the character reaches first**, and nothing the book already
     -- lists under that name. The ids written in the file and the talent tree's spells join what the
     -- trainer gave. Level above the character's is the subtitle, the way retail's unlearned spells
     -- show it; a talent's spell has no level and says where it comes from instead, after the rest,
     -- even where another source sells a higher rank of it with one (2026-10-01, owner). A passive
-    -- talent is not offered.
-    test("the list merges every source, one row per name, without what the book holds", function()
+    -- talent is not offered. The learned rows come first, by name across the talent trees' lines.
+    test("the class group: learned by name, then every source merged, one row per name", function()
         _G.DebindVars.trainerSpells.DRUID[THORNS_1] = 6;
         _G.DebindVars.trainerSpells.DRUID[THORNS_2] = 14;
         -- The same id with a level from another source: where it comes from still wins.
         _G.DebindVars.trainerSpells.DRUID[ELSEWHERE] = 5;
-        shim.world.spellbook[TOUCH_1] = true;
-        local unitLevel = _G.UnitLevel;
-        _G.UnitLevel = function() return 10; end
-        local rows, groups = unlearnedRows();
-        _G.UnitLevel = unitLevel;
-        shim.world.spellbook[TOUCH_1] = nil;
-
-        local want = "Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
-            .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Elsewhere Spell:90002:nil"
-            .. " | Fishing:7620:Professions | Swiftmend:18562:Talent";
-        check(rowText(rows) == want, "rows " .. rowText(rows) .. "\n  expected " .. want);
-        local wantGroups = "General,Unlearned," .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
-        check(groups == wantGroups, "groups " .. groups .. ", expected " .. wantGroups);
+        withBook(function()
+            local byGroup = groupedRows();
+            local want = "Healing Touch:5185:nil:learned | Mark of the Wild:1126:nil:learned"
+                .. " | Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
+                .. " | Regrowth:8936:Level 12 | Cure Poison:8946:Level 14 | Elsewhere Spell:90002:nil"
+                .. " | Swiftmend:18562:Talent";
+            check(rowText(byGroup.Druid) == want, "rows " .. rowText(byGroup.Druid) .. "\n  expected " .. want);
+        end);
     end);
 
-    -- **The heading's tooltip says how to fill the group**, so a character who has not talked to a
-    -- trainer still gets the heading (2026-09-30, owner). A search drops it: nothing under it matches.
-    test("the group stands with its tooltip when no spell is in it, and not in a search", function()
-        local trainerSpells, classSpells = _G.DebindVars.trainerSpells, DebindPrivate.CamelotClassSpells;
-        local professionSpells = DebindPrivate.CamelotProfessionSpells;
-        _G.DebindVars.trainerSpells = nil;
-        DebindPrivate.CamelotClassSpells = nil;
-        DebindPrivate.CamelotProfessionSpells = nil;
-        -- Swiftmend in the book is its talent taken, which takes it out of the group.
-        shim.world.spellbook[CURE_POISON] = true;
-        shim.world.spellbook[SWIFTMEND] = true;
-        ActionCatalog.Invalidate("spellbook");
-        local entries = ActionCatalog.GetEntries(spellCategory());
-        shim.world.spellbook[CURE_POISON] = nil;
-        shim.world.spellbook[SWIFTMEND] = nil;
-        _G.DebindVars.trainerSpells = trainerSpells;
-        DebindPrivate.CamelotClassSpells = classSpells;
-        DebindPrivate.CamelotProfessionSpells = professionSpells;
+    -- A pet's spell comes from the class's own list, said by "pet" in its level's place; the
+    -- professions' ones have the heading to say where they come from, and no subtitle.
+    test("pet and profession spells join their own groups, after what is learned", function()
+        withBook(function()
+            local byGroup = groupedRows();
+            local want = "Pet Spell:90003:nil";
+            local pet = byGroup[DebindPrivate.L["PET"]];
+            check(rowText(pet) == want, "pet " .. rowText(pet) .. ", expected " .. want);
+            want = "Find Herbs:2383:nil:learned | Fishing:7620:nil";
+            check(rowText(byGroup.Professions) == want,
+                "professions " .. rowText(byGroup.Professions) .. ", expected " .. want);
+        end);
+    end);
 
-        local marker;
-        for _, entry in ipairs(entries) do
-            if (entry.group == PROFESSIONS_CATEGORY_UNLEARNED) then
-                check(marker == nil and entry.isGroupOnly, "a row is in the group: " .. tostring(entry.name));
-                marker = entry;
+    -- The heading's tooltip says how to fill the group (2026-09-30, owner). A search can leave any
+    -- row first under the heading, and the heading reads its tooltip off that one.
+    test("every class row carries the trainer's tooltip, and no other group's", function()
+        withBook(function()
+            local byGroup = groupedRows();
+            local want = format(DebindPrivate.L["SPELL_PICKER_GROUP_UNLEARNED_DESC"], "Class Trainer",
+                "Settings", "Filters", "Unavailable");
+            for _, row in ipairs(byGroup.Druid) do
+                check(row.groupTooltip == want, row.name .. " has tooltip " .. tostring(row.groupTooltip));
             end
-        end
-        check(marker, "no Unlearned group");
-        local want = format(DebindPrivate.L["SPELL_PICKER_GROUP_UNLEARNED_DESC"], "Class Trainer",
-            "Settings", "Filters", "Unavailable");
-        check(marker.groupTooltip == want, "tooltip " .. tostring(marker.groupTooltip));
-
-        local function kept(options)
-            for _, entry in ipairs(ActionCatalog.Filter(entries, options)) do
-                if (entry == marker) then
-                    return true;
+            for _, group in ipairs({ "General", DebindPrivate.L["PET"], "Professions" }) do
+                for _, row in ipairs(byGroup[group]) do
+                    check(row.groupTooltip == nil, row.name .. " in " .. group .. " has a tooltip");
                 end
             end
-            return false;
-        end
-        check(kept({ includeOffSpec = true }), "the empty group was filtered out");
-        check(not kept({ search = "cure", includeOffSpec = true }), "the empty group stood in a search");
+        end);
     end);
 
-    test("every row carries the heading's tooltip", function()
-        local rows = unlearnedRows();
-        check(#rows > 0, "no rows");
-        for _, row in ipairs(rows) do
-            check(row.groupTooltip ~= nil and not row.isGroupOnly, row.name .. " has no tooltip");
-        end
-    end);
-
-    test("a spell leaves the group once the book holds it", function()
+    test("a spell leaves the unlearned rows once the book holds it", function()
         shim.world.spellbook[WRATH_1] = true;
-        local rows = unlearnedRows();
+        local byGroup = groupedRows();
         shim.world.spellbook[WRATH_1] = nil;
-        for _, row in ipairs(rows) do
-            check(row.name ~= "Wrath", "Wrath is still listed: " .. rowText(rows));
+        for _, row in ipairs(byGroup.Druid) do
+            check(not (row.name == "Wrath" and row.isUnlearned), "Wrath is still unlearned: "
+                .. rowText(byGroup.Druid));
         end
     end);
 

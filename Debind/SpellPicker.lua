@@ -768,9 +768,7 @@ local function BuildDisplayList(entries, out, stride, categoryKey)
 		if (not collapsed) then
 			local bucket = buckets[key];
 			for i = 1, #bucket do
-				if (not bucket[i].isGroupOnly) then
-					out[#out + 1] = bucket[i];
-				end
+				out[#out + 1] = bucket[i];
 			end
 		end
 	end
