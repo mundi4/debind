@@ -49,10 +49,11 @@ local KEYS_TO_SAVE       = {
     -- (`which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
     casting = true,
-    -- **This spell's rank rather than the highest one known**, on a client whose spells come in
-    -- ranks (`Client.SPELLS_HAVE_RANKS`). The stored id cannot say it alone: the highest rank on
-    -- the day it was picked is a lower one after the next is learned.
-    pinRank = true,
+    -- **The rank a spell is held at rather than the highest one known**, on a client whose spells
+    -- come in ranks (`Client.SPELLS_HAVE_RANKS`): that rank's id, or the cast text a Clique binding
+    -- held (`Healing Touch(Rank 1)`). Apart from `value`, which says which spell and is never moved
+    -- by pinning or unpinning (`keeping-a-pinned-rank-apart-from-the-spell.md`).
+    pinnedSpell = true,
     -- **What a spell stored by name resolved to when it arrived**, beside a `value` that stays the
     -- name. A name stands for several ids, so the id is one guess and the name is what was meant;
     -- this is asked only where the name resolves to nothing, which is a client in another locale
@@ -2252,7 +2253,7 @@ function DebindPrivate.CleanUpDB()
                 action.battleRezOutOfCombat = nil;
             end
             if (action.type ~= Constants.SPELL) then
-                action.pinRank = nil;
+                action.pinnedSpell = nil;
             end
             if (action.type ~= Constants.SPELL or luatype(action.value) ~= "string"
                     or luatype(action.resolvedSpellID) ~= "number") then
@@ -3180,9 +3181,9 @@ function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, pro
     action.value = value;
     action.name = name;
     action.icon = icon;
-    -- **The pin was the old spell's.** Carried across, it would hold the new one at whatever rank
-    -- it is stored at; an entry that means a rank brings its own in `props`.
-    action.pinRank = nil;
+    -- **The pin was the old spell's.** Carried across, it would hold the new one at another spell's
+    -- rank.
+    action.pinnedSpell = nil;
     -- Kept, it would stand in for the new value wherever that resolves to nothing.
     action.resolvedSpellID = nil;
 

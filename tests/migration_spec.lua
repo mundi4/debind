@@ -630,6 +630,43 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 7: a pinned rank moves out of `value` into `pinnedSpell`
+    -- (`keeping-a-pinned-rank-apart-from-the-spell.md`). `value` keeps the id it held, which is
+    -- still that spell; only the profile's own step can put it on the first rank.
+    ---------------------------------------------------------------------------
+
+    test("dbver 7 moves a pinned rank into pinnedSpell", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 705, pinRank = true } };
+        MigrateLayer(layer, 7);
+        check(layer[1].pinnedSpell == 705, "pinnedSpell: " .. tostring(layer[1].pinnedSpell));
+        check(layer[1].pinRank == nil, "pinRank stayed");
+        check(layer[1].value == 705, "value: " .. tostring(layer[1].value));
+    end);
+
+    -- A payload's fields arrive as any type at all (the ladder's header), and only a spell can hold a
+    -- rank.
+    test("dbver 7 drops a pin that is not a spell's or not true", function()
+        local layer = {
+            { key = "A", type = Constants.ITEM, value = 705, pinRank = true },
+            { key = "B", type = Constants.SPELL, value = 705, pinRank = "yes" },
+            { key = "C", type = Constants.SPELL, value = "Shadow Bolt", pinRank = true },
+        };
+        MigrateLayer(layer, 7);
+        for i = 1, 2 do
+            check(layer[i].pinRank == nil and layer[i].pinnedSpell == nil,
+                layer[i].key .. ": " .. tostring(layer[i].pinRank) .. " " .. tostring(layer[i].pinnedSpell));
+        end
+        check(layer[3].pinnedSpell == nil and layer[3].pinRank == nil, "a name was pinned as its own rank");
+    end);
+
+    test("dbver 7 is safe to run twice over a pin", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 705, pinRank = true } };
+        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 7);
+        check(layer[1].pinnedSpell == 705, "pinnedSpell: " .. tostring(layer[1].pinnedSpell));
+    end);
+
+    ---------------------------------------------------------------------------
     -- dbver 7: `known`이 "물어본다"에서 **무엇을 묻는가**로 바뀐다
     -- (`making-known-a-spell-name.md`).
     ---------------------------------------------------------------------------

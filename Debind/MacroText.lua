@@ -470,12 +470,13 @@ function DebindPrivate.ConvertToMacroText(action)
             if (type(stored) == "string") then
                 stored = DebindPrivate.ResolveBaseSpell(stored, action.resolvedSpellID) or stored;
             end
-            if (type(stored) == "string") then
+            if (action.pinnedSpell ~= nil) then
+                -- The pinned rank, the way the button spells it.
+                spellOrItemName = DebindPrivate.PinnedCastName(action.pinnedSpell);
+            elseif (type(stored) == "string") then
                 spellOrItemName = stored;
             else
-                local spellID = C_SpellBook.FindBaseSpellByID(stored) or stored;
-                -- A pinned rank is the stored id's own, the way the button spells it.
-                spellOrItemName = GetSpellCastName(action.pinRank and stored or spellID, action.pinRank);
+                spellOrItemName = GetSpellCastName(C_SpellBook.FindBaseSpellByID(stored) or stored);
             end
         else
             slashCommand = SLASH_USE1;

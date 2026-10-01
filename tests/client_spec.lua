@@ -342,8 +342,8 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **A rank can also be pinned, per action** (2026-09-24, owner): classic players cast a lower
-    -- rank on purpose. The stored id cannot say it on its own, since the highest rank on the day it
-    -- was picked is a lower one after the next is learned, so `pinRank` says it.
+    -- rank on purpose. `value` says which spell and `pinnedSpell` which rank, an id or the cast
+    -- text Clique held (`keeping-a-pinned-rank-apart-from-the-spell.md`).
     local ME = "Player-1-CLIENTRANK";
 
     local function Bind(actions)
@@ -364,38 +364,65 @@ return function(DebindPrivate, DebindStorage)
         return records and records[1] and records[1].castSpell;
     end
 
+    -- The rank comes from the pin, not from `value`: the action stores the first rank and pins the
+    -- second. A pin held as text is cast as that text, whoever's book it is.
     test("a pinned rank casts that rank, an unpinned action the highest", function()
-        shim.world.spells[5185] = { name = "Healing Touch", subtext = "Rank 1" };
-        shim.world.spellbook[5185] = true;
+        TwoRanks();
         local SPELL = DebindPrivate.Constants.SPELL;
         Bind({
-            { type = SPELL, value = 5185, key = "F1", seq = 1, pinRank = true },
+            { type = SPELL, value = 5185, key = "F1", seq = 1, pinnedSpell = 5186 },
             { type = SPELL, value = 5185, key = "F2", seq = 1 },
+            { type = SPELL, value = 5185, key = "F3", seq = 1, pinnedSpell = "Healing Touch(Rank 3)" },
         });
-        check(CastOn("F1") == "Healing Touch(Rank 1)", "pinned casts " .. tostring(CastOn("F1")));
+        check(CastOn("F1") == "Healing Touch(Rank 2)", "pinned casts " .. tostring(CastOn("F1")));
         local highest = camelot and "Healing Touch" or "Healing Touch(Rank 1)";
         check(CastOn("F2") == highest, "unpinned casts " .. tostring(CastOn("F2")));
+        check(CastOn("F3") == "Healing Touch(Rank 3)", "pinned by text casts " .. tostring(CastOn("F3")));
     end);
 
     -- **The name a row and a tooltip show is the name the button casts by**, so a held rank is on
     -- screen without a line of its own.
     test("a pinned rank shows in the action's name", function()
-        shim.world.spells[5185] = { name = "Healing Touch", subtext = "Rank 1" };
+        TwoRanks();
         local SPELL = DebindPrivate.Constants.SPELL;
-        local shown = select(3, DebindPrivate.DebindUI.NameAndIconForAction(
-            { type = SPELL, value = 5185, pinRank = true }));
-        local plain = select(3, DebindPrivate.DebindUI.NameAndIconForAction({ type = SPELL, value = 5185 }));
-        check(tostring(shown):find("Healing Touch(Rank 1)", 1, true), "pinned shows " .. tostring(shown));
-        check(not tostring(plain):find("Rank", 1, true), "unpinned shows " .. tostring(plain));
+        local function Shown(action)
+            return tostring(select(3, DebindPrivate.DebindUI.NameAndIconForAction(action)));
+        end
+        local shown = Shown({ type = SPELL, value = 5185, pinnedSpell = 5186 });
+        local text = Shown({ type = SPELL, value = 5185, pinnedSpell = "Healing Touch(Rank 3)" });
+        local plain = Shown({ type = SPELL, value = 5185 });
+        check(shown:find("Healing Touch(Rank 2)", 1, true), "pinned shows " .. shown);
+        check(text:find("Healing Touch(Rank 3)", 1, true), "pinned by text shows " .. text);
+        check(not plain:find("Rank", 1, true), "unpinned shows " .. plain);
     end);
 
     -- The pin belongs to the spell it was set on. Putting another spell in the action's place
     -- keeps everything else about the action, and a pin carried across would pin the new spell to
-    -- whatever rank it happens to be stored at.
+    -- another spell's rank.
     test("putting another spell in an action's place drops the pin", function()
-        local action = { type = DebindPrivate.Constants.SPELL, value = 5185, pinRank = true };
+        local action = { type = DebindPrivate.Constants.SPELL, value = 5185, pinnedSpell = 5186 };
         DebindPrivate.SetActionEntry(action, DebindPrivate.Constants.SPELL, 774, "Rejuvenation", nil, nil);
-        check(action.pinRank == nil, "the pin stayed on the new spell");
+        check(action.pinnedSpell == nil, "the pin stayed on the new spell");
+    end);
+
+    -- **Unpinning leaves `value` as it is** (2026-10-01, owner). It used to hold the pinned rank's id
+    -- and keep it after the pin went, so three unpinned actions of one spell stored three ids. The
+    -- character unpinning may not even have the spell in its book.
+    test("picking a rank pins it and the highest unpins it, and value stays", function()
+        TwoRanks();
+        local ActionMenu = DebindPrivate.ActionMenu;
+        local action = { type = DebindPrivate.Constants.SPELL, value = 5185, key = "F1" };
+        Bind({ action });
+        local ctx = { actions = { action } };
+        ActionMenu.SetRank({ ctx = ctx, id = 5186 });
+        check(action.pinnedSpell == 5186 and action.value == 5185,
+            "after pinning: " .. tostring(action.pinnedSpell) .. " " .. tostring(action.value));
+        check(ActionMenu.RankIs({ ctx = ctx, id = 5186 }) and not ActionMenu.RankIs({ ctx = ctx }),
+            "the radio does not follow the pin");
+        ActionMenu.SetRank({ ctx = ctx });
+        check(action.pinnedSpell == nil and action.value == 5185,
+            "after unpinning: " .. tostring(action.pinnedSpell) .. " " .. tostring(action.value));
+        check(ActionMenu.RankIs({ ctx = ctx }), "the highest rank's radio is dark");
     end);
 
     -- The ranks the rank menu offers: every book item under the spell's name, in book order.

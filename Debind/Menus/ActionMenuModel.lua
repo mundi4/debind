@@ -1070,6 +1070,21 @@ local function ToggleUnitConditionRole(ctx, unit, value)
     return ToggleUnitConditionMask(ctx, unit, "role", value, Constants.ROLE_ALL);
 end
 
+--- The spell rank rows. `data.id` nil is the highest rank, which is no pin at all.
+local function RankIs(data)
+    local action = data.ctx.actions[1];
+    return action.pinnedSpell == data.id;
+end
+
+--- **`value` is never touched**, either way (`keeping-a-pinned-rank-apart-from-the-spell.md`). It
+--- used to take the picked rank's id and keep it after the pin went, which left unpinned actions of
+--- one spell holding different ids, and the character unpinning may not have the spell in its book.
+local function SetRank(data)
+    local action = data.ctx.actions[1];
+    action.pinnedSpell = data.id;
+    return OnActionsChanged(data.ctx.actions);
+end
+
 --- What the two drawing files and the entry points reach in here. Everything else above is this
 --- file's own.
 ActionMenu.REACTION_ITEMS            = REACTION_ITEMS;
@@ -1111,6 +1126,9 @@ ActionMenu.ToggleClassSpecs          = ToggleClassSpecs;
 ActionMenu.actionHandlers            = ActionHandlers;
 ActionMenu.actionValueEquals         = actionValueEquals;
 ActionMenu.setActionValue            = setActionValue;
+
+ActionMenu.RankIs                    = RankIs;
+ActionMenu.SetRank                   = SetRank;
 
 ActionMenu.CastKeyChoiceOf           = CastKeyChoiceOf;
 ActionMenu.CastKeyChoiceIs           = CastKeyChoiceIs;

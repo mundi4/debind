@@ -395,18 +395,18 @@ end
 --- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
 --- holds every call in that path). It arrives here with the two halves already in hand.
 ---
---- **Where spells have ranks the subtext stays off unless `pinRank` asks for it.** It is the rank
---- there: a name carrying it casts that rank for good, and the bare name casts the highest known.
---- A client with ranks has one specialization per class, so there are no same-named spells for
---- the subtext to tell apart.
+--- **Where spells have ranks the subtext stays off unless the action is pinned** (`pinnedSpell`).
+--- It is the rank there: a name carrying it casts that rank for good, and the bare name casts the
+--- highest known. A client with ranks has one specialization per class, so there are no same-named
+--- spells for the subtext to tell apart.
 ---
 --- Nil name in, nil out. The callers fall back to the id, which at least fires for the reader who
 --- is on the specialization that has it.
-function DebindPrivate.ComposeSpellCastName(name, subtext, pinRank)
+function DebindPrivate.ComposeSpellCastName(name, subtext, pinned)
     if (not name) then
         return nil;
     end
-    if (subtext and subtext ~= "" and (pinRank or not DebindPrivate.Client.SPELLS_HAVE_RANKS)) then
+    if (subtext and subtext ~= "" and (pinned or not DebindPrivate.Client.SPELLS_HAVE_RANKS)) then
         return name .. "(" .. subtext .. ")";
     end
     return name;
@@ -427,9 +427,18 @@ local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 --- and they do not resolve it alike. A stored action holds whatever id the reader picked and needs
 --- `FindBaseSpellByID` first; a flyout slot is handed its base id and its override as two separate
 --- returns, so resolving again there would be asking a question already answered.
-function DebindPrivate.GetSpellCastName(spellID, pinRank)
+function DebindPrivate.GetSpellCastName(spellID, pinned)
     local name = GetSpellNameAndIconID(spellID);
-    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID), pinRank);
+    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID), pinned);
+end
+
+--- What an action pinned at `pinnedSpell` casts. **Text is cast as it is**: it is what a Clique
+--- binding cast (`DebindStorage/Clique.lua`), and no book is asked for an id behind it.
+function DebindPrivate.PinnedCastName(pinnedSpell)
+    if (type(pinnedSpell) == "string") then
+        return pinnedSpell;
+    end
+    return DebindPrivate.GetSpellCastName(pinnedSpell, true);
 end
 
 --- The id a spell should be **stored** under: the topmost base, resolved at the moment the reader

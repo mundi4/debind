@@ -70,7 +70,8 @@ local function Placement(sets)
     return onFrames, sets.hovercast == true, sets.global == true;
 end
 
---- The action's type and value, or nil for one Clique would not run either.
+--- The action's type and value, and a spell's pinned rank, or nil for one Clique would not run
+--- either.
 local function TranslateAction(binding)
     local kind = binding.type;
     if (kind == "target") then
@@ -78,9 +79,16 @@ local function TranslateAction(binding)
     elseif (kind == "menu") then
         return Constants.TOGGLEMENU;
     elseif (kind == "spell") then
-        -- **`spellSubName` is dropped.** On this client it is a specialization's label rather than
-        -- a rank, and the name alone resolves per specialization the way Clique's button did.
+        -- **`spellSubName` is a rank only where spells have ranks**, and there it is held: Clique
+        -- casts the two joined (`SpellTextWithSubName`) and its editor lets the rank be removed, which
+        -- is the highest. It comes over as that cast text, since no book is asked for an id here.
+        -- Elsewhere it is a specialization's label and is dropped: the name alone resolves per
+        -- specialization the way Clique's button did.
         if (luatype(binding.spell) == "string" and binding.spell ~= "") then
+            local sub = binding.spellSubName;
+            if (DebindPrivate.Client.SPELLS_HAVE_RANKS and luatype(sub) == "string" and sub ~= "") then
+                return Constants.SPELL, binding.spell, binding.spell .. "(" .. sub .. ")";
+            end
             return Constants.SPELL, binding.spell;
         end
     elseif (kind == "macro") then
@@ -113,7 +121,7 @@ local function TranslateBinding(binding, combatOnly)
         return nil;
     end
 
-    local actionType, value = TranslateAction(binding);
+    local actionType, value, pinnedSpell = TranslateAction(binding);
     if (not actionType) then
         return nil;
     end
@@ -135,7 +143,7 @@ local function TranslateBinding(binding, combatOnly)
         return nil;
     end
 
-    local action = { type = actionType, value = value, key = key };
+    local action = { type = actionType, value = value, key = key, pinnedSpell = pinnedSpell };
     if (actionType == Constants.MACROTEXT) then
         action.icon = binding.icon;
     end

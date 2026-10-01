@@ -438,7 +438,7 @@ return function(DebindPrivate, DebindStorage)
         noTargetMassRez = false,
         battleRezOutOfCombat = true,
         -- A spell held at its own rank, on a client whose spells have ranks.
-        pinRank = true,
+        pinnedSpell = 782,
         -- The id a spell stored by name resolved to, carried whatever the value.
         resolvedSpellID = 774,
         -- Another addon's values, waiting for the payload to be added.

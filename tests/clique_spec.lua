@@ -46,6 +46,26 @@ return function(DebindPrivate, DebindStorage)
         return { type = "spell", spell = "Rejuvenation", key = key, sets = sets };
     end
 
+    -- **Clique keeps a rank apart from the name and casts the two joined** (`SpellTextWithSubName`).
+    -- Where spells have ranks that is a held rank, and it comes over as the text Clique cast. Where
+    -- they have none the field is a specialization's label, and the name alone resolves per
+    -- specialization the way Clique's button did.
+    test("a spell's subname is a pinned rank only where spells have ranks", function()
+        local Client = DebindPrivate.Client;
+        local hadRanks = Client.SPELLS_HAVE_RANKS;
+        local binding = { type = "spell", spell = "Healing Touch", spellSubName = "Rank 3", key = "F" };
+        Client.SPELLS_HAVE_RANKS = true;
+        local ok, ranked = pcall(One, binding);
+        Client.SPELLS_HAVE_RANKS = false;
+        local ok2, plain = pcall(One, binding);
+        Client.SPELLS_HAVE_RANKS = hadRanks;
+        check(ok and ok2, tostring(ranked) .. " " .. tostring(plain));
+        check(ranked.value == "Healing Touch" and ranked.pinnedSpell == "Healing Touch(Rank 3)",
+            "with ranks: " .. tostring(ranked.value) .. " " .. tostring(ranked.pinnedSpell));
+        check(plain.value == "Healing Touch" and plain.pinnedSpell == nil,
+            "without ranks: " .. tostring(plain.value) .. " " .. tostring(plain.pinnedSpell));
+    end);
+
     test("a new profile's two bindings are dropped and the spell stays", function()
         local actions = Convert({
             { sets = { default = true }, type = "target", key = "BUTTON1", unit = "mouseover" },

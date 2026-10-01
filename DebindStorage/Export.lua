@@ -143,9 +143,9 @@ local ACTION_FIELDS      = {
     disabled = "boolean",
     -- The spec-resolved types' switch for handing the key on when there is nothing to cast.
     skipWhenUnusable = "boolean",
-    -- A spell held at its own rank rather than the highest. A client without ranks has nothing to
-    -- hold, and casts the one spell there is.
-    pinRank = "boolean",
+    -- The rank a spell is held at rather than the highest: its id, or a Clique binding's cast text.
+    -- A client without ranks has nothing to hold, and casts the one spell there is.
+    pinnedSpell = "number|string",
     -- The id a spell stored by name resolved to where it was added. It travels because a reader
     -- in another locale cannot resolve the name at all.
     resolvedSpellID = "number",

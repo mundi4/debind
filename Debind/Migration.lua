@@ -771,6 +771,24 @@ local function MigrateLayer(layerTbl, dbver, to)
                 action.value = (action.value:gsub("DebindStates", "DebindSwitch"));
             end
         end
+
+        -- **A pinned rank moves out of `value` into `pinnedSpell`**
+        -- (`keeping-a-pinned-rank-apart-from-the-spell.md`). `value` keeps the id, which is still
+        -- that spell; this step reads no client, so putting it on the first rank is the profile's
+        -- own step (`MigrateDB`). Only a spell held by id was ever pinned; anything else here came
+        -- in on a payload and is dropped.
+        --
+        -- Running twice is safe: the second pass finds no `pinRank`.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            if (action.pinRank ~= nil) then
+                if (action.pinRank == true and action.type == Constants.SPELL
+                        and luatype(action.value) == "number") then
+                    action.pinnedSpell = action.value;
+                end
+                action.pinRank = nil;
+            end
+        end
     end
 
 end
