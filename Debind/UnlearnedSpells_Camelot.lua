@@ -97,9 +97,28 @@ end
 --- (probe, 70009), which would win the merge over the rank the reader has yet to buy.
 ---
 --- The spell id comes off the service's tooltip; `GetTrainerServiceInfo` does not give one.
+--- Whether the generated table names this spell, or the first rank it stands under, a pet's.
+local function IsPetSpell(spellID)
+    local spells = DebindPrivate.CamelotSpells or {};
+    local entry = spells[spellID];
+    if (type(entry) == "number") then
+        entry = spells[entry];
+    end
+    return type(entry) == "table" and entry[1] == "pet";
+end
+
 local function ReadTrainer()
     if (C_Trainer.GetTrainerType() ~= Enum.TrainerType.General or IsTradeskillTrainer()) then
         return;
+    end
+    -- **A pet trainer answers as a class trainer here** (probe, 70124: type 0), so it is told by
+    -- what it teaches. Read as one, its spells stood in the class group; the pet's come from the
+    -- generated table instead.
+    for i = 1, GetNumTrainerServices() do
+        local tooltip = C_TooltipInfo.GetTrainerService(i);
+        if (tooltip and tooltip.id and IsPetSpell(tooltip.id)) then
+            return;
+        end
     end
     local _, classFile = UnitClass("player");
     local store = TrainerStore(true);

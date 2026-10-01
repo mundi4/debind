@@ -171,6 +171,19 @@ return function(DebindPrivate)
         check(describe(stored()) == before, "stored " .. describe(stored()) .. ", expected " .. before);
     end);
 
+    -- **A pet trainer answers as a class trainer on this client** (probe, 70124: Karrina Mekenda,
+    -- type 0). What tells it is that it teaches pet spells, which the generated table names; read as
+    -- a class trainer, its Growl stood in the hunter's class group.
+    test("a trainer that teaches pet spells is not read", function()
+        local before = describe(stored());
+        shim.world.trainerServices = {
+            { id = PET_SPELL, serviceType = "unavailable", level = 20, subText = "Rank 3" },
+            { id = THORNS_1, serviceType = "unavailable", level = 6, subText = "Rank 1" },
+        };
+        frames.fireEvent("TRAINER_SHOW");
+        check(describe(stored()) == before, "stored " .. describe(stored()) .. ", expected " .. before);
+    end);
+
     local function spellCategory()
         for _, category in ipairs(ActionCatalog.GetCategories()) do
             if (category.key == "spell") then

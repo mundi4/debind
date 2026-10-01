@@ -29,12 +29,15 @@
 // Lava Breath) or a companion's, cast by something other than the player. Every player spell on
 // these pages carries one of its class's lines.
 //
-// **A pet's spells come from the books a merchant sells instead** (a Demon Trainer's grimoires),
-// as the camelot probe recorded them (`books`), so this step reads its SavedVariables too. The
-// probe has only the spell that does the teaching; wowhead's page for that spell names the one
-// taught. One per name, the lowest book's, with "pet" where the level would be (2026-10-01, owner).
-// **They form no chain**: a book starts at the second rank (Firebolt 7799) and the pet knows the
-// first when summoned (3110), so the books alone would call the wrong id the first.
+// **A pet's spells come from wowhead's pet ability page instead**, a hunter's and a warlock's told
+// apart by the class the page names (`reqclass`), with "pet" where the level would be (2026-10-01,
+// owner: a hunter had no pet row at all). A name's ranks within one class form a chain the way a
+// class page's do, so a pet's first rank (Firebolt 3110, known when summoned) is the first.
+//
+// **The books a merchant sells are read too** (a Demon Trainer's grimoires), as the camelot probe
+// recorded them (`books`), so this step reads its SavedVariables. The probe has only the spell that
+// does the teaching; wowhead's page for that spell names the one taught. A taught spell the pet
+// page already holds is in its chain; one it does not stands on its own.
 //
 // **The professions' own spells come from each profession's page** (2026-10-01, owner): the rank
 // spells (Mining, Fishing) and the ones beside them (Find Minerals, Smelting, Disenchant). What
@@ -143,6 +146,44 @@ async function petSpells(file) {
     return lists;
 }
 
+/** The class files wowhead's `reqclass` names on the pet ability page. */
+const PET_CLASSES = { 4: "HUNTER", 256: "WARLOCK" };
+
+/** `Map(classFile -> [{ id, first, source, name, comment }])`: the pet page's chains, the books'
+ *  taught spells it does not hold standing on their own. */
+async function petEntries(record) {
+    const url = "https://www.wowhead.com/forever/spells/pet-abilities";
+    const byClass = new Map();
+    for (const s of readList(await get(url), url)) {
+        const cls = PET_CLASSES[s.reqclass];
+        if (cls && typeof s.id === "number" && s.name) {
+            if (!byClass.has(cls)) byClass.set(cls, []);
+            byClass.get(cls).push(s);
+        }
+    }
+    const lists = new Map();
+    for (const [cls, spells] of byClass) {
+        const entries = [];
+        for (const [name, ranks] of chains(spells)) {
+            for (const s of ranks) {
+                entries.push({ id: s.id, first: ranks[0].id, source: "pet", name });
+            }
+        }
+        lists.set(cls, entries);
+    }
+    for (const [cls, books] of await petSpells(record)) {
+        const entries = lists.get(cls) || [];
+        lists.set(cls, entries);
+        const held = new Set(entries.map((e) => e.id));
+        for (const s of books) {
+            if (!held.has(s.id)) {
+                entries.push({ id: s.id, first: s.id, source: "pet", name: s.name, comment: s.book });
+            }
+        }
+    }
+    return lists;
+}
+
 /** Ranks grouped by name, the first rank first: the lowest level, then the lowest id. */
 function chains(spells) {
     const byName = new Map();
@@ -206,7 +247,7 @@ function line(e, cls) {
 
 async function main() {
     const record = process.argv[2] || findRecord();
-    const pets = await petSpells(record);
+    const pets = await petEntries(record);
 
     const blocks = [];
     const runesMet = new Set();
@@ -222,12 +263,20 @@ async function main() {
             }
             owner.set(e.id, classFile);
         }
-        const petEntries = (pets.get(classFile) || []).map((s) =>
-            ({ id: s.id, first: s.id, source: "pet", name: s.name, comment: s.book }));
+        const petList = pets.get(classFile) || [];
+        for (const e of petList) {
+            if (owner.has(e.id)) {
+                throw new Error(`${e.id} (${e.name}) is a ${classFile} pet's and on the ${owner.get(e.id)} page`);
+            }
+            owner.set(e.id, classFile);
+        }
         const names = new Set(entries.map((e) => e.name)).size;
-        console.log(`${classFile.padEnd(8)} ${names} spells in ${entries.length} ranks, ${petEntries.length} pet spells`);
+        const petNames = new Set(petList.map((e) => e.name)).size;
+        console.log(`${classFile.padEnd(8)} ${names} spells in ${entries.length} ranks, `
+            + `${petNames} pet spells in ${petList.length} ranks`);
         entries.sort((a, b) => a.first - b.first || a.source - b.source || a.id - b.id);
-        blocks.push(`    -- ${classFile}\n${entries.concat(petEntries).map((e) => line(e, classFile)).join("\n")}`);
+        petList.sort((a, b) => a.first - b.first || a.id - b.id);
+        blocks.push(`    -- ${classFile}\n${entries.concat(petList).map((e) => line(e, classFile)).join("\n")}`);
     }
 
     const professions = await professionEntries();

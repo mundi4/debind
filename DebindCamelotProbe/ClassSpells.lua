@@ -460,6 +460,168 @@ Probe.Spells = {
     [20906] = { first = 1299348, source = 60, class = "HUNTER" }, -- Trueshot Aura
     [1310785] = { first = 1310785, source = 48, class = "HUNTER" }, -- Sniper Shot
     [1310786] = { first = 1310785, source = 58, class = "HUNTER" }, -- Sniper Shot
+    [1742] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
+    [1753] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
+    [1754] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
+    [1755] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
+    [1756] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
+    [16697] = { first = 1742, source = "pet", class = "HUNTER" }, -- Cower
+    [2649] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [14916] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [14917] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [14918] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [14919] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [14920] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [14921] = { first = 2649, source = "pet", class = "HUNTER" }, -- Growl
+    [4187] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4188] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4189] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4190] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4191] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4192] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4193] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [4194] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [5041] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [5042] = { first = 4187, source = "pet", class = "HUNTER" }, -- Great Stamina
+    [7371] = { first = 7371, source = "pet", class = "HUNTER" }, -- Charge
+    [26177] = { first = 7371, source = "pet", class = "HUNTER" }, -- Charge
+    [26178] = { first = 7371, source = "pet", class = "HUNTER" }, -- Charge
+    [26179] = { first = 7371, source = "pet", class = "HUNTER" }, -- Charge
+    [26201] = { first = 7371, source = "pet", class = "HUNTER" }, -- Charge
+    [27685] = { first = 7371, source = "pet", class = "HUNTER" }, -- Charge
+    [3009] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [3010] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [16827] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [16828] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [16829] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [16830] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [16831] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [16832] = { first = 16827, source = "pet", class = "HUNTER" }, -- Claw
+    [17253] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17255] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17256] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17257] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17258] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17259] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17260] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [17261] = { first = 17253, source = "pet", class = "HUNTER" }, -- Bite
+    [23099] = { first = 23099, source = "pet", class = "HUNTER" }, -- Dash
+    [23109] = { first = 23099, source = "pet", class = "HUNTER" }, -- Dash
+    [23110] = { first = 23099, source = "pet", class = "HUNTER" }, -- Dash
+    [23145] = { first = 23145, source = "pet", class = "HUNTER" }, -- Dive
+    [23147] = { first = 23145, source = "pet", class = "HUNTER" }, -- Dive
+    [23148] = { first = 23145, source = "pet", class = "HUNTER" }, -- Dive
+    [23992] = { first = 23992, source = "pet", class = "HUNTER" }, -- Fire Resistance
+    [24439] = { first = 23992, source = "pet", class = "HUNTER" }, -- Fire Resistance
+    [24444] = { first = 23992, source = "pet", class = "HUNTER" }, -- Fire Resistance
+    [24445] = { first = 23992, source = "pet", class = "HUNTER" }, -- Fire Resistance
+    [24423] = { first = 24423, source = "pet", class = "HUNTER" }, -- Demoralizing Screech
+    [24577] = { first = 24423, source = "pet", class = "HUNTER" }, -- Demoralizing Screech
+    [24578] = { first = 24423, source = "pet", class = "HUNTER" }, -- Demoralizing Screech
+    [24579] = { first = 24423, source = "pet", class = "HUNTER" }, -- Demoralizing Screech
+    [24446] = { first = 24446, source = "pet", class = "HUNTER" }, -- Frost Resistance
+    [24447] = { first = 24446, source = "pet", class = "HUNTER" }, -- Frost Resistance
+    [24448] = { first = 24446, source = "pet", class = "HUNTER" }, -- Frost Resistance
+    [24449] = { first = 24446, source = "pet", class = "HUNTER" }, -- Frost Resistance
+    [24450] = { first = 24450, source = "pet", class = "HUNTER" }, -- Prowl
+    [24452] = { first = 24450, source = "pet", class = "HUNTER" }, -- Prowl
+    [24453] = { first = 24450, source = "pet", class = "HUNTER" }, -- Prowl
+    [24488] = { first = 24488, source = "pet", class = "HUNTER" }, -- Shadow Resistance
+    [24505] = { first = 24488, source = "pet", class = "HUNTER" }, -- Shadow Resistance
+    [24506] = { first = 24488, source = "pet", class = "HUNTER" }, -- Shadow Resistance
+    [24507] = { first = 24488, source = "pet", class = "HUNTER" }, -- Shadow Resistance
+    [24492] = { first = 24492, source = "pet", class = "HUNTER" }, -- Nature Resistance
+    [24502] = { first = 24492, source = "pet", class = "HUNTER" }, -- Nature Resistance
+    [24503] = { first = 24492, source = "pet", class = "HUNTER" }, -- Nature Resistance
+    [24504] = { first = 24492, source = "pet", class = "HUNTER" }, -- Nature Resistance
+    [24493] = { first = 24493, source = "pet", class = "HUNTER" }, -- Arcane Resistance
+    [24497] = { first = 24493, source = "pet", class = "HUNTER" }, -- Arcane Resistance
+    [24500] = { first = 24493, source = "pet", class = "HUNTER" }, -- Arcane Resistance
+    [24501] = { first = 24493, source = "pet", class = "HUNTER" }, -- Arcane Resistance
+    [24545] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24549] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24550] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24551] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24552] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24553] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24554] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24555] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24629] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24630] = { first = 24545, source = "pet", class = "HUNTER" }, -- Natural Armor
+    [24597] = { first = 24604, source = "pet", class = "HUNTER" }, -- Furious Howl
+    [24603] = { first = 24604, source = "pet", class = "HUNTER" }, -- Furious Howl
+    [24604] = { first = 24604, source = "pet", class = "HUNTER" }, -- Furious Howl
+    [24605] = { first = 24604, source = "pet", class = "HUNTER" }, -- Furious Howl
+    [24583] = { first = 24640, source = "pet", class = "HUNTER" }, -- Scorpid Poison
+    [24586] = { first = 24640, source = "pet", class = "HUNTER" }, -- Scorpid Poison
+    [24587] = { first = 24640, source = "pet", class = "HUNTER" }, -- Scorpid Poison
+    [24640] = { first = 24640, source = "pet", class = "HUNTER" }, -- Scorpid Poison
+    [24844] = { first = 24844, source = "pet", class = "HUNTER" }, -- Lightning Breath
+    [25008] = { first = 24844, source = "pet", class = "HUNTER" }, -- Lightning Breath
+    [25009] = { first = 24844, source = "pet", class = "HUNTER" }, -- Lightning Breath
+    [25010] = { first = 24844, source = "pet", class = "HUNTER" }, -- Lightning Breath
+    [25011] = { first = 24844, source = "pet", class = "HUNTER" }, -- Lightning Breath
+    [25012] = { first = 24844, source = "pet", class = "HUNTER" }, -- Lightning Breath
+    [26064] = { first = 26064, source = "pet", class = "HUNTER" }, -- Shell Shield
+    [26090] = { first = 26090, source = "pet", class = "HUNTER" }, -- Thunderstomp
+    [26187] = { first = 26090, source = "pet", class = "HUNTER" }, -- Thunderstomp
+    [26188] = { first = 26090, source = "pet", class = "HUNTER" }, -- Thunderstomp
+    [1264455] = { first = 26090, source = "pet", class = "HUNTER" }, -- Thunderstomp
+    [409365] = { first = 409365, source = "pet", class = "HUNTER" }, -- Tamed Pet Passive (DND)
+    [415429] = { first = 415429, source = "pet", class = "HUNTER" }, -- Hunter Pet Scaling
+    [416189] = { first = 416189, source = "pet", class = "HUNTER" }, -- Warlock Pet Scaling
+    [444678] = { first = 444678, source = "pet", class = "HUNTER" }, -- Lava Breath
+    [444681] = { first = 444678, source = "pet", class = "HUNTER" }, -- Lava Breath
+    [1263099] = { first = 1263099, source = "pet", class = "HUNTER" }, -- Faster Attack I
+    [1263100] = { first = 1263100, source = "pet", class = "HUNTER" }, -- Faster Attack II
+    [1263102] = { first = 1263102, source = "pet", class = "HUNTER" }, -- Faster Attack III
+    [1263104] = { first = 1263104, source = "pet", class = "HUNTER" }, -- Faster Attack IV
+    [1263107] = { first = 1263107, source = "pet", class = "HUNTER" }, -- Faster Attack V
+    [1263109] = { first = 1263109, source = "pet", class = "HUNTER" }, -- Faster Attack VI
+    [1263110] = { first = 1263110, source = "pet", class = "HUNTER" }, -- Faster Attack VII
+    [1263113] = { first = 1263113, source = "pet", class = "HUNTER" }, -- Slower Attack II
+    [1263114] = { first = 1263114, source = "pet", class = "HUNTER" }, -- Slower Attack III
+    [1264494] = { first = 1264494, source = "pet", class = "HUNTER" }, -- Swipe
+    [1264497] = { first = 1264494, source = "pet", class = "HUNTER" }, -- Swipe
+    [1264498] = { first = 1264494, source = "pet", class = "HUNTER" }, -- Swipe
+    [1264501] = { first = 1264494, source = "pet", class = "HUNTER" }, -- Swipe
+    [1264502] = { first = 1264494, source = "pet", class = "HUNTER" }, -- Swipe
+    [1264735] = { first = 1264735, source = "pet", class = "HUNTER" }, -- Pinch
+    [1264736] = { first = 1264735, source = "pet", class = "HUNTER" }, -- Pinch
+    [1264739] = { first = 1264735, source = "pet", class = "HUNTER" }, -- Pinch
+    [1264741] = { first = 1264735, source = "pet", class = "HUNTER" }, -- Pinch
+    [1264742] = { first = 1264735, source = "pet", class = "HUNTER" }, -- Pinch
+    [1264758] = { first = 1264758, source = "pet", class = "HUNTER" }, -- Dismember
+    [1264927] = { first = 1264758, source = "pet", class = "HUNTER" }, -- Dismember
+    [1264929] = { first = 1264758, source = "pet", class = "HUNTER" }, -- Dismember
+    [1264930] = { first = 1264758, source = "pet", class = "HUNTER" }, -- Dismember
+    [1264933] = { first = 1264758, source = "pet", class = "HUNTER" }, -- Dismember
+    [1265038] = { first = 1265038, source = "pet", class = "HUNTER" }, -- Tendon Rip
+    [1265039] = { first = 1265038, source = "pet", class = "HUNTER" }, -- Tendon Rip
+    [1265040] = { first = 1265038, source = "pet", class = "HUNTER" }, -- Tendon Rip
+    [1265041] = { first = 1265038, source = "pet", class = "HUNTER" }, -- Tendon Rip
+    [1265042] = { first = 1265038, source = "pet", class = "HUNTER" }, -- Tendon Rip
+    [1265054] = { first = 1265054, source = "pet", class = "HUNTER" }, -- Mine!
+    [1265055] = { first = 1265054, source = "pet", class = "HUNTER" }, -- Mine!
+    [1265056] = { first = 1265054, source = "pet", class = "HUNTER" }, -- Mine!
+    [1265057] = { first = 1265054, source = "pet", class = "HUNTER" }, -- Mine!
+    [1265058] = { first = 1265054, source = "pet", class = "HUNTER" }, -- Mine!
+    [1265065] = { first = 1265065, source = "pet", class = "HUNTER" }, -- Savage Rend
+    [1265066] = { first = 1265065, source = "pet", class = "HUNTER" }, -- Savage Rend
+    [1265067] = { first = 1265065, source = "pet", class = "HUNTER" }, -- Savage Rend
+    [1265068] = { first = 1265065, source = "pet", class = "HUNTER" }, -- Savage Rend
+    [1265069] = { first = 1265065, source = "pet", class = "HUNTER" }, -- Savage Rend
+    [1265843] = { first = 1265843, source = "pet", class = "HUNTER" }, -- Web
+    [1265878] = { first = 1265843, source = "pet", class = "HUNTER" }, -- Web
+    [1265880] = { first = 1265843, source = "pet", class = "HUNTER" }, -- Web
+    [1265881] = { first = 1265843, source = "pet", class = "HUNTER" }, -- Web
+    [1265883] = { first = 1265843, source = "pet", class = "HUNTER" }, -- Web
+    [1265899] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
+    [1265901] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
+    [1265902] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
+    [1265903] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
+    [1265904] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
+    [1278934] = { first = 1278934, source = "pet", class = "HUNTER" }, -- Summoning
     -- ROGUE
     [53] = { first = 53, source = 4, class = "ROGUE" }, -- Backstab
     [2589] = { first = 53, source = 12, class = "ROGUE" }, -- Backstab
@@ -1362,14 +1524,74 @@ Probe.Spells = {
     [18930] = { first = 1293818, source = 48, class = "WARLOCK" }, -- Conflagrate
     [18931] = { first = 1293818, source = 54, class = "WARLOCK" }, -- Conflagrate
     [18932] = { first = 1293818, source = 60, class = "WARLOCK" }, -- Conflagrate
-    [6307] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact (Grimoire of Blood Pact (Rank 1))
-    [17767] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows (Grimoire of Consume Shadows (Rank 1))
-    [2947] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield (Grimoire of Fire Shield (Rank 1))
-    [7799] = { first = 7799, source = "pet", class = "WARLOCK" }, -- Firebolt (Grimoire of Firebolt (Rank 2))
+    [2947] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
+    [8316] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
+    [8317] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
+    [11770] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
+    [11771] = { first = 2947, source = "pet", class = "WARLOCK" }, -- Fire Shield
+    [3110] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [7799] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [7800] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [7801] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [7802] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [11762] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [11763] = { first = 3110, source = "pet", class = "WARLOCK" }, -- Firebolt
+    [3716] = { first = 3716, source = "pet", class = "WARLOCK" }, -- Torment
+    [7809] = { first = 3716, source = "pet", class = "WARLOCK" }, -- Torment
+    [7810] = { first = 3716, source = "pet", class = "WARLOCK" }, -- Torment
+    [7811] = { first = 3716, source = "pet", class = "WARLOCK" }, -- Torment
+    [11774] = { first = 3716, source = "pet", class = "WARLOCK" }, -- Torment
+    [11775] = { first = 3716, source = "pet", class = "WARLOCK" }, -- Torment
     [4511] = { first = 4511, source = "pet", class = "WARLOCK" }, -- Phase Shift (Grimoire of Phase Shift)
-    [7812] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice (Grimoire of Sacrifice (Rank 1))
-    [17735] = { first = 17735, source = "pet", class = "WARLOCK" }, -- Suffering (Grimoire of Suffering (Rank 1))
-    [7809] = { first = 7809, source = "pet", class = "WARLOCK" }, -- Torment (Grimoire of Torment (Rank 2))
+    [6307] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact
+    [7804] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact
+    [7805] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact
+    [11766] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact
+    [11767] = { first = 6307, source = "pet", class = "WARLOCK" }, -- Blood Pact
+    [6358] = { first = 6358, source = "pet", class = "WARLOCK" }, -- Seduction
+    [6360] = { first = 6360, source = "pet", class = "WARLOCK" }, -- Soothing Kiss
+    [7813] = { first = 6360, source = "pet", class = "WARLOCK" }, -- Soothing Kiss
+    [11784] = { first = 6360, source = "pet", class = "WARLOCK" }, -- Soothing Kiss
+    [11785] = { first = 6360, source = "pet", class = "WARLOCK" }, -- Soothing Kiss
+    [7812] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice
+    [19438] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice
+    [19440] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice
+    [19441] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice
+    [19442] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice
+    [19443] = { first = 7812, source = "pet", class = "WARLOCK" }, -- Sacrifice
+    [7814] = { first = 7814, source = "pet", class = "WARLOCK" }, -- Lash of Pain
+    [7815] = { first = 7814, source = "pet", class = "WARLOCK" }, -- Lash of Pain
+    [7816] = { first = 7814, source = "pet", class = "WARLOCK" }, -- Lash of Pain
+    [11778] = { first = 7814, source = "pet", class = "WARLOCK" }, -- Lash of Pain
+    [11779] = { first = 7814, source = "pet", class = "WARLOCK" }, -- Lash of Pain
+    [11780] = { first = 7814, source = "pet", class = "WARLOCK" }, -- Lash of Pain
+    [7870] = { first = 7870, source = "pet", class = "WARLOCK" }, -- Lesser Invisibility
+    [17735] = { first = 17735, source = "pet", class = "WARLOCK" }, -- Suffering
+    [17750] = { first = 17735, source = "pet", class = "WARLOCK" }, -- Suffering
+    [17751] = { first = 17735, source = "pet", class = "WARLOCK" }, -- Suffering
+    [17752] = { first = 17735, source = "pet", class = "WARLOCK" }, -- Suffering
+    [17767] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows
+    [17850] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows
+    [17851] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows
+    [17852] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows
+    [17853] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows
+    [17854] = { first = 17767, source = "pet", class = "WARLOCK" }, -- Consume Shadows
+    [19244] = { first = 19244, source = "pet", class = "WARLOCK" }, -- Spell Lock
+    [19647] = { first = 19244, source = "pet", class = "WARLOCK" }, -- Spell Lock
+    [19478] = { first = 19478, source = "pet", class = "WARLOCK" }, -- Tainted Blood
+    [19655] = { first = 19478, source = "pet", class = "WARLOCK" }, -- Tainted Blood
+    [19656] = { first = 19478, source = "pet", class = "WARLOCK" }, -- Tainted Blood
+    [19660] = { first = 19478, source = "pet", class = "WARLOCK" }, -- Tainted Blood
+    [19480] = { first = 19480, source = "pet", class = "WARLOCK" }, -- Paranoia
+    [19505] = { first = 19505, source = "pet", class = "WARLOCK" }, -- Devour Magic
+    [19731] = { first = 19505, source = "pet", class = "WARLOCK" }, -- Devour Magic
+    [19734] = { first = 19505, source = "pet", class = "WARLOCK" }, -- Devour Magic
+    [19736] = { first = 19505, source = "pet", class = "WARLOCK" }, -- Devour Magic
+    [412729] = { first = 412729, source = "pet", class = "WARLOCK" }, -- Tamed Pet Passive (DND)
+    [427742] = { first = 427742, source = "pet", class = "WARLOCK" }, -- Anguish
+    [427743] = { first = 427743, source = "pet", class = "WARLOCK" }, -- Avoidance
+    [427744] = { first = 427744, source = "pet", class = "WARLOCK" }, -- Cleave
+    [427745] = { first = 427745, source = "pet", class = "WARLOCK" }, -- Intercept
     -- DRUID
     [99] = { first = 99, source = 10, class = "DRUID" }, -- Demoralizing Roar
     [1735] = { first = 99, source = 20, class = "DRUID" }, -- Demoralizing Roar
