@@ -15,6 +15,14 @@
 // Lava Breath) or a companion's, cast by something other than the player. Every player spell on
 // these pages carries one of its class's lines.
 //
+// **Rune abilities are left out by name, below**: Season of Discovery's, still in the client's data
+// and on wowhead's pages, where nothing tells them apart from a quest spell. Forever's interface code
+// has no engraving at all (1.60.1.70009), so nothing teaches them there.
+//
+// **A name the camelot probe has seen never goes on that list** (2026-10-01, owner): what a trainer
+// listed or a talent tree held is measured on the client and outranks anything inferred here. A name
+// that turns up there later comes off it.
+//
 // One id per name, the one with the lowest level, since the spell list shows one row per name and
 // a name casts the highest rank known.
 
@@ -25,6 +33,13 @@ const vm = require("vm");
 const CLASSES = {
     warrior: "WARRIOR", paladin: "PALADIN", hunter: "HUNTER", rogue: "ROGUE", priest: "PRIEST",
     shaman: "SHAMAN", mage: "MAGE", warlock: "WARLOCK", druid: "DRUID",
+};
+
+/** Each one confirmed on wowhead as a rune's, 2026-10-01. */
+const RUNE_ABILITIES = {
+    "Shadow Cleave": "warlock, Metamorphosis rune",
+    "Hammer of the Righteous": "paladin, Engrave Bracers - Hammer of the Righteous",
+    "Aspect of the Falcon": "hunter, Engrave - Aspect of the Falcon",
 };
 
 const out = path.join(__dirname, "..", "Debind", "ClassSpells_Camelot.lua");
@@ -55,6 +70,7 @@ function luaString(s) {
 
 async function main() {
     const blocks = [];
+    const runesMet = new Set();
     for (const [slug, classFile] of Object.entries(CLASSES)) {
         const url = `https://www.wowhead.com/forever/spells/abilities/${slug}`;
         const spells = readList(await get(url), url);
@@ -62,6 +78,10 @@ async function main() {
         const byName = new Map();
         for (const s of spells) {
             if (!(s.level > 1) || typeof s.id !== "number" || !s.name || !(s.skill && s.skill.length)) {
+                continue;
+            }
+            if (RUNE_ABILITIES[s.name]) {
+                runesMet.add(s.name);
                 continue;
             }
             const held = byName.get(s.name);
@@ -90,7 +110,15 @@ ${blocks.join("\n")}
 };
 `;
     fs.writeFileSync(out, text);
-    console.log(`\nwrote ${path.relative(process.cwd(), out)}`);
+    console.log(`\nleft out as rune abilities: ${[...runesMet].join(", ") || "none"}`);
+    // A name on the list that the pages no longer carry is a line nobody needs, and left there it
+    // would read as a decision still being applied.
+    for (const name of Object.keys(RUNE_ABILITIES)) {
+        if (!runesMet.has(name)) {
+            console.warn(`!! "${name}" is on RUNE_ABILITIES and on no page any more: take it off`);
+        }
+    }
+    console.log(`wrote ${path.relative(process.cwd(), out)}`);
 }
 
 main().catch((err) => {
