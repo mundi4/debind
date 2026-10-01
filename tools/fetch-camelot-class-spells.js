@@ -21,7 +21,10 @@
 // **A page's id at level 1 or below is never taken** (2026-10-01, owner). Those are talents (level
 // 0), rune engravings and the abilities shared across classes, and a rune can carry a trained
 // spell's name (Swipe 411128, "Cat", beside 779), where it would stand as that spell's first rank.
-// A starting spell's first rank (Shadow Bolt 686) comes from its class trainer instead, below.
+// **But a starting spell's first rank is**: the "Rank 1" at level 1 whose id is below its name's
+// "Rank 2" (Shadow Bolt 686, 695), owner. The runes sharing a name fail one of the two (Raptor Strike
+// 409691 is a "Rank 1" above 14260). Battle Shout fails it the other way (6673, 5242), which the
+// spellbooks below fill.
 //
 // **A spell with no skill line is left out**: those are a pet's (Growl, Great Stamina, a beast's own
 // Lava Breath) or a companion's, cast by something other than the player. Every player spell on
@@ -248,8 +251,8 @@ function chains(spells) {
 
 /** `[{ id, name, level }]`: what one class page lists that goes in. */
 function classRows(spells, runesMet) {
-    return spells.filter((s) => {
-        if (typeof s.id !== "number" || !s.name || !s.skill || !s.skill.length || !(s.level > 1)) {
+    const usable = spells.filter((s) => {
+        if (typeof s.id !== "number" || !s.name || !s.skill || !s.skill.length) {
             return false;
         }
         if (RUNE_ABILITIES[s.name]) {
@@ -257,7 +260,16 @@ function classRows(spells, runesMet) {
             return false;
         }
         return true;
-    }).map((s) => ({ id: s.id, name: s.name, level: s.level }));
+    });
+    const taken = usable.filter((s) => s.level > 1);
+    // The lowest, since a rune sharing the name can be a "Rank 2" too.
+    const secondRank = new Map();
+    for (const s of taken) {
+        if (s.rank === "Rank 2" && !(secondRank.get(s.name) < s.id)) secondRank.set(s.name, s.id);
+    }
+    const firstRanks = usable.filter((s) => !(s.level > 1) && s.rank === "Rank 1"
+        && s.id < secondRank.get(s.name));
+    return taken.concat(firstRanks).map((s) => ({ id: s.id, name: s.name, level: s.level }));
 }
 
 /** `[{ id, first, source, name, comment }]`: one class's rows chained by name. */

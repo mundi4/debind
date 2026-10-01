@@ -9,14 +9,14 @@ local _, Probe = ...;
 --- level or where it comes from, and its class (none for a profession's). What
 --- `/camelotprobe classspells` asks the client about, and carries into its record for the release
 --- table to be built from.
-Probe.SpellsVersion = 1;
+Probe.SpellsVersion = 3;
 Probe.Spells = {
     -- WARRIOR
     [71] = { first = 71, source = 10, class = "WARRIOR" }, -- Defensive Stance
     [72] = { first = 72, source = 12, class = "WARRIOR" }, -- Shield Bash
     [1671] = { first = 72, source = 32, class = "WARRIOR" }, -- Shield Bash
     [1672] = { first = 72, source = 52, class = "WARRIOR" }, -- Shield Bash
-    [78] = { first = 78, source = 1, class = "WARRIOR" }, -- Heroic Strike (spellbook)
+    [78] = { first = 78, source = 1, class = "WARRIOR" }, -- Heroic Strike
     [284] = { first = 78, source = 8, class = "WARRIOR" }, -- Heroic Strike
     [285] = { first = 78, source = 16, class = "WARRIOR" }, -- Heroic Strike
     [1608] = { first = 78, source = 24, class = "WARRIOR" }, -- Heroic Strike
@@ -122,7 +122,7 @@ Probe.Spells = {
     [11605] = { first = 1240193, source = 54, class = "WARRIOR" }, -- Slam
     [1310185] = { first = 1310185, source = 14, class = "WARRIOR" }, -- Tactical Mastery
     -- PALADIN
-    [465] = { first = 465, source = 1, class = "PALADIN" }, -- Devotion Aura (trainer Brother Wilhelm)
+    [465] = { first = 465, source = 1, class = "PALADIN" }, -- Devotion Aura
     [10290] = { first = 465, source = 10, class = "PALADIN" }, -- Devotion Aura
     [643] = { first = 465, source = 20, class = "PALADIN" }, -- Devotion Aura
     [10291] = { first = 465, source = 30, class = "PALADIN" }, -- Devotion Aura
@@ -134,7 +134,7 @@ Probe.Spells = {
     [633] = { first = 633, source = 10, class = "PALADIN" }, -- Lay on Hands
     [2800] = { first = 633, source = 30, class = "PALADIN" }, -- Lay on Hands
     [10310] = { first = 633, source = 50, class = "PALADIN" }, -- Lay on Hands
-    [635] = { first = 635, source = 1, class = "PALADIN" }, -- Holy Light (spellbook)
+    [635] = { first = 635, source = 1, class = "PALADIN" }, -- Holy Light
     [639] = { first = 635, source = 6, class = "PALADIN" }, -- Holy Light
     [647] = { first = 635, source = 14, class = "PALADIN" }, -- Holy Light
     [1026] = { first = 635, source = 22, class = "PALADIN" }, -- Holy Light
@@ -238,7 +238,7 @@ Probe.Spells = {
     [19977] = { first = 19977, source = 40, class = "PALADIN" }, -- Blessing of Light
     [19978] = { first = 19977, source = 50, class = "PALADIN" }, -- Blessing of Light
     [19979] = { first = 19977, source = 60, class = "PALADIN" }, -- Blessing of Light
-    [20154] = { first = 20154, source = 1, class = "PALADIN" }, -- Seal of Righteousness (spellbook)
+    [20154] = { first = 20154, source = 1, class = "PALADIN" }, -- Seal of Righteousness
     [20287] = { first = 20154, source = 10, class = "PALADIN" }, -- Seal of Righteousness
     [20288] = { first = 20154, source = 18, class = "PALADIN" }, -- Seal of Righteousness
     [20289] = { first = 20154, source = 26, class = "PALADIN" }, -- Seal of Righteousness
@@ -322,7 +322,7 @@ Probe.Spells = {
     [14324] = { first = 1130, source = 40, class = "HUNTER" }, -- Hunter's Mark
     [14325] = { first = 1130, source = 58, class = "HUNTER" }, -- Hunter's Mark
     [1462] = { first = 1462, source = 24, class = "HUNTER" }, -- Beast Lore
-    [1494] = { first = 1494, source = 1, class = "HUNTER" }, -- Track Beasts (trainer Thorgas Grimson)
+    [1494] = { first = 1494, source = 1, class = "HUNTER" }, -- Track Beasts (trainer Einris Brightspear)
     [1495] = { first = 1495, source = 16, class = "HUNTER" }, -- Mongoose Bite
     [14269] = { first = 1495, source = 30, class = "HUNTER" }, -- Mongoose Bite
     [14270] = { first = 1495, source = 44, class = "HUNTER" }, -- Mongoose Bite
@@ -358,7 +358,7 @@ Probe.Spells = {
     [425737] = { first = 1978, source = 60, class = "HUNTER" }, -- Serpent Sting
     [2641] = { first = 2641, source = 10, class = "HUNTER" }, -- Dismiss Pet
     [2643] = { first = 2643, source = 18, class = "HUNTER" }, -- Multi-Shot
-    [2973] = { first = 2973, source = 1, class = "HUNTER" }, -- Raptor Strike (spellbook)
+    [2973] = { first = 2973, source = 1, class = "HUNTER" }, -- Raptor Strike
     [14260] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
     [409693] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
     [415336] = { first = 2973, source = 8, class = "HUNTER" }, -- Raptor Strike
@@ -644,13 +644,14 @@ Probe.Spells = {
     [11290] = { first = 703, source = 54, class = "ROGUE" }, -- Garrote
     [921] = { first = 921, source = 4, class = "ROGUE" }, -- Pick Pocket
     [1725] = { first = 1725, source = 22, class = "ROGUE" }, -- Distract
-    [1757] = { first = 1757, source = 6, class = "ROGUE" }, -- Sinister Strike
-    [1758] = { first = 1757, source = 14, class = "ROGUE" }, -- Sinister Strike
-    [1759] = { first = 1757, source = 22, class = "ROGUE" }, -- Sinister Strike
-    [1760] = { first = 1757, source = 30, class = "ROGUE" }, -- Sinister Strike
-    [8621] = { first = 1757, source = 38, class = "ROGUE" }, -- Sinister Strike
-    [11293] = { first = 1757, source = 46, class = "ROGUE" }, -- Sinister Strike
-    [11294] = { first = 1757, source = 54, class = "ROGUE" }, -- Sinister Strike
+    [1752] = { first = 1752, source = 1, class = "ROGUE" }, -- Sinister Strike
+    [1757] = { first = 1752, source = 6, class = "ROGUE" }, -- Sinister Strike
+    [1758] = { first = 1752, source = 14, class = "ROGUE" }, -- Sinister Strike
+    [1759] = { first = 1752, source = 22, class = "ROGUE" }, -- Sinister Strike
+    [1760] = { first = 1752, source = 30, class = "ROGUE" }, -- Sinister Strike
+    [8621] = { first = 1752, source = 38, class = "ROGUE" }, -- Sinister Strike
+    [11293] = { first = 1752, source = 46, class = "ROGUE" }, -- Sinister Strike
+    [11294] = { first = 1752, source = 54, class = "ROGUE" }, -- Sinister Strike
     [1766] = { first = 1766, source = 12, class = "ROGUE" }, -- Kick
     [1767] = { first = 1766, source = 26, class = "ROGUE" }, -- Kick
     [1768] = { first = 1766, source = 42, class = "ROGUE" }, -- Kick
@@ -660,9 +661,10 @@ Probe.Spells = {
     [8629] = { first = 1776, source = 32, class = "ROGUE" }, -- Gouge
     [11285] = { first = 1776, source = 46, class = "ROGUE" }, -- Gouge
     [11286] = { first = 1776, source = 60, class = "ROGUE" }, -- Gouge
-    [1785] = { first = 1785, source = 20, class = "ROGUE" }, -- Stealth
-    [1786] = { first = 1785, source = 40, class = "ROGUE" }, -- Stealth
-    [1787] = { first = 1785, source = 60, class = "ROGUE" }, -- Stealth
+    [1784] = { first = 1784, source = 1, class = "ROGUE" }, -- Stealth
+    [1785] = { first = 1784, source = 20, class = "ROGUE" }, -- Stealth
+    [1786] = { first = 1784, source = 40, class = "ROGUE" }, -- Stealth
+    [1787] = { first = 1784, source = 60, class = "ROGUE" }, -- Stealth
     [1833] = { first = 1833, source = 26, class = "ROGUE" }, -- Cheap Shot
     [1842] = { first = 1842, source = 30, class = "ROGUE" }, -- Disarm Trap
     [1856] = { first = 1856, source = 22, class = "ROGUE" }, -- Vanish
@@ -680,6 +682,15 @@ Probe.Spells = {
     [11303] = { first = 1966, source = 52, class = "ROGUE" }, -- Feint
     [25302] = { first = 1966, source = 60, class = "ROGUE" }, -- Feint
     [2094] = { first = 2094, source = 34, class = "ROGUE" }, -- Blind
+    [2098] = { first = 2098, source = 1, class = "ROGUE" }, -- Eviscerate
+    [6760] = { first = 2098, source = 8, class = "ROGUE" }, -- Eviscerate
+    [6761] = { first = 2098, source = 16, class = "ROGUE" }, -- Eviscerate
+    [6762] = { first = 2098, source = 24, class = "ROGUE" }, -- Eviscerate
+    [8623] = { first = 2098, source = 32, class = "ROGUE" }, -- Eviscerate
+    [8624] = { first = 2098, source = 40, class = "ROGUE" }, -- Eviscerate
+    [11299] = { first = 2098, source = 48, class = "ROGUE" }, -- Eviscerate
+    [11300] = { first = 2098, source = 56, class = "ROGUE" }, -- Eviscerate
+    [31016] = { first = 2098, source = 60, class = "ROGUE" }, -- Eviscerate
     [2836] = { first = 2836, source = 24, class = "ROGUE" }, -- Detect Traps
     [2983] = { first = 2983, source = 10, class = "ROGUE" }, -- Sprint
     [8696] = { first = 2983, source = 34, class = "ROGUE" }, -- Sprint
@@ -687,14 +698,6 @@ Probe.Spells = {
     [5171] = { first = 5171, source = 10, class = "ROGUE" }, -- Slice and Dice
     [6774] = { first = 5171, source = 42, class = "ROGUE" }, -- Slice and Dice
     [5277] = { first = 5277, source = 8, class = "ROGUE" }, -- Evasion
-    [6760] = { first = 6760, source = 8, class = "ROGUE" }, -- Eviscerate
-    [6761] = { first = 6760, source = 16, class = "ROGUE" }, -- Eviscerate
-    [6762] = { first = 6760, source = 24, class = "ROGUE" }, -- Eviscerate
-    [8623] = { first = 6760, source = 32, class = "ROGUE" }, -- Eviscerate
-    [8624] = { first = 6760, source = 40, class = "ROGUE" }, -- Eviscerate
-    [11299] = { first = 6760, source = 48, class = "ROGUE" }, -- Eviscerate
-    [11300] = { first = 6760, source = 56, class = "ROGUE" }, -- Eviscerate
-    [31016] = { first = 6760, source = 60, class = "ROGUE" }, -- Eviscerate
     [6770] = { first = 6770, source = 10, class = "ROGUE" }, -- Sap
     [2070] = { first = 6770, source = 28, class = "ROGUE" }, -- Sap
     [11297] = { first = 6770, source = 48, class = "ROGUE" }, -- Sap
@@ -759,7 +762,7 @@ Probe.Spells = {
     [988] = { first = 527, source = 36, class = "PRIEST" }, -- Dispel Magic
     [528] = { first = 528, source = 14, class = "PRIEST" }, -- Cure Disease
     [552] = { first = 552, source = 32, class = "PRIEST" }, -- Abolish Disease
-    [585] = { first = 585, source = 1, class = "PRIEST" }, -- Smite (spellbook)
+    [585] = { first = 585, source = 1, class = "PRIEST" }, -- Smite
     [591] = { first = 585, source = 6, class = "PRIEST" }, -- Smite
     [598] = { first = 585, source = 14, class = "PRIEST" }, -- Smite
     [984] = { first = 585, source = 22, class = "PRIEST" }, -- Smite
@@ -801,7 +804,7 @@ Probe.Spells = {
     [976] = { first = 976, source = 30, class = "PRIEST" }, -- Shadow Protection
     [10957] = { first = 976, source = 42, class = "PRIEST" }, -- Shadow Protection
     [10958] = { first = 976, source = 56, class = "PRIEST" }, -- Shadow Protection
-    [1243] = { first = 1243, source = 1, class = "PRIEST" }, -- Power Word: Fortitude (trainer Priestess Josetta)
+    [1243] = { first = 1243, source = 1, class = "PRIEST" }, -- Power Word: Fortitude
     [1244] = { first = 1243, source = 12, class = "PRIEST" }, -- Power Word: Fortitude
     [1245] = { first = 1243, source = 24, class = "PRIEST" }, -- Power Word: Fortitude
     [2791] = { first = 1243, source = 36, class = "PRIEST" }, -- Power Word: Fortitude
@@ -813,7 +816,7 @@ Probe.Spells = {
     [10880] = { first = 2006, source = 34, class = "PRIEST" }, -- Resurrection
     [10881] = { first = 2006, source = 46, class = "PRIEST" }, -- Resurrection
     [20770] = { first = 2006, source = 58, class = "PRIEST" }, -- Resurrection
-    [2050] = { first = 2050, source = 1, class = "PRIEST" }, -- Lesser Heal (spellbook)
+    [2050] = { first = 2050, source = 1, class = "PRIEST" }, -- Lesser Heal
     [2052] = { first = 2050, source = 4, class = "PRIEST" }, -- Lesser Heal
     [2053] = { first = 2050, source = 10, class = "PRIEST" }, -- Lesser Heal
     [2054] = { first = 2054, source = 16, class = "PRIEST" }, -- Heal
@@ -981,7 +984,7 @@ Probe.Spells = {
     [8134] = { first = 324, source = 40, class = "SHAMAN" }, -- Lightning Shield
     [10431] = { first = 324, source = 48, class = "SHAMAN" }, -- Lightning Shield
     [10432] = { first = 324, source = 56, class = "SHAMAN" }, -- Lightning Shield
-    [331] = { first = 331, source = 1, class = "SHAMAN" }, -- Healing Wave (spellbook)
+    [331] = { first = 331, source = 1, class = "SHAMAN" }, -- Healing Wave
     [332] = { first = 331, source = 6, class = "SHAMAN" }, -- Healing Wave
     [547] = { first = 331, source = 12, class = "SHAMAN" }, -- Healing Wave
     [913] = { first = 331, source = 18, class = "SHAMAN" }, -- Healing Wave
@@ -993,7 +996,7 @@ Probe.Spells = {
     [25357] = { first = 331, source = 60, class = "SHAMAN" }, -- Healing Wave
     [370] = { first = 370, source = 12, class = "SHAMAN" }, -- Purge
     [8012] = { first = 370, source = 32, class = "SHAMAN" }, -- Purge
-    [403] = { first = 403, source = 1, class = "SHAMAN" }, -- Lightning Bolt (spellbook)
+    [403] = { first = 403, source = 1, class = "SHAMAN" }, -- Lightning Bolt
     [529] = { first = 403, source = 8, class = "SHAMAN" }, -- Lightning Bolt
     [408440] = { first = 403, source = 8, class = "SHAMAN" }, -- Lightning Bolt
     [548] = { first = 403, source = 14, class = "SHAMAN" }, -- Lightning Bolt
@@ -1063,7 +1066,7 @@ Probe.Spells = {
     [10466] = { first = 8004, source = 44, class = "SHAMAN" }, -- Lesser Healing Wave
     [10467] = { first = 8004, source = 52, class = "SHAMAN" }, -- Lesser Healing Wave
     [10468] = { first = 8004, source = 60, class = "SHAMAN" }, -- Lesser Healing Wave
-    [8017] = { first = 8017, source = 1, class = "SHAMAN" }, -- Rockbiter Weapon (trainer Teo Hammerstorm)
+    [8017] = { first = 8017, source = 1, class = "SHAMAN" }, -- Rockbiter Weapon
     [8018] = { first = 8017, source = 8, class = "SHAMAN" }, -- Rockbiter Weapon
     [8019] = { first = 8017, source = 16, class = "SHAMAN" }, -- Rockbiter Weapon
     [10399] = { first = 8017, source = 24, class = "SHAMAN" }, -- Rockbiter Weapon
@@ -1197,7 +1200,7 @@ Probe.Spells = {
     [6131] = { first = 122, source = 40, class = "MAGE" }, -- Frost Nova
     [10230] = { first = 122, source = 54, class = "MAGE" }, -- Frost Nova
     [130] = { first = 130, source = 12, class = "MAGE" }, -- Slow Fall
-    [133] = { first = 133, source = 1, class = "MAGE" }, -- Fireball (spellbook)
+    [133] = { first = 133, source = 1, class = "MAGE" }, -- Fireball
     [143] = { first = 133, source = 6, class = "MAGE" }, -- Fireball
     [145] = { first = 133, source = 12, class = "MAGE" }, -- Fireball
     [3140] = { first = 133, source = 18, class = "MAGE" }, -- Fireball
@@ -1209,7 +1212,7 @@ Probe.Spells = {
     [10150] = { first = 133, source = 54, class = "MAGE" }, -- Fireball
     [10151] = { first = 133, source = 60, class = "MAGE" }, -- Fireball
     [25306] = { first = 133, source = 60, class = "MAGE" }, -- Fireball
-    [168] = { first = 168, source = 1, class = "MAGE" }, -- Frost Armor (spellbook)
+    [168] = { first = 168, source = 1, class = "MAGE" }, -- Frost Armor
     [7300] = { first = 168, source = 10, class = "MAGE" }, -- Frost Armor
     [7301] = { first = 168, source = 20, class = "MAGE" }, -- Frost Armor
     [475] = { first = 475, source = 18, class = "MAGE" }, -- Remove Lesser Curse
@@ -1241,7 +1244,7 @@ Probe.Spells = {
     [8439] = { first = 1449, source = 38, class = "MAGE" }, -- Arcane Explosion
     [10201] = { first = 1449, source = 46, class = "MAGE" }, -- Arcane Explosion
     [10202] = { first = 1449, source = 54, class = "MAGE" }, -- Arcane Explosion
-    [1459] = { first = 1459, source = 1, class = "MAGE" }, -- Arcane Intellect (spellbook)
+    [1459] = { first = 1459, source = 1, class = "MAGE" }, -- Arcane Intellect
     [1460] = { first = 1459, source = 14, class = "MAGE" }, -- Arcane Intellect
     [1461] = { first = 1459, source = 28, class = "MAGE" }, -- Arcane Intellect
     [10156] = { first = 1459, source = 42, class = "MAGE" }, -- Arcane Intellect
@@ -1367,7 +1370,7 @@ Probe.Spells = {
     [11671] = { first = 172, source = 44, class = "WARLOCK" }, -- Corruption
     [11672] = { first = 172, source = 54, class = "WARLOCK" }, -- Corruption
     [25311] = { first = 172, source = 60, class = "WARLOCK" }, -- Corruption
-    [348] = { first = 348, source = 1, class = "WARLOCK" }, -- Immolate (spellbook)
+    [348] = { first = 348, source = 1, class = "WARLOCK" }, -- Immolate
     [707] = { first = 348, source = 10, class = "WARLOCK" }, -- Immolate
     [1094] = { first = 348, source = 20, class = "WARLOCK" }, -- Immolate
     [2941] = { first = 348, source = 30, class = "WARLOCK" }, -- Immolate
@@ -1376,7 +1379,7 @@ Probe.Spells = {
     [11668] = { first = 348, source = 60, class = "WARLOCK" }, -- Immolate
     [25309] = { first = 348, source = 60, class = "WARLOCK" }, -- Immolate
     [603] = { first = 603, source = 60, class = "WARLOCK" }, -- Bane of Doom
-    [686] = { first = 686, source = 1, class = "WARLOCK" }, -- Shadow Bolt (spellbook)
+    [686] = { first = 686, source = 1, class = "WARLOCK" }, -- Shadow Bolt
     [695] = { first = 686, source = 6, class = "WARLOCK" }, -- Shadow Bolt
     [705] = { first = 686, source = 12, class = "WARLOCK" }, -- Shadow Bolt
     [1088] = { first = 686, source = 20, class = "WARLOCK" }, -- Shadow Bolt
@@ -1386,7 +1389,7 @@ Probe.Spells = {
     [11660] = { first = 686, source = 52, class = "WARLOCK" }, -- Shadow Bolt
     [11661] = { first = 686, source = 60, class = "WARLOCK" }, -- Shadow Bolt
     [25307] = { first = 686, source = 60, class = "WARLOCK" }, -- Shadow Bolt
-    [687] = { first = 687, source = 1, class = "WARLOCK" }, -- Demon Skin (spellbook)
+    [687] = { first = 687, source = 1, class = "WARLOCK" }, -- Demon Skin
     [696] = { first = 687, source = 10, class = "WARLOCK" }, -- Demon Skin
     [688] = { first = 688, source = 1, class = "WARLOCK" }, -- Summon Imp (spellbook)
     [689] = { first = 689, source = 14, class = "WARLOCK" }, -- Drain Life
@@ -1647,7 +1650,7 @@ Probe.Spells = {
     [5201] = { first = 1082, source = 38, class = "DRUID" }, -- Claw
     [9849] = { first = 1082, source = 48, class = "DRUID" }, -- Claw
     [9850] = { first = 1082, source = 58, class = "DRUID" }, -- Claw
-    [1126] = { first = 1126, source = 1, class = "DRUID" }, -- Mark of the Wild (spellbook)
+    [1126] = { first = 1126, source = 1, class = "DRUID" }, -- Mark of the Wild
     [5232] = { first = 1126, source = 10, class = "DRUID" }, -- Mark of the Wild
     [6756] = { first = 1126, source = 20, class = "DRUID" }, -- Mark of the Wild
     [5234] = { first = 1126, source = 30, class = "DRUID" }, -- Mark of the Wild
@@ -1675,7 +1678,7 @@ Probe.Spells = {
     [9875] = { first = 2912, source = 50, class = "DRUID" }, -- Starfire
     [9876] = { first = 2912, source = 58, class = "DRUID" }, -- Starfire
     [25298] = { first = 2912, source = 60, class = "DRUID" }, -- Starfire
-    [5176] = { first = 5176, source = 1, class = "DRUID" }, -- Wrath (spellbook)
+    [5176] = { first = 5176, source = 1, class = "DRUID" }, -- Wrath
     [5177] = { first = 5176, source = 6, class = "DRUID" }, -- Wrath
     [5178] = { first = 5176, source = 14, class = "DRUID" }, -- Wrath
     [5179] = { first = 5176, source = 22, class = "DRUID" }, -- Wrath
@@ -1683,7 +1686,7 @@ Probe.Spells = {
     [6780] = { first = 5176, source = 38, class = "DRUID" }, -- Wrath
     [8905] = { first = 5176, source = 46, class = "DRUID" }, -- Wrath
     [9912] = { first = 5176, source = 54, class = "DRUID" }, -- Wrath
-    [5185] = { first = 5185, source = 1, class = "DRUID" }, -- Healing Touch (spellbook)
+    [5185] = { first = 5185, source = 1, class = "DRUID" }, -- Healing Touch
     [5186] = { first = 5185, source = 8, class = "DRUID" }, -- Healing Touch
     [5187] = { first = 5185, source = 14, class = "DRUID" }, -- Healing Touch
     [5188] = { first = 5185, source = 20, class = "DRUID" }, -- Healing Touch
