@@ -149,6 +149,8 @@ async function petSpells(file) {
 /** The class files wowhead's `reqclass` names on the pet ability page. */
 const PET_CLASSES = { 4: "HUNTER", 256: "WARLOCK" };
 
+const EXCLUDED = require("./lib/camelot-excluded");
+
 /** `Map(classFile -> [{ id, first, source, name, comment }])`: the pet page's chains, the books'
  *  taught spells it does not hold standing on their own. */
 async function petEntries(record) {
@@ -156,7 +158,7 @@ async function petEntries(record) {
     const byClass = new Map();
     for (const s of readList(await get(url), url)) {
         const cls = PET_CLASSES[s.reqclass];
-        if (cls && typeof s.id === "number" && s.name) {
+        if (cls && typeof s.id === "number" && s.name && !EXCLUDED[s.id]) {
             if (!byClass.has(cls)) byClass.set(cls, []);
             byClass.get(cls).push(s);
         }

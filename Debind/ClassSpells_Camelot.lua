@@ -568,7 +568,6 @@ DebindPrivate.CamelotSpells = {
     [1293525] = { 36, classes = HUNTER }, -- Summon Hawk
     [1293526] = 1293525,
     [1293527] = 1293525,
-    [1278934] = { "pet", classes = HUNTER }, -- Summoning
     [1264494] = { "pet", classes = HUNTER }, -- Swipe
     [1264497] = 1264494,
     [1264498] = 1264494,

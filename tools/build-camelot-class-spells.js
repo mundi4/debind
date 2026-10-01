@@ -19,6 +19,7 @@
 const fs = require("fs");
 const path = require("path");
 const { die, findRecord, readLines } = require("./lib/camelot-probe-record");
+const EXCLUDED = require("./lib/camelot-excluded");
 
 const out = path.join(__dirname, "..", "Debind", "ClassSpells_Camelot.lua");
 
@@ -75,6 +76,7 @@ function readRecord(file) {
 function chains(spells, dropped) {
     const kept = [];
     for (const s of spells) {
+        if (EXCLUDED[s.id]) { continue; }
         if (!s.name) { dropped.unknown.push(`${s.cls || "profession"} ${s.id}`); continue; }
         if (s.passive) { dropped.passive.push(`${s.cls || "profession"} ${s.name}`); continue; }
         kept.push(s);

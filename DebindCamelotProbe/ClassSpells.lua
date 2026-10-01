@@ -621,7 +621,6 @@ Probe.Spells = {
     [1265902] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
     [1265903] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
     [1265904] = { first = 1265899, source = "pet", class = "HUNTER" }, -- Dust Cloud
-    [1278934] = { first = 1278934, source = "pet", class = "HUNTER" }, -- Summoning
     -- ROGUE
     [53] = { first = 53, source = 4, class = "ROGUE" }, -- Backstab
     [2589] = { first = 53, source = 12, class = "ROGUE" }, -- Backstab
