@@ -53,17 +53,34 @@ end
 
 local CompareUnlearnedValue = DebindPrivate.CompareUnlearnedValue;
 
+--- The generated table's first ranks for one class and every class's (`ClassSpells_Camelot.lua`), as
+--- `spellID -> value`. A higher rank's entry is its first rank's id, and the first rank's row is the
+--- one that stands for it.
+---
+--- **Walked once, the first time the spell list is built, and kept**: the table is fixed at load and
+--- a character's class does not change within a session, so nothing can make it stale.
+local generated, generatedFor;
+local function GeneratedCandidates(classFile)
+    if (generatedFor ~= classFile) then
+        generated, generatedFor = {}, classFile;
+        for spellID, entry in pairs(DebindPrivate.CamelotSpells or {}) do
+            if (type(entry) == "table" and (entry.classes == nil or entry.classes[classFile])) then
+                generated[spellID] = entry[1];
+            end
+        end
+    end
+    return generated;
+end
+
 --- `spellID -> value` for one class, from every source, the winning value where several name an id.
 function DebindPrivate.GetUnlearnedSpellCandidates(classFile)
     local merged = {};
     local sources = {
         data[classFile],
-        (DebindPrivate.CamelotClassSpells or {})[classFile],
+        GeneratedCandidates(classFile),
         (TrainerStore(false) or {})[classFile],
-        -- Every class's.
-        DebindPrivate.CamelotProfessionSpells,
     };
-    for i = 1, 4 do
+    for i = 1, 3 do
         for spellID, value in pairs(sources[i] or {}) do
             if (merged[spellID] == nil or CompareUnlearnedValue(value, merged[spellID]) < 0) then
                 merged[spellID] = value;

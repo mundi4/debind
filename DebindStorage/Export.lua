@@ -1103,6 +1103,16 @@ local function BringPayloadDataForward(payload)
 
     DebindStorage.ForEachPayloadLayer(payload, function(actions)
         DebindPrivate.MigrateLayer(actions, dbver);
+        -- **Its spells go on their first rank, every time one arrives**
+        -- (`keeping-a-pinned-rank-apart-from-the-spell.md` §5): a string an older version made would
+        -- otherwise bring every rank's id back in. The profile's own did this once, in its
+        -- migration; that step is not the shared ladder's because a payload does it here.
+        for i = 1, #actions do
+            local action = actions[i];
+            if (luatype(action) == "table" and action.type == Constants.SPELL) then
+                action.value = DebindPrivate.CanonicalSpellID(action.value);
+            end
+        end
     end);
 
     payload.dbver = Constants.DB_VERSION;

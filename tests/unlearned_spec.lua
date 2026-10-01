@@ -73,13 +73,26 @@ return function(DebindPrivate)
     -- A pet's, in its class's list with where it comes from (2026-10-01, owner: a warlock's grimoires).
     local PET_SPELL = 90003;
     spells[PET_SPELL] = { name = "Pet Spell", iconID = 14 };
-    DebindPrivate.CamelotClassSpells = {
-        DRUID = { [REGROWTH] = 12, [SWIFTMEND_2] = 30, [ELSEWHERE] = "quest", [PET_SPELL] = "pet" },
-    };
     -- A profession's spell, offered to every class (2026-10-01, owner).
     local FISHING = 7620;
     spells[FISHING] = { name = "Fishing", iconID = 13 };
-    DebindPrivate.CamelotProfessionSpells = { [FISHING] = "profession" };
+    -- Neither offered: a higher rank stands under its first rank's row, and a mage's spell is not a
+    -- druid's.
+    local REGROWTH_2, FROSTBOLT = 8938, 116;
+    spells[REGROWTH_2] = { name = "Regrowth", iconID = 10 };
+    spells[FROSTBOLT] = { name = "Frostbolt", iconID = 19 };
+    -- The generated table's shape (`keeping-a-pinned-rank-apart-from-the-spell.md` §4): a first rank
+    -- holds where it comes from and its classes, a higher rank its first rank's id.
+    local DRUID, MAGE = { DRUID = true }, { MAGE = true };
+    DebindPrivate.CamelotSpells = {
+        [REGROWTH] = { 12, classes = DRUID },
+        [REGROWTH_2] = REGROWTH,
+        [SWIFTMEND_2] = { 30, classes = DRUID },
+        [ELSEWHERE] = { "quest", classes = DRUID },
+        [PET_SPELL] = { "pet", classes = DRUID },
+        [FISHING] = { "profession" },
+        [FROSTBOLT] = { 4, classes = MAGE },
+    };
 
     -- What the book holds: one spell on General, two class spells on two talent trees' lines in the
     -- reverse of name order, and a profession's.

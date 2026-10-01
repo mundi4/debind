@@ -432,6 +432,21 @@ function DebindPrivate.GetSpellCastName(spellID, pinned)
     return ComposeSpellCastName(name, name and GetSpellSubtext(spellID), pinned);
 end
 
+--- **The id a spell action stores: its name's first rank** (`keeping-a-pinned-rank-apart-from-the-
+--- spell.md` §5), so two actions of one spell store one id whichever rank each was picked as. Read
+--- off the generated table (`ClassSpells_Camelot.lua`), which only a client with ranks carries; an
+--- id it does not know, and everything elsewhere, is given back as it came. **Not off the book**:
+--- the profile's migration has to give the same answer, and it runs for classes nobody is logged in
+--- as.
+function DebindPrivate.CanonicalSpellID(spellID)
+    local spells = DebindPrivate.CamelotSpells;
+    local entry = spells and type(spellID) == "number" and spells[spellID];
+    if (type(entry) == "number") then
+        return entry;
+    end
+    return spellID;
+end
+
 --- What an action pinned at `pinnedSpell` casts. **Text is cast as it is**: it is what a Clique
 --- binding cast (`DebindStorage/Clique.lua`), and no book is asked for an id behind it.
 function DebindPrivate.PinnedCastName(pinnedSpell)

@@ -3178,7 +3178,8 @@ end
 --- 새로 만드는 자리에서는 지울 것이 없어 둘 다 아무 일도 안 한다.
 function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, props)
     action.type = actionType;
-    action.value = value;
+    -- A spell goes in on its first rank, whichever rank it was picked or dropped as.
+    action.value = actionType == Constants.SPELL and DebindPrivate.CanonicalSpellID(value) or value;
     action.name = name;
     action.icon = icon;
     -- **The pin was the old spell's.** Carried across, it would hold the new one at another spell's

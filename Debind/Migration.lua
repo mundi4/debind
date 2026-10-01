@@ -1295,6 +1295,22 @@ local function MigrateDB(db, uiVars)
         ForEachActionList(db, function(list)
             MigrateLayer(list, version, to);
         end);
+        -- **The profile's spells go on their first rank, once**
+        -- (`keeping-a-pinned-rank-apart-from-the-spell.md` §7). Here and not in `MigrateLayer`,
+        -- which received payloads ride too: they do the same where they arrive, every time
+        -- (`BringPayloadDataForward`). Read off the generated table, so what this release's table
+        -- does not know stays where it was, and **nothing tries again later** (owner): what is left
+        -- is a duplicate the cleanup misses, which keeps both.
+        if (version <= 7 and 7 < to) then
+            ForEachActionList(db, function(list)
+                for i = 1, #list do
+                    local action = list[i];
+                    if (action.type == Constants.SPELL) then
+                        action.value = DebindPrivate.CanonicalSpellID(action.value);
+                    end
+                end
+            end);
+        end
         MigrateSwitches(db, version, to);
         MigrateAccount(db, version, to, uiVars);
     end

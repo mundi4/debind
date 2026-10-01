@@ -2546,6 +2546,38 @@ return function(DebindPrivate)
         check(db.states[ALT] == nil, "an empty state moved");
     end);
 
+    --- **The profile's spells are put on their first rank, once** (`keeping-a-pinned-rank-apart-from-
+    --- the-spell.md` §7). Off the generated table, since the class of a layer's spell need not be
+    --- logged in; a pinned one keeps its rank in `pinnedSpell`, and an id the table does not know is
+    --- left as it is. Not the shared ladder's: a received payload does this where it arrives.
+    test("dbver 8 puts the profile's spells on their first rank, the pin apart", function()
+        local spells = DebindPrivate.CamelotSpells;
+        DebindPrivate.CamelotSpells = { [686] = { 1 }, [695] = 686, [705] = 686 };
+        local profile = ProfileAt7();
+        local general = profile.shared.GENERAL;
+        general[1].value = 705;
+        general[2] = { type = Constants.SPELL, value = 695, key = "F6", seq = 1, pinRank = true };
+        general[3] = { type = Constants.SPELL, value = 424242, key = "F7", seq = 1 };
+        general[4] = { type = Constants.ITEM, value = 705, key = "F8", seq = 1 };
+        local ok, err = pcall(DebindPrivate.MigrateDB, profile);
+        DebindPrivate.CamelotSpells = spells;
+        check(ok, tostring(err));
+        local got = {};
+        for _, action in ipairs(profile.layers.account.GENERAL[0]) do
+            got[action.key] = tostring(action.value) .. "/" .. tostring(action.pinnedSpell);
+        end
+        check(got.F1 == "686/nil", "unpinned: " .. tostring(got.F1));
+        check(got.F6 == "686/695", "pinned: " .. tostring(got.F6));
+        check(got.F7 == "424242/nil", "unknown id: " .. tostring(got.F7));
+        check(got.F8 == "705/nil", "an item: " .. tostring(got.F8));
+
+        local layer = { { key = "A", type = Constants.SPELL, value = 705 } };
+        DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
+        MigrateLayer(layer, 7);
+        DebindPrivate.CamelotSpells = spells;
+        check(layer[1].value == 705, "the shared ladder moved a value: " .. tostring(layer[1].value));
+    end);
+
     --- Read off `MigrateDB` itself, since a load makes the lists this character reads again.
     test("dbver 8 drops what is not an action list", function()
         local db = ProfileAt7();

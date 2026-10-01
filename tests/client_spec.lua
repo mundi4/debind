@@ -399,6 +399,25 @@ return function(DebindPrivate, DebindStorage)
     -- The pin belongs to the spell it was set on. Putting another spell in the action's place
     -- keeps everything else about the action, and a pin carried across would pin the new spell to
     -- another spell's rank.
+    -- **A spell goes in on its first rank** (`keeping-a-pinned-rank-apart-from-the-spell.md` §5),
+    -- whichever rank it was picked or dropped as, so two actions of one spell store one id. Picking,
+    -- dropping and replacing all come through `SetActionEntry`.
+    test("a spell put in an action goes in on its first rank", function()
+        local spells = DebindPrivate.CamelotSpells;
+        DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
+        local SPELL, ITEM = DebindPrivate.Constants.SPELL, DebindPrivate.Constants.ITEM;
+        local higher, first, unknown, item = {}, {}, {}, {};
+        DebindPrivate.SetActionEntry(higher, SPELL, 705);
+        DebindPrivate.SetActionEntry(first, SPELL, 686);
+        DebindPrivate.SetActionEntry(unknown, SPELL, 424242);
+        DebindPrivate.SetActionEntry(item, ITEM, 705);
+        DebindPrivate.CamelotSpells = spells;
+        check(higher.value == 686, "a higher rank: " .. tostring(higher.value));
+        check(first.value == 686, "the first rank: " .. tostring(first.value));
+        check(unknown.value == 424242, "an id the table does not know: " .. tostring(unknown.value));
+        check(item.value == 705, "an item: " .. tostring(item.value));
+    end);
+
     test("putting another spell in an action's place drops the pin", function()
         local action = { type = DebindPrivate.Constants.SPELL, value = 5185, pinnedSpell = 5186 };
         DebindPrivate.SetActionEntry(action, DebindPrivate.Constants.SPELL, 774, "Rejuvenation", nil, nil);

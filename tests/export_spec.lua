@@ -1052,6 +1052,28 @@ return function(DebindPrivate, DebindStorage)
             and out.created == 5 and out.source == "clique", "멀쩡한 것까지 버렸다");
     end);
 
+    -- **A received payload's spells are put on their first rank where it arrives**
+    -- (`keeping-a-pinned-rank-apart-from-the-spell.md` §5): a string an older version made would
+    -- otherwise bring every rank's id back in. A pin and an id the table does not know stay.
+    test("a payload's spells arrive on their first rank", function()
+        local spells = DebindPrivate.CamelotSpells;
+        DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
+        local payload = { v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {
+                { type = Constants.SPELL, value = 705, key = "F", seq = 1 },
+                { type = Constants.SPELL, value = 686, key = "G", seq = 1, pinnedSpell = 705 },
+                { type = Constants.SPELL, value = 424242, key = "H", seq = 1 },
+            } } } } };
+        local ok, out = pcall(DebindStorage.BringPayloadForward, payload);
+        DebindPrivate.CamelotSpells = spells;
+        check(ok and out, tostring(out));
+        local actions = out.layers.account.GENERAL[0];
+        check(actions[1].value == 686, "F: " .. tostring(actions[1].value));
+        check(actions[2].value == 686 and actions[2].pinnedSpell == 705,
+            "G: " .. tostring(actions[2].value) .. " " .. tostring(actions[2].pinnedSpell));
+        check(actions[3].value == 424242, "H: " .. tostring(actions[3].value));
+    end);
+
     test("캐릭터 칸이 다 빠지면 신원도 빠진다", function()
         ResetStore();
         ResetProfile({
