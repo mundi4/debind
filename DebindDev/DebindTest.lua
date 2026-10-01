@@ -10461,6 +10461,60 @@ local function UnlearnedCandidates()
     return candidates
 end
 
+-- **A pinned rank goes out as `Name(Rank N)`** (`pinnedSpell`, `ComposeSpellCastName`), and the press
+-- casts whatever the client resolves that text to. No headless spec can say whether the client
+-- resolves it to that rank's own id rather than the highest, so it is asked of every rank of every
+-- spell in this character's book.
+local function RankedBookSpells()
+    local ranked, seen = {}, {}
+    local bank = Enum.SpellBookSpellBank.Player
+    for line = 1, C_SpellBook.GetNumSpellBookSkillLines() or 0 do
+        local info = C_SpellBook.GetSpellBookSkillLineInfo(line)
+        for slot = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+            local item = C_SpellBook.GetSpellBookItemInfo(slot, bank)
+            local ranks = item and item.spellID and not seen[item.name]
+                and DebindPrivate.Client.SpellRanks(item.spellID)
+            if ranks and #ranks > 1 then
+                seen[item.name] = true
+                ranked[#ranked + 1] = ranks
+            end
+        end
+    end
+    return ranked
+end
+
+RegisterTest("Spell ranks: a pinned rank's cast text is that rank", {
+    description = "Name(Rank N) resolves to rank N's own id, for every spell in the book with ranks",
+    applies = function()
+        if not DebindPrivate.Client.SPELLS_HAVE_RANKS then
+            return false, "spells have no ranks on this client"
+        end
+        if #RankedBookSpells() == 0 then
+            return false, "no spell in this character's book has two ranks"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "pinned rank cast text"
+        local wrong, count = {}, 0
+        for _, ranks in ipairs(RankedBookSpells()) do
+            for _, rank in ipairs(ranks) do
+                local text = DebindPrivate.PinnedCastName(rank.id)
+                local info = text and C_Spell.GetSpellInfo(text)
+                count = count + 1
+                if not (info and info.spellID == rank.id) then
+                    wrong[#wrong + 1] = format("%s -> %s (wanted %d)", tostring(text),
+                        tostring(info and info.spellID), rank.id)
+                end
+            end
+        end
+        if #wrong > 0 then
+            return Fail(NAME, table.concat(wrong, ", "))
+        end
+        return Pass(NAME, format("%d ranks", count))
+    end,
+})
+
 RegisterTest("Unlearned spells: the client names every candidate", {
     description = "Each id written in the file or read off a trainer has a spell name and icon",
     applies = function()
