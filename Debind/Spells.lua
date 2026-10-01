@@ -37,6 +37,9 @@ end
 ---                         stands in a list twice and costs a client call each time.
 ---   nameBySpellID         what that question answered, so the id filed a second time still has
 ---                         its name to merge a level under.
+---   talentSpellIDs        the spells the talent tree grants, taken or not, as a set. What the
+---                         spell list offers on a client whose book holds only what is learned
+---                         (`ActionCatalog.lua`'s `AddUnlearnedSpellEntries`)
 local function NewWalk()
     return {
         learnLevelBySpellID = {},
@@ -44,6 +47,7 @@ local function NewWalk()
         obtainableIDsByName = {},
         nameAsked = {},
         nameBySpellID = {},
+        talentSpellIDs = {},
     };
 end
 
@@ -149,6 +153,9 @@ local function AddTraits(out, api)
                     and api.GetDefinitionInfo(entry.definitionID);
                 if (definition) then
                     Record(out, api, definition.spellID, 0);
+                    if (definition.spellID) then
+                        out.talentSpellIDs[definition.spellID] = true;
+                    end
                     -- The base spell this one replaces: taking the talent moves *its* answer.
                     Record(out, api, definition.overriddenSpellID, 0);
                 end
@@ -202,7 +209,7 @@ function Spells.Build(api)
     AddSpellBook(out, api);
     AddTraits(out, api);
     AddPvpTalents(out, api);
-    return out.learnLevelBySpellID, out.obtainableIDsByName, out.learnLevelByName;
+    return out.learnLevelBySpellID, out.obtainableIDsByName, out.learnLevelByName, out.talentSpellIDs;
 end
 
 --- The same walk, turned the other way up: `뿌리 spellID -> { spellID, ... }`, every spell this
@@ -273,7 +280,7 @@ end
 --- What `Spells.Build` last answered, and the specialization it was standing in when it did.
 --- **`walkedSpecIndex` is `GetSpecialization`'s index and not a specialization id**, which is what
 --- `SpecSpells.lua` keys its tables by; the two are different numbers for the same thing.
-local learnLevelBySpellID, obtainableIDsByName, learnLevelByName, walkedSpecIndex;
+local learnLevelBySpellID, obtainableIDsByName, learnLevelByName, talentSpellIDs, walkedSpecIndex;
 
 --- **Kept per specialization and not per level.** What the level table holds is the level a spell
 --- is learned at rather than whether it has been, so levelling cannot make it stale. Talent picks
@@ -287,16 +294,17 @@ local learnLevelBySpellID, obtainableIDsByName, learnLevelByName, walkedSpecInde
 local function EnsureWalked()
     local specIndex = C_SpecializationInfo.GetSpecialization() or 0;
     if (learnLevelBySpellID == nil or walkedSpecIndex ~= specIndex) then
-        local levels, byName, levelsByName = Spells.Build(LiveAPI());
+        local levels, byName, levelsByName, talents = Spells.Build(LiveAPI());
         if (next(levels) == nil) then
-            return levels, byName, levelsByName;
+            return levels, byName, levelsByName, talents;
         end
         learnLevelBySpellID = levels;
         obtainableIDsByName = byName;
         learnLevelByName = levelsByName;
+        talentSpellIDs = talents;
         walkedSpecIndex = specIndex;
     end
-    return learnLevelBySpellID, obtainableIDsByName, learnLevelByName;
+    return learnLevelBySpellID, obtainableIDsByName, learnLevelByName, talentSpellIDs;
 end
 
 --- `spellID -> the level it is learned at`, for every spell this specialization can obtain.
@@ -310,6 +318,12 @@ end
 function Spells.GetObtainableIDsByName()
     local _, byName = EnsureWalked();
     return byName;
+end
+
+--- `spellID -> true`, for every spell the talent tree of this specialization grants.
+function Spells.GetTalentSpellIDs()
+    local _, _, _, talents = EnsureWalked();
+    return talents;
 end
 
 --- `BuildBranches` against the client. **A fresh walk every call**, so it is for a menu and not

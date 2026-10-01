@@ -628,26 +628,44 @@ local function AddUnlearnedSpellEntries(entries, seen)
 		end
 	end
 
+	-- A talent's spell has no level to go by, so it is `level` nil, ranks behind every spell that has
+	-- one and is subtitled with where it comes from instead.
 	local byName = {};
-	local _, classFile = UnitClass("player");
-	for spellID, level in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
+	local function Consider(spellID, level)
 		local spellInfo = C_Spell.GetSpellInfo(spellID);
-		if (spellInfo and not inBook[spellInfo.name] and not C_Spell.IsSpellPassive(spellID)) then
-			local held = byName[spellInfo.name];
+		if (not spellInfo or inBook[spellInfo.name] or C_Spell.IsSpellPassive(spellID)) then
+			return;
+		end
+		local held = byName[spellInfo.name];
+		if (held) then
+			if (held.level ~= nil and (level == nil or level > held.level)) then
+				return;
+			end
 			-- The id breaks a tie so two reads of the same candidates keep the same one.
-			if (not held or level < held.level or (level == held.level and spellID < held.value)) then
-				byName[spellInfo.name] = {
-					type = Constants.SPELL,
-					value = spellID,
-					name = spellInfo.name,
-					icon = spellInfo.iconID,
-					level = level,
-					group = group,
-					groupTooltip = groupTooltip,
-					isUnlearned = true,
-				};
+			if (level == held.level and spellID > held.value) then
+				return;
 			end
 		end
+		byName[spellInfo.name] = {
+			type = Constants.SPELL,
+			value = spellID,
+			name = spellInfo.name,
+			icon = spellInfo.iconID,
+			level = level,
+			group = group,
+			groupTooltip = groupTooltip,
+			isUnlearned = true,
+		};
+	end
+
+	local _, classFile = UnitClass("player");
+	for spellID, level in pairs(DebindPrivate.GetUnlearnedSpellCandidates(classFile)) do
+		Consider(spellID, level);
+	end
+	-- The tree the walk for `[known:]` reads already (`Spells.lua`), taken or not: a talent's spell
+	-- is in the book only once it is taken (2026-10-01, owner).
+	for spellID in pairs(DebindPrivate.Spells.GetTalentSpellIDs() or {}) do
+		Consider(spellID, nil);
 	end
 
 	local collected = {};
@@ -656,6 +674,9 @@ local function AddUnlearnedSpellEntries(entries, seen)
 	end
 	sort(collected, function(a, b)
 		if (a.level ~= b.level) then
+			if (a.level == nil or b.level == nil) then
+				return b.level == nil;
+			end
 			return a.level < b.level;
 		end
 		return a.name < b.name;
@@ -664,7 +685,9 @@ local function AddUnlearnedSpellEntries(entries, seen)
 	local playerLevel = UnitLevel("player");
 	for i = 1, #collected do
 		local entry = collected[i];
-		if (entry.level > playerLevel) then
+		if (entry.level == nil) then
+			entry.subName = TALENT;
+		elseif (entry.level > playerLevel) then
 			entry.subName = format(SPELLBOOK_AVAILABLE_AT, entry.level);
 		end
 		entry.level = nil;

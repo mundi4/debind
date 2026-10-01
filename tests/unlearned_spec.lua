@@ -56,6 +56,23 @@ return function(DebindPrivate)
     spells[NATURES_GRACE] = { name = "Nature's Grace", iconID = 6, passive = true };
     spells[CURE_POISON] = { name = "Cure Poison", iconID = 7 };
 
+    -- The talent tree, untaken: one spell a key can cast and one passive (probe, 70009, a druid).
+    -- Stood up before the login, whose rebuild walks it once for the specialization (`Spells.lua`).
+    local SWIFTMEND, MOONGLOW = 18562, 16845;
+    spells[SWIFTMEND] = { name = "Swiftmend", iconID = 8 };
+    spells[MOONGLOW] = { name = "Moonglow", iconID = 9, passive = true };
+    shim.world.traits = {
+        configID = 7,
+        treeIDs = { 1 },
+        trees = { [1] = { 1, 2 } },
+        nodes = {
+            [1] = { entryIDs = { 11 }, entryIDsWithCommittedRanks = {} },
+            [2] = { entryIDs = { 12 }, entryIDsWithCommittedRanks = {} },
+        },
+        entries = { [11] = { definitionID = 21 }, [12] = { definitionID = 22 } },
+        definitions = { [21] = { spellID = SWIFTMEND }, [22] = { spellID = MOONGLOW } },
+    };
+
     _G.DebindVars = { dbver = Constants.DB_VERSION, layers = {}, characters = {}, migrated = {},
         legacyNeeded = false };
     DebindPrivate.InitDB();
@@ -140,9 +157,11 @@ return function(DebindPrivate)
     end
 
     -- **One row per name, under the rank the character reaches first**, and nothing the book already
-    -- lists under that name. The ids written in the file join what the trainer gave. Level above the
-    -- character's is the subtitle, the way retail's unlearned spells show it.
-    test("the list merges both sources, one row per name, without what the book holds", function()
+    -- lists under that name. The ids written in the file and the talent tree's spells join what the
+    -- trainer gave. Level above the character's is the subtitle, the way retail's unlearned spells
+    -- show it; a talent's spell has no level and says where it comes from instead, after the rest
+    -- (2026-10-01, owner). A passive talent is not offered.
+    test("the list merges every source, one row per name, without what the book holds", function()
         _G.DebindVars.trainerSpells.DRUID[THORNS_1] = 6;
         _G.DebindVars.trainerSpells.DRUID[THORNS_2] = 14;
         shim.world.spellbook[TOUCH_1] = true;
@@ -153,7 +172,7 @@ return function(DebindPrivate)
         shim.world.spellbook[TOUCH_1] = nil;
 
         local want = "Thorns:467:nil | Wrath:5177:nil | Demoralizing Roar:99:nil"
-            .. " | Cure Poison:8946:Level 14";
+            .. " | Cure Poison:8946:Level 14 | Swiftmend:18562:Talent";
         check(rowText(rows) == want, "rows " .. rowText(rows) .. "\n  expected " .. want);
         local wantGroups = "General,Unlearned," .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
         check(groups == wantGroups, "groups " .. groups .. ", expected " .. wantGroups);
@@ -164,10 +183,13 @@ return function(DebindPrivate)
     test("the group stands with its tooltip when no spell is in it, and not in a search", function()
         local trainerSpells = _G.DebindVars.trainerSpells;
         _G.DebindVars.trainerSpells = nil;
+        -- Swiftmend in the book is its talent taken, which takes it out of the group.
         shim.world.spellbook[CURE_POISON] = true;
+        shim.world.spellbook[SWIFTMEND] = true;
         ActionCatalog.Invalidate("spellbook");
         local entries = ActionCatalog.GetEntries(spellCategory());
         shim.world.spellbook[CURE_POISON] = nil;
+        shim.world.spellbook[SWIFTMEND] = nil;
         _G.DebindVars.trainerSpells = trainerSpells;
 
         local marker;
