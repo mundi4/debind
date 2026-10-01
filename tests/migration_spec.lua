@@ -2756,18 +2756,21 @@ return function(DebindPrivate)
             "a position or a filter crossed over");
     end);
 
-    --- **A new shape empties the table and keeps the tips.** It does not ride the ladder.
-    test("a DebindUIVars of another version is emptied but for the closed tips", function()
+    --- **A new shape empties the table and keeps the tips and the spells added by id.** It does not
+    --- ride the ladder.
+    test("a DebindUIVars of another version is emptied but for the closed tips and added spells", function()
         _G.DebindUIVars = {
             version = Constants.UI_VARS_VERSION - 1,
             main = { pos = { x = 1, y = 2 } },
             tipsSeen = { settingsGear = true },
+            userSpells = { [8690] = true },
         };
         InitWith({});
         local vars = _G.DebindUIVars;
         check(vars.version == Constants.UI_VARS_VERSION, "the version was not stamped");
         check(vars.main == nil, "a value of the old shape stayed");
         check(vars.tipsSeen and vars.tipsSeen.settingsGear == true, "the closed tips were dropped");
+        check(vars.userSpells and vars.userSpells[8690] == true, "the spells added by id were dropped");
         check(DebindPrivate.UIVars == vars, "the addon reads another table than the one saved");
     end);
 

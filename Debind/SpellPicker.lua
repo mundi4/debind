@@ -190,6 +190,47 @@ function DebindSpellPickerRowMixin:OnClick(button)
 end
 
 --------------------------------------------------------------------------------
+-- "Spells You Added"
+--------------------------------------------------------------------------------
+
+DebindSpellPickerUserRowMixin = CreateFromMixins(DebindSpellPickerRowMixin);
+
+--- No confirmation: an id is cheap to type again, and nothing made from the row goes with it.
+function DebindSpellPickerUserRowMixin:OnLoad()
+	self.Name:SetPoint("RIGHT", self.DeleteButton, "LEFT", -4, 6);
+
+	self.DeleteButton:SetScript("OnClick", function()
+		ActionCatalog.RemoveUserSpell(self.entry.userSpellID);
+		DebindSpellPickerFrame:RefreshList(true);
+	end);
+	self.DeleteButton:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, LLL["SPELL_PICKER_REMOVE_USER_SPELL"]);
+		GameTooltip:Show();
+	end);
+	self.DeleteButton:SetScript("OnLeave", GameTooltip_Hide);
+end
+
+DebindSpellPickerAddRowMixin = CreateFromMixins(DebindSpellPickerRowMixin);
+
+function DebindSpellPickerAddRowMixin:Init(elementData)
+	self.entry = elementData;
+	self.Icon:SetTexture("Interface\\PaperDollInfoFrame\\Character-Plus");
+	self.Icon:SetDesaturated(false);
+	self.Name:SetText(elementData.name);
+	self.SubName:SetText("");
+	self:SetAlpha(1);
+end
+
+--- The label says it all; the row tooltip's lines are about adding an action, which this is not.
+function DebindSpellPickerAddRowMixin:OnEnter()
+end
+
+function DebindSpellPickerAddRowMixin:OnClick()
+	StaticPopup_Show("DEBIND_ADD_USER_SPELL");
+end
+
+--------------------------------------------------------------------------------
 -- 머리글
 --------------------------------------------------------------------------------
 
@@ -364,6 +405,14 @@ function DebindSpellPickerFrameMixin:InitializeScrollBox()
 			end);
 		elseif (elementData.isSpacer) then
 			factory("DebindSpellPickerSpacerTemplate");
+		elseif (elementData.isAddRow) then
+			factory("DebindSpellPickerAddRowTemplate", function(button)
+				button:Init(elementData);
+			end);
+		elseif (elementData.userSpellID) then
+			factory("DebindSpellPickerUserRowTemplate", function(button)
+				button:Init(elementData);
+			end);
 		else
 			factory("DebindSpellPickerRowTemplate", function(button)
 				button:Init(elementData);
@@ -606,6 +655,7 @@ function DebindSpellPickerFrameMixin:OnHide()
 	self.rebuildAt = nil;
 
 	self.SearchBox:SetText("");
+	StaticPopup_Hide("DEBIND_ADD_USER_SPELL");
 end
 
 --- 첫 자리는 메인 창 오른쪽이다. 이 창은 메인 창과 **함께** 쓰는 물건이라 가운데에

@@ -236,11 +236,13 @@ return function(DebindPrivate)
 
     -- **The class is one group under its name, and General, Pet and Professions follow** (2026-10-01,
     -- owner). Each holds what is learned, then what is not; no group of unlearned spells of its own.
-    test("the groups are the class, General, Pet, Professions and Others", function()
+    -- The spells added by id close the list, their group standing on its Add row when empty.
+    test("the groups are the class, General, Pet, Professions, Others and the added spells", function()
         withBook(function()
             local _, groups = groupedRows();
             local want = "Druid,General," .. DebindPrivate.L["PET"] .. ",Professions,"
-                .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"];
+                .. DebindPrivate.L["SPELL_PICKER_GROUP_OTHERS"] .. ","
+                .. DebindPrivate.L["SPELL_PICKER_GROUP_USER"];
             check(groups == want, "groups " .. groups .. ", expected " .. want);
         end);
     end);

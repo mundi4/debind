@@ -62,6 +62,31 @@
 	</Button>
 
 	<!--
+		The two rows of "Spells You Added" (`AddUserSpellEntries`). **Both 240x38 like every other
+		cell**, for the reason the heading below gives.
+
+		The Add row is not an action, so its mixin replaces the row's click and tooltip rather than
+		the shared row branching on it: no `AddNewAction`, no layer menu, and in replace mode it
+		still opens the popup instead of overwriting the selected actions.
+	-->
+	<Button name="DebindSpellPickerAddRowTemplate" inherits="DebindSpellPickerRowTemplate" mixin="DebindSpellPickerAddRowMixin" registerForClicks="LeftButtonUp" virtual="true"/>
+
+	<!-- The delete button is the storage list's (`DebindStorageEntryRowTemplate`). -->
+	<Button name="DebindSpellPickerUserRowTemplate" inherits="DebindSpellPickerRowTemplate" mixin="DebindSpellPickerUserRowMixin" virtual="true">
+		<Frames>
+			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="RIGHT" x="-6" y="0"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+		</Scripts>
+	</Button>
+
+	<!--
 		A group heading in the list (General / Class / Spec / Favourites …).
 
 		**The grid counts this frame as half a row.** `AnchorUtil.GridLayout` holds the stride

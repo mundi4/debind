@@ -385,5 +385,109 @@ return function(DebindPrivate)
                 tostring(petAt), tostring(firstProfessionAt)));
     end);
 
+    -- **The spells a reader added by id are the last group, an Add row last in it** (2026-10-01,
+    -- owner). A spell already listed elsewhere is listed here too: this is where the reader looks for
+    -- what they added. Adding one twice adds one row; a search leaves the Add row out, since nothing
+    -- in it is what was searched for.
+    test("the spells added by id are the last group, with the Add row last", function()
+        local shim = require("wow_shim");
+        local L = DebindPrivate.L;
+        shim.world.spells[585] = { name = "Smite", iconID = 1 };
+        shim.world.spells[8690] = { name = "Hearthstone", iconID = 2 };
+        shim.world.spellbook[585] = true;
+        local vars = DebindPrivate.UIVars;
+        DebindPrivate.UIVars = {};
+
+        local ok, err = pcall(function()
+            ActionCatalog.AddUserSpell(8690);
+            ActionCatalog.AddUserSpell(585);
+            ActionCatalog.AddUserSpell(585);
+
+            local spellCategory;
+            for _, category in ipairs(ActionCatalog.GetCategories()) do
+                if (category.key == "spell") then
+                    spellCategory = category;
+                end
+            end
+            local function userRows()
+                ActionCatalog.Invalidate("spellbook");
+                local entries = ActionCatalog.GetEntries(spellCategory);
+                local rows, inBook = {}, false;
+                for i, e in ipairs(entries) do
+                    if (e.group == L["SPELL_PICKER_GROUP_USER"]) then
+                        rows[#rows + 1] = (e.isAddRow and "+" or e.name) .. (i == #entries and "|end" or "");
+                    elseif (e.value == 585) then
+                        inBook = true;
+                    end
+                end
+                return table.concat(rows, ","), inBook, entries;
+            end
+
+            local got, inBook, entries = userRows();
+            check(got == "Hearthstone,Smite,+|end", "rows " .. got);
+            check(inBook, "Smite left the book's group");
+
+            local searched = ActionCatalog.Filter(entries, { search = "smi", includeOffSpec = true });
+            for _, e in ipairs(searched) do
+                check(not e.isAddRow, "the Add row stood in a search");
+            end
+            local plain = ActionCatalog.Filter(entries, { includeOffSpec = true });
+            check(plain[#plain].isAddRow, "the Add row is gone without a search");
+
+            ActionCatalog.RemoveUserSpell(8690);
+            got = userRows();
+            check(got == "Smite,+|end", "after removing Hearthstone: " .. got);
+        end);
+        DebindPrivate.UIVars = vars;
+        shim.world.spellbook[585] = nil;
+        ActionCatalog.Invalidate("spellbook");
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
+    -- **A spell is added by id on its first rank** (`CanonicalSpellID`), so two ranks of one spell
+    -- typed one after the other make one row, and the row adds what any other row of it adds.
+    test("a spell added by id is stored on its first rank", function()
+        local shim = require("wow_shim");
+        local L = DebindPrivate.L;
+        shim.world.spells[686] = { name = "Shadow Bolt", iconID = 1 };
+        shim.world.spells[705] = { name = "Shadow Bolt", iconID = 1 };
+        local spells = DebindPrivate.CamelotSpells;
+        DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
+        local vars = DebindPrivate.UIVars;
+        DebindPrivate.UIVars = {};
+
+        local ok, err = pcall(function()
+            ActionCatalog.AddUserSpell(705);
+            ActionCatalog.AddUserSpell(686);
+
+            local stored = {};
+            for id in pairs(DebindPrivate.UIVars.userSpells or {}) do
+                stored[#stored + 1] = tostring(id);
+            end
+            check(table.concat(stored, ",") == "686", "stored " .. table.concat(stored, ","));
+
+            local rows = {};
+            for _, category in ipairs(ActionCatalog.GetCategories()) do
+                if (category.key == "spell") then
+                    ActionCatalog.Invalidate("spellbook");
+                    for _, e in ipairs(ActionCatalog.GetEntries(category)) do
+                        if (e.group == L["SPELL_PICKER_GROUP_USER"] and not e.isAddRow) then
+                            rows[#rows + 1] = e.name .. ":" .. tostring(e.value);
+                        end
+                    end
+                end
+            end
+            check(table.concat(rows, ",") == "Shadow Bolt:686", "rows " .. table.concat(rows, ","));
+        end);
+        DebindPrivate.UIVars = vars;
+        DebindPrivate.CamelotSpells = spells;
+        ActionCatalog.Invalidate("spellbook");
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     return T;
 end

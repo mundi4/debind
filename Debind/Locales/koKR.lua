@@ -334,6 +334,9 @@ L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDI
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:해제됨|r"
 L["SPECIAL_UNITS"] = "나를 이 역할로 세지 않기"
 -- 근거는 enUS 쪽 주석에.
+L["SPELL_PICKER_ADD_SPELL_BY_ID"] = "주문 ID로 추가"
+L["SPELL_PICKER_ADD_SPELL_PROMPT"] = "주문 ID를 입력해 주세요."
+L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "이 ID의 주문이 없습니다."
 L["SPELL_PICKER_ADD_TO"] = "추가할 곳..."
 -- "왼쪽 클릭하면 / 오른쪽 클릭하면"은 LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2의 말이다.
 L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "왼쪽 클릭하면 |cnHIGHLIGHT_FONT_COLOR:%s|r에 추가됩니다."
@@ -347,6 +350,8 @@ L["SPELL_PICKER_GROUP_FAVORITE_TOYS"] = "즐겨찾는 장난감"
 L["SPELL_PICKER_GROUP_MOUNTS"] = "탈것"
 L["SPELL_PICKER_GROUP_OTHERS"] = "나머지 전부"
 L["SPELL_PICKER_GROUP_TOYS"] = "장난감"
+L["SPELL_PICKER_GROUP_USER"] = "사용자가 추가한 주문"
+L["SPELL_PICKER_REMOVE_USER_SPELL"] = "목록에서 빼기"
 -- "layer"가 아니라 탭이라고 쓴다. 근거는 enUS 쪽 주석에.
 L["SPELL_PICKER_MENU_DESC"] = "이미 가지고 있는 것을 둘러봅니다 -- 주문, 매크로, 탈것, 장난감, 그리고 게임 자체의 단축키 명령. 창은 계속 열려 있고, 클릭할 때마다 지금 열어 둔 탭에 추가됩니다."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "새 사용자 지정 매크로"

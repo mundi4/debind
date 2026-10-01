@@ -1961,9 +1961,10 @@ end
 --- for an addon of its own and take it along (`reshaping-stored-layers.md` §1).
 ---
 --- **Not raised by the ladder.** When its shape changes, `UI_VARS_VERSION` goes up and everything
---- but `tipsSeen` is dropped: what is lost is a position and a filter, while a closed tip coming
---- back is a loss the reader would notice. **A newer version is dropped the same way**, since
---- this build cannot read that shape and a downgrade costs the same position and filter.
+--- but `tipsSeen` and `userSpells` is dropped: what is lost is a position and a filter, while a
+--- closed tip coming back or a spell the reader typed in going missing is a loss they would notice.
+--- **A newer version is dropped the same way**, since this build cannot read that shape and a
+--- downgrade costs the same position and filter.
 local function PrepareUIVars()
     local vars = _G.DebindUIVars;
     if (type(vars) ~= "table") then
@@ -1972,8 +1973,10 @@ local function PrepareUIVars()
     end
     if (vars.version ~= Constants.UI_VARS_VERSION) then
         local tipsSeen = type(vars.tipsSeen) == "table" and vars.tipsSeen or nil;
+        local userSpells = type(vars.userSpells) == "table" and vars.userSpells or nil;
         wipe(vars);
         vars.tipsSeen = tipsSeen;
+        vars.userSpells = userSpells;
         vars.version = Constants.UI_VARS_VERSION;
     end
     return vars;

@@ -29,6 +29,8 @@ const NOT_ROWS = {
     DebindSpellPickerHeaderTemplate: "spell picker",
     DebindSpellPickerSpacerTemplate: "spell picker",
     DebindSpellPickerRowTemplate: "spell picker",
+    DebindSpellPickerAddRowTemplate: "spell picker",
+    DebindSpellPickerUserRowTemplate: "spell picker",
 };
 
 function walk(dir, out, ext) {

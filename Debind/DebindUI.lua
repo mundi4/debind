@@ -6429,6 +6429,71 @@ StaticPopupDialogs["DEBIND_REPLACE_ACTIONS"] = {
 	whileDead = 1,
 };
 
+--- The spell id the box holds, and the spell's info when the client names one.
+local function TypedUserSpell(editBox)
+	local text = strtrim(editBox:GetText());
+	local spellID = text:match("^%d+$") and tonumber(text);
+	return spellID, spellID and C_Spell.GetSpellInfo(spellID);
+end
+
+local function AddTypedUserSpell(dialog)
+	local spellID, spellInfo = TypedUserSpell(dialog:GetEditBox());
+	if (spellInfo) then
+		DebindPrivate.ActionCatalog.AddUserSpell(spellID);
+		DebindSpellPickerFrame:RefreshList(true);
+	end
+end
+
+--- The line under the box answers what was typed. **A blank line, never an empty one**, so the
+--- window keeps its height while the answer comes and goes. A found spell shows its name with no
+--- rank: a row adds the spell by name at the highest rank known.
+local function UpdateTypedUserSpell(dialog)
+	local spellID, spellInfo = TypedUserSpell(dialog:GetEditBox());
+	local line = " ";
+	if (spellInfo) then
+		line = spellInfo.name;
+	elseif (spellID) then
+		line = LLL["SPELL_PICKER_ADD_SPELL_NOT_FOUND"];
+	end
+	dialog.SubText:SetText(line);
+	dialog:Resize();
+	dialog:GetButton1():SetEnabled(spellInfo ~= nil);
+end
+
+StaticPopupDialogs["DEBIND_ADD_USER_SPELL"] = {
+	text = LLL["SPELL_PICKER_ADD_SPELL_PROMPT"],
+	subText = " ",
+	normalSizedSubText = true,
+	button1 = ADD,
+	button2 = CANCEL,
+	hasEditBox = 1,
+	maxLetters = 10,
+	-- `SetText` does not run `OnTextChanged`, so the empty box's state is set here.
+	OnShow = function(dialog)
+		dialog:GetEditBox():SetText("");
+		UpdateTypedUserSpell(dialog);
+		dialog:GetEditBox():SetFocus();
+	end,
+	OnAccept = function(dialog)
+		AddTypedUserSpell(dialog);
+	end,
+	EditBoxOnTextChanged = function(editBox)
+		UpdateTypedUserSpell(editBox:GetParent());
+	end,
+	-- Enter goes past button1, so it has to ask whether that button is on.
+	EditBoxOnEnterPressed = function(editBox)
+		local dialog = editBox:GetParent();
+		if (dialog:GetButton1():IsEnabled()) then
+			AddTypedUserSpell(dialog);
+			dialog:Hide();
+		end
+	end,
+	EditBoxOnEscapePressed = StaticPopup_StandardEditBoxOnEscapePressed,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+};
+
 --- **The one thing here that cannot be walked back.** Nothing is deleted, so every action can be
 --- given a key again one at a time -- but which of them belonged together is not written down
 --- anywhere, and after this it is only in the reader's head.

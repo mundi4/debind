@@ -207,6 +207,8 @@ function ActionCatalog.Filter(entries, options, out)
 			-- `== false`다. 즐겨찾기라는 개념이 없는 엔트리는 nil이라 안 걸린다 - 탈것 탭에서
 			-- 켜둔 옵션이 주문 탭을 비우면 안 된다.
 			matched = false;
+		elseif (entry.isAddRow) then
+			matched = not search;
 		elseif (search) then
 			matched = strfind(entry.searchName, search, 1, true) ~= nil
 				or (entry.searchSubName ~= nil and strfind(entry.searchSubName, search, 1, true) ~= nil);
@@ -628,6 +630,67 @@ local function AddExtraSpellEntries(entries, seen)
 	end
 end
 
+--- **The spells the reader added by id, last in the tab, with an Add row last of all** (2026-10-01,
+--- owner). `UIVars.userSpells` is `[spellID] = true`, account-wide.
+---
+--- **Its own `seen`**: a spell listed in another group is listed here too, because this is where
+--- the reader looks for what they added.
+---
+--- **No subtitle**: on a client with ranks the subtext is the rank, and a row adds the spell by
+--- name at the highest rank known.
+---
+--- The Add row is the one entry that is not an action, so it skips `AddEntry` (which needs a type)
+--- and nothing reads it as one: `Filter` drops it during a search and the picker gives it a
+--- template of its own. Without a search it always stands, which keeps the heading on screen
+--- while the group is empty.
+local function AddUserSpellEntries(entries)
+	local group = LLL["SPELL_PICKER_GROUP_USER"];
+	local seen, collected = {}, {};
+	local vars = DebindPrivate.UIVars;
+	for spellID in pairs(vars and vars.userSpells or {}) do
+		local spellInfo = C_Spell.GetSpellInfo(spellID);
+		if (spellInfo) then
+			AddEntry(collected, seen, {
+				type = Constants.SPELL,
+				value = ClimbBaseSpell(spellID),
+				name = spellInfo.name,
+				icon = spellInfo.iconID,
+				group = group,
+				userSpellID = spellID,
+			});
+		end
+	end
+	sort(collected, function(a, b)
+		if (a.name ~= b.name) then
+			return a.name < b.name;
+		end
+		return a.userSpellID < b.userSpellID;
+	end);
+	for i = 1, #collected do
+		tinsert(entries, collected[i]);
+	end
+	tinsert(entries, {
+		isAddRow = true,
+		name = LLL["SPELL_PICKER_ADD_SPELL_BY_ID"],
+		group = group,
+	});
+end
+
+function ActionCatalog.AddUserSpell(spellID)
+	local vars = DebindPrivate.UIVars;
+	vars.userSpells = vars.userSpells or {};
+	vars.userSpells[DebindPrivate.CanonicalSpellID(spellID)] = true;
+	ActionCatalog.Invalidate("spellbook");
+end
+
+function ActionCatalog.RemoveUserSpell(spellID)
+	local userSpells = DebindPrivate.UIVars.userSpells;
+	if (userSpells) then
+		userSpells[spellID] = nil;
+	end
+	ActionCatalog.Invalidate("spellbook");
+end
+
 --- **What the book does not hold yet, after what it does in the group it would be learned into**
 --- (2026-10-01, owner), where the book holds only what is learned (`UnlearnedSpells_Camelot.lua`).
 --- `rows` is `{ class =, pet =, profession = }`, each a list the learned rows are already in. A
@@ -774,6 +837,7 @@ local function BuildPlayerSpells(entries)
 	-- 주문서 밖의 것들이 맨 끝에 "그 밖" 그룹으로 붙는다. `seen`을 그대로 넘기는 것이
 	-- 핵심이다 - 주문서에 이미 있는 것은 여기서 안 붙는다.
 	AddExtraSpellEntries(entries, seen);
+	AddUserSpellEntries(entries);
 end
 
 --- **One row per name** (2026-10-01, owner). Each rank is its own book item under one name, and a
@@ -857,6 +921,7 @@ function BuildClassSpells(entries)
 	Append(rows.profession, TRADE_SKILLS);
 
 	AddExtraSpellEntries(entries, seen);
+	AddUserSpellEntries(entries);
 end
 
 ActionCatalog.RegisterSource({

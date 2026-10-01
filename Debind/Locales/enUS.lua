@@ -1084,6 +1084,13 @@ L["SPECIAL_UNITS"] = "Exclude Self from Role Targets"
 -- Title over the right-click menu's list. The list itself is tab names, so this line is what
 -- says which question they answer. Shaped like the move and copy menus' "Move to... / Copy to..."
 -- on purpose: three menus showing the same list should not each name it differently.
+-- The last row of SPELL_PICKER_GROUP_USER, and the popup it opens. A spell id is what a wowhead
+-- address carries, which is where a reader looking for a spell outside their book gets one.
+-- The popup's line under the box is blank until a number is typed: a found spell shows its name
+-- there (no rank - a row adds the highest one known), anything else this line.
+L["SPELL_PICKER_ADD_SPELL_BY_ID"] = "Add a Spell by ID"
+L["SPELL_PICKER_ADD_SPELL_PROMPT"] = "Enter a spell ID."
+L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "No spell has this ID."
 L["SPELL_PICKER_ADD_TO"] = "Add to..."
 L["SPELL_PICKER_EMPTY"] = "Nothing here."
 L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = "Account Macros"
@@ -1103,6 +1110,12 @@ L["SPELL_PICKER_GROUP_FAVORITE_TOYS"] = "Favorite Toys"
 L["SPELL_PICKER_GROUP_MOUNTS"] = "Mounts"
 L["SPELL_PICKER_GROUP_OTHERS"] = "Everything Else"
 L["SPELL_PICKER_GROUP_TOYS"] = "Toys"
+-- The spells the reader typed in by id. A spell here may be listed in another group as well, so
+-- the name says who put it here rather than what kind of spell it is.
+L["SPELL_PICKER_GROUP_USER"] = "Spells You Added"
+-- The tooltip of the button on each of that group's rows. It takes the spell off the list, not off
+-- any action already made from it.
+L["SPELL_PICKER_REMOVE_USER_SPELL"] = "Remove from this list"
 -- 행 툴팁의 안내 줄 둘(이 줄과 SPELL_PICKER_RIGHT_CLICK_TO_ADD). **왼쪽/오른쪽을 부르는 말은
 -- 왼쪽 목록 행 툴팁의 것을 그대로 쓴다**("Left click to ..." / "Right click ..." -
 -- LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2). 같은 애드온의 두 목록이 같은 조작을 다르게 부르면
