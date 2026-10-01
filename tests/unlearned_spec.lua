@@ -83,9 +83,10 @@ return function(DebindPrivate)
 
     -- What the book holds: one spell on General, two class spells on two talent trees' lines in the
     -- reverse of name order, and a profession's.
-    local HEARTHSTONE, FIND_HERBS = 8690, 2383;
+    local HEARTHSTONE, FIND_HERBS, HERBALISM = 8690, 2383, 2366;
     spells[HEARTHSTONE] = { name = "Hearthstone", iconID = 15 };
     spells[FIND_HERBS] = { name = "Find Herbs", iconID = 16 };
+    spells[HERBALISM] = { name = "Herbalism", iconID = 17, subtext = "Apprentice" };
     shim.world.bookLines[MARK_1] = 2;
     shim.world.bookLines[TOUCH_1] = 3;
 
@@ -193,7 +194,7 @@ return function(DebindPrivate)
         for _, id in ipairs({ HEARTHSTONE, MARK_1, TOUCH_1 }) do
             shim.world.spellbook[id] = true;
         end
-        shim.world.professions[1] = { name = "Herbalism", spells = { FIND_HERBS } };
+        shim.world.professions[1] = { name = "Herbalism", spells = { HERBALISM, FIND_HERBS } };
         local unitLevel = _G.UnitLevel;
         _G.UnitLevel = function() return 10; end
         local ok, err = pcall(fn);
@@ -240,34 +241,17 @@ return function(DebindPrivate)
     end);
 
     -- A pet's spell comes from the class's own list, said by "pet" in its level's place; the
-    -- professions' ones have the heading to say where they come from, and no subtitle.
+    -- professions' ones have the heading to say where they come from, and no subtitle, learned or
+    -- not: a profession's rank ("Apprentice") says nothing a key needs (2026-10-01, owner).
     test("pet and profession spells join their own groups, after what is learned", function()
         withBook(function()
             local byGroup = groupedRows();
             local want = "Pet Spell:90003:nil";
             local pet = byGroup[DebindPrivate.L["PET"]];
             check(rowText(pet) == want, "pet " .. rowText(pet) .. ", expected " .. want);
-            want = "Find Herbs:2383:nil:learned | Fishing:7620:nil";
+            want = "Herbalism:2366:nil:learned | Find Herbs:2383:nil:learned | Fishing:7620:nil";
             check(rowText(byGroup.Professions) == want,
                 "professions " .. rowText(byGroup.Professions) .. ", expected " .. want);
-        end);
-    end);
-
-    -- The heading's tooltip says how to fill the group (2026-09-30, owner). A search can leave any
-    -- row first under the heading, and the heading reads its tooltip off that one.
-    test("every class row carries the trainer's tooltip, and no other group's", function()
-        withBook(function()
-            local byGroup = groupedRows();
-            local want = format(DebindPrivate.L["SPELL_PICKER_GROUP_UNLEARNED_DESC"], "Class Trainer",
-                "Settings", "Filters", "Unavailable");
-            for _, row in ipairs(byGroup.Druid) do
-                check(row.groupTooltip == want, row.name .. " has tooltip " .. tostring(row.groupTooltip));
-            end
-            for _, group in ipairs({ "General", DebindPrivate.L["PET"], "Professions" }) do
-                for _, row in ipairs(byGroup[group]) do
-                    check(row.groupTooltip == nil, row.name .. " in " .. group .. " has a tooltip");
-                end
-            end
         end);
     end);
 

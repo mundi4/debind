@@ -37,7 +37,6 @@ local ClimbBaseSpell     = DebindPrivate.ClimbBaseSpell;
 ---   isOffSpec  지금 특성이 아닌 주문. 기본 필터에서는 **들어온다**
 ---   isUnlearned Not learned yet (`FutureSpell`). Dimmed like isOffSpec, but no filter hides it -
 ---              "다른 특성" would be a lie about a spell of the spec you are standing in
----   groupTooltip The tooltip of the group's heading, read off the group's first entry
 ---   isFavorite 즐겨찾기 여부. **이 개념이 없는 엔트리는 nil로 둔다** - "즐겨찾기만"
 ---              필터가 nil을 안 건드리므로, 탈것 탭의 설정이 주문 탭을 비우지 않는다
 ---   searchName / searchSubName  소문자로 미리 접어둔 검색용 사본
@@ -521,7 +520,11 @@ end
 --- professions book reads them (`Blizzard_ProfessionsBook.lua`); walking the lines alone left a
 --- character who has learned Fishing unable to find it here (2026-10-01, owner). Recipes are not
 --- among them: that book raises an error past two spells a profession.
+---
+--- **No subtitle** (2026-10-01, owner): the book's is the profession's rank ("Apprentice"), which
+--- says nothing a key needs.
 local function AddProfessionSpells(entries, seen)
+	local first = #entries + 1;
 	local professions = { GetProfessions() };
 	for i = 1, select("#", GetProfessions()) do
 		local index = professions[i];
@@ -531,6 +534,9 @@ local function AddProfessionSpells(entries, seen)
 				AddSpellBookItem(entries, seen, slot, Enum.SpellBookSpellBank.Player, false, TRADE_SKILLS);
 			end
 		end
+	end
+	for i = first, #entries do
+		entries[i].subName, entries[i].searchSubName = nil, nil;
 	end
 end
 
@@ -772,9 +778,6 @@ end
 --- **The class rows are sorted by name.** Each line comes sorted that way from the client, and run
 --- one after another they would make three runs under one heading. Two rows of one name (lower
 --- ranks, with `ShowAllSpellRanks` on) keep the book's order.
----
---- The trainer's tooltip goes on every class row and not only the first, since a search can leave
---- any of them first under the heading (`BuildDisplayList`).
 function BuildClassSpells(entries)
 	local seen = {};
 	local bank = Enum.SpellBookSpellBank.Player;
@@ -819,16 +822,13 @@ function BuildClassSpells(entries)
 	AddUnlearnedSpellEntries(rows, seen, inBook);
 
 	local classLine = DebindPrivate.Client.ClassSkillLine();
-	local groupTooltip = format(LLL["SPELL_PICKER_GROUP_UNLEARNED_DESC"], MINIMAP_TRACKING_TRAINER_CLASS,
-		SETTINGS, FILTERS, UNAVAILABLE);
-	local function Append(list, group, tooltip)
+	local function Append(list, group)
 		for i = 1, #list do
 			list[i].group = group;
-			list[i].groupTooltip = tooltip;
 			tinsert(entries, list[i]);
 		end
 	end
-	Append(rows.class, classLine and classLine.name or UnitClass("player"), groupTooltip);
+	Append(rows.class, classLine and classLine.name or UnitClass("player"));
 	for i = 1, #general do
 		tinsert(entries, general[i]);
 	end

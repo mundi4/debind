@@ -529,10 +529,6 @@ function M.install()
     _G.BINDING_HEADER_VEHICLE = "Vehicle Controls";
     -- The spell list's unlearned rows, as enUS has them.
     _G.SPELLBOOK_AVAILABLE_AT = "Level %d";
-    _G.MINIMAP_TRACKING_TRAINER_CLASS = "Class Trainer";
-    _G.SETTINGS = "Settings";
-    _G.FILTERS = "Filters";
-    _G.UNAVAILABLE = "Unavailable";
     _G.TALENT = "Talent";
     _G.TRADE_SKILLS = "Professions";
     _G.NUM_WORLD_RAID_MARKERS = 8;
@@ -1006,10 +1002,12 @@ function M.install()
         GetSpellBookItemInfo = function(slot, bank)
             local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
             if (not spellID) then return nil; end
+            local spell = M.world.spells[spellID];
             return {
                 spellID = spellID,
                 actionID = spellID,
                 itemType = Enum.SpellBookItemType.Spell,
+                subName = spell and spell.subtext,
             };
         end,
         GetSpellBookItemLevelLearned = function(slot, bank)

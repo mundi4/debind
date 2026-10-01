@@ -210,18 +210,6 @@ function DebindSpellPickerHeaderMixin:OnLoad()
 	self.Bar:SetClickHandler(function()
 		self:ToggleCollapsed();
 	end);
-
-	-- After the template's own, which hides the tooltip unless the title is cut short.
-	self.Bar:HookScript("OnEnter", function(bar)
-		local text = self.elementData and self.elementData.tooltipText;
-		if (not text) then
-			return;
-		end
-		GameTooltip:SetOwner(bar, "ANCHOR_RIGHT");
-		GameTooltip_SetTitle(GameTooltip, self.elementData.name);
-		GameTooltip_AddNormalLine(GameTooltip, text);
-		GameTooltip:Show();
-	end);
 end
 
 function DebindSpellPickerHeaderMixin:Init(elementData)
@@ -229,17 +217,6 @@ function DebindSpellPickerHeaderMixin:Init(elementData)
 	self.Bar:SetHeaderText(elementData.name);
 	self.Bar:UpdateCollapsedState(elementData.collapsed);
 	self:UpdateHelpLink(elementData.helpPage);
-	self:UpdateInfoIcon(elementData.tooltipText ~= nil);
-end
-
---- Where the title ends, as `UpdateHelpLink` measures it.
-function DebindSpellPickerHeaderMixin:UpdateInfoIcon(shown)
-	local icon = self.Bar.InfoIcon;
-	icon:SetShown(shown);
-	if (shown) then
-		icon:ClearAllPoints();
-		icon:SetPoint("LEFT", self.Bar.Name, "LEFT", self.Bar.Name:GetStringWidth() + 4, 0);
-	end
 end
 
 --- **The (i) stands where the title ends, which has to be measured.** The bar's own name string runs
@@ -758,7 +735,6 @@ local function BuildDisplayList(entries, out, stride, categoryKey)
 				-- Read off the group's first entry, because a page belongs to what the group holds
 				-- and the group name is a locale string that a map here would have to be keyed by.
 				helpPage = buckets[key][1].helpPage,
-				tooltipText = buckets[key][1].groupTooltip,
 			};
 			for _ = 2, stride do
 				out[#out + 1] = { isSpacer = true };
