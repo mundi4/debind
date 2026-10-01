@@ -2,9 +2,10 @@
 -- Everything about the camelot (Forever) client that `shipping-on-the-camelot-client.md` and
 -- `preparing-the-code-for-camelot.md` could not settle from the interface source.
 --
--- **It runs by itself and has no command.** Only the camelot client loads it: the TOC names that
--- client's interface number alone, since `WOW_PROJECT_ID` answers 1 there just as on retail. Two
--- kinds of value, two cadences:
+-- **It runs by itself**, with one command for the one measurement that is asked for rather than
+-- waited for (`/camelotprobe classspells`, below). Only the camelot client loads it: the TOC names
+-- that client's interface number alone, since `WOW_PROJECT_ID` answers 1 there just as on retail.
+-- Two kinds of value, two cadences:
 --
 --   the client       the same for every character: each section measured once per build at login,
 --                    kept under `DebindCamelotProbeDB.builds[<build>][<section>]`
@@ -36,6 +37,8 @@
 -- **Blizzard templates are not in here.** `npm run check:templates` answers that one without the
 -- game: `WOW_UI_BRANCH=forever` judged all 58 of our inherited templates against this client's
 -- branch on 2026-09-22 and found every one of them.
+
+local _, Probe = ...;
 
 local Lines = {};
 
@@ -958,3 +961,40 @@ frame:SetScript("OnEvent", function(_, event, ...)
         ScheduleCharacter();
     end
 end);
+
+--- **Every spell of `ClassSpells.lua` put to the client**: its name here and whether it is passive,
+--- with the level it came with, under `DebindCamelotProbeDB.classSpells`. That record is all
+--- `tools/build-camelot-class-spells.js` reads to write the release list (2026-10-01, owner), so a
+--- passive is judged once, by the client, and never in the release code.
+---
+--- **Any class, any character**: the questions are about spell data and not about who asks, which
+--- `IsSpellPassive` answering for spells nobody has learned showed (measured 2026-10-01). Each run
+--- replaces the last.
+local function MeasureClassSpells()
+    local spells, count, passives, missing = {}, 0, 0, 0;
+    for classFile, list in pairs(Probe.ClassSpells or {}) do
+        for spellID, level in pairs(list) do
+            local name = C_Spell.GetSpellName(spellID);
+            local passive = name and C_Spell.IsSpellPassive(spellID) or false;
+            spells[spellID] = { class = classFile, level = level, name = name or false, passive = passive };
+            count = count + 1;
+            if (not name) then
+                missing = missing + 1;
+            elseif (passive) then
+                passives = passives + 1;
+            end
+        end
+    end
+    Store().classSpells = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), spells = spells };
+    print(format("camelot probe: %d class spells asked, %d passive, %d unknown to this client. /reload to save.",
+        count, passives, missing));
+end
+
+SLASH_DEBINDCAMELOTPROBE1 = "/camelotprobe";
+SlashCmdList.DEBINDCAMELOTPROBE = function(msg)
+    if (strtrim(msg or "") == "classspells") then
+        MeasureClassSpells();
+        return;
+    end
+    print("camelot probe: /camelotprobe classspells");
+end

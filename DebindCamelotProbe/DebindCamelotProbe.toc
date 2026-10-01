@@ -8,4 +8,5 @@
 
 # **Its own addon rather than a file in DebindDev**, so that retail work on DebindDev never reaches
 # this client, and `DevSeed.lua`'s wipe of `DebindDevDB` never takes a camelot record with it.
+ClassSpells.lua
 Probe_Camelot.lua
