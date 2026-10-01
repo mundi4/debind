@@ -15,15 +15,13 @@
 // run by hand and never by CI.
 //
 // **Every rank of a name goes in, each pointing at the first** (2026-10-01, owner). The first is the
-// lowest level, level 1 included, and the lowest id between two of one level. Ranks are grouped by
-// name **within one class's page** and never across them: the druid's Cure Poison and the shaman's
-// are two spells.
+// lowest level, and the lowest id between two of one level. Ranks are grouped by name **within one
+// class** and never across them: the druid's Cure Poison and the shaman's are two spells.
 //
-// **Level above 1 decides which names go in** (2026-10-01, owner: "roughly right"), and nothing else:
-// a name qualifies when one of its ranks is above level 1. That drops talents (level 0), rune
-// engravings and the abilities shared across classes (level 1 or below), and keeps what a trainer,
-// a quest or a book teaches. Picking the first rank by it as well left a starting spell's second
-// rank standing as its first (Shadow Bolt 695 for 686).
+// **A page's id at level 1 or below is never taken** (2026-10-01, owner). Those are talents (level
+// 0), rune engravings and the abilities shared across classes, and a rune can carry a trained
+// spell's name (Swipe 411128, "Cat", beside 779), where it would stand as that spell's first rank.
+// A starting spell's first rank (Shadow Bolt 686) comes from its class trainer instead, below.
 //
 // **A spell with no skill line is left out**: those are a pet's (Growl, Great Stamina, a beast's own
 // Lava Breath) or a companion's, cast by something other than the player. Every player spell on
@@ -39,9 +37,12 @@
 // does the teaching; wowhead's page for that spell names the one taught. A taught spell the pet
 // page already holds is in its chain; one it does not stands on its own.
 //
-// **A name a class trainer sells that its class's page does not carry comes from the trainer**, as
+// **An id a class trainer sells, or a spellbook holds, that no page carries comes from there**, as
 // the camelot probe recorded it (2026-10-01, owner: what only a trainer lists belongs in the table,
-// not in a read at run time). A row's level is the trainer's, which a learned rank reports as 0.
+// not in a read at run time). A trainer never sells what a new character already knows, so a
+// starting spell's first rank is in the spellbook alone. A row's level is the one listed, which a
+// trainer reports as 0 for a learned rank. These ids and the page's of one class are chained
+// together.
 //
 // **The professions' own spells come from each profession's page** (2026-10-01, owner): the rank
 // spells (Mining, Fishing) and the ones beside them (Find Minerals, Smelting, Disenchant). What
@@ -150,17 +151,21 @@ async function petSpells(file) {
     return lists;
 }
 
-/** `[{ id, name, level }]` per class trainer the probe read, as `Map(trainer -> rows)`. */
-function readTrainers(file) {
-    const trainers = new Map();
+/**
+ * What the probe recorded the client listing, as `Map(where -> [{ id, name, level }])`: each class
+ * trainer it read, and each character's spellbook outside General. `where` starts with the
+ * character, which is how a spellbook finds its class.
+ */
+function readDumps(file) {
+    const dumps = new Map();
     const lines = readLines(file, `
         for character, levels in pairs(DebindCamelotProbeDB.characters or {}) do
             for _, record in pairs(levels) do
                 if type(record) == "table" then
                     for what, text in pairs(record) do
-                        if type(text) == "string" and what:find("^trainer ") then
+                        if type(text) == "string" and (what == "spellbook" or what:find("^trainer ")) then
                             for row in text:gmatch("[^\\n]+") do
-                                print(character .. " " .. what .. "\\t" .. row)
+                                print(character .. "\\t" .. what .. "\\t" .. row)
                             end
                         end
                     end
@@ -168,15 +173,25 @@ function readTrainers(file) {
             end
         end`);
     // `MeasureTrainer`'s row: index, spell id, name, rank, "lv" level, service type.
-    const row = /^\s+\d+\s+(\d+)\s+(.+?)\s{2,}.*?lv (\d+)\s/;
+    const trainerRow = /^\s+\d+\s+(\d+)\s+(.+?)\s{2,}.*?lv (\d+)\s/;
+    // `Spellbook`'s: type, id, name, subtext, "lv" level learned, under a "line N" heading.
+    const bookRow = /^\s+Spell\s+(\d+)\s+(.+?)\s{2,}.*?lv (\d+)/;
+    let line = 0;
     for (const l of lines) {
-        const [trainer, text] = l.split("\t");
-        const m = text.match(row);
-        if (!m) continue;
-        if (!trainers.has(trainer)) trainers.set(trainer, []);
-        trainers.get(trainer).push({ id: Number(m[1]), name: m[2], level: Number(m[3]) });
+        const [character, what, text] = l.split("\t");
+        const heading = text.match(/^\s+line (\d+)\s/);
+        if (heading) {
+            line = Number(heading[1]);
+            continue;
+        }
+        const book = what === "spellbook";
+        const m = text.match(book ? bookRow : trainerRow);
+        if (!m || (book && line === 1)) continue;
+        const where = `${character}\t${what}`;
+        if (!dumps.has(where)) dumps.set(where, []);
+        dumps.get(where).push({ id: Number(m[1]), name: m[2], level: Number(m[3]) });
     }
-    return trainers;
+    return dumps;
 }
 
 /** The class files wowhead's `reqclass` names on the pet ability page. */
@@ -231,71 +246,81 @@ function chains(spells) {
     return byName;
 }
 
-/** `[{ id, first, source, name, comment }]` for one class page. */
-function classEntries(spells, runesMet) {
-    const usable = spells.filter((s) => typeof s.id === "number" && s.name && s.skill && s.skill.length);
+/** `[{ id, name, level }]`: what one class page lists that goes in. */
+function classRows(spells, runesMet) {
+    return spells.filter((s) => {
+        if (typeof s.id !== "number" || !s.name || !s.skill || !s.skill.length || !(s.level > 1)) {
+            return false;
+        }
+        if (RUNE_ABILITIES[s.name]) {
+            runesMet.add(s.name);
+            return false;
+        }
+        return true;
+    }).map((s) => ({ id: s.id, name: s.name, level: s.level }));
+}
+
+/** `[{ id, first, source, name, comment }]`: one class's rows chained by name. */
+function classEntries(rows) {
     const entries = [];
-    for (const [name, ranks] of chains(usable)) {
-        if (!ranks.some((s) => s.level > 1)) {
-            continue;
-        }
-        if (RUNE_ABILITIES[name]) {
-            runesMet.add(name);
-            continue;
-        }
-        const first = ranks[0].id;
+    for (const [name, ranks] of chains(rows)) {
         for (const s of ranks) {
-            entries.push({ id: s.id, first, source: s.level || 0, name });
+            entries.push({ id: s.id, first: ranks[0].id, source: s.level, name, comment: s.comment });
         }
     }
     return entries;
 }
 
 /**
- * `Map(classFile -> [{ id, first, source, name, comment }])`: the names a class trainer sells that
- * its class's page does not carry. A trainer is that class's when every id it sells that a class
- * page holds is on that page; one with none (a profession's, a pet's) or several is not read.
+ * `Map(classFile -> [{ id, name, level, comment }])`: the ids a class trainer sells, or a spellbook
+ * holds, that no class page carries. A trainer is that class's when every id it sells that a class
+ * page holds is on that page; one with none (a profession's, a pet's) or several is not read. A
+ * spellbook's class is its character's, told the same way by everything the character recorded: a
+ * new character's book holds only level 1 spells, which no page carries.
  */
-function trainerEntries(trainers, pages) {
+function dumpEntries(dumps, pages) {
     const classOf = new Map();
     for (const [classFile, entries] of pages) {
         for (const e of entries) classOf.set(e.id, classFile);
     }
+    const classesIn = (rows) => new Set(rows.map((r) => classOf.get(r.id)).filter(Boolean));
+    const characterRows = new Map();
+    for (const [where, rows] of dumps) {
+        const character = where.split("\t")[0];
+        characterRows.set(character, (characterRows.get(character) || []).concat(rows));
+    }
     const rowsByClass = new Map();
-    for (const [trainer, rows] of trainers) {
-        const classes = new Set(rows.map((r) => classOf.get(r.id)).filter(Boolean));
+    for (const [where, rows] of dumps) {
+        const [character, what] = where.split("\t");
+        const classes = classesIn(what === "spellbook" ? characterRows.get(character) : rows);
         if (classes.size !== 1) continue;
         const [classFile] = classes;
-        const onPage = new Set(pages.get(classFile).map((e) => e.name));
         if (!rowsByClass.has(classFile)) rowsByClass.set(classFile, new Map());
         const byId = rowsByClass.get(classFile);
         for (const r of rows) {
-            if (!onPage.has(r.name) && !RUNE_ABILITIES[r.name]) {
-                byId.set(r.id, { ...r, comment: trainer.replace(/^.* trainer /, "trainer ") });
+            if (classOf.has(r.id) || RUNE_ABILITIES[r.name]) continue;
+            // A learned rank reports level 0 at a trainer; another read of the same id may have it.
+            const held = byId.get(r.id);
+            if (!held || r.level > held.level) {
+                byId.set(r.id, { ...r, comment: what });
             }
         }
     }
-    // An id two classes' trainers sell would belong to two classes, which the probe's table cannot
-    // hold (`class` is one name).
+    // An id two classes list would belong to two classes, which the probe's table cannot hold
+    // (`class` is one name).
     const sellers = new Map();
     for (const [classFile, byId] of rowsByClass) {
         for (const id of byId.keys()) sellers.set(id, (sellers.get(id) || []).concat(classFile));
     }
     for (const [id, classes] of sellers) {
         if (classes.length > 1) {
-            console.log(`left out, sold by ${classes.join(" and ")} trainers: ${id} (${rowsByClass.get(classes[0]).get(id).name})`);
+            console.log(`left out, listed for ${classes.join(" and ")}: ${id} (${rowsByClass.get(classes[0]).get(id).name})`);
             for (const classFile of classes) rowsByClass.get(classFile).delete(id);
         }
     }
     const lists = new Map();
     for (const [classFile, byId] of rowsByClass) {
-        const entries = [];
-        for (const [name, ranks] of chains([...byId.values()])) {
-            for (const s of ranks) {
-                entries.push({ id: s.id, first: ranks[0].id, source: s.level, name, comment: s.comment });
-            }
-        }
-        lists.set(classFile, entries);
+        lists.set(classFile, [...byId.values()]);
     }
     return lists;
 }
@@ -336,14 +361,14 @@ async function main() {
     const pages = new Map();
     for (const [slug, classFile] of Object.entries(CLASSES)) {
         const url = `https://www.wowhead.com/forever/spells/abilities/${slug}`;
-        pages.set(classFile, classEntries(readList(await get(url), url), runesMet));
+        pages.set(classFile, classRows(readList(await get(url), url), runesMet));
     }
-    const fromTrainers = trainerEntries(readTrainers(record), pages);
+    const fromTrainers = dumpEntries(readDumps(record), pages);
 
     const blocks = [];
     const owner = new Map();
     for (const classFile of Object.values(CLASSES)) {
-        const entries = pages.get(classFile).concat(fromTrainers.get(classFile) || []);
+        const entries = classEntries(pages.get(classFile).concat(fromTrainers.get(classFile) || []));
         for (const e of entries) {
             // Two pages naming one id would need it to belong to two chains. None did on 2026-10-01;
             // the table has one class per first rank, so one that does now has to be looked at.
@@ -372,20 +397,31 @@ async function main() {
     console.log(`PROFESSION ${professions.length} spells`);
     blocks.push(`    -- every class's, the professions'\n${professions.map((e) => line(e)).join("\n")}`);
 
-    fs.writeFileSync(out, `local _, Probe = ...;
+    // **The version moves only when the list does**: the probe asks the client again on login when
+    // its record was taken from another version, and the build refuses one that was.
+    const spellsText = `Probe.Spells = {\n${blocks.join("\n")}\n};\n`;
+    const previous = fs.existsSync(out) ? fs.readFileSync(out, "utf8").replace(/\r\n/g, "\n") : "";
+    const at = previous.indexOf("Probe.Spells = {\n");
+    const held = (previous.match(/^Probe\.SpellsVersion = (\d+);$/m) || [])[1];
+    if (held && at >= 0 && previous.slice(at) === spellsText) {
+        console.log(`\nunchanged: ${path.relative(process.cwd(), out)}, version ${held}`);
+    } else {
+        const version = Number(held || 0) + 1;
+        fs.writeFileSync(out, `local _, Probe = ...;
 
 --- **Generated by \`tools/fetch-camelot-class-spells.js\`. Do not edit by hand**: run it again.
 --- Fetched ${new Date().toISOString().slice(0, 10)} from wowhead.com/forever/spells/abilities/<class>, the
---- pages its books' learning spells have there, and wowhead.com/forever/spells/<profession>.
+--- pages its books' learning spells have there, wowhead.com/forever/spells/<profession>, and the
+--- trainers and spellbooks the probe recorded.
 ---
 --- \`[spellID] = { first =, source =, class = }\`: every rank, the id of its name's first rank, its
 --- level or where it comes from, and its class (none for a profession's). What
 --- \`/camelotprobe classspells\` asks the client about, and carries into its record for the release
 --- table to be built from.
-Probe.Spells = {
-${blocks.join("\n")}
-};
-`);
+Probe.SpellsVersion = ${version};
+${spellsText}`);
+        console.log(`\nwrote ${path.relative(process.cwd(), out)}, version ${version}`);
+    }
     console.log(`\nleft out as rune abilities: ${[...runesMet].join(", ") || "none"}`);
     // A name on the list that the pages no longer carry is a line nobody needs, and left there it
     // would read as a decision still being applied.
@@ -394,8 +430,9 @@ ${blocks.join("\n")}
             console.warn(`!! "${name}" is on RUNE_ABILITIES and on no page any more: take it off`);
         }
     }
-    console.log(`read ${record}\nwrote ${path.relative(process.cwd(), out)}`);
-    console.log("next: /camelotprobe classspells in the game, then npm run camelot-class-spells:build");
+    console.log(`read ${record}`);
+    console.log("next: log in on the camelot client, which asks the client on its own, then"
+        + " npm run camelot-class-spells:build");
 }
 
 main().catch((err) => {

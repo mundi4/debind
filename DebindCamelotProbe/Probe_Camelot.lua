@@ -1035,16 +1035,19 @@ end);
 local function MeasureClassSpells()
     local spells, count, passives, missing = {}, 0, 0, 0;
     local waiting, empty = 0, 0;
+    local record = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), version = 2, spells = spells };
+    -- Stamped only once every answer is in, so a run cut short is asked again at the next login.
     local function Done()
+        record.list = Probe.SpellsVersion;
         print(format("camelot probe: %d spells asked, %d passive, %d unknown to this client, %d with no"
             .. " description. /reload to save.", count, passives, missing, empty));
     end
     for spellID, entry in pairs(Probe.Spells or {}) do
         local name = C_Spell.GetSpellName(spellID);
         local passive = name and C_Spell.IsSpellPassive(spellID) or false;
-        local record = { first = entry.first, source = entry.source, class = entry.class or false,
+        local answer = { first = entry.first, source = entry.source, class = entry.class or false,
             name = name or false, passive = passive };
-        spells[spellID] = record;
+        spells[spellID] = answer;
         count = count + 1;
         if (not name) then
             missing = missing + 1;
@@ -1054,8 +1057,8 @@ local function MeasureClassSpells()
             end
             waiting = waiting + 1;
             Spell:CreateFromSpellID(spellID):ContinueOnSpellLoad(function()
-                record.description = C_Spell.GetSpellDescription(spellID) or "";
-                if (record.description == "") then
+                answer.description = C_Spell.GetSpellDescription(spellID) or "";
+                if (answer.description == "") then
                     empty = empty + 1;
                 end
                 waiting = waiting - 1;
@@ -1065,12 +1068,23 @@ local function MeasureClassSpells()
             end);
         end
     end
-    Store().classSpells = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), version = 2, spells = spells };
+    Store().classSpells = record;
     print(format("camelot probe: %d spells asked, waiting for %d descriptions.", count, waiting));
     if (waiting == 0) then
         Done();
     end
 end
+
+--- **On its own at login when `ClassSpells.lua` has moved on** from the list the record was asked
+--- from (`Probe.SpellsVersion`, raised by the tool only when the list changes).
+local classSpellsFrame = CreateFrame("Frame");
+classSpellsFrame:RegisterEvent("PLAYER_LOGIN");
+classSpellsFrame:SetScript("OnEvent", function()
+    local record = Store().classSpells;
+    if (Probe.SpellsVersion and not (record and record.list == Probe.SpellsVersion)) then
+        MeasureClassSpells();
+    end
+end);
 
 SLASH_DEBINDCAMELOTPROBE1 = "/camelotprobe";
 SlashCmdList.DEBINDCAMELOTPROBE = function(msg)

@@ -30,7 +30,7 @@ function readRecord(file) {
             io.stderr:write("no classSpells record of this shape: run /camelotprobe classspells with this tree's probe first\\n")
             os.exit(2)
         end
-        print(r.build .. "\\t" .. r.measured)
+        print(r.build .. "\\t" .. r.measured .. "\\t" .. tostring(r.list))
         for id, s in pairs(r.spells) do
             local described = s.description == nil and "unmeasured" or (s.description == "" and "none" or "yes")
             print("spell\\t" .. id .. "\\t" .. s.first .. "\\t" .. tostring(s.source) .. "\\t" .. tostring(s.class)
@@ -53,7 +53,7 @@ function readRecord(file) {
                 end
             end
         end`);
-    const [build, measured] = lines.shift().split("\t");
+    const [build, measured, list] = lines.shift().split("\t");
     const spells = [], book = [], dumps = new Map();
     for (const l of lines) {
         const f = l.split("\t");
@@ -71,7 +71,7 @@ function readRecord(file) {
             dumps.get(f[1]).push(f.slice(2).join("\t"));
         }
     }
-    return { build, measured, spells, book, dumps };
+    return { build, measured, list, spells, book, dumps };
 }
 
 /** `Map(id -> { first, source, cls, name })`, the chains re-formed over what the client kept. */
@@ -133,9 +133,15 @@ function comment(name) {
 
 function main() {
     const file = process.argv[2] || findRecord();
-    const { build, measured, spells, book, dumps } = readRecord(file);
+    const { build, measured, list, spells, book, dumps } = readRecord(file);
     if (!spells.length) {
         die("the classSpells record holds no spells");
+    }
+    const probeList = path.join(__dirname, "..", "DebindCamelotProbe", "ClassSpells.lua");
+    const current = (fs.readFileSync(probeList, "utf8").match(/^Probe\.SpellsVersion = (\d+);/m) || [])[1];
+    if (list !== current) {
+        die(`the record was asked from list version ${list}, and DebindCamelotProbe/ClassSpells.lua is`
+            + ` version ${current}: log in on the camelot client with this tree's probe first`);
     }
     // A record taken before descriptions were asked, or read before they all loaded, would let
     // through what has none.
