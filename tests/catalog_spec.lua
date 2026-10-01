@@ -446,27 +446,34 @@ return function(DebindPrivate)
         end
     end);
 
-    -- **A spell is added by id on its first rank** (`CanonicalSpellID`), so two ranks of one spell
-    -- typed one after the other make one row, and the row adds what any other row of it adds.
-    test("a spell added by id is stored on its first rank", function()
+    -- **A spell added by id is kept as it was typed** (2026-10-01, owner). One added by hand is
+    -- most likely in neither the book nor the rank table, which every resolution at the moment of
+    -- adding leans on (`ClimbBaseSpell`, `CanonicalSpellID`), so the id goes into the action as typed
+    -- and is resolved where any stored id is. Both resolvers have an answer here, and neither is
+    -- taken: a resolution that works only sometimes would make the same typing store two things.
+    test("a spell added by id is stored and added as it was typed", function()
         local shim = require("wow_shim");
         local L = DebindPrivate.L;
-        shim.world.spells[686] = { name = "Shadow Bolt", iconID = 1 };
-        shim.world.spells[705] = { name = "Shadow Bolt", iconID = 1 };
+        shim.world.spells[194223] = { name = "Celestial Alignment", iconID = 1 };
+        shim.world.spells[390414] = { name = "Incarnation: Chosen of Elune", iconID = 2 };
+        shim.world.spells[686] = { name = "Shadow Bolt", iconID = 3 };
+        shim.world.spells[705] = { name = "Shadow Bolt", iconID = 3 };
+        shim.world.baseSpells[390414] = 194223;
         local spells = DebindPrivate.CamelotSpells;
         DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
         local vars = DebindPrivate.UIVars;
         DebindPrivate.UIVars = {};
 
         local ok, err = pcall(function()
+            ActionCatalog.AddUserSpell(390414);
             ActionCatalog.AddUserSpell(705);
-            ActionCatalog.AddUserSpell(686);
 
             local stored = {};
             for id in pairs(DebindPrivate.UIVars.userSpells or {}) do
-                stored[#stored + 1] = tostring(id);
+                stored[#stored + 1] = id;
             end
-            check(table.concat(stored, ",") == "686", "stored " .. table.concat(stored, ","));
+            table.sort(stored);
+            check(table.concat(stored, ",") == "705,390414", "stored " .. table.concat(stored, ","));
 
             local rows = {};
             for _, category in ipairs(ActionCatalog.GetCategories()) do
@@ -479,54 +486,11 @@ return function(DebindPrivate)
                     end
                 end
             end
-            check(table.concat(rows, ",") == "Shadow Bolt:686", "rows " .. table.concat(rows, ","));
-        end);
-        DebindPrivate.UIVars = vars;
-        DebindPrivate.CamelotSpells = spells;
-        ActionCatalog.Invalidate("spellbook");
-        if (not ok) then
-            error(err, 0);
-        end
-    end);
-
-    -- **A spell added by id is resolved when it is added, not when the list is drawn**
-    -- (`ClimbBaseSpell`): an id a talent build made climbs to its base only while that build stands,
-    -- so one climbed again after a respec would come back as itself. Its base typed afterwards is
-    -- the same row.
-    test("a spell added by id is stored on its base while the build stands", function()
-        local shim = require("wow_shim");
-        local L = DebindPrivate.L;
-        shim.world.spells[194223] = { name = "Celestial Alignment", iconID = 1 };
-        shim.world.spells[390414] = { name = "Incarnation: Chosen of Elune", iconID = 2 };
-        shim.world.baseSpells[390414] = 194223;
-        local vars = DebindPrivate.UIVars;
-        DebindPrivate.UIVars = {};
-
-        local ok, err = pcall(function()
-            ActionCatalog.AddUserSpell(390414);
-            shim.world.baseSpells[390414] = nil;
-            ActionCatalog.AddUserSpell(194223);
-
-            local stored = {};
-            for id in pairs(DebindPrivate.UIVars.userSpells or {}) do
-                stored[#stored + 1] = tostring(id);
-            end
-            check(table.concat(stored, ",") == "194223", "stored " .. table.concat(stored, ","));
-
-            local rows = {};
-            for _, category in ipairs(ActionCatalog.GetCategories()) do
-                if (category.key == "spell") then
-                    ActionCatalog.Invalidate("spellbook");
-                    for _, e in ipairs(ActionCatalog.GetEntries(category)) do
-                        if (e.group == L["SPELL_PICKER_GROUP_USER"] and not e.isAddRow) then
-                            rows[#rows + 1] = tostring(e.value);
-                        end
-                    end
-                end
-            end
-            check(table.concat(rows, ",") == "194223", "rows " .. table.concat(rows, ","));
+            local got = table.concat(rows, ",");
+            check(got == "Incarnation: Chosen of Elune:390414,Shadow Bolt:705", "rows " .. got);
         end);
         shim.world.baseSpells[390414] = nil;
+        DebindPrivate.CamelotSpells = spells;
         DebindPrivate.UIVars = vars;
         ActionCatalog.Invalidate("spellbook");
         if (not ok) then

@@ -639,9 +639,11 @@ end
 --- **No subtitle**: on a client with ranks the subtext is the rank, and a row adds the spell by
 --- name at the highest rank known.
 ---
---- **The stored id is the value as it is.** `AddUserSpell` climbed it to its base when it was
---- typed in; climbing again here would answer differently once the talents that made it are gone
---- (`ClimbBaseSpell`).
+--- **The id is kept and added as it was typed** (2026-10-01, owner), neither climbed
+--- (`ClimbBaseSpell`) nor folded to its first rank (`CanonicalSpellID`). Both lean on the book or
+--- the rank table, and a spell somebody adds by hand is most likely in neither: it was missing from
+--- the list. An action resolves its stored id where it is used (`ResolveBaseSpell`), and
+--- `SetActionEntry` folds the rank where the table knows it. So two ranks typed in are two rows.
 ---
 --- The Add row is the one entry that is not an action, so it skips `AddEntry` (which needs a type)
 --- and nothing reads it as one: `Filter` drops it during a search and the picker gives it a
@@ -684,7 +686,7 @@ end
 function ActionCatalog.AddUserSpell(spellID)
 	local vars = DebindPrivate.UIVars;
 	vars.userSpells = vars.userSpells or {};
-	vars.userSpells[DebindPrivate.CanonicalSpellID(ClimbBaseSpell(spellID))] = true;
+	vars.userSpells[spellID] = true;
 	ActionCatalog.Invalidate("spellbook");
 end
 
