@@ -847,6 +847,38 @@ end
 --- `GetItemSpell` names, and for a recipe-class item every tooltip line, since which of those
 --- carries the spell the book teaches is the question. The read waits a moment, as the trainer's
 --- does, for items the client has not cached.
+--- **A book a merchant sells, kept for a tool to read** (2026-10-01, owner): a Demon Trainer's
+--- grimoires are the case. `GetItemSpell` names only the spell that does the teaching (20270 for
+--- Grimoire of Firebolt (Rank 2), measured), never the one taught (7799, the imp's), and no client
+--- call reaches that; the tool takes the first to wowhead for the second. Under
+--- `DebindCamelotProbeDB.books[itemID]`, added to and never cleared.
+---
+--- The "Teaches …" tooltip line is kept where the client shows one, which it did for five of 38 on
+--- 70124: a check on the tool's answer, not a source.
+local function RecordBook(index, itemID, name, spellID, spellName, npc)
+    local store = Store();
+    store.books = store.books or {};
+    local _, _, _, _, minLevel = C_Item.GetItemInfo(itemID);
+    local teaches;
+    local data = C_TooltipInfo.GetMerchantItem(index);
+    for _, line in ipairs(data and data.lines or {}) do
+        if (line.leftText and line.leftText:find("^Use: Teaches ")) then
+            teaches = line.leftText;
+        end
+    end
+    local held = store.books[itemID] or {};
+    store.books[itemID] = {
+        name = name or held.name,
+        learnSpell = spellID,
+        learnSpellName = spellName,
+        minLevel = minLevel or held.minLevel,
+        class = select(2, UnitClass("player")),
+        merchant = npc,
+        teaches = teaches or held.teaches,
+        build = BuildKey(),
+    };
+end
+
 local function MeasureMerchant()
     local npc = UnitName("npc");
     local guid = UnitGUID("npc");
@@ -867,6 +899,9 @@ local function MeasureMerchant()
                         Emit("        line type %s  id %s  %s", tostring(line.type), tostring(line.id),
                             tostring(line.leftText));
                     end
+                end
+                if (classID == Enum.ItemClass.Recipe and subClassID == Enum.ItemRecipeSubclass.Book and spellID) then
+                    RecordBook(i, itemID, info and info.name, spellID, spellName, npc);
                 end
             end
         end);
