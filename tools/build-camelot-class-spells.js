@@ -3,9 +3,10 @@
 // (2026-10-01, owner).
 //   npm run camelot-class-spells:build [path to DebindCamelotProbe.lua]
 //
-// A spell the client answered passive is left out, and so is one it has no name for: the release
-// code no longer asks either question. **A rank left out takes nothing with it**: a chain whose
-// first rank went has its lowest remaining rank as the first.
+// A spell the client answered passive is left out, and so is one it has no name for, or no
+// description (2026-10-01, owner: a bat's Summoning is on wowhead's pet page and is no spell a key
+// casts): the release code asks none of these. **A rank left out takes nothing with it**: a chain
+// whose first rank went has its lowest remaining rank as the first.
 //
 // **The professions' spells the probe found in a character's book (`professionSpells`) are kept**
 // where the fetch did not name them: what a probe has seen is never left out (2026-10-01, owner).
@@ -19,7 +20,6 @@
 const fs = require("fs");
 const path = require("path");
 const { die, findRecord, readLines } = require("./lib/camelot-probe-record");
-const EXCLUDED = require("./lib/camelot-excluded");
 
 const out = path.join(__dirname, "..", "Debind", "ClassSpells_Camelot.lua");
 
@@ -32,8 +32,9 @@ function readRecord(file) {
         end
         print(r.build .. "\\t" .. r.measured)
         for id, s in pairs(r.spells) do
+            local described = s.description == nil and "unmeasured" or (s.description == "" and "none" or "yes")
             print("spell\\t" .. id .. "\\t" .. s.first .. "\\t" .. tostring(s.source) .. "\\t" .. tostring(s.class)
-                .. "\\t" .. tostring(s.name) .. "\\t" .. tostring(s.passive))
+                .. "\\t" .. tostring(s.name) .. "\\t" .. tostring(s.passive) .. "\\t" .. described)
         end
         for id, s in pairs(DebindCamelotProbeDB.professionSpells or {}) do
             print("book\\t" .. id .. "\\t" .. tostring(s.name) .. "\\t" .. tostring(s.passive))
@@ -57,10 +58,11 @@ function readRecord(file) {
     for (const l of lines) {
         const f = l.split("\t");
         if (f[0] === "spell") {
-            const [, id, first, source, cls, name, passive] = f;
+            const [, id, first, source, cls, name, passive, described] = f;
             spells.push({
                 id: +id, first: +first, source: /^\d+$/.test(source) ? Number(source) : source,
                 cls: cls === "false" ? null : cls, name: name === "false" ? null : name, passive: passive === "true",
+                described,
             });
         } else if (f[0] === "book") {
             book.push({ id: +f[1], name: f[2], passive: f[3] === "true" });
@@ -76,9 +78,9 @@ function readRecord(file) {
 function chains(spells, dropped) {
     const kept = [];
     for (const s of spells) {
-        if (EXCLUDED[s.id]) { continue; }
         if (!s.name) { dropped.unknown.push(`${s.cls || "profession"} ${s.id}`); continue; }
         if (s.passive) { dropped.passive.push(`${s.cls || "profession"} ${s.name}`); continue; }
+        if (s.described === "none") { dropped.undescribed.push(`${s.cls || "profession"} ${s.name} ${s.id}`); continue; }
         kept.push(s);
     }
     const byFirst = new Map();
@@ -135,8 +137,15 @@ function main() {
     if (!spells.length) {
         die("the classSpells record holds no spells");
     }
+    // A record taken before descriptions were asked, or read before they all loaded, would let
+    // through what has none.
+    const unmeasured = spells.filter((s) => s.name && s.described === "unmeasured").length;
+    if (unmeasured) {
+        die(`${unmeasured} spells have no description measured: run /camelotprobe classspells again and`
+            + " wait for its closing line before /reload");
+    }
 
-    const dropped = { passive: [], unknown: [] };
+    const dropped = { passive: [], unknown: [], undescribed: [] };
     const table = chains(spells, dropped);
     for (const s of book) {
         if (s.passive) { dropped.passive.push(`profession ${s.name}`); continue; }
@@ -192,6 +201,7 @@ ${lines.join("\n")}
 `);
     console.log(`\nleft out as passive (${dropped.passive.length}): ${dropped.passive.sort().join(", ") || "-"}`);
     console.log(`left out as unknown to the client (${dropped.unknown.length}): ${dropped.unknown.sort().join(", ") || "-"}`);
+    console.log(`left out with no description (${dropped.undescribed.length}): ${dropped.undescribed.sort().join(", ") || "-"}`);
     const findings = check(table, dumps);
     console.log(`\nchains the probe's spellbooks and trainers disagree with (${findings.length}):`);
     for (const f of findings) {

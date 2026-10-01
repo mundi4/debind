@@ -1028,23 +1028,48 @@ end);
 --- **Any class, any character**: the questions are about spell data and not about who asks, which
 --- `IsSpellPassive` answering for spells nobody has learned showed (measured 2026-10-01). Each run
 --- replaces the last.
+---
+--- **Its description too, once the spell's data has loaded** (2026-10-01, owner: one with none, a
+--- bat's Summoning, is not a spell a key casts). Read before that, every description is empty, so
+--- each spell is waited for (`ContinueOnSpellLoad`) and the closing line says when all have come.
 local function MeasureClassSpells()
     local spells, count, passives, missing = {}, 0, 0, 0;
+    local waiting, empty = 0, 0;
+    local function Done()
+        print(format("camelot probe: %d spells asked, %d passive, %d unknown to this client, %d with no"
+            .. " description. /reload to save.", count, passives, missing, empty));
+    end
     for spellID, entry in pairs(Probe.Spells or {}) do
         local name = C_Spell.GetSpellName(spellID);
         local passive = name and C_Spell.IsSpellPassive(spellID) or false;
-        spells[spellID] = { first = entry.first, source = entry.source, class = entry.class or false,
+        local record = { first = entry.first, source = entry.source, class = entry.class or false,
             name = name or false, passive = passive };
+        spells[spellID] = record;
         count = count + 1;
         if (not name) then
             missing = missing + 1;
-        elseif (passive) then
-            passives = passives + 1;
+        else
+            if (passive) then
+                passives = passives + 1;
+            end
+            waiting = waiting + 1;
+            Spell:CreateFromSpellID(spellID):ContinueOnSpellLoad(function()
+                record.description = C_Spell.GetSpellDescription(spellID) or "";
+                if (record.description == "") then
+                    empty = empty + 1;
+                end
+                waiting = waiting - 1;
+                if (waiting == 0) then
+                    Done();
+                end
+            end);
         end
     end
     Store().classSpells = { build = BuildKey(), measured = date("%Y-%m-%d %H:%M"), version = 2, spells = spells };
-    print(format("camelot probe: %d spells asked, %d passive, %d unknown to this client. /reload to save.",
-        count, passives, missing));
+    print(format("camelot probe: %d spells asked, waiting for %d descriptions.", count, waiting));
+    if (waiting == 0) then
+        Done();
+    end
 end
 
 SLASH_DEBINDCAMELOTPROBE1 = "/camelotprobe";
