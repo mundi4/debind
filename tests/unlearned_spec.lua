@@ -255,6 +255,42 @@ return function(DebindPrivate)
         end);
     end);
 
+    -- **A row picked from the list adds the highest rank known**, so a rank under it would say that
+    -- rank is what gets added (2026-10-01, owner). A lower rank's row, shown when the book shows
+    -- every rank, does add that rank and keeps it. A subtitle that is not a rank stays.
+    test("a highest rank's row drops its rank, a lower rank's and a racial keep theirs", function()
+        local STONEFORM = 20594;
+        spells[STONEFORM] = { name = "Stoneform", iconID = 18, subtext = "Racial" };
+        spells[WRATH_1].subtext, spells[WRATH_2].subtext = "Rank 1", "Rank 2";
+        shim.world.spellbook[STONEFORM] = true;
+        shim.world.spellbook[WRATH_1], shim.world.spellbook[WRATH_2] = true, true;
+        shim.world.bookLines[WRATH_1], shim.world.bookLines[WRATH_2] = 2, 2;
+        shim.world.lowRanks[WRATH_1] = true;
+        shim.world.cvars.ShowAllSpellRanks = "1";
+        local ok, err = pcall(function()
+            local byGroup = groupedRows();
+            local wrath = {};
+            for _, row in ipairs(byGroup.Druid) do
+                if (row.name == "Wrath") then
+                    wrath[#wrath + 1] = row;
+                end
+            end
+            local want = "Wrath:5176:Rank 1:learned | Wrath:5177:nil:learned";
+            check(rowText(wrath) == want, "wrath " .. rowText(wrath) .. ", expected " .. want);
+            want = "Stoneform:20594:Racial:learned";
+            check(rowText(byGroup.General) == want, "general " .. rowText(byGroup.General) .. ", expected " .. want);
+        end);
+        shim.world.cvars.ShowAllSpellRanks = nil;
+        shim.world.lowRanks[WRATH_1] = nil;
+        shim.world.bookLines[WRATH_1], shim.world.bookLines[WRATH_2] = nil, nil;
+        shim.world.spellbook[WRATH_1], shim.world.spellbook[WRATH_2] = nil, nil;
+        shim.world.spellbook[STONEFORM] = nil;
+        spells[WRATH_1].subtext, spells[WRATH_2].subtext = nil, nil;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     test("a spell leaves the unlearned rows once the book holds it", function()
         shim.world.spellbook[WRATH_1] = true;
         local byGroup = groupedRows();

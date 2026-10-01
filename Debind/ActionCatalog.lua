@@ -481,6 +481,16 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 	-- is dead in retail, and the newly-boosted lock string is a sentence that will not fit 195px.
 	-- Off-spec is excluded here for the same reason Blizzard leaves it blank - the header said it.
 	local subName = info.subName;
+
+	-- **A highest rank's row adds the highest rank known, so its rank is not shown** (2026-10-01,
+	-- owner): under the row it would say that rank is what gets added. A lower rank's row does add
+	-- that rank (`pinRank` below) and keeps it. The client gives a rank only as this text, and a digit
+	-- is what tells it from "Racial" or "Passive" in any language (camelot, 70124).
+	local isLowRank = DebindPrivate.Client.IsLowRank(slotIndex, bank);
+	if (DebindPrivate.Client.SPELLS_HAVE_RANKS and not isLowRank and subName and subName:find("%d")) then
+		subName = nil;
+	end
+
 	if (isUnlearned and not isOffSpec) then
 		local levelLearned = C_SpellBook.GetSpellBookItemLevelLearned(slotIndex, bank);
 		if (levelLearned and levelLearned > UnitLevel("player")) then
@@ -499,7 +509,7 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 		isUnlearned = isUnlearned or nil,
 		-- **A lower rank's row is picking that rank**: it is listed only when the reader has the
 		-- book show every rank, and unpinned it would cast the highest.
-		props = DebindPrivate.Client.IsLowRank(slotIndex, bank) and { pinRank = true } or nil,
+		props = isLowRank and { pinRank = true } or nil,
 	});
 end
 
