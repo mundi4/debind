@@ -1324,8 +1324,12 @@ L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a Switch by that name."
 -- The window accepting an arrival opens when a Switch its actions bring differs from the reader's
 -- (`resolving-switches-on-accept.md` 6). **The heading says what is asked and nothing else**
 -- (owner): the marks on the rows say what each tick does.
-L["ARRIVAL_SWITCHES_TITLE"] = "Switch Conflicts"
-L["ARRIVAL_SWITCHES_TEXT"] = "Some of the Switches that come with the actions you are accepting conflict with yours. What should happen to them?\n\nA ticked row takes the incoming setting for that layer. Unticked rows keep yours."
+--
+-- **"Conflict" alone said more than happens** (owner, 2026-10-02). An overwrite conflicts with a
+-- setting the reader made; a fill conflicts with nothing and changes what their existing actions
+-- on that layer do, by giving it an answer where it followed the layer below. The text names both.
+L["ARRIVAL_SWITCHES_TITLE"] = "Incoming Switch Settings"
+L["ARRIVAL_SWITCHES_TEXT"] = "Some of the Switches that come with the actions you are accepting conflict with yours, or could change how your existing actions behave.\n\nA ticked row takes the incoming setting for that layer. Unticked rows keep yours."
 -- The two marks. **They differ because the two do different things to the reader's actions**: one
 -- replaces a setting the reader made, the other gives a layer a setting where it had none, so the
 -- actions there stop following the layer below.
