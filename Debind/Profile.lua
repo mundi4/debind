@@ -1392,6 +1392,7 @@ local function ForEachSwitchInAction(action, fn)
         end);
     end
 end
+DebindPrivate.ForEachSwitchInAction = ForEachSwitchInAction;
 
 --- Does this action name that switch? **Exported for Overview's search box**, which takes a
 --- switch's name as a term and has to ask the same question this file answers everywhere else.
@@ -1478,6 +1479,7 @@ local function LayerIDAt(spec, isCharacterSpecific)
     end
     return (isCharacterSpecific and 7 or 2) + spec;
 end
+DebindPrivate.LayerIDAt = LayerIDAt;
 
 --- Every place this profile names a switch, **gathered in one walk for every name at once**.
 ---
@@ -1665,6 +1667,24 @@ function DebindPrivate.CollectSwitchUsage()
     return usage;
 end
 
+--- The three places in one action a switch name is rewritten: a condition key, an on/off/toggle
+--- target, and a macro body (both its conditions and its `/click DebindSwitch` lines). Also what
+--- an arrival's rename runs on its own pending actions (`ArrivalSwitches.lua`).
+local function RenameSwitchInAction(action, oldName, newName)
+    local conditions = action.conditions;
+    if (conditions and conditions[oldName] ~= nil) then
+        conditions[newName] = conditions[oldName];
+        conditions[oldName] = nil;
+    end
+    if (Constants.SETSWITCH_MODES[action.type] and action.value == oldName) then
+        action.value = newName;
+    end
+    if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+        action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName);
+    end
+end
+DebindPrivate.RenameSwitchInAction = RenameSwitchInAction;
+
 --- Renames a switch, **and rewrites every reference to it**. Answers `true`, or `false` and a
 --- locale key saying why it refused.
 ---
@@ -1717,19 +1737,8 @@ function DebindPrivate.RenameSwitch(oldName, newName)
     -- is accepted (`resolving-switches-on-accept.md` 6-5). Other characters' pending actions are
     -- in `pendingActions` and this walk does not reach them at all.
     ForEachStoredAction(db, function(action)
-        if (action.arrivalID) then
-            return;
-        end
-        local conditions = action.conditions;
-        if (conditions and conditions[oldName] ~= nil) then
-            conditions[newName] = conditions[oldName];
-            conditions[oldName] = nil;
-        end
-        if (Constants.SETSWITCH_MODES[action.type] and action.value == oldName) then
-            action.value = newName;
-        end
-        if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
-            action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName);
+        if (not action.arrivalID) then
+            RenameSwitchInAction(action, oldName, newName);
         end
     end, DebindPrivate.db.charLayers);
 
@@ -3120,7 +3129,9 @@ end
 --- **No rebuild here.** `Profile.lua` places actions and does not decide when bindings go up
 --- (`PlaceArrivedActions` above is the same); the caller rebuilds once when it is done, which is
 --- the point of doing the set in one call at all.
-function DebindPrivate.SetKeyForActions(actions, key)
+---
+--- `answers` is what the switch window held for these actions, if any (`TakeBadgesOff`).
+function DebindPrivate.SetKeyForActions(actions, key, answers)
     if (key == nil or actions == nil or #actions == 0) then
         return false;
     end
@@ -3170,7 +3181,7 @@ function DebindPrivate.SetKeyForActions(actions, key)
         end
 
         action.key = key;
-        action.arrivalID = nil;
+        DebindPrivate.TakeBadgesOff({ action }, answers);
         if (layer) then
             -- **Arrival number plus this set's own ranking.** Renumbering alone cannot say which of
             -- these goes first -- they are all new to the group. The arrival number dominates
@@ -3252,11 +3263,11 @@ end
 --- true.
 ---
 --- No rebuild, for the reason `SetKeyForActions` gives.
-function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants)
+function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants, answers)
     if (unbindOccupants and occupants) then
         DebindPrivate.ClearKeyForActions(occupants);
     end
-    return DebindPrivate.SetKeyForActions(actions, key);
+    return DebindPrivate.SetKeyForActions(actions, key, answers);
 end
 
 --- Takes the key off one action, and the number with it.

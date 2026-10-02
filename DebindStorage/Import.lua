@@ -1251,6 +1251,128 @@ function DebindStorage.PlanArrival(payload, options)
     return placements, skipped;
 end
 
+--- One kept switch row, the three fields `SWITCH_FIELDS` carries, type-checked: a pasted string is
+--- untrusted, and these are written into the reader's switches on acceptance.
+local SWITCH_MODE_VALUES = {};
+for _, mode in pairs(Constants.SWITCH_MODES) do
+    SWITCH_MODE_VALUES[mode] = true;
+end
+local function KeptRow(row)
+    if (luatype(row) ~= "table") then
+        return nil;
+    end
+    if (row.mode ~= nil and not SWITCH_MODE_VALUES[row.mode]) then
+        return nil;
+    end
+    local kept = { mode = row.mode };
+    if (luatype(row.resetValue) == "boolean") then
+        kept.resetValue = row.resetValue;
+    end
+    if (luatype(row.expr) == "string") then
+        kept.expr = row.expr;
+    end
+    return kept;
+end
+
+--- The switch rows an arrival keeps until its actions are accepted, at this character's addresses
+--- (`resolving-switches-on-accept.md` 3-4). `actions` are the ones `PlanArrival` built.
+---
+--- **Which cells: this class's, whatever was ticked.** Another class's account cells are dropped,
+--- as their actions are. The general and class boxes are not read: they pick which actions to take,
+--- while a class cell's override changes how a general action behaves on this class, so a reader who
+--- took only general actions still needs it. Character cells come from the character the dialog
+--- picked, and none when nobody was.
+---
+--- **A class with no specialization layers keeps its specialization 0 row and drops the folded
+--- ones.** Actions in those cells are lists and merge; a switch has one row per cell, and which
+--- spec's row should win is picking one of the sender's specs on no ground (3절).
+---
+--- Returns `{ [name] = { general = row, class = { [spec] = row }, character = { [spec] = row } } }`.
+function DebindStorage.ArrivalSwitchRows(payload, options, actions)
+    if (payload.source == DebindStorage.SOURCE_CLIQUE or luatype(payload.switches) ~= "table") then
+        return nil;
+    end
+    local parts = options and options.parts or DebindStorage.AddChoices(payload, options and options.selection);
+    local classID = PlayableClassID(Constants.PLAYER_CLASS);
+    local specLayers = DebindPrivate.SpecLayerCount(classID);
+
+    -- name -> cells, for every row this character could take.
+    local available = {};
+    local function keep(name, scope, spec, row)
+        if (not Constants.IsValidSwitchName(name)) then
+            return;
+        end
+        local kept = KeptRow(row);
+        if (not kept) then
+            return;
+        end
+        local cells = available[name] or {};
+        available[name] = cells;
+        if (scope == "general") then
+            cells.general = kept;
+        else
+            cells[scope] = cells[scope] or {};
+            cells[scope][spec] = kept;
+        end
+    end
+
+    for owner, classes in pairs(payload.switches) do
+        if (luatype(classes) == "table") then
+            for class, specTbl in pairs(classes) do
+                if (luatype(specTbl) == "table") then
+                    for spec, cell in pairs(specTbl) do
+                        local mine = (owner == DebindStorage.ACCOUNT_OWNER and (class == "GENERAL" or class == Constants.PLAYER_CLASS))
+                            or (owner == parts.character and class == Constants.PLAYER_CLASS);
+                        local scope, _, at = nil, nil, nil;
+                        if (mine) then
+                            scope, _, at = DebindStorage.ImportAddress(owner, class, spec);
+                        end
+                        local folded = specLayers == 0 and spec ~= 0;
+                        if (scope and not folded and luatype(cell) == "table"
+                                and (scope == "general" or at == 0 or at <= specLayers)) then
+                            for name, row in pairs(cell) do
+                                keep(name, scope, at, row);
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- What the built actions name, closed over the kept rows' expressions.
+    local switches, queue = {}, {};
+    for _, action in ipairs(actions) do
+        DebindPrivate.ForEachSwitchInAction(action, function(name)
+            queue[#queue + 1] = name;
+        end);
+    end
+    while (#queue > 0) do
+        local name = table.remove(queue);
+        local cells = available[name];
+        if (cells and not switches[name]) then
+            switches[name] = cells;
+            local rows = { cells.general };
+            for _, scope in ipairs({ "class", "character" }) do
+                for _, row in pairs(cells[scope] or {}) do
+                    rows[#rows + 1] = row;
+                end
+            end
+            for _, row in ipairs(rows) do
+                if (row.mode == Constants.SWITCH_MODES.EXPR and row.expr) then
+                    local _, args = DebindPrivate.ParseMacroText(row.expr);
+                    for i = 1, (args and #args or 0) do
+                        if (args[i].type == Constants.MACROTEXT_ARG_SWITCH) then
+                            queue[#queue + 1] = args[i].name;
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return switches;
+end
+
 --- Commits an entry into the profile, badged.
 ---
 --- `options` is `PlanArrival`'s, and comes from the dialog the press opened rather than from the
@@ -1289,6 +1411,7 @@ function DebindStorage.CommitEntry(entry, options)
     for i = 1, #placements do
         actions[i] = placements[i].action;
     end
+    DebindPrivate.RecordArrival(actions[1].arrivalID, DebindStorage.ArrivalSwitchRows(payload, options, actions));
 
     return #placements, skipped, actions;
 end
