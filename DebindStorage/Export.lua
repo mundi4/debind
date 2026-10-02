@@ -408,7 +408,7 @@ end
 --- Four places hold a reference (`redesigning-custom-states.md` §3-4) and three of them are
 --- reachable from an action: the condition fields on the action itself, an on/off/toggle action's
 --- `value`, and names typed into macro text. The fourth is a switch's own `expr` naming another
---- switch, which is why this closes transitively rather than doing one pass.
+--- switch; this does not follow it, `BuildSwitchCells` closes over it.
 local function CollectSwitchNames(actions, found)
     for i = 1, #actions do
         local action = actions[i];

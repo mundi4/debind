@@ -796,7 +796,8 @@ end
 --- Every stored list of actions, in whichever containers the data is in at this point of the
 --- ladder: up to 7 in `shared` (`GENERAL` a bare list, `classes[class][spec]`) and on the character
 --- entries (`layers[spec]`); from the `dbver <= 7` step of `MigrateContainers` on in
---- `layers[owner][class][spec]`. `ForEachStoredAction` in `Profile.lua` knows only the last.
+--- `layers[owner][class][spec]`, beside `pendingActions[guid]`. `ForEachStoredAction` in
+--- `Profile.lua` knows only `layers`.
 local function ForEachActionList(db, fn)
     local function EachSpec(specTbl)
         if (luatype(specTbl) == "table") then
@@ -825,6 +826,17 @@ local function ForEachActionList(db, fn)
     for _, classes in pairs(luatype(db.layers) == "table" and db.layers or {}) do
         for _, specTbl in pairs(classes) do
             EachSpec(specTbl);
+        end
+    end
+    -- **Every character's pending actions too.** They are out of `layers` on disk
+    -- (`StowPendingActions`), and a step that rewrites actions but misses them leaves another
+    -- character's in the old shape for good. No step written before this table existed meets one.
+    for _, share in pairs(luatype(db.pendingActions) == "table" and db.pendingActions or {}) do
+        if (luatype(share) == "table") then
+            for _, specTbl in pairs(luatype(share.account) == "table" and share.account or {}) do
+                EachSpec(specTbl);
+            end
+            EachSpec(share.character);
         end
     end
 end

@@ -163,6 +163,7 @@ end
 
 function Events.PLAYER_LOGOUT()
     DebindPrivate.CleanUpDB();
+    DebindPrivate.StowPendingActions();
 end
 
 function Events.TRAIT_CONFIG_UPDATED(_, configID)

@@ -624,6 +624,45 @@ local function LoadLayer(layerID)
     return layer;
 end
 
+--- The spec table one of this character's layers keeps its pending actions in, inside its
+--- `pendingActions[guid]` share, and the spec to index it with. Made on the way down.
+---
+--- **Addressed like `layers`, not by layer ID.** Nothing on disk is keyed by `LAYER_INFOS`' numbering,
+--- which is this client's view of the profile; a share keyed by it would turn a renumbering into a
+--- migration (`keeping-pending-actions-per-character.md` §2).
+local function PendingSpecTable(share, layerID)
+    local layerInfo = LAYER_INFOS[layerID];
+    if (layerInfo.isCharacterSpecific) then
+        return SpecTableIn(share, "character"), layerInfo.spec;
+    end
+    return SpecTableIn(SpecTableIn(share, ACCOUNT_OWNER), layerInfo.key), layerInfo.spec or 0;
+end
+
+--- Puts this character's pending actions back into its layers for the session.
+---
+--- **After `LoadProfile` and before the load-time `CleanUpDB`**, so the merged actions get the same
+--- clean-up as everything else in the layers. The split is the other half and runs only at logout
+--- (`StowPendingActions`).
+---
+--- A cell whose layer this client does not load (a spec past `NUM_SPECS`) stays in the share.
+local function MergePendingActions()
+    local all = DebindPrivate.db.global.pendingActions;
+    local share = all and all[DebindPrivate.playerGUID];
+    if (not share) then
+        return;
+    end
+    for layerID, layer in pairs(LayerArray) do
+        local specTbl, spec = PendingSpecTable(share, layerID);
+        local pending = specTbl[spec];
+        if (pending) then
+            for i = 1, #pending do
+                tinsert(layer.actions, pending[i]);
+            end
+            specTbl[spec] = nil;
+        end
+    end
+end
+
 function DebindPrivate.LoadProfile()
     wipe(LayerArray);
     for layerID = 1, #LAYER_INFOS do
@@ -1397,8 +1436,10 @@ DebindPrivate.ActionNamesSwitch = ActionNamesSwitch;
 function DebindPrivate.CountSwitchReferences(name)
     local account, character, live = 0, 0, 0;
 
+    -- **A pending action is not counted** (owner, 2026-10-02): it is not the reader's yet, the
+    -- same reason a rename does not reach it (`RenameSwitch`).
     ForEachStoredAction(DebindPrivate.db.global, function(action)
-        if (ActionNamesSwitch(action, name)) then
+        if (not action.arrivalID and ActionNamesSwitch(action, name)) then
             account = account + 1;
         end
     end, DebindPrivate.db.charLayers);
@@ -1408,7 +1449,7 @@ function DebindPrivate.CountSwitchReferences(name)
     -- these two numbers agreeing with the list the reader is looking at.
     for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
         for _, action in layer:Enumerate() do
-            if (ActionNamesSwitch(action, name)) then
+            if (not action.arrivalID and ActionNamesSwitch(action, name)) then
                 character = character + 1;
             end
         end
@@ -1416,7 +1457,7 @@ function DebindPrivate.CountSwitchReferences(name)
 
     for _, layer in DebindPrivate.EnumerateProfileLayers() do
         for _, action in layer:Enumerate() do
-            if (ActionNamesSwitch(action, name)) then
+            if (not action.arrivalID and ActionNamesSwitch(action, name)) then
                 live = live + 1;
             end
         end
@@ -1521,9 +1562,12 @@ function DebindPrivate.CollectSwitchUsage()
         end);
     end
 
+    -- Pending actions are left out, as in `CountSwitchReferences`.
     local function walkLayer(layerTbl, layerID, kind, key)
         for i = 1, #(layerTbl or {}) do
-            addAction(layerTbl[i], layerID, kind, key);
+            if (not layerTbl[i].arrivalID) then
+                addAction(layerTbl[i], layerID, kind, key);
+            end
         end
     end
 
@@ -1668,7 +1712,14 @@ function DebindPrivate.RenameSwitch(oldName, newName)
 
     local db = DebindPrivate.db.global;
 
+    -- **A pending action keeps the old name** (owner, 2026-10-02). It is not the reader's yet, so
+    -- renaming their switch is not a decision about it; it is settled against the profile when it
+    -- is accepted (`resolving-switches-on-accept.md` 6-5). Other characters' pending actions are
+    -- in `pendingActions` and this walk does not reach them at all.
     ForEachStoredAction(db, function(action)
+        if (action.arrivalID) then
+            return;
+        end
         local conditions = action.conditions;
         if (conditions and conditions[oldName] ~= nil) then
             conditions[newName] = conditions[oldName];
@@ -2102,6 +2153,7 @@ function DebindPrivate.InitDB()
 
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
+    MergePendingActions();
     DebindPrivate.CleanUpDB()
 end
 
@@ -2213,6 +2265,26 @@ local ORPHANED_OPTION_KEYS = {
     -- a profile somebody is using.
     "hoverCast",
 };
+
+--- Attaches or detaches this character's state and layers, and attaches its entry. `InitDB` does
+--- not create any of them up front, so this is where anything actually enters `characters`,
+--- `states` or `layers`. State and layers are decided again on every logout, which is how they
+--- disappear for someone who just deleted their last character-specific binding.
+local function AttachCharacterTables()
+    local db = DebindPrivate.db.global;
+    local guid = DebindPrivate.playerGUID;
+    if (db and guid) then
+        local hasLayers = HasLayerContent(DebindPrivate.db.charLayers);
+        db.layers[guid] = hasLayers and DebindPrivate.db.charLayers or nil;
+        PruneSwitchCells();
+        local hasState = HasStateContent(DebindPrivate.db.charState);
+        db.states[guid] = hasState and DebindPrivate.db.charState or nil;
+        -- **The entry stays whether or not anything under this GUID does.** An entry is how a
+        -- later login tells a GUID it has seen from one it has not, and a character moved to
+        -- another realm, as hardcore does with every death, arrives under a new GUID.
+        db.characters[guid] = DebindPrivate.db.char;
+    end
+end
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
@@ -2396,10 +2468,6 @@ function DebindPrivate.CleanUpDB()
         end
     end
 
-    -- **Attach or detach this character's state and layers, and attach its entry.** `InitDB` does
-    -- not create any of them up front, so this is where anything actually enters `characters`,
-    -- `states` or `layers`. State and layers are decided again on every logout, which is how they
-    -- disappear for someone who just deleted their last character-specific binding.
     local db = DebindPrivate.db.global;
     if (db) then
         for i = 1, #ORPHANED_GLOBAL_KEYS do
@@ -2412,18 +2480,111 @@ function DebindPrivate.CleanUpDB()
         end
     end
 
-    local guid = DebindPrivate.playerGUID;
-    if (db and guid) then
-        local hasLayers = HasLayerContent(DebindPrivate.db.charLayers);
-        db.layers[guid] = hasLayers and DebindPrivate.db.charLayers or nil;
-        PruneSwitchCells();
-        local hasState = HasStateContent(DebindPrivate.db.charState);
-        db.states[guid] = hasState and DebindPrivate.db.charState or nil;
-        -- **The entry stays whether or not anything under this GUID does.** An entry is how a
-        -- later login tells a GUID it has seen from one it has not, and a character moved to
-        -- another realm, as hardcore does with every death, arrives under a new GUID.
-        db.characters[guid] = DebindPrivate.db.char;
+    AttachCharacterTables();
+end
+
+--- Drops empty lists and the tables left holding nothing from one `pendingActions[guid]` share,
+--- and gathers the arrival numbers still in it.
+local function PruneShare(share, kept)
+    local function pruneSpecs(specTbl)
+        for spec, list in pairs(specTbl) do
+            if (#list == 0) then
+                specTbl[spec] = nil;
+            else
+                for i = 1, #list do
+                    kept[list[i].arrivalID] = true;
+                end
+            end
+        end
+        return next(specTbl) == nil;
     end
+
+    local classes = share[ACCOUNT_OWNER];
+    if (classes) then
+        for class, specTbl in pairs(classes) do
+            if (pruneSpecs(specTbl)) then
+                classes[class] = nil;
+            end
+        end
+        if (next(classes) == nil) then
+            share[ACCOUNT_OWNER] = nil;
+        end
+    end
+    if (share.character and pruneSpecs(share.character)) then
+        share.character = nil;
+    end
+end
+
+--- Takes this character's pending actions out of its layers and into `pendingActions[guid]`, and
+--- drops the records of arrivals with nothing left waiting. The logout half of
+--- `MergePendingActions`.
+---
+--- **After `CleanUpDB`**, so what goes into the share has had the same clean-up as the layers. And
+--- **never from inside it**: the load-time `CleanUpDB` runs on layers nothing has been merged into
+--- yet, and a split there would write this character's share out empty and every record with it.
+---
+--- The layers end up without the badged actions, which is the shape saved to disk; nothing runs
+--- after logout to read them.
+function DebindPrivate.StowPendingActions()
+    local db = DebindPrivate.db.global;
+    local guid = DebindPrivate.playerGUID;
+    if (not (db and guid)) then
+        return;
+    end
+
+    db.pendingActions = db.pendingActions or {};
+    local share = db.pendingActions[guid] or {};
+    for layerID, layer in pairs(LayerArray) do
+        local actions, kept = layer.actions, 0;
+        local count = #actions;
+        local pending;
+        for i = 1, count do
+            local action = actions[i];
+            if (action.arrivalID) then
+                pending = pending or {};
+                pending[#pending + 1] = action;
+            else
+                kept = kept + 1;
+                actions[kept] = action;
+            end
+        end
+        for i = kept + 1, count do
+            actions[i] = nil;
+        end
+        if (pending) then
+            local specTbl, spec = PendingSpecTable(share, layerID);
+            local list = specTbl[spec] or {};
+            specTbl[spec] = list;
+            for i = 1, #pending do
+                list[#list + 1] = pending[i];
+            end
+        end
+    end
+
+    local waiting = {};
+    PruneShare(share, waiting);
+    db.pendingActions[guid] = next(share) and share or nil;
+    if (next(db.pendingActions) == nil) then
+        db.pendingActions = nil;
+    end
+
+    local records = db.arrivals and db.arrivals[guid];
+    if (records) then
+        for arrivalID in pairs(records) do
+            if (not waiting[arrivalID]) then
+                records[arrivalID] = nil;
+            end
+        end
+        if (next(records) == nil) then
+            db.arrivals[guid] = nil;
+        end
+        if (next(db.arrivals) == nil) then
+            db.arrivals = nil;
+        end
+    end
+
+    -- Decided again, because a character layer that held only pending actions is empty now.
+    AttachCharacterTables();
 end
 
 function DebindPrivate.GetLayerID(spec, isCharacterSpecific)
