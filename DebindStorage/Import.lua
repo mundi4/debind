@@ -1265,9 +1265,9 @@ end
 --- uses the reader's `$state3`, which is the "keep mine" answer, and a name nothing defines is
 --- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_SWITCH`).
 ---
---- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
---- put to the reader, and it is not built yet (`building-export-import.md`). Until it is, the answer is
---- the one that cannot change anything they already had.
+--- **Nor is this the place to ask about them** (owner, 2026-10-02). The arrival may sit pending for
+--- days, and an answer given here can be a conflict by the time it is accepted; the switches are
+--- settled when the actions are (`resolving-switches-on-accept.md`).
 function DebindStorage.CommitEntry(entry, options)
     local payload, reason = DebindStorage.GetEntryPayload(entry);
     if (not payload) then
