@@ -11915,13 +11915,174 @@ function UI.HideClickTarget()
 end
 
 -----------------------------------------------------------
+-- The switch window, staged to look at (`/debtest switchwindow [2]`)
+--
+-- Bringing the window up by hand takes a second account's string, a pending add and an accept,
+-- and several conflicts at once take several switches set up on both sides. This stands all of it
+-- up on the real profile and presses the row's [Accept] path, so what comes up is the window as
+-- an acceptance opens it and its [OK] runs the real write.
+--
+-- **Everything it made goes when the flow ends**, OK or cancel: the staged actions, the record,
+-- and every switch that was not there before -- which takes in a name typed into [Rename].
+-----------------------------------------------------------
+
+local PREVIEW_PREFIX = "$dbtprev_"
+local PREVIEW_ARRIVALS = { 990101, 990102 }
+local previewState
+
+local function PreviewRow(mode, resetValue, expr)
+    return { mode = mode, resetValue = resetValue, expr = expr }
+end
+
+local function EndSwitchWindowPreview()
+    local state = previewState
+    previewState = nil
+    if not state then
+        return
+    end
+    local layer = DebindPrivate.GetProfileLayer(1)
+    for _, action in ipairs(state.actions) do
+        layer:Remove(action)
+    end
+    for _, name in ipairs(DebindPrivate.GetSwitchNames()) do
+        if not state.namesBefore[name] then
+            DebindPrivate.DeleteSwitch(name)
+        end
+    end
+    local mine = DebindPrivate.db.global.arrivals and DebindPrivate.db.global.arrivals[DebindPrivate.playerGUID]
+    for _, arrivalID in ipairs(PREVIEW_ARRIVALS) do
+        if mine then
+            mine[arrivalID] = nil
+        end
+    end
+    if not InCombatLockdown() then
+        DebindPrivate.UpdateBindings()
+    end
+    if DebindFrame:IsShown() then
+        DebindLayerPanel:Refresh(true)
+        DebindFrame:Update()
+    end
+    print("|cff00ccff[DebindTest]|r switch window preview cleared.")
+end
+
+--- Waits out the flow: a window closing may be followed by the next step's in the same frame.
+local function WatchSwitchWindowPreview()
+    C_Timer.After(0.2, function()
+        if not previewState then
+            return
+        end
+        if DebindArrivalSwitchesFrame:IsShown() or StaticPopup_Visible("DEBIND_APPROVE_ALL_OCCUPIED") then
+            WatchSwitchWindowPreview()
+            return
+        end
+        EndSwitchWindowPreview()
+    end)
+end
+
+local function StageSwitchWindowPreview(twoArrivals)
+    if previewState then
+        EndSwitchWindowPreview()
+    end
+    local MODES = Constants.SWITCH_MODES
+    local MANUAL, EXPR, IGNORE = MODES.MANUAL, MODES.EXPR, MODES.IGNORE
+    local namesBefore = {}
+    for _, name in ipairs(DebindPrivate.GetSwitchNames()) do
+        namesBefore[name] = true
+    end
+    previewState = { namesBefore = namesBefore, actions = {} }
+
+    local function Name(suffix)
+        return PREVIEW_PREFIX .. suffix
+    end
+    --- The reader's side: a root row, and optional layer rows by layer key.
+    local function Mine(suffix, root, rows)
+        local name = Name(suffix)
+        DebindPrivate.CreateSwitch(name)
+        DebindPrivate.SetSwitchAnswer(name, nil, root.mode, root.resetValue)
+        DebindPrivate.SetSwitchExpression(name, nil, root.expr)
+        for layerID, row in pairs(rows or {}) do
+            local layerKey = DebindPrivate.GetSwitchLayerKey(layerID)
+            if layerKey then
+                DebindPrivate.SetSwitchAnswer(name, layerKey, row.mode, row.resetValue)
+                DebindPrivate.SetSwitchExpression(name, layerKey, row.expr)
+            end
+        end
+    end
+    local hasSpec2 = DebindPrivate.GetProfileLayer(DebindPrivate.LayerIDAt(2, false)) ~= nil
+    local classSpec1 = DebindPrivate.LayerIDAt(hasSpec2 and 1 or 0, false)
+
+    -- The reader's switches.
+    Mine("burst", PreviewRow(MANUAL, true))
+    Mine("aoe", PreviewRow(MANUAL, nil), { [classSpec1] = PreviewRow(MANUAL, false) })
+    Mine("expr", PreviewRow(EXPR, nil, "[mod:shift]"))
+    Mine("rename", PreviewRow(MANUAL, true))
+    Mine("same", PreviewRow(MANUAL, false))
+    for i = 1, 6 do
+        Mine("more" .. i, PreviewRow(MANUAL, true))
+    end
+
+    -- What the arrival keeps.
+    -- An overwrite on the class's first spec layer (or the class layer, on a class with none), a
+    -- fill on its second where there is one, and a fill on the character layer.
+    local aoeClass = { [hasSpec2 and 1 or 0] = PreviewRow(MANUAL, true) }
+    if hasSpec2 then
+        aoeClass[2] = PreviewRow(MANUAL, false)
+    end
+    local kept = {
+        [Name("burst")] = { general = PreviewRow(MANUAL, false) },
+        [Name("aoe")] = { class = aoeClass, character = { [0] = PreviewRow(EXPR, nil, "[combat]") } },
+        [Name("expr")] = { general = PreviewRow(EXPR, nil, "[mod:ctrl]") },
+        [Name("rename")] = { general = PreviewRow(IGNORE) },
+        [Name("new")] = { general = PreviewRow(MANUAL, true) },
+        [Name("same")] = { general = PreviewRow(MANUAL, false) },
+    }
+    for i = 1, 6 do
+        kept[Name("more" .. i)] = { general = PreviewRow(MANUAL, false) }
+    end
+
+    local layer = DebindPrivate.GetProfileLayer(1)
+    local function Stage(arrivalID, cellsByName)
+        DebindPrivate.RecordArrival(arrivalID, cellsByName)
+        local conditions = {}
+        for name in pairs(cellsByName) do
+            conditions[name] = true
+        end
+        local action = { type = Constants.SPELL, value = 1, arrivalID = arrivalID, conditions = conditions }
+        layer:Insert(action)
+        previewState.actions[#previewState.actions + 1] = action
+        return action
+    end
+
+    if twoArrivals then
+        -- The same name, held two ways: the first window makes it, the second asks against that.
+        kept[Name("clash")] = { general = PreviewRow(MANUAL, true) }
+    end
+    local actions = { Stage(PREVIEW_ARRIVALS[1], kept) }
+    if twoArrivals then
+        actions[2] = Stage(PREVIEW_ARRIVALS[2], {
+            [Name("clash")] = { general = PreviewRow(MANUAL, false) },
+            [Name("burst")] = { general = PreviewRow(IGNORE) },
+        })
+    end
+
+    DebindFrame:Show()
+    DebindUI.AcceptArrivedActions(actions)
+    if not DebindArrivalSwitchesFrame:IsShown() then
+        print("|cffff4444[DebindTest]|r the switch window did not come up.")
+    end
+    WatchSwitchWindowPreview()
+end
+
+-----------------------------------------------------------
 -- Slash Command
 -----------------------------------------------------------
 
 SLASH_DEBINDTEST1 = "/debtest"
 SlashCmdList["DEBINDTEST"] = function(msg)
     msg = strtrim(msg):lower()
-    if msg == "ui" then
+    if msg == "switchwindow" or msg == "switchwindow 2" then
+        StageSwitchWindowPreview(msg == "switchwindow 2")
+    elseif msg == "ui" then
         CreateTestUI()
     elseif msg == "copy" then
         if lastResultText ~= "" then
@@ -11944,4 +12105,4 @@ SlashCmdList["DEBINDTEST"] = function(msg)
     end
 end
 
-print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = the list window. Run it from the |cffffff00Run|r / |cffffff00With reload|r / |cffffff00Reload, then run|r buttons inside it. |cffffff00/debtest last|r = the previous results.")
+print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = the list window. Run it from the |cffffff00Run|r / |cffffff00With reload|r / |cffffff00Reload, then run|r buttons inside it. |cffffff00/debtest last|r = the previous results. |cffffff00/debtest switchwindow|r [2] = the switch window, staged.")
