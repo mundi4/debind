@@ -3,8 +3,10 @@
 //   1. npm run camelot-class-spells:fetch   this file. wowhead's class ability lists for World of
 //                                           Warcraft: Forever, narrowed, written into the camelot
 //                                           probe as code (DebindCamelotProbe/ClassSpells.lua)
-//   2. /camelotprobe classspells            in the game: the client is asked about each of them,
-//                                           and the answers go to the probe's SavedVariables
+//   2. a camelot login, then /reload        in the game: the client is asked about each of them,
+//                                           and the answers go to the probe's SavedVariables. The
+//                                           probe asks on its own when this list's version has
+//                                           moved; /camelotprobe classspells asks again by hand
 //   3. npm run camelot-class-spells:build   tools/build-camelot-class-spells.js: the release table,
 //                                           out of those answers alone
 //
