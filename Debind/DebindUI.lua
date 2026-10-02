@@ -3033,6 +3033,8 @@ function DebindFrameMixin:OnHide()
 	DebindPasteFrame:CloseDialog();
 	DebindAddFrame:CloseDialog();
 	DebindEntryTextFrame:CloseDialog();
+	-- The switch window as well: its [OK] accepts into a window that is gone.
+	DebindUI.CancelArrivalSwitches();
 
 	-- **The plate crosses tabs but not a close.** The (?) on the tab takes the canvas down on its
 	-- own `OnHide`; what is cleared here is the asking behind it, so the window does not open again
@@ -5627,8 +5629,9 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
 		self.bindEdits = nil;
 		self.bindSwitchUndo = nil;
-		-- A switch window a press in the mode put up answers into the mode, which is gone.
-		DebindUI.CancelArrivalSwitches();
+		-- A switch window a press in the mode put up answers into the mode, which is gone. One
+		-- anything else put up is left to its own flow.
+		DebindUI.CancelArrivalSwitches(true);
 	end
 
 	-- 켤 때는 부르는 쪽이 준 과녁을, 끌 때는 **켰던 그 과녁**을 되돌린다. 행 버튼은 풀에서
@@ -5774,7 +5777,7 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 			if (self:IsCapturingKey()) then
 				self:SetActionKey(action, key, switchAnswers);
 			end
-		end);
+		end, true);
 		return;
 	end
 	self:SetActionKey(action, key);

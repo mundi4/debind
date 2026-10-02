@@ -108,10 +108,23 @@ local function CopyRow(row)
     return { mode = row.mode, resetValue = row.resetValue, expr = row.expr };
 end
 
+--- One name's entry in `answers.creates` or `answers.writes`: rows by layer, and which arrivals
+--- each row came from. Copied from `cells` when given.
+local function NewEntry(cells, arrivalIDs)
+    local entry = { cells = {}, origins = {} };
+    if (cells) then
+        EachCell(cells, function(layerID, row)
+            entry.cells[layerID] = CopyRow(row);
+            entry.origins[layerID] = arrivalIDs;
+        end);
+    end
+    return entry;
+end
+
 --- A fresh table for one flow's answers.
 ---
---- * `creates[name] = { cells = { [layerID] = row }, arrivalIDs = { [id] = true } }` -- switches the
----   profile does not have, made from the kept rows. Names the reader renamed to are here too
+--- * `creates[name]` -- switches the profile does not have, made from the kept rows (`NewEntry`).
+---   Names the reader renamed to are here too
 --- * `writes[name]` -- same shape, the rows the reader ticked
 --- * `renames` -- `{ arrivalIDs, from, to }`
 --- * `resolved` -- `{ arrivalIDs, name }`: answered, so the next acceptance from the same arrival is
@@ -184,8 +197,63 @@ DebindPrivate.ArrivalSwitchExists = SwitchExists;
 -- What to ask
 --------------------------------------------------------------------------------
 
+--- Which of `actions` are waiting, and on which arrival, at the moment the window opens.
+function DebindPrivate.SnapshotArrivalBadges(actions)
+    local snapshot = {};
+    for _, action in ipairs(actions) do
+        if (action.arrivalID) then
+            snapshot[action] = action.arrivalID;
+        end
+    end
+    return snapshot;
+end
+
+--- Are they all still waiting on the same arrival, and still in the profile?
+---
+--- **The window does not hold the rest of the screen**, so between opening and [OK] the reader can
+--- reject, delete or accept those very actions some other way. An answer given for a set that is
+--- no longer there must write nothing: no badge comes off a table no layer holds, and no switch is
+--- written for an arrival the reader turned down.
+function DebindPrivate.ArrivalBadgesHold(snapshot)
+    for action, arrivalID in pairs(snapshot) do
+        if (action.arrivalID ~= arrivalID or not DebindPrivate.FindLayerID(action)) then
+            return false;
+        end
+    end
+    return true;
+end
+
+--- The switches `actions` name that `cellsByName` has rows for, closed over those rows'
+--- expressions, into `names` as `name -> cells`.
+---
+--- **The one rule for which switches an arrival depends on**, read where its rows are kept
+--- (`DebindStorage.ArrivalSwitchRows`) and where they are asked about (`NamesByArrival`). Two
+--- copies would let the window ask about rows that were never kept, or miss ones that were.
+function DebindPrivate.CollectArrivalSwitches(actions, cellsByName, names)
+    names = names or {};
+    local queue = {};
+    for _, action in ipairs(actions) do
+        DebindPrivate.ForEachSwitchInAction(action, function(name)
+            queue[#queue + 1] = name;
+        end);
+    end
+    while (#queue > 0) do
+        local name = table.remove(queue);
+        local cells = cellsByName[name];
+        if (names[name] == nil and cells) then
+            names[name] = cells;
+            EachCell(cells, function(_, row)
+                EachNameInExpr(row, function(other)
+                    queue[#queue + 1] = other;
+                end);
+            end);
+        end
+    end
+    return names;
+end
+
 --- Per arrival, the names these actions call that its record keeps rows for and has not answered.
---- `{ [arrivalID] = { [name] = cells } }`. An expression's names are followed through the kept rows.
+--- `{ [arrivalID] = { [name] = cells } }`.
 local function NamesByArrival(actions)
     local byArrival = {};
     for _, action in ipairs(actions) do
@@ -194,22 +262,7 @@ local function NamesByArrival(actions)
         if (record and record.switches) then
             local names = byArrival[arrivalID] or {};
             byArrival[arrivalID] = names;
-            local queue = {};
-            DebindPrivate.ForEachSwitchInAction(action, function(name)
-                queue[#queue + 1] = name;
-            end);
-            while (#queue > 0) do
-                local name = table.remove(queue);
-                local cells = record.switches[name];
-                if (names[name] == nil and cells) then
-                    names[name] = cells;
-                    EachCell(cells, function(_, row)
-                        EachNameInExpr(row, function(other)
-                            queue[#queue + 1] = other;
-                        end);
-                    end);
-                end
-            end
+            DebindPrivate.CollectArrivalSwitches({ action }, record.switches, names);
             for name in pairs(names) do
                 if (record.resolved and record.resolved[name]) then
                     names[name] = nil;
@@ -288,11 +341,13 @@ function DebindPrivate.ClassifyArrivalSwitches(byArrival, arrivalIDs, answers)
     for _, name in ipairs(SortedKeys(merged)) do
         local entry = merged[name];
         if (not SwitchExists(name, answers)) then
-            local created = { cells = {}, arrivalIDs = entry.arrivalIDs };
-            EachCell(entry.cells, function(layerID, row)
-                created.cells[layerID] = CopyRow(row);
-            end);
-            answers.creates[name] = created;
+            -- **Only a folded name is made.** `CreateSwitch` files `$Burst` as `$burst`, so the
+            -- actions would go on calling a name nothing defines -- and where the reader has
+            -- `$burst` the make is refused and the conflict was never asked. Left alone, the name
+            -- goes red as any undefined one does.
+            if (name == strlower(name)) then
+                answers.creates[name] = NewEntry(entry.cells, entry.arrivalIDs);
+            end
         else
             local rows = {};
             EachCell(entry.cells, function(layerID, row)
@@ -311,9 +366,11 @@ function DebindPrivate.ClassifyArrivalSwitches(byArrival, arrivalIDs, answers)
     return items;
 end
 
---- Is this name free to rename an item to: not in the profile, not about to be made, and not
---- already another item's new name. Answers the folded name, or nil and the locale key.
-function DebindPrivate.CheckArrivalRename(typed, answers, takenNow)
+--- Is this name free to rename an item to: not in the profile, not about to be made, not already
+--- another item's new name, and not one the item's own arrivals keep rows for -- the rename moves
+--- the kept rows under the new name, and would put them over that switch's. Answers the folded
+--- name, or nil and the locale key.
+function DebindPrivate.CheckArrivalRename(typed, answers, takenNow, arrivalIDs)
     if (not Constants.IsValidSwitchName(typed)) then
         return nil, "SWITCH_NAME_ERROR_INVALID";
     end
@@ -321,25 +378,27 @@ function DebindPrivate.CheckArrivalRename(typed, answers, takenNow)
     if (SwitchExists(name, answers) or (takenNow and takenNow[name])) then
         return nil, "SWITCH_NAME_ERROR_TAKEN";
     end
+    for arrivalID in pairs(arrivalIDs or {}) do
+        local record = DebindPrivate.GetArrivalRecord(arrivalID);
+        if (record and record.switches and record.switches[name]) then
+            return nil, "SWITCH_NAME_ERROR_TAKEN";
+        end
+    end
     return name;
 end
 
+--- A rename reaches the rows that came from its arrivals, wherever they were written. **By each
+--- row's own origin**, since one name's entry can hold rows from more than one window.
 local function RenameInExprs(answers, arrivalIDs, from, to)
-    local function overlaps(ids)
-        for id in pairs(ids) do
-            if (arrivalIDs[id]) then
-                return true;
-            end
-        end
-        return false;
-    end
     for _, tbl in ipairs({ answers.creates, answers.writes }) do
         for _, entry in pairs(tbl) do
-            if (overlaps(entry.arrivalIDs)) then
-                for _, row in pairs(entry.cells) do
-                    if (luatype(row.expr) == "string") then
-                        row.expr = DebindPrivate.RenameSwitchInMacroText(row.expr, from, to);
-                    end
+            for layerID, row in pairs(entry.cells) do
+                local fromThese = false;
+                for id in pairs(entry.origins[layerID]) do
+                    fromThese = fromThese or arrivalIDs[id] == true;
+                end
+                if (fromThese and luatype(row.expr) == "string") then
+                    row.expr = DebindPrivate.RenameSwitchInMacroText(row.expr, from, to);
                 end
             end
         end
@@ -357,22 +416,21 @@ function DebindPrivate.AnswerArrivalSwitches(answers, items, choices)
         local choice = choices[item] or {};
         local name = item.name;
         if (choice.rename) then
-            local created = { cells = {}, arrivalIDs = item.arrivalIDs };
-            EachCell(item.cells, function(layerID, row)
-                created.cells[layerID] = CopyRow(row);
-            end);
-            answers.creates[choice.rename] = created;
+            answers.creates[choice.rename] = NewEntry(item.cells, item.arrivalIDs);
             answers.renames[#answers.renames + 1] = { arrivalIDs = item.arrivalIDs, from = name, to = choice.rename };
             name = choice.rename;
         else
             for _, row in ipairs(item.rows) do
                 if (choice.checked and choice.checked[row.layerID]) then
-                    local written = answers.writes[name];
-                    if (not written) then
-                        written = { cells = {}, arrivalIDs = item.arrivalIDs };
-                        answers.writes[name] = written;
+                    -- **Onto a switch an earlier window is making, the row goes into that make**,
+                    -- which is what the next window compares with (`MyRow`).
+                    local target = answers.creates[name] or answers.writes[name];
+                    if (not target) then
+                        target = NewEntry(nil, nil);
+                        answers.writes[name] = target;
                     end
-                    written.cells[row.layerID] = CopyRow(row.incoming);
+                    target.cells[row.layerID] = CopyRow(row.incoming);
+                    target.origins[row.layerID] = item.arrivalIDs;
                 end
             end
         end
@@ -493,7 +551,10 @@ local function ApplyAnswers(answers, undo)
         end
     end
 
-    DebindPrivate.OnSwitchesChanged();
+    -- A make announces itself (`CreateSwitch`); rows written over existing switches do not.
+    if (next(answers.writes) or #answers.renames > 0) then
+        DebindPrivate.OnSwitchesChanged();
+    end
 end
 
 --- **The one door a badge comes off through.** Every path that accepts an arrival -- accepting it,

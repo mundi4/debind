@@ -2238,6 +2238,51 @@ RegisterTest("Switch window: in bind mode it opens at the press, and the mode's 
     end,
 })
 
+RegisterTest("Switch window: what it stands on going away takes it down or voids it", {
+    description = "Closing the main window cancels the switch window; an OK for an arrival rejected meanwhile writes nothing; leaving bind mode leaves a window bind mode did not open",
+    run = function()
+        local NAME = "Switch window stale"
+        local action = StageSettleConflict("CTRL-SHIFT-F8")
+        DebindFrame:Show()
+        AddTeardown(function()
+            DebindFrame:SetBindingMode(false)
+            DebindFrame:CloseWindow()
+        end)
+
+        -- The main window closing.
+        DebindUI.AcceptArrivedActions({ action })
+        DebindFrame:CloseWindow()
+        if DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "the main window closed and the switch window stayed over nothing")
+        end
+        if action.arrivalID ~= SETTLE_ARRIVAL or SettleStartsOn() ~= true then
+            return Fail(NAME, "closing the main window accepted something")
+        end
+
+        -- Rejected while the window was up.
+        DebindFrame:Show()
+        DebindUI.AcceptArrivedActions({ action })
+        GetTestLayer():Remove(action)
+        AnswerSettleWindowTaking()
+        if SettleStartsOn() ~= true then
+            return Fail(NAME, "an OK for an arrival rejected meanwhile wrote its switch")
+        end
+        if action.arrivalID ~= SETTLE_ARRIVAL then
+            return Fail(NAME, "an OK for an arrival rejected meanwhile took the badge off a table no layer holds")
+        end
+
+        -- Bind mode ending under a window it did not open.
+        GetTestLayer():Insert(action)
+        DebindFrame:ToggleBindMode()
+        DebindUI.AcceptArrivedActions({ action })
+        DebindFrame:SetBindingMode(false)
+        if not DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "leaving bind mode took down a switch window the row's accept opened")
+        end
+        return Pass(NAME, "taken down with the window, voided when rejected, left alone by bind mode")
+    end,
+})
+
 --- The fourth way into the same window, and the one with no heading behind it: several rows the
 --- reader ticked, which may sit on different keys or on none.
 ---

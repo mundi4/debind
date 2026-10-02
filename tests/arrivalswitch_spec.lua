@@ -264,6 +264,90 @@ return function(DebindPrivate, DebindStorage)
         check(not (record.resolved and record.resolved["$a"]), "the answered mark stayed");
     end);
 
+    test("a rename may not take a name the same arrival keeps rows for", function()
+        Profile();
+        local actions = Commit(Payload({
+            Spell("F1", { ["$a"] = true }),
+            Spell("F2", { ["$keptb"] = true }),
+        }, { account = { GENERAL = { [0] = {
+            ["$a"] = Row(MANUAL, false), ["$keptb"] = Row(MANUAL, true),
+        } } } }));
+        local answers = Steps({ actions[1] });
+        local renamed = DebindPrivate.CheckArrivalRename("$keptb", answers, nil, { [actions[1].arrivalID] = true });
+        check(renamed == nil, "renamed onto a switch the same arrival keeps rows for");
+    end);
+
+    test("a name that is not folded is not made, and a refused make cannot drop a conflict", function()
+        Profile();
+        local actions = Commit(Payload({ Spell("F1", { ["$Upper"] = true }) },
+            { account = { GENERAL = { [0] = { ["$Upper"] = Row(MANUAL, true) } } } }));
+        local answers = Steps(actions);
+        check(answers.creates["$Upper"] == nil, "an unfolded name was going to be made under another spelling");
+    end);
+
+    test("a later window sees an earlier window's overwrite of a switch about to be made", function()
+        Profile();
+        local a = Commit(Payload({ Spell("F1", { ["$x"] = true }) },
+            { account = { GENERAL = { [0] = { ["$x"] = Row(MANUAL, true) } } } }));
+        local b = Commit(Payload({ Spell("F2", { ["$x"] = true }) },
+            { account = { GENERAL = { [0] = { ["$x"] = Row(MANUAL, false) } } } }));
+        local c = Commit(Payload({ Spell("F3", { ["$x"] = true }) },
+            { account = { GENERAL = { [0] = { ["$x"] = Row(MANUAL, nil) } } } }));
+        local answers = DebindPrivate.NewArrivalAnswers();
+        local steps, byArrival = DebindPrivate.ArrivalSwitchSteps({ a[1], b[1], c[1] });
+        check(#steps == 3, "steps " .. #steps);
+        DebindPrivate.ClassifyArrivalSwitches(byArrival, steps[1], answers);
+        local second = DebindPrivate.ClassifyArrivalSwitches(byArrival, steps[2], answers);
+        DebindPrivate.AnswerArrivalSwitches(answers, second, { [second[1]] = { checked = { [1] = true } } });
+        local third = DebindPrivate.ClassifyArrivalSwitches(byArrival, steps[3], answers);
+        check(third[1] and third[1].rows[1].mine.resetValue == false,
+            "the third window did not compare with what the second one wrote");
+    end);
+
+    test("a rename in one arrival reaches that arrival's rows written onto another arrival's switch", function()
+        Profile();
+        _G.DebindVars.switches.account.GENERAL[0]["$y"] = Row(MANUAL, true);
+        DebindPrivate.InitDB();
+        local a = Commit(Payload({ Spell("F1", { ["$a"] = true }) },
+            { account = { GENERAL = { [0] = { ["$a"] = Row(MANUAL, false) } } } }));
+        local b = Commit(Payload({ Spell("F2", { ["$a"] = true }) }, { account = {
+            GENERAL = { [0] = { ["$a"] = Row(MANUAL, nil), ["$y"] = Row(MANUAL, false) } },
+            [CLASS] = { [2] = { ["$a"] = Row(EXPR, nil, "[$y]") } },
+        } }));
+        local answers = DebindPrivate.NewArrivalAnswers();
+        local steps, byArrival = DebindPrivate.ArrivalSwitchSteps({ a[1], b[1] });
+        check(#steps == 2, "steps " .. #steps);
+        local first = DebindPrivate.ClassifyArrivalSwitches(byArrival, steps[1], answers);
+        DebindPrivate.AnswerArrivalSwitches(answers, first, { [first[1]] = { checked = { [1] = true } } });
+        local second = DebindPrivate.ClassifyArrivalSwitches(byArrival, steps[2], answers);
+        local choices, spec2 = {}, DebindPrivate.GetLayerID(2, false);
+        for _, item in ipairs(second) do
+            if (item.name == "$a") then
+                choices[item] = { checked = { [spec2] = true } };
+            elseif (item.name == "$y") then
+                choices[item] = { rename = "$z" };
+            end
+        end
+        DebindPrivate.AnswerArrivalSwitches(answers, second, choices);
+        check(answers.writes["$a"].cells[spec2].expr == "[$z]",
+            "the row arrival B wrote still names $y: " .. tostring(answers.writes["$a"].cells[spec2].expr));
+    end);
+
+    test("an answer for actions rejected or accepted meanwhile is not one to write", function()
+        Profile();
+        local actions = Commit(Payload({ Spell("F1", { ["$a"] = true }), Spell("F2", { ["$a"] = true }) },
+            { account = { GENERAL = { [0] = { ["$a"] = Row(MANUAL, false) } } } }));
+        local snapshot = DebindPrivate.SnapshotArrivalBadges(actions);
+        check(DebindPrivate.ArrivalBadgesHold(snapshot), "nothing changed and the set reads as gone");
+
+        actions[1].arrivalID = nil;
+        check(not DebindPrivate.ArrivalBadgesHold(snapshot), "one was accepted meanwhile and the set still holds");
+        actions[1].arrivalID = actions[2].arrivalID;
+
+        DebindPrivate.GetProfileLayer(1):Remove(actions[2]);
+        check(not DebindPrivate.ArrivalBadgesHold(snapshot), "one was rejected meanwhile and the set still holds");
+    end);
+
     ---------------------------------------------------------------------------
     -- Merging (Switches tab, 6-6 / 6-7)
     ---------------------------------------------------------------------------
@@ -301,6 +385,20 @@ return function(DebindPrivate, DebindStorage)
         check(DebindPrivate.Switches["$a"].resetValue == true, "the winner's root changed");
         local spec1 = DebindPrivate.GetSwitchLayerKey(DebindPrivate.GetLayerID(1, false));
         check(DebindPrivate.GetSwitchAnswerAt("$a", spec1) == nil, "the loser's row filled a layer the winner had none on");
+    end);
+
+    test("merging leaves the winner's own expression as it was", function()
+        _G.DebindVars = {
+            dbver = C.DB_VERSION, characters = {}, migrated = {}, legacyNeeded = false,
+            layers = { account = { GENERAL = { [0] = {} } } },
+            switches = { account = { GENERAL = { [0] = {
+                ["$w"] = Row(EXPR, nil, "[$l]"), ["$l"] = Row(MANUAL, true),
+            } } } },
+        };
+        DebindPrivate.InitDB();
+        DebindPrivate.MergeSwitch("$l", "$w");
+        check(DebindPrivate.Switches["$w"].expr == "[$l]",
+            "the winner now computes from itself: " .. tostring(DebindPrivate.Switches["$w"].expr));
     end);
 
     return T;

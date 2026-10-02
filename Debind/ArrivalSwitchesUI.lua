@@ -123,7 +123,7 @@ function DebindArrivalSwitchesFrameMixin:ToggleRename(item)
         prefix = "$",
         callback = function(value)
             local name, reason = DebindPrivate.CheckArrivalRename("$" .. strtrim(value), self.answers,
-                self:TakenNames(item));
+                self:TakenNames(item), item.arrivalIDs);
             if (not name) then
                 DebindPrivate.DisplayMessage(LLL[reason]);
                 return;
@@ -191,9 +191,11 @@ function DebindArrivalSwitchesFrameMixin:Layout()
 end
 
 --- `items` from `ClassifyArrivalSwitches`, `answers` the flow's table (read for what is already
---- taken and what a layer answers now), `onAnswer(choices)` on [OK].
-function DebindArrivalSwitchesFrameMixin:Open(items, answers, onAnswer)
+--- taken and what a layer answers now), `onAnswer(choices)` on [OK]. `fromBindMode` marks a window
+--- a key press in bind mode put up, the one kind leaving the mode takes down.
+function DebindArrivalSwitchesFrameMixin:Open(items, answers, onAnswer, fromBindMode)
     self.items, self.answers, self.onAnswer = items, answers, onAnswer;
+    self.fromBindMode = fromBindMode;
     self.choices = {};
     for _, item in ipairs(items) do
         self.choices[item] = { checked = {} };
@@ -208,9 +210,12 @@ end
 --- answered. A cancel at any step ends the flow and nothing is called.
 ---
 --- `answers` is handed on even when nothing was asked: it can still hold switches to make.
-function DebindUI.SettleArrivalSwitches(actions, onPass)
+---
+--- **An [OK] for actions that changed meanwhile ends the flow as a cancel would** (`ArrivalBadgesHold`).
+function DebindUI.SettleArrivalSwitches(actions, onPass, fromBindMode)
     local answers = DebindPrivate.NewArrivalAnswers();
     local steps, byArrival = DebindPrivate.ArrivalSwitchSteps(actions);
+    local snapshot = DebindPrivate.SnapshotArrivalBadges(actions);
     local index = 0;
     local function NextStep()
         index = index + 1;
@@ -225,9 +230,12 @@ function DebindUI.SettleArrivalSwitches(actions, onPass)
             return;
         end
         DebindArrivalSwitchesFrame:Open(items, answers, function(choices)
+            if (not DebindPrivate.ArrivalBadgesHold(snapshot)) then
+                return;
+            end
             DebindPrivate.AnswerArrivalSwitches(answers, items, choices);
             NextStep();
-        end);
+        end, fromBindMode);
     end
     NextStep();
 end
@@ -237,9 +245,11 @@ function DebindUI.IsSettlingArrivalSwitches()
     return DebindArrivalSwitchesFrame:IsShown();
 end
 
---- The window's [Cancel], from outside it: ESC, and bind mode ending under it.
-function DebindUI.CancelArrivalSwitches()
-    if (DebindArrivalSwitchesFrame:IsShown()) then
+--- The window's [Cancel], from outside it: ESC, the main window closing, and bind mode ending
+--- (`onlyFromBindMode`, which leaves a window anything else put up).
+function DebindUI.CancelArrivalSwitches(onlyFromBindMode)
+    if (DebindArrivalSwitchesFrame:IsShown()
+            and (not onlyFromBindMode or DebindArrivalSwitchesFrame.fromBindMode)) then
         DebindArrivalSwitchesFrame:Finish(false);
     end
 end

@@ -1340,37 +1340,7 @@ function DebindStorage.ArrivalSwitchRows(payload, options, actions)
         end
     end
 
-    -- What the built actions name, closed over the kept rows' expressions.
-    local switches, queue = {}, {};
-    for _, action in ipairs(actions) do
-        DebindPrivate.ForEachSwitchInAction(action, function(name)
-            queue[#queue + 1] = name;
-        end);
-    end
-    while (#queue > 0) do
-        local name = table.remove(queue);
-        local cells = available[name];
-        if (cells and not switches[name]) then
-            switches[name] = cells;
-            local rows = { cells.general };
-            for _, scope in ipairs({ "class", "character" }) do
-                for _, row in pairs(cells[scope] or {}) do
-                    rows[#rows + 1] = row;
-                end
-            end
-            for _, row in ipairs(rows) do
-                if (row.mode == Constants.SWITCH_MODES.EXPR and row.expr) then
-                    local _, args = DebindPrivate.ParseMacroText(row.expr);
-                    for i = 1, (args and #args or 0) do
-                        if (args[i].type == Constants.MACROTEXT_ARG_SWITCH) then
-                            queue[#queue + 1] = args[i].name;
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return switches;
+    return DebindPrivate.CollectArrivalSwitches(actions, available);
 end
 
 --- Commits an entry into the profile, badged.

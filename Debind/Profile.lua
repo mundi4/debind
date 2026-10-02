@@ -1669,18 +1669,22 @@ end
 
 --- The three places in one action a switch name is rewritten: a condition key, an on/off/toggle
 --- target, and a macro body (both its conditions and its `/click DebindSwitch` lines). Also what
---- an arrival's rename runs on its own pending actions (`ArrivalSwitches.lua`).
-local function RenameSwitchInAction(action, oldName, newName)
+--- an arrival's rename runs on its own pending actions (`ArrivalSwitches.lua`), and a merge
+--- (`MergeSwitch`), which passes `merging`: where one place already names `newName`, the old term
+--- goes and the one already there decides.
+local function RenameSwitchInAction(action, oldName, newName, merging)
     local conditions = action.conditions;
     if (conditions and conditions[oldName] ~= nil) then
-        conditions[newName] = conditions[oldName];
+        if (not (merging and conditions[newName] ~= nil)) then
+            conditions[newName] = conditions[oldName];
+        end
         conditions[oldName] = nil;
     end
     if (Constants.SETSWITCH_MODES[action.type] and action.value == oldName) then
         action.value = newName;
     end
     if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
-        action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName);
+        action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName, merging);
     end
 end
 DebindPrivate.RenameSwitchInAction = RenameSwitchInAction;
@@ -1800,35 +1804,24 @@ function DebindPrivate.MergeSwitch(loser, winner)
     end
 
     ForEachStoredAction(DebindPrivate.db.global, function(action)
-        if (action.arrivalID) then
-            return;
-        end
-        local conditions = action.conditions;
-        if (conditions and conditions[loser] ~= nil) then
-            if (conditions[winner] == nil) then
-                conditions[winner] = conditions[loser];
-            end
-            conditions[loser] = nil;
-        end
-        if (Constants.SETSWITCH_MODES[action.type] and action.value == loser) then
-            action.value = winner;
-        end
-        if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
-            action.value = DebindPrivate.RenameSwitchInMacroText(action.value, loser, winner, true);
+        if (not action.arrivalID) then
+            RenameSwitchInAction(action, loser, winner, true);
         end
     end, DebindPrivate.db.charLayers);
 
-    local function MergeInRow(row)
-        if (luatype(row.expr) == "string") then
+    -- **Not the winner's own rows.** One whose expression names the loser would come out naming
+    -- itself; left as it is, it names a switch that is gone and goes red, as after a delete.
+    local function MergeInRow(name, row)
+        if (name ~= winner and luatype(row.expr) == "string") then
             row.expr = DebindPrivate.RenameSwitchInMacroText(row.expr, loser, winner, true);
         end
     end
-    for _, other in pairs(DebindPrivate.Switches) do
-        MergeInRow(other);
+    for name, other in pairs(DebindPrivate.Switches) do
+        MergeInRow(name, other);
     end
     ForEachOverrideCell(function(cell)
-        for _, row in pairs(cell) do
-            MergeInRow(row);
+        for name, row in pairs(cell) do
+            MergeInRow(name, row);
         end
     end);
 
