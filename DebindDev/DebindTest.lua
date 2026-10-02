@@ -2081,7 +2081,12 @@ RegisterTest("Switch window: accepting stops at it, and [Cancel] takes nothing",
     description = "Accepting an arrival whose switch conflicts opens the window; Cancel leaves badge and switch, OK writes both",
     run = function()
         local NAME = "Switch window accept"
-        local action = StageSettleConflict("CTRL-F9")
+        local KEY = "CTRL-SHIFT-F9"
+        -- **What the key answers before anything of ours is on it**, which is not necessarily
+        -- nothing: `CTRL-F1`..`F10` are the client's own stance bar keys by default, and the
+        -- tester's table answers wherever no override stands.
+        local before = GetBindingAction(KEY, true) or ""
+        local action = StageSettleConflict(KEY)
 
         DebindUI.AcceptArrivedActions({ action })
         if not DebindArrivalSwitchesFrame:IsShown() then
@@ -2099,8 +2104,9 @@ RegisterTest("Switch window: accepting stops at it, and [Cancel] takes nothing",
             return Fail(NAME, format("[Cancel] still changed something: badge %s, switch starts %s",
                 tostring(action.arrivalID), tostring(SettleStartsOn())))
         end
-        if (GetBindingAction("CTRL-F9", true) or "") ~= "" then
-            return Fail(NAME, "after [Cancel] the arrival's key is live")
+        if (GetBindingAction(KEY, true) or "") ~= before then
+            return Fail(NAME, format("after [Cancel] the key answers %s, it answered %q before",
+                tostring(GetBindingAction(KEY, true)), before))
         end
 
         DebindUI.AcceptArrivedActions({ action })
@@ -2113,8 +2119,9 @@ RegisterTest("Switch window: accepting stops at it, and [Cancel] takes nothing",
         if SettleStartsOn() ~= false then
             return Fail(NAME, "the ticked row was not written")
         end
-        if (GetBindingAction("CTRL-F9", true) or "") == "" then
-            return Fail(NAME, "accepted, and the key is still dead")
+        if (GetBindingAction(KEY, true) or ""):sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("accepted, and the key answers %s rather than ours",
+                tostring(GetBindingAction(KEY, true))))
         end
         return Pass(NAME, "Cancel took nothing; OK took the row and the badge")
     end,
