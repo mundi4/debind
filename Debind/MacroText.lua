@@ -844,9 +844,24 @@ do
         return "[" .. table.concat(kept, ",") .. "]";
     end
 
-    local _renameFrom, _renameTo;
+    local _renameFrom, _renameTo, _renameMerges;
+
+    --- The switch one condition token names, and its `no` prefix.
+    local function switchToken(token)
+        local trimmed = strtrim(token);
+        local prefix = "";
+        if (strsub(trimmed, 1, 2) == "no") then
+            prefix = "no";
+            trimmed = strsub(trimmed, 3);
+        end
+        return trimmed, prefix;
+    end
 
     --- One condition group, with every token naming `_renameFrom` renamed. nil leaves it alone.
+    ---
+    --- **Merging, a group that already names `_renameTo` loses the `_renameFrom` token** instead of
+    --- getting a second one: the merged-away switch's term goes and the surviving one decides
+    --- (`resolving-switches-on-accept.md` 6-6).
     local function renameGroup(body)
         if (not strfind(body, "$", 1, true)) then
             return nil;
@@ -854,26 +869,34 @@ do
 
         local touched = false;
         local tokens = { strsplit(",", body) };
+        local holdsTo = false;
+        if (_renameMerges) then
+            for i = 1, #tokens do
+                if (switchToken(tokens[i]) == _renameTo) then
+                    holdsTo = true;
+                end
+            end
+        end
+        local kept = {};
         for i = 1, #tokens do
             local token = tokens[i];
-            local trimmed = strtrim(token);
-            local prefix = "";
-            if (strsub(trimmed, 1, 2) == "no") then
-                prefix = "no";
-                trimmed = strsub(trimmed, 3);
-            end
-            if (trimmed == _renameFrom) then
-                -- The spacing around the token is the user's and is kept. Only the name moves.
-                tokens[i] = (strmatch(token, "^%s*") or "") .. prefix .. _renameTo
-                    .. (strmatch(token, "%s*$") or "");
+            local name, prefix = switchToken(token);
+            if (name == _renameFrom) then
                 touched = true;
+                if (not holdsTo) then
+                    -- The spacing around the token is the user's and is kept. Only the name moves.
+                    kept[#kept + 1] = (strmatch(token, "^%s*") or "") .. prefix .. _renameTo
+                        .. (strmatch(token, "%s*$") or "");
+                end
+            else
+                kept[#kept + 1] = token;
             end
         end
 
         if (not touched) then
             return nil;
         end
-        return "[" .. table.concat(tokens, ",") .. "]";
+        return "[" .. table.concat(kept, ",") .. "]";
     end
 
     --- Every `/click DebindSwitch <button>` in a body, button by button. `fn` is handed the raw
@@ -944,7 +967,8 @@ do
     end
 
     --- The same macro text with every `[$from]`, `[no$from]` and `/click DebindSwitch <from>`
-    --- renamed to `to`.
+    --- renamed to `to`. `merging` drops the `from` term from a group that already names `to`
+    --- (`renameGroup`).
     ---
     --- **Whole tokens, never substrings.** A plain `gsub` on the name would also rewrite `$burstx`
     --- and `[@$burst]`, and what is being edited here is text the user typed by hand. Anything
@@ -961,12 +985,12 @@ do
     --- done by moving a key: a condition, an on/off/toggle target and another switch's expression
     --- each hold the name whole, while a macro body holds it inside a sentence
     --- (`redesigning-custom-states.md` §3).
-    function DebindPrivate.RenameSwitchInMacroText(str, from, to)
+    function DebindPrivate.RenameSwitchInMacroText(str, from, to, merging)
         if (not str) then
             return str;
         end
         if (strfind(str, from, 1, true)) then
-            _renameFrom, _renameTo = from, to;
+            _renameFrom, _renameTo, _renameMerges = from, to, merging;
             str = (str:gsub("%[([^%[%]]*)%]", renameGroup));
         end
         -- **Asked separately, because the number shorthand carries no `$` to find.**

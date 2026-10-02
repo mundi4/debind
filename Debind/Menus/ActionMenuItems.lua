@@ -769,7 +769,7 @@ local function CreateApproveImportMenuItem(rootDescription, actions, counted)
     end
 
     local description = rootDescription:CreateButton(label, function()
-        DebindUI.ApproveArrivedActions(badged);
+        DebindUI.AcceptArrivedActions(badged);
     end);
     -- **The accept button's own words** (`DebindOrderLineMixin:OnAcceptEnter`). One operation with
     -- two entrances has one explanation, and the labels differing is what the two positions need

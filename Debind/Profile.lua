@@ -1783,6 +1783,58 @@ function DebindPrivate.RenameSwitch(oldName, newName)
     return true;
 end
 
+--- Merges `loser` into `winner` and deletes `loser` (`resolving-switches-on-accept.md` 6-6, 6-7).
+---
+--- **Everything that called `loser` calls `winner`**, in the places `RenameSwitch` rewrites. Where
+--- one place already names both -- one condition table, one bracket of a macro body -- the loser's
+--- term goes and the winner's decides.
+---
+--- **The winner's rows stand as they are.** A layer only the loser had a row on is not filled from
+--- it: whoever kept `winner` wants what it does now kept, and filling would change it on that layer
+--- (owner). The loser's rows and remembered values go with it (`DeleteSwitch`).
+---
+--- Pending actions are not touched, for the reason `RenameSwitch` gives.
+function DebindPrivate.MergeSwitch(loser, winner)
+    if (loser == winner or not DebindPrivate.Switches[loser] or not DebindPrivate.Switches[winner]) then
+        return false;
+    end
+
+    ForEachStoredAction(DebindPrivate.db.global, function(action)
+        if (action.arrivalID) then
+            return;
+        end
+        local conditions = action.conditions;
+        if (conditions and conditions[loser] ~= nil) then
+            if (conditions[winner] == nil) then
+                conditions[winner] = conditions[loser];
+            end
+            conditions[loser] = nil;
+        end
+        if (Constants.SETSWITCH_MODES[action.type] and action.value == loser) then
+            action.value = winner;
+        end
+        if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+            action.value = DebindPrivate.RenameSwitchInMacroText(action.value, loser, winner, true);
+        end
+    end, DebindPrivate.db.charLayers);
+
+    local function MergeInRow(row)
+        if (luatype(row.expr) == "string") then
+            row.expr = DebindPrivate.RenameSwitchInMacroText(row.expr, loser, winner, true);
+        end
+    end
+    for _, other in pairs(DebindPrivate.Switches) do
+        MergeInRow(other);
+    end
+    ForEachOverrideCell(function(cell)
+        for _, row in pairs(cell) do
+            MergeInRow(row);
+        end
+    end);
+
+    return DebindPrivate.DeleteSwitch(loser);
+end
+
 --- Deletes a switch. **References to it are left where they are.**
 ---
 --- That is the decision and not an omission: a reference to a switch nothing defines goes red, and

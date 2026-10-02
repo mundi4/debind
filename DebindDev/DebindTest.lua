@@ -2011,6 +2011,226 @@ RegisterTest("Assign a key: unbinding from that window accepts too", {
     end,
 })
 
+-- ---------------------------------------------------------------------------------------------
+-- The switch window an acceptance opens (`resolving-switches-on-accept.md` 6)
+--
+-- What is asked and what the answers write is headless (`tests/arrivalswitch_spec.lua`). What only
+-- the game has is the flows around the window: that each way of accepting stops at it, that its
+-- [Cancel] leaves the arrival exactly as it was, and that the answer is written only once the flow
+-- it belongs to finishes -- including bind mode's cancel taking the switches back with the badge.
+--
+-- **The switch and the record are real**, because the record lives in the profile and is read from
+-- there. Both are under names and an arrival number nobody else uses, made here and taken out by
+-- the teardown.
+-- ---------------------------------------------------------------------------------------------
+
+local SETTLE_SWITCH = "$debtestsettle"
+local SETTLE_ARRIVAL = 990001
+
+--- An arrival on `key` naming `SETTLE_SWITCH`, a switch of the reader's that comes up on, and a
+--- kept row saying it comes up off: one conflict, on the general layer. Answers the action.
+local function StageSettleConflict(key)
+    if DebindPrivate.Switches[SETTLE_SWITCH] then
+        DebindPrivate.DeleteSwitch(SETTLE_SWITCH)
+    end
+    DebindPrivate.CreateSwitch(SETTLE_SWITCH)
+    DebindPrivate.SetSwitchAnswer(SETTLE_SWITCH, nil, Constants.SWITCH_MODES.MANUAL, true)
+    DebindPrivate.RecordArrival(SETTLE_ARRIVAL, {
+        [SETTLE_SWITCH] = { general = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false } },
+    })
+    AddTeardown(function()
+        DebindUI.CancelArrivalSwitches()
+        DebindKeyCaptureFrame:Hide()
+        StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED")
+        DebindPrivate.DeleteSwitch(SETTLE_SWITCH)
+        local mine = DebindPrivate.db.global.arrivals and DebindPrivate.db.global.arrivals[DebindPrivate.playerGUID]
+        if mine then
+            mine[SETTLE_ARRIVAL] = nil
+        end
+        if not InCombatLockdown() then
+            DebindPrivate.UpdateBindings()
+        end
+    end)
+    local action = InsertAction({
+        type = Constants.SPELL,
+        value = 1,
+        key = key,
+        arrivalID = SETTLE_ARRIVAL,
+        [SETTLE_SWITCH] = true,
+    })
+    ApplyBindings()
+    return action
+end
+
+local function SettleStartsOn()
+    return DebindPrivate.Switches[SETTLE_SWITCH].resetValue
+end
+
+--- Ticks the window's one row and presses [OK], the way a hand does.
+local function AnswerSettleWindowTaking()
+    local row = DebindArrivalSwitchesFrame.rows[1]
+    if not (row and row:IsShown()) then
+        return false
+    end
+    row.Check:Click()
+    DebindArrivalSwitchesFrame.AcceptButton:Click()
+    return true
+end
+
+RegisterTest("Switch window: accepting stops at it, and [Cancel] takes nothing", {
+    description = "Accepting an arrival whose switch conflicts opens the window; Cancel leaves badge and switch, OK writes both",
+    run = function()
+        local NAME = "Switch window accept"
+        local action = StageSettleConflict("CTRL-F9")
+
+        DebindUI.AcceptArrivedActions({ action })
+        if not DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "accepting went through with no window over a conflicting switch")
+        end
+        if action.arrivalID ~= SETTLE_ARRIVAL then
+            return Fail(NAME, "the badge came off before the window was answered")
+        end
+
+        DebindArrivalSwitchesFrame.CancelButton:Click()
+        if DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "[Cancel] left the window up")
+        end
+        if action.arrivalID ~= SETTLE_ARRIVAL or SettleStartsOn() ~= true then
+            return Fail(NAME, format("[Cancel] still changed something: badge %s, switch starts %s",
+                tostring(action.arrivalID), tostring(SettleStartsOn())))
+        end
+        if (GetBindingAction("CTRL-F9", true) or "") ~= "" then
+            return Fail(NAME, "after [Cancel] the arrival's key is live")
+        end
+
+        DebindUI.AcceptArrivedActions({ action })
+        if not AnswerSettleWindowTaking() then
+            return Fail(NAME, "the second time round the window had no row to tick")
+        end
+        if action.arrivalID ~= nil then
+            return Fail(NAME, "[OK] and the badge stayed")
+        end
+        if SettleStartsOn() ~= false then
+            return Fail(NAME, "the ticked row was not written")
+        end
+        if (GetBindingAction("CTRL-F9", true) or "") == "" then
+            return Fail(NAME, "accepted, and the key is still dead")
+        end
+        return Pass(NAME, "Cancel took nothing; OK took the row and the badge")
+    end,
+})
+
+RegisterTest("Switch window: it comes before the key window, and its [Cancel] keeps that shut", {
+    description = "Assigning a key to an arrival opens the switch window first; Cancel never opens the key window",
+    run = function()
+        local NAME = "Switch window before key capture"
+        local action = StageSettleConflict("CTRL-F10")
+
+        DebindUI.BeginKeyCapture({ action })
+        if not DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "no switch window came before the key")
+        end
+        if DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "the key window is up beside the switch window")
+        end
+        DebindArrivalSwitchesFrame.CancelButton:Click()
+        if DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "cancelled the switch window and the key window opened anyway")
+        end
+
+        DebindUI.BeginKeyCapture({ action })
+        AnswerSettleWindowTaking()
+        if not DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "answered the switch window and the key window did not open")
+        end
+        if SettleStartsOn() ~= true then
+            return Fail(NAME, "the switch was written before a key was given")
+        end
+        DebindKeyCaptureFrame:Commit(nil)
+        if action.arrivalID ~= nil or SettleStartsOn() ~= false then
+            return Fail(NAME, format("after the key window: badge %s, switch starts %s",
+                tostring(action.arrivalID), tostring(SettleStartsOn())))
+        end
+        return Pass(NAME, "switch window, then key window, written at the end")
+    end,
+})
+
+RegisterTest("Switch window: the key question comes after it, and cancelling there writes nothing", {
+    description = "Accepting onto an occupied key asks the switches first; cancelling the key question leaves the switch alone",
+    run = function()
+        local NAME = "Switch window before key question"
+        local action = StageSettleConflict("CTRL-F11")
+        InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-F11" })
+        ApplyBindings()
+
+        DebindFrame:ApproveArrivals({ action })
+        if StaticPopup_Visible("DEBIND_APPROVE_ALL_OCCUPIED") then
+            return Fail(NAME, "the key question came before the switch window")
+        end
+        AnswerSettleWindowTaking()
+        if not StaticPopup_Visible("DEBIND_APPROVE_ALL_OCCUPIED") then
+            return Fail(NAME, "answered the switches and the key question did not follow")
+        end
+        StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED")
+        if action.arrivalID ~= SETTLE_ARRIVAL or SettleStartsOn() ~= true then
+            return Fail(NAME, format("cancelled the key question and something changed: badge %s, switch starts %s",
+                tostring(action.arrivalID), tostring(SettleStartsOn())))
+        end
+        return Pass(NAME, "switches first, keys second, nothing written on a cancel")
+    end,
+})
+
+RegisterTest("Switch window: in bind mode it opens at the press, and the mode's cancel takes it all back", {
+    description = "A key pressed over an arrival in bind mode opens the window; OK writes; cancelling the mode restores switch and badge",
+    run = function()
+        local NAME = "Switch window in bind mode"
+        local action = StageSettleConflict(nil)
+        local line = { GetElementData = function() return { action = action } end }
+
+        DebindFrame:Show()
+        DebindFrame:ToggleBindMode()
+        AddTeardown(function()
+            DebindFrame:SetBindingMode(false)
+            DebindFrame:CloseWindow()
+        end)
+        if not DebindFrame:IsCapturingKey() then
+            return Fail(NAME, "bind mode did not come on")
+        end
+
+        DebindFrame:BindMode_OnInput("F9", line)
+        if not DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "a key over an arrival went through with no window")
+        end
+        if action.key ~= nil then
+            return Fail(NAME, "the key was given before the window was answered")
+        end
+        DebindFrame:BindMode_OnInput("F8", line)
+        if action.key ~= nil then
+            return Fail(NAME, "a key pressed while the window was up reached the row behind it")
+        end
+        DebindArrivalSwitchesFrame.CancelButton:Click()
+        if action.key ~= nil or action.arrivalID ~= SETTLE_ARRIVAL then
+            return Fail(NAME, "[Cancel] did not undo the press")
+        end
+
+        DebindFrame:BindMode_OnInput("F9", line)
+        AnswerSettleWindowTaking()
+        if action.key ~= "F9" or action.arrivalID ~= nil or SettleStartsOn() ~= false then
+            return Fail(NAME, format("after OK: key %s, badge %s, switch starts %s", tostring(action.key),
+                tostring(action.arrivalID), tostring(SettleStartsOn())))
+        end
+
+        DebindFrame:CancelBindMode()
+        if action.key ~= nil or action.arrivalID ~= SETTLE_ARRIVAL then
+            return Fail(NAME, "cancelling the mode did not put the badge back")
+        end
+        if SettleStartsOn() ~= true then
+            return Fail(NAME, "cancelling the mode put the badge back and left the switch changed")
+        end
+        return Pass(NAME, "window at the press, written on OK, all of it undone with the mode")
+    end,
+})
+
 --- The fourth way into the same window, and the one with no heading behind it: several rows the
 --- reader ticked, which may sit on different keys or on none.
 ---
@@ -5770,6 +5990,83 @@ RegisterTest("Switches tab: a layer is made from the dropdown and taken away aga
         end
 
         return Pass(NAME, format("%s -> %s", SWITCH, DebindUI.GetLayerLabel(layerID)))
+    end,
+})
+
+-- Deleting offers a merge (`resolving-switches-on-accept.md` 6-7). What a merge rewrites is headless
+-- (`tests/arrivalswitch_spec.lua`); what only the game has is the dialog and the menu it opens, and
+-- that picking from that menu is what merges.
+--
+-- **Measured on another switch's expression**, the one reference a run can watch: test actions sit
+-- in the run's own layer, which the account walk a merge goes through does not see.
+RegisterTest("Switches tab: deleting can merge into another switch", {
+    description = "The delete dialog's [Merge Into...] opens a list of switches, and picking one merges into it",
+    run = function()
+        local NAME = "Switch delete merge"
+        local MODES = Constants.SWITCH_MODES
+        local LOSER, WINNER, READER = "$mergeloser", "$mergewinner", "$mergereader"
+
+        local saved = {}
+        for _, name in ipairs({ LOSER, WINNER, READER }) do
+            saved[name] = DebindPrivate.Switches[name]
+        end
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            StaticPopup_Hide("DEBIND_SWITCH_DELETE")
+            for name, definition in pairs(saved) do
+                DebindPrivate.Switches[name] = definition
+            end
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[LOSER] = { mode = MODES.MANUAL }
+        DebindPrivate.Switches[WINNER] = { mode = MODES.MANUAL, resetValue = true }
+        DebindPrivate.Switches[READER] = { mode = MODES.EXPR, expr = format("[%s]", LOSER) }
+
+        local panel = OpenSwitchesTab()
+        local row = WaitUntil(function() return SwitchRow(panel, LOSER) end, 2)
+        if not row then
+            return Fail(NAME, format("%s did not stand in the list", LOSER))
+        end
+        row:Click()
+        panel:OnDeleteClick()
+
+        local _, dialog = StaticPopup_Visible("DEBIND_SWITCH_DELETE")
+        if not dialog then
+            return Fail(NAME, "deleting brought up no dialog of ours")
+        end
+        if not dialog:GetButton(2):IsEnabled() then
+            return Fail(NAME, "there are other switches and [Merge Into...] is dark")
+        end
+        dialog:GetButton(2):Click()
+
+        local menu = Menu.GetManager():GetOpenMenu()
+        if not menu then
+            return Fail(NAME, "[Merge Into...] opened no list")
+        end
+        local item
+        menu:EnumerateElementDescriptions(function(_, description)
+            if MenuUtil.GetElementText(description) == WINNER then
+                item = description
+            end
+        end)
+        if not item then
+            return Fail(NAME, format("%s is not in the list", WINNER))
+        end
+        item:Pick(MenuInputContext.MouseButton, "LeftButton")
+
+        if DebindPrivate.Switches[LOSER] then
+            return Fail(NAME, "picked a switch and the deleted one is still there")
+        end
+        if not DebindPrivate.Switches[WINNER] then
+            return Fail(NAME, "the switch merged into is gone")
+        end
+        local expr = DebindPrivate.Switches[READER].expr
+        if expr ~= format("[%s]", WINNER) then
+            return Fail(NAME, format("another switch's expression is %s", tostring(expr)))
+        end
+        return Pass(NAME, format("%s -> %s", LOSER, WINNER))
     end,
 })
 

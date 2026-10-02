@@ -264,5 +264,44 @@ return function(DebindPrivate, DebindStorage)
         check(not (record.resolved and record.resolved["$a"]), "the answered mark stayed");
     end);
 
+    ---------------------------------------------------------------------------
+    -- Merging (Switches tab, 6-6 / 6-7)
+    ---------------------------------------------------------------------------
+
+    test("merging rewrites every reference, drops the loser's term where both stand, and keeps the winner's rows", function()
+        _G.DebindVars = {
+            dbver = C.DB_VERSION, characters = {}, migrated = {}, legacyNeeded = false,
+            layers = { account = { GENERAL = { [0] = {
+                Spell("F1", { ["$b"] = true }),
+                Spell("F2", { ["$a"] = true, ["$b"] = false }),
+                { type = C.SETSWITCH_ON, value = "$b", key = "F3", seq = 1 },
+                { type = C.MACROTEXT, value = "/cast [$a,$b] x\n/cast [no$b] y", key = "F4", seq = 1 },
+                { type = C.SPELL, value = 1, key = "F5", seq = 1, arrivalID = 3, conditions = { ["$b"] = true } },
+            } } } },
+            switches = { account = {
+                GENERAL = { [0] = {
+                    ["$a"] = Row(MANUAL, true), ["$b"] = Row(MANUAL, false),
+                    ["$c"] = Row(EXPR, nil, "[$b]"),
+                } },
+                [CLASS] = { [1] = { ["$b"] = Row(MANUAL, true) }, [2] = { ["$a"] = Row(MANUAL, false) } },
+            } },
+        };
+        DebindPrivate.InitDB();
+
+        check(DebindPrivate.MergeSwitch("$b", "$a"), "the merge was refused");
+        local actions = DebindPrivate.GetProfileLayer(1).actions;
+        check(actions[1].conditions["$a"] == true and actions[1].conditions["$b"] == nil, "a lone $b did not become $a");
+        check(actions[2].conditions["$a"] == true and actions[2].conditions["$b"] == nil,
+            "where both stood the loser's term did not go");
+        check(actions[3].value == "$a", "the on/off target stayed " .. tostring(actions[3].value));
+        check(actions[4].value == "/cast [$a] x\n/cast [no$a] y", "macro body: " .. actions[4].value);
+        check(actions[5].conditions["$b"] == true, "a pending action was rewritten");
+        check(DebindPrivate.Switches["$c"].expr == "[$a]", "another switch's expression kept $b");
+        check(DebindPrivate.Switches["$b"] == nil, "the loser is still there");
+        check(DebindPrivate.Switches["$a"].resetValue == true, "the winner's root changed");
+        local spec1 = DebindPrivate.GetSwitchLayerKey(DebindPrivate.GetLayerID(1, false));
+        check(DebindPrivate.GetSwitchAnswerAt("$a", spec1) == nil, "the loser's row filled a layer the winner had none on");
+    end);
+
     return T;
 end

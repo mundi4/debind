@@ -1321,6 +1321,24 @@ L["SWITCH_CREATE_PROMPT"] = "What should the new Switch be called?\nLetters, num
 -- which is why they are not called SWITCH_RENAME_ERROR_* any more.
 L["SWITCH_NAME_ERROR_INVALID"] = "A Switch name can hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a Switch by that name."
+-- The window accepting an arrival opens when a Switch its actions bring differs from the reader's
+-- (`resolving-switches-on-accept.md` 6). **The heading says what is asked and nothing else**
+-- (owner): the marks on the rows say what each tick does.
+L["ARRIVAL_SWITCHES_TITLE"] = "Switch Conflicts"
+L["ARRIVAL_SWITCHES_TEXT"] = "Some of the Switches that come with the actions you are accepting conflict with yours. What should happen to them?\n\nA ticked row takes the incoming setting for that layer. Unticked rows keep yours."
+-- The two marks. **They differ because the two do different things to the reader's actions**: one
+-- replaces a setting the reader made, the other gives a layer a setting where it had none, so the
+-- actions there stop following the layer below.
+L["ARRIVAL_SWITCH_OVERWRITE"] = "Overwrites yours"
+L["ARRIVAL_SWITCH_FILL"] = "New on this layer"
+L["ARRIVAL_SWITCH_MINE"] = "Yours"
+L["ARRIVAL_SWITCH_MINE_BELOW"] = "Yours now, from the layer below"
+L["ARRIVAL_SWITCH_INCOMING"] = "Incoming"
+L["ARRIVAL_SWITCH_USED"] = "Used by %d of your actions."
+-- The rename button's other face. One button changes its label rather than two standing side by
+-- side (owner: many buttons overwhelm).
+L["ARRIVAL_SWITCH_RENAME_UNDO"] = "Undo Rename"
+L["ARRIVAL_SWITCH_RENAMED"] = "comes in as %s"
 -- The [Set Switch] menu on an on/off/toggle action: which switch the key works, and what it does
 -- to it. **The verbs are worded as what the key does, not as what the switch is.** "On" beside a
 -- list of switches reads as the switch's own value, which is the one thing this menu cannot set.
@@ -1342,6 +1360,11 @@ L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; i
 -- The other characters are the reason the line is here at all: the tab draws what one character
 -- reaches, so that is the one consequence the reader cannot see from where they are standing.
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
+-- What the delete dialog's two answers do to the actions that use the Switch, since that is the
+-- whole difference between them (`resolving-switches-on-accept.md` 6-7).
+L["SWITCH_DELETE_CHOICES"] = "Delete leaves the actions that use it as they are, marked in red so you can find them. Merge makes them use another Switch instead."
+L["SWITCH_DELETE_MERGE"] = "Merge Into..."
+L["SWITCH_MERGE_MENU_TITLE"] = "Merge %s into"
 L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
 -- The two balloons on the Switches tab's help plate, one per column.
 --

@@ -98,6 +98,20 @@ local function StartValueFor(resetValue)
     return "remember";
 end
 
+--- One row's answer in the words this tab's dropdowns use, on one line: the answer, then the
+--- starting value or the expression behind it. For places that show a row without its editor (the
+--- switch window an acceptance opens).
+function DebindUI.DescribeSwitchRow(mode, resetValue, expr)
+    mode = mode or Constants.SWITCH_MODES.MANUAL;
+    local text = LLL[LabelForMode(mode) or "SWITCH_ANSWER_MANUAL"];
+    if (mode == Constants.SWITCH_MODES.MANUAL) then
+        text = text .. " - " .. LLL[LabelForStartValue(StartValueFor(resetValue))];
+    elseif (mode == Constants.SWITCH_MODES.EXPR and expr) then
+        text = text .. " - " .. expr;
+    end
+    return text;
+end
+
 --- Which layers this switch is already set at, keyed by `layerID`.
 ---
 --- **The root is always one of them**: it is a row the reader edits like the others and it cannot
@@ -1600,18 +1614,60 @@ function DebindSwitchesPanelMixin:OnDeleteClick()
         text = text .. "\n" .. LLL["SWITCH_DELETE_CONFIRM_OVERRIDES"];
     end
 
-    StaticPopup_ShowCustomGenericConfirmation({
-        text = text,
-        callback = function()
-            DebindPrivate.DeleteSwitch(name);
-            DebindPrivate.UpdateBindings();
-        end,
-        acceptText = YES,
-        cancelText = NO,
-        showAlert = true,
-        referenceKey = "DebindSwitchDelete",
-    });
+    local others = {};
+    for _, other in ipairs(DebindPrivate.GetSwitchNames()) do
+        if (other ~= name) then
+            others[#others + 1] = other;
+        end
+    end
+    if (#others > 0) then
+        text = text .. "\n\n" .. LLL["SWITCH_DELETE_CHOICES"];
+    end
+    StaticPopup_Show("DEBIND_SWITCH_DELETE", text, nil, { name = name, others = others });
 end
+
+--- The switches `name` can be merged into, at the cursor. Picking one is the merge.
+local function ShowSwitchMergeMenu(name, others)
+    MenuUtil.CreateContextMenu(UIParent, function(_, rootDescription)
+        rootDescription:CreateTitle(format(LLL["SWITCH_MERGE_MENU_TITLE"], name));
+        for _, other in ipairs(others) do
+            rootDescription:CreateButton(other, function()
+                DebindPrivate.MergeSwitch(name, other);
+                DebindPrivate.UpdateBindings();
+            end);
+        end
+    end);
+end
+
+--- **Deleting asks whether to merge instead** (`resolving-switches-on-accept.md` 6-7, owner). [Delete]
+--- leaves every reference standing and red, for someone about to make the name again; merging
+--- points them at the switch picked, which is the merge where that one survives (6-6). Removing the
+--- conditions is a third answer kept for later.
+---
+--- Three buttons, so dispatched by index for the reason `DEBIND_KEY_GROUP_CONFLICT` gives
+--- (`DebindUI.lua`). [Merge] is dark when there is no other switch to merge into.
+StaticPopupDialogs["DEBIND_SWITCH_DELETE"] = {
+    text = "%s",
+    button1 = DELETE,
+    button2 = LLL["SWITCH_DELETE_MERGE"],
+    button3 = CANCEL,
+    selectCallbackByIndex = true,
+    showAlert = 1,
+    OnShow = function(dialog, data)
+        dialog:GetButton(2):SetEnabled(#data.others > 0);
+    end,
+    OnButton1 = function(_, data)
+        DebindPrivate.DeleteSwitch(data.name);
+        DebindPrivate.UpdateBindings();
+    end,
+    OnButton2 = function(_, data)
+        ShowSwitchMergeMenu(data.name, data.others);
+    end,
+    OnButton3 = function() end,
+    hideOnEscape = 1,
+    timeout = 0,
+    whileDead = 1,
+};
 
 
 --------------------------------------------------------------------------------

@@ -148,6 +148,33 @@ local function MyRow(name, layerID, answers)
     return { mode = mode, resetValue = resetValue, expr = expr };
 end
 
+--- What a layer with no row of its own answers with now: the next row down the cascade
+--- `ResolveSwitchAnswer` walks (character+spec, character, class+spec, class, then the root). For
+--- the window's fill tooltip. A spec-0 layer falls to the specialization the character is in.
+function DebindPrivate.ArrivalRowBelow(name, layerID, answers)
+    local spec = C_SpecializationInfo.GetSpecialization() or 0;
+    local below;
+    local charSpecs, classSpecs = DebindPrivate.GetLayerID(0, true), DebindPrivate.GetLayerID(0, false);
+    if (layerID > charSpecs) then
+        below = { charSpecs, layerID - charSpecs + classSpecs, classSpecs };
+    elseif (layerID == charSpecs) then
+        local live = spec > 0 and DebindPrivate.GetProfileLayer(classSpecs + spec) and classSpecs + spec;
+        below = live and { live, classSpecs } or { classSpecs };
+    elseif (layerID > classSpecs) then
+        below = { classSpecs };
+    else
+        below = {};
+    end
+    below[#below + 1] = GENERAL_LAYER_ID;
+    for _, other in ipairs(below) do
+        local row = MyRow(name, other, answers);
+        if (row) then
+            return row;
+        end
+    end
+    return nil;
+end
+
 local function SwitchExists(name, answers)
     return DebindPrivate.Switches[name] ~= nil or answers.creates[name] ~= nil;
 end

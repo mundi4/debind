@@ -1381,15 +1381,13 @@ end
 --- gets something other than what they asked for -- "leave the keys out" was one of these, before
 --- it stopped being a question at all.
 ---
---- **Switch definitions are not touched.** A switch is shared by everything in the profile, so
---- writing one would change what the reader's *existing* actions do - before they approved
---- anything, and past the one thing quarantine is for. So an imported action that names `$state3`
---- uses the reader's `$state3`, which is the "keep mine" answer, and a name nothing defines is
---- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_SWITCH`).
+--- **Switch definitions are not touched; the sender's rows are only kept** (`ArrivalSwitchRows`).
+--- A switch is shared by everything in the profile, so writing one would change what the reader's
+--- *existing* actions do - before they approved anything, and past the one thing quarantine is for.
 ---
 --- **Nor is this the place to ask about them** (owner, 2026-10-02). The arrival may sit pending for
---- days, and an answer given here can be a conflict by the time it is accepted; the switches are
---- settled when the actions are (`resolving-switches-on-accept.md`).
+--- days, and an answer given here can be a conflict by the time it is accepted; the kept rows are
+--- settled when the actions are (`resolving-switches-on-accept.md`, `ArrivalSwitches.lua`).
 function DebindStorage.CommitEntry(entry, options)
     local payload, reason = DebindStorage.GetEntryPayload(entry);
     if (not payload) then

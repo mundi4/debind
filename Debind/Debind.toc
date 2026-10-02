@@ -79,6 +79,7 @@ SettingsTab.lua
 SettingsTab.xml
 
 KeyCapture.xml
+ArrivalSwitchesUI.xml
 
 SpellPicker.xml
 

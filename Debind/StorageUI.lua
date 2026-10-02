@@ -155,6 +155,8 @@ end
 local function ExtendHitRectOverLabel(checkButton)
     checkButton:SetHitRectInsets(0, -(checkButton.Text:GetStringWidth() + 4), 0, 0);
 end
+DebindUI.NormalizeCheckMark = NormalizeCheckMark;
+DebindUI.ExtendHitRectOverLabel = ExtendHitRectOverLabel;
 
 local function SetTriState(checkButton, state)
     if (state == STATE_NONE) then

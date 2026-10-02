@@ -916,7 +916,11 @@ end
 --- the reader's to clear. Accepting the lot while it is the only value ticked on the key axis ends
 --- on an empty list, which is exactly what that state asks for; the dropdown's reset button is on
 --- screen the whole time.
-local function ApproveArrivedActions(actions, occupants, contested, answer)
+---
+--- **`switchAnswers` is what the switch window held** (`DebindUI.SettleArrivalSwitches`), written
+--- where the first badge comes off (`TakeBadgesOff`). Every caller has been through that window
+--- first; nothing accepts an arrival without passing it.
+local function ApproveArrivedActions(actions, occupants, contested, answer, switchAnswers)
 	if (answer == "theirs" and occupants) then
 		DebindPrivate.ClearKeyForActions(occupants);
 	end
@@ -933,9 +937,9 @@ local function ApproveArrivedActions(actions, occupants, contested, answer)
 		if (answer == "mine" and action.key ~= nil and contested and contested[action.key]) then
 			action.key = nil;
 			action.seq = nil;
-			action.arrivalID = nil;
+			DebindPrivate.TakeBadgesOff({ action }, switchAnswers);
 		elseif (action.key == nil) then
-			action.arrivalID = nil;
+			DebindPrivate.TakeBadgesOff({ action }, switchAnswers);
 		else
 			local groupID = action.key .. "/" .. tostring(action.arrivalID);
 			local group = groups[groupID];
@@ -949,7 +953,7 @@ local function ApproveArrivedActions(actions, occupants, contested, answer)
 	end
 	for i = 1, #order do
 		local group = groups[order[i]];
-		DebindPrivate.SetKeyForActions(group, group.key);
+		DebindPrivate.SetKeyForActions(group, group.key, switchAnswers);
 	end
 
 	-- **What just left the list leaves the selection with it.** `arrivalID` is one of the fields the
@@ -968,6 +972,14 @@ local function ApproveArrivedActions(actions, occupants, contested, answer)
 	DebindPrivate.UpdateBindings();
 	DebindLayerPanel:Refresh(true, visible);
 	DebindFrame:Update();
+end
+
+--- Accepting where nothing asks about keys: the row's [Accept] and the menus' item. The switch
+--- window first, then the badges.
+local function AcceptArrivedActions(actions)
+	DebindUI.SettleArrivalSwitches(actions, function(switchAnswers)
+		ApproveArrivedActions(actions, nil, nil, nil, switchAnswers);
+	end);
 end
 
 DebindLayerRowMixin = {};
@@ -2504,21 +2516,29 @@ end
 --- cannot say it yet. Until the reader answers, the arrivals are exactly what they were a moment
 --- ago -- badged, in the profile, waiting -- which is what makes [Cancel] a whole answer rather
 --- than half of one.
+---
+--- **The switch window comes before the key question** (6-1, owner), and either one's [Cancel]
+--- leaves everything badged. A window going up counts as not finished, the same as the key
+--- question does.
 function DebindFrameMixin:ApproveArrivals(arrivals)
 	if (arrivals == nil or #arrivals == 0) then
 		return true;
 	end
 
-	local occupants, contested = OccupantsOfArrivals(arrivals);
-	if (#occupants == 0) then
-		ApproveArrivedActions(arrivals);
-		return true;
-	end
+	local finished = false;
+	DebindUI.SettleArrivalSwitches(arrivals, function(switchAnswers)
+		local occupants, contested = OccupantsOfArrivals(arrivals);
+		if (#occupants == 0) then
+			ApproveArrivedActions(arrivals, nil, nil, nil, switchAnswers);
+			finished = true;
+			return;
+		end
 
-	StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED",
-		CountText("actions", #arrivals), CountText("actions", #occupants),
-		{ arrivals = arrivals, occupants = occupants, contested = contested });
-	return false;
+		StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED",
+			CountText("actions", #arrivals), CountText("actions", #occupants),
+			{ arrivals = arrivals, occupants = occupants, contested = contested, switchAnswers = switchAnswers });
+	end);
+	return finished;
 end
 
 --- **It reaches what is not on screen** - `CollectArrivedActions` walks every layer. One entry
@@ -3088,6 +3108,13 @@ end
 --- The only caller is `OnHide`; it is split out because **this order is the window's contract** and
 --- nothing about the key plumbing belongs in the middle of it.
 function DebindFrameMixin:HandleEscape()
+	-- The switch window an acceptance put up. It stands over everything else here, bind mode
+	-- included, and ESC on it is its [Cancel].
+	if (DebindUI.IsSettlingArrivalSwitches()) then
+		DebindUI.CancelArrivalSwitches();
+		return true;
+	end
+
 	-- **The add dialog first** (소유자, 2026-09-24). It is a top-level frame, so without its rung the
 	-- sweep puts it back (`OnDialogHide`) and the ladder walks on down to closing the window,
 	-- leaving the dialog standing over nothing.
@@ -4825,7 +4852,7 @@ end
 --- No confirmation, for the reason the strip's button has none: accepting is what importing is for.
 --- What it does have is a slot of its own away from the arrows' (the XML says why).
 function DebindOrderLineMixin:OnAcceptClick()
-	ApproveArrivedActions({ self:GetElementData().row.action });
+	AcceptArrivedActions({ self:GetElementData().row.action });
 	GameTooltip:Hide();
 end
 
@@ -5578,6 +5605,9 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 되돌릴 목록을 연다. 액션을 키로 잡으므로 **탭에 걸쳐 산다** - 탭 A에서 셋, 탭 B에서
 		-- 둘을 걸어도 취소는 다섯을 전부 되돌린다.
 		self.bindEdits = {};
+		-- What accepting an arrival wrote to the switches during the mode, kept apart from
+		-- `bindEdits`, which is keyed by action (`TakeBadgesOff`).
+		self.bindSwitchUndo = {};
 
 		-- **액션 하나를 묻는 창들을 놓는다.** 사유는 집중이다 - 화면 전체가 키를 묻고 있는데
 		-- 그 창이 같이 서 있으면 집중할 것이 둘이 된다. 단축키 지정 창에는 사유가 하나 더
@@ -5596,6 +5626,9 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 여기로 오는 것은 전부 **커밋**이다(오버레이의 [종료], 창이 숨는 경우, 토글 다시 누르기).
 		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
 		self.bindEdits = nil;
+		self.bindSwitchUndo = nil;
+		-- A switch window a press in the mode put up answers into the mode, which is gone.
+		DebindUI.CancelArrivalSwitches();
 	end
 
 	-- 켤 때는 부르는 쪽이 준 과녁을, 끌 때는 **켰던 그 과녁**을 되돌린다. 행 버튼은 풀에서
@@ -5718,6 +5751,11 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 	if (IsMetaKey(input) or input == "UNKNOWN") then
 		return;
 	end
+	-- The switch window is up over the mode; a key pressed while it is would land on whatever row
+	-- is under the cursor behind it.
+	if (DebindUI.IsSettlingArrivalSwitches()) then
+		return;
+	end
 
 	line = line or GetHoveredLine();
 	local elementData = line and line.GetElementData and line:GetElementData();
@@ -5728,6 +5766,17 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 
 	local key = GetConvertedKeyOrButton(input);
 	key = _CreateKeyChordStringUsingMetaKeyState(key);
+	-- **A key on an arrival accepts it, so the switch window comes first, at the press** (6-1,
+	-- owner): the mode has no moment before the key, since the target is whatever row the key was
+	-- pressed over. Cancelling the window undoes the press and nothing else.
+	if (action.arrivalID and action.key ~= key) then
+		DebindUI.SettleArrivalSwitches({ action }, function(switchAnswers)
+			if (self:IsCapturingKey()) then
+				self:SetActionKey(action, key, switchAnswers);
+			end
+		end);
+		return;
+	end
 	self:SetActionKey(action, key);
 end
 
@@ -5765,6 +5814,11 @@ function DebindFrameMixin:BindMode_OnKeyDown(key, line)
 	-- 행이 없으면 애초에 안 불린다. 행 밖의 ESC는 아무도 안 먹어서 바인딩으로 가고, 창의
 	-- `OnHide` 사다리가 그것을 취소로 받는다(`HandleEscape`).
 	if (key == "ESCAPE") then
+		-- Over the switch window a press put up, ESC is that window's [Cancel] and nothing more.
+		if (DebindUI.IsSettlingArrivalSwitches()) then
+			DebindUI.CancelArrivalSwitches();
+			return;
+		end
 		local elementData = line:GetElementData();
 		local action = elementData and elementData.action;
 		if (action) then
@@ -5784,6 +5838,7 @@ end
 --- 되돌릴 때 스무 번 올라간다.
 function DebindFrameMixin:CancelBindMode()
 	local edits = self.bindEdits;
+	local switchUndo = self.bindSwitchUndo;
 	self:SetBindingMode(false);
 	if (not edits) then
 		return;
@@ -5791,6 +5846,13 @@ function DebindFrameMixin:CancelBindMode()
 
 	local changed;
 	local restored;
+	-- **The switches go back with the badges, always** (owner, 2026-10-02). A badge restored over a
+	-- switch left changed would be an arrival the reader has not taken, reshaping their own
+	-- switches all the same.
+	if (switchUndo and #switchUndo > 0) then
+		DebindPrivate.RunArrivalUndo(switchUndo);
+		changed = true;
+	end
 	for action, original in pairs(edits) do
 		-- The badge is restored with the other two. Giving a key inside the mode accepts what
 		-- arrived (`SetActionKey`), and leaving it accepted after a cancel would be the one change
@@ -5850,7 +5912,9 @@ end
 ---
 --- **It takes a target.** It used to act on the selected action and needed no argument; in binding
 --- mode the target is the row under the cursor, which can be a different one.
-function DebindFrameMixin:SetActionKey(action, key)
+---
+--- `switchAnswers` is the switch window's, for a key that accepts an arrival (`BindMode_OnInput`).
+function DebindFrameMixin:SetActionKey(action, key, switchAnswers)
 	if (not action or action.key == key) then
 		return false;
 	end
@@ -5881,7 +5945,7 @@ function DebindFrameMixin:SetActionKey(action, key)
 	if (key ~= nil) then
 		accepted = action.arrivalID ~= nil;
 		action.key = key;
-		action.arrivalID = nil;
+		DebindPrivate.TakeBadgesOff({ action }, switchAnswers, self.bindSwitchUndo);
 		DebindPrivate.PlaceActionInKeyGroup(action);
 	else
 		DebindPrivate.ClearActionKey(action);
@@ -5991,8 +6055,8 @@ end
 
 --- 차 있는 키에 답이 정해졌을 때 실제로 옮기는 자리. `unbindOccupants`의 두 값이 그 두 답이다
 --- (`MoveKeyGroupToKey`).
-local function ApplyKeyGroupMove(actions, key, occupants, unbindOccupants)
-	DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants);
+local function ApplyKeyGroupMove(actions, key, occupants, unbindOccupants, switchAnswers)
+	DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants, switchAnswers);
 	RebuildAfterKeyGroupChange(actions, key);
 end
 
@@ -6003,19 +6067,20 @@ end
 --- on, the reader's own group holding that key is hidden entirely - and the number standing there
 --- before the press is how that is paid for. `ApproveAllImported` reaches past the screen the same
 --- way and answers it the same way, with a count standing beside the press rather than in a box.
-local function ShowKeyGroupConflictDialog(actions, key, occupants, label)
+local function ShowKeyGroupConflictDialog(actions, key, occupants, label, switchAnswers)
 	StaticPopup_Show("DEBIND_KEY_GROUP_CONFLICT", nil, nil, {
 		actions = actions,
 		key = key,
 		occupants = occupants,
 		label = label,
+		switchAnswers = switchAnswers,
 	});
 end
 
 --- The answer, once a key has been taken from the reader. **Whatever asked for it is already gone**
 --- by the time this runs - a question may come up here, and nothing should still be listening for
 --- keys over it.
-local function GiveKeyGroupTheKey(actions, key, label)
+local function GiveKeyGroupTheKey(actions, key, label, switchAnswers)
 	-- The moving group is not its own occupant. Without subtracting it, someone giving a group the
 	-- key it already has would be asked "F already has 3" about the very actions being moved, and
 	-- picking overwrite would take their key from themselves.
@@ -6034,11 +6099,11 @@ local function GiveKeyGroupTheKey(actions, key, label)
 	-- **A free key asks nothing.** This is the common path - giving a group that came in a key the
 	-- reader was not using.
 	if (#occupants == 0) then
-		ApplyKeyGroupMove(actions, key, nil, false);
+		ApplyKeyGroupMove(actions, key, nil, false, switchAnswers);
 		return;
 	end
 
-	ShowKeyGroupConflictDialog(actions, key, occupants, label);
+	ShowKeyGroupConflictDialog(actions, key, occupants, label, switchAnswers);
 end
 
 local SharedKeyOf = DebindPrivate.SharedKeyOf;
@@ -6122,19 +6187,23 @@ function DebindUI.BeginKeyCapture(actions)
 	-- 여기서 놓는다 (`closing-the-windows-that-stand-on-an-action.md` §2).
 	DebindUI.CloseActionWindows(DebindKeyCaptureFrame);
 
-	DebindKeyCaptureFrame:Open(actions, function(captured)
-		-- **`nil` is [Unbind key], not a cancel** -- cancelling never gets here.
-		--
-		-- **And it accepts, the same as the other answer** (2026-08-23, 소유자). This window is the
-		-- reader deciding the key, which is what accepting an arrival is; the item that opens it
-		-- over a badged row says so on its face (`ACTION_SET_KEY_ACCEPT`). Without this the reader
-		-- came through a door labelled accept, pressed the button on it, and got neither half: no
-		-- key and still waiting.
-		if (captured == nil) then
-			DebindUI.UnbindActions(actions, true);
-			return;
-		end
-		GiveKeyGroupTheKey(actions, captured, label);
+	-- **The switch window before the key window** (6-1, owner): giving an arrival a key accepts
+	-- it, and a cancel there means the key window never opens.
+	DebindUI.SettleArrivalSwitches(actions, function(switchAnswers)
+		DebindKeyCaptureFrame:Open(actions, function(captured)
+			-- **`nil` is [Unbind key], not a cancel** -- cancelling never gets here.
+			--
+			-- **And it accepts, the same as the other answer** (2026-08-23, 소유자). This window is the
+			-- reader deciding the key, which is what accepting an arrival is; the item that opens it
+			-- over a badged row says so on its face (`ACTION_SET_KEY_ACCEPT`). Without this the reader
+			-- came through a door labelled accept, pressed the button on it, and got neither half: no
+			-- key and still waiting.
+			if (captured == nil) then
+				DebindUI.UnbindActions(actions, true, switchAnswers);
+				return;
+			end
+			GiveKeyGroupTheKey(actions, captured, label, switchAnswers);
+		end);
 	end);
 end
 
@@ -6154,12 +6223,10 @@ end
 --- **After the release, not before.** `ClearKeyForActions` renumbers the group each action leaves,
 --- and the group is `(key, arrivalID)` -- clearing the badge first would send it to renumber a group
 --- these actions were never in.
-local function ReleaseAndRebuild(actions, accepting)
+local function ReleaseAndRebuild(actions, accepting, switchAnswers)
 	DebindPrivate.ClearKeyForActions(actions);
 	if (accepting) then
-		for i = 1, #actions do
-			actions[i].arrivalID = nil;
-		end
+		DebindPrivate.TakeBadgesOff(actions, switchAnswers);
 	end
 	RebuildAfterKeyGroupChange(actions, actions[1].key);
 end
@@ -6179,19 +6246,19 @@ end
 --- `accepting` rides through to `ReleaseAndRebuild`, which is where it means anything. It has to
 --- travel through the prompt as well: cancelling that prompt leaves the actions exactly as they
 --- were, badge included, which is the only reading of [Cancel] that is true.
-function DebindUI.UnbindActions(actions, accepting)
+function DebindUI.UnbindActions(actions, accepting, switchAnswers)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
 
 	local scattered = ScatteredByUnbinding(actions);
 	if (scattered < 2) then
-		ReleaseAndRebuild(actions, accepting);
+		ReleaseAndRebuild(actions, accepting, switchAnswers);
 		return;
 	end
 
 	StaticPopup_Show("DEBIND_UNBIND_SCATTERS", CountText("actions", scattered), nil,
-		{ actions = actions, accepting = accepting });
+		{ actions = actions, accepting = accepting, switchAnswers = switchAnswers });
 end
 
 --- Is any of what already holds the key **shared with other characters**.
@@ -6277,10 +6344,10 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 		SetPopupButtonTooltip(dialog:GetButton(2), nil, nil);
 	end,
 	OnButton1 = function(_, data)
-		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false, data.switchAnswers);
 	end,
 	OnButton2 = function(_, data)
-		ApplyKeyGroupMove(data.actions, data.key, data.occupants, true);
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, true, data.switchAnswers);
 	end,
 	-- **An empty function, and it is not decoration: without it the button is dead.** Under
 	-- `selectCallbackByIndex` the `dialog:Hide()` sits *inside* `if func then`
@@ -6503,7 +6570,7 @@ StaticPopupDialogs["DEBIND_UNBIND_SCATTERS"] = {
 	button1 = LLL["UNBIND_SCATTERS_CONFIRM_YES"],
 	button2 = CANCEL,
 	OnAccept = function(_, data)
-		ReleaseAndRebuild(data.actions, data.accepting);
+		ReleaseAndRebuild(data.actions, data.accepting, data.switchAnswers);
 	end,
 	hideOnEscape = 1,
 	timeout = 0,
@@ -6549,13 +6616,13 @@ StaticPopupDialogs["DEBIND_APPROVE_ALL_OCCUPIED"] = {
 		SetPopupButtonTooltip(dialog:GetButton(3), nil, nil);
 	end,
 	OnButton1 = function(_, data)
-		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "mine");
+		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "mine", data.switchAnswers);
 	end,
 	OnButton2 = function(_, data)
-		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "theirs");
+		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "theirs", data.switchAnswers);
 	end,
 	OnButton3 = function(_, data)
-		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "merge");
+		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "merge", data.switchAnswers);
 	end,
 	-- Empty and not decoration, for the reason `DEBIND_KEY_GROUP_CONFLICT` spells out.
 	OnButton4 = function() end,
@@ -7031,7 +7098,7 @@ end
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;
-DebindUI.ApproveArrivedActions = ApproveArrivedActions;
+DebindUI.AcceptArrivedActions = AcceptArrivedActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebindUI.ShowRejectImportConfirmationPopup = ShowRejectImportConfirmationPopup;
 DebindUI.ShowInputBox = ShowInputBox
