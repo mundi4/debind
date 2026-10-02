@@ -450,12 +450,15 @@ async function main() {
     blocks.push(`    -- every class's, the professions'\n${professions.map((e) => line(e)).join("\n")}`);
 
     // **The version moves only when the list does**: the probe asks the client again on login when
-    // its record was taken from another version, and the build refuses one that was.
+    // its record was taken from another version, and the build refuses one that was. Comments are
+    // not the list: which trainer a line names follows the record's `pairs` order and flips
+    // between runs.
     const spellsText = `Probe.Spells = {\n${blocks.join("\n")}\n};\n`;
     const previous = fs.existsSync(out) ? fs.readFileSync(out, "utf8").replace(/\r\n/g, "\n") : "";
     const at = previous.indexOf("Probe.Spells = {\n");
     const held = (previous.match(/^Probe\.SpellsVersion = (\d+);$/m) || [])[1];
-    if (held && at >= 0 && previous.slice(at) === spellsText) {
+    const listOnly = (text) => text.replace(/\s*--.*$/gm, "");
+    if (held && at >= 0 && listOnly(previous.slice(at)) === listOnly(spellsText)) {
         console.log(`\nunchanged: ${path.relative(process.cwd(), out)}, version ${held}`);
     } else {
         const version = Number(held || 0) + 1;
