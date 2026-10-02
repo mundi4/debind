@@ -23,12 +23,14 @@
 | **3.5** | 나갔다 (2026-08-31). `flyable` · `advflyable` · `flying` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
 | **3.5에 같이** | 가리킨 그룹 프레임 사람의 역할을 조건으로 묻는다 | `legacy/adding-a-role-condition.md` |
 | **3.5에 같이** | 커스텀 매크로 변환이 키가 하던 일을 바꾸던 것 | `CHANGELOG.md` |
-| **4.0** | ~~다음 릴리스~~ **번호가 4.0으로 정해졌다 (2026-09-23, 소유자).** 남의 래퍼 위에 서서 그쪽 본문을 대신 돌린다. 3.5.2가 집던 프레임을 옵션(기본 켬) 뒤에 되살렸고, ~~등록되지 않은 개체창은 건드리지 않는다~~는 그것으로 뒤집혔다(2026-09-07, 소유자) | `legacy/standing-on-top-of-foreign-wrappers.md`<br>`legacy/leaving-unregistered-frames-alone.md` |
+| **4.0** | 나갔다 (2026-09-23). ~~다음 릴리스~~ **번호가 4.0으로 정해졌다 (2026-09-23, 소유자).** 남의 래퍼 위에 서서 그쪽 본문을 대신 돌린다. 3.5.2가 집던 프레임을 옵션(기본 켬) 뒤에 되살렸고, ~~등록되지 않은 개체창은 건드리지 않는다~~는 그것으로 뒤집혔다(2026-09-07, 소유자) | `legacy/standing-on-top-of-foreign-wrappers.md`<br>`legacy/leaving-unregistered-frames-alone.md` |
 | **4.0에 같이** | 홀더 뒤에서 쓰기를 하나도 놓치지 않는다. 위 줄의 3단계가 남긴 셋. 이름을 되찾지 않는 판단은 그대로다 | `legacy/hearing-every-write-behind-a-holder.md` |
 | **4.0에 같이** | 알려진 팩의 이름을 표 하나로 들고 팩별로 켜고 끈다 | `legacy/keeping-one-table-of-known-packs.md` |
 | **4.0에 같이** | 유닛 프레임은 전부 잡고 빼는 것은 블랙리스트 하나. 위 세 줄이 들고 온 스위치 셋을 하나로 접는다. **Clique 사용자의 판이 업데이트로 바뀌므로 릴리스 노트 한 줄이 필요하다** | `legacy/taking-every-unit-frame-with-one-blacklist.md` |
 | **4.0에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, ~~순서를 강제하는 것은 그 가져오기 트랙이다~~ ~~**그 트랙이 보류다 (2026-09-19, 소유자)**, `0-IDEAS.md`~~ **그 트랙은 `importing-clique-profiles.md`로 다시 열렸다 (2026-09-24)** | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
 | **4.0에 같이** | 전문화가 주문을 정하는 타입들. ~~4.0에 같이~~ ~~**4.0에는 안 나간다 (2026-09-22, 소유자)**~~ **4.0에 나간다 (2026-09-23, 소유자)**: ~~코드는 있고 픽커에 세우는 줄이 주석 처리되어 있어 추가할 길이 없다~~ **그 줄은 켰다 (2026-09-23, 소유자)**. `Resurrect`도 같이 나간다. `External`은 뺐고 `Resurrect`가 들어올 자리다 | `adding-spec-resolved-actions.md` |
+| **4.1** | 나갔다 (2026-09-25). 포에버(카멜롯) 클라이언트에서도 돈다. Clique 설정 가져오기가 같이 나갔다 | `legacy/shipping-on-the-camelot-client.md`<br>`legacy/preparing-the-code-for-camelot.md`<br>`legacy/importing-clique-profiles.md` |
+| **4.1.1 · 4.1.2** | 나갔다 (2026-09-28, 09-30). 투기장 Lua 에러 핫픽스, 포에버에서 아직 안 배운 주문 | `CHANGELOG.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, ~~보관함의 남은 넷~~ **보류 (2026-09-19, 소유자)**. 둘 다 `0-IDEAS.md`가 든다 | `legacy/switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | ~~**다음 `dbver` 범프에**~~ **4.0에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |
