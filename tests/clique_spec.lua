@@ -471,7 +471,6 @@ return function(DebindPrivate, DebindStorage)
         check(entry and entry.payload == payload and payload.name == "Healer" and entry.name == nil,
             "kept");
         check(payload.gameType == "standard", "game type " .. tostring(payload.gameType));
-        check(entry.character == nil, "not marked as made here");
     end);
 
     test("the profiles of a CliqueDB3 come with the characters that use them", function()

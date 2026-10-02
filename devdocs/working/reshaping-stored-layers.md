@@ -712,7 +712,8 @@ layer that covers this character work together.")가 붙는다. 같은 키에서
 
 **남은 것.** README 레이어 스크린샷의 설명과 그림이 "Account / Balance"다.
 
-**지금 구현과 다른 점.**
-
-- 행의 이름과 날짜 줄의 Created/Received는 행 바깥의 `entry.character`, `entry.realm`을 읽는다
-  (`StorageUI.lua`의 `EntrySender`와 그 툴팁).
+**행 바깥의 `character`, `realm`, `guid`는 걷었다** (2026-10-03). 넣은 이유 셋(행이 누구 것인지, 자동
+백업의 이름, 내 백업인지의 판정)이 하나도 남지 않은 채 툴팁이 그 필드가 있느냐를 "여기서 만든 행" 표시로
+읽고 있었다. 누구의 칸인지는 페이로드의 `characters`와 칸 키가 답한다. 아직 나가지 않은 `ENTRY_VERSION`
+2 단계가 저장된 행에서 셋을 지우고, 4.1에서 만든 행은 받은 시각을 `payload.created`로 넘긴다. 툴팁의
+"Made on this account"와 "Pasted from a string"은 없어졌고, 출처 줄은 Clique 행에만 선다.

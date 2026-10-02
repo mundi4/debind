@@ -838,15 +838,24 @@ return function(DebindPrivate, DebindStorage)
         _G.DebindStorageVars = nil;
     end
 
-    test("프로필에서 만든 것이 캐릭터명·서버명·guid를 든다", function()
+    --- 행 최상단에 설 수 있는 이름 전부. 누구의 칸인지는 페이로드의 `characters`가 들고, 행이 그것을
+    --- 따로 들면 답이 둘이 된다.
+    local ENTRY_KEYS = { id = true, received = true, payload = true };
+
+    local function CheckEntryKeys(entry, what)
+        for name in pairs(entry) do
+            check(ENTRY_KEYS[name], what .. "이 모르는 필드를 들었다: " .. tostring(name));
+        end
+    end
+
+    test("프로필에서 만든 행은 행 바깥에 누구 것인지를 안 든다", function()
         ResetStore();
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
         local entry = DebindStorage.CreateEntry();
-        check(entry.character == "Tester", "캐릭터명 " .. tostring(entry.character));
-        check(entry.realm == "Test Realm", "서버명 " .. tostring(entry.realm));
-        check(entry.guid == GUID, "guid " .. tostring(entry.guid));
+        CheckEntryKeys(entry, "캐릭터에서 만든 행");
         check(CountActions(entry.payload) == 1, "액션이 안 담겼다");
+        CheckEntryKeys(DebindStorage.CreateAccountEntry(), "계정에서 만든 행");
     end);
 
     ---------------------------------------------------------------------------
@@ -919,7 +928,7 @@ return function(DebindPrivate, DebindStorage)
             "붙기 전의 신원이 빠졌다");
     end);
 
-    test("그 셋은 페이로드 밖이다", function()
+    test("만든 행의 페이로드는 아는 필드만 든다", function()
         ResetStore();
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
@@ -930,15 +939,14 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
-    test("붙여넣은 것에는 그 셋이 없다", function()
+    test("붙여넣은 행도 행 바깥에 누구 것인지를 안 든다", function()
         ResetStore();
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
         local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
         local entry = DebindStorage.ImportEntry(str, "받은 것");
         check(entry, "받아들여지지 않았다");
-        check(entry.character == nil and entry.realm == nil and entry.guid == nil,
-            "받은 것에 신원이 붙었다");
+        CheckEntryKeys(entry, "붙여넣은 행");
     end);
 
     ---------------------------------------------------------------------------

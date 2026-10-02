@@ -656,6 +656,44 @@ return function(DebindPrivate, DebindStorage)
         check(entries[2].name == nil and #entries == 2, "페이로드 없는 행에서 터지거나 이름이 남았다");
     end);
 
+    -- Whose cells a payload holds is the payload's own `characters`. A drawer from 4.1 also has who
+    -- made the row beside it, and left there it is a second answer for the next reader to pick up.
+    test("옛 서랍의 행이 든 만든 캐릭터·서버·guid는 걷힌다", function()
+        ResetDrawer();
+        _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
+            { id = 1, received = 100, character = "Tester", realm = "Test Realm", guid = "Player-1-A",
+              payload = Payload({ { scope = "general", key = "F" } }) },
+            { id = 2, received = 200, payload = Payload({ { scope = "general", key = "G" } }) },
+        } };
+
+        local entries = DebindStorage.GetEntries();
+        check(_G.DebindStorageVars.version == 2, "판 " .. tostring(_G.DebindStorageVars.version));
+        check(entries[1].character == nil and entries[1].realm == nil and entries[1].guid == nil,
+            "행에 만든 캐릭터가 남았다");
+        check(#entries == 2 and entries[1].payload and entries[2].payload, "행이나 페이로드가 사라졌다");
+    end);
+
+    -- A 4.1 payload has no `created`, and what said a row was made here was the character beside it.
+    -- Made here, it was made the moment it was received; that has to reach the payload before the
+    -- character goes, or the row's making is lost.
+    test("옛 서랍의 여기서 만든 행은 받은 시각을 만든 시각으로 넘긴다", function()
+        ResetDrawer();
+        local made = Payload({ { scope = "general", key = "F" } });
+        local pasted = Payload({ { scope = "general", key = "G" } });
+        local dated = Payload({ { scope = "general", key = "H" } });
+        made.created, pasted.created, dated.created = nil, nil, 50;
+        _G.DebindStorageVars = { version = 1, nextID = 4, entries = {
+            { id = 1, received = 100, character = "Tester", payload = made },
+            { id = 2, received = 200, payload = pasted },
+            { id = 3, received = 300, character = "Tester", payload = dated },
+        } };
+
+        DebindStorage.GetEntries();
+        check(made.created == 100, "만든 시각 " .. tostring(made.created));
+        check(pasted.created == nil, "붙여 넣은 행에 만든 시각이 생겼다: " .. tostring(pasted.created));
+        check(dated.created == 50, "있던 만든 시각이 바뀌었다: " .. tostring(dated.created));
+    end);
+
     ---------------------------------------------------------------------------
     -- What a payload holds (`DescribePayload`), which names a row that has no name
     ---------------------------------------------------------------------------

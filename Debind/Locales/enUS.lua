@@ -2249,13 +2249,11 @@ L["STORAGE_ADD"] = "Add to My Bindings"
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
 --
 -- Two different moments: when the setting was made, which the string carries, and when it reached
--- this list. A row made here has only the first. %s is a date and a time.
+-- this list. A row made here shows only the first, the two being the same minute. %s is a date and
+-- a time.
 L["STORAGE_ENTRY_MADE"] = "Created %s"
 L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
--- Where the row came from, the tooltip's first line under the title. **Not which character made
--- it**: what is in it says that already (소유자, 2026-09-28).
-L["STORAGE_ENTRY_SOURCE_MADE"] = "Made on this account"
-L["STORAGE_ENTRY_SOURCE_PASTED"] = "Pasted from a string"
+-- The tooltip's first line under the title, on a row converted from a Clique profile or share code.
 L["STORAGE_ENTRY_SOURCE_CLIQUE"] = "Imported from Clique"
 -- Whose layers are in it. %s is a list of class names, or of character names.
 L["STORAGE_ENTRY_CLASSES"] = "Classes: %s"

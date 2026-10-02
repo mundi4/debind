@@ -184,18 +184,6 @@ return function(DebindPrivate, DebindStorage)
             "stored " .. tostring(entry and entry.name) .. ", expected " .. WholeName());
     end);
 
-    test("an entry made here carries the character's whole name", function()
-        _G.DebindStorageVars = nil;
-        _G.DebindVars = { dbver = DebindPrivate.Constants.DB_VERSION,
-            layers = { account = { GENERAL = { [0] = {
-                { type = DebindPrivate.Constants.SPELL, value = 1, key = "F1", seq = 1 } } } } },
-            characters = {}, migrated = {} };
-        DebindPrivate.InitDB();
-        local entry = DebindStorage.CreateEntry();
-        check(entry.character == WholeName(),
-            "made by " .. tostring(entry.character) .. ", expected " .. WholeName());
-    end);
-
     -- **A layer label is one value.** It goes last into `GameTooltip_SetTitle`, `format` and
     -- `SetText`, so a second return from the client call behind it lands in the next parameter:
     -- camelot's `UnitName("player")` adds the surname and the tab tooltip took it for its colour.

@@ -39,9 +39,7 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- be turned away for a change that never left this disk.
 ---
 --- **A field added is not a bump** - the rule `PAYLOAD_VERSION` states, for the same reason: a reader
---- that skips what it does not know survives an addition on its own. That is what the three an
---- entry made from a profile carries are. A row without them is a row that came from a string,
---- which is exactly what their absence should mean.
+--- that skips what it does not know survives an addition on its own.
 ---
 --- It was called `STORE_VERSION` and its comment said "bump when a stored entry changes shape",
 --- which is why it got bumped for something that is not a shape change at all: keeping the payload
@@ -50,7 +48,10 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- where it lived.
 ---
 --- **2 (2026-09-28) moved the name into the payload.** `entry.name` was the reader's label for the
---- row alone; `payload.name` travels with the string, and one place holds it.
+--- row alone; `payload.name` travels with the string, and one place holds it. The same step drops
+--- the `character`, `realm` and `guid` a row made here carried beside its payload: whose cells a
+--- payload holds is its own `characters`, and a second answer on the row is one the next reader
+--- picks up instead.
 local ENTRY_VERSION             = 2;
 
 --- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
@@ -517,6 +518,14 @@ local function Vars()
                 entry.payload.name = entry.name;
             end
             entry.name = nil;
+            -- The character beside the payload was the only thing saying a row was made here, and
+            -- a 4.1 payload has no `created`: one made here was made the moment it was received.
+            if (entry.character ~= nil and luatype(entry.payload) == "table" and entry.payload.created == nil) then
+                entry.payload.created = entry.received;
+            end
+            entry.character = nil;
+            entry.realm = nil;
+            entry.guid = nil;
         end
         vars.version = 2;
     end
@@ -733,16 +742,12 @@ end
 --- Seats a payload in the store and hands back the row it became.
 ---
 --- **Both ways in end here**, so an entry made from this profile and one pasted out of a string are
---- the same kind of thing from the moment they exist. What separates them is what `extra` carries,
---- and that is three fields about where it came from.
----
---- **The automatic backup is why this is one door rather than two.** A backup is an entry made from
---- the profile and restoring one is pressing the same button any other row has, so there is nothing
---- for it to have of its own (`building-export-import.md`). A branch built for backups
---- would be code no ordinary press ever walks, and code nothing walks is code nothing has checked.
-local function StoreEntry(payload, extra)
+--- the same kind of thing from the moment they exist. **The row holds nothing about whose it is**:
+--- that is the payload's `characters` and the keys of its cells, and a copy on the row is a second
+--- answer that goes on being read after the payload's has moved.
+local function StoreEntry(payload)
     local vars = Vars();
-    local entry = extra or {};
+    local entry = {};
 
     entry.id = vars.nextID;
     -- **When this row appeared here**, which is what the list sorts and dates by. For a pasted
@@ -772,11 +777,6 @@ end
 --- who the string came from once: nothing *sends* a string, it is
 --- copied off a page or out of a notes file, and the reader restoring their own backup had no
 --- answer to give, so the field stayed empty exactly where a name would have been most use.
----
---- **Nothing about the sender lands on the row.** A row made from a profile carries three fields
---- saying it was made here (`CreateEntry`), and a pasted one has none of them. Their absence is what
---- says this came from a string, even one this character wrote: who a character cell is rides in
---- the payload (`characters`) and says nothing about who pasted it.
 function DebindStorage.ImportEntry(text, name)
     -- **A Clique share code comes through the same box** (`importing-clique-profiles.md` §1). It
     -- holds a binding list, which becomes a payload here, and from then on it is an entry like any
@@ -837,11 +837,6 @@ function DebindStorage.SetEntryText(entry, name, description)
     return true;
 end
 
---- The three fields a row made here carries (`CreateEntry` says what they answer).
-local function MadeHere()
-    return { character = DebindPrivate.GetUnitFullName("player"), realm = GetRealmName(), guid = DebindPrivate.playerGUID };
-end
-
 --- Makes an entry out of this character's profile and keeps it.
 ---
 --- `selection` is a set of action tables, or nil for the whole profile. **The button that makes one
@@ -855,24 +850,13 @@ end
 --- never shows a blue row: what is in it is what this reader has approved, which is also what makes
 --- it worth anything as a backup -- the thing a key group operation can take away is an approved
 --- action, and a badged one still has its own entry sitting in the list to be added again.
----
---- **The three fields are only on rows made here**, and they answer three questions: which
---- character a row in the list belongs to, what to call an automatic backup, and whether this is
---- the reader's own backup rather than somebody else's setting. That last one is the axis the
---- custom-state question could never be decided on, because nothing on the wire tells the two apart
---- (`building-export-import.md`).
----
---- **They are outside the payload**, because they are about the row: a string is made by encoding
---- `entry.payload`, and a string pasted back in is a different row. Who a character cell is travels
---- in the payload's own `characters`.
 function DebindStorage.CreateEntry(selection)
-    return StoreEntry(DebindStorage.BuildExportPayload(selection), MadeHere());
+    return StoreEntry(DebindStorage.BuildExportPayload(selection));
 end
 
---- `CreateEntry` for the whole account (`BuildAccountPayload`). The row still carries the character
---- it was made on.
+--- `CreateEntry` for the whole account (`BuildAccountPayload`).
 function DebindStorage.CreateAccountEntry()
-    return StoreEntry(DebindStorage.BuildAccountPayload(), MadeHere());
+    return StoreEntry(DebindStorage.BuildAccountPayload());
 end
 
 --- Takes a set of actions out of an entry, for good. Answers how many it found.

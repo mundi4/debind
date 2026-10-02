@@ -203,16 +203,12 @@ DebindStorageEntryRowMixin = {};
 --- ruleset (`ClassicBetaPvE2`, `ClassicBetaPvP2` on the beta), so a character of another ruleset
 --- shows its realm there too. **In the client's form** where it does: `FULL_PLAYER_NAME` is what
 --- the friends list joins the two with and every locale carries it.
----
---- Compared without spaces and dashes, because the two places a realm comes from spell it
---- differently: a character's identity keeps `GetNormalizedRealmName` and a row made here keeps
---- `GetRealmName`.
 local function NameWithRealm(name, realm)
     if (type(realm) ~= "string" or realm == "") then
         return name;
     end
     local here = GetNormalizedRealmName and GetNormalizedRealmName();
-    if (here and realm:gsub("[%s%-]", "") == here) then
+    if (here and realm == here) then
         return name;
     end
     return format(FULL_PLAYER_NAME, name, realm);
@@ -448,31 +444,21 @@ function DebindStorageEntryRowMixin:OnEnter()
         GameTooltip_AddBlankLineToTooltip(GameTooltip);
     end
 
-    -- **Where it came from, and not which character made it** (소유자, 2026-09-28). What a
-    -- character's own entry holds is the layers that character reaches, which the class and
-    -- character lines below already name; an account entry is the same whichever character made it.
-    -- Only a row made here carries a character, and only a Clique conversion carries `source`.
-    local source;
-    if (entry.character) then
-        source = LLL["STORAGE_ENTRY_SOURCE_MADE"];
-    elseif (payload.source == Store().SOURCE_CLIQUE) then
-        source = LLL["STORAGE_ENTRY_SOURCE_CLIQUE"];
-    else
-        source = LLL["STORAGE_ENTRY_SOURCE_PASTED"];
+    if (payload.source == Store().SOURCE_CLIQUE) then
+        GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_ENTRY_SOURCE_CLIQUE"]);
     end
-    GameTooltip_AddNormalLine(GameTooltip, source);
 
-    -- **Two moments, which are one only for a row made here.** `created` travels in the string and
-    -- `received` is when it reached this list. A string from before `created` existed has no
-    -- moment of making to show (소유자, 2026-09-28).
-    local created = type(payload.created) == "number" and payload.created
-        or (entry.character and entry.received);
+    -- **Two moments, read off the payload and the row and nothing else.** `created` travels in the
+    -- string and `received` is when it reached this list. A string from before `created` existed
+    -- has no moment of making to show (소유자, 2026-09-28). A row made here was received the moment
+    -- it was made, and a second line giving the same minute says nothing.
+    local created = type(payload.created) == "number" and DateTimeText(payload.created);
+    local received = DateTimeText(entry.received);
     if (created) then
-        GameTooltip_AddNormalLine(GameTooltip, format(LLL["STORAGE_ENTRY_MADE"], DateTimeText(created)));
+        GameTooltip_AddNormalLine(GameTooltip, format(LLL["STORAGE_ENTRY_MADE"], created));
     end
-    if (not entry.character) then
-        GameTooltip_AddNormalLine(GameTooltip,
-            format(LLL["STORAGE_ENTRY_RECEIVED"], DateTimeText(entry.received)));
+    if (received ~= created) then
+        GameTooltip_AddNormalLine(GameTooltip, format(LLL["STORAGE_ENTRY_RECEIVED"], received));
     end
 
     -- **Whose layers are in it** (소유자, 2026-09-28): the title names them only while there is one.
