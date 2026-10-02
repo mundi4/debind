@@ -754,11 +754,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     ---------------------------------------------------------------------------
-    -- Anonymising
-    --
-    -- **Chosen when a string is made** (`reshaping-stored-layers.md` 1-1). The cells are
-    -- renumbered in that one string and nothing says who they were; nothing marks the string
-    -- either, since a character key with no `characters` entry already says it.
+    -- Who a character cell is
     ---------------------------------------------------------------------------
 
     --- A profile with a character layer and a character override, made into an entry.
@@ -773,58 +769,18 @@ return function(DebindPrivate, DebindStorage)
         return DebindStorage.CreateEntry();
     end
 
-    --- Every string anywhere in `value`, keys included.
-    local function AnyStringContains(value, needle)
-        if (type(value) == "string") then
-            return value:find(needle, 1, true) ~= nil;
-        end
-        if (type(value) == "table") then
-            for k, v in pairs(value) do
-                if (AnyStringContains(k, needle) or AnyStringContains(v, needle)) then
-                    return true;
-                end
-            end
-        end
-        return false;
-    end
-
-    test("익명화 안 한 문자열은 guid와 신원을 그대로 싣는다", function()
-        local str = DebindStorage.ExportEntry(EntryWithCharacter(), nil, false);
+    test("문자열은 guid와 신원을 그대로 싣는다", function()
+        local str = DebindStorage.ExportEntry(EntryWithCharacter(), nil);
         local payload = DebindStorage.DecodeExportString(str);
         check(LayerAt(payload, GUID, CLASS, 2), "guid 칸이 없다");
         check(payload.characters[GUID].name == "Tester", "신원이 없다");
     end);
 
-    test("익명화한 문자열에는 guid도 이름도 없다", function()
-        local str = DebindStorage.ExportEntry(EntryWithCharacter(), nil, true);
-        local payload = DebindStorage.DecodeExportString(str);
-        check(payload, "디코드 실패");
-        check(not AnyStringContains(payload, GUID), "guid가 남았다");
-        check(not AnyStringContains(payload, "Tester"), "이름이 남았다");
-        check(payload.characters == nil, "신원 표가 남았다");
-    end);
-
-    test("익명화는 칸을 번호로 바꾸고 스위치 칸도 같은 번호를 쓴다", function()
-        local payload = DebindStorage.DecodeExportString(
-            DebindStorage.ExportEntry(EntryWithCharacter(), nil, true));
-        check(LayerAt(payload, "1", CLASS, 2)[1].value == 1, "레이어 칸이 1이 아니다");
-        check(payload.switches["1"] and payload.switches["1"][CLASS][0]["$state3"],
-            "스위치 칸이 레이어 칸과 다른 번호다");
-        check(General(payload)[1].value == "$state3", "계정 칸이 흔들렸다");
-    end);
-
-    test("익명화는 보관함의 항목을 안 건드린다", function()
-        local entry = EntryWithCharacter();
-        DebindStorage.ExportEntry(entry, nil, true);
-        check(LayerAt(entry.payload, GUID, CLASS, 2), "저장된 칸의 키가 바뀌었다");
-        check(entry.payload.characters[GUID], "저장된 신원이 지워졌다");
-    end);
-
     ---------------------------------------------------------------------------
     -- What an entry holds
     --
-    -- An entry made from the profile carries three fields on the row (`CreateEntry`). They are the
-    -- row's, not the payload's: who a character cell is travels in the payload's `characters`.
+    -- The row holds when and how it reached the list, and nothing about whose it is: that is the
+    -- payload's `characters` and cell keys.
     ---------------------------------------------------------------------------
 
     --- 페이로드 최상단에 설 수 있는 이름 전부. 닫힌 목록이라 새 필드가 붙으면 여기가 먼저
@@ -840,7 +796,7 @@ return function(DebindPrivate, DebindStorage)
 
     --- 행 최상단에 설 수 있는 이름 전부. 누구의 칸인지는 페이로드의 `characters`가 들고, 행이 그것을
     --- 따로 들면 답이 둘이 된다.
-    local ENTRY_KEYS = { id = true, received = true, payload = true };
+    local ENTRY_KEYS = { id = true, received = true, receivedFrom = true, payload = true };
 
     local function CheckEntryKeys(entry, what)
         for name in pairs(entry) do
@@ -856,6 +812,18 @@ return function(DebindPrivate, DebindStorage)
         CheckEntryKeys(entry, "캐릭터에서 만든 행");
         check(CountActions(entry.payload) == 1, "액션이 안 담겼다");
         CheckEntryKeys(DebindStorage.CreateAccountEntry(), "계정에서 만든 행");
+    end);
+
+    -- Whose data it is, ours or another addon's, is the payload's `fromAddon`; the row says only
+    -- whether it was read straight off a profile or pasted in as a string.
+    test("행은 프로필에서 읽었는지 문자열로 받았는지를 든다", function()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+        check(DebindStorage.CreateEntry().receivedFrom == "profile", "캐릭터에서 만든 행");
+        check(DebindStorage.CreateAccountEntry().receivedFrom == "profile", "계정에서 만든 행");
+        local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
+        check(DebindStorage.ImportEntry(str).receivedFrom == "string", "붙여넣은 행");
     end);
 
     ---------------------------------------------------------------------------
@@ -1025,22 +993,19 @@ return function(DebindPrivate, DebindStorage)
         end
     end
 
-    test("골라내도, 익명화해도, 문자열을 돌아도 제 것을 들고 간다", function()
+    test("골라내도, 문자열을 돌아도 제 것을 들고 간다", function()
         local entry = NamedEntry();
         local payload = entry.payload;
         CheckMeta(DebindStorage.FilterPayload(payload, { [OneOn(payload, "F")] = true }), payload, "골라내기");
-        CheckMeta(DebindStorage.AnonymizePayload(payload), payload, "익명화");
-        for _, anonymize in ipairs({ false, true }) do
-            CheckMeta(DebindStorage.DecodeExportString(
-                DebindStorage.ExportEntry(entry, { [OneOn(payload, "H")] = true }, anonymize)),
-                payload, "문자열");
-        end
+        CheckMeta(DebindStorage.DecodeExportString(
+            DebindStorage.ExportEntry(entry, { [OneOn(payload, "H")] = true })),
+            payload, "문자열");
     end);
 
     -- **The field goes and the string stays**: none of these says anything about the actions.
     test("타입이 틀린 것은 그 필드만 버리고 받는다", function()
         for _, bad in ipairs({
-            { name = 5 }, { description = {} }, { gameType = true }, { source = 1 },
+            { name = 5 }, { description = {} }, { gameType = true }, { fromAddon = 1 },
             { created = "어제" }, { created = 0 / 0 }, { created = 1 / 0 }, { created = -1 / 0 },
         }) do
             local field, value = next(bad);
@@ -1054,10 +1019,44 @@ return function(DebindPrivate, DebindStorage)
         end
 
         local good = { v = DebindStorage.PAYLOAD_VERSION, dbver = Constants.DB_VERSION, layers = {},
-            name = "n", description = "d", gameType = "camelot", created = 5, source = "clique" };
+            name = "n", description = "d", gameType = "camelot", created = 5, fromAddon = "clique" };
         local out = DebindStorage.BringPayloadForward(good);
         check(out.name == "n" and out.description == "d" and out.gameType == "camelot"
-            and out.created == 5 and out.source == "clique", "멀쩡한 것까지 버렸다");
+            and out.created == 5 and out.fromAddon == "clique", "멀쩡한 것까지 버렸다");
+    end);
+
+    -- An addon this version has no conversion for has no shape to read, so its name says nothing the
+    -- payload can be handled by; left on, it would grey the share button and be added as ours.
+    test("모르는 애드온 이름은 버리고 받는다", function()
+        local out = DebindStorage.BringPayloadForward({ v = DebindStorage.PAYLOAD_VERSION,
+            dbver = Constants.DB_VERSION, layers = {}, fromAddon = "bindpad" });
+        check(out and out.fromAddon == nil, "fromAddon " .. tostring(out and out.fromAddon));
+    end);
+
+    test("다른 애드온의 페이로드인지는 한 곳이 답한다", function()
+        check(DebindStorage.IsForeignPayload({ fromAddon = DebindStorage.FROM_ADDON_CLIQUE }), "Clique");
+        check(not DebindStorage.IsForeignPayload({}), "우리 것");
+    end);
+
+    -- 4.1 wrote the Clique mark as `source`, and a 4.1 string or a 4.1 drawer row still carries it.
+    test("v2의 source는 fromAddon으로 올라간다", function()
+        local out = DebindStorage.BringPayloadForward({ v = 2, dbver = Constants.DB_VERSION,
+            shared = { GENERAL = {} }, source = "clique" });
+        check(out, "올라가지 않았다");
+        check(out.fromAddon == "clique", "fromAddon " .. tostring(out.fromAddon));
+        check(out.source == nil, "source가 남았다");
+    end);
+
+    -- A Clique payload has not been through the reader's own add yet: what it holds is a
+    -- conversion nobody has checked, and handing it on would pass that along unchecked.
+    test("다른 애드온의 페이로드는 문자열로 못 나간다", function()
+        ResetStore();
+        local entry = DebindStorage.StorePayload(DebindStorage.PayloadFromCliqueBindings({
+            { key = "F", type = "spell", spell = "Rejuvenation", sets = { default = true } },
+        }, Constants.GAME_TYPE));
+        check(entry, "Clique 행이 안 만들어졌다");
+        local str, reason = DebindStorage.ExportEntry(entry);
+        check(str == nil and reason == "FOREIGN_PAYLOAD", "나갔다: " .. tostring(reason));
     end);
 
     -- **A received payload's spells are put on their first rank where it arrives**
@@ -1279,8 +1278,8 @@ return function(DebindPrivate, DebindStorage)
     ---------------------------------------------------------------------------
     -- v2 to v3
     --
-    -- v2 carried no identity, so its character layer arrives as an anonymised v3 would: under
-    -- `"1"`, keyed by the class `payload.class` named (`reshaping-stored-layers.md` 1-1).
+    -- v2 carried no identity, so its character layer arrives under `"1"`, keyed by the class
+    -- `payload.class` named (`reshaping-stored-layers.md` 1-1).
     ---------------------------------------------------------------------------
 
     local function V2()

@@ -4660,7 +4660,7 @@ RegisterTest("Clique CL02 code", {
 --- pass are the ones that ship. The cell keys are the part that can go wrong in silence: a spec
 --- number or the guid coming back as another type puts every action somewhere else.
 RegisterTest("Storage: a DEB2 string keeps its cells", {
-    description = "A string packed by the client comes back with its spec numbers, its guid cell and who it is, and an anonymised one with a numbered cell and no name",
+    description = "A string packed by the client comes back with its spec numbers, its guid cell and who it is, and a numbered cell nobody names at its number",
     run = function()
         local NAME = "DEB2 cells"
 
@@ -4701,18 +4701,21 @@ RegisterTest("Storage: a DEB2 string keeps its cells", {
             return Fail(NAME, "who the cell is did not come back")
         end
 
-        local anon = Store.DecodeExportString(Store.EncodeExportPayload(Store.AnonymizePayload(payload)))
-        if not anon then
-            return Fail(NAME, "the anonymised string did not come back")
+        -- A v2 string's character layer is stored under "1" (`RaiseV2`), and a row holding one can
+        -- go back out. A numeric string key is the one CBOR could hand back as a number.
+        local numbered = {
+            v = Store.PAYLOAD_VERSION, dbver = Constants.DB_VERSION,
+            layers = { ["1"] = { [class] = { [5] = Spell(5) } } },
+        }
+        local back1 = Store.DecodeExportString(Store.EncodeExportPayload(numbered))
+        if not back1 then
+            return Fail(NAME, "the string with a numbered cell did not come back")
         end
-        if anon.layers[guid] or anon.characters then
-            return Fail(NAME, "the anonymised string still says who it is")
-        end
-        if not (anon.layers["1"] and anon.layers["1"][class] and anon.layers["1"][class][5]) then
-            return Fail(NAME, "the anonymised cell is not at \"1\"")
+        if not (back1.layers["1"] and back1.layers["1"][class] and back1.layers["1"][class][5]) then
+            return Fail(NAME, "the numbered cell is not at \"1\"")
         end
 
-        return Pass(NAME, "every cell came back at its own key, and the anonymised one at \"1\" with no name")
+        return Pass(NAME, "every cell came back at its own key, and the numbered one at \"1\"")
     end,
 })
 

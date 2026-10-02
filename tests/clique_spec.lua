@@ -214,7 +214,7 @@ return function(DebindPrivate, DebindStorage)
         DebindPrivate.InitDB();
 
         local _, payload = Convert({ Spell("F", { default = true, spec2 = true }) });
-        check(payload.source == DebindStorage.SOURCE_CLIQUE, "source " .. tostring(payload.source));
+        check(payload.fromAddon == "clique", "fromAddon " .. tostring(payload.fromAddon));
         check(payload.class == nil, "class " .. tostring(payload.class));
         check(payload.dbver == Constants.DB_VERSION, "dbver");
         check(not DebindStorage.PayloadIsImpossible(payload), "refused");
@@ -223,7 +223,7 @@ return function(DebindPrivate, DebindStorage)
         check(#placements == 1 and placements[1].scope == "general", "placed");
 
         local filtered = DebindStorage.FilterPayload(payload, { [payload.layers.account.GENERAL[0][1]] = true });
-        check(filtered.source == DebindStorage.SOURCE_CLIQUE, "a narrowed payload keeps its source");
+        check(filtered.fromAddon == "clique", "a narrowed payload keeps its fromAddon");
     end);
 
     -- **Adding is where the layer and the class are known** (§3), so `PlanArrival` is where a
@@ -414,7 +414,8 @@ return function(DebindPrivate, DebindStorage)
             check(entry, "refused: " .. tostring(reason));
             check(entry.payload.name == "named" and entry.name == nil,
                 "name " .. tostring(entry.payload.name) .. " / " .. tostring(entry.name));
-            check(entry.payload.source == DebindStorage.SOURCE_CLIQUE, "source");
+            check(entry.payload.fromAddon == "clique", "fromAddon " .. tostring(entry.payload.fromAddon));
+            check(entry.receivedFrom == "string", "received from " .. tostring(entry.receivedFrom));
             -- A share code could have been written on either client.
             check(entry.payload.gameType == nil, "game type " .. tostring(entry.payload.gameType));
             local action = entry.payload.layers.account.GENERAL[0][1];
@@ -471,6 +472,7 @@ return function(DebindPrivate, DebindStorage)
         check(entry and entry.payload == payload and payload.name == "Healer" and entry.name == nil,
             "kept");
         check(payload.gameType == "standard", "game type " .. tostring(payload.gameType));
+        check(entry.receivedFrom == "profile", "received from " .. tostring(entry.receivedFrom));
     end);
 
     test("the profiles of a CliqueDB3 come with the characters that use them", function()

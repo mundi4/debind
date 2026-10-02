@@ -156,8 +156,8 @@ local ACTION_FIELDS      = {
     -- import filters that level the way it filters `conditions`.
     casting = "table",
     -- What another addon stored that cannot be translated until the payload is added, kept as that
-    -- addon wrote it. The payload's `source` says whose shape it is, and adding reads it and drops it
-    -- (`importing-clique-profiles.md` §2). Never saved: it is not in `KEYS_TO_SAVE`.
+    -- addon wrote it. The payload's `fromAddon` says whose shape it is, and adding reads it and
+    -- drops it (`importing-clique-profiles.md` §2). Never saved: it is not in `KEYS_TO_SAVE`.
     untranslated = "table",
     -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
     -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
@@ -596,11 +596,14 @@ local function NewPayload()
     };
 end
 
---- The fields about the payload as a whole, carried by every copy made of one (`FilterPayload`,
---- `AnonymizePayload`), and the type each has to be. **`name` and `description` are free text a
---- sender wrote**: whoever draws them owes them `PlainText`.
+--- The fields about the payload as a whole, carried by every copy made of one (`FilterPayload`), and
+--- the type each has to be. **`name` and `description` are free text a sender wrote**: whoever
+--- draws them owes them `PlainText`.
+---
+--- **`fromAddon` names the addon whose data this is**, nil for ours. It is not how the payload
+--- reached a reader; that is the stored row's `receivedFrom`, and it does not travel.
 local META_FIELDS = {
-    source = "string",
+    fromAddon = "string",
     created = "number",
     gameType = "string",
     name = "string",
@@ -615,6 +618,24 @@ local function CopyMeta(from, to)
     return to;
 end
 
+--- The payload's `fromAddon` for a Clique profile. Read when the payload is added, which is where
+--- the layer is chosen and `untranslated` is resolved (`importing-clique-profiles.md` §3).
+DebindStorage.FROM_ADDON_CLIQUE = "clique";
+
+--- The values `fromAddon` may hold: the addons this version converts. **Any other is dropped on the
+--- way in** (`DropBadMeta`), so everything that asks "is this another addon's" gets the same answer:
+--- a name nothing here can read would otherwise grey the share button while the add went on as
+--- though the payload were ours.
+local KNOWN_ADDONS = {
+    [DebindStorage.FROM_ADDON_CLIQUE] = true,
+};
+
+--- Whether `payload` is another addon's data. **The one place that asks**, for the share button and
+--- `ExportEntry` alike.
+function DebindStorage.IsForeignPayload(payload)
+    return luatype(payload) == "table" and payload.fromAddon ~= nil;
+end
+
 --- Drops a `META_FIELDS` value of the wrong type, in place. **The field goes and the string stays**:
 --- none of these says anything about the actions, so a bad one is no reason to refuse them. NaN and
 --- the infinities are not a time.
@@ -625,6 +646,9 @@ local function DropBadMeta(payload)
                 or (want == "number" and (value ~= value or value == math.huge or value == -math.huge)))) then
             payload[field] = nil;
         end
+    end
+    if (payload.fromAddon ~= nil and not KNOWN_ADDONS[payload.fromAddon]) then
+        payload.fromAddon = nil;
     end
 end
 
@@ -792,47 +816,6 @@ function DebindStorage.FilterPayload(payload, selection)
     end);
 
     return out;
-end
-
---- The same payload with every character cell renumbered `"1"`, `"2"`, ... and no `characters`,
---- for a string whose writer chose not to say who they are (`reshaping-stored-layers.md` 1-1).
----
---- **One number per owner across `layers` and `switches`**, so a character's override rows still
---- sit beside its layers. The numbers go in the order of the owner keys as strings, so the same
---- entry makes the same string.
----
---- Nothing marks the result as anonymised. A character key with no `characters` entry already
---- says it, and a second place saying it could disagree with the first.
----
---- A new table down to the owner level, so the entry it was made from keeps its keys. Below that
---- the tables are shared, the way `FilterPayload` shares its actions.
-function DebindStorage.AnonymizePayload(payload)
-    local owners = {};
-    for owner in pairs(CharacterOwners(payload)) do
-        owners[#owners + 1] = owner;
-    end
-    table.sort(owners, function(lhs, rhs) return tostring(lhs) < tostring(rhs); end);
-    local numbers = {};
-    for i, owner in ipairs(owners) do
-        numbers[owner] = tostring(i);
-    end
-
-    local function Renumbered(tbl)
-        if (luatype(tbl) ~= "table") then
-            return nil;
-        end
-        local out = {};
-        for owner, classes in pairs(tbl) do
-            out[numbers[owner] or owner] = classes;
-        end
-        return out;
-    end
-
-    return CopyMeta(payload, {
-        v = payload.v, dbver = payload.dbver,
-        layers = Renumbered(payload.layers),
-        switches = Renumbered(payload.switches),
-    });
 end
 
 --- LibStub is asked at call time, not at load. This file is loaded by the headless specs, which
@@ -1023,8 +1006,8 @@ end
 
 --- v2 -> v3: the v2 addresses into the saved shape (`reshaping-stored-layers.md` 1-1).
 ---
---- **v2 carried no identity**, so its character layer lands the way an anonymised v3 one does:
---- under `"1"`, keyed by the class `payload.class` named. **Without a class it is dropped.** Every
+--- **v2 carried no identity**, so its character layer lands under `"1"`, a key no `characters`
+--- entry names, keyed by the class `payload.class` named. **Without a class it is dropped.** Every
 --- string since 3.2 carries one (9b57dc4), so a v2 without it was edited by hand, and a hand-edited
 --- file is not read for what it meant (`reshaping-stored-layers.md` 1절).
 ---
@@ -1032,6 +1015,9 @@ end
 --- name is the general layer's.
 ---
 --- v2 sent no override rows, so the definitions are the whole of `switches`.
+---
+--- v2 called `fromAddon` `source`. 4.1 wrote it on a Clique payload, and such a payload is in 4.1
+--- strings and in 4.1 drawers alike.
 local function RaiseV2(payload)
     local account = {};
     local shared = luatype(payload.shared) == "table" and payload.shared or nil;
@@ -1061,10 +1047,13 @@ local function RaiseV2(payload)
         payload.switches = { [ACCOUNT_OWNER] = { GENERAL = { [0] = payload.states } } };
     end
 
+    payload.fromAddon = payload.source;
+
     payload.shared = nil;
     payload.char = nil;
     payload.states = nil;
     payload.class = nil;
+    payload.source = nil;
     payload.v = 3;
 end
 
@@ -1153,9 +1142,10 @@ end
 --- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
 --- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
 --- out of SavedVariables. Neither may error, and the answer is the same refusal, so asking twice
---- would be the same question in two places. It caught a real one: an entry with no payload draws in
---- the drawer perfectly well, because the two that draw the row guard it (`CountEntry`,
---- `EntryClassText`), and then threw the moment the row was opened.
+--- would be the same question in two places. It caught one a development build had left (2026-08-20;
+--- every released version stores a table here): an entry with no payload draws in the drawer
+--- perfectly well, because the two that draw the row guard it (`CountEntry`, `EntryClassText`), and
+--- then threw the moment the row was opened. So what it guards against is a hand-edited file.
 function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
@@ -1238,22 +1228,26 @@ function DebindStorage.DecodeExportString(str)
     return DebindStorage.BringPayloadForward(payload);
 end
 
---- What the window calls: an entry and what is ticked in it, string out. `anonymize` renumbers the
---- character cells and leaves out who they were (`AnonymizePayload`).
+--- What the window calls: an entry and what is ticked in it, string out.
+---
+--- **Another addon's data does not go out** (`FOREIGN_PAYLOAD`, owner, 2026-10-03). Nobody has
+--- checked it yet: what it holds is a conversion, part of it still in that addon's own shape
+--- (`untranslated`), and what makes it ours is the reader adding it and seeing where it lands. A
+--- string made from it would hand that unchecked conversion on, person to person. Once added, a
+--- payload made from the profile carries what the reader saw.
 ---
 --- **The profile is not read here.** It was, while the export window built a string straight out of
 --- the layers, and the entry is what stands between them now: making one is the moment the profile
 --- is read (`CreateEntry`), and everything after that -- deleting from it, ticking part of it,
 --- handing it out -- is about the entry. So an entry that arrived in somebody else's string goes
 --- back out through this same call, which is what makes passing one on cost nothing to build.
-function DebindStorage.ExportEntry(entry, selection, anonymize)
+function DebindStorage.ExportEntry(entry, selection)
     local payload, reason = DebindStorage.GetEntryPayload(entry);
     if (not payload) then
         return nil, reason;
     end
-    payload = DebindStorage.FilterPayload(payload, selection);
-    if (anonymize) then
-        payload = DebindStorage.AnonymizePayload(payload);
+    if (DebindStorage.IsForeignPayload(payload)) then
+        return nil, "FOREIGN_PAYLOAD";
     end
-    return DebindStorage.EncodeExportPayload(payload);
+    return DebindStorage.EncodeExportPayload(DebindStorage.FilterPayload(payload, selection));
 end

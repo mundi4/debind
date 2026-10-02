@@ -12,10 +12,6 @@ local luatype       = type;
 --- of §6's table is a headless spec. Spell and item names stay names (§4); what the client makes
 --- of them is the rebuild's business.
 
---- The payload's `source` for a Clique profile. Read when the payload is added, which is where the
---- layer is chosen and `untranslated` is resolved (§3).
-DebindStorage.SOURCE_CLIQUE = "clique";
-
 local SPEC_KEYS = { "spec1", "spec2", "spec3", "spec4", "spec5" };
 
 --- Our modifier order, the one the capture dialog writes (`DebindUI.lua`'s chord builder). Clique
@@ -229,7 +225,7 @@ function DebindStorage.PayloadFromCliqueBindings(bindings, gameType)
     local payload = {
         v = DebindStorage.PAYLOAD_VERSION,
         dbver = Constants.DB_VERSION,
-        source = DebindStorage.SOURCE_CLIQUE,
+        fromAddon = DebindStorage.FROM_ADDON_CLIQUE,
         gameType = gameType,
         layers = { [DebindStorage.ACCOUNT_OWNER] = { GENERAL = { [0] = actions } } },
     };

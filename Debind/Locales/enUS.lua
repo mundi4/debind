@@ -2157,7 +2157,7 @@ L["STORAGE_ADD_LAYER"] = "Which layer should these actions go into?"
 -- Over the dropdown of the payload's characters of this class. One of them goes into this
 -- character's layers (`reshaping-stored-layers.md` 6-2).
 L["STORAGE_ADD_CHARACTER"] = "Which character's layers should this character get?"
--- A character of an anonymised string, which carries no name. %s is its number in that string.
+-- A character of an older string, which carried no names. %s is its number in that string.
 L["STORAGE_ADD_CHARACTER_UNNAMED"] = "Character %s"
 -- Stands only when a ticked action is left restricted once one that ticks every specialization of
 -- this class counts as none (`importing-clique-profiles.md` §3).
@@ -2219,6 +2219,11 @@ L["STORAGE_ADD_QUARANTINED_DESC"] = "They go into your bindings doing nothing, a
 -- `Pending` is what the overview's button and filter already call this state (`IMPORT_PENDING`).
 L["STORAGE_ADD_QUARANTINED"] = "Add as Pending"
 L["STORAGE_COPY"] = "Create Share Code"
+-- Why that button is grey on a row made from Clique. What it holds is a conversion nobody has
+-- looked at yet, so it goes into somebody's bindings before it goes to anybody else (owner,
+-- 2026-10-03). %s is `STORAGE_ADD`, the button the sentence points at. **Names Clique** because
+-- Clique is the one addon a payload's `fromAddon` can name (`KNOWN_ADDONS` in `Export.lua`).
+L["STORAGE_COPY_FOREIGN"] = "A payload made from Clique cannot be shared. Use %s, then make a new payload from your bindings and share that one."
 -- **The destination, because `Add` on its own points at the list.** This said the client's `ADD`,
 -- and in the client that word sits on buttons that put a row in a list: add a friend, add to the
 -- ignore list. Two buttons under the list on the left already do that here, so a reader looking at
@@ -2249,16 +2254,18 @@ L["STORAGE_ADD"] = "Add to My Bindings"
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
 --
 -- Two different moments: when the setting was made, which the string carries, and when it reached
--- this list. A row made here shows only the first, the two being the same minute. %s is a date and
--- a time.
+-- this list. A row made here has only the first. %s is a date and a time.
 L["STORAGE_ENTRY_MADE"] = "Created %s"
 L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
--- The tooltip's first line under the title, on a row converted from a Clique profile or share code.
+-- Where the row came from, the tooltip's first line under the title. **Not which character made
+-- it**: what is in it says that already (owner, 2026-09-28).
+L["STORAGE_ENTRY_SOURCE_MADE"] = "Made on this account"
+L["STORAGE_ENTRY_SOURCE_PASTED"] = "Pasted from a string"
 L["STORAGE_ENTRY_SOURCE_CLIQUE"] = "Imported from Clique"
 -- Whose layers are in it. %s is a list of class names, or of character names.
 L["STORAGE_ENTRY_CLASSES"] = "Classes: %s"
 L["STORAGE_ENTRY_CHARACTERS"] = "Characters: %s"
--- A string whose writer left the character names out: the characters above are numbered instead.
+-- An older string, which carried no character names: the characters above are numbered instead.
 L["STORAGE_ENTRY_ANONYMOUS"] = "Character names left out"
 -- **One count each, joined by the caller** (소유자, 2026-09-29): a line that needs three of them
 -- lists three rather than having a string of its own, so a count is worded once. %d is how many.

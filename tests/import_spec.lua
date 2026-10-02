@@ -739,7 +739,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **The receiving character is one**, and a character cell of its class is what it takes. The
-    -- key says nothing about where it goes: a guid of some other install and an anonymised number
+    -- key says nothing about where it goes: a guid of some other install and a v2 string's number
     -- both land on this character.
     test("이 직업의 캐릭터 칸은 이 캐릭터로 간다", function()
         for _, owner in ipairs({ "Player-99-ELSEWHERE", "1" }) do

@@ -51,8 +51,17 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- row alone; `payload.name` travels with the string, and one place holds it. The same step drops
 --- the `character`, `realm` and `guid` a row made here carried beside its payload: whose cells a
 --- payload holds is its own `characters`, and a second answer on the row is one the next reader
---- picks up instead.
+--- picks up instead. What that character did say, that the row was made here, it leaves as
+--- `receivedFrom`.
 local ENTRY_VERSION             = 2;
+
+--- `entry.receivedFrom`: whether the row was read straight off a profile, this account's or another
+--- addon's on disk, or pasted in as a string. **How it arrived, not whose it is**: that is the
+--- payload's `fromAddon`, which travels with it, and this does not.
+local RECEIVED_FROM_PROFILE     = "profile";
+local RECEIVED_FROM_STRING      = "string";
+DebindStorage.RECEIVED_FROM_PROFILE = RECEIVED_FROM_PROFILE;
+DebindStorage.RECEIVED_FROM_STRING = RECEIVED_FROM_STRING;
 
 --- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
 --- block from 0 to 4). A descriptor naming a spec past this is not a spec we cannot represent, it
@@ -512,16 +521,30 @@ local function Vars()
     vars.nextID = vars.nextID or 1;
     -- A table with no version is one this call just made, or one nothing was ever stored in.
     vars.version = vars.version or ENTRY_VERSION;
+    -- **What a version 1 row can hold is what 3.3 to 4.1 wrote, and nothing else is asked.** Every one
+    -- of them stored a decoded table as `payload`, and none of them wrote `name` or `created` into
+    -- it: the name lived on the row and nothing stamped a time. A row breaking either is one somebody
+    -- edited by hand.
     if (vars.version < 2) then
         for _, entry in ipairs(vars.entries) do
-            if (entry.name ~= nil and luatype(entry.payload) == "table" and entry.payload.name == nil) then
-                entry.payload.name = entry.name;
-            end
+            local payload = entry.payload;
+            payload.name = entry.name;
             entry.name = nil;
-            -- The character beside the payload was the only thing saying a row was made here, and
-            -- a 4.1 payload has no `created`: one made here was made the moment it was received.
-            if (entry.character ~= nil and luatype(entry.payload) == "table" and entry.payload.created == nil) then
-                entry.payload.created = entry.received;
+
+            -- **The character beside the payload is the only record of a row made here**, so it
+            -- becomes `receivedFrom` before it goes. A 4.1 payload has no `created` either, and one
+            -- made here was made the moment it was received.
+            --
+            -- **A 4.1 Clique row counts as read off a profile** (owner, 2026-10-03). 4.1 took a
+            -- Clique share code in the paste box as well, and nothing on the row says which way one
+            -- came in; nothing reads `receivedFrom` on another addon's row either.
+            if (entry.character ~= nil) then
+                entry.receivedFrom = RECEIVED_FROM_PROFILE;
+                payload.created = entry.received;
+            elseif (payload.source ~= nil) then
+                entry.receivedFrom = RECEIVED_FROM_PROFILE;
+            else
+                entry.receivedFrom = RECEIVED_FROM_STRING;
             end
             entry.character = nil;
             entry.realm = nil;
@@ -624,7 +647,7 @@ end
 ---                a part of it** (owner, 2026-09-29): a mage class layer and a druid character are
 ---                two classes and one character
 ---   anonymous    whether a character key the payload names has no `characters` entry, which is
----                what `AnonymizePayload` leaves and nothing else marks
+---                what a v2 string's character layer becomes (`RaiseV2`) and nothing else marks
 ---   only         the narrowest scope, where one covers everything in it (3-2): `{ kind =
 ---                "character", owner =, class = }`, `{ kind = "class", class = }` or
 ---                `{ kind = "general" }`. **Scopes nest**: a character's layers come with its class
@@ -745,11 +768,12 @@ end
 --- the same kind of thing from the moment they exist. **The row holds nothing about whose it is**:
 --- that is the payload's `characters` and the keys of its cells, and a copy on the row is a second
 --- answer that goes on being read after the payload's has moved.
-local function StoreEntry(payload)
+local function StoreEntry(payload, receivedFrom)
     local vars = Vars();
     local entry = {};
 
     entry.id = vars.nextID;
+    entry.receivedFrom = receivedFrom;
     -- **When this row appeared here**, which is what the list sorts and dates by. For a pasted
     -- string that is when it was pasted; for one made here it is when it was made. When the setting
     -- itself was made is `payload.created`, which travels with the string.
@@ -763,6 +787,16 @@ local function StoreEntry(payload)
     vars.entries[#vars.entries + 1] = entry;
 
     return entry;
+end
+
+--- `StoreEntry` behind the gate both converted and pasted payloads pass: a converter can be wrong
+--- too, and what it made is refused where the reader is looking rather than on every later open.
+local function StoreCheckedPayload(payload, name, receivedFrom)
+    if (DebindStorage.PayloadIsImpossible(payload)) then
+        return nil, "IMPOSSIBLE_PAYLOAD";
+    end
+    payload.name = name or payload.name;
+    return StoreEntry(payload, receivedFrom);
 end
 
 --- Takes a pasted string in and keeps it as an entry.
@@ -786,34 +820,20 @@ function DebindStorage.ImportEntry(text, name)
         if (not bindings) then
             return nil, reason;
         end
-        return DebindStorage.StorePayload((DebindStorage.PayloadFromCliqueBindings(bindings)), name);
+        return StoreCheckedPayload((DebindStorage.PayloadFromCliqueBindings(bindings)), name,
+            RECEIVED_FROM_STRING);
     end
 
     local payload, reason = DebindStorage.DecodeExportString(text);
     if (not payload) then
         return nil, reason;
     end
-
-    -- **Asked before anything is stored, and before anything below reads a value.** Everything
-    -- from here on treats the payload as one of ours.
-    if (DebindStorage.PayloadIsImpossible(payload)) then
-        return nil, "IMPOSSIBLE_PAYLOAD";
-    end
-
-    payload.name = name or payload.name;
-    return StoreEntry(payload);
+    return StoreCheckedPayload(payload, name, RECEIVED_FROM_STRING);
 end
 
---- Keeps a payload that did not come in as one of our strings -- a Clique profile read off disk, or
---- a Clique share code -- as an entry. `ImportEntry` without the decoding, and with the same gate:
---- a converter can be wrong too, and what it made is refused where the reader is looking rather
---- than on every later open.
+--- Keeps a payload converted from another addon's profile, read off disk, as an entry.
 function DebindStorage.StorePayload(payload, name)
-    if (DebindStorage.PayloadIsImpossible(payload)) then
-        return nil, "IMPOSSIBLE_PAYLOAD";
-    end
-    payload.name = name or payload.name;
-    return StoreEntry(payload);
+    return StoreCheckedPayload(payload, name, RECEIVED_FROM_PROFILE);
 end
 
 --- Writes what the reader typed as an entry's name and description (`showing-what-an-entry-holds.md`
@@ -851,12 +871,12 @@ end
 --- it worth anything as a backup -- the thing a key group operation can take away is an approved
 --- action, and a badged one still has its own entry sitting in the list to be added again.
 function DebindStorage.CreateEntry(selection)
-    return StoreEntry(DebindStorage.BuildExportPayload(selection));
+    return StoreEntry(DebindStorage.BuildExportPayload(selection), RECEIVED_FROM_PROFILE);
 end
 
 --- `CreateEntry` for the whole account (`BuildAccountPayload`).
 function DebindStorage.CreateAccountEntry()
-    return StoreEntry(DebindStorage.BuildAccountPayload());
+    return StoreEntry(DebindStorage.BuildAccountPayload(), RECEIVED_FROM_PROFILE);
 end
 
 --- Takes a set of actions out of an entry, for good. Answers how many it found.
@@ -1123,7 +1143,7 @@ end
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
-    local fromClique = payload.source == DebindStorage.SOURCE_CLIQUE;
+    local fromClique = payload.fromAddon == DebindStorage.FROM_ADDON_CLIQUE;
     local parts = not fromClique and (options and options.parts or DebindStorage.AddChoices(payload, selection));
     local layer = fromClique and options and options.layer or "general";
     local specsAnswer = fromClique and layer ~= "general" and options.specs;
@@ -1273,7 +1293,7 @@ end
 ---
 --- Returns `{ [name] = { general = row, class = { [spec] = row }, character = { [spec] = row } } }`.
 function DebindStorage.ArrivalSwitchRows(payload, options, actions)
-    if (payload.source == DebindStorage.SOURCE_CLIQUE or luatype(payload.switches) ~= "table") then
+    if (payload.fromAddon == DebindStorage.FROM_ADDON_CLIQUE or luatype(payload.switches) ~= "table") then
         return nil;
     end
     local parts = options and options.parts or DebindStorage.AddChoices(payload, options and options.selection);

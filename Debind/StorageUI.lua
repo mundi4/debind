@@ -252,7 +252,7 @@ local function DateTimeText(stamp)
 end
 
 --- A character key of a payload by name: what `characters` says, in the client's form, or its
---- number where the string was anonymised and says nothing.
+--- number where an older string named nobody.
 local function CharacterName(owner, identity)
     if (type(identity) == "table" and type(identity.name) == "string") then
         return NameWithRealm(identity.name, identity.realm);
@@ -355,7 +355,7 @@ function DebindStorageEntryRowMixin:Init(elementData)
     -- Clique draws its icon from its own folder rather than the game's files, so it is asked for
     -- through Clique's TOC and is there only while Clique is installed. Without it the question
     -- mark stands in, which is what the client's own addon list shows for an addon with no icon.
-    local fromClique = type(entry.payload) == "table" and entry.payload.source == Store().SOURCE_CLIQUE;
+    local fromClique = type(entry.payload) == "table" and entry.payload.fromAddon == Store().FROM_ADDON_CLIQUE;
     if (fromClique) then
         self.SourceIcon:SetTexture(C_AddOns.GetAddOnMetadata("Clique", "IconTexture")
             or Constants.QUESTION_MARK_ICON);
@@ -444,21 +444,29 @@ function DebindStorageEntryRowMixin:OnEnter()
         GameTooltip_AddBlankLineToTooltip(GameTooltip);
     end
 
-    if (payload.source == Store().SOURCE_CLIQUE) then
+    -- **Where it came from, and not which character made it** (owner, 2026-09-28): what is in it
+    -- says that, in the class and character lines below. Whose data it is comes first, since
+    -- another addon's row is that whichever way it arrived.
+    local fromClique = payload.fromAddon == Store().FROM_ADDON_CLIQUE;
+    local madeHere = not fromClique and entry.receivedFrom == Store().RECEIVED_FROM_PROFILE;
+    if (fromClique) then
         GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_ENTRY_SOURCE_CLIQUE"]);
+    elseif (madeHere) then
+        GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_ENTRY_SOURCE_MADE"]);
+    elseif (entry.receivedFrom == Store().RECEIVED_FROM_STRING) then
+        GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_ENTRY_SOURCE_PASTED"]);
     end
 
-    -- **Two moments, read off the payload and the row and nothing else.** `created` travels in the
-    -- string and `received` is when it reached this list. A string from before `created` existed
-    -- has no moment of making to show (소유자, 2026-09-28). A row made here was received the moment
-    -- it was made, and a second line giving the same minute says nothing.
-    local created = type(payload.created) == "number" and DateTimeText(payload.created);
-    local received = DateTimeText(entry.received);
-    if (created) then
-        GameTooltip_AddNormalLine(GameTooltip, format(LLL["STORAGE_ENTRY_MADE"], created));
+    -- **Two moments, which are one only for a row made here.** `created` travels in the string and
+    -- `received` is when it reached this list. A string from before `created` existed has no
+    -- moment of making to show (owner, 2026-09-28).
+    if (type(payload.created) == "number") then
+        GameTooltip_AddNormalLine(GameTooltip,
+            format(LLL["STORAGE_ENTRY_MADE"], DateTimeText(payload.created)));
     end
-    if (received ~= created) then
-        GameTooltip_AddNormalLine(GameTooltip, format(LLL["STORAGE_ENTRY_RECEIVED"], received));
+    if (not madeHere) then
+        GameTooltip_AddNormalLine(GameTooltip,
+            format(LLL["STORAGE_ENTRY_RECEIVED"], DateTimeText(entry.received)));
     end
 
     -- **Whose layers are in it** (소유자, 2026-09-28): the title names them only while there is one.
@@ -1038,6 +1046,9 @@ function DebindStoragePanelMixin:OnLoad()
     end);
     self.Preview.AddButton:SetScript("OnClick", function() self:OnAddClicked(); end);
     self.Preview.CopyButton:SetScript("OnClick", function() self:OnCopyClicked(); end);
+    -- The template's own `OnEnter` shows a disabled button's tooltip (`DisabledTooltipButtonMixin`),
+    -- and only reaches a disabled button that is let take the cursor.
+    self.Preview.CopyButton:SetMotionScriptsWhileDisabled(true);
     self.Preview.SelectAllCheck:SetScript("OnClick", function() self:OnSelectAllClicked(); end);
 
     NormalizeCheckMark(self.Preview.SelectAllCheck);
@@ -1358,7 +1369,12 @@ function DebindStoragePanelMixin:UpdateSelectionState()
     -- takes with it the answer to "what can I do here", which is what the reader is asking on the
     -- screen where nothing is picked yet.
     self.Preview.AddButton:SetEnabled(selectedCount > 0);
-    self.Preview.CopyButton:SetEnabled(selectedCount > 0);
+    -- **Another addon's data does not go out as a string** (`ExportEntry`), and a grey button with
+    -- no reason reads as broken.
+    local entry = self.selectedEntry;
+    local foreign = entry ~= nil and Store().IsForeignPayload(entry.payload);
+    self.Preview.CopyButton:SetDisabledState(selectedCount == 0 or foreign,
+        foreign and format(LLL["STORAGE_COPY_FOREIGN"], LLL["STORAGE_ADD"]) or nil);
 end
 
 --- A string already on screen describes a set that no longer exists, so it goes. **So does the add
@@ -1495,7 +1511,7 @@ function DebindStoragePanelMixin:OnAddClicked()
     end
 
     local payload = entry.payload;
-    local fromClique = payload and payload.source == Store().SOURCE_CLIQUE;
+    local fromClique = payload and payload.fromAddon == Store().FROM_ADDON_CLIQUE;
     DebindAddFrame:Open({
         fromClique = fromClique,
         hasSpecs = fromClique and self:SelectionHasCliqueSpecs(),
@@ -1575,6 +1591,7 @@ end
 --- never reach its right-hand side.
 local EXPORT_FAILED_TEXT = {
     LIBS_MISSING = "EXPORT_FAILED_LIBS_MISSING",
+    FOREIGN_PAYLOAD = "STORAGE_COPY_FOREIGN",
 };
 
 function DebindStoragePanelMixin:OnCopyClicked()
@@ -1588,7 +1605,9 @@ function DebindStoragePanelMixin:OnCopyClicked()
         -- A missing library means a broken install rather than anything the reader did. It is not
         -- a string to copy, so it does not go in the dialog that exists for copying.
         local key = EXPORT_FAILED_TEXT[reason] or REASON_TEXT[reason];
-        DebindPrivate.DisplayMessage(key and LLL[key] or tostring(reason), 1, 0, 0);
+        -- `STORAGE_COPY_FOREIGN` points at the add button by its label; the others take nothing.
+        DebindPrivate.DisplayMessage(key and format(LLL[key], LLL["STORAGE_ADD"]) or tostring(reason),
+            1, 0, 0);
         return;
     end
 

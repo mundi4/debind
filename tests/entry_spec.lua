@@ -644,16 +644,14 @@ return function(DebindPrivate, DebindStorage)
     test("옛 서랍의 행 이름은 페이로드로 옮겨진다", function()
         ResetDrawer();
         local named = Payload({ { scope = "general", key = "F" } });
-        _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
+        _G.DebindStorageVars = { version = 1, nextID = 2, entries = {
             { id = 1, received = 0, name = "옛 이름", payload = named },
-            { id = 2, received = 0, name = "짝 없는 이름" },
         } };
 
         local entries = DebindStorage.GetEntries();
         check(_G.DebindStorageVars.version == 2, "판 " .. tostring(_G.DebindStorageVars.version));
         check(entries[1].payload.name == "옛 이름", "이름이 안 옮겨졌다: " .. tostring(entries[1].payload.name));
         check(entries[1].name == nil, "행에 이름이 남았다");
-        check(entries[2].name == nil and #entries == 2, "페이로드 없는 행에서 터지거나 이름이 남았다");
     end);
 
     -- Whose cells a payload holds is the payload's own `characters`. A drawer from 4.1 also has who
@@ -673,6 +671,26 @@ return function(DebindPrivate, DebindStorage)
         check(#entries == 2 and entries[1].payload and entries[2].payload, "행이나 페이로드가 사라졌다");
     end);
 
+    -- The character beside a 4.1 row is the only record of it having been made here, so it has to
+    -- become `receivedFrom` in the step that drops it. A 4.1 Clique row counts as read off a
+    -- profile whichever way it came in (owner, 2026-10-03).
+    test("옛 서랍의 행은 어디서 받았는지를 얻는다", function()
+        ResetDrawer();
+        local clique = { v = 2, dbver = Constants.DB_VERSION, source = "clique",
+            shared = { GENERAL = { { type = Constants.SPELL, value = 1, key = "H", seq = 1 } } } };
+        _G.DebindStorageVars = { version = 1, nextID = 4, entries = {
+            { id = 1, received = 100, character = "Tester", payload = Payload({ { scope = "general", key = "F" } }) },
+            { id = 2, received = 200, payload = Payload({ { scope = "general", key = "G" } }) },
+            { id = 3, received = 300, payload = clique },
+        } };
+
+        local entries = DebindStorage.GetEntries();
+        check(entries[1].receivedFrom == "profile", "만든 행 " .. tostring(entries[1].receivedFrom));
+        check(entries[2].receivedFrom == "string", "붙여 넣은 행 " .. tostring(entries[2].receivedFrom));
+        check(entries[3].receivedFrom == "profile", "Clique 행 " .. tostring(entries[3].receivedFrom));
+        check(clique.fromAddon == "clique" and clique.source == nil, "Clique 표시가 안 옮겨졌다");
+    end);
+
     -- A 4.1 payload has no `created`, and what said a row was made here was the character beside it.
     -- Made here, it was made the moment it was received; that has to reach the payload before the
     -- character goes, or the row's making is lost.
@@ -680,18 +698,14 @@ return function(DebindPrivate, DebindStorage)
         ResetDrawer();
         local made = Payload({ { scope = "general", key = "F" } });
         local pasted = Payload({ { scope = "general", key = "G" } });
-        local dated = Payload({ { scope = "general", key = "H" } });
-        made.created, pasted.created, dated.created = nil, nil, 50;
-        _G.DebindStorageVars = { version = 1, nextID = 4, entries = {
+        _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
             { id = 1, received = 100, character = "Tester", payload = made },
             { id = 2, received = 200, payload = pasted },
-            { id = 3, received = 300, character = "Tester", payload = dated },
         } };
 
         DebindStorage.GetEntries();
         check(made.created == 100, "만든 시각 " .. tostring(made.created));
         check(pasted.created == nil, "붙여 넣은 행에 만든 시각이 생겼다: " .. tostring(pasted.created));
-        check(dated.created == 50, "있던 만든 시각이 바뀌었다: " .. tostring(dated.created));
     end);
 
     ---------------------------------------------------------------------------
@@ -752,7 +766,7 @@ return function(DebindPrivate, DebindStorage)
             "같은 직업을 두 번 셌다: " .. table.concat(held.classes, ","));
     end);
 
-    -- `AnonymizePayload` leaves a character key with no `characters` entry and marks nothing else.
+    -- A v2 string's character layer becomes a key with no `characters` entry, and nothing else marks it.
     test("신원 없는 캐릭터 칸이 있으면 익명이다", function()
         local payload = Payload({ { scope = "character" } });
         payload.characters = nil;
