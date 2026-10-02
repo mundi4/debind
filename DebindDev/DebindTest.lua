@@ -2259,8 +2259,21 @@ RegisterTest("Switch window: what it stands on going away takes it down or voids
             return Fail(NAME, "closing the main window accepted something")
         end
 
-        -- Rejected while the window was up.
+        -- The selection moving, as it does for the key window: closed, and the acceptance with it.
         DebindFrame:Show()
+        local other = InsertAction({ type = Constants.SPELL, value = 3, key = "CTRL-SHIFT-F7" })
+        DebindUI.AcceptArrivedActions({ action })
+        DebindLayerPanel:SetSelectedAction(other)
+        if DebindArrivalSwitchesFrame:IsShown() then
+            return Fail(NAME, "the selection moved and the switch window stayed")
+        end
+        if action.arrivalID ~= SETTLE_ARRIVAL or SettleStartsOn() ~= true then
+            return Fail(NAME, "the selection moving accepted something")
+        end
+        DebindLayerPanel:SetSelectedAction(nil)
+
+        -- Rejected while the window was up. A rejection through a row's menu leaves the selection
+        -- where it was, so the window stays and the answer has to come to nothing on its own.
         DebindUI.AcceptArrivedActions({ action })
         GetTestLayer():Remove(action)
         AnswerSettleWindowTaking()

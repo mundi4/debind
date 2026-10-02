@@ -3463,6 +3463,9 @@ function DebindUI.CloseActionWindows(opening)
 	if (opening ~= DebindKeyCaptureFrame) then
 		DebindKeyCaptureFrame:Hide();
 	end
+	-- The switch window an acceptance opened goes the way the key window does: closed, and the
+	-- acceptance cancelled with it. Nothing was written yet, so there is nothing to put back.
+	DebindUI.CancelArrivalSwitches();
 	if (opening ~= DebindMacroFrame) then
 		DebindMacroFrame:Close();
 	end
