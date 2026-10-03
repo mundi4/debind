@@ -5486,6 +5486,20 @@ local function SwitchRow(panel, name)
     return found
 end
 
+--- The narrowest layer in force here, on the character side or the class side.
+---
+--- **Not `GetLayerID(GetSpecialization(), ...)`.** A character still in the initial
+--- specialization is handed `Constants.INITIAL_SPEC_INDEX`, which has no layer and trips
+--- `GetLayerID`'s range assert; a class of one specialization has a layer for it that nothing
+--- opens (`GetOpenableLayerIDs`). Either way the shared layer is the narrowest one.
+local function NarrowestLayerHere(isCharacterSpecific)
+    local spec = C_SpecializationInfo.GetSpecialization() or 0
+    if spec > DebindPrivate.SpecLayerCount(select(3, UnitClass("player"))) then
+        spec = 0
+    end
+    return DebindPrivate.GetLayerID(spec, isCharacterSpecific)
+end
+
 --- Opens the tab and hands back the panel with its rows built. Puts the reader back on Overview
 --- and closes the window afterwards, however the test ends.
 ---
@@ -5924,12 +5938,7 @@ RegisterTest("Switches tab: the right column opens on the layer in force", {
         -- is reading comes apart on the starting value it shows.
         DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
-        -- The character's specialization layer, or the character's own where the class has no
-        -- specialization layers to open (every camelot class, `GetOpenableLayerIDs`).
-        local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
-        if not DebindPrivate.IsLayerOpenable(layerID) then
-            layerID = DebindPrivate.GetLayerID(0, true)
-        end
+        local layerID = NarrowestLayerHere(true)
         local layerKey = DebindPrivate.GetSwitchLayerKey(layerID)
         if not layerKey then
             return Fail(NAME, "no layer key for this character and this spec")
@@ -6010,7 +6019,7 @@ RegisterTest("Switches tab: a layer is made from the dropdown and taken away aga
         -- out of the defaults: a fresh row comes up `remember`, and this is `off`.
         DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
-        local layerID = DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true)
+        local layerID = NarrowestLayerHere(true)
         local layerKey = DebindPrivate.GetSwitchLayerKey(layerID)
         if not layerKey then
             return Fail(NAME, "no layer key for this character and this spec")
@@ -6841,8 +6850,7 @@ RegisterTest("Switch override: the layer key carries this character", {
     run = function()
         local NAME = "Switch override layer key"
 
-        local layerKey = DebindPrivate.GetSwitchLayerKey(
-            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
+        local layerKey = DebindPrivate.GetSwitchLayerKey(NarrowestLayerHere(true))
         if not layerKey then
             return Fail(NAME, "no layer key for this character and this spec")
         end
@@ -6857,8 +6865,7 @@ RegisterTest("Switch override: the layer key carries this character", {
         -- **The other half of the comparison.** The class layer's key must not carry the character.
         -- Without this, the line above cannot be told from "every layer key carries a GUID", and
         -- then another character of the same class cannot read the answer they are meant to share.
-        local classKey = DebindPrivate.GetSwitchLayerKey(
-            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), false))
+        local classKey = DebindPrivate.GetSwitchLayerKey(NarrowestLayerHere(false))
         if classKey and classKey:find(guid, 1, true) then
             return Fail(NAME, format(
                 "the class layer's key is %q, with the character in it the same class cannot share an answer",
