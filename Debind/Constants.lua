@@ -30,8 +30,9 @@ Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
 Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 
 --- The client's game type in the TOC's own words (`AllowLoadGameType`): `"standard"` or `"camelot"`.
---- Set by whichever of `GameType_*.lua` the client loaded, since no API answers it and
---- `WOW_PROJECT_ID` is 1 on both (`preparing-the-code-for-camelot.md`).
+--- Set by whichever of `GameType_*.lua` the client loaded, under the same `Debind.toc` conditions
+--- that pick the locale and spell data files, so it cannot disagree with what actually loaded.
+--- `WOW_PROJECT_ID` would be a second answer, and it read 1 on camelot until build 70170.
 ---
 --- **Written into a payload, never branched on.** What differs between the clients is asked as the
 --- capability that differs (`shipping-on-the-camelot-client.md` 2절); this says where a string was

@@ -2,7 +2,7 @@ local _, DebindPrivate = ...;
 
 --- **Where the clients are asked for the same thing in different ways** (`preparing-the-code-for-camelot.md`
 --- §3). Each function here hands back one shape, and picks how to get it by what the client has
---- rather than by which client it is: `WOW_PROJECT_ID` answers 1 on camelot as on retail.
+--- rather than by which client it is (`shipping-on-the-camelot-client.md` §2).
 local Client = DebindPrivate.Client or {};
 DebindPrivate.Client = Client;
 
