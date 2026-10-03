@@ -50,7 +50,7 @@ Say `R` is Rebirth, in Account / Class. Every druid you have presses `R` for a b
 
 No profiles to pick. The layers follow your character and spec, and change when they do.
 
-![Two layer tabs and their tooltips: Account / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
+![Two layer tabs and their tooltips: Druid / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
 
 WoW's keybinding window has an *account-wide* / *character-specific* switch. It makes no difference to Debind either way — leave yours where it is.
 

@@ -32,15 +32,19 @@ payload를 만들려는 일이다. 여기에는 BindPad 2.1.22의 코드(`BindPa
   - `version`: 252 이상인 프로필만 `CarryOverKeybinding`이 건드린다.
 - `profileForTalentGroup[전문화 번호] = 프로필 번호`: 기록이 없는 전문화는 자기 번호와 같은 프로필을
   쓴다(`GetProfileForSpec`). 전문화를 바꿔 본 적이 없는 번호는 기록이 없다.
+- **프로필 번호는 전문화 번호가 아니다.** 어느 전문화가 어느 프로필을 쓰는지는 사용자가 프로필 탭을 눌러
+  정한다(`BindPadProfileTab_OnClick` → `SwitchProfile`이 `profileForTalentGroup[지금 전문화]`에 탭 번호를
+  적는다). 프로필 2를 전문화 3이 쓸 수 있고, 여러 전문화가 한 프로필을 같이 쓸 수 있다. 탭 툴팁도 그 프로필을
+  쓰는 전문화를 넷까지 보여 준다(`GetSpecsForProfile`).
 - **화면의 프로필 탭은 넷이다.** 저장 상한은 5(`BINDPAD_MAXPROFILETAB`)인데 `BindPadProfileTab5`는 템플릿의
   `hidden="true"`를 그대로 받고 아무도 `Show`하지 않는다. 그래서 5번 프로필은 정식 서비스에서 초기 전문화(번호 5)인
   캐릭터가 기록 없이 자기 번호를 쓸 때만 생긴다. 탭을 누르면 지금 전문화의 기록이 그 프로필로 바뀐다
   (`SwitchProfile`). 그래서 어느 전문화도 가리키지 않는 프로필도 남아 있을 수 있다.
 
 **직업은 어디에도 저장되지 않는다.** BindPad 코드는 `UnitClass`를 부르지 않는다. 캐릭터는 서버와
-이름으로만 구분되고, 전문화 번호는 `GetSpecialization()`의 값 그대로다. 그래서 전문화 번호에는 직업이
-없고, 이 점은 Clique의 `spec1`~`spec5`와 같다. 드루이드의 1번 프로필을 마법사가 받으면 비전의 것으로
-읽힌다. 번호가 뜻을 갖는 순간은 추가할 때 지금 직업을 알게 될 때뿐이다.
+이름으로만 구분되고, `profileForTalentGroup`의 전문화 번호는 `GetSpecialization()`의 값 그대로다. 그래서
+전문화 번호에는 직업이 없고, 이 점은 Clique의 `spec1`~`spec5`와 같다. 드루이드의 조화(1번)가 쓰던 프로필을
+마법사가 받으면 비전의 것으로 읽힌다. 번호가 뜻을 갖는 순간은 추가할 때 지금 직업을 알게 될 때뿐이다.
 
 ## 2. 칸과 액션 문자열
 
@@ -148,7 +152,7 @@ BindPad에서 한 캐릭터가 한 순간에 실제로 쓰는 것이 이 묶음�
 
 ### 6-4. 층과 전문화는 추가할 때 정한다
 
-Clique와 같다. 전부 `GENERAL[0]`에 두고 `source = "bindpad"`를 적는다. 추가 팝업이 층(General, 지금 직업,
+Clique와 같다. 전부 `GENERAL[0]`에 두고 `fromAddon = "bindpad"`를 적는다(`reshaping-stored-layers.md` 1-4절). 추가 팝업이 층(General, 지금 직업,
 지금 캐릭터)을 묻는다. 다른 점은 둘이다.
 
 - **"모든 캐릭터" 키**(`GeneralKeyBindings`에 같은 액션으로 있는 줄). BindPad가 계정 공용이라고 저장한 유일한

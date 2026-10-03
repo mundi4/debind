@@ -823,8 +823,8 @@ local function ForEachOverrideCell(fn)
 end
 
 --- Every override row there is, handed to `fn(row, name, owner, class, spec)`. **Rows still
---- waiting under `UNKNOWN_CLASS` are left out**: a cell's class is what places it, and `"*"` in a
---- payload means "the reader's class" (`reshaping-stored-layers.md` §1-1), which is not what they are.
+--- waiting under `UNKNOWN_CLASS` are left out**: a cell's class is what places it, and theirs is
+--- not known yet. In a payload `"*"` names no class at all, so the import would refuse the cell.
 function DebindPrivate.ForEachSwitchOverride(fn)
     ForEachOverrideCell(function(cell, owner, class, spec)
         if (class ~= UNKNOWN_CLASS) then
