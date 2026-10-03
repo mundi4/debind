@@ -108,7 +108,48 @@ const exported = readFieldTable("DebindStorage/Export.lua", "ACTION_FIELDS");
 const conditions = readFieldTable("Debind/Constants.lua", "Constants.CONDITION_FIELDS");
 const conditionTypes = readFieldTable("DebindStorage/Export.lua", "CONDITION_TYPES");
 
+// The options an account backup carries (`OPTION_FIELDS`) against every option the settings tab's
+// Defaults resets. The addon keeps no list of its options anywhere else, and Defaults has to touch
+// every one of them, so it is the list. An option missing from `OPTION_FIELDS` is left out of every
+// backup with nothing said.
+function readResetOptions() {
+    const file = "Debind/SettingsTab.lua";
+    const source = fs.readFileSync(path.join(repoRoot, file), "utf8");
+    const start = source.indexOf("local function ResetToDefaults");
+    if (start < 0) {
+        throw new Error(`${file}에 ResetToDefaults가 없다`);
+    }
+    const end = source.indexOf(NL + "end", start);
+    const names = new Set();
+    for (const m of source.slice(start, end).matchAll(/\boptions\.(\w+)/g)) {
+        names.add(m[1]);
+    }
+    if (names.size === 0) {
+        throw new Error(`${file}의 ResetToDefaults에서 옵션을 하나도 못 읽었다`);
+    }
+    return names;
+}
+
+const resetOptions = readResetOptions();
+const optionFields = readFieldTable("DebindStorage/Export.lua", "OPTION_FIELDS");
+
 const problems = [];
+
+for (const field of resetOptions) {
+    if (optionFields.has(field)) continue;
+    problems.push(
+        `설정 탭의 기본값이 되돌리는 옵션인데 계정 백업에 안 실린다: ${field}` + NL +
+        `    Export.lua의 OPTION_FIELDS에 타입과 함께 넣을 것.`
+    );
+}
+
+for (const field of optionFields) {
+    if (resetOptions.has(field)) continue;
+    problems.push(
+        `계정 백업은 싣는데 설정 탭의 기본값이 안 되돌린다: ${field}` + NL +
+        `    옵션이 사라졌으면 OPTION_FIELDS에서 지우고, 아니면 ResetToDefaults가 빠뜨린 것이다.`
+    );
+}
 
 for (const field of conditions) {
     if (conditionTypes.has(field)) continue;
@@ -187,5 +228,6 @@ if (problems.length > 0) {
 process.stdout.write(
     `익스포트 필드 ${exported.size}개가 KEYS_TO_SAVE와 맞는다 ` +
     `(안 보내는 것 ${Object.keys(EXPECTED_ONLY_IN_PROFILE).length}개, 저장 안 하는 것 ` +
-    `${Object.keys(EXPECTED_ONLY_ON_WIRE).length}개 제외), 조건 ${conditions.size}개가 CONDITION_TYPES와 맞는다.\n`
+    `${Object.keys(EXPECTED_ONLY_ON_WIRE).length}개 제외), 조건 ${conditions.size}개가 CONDITION_TYPES와, ` +
+    `옵션 ${optionFields.size}개가 설정 탭의 기본값과 맞는다.\n`
 );

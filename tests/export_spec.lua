@@ -787,7 +787,7 @@ return function(DebindPrivate, DebindStorage)
     --- 빨개진다.
     local PAYLOAD_KEYS = {
         v = true, dbver = true, layers = true, switches = true, characters = true,
-        created = true, gameType = true,
+        created = true, gameType = true, options = true,
     };
 
     local function ResetStore()
@@ -894,6 +894,85 @@ return function(DebindPrivate, DebindStorage)
         check(LayerAt(payload, GUID, CLASS, 0), "붙기 전의 칸이 빠졌다");
         check(payload.characters[GUID] and payload.characters[GUID].name == "Tester",
             "붙기 전의 신원이 빠졌다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Options
+    --
+    -- An entry made from the whole account is a backup, and most options change what an action
+    -- does; one made on a character is what gets handed to somebody else, who keeps their own.
+    ---------------------------------------------------------------------------
+
+    --- 이 캐릭터의 프로필에 기본값이 아닌 옵션 몇 개를 세운다.
+    local function OptionsProfile()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+        local options = DebindPrivate.Options;
+        options.selfCast = false;
+        options.hoverCastMode = "mouseover";
+        options.excludePlayer = { party = true };
+        options.frameBlacklist.addons.Grid2 = false;
+        return options;
+    end
+
+    test("계정에서 만든 것은 옵션을 싣는다", function()
+        OptionsProfile();
+        local options = DebindStorage.CreateAccountEntry().payload.options;
+        check(options, "옵션이 안 실렸다");
+        check(options.selfCast == false, "selfCast가 안 실렸다");
+        check(options.hoverCastMode == "mouseover", "hoverCastMode가 안 실렸다");
+        check(options.excludePlayer and options.excludePlayer.party == true, "excludePlayer가 안 실렸다");
+        check(options.frameBlacklist and options.frameBlacklist.addons.Grid2 == false,
+            "frameBlacklist가 안 실렸다");
+    end);
+
+    test("실린 옵션은 프로필의 표와 떨어진 사본이다", function()
+        local mine = OptionsProfile();
+        local options = DebindStorage.CreateAccountEntry().payload.options;
+        options.excludePlayer.party = nil;
+        options.frameBlacklist.addons.Grid2 = nil;
+        check(mine.excludePlayer.party == true, "페이로드를 고치니 프로필의 excludePlayer가 바뀌었다");
+        check(mine.frameBlacklist.addons.Grid2 == false, "페이로드를 고치니 프로필의 frameBlacklist가 바뀌었다");
+    end);
+
+    test("캐릭터에서 만든 것은 옵션을 안 싣는다", function()
+        OptionsProfile();
+        check(DebindStorage.CreateEntry().payload.options == nil, "캐릭터에서 만든 것에 옵션이 실렸다");
+    end);
+
+    test("모르는 옵션은 안 싣는다", function()
+        OptionsProfile().leftover = true;
+        check(DebindStorage.CreateAccountEntry().payload.options.leftover == nil, "모르는 옵션이 실렸다");
+    end);
+
+    test("계정 항목을 골라 내보내도 옵션이 따라간다", function()
+        OptionsProfile();
+        local payload = DebindStorage.CreateAccountEntry().payload;
+        local selection = { [General(payload)[1]] = true };
+        local out = DebindStorage.FilterPayload(payload, selection);
+        check(out.options and out.options.selfCast == false, "고른 사본에서 옵션이 빠졌다");
+    end);
+
+    test("들어올 때 모르는 옵션과 타입이 틀린 옵션은 걷힌다", function()
+        OptionsProfile();
+        local payload = DebindStorage.BuildExportPayload();
+        payload.options = { focusCast = false, selfCast = "no", leftover = true, excludePlayer = 1 };
+        local entry = DebindStorage.ImportEntry(DebindStorage.EncodeExportPayload(payload));
+        check(entry, "받아들여지지 않았다");
+        local options = entry.payload.options;
+        check(options and options.focusCast == false, "맞는 옵션까지 걷혔다");
+        check(options.selfCast == nil, "타입이 틀린 옵션이 남았다");
+        check(options.leftover == nil, "모르는 옵션이 남았다");
+        check(options.excludePlayer == nil, "표여야 할 옵션이 숫자로 남았다");
+    end);
+
+    test("들어올 때 표가 아닌 options는 통째로 걷힌다", function()
+        OptionsProfile();
+        local payload = DebindStorage.BuildExportPayload();
+        payload.options = "all of them";
+        local entry = DebindStorage.ImportEntry(DebindStorage.EncodeExportPayload(payload));
+        check(entry, "options 하나 때문에 거절됐다");
+        check(entry.payload.options == nil, "표가 아닌 options가 남았다");
     end);
 
     test("만든 행의 페이로드는 아는 필드만 든다", function()

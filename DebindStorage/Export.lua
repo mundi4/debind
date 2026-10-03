@@ -291,6 +291,34 @@ local IDENTITY_FIELDS    = {
     faction = true,
 };
 
+--- The settings tab's options, by name and the type each is stored as. **Only an entry made from
+--- the whole account carries them** (`BuildAccountPayload`): most of these change what an action
+--- does, so a backup without them is not the setup it was taken from, while a reader adding someone
+--- else's actions keeps their own.
+---
+--- **Not part of the account backup**: `DebindUIVars` (window positions, filters, `tipsSeen`), and
+--- the remembered switch values and `CustomTargets`, which are one character's state rather than a
+--- setting (`reshaping-stored-layers.md` 1-1).
+---
+--- **What sits inside the two tables is not filtered**: `excludePlayer` is read by unit name and
+--- `frameBlacklist` by frame type or addon folder, so a name nothing knows is never asked for.
+---
+--- `check:export-fields` holds this list against what the settings tab's Defaults resets.
+local OPTION_FIELDS      = {
+    selfCast = "boolean",
+    focusCast = "boolean",
+    hoverCastMode = "string",
+    switchMessages = "boolean",
+    excludePlayer = "table",
+    unitframeUseMouseDown = "boolean",
+    giveBackOnReplacedBar = "boolean",
+    giveBackWhenActionExists = "boolean",
+    giveBackInPetBattle = "boolean",
+    giveBackInBindingContext = "boolean",
+    frameBlacklist = "table",
+};
+DebindStorage.OPTION_FIELDS = OPTION_FIELDS;
+
 --- The owner key of the account's cells, beside one per character.
 local ACCOUNT_OWNER      = "account";
 DebindStorage.ACCOUNT_OWNER = ACCOUNT_OWNER;
@@ -652,6 +680,24 @@ local function DropBadMeta(payload)
     end
 end
 
+--- Drops an option this version does not have, or one of the wrong type, in place - for the reason
+--- `DropBadMeta` gives. An `options` that is not a table goes whole.
+local function DropBadOptions(payload)
+    local options = payload.options;
+    if (options == nil) then
+        return;
+    end
+    if (luatype(options) ~= "table") then
+        payload.options = nil;
+        return;
+    end
+    for name, value in pairs(options) do
+        if (OPTION_FIELDS[name] ~= luatype(value)) then
+            options[name] = nil;
+        end
+    end
+end
+
 --- Copies `action` into its cell of `payload` and onto `exported`. The cell is made by the first
 --- action actually taken, so an empty layer -- or one the reader unticked whole -- leaves no empty
 --- table behind for the far side to walk.
@@ -761,6 +807,7 @@ function DebindStorage.BuildAccountPayload()
     end);
 
     payload.characters = BuildCharacters(payload, DebindPrivate.GetCharacterIdentity);
+    payload.options = CopyFields(DebindPrivate.Options or {}, OPTION_FIELDS);
     return payload;
 end
 
@@ -786,7 +833,10 @@ function DebindStorage.FilterPayload(payload, selection)
         return payload;
     end
 
-    local out = CopyMeta(payload, { v = payload.v, dbver = payload.dbver, layers = {} });
+    -- `options` travels with the actions it was taken beside, narrowed or not: they are the same
+    -- account's settings either way.
+    local out = CopyMeta(payload, { v = payload.v, dbver = payload.dbver, layers = {},
+                                    options = payload.options });
     local kept = {};
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, owner, class, spec)
@@ -1191,6 +1241,7 @@ function DebindStorage.BringPayloadForward(payload)
 
     BringPayloadDataForward(payload);
     DropBadMeta(payload);
+    DropBadOptions(payload);
 
     return payload;
 end
