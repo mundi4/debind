@@ -150,12 +150,18 @@ local function RestrictedAnswer(expr)
         probeFrame = CreateFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
     end
     probeFrame:SetAttribute("debprobe", nil);
-    local body = format("self:SetAttribute('debprobe', tostring(%s));", expr);
+    -- The parentheses cut the call to one value: a call that returns nothing at all (an unmatched
+    -- `SecureCmdOptionParse`) would otherwise leave `tostring` with no argument, and it raises.
+    local body = format("self:SetAttribute('debprobe', tostring((%s)));", expr);
     local ok, err = pcall(SecureHandlerExecute, probeFrame, body);
     if (not ok) then
         return nil, tostring(err);
     end
-    return probeFrame:GetAttribute("debprobe") or "nil";
+    local answer = probeFrame:GetAttribute("debprobe");
+    if (answer == nil) then
+        return nil, "the body wrote nothing back; the error frame has why";
+    end
+    return answer;
 end
 
 local function Conditional(cond)
@@ -270,9 +276,9 @@ end
 local function Restricted()
     Emit("== restricted environment");
     local value, err = RestrictedAnswer("1");
-    if (value == nil or value == "nil") then
+    if (value == nil) then
         Emit("  no snippet compiles on this client, so the rest was not asked");
-        Emit("  %s", tostring(err or "the body wrote nothing back"));
+        Emit("  %s", tostring(err));
         return;
     end
     for i = 1, #RESTRICTED do
