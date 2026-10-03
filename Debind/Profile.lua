@@ -192,9 +192,9 @@ end
 --- **One pass over each list**, not every pair against every pair. The signature is worked out once
 --- per action.
 ---
---- **Both sides have to be one address**, since the address is not in the signature. An import hands
---- in a payload's layer and the profile layer it would land in; the profile sweep hands in one
---- layer twice over. Handing in two lists gathered across layers answers a question nobody asked.
+--- **Both sides have to be one address**, since the address is not in the signature: a payload's
+--- layer and the profile layer it would land in. Handing in two lists gathered across layers answers
+--- a question nobody asked.
 function DebindPrivate.MatchActionsAgainst(candidates, existing)
     local found = {};
     if (candidates == nil or existing == nil) then
