@@ -238,6 +238,35 @@ return function(DebindPrivate, _, ctx)
         shim.world.modifiedClicks.FOCUSCAST = "ALT";
     end);
 
+    -- Switching between the account and the character binding set moves the cast keys with no call
+    -- to `SetModifiedClick`; what comes is `UPDATE_BINDINGS`, with the new set's values already
+    -- readable (§6-1, measured).
+    --
+    -- **The login is fired first**, since `UPDATE_BINDINGS` is registered in its handler and an
+    -- event nobody listens for would measure nothing.
+    test("N17 switching the binding set moves the chords", function()
+        DebindPrivate.ShowMigrationDialogIfPending =
+            DebindPrivate.ShowMigrationDialogIfPending or function() end;
+        Bind({ action({ value = 774, key = "F1" }) });
+        local mark = frames.mark();
+        check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+        frames.drainTimers();
+        interp:replay(frames.since(mark));
+        check(Ours("ALT-F1"), "ALT-F1 is not ours to begin with");
+
+        mark = frames.mark();
+        shim.world.modifiedClicks.FOCUSCAST = "SHIFT";
+        local heard = frames.fireEvent("UPDATE_BINDINGS");
+        frames.drainTimers();
+        interp:replay(frames.since(mark));
+        local altF1, shiftF1 = BoundTo("ALT-F1"), BoundTo("SHIFT-F1");
+        shim.world.modifiedClicks.FOCUSCAST = "ALT";
+
+        check(heard > 0, "nothing is listening for UPDATE_BINDINGS");
+        check(altF1:sub(1, 6) ~= "CLICK ", "ALT-F1 is still " .. altF1);
+        check(shiftF1:sub(1, 6) == "CLICK ", "SHIFT-F1 is bound to " .. shiftF1);
+    end);
+
     ---------------------------------------------------------------------------
     -- 8-3. A tail in the middle
     ---------------------------------------------------------------------------

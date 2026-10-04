@@ -338,6 +338,7 @@ MMO 마우스 여분 버튼에 `CTRL-K`를 걸고 누른 것과 손으로 누른
 | N14 | SELFCAST와 FOCUSCAST가 둘 다 ALT(게임 기본값) | `ALT-X` | `ALT-X` 우리, **self 층**. focus 층의 조합 키는 없다 | `a` self 쌍둥이. 지금도 SELFCAST를 먼저 묻는다 |
 | N15 | SELFCAST가 NONE | `CTRL-X` | self 층의 조합 키는 없다 | 클라이언트가 `X`로 떨어뜨림. `X` 원본 층 |
 | N16 | 게임 옵션에서 FOCUSCAST를 ALT→SHIFT로 바꿈 | `SHIFT-X` | 리빌드 뒤 `SHIFT-X` 우리, focus 층. `ALT-X`의 focus 바인딩은 사라진다 | `a` focus 쌍둥이 |
+| N17 | 계정 공용과 캐릭터 전용 단축키 세트를 바꿔 FOCUSCAST가 달라짐 | `SHIFT-X` | `UPDATE_BINDINGS`의 리빌드 뒤 N16과 같음 | `a` focus 쌍둥이 |
 
 ### 8-2. 맨 끝에 선 꼬리
 
