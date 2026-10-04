@@ -429,14 +429,15 @@ return function(DebindPrivate, _, ctx)
         return standing, dead;
     end
 
-    -- **Aimed at the pointed unit, the hover tier cannot hold "no target"**, so that branch is not
-    -- built there. Cast as usual aims the twin at the target instead, and there it can.
+    -- **Aimed at the pointed unit, the hover twin cannot hold "no target"**, so that branch is not
+    -- built there. At the usual target with Normal Cast off, the twin aims at the target instead,
+    -- and there it can.
     test("the no-target branch is built in the hover tier only where it can stand", function()
         druidWorld();
         local standing, dead = hoverNoTarget({ hoverCast = "cast" });
         check(standing == 0 and dead == 0,
             "pointed: " .. standing .. " standing, " .. dead .. " dead");
-        standing, dead = hoverNoTarget({ hoverCast = "usual" });
+        standing, dead = hoverNoTarget({ normalCast = false });
         check(standing == 1 and dead == 0,
             "as usual: " .. standing .. " standing, " .. dead .. " dead");
         reset();

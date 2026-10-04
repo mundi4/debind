@@ -75,10 +75,11 @@ L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
 -- on those, so the action still runs over the rest, and this says which frames it loses.
 L["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"] = "No role is selected, so it does not run on party or raid frames."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
--- **It names the way out that is not turning a press back on.** The reader may have meant to stop
--- this action, and the mark has to be closable by saying so rather than by choosing a value they do
--- not want. The second sentence is what tells turning off from deleting.
-L["BINDING_ERROR_NOTHING_RUNS"] = "Every press is turned off, so this action never runs. Turn it off if you don't want to use it. A turned-off action keeps everything you set on it and hands its key back to the game."
+-- **The held keys are named because they are what the reader may still expect to work** (2026-10-04,
+-- owner): they send an action that runs to another unit, and with no press of its own left there is
+-- nothing to send. **It names the way out that is not changing a value back**, since the reader may
+-- have meant to stop this action. The last sentence is what tells turning off from deleting.
+L["BINDING_ERROR_NOTHING_RUNS"] = "This action runs neither on a plain press nor while you point at a unit, so it never runs, not even with the Self Cast Key or the Focus Cast Key held. Turn it off if you don't want to use it. A turned-off action keeps everything you set on it and hands its key back to the game."
 -- The reader cannot fix the spell's name, so the sentence says what to do instead: pick another
 -- row, or drop the condition. Neither half of the reason (macro conditionals, commas) is
 -- something the window has ever spoken about.
@@ -1421,25 +1422,25 @@ L["CASTING_FOCUS_CAST_DESC"] = "Holding the Focus Cast Key sends this action to 
 -- since what is being turned down differs.
 --
 -- **"as usual" names the target, not the behaviour** (2026-09-22, owner). Written as "Cast as
--- usual" it read as "this action behaves normally", which is what the Hover Cast row's Off does, so
--- the two values on that row looked like the same thing. Pinned to the noun it can only be read as
--- the unit.
+-- usual" it read as "this action behaves normally", which is what the Hover Cast row's Off then did,
+-- so two values on that row looked like the same thing. Pinned to the noun it can only be read as the
+-- unit. On the Hover Cast row it is the default now (2026-10-04, owner).
 L["CASTING_AS_USUAL"] = "Cast on the usual target"
 L["CASTING_SELF_USUAL_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_FOCUS_USUAL_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to it. It goes where it would with nothing pointed at, and keeps its place among the actions on the key."
--- **Two labels, because the same stored value leaves two different things behind** (2026-09-22,
--- owner). On the two key rows the action is taken off that press and the next one gets it, which is
--- an effect the reader sees; on the Hover Cast row nothing about the action changes, which is what
--- "Off" says. One word over both made the key rows read as "this row does not apply".
+-- **One label on all three rows, because it is one outcome** (2026-10-04, owner): the action sits
+-- that press out and the next action on the key takes it.
 L["CASTING_SKIP"] = "Skip this action"
-L["CASTING_OFF"] = "Off"
 L["CASTING_SKIP_DESC"] = "The action sits this press out, and the next action on the key takes it."
--- **Off does not take the action off the pointed press**, and the sentence has to say so, because
--- the two rows above it do exactly that. With no twin the action waits in the last tier, so a
--- pointed press still reaches it once every action that answers one has been tried.
-L["CASTING_HOVER_OFF_DESC"] = "Pointing at a unit does nothing for this action. It runs on a plain press, behind any action on the key that does run on a pointed press."
 L["CASTING_HOVER_CAST_DESC"] = "What this action does while you point at a unit with no key held, and which units count as pointed at."
+-- **A command or unused casts at nothing**, so its two values that run say what it does instead, in
+-- one sentence for both: on these types they come to the same press (`ActionMenuItems.lua`). **Only
+-- that press**, not "pointing makes no difference": with Normal Cast unticked these values are what
+-- the action runs on at all (2026-10-05, review). The unit frame click is said because it is where
+-- the two types part.
+L["CASTING_HOVER_TAIL_UNUSED_DESC"] = "While you point at a unit, the key does what the game has on it. A click on a unit frame goes to the frame."
+L["CASTING_HOVER_TAIL_COMMAND_DESC"] = "While you point at a unit, the key runs the command. A click on a unit frame does nothing."
 -- **The key decides, so the row says so and stops.** Nothing stored here reaches a bare click, and a
 -- reader who came to change it is owed the reason rather than a row that does nothing.
 L["CASTING_HOVER_BARE_CLICK"] = "A left or right click with no modifier only runs on a unit frame, so this action always casts on the unit you click."
@@ -1453,17 +1454,12 @@ L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
 -- **The fourth press has no key and no unit to name it by**, so it is named by the key alone.
 -- Ticked is what every action did before any of these values existed.
 --
--- **It is not "nothing pointed at"** (2026-09-22, `which-action-a-key-runs.md` §3). A press with no
--- key held is one path: the hover twin is tried and the original catches whatever it does not take.
--- An action with Hover Cast off has no twin, so a press made while pointing is this press, and
--- unticking takes that one away as well.
---
--- **What is left once it is unticked is not listed here.** It used to end "and this action is only
--- reached by a held key or by pointing at a unit", which was true while every action answered a
--- pointed press; with Hover Cast off by default that half names a way in the reader does not have.
--- The three rows above each say what they answer, so the reader has the list already.
+-- **Unticked, what is left is the pointed press** (`which-action-a-key-runs.md` §6): at the usual
+-- target or the pointed unit the action still runs while you point at a unit, and it sits out only
+-- the press with nothing pointed at. "Don't run while pointing" with this unticked leaves nothing,
+-- and that is said by the error on the row, not here.
 L["CASTING_NORMAL"] = "Normal Cast"
-L["CASTING_NORMAL_DESC"] = "The action runs on a press with no key held, unless Hover Cast takes that press for this action. Unticked, that press goes to the next action on the key."
+L["CASTING_NORMAL_DESC"] = "The action runs on a press with no key held. Unticked, it runs on that press only while you point at a unit, and a press with nothing pointed at goes to the next action on the key."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."
 -- The four things the game does around a cast on its own. **Two of them the client names itself**
 -- (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`) and those two are used; the other two have
@@ -1475,11 +1471,10 @@ L["AUTOMATIC_SELF_CAST_DESC"] = "Casting a helpful spell with no friendly target
 L["AUTOMATIC_CANCEL_FORM_DESC"] = "Casting a spell your current form does not allow leaves the form first."
 L["AUTOMATIC_DISMOUNT_DESC"] = "Casting a spell while mounted gets you off the mount first."
 L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "Casting a spell while flying gets you off the mount first."
--- **Their own keys, though `DISABLE` and `CASTING_OFF` say `Off` in this window too.** Those two
--- are a condition that constrains nothing and a press the action sits out. These are neither: the
--- label above them names a setting of the game's, so they are that setting's two states and
--- nothing else. Kept apart so a translator can use different words where one will not carry all
--- three.
+-- **Their own keys, though `DISABLE` says `Off` in this window too.** That one is a condition that
+-- constrains nothing. These are not: the label above them names a setting of the game's, so they
+-- are that setting's two states and nothing else. Kept apart so a translator can use different
+-- words where one will not carry both.
 L["AUTOMATIC_ON"] = "On"
 L["AUTOMATIC_OFF"] = "Off"
 -- **The third answer, and the one every action starts on.** Named after the row it follows rather
@@ -1505,10 +1500,14 @@ L["CAST_KEY_TARGET_PICKED"] = "If this action has a target of its own, it goes t
 -- your focus as often as a target. The two sit in one menu tree, where "Target" twice would read as
 -- one thing (`implementing-focus-and-self-cast.md` §3-6).
 L["RESOLVED_TARGET"] = "Resolved Unit"
--- **Formatted, not written out.** The first and last are this addon's own labels (`TARGET_UNIT`,
--- `CASTING_AS_USUAL`) and the middle two the client's (`AUTO_SELF_CAST_KEY_TEXT`,
--- `FOCUS_CAST_KEY_TEXT`, the two modifier dropdowns in its settings), so a rename on either side
--- carries into the sentence (`ActionMenuNodes.lua`).
+-- **Formatted, not written out.** The second and third are the client's labels
+-- (`AUTO_SELF_CAST_KEY_TEXT`, `FOCUS_CAST_KEY_TEXT`, the two modifier dropdowns in its settings) and
+-- the rest this addon's own (`TARGET_UNIT`, `CASTING_AS_USUAL`, `POINTED_UNIT_CAST`,
+-- `CASTING_POINTED_CAST`), so a rename on either side carries into the sentence
+-- (`ActionMenuNodes.lua`).
+--
+-- **The pointed unit is reached by one Hover Cast value only** (2026-10-04, owner), so that value is
+-- named rather than Hover Cast being "on": it has no off any more.
 --
 -- **A held key comes before the pointed unit**, and the order of the sentence says so: the pointed
 -- unit is only reached with no key held.
@@ -1524,7 +1523,7 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 --
 -- **Auto Self Cast is named** because it is what a reader expects to rescue a friendly spell on the
 -- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
-L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while %5$s is on for this action and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
+L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
 L["TYPE_BLOCK"] = "Nothing"
 L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only."
 L["TYPE_COMMAND"] = "Binding Command"
@@ -1615,7 +1614,7 @@ L["POINTED_UNIT_CAST"] = "Hover Cast"
 -- (`docs/ingamehelp/enUS/hover-cast.md`), reached by the link under the row: the explanation is
 -- longer than a tooltip holds, and a reader who already knows what Hover Cast is comes here to pick
 -- a mode.
-L["POINTED_UNIT_CAST_DESC"] = "Which units count as pointed at.|n|nTurning Hover Cast on is done on each action, in its right-click menu, and an action can use a mode of its own there as well."
+L["POINTED_UNIT_CAST_DESC"] = "Which units count as pointed at.|n|nWhat an action does while you point at one is set on each action, in its right-click menu, and an action can use a mode of its own there as well."
 -- **Entry names are Title Case**, which is what the client's own lists use
 -- (`SELF_CAST_AUTO_AND_KEY_PRESS`, `SETTING_EMPOWERED_SPELL_INPUT_HOLD_OPTION`).
 --

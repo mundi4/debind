@@ -318,50 +318,25 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- hover 컬럼 -- 1번 컬럼이고 모든 바인딩에 대해 돈다.
-    -- action.key가 마우스 버튼이면 hover가 명시되지 않아도 "마우스오버 아님"이 된다
-    -- (마우스 버튼 바인딩은 프레임 위에 올린 상태에서 눌리는 것이므로).
-    -- 여기서 쓰는 GetMouseButtonAndPrefix는 Constants.lua의 진짜 구현이다.
+    -- The pointed frame's column, which every binding is run over.
     ---------------------------------------------------------------------------
 
-    check(DebindPrivate.GetMouseButtonAndPrefix ~= nil,
-        "GetMouseButtonAndPrefix가 로드 안 됨 -- hover 컬럼을 검증할 수 없음");
-
-    test("마우스버튼 키는 hover 축이 좁아진다", function()
-        -- 키보드 키: hover 미지정 = 마우스오버 + 아님 전부
-        -- 마우스버튼 키: hover 미지정 = 마우스오버 아님, 뿐
-        -- 따라서 마우스버튼 쪽이 키보드 쪽을 못 덮는다
-        expectSurvives({
-            { name = "mouse",    key = "BUTTON4" },
-            { name = "keyboard", key = "SHIFT-Q" },
-        }, "keyboard");
-
-        -- 반대 방향은 덮인다
+    -- **A mouse button adds nothing to the box** (`which-action-a-key-runs.md` S2). A record with
+    -- no [no unit frame] stands on the frame path too, so it reaches the pointed point, and one
+    -- with no condition there covers a frame record behind it as it would on a keyboard key.
+    test("a mouse button key narrows nothing of its own", function()
+        expectRemoved({
+            { name = "mouse", key = "BUTTON4" },
+            { name = "frame", key = "BUTTON4", units = { unitframe = {} } },
+        }, "frame");
         expectRemoved({
             { name = "keyboard", key = "SHIFT-Q" },
             { name = "mouse",    key = "BUTTON4" },
         }, "mouse");
-    end);
-
-    test("수식어 붙은 마우스버튼도 마우스버튼으로 인식", function()
         expectRemoved({
-            { name = "plain", key = "SHIFT-Q" },
-            { name = "mod",   key = "CTRL-SHIFT-BUTTON5" },
-        }, "mod");
-    end);
-
-    test("마우스버튼 키에 hover=true를 주면 다시 마우스오버 축", function()
-        expectSurvives({
-            { name = "nohover", key = "BUTTON4" },
-            { name = "hover",   key = "BUTTON4", units = { unitframe = {} } },
-        }, "hover");
-    end);
-
-    test("마우스버튼처럼 생긴 키가 아니면 좁아지지 않는다", function()
-        expectSurvives({
-            { name = "mouse", key = "BUTTON4" },
-            { name = "fake",  key = "SHIFT-BUTTON9" },
-        }, "fake");
+            { name = "mouse",    key = "BUTTON4" },
+            { name = "keyboard", key = "SHIFT-Q" },
+        }, "keyboard");
     end);
 
     -- The cursor being on a frame is the client's `mouseover` standing on that frame's unit, so a
@@ -702,10 +677,6 @@ return function(DebindPrivate)
             if (not p.hovering) then return false; end
             if (cond.reaction and band(cond.reaction, p.reaction) == 0) then return false; end
             if (cond.frameTypes and band(cond.frameTypes, p.frameType) == 0) then return false; end
-        elseif (b.key and DebindPrivate.GetMouseButtonAndPrefix(b.key)) then
-            -- a mouse button fires wherever the cursor already is, so it can only
-            -- answer for the not-hovering point
-            if (p.hovering) then return false; end
         end
         if (b.combat ~= nil and b.combat ~= p.combat) then return false; end
         return true;

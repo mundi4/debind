@@ -592,11 +592,12 @@ return function(DebindPrivate)
             "부재로 안 좁혀짐");
     end);
 
-    -- 마우스 클릭은 커서가 이미 있는 자리에서 발동한다. 유닛 프레임 위였다면 프레임이
-    -- 그 클릭을 먹으므로, 이 경로로 오는 것은 "호버 중이 아님"뿐이다.
-    test("마우스 버튼 키는 호버 유닛이 부재로 좁혀진다", function()
-        check(spell({ key = "BUTTON3" }).unitStates["unitframe"] == Constants.UNITSTATE_NONE,
-            "마우스 버튼이 호버 축을 안 좁힘");
+    -- **A mouse button narrows nothing of its own** (`which-action-a-key-runs.md` S2): its record
+    -- stands on the frame path as well, so the box has to reach the pointed frame.
+    test("a mouse button key leaves the pointed frame's unit open", function()
+        local states = spell({ key = "BUTTON3" }).unitStates;
+        check(states == nil or states["unitframe"] == nil,
+            "the mouse button narrowed it to " .. tostring(states and states["unitframe"]));
     end);
 
     ---------------------------------------------------------------------------

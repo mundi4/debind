@@ -232,21 +232,21 @@ do
 	local Lists = {};
 	local _unroll = {};
 
-	--- Lays the sorted originals out as the key, in four tiers: every self twin, every focus twin,
-	--- every hover twin, every original (`which-action-a-key-runs.md` §3). A probe goes with
-	--- the binding it gates, right ahead of it.
+	--- Lays the sorted originals out as the key, in three tiers: every self twin, every focus twin,
+	--- and then each action's hover twin right ahead of its own original (`which-action-a-key-runs.md`
+	--- S1, S4). A probe goes with the binding it gates, right ahead of it.
 	---
-	--- **Tiers, not each action's bindings side by side.** Side by side, an original placed first
-	--- took a pointed press before a hover twin behind it had a turn, so the same key went at the
-	--- target or at the pointed unit depending on which of the two was hostile. The self and focus
-	--- tiers change no winner either way, since a held modifier and none held never meet.
+	--- **The hover twins are not gathered ahead of every original** (2026-10-04, owner). Gathered,
+	--- an action with no twin gave the pointed press to any action behind it that had one, wherever
+	--- the reader put it, and nothing on screen could say so. Side by side, the drawn order answers
+	--- the pointed press too. The self and focus tiers stay apart, since a held modifier arrives on
+	--- a chord of its own (`handing-the-rest-of-a-key-to-the-game.md` 2-3).
 	---
-	--- **Every tier is in the originals' order, the hover tier included** (2026-09-16, owner). That
-	--- order is the one the window draws, and an order the reader cannot see is an order they cannot
-	--- fix. The hover tier used to sort itself by where each twin's own condition would have put it.
+	--- **Every tier is in the originals' order** (2026-09-16, owner). That order is the one the
+	--- window draws, and an order the reader cannot see is an order they cannot fix.
 	---
-	--- **The last tier leaves out an original whose Normal Cast is off**, which is what makes a press
-	--- with nothing held and nothing pointed at fall through to the next action (§6).
+	--- **An original whose Normal Cast is off is left out**, which is what makes a press with nothing
+	--- held and nothing pointed at fall through to the next action (§6).
 	---
 	--- **No tier takes a binding that is `omitted` either**: a resurrection whose reader asked for
 	--- the key to be handed on has no one spell for its original to cast (`FillBinding`).
@@ -260,21 +260,19 @@ do
 		end
 
 		local out = 0;
-		for tier = 1, 4 do
+		for tier = 1, 3 do
 			local castModifier = Constants.CASTMOD_NONE;
 			if (tier == 1) then
 				castModifier = Constants.CASTMOD_SELF;
 			elseif (tier == 2) then
 				castModifier = Constants.CASTMOD_FOCUS;
 			end
-			local wantHover = tier == 3;
 			for i = 1, count do
 				local list = Lists[_unroll[i]];
 				for j = #list, 1, -1 do
 					local binding = list[j];
 					if (not binding.dead and not binding.omitted and binding.castModifier == castModifier
-							and (binding.hoverTwin or false) == wantHover
-							and (tier ~= 4 or binding.normalCast ~= false)) then
+							and binding.normalCast ~= false) then
 						out = out + 1;
 						bindings[out] = binding;
 					end

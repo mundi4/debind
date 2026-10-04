@@ -1579,18 +1579,34 @@ end
 --- fire nothing: **every action below it on the key would go with it.** A hunter with no pet and a
 --- Call Pet binding is the case. A BLOCK is the one binding that is meant to do exactly that.
 local function PrepareKeyBindings(key, bindingArray)
-    local button = bindingArray.button;
+    local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
 
     for i = 1, #bindingArray do
         local binding = bindingArray[i];
-        -- **Never the self or focus twin.** A modifier held on a frame click is part of the binding
-        -- the reader put on that exact combination, since nothing falls through to a click with
-        -- fewer (`implementing-focus-and-self-cast.md` §3-10).
+        -- **Every record on a mouse button stands on the frame path unless it rules the frame out**,
+        -- by the reader's [no unit frame] or by Hover Cast's `"skip"` on that unit
+        -- (`which-action-a-key-runs.md` S4). The solver has no column for the path a record takes,
+        -- so a box is right only where the record really is: a key-path-only record whose box spans
+        -- the frame half would cover, and delete, a frame record it never meets.
+        --
+        -- **Never with META held.** The secure button builds a click's prefix from Shift, Ctrl and Alt
+        -- alone, so a META click arrives on a frame as the bare one, and a record here would be filed
+        -- under that button (`GetModifierIndex`) and take its clicks.
+        --
+        -- **One that needs a frame does not hold the key**: a click over a frame goes to the frame,
+        -- so the key path never sees one, and holding the key for it would take the world click.
+        --
+        -- **Never the self or focus twin** (2026-10-04, owner). A modifier held on a frame click is
+        -- that click as it stands: what the frame does with it is Blizzard's click bindings, the
+        -- frame's own attributes or another addon's wrapper, differs per frame and cannot be read
+        -- reliably, so taking it would hide the game's side of every modified frame click by
+        -- default (`which-action-a-key-runs.md` §7).
         local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
         local wantsFrame = type(unitFrameCondition) == "table";
-        binding.isClickCast = button ~= nil and
-            (wantsFrame or binding.type == Constants.SETCUSTOM or binding.unit == "unitframe") and
+        local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
+            or (buttonPrefix ~= nil and buttonPrefix:find("META-", 1, true) ~= nil);
+        binding.isClickCast = button ~= nil and not refusesFrame and
             (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
             true or false;
         binding.holdsKey = (button == nil or not wantsFrame) and true or false;
@@ -1684,8 +1700,9 @@ local _noBindings = {};
 --- (`dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
 --- click-cast-only key a block would take the key, and the world click and camera with it.
 ---
---- **No block after the hover twins.** The last one sits under every original's [none held], which
---- covers the pointed half and the rest alike.
+--- **No block between the hover twins and the originals.** They share the [none held] tier, each
+--- twin beside its own original, and the last block closes it for the pointed half and the rest
+--- alike.
 ---
 --- **No block for a key turned off in the settings either.** The press never picks that tier
 --- (`EVAL_SNIPPET`), so the block would be a record nothing reads.
@@ -1743,6 +1760,12 @@ end
 --- and as a value it costs nothing.
 local function MergeKeyUnitConditions(binding, out)
     wipe(out);
+
+    -- **Hover Cast's `"skip"` is not in `conditions`** (`FillBinding`), since that table is what the
+    -- order counts, so it is laid in here, where the record gets the unit rows the press checks.
+    if (binding.skipsPointedUnit) then
+        out[binding.skipsPointedUnit] = false;
+    end
 
     local units = binding.conditions.units;
     if (not units) then
@@ -2062,6 +2085,15 @@ local function EmitRecord(record)
 
     if (record.holdsKey) then
         appendLine("t.holdsKey=true");
+    end
+
+    -- **An unused that wins a frame click lets it through** to the frame's own handler, which is the
+    -- game's side of that click (`which-action-a-key-runs.md` S4). Every other winner with nothing
+    -- to click spends it (2026-10-05, owner): a block does nothing, as its own row says, and a
+    -- command cannot run on a frame. Let through, either would run whatever the frame has on that
+    -- click, which the reader did not pick, and do what the unused does.
+    if (record.isClickCast and record.tail == Constants.UNUSED) then
+        appendLine("t.letsClickThrough=true");
     end
 
     -- **DEBUG only, and read by nothing in the addon.** A tail goes out as a BLOCK, so without these a

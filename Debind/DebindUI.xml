@@ -192,6 +192,9 @@
 					</Anchors>
 				</Texture>
 			</Layer>
+			<Layer level="OVERLAY">
+				<Texture parentKey="Overlay" hidden="true"/>
+			</Layer>
 		</Layers>
 		<Scripts>
 			<OnEnter method="OnEnter"/>
@@ -204,10 +207,10 @@
 		used to work that out by hand; `HorizontalLayoutFrame` already skips hidden children and
 		restacks the rest.
 
-		**`layoutIndex` is the order a press reaches them in**: Hover Cast's twin stands in a layer
-		ahead of the original (`which-action-a-key-runs.md` §3), conditions are what the comparator
-		reads next, and last is whether the action works at all. The first two say why it is tried
-		when it is, the last whether it does anything.
+		**`layoutIndex` is the order a press reaches them in**: Hover Cast's twin stands right ahead
+		of its own original (`which-action-a-key-runs.md` §3), conditions are what the comparator
+		reads next, and last is whether the action works at all. The first two say when it is tried,
+		the last whether it does anything.
 	-->
 	<Frame name="DebindRowMarksTemplate" inherits="HorizontalLayoutFrame" virtual="true">
 		<KeyValues>

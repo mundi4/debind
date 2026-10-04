@@ -692,8 +692,8 @@ end
 
 local HoverCastChoiceOf = DebindPrivate.HoverCastChoiceOf;
 
---- Hover Cast's own three, where the absent value is off rather than the pointed unit
---- (`ActionBindings.lua`'s `HoverCastChoiceOf`). nil is the choice here, not the lack of one.
+--- Hover Cast's own three, where the absent value is the usual target rather than the pointed unit
+--- (`ActionBindings.lua`'s `HoverCastChoiceOf`), so that one is stored as nothing.
 local function HoverCastChoiceIs(ctx, choice)
     return AllActions(ctx, function(action)
         return HoverCastChoiceOf(action) == choice;
@@ -701,14 +701,18 @@ local function HoverCastChoiceIs(ctx, choice)
 end
 
 local function SetHoverCastChoice(ctx, choice)
+    local value;
+    if (choice ~= "usual") then
+        value = choice;
+    end
     for _, action in ipairs(ctx.actions) do
-        ActionValues.Set(action, "casting.hoverCast", choice);
+        ActionValues.Set(action, "casting.hoverCast", value);
     end
     return OnActionsChanged(ctx.actions);
 end
 
---- Hover Cast's other question, which units count as pointed at. An action with it turned off keeps
---- this: turning it back on should find the mode the reader picked.
+--- Hover Cast's other question, which units count as pointed at. Kept whatever the answer above
+--- is, so going back to the pointed unit finds the mode the reader picked.
 local function SetHoverCastMode(ctx, mode)
     for _, action in ipairs(ctx.actions) do
         ActionValues.Set(action, "casting.hoverCastMode", mode);

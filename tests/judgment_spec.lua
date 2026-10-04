@@ -457,7 +457,8 @@ return function(DebindPrivate, _, ctx)
         Saw(Sweep("ALT-F1"), Judgment.OURS);
     end);
 
-    -- On a tail the conditions land on its pointed twin, which decides the pointed press.
+    -- **A tail follows Hover Cast like any action** (`taking-off-out-of-hover-cast.md` §2-1), so at
+    -- the usual target it has no pointed twin and the frame's columns land on its original.
     test("a pointed frame's reaction, role and type on a tail", function()
         Bind({
             action({ type = Constants.COMMAND, value = MAP, conditions = { units = { unitframe = {
@@ -467,6 +468,21 @@ return function(DebindPrivate, _, ctx)
             action({ type = Constants.UNUSED }),
         });
         Saw(Sweep("F1"), Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
+    end);
+
+    -- **The action above the tail takes the pointed press it answers.** With the tail's pointed
+    -- twins gathered ahead of every original, they took every press over a unit first and the
+    -- action never won one; standing in its own place, the tail comes after it there too. The first
+    -- case where the frame's role and type decide for an ordinary action.
+    test("a pointed frame's reaction, role and type on the action above an unused", function()
+        Bind({
+            action({ conditions = { units = { unitframe = {
+                reaction = Constants.REACTION_HELP, role = Constants.ROLE_TANK + Constants.ROLE_NONE,
+                frameTypes = Constants.FRAMETYPE_GROUP + Constants.FRAMETYPE_BOSS,
+            } } } }),
+            action({ type = Constants.UNUSED }),
+        });
+        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
 
     test("forms and the player's group", function()

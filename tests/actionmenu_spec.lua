@@ -113,6 +113,28 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **The usual target is Hover Cast's default and is stored as nothing** (`which-action-a-key-runs.md`
+    -- §8), so picking it over a selection clears the others' values rather than writing the default
+    -- into every action; and an action with nothing stored reads as holding it.
+    test("Hover Cast's usual target is stored as nothing", function()
+        local actions = ResetProfile({
+            Spell(1, { casting = { hoverCast = "cast" } }),
+            Spell(2, { casting = { hoverCast = "skip", hoverCastMode = "mouseover" } }),
+            Spell(3),
+        });
+        local ctx = Ctx(actions);
+        check(not ActionMenu.HoverCastChoiceIs(ctx, "usual"), "a mixed selection reads as the usual target");
+        ActionMenu.SetHoverCastChoice(ctx, "usual");
+        for i, action in ipairs(actions) do
+            check(action.casting == nil or action.casting.hoverCast == nil,
+                "action " .. i .. " stored " .. tostring(action.casting and action.casting.hoverCast));
+        end
+        check(actions[2].casting.hoverCastMode == "mouseover", "the mode went with it");
+        check(ActionMenu.HoverCastChoiceIs(ctx, "usual"), "the usual target does not read back");
+        ActionMenu.SetHoverCastChoice(ctx, "skip");
+        check(ActionMenu.HoverCastChoiceIs(ctx, "skip"), "skip does not read back");
+    end);
+
     test("a box over a mixed selection turns all on, then all off", function()
         local actions = ResetProfile({ Spell(1, { disabled = true }), Spell(2) });
         local data = { ctx = Ctx(actions), key = "disabled", value = ActionMenu.USE_CHECKED_VALUE };

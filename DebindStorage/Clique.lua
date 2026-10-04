@@ -156,6 +156,11 @@ local function TranslateBinding(binding, combatOnly)
         if (actionType == Constants.TOGGLEMENU) then
             action.casting.hoverCastMode = "unitframe";
         end
+    elseif (isMouse) then
+        -- **Clique's global click never reaches a frame**: the frame takes it first. Ours would stand
+        -- on the frame click too, so it is kept off frames by its value rather than by a condition,
+        -- which would move it in the order (`taking-off-out-of-hover-cast.md` §4-2).
+        action.casting = { hoverCast = "skip", hoverCastMode = "unitframe" };
     end
 
     local conditions = {};
@@ -209,15 +214,27 @@ function DebindStorage.PayloadFromCliqueBindings(bindings, gameType)
     end
 
     local actions = {};
-    local seqByKey = {};
     for _, binding in ipairs(bindings) do
         if (luatype(binding) == "table") then
             local ooc = luatype(binding.sets) == "table" and binding.sets.ooc;
             local action = TranslateBinding(binding, not ooc and oocKeys[binding.key]);
             if (action) then
+                actions[#actions + 1] = action;
+            end
+        end
+    end
+
+    -- **A key's frame rows are numbered ahead of its global ones** (`taking-off-out-of-hover-cast.md`
+    -- §4-2). Clique's frame bindings answered a pointed press whatever order its list had; ours go
+    -- by the order on the key, so the rows on the pointed unit have to come first. Within each group
+    -- the list's order stands.
+    local seqByKey = {};
+    for pass = 1, 2 do
+        for _, action in ipairs(actions) do
+            local pointed = action.casting ~= nil and action.casting.hoverCast == "cast";
+            if (pointed == (pass == 1)) then
                 seqByKey[action.key] = (seqByKey[action.key] or 0) + 1;
                 action.seq = seqByKey[action.key];
-                actions[#actions + 1] = action;
             end
         end
     end

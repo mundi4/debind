@@ -626,13 +626,14 @@ local BINDING_CATEGORIES = { units = true, unit = true, groups = true, casting =
 
 --- Why an action makes no binding at all, given its list; nil where the list has one.
 ---
----   `"NONE_LEFT"`           every press the reader could turn off is off
----   `"CONTRADICTION"`       Hover Cast is on, and [when there is none] on its unit leaves the twin
----                           nowhere to stand (`TwinUnitFor`)
+---   `"NONE_LEFT"`           Hover Cast's `"skip"` with Normal Cast off: the values alone leave the
+---                           plain presses nothing
+---   `"CONTRADICTION"`       the value meets a condition on the pointed unit and nothing is left:
+---                           `"skip"` beside a row needing that unit, or a twin that has to stand
+---                           alone beside its [when there is none] (`GetBindingsForAction`)
 ---
---- **An empty list with Hover Cast on is always the second.** With it on the twin is missing for one
---- reason only, that condition, and every other press being gone is what emptied the list. Off is the
---- reader's own value; the condition against the mode is two menus disagreeing
+--- **Anything but the first is the second.** The values pick what stands, and only a condition on
+--- the unit they name can take it away again; that is two menus disagreeing
 --- (`reorganizing-binding-issues.md` §3-3).
 --- Both readings of the unit a bare click lands on, in the order the message names them.
 local BARE_CLICK_UNITS = { "unitframe", "mouseover" };
@@ -665,20 +666,41 @@ local function BareClickImpossibleUnit(action)
     return nil;
 end
 
+--- The unit row a `"CONTRADICTION"` is told on: the mode's own unit where its row is what the value
+--- met, and Resolved Unit (`"@"`) otherwise, which is the one other row that lands on that unit
+--- (`GetBindingsForAction`, `TwinUnitFor`). `"skip"` needs the unit absent, so a row asking for it
+--- is the clash; every other value needs it present, so a row saying [none] is.
+local function ContradictionRow(action)
+    local mode = DebindPrivate.HoverCastMode(action);
+    local units = action.conditions and action.conditions.units;
+    local own = units and UnitConditionForBinding(units[mode]);
+    local clash;
+    if (DebindPrivate.HoverCastChoiceOf(action) == "skip") then
+        clash = type(own) == "table";
+    else
+        clash = own == false;
+    end
+    if (clash) then
+        return mode;
+    end
+    return "@";
+end
+
 local function NoBindingCause(action, list)
     if (#list > 0) then
         return nil;
     end
-    if (DebindPrivate.HoverCastChoiceOf(action) ~= nil) then
-        return "CONTRADICTION";
+    if (DebindPrivate.HoverCastChoiceOf(action) == "skip" and not DebindPrivate.NormalCastEnabled(action)) then
+        return "NONE_LEFT";
     end
-    return "NONE_LEFT";
+    return "CONTRADICTION";
 end
 
 --- Why this action does not run although nothing about it is wrong, or nil: `"DISABLED"`.
 --- **A reason, not an issue.** The reader said so, and a mark on what they asked for is a mark with
---- nothing to fix. Every press being off is the other way to stand still and that one **is** an
---- issue, because turning the action off is a way to close it (`BINDING_ISSUE_NOTHING_RUNS`).
+--- nothing to fix. Cast Options that leave no plain press are the other way to stand still and that
+--- one **is** an issue, because turning the action off is a way to close it
+--- (`BINDING_ISSUE_NOTHING_RUNS`).
 function DebindPrivate.GetNotRunningReason(action)
     if (action and action.disabled) then
         return "DISABLED";
@@ -769,18 +791,18 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
                 Report(Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY, "CONDITION_UNITS");
             end
         elseif (#list == 0) then
-            -- **Every press turned off is a warning on Cast Options** (2026-09-18, owner). It was a
-            -- reason and nothing else while the only way to clear it was turning a press back on;
-            -- an action can be turned off now, which says the reader meant it and takes the mark
-            -- with it (`action.disabled`).
+            -- **Cast Options that leave the plain presses nothing are an error there** (2026-10-04,
+            -- owner), closable by turning the action off, which says the reader meant it and takes
+            -- the mark with it (`action.disabled`).
             --
-            -- The contradiction is told on both sides that can undo it: the unit's row, and whatever
-            -- emptied the rest of the list. On the bare click that is the key, which runs only over a
-            -- unit frame (`which-action-a-key-runs.md` §7); anywhere else it is Cast Options.
+            -- The contradiction is told on both sides that can undo it: the unit row the value met,
+            -- and whatever emptied the rest of the list. On the bare click that is the key, which runs
+            -- only over a unit frame (`which-action-a-key-runs.md` §7); anywhere else it is Cast
+            -- Options.
             local cause = NoBindingCause(action, list);
             if (cause == "NONE_LEFT") then
-                -- **Turned off, the warning has been answered.** Every other code stays, so turning
-                -- the action back on is not a surprise.
+                -- **Turned off, the error has been answered.** Every other code stays, so turning the
+                -- action back on is not a surprise.
                 if (not action.disabled
                         and (not category or category == "casting") and notCategory ~= "casting") then
                     Report(Constants.BINDING_ISSUE_NOTHING_RUNS, "CASTING");
@@ -794,7 +816,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected, ran
                     Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, sideLabel);
                 end
                 if ((not category or (category == "units"
-                            and (arg == nil or RowUnitName(arg) == DebindPrivate.HoverCastMode(action))))
+                            and (arg == nil or RowUnitName(arg) == ContradictionRow(action))))
                         and notCategory ~= "units") then
                     Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
                 end

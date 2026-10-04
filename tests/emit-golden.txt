@@ -569,13 +569,6 @@ Execute DebindBindingDriver
   | t["castModifier"]=4
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=1
-  | t.units=newtable()
-  | u=newtable();t.units["mouseover"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t.tail="unused"
-  | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["spell"]="Renew"
   | t["castModifier"]=1
@@ -1370,14 +1363,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
-  | t.units=newtable()
-  | u=newtable();t.units["mouseover"]=u
-  | u.exists=true
-  | t.holdsKey=true
-  | t.tail="command"
-  | t.command="TOGGLEWORLDMAP"
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=1
   | t.holdsKey=true
   | t.tail="command"
   | t.command="TOGGLEWORLDMAP"
@@ -1797,6 +1782,7 @@ Execute DebindBindingDriver
   | t["clickbutton"]="deb101"
   | t["spell"]="Regrowth(Restoration)"
   | t["castModifier"]=1
+  | t.isClickCast=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1

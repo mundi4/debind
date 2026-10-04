@@ -272,7 +272,7 @@ DebindPrivate.ResolvedUnitOf = ResolvedUnitOf;
 
 local SOURCE_ROW = 1;
 local SOURCE_AT = 2;
-local SOURCE_KEY = 4;
+local SOURCE_SKIP = 8;
 local SOURCE_TWIN = 16;
 DebindPrivate.UNIT_SOURCE_ROW = SOURCE_ROW;
 DebindPrivate.UNIT_SOURCE_AT = SOURCE_AT;
@@ -286,9 +286,9 @@ DebindPrivate.UNIT_SOURCE_AT = SOURCE_AT;
 --- two columns describing one thing, and the solver cannot see that `unitframe=friendly` with
 --- `@=hostile` never holds -- it keeps a binding that can never fire and warns about nothing.
 ---
---- A mouse button reaches the not-pointing point and nothing else: the click fires wherever the
---- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
---- there. The same absent condition on a keyboard key spans the whole axis.
+--- **A mouse button adds nothing of its own.** Its records stand on the frame path as well as the
+--- key path unless they rule the frame out (`UpdateBindings.lua`'s `PrepareKeyBindings`), so a box
+--- that spans the frame half is a record that really reaches it.
 local function BuildUnitStates(binding)
     local states;
 
@@ -355,20 +355,11 @@ local function BuildUnitStates(binding)
         end
     end
 
-    -- The `unitframe` condition itself is not read here any more -- it lives in
-    -- `units["unitframe"]` and the loop below folds it like any other unit. What is left is the
-    -- one thing the **key** says: a mouse button reaches the not-pointing point and nothing else,
-    -- because the click fires wherever the cursor already is and over a unit frame the frame eats it.
-    --
-    -- **Only when nothing was said about pointing.** An explicit `unitframe` condition on a mouse
-    -- button key is the user overriding that reading, and it has always won here -- narrowing it
-    -- to absent as well would leave an empty box and delete the binding for a reason nobody set.
     local conditions = binding.conditions;
     local units = conditions and conditions.units;
 
-    if (binding.key and (units == nil or units.unitframe == nil)
-            and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
-        narrow("unitframe", Constants.UNITSTATE_NONE, SOURCE_KEY);
+    if (binding.skipsPointedUnit) then
+        narrow(binding.skipsPointedUnit, Constants.UNITSTATE_NONE, SOURCE_SKIP);
     end
     if (units) then
         for key, value in pairs(units) do

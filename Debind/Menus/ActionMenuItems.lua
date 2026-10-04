@@ -532,11 +532,14 @@ local function CreateCastingMenu(parentDescription, ctx)
                 return LLL["CASTING_HOVER_BARE_CLICK"];
             end
         end,
+        -- **Read off what is stored, not off `HoverCastChoiceOf`**, which answers the pointed unit for
+        -- the bare click whatever is stored and would paint that row as set. A stored `"usual"` is the
+        -- default under its older spelling and reads as nothing set.
         isActive = function()
             return AnyAction(ctx, function(action)
                 local casting = action.casting;
-                return casting ~= nil
-                    and (casting.hoverCast ~= nil or casting.hoverCastMode ~= nil);
+                return casting ~= nil and (casting.hoverCast == "cast" or casting.hoverCast == "skip"
+                    or casting.hoverCastMode ~= nil);
             end);
         end,
         -- **Both values, because the radios under this row are not nodes.** `NodeValueText` reads
@@ -547,7 +550,11 @@ local function CreateCastingMenu(parentDescription, ctx)
             if (casting == nil) then
                 return nil;
             end
-            return { mode = casting.hoverCastMode, aim = casting.hoverCast };
+            local aim = casting.hoverCast;
+            if (aim ~= "cast" and aim ~= "skip") then
+                aim = nil;
+            end
+            return { mode = casting.hoverCastMode, aim = aim };
         end,
     }, ctx);
 
@@ -562,13 +569,34 @@ local function CreateCastingMenu(parentDescription, ctx)
                 end);
         end
 
-        SetInstructionTooltip(Choice(LLL["CASTING_OFF"], nil), LLL["CASTING_HOVER_OFF_DESC"]);
+        -- **A command or unused casts at nothing**, so on it the two values that run say what the
+        -- action does instead, and say it once for both: they come to the same press. **A selection
+        -- mixing it with anything else gets no sentence on those two**: none would be true of all.
+        local function isTail(action)
+            return action.type == Constants.UNUSED or action.type == Constants.COMMAND;
+        end
+        local tailType;
+        if (AllActions(ctx, function(action) return action.type == Constants.UNUSED; end)) then
+            tailType = "UNUSED";
+        elseif (AllActions(ctx, function(action) return action.type == Constants.COMMAND; end)) then
+            tailType = "COMMAND";
+        end
 
-        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"),
-            withPickedNote(LLL["CASTING_POINTED_CAST_DESC"]));
+        SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_SKIP_DESC"]);
 
-        SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"),
-            withPickedNote(LLL["CASTING_HOVER_USUAL_DESC"]));
+        if (tailType) then
+            local text = LLL["CASTING_HOVER_TAIL_" .. tailType .. "_DESC"];
+            SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"), text);
+            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"), text);
+        elseif (AnyAction(ctx, isTail)) then
+            Choice(LLL["CASTING_POINTED_CAST"], "cast");
+            Choice(LLL["CASTING_AS_USUAL"], "usual");
+        else
+            SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"),
+                withPickedNote(LLL["CASTING_POINTED_CAST_DESC"]));
+            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"),
+                withPickedNote(LLL["CASTING_HOVER_USUAL_DESC"]));
+        end
 
         hoverDescription:CreateDivider();
     end

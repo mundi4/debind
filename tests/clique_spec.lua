@@ -42,8 +42,8 @@ return function(DebindPrivate, DebindStorage)
         check(#actions == 0, #actions .. " actions, expected none");
     end
 
-    local function Spell(key, sets)
-        return { type = "spell", spell = "Rejuvenation", key = key, sets = sets };
+    local function Spell(key, sets, spell)
+        return { type = "spell", spell = spell or "Rejuvenation", key = key, sets = sets };
     end
 
     -- **Clique keeps a rank apart from the name and casts the two joined** (`SpellTextWithSubName`).
@@ -105,6 +105,35 @@ return function(DebindPrivate, DebindStorage)
         check(global.casting == nil, "global alone is a plain key");
     end);
 
+    -- **Clique's global click never reaches a frame**, so on a mouse button it does not run while a
+    -- frame is pointed at (`taking-off-out-of-hover-cast.md` §4-2). A plain mouse button row would
+    -- stand on the frame click too.
+    test("global alone on a mouse button does not run over the frames", function()
+        local global = One(Spell("BUTTON3", { global = true }));
+        check(global.casting and global.casting.hoverCast == "skip"
+                and global.casting.hoverCastMode == "unitframe" and global.casting.normalCast == nil,
+            "global on a mouse button: " .. tostring(global.casting and global.casting.hoverCast));
+    end);
+
+    -- **The frames' rows go ahead of the global ones on a key**, which is where Clique answered a
+    -- pointed press: its frame bindings took it, whatever order the list had. Within each group the
+    -- list's order stands.
+    test("the frame rows of a key stand ahead of its global rows", function()
+        local actions = Convert({
+            Spell("F", { global = true }, "Regrowth"),
+            Spell("F", { default = true }, "Rejuvenation"),
+            Spell("F", { global = true }, "Lifebloom"),
+            Spell("F", { hovercast = true }, "Wild Growth"),
+        });
+        local order = {};
+        table.sort(actions, function(a, b) return a.seq < b.seq; end);
+        for i = 1, #actions do
+            order[i] = actions[i].value;
+        end
+        check(table.concat(order, ", ") == "Rejuvenation, Wild Growth, Regrowth, Lifebloom",
+            "the key came out " .. table.concat(order, ", "));
+    end);
+
     -- `shouldApply`: any set but `global` and `hovercast` puts a binding on the frames.
     test("a set on its own puts the binding on the frames", function()
         local action = One(Spell("F", { friend = true }));
@@ -127,7 +156,8 @@ return function(DebindPrivate, DebindStorage)
     test("a META click on the frames is dropped and off them it stays", function()
         None(Spell("META-BUTTON3", { default = true }));
         local action = One(Spell("META-BUTTON3", { default = true, global = true }));
-        check(action.key == "META-BUTTON3" and action.casting == nil, "global part kept");
+        check(action.key == "META-BUTTON3" and action.casting and action.casting.hoverCast == "skip",
+            "global part kept");
     end);
 
     test("the bare left and right click are not bound off the frames", function()

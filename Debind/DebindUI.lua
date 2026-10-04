@@ -63,8 +63,17 @@ local MARK_SIZE                      = 15;
 --- 지워야 한다 - 이 프레임들은 풀에서 돌아오므로 앞 행이 남긴 것을 들고 온다. 좌표가 그중
 --- 물리는 것이라, 안 자르는 그림도 자기가 안 자른다고 말해야 한다.
 local MARK_KINDS = {
-	--- Hover Cast is on (`HoverCastChoiceOf`).
-	hover       = { file = "Interface\\Cursor\\Point", offsetY = -1 },
+	--- Hover Cast sends the action to the unit pointed at (`HoverCastChoiceOf`). **The casting
+	--- cursor**, the gauntlet with the blue glow the client shows while a spell waits for a target
+	--- (2026-10-05, owner; seen in the game that day).
+	hover       = { file = "Interface\\Cursor\\Cast", offsetY = -1, scale = 1.1 },
+	--- Hover Cast keeps the action out of the pointed press (2026-10-05, owner): unmarked, the row
+	--- would look like one at the default while it does the opposite over a unit. The casting
+	--- cursor's own off half, with the ping wheel's close mark over it. **Told apart from the one
+	--- above by shape, not colour**: an inactive row desaturates every mark (`SetInactive`), so a
+	--- glow or a tint is gone exactly there, and red is the error mark's.
+	hoverSkip   = { file = "Interface\\Cursor\\UnableCast", offsetY = -1, scale = 1.1,
+		overlay = { atlas = "Radial_Wheel_Icon_Close", size = MARK_SIZE * 0.9 } },
 	--- 조건이 붙어 있다는 것만 말한다. 그 조건이 틀렸는지는 아래 두 마크가 말한다.
 	conditional = { atlas = "questlog-questtypeicon-quest" },
 	--- 키가 아예 안 먹는다.
@@ -89,7 +98,7 @@ function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 
 	local texture = self.Icon;
 	self:SetSize(MARK_SIZE, MARK_SIZE);
-	texture:SetSize(MARK_SIZE, MARK_SIZE);
+	texture:SetSize(MARK_SIZE * (art.scale or 1), MARK_SIZE * (art.scale or 1));
 	-- 그림마다 아트가 상자 안에서 앉는 자리가 달라, 가운데를 맞춰도 눈에 보이는 높이가 어긋난다.
 	texture:ClearAllPoints();
 	texture:SetPoint("CENTER", 0, art.offsetY or 0);
@@ -106,6 +115,21 @@ function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 	else
 		texture:SetVertexColor(1, 1, 1);
 	end
+
+	-- **A second shape over the first, so two marks can differ where colour cannot.** An inactive
+	-- row desaturates both (`SetInactive`), and a pooled mark brings that back, so it is reset here.
+	local overlay = self.Overlay;
+	local over = art.overlay;
+	if (over) then
+		overlay:SetAtlas(over.atlas, false);
+		overlay:SetSize(over.size, over.size);
+		overlay:SetPoint("CENTER");
+		overlay:SetDesaturated(false);
+		overlay:SetVertexColor(1, 1, 1);
+		overlay:Show();
+	else
+		overlay:Hide();
+	end
 	self:Show();
 end
 
@@ -115,6 +139,8 @@ function DebindRowMarkMixin:SetInactive(inactive)
 	if (inactive) then
 		self.Icon:SetDesaturated(true);
 		self.Icon:SetVertexColor(INACTIVE_COLOR:GetRGBA());
+		self.Overlay:SetDesaturated(true);
+		self.Overlay:SetVertexColor(INACTIVE_COLOR:GetRGBA());
 	end
 end
 
@@ -1083,8 +1109,14 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	end
 
 	self.Marks.Hover.action = action;
-	self.Marks.Hover:SetKind(DebindPrivate.HoverCastChoiceOf(action) ~= nil and "hover" or nil,
-		HoverCastMarkTooltip);
+	local hoverChoice = DebindPrivate.HoverCastChoiceOf(action);
+	local hoverKind;
+	if (hoverChoice == "cast") then
+		hoverKind = "hover";
+	elseif (hoverChoice == "skip") then
+		hoverKind = "hoverSkip";
+	end
+	self.Marks.Hover:SetKind(hoverKind, HoverCastMarkTooltip);
 
 	-- **조건 마크는 조건이 있다는 것만 말한다.** 그중 하나가 틀렸는지는 두 번째 마크가 말한다
 	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이

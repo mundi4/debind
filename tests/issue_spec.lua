@@ -1105,11 +1105,11 @@ return function(DebindPrivate)
             focus = NEVER, unitframe = NEVER }, unit = false },
         [15] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
         [16] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
-        -- Every press off is a warning on Cast Options now, closable by turning the action off.
+        -- Nothing on the plain presses is an error on Cast Options, closable by turning the action off.
         [17] = { all = NOTHING_RUNS, units = false, rows = { ["@"] = false }, unit = false,
             casting = NOTHING_RUNS },
-        -- **The reaction wins the action's own slot**, being the louder of the two (ERROR over
-        -- WARNING), and Cast Options still carries its own.
+        -- **The reaction wins the action's own slot**: both are ERROR and a tie goes to the check
+        -- asked first, which is the action's own. Cast Options still carries its own.
         [18] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE }, unit = false,
             casting = NOTHING_RUNS },
         [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
@@ -1171,9 +1171,9 @@ return function(DebindPrivate)
         end);
     end
 
-    -- #18 carries two, and they are different things to fix: an empty reaction, which is a fault,
-    -- and every press turned off, which is a state with a way to mean it (2026-09-18, 소유자). **The
-    -- fault is louder**, so it takes the action's own slot while both stand in the list.
+    -- #18 carries two, and they are different things to fix: an empty reaction, and Cast Options
+    -- that leave the plain presses nothing. The reaction takes the action's own slot while both
+    -- stand in the list.
     test("§4 #18: the empty reaction is reported ahead of the presses", function()
         local action = require("answer_rows")(Constants)[18].action();
         local issues = GetBindingIssues(action);
@@ -1190,14 +1190,12 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- An action with no binding left (`reorganizing-binding-issues.md` §3-3)
     --
-    -- **What the reader chose is not an issue; what two menus contradict is.** Both leave the list
-    -- empty. Every press turned off, or Hover Cast skipped on the bare click, is said as a reason
-    -- the row does not run. A [when there is none] on the unit Hover Cast points at leaves no twin
-    -- where the reader skipped nothing, and that is a contradiction painted on both sides of it.
+    -- **Turning the action off is the one reason; everything else is an issue.** Cast Options that
+    -- leave the plain presses nothing are one code, and a value against a condition on the unit
+    -- Hover Cast points at is a contradiction painted on both sides of it.
     ---------------------------------------------------------------------------
 
-    local ALL_OFF = { normalCast = false, hoverCast = "skip",
-        selfCastKey = "skip", focusCastKey = "skip" };
+    local ALL_OFF = { normalCast = false, hoverCast = "skip" };
     local GetNotRunningReason = DebindPrivate.GetNotRunningReason;
 
     local function copyOf(value)
@@ -1211,9 +1209,11 @@ return function(DebindPrivate)
         return out;
     end
 
-    --- **Every press turned off is a warning on Cast Options** (2026-09-18, 소유자). It says nothing
-    --- about the reader being wrong; it says the action never runs and names the way to mean it.
-    test("every press turned off is a warning on Cast Options", function()
+    --- **Nothing on the plain presses is an error on Cast Options** (2026-10-04, owner): the held
+    --- twins go with them, so the action never runs.
+    test("Hover Cast skip with Normal Cast off is an error on Cast Options", function()
+        check(Constants.BINDING_ISSUE_GRADES[Constants.BINDING_ISSUE_NOTHING_RUNS] == Constants.ISSUE_GRADE_ERROR,
+            "the code is not red");
         local action = { type = Constants.SPELL, value = 585, key = "F1", casting = copyOf(ALL_OFF) };
         check(GetBindingIssue(action) == Constants.BINDING_ISSUE_NOTHING_RUNS,
             "reported: " .. tostring(GetBindingIssue(action)));
@@ -1234,10 +1234,10 @@ return function(DebindPrivate)
             "reason: " .. tostring(GetNotRunningReason(action)));
     end);
 
-    --- **Hover Cast turned off does not reach the bare click**, which answers the pointed press
+    --- **Hover Cast's value does not reach the bare click**, which answers the pointed press
     --- whatever is stored (`HoverCastChoiceOf`), so the action still runs and has nothing to report.
-    test("Hover Cast turned off on the bare click changes nothing", function()
-        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1", casting = {} };
+    test("Hover Cast skip with Normal Cast off on the bare click changes nothing", function()
+        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1", casting = copyOf(ALL_OFF) };
         check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
         check(GetNotRunningReason(action) == nil,
             "reason: " .. tostring(GetNotRunningReason(action)));

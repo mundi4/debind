@@ -676,11 +676,8 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- is made conditional too. A condition with an axis on it stays: the twin has to inherit the
         -- reaction, the role and the frame type.
         --
-        -- **The rest get nothing written, because off is the default and off is what they did.** A
-        -- key with no unit frame condition never sent a press to the unit under the cursor, and with
-        -- no twin its original stands in the last tier exactly as it did. A mouse button keeps the
-        -- key's own [no unit frame] as well, which only holds while nothing is stored on that unit
-        -- row (`BuildUnitStates`), and a twin is what would have taken it away (§7).
+        -- **The rest get nothing written, because at version 7 no value was off and off is what they
+        -- did.** What off became after that is the `dbver <= 7` step's.
         --
         -- **It runs after the renumbering.** The comparator above reads the very condition removed
         -- here, and run first it would read a twin-only action as unconditional and turn the old
@@ -803,6 +800,43 @@ local function MigrateLayer(layerTbl, dbver, to)
             if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
                 action.type = Constants.BLOCK;
                 action.value = nil;
+            end
+        end
+
+        -- **Hover Cast loses off, and off with Normal Cast off becomes "don't run while pointing"**
+        -- (`taking-off-out-of-hover-cast.md` §2-9, owner). Off was stored as no value, which is the
+        -- usual target from here on, so every other off moves by being left alone. With Normal Cast
+        -- off it stood on the cast keys alone; no new value keeps that, and this one is the one that
+        -- shows it, as an error, rather than starting to answer pointed presses without a word.
+        --
+        -- **Not the bare left and right click**, which read no Hover Cast value then or now. The two
+        -- keys are written out rather than asked of `IsBareWorldClick`, for the reason the step holds
+        -- the old type names itself: a step says what version 7 meant, and a function the live code
+        -- keeps would move it the day that function changes.
+        --
+        -- **Then a stored `"usual"` becomes nothing** (2026-10-05, owner), which is how the usual
+        -- target is stored from here on: one spelling for one value, so no reader has to take two.
+        -- After the line above, since off is nothing as well: `"usual"` with Normal Cast off stood on
+        -- a pointed press at the usual target, and still does. A table left empty goes, as
+        -- `CleanUpDB` would take it.
+        --
+        -- **Not safe to run twice, unlike the rest of the ladder** (owner): a second pass takes a
+        -- rewritten `"usual"` with Normal Cast off for off and makes it skip. What can run a step
+        -- twice is a migration that fails partway, and that is the thing to fix
+        -- (`0-IDEAS.md`).
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local casting = action.casting;
+            if (luatype(casting) == "table") then
+                if (casting.normalCast == false and casting.hoverCast == nil
+                        and action.key ~= "BUTTON1" and action.key ~= "BUTTON2") then
+                    casting.hoverCast = "skip";
+                elseif (casting.hoverCast == "usual") then
+                    casting.hoverCast = nil;
+                    if (next(casting) == nil) then
+                        action.casting = nil;
+                    end
+                end
             end
         end
     end

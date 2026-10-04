@@ -327,22 +327,24 @@ return function(DebindPrivate)
         check(count(LLL["BINDING_ERROR_HOVER_NONE_SELECTED"]) == 1, "the frame types are not said:\n" .. text);
     end);
 
-    --- **Cast as usual is drawn on an action that has a target of its own.** The line used to be
-    --- gated on the action having none, on the grounds that the value only kept a unit out of an
-    --- empty slot; it also aims the twin where the original aims (`ActionBindings.lua`'s `TwinUnitFor`),
-    --- which is a thing it does exactly for an action that has a target. The reader saw no line on
-    --- the one action where it was the only thing stopping the cast from following the cursor.
-    test("the cast as usual line is drawn on an action that has a target of its own", function()
-        Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "focus",
-                casting = { hoverCast = "usual" },
-                conditions = { units = { unitframe = {} } } },
-        }, {});
-
-        local row = DebindPrivate.CollectActionsForKey("F1")[1];
-        check(row, "the action is not on the key");
-        check(Says(row, "CASTING_AS_USUAL"),
-            "the value is set and nothing says so: " .. Tooltip(row));
+    --- **The usual target draws no Hover Cast line, stored or not**, being the default
+    --- (`taking-off-out-of-hover-cast.md` §4-1); the two other values each draw theirs.
+    test("only a Hover Cast value off the usual target draws its line", function()
+        for _, case in ipairs({ { "usual", nil }, { "cast", "CASTING_POINTED_CAST" },
+                { "skip", "CASTING_SKIP" } }) do
+            Bind({
+                { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                    casting = { hoverCast = case[1] } },
+            }, {});
+            local row = DebindPrivate.CollectActionsForKey("F1")[1];
+            check(row, case[1] .. ": the action is not on the key");
+            local text = Tooltip(row);
+            if (case[2]) then
+                check(Says(row, case[2]), case[1] .. ": the value is set and nothing says so: " .. text);
+            else
+                check(not Says(row, "POINTED_UNIT_CAST"), case[1] .. ": the default was drawn: " .. text);
+            end
+        end
     end);
 
     --- Where in the tooltip one piece of text first comes out, or nil.
@@ -366,12 +368,12 @@ return function(DebindPrivate)
         check(not Says(row, "CASTING"), "a block of defaults was drawn: " .. Tooltip(row));
     end);
 
-    --- **Every press turned off is a warning on the Cast Options block** (2026-09-18, 소유자), which
-    --- is where the values that caused it are. The block stands right under the key.
-    test("every press turned off draws the block under the key and warns on it", function()
+    --- **Values that leave no plain press are an error on the Cast Options block**, which is where
+    --- the values that caused it are. The block stands right under the key.
+    test("skip with Normal Cast off draws the block under the key and marks it", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                casting = { normalCast = false, selfCastKey = "skip", focusCastKey = "skip" } },
+                casting = { normalCast = false, hoverCast = "skip" } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
@@ -384,11 +386,8 @@ return function(DebindPrivate)
         -- found; the key's own value line (`F1`) is what they have to come after.
         local keyAt = LineIndex(row, "F1");
         check(keyAt, "the key line is missing: " .. text);
-        -- **Hover Cast has no line here**, because off is what it is by default and the block names
-        -- only what the reader changed.
-        local firstAt = LineIndex(row, AUTO_SELF_CAST_KEY_TEXT .. ":");
-        for _, word in ipairs({ AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT,
-                LLL["CASTING_NORMAL"] }) do
+        local firstAt = LineIndex(row, LLL["POINTED_UNIT_CAST"] .. ":");
+        for _, word in ipairs({ LLL["POINTED_UNIT_CAST"], LLL["CASTING_NORMAL"] }) do
             local at = LineIndex(row, word .. ":");
             check(at and keyAt < at, word .. " is not drawn under the key: " .. text);
         end
@@ -401,7 +400,7 @@ return function(DebindPrivate)
     test("an action turned off draws its reason and no warning", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1, disabled = true,
-                casting = { normalCast = false, selfCastKey = "skip", focusCastKey = "skip" } },
+                casting = { normalCast = false, hoverCast = "skip" } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
@@ -415,10 +414,10 @@ return function(DebindPrivate)
             "the reason is not in the disabled colour: " .. text);
     end);
 
-    --- **Hover Cast turned off does not reach the bare left click** (`HoverCastChoiceOf`,
+    --- **Hover Cast's value does not reach the bare left click** (`HoverCastChoiceOf`,
     --- `which-action-a-key-runs.md` §7), so the row runs and has no reason to give. The line
     --- is drawn all the same, because what that key answers with is the pointed unit.
-    test("Hover Cast turned off on the bare left click draws the pointed unit anyway", function()
+    test("Hover Cast left at its default on the bare left click draws the pointed unit anyway", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1, casting = {} },
         }, {});

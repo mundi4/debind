@@ -681,6 +681,62 @@ return function(DebindPrivate)
         check(layer[2].seq == 1 and layer[2].key == "B", "the unused's place moved");
     end);
 
+    ---------------------------------------------------------------------------
+    -- dbver 7: Hover Cast loses off (`taking-off-out-of-hover-cast.md` §2-9). Off was stored as no
+    -- value and the usual target is no value now, so only off with Normal Cast off is written:
+    -- it becomes "don't run while pointing" and shows as the error it now is.
+    ---------------------------------------------------------------------------
+
+    test("dbver 7 turns Hover Cast off with Normal Cast off into skip", function()
+        local layer = {
+            { key = "A", type = Constants.SPELL, value = 705, casting = { normalCast = false } },
+            { key = "B", type = Constants.SPELL, value = 705,
+                casting = { normalCast = false, hoverCastMode = "mouseover", selfCastKey = "skip" } },
+        };
+        MigrateLayer(layer, 7);
+        for i = 1, 2 do
+            check(layer[i].casting.hoverCast == "skip" and layer[i].casting.normalCast == false,
+                layer[i].key .. ": " .. tostring(layer[i].casting.hoverCast));
+        end
+        check(layer[2].casting.hoverCastMode == "mouseover" and layer[2].casting.selfCastKey == "skip",
+            "the other values moved");
+        MigrateLayer(layer, 7);
+        check(layer[1].casting.hoverCast == "skip", "the second pass: " .. tostring(layer[1].casting.hoverCast));
+    end);
+
+    -- The negative half: every other shape already means at 8 what it meant at 7.
+    test("dbver 7 leaves every other Hover Cast shape meaning what it did", function()
+        local layer = {
+            { key = "A", type = Constants.SPELL, value = 705 },
+            { key = "B", type = Constants.SPELL, value = 705, casting = { hoverCastMode = "unitframe" } },
+            { key = "C", type = Constants.SPELL, value = 705, casting = { hoverCast = "cast", normalCast = false } },
+            { key = "D", type = Constants.SPELL, value = 705, casting = { hoverCast = "usual", normalCast = false } },
+            { key = "BUTTON1", type = Constants.SPELL, value = 705, casting = { normalCast = false } },
+        };
+        MigrateLayer(layer, 7);
+        check(layer[1].casting == nil, "A: " .. tostring(layer[1].casting));
+        check(layer[2].casting.hoverCast == nil, "B: " .. tostring(layer[2].casting.hoverCast));
+        check(layer[3].casting.hoverCast == "cast", "C: " .. tostring(layer[3].casting.hoverCast));
+        -- The usual target is stored as nothing from 8 on, and with Normal Cast off it is not off:
+        -- it stays a pointed-press-only action at the usual target rather than becoming skip.
+        check(layer[4].casting.hoverCast == nil and layer[4].casting.normalCast == false,
+            "D: " .. tostring(layer[4].casting.hoverCast) .. " / " .. tostring(layer[4].casting.normalCast));
+        -- The bare left click reads no value, at 7 or now.
+        check(layer[5].casting.hoverCast == nil, "BUTTON1: " .. tostring(layer[5].casting.hoverCast));
+    end);
+
+    test("dbver 7 stores the usual target as nothing, and a table left empty goes", function()
+        local layer = {
+            { key = "A", type = Constants.SPELL, value = 705, casting = { hoverCast = "usual" } },
+            { key = "B", type = Constants.SPELL, value = 705,
+                casting = { hoverCast = "usual", hoverCastMode = "mouseover" } },
+        };
+        MigrateLayer(layer, 7);
+        check(layer[1].casting == nil, "A: " .. tostring(layer[1].casting and layer[1].casting.hoverCast));
+        check(layer[2].casting.hoverCast == nil and layer[2].casting.hoverCastMode == "mouseover",
+            "B: " .. tostring(layer[2].casting.hoverCast));
+    end);
+
     test("dbver 7 leaves an action button command to the step before it", function()
         local layer = { { key = "A", type = Constants.COMMAND, value = "ACTIONBUTTON3" } };
         MigrateLayer(layer, 6);
@@ -1203,9 +1259,11 @@ return function(DebindPrivate)
     -- doing what they did: a keyboard key as Cast as usual, a mouse button as Skip on Unit Frames.
     ---------------------------------------------------------------------------
 
+    --- **Stopped at 7**, since these are the `dbver <= 6` step's answers; the step after it rewrites
+    --- some of them and has cases of its own.
     local function castingAfterMigrate(action)
         local layer = { action };
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         return layer[1].casting or {}, layer[1];
     end
 

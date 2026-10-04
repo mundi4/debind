@@ -272,29 +272,36 @@ return function(DebindPrivate, _, ctx)
     ---------------------------------------------------------------------------
 
     -- The action under the tail answers presses over a frame; with no tail it would take this one.
-    test("M2 a tail holds back the pointed twin of the action under it", function()
-        local function Actions(withTail)
-            local list = { action({ value = 585, key = "F1", conditions = { combat = true } }) };
-            if (withTail) then
-                list[#list + 1] = action({ type = Constants.UNUSED, key = "F1" });
-            end
-            list[#list + 1] = action({ value = 774, key = "F1", casting = { hoverCast = "cast" } });
-            return list;
+    -- **The tail follows Hover Cast like any action**, so whether it holds that press back is its
+    -- own value: on the pointed unit or the usual target it stands ahead of the action under it,
+    -- and "don't run while pointing" lets the press past.
+    local function M2(tailCasting)
+        local list = { action({ value = 585, key = "F1", conditions = { combat = true } }) };
+        if (tailCasting) then
+            list[#list + 1] = action({ type = Constants.UNUSED, key = "F1", casting = tailCasting });
         end
-
-        Bind(Actions(false));
+        list[#list + 1] = action({ value = 774, key = "F1", casting = { hoverCast = "cast" } });
+        Bind(list);
         shim.world.units.party1 = { id = "pal", reaction = "help" };
         interp:hoverEnter(unitFrame);
-        local _, spell = Press("F1");
+        local record, spell = Press("F1");
         interp:hoverLeave(unitFrame);
+        return record, spell;
+    end
+
+    test("M2 a tail holds back the pointed twin of the action under it", function()
+        local _, spell = M2(nil);
         check(spell == "Rejuvenation", "without the tail the pointed press went to " .. tostring(spell));
+        for _, casting in ipairs({ { hoverCast = "cast" }, {} }) do
+            local record = M2(casting);
+            check(record == nil, tostring(casting.hoverCast) .. ": a pointed press got past the unused: "
+                .. tostring(record and record.value));
+        end
+    end);
 
-        Bind(Actions(true));
-        shim.world.units.party1 = { id = "pal", reaction = "help" };
-        interp:hoverEnter(unitFrame);
-        local record = Press("F1");
-        interp:hoverLeave(unitFrame);
-        check(record == nil, "a pointed press got past the unused: " .. tostring(record and record.value));
+    test("M2a a tail that does not run while pointing lets the pointed press past", function()
+        local _, spell = M2({ hoverCast = "skip" });
+        check(spell == "Rejuvenation", "the pointed press went to " .. tostring(spell));
     end);
 
     test("M3 a tail holds back the actions under it only on the key itself", function()

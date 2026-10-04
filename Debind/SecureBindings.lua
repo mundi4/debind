@@ -1058,8 +1058,8 @@ local EVAL_SNIPPET = [==[
 	-- own (`handing-the-rest-of-a-key-to-the-game.md` 2-3), so the client has already picked the
 	-- tier by picking the binding, and `castTier` is the prologue's answer for the name it got. A
 	-- key handed to the game keeps its chords then, which reading the modifier off a press on the
-	-- key itself could never do. A frame click has no binding at all, and a modifier held there
-	-- picked the binding itself (§3-10).
+	-- key itself could never do. A frame click takes no tier: what a modifier does on a frame is
+	-- the frame's own, and nothing here can read it (`which-action-a-key-runs.md` §7).
 	local castModifier
 	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
@@ -1443,6 +1443,11 @@ local EVAL_SNIPPET = [==[
 --- behind us and there is nothing left to fall back to. So the conditions are judged here, and
 --- our button is only named when one of them actually matched.
 ---
+--- **A winner with nothing to click spends the click** (`debindnull`), a block or a command
+--- (2026-10-05, owner): neither does anything on a frame, and let through, the click would run what
+--- the frame has on it instead. An unused is the one that lets it through (`letsClickThrough`),
+--- since the frame's own handling is the game's side of that click.
+---
 --- The name it answers with is `debind1`, which pairs with the fixed `*type-debind1` /
 --- `*clickbutton-debind1` put on the frame at registration. It is a suffix nobody else uses, so
 --- unlike the old routing this leaves the frame's own `type1`/`type2` untouched.
@@ -1494,8 +1499,11 @@ end, [==[
 	local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[
 
-	if (not winner or not winner.clickbutton) then
+	if (not winner or winner.letsClickThrough) then
 		return
+	end
+	if (not winner.clickbutton) then
+		return "debindnull"
 	end
 
 	-- **The edge we do not act on is swallowed.** Both edges are registered because

@@ -307,9 +307,8 @@ return function(DebindPrivate)
     -- One action, two records (`splitting-an-action-into-bindings.md`)
     ---------------------------------------------------------------------------
 
-    -- **The key is laid out in tiers**: every self twin, every focus twin, every hover twin, every
-    -- original (`which-action-a-key-runs.md` §3). Side by side, an original placed first took
-    -- a pointed press before the hover twin of the action behind it had a turn. Action 1 has no hover
+    -- **The key is laid out in tiers**: every self twin, every focus twin, then each action's hover
+    -- twin right ahead of its own original (`which-action-a-key-runs.md` S1). Action 1 has no hover
     -- twin, since its [when none is pointed at] leaves the twin nothing to match.
     test("the key is laid out in tiers", function()
         Bind({
@@ -329,15 +328,13 @@ return function(DebindPrivate)
             shape[i] = tier .. ":" .. tostring(record.value);
         end
         shape = table.concat(shape, " ");
-        check(shape == "self:1 self:2 focus:1 focus:2 hover:2 original:1 original:2",
+        check(shape == "self:1 self:2 focus:1 focus:2 original:1 hover:2 original:2",
             "F1 came out as " .. shape);
     end);
 
-    -- **A mouse button gets its hover twin like every other key** (§3, §7). The original with no unit
-    -- frame condition stands on [not pointing] -- that is the key's own rule and not a unit condition
-    -- (`BuildUnitStates`) -- so the two never meet: the twin takes the click on a frame and the
-    -- original takes the click anywhere else. A type that carries no target is no different; whether
-    -- it can use the unit is that action's business.
+    -- **A mouse button gets its hover twin like every other key** (S1). The twin is a click on the
+    -- frame, and the original stands right behind it there as well as holding the key (S4). A type
+    -- that carries no target is no different; whether it can use the unit is that action's business.
     test("on a mouse button the hover twin is the frame's record", function()
         Bind({
             { type = Constants.MACROTEXT, value = "/say hi", key = "BUTTON4", seq = 1 },
@@ -356,17 +353,17 @@ return function(DebindPrivate)
             end
             check(frameRecord and frameRecord.isClickCast and frameRecord.unit == "unitframe",
                 key .. ": the hover twin is not the frame's record");
-            check(plain and plain.isClickCast == false and plain.holdsKey == true,
-                key .. ": the original does not hold the key");
+            check(plain and plain.isClickCast == true and plain.holdsKey == true,
+                key .. ": the original is not on both paths");
         end
     end);
 
-    -- **Every tier is in the originals' order, the hover tier included** (§3, 2026-09-16, owner).
-    -- That order is the one the window draws, and an order the reader cannot see is one they cannot
-    -- fix. The hover tier used to sort itself by where each twin's own condition would have stood,
-    -- so the twin of an action with no condition fell behind every twin that had one -- here, 2
-    -- would have come out ahead of 1.
-    test("the hover tier stands in the originals' order", function()
+    -- **The hover twins stand in the originals' order** (§3, 2026-09-16, owner). That order is the
+    -- one the window draws, and an order the reader cannot see is one they cannot fix. The twins
+    -- used to sort themselves by where each twin's own condition would have stood, so the twin of an
+    -- action with no condition fell behind every twin that had one -- here, 2 would have come out
+    -- ahead of 1.
+    test("the hover twins stand in the originals' order", function()
         Bind({
             -- Both carry conditions, on different axes. With only one conditional, having
             -- conditions would settle the order before the number is read and this case would not
@@ -389,17 +386,17 @@ return function(DebindPrivate)
             "the hover tier came out " .. table.concat(order, " "));
     end);
 
-    -- **Normal Cast off leaves the original out of the last tier** (§6), so a press with nothing
-    -- held and nothing pointed at falls through to the next action. The twins stay: the action still
-    -- takes its turn in the tiers it did not turn off.
-    test("normal cast off keeps the action out of the last tier only", function()
+    -- **Normal Cast off leaves the original off the key** (§6), so a press with nothing held and
+    -- nothing pointed at falls through to the next action. The twins stay: the action still takes
+    -- its turn in the presses it did not turn off.
+    test("normal cast off keeps the action's original off the key only", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F6", seq = 1,
                 casting = { normalCast = false } },
             { type = Constants.SPELL, value = 2, key = "F6", seq = 2 },
         }, nil, nil, true);
 
-        check(Values("F6") == "1 2", "the hover tier and the last tier came out " .. Values("F6"));
+        check(Values("F6") == "1 2", "the hover twin and the originals came out " .. Values("F6"));
 
         local records = DebindPrivate.KeyMap["F6"];
         local last;
@@ -435,12 +432,12 @@ return function(DebindPrivate)
         check(DebindPrivate.IsKeyHandled("F8") == true, "the key does not read as one we answer");
     end);
 
-    -- **An action with all four values off is not on the key at all** (§6). It keeps its row and its
-    -- warning; what it does not keep is a record, so the action behind it answers every press.
+    -- **An action with nothing on the plain presses is not on the key at all** (S1). It keeps its row
+    -- and its error; what it does not keep is a record, so the action behind it answers every press.
     test("an action with nothing left to cast reaches no record", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F7", seq = 1,
-                casting = { normalCast = false, selfCastKey = "skip", focusCastKey = "skip" } },
+                casting = { normalCast = false, hoverCast = "skip" } },
             { type = Constants.SPELL, value = 2, key = "F7", seq = 2 },
         });
 
@@ -570,9 +567,10 @@ return function(DebindPrivate)
             "the twin stands on the wrong unit");
     end);
 
-    -- On a mouse button the two split the way a hover record and a plain one always have: the twin
-    -- is a click on the frame, the original holds the key.
-    test("on a mouse button the twin is the click-cast and the original holds the key", function()
+    -- On a mouse button the twin is a click on the frame only, and the original stands on both
+    -- paths: it holds the key, and a frame click the twin does not take reaches it
+    -- (`which-action-a-key-runs.md` S4).
+    test("on a mouse button the twin is the click-cast and the original stands on both paths", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1 },
         }, nil, nil, true);
@@ -581,8 +579,42 @@ return function(DebindPrivate)
         check(records and #records == 2, "BUTTON3 came out with " .. tostring(records and #records));
         check(records[1].isClickCast == true and records[1].holdsKey == false,
             "the twin is not the click-cast");
-        check(records[2].isClickCast == false and records[2].holdsKey == true,
-            "the original does not hold the key");
+        check(records[2].isClickCast == true and records[2].holdsKey == true,
+            "the original is not on both paths");
+    end);
+
+    -- **A META click never reaches a frame's click path**: the secure button builds its prefix from
+    -- Shift, Ctrl and Alt alone, so a META record standing there would be filed under the bare
+    -- button and take its frame clicks.
+    test("a META mouse button stands on no frame path", function()
+        Bind({
+            { type = Constants.SPELL, value = 1, key = "BUTTON4", seq = 1 },
+            { type = Constants.SPELL, value = 2, key = "META-BUTTON4", seq = 1 },
+        }, nil, nil, true);
+        for _, record in ipairs(DebindPrivate.KeyMap["META-BUTTON4"] or {}) do
+            check(record.isClickCast == false,
+                "a META-BUTTON4 record stands on the frame path: " .. tostring(record.value));
+        end
+        local plain = Records("BUTTON4");
+        check(plain and plain[1] and plain[1].isClickCast == true, "the bare button left the frame path");
+    end);
+
+    -- The negative half: [no unit frame] keeps the original off the frame path.
+    test("on a mouse button an original that rules the frame out holds the key only", function()
+        for _, fields in ipairs({
+            { conditions = { units = { unitframe = false } } },
+            { casting = { hoverCast = "skip" } },
+        }) do
+            local action = { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1 };
+            for k, v in pairs(fields) do
+                action[k] = v;
+            end
+            Bind({ action });
+            local records = Records("BUTTON3");
+            check(records and #records == 1, "BUTTON3 came out with " .. tostring(records and #records));
+            check(records[1].isClickCast == false and records[1].holdsKey == true,
+                "the original stands on the frame path");
+        end
     end);
 
     ---------------------------------------------------------------------------
@@ -598,7 +630,7 @@ return function(DebindPrivate)
     local RECORDS = {
         [1] = "", [2] = "self focus hover", [3] = "hover", [4] = "", [5] = "", [6] = "", [7] = "",
         [8] = "", [9] = "", [10] = "self focus original", [11] = "original", [12] = "",
-        [13] = "focus hover original", [14] = "", [15] = "self focus original", [16] = "hover",
+        [13] = "focus hover original", [14] = "", [15] = "self focus original", [16] = "self focus hover",
         [17] = "", [18] = "", [19] = "original", [20] = "", [21] = "self focus hover", [22] = "", [23] = "self focus hover original",
         [24] = "", [25] = "self focus hover original", [26] = "self focus hover original", [27] = "",
     };

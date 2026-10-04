@@ -117,10 +117,11 @@ do
 	--- one and threw it away.
 	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
 
-	--- A Cast Options press row's value in the menu's words. On the two cast key rows `"cast"` is the
-	--- default and has none; on Hover Cast the default is off, so that row names what it holds.
+	--- A Cast Options press row's value in the menu's words, with no entry for the row's default: the
+	--- block names only what was changed. On the two cast key rows that is `"cast"`; on Hover Cast it
+	--- is the usual target.
 	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_SKIP"] };
-	local HOVER_TEXT = { cast = LLL["CASTING_POINTED_CAST"], usual = LLL["CASTING_AS_USUAL"] };
+	local HOVER_TEXT = { cast = LLL["CASTING_POINTED_CAST"], skip = LLL["CASTING_SKIP"] };
 
 	local function addErrorLine(tooltip, message, wrap, leftOffset)
 		GameTooltip_AddErrorLine(tooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
@@ -460,8 +461,9 @@ do
 		-- action's own value there says nothing (`SelfCastEnabled`).
 		--
 		-- **An action the reader turned off says so under the block as a reason, not as an issue**,
-		-- the way the specialization line stands under its condition (`GetNotRunningReason`). Every
-		-- press being off is the other way to stand still, and that one is a warning on this block.
+		-- the way the specialization line stands under its condition (`GetNotRunningReason`). Values
+		-- that leave no plain press are the other way to stand still, and that one is an error on
+		-- this block.
 		do
 			wipe(_lines);
 			if (DebindPrivate.SelfCastEnabled()) then

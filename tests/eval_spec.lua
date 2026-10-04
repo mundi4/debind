@@ -1113,12 +1113,13 @@ return function(DebindPrivate, _, ctx)
         interp:hoverEnter(unitFrame);
     end
 
-    -- **Every hover twin stands ahead of every original** (§3-4, 2026-09-13, owner). An attack for
-    -- hostile units ahead of a heal for friendly ones, neither with a target picked, Hover Cast on.
-    -- With each twin beside its own original, a press over a friendly frame with a hostile target
-    -- reached the attack's original before the heal's twin, and the attack went at the target; over
-    -- a hostile frame with a friendly target the attack went at the frame. One key, two rules.
-    test("a pointed unit is tried for every action before any target is", function()
+    -- **Each action's pointed twin stands right ahead of its own original, not ahead of every
+    -- original** (`which-action-a-key-runs.md` S4, 2026-10-04, owner). An attack for hostile
+    -- units ahead of a heal for friendly ones, neither with a target picked, both on the pointed
+    -- unit. Over a friendly frame with a hostile target the attack's original comes before the heal's
+    -- twin and goes at the target: the drawn order answers a pointed press too. Splitting the heal
+    -- into a pointed row above the attack is how the reader puts it first there.
+    test("a pointed press takes the actions in the order they are drawn", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         Bind({
@@ -1131,7 +1132,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = { target = ENEMY, party1 = FRIEND };
         PointAt("party1");
         local record, spell = Fired("F1");
-        check(spell == "Rejuvenation" and Aimed(record) == "unitframe",
+        check(spell == "Renew" and Aimed(record) == nil,
             "hostile target, friendly frame: fired " .. tostring(spell) .. " at " .. tostring(Aimed(record)));
 
         shim.world.units = { target = FRIEND, party1 = ENEMY };
@@ -1300,9 +1301,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **Cast as usual still stands in the pointed tier** (§6). It goes out where the press would send
-    -- it with nothing pointed at; with no twin at all it would wait in the last tier and the Hover
-    -- Cast action behind it would take every press made over a unit, whatever the reader put first.
+    -- **An action at the usual target answers a pointed press in its own place** (S4), ahead of a
+    -- pointed-unit action drawn behind it, and at the target it always goes to.
     test("an action that casts as usual placed first keeps a pointed press at its own target", function()
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
@@ -1415,7 +1415,10 @@ return function(DebindPrivate, _, ctx)
 
         PointAt("party1");
         Press("pointing at a friend", { target = ENEMY, party1 = FRIEND }, nil, "Renew", "none");
-        Press("pointing at an enemy", { target = FRIEND, party1 = ENEMY }, nil, "Rejuvenation", "unitframe");
+        -- The twin fails and its own original, right behind it, asks the target.
+        Press("pointing at an enemy, friendly target", { target = FRIEND, party1 = ENEMY }, nil, "Renew", "none");
+        Press("pointing at an enemy, hostile target", { target = ENEMY, party1 = ENEMY }, nil,
+            "Rejuvenation", "unitframe");
         interp:hoverLeave(unitFrame);
 
         interp:resetState();
@@ -1724,9 +1727,9 @@ return function(DebindPrivate, _, ctx)
             shim.world.spells[id] = { name = name };
         end
 
-        --- An action as the profile stores it, with Hover Cast on. **The rows are about the pointed
-        --- press**, so "기본" here means the action answers it at the pointed unit; a row that turns
-        --- Hover Cast off writes that for itself.
+        --- An action as the profile stores it, with Hover Cast on the pointed unit. **The rows are
+        --- about the pointed press**, so "기본" here means the action answers it at the pointed unit;
+        --- a row that leaves Hover Cast at the usual target writes that for itself.
         local function A(fields)
             local t = { type = Constants.SPELL, value = 701, key = "F1", seq = 1 };
             for k, v in pairs(fields or {}) do
@@ -1735,8 +1738,8 @@ return function(DebindPrivate, _, ctx)
             if (t.casting == nil) then
                 t.casting = {};
             end
-            -- **`false` is this helper's word for off**, which is stored as nothing at all: written
-            -- as nil a row could not tell "leave it off" from "say nothing and get the default".
+            -- **`false` is this helper's word for the usual target**, which is stored as nothing at
+            -- all: written as nil a row could not tell it from "say nothing and get the helper's".
             if (t.casting.hoverCast == false) then
                 t.casting.hoverCast = nil;
             elseif (t.casting.hoverCast == nil) then
@@ -1798,6 +1801,19 @@ return function(DebindPrivate, _, ctx)
             return DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(button));
         end
 
+        --- The unit the record a frame click fired aims at, found by the button it clicks among the
+        --- records a frame click can reach. A held twin can click the same button at another unit.
+        local function ClickAim(n)
+            local button = interp:evalClickCast(unitFrame, n, 0);
+            local byMod = button and interp.env.ClickCastKeys[n];
+            for _, record in ipairs(byMod and byMod[0] or {}) do
+                if (record.clickbutton == button and record.castModifier == Constants.CASTMOD_NONE) then
+                    return Aimed(record);
+                end
+            end
+            return nil;
+        end
+
         local function Expect(row, got, want)
             local g = table.concat({ tostring(got[1]), tostring(got[2]), tostring(got[3]) }, " / ");
             local w = table.concat({ tostring(want[1]), tostring(want[2]), tostring(want[3]) }, " / ");
@@ -1842,7 +1858,7 @@ return function(DebindPrivate, _, ctx)
         Row(5, function()
             Bind({ A({ casting = { hoverCast = "usual" } }) });
             PointFrame();
-            Expect(5, { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
+            Expect(5, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
         end);
         Row(6, function()
             Bind({ A({ conditions = { units = { unitframe = false } } }) });
@@ -1859,10 +1875,8 @@ return function(DebindPrivate, _, ctx)
             PointWorld();
             Expect(8, { Press("F1", nil, "mouseover") }, {});
         end);
-        --- **[when there is none] is a condition, so it reaches every press**, the held ones too. Off
-        --- is the value that takes only the pointed press away, and no value takes the pointed press
-        --- away while leaving the held ones: a condition is the only thing that can say "not while a
-        --- frame is pointed at", and conditions are inherited by every twin.
+        --- **[when there is none] is a condition, so it reaches every press**, the held ones too.
+        --- Taking the pointed press away and leaving the held ones is `"skip"`'s (#52).
         Row(9, function()
             local subject = A({ conditions = { units = { unitframe = false } },
                 casting = { hoverCast = "cast" } });
@@ -1897,7 +1911,7 @@ return function(DebindPrivate, _, ctx)
             Expect(13, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
         Row(14, function()
-            Bind({ A({ conditions = { units = { unitframe = false } } }) });
+            Bind({ A({ casting = { hoverCast = "skip" } }) });
             PointFrame();
             Expect(14, { Press("F1", nil, "unitframe") }, {});
         end);
@@ -1925,7 +1939,7 @@ return function(DebindPrivate, _, ctx)
             Bind({ A({ value = 703, seq = 1 }),
                 A({ unit = "mouseover", seq = 2, casting = { hoverCastMode = "mouseover" } }) });
             PointWorld();
-            Expect(19, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
+            Expect(19, { Press("F1", nil, "mouseover") }, { "X", nil, "original" });
         end);
         Row(20, function()
             Bind({ A({ unit = "unitframe" }) });
@@ -1981,7 +1995,7 @@ return function(DebindPrivate, _, ctx)
         Row(28, function()
             Bind(AB("BA", { hoverCast = false }));
             PointFrame();
-            Expect(28, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
+            Expect(28, { Press("F1", nil, "unitframe") }, { "B", nil, "original" });
         end);
         Row(29, function()
             Bind(AB("BA", { hoverCast = false }));
@@ -2019,10 +2033,10 @@ return function(DebindPrivate, _, ctx)
         Row(31, function()
             Layered({ hoverCast = "usual" });
             PointFrame();
-            Expect(31, { Press("F1", nil, "unitframe") }, { "B", nil, "hover" });
+            Expect(31, { Press("F1", nil, "unitframe") }, { "B", nil, "original" });
         end);
         Row(32, function()
-            Layered({ hoverCast = false });
+            Layered({ hoverCast = "skip" });
             PointFrame();
             Expect(32, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
@@ -2035,7 +2049,8 @@ return function(DebindPrivate, _, ctx)
         Row(34, function()
             Bind({ A({ key = "BUTTON4", casting = { hoverCast = false } }) });
             PointFrame();
-            check(Click(4) == nil, "#34: the frame click fired " .. tostring(Click(4)));
+            check(Click(4) == "A" and ClickAim(4) == nil,
+                "#34: the frame click fired " .. tostring(Click(4)) .. " at " .. tostring(ClickAim(4)));
         end);
         Row(35, function()
             Bind({ A({ key = "BUTTON4" }) });
@@ -2077,23 +2092,23 @@ return function(DebindPrivate, _, ctx)
                 "#40: fired " .. tostring(spell) .. " cast at " .. tostring(castUnit));
         end);
         Row(41, function()
-            local subject = A({ casting = { normalCast = false, hoverCast = false,
-                selfCastKey = "skip", focusCastKey = "skip" } });
+            local subject = A({ casting = { normalCast = false, hoverCast = "skip" } });
             Bind({ subject });
             PointFrame();
             Expect(41, { Press("F1", nil, "unitframe") }, {});
+            Expect(41, { Press("F1", "self", "unitframe") }, {});
             PointNothing();
             Expect(41, { Press("F1", nil, "unitframe") }, {});
             Expect(41, { Press("F1", "self", "unitframe") }, {});
             Expect(41, { Press("F1", "focus", "unitframe") }, {});
-            check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_NOTHING_RUNS,
-                "#41: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+            local issue = DebindPrivate.GetBindingIssue(subject, "casting");
+            check(issue ~= nil and Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_ERROR,
+                "#41: the issue on Cast Options is " .. tostring(issue));
             check(DebindPrivate.GetNotRunningReason(subject) == nil,
                 "#41: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
         end);
         Row(42, function()
-            Bind({ A({ casting = { normalCast = false, hoverCast = false,
-                selfCastKey = "skip", focusCastKey = "skip" } }) });
+            Bind({ A({ casting = { normalCast = false, hoverCast = "skip" } }) });
             check(_G.GetBindingAction("F1", true) == "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
                     .. ":" .. Constants.CLICKTIME_BUTTON_PREFIX .. "F1",
                 "#42: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
@@ -2102,11 +2117,15 @@ return function(DebindPrivate, _, ctx)
             Expect(42, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(43, function()
-            Bind({ A({ key = "BUTTON1", casting = { normalCast = false, hoverCast = false,
-                selfCastKey = "skip", focusCastKey = "skip" } }) });
-            check((_G.GetBindingAction("BUTTON1", true) or "") == "",
-                "#43: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
-            check(not DebindPrivate.IsKeyOurs("BUTTON1"), "#43: IsKeyOurs says yes");
+            local subject = A({ disabled = true, casting = { normalCast = false, hoverCast = "skip" } });
+            Bind({ subject });
+            check((_G.GetBindingAction("F1", true) or "") == "",
+                "#43: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
+            check(not DebindPrivate.IsKeyOurs("F1"), "#43: IsKeyOurs says yes");
+            check(DebindPrivate.GetBindingIssue(subject) == nil,
+                "#43: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+            check(DebindPrivate.GetNotRunningReason(subject) == "DISABLED",
+                "#43: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
         end);
         Row(44, function()
             local subject = A({ key = "BUTTON1" });
@@ -2139,19 +2158,167 @@ return function(DebindPrivate, _, ctx)
                 interp:clearHoverSlot();
             end
         end);
-        --- **The bare click cannot be turned off, so [when there is none] is what empties it**, and
-        --- that is the key and a condition disagreeing rather than a reason (S5 #48).
         Row(47, function()
-            local subject = A({ key = "BUTTON1", conditions = { units = { unitframe = false } } });
+            local subject = A({ key = "BUTTON1", casting = { hoverCast = "skip" } });
             Bind({ subject });
+            check(DebindPrivate.GetBindingIssue(subject) == nil,
+                "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
             check((_G.GetBindingAction("BUTTON1", true) or "") == "",
                 "#47: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             PointFrame();
-            check(Click(1) == nil, "#47: the frame click fired " .. tostring(Click(1)));
+            check(Click(1) == "A", "#47: the frame click fired " .. tostring(Click(1)));
+        end);
+        --- **The bare click ignores Hover Cast, so [when there is none] is what empties it**, and
+        --- that is the key and a condition disagreeing rather than a reason.
+        Row(48, function()
+            local subject = A({ key = "BUTTON1", conditions = { units = { unitframe = false } } });
+            Bind({ subject });
+            check((_G.GetBindingAction("BUTTON1", true) or "") == "",
+                "#48: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
+            PointFrame();
+            check(Click(1) == nil, "#48: the frame click fired " .. tostring(Click(1)));
             check(DebindPrivate.GetBindingIssue(subject) == Constants.BINDING_ISSUE_KEY_RULED_OUT,
-                "#47: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
+                "#48: the issue is " .. tostring(DebindPrivate.GetBindingIssue(subject)));
             check(DebindPrivate.GetNotRunningReason(subject) == nil,
-                "#47: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
+                "#48: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
+        end);
+        Row(50, function()
+            Bind({ A({ casting = { hoverCast = "skip" } }) });
+            PointNothing();
+            Expect(50, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(51, function()
+            Bind({ A({ casting = { hoverCast = "skip" } }) }, nil, MOUSEOVER);
+            PointWorld();
+            Expect(51, { Press("F1", nil, "mouseover") }, {});
+        end);
+        Row(52, function()
+            Bind({ A({ casting = { hoverCast = "skip" } }) });
+            PointFrame();
+            Expect(52, { Press("F1", "self", "unitframe") }, { "A", "player", "self" });
+        end);
+        Row(53, function()
+            Bind({ A({ casting = { hoverCast = false, normalCast = false } }) });
+            PointFrame();
+            Expect(53, { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
+        end);
+        Row(54, function()
+            Bind({ A({ casting = { hoverCast = false, normalCast = false } }) });
+            PointNothing();
+            Expect(54, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(55, function()
+            local a = A({ value = 701, seq = 1, casting = { hoverCast = false } });
+            local b = A({ value = 702, seq = 2 });
+            Bind({ a, b });
+            PointFrame();
+            Expect(55, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(56, function()
+            Bind({ A({ key = "BUTTON4", casting = { hoverCast = "skip" } }) });
+            PointFrame();
+            check(Click(4) == nil, "#56: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(57, function()
+            Bind({ A({ key = "BUTTON4", casting = { hoverCast = "skip" } }) });
+            PointNothing();
+            Expect(57, { Press("BUTTON4", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(58, function()
+            Bind({ A({ key = "BUTTON4", casting = { hoverCastMode = "mouseover" } }) });
+            PointFrame();
+            check(Click(4) == "A" and ClickAim(4) == "mouseover",
+                "#58: the frame click fired " .. tostring(Click(4)) .. " at " .. tostring(ClickAim(4)));
+        end);
+
+        --- A in front of or behind B on a mouse button, B running only over a hostile frame.
+        local function FrameRows(order)
+            local a = A({ value = 701, key = "BUTTON4", casting = { hoverCast = false } });
+            local b = A({ value = 702, key = "BUTTON4",
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } });
+            -- B's condition puts it first; importance is what puts A ahead of it.
+            if (order == "AB") then
+                a.seq, b.seq, a.priority = 1, 2, Constants.MIN_IMPORTANCE;
+            else
+                a.seq, b.seq = 2, 1;
+            end
+            return { a, b };
+        end
+        Row(59, function()
+            Bind(FrameRows("AB"));
+            PointFrame(ENEMY);
+            check(Click(4) == "A", "#59: the frame click fired " .. tostring(Click(4)));
+        end);
+        Row(60, function()
+            Bind(FrameRows("BA"));
+            PointFrame(ENEMY);
+            check(Click(4) == "B" and ClickAim(4) == "unitframe",
+                "#60: the frame click fired " .. tostring(Click(4)) .. " at " .. tostring(ClickAim(4)));
+        end);
+        Row(61, function()
+            Bind(FrameRows("BA"));
+            PointFrame(FRIEND);
+            check(Click(4) == "A", "#61: the frame click fired " .. tostring(Click(4)));
+        end);
+
+        --- A value and a condition on its unit that leave the plain presses nothing, so the held
+        --- ones go too and both menus are told.
+        --- `painted` is the unit row the contradiction is told on, and `clean` one that has nothing to
+        --- do with it.
+        local function Contradicts(row, subject, unit, point, painted, clean)
+            Bind({ subject });
+            point(ENEMY);
+            Expect(row, { Press("F1", nil, unit) }, {});
+            Expect(row, { Press("F1", "self", unit) }, {});
+            PointNothing();
+            Expect(row, { Press("F1", nil, unit) }, {});
+            Expect(row, { Press("F1", "focus", unit) }, {});
+            local GetBindingIssue = DebindPrivate.GetBindingIssue;
+            check(GetBindingIssue(subject, "casting") == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
+                "#" .. row .. ": Cast Options says " .. tostring(GetBindingIssue(subject, "casting")));
+            check(GetBindingIssue(subject, "units", nil, painted) == Constants.BINDING_ISSUE_CONDITIONS_NEVER,
+                "#" .. row .. ": the " .. painted .. " row says "
+                    .. tostring(GetBindingIssue(subject, "units", nil, painted)));
+            check(GetBindingIssue(subject, "units", nil, clean) == nil,
+                "#" .. row .. ": the " .. clean .. " row says " .. tostring(GetBindingIssue(subject, "units", nil, clean)));
+        end
+        Row(62, function()
+            Contradicts(62, A({ casting = { hoverCast = "skip" },
+                conditions = { units = { unitframe = { reaction = Constants.REACTION_HARM } } } }),
+                "unitframe", PointFrame, "unitframe", "@");
+        end);
+        Row(63, function()
+            Contradicts(63, A({ casting = { normalCast = false },
+                conditions = { units = { unitframe = false } } }), "unitframe", PointFrame, "unitframe", "@");
+        end);
+        Row(67, function()
+            Contradicts(67, A({ casting = { normalCast = false },
+                conditions = { units = { ["@"] = false } } }), "unitframe", PointFrame, "@", "unitframe");
+        end);
+
+        --- A frame click a tail wins, through the wrapper the frame really runs, on both edges:
+        --- nil lets the click on into the frame's own handler, `debindnull` spends it. The action
+        --- under the tail would take the click if the tail were not on the frame path.
+        local function TailClick(row, tailType, want)
+            Bind({ A({ key = "BUTTON3", conditions = { combat = true } }),
+                A({ type = tailType, value = tailType == Constants.COMMAND and "TOGGLEWORLDMAP" or nil,
+                    key = "BUTTON3", seq = 2 }),
+                A({ value = 702, key = "BUTTON3", seq = 3 }) });
+            PointFrame();
+            for _, down in ipairs({ true, false }) do
+                local got = interp:clickFrame(unitFrame, "MiddleButton", down);
+                check(got == want, "#" .. row .. ": the " .. (down and "press" or "release")
+                    .. " came out " .. tostring(got));
+            end
+        end
+        Row(64, function()
+            TailClick(64, Constants.UNUSED, nil);
+        end);
+        Row(65, function()
+            TailClick(65, Constants.COMMAND, "debindnull");
+        end);
+        Row(66, function()
+            TailClick(66, Constants.BLOCK, "debindnull");
         end);
 
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
@@ -2160,13 +2327,15 @@ return function(DebindPrivate, _, ctx)
         --- **`casting` comes off first.** These actions are what the ladder is handed, and an old
         --- profile has no such table; leaving `A`'s in would hand the migration a shape it is meant
         --- to produce.
-        local function BindOld(actions)
-            for i = 1, #actions do
-                actions[i].casting = nil;
+        local function BindOld(actions, dbver)
+            if (dbver == nil) then
+                for i = 1, #actions do
+                    actions[i].casting = nil;
+                end
             end
             local mark = frames.mark();
             _G.DebindVars = {
-                dbver = 6,
+                dbver = dbver or 6,
                 shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
                 characters = { [GUID] = { layers = {}, switches = {} } },
                 migrated = {},
@@ -2184,9 +2353,6 @@ return function(DebindPrivate, _, ctx)
             PointNothing();
             Expect("move 10", { Press("F1", nil, "unitframe") }, {});
         end);
-        --- **An old action with no unit frame condition is moved with Hover Cast off**, which is what
-        --- it did: the pointed press reaches its original in the last tier and goes to its own
-        --- target, and the mouse button keeps the key's own [no unit frame] (§8).
         Row("move: an old keyboard action", function()
             BindOld({ A() });
             PointFrame();
@@ -2197,9 +2363,20 @@ return function(DebindPrivate, _, ctx)
         Row("move: an old mouse button action", function()
             BindOld({ A({ key = "BUTTON4" }) });
             PointFrame();
-            check(Click(4) == nil, "move 34: the frame click fired " .. tostring(Click(4)));
+            check(Click(4) == "A", "move 34: the frame click fired " .. tostring(Click(4)));
             PointNothing();
             Expect("move 35", { Press("BUTTON4", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        --- Hover Cast off was stored as no value, the same as the usual target is now, so what a
+        --- `dbver` 7 profile carries is Normal Cast off and nothing else.
+        Row("move: Hover Cast and Normal Cast both off", function()
+            BindOld({ A({ casting = { hoverCast = false, normalCast = false } }) }, 7);
+            PointFrame();
+            Expect("move 41", { Press("F1", nil, "unitframe") }, {});
+            Expect("move 41", { Press("F1", "self", "unitframe") }, {});
+            PointNothing();
+            Expect("move 41", { Press("F1", nil, "unitframe") }, {});
+            Expect("move 41", { Press("F1", "focus", "unitframe") }, {});
         end);
 
         -----------------------------------------------------------------------

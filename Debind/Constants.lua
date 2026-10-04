@@ -320,9 +320,9 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     switches = true,
     -- 묻는 주문 이름이 조건문 파서를 못 탄다(`making-known-a-spell-name.md`).
     known = true,
-    -- Cast Options, where one side of a contradiction can be undone: Normal, Self and Focus turned
-    -- off, with the one press left ruled out by a condition. Turning presses off on its own is not
-    -- an issue and answers nothing here (`GetCastingOffReason`).
+    -- Cast Options: Hover Cast and Normal Cast leaving the plain presses nothing, by themselves
+    -- (`NOTHING_RUNS`) or against a condition on the pointed unit (`CONDITIONS_NEVER`, which the
+    -- unit's row carries as well).
     casting = true,
     -- A saved `UNUSED` or `COMMAND`. Like `macro`, the action itself is wrong and no control goes red.
     retired = true,
@@ -663,10 +663,10 @@ Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- (`dropping-the-game-fallback.md` §3). Red, and still on its key: the block is the
 -- one thing that keeps the action behind it from firing (`BINDING_ISSUE_OUTCOMES`).
 Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
--- Every press this action could answer is turned off, so it makes no binding at all. **A warning
--- rather than a reason**, because there is a way to close it that is not turning a press the reader
--- does not want back on: turning the action off keeps what it was set with and says they meant it
--- (`which-action-a-key-runs.md` §6, 2026-09-18).
+-- Hover Cast's "don't run while pointing" with Normal Cast off: no plain press is left, so the action
+-- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **Red**
+-- (2026-10-04, owner): only those twins would be left, and they vary a press the action no longer
+-- has. Turning the action off closes it too, and keeps what it was set with.
 Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- A left or right click with no modifier answers one press, a click on a unit frame, and the action
 -- carries [when there is none] on a unit that is always there on such a click: the frame's own unit,
@@ -699,8 +699,8 @@ Constants.ISSUE_GRADE_WARNING = 2;
 ---   WARNING  the action runs, and one thing it was told to do does not
 ---
 --- **A state the reader may have meant is not in here at all.** A mark they can only clear by
---- choosing a value they do not want is a mark they cannot clear, so an action with every press
---- turned off says so as a reason it does not run (`GetCastingOffReason`), not as a code
+--- choosing a value they do not want is a mark they cannot clear, so an action the reader turned
+--- off says so as a reason it does not run (`GetNotRunningReason`), not as a code
 --- (`reorganizing-binding-issues.md` §2-3).
 ---
 --- **Every code in here is a fault of the action itself, and why an action is not firing right now
@@ -732,8 +732,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
-    -- Orange, not red: nothing is broken and the reader may have meant it.
-    [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_GRADE_ERROR,
 };

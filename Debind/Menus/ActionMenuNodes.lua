@@ -188,7 +188,8 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     local instruction;
     if (unit == "@") then
         instruction = format(LLL["RESOLVED_TARGET_DESC"], LLL["TARGET_UNIT"], AUTO_SELF_CAST_KEY_TEXT,
-            FOCUS_CAST_KEY_TEXT, LLL["CASTING_AS_USUAL"], LLL["POINTED_UNIT_CAST"]);
+            FOCUS_CAST_KEY_TEXT, LLL["CASTING_AS_USUAL"], LLL["POINTED_UNIT_CAST"],
+            LLL["CASTING_POINTED_CAST"]);
     end
 
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {

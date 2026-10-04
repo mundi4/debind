@@ -1030,8 +1030,11 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	if (not winner or not winner.clickbutton) then
+	if (not winner or winner.letsClickThrough) then
 		return
+	end
+	if (not winner.clickbutton) then
+		return "debindnull"
 	end
 
 

@@ -816,9 +816,9 @@ end
 --- another from ever reading as unreachable.
 ---
 --- **With none that stand the action is not unreachable.** That is an empty list or one whose every
---- binding cannot stand. Each is answered on its own, as a reason (`GetCastingOffReason`) or as an
---- issue, and "all of none were dropped" is vacuously true and put "another action gets there first"
---- on a key with nothing else on it.
+--- binding cannot stand. Each is answered on its own, as an issue (`Issues.lua`), and "all of
+--- none were dropped" is vacuously true and put "another action gets there first" on a key with
+--- nothing else on it.
 function DebindPrivate.IsUnreachableAction(action)
     local list = DebindPrivate.PeekBindingsForAction(action)
         or DebindPrivate.GetBindingsForAction(action);

@@ -40,11 +40,15 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- fires is in an active layer, so that step is always a tie for them.
 ---
 --- **The unit-frame step has gone.** It ranked a binding carrying a condition on the pointed
---- frame's unit ahead of one that did not; that unit is an ordinary unit now, so what that step said
---- is said by the tier a hover twin stands in (`which-action-a-key-runs.md` §3). The `dbver` step
---- that took the condition apart renumbers every key group with the old comparator, which keeps
---- each tier's order for every action v3.5.2 ran; what it does not keep is in
---- `orderupgrade_spec`'s main test.
+--- frame's unit ahead of one that did not; that unit is an ordinary unit now, and nothing stands in
+--- for the step (`which-action-a-key-runs.md` §3). The `dbver` step that took the condition apart
+--- renumbers every key group with the old comparator, which keeps the order inside one layer for
+--- every action v3.5.2 ran; what it does not keep is in `orderupgrade_spec`'s main test.
+---
+--- **Across layers, and against conditional actions, the old order is not kept** (2026-10-04,
+--- owner). Each hover twin stands beside its own original, so this order alone answers a pointed
+--- press too, and a moved unit-frame action is ranked like any other here
+--- (`taking-off-out-of-hover-cast.md` §2-9).
 ---
 --- **Having conditions stands above the layer** (`putting-conditions-back-in-the-order.md`). A
 --- broader layer's action with conditions is usually one meant for every character in some

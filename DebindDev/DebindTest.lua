@@ -9386,11 +9386,10 @@ RegisterTest("Click bakes the deferred macro body", {
         macroBodySeq = macroBodySeq + 1
         local body = format("/cast [@unitframe] Debind%d", macroBodySeq)
 
-        -- **Cast as usual, so the press over the frame reaches this action's twin** while the twin
-        -- still aims where the original does. Off, which is the default, leaves the original in the
-        -- last tier and the body under test is not the one the click bakes.
+        -- **The usual target with Normal Cast off, so the press over the frame reaches this action's
+        -- twin** and nothing else of it, while the twin still aims where the original would.
         InsertAction({ type = Constants.MACROTEXT, value = body, key = KEY,
-            casting = { hoverCast = "usual" } })
+            casting = { hoverCast = "usual", normalCast = false } })
         ApplyBindings()
 
         local binding = GetNthBinding(KEY, 1)
@@ -9441,8 +9440,9 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        -- **Hover Cast는 이 액션에서만 켠다.** 기본은 꺼짐이고, 모드를 안 적으면 설정 탭의 모드를
-        -- 따르는데 그 모드는 이 실행 동안 Unit Frames로 고정되어 있다(`SetIsolated`).
+        -- **The pointed unit is this action's own value.** The default, the usual target, makes no
+        -- twin. With no mode written it follows the settings tab, which this run holds at Unit Frames
+        -- (`SetIsolated`).
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY,
             casting = { hoverCast = "cast" } })
         ApplyBindings()

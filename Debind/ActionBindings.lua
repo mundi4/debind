@@ -280,9 +280,9 @@ do
         binding.spellToCast = nil;
         binding.entry = nil;
         -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
-        -- the original's field: the twins each stand in a tier of their own and Normal Cast says
-        -- nothing about those tiers. `BuildKeyMap` reads it to leave the original out of the last
-        -- tier (`which-action-a-key-runs.md` §6). The bare left and right click have no
+        -- the original's field: the twins answer the held and the pointed presses, and Normal Cast
+        -- says nothing about those. `BuildKeyMap` reads it to leave the original off the key
+        -- (`which-action-a-key-runs.md` §6). The bare left and right click have no
         -- original whatever the box says: it would hold the key and take the world click (§7).
         if (twin or (DebindPrivate.NormalCastEnabled(action)
                 and not DebindPrivate.IsBareWorldClick(action.key))) then
@@ -564,6 +564,16 @@ do
         -- action is carried over as (§8). The fill-in that used to sit here put `unitframe` in
         -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
 
+        -- **Hover Cast's `"skip"` stands the original on [the mode's unit is not there], and not in
+        -- `conditions`** (`which-action-a-key-runs.md` S2): that table is what the order counts and
+        -- what the row shows, and a Cast Options value must move neither. The held twins keep the
+        -- presses the value does not name.
+        if (not twin and DebindPrivate.HoverCastChoiceOf(action) == "skip") then
+            binding.skipsPointedUnit = DebindPrivate.HoverCastMode(action);
+        else
+            binding.skipsPointedUnit = nil;
+        end
+
         BuildUnitStates(binding);
         binding.dead = (CannotStand(binding) or binding.combatContradicts) or nil;
 
@@ -652,7 +662,7 @@ do
     --- (`which-action-a-key-runs.md` §0).
     ---
     --- **A skipped action has a mode too**: it names the unit whose presence takes the action off the
-    --- press (`HoverCastSkipped`).
+    --- press (`skipsPointedUnit`).
     ---
     --- **Asked of no action it answers the account's mode**, which is what the settings tab shows.
     ---
@@ -695,25 +705,25 @@ do
         return CastingValue(action, "focusCastKey") ~= "skip";
     end
 
-    --- What Hover Cast answers for this action: the pointed unit (`"cast"`), where the press would
-    --- have gone anyway (`"usual"`), or nil for off, which is the default and means no twin at all.
+    --- What Hover Cast answers for this action: the pointed unit (`"cast"`), the usual target
+    --- (`"usual"`, the default), or out of the pointed press (`"skip"`). Never nil.
     ---
-    --- **Off leaves the original where it was**, in the last tier, so the action still answers a
-    --- pointed press when nothing ahead of it does. Keeping it out of the pointed press is a
-    --- condition the reader writes on that unit, not a value here
-    --- (`which-action-a-key-runs.md` §6).
+    --- **The usual target is the default and is stored as nothing** (2026-10-04, owner): a reader who
+    --- never thinks about Hover Cast gets the action everywhere, at its usual target. A stored
+    --- `"usual"` is the same value under the spelling it had while off was the default.
     ---
     --- **The bare left and right click answer `"cast"` whatever is stored** (§7). The only press
-    --- those keys can serve is a click on a unit frame, so off would leave the action with nothing.
+    --- those keys can serve is a click on a unit frame, so any other value would leave the action
+    --- with nothing.
     function DebindPrivate.HoverCastChoiceOf(action)
         if (action and DebindPrivate.IsBareWorldClick(action.key)) then
             return "cast";
         end
         local value = CastingValue(action, "hoverCast");
-        if (value == "cast" or value == "usual") then
+        if (value == "cast" or value == "skip") then
             return value;
         end
-        return nil;
+        return "usual";
     end
 
     --- Which of the three a press holds: the action goes to that press's unit (`"cast"`), where the
@@ -864,8 +874,6 @@ do
 
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
     local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
-    --- A tail's second pointed twin, the mouseover one; its unit frame one sits in the cache above.
-    local _ActionToTailMouseoverCache = setmetatable({}, { __mode = "kv" });
     local _ActionToFocusCache = setmetatable({}, { __mode = "kv" });
     local _ActionToSelfCache = setmetatable({}, { __mode = "kv" });
 
@@ -932,12 +940,11 @@ do
     --- the action's mode names, and goes out at that unit. A condition the reader wrote is never
     --- widened, and a unit the reader picked is never moved.
     ---
-    --- **Only an action with Hover Cast turned on gets one**, because the twin is what gives an
-    --- action a place in the tier a pointed press is decided in (§3). An action left without one
-    --- waits in the last tier, and a Hover Cast action behind it takes every press made over a unit,
-    --- however high the reader put the first. That is what turning it on buys: with every action in
-    --- the pointed tier the value would change where the press goes and never which action answers
-    --- it, so the one the reader turned on could sit under a plain action for good.
+    --- **Only two values make one.** `"cast"` needs it to go out at the pointed unit. The usual
+    --- target needs it only with Normal Cast off, where it is the one binding left and its
+    --- [the unit is there] is what keeps the action to pointed presses; with Normal Cast on the
+    --- original already answers the pointed press at the same target (`which-action-a-key-runs.md`
+    --- S1). `"skip"` narrows the original instead (`skipsPointedUnit`).
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
     --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
@@ -950,7 +957,7 @@ do
     --- unit is there, so it could never match, and no twin is made.
     local function TwinUnitFor(action, original)
         local choice = DebindPrivate.HoverCastChoiceOf(action);
-        if (choice == nil) then
+        if (choice == "skip" or (choice == "usual" and original.normalCast ~= false)) then
             return nil;
         end
         local unit = DebindPrivate.HoverCastMode(action);
@@ -967,12 +974,33 @@ do
             aim = original.unit;
         end
 
+        -- **The same holds for `"@"` where the twin's aim lands it on that unit**, which an action
+        -- with no target picked always does: its twin aims at the pointed unit.
+        if (units and units["@"] == false
+                and DebindPrivate.ResolvedUnitOf({ unit = aim }) == unit) then
+            return nil;
+        end
+
         return unit, existing or UNIT_IS_THERE, aim;
+    end
+
+    --- Whether `"skip"`'s [the unit is not there] meets a condition the reader wrote on that unit,
+    --- its own row or a `"@"` that lands there, which needs the unit present.
+    local function SkipLeavesNothing(original)
+        local unit = original.skipsPointedUnit;
+        local units = unit and original.conditions.units;
+        if (not units) then
+            return false;
+        end
+        if (type(units[unit]) == "table") then
+            return true;
+        end
+        return DebindPrivate.ResolvedUnitOf(original) == unit and type(units["@"]) == "table";
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
     --- (`GetBindingInfoForAction`'s table) and what follows is derived. `BuildKeyMap` sorts the
-    --- originals and lays the key out in tiers after the sort, so only a hover twin has a placement
+    --- originals and lays the key out in tiers after the sort, so no derived binding has a placement
     --- of its own (`implementing-focus-and-self-cast.md` §3-4).
     function DebindPrivate.GetBindingsForAction(action)
         local list = _ActionToBindingsCache[action];
@@ -1070,11 +1098,11 @@ do
             end
         end
 
+        -- **A command or unused follows Hover Cast like any action** (2026-10-04, owner): it does
+        -- something, handing the key to the game or running its command, and over a unit frame that
+        -- is a thing a reader can want (`taking-off-out-of-hover-cast.md` §2-1).
         local isTail = action.type == Constants.COMMAND or action.type == Constants.UNUSED;
-        local pointedUnit, pointedCondition, pointedAim;
-        if (not isTail) then
-            pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
-        end
+        local pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
         local focusTwin, selfTwin = false, false;
         -- **A command or unused stands in no cast key tier** (`handing-the-rest-of-a-key-to-the-game.md`
         -- 2-1). The self and focus presses arrive on chords of their own, held down on purpose, and
@@ -1082,13 +1110,14 @@ do
         if (DebindPrivate.KeyTakesCastKeyTwins(action) and not isTail) then
             focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
         end
-        -- **Four values off is an action with no bindings at all** (`which-action-a-key-runs.md`
-        -- §6). It is not blocked: the row says why it does not run (`GetCastingOffReason`), and the
-        -- key carries on with whatever else is on it. Answered before anything is filled, so the caches
-        -- keep the tables they had. **The original's mark, not the stored box**: Skip can take the
-        -- original away as well (`FillBinding`).
-        if (original.normalCast == false and not pointedUnit
-                and not focusTwin and not selfTwin) then
+        -- **Nothing on the plain presses is an action with no bindings at all**, the held twins
+        -- included (`which-action-a-key-runs.md` S1; 2026-10-05, owner). Those twins send the action
+        -- at another unit, and an action no plain press reaches has nothing for them to vary. Either
+        -- the values leave nothing (`"skip"` with Normal Cast off) or they meet a condition on the
+        -- pointed unit that leaves nothing, and `Issues.lua` tells the two apart (`NoBindingCause`).
+        -- Answered before anything is filled, so the caches keep the tables they had. **The
+        -- original's mark, not the stored box**: the bare click has none either (`FillBinding`).
+        if (not pointedUnit and (original.normalCast == false or SkipLeavesNothing(original))) then
             for i = 1, #list do
                 list[i] = nil;
             end
@@ -1105,28 +1134,6 @@ do
             -- never stand. Cast as usual aims at the target instead, and there it can.
             fillKnown(_ActionToKnownTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE,
                 pointedUnit, pointedAim == pointedUnit);
-        end
-
-        -- **A tail stands in the pointed tier under both pointed units, whatever its Cast Options
-        -- say** (`handing-the-rest-of-a-key-to-the-game.md` 2-1). It casts at nothing, so Hover Cast
-        -- means nothing to it, and an action under it whose twin stands there would otherwise take
-        -- every press made over a unit. Both, because the action under it may point either way.
-        --
-        -- **Not over a frame on a mouse button**: that click comes through the frame, where neither
-        -- type can run (2-7), so the tail is not there to hold anything back.
-        if (isTail) then
-            local units = original.conditions and original.conditions.units;
-            local onFrameClick = DebindPrivate.GetMouseButtonAndPrefix(action.key) ~= nil;
-            local existing = units and units["unitframe"];
-            if (existing ~= false and not onFrameClick) then
-                fill(_ActionToTwinCache, original.unit, existing or UNIT_IS_THERE, Constants.CASTMOD_NONE,
-                    "unitframe");
-            end
-            existing = units and units["mouseover"];
-            if (existing ~= false) then
-                fill(_ActionToTailMouseoverCache, original.unit, existing or UNIT_IS_THERE,
-                    Constants.CASTMOD_NONE, "mouseover");
-            end
         end
 
         -- **Twins on every action, a picked unit and one that takes no unit included**: the original
@@ -1153,7 +1160,8 @@ do
         end
         -- **Nobody resurrects themselves**, so a resurrection has no self tier aimed at you. Aimed at a
         -- picked unit or cast as usual, it is an ordinary tier and every branch stands in it. Decided
-        -- here and not before the four-values check above, which is about the reader's switches.
+        -- here and not before the check above that empties the list, which is about the reader's
+        -- values.
         if (branches and selfAim == "player") then
             selfTwin = false;
         end
@@ -1281,15 +1289,16 @@ function DebindPrivate.ActionUnitFrameIsOn(action)
         return true;
     end
 
-    -- **With no condition saying so.** Normal Cast off and Hover Cast on Unit Frames is that shape,
-    -- and the old unit frame condition actions are carried over as it with no condition written
-    -- (§8).
+    -- **With no condition saying so.** Normal Cast off and the twin on Unit Frames is that shape, at
+    -- the pointed unit or the usual target, and the old unit frame condition actions are carried
+    -- over as it with no condition written (§8). `"skip"` with Normal Cast off makes nothing at all
+    -- (`GetBindingsForAction`).
     --
     -- **Not with Normal Cast on.** The original then takes the presses off the frame and holds the
     -- key (`PrepareKeyBindings`' `holdsKey`).
     local casting = action.casting;
     if (casting and casting.normalCast == false
-            and DebindPrivate.HoverCastChoiceOf(action) ~= nil
+            and DebindPrivate.HoverCastChoiceOf(action) ~= "skip"
             and DebindPrivate.HoverCastMode(action) == "unitframe") then
         return true;
     end
