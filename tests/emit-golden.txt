@@ -4,6 +4,7 @@ Execute DebindBindingDriver
   |     OldStates[k] = v
   | end
   | wipe(ClickTimeKeys)
+  | wipe(ClickTimeTiers)
   | -- **`ClearOverrideBindings` below takes every key off**, so what a record list remembered about
   | -- being handed over is gone with it. The next pass of `UpdateGivenBackKeys` starts from nothing
   | -- given back, which is what the game is in after this.
@@ -299,9 +300,7 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
 Execute DebindBindingDriver
-  | local bindings,t,u
-  | SelfCastKeyOn=true
-  | FocusCastKeyOn=true
+  | local bindings,t,u,c
   | -- ALT-F1
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
@@ -558,10 +557,6 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
-  | t["unit"]="player"
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=2
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -572,10 +567,12 @@ Execute DebindBindingDriver
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t["unit"]="focus"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=4
+  | t["castModifier"]=1
+  | t.units=newtable()
+  | u=newtable();t.units["mouseover"]=u
+  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
@@ -589,8 +586,8 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
   | t.holdsKey=true
-  | bindings.focusFrom=4
-  | bindings.noneFrom=7
+  | bindings.focusFrom=3
+  | bindings.noneFrom=5
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F5"]=bindings
   | self:SetBindingClick(true,"ALT-F5",DefaultClickFrameName,"@ALT-F5")
@@ -1365,17 +1362,15 @@ Execute DebindBindingDriver
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
-  | t["unit"]="player"
-  | t.holdsKey=true
-  | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=2
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
-  | t["unit"]="focus"
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
-  | t["castModifier"]=4
+  | t["castModifier"]=1
+  | t.units=newtable()
+  | u=newtable();t.units["mouseover"]=u
+  | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1383,8 +1378,8 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
   | t.holdsKey=true
-  | bindings.focusFrom=3
-  | bindings.noneFrom=5
+  | bindings.focusFrom=2
+  | bindings.noneFrom=3
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F10"]=bindings
   | self:SetBindingClick(true,"F10",DefaultClickFrameName,"@F10")
@@ -1841,6 +1836,93 @@ Execute DebindBindingDriver
   | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
   | BoundKeys["SHIFT-F12"]=bindings
   | bindings.clickButton="@SHIFT-F12"
+  | bindings=ClickTimeKeys["@CTRL-F1"]
+  | ClickTimeKeys["@CTRL-F1#4"]=bindings
+  | ClickTimeTiers["@CTRL-F1#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F1",DefaultClickFrameName,"@CTRL-F1#4")
+  | c=newtable() c.clickButton="@CTRL-F1#4" c.base="CTRL-F1" BoundKeys["ALT-CTRL-F1"]=c
+  | bindings=ClickTimeKeys["@CTRL-F10"]
+  | ClickTimeKeys["@CTRL-F10#4"]=bindings
+  | ClickTimeTiers["@CTRL-F10#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F10",DefaultClickFrameName,"@CTRL-F10#4")
+  | c=newtable() c.clickButton="@CTRL-F10#4" c.base="CTRL-F10" BoundKeys["ALT-CTRL-F10"]=c
+  | bindings=ClickTimeKeys["@CTRL-F11"]
+  | ClickTimeKeys["@CTRL-F11#4"]=bindings
+  | ClickTimeTiers["@CTRL-F11#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F11",DefaultClickFrameName,"@CTRL-F11#4")
+  | c=newtable() c.clickButton="@CTRL-F11#4" c.base="CTRL-F11" BoundKeys["ALT-CTRL-F11"]=c
+  | bindings=ClickTimeKeys["@CTRL-F12"]
+  | ClickTimeKeys["@CTRL-F12#4"]=bindings
+  | ClickTimeTiers["@CTRL-F12#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F12",DefaultClickFrameName,"@CTRL-F12#4")
+  | c=newtable() c.clickButton="@CTRL-F12#4" c.base="CTRL-F12" BoundKeys["ALT-CTRL-F12"]=c
+  | bindings=ClickTimeKeys["@CTRL-F2"]
+  | ClickTimeKeys["@CTRL-F2#4"]=bindings
+  | ClickTimeTiers["@CTRL-F2#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F2",DefaultClickFrameName,"@CTRL-F2#4")
+  | c=newtable() c.clickButton="@CTRL-F2#4" c.base="CTRL-F2" BoundKeys["ALT-CTRL-F2"]=c
+  | bindings=ClickTimeKeys["@CTRL-F3"]
+  | ClickTimeKeys["@CTRL-F3#4"]=bindings
+  | ClickTimeTiers["@CTRL-F3#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F3",DefaultClickFrameName,"@CTRL-F3#4")
+  | c=newtable() c.clickButton="@CTRL-F3#4" c.base="CTRL-F3" BoundKeys["ALT-CTRL-F3"]=c
+  | bindings=ClickTimeKeys["@CTRL-F4"]
+  | ClickTimeKeys["@CTRL-F4#4"]=bindings
+  | ClickTimeTiers["@CTRL-F4#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F4",DefaultClickFrameName,"@CTRL-F4#4")
+  | c=newtable() c.clickButton="@CTRL-F4#4" c.base="CTRL-F4" BoundKeys["ALT-CTRL-F4"]=c
+  | bindings=ClickTimeKeys["@CTRL-F5"]
+  | ClickTimeKeys["@CTRL-F5#4"]=bindings
+  | ClickTimeTiers["@CTRL-F5#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F5",DefaultClickFrameName,"@CTRL-F5#4")
+  | c=newtable() c.clickButton="@CTRL-F5#4" c.base="CTRL-F5" BoundKeys["ALT-CTRL-F5"]=c
+  | bindings=ClickTimeKeys["@CTRL-F6"]
+  | ClickTimeKeys["@CTRL-F6#4"]=bindings
+  | ClickTimeTiers["@CTRL-F6#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F6",DefaultClickFrameName,"@CTRL-F6#4")
+  | c=newtable() c.clickButton="@CTRL-F6#4" c.base="CTRL-F6" BoundKeys["ALT-CTRL-F6"]=c
+  | bindings=ClickTimeKeys["@CTRL-F7"]
+  | ClickTimeKeys["@CTRL-F7#4"]=bindings
+  | ClickTimeTiers["@CTRL-F7#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F7",DefaultClickFrameName,"@CTRL-F7#4")
+  | c=newtable() c.clickButton="@CTRL-F7#4" c.base="CTRL-F7" BoundKeys["ALT-CTRL-F7"]=c
+  | bindings=ClickTimeKeys["@CTRL-F8"]
+  | ClickTimeKeys["@CTRL-F8#4"]=bindings
+  | ClickTimeTiers["@CTRL-F8#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F8",DefaultClickFrameName,"@CTRL-F8#4")
+  | c=newtable() c.clickButton="@CTRL-F8#4" c.base="CTRL-F8" BoundKeys["ALT-CTRL-F8"]=c
+  | bindings=ClickTimeKeys["@CTRL-F9"]
+  | ClickTimeKeys["@CTRL-F9#4"]=bindings
+  | ClickTimeTiers["@CTRL-F9#4"]=4
+  | self:SetBindingClick(true,"ALT-CTRL-F9",DefaultClickFrameName,"@CTRL-F9#4")
+  | c=newtable() c.clickButton="@CTRL-F9#4" c.base="CTRL-F9" BoundKeys["ALT-CTRL-F9"]=c
+  | bindings=ClickTimeKeys["@F12"]
+  | ClickTimeKeys["@F12#4"]=bindings
+  | ClickTimeTiers["@F12#4"]=4
+  | self:SetBindingClick(true,"ALT-F12",DefaultClickFrameName,"@F12#4")
+  | c=newtable() c.clickButton="@F12#4" c.base="F12" BoundKeys["ALT-F12"]=c
+  | bindings=ClickTimeKeys["@SHIFT-BUTTON2"]
+  | ClickTimeKeys["@SHIFT-BUTTON2#2"]=bindings
+  | ClickTimeTiers["@SHIFT-BUTTON2#2"]=2
+  | self:SetBindingClick(true,"ALT-CTRL-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#2")
+  | c=newtable() c.clickButton="@SHIFT-BUTTON2#2" c.base="SHIFT-BUTTON2" BoundKeys["ALT-CTRL-SHIFT-BUTTON2"]=c
+  | ClickTimeKeys["@SHIFT-BUTTON2#4"]=bindings
+  | ClickTimeTiers["@SHIFT-BUTTON2#4"]=4
+  | self:SetBindingClick(true,"ALT-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#4")
+  | c=newtable() c.clickButton="@SHIFT-BUTTON2#4" c.base="SHIFT-BUTTON2" BoundKeys["ALT-SHIFT-BUTTON2"]=c
+  | self:SetBindingClick(true,"CTRL-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#2")
+  | c=newtable() c.clickButton="@SHIFT-BUTTON2#2" c.base="SHIFT-BUTTON2" BoundKeys["CTRL-SHIFT-BUTTON2"]=c
+  | bindings=ClickTimeKeys["@SHIFT-F12"]
+  | ClickTimeKeys["@SHIFT-F12#2"]=bindings
+  | ClickTimeTiers["@SHIFT-F12#2"]=2
+  | self:SetBindingClick(true,"ALT-CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
+  | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" BoundKeys["ALT-CTRL-SHIFT-F12"]=c
+  | ClickTimeKeys["@SHIFT-F12#4"]=bindings
+  | ClickTimeTiers["@SHIFT-F12#4"]=4
+  | self:SetBindingClick(true,"ALT-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#4")
+  | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" BoundKeys["ALT-SHIFT-F12"]=c
+  | self:SetBindingClick(true,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
+  | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" BoundKeys["CTRL-SHIFT-F12"]=c
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
   | WrappedRelease["deb109"]="deb110"

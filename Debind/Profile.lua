@@ -59,10 +59,6 @@ local KEYS_TO_SAVE       = {
     -- this is asked only where the name resolves to nothing, which is a client in another locale
     -- (`importing-clique-profiles.md` §4). Only a `SPELL` holding a name keeps it (`CleanUpDB`).
     resolvedSpellID = true,
-    -- **A command or unused set to run at the top of its key** rather than the bottom, where it
-    -- stands without this (`handing-the-rest-of-a-key-to-the-game.md` 2-1). Read only for those two
-    -- types (`MakeOrderRecord`).
-    atTop = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.

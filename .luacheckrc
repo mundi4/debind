@@ -174,6 +174,7 @@ globals = {
 	"GetActionTexture",
 	"GetPetActionInfo",
 	"GetBindingKey",
+	"GetBindingAction",
 	"GetBindingText",
 	"GetConvertedKeyOrButton",
 	"CreateKeyChordStringFromTable",

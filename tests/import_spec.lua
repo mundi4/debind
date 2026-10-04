@@ -443,8 +443,6 @@ return function(DebindPrivate, DebindStorage)
         resolvedSpellID = 774,
         -- Another addon's values, waiting for the payload to be added.
         untranslated = { spec1 = true },
-        -- A command or unused at the top of its key, carried whatever the type.
-        atTop = true,
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,

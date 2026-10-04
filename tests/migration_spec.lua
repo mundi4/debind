@@ -662,8 +662,8 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- dbver 7: a saved command or unused becomes a block where it stands
-    -- (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Left as either type, the order would carry it
-    -- to the top or the bottom of its key and set free whatever it was blocking.
+    -- (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Left as either type, it would start handing
+    -- its key to the game where it has been holding it for nothing.
     ---------------------------------------------------------------------------
 
     test("dbver 7 turns a saved command and unused into blocks", function()

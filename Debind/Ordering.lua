@@ -14,10 +14,8 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- **The record comes from `ActionBindings.lua`'s `MakeOrderRecord` and nowhere else.** No caller
 --- spells the fields out.
 ---
---- Record fields: tailRank, priority, isConditional, layerRank, specRank, seq
----   tailRank      - -1 for a tail at the top, 1 for one at the bottom, 0 (or nil) for every other
----                   action (`MakeOrderRecord`)
----   priority      - `Constants.DEFAULT_IMPORTANCE` when nil
+--- Record fields: priority, isConditional, layerRank, specRank, seq
+---   priority     - `Constants.DEFAULT_IMPORTANCE` when nil
 ---   isConditional - `DebindPrivate.IsConditionalBinding(binding)`, or a Switch among the action's
 ---                   stored conditions (`MakeOrderRecord`)
 ---   layerRank     - the scope's rank (smaller is narrower): character/spec -> character/shared ->
@@ -39,14 +37,7 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- Changing this order leaves the stored data alone and **silently changes the firing order for
 --- every existing user**, and the shared layers make an order-preserving migration impossible to
 --- write. Do not touch it. specRank slipping in does not break that rule - everything that actually
---- fires is in an active layer, so that step is always a tie for them. Neither does tailRank: no
---- stored action was a tail when it came in, because the saved commands and unuseds became blocks
---- where they stood (`MigrateLayer`, `dbver <= 7`).
----
---- **The tail step stands above Importance** (`handing-the-rest-of-a-key-to-the-game.md` 2-1). A
---- tail says when the key is the game's: at the top, while its condition holds, ahead of everything;
---- at the bottom, once nothing else on the key matched. Importance can only move an action inside
---- the place a tail leaves it.
+--- fires is in an active layer, so that step is always a tie for them.
 ---
 --- **The unit-frame step has gone.** It ranked a binding carrying a condition on the pointed
 --- frame's unit ahead of one that did not; that unit is an ordinary unit now, so what that step said
@@ -64,12 +55,6 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 --- that wants the key to itself takes its class out of the broader action with a
 --- `specs` condition.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
-    local lhsTail = lhs.tailRank or 0;
-    local rhsTail = rhs.tailRank or 0;
-    if (lhsTail ~= rhsTail) then
-        return lhsTail < rhsTail;
-    end
-
     local lhsImportance = lhs.priority or DEFAULT_IMPORTANCE;
     local rhsImportance = rhs.priority or DEFAULT_IMPORTANCE;
     if (lhsImportance ~= rhsImportance) then
@@ -126,15 +111,10 @@ end
 --- agree with CompareActionOrder to the letter.
 ---
 --- Why the order UI asks: every step above seq is a property with a meaning of its own, changed
---- where that meaning lives (the tail's place, the Importance menu, the condition editor, moving
---- layers). seq is what is left when none of them settled it, and it is the only thing the arrows
+--- where that meaning lives (the Importance menu, the condition editor, moving layers). seq is what is left when none of them settled it, and it is the only thing the arrows
 --- touch. Settled anywhere else, the arrows keep their hands off and only say **which property is
 --- deciding**.
 function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
-    if ((lhs.tailRank or 0) ~= (rhs.tailRank or 0)) then
-        return "TAIL";
-    end
-
     if ((lhs.priority or DEFAULT_IMPORTANCE) ~= (rhs.priority or DEFAULT_IMPORTANCE)) then
         return "IMPORTANCE";
     end
@@ -192,7 +172,7 @@ end
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
 ---   "IMPORTED" - 대상이 아직 받아들이지 않은 도착분이다
----   "TAIL" | "IMPORTANCE" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
+---   "IMPORTANCE" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
 --- 일이 없지만, 이 함수는 "못 하면 이유를 돌려준다"고 약속해 놓고 대신 터지면 안 된다.

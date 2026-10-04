@@ -55,25 +55,6 @@ return function(DebindPrivate)
             (msg or "") .. ": 순서가 갈리면 안 됨");
     end
 
-    -- **The tail step stands above Importance** (`handing-the-rest-of-a-key-to-the-game.md` 2-1). A
-    -- tail at the top runs ahead of everything and one at the bottom after everything, whatever
-    -- either side's Importance says.
-    test("0단계 tailRank - 맨 위 꼬리는 중요도와 상관없이 일반 액션보다 먼저", function()
-        expectBefore(rec({ tailRank = -1, priority = 5 }), rec({ priority = 1 }), "맨 위");
-        expectBefore(rec({ tailRank = -1 }), rec({ isConditional = true, layerRank = 0 }), "맨 위");
-    end);
-
-    -- The checks inside one band ride on the ones that cross bands: alone they would pass on a
-    -- comparator that never looked at the field at all.
-    test("0단계 tailRank - 맨 아래 꼬리는 뒤, nil은 0, 같은 묶음 안은 다음 단계가 가른다", function()
-        expectBefore(rec({ priority = 5 }), rec({ tailRank = 1, priority = 1 }), "맨 아래");
-        expectBefore(rec({ tailRank = -1 }), rec({ tailRank = 1 }), "맨 위가 맨 아래보다 먼저");
-        expectTie(rec({ tailRank = 0 }), rec({}), "0과 nil은 동률");
-        expectBefore(rec({ tailRank = 1, priority = 1 }), rec({ tailRank = 1, priority = 5 }), "맨 아래 안의 중요도");
-        expectBefore(rec({ tailRank = -1, isConditional = true }), rec({ tailRank = -1 }), "맨 위 안의 조건부");
-        expectBefore(rec({ tailRank = 1, seq = 1 }), rec({ tailRank = 1, seq = 2 }), "맨 아래 안의 seq");
-    end);
-
     test("1단계 priority - 작은 값이 먼저", function()
         expectBefore(rec({ priority = 1 }), rec({ priority = 5 }), "priority");
     end);
@@ -486,38 +467,6 @@ return function(DebindPrivate)
 
     test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 IMPORTANCE)", function()
         expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", priority = 2, layerRank = 1 }), "IMPORTANCE");
-    end);
-
-    test("막힘 - 꼬리와 일반 액션 사이는 TAIL, 같은 묶음의 꼬리 둘은 seq로 맞바꾼다", function()
-        expectBlocked(rec({ name = "t", tailRank = 1 }), rec({ name = "n" }), "TAIL");
-        expectBlocked(rec({ name = "t" }), rec({ name = "n", tailRank = -1 }), "TAIL");
-
-        local a = rec({ name = "a", tailRank = 1 });
-        local b = rec({ name = "b", tailRank = 1 });
-        local layer = makeLayer(a, b);
-        local neighbor, reason = ComputeOrderSwap(sorted(layer), 2, UP);
-        check(reason == nil, "막히면 안 됨: " .. tostring(reason));
-        check(neighbor == a, "이웃이 a여야 함");
-    end);
-
-    test("막힘 - 꼬리 단계가 중요도보다 먼저 갈린다", function()
-        expectBlocked(rec({ name = "t", tailRank = 1, priority = 1 }), rec({ name = "n", priority = 5 }), "TAIL");
-    end);
-
-    -- The record takes the tail from the action's type and `atTop`, and a block is no tail: a saved
-    -- command or unused becomes one where it stands (`MigrateLayer`, `dbver <= 7`).
-    test("MakeOrderRecord - 꼬리 자리는 타입과 atTop이 정한다", function()
-        local function tailOf(action)
-            action.key = "F";
-            action.seq = 1;
-            return DebindPrivate.MakeOrderRecord(action, 1, 0).tailRank;
-        end
-        check(tailOf({ type = "command", value = "TOGGLEWORLDMAP" }) == 1, "command는 맨 아래");
-        check(tailOf({ type = "unused" }) == 1, "unused는 맨 아래");
-        check(tailOf({ type = "command", value = "TOGGLEWORLDMAP", atTop = true }) == -1, "atTop command는 맨 위");
-        check(tailOf({ type = "unused", atTop = true }) == -1, "atTop unused는 맨 위");
-        check(tailOf({ type = "block" }) == 0, "block은 꼬리가 아님");
-        check(tailOf({ type = "spell", value = 133, atTop = true }) == 0, "주문은 atTop이 있어도 꼬리가 아님");
     end);
 
     test("GetDecidingOrderAxis - 전부 같으면 nil", function()

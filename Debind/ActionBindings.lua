@@ -860,6 +860,8 @@ do
 
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
     local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
+    --- A tail's second pointed twin, the mouseover one; its unit frame one sits in the cache above.
+    local _ActionToTailMouseoverCache = setmetatable({}, { __mode = "kv" });
     local _ActionToFocusCache = setmetatable({}, { __mode = "kv" });
     local _ActionToSelfCache = setmetatable({}, { __mode = "kv" });
 
@@ -1064,9 +1066,16 @@ do
             end
         end
 
-        local pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
+        local isTail = action.type == Constants.COMMAND or action.type == Constants.UNUSED;
+        local pointedUnit, pointedCondition, pointedAim;
+        if (not isTail) then
+            pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
+        end
         local focusTwin, selfTwin = false, false;
-        if (DebindPrivate.KeyTakesCastKeyTwins(action)) then
+        -- **A command or unused stands in no cast key tier** (`handing-the-rest-of-a-key-to-the-game.md`
+        -- 2-1). The self and focus presses arrive on chords of their own, held down on purpose, and
+        -- what the key is handed to the game for is the press on the key itself.
+        if (DebindPrivate.KeyTakesCastKeyTwins(action) and not isTail) then
             focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
         end
         -- **Four values off is an action with no bindings at all** (`which-action-a-key-runs.md`
@@ -1092,6 +1101,28 @@ do
             -- never stand. Cast as usual aims at the target instead, and there it can.
             fillKnown(_ActionToKnownTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE,
                 pointedUnit, pointedAim == pointedUnit);
+        end
+
+        -- **A tail stands in the pointed tier under both pointed units, whatever its Cast Options
+        -- say** (`handing-the-rest-of-a-key-to-the-game.md` 2-1). It casts at nothing, so Hover Cast
+        -- means nothing to it, and an action under it whose twin stands there would otherwise take
+        -- every press made over a unit. Both, because the action under it may point either way.
+        --
+        -- **Not over a frame on a mouse button**: that click comes through the frame, where neither
+        -- type can run (2-7), so the tail is not there to hold anything back.
+        if (isTail) then
+            local units = original.conditions and original.conditions.units;
+            local onFrameClick = DebindPrivate.GetMouseButtonAndPrefix(action.key) ~= nil;
+            local existing = units and units["unitframe"];
+            if (existing ~= false and not onFrameClick) then
+                fill(_ActionToTwinCache, original.unit, existing or UNIT_IS_THERE, Constants.CASTMOD_NONE,
+                    "unitframe");
+            end
+            existing = units and units["mouseover"];
+            if (existing ~= false) then
+                fill(_ActionToTailMouseoverCache, original.unit, existing or UNIT_IS_THERE,
+                    Constants.CASTMOD_NONE, "mouseover");
+            end
         end
 
         -- **Twins on every action, a picked unit and one that takes no unit included**: the original
@@ -1197,11 +1228,6 @@ end
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     local binding = GetBindingInfoForAction(action);
     dest = dest or {};
-    if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
-        dest.tailRank = action.atTop and -1 or 1;
-    else
-        dest.tailRank = 0;
-    end
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
     dest.isConditional = DebindPrivate.IsConditionalBinding(binding) or HasSwitchCondition(action);
     dest.layerRank = layerRank;

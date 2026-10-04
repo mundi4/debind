@@ -881,18 +881,24 @@ end
 --- name. Assert those with `GetBindingAction`, which needs no press either.
 ---
 --- Needs `EnableProbes()`: the index comes back through `PROBE.Winner`.
-local function EvalClickTimeKey(key)
-    local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
-    if not button then
-        return false, format("%s is not a click-time key (not in ClickTimeKeys)", key)
-    end
-
+--- The same decision under the button name a binding carries, for a press that arrives on one of
+--- a key's self or focus chords (`@<key>#<tier>`). `key` is the key whose records the result
+--- indexes into.
+local function EvalClickTimeButton(key, button)
     wipe(probeReports)
     lastEvalKey = key
     lastEvalUnit = nil
     SecureHandlerExecute(DebindPrivate.BindingDriver, format(
         [[self:RunAttribute("EvalClickTimeKey", %q)]], button))
     return true
+end
+
+local function EvalClickTimeKey(key)
+    local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
+    if not button then
+        return false, format("%s is not a click-time key (not in ClickTimeKeys)", key)
+    end
+    return EvalClickTimeButton(key, button)
 end
 
 --- What the click-cast side answered: the button name it chose, or nil for "not ours, carry on".
@@ -9555,19 +9561,19 @@ RegisterTest("Pointed unit [none]: over a frame the action does not run, off it 
     end,
 })
 
--- **Needs the game.** Which twin a held modifier picks is headless (`tests/eval_spec.lua`); what only
--- the client can show is that `IsModifiedClick` is callable from inside the restricted environment and
--- what unit the snippet settles on with it. A name the sandbox does not carry
--- raises inside the snippet, and the key does nothing with nothing said.
+-- **Needs the game.** Which twin a chord picks is headless (`tests/castchord_spec.lua`); what only the
+-- client can show is that it takes our binding on a chord built from its own Self Cast and Focus Cast
+-- settings, and that the snippet picks the tier from the name that binding carries
+-- (`handing-the-rest-of-a-key-to-the-game.md` 2-3). A table the sandbox does not hold raises inside
+-- the snippet, and the key does nothing with nothing said.
 --
--- `SetMockState` overrides the answer after `IsModifiedClick` has been called, so the real call
--- still runs on every pass. What the client hides from `IsModifiedClick` on a real press -- the
--- modifiers that are part of the binding's own name -- no press made from here can show.
-RegisterTest("Self and focus cast: the held modifier picks the twin at the press", {
-    description = "조합키 값마다 self 쌍둥이, focus 쌍둥이, 원본이 이기고 대상이 시전 프레임에 선다",
+-- What no press made from here can show is the client sending a real chord to that binding. The
+-- binding table is asked instead, which is what the press reads.
+RegisterTest("Self and focus cast: the chord's own binding picks the twin at the press", {
+    description = "게임 설정의 조합키로 만든 조합 키가 우리 버튼에 걸리고, 그 버튼 이름이 self·focus 쌍둥이를 고른다",
     run = function()
-        local NAME = "Cast modifier at the press"
-        local KEY = "CTRL-ALT-F7"
+        local NAME = "Cast chord at the press"
+        local KEY = "NUMPADDIVIDE"
 
         if InCombatLockdown() then
             return Fail(NAME, "nothing can be rebaked in combat")
@@ -9575,6 +9581,12 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
 
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
+
+        local selfMod, focusMod = GetModifiedClick("SELFCAST"), GetModifiedClick("FOCUSCAST")
+        if selfMod == "NONE" or focusMod == "NONE" or selfMod == focusMod then
+            return Fail(NAME, format("the premise needs two different cast keys in the game's options, "
+                .. "and it has SELFCAST %s, FOCUSCAST %s", tostring(selfMod), tostring(focusMod)))
+        end
 
         -- **No target picked**, since a held key moves nothing else. The original then settles on no
         -- unit at all, so its row reads the winner's own `unit` rather than what the press reported.
@@ -9587,27 +9599,34 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
                 records and #records or 0))
         end
 
+        local clickFrame = DebindPrivate.DefaultClickFrame:GetName()
         local seen = {}
         for _, case in ipairs({
-            { Constants.CASTMOD_SELF, "player" },
-            { Constants.CASTMOD_FOCUS, "focus" },
-            { Constants.CASTMOD_NONE, nil },
+            { Constants.CASTMOD_SELF, "player", selfMod .. "-" .. KEY },
+            { Constants.CASTMOD_FOCUS, "focus", focusMod .. "-" .. KEY },
+            { Constants.CASTMOD_NONE, nil, KEY },
         }) do
-            SetMockState("castModifier", case[1])
+            if GetBindingAction(case[3]) ~= "" and case[1] ~= Constants.CASTMOD_NONE then
+                return Fail(NAME, format("the premise is gone: the game has %s bound to %s", case[3],
+                    GetBindingAction(case[3])))
+            end
+            local bound = GetBindingAction(case[3], true) or ""
+            local button = strmatch(bound, "^CLICK " .. clickFrame .. ":(.+)$")
+            if not button then
+                return Fail(NAME, format("%s is bound to %q, not to our button", case[3], bound))
+            end
 
-            local ran, rerr = EvalClickTimeKey(KEY)
+            local ran, rerr = EvalClickTimeButton(KEY, button)
             if not ran then return Fail(NAME, rerr) end
             local got = WaitForWinner()
             if got == nil then
-                return Fail(NAME, format("modifier %d: nothing won -- if `IsModifiedClick` is not in the "
-                    .. "restricted environment the snippet stops there", case[1]))
+                return Fail(NAME, format("%s (%s): nothing won -- if `ClickTimeTiers` is not in the "
+                    .. "restricted environment the snippet stops there", case[3], button))
             end
 
-            -- Read again: `SetMockState` ended in a rebuild, which replaced the array.
-            records = GetKeyBindings(KEY)
-            local record = records and records[got]
+            local record = records[got]
             if not record or record.castModifier ~= case[1] then
-                return Fail(NAME, format("modifier %d: record %d won, which carries %s", case[1], got,
+                return Fail(NAME, format("%s: record %d won, which carries %s", case[3], got,
                     tostring(record and record.castModifier)))
             end
 
@@ -9615,14 +9634,14 @@ RegisterTest("Self and focus cast: the held modifier picks the twin at the press
             if case[2] then
                 unit = lastEvalUnit
                 if unit ~= case[2] then
-                    return Fail(NAME, format("modifier %d: the press settled on %s, it should be %s",
-                        case[1], tostring(unit), case[2]))
+                    return Fail(NAME, format("%s: the press settled on %s, it should be %s",
+                        case[3], tostring(unit), case[2]))
                 end
             elseif record.unit ~= nil then
-                return Fail(NAME, format("modifier %d: the winner carries %s, it should carry no unit",
-                    case[1], tostring(record.unit)))
+                return Fail(NAME, format("%s: the winner carries %s, it should carry no unit",
+                    case[3], tostring(record.unit)))
             end
-            seen[#seen + 1] = format("%d->#%d@%s", case[1], got, tostring(unit))
+            seen[#seen + 1] = format("%s->#%d@%s", case[3], got, tostring(unit))
         end
 
         return Pass(NAME, table.concat(seen, ", "))

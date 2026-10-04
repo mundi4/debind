@@ -92,7 +92,12 @@ SecureHandlerExecute(BindingDriver, [[
 
 	-- Every key that holds a key record: button name ("@" + key) -> that key's record list. The
 	-- OnClick wrapper finds which key it is by the button name the press arrived under.
+	--
+	-- **A key's self and focus chords land here too, under names of their own**, beside the same
+	-- list: `ALT-X` is bound to a button that means "X, focus tier" (`UpdateBindingsMap`).
+	-- `ClickTimeTiers` says which tier such a name stands for; the bare key's name is not in it.
 	ClickTimeKeys = newtable()
+	ClickTimeTiers = newtable()
 
 	-- **Keys given back to the game while something else needs them**
 	-- (`giving-keys-back.md`).
@@ -101,6 +106,10 @@ SecureHandlerExecute(BindingDriver, [[
 	-- the rebuild writes it beside the `SetBindingClick` that put the key on. A record list carries
 	-- `clickButton` (what to hand `SetBindingClick` to put it back) and `givenBack` (whether it is
 	-- off right now). One slot on a table that is already there rather than a second map.
+	--
+	-- A chord the key made for its self or focus tier gets a small table of its own instead, since
+	-- it shares the list but not the button, and carries `base`, the key it was made from: the
+	-- chord goes over whenever its key does.
 	--
 	-- `GiveBack` is the reader's rows, also rewritten whole by the rebuild.
 	BoundKeys = newtable()
@@ -151,11 +160,6 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 그 전에 클릭이 도착해도 답이 있게 하려는 것이고, 블리자드 개체창의 기본값과 같다.
 	ClickCastOnMouseDown = false
 	EmpowerTapControls = false
-
-	-- Whether a press asks about the Self Cast Key and the Focus Cast Key. Every rebuild writes both
-	-- (`UpdateBindingsMap`); before the first one there is no key to press.
-	SelfCastKeyOn = false
-	FocusCastKeyOn = false
 
 	-- 실행 엣지가 down일 때 down의 선택을 up이 재사용하기 위한 자리. 버튼 이름 -> 이긴 레코드,
 	-- 그리고 그때 확정한 대상. down이 항상 먼저 오므로 덮어쓰기로 자가 치유된다.
@@ -674,8 +678,13 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 	-- One slot per key holds what is in force, so a pass that decides the same thing as the last
 	-- one touches no binding at all. That shape is the one the addon opened with
 	-- (`bindings.bound`, initial commit).
+	--
+	-- **A chord goes over with the key that made it.** The bar's command is bound to `1`, not to
+	-- `ALT-1`, and before the chord had a binding of its own the client sent `ALT-1` to whatever `1`
+	-- was. Left on, it would cast the focus twin over a vehicle bar.
 	for key, bindings in pairs(BoundKeys) do
-		local want = GivenBackNow[key] and true or nil
+		local base = bindings.base
+		local want = (GivenBackNow[key] or (base and GivenBackNow[base])) and true or nil
 		if (want ~= bindings.givenBack) then
 			bindings.givenBack = want
 			if (want) then
@@ -1040,27 +1049,22 @@ local EVAL_SNIPPET = [==[
 	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	-- **The held modifier picks the tier before any record is read, and only that tier is walked**
-	-- (`implementing-focus-and-self-cast.md` §3-4). Every action has a self and a focus
-	-- twin, so walking the whole key would pass over two records per action on every press with
-	-- nothing held. A tier with no winner ends the press there.
+	-- **The binding the press arrived on picks the tier before any record is read, and only that
+	-- tier is walked** (`implementing-focus-and-self-cast.md` §3-4). Every action has a self and a
+	-- focus twin, so walking the whole key would pass over two records per action on every press
+	-- with nothing held. A tier with no winner ends the press there.
 	--
-	-- The client hides the modifiers that are part of the binding the press arrived on, so what
-	-- `IsModifiedClick` answers here is only what was held on top of it (§2-1). A frame click has
-	-- no binding name to hide them behind, and a modifier held there picked the binding itself
-	-- (§3-10).
-	--
-	-- A key turned off in the settings is not asked about. It has no twins, so its tier holds
-	-- nothing, and holding it has to land where holding nothing does (§3-12).
+	-- **Not the modifier held at the press.** A key's self and focus chords are bindings of their
+	-- own (`handing-the-rest-of-a-key-to-the-game.md` 2-3), so the client has already picked the
+	-- tier by picking the binding, and `castTier` is the prologue's answer for the name it got. A
+	-- key handed to the game keeps its chords then, which reading the modifier off a press on the
+	-- key itself could never do. A frame click has no binding at all, and a modifier held there
+	-- picked the binding itself (§3-10).
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	PROBE.MockState(castModifier)
 
@@ -1485,6 +1489,7 @@ end, [==[
 	end
 
 	local clickCast = true
+	local castTier
 	local winner, unitframeUnit
 	local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[
@@ -1569,6 +1574,7 @@ end, [==[
 ]==] .. CLICKCAST_ARRIVAL_SNIPPET .. [==[
 		end
 	end
+	local castTier = ClickTimeTiers[button]
 
 	-- **A bare attribute stays on the frame.** Not written means the previous click's value, not
 	-- none, so every click settles all of them -- the ones that came the old way (deb1xx, a
@@ -1794,6 +1800,7 @@ if (DebindPrivate.DEBUG) then
 		-- 키로 들어온 클릭과 같은 자리에 선다: 클릭캐스팅이 아니므로 `holdsKey` 레코드를 보고,
 		-- hover는 enter/leave가 남긴 캐시에서 온다.
 		local clickCast = false
+		local castTier = ClickTimeTiers[button]
 		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 ]==] .. EVAL_SNIPPET .. [==[
@@ -1839,6 +1846,7 @@ if (DebindPrivate.DEBUG) then
 		end
 
 		local clickCast = true
+		local castTier
 		local winner, unitframeUnit
 		local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[

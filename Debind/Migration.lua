@@ -792,9 +792,8 @@ local function MigrateLayer(layerTbl, dbver, to)
 
         -- **A saved command or unused becomes a block where it stands**
         -- (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Since 4.0 both bound as a block, so each
-        -- has been winning its presses in its own place and holding back whatever comes after it. As
-        -- either type it would be ordered to the top or the bottom of its key from now on, which
-        -- frees what it was holding back and starts handing the key to the game, with nothing the
+        -- has been winning its presses in its own place and holding the key for nothing. As either
+        -- type it would hand the key to the game from now on, or run its command, with nothing the
         -- reader did.
         --
         -- `value` goes: a block carries none, and a command name left on one is read by nothing.

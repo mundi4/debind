@@ -149,8 +149,6 @@ local ACTION_FIELDS      = {
     -- The id a spell stored by name resolved to where it was added. It travels because a reader
     -- in another locale cannot resolve the name at all.
     resolvedSpellID = "number",
-    -- A command or unused that runs at the top of its key rather than the bottom.
-    atTop = "boolean",
     -- A resurrection's two switches.
     noTargetMassRez = "boolean",
     battleRezOutOfCombat = "boolean",

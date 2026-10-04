@@ -296,6 +296,16 @@ function Events.CVAR_UPDATE(_, name, value)
     end
 end
 
+--- **The cast key modifiers move with no event at all**, not even when the options window closes
+--- (`handing-the-rest-of-a-key-to-the-game.md` §6-1, measured). The window writes them through this
+--- global, and so does anything else that changes them. Switching between the account and the
+--- character binding set is the one other way they move, and that one raises `UPDATE_BINDINGS`.
+hooksecurefunc("SetModifiedClick", function(action)
+    if (action == "SELFCAST" or action == "FOCUSCAST") then
+        DebindPrivate.QueueUpdateBindings();
+    end
+end);
+
 EventFrame:RegisterEvent("ADDON_LOADED");
 EventFrame:RegisterEvent("PLAYER_LOGIN");
 

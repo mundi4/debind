@@ -376,6 +376,7 @@ for k, v in pairs(States) do
     OldStates[k] = v
 end
 wipe(ClickTimeKeys)
+wipe(ClickTimeTiers)
 -- **`ClearOverrideBindings` below takes every key off**, so what a record list remembered about
 -- being handed over is gone with it. The next pass of `UpdateGivenBackKeys` starts from nothing
 -- given back, which is what the game is in after this.
@@ -2076,14 +2077,156 @@ function DebindPrivate.IsSwitchTracked(name)
     return _switches[name] ~= nil;
 end
 
+--- The order the client drops modifiers in when a chord has no binding of its own, and the order a
+--- binding string spells them in (`handing-the-rest-of-a-key-to-the-game.md` §6-2, measured).
+local CHORD_MODIFIERS = { "ALT", "CTRL", "SHIFT", "META" };
+local IS_CHORD_MODIFIER = { ALT = true, CTRL = true, SHIFT = true, META = true };
+
+--- A key's modifiers as a set, and the key under them. `CTRL--` is the minus key under CTRL.
+local function SplitChord(chord, mods)
+    wipe(mods);
+    local rest = chord;
+    while (true) do
+        local mod, after = strmatch(rest, "^(%u+)%-(.+)$");
+        if (not mod or not IS_CHORD_MODIFIER[mod]) then
+            return rest;
+        end
+        mods[mod] = true;
+        rest = after;
+    end
+end
+
+local _chordMods = {};
+
+--- The binding string for these modifiers over this key, spelled the way the client spells it.
+local function JoinChord(mods, base)
+    local parts = {};
+    for _, mod in ipairs(CHORD_MODIFIERS) do
+        if (mods[mod]) then
+            parts[#parts + 1] = mod;
+        end
+    end
+    parts[#parts + 1] = base;
+    return table.concat(parts, "-");
+end
+
+--- `key` with `mod` added, or nil when it already holds it.
+local function AddModifier(key, mod)
+    local base = SplitChord(key, _chordMods);
+    if (_chordMods[mod]) then
+        return nil;
+    end
+    _chordMods[mod] = true;
+    return JoinChord(_chordMods, base);
+end
+
+--- The bare key of ours a chord is bound to, false for one of the game's, nil for none. `ours` is
+--- the set of bare keys bound this rebuild; `yield` says whether the game's own set counts.
+local function DirectLanding(chord, ours, yield)
+    if (ours[chord]) then
+        return chord;
+    end
+    if (yield and GetBindingAction(chord) ~= "") then
+        return false;
+    end
+    return nil;
+end
+
+--- **Where a press of `chord` lands with nothing but the bare keys we bind and the game's own
+--- set**, which is where every press landed before the chords were bound. The client takes the
+--- chord's own binding, and failing that drops one modifier at a time, ALT, then CTRL, then SHIFT
+--- (measured, §6-2). Dropping two is only ever asked of a chord we made from a key with both cast
+--- modifiers, and both single drops are asked first there, so the order past one drop is the
+--- order of the first.
+local function LandingOf(chord, ours, yield)
+    local direct = DirectLanding(chord, ours, yield);
+    if (direct ~= nil) then
+        return direct;
+    end
+
+    local mods = {};
+    local base = SplitChord(chord, mods);
+    local dropped = {};
+    for _, mod in ipairs(CHORD_MODIFIERS) do
+        if (mods[mod]) then
+            mods[mod] = nil;
+            dropped[#dropped + 1] = JoinChord(mods, base);
+            mods[mod] = true;
+        end
+    end
+    for _, smaller in ipairs(dropped) do
+        local landing = DirectLanding(smaller, ours, yield);
+        if (landing ~= nil) then
+            return landing;
+        end
+    end
+    for _, smaller in ipairs(dropped) do
+        local landing = LandingOf(smaller, ours, yield);
+        if (landing ~= nil) then
+            return landing;
+        end
+    end
+    return nil;
+end
+
+--- Does the game keep its own chords over our cast key ones? On unless the reader turned it off
+--- (`handing-the-rest-of-a-key-to-the-game.md` 2-4).
+function DebindPrivate.ChordsYieldToGame()
+    return DebindPrivate.Options.castKeyChordsOverGame ~= true;
+end
+
+--- **The chords a bound key takes for its self and focus tiers**, as `chord -> tier`.
+---
+--- Taken exactly where a press used to fall to the key and read the modifier off the press: on a
+--- chord that, with only the bare keys bound, lands on this key. A chord that lands elsewhere --
+--- the game's own binding, another of our keys, a chord of one -- went there before and still does.
+--- The tier is the one the press used to pick: the self modifier among the ones held on top wins
+--- over the focus one (`implementing-focus-and-self-cast.md` §3-3).
+local function CastChordsOf(key, ours, selfMod, focusMod, yield, out)
+    wipe(out);
+    local selfChord = selfMod and AddModifier(key, selfMod);
+    local chords = {
+        selfChord,
+        focusMod and AddModifier(key, focusMod),
+        selfChord and focusMod and AddModifier(selfChord, focusMod),
+    };
+    for i = 1, 3 do
+        local chord = chords[i];
+        if (chord and LandingOf(chord, ours, yield) == key) then
+            SplitChord(chord, _chordMods);
+            local own = {};
+            SplitChord(key, own);
+            if (selfMod and _chordMods[selfMod] and not own[selfMod]) then
+                out[chord] = Constants.CASTMOD_SELF;
+            elseif (focusMod and _chordMods[focusMod] and not own[focusMod]) then
+                out[chord] = Constants.CASTMOD_FOCUS;
+            end
+        end
+    end
+    return out;
+end
+
+--- The game's modifier for a cast key, or nil where the reader turned ours off or the game has
+--- none. `SetModifiedClick` takes any string, so only the three the options offer count.
+local function CastModifier(enabled, action)
+    if (not enabled) then
+        return nil;
+    end
+    local mod = GetModifiedClick(action);
+    if (mod == "ALT" or mod == "CTRL" or mod == "SHIFT") then
+        return mod;
+    end
+    return nil;
+end
+
+local _boundBare = {};
+local _castChords = {};
+
 function UpdateBindingsMap()
-    appendLine("local bindings,t,u");
-    -- **With the twins, not beside them.** A flag written anywhere else could say a key is on while
-    -- the records on the keys were built without its twins.
-    appendLine("SelfCastKeyOn=%s", tostring(DebindPrivate.SelfCastEnabled()));
-    appendLine("FocusCastKeyOn=%s", tostring(DebindPrivate.FocusCastEnabled()));
+    appendLine("local bindings,t,u,c");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
+    wipe(_boundBare);
     wipe(_keysToWalk);
     for key in pairs(keyMap) do
         _keysToWalk[key] = true;
@@ -2188,6 +2331,47 @@ function UpdateBindingsMap()
             -- in, so nothing is given back at this point and no slot is written for that.
             appendLine("BoundKeys[%q]=bindings", key);
             appendLine("bindings.clickButton=%q", clickTimeButton);
+            _boundBare[key] = true;
+        end
+    end
+
+    -- **The self and focus tiers get chords of their own** (`handing-the-rest-of-a-key-to-the-game.md`
+    -- 2-3). After the loop, because where a chord lands depends on every bare key being known.
+    local selfMod = CastModifier(DebindPrivate.SelfCastEnabled(), "SELFCAST");
+    local focusMod = CastModifier(DebindPrivate.FocusCastEnabled(), "FOCUSCAST");
+    if (selfMod or focusMod) then
+        local yield = DebindPrivate.ChordsYieldToGame();
+        for _, key in ipairs(sortedKeys(_boundBare, _sortedA)) do
+            CastChordsOf(key, _boundBare, selfMod, focusMod, yield, _castChords);
+            local first = true;
+            local selfNamed, focusNamed = false, false;
+            for _, chord in ipairs(sortedKeys(_castChords, _sortedB)) do
+                local tier = _castChords[chord];
+                local button = format("%s%s#%d", Constants.CLICKTIME_BUTTON_PREFIX, key, tier);
+                if (first) then
+                    first = false;
+                    appendLine("bindings=ClickTimeKeys[%q]", Constants.CLICKTIME_BUTTON_PREFIX .. key);
+                end
+                -- One name per tier, though two chords can land on it (CTRL and ALT-CTRL both mean
+                -- self where self is on CTRL).
+                local named;
+                if (tier == Constants.CASTMOD_SELF) then
+                    named = selfNamed;
+                else
+                    named = focusNamed;
+                end
+                if (not named) then
+                    appendLine("ClickTimeKeys[%q]=bindings", button);
+                    appendLine("ClickTimeTiers[%q]=%d", button, tier);
+                    if (tier == Constants.CASTMOD_SELF) then
+                        selfNamed = true;
+                    else
+                        focusNamed = true;
+                    end
+                end
+                appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", chord, button);
+                appendLine("c=newtable() c.clickButton=%q c.base=%q BoundKeys[%q]=c", button, key, chord);
+            end
         end
     end
 

@@ -509,8 +509,98 @@ function Interp:actionButton(clickbutton)
     return self.env.WrappedButtons[clickbutton] or clickbutton;
 end
 
+local CHORD_ORDER = { "ALT", "CTRL", "SHIFT", "META" };
+
+--- The chord a press of `key` is with the cast keys `state.modifiedClick` holds down, spelled the
+--- way the client spells a binding, and the key under its modifiers.
+local function heldChord(key, held)
+    local mods, rest = {}, key;
+    while (true) do
+        local mod, after = rest:match("^(%u+)%-(.+)$");
+        if (not mod) then
+            break;
+        end
+        mods[mod] = true;
+        rest = after;
+    end
+    for name, on in pairs(held) do
+        local mod = on and _G.GetModifiedClick(name);
+        if (mod and mod ~= "NONE") then
+            mods[mod] = true;
+        end
+    end
+    return mods, rest;
+end
+
+local function joinChord(mods, base)
+    local parts = {};
+    for _, mod in ipairs(CHORD_ORDER) do
+        if (mods[mod]) then
+            parts[#parts + 1] = mod;
+        end
+    end
+    parts[#parts + 1] = base;
+    return table.concat(parts, "-");
+end
+
+--- The override entry bound to `chord`, `false` for a binding of the game's own, nil for none.
+function Interp:directLanding(chord)
+    if (self.bindings[chord]) then
+        return self.bindings[chord];
+    end
+    if (_G.GetBindingAction(chord) ~= "") then
+        return false;
+    end
+    return nil;
+end
+
+--- **Where the client sends a press of `chord`**: its own binding, the override first, and failing
+--- that every chord with one modifier dropped, ALT, then CTRL, then SHIFT, before any with two
+--- (measured, `handing-the-rest-of-a-key-to-the-game.md` §6-2). Answers the override entry,
+--- `false` for a binding of the game's own, nil for nothing.
+function Interp:landing(mods, base)
+    local direct = self:directLanding(joinChord(mods, base));
+    if (direct ~= nil) then
+        return direct;
+    end
+    local dropped = {};
+    for _, mod in ipairs(CHORD_ORDER) do
+        if (mods[mod]) then
+            local fewer = {};
+            for other in pairs(mods) do
+                if (other ~= mod) then
+                    fewer[other] = true;
+                end
+            end
+            dropped[#dropped + 1] = fewer;
+        end
+    end
+    for _, fewer in ipairs(dropped) do
+        local landing = self:directLanding(joinChord(fewer, base));
+        if (landing ~= nil) then
+            return landing;
+        end
+    end
+    for _, fewer in ipairs(dropped) do
+        local landing = self:landing(fewer, base);
+        if (landing ~= nil) then
+            return landing;
+        end
+    end
+    return nil;
+end
+
+--- **A press of `key` with the cast keys `state.modifiedClick` holds down, run the way the client
+--- runs it**: the chord is looked up the way the client looks it up, and the decision runs under the
+--- button name the binding it landed on carries. A self or focus tier is picked by the chord's own
+--- binding now, so asking under `"@" .. key` with the modifier set would miss what the client does.
 function Interp:evalKey(key)
-    local button = self.Constants.CLICKTIME_BUTTON_PREFIX .. key;
+    local mods, base = heldChord(key, self.state.modifiedClick);
+    local entry = self:landing(mods, base);
+    if (not entry or not entry.mouseButton) then
+        return nil;
+    end
+    local button = entry.mouseButton;
     local clickbutton, index, unit = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
     if (not clickbutton) then
         return nil;

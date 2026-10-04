@@ -93,7 +93,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
 	ClickTimeKeys = newtable()
+	ClickTimeTiers = newtable()
+
+
+
+
 
 
 
@@ -152,11 +161,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ClickCastOnMouseDown = false
 	EmpowerTapControls = false
-
-
-
-	SelfCastKeyOn = false
-	FocusCastKeyOn = false
 
 
 
@@ -380,8 +384,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
 	for key, bindings in pairs(BoundKeys) do
-		local want = GivenBackNow[key] and true or nil
+		local base = bindings.base
+		local want = (GivenBackNow[key] or (base and GivenBackNow[base])) and true or nil
 		if (want ~= bindings.givenBack) then
 			bindings.givenBack = want
 			if (want) then
@@ -551,6 +560,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	local clickCast = true
+	local castTier
 	local winner, unitframeUnit
 	local evalFrame = info
 
@@ -608,16 +618,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -1096,6 +1101,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				bindings and #bindings or 0)
 		end
 	end
+	local castTier = ClickTimeTiers[button]
 
 
 
@@ -1231,16 +1237,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -1946,6 +1947,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			clickCast = bindings and true or false
 		end
 	end
+	local castTier = ClickTimeTiers[button]
 
 
 
@@ -2081,16 +2083,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -2784,6 +2781,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 		local clickCast = false
+		local castTier = ClickTimeTiers[button]
 		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 
@@ -2841,16 +2839,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -3445,6 +3438,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 		local clickCast = false
+		local castTier = ClickTimeTiers[button]
 		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 
@@ -3502,16 +3496,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -4109,6 +4098,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 
 		local clickCast = true
+		local castTier
 		local winner, unitframeUnit
 		local evalFrame = info
 
@@ -4166,16 +4156,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -4718,6 +4703,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 
 		local clickCast = true
+		local castTier
 		local winner, unitframeUnit
 		local evalFrame = info
 
@@ -4775,16 +4761,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local castModifier
-	if (clickCast) then
+	if (clickCast or not castTier) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	elseif (SelfCastKeyOn and IsModifiedClick("SELFCAST")) then
-		castModifier = CONSTANTS.CASTMOD_SELF
-	elseif (FocusCastKeyOn and IsModifiedClick("FOCUSCAST")) then
-		castModifier = CONSTANTS.CASTMOD_FOCUS
 	else
-		castModifier = CONSTANTS.CASTMOD_NONE
+		castModifier = castTier
 	end
 	
 
@@ -5498,6 +5479,7 @@ for k, v in pairs(States) do
     OldStates[k] = v
 end
 wipe(ClickTimeKeys)
+wipe(ClickTimeTiers)
 
 
 

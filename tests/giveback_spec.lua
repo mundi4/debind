@@ -310,9 +310,11 @@ return function(DebindPrivate)
     test("a second pass in the same state makes no binding call", function()
         Bind({ giveBackOnReplacedBar = true });
         interp.driver.__attributes["state-giveback"] = "p";
-        -- Thirteen rather than twelve: `ACTIONBUTTON1` has two keys in this world.
+        -- Thirteen keys rather than twelve: `ACTIONBUTTON1` has two in this world. Each goes over
+        -- with the three chords it made for its self and focus tiers (CTRL, ALT, both), which is
+        -- four calls a key (`handing-the-rest-of-a-key-to-the-game.md` 2-6).
         local first = BindingCalls();
-        check(first == 13, "the first pass handed over " .. first .. " keys");
+        check(first == 13 * 4, "the first pass made " .. first .. " binding calls");
         local second = BindingCalls();
         check(second == 0, "a repeat pass made " .. second .. " binding calls");
     end);

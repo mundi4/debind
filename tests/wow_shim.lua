@@ -54,6 +54,10 @@ M.world = {
     --- `{ name =, spells = { spellID… } }` per profession the character has, in `GetProfessions`
     --- order. Its spells are not in `spellbook`: the client keeps them past every skill line.
     professions = {},
+    --- `GetModifiedClick`'s answers, `[action] = "ALT" | "CTRL" | "SHIFT" | "NONE"`. Reset to
+    --- SELFCAST on CTRL and FOCUSCAST on ALT: the game's own default puts both on ALT, where the
+    --- focus tier has no chord at all, and a spec that wants that asks for it.
+    modifiedClicks = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -75,6 +79,8 @@ function M.resetWorld(client)
     end
     M.world.inCombat = false;
     M.world.specIndex = nil;
+    M.world.modifiedClicks.SELFCAST = "CTRL";
+    M.world.modifiedClicks.FOCUSCAST = "ALT";
     M.world.client = client;
     --- **The one global an addon instance leaves behind.** `ClickCastTable.lua` puts its own table
     --- under this name at file scope, and the next instance would meet it as a foreign holder and
@@ -456,6 +462,8 @@ function M.install()
         end
     end
     _G.GetBindingText = function(key) return key; end
+    _G.GetModifiedClick = function(action) return M.world.modifiedClicks[action] or "NONE"; end
+    _G.SetModifiedClick = function(action, key) M.world.modifiedClicks[action] = key; end
     --- **`checkOverride` is the whole of what this addon asks about.** Debind never touches the
     --- saved binding set; everything it does is an override on the driver, so a reader that
     --- ignored the second argument could only ever answer for the client's own bindings and the
