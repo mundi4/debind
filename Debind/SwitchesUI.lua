@@ -98,20 +98,6 @@ local function StartValueFor(resetValue)
     return "remember";
 end
 
---- One row's answer in the words this tab's dropdowns use, on one line: the answer, then the
---- starting value or the expression behind it. For places that show a row without its editor (the
---- switch window an acceptance opens).
-function DebindUI.DescribeSwitchRow(mode, resetValue, expr)
-    mode = mode or Constants.SWITCH_MODES.MANUAL;
-    local text = LLL[LabelForMode(mode) or "SWITCH_ANSWER_MANUAL"];
-    if (mode == Constants.SWITCH_MODES.MANUAL) then
-        text = text .. " - " .. LLL[LabelForStartValue(StartValueFor(resetValue))];
-    elseif (mode == Constants.SWITCH_MODES.EXPR and expr) then
-        text = text .. " - " .. expr;
-    end
-    return text;
-end
-
 --- Which layers this switch is already set at, keyed by `layerID`.
 ---
 --- **The root is always one of them**: it is a row the reader edits like the others and it cannot
@@ -432,6 +418,8 @@ function DebindSwitchRowMixin:OnEnter()
     GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_HERE"], #usage.here,
         NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
     GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_EXPRS"], #usage.exprs,
+        NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+    GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["SWITCH_USAGE_PENDING"], #usage.pending,
         NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
 
     -- **The tally under them counts the two lines above again.** They answer different questions:
@@ -1406,6 +1394,10 @@ end
 ---
 --- The third is the switches whose expression names this one, and only the ones on a layer this
 --- character can open: the rest are inside the tally above.
+---
+--- The last is this character's pending actions. They name this switch like any other, so deleting
+--- it turns them red, but they reach no key yet and are counted in neither group above
+--- (`CountSwitchReferences`).
 function DebindSwitchesPanelMixin:UsageList()
     local usage = self.usage[self.selectedName];
     local list = {};
@@ -1424,9 +1416,10 @@ function DebindSwitchesPanelMixin:UsageList()
         list[#list + 1] = { spacer = true };
     end
 
-    AddGroup("SWITCH_USAGE_HERE", self:ActionRows(usage));
+    AddGroup("SWITCH_USAGE_HERE", self:ActionRows(usage, usage and usage.here));
     AddGroup("SWITCH_USAGE_ACCOUNT", AccountRows(usage));
     AddGroup("SWITCH_USAGE_EXPRS", self:ExprRows(usage));
+    AddGroup("SWITCH_USAGE_PENDING", self:ActionRows(usage, usage and usage.pending));
     return list;
 end
 
@@ -1443,14 +1436,15 @@ local function OpenableLayers()
     return set;
 end
 
-function DebindSwitchesPanelMixin:ActionRows(usage)
+--- `places` is `usage.here` or `usage.pending`, both `{ action, layerID }`.
+function DebindSwitchesPanelMixin:ActionRows(usage, places)
     local rows = {};
     if (not usage) then
         return rows;
     end
     local openable = OpenableLayers();
-    for i = 1, #usage.here do
-        local place = usage.here[i];
+    for i = 1, #places do
+        local place = places[i];
         if (openable[place.layerID]) then
             -- **`layer`, because that is the key the row reads** (`DebindLayerRowMixin:Update`).
             rows[#rows + 1] = { action = place.action, layer = place.layerID };
@@ -1605,10 +1599,21 @@ function DebindSwitchesPanelMixin:OnDeleteClick()
         return;
     end
     local text = format(LLL["SWITCH_DELETE_CONFIRM"], name);
-    local references = DebindPrivate.CountSwitchReferences(name);
+    local references, _, _, pendingHere, pendingElsewhere = DebindPrivate.CountSwitchReferences(name);
     if (references > 0) then
         text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_ACTIONS"],
             DebindPrivate.CountText("actions", references));
+    end
+    -- **Other characters' pending actions are said here and nowhere else.** The tab cannot list
+    -- them, since nothing on this character opens them, and this is the one moment their count
+    -- changes what the reader does (`importing-switches-apart-from-actions.md` 2-5).
+    if (pendingHere > 0) then
+        text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_PENDING"],
+            DebindPrivate.CountText("actions", pendingHere));
+    end
+    if (pendingElsewhere > 0) then
+        text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_PENDING_ELSEWHERE"],
+            DebindPrivate.CountText("actions", pendingElsewhere));
     end
     if (DebindPrivate.CountSwitchOverrides(name) > 0) then
         text = text .. "\n" .. LLL["SWITCH_DELETE_CONFIRM_OVERRIDES"];

@@ -1273,6 +1273,9 @@ L["SWITCH_TAB_USAGE"] = "Where Used"
 L["SWITCH_USAGE_HERE"] = "This Character"
 L["SWITCH_USAGE_ACCOUNT"] = "Across the Account"
 L["SWITCH_USAGE_EXPRS"] = "Other Switches"
+-- This character's actions not accepted yet. The word is the one the strip's count uses
+-- (`IMPORT_PENDING`): they name this Switch already and turn red if it goes, but do nothing yet.
+L["SWITCH_USAGE_PENDING"] = "Pending"
 -- The two halves of a row's number in the group above, in its tooltip.
 L["SWITCH_USAGE_ACTIONS"] = "Actions"
 -- The last line of that tooltip. Whether you can get at what the row counts is the one thing the
@@ -1321,28 +1324,6 @@ L["SWITCH_CREATE_PROMPT"] = "What should the new Switch be called?\nLetters, num
 -- which is why they are not called SWITCH_RENAME_ERROR_* any more.
 L["SWITCH_NAME_ERROR_INVALID"] = "A Switch name can hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a Switch by that name."
--- The window accepting an arrival opens when a Switch its actions bring differs from the reader's
--- (`resolving-switches-on-accept.md` 6). **The heading says what is asked and nothing else**
--- (owner): the marks on the rows say what each tick does.
---
--- **"Conflict" alone said more than happens** (owner, 2026-10-02). An overwrite conflicts with a
--- setting the reader made; a fill conflicts with nothing and changes what their existing actions
--- on that layer do, by giving it an answer where it followed the layer below. The text names both.
-L["ARRIVAL_SWITCHES_TITLE"] = "Incoming Switch Settings"
-L["ARRIVAL_SWITCHES_TEXT"] = "Some of the Switches that come with the actions you are accepting conflict with yours, or could change how your existing actions behave.\n\nA ticked row takes the incoming setting for that layer. Unticked rows keep yours."
--- The two marks. **They differ because the two do different things to the reader's actions**: one
--- replaces a setting the reader made, the other gives a layer a setting where it had none, so the
--- actions there stop following the layer below.
-L["ARRIVAL_SWITCH_OVERWRITE"] = "Overwrites yours"
-L["ARRIVAL_SWITCH_FILL"] = "New on this layer"
-L["ARRIVAL_SWITCH_MINE"] = "Yours"
-L["ARRIVAL_SWITCH_MINE_BELOW"] = "Yours now, from the layer below"
-L["ARRIVAL_SWITCH_INCOMING"] = "Incoming"
-L["ARRIVAL_SWITCH_USED"] = "Used by %d of your actions."
--- The rename button's other face. One button changes its label rather than two standing side by
--- side (owner: many buttons overwhelm).
-L["ARRIVAL_SWITCH_RENAME_UNDO"] = "Undo Rename"
-L["ARRIVAL_SWITCH_RENAMED"] = "comes in as %s"
 -- The [Set Switch] menu on an on/off/toggle action: which switch the key works, and what it does
 -- to it. **The verbs are worded as what the key does, not as what the switch is.** "On" beside a
 -- list of switches reads as the switch's own value, which is the one thing this menu cannot set.
@@ -1354,6 +1335,11 @@ L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole ac
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
 L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; it and will stop working."
+-- Actions waiting to be accepted name the Switch too, and turn red with it. Apart from the line
+-- above because they do nothing yet, so "will stop working" is not true of them. The second is the
+-- only place other characters' pending actions are counted: nothing on this character opens them.
+L["SWITCH_DELETE_CONFIRM_PENDING"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting to be accepted |4uses:use; it too."
+L["SWITCH_DELETE_CONFIRM_PENDING_ELSEWHERE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting on your other characters |4uses:use; it too."
 -- Appended only when there are some, so a switch that is the same everywhere is not shown a line
 -- about them.
 --
@@ -2088,6 +2074,10 @@ L["IMPORT_COMMITTED"] = "Brought in %s. |4It is:They are; pending until you acce
 -- class's layers, which adding does not take (`reshaping-stored-layers.md` 6-2), a specialization
 -- this character's class does not have, and a layer a newer Debind invented.
 L["IMPORT_COMMITTED_SKIPPED"] = "%s of them |4was:were; left out - another class's, a specialization this character does not have, or a layer this version does not know."
+-- Switches never come in with the actions, so a name the reader has no Switch for lands as actions
+-- that do nothing. The names, because that is what the reader goes and makes or brings in; a count
+-- would send them looking. %s is the names joined with commas.
+L["IMPORT_COMMITTED_MISSING_SWITCHES"] = "Some of them use Switches you do not have: %s. Those do nothing until a Switch by that name exists."
 -- The right-click menu on an action in the preview. **Taking things out is the only edit an entry
 -- has**, so these two are the whole menu.
 --

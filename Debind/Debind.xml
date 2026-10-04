@@ -32,6 +32,5 @@
     <Script file="ClickCastTable.lua"/>
     <Script file="UpdateBindings.lua"/>
     <Script file="Switches.lua"/>
-    <Script file="ArrivalSwitches.lua"/>
 
 </Ui>

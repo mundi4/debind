@@ -155,8 +155,6 @@ end
 local function ExtendHitRectOverLabel(checkButton)
     checkButton:SetHitRectInsets(0, -(checkButton.Text:GetStringWidth() + 4), 0, 0);
 end
-DebindUI.NormalizeCheckMark = NormalizeCheckMark;
-DebindUI.ExtendHitRectOverLabel = ExtendHitRectOverLabel;
 
 local function SetTriState(checkButton, state)
     if (state == STATE_NONE) then
@@ -1578,6 +1576,13 @@ function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs, par
     if (skipped and skipped > 0) then
         DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"],
             CountText("actions", skipped)), 1, 0.5, 0);
+    end
+    -- **Nothing brings a switch in with the actions** (`importing-switches-apart-from-actions.md`
+    -- 2-3), so the ones landing red are named here, while the reader still knows which press did it.
+    local missing = DebindPrivate.UndefinedSwitchNames(actions);
+    if (#missing > 0) then
+        DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_MISSING_SWITCHES"],
+            table.concat(missing, ", ")), 1, 0.5, 0);
     end
 
     DebindFrame:NotifyProfileChanged();

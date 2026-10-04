@@ -594,6 +594,32 @@ local function ForEachStoredAction(db, fn, charLayers)
         end
     end, charLayers);
 end
+
+--- Every pending action waiting in a `pendingActions[guid]` share, handed to `fn(action, guid)`.
+---
+--- **This character's are mostly not here during a session**: `MergePendingActions` put them back in
+--- its layers, where `ForEachStoredAction` meets them. What is here is every other character's, and
+--- this one's cells for a layer this client does not load. A switch is account-wide and a pending
+--- action names it like any other (`importing-switches-apart-from-actions.md` 2-2), so a rename has
+--- to reach a share whose character is not logged in.
+local function ForEachPendingAction(db, fn)
+    local function walkSpecs(specTbl, guid)
+        for spec = 0, MAX_STORED_SPEC do
+            local list = specTbl[spec];
+            for i = 1, #(list or {}) do
+                fn(list[i], guid);
+            end
+        end
+    end
+    for guid, share in pairs(db.pendingActions or {}) do
+        for _, specTbl in pairs(share[ACCOUNT_OWNER] or {}) do
+            walkSpecs(specTbl, guid);
+        end
+        if (share.character) then
+            walkSpecs(share.character, guid);
+        end
+    end
+end
 DebindPrivate.ForEachStoredAction = ForEachStoredAction;
 
 --- Every stored action list in this account, `ForEachStoredList` over the attached profile.
@@ -1392,7 +1418,6 @@ local function ForEachSwitchInAction(action, fn)
         end);
     end
 end
-DebindPrivate.ForEachSwitchInAction = ForEachSwitchInAction;
 
 --- Does this action name that switch? **Exported for Overview's search box**, which takes a
 --- switch's name as a term and has to ask the same question this file answers everywhere else.
@@ -1406,6 +1431,23 @@ local function ActionNamesSwitch(action, name)
     return found;
 end
 DebindPrivate.ActionNamesSwitch = ActionNamesSwitch;
+
+--- The switches `actions` name that this profile has no definition for, once each, sorted. What
+--- adding an entry says afterwards (`importing-switches-apart-from-actions.md` 2-6): a name in here
+--- is one whose actions do nothing until a switch by that name exists.
+function DebindPrivate.UndefinedSwitchNames(actions)
+    local seen, names = {}, {};
+    for _, action in ipairs(actions) do
+        ForEachSwitchInAction(action, function(name)
+            if (not seen[name] and not DebindPrivate.ResolveSwitchDefinition(name)) then
+                seen[name] = true;
+                names[#names + 1] = name;
+            end
+        end);
+    end
+    table.sort(names);
+    return names;
+end
 
 --- How many actions name this switch, at three distances: **the whole account, this character, and
 --- what is live right now.** Widest first, and each one contains the next.
@@ -1434,16 +1476,30 @@ DebindPrivate.ActionNamesSwitch = ActionNamesSwitch;
 --- what the reader is being asked about. The switch computed from the deleted name goes red on its
 --- own row instead (`GetUndefinedSwitchInExpr`), which is the same trade every other reference
 --- gets: deleting leaves it where it is and the red is what finds it.
+---
+--- **Pending actions are the last two numbers, and only those** (owner, 2026-10-03). One names this
+--- profile's switches like any other (`importing-switches-apart-from-actions.md` 2-2), so deleting a
+--- switch it waits on turns it red; but it reaches no key yet, and counted into the first three it
+--- would answer "what do my keys use" wrongly. `pendingHere` is this character's, merged into its
+--- layers for the session; `pendingElsewhere` is what waits in a share (`ForEachPendingAction`),
+--- which is the other characters' -- a General layer's pending action is one character's too.
 function DebindPrivate.CountSwitchReferences(name)
-    local account, character, live = 0, 0, 0;
+    local account, character, live, pendingHere, pendingElsewhere = 0, 0, 0, 0, 0;
 
-    -- **A pending action is not counted** (owner, 2026-10-02): it is not the reader's yet, the
-    -- same reason a rename does not reach it (`RenameSwitch`).
     ForEachStoredAction(DebindPrivate.db.global, function(action)
-        if (not action.arrivalID and ActionNamesSwitch(action, name)) then
-            account = account + 1;
+        if (ActionNamesSwitch(action, name)) then
+            if (action.arrivalID) then
+                pendingHere = pendingHere + 1;
+            else
+                account = account + 1;
+            end
         end
     end, DebindPrivate.db.charLayers);
+    ForEachPendingAction(DebindPrivate.db.global, function(action)
+        if (ActionNamesSwitch(action, name)) then
+            pendingElsewhere = pendingElsewhere + 1;
+        end
+    end);
 
     -- **The layer walks, not a second pass over the same tables.** The eleven layers are the
     -- addon's own answer to "what does this character read", and going through them is what keeps
@@ -1464,7 +1520,7 @@ function DebindPrivate.CountSwitchReferences(name)
         end
     end
 
-    return account, character, live;
+    return account, character, live, pendingHere, pendingElsewhere;
 end
 
 --- The layer the account-wide row is drawn as, which is `LAYER_INFOS`' first.
@@ -1479,7 +1535,6 @@ local function LayerIDAt(spec, isCharacterSpecific)
     end
     return (isCharacterSpecific and 7 or 2) + spec;
 end
-DebindPrivate.LayerIDAt = LayerIDAt;
 
 --- Every place this profile names a switch, **gathered in one walk for every name at once**.
 ---
@@ -1507,6 +1562,10 @@ DebindPrivate.LayerIDAt = LayerIDAt;
 ---               exclusive: one reference is counted in exactly one of them. The last two are
 ---               keyed by class file name and by GUID. Each is `{ actions, exprs }`, counted
 ---               apart because the tab shows them as two groups
+---   * `pending` this character's pending actions, `{ action, layerID }`, and `pendingElsewhere`
+---               the count of everyone else's. Kept out of every field above, for the reason
+---               `CountSwitchReferences` gives; a name only pending actions hold still gets an
+---               entry, so the tab does not file a switch they wait on as unused
 ---
 --- **A switch naming itself is not a place.** That expression goes when the switch does, so it is
 --- nothing to fix first.
@@ -1522,6 +1581,8 @@ function DebindPrivate.CollectSwitchUsage()
                 general = { actions = 0, exprs = 0 },
                 classes = {},
                 characters = {},
+                pending = {},
+                pendingElsewhere = 0,
             };
             usage[name] = entry;
         end
@@ -1564,11 +1625,26 @@ function DebindPrivate.CollectSwitchUsage()
         end);
     end
 
-    -- Pending actions are left out, as in `CountSwitchReferences`.
+    --- Each name a pending action calls, once per action. `fn(entry)`.
+    local function forEachPendingName(action, fn)
+        wipe(named);
+        ForEachSwitchInAction(action, function(name)
+            if (not named[name]) then
+                named[name] = true;
+                fn(entryFor(name));
+            end
+        end);
+    end
+
     local function walkLayer(layerTbl, layerID, kind, key)
         for i = 1, #(layerTbl or {}) do
-            if (not layerTbl[i].arrivalID) then
-                addAction(layerTbl[i], layerID, kind, key);
+            local action = layerTbl[i];
+            if (not action.arrivalID) then
+                addAction(action, layerID, kind, key);
+            elseif (layerID) then
+                forEachPendingName(action, function(entry)
+                    entry.pending[#entry.pending + 1] = { action = action, layerID = layerID };
+                end);
             end
         end
     end
@@ -1616,6 +1692,12 @@ function DebindPrivate.CollectSwitchUsage()
     if (charLayers and not attached) then
         walkCharacter(playerGUID, charLayers);
     end
+
+    ForEachPendingAction(db, function(action)
+        forEachPendingName(action, function(entry)
+            entry.pendingElsewhere = entry.pendingElsewhere + 1;
+        end);
+    end);
 
     local function addExpr(owner, expr, layerID, kind, key)
         if (luatype(expr) ~= "string") then
@@ -1668,10 +1750,9 @@ function DebindPrivate.CollectSwitchUsage()
 end
 
 --- The three places in one action a switch name is rewritten: a condition key, an on/off/toggle
---- target, and a macro body (both its conditions and its `/click DebindSwitch` lines). Also what
---- an arrival's rename runs on its own pending actions (`ArrivalSwitches.lua`), and a merge
---- (`MergeSwitch`), which passes `merging`: where one place already names `newName`, the old term
---- goes and the one already there decides.
+--- target, and a macro body (both its conditions and its `/click DebindSwitch` lines). A merge
+--- (`MergeSwitch`) passes `merging`: where one place already names `newName`, the old term goes and
+--- the one already there decides.
 local function RenameSwitchInAction(action, oldName, newName, merging)
     local conditions = action.conditions;
     if (conditions and conditions[oldName] ~= nil) then
@@ -1687,7 +1768,16 @@ local function RenameSwitchInAction(action, oldName, newName, merging)
         action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName, merging);
     end
 end
-DebindPrivate.RenameSwitchInAction = RenameSwitchInAction;
+
+--- `RenameSwitchInAction` over every action that can name a switch: every stored layer, and every
+--- character's pending actions, waiting or merged into this session's layers.
+local function RenameSwitchEverywhere(db, oldName, newName, merging)
+    local function rename(action)
+        RenameSwitchInAction(action, oldName, newName, merging);
+    end
+    ForEachStoredAction(db, rename, DebindPrivate.db.charLayers);
+    ForEachPendingAction(db, rename);
+end
 
 --- Renames a switch, **and rewrites every reference to it**. Answers `true`, or `false` and a
 --- locale key saying why it refused.
@@ -1710,7 +1800,10 @@ DebindPrivate.RenameSwitchInAction = RenameSwitchInAction;
 --- character remembers. Left behind, a switch that remembers would come up off after a rename with
 --- nothing anywhere saying the value had been dropped.
 ---
---- **Every character and every class, not the layers on screen** (`ForEachStoredAction`).
+--- **Every character and every class, not the layers on screen** (`ForEachStoredAction`), **and
+--- every pending action** (`ForEachPendingAction`). A pending action names this profile's switches
+--- (`importing-switches-apart-from-actions.md` 2-2); left on the old name, it would turn red the
+--- moment the switch it was waiting on moved, on a character that may not be logged in to see it.
 ---
 --- The live table is re-keyed rather than rebuilt, because `BindDerivedTables` recomputes every
 --- value from `resetValue`, and rebuilding here would reset a switch the user has on right now as a
@@ -1734,17 +1827,7 @@ function DebindPrivate.RenameSwitch(oldName, newName)
         return false, "SWITCH_NAME_ERROR_TAKEN";
     end
 
-    local db = DebindPrivate.db.global;
-
-    -- **A pending action keeps the old name** (owner, 2026-10-02). It is not the reader's yet, so
-    -- renaming their switch is not a decision about it; it is settled against the profile when it
-    -- is accepted (`resolving-switches-on-accept.md` 6-5). Other characters' pending actions are
-    -- in `pendingActions` and this walk does not reach them at all.
-    ForEachStoredAction(db, function(action)
-        if (not action.arrivalID) then
-            RenameSwitchInAction(action, oldName, newName);
-        end
-    end, DebindPrivate.db.charLayers);
+    RenameSwitchEverywhere(DebindPrivate.db.global, oldName, newName);
 
     -- **Every row, not only the root's.** A layer override carries an expression of its own, and
     -- one left behind is the quietest failure this function has: the switch computed from the old
@@ -1797,17 +1880,13 @@ end
 --- it: whoever kept `winner` wants what it does now kept, and filling would change it on that layer
 --- (owner). The loser's rows and remembered values go with it (`DeleteSwitch`).
 ---
---- Pending actions are not touched, for the reason `RenameSwitch` gives.
+--- Pending actions are rewritten too, every character's, for the reason `RenameSwitch` gives.
 function DebindPrivate.MergeSwitch(loser, winner)
     if (loser == winner or not DebindPrivate.Switches[loser] or not DebindPrivate.Switches[winner]) then
         return false;
     end
 
-    ForEachStoredAction(DebindPrivate.db.global, function(action)
-        if (not action.arrivalID) then
-            RenameSwitchInAction(action, loser, winner, true);
-        end
-    end, DebindPrivate.db.charLayers);
+    RenameSwitchEverywhere(DebindPrivate.db.global, loser, winner, true);
 
     -- **Not the winner's own rows.** One whose expression names the loser would come out naming
     -- itself; left as it is, it names a switch that is gone and goes red, as after a delete.
@@ -2537,17 +2616,12 @@ function DebindPrivate.CleanUpDB()
     AttachCharacterTables();
 end
 
---- Drops empty lists and the tables left holding nothing from one `pendingActions[guid]` share,
---- and gathers the arrival numbers still in it.
-local function PruneShare(share, kept)
+--- Drops empty lists and the tables left holding nothing from one `pendingActions[guid]` share.
+local function PruneShare(share)
     local function pruneSpecs(specTbl)
         for spec, list in pairs(specTbl) do
             if (#list == 0) then
                 specTbl[spec] = nil;
-            else
-                for i = 1, #list do
-                    kept[list[i].arrivalID] = true;
-                end
             end
         end
         return next(specTbl) == nil;
@@ -2569,13 +2643,12 @@ local function PruneShare(share, kept)
     end
 end
 
---- Takes this character's pending actions out of its layers and into `pendingActions[guid]`, and
---- drops the records of arrivals with nothing left waiting. The logout half of
---- `MergePendingActions`.
+--- Takes this character's pending actions out of its layers and into `pendingActions[guid]`. The
+--- logout half of `MergePendingActions`.
 ---
 --- **After `CleanUpDB`**, so what goes into the share has had the same clean-up as the layers. And
 --- **never from inside it**: the load-time `CleanUpDB` runs on layers nothing has been merged into
---- yet, and a split there would write this character's share out empty and every record with it.
+--- yet, and a split there would write this character's share out empty.
 ---
 --- The layers end up without the badged actions, which is the shape saved to disk; nothing runs
 --- after logout to read them.
@@ -2615,26 +2688,10 @@ function DebindPrivate.StowPendingActions()
         end
     end
 
-    local waiting = {};
-    PruneShare(share, waiting);
+    PruneShare(share);
     db.pendingActions[guid] = next(share) and share or nil;
     if (next(db.pendingActions) == nil) then
         db.pendingActions = nil;
-    end
-
-    local records = db.arrivals and db.arrivals[guid];
-    if (records) then
-        for arrivalID in pairs(records) do
-            if (not waiting[arrivalID]) then
-                records[arrivalID] = nil;
-            end
-        end
-        if (next(records) == nil) then
-            db.arrivals[guid] = nil;
-        end
-        if (next(db.arrivals) == nil) then
-            db.arrivals = nil;
-        end
     end
 
     -- Decided again, because a character layer that held only pending actions is empty now.
@@ -3152,6 +3209,14 @@ function DebindPrivate.CollectArrivedActions()
     return actions;
 end
 
+--- **The one door a badge comes off through.** Accepting, giving a key, and the key window's
+--- [Unbind key] all end here, so whatever accepting comes to mean later has one place to go.
+function DebindPrivate.TakeBadgesOff(actions)
+    for i = 1, #actions do
+        actions[i].arrivalID = nil;
+    end
+end
+
 --- Puts one key on a whole set of actions at once, in the order the set already has.
 ---
 --- **This is the only way the ordering inside the set survives.** Giving the actions a key one at a
@@ -3174,9 +3239,7 @@ end
 --- **No rebuild here.** `Profile.lua` places actions and does not decide when bindings go up
 --- (`PlaceArrivedActions` above is the same); the caller rebuilds once when it is done, which is
 --- the point of doing the set in one call at all.
----
---- `answers` is what the switch window held for these actions, if any (`TakeBadgesOff`).
-function DebindPrivate.SetKeyForActions(actions, key, answers)
+function DebindPrivate.SetKeyForActions(actions, key)
     if (key == nil or actions == nil or #actions == 0) then
         return false;
     end
@@ -3226,7 +3289,7 @@ function DebindPrivate.SetKeyForActions(actions, key, answers)
         end
 
         action.key = key;
-        DebindPrivate.TakeBadgesOff({ action }, answers);
+        DebindPrivate.TakeBadgesOff({ action });
         if (layer) then
             -- **Arrival number plus this set's own ranking.** Renumbering alone cannot say which of
             -- these goes first -- they are all new to the group. The arrival number dominates
@@ -3308,11 +3371,11 @@ end
 --- true.
 ---
 --- No rebuild, for the reason `SetKeyForActions` gives.
-function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants, answers)
+function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants)
     if (unbindOccupants and occupants) then
         DebindPrivate.ClearKeyForActions(occupants);
     end
-    return DebindPrivate.SetKeyForActions(actions, key, answers);
+    return DebindPrivate.SetKeyForActions(actions, key);
 end
 
 --- Takes the key off one action, and the number with it.

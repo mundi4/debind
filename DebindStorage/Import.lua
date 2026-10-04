@@ -1255,98 +1255,6 @@ function DebindStorage.PlanArrival(payload, options)
     return placements, skipped;
 end
 
---- One kept switch row, the three fields `SWITCH_FIELDS` carries, type-checked: a pasted string is
---- untrusted, and these are written into the reader's switches on acceptance.
-local SWITCH_MODE_VALUES = {};
-for _, mode in pairs(Constants.SWITCH_MODES) do
-    SWITCH_MODE_VALUES[mode] = true;
-end
-local function KeptRow(row)
-    if (luatype(row) ~= "table") then
-        return nil;
-    end
-    if (row.mode ~= nil and not SWITCH_MODE_VALUES[row.mode]) then
-        return nil;
-    end
-    local kept = { mode = row.mode };
-    if (luatype(row.resetValue) == "boolean") then
-        kept.resetValue = row.resetValue;
-    end
-    if (luatype(row.expr) == "string") then
-        kept.expr = row.expr;
-    end
-    return kept;
-end
-
---- The switch rows an arrival keeps until its actions are accepted, at this character's addresses
---- (`resolving-switches-on-accept.md` 3-4). `actions` are the ones `PlanArrival` built.
----
---- **Which cells: this class's, whatever was ticked.** Another class's account cells are dropped,
---- as their actions are. The general and class boxes are not read: they pick which actions to take,
---- while a class cell's override changes how a general action behaves on this class, so a reader who
---- took only general actions still needs it. Character cells come from the character the dialog
---- picked, and none when nobody was.
----
---- **A class with no specialization layers keeps its specialization 0 row and drops the folded
---- ones.** Actions in those cells are lists and merge; a switch has one row per cell, and which
---- spec's row should win is picking one of the sender's specs on no ground (3절).
----
---- Returns `{ [name] = { general = row, class = { [spec] = row }, character = { [spec] = row } } }`.
-function DebindStorage.ArrivalSwitchRows(payload, options, actions)
-    if (payload.fromAddon == DebindStorage.FROM_ADDON_CLIQUE or luatype(payload.switches) ~= "table") then
-        return nil;
-    end
-    local parts = options and options.parts or DebindStorage.AddChoices(payload, options and options.selection);
-    local classID = PlayableClassID(Constants.PLAYER_CLASS);
-    local specLayers = DebindPrivate.SpecLayerCount(classID);
-
-    -- name -> cells, for every row this character could take.
-    local available = {};
-    local function keep(name, scope, spec, row)
-        if (not Constants.IsValidSwitchName(name)) then
-            return;
-        end
-        local kept = KeptRow(row);
-        if (not kept) then
-            return;
-        end
-        local cells = available[name] or {};
-        available[name] = cells;
-        if (scope == "general") then
-            cells.general = kept;
-        else
-            cells[scope] = cells[scope] or {};
-            cells[scope][spec] = kept;
-        end
-    end
-
-    for owner, classes in pairs(payload.switches) do
-        if (luatype(classes) == "table") then
-            for class, specTbl in pairs(classes) do
-                if (luatype(specTbl) == "table") then
-                    for spec, cell in pairs(specTbl) do
-                        local mine = (owner == DebindStorage.ACCOUNT_OWNER and (class == "GENERAL" or class == Constants.PLAYER_CLASS))
-                            or (owner == parts.character and class == Constants.PLAYER_CLASS);
-                        local scope, _, at = nil, nil, nil;
-                        if (mine) then
-                            scope, _, at = DebindStorage.ImportAddress(owner, class, spec);
-                        end
-                        local folded = specLayers == 0 and spec ~= 0;
-                        if (scope and not folded and luatype(cell) == "table"
-                                and (scope == "general" or at == 0 or at <= specLayers)) then
-                            for name, row in pairs(cell) do
-                                keep(name, scope, at, row);
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return DebindPrivate.CollectArrivalSwitches(actions, available);
-end
-
 --- Commits an entry into the profile, badged.
 ---
 --- `options` is `PlanArrival`'s, and comes from the dialog the press opened rather than from the
@@ -1355,13 +1263,12 @@ end
 --- gets something other than what they asked for -- "leave the keys out" was one of these, before
 --- it stopped being a question at all.
 ---
---- **Switch definitions are not touched; the sender's rows are only kept** (`ArrivalSwitchRows`).
---- A switch is shared by everything in the profile, so writing one would change what the reader's
---- *existing* actions do - before they approved anything, and past the one thing quarantine is for.
----
---- **Nor is this the place to ask about them** (owner, 2026-10-02). The arrival may sit pending for
---- days, and an answer given here can be a conflict by the time it is accepted; the kept rows are
---- settled when the actions are (`resolving-switches-on-accept.md`, `ArrivalSwitches.lua`).
+--- **Switch definitions are not touched, and nothing about them is kept** (owner, 2026-10-03). A
+--- placed action names this profile's switches from the moment it lands, and one naming a switch
+--- this profile lacks stands in red until a switch of that name exists or the condition is dropped
+--- (`importing-switches-apart-from-actions.md`). Writing a switch here would
+--- change what the reader's *existing* actions do, and making one would leave it behind when the
+--- actions are rejected.
 function DebindStorage.CommitEntry(entry, options)
     local payload, reason = DebindStorage.GetEntryPayload(entry);
     if (not payload) then
@@ -1383,7 +1290,6 @@ function DebindStorage.CommitEntry(entry, options)
     for i = 1, #placements do
         actions[i] = placements[i].action;
     end
-    DebindPrivate.RecordArrival(actions[1].arrivalID, DebindStorage.ArrivalSwitchRows(payload, options, actions));
 
     return #placements, skipped, actions;
 end
