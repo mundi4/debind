@@ -606,6 +606,84 @@ local function isCovered(region, covers, coverCount, depth)
     return true;
 end
 
+--- **`region` with every cover taken away, as disjoint boxes appended to `out`.** False where
+--- `budget.work` ran out first, and `out` then holds part of the answer only.
+---
+--- `isCovered` asks the same question and stops at the first uncovered point; this keeps every
+--- piece, which is what a key's judgment item is made of (`Judgment.lua`). The split is the same: the
+--- pieces of `region \ O` do not meet O, so they go down with O taken off the cover list.
+---
+--- **Its own column count and fresh tables**, not `_numColumns` and the depth pools: it runs on a
+--- layout of its own, between solver calls, and only at a rebuild.
+local function subtractBoxes(region, covers, coverCount, numColumns, out, budget)
+    if (budget.work <= 0) then
+        return false;
+    end
+    budget.work = budget.work - coverCount * numColumns - 1;
+
+    local live, liveCount = {}, 0;
+    local best, bestPieces;
+    for i = 1, coverCount do
+        local other = covers[i];
+        local intersects = true;
+        local pieces = 0;
+        for col = 1, numColumns do
+            local value = region[col];
+            if (band(value, other[col]) == 0) then
+                intersects = false;
+                break;
+            end
+            if (band(value, bnot(other[col])) ~= 0) then
+                pieces = pieces + 1;
+            end
+        end
+        if (intersects) then
+            if (pieces == 0) then
+                return true;
+            end
+            liveCount = liveCount + 1;
+            live[liveCount] = other;
+            if (best == nil or pieces < bestPieces) then
+                best = liveCount;
+                bestPieces = pieces;
+            end
+        end
+    end
+
+    if (liveCount == 0) then
+        local piece = {};
+        for col = 1, numColumns do
+            piece[col] = region[col];
+        end
+        out[#out + 1] = piece;
+        return true;
+    end
+
+    local other = live[best];
+    live[best] = live[liveCount];
+    liveCount = liveCount - 1;
+
+    for split = 1, numColumns do
+        local remaining = band(region[split], bnot(other[split]));
+        if (remaining ~= 0) then
+            local frag = {};
+            for col = 1, split - 1 do
+                frag[col] = band(region[col], other[col]);
+            end
+            frag[split] = remaining;
+            for col = split + 1, numColumns do
+                frag[col] = region[col];
+            end
+            if (not subtractBoxes(frag, live, liveCount, numColumns, out, budget)) then
+                return false;
+            end
+        end
+    end
+    return true;
+end
+
+DebindPrivate.SubtractBoxes = subtractBoxes;
+
 ---
 --- 모든 바인딩이 같은 값을 갖는 컬럼은 버린다.
 ---

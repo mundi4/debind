@@ -255,8 +255,12 @@ do
         binding.resolvedSpellID = action.resolvedSpellID;
         -- **Only the binding changes.** The action keeps the type it was saved with, so its row
         -- still says what it was, and an older build reading the same SavedVariables still runs it.
+        -- `tail` keeps what it was, which the key's judgment item reads (`UpdateBindingsMap`).
         if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
             binding.type = Constants.BLOCK;
+            binding.tail = action.type;
+        else
+            binding.tail = nil;
         end
         -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
         -- action stores is the kind; which spell that is today is this specialization's answer

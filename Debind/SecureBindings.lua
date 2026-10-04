@@ -1804,7 +1804,16 @@ if (DebindPrivate.DEBUG) then
 		local winner, unitframeUnit
 		local evalFrame = States.unitframe
 ]==] .. EVAL_SNIPPET .. [==[
-		if (not winner or not winner.clickbutton) then
+		if (not winner) then
+			return
+		end
+		-- A BLOCK or a tail wins with nothing to click, and which one it was is still an answer.
+		if (not winner.clickbutton) then
+			for i = 1, #bindings do
+				if (bindings[i] == winner) then
+					return nil, i
+				end
+			end
 			return
 		end
 ]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET

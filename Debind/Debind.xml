@@ -30,6 +30,7 @@
     <Script file="UnitWatch.lua"/>
     <Script file="FrameRegistry.lua"/>
     <Script file="ClickCastTable.lua"/>
+    <Script file="Judgment.lua"/>
     <Script file="UpdateBindings.lua"/>
     <Script file="Switches.lua"/>
 

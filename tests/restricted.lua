@@ -608,6 +608,19 @@ function Interp:evalKey(key)
     return index, clickbutton, index and self.env.ClickTimeKeys[button][index], unit;
 end
 
+--- **The record that won a press of `key`, a BLOCK or a tail included**, which `evalKey` answers
+--- nil for, and the record list it came from. False where the press reached no binding of ours.
+function Interp:winningRecord(key)
+    local mods, base = heldChord(key, self.state.modifiedClick);
+    local entry = self:landing(mods, base);
+    if (not entry or not entry.mouseButton) then
+        return false;
+    end
+    local bindings = self.env.ClickTimeKeys[entry.mouseButton];
+    local _, index = self.driverHandle:RunAttribute("EvalClickTimeKey", entry.mouseButton);
+    return index and bindings[index], bindings;
+end
+
 --- The same for a click that arrives on a unit frame. `n` is the mouse button number and `mod`
 --- the modifier index, which is what the wrapper recovers the key from -- a click-cast click
 --- carries no button name of its own.

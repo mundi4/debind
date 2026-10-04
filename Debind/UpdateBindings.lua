@@ -1906,6 +1906,9 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     -- the slot off underneath it.
     out.readsUnitFrameUnit = binding.type == Constants.SETCUSTOM;
 
+    out.tail = binding.tail;
+    out.command = binding.tail == Constants.COMMAND and binding.value or nil;
+
     -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는 루프였고, 그래서
     -- `$state1`~`$state5` 밖의 이름은 조건으로 걸려 있어도 여기서 안 보였다. 솔버는 그 이름에도
     -- 컬럼을 만드니 (`Solver.lua`) 둘이 갈리면 한쪽은 조건이 있다고 보고 다른 쪽은 없다고 본다.
@@ -2059,6 +2062,16 @@ local function EmitRecord(record)
 
     if (record.holdsKey) then
         appendLine("t.holdsKey=true");
+    end
+
+    -- **DEBUG only, and read by nothing in the addon.** A tail goes out as a BLOCK, so without these a
+    -- spec asking which record won cannot tell it from the BLOCK closing the tier
+    -- (`judgment_spec.lua`).
+    if (DEBUG and record.tail) then
+        appendLine("t.tail=%q", record.tail);
+        if (record.command) then
+            appendLine("t.command=%q", record.command);
+        end
     end
 end
 
@@ -2222,10 +2235,37 @@ end
 local _boundBare = {};
 local _castChords = {};
 
+--- **Each key that holds a tail, and each chord made from one, by its binding string -> its judgment
+--- item** (`Judgment.lua`). A key with no tail has none: it is ours in every state, and so are its
+--- chords. Rebuilt whole by every rebuild.
+DebindPrivate.JudgmentItems = {};
+
+--- A tail key's self and focus tier entries, kept until its chords are known.
+local _chordEntries = {};
+
+--- What a record winning a press means for the key. A tier's own closing BLOCK means nothing of its
+--- own on a chord: the chord then lands where its base key does (`handing-the-rest-of-a-key-to-the-game.md`
+--- 2-3).
+local function JudgmentEntryFor(binding, record, tier)
+    local Judgment = DebindPrivate.Judgment;
+    local outcome = Judgment.OURS;
+    if (binding.tail == Constants.COMMAND) then
+        outcome = Judgment.COMMAND;
+    elseif (binding.tail == Constants.UNUSED) then
+        outcome = Judgment.RELEASE;
+    elseif (tier ~= Constants.CASTMOD_NONE and binding == BLOCKS[tier]) then
+        outcome = Judgment.BASE;
+    end
+    return Judgment.Entry(record, outcome, record.command);
+end
+
 function UpdateBindingsMap()
     appendLine("local bindings,t,u,c");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
+    local judgmentItems = DebindPrivate.JudgmentItems;
+    wipe(judgmentItems);
+    wipe(_chordEntries);
     wipe(_boundBare);
     wipe(_keysToWalk);
     for key in pairs(keyMap) do
@@ -2252,6 +2292,11 @@ function UpdateBindingsMap()
 
         local first = true;
         local selfCount, focusCount = 0, 0;
+        -- The records a press on this key or one of its chords walks, by tier.
+        local tiers = {
+            [Constants.CASTMOD_NONE] = {}, [Constants.CASTMOD_SELF] = {}, [Constants.CASTMOD_FOCUS] = {},
+        };
+        local hasTail = false;
 
         if (hasClickCast or hasKeyRecord) then
             for i = 1, #keyArray do
@@ -2271,6 +2316,12 @@ function UpdateBindingsMap()
                         end
                         CollectRecordNeeds(record);
                         EmitRecord(record);
+                        if (holdsKey) then
+                            local tier = binding.castModifier or Constants.CASTMOD_NONE;
+                            local list = tiers[tier];
+                            list[#list + 1] = JudgmentEntryFor(binding, record, tier);
+                            hasTail = hasTail or binding.tail ~= nil;
+                        end
                         if (binding.castModifier == Constants.CASTMOD_SELF) then
                             selfCount = selfCount + 1;
                         elseif (binding.castModifier == Constants.CASTMOD_FOCUS) then
@@ -2332,6 +2383,11 @@ function UpdateBindingsMap()
             appendLine("BoundKeys[%q]=bindings", key);
             appendLine("bindings.clickButton=%q", clickTimeButton);
             _boundBare[key] = true;
+
+            if (hasTail) then
+                judgmentItems[key] = DebindPrivate.Judgment.Build(tiers[Constants.CASTMOD_NONE]);
+                _chordEntries[key] = tiers;
+            end
         end
     end
 
@@ -2371,6 +2427,9 @@ function UpdateBindingsMap()
                 end
                 appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", chord, button);
                 appendLine("c=newtable() c.clickButton=%q c.base=%q BoundKeys[%q]=c", button, key, chord);
+                if (_chordEntries[key]) then
+                    judgmentItems[chord] = DebindPrivate.Judgment.Build(_chordEntries[key][tier], key);
+                end
             end
         end
     end

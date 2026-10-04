@@ -3250,7 +3250,16 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 		end
 	end
-		if (not winner or not winner.clickbutton) then
+		if (not winner) then
+			return
+		end
+
+		if (not winner.clickbutton) then
+			for i = 1, #bindings do
+				if (bindings[i] == winner) then
+					return nil, i
+				end
+			end
 			return
 		end
 
@@ -3907,7 +3916,16 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 		end
 	end
-		if (not winner or not winner.clickbutton) then
+		if (not winner) then
+			return
+		end
+
+		if (not winner.clickbutton) then
+			for i = 1, #bindings do
+				if (bindings[i] == winner) then
+					return nil, i
+				end
+			end
 			return
 		end
 
