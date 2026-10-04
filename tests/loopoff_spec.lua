@@ -123,7 +123,25 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    test("an unused action holds the key and does nothing", function()
+    -- A saved unused becomes a block where it stood (`MigrateLayer`, `dbver <= 7`), still holding
+    -- back the action under it (`handing-the-rest-of-a-key-to-the-game.md` 8-5, S2). Left an
+    -- unused, the order would carry it to the bottom and set that action free.
+    test("a saved unused still holds back the action under it", function()
+        local layer = {
+            action({ value = 585, key = "F1", conditions = { combat = true } }),
+            action({ type = Constants.UNUSED, key = "F1" }),
+            action({ value = 774, key = "F1" }),
+        };
+        DebindPrivate.MigrateLayer(layer, 7);
+        Bind(layer);
+
+        check(IsOurs("F1"), "the key is not ours: " .. Bound("F1"));
+        check(interp:evalKey("F1") == nil, "the action under the saved unused fired");
+    end);
+
+    -- An unused put on the key now is a tail and stands below every other action, wherever its
+    -- number put it (2-1).
+    test("an unused action stands below the action saved under it", function()
         Bind({
             action({ value = 585, key = "F1", conditions = { combat = true } }),
             action({ type = Constants.UNUSED, key = "F1" }),
@@ -131,7 +149,7 @@ return function(DebindPrivate, _, ctx)
         });
 
         check(IsOurs("F1"), "the key is not ours: " .. Bound("F1"));
-        check(interp:evalKey("F1") == nil, "the action under the unused one fired");
+        check(interp:evalKey("F1") ~= nil, "the action saved under the unused one did not fire");
     end);
 
     test("a command holds the key and does nothing", function()

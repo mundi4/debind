@@ -1197,6 +1197,11 @@ end
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     local binding = GetBindingInfoForAction(action);
     dest = dest or {};
+    if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
+        dest.tailRank = action.atTop and -1 or 1;
+    else
+        dest.tailRank = 0;
+    end
     dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
     dest.isConditional = DebindPrivate.IsConditionalBinding(binding) or HasSwitchCondition(action);
     dest.layerRank = layerRank;

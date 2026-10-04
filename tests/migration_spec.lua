@@ -614,7 +614,8 @@ return function(DebindPrivate)
             { key = "C", type = Constants.COMMAND, value = "EXTRAACTIONBUTTON1" },
             { key = "D", type = Constants.COMMAND, value = "TOGGLEWORLDMAP" },
         };
-        MigrateLayer(layer, 6);
+        -- Stopped at 7: the next step turns what is left into a block.
+        MigrateLayer(layer, 6, 7);
         for i = 1, 3 do
             check(layer[i].type == Constants.ACTIONBUTTON, layer[i].value .. ": " .. tostring(layer[i].type));
         end
@@ -657,6 +658,34 @@ return function(DebindPrivate)
                 layer[i].key .. ": " .. tostring(layer[i].pinRank) .. " " .. tostring(layer[i].pinnedSpell));
         end
         check(layer[3].pinnedSpell == nil and layer[3].pinRank == nil, "a name was pinned as its own rank");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 7: a saved command or unused becomes a block where it stands
+    -- (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Left as either type, the order would carry it
+    -- to the top or the bottom of its key and set free whatever it was blocking.
+    ---------------------------------------------------------------------------
+
+    test("dbver 7 turns a saved command and unused into blocks", function()
+        local layer = {
+            { key = "A", type = Constants.COMMAND, value = "TOGGLEWORLDMAP", seq = 2,
+                conditions = { combat = true } },
+            { key = "B", type = Constants.UNUSED, seq = 1 },
+        };
+        MigrateLayer(layer, 7);
+        check(layer[1].type == Constants.BLOCK, "command: " .. tostring(layer[1].type));
+        check(layer[1].value == nil, "command value stayed: " .. tostring(layer[1].value));
+        check(layer[1].seq == 2 and layer[1].key == "A" and layer[1].conditions.combat == true,
+            "the command's place or conditions moved");
+        check(layer[2].type == Constants.BLOCK, "unused: " .. tostring(layer[2].type));
+        check(layer[2].seq == 1 and layer[2].key == "B", "the unused's place moved");
+    end);
+
+    test("dbver 7 leaves an action button command to the step before it", function()
+        local layer = { { key = "A", type = Constants.COMMAND, value = "ACTIONBUTTON3" } };
+        MigrateLayer(layer, 6);
+        check(layer[1].type == Constants.ACTIONBUTTON, "type: " .. tostring(layer[1].type));
+        check(layer[1].value == "ACTIONBUTTON3", "value: " .. tostring(layer[1].value));
     end);
 
     test("dbver 7 is safe to run twice over a pin", function()

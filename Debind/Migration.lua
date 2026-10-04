@@ -789,6 +789,23 @@ local function MigrateLayer(layerTbl, dbver, to)
                 action.pinRank = nil;
             end
         end
+
+        -- **A saved command or unused becomes a block where it stands**
+        -- (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Since 4.0 both bound as a block, so each
+        -- has been winning its presses in its own place and holding back whatever comes after it. As
+        -- either type it would be ordered to the top or the bottom of its key from now on, which
+        -- frees what it was holding back and starts handing the key to the game, with nothing the
+        -- reader did.
+        --
+        -- `value` goes: a block carries none, and a command name left on one is read by nothing.
+        -- Running twice is safe: no command or unused is left after the first pass.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
+                action.type = Constants.BLOCK;
+                action.value = nil;
+            end
+        end
     end
 
 end
