@@ -1040,14 +1040,28 @@ function DebindStorage.CliqueActionHasSpecs(action)
     return luatype(action) == "table" and CliqueSpecMask(action.untranslated) ~= nil;
 end
 
---- What adding the ticked actions of `payload` can take for this character: `general` and `class`
---- say whether any ticked action sits in the account's general cell or in this class's account
---- cells, `characters` lists the character keys with a ticked action in a cell of this class, and
---- `character` is the one picked before anybody chooses (`reshaping-stored-layers.md` 6-2).
+--- Sorts `characters`, the payload character keys of this class, and answers the one a choice
+--- starts on. `seen` is the same keys as a set.
 ---
 --- **The key that is this character wins, then a lone candidate, then nobody.** Two strangers of
 --- this class give no ground to pick one, and one picked anyway would be a guess the reader did
---- not see.
+--- not see. One rule for the add dialog and the Switches tab, so the two halves of one payload
+--- start on the same character.
+local function PickCharacter(characters, seen)
+    sort(characters, function(lhs, rhs) return tostring(lhs) < tostring(rhs); end);
+    if (seen[DebindPrivate.playerGUID]) then
+        return DebindPrivate.playerGUID;
+    elseif (#characters == 1) then
+        return characters[1];
+    end
+    return nil;
+end
+
+--- What adding the ticked actions of `payload` can take for this character: `general` and `class`
+--- say whether any ticked action sits in the account's general cell or in this class's account
+--- cells, `characters` lists the character keys with a ticked action in a cell of this class, and
+--- `character` is the one picked before anybody chooses (`reshaping-stored-layers.md` 6-2,
+--- `PickCharacter`).
 function DebindStorage.AddChoices(payload, selection)
     local choices = { general = false, class = false, characters = {} };
     local seen = {};
@@ -1073,13 +1087,7 @@ function DebindStorage.AddChoices(payload, selection)
             choices.characters[#choices.characters + 1] = owner;
         end
     end);
-    sort(choices.characters, function(lhs, rhs) return tostring(lhs) < tostring(rhs); end);
-
-    if (seen[DebindPrivate.playerGUID]) then
-        choices.character = DebindPrivate.playerGUID;
-    elseif (#choices.characters == 1) then
-        choices.character = choices.characters[1];
-    end
+    choices.character = PickCharacter(choices.characters, seen);
     return choices;
 end
 
@@ -1292,4 +1300,197 @@ function DebindStorage.CommitEntry(entry, options)
     end
 
     return #placements, skipped, actions;
+end
+
+-- ---------------------------------------------------------------------------------------------
+-- Switches, brought in apart from the actions (`importing-switches-apart-from-actions.md` 2-7)
+-- ---------------------------------------------------------------------------------------------
+
+local SWITCH_MODE_VALUES = {};
+for _, mode in pairs(Constants.SWITCH_MODES) do
+    SWITCH_MODE_VALUES[mode] = true;
+end
+
+--- One payload switch row, the three fields `SWITCH_FIELDS` carries, type-checked. A pasted string
+--- is untrusted and these are written into the reader's switches. A mode nothing knows drops the
+--- row; a field of the wrong type drops the field.
+local function KeptRow(row)
+    if (luatype(row) ~= "table") then
+        return nil;
+    end
+    if (row.mode ~= nil and not SWITCH_MODE_VALUES[row.mode]) then
+        return nil;
+    end
+    local kept = { mode = row.mode };
+    if (luatype(row.resetValue) == "boolean") then
+        kept.resetValue = row.resetValue;
+    end
+    if (luatype(row.expr) == "string") then
+        kept.expr = row.expr;
+    end
+    return kept;
+end
+
+--- **Each field is compared only under the answer that reads it**: `resetValue` under the manual
+--- answer, `expr` under the expression one. Choosing another answer leaves both behind on the row
+--- (`SetSwitchAnswer`), where they decide nothing; compared anyway, two rows that behave the same
+--- would be put to the reader as different.
+local function SameSwitchRow(lhs, rhs)
+    local MANUAL, EXPR = Constants.SWITCH_MODES.MANUAL, Constants.SWITCH_MODES.EXPR;
+    local mode = lhs.mode or MANUAL;
+    if (mode ~= (rhs.mode or MANUAL)) then
+        return false;
+    end
+    if (mode == MANUAL) then
+        return lhs.resetValue == rhs.resetValue;
+    end
+    return mode ~= EXPR or lhs.expr == rhs.expr;
+end
+
+--- The character cells of this class the switch tab's dropdown offers, sorted, and the one it
+--- starts on (`PickCharacter`). **Cells of actions and of switches both count**, since the tab
+--- stands apart from which actions are ticked.
+function DebindStorage.SwitchImportOwners(payload)
+    local seen, owners = {}, {};
+    local function offer(owner, class)
+        if (owner ~= DebindStorage.ACCOUNT_OWNER and class == Constants.PLAYER_CLASS and not seen[owner]) then
+            seen[owner] = true;
+            owners[#owners + 1] = owner;
+        end
+    end
+    DebindStorage.ForEachPayloadLayer(payload, function(_, owner, class)
+        offer(owner, class);
+    end);
+    DebindStorage.ForEachPayloadSwitchRow(payload, function(_, _, owner, class)
+        offer(owner, class);
+    end);
+    return owners, PickCharacter(owners, seen);
+end
+
+--- The layer a payload switch cell lands on for this character, or nil.
+---
+--- **This class's account cells and the picked character's cells, nothing of another class**: the
+--- rule the actions go by (`reshaping-stored-layers.md` 6-2), for the same reason. Writing another
+--- class's row would change that class's existing actions with nobody there to see it.
+---
+--- **A class with no specialization layers takes its specialization 0 row and drops the others.**
+--- Actions in those cells merge into one list; a switch has one row per layer, and which of the
+--- sender's specializations should win has no ground.
+local function SwitchCellLayerID(owner, class, spec, character, specLayers)
+    if (class ~= "GENERAL" and class ~= Constants.PLAYER_CLASS) then
+        return nil;
+    end
+    if (owner ~= DebindStorage.ACCOUNT_OWNER and owner ~= character) then
+        return nil;
+    end
+    if (specLayers == 0 and spec ~= 0) then
+        return nil;
+    end
+    local scope, _, at = DebindStorage.ImportAddress(owner, class, spec);
+    if (scope == "general") then
+        return 1;
+    elseif (scope == "class" and (at == 0 or at <= specLayers)) then
+        return DebindPrivate.GetLayerID(at, false);
+    elseif (scope == "character") then
+        return DebindPrivate.GetLayerID(at, true);
+    end
+    return nil;
+end
+
+--- What the switch tab draws for `payload`, with `character` the payload's character key picked in
+--- its dropdown (nil for none). A list sorted by name of
+---
+---     { name, isNew, included, rows = { { layerID, incoming, mine, kind, checked, locked } } }
+---
+--- rows sorted by layer. `kind` is `"new"` (a switch this profile lacks), `"same"`, `"overwrite"`
+--- or `"fill"` (this layer has no row of mine; giving it one changes what my actions there do, so it
+--- is asked like an overwrite). **The ticks mean "my row is this once written"** (owner): the same
+--- stands ticked and locked, a new switch's root follows `included` and is locked, since a switch
+--- cannot be made without it, and everything else is the reader's to tick.
+---
+--- **Only a name a switch can be filed under is offered.** `CreateSwitch` folds the case, so `$Burst`
+--- would be made as `$burst` while the actions went on calling the other spelling.
+function DebindStorage.BuildSwitchImport(payload, character)
+    local specLayers = DebindPrivate.SpecLayerCount(PlayableClassID(Constants.PLAYER_CLASS));
+    local byName = {};
+    DebindStorage.ForEachPayloadSwitchRow(payload, function(row, name, owner, class, spec)
+        local layerID = SwitchCellLayerID(owner, class, spec, character, specLayers);
+        local kept = layerID and KeptRow(row);
+        if (kept and Constants.IsValidSwitchName(name) and name == strlower(name)) then
+            byName[name] = byName[name] or {};
+            byName[name][layerID] = kept;
+        end
+    end);
+
+    local items = {};
+    for name, cells in pairs(byName) do
+        local isNew = DebindPrivate.Switches[name] == nil;
+        local item = { name = name, isNew = isNew, included = isNew, rows = {} };
+        for layerID, incoming in pairs(cells) do
+            -- **A layer with no key is no place to write**, and nil is the root's key: a character
+            -- layer answers nil while there is no `playerGUID`, and taken as is, its row would be
+            -- read from and written over the account-wide definition.
+            local layerKey = layerID ~= 1 and DebindPrivate.GetSwitchLayerKey(layerID) or nil;
+            if (layerID == 1 or layerKey ~= nil) then
+                local row = { layerID = layerID, layerKey = layerKey, incoming = incoming };
+                if (isNew) then
+                    row.kind, row.checked, row.locked = "new", true, layerID == 1;
+                else
+                    local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
+                    if (mode ~= nil) then
+                        row.mine = { mode = mode, resetValue = resetValue, expr = expr };
+                    end
+                    if (row.mine and SameSwitchRow(row.mine, incoming)) then
+                        row.kind, row.checked, row.locked = "same", true, true;
+                    else
+                        row.kind, row.checked, row.locked = row.mine and "overwrite" or "fill", false, false;
+                    end
+                end
+                item.rows[#item.rows + 1] = row;
+            end
+        end
+        sort(item.rows, function(lhs, rhs) return lhs.layerID < rhs.layerID; end);
+        items[#items + 1] = item;
+    end
+    sort(items, function(lhs, rhs) return lhs.name < rhs.name; end);
+    return items;
+end
+
+--- Writes what `BuildSwitchImport`'s items say is ticked. A new switch is made only when
+--- `included`, and the root goes first: a layer row written before it would stand under a
+--- definition still holding the defaults. Answers how many switches were made or written to.
+---
+--- **The expression is written only with the expression answer**, the rule `SetSwitchAnswer` keeps:
+--- a reader whose row computes itself and who takes the entry's "on" has not asked to lose what
+--- they typed there.
+---
+--- **No `OnSwitchesChanged` here.** That is for the set of switches moving, and `CreateSwitch`
+--- already says so for each one made; rows written to a switch the reader has move nothing in it.
+function DebindStorage.ImportSwitches(items)
+    local touched = 0;
+    for _, item in ipairs(items) do
+        local name = item.name;
+        local proceed = true;
+        if (item.isNew) then
+            proceed = item.included and DebindPrivate.Switches[name] == nil
+                and DebindPrivate.CreateSwitch(name);
+        end
+        local wrote = item.isNew and proceed;
+        if (proceed) then
+            for _, row in ipairs(item.rows) do
+                if ((row.checked or (item.isNew and row.locked)) and row.kind ~= "same") then
+                    local incoming = row.incoming;
+                    DebindPrivate.SetSwitchAnswer(name, row.layerKey, incoming.mode, incoming.resetValue);
+                    if (incoming.mode == Constants.SWITCH_MODES.EXPR) then
+                        DebindPrivate.SetSwitchExpression(name, row.layerKey, incoming.expr);
+                    end
+                    wrote = true;
+                end
+            end
+        end
+        if (wrote) then
+            touched = touched + 1;
+        end
+    end
+    return touched;
 end

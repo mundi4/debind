@@ -7023,6 +7023,54 @@ function DebindMacroFrameMixin:Refresh()
 	self.Editor.SelectedMacroButton.Icon:SetTexture(action.icon);
 end
 
+--------------------------------------------------------------------------------
+-- A tab over a column (`DebindTopTabTemplate`)
+--------------------------------------------------------------------------------
+
+DebindTopTabMixin = {};
+
+--- **The art is brought to the button's own height**, which is what makes this a size rather than
+--- a scale: a scaled tab takes its label down with it, and the row this one stands in reads the
+--- window's other tabs' text at full size.
+---
+--- **One factor over all nine pieces, not one height.** The picked tab's art is a taller atlas
+--- than the rest (`uiframe-activetab-*` against `uiframe-tab-*`), and that difference is how the
+--- row says which tab is picked. Setting them all to the same number takes it away.
+---
+--- The unpicked side is the reference, so the button's height is the height of a tab that is not
+--- picked. Only the height is set: the sides keep their width, and the middle's comes from its
+--- anchors.
+---
+--- **Before the template's own `Init`**, which measures the sides to floor the tab's width.
+function DebindTopTabMixin:Init(tabID, tabText)
+	-- The atlas heights, before anything here has moved them. A tab out of the pool is initialized
+	-- again, and a factor over an already scaled piece compounds.
+	if (not self.artHeights) then
+		self.artHeights = {};
+		for i, texture in ipairs(self.RotatedTextures) do
+			self.artHeights[i] = texture:GetHeight();
+		end
+		self.artReference = self.Left:GetHeight();
+	end
+
+	local factor = self:GetHeight() / self.artReference;
+	for i, texture in ipairs(self.RotatedTextures) do
+		texture:SetHeight(self.artHeights[i] * factor);
+	end
+	TabSystemButtonMixin.Init(self, tabID, tabText);
+end
+
+--- **The window's bottom tabs' width, in place of the tab system's own.**
+--- `TabSystemButtonMixin:UpdateTabWidth` floors every tab at the side art plus 20, so a short
+--- label comes out 20 wider here than the same label does on the bottom row. Both rows draw the
+--- same atlases, and the gap is the one thing that would say they are two kinds of tab.
+---
+--- The template's part names are the ones `PanelTemplates_TabResize` reads (`Text`, `Left`,
+--- `Right`), so the bottom row's own call is what goes here.
+function DebindTopTabMixin:UpdateTabWidth()
+	PanelTemplates_TabResize(self, 0);
+end
+
 function DebindUI.GetSelectedTab()
 	return _selectedTab;
 end

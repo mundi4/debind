@@ -691,6 +691,166 @@ end
 
 
 --------------------------------------------------------------------------------
+-- The Switches tab's rows (`importing-switches-apart-from-actions.md` 2-7)
+--
+-- An item is one of `BuildSwitchImport`'s: a switch, and a row per layer the entry holds it at on
+-- this character. **A tick means "my row is this once written"** (owner), so the rows that are mine
+-- already stand ticked and locked, and so does a new switch's root, which the switch cannot be made
+-- without.
+--------------------------------------------------------------------------------
+
+--- A new switch's rows stand only while the switch is taken in; a locked row never moves.
+local function SwitchRowEnabled(item, row)
+    return not row.locked and (not item.isNew or item.included);
+end
+
+local function SwitchRowChecked(item, row)
+    if (item.isNew and not item.included) then
+        return false;
+    end
+    return row.checked;
+end
+
+--- All / some / none over the rows the reader can change. A new switch taken in with none of them
+--- ticked still brings its root, which is "some".
+local function SwitchState(item)
+    if (item.isNew and not item.included) then
+        return STATE_NONE;
+    end
+    local free, ticked = 0, 0;
+    for _, row in ipairs(item.rows) do
+        if (not row.locked) then
+            free = free + 1;
+            if (row.checked) then
+                ticked = ticked + 1;
+            end
+        end
+    end
+    if (free == 0 or ticked == free) then
+        return STATE_ALL;
+    elseif (ticked == 0 and not item.isNew) then
+        return STATE_NONE;
+    end
+    return STATE_SOME;
+end
+
+local SWITCH_KIND_TEXT = {
+    new = "STORAGE_SWITCH_NEW",
+    same = "STORAGE_SWITCH_SAME_DESC",
+    overwrite = "STORAGE_SWITCH_OVERWRITE",
+    fill = "STORAGE_SWITCH_FILL",
+};
+
+DebindStorageSwitchRowMixin = {};
+
+function DebindStorageSwitchRowMixin:OnLoad()
+    self.Check:EnableMouse(false);
+    NormalizeCheckMark(self.Check);
+end
+
+function DebindStorageSwitchRowMixin:Init(elementData)
+    self.elementData = elementData;
+    self:UpdateSelectionDisplay();
+end
+
+--- **The label is this character's name for the layer**, since that is where the row lands
+--- (`BuildSwitchImport` moved it to this character's addresses).
+function DebindStorageSwitchRowMixin:UpdateSelectionDisplay()
+    local item, row = self.elementData.item, self.elementData.row;
+    local label = DebindUI.GetLayerLabel(row.layerID);
+    if (row.kind == "same") then
+        label = label .. " " .. GRAY_FONT_COLOR:WrapTextInColorCode(LLL["STORAGE_SWITCH_SAME"]);
+    end
+    self.Name:SetText(label);
+    self.Check:SetChecked(SwitchRowChecked(item, row));
+    self.Check:SetEnabled(SwitchRowEnabled(item, row));
+end
+
+function DebindStorageSwitchRowMixin:OnClick()
+    DebindStoragePanel:ToggleSwitchRow(self.elementData.item, self.elementData.row);
+end
+
+--- What ticking it does, then the entry's row beside mine, in the words the Switches tab uses.
+function DebindStorageSwitchRowMixin:OnEnter()
+    local row = self.elementData.row;
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+    GameTooltip_SetTitle(GameTooltip, DebindUI.GetLayerLabel(row.layerID));
+    GameTooltip_AddNormalLine(GameTooltip, LLL[SWITCH_KIND_TEXT[row.kind]]);
+    GameTooltip_AddBlankLineToTooltip(GameTooltip);
+    local incoming = row.incoming;
+    GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["STORAGE_SWITCH_INCOMING"],
+        DebindUI.DescribeSwitchRow(incoming.mode, incoming.resetValue, incoming.expr),
+        NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+    if (row.mine) then
+        GameTooltip_AddColoredDoubleLine(GameTooltip, LLL["STORAGE_SWITCH_MINE"],
+            DebindUI.DescribeSwitchRow(row.mine.mode, row.mine.resetValue, row.mine.expr),
+            NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+    end
+    GameTooltip:Show();
+end
+
+function DebindStorageSwitchRowMixin:OnLeave()
+    GameTooltip:Hide();
+end
+
+DebindStorageSwitchHeaderMixin = {};
+
+--- Dressed as the layer header is (`DebindStoragePreviewLayerMixin:OnLoad`).
+function DebindStorageSwitchHeaderMixin:OnLoad()
+    self:SetTitleColor(false, HIGHLIGHT_FONT_COLOR);
+    self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
+
+    self:GetNormalTexture():SetDesaturated(true);
+    self:GetNormalTexture():SetAlpha(0.5);
+    self:GetHighlightTexture():SetDesaturated(true);
+
+    self.ButtonText:SetPoint("LEFT", self.Check, "RIGHT", 4, 1);
+
+    NormalizeCheckMark(self.Check);
+    self.Check:SetScript("OnClick", function()
+        DebindStoragePanel:ToggleSwitch(self.elementData.item);
+    end);
+end
+
+function DebindStorageSwitchHeaderMixin:Init(elementData)
+    self.elementData = elementData;
+    self:UpdateCollapsedState(DebindStoragePanel:IsSwitchCollapsed(elementData.item.name));
+    self:UpdateSelectionDisplay();
+end
+
+function DebindStorageSwitchHeaderMixin:UpdateSelectionDisplay()
+    local item = self.elementData.item;
+    self:SetHeaderText(item.name);
+    SetTriState(self.Check, SwitchState(item));
+    local free = item.isNew;
+    for _, row in ipairs(item.rows) do
+        free = free or not row.locked;
+    end
+    self.Check:SetEnabled(free);
+end
+
+function DebindStorageSwitchHeaderMixin:OnClick()
+    DebindStoragePanel:ToggleSwitchCollapsed(self.elementData.item.name);
+end
+
+function DebindStorageSwitchHeaderMixin:OnEnter()
+    ListHeaderMixin.OnEnter(self);
+    local item = self.elementData.item;
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+    GameTooltip_SetTitle(GameTooltip, item.name);
+    if (item.isNew) then
+        GameTooltip_AddNormalLine(GameTooltip, LLL["STORAGE_SWITCH_NEW"]);
+    end
+    GameTooltip:Show();
+end
+
+function DebindStorageSwitchHeaderMixin:OnLeave()
+    ListHeaderMixin.OnLeave(self);
+    GameTooltip:Hide();
+end
+
+
+--------------------------------------------------------------------------------
 -- The panel
 --------------------------------------------------------------------------------
 
@@ -1030,7 +1190,23 @@ function DebindStoragePanelMixin:OnLoad()
     --- still ticks, and still travels.
     self.collapsed = {};
 
+    --- The Switches tab's state, rebuilt from the entry and the profile whenever either may have
+    --- moved (`RebuildSwitchItems`). `switchOwner` is the payload character key the dropdown has,
+    --- nil for none; the ticks live on the items and, like the actions' ticks, are not kept.
+    self.switchItems = nil;
+    self.switchOwners = nil;
+    self.switchOwner = nil;
+    self.collapsedSwitches = {};
+
     self:InitializeScrollBoxes();
+    self:InitializePreviewTabs();
+
+    self.Preview.ImportSwitchesButton:SetText(LLL["STORAGE_IMPORT_SWITCHES"]);
+    DynamicResizeButton_Resize(self.Preview.ImportSwitchesButton);
+    self.Preview.ImportSwitchesButton:SetScript("OnClick", function() self:OnImportSwitchesClicked(); end);
+    self.Preview.OwnerDropdown:SetupMenu(function(_, rootDescription)
+        self:BuildOwnerMenu(rootDescription);
+    end);
 
     -- **The chrome widgets get their scripts here.** XML's `method=` looks the name up on the
     -- element's *own* mixin, so naming the panel's method on a plain Blizzard template finds
@@ -1072,6 +1248,12 @@ function DebindStoragePanelMixin:InitializeScrollBoxes()
         if (elementData.isLayer) then
             factory("DebindStoragePreviewLayerTemplate",
                 function(frame, data) frame:Init(data); end);
+        elseif (elementData.isSwitch) then
+            factory("DebindStorageSwitchHeaderTemplate",
+                function(frame, data) frame:Init(data); end);
+        elseif (elementData.isSwitchRow) then
+            factory("DebindStorageSwitchRowTemplate",
+                function(frame, data) frame:Init(data); end);
         elseif (elementData.isSpacer) then
             factory("Frame");
         else
@@ -1083,10 +1265,10 @@ function DebindStoragePanelMixin:InitializeScrollBoxes()
         if (elementData.isSpacer) then
             return PREVIEW_GROUP_GAP;
         end
-        return elementData.isLayer and LAYER_HEIGHT or PREVIEW_ROW_HEIGHT;
+        return (elementData.isLayer or elementData.isSwitch) and LAYER_HEIGHT or PREVIEW_ROW_HEIGHT;
     end);
     previewView:SetElementIndentCalculator(function(elementData)
-        return (elementData.isLayer or elementData.isSpacer) and 0 or PREVIEW_ROW_INDENT;
+        return (elementData.isLayer or elementData.isSwitch or elementData.isSpacer) and 0 or PREVIEW_ROW_INDENT;
     end);
     local previewContent = self.Preview.ContentArea;
     ScrollUtil.InitScrollBoxListWithScrollBar(previewContent.ScrollBox, previewContent.ScrollBar,
@@ -1191,8 +1373,12 @@ function DebindStoragePanelMixin:SelectEntry(entry)
     self.selectedEntry = entry;
     wipe(self.selected);
     wipe(self.collapsed);
+    wipe(self.collapsedSwitches);
+    self.switchOwner = nil;
+    self.switchOwnerPicked = false;
 
     self:RebuildPreviewLayers();
+    self:RebuildSwitchItems();
 
     if (self.previewLayers) then
         self:SelectAll(true);
@@ -1266,7 +1452,8 @@ end
 --- **Three things it can be showing**, and the empty line says which: nothing picked, an entry
 --- that cannot be read, or an entry with nothing in it.
 function DebindStoragePanelMixin:RefreshPreview(resetScroll)
-    local list = self:BuildPreviewDisplayList();
+    local switches = self:IsSwitchesTab();
+    local list = switches and self:BuildSwitchDisplayList() or self:BuildPreviewDisplayList();
     local scrollBox = self.Preview.ContentArea.ScrollBox;
     -- `retainScrollPosition` is a boolean, so this is its negation rather than an `and`/`or`
     -- picking between the two constants: `DiscardScrollPosition` is `false`.
@@ -1278,7 +1465,7 @@ function DebindStoragePanelMixin:RefreshPreview(resetScroll)
     elseif (self.previewReason) then
         emptyText = self.previewReason;
     elseif (#list == 0) then
-        emptyText = LLL["EXPORT_EMPTY"];
+        emptyText = LLL[switches and "STORAGE_SWITCHES_EMPTY" or "EXPORT_EMPTY"];
     end
 
     scrollBox.EmptyText:SetText(emptyText or "");
@@ -1335,6 +1522,243 @@ end
 
 
 --------------------------------------------------------------------------------
+-- The two tabs over the right column
+--------------------------------------------------------------------------------
+
+--- **Picked here and nothing under it is swapped**, as on the Switches tab's right column
+--- (`InitializeDetailTabs`): both tabs are lists in the one scroll box.
+---
+--- Built in `OnLoad`, at login. `DebindTopTabTemplate` is in `DebindUI.xml`, which is read first.
+function DebindStoragePanelMixin:InitializePreviewTabs()
+    local tabs = self.Preview.TabSystem;
+    self.actionsTabID = tabs:AddTab(LLL["STORAGE_TAB_ACTIONS"]);
+    self.switchesTabID = tabs:AddTab(LLL["STORAGE_TAB_SWITCHES"]);
+    self.previewTabID = self.actionsTabID;
+    tabs:SetTabSelectedCallback(function(tabID)
+        self:PickPreviewTab(tabID);
+    end);
+    tabs:SetTab(self.actionsTabID);
+end
+
+function DebindStoragePanelMixin:IsSwitchesTab()
+    return self.previewTabID ~= nil and self.previewTabID == self.switchesTabID;
+end
+
+--- The tab press. `SetTab` calls it at load too, before there is anything to draw.
+function DebindStoragePanelMixin:PickPreviewTab(tabID)
+    self.previewTabID = tabID;
+    self:UpdatePreviewChrome();
+    if (self:IsVisible()) then
+        self:RefreshPreview(true);
+    end
+end
+
+--- Which controls the column wears, by tab: the view and the tick-all over the actions, the
+--- character over the switches, and each tab's own verbs on the floor.
+function DebindStoragePanelMixin:UpdatePreviewChrome()
+    local switches = self:IsSwitchesTab();
+    local preview = self.Preview;
+    preview.ViewDropdown:SetShown(not switches);
+    preview.OwnerDropdown:SetShown(switches and self.switchItems ~= nil);
+    preview.AddButton:SetShown(not switches);
+    preview.CopyButton:SetShown(not switches);
+    preview.ImportSwitchesButton:SetShown(switches);
+    if (switches) then
+        preview.SelectAllCheck:Hide();
+    end
+end
+
+--- **Another addon's data carries no switches**, so its Switches tab is dark, with the reason on
+--- it, and a reader standing on it is moved back to the actions.
+function DebindStoragePanelMixin:UpdateSwitchesTabEnabled()
+    local entry = self.selectedEntry;
+    local foreign = entry ~= nil and Store().IsForeignPayload(entry.payload);
+    local tabs = self.Preview.TabSystem;
+    tabs:SetTabEnabled(self.switchesTabID, not foreign, foreign and LLL["STORAGE_SWITCHES_FOREIGN"] or nil);
+    if (foreign and self:IsSwitchesTab()) then
+        tabs:SetTab(self.actionsTabID);
+    end
+end
+
+
+--------------------------------------------------------------------------------
+-- The Switches tab (`importing-switches-apart-from-actions.md` 2-7)
+--------------------------------------------------------------------------------
+
+--- The entry's switches against the profile as it stands. `keepTicks` carries the reader's ticks
+--- over to rows that are still the same kind, which is what a tab change or a return to this tab
+--- has to do; picking another entry or another character starts over.
+function DebindStoragePanelMixin:RebuildSwitchItems(keepTicks)
+    local before = keepTicks and self.switchItems;
+    self.switchItems = nil;
+    self.switchOwners = nil;
+
+    local entry = self.selectedEntry;
+    local payload = entry and Store().GetEntryPayload(entry);
+    if (payload and not Store().IsForeignPayload(payload)) then
+        local owners, picked = Store().SwitchImportOwners(payload);
+        self.switchOwners = owners;
+        if (not self.switchOwnerPicked) then
+            self.switchOwner = picked;
+        end
+        self.switchItems = Store().BuildSwitchImport(payload, self.switchOwner);
+    end
+
+    if (before and self.switchItems) then
+        local old = {};
+        for _, item in ipairs(before) do
+            old[item.name] = item;
+        end
+        for _, item in ipairs(self.switchItems) do
+            local was = old[item.name];
+            if (was and was.isNew == item.isNew) then
+                item.included = was.included;
+                local rows = {};
+                for _, row in ipairs(was.rows) do
+                    rows[row.layerID] = row;
+                end
+                for _, row in ipairs(item.rows) do
+                    local prior = rows[row.layerID];
+                    if (prior and prior.kind == row.kind and not row.locked) then
+                        row.checked = prior.checked;
+                    end
+                end
+            end
+        end
+    end
+
+    if (self.switchesTabID) then
+        self:UpdateSwitchesTabEnabled();
+        self:UpdatePreviewChrome();
+        self:UpdateOwnerDropdownText();
+    end
+end
+
+--- What the dropdown calls a choice: this class with no character, or one of its characters.
+function DebindStoragePanelMixin:OwnerLabel(owner)
+    if (owner == nil) then
+        return Constants.CLASS_NAMES[Constants.PLAYER_CLASS] or Constants.PLAYER_CLASS;
+    end
+    local entry = self.selectedEntry;
+    return CharacterName(owner, entry and PayloadCharacters(entry)[owner]);
+end
+
+function DebindStoragePanelMixin:UpdateOwnerDropdownText()
+    self.Preview.OwnerDropdown:SetText(self:OwnerLabel(self.switchOwner));
+end
+
+function DebindStoragePanelMixin:BuildOwnerMenu(rootDescription)
+    local function add(owner)
+        rootDescription:CreateRadio(self:OwnerLabel(owner), function()
+            return self.switchOwner == owner;
+        end, function()
+            self.switchOwner = owner;
+            self.switchOwnerPicked = true;
+            self:RebuildSwitchItems(false);
+            self:RefreshPreview(true);
+        end);
+    end
+    add(nil);
+    for _, owner in ipairs(self.switchOwners or {}) do
+        add(owner);
+    end
+end
+
+function DebindStoragePanelMixin:BuildSwitchDisplayList()
+    local list = {};
+    for i, item in ipairs(self.switchItems or {}) do
+        if (i > 1) then
+            AddGroupGap(list);
+        end
+        list[#list + 1] = { isSwitch = true, item = item };
+        if (not self:IsSwitchCollapsed(item.name)) then
+            for _, row in ipairs(item.rows) do
+                list[#list + 1] = { isSwitchRow = true, item = item, row = row };
+            end
+        end
+    end
+    return list;
+end
+
+function DebindStoragePanelMixin:IsSwitchCollapsed(name)
+    return self.collapsedSwitches[name] == true;
+end
+
+function DebindStoragePanelMixin:ToggleSwitchCollapsed(name)
+    self.collapsedSwitches[name] = not self.collapsedSwitches[name] or nil;
+    self:RefreshPreview();
+end
+
+--- The header's box, one rule over every switch: from the dash it ticks every free row, and from a
+--- full tick it clears them. A new switch is left out whole where an existing one has its rows
+--- cleared, and from left out it comes back in.
+function DebindStoragePanelMixin:ToggleSwitch(item)
+    if (item.isNew) then
+        local state = SwitchState(item);
+        if (state == STATE_SOME) then
+            for _, row in ipairs(item.rows) do
+                row.checked = true;
+            end
+        else
+            item.included = state == STATE_NONE;
+        end
+    else
+        local all = true;
+        for _, row in ipairs(item.rows) do
+            if (not row.locked and not row.checked) then
+                all = false;
+            end
+        end
+        for _, row in ipairs(item.rows) do
+            if (not row.locked) then
+                row.checked = not all;
+            end
+        end
+    end
+    self:UpdateSelectionState();
+end
+
+function DebindStoragePanelMixin:ToggleSwitchRow(item, row)
+    if (not SwitchRowEnabled(item, row)) then
+        return;
+    end
+    row.checked = not row.checked;
+    self:UpdateSelectionState();
+end
+
+--- Whether pressing the button would write anything: a new switch taken in, or a free row ticked.
+function DebindStoragePanelMixin:HasSwitchWrites()
+    for _, item in ipairs(self.switchItems or {}) do
+        if (item.isNew and item.included) then
+            return true;
+        end
+        if (not item.isNew) then
+            for _, row in ipairs(item.rows) do
+                if (row.checked and not row.locked) then
+                    return true;
+                end
+            end
+        end
+    end
+    return false;
+end
+
+--- **Switches change what keys do**, so the bindings go up again here; nothing on the way to the
+--- profile rebuilds them (`ImportSwitches`). The rows are read again afterwards, and what was just
+--- written now reads as the same as mine.
+function DebindStoragePanelMixin:OnImportSwitchesClicked()
+    local count = Store().ImportSwitches(self.switchItems or {});
+    if (count > 0) then
+        DebindPrivate.UpdateBindings();
+        DebindPrivate.DisplayMessage(format(LLL["STORAGE_SWITCHES_IMPORTED"], CountText("switches", count)));
+        DebindFrame:NotifyProfileChanged();
+    end
+    self:RebuildSwitchItems(false);
+    self:RefreshPreview();
+end
+
+
+--------------------------------------------------------------------------------
 -- Ticking
 --------------------------------------------------------------------------------
 
@@ -1346,6 +1770,12 @@ function DebindStoragePanelMixin:UpdateSelectionState()
             frame:UpdateSelectionDisplay();
         end
     end);
+
+    if (self:IsSwitchesTab()) then
+        self.Preview.SelectAllCheck:Hide();
+        self.Preview.ImportSwitchesButton:SetEnabled(self:HasSwitchWrites());
+        return;
+    end
 
     local listed = self:EnumerateListedActions();
     local state, selectedCount = CombineState(listed, self.selected);
@@ -1582,7 +2012,7 @@ function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs, par
     local missing = DebindPrivate.UndefinedSwitchNames(actions);
     if (#missing > 0) then
         DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_MISSING_SWITCHES"],
-            table.concat(missing, ", ")), 1, 0.5, 0);
+            table.concat(missing, ", "), LLL["STORAGE_TAB_SWITCHES"]), 1, 0.5, 0);
     end
 
     DebindFrame:NotifyProfileChanged();
@@ -1649,6 +2079,9 @@ function DebindStoragePanelMixin:OnShow()
     -- keyed by them still points at what is on screen. Going through `SelectEntry` instead threw
     -- both away, which made every tab change an undo of the reader's last few clicks.
     self:RebuildPreviewLayers();
+    -- **Again, and the switch ticks survive it too.** The reader may have been on the Switches tab
+    -- of the window meanwhile, so what is mine can have moved under the rows.
+    self:RebuildSwitchItems(true);
     self:RefreshPreview();
 end
 

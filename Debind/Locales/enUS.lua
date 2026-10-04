@@ -2076,8 +2076,9 @@ L["IMPORT_COMMITTED"] = "Brought in %s. |4It is:They are; pending until you acce
 L["IMPORT_COMMITTED_SKIPPED"] = "%s of them |4was:were; left out - another class's, a specialization this character does not have, or a layer this version does not know."
 -- Switches never come in with the actions, so a name the reader has no Switch for lands as actions
 -- that do nothing. The names, because that is what the reader goes and makes or brings in; a count
--- would send them looking. %s is the names joined with commas.
-L["IMPORT_COMMITTED_MISSING_SWITCHES"] = "Some of them use Switches you do not have: %s. Those do nothing until a Switch by that name exists."
+-- would send them looking. %1$s is the names joined with commas, %2$s the tab that brings them in
+-- (`STORAGE_TAB_SWITCHES`), passed rather than retyped so a rename of the tab carries this along.
+L["IMPORT_COMMITTED_MISSING_SWITCHES"] = "Some of them use Switches you do not have: %1$s. Those do nothing until a Switch by that name exists - the %2$s tab here can bring them in."
 -- The right-click menu on an action in the preview. **Taking things out is the only edit an entry
 -- has**, so these two are the whole menu.
 --
@@ -2263,6 +2264,7 @@ L["COUNT_CLASSES"] = "%d |4class:classes;"
 L["COUNT_CHARACTERS"] = "%d |4character:characters;"
 L["COUNT_KEYS"] = "%d |4key:keys;"
 L["COUNT_ACTIONS"] = "%d |4action:actions;"
+L["COUNT_SWITCHES"] = "%d |4Switch:Switches;"
 -- The row menu's one item, and the title of the dialog it opens. The name box above reuses
 -- `IMPORT_PASTE_NAME`: it is the same field the paste dialog fills.
 L["STORAGE_ENTRY_EDIT"] = "Edit Name and Description"
@@ -2295,6 +2297,29 @@ L["STORAGE_COLLAPSE_ALL"] = "Collapse All"
 -- in the list had no name to call it by, which is what a screen that will not name its object is
 -- reduced to. It has one now (`STORAGE_CREATE`), so the sentence says which thing to pick.
 L["STORAGE_NOTHING_PICKED"] = "Pick a payload on the left to see what is in it."
+-- The right column's two tabs (`importing-switches-apart-from-actions.md` 2-7). Switches never come
+-- in with the actions, so bringing them in is a tab of its own rather than a step of the add.
+L["STORAGE_TAB_ACTIONS"] = "Actions"
+L["STORAGE_TAB_SWITCHES"] = "Switches"
+-- The Switches tab's one verb, worded beside the other tab's (`STORAGE_ADD`) because it is the same
+-- move for the other half of a payload.
+L["STORAGE_IMPORT_SWITCHES"] = "Add to My Switches"
+L["STORAGE_SWITCHES_IMPORTED"] = "Brought in %s."
+L["STORAGE_SWITCHES_EMPTY"] = "Nothing in this payload uses a Switch."
+-- The dark tab's reason. Another addon's settings are converted into actions alone.
+L["STORAGE_SWITCHES_FOREIGN"] = "Settings from another addon carry no Switches."
+-- After a row's layer name when the payload's setting there is the reader's already. The row
+-- stands ticked and locked: it is what that layer will hold either way.
+L["STORAGE_SWITCH_SAME"] = "(same as now)"
+-- A row's tooltip: what ticking it does to the reader's own setup, then the two settings side by
+-- side. **A fill is said as a change**, because it is one: the layer had no setting of its own, so
+-- the reader's actions there followed the layer below, and ticking it gives them this one instead.
+L["STORAGE_SWITCH_NEW"] = "You have no Switch by this name. It is made with the rows ticked under it."
+L["STORAGE_SWITCH_SAME_DESC"] = "The same as your setting on this layer."
+L["STORAGE_SWITCH_OVERWRITE"] = "Ticked, this replaces your setting on this layer."
+L["STORAGE_SWITCH_FILL"] = "You have no setting on this layer, so your actions here follow the layer below. Ticked, they follow this one instead."
+L["STORAGE_SWITCH_INCOMING"] = "In this payload"
+L["STORAGE_SWITCH_MINE"] = "Yours"
 L["STORAGE_MENU_DESC"] = "Where payloads are kept: ones you save from this character, ones you paste in, and ones made from your Clique profiles.|n|nAdding one puts its actions in as pending, so none of your keys change until you accept them."
 
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills

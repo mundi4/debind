@@ -162,19 +162,6 @@
 	</Button>
 
 	<!--
-		One of the two tabs over the right column, measured the way the window's bottom tabs are.
-
-		**Only the width rule is ours** (`DebindSwitchDetailTabMixin:UpdateTabWidth`). The art, the
-		rotation and everything a press does stay the template's.
-	-->
-	<Button name="DebindSwitchDetailTabTemplate" inherits="TabSystemTopButtonTemplate"
-		mixin="DebindSwitchDetailTabMixin" virtual="true">
-		<!-- The art follows this height and the text does not, which is the whole reason it is a
-		     size and not a scale (`DebindSwitchDetailTabMixin:Init`). -->
-		<Size x="10" y="28"/>
-	</Button>
-
-	<!--
 		What this switch is set to, as one element of the right column's list.
 
 		**`<Size>` and `SETTINGS_EXTENT` in the Lua are one value written twice.** A linear list
@@ -449,7 +436,7 @@
 							     leaving them out is what keeps this row on the bottom tabs'
 							     numbers alone. -->
 							<KeyValue key="spacing" value="0" type="number"/>
-							<KeyValue key="tabTemplate" value="DebindSwitchDetailTabTemplate" type="string"/>
+							<KeyValue key="tabTemplate" value="DebindTopTabTemplate" type="string"/>
 						</KeyValues>
 						<Anchors>
 							<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="8" y="-1"/>

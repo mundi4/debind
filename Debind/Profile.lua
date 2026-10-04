@@ -1351,10 +1351,10 @@ end
 --- as far as they are concerned, so two switches that differ only in case are two the reader cannot
 --- tell apart in the list and cannot aim at reliably in a macro.
 ---
---- **Only the doors fold, not `ParseMacroText`.** Folding the reader too would mean the stored
---- names had to be folded as well, and a body that still says `[$ZZZ]` against a switch named that
---- way keeps working exactly as it does now. What a body cannot do is quietly find a different
---- switch: an unfolded name that nothing defines is marked (`GetUndefinedSwitch`).
+--- **Only the doors fold, not `ParseMacroText`.** No stored name is anything but lower case: free
+--- names and this fold shipped together in 3.3, and before that the five slots were `$state1`..5.
+--- What a body typed as `[$ZZZ]` cannot do is quietly find `$zzz`: an unfolded name nothing defines
+--- is marked (`GetUndefinedSwitch`).
 function DebindPrivate.CreateSwitch(name)
     if (not Constants.IsValidSwitchName(name)) then
         return false, "SWITCH_NAME_ERROR_INVALID";

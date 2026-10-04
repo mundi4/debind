@@ -173,6 +173,58 @@
 	</Button>
 
 	<!--
+		A switch, on the right column's Switches tab (`importing-switches-apart-from-actions.md`
+		2-7). The layer header's bar and its gestures, so the two tabs of one column read as one kind
+		of list: the box takes the switch's whole set of rows and the bar folds them.
+	-->
+	<Button name="DebindStorageSwitchHeaderTemplate" inherits="ListHeaderVisualTemplate, ListHeaderCodeTemplate" mixin="DebindStorageSwitchHeaderMixin" virtual="true">
+		<Size x="400" y="26"/>
+		<Frames>
+			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="LEFT" x="2" y="0"/>
+				</Anchors>
+			</CheckButton>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!-- One layer's row of a switch, under its header. The preview row without icon or key. -->
+	<Button name="DebindStorageSwitchRowTemplate" inherits="DebindListRowTemplate" mixin="DebindStorageSwitchRowMixin" virtual="true">
+		<Size y="28"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" x="30" y="0"/>
+						<Anchor point="RIGHT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="LEFT" x="2" y="0"/>
+				</Anchors>
+			</CheckButton>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
 		**The main window's Storage tab.**
 
 		Two columns, the same shape Overview has: what there is on the left, what is picked on the
@@ -273,6 +325,27 @@
 					<Anchor point="BOTTOMRIGHT" x="-31" y="45"/>
 				</Anchors>
 				<Frames>
+					<!--
+						**Actions and Switches, as the Switches tab's right column stands its two**
+						(`SwitchesUI.xml`): the strip over the column, one scroll box under it, and a
+						press moves which rows are handed to the box (`PickPreviewTab`).
+					-->
+					<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
+						<KeyValues>
+							<KeyValue key="spacing" value="0" type="number"/>
+							<KeyValue key="tabTemplate" value="DebindTopTabTemplate" type="string"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="8" y="-1"/>
+						</Anchors>
+					</Frame>
+					<!-- Whose character rows the Switches tab takes, chosen once for every switch. -->
+					<DropdownButton parentKey="OwnerDropdown" inherits="WowStyle1DropdownTemplate" hidden="true">
+						<Size x="200" y="22"/>
+						<Anchors>
+							<Anchor point="LEFT" relativeKey="$parent.HeaderArea" relativePoint="LEFT" x="6" y="0"/>
+						</Anchors>
+					</DropdownButton>
 					<DropdownButton parentKey="ViewDropdown" inherits="WowStyle1FilterDropdownTemplate">
 						<Size x="97" y="18"/>
 						<Anchors>
@@ -323,6 +396,13 @@
 						<Size x="80" y="23"/>
 						<Anchors>
 							<Anchor point="RIGHT" relativeKey="$parent.CopyButton" relativePoint="LEFT" x="-5" y="0"/>
+						</Anchors>
+					</Button>
+					<!-- The Switches tab's one verb, where the other tab's two stand. -->
+					<Button parentKey="ImportSwitchesButton" inherits="UIPanelDynamicResizeButtonTemplate" hidden="true">
+						<Size x="80" y="23"/>
+						<Anchors>
+							<Anchor point="TOPRIGHT" relativePoint="BOTTOMRIGHT" x="0" y="-12"/>
 						</Anchors>
 					</Button>
 				</Frames>

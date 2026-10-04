@@ -818,6 +818,20 @@
 	</Frame>
 
 	<!--
+		A tab over a list column, measured the way the window's bottom tabs are. The Switches tab's
+		right column and the Storage tab's right column both stand their tab strips on it.
+
+		**Only the width rule is ours** (`DebindTopTabMixin:UpdateTabWidth`). The art, the rotation
+		and everything a press does stay the template's.
+	-->
+	<Button name="DebindTopTabTemplate" inherits="TabSystemTopButtonTemplate"
+		mixin="DebindTopTabMixin" virtual="true">
+		<!-- The art follows this height and the text does not, which is the whole reason it is a
+		     size and not a scale (`DebindTopTabMixin:Init`). -->
+		<Size x="10" y="28"/>
+	</Button>
+
+	<!--
 		One list column: the inset, the header and body inside it, and the scroll box and bar in
 		the body. The frame using it places the column and nothing else.
 

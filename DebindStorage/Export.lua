@@ -558,6 +558,7 @@ local function ForEachPayloadSwitchRow(payload, fn)
         end
     end
 end
+DebindStorage.ForEachPayloadSwitchRow = ForEachPayloadSwitchRow;
 
 --- `payload.characters` for the character keys `payload.layers` and `payload.switches` name,
 --- each answered by `IdentityOf(owner)`. Nil where there are none.

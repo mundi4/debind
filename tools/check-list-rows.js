@@ -22,6 +22,7 @@ const NOT_ROWS = {
     // Group headings wear the client's own list header bar, which draws its own light.
     DebindKeyHeaderTemplate: "heading",
     DebindStoragePreviewLayerTemplate: "heading",
+    DebindStorageSwitchHeaderTemplate: "heading",
     DebindSwitchGroupHeaderTemplate: "heading",
     // The switch's settings: a block of controls standing in the list, not a row.
     DebindSwitchSettingsTemplate: "settings block",

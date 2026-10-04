@@ -21,6 +21,7 @@ local COUNT_KEYS = {
     keys = "COUNT_KEYS",
     classes = "COUNT_CLASSES",
     characters = "COUNT_CHARACTERS",
+    switches = "COUNT_SWITCHES",
 };
 
 --- `n` of `noun`, one of `COUNT_KEYS`'s, in that noun's `COUNT_*` string.

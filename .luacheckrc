@@ -460,6 +460,8 @@ globals = {
 	"DebindEntryTextFrameMixin",
 	"DebindAddFrameMixin",
 	"DebindKeyCaptureFrameMixin",
+	"DebindStorageSwitchHeaderMixin",
+	"DebindStorageSwitchRowMixin",
 	"DebindSpellPickerHeaderMixin",
 	"DebindSpellPickerRowMixin",
 	"DebindSpellPickerUserRowMixin",
@@ -471,7 +473,7 @@ globals = {
 	"DebindSwitchUsageActionMixin",
 	"DebindSwitchSettingsMixin",
 	"DebindSwitchGroupHeaderMixin",
-	"DebindSwitchDetailTabMixin",
+	"DebindTopTabMixin",
 
 	-- Named frames
 	"DebindFrame",

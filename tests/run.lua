@@ -326,6 +326,7 @@ local specs = {
     { name = "entry", path = root .. "/entry_spec.lua" },
     { name = "import", path = root .. "/import_spec.lua" },
     { name = "pending", path = root .. "/pending_spec.lua" },
+    { name = "switchimport", path = root .. "/switchimport_spec.lua" },
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "replace", path = root .. "/replace_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
