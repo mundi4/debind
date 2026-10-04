@@ -10,6 +10,9 @@
 //
 // **The professions' spells the probe found in a character's book (`professionSpells`) are kept**
 // where the fetch did not name them: what a probe has seen is never left out (2026-10-01, owner).
+// **Except what `LEFT_OUT` names** (2026-10-04, owner): a profession's specialization, whose cast
+// opens its profession's window and would be a second row for the same thing, and the windows a
+// gathering profession builds its camp features in.
 //
 // **The chains are checked against what the probe saw.** The release that carries the profile's
 // migration fixes every id it rewrites for good (`keeping-a-pinned-rank-apart-from-the-spell.md`),
@@ -22,6 +25,14 @@ const path = require("path");
 const { die, findRecord, readLines } = require("./lib/camelot-probe-record");
 
 const out = path.join(__dirname, "..", "Debind", "ClassSpells_Camelot.lua");
+
+const LEFT_OUT = new Map([
+    [10656, "Dragonscale Leatherworking"], [10658, "Elemental Leatherworking"], [10660, "Tribal Leatherworking"],
+    [20219, "Gnomish Engineer"], [20222, "Goblin Engineer"],
+    [9788, "Armorsmith"], [9787, "Weaponsmith"],
+    [17039, "Master Swordsmith"], [17040, "Master Hammersmith"], [17041, "Master Axesmith"],
+    [1278068, "Tanning"], [1278067, "Bait and Tackle"], [1278062, "Gardening"],
+]);
 
 function readRecord(file) {
     const lines = readLines(file, `
@@ -79,6 +90,7 @@ function chains(spells, dropped) {
     const kept = [];
     for (const s of spells) {
         if (!s.name) { dropped.unknown.push(`${s.cls || "profession"} ${s.id}`); continue; }
+        if (LEFT_OUT.has(s.id)) { dropped.named.add(s.name); continue; }
         if (s.passive) { dropped.passive.push(`${s.cls || "profession"} ${s.name}`); continue; }
         if (s.described === "none") { dropped.undescribed.push(`${s.cls || "profession"} ${s.name} ${s.id}`); continue; }
         kept.push(s);
@@ -151,9 +163,10 @@ function main() {
             + " wait for its closing line before /reload");
     }
 
-    const dropped = { passive: [], unknown: [], undescribed: [] };
+    const dropped = { passive: [], unknown: [], undescribed: [], named: new Set() };
     const table = chains(spells, dropped);
     for (const s of book) {
+        if (LEFT_OUT.has(s.id)) { dropped.named.add(s.name); continue; }
         if (s.passive) { dropped.passive.push(`profession ${s.name}`); continue; }
         if (!table.has(s.id)) {
             table.set(s.id, { first: s.id, source: "profession", cls: null, name: s.name });
@@ -208,6 +221,7 @@ ${lines.join("\n")}
     console.log(`\nleft out as passive (${dropped.passive.length}): ${dropped.passive.sort().join(", ") || "-"}`);
     console.log(`left out as unknown to the client (${dropped.unknown.length}): ${dropped.unknown.sort().join(", ") || "-"}`);
     console.log(`left out with no description (${dropped.undescribed.length}): ${dropped.undescribed.sort().join(", ") || "-"}`);
+    console.log(`left out by LEFT_OUT (${dropped.named.size}): ${[...dropped.named].sort().join(", ") || "-"}`);
     const findings = check(table, dumps);
     console.log(`\nchains the probe's spellbooks and trainers disagree with (${findings.length}):`);
     for (const f of findings) {
