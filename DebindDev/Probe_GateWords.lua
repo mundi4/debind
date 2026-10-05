@@ -13,6 +13,9 @@
 --   /debgw          start (wipes the previous log)
 --   /debgw stop     stop, and print each pair's disagreements
 --   /debgw show     print the saved log
+--   /debgw time     what one `IsSubmerged()` and one `[swimming]` parse cost (out of combat)
+--   /debgw bench    the wider survey: table reads, APIs, parses of every shape. Every run is kept
+--                   with the situation it ran in; in combat only the insecure column is measured
 --
 -- What to do while it runs: target and focus friends, enemies, corpses, party and raid members, a
 -- vehicle; mouse over units; mount, fly, swim, go indoors and out, stealth, shift forms, change bar
@@ -309,10 +312,273 @@ local function Show()
     end
 end
 
+--- What one call costs, `IsSubmerged()` against `SecureCmdOptionParse("[swimming]")`, each `COUNT`
+--- times in a loop, less the same loop with nothing in it. Twice: in the insecure environment, and
+--- in the restricted one through `SecureHandlerExecute`, which is where the beat runs; the second
+--- carries the environment's own lookups. `ROUNDS` rounds, and the median is what to read.
+local COUNT, ROUNDS = 1000, 21;
+
+local timingHeader;
+
+local INSECURE = {
+    empty = function()
+        for _ = 1, COUNT do
+        end
+    end,
+    submerged = function()
+        local x;
+        for _ = 1, COUNT do
+            x = IsSubmerged();
+        end
+        return x;
+    end,
+    swimming = function()
+        local x;
+        for _ = 1, COUNT do
+            x = SecureCmdOptionParse("[swimming]");
+        end
+        return x;
+    end,
+};
+
+local RESTRICTED = {
+    empty = format("local x for i = 1, %d do end", COUNT),
+    submerged = format("local x for i = 1, %d do x = IsSubmerged() end", COUNT),
+    swimming = format([[local x for i = 1, %d do x = SecureCmdOptionParse("[swimming]") end]], COUNT),
+};
+
+local function Median(list)
+    table.sort(list);
+    return list[(#list + 1) / 2];
+end
+
+local function Time()
+    if (InCombatLockdown()) then
+        print(TAG .. "out of combat only: SecureHandlerExecute is refused in combat");
+        return;
+    end
+    if (not timingHeader) then
+        timingHeader = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate");
+    end
+    local samples = {};
+    for _, side in ipairs({ "insecure", "restricted" }) do
+        for _, name in ipairs({ "empty", "submerged", "swimming" }) do
+            samples[side .. "." .. name] = {};
+        end
+    end
+    -- Interleaved by round, so a hitch in one round lands on every case alike.
+    for _ = 1, ROUNDS do
+        for _, name in ipairs({ "empty", "submerged", "swimming" }) do
+            local start = debugprofilestop();
+            INSECURE[name]();
+            local list = samples["insecure." .. name];
+            list[#list + 1] = debugprofilestop() - start;
+
+            start = debugprofilestop();
+            SecureHandlerExecute(timingHeader, RESTRICTED[name]);
+            list = samples["restricted." .. name];
+            list[#list + 1] = debugprofilestop() - start;
+        end
+    end
+    local lines = {};
+    for _, side in ipairs({ "insecure", "restricted" }) do
+        local empty = Median(samples[side .. ".empty"]);
+        for _, name in ipairs({ "submerged", "swimming" }) do
+            local median = Median(samples[side .. "." .. name]);
+            lines[#lines + 1] = format("%-10s %-9s %d calls: median %.3f ms, less the empty loop %.3f ms = %.2f us a call",
+                side, name, COUNT, median, median - empty, (median - empty) * 1000 / COUNT);
+        end
+        lines[#lines + 1] = format("%-10s empty loop median %.3f ms", side, empty);
+    end
+    DebindDevDB = DebindDevDB or {};
+    DebindDevDB.gateWordsTiming = { at = date("%Y-%m-%d %H:%M:%S"), build = select(4, GetBuildInfo()),
+        swimming = IsSubmerged() and true or false, lines = lines };
+    for _, line in ipairs(lines) do
+        print(TAG .. line);
+    end
+end
+
+--- The wider survey: what each piece a beat could be built from costs in the restricted environment,
+--- a call at a time. Table reads and mask arithmetic (what a gate is made of), the measuring APIs,
+--- and `SecureCmdOptionParse` on expressions of every shape a switch or a record carries, the
+--- composition a computed switch goes through before its parse, and `RunAttribute` for scale.
+---
+--- Each case is `prelude` once and `stmt` `COUNT` times, less the empty loop.
+local function BenchCases()
+    local knownName = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(686))
+        or (GetSpellInfo and GetSpellInfo(686)) or "Shadow Bolt";
+    local function parse(expr)
+        return { stmt = format("x = SecureCmdOptionParse(%q)", expr) };
+    end
+    return {
+        { "empty", { stmt = "" } },
+        { "mask arithmetic on locals", { prelude = "local c, m = 2, 6", stmt = "x = (m % (c + c)) >= c" } },
+        { "global table field read", { stmt = "x = BenchColumn.cell" } },
+        { "global table, index, field read", { stmt = "x = BenchColumns[3].cell" } },
+        { "local table field read", { prelude = "local t = BenchColumn", stmt = "x = t.cell" } },
+        { "local table field write", { prelude = "local t = BenchColumn", stmt = "t.stamp = i" } },
+        { "read + mask (one gate term)", { prelude = "local m = 6",
+            stmt = "local c = BenchColumns[3].cell x = (m % (c + c)) >= c" } },
+        { "IsSubmerged()", { stmt = "x = IsSubmerged()" } },
+        { "IsMounted()", { stmt = "x = IsMounted()" } },
+        { "GetShapeshiftForm()", { stmt = "x = GetShapeshiftForm()" } },
+        { "PlayerInCombat() (ENV wrapper)", { stmt = "x = PlayerInCombat()" } },
+        { "PlayerPetSummary() (ENV wrapper)", { stmt = "x = PlayerPetSummary()" } },
+        { "HasExtraActionBar() (ENV)", { stmt = "x = HasExtraActionBar()" } },
+        { "UnitExists(target)", { stmt = [[x = UnitExists("target")]] } },
+        { "PlayerCanAssist(target) (ENV)", { stmt = [[x = PlayerCanAssist("target")]] } },
+        { "UnitIsDead(target)", { stmt = [[x = UnitIsDead("target")]] } },
+        { "FindSpellBookSlotBySpellID(686)", { stmt = "x = FindSpellBookSlotBySpellID(686)" } },
+        { "parse [swimming]", parse("[swimming]") },
+        { "parse [combat]", parse("[combat]") },
+        { "parse [@target,help,nodead]", parse("[@target,help,nodead]") },
+        { "parse 6 tokens in one group", parse("[combat,mounted,nostealth,flying,form:1,group:raid]") },
+        { "parse 4 groups [a][b][c][d]", parse("[combat][mounted][swimming][flying]") },
+        { "parse 3 clauses with values", parse("[combat] a; [mounted] b; c") },
+        { "parse [pet:Imp]", parse("[pet:Imp]") },
+        { "parse [known:686]", parse("[known:686]") },
+        { "parse [known:<name of 686>]", parse("[known:" .. knownName .. "]") },
+        { "parse [known:1] (no such spell)", parse("[known:1]") },
+        { "compose only (one switch arg)", { prelude = "local e = BenchEntry", stmt = [==[
+local a = e.args[1] local v = BenchStates[a.switch] v = v and true or false
+v = v and "" or "known:0" e.fragments[2] = v x = table.concat(e.fragments)]==] } },
+        { "compose + parse", { prelude = "local e = BenchEntry", stmt = [==[
+local a = e.args[1] local v = BenchStates[a.switch] v = v and true or false
+v = v and "" or "known:0" e.fragments[2] = v x = SecureCmdOptionParse(table.concat(e.fragments))]==] } },
+        { "RunAttribute (one-line body)", { stmt = [[self:RunAttribute("BenchNoop")]] } },
+    }, knownName;
+end
+
+local BENCH_SETUP = [==[
+BenchColumn = newtable()
+BenchColumn.cell = 2
+BenchColumns = newtable()
+BenchColumns[3] = BenchColumn
+BenchStates = newtable()
+BenchStates["$x"] = true
+BenchEntry = newtable()
+BenchEntry.fragments = newtable()
+BenchEntry.fragments[1] = "["
+BenchEntry.fragments[2] = ""
+BenchEntry.fragments[3] = ",combat]"
+BenchEntry.args = newtable()
+local a = newtable()
+a.switch = "$x"
+BenchEntry.args[1] = a
+]==];
+
+--- The same bodies in the insecure environment, which is the only one reachable in combat:
+--- `SecureHandlerExecute` is refused there. The ENV wrappers are copied from
+--- `RestrictedEnvironment.lua`; tables are plain here, so the table rows read low against the
+--- restricted column, and the API and parse rows are what to compare across situations.
+local insecureEnv = setmetatable({
+    PlayerInCombat = function() return UnitAffectingCombat("player") or UnitAffectingCombat("pet") end,
+    PlayerCanAssist = function(unit) return UnitCanAssist("player", unit) end,
+    PlayerPetSummary = function() return UnitCreatureFamily("pet"), (UnitName("pet")) end,
+    HasExtraActionBar = function() return C_ActionBar.HasExtraActionBar() end,
+    newtable = function(...) return { ... } end,
+}, { __index = _G });
+
+local function Situation()
+    local function b(v)
+        if (issecretvalue and issecretvalue(v)) then
+            return "S";
+        end
+        return v and "T" or "F";
+    end
+    local target = "none";
+    if (UnitExists("target")) then
+        target = (UnitCanAttack("player", "target") and "harm") or (UnitCanAssist("player", "target") and "help")
+            or "other";
+        if (UnitIsDead("target") or UnitIsGhost("target")) then
+            target = target .. ",dead";
+        end
+    end
+    return format("combat=%s mounted=%s flying=%s submerged=%s form=%s stealth=%s group=%s target=%s pet=%s",
+        b(UnitAffectingCombat("player")), b(IsMounted()), b(IsFlying()), b(IsSubmerged()),
+        tostring(GetShapeshiftForm()), b(IsStealthed()), (IsInRaid() and "raid") or (IsInGroup() and "party") or "none",
+        -- With no pet the call returns nothing at all, and `tostring()` refuses no argument.
+        target, tostring((UnitCreatureFamily("pet"))));
+end
+
+local function Bench()
+    local restricted = not InCombatLockdown();
+    if (restricted) then
+        if (not timingHeader) then
+            timingHeader = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate");
+        end
+        timingHeader:SetAttribute("BenchNoop", "local y = 1");
+        SecureHandlerExecute(timingHeader, BENCH_SETUP);
+    end
+    local setup = loadstring(BENCH_SETUP);
+    setfenv(setup, insecureEnv);
+    setup();
+
+    local cases, knownName = BenchCases();
+    local bodies, funcs, rSamples, iSamples = {}, {}, {}, {};
+    for n, case in ipairs(cases) do
+        local spec = case[2];
+        bodies[n] = format("local x %s for i = 1, %d do %s end", spec.prelude or "", COUNT, spec.stmt);
+        if (not strfind(spec.stmt, "self:", 1, true)) then
+            funcs[n] = loadstring(bodies[n]);
+            setfenv(funcs[n], insecureEnv);
+        end
+        rSamples[n], iSamples[n] = {}, {};
+    end
+    -- Interleaved by round, so a hitch in one round lands on every case alike.
+    for _ = 1, ROUNDS do
+        for n = 1, #cases do
+            local start;
+            if (restricted) then
+                start = debugprofilestop();
+                SecureHandlerExecute(timingHeader, bodies[n]);
+                local list = rSamples[n];
+                list[#list + 1] = debugprofilestop() - start;
+            end
+            if (funcs[n]) then
+                start = debugprofilestop();
+                funcs[n]();
+                local list = iSamples[n];
+                list[#list + 1] = debugprofilestop() - start;
+            end
+        end
+    end
+
+    local rEmpty = restricted and Median(rSamples[1]);
+    local iEmpty = Median(iSamples[1]);
+    local lines = {
+        format("us a call, %d calls a body, median of %d rounds, less the empty loop", COUNT, ROUNDS),
+        Situation(),
+        format("known(686 %q)=%s", knownName, tostring(SecureCmdOptionParse("[known:686]") ~= nil)),
+        "restricted  insecure",
+    };
+    for n = 2, #cases do
+        local r = restricted and format("%9.3f", (Median(rSamples[n]) - rEmpty) * 1000 / COUNT) or "        -";
+        local i = funcs[n] and format("%9.3f", (Median(iSamples[n]) - iEmpty) * 1000 / COUNT) or "        -";
+        lines[#lines + 1] = format("%s %s  %s", r, i, cases[n][1]);
+    end
+
+    DebindDevDB = DebindDevDB or {};
+    -- One run per situation, kept side by side. An older single run is dropped.
+    if (type(DebindDevDB.gateWordsBench) ~= "table" or DebindDevDB.gateWordsBench.lines) then
+        DebindDevDB.gateWordsBench = {};
+    end
+    local runs = DebindDevDB.gateWordsBench;
+    runs[#runs + 1] = { at = date("%Y-%m-%d %H:%M:%S"), build = select(4, GetBuildInfo()), lines = lines };
+    for _, line in ipairs(lines) do
+        print(TAG .. line);
+    end
+    print(TAG .. format("run %d saved", #runs));
+end
+
 SLASH_DEBINDGW1 = "/debgw";
 SlashCmdList.DEBINDGW = function(msg)
     msg = strlower(strtrim(msg or ""));
-    if (msg == "stop") then
+    if (msg == "time") then
+        Time();
+    elseif (msg == "bench") then
+        Bench();
+    elseif (msg == "stop") then
         Stop();
     elseif (msg == "show") then
         Show();
