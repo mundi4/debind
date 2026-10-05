@@ -314,7 +314,7 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
 Execute <Frame#2>
-  | local bindings,t,u,c,b,j,e,tp,s,w
+  | local bindings,t,u,c,b,j,e,w
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"

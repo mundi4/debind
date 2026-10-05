@@ -794,7 +794,7 @@ do
 				-- each would be eleven rows of a word the label already said, and most of them
 				-- have no name on this class anyway. The menu is where the names live.
 				local s = "";
-				for i = 0, 10 do
+				for i = 0, Constants.MAX_FORM do
 					if (bit.band(conditions.forms, 2 ^ i) ~= 0) then
 						if (s ~= "") then
 							s = s .. ", ";

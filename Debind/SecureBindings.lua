@@ -1352,7 +1352,8 @@ local EVAL_SNIPPET = [==[
 
 			-- **The form is a call and a bit test, as the loop measures it** (`MEASURED_BY` in
 			-- `UpdateBindings.lua`): `form` in a conditional cost a druid 1.07 a token (7-1). Called
-			-- once a press, by the first record that asks.
+			-- once a press, by the first record that asks. It answers 0 with no form, never nil
+			-- (owner, 2026-10-06), so nothing stands before the compare.
 			if (match and t.forms) then
 				if (not formBit) then
 					local form = GetShapeshiftForm()

@@ -141,13 +141,13 @@ local FIXED_COLUMNS = {
     {
         name = "bonusbars",
         make = function(binding)
-            return flagsToConditionFlags(binding.conditions.bonusbars, 5);
+            return flagsToConditionFlags(binding.conditions.bonusbars, Constants.MAX_BONUSBAR_OFFSET);
         end
     },
     {
         name = "forms",
         make = function(binding)
-            return flagsToConditionFlags(binding.conditions.forms, 10);
+            return flagsToConditionFlags(binding.conditions.forms, Constants.MAX_FORM);
         end
     },
     {

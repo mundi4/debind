@@ -835,6 +835,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
 			if (match and t.forms) then
 				if (not formBit) then
 					local form = GetShapeshiftForm()
@@ -1266,6 +1267,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
 			end
+
 
 
 
@@ -1929,6 +1931,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
 			if (match and t.forms) then
 				if (not formBit) then
 					local form = GetShapeshiftForm()
@@ -2498,6 +2501,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
 			if (match and t.forms) then
 				if (not formBit) then
 					local form = GetShapeshiftForm()
@@ -2973,6 +2977,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
 			end
+
 
 
 
@@ -3459,6 +3464,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
 			if (match and t.forms) then
 				if (not formBit) then
 					local form = GetShapeshiftForm()
@@ -3873,6 +3879,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
 			end
+
 
 
 

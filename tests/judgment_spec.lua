@@ -629,6 +629,17 @@ return function(DebindPrivate, _, ctx)
         end);
     end
 
+    -- **A row set to `call` with no call written for it is refused** (`CALLED_STATE_AXES`): the
+    -- record would go out as a field the press never reads, and the key would fire whatever the
+    -- state. A key on a single action has no item, so nothing but that guard can say so.
+    test("a state measured by a call nothing writes is refused", function()
+        MeasuredBy("combat", "call", function()
+            local ok = pcall(Bind, { action({ key = "F5", conditions = { combat = true } }) });
+            check(not ok, "a rebuild sent combat out as a field the press never reads");
+        end);
+        Bind({ action({ type = Constants.UNUSED }) });
+    end);
+
     -- **The form is the call's, on both sides** (`Constants.MEASURED_BY`). With the word answering
     -- another form, a loop that still parsed would bind the key to what the press does not do.
     -- Once the two agree again, a quiet beat parses the watch and nothing else: its fragments are
@@ -1349,6 +1360,29 @@ return function(DebindPrivate, _, ctx)
         interp:beat();
         check(interp.env.JudgeGeneration ~= generation, "an enemy did not raise the generation");
         check(Bound("F1") == Judgment.OURS, "an enemy alive did not take the key");
+        shim.world.units = {};
+        interp:resetState();
+    end);
+
+    -- **A grouped state column's fragments are its groups'** (`ColumnGroups`). Only a raid is asked,
+    -- so no group and a party are one group, written as no group; in a party its fragment has to
+    -- stay quiet, or every beat there hits the watch and measures again.
+    test("a quiet beat in a merged group parses only the watch", function()
+        Bind({
+            action({ conditions = { groups = Constants.GROUP_RAID } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        interp.state.group = "party";
+        interp:beat();
+        for n = 1, 2 do
+            local text = interp.env.JudgeWatch.text;
+            local all, watch = Parses(function() interp:beat(); end, text);
+            check(all == 1 and watch == 1, string.format("in a party, quiet beat %d parsed %d texts, the watch %d times",
+                n, all, watch));
+        end
+        check(Bound("F1") == Actual("F1"), "the press " .. Actual("F1") .. ", the loop " .. Bound("F1"));
         shim.world.units = {};
         interp:resetState();
     end);

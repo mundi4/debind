@@ -428,9 +428,9 @@ Constants.GROUP_PARTY                = 2 ^ 1;
 Constants.GROUP_RAID                 = 2 ^ 2;
 Constants.GROUP_ALL                  = 2 ^ 3 - 1;
 
-Constants.FORM_ALL                   = 2 ^ 11 - 1;
 --- The last form a condition can name. A form past it is no form, as `[noform:1/…/10]` holds there.
 Constants.MAX_FORM                   = 10;
+Constants.FORM_ALL                   = 2 ^ (Constants.MAX_FORM + 1) - 1;
 
 -- **The index the initial specialization sits at, for every class.** It is not the count of a
 -- class's specializations and no loop may run to it: a class with two specializations has 1, 2 and

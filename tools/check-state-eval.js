@@ -5,8 +5,7 @@
 // generated, and `judgment_spec.lua` sweeps the keys they bind.
 //
 // So this checks the baked `EVAL_SNIPPET` holds the `STATE_EVAL_EXPRESSIONS` form of every state
-// called and of no other. Until Q2d of `implementing-the-cuts-inside-the-beat-handler.md` it held
-// the press to none of them.
+// called and of no other.
 const fs = require("fs");
 const path = require("path");
 const { collectSnippetLocals } = require("./lib/snippets");

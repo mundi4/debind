@@ -1730,9 +1730,18 @@ local STATE_AXES = {};
 for _, axis in ipairs(STATE_AXIS_ORDER) do
     STATE_AXES[axis] = true;
 end
+--- **The state axes a call is written for**, in `EVAL_SNIPPET` and in `BuildJudgeSnippet`'s
+--- `otherCell`. A row set to `call` anywhere else would go out as a field the press never reads.
+local CALLED_STATE_AXES = { forms = true };
+
 --- Asked at every rebuild rather than kept, so a row a spec sets is the one the rebuild reads.
 local function ParsedStateAxis(field)
-    return STATE_AXES[field] and MEASURED_BY[field] == "parse";
+    if (not STATE_AXES[field]) then
+        return false;
+    end
+    local by = MEASURED_BY[field];
+    assert(by == "parse" or CALLED_STATE_AXES[field], "no call is written for the state " .. field);
+    return by == "parse";
 end
 
 --- The offsets of a mask, `2 ^ n` per offset `n`, from `from` up to `to`.
@@ -2911,7 +2920,8 @@ local function ColumnGroups(column, masks)
                 bySignature[signature] = group;
                 groups[#groups + 1] = group;
             end
-            group.mask, group.count = group.mask + cell, group.count + 1;            if (noneParsed or cell ~= Constants.UNITSTATE_NONE) then
+            group.mask, group.count = group.mask + cell, group.count + 1;
+            if (noneParsed or cell ~= Constants.UNITSTATE_NONE) then
                 group.weight = group.weight + 1;
             end
         end
@@ -2943,6 +2953,16 @@ local function Merged(groups)
     return false;
 end
 
+--- An alternative's tokens as they follow `@unit` in a group.
+local function UnitTokensText(alternative)
+    return #alternative > 0 and ("," .. tconcat(alternative, ",")) or "";
+end
+
+--- The alternatives a unit's own text has no way to hold in: `UnitAlternatives`' fixed false.
+local function Never(alternatives)
+    return alternatives[1] ~= nil and alternatives[1][1] == "known:0";
+end
+
 --- **One parse that answers a unit's cell** (P3-3), for the column loop's `unit` column. Its value
 --- is the `UNITSTATE_*` number. `exists` is asked where `UnitAsksExists` says, so the loop reads a
 --- unit's existence the way the press does. An alias or frame unit with no token is never parsed.
@@ -2966,9 +2986,9 @@ local function ClassifyPieces(unit, groups)
         local default = DefaultGroup(groups);
         for _, group in ipairs(groups) do
             local alternatives = UnitAlternatives(unit, group.mask);
-            if (group ~= default and group.weight > 0 and alternatives[1][1] ~= "known:0") then
+            if (group ~= default and group.weight > 0 and not Never(alternatives)) then
                 for _, alternative in ipairs(alternatives) do
-                    at(#alternative > 0 and ("," .. tconcat(alternative, ",")) or "");
+                    at(UnitTokensText(alternative));
                 end
                 pieces[#pieces + 1] = " " .. group.rep .. "; ";
             end
@@ -3000,11 +3020,6 @@ local function Negated(token)
     return "no" .. token;
 end
 
---- An alternative's tokens as they follow `@unit` in a group.
-local function UnitTokensText(alternative)
-    return #alternative > 0 and ("," .. tconcat(alternative, ",")) or "";
-end
-
 --- A fixed unit's fragment from its alternatives (`UnitWatchAlternatives`).
 local function UnitFragmentText(unit, alternatives)
     local groups = {};
@@ -3021,11 +3036,6 @@ local function UnitWords(alternatives)
         words = words + #alternative + 1;
     end
     return words;
-end
-
---- The alternatives a unit's own text has no way to hold in: `UnitAlternatives`' fixed false.
-local function Never(alternatives)
-    return alternatives[1] ~= nil and alternatives[1][1] == "known:0";
 end
 
 --- Each alias or frame unit the watch carries: its place, and its alternatives by cell.
@@ -3355,10 +3365,11 @@ end
 --- that cell** (`implementing-the-cuts-inside-the-beat-handler.md` Q2, ③ of
 --- `sizing-the-cuts-inside-the-beat-handler.md`). The clauses are the ones a parse of the column is
 --- made from (`StateCellClauses`), read first to last: in the k-th clause's cell, any earlier clause
---- holding or the k-th failing has moved it, and in the default's, any clause holding has. nil for
---- a column the watch does not carry, which is measured on every beat as before:
+--- holding or the k-th failing has moved it, and in the default's, any clause holding has. A unit's
+--- are `UnitWatchAlternatives`'. nil for a column the watch does not carry, which is measured on
+--- every beat as before:
 ---
----   a unit, a switch, the pointed frame's   Q3, or nothing a conditional can ask
+---   a switch, the pointed frame's           nothing a conditional can ask
 ---   `known` with `knownID`                  the press asks the spell book too
 ---   `petbattle`                             pushed, never on the beat
 ---   not parsed, not `ANSWERS_AS_THE_WORD`   nothing says the word answers what is measured
@@ -3386,7 +3397,9 @@ function WatchFragments(column)
         local token = column.arg:match("^%[(.+)%]$");
         list = { { groups = { { token } }, cell = Constants.JUDGMENT_TRUE }, default = Constants.JUDGMENT_FALSE };
     elseif (column.kind ~= "petbattle") then
-        list = StateCellClauses(column.kind);
+        -- The groups the loop writes (`ColumnGroups`): a cell is a group's `rep`, and its fragment has
+        -- to hold where the group is left, not where that one cell is.
+        list = StateCellClauses(column.kind, _columnGroups[column.key]);
     end
     if (not list) then
         return nil;
@@ -3823,7 +3836,8 @@ local function BuildJudgeSnippet()
             text, numbered = StateCellText(kind, _columnGroups[column.key]);
         end
         if (kind == "forms" and by == "call") then
-            -- The press's measure (`EVAL_SNIPPET`), its bit the cell.
+            -- The press's measure (`EVAL_SNIPPET`), its bit the cell. `GetShapeshiftForm()` answers 0
+            -- with no form, never nil (owner, 2026-10-06), so nothing stands before the compare.
             add("local form = GetShapeshiftForm()");
             add("PROBE.MockState(form)");
             add("if (form > %d) then", Constants.MAX_FORM);
@@ -4286,7 +4300,7 @@ local function BuildJudgeSnippet()
 end
 
 function UpdateBindingsMap()
-    appendLine("local bindings,t,u,c,b,j,e,tp,s,w");
+    appendLine("local bindings,t,u,c,b,j,e,w");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;
