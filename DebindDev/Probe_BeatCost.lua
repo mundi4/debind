@@ -799,6 +799,35 @@ end]==]);
     add("P", "a numbered parse through tonumber", [[x = tonumber(SecureCmdOptionParse("[known:0] 2; 4"))]]);
     add("P", "a numbered parse + 0", [[x = SecureCmdOptionParse("[known:0] 2; 4") + 0]]);
 
+    -- The form asked by its clauses and by one call, as the whole lines a body would carry and not
+    -- as their parts added up: mixing a call and a bit test into what was one parse has costs of
+    -- its own (the call's name, the record's mask read, a parse that still has to be made for the
+    -- record's other words). What `form` costs depends on the class, so the run's class is logged
+    -- (`Situation`), and the comparison is only worth reading beside it.
+    local formClauses = {};
+    for n = 1, 10 do
+        formClauses[n] = format("[form:%d] %d; ", n, 2 ^ n);
+    end
+    add("P", "forms cell, ten clauses + 0 (the loop today)",
+        "x = SecureCmdOptionParse(" .. q(table.concat(formClauses) .. "1") .. ") + 0");
+    add("P", "forms cell, one call, clamp, 2 ^ n",
+        "local n = GetShapeshiftForm() if (n > 10) then n = 0 end x = 2 ^ n");
+    if (#cheap >= 1) then
+        local held = cheap[1].tTok;
+        local withForm = "x = " .. p("[" .. held .. ",form:1/2]");
+        local withoutForm = "x = " .. p("[" .. held .. "]") .. " and ((m % (c + c)) >= c)";
+        local onlyForm = "x = " .. p("[form:1/2]");
+        local CALL = "local n = GetShapeshiftForm() if (n > 10) then n = 0 end local c = 2 ^ n local m = BenchIndex[2] + 4\n";
+        add("P", "press, 1 record: one parse of [<held>,form:1/2]", withForm);
+        add("P", "press, 1 record: one call, then [<held>] parsed and a bit test", CALL .. withoutForm);
+        add("P", "press, 4 records: four parses of [<held>,form:1/2]", strrep(withForm .. "\n", 4));
+        add("P", "press, 4 records: one call, then four of [<held>] parsed and a bit test",
+            CALL .. strrep(withoutForm .. "\n", 4));
+        add("P", "press, 4 records with form alone: four parses of [form:1/2]", strrep(onlyForm .. "\n", 4));
+        add("P", "press, 4 records with form alone: one call and four bit tests",
+            CALL .. strrep("x = (m % (c + c)) >= c\n", 4));
+    end
+
     -- G
     add("G", "compose, 1 switch arg", format(COMPOSE, "BenchEntry1") .. "x = s");
     add("G", "compose, 1 switch arg + parse", format(COMPOSE, "BenchEntry1") .. "x = SecureCmdOptionParse(s)");
@@ -827,7 +856,10 @@ local function Situation()
         target = (UnitCanAttack("player", "target") and "harm") or (UnitCanAssist("player", "target") and "help")
             or "other";
     end
-    return format("combat=%s mounted=%s flying=%s submerged=%s form=%s group=%s target=%s pet=%s",
+    -- The class and how many forms it has: what `form` costs depends on them (0.14 on a warlock,
+    -- 1.14 on a druid), and a run that does not say which it was cannot be read later.
+    return format("class=%s forms=%d combat=%s mounted=%s flying=%s submerged=%s form=%s group=%s target=%s pet=%s",
+        tostring((select(2, UnitClass("player")))), GetNumShapeshiftForms(),
         b(UnitAffectingCombat("player")), b(IsMounted()), b(IsFlying()), b(IsSubmerged()),
         tostring(GetShapeshiftForm()), (IsInRaid() and "raid") or (IsInGroup() and "party") or "none",
         target, tostring((UnitCreatureFamily("pet"))));

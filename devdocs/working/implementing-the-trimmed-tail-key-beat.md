@@ -16,6 +16,11 @@
 
 ### beat와 누름은 같은 식을 파싱한다 (소유자)
 
+> **2026-10-06에 소유자가 이것을 강한 규칙으로는 거뒀다.** 남는 것은 "루프가 건 키는 누름의 답과 같다"와 "누름과 루프는
+> 한 조건을 같은 방법으로 잰다"이고, 그 방법이 늘 파싱이어야 한다는 쪽이 빠졌다. 아래의 측정은 흑마법사 한 캐릭터의
+> 것이었고, 드루이드에서 `form`이 낱말 하나에 1.07로 나왔다(`trimming-the-tail-key-beat.md` 7-1). 조건마다 재는 방법을
+> 고르는 단계는 `implementing-the-cuts-inside-the-beat-handler.md`의 Q2d다. 아래 글은 그날 정한 그대로 둔다.
+
 지금 누름(`EVAL_SNIPPET`)은 API로 잰다(`PlayerInCombat()`, `IsFlyableArea()`, `UnitIsDead or UnitIsGhost`). beat만
 파싱으로 바꾸면 beat와 누름이 같은 답을 내는 것이 매크로 조건과 API가 같은 것을 잰다는 근거에 기대고, 7-1에서 그
 근거가 선 낱말은 일부다. 7-1은 파싱 한 번이 C 함수 하나를 부르는 값과 같은 자리이고 ENV 래퍼보다 싸다고도 쟀다
