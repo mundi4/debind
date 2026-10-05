@@ -8155,6 +8155,71 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
     end,
 })
 
+-- **The loop composes a computed switch's text only when a name it reads moves**
+-- (`trimming-the-tail-key-beat.md` 8-6). Which key that binds is headless
+-- (`tests/judgment_spec.lua`); what is left for the client is that the bodies composing and clearing
+-- the texts run in the restricted environment, where one that does not attach leaves the key
+-- quietly where it was. A switch set by hand under two computed ones walks all of it on one wake:
+-- the wake clears the first text, and the first switch flipping clears the second.
+RegisterTest("Tail: a switch set by hand moves the key through two computed switches", {
+    description = "Setting a switch by hand rebinds a tail key read through two computed switches, on its wake and with no rebuild",
+    run = function()
+        local NAME = "Tail computed switch"
+        local KEY = "CTRL-SHIFT-F12"
+        local COMMAND = "TOGGLEWORLDMAP"
+        local HAND, FIRST, SECOND = "$tailhand", "$tailfirst", "$tailsecond"
+        local MODES = Constants.SWITCH_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+
+        local saved = {}
+        for _, name in ipairs({ HAND, FIRST, SECOND }) do
+            saved[name] = DebindPrivate.Switches[name] or false
+        end
+        local savedStored = DebindPrivate.GetRememberedSwitch(HAND)
+        AddTeardown(function()
+            for name, definition in pairs(saved) do
+                DebindPrivate.Switches[name] = definition or nil
+            end
+            DebindPrivate.SetRememberedSwitch(HAND, savedStored)
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[HAND] = { mode = MODES.MANUAL }
+        DebindPrivate.Switches[FIRST] = { mode = MODES.EXPR, expr = "[" .. HAND .. "]" }
+        DebindPrivate.Switches[SECOND] = { mode = MODES.EXPR, expr = "[" .. FIRST .. "]" }
+        DebindPrivate.SetRememberedSwitch(HAND, nil)
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SECOND] = true })
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY })
+        ApplyBindings()
+
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound ~= COMMAND then
+            return Fail(NAME, format("with %s unset the key answers %q, it should be the command", HAND, bound))
+        end
+
+        -- **Nothing is waited on**: the attribute write runs `SetSwitch`, and its wake binds on the
+        -- spot. A beat between could not stand in for it, since nothing but the wake clears the text.
+        DebindPrivate.SwitchesUpdaterFrame:SetAttribute(HAND, true)
+        bound = GetBindingAction(KEY, true) or ""
+        if bound:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("%s went on and the key answers %q, it should be ours", HAND, bound))
+        end
+
+        DebindPrivate.SwitchesUpdaterFrame:SetAttribute(HAND, false)
+        bound = GetBindingAction(KEY, true) or ""
+        if bound ~= COMMAND then
+            return Fail(NAME, format("%s went off and the key answers %q, it should be the command", HAND, bound))
+        end
+
+        return Pass(NAME, "the switch's wake took the key and handed it back, through both computed switches")
+    end,
+})
+
 -- **`rtgsub` is what carries the mock into a parse**, and that it takes a restricted table as the
 -- replacement is the client's to show: the plain `gsub` a body also has refuses one.
 RegisterTest("Mock: a held state reaches a parsed expression", {

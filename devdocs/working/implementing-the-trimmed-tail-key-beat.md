@@ -357,6 +357,10 @@ C2, C4, C6. 이 일의 본체였다.
     실패했다.
   - "a computed switch reading a switch set by hand, and one reading an alias": `SetSwitch`·`SetUnit`의 깨움만으로, beat
     없이 키가 누름과 같아진다. 깨움의 글 지우기를 뺀 코드에서 실패했다.
+  - 키트의 "Tail: a switch set by hand moves the key through two computed switches": 손 스위치 하나를 계산식 스위치 둘이
+    차례로 읽는다. 깨움 하나에서 조립, 깨움의 지우기, 뒤집힌 스위치의 지우기가 다 보안 환경에서 돈다. `[combat]` 같은
+    낱말로 beat 쪽을 보지 않는 것은 계산식 스위치가 개발 빌드의 목(`PROBE.SecureCmdOptionParse`)이 닿지 않는 맨
+    `SecureCmdOptionParse`로 파싱하기 때문이다(누름의 `COMPUTE_SWITCHES_SNIPPET`과 같다).
 - 벤치(`--bench-beat`의 "computed switches"): 키 12개가 `$h = [$w,mounted]`, `$u = [@custom1,help]`,
   `$c = [$a,stealth]`, `$a = [combat]`을 돌려 읽는다. `table.concat`은 벤치가 세지 않고 있어서 7-1의 0.54(조각 셋)로
   넣었다. beat 하나 µs, 앞 / 뒤:
