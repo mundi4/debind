@@ -55,6 +55,15 @@ squeeze.
 Habits that are free elsewhere and are not free here: building a table per run, walking everything
 to find one thing, composing strings, and a layer of indirection added for readability.
 
+**Reading a name out of the environment is one of them.** A body's globals sit behind a proxy, so a
+global read measured 0.15 µs where a field of a table already held in a local measured 0.07 and
+arithmetic on locals 0.03 (xptr 120105, 2026-10-06). That is paid for a function's name as well as
+for a table's: `strbyte(s, n)` measured 0.137 and `s:byte(n)` 0.073, `ldexp(1, n)` 0.138 and
+`2 ^ n` 0.012. Outside the restricted environment each pair costs the same. So in a hot path fetch
+a table into a local once and read its fields from there, and reach for a string method or an
+operator before the environment's function of the same job. String methods are meant to work in a
+body: `RestrictedExecution.lua` copies `string` into the string metatable's index for that.
+
 **`RunAttribute` costs more than a function call, and it is not a compile.** Blizzard keys a closure
 cache on the body string, so `loadstring` runs once for a given body and every call after it is a
 hit (`RestrictedExecution.lua`, `CreateClosureFactory` and `CallRestrictedClosure`). What a call
