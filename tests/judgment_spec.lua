@@ -593,12 +593,126 @@ return function(DebindPrivate, _, ctx)
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
 
-    test("forms and the player's group", function()
+    --- Runs `fn` with `kind` measured `by` (`Constants.MEASURED_BY`), put back after.
+    local function MeasuredBy(kind, by, fn)
+        local was = Constants.MEASURED_BY[kind];
+        Constants.MEASURED_BY[kind] = by;
+        local ok, err = pcall(fn);
+        Constants.MEASURED_BY[kind] = was;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    -- **Each way a kind can be measured is swept**, so moving its row is a change that already has
+    -- its test. Several records on the form, one beside another word.
+    for _, by in ipairs({ "call", "parse" }) do
+        test("forms and the player's group, the forms by " .. by, function()
+            MeasuredBy("forms", by, function()
+                Bind({
+                    action({ conditions = { forms = 2 ^ 0 + 2 ^ 2, groups = Constants.GROUP_PARTY } }),
+                    action({ type = Constants.UNUSED }),
+                });
+                Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
+            end);
+        end);
+        test("several records on the form, the forms by " .. by, function()
+            MeasuredBy("forms", by, function()
+                Bind({
+                    action({ conditions = { forms = 2 ^ 1, combat = true } }),
+                    action({ type = Constants.COMMAND, value = MAP, conditions = { forms = 2 ^ 1 + 2 ^ 3 } }),
+                    action({ value = 585, conditions = { forms = 2 ^ 0 } }),
+                    action({ type = Constants.UNUSED }),
+                });
+                Saw(Sweep("F1"), Judgment.OURS, OutcomeName(Judgment.COMMAND, MAP), Judgment.RELEASE);
+            end);
+        end);
+    end
+
+    -- **The form is the call's, on both sides** (`Constants.MEASURED_BY`). With the word answering
+    -- another form, a loop that still parsed would bind the key to what the press does not do.
+    -- Once the two agree again, a quiet beat parses the watch and nothing else: its fragments are
+    -- the word's, and one left holding would have every beat measure again.
+    test("the press and the loop follow the call where the word says otherwise", function()
         Bind({
-            action({ conditions = { forms = 2 ^ 0 + 2 ^ 2, groups = Constants.GROUP_PARTY } }),
+            action({ conditions = { forms = 2 ^ 1 } }),
             action({ type = Constants.UNUSED }),
         });
-        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        check(Actual("F1") == Judgment.RELEASE and Looped("F1") == Judgment.RELEASE,
+            "the key was not let go in no form");
+        interp.state.form, interp.state.diverge.form = 1, 2;
+        local got, looped = Actual("F1"), Looped("F1");
+        check(got == Judgment.OURS, "the press did not follow the call, it gave " .. got);
+        check(looped == got, "the press " .. got .. ", the loop " .. looped);
+        interp.state.diverge.form = nil;
+        interp:beat();
+        for n = 1, 2 do
+            local before = {};
+            for text, count in pairs(interp.parses) do
+                before[text] = count;
+            end
+            interp:beat();
+            local parsed = {};
+            for text, count in pairs(interp.parses) do
+                if (count ~= (before[text] or 0)) then
+                    parsed[#parsed + 1] = string.format("%q x%d", text, count - (before[text] or 0));
+                end
+            end
+            check(#parsed == 1 and parsed[1]:find(interp.env.JudgeWatch.text, 1, true) and parsed[1]:sub(-3) == " x1",
+                string.format("quiet beat %d after the two agree parsed %s", n, table.concat(parsed, ", ")));
+        end
+        check(Bound("F1") == Judgment.OURS, "the loop let the key go with nothing moved");
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **A form past the last a condition names is no form** (`Constants.MAX_FORM`), to the press and
+    -- the loop alike. Without that the loop's cell is a bit no mask holds, and the key falls to the
+    -- rest, which here is not what no form answers: the solver puts the second record there.
+    test("a form past the last one named is no form to both sides", function()
+        Bind({
+            action({ conditions = { forms = 2 ^ 0 } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { combat = false } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        interp.state.form = 2;
+        local map = OutcomeName(Judgment.COMMAND, MAP);
+        check(Actual("F1") == map and Looped("F1") == map, "the key was not handed to the command in form 2");
+        interp.state.form = Constants.MAX_FORM + 1;
+        local got, looped = Actual("F1"), Looped("F1");
+        check(got == Judgment.OURS, "the press read form " .. interp.state.form .. " as a form, it gave " .. got);
+        check(looped == got, "the press " .. got .. ", the loop " .. looped);
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **The press asks the form once, by the call**: a record's `expr` that kept its `form:` token
+    -- would ask it twice, the second time at the price the call was chosen to save.
+    test("the press does not parse the form", function()
+        Bind({
+            action({ conditions = { forms = 2 ^ 1, combat = true } }),
+            action({ conditions = { forms = 2 ^ 1 + 2 ^ 2 } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        interp.state.form = 2;
+        local before = {};
+        for text, count in pairs(interp.parses) do
+            before[text] = count;
+        end
+        local got = Actual("F1");
+        check(got == Judgment.OURS, "the press gave " .. got);
+        for text, count in pairs(interp.parses) do
+            check(count == (before[text] or 0) or not text:find("form", 1, true),
+                "the press parsed " .. text);
+        end
+        interp:resetState();
+        shim.world.units = {};
     end);
 
     test("the bars, skyriding and pet battles", function()
@@ -1209,32 +1323,6 @@ return function(DebindPrivate, _, ctx)
             end
         end
         check(seen, "no handler was written");
-    end);
-
-    -- **No body of the loop measures a state through the API**: it parses its state columns as the
-    -- press parses them. `Constants.STATE_EVAL_EXPRESSIONS` is the list of the API forms it may not
-    -- take back up.
-    test("the loop's bodies measure no state through the API", function()
-        local mark = frames.mark();
-        Bind({
-            action({ conditions = { combat = true, stealth = true, mounted = true,
-                indoors = true, flyable = true, advflyable = true, flying = true, skyriding = false,
-                specialbar = false, extrabar = false, petbattle = false, forms = 2 ^ 1,
-                bonusbars = 2 ^ 2, groups = Constants.GROUP_PARTY } }),
-            action({ type = Constants.UNUSED }),
-        });
-        local bodies = 0;
-        for _, entry in ipairs(frames.since(mark)) do
-            local name = entry.name;
-            if (entry.kind == "SetAttribute" and type(entry.body) == "string" and type(name) == "string"
-                    and (name == "JudgePass" or name == "_onattributechanged" or name:sub(1, 6) == "judge-")) then
-                bodies = bodies + 1;
-                for state, form in pairs(Constants.STATE_EVAL_EXPRESSIONS) do
-                    check(not entry.body:find(form, 1, true), name .. " measures " .. state .. " by " .. form);
-                end
-            end
-        end
-        check(bodies > 0, "no body of the loop was written");
     end);
 
     return T;

@@ -8289,6 +8289,66 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
     end,
 })
 
+-- **The loop measures the form by the call** (`Constants.MEASURED_BY`, Q2d of
+-- `implementing-the-cuts-inside-the-beat-handler.md`). Which key that binds, the press and the loop
+-- alike, is headless (`tests/judgment_spec.lua`). What only the client shows is the beat's body
+-- calling `GetShapeshiftForm()` and turning it into the cell there, under a watch whose fragments
+-- are still the word's: a body that fails at it raises nothing and the key stays where it was.
+RegisterTest("Tail: the form moves the key by the call", {
+    description = "With no rebuild, the form held at 1 and then 2 moves a tail key through the beat's call, a quiet beat leaves it, and the watch's check finds no column it missed",
+    run = function()
+        local NAME = "Tail form"
+        local KEY = "CTRL-SHIFT-F12"
+        local COMMAND = "TOGGLEWORLDMAP"
+        local driver = DebindPrivate.BindingDriver
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, forms = 2 ^ 1 })
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY, forms = 2 ^ 2 })
+        InsertAction({ type = Constants.UNUSED, key = KEY })
+        ApplyBindings()
+        -- Ends in a rebuild, whose pass judges the key in no form.
+        SetMockState("form", 0)
+        local function Bound() return GetBindingAction(KEY, true) or "" end
+        if Bound():sub(1, 6) == "CLICK " or Bound() == COMMAND then
+            return Fail(NAME, format("in no form the key answers %q, it should be let go", Bound()))
+        end
+
+        local witness = BeatWitness()
+        local function WaitTicks(n)
+            local from = witness:GetAttribute("ticks") or 0
+            return WaitUntil(function() return (witness:GetAttribute("ticks") or 0) >= from + n end, 2)
+        end
+
+        -- Past `SetMockState`, which ends in a rebuild: only a beat moves the key from here.
+        SecureHandlerExecute(driver, MockBody("form", 1))
+        if not WaitUntil(function() return Bound():sub(1, 6) == "CLICK " end, 2) then
+            return Fail(NAME, format("in form 1 no beat took the key, it answers %q", Bound()))
+        end
+        SecureHandlerExecute(driver, MockBody("form", 2))
+        if not WaitUntil(function() return Bound() == COMMAND end, 2) then
+            return Fail(NAME, format("in form 2 no beat moved the key, it answers %q", Bound()))
+        end
+        if not WaitTicks(2) then
+            return Fail(NAME, "the manager did not tick for the witness")
+        end
+        if Bound() ~= COMMAND then
+            return Fail(NAME, format("a quiet beat moved the key to %q", Bound()))
+        end
+        if #watchMisses > 0 then
+            return Fail(NAME, format("the watch let a beat pass with column %d moved", watchMisses[1]))
+        end
+        return Pass(NAME, "the form moved the key through the beat's call, and a quiet beat held it")
+    end,
+})
+
 -- **The loop composes a computed switch's text only when a name it reads moves**
 -- (`trimming-the-tail-key-beat.md` 8-6). Which key that binds is headless
 -- (`tests/judgment_spec.lua`); what is left for the client is that the bodies composing and clearing

@@ -1309,6 +1309,7 @@ local EVAL_SNIPPET = [==[
 	-- The group memo below (`ClickUnitGroup`) is wiped once per press, the first time a record asks
 	-- about a unit, and holds for the rest of that press.
 	local memoReady = false
+	local formBit
 
 	-- 어느 갈래로 들어왔느냐가 곧 어느 레코드를 보느냐다. 한 키가 양쪽 레코드를 다 가질 수
 	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
@@ -1374,12 +1375,29 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- **Every state axis the record asks is one conditional, parsed** (`StateExpression` in
+			-- **Every parsed state axis the record asks is one conditional** (`StateExpression` in
 			-- `UpdateBindings.lua`). A parse is the price of one C call (7-1 of
 			-- `trimming-the-tail-key-beat.md`), and the beat parses the same words, so the two read
 			-- one answer rather than two that were measured to agree.
 			if (match and t.expr and not PROBE.SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+			-- **The form is a call and a bit test, as the loop measures it** (`MEASURED_BY` in
+			-- `UpdateBindings.lua`): `form` in a conditional cost a druid 1.07 a token (7-1). Called
+			-- once a press, by the first record that asks.
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					PROBE.MockState(form)
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 			-- **`known`도 잰다.** 예전 주석은 *"답이 바뀌는 계기가 SPELLS_CHANGED 하나뿐이라

@@ -806,7 +806,7 @@ Execute <Frame#2>
   | t["spell"]="Renew"
   | t["castModifier"]=2
   | t["unit"]="player"
-  | t["expr"]="[form:0/1]"
+  | t["forms"]=3
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -816,7 +816,7 @@ Execute <Frame#2>
   | t["spell"]="Renew"
   | t["castModifier"]=4
   | t["unit"]="focus"
-  | t["expr"]="[form:0/1]"
+  | t["forms"]=3
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -825,7 +825,7 @@ Execute <Frame#2>
   | t["clickbutton"]="deb107"
   | t["spell"]="Renew"
   | t["castModifier"]=1
-  | t["expr"]="[form:0/1]"
+  | t["forms"]=3
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1

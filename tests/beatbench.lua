@@ -464,9 +464,10 @@ return function(DebindPrivate)
     --- warlock (2026-10-05), which has no forms, and 1.07 on a druid (2026-10-06), where `[form:1]`
     --- parsed in 1.217. No other class with forms was measured. A profile with a forms column is a
     --- class that has them, so the second row is the one that stands for this shape.
+    --- `GetShapeshiftForm()` as well, by the same runs: 0.143 on the warlock, 1.137 on the druid.
     local FORM_PRICES = {
-        { "class without forms, form 0.06", 0 },
-        { "forms column, class with forms (druid), form 1.07", 1.217 - 0.146 - 0.032 - 0.057 },
+        { "class without forms, form 0.06", 0, 0.143 },
+        { "forms column, class with forms (druid), form 1.07", 1.217 - 0.146 - 0.032 - 0.057, 1.137 },
     };
     local function LargeRow(leading, combat)
         largeWorld();
@@ -540,6 +541,7 @@ return function(DebindPrivate)
     end
     for _, formPrice in ipairs(FORM_PRICES) do
         COST["parse word form"][1] = formPrice[2];
+        COST["call GetShapeshiftForm"][1] = formPrice[3];
         print("  " .. formPrice[1] .. ":");
         for _, leading in ipairs({ 0, 12, 24 }) do
             for _, combat in ipairs({ false, true }) do
@@ -548,6 +550,7 @@ return function(DebindPrivate)
         end
     end
     COST["parse word form"][1] = 0;
+    COST["call GetShapeshiftForm"][1] = 0.143;
     shim.world.units = {};
 
     --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top

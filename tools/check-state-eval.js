@@ -1,12 +1,12 @@
-// **The press asks the state axes by parsing the record's `expr`, and measures none of them through
-// the API** (`implementing-the-trimmed-tail-key-beat.md` P2). `Constants.STATE_EVAL_EXPRESSIONS` is
-// the API forms of those states, which the beat does not measure with either (P3), so a press that
-// took one of them back up would read the world one way while the beat reads it another, and
-// nothing in a run of the game says so. The beat's bodies are generated, and `judgment_spec.lua`
-// holds those.
+// **The press measures a state through the API exactly where `Constants.MEASURED_BY` says the
+// state is a call**, and parses every other one in the record's `expr`. The loop measures each kind
+// the way that table says, so a press that measured one another way would read the world one way
+// while the loop reads it another, and nothing in a run of the game says so. The loop's bodies are
+// generated, and `judgment_spec.lua` sweeps the keys they bind.
 //
-// So this checks the baked `EVAL_SNIPPET` holds **none** of the table's forms. It used to check
-// the opposite -- that the press measured every one of them -- for as long as the press did.
+// So this checks the baked `EVAL_SNIPPET` holds the `STATE_EVAL_EXPRESSIONS` form of every state
+// called and of no other. Until Q2d of `implementing-the-cuts-inside-the-beat-handler.md` it held
+// the press to none of them.
 const fs = require("fs");
 const path = require("path");
 const { collectSnippetLocals } = require("./lib/snippets");
@@ -19,6 +19,7 @@ const srcDir = path.join(__dirname, "..", "Debind");
 const FILE = "SecureBindings.lua";
 const LOCAL = "EVAL_SNIPPET";
 const TABLE = "STATE_EVAL_EXPRESSIONS";
+const METHODS = "MEASURED_BY";
 
 function fail(message, hint) {
     console.log(message);
@@ -43,19 +44,25 @@ if (states.length === 0) {
     fail(`Constants.${TABLE}가 비어 있다. 그대로 두면 이 검사는 아무것도 안 보고 통과한다.`);
 }
 
-const baked = bakeShipped(entry.body);
-const measured = states.filter((state) => baked.includes(expressions[state]));
+const methods = constantStringTable(METHODS);
+const unknown = states.filter((state) => !methods[state]);
+if (unknown.length > 0) {
+    fail(`Constants.${METHODS}에 줄이 없는 상태: ${unknown.join(", ")}`);
+}
 
-if (measured.length === 0) {
-    console.log(`${LOCAL}이 상태 ${states.length}개를 API로 재지 않는다 (t.expr 파싱으로 묻는다).`);
+const baked = bakeShipped(entry.body);
+const wrong = states.filter((state) => baked.includes(expressions[state]) !== (methods[state] === "call"));
+
+if (wrong.length === 0) {
+    const calls = states.filter((state) => methods[state] === "call");
+    console.log(`${LOCAL}이 상태 ${states.length}개 가운데 ${calls.length}개(${calls.join(", ")})만 API로 잰다.`);
     process.exit(0);
 }
 
-console.log(`${LOCAL}이 상태를 API로 다시 잰다. ${measured.length}개:`);
-for (const state of measured) {
-    console.log(`  ${state}: ${expressions[state]}`);
+console.log(`${LOCAL}이 Constants.${METHODS}와 다르게 잰다:`);
+for (const state of wrong) {
+    console.log(`  ${state} (${methods[state]}): ${expressions[state]}`);
 }
 console.log("");
-console.log("누름은 레코드의 t.expr을 파싱해 상태를 묻는다(UpdateBindings.lua의 StateExpression).");
-console.log("API로 재면 박자와 누름이 다른 길로 세상을 읽는다.");
+console.log("누름과 루프는 한 종류를 같은 방법으로 잰다. 다른 길로 재면 루프가 건 키가 누름의 답과 갈린다.");
 process.exit(1);

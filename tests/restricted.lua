@@ -138,8 +138,9 @@ end
 local function wordValue(interp, name, argument, unit)
     local state = interp.state;
     -- A spec can make the parse answer a word differently from the API stand-ins, which is the
-    -- one way to see that a beat and a press reading the world two ways would part.
-    if (state.diverge[name] ~= nil) then
+    -- one way to see that a beat and a press reading the world two ways would part. `form` takes
+    -- the number the parse sees instead.
+    if (type(state.diverge[name]) == "boolean") then
         return state.diverge[name];
     end
     -- `bar:1/2` and the like: any one of the slash-separated values.
@@ -205,10 +206,11 @@ local function wordValue(interp, name, argument, unit)
     elseif (name == "bar" or name == "actionbar") then
         return anyOf(function(v) return tonumber(v) == state.actionBarPage; end);
     elseif (name == "form" or name == "stance") then
+        local form = state.diverge.form or state.form;
         if (argument == nil) then
-            return (state.form or 0) ~= 0;
+            return (form or 0) ~= 0;
         end
-        return anyOf(function(v) return tonumber(v) == state.form; end);
+        return anyOf(function(v) return tonumber(v) == form; end);
     elseif (name == "mod" or name == "modifier") then
         if (argument == nil) then
             return state.alt or state.ctrl or state.shift;

@@ -429,6 +429,8 @@ Constants.GROUP_RAID                 = 2 ^ 2;
 Constants.GROUP_ALL                  = 2 ^ 3 - 1;
 
 Constants.FORM_ALL                   = 2 ^ 11 - 1;
+--- The last form a condition can name. A form past it is no form, as `[noform:1/…/10]` holds there.
+Constants.MAX_FORM                   = 10;
 
 -- **The index the initial specialization sits at, for every class.** It is not the count of a
 -- class's specializations and no loop may run to it: a class with two specializations has 1, 2 and
@@ -1030,14 +1032,47 @@ do
 end
 
 
---- How each measurable state is worked out, as snippet source.
+--- **How each kind of condition is measured, one way for the press and the loop alike** (Q2d of
+--- `implementing-the-cuts-inside-the-beat-handler.md`). The loop binds a key to what the press would
+--- answer, and two ways of asking one condition need not answer alike (7-1 of
+--- `trimming-the-tail-key-beat.md`: `[swimming]` against `IsSwimming()`). Keyed by the record's
+--- field, which is the judgment column's kind. A spec builds a kind both ways by setting its row and
+--- rebuilding.
 ---
---- **Nothing measures with this any more**: the press parses the record's `expr` (`StateExpression`)
---- and the loop parses what the press parses (`BuildJudgeSnippet`'s `StateCellText`). It stays as
---- the API forms neither may take back up: `check:state-eval` holds `EVAL_SNIPPET` to none of them,
---- `judgment_spec.lua` the loop's bodies, and `Probe_BeatCost.lua` prices them. The order inside a
---- chain is the part that cannot be read off the result: ask party before raid and the group column
---- stops being a partition with nothing raising anything (`Solver.lua`'s header).
+---   parse   the macro conditional. The press parses a record's state axes as one `expr`
+---           (`StateExpression`), the loop a column's clauses (`StateCellText`)
+---   call    a function, its answer turned into the cell, as `STATE_EVAL_EXPRESSIONS` spells it
+---   read    a value put in place elsewhere
+Constants.MEASURED_BY = {
+    groups = "parse", combat = "parse", stealth = "parse", mounted = "parse", indoors = "parse",
+    flying = "parse", skyriding = "parse", bonusbars = "parse",
+    specialbar = "parse", extrabar = "parse", flyable = "parse", advflyable = "parse",
+    -- `GetShapeshiftForm()` once and a bit test (owner, 2026-10-06). On a druid `form` cost 1.07 a
+    -- token, so the loop's ten clauses were 11.08 against 1.18 for the call, and the press with four
+    -- records 5.13 against 2.51; a press with one record pays about 0.4 more, on any class (7-1).
+    forms = "call",
+    -- The loop's is parsed on the insecure side at the battle's events and pushed (`SetPetBattle`).
+    petbattle = "parse",
+    -- With `knownID` the spell book is asked as well, on both sides: `[known:<id>]` answers false
+    -- for a spell the book holds under an override (`SpecSpells.lua`).
+    known = "parse",
+    unit = "parse",
+    -- No conditional asks whether a unit is in the player's group.
+    unitgroup = "call",
+    -- `States`. A computed switch is worked out into it from its own expression, which is parsed.
+    switch = "read",
+    -- The pointed frame's, read once per body (`READ_UNITFRAME_SNIPPET`).
+    frameType = "read", role = "read",
+};
+
+--- How each state is worked out through the API, as snippet source, keyed as `MEASURED_BY`.
+---
+--- **`check:state-eval` holds `EVAL_SNIPPET` to the entry of every state `MEASURED_BY` calls, and
+--- to no other**: a press reading a state through the API while the loop parses it reads the world
+--- one way and binds keys by another, and nothing in a run of the game says so. `Probe_BeatCost.lua`
+--- prices them. The order inside a chain is the part that cannot be read off the result: ask party
+--- before raid and the group column stops being a partition with nothing raising anything
+--- (`Solver.lua`'s header).
 ---
 --- These are the states a value can be *derived* for. What cannot be derived at a press -- which
 --- unit the cursor is over, what a user's custom conditional evaluates to -- is not in here.
@@ -1046,7 +1081,7 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     -- member is also in a party, so the two overlap in reality; the chain is the only reason one
     -- runtime state lights exactly one bit. Ask about party first and `Solver.lua`'s set algebra
     -- stops holding, with nothing on either side raising anything (`Solver.lua`'s header).
-    group = format(
+    groups = format(
         [[(UnitPlayerOrPetInRaid("player") and %d) or (UnitPlayerOrPetInParty("player") and %d) or %d]],
         Constants.GROUP_RAID,
         Constants.GROUP_PARTY,
@@ -1064,9 +1099,9 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     flyable = "IsFlyableArea()",
     advflyable = "IsAdvancedFlyableArea()",
     flying = "IsFlying()",
-    form = "GetShapeshiftForm()",
-    bonusbar = "GetBonusBarOffset()",
-    -- Not derived from `bonusbar` above. `EVAL_SNIPPET` spells every measurement out as a literal
+    forms = "GetShapeshiftForm()",
+    bonusbars = "GetBonusBarOffset()",
+    -- Not derived from `bonusbars` above. `EVAL_SNIPPET` spells every measurement out as a literal
     -- and `check:state-eval` matches these strings against it, so an expression built out of
     -- another entry is one that check cannot find.
     skyriding = format("GetBonusBarOffset() == %d", Constants.BONUSBAR_SKYRIDING),

@@ -712,6 +712,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -832,6 +833,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 
@@ -1129,6 +1147,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -1249,6 +1268,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 
@@ -1770,6 +1806,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -1890,6 +1927,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 
@@ -2321,6 +2375,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -2441,6 +2496,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 
@@ -2782,6 +2854,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -2902,6 +2975,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 
@@ -3246,6 +3336,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -3366,6 +3457,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 
@@ -3646,6 +3754,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 	local memoReady = false
+	local formBit
 
 
 
@@ -3766,6 +3875,23 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 			if (match and t.expr and not SecureCmdOptionParse(t.expr)) then
 				match = false
+			end
+
+
+
+
+			if (match and t.forms) then
+				if (not formBit) then
+					local form = GetShapeshiftForm()
+					
+					if (form > CONSTANTS.MAX_FORM) then
+						form = 0
+					end
+					formBit = 2 ^ form
+				end
+				if ((t.forms % (formBit + formBit)) < formBit) then
+					match = false
+				end
 			end
 
 

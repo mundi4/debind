@@ -1706,31 +1706,15 @@ local CONDITION_AXES     = {
     { field = "petbattle" },
 };
 
---- **How each kind of condition is measured, one way for the press and the loop alike** (Q2d of
---- `implementing-the-cuts-inside-the-beat-handler.md`). The loop binds a key to what the press would
---- answer, and two ways of asking one condition need not answer alike (7-1: `[swimming]` against
---- `IsSwimming()`). Keyed by the record's field, which is the column's kind.
----
----   parse   the macro conditional. The press parses a record's state axes as one `expr`
----           (`StateExpression`), the loop a column's clauses (`StateCellText`)
----   call    a function, its answer turned into the cell
----   read    a value put in place elsewhere
-local MEASURED_BY = {
-    groups = "parse", combat = "parse", stealth = "parse", mounted = "parse", indoors = "parse",
-    flying = "parse", skyriding = "parse", forms = "parse", bonusbars = "parse",
-    specialbar = "parse", extrabar = "parse", flyable = "parse", advflyable = "parse",
-    -- The loop's is parsed on the insecure side at the battle's events and pushed (`SetPetBattle`).
-    petbattle = "parse",
-    -- With `knownID` the spell book is asked as well, on both sides: `[known:<id>]` answers false
-    -- for a spell the book holds under an override (`SpecSpells.lua`).
-    known = "parse",
-    unit = "parse",
-    -- No conditional asks whether a unit is in the player's group.
-    unitgroup = "call",
-    -- `States`. A computed switch is worked out into it from its own expression, which is parsed.
-    switch = "read",
-    -- The pointed frame's, read once per body (`READ_UNITFRAME_SNIPPET`).
-    frameType = "read", role = "read",
+local MEASURED_BY = Constants.MEASURED_BY;
+
+--- **The kinds measured some other way whose answer was seen to be the macro word's.** The watch
+--- asks in macro conditionals (`WatchFragments`), and the user reads the condition as one, so a
+--- kind not in here and not parsed is measured on every beat instead.
+local ANSWERS_AS_THE_WORD = {
+    -- `form` and `GetShapeshiftForm()` moved together and never apart in the `/debgw` run of
+    -- 2026-10-05 17:08, xptr 120105 (`implementing-the-trimmed-tail-key-beat.md`).
+    forms = true,
 };
 
 --- **The state axes, in the order the press's expression asks them**, each as what a value of it is
@@ -1744,9 +1728,13 @@ local STATE_AXIS_ORDER = {
     "groups", "combat", "stealth", "mounted", "indoors", "flying", "skyriding", "forms", "bonusbars",
     "specialbar", "extrabar", "petbattle", "flyable", "advflyable",
 };
-local PARSED_STATE_AXES = {};
+local STATE_AXES = {};
 for _, axis in ipairs(STATE_AXIS_ORDER) do
-    PARSED_STATE_AXES[axis] = MEASURED_BY[axis] == "parse" or nil;
+    STATE_AXES[axis] = true;
+end
+--- Asked at every rebuild rather than kept, so a row a spec sets is the one the rebuild reads.
+local function ParsedStateAxis(field)
+    return STATE_AXES[field] and MEASURED_BY[field] == "parse";
 end
 
 --- The offsets of a mask, `2 ^ n` per offset `n`, from `from` up to `to`.
@@ -1781,7 +1769,7 @@ local function StateAlternatives(axis, value)
         end
         return { { "group:raid" } };
     elseif (axis == "forms") then
-        return { { "form:" .. tconcat(MaskOffsets(value, 0, 10), "/") } };
+        return { { "form:" .. tconcat(MaskOffsets(value, 0, Constants.MAX_FORM), "/") } };
     elseif (axis == "bonusbars") then
         -- Offset 0 is `[nobonusbar:1/2/3/4/5]`: `[bonusbar:0]` does not match it and a bare
         -- `[nobonusbar]` is always true (measured 2026-10-05).
@@ -1821,7 +1809,7 @@ end
 local function StateExpression(record)
     local values = {};
     for i = 1, record.fieldCount do
-        if (PARSED_STATE_AXES[record.fieldNames[i]]) then
+        if (ParsedStateAxis(record.fieldNames[i])) then
             values[record.fieldNames[i]] = record.fieldValues[i];
         end
     end
@@ -2417,9 +2405,9 @@ end
 local function EmitRecord(record)
     appendLine("t=newtable();tinsert(bindings,t)");
 
-    -- The state axes go out as one conditional and not one by one: the press parses it.
+    -- The parsed state axes go out as one conditional and not one by one: the press parses it.
     for i = 1, record.fieldCount do
-        if (not PARSED_STATE_AXES[record.fieldNames[i]]) then
+        if (not ParsedStateAxis(record.fieldNames[i])) then
             appendKeyValue(record.fieldNames[i], record.fieldValues[i]);
         end
     end
@@ -3056,7 +3044,7 @@ local function StateCellClauses(kind)
             default = Constants.GROUP_NONE, numbered = true,
         };
     elseif (kind == "forms" or kind == "bonusbars") then
-        local word, last = "form", 10;
+        local word, last = "form", Constants.MAX_FORM;
         if (kind == "bonusbars") then
             word, last = "bonusbar", Constants.MAX_BONUSBAR_OFFSET;
         end
@@ -3136,14 +3124,15 @@ end
 
 --- **What the watch asks for one column, by cell: the groups that hold once the world has left
 --- that cell** (`implementing-the-cuts-inside-the-beat-handler.md` Q2, ③ of
---- `sizing-the-cuts-inside-the-beat-handler.md`). The clauses are the ones the column's own text is
---- made from, read first to last: in the k-th clause's cell, any earlier clause holding or the
---- k-th failing has moved it, and in the default's, any clause holding has. nil for a column the
---- watch does not carry, which is measured on every beat as before:
+--- `sizing-the-cuts-inside-the-beat-handler.md`). The clauses are the ones a parse of the column is
+--- made from (`StateCellClauses`), read first to last: in the k-th clause's cell, any earlier clause
+--- holding or the k-th failing has moved it, and in the default's, any clause holding has. nil for
+--- a column the watch does not carry, which is measured on every beat as before:
 ---
 ---   a unit, a switch, the pointed frame's   Q3, or nothing a conditional can ask
 ---   `known` with `knownID`                  the press asks the spell book too
 ---   `petbattle`                             pushed, never on the beat
+---   not parsed, not `ANSWERS_AS_THE_WORD`   nothing says the word answers what is measured
 ---
 --- A group another one in the same fragment is a subset of is left out: it can hold only where
 --- the smaller one does. **Groups of one token that differ only in the argument are one question
@@ -3154,6 +3143,9 @@ end
 --- it the way it answers the column's own text.
 local FragmentsOf;
 function WatchFragments(column)
+    if (MEASURED_BY[column.kind] ~= "parse" and not ANSWERS_AS_THE_WORD[column.kind]) then
+        return nil;
+    end
     local list;
     if (column.kind == "known") then
         if (column.knownID) then
@@ -3549,7 +3541,15 @@ local function BuildJudgeSnippet()
         if (by == "parse") then
             text, numbered = StateCellText(kind);
         end
-        if (kind == "petbattle") then
+        if (kind == "forms" and by == "call") then
+            -- The press's measure (`EVAL_SNIPPET`), its bit the cell.
+            add("local form = GetShapeshiftForm()");
+            add("PROBE.MockState(form)");
+            add("if (form > %d) then", Constants.MAX_FORM);
+            add("form = 0");
+            add("end");
+            add("cell = 2 ^ form");
+        elseif (kind == "petbattle") then
             add("cell = JudgePetBattle and %d or %d", TRUE, FALSE);
         elseif (kind == "specialbar") then
             add("cell = (JudgePetBattle or PROBE.SecureCmdOptionParse(%q)) and %d or %d", text, TRUE, FALSE);
