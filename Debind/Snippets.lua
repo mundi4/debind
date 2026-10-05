@@ -176,6 +176,8 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 	-- The same for a unit's group cell, which no single group can produce on demand. A unit's life
 	-- is parsed and is held through `ParseUnit` instead.
 	MockUnitGroup = false,
+	-- Checking only: a beat the watch let pass, measured again (`JudgeWatchCheck`).
+	WatchCheck = false,
 };
 
 --- Replaces the `PROBE.<name>(args)` tokens.

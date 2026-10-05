@@ -147,7 +147,14 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeComposeAll = newtable()
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
-	JudgeDetect = false
+	-- **The watch** (`WatchFragments` in `UpdateBindings.lua`): one text that answers only once a
+	-- column it carries has left its cell, so a beat where it does not answer measures none of
+	-- them. `byCell[p]` is the p-th carried column's fragment by cell, `frags[p]` the one standing
+	-- for its cell now, and `text` the fragments joined, `false` where there is nothing to parse.
+	JudgeWatch = newtable()
+	JudgeWatch.byCell = newtable()
+	JudgeWatch.frags = newtable()
+	JudgeWatch.text = false
 	-- Pushed from outside by `SetPetBattle`, and kept across rebuilds: nothing else measures it.
 	JudgePetBattle = false
 	JudgeFrameUnit = false

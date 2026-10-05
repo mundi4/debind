@@ -163,7 +163,14 @@ DelegateFrameNames[frame] = frame:GetName()
 	JudgeComposeAll = newtable()
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
-	JudgeDetect = false
+
+
+
+
+	JudgeWatch = newtable()
+	JudgeWatch.byCell = newtable()
+	JudgeWatch.frags = newtable()
+	JudgeWatch.text = false
 
 	JudgePetBattle = false
 	JudgeFrameUnit = false
@@ -4194,8 +4201,9 @@ wipe(JudgeSwitchTexts)
 
 wipe(JudgeSwitches)
 
-
-JudgeDetect = false
+wipe(JudgeWatch.byCell)
+wipe(JudgeWatch.frags)
+JudgeWatch.text = false
 JudgeReady = false
 
 wipe(ContextKeys)

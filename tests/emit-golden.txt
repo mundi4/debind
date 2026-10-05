@@ -21,9 +21,10 @@ Execute DebindBindingDriver
   | -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
   | -- set by hand would stand in front of its real one.
   | wipe(JudgeSwitches)
-  | -- The rebuild's columns start with no cell, and a detecting parse answering its last number would
-  | -- leave them so: the pass then judges with nothing to compare.
-  | JudgeDetect = false
+  | -- The pass writes every carried column's fragment and joins them again.
+  | wipe(JudgeWatch.byCell)
+  | wipe(JudgeWatch.frags)
+  | JudgeWatch.text = false
   | JudgeReady = false
   | -- `ApplyGiveBack` bakes it again from the set as it stands, below.
   | wipe(ContextKeys)
@@ -315,7 +316,7 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
 Execute DebindBindingDriver
-  | local bindings,t,u,c,b,j,e,tp,s
+  | local bindings,t,u,c,b,j,e,tp,s,w
   | -- ALT-F1
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
@@ -1912,6 +1913,9 @@ Execute DebindBindingDriver
   | self:SetBindingClick(false,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
   | JudgeColumns[2]=newtable()
+  | w=newtable() JudgeWatch.byCell[1]=w
+  | w[1]="[nocombat]"
+  | w[2]="[combat]"
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[1]=b
   | b.restOutcome="ours"
   | e=newtable() e.outcome="release" b[1]=e
@@ -1963,6 +1967,9 @@ SetAttribute DebindBindingDriver JudgePass =
   | local moved = true
   | local columns = JudgeColumns
   | local cell
+  | local watch = JudgeWatch
+  | local frags = watch.frags
+  | local dirty = false
   | do
   | local list = JudgeComposeAll
   | 	for n = 1, #list do
@@ -1992,6 +1999,15 @@ SetAttribute DebindBindingDriver JudgePass =
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | columns[1] = cell
+  | frags[1] = watch.byCell[1][cell]
+  | dirty = true
+  | end
+  | if (dirty) then
+  | local text = table.concat(frags)
+  | if (text == "") then
+  | text = false
+  | end
+  | watch.text = text
   | end
   | 	if (wake == 1) then
   | 		JudgeReady = true
@@ -2051,6 +2067,15 @@ SetAttribute DebindBindingDriver JudgePass =
   | 		end
   | 	end
   | 
+SetAttribute DebindBindingDriver JudgeWatchCheck =
+  | local columns = JudgeColumns
+  | local cell
+  | do
+  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
+  | if (columns[1] ~= cell) then
+  | self:CallMethod("DebindTestWatchMiss", 1)
+  | end
+  | end
 SetAttribute DebindBindingDriver _onattributechanged =
   | if (name == "judgebeat") then
   | if (value == 0) then
@@ -2062,9 +2087,14 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | local moved = false
   | local columns = JudgeColumns
   | local cell
+  | local watch = JudgeWatch
+  | local frags = watch.frags
+  | local dirty = false
   | if (not JudgeReady) then
   | return
   | end
+  | local text = watch.text
+  | if (text and SecureCmdOptionParse(text)) then
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[1] ~= cell) then
@@ -2078,7 +2108,19 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
+  | frags[1] = watch.byCell[1][cell]
+  | dirty = true
   | end
+  | end
+  | else
+  | 
+  | end
+  | if (dirty) then
+  | local text = table.concat(frags)
+  | if (text == "") then
+  | text = false
+  | end
+  | watch.text = text
   | end
   | 	if (wake == 1) then
   | 		JudgeReady = true

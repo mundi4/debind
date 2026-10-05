@@ -901,7 +901,13 @@ local PROBE_DEV = {
     SecureCmdOptionParse = [[SecureCmdOptionParse((rtgsub(%s, "%%a[%%w:/]*", MockParseWords)))]],
     -- The same, with the words held for the `unit` local beside it (`MockBody`, `<unit>-dead`).
     ParseUnit = [[SecureCmdOptionParse((rtgsub(%s, "%%a[%%w:/]*", MockUnitWords[unit] or MockParseWords)))]],
+    -- A beat the watch let pass, its columns measured again (`JudgeWatchCheck`). `self` is the
+    -- driver: this stands in the beat's own handler.
+    WatchCheck = [[self:RunAttribute("JudgeWatchCheck")]],
 }
+
+--- The columns the watch's check found moved on a beat the watch let pass (`DebindTestWatchMiss`).
+local watchMisses = {}
 
 local function BuildExpandTable()
     local expand = {}
@@ -934,6 +940,10 @@ local function EnableProbes()
         lastEvalUnit = unit
     end
 
+    DebindPrivate.BindingDriver.DebindTestWatchMiss = function(_, column)
+        watchMisses[#watchMisses + 1] = column
+    end
+
     DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
     DebindPrivate.SnippetProbes.expand = BuildExpandTable()
 
@@ -948,6 +958,7 @@ local function EnableProbes()
     AddTeardown(function()
         probesOn = false
         wipe(probeReports)
+        wipe(watchMisses)
         if DebindPrivate.SnippetProbes then
             DebindPrivate.SnippetProbes.expand = nil
         end
@@ -8210,6 +8221,71 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         end
 
         return Pass(NAME, "the beat took the key in combat and handed it back to the command")
+    end,
+})
+
+-- **The watch in the restricted environment** (`WatchFragments`, `implementing-the-cuts-inside-the-
+-- beat-handler.md` Q2). Which key the loop binds at every point and after every one-column move is
+-- headless (`tests/judgment_spec.lua`). What only the client shows is the watch's text parsed there
+-- and its fragments written and joined there: a body that fails at it raises nothing and leaves
+-- every carried column where it stood. Two words moved one after the other with no rebuild, then
+-- two beats with nothing moved, and the development check (`PROBE.WatchCheck`) reporting no column
+-- that moved on a beat the watch let pass.
+RegisterTest("Tail: the watch follows two state words one after the other", {
+    description = "With no rebuild, combat and then stealth move a tail key through the watch, a quiet beat leaves it, and the watch's check finds no column it missed",
+    run = function()
+        local NAME = "Tail watch"
+        local KEY = "CTRL-SHIFT-F12"
+        local COMMAND = "TOGGLEWORLDMAP"
+        local driver = DebindPrivate.BindingDriver
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY, stealth = true })
+        InsertAction({ type = Constants.UNUSED, key = KEY })
+        ApplyBindings()
+        -- Each ends in a rebuild, whose pass judges the key with neither held.
+        SetMockState("combat", false)
+        SetMockState("stealth", false)
+        local function Bound() return GetBindingAction(KEY, true) or "" end
+        if Bound():sub(1, 6) == "CLICK " or Bound() == COMMAND then
+            return Fail(NAME, format("with neither held the key answers %q, it should be let go", Bound()))
+        end
+
+        local witness = BeatWitness()
+        local function WaitTicks(n)
+            local from = witness:GetAttribute("ticks") or 0
+            return WaitUntil(function() return (witness:GetAttribute("ticks") or 0) >= from + n end, 2)
+        end
+
+        -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it
+        -- is one the watch has to see.
+        SecureHandlerExecute(driver, MockBody("combat", true))
+        if not WaitUntil(function() return Bound():sub(1, 6) == "CLICK " end, 2) then
+            return Fail(NAME, format("in combat no beat took the key, it answers %q", Bound()))
+        end
+        SecureHandlerExecute(driver, MockBody("stealth", true))
+        SecureHandlerExecute(driver, MockBody("combat", false))
+        if not WaitUntil(function() return Bound() == COMMAND end, 2) then
+            return Fail(NAME, format("stealthed at peace no beat moved the key, it answers %q", Bound()))
+        end
+        if not WaitTicks(2) then
+            return Fail(NAME, "the manager did not tick for the witness")
+        end
+        if Bound() ~= COMMAND then
+            return Fail(NAME, format("a quiet beat moved the key to %q", Bound()))
+        end
+        if #watchMisses > 0 then
+            return Fail(NAME, format("the watch let a beat pass with column %d moved", watchMisses[1]))
+        end
+        return Pass(NAME, "two words moved the key through the watch, and a quiet beat held it")
     end,
 })
 

@@ -67,7 +67,10 @@ return function(DebindPrivate, _, ctx)
         return t;
     end
 
+    --- What the last `Bind` was handed, for a sweep to rebuild on.
+    local lastBind;
     local function Bind(actions, switches)
+        lastBind = { actions, switches };
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         shim.world.bindings = {};
@@ -382,20 +385,51 @@ return function(DebindPrivate, _, ctx)
 
         local outcomes, reached = {}, 0;
         local cells = {};
+        local function Hold(how)
+            local want, got, looped = Expected(key, cells), Actual(key), Looped(key);
+            if (want ~= got or want ~= looped) then
+                local parts = {};
+                for _, column in ipairs(columns) do
+                    parts[#parts + 1] = column.key .. "=" .. cells[column.key];
+                end
+                error(string.format("%s at {%s}%s: the item says %s, the press %s, the loop %s",
+                    key, table.concat(parts, ", "), how, want, got, looped), 0);
+            end
+            return got;
+        end
+        --- **Then one column at a time to every other cell, and back** (Q2 of
+        --- `implementing-the-cuts-inside-the-beat-handler.md`). Going from point to point moves
+        --- several columns at once, and a column whose watch fragment is wrong is covered by another
+        --- that moved with it. Every third point is rebuilt on first, so the fragments the pass
+        --- writes are held as well as the first point's.
+        local function Neighbours()
+            if (reached % 3 == 0) then
+                Bind(lastBind[1], lastBind[2]);
+                Apply(columns, cells);
+                Hold(" after a rebuild");
+            end
+            for _, column in ipairs(columns) do
+                local here = cells[column.key];
+                for _, cell in ipairs(Cells(column.all)) do
+                    if (cell ~= here) then
+                        cells[column.key] = cell;
+                        if (Apply(columns, cells)) then
+                            Hold(", moved to from " .. column.key .. "=" .. here);
+                            cells[column.key] = here;
+                            Apply(columns, cells);
+                            Hold(", back from " .. column.key .. "=" .. cell);
+                        end
+                        cells[column.key] = here;
+                    end
+                end
+            end
+        end
         local function walk(i)
             if (i > #columns) then
                 if (Apply(columns, cells)) then
                     reached = reached + 1;
-                    local want, got, looped = Expected(key, cells), Actual(key), Looped(key);
-                    if (want ~= got or want ~= looped) then
-                        local parts = {};
-                        for _, column in ipairs(columns) do
-                            parts[#parts + 1] = column.key .. "=" .. cells[column.key];
-                        end
-                        error(string.format("%s at {%s}: the item says %s, the press %s, the loop %s",
-                            key, table.concat(parts, ", "), want, got, looped), 0);
-                    end
-                    outcomes[got] = true;
+                    outcomes[Hold("")] = true;
+                    Neighbours();
                 end
                 return;
             end
@@ -859,6 +893,124 @@ return function(DebindPrivate, _, ctx)
         driver:RunAttribute("SetSwitch", "$s1", nil);
         interp:resetState();
         shim.world.units = {};
+    end);
+
+    --- The parses `fn` made, in all and of `expr`.
+    local function Parses(fn, expr)
+        local function count()
+            local all = 0;
+            for _, n in pairs(interp.parses) do
+                all = all + n;
+            end
+            return all, interp:parseCount(expr or "");
+        end
+        local all, of = count();
+        fn();
+        local allAfter, ofAfter = count();
+        return allAfter - all, ofAfter - of;
+    end
+
+    -- **A quiet beat parses the watch and nothing else** (Q2 of
+    -- `implementing-the-cuts-inside-the-beat-handler.md`). A watch quietly off -- a text that never
+    -- holds, or always does -- leaves every answer right and the gain gone, and the sweeps cannot
+    -- see that. The profile here is all columns the watch carries, so the watch is all there is to
+    -- parse; `specialbar` sits on its "on" cell, whose fragment is the one group of four turned-over
+    -- tokens.
+    test("a quiet beat parses the watch and nothing else", function()
+        Bind({
+            action({ conditions = { combat = true, forms = 2 ^ 2, groups = Constants.GROUP_PARTY } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true, mounted = false } }),
+            action({ conditions = { known = "Some Spell" } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        interp.state.vehiclebar, interp.state.form, interp.state.group = true, 2, "party";
+        interp:beat();
+        interp:beat();
+        for n = 1, 3 do
+            local text = interp.env.JudgeWatch.text;
+            check(text, "the watch has no text");
+            local all, watch = Parses(function() interp:beat(); end, text);
+            check(all == 1 and watch == 1,
+                string.format("quiet beat %d parsed %d texts, the watch %d times", n, all, watch));
+        end
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **A cell's fragment holds exactly where the text no longer answers that cell** (`FragmentsOf`).
+    -- The list is made up to reach what no column's own list does yet: a clause of two tokens beside
+    -- ones of one token on the same word, so a merge may not take the two-token group in, and
+    -- fragments where the same word stands on both `no` sides, which may not merge either.
+    test("a watch fragment holds exactly where its cell is left", function()
+        local list = {
+            { groups = { { "form:1", "combat" } }, cell = 2 },
+            { groups = { { "form:2" } }, cell = 4 },
+            { groups = { { "form:3" } }, cell = 8 },
+            default = 1,
+        };
+        local fragments = DebindPrivate.WatchFragmentsOf(list);
+        check(fragments, "the list had no fragments");
+        local clauses = {};
+        for i, clause in ipairs(list) do
+            clauses[i] = "[" .. table.concat(clause.groups[1], ",") .. "] " .. clause.cell;
+        end
+        local text = table.concat(clauses, "; ") .. "; " .. list.default;
+        local parse = interp.env.SecureCmdOptionParse;
+        local merged = false;
+        for _, fragment in pairs(fragments) do
+            merged = merged or fragment:find("/", 1, true) ~= nil;
+        end
+        check(merged, "no fragment merged a word's groups, so the case asks nothing of the merge");
+        for form = 0, 4 do
+            for _, combat in ipairs({ false, true }) do
+                interp:resetState();
+                interp.state.form, interp.state.combat = form, combat;
+                local cell = tonumber(parse(text));
+                for at, fragment in pairs(fragments) do
+                    local holds = fragment ~= "" and parse(fragment) ~= nil;
+                    check(holds == (cell ~= at), string.format(
+                        "form %d, combat %s, in cell %d: %s %s", form, tostring(combat), at, fragment,
+                        holds and "holds" or "does not hold"));
+                end
+            end
+        end
+        interp:resetState();
+    end);
+
+    -- **A wake that moves a fragment joins the text again**, or every beat after it parses the old
+    -- one. `SetPetBattle` moves `specialbar`'s fragment to `""` and back. A text left empty is not
+    -- parsed at all: `SecureCmdOptionParse` answers an empty text as holding.
+    test("after a wake moves the watch, a quiet beat parses only the new text", function()
+        Bind({
+            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local driver = interp.driverHandle;
+        local ok, err = pcall(function()
+            for _, battle in ipairs({ true, false, true }) do
+                interp.state.petbattle = battle;
+                driver:RunAttribute("SetPetBattle", battle);
+                local text = interp.env.JudgeWatch.text;
+                for n = 1, 2 do
+                    local all, watch = Parses(function() interp:beat(); end, text or "");
+                    if (battle) then
+                        check(text == false, "in a battle the watch reads " .. tostring(text));
+                        check(all == 0, string.format("battle, quiet beat %d parsed %d texts", n, all));
+                    else
+                        check(all == 1 and watch == 1, string.format(
+                            "out of the battle, quiet beat %d parsed %d texts, the watch %d times", n, all, watch));
+                    end
+                end
+            end
+        end);
+        driver:RunAttribute("SetPetBattle", false);
+        interp:resetState();
+        shim.world.units = {};
+        check(ok, tostring(err));
     end);
 
     -- **What the loop worked a computed switch out to does not outlive the rebuild.** A switch made

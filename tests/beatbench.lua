@@ -37,6 +37,9 @@ return function(DebindPrivate)
         -- `[flyable]` 5.15 and `[advflyable]` 23.97, less the one-word parse above.
         ["parse word flyable"] = { 4.915, true },
         ["parse word advflyable"] = { 23.735, true },
+        -- Each value past the first in a slash list (`form:1/2/3`). Not measured: half a word, until
+        -- the probe prices it.
+        ["parse word alternative"] = { 0.03, false },
         -- A unit word asked of another unit that is there: one hostile target, insecure side, once.
         ["parse word on another unit"] = { 0.135, false },
         -- 7-1's P: `tonumber(s)` 0.204, `s + 0` 0.043 on one digit and 0.046 on four.
@@ -333,20 +336,13 @@ return function(DebindPrivate)
         return still, flipping;
     end
 
-    print("\nBy shape, 12 keys, a beat in us, no state changed | combat and mounted flipped every 4th beat,"
-        .. " by how many boolean columns one detecting parse takes (P3-7):");
+    print("\nBy shape, 12 keys, a beat in us, no state changed | combat and mounted flipped every 4th beat:");
     for _, shape in ipairs({ "shared", "distinct", "units", "flyable", "bars" }) do
-        local row = {};
-        for _, detect in ipairs({ 0, 2, 3, 4, 5 }) do
-            DebindPrivate.JudgeDetectMax = detect;
-            shim.world.units = { target = { id = "enemy", reaction = "harm" } };
-            bind(gateProfile(shape, 12));
-            local still, flipping = gateBeat(instructionCost(interp));
-            row[#row + 1] = string.format("%d: %5.2f | %5.2f", detect, still, flipping);
-        end
-        print(string.format("  %-9s %s", shape, table.concat(row, "   ")));
+        shim.world.units = { target = { id = "enemy", reaction = "harm" } };
+        bind(gateProfile(shape, 12));
+        local still, flipping = gateBeat(instructionCost(interp));
+        print(string.format("  %-9s %5.2f | %5.2f", shape, still, flipping));
     end
-    DebindPrivate.JudgeDetectMax = nil;
     shim.world.units = {};
 
     --- **Computed switches whose text is composed** (P4): one reading a switch set by hand, one an
@@ -457,8 +453,8 @@ return function(DebindPrivate)
     local LARGE_BEATS = 100;
     print("\nThe large shape, 24 keys over 24 columns, a beat in us with the body's share after the slash."
         .. "\nBy how many keys open with [combat] alone, and whether in combat:");
-    print(string.format("  %-16s %-14s %-14s %-14s %-14s %-13s %s", "", "quiet", "a state moved",
-        "target moved", "enter wake", "144/s, 3 mv", "5/s, 3 mv (us a second)"));
+    print(string.format("  %-16s %-14s %-14s %-14s %-12s %s", "", "quiet", "a state moved",
+        "target moved", "enter wake", "the body a second at 5 / 20 / 144 beats with 3 of them moved"));
     for _, leading in ipairs({ 0, 12, 24 }) do
         for _, combat in ipairs({ false, true }) do
             largeWorld();
@@ -505,11 +501,13 @@ return function(DebindPrivate)
             end
             local enter = price(enterCounts, perInstruction) / LARGE_BEATS;
 
+            local function second(beats)
+                return (beats - 3) * quietBody + 3 * movedBody;
+            end
             print(string.format("  %2d lead, %-6s %5.2f / %5.2f  %5.2f / %5.2f  %5.2f / %5.2f  %6.2f"
-                .. "        %4.0f / %4.0f  %3.0f / %3.0f",
+                .. "       %3.0f / %3.0f / %4.0f",
                 leading, combat and "in" or "out", quiet, quietBody, moved, movedBody, retarget, retargetBody,
-                enter, 141 * quiet + 3 * moved, 141 * quietBody + 3 * movedBody, 2 * quiet + 3 * moved,
-                2 * quietBody + 3 * movedBody));
+                enter, second(5), second(20), second(144)));
         end
     end
     shim.world.units = {};

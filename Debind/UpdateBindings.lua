@@ -149,6 +149,8 @@ DebindPrivate.JUDGE_BEAT_ATTRIBUTE = JUDGE_BEAT_ATTRIBUTE;
 --- rebuild runs itself, and one per wake as `{ attribute = , body = }`.
 local _judgePassBody;
 local _judgeWakeBodies = {};
+--- A development build's check of the watch (`PROBE.WatchCheck`), nil where there is none.
+local _judgeWatchCheckBody;
 --- Does the beat measure any column of this rebuild (`JudgedOnBeat`)?
 local _judgeBeats = false;
 --- What carries the beat in this rebuild: `"visibility"` where the login's check found the manager
@@ -435,9 +437,10 @@ wipe(JudgeSwitchTexts)
 -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
 -- set by hand would stand in front of its real one.
 wipe(JudgeSwitches)
--- The rebuild's columns start with no cell, and a detecting parse answering its last number would
--- leave them so: the pass then judges with nothing to compare.
-JudgeDetect = false
+-- The pass writes every carried column's fragment and joins them again.
+wipe(JudgeWatch.byCell)
+wipe(JudgeWatch.frags)
+JudgeWatch.text = false
 JudgeReady = false
 -- `ApplyGiveBack` bakes it again from the set as it stands, below.
 wipe(ContextKeys)
@@ -678,6 +681,7 @@ local function BuildBindingPlan(ctx)
     plan.beatSignal = _judgeBeatSignal;
     plan.judgePass = _judgePassBody;
     plan.judgeWakes = _judgeWakeBodies;
+    plan.judgeWatchCheck = _judgeWatchCheckBody;
 
     return plan;
 end
@@ -779,6 +783,9 @@ local function ApplyBindingPlan(plan)
         _judgeWakeAttributesSet[wake.attribute] = true;
     end
     driver:SetAttribute("JudgePass", plan.judgePass);
+    if (Constants.DEBUG) then
+        driver:SetAttribute("JudgeWatchCheck", plan.judgeWatchCheck);
+    end
 
     driver:SetAttribute("_onattributechanged", plan.attrChangedSnippet);
 
@@ -2758,6 +2765,11 @@ local _judgmentColumnIndex = {};
 --- The columns this rebuild handed the loop, by index: column i's cell is `JudgeColumns[2i - 1]`
 --- and its bundles `JudgeColumns[2i]`.
 local _judgmentColumnOrder = {};
+--- The columns the watch carries (`WatchFragments`), by column index: their place in the watch's
+--- fragments, and their fragment by cell.
+local _watchPlace = {};
+local _watchFragments = {};
+local WatchFragments;
 
 --- Every column the judgment items read, once each, as `column key -> column`.
 local function CollectJudgmentColumns(items, out)
@@ -2877,7 +2889,9 @@ local function EmitJudgmentItems(items)
     CollectJudgmentColumns(items, _judgmentColumns);
     wipe(_judgmentColumnIndex);
     wipe(_judgmentColumnOrder);
-    local wakes = {};
+    wipe(_watchPlace);
+    wipe(_watchFragments);
+    local wakes, watched = {}, 0;
     for i, key in ipairs(sortedKeys(_judgmentColumns, _sortedB)) do
         local column = _judgmentColumns[key];
         _judgmentColumnIndex[key] = i;
@@ -2885,6 +2899,15 @@ local function EmitJudgmentItems(items)
         -- Its bundles at `2i`, beside the cell the loop keeps at `2i - 1`: one global read serves a
         -- mark's compare and its stamps (`BuildJudgeSnippet`).
         appendLine("JudgeColumns[%d]=newtable()", 2 * i);
+        local fragments = WatchFragments(column);
+        if (fragments) then
+            watched = watched + 1;
+            _watchPlace[i], _watchFragments[i] = watched, fragments;
+            appendLine("w=newtable() JudgeWatch.byCell[%d]=w", watched);
+            for _, cell in ipairs(sortedKeys(fragments, {})) do
+                appendLine("w[%d]=%q", cell, fragments[cell]);
+            end
+        end
         for _, wake in ipairs(JudgmentWakesOf(column)) do
             wakes[wake] = true;
         end
@@ -3050,11 +3073,148 @@ local function StateCellText(kind)
     return AssertEndsInDefault(tconcat(clauses, "; ")), true;
 end
 
---- How many boolean columns one detecting parse reads. Its clauses are `2 ^ n - 1`, and the bench
---- prices a parse by the words it judges and not by the length of its text, which 7-1 measured to
---- cost even where the first word is false. At 3 the bench gave 12.98 -> 12.16 us a beat with 12
---- keys and no state changed; 4 gave 11.86 there, a gain the unpriced length could take back.
-local JUDGE_DETECT_MAX = 3;
+local function Negated(token)
+    if (token:sub(1, 2) == "no") then
+        return token:sub(3);
+    end
+    return "no" .. token;
+end
+
+--- **Groups that hold exactly where the clause does not**, or nil where that needs a product.
+--- One group of tokens fails where any token fails, so each token turned over is a group of its
+--- own. Several groups of one token each fail where all do, so the tokens turned over make one
+--- group (`specialbar`'s `[novehicleui,nopossessbar,nooverridebar,noshapeshift]`). Several groups
+--- with more than one token would multiply out, and such a column stays off the watch.
+local function NegatedGroups(clause)
+    local groups = clause.groups;
+    if (#groups == 1) then
+        local out = {};
+        for i, token in ipairs(groups[1]) do
+            out[i] = { Negated(token) };
+        end
+        return out;
+    end
+    local one = {};
+    for i, group in ipairs(groups) do
+        if (#group ~= 1) then
+            return nil;
+        end
+        one[i] = Negated(group[1]);
+    end
+    return { one };
+end
+
+--- **What the watch asks for one column, by cell: the groups that hold once the world has left
+--- that cell** (`implementing-the-cuts-inside-the-beat-handler.md` Q2, ③ of
+--- `sizing-the-cuts-inside-the-beat-handler.md`). The clauses are the ones the column's own text is
+--- made from, read first to last: in the k-th clause's cell, any earlier clause holding or the
+--- k-th failing has moved it, and in the default's, any clause holding has. nil for a column the
+--- watch does not carry, which is measured on every beat as before:
+---
+---   a unit, a switch, the pointed frame's   Q3, or nothing a conditional can ask
+---   `known` with `knownID`                  the press asks the spell book too
+---   `petbattle`                             pushed, never on the beat
+---
+--- A group another one in the same fragment is a subset of is left out: it can hold only where
+--- the smaller one does. **Groups of one token that differ only in the argument are one question
+--- and are written as one** (`[form:1/2/3]`), the way the press writes it; the same `no` side only,
+--- and never the bare word, since a bare `[bonusbar]` is not the same question (7-1). Without it a
+--- mask column's default cell alone was ten groups of the watch's thirty. Every token a fragment
+--- writes goes into `_stateTokens`, so the development build's mock answers it the way it answers
+--- the column's own text.
+local FragmentsOf;
+function WatchFragments(column)
+    local list;
+    if (column.kind == "known") then
+        if (column.knownID) then
+            return nil;
+        end
+        local token = column.arg:match("^%[(.+)%]$");
+        list = { { groups = { { token } }, cell = Constants.JUDGMENT_TRUE }, default = Constants.JUDGMENT_FALSE };
+    elseif (column.kind ~= "petbattle") then
+        list = StateCellClauses(column.kind);
+    end
+    if (not list) then
+        return nil;
+    end
+    return FragmentsOf(list);
+end
+
+--- The fragments of a clause list (`StateCellClauses`' shape), by cell. nil where a clause cannot be
+--- turned over without multiplying out.
+function FragmentsOf(list)
+    local fragments = {};
+    local function add(cell, groups)
+        local kept = {};
+        for i, group in ipairs(groups) do
+            local set = {};
+            for _, token in ipairs(group) do
+                set[token] = true;
+            end
+            local covered = false;
+            for j, other in ipairs(groups) do
+                if (j ~= i and (#other < #group or (#other == #group and j < i))) then
+                    local subset = true;
+                    for _, token in ipairs(other) do
+                        if (not set[token]) then
+                            subset = false;
+                            break;
+                        end
+                    end
+                    covered = covered or subset;
+                end
+            end
+            if (not covered) then
+                kept[#kept + 1] = group;
+            end
+        end
+        local merged, byWord = {}, {};
+        for _, group in ipairs(kept) do
+            local word, argument;
+            if (#group == 1) then
+                word, argument = group[1]:match("^(%a+):(.+)$");
+            end
+            if (word and byWord[word]) then
+                byWord[word][1] = byWord[word][1] .. "/" .. argument;
+            elseif (word) then
+                byWord[word] = { group[1] };
+                merged[#merged + 1] = byWord[word];
+            else
+                merged[#merged + 1] = group;
+            end
+        end
+        local rendered = {};
+        for i, group in ipairs(merged) do
+            rendered[i] = "[" .. tconcat(group, ",") .. "]";
+            for _, token in ipairs(group) do
+                _stateTokens[token] = true;
+            end
+        end
+        fragments[cell] = tconcat(rendered);
+    end
+
+    local earlier = {};
+    for _, clause in ipairs(list) do
+        local negated = NegatedGroups(clause);
+        if (not negated) then
+            return nil;
+        end
+        local groups = {};
+        for _, group in ipairs(earlier) do
+            groups[#groups + 1] = group;
+        end
+        for _, group in ipairs(negated) do
+            groups[#groups + 1] = group;
+        end
+        add(clause.cell, groups);
+        for _, group in ipairs(clause.groups) do
+            earlier[#earlier + 1] = group;
+        end
+    end
+    add(list.default, earlier);
+    return fragments;
+end
+DebindPrivate.WatchFragmentsOf = FragmentsOf;
 
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
 --- §3). The beat's goes straight into the handler, which `UpdateAttrChangedHandler` takes as the
@@ -3157,10 +3317,26 @@ local function BuildJudgeSnippet()
     ---
     --- **The pass only writes the cell**: every cell starts nil there, and the judging half stamps
     --- every bundle for it (`wake == 1`).
+    ---
+    --- **A column the watch carries has its fragment put back to its cell wherever it moves**, in
+    --- any body, and the body joins the text again at its end (`body`). A wake that moved one and
+    --- left the text would have every beat after it parse the old text, find it holding, and
+    --- measure again for nothing. `specialbar` does its own (`watchSpecialbar`).
     local inPass = false;
+    --- Whether the body being built writes a fragment (`body`).
+    local writesWatch = false;
+    local function fragment(index)
+        local place = _watchPlace[index];
+        if (place and _judgmentColumnOrder[index].kind ~= "specialbar") then
+            writesWatch = true;
+            add("frags[%d] = watch.byCell[%d][cell]", place, place);
+            add("dirty = true");
+        end
+    end
     local function mark(index)
         if (inPass) then
             add("columns[%d] = cell", 2 * index - 1);
+            fragment(index);
             return;
         end
         add("if (columns[%d] ~= cell) then", 2 * index - 1);
@@ -3174,6 +3350,23 @@ local function BuildJudgeSnippet()
         add("for k = 1, #bundles do");
         add("bundles[k].stamp = generation");
         add("end");
+        fragment(index);
+        add("end");
+    end
+
+    --- **`specialbar`'s fragment follows the pushed battle as well as its cell.** In a battle the
+    --- cell is on whatever the bars do, so the watch carries nothing for it (`""`), and the battle's
+    --- wake that ends it has to write the fragment back even where the cell did not move.
+    local function watchSpecialbar(index)
+        local place = _watchPlace[index];
+        if (not place) then
+            return;
+        end
+        writesWatch = true;
+        add("local fragment = (not JudgePetBattle) and watch.byCell[%d][cell] or \"\"", place);
+        add("if (frags[%d] ~= fragment) then", place);
+        add("frags[%d] = fragment", place);
+        add("dirty = true");
         add("end");
     end
 
@@ -3406,82 +3599,17 @@ local function BuildJudgeSnippet()
             add("end");
         end
 
-        -- **Boolean columns whose "on" is one word are read by one parse** (P3-7 of
-        -- `implementing-the-trimmed-tail-key-beat.md`): its clauses run from every word held down to
-        -- none, so the first that holds names exactly the ones that hold, as a bit each. Where the
-        -- number is the last one, none of them moved and none is compared. `flyable` and
-        -- `advflyable` stay out: put in a clause, they would be judged wherever the words ahead of
-        -- them hold.
-        local detected, detectedSet = {}, {};
-        local detectMax = DebindPrivate.JudgeDetectMax or JUDGE_DETECT_MAX;
-        for _, i in ipairs(list) do
-            local column = _judgmentColumnOrder[i];
-            local text, numbered = StateCellText(column.kind);
-            if (text and not numbered and #detected < detectMax
-                    and column.kind ~= "flyable" and column.kind ~= "advflyable"
-                    and not text:find("[", 2, true) and not text:find(",", 1, true)) then
-                detected[#detected + 1] = { index = i, word = text:sub(2, -2) };
-                detectedSet[i] = true;
-            end
-        end
-        if (#detected < 2) then
-            detected, detectedSet = {}, {};
-        end
-        if (#detected > 0) then
-            local clauses = {};
-            local subsets = {};
-            for s = 1, 2 ^ #detected - 1 do
-                subsets[#subsets + 1] = s;
-            end
-            local function bits(s)
-                local n = 0;
-                while (s > 0) do
-                    n = n + s % 2;
-                    s = math.floor(s / 2);
-                end
-                return n;
-            end
-            sort(subsets, function(a, b)
-                if (bits(a) ~= bits(b)) then
-                    return bits(a) > bits(b);
-                end
-                return a < b;
-            end);
-            for _, s in ipairs(subsets) do
-                local words = {};
-                for k, entry in ipairs(detected) do
-                    if (math.floor(s / 2 ^ (k - 1)) % 2 == 1) then
-                        words[#words + 1] = entry.word;
-                    end
-                end
-                clauses[#clauses + 1] = format("[%s] %d; ", tconcat(words, ","), s);
-            end
-            add("do");
-            add("local code = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)",
-                AssertEndsInDefault(tconcat(clauses) .. "0"))));
-            add("if (code ~= JudgeDetect) then");
-            add("JudgeDetect = code");
-            for k, entry in ipairs(detected) do
-                local b = 2 ^ (k - 1);
-                add("if ((code %% %d) >= %d) then", b + b, b);
-                add("cell = %d", TRUE);
-                add("else");
-                add("cell = %d", FALSE);
-                add("end");
-                mark(entry.index);
-            end
-            add("end");
-            add("end");
-        end
-
         -- A computed switch is marked where it is worked out, above.
         for _, i in ipairs(list) do
             local column = _judgmentColumnOrder[i];
-            if (column.kind ~= "unit" and column.kind ~= "unitgroup" and not detectedSet[i]
+            if (column.kind ~= "unit" and column.kind ~= "unitgroup"
                     and not (column.kind == "switch" and computed(column))) then
                 add("do");
                 otherCell(column);
                 mark(i);
+                if (column.kind == "specialbar") then
+                    watchSpecialbar(i);
+                end
                 add("end");
             end
         end
@@ -3567,9 +3695,16 @@ local function BuildJudgeSnippet()
     ---
     --- **`JudgeColumns` is taken into a local once**, since a global read costs twice a field read
     --- of a local table (`restricted-environment.md`).
+    ---
+    --- **Every body that writes a fragment joins the text again at its end**, before the judging half,
+    --- which may return early.
     local function body(wake, build)
         lines = {};
         inPass = wake == "1";
+        writesWatch = false;
+        build();
+        local measuring = lines;
+        lines = {};
         add("local wake = %s", wake);
         if (inPass) then
             add("JudgeGeneration = JudgeGeneration + 1");
@@ -3581,7 +3716,23 @@ local function BuildJudgeSnippet()
         end
         add("local columns = JudgeColumns");
         add("local cell");
-        build();
+        if (writesWatch) then
+            add("local watch = JudgeWatch");
+            add("local frags = watch.frags");
+            add("local dirty = false");
+        end
+        for _, line in ipairs(measuring) do
+            lines[#lines + 1] = line;
+        end
+        if (writesWatch) then
+            add("if (dirty) then");
+            add("local text = table.concat(frags)");
+            add([[if (text == "") then]]);
+            add("text = false");
+            add("end");
+            add("watch.text = text");
+            add("end");
+        end
         lines[#lines + 1] = DebindPrivate.JUDGE_BUNDLES_SNIPPET;
         return tconcat(lines, "\n");
     end
@@ -3594,14 +3745,55 @@ local function BuildJudgeSnippet()
     --- (`SecureStateDriver.lua`, `resolveDriver`). Putting it back enters the handler a second time,
     --- and the first line turns that round. On `"visibility"` the manager writes `statehidden` on
     --- every tick without comparing, so there is nothing to put back (`BeatSignal.lua`).
+    ---
+    --- **The columns the watch carries are measured only where the watch holds**, and never on an
+    --- empty text, which `SecureCmdOptionParse` answers as holding. Everything else is measured on
+    --- every beat as before. A development build checks a beat the watch let pass against the
+    --- columns measured again (`PROBE.WatchCheck`, `JudgeWatchCheck`).
     _judgeBeatSignal = DebindPrivate.BeatSignal.comes and "visibility" or "attribute";
+    local unwatched, watched = {}, {};
+    for _, i in ipairs(beat) do
+        if (_watchPlace[i]) then
+            watched[#watched + 1] = i;
+        else
+            unwatched[#unwatched + 1] = i;
+        end
+    end
     local beatBody = body("true", function()
         add("if (not JudgeReady) then");
         add("return");
         add("end");
         prepare("beat");
-        measure(beat);
+        measure(unwatched);
+        if (#watched > 0) then
+            add("local text = watch.text");
+            add("if (text and PROBE.SecureCmdOptionParse(text)) then");
+            measure(watched);
+            add("else");
+            add("PROBE.WatchCheck()");
+            add("end");
+        end
     end);
+
+    --- What `PROBE.WatchCheck` runs in a development build: every column the watch carries, measured
+    --- again and held against its cell. A column that moved where the watch did not answer is
+    --- reported, and that is a key left bound on an old cell.
+    _judgeWatchCheckBody = nil;
+    if (Constants.DEBUG and #watched > 0) then
+        lines = {};
+        add("local columns = JudgeColumns");
+        add("local cell");
+        for _, i in ipairs(watched) do
+            add("do");
+            otherCell(_judgmentColumnOrder[i]);
+            add("if (columns[%d] ~= cell) then", 2 * i - 1);
+            add("self:CallMethod(\"DebindTestWatchMiss\", %d)", i);
+            add("end");
+            add("end");
+        end
+        _judgeWatchCheckBody = DebindPrivate.BakeSnippet(tconcat(lines, "\n"));
+        AssertSnippetCompiles(_judgeWatchCheckBody, "JudgeWatchCheck");
+    end
     local opening;
     if (_judgeBeatSignal == "visibility") then
         opening = { [[if (name == "statehidden") then]] };
@@ -3647,7 +3839,7 @@ local function BuildJudgeSnippet()
 end
 
 function UpdateBindingsMap()
-    appendLine("local bindings,t,u,c,b,j,e,tp,s");
+    appendLine("local bindings,t,u,c,b,j,e,tp,s,w");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;
@@ -4025,6 +4217,7 @@ function UpdateAttrChangedHandler()
         _judgePassBody = nil;
         wipe(_judgeWakeBodies);
         _judgeBeats = false;
+        _judgeWatchCheckBody = nil;
     end
 
     -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the

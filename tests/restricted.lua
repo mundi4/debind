@@ -277,6 +277,13 @@ local function groupMatches(interp, group)
         end
         local name, argument = term:match("^([%w_]+):(.+)$");
         tally(interp, "parse word");
+        -- `form:1/2/3`: each value past the first, which 7-1 has no price for.
+        if (argument) then
+            local _, slashes = argument:gsub("/", "");
+            if (slashes > 0) then
+                tally(interp, "parse word alternative", slashes);
+            end
+        end
         if ((name or term) == "flyable" or (name or term) == "advflyable") then
             tally(interp, "parse word " .. (name or term));
         end
