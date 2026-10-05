@@ -431,6 +431,7 @@ wipe(JudgeBundles)
 wipe(JudgeByKey)
 wipe(JudgeWakes)
 wipe(JudgeClassify)
+wipe(JudgeOutcomes)
 wipe(JudgeSwitchTexts)
 -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
 -- set by hand would stand in front of its real one.
@@ -2783,14 +2784,29 @@ end
 local _judgmentKeys = {};
 local _judgmentColumns = {};
 local _judgmentColumnIndex = {};
---- The columns this rebuild handed the loop, by index: column i's cell is `JudgeColumns[2i - 1]`
---- and its bundles `JudgeColumns[2i]`.
+--- The columns this rebuild handed the loop, by index (`CellSlot` and the two beside it).
 local _judgmentColumnOrder = {};
 --- The columns the watch carries (`WatchFragments`), by column index: their place in the watch's
 --- fragments.
 local _watchPlace = {};
 --- Each column's cell groups (`ColumnGroups`), by column key.
 local _columnGroups = {};
+--- Each column's groups for its index in the judging tables, whatever its kind (`ColumnGroups`'
+--- `anyKind`), by column key.
+local _indexGroups = {};
+
+--- **Where column i's three values sit in `JudgeColumns`**: its cell, its index in the judging tables
+--- (its group's place in `_indexGroups`, from 0), and the bundles that read it. One array, so a body
+--- takes it into a local once (Q1 and Q4 of `implementing-the-cuts-inside-the-beat-handler.md`).
+local function CellSlot(i)
+    return 3 * i - 2;
+end
+local function IndexSlot(i)
+    return 3 * i - 1;
+end
+local function BundlesSlot(i)
+    return 3 * i;
+end
 --- How many of the watch's places are not units: they come first.
 local _watchStatePlaces = 0;
 local WatchFragments;
@@ -2888,12 +2904,13 @@ local GROUPED_KINDS = { unit = true, groups = true, bonusbars = true };
 --- one the loop writes for the whole group: the masks hold it exactly where they hold any other
 --- cell of the group, so the judging half answers alike, and a move inside a group moves no cell.
 --- `weight` is how many of its cells a parse has to tell: an alias or frame unit's absent cell is
---- decided from the token. nil for a kind that is not grouped.
+--- decided from the token. nil for a kind whose text is not grouped, unless `anyKind`: a column's
+--- index in the judging tables is its group's place in this list whatever its kind (Q4).
 ---
 --- The absent unit cell is the lowest of all (`UNITSTATE_NONE`), so its group's `rep` is still the
 --- cell the loop writes for a unit with no token.
-local function ColumnGroups(column, masks)
-    if (not GROUPED_KINDS[column.kind]) then
+local function ColumnGroups(column, masks, anyKind)
+    if (not anyKind and not GROUPED_KINDS[column.kind]) then
         return nil;
     end
     local list = {};
@@ -3077,6 +3094,104 @@ local function UnitWatchAlternatives(column, groups)
     return out;
 end
 
+--- **How many joint states a bundle's answers may have, and all of a rebuild's together**, past
+--- which a bundle keeps its entries and the judging loop (Q4 of
+--- `implementing-the-cuts-inside-the-beat-handler.md`). Reading a table costs the same at any length
+--- (7-1's P); what grows is the rebuild, a `Judgment.Judge` a state, and the string handed to the
+--- restricted side, a byte a state. Timed headless (`--bench-beat`, 2026-10-06): 64 states 0.10 ms,
+--- 256 0.40, 1024 1.70, 4096 7.20, against a solver's worst rebuild of 64 ms. So a bundle stops at
+--- 1024 (1.7 ms, 1 KB) and a rebuild at 4096 in all (7 ms, 4 KB): thirty bundles at the cap would
+--- otherwise add 50 ms. A spec or a development build sets either.
+DebindPrivate.JudgeTableCap = 1024;
+DebindPrivate.JudgeTableBudget = 4096;
+
+--- **The letters an answer string is written in**: `!` to `~` less `"` and `\`, which `%q` leaves as
+--- they are, so the string reaches the setup body unchanged. `o`, `r` and `b` are ours, release and
+--- `base`; the commands take the rest in turn, as many as `JudgeTableLetters` lets them (a spec sets
+--- it lower to see a profile run out).
+local ANSWER_LETTERS = {};
+for byte = 0x21, 0x7E do
+    local char = string.char(byte);
+    if (char ~= "\"" and char ~= "\\" and char ~= "o" and char ~= "r" and char ~= "b") then
+        ANSWER_LETTERS[#ANSWER_LETTERS + 1] = char;
+    end
+end
+DebindPrivate.JudgeTableLetters = #ANSWER_LETTERS;
+local FIXED_LETTERS = { ours = "o", release = "r", base = "b" };
+
+--- **What judging one bundle costs, the loop against the table**, in µs in the restricted
+--- environment, from 7-1's P (2026-10-06, xptr 120105). The loop measured 2.966 for four entries of
+--- two checks with the fourth matching and 2.020 for four entries each failing on its first check,
+--- which puts a check read at a quarter of the difference and an entry walked at the rest of a
+--- quarter of 2.020. The table measured 1.158 for Q4's body over three columns, 0.245 of it the
+--- joint index of the three. Scoped to `BundleAnswers`: the file is at Lua's limit of 200 locals.
+local BundleAnswers;
+do
+local JUDGING_PRICE = {
+    loopCheck = (2.966 - 2.020) / 4,
+    tableColumn = 0.245 / 3,
+    tableBase = 1.158 - 0.245,
+};
+JUDGING_PRICE.loopEntry = 2.020 / 4 - JUDGING_PRICE.loopCheck;
+--- Added to the table's cost before it is weighed, so a spec can put a bundle either side.
+DebindPrivate.JudgeTableMargin = 0;
+--- What the last rebuild weighed for each bundle by its number, `{ loop, table }` or nil where the
+--- cap ended it first. A spec reads it to set `JudgeTableMargin` around one bundle.
+DebindPrivate.JudgeBundleCosts = {};
+
+--- **A bundle's answers as one string, a letter a joint state, where that is cheaper than the
+--- loop.** `reads` is the columns its checks read, each `{ c = its place in the item, groups = its
+--- index groups }`, in stride order: the first moves fastest. The letter at `1 + Σ index × stride` is
+--- what `Judgment.Judge` answers at the point where every read column stands on its group's `rep`,
+--- which is what the judging loop answers there, since the masks hold a `rep` exactly where they hold
+--- the rest of its group. A chord's `base` stays a letter of its own: the base key's answer can move
+--- within a beat.
+---
+--- **The loop's cost is what it reads at each joint state, averaged with every state weighted
+--- alike.** Nothing says how often play stands on each; that is the assumption. A bundle of short
+--- entries that match early stays on the loop, and pays nothing for the table.
+---
+--- nil, and the bundle keeps its entries and the loop, where the states pass `cap`, the loop is no
+--- dearer, or an answer has no letter (`letterOf`). Then the costs weighed, where they were.
+function BundleAnswers(item, reads, cap, letterOf)
+    local states = 1;
+    for _, read in ipairs(reads) do
+        states = states * #read.groups;
+    end
+    if (states > cap) then
+        return nil;
+    end
+    local point, wants, loop = {}, {}, 0;
+    for n = 0, states - 1 do
+        local rest = n;
+        for _, read in ipairs(reads) do
+            local count = #read.groups;
+            local index = rest % count;
+            point[read.c] = read.groups[index + 1].rep;
+            rest = (rest - index) / count;
+        end
+        local outcome, command, entries, checks = DebindPrivate.Judgment.Judge(item, point);
+        wants[n + 1] = command or outcome;
+        loop = loop + entries * JUDGING_PRICE.loopEntry + checks * JUDGING_PRICE.loopCheck;
+    end
+    loop = loop / states;
+    local table = JUDGING_PRICE.tableBase + #reads * JUDGING_PRICE.tableColumn;
+    if (table + DebindPrivate.JudgeTableMargin >= loop) then
+        return nil, loop, table;
+    end
+    local letters = {};
+    for n, want in ipairs(wants) do
+        local letter = letterOf(want);
+        if (not letter) then
+            return nil, loop, table;
+        end
+        letters[n] = letter;
+    end
+    return tconcat(letters), loop, table;
+end
+end
+DebindPrivate.BundleAnswers = BundleAnswers;
+
 --- **The items, handed to the loop**: every column once, then each distinct item once as a bundle,
 --- and each key's row pointing at its bundle (§3-3). The bare keys go ahead of the chords made from
 --- them, since a chord's `base` answer is its base key's bundle's of the same pass.
@@ -3087,6 +3202,8 @@ local function EmitJudgmentItems(items)
     wipe(_judgmentColumnOrder);
     wipe(_watchPlace);
     wipe(_columnGroups);
+    wipe(_indexGroups);
+    wipe(DebindPrivate.JudgeBundleCosts);
     wipe(_unitWatch);
 
     local masks = {};
@@ -3110,6 +3227,7 @@ local function EmitJudgmentItems(items)
     for i, key in ipairs(order) do
         local column = _judgmentColumns[key];
         _columnGroups[key] = ColumnGroups(column, masks[key]);
+        _indexGroups[key] = ColumnGroups(column, masks[key], true);
         if (column.kind == "unit") then
             fragmentsOf[i] = UnitWatchAlternatives(column, _columnGroups[key]);
             if (fragmentsOf[i]) then
@@ -3144,9 +3262,7 @@ local function EmitJudgmentItems(items)
         local column = _judgmentColumns[key];
         _judgmentColumnIndex[key] = i;
         _judgmentColumnOrder[i] = column;
-        -- Its bundles at `2i`, beside the cell the loop keeps at `2i - 1`: one global read serves a
-        -- mark's compare and its stamps (`BuildJudgeSnippet`).
-        appendLine("JudgeColumns[%d]=newtable()", 2 * i);
+        appendLine("JudgeColumns[%d]=newtable()", BundlesSlot(i));
         local fragments, place = fragmentsOf[i], _watchPlace[i];
         if (place) then
             -- **As a clause answering its place** (Q2b): the parse names the first column that left
@@ -3183,7 +3299,27 @@ local function EmitJudgmentItems(items)
         return a < b;
     end);
 
-    local bundleOf, keyBundle, bundles = {}, {}, 0;
+    -- **The letters of this rebuild's answers** (`ANSWER_LETTERS`), each put into `JudgeOutcomes` the
+    -- first time a string uses it.
+    local letterOfWant, nextLetter = {}, 1;
+    local function letterOf(want)
+        local letter = letterOfWant[want];
+        if (not letter) then
+            letter = FIXED_LETTERS[want];
+            if (not letter) then
+                if (nextLetter > DebindPrivate.JudgeTableLetters) then
+                    return nil;
+                end
+                letter = ANSWER_LETTERS[nextLetter];
+                nextLetter = nextLetter + 1;
+            end
+            letterOfWant[want] = letter;
+            appendLine("JudgeOutcomes[%d]=%q", letter:byte(), want);
+        end
+        return letter;
+    end
+
+    local bundleOf, keyBundle, bundles, budgetUsed = {}, {}, 0, 0;
     for _, key in ipairs(_judgmentKeys) do
         local item = items[key];
         local baseBundle = item.base and keyBundle[item.base];
@@ -3193,36 +3329,66 @@ local function EmitJudgmentItems(items)
             bundles = bundles + 1;
             n = bundles;
             bundleOf[signature] = n;
-            -- Every key it stands for was bound by the line that put the key on, so it starts as
-            -- ours.
-            appendLine([[b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[%d]=b]], n);
-            appendLine("b.restOutcome=%q", item.rest.outcome);
-            if (item.rest.command) then
-                appendLine("b.restCommand=%q", item.rest.command);
-            end
-            if (baseBundle) then
-                appendLine("b.base=JudgeBundles[%d]", baseBundle);
-            end
-            -- The columns its checks read, which is what has to wake it. One the item's boxes
-            -- merged away decides nothing for it.
-            local reads, readOrder = {}, {};
-            for e, entry in ipairs(item.entries) do
-                appendLine("e=newtable() e.outcome=%q b[%d]=e", entry.outcome, e);
-                if (entry.command) then
-                    appendLine("e.command=%q", entry.command);
-                end
-                for k, check in ipairs(entry.checks) do
-                    local index = _judgmentColumnIndex[item.columns[check.column].key];
-                    appendLine("e[%d]=%d e[%d]=%d", 2 * k - 1, 2 * index - 1, 2 * k, check.mask);
-                    if (not reads[index]) then
-                        reads[index] = true;
-                        readOrder[#readOrder + 1] = index;
+            -- The columns its checks read, which is what has to wake it, in index order, which is
+            -- also the order of its strides. One the item's boxes merged away decides nothing for it.
+            local reads, seen = {}, {};
+            for _, entry in ipairs(item.entries) do
+                for _, check in ipairs(entry.checks) do
+                    if (not seen[check.column]) then
+                        seen[check.column] = true;
+                        local columnKey = item.columns[check.column].key;
+                        reads[#reads + 1] = {
+                            c = check.column, index = _judgmentColumnIndex[columnKey],
+                            groups = _indexGroups[columnKey],
+                        };
                     end
                 end
             end
-            sort(readOrder);
-            for _, index in ipairs(readOrder) do
-                appendLine("tinsert(JudgeColumns[%d],b)", 2 * index);
+            sort(reads, function(a, b) return a.index < b.index; end);
+            local cap = math.min(DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableBudget - budgetUsed);
+            local answers, loopCost, tableCost = BundleAnswers(item, reads, cap, letterOf);
+            DebindPrivate.JudgeBundleCosts[n] = loopCost and { loop = loopCost, table = tableCost } or nil;
+            if (answers) then
+                budgetUsed = budgetUsed + #answers;
+                -- Only a column a table reads has its index written (`BuildJudgeSnippet`'s
+                -- `writeIndex`), so a profile all on the loop pays nothing for it.
+                for _, read in ipairs(reads) do
+                    read.groups.read = true;
+                end
+            end
+
+            -- Every key it stands for was bound by the line that put the key on, so it starts as
+            -- ours.
+            appendLine([[b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[%d]=b]], n);
+            if (baseBundle) then
+                appendLine("b.base=JudgeBundles[%d]", baseBundle);
+            end
+            if (answers) then
+                appendLine("b.answers=%q", answers);
+                appendLine("x=newtable() b.cols=x");
+                local stride = 1;
+                for k, read in ipairs(reads) do
+                    appendLine("x[%d]=%d x[%d]=%d", 2 * k - 1, IndexSlot(read.index), 2 * k, stride);
+                    stride = stride * #read.groups;
+                end
+            else
+                appendLine("b.restOutcome=%q", item.rest.outcome);
+                if (item.rest.command) then
+                    appendLine("b.restCommand=%q", item.rest.command);
+                end
+                for e, entry in ipairs(item.entries) do
+                    appendLine("e=newtable() e.outcome=%q b[%d]=e", entry.outcome, e);
+                    if (entry.command) then
+                        appendLine("e.command=%q", entry.command);
+                    end
+                    for k, check in ipairs(entry.checks) do
+                        local index = _judgmentColumnIndex[item.columns[check.column].key];
+                        appendLine("e[%d]=%d e[%d]=%d", 2 * k - 1, CellSlot(index), 2 * k, check.mask);
+                    end
+                end
+            end
+            for _, read in ipairs(reads) do
+                appendLine("tinsert(JudgeColumns[%d],b)", BundlesSlot(read.index));
             end
         end
         keyBundle[key] = n;
@@ -3660,20 +3826,44 @@ local function BuildJudgeSnippet()
         add("frags[%d] = watch.byCell[%d][cell]", place, place);
         add("dirty = true");
     end
+    --- **The column's index in the judging tables, written beside its cell** (Q4): its group's place,
+    --- from the cell, by a chain of bit tests. Written where the cell moves, so the judging half reads
+    --- an index and never turns a cell into one, since it runs on more bundles than there are moved
+    --- columns.
+    local function writeIndex(index)
+        local groups = _indexGroups[_judgmentColumnOrder[index].key];
+        if (not groups.read) then
+            return;
+        end
+        local slot = IndexSlot(index);
+        if (#groups == 1) then
+            add("columns[%d] = 0", slot);
+            return;
+        end
+        for g = 1, #groups - 1 do
+            add("%s ((%d %% (cell + cell)) >= cell) then", g == 1 and "if" or "elseif", groups[g].mask);
+            add("columns[%d] = %d", slot, g - 1);
+        end
+        add("else");
+        add("columns[%d] = %d", slot, #groups - 1);
+        add("end");
+    end
     local function mark(index)
         if (inPass) then
-            add("columns[%d] = cell", 2 * index - 1);
+            add("columns[%d] = cell", CellSlot(index));
+            writeIndex(index);
             fragment(index);
             return;
         end
-        add("if (columns[%d] ~= cell) then", 2 * index - 1);
-        add("columns[%d] = cell", 2 * index - 1);
+        add("if (columns[%d] ~= cell) then", CellSlot(index));
+        add("columns[%d] = cell", CellSlot(index));
+        writeIndex(index);
         add("if (not moved) then");
         add("moved = true");
         add("JudgeGeneration = JudgeGeneration + 1");
         add("generation = JudgeGeneration");
         add("end");
-        add("local bundles = columns[%d]", 2 * index);
+        add("local bundles = columns[%d]", BundlesSlot(index));
         add("for k = 1, #bundles do");
         add("bundles[k].stamp = generation");
         add("end");
@@ -3978,7 +4168,7 @@ local function BuildJudgeSnippet()
         refreshed = true;
         add("do");
         add("local token = %s", tokenOf(unit));
-        add("local cell = columns[%d]", 2 * _judgmentColumnIndex["unit " .. unit] - 1);
+        add("local cell = columns[%d]", CellSlot(_judgmentColumnIndex["unit " .. unit]));
         unitFragment(unit, "token", "cell");
         add("end");
     end
@@ -4247,7 +4437,7 @@ local function BuildJudgeSnippet()
             else
                 otherCell(column);
             end
-            add("if (columns[%d] ~= cell) then", 2 * i - 1);
+            add("if (columns[%d] ~= cell) then", CellSlot(i));
             add("self:CallMethod(\"DebindTestWatchMiss\", %d)", i);
             add("end");
             add("end");
@@ -4300,7 +4490,7 @@ local function BuildJudgeSnippet()
 end
 
 function UpdateBindingsMap()
-    appendLine("local bindings,t,u,c,b,j,e,w");
+    appendLine("local bindings,t,u,c,b,j,e,w,x");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;

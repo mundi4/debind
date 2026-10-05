@@ -304,18 +304,23 @@ end
 
 --- What an item answers where `point[column]` is the one cell measured in each column. A chord's
 --- `BASE` is its caller's to resolve against the base key's own answer.
+---
+--- Then how many entries and checks it read to get there, which is what the judging loop reads at
+--- that point (`BundleAnswers` in `UpdateBindings.lua` prices a bundle by them).
 function Judgment.Judge(item, point)
-    for _, entry in ipairs(item.entries) do
+    local checks = 0;
+    for e, entry in ipairs(item.entries) do
         local match = true;
         for _, check in ipairs(entry.checks) do
+            checks = checks + 1;
             if (band(check.mask, point[check.column]) == 0) then
                 match = false;
                 break;
             end
         end
         if (match) then
-            return entry.outcome, entry.command;
+            return entry.outcome, entry.command, e, checks;
         end
     end
-    return item.rest.outcome, item.rest.command;
+    return item.rest.outcome, item.rest.command, #item.entries, checks;
 end

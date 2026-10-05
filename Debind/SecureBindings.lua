@@ -144,6 +144,9 @@ SecureHandlerExecute(BindingDriver, [[
 	-- every beat (`trimming-the-tail-key-beat.md` 8-6). `JudgeClassify` is that text by unit.
 	-- `JudgeFrame*` is the pointed frame as the beat last read it.
 	JudgeClassify = newtable()
+	-- **What a letter of a bundle's answers stands for** (`b.answers`, `BundleAnswers` in
+	-- `UpdateBindings.lua`): `"ours"`, `"release"`, `"base"` or a command, by the letter's byte.
+	JudgeOutcomes = newtable()
 	-- **The watch** (`WatchFragments` in `UpdateBindings.lua`): one text that answers only once a
 	-- column it carries has left its cell, so a beat where it does not answer measures none of
 	-- them. `byCell[p]` is the p-th carried column's fragment by cell, `frags[p]` the one standing
@@ -864,22 +867,35 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 		local bundle = JudgeBundles[n]
 		local base = bundle.base
 		if (bundle.stamp == generation or (base and base.changed == generation)) then
+			-- **A bundle with no rest reads one letter** of its answers at its columns' joint index
+			-- (`BundleAnswers` in `UpdateBindings.lua`), each column's index kept beside its cell. One
+			-- with a rest walks its entries, reading what it read before there were tables.
 			local outcome, command = bundle.restOutcome, bundle.restCommand
-			for e = 1, #bundle do
-				local entry = bundle[e]
-				local match = true
-				for c = 1, #entry, 2 do
-					local cell = columns[entry[c]]
-					if ((entry[c + 1] % (cell + cell)) < cell) then
-						match = false
+			if (not outcome) then
+				local cols = bundle.cols
+				local at = 1
+				for c = 1, #cols, 2 do
+					at = at + columns[cols[c]] * cols[c + 1]
+				end
+				outcome = JudgeOutcomes[bundle.answers:byte(at)]
+			else
+				for e = 1, #bundle do
+					local entry = bundle[e]
+					local match = true
+					for c = 1, #entry, 2 do
+						local cell = columns[entry[c]]
+						if ((entry[c + 1] % (cell + cell)) < cell) then
+							match = false
+							break
+						end
+					end
+					if (match) then
+						outcome, command = entry.outcome, entry.command
 						break
 					end
 				end
-				if (match) then
-					outcome, command = entry.outcome, entry.command
-					break
-				end
 			end
+			-- The base key's answer can move within a beat, so a chord's is read here, after either.
 			if (outcome == "base") then
 				if (base.want == "ours") then
 					outcome = "ours"

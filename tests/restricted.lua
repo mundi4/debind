@@ -116,9 +116,12 @@ end
 --- an empty table to the length operator and Lua 5.1 has no `__len` for tables; every `#` in a
 --- body is a name or a field chain, which is all this rewrites. **A call's `+ 0` goes through
 --- `BENCHCOERCE`**, since an operator never touches the environment the meter watches; it is the
---- coercion a numbered parse is read with.
+--- coercion a numbered parse is read with. **`s:byte(n)` goes through `BENCHBYTE`** for the same
+--- reason: a string method is found through the string's metatable, not the environment, and it is
+--- how the judging tables are read (Q4).
 local function compileMetered(body, signature, env)
-    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub("%) %+ 0%f[^%w_%.]", ") + BENCHCOERCE()");
+    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub("%) %+ 0%f[^%w_%.]", ") + BENCHCOERCE()")
+        :gsub("([%a_][%w_%.]*):byte%(", "BENCHBYTE(%1, ");
     local source = "return function(" .. signature .. ") " .. rewritten .. "\nend";
     local chunk = assert(loadstring(source, BODY_CHUNK));
     setfenv(chunk, env);
@@ -512,6 +515,7 @@ local function buildEnv(interp)
     env.next = function(t, k) return next(B(t), k); end
     env.BENCHLEN = function(t) return #B(t); end
     env.BENCHCOERCE = function() return 0; end
+    env.BENCHBYTE = function(s, n) return s:byte(n); end
     env.rawtype = type;
     env.tostring = tostring;
     env.tonumber = tonumber;

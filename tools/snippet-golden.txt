@@ -162,6 +162,9 @@ DelegateFrameNames[frame] = frame:GetName()
 	JudgeClassify = newtable()
 
 
+	JudgeOutcomes = newtable()
+
+
 
 
 	JudgeWatch = newtable()
@@ -4324,6 +4327,7 @@ wipe(JudgeBundles)
 wipe(JudgeByKey)
 wipe(JudgeWakes)
 wipe(JudgeClassify)
+wipe(JudgeOutcomes)
 wipe(JudgeSwitchTexts)
 
 

@@ -49,6 +49,8 @@ return function(DebindPrivate)
         -- 7-1's P: `tonumber(s)` 0.204, `s + 0` 0.043 on one digit and 0.046 on four.
         ["call tonumber"] = { 0.204, true },
         ["call BENCHCOERCE"] = { 0.045, true },
+        -- 7-1's P: `s:byte(n)` 0.074 in the restricted environment.
+        ["call BENCHBYTE"] = { 0.074, true },
         -- The parse is priced by the two lines above; the call itself adds nothing on top.
         ["call SecureCmdOptionParse"] = { 0, true },
         ["call PlayerInCombat"] = { 0.912, true },
@@ -555,6 +557,20 @@ return function(DebindPrivate)
         print(string.format("    the body a second, 3 target swaps: %3.0f / %3.0f / %4.0f;"
             .. " the mouseover on every beat: %3.0f / %3.0f / %4.0f",
             targets(5), targets(20), targets(144), 5 * mouseBody, 20 * mouseBody, 144 * mouseBody));
+
+        -- **A second where combat moves** (Q4): every key that opens with `[combat]` reads it, so with
+        -- 24 leading every bundle is judged. The rows above judge two bundles a move.
+        local combatMoves = {};
+        for b = 1, LARGE_BEATS do
+            combatMoves[b] = function(state) state.combat = not state.combat; end;
+        end
+        local _, combatBody = priced(scenario(LARGE_BEATS, combatMoves), LARGE_BEATS);
+        interp.state.combat = combat;
+        interp:beat();
+        print(string.format("    combat moving, the beat's body %5.2f; a second, 3 moves: %3.0f / %3.0f / %4.0f;"
+            .. " on every beat: %3.0f / %3.0f / %4.0f", combatBody,
+            (5 - 3) * quietBody + 3 * combatBody, (20 - 3) * quietBody + 3 * combatBody,
+            (144 - 3) * quietBody + 3 * combatBody, 5 * combatBody, 20 * combatBody, 144 * combatBody));
     end
     for _, formPrice in ipairs(FORM_PRICES) do
         COST["parse word form"][1] = formPrice[2];
@@ -566,9 +582,80 @@ return function(DebindPrivate)
             end
         end
     end
+    -- **Every bundle on the loop, the index still written** (cap 0, Q4): what writing a column's
+    -- index beside its cell costs with no table read to pay for it.
+    if (DebindPrivate.JudgeTableCap) then
+        local cap = DebindPrivate.JudgeTableCap;
+        DebindPrivate.JudgeTableCap = 0;
+        COST["parse word form"][1] = FORM_PRICES[1][2];
+        COST["call GetShapeshiftForm"][1] = FORM_PRICES[1][3];
+        print("  " .. FORM_PRICES[1][1] .. ", every bundle on the loop (cap 0):");
+        for _, leading in ipairs({ 0, 24 }) do
+            LargeRow(leading, false);
+        end
+        DebindPrivate.JudgeTableCap = cap;
+    end
     COST["parse word form"][1] = 0;
     COST["call GetShapeshiftForm"][1] = 0.143;
     shim.world.units = {};
+
+    --- **A key of long bundles** (Q4): the Multi-axis kit case's seven records over combat, stealth,
+    --- the form and the group, with outcomes that differ, so its item keeps several entries the loop
+    --- walks. Each beat moves one of the four, in turn, so every beat judges it.
+    local function LongRows(label)
+        local MAP, CHAR = "TOGGLEWORLDMAP", "TOGGLECHARACTER0";
+        bind({
+            action({ value = 585, key = "CTRL-F1", conditions = { combat = true, forms = 2 ^ 1 + 2 ^ 2 } }),
+            action({ type = Constants.COMMAND, value = MAP, key = "CTRL-F1",
+                conditions = { combat = true, groups = Constants.GROUP_RAID } }),
+            action({ value = 585, key = "CTRL-F1", conditions = { stealth = true, forms = 2 ^ 0 } }),
+            action({ type = Constants.COMMAND, value = CHAR, key = "CTRL-F1",
+                conditions = { combat = false, stealth = false, groups = Constants.GROUP_PARTY + Constants.GROUP_RAID } }),
+            action({ type = Constants.UNUSED, key = "CTRL-F1", conditions = { forms = 2 ^ 2 } }),
+            action({ type = Constants.COMMAND, value = MAP, key = "CTRL-F1", conditions = { combat = true } }),
+            action({ value = 585, key = "CTRL-F1" }),
+        });
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local perInstruction = instructionCost(interp);
+        interp:resetState();
+        interp:beat();
+        local function body(counts, n)
+            local _, _, lines = price(counts, perInstruction);
+            return BodyShare(lines) / n;
+        end
+        local quietBody = body(scenario(LARGE_BEATS, {}), LARGE_BEATS);
+        local GROUPS = { "none", "party", "raid" };
+        local moves = {};
+        for b = 1, LARGE_BEATS do
+            local which = b % 4;
+            moves[b] = function(state)
+                if (which == 0) then
+                    state.combat = not state.combat;
+                elseif (which == 1) then
+                    state.stealth = not state.stealth;
+                elseif (which == 2) then
+                    state.form = (state.form + 1) % 3;
+                else
+                    state.group = GROUPS[b % 3 + 1];
+                end
+            end;
+        end
+        local movedBody = body(scenario(LARGE_BEATS, moves), LARGE_BEATS);
+        print(string.format("  %-44s quiet %5.2f, a move on every beat %5.2f; a second, 3 moves: %3.0f / %3.0f / %4.0f;"
+            .. " every beat: %3.0f / %3.0f / %4.0f", label, quietBody, movedBody,
+            2 * quietBody + 3 * movedBody, 17 * quietBody + 3 * movedBody, 141 * quietBody + 3 * movedBody,
+            5 * movedBody, 20 * movedBody, 144 * movedBody));
+        interp:resetState();
+        shim.world.units = {};
+    end
+    print("\nThe long key, seven records over four columns, the body in us:");
+    LongRows("as the rebuild chooses");
+    if (DebindPrivate.JudgeTableCap) then
+        local cap = DebindPrivate.JudgeTableCap;
+        DebindPrivate.JudgeTableCap = 0;
+        LongRows("every bundle on the loop (cap 0)");
+        DebindPrivate.JudgeTableCap = cap;
+    end
 
     --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top
     --- of `SetSwitch` itself is the wake.
@@ -628,4 +715,41 @@ return function(DebindPrivate)
     end
     DebindPrivate.BeatSignal.comes = nil;
     shim.world.units = {};
+
+    --- **What building one bundle's table costs the rebuild** (Q4's cap), timed rather than priced:
+    --- it is ordinary Lua outside the restricted environment. Columns of four groups each, six
+    --- entries of two checks, every state walked through `Judgment.Judge` and given a letter. The
+    --- answer string is as long as the states, and that is what the rebuild hands the restricted side.
+    if (DebindPrivate.BundleAnswers) then
+        print("\nBuilding one bundle's table at the rebuild (headless lua5.1, not the game):");
+        local margin = DebindPrivate.JudgeTableMargin;
+        DebindPrivate.JudgeTableMargin = -math.huge;
+        for _, columns in ipairs({ 3, 4, 5, 6 }) do
+            local groups = {};
+            for g = 1, 4 do
+                groups[g] = { rep = 2 ^ (g - 1) };
+            end
+            local reads, entries = {}, {};
+            for c = 1, columns do
+                reads[c] = { c = c, groups = groups };
+            end
+            for e = 1, 6 do
+                entries[e] = { outcome = "ours", checks = {
+                    { column = (e - 1) % columns + 1, mask = 2 ^ (e % 4) + 2 ^ ((e + 2) % 4) },
+                    { column = e % columns + 1, mask = 2 ^ ((e + 1) % 4) + 1 },
+                } };
+            end
+            local item = { columns = {}, entries = entries, rest = { outcome = "release" } };
+            local function letterOf() return "o"; end
+            local REPEAT = 20;
+            local started = os.clock();
+            local answers;
+            for _ = 1, REPEAT do
+                answers = DebindPrivate.BundleAnswers(item, reads, math.huge, letterOf);
+            end
+            local ms = (os.clock() - started) * 1000 / REPEAT;
+            print(string.format("  %5d states: %6.2f ms, %5d bytes of answers", 4 ^ columns, ms, #answers));
+        end
+        DebindPrivate.JudgeTableMargin = margin;
+    end
 end

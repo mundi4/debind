@@ -15,6 +15,7 @@ Execute DebindBindingDriver
   | wipe(JudgeByKey)
   | wipe(JudgeWakes)
   | wipe(JudgeClassify)
+  | wipe(JudgeOutcomes)
   | wipe(JudgeSwitchTexts)
   | -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
   | -- set by hand would stand in front of its real one.
@@ -314,7 +315,7 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
 Execute DebindBindingDriver
-  | local bindings,t,u,c,b,j,e,w
+  | local bindings,t,u,c,b,j,e,w,x
   | -- ALT-F1
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
@@ -1910,7 +1911,7 @@ Execute DebindBindingDriver
   | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" c.priority=false BoundKeys["ALT-SHIFT-F12"]=c
   | self:SetBindingClick(false,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
-  | JudgeColumns[2]=newtable()
+  | JudgeColumns[3]=newtable()
   | w=newtable() JudgeWatch.byCell[1]=w
   | w[1]="; [nocombat] 1"
   | w[2]="; [combat] 1"
@@ -1918,7 +1919,7 @@ Execute DebindBindingDriver
   | b.restOutcome="ours"
   | e=newtable() e.outcome="release" b[1]=e
   | e[1]=1 e[2]=2
-  | tinsert(JudgeColumns[2],b)
+  | tinsert(JudgeColumns[3],b)
   | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeBundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(JudgeBundles[1].keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[2]=b
   | b.restOutcome="command"
@@ -1997,22 +1998,35 @@ SetAttribute DebindBindingDriver JudgePass =
   | 		local bundle = JudgeBundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
+  | 
+  | 
+  | 
   | 			local outcome, command = bundle.restOutcome, bundle.restCommand
-  | 			for e = 1, #bundle do
-  | 				local entry = bundle[e]
-  | 				local match = true
-  | 				for c = 1, #entry, 2 do
-  | 					local cell = columns[entry[c]]
-  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
-  | 						match = false
+  | 			if (not outcome) then
+  | 				local cols = bundle.cols
+  | 				local at = 1
+  | 				for c = 1, #cols, 2 do
+  | 					at = at + columns[cols[c]] * cols[c + 1]
+  | 				end
+  | 				outcome = JudgeOutcomes[bundle.answers:byte(at)]
+  | 			else
+  | 				for e = 1, #bundle do
+  | 					local entry = bundle[e]
+  | 					local match = true
+  | 					for c = 1, #entry, 2 do
+  | 						local cell = columns[entry[c]]
+  | 						if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 							match = false
+  | 							break
+  | 						end
+  | 					end
+  | 					if (match) then
+  | 						outcome, command = entry.outcome, entry.command
   | 						break
   | 					end
   | 				end
-  | 				if (match) then
-  | 					outcome, command = entry.outcome, entry.command
-  | 					break
-  | 				end
   | 			end
+  | 
   | 			if (outcome == "base") then
   | 				if (base.want == "ours") then
   | 					outcome = "ours"
@@ -2087,7 +2101,7 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | JudgeGeneration = JudgeGeneration + 1
   | generation = JudgeGeneration
   | end
-  | local bundles = columns[2]
+  | local bundles = columns[3]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -2107,7 +2121,7 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | JudgeGeneration = JudgeGeneration + 1
   | generation = JudgeGeneration
   | end
-  | local bundles = columns[2]
+  | local bundles = columns[3]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -2152,22 +2166,35 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | 		local bundle = JudgeBundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
+  | 
+  | 
+  | 
   | 			local outcome, command = bundle.restOutcome, bundle.restCommand
-  | 			for e = 1, #bundle do
-  | 				local entry = bundle[e]
-  | 				local match = true
-  | 				for c = 1, #entry, 2 do
-  | 					local cell = columns[entry[c]]
-  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
-  | 						match = false
+  | 			if (not outcome) then
+  | 				local cols = bundle.cols
+  | 				local at = 1
+  | 				for c = 1, #cols, 2 do
+  | 					at = at + columns[cols[c]] * cols[c + 1]
+  | 				end
+  | 				outcome = JudgeOutcomes[bundle.answers:byte(at)]
+  | 			else
+  | 				for e = 1, #bundle do
+  | 					local entry = bundle[e]
+  | 					local match = true
+  | 					for c = 1, #entry, 2 do
+  | 						local cell = columns[entry[c]]
+  | 						if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 							match = false
+  | 							break
+  | 						end
+  | 					end
+  | 					if (match) then
+  | 						outcome, command = entry.outcome, entry.command
   | 						break
   | 					end
   | 				end
-  | 				if (match) then
-  | 					outcome, command = entry.outcome, entry.command
-  | 					break
-  | 				end
   | 			end
+  | 
   | 			if (outcome == "base") then
   | 				if (base.want == "ours") then
   | 					outcome = "ours"

@@ -27,17 +27,31 @@ return function(DebindPrivate, _, ctx)
     --- **Every case under both beats** (`BeatSignal.lua`): the rebuild in the case registers the
     --- driver the answer picks and writes the handler's branch for it, and `Interp:beat` writes what
     --- the driver standing would.
+    --- **Every case three ways**: under each beat signal with every bundle the cap allows judged from
+    --- a table, whatever it costs, and once more with the cap at 0, so every bundle is judged by the
+    --- loop (Q4 of `implementing-the-cuts-inside-the-beat-handler.md`). Both roads are swept at every
+    --- point; which one a bundle takes when nothing is forced has its own cases.
+    local RUNS = {
+        { label = "attribute", signal = "attribute", margin = -math.huge },
+        { label = "visibility", signal = "visibility", margin = -math.huge },
+        { label = "loop", signal = "attribute", cap = 0 },
+    };
+    local defaultCap, defaultMargin = DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableMargin;
     local function test(name, fn)
-        for _, signal in ipairs({ "attribute", "visibility" }) do
-            DebindPrivate.BeatSignal.comes = signal == "visibility" or nil;
+        for _, run in ipairs(RUNS) do
+            DebindPrivate.BeatSignal.comes = run.signal == "visibility" or nil;
+            DebindPrivate.JudgeTableCap = run.cap or defaultCap;
+            DebindPrivate.JudgeTableMargin = run.margin or defaultMargin;
             local ok, err = pcall(fn);
             if (ok) then
                 T.passed = T.passed + 1;
             else
-                T.failures[#T.failures + 1] = name .. " (" .. signal .. "): " .. tostring(err);
+                T.failures[#T.failures + 1] = name .. " (" .. run.label .. "): " .. tostring(err);
             end
         end
         DebindPrivate.BeatSignal.comes = nil;
+        DebindPrivate.JudgeTableCap = defaultCap;
+        DebindPrivate.JudgeTableMargin = defaultMargin;
     end
 
     local function check(cond, msg)
@@ -726,6 +740,33 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **A profile with more commands than letters** (`JudgeTableLetters`): a bundle whose answers need
+    -- a command with no letter keeps its entries and the loop, while one that needs none still reads
+    -- its letter. Set to none here, so the command's key walks and the other reads.
+    test("a bundle whose command has no letter is judged by the loop", function()
+        local was = DebindPrivate.JudgeTableLetters;
+        DebindPrivate.JudgeTableLetters = 0;
+        local ok, err = pcall(function()
+            Bind({
+                action({ key = "F1", conditions = { combat = true } }),
+                action({ key = "F1", type = Constants.COMMAND, value = MAP }),
+                action({ key = "F2", conditions = { mounted = true } }),
+                action({ key = "F2", type = Constants.UNUSED }),
+            });
+            local byKey = interp.env.JudgeByKey;
+            check(byKey.F1.bundle.answers == nil, "F1's bundle reads a table with no letter for its command");
+            if (DebindPrivate.JudgeTableCap > 0) then
+                check(byKey.F2.bundle.answers ~= nil, "F2's bundle needs no command and does not read a table");
+            end
+            Saw(Sweep("F1"), Judgment.OURS, OutcomeName(Judgment.COMMAND, MAP));
+            Saw(Sweep("F2"), Judgment.OURS, Judgment.RELEASE);
+        end);
+        DebindPrivate.JudgeTableLetters = was;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     test("the bars, skyriding and pet battles", function()
         Bind({
             action({ conditions = { bonusbars = 2 ^ 1 + 2 ^ 5, skyriding = false } }),
@@ -1334,6 +1375,104 @@ return function(DebindPrivate, _, ctx)
             end
         end
         check(seen, "no handler was written");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Which road a bundle takes (Q4 of `implementing-the-cuts-inside-the-beat-handler.md`)
+    ---------------------------------------------------------------------------
+
+    --- The number `JudgeBundles` holds `key`'s bundle at.
+    local function BundleNumber(key)
+        local bundle = interp.env.JudgeByKey[key].bundle;
+        for n, other in ipairs(interp.env.JudgeBundles) do
+            if (other == bundle) then
+                return n;
+            end
+        end
+    end
+
+    -- **A bundle reads a table only where the loop is dearer for it** (`BundleAnswers`), weighed by
+    -- what the rebuild priced it at: with the margin just under the difference it takes the table,
+    -- just over it the loop.
+    test("a bundle takes the table only where the loop costs more", function()
+        local actions = {
+            action({ conditions = { combat = true, stealth = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { mounted = true, indoors = true } }),
+            action({ conditions = { flying = true, stealth = false } }),
+            action({ type = Constants.UNUSED }),
+        };
+        DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableMargin = 1024, 0;
+        Bind(actions);
+        local costs = DebindPrivate.JudgeBundleCosts[BundleNumber("F1")];
+        check(costs, "F1's bundle was not weighed");
+        local gap = costs.loop - costs.table;
+        for _, side in ipairs({ { -0.001, true }, { 0.001, false } }) do
+            DebindPrivate.JudgeTableMargin = gap + side[1];
+            Bind(actions);
+            local answers = interp.env.JudgeByKey.F1.bundle.answers;
+            check((answers ~= nil) == side[2], string.format("with the margin %+.3f past the gap %.3f, F1 %s",
+                side[1], gap, answers and "reads a table" or "walks its entries"));
+            Saw(Sweep("F1"), Judgment.OURS, OutcomeName(Judgment.COMMAND, MAP), Judgment.RELEASE);
+        end
+    end);
+
+    -- **Past the rebuild's budget a bundle keeps the loop** (`JudgeTableBudget`), however it would
+    -- price: the budget is all the rebuild's tables together. Two keys forced onto tables, the
+    -- budget room for the first only.
+    test("a bundle past the rebuild's table budget is judged by the loop", function()
+        local budget = DebindPrivate.JudgeTableBudget;
+        local ok, err = pcall(function()
+            DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableMargin = 1024, -math.huge;
+            local actions = {
+                action({ key = "F1", conditions = { combat = true } }),
+                action({ key = "F1", type = Constants.UNUSED }),
+                action({ key = "F2", conditions = { mounted = true } }),
+                action({ key = "F2", type = Constants.UNUSED }),
+            };
+            DebindPrivate.JudgeTableBudget = 4096;
+            Bind(actions);
+            local first = #interp.env.JudgeByKey.F1.bundle.answers;
+            check(interp.env.JudgeByKey.F2.bundle.answers, "F2 reads no table with the budget to spare");
+            -- The bare keys are built before the chords, F1 before F2.
+            DebindPrivate.JudgeTableBudget = first;
+            Bind(actions);
+            check(interp.env.JudgeByKey.F1.bundle.answers, "F1 reads no table though the budget holds it");
+            check(interp.env.JudgeByKey.F2.bundle.answers == nil, "F2 reads a table past the budget");
+            Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
+            Saw(Sweep("F2"), Judgment.OURS, Judgment.RELEASE);
+        end);
+        DebindPrivate.JudgeTableBudget = budget;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
+    -- **A column no table reads has no index written** (`writeIndex`): a profile all on the loop
+    -- pays nothing for the tables. Then forced onto a table, the same column's index is written.
+    test("a column only the loop reads carries no index", function()
+        local function IndexWrites()
+            local writes = 0;
+            for _, name in ipairs({ "_onattributechanged", "JudgePass" }) do
+                local body = interp.driver:GetAttribute(name) or "";
+                for slot in body:gmatch("columns%[(%d+)%] = %d") do
+                    if (tonumber(slot) % 3 == 2) then
+                        writes = writes + 1;
+                    end
+                end
+            end
+            return writes;
+        end
+        local actions = {
+            action({ conditions = { combat = true } }),
+            action({ type = Constants.UNUSED }),
+        };
+        DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableMargin = 1024, 0;
+        Bind(actions);
+        check(interp.env.JudgeByKey.F1.bundle.answers == nil, "a bundle of one check reads a table");
+        check(IndexWrites() == 0, IndexWrites() .. " index writes with no table to read them");
+        DebindPrivate.JudgeTableMargin = -math.huge;
+        Bind(actions);
+        check(IndexWrites() > 0, "a table reads combat and its index is not written");
     end);
 
     ---------------------------------------------------------------------------
