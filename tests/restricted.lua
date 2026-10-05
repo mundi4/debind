@@ -393,15 +393,15 @@ function handleMethods:GetAttribute(name)
 end
 function handleMethods:GetEffectiveAttribute(name) return self.__frame:GetAttribute(name); end
 
---- **Setting an attribute is what drives the beat**, so this is where the handler fires. It fires
---- here only when the value changes; the emitted handler does not lean on that, since the beat's
---- attribute is put back to `0` and the driver writes it again only once it differs.
+--- **Setting an attribute is what drives the beat**, so this is where the handler fires. **It fires
+--- on a write of the value already there as well**, as the client was measured to (`statehidden`
+--- nil over nil and true over true, ten of ten, `trimming-the-tail-key-beat.md` 7-1). What skips an
+--- unchanged value is the state driver's manager, before it writes at all.
 function handleMethods:SetAttribute(name, value)
     local frame = self.__frame;
-    local previous = frame:GetAttribute(name);
     frame.__attributes[name] = value;
     tally(self.__interp, "handle:SetAttribute");
-    if (previous == value or name:sub(1, 1) == "_") then
+    if (name:sub(1, 1) == "_") then
         return;
     end
     local body = frame:GetAttribute("_onattributechanged");
