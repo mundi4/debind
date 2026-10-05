@@ -34,4 +34,5 @@ Probe_InitialSpecs.lua
 # Probe_PetSwap.lua
 Probe_GateWords.lua
 Probe_BeatCost.lua
+Probe_CombatPush.lua
 # Probe_OverridePriority.lua

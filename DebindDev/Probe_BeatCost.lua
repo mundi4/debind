@@ -229,6 +229,16 @@ local function Cases()
     add("A", "read + compare, unchanged (one column's mark)",
         "local cc = BenchCols[1] if (cc.cell ~= false) then cc.cell = false end");
     add("A", "read + mask (one gate term)", "local cc = BenchColumns[3].cell x = (m % (cc + cc)) >= cc", "local m = 6");
+    -- Where a bundle keeps its last result across beats (`trimming-the-tail-key-beat.md` 8-2): an
+    -- environment global or a table field, on a quiet beat. A beat where it changed adds one write,
+    -- measured on its own.
+    add("A", "env global write", "BenchGlobal = i");
+    add("A", "parse vs last in an env global, unchanged",
+        [[local r = SecureCmdOptionParse("[combat] release; ours") if (r ~= BenchLast) then BenchLast = r end]]);
+    add("A", "parse vs last in a table field, unchanged",
+        [[local r = SecureCmdOptionParse("[combat] release; ours") if (r ~= t.last) then t.last = r end]],
+        "local t = BenchColumn");
+    add("A", "parse alone (for the two above)", [[local r = SecureCmdOptionParse("[combat] release; ours")]]);
     add("A", "newtable()", "x = newtable()");
     add("A", "wipe(list)", "wipe(BenchList)");
     add("A", "string .. string", [[x = "abc" .. i]]);
