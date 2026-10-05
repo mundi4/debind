@@ -281,11 +281,11 @@ return function(DebindPrivate)
         check(Released("F1"), "leaving the frame did not let F1 go");
     end);
 
-    -- **A wake of ours enters the handler once.** The beat's attribute has to go back to `0` after
-    -- every tick or the unit watch never writes it again, and putting it back runs the handler a
-    -- second time; a wake that rode the same attribute paid that too, on every frame boundary the
-    -- cursor crossed. Its own attribute takes a new value each time and needs no putting back.
-    test("a wake of ours runs the handler once", function()
+    -- **A wake of ours never enters the handler.** It runs its own body (`RunAttribute`), since
+    -- whoever wakes the loop already holds the driver; writing an attribute to get a body run would
+    -- pay a handler entry on every frame boundary the cursor crossed
+    -- (`trimming-the-tail-key-beat.md` 5-2).
+    test("a wake of ours does not run the handler", function()
         Bind({
             action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
             action({ type = Constants.UNUSED }),
@@ -294,12 +294,12 @@ return function(DebindPrivate)
         local before = interp.handlerRuns;
         interp:hoverEnter(groupFrame);
         check(IsOurs("F1"), "pointing at a friendly frame did not take F1");
-        check(interp.handlerRuns - before == 1,
+        check(interp.handlerRuns - before == 0,
             "the cursor's wake ran the handler " .. (interp.handlerRuns - before) .. " times");
         before = interp.handlerRuns;
         interp:hoverLeave(groupFrame);
         check(Released("F1"), "leaving the frame did not let F1 go");
-        check(interp.handlerRuns - before == 1,
+        check(interp.handlerRuns - before == 0,
             "the cursor's wake ran the handler " .. (interp.handlerRuns - before) .. " times");
     end);
 

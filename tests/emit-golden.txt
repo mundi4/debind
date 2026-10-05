@@ -1965,21 +1965,12 @@ Execute DebindBindingDriver
   | t.args[3].switch="$intent"
   | t.args[3].reverse=true
   | DeferredMacroTexts["deb115"]=t
-SetAttribute DebindBindingDriver _onattributechanged =
-  | local wake
-  | if (name == "state-unitexists") then
-  | if (value == 0) then
-  | return
-  | end
-  | self:SetAttribute("state-unitexists", 0)
-  | wake = value
-  | end
-  | if (wake ~= nil) then
+SetAttribute DebindBindingDriver JudgePass =
+  | local wake = 1
   | JudgeGeneration = JudgeGeneration + 1
   | local generation = JudgeGeneration
   | local moved = false
   | local c, cell
-  | if (wake == 1 or ((wake == true or wake == false) and JudgeReady)) then
   | do
   | local combat = PlayerInCombat()
   | 
@@ -1993,8 +1984,90 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | end
   | end
   | end
-  | else
+  | 	if (wake == 1) then
+  | 		JudgeReady = true
+  | 		for n = 1, #JudgeBundles do
+  | 			JudgeBundles[n].stamp = generation
+  | 		end
+  | 	elseif (not moved) then
+  | 		return
+  | 	end
+  | 
+  | 	for n = 1, #JudgeBundles do
+  | 		local bundle = JudgeBundles[n]
+  | 		local base = bundle.base
+  | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
+  | 			local outcome, command = bundle.restOutcome, bundle.restCommand
+  | 			for e = 1, #bundle do
+  | 				local entry = bundle[e]
+  | 				local match = true
+  | 				for c = 1, #entry, 2 do
+  | 					local cell = entry[c].cell
+  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 						match = false
+  | 						break
+  | 					end
+  | 				end
+  | 				if (match) then
+  | 					outcome, command = entry.outcome, entry.command
+  | 					break
+  | 				end
+  | 			end
+  | 			if (outcome == "base") then
+  | 				if (base.want == "ours") then
+  | 					outcome = "ours"
+  | 				else
+  | 					outcome = "release"
+  | 				end
+  | 			end
+  | 			local want = command or outcome
+  | 			if (bundle.want ~= want) then
+  | 				bundle.want = want
+  | 				bundle.changed = generation
+  | 				local rows = bundle.keys
+  | 				for k = 1, #rows do
+  | 					local row = rows[k]
+  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 						row.bound = want
+  | 						if (want == "ours") then
+  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 						elseif (want == "release") then
+  | 							self:ClearBinding(row.key)
+  | 						else
+  | 							self:SetBinding(row.priority, row.key, want)
+  | 						end
+  | 					end
+  | 				end
+  | 			end
+  | 		end
+  | 	end
+  | 
+SetAttribute DebindBindingDriver _onattributechanged =
+  | if (name == "judgebeat") then
+  | if (value == 0) then
   | return
+  | end
+  | self:SetAttribute("judgebeat", 0)
+  | local wake = true
+  | JudgeGeneration = JudgeGeneration + 1
+  | local generation = JudgeGeneration
+  | local moved = false
+  | local c, cell
+  | if (not JudgeReady) then
+  | return
+  | end
+  | do
+  | local combat = PlayerInCombat()
+  | 
+  | cell = combat and 1 or 2
+  | c = JudgeColumns[1]
+  | if (c.cell ~= cell) then
+  | c.cell = cell
+  | moved = true
+  | for k = 1, #c.bundles do
+  | c.bundles[k].stamp = generation
+  | end
+  | end
   | end
   | 	if (wake == 1) then
   | 		JudgeReady = true
@@ -2228,10 +2301,8 @@ Execute DebindBindingDriver
   |         self:RunAttribute("UpdateAllUnits")
   |     
 Execute DebindBindingDriver
-  |             self:SetAttribute("state-unitexists", 0)
-  |             self:SetAttribute("state-unitexists", 1)
-  |         
-RegisterUnitWatch DebindBindingDriver
+  | self:RunAttribute("JudgePass")
+RegisterAttributeDriver DebindBindingDriver judgebeat "a"
 Execute DebindBindingDriver
   | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
 RegisterAttributeDriver DebindBindingDriver state-giveback "[petbattle] b; 0"

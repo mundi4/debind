@@ -367,10 +367,9 @@ function handleMethods:GetAttribute(name)
 end
 function handleMethods:GetEffectiveAttribute(name) return self.__frame:GetAttribute(name); end
 
---- **Setting an attribute is what drives the state pass**, so this is where the handler fires.
---- The game calls `_onattributechanged` only when the value actually changes, and the emitted
---- handler leans on that: `state-unitexists` is deliberately set to 1 and then 0 so a second
---- rebuild can set 1 again and be noticed.
+--- **Setting an attribute is what drives the beat**, so this is where the handler fires. It fires
+--- here only when the value changes; the emitted handler does not lean on that, since the beat's
+--- attribute is put back to `0` and the driver writes it again only once it differs.
 function handleMethods:SetAttribute(name, value)
     local frame = self.__frame;
     local previous = frame:GetAttribute(name);
@@ -908,12 +907,11 @@ function Interp:clickFrame(frame, button, down)
         button, down);
 end
 
---- **One tick of Blizzard's beat**, as the unit watch on the driver delivers it: `state-unitexists`
---- written `true` (the driver's unit is the player). The handler puts the attribute back to `0` on
---- every wake, which is what makes the next tick a change the client reports at all
---- (`handing-the-rest-of-a-key-to-the-game.md` 2-5).
+--- **One tick of Blizzard's beat**, as the attribute driver on the driver delivers it: the beat's
+--- attribute written `"a"`. The handler puts it back to `0` on every tick, which is what makes the
+--- next tick a change the manager writes at all (`SecureStateDriver.lua`, `resolveDriver`).
 function Interp:beat()
-    self.driverHandle:SetAttribute("state-unitexists", true);
+    self.driverHandle:SetAttribute(self.Private.JUDGE_BEAT_ATTRIBUTE, "a");
 end
 
 --- The keys a restricted body wrote a binding for since the last call, in order, and starts the

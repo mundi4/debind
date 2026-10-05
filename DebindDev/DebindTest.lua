@@ -6823,23 +6823,43 @@ RegisterTest("Secure update path", {
     end,
 })
 
--- **Nothing puts the driver on Blizzard's 0.2s beat any more.** `RegisterUnitWatch(driver, true)`
--- is what made the client write `state-unitexists` five times a second, and every value that pass
--- measured is measured at the press instead. A profile that would have brought the beat back under
--- the old rule is the case worth asking about: a computed switch and a measured condition.
+--- A frame of the kit's own on an attribute driver that always answers `"a"`, put back to `0` by its
+--- handler, so `ticks` counts the manager's ticks. What lets a test wait for "the manager has run"
+--- without a fixed wait.
+local beatWitness
+local function BeatWitness()
+    if not beatWitness then
+        beatWitness = CreateFrame("Frame", nil, nil, "SecureHandlerAttributeTemplate")
+        beatWitness:SetAttribute("_onattributechanged", [[
+            if (name == "witness" and value ~= 0) then
+                self:SetAttribute("witness", 0)
+                self:SetAttribute("ticks", (self:GetAttribute("ticks") or 0) + 1)
+            end
+        ]])
+        RegisterAttributeDriver(beatWitness, "witness", "a")
+    end
+    return beatWitness
+end
+
+-- **The beat runs only while a key holds a tail.** It is a Blizzard attribute driver that always
+-- answers `"a"` on the driver's beat attribute (`trimming-the-tail-key-beat.md` 5-1), and the unit
+-- watch that used to carry it is never registered. A profile with a computed switch and a measured
+-- condition but no tail is the case worth asking about: it would have brought the 0.2s pass back
+-- under an older rule.
 --
--- **Headless cannot see this.** It is Blizzard's registry being asked, and `UnitWatchRegistered`
--- is a client call. What a rebuild decided is a value the specs read; whether anything registered
--- the frame behind their back is answerable here and nowhere else.
+-- **Headless cannot see this.** It is Blizzard's manager writing the attribute, and nothing a spec
+-- runs stands in for the manager. Whether the beat is running is asked of the attribute itself: put
+-- to nil, it stays nil through two manager ticks without a tail, and is written again with one.
 --
 -- **It asks whether the key is still bound, in the same breath**, or a rebuild that quietly stopped
 -- binding anything would read as the quietest possible pass.
 RegisterTest("The driver is off Blizzard's beat", {
-    description = "A computed switch and a measured condition leave the 0.2s unit watch unregistered, and the key still binds",
+    description = "With no tail the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
     run = function()
-        local NAME = "Unit watch registration"
+        local NAME = "Beat registration"
         local KEY = "CTRL-SHIFT-F11"
         local SWITCH = "$pollbeat"
+        local BEAT = DebindPrivate.JUDGE_BEAT_ATTRIBUTE
 
         if InCombatLockdown() then
             return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
@@ -6864,7 +6884,7 @@ RegisterTest("The driver is off Blizzard's beat", {
         ApplyBindings()
 
         if UnitWatchRegistered(driver) then
-            return Fail(NAME, "something registered the unit watch, so the 0.2s beat is running again")
+            return Fail(NAME, "something registered the unit watch on the driver")
         end
 
         local bound = GetBindingAction(KEY, true) or ""
@@ -6872,7 +6892,29 @@ RegisterTest("The driver is off Blizzard's beat", {
             return Fail(NAME, format("the key did not bind (%q)", bound))
         end
 
-        return Pass(NAME, "no beat, and the key is bound")
+        -- Two ticks: the first may be the one already under way when the attribute was cleared.
+        local witness = BeatWitness()
+        local function WaitTicks(n)
+            local from = witness:GetAttribute("ticks") or 0
+            return WaitUntil(function() return (witness:GetAttribute("ticks") or 0) >= from + n end, 2)
+        end
+        driver:SetAttribute(BEAT, nil)
+        if not WaitTicks(2) then
+            return Fail(NAME, "the manager did not tick for the witness")
+        end
+        if driver:GetAttribute(BEAT) ~= nil then
+            return Fail(NAME, format("with no tail the beat attribute was written (%s)", tostring(driver:GetAttribute(BEAT))))
+        end
+
+        -- **The other half**: a tail on the key, and the beat comes.
+        InsertAction({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = KEY })
+        ApplyBindings()
+        driver:SetAttribute(BEAT, nil)
+        if not WaitUntil(function() return driver:GetAttribute(BEAT) ~= nil end, 2) then
+            return Fail(NAME, "with a tail the beat attribute was never written")
+        end
+
+        return Pass(NAME, "no beat without a tail, a beat with one, and the key is bound")
     end,
 })
 

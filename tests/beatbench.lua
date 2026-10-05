@@ -64,6 +64,24 @@ return function(DebindPrivate)
     --- What an unpriced call is guessed at.
     local UNPRICED_CALL = 0.3;
 
+    --- **The manager's own work per tick, which no body does and so nothing above counts**: the
+    --- insecure side of Blizzard's state driver, per tick, for whatever carries the beat (7-1, J).
+    --- Which one the rebuild registered is read off the recording.
+    local MANAGER_TICK = { unitWatch = 1.94, attributeDriver = 0.37 };
+    local function managerTick()
+        local cost = 0;
+        for _, entry in ipairs(frames.all()) do
+            if (entry.kind == "RegisterUnitWatch") then
+                cost = MANAGER_TICK.unitWatch;
+            elseif (entry.kind == "UnregisterUnitWatch") then
+                cost = 0;
+            elseif (entry.kind == "RegisterAttributeDriver" and entry.name == DebindPrivate.JUDGE_BEAT_ATTRIBUTE) then
+                cost = MANAGER_TICK.attributeDriver;
+            end
+        end
+        return cost;
+    end
+
     ---------------------------------------------------------------------------
     -- What one VM instruction is worth: "a mask test on locals" measured 0.026 µs
     ---------------------------------------------------------------------------
@@ -119,7 +137,9 @@ return function(DebindPrivate)
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [GUID] = { switches = {} } },
             migrated = {},
-            switches = {},
+            switches = { account = { GENERAL = { [0] = {
+                ["$w"] = { mode = Constants.SWITCH_MODES.MANUAL },
+            } } } },
         };
         DebindPrivate.InitDB();
         local mark = frames.mark();
@@ -162,7 +182,7 @@ return function(DebindPrivate)
     end
 
     --- Runs `beats` beats, the world moving at the given beats, and prices the average beat.
-    local function scenario(interp, beats, moves)
+    local function scenario(beats, moves)
         interp:meterStart();
         for b = 1, beats do
             local move = moves[b];
@@ -174,13 +194,19 @@ return function(DebindPrivate)
         return interp:meterStop();
     end
 
-    local function report(title, counts, beats, perInstruction)
+    --- `unit` is what one of `n` priced events is called in the report. `outside` is per event and
+    --- not counted by the meter (the manager's tick).
+    local function report(title, counts, n, perInstruction, unit, outside)
         local total, guessed, lines = price(counts, perInstruction);
-        print(string.format("\n%s: %.2f us a beat (%.0f%% of it on guessed prices)", title, total / beats,
-            total > 0 and 100 * guessed / total or 0));
+        outside = outside or 0;
+        print(string.format("\n%s: %.2f us a %s (%.0f%% of it on guessed prices)", title, total / n + outside,
+            unit, total > 0 and 100 * guessed / total or 0));
+        if (outside > 0) then
+            print(string.format("  %-34s %9s       %8.2f us", "manager tick (insecure)", "", outside));
+        end
         for i = 1, math.min(#lines, 14) do
             local l = lines[i];
-            print(string.format("  %-34s %9.1f a beat %8.2f us%s", l.what, l.n / beats, l.us / beats,
+            print(string.format("  %-34s %9.1f a %s %8.2f us%s", l.what, l.n / n, unit, l.us / n,
                 l.measured and "" or " *"));
         end
     end
@@ -216,8 +242,27 @@ return function(DebindPrivate)
         assert((frames.overrides["CTRL-F1"] or {}).command == "TOGGLEWORLDMAP",
             "a peaceful beat did not give the first key back");
 
-        report(string.format("%d tail keys, quiet", keys), scenario(interp, QUIET, {}), QUIET, perInstruction);
-        report(string.format("%d tail keys, the world moving", keys), scenario(interp, MOVING, movingWorld()),
-            MOVING, perInstruction);
+        local tick = managerTick();
+        report(string.format("%d tail keys, quiet", keys), scenario(QUIET, {}), QUIET, perInstruction, "beat", tick);
+        report(string.format("%d tail keys, the world moving", keys), scenario(MOVING, movingWorld()),
+            MOVING, perInstruction, "beat", tick);
     end
+
+    --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top
+    --- of `SetSwitch` itself is the wake.
+    local WAKES = 100;
+    bind({
+        action({ value = 585, key = "CTRL-F1", conditions = { ["$w"] = true } }),
+        action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "CTRL-F1" }),
+    });
+    local perInstruction = instructionCost(interp);
+    interp.driverHandle:RunAttribute("SetSwitch", "$w", true);
+    assert((frames.overrides["CTRL-F1"] or {}).buttonName, "setting the switch did not take the key");
+    interp.driverHandle:RunAttribute("SetSwitch", "$w", false);
+    assert((frames.overrides["CTRL-F1"] or {}).command == "TOGGLEWORLDMAP", "clearing the switch did not give it back");
+    interp:meterStart();
+    for w = 1, WAKES do
+        interp.driverHandle:RunAttribute("SetSwitch", "$w", w % 2 == 1);
+    end
+    report("a switch set by hand, SetSwitch with its wake", interp:meterStop(), WAKES, perInstruction, "wake");
 end

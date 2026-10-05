@@ -1,6 +1,6 @@
 # 줄인 꼬리 키 박자 구현 순서 (2026-10-05 계획)
 
-> 상태: 진행 중. P0은 소유자 프로필을 읽는 입력(P0-3 끝 줄)만 남았고, 그것은 P3-6에서 쓸 때 붙인다. 다음은 P1. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
+> 상태: 진행 중. P0과 P1이 들어갔다(P0은 소유자 프로필을 읽는 입력만 남았고 P3-6에서 쓸 때 붙인다). 다음은 P2. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
 > 왜 하는지는 그 문서가 갖고, 이 문서는 어떤 순서로 무엇을 고치는지와 단계마다 무엇이 실패해야 하는지를 갖는다.
 > 이 문서의 절은 `P0`~`P6`으로 부르고, 괄호 안의 맨 번호(7-1, 8-6, C5 …)는 그 계획 문서의 절과 표의 행이다.
 >
@@ -98,23 +98,26 @@
 
 ## P1. 박자 신호와 깨움 배관
 
-정한 것: 5-1(`"a"` 드라이버), 5-2(`RunAttribute` 깨움), 5-3의 B3(박자 전용 프레임). 판정은 그대로라 결과가 같아야
-하고, 그래서 다른 단계와 따로 먼저 선다.
+들어갔다. 정한 것 5-1(`"a"` 드라이버)과 5-2(`RunAttribute` 깨움)를 드라이버 프레임에서 했다. 판정은 그대로다.
 
-- 박자 신호. 지금은 `RegisterUnitWatch(driver, true)`(UB:791-797)이고 드라이버에 `unit="player"`(Debind.lua:24)가
-  있다. 박자 전용 프레임을 두고 늘 `"a"`를 내는 드라이버를 건다. 첫 패스(UB:782-786)도 그 프레임으로 옮긴다.
-  Debind.lua:18-23의 "the watch is gone"은 지금 코드와 이미 어긋나 있으니 같이 고친다.
-- 깨움. `SetSwitch`(SB:513), `SetUnit`(SB:555), `SetRoleUnits`(SB:605), `DeinitFrame`(SB:879), `setup_onenter`(SB:963),
-  `setup_onleave`(SB:978)의 `JudgeWakeSerial` 증가와 `SetAttribute(wake, …)`를 `debind_driver:RunAttribute(…)`로
-  바꾼다. 깨움 본문은 깨움마다 생성한다(지금 `measure(wakes[w])`를 본문 하나씩으로 뗀 것). `JudgeWakeSerial`과
-  `JudgeWakes`는 없어진다.
-- 판정 부분(`JUDGE_BUNDLES_SNIPPET`)은 박자 본문과 깨움 본문에 같은 글로 들어간다. `state-giveback` 갈래는
-  `debind_driver`에 남는다.
-- 키트의 목(`MockStatesMap`, `MockParseWords`, P0-2)은 `debind_driver`의 환경에 심긴다(`PlantMockTable`). 박자가 전용
-  프레임으로 가면 그 프레임의 환경은 따로라 거기에도 심어야 한다.
-- 시험: `judgmentloop_spec`의 깨움 경우들이 새 배관으로 같은 바인딩을 내야 한다. `emit_spec`의 golden은 다시
-  기록한다. `restricted.lua`의 `Interp:beat()`(671)은 `state-unitexists=true` 대신 박자 프레임에 `"a"`를 쓴다.
-  `/debtest`의 "The driver is off Blizzard's beat"는 꼬리 키가 없는 프로필에서 드라이버가 안 걸려 있는지로 바꾼다.
+- 박자: `RegisterUnitWatch(driver, true)`를 `RegisterAttributeDriver(driver, "judgebeat", "a")`로 바꿨다. 핸들러의
+  박자 갈래가 그 속성을 `0`으로 되돌린다. 매니저는 속성의 지금 값과 다를 때만 쓴다(`SecureStateDriver.lua`,
+  `resolveDriver`). 드라이버의 `unit` 속성과 낡은 주석(Debind.lua)은 지웠다.
+- 첫 패스와 깨움: 핸들러에는 박자 갈래만 남았다. 리빌드의 첫 패스는 `JudgePass`, 깨움은 `judge-<이름>` 속성 본문이고,
+  깨우는 여섯 곳과 리빌드가 `RunAttribute`로 부른다. `JudgeWakeSerial`은 없어졌다.
+- **B3(박자 전용 프레임)는 하지 않았다. 지금 구조에서 서지 않는다.** 이 문서는 처음에 B3를 정한 것으로 적었지만 계획
+  문서 5-3에서 B3는 논의 중이었다(debind-e6의 잘못 옮김). 프레임마다 보안 환경이 따로라 전용 프레임의 본문에서는
+  `JudgeBundles`·`BoundKeys` 같은 드라이버의 전역이 안 보인다. 그 본문의 `self:SetBindingClick`은 바인딩 주인을 전용
+  프레임으로 만들어 리빌드의 `ClearOverrideBindings(BindingDriver)`와 Keys Given Back이 그 키를 못 다룬다. 드라이버로
+  넘어가는 `RunAttribute`(3.09)는 B3가 아끼려던 진입(약 3.2)을 다 먹는다. 다시 꺼낸다면 루프의 표 전부와 바인딩 주인을
+  전용 프레임으로 옮기는 구조 변경이 전제다.
+- 시험: `judgmentloop_spec`의 "a wake of ours runs the handler once"는 "does not run the handler"가 됐다(깨움은
+  핸들러를 열지 않는다). `emit_spec` 골든과 스니펫 골든을 다시 기록했다. 키트의 "The driver is off Blizzard's beat"는
+  꼬리가 없으면 박자 속성이 두 번의 매니저 틱 동안 안 쓰이고, 꼬리를 붙이면 쓰이는지를 본다(틱은 키트 자신의 `"a"`
+  드라이버로 센다).
+- 벤치(같은 `beatbench.lua`를 바꾸기 전 커밋 a40dfc3과 이 단계에서): 박자 하나 14.89 → 13.30µs(꼬리 키 4개, 조용한
+  박자. 12·30개도 1.59씩), 손으로 켜는 스위치의 깨움 하나 17.88 → 15.61µs. 박자에서 준 것은 매니저 쪽 unit watch(1.94)가
+  `"a"` 드라이버(0.37)가 된 몫이고, 보안 본문 쪽은 같다(핸들러 진입 둘과 `SetAttribute` 둘).
 
 ## P2. 누름을 파싱으로
 

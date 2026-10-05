@@ -140,6 +140,16 @@ local _unitsSeen         = {};
 local _ctx               = {};
 local _plan              = { events = {}, units = {} };
 
+--- The attribute Blizzard's driver writes `"a"` to, once per manager tick while a key holds a tail
+--- (`trimming-the-tail-key-beat.md` 5-1). The handler puts it back to `0` so the next tick writes
+--- again.
+local JUDGE_BEAT_ATTRIBUTE = "judgebeat";
+DebindPrivate.JUDGE_BEAT_ATTRIBUTE = JUDGE_BEAT_ATTRIBUTE;
+--- The loop's bodies the last rebuild generated besides the beat (`BuildJudgeSnippet`): the pass the
+--- rebuild runs itself, and one per wake as `{ attribute = , body = }`.
+local _judgePassBody;
+local _judgeWakeBodies = {};
+
 --- Does any action ask about the hovered unit's role? It is what turns the three role headers
 --- on, and they are the only thing that fills `UnitRoles`.
 local _readsRole = false;
@@ -619,6 +629,8 @@ local function BuildBindingPlan(ctx)
 
     --- Does any key hold a tail, and so need the loop (`JudgeKeys`) and its beat?
     plan.judges = next(DebindPrivate.JudgmentItems) ~= nil;
+    plan.judgePass = _judgePassBody;
+    plan.judgeWakes = _judgeWakeBodies;
 
     return plan;
 end
@@ -689,6 +701,11 @@ end
 
 --- The state driver events a rebuild registered and no rebuild has taken back since.
 local _driverEventsOurs = {};
+--- Whether the beat's driver is registered on `BindingDriver` (`JUDGE_BEAT_ATTRIBUTE`). Blizzard has
+--- no way to ask, so the rebuild that registers it keeps the answer.
+local _beatRegistered = false;
+--- The wake attributes the last rebuild filled, so the next can empty the ones it no longer has.
+local _judgeWakeAttributesSet = {};
 
 --- Hands the plan to the game. **The only step of a rebuild with an effect on the secure side**,
 --- once the two stages that still leave stamping inside the build are done.
@@ -697,6 +714,20 @@ local function ApplyBindingPlan(plan)
 
     SecureHandlerExecute(driver, plan.bindingsMapSnippet);
     SecureHandlerExecute(driver, plan.macroTextsSnippet);
+
+    -- The loop's bodies besides the beat, while the handler is still off (`ClearPreviousBindings`):
+    -- with it on, each of these writes would enter it for nothing. A wake the last rebuild had and
+    -- this one does not is emptied, so nothing is left to run.
+    for attribute in pairs(_judgeWakeAttributesSet) do
+        driver:SetAttribute(attribute, nil);
+    end
+    wipe(_judgeWakeAttributesSet);
+    for i = 1, #plan.judgeWakes do
+        local wake = plan.judgeWakes[i];
+        driver:SetAttribute(wake.attribute, wake.body);
+        _judgeWakeAttributesSet[wake.attribute] = true;
+    end
+    driver:SetAttribute("JudgePass", plan.judgePass);
 
     driver:SetAttribute("_onattributechanged", plan.attrChangedSnippet);
 
@@ -775,25 +806,21 @@ local function ApplyBindingPlan(plan)
     --- **The loop's first pass measures every column and binds every tail key**, after the aliases
     --- and the switches it reads are back. Before `ApplyGiveBack`, whose keys go over from wherever
     --- this leaves them and come back on what it judged.
-    ---
-    --- **The attribute goes to `0` first.** The unit watch writes `true` only where the value
-    --- differs, and a `true` left over from before the loop was there would never be written again.
-    --- `1` is the pass itself, run by the handler like any wake.
     if (plan.judges) then
-        SecureHandlerExecute(driver, [[
-            self:SetAttribute("state-unitexists", 0)
-            self:SetAttribute("state-unitexists", 1)
-        ]]);
+        SecureHandlerExecute(driver, [[self:RunAttribute("JudgePass")]]);
     end
 
-    --- **Only on a change.** Registering again is not silent: Blizzard's handler measures the frame
-    --- on the spot and writes the attribute (`SecureStateDriver.lua`, `addwatchstate`).
-    if (plan.judges ~= UnitWatchRegistered(driver)) then
+    --- **The beat is a driver that always answers `"a"`, not a unit watch** (`trimming-the-tail-key-
+    --- beat.md` 5-1): a watch reads the frame's unit attributes and an existence cache on every tick,
+    --- and the driver only parses the one constant expression. **Only on a change**, since
+    --- registering resolves the driver on the spot.
+    if (plan.judges ~= _beatRegistered) then
         if (plan.judges) then
-            RegisterUnitWatch(driver, true);
+            RegisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE, "a");
         else
-            UnregisterUnitWatch(driver);
+            UnregisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE);
         end
+        _beatRegistered = plan.judges;
     end
 
     ApplyGiveBack(driver, plan.giveBack);
@@ -2371,7 +2398,7 @@ local function JudgmentEntryFor(binding, record, tier)
     return Judgment.Entry(record, outcome, record.command);
 end
 
---- What a wake's own attribute is called: this, then the wake's name (`JudgeWakes`).
+--- The attribute holding a wake's body: this, then the wake's name (`JudgeWakes`).
 local JUDGE_WAKE_PREFIX = "judge-";
 
 --- The wake of ours that moves a column, or nil where only Blizzard's beat does. The pointed
@@ -2518,12 +2545,13 @@ local JUDGED_BOOL_STATES = {
 --- Kinds whose cell is `2 ^ value`, or the value itself, of a state measured under another name.
 local JUDGED_MASK_STATES = { groups = "group", forms = "form", bonusbars = "bonusbar" };
 
---- **The loop's body, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
---- §3), which `UpdateAttrChangedHandler` puts straight into the handler: a `RunAttribute` there
---- would cost an environment swap and a `pcall` on every beat. The measuring half lists each column
---- the items read, once per wake that moves it, as straight lines, and nothing in it asks what kind
---- a column is: the beat runs every ~0.2s for as long as a key holds a tail. The judging half is
---- `SecureBindings.lua`'s `JUDGE_BUNDLES_SNIPPET`.
+--- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
+--- §3). The beat's goes straight into the handler, which `UpdateAttrChangedHandler` takes as the
+--- return value: a `RunAttribute` there would cost an environment swap and a `pcall` on every beat.
+--- The rebuild's pass and each wake's are left in `_judgePassBody` and `_judgeWakeBodies` to be run.
+--- The measuring half lists each column the items read, once per body that moves it, as straight
+--- lines, and nothing in it asks what kind a column is: the beat can run every frame for as long as a
+--- key holds a tail. The judging half is `SecureBindings.lua`'s `JUDGE_BUNDLES_SNIPPET`.
 ---
 --- **Every cell is measured the way the press measures it**, since an item's boxes were built from
 --- the records the press walks: the states out of `Constants.STATE_EVAL_EXPRESSIONS`, the pointed
@@ -2531,10 +2559,10 @@ local JUDGED_MASK_STATES = { groups = "group", forms = "form", bonusbars = "bonu
 --- way `UnitAliasNeedsExists` answers it. A cell read any other way binds a key to an answer the
 --- press would not give; `judgment_spec.lua` holds the bound key to the item at every point.
 ---
----   `state-unitexists` `true` / `false`: Blizzard's beat. Every column the world moves, the pointed
+---   the beat (`JUDGE_BEAT_ATTRIBUTE`): Blizzard's driver. Every column the world moves, the pointed
 ---                      frame's included: a raid frame laid out again or a unit dying under a cursor
 ---                      that never moved sends neither enter nor leave
----   `state-unitexists` `1`: the rebuild's own pass. Every column, a switch set by hand too
+---   `JudgePass`        the rebuild's own pass. Every column, a switch set by hand too
 ---   `judge-<name>`     one of our wakes, `unitframe`, a switch or an alias (`JudgeWakes`). Only what
 ---                      it names: whatever else moved has an event that already pulled the next beat
 ---                      in
@@ -2811,50 +2839,67 @@ local function BuildJudgeSnippet()
     end
     sort(wakeOrder);
 
-    -- The beat's attribute goes back to `0` after every tick, or the unit watch never writes it
-    -- again; putting it back enters the handler a second time, and the first line turns that round.
-    add("local wake");
-    add([[if (name == "state-unitexists") then]]);
-    add("if (value == 0) then");
-    add("return");
-    add("end");
-    add([[self:SetAttribute("state-unitexists", 0)]]);
-    add("wake = value");
-    for _, wake in ipairs(wakeOrder) do
-        add("elseif (name == %q) then", JUDGE_WAKE_PREFIX .. wake);
-        add("wake = %q", wake);
+    --- One body: what `build` measures, then the judging half, which reads `wake` -- `1` for the
+    --- rebuild's pass, `true` for the beat, the wake's name for a wake of ours.
+    local function body(wake, build)
+        lines = {};
+        add("local wake = %s", wake);
+        add("JudgeGeneration = JudgeGeneration + 1");
+        add("local generation = JudgeGeneration");
+        add("local moved = false");
+        add("local c, cell");
+        build();
+        lines[#lines + 1] = DebindPrivate.JUDGE_BUNDLES_SNIPPET;
+        return tconcat(lines, "\n");
     end
-    add("end");
-    add("if (wake ~= nil) then");
-    add("JudgeGeneration = JudgeGeneration + 1");
-    add("local generation = JudgeGeneration");
-    add("local moved = false");
-    add("local c, cell");
-    add("if (wake == 1 or ((wake == true or wake == false) and JudgeReady)) then");
-    measure(beat);
-    if (#byHand > 0) then
-        add("if (wake == 1) then");
-        measure(byHand);
-        add("end");
-    end
-    if (#wakeOrder > 0) then
-        add("elseif (not JudgeReady) then");
-        add("return");
-    end
-    for _, wake in ipairs(wakeOrder) do
-        add("elseif (wake == %q) then", wake);
-        measure(wakes[wake]);
-    end
-    add("else");
-    add("return");
-    add("end");
-    lines[#lines + 1] = DebindPrivate.JUDGE_BUNDLES_SNIPPET;
-    add("return");
-    add("end");
 
-    local snippet = DebindPrivate.BakeSnippet(tconcat(lines, "\n"));
-    AssertSnippetCompiles(snippet, "JudgeKeys");
-    return snippet;
+    --- **The beat goes in the handler and nothing else does.** It is the one that comes as an
+    --- attribute write, from Blizzard's driver; the other two are run.
+    ---
+    --- Its attribute goes back to `0` after every tick, or the driver never writes it again: the
+    --- manager writes only a value that differs from the attribute's (`SecureStateDriver.lua`,
+    --- `resolveDriver`). Putting it back enters the handler a second time, and the first line turns
+    --- that round.
+    local beatBody = body("true", function()
+        add("if (not JudgeReady) then");
+        add("return");
+        add("end");
+        measure(beat);
+    end);
+    local branch = DebindPrivate.BakeSnippet(tconcat({
+        format("if (name == %q) then", JUDGE_BEAT_ATTRIBUTE),
+        "if (value == 0) then",
+        "return",
+        "end",
+        format("self:SetAttribute(%q, 0)", JUDGE_BEAT_ATTRIBUTE),
+        beatBody,
+        "return",
+        "end",
+    }, "\n"));
+    AssertSnippetCompiles(branch, "JudgeBeat");
+
+    --- The rebuild's own pass: every column, a switch set by hand too.
+    _judgePassBody = DebindPrivate.BakeSnippet(body("1", function()
+        measure(beat);
+        measure(byHand);
+    end));
+    AssertSnippetCompiles(_judgePassBody, "JudgePass");
+
+    --- A wake of ours: only what it names. Whatever else moved has an event that pulls the next
+    --- beat in.
+    wipe(_judgeWakeBodies);
+    for _, wake in ipairs(wakeOrder) do
+        local snippet = DebindPrivate.BakeSnippet(body(format("%q", wake), function()
+            add("if (not JudgeReady) then");
+            add("return");
+            add("end");
+            measure(wakes[wake]);
+        end));
+        AssertSnippetCompiles(snippet, JUDGE_WAKE_PREFIX .. wake);
+        _judgeWakeBodies[#_judgeWakeBodies + 1] = { attribute = JUDGE_WAKE_PREFIX .. wake, body = snippet };
+    end
+
+    return branch;
 end
 
 function UpdateBindingsMap()
@@ -3233,6 +3278,9 @@ function UpdateAttrChangedHandler()
     -- else nothing writes those attributes.
     if (next(DebindPrivate.JudgmentItems)) then
         appendLine(BuildJudgeSnippet());
+    else
+        _judgePassBody = nil;
+        wipe(_judgeWakeBodies);
     end
 
     -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the

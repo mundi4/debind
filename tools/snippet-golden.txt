@@ -133,7 +133,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	JudgeBundles = newtable()
 	JudgeByKey = newtable()
 	JudgeWakes = newtable()
-	JudgeWakeSerial = 0
 
 
 	JudgeSwitches = newtable()
@@ -258,8 +257,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			States[name] = value
 			local wake = JudgeWakes[name]
 			if (wake) then
-				JudgeWakeSerial = JudgeWakeSerial + 1
-				self:SetAttribute(wake, JudgeWakeSerial)
+				self:RunAttribute(wake)
 			end
 
 			self:CallMethod("OnSwitchChanged", name, value)
@@ -300,8 +298,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		local wake = alias ~= "unitframe" and JudgeWakes[alias]
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			self:SetAttribute(wake, JudgeWakeSerial)
+			self:RunAttribute(wake)
 		end
 	end
 
@@ -337,8 +334,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local wake = JudgeWakes.unitframe
 	if (wake) then
-		JudgeWakeSerial = JudgeWakeSerial + 1
-		self:SetAttribute(wake, JudgeWakeSerial)
+		self:RunAttribute(wake)
 	end
 
 
@@ -491,8 +487,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 			local wake = JudgeWakes.unitframe
 			if (wake) then
-				JudgeWakeSerial = JudgeWakeSerial + 1
-				debind_driver:SetAttribute(wake, JudgeWakeSerial)
+				debind_driver:RunAttribute(wake)
 			end
 		end
 		info.frame = nil
@@ -541,8 +536,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		debind_driver:RunAttribute("SetUnit", "unitframe", unit)
 		local wake = JudgeWakes.unitframe
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			debind_driver:RunAttribute(wake)
 		end
 	end
 
@@ -556,8 +550,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		local wake = JudgeWakes.unitframe
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			debind_driver:RunAttribute(wake)
 		end
 	end
 
@@ -569,8 +562,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		local wake = JudgeWakes.unitframe
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			debind_driver:RunAttribute(wake)
 		end
 	end
 	local over = Overs[self]
@@ -5648,6 +5640,4 @@ self:RunAttribute("SetUnit", %q, nil)
     
 
 ### UpdateBindings.lua #7 SecureHandlerExecute
-            self:SetAttribute("state-unitexists", 0)
-            self:SetAttribute("state-unitexists", 1)
-        
+self:RunAttribute("JudgePass")

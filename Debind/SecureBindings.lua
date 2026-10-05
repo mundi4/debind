@@ -124,15 +124,14 @@ SecureHandlerExecute(BindingDriver, [[
 	-- to and its bundle. `JudgeReady` says the rebuild's own pass has measured every column, so a
 	-- wake before it has nothing to compare against.
 	--
-	-- `JudgeWakes` is the attribute each wake of ours that some column answers to is written to,
-	-- by the name of the wake. **Not the beat's attribute**: that one goes back to `0` after every
-	-- tick, and putting it back enters the handler again. A wake's own attribute takes
-	-- `JudgeWakeSerial`, a new value every time, so it is a change without being put back.
+	-- `JudgeWakes` is, by the name of the wake, the attribute holding the body that wake runs with
+	-- `RunAttribute`, for each wake of ours some column answers to. **Run, not written**: whoever
+	-- wakes the loop is already on this side holding the driver, and writing an attribute to get a
+	-- body run would enter `_onattributechanged` on top (`trimming-the-tail-key-beat.md` 5-2).
 	JudgeColumns = newtable()
 	JudgeBundles = newtable()
 	JudgeByKey = newtable()
 	JudgeWakes = newtable()
-	JudgeWakeSerial = 0
 	-- What the loop worked the computed switches it reads out to. Its own, since `ClickSwitches` is
 	-- what one press worked out, for the rest of that press.
 	JudgeSwitches = newtable()
@@ -512,8 +511,7 @@ BindingDriver:SetAttribute("SetSwitch", [[
 			States[name] = value
 			local wake = JudgeWakes[name]
 			if (wake) then
-				JudgeWakeSerial = JudgeWakeSerial + 1
-				self:SetAttribute(wake, JudgeWakeSerial)
+				self:RunAttribute(wake)
 			end
 
 			self:CallMethod("OnSwitchChanged", name, value)
@@ -554,8 +552,7 @@ BindingDriver:SetAttribute("SetUnit", [[
 		-- frame can change under one unit, and its type and role go with the frame.
 		local wake = alias ~= "unitframe" and JudgeWakes[alias]
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			self:SetAttribute(wake, JudgeWakeSerial)
+			self:RunAttribute(wake)
 		end
 	end
 ]]);
@@ -604,8 +601,7 @@ BindingDriver:SetAttribute("SetRoleUnits", BakeSnippet([==[
 
 	local wake = JudgeWakes.unitframe
 	if (wake) then
-		JudgeWakeSerial = JudgeWakeSerial + 1
-		self:SetAttribute(wake, JudgeWakeSerial)
+		self:RunAttribute(wake)
 	end
 ]==]));
 
@@ -878,8 +874,7 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 			debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 			local wake = JudgeWakes.unitframe
 			if (wake) then
-				JudgeWakeSerial = JudgeWakeSerial + 1
-				debind_driver:SetAttribute(wake, JudgeWakeSerial)
+				debind_driver:RunAttribute(wake)
 			end
 		end
 		info.frame = nil
@@ -962,8 +957,7 @@ local SETUP_ONENTER_SNIPPET = [==[
 		debind_driver:RunAttribute("SetUnit", "unitframe", unit)
 		local wake = JudgeWakes.unitframe
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			debind_driver:RunAttribute(wake)
 		end
 	end
 
@@ -977,8 +971,7 @@ local SETUP_ONLEAVE_SNIPPET = [==[
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		local wake = JudgeWakes.unitframe
 		if (wake) then
-			JudgeWakeSerial = JudgeWakeSerial + 1
-			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			debind_driver:RunAttribute(wake)
 		end
 	end
 ]==];

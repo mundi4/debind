@@ -15,13 +15,6 @@ local wipe, pairs, tinsert, sort         = wipe, pairs, tinsert, sort;
 
 
 local BindingDriver                      = CreateFrame("Frame", DEBUG and "DebindBindingDriver" or nil, nil, "SecureHandlerBaseTemplate,SecureHandlerAttributeTemplate");
--- **`unit` stays and the watch is gone.** Blizzard's `RegisterUnitWatch(frame, true)` wrote
--- `state-unitexists` here five times a second, and the pass it woke measured values that only a
--- computed switch announcing a change ever read. Those announce nothing now
--- (`SwitchesChangedCallback`), so the pass went with them and every condition is
--- measured at the press instead. The attribute is what `RegisterUnitWatch` would resolve, and it
--- costs nothing standing here.
-BindingDriver:SetAttribute("unit", "player");
 SecureHandlerExecute(BindingDriver, [[
 	DelegateFrames = newtable()
 	DelegateFrameNames = newtable()
