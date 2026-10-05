@@ -683,6 +683,45 @@ end]==]);
                 end
             end
         end
+
+        -- A watch asks "left the default cell" of a mask column as one token with a slash list where
+        -- it would otherwise be a group for every value. What the list costs a value is not in the
+        -- bench: it prices the token as one word. Which way the list answers now rides on the label.
+        local TEN = "form:1/2/3/4/5/6/7/8/9/10";
+        local inForm = SecureCmdOptionParse("[" .. TEN .. "]") ~= nil;
+        local now = inForm and "true now" or "false now";
+        add("N", "one token [form:1] (" .. now .. " for the ten-value list)", "x = " .. p("[form:1]"));
+        add("N", "one token [form:1/2/3/4/5]", "x = " .. p("[form:1/2/3/4/5]"));
+        add("N", "one token [" .. TEN .. "] (" .. now .. ")", "x = " .. p("[" .. TEN .. "]"));
+        add("N", "one token [no" .. TEN .. "]", "x = " .. p("[no" .. TEN .. "]"));
+        add("N", "one token [bonusbar:1/2/3/4/5]", "x = " .. p("[bonusbar:1/2/3/4/5]"));
+        local tenGroups = {};
+        for k = 1, 10 do
+            tenGroups[k] = "[form:" .. k .. "]";
+        end
+        add("N", "ten groups [form:1]...[form:10]", "x = " .. p(table.concat(tenGroups)));
+        local sixteen = {};
+        for k = 1, 16 do
+            sixteen[k] = pools.state[(k - 1) % #pools.state + 1];
+        end
+        add("N", "16 false state groups alone", "x = " .. p(table.concat(sixteen)));
+        add("N", "16 false state groups + the ten-value token", "x = " .. p(table.concat(sixteen) .. "[" .. TEN .. "]"));
+        add("N", "16 false state groups + the ten groups",
+            "x = " .. p(table.concat(sixteen) .. table.concat(tenGroups)));
+
+        -- A watch that names the column that moved writes each column's groups as a clause with the
+        -- column's number for its text. What a clause with a value costs over a bare group is the one
+        -- price that step is computed on and never measured.
+        local bare, numbered, lastHolds = {}, {}, {};
+        for k = 1, 13 do
+            local falseGroup = pools.state[(k - 1) % #pools.state + 1];
+            bare[k] = falseGroup;
+            numbered[k] = falseGroup .. " " .. k;
+            lastHolds[k] = ((k == 13) and tail or falseGroup) .. " " .. k;
+        end
+        add("N", "13 false groups, bare", "x = " .. p(table.concat(bare)));
+        add("N", "13 false clauses, a number each", "x = " .. p(table.concat(numbered, "; ")));
+        add("N", "13 clauses, a number each, the last holds", "x = " .. p(table.concat(lastHolds, "; ")));
     end
 
     -- P: three columns of three cells each, so 27 joint states, and the state measured is number 7
