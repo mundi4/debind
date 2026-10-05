@@ -3011,8 +3011,9 @@ local JUDGED_BOOL_STATES = {
 --- **As clauses, which the text is made from** (`StateCellText`): each `{ groups, cell }`, a group
 --- being its tokens, the first clause that holds answering its cell and `default` where none does.
 --- A boolean column's text carries no values, since its "on" is read as the parse answering at all.
---- Split from the text so that whatever else has to ask what the text asks reads the same source
---- (the watch, `implementing-the-cuts-inside-the-beat-handler.md` Q2).
+--- `exclusive` marks clauses of which at most one holds. Split from the text so that whatever else
+--- has to ask what the text asks reads the same source (the watch,
+--- `implementing-the-cuts-inside-the-beat-handler.md` Q2).
 local function StateCellClauses(kind)
     local list;
     if (JUDGED_BOOL_STATES[kind]) then
@@ -3035,7 +3036,8 @@ local function StateCellClauses(kind)
         if (kind == "bonusbars") then
             word, last = "bonusbar", Constants.MAX_BONUSBAR_OFFSET;
         end
-        list = { default = 1, numbered = true };
+        -- One form, one offset at a time: the clauses never hold two at once (`exclusive`).
+        list = { default = 1, numbered = true, exclusive = true };
         for n = 1, last do
             list[n] = { groups = { { word .. ":" .. n } }, cell = 2 ^ n };
         end
@@ -3204,8 +3206,13 @@ function FragmentsOf(list)
             return nil;
         end
         local groups = {};
-        for _, group in ipairs(earlier) do
-            groups[#groups + 1] = group;
+        -- **Where the clauses never hold two at once (`exclusive`), the k-th failing says all of it**
+        -- (Q2c): an earlier one holding means the k-th does not. Asking `form` twice on a druid
+        -- costs 1.07 a quiet beat (7-1). Not `group`: `group:party` holds in a raid as well.
+        if (not list.exclusive) then
+            for _, group in ipairs(earlier) do
+                groups[#groups + 1] = group;
+            end
         end
         for _, group in ipairs(negated) do
             groups[#groups + 1] = group;

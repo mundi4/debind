@@ -505,7 +505,12 @@ return function(DebindPrivate)
             formMoves[b] = function(state) state.form = state.form == 0 and 2 or 0; end;
         end
         local formMoved, formMovedBody = priced(scenario(LARGE_BEATS, formMoves), LARGE_BEATS);
+        interp.state.form = 3;
+        interp:beat();
+        local _, inFormBody = priced(scenario(LARGE_BEATS, {}), LARGE_BEATS);
+        print(string.format("    quiet in form 3, the body: %5.2f", inFormBody));
         interp.state.form = 0;
+        interp:beat();
 
         local targetMoves = {};
         for b = 1, LARGE_BEATS do

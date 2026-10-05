@@ -979,13 +979,24 @@ return function(DebindPrivate, _, ctx)
     -- The list is made up to reach what no column's own list does yet: a clause of two tokens beside
     -- ones of one token on the same word, so a merge may not take the two-token group in, and
     -- fragments where the same word stands on both `no` sides, which may not merge either.
-    test("a watch fragment holds exactly where its cell is left", function()
-        local list = {
+    --- The second list's clauses never hold two at once, so a cell's fragment is its own clause
+    --- turned over and nothing more (Q2c).
+    local FRAGMENT_LISTS = {
+        {
             { groups = { { "form:1", "combat" } }, cell = 2 },
             { groups = { { "form:2" } }, cell = 4 },
             { groups = { { "form:3" } }, cell = 8 },
             default = 1,
-        };
+        },
+        {
+            { groups = { { "form:1" } }, cell = 2 },
+            { groups = { { "form:2" } }, cell = 4 },
+            { groups = { { "form:3" } }, cell = 8 },
+            default = 1, exclusive = true,
+        },
+    };
+    test("a watch fragment holds exactly where its cell is left", function()
+        for _, list in ipairs(FRAGMENT_LISTS) do
         local fragments = DebindPrivate.WatchFragmentsOf(list);
         check(fragments, "the list had no fragments");
         local clauses = {};
@@ -1011,6 +1022,7 @@ return function(DebindPrivate, _, ctx)
                         holds and "holds" or "does not hold"));
                 end
             end
+        end
         end
         interp:resetState();
     end);
