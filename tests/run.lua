@@ -36,6 +36,8 @@ local function writeFile(path, contents)
 end
 
 local bench = false;
+--- What a beat of the tail-key loop costs, priced from counts (`beatbench.lua`).
+local benchBeat = false;
 --- Rewrite the recorded files instead of comparing against them. The emission golden is a net for
 --- a refactor and not a specification (`going-headless-outside-the-ui.md` §6), so a
 --- deliberate change to what a rebuild emits is answered by updating it and reading the diff --
@@ -48,6 +50,7 @@ local updateGolden = false;
 local shipped = false;
 for i = 1, #(arg or {}) do
     if (arg[i] == "--bench") then bench = true; end
+    if (arg[i] == "--bench-beat") then benchBeat = true; end
     if (arg[i] == "--update-golden") then updateGolden = true; end
     if (arg[i] == "--shipped") then shipped = true; end
 end
@@ -289,6 +292,11 @@ if (bench) then
     return;
 end
 
+if (benchBeat) then
+    assert(loadfile(root .. "/beatbench.lua"))()((loadAddons()));
+    return;
+end
+
 --- **The order here does not matter.** Every spec is handed an addon loaded a moment earlier and a
 --- client reset to empty, so nothing one leaves behind reaches the next: not
 --- `BindingAttrsCache`, not the counter the button names come off, not a `_G` stub a spec put up
@@ -344,6 +352,7 @@ local specs = {
     { name = "record", path = root .. "/record_spec.lua" },
     { name = "context", path = root .. "/context_spec.lua" },
     { name = "frames", path = root .. "/frames_spec.lua" },
+    { name = "macroparse", path = root .. "/macroparse_spec.lua" },
     { name = "eval", path = root .. "/eval_spec.lua" },
     { name = "castchord", path = root .. "/castchord_spec.lua" },
     { name = "judgment", path = root .. "/judgment_spec.lua" },

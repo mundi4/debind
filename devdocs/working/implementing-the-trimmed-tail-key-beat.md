@@ -1,6 +1,6 @@
 # 줄인 꼬리 키 박자 구현 순서 (2026-10-05 계획)
 
-> 상태: 계획. 코드는 아직 없다. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
+> 상태: 진행 중. P0은 소유자 프로필을 읽는 입력(P0-3 끝 줄)만 남았고, 그것은 P3-6에서 쓸 때 붙인다. 다음은 P1. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
 > 왜 하는지는 그 문서가 갖고, 이 문서는 어떤 순서로 무엇을 고치는지와 단계마다 무엇이 실패해야 하는지를 갖는다.
 > 이 문서의 절은 `P0`~`P6`으로 부르고, 괄호 안의 맨 번호(7-1, 8-6, C5 …)는 그 계획 문서의 절과 표의 행이다.
 >
@@ -91,6 +91,10 @@
   견주는 데 쓴다.** 모형은 생성된 본문 하나를 `Probe_BeatCost`에 넣어 게임에서 잰 값과 한 번 맞춰 본다.
 - 소유자의 SavedVariables를 헤드리스에서 읽어 리빌드하는 입력을 둔다. 판 수 상한과 C5가 이기는 자리를 짐작이
   아니라 그 프로필로 정한다.
+- 들어간 것: `restricted.lua`의 meter(`{ meter = true }`로 만든 인터프리터만 센다), `tests/beatbench.lua`
+  (`lua5.1 tests/run.lua --bench-beat`). 지금 설계의 첫 값(2026-10-05): 꼬리 키 4·12·30개, 조용한 박자 12.95·13.48·13.48µs,
+  세상이 움직이는 박자 13.48·14.37·14.71µs. 그중 약 9µs가 핸들러 진입 둘과 `SetAttribute` 둘이고, 컬럼을 나눠 쓰니 키
+  수에 거의 늘지 않는다. 프로필은 상태 낱말만 쓰는 합성 프로필이다.
 
 ## P1. 박자 신호와 깨움 배관
 
@@ -106,6 +110,8 @@
   `JudgeWakes`는 없어진다.
 - 판정 부분(`JUDGE_BUNDLES_SNIPPET`)은 박자 본문과 깨움 본문에 같은 글로 들어간다. `state-giveback` 갈래는
   `debind_driver`에 남는다.
+- 키트의 목(`MockStatesMap`, `MockParseWords`, P0-2)은 `debind_driver`의 환경에 심긴다(`PlantMockTable`). 박자가 전용
+  프레임으로 가면 그 프레임의 환경은 따로라 거기에도 심어야 한다.
 - 시험: `judgmentloop_spec`의 깨움 경우들이 새 배관으로 같은 바인딩을 내야 한다. `emit_spec`의 golden은 다시
   기록한다. `restricted.lua`의 `Interp:beat()`(671)은 `state-unitexists=true` 대신 박자 프레임에 `"a"`를 쓴다.
   `/debtest`의 "The driver is off Blizzard's beat"는 꼬리 키가 없는 프로필에서 드라이버가 안 걸려 있는지로 바꾼다.

@@ -32,16 +32,263 @@ local function compile(body, signature, env)
     return chunk();
 end
 
+--- One event for the beat bench (`beatbench.lua`), when the interpreter is metering. Nothing
+--- otherwise.
+local function tally(interp, what, n)
+    local meter = interp.meter;
+    if (meter and meter.on) then
+        meter.counts[what] = (meter.counts[what] or 0) + (n or 1);
+    end
+end
+
+---------------------------------------------------------------------------
+-- Metering, for the beat bench
+---------------------------------------------------------------------------
+--
+-- **Counted, never timed.** What makes the restricted environment slow is the client's proxy tables
+-- and ENV wrappers, which this file does not have, so a clock here would point the wrong way. The
+-- bench counts what a body does -- global and table-field reads and writes, calls by name, parses
+-- and the words they judge, VM instructions in the body itself -- and multiplies by what each was
+-- measured to cost in the client (`trimming-the-tail-key-beat.md` 7-1). Only an interpreter made
+-- with `{ meter = true }` does any of this.
+
+local BODY_CHUNK = "=restricted body";
+
+--- The table a counting proxy stands for, or `t` itself.
+local function backOf(interp, t)
+    local meter = interp.meter;
+    return (meter and meter.backs[t]) or t;
+end
+
+--- `newtable` under a meter: every field read and write through it is one event.
+local function meterTable(interp)
+    local back = {};
+    local proxy = setmetatable({}, {
+        __index = function(_, k)
+            tally(interp, "field read");
+            return back[k];
+        end,
+        __newindex = function(_, k, v)
+            tally(interp, "field write");
+            back[k] = v;
+        end,
+    });
+    interp.meter.backs[proxy] = back;
+    return proxy;
+end
+
+--- A frame's environment seen through a meter. A function read is tallied as a call by its name
+--- when it is called, because that is how a call was measured (the lookup inside it); any other
+--- read or write of a global is one event.
+local function meteredEnv(interp, env)
+    local meter = interp.meter;
+    local proxy = meter.envs[env];
+    if (proxy) then
+        return proxy;
+    end
+    proxy = setmetatable({}, {
+        __index = function(_, k)
+            local v = env[k];
+            if (type(v) == "function") then
+                local wrapped = meter.wrapped[k];
+                if (not wrapped or meter.wrappedOf[k] ~= v) then
+                    wrapped = function(...)
+                        tally(interp, "call " .. k);
+                        return v(...);
+                    end;
+                    meter.wrapped[k], meter.wrappedOf[k] = wrapped, v;
+                end
+                return wrapped;
+            end
+            tally(interp, "global read");
+            return v;
+        end,
+        __newindex = function(_, k, v)
+            tally(interp, "global write");
+            env[k] = v;
+        end,
+    });
+    meter.envs[env] = proxy;
+    return proxy;
+end
+
+--- Compiles a body for a meter. **`#t` is read through `BENCHLEN`**, because a counting proxy is
+--- an empty table to the length operator and Lua 5.1 has no `__len` for tables; every `#` in a
+--- body is a name or a field chain, which is all this rewrites.
+local function compileMetered(body, signature, env)
+    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)");
+    local source = "return function(" .. signature .. ") " .. rewritten .. "\nend";
+    local chunk = assert(loadstring(source, BODY_CHUNK));
+    setfenv(chunk, env);
+    return chunk();
+end
+
 ---------------------------------------------------------------------------
 -- Macro conditionals
 ---------------------------------------------------------------------------
 
---- What `SecureCmdOptionParse` answers for the conditionals this addon actually builds.
+--- One word of a group, `name` with its argument already split off, asked of `unit`.
 ---
---- **The empty string is a match.** The client answers with the text after the clause that
---- matched, which is empty for every clause here, and `""` is true in Lua -- so a stand-in
---- returning `true` and one returning `""` are the same to every caller, while one returning
---- `false` where the client says `nil` is not.
+--- **Every answer comes from the same place the API stand-ins answer from** -- `interp.state` and
+--- the shim's unit functions -- so a body that parses and a body that calls the API agree here
+--- exactly when they agree in the game for the words 7-1 measured. Where the client was measured
+--- answering otherwise than its API, this answers the way the client did, and says so.
+local function wordValue(interp, name, argument, unit)
+    local state = interp.state;
+    -- A spec can make the parse answer a word differently from the API stand-ins, which is the
+    -- one way to see that a beat and a press reading the world two ways would part.
+    if (state.diverge[name] ~= nil) then
+        return state.diverge[name];
+    end
+    -- `bar:1/2` and the like: any one of the slash-separated values.
+    local function anyOf(test)
+        for value in (argument or ""):gmatch("[^/]+") do
+            if (test(value)) then
+                return true;
+            end
+        end
+        return false;
+    end
+
+    if (name == "combat") then
+        return state.combat;
+    elseif (name == "stealth") then
+        return state.stealth;
+    elseif (name == "petbattle") then
+        return state.petbattle;
+    elseif (name == "mounted") then
+        return state.mounted;
+    elseif (name == "indoors") then
+        return state.indoors;
+    elseif (name == "outdoors") then
+        return state.outdoors;
+    elseif (name == "flyable") then
+        return state.flyable;
+    elseif (name == "advflyable") then
+        return state.advflyable;
+    elseif (name == "flying") then
+        return state.flying;
+    elseif (name == "channeling") then
+        return state.channeling;
+    elseif (name == "extrabar") then
+        return state.extrabar;
+    elseif (name == "overridebar") then
+        return state.overridebar;
+    elseif (name == "shapeshift") then
+        return state.shapeshiftbar;
+    -- A possession puts up the vehicle bar with `[possessbar]` true and `[vehicleui]` false
+    -- (`legacy/dropping-the-game-fallback.md` §4-5), so the two split what `vehiclebar` holds.
+    elseif (name == "vehicleui") then
+        return state.vehiclebar and not state.possessbar;
+    elseif (name == "possessbar") then
+        return state.vehiclebar and state.possessbar;
+    elseif (name == "group") then
+        -- `[group:party]` is true in a raid as well (measured 2026-10-05).
+        if (argument == nil) then
+            return state.group ~= "none";
+        end
+        return anyOf(function(v)
+            if (v == "raid") then
+                return state.group == "raid";
+            end
+            return v == "party" and state.group ~= "none";
+        end);
+    elseif (name == "bonusbar") then
+        -- Bare `[bonusbar]` never matched and `[bonusbar:0]` does not match offset 0; offset 0 is
+        -- `[nobonusbar:1/2/3/4/5]` (measured 2026-10-05).
+        return anyOf(function(v)
+            local n = tonumber(v);
+            return n ~= nil and n ~= 0 and n == state.bonusbar;
+        end);
+    elseif (name == "bar" or name == "actionbar") then
+        return anyOf(function(v) return tonumber(v) == state.actionBarPage; end);
+    elseif (name == "form" or name == "stance") then
+        if (argument == nil) then
+            return (state.form or 0) ~= 0;
+        end
+        return anyOf(function(v) return tonumber(v) == state.form; end);
+    elseif (name == "mod" or name == "modifier") then
+        if (argument == nil) then
+            return state.alt or state.ctrl or state.shift;
+        end
+        return anyOf(function(v)
+            return (v == "alt" and state.alt) or (v == "ctrl" and state.ctrl) or (v == "shift" and state.shift);
+        end);
+    -- **The world's pet, not a state of its own.** The gate behind `[pet]` is the pet unit's row,
+    -- so answering this from anywhere else would let a case pass with the two disagreeing.
+    elseif (name == "pet") then
+        return _G.UnitExists("pet") and true or false;
+    elseif (name == "known") then
+        return state.known[tonumber(argument) or argument] and true or false;
+    elseif (name == "exists") then
+        return _G.UnitExists(unit) and true or false;
+    elseif (name == "help") then
+        return _G.PlayerCanAssist(unit) and true or false;
+    elseif (name == "harm") then
+        return _G.PlayerCanAttack(unit) and true or false;
+    elseif (name == "dead") then
+        -- `[dead]` matched ghosts too (measured 2026-10-05), the same as the beat's two calls.
+        return (_G.UnitIsDead(unit) or _G.UnitIsGhost(unit)) and true or false;
+    elseif (name == "party") then
+        -- The player is not in its own party to `[party]`, in a party or a raid (measured
+        -- 2026-10-05), though `UnitPlayerOrPetInParty("player")` says it is.
+        if (unit == "player") then
+            return false;
+        end
+        return _G.UnitPlayerOrPetInParty(unit) and true or false;
+    elseif (name == "raid") then
+        if (unit == "player") then
+            return state.group == "raid";
+        end
+        return _G.UnitPlayerOrPetInRaid(unit) and true or false;
+    end
+    error("the interpreter has no answer for the macro condition '" .. name .. "'", 0);
+end
+
+--- One bracketed group: true when every word holds. `@unit` or `target=unit` names the unit the
+--- unit words ask about, wherever it stands in the group; with neither, they ask about `target`.
+local function groupMatches(interp, group)
+    local unit = "target";
+    local words = {};
+    for term in group:gmatch("[^,]+") do
+        term = term:match("^%s*(.-)%s*$");
+        if (term:sub(1, 1) == "@") then
+            unit = term:sub(2);
+        elseif (term:sub(1, 7) == "target=") then
+            unit = term:sub(8);
+        elseif (term ~= "") then
+            words[#words + 1] = term;
+        end
+    end
+    for i = 1, #words do
+        local term = words[i];
+        local negated = false;
+        if (term:sub(1, 2) == "no") then
+            negated, term = true, term:sub(3);
+        end
+        local name, argument = term:match("^([%w_]+):(.+)$");
+        tally(interp, "parse word");
+        if ((name or term) == "flyable" or (name or term) == "advflyable") then
+            tally(interp, "parse word " .. (name or term));
+        end
+        local value = wordValue(interp, name or term, argument, unit);
+        if (negated) then
+            value = not value;
+        end
+        if (not value) then
+            return false;
+        end
+    end
+    return true;
+end
+
+--- What `SecureCmdOptionParse` answers: the text of the first clause whose groups match, clauses
+--- separated by `;`, a clause's groups OR'd and the words in a group AND'd. A clause with no group
+--- matches unconditionally. `nil` when none matches.
+---
+--- **The empty string is a match.** A clause with no text after its groups answers `""`, which is
+--- true in Lua -- so a stand-in returning `true` and one returning `""` are the same to every
+--- caller, while one returning `false` where the client says `nil` is not.
 ---
 --- **Anything outside the grammar raises**, rather than being read as no match. A condition this
 --- does not know is a spec measuring something other than what it says.
@@ -49,81 +296,29 @@ local function parseCondition(interp, expr)
     -- Counted before the early return, so an expression that is skipped and one that is answered
     -- trivially still read apart. `Interp:parseCount` is the reader.
     interp.parses[expr or ""] = (interp.parses[expr or ""] or 0) + 1;
+    tally(interp, "parse");
 
     if (expr == nil or expr == "") then
         return "";
     end
 
-    for clause in expr:gmatch("%[([^%]]*)%]") do
-        local matched = true;
-        for term in clause:gmatch("[^,]+") do
-            term = term:match("^%s*(.-)%s*$");
-            local negated = false;
-            if (term:sub(1, 2) == "no") then
-                negated, term = true, term:sub(3);
+    for clause in (expr .. ";"):gmatch("([^;]*);") do
+        local rest = clause:match("^%s*(.-)%s*$");
+        local sawGroup, matched = false, false;
+        while (rest:sub(1, 1) == "[") do
+            local group, after = rest:match("^%[([^%]]*)%]%s*(.*)$");
+            if (not group) then
+                error("the interpreter cannot read the macro conditional '" .. expr .. "'", 0);
             end
-
-            local name, argument = term:match("^([%w_]+):(.+)$");
-            name = name or term;
-
-            local value;
-            if (name == "") then
-                value = true;
-            elseif (name:sub(1, 1) == "@") then
-                -- **A target selector is not a test.** `[@focus]` picks who the clause aims at
-                -- and the clause matches either way; what the client answers with is the target
-                -- name alongside the text, and every caller in this addon reads the text only.
-                value = true;
-            elseif (name == "combat") then
-                value = interp.state.combat;
-            elseif (name == "stealth") then
-                value = interp.state.stealth;
-            elseif (name == "petbattle") then
-                value = interp.state.petbattle;
-            elseif (name == "mounted") then
-                value = interp.state.mounted;
-            elseif (name == "indoors") then
-                value = interp.state.indoors;
-            elseif (name == "flyable") then
-                value = interp.state.flyable;
-            elseif (name == "advflyable") then
-                value = interp.state.advflyable;
-            elseif (name == "flying") then
-                value = interp.state.flying;
-            elseif (name == "outdoors") then
-                value = interp.state.outdoors;
-            elseif (name == "group") then
-                value = interp.state.group ~= "none";
-            -- **The world's pet, not a state of its own.** The gate behind `[pet]` is the pet
-            -- unit's row, so answering this from anywhere else would let a case pass with the two
-            -- disagreeing.
-            elseif (name == "pet") then
-                value = _G.UnitExists("pet") and true or false;
-            elseif (name == "known") then
-                value = interp.state.known[tonumber(argument) or argument] and true or false;
-            elseif (name == "form") then
-                value = interp.state.form == (tonumber(argument) or -1);
-            else
-                error("the interpreter has no answer for the macro condition '" .. term .. "'", 0);
+            sawGroup = true;
+            if (not matched and groupMatches(interp, group)) then
+                matched = true;
             end
-
-            if (negated) then
-                value = not value;
-            end
-            if (not value) then
-                matched = false;
-                break;
-            end
+            rest = after;
         end
-
-        if (matched) then
-            return "";
+        if (matched or not sawGroup) then
+            return rest;
         end
-    end
-
-    -- A conditional with no bracketed clause at all is an unconditional match.
-    if (not expr:find("[", 1, true)) then
-        return expr;
     end
     return nil;
 end
@@ -166,7 +361,10 @@ function handleMethods:IsShown() return self.__frame:IsShown(); end
 function handleMethods:Show() self.__frame:Show(); end
 function handleMethods:Hide() self.__frame:Hide(); end
 
-function handleMethods:GetAttribute(name) return self.__frame:GetAttribute(name); end
+function handleMethods:GetAttribute(name)
+    tally(self.__interp, "handle:GetAttribute");
+    return self.__frame:GetAttribute(name);
+end
 function handleMethods:GetEffectiveAttribute(name) return self.__frame:GetAttribute(name); end
 
 --- **Setting an attribute is what drives the state pass**, so this is where the handler fires.
@@ -177,11 +375,13 @@ function handleMethods:SetAttribute(name, value)
     local frame = self.__frame;
     local previous = frame:GetAttribute(name);
     frame.__attributes[name] = value;
+    tally(self.__interp, "handle:SetAttribute");
     if (previous == value or name:sub(1, 1) == "_") then
         return;
     end
     local body = frame:GetAttribute("_onattributechanged");
     if (body) then
+        tally(self.__interp, "handler entry");
         if (frame == self.__interp.driver) then
             self.__interp.handlerRuns = self.__interp.handlerRuns + 1;
         end
@@ -201,6 +401,7 @@ function handleMethods:RunAttribute(name, ...)
     if (name == "UpdateBindings") then
         self.__interp.rebuilds = self.__interp.rebuilds + 1;
     end
+    tally(self.__interp, "handle:RunAttribute");
     return self.__interp:run(body, self, "self,...", self.__interp:envFor(self.__frame), ...);
 end
 
@@ -257,21 +458,31 @@ local function buildEnv(interp)
     --- be handy: `RESTRICTED_FUNCTIONS_SCOPE` plus the table library that is bound in separately
     --- because a body may not write `{}`. What is here is the part of that list this addon
     --- reaches, and anything outside it raises rather than answering nil.
-    env.newtable = function() return {}; end
+    -- Under a meter a body's tables are counting proxies, and every helper below that walks a table
+    -- walks the one behind it (`backOf`). Without a meter `backOf` answers the table itself.
+    local function B(t) return backOf(interp, t); end
+    env.newtable = function()
+        if (interp.meter) then
+            return meterTable(interp);
+        end
+        return {};
+    end
     env.wipe = function(t)
-        for k in pairs(t) do t[k] = nil; end
+        local back = B(t);
+        for k in pairs(back) do back[k] = nil; end
         return t;
     end
-    env.pairs = pairs;
-    env.ipairs = ipairs;
-    env.next = next;
+    env.pairs = function(t) return next, B(t), nil; end
+    env.ipairs = function(t) return ipairs(B(t)); end
+    env.next = function(t, k) return next(B(t), k); end
+    env.BENCHLEN = function(t) return #B(t); end
     env.rawtype = type;
     env.tostring = tostring;
     env.tonumber = tonumber;
     env.select = select;
-    env.unpack = _G.unpack;
-    env.tinsert = table.insert;
-    env.tremove = table.remove;
+    env.unpack = function(t, ...) return _G.unpack(B(t), ...); end
+    env.tinsert = function(t, ...) return table.insert(B(t), ...); end
+    env.tremove = function(t, ...) return table.remove(B(t), ...); end
     env.format = string.format;
     env.strsub = string.sub;
     env.strsplit = _G.strsplit;
@@ -293,10 +504,10 @@ local function buildEnv(interp)
     --- restricted one hands out proxies instead. What the bodies here use of it is `concat`, in
     --- the macro text rebuild.
     env.table = {
-        concat = table.concat,
-        insert = table.insert,
-        remove = table.remove,
-        sort = table.sort,
+        concat = function(t, ...) return table.concat(B(t), ...); end,
+        insert = env.tinsert,
+        remove = env.tremove,
+        sort = function(t, ...) return table.sort(B(t), ...); end,
         newtable = env.newtable,
         wipe = env.wipe,
     };
@@ -431,6 +642,9 @@ end
 --- rather than it being read off the handle. Absent means the driver's.
 function Interp:run(body, selfHandle, signature, env, ...)
     env = env or self.env;
+    if (self.meter) then
+        env = meteredEnv(self, env);
+    end
     local perEnv = self.closures[env];
     if (not perEnv) then
         perEnv = {};
@@ -439,10 +653,39 @@ function Interp:run(body, selfHandle, signature, env, ...)
     local key = signature .. "\0" .. body;
     local closure = perEnv[key];
     if (not closure) then
-        closure = compile(body, signature, env);
+        closure = (self.meter and compileMetered or compile)(body, signature, env);
         perEnv[key] = closure;
     end
     return closure(selfHandle, ...);
+end
+
+--- Starts counting (an interpreter made with `{ meter = true }`). VM instructions are counted only
+--- inside bodies, by the chunk name `compileMetered` gives them.
+function Interp:meterStart()
+    local meter = assert(self.meter, "this interpreter was not made with a meter");
+    meter.counts = {};
+    meter.on = true;
+    local counts = meter.counts;
+    debug.sethook(function()
+        local info = debug.getinfo(2, "S");
+        if (info and info.source == BODY_CHUNK) then
+            counts["vm instruction"] = (counts["vm instruction"] or 0) + 1;
+        end
+    end, "", 1);
+end
+
+--- Stops counting and hands back what was counted since `meterStart`.
+function Interp:meterStop()
+    debug.sethook();
+    self.meter.on = false;
+    return self.meter.counts;
+end
+
+--- Counts one body run on its own, for calibrating what an instruction is worth.
+function Interp:meterBody(body)
+    self:meterStart();
+    self:run(body, self.driverHandle, "self,...");
+    return self:meterStop();
 end
 
 --- Replays everything the driver and `UnitWatch` were handed, in order.
@@ -815,8 +1058,15 @@ end
 --- `world` is the shim's, so the units the insecure side sees are the ones in here. `state` is the
 --- restricted side's own -- combat, stealth, the bars -- which nothing outside the sandbox can
 --- answer for.
-function M.new(DebindPrivate, world)
+function M.new(DebindPrivate, world, opts)
     local interp = setmetatable({}, Interp);
+    -- Set up before anything replays, so the tables a rebuild hands over are counting proxies too.
+    if (opts and opts.meter) then
+        interp.meter = {
+            on = false, counts = {}, envs = {}, wrapped = {}, wrappedOf = {},
+            backs = setmetatable({}, { __mode = "k" }),
+        };
+    end
 
     interp.Constants = DebindPrivate.Constants;
     interp.Private = DebindPrivate;
@@ -840,6 +1090,12 @@ function M.new(DebindPrivate, world)
         petbattle = false,
         extrabar = false,
         vehiclebar = false,
+        --- Whether the vehicle bar is a possession's, which is what parts `[possessbar]` from
+        --- `[vehicleui]`; `HasVehicleActionBar` answers true for both.
+        possessbar = false,
+        --- `[word] = answer` for a word the parse answers otherwise than the API does. Empty is
+        --- the two agreeing, as 7-1 measured them to.
+        diverge = {},
         overridebar = false,
         shapeshiftbar = false,
         bonusactionbar = false,

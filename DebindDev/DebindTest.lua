@@ -730,6 +730,7 @@ local function PlantMockTable()
     if mockPlanted then return end
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
         if (not MockStatesMap) then MockStatesMap = newtable() end
+        if (not MockParseWords) then MockParseWords = newtable() end
     ]])
     mockPlanted = true
 end
@@ -748,6 +749,29 @@ local function ToLiteral(value)
     return tostring(value)
 end
 
+--- Tokens that always hold and never hold, for a mocked word written into an expression before it
+--- is parsed. `bar:99` is the cheapest always-false token measured (`trimming-the-tail-key-beat.md`
+--- 7-1, M) and no action bar page is 99.
+local MOCK_TRUE, MOCK_FALSE = "nobar:99", "bar:99"
+
+--- The body that holds `state` at `value` (nil releases it), for the press's measured axes and for
+--- a parsed expression alike.
+---
+--- **A parse cannot be reached by `PROBE.MockState`**, which overrides a local between the
+--- measurement and the comparison; a parsed word has no local. So the word and its `no` form are
+--- also put in `MockParseWords`, which `PROBE.SecureCmdOptionParse` hands to `rtgsub` as the
+--- replacement table -- a word that is not in it stays as written. Only a boolean axis has a word
+--- that can stand for it this way.
+local function MockBody(state, value)
+    local body = format([[MockStatesMap[%q] = %s]], state, value == nil and "nil" or ToLiteral(value))
+    if value == nil or type(value) == "boolean" then
+        local yes = value == nil and "nil" or format("%q", value and MOCK_TRUE or MOCK_FALSE)
+        local no = value == nil and "nil" or format("%q", value and MOCK_FALSE or MOCK_TRUE)
+        body = body .. format([[ MockParseWords[%q] = %s MockParseWords[%q] = %s]], state, yes, "no" .. state, no)
+    end
+    return body
+end
+
 --- Forces `state` to `value` at the press. `nil` releases it.
 ---
 --- **`EnableProbes()` has to have been called**, because the line that reads this table is
@@ -761,14 +785,13 @@ local function SetMockState(state, value)
 
     mockStates[state] = value
 
-    SecureHandlerExecute(DebindPrivate.BindingDriver, format(
-        [[MockStatesMap[%q] = %s]], state, ToLiteral(value)))
+    SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody(state, value))
 
     -- Releasing is registered the moment something is held, so a test that fails in the middle
     -- does not leave the game believing it is in combat.
     AddTeardown(function()
         mockStates[state] = nil
-        SecureHandlerExecute(DebindPrivate.BindingDriver, format([[MockStatesMap[%q] = nil]], state))
+        SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody(state, nil))
 
         if not InCombatLockdown() then
             DebindPrivate.UpdateBindings()
@@ -814,6 +837,11 @@ local PROBE_DEV = {
     MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
     MockUnitDead = [[if (MockStatesMap[%1$s .. "-dead"] ~= nil) then dead = MockStatesMap[%1$s .. "-dead"] end]],
     MockUnitGroup = [[if (MockStatesMap[%1$s .. "-group"] ~= nil) then group = MockStatesMap[%1$s .. "-group"] end]],
+    -- Each word of the expression is looked up in `MockParseWords` and replaced when it is there
+    -- (`MockBody`). One expression, so it stands wherever the call did; the count is dropped.
+    -- **`rtgsub`, not `gsub`**: the restricted environment's `gsub` is the plain one and refuses a
+    -- restricted table as the replacement (`RestrictedInfrastructure.lua`, `RestrictedTable_rtgsub`).
+    SecureCmdOptionParse = [[SecureCmdOptionParse((rtgsub(%s, "%%a[%%w:/]*", MockParseWords)))]],
 }
 
 local function BuildExpandTable()
@@ -8008,7 +8036,7 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
 
         -- **Written past `SetMockState`, which ends in a rebuild.** A rebuild judges every tail key
         -- itself, so only a value moved with none behind it is one the beat has to carry.
-        SecureHandlerExecute(DebindPrivate.BindingDriver, [[MockStatesMap["combat"] = true]])
+        SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody("combat", true))
         if not WaitUntil(function()
             return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK "
         end, 2) then
@@ -8016,13 +8044,64 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
                 GetBindingAction(KEY, true) or ""))
         end
 
-        SecureHandlerExecute(DebindPrivate.BindingDriver, [[MockStatesMap["combat"] = false]])
+        SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody("combat", false))
         if not WaitUntil(function() return GetBindingAction(KEY, true) == COMMAND end, 2) then
             return Fail(NAME, format("no beat handed the key back at peace, it answers %q",
                 GetBindingAction(KEY, true) or ""))
         end
 
         return Pass(NAME, "the beat took the key in combat and handed it back to the command")
+    end,
+})
+
+-- **`rtgsub` is what carries the mock into a parse**, and that it takes a restricted table as the
+-- replacement is the client's to show: the plain `gsub` a body also has refuses one.
+RegisterTest("Mock: a held state reaches a parsed expression", {
+    description = "SetMockState puts a word's answer into PROBE.SecureCmdOptionParse, both forms of it, and releasing it hands the parse back to the world",
+    run = function()
+        local NAME = "Mock parse"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "probes are rebaked out of combat only")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        local driver = DebindPrivate.BindingDriver
+        local function Ask(expr)
+            SecureHandlerExecute(driver, DebindPrivate.BakeSnippet(format(
+                [[self:SetAttribute("debtest-parse", PROBE.SecureCmdOptionParse(%q) or "-")]], expr)))
+            return driver:GetAttribute("debtest-parse")
+        end
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                driver:SetAttribute("debtest-parse", nil)
+            end
+        end)
+
+        SetMockState("combat", true)
+        if Ask("[combat] c; n") ~= "c" or Ask("[nocombat] c; n") ~= "n" then
+            return Fail(NAME, format("held in combat, [combat] answered %q and [nocombat] %q",
+                Ask("[combat] c; n"), Ask("[nocombat] c; n")))
+        end
+
+        SetMockState("combat", false)
+        if Ask("[combat] c; n") ~= "n" or Ask("[nocombat] c; n") ~= "c" then
+            return Fail(NAME, format("held at peace, [combat] answered %q and [nocombat] %q",
+                Ask("[combat] c; n"), Ask("[nocombat] c; n")))
+        end
+
+        -- Held in combat and then released: out of combat, the world says peace again.
+        SetMockState("combat", true)
+        SetMockState("combat", nil)
+        if Ask("[nocombat] c; n") ~= "c" then
+            return Fail(NAME, format("released, [nocombat] still answered %q", Ask("[nocombat] c; n")))
+        end
+
+        return Pass(NAME, "a held state reached the parse both ways and let go of it")
     end,
 })
 
@@ -9751,6 +9830,17 @@ RegisterTest("Pointed unit [none]: over a frame the action does not run, off it 
 -- binding table is asked instead, which is what the press reads.
 RegisterTest("Self and focus cast: the chord's own binding picks the twin at the press", {
     description = "게임 설정의 조합키로 만든 조합 키가 우리 버튼에 걸리고, 그 버튼 이름이 self·focus 쌍둥이를 고른다",
+    -- **The premise is the tester's game options, which a test may not write** (the binding table
+    -- rule above). Without two different cast keys there is nothing to assert, so the run is skipped
+    -- with what the options hold rather than failed.
+    applies = function()
+        local selfMod, focusMod = GetModifiedClick("SELFCAST"), GetModifiedClick("FOCUSCAST")
+        if selfMod == "NONE" or focusMod == "NONE" or selfMod == focusMod then
+            return false, format("needs two different cast keys in the game's options; it has SELFCAST %s, "
+                .. "FOCUSCAST %s", tostring(selfMod), tostring(focusMod))
+        end
+        return true
+    end,
     run = function()
         local NAME = "Cast chord at the press"
         local KEY = "NUMPADDIVIDE"
@@ -9763,10 +9853,6 @@ RegisterTest("Self and focus cast: the chord's own binding picks the twin at the
         if not probesOk then return Fail(NAME, perr) end
 
         local selfMod, focusMod = GetModifiedClick("SELFCAST"), GetModifiedClick("FOCUSCAST")
-        if selfMod == "NONE" or focusMod == "NONE" or selfMod == focusMod then
-            return Fail(NAME, format("the premise needs two different cast keys in the game's options, "
-                .. "and it has SELFCAST %s, FOCUSCAST %s", tostring(selfMod), tostring(focusMod)))
-        end
 
         -- **No target picked**, since a held key moves nothing else. The original then settles on no
         -- unit at all, so its row reads the winner's own `unit` rather than what the press reported.
