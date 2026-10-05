@@ -401,10 +401,17 @@ function handleMethods:GetEffectiveAttribute(name) return self.__frame:GetAttrib
 --- on a write of the value already there as well**, as the client was measured to (`statehidden`
 --- nil over nil and true over true, ten of ten, `trimming-the-tail-key-beat.md` 7-1). What skips an
 --- unchanged value is the state driver's manager, before it writes at all.
-function handleMethods:SetAttribute(name, value)
+---
+--- `fromManager` is a write of Blizzard's manager (`Interp:beat`). It is a plain frame's
+--- `SetAttribute` from ordinary Lua and not a body's, and the bench prices it inside the manager's
+--- tick, so it is not tallied as a handle write.
+local function setAttribute(handle, name, value, fromManager)
+    local self = handle;
     local frame = self.__frame;
     frame.__attributes[name] = value;
-    tally(self.__interp, "handle:SetAttribute");
+    if (not fromManager) then
+        tally(self.__interp, "handle:SetAttribute");
+    end
     if (name:sub(1, 1) == "_") then
         return;
     end
@@ -416,6 +423,10 @@ function handleMethods:SetAttribute(name, value)
         end
         self.__interp:run(body, self, "self,name,value", self.__interp:envFor(frame), name, value);
     end
+end
+
+function handleMethods:SetAttribute(name, value)
+    setAttribute(self, name, value, false);
 end
 
 function handleMethods:GetFrameRef(name)
@@ -944,11 +955,26 @@ function Interp:clickFrame(frame, button, down)
         button, down);
 end
 
---- **One tick of Blizzard's beat**, as the attribute driver on the driver delivers it: the beat's
---- attribute written `"a"`. The handler puts it back to `0` on every tick, which is what makes the
---- next tick a change the manager writes at all (`SecureStateDriver.lua`, `resolveDriver`).
+--- **One tick of Blizzard's manager on the driver**, as `resolveDriver` in `SecureStateDriver.lua`
+--- does it for whichever beat the rebuild registered: `state-visibility` is shown and written on
+--- every tick without a compare, and an attribute driver is written only where its value differs,
+--- which is why the handler puts the beat's attribute back to `0`. With neither registered there
+--- is no beat, and nothing is written.
 function Interp:beat()
-    self.driverHandle:SetAttribute(self.Private.JUDGE_BEAT_ATTRIBUTE, "a");
+    local drivers = frames.attributeDrivers[self.driver];
+    if (not drivers) then
+        return;
+    end
+    local handle = self.driverHandle;
+    if (drivers["state-visibility"] == "show") then
+        handle:Show();
+        setAttribute(handle, "statehidden", nil, true);
+    end
+    local attribute = self.Private.JUDGE_BEAT_ATTRIBUTE;
+    -- The manager's own compare, which the bench prices as its tick and not as a body's read.
+    if (drivers[attribute] == "a" and self.driver:GetAttribute(attribute) ~= "a") then
+        setAttribute(handle, attribute, "a", true);
+    end
 end
 
 --- The keys a restricted body wrote a binding for since the last call, in order, and starts the

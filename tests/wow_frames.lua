@@ -106,8 +106,15 @@ end
 --- that stood a frame up before the golden's rebuild shifted every one of them, and the failure
 --- read as "the emission moved" when nothing about the addon had. `run.lua` calls this between
 --- specs, which is the harness half of giving each one a clean addon (§10-1).
+--- The attribute drivers standing now, `frame -> attribute -> values`. **State, like the overrides**:
+--- the beat asks which one carries it (`restricted.lua`'s `Interp:beat`), and the recording only
+--- says what was registered and taken off in which order.
+local attributeDrivers = setmetatable({}, { __mode = "k" });
+M.attributeDrivers = attributeDrivers;
+
 function M.reset()
     recorder.entries = {};
+    for frame in pairs(attributeDrivers) do attributeDrivers[frame] = nil; end
     for key in pairs(overrides) do overrides[key] = nil; end
     for frame in pairs(wrappers) do wrappers[frame] = nil; end
     M.__clearTimers();
@@ -430,15 +437,25 @@ function M.install()
     _G.UnregisterStateDriver = function(frame, state)
         record("UnregisterStateDriver", label(frame), state);
     end
-    --- **Recorded but not resolved.** Blizzard's manager is what turns a driver expression into
-    --- attribute writes, and none of it runs here, so what a spec can ask is that the driver went
-    --- on or came off. A spec that wants the body's answer runs the body
-    --- (`tests/giveback_spec.lua`).
+    --- **Recorded and kept, but not resolved.** Blizzard's manager is what turns a driver expression
+    --- into attribute writes, and none of it runs here, so what a spec can ask is that the driver
+    --- went on or came off, and which stand now (`attributeDrivers`). A spec that wants the body's
+    --- answer runs the body (`tests/giveback_spec.lua`).
     _G.RegisterAttributeDriver = function(frame, state, values)
         record("RegisterAttributeDriver", label(frame), state, values);
+        -- Blizzard's takes nothing without both (`SecureStateDriver.lua`).
+        if (state and values) then
+            attributeDrivers[frame] = attributeDrivers[frame] or {};
+            attributeDrivers[frame][state] = values;
+        end
     end
     _G.UnregisterAttributeDriver = function(frame, state)
         record("UnregisterAttributeDriver", label(frame), state);
+        if (state == nil) then
+            attributeDrivers[frame] = nil;
+        elseif (attributeDrivers[frame]) then
+            attributeDrivers[frame][state] = nil;
+        end
     end
 
     --- **The frame goes in the frame slot on all three.** It used to be left out on the clear and

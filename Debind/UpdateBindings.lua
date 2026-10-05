@@ -151,6 +151,11 @@ local _judgePassBody;
 local _judgeWakeBodies = {};
 --- Does the beat measure any column of this rebuild (`JudgedOnBeat`)?
 local _judgeBeats = false;
+--- What carries the beat in this rebuild: `"visibility"` where the login's check found the manager
+--- writing `statehidden` on every tick (`BeatSignal.lua`), `"attribute"` otherwise. Decided once
+--- per rebuild, since the handler's branch and the driver `ApplyBindingPlan` registers have to
+--- agree.
+local _judgeBeatSignal = "attribute";
 
 --- Does any action ask about the hovered unit's role? It is what turns the three role headers
 --- on, and they are the only thing that fills `UnitRoles`.
@@ -670,6 +675,7 @@ local function BuildBindingPlan(ctx)
     --- And does the beat measure anything for it? A switch set by hand and a pet battle move only
     --- on a wake of ours, so a profile reading nothing else needs no beat.
     plan.beats = plan.judges and _judgeBeats;
+    plan.beatSignal = _judgeBeatSignal;
     plan.judgePass = _judgePassBody;
     plan.judgeWakes = _judgeWakeBodies;
 
@@ -742,8 +748,8 @@ end
 
 --- The state driver events a rebuild registered and no rebuild has taken back since.
 local _driverEventsOurs = {};
---- Whether the beat's driver is registered on `BindingDriver` (`JUDGE_BEAT_ATTRIBUTE`). Blizzard has
---- no way to ask, so the rebuild that registers it keeps the answer.
+--- Which beat driver is registered on `BindingDriver`, `false` for none (`_judgeBeatSignal`).
+--- Blizzard has no way to ask, so the rebuild that registers it keeps the answer.
 local _beatRegistered = false;
 --- The wake attributes the last rebuild filled, so the next can empty the ones it no longer has.
 local _judgeWakeAttributesSet = {};
@@ -851,17 +857,24 @@ local function ApplyBindingPlan(plan)
         SecureHandlerExecute(driver, [[self:RunAttribute("JudgePass")]]);
     end
 
-    --- **The beat is a driver that always answers `"a"`, not a unit watch** (`trimming-the-tail-key-
+    --- **The beat is a driver that answers one constant, not a unit watch** (`trimming-the-tail-key-
     --- beat.md` 5-1): a watch reads the frame's unit attributes and an existence cache on every tick,
-    --- and the driver only parses the one constant expression. **Only on a change**, since
-    --- registering resolves the driver on the spot.
-    if (plan.beats ~= _beatRegistered) then
-        if (plan.beats) then
-            RegisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE, "a");
-        else
+    --- and the driver only parses the one expression. **Only on a change**, since registering
+    --- resolves the driver on the spot, and **the old one comes off first**: two left standing would
+    --- both carry the beat.
+    local beat = plan.beats and plan.beatSignal or false;
+    if (beat ~= _beatRegistered) then
+        if (_beatRegistered == "attribute") then
             UnregisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE);
+        elseif (_beatRegistered == "visibility") then
+            UnregisterAttributeDriver(driver, "state-visibility");
         end
-        _beatRegistered = plan.beats;
+        if (beat == "attribute") then
+            RegisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE, "a");
+        elseif (beat == "visibility") then
+            RegisterAttributeDriver(driver, "state-visibility", "show");
+        end
+        _beatRegistered = beat;
     end
 
     ApplyGiveBack(driver, plan.giveBack);
@@ -3544,10 +3557,12 @@ local function BuildJudgeSnippet()
     --- **The beat goes in the handler and nothing else does.** It is the one that comes as an
     --- attribute write, from Blizzard's driver; the other two are run.
     ---
-    --- Its attribute goes back to `0` after every tick, or the driver never writes it again: the
-    --- manager writes only a value that differs from the attribute's (`SecureStateDriver.lua`,
-    --- `resolveDriver`). Putting it back enters the handler a second time, and the first line turns
-    --- that round.
+    --- On `"attribute"` its attribute goes back to `0` after every tick, or the driver never writes
+    --- it again: the manager writes only a value that differs from the attribute's
+    --- (`SecureStateDriver.lua`, `resolveDriver`). Putting it back enters the handler a second time,
+    --- and the first line turns that round. On `"visibility"` the manager writes `statehidden` on
+    --- every tick without comparing, so there is nothing to put back (`BeatSignal.lua`).
+    _judgeBeatSignal = DebindPrivate.BeatSignal.comes and "visibility" or "attribute";
     local beatBody = body("true", function()
         add("if (not JudgeReady) then");
         add("return");
@@ -3555,16 +3570,22 @@ local function BuildJudgeSnippet()
         prepare("beat");
         measure(beat);
     end);
-    local branch = DebindPrivate.BakeSnippet(tconcat({
-        format("if (name == %q) then", JUDGE_BEAT_ATTRIBUTE),
-        "if (value == 0) then",
-        "return",
-        "end",
-        format("self:SetAttribute(%q, 0)", JUDGE_BEAT_ATTRIBUTE),
-        beatBody,
-        "return",
-        "end",
-    }, "\n"));
+    local opening;
+    if (_judgeBeatSignal == "visibility") then
+        opening = { [[if (name == "statehidden") then]] };
+    else
+        opening = {
+            format("if (name == %q) then", JUDGE_BEAT_ATTRIBUTE),
+            "if (value == 0) then",
+            "return",
+            "end",
+            format("self:SetAttribute(%q, 0)", JUDGE_BEAT_ATTRIBUTE),
+        };
+    end
+    opening[#opening + 1] = beatBody;
+    opening[#opening + 1] = "return";
+    opening[#opening + 1] = "end";
+    local branch = DebindPrivate.BakeSnippet(tconcat(opening, "\n"));
     AssertSnippetCompiles(branch, "JudgeBeat");
 
     --- The rebuild's own pass: every column, a switch set by hand too.

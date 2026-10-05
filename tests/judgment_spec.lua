@@ -24,13 +24,20 @@ return function(DebindPrivate, _, ctx)
         return T;
     end
 
+    --- **Every case under both beats** (`BeatSignal.lua`): the rebuild in the case registers the
+    --- driver the answer picks and writes the handler's branch for it, and `Interp:beat` writes what
+    --- the driver standing would.
     local function test(name, fn)
-        local ok, err = pcall(fn);
-        if (ok) then
-            T.passed = T.passed + 1;
-        else
-            T.failures[#T.failures + 1] = name .. ": " .. tostring(err);
+        for _, signal in ipairs({ "attribute", "visibility" }) do
+            DebindPrivate.BeatSignal.comes = signal == "visibility" or nil;
+            local ok, err = pcall(fn);
+            if (ok) then
+                T.passed = T.passed + 1;
+            else
+                T.failures[#T.failures + 1] = name .. " (" .. signal .. "): " .. tostring(err);
+            end
         end
+        DebindPrivate.BeatSignal.comes = nil;
     end
 
     local function check(cond, msg)
@@ -986,9 +993,9 @@ return function(DebindPrivate, _, ctx)
         for _, entry in ipairs(frames.since(mark)) do
             if (entry.kind == "SetAttribute" and entry.name == "_onattributechanged" and type(entry.body) == "string") then
                 seen = true;
-                -- The beat's branch is the handler's first, and Keys Given Back's comes after it.
-                local beat = entry.body:match("if %(name == \"" .. DebindPrivate.JUDGE_BEAT_ATTRIBUTE
-                    .. "\"%)(.-)if %(name == \"state%-giveback\"%)");
+                -- The beat's branch is the handler's first, under either signal, and Keys Given
+                -- Back's comes after it.
+                local beat = entry.body:match("^if %(name == \"[%w_]+\"%)(.-)if %(name == \"state%-giveback\"%)");
                 check(beat, "no beat branch in the handler");
                 check(not beat:find("petbattle", 1, true), "the beat parses the pet battle");
             end

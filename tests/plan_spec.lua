@@ -235,6 +235,27 @@ return function(DebindPrivate)
             "a key with no tail asked for the beat");
     end);
 
+    -- **The beat goes through `state-visibility` only on the login check's yes** (`BeatSignal.lua`).
+    -- No answer yet and a no both keep the `"a"` driver, which is the one that works whatever the
+    -- manager does.
+    test("the beat's signal follows the login check", function()
+        for _, case in ipairs({
+            { comes = nil, signal = "attribute" },
+            { comes = false, signal = "attribute" },
+            { comes = true, signal = "visibility" },
+        }) do
+            DebindPrivate.BeatSignal.comes = case.comes;
+            local plan = PlanFor({
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", type = Constants.UNUSED, value = nil }),
+            });
+            DebindPrivate.BeatSignal.comes = nil;
+            check(plan.beats == true, tostring(case.comes) .. ": the tail key asked for no beat");
+            check(plan.beatSignal == case.signal,
+                tostring(case.comes) .. ": the beat goes through " .. tostring(plan.beatSignal));
+        end
+    end);
+
     -- The other side of it: the rows that do want a wake still get one.
     test("giving keys back on a replaced bar asks for the bar events", function()
         local plan = PlanFor({ spell({ key = "F1" }) });

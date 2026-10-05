@@ -6908,7 +6908,9 @@ end
 --
 -- **Headless cannot see this.** It is Blizzard's manager writing the attribute, and nothing a spec
 -- runs stands in for the manager. Whether the beat is running is asked of the attribute itself: put
--- to nil, it stays nil through two manager ticks without a tail, and is written again with one.
+-- to a value the manager would not write, it stays so through two manager ticks without a tail,
+-- and is written again with one. On `"a"` that attribute is the beat's own, put to nil; through
+-- `state-visibility` it is `statehidden`, put to true (`BeatSignal.lua`).
 --
 -- **It asks whether the key is still bound, in the same breath**, or a rebuild that quietly stopped
 -- binding anything would read as the quietest possible pass.
@@ -6951,29 +6953,80 @@ RegisterTest("The driver is off Blizzard's beat", {
             return Fail(NAME, format("the key did not bind (%q)", bound))
         end
 
+        local attribute, unwritten = BEAT, nil
+        if DebindPrivate.BeatSignal.comes then
+            attribute, unwritten = "statehidden", true
+        end
+
         -- Two ticks: the first may be the one already under way when the attribute was cleared.
         local witness = BeatWitness()
         local function WaitTicks(n)
             local from = witness:GetAttribute("ticks") or 0
             return WaitUntil(function() return (witness:GetAttribute("ticks") or 0) >= from + n end, 2)
         end
-        driver:SetAttribute(BEAT, nil)
+        driver:SetAttribute(attribute, unwritten)
         if not WaitTicks(2) then
             return Fail(NAME, "the manager did not tick for the witness")
         end
-        if driver:GetAttribute(BEAT) ~= nil then
-            return Fail(NAME, format("with no tail the beat attribute was written (%s)", tostring(driver:GetAttribute(BEAT))))
+        if driver:GetAttribute(attribute) ~= unwritten then
+            return Fail(NAME, format("with no tail %s was written (%s)", attribute, tostring(driver:GetAttribute(attribute))))
         end
 
         -- **The other half**: a tail on the key, and the beat comes.
         InsertAction({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = KEY })
         ApplyBindings()
-        driver:SetAttribute(BEAT, nil)
-        if not WaitUntil(function() return driver:GetAttribute(BEAT) ~= nil end, 2) then
-            return Fail(NAME, "with a tail the beat attribute was never written")
+        driver:SetAttribute(attribute, unwritten)
+        if not WaitUntil(function() return driver:GetAttribute(attribute) ~= unwritten end, 2) then
+            return Fail(NAME, format("with a tail %s was never written", attribute))
         end
 
         return Pass(NAME, "no beat without a tail, a beat with one, and the key is bound")
+    end,
+})
+
+-- **Whether this client's manager writes `statehidden` on every tick** (`BeatSignal.lua`), which
+-- is what the beat through `state-visibility` stands on. Headless runs a stand-in for the manager
+-- of each kind (`beatsignal_spec.lua`); which kind this client is, only the client answers. Then
+-- the session's own check, and a rebuild with a tail putting the beat on that signal and the
+-- manager carrying it to the driver.
+RegisterTest("Beat: the manager writes state-visibility on every tick", {
+    description = "A check of the kit's own answers that it comes, the login's check agreed, and the beat moves to state-visibility and arrives",
+    run = function()
+        local NAME = "Beat signal"
+        local KEY = "CTRL-SHIFT-F11"
+        if InCombatLockdown() then
+            return Fail(NAME, "a driver cannot be registered in combat")
+        end
+
+        local answer
+        DebindPrivate.BeatSignal.Check(function(comes) answer = comes end)
+        if not WaitUntil(function() return answer ~= nil end, 3) then
+            return Fail(NAME, "the check had no answer in 3 seconds")
+        end
+        if answer ~= true then
+            return Fail(NAME, "this client's manager does not write statehidden on every tick")
+        end
+        if not WaitUntil(function() return DebindPrivate.BeatSignal.comes ~= nil end, 3) then
+            return Fail(NAME, "the login's check had no answer")
+        end
+        if DebindPrivate.BeatSignal.comes ~= true then
+            return Fail(NAME, "the login's check answered no where the kit's answered yes")
+        end
+
+        local driver = DebindPrivate.BindingDriver
+        CleanupActions()
+        AddTeardown(CleanupActions)
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        InsertAction({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = KEY })
+        ApplyBindings()
+        if not (driver:GetAttribute("_onattributechanged") or ""):find('^if %(name == "statehidden"%)') then
+            return Fail(NAME, "the rebuild did not put the beat on statehidden")
+        end
+        driver:SetAttribute("statehidden", true)
+        if not WaitUntil(function() return driver:GetAttribute("statehidden") == nil end, 2) then
+            return Fail(NAME, "the manager never wrote statehidden on the driver")
+        end
+        return Pass(NAME, "it comes, and the beat arrives through state-visibility")
     end,
 })
 

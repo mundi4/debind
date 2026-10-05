@@ -77,21 +77,19 @@ return function(DebindPrivate)
     local UNPRICED_CALL = 0.3;
 
     --- **The manager's own work per tick, which no body does and so nothing above counts**: the
-    --- insecure side of Blizzard's state driver, per tick, for whatever carries the beat (7-1, J).
-    --- Which one the rebuild registered is read off the recording.
-    local MANAGER_TICK = { unitWatch = 1.94, attributeDriver = 0.37 };
+    --- insecure side of Blizzard's state driver, per tick, for whatever carries the beat (7-1, J),
+    --- its write to the driver included (`restricted.lua` does not tally that one). `state-visibility`
+    --- is its tick on a frame with no handler, which holds the show and the write. `"a"` is its tick
+    --- (0.37, the parse and the compare with no write) and a plain frame's `SetAttribute` (0.30).
+    local MANAGER_TICK = { attribute = 0.37 + 0.30, visibility = 0.489 };
     local function managerTick()
-        local cost = 0;
-        for _, entry in ipairs(frames.all()) do
-            if (entry.kind == "RegisterUnitWatch") then
-                cost = MANAGER_TICK.unitWatch;
-            elseif (entry.kind == "UnregisterUnitWatch") then
-                cost = 0;
-            elseif (entry.kind == "RegisterAttributeDriver" and entry.name == DebindPrivate.JUDGE_BEAT_ATTRIBUTE) then
-                cost = MANAGER_TICK.attributeDriver;
-            end
+        local drivers = frames.attributeDrivers[DebindPrivate.BindingDriver] or {};
+        if (drivers["state-visibility"]) then
+            return MANAGER_TICK.visibility;
+        elseif (drivers[DebindPrivate.JUDGE_BEAT_ATTRIBUTE]) then
+            return MANAGER_TICK.attribute;
         end
-        return cost;
+        return 0;
     end
 
     ---------------------------------------------------------------------------
@@ -535,4 +533,45 @@ return function(DebindPrivate)
         interp.driverHandle:RunAttribute("SetSwitch", "$w", w % 2 == 1);
     end
     report("a switch set by hand, SetSwitch with its wake", interp:meterStop(), WAKES, perInstruction, "wake");
+
+    ---------------------------------------------------------------------------
+    -- The beat's signal (`implementing-the-cuts-inside-the-beat-handler.md` Q1b)
+    ---------------------------------------------------------------------------
+
+    --- Every shape above but the gate table, a beat in total, on the `"a"` driver and on
+    --- `state-visibility` (`BeatSignal.lua`). Everything else above ran on `"a"`, which is what a
+    --- login without the check's answer gets.
+    local SIGNAL_SHAPES = {
+        { "12 tail keys", function() bind(profile(12)); end },
+        { "computed switches", function()
+            shim.world.units = { party3 = { id = "friend", reaction = "help" } };
+            bind(actions, COMPUTED);
+            interp.driverHandle:RunAttribute("SetUnit", "custom1", "party3");
+        end },
+        { "the large shape", function()
+            largeWorld();
+            bind(largeProfile(0), LARGE_SWITCHES);
+        end },
+    };
+    print("\nThe beat's signal, a beat in us: quiet | one state moved on every beat");
+    for _, shape in ipairs(SIGNAL_SHAPES) do
+        local row = {};
+        for _, comes in ipairs({ false, true }) do
+            DebindPrivate.BeatSignal.comes = comes;
+            shape[2]();
+            local instruction = instructionCost(interp);
+            local tick = managerTick();
+            interp:beat();
+            local quiet = price(scenario(QUIET, {}), instruction) / QUIET + tick;
+            local moves = {};
+            for b = 1, MOVING do
+                moves[b] = function(state) state.mounted = not state.mounted; end;
+            end
+            local moved = price(scenario(MOVING, moves), instruction) / MOVING + tick;
+            row[#row + 1] = string.format("%s %5.2f | %5.2f", comes and "visibility" or "attribute ", quiet, moved);
+        end
+        print(string.format("  %-18s %s   %s", shape[1], row[1], row[2]));
+    end
+    DebindPrivate.BeatSignal.comes = nil;
+    shim.world.units = {};
 end

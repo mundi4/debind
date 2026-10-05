@@ -9,7 +9,7 @@
 -- game being left alone and coming back judged.
 --
 -- What is **not** here: Blizzard's manager delivering the beat at all, and how often. No manager runs
--- here; `Interp:beat()` writes the attribute the way its unit watch does.
+-- here; `Interp:beat()` writes what the beat driver the rebuild registered would.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -285,6 +285,43 @@ return function(DebindPrivate)
     -- whoever wakes the loop already holds the driver; writing an attribute to get a body run would
     -- pay a handler entry on every frame boundary the cursor crossed
     -- (`trimming-the-tail-key-beat.md` 5-2).
+    -- **One beat driver at a time, the one the login check picked** (`BeatSignal.lua`). A rebuild
+    -- that moves the beat takes the old driver off before it puts the new one on, or both would
+    -- carry it.
+    test("the beat's driver follows the signal, one at a time", function()
+        local actions = {
+            action({ conditions = { combat = true } }),
+            action({ type = Constants.UNUSED }),
+        };
+        local function Drivers()
+            return frames.attributeDrivers[interp and interp.driver] or {};
+        end
+        for _, case in ipairs({
+            { comes = nil, on = "judgebeat" },
+            { comes = true, on = "state-visibility" },
+            { comes = false, on = "judgebeat" },
+            { comes = true, on = "state-visibility" },
+        }) do
+            DebindPrivate.BeatSignal.comes = case.comes;
+            Bind(actions);
+            local what = tostring(case.comes) .. ": ";
+            check(Drivers().judgebeat == (case.on == "judgebeat" and "a" or nil),
+                what .. "the attribute driver is " .. tostring(Drivers().judgebeat));
+            check(Drivers()["state-visibility"] == (case.on == "state-visibility" and "show" or nil),
+                what .. "the visibility driver is " .. tostring(Drivers()["state-visibility"]));
+            interp.state.combat = true;
+            interp:beat();
+            check(IsOurs("F1"), what .. "a beat in combat did not take F1");
+            interp.state.combat = false;
+            interp:beat();
+            check(Released("F1"), what .. "a beat at peace did not let F1 go");
+        end
+        Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.UNUSED }) });
+        DebindPrivate.BeatSignal.comes = nil;
+        check(Drivers().judgebeat == nil and Drivers()["state-visibility"] == nil,
+            "a profile the beat measures nothing for kept a beat driver");
+    end);
+
     test("a wake of ours does not run the handler", function()
         Bind({
             action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),

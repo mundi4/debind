@@ -144,6 +144,7 @@ function Events.PLAYER_LOGIN()
     -- Ahead of the rebuild below, whose own pass judges a tail key on it.
     DebindPrivate.SeedPetBattle();
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
+    DebindPrivate.BeatSignal.Start();
 
     -- The version rides on the front of a line that was already printed, rather than taking a line
     -- of its own. It is here so that a bug report can carry it without anyone having to ask.
@@ -291,6 +292,8 @@ function Events.PLAYER_REGEN_ENABLED()
     -- A binding context that opened or closed during the fight could not reach the restricted side
     -- either. **After the rebuild above**, which bakes the same set and leaves nothing owed.
     DebindPrivate.FlushContextKeys();
+
+    DebindPrivate.BeatSignal.OutOfCombat();
 end
 
 function Events.UPDATE_BINDINGS()
