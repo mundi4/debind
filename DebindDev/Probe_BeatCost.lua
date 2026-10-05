@@ -165,6 +165,24 @@ for j = 1, 27 do
     BenchTable.list[j] = 3
 end
 BenchTable.list[8] = 2
+BenchJCols = newtable()
+BenchJCols[2] = 1
+BenchJCols[5] = 2
+BenchJCols[8] = 0
+BenchJBundle = newtable()
+BenchJBundle.answers = BenchTable.answers
+BenchJBundle.cols = newtable()
+BenchJBundle.cols[1] = 2
+BenchJBundle.cols[2] = 1
+BenchJBundle.cols[3] = 5
+BenchJBundle.cols[4] = 3
+BenchJBundle.cols[5] = 8
+BenchJBundle.cols[6] = 9
+BenchOutcomes = newtable()
+BenchOutcomes[111] = "ours"
+BenchOutcomes[114] = "release"
+BenchOutcomes[98] = "base"
+BenchOutcomes[99] = "TOGGLEWORLDMAP"
 ]==];
 
 --- The composition loop of `COMPOSE_MACROTEXT_SNIPPET` for switch and unit arguments, then the
@@ -785,6 +803,25 @@ else
 end]==]);
     add("P", "table as a string, strbyte", JOINT .. "x = strbyte(b.answers, n + 1)");
     add("P", "table as an array", JOINT .. "x = b.list[n + 1]");
+    -- The judging body as the plan's Q4 writes it for one bundle: the bundle's own columns and
+    -- strides read out of its `cols`, each column's index out of the one array (slot 3i - 1), the
+    -- answer by the string method, the outcome through a table taken into a local once per body.
+    -- Same state and same answer as the cases above (index 1, 2, 0 -> the eighth character).
+    add("P", "table judging as Q4's body: cols and strides from the bundle, answers:byte, outcomes", [==[
+local answers = bundle.answers
+local want
+if (answers) then
+    local cols = bundle.cols
+    local n = 1
+    for c = 1, #cols, 2 do
+        n = n + columns[cols[c]] * cols[c + 1]
+    end
+    want = outcomes[answers:byte(n)]
+end
+if (want == "base") then
+    want = "ours"
+end
+x = want]==], "local columns, outcomes, bundle = BenchJCols, BenchOutcomes, BenchJBundle");
 
     -- A numbered column's parse answers digits as text. `tonumber` is a function of the environment,
     -- so its name is a global read like `strbyte`'s above; `text + 0` asks the VM for the same number
