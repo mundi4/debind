@@ -69,7 +69,7 @@ return function(DebindPrivate)
         local snippet = PlanFor({ revivePet() }).bindingsMapSnippet;
 
         check(snippet:find('t.units["pet"]', 1, true), "the pet condition was dropped");
-        check(snippet:find("u.dead=true", 1, true), "the life axis was dropped");
+        check(snippet:find('u.expr="[@pet,exists,dead]"', 1, true), "the life axis was dropped");
     end);
 
     --- 소환수는 헤더가 없으므로 `plan.units`에 줄이 안 생긴다. 생기면 만들 수 없는 헤더를

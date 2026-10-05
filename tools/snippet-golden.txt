@@ -192,9 +192,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	ClickUnitExists = newtable()
-	ClickUnitReaction = newtable()
-	ClickUnitDead = newtable()
 	ClickUnitGroup = newtable()
 
 
@@ -815,112 +812,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
@@ -1274,112 +1229,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
@@ -1957,112 +1870,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
@@ -2550,112 +2421,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
@@ -3053,112 +2882,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
@@ -3559,112 +3346,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
@@ -4001,112 +3746,70 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
 
 
-
-
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
+					local unit
+					if (u == "unitframe") then
+
+
+						unit = unitframeUnit
 
 
 
-							unit = unitframeUnit
-
-
-
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-
-
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-
-
-
-
-
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
+
+
+
+
+
+
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-
-
-
-
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+							if (expr) then
+								ok = SecureCmdOptionParse(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
 
 
 
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
-							end
 
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 

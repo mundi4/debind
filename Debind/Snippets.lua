@@ -155,6 +155,9 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 	PlayerCanAttack = "PlayerCanAttack(%s)",
 	PlayerIsChanneling = "PlayerIsChanneling(%s)",
 	SecureCmdOptionParse = "SecureCmdOptionParse(%s)",
+	-- A unit's conditional at the press. Its own name because the kit holds a unit's words by the
+	-- `unit` local beside it, which a state's expression has no counterpart for.
+	ParseUnit = "SecureCmdOptionParse(%s)",
 	FindSpellBookSlotBySpellID = "FindSpellBookSlotBySpellID(%s)",
 
 	-- Reporting only. Nothing is computed from them, so there is nothing to keep.

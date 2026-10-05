@@ -731,6 +731,7 @@ local function PlantMockTable()
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
         if (not MockStatesMap) then MockStatesMap = newtable() end
         if (not MockParseWords) then MockParseWords = newtable() end
+        if (not MockUnitWords) then MockUnitWords = newtable() end
     ]])
     mockPlanted = true
 end
@@ -798,6 +799,21 @@ end
 --- and the like can only be answered by reading what they list.
 local function MockBody(state, value)
     local parts = { format([[MockStatesMap[%q] = %s]], state, value == nil and "nil" or ToLiteral(value)) }
+    -- **A unit's life is parsed at the press too** (`PROBE.ParseUnit`), where the word is the same
+    -- for every unit and only the `@` beside it says whose. So it is held per unit, in the table
+    -- the press's dev form picks by its `unit` local. The beat still measures it by the API and
+    -- reads `MockStatesMap` (`PROBE.MockUnitDead`).
+    local deadUnit = state:match("^(.+)%-dead$")
+    if deadUnit then
+        if value == nil then
+            parts[#parts + 1] = format([[MockUnitWords[%q] = nil]], deadUnit)
+        else
+            parts[#parts + 1] = format([[MockUnitWords[%q] = newtable()]], deadUnit)
+            parts[#parts + 1] = format([[MockUnitWords[%q].dead = %q]], deadUnit, value and MOCK_TRUE or MOCK_FALSE)
+            parts[#parts + 1] = format([[MockUnitWords[%q].nodead = %q]], deadUnit, value and MOCK_FALSE or MOCK_TRUE)
+        end
+        return table.concat(parts, " ")
+    end
     local tokens = {}
     for token in pairs(DebindPrivate.StateExpressionTokens()) do tokens[#tokens + 1] = token end
     -- The bare word too, for a `PROBE.SecureCmdOptionParse` written by hand (`[combat]`).
@@ -869,8 +885,8 @@ local lastEvalUnit
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
 --- What `PROBE.MockState(x)` becomes while probing. The argument is the local **and** the state name, which
---- is why they are spelled the same in `EVAL_SNIPPET`. `MockUnitDead` and `MockUnitGroup` take the
---- unit instead, and read the `<unit>-dead` and `<unit>-group` names `SetMockState` is given.
+--- is why they are spelled the same in `EVAL_SNIPPET`. `MockUnitDead` (the beat's) and `MockUnitGroup`
+--- take the unit instead, and read the `<unit>-dead` and `<unit>-group` names `SetMockState` is given.
 ---
 --- `~= nil` and an `if`, not `and`/`or`: most of these axes are booleans, and a false held value
 --- would fall straight through an `and`/`or` to the measured one.
@@ -885,6 +901,8 @@ local PROBE_DEV = {
     -- **`rtgsub`, not `gsub`**: the restricted environment's `gsub` is the plain one and refuses a
     -- restricted table as the replacement (`RestrictedInfrastructure.lua`, `RestrictedTable_rtgsub`).
     SecureCmdOptionParse = [[SecureCmdOptionParse((rtgsub(%s, "%%a[%%w:/]*", MockParseWords)))]],
+    -- The same, with the words held for the `unit` local beside it (`MockBody`, `<unit>-dead`).
+    ParseUnit = [[SecureCmdOptionParse((rtgsub(%s, "%%a[%%w:/]*", MockUnitWords[unit] or MockParseWords)))]],
 }
 
 local function BuildExpandTable()
@@ -8388,9 +8406,9 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
 
 -- **Kept here.** The axis itself is headless (`tests/eval_spec.lua`, the life axis) and so is the
 -- living half (`tests/boundkey_spec.lua`). This is the dead half, which no living session can
--- produce and no world a spec writes down can prove. `player-dead` is injected right after the
--- press measures it and before it compares (`PROBE.MockUnitDead`), so the press runs its real path
--- and only the value it lands on differs.
+-- produce and no world a spec writes down can prove. `player-dead` rewrites the word in the
+-- expression the press parses (`PROBE.ParseUnit`), so the press runs its real path and only the
+-- answer differs.
 RegisterTest("State injection: dead flips a binding", {
     description = "Injecting dead really does fire the binding conditioned on it",
     run = function()

@@ -314,9 +314,8 @@ Execute <Frame#2>
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
+  | u.tail=",help]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -328,9 +327,8 @@ Execute <Frame#2>
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
+  | u.tail=",help]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -342,9 +340,8 @@ Execute <Frame#2>
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
+  | u.tail=",help]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -428,10 +425,6 @@ Execute <Frame#2>
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.harm=true
-  | u.reaction.other=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -445,10 +438,6 @@ Execute <Frame#2>
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.harm=true
-  | u.reaction.other=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -462,10 +451,6 @@ Execute <Frame#2>
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.harm=true
-  | u.reaction.other=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -666,6 +651,7 @@ Execute <Frame#2>
   | t["unit"]="player"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists]"
   | u.exists=true
   | u.group=newtable()
   | u.group.party=true
@@ -688,6 +674,7 @@ Execute <Frame#2>
   | t["unit"]="focus"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists]"
   | u.exists=true
   | u.group=newtable()
   | u.group.party=true
@@ -708,6 +695,7 @@ Execute <Frame#2>
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists]"
   | u.exists=true
   | u.group=newtable()
   | u.group.party=true
@@ -738,6 +726,7 @@ Execute <Frame#2>
   | t["unit"]="player"
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
+  | u.expr="[@focus,exists]"
   | u.exists=true
   | u.group=newtable()
   | u.group.party=true
@@ -761,6 +750,7 @@ Execute <Frame#2>
   | t["unit"]="focus"
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
+  | u.expr="[@focus,exists]"
   | u.exists=true
   | u.group=newtable()
   | u.group.party=true
@@ -782,6 +772,7 @@ Execute <Frame#2>
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
+  | u.expr="[@focus,exists]"
   | u.exists=true
   | u.group=newtable()
   | u.group.party=true
@@ -843,9 +834,8 @@ Execute <Frame#2>
   | t["unit"]="player"
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
+  | u.expr="[@focus,exists,nohelp,harm]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.harm=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -857,9 +847,8 @@ Execute <Frame#2>
   | t["unit"]="focus"
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
+  | u.expr="[@focus,exists,nohelp,harm]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.harm=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -870,9 +859,8 @@ Execute <Frame#2>
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["focus"]=u
+  | u.expr="[@focus,exists,nohelp,harm]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.harm=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -892,6 +880,7 @@ Execute <Frame#2>
   | t["unit"]="player"
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
+  | u.expr="[@pet,noexists]"
   | u.exists=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -904,6 +893,7 @@ Execute <Frame#2>
   | t["unit"]="focus"
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
+  | u.expr="[@pet,noexists]"
   | u.exists=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -915,6 +905,7 @@ Execute <Frame#2>
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
+  | u.expr="[@pet,noexists]"
   | u.exists=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1081,6 +1072,7 @@ Execute <Frame#2>
   | t["unit"]="player"
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
+  | u.expr="[@pet,exists]"
   | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1093,6 +1085,7 @@ Execute <Frame#2>
   | t["unit"]="focus"
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
+  | u.expr="[@pet,exists]"
   | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1104,6 +1097,7 @@ Execute <Frame#2>
   | t["castModifier"]=1
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
+  | u.expr="[@pet,exists]"
   | u.exists=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
@@ -1201,9 +1195,8 @@ Execute <Frame#2>
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists,help]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -1215,9 +1208,8 @@ Execute <Frame#2>
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists,help]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -1229,9 +1221,8 @@ Execute <Frame#2>
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists,help]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1251,11 +1242,8 @@ Execute <Frame#2>
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists,help,nodead][@target,exists,noharm,nodead]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.other=true
-  | u.dead=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=2
@@ -1267,11 +1255,8 @@ Execute <Frame#2>
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists,help,nodead][@target,exists,noharm,nodead]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.other=true
-  | u.dead=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=4
@@ -1283,11 +1268,8 @@ Execute <Frame#2>
   | t["unit"]="target"
   | t.units=newtable()
   | u=newtable();t.units["target"]=u
+  | u.expr="[@target,exists,help,nodead][@target,exists,noharm,nodead]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.help=true
-  | u.reaction.other=true
-  | u.dead=false
   | t.holdsKey=true
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
@@ -1740,9 +1722,8 @@ Execute <Frame#2>
   | t["unitAlias"]="unitframe"
   | t.units=newtable()
   | u=newtable();t.units["unitframe"]=u
+  | u.tail=",nohelp,harm]"
   | u.exists=true
-  | u.reaction=newtable()
-  | u.reaction.harm=true
   | t.isClickCast=true
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"

@@ -1162,6 +1162,75 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **The press asks a unit's existence, reaction and life by parsing** (`implementing-the-
+    -- trimmed-tail-key-beat.md` P2b), for the reason the state axes are: the beat will parse the
+    -- same words. Each word is made to disagree with its API in turn, on a named unit and on the
+    -- pointed frame's, whose token is only known at the press. `exists` is not asked of the frame's
+    -- unit: there the token being there is the answer, on both sides.
+    test("a unit condition at the press follows the parse where the API says otherwise", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        local CASES = {
+            { word = "exists", parse = false, condition = {}, world = FRIEND,
+                before = "Renew", after = "Rejuvenation", only = "target" },
+            { word = "help", parse = true, condition = { reaction = Constants.REACTION_HELP }, world = ENEMY,
+                before = "Rejuvenation", after = "Renew" },
+            { word = "harm", parse = true, condition = { reaction = Constants.REACTION_HARM },
+                world = { id = "neutral" }, before = "Rejuvenation", after = "Renew" },
+            { word = "dead", parse = true, condition = { dead = true }, world = FRIEND,
+                before = "Rejuvenation", after = "Renew" },
+        };
+        for _, case in ipairs(CASES) do
+            for _, aim in ipairs(case.only and { case.only } or { "target", "unitframe" }) do
+                local label = case.word .. " on " .. aim;
+                if (aim == "target") then
+                    Bind({
+                        action({ value = 585, key = "F1", unit = "target",
+                            conditions = { units = { ["@"] = case.condition } } }),
+                        action({ value = 774, key = "F1" }),
+                    });
+                    shim.world.units = { target = case.world };
+                else
+                    Bind({
+                        action({ value = 585, key = "F1", casting = { hoverCast = "cast" },
+                            conditions = { units = { ["@"] = case.condition } } }),
+                        action({ value = 774, key = "F1" }),
+                    });
+                    shim.world.units = { party1 = case.world };
+                    PointAt("party1");
+                end
+                local _, spell = Fired("F1");
+                check(spell == case.before, label .. ": fired " .. tostring(spell) .. " before the divergence");
+                interp.state.diverge[case.word] = case.parse;
+                _, spell = Fired("F1");
+                check(spell == case.after,
+                    label .. ": fired " .. tostring(spell) .. " -- the press read the API rather than the parse");
+                interp:resetState();
+                interp:hoverLeave(unitFrame);
+                shim.world.units = {};
+            end
+        end
+    end);
+
+    -- **The player is not asked whether it exists.** In a vehicle on xptr 120105 `[@player,exists]`
+    -- stayed false the whole ride while `UnitExists("player")` held (`implementing-the-trimmed-tail-
+    -- key-beat.md` P3-4), so asking it would turn every condition on the player off in a vehicle.
+    test("a condition on the player holds where the parse says the player is gone", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ value = 585, key = "F1", unit = "player",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 774, key = "F1" }),
+        });
+        shim.world.units = { player = FRIEND };
+        interp.state.diverge.exists = false;
+        local _, spell = Fired("F1");
+        check(spell == "Renew", "fired " .. tostring(spell) .. ": the press asked the player whether it exists");
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
     -- **The hover tier stands in the originals' order** (§3, 2026-09-16, owner). Ordered by each
     -- twin's own condition, the twin of the action with the wider condition stood behind the other
     -- whichever the reader had put first, and the drawn order said otherwise. Both actions here are

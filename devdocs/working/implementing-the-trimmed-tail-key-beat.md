@@ -1,12 +1,13 @@
 # 줄인 꼬리 키 박자 구현 순서 (2026-10-05 계획)
 
-> 상태: 진행 중. P0, P1, P2a(누름의 상태 낱말을 파싱으로)가 들어갔다. 다음은 P2b(누름의 유닛 낱말). P0은 소유자
+> 상태: 진행 중. P0, P1, P2(누름의 상태 낱말과 유닛 낱말을 파싱으로)가 들어갔다. 다음은 P3. P0은 소유자
 > 프로필을 읽는 입력만 남았고 P3-6에서 쓸 때 붙인다. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
 > 왜 하는지는 그 문서가 갖고, 이 문서는 어떤 순서로 무엇을 고치는지와 단계마다 무엇이 실패해야 하는지를 갖는다.
 > 이 문서의 절은 `P0`~`P6`으로 부르고, 괄호 안의 맨 번호(7-1, 8-6, C5 …)는 그 계획 문서의 절과 표의 행이다.
 >
 > 쓴 세션: `debind-e6` (세션 ID `227f6025-3103-4343-a53f-52f642072b5a`). 계획 문서를 쓴 세션은 `debind-ac`
-> (세션 ID `1361cd24-6aad-48a3-9a06-643d7caa65ad`).
+> (세션 ID `1361cd24-6aad-48a3-9a06-643d7caa65ad`). P2b는 `debind-15` (세션 ID
+> `7c6f4074-9f5b-45cc-9de9-ca5e8ccf8dd3`).
 
 ## 기대는 것
 
@@ -122,8 +123,8 @@
 
 ## P2. 누름을 파싱으로
 
-박자보다 먼저다. 누름이 API로 재는 동안 박자를 파싱으로 바꾸면 둘이 갈릴 수 있다. 상태 낱말(P2a)은 들어갔고, 유닛
-낱말(P2b)은 남았다.
+박자보다 먼저다. 누름이 API로 재는 동안 박자를 파싱으로 바꾸면 둘이 갈릴 수 있다. 상태 낱말(P2a)도 유닛 낱말(P2b)도
+들어갔다.
 
 - **P2a, 들어갔다.** 리빌드가 레코드의 상태 축을 식 하나로 굽고(`UpdateBindings.lua`의 `StateExpression`,
   `PARSED_STATE_AXES`), 레코드는 축마다의 필드 대신 `t.expr`을 싣는다. `EVAL_SNIPPET`은 그 식을 한 번 파싱한다.
@@ -135,10 +136,22 @@
   박자만 쓴다.
 - 시험: `judgment_spec`의 "모든 칸 조합에서 항목이 누름과 같다"는 그대로 선다. `eval_spec`에 "a state axis at the press
   follows the parse where the API says otherwise"를 넣었다(P0-1의 `diverge`). P2a 앞의 코드에서 실패하는 것을 봤다.
-- **P2b, 남았다.** 유닛 판정(`t.units`)을 파싱으로 바꾼다. 레코드의 첫 유닛은 식 안에 쓰고, 둘째 유닛부터는 P3-3의
-  가려내기 식을 따로 파싱한다. 누름은 박자만큼 자주 돌지 않으니 유닛마다 식을 나눠 파싱해 Lua에서 잇는 것도 된다.
-  별칭과 가리킨 프레임은 누름에서 그때의 유닛을 끼워야 한다(누름은 깨움 때 미리 조립된 식을 쓰지 않는다). `unitgroup`과
-  역할은 지금 코드 그대로다.
+- **P2b, 들어갔다.** 유닛 조건 하나가 식 하나다(`UnitExpression`). `t.expr`에 합치지 않고 유닛마다 따로 파싱한다.
+  고정 유닛은 식을 통째로 굽고(`u.expr`), 별칭과 가리킨 프레임은 `@` 뒤를 구워(`u.tail`, 그룹이 둘이면 `u.tail2`)
+  누름이 그때의 유닛을 앞에 붙인다. 반응은 박자의 칸 읽기(돕기 먼저, 다음 공격)대로 쓴다: 돕기 `help`, 적대
+  `nohelp,harm`, 그 밖 `nohelp,noharm`, 돕기+적대 `[help][harm]`, 돕기+그 밖 `[help][noharm]`, 적대+그 밖 `nohelp`.
+  존재·반응·생사의 클릭 메모는 없어졌고 `ClickUnitGroup`은 남았다. `unitgroup`과 역할은 그대로다.
+- **`exists`는 박자가 `UnitExists`를 부르는 유닛에만 쓴다** (debind-e6와 정함). 맵만 보는 별칭(tank, healer,
+  maintank, mainassist)과 가리킨 프레임은 맵에 유닛이 없으면 파싱 없이 없는 것이고, 있으면 `exists` 없이 파싱한다. 그래야
+  박자의 "맵에 있으면 있다"와 같은 답이다. 고정 유닛과 custom1·2는 `exists`를 쓴다. P3-2에서 맵만 보는 별칭에 `exists`를
+  넣을 때는 박자와 누름에 함께 넣는다.
+- **`player`는 `exists`를 묻지 않고, 박자도 늘 있는 것으로 읽는다.** P3-4의 xptr 차량에서 `[@player,exists]`가 내내
+  거짓이었다. 물으면 차량 안에서 나에게 건 조건이 다 꺼진다. `UnitExists("player")`가 거짓인 때는 없으니 박자의 측정도
+  `exists = true`로 바꿨고, `judgment_spec`은 나 없는 세상을 만들지 않는다.
+- 시험: `eval_spec`의 "a unit condition at the press follows the parse where the API says otherwise"(`exists`·`help`·
+  `harm`·`dead`를 대상과 가리킨 프레임에서 하나씩 갈라 본다)는 P2b 앞의 코드에서 일곱 경우 모두 실패하는 것을 봤다.
+  "a condition on the player holds where the parse says the player is gone"은 `player` 예외를 뺀 코드에서 실패하는 것을
+  봤다. 키트의 `player-dead`는 `PROBE.ParseUnit`의 개발 꼴이 `MockUnitWords[unit]`으로 낱말을 바꿔 잡는다.
 
 ## P3. 묶음을 식으로 굽는다
 
@@ -166,7 +179,8 @@ C2, C4, C6. 이 일의 본체다.
 - **별칭 유닛**(tank, healer, custom1·2). `SetUnit`·`SetRoleUnits`가 별칭이 가리키는 실제 유닛을 끼워 넣는다
   (`[@party2,help,nodead]`). 유닛이 없으면 없는 유닛(`raid41`)을 끼운다. 지금 박자는 tank·healer 같은 별칭을 맵에
   유닛이 있으면 있는 것으로 보는데(`UnitExists`를 안 부른다), 파싱의 `exists`는 실제로 있는지를 묻는다. 누름도 같은
-  식을 파싱하니 둘은 같은 답이고, 맵과 실제가 어긋나는 틈에서는 실제를 묻는 쪽이 맞다.
+  식을 파싱하니 둘은 같은 답이고, 맵과 실제가 어긋나는 틈에서는 실제를 묻는 쪽이 맞다. P2b의 누름은 맵만 보는
+  별칭에 `exists`를 쓰지 않으니, 이 단계에서 박자와 누름 양쪽에 함께 넣는다.
 - **가리킨 프레임**(`@hover`). enter·leave가 이미 풀린 프레임 유닛을 끼워 넣는다. **역할과 개체창 종류도 같은
   자리에서 상수로 끼워 넣는다.** 지금도 `judge-unitframe` 깨움이 `READ_UNITFRAME_SNIPPET`으로 둘을 읽어
   컬럼에 담는다(SB:1151-1161, UB:2701-2709). 담는 자리가 컬럼에서 식으로 바뀌고, 박자는 둘을 읽지도 판정하지도

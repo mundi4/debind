@@ -1490,12 +1490,6 @@ function SetBindingAttributes(type, value, unit, automatics, pinnedSpell, resolv
     return clickframe, buttonname, descriptor.castSpell;
 end
 
-local REACTION_NAMES = {
-    [Constants.REACTION_HELP]  = "help",
-    [Constants.REACTION_HARM]  = "harm",
-    [Constants.REACTION_OTHER] = "other",
-};
-
 --- **The names are the role headers' aliases**, which is what `UnitRoles` stores, so nothing
 --- translates between the two sides. `unknown` has no header, and cannot: it is the answer for a
 --- unit no header claimed.
@@ -1771,6 +1765,69 @@ local function StateExpression(record)
             _stateTokens[token] = true;
         end
         parts[i] = "[" .. tconcat(group, ",") .. "]";
+    end
+    return tconcat(parts);
+end
+
+--- A reaction mask as alternatives of tokens, read the way the beat's cell reads it: assist first,
+--- then attack, else other (`unitCell` in `BuildJudgeSnippet`). So harm is `nohelp,harm`, and help
+--- with other is `[help][noharm]` rather than `noharm`, for a unit the two predicates both take.
+local REACTION_ALTERNATIVES = {
+    [Constants.REACTION_HELP] = { { "help" } },
+    [Constants.REACTION_HARM] = { { "nohelp", "harm" } },
+    [Constants.REACTION_OTHER] = { { "nohelp", "noharm" } },
+    [Constants.REACTION_HELP + Constants.REACTION_HARM] = { { "help" }, { "harm" } },
+    [Constants.REACTION_HELP + Constants.REACTION_OTHER] = { { "help" }, { "noharm" } },
+    [Constants.REACTION_HARM + Constants.REACTION_OTHER] = { { "nohelp" } },
+};
+
+--- One unit's condition as the macro conditional the press parses (`EVAL_SNIPPET`): existence,
+--- reaction and life. Answers `expr` for a fixed unit, or `tail` and `tail2` for an alias and the
+--- pointed frame, whose token the press puts in front of each (`"[@" .. unit .. tail .. unit ..
+--- tail2`). Nothing where there is nothing to parse.
+---
+--- **`exists` is asked only of a unit the beat calls `UnitExists` for.** A map-only alias and the
+--- pointed frame are there when their token is, which the press decides before parsing; asking
+--- the client instead would part from the beat until both move together (P3-2 of
+--- `implementing-the-trimmed-tail-key-beat.md`). The player is never asked: in a vehicle on xptr
+--- 120105 `[@player,exists]` stayed false the whole ride while `UnitExists("player")` held.
+local function UnitExpression(unit, condition)
+    local asksExists = unit ~= "player"
+        and not (SPECIAL_UNITS[unit] and not DebindPrivate.ALIAS_NEEDS_EXISTS[unit]);
+    local groups;
+    if (condition == false) then
+        if (not asksExists) then
+            return nil;
+        end
+        groups = { { "noexists" } };
+    else
+        groups = condition.reaction and REACTION_ALTERNATIVES[condition.reaction] or { {} };
+        local lead = asksExists and "exists" or nil;
+        local life = condition.dead == true and "dead" or condition.dead == false and "nodead" or nil;
+        local out = {};
+        for i, group in ipairs(groups) do
+            local tokens = { lead };
+            for _, token in ipairs(group) do
+                tokens[#tokens + 1] = token;
+            end
+            tokens[#tokens + 1] = life;
+            out[i] = tokens;
+        end
+        groups = out;
+    end
+    if (#groups[1] == 0) then
+        return nil;
+    end
+    if (SPECIAL_UNITS[unit]) then
+        local tail = "," .. tconcat(groups[1], ",") .. "]";
+        if (groups[2]) then
+            return nil, tail .. "[@", "," .. tconcat(groups[2], ",") .. "]";
+        end
+        return nil, tail;
+    end
+    local parts = {};
+    for i, group in ipairs(groups) do
+        parts[i] = "[@" .. unit .. "," .. tconcat(group, ",") .. "]";
     end
     return tconcat(parts);
 end
@@ -2240,23 +2297,20 @@ local function EmitRecord(record)
         end
         appendLine("u=newtable();t.units[%q]=u", unit);
 
+        local unitExpr, tail, tail2 = UnitExpression(unit, condition);
+        if (unitExpr) then
+            appendLine("u.expr=%q", unitExpr);
+        end
+        if (tail) then
+            appendLine("u.tail=%q", tail);
+        end
+        if (tail2) then
+            appendLine("u.tail2=%q", tail2);
+        end
         if (condition == false) then
             appendLine("u.exists=false");
         else
             appendLine("u.exists=true");
-            if (condition.reaction) then
-                -- A set, not a mask: membership is one lookup, while the `%` idiom the restricted
-                -- environment forces on masks needs the same two lookups **plus** arithmetic.
-                appendLine("u.reaction=newtable()");
-                for _, bit in ipairs(sortedKeys(REACTION_NAMES, _sortedC)) do
-                    if (band(condition.reaction, bit) ~= 0) then
-                        appendLine("u.reaction.%s=true", REACTION_NAMES[bit]);
-                    end
-                end
-            end
-            if (condition.dead ~= nil) then
-                appendLine("u.dead=%s", tostring(condition.dead));
-            end
             -- 칸으로 나간다. 상자로 내보내면 검사가 세 갈래가 되고, 무엇보다 `%q` 셋이
             -- 교집합을 못 나타낸다 - `MergeKeyUnitConditions`의 주석에 그 이유가 있다.
             if (condition.group) then
@@ -2929,6 +2983,10 @@ local function BuildJudgeSnippet()
                 else
                     add("local exists = unit and true or false");
                 end
+            elseif (unit == "player") then
+                -- Never absent, and the press does not ask (`UnitExpression`).
+                add([[local unit = "player"]]);
+                add("local exists = true");
             else
                 add("local unit = %q", unit);
                 add("local exists = UnitExists(unit) and true or false");

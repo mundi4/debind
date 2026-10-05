@@ -175,7 +175,8 @@ return function(DebindPrivate, _, ctx)
             elseif (kind == "unit") then
                 if (arg ~= "unitframe") then
                     local unit = UnitAt(cells, arg);
-                    if (unit == false) then
+                    -- The player is never absent, and both sides read it so (`UnitExpression`).
+                    if (unit == false or (unit == nil and arg == "player")) then
                         return false;
                     end
                     shim.world.units[arg] = unit;

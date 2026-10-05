@@ -188,12 +188,9 @@ SecureHandlerExecute(BindingDriver, [[
 	HeldButtons = newtable()
 	HeldUnits = newtable()
 
-	-- 래퍼가 클릭 안에서 쓰는 메모. **클릭 경로에서는 newtable()을 부르지 않는다** -
-	-- GC 스파이크는 평균 비용보다 아프게 나타난다. 그래서 미리 만들어 두고 재사용한다.
-	-- 같은 유닛을 여러 레코드가 물을 때 C 호출이 반복되는 것을 막는다.
-	ClickUnitExists = newtable()
-	ClickUnitReaction = newtable()
-	ClickUnitDead = newtable()
+	-- A unit's group cell, memoised for one press so records asking the same unit do not repeat
+	-- the two C calls. Made here and wiped at the press: a `newtable()` on the click path is a GC
+	-- spike, which hurts more than its average cost.
 	ClickUnitGroup = newtable()
 
 	-- The macro bodies held back until a click. `button name -> what it takes to compose one`.
@@ -1188,7 +1185,7 @@ local EVAL_SNIPPET = [==[
 	-- **Measured at the press, never read from a value measured earlier**: such a value is stale by
 	-- construction, and the press is when the truth can be measured.
 	--
-	-- The unit memo below (`ClickUnit*`) is wiped once per press, the first time a record asks
+	-- The group memo below (`ClickUnitGroup`) is wiped once per press, the first time a record asks
 	-- about a unit, and holds for the rest of that press.
 	local memoReady = false
 
@@ -1291,112 +1288,70 @@ local EVAL_SNIPPET = [==[
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
-					wipe(ClickUnitExists)
-					wipe(ClickUnitReaction)
-					wipe(ClickUnitDead)
 					wipe(ClickUnitGroup)
 				end
 
-				-- **The cache is not trusted here; every value is measured again.** `UnitStates`
-				-- is filled by the update loop and so can be a tick old, and a click is rare
-				-- enough that measuring again is both cheap and correct. The memo lives for the
-				-- length of this one click.
+				-- **Measured again at the press, never read from the loop's columns**, which can be a
+				-- beat old.
 				for u, cond in pairs(t.units) do
 					local ok = true
-					do
-						local unit, needsExists
-						if (u == "unitframe") then
-							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitAliasMap["unitframe"]는
-							-- 캐시라 여기서만 그걸 보면 hover 조건과 다른 유닛을 판정하게
-							-- 된다. 대상도 같은 값을 쓴다(아래 SetAttribute).
-							unit = unitframeUnit
-							-- **역할은 이 갈래에만 있다.** 가리킨 프레임에 대해서만 답이 나오는
-							-- 축이라, 유닛 공통 자리에 두면 다른 유닛마다 헛도는 검사가 된다.
-							-- `unitframeRole`이 nil이면 답할 수 없다는 뜻이라 이 축은 안 선다.
-							if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
-								ok = false
-							end
-						else
-							-- **한 번만 조회한다.** nil이면 별칭이 아니고, 아니면 그 값이
-							-- 곧 답이다. false가 답인 별칭이 있으므로 `~= nil`로 가른다.
-							needsExists = UnitAliasNeedsExists[u]
-							if (needsExists ~= nil) then
-								unit = UnitAliasMap[u]
-							else
-								unit = u
-								needsExists = true
-							end
-						end
-
-						-- Existence is resolved first now. The old shape could let
-						-- `PlayerCanAssist` stand in for it -- false for an absent unit -- and
-						-- save a call, but reaction has to come back as one of three names and
-						-- an absent unit would resolve to "other". One more call on a path that
-						-- runs once per keypress.
-						local exists
-						if (not unit) then
-							exists = false
-						elseif (needsExists) then
-							exists = ClickUnitExists[unit]
-							if (exists == nil) then
-								exists = UnitExists(unit) and true or false
-								ClickUnitExists[unit] = exists
-							end
-						else
-							exists = true
-						end
-
-						if (cond.exists ~= nil and cond.exists ~= exists) then
+					local unit
+					if (u == "unitframe") then
+						-- The frame as read above, not `UnitAliasMap["unitframe"]`: that is the
+						-- enter/leave cache, and the target is set from this one too.
+						unit = unitframeUnit
+						-- **Role is asked of the pointed frame only**, the one unit it has an answer
+						-- for. A nil `unitframeRole` is "cannot be answered", and the axis stands
+						-- aside.
+						if (unitframeRole and cond.role and not cond.role[unitframeRole]) then
 							ok = false
-						elseif (exists) then
-							if (cond.reaction) then
-								local reaction = ClickUnitReaction[unit]
-								if (reaction == nil) then
-									reaction = (PlayerCanAssist(unit) and "help")
-											or (PlayerCanAttack(unit) and "harm")
-											or "other"
-									ClickUnitReaction[unit] = reaction
-								end
-								if (not cond.reaction[reaction]) then
-									ok = false
-								end
-							end
+						end
+					elseif (UnitAliasNeedsExists[u] ~= nil) then
+						unit = UnitAliasMap[u]
+					else
+						unit = u
+					end
 
-							-- `ok` first: two C calls are worth a local read to skip when the
-							-- reaction above already decided. `UnitIsDead` alone is not `[dead]` --
-							-- a ghost answers false to it -- and the restricted environment has no
-							-- `UnitIsDeadOrGhost`.
-							if (ok and cond.dead ~= nil) then
-								local dead = ClickUnitDead[unit]
-								if (dead == nil) then
-									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
-									PROBE.MockUnitDead(unit)
-									ClickUnitDead[unit] = dead
-								end
-								if (cond.dead ~= dead) then
-									ok = false
-								end
+					-- **Existence, reaction and life are one parse** (`UnitExpression` in
+					-- `UpdateBindings.lua`), baked whole for a fixed unit. An alias's or the pointed
+					-- frame's token is only known now, so theirs is composed here. A unit with nothing
+					-- to parse is one whose presence is its existence, and an absent one is decided
+					-- without a parse: `[@raid41,nodead]` holds.
+					if (ok) then
+						if (not unit) then
+							ok = not cond.exists
+						else
+							local expr = cond.expr
+							if (cond.tail2) then
+								expr = "[@" .. unit .. cond.tail .. unit .. cond.tail2
+							elseif (cond.tail) then
+								expr = "[@" .. unit .. cond.tail
 							end
-
-							-- 조건은 네 칸으로 구워져 있고(`UpdateBindings.lua`), 그 칸은 두
-							-- 답이 다 있어야 나온다. 겹치는 술어라 하나만 물어서는 "공대이면서
-							-- 같은 소그룹"을 이웃 칸과 못 가른다.
-							if (ok and cond.group) then
-								local group = ClickUnitGroup[unit]
-								if (group == nil) then
-									local raid = UnitPlayerOrPetInRaid(unit)
-									local party = UnitPlayerOrPetInParty(unit)
-									group = (raid and (party and "both" or "raid"))
-											or (party and "party")
-											or "neither"
-									PROBE.MockUnitGroup(unit)
-									ClickUnitGroup[unit] = group
-								end
-								if (not cond.group[group]) then
-									ok = false
-								end
+							if (expr) then
+								ok = PROBE.ParseUnit(expr)
+							else
+								ok = cond.exists
 							end
+						end
+					end
 
+					-- Baked as four cells (`UpdateBindings.lua`), and a cell needs both answers: the
+					-- two predicates overlap, so one alone cannot tell "in a raid and in my subgroup"
+					-- from its neighbours. Left on the API: `[@u,party]` parts from it on the player
+					-- (`implementing-the-trimmed-tail-key-beat.md`).
+					if (ok and cond.group) then
+						local group = ClickUnitGroup[unit]
+						if (group == nil) then
+							local raid = UnitPlayerOrPetInRaid(unit)
+							local party = UnitPlayerOrPetInParty(unit)
+							group = (raid and (party and "both" or "raid"))
+									or (party and "party")
+									or "neither"
+							PROBE.MockUnitGroup(unit)
+							ClickUnitGroup[unit] = group
+						end
+						if (not cond.group[group]) then
+							ok = false
 						end
 					end
 
