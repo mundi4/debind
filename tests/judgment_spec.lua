@@ -1,7 +1,11 @@
 -- **A key's judgment item answers what the press would** (`handing-the-rest-of-a-key-to-the-game.md`
 -- 2-2, 2-3, §7). For each case the world is put in every combination of what the item's columns
 -- measure, and at each one the item's answer is held against the record the press actually picks
--- (`restricted.lua`'s `winningRecord`, the shipped `EVAL_SNIPPET`).
+-- (the shipped `EVAL_SNIPPET`, through `EvalClickTimeKey`).
+--
+-- **And the loop against the item, at the same points.** After a beat the key has to be bound to
+-- what the item answers there, which is the loop measuring every column the way the press does:
+-- a column it reads differently is a key bound wrong at exactly the points that column decides.
 --
 -- The cases are shaped after the answer table's rows (§8) and between them reach every kind of
 -- column `Judgment.lua` builds, since a column translated wrongly is wrong only where it is asked.
@@ -159,8 +163,15 @@ return function(DebindPrivate, _, ctx)
                 local asked = arg:match("^%[known:(.+)%]$");
                 state.known[tonumber(asked) or asked] = cell == Judgment.TRUE;
             elseif (kind == "switch") then
-                interp.env.States[arg] = (cell == Judgment.TRUE and true)
-                    or (cell == Judgment.FALSE and false) or nil;
+                -- **Through `SetSwitch`**, which is the only way a switch moves in the game and the
+                -- wake the loop waits for. A beat does not read a switch set by hand again.
+                local value;
+                if (cell == Judgment.TRUE) then
+                    value = true;
+                elseif (cell == Judgment.FALSE) then
+                    value = false;
+                end
+                interp.driverHandle:RunAttribute("SetSwitch", arg, value);
             elseif (kind == "unit") then
                 if (arg ~= "unitframe") then
                     local unit = UnitAt(cells, arg);
@@ -235,39 +246,56 @@ return function(DebindPrivate, _, ctx)
     -- The two answers
     ---------------------------------------------------------------------------
 
-    local HELD = { ["ALT-F1"] = "FOCUSCAST", ["CTRL-F1"] = "SELFCAST", ["ALT-CTRL-F1"] = "SELFCAST" };
+    local TIER = {
+        ["ALT-F1"] = Constants.CASTMOD_FOCUS,
+        ["CTRL-F1"] = Constants.CASTMOD_SELF,
+        ["ALT-CTRL-F1"] = Constants.CASTMOD_SELF,
+    };
 
     local function OutcomeName(outcome, command)
         return command and (outcome .. " " .. command) or tostring(outcome);
     end
 
     --- What the press does with the key in the world as it stands.
+    ---
+    --- **Run under the button name the key's binding carries, not through the override table.** The
+    --- loop lets a key go wherever the item says so, and a press on a key let go reaches nothing of
+    --- ours, so asking the client where it lands would answer the loop rather than the press.
     local function Actual(key)
         local base = key:match("([^%-]+)$");
-        local held = HELD[key];
-        for name in pairs(interp.state.modifiedClick) do
-            interp.state.modifiedClick[name] = nil;
+        local tier = TIER[key];
+        local button = Constants.CLICKTIME_BUTTON_PREFIX .. base;
+        if (tier) then
+            button = string.format("%s#%d", button, tier);
         end
-        if (held) then
-            interp.state.modifiedClick[held] = true;
-            if (key == "ALT-CTRL-F1") then
-                interp.state.modifiedClick.FOCUSCAST = true;
-            end
-        end
-        local record, bindings = interp:winningRecord(base);
-        check(record ~= false, key .. " reached no binding of ours");
-        check(record ~= nil, key .. ": nothing won, though every tier ends in a block");
+        local bindings = interp.env.ClickTimeKeys[button];
+        check(bindings, key .. " has no records under " .. button);
+        local _, index = interp.driverHandle:RunAttribute("EvalClickTimeKey", button);
+        local record = index and bindings[index];
+        check(record, key .. ": nothing won, though every tier ends in a block");
         if (record.tail == Constants.UNUSED) then
             return Judgment.RELEASE;
         elseif (record.tail == Constants.COMMAND) then
             return OutcomeName(Judgment.COMMAND, record.command);
         end
-        if (held) then
-            local closing = held == "SELFCAST" and bindings[bindings.focusFrom - 1]
+        if (tier) then
+            local closing = tier == Constants.CASTMOD_SELF and bindings[bindings.focusFrom - 1]
                 or bindings[bindings.noneFrom - 1];
             if (record == closing) then
                 return Actual(base) == Judgment.OURS and Judgment.OURS or Judgment.RELEASE;
             end
+        end
+        return Judgment.OURS;
+    end
+
+    --- What the key is bound to after a beat, in the item's words.
+    local function Looped(key)
+        interp:beat();
+        local entry = interp.bindings[key];
+        if (not entry) then
+            return Judgment.RELEASE;
+        elseif (entry.command) then
+            return OutcomeName(Judgment.COMMAND, entry.command);
         end
         return Judgment.OURS;
     end
@@ -331,14 +359,14 @@ return function(DebindPrivate, _, ctx)
             if (i > #columns) then
                 if (Apply(columns, cells)) then
                     reached = reached + 1;
-                    local want, got = Expected(key, cells), Actual(key);
-                    if (want ~= got) then
+                    local want, got, looped = Expected(key, cells), Actual(key), Looped(key);
+                    if (want ~= got or want ~= looped) then
                         local parts = {};
                         for _, column in ipairs(columns) do
                             parts[#parts + 1] = column.key .. "=" .. cells[column.key];
                         end
-                        error(string.format("%s at {%s}: the item says %s, the press %s", key,
-                            table.concat(parts, ", "), want, got), 0);
+                        error(string.format("%s at {%s}: the item says %s, the press %s, the loop %s",
+                            key, table.concat(parts, ", "), want, got, looped), 0);
                     end
                     outcomes[got] = true;
                 end

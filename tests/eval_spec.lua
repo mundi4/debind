@@ -393,7 +393,9 @@ return function(DebindPrivate, _, ctx)
     end);
 
     -- **Unused wins by having nothing to fire.** A key whose conditional action does not match
-    -- falls through to it, and the press answers with no button at all.
+    -- falls through to it, and the press answers with no button at all. Asked under the key's own
+    -- button name, since the loop lets the key go in that same state and a press then reaches
+    -- nothing of ours (`judgmentloop_spec.lua`).
     test("unused wins the key and fires nothing", function()
         Bind({
             action({ value = 585, key = "F1", conditions = { combat = true } }),
@@ -401,10 +403,11 @@ return function(DebindPrivate, _, ctx)
         });
 
         interp.state.combat = true;
+        interp:beat();
         check(winner("F1") == 1, "the conditional action did not win in combat");
 
         interp.state.combat = false;
-        local index, button = interp:evalKey("F1");
+        local index, button = interp:evalUnder("F1");
         check(index == nil and button == nil, "unused fired something: " .. tostring(button));
         interp:resetState();
     end);

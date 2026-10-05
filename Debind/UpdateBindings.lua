@@ -382,6 +382,11 @@ wipe(ClickTimeTiers)
 -- given back, which is what the game is in after this.
 wipe(BoundKeys)
 wipe(GivenBackNow)
+wipe(JudgeColumns)
+wipe(JudgeBundles)
+wipe(JudgeByKey)
+wipe(JudgeWakes)
+JudgeReady = false
 -- `ApplyGiveBack` bakes it again from the set as it stands, below.
 wipe(ContextKeys)
 for _, byMod in pairs(ClickCastKeys) do
@@ -494,10 +499,13 @@ end
 
 --- Which state driver events this rebuild wants, and which it wants gone.
 ---
---- **Keys Given Back is the only reader left.** A condition is measured at the press, so no event
---- has to reach us for one; what these wake is `SecureStateDriverManager`'s evaluation of the
---- `state-giveback` attribute driver, which has to be current the moment a vehicle takes the bar
---- (`giving-keys-back.md` §4). Every event the state loop used to ask for went with it.
+--- **Two readers.** Keys Given Back, whose `state-giveback` attribute driver has to be current the
+--- moment a vehicle takes the bar (`giving-keys-back.md` §4); and the loop that binds a tail key,
+--- whose beat is the manager's own (`JudgeKeys`). An event on the manager puts its timer to zero,
+--- so the column it announces is measured on the next frame rather than up to a beat later.
+---
+--- **Only what the manager does not already listen to.** Combat, stealth, the shape, the bonus bar,
+--- the group, the target and the focus are on its own list (`SecureStateDriver.lua`).
 ---
 --- The order here is the order they are applied in. It is written out rather than walked out of a
 --- table, so what a rebuild emits does not depend on `pairs`.
@@ -506,14 +514,41 @@ local function CollectDriverEvents(events)
         events[#events + 1] = { name = name, register = register and true or false };
     end
 
-    local givesBackOnReplacedBar = DebindPrivate.GiveBackOnReplacedBar();
-    want("UPDATE_OVERRIDE_ACTIONBAR", givesBackOnReplacedBar);
-    want("UPDATE_VEHICLE_ACTIONBAR", givesBackOnReplacedBar);
+    local judged, units = {}, {};
+    for _, item in pairs(DebindPrivate.JudgmentItems) do
+        for _, column in ipairs(item.columns) do
+            judged[column.kind] = true;
+            if (column.kind == "unit") then
+                units[column.arg] = true;
+            end
+        end
+    end
 
-    -- Both, because the client splits a pet battle into the two.
-    local battle = DebindPrivate.GiveBackInPetBattle();
+    -- **Fires when a mouseover unit appears, never when one goes away**, so the cursor leaving a
+    -- unit for empty space waits for the beat.
+    want("UPDATE_MOUSEOVER_UNIT", units.mouseover);
+    -- Every unit cell carries the reaction, the pointed frame's included.
+    want("UNIT_FACTION", judged.unit);
+
+    local givesBackOnReplacedBar = DebindPrivate.GiveBackOnReplacedBar();
+    want("UPDATE_OVERRIDE_ACTIONBAR", givesBackOnReplacedBar or judged.specialbar);
+    want("UPDATE_VEHICLE_ACTIONBAR", givesBackOnReplacedBar or judged.specialbar);
+    want("UPDATE_EXTRA_ACTIONBAR", judged.extrabar);
+    want("PLAYER_MOUNT_DISPLAY_CHANGED", judged.mounted);
+
+    -- The pair is what the client splits a move into: `ZONE_CHANGED_INDOORS` is the doorway and
+    -- `ZONE_CHANGED` the rest. What a zone allows to fly lags the world by design, and every mount
+    -- macro answers off the same delay.
+    want("ZONE_CHANGED", judged.indoors or judged.flyable or judged.advflyable);
+    want("ZONE_CHANGED_INDOORS", judged.indoors);
+    want("ZONE_CHANGED_NEW_AREA", judged.flyable or judged.advflyable);
+
+    -- Both, because the client splits a pet battle into the two. `specialbar` folds a battle in.
+    local battle = DebindPrivate.GiveBackInPetBattle() or judged.petbattle or judged.specialbar;
     want("PET_BATTLE_OPENING_START", battle);
     want("PET_BATTLE_CLOSE", battle);
+
+    want("SPELLS_CHANGED", judged.known);
 
     return events;
 end
@@ -582,6 +617,9 @@ local function BuildBindingPlan(ctx)
 
     CollectDriverEvents(plan.events);
 
+    --- Does any key hold a tail, and so need the loop (`JudgeKeys`) and its beat?
+    plan.judges = next(DebindPrivate.JudgmentItems) ~= nil;
+
     return plan;
 end
 
@@ -649,6 +687,9 @@ local function ApplyGiveBack(driver, giveBack)
     SecureHandlerExecute(driver, [[self:RunAttribute("UpdateGivenBackKeys")]]);
 end
 
+--- The state driver events a rebuild registered and no rebuild has taken back since.
+local _driverEventsOurs = {};
+
 --- Hands the plan to the game. **The only step of a rebuild with an effect on the secure side**,
 --- once the two stages that still leave stamping inside the build are done.
 local function ApplyBindingPlan(plan)
@@ -706,12 +747,16 @@ local function ApplyBindingPlan(plan)
         ]]);
     end
 
+    --- **Only an event this addon registered is unregistered.** The manager is Blizzard's and shared
+    --- with every addon, and one of them may have asked for the same event for its own drivers.
     for i = 1, #plan.events do
         local entry = plan.events[i];
         if (entry.register) then
             SecureStateDriverManager:RegisterEvent(entry.name);
-        else
+            _driverEventsOurs[entry.name] = true;
+        elseif (_driverEventsOurs[entry.name]) then
             SecureStateDriverManager:UnregisterEvent(entry.name);
+            _driverEventsOurs[entry.name] = nil;
         end
     end
     --- **`updatetime` is Blizzard's and nobody here writes it** (2026-09-19, owner). Every moment
@@ -723,6 +768,30 @@ local function ApplyBindingPlan(plan)
     SecureHandlerExecute(driver, [[
         self:RunAttribute("UpdateAllUnits")
     ]]);
+
+    --- **The loop's first pass measures every column and binds every tail key**, after the aliases
+    --- and the switches it reads are back. Before `ApplyGiveBack`, whose keys go over from wherever
+    --- this leaves them and come back on what it judged.
+    ---
+    --- **The attribute goes to `0` first.** The unit watch writes `true` only where the value
+    --- differs, and a `true` left over from before the loop was there would never be written again.
+    --- `1` is the pass itself, run by the handler like any wake.
+    if (plan.judges) then
+        SecureHandlerExecute(driver, [[
+            self:SetAttribute("state-unitexists", 0)
+            self:SetAttribute("state-unitexists", 1)
+        ]]);
+    end
+
+    --- **Only on a change.** Registering again is not silent: Blizzard's handler measures the frame
+    --- on the spot and writes the attribute (`SecureStateDriver.lua`, `addwatchstate`).
+    if (plan.judges ~= UnitWatchRegistered(driver)) then
+        if (plan.judges) then
+            RegisterUnitWatch(driver, true);
+        else
+            UnregisterUnitWatch(driver);
+        end
+    end
 
     ApplyGiveBack(driver, plan.giveBack);
 end
@@ -2291,8 +2360,489 @@ local function JudgmentEntryFor(binding, record, tier)
     return Judgment.Entry(record, outcome, record.command);
 end
 
+--- What a wake's own attribute is called: this, then the wake's name (`JudgeWakes`).
+local JUDGE_WAKE_PREFIX = "judge-";
+
+--- The wake of ours that moves a column, or nil where only Blizzard's beat does. The pointed
+--- frame's columns move with the cursor, a switch with `SetSwitch` and an alias with `SetUnit`.
+local function JudgmentWakeOf(column)
+    local kind, arg = column.kind, column.arg;
+    if (kind == "role" or kind == "frameType") then
+        return "unitframe";
+    elseif (kind == "unit" or kind == "unitgroup") then
+        if (arg == "unitframe" or SPECIAL_UNITS[arg]) then
+            return arg;
+        end
+    elseif (kind == "switch") then
+        return arg;
+    end
+    return nil;
+end
+
+--- Does the beat measure this column again? Everything but a switch set by hand, which nothing but
+--- `SetSwitch` moves. A computed one is worked out from the world, like any state.
+local function JudgedOnBeat(column)
+    if (column.kind ~= "switch") then
+        return true;
+    end
+    local info = _switches[column.arg];
+    return (info and info.mode == SWITCH_MODES.EXPR) and true or false;
+end
+
+local _judgmentKeys = {};
+local _judgmentColumns = {};
+local _judgmentColumnIndex = {};
+--- The columns this rebuild handed the loop, by their index in `JudgeColumns`.
+local _judgmentColumnOrder = {};
+
+--- Every column the judgment items read, once each, as `column key -> column`.
+local function CollectJudgmentColumns(items, out)
+    wipe(out);
+    for _, item in pairs(items) do
+        for _, column in ipairs(item.columns) do
+            out[column.key] = column;
+        end
+    end
+    return out;
+end
+
+--- What an item says, as a string two items share exactly when the loop would judge them alike:
+--- the same checks on the same columns giving the same outcomes, and, for a chord, the same base
+--- bundle to follow.
+local function JudgmentSignature(item, baseBundle)
+    local parts = { baseBundle or 0, item.rest.outcome, item.rest.command or "" };
+    for _, entry in ipairs(item.entries) do
+        parts[#parts + 1] = "|" .. entry.outcome .. " " .. (entry.command or "");
+        for _, check in ipairs(entry.checks) do
+            parts[#parts + 1] = _judgmentColumnIndex[item.columns[check.column].key] .. ":" .. check.mask;
+        end
+    end
+    return tconcat(parts, " ");
+end
+
+--- **The items, handed to the loop**: every column once, then each distinct item once as a bundle,
+--- and each key's row pointing at its bundle (§3-3). The bare keys go ahead of the chords made from
+--- them, since a chord's `base` answer is its base key's bundle's of the same pass.
+local function EmitJudgmentItems(items)
+    CollectJudgmentColumns(items, _judgmentColumns);
+    wipe(_judgmentColumnIndex);
+    wipe(_judgmentColumnOrder);
+    for i, key in ipairs(sortedKeys(_judgmentColumns, _sortedB)) do
+        local column = _judgmentColumns[key];
+        _judgmentColumnIndex[key] = i;
+        _judgmentColumnOrder[i] = column;
+        appendLine("c=newtable() c.bundles=newtable() JudgeColumns[%d]=c", i);
+        local wake = JudgmentWakeOf(column);
+        if (wake) then
+            appendLine("JudgeWakes[%q]=%q", wake, JUDGE_WAKE_PREFIX .. wake);
+        end
+    end
+
+    sortedKeys(items, _judgmentKeys);
+    sort(_judgmentKeys, function(a, b)
+        local aChord, bChord = items[a].base ~= nil, items[b].base ~= nil;
+        if (aChord ~= bChord) then
+            return bChord;
+        end
+        return a < b;
+    end);
+
+    local bundleOf, keyBundle, bundles = {}, {}, 0;
+    for _, key in ipairs(_judgmentKeys) do
+        local item = items[key];
+        local baseBundle = item.base and keyBundle[item.base];
+        local signature = JudgmentSignature(item, baseBundle);
+        local n = bundleOf[signature];
+        if (not n) then
+            bundles = bundles + 1;
+            n = bundles;
+            bundleOf[signature] = n;
+            -- Every key it stands for was bound by the line that put the key on, so it starts as
+            -- ours.
+            appendLine([[b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[%d]=b]], n);
+            appendLine("b.restOutcome=%q", item.rest.outcome);
+            if (item.rest.command) then
+                appendLine("b.restCommand=%q", item.rest.command);
+            end
+            if (baseBundle) then
+                appendLine("b.base=JudgeBundles[%d]", baseBundle);
+            end
+            -- The columns its checks read, which is what has to wake it. One the item's boxes
+            -- merged away decides nothing for it.
+            local reads, readOrder = {}, {};
+            for e, entry in ipairs(item.entries) do
+                appendLine("e=newtable() e.outcome=%q b[%d]=e", entry.outcome, e);
+                if (entry.command) then
+                    appendLine("e.command=%q", entry.command);
+                end
+                for k, check in ipairs(entry.checks) do
+                    local index = _judgmentColumnIndex[item.columns[check.column].key];
+                    appendLine("e[%d]=JudgeColumns[%d] e[%d]=%d", 2 * k - 1, index, 2 * k, check.mask);
+                    if (not reads[index]) then
+                        reads[index] = true;
+                        readOrder[#readOrder + 1] = index;
+                    end
+                end
+            end
+            sort(readOrder);
+            for _, index in ipairs(readOrder) do
+                appendLine("tinsert(JudgeColumns[%d].bundles,b)", index);
+            end
+        end
+        keyBundle[key] = n;
+        appendLine([[j=newtable() j.key=%1$q j.slot=BoundKeys[%1$q] j.bound="ours" j.bundle=JudgeBundles[%2$d] ]]
+            .. [[JudgeByKey[%1$q]=j tinsert(JudgeBundles[%2$d].keys,j)]], key, n);
+    end
+end
+
+--- Kinds whose cell is a boolean state measured by `Constants.STATE_EVAL_EXPRESSIONS` under the same
+--- name. The local takes the name too, because that is what `PROBE.MockState` reads the mock under.
+local JUDGED_BOOL_STATES = {
+    combat = true, stealth = true, mounted = true, indoors = true, flyable = true, advflyable = true,
+    flying = true, skyriding = true, extrabar = true, petbattle = true,
+};
+
+--- Kinds whose cell is `2 ^ value`, or the value itself, of a state measured under another name.
+local JUDGED_MASK_STATES = { groups = "group", forms = "form", bonusbars = "bonusbar" };
+
+--- **The loop's body, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
+--- §3), which `UpdateAttrChangedHandler` puts straight into the handler: a `RunAttribute` there
+--- would cost an environment swap and a `pcall` on every beat. The measuring half lists each column
+--- the items read, once per wake that moves it, as straight lines, and nothing in it asks what kind
+--- a column is: the beat runs every ~0.2s for as long as a key holds a tail. The judging half is
+--- `SecureBindings.lua`'s `JUDGE_BUNDLES_SNIPPET`.
+---
+--- **Every cell is measured the way the press measures it**, since an item's boxes were built from
+--- the records the press walks: the states out of `Constants.STATE_EVAL_EXPRESSIONS`, the pointed
+--- frame and the computed switches through the press's own splices, and an alias's existence the
+--- way `UnitAliasNeedsExists` answers it. A cell read any other way binds a key to an answer the
+--- press would not give; `judgment_spec.lua` holds the bound key to the item at every point.
+---
+---   `state-unitexists` `true` / `false`: Blizzard's beat. Every column the world moves, the pointed
+---                      frame's included: a raid frame laid out again or a unit dying under a cursor
+---                      that never moved sends neither enter nor leave
+---   `state-unitexists` `1`: the rebuild's own pass. Every column, a switch set by hand too
+---   `judge-<name>`     one of our wakes, `unitframe`, a switch or an alias (`JudgeWakes`). Only what
+---                      it names: whatever else moved has an event that already pulled the next beat
+---                      in
+local function BuildJudgeSnippet()
+    local lines = {};
+    local function add(str, ...)
+        lines[#lines + 1] = select("#", ...) > 0 and format(str, ...) or str;
+    end
+
+    local expr = Constants.STATE_EVAL_EXPRESSIONS;
+    local TRUE, FALSE = Constants.JUDGMENT_TRUE, Constants.JUDGMENT_FALSE;
+
+    local function computed(column)
+        local info = _switches[column.arg];
+        return info and info.mode == SWITCH_MODES.EXPR;
+    end
+
+    --- The computed switches `names` read, each after every computed switch its expression reads,
+    --- the way the press orders them (`OrderComputedSwitch`). A cycle is cut where the walk meets it.
+    local function SwitchesToWorkOut(names)
+        local order, seen = {}, {};
+        local function visit(name)
+            if (seen[name]) then
+                return;
+            end
+            seen[name] = true;
+            local info = _switches[name];
+            local parsed = info and _macrotexts[info.expr];
+            if (parsed) then
+                for _, arg in ipairs(parsed.args) do
+                    local other = arg.type == Constants.MACROTEXT_ARG_SWITCH and _switches[arg.name];
+                    if (other and other.mode == SWITCH_MODES.EXPR) then
+                        visit(arg.name);
+                    end
+                end
+            end
+            order[#order + 1] = name;
+        end
+        for _, name in ipairs(names) do
+            visit(name);
+        end
+        return order;
+    end
+
+    --- **Only the computed switches a column reads, and what they read**, each composed and parsed
+    --- the way `COMPUTE_SWITCHES_SNIPPET` does it at the press. That one works out every computed
+    --- switch, a macro body's included, which the beat has no use for. An expression with nothing
+    --- to compose is baked in as the literal the press would parse.
+    local function workOutSwitches(order)
+        for _, name in ipairs(order) do
+            local info = _switches[name];
+            if (_macrotexts[info.expr]) then
+                add("do");
+                add("local entry = SwitchEntries[%q]", name);
+                add("local s");
+                add("local unitframeAlias = unitframeUnit");
+                add("local clickSwitches = JudgeSwitches");
+                add("local pressUnit");
+                lines[#lines + 1] = DebindPrivate.COMPOSE_MACROTEXT_SNIPPET;
+                add("JudgeSwitches[%q] = SecureCmdOptionParse(s) and true or false", name);
+                add("end");
+            else
+                add("JudgeSwitches[%q] = SecureCmdOptionParse(%q) and true or false", name, info.expr);
+            end
+        end
+    end
+
+    local function mark(index)
+        add("c = JudgeColumns[%d]", index);
+        add("if (c.cell ~= cell) then");
+        add("c.cell = cell");
+        add("moved = true");
+        add("for k = 1, #c.bundles do");
+        add("c.bundles[k].stamp = generation");
+        add("end");
+        add("end");
+    end
+
+    local function unitCell()
+        add("if (not exists) then");
+        add("cell = %d", Constants.UNITSTATE_NONE);
+        add("else");
+        add("local dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false");
+        add("PROBE.MockUnitDead(unit)");
+        add("if (PlayerCanAssist(unit)) then");
+        add("cell = dead and %d or %d", Constants.UNITSTATE_HELP_DEAD, Constants.UNITSTATE_HELP_ALIVE);
+        add("elseif (PlayerCanAttack(unit)) then");
+        add("cell = dead and %d or %d", Constants.UNITSTATE_HARM_DEAD, Constants.UNITSTATE_HARM_ALIVE);
+        add("else");
+        add("cell = dead and %d or %d", Constants.UNITSTATE_OTHER_DEAD, Constants.UNITSTATE_OTHER_ALIVE);
+        add("end");
+        add("end");
+    end
+
+    local function unitGroupCell()
+        add("cell = %d", Constants.UNITGROUPCELL_NEITHER);
+        add("if (exists) then");
+        add("local raid = UnitPlayerOrPetInRaid(unit)");
+        add("local party = UnitPlayerOrPetInParty(unit)");
+        add([[local group = (raid and (party and "both" or "raid")) or (party and "party") or "neither"]]);
+        add("PROBE.MockUnitGroup(unit)");
+        add([[if (group == "both") then]]);
+        add("cell = %d", Constants.UNITGROUPCELL_BOTH);
+        add([[elseif (group == "raid") then]]);
+        add("cell = %d", Constants.UNITGROUPCELL_RAID);
+        add([[elseif (group == "party") then]]);
+        add("cell = %d", Constants.UNITGROUPCELL_PARTY);
+        add("end");
+        add("end");
+    end
+
+    local function otherCell(column)
+        local kind = column.kind;
+        if (JUDGED_BOOL_STATES[kind]) then
+            add("local %s = %s", kind, expr[kind]);
+            add("PROBE.MockState(%s)", kind);
+            add("cell = %s and %d or %d", kind, TRUE, FALSE);
+        elseif (kind == "specialbar") then
+            add("local specialbar = %s", expr.specialbar);
+            add("if (not specialbar) then");
+            add("local petbattle = %s", expr.petbattle);
+            add("PROBE.MockState(petbattle)");
+            add("specialbar = petbattle");
+            add("end");
+            add("PROBE.MockState(specialbar)");
+            add("cell = specialbar and %d or %d", TRUE, FALSE);
+        elseif (JUDGED_MASK_STATES[kind]) then
+            local state = JUDGED_MASK_STATES[kind];
+            add("local %s = %s", state, expr[state]);
+            add("PROBE.MockState(%s)", state);
+            if (kind == "groups") then
+                add("cell = %s", state);
+            else
+                add("cell = 2 ^ (%s or 0)", state);
+            end
+        elseif (kind == "known") then
+            if (column.knownID) then
+                add("if (SecureCmdOptionParse(%q) or FindSpellBookSlotBySpellID(%d)) then", column.arg,
+                    column.knownID);
+            else
+                add("if (SecureCmdOptionParse(%q)) then", column.arg);
+            end
+            add("cell = %d", TRUE);
+            add("else");
+            add("cell = %d", FALSE);
+            add("end");
+        elseif (kind == "switch") then
+            if (computed(column)) then
+                add("local value = JudgeSwitches[%q]", column.arg);
+            else
+                add("local value = States[%q]", column.arg);
+            end
+            add("if (value == true) then");
+            add("cell = %d", TRUE);
+            add("elseif (value == false) then");
+            add("cell = %d", FALSE);
+            add("else");
+            add("cell = %d", Constants.JUDGMENT_SWITCH_UNSET);
+            add("end");
+        elseif (kind == "frameType") then
+            add("cell = unitframeFrameType or %d", Constants.JUDGMENT_FRAMETYPE_NOFRAME);
+        elseif (kind == "role") then
+            add([[if (unitframeRole == "tank") then]]);
+            add("cell = %d", Constants.ROLE_TANK);
+            add([[elseif (unitframeRole == "healer") then]]);
+            add("cell = %d", Constants.ROLE_HEALER);
+            add([[elseif (unitframeRole == "damager") then]]);
+            add("cell = %d", Constants.ROLE_DAMAGER);
+            add([[elseif (unitframeRole == "norole") then]]);
+            add("cell = %d", Constants.ROLE_NONE);
+            add("else");
+            add("cell = %d", Constants.JUDGMENT_ROLE_UNMEASURED);
+            add("end");
+        else
+            error("no measurement for a judgment column of kind " .. tostring(kind));
+        end
+    end
+
+    --- One branch's columns, in index order, a unit's two columns sharing what it measured.
+    local function measure(list)
+        local readsFrame = false;
+        local switches = {};
+        for _, i in ipairs(list) do
+            local column = _judgmentColumnOrder[i];
+            local kind = column.kind;
+            if (kind == "role" or kind == "frameType"
+                    or ((kind == "unit" or kind == "unitgroup") and column.arg == "unitframe")) then
+                readsFrame = true;
+            elseif (kind == "switch" and computed(column)) then
+                switches[#switches + 1] = column.arg;
+            end
+        end
+        local order = SwitchesToWorkOut(switches);
+        -- A composed switch can aim at the pointed frame's unit, so it reads that too.
+        for _, name in ipairs(order) do
+            readsFrame = readsFrame or _macrotexts[_switches[name].expr] and true or false;
+        end
+        if (readsFrame) then
+            add("local unitframe = States.unitframe");
+            add("local unitframeUnit");
+            lines[#lines + 1] = DebindPrivate.READ_UNITFRAME_SNIPPET;
+        end
+        workOutSwitches(order);
+
+        local units, unitOrder = {}, {};
+        for _, i in ipairs(list) do
+            local column = _judgmentColumnOrder[i];
+            if (column.kind == "unit" or column.kind == "unitgroup") then
+                local unit = column.arg;
+                if (not units[unit]) then
+                    units[unit] = {};
+                    unitOrder[#unitOrder + 1] = unit;
+                end
+                units[unit][column.kind] = i;
+            end
+        end
+        for _, unit in ipairs(unitOrder) do
+            add("do");
+            if (unit == "unitframe") then
+                add("local unit = unitframeUnit");
+                add("local exists = unit and true or false");
+            elseif (SPECIAL_UNITS[unit]) then
+                add("local unit = UnitAliasMap[%q]", unit);
+                if (DebindPrivate.ALIAS_NEEDS_EXISTS[unit]) then
+                    add("local exists = unit and UnitExists(unit) and true or false");
+                else
+                    add("local exists = unit and true or false");
+                end
+            else
+                add("local unit = %q", unit);
+                add("local exists = UnitExists(unit) and true or false");
+            end
+            if (units[unit].unit) then
+                unitCell();
+                mark(units[unit].unit);
+            end
+            if (units[unit].unitgroup) then
+                unitGroupCell();
+                mark(units[unit].unitgroup);
+            end
+            add("end");
+        end
+
+        for _, i in ipairs(list) do
+            local column = _judgmentColumnOrder[i];
+            if (column.kind ~= "unit" and column.kind ~= "unitgroup") then
+                add("do");
+                otherCell(column);
+                mark(i);
+                add("end");
+            end
+        end
+    end
+
+    local beat, byHand, wakes, wakeOrder = {}, {}, {}, {};
+    for i, column in ipairs(_judgmentColumnOrder) do
+        if (JudgedOnBeat(column)) then
+            beat[#beat + 1] = i;
+        else
+            byHand[#byHand + 1] = i;
+        end
+        local wake = JudgmentWakeOf(column);
+        if (wake) then
+            if (not wakes[wake]) then
+                wakes[wake] = {};
+                wakeOrder[#wakeOrder + 1] = wake;
+            end
+            local list = wakes[wake];
+            list[#list + 1] = i;
+        end
+    end
+    sort(wakeOrder);
+
+    -- The beat's attribute goes back to `0` after every tick, or the unit watch never writes it
+    -- again; putting it back enters the handler a second time, and the first line turns that round.
+    add("local wake");
+    add([[if (name == "state-unitexists") then]]);
+    add("if (value == 0) then");
+    add("return");
+    add("end");
+    add([[self:SetAttribute("state-unitexists", 0)]]);
+    add("wake = value");
+    for _, wake in ipairs(wakeOrder) do
+        add("elseif (name == %q) then", JUDGE_WAKE_PREFIX .. wake);
+        add("wake = %q", wake);
+    end
+    add("end");
+    add("if (wake ~= nil) then");
+    add("JudgeGeneration = JudgeGeneration + 1");
+    add("local generation = JudgeGeneration");
+    add("local moved = false");
+    add("local c, cell");
+    add("if (wake == 1 or ((wake == true or wake == false) and JudgeReady)) then");
+    measure(beat);
+    if (#byHand > 0) then
+        add("if (wake == 1) then");
+        measure(byHand);
+        add("end");
+    end
+    if (#wakeOrder > 0) then
+        add("elseif (not JudgeReady) then");
+        add("return");
+    end
+    for _, wake in ipairs(wakeOrder) do
+        add("elseif (wake == %q) then", wake);
+        measure(wakes[wake]);
+    end
+    add("else");
+    add("return");
+    add("end");
+    lines[#lines + 1] = DebindPrivate.JUDGE_BUNDLES_SNIPPET;
+    add("return");
+    add("end");
+
+    local snippet = DebindPrivate.BakeSnippet(tconcat(lines, "\n"));
+    AssertSnippetCompiles(snippet, "JudgeKeys");
+    return snippet;
+end
+
 function UpdateBindingsMap()
-    appendLine("local bindings,t,u,c");
+    appendLine("local bindings,t,u,c,b,j,e");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;
@@ -2464,6 +3014,11 @@ function UpdateBindingsMap()
                 end
             end
         end
+    end
+
+    -- After the chords, whose `BoundKeys` rows an item points at.
+    if (next(judgmentItems)) then
+        EmitJudgmentItems(judgmentItems);
     end
 
     -- **Emitted after the key loop, because that loop is what stamps them**, and emitted whole
@@ -2639,13 +3194,19 @@ function BuildMacroTextEntries()
     return snippet;
 end
 
---- The driver's `_onattributechanged`, which is one branch: Keys Given Back.
+--- The driver's `_onattributechanged`: Keys Given Back, and the loop that binds a tail key.
 ---
---- **`state-unitexists` went with the state loop.** Nothing measured a value between presses once
---- a computed switch stopped announcing itself, so the pass had nothing to compute and nobody to
---- compute it for. Every condition is measured at the press (`SecureBindings.lua`'s matcher) and
---- every computed switch is worked out there too (`COMPUTE_SWITCHES_SNIPPET`).
+--- **Which action a press fires is still decided at the press** (`SecureBindings.lua`'s matcher).
+--- What the loop measures between presses is only whose a tail key is, because that has to be
+--- standing before the press arrives.
 function UpdateAttrChangedHandler()
+    -- **The loop's beat and our own wakes, first because they are by far the most frequent**
+    -- (`handing-the-rest-of-a-key-to-the-game.md` 2-5). Only where a key holds a tail: anywhere
+    -- else nothing writes those attributes.
+    if (next(DebindPrivate.JudgmentItems)) then
+        appendLine(BuildJudgeSnippet());
+    end
+
     -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the
     -- driver on its own beat and writes this attribute only when the value moves, so this branch is
     -- one transition and not a poll (`giving-keys-back.md` §4). The value itself says

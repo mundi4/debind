@@ -7856,14 +7856,14 @@ RegisterTest("State injection: combat-only binding", {
     end,
 })
 
--- **A saved command wins its key and does nothing** (`dropping-the-game-fallback.md` §3).
--- Which record wins is headless (`tests/loopoff_spec.lua`); what is left for the client is that the
--- block goes through the real wrapper and reports, and that the key is ours rather than the game's
--- while it does nothing.
-RegisterTest("Blocked command: the key is ours and the press does nothing", {
-    description = "A saved command stands on its key as a block: bound to our button, firing nothing",
+-- **A block wins its key and does nothing**, which is what a command or an unused saved before the
+-- tail actions came back is migrated to (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Which
+-- record wins is headless; what is left for the client is that the block goes through the real
+-- wrapper and reports, and that the key is ours rather than the game's while it does nothing.
+RegisterTest("Block: the key is ours and the press does nothing", {
+    description = "A block stands on its key: bound to our button, firing nothing",
     run = function()
-        local NAME = "Blocked command"
+        local NAME = "Block"
         local KEY = "CTRL-SHIFT-F12"
 
         if InCombatLockdown() then
@@ -7875,7 +7875,7 @@ RegisterTest("Blocked command: the key is ours and the press does nothing", {
             return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
-        InsertAction({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = KEY })
+        InsertAction({ type = Constants.BLOCK, key = KEY })
         ApplyBindings()
 
         local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
@@ -7896,6 +7896,58 @@ RegisterTest("Blocked command: the key is ours and the press does nothing", {
         end
 
         return Pass(NAME, "bound to our button, and the block won the press")
+    end,
+})
+
+-- **The loop runs on Blizzard's beat** (`handing-the-rest-of-a-key-to-the-game.md` 2-5). What a
+-- tail key is bound to in each state is headless (`tests/judgment_spec.lua`,
+-- `tests/judgmentloop_spec.lua`), where the beat is a spec writing the attribute. What is left for
+-- the client is that the unit watch on the driver delivers it at all, and that the restricted
+-- `SetBinding` and `ClearBinding` take.
+RegisterTest("Tail: the beat takes the key and hands it back to the command", {
+    description = "A key holding a command under a combat action follows the injected combat on the beat alone",
+    run = function()
+        local NAME = "Tail beat"
+        local KEY = "CTRL-SHIFT-F12"
+        local COMMAND = "TOGGLEWORLDMAP"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY })
+        ApplyBindings()
+
+        -- Ends in a rebuild, whose own pass judges the key at peace.
+        SetMockState("combat", false)
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound ~= COMMAND then
+            return Fail(NAME, format("at peace the key answers %q, it should be the command", bound))
+        end
+
+        -- **Written past `SetMockState`, which ends in a rebuild.** A rebuild judges every tail key
+        -- itself, so only a value moved with none behind it is one the beat has to carry.
+        SecureHandlerExecute(DebindPrivate.BindingDriver, [[MockStatesMap["combat"] = true]])
+        if not WaitUntil(function()
+            return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK "
+        end, 2) then
+            return Fail(NAME, format("no beat took the key in combat, it answers %q",
+                GetBindingAction(KEY, true) or ""))
+        end
+
+        SecureHandlerExecute(DebindPrivate.BindingDriver, [[MockStatesMap["combat"] = false]])
+        if not WaitUntil(function() return GetBindingAction(KEY, true) == COMMAND end, 2) then
+            return Fail(NAME, format("no beat handed the key back at peace, it answers %q",
+                GetBindingAction(KEY, true) or ""))
+        end
+
+        return Pass(NAME, "the beat took the key in combat and handed it back to the command")
     end,
 })
 

@@ -83,7 +83,11 @@ return function(DebindPrivate, _, ctx)
 
     -- Asked of `KeyMap` rather than of a list written here, so a key the fixture gains is asked too.
     -- A key whose every record is click-cast only holds no key record and is left to the frame.
-    test("every key of the emission fixture that holds a key record is ours", function()
+    --
+    -- **A key holding a tail is the one exception, and the reader put it there.** Its judgment item
+    -- decides whose it is from state to state (`handing-the-rest-of-a-key-to-the-game.md` 2-2), and
+    -- `judgment_spec.lua` holds what it is bound to.
+    test("every key of the emission fixture that holds a key record and no tail is ours", function()
         local fixture = assert(loadfile(ctx.root .. "/emit_fixture.lua"))()(DebindPrivate, shim);
         fixture.install();
         Rebuild();
@@ -94,7 +98,7 @@ return function(DebindPrivate, _, ctx)
             for i = 1, #bindings do
                 holds = holds or bindings[i].holdsKey;
             end
-            if (holds) then
+            if (holds and not DebindPrivate.JudgmentItems[key]) then
                 asked = asked + 1;
                 if (not IsOurs(key)) then
                     notOurs[#notOurs + 1] = key .. "=" .. Bound(key);
@@ -107,7 +111,8 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- The three ways a key used to be handed back
+    -- The three ways a key used to be handed back. The gap no longer does; an unused or a command
+    -- does again, from where the reader put it
     ---------------------------------------------------------------------------
 
     -- The gap after the last action. Both halves are asked, so a key that never moves cannot pass.
@@ -123,8 +128,9 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- An unused stands where it was put, and nothing under it is reached by a plain press
-    -- (`handing-the-rest-of-a-key-to-the-game.md` 2-1).
+    -- An unused stands where it was put: from its place the key is the game's, and nothing under it
+    -- is reached by a plain press (`handing-the-rest-of-a-key-to-the-game.md` 2-1). The press is
+    -- asked under the key's own button name, since the key let go reaches nothing of ours.
     test("an unused action stands where it is and cuts off the action under it", function()
         Bind({
             action({ value = 585, key = "F1", conditions = { combat = true } }),
@@ -132,15 +138,15 @@ return function(DebindPrivate, _, ctx)
             action({ value = 774, key = "F1" }),
         });
 
-        check(IsOurs("F1"), "the key is not ours: " .. Bound("F1"));
-        check(interp:evalKey("F1") == nil, "the action saved under the unused one fired");
+        check(interp.bindings.F1 == nil, "the key was not let go: " .. Bound("F1"));
+        check(interp:evalUnder("F1") == nil, "the action saved under the unused one fired");
     end);
 
-    test("a command holds the key and does nothing", function()
+    test("a command hands the key to the command and the press does nothing", function()
         Bind({ action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F1" }) });
 
-        check(IsOurs("F1"), "the key is not ours: " .. Bound("F1"));
-        check(interp:evalKey("F1") == nil, "the press did something");
+        check(Bound("F1") == "TOGGLEWORLDMAP", "the key is not on the command: " .. Bound("F1"));
+        check(interp:evalUnder("F1") == nil, "the press did something");
     end);
 
     ---------------------------------------------------------------------------

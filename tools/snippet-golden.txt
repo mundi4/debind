@@ -120,6 +120,29 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+
+
+
+
+	JudgeColumns = newtable()
+	JudgeBundles = newtable()
+	JudgeByKey = newtable()
+	JudgeWakes = newtable()
+	JudgeWakeSerial = 0
+
+
+	JudgeSwitches = newtable()
+	JudgeGeneration = 0
+	JudgeReady = false
+
+
+
+
 	ContextKeys = newtable()
 
 
@@ -231,8 +254,13 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (States[name] ~= value) then
 		if (not _switchesUpdating[name]) then
 			_switchesUpdating[name] = true
-			
+
 			States[name] = value
+			local wake = JudgeWakes[name]
+			if (wake) then
+				JudgeWakeSerial = JudgeWakeSerial + 1
+				self:SetAttribute(wake, JudgeWakeSerial)
+			end
 
 			self:CallMethod("OnSwitchChanged", name, value)
 			_switchesUpdating[name] = false
@@ -267,6 +295,14 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (not force and alias ~= "unitframe") then
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
 		end
+
+
+
+		local wake = alias ~= "unitframe" and JudgeWakes[alias]
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			self:SetAttribute(wake, JudgeWakeSerial)
+		end
 	end
 
 
@@ -299,6 +335,11 @@ DelegateFrameNames[frame] = frame:GetName()
 		owned[i] = unit
 	end
 
+	local wake = JudgeWakes.unitframe
+	if (wake) then
+		JudgeWakeSerial = JudgeWakeSerial + 1
+		self:SetAttribute(wake, JudgeWakeSerial)
+	end
 
 
 ### SecureBindings.lua #6 SetAttribute
@@ -388,15 +429,30 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
 	for key, bindings in pairs(BoundKeys) do
 		local base = bindings.base
 		local want = (GivenBackNow[key] or (base and GivenBackNow[base])) and true or nil
 		if (want ~= bindings.givenBack) then
 			bindings.givenBack = want
+			local row = JudgeByKey[key]
+			local judged = row and row.bundle.want
 			if (want) then
 				self:ClearBinding(key)
-			else
+				if (row) then
+					row.bound = "release"
+				end
+			elseif (not row or judged == "ours") then
 				self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickButton)
+				if (row) then
+					row.bound = "ours"
+				end
+			elseif (judged ~= "release") then
+				self:SetBinding(true, key, judged)
+				row.bound = judged
 			end
 		end
 	end
@@ -429,6 +485,11 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (info == States.unitframe) then
 			States.unitframe = nil
 			debind_driver:RunAttribute("SetUnit", "unitframe", nil)
+			local wake = JudgeWakes.unitframe
+			if (wake) then
+				JudgeWakeSerial = JudgeWakeSerial + 1
+				debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			end
 		end
 		info.frame = nil
 	end
@@ -474,6 +535,11 @@ DelegateFrameNames[frame] = frame:GetName()
 		unitframe.role = role
 		States.unitframe = unitframe
 		debind_driver:RunAttribute("SetUnit", "unitframe", unit)
+		local wake = JudgeWakes.unitframe
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+		end
 	end
 
 	end
@@ -484,6 +550,11 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (unitframe) then
 		States.unitframe = nil
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
+		local wake = JudgeWakes.unitframe
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+		end
 	end
 
 
@@ -492,6 +563,11 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (unitframe) then
 		States.unitframe = nil
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
+		local wake = JudgeWakes.unitframe
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+		end
 	end
 	local over = Overs[self]
 	if (over and over.pre) then
@@ -5506,6 +5582,11 @@ wipe(ClickTimeTiers)
 
 wipe(BoundKeys)
 wipe(GivenBackNow)
+wipe(JudgeColumns)
+wipe(JudgeBundles)
+wipe(JudgeByKey)
+wipe(JudgeWakes)
+JudgeReady = false
 
 wipe(ContextKeys)
 for _, byMod in pairs(ClickCastKeys) do
@@ -5561,3 +5642,8 @@ self:RunAttribute("SetUnit", %q, nil)
 ### UpdateBindings.lua #6 SecureHandlerExecute
         self:RunAttribute("UpdateAllUnits")
     
+
+### UpdateBindings.lua #7 SecureHandlerExecute
+            self:SetAttribute("state-unitexists", 0)
+            self:SetAttribute("state-unitexists", 1)
+        

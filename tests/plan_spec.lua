@@ -171,23 +171,43 @@ return function(DebindPrivate)
         end
     end
 
-    -- **An event costs a wake, and nothing of ours reads one any more.** Every condition is
-    -- measured at the press and every computed switch is worked out there, so what a profile
-    -- carries decides nothing here: Keys Given Back is the one reader left, and it is an account
-    -- answer (`giving-keys-back.md` §4).
-    test("a measured condition asks for no event", function()
+    -- **An event costs a wake, and what a press decides reads none.** Every condition is measured at
+    -- the press and every computed switch is worked out there. The two readers are Keys Given Back,
+    -- an account answer (`giving-keys-back.md` §4), and the loop that binds a key holding a tail.
+    -- With no tail, a condition asks for nothing.
+    test("a measured condition on a key with no tail asks for no event", function()
         local plan = PlanFor({
             spell({ key = "F1", conditions = { combat = true, mounted = true } }),
-            { type = Constants.MACROTEXT, key = "F2", value = "/cast [@unitframe] Renew", seq = 1 },
+            { type = Constants.MACROTEXT, key = "F2", value = "/cast [@mouseover] Renew", seq = 1 },
         }, {
             ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
         });
 
-        check(registers(plan, "PLAYER_MOUNT_DISPLAY_CHANGED") == nil,
+        check(registers(plan, "PLAYER_MOUNT_DISPLAY_CHANGED") == false,
             "a mounted condition asked for an event");
-        check(registers(plan, "UPDATE_MOUSEOVER_UNIT") == nil, "hover asked for an event");
+        check(registers(plan, "UPDATE_MOUSEOVER_UNIT") == false, "mouseover asked for an event");
         check(registers(plan, "UPDATE_VEHICLE_ACTIONBAR") == false,
             "the bar event was registered with nothing to give back");
+        check(plan.judges == false, "a key with no tail asked for the loop");
+    end);
+
+    -- **The loop measures on the manager's beat, and an event pulls that beat to the next frame.**
+    -- Each of these is asked for because a column of a tail key's item reads what it announces; the
+    -- negative half is the case above.
+    test("a tail key's columns ask for the events that announce them", function()
+        local plan = PlanFor({
+            spell({ key = "F1", conditions = { mounted = true, known = true } }),
+            spell({ key = "F1", conditions = { units = { mouseover = {} } } }),
+            spell({ key = "F1", type = Constants.UNUSED, value = nil }),
+        });
+
+        check(plan.judges == true, "a key holding a tail did not ask for the loop");
+        check(registers(plan, "PLAYER_MOUNT_DISPLAY_CHANGED") == true, "mounted asked for nothing");
+        check(registers(plan, "UPDATE_MOUSEOVER_UNIT") == true, "mouseover asked for nothing");
+        check(registers(plan, "UNIT_FACTION") == true, "a unit's reaction asked for nothing");
+        check(registers(plan, "SPELLS_CHANGED") == true, "known asked for nothing");
+        check(registers(plan, "UPDATE_EXTRA_ACTIONBAR") == false,
+            "a column nobody reads asked for an event");
     end);
 
     -- The other side of it: the rows that do want a wake still get one.

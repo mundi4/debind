@@ -347,6 +347,7 @@ local specs = {
     { name = "eval", path = root .. "/eval_spec.lua" },
     { name = "castchord", path = root .. "/castchord_spec.lua" },
     { name = "judgment", path = root .. "/judgment_spec.lua" },
+    { name = "judgmentloop", path = root .. "/judgmentloop_spec.lua" },
     { name = "keymap", path = root .. "/keymap_spec.lua" },
     { name = "specid", path = root .. "/specid_spec.lua" },
     { name = "boundkey", path = root .. "/boundkey_spec.lua" },

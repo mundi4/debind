@@ -182,6 +182,9 @@ function handleMethods:SetAttribute(name, value)
     end
     local body = frame:GetAttribute("_onattributechanged");
     if (body) then
+        if (frame == self.__interp.driver) then
+            self.__interp.handlerRuns = self.__interp.handlerRuns + 1;
+        end
         self.__interp:run(body, self, "self,name,value", self.__interp:envFor(frame), name, value);
     end
 end
@@ -225,14 +228,17 @@ function handleMethods:SetBindingClick(priority, key, buttonName, mouseButton)
     self.__interp.bindings[key] = {
         owner = self.__interp.driver, buttonName = buttonName, mouseButton = mouseButton,
     };
+    self.__interp.writes[#self.__interp.writes + 1] = key;
 end
 
 function handleMethods:SetBinding(priority, key, command)
     self.__interp.bindings[key] = { owner = self.__interp.driver, command = command };
+    self.__interp.writes[#self.__interp.writes + 1] = key;
 end
 
 function handleMethods:ClearBinding(key)
     self.__interp.bindings[key] = nil;
+    self.__interp.writes[#self.__interp.writes + 1] = key;
 end
 
 ---------------------------------------------------------------------------
@@ -608,6 +614,16 @@ function Interp:evalKey(key)
     return index, clickbutton, index and self.env.ClickTimeKeys[button][index], unit;
 end
 
+--- **The decision for a bare key run under its own button name, whoever the key is bound to now.**
+--- A tail key the loop let go reaches nothing of ours, so `evalKey` answers nil for it whatever the
+--- press would have picked; this is what asks the press itself. Answers the winner's index and the
+--- button it clicks, both nil where the winner has nothing to click.
+function Interp:evalUnder(key)
+    local clickbutton, index = self.driverHandle:RunAttribute("EvalClickTimeKey",
+        self.Constants.CLICKTIME_BUTTON_PREFIX .. key);
+    return clickbutton and index, clickbutton;
+end
+
 --- **The record that won a press of `key`, a BLOCK or a tail included**, which `evalKey` answers
 --- nil for, and the record list it came from. False where the press reached no binding of ours.
 function Interp:winningRecord(key)
@@ -642,6 +658,23 @@ end
 function Interp:clickFrame(frame, button, down)
     return self:run(self.Private.UnitFrameClickPre, handleFor(self, frame), "self, button, down", nil,
         button, down);
+end
+
+--- **One tick of Blizzard's beat**, as the unit watch on the driver delivers it: `state-unitexists`
+--- written `true` (the driver's unit is the player). The handler puts the attribute back to `0` on
+--- every wake, which is what makes the next tick a change the client reports at all
+--- (`handing-the-rest-of-a-key-to-the-game.md` 2-5).
+function Interp:beat()
+    self.driverHandle:SetAttribute("state-unitexists", true);
+end
+
+--- The keys a restricted body wrote a binding for since the last call, in order, and starts the
+--- list again. **Every write, a write of the value already there included**, which is the half
+--- `bindings` cannot show: a key bound again to what it held reads the same either way.
+function Interp:takeWrites()
+    local writes = self.writes;
+    self.writes = {};
+    return writes;
 end
 
 --- How many times the restricted `UpdateBindings` has run.
@@ -789,6 +822,11 @@ function M.new(DebindPrivate, world)
     --- (`wow_frames.lua`), so a spec that asks the interpreter and a spec that asks the client
     --- cannot be told two different things about the same key.
     interp.bindings = frames.overrides;
+    interp.writes = {};
+    --- How many times the driver's `_onattributechanged` has run. **A handler entry is the cost a
+    --- wake pays and leaves in no value**: one that runs the handler twice binds the same keys as one
+    --- that runs it once.
+    interp.handlerRuns = 0;
     interp.rebuilds = 0;
     interp.parses = {};
     interp.state = {

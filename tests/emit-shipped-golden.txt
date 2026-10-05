@@ -10,6 +10,11 @@ Execute <Frame#2>
   | -- given back, which is what the game is in after this.
   | wipe(BoundKeys)
   | wipe(GivenBackNow)
+  | wipe(JudgeColumns)
+  | wipe(JudgeBundles)
+  | wipe(JudgeByKey)
+  | wipe(JudgeWakes)
+  | JudgeReady = false
   | -- `ApplyGiveBack` bakes it again from the set as it stands, below.
   | wipe(ContextKeys)
   | for _, byMod in pairs(ClickCastKeys) do
@@ -300,7 +305,7 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
 Execute <Frame#2>
-  | local bindings,t,u,c
+  | local bindings,t,u,c,b,j,e
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1875,6 +1880,17 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" BoundKeys["ALT-SHIFT-F12"]=c
   | self:SetBindingClick(true,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" BoundKeys["CTRL-SHIFT-F12"]=c
+  | c=newtable() c.bundles=newtable() JudgeColumns[1]=c
+  | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[1]=b
+  | b.restOutcome="ours"
+  | e=newtable() e.outcome="release" b[1]=e
+  | e[1]=JudgeColumns[1] e[2]=2
+  | tinsert(JudgeColumns[1].bundles,b)
+  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeBundles[1] JudgeByKey["ALT-F5"]=j tinsert(JudgeBundles[1].keys,j)
+  | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[2]=b
+  | b.restOutcome="command"
+  | b.restCommand="TOGGLEWORLDMAP"
+  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeBundles[2] JudgeByKey["F10"]=j tinsert(JudgeBundles[2].keys,j)
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
   | WrappedRelease["deb109"]="deb110"
@@ -1910,6 +1926,96 @@ Execute <Frame#2>
   | t.args[3].reverse=true
   | DeferredMacroTexts["deb115"]=t
 SetAttribute <Frame#2> _onattributechanged =
+  | local wake
+  | if (name == "state-unitexists") then
+  | if (value == 0) then
+  | return
+  | end
+  | self:SetAttribute("state-unitexists", 0)
+  | wake = value
+  | end
+  | if (wake ~= nil) then
+  | JudgeGeneration = JudgeGeneration + 1
+  | local generation = JudgeGeneration
+  | local moved = false
+  | local c, cell
+  | if (wake == 1 or ((wake == true or wake == false) and JudgeReady)) then
+  | do
+  | local combat = PlayerInCombat()
+  | 
+  | cell = combat and 1 or 2
+  | c = JudgeColumns[1]
+  | if (c.cell ~= cell) then
+  | c.cell = cell
+  | moved = true
+  | for k = 1, #c.bundles do
+  | c.bundles[k].stamp = generation
+  | end
+  | end
+  | end
+  | else
+  | return
+  | end
+  | 	if (wake == 1) then
+  | 		JudgeReady = true
+  | 		for n = 1, #JudgeBundles do
+  | 			JudgeBundles[n].stamp = generation
+  | 		end
+  | 	elseif (not moved) then
+  | 		return
+  | 	end
+  | 
+  | 	for n = 1, #JudgeBundles do
+  | 		local bundle = JudgeBundles[n]
+  | 		local base = bundle.base
+  | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
+  | 			local outcome, command = bundle.restOutcome, bundle.restCommand
+  | 			for e = 1, #bundle do
+  | 				local entry = bundle[e]
+  | 				local match = true
+  | 				for c = 1, #entry, 2 do
+  | 					local cell = entry[c].cell
+  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 						match = false
+  | 						break
+  | 					end
+  | 				end
+  | 				if (match) then
+  | 					outcome, command = entry.outcome, entry.command
+  | 					break
+  | 				end
+  | 			end
+  | 			if (outcome == "base") then
+  | 				if (base.want == "ours") then
+  | 					outcome = "ours"
+  | 				else
+  | 					outcome = "release"
+  | 				end
+  | 			end
+  | 			local want = command or outcome
+  | 			if (bundle.want ~= want) then
+  | 				bundle.want = want
+  | 				bundle.changed = generation
+  | 				local rows = bundle.keys
+  | 				for k = 1, #rows do
+  | 					local row = rows[k]
+  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 						row.bound = want
+  | 						if (want == "ours") then
+  | 							self:SetBindingClick(true, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 						elseif (want == "release") then
+  | 							self:ClearBinding(row.key)
+  | 						else
+  | 							self:SetBinding(true, row.key, want)
+  | 						end
+  | 					end
+  | 				end
+  | 			end
+  | 		end
+  | 	end
+  | 
+  | return
+  | end
   | if (name == "state-giveback") then
   |     self:RunAttribute("UpdateGivenBackKeys")
   |     return
@@ -2076,13 +2182,16 @@ Execute <Frame#2>
   |                 unitframe.role = nil
   |             end
   |         
-UnregisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
-UnregisterEvent SecureStateDriverManager UPDATE_VEHICLE_ACTIONBAR
 RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
 RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
 Execute <Frame#2>
   |         self:RunAttribute("UpdateAllUnits")
   |     
+Execute <Frame#2>
+  |             self:SetAttribute("state-unitexists", 0)
+  |             self:SetAttribute("state-unitexists", 1)
+  |         
+RegisterUnitWatch <Frame#2>
 Execute <Frame#2>
   | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
 RegisterAttributeDriver <Frame#2> state-giveback "[petbattle] b; 0"

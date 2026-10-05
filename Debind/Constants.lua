@@ -489,6 +489,21 @@ Constants.FRAMETYPE_ARENA   = 2 ^ 6;
 Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 
 
+-- Judgment Cells
+--
+-- The cells of a judgment item's columns that no condition axis has (`Judgment.lua`). Here rather
+-- than there because the loop measures them in the restricted environment, and the numbers it bakes
+-- have to be the ones the items were built with.
+Constants.JUDGMENT_TRUE          = 2 ^ 0;
+Constants.JUDGMENT_FALSE         = 2 ^ 1;
+-- A switch nobody has written answers neither value at the press (`States[name] ~= v`).
+Constants.JUDGMENT_SWITCH_UNSET  = 2 ^ 2;
+-- Off a party or raid frame, or with no role map up, the press does not test a role at all.
+Constants.JUDGMENT_ROLE_UNMEASURED = 2 ^ 4;
+-- With nothing pointed at, or a frame whose unit is gone, `t.frameTypes` fails whatever it holds.
+Constants.JUDGMENT_FRAMETYPE_NOFRAME = 2 ^ 7;
+
+
 -- Unit States
 --
 -- What one unit can be, as a single axis: absent, or present in one of three ways. Exactly

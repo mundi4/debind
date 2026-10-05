@@ -32,20 +32,17 @@ Judgment.COMMAND = "command";
 --- A chord's own tier had no winner: the chord is ours only while its base key is (2-3).
 Judgment.BASE = "base";
 
-Judgment.TRUE = 1;
-Judgment.FALSE = 2;
-local BOOL_ALL = 3;
+Judgment.TRUE = Constants.JUDGMENT_TRUE;
+Judgment.FALSE = Constants.JUDGMENT_FALSE;
+local BOOL_ALL = Judgment.TRUE + Judgment.FALSE;
 
---- A switch nobody has written answers neither value at the press (`States[name] ~= v`).
-Judgment.SWITCH_UNSET = 4;
-local SWITCH_ALL = 7;
+Judgment.SWITCH_UNSET = Constants.JUDGMENT_SWITCH_UNSET;
+local SWITCH_ALL = BOOL_ALL + Judgment.SWITCH_UNSET;
 
---- Off a party or raid frame, or with no role map up, the press does not test a role at all.
-Judgment.ROLE_UNMEASURED = 2 ^ 4;
+Judgment.ROLE_UNMEASURED = Constants.JUDGMENT_ROLE_UNMEASURED;
 local ROLE_ALL = Constants.ROLE_ALL + Judgment.ROLE_UNMEASURED;
 
---- With nothing pointed at, or a frame whose unit is gone, `t.frameTypes` fails whatever it holds.
-Judgment.FRAMETYPE_NOFRAME = 2 ^ 7;
+Judgment.FRAMETYPE_NOFRAME = Constants.JUDGMENT_FRAMETYPE_NOFRAME;
 local FRAMETYPE_ALL = Constants.FRAMETYPE_ALL + Judgment.FRAMETYPE_NOFRAME;
 
 local BOOL_FIELDS = {
@@ -60,17 +57,26 @@ local MASK_FIELDS = {
     bonusbars = Constants.BONUSBAR_ALL,
 };
 
-local function constrain(out, key, kind, arg, all, mask)
-    out[#out + 1] = { key = key, kind = kind, arg = arg, all = all, mask = band(mask, all) };
+local function constrain(out, key, kind, arg, all, mask, knownID)
+    out[#out + 1] = {
+        key = key, kind = kind, arg = arg, all = all, mask = band(mask, all), knownID = knownID,
+    };
 end
 
 --- What one record tests, as `(column, mask)` pairs. `record` is `BuildKeyRecord`'s.
 ---
 --- **`known` is one column per baked question.** The press asks the conditional and then the book
---- for `knownID`, and the two travel together: the same string always comes with the same id.
+--- for `knownID`, and the two travel together: the same string always comes with the same id. The
+--- id rides on the column because the loop asks both too.
 local function RecordConstraints(record)
     local out = {};
     local names, values = record.fieldNames, record.fieldValues;
+    local knownID;
+    for i = 1, record.fieldCount do
+        if (names[i] == "knownID") then
+            knownID = values[i];
+        end
+    end
     for i = 1, record.fieldCount do
         local name, value = names[i], values[i];
         if (BOOL_FIELDS[name]) then
@@ -78,7 +84,7 @@ local function RecordConstraints(record)
         elseif (MASK_FIELDS[name]) then
             constrain(out, name, name, nil, MASK_FIELDS[name], value);
         elseif (name == "known") then
-            constrain(out, "known " .. value, "known", value, BOOL_ALL, Judgment.TRUE);
+            constrain(out, "known " .. value, "known", value, BOOL_ALL, Judgment.TRUE, knownID);
         elseif (name == "frameTypes") then
             constrain(out, "frameType", "frameType", nil, FRAMETYPE_ALL, value);
         end
@@ -199,7 +205,9 @@ function Judgment.Build(entries, base)
         for _, c in ipairs(entry.constraints) do
             if (not index[c.key]) then
                 index[c.key] = true;
-                columns[#columns + 1] = { key = c.key, kind = c.kind, arg = c.arg, all = c.all };
+                columns[#columns + 1] = {
+                    key = c.key, kind = c.kind, arg = c.arg, all = c.all, knownID = c.knownID,
+                };
             end
         end
     end

@@ -116,6 +116,29 @@ SecureHandlerExecute(BindingDriver, [[
 	GiveBack = newtable()
 	GivenBackNow = newtable()
 
+	-- **What a tail key is bound to, kept current by the loop** (`JudgeKeys`), all rewritten whole
+	-- by the rebuild (`UpdateBindingsMap`). `JudgeColumns` is every column an item reads, each with
+	-- the cell measured last and the bundles reading it. `JudgeBundles` is every distinct item, once
+	-- however many keys it stands for, in the order a pass judges them: a bare key's ahead of the
+	-- chords made from it. `JudgeByKey` is each key's own row, which carries what that key is bound
+	-- to and its bundle. `JudgeReady` says the rebuild's own pass has measured every column, so a
+	-- wake before it has nothing to compare against.
+	--
+	-- `JudgeWakes` is the attribute each wake of ours that some column answers to is written to,
+	-- by the name of the wake. **Not the beat's attribute**: that one goes back to `0` after every
+	-- tick, and putting it back enters the handler again. A wake's own attribute takes
+	-- `JudgeWakeSerial`, a new value every time, so it is a change without being put back.
+	JudgeColumns = newtable()
+	JudgeBundles = newtable()
+	JudgeByKey = newtable()
+	JudgeWakes = newtable()
+	JudgeWakeSerial = 0
+	-- What the loop worked the computed switches it reads out to. Its own, since `ClickSwitches` is
+	-- what one press worked out, for the rest of that press.
+	JudgeSwitches = newtable()
+	JudgeGeneration = 0
+	JudgeReady = false
+
 	-- The keys the game has claimed for a binding context, written by `BakeContextKeys` on every
 	-- transition rather than by a rebuild -- a rebuild cannot cross a lockdown and the house editor
 	-- changes context per mode.
@@ -230,6 +253,8 @@ do
 	-- UnitAliasMap에 넣어준 것 자체가 존재 증거라는 규약이고, 옛 경로(UpdateBindings.lua의
 	-- 유닛 상태 표현식)가 이미 그렇게 갈라져 있다. 여기서 통일하면 조건이 조용히 빡빡해진다.
 	local needsExists = { custom1 = true, custom2 = true };
+	-- The loop's measuring half bakes the same answer in (`BuildJudgeSnippet`).
+	DebindPrivate.ALIAS_NEEDS_EXISTS = needsExists;
 	local lines = {};
 	for alias in pairs(Constants.SPECIAL_UNITS) do
 		lines[#lines + 1] = format("UnitAliasNeedsExists[%q]=%s", alias,
@@ -483,8 +508,13 @@ BindingDriver:SetAttribute("SetSwitch", [[
 	if (States[name] ~= value) then
 		if (not _switchesUpdating[name]) then
 			_switchesUpdating[name] = true
-			
+
 			States[name] = value
+			local wake = JudgeWakes[name]
+			if (wake) then
+				JudgeWakeSerial = JudgeWakeSerial + 1
+				self:SetAttribute(wake, JudgeWakeSerial)
+			end
 
 			self:CallMethod("OnSwitchChanged", name, value)
 			_switchesUpdating[name] = false
@@ -518,6 +548,14 @@ BindingDriver:SetAttribute("SetUnit", [[
 		-- `DebindPrivate.Units.unitframe` is empty from here on.
 		if (not force and alias ~= "unitframe") then
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
+		end
+
+		-- The pointed frame wakes the loop from where the frame is in hand (`setup_onenter`): the
+		-- frame can change under one unit, and its type and role go with the frame.
+		local wake = alias ~= "unitframe" and JudgeWakes[alias]
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			self:SetAttribute(wake, JudgeWakeSerial)
 		end
 	end
 ]]);
@@ -564,6 +602,11 @@ BindingDriver:SetAttribute("SetRoleUnits", BakeSnippet([==[
 		owned[i] = unit
 	end
 
+	local wake = JudgeWakes.unitframe
+	if (wake) then
+		JudgeWakeSerial = JudgeWakeSerial + 1
+		self:SetAttribute(wake, JudgeWakeSerial)
+	end
 ]==]));
 
 --- **역할 조건을 한 번도 안 쓴 사람도 여기로 온다.** `tank`와 `healer`는 별칭이면서 역할
@@ -682,19 +725,110 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 	-- **A chord goes over with the key that made it.** The bar's command is bound to `1`, not to
 	-- `ALT-1`, and before the chord had a binding of its own the client sent `ALT-1` to whatever `1`
 	-- was. Left on, it would cast the focus twin over a vehicle bar.
+	--
+	-- **A tail key comes back as it is judged now**, not as it was when it went over
+	-- (`handing-the-rest-of-a-key-to-the-game.md` 2-6). The loop goes on judging it while it is
+	-- over and writes nothing, so its bundle's `want` is current.
 	for key, bindings in pairs(BoundKeys) do
 		local base = bindings.base
 		local want = (GivenBackNow[key] or (base and GivenBackNow[base])) and true or nil
 		if (want ~= bindings.givenBack) then
 			bindings.givenBack = want
+			local row = JudgeByKey[key]
+			local judged = row and row.bundle.want
 			if (want) then
 				self:ClearBinding(key)
-			else
+				if (row) then
+					row.bound = "release"
+				end
+			elseif (not row or judged == "ours") then
 				self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickButton)
+				if (row) then
+					row.bound = "ours"
+				end
+			elseif (judged ~= "release") then
+				self:SetBinding(true, key, judged)
+				row.bound = judged
 			end
 		end
 	end
 ]==]);
+
+--- **The second half of the loop's body: bind every tail key whose answer moved**
+--- (`handing-the-rest-of-a-key-to-the-game.md` 2-5). The first half is the rebuild's, generated
+--- with the columns this profile reads written out one after another (`BuildJudgeSnippet`), and it
+--- leaves `wake`, `generation` and `moved` for this one: each column that moved has stamped the
+--- bundles reading it with `generation`.
+---
+--- **A bundle is judged once however many keys it stands for** (§3-3). A chord's bundle follows its
+--- base key's bundle where its own tier has no winner, so a base's change re-judges it.
+---
+--- **A key handed to the game is judged and not written** (2-6). `UpdateGivenBackKeys` puts it back
+--- on its bundle's `want`.
+local JUDGE_BUNDLES_SNIPPET = [==[
+	if (wake == 1) then
+		JudgeReady = true
+		for n = 1, #JudgeBundles do
+			JudgeBundles[n].stamp = generation
+		end
+	elseif (not moved) then
+		return
+	end
+
+	for n = 1, #JudgeBundles do
+		local bundle = JudgeBundles[n]
+		local base = bundle.base
+		if (bundle.stamp == generation or (base and base.changed == generation)) then
+			local outcome, command = bundle.restOutcome, bundle.restCommand
+			for e = 1, #bundle do
+				local entry = bundle[e]
+				local match = true
+				for c = 1, #entry, 2 do
+					local cell = entry[c].cell
+					if ((entry[c + 1] % (cell + cell)) < cell) then
+						match = false
+						break
+					end
+				end
+				if (match) then
+					outcome, command = entry.outcome, entry.command
+					break
+				end
+			end
+			if (outcome == "base") then
+				if (base.want == "ours") then
+					outcome = "ours"
+				else
+					outcome = "release"
+				end
+			end
+			local want = command or outcome
+			if (bundle.want ~= want) then
+				bundle.want = want
+				bundle.changed = generation
+				local rows = bundle.keys
+				for k = 1, #rows do
+					local row = rows[k]
+					if (row.bound ~= want and not row.slot.givenBack) then
+						row.bound = want
+						if (want == "ours") then
+							self:SetBindingClick(true, row.key, DefaultClickFrameName, row.slot.clickButton)
+						elseif (want == "release") then
+							self:ClearBinding(row.key)
+						else
+							self:SetBinding(true, row.key, want)
+						end
+					end
+				end
+			end
+		end
+	end
+]==];
+
+--- What `BuildJudgeSnippet` puts together from where the press's own copies live: the judging half
+--- above, and a computed switch composed the way the press composes one.
+DebindPrivate.JUDGE_BUNDLES_SNIPPET = JUDGE_BUNDLES_SNIPPET;
+DebindPrivate.COMPOSE_MACROTEXT_SNIPPET = COMPOSE_MACROTEXT_SNIPPET;
 
 BindingDriver:SetAttribute("UpdateAllUnits", [[
 	self:RunAttribute("SetUnit", "tank", UnitAliasMap["tank"], true)
@@ -738,6 +872,11 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 		if (info == States.unitframe) then
 			States.unitframe = nil
 			debind_driver:RunAttribute("SetUnit", "unitframe", nil)
+			local wake = JudgeWakes.unitframe
+			if (wake) then
+				JudgeWakeSerial = JudgeWakeSerial + 1
+				debind_driver:SetAttribute(wake, JudgeWakeSerial)
+			end
 		end
 		info.frame = nil
 	end
@@ -817,6 +956,11 @@ local SETUP_ONENTER_SNIPPET = [==[
 		unitframe.role = role
 		States.unitframe = unitframe
 		debind_driver:RunAttribute("SetUnit", "unitframe", unit)
+		local wake = JudgeWakes.unitframe
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+		end
 	end
 
 	end
@@ -827,6 +971,11 @@ local SETUP_ONLEAVE_SNIPPET = [==[
 	if (unitframe) then
 		States.unitframe = nil
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
+		local wake = JudgeWakes.unitframe
+		if (wake) then
+			JudgeWakeSerial = JudgeWakeSerial + 1
+			debind_driver:SetAttribute(wake, JudgeWakeSerial)
+		end
 	end
 ]==];
 
@@ -991,6 +1140,30 @@ function BindingDriver:OnSwitchChanged(name, value)
 	DebindPrivate.OnSwitchChanged(name, value);
 end
 
+--- The pointed frame, read the way the press reads it. The caller declares `unitframe` (the frame's
+--- row or nil) and `unitframeUnit`; this declares `unitframeFrameType` and `unitframeRole`. **The
+--- loop splices the same text** (`BuildJudgeSnippet`), since a judgment item's columns are cells of
+--- what the press reads.
+local READ_UNITFRAME_SNIPPET = [==[
+	local unitframeFrameType
+	local unitframeRole
+	if (unitframe) then
+		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (unitframeUnit and UnitExists(unitframeUnit)) then
+			unitframeFrameType = unitframe.frameType
+			-- 역할도 클릭당 한 번. **nil이 "답할 수 없다"다.** 표가 없으면 세 헤더가 다 서
+			-- 있지 않다는 뜻이고, 파티/공대 개체창이 아니면 토큰이 맵의 키와 다르다.
+			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				unitframeRole = UnitRoles[unitframeUnit] or "norole"
+			end
+		else
+			unitframe = nil
+			unitframeUnit = nil
+		end
+	end
+]==];
+DebindPrivate.READ_UNITFRAME_SNIPPET = READ_UNITFRAME_SNIPPET;
+
 --- The condition evaluation, kept as its own string so more than one wrapper can carry it.
 ---
 --- It is spliced in textually rather than called, which is what lets the locals it declares
@@ -1013,22 +1186,7 @@ local EVAL_SNIPPET = [==[
 	-- 캐시를 볼 이유가 없다.
 	ClickSwitchesReady = false
 	local unitframe = evalFrame
-	local unitframeFrameType
-	local unitframeRole
-	if (unitframe) then
-		unitframeUnit = unitframe.frame:GetEffectiveAttribute("unit")
-		if (unitframeUnit and UnitExists(unitframeUnit)) then
-			unitframeFrameType = unitframe.frameType
-			-- 역할도 클릭당 한 번. **nil이 "답할 수 없다"다.** 표가 없으면 세 헤더가 다 서
-			-- 있지 않다는 뜻이고, 파티/공대 개체창이 아니면 토큰이 맵의 키와 다르다.
-			if (UnitRoles and unitframeFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				unitframeRole = UnitRoles[unitframeUnit] or "norole"
-			end
-		else
-			unitframe = nil
-			unitframeUnit = nil
-		end
-	end
+]==] .. READ_UNITFRAME_SNIPPET .. [==[
 
 	-- **클릭 시점에 잰다. 미리 재 둔 값은 없다.**
 	--
