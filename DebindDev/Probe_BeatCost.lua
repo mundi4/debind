@@ -894,21 +894,40 @@ local function VisibilityChecks(lines)
         entries(function() frame:SetAttribute("statehidden", true) end));
     frame:SetAttribute("statehidden", nil);
 
-    frame:SetAttribute("ticks", 0);
-    local started = GetTime();
-    RegisterAttributeDriver(frame, "state-visibility", "show");
-    C_Timer.After(2, function()
-        local ticks = frame:GetAttribute("ticks");
-        if (not InCombatLockdown()) then
-            UnregisterAttributeDriver(frame, "state-visibility");
-        end
-        local line = format("J     a state-visibility \"show\" driver: the handler ran %d times in %.2f s (shown=%s)",
-            ticks, GetTime() - started, tostring(frame:IsShown()));
+    -- **The window opens on a later frame, never here.** This run freezes the client for seconds and
+    -- the frame after it carries all of that as its elapsed time, so a timer set now fires on that
+    -- very frame: the first version did, counted the one write registration makes, and read as "the
+    -- manager does not write every tick" over a window of no frames at all. The frames are counted
+    -- for the same reason, so the line shows what the window really held.
+    local function report(line)
         local run = DebindDevDB and DebindDevDB.beatCost and DebindDevDB.beatCost[1];
         if (run) then
             run.lines[#run.lines + 1] = line;
         end
         print(TAG .. line .. ". /reload now.");
+    end
+    C_Timer.After(0.5, function()
+        if (InCombatLockdown()) then
+            report("J     a state-visibility \"show\" driver: not asked (combat began)");
+            return;
+        end
+        local frames = 0;
+        local counter = CreateFrame("Frame");
+        counter:SetScript("OnUpdate", function() frames = frames + 1; end);
+        frame:SetAttribute("ticks", 0);
+        local started = GetTime();
+        RegisterAttributeDriver(frame, "state-visibility", "show");
+        local atRegistration = frame:GetAttribute("ticks");
+        C_Timer.After(2, function()
+            local ticks = frame:GetAttribute("ticks");
+            counter:SetScript("OnUpdate", nil);
+            if (not InCombatLockdown()) then
+                UnregisterAttributeDriver(frame, "state-visibility");
+            end
+            report(format("J     a state-visibility \"show\" driver: the handler ran %d times at registration and %d more "
+                .. "over %.2f s and %d frames (shown=%s)", atRegistration, ticks - atRegistration,
+                GetTime() - started, frames, tostring(frame:IsShown())));
+        end);
     end);
 end
 
