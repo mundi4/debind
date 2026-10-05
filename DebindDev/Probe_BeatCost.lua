@@ -521,6 +521,27 @@ end]==]);
     i("GetAttribute on a plain frame", [[x = f:GetAttribute("state-x")]], "local f = BenchSimFrame");
     i("SetAttribute on a plain frame", [[f:SetAttribute("v", i)]], "local f = BenchSimFrame");
 
+    -- L: the unit tokens an alias (`@custom1`, `@tank`, `@hover`, ...) is written into an expression
+    -- as at a wake (`trimming-the-tail-key-beat.md` 8-2, D5). `raid41` is what an alias with nobody
+    -- behind it becomes (`COMPOSE_MACROTEXT_SNIPPET`). Each with the usual tail and with `exists`
+    -- alone, since a missing unit may end the clause before the rest is read.
+    for _, unit in ipairs({
+        "player", "target", "focus", "mouseover", "pet", "party1", "party4", "raid1", "raid25", "raid40",
+        "raid41", "nameplate1", "nameplate40", "boss1", "arena1", "targettarget", "focustarget",
+        "party1target", "raid1target", "none",
+    }) do
+        add("L", format("parse [@%s,help,nodead]", unit), "x = " .. p(format("[@%s,help,nodead]", unit)));
+        add("L", format("parse [@%s,exists]", unit), "x = " .. p(format("[@%s,exists]", unit)));
+    end
+
+    -- M: tokens that could stand in for `known:0`, the always-false token a false switch reference
+    -- is composed into (`COMPOSE_MACROTEXT_SNIPPET`). Alone, and leading a group so the rest is
+    -- never judged.
+    for _, token in ipairs({ "known:0", "bar:99", "form:99", "spec:9", "btn:99", "mod,nomod", "bonusbar:99" }) do
+        add("M", format("parse [%s]", token), "x = " .. p(format("[%s]", token)));
+        add("M", format("parse [%s,combat]", token), "x = " .. p(format("[%s,combat]", token)));
+    end
+
     -- G
     add("G", "compose, 1 switch arg", format(COMPOSE, "BenchEntry1") .. "x = s");
     add("G", "compose, 1 switch arg + parse", format(COMPOSE, "BenchEntry1") .. "x = SecureCmdOptionParse(s)");
@@ -633,12 +654,12 @@ local function Run()
         lines[#lines + 1] = format("%-5s %s %s  %s", cases[n].group, r, i, cases[n].name);
     end
 
+    -- The last run only. Earlier ones are copied into the plan doc's 7-1 once read, and kept here
+    -- they only grow the file.
     DebindDevDB = DebindDevDB or {};
-    DebindDevDB.beatCost = DebindDevDB.beatCost or {};
-    local runs = DebindDevDB.beatCost;
-    runs[#runs + 1] = { at = date("%Y-%m-%d %H:%M:%S"), build = select(4, GetBuildInfo()), lines = lines };
-    print(TAG .. format("done: %d cases, run %d saved in DebindDevDB.beatCost. /reload to write it out.",
-        #cases - 1, #runs));
+    DebindDevDB.beatCost = { { at = date("%Y-%m-%d %H:%M:%S"), build = select(4, GetBuildInfo()), lines = lines } };
+    print(TAG .. format("done: %d cases, saved in DebindDevDB.beatCost (earlier runs dropped). /reload to write it out.",
+        #cases - 1));
 end
 
 SLASH_DEBINDBC1 = "/debbc";
