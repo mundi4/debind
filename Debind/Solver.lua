@@ -42,9 +42,9 @@ local pairs = pairs;
 
         Where each chain is written, and every one of them has to keep this order:
 
-          group      `SecureBindings.lua`'s `EVAL_SNIPPET`, held to the order written down in
-                     `Constants.STATE_EVAL_EXPRESSIONS` by `check:state-eval`. That is the only
-                     check anywhere near either invariant
+          group      `UpdateBindings.lua`'s `StateAlternatives` (what the press and the
+                     expressions parse) and `StateCellText` (the column loop's cell), both
+                     asking `group:raid` ahead of `group`
           reaction   `SecureBindings.lua` carries the click path and `setup_onenter`
 
       - **Across columns**, independence is not required. Correlated columns -- target and

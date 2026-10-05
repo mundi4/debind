@@ -1032,11 +1032,12 @@ end
 
 --- How each measurable state is worked out, as snippet source.
 ---
---- **The beat measures with this** (`BuildJudgeSnippet`, interpolated). The press does not: it
---- parses the record's `expr` (`StateExpression`), and `check:state-eval` holds `EVAL_SNIPPET` to
---- carrying none of these forms. The order inside a chain is the part that cannot be read off the
---- result: ask party before raid and the group column stops being a partition with nothing raising
---- anything (`Solver.lua`'s header).
+--- **Nothing measures with this any more**: the press parses the record's `expr` (`StateExpression`)
+--- and the loop parses what the press parses (`BuildJudgeSnippet`'s `StateCellText`). It stays as
+--- the API forms neither may take back up: `check:state-eval` holds `EVAL_SNIPPET` to none of them,
+--- `judgment_spec.lua` the loop's bodies, and `Probe_BeatCost.lua` prices them. The order inside a
+--- chain is the part that cannot be read off the result: ask party before raid and the group column
+--- stops being a partition with nothing raising anything (`Solver.lua`'s header).
 ---
 --- These are the states a value can be *derived* for. What cannot be derived at a press -- which
 --- unit the cursor is over, what a user's custom conditional evaluates to -- is not in here.

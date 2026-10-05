@@ -17,7 +17,7 @@ local luatype                            = type;
 local format, tostring, select           = format, tostring, select;
 local strsub, tconcat                    = string.sub, table.concat;
 local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
-local band                               = bit.band;
+local band, bor                          = bit.band, bit.bor;
 local InCombatLockdown                   = InCombatLockdown;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
@@ -396,6 +396,9 @@ wipe(JudgeColumns)
 wipe(JudgeBundles)
 wipe(JudgeByKey)
 wipe(JudgeWakes)
+wipe(JudgeComposeAll)
+wipe(JudgeComposeBy)
+wipe(JudgeClassify)
 JudgeReady = false
 -- `ApplyGiveBack` bakes it again from the set as it stands, below.
 wipe(ContextKeys)
@@ -1643,9 +1646,8 @@ local CONDITION_AXES     = {
 
 --- **The state axes the press asks by parsing**, each as what a value of it is in macro conditionals:
 --- a list of alternatives, each a list of tokens that must all hold. A record's `expr` is the product
---- of its axes' lists (`StateExpression`). The beat still measures these with
---- `Constants.STATE_EVAL_EXPRESSIONS`; that the two answer alike was measured word by word
---- (`implementing-the-trimmed-tail-key-beat.md`, and `trimming-the-tail-key-beat.md` 7-1).
+--- of its axes' lists (`StateExpression`). The beat writes its texts from the same lists
+--- (`BundleExpression`, `StateCellText`), so the two parse one text.
 ---
 --- **The expensive two go last in every group**, so a group already lost on a cheaper token never
 --- judges them (7-1: `[<false>,flyable]` 0.23 against `[flyable,<false>]` 5.16).
@@ -1769,9 +1771,9 @@ local function StateExpression(record)
     return tconcat(parts);
 end
 
---- A reaction mask as alternatives of tokens, read the way the beat's cell reads it: assist first,
---- then attack, else other (`unitCell` in `BuildJudgeSnippet`). So harm is `nohelp,harm`, and help
---- with other is `[help][noharm]` rather than `noharm`, for a unit the two predicates both take.
+--- A set of reactions (`REACTION_*` bits) as alternatives of tokens, read the way the cell is read:
+--- assist first, then attack, else other. So harm is `nohelp,harm`, and help with other is
+--- `[help][noharm]` rather than `noharm`, for a unit the two predicates both take.
 local REACTION_ALTERNATIVES = {
     [Constants.REACTION_HELP] = { { "help" } },
     [Constants.REACTION_HARM] = { { "nohelp", "harm" } },
@@ -1779,45 +1781,95 @@ local REACTION_ALTERNATIVES = {
     [Constants.REACTION_HELP + Constants.REACTION_HARM] = { { "help" }, { "harm" } },
     [Constants.REACTION_HELP + Constants.REACTION_OTHER] = { { "help" }, { "noharm" } },
     [Constants.REACTION_HARM + Constants.REACTION_OTHER] = { { "nohelp" } },
+    [Constants.REACTION_ALL] = { {} },
 };
+
+--- Each cell a unit can be in while it exists, as its reaction and life.
+local PRESENT_CELLS = {
+    { Constants.UNITSTATE_HELP_ALIVE, Constants.REACTION_HELP, false },
+    { Constants.UNITSTATE_HELP_DEAD, Constants.REACTION_HELP, true },
+    { Constants.UNITSTATE_HARM_ALIVE, Constants.REACTION_HARM, false },
+    { Constants.UNITSTATE_HARM_DEAD, Constants.REACTION_HARM, true },
+    { Constants.UNITSTATE_OTHER_ALIVE, Constants.REACTION_OTHER, false },
+    { Constants.UNITSTATE_OTHER_DEAD, Constants.REACTION_OTHER, true },
+};
+
+--- Does a parse ask this unit `exists`? **Only where the beat would call `UnitExists`.** A map-only
+--- alias and the pointed frame are there when their token is, which is decided before any parse;
+--- asking the client would part from the beat until `exists` goes in on both sides at once (P3-2 of
+--- `implementing-the-trimmed-tail-key-beat.md`). The player is never asked: in a vehicle on xptr
+--- 120105 `[@player,exists]` stayed false the whole ride while `UnitExists("player")` held.
+local function UnitAsksExists(unit)
+    return unit ~= "player" and not (SPECIAL_UNITS[unit] and not DebindPrivate.ALIAS_NEEDS_EXISTS[unit]);
+end
+
+--- A unit's cells (`UNITSTATE_*` mask, not all of them) as alternatives of tokens, without the
+--- `@unit`. **The press and the beat both take theirs from here**, so the two parse one text.
+---
+--- For a unit that does not ask `exists`, the absent cell is not in the text: the caller decides it
+--- from the token. With no present cell left the alternative is the fixed false `known:0`.
+local function UnitAlternatives(unit, mask)
+    local deadSet, aliveSet = 0, 0;
+    for _, cell in ipairs(PRESENT_CELLS) do
+        if (band(mask, cell[1]) ~= 0) then
+            if (cell[3]) then
+                deadSet = bor(deadSet, cell[2]);
+            else
+                aliveSet = bor(aliveSet, cell[2]);
+            end
+        end
+    end
+    local alternatives = {};
+    local function add(set, life)
+        if (set == 0) then
+            return;
+        end
+        for _, tokens in ipairs(REACTION_ALTERNATIVES[set]) do
+            local alternative = {};
+            for _, token in ipairs(tokens) do
+                alternative[#alternative + 1] = token;
+            end
+            alternative[#alternative + 1] = life;
+            alternatives[#alternatives + 1] = alternative;
+        end
+    end
+    if (deadSet == aliveSet) then
+        add(deadSet, nil);
+    else
+        add(deadSet, "dead");
+        add(aliveSet, "nodead");
+    end
+
+    if (UnitAsksExists(unit)) then
+        if (band(mask, Constants.UNITSTATE_NONE) ~= 0) then
+            tinsert(alternatives, 1, { "noexists" });
+        else
+            for _, alternative in ipairs(alternatives) do
+                tinsert(alternative, 1, "exists");
+            end
+        end
+    elseif (#alternatives == 0) then
+        alternatives[1] = { "known:0" };
+    end
+    return alternatives;
+end
 
 --- One unit's condition as the macro conditional the press parses (`EVAL_SNIPPET`): existence,
 --- reaction and life. Answers `expr` for a fixed unit, or `tail` and `tail2` for an alias and the
 --- pointed frame, whose token the press puts in front of each (`"[@" .. unit .. tail .. unit ..
---- tail2`). Nothing where there is nothing to parse.
----
---- **`exists` is asked only of a unit the beat calls `UnitExists` for.** A map-only alias and the
---- pointed frame are there when their token is, which the press decides before parsing; asking
---- the client instead would part from the beat until both move together (P3-2 of
---- `implementing-the-trimmed-tail-key-beat.md`). The player is never asked: in a vehicle on xptr
---- 120105 `[@player,exists]` stayed false the whole ride while `UnitExists("player")` held.
+--- tail2`). Nothing where there is nothing to parse: a condition on every present cell of a unit
+--- whose presence is its existence, or `false` on one.
 local function UnitExpression(unit, condition)
-    local asksExists = unit ~= "player"
-        and not (SPECIAL_UNITS[unit] and not DebindPrivate.ALIAS_NEEDS_EXISTS[unit]);
-    local groups;
-    if (condition == false) then
-        if (not asksExists) then
-            return nil;
-        end
-        groups = { { "noexists" } };
-    else
-        groups = condition.reaction and REACTION_ALTERNATIVES[condition.reaction] or { {} };
-        local lead = asksExists and "exists" or nil;
-        local life = condition.dead == true and "dead" or condition.dead == false and "nodead" or nil;
-        local out = {};
-        for i, group in ipairs(groups) do
-            local tokens = { lead };
-            for _, token in ipairs(group) do
-                tokens[#tokens + 1] = token;
-            end
-            tokens[#tokens + 1] = life;
-            out[i] = tokens;
-        end
-        groups = out;
+    local mask = DebindPrivate.UnitConditionToState(condition);
+    if (not UnitAsksExists(unit) and band(mask, Constants.UNITSTATE_EXISTS) == 0) then
+        return nil;
     end
+    local groups = UnitAlternatives(unit, mask);
     if (#groups[1] == 0) then
         return nil;
     end
+    -- A condition is one reaction set and at most one life, so two groups at most.
+    assert(#groups <= 2, "a unit condition took more than two groups");
     if (SPECIAL_UNITS[unit]) then
         local tail = "," .. tconcat(groups[1], ",") .. "]";
         if (groups[2]) then
@@ -2633,6 +2685,349 @@ local function CollectJudgmentColumns(items, out)
     return out;
 end
 
+--- Column kinds written into a bundle's expression as words, through the press's own
+--- `StateAlternatives`. A boolean column's mask is one of its two cells, the others' is the value.
+local EXPRESSED_STATES = {
+    groups = "mask", forms = "mask", bonusbars = "mask",
+    combat = "bool", stealth = "bool", mounted = "bool", indoors = "bool", flying = "bool",
+    skyriding = "bool", specialbar = "bool", extrabar = "bool", petbattle = "bool",
+};
+
+--- Column kinds a bundle reads into a local of the beat and picks a variant of its text by
+--- (`implementing-the-trimmed-tail-key-beat.md` P3-1): what is not a macro conditional, what has to
+--- be asked of the spell book after the conditional, and the two words too dear to judge twice.
+--- A unit other than the one in the text goes here too.
+local LOCAL_KINDS = { known = true, unitgroup = true, flyable = "lazy", advflyable = "lazy" };
+
+--- Past these a bundle stays on the column loop (P3-3). P3-6 sets them from the bench.
+local MAX_VARIANTS = 8;
+local MAX_GROUPS = 24;
+
+--- The fixed false a slot writes. `bar:99` was measured 0.008 cheaper and is the kit's own false
+--- token (`DebindTest.lua`'s `MOCK_FALSE`); this one stays what the rest of the file writes.
+local FIXED_FALSE = "known:0";
+
+--- The cells of `all`, lowest first.
+local function CellsOf(all)
+    local cells, cell = {}, 1;
+    while (cell <= all) do
+        if (band(all, cell) ~= 0) then
+            cells[#cells + 1] = cell;
+        end
+        cell = cell * 2;
+    end
+    return cells;
+end
+
+--- The alternatives one check is written as, each a list of options: a word, or a slot the wakes
+--- fill in. `unitPart` is set on the one for the unit in the text, which has to lead its group.
+local function CheckAlternatives(column, mask)
+    local kind = column.kind;
+    local Judgment = DebindPrivate.Judgment;
+    local shape = EXPRESSED_STATES[kind];
+    if (shape) then
+        local value = mask;
+        if (shape == "bool") then
+            value = mask == Judgment.TRUE;
+        end
+        local out = {};
+        for i, tokens in ipairs(StateAlternatives(kind, value)) do
+            for _, token in ipairs(tokens) do
+                _stateTokens[token] = true;
+            end
+            out[i] = { options = tokens };
+        end
+        return out;
+    elseif (kind == "unit") then
+        local unit = column.arg;
+        local out = {};
+        for i, tokens in ipairs(UnitAlternatives(unit, mask)) do
+            local text = #tokens > 0 and ("," .. tconcat(tokens, ",")) or "";
+            local option;
+            if (SPECIAL_UNITS[unit]) then
+                option = { unit = unit, text = text,
+                    absent = band(mask, Constants.UNITSTATE_NONE) ~= 0 and "" or FIXED_FALSE };
+            else
+                option = "@" .. unit .. text;
+            end
+            out[i] = { options = { option }, unitPart = true };
+        end
+        return out;
+    elseif (kind == "role") then
+        return { { options = { { role = true, mask = mask } } } };
+    elseif (kind == "frameType") then
+        return { { options = { { frameType = true, mask = mask } } } };
+    elseif (kind == "switch") then
+        return { { options = { { switch = column.arg, mask = mask } } } };
+    end
+    error("no words for a judgment column of kind " .. tostring(kind));
+end
+
+--- The groups `checks` are written as: the product of their alternatives, the unit leading.
+local function GroupsOf(columns, checks)
+    local groups = { { lead = nil, rest = {} } };
+    for _, check in ipairs(checks) do
+        local product = {};
+        for _, group in ipairs(groups) do
+            for _, alternative in ipairs(CheckAlternatives(columns[check.column], check.mask)) do
+                local rest = {};
+                for _, option in ipairs(group.rest) do rest[#rest + 1] = option; end
+                local lead = group.lead;
+                if (alternative.unitPart) then
+                    lead = alternative.options[1];
+                else
+                    for _, option in ipairs(alternative.options) do rest[#rest + 1] = option; end
+                end
+                product[#product + 1] = { lead = lead, rest = rest };
+            end
+        end
+        groups = product;
+    end
+    local out = {};
+    for i, group in ipairs(groups) do
+        local options = {};
+        if (group.lead) then
+            options[1] = group.lead;
+        end
+        for _, option in ipairs(group.rest) do
+            options[#options + 1] = option;
+        end
+        out[i] = options;
+    end
+    return out;
+end
+
+--- Text pieces as a template: literals and slots alternating, a literal first and last.
+local function Template(pieces)
+    local out, buffer = { "" }, {};
+    for _, piece in ipairs(pieces) do
+        if (luatype(piece) == "string") then
+            buffer[#buffer + 1] = piece;
+        else
+            out[#out] = tconcat(buffer);
+            buffer = {};
+            out[#out + 1] = piece;
+            out[#out + 1] = "";
+        end
+    end
+    out[#out] = tconcat(buffer);
+    return out;
+end
+
+--- Groups as text pieces, `[a,b][c]`.
+local function GroupPieces(groups, pieces)
+    for _, options in ipairs(groups) do
+        pieces[#pieces + 1] = "[";
+        for i, option in ipairs(options) do
+            if (i > 1) then
+                pieces[#pieces + 1] = ",";
+            end
+            pieces[#pieces + 1] = option;
+        end
+        pieces[#pieces + 1] = "]";
+    end
+end
+
+--- **A judgment item as macro conditionals the beat parses**, or nil where it stays on the column
+--- loop (`implementing-the-trimmed-tail-key-beat.md` P3): an item reading a computed switch, until
+--- P4, or one past `MAX_VARIANTS` or `MAX_GROUPS`.
+---
+--- One clause per entry in the entries' order, its value the index of what it gives in `wants`,
+--- and the rest last with no condition. The parse picks the first that holds, as the entries do.
+---
+--- **One unit goes in the text**, the one the most checks ask, since a group has one `@unit`. Every
+--- other unit, `known`, `unitgroup` and the two dear words are locals the beat measures. A local's
+--- cells fall into classes the item's masks on it cannot tell apart, and each combination of
+--- classes is a variant: the entries reduced with those classes put in, a check the class meets
+--- whole dropped and an entry it misses dropped. The beat picks the variant by its locals.
+function DebindPrivate.BundleExpression(item)
+    local columns = item.columns;
+    local Judgment = DebindPrivate.Judgment;
+
+    local unitChecks = {};
+    for _, entry in ipairs(item.entries) do
+        for _, check in ipairs(entry.checks) do
+            local column = columns[check.column];
+            if (column.kind == "switch") then
+                local info = _switches[column.arg];
+                if (info and info.mode == SWITCH_MODES.EXPR) then
+                    return nil;
+                end
+            elseif (column.kind == "unit") then
+                unitChecks[check.column] = (unitChecks[check.column] or 0) + 1;
+            end
+        end
+    end
+    local textUnit, most = nil, 0;
+    for i = 1, #columns do
+        if ((unitChecks[i] or 0) > most) then
+            textUnit, most = i, unitChecks[i];
+        end
+    end
+
+    -- Each local's classes: cells sharing one membership in every mask asked of the column.
+    local locals, localOf = {}, {};
+    for i, column in ipairs(columns) do
+        local isLocal = LOCAL_KINDS[column.kind] or (column.kind == "unit" and i ~= textUnit);
+        if (isLocal) then
+            local masks, seen = {}, {};
+            for _, entry in ipairs(item.entries) do
+                for _, check in ipairs(entry.checks) do
+                    if (check.column == i and not seen[check.mask]) then
+                        seen[check.mask] = true;
+                        masks[#masks + 1] = check.mask;
+                    end
+                end
+            end
+            if (#masks > 0) then
+                local classes, bySignature = {}, {};
+                for _, cell in ipairs(CellsOf(column.all)) do
+                    local signature = {};
+                    for k, mask in ipairs(masks) do
+                        signature[k] = band(mask, cell) ~= 0 and "1" or "0";
+                    end
+                    signature = tconcat(signature);
+                    local class = bySignature[signature];
+                    if (not class) then
+                        classes[#classes + 1] = 0;
+                        class = #classes;
+                        bySignature[signature] = class;
+                    end
+                    classes[class] = bor(classes[class], cell);
+                end
+                local entryLocal = { column = i, classes = classes, lazy = LOCAL_KINDS[column.kind] == "lazy" };
+                locals[#locals + 1] = entryLocal;
+                localOf[i] = entryLocal;
+            end
+        end
+    end
+
+    local variants = 1;
+    for _, entryLocal in ipairs(locals) do
+        entryLocal.radix = variants;
+        variants = variants * #entryLocal.classes;
+    end
+    if (variants > MAX_VARIANTS) then
+        return nil;
+    end
+
+    local wants, wantIndex = {}, {};
+    local function WantOf(outcome, command)
+        local want = outcome == Judgment.COMMAND and command or outcome;
+        local index = wantIndex[want];
+        if (not index) then
+            wants[#wants + 1] = want;
+            index = tostring(#wants);
+            wantIndex[want] = index;
+        end
+        return index;
+    end
+
+    -- The unit leads its group, then the slots (a fixed false ends the group at once), then words.
+    local function Ordered(checks)
+        local function rank(check)
+            local kind = columns[check.column].kind;
+            if (kind == "unit") then
+                return 1;
+            elseif (EXPRESSED_STATES[kind]) then
+                return 3;
+            end
+            return 2;
+        end
+        sort(checks, function(a, b)
+            local ra, rb = rank(a), rank(b);
+            if (ra ~= rb) then
+                return ra < rb;
+            end
+            return a.column < b.column;
+        end);
+        return checks;
+    end
+
+    local texts = {};
+    for v = 0, variants - 1 do
+        local pieces, groupCount, closed = {}, 0, false;
+        for _, entry in ipairs(item.entries) do
+            local keep, checks = true, {};
+            for _, check in ipairs(entry.checks) do
+                local entryLocal = localOf[check.column];
+                if (entryLocal) then
+                    local class = entryLocal.classes[math.floor(v / entryLocal.radix) % #entryLocal.classes + 1];
+                    local met = band(class, check.mask);
+                    if (met == 0) then
+                        keep = false;
+                        break;
+                    end
+                    assert(met == class, "a class split by a mask on its own column");
+                else
+                    checks[#checks + 1] = check;
+                end
+            end
+            if (keep) then
+                local value = WantOf(entry.outcome, entry.command);
+                if (#checks == 0) then
+                    pieces[#pieces + 1] = value;
+                    closed = true;
+                    break;
+                end
+                local groups = GroupsOf(columns, Ordered(checks));
+                groupCount = groupCount + #groups;
+                if (groupCount > MAX_GROUPS) then
+                    return nil;
+                end
+                GroupPieces(groups, pieces);
+                pieces[#pieces + 1] = " " .. value .. "; ";
+            end
+        end
+        if (not closed) then
+            pieces[#pieces + 1] = WantOf(item.rest.outcome, item.rest.command);
+        end
+        texts[v] = Template(pieces);
+    end
+
+    -- **A lazy local's gate**: the groups of every entry asking it, with it and every other local
+    -- dropped. Dropping only widens a group, so a gate that does not hold means no entry asking
+    -- the local can hold in any variant, and every variant answers alike: the beat leaves the local
+    -- unmeasured and takes class 1's. No gate is a group with nothing else in it, always measured.
+    for _, entryLocal in ipairs(locals) do
+        if (entryLocal.lazy) then
+            local pieces, always, count = {}, false, 0;
+            for _, entry in ipairs(item.entries) do
+                local asks, checks = false, {};
+                for _, check in ipairs(entry.checks) do
+                    if (check.column == entryLocal.column) then
+                        asks = true;
+                    elseif (not localOf[check.column]) then
+                        checks[#checks + 1] = check;
+                    end
+                end
+                if (asks) then
+                    if (#checks == 0) then
+                        always = true;
+                        break;
+                    end
+                    local groups = GroupsOf(columns, Ordered(checks));
+                    count = count + #groups;
+                    GroupPieces(groups, pieces);
+                end
+            end
+            if (not always and count <= MAX_GROUPS) then
+                entryLocal.gate = Template(pieces);
+            end
+        end
+    end
+
+    return {
+        textUnit = textUnit and columns[textUnit].arg,
+        locals = locals,
+        variants = variants,
+        texts = texts,
+        wants = wants,
+        -- An item with nothing but its rest answers the same in every state.
+        constant = #item.entries == 0,
+    };
+end
+
 --- What an item says, as a string two items share exactly when the loop would judge them alike:
 --- the same checks on the same columns giving the same outcomes, and, for a chord, the same base
 --- bundle to follow.
@@ -2641,19 +3036,168 @@ local function JudgmentSignature(item, baseBundle)
     for _, entry in ipairs(item.entries) do
         parts[#parts + 1] = "|" .. entry.outcome .. " " .. (entry.command or "");
         for _, check in ipairs(entry.checks) do
-            parts[#parts + 1] = _judgmentColumnIndex[item.columns[check.column].key] .. ":" .. check.mask;
+            parts[#parts + 1] = item.columns[check.column].key .. ":" .. check.mask;
         end
     end
     return tconcat(parts, " ");
+end
+
+--- The bundles this rebuild wrote as expressions, `{ n = <JudgeBundles index>, expr = , columns = }`,
+--- for `BuildJudgeSnippet`.
+local _exprBundles = {};
+--- The alias and frame units classified by a parse whose text is composed, `unit -> true`.
+local _exprClassified = {};
+--- Does anything the loop measures or composes read the pointed frame?
+local _judgeReadsFrame = false;
+
+--- The wakes a slot of `template` waits on, into `out`.
+local function SlotWakes(template, out)
+    for k = 2, #template, 2 do
+        local slot = template[k];
+        if (slot.unit) then
+            out[slot.unit] = true;
+        elseif (slot.switch) then
+            out[slot.switch] = true;
+        else
+            out.unitframe = true;
+        end
+    end
+end
+
+--- Writes `template` under `target[key]`: the text itself where nothing in it waits on a wake, or a
+--- template `JUDGE_COMPOSE_SNIPPET` fills in. True for the latter.
+local function EmitTemplate(target, key, template)
+    if (#template == 1) then
+        appendLine("%s[%s]=%q", target, key, template[1]);
+        return false;
+    end
+    appendLine("%s[%s]=\"\"", target, key);
+    appendLine("tp=newtable() tp.key=%s tp.frags=newtable() tp.slots=newtable() tinsert(%s.templates,tp)",
+        key, target);
+    for k = 1, #template, 2 do
+        appendLine("tp.frags[%d]=%q", k, template[k]);
+        local slot = template[k + 1];
+        if (slot) then
+            appendLine([[s=newtable() tp.slots[%d]=s tp.frags[%d]=""]], (k + 1) / 2, k + 1);
+            if (slot.unit) then
+                appendLine("s.unit=%q s.text=%q s.absent=%q", slot.unit, slot.text, slot.absent);
+            elseif (slot.switch) then
+                appendLine("s.switch=%q s.mask=%d", slot.switch, slot.mask);
+            elseif (slot.role) then
+                appendLine("s.role=true s.mask=%d", slot.mask);
+            else
+                appendLine("s.frameType=true s.mask=%d", slot.mask);
+            end
+        end
+    end
+    return true;
+end
+
+--- The cells a classifying parse answers with, in the order the cell is read: assist first, then
+--- attack, else other (`PRESENT_CELLS`). The last has no condition.
+local CLASSIFY_CLAUSES = {
+    { ",help,dead", Constants.UNITSTATE_HELP_DEAD },
+    { ",help", Constants.UNITSTATE_HELP_ALIVE },
+    { ",harm,dead", Constants.UNITSTATE_HARM_DEAD },
+    { ",harm", Constants.UNITSTATE_HARM_ALIVE },
+    { ",dead", Constants.UNITSTATE_OTHER_DEAD },
+};
+
+--- **One parse that answers a unit's cell** (P3-3), for a unit a bundle reads beside the one in its
+--- text. Its value is the `UNITSTATE_*` number. `exists` is asked where `UnitAsksExists` says, so
+--- this unit reads its existence the way it would in the text.
+local function ClassifyPieces(unit)
+    local pieces = {};
+    local function at(text)
+        if (SPECIAL_UNITS[unit]) then
+            pieces[#pieces + 1] = "[";
+            pieces[#pieces + 1] = { unit = unit, text = text, absent = "" };
+            pieces[#pieces + 1] = "]";
+        else
+            pieces[#pieces + 1] = "[@" .. unit .. text .. "]";
+        end
+    end
+    if (UnitAsksExists(unit)) then
+        at(",noexists");
+        pieces[#pieces + 1] = " " .. Constants.UNITSTATE_NONE .. "; ";
+    end
+    for _, clause in ipairs(CLASSIFY_CLAUSES) do
+        at(clause[1]);
+        pieces[#pieces + 1] = " " .. clause[2] .. "; ";
+    end
+    pieces[#pieces + 1] = tostring(Constants.UNITSTATE_OTHER_ALIVE);
+    return Template(pieces);
+end
+DebindPrivate.ClassifyPieces = ClassifyPieces;
+
+--- An expression bundle's tables: the clause values, the texts, a lazy local's gate, and the lists
+--- that put it in front of a wake.
+local function EmitExpressionBundle(n, expr, columns)
+    local composes = {};
+    appendLine("b.wantOf=newtable() b.templates=newtable()");
+    for i, want in ipairs(expr.wants) do
+        appendLine("b.wantOf[%q]=%q", tostring(i), want);
+    end
+    if (expr.constant) then
+        appendLine([[b.parsed="1"]]);
+        return;
+    end
+    local templated = false;
+    for v = 0, expr.variants - 1 do
+        if (EmitTemplate("b", tostring(v), expr.texts[v])) then
+            templated = true;
+            SlotWakes(expr.texts[v], composes);
+        end
+    end
+    for k, entryLocal in ipairs(expr.locals) do
+        if (entryLocal.gate) then
+            if (EmitTemplate("b", format("%q", "gate" .. k), entryLocal.gate)) then
+                templated = true;
+                SlotWakes(entryLocal.gate, composes);
+            end
+        end
+    end
+    if (templated) then
+        appendLine("tinsert(JudgeComposeAll,b)");
+    end
+    for _, wake in ipairs(sortedKeys(composes, {})) do
+        appendLine("JudgeComposeBy[%1$q]=JudgeComposeBy[%1$q] or newtable() tinsert(JudgeComposeBy[%1$q],b)", wake);
+    end
+
+    -- What wakes it: whatever is put in its text, and a local measured off an alias or the frame.
+    local wakes = composes;
+    for _, entryLocal in ipairs(expr.locals) do
+        local column = columns[entryLocal.column];
+        if ((column.kind == "unit" or column.kind == "unitgroup") and SPECIAL_UNITS[column.arg]) then
+            wakes[column.arg] = true;
+            if (column.kind == "unit") then
+                _exprClassified[column.arg] = true;
+            end
+        end
+    end
+    _exprBundles[#_exprBundles + 1] = { n = n, expr = expr, columns = columns, wakes = wakes };
 end
 
 --- **The items, handed to the loop**: every column once, then each distinct item once as a bundle,
 --- and each key's row pointing at its bundle (§3-3). The bare keys go ahead of the chords made from
 --- them, since a chord's `base` answer is its base key's bundle's of the same pass.
 local function EmitJudgmentItems(items)
-    CollectJudgmentColumns(items, _judgmentColumns);
+    -- **Written as an expression wherever it can be** (`BundleExpression`); the column loop keeps
+    -- the rest, and only their columns are measured.
+    wipe(_exprBundles);
+    wipe(_exprClassified);
+    local exprOf, loopItems = {}, {};
+    for key, item in pairs(items) do
+        exprOf[item] = exprOf[item] or DebindPrivate.BundleExpression(item) or false;
+        if (not exprOf[item]) then
+            loopItems[key] = item;
+        end
+    end
+
+    CollectJudgmentColumns(loopItems, _judgmentColumns);
     wipe(_judgmentColumnIndex);
     wipe(_judgmentColumnOrder);
+    local wakes = {};
     for i, key in ipairs(sortedKeys(_judgmentColumns, _sortedB)) do
         local column = _judgmentColumns[key];
         _judgmentColumnIndex[key] = i;
@@ -2661,7 +3205,10 @@ local function EmitJudgmentItems(items)
         appendLine("c=newtable() c.bundles=newtable() JudgeColumns[%d]=c", i);
         local wake = JudgmentWakeOf(column);
         if (wake) then
-            appendLine("JudgeWakes[%q]=%q", wake, JUDGE_WAKE_PREFIX .. wake);
+            wakes[wake] = true;
+        end
+        if (column.kind == "unit" and SPECIAL_UNITS[column.arg]) then
+            _exprClassified[column.arg] = true;
         end
     end
 
@@ -2694,10 +3241,14 @@ local function EmitJudgmentItems(items)
             if (baseBundle) then
                 appendLine("b.base=JudgeBundles[%d]", baseBundle);
             end
+            local expr = exprOf[item];
+            if (expr) then
+                EmitExpressionBundle(n, expr, item.columns);
+            end
             -- The columns its checks read, which is what has to wake it. One the item's boxes
             -- merged away decides nothing for it.
             local reads, readOrder = {}, {};
-            for e, entry in ipairs(item.entries) do
+            for e, entry in ipairs(expr and {} or item.entries) do
                 appendLine("e=newtable() e.outcome=%q b[%d]=e", entry.outcome, e);
                 if (entry.command) then
                     appendLine("e.command=%q", entry.command);
@@ -2722,31 +3273,93 @@ local function EmitJudgmentItems(items)
             .. [[j.priority=%3$s JudgeByKey[%1$q]=j tinsert(JudgeBundles[%2$d].keys,j)]], key, n,
             tostring(item.base == nil));
     end
+
+    -- The classifying texts of an alias or frame unit read as a local, composed like a bundle's.
+    for _, unit in ipairs(sortedKeys(_exprClassified, {})) do
+        appendLine("b=newtable() b.templates=newtable() JudgeClassify[%q]=b", unit);
+        EmitTemplate("b", "1", ClassifyPieces(unit));
+        appendLine("tinsert(JudgeComposeAll,b)");
+        appendLine("JudgeComposeBy[%1$q]=JudgeComposeBy[%1$q] or newtable() tinsert(JudgeComposeBy[%1$q],b)", unit);
+    end
+
+    for _, bundle in ipairs(_exprBundles) do
+        for wake in pairs(bundle.wakes) do
+            wakes[wake] = true;
+        end
+    end
+    for _, wake in ipairs(sortedKeys(wakes, {})) do
+        appendLine("JudgeWakes[%q]=%q", wake, JUDGE_WAKE_PREFIX .. wake);
+    end
+    _judgeReadsFrame = wakes.unitframe or false;
 end
 
---- Kinds whose cell is a boolean state measured by `Constants.STATE_EVAL_EXPRESSIONS` under the same
---- name. The local takes the name too, because that is what `PROBE.MockState` reads the mock under.
+--- Boolean state columns, each measured by parsing what the press parses for "on".
 local JUDGED_BOOL_STATES = {
     combat = true, stealth = true, mounted = true, indoors = true, flyable = true, advflyable = true,
-    flying = true, skyriding = true, extrabar = true, petbattle = true,
+    flying = true, skyriding = true, extrabar = true, petbattle = true, specialbar = true,
 };
 
---- Kinds whose cell is `2 ^ value`, or the value itself, of a state measured under another name.
-local JUDGED_MASK_STATES = { groups = "group", forms = "form", bonusbars = "bonusbar" };
+--- **The parse that answers a state column's cell on the column loop**, and whether its value is
+--- the cell itself (F1 of `trimming-the-tail-key-beat.md`): a boolean column's "on" as the press
+--- writes it, a mask column's clauses each worth its cell. The loop then reads what the press reads,
+--- as the expressions do, and a parse is cheaper than the API it replaces (7-1, `[combat]` 0.21 to
+--- `PlayerInCombat()` 0.91). nil for a column that is not a state.
+---
+--- A mask column falls back to the cell the press reads its value as: no form is form 0, and an
+--- offset past the ones the press names is offset 0, since `[nobonusbar:1/2/3/4/5]` holds there.
+local function StateCellText(kind)
+    local tokens, numbered = {}, false;
+    local text;
+    if (JUDGED_BOOL_STATES[kind]) then
+        local groups = {};
+        for i, alternative in ipairs(StateAlternatives(kind, true)) do
+            for _, token in ipairs(alternative) do
+                tokens[#tokens + 1] = token;
+            end
+            groups[i] = "[" .. tconcat(alternative, ",") .. "]";
+        end
+        text = tconcat(groups);
+    elseif (kind == "groups") then
+        tokens = { "group:raid", "group" };
+        text = format("[group:raid] %d; [group] %d; %d", Constants.GROUP_RAID, Constants.GROUP_PARTY,
+            Constants.GROUP_NONE);
+        numbered = true;
+    elseif (kind == "forms" or kind == "bonusbars") then
+        local word, last = "form", 10;
+        if (kind == "bonusbars") then
+            word, last = "bonusbar", Constants.MAX_BONUSBAR_OFFSET;
+        end
+        local clauses = {};
+        for n = 1, last do
+            tokens[#tokens + 1] = word .. ":" .. n;
+            clauses[n] = format("[%s:%d] %d; ", word, n, 2 ^ n);
+        end
+        text = tconcat(clauses) .. "1";
+        numbered = true;
+    else
+        return nil;
+    end
+    for _, token in ipairs(tokens) do
+        _stateTokens[token] = true;
+    end
+    return text, numbered;
+end
 
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
 --- §3). The beat's goes straight into the handler, which `UpdateAttrChangedHandler` takes as the
 --- return value: a `RunAttribute` there would cost an environment swap and a `pcall` on every beat.
 --- The rebuild's pass and each wake's are left in `_judgePassBody` and `_judgeWakeBodies` to be run.
---- The measuring half lists each column the items read, once per body that moves it, as straight
---- lines, and nothing in it asks what kind a column is: the beat can run every frame for as long as a
---- key holds a tail. The judging half is `SecureBindings.lua`'s `JUDGE_BUNDLES_SNIPPET`.
+--- Each body is `prepare` (the pointed frame, the texts composed), the column loop's measuring half
+--- for the items left on it, the expression bundles parsed, and `SecureBindings.lua`'s
+--- `JUDGE_BUNDLES_SNIPPET`, the judging half both share. The measuring half lists each column once
+--- per body that moves it, as straight lines, and nothing in it asks what kind a column is: the beat
+--- can run every frame for as long as a key holds a tail.
 ---
---- **Every cell is measured the way the press measures it**, since an item's boxes were built from
---- the records the press walks: the states out of `Constants.STATE_EVAL_EXPRESSIONS`, the pointed
---- frame and the computed switches through the press's own splices, and an alias's existence the
---- way `UnitAliasNeedsExists` answers it. A cell read any other way binds a key to an answer the
---- press would not give; `judgment_spec.lua` holds the bound key to the item at every point.
+--- **Every cell is read the way the press reads it**, since an item's boxes were built from the
+--- records the press walks: the states and units by the parse the press makes, the pointed frame
+--- and the computed switches through the press's own splices, and an alias's existence the way
+--- `UnitAsksExists` answers it. A cell read any other way binds a key to an answer the press would
+--- not give; `judgment_spec.lua` holds the bound key to the item at every point.
 ---
 ---   the beat (`JUDGE_BEAT_ATTRIBUTE`): Blizzard's driver. Every column the world moves, the pointed
 ---                      frame's included: a raid frame laid out again or a unit dying under a cursor
@@ -2761,7 +3374,6 @@ local function BuildJudgeSnippet()
         lines[#lines + 1] = select("#", ...) > 0 and format(str, ...) or str;
     end
 
-    local expr = Constants.STATE_EVAL_EXPRESSIONS;
     local TRUE, FALSE = Constants.JUDGMENT_TRUE, Constants.JUDGMENT_FALSE;
 
     local function computed(column)
@@ -2830,20 +3442,42 @@ local function BuildJudgeSnippet()
         add("end");
     end
 
-    local function unitCell()
-        add("if (not exists) then");
+    --- A unit's token and whether it is there, as `unit` and `exists`. The pointed frame's is what
+    --- `prepare` read; `exists` is read only by the group cell, which stays on the API.
+    local function unitAndExists(unit, withExists)
+        if (unit == "unitframe") then
+            add("local unit = JudgeFrameUnit");
+        elseif (SPECIAL_UNITS[unit]) then
+            add("local unit = UnitAliasMap[%q]", unit);
+        else
+            add("local unit = %q", unit);
+        end
+        if (not withExists) then
+            return;
+        end
+        if (unit == "player") then
+            -- Never absent, and the press does not ask (`UnitAsksExists`).
+            add("local exists = true");
+        elseif (SPECIAL_UNITS[unit] and not DebindPrivate.ALIAS_NEEDS_EXISTS[unit]) then
+            add("local exists = unit and true or false");
+        elseif (SPECIAL_UNITS[unit]) then
+            add("local exists = unit and UnitExists(unit) and true or false");
+        else
+            add("local exists = UnitExists(unit) and true or false");
+        end
+    end
+
+    --- A unit's cell by the classifying parse (`ClassifyPieces`), into `cell`. The caller declares
+    --- `unit`, the token or nil; an alias or frame unit with none is absent without a parse.
+    local function unitCell(unitName)
         add("cell = %d", Constants.UNITSTATE_NONE);
-        add("else");
-        add("local dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false");
-        add("PROBE.MockUnitDead(unit)");
-        add("if (PlayerCanAssist(unit)) then");
-        add("cell = dead and %d or %d", Constants.UNITSTATE_HELP_DEAD, Constants.UNITSTATE_HELP_ALIVE);
-        add("elseif (PlayerCanAttack(unit)) then");
-        add("cell = dead and %d or %d", Constants.UNITSTATE_HARM_DEAD, Constants.UNITSTATE_HARM_ALIVE);
-        add("else");
-        add("cell = dead and %d or %d", Constants.UNITSTATE_OTHER_DEAD, Constants.UNITSTATE_OTHER_ALIVE);
-        add("end");
-        add("end");
+        if (SPECIAL_UNITS[unitName]) then
+            add("if (unit) then");
+            add("cell = tonumber(PROBE.ParseUnit(JudgeClassify[%q][1]))", unitName);
+            add("end");
+        else
+            add("cell = tonumber(PROBE.ParseUnit(%q))", ClassifyPieces(unitName)[1]);
+        end
     end
 
     local function unitGroupCell()
@@ -2865,28 +3499,11 @@ local function BuildJudgeSnippet()
 
     local function otherCell(column)
         local kind = column.kind;
-        if (JUDGED_BOOL_STATES[kind]) then
-            add("local %s = %s", kind, expr[kind]);
-            add("PROBE.MockState(%s)", kind);
-            add("cell = %s and %d or %d", kind, TRUE, FALSE);
-        elseif (kind == "specialbar") then
-            add("local specialbar = %s", expr.specialbar);
-            add("if (not specialbar) then");
-            add("local petbattle = %s", expr.petbattle);
-            add("PROBE.MockState(petbattle)");
-            add("specialbar = petbattle");
-            add("end");
-            add("PROBE.MockState(specialbar)");
-            add("cell = specialbar and %d or %d", TRUE, FALSE);
-        elseif (JUDGED_MASK_STATES[kind]) then
-            local state = JUDGED_MASK_STATES[kind];
-            add("local %s = %s", state, expr[state]);
-            add("PROBE.MockState(%s)", state);
-            if (kind == "groups") then
-                add("cell = %s", state);
-            else
-                add("cell = 2 ^ (%s or 0)", state);
-            end
+        local text, numbered = StateCellText(kind);
+        if (text and numbered) then
+            add("cell = tonumber(PROBE.SecureCmdOptionParse(%q))", text);
+        elseif (text) then
+            add("cell = PROBE.SecureCmdOptionParse(%q) and %d or %d", text, TRUE, FALSE);
         elseif (kind == "known") then
             -- Through the probes the press asks through. The question goes in a local first, since
             -- a probe's arguments end at the first `)` and a spell name can hold one.
@@ -2952,10 +3569,11 @@ local function BuildJudgeSnippet()
         for _, name in ipairs(order) do
             readsFrame = readsFrame or _macrotexts[_switches[name].expr] and true or false;
         end
+        -- Read off what `prepare` read at the top of the body, once for both halves.
         if (readsFrame) then
-            add("local unitframe = States.unitframe");
-            add("local unitframeUnit");
-            lines[#lines + 1] = DebindPrivate.READ_UNITFRAME_SNIPPET;
+            add("local unitframeUnit = JudgeFrameUnit or nil");
+            add("local unitframeFrameType = JudgeFrameType or nil");
+            add("local unitframeRole = JudgeFrameRole or nil");
         end
         workOutSwitches(order);
 
@@ -2973,26 +3591,9 @@ local function BuildJudgeSnippet()
         end
         for _, unit in ipairs(unitOrder) do
             add("do");
-            if (unit == "unitframe") then
-                add("local unit = unitframeUnit");
-                add("local exists = unit and true or false");
-            elseif (SPECIAL_UNITS[unit]) then
-                add("local unit = UnitAliasMap[%q]", unit);
-                if (DebindPrivate.ALIAS_NEEDS_EXISTS[unit]) then
-                    add("local exists = unit and UnitExists(unit) and true or false");
-                else
-                    add("local exists = unit and true or false");
-                end
-            elseif (unit == "player") then
-                -- Never absent, and the press does not ask (`UnitExpression`).
-                add([[local unit = "player"]]);
-                add("local exists = true");
-            else
-                add("local unit = %q", unit);
-                add("local exists = UnitExists(unit) and true or false");
-            end
+            unitAndExists(unit, units[unit].unitgroup ~= nil);
             if (units[unit].unit) then
-                unitCell();
+                unitCell(unit);
                 mark(units[unit].unit);
             end
             if (units[unit].unitgroup) then
@@ -3013,6 +3614,185 @@ local function BuildJudgeSnippet()
         end
     end
 
+    --- One local, measured into `name`.
+    local function measureLocal(column, name)
+        local kind = column.kind;
+        if (kind == "known") then
+            add("local %s = %d", name, FALSE);
+            add("do");
+            add("local asked = %q", column.arg);
+            if (column.knownID) then
+                add("if (PROBE.SecureCmdOptionParse(asked) or PROBE.FindSpellBookSlotBySpellID(%d)) then",
+                    column.knownID);
+            else
+                add("if (PROBE.SecureCmdOptionParse(asked)) then");
+            end
+            add("%s = %d", name, TRUE);
+            add("end");
+            add("end");
+        elseif (kind == "unitgroup") then
+            add("local %s", name);
+            add("do");
+            unitAndExists(column.arg, true);
+            unitGroupCell();
+            add("%s = cell", name);
+            add("end");
+        elseif (kind == "unit") then
+            add("local %s", name);
+            add("do");
+            unitAndExists(column.arg, false);
+            unitCell(column.arg);
+            add("%s = cell", name);
+            add("end");
+        else
+            error("no measurement for a local of kind " .. tostring(kind));
+        end
+    end
+
+    --- **What a body does before it measures anything**: the pointed frame read again where
+    --- anything reads it, and the texts composed where `mode` puts something in them, so both halves
+    --- see one frame and no parse reads a text not yet composed.
+    ---
+    --- `mode` is `"beat"`, `"pass"` (compose every text), `"unitframe"`, or `"wake"` with `wake` the
+    --- alias or switch whose texts are composed again.
+    local function prepare(mode, wake)
+        if (mode == "unitframe" or (_judgeReadsFrame and mode ~= "wake")) then
+            add("do");
+            add("local unitframe = States.unitframe");
+            -- **Only while pointing**, on the beat: a frame laid out again under a cursor that never
+            -- moved sends neither enter nor leave (F3), and nothing else needs the read.
+            if (mode == "beat") then
+                add("if (unitframe) then");
+            end
+            add("local unitframeUnit");
+            lines[#lines + 1] = DebindPrivate.READ_UNITFRAME_SNIPPET;
+            -- `false` for none, never nil: a global set to nil is gone, not empty.
+            add("unitframeUnit = unitframeUnit or false");
+            add("unitframeFrameType = unitframeFrameType or false");
+            add("unitframeRole = unitframeRole or false");
+            add("if (unitframeUnit ~= JudgeFrameUnit or unitframeFrameType ~= JudgeFrameType"
+                .. " or unitframeRole ~= JudgeFrameRole) then");
+            add("JudgeFrameUnit = unitframeUnit");
+            add("JudgeFrameType = unitframeFrameType");
+            add("JudgeFrameRole = unitframeRole");
+            if (mode ~= "pass") then
+                add("local list = JudgeComposeBy.unitframe");
+                add("if (list) then");
+                lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
+                add("end");
+            end
+            add("end");
+            if (mode == "beat") then
+                add("end");
+            end
+            add("end");
+        end
+        if (mode == "pass") then
+            add("do");
+            add("local list = JudgeComposeAll");
+            lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
+            add("end");
+        elseif (mode == "wake") then
+            add("do");
+            add("local list = JudgeComposeBy[%q]", wake);
+            add("if (list) then");
+            lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
+            add("end");
+            add("end");
+        end
+    end
+
+    --- **The expression bundles in `list`, judged by parsing** (P3): the locals measured once, and
+    --- each bundle's text parsed. A parse that answers otherwise than the last one stamps the bundle
+    --- for the judging half.
+    local function judgeExpressions(all)
+        local list = {};
+        for _, bundle in ipairs(all) do
+            if (not bundle.expr.constant) then
+                list[#list + 1] = bundle;
+            end
+        end
+        if (#list == 0) then
+            return;
+        end
+
+        local named, count = {}, 0;
+        for _, bundle in ipairs(list) do
+            for _, entryLocal in ipairs(bundle.expr.locals) do
+                local column = bundle.columns[entryLocal.column];
+                if (not named[column.key]) then
+                    count = count + 1;
+                    named[column.key] = "L" .. count;
+                    if (entryLocal.lazy) then
+                        add("local %s", named[column.key]);
+                    else
+                        measureLocal(column, named[column.key]);
+                    end
+                end
+            end
+        end
+
+        for _, bundle in ipairs(list) do
+            local bundleExpr = bundle.expr;
+            add("do");
+            add("local b = JudgeBundles[%d]", bundle.n);
+            if (bundleExpr.variants > 1) then
+                add("local v = 0");
+            end
+            for k, entryLocal in ipairs(bundleExpr.locals) do
+                local column = bundle.columns[entryLocal.column];
+                local name = named[column.key];
+                if (entryLocal.lazy) then
+                    -- Left unmeasured where the gate does not hold: then no entry asking it can
+                    -- hold in any variant, so the first class's answers like every other's.
+                    local gate = entryLocal.gate;
+                    if (not gate) then
+                        add("if (%s == nil) then", name);
+                    elseif (#gate == 1) then
+                        add("if (%s == nil and PROBE.SecureCmdOptionParse(%q)) then", name, gate[1]);
+                    else
+                        add("if (%s == nil and PROBE.SecureCmdOptionParse(b[%q])) then", name, "gate" .. k);
+                    end
+                    add("%s = PROBE.SecureCmdOptionParse(%q) and %d or %d", name, "[" .. column.kind .. "]",
+                        TRUE, FALSE);
+                    add("end");
+                    add("if (%s) then", name);
+                end
+                for c = 2, #entryLocal.classes do
+                    add("if ((%d %% (%s + %s)) >= %s) then", entryLocal.classes[c], name, name, name);
+                    add("v = v + %d", (c - 1) * entryLocal.radix);
+                    add("end");
+                end
+                if (entryLocal.lazy) then
+                    add("end");
+                end
+            end
+            if (bundleExpr.variants > 1) then
+                add("local r = PROBE.SecureCmdOptionParse(b[v])");
+            elseif (#bundleExpr.texts[0] == 1) then
+                add("local r = PROBE.SecureCmdOptionParse(%q)", bundleExpr.texts[0][1]);
+            else
+                add("local r = PROBE.SecureCmdOptionParse(b[0])");
+            end
+            add("if (r ~= b.parsed) then");
+            add("b.parsed = r");
+            add("b.stamp = generation");
+            add("moved = true");
+            add("end");
+            add("end");
+        end
+    end
+
+    --- The expression bundles a wake moves.
+    local exprByWake = {};
+    for _, bundle in ipairs(_exprBundles) do
+        for name in pairs(bundle.wakes) do
+            exprByWake[name] = exprByWake[name] or {};
+            local list = exprByWake[name];
+            list[#list + 1] = bundle;
+        end
+    end
+
     local beat, byHand, wakes, wakeOrder = {}, {}, {}, {};
     for i, column in ipairs(_judgmentColumnOrder) do
         if (JudgedOnBeat(column)) then
@@ -3028,6 +3808,12 @@ local function BuildJudgeSnippet()
             end
             local list = wakes[wake];
             list[#list + 1] = i;
+        end
+    end
+    for name in pairs(exprByWake) do
+        if (not wakes[name]) then
+            wakes[name] = {};
+            wakeOrder[#wakeOrder + 1] = name;
         end
     end
     sort(wakeOrder);
@@ -3057,7 +3843,9 @@ local function BuildJudgeSnippet()
         add("if (not JudgeReady) then");
         add("return");
         add("end");
+        prepare("beat");
         measure(beat);
+        judgeExpressions(_exprBundles);
     end);
     local branch = DebindPrivate.BakeSnippet(tconcat({
         format("if (name == %q) then", JUDGE_BEAT_ATTRIBUTE),
@@ -3073,8 +3861,10 @@ local function BuildJudgeSnippet()
 
     --- The rebuild's own pass: every column, a switch set by hand too.
     _judgePassBody = DebindPrivate.BakeSnippet(body("1", function()
+        prepare("pass");
         measure(beat);
         measure(byHand);
+        judgeExpressions(_exprBundles);
     end));
     AssertSnippetCompiles(_judgePassBody, "JudgePass");
 
@@ -3086,7 +3876,9 @@ local function BuildJudgeSnippet()
             add("if (not JudgeReady) then");
             add("return");
             add("end");
+            prepare(wake == "unitframe" and "unitframe" or "wake", wake);
             measure(wakes[wake]);
+            judgeExpressions(exprByWake[wake] or {});
         end));
         AssertSnippetCompiles(snippet, JUDGE_WAKE_PREFIX .. wake);
         _judgeWakeBodies[#_judgeWakeBodies + 1] = { attribute = JUDGE_WAKE_PREFIX .. wake, body = snippet };
@@ -3096,7 +3888,7 @@ local function BuildJudgeSnippet()
 end
 
 function UpdateBindingsMap()
-    appendLine("local bindings,t,u,c,b,j,e");
+    appendLine("local bindings,t,u,c,b,j,e,tp,s");
 
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;

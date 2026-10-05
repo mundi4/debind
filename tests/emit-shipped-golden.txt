@@ -14,6 +14,9 @@ Execute <Frame#2>
   | wipe(JudgeBundles)
   | wipe(JudgeByKey)
   | wipe(JudgeWakes)
+  | wipe(JudgeComposeAll)
+  | wipe(JudgeComposeBy)
+  | wipe(JudgeClassify)
   | JudgeReady = false
   | -- `ApplyGiveBack` bakes it again from the set as it stands, below.
   | wipe(ContextKeys)
@@ -305,7 +308,7 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
 Execute <Frame#2>
-  | local bindings,t,u,c,b,j,e
+  | local bindings,t,u,c,b,j,e,tp,s
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -1861,16 +1864,19 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" c.priority=false BoundKeys["ALT-SHIFT-F12"]=c
   | self:SetBindingClick(false,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
-  | c=newtable() c.bundles=newtable() JudgeColumns[1]=c
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[1]=b
   | b.restOutcome="ours"
-  | e=newtable() e.outcome="release" b[1]=e
-  | e[1]=JudgeColumns[1] e[2]=2
-  | tinsert(JudgeColumns[1].bundles,b)
+  | b.wantOf=newtable() b.templates=newtable()
+  | b.wantOf["1"]="release"
+  | b.wantOf["2"]="ours"
+  | b[0]="[nocombat] 1; 2"
   | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeBundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(JudgeBundles[1].keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[2]=b
   | b.restOutcome="command"
   | b.restCommand="TOGGLEWORLDMAP"
+  | b.wantOf=newtable() b.templates=newtable()
+  | b.wantOf["1"]="TOGGLEWORLDMAP"
+  | b.parsed="1"
   | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeBundles[2] j.priority=true JudgeByKey["F10"]=j tinsert(JudgeBundles[2].keys,j)
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
@@ -1913,16 +1919,73 @@ SetAttribute <Frame#2> JudgePass =
   | local moved = false
   | local c, cell
   | do
-  | local combat = PlayerInCombat()
+  | local list = JudgeComposeAll
+  | 	for n = 1, #list do
+  | 		local b = list[n]
+  | 		for t = 1, #b.templates do
+  | 			local tp = b.templates[t]
+  | 			local frags, slots = tp.frags, tp.slots
+  | 			for k = 1, #slots do
+  | 				local slot = slots[k]
+  | 				local value
+  | 				if (slot.unit) then
+  | 					local token
+  | 					if (slot.unit == "unitframe") then
+  | 						token = JudgeFrameUnit
+  | 					else
+  | 						token = UnitAliasMap[slot.unit]
+  | 					end
+  | 					if (token) then
+  | 						value = "@" .. token .. slot.text
+  | 					else
+  | 						value = slot.absent
+  | 					end
+  | 				else
+  | 					local cell
+  | 					if (slot.switch) then
+  | 						local state = States[slot.switch]
+  | 						if (state == true) then
+  | 							cell = 1
+  | 						elseif (state == false) then
+  | 							cell = 2
+  | 						else
+  | 							cell = 4
+  | 						end
+  | 					elseif (slot.role) then
+  | 						if (JudgeFrameRole == "tank") then
+  | 							cell = 1
+  | 						elseif (JudgeFrameRole == "healer") then
+  | 							cell = 2
+  | 						elseif (JudgeFrameRole == "damager") then
+  | 							cell = 4
+  | 						elseif (JudgeFrameRole == "norole") then
+  | 							cell = 8
+  | 						else
+  | 							cell = 16
+  | 						end
+  | 					else
+  | 						cell = JudgeFrameType or 128
+  | 					end
+  | 					if ((slot.mask % (cell + cell)) >= cell) then
+  | 						value = ""
+  | 					else
+  | 						value = "known:0"
+  | 					end
+  | 				end
+  | 				frags[k + k] = value
+  | 			end
+  | 			b[tp.key] = table.concat(frags)
+  | 		end
+  | 	end
   | 
-  | cell = combat and 1 or 2
-  | c = JudgeColumns[1]
-  | if (c.cell ~= cell) then
-  | c.cell = cell
-  | moved = true
-  | for k = 1, #c.bundles do
-  | c.bundles[k].stamp = generation
   | end
+  | do
+  | local b = JudgeBundles[1]
+  | local r = SecureCmdOptionParse("[nocombat] 1; 2")
+  | if (r ~= b.parsed) then
+  | b.parsed = r
+  | b.stamp = generation
+  | moved = true
   | end
   | end
   | 	if (wake == 1) then
@@ -1938,20 +2001,27 @@ SetAttribute <Frame#2> JudgePass =
   | 		local bundle = JudgeBundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
-  | 			local outcome, command = bundle.restOutcome, bundle.restCommand
-  | 			for e = 1, #bundle do
-  | 				local entry = bundle[e]
-  | 				local match = true
-  | 				for c = 1, #entry, 2 do
-  | 					local cell = entry[c].cell
-  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
-  | 						match = false
+  | 			local outcome, command
+  | 
+  | 
+  | 			if (bundle.wantOf) then
+  | 				outcome = bundle.wantOf[bundle.parsed]
+  | 			else
+  | 				outcome, command = bundle.restOutcome, bundle.restCommand
+  | 				for e = 1, #bundle do
+  | 					local entry = bundle[e]
+  | 					local match = true
+  | 					for c = 1, #entry, 2 do
+  | 						local cell = entry[c].cell
+  | 						if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 							match = false
+  | 							break
+  | 						end
+  | 					end
+  | 					if (match) then
+  | 						outcome, command = entry.outcome, entry.command
   | 						break
   | 					end
-  | 				end
-  | 				if (match) then
-  | 					outcome, command = entry.outcome, entry.command
-  | 					break
   | 				end
   | 			end
   | 			if (outcome == "base") then
@@ -1998,16 +2068,12 @@ SetAttribute <Frame#2> _onattributechanged =
   | return
   | end
   | do
-  | local combat = PlayerInCombat()
-  | 
-  | cell = combat and 1 or 2
-  | c = JudgeColumns[1]
-  | if (c.cell ~= cell) then
-  | c.cell = cell
+  | local b = JudgeBundles[1]
+  | local r = SecureCmdOptionParse("[nocombat] 1; 2")
+  | if (r ~= b.parsed) then
+  | b.parsed = r
+  | b.stamp = generation
   | moved = true
-  | for k = 1, #c.bundles do
-  | c.bundles[k].stamp = generation
-  | end
   | end
   | end
   | 	if (wake == 1) then
@@ -2023,20 +2089,27 @@ SetAttribute <Frame#2> _onattributechanged =
   | 		local bundle = JudgeBundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
-  | 			local outcome, command = bundle.restOutcome, bundle.restCommand
-  | 			for e = 1, #bundle do
-  | 				local entry = bundle[e]
-  | 				local match = true
-  | 				for c = 1, #entry, 2 do
-  | 					local cell = entry[c].cell
-  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
-  | 						match = false
+  | 			local outcome, command
+  | 
+  | 
+  | 			if (bundle.wantOf) then
+  | 				outcome = bundle.wantOf[bundle.parsed]
+  | 			else
+  | 				outcome, command = bundle.restOutcome, bundle.restCommand
+  | 				for e = 1, #bundle do
+  | 					local entry = bundle[e]
+  | 					local match = true
+  | 					for c = 1, #entry, 2 do
+  | 						local cell = entry[c].cell
+  | 						if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 							match = false
+  | 							break
+  | 						end
+  | 					end
+  | 					if (match) then
+  | 						outcome, command = entry.outcome, entry.command
   | 						break
   | 					end
-  | 				end
-  | 				if (match) then
-  | 					outcome, command = entry.outcome, entry.command
-  | 					break
   | 				end
   | 			end
   | 			if (outcome == "base") then

@@ -799,10 +799,9 @@ end
 --- and the like can only be answered by reading what they list.
 local function MockBody(state, value)
     local parts = { format([[MockStatesMap[%q] = %s]], state, value == nil and "nil" or ToLiteral(value)) }
-    -- **A unit's life is parsed at the press too** (`PROBE.ParseUnit`), where the word is the same
-    -- for every unit and only the `@` beside it says whose. So it is held per unit, in the table
-    -- the press's dev form picks by its `unit` local. The beat still measures it by the API and
-    -- reads `MockStatesMap` (`PROBE.MockUnitDead`).
+    -- **A unit's life is parsed** (`PROBE.ParseUnit`), where the word is the same for every unit
+    -- and only the `@` beside it says whose. So it is held per unit, in the table the dev form picks
+    -- by the `unit` local beside the parse, the press's and the loop's classifying parse alike.
     local deadUnit = state:match("^(.+)%-dead$")
     if deadUnit then
         if value == nil then
@@ -885,8 +884,8 @@ local lastEvalUnit
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
 --- What `PROBE.MockState(x)` becomes while probing. The argument is the local **and** the state name, which
---- is why they are spelled the same in `EVAL_SNIPPET`. `MockUnitDead` (the beat's) and `MockUnitGroup`
---- take the unit instead, and read the `<unit>-dead` and `<unit>-group` names `SetMockState` is given.
+--- is why they are spelled the same in `EVAL_SNIPPET`. `MockUnitGroup` takes the unit instead, and
+--- reads the `<unit>-group` name `SetMockState` is given.
 ---
 --- `~= nil` and an `if`, not `and`/`or`: most of these axes are booleans, and a false held value
 --- would fall straight through an `and`/`or` to the measured one.
@@ -894,7 +893,6 @@ local PROBE_DEV = {
     Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
     Unit = [[debind_driver:CallMethod("DebindTestUnit", %s)]],
     MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
-    MockUnitDead = [[if (MockStatesMap[%1$s .. "-dead"] ~= nil) then dead = MockStatesMap[%1$s .. "-dead"] end]],
     MockUnitGroup = [[if (MockStatesMap[%1$s .. "-group"] ~= nil) then group = MockStatesMap[%1$s .. "-group"] end]],
     -- Each word of the expression is looked up in `MockParseWords` and replaced when it is there
     -- (`MockBody`). One expression, so it stands wherever the call did; the count is dropped.

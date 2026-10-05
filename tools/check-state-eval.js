@@ -1,7 +1,9 @@
 // **The press asks the state axes by parsing the record's `expr`, and measures none of them through
 // the API** (`implementing-the-trimmed-tail-key-beat.md` P2). `Constants.STATE_EVAL_EXPRESSIONS` is
-// what the beat still measures with, so a press that took one of those forms back up would read the
-// world one way while the beat reads it another, and nothing in a run of the game says so.
+// the API forms of those states, which the beat does not measure with either (P3), so a press that
+// took one of them back up would read the world one way while the beat reads it another, and
+// nothing in a run of the game says so. The beat's bodies are generated, and `judgment_spec.lua`
+// holds those.
 //
 // So this checks the baked `EVAL_SNIPPET` holds **none** of the table's forms. It used to check
 // the opposite -- that the press measured every one of them -- for as long as the press did.

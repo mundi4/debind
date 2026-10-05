@@ -142,6 +142,19 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+	JudgeComposeAll = newtable()
+	JudgeComposeBy = newtable()
+	JudgeClassify = newtable()
+	JudgeFrameUnit = false
+	JudgeFrameType = false
+	JudgeFrameRole = false
+
+
+
+
 	ContextKeys = newtable()
 
 
@@ -4144,6 +4157,9 @@ wipe(JudgeColumns)
 wipe(JudgeBundles)
 wipe(JudgeByKey)
 wipe(JudgeWakes)
+wipe(JudgeComposeAll)
+wipe(JudgeComposeBy)
+wipe(JudgeClassify)
 JudgeReady = false
 
 wipe(ContextKeys)
