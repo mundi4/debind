@@ -508,6 +508,12 @@ Q2에서 움직인 beat가 비싼 까닭은 watch가 걸리면 그 watch의 컬�
   실행하는 것이 많지 않아."* 직업이나 레코드 수로 가르지 않는다. 이것으로 `forms` 줄을 바꾸는 커밋을 기다리게 하던
   것은 없다.
 - 벤치의 관문: 드루이드 줄에서 변신이 바뀐 beat가 5.5 언저리 준다(Q2b의 절에 적힌 변형의 값). 다른 줄은 늘지 않는다.
+- **첫 커밋, 표가 들어갔다** (2026-10-06, `debind-7b`). `UpdateBindings.lua`의 `MEASURED_BY`, 종류마다 `parse`·`call`·
+  `read`. 지금 코드대로 `unitgroup`만 `call`, 손 스위치와 가리킨 개체창의 종류·역할이 `read`, 나머지는 `parse`다.
+  `petbattle`은 `parse`다: 루프가 읽는 넣어 준 값도 비보안 쪽이 `[petbattle]`을 파싱한 것이다. 누름은 `parse`인 축만
+  `expr`에 넣고(`PARSED_STATE_AXES`를 표에서 낸다), 루프의 `otherCell`은 `parse`인 종류만 절 목록으로 재고 줄이 없는
+  종류에서는 멈춘다. golden 둘이 움직이지 않았다. `forms`의 줄을 `call`로 바꾼 판에서 `judgment_spec` 여덟이 실패해
+  두 쪽이 표를 읽는 것을 봤다.
 
 ## Q3. ② 칸 합치기와 유닛의 watch
 

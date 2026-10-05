@@ -1706,22 +1706,48 @@ local CONDITION_AXES     = {
     { field = "petbattle" },
 };
 
---- **The state axes the press asks by parsing**, each as what a value of it is in macro conditionals:
---- a list of alternatives, each a list of tokens that must all hold. A record's `expr` is the product
---- of its axes' lists (`StateExpression`). The beat writes its texts from the same lists
---- (`StateCellText`), so the two parse one text.
+--- **How each kind of condition is measured, one way for the press and the loop alike** (Q2d of
+--- `implementing-the-cuts-inside-the-beat-handler.md`). The loop binds a key to what the press would
+--- answer, and two ways of asking one condition need not answer alike (7-1: `[swimming]` against
+--- `IsSwimming()`). Keyed by the record's field, which is the column's kind.
+---
+---   parse   the macro conditional. The press parses a record's state axes as one `expr`
+---           (`StateExpression`), the loop a column's clauses (`StateCellText`)
+---   call    a function, its answer turned into the cell
+---   read    a value put in place elsewhere
+local MEASURED_BY = {
+    groups = "parse", combat = "parse", stealth = "parse", mounted = "parse", indoors = "parse",
+    flying = "parse", skyriding = "parse", forms = "parse", bonusbars = "parse",
+    specialbar = "parse", extrabar = "parse", flyable = "parse", advflyable = "parse",
+    -- The loop's is parsed on the insecure side at the battle's events and pushed (`SetPetBattle`).
+    petbattle = "parse",
+    -- With `knownID` the spell book is asked as well, on both sides: `[known:<id>]` answers false
+    -- for a spell the book holds under an override (`SpecSpells.lua`).
+    known = "parse",
+    unit = "parse",
+    -- No conditional asks whether a unit is in the player's group.
+    unitgroup = "call",
+    -- `States`. A computed switch is worked out into it from its own expression, which is parsed.
+    switch = "read",
+    -- The pointed frame's, read once per body (`READ_UNITFRAME_SNIPPET`).
+    frameType = "read", role = "read",
+};
+
+--- **The state axes, in the order the press's expression asks them**, each as what a value of it is
+--- in macro conditionals: a list of alternatives, each a list of tokens that must all hold. A
+--- record's `expr` is the product of the lists of its axes that are parsed (`StateExpression`); the
+--- rest go out as fields.
 ---
 --- **The expensive two go last in every group**, so a group already lost on a cheaper token never
 --- judges them (7-1: `[<false>,flyable]` 0.23 against `[flyable,<false>]` 5.16).
-local PARSED_STATE_AXES = {
-    combat = true, stealth = true, mounted = true, indoors = true, flying = true, skyriding = true,
-    groups = true, forms = true, bonusbars = true, specialbar = true, extrabar = true, petbattle = true,
-    flyable = true, advflyable = true,
-};
-local PARSED_STATE_ORDER = {
+local STATE_AXIS_ORDER = {
     "groups", "combat", "stealth", "mounted", "indoors", "flying", "skyriding", "forms", "bonusbars",
     "specialbar", "extrabar", "petbattle", "flyable", "advflyable",
 };
+local PARSED_STATE_AXES = {};
+for _, axis in ipairs(STATE_AXIS_ORDER) do
+    PARSED_STATE_AXES[axis] = MEASURED_BY[axis] == "parse" or nil;
+end
 
 --- The offsets of a mask, `2 ^ n` per offset `n`, from `from` up to `to`.
 local function MaskOffsets(mask, from, to)
@@ -1801,7 +1827,7 @@ local function StateExpression(record)
     end
     local groups = { {} };
     local any = false;
-    for _, axis in ipairs(PARSED_STATE_ORDER) do
+    for _, axis in ipairs(STATE_AXIS_ORDER) do
         local value = values[axis];
         if (value ~= nil) then
             any = true;
@@ -3517,7 +3543,12 @@ local function BuildJudgeSnippet()
 
     local function otherCell(column)
         local kind = column.kind;
-        local text, numbered = StateCellText(kind);
+        local by = MEASURED_BY[kind];
+        assert(by, "no way to measure a judgment column of kind " .. tostring(kind));
+        local text, numbered;
+        if (by == "parse") then
+            text, numbered = StateCellText(kind);
+        end
         if (kind == "petbattle") then
             add("cell = JudgePetBattle and %d or %d", TRUE, FALSE);
         elseif (kind == "specialbar") then
