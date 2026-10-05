@@ -425,6 +425,9 @@ wipe(JudgeComposeAll)
 wipe(JudgeComposeBy)
 wipe(JudgeClassify)
 wipe(JudgeSwitchTexts)
+-- A composition reads this ahead of `States`, so a value left by a switch that has since become one
+-- set by hand would stand in front of its real one.
+wipe(JudgeSwitches)
 -- The rebuild's columns start with no cell, and a detecting parse answering its last number would
 -- leave them so: the pass then judges with nothing to compare.
 JudgeDetect = false
@@ -3015,6 +3018,10 @@ local function BuildJudgeSnippet()
 
     --- The computed switches `names` read, each after every computed switch its expression reads,
     --- the way the press orders them (`OrderComputedSwitch`). A cycle is cut where the walk meets it.
+    ---
+    --- **Over `ComposedReads`, the edges the wakes and `readers` are built from**: a switch the
+    --- rebuild fixed in the text (ignored, or the switch itself) is no edge, and is worked out only
+    --- where a column reads it.
     local function SwitchesToWorkOut(names)
         local order, seen = {}, {};
         local function visit(name)
@@ -3022,14 +3029,10 @@ local function BuildJudgeSnippet()
                 return;
             end
             seen[name] = true;
-            local info = _switches[name];
-            local parsed = info and _macrotexts[info.expr];
-            if (parsed) then
-                for _, arg in ipairs(parsed.args) do
-                    local other = arg.type == Constants.MACROTEXT_ARG_SWITCH and _switches[arg.name];
-                    if (other and other.mode == SWITCH_MODES.EXPR) then
-                        visit(arg.name);
-                    end
+            for _, read in ipairs(ComposedReads(name) or {}) do
+                local other = _switches[read];
+                if (other and other.mode == SWITCH_MODES.EXPR) then
+                    visit(read);
                 end
             end
             order[#order + 1] = name;
@@ -3051,9 +3054,14 @@ local function BuildJudgeSnippet()
             end
         end
         for _, name in ipairs(SwitchesToWorkOut(switches)) do
+            -- A text can name one thing twice (`[$a,combat][$a,mounted]`).
+            local seen = {};
             for _, read in ipairs(ComposedReads(name) or {}) do
-                readers[read] = readers[read] or {};
-                tinsert(readers[read], name);
+                if (not seen[read]) then
+                    seen[read] = true;
+                    readers[read] = readers[read] or {};
+                    tinsert(readers[read], name);
+                end
             end
         end
     end
@@ -3390,12 +3398,12 @@ local function BuildJudgeSnippet()
             lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
             add("end");
         elseif (mode == "wake") then
-            add("do");
-            add("local list = JudgeComposeBy[%q]", wake);
-            add("if (list) then");
-            lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
-            add("end");
-            add("end");
+            if (_judgeClassified[wake]) then
+                add("do");
+                add("local list = JudgeComposeBy[%q]", wake);
+                lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
+                add("end");
+            end
             clearReaders(wake);
         end
     end
@@ -3788,11 +3796,12 @@ end
 --- One entry per parsed macro body: where it is written back to, its fragments, the arguments that
 --- get re-evaluated, and which of the two tables it lands in.
 ---
---- **Both are read by a click and by nothing else.** `DeferredMacroTexts` holds a button's
---- `*macrotext-`, composed by the click that picks that button; `SwitchEntries` holds a computed
---- switch's expression, composed by the press that has to know the switch's answer
---- (`COMPUTE_SWITCHES_SNIPPET`). That is what takes the frame sweep down: moving an alias walks no
---- list of bodies.
+--- `DeferredMacroTexts` holds a button's `*macrotext-`, composed by the click that picks that
+--- button. `SwitchEntries` holds a computed switch's expression, composed by the press that has to
+--- know the switch's answer (`COMPUTE_SWITCHES_SNIPPET`) and by the tail-key loop, which keeps what
+--- it composed in `JudgeSwitchTexts` until a name the text reads moves (`workOutSwitches`). That is
+--- what takes the frame sweep down: moving an alias composes no button body, and only the loop's
+--- texts that read the alias again.
 local function EmitMacroTextEntries()
     local index = 0;
 
@@ -3822,9 +3831,8 @@ local function EmitMacroTextEntries()
             if (not isSwitch) then
                 appendLine("DeferredMacroTexts[%q]=t", buttonOrSwitchName);
             else
-                -- **A computed switch keeps its entry for the press, and the press is the only
-                -- reader.** Nothing works one out between presses, so there is nobody to recompose
-                -- the body for either.
+                -- **The press and the loop both compose it, each overwriting its fragments in
+                -- place**, so neither may keep anything in them from one composition to the next.
                 appendLine("SwitchEntries[%q]=t", buttonOrSwitchName);
             end
         end

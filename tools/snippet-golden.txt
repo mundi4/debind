@@ -4164,6 +4164,9 @@ wipe(JudgeClassify)
 wipe(JudgeSwitchTexts)
 
 
+wipe(JudgeSwitches)
+
+
 JudgeDetect = false
 JudgeReady = false
 

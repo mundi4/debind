@@ -18,6 +18,9 @@ Execute DebindBindingDriver
   | wipe(JudgeComposeBy)
   | wipe(JudgeClassify)
   | wipe(JudgeSwitchTexts)
+  | -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
+  | -- set by hand would stand in front of its real one.
+  | wipe(JudgeSwitches)
   | -- The rebuild's columns start with no cell, and a detecting parse answering its last number would
   | -- leave them so: the pass then judges with nothing to compare.
   | JudgeDetect = false

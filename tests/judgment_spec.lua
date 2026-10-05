@@ -823,6 +823,30 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **What the loop worked a computed switch out to does not outlive the rebuild.** A switch made
+    -- one set by hand is read through `States` from then on, and a value the loop left under its
+    -- name would stand in front of it in every composition.
+    test("a computed switch made one set by hand", function()
+        local reader = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$m]" };
+        local actions = {
+            action({ conditions = { ["$a"] = true } }),
+            action({ type = Constants.UNUSED }),
+        };
+        Bind(actions, { ["$m"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" }, ["$a"] = reader });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        interp.state.combat = true;
+        check(Looped("F1") == Judgment.OURS, "the key was not taken while $m was on");
+        Bind(actions, { ["$m"] = { mode = Constants.SWITCH_MODES.MANUAL }, ["$a"] = reader });
+        interp.driverHandle:RunAttribute("SetSwitch", "$m", false);
+        local got, looped = Actual("F1"), Looped("F1");
+        check(got == Judgment.RELEASE, "the press gave " .. got);
+        check(looped == got, "the press " .. got .. ", the loop " .. looped);
+        interp.driverHandle:RunAttribute("SetSwitch", "$m", nil);
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
     -- **No body of the loop measures a state through the API**: it parses its state columns as the
     -- press parses them. `Constants.STATE_EVAL_EXPRESSIONS` is the list of the API forms it may not
     -- take back up.

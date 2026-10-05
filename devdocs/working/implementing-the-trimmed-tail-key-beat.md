@@ -358,7 +358,7 @@ C2, C4, C6. 이 일의 본체였다.
   - "a computed switch reading a switch set by hand, and one reading an alias": `SetSwitch`·`SetUnit`의 깨움만으로, beat
     없이 키가 누름과 같아진다. 깨움의 글 지우기를 뺀 코드에서 실패했다.
   - 키트의 "Tail: a switch set by hand moves the key through two computed switches": 손 스위치 하나를 계산식 스위치 둘이
-    차례로 읽는다. 깨움 하나에서 조립, 깨움의 지우기, 뒤집힌 스위치의 지우기가 다 보안 환경에서 돈다. `[combat]` 같은
+    차례로 읽는다. 깨움 하나에서 조립, 깨움의 지우기, 뒤집힌 스위치의 지우기가 다 restricted environment에서 돈다. `[combat]` 같은
     낱말로 beat 쪽을 보지 않는 것은 계산식 스위치가 개발 빌드의 목(`PROBE.SecureCmdOptionParse`)이 닿지 않는 맨
     `SecureCmdOptionParse`로 파싱하기 때문이다(누름의 `COMPUTE_SWITCHES_SNIPPET`과 같다).
 - 벤치(`--bench-beat`의 "computed switches"): 키 12개가 `$h = [$w,mounted]`, `$u = [@custom1,help]`,
@@ -369,11 +369,17 @@ C2, C4, C6. 이 일의 본체였다.
   |---|---|---|
   | 상태가 그대로인 beat | 25.93 | 16.36 |
   | 네 beat마다 `combat`·`mounted`가 뒤집힘 | 29.29 | 20.91 |
-  | `custom1`을 옮기는 `SetUnit` | 4.52 | 18.84 |
+  | `custom1`을 옮기는 `SetUnit` | 4.52 | 18.59 |
 
   앞의 beat는 조립 셋(`$h`, `$u`, `$c`)을 매번 했다. 뒤는 조용한 beat에 조립이 없고, 뒤집히는 beat에 `$c` 하나다.
   `SetUnit`이 오른 것은 새로 생긴 깨움(`RunAttribute` 3.09, 조립, 파싱, 판정)이다. `custom1`은 액션이 누를 때 옮기니
-  손 빠르기로 온다.
+  손 빠르기로 온다. 깨움은 그 이름으로 분류하는 글이 없으면 `JudgeComposeBy`를 찾지 않아서, 처음 넣은 꼴보다
+  0.25쯤 싸다(`SetUnit` 18.84, 벤치의 손 스위치 깨움 15.85 → 15.61).
+- **리빌드가 `JudgeSwitches`도 지운다.** 조립은 이 표를 `States`보다 먼저 읽는다. 그래서 계산식이던 스위치를 손 스위치로
+  바꾸면 루프가 남긴 옛 값이 진짜 값을 가렸다(P4 전부터 있던 결함). `judgment_spec`의 "a computed switch made one set
+  by hand"는 이것을 고치기 전 코드에서 실패하는 것을 봤다.
+- `SwitchesToWorkOut`은 `ComposedReads`의 간선을 걷는다. 깨움과 `readers`도 같은 간선에서 나온다. 리빌드가 글에
+  못 박은 스위치(무시된 것, 자기 자신)는 컬럼이 읽을 때만 일한 차례에 든다.
 
 ## P5. `petbattle`·`house:editor`를 비보안 쪽이 넣는다
 
