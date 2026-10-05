@@ -116,18 +116,6 @@ L["BINDING_ERROR_UNDEFINED_SWITCH"] = "There is no Switch named |cnHIGHLIGHT_FON
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
--- On a saved [Use WoW's Own Binding] or binding command row. The row's own name already says what it
--- was, so this says what a press does now and why, then the two ways out. It says "the game's own
--- keybinding" because the command was one.
---
--- **It says nothing about the key**, and neither may anything written here later. This action is one
--- of several the key can hold and it may carry conditions of its own, so whether the key is taken,
--- and whether the actions under it run, are answered by the whole key and never by this row.
---
--- **The macro is offered "where it can be done" and not flatly.** Not every binding command has a
--- slash command, and `CanConvertToMacroText` takes neither of these two types, so the reader makes
--- the Custom Macro themselves rather than converting this row.
-L["BINDING_ERROR_TYPE_RETIRED"] = "Debind no longer passes keys to the game's own keybindings, so this action does nothing when it takes a press. Delete it, or where a slash command can do the same thing, replace it with a Custom Macro."
 -- The only MINOR code, so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
@@ -762,8 +750,7 @@ L["UNITGROUP_RAID"] = "In my raid"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- Under the issue mark's title, which is the grade in words (`ORDER_FLAG_ISSUE*`). **The title says
 -- what the grade is called and this says what it costs the reader**, which is the thing a name
--- alone cannot carry. It says the action does not work rather than that it is ignored: a saved
--- retired type is red and still holds its place on the key, doing nothing there.
+-- alone cannot carry.
 L["MARK_TOOLTIP_ISSUE_DESC"] = "This action does not work until the problem is fixed."
 -- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
@@ -1527,6 +1514,16 @@ L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pre
 L["TYPE_BLOCK"] = "Nothing"
 L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only."
 L["TYPE_COMMAND"] = "Binding Command"
+-- The two types that hand the rest of a key to WoW. Built on `TYPE_BLOCK_DESC`, since it is the same
+-- place in the key and the reader meets the three side by side in the picker. What WoW does with the
+-- key comes first; that nothing under it runs is the second thing they need to know.
+L["TYPE_COMMAND_DESC"] = "The key runs this command, the way it would if you bound it in WoW's own key bindings. No action under it on the same key runs either.|n|nPut conditions on it to run the command in those cases only."
+-- The window that opens when one of the two is added (`handing-the-rest-of-a-key-to-the-game.md`
+-- 2-9). The `%s` are `AUTO_SELF_CAST_KEY_TEXT` and `FOCUS_CAST_KEY_TEXT`. **Movement comes first in
+-- the second paragraph** (owner): a key that keeps running is worse than a ping wheel left open, and
+-- it is the likelier one with Use WoW's Own Binding.
+L["TAIL_NOTICE"] = "From where this action stands on the key, the key goes to WoW: to the binding WoW has on it, or to the command you picked. It is reached when none of the actions above it run, and the actions below it are then not used for that press. A press with the %1$s or the %2$s held is the exception.|n|nSome bindings do one thing when the key goes down and another when it comes up. A movement key moves while held and stops when let go; a ping key opens its wheel and closes it. If the situation changes while such a key is held, the release does not reach that binding, so you can keep moving or the wheel can stay open."
+L["TYPE_UNUSED_DESC"] ="The key does what WoW's own key bindings have on it, and nothing if they have nothing. No action under it on the same key runs either.|n|nPut conditions on it to hand the key to WoW in those cases only."
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"
 -- **Numbers the two slots the client calls by one name.** `TRINKET0SLOT` and `TRINKET1SLOT` are
@@ -1609,6 +1606,11 @@ L["FOCUS_CAST_KEY_DESC"] = "Holding the Focus Cast Key sends an action with no t
 L["CURRENT_SELF_CAST_KEY"] = "Current Self Cast Key: %s"
 L["CURRENT_FOCUS_CAST_KEY"] = "Current Focus Cast Key: %s"
 L["CAST_KEY_CHANGE_IN_GAME_OPTIONS"] = "You can change it in the game's Options, under Combat."
+-- `handing-the-rest-of-a-key-to-the-game.md` 2-4. The two `%s` are the client's own names for the
+-- two boxes above (`AUTO_SELF_CAST_KEY_TEXT`, `FOCUS_CAST_KEY_TEXT`). **Ctrl-1 is named** because the
+-- game's defaults hold Ctrl-1 to Ctrl-= (owner): that is the case a reader turns this off for.
+L["CAST_KEY_CHORDS_KEEP_GAME"] = "Keep WoW's bindings on cast key combinations"
+L["CAST_KEY_CHORDS_KEEP_GAME_DESC"] = "Where WoW's own key bindings already have a key held with the %1$s or the %2$s, such as Ctrl-1, that press keeps doing what WoW has on it.|n|nUnticked, the press runs the actions you set on the key here, cast on you or your focus."
 L["POINTED_UNIT_CAST"] = "Hover Cast"
 -- **What this row sets, and nothing else.** The feature itself is a page now
 -- (`docs/ingamehelp/enUS/hover-cast.md`), reached by the link under the row: the explanation is

@@ -50,7 +50,6 @@ L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "ESC 키는 쓸 수 없습니다
 -- 근거는 enUS 쪽 주석에.
 L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "META를 누른 채로 하는 마우스 클릭은 개체창에서 쓸 수 없습니다."
 L["BINDING_ERROR_MISSING_MACRO"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 매크로가 이 계정에도 이 캐릭터에도 없습니다."
-L["BINDING_ERROR_TYPE_RETIRED"] = "이제 Debind는 키를 와우 기본 단축키로 넘기지 않아서, 이 행동은 누름을 가져가도 아무 일도 하지 않습니다. 지우거나, 같은 일을 하는 슬래시 명령이 있으면 사용자 지정 매크로로 바꿔 주세요."
 L["BINDING_ERROR_UNDEFINED_SWITCH"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 스위치가 없습니다."
 L["BINDING_ERROR_UNREACHABLE"] = "이 행동은 실행되지 않습니다. 어떤 경우에도 이 키의 다른 행동이 먼저 실행됩니다."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
@@ -463,6 +462,9 @@ L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에�
 L["TARGET_UNIT"] = "대상"
 L["TYPE_BLOCK"] = "아무것도 안 함"
 L["TYPE_BLOCK_DESC"] = "누르면 아무 일도 일어나지 않습니다. 키를 이 행동이 가져가므로 같은 키의 아래 행동도 돌지 않습니다.|n|n조건을 걸면 그 경우에만 아래 행동들을 멈춥니다."
+L["TYPE_COMMAND_DESC"] = "와우 단축키 설정에서 이 명령을 걸었을 때처럼 키가 이 명령을 실행합니다. 같은 키의 아래 행동은 돌지 않습니다.|n|n조건을 걸면 그 경우에만 명령을 실행합니다."
+L["TAIL_NOTICE"] = "이 행동이 선 자리부터 키는 와우로 넘어갑니다. 와우 단축키 설정대로 동작하거나, 고른 명령을 실행합니다. 위의 행동이 하나도 실행되지 않을 때 여기에 오고, 그러면 그 누름에서 아래 행동은 쓰이지 않습니다. %1$s나 %2$s를 누른 채 누를 때는 예외입니다.|n|n누를 때와 뗄 때 다른 일을 하는 단축키가 있습니다. 이동 키는 누르는 동안 움직이고 떼면 멈추고, 핑 키는 누르는 동안 휠을 보이고 떼면 닫습니다. 그런 키를 누르고 있는 사이에 상황이 바뀌면 뗄 때의 동작이 그 단축키에 가지 않아, 계속 움직이거나 휠이 닫히지 않을 수 있습니다."
+L["TYPE_UNUSED_DESC"] ="키가 와우 단축키 설정대로 동작하고, 거기 걸린 것이 없으면 아무 일도 하지 않습니다. 같은 키의 아래 행동은 돌지 않습니다.|n|n조건을 걸면 그 경우에만 키를 와우로 넘깁니다."
 L["TYPE_COMMAND"] = "단축키 명령"
 L["TYPE_FLYOUT"] = "플라이아웃"
 L["TYPE_FOCUS"] = "주시 대상 설정"

@@ -81,46 +81,20 @@ return function(DebindPrivate)
         check(action.icon == Constants.QUESTION_MARK_ICON, "아이콘이 " .. tostring(action.icon) .. "다");
     end);
 
-    --- **은퇴한 두 타입은 빈 본문으로 바뀐다** (2026-09-23, 소유자). 둘 다 눌러도 아무 일이
-    --- 없으므로(`BINDING_ISSUE_TYPE_RETIRED`) 옮길 동작이 없고, 변환이 지키는 것은 그 줄이
-    --- 들고 있던 키와 레이어와 조건이다.
-    ---
-    --- 이름은 행이 이미 그리는 것을 그대로 받는다(`ActionDisplay.lua`). `UNUSED`의 것은 이름이
-    --- 아니라 은퇴한 동작의 설명이라 안 받고, 행은 `UNNAMED_ACTION`을 그린다.
-    ---
-    --- **아이콘이 물음표인 것은 없어서가 아니다.** 행은 저장된 아이콘이 물음표일 때만 본문에서
-    --- 아이콘을 풀어내므로(`GetMacrotextIcon`), 이 값이 사용자가 본문을 적은 뒤 그림이 붙는
-    --- 유일한 길이다.
-    test("은퇴한 타입은 빈 본문으로 바뀐다", function()
+    --- **A tail does not convert** (`handing-the-rest-of-a-key-to-the-game.md` 2-7, S5). What it
+    --- does is hand the key to the game or run a binding command, and a macro body can do neither.
+    --- An empty body would turn a row that does something into one that does nothing.
+    test("S5 a command or unused action does not convert", function()
         installWorld();
-        _G.BINDING_NAME_TOGGLEWORLDMAP = "지도 표시";
-
-        local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP" };
-        check(Can(command), "은퇴한 명령에 변환이 안 선다");
-        check(Convert(command), "변환이 거절됐다");
-        check(command.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(command.type));
-        check(command.value == "", "본문이 비어 있지 않다: " .. tostring(command.value));
-        check(command.name == "지도 표시", "이름이 " .. tostring(command.name) .. "다");
-        check(command.icon == Constants.QUESTION_MARK_ICON,
-            "아이콘이 " .. tostring(command.icon) .. "다");
-
-        local unused = { type = Constants.UNUSED };
-        check(Can(unused), "와우 기본 단축키 액션에 변환이 안 선다");
-        check(Convert(unused), "변환이 거절됐다");
-        check(unused.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(unused.type));
-        check(unused.value == "", "본문이 비어 있지 않다: " .. tostring(unused.value));
-        check(unused.name == nil, "이름이 붙었다: " .. tostring(unused.name));
-        check(unused.icon == Constants.QUESTION_MARK_ICON,
-            "아이콘이 " .. tostring(unused.icon) .. "다");
-    end);
-
-    --- 클라이언트가 그 명령의 이름을 모르면 명령 이름 자체가 이름이 된다. 행이 같은 자리에서
-    --- 같은 답을 낸다.
-    test("이름 없는 명령은 명령 이름을 쓴다", function()
-        installWorld();
-        local action = { type = Constants.COMMAND, value = "ZZZUNKNOWNCOMMAND" };
-        check(Convert(action), "변환이 거절됐다");
-        check(action.name == "ZZZUNKNOWNCOMMAND", "이름이 " .. tostring(action.name) .. "다");
+        for _, action in ipairs({
+            { type = Constants.COMMAND, value = "TOGGLEWORLDMAP" },
+            { type = Constants.UNUSED },
+        }) do
+            local kind = action.type;
+            check(not Can(action), kind .. ": the conversion is offered");
+            check(not Convert(action), kind .. ": the conversion went through");
+            check(action.type == kind, kind .. ": the type became " .. tostring(action.type));
+        end
     end);
 
     --- 이름은 문자열인데 그 이름의 매크로가 없는 경우. `ConvertToMacroText`는 본문을 못 지어서

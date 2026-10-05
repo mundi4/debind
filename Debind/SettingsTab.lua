@@ -219,6 +219,17 @@ local function Build()
             end
             DebindPrivate.QueueUpdateBindings();
         end);
+    Checkbox(L["CAST_KEY_CHORDS_KEEP_GAME"],
+        format(L["CAST_KEY_CHORDS_KEEP_GAME_DESC"], AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT),
+        DebindPrivate.ChordsYieldToGame,
+        function(value)
+            if (value) then
+                Options().castKeyChordsOverGame = nil;
+            else
+                Options().castKeyChordsOverGame = true;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
     local hoverCastChoices = {
         { value = "unitframe", label = L["POINTED_UNIT_CAST_FRAMES"], tooltip = L["POINTED_UNIT_CAST_FRAMES_DESC"] },
         { value = "mouseover", label = L["POINTED_UNIT_CAST_MOUSEOVER"], tooltip = L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] },
@@ -410,6 +421,7 @@ local function ResetToDefaults()
     local options = Options();
     options.selfCast = nil;
     options.focusCast = nil;
+    options.castKeyChordsOverGame = nil;
     options.hoverCastMode = nil;
     options.switchMessages = nil;
     options.excludePlayer = nil;

@@ -400,8 +400,6 @@ do
 
 					local key = action.key;
 					-- **The issue's outcome decides, never its grade** (`Constants.BINDING_ISSUE_OUTCOMES`).
-					-- The gate read the grade, which made a retired type orange so that its block kept
-					-- the key.
 					if (outcome == nil or outcome == Constants.ISSUE_OUTCOME_KEEP) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};

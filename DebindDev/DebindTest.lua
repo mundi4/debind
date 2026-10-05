@@ -685,8 +685,8 @@ local function BindingIndexForEmitted(key, index)
     return "block"
 end
 
---- The same, and `"block"` too where the `KeyMap` binding is one: a saved `UNUSED` or `COMMAND`
---- binds as a BLOCK (`FillBinding`), and winning with it fires nothing either.
+--- The same, and `"block"` too where the `KeyMap` binding is one: an `UNUSED` or `COMMAND` binds
+--- as a BLOCK (`FillBinding`), and winning a press with it fires nothing either.
 local function BindingIndexForRecord(key, index)
     local mapped = BindingIndexForEmitted(key, index)
     local bindings = type(mapped) == "number" and GetKeyBindings(key)
@@ -3976,6 +3976,80 @@ RegisterTest("Spell picker: where a new custom macro lands", {
         end
 
         return Pass(NAME, "left click landed in the open tab, the named tab got its own, and both reached the editor")
+    end,
+})
+
+-- `handing-the-rest-of-a-key-to-the-game.md` §8-5 S3, S4. **Needs the game**: the window is a frame
+-- of its own (`DebindTailNotice`), and what is measured is that it stands on screen.
+RegisterTest("S3 S4 adding a command or unused opens its notice until the box is ticked", {
+    description = "Adding either type shows the notice each time; once [Don't show this again] is ticked it does not, and a spell never does",
+    run = function()
+        local NAME = "Tail notice"
+        local HelpTip = DebindPrivate.HelpTip
+        local SEEN_KEY = "tailNotice"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "adding an action rebuilds, which is blocked in combat")
+        end
+
+        DebindFrame:Show()
+        AddTeardown(function()
+            StaticPopupSpecial_Hide(DebindTailNotice)
+            DebindFrame:CloseWindow()
+        end)
+
+        -- `AddNewAction` inserts into the open tab's layer; the run's own takes it instead.
+        local openLayerID = DebindUI.GetLayerID()
+        local realGetProfileLayer = DebindPrivate.GetProfileLayer
+        DebindPrivate.GetProfileLayer = function(layerID)
+            if layerID == openLayerID then
+                return GetTestLayer()
+            end
+            return realGetProfileLayer(layerID)
+        end
+        AddTeardown(function() DebindPrivate.GetProfileLayer = realGetProfileLayer end)
+
+        local wasSeen = HelpTip.WasSeen(SEEN_KEY)
+        HelpTip.ForgetSeen(SEEN_KEY)
+        AddTeardown(function()
+            if wasSeen then
+                HelpTip.MarkSeen(SEEN_KEY)
+            else
+                HelpTip.ForgetSeen(SEEN_KEY)
+            end
+        end)
+
+        DebindFrame:AddNewAction(Constants.SPELL, 585)
+        if DebindTailNotice:IsShown() then
+            return Fail(NAME, "adding a spell opened the notice")
+        end
+
+        DebindFrame:AddNewAction(Constants.UNUSED)
+        if not DebindTailNotice:IsShown() then
+            return Fail(NAME, "S3: adding an unused did not open the notice")
+        end
+        DebindTailNotice.OkayButton:Click()
+        if DebindTailNotice:IsShown() then
+            return Fail(NAME, "[Okay] left the notice open")
+        end
+
+        -- **Okay alone is not "don't show again".** The next one opens it once more.
+        DebindFrame:AddNewAction(Constants.COMMAND, "JUMP")
+        if not DebindTailNotice:IsShown() then
+            return Fail(NAME, "S3: adding a command after [Okay] alone did not open the notice")
+        end
+        if DebindTailNotice.HidePopupCheckbox.Checkbox:GetChecked() then
+            return Fail(NAME, "the box opened ticked")
+        end
+        DebindTailNotice.HidePopupCheckbox.Checkbox:Click()
+        DebindTailNotice.OkayButton:Click()
+
+        DebindFrame:AddNewAction(Constants.UNUSED)
+        if DebindTailNotice:IsShown() then
+            return Fail(NAME, "S4: the notice opened after the box was ticked")
+        end
+
+        return Pass(NAME, "a spell: none; unused: opened; command after Okay: opened; after the box: none")
     end,
 })
 

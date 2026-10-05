@@ -71,10 +71,11 @@ return function(DebindPrivate)
     -- What a record carries out
     ---------------------------------------------------------------------------
 
-    -- **A saved `UNUSED` or `COMMAND` stands on the key as a BLOCK**, and the action keeps the type
-    -- it was saved with (`dropping-the-game-fallback.md` §3). Nothing after it on the key
-    -- can fire, so it has to reach the key rather than be left out.
-    test("an unused or command action stands on the key as a block", function()
+    -- **A tail stands on the key as a BLOCK carrying its own type** (`FillBinding`). The key's
+    -- judgment item reads `tail`; a press that reaches the key anyway stops there. Nothing about it
+    -- is a fault: the migration turned every one saved before tails into a BLOCK, so the row has no
+    -- mark (`handing-the-rest-of-a-key-to-the-game.md` 2-8).
+    test("an unused or command action stands on the key as a block and is not marked", function()
         local unused = { type = Constants.UNUSED, key = "F1", seq = 1 };
         local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F2", seq = 2 };
         Bind({ unused, command });
@@ -89,9 +90,10 @@ return function(DebindPrivate)
             end
             check(original, key .. ": the action did not reach the key");
             check(original.type == Constants.BLOCK, key .. ": it came out as " .. tostring(original.type));
+            check(original.tail == stored.type, key .. ": the binding's tail is " .. tostring(original.tail));
             check(stored.type ~= Constants.BLOCK, key .. ": the stored action was rewritten");
-            check(DebindPrivate.GetBindingIssue(stored) == Constants.BINDING_ISSUE_TYPE_RETIRED,
-                key .. ": the row is not marked");
+            check(DebindPrivate.GetBindingIssue(stored) == nil,
+                key .. ": the row is marked " .. tostring(DebindPrivate.GetBindingIssue(stored)));
         end
     end);
 
@@ -119,17 +121,14 @@ return function(DebindPrivate)
         check(not spell, "the action under it is still on the key");
     end);
 
-    -- **The strongest outcome among an action's issues is the one it gets.** A retired type stays
-    -- on its key as a block; a condition no state can meet leaves it out. Carrying both, it is left
-    -- out: folded by grade instead, the two tie and whichever check is written first decides
-    -- (`reorganizing-binding-issues.md` §3-1).
-    test("a retired type carrying an issue that leaves it out is left out", function()
-        -- Special bar against pet battle, on purpose: that check runs after the retired type's, so a
-        -- fold that keeps the first of equals keeps the wrong one, and it leaves the binding standing,
-        -- so nothing but the outcome can take it off the key.
-        local retired = { type = Constants.UNUSED, key = "F1", seq = 1,
+    -- **A tail carrying an issue that leaves it out is left out**, like any action: no binding, so
+    -- no judgment item, and the key is not handed on under conditions nothing meets.
+    test("a tail carrying an issue that leaves it out is left out", function()
+        -- Special bar against pet battle, on purpose: it leaves the binding standing, so nothing but
+        -- the outcome can take it off the key.
+        local tail = { type = Constants.UNUSED, key = "F1", seq = 1,
             conditions = { specialbar = true, petbattle = false } };
-        Bind({ retired });
+        Bind({ tail });
         -- Read off `KeyMap` itself: a block is not a record `Records` hands back.
         local list = DebindPrivate.KeyMap.F1 or {};
         check(#list == 0, "it reached the key as " .. #list .. " bindings");

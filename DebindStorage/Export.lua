@@ -307,6 +307,7 @@ local IDENTITY_FIELDS    = {
 local OPTION_FIELDS      = {
     selfCast = "boolean",
     focusCast = "boolean",
+    castKeyChordsOverGame = "boolean",
     hoverCastMode = "string",
     switchMessages = "boolean",
     excludePlayer = "table",

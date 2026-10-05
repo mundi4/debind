@@ -765,21 +765,17 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- A type that used to hand the key back to the game
+    -- The two types that hand the rest of a key to the game
     ---------------------------------------------------------------------------
 
-    -- **A saved `UNUSED` or `COMMAND` binds as a block** (`dropping-the-game-fallback.md`
-    -- §3), so pressing it does nothing while the row still reads as what it was. Only the mark
-    -- tells the reader.
-    test("a saved unused or command action is reported", function()
-        local RETIRED = Constants.BINDING_ISSUE_TYPE_RETIRED;
-        check(RETIRED ~= nil, "no code");
-        check(GetBindingIssue({ type = Constants.UNUSED, key = "F1" }) == RETIRED,
-            "unused: " .. tostring(GetBindingIssue({ type = Constants.UNUSED, key = "F1" })));
+    -- **A tail is not a fault** (`handing-the-rest-of-a-key-to-the-game.md` 2-8). Every one saved
+    -- while they bound as a plain block was turned into a BLOCK by the migration, so a row of
+    -- either type is one the reader put there to hand the key on.
+    test("an unused or command action is not reported", function()
+        local unused = { type = Constants.UNUSED, key = "F1" };
+        check(GetBindingIssue(unused) == nil, "unused: " .. tostring(GetBindingIssue(unused)));
         local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F1" };
-        check(GetBindingIssue(command) == RETIRED, "command: " .. tostring(GetBindingIssue(command)));
-        check(GetBindingIssue(command, nil, "retired") == nil, "turning the category off did not");
-        check(GetBindingIssue(command, "key") == nil, "the key box goes red");
+        check(GetBindingIssue(command) == nil, "command: " .. tostring(GetBindingIssue(command)));
     end);
 
     test("the action button action that replaced a command is not reported", function()

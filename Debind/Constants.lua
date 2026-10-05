@@ -149,8 +149,7 @@ Constants.UNUSED                          = "unused";
 --- no press falls through to the game (`dropping-the-game-fallback.md` §3).
 ---
 --- It is three things at once. The reader can pick it, `UNUSED` and `COMMAND` turn into it on the
---- binding, and the self and focus twins are built out of it. **A stored one is not retired**, which
---- is what `BINDING_ISSUE_TYPE_RETIRED` tests the other two for by type rather than by this one.
+--- binding (`FillBinding`), and the self and focus twins are built out of it.
 Constants.BLOCK                           = "block";
 --- Presses one action bar button the way its binding command would. `value` is that command's
 --- name, so the row reads with the client's own `BINDING_NAME_*` and a saved `COMMAND` moves over
@@ -290,9 +289,8 @@ Constants.CONDITION_FIELDS = {
     skyriding = true,
 };
 
---- 이슈 갈래의 이름들. **어느 컨트롤을 빨갛게 칠할지의 이름이지 필드 이름이 아니다.**
---- `macro` `states` `retired`처럼 그 이름의 액션 필드가 아예 없는 것도 있고, 거꾸로 조건인데
---- 갈래가 없는 것도 있다.
+--- The issue categories. **Each names a control to paint red, not a field.** Some, like `macro`,
+--- have no action field of that name at all, and some conditions have no category.
 ---
 --- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
 --- 비켜가 언제나 nil이 나오는데, 그건 "문제 없음"과 구별되지 않는다.
@@ -324,8 +322,6 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     -- (`NOTHING_RUNS`) or against a condition on the pointed unit (`CONDITIONS_NEVER`, which the
     -- unit's row carries as well).
     casting = true,
-    -- A saved `UNUSED` or `COMMAND`. Like `macro`, the action itself is wrong and no control goes red.
-    retired = true,
 };
 
 --- Is this a switch's name? **The `$` is the whole test.** A switch condition is stored under the
@@ -674,10 +670,6 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
--- A saved `UNUSED` or `COMMAND`, which binds as a block and does nothing when pressed
--- (`dropping-the-game-fallback.md` §3). Red, and still on its key: the block is the
--- one thing that keeps the action behind it from firing (`BINDING_ISSUE_OUTCOMES`).
-Constants.BINDING_ISSUE_TYPE_RETIRED                      = "TYPE_RETIRED";
 -- Hover Cast's "don't run while pointing" with Normal Cast off: no plain press is left, so the action
 -- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **Red**
 -- (2026-10-04, owner): only those twins would be left, and they vary a press the action no longer
@@ -746,16 +738,14 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNDEFINED_SWITCH]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_GRADE_ERROR,
 };
 
 -- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
--- asks**, so neither the grade nor the category decides it: the grade used to, which made a retired
--- type orange to keep its block, and the `key` category used to let go of the key, which made any
--- code painted there do the same.
+-- asks**, so neither the grade nor the category decides it: one grade carries several outcomes, and
+-- a code painted on the key box need not let go of the key.
 --
 --   RELEASE  left out of `KeyMap`, and the key is not held for it: the game keeps the key
 --   OMIT     left out of `KeyMap`; the key is still held, so the next action on it takes the press
@@ -791,8 +781,6 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
     -- Left in, the press finds no macro and does nothing where the next action could have run.
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_OUTCOME_OMIT,
-    -- The block is what stops the action behind it.
-    [Constants.BINDING_ISSUE_TYPE_RETIRED]                      = Constants.ISSUE_OUTCOME_KEEP,
     -- There is nothing to leave in or out; the key stays held, so the next action on it answers.
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_OUTCOME_OMIT,
     -- The binding the solver keeps could never match at the press, so it is left off the key and the

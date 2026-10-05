@@ -349,9 +349,9 @@ end
 --- written in among equals.
 ---
 --- **Two ranks, because two questions fold differently.** The colour wants the loudest grade and
---- `BuildKeyMap` wants the strongest outcome, and a retired type is the case where they part: red
---- like a condition nothing meets, and kept where that one is left out. Folded by grade, the two tie
---- and whichever check is written first decides what happens to the key.
+--- `BuildKeyMap` wants the strongest outcome, and one grade can carry several outcomes: the game menu
+--- key and a condition nothing meets are both red, and only the first lets the key go. Folded by
+--- grade, the two tie and whichever check is written first decides what happens to the key.
 local function TakeIssue(current, candidate, rank)
     if (candidate ~= nil and (current == nil or rank(candidate) < rank(current))) then
         return candidate;
@@ -575,11 +575,6 @@ local ACTION_CHECKS = {
         local missing = DebindPrivate.GetMissingMacroName(action);
         if (missing) then
             return Constants.BINDING_ISSUE_MISSING_MACRO, missing;
-        end
-    end },
-    { category = "retired", check = function(action)
-        if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
-            return Constants.BINDING_ISSUE_TYPE_RETIRED;
         end
     end },
     -- **A row empty on its own.** Every binding that asks it cannot stand, so the answer needs none of

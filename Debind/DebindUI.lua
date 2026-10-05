@@ -2933,6 +2933,38 @@ function DebindPrivate.ShowMigrationDialogIfPending()
 	return true;
 end
 
+local TAIL_NOTICE_SEEN_KEY = "tailNotice";
+
+DebindTailNoticeMixin = {};
+
+function DebindTailNoticeMixin:OnLoad()
+	self.Text:SetText(format(LLL["TAIL_NOTICE"], AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT));
+	self.OkayButton:SetScript("OnClick", function()
+		if (self.HidePopupCheckbox.Checkbox:GetChecked()) then
+			HelpTip.MarkSeen(TAIL_NOTICE_SEEN_KEY);
+		end
+		StaticPopupSpecial_Hide(self);
+	end);
+	self.HidePopupCheckbox.Checkbox:SetScript("OnClick", function(checkbox)
+		PlaySound(checkbox:GetChecked() and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON
+			or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF);
+	end);
+end
+
+function DebindTailNoticeMixin:OnShow()
+	self.HidePopupCheckbox.Checkbox:SetChecked(false);
+	self:Layout();
+end
+
+--- Shown each time a command or unused is added or replaced in, until the reader ticks the box
+--- (`handing-the-rest-of-a-key-to-the-game.md` 2-9, S3, S4).
+function DebindUI.ShowTailNoticeFor(actionType)
+	if ((actionType == Constants.COMMAND or actionType == Constants.UNUSED)
+			and not HelpTip.WasSeen(TAIL_NOTICE_SEEN_KEY)) then
+		StaticPopupSpecial_Show(DebindTailNotice);
+	end
+end
+
 
 function DebindFrameMixin:OnShow()
 	if (not self.initialized) then
@@ -3844,6 +3876,7 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 
 	local elementData = self.LayerPanel:ScrollActionIntoView(action);
 	self:Update();
+	DebindUI.ShowTailNoticeFor(type);
 
 	return elementData;
 end
@@ -3892,6 +3925,7 @@ function DebindFrameMixin:ReplaceActions(actions, type, value, name, icon, props
 	self.LayerPanel:Refresh(true);
 	self.LayerPanel:ScrollActionIntoView(changed[1]);
 	self:Update();
+	DebindUI.ShowTailNoticeFor(type);
 end
 
 function DebindFrameMixin:Update()

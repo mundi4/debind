@@ -170,13 +170,11 @@ return function(DebindPrivate)
         };
     end
 
-    -- **The picker makes neither of the two types the addon no longer runs**
-    -- (`dropping-the-game-fallback.md` §3). A command that presses an action bar button
-    -- comes in as the action button action; every other game command and "use WoW's own binding"
-    -- are not offered at all. Saved ones still draw, which is the display's business.
-    test("명령 탭과 특수 탭은 COMMAND와 UNUSED를 안 만든다", function()
+    -- **Every game command is offered as a command, and a bar button's once more as the action
+    -- button action** (`handing-the-rest-of-a-key-to-the-game.md` §5 step 8; 2026-10-05, owner). The
+    -- Special tab offers handing the key to WoW.
+    test("the Commands tab offers every game command and the Special tab offers unused", function()
         local shim = require("wow_shim");
-        local Constants = DebindPrivate.Constants;
         shim.world.bindings = {
             { action = "ACTIONBUTTON1", keys = {} },
             { action = "TOGGLEWORLDMAP", keys = {} },
@@ -186,27 +184,26 @@ return function(DebindPrivate)
         _G.BINDING_NAME_TOGGLEWORLDMAP = "Open World Map";
         _G.BINDING_NAME_JUMP = "Jump";
 
-        local types, actionButton = {}, false;
+        local offered = {};
         for _, category in ipairs(ActionCatalog.GetCategories()) do
             if (category.source == "command" or category.source == "special") then
                 ActionCatalog.Invalidate(category.source);
                 for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
-                    types[entry.type] = true;
-                    if (entry.type == Constants.ACTIONBUTTON and entry.value == "ACTIONBUTTON1") then
-                        actionButton = true;
-                    end
+                    offered[entry.type .. ":" .. tostring(entry.value)] = true;
                 end
             end
         end
         shim.world.bindings = {};
 
-        check(not types[Constants.COMMAND], "a binding command was offered");
-        check(not types[Constants.UNUSED], "use WoW's own binding was offered");
-        check(actionButton, "the action bar button was not offered");
+        for _, want in ipairs({ "command:ACTIONBUTTON1", "command:TOGGLEWORLDMAP", "command:JUMP",
+                "actionbutton:ACTIONBUTTON1", "unused:nil" }) do
+            check(offered[want], want .. " was not offered");
+        end
+        check(not offered["actionbutton:JUMP"], "a command that presses no bar button came as one");
     end);
 
     -- **The one way to take a key and do nothing with it.** It is what covering an action with a
-    -- condition needs on top, and the retired type that used to stand there cannot be picked.
+    -- condition needs on top.
     test("특수 탭은 아무것도 안 하는 액션을 만든다", function()
         local Constants = DebindPrivate.Constants;
         local offered = false;

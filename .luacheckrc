@@ -279,6 +279,8 @@ globals = {
 	-- frame out of it from here taints what the action bar reads. Listing the global would let the
 	-- next call go straight back to theirs without anyone noticing.
 	"StaticPopup_Show",
+	"StaticPopupSpecial_Show",
+	"StaticPopupSpecial_Hide",
 	"StaticPopup_ShowCustomGenericConfirmation",
 	"StaticPopup_ShowCustomGenericInputBox",
 	"StaticPopup_FindVisible",
@@ -442,6 +444,7 @@ globals = {
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
 	"DebindMigrationDialogMixin",
+	"DebindTailNoticeMixin",
 	"DebindLayerPanelMixin",
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
@@ -479,6 +482,7 @@ globals = {
 	-- Named frames
 	"DebindFrame",
 	"DebindMigrationDialog",
+	"DebindTailNotice",
 	"DebindLayerPanel",
 	"DebindResultPanel",
 	"DebindMacroFrame",

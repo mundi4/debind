@@ -1264,14 +1264,12 @@ ActionCatalog.RegisterSource({
 ---
 ---   ours      target, focus, open the unit menu, world markers. Each takes a unit or a marker and
 ---             is its own type
----   the game  the binding commands that press an action bar button, as `Constants.ACTIONBUTTON`
----             with the command's name as the value ("ACTIONBUTTON1", "MULTIACTIONBAR1BUTTON5")
+---   the game  every binding command, as `Constants.COMMAND` with the command's name as the value
+---             ("JUMP", "TOGGLEBACKPACK"), which hands the key to WoW for that command; and the ones
+---             that press an action bar button once more as `Constants.ACTIONBUTTON`, which Debind
+---             presses itself
 ---
---- **No other game command is offered.** Debind holds every key it has an action on, so WoW's own
---- binding never gets the press, and only the bar buttons have something to stand in for them
---- (`dropping-the-game-fallback.md` §3, §4).
----
---- **Ours come first**, since the bar buttons run to ninety-odd rows and would bury them.
+--- **Ours come first**, since the game's run to a few hundred rows and would bury them.
 ---
 --- Not on the Special tab: that one holds what exists only in this addon, and targeting and world
 --- markers have bindings of the same kind in the game (`BINDING_HEADER_TARGETING`,
@@ -1279,6 +1277,23 @@ ActionCatalog.RegisterSource({
 ---
 --- **Names and icons are not made here.** `AddEntry` asks `NameAndIconForAction`, so the list and a
 --- bound action cannot show two different names.
+
+--- The order of the game's headings. The client's own (`GetNumBindings`) puts the action bars first
+--- and pushes movement and the interface, the most used, far down; these go first, any heading not
+--- listed follows in the client's order, and an empty one does not show.
+---
+--- **Written as global names.** A table of the localized values themselves is cut short at the first
+--- nil, since `ipairs` stops there.
+local PREFERRED_BINDING_HEADERS = {
+	"BINDING_HEADER_MOVEMENT",
+	"BINDING_HEADER_INTERFACE",
+	"BINDING_HEADER_CHAT",
+	"BINDING_HEADER_TARGETING",
+	"BINDING_HEADER_RAID_TARGET",
+	"BINDING_HEADER_VEHICLE",
+	"BINDING_HEADER_CAMERA",
+	"BINDING_HEADER_MISC",
+};
 
 --- 대상을 인자로 받는 우리 타입들. 머리글 하나에 유닛들이 붙는다.
 local UNIT_ACTION_TYPES = {
@@ -1348,13 +1363,21 @@ local function BuildBindingCommands(entries)
 
 	AddOwnCommands(Bucket);
 
+	for _, key in ipairs(PREFERRED_BINDING_HEADERS) do
+		local group = _G[key];
+		if (group) then
+			Bucket(group);
+		end
+	end
+
 	for bindingIndex = 1, GetNumBindings() do
 		local action, cat = GetBinding(bindingIndex);
 
-		if (action and Constants.ACTION_BUTTON_COMMANDS[action]) then
+		-- `HEADER_*` is a divider in the client's list, not a command.
+		if (action and strsub(action, 1, 6) ~= "HEADER") then
 			-- **A command the client names nothing for is left out.** `NameAndIconForAction` falls
 			-- back to the command string, which is right for drawing a bound action and here would
-			-- only make a row reading "ACTIONBUTTON1".
+			-- only make a row reading "MOVEFORWARD".
 			if (_G["BINDING_NAME_" .. action]) then
 				-- **The heading is resolved the way the client's own keybinding panel resolves
 				-- it** (`GetBindingCategoryName` in
@@ -1377,9 +1400,19 @@ local function BuildBindingCommands(entries)
 				end
 
 				local bucket = Bucket(group);
+				-- **A bar button's command is offered twice** (2026-10-05, owner): Debind pressing
+				-- that button, and the key handed to WoW's own binding for it. Side by side, so the
+				-- reader sees the two together; the icon and the tooltip tell them apart.
+				if (Constants.ACTION_BUTTON_COMMANDS[action]) then
+					bucket[#bucket + 1] = {
+						type = Constants.ACTIONBUTTON,
+						value = action,
+					};
+				end
 				bucket[#bucket + 1] = {
-					type = Constants.ACTIONBUTTON,
+					type = Constants.COMMAND,
 					value = action,
+					tooltipText = LLL["TYPE_COMMAND_DESC"],
 				};
 			end
 		end
@@ -1412,8 +1445,7 @@ ActionCatalog.RegisterSource({
 --------------------------------------------------------------------------------
 
 --- **What exists only in this addon**, so there is nowhere else for it: custom targets, setting a
---- switch, and the three types the class and specialization resolve. A hand-written list of fixed
---- length.
+--- switch, taking a key for nothing and handing it to WoW. A hand-written list of fixed length.
 ---
 --- **Not "Other".** Two things kept out of it draw the line:
 ---
@@ -1421,10 +1453,6 @@ ActionCatalog.RegisterSource({
 ---                                  go to the Spells tab's extra group (`AddExtraSpellEntries`)
 ---   targeting and world markers    the game has bindings of the same kind, so they go to the
 ---                                  Commands tab (`AddOwnCommands`)
----
---- The class and specialization types fire a spell but **have no value to store**: a Spells tab row
---- names one spell, and which one these fire is decided at the press. So the tab keeps its place
---- with a handful of rows, and it is also where somebody new sees what else the addon can do.
 ---
 --- It had twenty rows once, fifteen of them three verbs times five switches. Lifting the switch
 --- count made that one row (§6-C); the concept still stands, and which switch is the action menu's
@@ -1483,6 +1511,14 @@ local function BuildSpecialActions(entries)
 		type = Constants.BLOCK,
 		group = typeNames[Constants.BLOCK],
 		tooltipText = LLL["TYPE_BLOCK_DESC"],
+	});
+
+	-- Handing the rest of the key to WoW. **A heading of its own even alone**: the grid draws group
+	-- edges only with headings, and without one this row reads as part of the group above it.
+	AddEntry(entries, seen, {
+		type = Constants.UNUSED,
+		group = typeNames[Constants.UNUSED],
+		tooltipText = LLL["TYPE_UNUSED_DESC"],
 	});
 end
 

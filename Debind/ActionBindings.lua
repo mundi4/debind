@@ -253,9 +253,11 @@ do
         binding.type, binding.value = action.type, action.value;
         binding.pinnedSpell = action.pinnedSpell;
         binding.resolvedSpellID = action.resolvedSpellID;
-        -- **Only the binding changes.** The action keeps the type it was saved with, so its row
-        -- still says what it was, and an older build reading the same SavedVariables still runs it.
-        -- `tail` keeps what it was, which the key's judgment item reads (`UpdateBindingsMap`).
+        -- **A tail goes out as a BLOCK, and `tail` keeps which one it was.** Handing the key on is
+        -- the judgment item's work, and the item reads `tail` (`UpdateBindingsMap`). A press that
+        -- still reaches us, before the next beat has moved the key or as a click on a unit frame, has to stop
+        -- at the tail's place rather than run the actions behind it, and the emitter has no case
+        -- for either type.
         if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
             binding.type = Constants.BLOCK;
             binding.tail = action.type;

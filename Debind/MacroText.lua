@@ -393,10 +393,8 @@ end
 --- `PlaceRaidMarker` / `ClearRaidMarker` both carry `HasRestrictions` so `/run` cannot reach them
 --- either. What is lost is written in the body the window opens on.
 ---
---- **`COMMAND` and `UNUSED` convert to an empty body.** Both are retired and already do nothing
---- when pressed (`BINDING_ISSUE_TYPE_RETIRED`), so there is no behaviour to carry over and nothing
---- to lose; what the conversion keeps is the key, the layer and the conditions the row was built
---- with.
+--- **`COMMAND` and `UNUSED` are not offered** (`handing-the-rest-of-a-key-to-the-game.md` 2-7).
+--- They hand the key to the game or run a binding command, and a macro body does neither.
 function DebindPrivate.CanConvertToMacroText(action)
     if (not ConditionsSurviveMacroText(action)) then
         return false;
@@ -418,9 +416,7 @@ function DebindPrivate.CanConvertToMacroText(action)
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
         or action.type == Constants.SETCUSTOM
-        or action.type == Constants.WORLDMARKER
-        or action.type == Constants.COMMAND
-        or action.type == Constants.UNUSED;
+        or action.type == Constants.WORLDMARKER;
 end
 
 function DebindPrivate.ConvertToMacroText(action)
@@ -527,16 +523,6 @@ function DebindPrivate.ConvertToMacroText(action)
         macrotext = format("/click DebindCustom%d unitframe", action.value);
     elseif (action.type == Constants.WORLDMARKER) then
         macrotext = format("/wm %d", action.value);
-    elseif (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
-        -- **Empty, and that is the whole body.** Neither type does anything when pressed any more,
-        -- so there is nothing to write out; the reader writes what the key should do now.
-        --
-        -- `UNUSED`'s row name is a description of the retired behaviour rather than a name, so it
-        -- is not carried and the row draws `UNNAMED_ACTION`.
-        if (action.type == Constants.UNUSED) then
-            name = nil;
-        end
-        macrotext = "";
     elseif (Constants.SETSWITCH_MODES[action.type]) then
         -- **The body needs a name and a mode, and the action already holds both** -- the name in
         -- `value`, the mode decided by the type.
@@ -544,9 +530,6 @@ function DebindPrivate.ConvertToMacroText(action)
             Constants.SETSWITCH_MODES[action.type]);
     end
 
-    -- **nil is "nothing to convert" and `""` is a body.** The retired types convert to an empty
-    -- one, so this gate has to keep telling the two apart; a truthiness test that grew an `~= ""`
-    -- would turn those conversions into a menu item that does nothing when pressed.
     if (macrotext) then
         if (atUnit and atUnits) then
             atUnits[atUnit] = IntersectStoredUnitConditions(atUnits[atUnit], atUnits["@"]);

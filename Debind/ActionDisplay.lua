@@ -431,7 +431,9 @@ local function NameAndIconForAction(action)
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
-		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";
+		-- The unused one's arrow: the key goes to WoW here too. Not the action button's icon, which
+		-- stands beside a command of the same name in the picker (`BuildBindingCommands`).
+		actionIcon = "A:common-icon-undo";
 	elseif (type == Constants.ACTIONBUTTON) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
 		skipTypeName = true;
@@ -475,7 +477,11 @@ local function NameAndIconForAction(action)
 		actionName, actionIcon = DebindPrivate.GetFlyoutNameAndIcon(value, true);
 	elseif (type == Constants.UNUSED) then
 		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
-		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";
+		-- **Giving back, not forbidding.** The red X reads as "blocks, does nothing", which is the
+		-- opposite of what the row does: the key works and does what WoW's own binding says. This is
+		-- the arrow the client draws for going back to the default (the Cooldown Viewer's undo, the
+		-- customization camera reset).
+		actionIcon = "A:common-icon-undo";
 		skipTypeName = true;
 	elseif (type == Constants.BLOCK) then
 		actionName = BINDING_TYPE_NAMES[Constants.BLOCK];

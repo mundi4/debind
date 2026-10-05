@@ -2014,4 +2014,70 @@
 		</Scripts>
 	</Frame>
 
+	<!--
+		What adding a command or unused does to the key (`handing-the-rest-of-a-key-to-the-game.md`
+		2-9). Copied from the client's `BankCleanUpConfirmationPopup` (`BankFrame.xml`): a static popup
+		has no checkbox, and that is the client's own dialog with "Don't show this again" on it.
+		`BankPanelCheckboxTemplate` lives in the bank's files, so its textures are copied too.
+	-->
+	<Frame name="DebindTailNotice" parent="UIParent" frameStrata="DIALOG" mixin="DebindTailNoticeMixin"
+		inherits="ResizeLayoutFrame" hidden="true">
+		<KeyValues>
+			<KeyValue key="minimumWidth" value="440" type="number"/>
+			<KeyValue key="heightPadding" value="18" type="number"/>
+		</KeyValues>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT">
+					<Size x="380"/>
+					<Anchors>
+						<Anchor point="TOP" y="-20"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="Border" inherits="DialogBorderTemplate"/>
+
+			<Frame parentKey="HidePopupCheckbox">
+				<Size x="300" y="23"/>
+				<Anchors>
+					<Anchor point="TOP" relativeKey="$parent.Text" relativePoint="BOTTOM" y="-12"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Label" justifyH="CENTER" inherits="GameFontNormalSmall" text="CONFIRM_POPUP_DONT_SHOW_AGAIN" maxLines="1">
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+				<Frames>
+					<CheckButton parentKey="Checkbox">
+						<Size x="24" y="23"/>
+						<Anchors>
+							<Anchor point="RIGHT" relativeKey="$parent.Label" relativePoint="LEFT" x="-3"/>
+						</Anchors>
+						<NormalTexture atlas="checkbox-minimal" useAtlasSize="true"/>
+						<PushedTexture atlas="checkbox-minimal" useAtlasSize="true"/>
+						<CheckedTexture atlas="checkmark-minimal" useAtlasSize="true"/>
+						<DisabledCheckedTexture atlas="checkmark-minimal-disabled" useAtlasSize="true"/>
+					</CheckButton>
+				</Frames>
+			</Frame>
+
+			<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
+				<Size x="128" y="21"/>
+				<Anchors>
+					<Anchor point="TOP" relativeKey="$parent.HidePopupCheckbox" relativePoint="BOTTOM" y="-7"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
+
 </Ui>
