@@ -980,7 +980,8 @@ return function(DebindPrivate, _, ctx)
     -- ones of one token on the same word, so a merge may not take the two-token group in, and
     -- fragments where the same word stands on both `no` sides, which may not merge either.
     --- The second list's clauses never hold two at once, so a cell's fragment is its own clause
-    --- turned over and nothing more (Q2c).
+    --- turned over and nothing more (Q2c). The third's clauses ask the `no` side, so a fragment holds
+    --- two `no` groups of one word, which must stay two.
     local FRAGMENT_LISTS = {
         {
             { groups = { { "form:1", "combat" } }, cell = 2 },
@@ -993,6 +994,13 @@ return function(DebindPrivate, _, ctx)
             { groups = { { "form:2" } }, cell = 4 },
             { groups = { { "form:3" } }, cell = 8 },
             default = 1, exclusive = true,
+        },
+        {
+            { groups = { { "noform:3" } }, cell = 2 },
+            { groups = { { "noform:4" } }, cell = 4 },
+            { groups = { { "form:1" } }, cell = 8 },
+            { groups = { { "form:2" } }, cell = 16 },
+            default = 1,
         },
     };
     test("a watch fragment holds exactly where its cell is left", function()

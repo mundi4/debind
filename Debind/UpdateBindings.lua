@@ -2766,9 +2766,8 @@ local _judgmentColumnIndex = {};
 --- and its bundles `JudgeColumns[2i]`.
 local _judgmentColumnOrder = {};
 --- The columns the watch carries (`WatchFragments`), by column index: their place in the watch's
---- fragments, and their fragment by cell.
+--- fragments.
 local _watchPlace = {};
-local _watchFragments = {};
 local WatchFragments;
 
 --- Every column the judgment items read, once each, as `column key -> column`.
@@ -2890,7 +2889,6 @@ local function EmitJudgmentItems(items)
     wipe(_judgmentColumnIndex);
     wipe(_judgmentColumnOrder);
     wipe(_watchPlace);
-    wipe(_watchFragments);
     local wakes, watched = {}, 0;
     for i, key in ipairs(sortedKeys(_judgmentColumns, _sortedB)) do
         local column = _judgmentColumns[key];
@@ -2902,7 +2900,7 @@ local function EmitJudgmentItems(items)
         local fragments = WatchFragments(column);
         if (fragments) then
             watched = watched + 1;
-            _watchPlace[i], _watchFragments[i] = watched, fragments;
+            _watchPlace[i] = watched;
             -- **As a clause answering its place** (Q2b): the parse names the first column that left
             -- its cell. Each opens with the separator, which the join takes off the first one, so no
             -- clause is ever empty: an empty clause holds unconditionally.
@@ -3123,11 +3121,11 @@ end
 ---
 --- A group another one in the same fragment is a subset of is left out: it can hold only where
 --- the smaller one does. **Groups of one token that differ only in the argument are one question
---- and are written as one** (`[form:1/2/3]`), the way the press writes it; the same `no` side only,
---- and never the bare word, since a bare `[bonusbar]` is not the same question (7-1). Without it a
---- mask column's default cell alone was ten groups of the watch's thirty. Every token a fragment
---- writes goes into `_stateTokens`, so the development build's mock answers it the way it answers
---- the column's own text.
+--- and are written as one** (`[form:1/2/3]`), the way the press writes it, and never with the bare
+--- word, since a bare `[bonusbar]` is not the same question (7-1). **Never on the `no` side**:
+--- `[noform:1/2]` holds where neither does, while `[noform:1][noform:2]` holds where either fails.
+--- Every token a fragment writes goes into `_stateTokens`, so the development build's mock answers
+--- it the way it answers the column's own text.
 local FragmentsOf;
 function WatchFragments(column)
     local list;
@@ -3135,6 +3133,9 @@ function WatchFragments(column)
         if (column.knownID) then
             return nil;
         end
+        -- `no` in front turns over the whole name only where the parser reads it as one word. A
+        -- typed name with a `,` or `]` never gets here: the Issues panel omits its record
+        -- (`KNOWN_NAME_UNPARSABLE`).
         local token = column.arg:match("^%[(.+)%]$");
         list = { { groups = { { token } }, cell = Constants.JUDGMENT_TRUE }, default = Constants.JUDGMENT_FALSE };
     elseif (column.kind ~= "petbattle") then
@@ -3177,7 +3178,7 @@ function FragmentsOf(list)
         local merged, byWord = {}, {};
         for _, group in ipairs(kept) do
             local word, argument;
-            if (#group == 1) then
+            if (#group == 1 and group[1]:sub(1, 2) ~= "no") then
                 word, argument = group[1]:match("^(%a+):(.+)$");
             end
             if (word and byWord[word]) then
@@ -3227,9 +3228,8 @@ function FragmentsOf(list)
 end
 DebindPrivate.WatchFragmentsOf = FragmentsOf;
 
---- How many columns one beat measures one at a time before it measures every carried column.
---- `debind-f8`'s proposal, not measured: past three, the parses one at a time cost about what
---- measuring them all does.
+--- How many columns one beat measures one at a time before it measures every carried column. Past
+--- three, a reckoning puts the parses one at a time at about what measuring them all costs.
 local WATCH_ROUNDS = 3;
 
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,

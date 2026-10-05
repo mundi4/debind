@@ -440,6 +440,19 @@ Q2에서 움직인 beat가 비싼 까닭은 watch가 걸리면 그 watch의 컬�
   목록을 더했다. `group`도 배타적으로 둔 판에서 "forms and the player's group"이 실패하는 것을 봤다. 벤치, 큰 모양, 본문:
   변신 3번 중의 조용한 beat 드루이드 15.73 → 14.65, 형태 없는 직업 13.76 → 13.67. 형태 바뀜(드루이드) 34.90 → 33.83.
   다른 줄은 그대로다.
+- **Q2, Q2b, Q2c의 코드 리뷰** (2026-10-06, `debind-7b`). 지적 아홉을 코드와 맞춰 봤다.
+  - 고친 것. `FragmentsOf`가 `no` 쪽의 한 토큰 그룹도 슬래시로 합쳤다. `[noform:1][noform:2]`는 어느 하나가 아니면
+    걸리고 `[noform:1/2]`는 둘 다 아니어야 걸리니 다른 물음이다. 지금의 절 목록은 한 조각에 같은 낱말의 `no` 그룹을 둘
+    내지 않아 닿는 길은 없었다. "a watch fragment holds exactly where its cell is left"에 `no` 쪽을 묻는 절 목록을
+    더했고, 합치던 판에서 실패하는 것을 봤다. 읽는 곳이 없던 `_watchFragments`를 뺐고, `WATCH_ROUNDS`와 합치기
+    주석에서 세션 이름과 지난 모양을 덜어 냈다.
+  - 고치지 않은 것. 쉼표가 든 `known` 이름: 그 레코드는 Issues가 빼서(`KNOWN_NAME_UNPARSABLE`) watch에 닿지 않는다.
+    그 까닭을 그 줄에 적었다. beat의 `measure`가 상한 갈래와 if 사슬에 두 번 나오는 것, 사슬이 줄줄이 견주는 것,
+    `specialbar`를 종류로 가르는 것은 꼴의 문제이고 답과 값을 바꾸지 않는다. 형태가 바뀐 beat의 `forms` 다시 재기는
+    Q2d가 다룬다.
+  - 따로 본 것. `rejoin`의 `local text`는 `if (dirty)` 안에만 살고 바깥 `text`는 그 뒤 `watch.text`로 읽힌다.
+    `watchSpecialbar`는 cell이 그대로여도 조각을 견주어 다시 쓰고 `petbattle` 깨움이 `specialbar`를 잰다.
+    `PROBE.WatchCheck`는 배포 본문에서 빈 줄이고, 걸린 조각이 어느 자리와도 맞지 않으면 루프는 상한에서 모두 재고 멈춘다.
 
 ## Q2d. 재는 방법을 조건마다 고른다
 
