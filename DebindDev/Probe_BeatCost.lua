@@ -2,7 +2,7 @@
 -- One-shot probe: what every piece the tail-key beat could be built from costs, in one run
 -- (`trimming-the-tail-key-beat.md`).
 --
---   /debbc      run it out of combat (a second or two of frozen frames), then /reload
+--   /debbc      run it out of combat (a few seconds of frozen frames), then /reload
 --
 -- Every case is a body run `COUNT` times in a loop, `ROUNDS` rounds interleaved, median less the
 -- empty loop, as microseconds a call. In the restricted environment through `SecureHandlerExecute`
@@ -22,11 +22,23 @@
 --      against measuring the same columns the way the beat does now and the judging loop over
 --      restricted tables
 --   G  a computed switch's composition, with and without the parse
+--   N  one long OR `[a][b]...` of 4 to 256 groups, the shape of a watch over every column: what a
+--      false group costs as the text grows, whether the parse reads a text that long to its end,
+--      and whether a state word answers the same beside an `@unit`, wherever in the group it sits.
+--      That last one is answered for `combat` only by a run with a unit whose combat is not the
+--      player's (in combat with an idle target works: those lines need no restricted environment)
+--   P  a bundle's answer read out of a table baked at rebuild instead of walked out of its entries:
+--      the pieces (a bit asked of a large number, `2 ^ n`, `ldexp`, `strbyte`, `strsub`, an array
+--      read, the joint index) and then the same three-column bundle judged by the loop and by a
+--      table kept as two numbers, as a string and as an array
 --
 -- Answer found, delete the file and its TOC line.
 
 local TAG = "|cffff9900[BC]|r ";
 local COUNT, ROUNDS = 1000, 15;
+--- Group N's texts cost tens of microseconds a parse, so a tenth of the calls times them as well
+--- and keeps the frozen frames short. They are held against an empty loop of the same count.
+local LONG_COUNT = 100;
 
 --- Words a gate could read, each with the restricted call that answers it. Only the ones whose
 --- macro answer and call agree right now are used in D-F, so a chain is false where its parse is.
@@ -124,6 +136,34 @@ for e = 1, 4 do
     BenchBundle[e] = entry
 end
 BenchList = newtable()
+BenchCellA = newtable()
+BenchCellA.cell = 2
+BenchCellB = newtable()
+BenchCellB.cell = 4
+BenchCellC = newtable()
+BenchCellC.cell = 1
+BenchLoopBundle = newtable()
+for e = 1, 4 do
+    local entry = newtable()
+    entry[1] = BenchCellA
+    entry[2] = 6
+    entry[3] = (e % 2 == 0) and BenchCellC or BenchCellB
+    entry[4] = (e == 4) and 1 or 2
+    BenchLoopBundle[e] = entry
+end
+BenchIndex = newtable()
+BenchIndex[1] = 1
+BenchIndex[2] = 2
+BenchIndex[3] = 0
+BenchTable = newtable()
+BenchTable.ours = 2 ^ 3 + 2 ^ 20
+BenchTable.release = 2 ^ 7 + 2 ^ 11
+BenchTable.answers = "ccccccc" .. "r" .. "ccccccccccccccccccc"
+BenchTable.list = newtable()
+for j = 1, 27 do
+    BenchTable.list[j] = 3
+end
+BenchTable.list[8] = 2
 ]==];
 
 --- The composition loop of `COMPOSE_MACROTEXT_SNIPPET` for switch and unit arguments, then the
@@ -175,6 +215,15 @@ end
 --- The two-clause bundle of group F, kept for group J's driver tick.
 local BENCH_BUNDLE_EXPR;
 
+--- Group N's texts, kept for `WatchChecks`: `{ n, kind, allFalse, lastTrue }`.
+local watchChecks = {};
+
+--- The units group N's unit groups cycle through. `nameplate` is left to group L: it costs twice
+--- the rest and would hide the slope.
+local WATCH_UNITS = {
+    "target", "focus", "mouseover", "pet", "party1", "party2", "raid1", "raid2", "boss1", "targettarget",
+};
+
 --- The frames group J writes to. Made once, out of combat; their refs go on the header.
 local benchFrames;
 
@@ -220,6 +269,8 @@ local function Cases()
 
     -- A
     add("A", "empty", "");
+    add("A", "empty, at group N's count", "");
+    cases[#cases].count = LONG_COUNT;
     add("A", "mask arithmetic on locals", "x = (m % (c + c)) >= c", "local c, m = 2, 6");
     add("A", "global read", "x = BenchColumn");
     add("A", "global table field read", "x = BenchColumn.cell");
@@ -542,6 +593,127 @@ end]==]);
         add("M", format("parse [%s,combat]", token), "x = " .. p(format("[%s,combat]", token)));
     end
 
+    -- N: every group is written the way it is false now, so the parse reads the whole text. The
+    -- "last true" text ends in one group that holds: a parse that stopped short answers nil there.
+    --
+    -- **Which way a group answers cannot move between writing it here and parsing it**: the whole
+    -- run, `WatchChecks` included, is one script execution inside one frame, the cursor's unit with
+    -- it.
+    --
+    -- Four kinds of group, since a watch holds all of them: one state word; two state words that
+    -- hold ahead of one that does not, which is what a group led by a reach condition judges; a
+    -- unit asked only whether it is there; and a unit that is there asked a reaction that holds and
+    -- then the death that does not, read to its last word.
+    wipe(watchChecks);
+    if (#cheap >= 3) then
+        local pools = { state = {}, state3 = {}, unit = {}, present = {} };
+        for k, w in ipairs(cheap) do
+            pools.state[k] = "[" .. w.fTok .. "]";
+            pools.state3[k] = format("[%s,%s,%s]", w.tTok, cheap[k % #cheap + 1].tTok,
+                cheap[(k + 1) % #cheap + 1].fTok);
+        end
+        for k, unit in ipairs(WATCH_UNITS) do
+            local exists = SecureCmdOptionParse(format("[@%s,exists]", unit)) ~= nil;
+            pools.unit[k] = format("[@%s,%s]", unit, exists and "noexists" or "exists");
+        end
+        local there = {};
+        for _, unit in ipairs({ "player", "target", "focus", "pet" }) do
+            if (SecureCmdOptionParse(format("[@%s,exists]", unit))) then
+                local reaction = SecureCmdOptionParse(format("[@%s,help]", unit)) and "help" or "nohelp";
+                local death = SecureCmdOptionParse(format("[@%s,dead]", unit)) and "nodead" or "dead";
+                pools.present[#pools.present + 1] = format("[@%s,%s,%s]", unit, reaction, death);
+                there[#there + 1] = unit;
+            end
+        end
+        local tail = "[" .. cheap[1].tTok .. "]";
+        for _, kind in ipairs({
+            { "state", "groups of one state word" },
+            { "state3", "groups of three state words, false at the last" },
+            { "unit", "groups of @unit,exists" },
+            { "present", "groups of @unit,reaction,death false at the last, on " .. table.concat(there, " ") },
+        }) do
+            local pool = pools[kind[1]];
+            for _, n in ipairs({ 4, 16, 64, 128, 256 }) do
+                if (#pool > 0) then
+                    local list = {};
+                    for k = 1, n do
+                        list[k] = pool[(k - 1) % #pool + 1];
+                    end
+                    local allFalse = table.concat(list);
+                    list[n] = tail;
+                    watchChecks[#watchChecks + 1] = {
+                        n = n, kind = kind[2], allFalse = allFalse, lastTrue = table.concat(list),
+                    };
+                    add("N", format("watch of %d %s, all false (%d chars)", n, kind[2], #allFalse),
+                        "x = " .. p(allFalse));
+                    cases[#cases].count = LONG_COUNT;
+                end
+            end
+        end
+    end
+
+    -- P: three columns of three cells each, so 27 joint states, and the state measured is number 7
+    -- (`BenchIndex`: 1 + 3 * 2 + 9 * 0). Its answer is "release", which the number form reaches on
+    -- its second question and the loop on its fourth entry, after three entries that pass their
+    -- first check and fail their second. The operands are locals read from tables, never literals:
+    -- a literal `2 ^ 7` is folded when the body is compiled and would time nothing.
+    add("P", "a bit asked of a small number (locals)", "x = (T % (p + p)) >= p", "local T, p = 6, 2");
+    add("P", "a bit asked of a number near 2^53 (locals)", "x = (T % (p + p)) >= p",
+        "local n = BenchIndex[1] local p = 2 ^ (n + 49) local T = 2 ^ (n + 51) + p + 12345");
+    add("P", "2 ^ n", "x = 2 ^ n", "local n = BenchIndex[1] + 36");
+    add("P", "ldexp(1, n)", "x = ldexp(1, n)", "local n = BenchIndex[1] + 36");
+    add("P", "strbyte(s, n)", "x = strbyte(s, n)", "local s, n = BenchTable.answers, BenchIndex[1] + 7");
+    add("P", "s:byte(n)", "x = s:byte(n)", "local s, n = BenchTable.answers, BenchIndex[1] + 7");
+    add("P", "strsub(s, n, n)", "x = strsub(s, n, n)", "local s, n = BenchTable.answers, BenchIndex[1] + 7");
+    add("P", "array read t[n] (local table)", "x = t[n]", "local t, n = BenchTable.list, BenchIndex[1] + 7");
+    add("P", "joint index of 3 columns from a local table", "x = c[1] + 3 * c[2] + 9 * c[3]", "local c = BenchIndex");
+    add("P", "judging loop: 4 entries x 2 checks, the fourth matches", [==[
+local b = BenchLoopBundle
+for e = 1, #b do
+    local entry = b[e]
+    local match = true
+    for c = 1, #entry, 2 do
+        local cell = entry[c].cell
+        if ((entry[c + 1] % (cell + cell)) < cell) then
+            match = false
+            break
+        end
+    end
+    if (match) then
+        x = e
+        break
+    end
+end]==]);
+    local JOINT = "local b = BenchTable\nlocal c = BenchIndex\nlocal n = c[1] + 3 * c[2] + 9 * c[3]\n";
+    add("P", "table as two numbers, 2 ^ n, answered by the second", JOINT .. [==[
+local p = 2 ^ n
+local T = b.ours
+if ((T % (p + p)) >= p) then
+    x = 1
+else
+    T = b.release
+    if ((T % (p + p)) >= p) then
+        x = 2
+    else
+        x = 3
+    end
+end]==]);
+    add("P", "table as two numbers, ldexp, answered by the second", JOINT .. [==[
+local p = ldexp(1, n)
+local T = b.ours
+if ((T % (p + p)) >= p) then
+    x = 1
+else
+    T = b.release
+    if ((T % (p + p)) >= p) then
+        x = 2
+    else
+        x = 3
+    end
+end]==]);
+    add("P", "table as a string, strbyte", JOINT .. "x = strbyte(b.answers, n + 1)");
+    add("P", "table as an array", JOINT .. "x = b.list[n + 1]");
+
     -- G
     add("G", "compose, 1 switch arg", format(COMPOSE, "BenchEntry1") .. "x = s");
     add("G", "compose, 1 switch arg + parse", format(COMPOSE, "BenchEntry1") .. "x = SecureCmdOptionParse(s)");
@@ -576,6 +748,95 @@ local function Situation()
         target, tostring((UnitCreatureFamily("pet"))));
 end
 
+--- Group N's answers that are not timings, appended to `lines`.
+---
+--- A column whose cell is "its reach condition and itself" parses a state word and a unit's words
+--- in one group (`[combat,@target,help]`). That is only right if the state word still asks about
+--- the player there and the unit's words still ask about the unit, whatever the order.
+local function WatchChecks(lines)
+    for _, check in ipairs(watchChecks) do
+        local quiet = SecureCmdOptionParse(check.allFalse);
+        local hit = SecureCmdOptionParse(check.lastTrue);
+        lines[#lines + 1] = format("N     watch of %d %s groups, %d chars: all false -> %s; last true -> %s",
+            check.n, check.kind, #check.allFalse,
+            (quiet == nil) and "nil, as it should" or ("WRONG, answered " .. tostring(quiet)),
+            (hit ~= nil) and "read to the end" or "WRONG, nil: the tail was not read");
+    end
+
+    local units = { "target", "focus", "mouseover", "player" };
+    -- `WORDS`, and the words of the mask columns and `known`, which a reach condition carries too.
+    local words = { "form:1", "form:2", "bonusbar:5", "group:raid", "group:party", "known:686" };
+    for _, w in ipairs(WORDS) do
+        words[#words + 1] = w[1];
+    end
+
+    local function plain(v)
+        if (issecretvalue and issecretvalue(v)) then
+            return nil;
+        end
+        return v and true or false;
+    end
+
+    local compared, differ = 0, 0;
+    local function same(label, text, expected)
+        compared = compared + 1;
+        local answer = SecureCmdOptionParse(text) ~= nil;
+        if (answer ~= expected) then
+            differ = differ + 1;
+            lines[#lines + 1] = format("N     DIFFERS (%s): %s is %s", label, text, tostring(answer));
+        end
+    end
+
+    -- **Agreeing proves nothing where both readings give the same answer**, so the comparisons that
+    -- could have told them apart are counted on their own. An `@unit` that fails its group when
+    -- nobody is there shows only with the unit absent and the word holding. A word that follows the
+    -- unit shows only where the unit's answer is not the player's, and `combat` is the one word with
+    -- a call that reads a unit's.
+    local absentTelling, combatTelling = 0, 0;
+    local playerCombat = SecureCmdOptionParse("[combat]") ~= nil;
+    for _, word in ipairs(words) do
+        for _, token in ipairs({ word, "no" .. word }) do
+            local alone = SecureCmdOptionParse("[" .. token .. "]") ~= nil;
+            for _, unit in ipairs(units) do
+                local exists = plain(UnitExists(unit));
+                if (exists == false and alone) then
+                    absentTelling = absentTelling + 1;
+                end
+                if (word == "combat" and exists) then
+                    local unitCombat = plain(UnitAffectingCombat(unit));
+                    if (unitCombat ~= nil and unitCombat ~= playerCombat) then
+                        combatTelling = combatTelling + 1;
+                    end
+                end
+                same("state word beside @unit", format("[@%s,%s]", unit, token), alone);
+                same("state word ahead of @unit", format("[%s,@%s]", token, unit), alone);
+                -- With the state word holding, the group is the unit's own answer in every order.
+                if (alone) then
+                    for _, asked in ipairs({ "exists", "help", "harm", "dead" }) do
+                        for _, unitWord in ipairs({ asked, "no" .. asked }) do
+                            local own = SecureCmdOptionParse(format("[@%s,%s]", unit, unitWord)) ~= nil;
+                            same("unit word after a state word", format("[%s,@%s,%s]", token, unit, unitWord), own);
+                            same("state word between", format("[@%s,%s,%s]", unit, token, unitWord), own);
+                            same("state word last", format("[@%s,%s,%s]", unit, unitWord, token), own);
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local there = {};
+    for k, unit in ipairs(units) do
+        there[k] = unit .. "=" .. ((plain(UnitExists(unit)) and "T") or "F");
+    end
+    lines[#lines + 1] = format("N     state words mixed with @unit: %d texts compared, %d differ (exists: %s)",
+        compared, differ, table.concat(there, " "));
+    lines[#lines + 1] = format("N     able to tell an absent @unit failing its group: %d%s", absentTelling,
+        (absentTelling == 0) and " -- NONE, unanswered by this run" or "");
+    lines[#lines + 1] = format("N     able to tell `combat` following the unit: %d%s", combatTelling,
+        (combatTelling == 0) and " -- NONE, unanswered by this run: it takes a unit whose combat is not the player's"
+            or "");
+end
+
 local function Run()
     local restricted = not InCombatLockdown();
     if (restricted) then
@@ -593,7 +854,8 @@ local function Run()
     local cases, usable = Cases();
     local bodies, funcs, rS, iS = {}, {}, {}, {};
     for n, case in ipairs(cases) do
-        bodies[n] = format("local x %s\nfor i = 1, %d do\n%s\nend", case.prelude or "", COUNT, case.stmt);
+        bodies[n] = format("local x %s\nfor i = 1, %d do\n%s\nend", case.prelude or "", case.count or COUNT,
+            case.stmt);
         assert(not strfind(bodies[n], "function", 1, true), case.name);
         if (case.only ~= "r" and not strfind(case.stmt, "self:", 1, true)) then
             local f, err = loadstring(bodies[n]);
@@ -647,12 +909,20 @@ local function Run()
         format("words usable for D-F (macro and call agree now): %d", usable),
         "group  restricted   insecure  case",
     };
-    for n = 2, #cases do
-        local r = (restricted and #rS[n] > 0) and format("%10.3f", (Median(rS[n]) - rEmpty) * 1000 / COUNT)
+    -- The two empty loops are cases 1 and 2.
+    local rEmptyLong = restricted and Median(rS[2]);
+    local iEmptyLong = Median(iS[2]);
+    for n = 3, #cases do
+        local count, rBase, iBase = COUNT, rEmpty, iEmpty;
+        if (cases[n].count) then
+            count, rBase, iBase = cases[n].count, rEmptyLong, iEmptyLong;
+        end
+        local r = (restricted and #rS[n] > 0) and format("%10.3f", (Median(rS[n]) - rBase) * 1000 / count)
             or (failed[n] and "    failed" or "         -");
-        local i = (#iS[n] > 0) and format("%10.3f", (Median(iS[n]) - iEmpty) * 1000 / COUNT) or "         -";
+        local i = (#iS[n] > 0) and format("%10.3f", (Median(iS[n]) - iBase) * 1000 / count) or "         -";
         lines[#lines + 1] = format("%-5s %s %s  %s", cases[n].group, r, i, cases[n].name);
     end
+    WatchChecks(lines);
 
     -- The last run only. Earlier ones are copied into the plan doc's 7-1 once read, and kept here
     -- they only grow the file.
