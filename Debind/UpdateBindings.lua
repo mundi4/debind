@@ -751,6 +751,10 @@ local _driverEventsOurs = {};
 --- Which beat driver is registered on `BindingDriver`, `false` for none (`_judgeBeatSignal`).
 --- Blizzard has no way to ask, so the rebuild that registers it keeps the answer.
 local _beatRegistered = false;
+
+function DebindPrivate.BeatOnAttribute()
+    return _beatRegistered == "attribute";
+end
 --- The wake attributes the last rebuild filled, so the next can empty the ones it no longer has.
 local _judgeWakeAttributesSet = {};
 
@@ -2751,7 +2755,8 @@ end
 local _judgmentKeys = {};
 local _judgmentColumns = {};
 local _judgmentColumnIndex = {};
---- The columns this rebuild handed the loop, by their index in `JudgeColumns`.
+--- The columns this rebuild handed the loop, by index: column i's cell is `JudgeColumns[2i - 1]`
+--- and its bundles `JudgeColumns[2i]`.
 local _judgmentColumnOrder = {};
 
 --- Every column the judgment items read, once each, as `column key -> column`.
@@ -3040,7 +3045,8 @@ local JUDGE_DETECT_MAX = 3;
 --- `UnitAsksExists` answers it. A cell read any other way binds a key to an answer the press would
 --- not give; `judgment_spec.lua` holds the bound key to the item at every point.
 ---
----   the beat (`JUDGE_BEAT_ATTRIBUTE`): Blizzard's driver. Every column the world moves, the pointed
+---   the beat:          Blizzard's driver, `JUDGE_BEAT_ATTRIBUTE` or `statehidden` by the login's
+---                      check (`_judgeBeatSignal`). Every column the world moves, the pointed
 ---                      frame's included: a raid frame laid out again or a unit dying under a cursor
 ---                      that never moved sends neither enter nor leave
 ---   `JudgePass`        the rebuild's own pass. Every column, a switch set by hand too

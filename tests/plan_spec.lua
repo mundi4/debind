@@ -245,11 +245,13 @@ return function(DebindPrivate)
             { comes = true, signal = "visibility" },
         }) do
             DebindPrivate.BeatSignal.comes = case.comes;
-            local plan = PlanFor({
+            -- Put back even where the build raises, or every case after it plans on this signal.
+            local built, plan = pcall(PlanFor, {
                 spell({ key = "F1", conditions = { combat = true } }),
                 spell({ key = "F1", type = Constants.UNUSED, value = nil }),
             });
             DebindPrivate.BeatSignal.comes = nil;
+            check(built, tostring(plan));
             check(plan.beats == true, tostring(case.comes) .. ": the tail key asked for no beat");
             check(plan.beatSignal == case.signal,
                 tostring(case.comes) .. ": the beat goes through " .. tostring(plan.beatSignal));

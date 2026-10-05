@@ -112,30 +112,13 @@ local function meteredEnv(interp, env)
     return proxy;
 end
 
---- The interpreter metering now, for what reaches no environment: a string method is looked up on
---- the string metatable, not through the body's globals. A meter left on by a run that raised
---- counts into tables nobody reads; the next `meterStart` takes it over.
-local metering;
-
---- `s:byte(n)` under a meter, which `compileMetered` renames to this. **No body calls it yet.** It
---- is there for reading a bundle's answer out of a string (⑤ of
---- `sizing-the-cuts-inside-the-beat-handler.md`), which the bench has to be able to price before
---- that is built.
-function string.benchbyte(s, ...)
-    if (metering) then
-        tally(metering, "call s:byte");
-    end
-    return s:byte(...);
-end
-
 --- Compiles a body for a meter. **`#t` is read through `BENCHLEN`**, because a counting proxy is
 --- an empty table to the length operator and Lua 5.1 has no `__len` for tables; every `#` in a
---- body is a name or a field chain, which is all this rewrites. **`:byte(` goes through
---- `string.benchbyte`**, since a method call never touches the environment the meter watches, and
---- **a call's `+ 0` through `BENCHCOERCE`**, the coercion a numbered parse is read with.
+--- body is a name or a field chain, which is all this rewrites. **A call's `+ 0` goes through
+--- `BENCHCOERCE`**, since an operator never touches the environment the meter watches; it is the
+--- coercion a numbered parse is read with.
 local function compileMetered(body, signature, env)
-    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub(":byte%(", ":benchbyte(")
-        :gsub("%) %+ 0%f[^%w_%.]", ") + BENCHCOERCE()");
+    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub("%) %+ 0%f[^%w_%.]", ") + BENCHCOERCE()");
     local source = "return function(" .. signature .. ") " .. rewritten .. "\nend";
     local chunk = assert(loadstring(source, BODY_CHUNK));
     setfenv(chunk, env);
@@ -710,7 +693,6 @@ function Interp:meterStart()
     local meter = assert(self.meter, "this interpreter was not made with a meter");
     meter.counts = {};
     meter.on = true;
-    metering = self;
     local counts = meter.counts;
     debug.sethook(function()
         local info = debug.getinfo(2, "S");
@@ -724,7 +706,6 @@ end
 function Interp:meterStop()
     debug.sethook();
     self.meter.on = false;
-    metering = nil;
     return self.meter.counts;
 end
 

@@ -296,30 +296,36 @@ return function(DebindPrivate)
         local function Drivers()
             return frames.attributeDrivers[interp and interp.driver] or {};
         end
-        for _, case in ipairs({
-            { comes = nil, on = "judgebeat" },
-            { comes = true, on = "state-visibility" },
-            { comes = false, on = "judgebeat" },
-            { comes = true, on = "state-visibility" },
-        }) do
-            DebindPrivate.BeatSignal.comes = case.comes;
-            Bind(actions);
-            local what = tostring(case.comes) .. ": ";
-            check(Drivers().judgebeat == (case.on == "judgebeat" and "a" or nil),
-                what .. "the attribute driver is " .. tostring(Drivers().judgebeat));
-            check(Drivers()["state-visibility"] == (case.on == "state-visibility" and "show" or nil),
-                what .. "the visibility driver is " .. tostring(Drivers()["state-visibility"]));
-            interp.state.combat = true;
-            interp:beat();
-            check(IsOurs("F1"), what .. "a beat in combat did not take F1");
-            interp.state.combat = false;
-            interp:beat();
-            check(Released("F1"), what .. "a beat at peace did not let F1 go");
-        end
-        Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.UNUSED }) });
+        -- Put back however the case ends, or every case after it rebuilds on the wrong signal.
+        local ok, err = pcall(function()
+            for _, case in ipairs({
+                { comes = nil, on = "judgebeat" },
+                { comes = true, on = "state-visibility" },
+                { comes = false, on = "judgebeat" },
+                { comes = true, on = "state-visibility" },
+            }) do
+                DebindPrivate.BeatSignal.comes = case.comes;
+                Bind(actions);
+                local what = tostring(case.comes) .. ": ";
+                check(Drivers().judgebeat == (case.on == "judgebeat" and "a" or nil),
+                    what .. "the attribute driver is " .. tostring(Drivers().judgebeat));
+                check(Drivers()["state-visibility"] == (case.on == "state-visibility" and "show" or nil),
+                    what .. "the visibility driver is " .. tostring(Drivers()["state-visibility"]));
+                interp.state.combat = true;
+                interp:beat();
+                check(IsOurs("F1"), what .. "a beat in combat did not take F1");
+                interp.state.combat = false;
+                interp:beat();
+                check(Released("F1"), what .. "a beat at peace did not let F1 go");
+            end
+            Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.UNUSED }) });
+            check(Drivers().judgebeat == nil and Drivers()["state-visibility"] == nil,
+                "a profile the beat measures nothing for kept a beat driver");
+        end);
         DebindPrivate.BeatSignal.comes = nil;
-        check(Drivers().judgebeat == nil and Drivers()["state-visibility"] == nil,
-            "a profile the beat measures nothing for kept a beat driver");
+        if (not ok) then
+            error(err, 0);
+        end
     end);
 
     test("a wake of ours does not run the handler", function()

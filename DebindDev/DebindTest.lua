@@ -6999,7 +6999,12 @@ RegisterTest("Beat: the manager writes state-visibility on every tick", {
         end
 
         local answer
-        DebindPrivate.BeatSignal.Check(function(comes) answer = comes end)
+        local probe = DebindPrivate.BeatSignal.Check(function(comes) answer = comes end)
+        -- A check with no answer keeps its drivers and its OnUpdate for the rest of the session.
+        AddTeardown(function()
+            probe.frame:SetScript("OnUpdate", nil)
+            probe.Release()
+        end)
         if not WaitUntil(function() return answer ~= nil end, 3) then
             return Fail(NAME, "the check had no answer in 3 seconds")
         end

@@ -1,9 +1,15 @@
 ### BeatSignal.lua #1 SetAttribute
 if (name == "statehidden") then
-    self:SetAttribute("seen-visibility", (self:GetAttribute("seen-visibility") or 0) + 1)
+    local n = self:GetAttribute("seen-visibility") or 0
+    if (n < self:GetAttribute("cap")) then
+        self:SetAttribute("seen-visibility", n + 1)
+    end
 elseif (name == "state-control" and value ~= 0) then
-    self:SetAttribute("state-control", 0)
-    self:SetAttribute("seen-control", (self:GetAttribute("seen-control") or 0) + 1)
+    local n = self:GetAttribute("seen-control") or 0
+    if (n < self:GetAttribute("cap")) then
+        self:SetAttribute("seen-control", n + 1)
+        self:SetAttribute("state-control", 0)
+    end
 end
 
 

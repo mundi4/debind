@@ -39,8 +39,6 @@ return function(DebindPrivate)
         ["parse word advflyable"] = { 23.735, true },
         -- A unit word asked of another unit that is there: one hostile target, insecure side, once.
         ["parse word on another unit"] = { 0.135, false },
-        -- 7-1's P. `strbyte(s, n)` is 0.137, the environment's read on top.
-        ["call s:byte"] = { 0.073, true },
         -- 7-1's P: `tonumber(s)` 0.204, `s + 0` 0.043 on one digit and 0.046 on four.
         ["call tonumber"] = { 0.204, true },
         ["call BENCHCOERCE"] = { 0.045, true },

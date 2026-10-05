@@ -40,12 +40,23 @@ local TICKS = 3;
 --- What the check frame's handler counts, as attributes the insecure side reads back. Each count
 --- is written through the frame, which enters the handler again under its own name and does
 --- nothing there.
+---
+--- **Both counts stop where the answer is read.** An answer inside a lockdown cannot take the
+--- drivers off until the fight ends, and a capped control driver is left on `"a"`, which the manager
+--- then never writes again: what is left is one entry a tick with no write. The two stop at the same
+--- number, `cap`, which the frame carries so the body is one literal the snippet golden can hold.
 local COUNTING_SNIPPET = [[
 if (name == "statehidden") then
-    self:SetAttribute("seen-visibility", (self:GetAttribute("seen-visibility") or 0) + 1)
+    local n = self:GetAttribute("seen-visibility") or 0
+    if (n < self:GetAttribute("cap")) then
+        self:SetAttribute("seen-visibility", n + 1)
+    end
 elseif (name == "state-control" and value ~= 0) then
-    self:SetAttribute("state-control", 0)
-    self:SetAttribute("seen-control", (self:GetAttribute("seen-control") or 0) + 1)
+    local n = self:GetAttribute("seen-control") or 0
+    if (n < self:GetAttribute("cap")) then
+        self:SetAttribute("seen-control", n + 1)
+        self:SetAttribute("state-control", 0)
+    end
 end
 ]];
 
@@ -70,6 +81,7 @@ function BeatSignal.Check(onAnswer)
         UnregisterAttributeDriver(frame, "state-control");
     end
 
+    frame:SetAttribute("cap", 1 + TICKS);
     frame:SetAttribute("_onattributechanged", COUNTING_SNIPPET);
     frame:SetScript("OnUpdate", function()
         local control = frame:GetAttribute("seen-control") or 0;
@@ -94,13 +106,17 @@ function BeatSignal.Start()
     if (sessionCheck or InCombatLockdown()) then
         return;
     end
-    sessionCheck = BeatSignal.Check(function(comes)
-        BeatSignal.comes = comes;
-        -- The rebuild is what puts the beat on the other signal.
-        if (comes) then
-            DebindPrivate.QueueUpdateBindings();
-        end
-    end);
+    sessionCheck = BeatSignal.Check(BeatSignal.Answered);
+end
+
+--- The session's answer. **A rebuild is asked for only where the `"a"` driver stands now**: that
+--- rebuild is what moves it, and with no beat at all the next rebuild that wants one picks the
+--- signal by itself. Rebuilding for nothing takes every binding off and puts it back.
+function BeatSignal.Answered(comes)
+    BeatSignal.comes = comes;
+    if (comes and DebindPrivate.BeatOnAttribute()) then
+        DebindPrivate.QueueUpdateBindings();
+    end
 end
 
 --- What the session's check could not do under a lockdown: start, or take its drivers off.
