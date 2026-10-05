@@ -32,4 +32,5 @@ DebindTest.lua
 Probe_InitialSpecs.lua
 # Probe_CombatPet.lua
 # Probe_PetSwap.lua
+Probe_GateWords.lua
 # Probe_OverridePriority.lua
