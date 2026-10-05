@@ -537,10 +537,6 @@ BindingDriver:SetAttribute("SetSwitch", [[
 --- (`trimming-the-tail-key-beat.md` 3-3). A battle starts and ends out of lockdown (measured
 --- 2026-09-13, `dropping-the-game-fallback.md` 5-1), so the value pushed last holds through any fight,
 --- and the beat has no `[petbattle]` to parse.
----
---- **The value is the event's name.** `PET_BATTLE_CLOSE` comes twice and the client still answers
---- in a battle at the first, so a value asked for there would hold true until the next battle. The
---- press goes on parsing `[petbattle]`, and between the two closes the loop and the press part.
 BindingDriver:SetAttribute("SetPetBattle", [[
 	JudgePetBattle = ... and true or false
 	local wake = JudgeWakes.petbattle
@@ -551,21 +547,31 @@ BindingDriver:SetAttribute("SetPetBattle", [[
 
 do
     local inBattle = false;
+    --- What the restricted side holds, nil before the first push.
+    local pushed;
     local owed = false;
 
+    --- **Only a value that moved crosses.** A refused one is owed: a battle never ends in a
+    --- lockdown, but a login can begin in one (a reconnect into a fight on a client with no unlocked
+    --- moment at login, `trimming-the-tail-key-beat.md` 3-3), and its value waits for the fight.
     local function Push()
         if (InCombatLockdown()) then
             owed = true;
             return;
         end
         owed = false;
-        SecureHandlerExecute(BindingDriver, inBattle and [[self:RunAttribute("SetPetBattle", true)]]
-            or [[self:RunAttribute("SetPetBattle", false)]]);
+        if (inBattle ~= pushed) then
+            pushed = inBattle;
+            SecureHandlerExecute(BindingDriver, inBattle and [[self:RunAttribute("SetPetBattle", true)]]
+                or [[self:RunAttribute("SetPetBattle", false)]]);
+        end
     end
 
-    --- The one place the state is asked rather than told: a reload in a battle sends no event.
+    --- A reload in a battle sends no event, so the login asks. **Crosses whatever was pushed
+    --- before**: the kit writes `SetPetBattle` itself and seeds to put the world back.
     function DebindPrivate.SeedPetBattle()
         inBattle = SecureCmdOptionParse("[petbattle] 1") == "1";
+        pushed = nil;
         Push();
     end
 
@@ -576,9 +582,17 @@ do
         end
     end
 
+    --- **A close is believed only where the parse already says the battle is over** (owner,
+    --- 2026-10-05). `PET_BATTLE_CLOSE` comes twice and the client still answers in a battle at the
+    --- first, so pushing the event's name there would let the loop go where the press, which parses
+    --- `[petbattle]`, has not.
     local frame = CreateFrame("Frame");
     frame:SetScript("OnEvent", function(_, event)
-        inBattle = event == "PET_BATTLE_OPENING_START";
+        if (event == "PET_BATTLE_OPENING_START") then
+            inBattle = true;
+        elseif (SecureCmdOptionParse("[petbattle] 1") ~= "1") then
+            inBattle = false;
+        end
         Push();
     end);
     -- A client without pet battles has neither event.

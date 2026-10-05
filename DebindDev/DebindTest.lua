@@ -8226,7 +8226,7 @@ RegisterTest("Tail: a switch set by hand moves the key through two computed swit
 -- for `specialbar`, which reads the pushed value beside the bars it parses. A battle cannot be
 -- started on demand, so the value is pushed the way the events push it.
 RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
-    description = "SetPetBattle rebinds a key on [petbattle] and one on [nospecialbar] with no beat, and the login's value comes back",
+    description = "SetPetBattle rebinds a key on [petbattle] and one on [nospecialbar] with no beat, and SeedPetBattle puts the world's value back",
     run = function()
         local NAME = "Tail pet battle"
         local BATTLE_KEY = "CTRL-SHIFT-F12"
@@ -8275,7 +8275,16 @@ RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
                 Bound(BATTLE_KEY), Bound(BAR_KEY)))
         end
 
-        return Pass(NAME, "the pushed battle took both keys over on the wake and gave them back")
+        -- **The login's seed puts the world back over a value pushed from here**, which its own
+        -- record of what it pushed never saw.
+        SecureHandlerExecute(driver, [[self:RunAttribute("SetPetBattle", true)]])
+        DebindPrivate.SeedPetBattle()
+        if Bound(BATTLE_KEY) ~= COMMAND or Bound(BAR_KEY) ~= "ours" then
+            return Fail(NAME, format("after the seed the keys answer %q and %q, they should be the command and ours",
+                Bound(BATTLE_KEY), Bound(BAR_KEY)))
+        end
+
+        return Pass(NAME, "the pushed battle took both keys over on the wake and gave them back, and the seed put the world back")
     end,
 })
 

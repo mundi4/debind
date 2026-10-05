@@ -385,29 +385,42 @@ C2, C4, C6. 이 일의 본체였다.
 
 3-3(정함). **들어갔다** (debind-05). 처음 글은 깨움이 묶음 식을 다시 조립하는 꼴이었고, 루프의 컬럼으로 다시 짰다.
 
-- **값은 이벤트 이름이 정한다.** `SecureBindings.lua`의 이벤트 프레임이 `PET_BATTLE_OPENING_START`면 참,
-  `PET_BATTLE_CLOSE`면 거짓을 `SetPetBattle`로 넣는다. `SetPetBattle`은 `JudgePetBattle`에 쓰고 `judge-petbattle`
-  깨움을 부른다. 상태를 묻는 것은 로그인 때 한 번(`SeedPetBattle`, 대전 중 리로드에는 이벤트가 없다)뿐이다.
-  `JudgePetBattle`은 리빌드가 지우지 않는다.
-- 잠금 중이면 넣지 않고 `PLAYER_REGEN_ENABLED`에서 넣는다(`FlushPetBattle`). 대전 중에도 `PET_BATTLE_CLOSE`에도
-  잠금이 아니었다고 잰 적이 있으니(`dropping-the-game-fallback.md` 5-1) 대비책이다.
+- **열림은 이벤트 이름이 정하고, 닫힘은 파싱이 이미 거짓일 때만 믿는다** (소유자, 2026-10-05). `SecureBindings.lua`의
+  이벤트 프레임이 `PET_BATTLE_OPENING_START`면 참을 넣고, `PET_BATTLE_CLOSE`에서는 비보안 쪽 `[petbattle]`이 거짓일
+  때만 거짓을 넣는다. 처음 꼴은 닫힘도 이벤트 이름대로 거짓이었는데, 리뷰에서 첫 닫힘부터 둘째 닫힘까지 루프는 키를
+  잡고 누름은 꼬리 명령에 닿아 그 키가 아무것도 안 한다는 것이 나왔다. 지금 꼴에서는 루프가 누름과 같은 순간에 놓는다.
+  - 잰 것(2026-10-05, 대전 한 번, 프로브는 지웠다): 닫힘은 두 번 왔고 같은 프레임이었다. 첫 닫힘에서 `[petbattle]`
+    참, `C_PetBattles.IsInBattle()` 참, 둘째 닫힘에서 둘 다 거짓. 둘 다 잠금이 아니었다. 그러니 둘째 닫힘에서 거짓이
+    들어간다. 두 닫힘이 모두 참이었다면 다음 대전까지 참이 남는 꼴이다.
+- `SetPetBattle`은 `JudgePetBattle`에 쓰고 `judge-petbattle` 깨움을 부른다. 비보안 쪽은 넣은 값을 기억해 바뀐 값만
+  넘긴다(둘째 닫힘 뒤의 닫힘은 넘어가지 않는다). 상태를 묻는 것은 로그인 때(`SeedPetBattle`, 대전 중 리로드에는
+  이벤트가 없다)이고, 시작값은 기억과 상관없이 넘긴다. `JudgePetBattle`은 리빌드가 지우지 않는다.
+- 잠금 중이면 넣지 않고 `PLAYER_REGEN_ENABLED`에서 리빌드보다 먼저 넣는다(`FlushPetBattle`). 대전은 잠금 중에 끝나지
+  않지만 로그인은 잠긴 채 시작할 수 있다.
+- `[petbattle]`을 읽는 계산식 스위치는 beat에서 파싱하고 `petbattle` 깨움에 서지 않는다. 대전이 시작될 때 그 스위치는
+  다음 beat에 바뀐다(리뷰, 그대로 두었다). 사용자 글에서 낱말을 찾아 깨움을 거는 것은 E2의 얕은 파싱 일이다.
 - 루프: `petbattle` 컬럼은 beat에서 재지 않고(`JudgedOnBeat`) 넣은 값을 읽는다. `specialbar`는 넣은 값이 참이면 참이고,
   아니면 `[vehicleui][possessbar][overridebar][shapeshift]`를 파싱한다. 둘 다 `petbattle` 깨움에 선다. beat 본문에
   `petbattle`이라는 글자가 없다.
-- 누름은 지금처럼 `[petbattle]`을 파싱한다. 첫 번째 `PET_BATTLE_CLOSE`부터 두 번째까지는 루프와 누름이 갈린다(3-3).
+- 누름은 지금처럼 `[petbattle]`을 파싱한다.
 - 루프 때문에 매니저에 걸던 `PET_BATTLE_*`는 `CollectDriverEvents`에서 뺐다. Keys Given Back의 등록은 그대로다.
+- **beat는 재는 컬럼이 있을 때만 건다** (`plan.beats`, 리뷰). 꼬리 조건이 손 스위치나 `petbattle`뿐인 프로필은
+  beat가 없다. mouseover가 사라지는 것과 멈춘 커서 밑에서 개체창이 다시 배치되는 것은 이벤트가 없어 beat만 잡는데, 둘
+  다 beat가 재는 컬럼(`unit mouseover`, `unit unitframe`, `role`, `frameType`)이라 그 프로필에는 beat가 선다.
+  `plan_spec`의 "the beat is asked for only where it measures a column"이 두 방향 다 실패하는 것을 봤다.
 - **`house:editor`는 할 일이 없다.** 조건 축(`CONDITION_AXES`)에 없어서 루프의 컬럼이 아니다. 집 편집기는 Keys Given
   Back의 출처(`ContextKeys`)로만 들어온다.
 - 시험(`judgment_spec`), 셋 다 P5 앞의 코드에서 실패하는 것을 봤다.
-  - "a pet battle told by its events": 로그인 때의 시작값, 열림, 첫 번째 닫힘(세상은 아직 대전 중, 루프는 놓고 누름은
-    아직 명령), 두 번째 닫힘. 이벤트 자리에서 상태를 묻게 한 코드에서 첫 번째 닫힘이 실패했다.
+  - "a pet battle told by its events": 로그인 때의 시작값(밖에서 쓴 값 위로도), 열림, 첫 번째 닫힘(세상은 아직 대전
+    중, 루프도 누름도 대전), 두 번째 닫힘, 아무것도 안 바꾸는 닫힘은 넘어가지 않음. 닫힘을 이벤트 이름대로 넣는 코드,
+    값이 같아도 넘기는 코드, 시작값이 기억을 따르는 코드에서 각각 실패했다.
   - "a pet battle told in a lockdown waits for its end": 잠금 검사를 뺀 코드와 `FlushPetBattle`을 막은 코드에서 각각
     실패했다.
   - "the beat parses no pet battle".
   - "the bars, skyriding and pet battles"의 sweep은 점마다 `SetPetBattle`로 넣는다.
   - 키트의 "Tail: a pushed pet battle moves the key on its wake": `SetPetBattle`과 그 깨움이 restricted environment에서
     `[petbattle]` 키와 `[nospecialbar]` 키를 beat 없이 옮긴다. 대전은 마음대로 열 수 없어서 이벤트가 넣는 꼴로 직접
-    넣고, 끝나면 `SeedPetBattle`로 되돌린다. 이벤트 프레임 자체는 헤드리스가 본다.
+    넣고, `SeedPetBattle`이 그 위로 세상의 값을 되돌리는지까지 본다. 이벤트 프레임 자체는 헤드리스가 본다.
 - 벤치(`--bench-beat`의 `bars` 모양: 짝수 키 `petbattle = false, combat`, 홀수 키 `specialbar = false, mounted`, 키 12개,
   상태가 그대로인 beat | 네 beat마다 `combat`·`mounted`가 뒤집힘, µs), 앞 / 뒤:
 

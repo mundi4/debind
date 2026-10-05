@@ -210,6 +210,31 @@ return function(DebindPrivate)
             "a column nobody reads asked for an event");
     end);
 
+    -- **The beat runs only where it measures something.** A switch set by hand and a pet battle move
+    -- on our own wakes alone. A mouseover that goes away and a frame laid out again under a still
+    -- cursor send nothing at all, and the beat is the only thing that sees them.
+    test("the beat is asked for only where it measures a column", function()
+        local function Tail(conditions)
+            return PlanFor({
+                spell({ key = "F1", conditions = conditions }),
+                spell({ key = "F1", type = Constants.UNUSED, value = nil }),
+            }, { ["$hand"] = { mode = Constants.SWITCH_MODES.MANUAL } });
+        end
+        for _, case in ipairs({
+            { what = "a switch set by hand", conditions = { ["$hand"] = true }, beats = false },
+            { what = "a pet battle", conditions = { petbattle = true }, beats = false },
+            { what = "the mouseover", conditions = { units = { mouseover = {} } }, beats = true },
+            { what = "the pointed frame", conditions = { units = { unitframe = {} } }, beats = true },
+            { what = "a pet battle beside combat", conditions = { petbattle = true, combat = true }, beats = true },
+        }) do
+            local plan = Tail(case.conditions);
+            check(plan.judges == true, case.what .. ": the tail key asked for no loop");
+            check(plan.beats == case.beats, case.what .. ": beats is " .. tostring(plan.beats));
+        end
+        check(PlanFor({ spell({ key = "F1", conditions = { combat = true } }) }).beats == false,
+            "a key with no tail asked for the beat");
+    end);
+
     -- The other side of it: the rows that do want a wake still get one.
     test("giving keys back on a replaced bar asks for the bar events", function()
         local plan = PlanFor({ spell({ key = "F1" }) });

@@ -280,6 +280,9 @@ function Events.PLAYER_REGEN_ENABLED()
         DebindPrivate.ApplyOptions("unitframeUseMouseDown");
     end
 
+    -- **Ahead of the rebuild**, whose own pass judges a tail key on it, as at login.
+    DebindPrivate.FlushPetBattle();
+
     if (DebindPrivate.updateBindingsSuspended) then
         DebindPrivate.updateBindingsSuspended = nil;
         DebindPrivate.UpdateBindings();
@@ -288,7 +291,6 @@ function Events.PLAYER_REGEN_ENABLED()
     -- A binding context that opened or closed during the fight could not reach the restricted side
     -- either. **After the rebuild above**, which bakes the same set and leaves nothing owed.
     DebindPrivate.FlushContextKeys();
-    DebindPrivate.FlushPetBattle();
 end
 
 function Events.UPDATE_BINDINGS()

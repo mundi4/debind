@@ -149,6 +149,8 @@ DebindPrivate.JUDGE_BEAT_ATTRIBUTE = JUDGE_BEAT_ATTRIBUTE;
 --- rebuild runs itself, and one per wake as `{ attribute = , body = }`.
 local _judgePassBody;
 local _judgeWakeBodies = {};
+--- Does the beat measure any column of this rebuild (`JudgedOnBeat`)?
+local _judgeBeats = false;
 
 --- Does any action ask about the hovered unit's role? It is what turns the three role headers
 --- on, and they are the only thing that fills `UnitRoles`.
@@ -665,6 +667,9 @@ local function BuildBindingPlan(ctx)
 
     --- Does any key hold a tail, and so need the loop (`JudgeKeys`) and its beat?
     plan.judges = next(DebindPrivate.JudgmentItems) ~= nil;
+    --- And does the beat measure anything for it? A switch set by hand and a pet battle move only
+    --- on a wake of ours, so a profile reading nothing else needs no beat.
+    plan.beats = plan.judges and _judgeBeats;
     plan.judgePass = _judgePassBody;
     plan.judgeWakes = _judgeWakeBodies;
 
@@ -850,13 +855,13 @@ local function ApplyBindingPlan(plan)
     --- beat.md` 5-1): a watch reads the frame's unit attributes and an existence cache on every tick,
     --- and the driver only parses the one constant expression. **Only on a change**, since
     --- registering resolves the driver on the spot.
-    if (plan.judges ~= _beatRegistered) then
-        if (plan.judges) then
+    if (plan.beats ~= _beatRegistered) then
+        if (plan.beats) then
             RegisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE, "a");
         else
             UnregisterAttributeDriver(driver, JUDGE_BEAT_ATTRIBUTE);
         end
-        _beatRegistered = plan.judges;
+        _beatRegistered = plan.beats;
     end
 
     ApplyGiveBack(driver, plan.giveBack);
@@ -3440,6 +3445,7 @@ local function BuildJudgeSnippet()
         end
     end
     sort(wakeOrder);
+    _judgeBeats = #beat > 0;
 
     --- One body: what `build` measures, then the judging half, which reads `wake` -- `1` for the
     --- rebuild's pass, `true` for the beat, the wake's name for a wake of ours.
@@ -3885,6 +3891,7 @@ function UpdateAttrChangedHandler()
     else
         _judgePassBody = nil;
         wipe(_judgeWakeBodies);
+        _judgeBeats = false;
     end
 
     -- **The bar changed under us, and a rebuild cannot answer it.** Blizzard's manager resolves the

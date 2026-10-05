@@ -168,11 +168,16 @@ beat는 지금처럼 `[combat]`을 파싱한다. 아래는 debind-e6과 이 문�
 쪽이 이벤트를 받아 `judge-<이름>` 속성에 써 넣으면 우리 깨움이 그 컬럼만 갱신한다.
 
 - `petbattle`: `PET_BATTLE_OPENING_START`·`PET_BATTLE_CLOSE`. beat에서 `[petbattle]` 파싱이 빠지고,
-  `specialbar`의 보충도 받아 둔 값을 읽는다. **값은 이벤트 이름이 정하고, 그 자리에서 상태를 묻지 않는다.**
-  `PET_BATTLE_CLOSE`는 두 번 오고 첫 번째에는 클라이언트가 아직 대전 중이라고 답한다. 그때 상태를 읽어 쓰면 대전이
-  끝난 뒤에도 참이 남고, beat가 다시 재지 않으니 다음 대전까지 그대로다.
-- 누름은 지금처럼 `STATE_EVAL_EXPRESSIONS.petbattle`을 파싱한다. 그래서 위의 첫 번째 `PET_BATTLE_CLOSE`부터 두
-  번째까지는 루프와 누름이 갈린다. 루프는 이미 거짓으로 보고 키를 판정하고, 누름은 아직 참으로 본다.
+  `specialbar`의 보충도 받아 둔 값을 읽는다. `PET_BATTLE_CLOSE`는 두 번 오고 첫 번째에는 클라이언트가 아직 대전
+  중이라고 답한다.
+  - 처음에는 **값은 이벤트 이름이 정하고, 그 자리에서 상태를 묻지 않는다**였다. 첫 닫힘에서 읽은 참을 쓰면 다음
+    대전까지 참이 남기 때문이다. 그 대가로 첫 닫힘부터 둘째까지 루프는 거짓, 누름은 참으로 갈렸고, 리뷰에서 그 동안
+    꼬리 명령이 있는 키는 루프가 잡은 채 누름이 명령에 닿아 아무것도 안 한다는 것이 나왔다.
+  - **지금: 닫힘에서는 비보안 쪽 `[petbattle]`이 이미 거짓일 때만 거짓을 넣는다** (소유자, 2026-10-05). 루프가 누름과
+    같은 순간에 놓는다. 대전 한 번을 잰 프로브에서 두 닫힘은 같은 프레임이었고 둘째에서 파싱이 거짓이었다
+    (`implementing-the-trimmed-tail-key-beat.md` P5). 두 닫힘이 모두 참으로 답하는 클라이언트가 나오면 처음 걱정이
+    그대로 돌아온다.
+- 누름은 지금처럼 `STATE_EVAL_EXPRESSIONS.petbattle`을 파싱한다.
 - `house:editor`: `BindingContexts.lua`가 이미 `HOUSE_EDITOR_MODE_CHANGED`와 `HouseEditor.StateUpdated`를 받아
   `BakeContextKeys`를 부른다. 같은 자리에서 깨움을 쓴다.
 - 루프 때문에 매니저에 걸던 `PET_BATTLE_*`는 필요 없어진다. Keys Given Back의 `[petbattle] b` 드라이버는 매니저가

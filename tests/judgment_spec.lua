@@ -849,9 +849,10 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **A pet battle reaches the loop from its two events, and the value is the event's name**
-    -- (`trimming-the-tail-key-beat.md` 3-3). At the first of the two `PET_BATTLE_CLOSE` the client
-    -- still answers in a battle, and the loop has let go of it where the press has not.
+    -- **A pet battle reaches the loop from its two events** (`trimming-the-tail-key-beat.md` 3-3).
+    -- At the first of the two `PET_BATTLE_CLOSE` the client still answers in a battle, so a close is
+    -- believed only where the parse already says it is over, and the loop holds the battle as long
+    -- as the press does.
     test("a pet battle told by its events", function()
         Bind({
             action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
@@ -884,6 +885,11 @@ return function(DebindPrivate, _, ctx)
             Run(DebindPrivate.SeedPetBattle);
             check(Bound("F1") == OutcomeName(Judgment.COMMAND, MAP), "the login did not find the battle");
             interp.state.petbattle = false;
+            Run(DebindPrivate.SeedPetBattle);
+            -- A value written past the events (the kit does), which the seed has to put back.
+            interp.driverHandle:RunAttribute("SetPetBattle", true);
+            Run(DebindPrivate.SeedPetBattle);
+            check(Bound("F1") == Judgment.RELEASE, "the seed left a battle pushed past it standing");
             Fire("PET_BATTLE_CLOSE");
             check(Bound("F1") == Judgment.RELEASE, "the key was not let go out of a battle");
 
@@ -894,12 +900,19 @@ return function(DebindPrivate, _, ctx)
 
             Fire("PET_BATTLE_CLOSE");
             check(Actual("F1") == OutcomeName(Judgment.COMMAND, MAP), "the press read the first close as the end");
-            check(Bound("F1") == Judgment.RELEASE, "the first close did not take the battle off the loop");
+            check(Bound("F1") == Actual("F1"), "the first close took the battle off the loop and not the press");
 
             interp.state.petbattle = false;
             Fire("PET_BATTLE_CLOSE");
             check(Actual("F1") == Judgment.RELEASE and Looped("F1") == Judgment.RELEASE,
                 "the second close left the battle on");
+
+            -- Only a value that moved crosses.
+            local mark = frames.mark();
+            frames.fireEvent("PET_BATTLE_CLOSE");
+            for _, entry in ipairs(frames.since(mark)) do
+                check(entry.kind ~= "Execute", "a close that moved nothing crossed");
+            end
         end);
         _G.SecureCmdOptionParse = parse;
         interp:resetState();
