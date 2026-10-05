@@ -1325,5 +1325,177 @@ return function(DebindPrivate, _, ctx)
         check(seen, "no handler was written");
     end);
 
+    ---------------------------------------------------------------------------
+    -- Cell groups and the units' watch (Q3 of `implementing-the-cuts-inside-the-beat-handler.md`)
+    ---------------------------------------------------------------------------
+
+    -- **A move between cells no check tells apart moves no cell** (`ColumnGroups`). Only an enemy
+    -- alive is asked, so a friend and a neutral are one group: going from one to the other stamps
+    -- nothing. Then to an enemy, which does.
+    test("a move inside a cell group judges nothing", function()
+        Bind({
+            action({ conditions = { units = { target = { reaction = Constants.REACTION_HARM, dead = false } } } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
+        interp:beat();
+        local generation = interp.env.JudgeGeneration;
+        shim.world.units.target = { id = "t", reaction = "neutral" };
+        interp:beat();
+        check(interp.env.JudgeGeneration == generation, "a friend to a neutral raised the generation");
+        check(Bound("F1") == Actual("F1"), "the press " .. Actual("F1") .. ", the loop " .. Bound("F1"));
+        shim.world.units.target = { id = "t", reaction = "harm" };
+        interp:beat();
+        check(interp.env.JudgeGeneration ~= generation, "an enemy did not raise the generation");
+        check(Bound("F1") == Judgment.OURS, "an enemy alive did not take the key");
+        shim.world.units = {};
+        interp:resetState();
+    end);
+
+    -- **A quiet beat parses the watch and nothing else, the units' cells carried in it.** A fixed
+    -- unit there and one absent, an alias pointing at a unit.
+    test("a quiet beat parses only the watch, units and all", function()
+        Bind({
+            action({ conditions = { combat = true, units = {
+                target = { reaction = Constants.REACTION_HARM, dead = false },
+                focus = { dead = true },
+            } } }),
+            action({ key = "F2", conditions = { units = { custom1 = { reaction = Constants.REACTION_HELP } } } }),
+            action({ key = "F2", type = Constants.UNUSED }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = {
+            player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "harm" },
+            party3 = { id = "p3", reaction = "help" },
+        };
+        interp.driverHandle:RunAttribute("SetUnit", "custom1", "party3");
+        interp:beat();
+        for n = 1, 2 do
+            local text = interp.env.JudgeWatch.text;
+            check(text and text:find("@target", 1, true) and text:find("@party3", 1, true),
+                "the watch does not carry the units: " .. tostring(text));
+            local all, watch = Parses(function() interp:beat(); end, text);
+            check(all == 1 and watch == 1, string.format("quiet beat %d parsed %d texts, the watch %d times", n, all, watch));
+        end
+        interp.driverHandle:RunAttribute("SetUnit", "custom1", nil);
+        shim.world.units = {};
+        interp:resetState();
+    end);
+
+    -- **After a hit, only the places after it are asked again** (`BuildJudgeSnippet`): every place
+    -- before it was false in the same parse. The target sits after the states, so its move ends in
+    -- the one parse; a state's move is confirmed by a parse of the target's fragment alone.
+    test("a hit is confirmed by the places after it only", function()
+        Bind({
+            action({ conditions = { combat = true, units = { target = { reaction = Constants.REACTION_HARM, dead = false } } } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
+        interp:beat();
+        local whole = interp.env.JudgeWatch.text;
+        local function Parsed(fn)
+            local before = {};
+            for text, count in pairs(interp.parses) do
+                before[text] = count;
+            end
+            fn();
+            local out = {};
+            for text, count in pairs(interp.parses) do
+                for _ = 1, count - (before[text] or 0) do
+                    out[#out + 1] = text;
+                end
+            end
+            return out;
+        end
+        local parsed = Parsed(function()
+            shim.world.units.target = { id = "t", reaction = "harm" };
+            interp:beat();
+        end);
+        -- The watch, then the target's own cell.
+        check(#parsed == 2 and (parsed[1] == whole or parsed[2] == whole),
+            "the target's move parsed: " .. table.concat(parsed, " | "));
+        whole = interp.env.JudgeWatch.text;
+        parsed = Parsed(function()
+            interp.state.combat = true;
+            interp:beat();
+        end);
+        local wholes, suffix = 0, 0;
+        for _, text in ipairs(parsed) do
+            if (text == whole) then
+                wholes = wholes + 1;
+            elseif (text:sub(1, 8) == "[@target") then
+                suffix = suffix + 1;
+            end
+        end
+        check(wholes == 1 and suffix == 1, string.format(
+            "combat's move parsed the whole watch %d times and the target's fragment alone %d", wholes, suffix));
+        check(Bound("F1") == Actual("F1"), "the press " .. Actual("F1") .. ", the loop " .. Bound("F1"));
+        shim.world.units = {};
+        interp:resetState();
+    end);
+
+    -- **A wake that moves an alias's token writes its place again** though its cell stays: the
+    -- fragment was the old token's, which no longer moves. Two enemies alive in turn, then the
+    -- second dies with no wake.
+    local function TokenMoves()
+        Bind({
+            action({ conditions = { units = { custom1 = { reaction = Constants.REACTION_HARM, dead = false } } } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = {
+            player = { id = "me", reaction = "help" },
+            party3 = { id = "p3", reaction = "harm" }, party4 = { id = "p4", reaction = "harm" },
+        };
+        interp.driverHandle:RunAttribute("SetUnit", "custom1", "party3");
+        interp:beat();
+        check(Bound("F1") == Judgment.OURS, "an enemy alive did not take the key");
+        interp.driverHandle:RunAttribute("SetUnit", "custom1", "party4");
+        interp:beat();
+        check(Bound("F1") == Judgment.OURS, "the second enemy alive did not hold the key");
+        shim.world.units.party4 = { id = "p4", reaction = "harm", dead = true };
+        local got, looped = Actual("F1"), Looped("F1");
+        check(got == Judgment.RELEASE, "the press did not let the key go, it gave " .. got);
+        check(looped == got, "the press " .. got .. ", the loop " .. looped);
+        interp.driverHandle:RunAttribute("SetUnit", "custom1", nil);
+        shim.world.units = {};
+        interp:resetState();
+    end
+    test("a wake that moves a token writes its place again", TokenMoves);
+
+    -- **The development build parses the units one at a time** (`BuildJudgeSnippet`'s `probesOn`), a
+    -- branch no user runs and no other case reaches. Probes on with forms that answer as shipped, so
+    -- the same cases have to come out the same.
+    test("with probes on, the units are parsed one at a time and answer alike", function()
+        local probes = {};
+        for name, form in pairs(DebindPrivate.SNIPPET_PROBES_LIVE) do
+            probes[name] = form;
+        end
+        local was = DebindPrivate.SnippetProbes;
+        DebindPrivate.SnippetProbes = { expand = probes };
+        local ok, err = pcall(function()
+            Bind({
+                action({ conditions = { combat = true, units = {
+                    target = { reaction = Constants.REACTION_HELP + Constants.REACTION_HARM, dead = false },
+                    focus = { dead = true },
+                    custom1 = { reaction = Constants.REACTION_HELP },
+                } } }),
+                action({ type = Constants.UNUSED }),
+            });
+            local handler = interp.driver:GetAttribute("_onattributechanged");
+            check(handler and handler:find("PROBE", 1, true) == nil and handler:find("fragment:sub(3)", 1, true),
+                "the beat does not parse the units one at a time");
+            Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
+            TokenMoves();
+        end);
+        DebindPrivate.SnippetProbes = was;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     return T;
 end

@@ -519,6 +519,15 @@ return function(DebindPrivate)
         end
         local retarget, retargetBody = priced(scenario(LARGE_BEATS, targetMoves), LARGE_BEATS);
 
+        -- A friend and an enemy under the cursor in turn: the mouseover column moves on every beat.
+        local mouseMoves = {};
+        for b = 1, LARGE_BEATS do
+            mouseMoves[b] = function() shim.world.units.mouseover = TARGETS[b % 2 + 1]; end;
+        end
+        local _, mouseBody = priced(scenario(LARGE_BEATS, mouseMoves), LARGE_BEATS);
+        shim.world.units.mouseover = nil;
+        interp:beat();
+
         -- Entered and left in turn, only the enter metered.
         local enterCounts = {};
         for _ = 1, LARGE_BEATS do
@@ -538,6 +547,14 @@ return function(DebindPrivate)
             .. "       %3.0f / %3.0f / %4.0f",
             leading, combat and "in" or "out", quiet, quietBody, moved, movedBody, formMoved, formMovedBody,
             retarget, retargetBody, enter, second(5), second(20), second(144)));
+        -- **A second where units move**, which the line above cannot show: three of its beats move a
+        -- state. Three target swaps a second, and the mouseover moving on every beat.
+        local function targets(beats)
+            return (beats - 3) * quietBody + 3 * retargetBody;
+        end
+        print(string.format("    the body a second, 3 target swaps: %3.0f / %3.0f / %4.0f;"
+            .. " the mouseover on every beat: %3.0f / %3.0f / %4.0f",
+            targets(5), targets(20), targets(144), 5 * mouseBody, 20 * mouseBody, 144 * mouseBody));
     end
     for _, formPrice in ipairs(FORM_PRICES) do
         COST["parse word form"][1] = formPrice[2];

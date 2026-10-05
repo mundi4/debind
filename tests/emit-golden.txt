@@ -14,8 +14,6 @@ Execute DebindBindingDriver
   | wipe(JudgeBundles)
   | wipe(JudgeByKey)
   | wipe(JudgeWakes)
-  | wipe(JudgeComposeAll)
-  | wipe(JudgeComposeBy)
   | wipe(JudgeClassify)
   | wipe(JudgeSwitchTexts)
   | -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
@@ -1971,32 +1969,6 @@ SetAttribute DebindBindingDriver JudgePass =
   | local frags = watch.frags
   | local dirty = false
   | do
-  | local list = JudgeComposeAll
-  | 	for n = 1, #list do
-  | 		local b = list[n]
-  | 		for t = 1, #b.templates do
-  | 			local tp = b.templates[t]
-  | 			local frags, slots = tp.frags, tp.slots
-  | 			for k = 1, #slots do
-  | 				local slot = slots[k]
-  | 				local token
-  | 				if (slot.unit == "unitframe") then
-  | 					token = JudgeFrameUnit
-  | 				else
-  | 					token = UnitAliasMap[slot.unit]
-  | 				end
-  | 				if (token) then
-  | 					frags[k + k] = "@" .. token .. slot.text
-  | 				else
-  | 					frags[k + k] = ""
-  | 				end
-  | 			end
-  | 			b[tp.key] = table.concat(frags)
-  | 		end
-  | 	end
-  | 
-  | end
-  | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | columns[1] = cell
   | frags[1] = watch.byCell[1][cell]
@@ -2098,6 +2070,7 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | end
   | local text = watch.text
   | local rounds = 0
+  | local from = 0
   | while (text) do
   | local hit = SecureCmdOptionParse(text)
   | if (not hit) then
@@ -2122,16 +2095,6 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | dirty = true
   | end
   | end
-  | if (dirty) then
-  | dirty = false
-  | local text = table.concat(frags)
-  | if (text == "") then
-  | text = false
-  | else
-  | text = text:sub(3)
-  | end
-  | watch.text = text
-  | end
   | break
   | end
   | if (hit == "1") then
@@ -2152,18 +2115,18 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | dirty = true
   | end
   | end
-  | end
-  | if (dirty) then
-  | dirty = false
-  | local text = table.concat(frags)
-  | if (text == "") then
-  | text = false
+  | from = 1
   | else
+  | from = 0
+  | end
+  | if (from == 1) then
+  | break
+  | end
+  | text = table.concat(frags, "", from + 1, 1)
+  | if (text == "") then
+  | break
+  | end
   | text = text:sub(3)
-  | end
-  | watch.text = text
-  | end
-  | text = watch.text
   | end
   | 
   | if (dirty) then

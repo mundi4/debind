@@ -141,11 +141,8 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeReady = false
 	-- **The parse that classifies an alias or frame unit for the loop** (`ClassifyPieces` in
 	-- `UpdateBindings.lua`) has the unit's token put into its text when the token changes, not on
-	-- every beat (`trimming-the-tail-key-beat.md` 8-6). `JudgeClassify` is that text by unit,
-	-- `JudgeComposeAll` every one of them, `JudgeComposeBy` the same by the wake that moves the token.
+	-- every beat (`trimming-the-tail-key-beat.md` 8-6). `JudgeClassify` is that text by unit.
 	-- `JudgeFrame*` is the pointed frame as the beat last read it.
-	JudgeComposeAll = newtable()
-	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
 	-- **The watch** (`WatchFragments` in `UpdateBindings.lua`): one text that answers only once a
 	-- column it carries has left its cell, so a beat where it does not answer measures none of
@@ -913,39 +910,9 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 	end
 ]==];
 
---- **Puts each unit's token into the classifying texts in `list`** (`JudgeComposeAll` or a list of
---- `JudgeComposeBy`), each template's even fragments overwritten and the whole joined into the
---- field the template names. The caller declares `list`. A unit with no token leaves its text
---- unread: the loop decides it absent before parsing.
-local JUDGE_COMPOSE_SNIPPET = [==[
-	for n = 1, #list do
-		local b = list[n]
-		for t = 1, #b.templates do
-			local tp = b.templates[t]
-			local frags, slots = tp.frags, tp.slots
-			for k = 1, #slots do
-				local slot = slots[k]
-				local token
-				if (slot.unit == "unitframe") then
-					token = JudgeFrameUnit
-				else
-					token = UnitAliasMap[slot.unit]
-				end
-				if (token) then
-					frags[k + k] = "@" .. token .. slot.text
-				else
-					frags[k + k] = ""
-				end
-			end
-			b[tp.key] = table.concat(frags)
-		end
-	end
-]==];
-
 --- What `BuildJudgeSnippet` puts together from where the press's own copies live: the judging half
 --- above, and a computed switch composed the way the press composes one.
 DebindPrivate.JUDGE_BUNDLES_SNIPPET = JUDGE_BUNDLES_SNIPPET;
-DebindPrivate.JUDGE_COMPOSE_SNIPPET = JUDGE_COMPOSE_SNIPPET;
 DebindPrivate.COMPOSE_MACROTEXT_SNIPPET = COMPOSE_MACROTEXT_SNIPPET;
 
 BindingDriver:SetAttribute("UpdateAllUnits", [[

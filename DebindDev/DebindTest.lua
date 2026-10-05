@@ -8289,6 +8289,83 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
     end,
 })
 
+-- **The units on the watch** (Q3 of `implementing-the-cuts-inside-the-beat-handler.md`). Which key
+-- the loop binds at every point, a token moved under a wake included, is headless
+-- (`tests/judgment_spec.lua`). What only the client shows is an alias's fragment built from its token
+-- where the wake writes it, and a development build asking each unit's fragment beside its own
+-- `unit` (`PROBE.ParseUnit`): a body that fails at either raises nothing and leaves the key where it
+-- stood. One fixed unit and one alias pointed at it, so a life held for the player moves both.
+RegisterTest("Tail: the units' watch follows a token and a life", {
+    description = "With no rebuild, pointing @custom1 at the player takes its tail key, and holding the player dead lets go of both that key and one on the player, through the watch",
+    run = function()
+        local NAME = "Tail units"
+        local KEY, KEY2 = "CTRL-SHIFT-F12", "CTRL-SHIFT-F11"
+        local driver, unitWatch = DebindPrivate.BindingDriver, DebindPrivate.UnitWatch
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+        local previous = DebindPrivate.Units and DebindPrivate.Units.custom1
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                unitWatch:SetAttribute("custom1", previous or "none")
+            end
+        end)
+        unitWatch:SetAttribute("custom1", "none")
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, units = { custom1 = { dead = false } } })
+        InsertAction({ type = Constants.UNUSED, key = KEY })
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY2, units = { player = { dead = false } } })
+        InsertAction({ type = Constants.UNUSED, key = KEY2 })
+        ApplyBindings()
+        -- Ends in a rebuild, whose pass judges both keys with the player alive.
+        SetMockState("player-dead", false)
+        local function Taken(key) return (GetBindingAction(key, true) or ""):sub(1, 6) == "CLICK " end
+        if Taken(KEY) then
+            return Fail(NAME, "with @custom1 pointing at nothing its key is taken")
+        end
+        if not Taken(KEY2) then
+            return Fail(NAME, "with the player alive the key on the player is not taken")
+        end
+
+        local witness = BeatWitness()
+        local function WaitTicks(n)
+            local from = witness:GetAttribute("ticks") or 0
+            return WaitUntil(function() return (witness:GetAttribute("ticks") or 0) >= from + n end, 2)
+        end
+
+        -- The token moves under the alias's wake.
+        unitWatch:SetAttribute("custom1", "player")
+        if not WaitUntil(function() return Taken(KEY) end, 2) then
+            return Fail(NAME, "@custom1 pointed at the player and its key was not taken")
+        end
+        -- Past `SetMockState`, which ends in a rebuild: only a beat moves the keys from here.
+        SecureHandlerExecute(driver, MockBody("player-dead", true))
+        if not WaitUntil(function() return not Taken(KEY) and not Taken(KEY2) end, 2) then
+            return Fail(NAME, format("the player held dead and no beat let go: @custom1's key %s, the player's %s",
+                tostring(Taken(KEY)), tostring(Taken(KEY2))))
+        end
+        if not WaitTicks(2) then
+            return Fail(NAME, "the manager did not tick for the witness")
+        end
+        if Taken(KEY) or Taken(KEY2) then
+            return Fail(NAME, "a quiet beat took a key back")
+        end
+        SecureHandlerExecute(driver, MockBody("player-dead", false))
+        if not WaitUntil(function() return Taken(KEY) and Taken(KEY2) end, 2) then
+            return Fail(NAME, "the player alive again and no beat took both keys back")
+        end
+        if #watchMisses > 0 then
+            return Fail(NAME, format("the watch let a beat pass with column %d moved", watchMisses[1]))
+        end
+        return Pass(NAME, "a token and a life moved both keys through the units' watch")
+    end,
+})
+
 -- **The loop measures the form by the call** (`Constants.MEASURED_BY`, Q2d of
 -- `implementing-the-cuts-inside-the-beat-handler.md`). Which key that binds, the press and the loop
 -- alike, is headless (`tests/judgment_spec.lua`). What only the client shows is the beat's body
