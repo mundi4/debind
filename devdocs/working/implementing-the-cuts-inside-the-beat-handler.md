@@ -538,6 +538,25 @@ Q2에서 움직인 beat가 비싼 까닭은 watch가 걸리면 그 watch의 컬�
   있어야 두 번 고치지 않는다.
 - 뒤의 셋은 서로 기대지 않는다. ④는 ③ 위에, ⑤는 ① 위에 선다.
 
+## 이어받는 세션이 알 것
+
+Q0부터 Q2c까지 구현한 `debind-6b`가 컨텍스트가 다 차서 멈추며 남긴 것이다(2026-10-06). 단계의 절에 없는 것만 모았다.
+
+- **spec이 쓰는 내보내기.** `DebindPrivate.WatchFragmentsOf`(`UpdateBindings.lua`)와 `DebindPrivate.BeatOnAttribute`.
+- **벤치.** `COST["parse word form"]`은 줄마다 `FORM_PRICES`가 정한다(변신 있는 직업 1.07, 없는 직업 0.06). `LargeRow`가
+  "quiet in form 3"을 찍는다.
+- **옛 커밋을 지금 벤치로 재는 법.** `git worktree add --detach`로 그 커밋을 scratchpad에 풀고, 지금의
+  `tests/beatbench.lua`, `restricted.lua`, `wow_frames.lua`를 거기에 복사해 `lua5.1 tests/run.lua --bench-beat`를 돌린 뒤
+  그 worktree를 지운다. 큰 모양의 컬럼 확인은 `JudgmentItems`를 읽어서 옛 배치에서도 돈다. Q1b 앞의 커밋에서는 벤치의
+  마지막 묶음이 에러를 내는데(`BeatSignal`이 없다), 큰 표는 그 전에 다 찍힌다.
+- **snippet golden은 소스의 문자열 리터럴을 읽는다.** `string.format`으로 지은 본문은 `%d`가 그대로 기록되고 실제로
+  나가는 글이 기록되지 않는다. `BeatSignal`의 상한이 본문에 구운 숫자가 아니라 프레임 속성인 까닭이다.
+- **5.1의 `format`에는 자리 지정(`%1$d`)이 없다.**
+- **망가뜨린 판을 보는 법.** 코드에 전역 `BROKEN`을 읽는 갈래를 잠깐 넣고 `lua5.1 -e "BROKEN=true" tests/run.lua`로
+  돌렸다. 커밋하기 전에 `BROKEN`을 grep한다. 지금 남아 있는 것은 없다.
+- **Q2d의 표는 한 번 짓다가 되돌렸다.** 트리에 남은 것은 없다. 소유자가 방향을 정하기 전에 `debind-f8`이 지시로 보냈다가
+  멈춘 것이다.
+
 ## 단계마다 넘길 때
 
 `npm run check`를 돌리고, golden이 움직였으면 diff를 읽고, 벤치의 앞뒤 값을 그 단계의 절에 적는다. 관문의 숫자가 안
