@@ -148,6 +148,8 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
 	JudgeDetect = false
+	-- Pushed from outside by `SetPetBattle`, and kept across rebuilds: nothing else measures it.
+	JudgePetBattle = false
 	JudgeFrameUnit = false
 	JudgeFrameType = false
 	JudgeFrameRole = false
@@ -530,6 +532,59 @@ BindingDriver:SetAttribute("SetSwitch", [[
 		end
 	end
 ]]);
+
+--- **A pet battle reaches the loop from its two events, never from the beat**
+--- (`trimming-the-tail-key-beat.md` 3-3). A battle starts and ends out of lockdown (measured
+--- 2026-09-13, `dropping-the-game-fallback.md` 5-1), so the value pushed last holds through any fight,
+--- and the beat has no `[petbattle]` to parse.
+---
+--- **The value is the event's name.** `PET_BATTLE_CLOSE` comes twice and the client still answers
+--- in a battle at the first, so a value asked for there would hold true until the next battle. The
+--- press goes on parsing `[petbattle]`, and between the two closes the loop and the press part.
+BindingDriver:SetAttribute("SetPetBattle", [[
+	JudgePetBattle = ... and true or false
+	local wake = JudgeWakes.petbattle
+	if (wake) then
+		self:RunAttribute(wake)
+	end
+]]);
+
+do
+    local inBattle = false;
+    local owed = false;
+
+    local function Push()
+        if (InCombatLockdown()) then
+            owed = true;
+            return;
+        end
+        owed = false;
+        SecureHandlerExecute(BindingDriver, inBattle and [[self:RunAttribute("SetPetBattle", true)]]
+            or [[self:RunAttribute("SetPetBattle", false)]]);
+    end
+
+    --- The one place the state is asked rather than told: a reload in a battle sends no event.
+    function DebindPrivate.SeedPetBattle()
+        inBattle = SecureCmdOptionParse("[petbattle] 1") == "1";
+        Push();
+    end
+
+    --- The push a fight refused, made once it ends (`Events.lua`).
+    function DebindPrivate.FlushPetBattle()
+        if (owed) then
+            Push();
+        end
+    end
+
+    local frame = CreateFrame("Frame");
+    frame:SetScript("OnEvent", function(_, event)
+        inBattle = event == "PET_BATTLE_OPENING_START";
+        Push();
+    end);
+    -- A client without pet battles has neither event.
+    pcall(frame.RegisterEvent, frame, "PET_BATTLE_OPENING_START");
+    pcall(frame.RegisterEvent, frame, "PET_BATTLE_CLOSE");
+end
 
 BindingDriver:SetAttribute("ToggleSwitch", [[
 	local name = ...

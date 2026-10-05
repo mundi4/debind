@@ -141,6 +141,8 @@ function Events.PLAYER_LOGIN()
     --- Here for the reason the pack boxes below are here: the globals it asks for belong to another
     --- addon, and at our own `ADDON_LOADED` one that loads after us has not run its files yet.
     DebindPrivate.AttachPackHooks();
+    -- Ahead of the rebuild below, whose own pass judges a tail key on it.
+    DebindPrivate.SeedPetBattle();
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
 
     -- The version rides on the front of a line that was already printed, rather than taking a line
@@ -286,6 +288,7 @@ function Events.PLAYER_REGEN_ENABLED()
     -- A binding context that opened or closed during the fight could not reach the restricted side
     -- either. **After the rebuild above**, which bakes the same set and leaves nothing owed.
     DebindPrivate.FlushContextKeys();
+    DebindPrivate.FlushPetBattle();
 end
 
 function Events.UPDATE_BINDINGS()

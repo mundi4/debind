@@ -2,15 +2,15 @@
 
 > 상태: 진행 중. P0, P1, P2(누름의 상태 낱말과 유닛 낱말을 파싱으로)가 들어갔다. P3은 묶음을 식으로 굽는 경로를
 > 만들어 재 본 뒤 뺐고(소유자), 루프가 상태와 유닛을 누름처럼 파싱으로 잰다. change detector(P3-7)가 3개까지로
-> 들어갔다. P4(계산식 스위치의 글은 참조하는 값이 바뀔 때만 조립)는 루프의 스위치 컬럼으로 다시 짜서 들어갔다.
-> 다음은 P5다.
+> 들어갔다. P4(계산식 스위치의 글은 참조하는 값이 바뀔 때만 조립)와 P5(펫 대전은 비보안 쪽이 넣음)는 루프의
+> 컬럼으로 다시 짜서 들어갔다. 다음은 P6이다.
 > `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
 > 왜 하는지는 그 문서가 갖고, 이 문서는 어떤 순서로 무엇을 고치는지와 단계마다 무엇이 실패해야 하는지를 갖는다.
 > 이 문서의 절은 `P0`~`P6`으로 부르고, 괄호 안의 맨 번호(7-1, 8-6, C5 …)는 그 계획 문서의 절과 표의 행이다.
 >
 > 쓴 세션: `debind-e6` (세션 ID `227f6025-3103-4343-a53f-52f642072b5a`). 계획 문서를 쓴 세션은 `debind-ac`
 > (세션 ID `1361cd24-6aad-48a3-9a06-643d7caa65ad`). P2b와 P3은 `debind-15` (세션 ID
-> `7c6f4074-9f5b-45cc-9de9-ca5e8ccf8dd3`). P4는 `debind-05` (세션 ID `679ed88b-7690-4b7b-bbb7-1f7f48ead365`).
+> `7c6f4074-9f5b-45cc-9de9-ca5e8ccf8dd3`). P4와 P5는 `debind-05` (세션 ID `679ed88b-7690-4b7b-bbb7-1f7f48ead365`).
 
 ## 기대는 것
 
@@ -383,15 +383,42 @@ C2, C4, C6. 이 일의 본체였다.
 
 ## P5. `petbattle`·`house:editor`를 비보안 쪽이 넣는다
 
-3-3(정함). 값은 이벤트 이름이 정한다. `PET_BATTLE_CLOSE`는 두 번 오고 첫 번째에는 아직 대전 중이라고 답한다.
+3-3(정함). **들어갔다** (debind-05). 처음 글은 깨움이 묶음 식을 다시 조립하는 꼴이었고, 루프의 컬럼으로 다시 짰다.
 
-- 비보안 쪽이 깨움으로 넣고, 그 깨움이 이 값을 읽는 묶음 식을 상수로 다시 조립한다(P3-2와 같은 꼴). beat에서
-  `[petbattle]` 파싱이 빠진다.
+- **값은 이벤트 이름이 정한다.** `SecureBindings.lua`의 이벤트 프레임이 `PET_BATTLE_OPENING_START`면 참,
+  `PET_BATTLE_CLOSE`면 거짓을 `SetPetBattle`로 넣는다. `SetPetBattle`은 `JudgePetBattle`에 쓰고 `judge-petbattle`
+  깨움을 부른다. 상태를 묻는 것은 로그인 때 한 번(`SeedPetBattle`, 대전 중 리로드에는 이벤트가 없다)뿐이다.
+  `JudgePetBattle`은 리빌드가 지우지 않는다.
+- 잠금 중이면 넣지 않고 `PLAYER_REGEN_ENABLED`에서 넣는다(`FlushPetBattle`). 대전 중에도 `PET_BATTLE_CLOSE`에도
+  잠금이 아니었다고 잰 적이 있으니(`dropping-the-game-fallback.md` 5-1) 대비책이다.
+- 루프: `petbattle` 컬럼은 beat에서 재지 않고(`JudgedOnBeat`) 넣은 값을 읽는다. `specialbar`는 넣은 값이 참이면 참이고,
+  아니면 `[vehicleui][possessbar][overridebar][shapeshift]`를 파싱한다. 둘 다 `petbattle` 깨움에 선다. beat 본문에
+  `petbattle`이라는 글자가 없다.
 - 누름은 지금처럼 `[petbattle]`을 파싱한다. 첫 번째 `PET_BATTLE_CLOSE`부터 두 번째까지는 루프와 누름이 갈린다(3-3).
-- `house:editor`는 `BindingContexts.lua`가 이미 받는 `HOUSE_EDITOR_MODE_CHANGED`·`HouseEditor.StateUpdated` 자리에서
-  깨운다.
-- 루프 때문에 매니저에 걸던 `PET_BATTLE_*`를 `CollectDriverEvents`(UB:512-554)에서 뺀다. Keys Given Back의 등록은
-  그대로다.
+- 루프 때문에 매니저에 걸던 `PET_BATTLE_*`는 `CollectDriverEvents`에서 뺐다. Keys Given Back의 등록은 그대로다.
+- **`house:editor`는 할 일이 없다.** 조건 축(`CONDITION_AXES`)에 없어서 루프의 컬럼이 아니다. 집 편집기는 Keys Given
+  Back의 출처(`ContextKeys`)로만 들어온다.
+- 시험(`judgment_spec`), 셋 다 P5 앞의 코드에서 실패하는 것을 봤다.
+  - "a pet battle told by its events": 로그인 때의 시작값, 열림, 첫 번째 닫힘(세상은 아직 대전 중, 루프는 놓고 누름은
+    아직 명령), 두 번째 닫힘. 이벤트 자리에서 상태를 묻게 한 코드에서 첫 번째 닫힘이 실패했다.
+  - "a pet battle told in a lockdown waits for its end": 잠금 검사를 뺀 코드와 `FlushPetBattle`을 막은 코드에서 각각
+    실패했다.
+  - "the beat parses no pet battle".
+  - "the bars, skyriding and pet battles"의 sweep은 점마다 `SetPetBattle`로 넣는다.
+  - 키트의 "Tail: a pushed pet battle moves the key on its wake": `SetPetBattle`과 그 깨움이 restricted environment에서
+    `[petbattle]` 키와 `[nospecialbar]` 키를 beat 없이 옮긴다. 대전은 마음대로 열 수 없어서 이벤트가 넣는 꼴로 직접
+    넣고, 끝나면 `SeedPetBattle`로 되돌린다. 이벤트 프레임 자체는 헤드리스가 본다.
+- 벤치(`--bench-beat`의 `bars` 모양: 짝수 키 `petbattle = false, combat`, 홀수 키 `specialbar = false, mounted`, 키 12개,
+  상태가 그대로인 beat | 네 beat마다 `combat`·`mounted`가 뒤집힘, µs), 앞 / 뒤:
+
+  | change detector의 컬럼 수 | 0 | 2 | 3 (`JUDGE_DETECT_MAX`) |
+  |---|---|---|---|
+  | 앞 | 12.54 \| 17.98 | 12.16 \| 17.88 | 11.72 \| 17.50 |
+  | 뒤 | 12.08 \| 17.53 | 11.71 \| 17.43 | 11.71 \| 17.43 |
+
+  지금 설정(3)에서는 거의 그대로다. 앞에서도 change detector가 `petbattle`을 파싱 하나에 묶고 있었기 때문이다. 줄어든
+  것은 detector의 자리 하나다. 불리언 컬럼이 넷 이상인 프로필에서는 그 자리를 다른 컬럼이 쓴다. 다른 값어치는
+  3-3이 적은 대로 이벤트 순간에 깨운다는 것이다.
 
 ## P6. 매니저 이벤트
 

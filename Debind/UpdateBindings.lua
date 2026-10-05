@@ -588,8 +588,9 @@ local function CollectDriverEvents(events)
     want("ZONE_CHANGED_INDOORS", judged.indoors);
     want("ZONE_CHANGED_NEW_AREA", judged.flyable or judged.advflyable);
 
-    -- Both, because the client splits a pet battle into the two. `specialbar` folds a battle in.
-    local battle = DebindPrivate.GiveBackInPetBattle() or judged.petbattle or judged.specialbar;
+    -- Both, because the client splits a pet battle into the two. Keys Given Back only: the loop
+    -- is told of a battle by `SetPetBattle`.
+    local battle = DebindPrivate.GiveBackInPetBattle();
     want("PET_BATTLE_OPENING_START", battle);
     want("PET_BATTLE_CLOSE", battle);
 
@@ -2675,7 +2676,8 @@ end
 local JUDGE_WAKE_PREFIX = "judge-";
 
 --- The wakes of ours that move a column, none where only Blizzard's beat does. The pointed
---- frame's columns move with the cursor, a switch with `SetSwitch` and an alias with `SetUnit`.
+--- frame's columns move with the cursor, a switch with `SetSwitch`, an alias with `SetUnit`, and a
+--- pet battle, which `specialbar` folds in, with `SetPetBattle`.
 ---
 --- **A computed switch moves with whatever its text reads**, through the computed switches it
 --- reads as well: that wake composes the text again, so it has to measure the switch.
@@ -2683,6 +2685,8 @@ local function JudgmentWakesOf(column)
     local kind, arg = column.kind, column.arg;
     if (kind == "role" or kind == "frameType") then
         return { "unitframe" };
+    elseif (kind == "petbattle" or kind == "specialbar") then
+        return { "petbattle" };
     elseif (kind == "unit" or kind == "unitgroup") then
         if (SPECIAL_UNITS[arg]) then
             return { arg };
@@ -2714,9 +2718,12 @@ local function JudgmentWakesOf(column)
 end
 
 --- Does the beat measure this column again? Everything but a switch set by hand, which nothing but
---- `SetSwitch` moves. A computed one is worked out from the world, like any state.
+--- `SetSwitch` moves, and a pet battle, which nothing but `SetPetBattle` does. A computed switch is
+--- worked out from the world, like any state.
 local function JudgedOnBeat(column)
-    if (column.kind ~= "switch") then
+    if (column.kind == "petbattle") then
+        return false;
+    elseif (column.kind ~= "switch") then
         return true;
     end
     local info = _switches[column.arg];
@@ -2923,10 +2930,11 @@ local function EmitJudgmentItems(items)
     _judgeReadsFrame = wakes.unitframe or false;
 end
 
---- Boolean state columns, each measured by parsing what the press parses for "on".
+--- Boolean state columns, each measured by parsing what the press parses for "on". `petbattle` is
+--- not one: it is pushed (`SetPetBattle`).
 local JUDGED_BOOL_STATES = {
     combat = true, stealth = true, mounted = true, indoors = true, flyable = true, advflyable = true,
-    flying = true, skyriding = true, extrabar = true, petbattle = true, specialbar = true,
+    flying = true, skyriding = true, extrabar = true, specialbar = true,
 };
 
 --- **The parse that answers a state column's cell on the column loop**, and whether its value is
@@ -2942,11 +2950,14 @@ local function StateCellText(kind)
     local text;
     if (JUDGED_BOOL_STATES[kind]) then
         local groups = {};
-        for i, alternative in ipairs(StateAlternatives(kind, true)) do
-            for _, token in ipairs(alternative) do
-                tokens[#tokens + 1] = token;
+        for _, alternative in ipairs(StateAlternatives(kind, true)) do
+            -- `specialbar`'s battle is the pushed one (`otherCell`).
+            if (alternative[1] ~= "petbattle") then
+                for _, token in ipairs(alternative) do
+                    tokens[#tokens + 1] = token;
+                end
+                groups[#groups + 1] = "[" .. tconcat(alternative, ",") .. "]";
             end
-            groups[i] = "[" .. tconcat(alternative, ",") .. "]";
         end
         text = tconcat(groups);
     elseif (kind == "groups") then
@@ -3177,7 +3188,11 @@ local function BuildJudgeSnippet()
     local function otherCell(column)
         local kind = column.kind;
         local text, numbered = StateCellText(kind);
-        if (text and numbered) then
+        if (kind == "petbattle") then
+            add("cell = JudgePetBattle and %d or %d", TRUE, FALSE);
+        elseif (kind == "specialbar") then
+            add("cell = (JudgePetBattle or PROBE.SecureCmdOptionParse(%q)) and %d or %d", text, TRUE, FALSE);
+        elseif (text and numbered) then
             add("cell = tonumber(PROBE.SecureCmdOptionParse(%q))", text);
         elseif (text) then
             add("cell = PROBE.SecureCmdOptionParse(%q) and %d or %d", text, TRUE, FALSE);

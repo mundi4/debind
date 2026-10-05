@@ -216,6 +216,8 @@ return function(DebindPrivate, _, ctx)
         -- `specialbar` folds `petbattle` in (`EVAL_SNIPPET`).
         local petbattle = cells.petbattle == Judgment.TRUE;
         state.petbattle = petbattle;
+        -- The loop is told, as the events tell it in the game (`SetPetBattle`).
+        interp.driverHandle:RunAttribute("SetPetBattle", petbattle);
         if (cells.specialbar ~= nil) then
             local special = cells.specialbar == Judgment.TRUE;
             if (petbattle and not special) then
@@ -845,6 +847,111 @@ return function(DebindPrivate, _, ctx)
         interp.driverHandle:RunAttribute("SetSwitch", "$m", nil);
         interp:resetState();
         shim.world.units = {};
+    end);
+
+    -- **A pet battle reaches the loop from its two events, and the value is the event's name**
+    -- (`trimming-the-tail-key-beat.md` 3-3). At the first of the two `PET_BATTLE_CLOSE` the client
+    -- still answers in a battle, and the loop has let go of it where the press has not.
+    test("a pet battle told by its events", function()
+        Bind({
+            action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        -- The insecure side's parse answers the battle from the world for this case, so a value
+        -- asked at an event would read what the client says there.
+        local parse = _G.SecureCmdOptionParse;
+        _G.SecureCmdOptionParse = function(expr)
+            if (expr == "[petbattle] 1") then
+                return interp.state.petbattle and "1" or nil;
+            end
+            return parse(expr);
+        end
+        local function Run(fn)
+            local mark = frames.mark();
+            fn();
+            interp:replay(frames.since(mark));
+        end
+        local function Fire(event)
+            Run(function()
+                check(frames.fireEvent(event) > 0, "nothing listens for " .. event);
+            end);
+        end
+        local ok, err = pcall(function()
+            -- A reload in a battle sends no event: the login asks once.
+            interp.state.petbattle = true;
+            Run(DebindPrivate.SeedPetBattle);
+            check(Bound("F1") == OutcomeName(Judgment.COMMAND, MAP), "the login did not find the battle");
+            interp.state.petbattle = false;
+            Fire("PET_BATTLE_CLOSE");
+            check(Bound("F1") == Judgment.RELEASE, "the key was not let go out of a battle");
+
+            interp.state.petbattle = true;
+            Fire("PET_BATTLE_OPENING_START");
+            check(Bound("F1") == OutcomeName(Judgment.COMMAND, MAP), "the battle's start did not hand the key over");
+            check(Looped("F1") == Bound("F1"), "a beat in the battle moved the key");
+
+            Fire("PET_BATTLE_CLOSE");
+            check(Actual("F1") == OutcomeName(Judgment.COMMAND, MAP), "the press read the first close as the end");
+            check(Bound("F1") == Judgment.RELEASE, "the first close did not take the battle off the loop");
+
+            interp.state.petbattle = false;
+            Fire("PET_BATTLE_CLOSE");
+            check(Actual("F1") == Judgment.RELEASE and Looped("F1") == Judgment.RELEASE,
+                "the second close left the battle on");
+        end);
+        _G.SecureCmdOptionParse = parse;
+        interp:resetState();
+        shim.world.units = {};
+        check(ok, tostring(err));
+    end);
+
+    -- **Nothing crosses under lockdown**, so a battle that ends in one is told once it ends.
+    test("a pet battle told in a lockdown waits for its end", function()
+        Bind({
+            action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        interp.driverHandle:RunAttribute("SetPetBattle", false);
+        shim.world.inCombat = true;
+        local mark = frames.mark();
+        frames.fireEvent("PET_BATTLE_OPENING_START");
+        shim.world.inCombat = false;
+        for _, entry in ipairs(frames.since(mark)) do
+            check(entry.kind ~= "Execute", "the battle crossed in a lockdown");
+        end
+        DebindPrivate.FlushPetBattle();
+        interp:replay(frames.since(mark));
+        check(Bound("F1") == OutcomeName(Judgment.COMMAND, MAP), "the battle was never told");
+        mark = frames.mark();
+        frames.fireEvent("PET_BATTLE_CLOSE");
+        interp:replay(frames.since(mark));
+        interp:resetState();
+    end);
+
+    -- **The beat has no `[petbattle]` to parse**: the battle is pushed, and `specialbar` reads the
+    -- pushed value beside the bars it parses.
+    test("the beat parses no pet battle", function()
+        local mark = frames.mark();
+        Bind({
+            action({ conditions = { petbattle = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        local seen = false;
+        for _, entry in ipairs(frames.since(mark)) do
+            if (entry.kind == "SetAttribute" and entry.name == "_onattributechanged" and type(entry.body) == "string") then
+                seen = true;
+                -- The beat's branch is the handler's first, and Keys Given Back's comes after it.
+                local beat = entry.body:match("if %(name == \"" .. DebindPrivate.JUDGE_BEAT_ATTRIBUTE
+                    .. "\"%)(.-)if %(name == \"state%-giveback\"%)");
+                check(beat, "no beat branch in the handler");
+                check(not beat:find("petbattle", 1, true), "the beat parses the pet battle");
+            end
+        end
+        check(seen, "no handler was written");
     end);
 
     -- **No body of the loop measures a state through the API**: it parses its state columns as the

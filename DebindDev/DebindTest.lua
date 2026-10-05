@@ -8220,6 +8220,65 @@ RegisterTest("Tail: a switch set by hand moves the key through two computed swit
     end,
 })
 
+-- **A pet battle is pushed to the loop, not measured on the beat** (`trimming-the-tail-key-beat.md`
+-- 3-3). What the events push is headless (`tests/judgment_spec.lua`); what is left for the client is
+-- that `SetPetBattle` and the wake it runs work in the restricted environment, for `petbattle` and
+-- for `specialbar`, which reads the pushed value beside the bars it parses. A battle cannot be
+-- started on demand, so the value is pushed the way the events push it.
+RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
+    description = "SetPetBattle rebinds a key on [petbattle] and one on [nospecialbar] with no beat, and the login's value comes back",
+    run = function()
+        local NAME = "Tail pet battle"
+        local BATTLE_KEY = "CTRL-SHIFT-F12"
+        local BAR_KEY = "CTRL-SHIFT-F11"
+        local COMMAND = "TOGGLEWORLDMAP"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        if SecureCmdOptionParse("[petbattle][vehicleui][possessbar][overridebar][shapeshift] 1") == "1" then
+            return Fail(NAME, "run out of a pet battle and on the usual bar")
+        end
+
+        local driver = DebindPrivate.BindingDriver
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                DebindPrivate.SeedPetBattle()
+            end
+        end)
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = BATTLE_KEY, petbattle = true })
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = BATTLE_KEY })
+        InsertAction({ type = Constants.SPELL, value = 585, key = BAR_KEY, specialbar = false })
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = BAR_KEY })
+        ApplyBindings()
+
+        local function Bound(key)
+            local bound = GetBindingAction(key, true) or ""
+            return bound:sub(1, 6) == "CLICK " and "ours" or bound
+        end
+        if Bound(BATTLE_KEY) ~= COMMAND or Bound(BAR_KEY) ~= "ours" then
+            return Fail(NAME, format("out of a battle the keys answer %q and %q, they should be the command and ours",
+                Bound(BATTLE_KEY), Bound(BAR_KEY)))
+        end
+
+        -- **Nothing is waited on**: the beat no longer reads a battle, so only the wake can move these.
+        SecureHandlerExecute(driver, [[self:RunAttribute("SetPetBattle", true)]])
+        if Bound(BATTLE_KEY) ~= "ours" or Bound(BAR_KEY) ~= COMMAND then
+            return Fail(NAME, format("in a pushed battle the keys answer %q and %q, they should be ours and the command",
+                Bound(BATTLE_KEY), Bound(BAR_KEY)))
+        end
+
+        SecureHandlerExecute(driver, [[self:RunAttribute("SetPetBattle", false)]])
+        if Bound(BATTLE_KEY) ~= COMMAND or Bound(BAR_KEY) ~= "ours" then
+            return Fail(NAME, format("after a pushed close the keys answer %q and %q, they should be the command and ours",
+                Bound(BATTLE_KEY), Bound(BAR_KEY)))
+        end
+
+        return Pass(NAME, "the pushed battle took both keys over on the wake and gave them back")
+    end,
+})
+
 -- **`rtgsub` is what carries the mock into a parse**, and that it takes a restricted table as the
 -- replacement is the client's to show: the plain `gsub` a body also has refuses one.
 RegisterTest("Mock: a held state reaches a parsed expression", {

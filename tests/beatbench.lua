@@ -273,6 +273,13 @@ return function(DebindPrivate)
             } };
         end,
         flyable = function(i) return { flyable = true, mounted = i % 2 == 0, combat = i % 3 == 0 }; end,
+        -- Out of a pet battle, or off a replaced bar, beside a state. The two cannot share an action.
+        bars = function(i)
+            if (i % 2 == 0) then
+                return { petbattle = false, combat = true };
+            end
+            return { specialbar = false, mounted = true };
+        end,
     };
 
     local function gateProfile(shape, keys)
@@ -301,7 +308,7 @@ return function(DebindPrivate)
 
     print("\nBy shape, 12 keys, a beat in us, no state changed | combat and mounted flipped every 4th beat,"
         .. " by how many boolean columns one detecting parse takes (P3-7):");
-    for _, shape in ipairs({ "shared", "distinct", "units", "flyable" }) do
+    for _, shape in ipairs({ "shared", "distinct", "units", "flyable", "bars" }) do
         local row = {};
         for _, detect in ipairs({ 0, 2, 3, 4, 5 }) do
             DebindPrivate.JudgeDetectMax = detect;

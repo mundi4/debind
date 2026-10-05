@@ -149,6 +149,8 @@ DelegateFrameNames[frame] = frame:GetName()
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
 	JudgeDetect = false
+
+	JudgePetBattle = false
 	JudgeFrameUnit = false
 	JudgeFrameType = false
 	JudgeFrameRole = false
@@ -278,11 +280,22 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### SecureBindings.lua #3 SetAttribute
+	JudgePetBattle = ... and true or false
+	local wake = JudgeWakes.petbattle
+	if (wake) then
+		self:RunAttribute(wake)
+	end
+
+
+### SecureBindings.lua #4 SecureHandlerExecute
+self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
+
+### SecureBindings.lua #5 SetAttribute
 	local name = ...
 	return self:RunAttribute("SetSwitch", name, not States[name])
 
 
-### SecureBindings.lua #4 SetAttribute
+### SecureBindings.lua #6 SetAttribute
 	local alias, unit, force = ...
 	local changed = UnitAliasMap[alias] ~= unit
 	if (changed or force) then
@@ -314,7 +327,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #5 SetAttribute
+### SecureBindings.lua #7 SetAttribute
 	local alias, numFrames = ...
 	if (not UnitRoles) then
 		return
@@ -349,7 +362,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #6 SetAttribute
+### SecureBindings.lua #8 SetAttribute
 	local alias = ...
 	if (not RoleOwners) then
 		return
@@ -363,7 +376,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #7 SetAttribute
+### SecureBindings.lua #9 SetAttribute
 	wipe(GivenBackNow)
 
 	local page
@@ -469,7 +482,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #8 SetAttribute
+### SecureBindings.lua #10 SetAttribute
 	self:RunAttribute("SetUnit", "tank", UnitAliasMap["tank"], true)
 	self:RunAttribute("SetUnit", "healer", UnitAliasMap["healer"], true)
 	self:RunAttribute("SetUnit", "maintank", UnitAliasMap["maintank"], true)
@@ -479,7 +492,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:RunAttribute("SetUnit", "unitframe", UnitAliasMap["unitframe"], true)
 
 
-### SecureBindings.lua #9 SetAttribute
+### SecureBindings.lua #11 SetAttribute
 	local button = self
 	ccframes[button] = ccframes[button] or newtable()
 	ccframes[button].frame = button
@@ -489,7 +502,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-### SecureBindings.lua #10 SetAttribute
+### SecureBindings.lua #12 SetAttribute
 	local button = self
 	local info = ccframes[button]
 	if (info) then
@@ -506,7 +519,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	ccframes[button] = nil
 
 
-### SecureBindings.lua #11 SetAttribute
+### SecureBindings.lua #13 SetAttribute
 	local unit = self:GetEffectiveAttribute("unit")
 
 	local unitframe = ccframes[self]
@@ -554,7 +567,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #12 SetAttribute
+### SecureBindings.lua #14 SetAttribute
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
@@ -566,7 +579,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #13 SetAttribute
+### SecureBindings.lua #15 SetAttribute
 	local unitframe = States.unitframe
 	if (unitframe) then
 		States.unitframe = nil
@@ -582,24 +595,24 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #14 SetAttribute
+### SecureBindings.lua #16 SetAttribute
 	local over = Overs[self]
 	if (over and over.post) then
 		over.handle:RunFor(self, over.post, message)
 	end
 
 
-### SecureBindings.lua #15 SetAttribute
+### SecureBindings.lua #17 SetAttribute
 	local header = self:GetParent():GetFrameRef("clickcast_header")
 	header:RunFor(self, header:GetAttribute("setup_onenter"))
 
 
-### SecureBindings.lua #16 SetAttribute
+### SecureBindings.lua #18 SetAttribute
 	local header = self:GetParent():GetFrameRef("clickcast_header")
 	header:RunFor(self, header:GetAttribute("setup_onleave"))
 
 
-### SecureBindings.lua #17 SetAttribute
+### SecureBindings.lua #19 SetAttribute
 	local unitframe = States.unitframe
 	if (unitframe and unitframe.frame) then
 		local unit = unitframe.frame:GetEffectiveAttribute("unit")
@@ -609,12 +622,12 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #18 SetAttribute
+### SecureBindings.lua #20 SetAttribute
 	local button = self:GetAttribute("clickcast_button")
 	self:CallMethod("OnClickCastRegister", button:GetName())
 
 
-### SecureBindings.lua #19 InstallSnippet
+### SecureBindings.lua #21 InstallSnippet
 	local info = ccframes[self]
 	if (not info) then
 		return
@@ -940,7 +953,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return "debind1"
 
 
-### SecureBindings.lua #20 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #22 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1584,7 +1597,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return slotButton or castButton
 
 
-### SecureBindings.lua #21 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #23 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -2224,7 +2237,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return slotButton or castButton
 
 
-### SecureBindings.lua #22 InstallSnippet
+### SecureBindings.lua #24 InstallSnippet
 
 
 
@@ -2242,7 +2255,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("useOnKeyDown", nil)
 
 
-### SecureBindings.lua #23 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -2703,7 +2716,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return slotButton or castButton, nil, unit
 	
 
-### SecureBindings.lua #24 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -3163,7 +3176,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return slotButton or castButton, nil, unit
 	
 
-### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #27 InstallSnippet (DEBUG=on)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
@@ -3563,7 +3576,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return winner.clickbutton
 	
 
-### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #28 InstallSnippet (DEBUG=off)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
