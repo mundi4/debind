@@ -172,6 +172,46 @@ local function q(s)
     return format("%q", s);
 end
 
+--- The two-clause bundle of group F, kept for group J's driver tick.
+local BENCH_BUNDLE_EXPR;
+
+--- The frames group J writes to. Made once, out of combat; their refs go on the header.
+local benchFrames;
+
+local function MakeBenchFrames(header)
+    if (benchFrames) then
+        return benchFrames;
+    end
+    benchFrames = {
+        tPlain = CreateFrame("Frame", nil, UIParent, "SecureFrameTemplate"),
+        tAttr = CreateFrame("Frame", nil, UIParent, "SecureHandlerAttributeTemplate"),
+        tState = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate"),
+        tBeat = CreateFrame("Frame", nil, UIParent, "SecureHandlerAttributeTemplate"),
+        tDrv = CreateFrame("Frame", nil, UIParent, "SecureFrameTemplate"),
+    };
+    benchFrames.tAttr:SetAttribute("_onattributechanged", "return");
+    benchFrames.tState:SetAttribute("_onstate-beat", "return");
+    -- The current beat's first lines (`BuildJudgeSnippet`), with the measuring left out.
+    benchFrames.tBeat:SetAttribute("_onattributechanged", [[
+if (name == "state-beat") then
+    if (value == 0) then
+        return
+    end
+    self:SetAttribute("state-beat", 0)
+end
+]]);
+    for name, frame in pairs(benchFrames) do
+        SecureHandlerSetFrameRef(header, name, frame);
+    end
+    return benchFrames;
+end
+
+--- What the insecure copies of the manager's tick read. Unprotected, so it never needs combat
+--- to be over.
+local simFrame = CreateFrame("Frame");
+simFrame:SetAttribute("unit", "player");
+insecureEnv.BenchSimFrame = simFrame;
+
 local function Cases()
     local cases = {};
     local function add(group, name, stmt, prelude)
@@ -301,6 +341,9 @@ local function Cases()
                 first[j] = format("[%s,%s,%s] %s", a.tTok, b.tTok, (j == 1) and c.tTok or c.fTok, outcome);
             end
             none[k + 1], first[k + 1] = "ours", "ours";
+            if (k == 2) then
+                BENCH_BUNDLE_EXPR = table.concat(none, "; ");
+            end
             add("F", format("bundle of %d clauses x 3, none matches: one parse", k),
                 "x = SecureCmdOptionParse(" .. q(table.concat(none, "; ")) .. ")");
             add("F", format("bundle of %d clauses x 3, first matches: one parse", k),
@@ -428,6 +471,46 @@ end]==]);
         add("I", "4 true tokens, all `no`", "x = " .. p("[" .. table.concat(manyNo, ",") .. "]"));
     end
 
+    -- J: what a beat costs before it measures anything, and what a driver costs. Restricted cases
+    -- write another frame's attribute through a frame ref, so its handler runs the way a beat's
+    -- does: from secure code (`CallRestrictedClosure` refuses an insecure caller). Insecure cases
+    -- copy what Blizzard's manager does per tick for one driver and for one unit watch.
+    local function r(name, stmt, prelude)
+        add("J", name, stmt, prelude);
+        cases[#cases].only = "r";
+    end
+    local function i(name, stmt, prelude)
+        add("J", name, stmt, prelude);
+        cases[#cases].only = "i";
+    end
+    r("SetAttribute on a frame with no handler", [[t:SetAttribute("v", i)]], [[local t = self:GetFrameRef("tPlain")]]);
+    r("SetAttribute into an empty _onattributechanged", [[t:SetAttribute("v", i)]],
+        [[local t = self:GetFrameRef("tAttr")]]);
+    r("SetAttribute into an empty _onstate-beat", [[t:SetAttribute("state-beat", i)]],
+        [[local t = self:GetFrameRef("tState")]]);
+    r("the whole fixed beat: write \"a\", handler resets to 0, handler again", [[t:SetAttribute("state-beat", "a")]],
+        [[local t = self:GetFrameRef("tBeat")]]);
+    r("RegisterAttributeDriver, same expression (no change)",
+        [[RegisterAttributeDriver(t, "state-x", "[combat] a; b")]], [[local t = self:GetFrameRef("tDrv")]]);
+    r("RegisterAttributeDriver, value flips each call (frame with no handler)",
+        [[RegisterAttributeDriver(t, "state-x", (i % 2 == 0) and "[combat] a; b" or "[nocombat] a; b")]],
+        [[local t = self:GetFrameRef("tDrv")]]);
+    r("RegisterAttributeDriver, value flips each call (frame with an empty handler)",
+        [[RegisterAttributeDriver(t, "state-x", (i % 2 == 0) and "[combat] a; b" or "[nocombat] a; b")]],
+        [[local t = self:GetFrameRef("tAttr")]]);
+    i("manager tick, one driver \"a\" (parse, tonumber, GetAttribute, compare)",
+        [[local v = SecureCmdOptionParse("a") v = tonumber(v) or v x = (v ~= f:GetAttribute("state-x"))]],
+        "local f = BenchSimFrame");
+    i("manager tick, one bundle driver (2 clauses x 3)",
+        "local v = SecureCmdOptionParse(" .. q(BENCH_BUNDLE_EXPR or "[combat] a; b") .. ") v = tonumber(v) or v "
+        .. [[x = (v ~= f:GetAttribute("state-x"))]], "local f = BenchSimFrame");
+    i("manager tick, one unit watch on player (GetUnit, cache, GetAttribute)",
+        [[local u = SecureButton_GetUnit(f) local e = cache[u] if (e == nil) then e = UnitExists(u) or UnitIsVisible(u) cache[u] = e end ]]
+        .. [[x = (f:GetAttribute("state-unitexists") ~= (e or false)) wipe(cache)]],
+        "local f = BenchSimFrame local cache = {}");
+    i("GetAttribute on a plain frame", [[x = f:GetAttribute("state-x")]], "local f = BenchSimFrame");
+    i("SetAttribute on a plain frame", [[f:SetAttribute("v", i)]], "local f = BenchSimFrame");
+
     -- G
     add("G", "compose, 1 switch arg", format(COMPOSE, "BenchEntry1") .. "x = s");
     add("G", "compose, 1 switch arg + parse", format(COMPOSE, "BenchEntry1") .. "x = SecureCmdOptionParse(s)");
@@ -469,6 +552,7 @@ local function Run()
             header = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate");
         end
         header:SetAttribute("BenchNoop", "local y = 1");
+        MakeBenchFrames(header);
         SecureHandlerExecute(header, SETUP);
     end
     local setup = loadstring(SETUP);
@@ -480,7 +564,7 @@ local function Run()
     for n, case in ipairs(cases) do
         bodies[n] = format("local x %s\nfor i = 1, %d do\n%s\nend", case.prelude or "", COUNT, case.stmt);
         assert(not strfind(bodies[n], "function", 1, true), case.name);
-        if (not strfind(case.stmt, "self:", 1, true)) then
+        if (case.only ~= "r" and not strfind(case.stmt, "self:", 1, true)) then
             local f, err = loadstring(bodies[n]);
             if (f) then
                 setfenv(f, insecureEnv);
@@ -496,7 +580,7 @@ local function Run()
     for _ = 1, ROUNDS do
         for n = 1, #cases do
             local start;
-            if (restricted and not failed[n]) then
+            if (restricted and not failed[n] and cases[n].only ~= "i") then
                 start = debugprofilestop();
                 local ok = pcall(SecureHandlerExecute, header, bodies[n]);
                 local spent = debugprofilestop() - start;
@@ -515,6 +599,12 @@ local function Run()
                 end
             end
         end
+    end
+
+    -- Group J left drivers on two of its frames; take them off so the manager stops ticking them.
+    if (benchFrames) then
+        UnregisterAttributeDriver(benchFrames.tDrv, "state-x");
+        UnregisterAttributeDriver(benchFrames.tAttr, "state-x");
     end
 
     local rEmpty = restricted and Median(rS[1]);
