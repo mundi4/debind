@@ -301,9 +301,8 @@ return function(DebindPrivate, _, ctx)
         return Judgment.OURS;
     end
 
-    --- What the key is bound to after a beat, in the item's words.
-    local function Looped(key)
-        interp:beat();
+    --- What the key is bound to now, in the item's words.
+    local function Bound(key)
         local entry = interp.bindings[key];
         if (not entry) then
             return Judgment.RELEASE;
@@ -311,6 +310,12 @@ return function(DebindPrivate, _, ctx)
             return OutcomeName(Judgment.COMMAND, entry.command);
         end
         return Judgment.OURS;
+    end
+
+    --- What the key is bound to after a beat.
+    local function Looped(key)
+        interp:beat();
+        return Bound(key);
     end
 
     local function PointFor(item, cells)
@@ -698,6 +703,122 @@ return function(DebindPrivate, _, ctx)
             check(got == case.want, "the press gave " .. got);
             check(looped == got, "the press " .. got .. ", the loop " .. looped);
         end
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **A computed switch aimed at the pointed frame, where no column reads the frame**: its text is
+    -- composed with the frame's unit, so the loop has to read the frame for it all the same.
+    test("a computed switch on the pointed frame", function()
+        Bind({
+            action({ conditions = { ["$h"] = true } }),
+            action({ type = Constants.UNUSED }),
+        }, { ["$h"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@unitframe,help]" } });
+        interp:resetState();
+        interp:clearHoverSlot();
+        shim.world.units = { player = { id = "me", reaction = "help" },
+            party1 = { id = "friend", reaction = "help" }, party2 = { id = "enemy", reaction = "harm" } };
+        for _, case in ipairs({
+            { unit = "party1", want = Judgment.OURS },
+            { unit = "party2", want = Judgment.RELEASE },
+            { unit = "party1", want = Judgment.OURS },
+        }) do
+            groupFrame:SetAttribute("unit", case.unit);
+            interp:hoverEnter(groupFrame);
+            local got, looped = Actual("F1"), Looped("F1");
+            check(got == case.want, case.unit .. ": the press gave " .. got);
+            check(looped == got, case.unit .. ": the press " .. got .. ", the loop " .. looped);
+            interp:clearHoverSlot();
+        end
+        groupFrame:SetAttribute("unit", "party1");
+        shim.world.units = {};
+    end);
+
+    --- Runs `fn` and answers how many texts the loop composed meanwhile: each composition ends in
+    --- one `table.concat` (`COMPOSE_MACROTEXT_SNIPPET`).
+    local function Compositions(fn)
+        local tableLib = interp.env.table;
+        local concat, n = tableLib.concat, 0;
+        tableLib.concat = function(...)
+            n = n + 1;
+            return concat(...);
+        end
+        local ok, err = pcall(fn);
+        tableLib.concat = concat;
+        check(ok, tostring(err));
+        return n;
+    end
+
+    -- **A computed switch's text is composed again only when a switch it reads flips**
+    -- (`trimming-the-tail-key-beat.md` 8-6), in the beat that flips it, and once however many of
+    -- them flip together.
+    test("a computed switch reading two others", function()
+        Bind({
+            action({ conditions = { ["$c"] = true } }),
+            action({ type = Constants.UNUSED }),
+        }, {
+            ["$a"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+            ["$b"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
+            ["$c"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$a,$b]" },
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        check(Looped("F1") == Judgment.RELEASE, "the key was not let go at peace on foot");
+        check(Compositions(function()
+            for _ = 1, 3 do
+                interp:beat();
+            end
+        end) == 0, "a beat with no state changed composed a text");
+        interp.state.combat, interp.state.mounted = true, true;
+        local got, looped;
+        check(Compositions(function()
+            looped = Looped("F1");
+        end) == 1, "two switches flipping in one beat did not compose their reader once");
+        got = Actual("F1");
+        check(got == Judgment.OURS, "the press gave " .. got);
+        check(looped == got, "the press " .. got .. ", the loop " .. looped);
+        interp.state.mounted = false;
+        got, looped = Actual("F1"), Looped("F1");
+        check(got == Judgment.RELEASE, "the press gave " .. got);
+        check(looped == got, "on foot again: the press " .. got .. ", the loop " .. looped);
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **A switch set by hand or an alias moves a computed switch that reads it on its own wake**,
+    -- with no beat between: that wake composes the text again and measures the switch.
+    test("a computed switch reading a switch set by hand, and one reading an alias", function()
+        Bind({
+            action({ key = "F1", conditions = { ["$h"] = true } }),
+            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F2", conditions = { ["$u"] = true } }),
+            action({ key = "F2", type = Constants.UNUSED }),
+        }, {
+            ["$h"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$s1,mounted]" },
+            ["$u"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@custom1,help]" },
+        });
+        interp:resetState();
+        interp.state.mounted = true;
+        shim.world.units = { player = { id = "me", reaction = "help" },
+            party3 = { id = "friend", reaction = "help" }, party4 = { id = "enemy", reaction = "harm" } };
+        local driver = interp.driverHandle;
+        driver:RunAttribute("SetSwitch", "$s1", false);
+        driver:RunAttribute("SetUnit", "custom1", "party4");
+        check(Looped("F1") == Judgment.RELEASE and Bound("F2") == Judgment.RELEASE,
+            "the keys were not let go before anything moved");
+        for _, case in ipairs({
+            { key = "F1", move = function() driver:RunAttribute("SetSwitch", "$s1", true); end, want = Judgment.OURS },
+            { key = "F1", move = function() driver:RunAttribute("SetSwitch", "$s1", false); end, want = Judgment.RELEASE },
+            { key = "F2", move = function() driver:RunAttribute("SetUnit", "custom1", "party3"); end, want = Judgment.OURS },
+            { key = "F2", move = function() driver:RunAttribute("SetUnit", "custom1", "party4"); end, want = Judgment.RELEASE },
+        }) do
+            case.move();
+            local got, bound = Actual(case.key), Bound(case.key);
+            check(got == case.want, case.key .. ": the press gave " .. got);
+            check(bound == got, case.key .. ": the press " .. got .. ", the wake left " .. bound);
+        end
+        driver:RunAttribute("SetSwitch", "$s1", nil);
+        driver:RunAttribute("SetUnit", "custom1", nil);
         interp:resetState();
         shim.world.units = {};
     end);

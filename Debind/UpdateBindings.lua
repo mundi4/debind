@@ -263,6 +263,31 @@ function addMacrotextBinding(buttonOrSwitchName, macrotext)
     _macrotextBindings[buttonOrSwitchName] = addMacrotext(macrotext)
 end
 
+--- Does a switch argument in `ownerName`'s text go in as that switch's value when the text is
+--- composed? Where not, the rebuild fixes it (`EmitMacroTextArg`).
+local function SwitchArgIsLive(arg, ownerName)
+    return not DebindPrivate.IsSwitchIgnored(arg.name) and arg.name ~= ownerName
+        and addSwitch(arg.name) and true or false;
+end
+
+--- What a computed switch's composed text reads, by name: an alias or `unitframe`, or a switch.
+--- Nil where the switch has nothing to compose.
+local function ComposedReads(name)
+    local info = _switches[name];
+    local parsed = info and info.mode == SWITCH_MODES.EXPR and _macrotexts[info.expr];
+    if (not parsed) then
+        return nil;
+    end
+    local reads = {};
+    for _, arg in ipairs(parsed.args) do
+        if (arg.type == Constants.MACROTEXT_ARG_UNIT
+                or (arg.type == Constants.MACROTEXT_ARG_SWITCH and SwitchArgIsLive(arg, name))) then
+            reads[#reads + 1] = arg.name;
+        end
+    end
+    return reads;
+end
+
 -- **`> 0`, because `select("#")` answers `0` and `0` is true in Lua.** The guard never held, so a
 -- string with no arguments still went through `format` -- which is only survivable while every such
 -- string is free of `%`. One that is not would raise from inside a rebuild.
@@ -399,6 +424,7 @@ wipe(JudgeWakes)
 wipe(JudgeComposeAll)
 wipe(JudgeComposeBy)
 wipe(JudgeClassify)
+wipe(JudgeSwitchTexts)
 -- The rebuild's columns start with no cell, and a detecting parse answering its last number would
 -- leave them so: the pass then judges with nothing to compare.
 JudgeDetect = false
@@ -2645,20 +2671,43 @@ end
 --- The attribute holding a wake's body: this, then the wake's name (`JudgeWakes`).
 local JUDGE_WAKE_PREFIX = "judge-";
 
---- The wake of ours that moves a column, or nil where only Blizzard's beat does. The pointed
+--- The wakes of ours that move a column, none where only Blizzard's beat does. The pointed
 --- frame's columns move with the cursor, a switch with `SetSwitch` and an alias with `SetUnit`.
-local function JudgmentWakeOf(column)
+---
+--- **A computed switch moves with whatever its text reads**, through the computed switches it
+--- reads as well: that wake composes the text again, so it has to measure the switch.
+local function JudgmentWakesOf(column)
     local kind, arg = column.kind, column.arg;
     if (kind == "role" or kind == "frameType") then
-        return "unitframe";
+        return { "unitframe" };
     elseif (kind == "unit" or kind == "unitgroup") then
-        if (arg == "unitframe" or SPECIAL_UNITS[arg]) then
-            return arg;
+        if (SPECIAL_UNITS[arg]) then
+            return { arg };
         end
     elseif (kind == "switch") then
-        return arg;
+        local info = _switches[arg];
+        if (not (info and info.mode == SWITCH_MODES.EXPR)) then
+            return { arg };
+        end
+        local wakes, seen = {}, {};
+        local function visit(name)
+            for _, read in ipairs(ComposedReads(name) or {}) do
+                if (not seen[read]) then
+                    seen[read] = true;
+                    local other = _switches[read];
+                    if (other and other.mode == SWITCH_MODES.EXPR) then
+                        visit(read);
+                    else
+                        wakes[#wakes + 1] = read;
+                    end
+                end
+            end
+        end
+        seen[arg] = true;
+        visit(arg);
+        return wakes;
     end
-    return nil;
+    return {};
 end
 
 --- Does the beat measure this column again? Everything but a switch set by hand, which nothing but
@@ -2791,8 +2840,7 @@ local function EmitJudgmentItems(items)
         _judgmentColumnIndex[key] = i;
         _judgmentColumnOrder[i] = column;
         appendLine("c=newtable() c.bundles=newtable() JudgeColumns[%d]=c", i);
-        local wake = JudgmentWakeOf(column);
-        if (wake) then
+        for _, wake in ipairs(JudgmentWakesOf(column)) do
             wakes[wake] = true;
         end
         if (column.kind == "unit" and SPECIAL_UNITS[column.arg]) then
@@ -2992,26 +3040,63 @@ local function BuildJudgeSnippet()
         return order;
     end
 
-    --- **Only the computed switches a column reads, and what they read**, each composed and parsed
-    --- the way `COMPUTE_SWITCHES_SNIPPET` does it at the press. That one works out every computed
-    --- switch, a macro body's included, which the beat has no use for. An expression with nothing
-    --- to compose is baked in as the literal the press would parse.
+    --- The composed texts of the computed switches the loop works out, by each name they read
+    --- (`ComposedReads`): what to clear when that name moves.
+    local readers = {};
+    do
+        local switches = {};
+        for _, column in ipairs(_judgmentColumnOrder) do
+            if (column.kind == "switch" and computed(column)) then
+                switches[#switches + 1] = column.arg;
+            end
+        end
+        for _, name in ipairs(SwitchesToWorkOut(switches)) do
+            for _, read in ipairs(ComposedReads(name) or {}) do
+                readers[read] = readers[read] or {};
+                tinsert(readers[read], name);
+            end
+        end
+    end
+
+    --- Clears the composed text of every switch reading `name`, so the next body to work it out
+    --- composes it again.
+    local function clearReaders(name)
+        for _, reader in ipairs(readers[name] or {}) do
+            add("JudgeSwitchTexts[%q] = nil", reader);
+        end
+    end
+
+    --- **Only the computed switches a column reads, and what they read**, each parsed the way
+    --- `COMPUTE_SWITCHES_SNIPPET` does it at the press. That one works out every computed switch, a
+    --- macro body's included, which the beat has no use for. An expression with nothing to compose
+    --- is baked in as the literal the press would parse.
+    ---
+    --- **A text is composed only where `JudgeSwitchTexts` has none** (8-6 of
+    --- `trimming-the-tail-key-beat.md`): whatever moves a name it reads clears it, a switch here
+    --- included, and `SwitchesToWorkOut` puts the switch ahead of its readers.
     local function workOutSwitches(order)
         for _, name in ipairs(order) do
             local info = _switches[name];
+            add("do");
             if (_macrotexts[info.expr]) then
-                add("do");
+                add("local s = JudgeSwitchTexts[%q]", name);
+                add("if (not s) then");
                 add("local entry = SwitchEntries[%q]", name);
-                add("local s");
-                add("local unitframeAlias = unitframeUnit");
+                add("local unitframeAlias = JudgeFrameUnit or nil");
                 add("local clickSwitches = JudgeSwitches");
                 add("local pressUnit");
                 lines[#lines + 1] = DebindPrivate.COMPOSE_MACROTEXT_SNIPPET;
-                add("JudgeSwitches[%q] = SecureCmdOptionParse(s) and true or false", name);
+                add("JudgeSwitchTexts[%q] = s", name);
                 add("end");
+                add("local value = SecureCmdOptionParse(s) and true or false");
             else
-                add("JudgeSwitches[%q] = SecureCmdOptionParse(%q) and true or false", name, info.expr);
+                add("local value = SecureCmdOptionParse(%q) and true or false", info.expr);
             end
+            add("if (value ~= JudgeSwitches[%q]) then", name);
+            add("JudgeSwitches[%q] = value", name);
+            clearReaders(name);
+            add("end");
+            add("end");
         end
     end
 
@@ -3148,18 +3233,12 @@ local function BuildJudgeSnippet()
                 switches[#switches + 1] = column.arg;
             end
         end
-        local order = SwitchesToWorkOut(switches);
-        -- A composed switch can aim at the pointed frame's unit, so it reads that too.
-        for _, name in ipairs(order) do
-            readsFrame = readsFrame or _macrotexts[_switches[name].expr] and true or false;
-        end
-        -- Read off what `prepare` read at the top of the body, once for both halves.
+        -- Read off what `prepare` read at the top of the body.
         if (readsFrame) then
-            add("local unitframeUnit = JudgeFrameUnit or nil");
             add("local unitframeFrameType = JudgeFrameType or nil");
             add("local unitframeRole = JudgeFrameRole or nil");
         end
-        workOutSwitches(order);
+        workOutSwitches(SwitchesToWorkOut(switches));
 
         local units, unitOrder = {}, {};
         for _, i in ipairs(list) do
@@ -3266,8 +3345,9 @@ local function BuildJudgeSnippet()
     end
 
     --- **What a body does before it measures anything**: the pointed frame read again where
-    --- anything reads it, and the classifying texts (`JudgeClassify`) composed where `mode` moves
-    --- their unit, so no parse reads a text not yet composed.
+    --- anything reads it, the classifying texts (`JudgeClassify`) composed where `mode` moves
+    --- their unit, so no parse reads a text not yet composed, and the computed switches' texts
+    --- cleared where it moves a name they read.
     ---
     --- `mode` is `"beat"`, `"pass"` (compose every text), `"unitframe"`, or `"wake"` with `wake` the
     --- alias whose text is composed again.
@@ -3296,6 +3376,7 @@ local function BuildJudgeSnippet()
                 add("if (list) then");
                 lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
                 add("end");
+                clearReaders("unitframe");
             end
             add("end");
             if (mode == "beat") then
@@ -3315,6 +3396,7 @@ local function BuildJudgeSnippet()
             lines[#lines + 1] = DebindPrivate.JUDGE_COMPOSE_SNIPPET;
             add("end");
             add("end");
+            clearReaders(wake);
         end
     end
 
@@ -3325,8 +3407,7 @@ local function BuildJudgeSnippet()
         else
             byHand[#byHand + 1] = i;
         end
-        local wake = JudgmentWakeOf(column);
-        if (wake) then
+        for _, wake in ipairs(JudgmentWakesOf(column)) do
             if (not wakes[wake]) then
                 wakes[wake] = {};
                 wakeOrder[#wakeOrder + 1] = wake;
@@ -3690,10 +3771,9 @@ local function EmitMacroTextArg(index, arg, ownerName, isSwitch)
         return;
     end
 
-    local selfReference = isSwitch and arg.name == ownerName;
-    if (selfReference or not addSwitch(arg.name)) then
+    if (not SwitchArgIsLive(arg, ownerName)) then
         local fixed = "known:0";
-        if (selfReference and not arg.reverse) then
+        if (isSwitch and arg.name == ownerName and not arg.reverse) then
             fixed = "";
         end
         appendLine([[t.args[%d].fixed=%q]], index, fixed);

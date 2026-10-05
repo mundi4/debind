@@ -133,8 +133,10 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeByKey = newtable()
 	JudgeWakes = newtable()
 	-- What the loop worked the computed switches it reads out to. Its own, since `ClickSwitches` is
-	-- what one press worked out, for the rest of that press.
+	-- what one press worked out, for the rest of that press. `JudgeSwitchTexts` is the text the loop
+	-- last composed for one, kept until a name it reads moves (`trimming-the-tail-key-beat.md` 8-6).
 	JudgeSwitches = newtable()
+	JudgeSwitchTexts = newtable()
 	JudgeGeneration = 0
 	JudgeReady = false
 	-- **The parse that classifies an alias or frame unit for the loop** (`ClassifyPieces` in

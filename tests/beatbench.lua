@@ -59,6 +59,8 @@ return function(DebindPrivate)
         ["call FindSpellBookSlotBySpellID"] = { 0.563, true },
         ["call newtable"] = { 0.71, true },
         ["call wipe"] = { 0.52, true },
+        -- Measured with three fragments; a computed switch's text has about that many.
+        ["call table.concat"] = { 0.54, true },
         ["call BENCHLEN"] = { 0.074, false },
     };
     --- What an unpriced call is guessed at.
@@ -131,15 +133,17 @@ return function(DebindPrivate)
     --- **One interpreter for every profile**, made with the first rebuild and handed only what each
     --- later rebuild added. A new one replays the whole recording, earlier profiles' rebuilds with it.
     local interp;
-    local function bind(actions)
+    local function bind(actions, switches)
+        local defined = { ["$w"] = { mode = Constants.SWITCH_MODES.MANUAL } };
+        for name, definition in pairs(switches or {}) do
+            defined[name] = definition;
+        end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [GUID] = { switches = {} } },
             migrated = {},
-            switches = { account = { GENERAL = { [0] = {
-                ["$w"] = { mode = Constants.SWITCH_MODES.MANUAL },
-            } } } },
+            switches = { account = { GENERAL = { [0] = defined } } },
         };
         DebindPrivate.InitDB();
         local mark = frames.mark();
@@ -309,6 +313,53 @@ return function(DebindPrivate)
         print(string.format("  %-9s %s", shape, table.concat(row, "   ")));
     end
     DebindPrivate.JudgeDetectMax = nil;
+    shim.world.units = {};
+
+    --- **Computed switches whose text is composed** (P4): one reading a switch set by hand, one an
+    --- alias, one another computed switch, beside one with nothing to compose. Flipping `combat`
+    --- flips `$a`, which `$c` reads.
+    local COMPUTED = {
+        ["$a"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+        ["$h"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$w,mounted]" },
+        ["$u"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@custom1,help]" },
+        ["$c"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$a,stealth]" },
+    };
+    local COMPUTED_SHAPES = {
+        { ["$h"] = true },
+        { ["$u"] = true, combat = true },
+        { ["$c"] = true },
+        { ["$a"] = false, mounted = true },
+    };
+    local actions = {};
+    for i = 1, 12 do
+        local key = "CTRL-F" .. i;
+        actions[#actions + 1] = action({ value = 585, key = key,
+            conditions = COMPUTED_SHAPES[(i - 1) % #COMPUTED_SHAPES + 1] });
+        actions[#actions + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+    end
+    shim.world.units = { party3 = { id = "friend", reaction = "help" } };
+    bind(actions, COMPUTED);
+    interp.driverHandle:RunAttribute("SetUnit", "custom1", "party3");
+    do
+        local WAKES_ALIAS = 100;
+        local perInstruction = instructionCost(interp);
+        local tick = managerTick();
+        report("computed switches, 12 tail keys, no state changed", scenario(QUIET, {}), QUIET, perInstruction,
+            "beat", tick);
+        local moves = {};
+        for b = 1, MOVING do
+            if (b % 4 == 0) then
+                moves[b] = function(state) state.combat = not state.combat; state.mounted = not state.mounted; end;
+            end
+        end
+        report("computed switches, 12 tail keys, combat and mounted flipped every 4th beat",
+            scenario(MOVING, moves), MOVING, perInstruction, "beat", tick);
+        interp:meterStart();
+        for w = 1, WAKES_ALIAS do
+            interp.driverHandle:RunAttribute("SetUnit", "custom1", w % 2 == 1 and "party3" or "party4");
+        end
+        report("custom1 moved, SetUnit with what it wakes", interp:meterStop(), WAKES_ALIAS, perInstruction, "wake");
+    end
     shim.world.units = {};
 
     --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top

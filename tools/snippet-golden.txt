@@ -135,7 +135,9 @@ DelegateFrameNames[frame] = frame:GetName()
 	JudgeWakes = newtable()
 
 
+
 	JudgeSwitches = newtable()
+	JudgeSwitchTexts = newtable()
 	JudgeGeneration = 0
 	JudgeReady = false
 
@@ -4159,6 +4161,7 @@ wipe(JudgeWakes)
 wipe(JudgeComposeAll)
 wipe(JudgeComposeBy)
 wipe(JudgeClassify)
+wipe(JudgeSwitchTexts)
 
 
 JudgeDetect = false

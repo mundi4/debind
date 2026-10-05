@@ -17,6 +17,7 @@ Execute <Frame#2>
   | wipe(JudgeComposeAll)
   | wipe(JudgeComposeBy)
   | wipe(JudgeClassify)
+  | wipe(JudgeSwitchTexts)
   | -- The rebuild's columns start with no cell, and a detecting parse answering its last number would
   | -- leave them so: the pass then judges with nothing to compare.
   | JudgeDetect = false

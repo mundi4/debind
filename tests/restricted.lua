@@ -503,7 +503,11 @@ local function buildEnv(interp)
     --- restricted one hands out proxies instead. What the bodies here use of it is `concat`, in
     --- the macro text rebuild.
     env.table = {
-        concat = function(t, ...) return table.concat(B(t), ...); end,
+        -- Tallied here, since the meter's environment sees only the read of `table`.
+        concat = function(t, ...)
+            tally(interp, "call table.concat");
+            return table.concat(B(t), ...);
+        end,
         insert = env.tinsert,
         remove = env.tremove,
         sort = function(t, ...) return table.sort(B(t), ...); end,
