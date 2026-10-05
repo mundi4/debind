@@ -1185,19 +1185,11 @@ local EVAL_SNIPPET = [==[
 	local unitframe = evalFrame
 ]==] .. READ_UNITFRAME_SNIPPET .. [==[
 
-	-- **클릭 시점에 잰다. 미리 재 둔 값은 없다.**
+	-- **Measured at the press, never read from a value measured earlier**: such a value is stale by
+	-- construction, and the press is when the truth can be measured.
 	--
-	-- 미리 재 두는 값은 구조적으로 낡는다. 클릭은 진실을 잴 수 있는 시점이므로 여기서 잰다.
-	-- 기준은 성능이 아니라 정확성이고, 그 결론이 상태 루프를 걷어낸 자리까지 갔다.
-	--
-	-- **이 로컬들이 클릭 1회 메모다.** `nil`이면 아직 안 쟀다는 뜻이고, 한 번 재면 이 클릭이
-	-- 끝날 때까지 그 값을 쓴다. 아무 레코드도 안 묻는 축은 C 호출이 아예 안 나간다.
-	-- 측정된 값은 절대 nil이 아니므로(불리언·숫자) 이 표시가 값과 겹치지 않는다.
-	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, petbattle
-	local mounted, indoors, skyriding
-	local flyable, advflyable, flying
-
+	-- The unit memo below (`ClickUnit*`) is wiped once per press, the first time a record asks
+	-- about a unit, and holds for the rest of that press.
 	local memoReady = false
 
 	-- 어느 갈래로 들어왔느냐가 곧 어느 레코드를 보느냐다. 한 키가 양쪽 레코드를 다 가질 수
@@ -1264,167 +1256,12 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- 아래는 **묻는 축만, 클릭당 한 번** 잰다. `match`가 이미 거짓이면 그 레코드의
-			-- 남은 축은 아예 안 잰다 - 순서가 곧 비용인 것은 그대로고, 이제 그 비용이 테이블
-			-- 조회가 아니라 C 호출이라 더 그렇다. 싼 것부터 놓는다.
-			--
-			-- **These have to match `Constants.STATE_EVAL_EXPRESSIONS`.** Written out rather than
-			-- interpolated in, because `tools/lib/snippets.js` cannot resolve an assembled body and
-			-- every snippet check then skips it. `tools/check-state-eval.js` holds the two together.
-			if (match and t.combat ~= nil) then
-				if (combat == nil) then
-					combat = PlayerInCombat()
-					PROBE.MockState(combat)
-				end
-				if (t.combat ~= combat) then
-					match = false
-				end
-			end
-
-			if (match and t.stealth ~= nil) then
-				if (stealth == nil) then
-					stealth = IsStealthed()
-					PROBE.MockState(stealth)
-				end
-				if (t.stealth ~= stealth) then
-					match = false
-				end
-			end
-
-			if (match and t.mounted ~= nil) then
-				if (mounted == nil) then
-					mounted = IsMounted()
-					PROBE.MockState(mounted)
-				end
-				if (t.mounted ~= mounted) then
-					match = false
-				end
-			end
-
-			if (match and t.indoors ~= nil) then
-				if (indoors == nil) then
-					indoors = IsIndoors()
-					PROBE.MockState(indoors)
-				end
-				if (t.indoors ~= indoors) then
-					match = false
-				end
-			end
-
-			if (match and t.flyable ~= nil) then
-				if (flyable == nil) then
-					flyable = IsFlyableArea()
-					PROBE.MockState(flyable)
-				end
-				if (t.flyable ~= flyable) then
-					match = false
-				end
-			end
-
-			if (match and t.advflyable ~= nil) then
-				if (advflyable == nil) then
-					advflyable = IsAdvancedFlyableArea()
-					PROBE.MockState(advflyable)
-				end
-				if (t.advflyable ~= advflyable) then
-					match = false
-				end
-			end
-
-			if (match and t.flying ~= nil) then
-				if (flying == nil) then
-					flying = IsFlying()
-					PROBE.MockState(flying)
-				end
-				if (t.flying ~= flying) then
-					match = false
-				end
-			end
-
-			if (match and t.skyriding ~= nil) then
-				if (skyriding == nil) then
-					skyriding = GetBonusBarOffset() == 5
-					PROBE.MockState(skyriding)
-				end
-				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.extrabar ~= nil) then
-				if (extrabar == nil) then
-					extrabar = HasExtraActionBar()
-					PROBE.MockState(extrabar)
-				end
-				if (t.extrabar ~= extrabar) then
-					match = false
-				end
-			end
-
-			if (match and t.groups ~= nil) then
-				if (group == nil) then
-					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
-					PROBE.MockState(group)
-				end
-				if ((t.groups % (group + group)) < group) then
-					match = false
-				end
-			end
-
-			-- **목은 잰 값에 걸리고 자리옮김은 그 뒤다.** `GetShapeshiftForm()`이 내는 것은
-			-- 자세 번호이지 비트가 아니므로, 주입도 번호에 걸려야 양쪽이 같은 것을 뜻한다.
-			if (match and t.forms) then
-				if (form == nil) then
-					form = GetShapeshiftForm()
-					PROBE.MockState(form)
-					form = 2 ^ (form or 0)
-				end
-				if ((t.forms % (form + form)) < form) then
-					match = false
-				end
-			end
-
-			if (match and t.bonusbars) then
-				if (bonusbar == nil) then
-					bonusbar = GetBonusBarOffset()
-					PROBE.MockState(bonusbar)
-					bonusbar = 2 ^ (bonusbar or 0)
-				end
-				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
-					match = false
-				end
-			end
-
-			-- **`petbattle`도 잰다.** 캐시로 둘 이유가 없었다 - 그 캐시를 채우는 것이 클릭이
-			-- 없어도 영원히 도는 5Hz 파싱이라, "클릭당 파싱 대 캐시 읽기"라는 비교 자체가
-			-- 채우는 값을 비용에서 빼놓고 있었다.
-			if (match and t.petbattle ~= nil) then
-				if (petbattle == nil) then
-					petbattle = PROBE.SecureCmdOptionParse("[petbattle]") and true or false
-					PROBE.MockState(petbattle)
-				end
-				if (t.petbattle ~= petbattle) then
-					match = false
-				end
-			end
-
-			-- **`specialbar`는 `petbattle`을 접어 쓴다** - 조건 쪽이 그 모양으로 접어 두므로
-			-- 여기서도 같이 접어야 답이 안 갈린다. 앞이 참이면 파싱까지 안 간다.
-			if (match and t.specialbar ~= nil) then
-				if (specialbar == nil) then
-					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
-					if (not specialbar) then
-						if (petbattle == nil) then
-							petbattle = PROBE.SecureCmdOptionParse("[petbattle]") and true or false
-							PROBE.MockState(petbattle)
-						end
-						specialbar = petbattle
-					end
-					PROBE.MockState(specialbar)
-				end
-				if (t.specialbar ~= specialbar) then
-					match = false
-				end
+			-- **Every state axis the record asks is one conditional, parsed** (`StateExpression` in
+			-- `UpdateBindings.lua`). A parse is the price of one C call (7-1 of
+			-- `trimming-the-tail-key-beat.md`), and the beat parses the same words, so the two read
+			-- one answer rather than two that were measured to agree.
+			if (match and t.expr and not PROBE.SecureCmdOptionParse(t.expr)) then
+				match = false
 			end
 
 			-- **`known`도 잰다.** 예전 주석은 *"답이 바뀌는 계기가 SPELLS_CHANGED 하나뿐이라

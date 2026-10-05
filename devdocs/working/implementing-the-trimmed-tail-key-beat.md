@@ -1,6 +1,7 @@
 # 줄인 꼬리 키 박자 구현 순서 (2026-10-05 계획)
 
-> 상태: 진행 중. P0과 P1이 들어갔다(P0은 소유자 프로필을 읽는 입력만 남았고 P3-6에서 쓸 때 붙인다). 다음은 P2. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
+> 상태: 진행 중. P0, P1, P2a(누름의 상태 낱말을 파싱으로)가 들어갔다. 다음은 P2b(누름의 유닛 낱말). P0은 소유자
+> 프로필을 읽는 입력만 남았고 P3-6에서 쓸 때 붙인다. `trimming-the-tail-key-beat.md`가 정한 것과 제안한 것을 단계로 내린다. 무엇을
 > 왜 하는지는 그 문서가 갖고, 이 문서는 어떤 순서로 무엇을 고치는지와 단계마다 무엇이 실패해야 하는지를 갖는다.
 > 이 문서의 절은 `P0`~`P6`으로 부르고, 괄호 안의 맨 번호(7-1, 8-6, C5 …)는 그 계획 문서의 절과 표의 행이다.
 >
@@ -121,17 +122,23 @@
 
 ## P2. 누름을 파싱으로
 
-박자보다 먼저다. 누름이 API로 재는 동안 박자를 파싱으로 바꾸면 둘이 갈릴 수 있다.
+박자보다 먼저다. 누름이 API로 재는 동안 박자를 파싱으로 바꾸면 둘이 갈릴 수 있다. 상태 낱말(P2a)은 들어갔고, 유닛
+낱말(P2b)은 남았다.
 
-- `EVAL_SNIPPET`(SB:1184-1587)의 상태 낱말(`combat` … `bonusbars`의 리터럴)과 유닛 판정을 레코드마다 리빌드가 구운
-  식의 파싱으로 바꾼다. 레코드의 첫 유닛은 식 안에 쓰고, 둘째 유닛부터는 P3-2의 가려내기 식을 따로 파싱한다.
-  누름은 박자만큼 자주 돌지 않으니 유닛마다 식을 나눠 파싱해 Lua에서 잇는 것도 된다.
-- 파싱으로 가지 않는 것(위)은 지금 코드 그대로다. `known`은 지금도 파싱하고 거짓이면 주문책을 본다(SB:1455-1459).
-- 손으로 켜는 스위치와 계산식 스위치, 역할, 개체창 종류는 누름이 지금처럼 그때의 값으로 본다.
-- `check:state-eval`은 지금 `EVAL_SNIPPET`의 리터럴을 `STATE_EVAL_EXPRESSIONS`에 묶는다. 낱말과 식의 대응을 묶도록
-  바꾼다.
-- 시험: `judgment_spec`의 "모든 칸 조합에서 항목이 누름과 같다"가 그대로 서야 한다. 헤드리스의 파싱과 API가 같은
-  상태에서 답하니, 이 단계의 시험은 판정이 바뀌지 않았음을 본다.
+- **P2a, 들어갔다.** 리빌드가 레코드의 상태 축을 식 하나로 굽고(`UpdateBindings.lua`의 `StateExpression`,
+  `PARSED_STATE_AXES`), 레코드는 축마다의 필드 대신 `t.expr`을 싣는다. `EVAL_SNIPPET`은 그 식을 한 번 파싱한다.
+  축마다의 꼴: 불리언은 `[w]`/`[now]`, `skyriding`은 `bonusbar:5`, `groups`는 `nogroup`·`group:party,nogroup:raid`·
+  `group:raid`(공격대에서도 `[group:party]`가 참이라서), `forms`는 `form:a/b`, `bonusbars`는 `bonusbar:a/b`와 오프셋
+  0의 `nobonusbar:1/2/3/4/5`, `specialbar`는 `[vehicleui][possessbar][overridebar][shapeshift][petbattle]`. 축 여럿은
+  그룹의 곱이고, `flyable`·`advflyable`은 그룹 끝에 둔다. `known`과 스위치, 개체창 종류, 유닛은 그대로다.
+- `check:state-eval`은 방향을 바꿨다. 누름이 `STATE_EVAL_EXPRESSIONS`의 꼴을 하나도 안 싣는지를 본다. 그 표는 이제
+  박자만 쓴다.
+- 시험: `judgment_spec`의 "모든 칸 조합에서 항목이 누름과 같다"는 그대로 선다. `eval_spec`에 "a state axis at the press
+  follows the parse where the API says otherwise"를 넣었다(P0-1의 `diverge`). P2a 앞의 코드에서 실패하는 것을 봤다.
+- **P2b, 남았다.** 유닛 판정(`t.units`)을 파싱으로 바꾼다. 레코드의 첫 유닛은 식 안에 쓰고, 둘째 유닛부터는 P3-3의
+  가려내기 식을 따로 파싱한다. 누름은 박자만큼 자주 돌지 않으니 유닛마다 식을 나눠 파싱해 Lua에서 잇는 것도 된다.
+  별칭과 가리킨 프레임은 누름에서 그때의 유닛을 끼워야 한다(누름은 깨움 때 미리 조립된 식을 쓰지 않는다). `unitgroup`과
+  역할은 지금 코드 그대로다.
 
 ## P3. 묶음을 식으로 굽는다
 

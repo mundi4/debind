@@ -489,6 +489,21 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
+    -- **The press asks the state axes by parsing, not by the API** (`implementing-the-trimmed-tail-
+    -- key-beat.md` P2), so where the two were made to disagree it follows the parse. The beat
+    -- parses the same words; a press still reading the API would answer what the beat does not.
+    test("a state axis at the press follows the parse where the API says otherwise", function()
+        Bind({
+            action({ value = 585, key = "F1", conditions = { combat = true } }),
+            action({ value = 774, key = "F1" }),
+        });
+        check(winner("F1") == 2, "the combat action won at peace");
+        interp.state.diverge.combat = true;
+        check(interp.env.PlayerInCombat() == false, "the API followed the divergence");
+        check(winner("F1") == 1, "the press read the API rather than the parse");
+        interp:resetState();
+    end);
+
     -- A `known` condition is answered by parsing the conditional the record carries. The value it
     -- names is the spell, and `true` is the action's own, named at the bake
     -- (`making-known-a-spell-name.md`). The state loop reads the same string as a key in

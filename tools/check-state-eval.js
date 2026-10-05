@@ -1,19 +1,10 @@
-// The press measures every state, and `Constants.STATE_EVAL_EXPRESSIONS` is the form it has to
-// measure them in.
+// **The press asks the state axes by parsing the record's `expr`, and measures none of them through
+// the API** (`implementing-the-trimmed-tail-key-beat.md` P2). `Constants.STATE_EVAL_EXPRESSIONS` is
+// what the beat still measures with, so a press that took one of those forms back up would read the
+// world one way while the beat reads it another, and nothing in a run of the game says so.
 //
-// `SecureBindings.lua`'s `EVAL_SNIPPET` spells those measurements out as literals, because a body
-// assembled from interpolated strings is one `tools/lib/snippets.js` cannot resolve, and an
-// unresolvable body drops out of every other snippet check without a sound. So the agreement is
-// checked here, against the **baked** body: `CONSTANTS.GROUP_RAID` is a number by then, which is
-// the form the table holds.
-//
-// **What the table carries that the snippet cannot show is the order inside a chain.** A raid
-// member is also in a party, so asking party first lights two bits where the solver's set algebra
-// needs exactly one (`Solver.lua`'s header), and a run of the game answers plausibly either way.
-//
-// This lived in `SecureBindings.lua` as a load-time `assert` under `if (DebindPrivate.DEBUG)`
-// until 2026-08-20, which meant the only thing that ever ran it was logging in on a development
-// client. Someone who edited one of the two without opening the game heard nothing.
+// So this checks the baked `EVAL_SNIPPET` holds **none** of the table's forms. It used to check
+// the opposite -- that the press measured every one of them -- for as long as the press did.
 const fs = require("fs");
 const path = require("path");
 const { collectSnippetLocals } = require("./lib/snippets");
@@ -51,20 +42,18 @@ if (states.length === 0) {
 }
 
 const baked = bakeShipped(entry.body);
-const missing = states.filter((state) => !baked.includes(expressions[state]));
+const measured = states.filter((state) => baked.includes(expressions[state]));
 
-if (missing.length === 0) {
-    console.log(`측정식 ${states.length}개를 ${LOCAL}이 같은 모양으로 잰다.`);
+if (measured.length === 0) {
+    console.log(`${LOCAL}이 상태 ${states.length}개를 API로 재지 않는다 (t.expr 파싱으로 묻는다).`);
     process.exit(0);
 }
 
-console.log(`${LOCAL}이 Constants.${TABLE}와 다르게 잰다. ${missing.length}개:`);
-for (const state of missing) {
-    console.log(`  ${state}`);
-    console.log(`    표: ${expressions[state]}`);
+console.log(`${LOCAL}이 상태를 API로 다시 잰다. ${measured.length}개:`);
+for (const state of measured) {
+    console.log(`  ${state}: ${expressions[state]}`);
 }
 console.log("");
-console.log(`재는 모양은 표가 들고, 실제로 재는 것은 ${FILE}의 ${LOCAL}이다.`);
-console.log("둘이 갈리면 같은 상태에 다른 답이 나오고, 그 아래 어디에도 어느 쪽이 맞는지 아는");
-console.log("곳이 없다. 한쪽을 일부러 고쳤으면 다른 쪽도 같이 고칠 것.");
+console.log("누름은 레코드의 t.expr을 파싱해 상태를 묻는다(UpdateBindings.lua의 StateExpression).");
+console.log("API로 재면 박자와 누름이 다른 길로 세상을 읽는다.");
 process.exit(1);

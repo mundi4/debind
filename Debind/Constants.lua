@@ -1032,12 +1032,11 @@ end
 
 --- How each measurable state is worked out, as snippet source.
 ---
---- **Nothing runs this table.** The press is the only place a state is measured now
---- (`EVAL_SNIPPET`, `SecureBindings.lua`), and it spells the same measurements out as literals
---- because a body assembled from interpolated strings drops out of every snippet check. So what
---- this holds is the form that path has to keep, and `check:state-eval` holds it to it. The order
---- inside a chain is the part that cannot be read off the result: ask party before raid and the
---- group column stops being a partition with nothing raising anything (`Solver.lua`'s header).
+--- **The beat measures with this** (`BuildJudgeSnippet`, interpolated). The press does not: it
+--- parses the record's `expr` (`StateExpression`), and `check:state-eval` holds `EVAL_SNIPPET` to
+--- carrying none of these forms. The order inside a chain is the part that cannot be read off the
+--- result: ask party before raid and the group column stops being a partition with nothing raising
+--- anything (`Solver.lua`'s header).
 ---
 --- These are the states a value can be *derived* for. What cannot be derived at a press -- which
 --- unit the cursor is over, what a user's custom conditional evaluates to -- is not in here.

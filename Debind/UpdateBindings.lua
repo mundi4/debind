@@ -1647,6 +1647,124 @@ local CONDITION_AXES     = {
     { field = "petbattle" },
 };
 
+--- **The state axes the press asks by parsing**, each as what a value of it is in macro conditionals:
+--- a list of alternatives, each a list of tokens that must all hold. A record's `expr` is the product
+--- of its axes' lists (`StateExpression`). The beat still measures these with
+--- `Constants.STATE_EVAL_EXPRESSIONS`; that the two answer alike was measured word by word
+--- (`implementing-the-trimmed-tail-key-beat.md`, and `trimming-the-tail-key-beat.md` 7-1).
+---
+--- **The expensive two go last in every group**, so a group already lost on a cheaper token never
+--- judges them (7-1: `[<false>,flyable]` 0.23 against `[flyable,<false>]` 5.16).
+local PARSED_STATE_AXES = {
+    combat = true, stealth = true, mounted = true, indoors = true, flying = true, skyriding = true,
+    groups = true, forms = true, bonusbars = true, specialbar = true, extrabar = true, petbattle = true,
+    flyable = true, advflyable = true,
+};
+local PARSED_STATE_ORDER = {
+    "groups", "combat", "stealth", "mounted", "indoors", "flying", "skyriding", "forms", "bonusbars",
+    "specialbar", "extrabar", "petbattle", "flyable", "advflyable",
+};
+
+--- The offsets of a mask, `2 ^ n` per offset `n`, from `from` up to `to`.
+local function MaskOffsets(mask, from, to)
+    local out = {};
+    for n = from, to do
+        if (band(mask, 2 ^ n) ~= 0) then
+            out[#out + 1] = n;
+        end
+    end
+    return out;
+end
+
+--- One axis's value as alternatives of tokens.
+local function StateAlternatives(axis, value)
+    if (axis == "groups") then
+        -- `[group:party]` holds in a raid as well (measured 2026-10-05), so a party that is not a
+        -- raid needs `nogroup:raid` beside it.
+        local none = band(value, Constants.GROUP_NONE) ~= 0;
+        local party = band(value, Constants.GROUP_PARTY) ~= 0;
+        local raid = band(value, Constants.GROUP_RAID) ~= 0;
+        if (party and raid) then
+            return none and {} or { { "group" } };
+        elseif (none and party) then
+            return { { "nogroup:raid" } };
+        elseif (none and raid) then
+            return { { "nogroup" }, { "group:raid" } };
+        elseif (none) then
+            return { { "nogroup" } };
+        elseif (party) then
+            return { { "group:party", "nogroup:raid" } };
+        end
+        return { { "group:raid" } };
+    elseif (axis == "forms") then
+        return { { "form:" .. tconcat(MaskOffsets(value, 0, 10), "/") } };
+    elseif (axis == "bonusbars") then
+        -- Offset 0 is `[nobonusbar:1/2/3/4/5]`: `[bonusbar:0]` does not match it and a bare
+        -- `[nobonusbar]` is always true (measured 2026-10-05).
+        local alternatives = {};
+        if (band(value, 1) ~= 0) then
+            alternatives[#alternatives + 1] = {
+                "nobonusbar:" .. tconcat(MaskOffsets(Constants.BONUSBAR_ALL, 1, Constants.MAX_BONUSBAR_OFFSET), "/"),
+            };
+        end
+        local offsets = MaskOffsets(value, 1, Constants.MAX_BONUSBAR_OFFSET);
+        if (#offsets > 0) then
+            alternatives[#alternatives + 1] = { "bonusbar:" .. tconcat(offsets, "/") };
+        end
+        return alternatives;
+    elseif (axis == "skyriding") then
+        return { { (value and "" or "no") .. "bonusbar:" .. Constants.BONUSBAR_SKYRIDING } };
+    elseif (axis == "specialbar") then
+        -- The words Keys Given Back already reads a replaced bar by (`GIVE_BACK_REPLACED_BAR`,
+        -- `GIVE_BACK_PET_BATTLE`), so the two read one answer.
+        if (value) then
+            return { { "vehicleui" }, { "possessbar" }, { "overridebar" }, { "shapeshift" }, { "petbattle" } };
+        end
+        return { { "novehicleui", "nopossessbar", "nooverridebar", "noshapeshift", "nopetbattle" } };
+    end
+    return { { (value and "" or "no") .. axis } };
+end
+
+--- The record's state axes as one macro conditional, or nil where it has none. Parsed at the press
+--- in one call (`EVAL_SNIPPET`).
+local function StateExpression(record)
+    local values = {};
+    for i = 1, record.fieldCount do
+        if (PARSED_STATE_AXES[record.fieldNames[i]]) then
+            values[record.fieldNames[i]] = record.fieldValues[i];
+        end
+    end
+    local groups = { {} };
+    local any = false;
+    for _, axis in ipairs(PARSED_STATE_ORDER) do
+        local value = values[axis];
+        if (value ~= nil) then
+            any = true;
+            local alternatives = StateAlternatives(axis, value);
+            if (#alternatives > 0) then
+                local product = {};
+                for _, group in ipairs(groups) do
+                    for _, alternative in ipairs(alternatives) do
+                        local tokens = {};
+                        for _, token in ipairs(group) do tokens[#tokens + 1] = token; end
+                        for _, token in ipairs(alternative) do tokens[#tokens + 1] = token; end
+                        product[#product + 1] = tokens;
+                    end
+                end
+                groups = product;
+            end
+        end
+    end
+    if (not any) then
+        return nil;
+    end
+    local parts = {};
+    for i, group in ipairs(groups) do
+        parts[i] = "[" .. tconcat(group, ",") .. "]";
+    end
+    return tconcat(parts);
+end
+
 --- One emitted record, as a value.
 ---
 --- **Two readers, one value.** `CollectRecordAxes` works out what has to be measured for this
@@ -2092,8 +2210,15 @@ end
 local function EmitRecord(record)
     appendLine("t=newtable();tinsert(bindings,t)");
 
+    -- The state axes go out as one conditional and not one by one: the press parses it.
     for i = 1, record.fieldCount do
-        appendKeyValue(record.fieldNames[i], record.fieldValues[i]);
+        if (not PARSED_STATE_AXES[record.fieldNames[i]]) then
+            appendKeyValue(record.fieldNames[i], record.fieldValues[i]);
+        end
+    end
+    local expr = StateExpression(record);
+    if (expr) then
+        appendKeyValue("expr", expr);
     end
 
     local unitsTblCreated;
