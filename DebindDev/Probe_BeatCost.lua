@@ -747,6 +747,19 @@ end]==]);
     add("P", "table as a string, strbyte", JOINT .. "x = strbyte(b.answers, n + 1)");
     add("P", "table as an array", JOINT .. "x = b.list[n + 1]");
 
+    -- A numbered column's parse answers digits as text. `tonumber` is a function of the environment,
+    -- so its name is a global read like `strbyte`'s above; `text + 0` asks the VM for the same number
+    -- with no name to find. The text comes out of a parse so nothing here is a compile-time constant.
+    local DIGIT = [[local s = SecureCmdOptionParse("[known:0] 2; 4")]];
+    local DIGITS = [[local s = SecureCmdOptionParse("[known:0] 2; 1024")]];
+    add("P", "tonumber(s), one digit", "x = tonumber(s)", DIGIT);
+    add("P", "s + 0, one digit", "x = s + 0", DIGIT);
+    add("P", "tonumber(s), four digits", "x = tonumber(s)", DIGITS);
+    add("P", "s + 0, four digits", "x = s + 0", DIGITS);
+    add("P", "a numbered parse alone", [[x = SecureCmdOptionParse("[known:0] 2; 4")]]);
+    add("P", "a numbered parse through tonumber", [[x = tonumber(SecureCmdOptionParse("[known:0] 2; 4"))]]);
+    add("P", "a numbered parse + 0", [[x = SecureCmdOptionParse("[known:0] 2; 4") + 0]]);
+
     -- G
     add("G", "compose, 1 switch arg", format(COMPOSE, "BenchEntry1") .. "x = s");
     add("G", "compose, 1 switch arg + parse", format(COMPOSE, "BenchEntry1") .. "x = SecureCmdOptionParse(s)");
