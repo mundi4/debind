@@ -1725,6 +1725,13 @@ local function StateAlternatives(axis, value)
     return { { (value and "" or "no") .. axis } };
 end
 
+--- Every token a `StateExpression` has written since load. The kit reads it to hold a state at the
+--- press, since a parsed word can only be held by rewriting the token (`DebindTest.lua`, `MockBody`).
+local _stateTokens = {};
+function DebindPrivate.StateExpressionTokens()
+    return _stateTokens;
+end
+
 --- The record's state axes as one macro conditional, or nil where it has none. Parsed at the press
 --- in one call (`EVAL_SNIPPET`).
 local function StateExpression(record)
@@ -1760,6 +1767,9 @@ local function StateExpression(record)
     end
     local parts = {};
     for i, group in ipairs(groups) do
+        for _, token in ipairs(group) do
+            _stateTokens[token] = true;
+        end
         parts[i] = "[" .. tconcat(group, ",") .. "]";
     end
     return tconcat(parts);

@@ -754,22 +754,65 @@ end
 --- 7-1, M) and no action bar page is 99.
 local MOCK_TRUE, MOCK_FALSE = "nobar:99", "bar:99"
 
+--- What one token of a state expression answers with `state` held at `value`, or nil where the
+--- token is not about that state. The forms are `StateAlternatives`' in `UpdateBindings.lua`.
+local function TokenAnswer(state, value, token)
+    local negated = token:sub(1, 2) == "no"
+    local word, arg = (negated and token:sub(3) or token):match("^(%a+):?(.*)$")
+    local function listed()
+        for n in arg:gmatch("[^/]+") do
+            if tonumber(n) == value then return true end
+        end
+        return false
+    end
+    local answer
+    if state == "skyriding" then
+        if word == "bonusbar" and arg == tostring(Constants.BONUSBAR_SKYRIDING) then answer = value end
+    elseif state == "form" then
+        if word == "form" then answer = listed() end
+    elseif state == "bonusbar" then
+        if word == "bonusbar" then answer = listed() end
+    elseif state == "group" then
+        if word == "group" then
+            if arg == "raid" then
+                answer = value == Constants.GROUP_RAID
+            else
+                answer = value ~= Constants.GROUP_NONE
+            end
+        end
+    elseif word == state and arg == "" then
+        answer = value
+    end
+    if answer == nil then return nil end
+    return (answer and not negated) or (not answer and negated)
+end
+
 --- The body that holds `state` at `value` (nil releases it), for the press's measured axes and for
 --- a parsed expression alike.
 ---
 --- **A parse cannot be reached by `PROBE.MockState`**, which overrides a local between the
---- measurement and the comparison; a parsed word has no local. So the word and its `no` form are
---- also put in `MockParseWords`, which `PROBE.SecureCmdOptionParse` hands to `rtgsub` as the
---- replacement table -- a word that is not in it stays as written. Only a boolean axis has a word
---- that can stand for it this way.
+--- measurement and the comparison; a parsed word has no local. So every token the rebuild has
+--- written that is about `state` is put in `MockParseWords` as an always-true or always-false token,
+--- and `PROBE.SecureCmdOptionParse` hands that table to `rtgsub` as the replacement -- a token not in
+--- it stays as written. The tokens are the rebuild's own (`StateExpressionTokens`), since `form:0/1`
+--- and the like can only be answered by reading what they list.
 local function MockBody(state, value)
-    local body = format([[MockStatesMap[%q] = %s]], state, value == nil and "nil" or ToLiteral(value))
-    if value == nil or type(value) == "boolean" then
-        local yes = value == nil and "nil" or format("%q", value and MOCK_TRUE or MOCK_FALSE)
-        local no = value == nil and "nil" or format("%q", value and MOCK_FALSE or MOCK_TRUE)
-        body = body .. format([[ MockParseWords[%q] = %s MockParseWords[%q] = %s]], state, yes, "no" .. state, no)
+    local parts = { format([[MockStatesMap[%q] = %s]], state, value == nil and "nil" or ToLiteral(value)) }
+    local tokens = {}
+    for token in pairs(DebindPrivate.StateExpressionTokens()) do tokens[#tokens + 1] = token end
+    -- The bare word too, for a `PROBE.SecureCmdOptionParse` written by hand (`[combat]`).
+    tokens[#tokens + 1], tokens[#tokens + 2] = state, "no" .. state
+    for _, token in ipairs(tokens) do
+        local answer = value ~= nil and TokenAnswer(state, value, token)
+        if value == nil then
+            if TokenAnswer(state, 0, token) ~= nil or TokenAnswer(state, true, token) ~= nil then
+                parts[#parts + 1] = format([[MockParseWords[%q] = nil]], token)
+            end
+        elseif answer ~= nil then
+            parts[#parts + 1] = format([[MockParseWords[%q] = %q]], token, answer and MOCK_TRUE or MOCK_FALSE)
+        end
     end
-    return body
+    return table.concat(parts, " ")
 end
 
 --- Forces `state` to `value` at the press. `nil` releases it.
