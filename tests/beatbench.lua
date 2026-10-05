@@ -243,22 +243,19 @@ return function(DebindPrivate)
             "a peaceful beat did not give the first key back");
 
         local tick = managerTick();
-        report(string.format("%d tail keys, quiet", keys), scenario(QUIET, {}), QUIET, perInstruction, "beat", tick);
-        report(string.format("%d tail keys, the world moving", keys), scenario(MOVING, movingWorld()),
+        report(string.format("%d tail keys, no state changed", keys), scenario(QUIET, {}), QUIET, perInstruction,
+            "beat", tick);
+        report(string.format("%d tail keys, combat and mounted flipping", keys), scenario(MOVING, movingWorld()),
             MOVING, perInstruction, "beat", tick);
     end
 
     ---------------------------------------------------------------------------
-    -- The column loop against the expressions, by the profile's shape
+    -- The loop by the profile's shape
     ---------------------------------------------------------------------------
 
-    --- **P3-6's gate** (`implementing-the-trimmed-tail-key-beat.md`): the same profile judged by the
-    --- column loop and by the expressions, under one model. The loop is had by turning
-    --- `BundleExpression` off for the rebuild, which is the loop every item had before P3.
-    ---
-    --- Synthetic shapes and not a real profile (2026-10-05, owner). `shared` is the rotation above,
-    --- few bundles over few columns, the loop's best case. `distinct` gives every key a bundle of its
-    --- own. `units` reads units beside states, and `dear` puts `flyable` on every key.
+    --- **Synthetic shapes and not a real profile** (2026-10-05, owner). `shared` is the rotation
+    --- above, few bundles over few columns. `distinct` gives every key a bundle of its own. `units`
+    --- reads units beside states, and `flyable` puts `flyable` on every key.
     local GATE_SHAPES = {
         shared = function(i) return SHAPES[(i - 1) % #SHAPES + 1]; end,
         distinct = function(i)
@@ -271,7 +268,7 @@ return function(DebindPrivate)
                 focus = i % 4 == 0 and { dead = false } or nil,
             } };
         end,
-        dear = function(i) return { flyable = true, mounted = i % 2 == 0, combat = i % 3 == 0 }; end,
+        flyable = function(i) return { flyable = true, mounted = i % 2 == 0, combat = i % 3 == 0 }; end,
     };
 
     local function gateProfile(shape, keys)
@@ -284,38 +281,31 @@ return function(DebindPrivate)
         return actions;
     end
 
-    --- A quiet beat, and a beat of a world that moves every few beats, each priced.
+    --- A beat with no state changed, and a beat where `combat` and `mounted` flip every 4th one, each
+    --- priced.
     local function gateBeat(perInstruction)
-        local quiet = price(scenario(QUIET, {}), perInstruction) / QUIET;
+        local still = price(scenario(QUIET, {}), perInstruction) / QUIET;
         local moves = {};
         for b = 1, MOVING do
             if (b % 4 == 0) then
                 moves[b] = function(state) state.combat = not state.combat; state.mounted = not state.mounted; end;
             end
         end
-        local moving = price(scenario(MOVING, moves), perInstruction) / MOVING;
-        return quiet, moving;
+        local flipping = price(scenario(MOVING, moves), perInstruction) / MOVING;
+        return still, flipping;
     end
 
-    print("\nP3-6, a beat in us, column loop / expressions, quiet | the world moving every 4th beat:");
-    local expression = DebindPrivate.BundleExpression;
-    for _, shape in ipairs({ "shared", "distinct", "units", "dear" }) do
+    print("\nBy shape, a beat in us, no state changed | combat and mounted flipped every 4th beat:");
+    for _, shape in ipairs({ "shared", "distinct", "units", "flyable" }) do
         local row = {};
         for _, keys in ipairs({ 4, 12, 30 }) do
             shim.world.units = { target = { id = "enemy", reaction = "harm" } };
-            DebindPrivate.BundleExpression = function() return nil; end
             bind(gateProfile(shape, keys));
-            local perInstruction = instructionCost(interp);
-            local loopQuiet, loopMoving = gateBeat(perInstruction);
-            DebindPrivate.BundleExpression = expression;
-            bind(gateProfile(shape, keys));
-            local parsedQuiet, parsedMoving = gateBeat(perInstruction);
-            row[#row + 1] = string.format("%2d keys %5.2f/%5.2f | %5.2f/%5.2f", keys, loopQuiet, parsedQuiet,
-                loopMoving, parsedMoving);
+            local still, flipping = gateBeat(instructionCost(interp));
+            row[#row + 1] = string.format("%2d keys %5.2f | %5.2f", keys, still, flipping);
         end
         print(string.format("  %-9s %s", shape, table.concat(row, "   ")));
     end
-    DebindPrivate.BundleExpression = expression;
     shim.world.units = {};
 
     --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top

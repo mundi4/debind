@@ -137,13 +137,11 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeSwitches = newtable()
 	JudgeGeneration = 0
 	JudgeReady = false
-	-- **A bundle written as one macro conditional** (`BundleExpression` in `UpdateBindings.lua`) has
-	-- the alias and frame units, the frame's type and role and the switches set by hand put into its
-	-- text when they change, not on every beat (`trimming-the-tail-key-beat.md` 8-6).
-	-- `JudgeComposeAll` is every bundle with something to put in, `JudgeComposeBy` the same by the
-	-- wake that changes it, and `JudgeClassify` the classifying text of an alias or frame unit that
-	-- a bundle reads beside the one in its text. `JudgeFrame*` is the pointed frame those texts were
-	-- composed from.
+	-- **The parse that classifies an alias or frame unit for the loop** (`ClassifyPieces` in
+	-- `UpdateBindings.lua`) has the unit's token put into its text when the token changes, not on
+	-- every beat (`trimming-the-tail-key-beat.md` 8-6). `JudgeClassify` is that text by unit,
+	-- `JudgeComposeAll` every one of them, `JudgeComposeBy` the same by the wake that moves the token.
+	-- `JudgeFrame*` is the pointed frame as the beat last read it.
 	JudgeComposeAll = newtable()
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
@@ -789,27 +787,20 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 		local bundle = JudgeBundles[n]
 		local base = bundle.base
 		if (bundle.stamp == generation or (base and base.changed == generation)) then
-			local outcome, command
-			-- A bundle written as an expression was parsed by the half before this one, and its
-			-- clause names the outcome.
-			if (bundle.wantOf) then
-				outcome = bundle.wantOf[bundle.parsed]
-			else
-				outcome, command = bundle.restOutcome, bundle.restCommand
-				for e = 1, #bundle do
-					local entry = bundle[e]
-					local match = true
-					for c = 1, #entry, 2 do
-						local cell = entry[c].cell
-						if ((entry[c + 1] % (cell + cell)) < cell) then
-							match = false
-							break
-						end
-					end
-					if (match) then
-						outcome, command = entry.outcome, entry.command
+			local outcome, command = bundle.restOutcome, bundle.restCommand
+			for e = 1, #bundle do
+				local entry = bundle[e]
+				local match = true
+				for c = 1, #entry, 2 do
+					local cell = entry[c].cell
+					if ((entry[c + 1] % (cell + cell)) < cell) then
+						match = false
 						break
 					end
+				end
+				if (match) then
+					outcome, command = entry.outcome, entry.command
+					break
 				end
 			end
 			if (outcome == "base") then
@@ -842,16 +833,10 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 	end
 ]==];
 
---- **Puts what moved into the texts of the bundles in `list`** (`JudgeComposeAll`, a list of
---- `JudgeComposeBy`, or `JudgeClassify`'s), each template's even fragments overwritten and the whole
---- joined into the bundle's field the template names. The caller declares `list`.
----
---- **An alias or frame unit with no token is decided here, not by a stand-in unit.** `slot.absent`
---- is `""` where the mask takes the absent cell and the fixed false otherwise: the beat measures
---- such a unit absent by its token, so `[@raid41,nodead]` holding would part the two.
----
---- **A switch set by hand that was never set is in neither of its cells** (`JUDGMENT_SWITCH_UNSET`),
---- which is how the press reads it: a record asking it off does not hold either.
+--- **Puts each unit's token into the classifying texts in `list`** (`JudgeComposeAll` or a list of
+--- `JudgeComposeBy`), each template's even fragments overwritten and the whole joined into the
+--- field the template names. The caller declares `list`. A unit with no token leaves its text
+--- unread: the loop decides it absent before parsing.
 local JUDGE_COMPOSE_SNIPPET = [==[
 	for n = 1, #list do
 		local b = list[n]
@@ -860,52 +845,17 @@ local JUDGE_COMPOSE_SNIPPET = [==[
 			local frags, slots = tp.frags, tp.slots
 			for k = 1, #slots do
 				local slot = slots[k]
-				local value
-				if (slot.unit) then
-					local token
-					if (slot.unit == "unitframe") then
-						token = JudgeFrameUnit
-					else
-						token = UnitAliasMap[slot.unit]
-					end
-					if (token) then
-						value = "@" .. token .. slot.text
-					else
-						value = slot.absent
-					end
+				local token
+				if (slot.unit == "unitframe") then
+					token = JudgeFrameUnit
 				else
-					local cell
-					if (slot.switch) then
-						local state = States[slot.switch]
-						if (state == true) then
-							cell = CONSTANTS.JUDGMENT_TRUE
-						elseif (state == false) then
-							cell = CONSTANTS.JUDGMENT_FALSE
-						else
-							cell = CONSTANTS.JUDGMENT_SWITCH_UNSET
-						end
-					elseif (slot.role) then
-						if (JudgeFrameRole == "tank") then
-							cell = CONSTANTS.ROLE_TANK
-						elseif (JudgeFrameRole == "healer") then
-							cell = CONSTANTS.ROLE_HEALER
-						elseif (JudgeFrameRole == "damager") then
-							cell = CONSTANTS.ROLE_DAMAGER
-						elseif (JudgeFrameRole == "norole") then
-							cell = CONSTANTS.ROLE_NONE
-						else
-							cell = CONSTANTS.JUDGMENT_ROLE_UNMEASURED
-						end
-					else
-						cell = JudgeFrameType or CONSTANTS.JUDGMENT_FRAMETYPE_NOFRAME
-					end
-					if ((slot.mask % (cell + cell)) >= cell) then
-						value = ""
-					else
-						value = "known:0"
-					end
+					token = UnitAliasMap[slot.unit]
 				end
-				frags[k + k] = value
+				if (token) then
+					frags[k + k] = "@" .. token .. slot.text
+				else
+					frags[k + k] = ""
+				end
 			end
 			b[tp.key] = table.concat(frags)
 		end

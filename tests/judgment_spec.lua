@@ -572,13 +572,8 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- The bundle as an expression (`implementing-the-trimmed-tail-key-beat.md` P3)
+    -- The loop parses what the press parses (`implementing-the-trimmed-tail-key-beat.md` P3)
     ---------------------------------------------------------------------------
-
-    --- Is `key`'s item written as an expression, or left on the column loop?
-    local function Expressed(key)
-        return DebindPrivate.BundleExpression(DebindPrivate.JudgmentItems[key]) ~= nil;
-    end
 
     -- **The beat parses what the press parses**, so a word the parse answers otherwise than its API
     -- moves both alike. A beat still measuring the API binds the key to what the press does not do.
@@ -606,9 +601,9 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **One `@unit` to a group**, so the second unit an item reads is a local of the beat, classified
-    -- by one parse. A dead unit is the cell a classifier gets wrong by asking reaction alone.
-    test("an item reading two units", function()
+    -- **A unit's cell is one classifying parse** (`ClassifyPieces`). A dead unit is the cell a
+    -- classifier gets wrong by asking reaction alone.
+    test("two units classified", function()
         Bind({
             action({ conditions = { units = {
                 target = { reaction = Constants.REACTION_HELP + Constants.REACTION_HARM, dead = false },
@@ -616,15 +611,13 @@ return function(DebindPrivate, _, ctx)
             } } }),
             action({ type = Constants.UNUSED }),
         });
-        check(Expressed("F1"), "the item stayed on the loop");
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
 
-    -- **An alias is put into the text when it moves**, and where it points at nothing the beat
-    -- decides it absent without a parse. `custom1` asks `exists` and `tank` does not, so one of each.
-    -- The same alias is the text's unit on one key and a local on the other, and the two read its
-    -- existence alike.
-    test("aliases in the text and as a local", function()
+    -- **An alias's token is put into its classifying text when it moves**, and where it points at
+    -- nothing the loop decides it absent without a parse. `custom1` asks `exists` and `tank` does
+    -- not, so one of each.
+    test("aliases classified", function()
         Bind({
             action({ key = "F1", conditions = { units = { custom1 = { reaction = Constants.REACTION_HELP } } } }),
             action({ key = "F1", type = Constants.UNUSED }),
@@ -636,7 +629,6 @@ return function(DebindPrivate, _, ctx)
             action({ key = "F3", conditions = { units = { tank = { dead = false } } } }),
             action({ key = "F3", type = Constants.UNUSED }),
         });
-        check(Expressed("F1") and Expressed("F2") and Expressed("F3"), "an item stayed on the loop");
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
         Saw(Sweep("F2"), Judgment.OURS, Judgment.RELEASE);
         Saw(Sweep("F3"), Judgment.OURS, Judgment.RELEASE);
@@ -659,19 +651,8 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **A switch set by hand that was never set is in neither cell**, as the press reads it: a
-    -- record asking it off does not hold. Written into the text as plain "off", it would.
-    test("a switch asked off and never set", function()
-        Bind({
-            action({ conditions = { ["$s1"] = false } }),
-            action({ type = Constants.UNUSED }),
-        });
-        check(Expressed("F1"), "the item stayed on the loop");
-        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
-    end);
-
     -- **A frame laid out again under a cursor that never moved** sends neither enter nor leave
-    -- (F3). The beat reads the frame again while pointing and composes the text over.
+    -- (F3). The beat reads the frame again while pointing and composes the classifying text over.
     test("a frame laid out again under a still cursor", function()
         Bind({
             action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
@@ -693,28 +674,14 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **The dear words are judged once a beat, and only where they could decide.**
-    test("flyable on two keys", function()
-        Bind({
-            action({ key = "F1", conditions = { flyable = true, combat = false } }),
-            action({ key = "F1", type = Constants.UNUSED }),
-            action({ key = "F2", conditions = { flyable = true, mounted = true } }),
-            action({ key = "F2", type = Constants.UNUSED }),
-        });
-        check(Expressed("F1") and Expressed("F2"), "an item stayed on the loop");
-        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
-        Saw(Sweep("F2"), Judgment.OURS, Judgment.RELEASE);
-    end);
-
-    -- **A computed switch keeps its item on the column loop** until P4, and that loop still answers
-    -- what the press does: its state columns are parsed too, so a word the parse answers otherwise
-    -- than its API moves both alike.
-    test("an item reading a computed switch stays on the loop", function()
+    -- **A computed switch beside a state column**: the switch is worked out by the press's own
+    -- composition and the column by `StateCellText`, and a word the parse answers otherwise than
+    -- its API moves the press and the loop alike.
+    test("a computed switch beside a parsed state column", function()
         Bind({
             action({ conditions = { ["$c"] = true, mounted = true } }),
             action({ type = Constants.UNUSED }),
         }, { ["$c"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" } });
-        check(not Expressed("F1"), "the item was written as an expression");
         for _, case in ipairs({
             { combat = false, mounted = true, want = Judgment.RELEASE },
             { combat = true, mounted = true, want = Judgment.OURS },
@@ -735,24 +702,18 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **No body of the loop measures a state through the API**, on either path: the column loop
-    -- parses its state columns as the expressions do, so the beat reads one answer with the press.
-    -- `Constants.STATE_EVAL_EXPRESSIONS` is the list of the API forms neither may take back up.
+    -- **No body of the loop measures a state through the API**: it parses its state columns as the
+    -- press parses them. `Constants.STATE_EVAL_EXPRESSIONS` is the list of the API forms it may not
+    -- take back up.
     test("the loop's bodies measure no state through the API", function()
         local mark = frames.mark();
         Bind({
-            action({ key = "F1", conditions = { ["$c"] = true, combat = true, stealth = true, mounted = true,
+            action({ conditions = { combat = true, stealth = true, mounted = true,
                 indoors = true, flyable = true, advflyable = true, flying = true, skyriding = false,
                 specialbar = false, extrabar = false, petbattle = false, forms = 2 ^ 1,
                 bonusbars = 2 ^ 2, groups = Constants.GROUP_PARTY } }),
-            action({ key = "F1", type = Constants.UNUSED }),
-            action({ key = "F2", conditions = { combat = true, stealth = true, mounted = true,
-                indoors = true, flyable = true, advflyable = true, flying = true, skyriding = false,
-                specialbar = false, extrabar = false, petbattle = false, forms = 2 ^ 1,
-                bonusbars = 2 ^ 2, groups = Constants.GROUP_PARTY } }),
-            action({ key = "F2", type = Constants.UNUSED }),
-        }, { ["$c"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" } });
-        check(not Expressed("F1") and Expressed("F2"), "the premise: one item on each path");
+            action({ type = Constants.UNUSED }),
+        });
         local bodies = 0;
         for _, entry in ipairs(frames.since(mark)) do
             local name = entry.name;
@@ -765,21 +726,6 @@ return function(DebindPrivate, _, ctx)
             end
         end
         check(bodies > 0, "no body of the loop was written");
-    end);
-
-    -- **Past the variant cap an item stays on the loop.** Two units read beside the text's, each
-    -- split three ways by the masks on it (friendly, hostile, the rest), are nine variants.
-    test("an item past the variant cap stays on the loop", function()
-        Bind({
-            action({ conditions = { units = { target = { reaction = Constants.REACTION_HELP },
-                focus = { reaction = Constants.REACTION_HELP }, mouseover = { reaction = Constants.REACTION_HELP } } } }),
-            action({ type = Constants.COMMAND, value = MAP, conditions = { units = {
-                target = { reaction = Constants.REACTION_HARM },
-                focus = { reaction = Constants.REACTION_HARM }, mouseover = { reaction = Constants.REACTION_HARM } } } }),
-            action({ type = Constants.UNUSED }),
-        });
-        check(not Expressed("F1"), "the item was written as an expression");
-        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
 
     return T;

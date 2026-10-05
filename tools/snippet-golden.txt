@@ -143,8 +143,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
 	JudgeComposeAll = newtable()
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
