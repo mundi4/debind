@@ -3248,6 +3248,12 @@ DebindPrivate.WatchFragmentsOf = FragmentsOf;
 
 --- How many columns one beat measures one at a time before it measures every carried column. Past
 --- three, a reckoning puts the parses one at a time at about what measuring them all costs.
+---
+--- **It is also what ends a beat where a fragment holds and its column does not move**: a kind
+--- measured by a call (`ANSWERS_AS_THE_WORD`) whose word answers otherwise. Every such beat then
+--- parses the watch four times and measures every carried column, until the two agree again. The
+--- answer stays right. Stopping at a hit that moved nothing would be cheaper and would hide any
+--- column after it in the text that did move.
 local WATCH_ROUNDS = 3;
 
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
