@@ -863,22 +863,28 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 		return
 	end
 
+	local outcomes
 	for n = 1, #JudgeBundles do
 		local bundle = JudgeBundles[n]
 		local base = bundle.base
 		if (bundle.stamp == generation or (base and base.changed == generation)) then
 			-- **A bundle with no rest reads one letter** of its answers at its columns' joint index
-			-- (`BundleAnswers` in `UpdateBindings.lua`), each column's index kept beside its cell. One
-			-- with a rest walks its entries, reading what it read before there were tables.
-			local outcome, command = bundle.restOutcome, bundle.restCommand
+			-- (`BundleAnswers` in `UpdateBindings.lua`), each column's index kept beside its cell. Every
+			-- loop bundle has a rest and a table bundle never does, so the field the loop reads first
+			-- is the one that tells them apart: the loop reads nothing it did not before there were
+			-- tables. `JudgeOutcomes` is taken into a local by the first table, as it was priced.
+			local outcome = bundle.restOutcome
+			local command
 			if (not outcome) then
 				local cols = bundle.cols
 				local at = 1
 				for c = 1, #cols, 2 do
 					at = at + columns[cols[c]] * cols[c + 1]
 				end
-				outcome = JudgeOutcomes[bundle.answers:byte(at)]
+				outcomes = outcomes or JudgeOutcomes
+				outcome = outcomes[bundle.answers:byte(at)]
 			else
+				command = bundle.restCommand
 				for e = 1, #bundle do
 					local entry = bundle[e]
 					local match = true

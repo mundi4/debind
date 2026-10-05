@@ -3203,7 +3203,6 @@ local function EmitJudgmentItems(items)
     wipe(_watchPlace);
     wipe(_columnGroups);
     wipe(_indexGroups);
-    wipe(DebindPrivate.JudgeBundleCosts);
     wipe(_unitWatch);
 
     local masks = {};
@@ -3226,8 +3225,8 @@ local function EmitJudgmentItems(items)
     local fragmentsOf, states, units = {}, {}, {};
     for i, key in ipairs(order) do
         local column = _judgmentColumns[key];
-        _columnGroups[key] = ColumnGroups(column, masks[key]);
         _indexGroups[key] = ColumnGroups(column, masks[key], true);
+        _columnGroups[key] = GROUPED_KINDS[column.kind] and _indexGroups[key] or nil;
         if (column.kind == "unit") then
             fragmentsOf[i] = UnitWatchAlternatives(column, _columnGroups[key]);
             if (fragmentsOf[i]) then
@@ -3307,7 +3306,7 @@ local function EmitJudgmentItems(items)
         if (not letter) then
             letter = FIXED_LETTERS[want];
             if (not letter) then
-                if (nextLetter > DebindPrivate.JudgeTableLetters) then
+                if (nextLetter > math.min(DebindPrivate.JudgeTableLetters, #ANSWER_LETTERS)) then
                     return nil;
                 end
                 letter = ANSWER_LETTERS[nextLetter];
@@ -3345,11 +3344,19 @@ local function EmitJudgmentItems(items)
                 end
             end
             sort(reads, function(a, b) return a.index < b.index; end);
+            -- **The budget pays for the walk, not for the table**: every state under the cap is walked
+            -- before the loop and the table are weighed, whichever wins.
             local cap = math.min(DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableBudget - budgetUsed);
+            local jointStates = 1;
+            for _, read in ipairs(reads) do
+                jointStates = jointStates * #read.groups;
+            end
+            if (jointStates <= cap) then
+                budgetUsed = budgetUsed + jointStates;
+            end
             local answers, loopCost, tableCost = BundleAnswers(item, reads, cap, letterOf);
             DebindPrivate.JudgeBundleCosts[n] = loopCost and { loop = loopCost, table = tableCost } or nil;
             if (answers) then
-                budgetUsed = budgetUsed + #answers;
                 -- Only a column a table reads has its index written (`BuildJudgeSnippet`'s
                 -- `writeIndex`), so a profile all on the loop pays nothing for it.
                 for _, read in ipairs(reads) do
@@ -4495,6 +4502,8 @@ function UpdateBindingsMap()
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;
     wipe(judgmentItems);
+    -- Here and not where the items are emitted, which a rebuild with none skips.
+    wipe(DebindPrivate.JudgeBundleCosts);
     wipe(_chordEntries);
     wipe(_boundBare);
     wipe(_keysToWalk);

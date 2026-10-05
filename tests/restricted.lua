@@ -121,7 +121,7 @@ end
 --- how the judging tables are read (Q4).
 local function compileMetered(body, signature, env)
     local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub("%) %+ 0%f[^%w_%.]", ") + BENCHCOERCE()")
-        :gsub("([%a_][%w_%.]*):byte%(", "BENCHBYTE(%1, ");
+        :gsub("([%a_][%w_%.]*):byte%(%s*%)", "BENCHBYTE(%1)"):gsub("([%a_][%w_%.]*):byte%(", "BENCHBYTE(%1, ");
     local source = "return function(" .. signature .. ") " .. rewritten .. "\nend";
     local chunk = assert(loadstring(source, BODY_CHUNK));
     setfenv(chunk, env);

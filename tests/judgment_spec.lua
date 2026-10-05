@@ -1440,11 +1440,31 @@ return function(DebindPrivate, _, ctx)
             check(interp.env.JudgeByKey.F2.bundle.answers == nil, "F2 reads a table past the budget");
             Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
             Saw(Sweep("F2"), Judgment.OURS, Judgment.RELEASE);
+            -- **A walk spends the budget whichever road wins**: with every bundle priced onto the
+            -- loop, F1's walk still leaves no room to walk F2's.
+            DebindPrivate.JudgeTableMargin = math.huge;
+            Bind(actions);
+            check(DebindPrivate.JudgeBundleCosts[BundleNumber("F1")], "F1 was not walked");
+            check(DebindPrivate.JudgeBundleCosts[BundleNumber("F2")] == nil,
+                "F2 was walked though F1's walk spent the budget");
         end);
         DebindPrivate.JudgeTableBudget = budget;
         if (not ok) then
             error(err, 0);
         end
+    end);
+
+    -- **What a rebuild weighed is its own** (`JudgeBundleCosts`): one that judges nothing leaves
+    -- nothing of the rebuild before it.
+    test("a rebuild that judges nothing keeps no bundle's costs", function()
+        DebindPrivate.JudgeTableCap = 1024;
+        Bind({
+            action({ conditions = { combat = true, stealth = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        check(next(DebindPrivate.JudgeBundleCosts), "the tail key's bundle was not weighed");
+        Bind({ action({ conditions = { combat = true } }) });
+        check(next(DebindPrivate.JudgeBundleCosts) == nil, "a rebuild with no tail key kept the last one's costs");
     end);
 
     -- **A column no table reads has no index written** (`writeIndex`): a profile all on the loop
