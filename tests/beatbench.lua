@@ -29,11 +29,21 @@ return function(DebindPrivate)
         -- `SetAttribute` with no handler behind it.
         ["handler entry"] = { 3.19, true },
         ["handle:RunAttribute"] = { 3.09, true },
-        -- `[known:1]` 0.188 and `[swimming]` 0.216 for one word; six words in a group 0.373.
-        ["parse"] = { 0.19, true },
-        ["parse word"] = { 0.035, true },
-        ["parse word flyable"] = { 4.95, true },
-        ["parse word advflyable"] = { 23.77, true },
+        -- A parse, each group it judges and each word in one, `@unit` counted as a word: 7-1's N,
+        -- texts of 4 to 256 groups lying on this within 5%.
+        ["parse"] = { 0.146, true },
+        ["parse group"] = { 0.032, true },
+        ["parse word"] = { 0.057, true },
+        -- `[flyable]` 5.15 and `[advflyable]` 23.97, less the one-word parse above.
+        ["parse word flyable"] = { 4.915, true },
+        ["parse word advflyable"] = { 23.735, true },
+        -- A unit word asked of another unit that is there: one hostile target, insecure side, once.
+        ["parse word on another unit"] = { 0.135, false },
+        -- 7-1's P. `strbyte(s, n)` is 0.137, the environment's read on top.
+        ["call s:byte"] = { 0.073, true },
+        -- 7-1's P: `tonumber(s)` 0.204, `s + 0` 0.043 on one digit and 0.046 on four.
+        ["call tonumber"] = { 0.204, true },
+        ["call BENCHCOERCE"] = { 0.045, true },
         -- The parse is priced by the two lines above; the call itself adds nothing on top.
         ["call SecureCmdOptionParse"] = { 0, true },
         ["call PlayerInCombat"] = { 0.912, true },
@@ -101,6 +111,11 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     local GUID = "Player-1-TESTGUID";
+    -- Registered before the first rebuild, whose recording the one interpreter is made from, for
+    -- the large shape's enter wake.
+    local groupFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
+    DebindPrivate.RegisterFrame(groupFrame, "group");
+    groupFrame:SetAttribute("unit", "party1");
     local seq = 0;
     local function action(t)
         seq = seq + 1;
@@ -185,6 +200,19 @@ return function(DebindPrivate)
         return total, guessed, lines;
     end
 
+    --- **What a beat costs past getting into the body**: the two writes of the beat's attribute and
+    --- the two handler entries behind them are what the body cannot shorten (the report's 9.33).
+    local OUTSIDE_THE_BODY = { ["handler entry"] = true, ["handle:SetAttribute"] = true };
+    local function BodyShare(lines)
+        local us = 0;
+        for _, l in ipairs(lines) do
+            if (not OUTSIDE_THE_BODY[l.what]) then
+                us = us + l.us;
+            end
+        end
+        return us;
+    end
+
     --- Runs `beats` beats, the world moving at the given beats, and prices the average beat.
     local function scenario(beats, moves)
         interp:meterStart();
@@ -205,6 +233,9 @@ return function(DebindPrivate)
         outside = outside or 0;
         print(string.format("\n%s: %.2f us a %s (%.0f%% of it on guessed prices)", title, total / n + outside,
             unit, total > 0 and 100 * guessed / total or 0));
+        if (unit == "beat") then
+            print(string.format("  %-34s %9s       %8.2f us", "in the body", "", BodyShare(lines) / n));
+        end
         if (outside > 0) then
             print(string.format("  %-34s %9s       %8.2f us", "manager tick (insecure)", "", outside));
         end
@@ -366,6 +397,124 @@ return function(DebindPrivate)
             interp.driverHandle:RunAttribute("SetUnit", "custom1", w % 2 == 1 and "party3" or "party4");
         end
         report("custom1 moved, SetUnit with what it wakes", interp:meterStop(), WAKES_ALIAS, perInstruction, "wake");
+    end
+    shim.world.units = {};
+
+    ---------------------------------------------------------------------------
+    -- The large shape (`implementing-the-cuts-inside-the-beat-handler.md` Q0)
+    ---------------------------------------------------------------------------
+
+    --- **Every state column there is but the two flying ones, then units, `known` and computed
+    --- switches**: there are only 13 state columns, so a large profile is large in the rest. Three
+    --- of the units are there, three of the `known` carry an id the book is asked for as well.
+    --- `flyable` and `advflyable` stay out because they cost 5 and 24 and would drown the rest.
+    local LARGE_SWITCHES = {
+        ["$x"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[indoors,nocombat]" },
+        ["$y"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@focus,help,nodead]" },
+    };
+    local LARGE_PIECES = {
+        { combat = true }, { stealth = true }, { mounted = true }, { indoors = true }, { flying = true },
+        { extrabar = true }, { specialbar = true }, { groups = Constants.GROUP_RAID }, { forms = 2 ^ 1 },
+        { bonusbars = 2 ^ 5 },
+        { units = { target = { reaction = Constants.REACTION_HARM, dead = false } } },
+        { units = { focus = { reaction = Constants.REACTION_HELP } } },
+        { units = { pet = { dead = false } } },
+        { units = { mouseover = { reaction = Constants.REACTION_HELP } } },
+        { units = { custom1 = { reaction = Constants.REACTION_HELP } } },
+        { units = { unitframe = { reaction = Constants.REACTION_HELP } } },
+        { known = 90001 }, { known = 90002 }, { known = 90003 },
+        { known = "Bench Spell A" }, { known = "Bench Spell B" }, { known = "Bench Spell C" },
+        { ["$x"] = true }, { ["$y"] = true },
+    };
+
+    --- One key per piece, each reading its piece and the one half the list away, over the game's
+    --- command. The first `leading` keys open with `[combat]` alone, which is the knob: every record
+    --- under it then carries `nocombat` (`Judgment.Build`).
+    local function largeProfile(leading)
+        local out, n = {}, #LARGE_PIECES;
+        for i = 1, n do
+            local key = "CTRL-F" .. i;
+            if (i <= leading) then
+                out[#out + 1] = action({ value = 585, key = key, conditions = { combat = true } });
+            end
+            out[#out + 1] = action({ value = 585, key = key, conditions = LARGE_PIECES[i] });
+            out[#out + 1] = action({ value = 585, key = key, conditions = LARGE_PIECES[(i + n / 2 - 1) % n + 1] });
+            out[#out + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+        end
+        return out;
+    end
+
+    local TARGETS = {
+        { id = "enemy", reaction = "harm" },
+        { id = "friend2", reaction = "help" },
+    };
+    local function largeWorld()
+        shim.world.units = {
+            player = { id = "me", reaction = "help" },
+            target = TARGETS[1],
+            focus = { id = "friend", reaction = "help" },
+            pet = { id = "imp", reaction = "help" },
+            party1 = { id = "member", reaction = "help" },
+        };
+    end
+
+    local LARGE_BEATS = 100;
+    print("\nThe large shape, 24 keys over 24 columns, a beat in us with the body's share after the slash."
+        .. "\nBy how many keys open with [combat] alone, and whether in combat:");
+    print(string.format("  %-16s %-14s %-14s %-14s %-14s %-13s %s", "", "quiet", "a state moved",
+        "target moved", "enter wake", "144/s, 3 mv", "5/s, 3 mv (us a second)"));
+    for _, leading in ipairs({ 0, 12, 24 }) do
+        for _, combat in ipairs({ false, true }) do
+            largeWorld();
+            bind(largeProfile(leading), LARGE_SWITCHES);
+            local columns = 0;
+            -- A column's bundles are at twice its index (`EmitJudgmentItems`).
+            for n in DebindPrivate.BindingDriver:GetAttribute("_onattributechanged"):gmatch("columns%[(%d+)%]") do
+                columns = math.max(columns, tonumber(n) / 2);
+            end
+            assert(columns == #LARGE_PIECES, "the large shape reads " .. columns .. " columns");
+            local perInstruction = instructionCost(interp);
+            local tick = managerTick();
+            interp.state.combat = combat;
+            interp:beat();
+
+            local function priced(counts, n)
+                local total, _, lines = price(counts, perInstruction);
+                return total / n + tick, BodyShare(lines) / n;
+            end
+
+            local quiet, quietBody = priced(scenario(LARGE_BEATS, {}), LARGE_BEATS);
+
+            local stateMoves = {};
+            for b = 1, LARGE_BEATS do
+                stateMoves[b] = function(state) state.mounted = not state.mounted; end;
+            end
+            local moved, movedBody = priced(scenario(LARGE_BEATS, stateMoves), LARGE_BEATS);
+
+            local targetMoves = {};
+            for b = 1, LARGE_BEATS do
+                targetMoves[b] = function() shim.world.units.target = TARGETS[b % 2 + 1]; end;
+            end
+            local retarget, retargetBody = priced(scenario(LARGE_BEATS, targetMoves), LARGE_BEATS);
+
+            -- Entered and left in turn, only the enter metered.
+            local enterCounts = {};
+            for _ = 1, LARGE_BEATS do
+                interp:meterStart();
+                interp:hoverEnter(groupFrame);
+                for what, n in pairs(interp:meterStop()) do
+                    enterCounts[what] = (enterCounts[what] or 0) + n;
+                end
+                interp:hoverLeave(groupFrame);
+            end
+            local enter = price(enterCounts, perInstruction) / LARGE_BEATS;
+
+            print(string.format("  %2d lead, %-6s %5.2f / %5.2f  %5.2f / %5.2f  %5.2f / %5.2f  %6.2f"
+                .. "        %4.0f / %4.0f  %3.0f / %3.0f",
+                leading, combat and "in" or "out", quiet, quietBody, moved, movedBody, retarget, retargetBody,
+                enter, 141 * quiet + 3 * moved, 141 * quietBody + 3 * movedBody, 2 * quiet + 3 * moved,
+                2 * quietBody + 3 * movedBody));
+        end
     end
     shim.world.units = {};
 

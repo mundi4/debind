@@ -117,8 +117,9 @@ SecureHandlerExecute(BindingDriver, [[
 	GivenBackNow = newtable()
 
 	-- **What a tail key is bound to, kept current by the loop** (`JudgeKeys`), all rewritten whole
-	-- by the rebuild (`UpdateBindingsMap`). `JudgeColumns` is every column an item reads, each with
-	-- the cell measured last and the bundles reading it. `JudgeBundles` is every distinct item, once
+	-- by the rebuild (`UpdateBindingsMap`). `JudgeColumns` is every column an item reads, the n-th
+	-- as the cell measured last at `2n - 1` and the bundles reading it at `2n`. `JudgeBundles` is
+	-- every distinct item, once
 	-- however many keys it stands for, in the order a pass judges them: a bare key's ahead of the
 	-- chords made from it. `JudgeByKey` is each key's own row, which carries what that key is bound
 	-- to and its bundle. `JudgeReady` says the rebuild's own pass has measured every column, so a
@@ -837,8 +838,9 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 --- **The second half of the loop's body: bind every tail key whose answer moved**
 --- (`handing-the-rest-of-a-key-to-the-game.md` 2-5). The first half is the rebuild's, generated
 --- with the columns this profile reads written out one after another (`BuildJudgeSnippet`), and it
---- leaves `wake`, `generation` and `moved` for this one: each column that moved has stamped the
---- bundles reading it with `generation`.
+--- leaves `wake`, `generation`, `moved` and `columns` (`JudgeColumns`) for this one: each column
+--- that moved has stamped the bundles reading it with `generation`. An entry holds, for each column
+--- it checks, where that column's cell is in `columns`, and the mask.
 ---
 --- **A bundle is judged once however many keys it stands for** (§3-3). A chord's bundle follows its
 --- base key's bundle where its own tier has no winner, so a base's change re-judges it.
@@ -864,7 +866,7 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 				local entry = bundle[e]
 				local match = true
 				for c = 1, #entry, 2 do
-					local cell = entry[c].cell
+					local cell = columns[entry[c]]
 					if ((entry[c + 1] % (cell + cell)) < cell) then
 						match = false
 						break

@@ -2854,7 +2854,9 @@ local function EmitJudgmentItems(items)
         local column = _judgmentColumns[key];
         _judgmentColumnIndex[key] = i;
         _judgmentColumnOrder[i] = column;
-        appendLine("c=newtable() c.bundles=newtable() JudgeColumns[%d]=c", i);
+        -- Its bundles at `2i`, beside the cell the loop keeps at `2i - 1`: one global read serves a
+        -- mark's compare and its stamps (`BuildJudgeSnippet`).
+        appendLine("JudgeColumns[%d]=newtable()", 2 * i);
         for _, wake in ipairs(JudgmentWakesOf(column)) do
             wakes[wake] = true;
         end
@@ -2902,7 +2904,7 @@ local function EmitJudgmentItems(items)
                 end
                 for k, check in ipairs(entry.checks) do
                     local index = _judgmentColumnIndex[item.columns[check.column].key];
-                    appendLine("e[%d]=JudgeColumns[%d] e[%d]=%d", 2 * k - 1, index, 2 * k, check.mask);
+                    appendLine("e[%d]=%d e[%d]=%d", 2 * k - 1, 2 * index - 1, 2 * k, check.mask);
                     if (not reads[index]) then
                         reads[index] = true;
                         readOrder[#readOrder + 1] = index;
@@ -2911,7 +2913,7 @@ local function EmitJudgmentItems(items)
             end
             sort(readOrder);
             for _, index in ipairs(readOrder) do
-                appendLine("tinsert(JudgeColumns[%d].bundles,b)", index);
+                appendLine("tinsert(JudgeColumns[%d],b)", 2 * index);
             end
         end
         keyBundle[key] = n;
@@ -3084,9 +3086,36 @@ local function BuildJudgeSnippet()
 
     --- Clears the composed text of every switch reading `name`, so the next body to work it out
     --- composes it again.
-    local function clearReaders(name)
+    --- `texts` is the local holding `JudgeSwitchTexts` where the body has one.
+    local function clearReaders(name, texts)
         for _, reader in ipairs(readers[name] or {}) do
-            add("JudgeSwitchTexts[%q] = nil", reader);
+            add("%s[%q] = nil", texts or "JudgeSwitchTexts", reader);
+        end
+    end
+
+    --- **The generation is raised by the first column that moves**, so a body where none moves
+    --- writes no global. The rebuild's pass raises it up front (`body`). A column's cell and its
+    --- bundles sit side by side in `columns` (`EmitJudgmentItems`).
+    local function mark(index)
+        add("if (columns[%d] ~= cell) then", 2 * index - 1);
+        add("columns[%d] = cell", 2 * index - 1);
+        add("if (not moved) then");
+        add("moved = true");
+        add("JudgeGeneration = JudgeGeneration + 1");
+        add("generation = JudgeGeneration");
+        add("end");
+        add("local bundles = columns[%d]", 2 * index);
+        add("for k = 1, #bundles do");
+        add("bundles[k].stamp = generation");
+        add("end");
+        add("end");
+    end
+
+    --- The column index of each computed switch that is a column.
+    local switchColumns = {};
+    for i, column in ipairs(_judgmentColumnOrder) do
+        if (column.kind == "switch" and computed(column)) then
+            switchColumns[column.arg] = i;
         end
     end
 
@@ -3098,41 +3127,53 @@ local function BuildJudgeSnippet()
     --- **A text is composed only where `JudgeSwitchTexts` has none** (8-6 of
     --- `trimming-the-tail-key-beat.md`): whatever moves a name it reads clears it, a switch here
     --- included, and `SwitchesToWorkOut` puts the switch ahead of its readers.
+    ---
+    --- **`JudgeSwitches` and `JudgeSwitchTexts` are taken into locals once** where the body reads
+    --- them, as `JudgeColumns` is (`body`).
     local function workOutSwitches(order)
+        if (#order == 0) then
+            return;
+        end
+        add("local switchValues = JudgeSwitches");
+        local withTexts = false;
+        for _, name in ipairs(order) do
+            if (_macrotexts[_switches[name].expr] or readers[name]) then
+                withTexts = true;
+            end
+        end
+        if (withTexts) then
+            add("local switchTexts = JudgeSwitchTexts");
+        end
         for _, name in ipairs(order) do
             local info = _switches[name];
             add("do");
             if (_macrotexts[info.expr]) then
-                add("local s = JudgeSwitchTexts[%q]", name);
+                add("local s = switchTexts[%q]", name);
                 add("if (not s) then");
                 add("local entry = SwitchEntries[%q]", name);
                 add("local unitframeAlias = JudgeFrameUnit or nil");
-                add("local clickSwitches = JudgeSwitches");
+                add("local clickSwitches = switchValues");
                 add("local pressUnit");
                 lines[#lines + 1] = DebindPrivate.COMPOSE_MACROTEXT_SNIPPET;
-                add("JudgeSwitchTexts[%q] = s", name);
+                add("switchTexts[%q] = s", name);
                 add("end");
                 add("local value = SecureCmdOptionParse(s) and true or false");
             else
                 add("local value = SecureCmdOptionParse(%q) and true or false", info.expr);
             end
-            add("if (value ~= JudgeSwitches[%q]) then", name);
-            add("JudgeSwitches[%q] = value", name);
-            clearReaders(name);
+            add("if (value ~= switchValues[%q]) then", name);
+            add("switchValues[%q] = value", name);
+            clearReaders(name, "switchTexts");
+            -- **Its column moves here, in whichever body works it out.** A reader's wake works it
+            -- out without measuring its column, and the next beat finds the value already stored.
+            local index = switchColumns[name];
+            if (index) then
+                add("cell = value and %d or %d", TRUE, FALSE);
+                mark(index);
+            end
             add("end");
             add("end");
         end
-    end
-
-    local function mark(index)
-        add("c = JudgeColumns[%d]", index);
-        add("if (c.cell ~= cell) then");
-        add("c.cell = cell");
-        add("moved = true");
-        add("for k = 1, #c.bundles do");
-        add("c.bundles[k].stamp = generation");
-        add("end");
-        add("end");
     end
 
     --- A unit's token and whether it is there, as `unit` and `exists`. The pointed frame's is what
@@ -3160,16 +3201,25 @@ local function BuildJudgeSnippet()
         end
     end
 
+    --- **A parse that answers a number is read with `+ 0`, not `tonumber`**: the coercion looks no
+    --- name up in the environment, and measured 0.043 µs against 0.204 (7-1). It raises where the
+    --- parse answers nil or `""`, which `tonumber` would have turned into nil, so every text read
+    --- this way has to end in a clause with no condition: `ClassifyPieces`, the numbered texts of
+    --- `StateCellText`, and the detecting parse in `measure` all do.
+    local function asNumber(parse)
+        return parse .. " + 0";
+    end
+
     --- A unit's cell by the classifying parse (`ClassifyPieces`), into `cell`. The caller declares
     --- `unit`, the token or nil; an alias or frame unit with none is absent without a parse.
     local function unitCell(unitName)
         add("cell = %d", Constants.UNITSTATE_NONE);
         if (SPECIAL_UNITS[unitName]) then
             add("if (unit) then");
-            add("cell = tonumber(PROBE.ParseUnit(JudgeClassify[%q][1]))", unitName);
+            add("cell = %s", asNumber(format("PROBE.ParseUnit(JudgeClassify[%q][1])", unitName)));
             add("end");
         else
-            add("cell = tonumber(PROBE.ParseUnit(%q))", ClassifyPieces(unitName)[1]);
+            add("cell = %s", asNumber(format("PROBE.ParseUnit(%q)", ClassifyPieces(unitName)[1])));
         end
     end
 
@@ -3198,7 +3248,7 @@ local function BuildJudgeSnippet()
         elseif (kind == "specialbar") then
             add("cell = (JudgePetBattle or PROBE.SecureCmdOptionParse(%q)) and %d or %d", text, TRUE, FALSE);
         elseif (text and numbered) then
-            add("cell = tonumber(PROBE.SecureCmdOptionParse(%q))", text);
+            add("cell = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)));
         elseif (text) then
             add("cell = PROBE.SecureCmdOptionParse(%q) and %d or %d", text, TRUE, FALSE);
         elseif (kind == "known") then
@@ -3216,11 +3266,7 @@ local function BuildJudgeSnippet()
             add("cell = %d", FALSE);
             add("end");
         elseif (kind == "switch") then
-            if (computed(column)) then
-                add("local value = JudgeSwitches[%q]", column.arg);
-            else
-                add("local value = States[%q]", column.arg);
-            end
+            add("local value = States[%q]", column.arg);
             add("if (value == true) then");
             add("cell = %d", TRUE);
             add("elseif (value == false) then");
@@ -3345,7 +3391,7 @@ local function BuildJudgeSnippet()
                 clauses[#clauses + 1] = format("[%s] %d; ", tconcat(words, ","), s);
             end
             add("do");
-            add("local code = tonumber(PROBE.SecureCmdOptionParse(%q))", tconcat(clauses) .. "0");
+            add("local code = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)", tconcat(clauses) .. "0")));
             add("if (code ~= JudgeDetect) then");
             add("JudgeDetect = code");
             for k, entry in ipairs(detected) do
@@ -3361,9 +3407,11 @@ local function BuildJudgeSnippet()
             add("end");
         end
 
+        -- A computed switch is marked where it is worked out, above.
         for _, i in ipairs(list) do
             local column = _judgmentColumnOrder[i];
-            if (column.kind ~= "unit" and column.kind ~= "unitgroup" and not detectedSet[i]) then
+            if (column.kind ~= "unit" and column.kind ~= "unitgroup" and not detectedSet[i]
+                    and not (column.kind == "switch" and computed(column))) then
                 add("do");
                 otherCell(column);
                 mark(i);
@@ -3449,13 +3497,23 @@ local function BuildJudgeSnippet()
 
     --- One body: what `build` measures, then the judging half, which reads `wake` -- `1` for the
     --- rebuild's pass, `true` for the beat, the wake's name for a wake of ours.
+    ---
+    ---
+    --- **`JudgeColumns` is taken into a local once**, since a global read costs twice a field read
+    --- of a local table (`restricted-environment.md`).
     local function body(wake, build)
         lines = {};
         add("local wake = %s", wake);
-        add("JudgeGeneration = JudgeGeneration + 1");
-        add("local generation = JudgeGeneration");
-        add("local moved = false");
-        add("local c, cell");
+        if (wake == "1") then
+            add("JudgeGeneration = JudgeGeneration + 1");
+            add("local generation = JudgeGeneration");
+            add("local moved = true");
+        else
+            add("local generation");
+            add("local moved = false");
+        end
+        add("local columns = JudgeColumns");
+        add("local cell");
         build();
         lines[#lines + 1] = DebindPrivate.JUDGE_BUNDLES_SNIPPET;
         return tconcat(lines, "\n");

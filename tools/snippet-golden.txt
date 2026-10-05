@@ -129,6 +129,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
 	JudgeColumns = newtable()
 	JudgeBundles = newtable()
 	JudgeByKey = newtable()

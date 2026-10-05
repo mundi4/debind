@@ -48,7 +48,7 @@ end
 -- **Counted, never timed.** What makes the restricted environment slow is the client's proxy tables
 -- and ENV wrappers, which this file does not have, so a clock here would point the wrong way. The
 -- bench counts what a body does -- global and table-field reads and writes, calls by name, parses
--- and the words they judge, VM instructions in the body itself -- and multiplies by what each was
+-- and the groups and words they judge, VM instructions in the body itself -- and multiplies by what each was
 -- measured to cost in the client (`trimming-the-tail-key-beat.md` 7-1). Only an interpreter made
 -- with `{ meter = true }` does any of this.
 
@@ -112,11 +112,26 @@ local function meteredEnv(interp, env)
     return proxy;
 end
 
+--- The interpreter metering now, for what reaches no environment: a string method is looked up on
+--- the string metatable, not through the body's globals.
+local metering;
+
+--- `s:byte(n)` under a meter, which `compileMetered` renames to this.
+function string.benchbyte(s, ...)
+    if (metering) then
+        tally(metering, "call s:byte");
+    end
+    return s:byte(...);
+end
+
 --- Compiles a body for a meter. **`#t` is read through `BENCHLEN`**, because a counting proxy is
 --- an empty table to the length operator and Lua 5.1 has no `__len` for tables; every `#` in a
---- body is a name or a field chain, which is all this rewrites.
+--- body is a name or a field chain, which is all this rewrites. **`:byte(` goes through
+--- `string.benchbyte`**, since a method call never touches the environment the meter watches, and
+--- **a call's `+ 0` through `BENCHCOERCE`**, the coercion a numbered parse is read with.
 local function compileMetered(body, signature, env)
-    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)");
+    local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub(":byte%(", ":benchbyte(")
+        :gsub("%) %+ 0(%s)", ") + BENCHCOERCE()%1");
     local source = "return function(" .. signature .. ") " .. rewritten .. "\nend";
     local chunk = assert(loadstring(source, BODY_CHUNK));
     setfenv(chunk, env);
@@ -247,15 +262,22 @@ end
 
 --- One bracketed group: true when every word holds. `@unit` or `target=unit` names the unit the
 --- unit words ask about, wherever it stands in the group; with neither, they ask about `target`.
+--- The words that ask about the group's unit and not the player (7-1's N, second run).
+local UNIT_WORDS = { exists = true, help = true, harm = true, dead = true, party = true, raid = true };
+
 local function groupMatches(interp, group)
     local unit = "target";
     local words = {};
+    tally(interp, "parse group");
     for term in group:gmatch("[^,]+") do
         term = term:match("^%s*(.-)%s*$");
         if (term:sub(1, 1) == "@") then
             unit = term:sub(2);
+            -- 7-1's N fits the price with `@unit` counted as a word.
+            tally(interp, "parse word");
         elseif (term:sub(1, 7) == "target=") then
             unit = term:sub(8);
+            tally(interp, "parse word");
         elseif (term ~= "") then
             words[#words + 1] = term;
         end
@@ -270,6 +292,10 @@ local function groupMatches(interp, group)
         tally(interp, "parse word");
         if ((name or term) == "flyable" or (name or term) == "advflyable") then
             tally(interp, "parse word " .. (name or term));
+        end
+        if (interp.meter and interp.meter.on and UNIT_WORDS[name or term] and unit ~= "player"
+                and _G.UnitExists(unit)) then
+            tally(interp, "parse word on another unit");
         end
         local value = wordValue(interp, name or term, argument, unit);
         if (negated) then
@@ -475,6 +501,7 @@ local function buildEnv(interp)
     env.ipairs = function(t) return ipairs(B(t)); end
     env.next = function(t, k) return next(B(t), k); end
     env.BENCHLEN = function(t) return #B(t); end
+    env.BENCHCOERCE = function() return 0; end
     env.rawtype = type;
     env.tostring = tostring;
     env.tonumber = tonumber;
@@ -668,6 +695,7 @@ function Interp:meterStart()
     local meter = assert(self.meter, "this interpreter was not made with a meter");
     meter.counts = {};
     meter.on = true;
+    metering = self;
     local counts = meter.counts;
     debug.sethook(function()
         local info = debug.getinfo(2, "S");
@@ -681,6 +709,7 @@ end
 function Interp:meterStop()
     debug.sethook();
     self.meter.on = false;
+    metering = nil;
     return self.meter.counts;
 end
 

@@ -825,6 +825,35 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **A computed switch with a column of its own moves that column wherever it is worked out**
+    -- (`implementing-the-cuts-inside-the-beat-handler.md` Q1). `$t`'s wake works `$s` out first,
+    -- since `$t` reads it, and `$s`'s column is not one that wake measures. The next beat then
+    -- finds `$s` where the wake left it and has nothing to move.
+    test("a computed switch worked out on another one's wake", function()
+        Bind({
+            action({ key = "F1", conditions = { ["$s"] = true } }),
+            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F2", conditions = { ["$t"] = true } }),
+            action({ key = "F2", type = Constants.UNUSED }),
+        }, {
+            ["$s"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+            ["$t"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$s,$s1]" },
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local driver = interp.driverHandle;
+        driver:RunAttribute("SetSwitch", "$s1", false);
+        check(Looped("F1") == Judgment.RELEASE, "the key was not let go at peace");
+        interp.state.combat = true;
+        driver:RunAttribute("SetSwitch", "$s1", true);
+        local got, looped = Actual("F1"), Looped("F1");
+        check(got == Judgment.OURS, "the press gave " .. got);
+        check(looped == got, "the press " .. got .. ", the loop " .. looped);
+        driver:RunAttribute("SetSwitch", "$s1", nil);
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
     -- **What the loop worked a computed switch out to does not outlive the rebuild.** A switch made
     -- one set by hand is read through `States` from then on, and a value the loop left under its
     -- name would stand in front of it in every composition.
