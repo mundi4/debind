@@ -145,6 +145,7 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeComposeAll = newtable()
 	JudgeComposeBy = newtable()
 	JudgeClassify = newtable()
+	JudgeDetect = false
 	JudgeFrameUnit = false
 	JudgeFrameType = false
 	JudgeFrameRole = false

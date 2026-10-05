@@ -399,6 +399,9 @@ wipe(JudgeWakes)
 wipe(JudgeComposeAll)
 wipe(JudgeComposeBy)
 wipe(JudgeClassify)
+-- The rebuild's columns start with no cell, and a detecting parse answering its last number would
+-- leave them so: the pass then judges with nothing to compare.
+JudgeDetect = false
 JudgeReady = false
 -- `ApplyGiveBack` bakes it again from the set as it stands, below.
 wipe(ContextKeys)
@@ -2921,6 +2924,12 @@ local function StateCellText(kind)
     return text, numbered;
 end
 
+--- How many boolean columns one detecting parse reads. Its clauses are `2 ^ n - 1`, and the bench
+--- prices a parse by the words it judges and not by the length of its text, which 7-1 measured to
+--- cost even where the first word is false. At 3 the bench gave 12.98 -> 12.16 us a beat with 12
+--- keys and no state changed; 4 gave 11.86 there, a gain the unpriced length could take back.
+local JUDGE_DETECT_MAX = 3;
+
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
 --- §3). The beat's goes straight into the handler, which `UpdateAttrChangedHandler` takes as the
 --- return value: a `RunAttribute` there would cost an environment swap and a `pcall` on every beat.
@@ -3178,9 +3187,76 @@ local function BuildJudgeSnippet()
             add("end");
         end
 
+        -- **Boolean columns whose "on" is one word are read by one parse** (P3-7 of
+        -- `implementing-the-trimmed-tail-key-beat.md`): its clauses run from every word held down to
+        -- none, so the first that holds names exactly the ones that hold, as a bit each. Where the
+        -- number is the last one, none of them moved and none is compared. `flyable` and
+        -- `advflyable` stay out: put in a clause, they would be judged wherever the words ahead of
+        -- them hold.
+        local detected, detectedSet = {}, {};
+        local detectMax = DebindPrivate.JudgeDetectMax or JUDGE_DETECT_MAX;
         for _, i in ipairs(list) do
             local column = _judgmentColumnOrder[i];
-            if (column.kind ~= "unit" and column.kind ~= "unitgroup") then
+            local text, numbered = StateCellText(column.kind);
+            if (text and not numbered and #detected < detectMax
+                    and column.kind ~= "flyable" and column.kind ~= "advflyable"
+                    and not text:find("[", 2, true) and not text:find(",", 1, true)) then
+                detected[#detected + 1] = { index = i, word = text:sub(2, -2) };
+                detectedSet[i] = true;
+            end
+        end
+        if (#detected < 2) then
+            detected, detectedSet = {}, {};
+        end
+        if (#detected > 0) then
+            local clauses = {};
+            local subsets = {};
+            for s = 1, 2 ^ #detected - 1 do
+                subsets[#subsets + 1] = s;
+            end
+            local function bits(s)
+                local n = 0;
+                while (s > 0) do
+                    n = n + s % 2;
+                    s = math.floor(s / 2);
+                end
+                return n;
+            end
+            sort(subsets, function(a, b)
+                if (bits(a) ~= bits(b)) then
+                    return bits(a) > bits(b);
+                end
+                return a < b;
+            end);
+            for _, s in ipairs(subsets) do
+                local words = {};
+                for k, entry in ipairs(detected) do
+                    if (math.floor(s / 2 ^ (k - 1)) % 2 == 1) then
+                        words[#words + 1] = entry.word;
+                    end
+                end
+                clauses[#clauses + 1] = format("[%s] %d; ", tconcat(words, ","), s);
+            end
+            add("do");
+            add("local code = tonumber(PROBE.SecureCmdOptionParse(%q))", tconcat(clauses) .. "0");
+            add("if (code ~= JudgeDetect) then");
+            add("JudgeDetect = code");
+            for k, entry in ipairs(detected) do
+                local b = 2 ^ (k - 1);
+                add("if ((code %% %d) >= %d) then", b + b, b);
+                add("cell = %d", TRUE);
+                add("else");
+                add("cell = %d", FALSE);
+                add("end");
+                mark(entry.index);
+            end
+            add("end");
+            add("end");
+        end
+
+        for _, i in ipairs(list) do
+            local column = _judgmentColumnOrder[i];
+            if (column.kind ~= "unit" and column.kind ~= "unitgroup" and not detectedSet[i]) then
                 add("do");
                 otherCell(column);
                 mark(i);

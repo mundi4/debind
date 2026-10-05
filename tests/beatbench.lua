@@ -295,17 +295,20 @@ return function(DebindPrivate)
         return still, flipping;
     end
 
-    print("\nBy shape, a beat in us, no state changed | combat and mounted flipped every 4th beat:");
+    print("\nBy shape, 12 keys, a beat in us, no state changed | combat and mounted flipped every 4th beat,"
+        .. " by how many boolean columns one detecting parse takes (P3-7):");
     for _, shape in ipairs({ "shared", "distinct", "units", "flyable" }) do
         local row = {};
-        for _, keys in ipairs({ 4, 12, 30 }) do
+        for _, detect in ipairs({ 0, 2, 3, 4, 5 }) do
+            DebindPrivate.JudgeDetectMax = detect;
             shim.world.units = { target = { id = "enemy", reaction = "harm" } };
-            bind(gateProfile(shape, keys));
+            bind(gateProfile(shape, 12));
             local still, flipping = gateBeat(instructionCost(interp));
-            row[#row + 1] = string.format("%2d keys %5.2f | %5.2f", keys, still, flipping);
+            row[#row + 1] = string.format("%d: %5.2f | %5.2f", detect, still, flipping);
         end
         print(string.format("  %-9s %s", shape, table.concat(row, "   ")));
     end
+    DebindPrivate.JudgeDetectMax = nil;
     shim.world.units = {};
 
     --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top
