@@ -2980,48 +2980,74 @@ local JUDGED_BOOL_STATES = {
 ---
 --- A mask column falls back to the cell the press reads its value as: no form is form 0, and an
 --- offset past the ones the press names is offset 0, since `[nobonusbar:1/2/3/4/5]` holds there.
-local function StateCellText(kind)
-    local tokens, numbered = {}, false;
-    local text;
+---
+--- **As clauses, which the text is made from** (`StateCellText`): each `{ groups, cell }`, a group
+--- being its tokens, the first clause that holds answering its cell and `default` where none does.
+--- A boolean column's text carries no values, since its "on" is read as the parse answering at all.
+--- Split from the text so that whatever else has to ask what the text asks reads the same source
+--- (the watch, `implementing-the-cuts-inside-the-beat-handler.md` Q2).
+local function StateCellClauses(kind)
+    local list;
     if (JUDGED_BOOL_STATES[kind]) then
         local groups = {};
         for _, alternative in ipairs(StateAlternatives(kind, true)) do
             -- `specialbar`'s battle is the pushed one (`otherCell`).
             if (alternative[1] ~= "petbattle") then
-                for _, token in ipairs(alternative) do
-                    tokens[#tokens + 1] = token;
-                end
-                groups[#groups + 1] = "[" .. tconcat(alternative, ",") .. "]";
+                groups[#groups + 1] = alternative;
             end
         end
-        text = tconcat(groups);
+        list = { { groups = groups, cell = Constants.JUDGMENT_TRUE }, default = Constants.JUDGMENT_FALSE };
     elseif (kind == "groups") then
-        tokens = { "group:raid", "group" };
-        text = format("[group:raid] %d; [group] %d; %d", Constants.GROUP_RAID, Constants.GROUP_PARTY,
-            Constants.GROUP_NONE);
-        numbered = true;
+        list = {
+            { groups = { { "group:raid" } }, cell = Constants.GROUP_RAID },
+            { groups = { { "group" } }, cell = Constants.GROUP_PARTY },
+            default = Constants.GROUP_NONE, numbered = true,
+        };
     elseif (kind == "forms" or kind == "bonusbars") then
         local word, last = "form", 10;
         if (kind == "bonusbars") then
             word, last = "bonusbar", Constants.MAX_BONUSBAR_OFFSET;
         end
-        local clauses = {};
+        list = { default = 1, numbered = true };
         for n = 1, last do
-            tokens[#tokens + 1] = word .. ":" .. n;
-            clauses[n] = format("[%s:%d] %d; ", word, n, 2 ^ n);
+            list[n] = { groups = { { word .. ":" .. n } }, cell = 2 ^ n };
         end
-        text = tconcat(clauses) .. "1";
-        numbered = true;
     else
         return nil;
     end
-    for _, token in ipairs(tokens) do
-        _stateTokens[token] = true;
+    for _, clause in ipairs(list) do
+        for _, group in ipairs(clause.groups) do
+            for _, token in ipairs(group) do
+                _stateTokens[token] = true;
+            end
+        end
     end
-    if (numbered) then
-        AssertEndsInDefault(text);
+    return list;
+end
+
+--- The text `SecureCmdOptionParse` is handed for a state column's cell, and whether its value is
+--- the cell itself. nil for a column that is not a state.
+local function StateCellText(kind)
+    local list = StateCellClauses(kind);
+    if (not list) then
+        return nil;
     end
-    return text, numbered;
+    local clauses = {};
+    for i, clause in ipairs(list) do
+        local groups = {};
+        for g, group in ipairs(clause.groups) do
+            groups[g] = "[" .. tconcat(group, ",") .. "]";
+        end
+        clauses[i] = tconcat(groups);
+        if (list.numbered) then
+            clauses[i] = format("%s %d", clauses[i], clause.cell);
+        end
+    end
+    if (not list.numbered) then
+        return clauses[1], false;
+    end
+    clauses[#clauses + 1] = format("%d", list.default);
+    return AssertEndsInDefault(tconcat(clauses, "; ")), true;
 end
 
 --- How many boolean columns one detecting parse reads. Its clauses are `2 ^ n - 1`, and the bench
