@@ -379,8 +379,9 @@ local function buildEnv(interp)
     --- The unit queries, **forwarded to the same functions the insecure side calls**. Blizzard's
     --- own list has them in `DIRECT_MACRO_CONDITIONAL_NAMES` for the same reason: they are the
     --- ones a macro conditional would ask, and the answer has to be one answer.
+    --- **No `UnitIsUnit`.** The game's restricted environment does not carry it (owner, 2026-10-05),
+    --- so a body leaning on it has to fail here rather than pass and go dead in the game.
     env.UnitExists = function(unit) return _G.UnitExists(unit); end
-    env.UnitIsUnit = function(a, b) return _G.UnitIsUnit(a, b); end
     env.UnitIsDead = function(unit) return _G.UnitIsDead(unit); end
     env.FindSpellBookSlotBySpellID = function(spellID) return _G.FindSpellBookSlotBySpellID(spellID); end
     env.UnitIsGhost = function(unit) return _G.UnitIsGhost(unit); end
