@@ -370,14 +370,12 @@ return function(DebindPrivate, _, ctx)
     -- 등록되지 않은 개체창 위의 custom target
     ---------------------------------------------------------------------------
 
-    --- **호버 슬롯은 넘겨받은 프레임만 채운다.** 그 밖의 개체창 위에서는 비어 있고, 그 자리에서
-    --- `mouseover`로 떨어지는 것이 등록 없이 남는 유일한 길이다. `hover`를 다시 쓰기 전에 `none`을
-    --- 거치는 것은 `_onattributechanged`가 값이 실제로 바뀔 때만 돌기 때문이다.
+    --- **The hover slot is filled only by a frame handed to us.** Over any other unit frame it is
+    --- empty, and falling back to `mouseover` there is the one way left without registering it.
     local function customFromHover(units)
         Bind({ action({ value = 585, key = "F1", unit = "custom1" }) });
         shim.world.units = units;
         interp:clearHoverSlot();
-        interp.unitWatchHandle:SetAttribute("custom1", "none");
         return interp:setCustomTarget("custom1", "unitframe");
     end
 

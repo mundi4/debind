@@ -2814,6 +2814,14 @@ local CLASSIFY_CLAUSES = {
     { ",dead", Constants.UNITSTATE_OTHER_DEAD },
 };
 
+--- **A text the loop reads as a number ends in a clause with no condition** (`asNumber` in
+--- `BuildJudgeSnippet`). Without one the parse answers nil where nothing holds, and `+ 0` raises in
+--- the restricted environment, where nothing reports it.
+local function AssertEndsInDefault(text)
+    assert(text:match(";%s*%d+$"), "a numbered text with no default clause: " .. text);
+    return text;
+end
+
 --- **One parse that answers a unit's cell** (P3-3), for the column loop's `unit` column. Its value
 --- is the `UNITSTATE_*` number. `exists` is asked where `UnitAsksExists` says, so the loop reads a
 --- unit's existence the way the press does. An alias or frame unit with no token is never parsed.
@@ -2837,7 +2845,9 @@ local function ClassifyPieces(unit)
         pieces[#pieces + 1] = " " .. clause[2] .. "; ";
     end
     pieces[#pieces + 1] = tostring(Constants.UNITSTATE_OTHER_ALIVE);
-    return Template(pieces);
+    local template = Template(pieces);
+    AssertEndsInDefault(template[#template]);
+    return template;
 end
 DebindPrivate.ClassifyPieces = ClassifyPieces;
 
@@ -2990,6 +3000,9 @@ local function StateCellText(kind)
     for _, token in ipairs(tokens) do
         _stateTokens[token] = true;
     end
+    if (numbered) then
+        AssertEndsInDefault(text);
+    end
     return text, numbered;
 end
 
@@ -3096,7 +3109,15 @@ local function BuildJudgeSnippet()
     --- **The generation is raised by the first column that moves**, so a body where none moves
     --- writes no global. The rebuild's pass raises it up front (`body`). A column's cell and its
     --- bundles sit side by side in `columns` (`EmitJudgmentItems`).
+    ---
+    --- **The pass only writes the cell**: every cell starts nil there, and the judging half stamps
+    --- every bundle for it (`wake == 1`).
+    local inPass = false;
     local function mark(index)
+        if (inPass) then
+            add("columns[%d] = cell", 2 * index - 1);
+            return;
+        end
         add("if (columns[%d] ~= cell) then", 2 * index - 1);
         add("columns[%d] = cell", 2 * index - 1);
         add("if (not moved) then");
@@ -3204,8 +3225,8 @@ local function BuildJudgeSnippet()
     --- **A parse that answers a number is read with `+ 0`, not `tonumber`**: the coercion looks no
     --- name up in the environment, and measured 0.043 µs against 0.204 (7-1). It raises where the
     --- parse answers nil or `""`, which `tonumber` would have turned into nil, so every text read
-    --- this way has to end in a clause with no condition: `ClassifyPieces`, the numbered texts of
-    --- `StateCellText`, and the detecting parse in `measure` all do.
+    --- this way has to end in a clause with no condition (`AssertEndsInDefault`, where each is
+    --- built).
     local function asNumber(parse)
         return parse .. " + 0";
     end
@@ -3391,7 +3412,8 @@ local function BuildJudgeSnippet()
                 clauses[#clauses + 1] = format("[%s] %d; ", tconcat(words, ","), s);
             end
             add("do");
-            add("local code = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)", tconcat(clauses) .. "0")));
+            add("local code = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)",
+                AssertEndsInDefault(tconcat(clauses) .. "0"))));
             add("if (code ~= JudgeDetect) then");
             add("JudgeDetect = code");
             for k, entry in ipairs(detected) do
@@ -3498,13 +3520,13 @@ local function BuildJudgeSnippet()
     --- One body: what `build` measures, then the judging half, which reads `wake` -- `1` for the
     --- rebuild's pass, `true` for the beat, the wake's name for a wake of ours.
     ---
-    ---
     --- **`JudgeColumns` is taken into a local once**, since a global read costs twice a field read
     --- of a local table (`restricted-environment.md`).
     local function body(wake, build)
         lines = {};
+        inPass = wake == "1";
         add("local wake = %s", wake);
-        if (wake == "1") then
+        if (inPass) then
             add("JudgeGeneration = JudgeGeneration + 1");
             add("local generation = JudgeGeneration");
             add("local moved = true");

@@ -119,11 +119,10 @@ SecureHandlerExecute(BindingDriver, [[
 	-- **What a tail key is bound to, kept current by the loop** (`JudgeKeys`), all rewritten whole
 	-- by the rebuild (`UpdateBindingsMap`). `JudgeColumns` is every column an item reads, the n-th
 	-- as the cell measured last at `2n - 1` and the bundles reading it at `2n`. `JudgeBundles` is
-	-- every distinct item, once
-	-- however many keys it stands for, in the order a pass judges them: a bare key's ahead of the
-	-- chords made from it. `JudgeByKey` is each key's own row, which carries what that key is bound
-	-- to and its bundle. `JudgeReady` says the rebuild's own pass has measured every column, so a
-	-- wake before it has nothing to compare against.
+	-- every distinct item, once however many keys it stands for, in the order a pass judges them: a
+	-- bare key's ahead of the chords made from it. `JudgeByKey` is each key's own row, which carries
+	-- what that key is bound to and its bundle. `JudgeReady` says the rebuild's own pass has
+	-- measured every column, so a wake before it has nothing to compare against.
 	--
 	-- `JudgeWakes` is, by the name of the wake, the attribute holding the body that wake runs with
 	-- `RunAttribute`, for each wake of ours some column answers to. **Run, not written**: whoever

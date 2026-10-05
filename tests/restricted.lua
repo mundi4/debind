@@ -113,10 +113,14 @@ local function meteredEnv(interp, env)
 end
 
 --- The interpreter metering now, for what reaches no environment: a string method is looked up on
---- the string metatable, not through the body's globals.
+--- the string metatable, not through the body's globals. A meter left on by a run that raised
+--- counts into tables nobody reads; the next `meterStart` takes it over.
 local metering;
 
---- `s:byte(n)` under a meter, which `compileMetered` renames to this.
+--- `s:byte(n)` under a meter, which `compileMetered` renames to this. **No body calls it yet.** It
+--- is there for reading a bundle's answer out of a string (⑤ of
+--- `sizing-the-cuts-inside-the-beat-handler.md`), which the bench has to be able to price before
+--- that is built.
 function string.benchbyte(s, ...)
     if (metering) then
         tally(metering, "call s:byte");
@@ -131,7 +135,7 @@ end
 --- **a call's `+ 0` through `BENCHCOERCE`**, the coercion a numbered parse is read with.
 local function compileMetered(body, signature, env)
     local rewritten = body:gsub("#([%a_][%w_%.]*)", "BENCHLEN(%1)"):gsub(":byte%(", ":benchbyte(")
-        :gsub("%) %+ 0(%s)", ") + BENCHCOERCE()%1");
+        :gsub("%) %+ 0%f[^%w_%.]", ") + BENCHCOERCE()");
     local source = "return function(" .. signature .. ") " .. rewritten .. "\nend";
     local chunk = assert(loadstring(source, BODY_CHUNK));
     setfenv(chunk, env);
@@ -260,11 +264,11 @@ local function wordValue(interp, name, argument, unit)
     error("the interpreter has no answer for the macro condition '" .. name .. "'", 0);
 end
 
---- One bracketed group: true when every word holds. `@unit` or `target=unit` names the unit the
---- unit words ask about, wherever it stands in the group; with neither, they ask about `target`.
 --- The words that ask about the group's unit and not the player (7-1's N, second run).
 local UNIT_WORDS = { exists = true, help = true, harm = true, dead = true, party = true, raid = true };
 
+--- One bracketed group: true when every word holds. `@unit` or `target=unit` names the unit the
+--- unit words ask about, wherever it stands in the group; with neither, they ask about `target`.
 local function groupMatches(interp, group)
     local unit = "target";
     local words = {};

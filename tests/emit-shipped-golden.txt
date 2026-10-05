@@ -1951,18 +1951,7 @@ SetAttribute <Frame#2> JudgePass =
   | end
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
-  | if (columns[1] ~= cell) then
   | columns[1] = cell
-  | if (not moved) then
-  | moved = true
-  | JudgeGeneration = JudgeGeneration + 1
-  | generation = JudgeGeneration
-  | end
-  | local bundles = columns[2]
-  | for k = 1, #bundles do
-  | bundles[k].stamp = generation
-  | end
-  | end
   | end
   | 	if (wake == 1) then
   | 		JudgeReady = true
