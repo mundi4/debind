@@ -2,7 +2,8 @@
 -- One-shot probe: what every piece the tail-key beat could be built from costs, in one run
 -- (`trimming-the-tail-key-beat.md`).
 --
---   /debbc      run it out of combat (a few seconds of frozen frames), then /reload
+--   /debbc      run it out of combat (a few seconds of frozen frames), wait two seconds for the
+--               state-visibility line it prints last, then /reload
 --
 -- Every case is a body run `COUNT` times in a loop, `ROUNDS` rounds interleaved, median less the
 -- empty loop, as microseconds a call. In the restricted environment through `SecureHandlerExecute`
@@ -252,6 +253,17 @@ end
     for name, frame in pairs(benchFrames) do
         SecureHandlerSetFrameRef(header, name, frame);
     end
+    -- Counts the times its handler is entered for `statehidden`, which is what the manager's
+    -- `state-visibility` branch writes on every tick without comparing (`VisibilityChecks`).
+    benchFrames.tCount = CreateFrame("Frame", nil, UIParent, "SecureHandlerAttributeTemplate");
+    benchFrames.tCount:SetAttribute("_onattributechanged", [[
+if (name == "statehidden") then
+    self:SetAttribute("ticks", (self:GetAttribute("ticks") or 0) + 1)
+end
+]]);
+    insecureEnv.BenchBeatFrame = benchFrames.tBeat;
+    insecureEnv.BenchAttrFrame = benchFrames.tAttr;
+    insecureEnv.BenchPlainFrame = benchFrames.tPlain;
     return benchFrames;
 end
 
@@ -572,6 +584,27 @@ end]==]);
     i("GetAttribute on a plain frame", [[x = f:GetAttribute("state-x")]], "local f = BenchSimFrame");
     i("SetAttribute on a plain frame", [[f:SetAttribute("v", i)]], "local f = BenchSimFrame");
 
+    -- The beat carried by `state-visibility` instead of a driver that is put back to 0. A write of
+    -- the value already there either reaches the handler (about the 4.4 of a changing write) or
+    -- does not (about the 1.2 of a frame with no handler); the two insecure cases below copy the
+    -- manager's tick whole, handler included, for the beat as it is and as it would be. They need
+    -- the frames `MakeBenchFrames` made, so a run in combat leaves them blank.
+    r("SetAttribute, the same value, into an empty _onattributechanged", [[t:SetAttribute("v", 1)]],
+        [[local t = self:GetFrameRef("tAttr")]]);
+    r("SetAttribute, nil over nil, into an empty _onattributechanged", [[t:SetAttribute("statehidden", nil)]],
+        [[local t = self:GetFrameRef("tAttr")]]);
+    i("Show() on a frame already shown", "f:Show()", "local f = BenchSimFrame");
+    i("manager tick as the beat is now: parse \"a\", GetAttribute, write, handler resets to 0, handler again",
+        [[local v = SecureCmdOptionParse("a") v = tonumber(v) or v ]]
+        .. [[if (v ~= f:GetAttribute("state-beat")) then f:SetAttribute("state-beat", v) end]],
+        "local f = BenchBeatFrame");
+    i("manager tick through state-visibility: parse \"show\", Show, write statehidden nil, an empty handler",
+        [[local v = SecureCmdOptionParse("show") if (v == "show") then f:Show() f:SetAttribute("statehidden", nil) end]],
+        "local f = BenchAttrFrame");
+    i("the same tick with no handler behind it",
+        [[local v = SecureCmdOptionParse("show") if (v == "show") then f:Show() f:SetAttribute("statehidden", nil) end]],
+        "local f = BenchPlainFrame");
+
     -- L: the unit tokens an alias (`@custom1`, `@tank`, `@hover`, ...) is written into an expression
     -- as at a wake (`trimming-the-tail-key-beat.md` 8-2, D5). `raid41` is what an alias with nobody
     -- behind it becomes (`COMPOSE_MACROTEXT_SNIPPET`). Each with the usual tail and with `exists`
@@ -837,6 +870,48 @@ local function WatchChecks(lines)
             or "");
 end
 
+--- **Does a write that changes nothing still reach the handler, and does the manager make one on
+--- every tick of a `state-visibility` driver?** Asked of this client and not of the reference
+--- source: the handler counts its own entries. The driver's count arrives two seconds later, as a
+--- line added to the saved run, so the reload has to wait for it.
+local function VisibilityChecks(lines)
+    local frame = benchFrames and benchFrames.tCount;
+    if (not frame or InCombatLockdown()) then
+        lines[#lines + 1] = "J     state-visibility: not asked (in combat)";
+        return;
+    end
+    local function entries(write)
+        frame:SetAttribute("ticks", 0);
+        for _ = 1, 10 do
+            write();
+        end
+        return frame:GetAttribute("ticks");
+    end
+    lines[#lines + 1] = format("J     10 writes of statehidden = nil over nil: the handler ran %d times",
+        entries(function() frame:SetAttribute("statehidden", nil) end));
+    frame:SetAttribute("statehidden", true);
+    lines[#lines + 1] = format("J     10 writes of statehidden = true over true: the handler ran %d times",
+        entries(function() frame:SetAttribute("statehidden", true) end));
+    frame:SetAttribute("statehidden", nil);
+
+    frame:SetAttribute("ticks", 0);
+    local started = GetTime();
+    RegisterAttributeDriver(frame, "state-visibility", "show");
+    C_Timer.After(2, function()
+        local ticks = frame:GetAttribute("ticks");
+        if (not InCombatLockdown()) then
+            UnregisterAttributeDriver(frame, "state-visibility");
+        end
+        local line = format("J     a state-visibility \"show\" driver: the handler ran %d times in %.2f s (shown=%s)",
+            ticks, GetTime() - started, tostring(frame:IsShown()));
+        local run = DebindDevDB and DebindDevDB.beatCost and DebindDevDB.beatCost[1];
+        if (run) then
+            run.lines[#run.lines + 1] = line;
+        end
+        print(TAG .. line .. ". /reload now.");
+    end);
+end
+
 local function Run()
     local restricted = not InCombatLockdown();
     if (restricted) then
@@ -923,13 +998,14 @@ local function Run()
         lines[#lines + 1] = format("%-5s %s %s  %s", cases[n].group, r, i, cases[n].name);
     end
     WatchChecks(lines);
+    VisibilityChecks(lines);
 
     -- The last run only. Earlier ones are copied into the plan doc's 7-1 once read, and kept here
     -- they only grow the file.
     DebindDevDB = DebindDevDB or {};
     DebindDevDB.beatCost = { { at = date("%Y-%m-%d %H:%M:%S"), build = select(4, GetBuildInfo()), lines = lines } };
-    print(TAG .. format("done: %d cases, saved in DebindDevDB.beatCost (earlier runs dropped). /reload to write it out.",
-        #cases - 1));
+    print(TAG .. format("done: %d cases, saved in DebindDevDB.beatCost (earlier runs dropped). "
+        .. "One more line follows in two seconds; /reload after it.", #cases - 1));
 end
 
 SLASH_DEBINDBC1 = "/debbc";
