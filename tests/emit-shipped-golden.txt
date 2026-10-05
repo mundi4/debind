@@ -1874,8 +1874,8 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
   | JudgeColumns[2]=newtable()
   | w=newtable() JudgeWatch.byCell[1]=w
-  | w[1]="[nocombat]"
-  | w[2]="[combat]"
+  | w[1]="; [nocombat] 1"
+  | w[2]="; [combat] 1"
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[1]=b
   | b.restOutcome="ours"
   | e=newtable() e.outcome="release" b[1]=e
@@ -1963,9 +1963,12 @@ SetAttribute <Frame#2> JudgePass =
   | dirty = true
   | end
   | if (dirty) then
+  | dirty = false
   | local text = table.concat(frags)
   | if (text == "") then
   | text = false
+  | else
+  | text = text:sub(3)
   | end
   | watch.text = text
   | end
@@ -2045,7 +2048,14 @@ SetAttribute <Frame#2> _onattributechanged =
   | return
   | end
   | local text = watch.text
-  | if (text and SecureCmdOptionParse(text)) then
+  | local rounds = 0
+  | while (text) do
+  | local hit = SecureCmdOptionParse(text)
+  | if (not hit) then
+  | break
+  | end
+  | rounds = rounds + 1
+  | if (rounds > 3) then
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[1] ~= cell) then
@@ -2063,13 +2073,57 @@ SetAttribute <Frame#2> _onattributechanged =
   | dirty = true
   | end
   | end
-  | else
-  | 
-  | end
   | if (dirty) then
+  | dirty = false
   | local text = table.concat(frags)
   | if (text == "") then
   | text = false
+  | else
+  | text = text:sub(3)
+  | end
+  | watch.text = text
+  | end
+  | break
+  | end
+  | if (hit == "1") then
+  | do
+  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
+  | if (columns[1] ~= cell) then
+  | columns[1] = cell
+  | if (not moved) then
+  | moved = true
+  | JudgeGeneration = JudgeGeneration + 1
+  | generation = JudgeGeneration
+  | end
+  | local bundles = columns[2]
+  | for k = 1, #bundles do
+  | bundles[k].stamp = generation
+  | end
+  | frags[1] = watch.byCell[1][cell]
+  | dirty = true
+  | end
+  | end
+  | end
+  | if (dirty) then
+  | dirty = false
+  | local text = table.concat(frags)
+  | if (text == "") then
+  | text = false
+  | else
+  | text = text:sub(3)
+  | end
+  | watch.text = text
+  | end
+  | text = watch.text
+  | end
+  | 
+  | if (dirty) then
+  | dirty = false
+  | local text = table.concat(frags)
+  | if (text == "") then
+  | text = false
+  | else
+  | text = text:sub(3)
   | end
   | watch.text = text
   | end

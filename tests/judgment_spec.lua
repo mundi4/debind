@@ -928,13 +928,49 @@ return function(DebindPrivate, _, ctx)
         interp.state.vehiclebar, interp.state.form, interp.state.group = true, 2, "party";
         interp:beat();
         interp:beat();
-        for n = 1, 3 do
-            local text = interp.env.JudgeWatch.text;
-            check(text, "the watch has no text");
-            local all, watch = Parses(function() interp:beat(); end, text);
-            check(all == 1 and watch == 1,
-                string.format("quiet beat %d parsed %d texts, the watch %d times", n, all, watch));
+        local function Quiet(when)
+            for n = 1, 2 do
+                local text = interp.env.JudgeWatch.text;
+                check(text, "the watch has no text");
+                local all, watch = Parses(function() interp:beat(); end, text);
+                check(all == 1 and watch == 1,
+                    string.format("%s, quiet beat %d parsed %d texts, the watch %d times", when, n, all, watch));
+            end
         end
+        Quiet("after the rebuild");
+        -- After a beat that moved one column, and one that moved two.
+        interp.state.combat = true;
+        interp:beat();
+        Quiet("after combat moved");
+        interp.state.combat, interp.state.form = false, 0;
+        interp:beat();
+        Quiet("after combat and the form moved");
+        interp:resetState();
+        shim.world.units = {};
+    end);
+
+    -- **Past `WATCH_ROUNDS` columns moved on one beat, every carried column is measured** (Q2b):
+    -- one at a time, each costs a parse of the watch, and a fight starting moves several. Seen as
+    -- the column that did not move being measured on that beat all the same.
+    test("a beat where many columns move measures them all at once", function()
+        Bind({
+            action({ conditions = { combat = true, mounted = true, stealth = true, indoors = true, flying = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { extrabar = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        interp:beat();
+        check(Bound("F1") == Judgment.RELEASE, "the key was not let go with nothing held");
+        local state = interp.state;
+        local _, extrabar = Parses(function()
+            state.combat, state.mounted, state.stealth, state.indoors, state.flying = true, true, true, true, true;
+            interp:beat();
+        end, "[extrabar]");
+        check(Bound("F1") == Judgment.OURS, "five columns moved on one beat and the key was not taken");
+        check(extrabar == 1, "the column that did not move was measured " .. extrabar .. " times on that beat");
+        local got = Actual("F1");
+        check(got == Judgment.OURS, "the press gave " .. got);
         interp:resetState();
         shim.world.units = {};
     end);

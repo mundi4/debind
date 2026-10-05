@@ -284,7 +284,7 @@ local function groupMatches(interp, group)
                 tally(interp, "parse word alternative", slashes);
             end
         end
-        if ((name or term) == "flyable" or (name or term) == "advflyable") then
+        if ((name or term) == "flyable" or (name or term) == "advflyable" or (name or term) == "form") then
             tally(interp, "parse word " .. (name or term));
         end
         if (interp.meter and interp.meter.on and UNIT_WORDS[name or term] and unit ~= "player"
@@ -335,6 +335,9 @@ local function parseCondition(interp, expr)
                 matched = true;
             end
             rest = after;
+        end
+        if (sawGroup and rest ~= "") then
+            tally(interp, "parse clause value");
         end
         if (matched or not sawGroup) then
             return rest;

@@ -37,9 +37,13 @@ return function(DebindPrivate)
         -- `[flyable]` 5.15 and `[advflyable]` 23.97, less the one-word parse above.
         ["parse word flyable"] = { 4.915, true },
         ["parse word advflyable"] = { 23.735, true },
-        -- Each value past the first in a slash list (`form:1/2/3`). Not measured: half a word, until
-        -- the probe prices it.
-        ["parse word alternative"] = { 0.03, false },
+        -- 7-1, 2026-10-06: `[form:1]` 1.217, five values 1.263, ten 1.283.
+        ["parse word alternative"] = { 0.007, true },
+        -- A clause with a value, over a bare group: 13 false clauses 1.425 against 13 groups 1.405.
+        ["parse clause value"] = { 0.0015, true },
+        -- **`form` over an ordinary word, by the class** (7-1): `[form:1]` 1.217 on a druid, 0.210 on
+        -- a warlock. Set per row (`FORM_PRICES`).
+        ["parse word form"] = { 0, true },
         -- A unit word asked of another unit that is there: one hostile target, insecure side, once.
         ["parse word on another unit"] = { 0.135, false },
         -- 7-1's P: `tonumber(s)` 0.204, `s + 0` 0.043 on one digit and 0.046 on four.
@@ -453,63 +457,92 @@ return function(DebindPrivate)
     local LARGE_BEATS = 100;
     print("\nThe large shape, 24 keys over 24 columns, a beat in us with the body's share after the slash."
         .. "\nBy how many keys open with [combat] alone, and whether in combat:");
-    print(string.format("  %-16s %-14s %-14s %-14s %-12s %s", "", "quiet", "a state moved",
-        "target moved", "enter wake", "the body a second at 5 / 20 / 144 beats with 3 of them moved"));
-    for _, leading in ipairs({ 0, 12, 24 }) do
-        for _, combat in ipairs({ false, true }) do
-            largeWorld();
-            bind(largeProfile(leading), LARGE_SWITCHES);
-            local columns = 0;
-            -- A column's bundles are at twice its index (`EmitJudgmentItems`).
-            for n in DebindPrivate.BindingDriver:GetAttribute("_onattributechanged"):gmatch("columns%[(%d+)%]") do
-                columns = math.max(columns, tonumber(n) / 2);
+    print(string.format("  %-16s %-14s %-14s %-14s %-14s %-12s %s", "", "quiet", "a state moved",
+        "the form moved", "target moved", "enter wake",
+        "the body a second at 5 / 20 / 144 beats with 3 of them moved"));
+    --- **What `form` costs over an ordinary word, by the class** (7-1): about 0.06 a token on a
+    --- warlock (2026-10-05), which has no forms, and 1.07 on a druid (2026-10-06), where `[form:1]`
+    --- parsed in 1.217. No other class with forms was measured. A profile with a forms column is a
+    --- class that has them, so the second row is the one that stands for this shape.
+    local FORM_PRICES = {
+        { "class without forms, form 0.06", 0 },
+        { "forms column, class with forms (druid), form 1.07", 1.217 - 0.146 - 0.032 - 0.057 },
+    };
+    local function LargeRow(leading, combat)
+        largeWorld();
+        bind(largeProfile(leading), LARGE_SWITCHES);
+        local columns = {};
+        for _, item in pairs(DebindPrivate.JudgmentItems) do
+            for _, column in ipairs(item.columns) do
+                columns[column.key] = true;
             end
-            assert(columns == #LARGE_PIECES, "the large shape reads " .. columns .. " columns");
-            local perInstruction = instructionCost(interp);
-            local tick = managerTick();
-            interp.state.combat = combat;
-            interp:beat();
+        end
+        local count = 0;
+        for _ in pairs(columns) do
+            count = count + 1;
+        end
+        assert(count == #LARGE_PIECES, "the large shape reads " .. count .. " columns");
+        local perInstruction = instructionCost(interp);
+        local tick = managerTick();
+        interp.state.combat = combat;
+        interp:beat();
 
-            local function priced(counts, n)
-                local total, _, lines = price(counts, perInstruction);
-                return total / n + tick, BodyShare(lines) / n;
+        local function priced(counts, n)
+            local total, _, lines = price(counts, perInstruction);
+            return total / n + tick, BodyShare(lines) / n;
+        end
+
+        local quiet, quietBody = priced(scenario(LARGE_BEATS, {}), LARGE_BEATS);
+
+        local stateMoves = {};
+        for b = 1, LARGE_BEATS do
+            stateMoves[b] = function(state) state.mounted = not state.mounted; end;
+        end
+        local moved, movedBody = priced(scenario(LARGE_BEATS, stateMoves), LARGE_BEATS);
+
+        local formMoves = {};
+        for b = 1, LARGE_BEATS do
+            formMoves[b] = function(state) state.form = state.form == 0 and 2 or 0; end;
+        end
+        local formMoved, formMovedBody = priced(scenario(LARGE_BEATS, formMoves), LARGE_BEATS);
+        interp.state.form = 0;
+
+        local targetMoves = {};
+        for b = 1, LARGE_BEATS do
+            targetMoves[b] = function() shim.world.units.target = TARGETS[b % 2 + 1]; end;
+        end
+        local retarget, retargetBody = priced(scenario(LARGE_BEATS, targetMoves), LARGE_BEATS);
+
+        -- Entered and left in turn, only the enter metered.
+        local enterCounts = {};
+        for _ = 1, LARGE_BEATS do
+            interp:meterStart();
+            interp:hoverEnter(groupFrame);
+            for what, n in pairs(interp:meterStop()) do
+                enterCounts[what] = (enterCounts[what] or 0) + n;
             end
+            interp:hoverLeave(groupFrame);
+        end
+        local enter = price(enterCounts, perInstruction) / LARGE_BEATS;
 
-            local quiet, quietBody = priced(scenario(LARGE_BEATS, {}), LARGE_BEATS);
-
-            local stateMoves = {};
-            for b = 1, LARGE_BEATS do
-                stateMoves[b] = function(state) state.mounted = not state.mounted; end;
+        local function second(beats)
+            return (beats - 3) * quietBody + 3 * movedBody;
+        end
+        print(string.format("  %2d lead, %-6s %5.2f / %5.2f  %5.2f / %5.2f  %5.2f / %5.2f  %5.2f / %5.2f  %6.2f"
+            .. "       %3.0f / %3.0f / %4.0f",
+            leading, combat and "in" or "out", quiet, quietBody, moved, movedBody, formMoved, formMovedBody,
+            retarget, retargetBody, enter, second(5), second(20), second(144)));
+    end
+    for _, formPrice in ipairs(FORM_PRICES) do
+        COST["parse word form"][1] = formPrice[2];
+        print("  " .. formPrice[1] .. ":");
+        for _, leading in ipairs({ 0, 12, 24 }) do
+            for _, combat in ipairs({ false, true }) do
+                LargeRow(leading, combat);
             end
-            local moved, movedBody = priced(scenario(LARGE_BEATS, stateMoves), LARGE_BEATS);
-
-            local targetMoves = {};
-            for b = 1, LARGE_BEATS do
-                targetMoves[b] = function() shim.world.units.target = TARGETS[b % 2 + 1]; end;
-            end
-            local retarget, retargetBody = priced(scenario(LARGE_BEATS, targetMoves), LARGE_BEATS);
-
-            -- Entered and left in turn, only the enter metered.
-            local enterCounts = {};
-            for _ = 1, LARGE_BEATS do
-                interp:meterStart();
-                interp:hoverEnter(groupFrame);
-                for what, n in pairs(interp:meterStop()) do
-                    enterCounts[what] = (enterCounts[what] or 0) + n;
-                end
-                interp:hoverLeave(groupFrame);
-            end
-            local enter = price(enterCounts, perInstruction) / LARGE_BEATS;
-
-            local function second(beats)
-                return (beats - 3) * quietBody + 3 * movedBody;
-            end
-            print(string.format("  %2d lead, %-6s %5.2f / %5.2f  %5.2f / %5.2f  %5.2f / %5.2f  %6.2f"
-                .. "       %3.0f / %3.0f / %4.0f",
-                leading, combat and "in" or "out", quiet, quietBody, moved, movedBody, retarget, retargetBody,
-                enter, second(5), second(20), second(144)));
         end
     end
+    COST["parse word form"][1] = 0;
     shim.world.units = {};
 
     --- **A wake of ours**: a switch set by hand, which only `SetSwitch` moves. What it costs on top

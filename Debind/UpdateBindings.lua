@@ -2903,9 +2903,13 @@ local function EmitJudgmentItems(items)
         if (fragments) then
             watched = watched + 1;
             _watchPlace[i], _watchFragments[i] = watched, fragments;
+            -- **As a clause answering its place** (Q2b): the parse names the first column that left
+            -- its cell. Each opens with the separator, which the join takes off the first one, so no
+            -- clause is ever empty: an empty clause holds unconditionally.
             appendLine("w=newtable() JudgeWatch.byCell[%d]=w", watched);
             for _, cell in ipairs(sortedKeys(fragments, {})) do
-                appendLine("w[%d]=%q", cell, fragments[cell]);
+                local fragment = fragments[cell];
+                appendLine("w[%d]=%q", cell, fragment == "" and "" or format("; %s %d", fragment, watched));
             end
         end
         for _, wake in ipairs(JudgmentWakesOf(column)) do
@@ -3215,6 +3219,11 @@ function FragmentsOf(list)
     return fragments;
 end
 DebindPrivate.WatchFragmentsOf = FragmentsOf;
+
+--- How many columns one beat measures one at a time before it measures every carried column.
+--- `debind-f8`'s proposal, not measured: past three, the parses one at a time cost about what
+--- measuring them all does.
+local WATCH_ROUNDS = 3;
 
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
 --- §3). The beat's goes straight into the handler, which `UpdateAttrChangedHandler` takes as the
@@ -3690,6 +3699,20 @@ local function BuildJudgeSnippet()
     sort(wakeOrder);
     _judgeBeats = #beat > 0;
 
+    --- Joins the fragments again where one was written. The first clause's separator comes off.
+    local function rejoin()
+        add("if (dirty) then");
+        add("dirty = false");
+        add("local text = table.concat(frags)");
+        add([[if (text == "") then]]);
+        add("text = false");
+        add("else");
+        add("text = text:sub(3)");
+        add("end");
+        add("watch.text = text");
+        add("end");
+    end
+
     --- One body: what `build` measures, then the judging half, which reads `wake` -- `1` for the
     --- rebuild's pass, `true` for the beat, the wake's name for a wake of ours.
     ---
@@ -3725,13 +3748,7 @@ local function BuildJudgeSnippet()
             lines[#lines + 1] = line;
         end
         if (writesWatch) then
-            add("if (dirty) then");
-            add("local text = table.concat(frags)");
-            add([[if (text == "") then]]);
-            add("text = false");
-            add("end");
-            add("watch.text = text");
-            add("end");
+            rejoin();
         end
         lines[#lines + 1] = DebindPrivate.JUDGE_BUNDLES_SNIPPET;
         return tconcat(lines, "\n");
@@ -3748,8 +3765,13 @@ local function BuildJudgeSnippet()
     ---
     --- **The columns the watch carries are measured only where the watch holds**, and never on an
     --- empty text, which `SecureCmdOptionParse` answers as holding. Everything else is measured on
-    --- every beat as before. A development build checks a beat the watch let pass against the
-    --- columns measured again (`PROBE.WatchCheck`, `JudgeWatchCheck`).
+    --- every beat as before. **The watch answers the place of the first column that left its cell**
+    --- (Q2b), so that column alone is measured, its fragment written, the text joined, and the
+    --- watch asked again until it answers nothing: a second parse is what says nothing else moved.
+    --- Past `WATCH_ROUNDS` every carried column is measured, which is what the watch did before and
+    --- what a beat where many move at once (a fight starting) costs less as. A development build
+    --- checks the beat after it against the columns measured again (`PROBE.WatchCheck`,
+    --- `JudgeWatchCheck`).
     _judgeBeatSignal = DebindPrivate.BeatSignal.comes and "visibility" or "attribute";
     local unwatched, watched = {}, {};
     for _, i in ipairs(beat) do
@@ -3767,11 +3789,27 @@ local function BuildJudgeSnippet()
         measure(unwatched);
         if (#watched > 0) then
             add("local text = watch.text");
-            add("if (text and PROBE.SecureCmdOptionParse(text)) then");
-            measure(watched);
-            add("else");
-            add("PROBE.WatchCheck()");
+            add("local rounds = 0");
+            add("while (text) do");
+            add("local hit = PROBE.SecureCmdOptionParse(text)");
+            add("if (not hit) then");
+            add("break");
             add("end");
+            add("rounds = rounds + 1");
+            add("if (rounds > %d) then", WATCH_ROUNDS);
+            measure(watched);
+            rejoin();
+            add("break");
+            add("end");
+            for n, i in ipairs(watched) do
+                add("%s (hit == \"%d\") then", n == 1 and "if" or "elseif", _watchPlace[i]);
+                measure({ i });
+            end
+            add("end");
+            rejoin();
+            add("text = watch.text");
+            add("end");
+            add("PROBE.WatchCheck()");
         end
     end);
 
