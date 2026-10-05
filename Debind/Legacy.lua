@@ -147,7 +147,8 @@ end
 ---
 --- **The profile holds the old file and nothing live.** Every step of the ladder reads one version's
 --- shape, and a live table in there would be the current one. What the old file carries is joined
---- to the live tables after the ladder, below.
+--- to the live tables after the ladder, below, and only when the ladder reached the end. Returns
+--- whether it did.
 local function ImportAccount(db, old)
     local classes = {};
     for class in pairs(Constants.CLASS_IDS) do
@@ -166,7 +167,9 @@ local function ImportAccount(db, old)
         customStates = type(old.customStates) == "table" and CopyTable(old.customStates) or nil,
         options = type(old.options) == "table" and CopyTable(old.options) or nil,
     };
-    DebindPrivate.MigrateDB(profile);
+    if (not DebindPrivate.TryMigrateDB(profile)) then
+        return false;
+    end
 
     -- **Only what the old file had.** The ladder makes some tables whether or not there was
     -- anything to raise (`layers.account`, `options`), so what is laid down is asked of the old
@@ -181,6 +184,7 @@ local function ImportAccount(db, old)
     -- **The higher of the two.** The ladder stamps every badge in old data as arrival 1 and sets
     -- its own counter past it; the live one may still be at 1 on a profile made this session.
     db.nextArrivalID = max(db.nextArrivalID or 1, profile.nextArrivalID or 1);
+    return true;
 end
 
 --- This character's share, raised the same way: `DebounceVarsPerChar` as a rename-era entry, with
@@ -189,7 +193,7 @@ end
 --- Nothing is written into `characters` or `layers` here. Whether the layers get attached is
 --- decided by `CleanUpDB` from their contents (lazy creation), so an alt that never used a
 --- character-specific binding - and therefore has only empty tables in the old file - still ends up
---- with no layers.
+--- with no layers. Returns whether the ladder reached the end, as `ImportAccount` does.
 local function ImportCharacter(old)
     local guid = DebindPrivate.playerGUID;
     local entry = {
@@ -198,7 +202,9 @@ local function ImportCharacter(old)
         CustomTargets = type(old.CustomTargets) == "table" and CopyTable(old.CustomTargets) or nil,
     };
     local profile = { dbver = old.dbver or 1, characters = { [guid] = entry } };
-    DebindPrivate.MigrateDB(profile);
+    if (not DebindPrivate.TryMigrateDB(profile)) then
+        return false;
+    end
 
     MergeLayers(DebindPrivate.db.charLayers, profile.layers[guid]);
     local targets = profile.states and profile.states[guid] and profile.states[guid].CustomTargets;
@@ -215,6 +221,7 @@ local function ImportCharacter(old)
     if (targets and state.CustomTargets == nil) then
         state.CustomTargets = targets;
     end
+    return true;
 end
 
 --- Is there still something for **this character** to answer or bring across?
@@ -265,6 +272,7 @@ function DebindPrivate.RunLegacyMigration()
         return false;
     end
     DebindPrivate.legacyLoadFailure = nil;
+    DebindPrivate.legacyImportFailed = nil;
 
     if (db.legacyNeeded == nil) then
         -- **`DebounceVars` only.** Every version that could have written a per-character file
@@ -282,10 +290,16 @@ function DebindPrivate.RunLegacyMigration()
 
     local changed = false;
 
+    -- **A share whose ladder failed leaves its flag down**, so the next login brings it across
+    -- again with whatever build fixed the step. Nothing of it was joined (`TryMigrateDB`), and the
+    -- dialog says that rather than calling the companion unreachable (`legacyImportFailed`).
     if (not db.legacyAccountPulled) then
         local old = _G.DebounceVars;
         if (old) then
-            ImportAccount(db, old);
+            if (not ImportAccount(db, old)) then
+                DebindPrivate.legacyImportFailed = true;
+                return false;
+            end
             changed = true;
         end
         db.legacyAccountPulled = true;
@@ -293,7 +307,10 @@ function DebindPrivate.RunLegacyMigration()
 
     local oldChar = _G.DebounceVarsPerChar;
     if (oldChar) then
-        ImportCharacter(oldChar);
+        if (not ImportCharacter(oldChar)) then
+            DebindPrivate.legacyImportFailed = true;
+            return changed;
+        end
         changed = true;
     end
 

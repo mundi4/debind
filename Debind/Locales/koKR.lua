@@ -528,6 +528,10 @@ L["WARNING_MESSAGE_UNIT_FRAME_CONTESTED"] = "다른 애드온이 개체창 일�
 -- 물러섰다고 말하는 한 줄. 순서와 근거는 enUS 쪽 주석에.
 L["NEWER_PROFILE_MESSAGE"] = "단축키가 하나도 동작하지 않습니다. 저장된 설정이 이 버전보다 새로워서 읽지 못합니다. 아무것도 바뀌지 않았으니 새 버전을 다시 설치하면 그대로 돌아옵니다. 지우고 새로 시작하려면 |cnHIGHLIGHT_FONT_COLOR:/deb reset|r을 입력해 주세요."
 L["NEWER_PROFILE_RESET_PROMPT"] = "이 계정의 모든 캐릭터에서 Debind가 저장한 것이 전부 지워지고 되돌릴 수 없습니다. 지우려면 다음을 입력해 주세요. |cnHIGHLIGHT_FONT_COLOR:/deb reset confirm|r"
+L["MIGRATION_FAILED"] = "단축키가 하나도 동작하지 않습니다. Debind가 저장한 설정을 이 버전으로 옮기지 못했습니다.|n|n유지하면 설정은 그대로 남습니다. Debind의 버그로 보이면 마지막으로 잘 되던 버전을 다시 설치하거나 새 버전을 설치해 보세요. 그때까지 Debind는 아무것도 하지 않고 접속할 때 다시 묻지 않습니다. Debind를 열면 이 창이 다시 뜹니다.|n|n초기화하면 이 계정의 모든 캐릭터에서 설정이 지워집니다."
+L["MIGRATION_FAILED_KEEP"] = "유지"
+L["MIGRATION_FAILED_RESET"] = "초기화"
+L["MIGRATION_FAILED_RESET_CONFIRM"] = "이 계정의 모든 캐릭터에서 Debind가 저장한 것이 전부 지워지고 되돌릴 수 없습니다."
 -- 창을 덮는 판. 근거는 enUS 쪽 주석에.
 L["MIGRATION_DIALOG_HEADER"] = "Debind"
 L["MIGRATION_DIALOG_TITLE"] = "설정은 그대로 있습니다 - Debind가 닿지 못할 뿐입니다."
@@ -537,6 +541,8 @@ L["MIGRATION_DIALOG_ENABLE"] = "켜고 다시 불러오기"
 L["MIGRATION_DIALOG_DECLINE_CHARACTER"] = "이 캐릭터는 새로 시작"
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT"] = "모든 캐릭터를 새로 시작"
 -- 툴팁이 버는 것은 **버튼 글자에 못 넣는 것**이다. 근거는 enUS 쪽 주석에.
+L["MIGRATION_DIALOG_TITLE_FAILED"] = "예전 설정을 옮겨 오지 못했습니다."
+L["MIGRATION_DIALOG_BODY_FAILED"] = "이 버전의 Debind가 3.0과 그 이전이 저장한 설정을 읽었지만 옮겨 오지 못했습니다. 그중 아무것도 더해지지 않았고, 예전 파일도 그대로입니다.|n|nDebind의 버그로 보이면 마지막으로 잘 되던 버전을 다시 설치하거나 새 버전을 설치해 보세요. 접속할 때마다 다시 시도합니다. 그동안은 이 창을 닫아도 됩니다.|n|n그 설정 없이 새로 시작하실 생각이라면 아래에서 답해 주세요."
 L["MIGRATION_DIALOG_TITLE_MISSING"] = "예전 설정을 들고 있는 애드온이 설치되어 있지 않습니다."
 L["MIGRATION_DIALOG_BODY_MISSING"] = "|cnHIGHLIGHT_FONT_COLOR:Debind Migration|r은 Debind와 함께 들어 있고, 3.0과 그 이전이 저장한 설정을 들고 있습니다. AddOns 폴더에 없는 것으로 보아 지웠거나 설치가 끝까지 되지 않았습니다.|n|nDebind를 다시 받으면 되돌아오고, 그동안에도 예전 설정은 디스크에 그대로 있습니다 - 잃은 것은 없습니다.|n|n이 창을 닫고 다시 설치하면 됩니다. 다음에 접속할 때 다시 묻습니다.|n|n그 설정 없이 새로 시작하실 생각이라면 아래에서 답해 주십시오."
 L["MIGRATION_DIALOG_TITLE_CHARACTER_ONLY"] = "이 캐릭터만의 지정이 아직 넘어오지 않았습니다."

@@ -58,6 +58,9 @@ M.world = {
     --- SELFCAST on CTRL and FOCUSCAST on ALT: the game's own default puts both on ALT, where the
     --- focus tier has no chord at all, and a spec that wants that asks for it.
     modifiedClicks = {},
+    --- What reached `geterrorhandler()`, in order. The runner fails a spec that leaves anything
+    --- here, so a spec that means to cause one empties it after checking.
+    reportedErrors = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -249,6 +252,11 @@ function M.install()
         return false;
     end
     _G.CopyTable = copyTable;
+    _G.geterrorhandler = function()
+        return function(err)
+            M.world.reportedErrors[#M.world.reportedErrors + 1] = tostring(err);
+        end;
+    end;
 
     -- Copied verbatim from `Blizzard_SharedXMLBase/TableUtil.lua`. **Returns the stateless
     -- iterator triple, and stops at the first nil rather than at the upper bound** - a stand-in
@@ -1360,7 +1368,7 @@ local ALLOWED_ABSENT = {
     -- Set by the addon itself while it loads, so they read nil right up until they do not. Every
     -- one is reached back through `_G` by another of our own files.
     DebindPublic = true, DebindPrivate = true, DebindVars = true, DebindUIVars = true,
-    DebindVarsPerChar = true,
+    DebindVarsPerChar = true, DebindMigrationVars = true,
     DebindDevDB = true, DebindStorageVars = true, DebouncePublic = true, DebounceVars = true,
     DebounceVarsPerChar = true, Debounce_CompartmentFunc = true, DebindStorage = true,
 

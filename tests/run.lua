@@ -395,6 +395,12 @@ for _, spec in ipairs(specs) do
     for _, f in ipairs(result.failures) do
         totalFailures[#totalFailures + 1] = spec.name .. " / " .. f;
     end
+    -- **An error the addon caught is still an error.** What it catches it hands on rather than
+    -- raising (`TryMigrateDB`), so without this a ladder that broke under some other spec's profile
+    -- would stand that spec down and fail it somewhere far from the cause, or not at all.
+    for _, err in ipairs(shim.world.reportedErrors) do
+        totalFailures[#totalFailures + 1] = spec.name .. " / handed to the error handler: " .. err;
+    end
 end
 
 -- **A global nothing answered is a failure of the run, not of one spec.** Which spec touched it is

@@ -2873,8 +2873,12 @@ end
 function DebindMigrationDialogMixin:UpdateText()
     local accountResolved = DebindPrivate.IsLegacyAccountResolved();
     local missing = DebindPrivate.legacyLoadFailure == "MISSING";
+    local failed = DebindPrivate.legacyImportFailed;
 
-    if (missing) then
+    if (failed) then
+        self.Title:SetText(LLL["MIGRATION_DIALOG_TITLE_FAILED"]);
+        self.Body:SetText(LLL["MIGRATION_DIALOG_BODY_FAILED"]);
+    elseif (missing) then
         -- 폴더가 아예 없다. **켜기 버튼이 할 수 있는 게 없다** - `EnableAddOn`은 없는 애드온에
         -- 아무 일도 안 하고, 리로드하면 같은 창으로 돌아온다. 그래서 숨기고 다시 받으라고 한다.
         self.Title:SetText(LLL["MIGRATION_DIALOG_TITLE_MISSING"]);
@@ -2887,7 +2891,7 @@ function DebindMigrationDialogMixin:UpdateText()
         self.Body:SetText(LLL["MIGRATION_DIALOG_BODY"]);
     end
 
-    self.AcceptButton:SetShown(not missing);
+    self.AcceptButton:SetShown(not missing and not failed);
 
     -- **"이 캐릭터만"은 계정 질문이 끝난 뒤에만 답이 된다.** 아직 `nil`이면 그 답이 계정 몫을
     -- 미결로 둔 채 창을 열어주고, 그러면 사용자가 만든 공유 바인딩을 나중에 다른 캐릭터의
@@ -6574,6 +6578,40 @@ StaticPopupDialogs["DEBIND_UNBIND_SCATTERS"] = {
 	OnAccept = function(_, data)
 		ReleaseAndRebuild(data.actions, data.accepting);
 	end,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+};
+
+--- The stored profile failed to raise (`TryMigrateDB`). Raised at login and from the window.
+---
+--- **Escape is the third answer and records nothing**: the next login asks again. With the two
+--- buttons attached by number, Escape does not reach either (`DEBIND_KEY_GROUP_CONFLICT`).
+StaticPopupDialogs["DEBIND_MIGRATION_FAILED"] = {
+	text = LLL["MIGRATION_FAILED"],
+	button1 = LLL["MIGRATION_FAILED_KEEP"],
+	button2 = LLL["MIGRATION_FAILED_RESET"],
+	selectCallbackByIndex = true,
+	OnButton1 = function()
+		DebindPrivate.HoldFailedMigration();
+	end,
+	OnButton2 = function()
+		StaticPopup_Show("DEBIND_MIGRATION_RESET");
+	end,
+	showAlert = 1,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+};
+
+StaticPopupDialogs["DEBIND_MIGRATION_RESET"] = {
+	text = LLL["MIGRATION_FAILED_RESET_CONFIRM"],
+	button1 = LLL["MIGRATION_FAILED_RESET"],
+	button2 = CANCEL,
+	OnAccept = function()
+		DebindPrivate.WipeStoredProfile();
+	end,
+	showAlert = 1,
 	hideOnEscape = 1,
 	timeout = 0,
 	whileDead = 1,

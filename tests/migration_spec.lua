@@ -13,7 +13,7 @@
 --      per-character data, re-attaching the account share would resurrect shared bindings the user
 --      has deleted in between
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, ctx)
     -- `LoadProfile` fires "OnProfileLoaded". The callback machinery is built in Debind.lua, which
     -- drags in a pile of frames, so here it just gets an ear that does not listen.
     DebindPrivate.callbacks = DebindPrivate.callbacks or { Fire = function() end };
@@ -2913,6 +2913,264 @@ return function(DebindPrivate)
         local db = InitWith({ trainerSpells = { DRUID = { [5177] = 6 } } });
         DebindPrivate.CleanUpDB();
         check(db.trainerSpells == nil, "trainerSpells is still there");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- A ladder that fails partway
+    --
+    -- **Raised whole or not at all.** `dbver` is stamped after the last step, so a ladder abandoned
+    -- partway left the steps before it applied under the old number, and the next login walked
+    -- them again over data they had already raised. The failure is put in the step every spell
+    -- action reaches last (7 -> 8), so every earlier step has already run on what it fails on.
+    ---------------------------------------------------------------------------
+
+    local function same(a, b)
+        if (type(a) ~= "table" or type(b) ~= "table") then
+            return a == b;
+        end
+        for k, v in pairs(a) do
+            if (not same(v, b[k])) then return false; end
+        end
+        for k in pairs(b) do
+            if (a[k] == nil) then return false; end
+        end
+        return true;
+    end
+
+    --- Runs `fn` with the 7 -> 8 spell step raising on `failOn`, nil when `raisesNil`. Returns
+    --- whether `fn` itself raised: a failure the addon caught has to stay inside it.
+    local function WithBrokenStep(failOn, fn, raisesNil)
+        local real = DebindPrivate.CanonicalSpellID;
+        DebindPrivate.CanonicalSpellID = function(spellID)
+            if (spellID == failOn) then
+                if (raisesNil) then
+                    error();
+                end
+                error("the step broke");
+            end
+            return real(spellID);
+        end;
+        local ok = pcall(fn);
+        DebindPrivate.CanonicalSpellID = real;
+        return ok;
+    end
+
+    --- The errors handed to the error handler, taken off the list so the runner does not fail
+    --- the spec over the ones it caused on purpose.
+    local function TakeReportedErrors()
+        local errors = shim.world.reportedErrors;
+        local n = #errors;
+        wipe(errors);
+        return n;
+    end
+
+    local function OldProfileWithSpell()
+        local db = OldSwitchAccount();
+        db.shared.GENERAL = { { type = Constants.SPELL, value = 8936, key = "F1", seq = 1 } };
+        return db;
+    end
+
+    test("a ladder that fails leaves the stored profile as it was", function()
+        local stored = OldProfileWithSpell();
+        local pristine = CopyTable(stored);
+        local storedUI = { version = Constants.UI_VARS_VERSION, tipsSeen = { a = true } };
+        _G.DebindUIVars = storedUI;
+
+        local returned = WithBrokenStep(8936, function() InitWith(stored); end);
+        local reported = TakeReportedErrors();
+
+        check(returned, "the failure escaped InitDB, which ends the login there");
+        check(reported == 1, "the failure reached the error handler " .. reported .. " times");
+        check(_G.DebindVars == stored, "the stored table was replaced");
+        check(same(stored, pristine),
+            "the stored profile came out half raised, under a dbver that says it was not");
+        check(_G.DebindUIVars == storedUI and same(storedUI,
+            { version = Constants.UI_VARS_VERSION, tipsSeen = { a = true } }),
+            "DebindUIVars was changed by a ladder that did not finish");
+    end);
+
+    test("a ladder that fails stands the session down", function()
+        local stored = OldProfileWithSpell();
+        WithBrokenStep(8936, function() InitWith(stored); end);
+        TakeReportedErrors();
+
+        check(DebindPrivate.migrationFailed, "nothing says the ladder failed");
+        check(DebindPrivate.db.global ~= stored,
+            "the session runs on the stored table, so the logout cleanup writes into it");
+        check(not DebindPrivate.profileIsNewer, "a failed ladder was taken for a newer profile");
+
+        -- The next login, on a build where the step works.
+        InitWith(stored);
+        check(not DebindPrivate.migrationFailed, "the flag stayed up on a login that raised it");
+        check(_G.DebindVars.dbver == Constants.DB_VERSION, "the profile was not raised");
+    end);
+
+    test("a step that raises nil still stands the session down", function()
+        WithBrokenStep(8936, function() InitWith(OldProfileWithSpell()); end, true);
+        TakeReportedErrors();
+        check(DebindPrivate.migrationFailed,
+            "nothing says the ladder failed, so the login goes on over the empty profile");
+    end);
+
+    -- **The dialog is the shipped answer; a development build has the raw error.** The client
+    -- hides Lua errors by default, so without the dialog a released addon would be dead with no
+    -- word.
+    test("a failed ladder raises the dialog at login, and only in a released build", function()
+        _G.DebindMigrationVars = nil;
+        WithBrokenStep(8936, function() InitWith(OldProfileWithSpell()); end);
+        TakeReportedErrors();
+        wipe(shim.world.popups);
+        shim.frames.fireEvent("PLAYER_LOGIN");
+
+        local raised = shim.world.popups[1] and shim.world.popups[1][1];
+        if (Constants.DEBUG) then
+            check(raised == nil, "a development build raised " .. tostring(raised));
+        else
+            check(raised == "DEBIND_MIGRATION_FAILED", "the login raised " .. tostring(raised));
+        end
+    end);
+
+    -- **Keeping is an answer, and it holds for this build and this profile only.** Another
+    -- version is how a fix arrives, so that one has to try again without anything to undo.
+    test("a kept failure is not tried again by the same build, and is by another", function()
+        _G.DebindMigrationVars = nil;
+        local stored = OldProfileWithSpell();
+        WithBrokenStep(8936, function() InitWith(stored); end);
+        TakeReportedErrors();
+        DebindPrivate.HoldFailedMigration();
+        check(_G.DebindVars == stored, "keeping replaced the stored table");
+
+        -- The next login on the same build, with the step still broken.
+        WithBrokenStep(8936, function() InitWith(stored); end);
+        local reported = TakeReportedErrors();
+        check(DebindPrivate.migrationFailed, "a kept failure did not stand the session down");
+        wipe(shim.world.popups);
+        shim.frames.fireEvent("PLAYER_LOGIN");
+        if (Constants.DEBUG) then
+            check(reported == 1, "a development build honoured the hold");
+        else
+            check(reported == 0, "the same build ran the ladder it was told to keep away from");
+            check(DebindPrivate.migrationHeld, "the session does not know it was held");
+            check(shim.world.popups[1] == nil, "a kept failure asked again at login");
+        end
+
+        -- Another version, where the step works.
+        local realLabel = DebindPrivate.GetVersionLabel;
+        DebindPrivate.GetVersionLabel = function() return "another"; end;
+        InitWith(stored);
+        DebindPrivate.GetVersionLabel = realLabel;
+        check(not DebindPrivate.migrationFailed, "another version did not try again");
+        check(_G.DebindMigrationVars == nil, "the hold outlived the profile it was about");
+    end);
+
+    test("resetting after a failure wipes the profile and the hold", function()
+        WithBrokenStep(8936, function() InitWith(OldProfileWithSpell()); end);
+        TakeReportedErrors();
+        DebindPrivate.HoldFailedMigration();
+
+        local reloaded = false;
+        local realReload = _G.ReloadUI;
+        _G.ReloadUI = function() reloaded = true; end;
+        DebindPrivate.WipeStoredProfile();
+        _G.ReloadUI = realReload;
+
+        check(reloaded, "no reload");
+        check(same(_G.DebindVars, { legacyNeeded = false }),
+            "the wiped table is not the one a reset leaves, so the next login imports the pre-rename file");
+        check(_G.DebindMigrationVars == nil, "the hold survived the reset");
+    end);
+
+    test("an old account file whose ladder fails joins nothing and is tried again", function()
+        FreshInit();
+        _G.DebounceVars = LegacyAccount();
+        _G.DebounceVarsPerChar = LegacyChar();
+        local returned = WithBrokenStep(1, function() DebindPrivate.RunLegacyMigration(); end);
+        local reported = TakeReportedErrors();
+
+        local db = _G.DebindVars;
+        check(returned, "the failure escaped RunLegacyMigration, which ends the login there");
+        check(reported == 1, "the failure reached the error handler " .. reported .. " times");
+        check(not db.legacyAccountPulled, "marked as pulled, so it is never tried again");
+        check(not db.migrated[GUID], "the character was marked done");
+        check(#db.layers.account.GENERAL[0] == 0, "part of the account share was joined");
+        check(DebindPrivate.legacyImportFailed,
+            "nothing tells the dialog, so it calls a companion that loaded fine unreachable");
+
+        DebindPrivate.RunLegacyMigration();
+        check(db.layers.account.GENERAL[0][1].key == "F1", "the next login did not bring it across");
+        check(not DebindPrivate.legacyImportFailed, "the failure outlived the login that fixed it");
+    end);
+
+    test("an old character file whose ladder fails is tried again, the account share is not", function()
+        FreshInit();
+        _G.DebounceVars = LegacyAccount();
+        _G.DebounceVarsPerChar = LegacyChar();
+        local returned = WithBrokenStep(3, function() DebindPrivate.RunLegacyMigration(); end);
+        local reported = TakeReportedErrors();
+
+        local db = _G.DebindVars;
+        check(returned, "the failure escaped RunLegacyMigration, which ends the login there");
+        check(reported == 1, "the failure reached the error handler " .. reported .. " times");
+        check(db.legacyAccountPulled == true, "the account share that did come across is not marked");
+        check(not db.migrated[GUID], "the character was marked done without its share");
+        local mine = DebindPrivate.db.charLayers[Constants.PLAYER_CLASS];
+        check(mine == nil or mine[0] == nil or #mine[0] == 0, "part of the character share was joined");
+        check(DebindPrivate.legacyImportFailed, "nothing tells the dialog");
+
+        DebindPrivate.RunLegacyMigration();
+        check(DebindPrivate.db.charLayers[Constants.PLAYER_CLASS][0][1].key == "F3",
+            "the next login did not bring the character share across");
+        check(#db.layers.account.GENERAL[0] == 1, "the account share came across twice");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Every written profile reaches the end
+    --
+    -- **A failure here is one nobody can work around**: the profile stays where it was and the
+    -- addon stands down until a build with the fix ships. So the ladder is fed each development
+    -- seed (`DevSeed.lua`), the profile that version's builds actually wrote, planted the way
+    -- `/debseed <dbver>` plants it and raised by the real `InitDB`.
+    ---------------------------------------------------------------------------
+
+    --- The seed loader's `ADDON_LOADED` handler, read from the file itself with the one frame it
+    --- makes stood in for.
+    local function LoadSeedHandler()
+        local handler;
+        local frame = {
+            RegisterEvent = function() end,
+            UnregisterEvent = function() end,
+            SetScript = function(_, _, fn) handler = fn; end,
+        };
+        local env = setmetatable({ CreateFrame = function() return frame; end }, { __index = _G });
+        local chunk = assert(loadfile(ctx.repoRoot .. "/DebindDev/DevSeed.lua"));
+        setfenv(chunk, env)();
+        return function(dbver)
+            local previous = _G.DebindPrivate;
+            _G.DebindPrivate = DebindPrivate;
+            _G.DebindDevDB = { seedPending = dbver };
+            handler(frame, "ADDON_LOADED", "Debind");
+            _G.DebindPrivate = previous;
+            _G.DebindDevDB = nil;
+        end;
+    end
+
+    test("every development seed rides the ladder to the end", function()
+        local plant = LoadSeedHandler();
+        local failed = {};
+        for dbver = 5, Constants.DB_VERSION - 1 do
+            _G.DebounceVars = nil;
+            _G.DebounceVarsPerChar = nil;
+            _G.DebindUIVars = nil;
+            plant(dbver);
+            check(_G.DebindVars.dbver == dbver, "no seed was planted for dbver " .. dbver);
+            DebindPrivate.InitDB();
+            local reported = shim.world.reportedErrors[1];
+            if (DebindPrivate.migrationFailed or _G.DebindVars.dbver ~= Constants.DB_VERSION) then
+                failed[#failed + 1] = dbver .. ": " .. tostring(reported);
+            end
+            TakeReportedErrors();
+        end
+        check(#failed == 0, "seeds that did not raise: " .. table.concat(failed, "; "));
     end);
 
     return T;

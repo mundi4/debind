@@ -10325,6 +10325,90 @@ RegisterTest("Stood down: the window refuses and the reset asks twice", {
     end,
 })
 
+-- The other way to stand down: the ladder failed (`TryMigrateDB`). `migration_spec` pins the data
+-- side and the login; `Public.lua` is not loaded there, so the window door is checked here. The
+-- kit only runs on a development build, where the door raises instead of showing the dialog.
+RegisterTest("Stood down after a failed ladder: the window refuses", {
+    description = "With the profile's migration failed, the window stays shut and a development build raises",
+    run = function()
+        local NAME = "Failed ladder"
+
+        local restore = DebindPrivate.migrationFailed
+        AddTeardown(function() DebindPrivate.migrationFailed = restore end)
+
+        DebindFrame:CloseWindow()
+        AddTeardown(function() DebindFrame:CloseWindow() end)
+
+        DebindPrivate.migrationFailed = true
+
+        if pcall(DebindPublic.ToggleUI, DebindPublic) then
+            return Fail(NAME, "a development build opened the door quietly. the failure has to be loud there")
+        end
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "the window opened on the empty profile StandDown handed out. nothing put in here is saved")
+        end
+
+        pcall(Debind_CompartmentFunc)
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "the window opened from the compartment button")
+        end
+
+        return Pass(NAME)
+    end,
+})
+
+-- **The failure dialog's buttons, dispatched by the client.** Which callback a button reaches is
+-- `StaticPopup_OnClick`'s decision and Escape is `StaticPopup_EscapePressed`'s, and neither runs
+-- headless. The two answers are stood in for, so keeping writes no hold and resetting wipes nothing.
+RegisterTest("Failed ladder dialog: each button does its own thing and Escape does neither", {
+    description = "Keep holds, Reset asks to confirm, Escape closes the dialog with neither",
+    run = function()
+        local NAME = "Failed ladder dialog"
+
+        local realHold, realWipe = DebindPrivate.HoldFailedMigration, DebindPrivate.WipeStoredProfile
+        AddTeardown(function()
+            DebindPrivate.HoldFailedMigration, DebindPrivate.WipeStoredProfile = realHold, realWipe
+            StaticPopup_Hide("DEBIND_MIGRATION_FAILED")
+            StaticPopup_Hide("DEBIND_MIGRATION_RESET")
+        end)
+        local held, wiped = 0, 0
+        DebindPrivate.HoldFailedMigration = function() held = held + 1 end
+        DebindPrivate.WipeStoredProfile = function() wiped = wiped + 1 end
+
+        local dialog = StaticPopup_Show("DEBIND_MIGRATION_FAILED")
+        if not dialog then
+            return Fail(NAME, "the dialog did not come up")
+        end
+        StaticPopup_EscapePressed()
+        if dialog:IsShown() or held ~= 0 or wiped ~= 0
+                or StaticPopup_FindVisible("DEBIND_MIGRATION_RESET") then
+            return Fail(NAME, "Escape did more than close it")
+        end
+
+        dialog = StaticPopup_Show("DEBIND_MIGRATION_FAILED")
+        dialog:GetButton(1):Click()
+        if held ~= 1 then
+            return Fail(NAME, "Keep did not hold")
+        end
+
+        dialog = StaticPopup_Show("DEBIND_MIGRATION_FAILED")
+        dialog:GetButton(2):Click()
+        local confirm = StaticPopup_FindVisible("DEBIND_MIGRATION_RESET")
+        if not confirm then
+            return Fail(NAME, "Reset did not ask to confirm. the second button may be dead")
+        end
+        if wiped ~= 0 then
+            return Fail(NAME, "Reset wiped before it was confirmed")
+        end
+        confirm:GetButton(1):Click()
+        if wiped ~= 1 then
+            return Fail(NAME, "the confirmation did not wipe")
+        end
+
+        return Pass(NAME)
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Across a /reload
 -----------------------------------------------------------

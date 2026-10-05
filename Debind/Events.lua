@@ -98,6 +98,14 @@ function Events.PLAYER_LOGIN()
         DebindPrivate.ReportNewerProfile();
         return;
     end
+    -- **A held profile is asked about only from the window**: keeping it is an answer this dialog
+    -- already got. A development build has the error itself, raised when the ladder failed.
+    if (DebindPrivate.migrationFailed) then
+        if (not DebindPrivate.migrationHeld and not DebindPrivate.Constants.DEBUG) then
+            StaticPopup_Show("DEBIND_MIGRATION_FAILED");
+        end
+        return;
+    end
 
     -- **Everything that happens here must be synchronous.** UpdateBindings below has to be up in
     -- the same tick as PLAYER_LOGIN for the addon to survive a reconnect into a boss encounter

@@ -1726,6 +1726,24 @@ L["NEWER_PROFILE_MESSAGE"] = "None of your keys work: what Debind saved is from 
 --
 -- The token itself is never translated: every command this addon has is English already.
 L["NEWER_PROFILE_RESET_PROMPT"] = "This wipes everything Debind saved, on every character of this account, and cannot be undone. To go ahead, type: |cnHIGHLIGHT_FONT_COLOR:/deb reset confirm|r"
+-- **This version could not bring the saved settings over to its own shape** (`TryMigrateDB`), and
+-- stood down without touching them. A dialog and not a chat line, unlike the newer-version case
+-- above: the client hides Lua errors by default, so without this the addon is simply dead with no
+-- word, and the reader has a choice to make that a typed command would hide.
+--
+-- **The settings are not called broken.** What failed is usually this version's code, and the data
+-- is fine; a different version reads it. That is also why keeping is the first answer and why it
+-- names the two ways forward.
+--
+-- **The buttons are not named in the text** (`writing-user-facing-text.md`); the sentences say what
+-- keeping and resetting do.
+L["MIGRATION_FAILED"] = "None of your keys work: Debind could not bring the settings it saved over to this version.|n|nKeeping them leaves them exactly as they are. If this looks like a bug in Debind, put back the last version that worked, or try a newer one. Until then Debind does nothing and does not ask again at login; opening it brings this back.|n|nResetting wipes them on every character of this account."
+L["MIGRATION_FAILED_KEEP"] = "Keep"
+L["MIGRATION_FAILED_RESET"] = "Reset"
+--- The second step, because the first is one click on a dialog that comes up at login. Says what
+--- goes and that it is final; "on every character" for the reason `NEWER_PROFILE_RESET_PROMPT`
+--- gives.
+L["MIGRATION_FAILED_RESET_CONFIRM"] = "This wipes everything Debind saved, on every character of this account, and cannot be undone."
 -- 창을 덮는 판. **"왜 이 화면을 보고 있나"를 먼저 답한다** - 사용자는 자기가 무언가를
 -- 껐다는 사실과 이 화면을 연결하지 못한다. 그다음이 "그게 뭔데"이고, 마지막이 부탁이다.
 -- 순서를 뒤집으면(부탁부터) 이유는 안 읽히고 [필요 없음]만 눌린다.
@@ -1749,6 +1767,12 @@ L["MIGRATION_DIALOG_DECLINE_ACCOUNT"] = "Start fresh on every character"
 -- 없는 둘뿐이므로, 다시 받는 길을 먼저 알려주고 창을 닫아도 된다고 말해준다.
 L["MIGRATION_DIALOG_TITLE_MISSING"] = "The addon that holds your old settings is not installed."
 L["MIGRATION_DIALOG_BODY_MISSING"] = "|cnHIGHLIGHT_FONT_COLOR:Debind Migration|r ships with Debind and holds the settings saved by 3.0 and earlier. It is not in your AddOns folder, so it was either removed or the install did not finish.|n|nDownloading Debind again puts it back, and your old settings are still on disk in the meantime - nothing has been lost.|n|nYou can close this window and reinstall. It will ask again next time you log in.|n|nOnly answer below if you would rather start over without those settings."
+-- **The companion loaded and read the old file, and this version failed to bring it over**
+-- (`TryMigrateDB`). The enable button is hidden for the reason the missing case hides it: it would
+-- reload into the same failure. Nothing of the old settings was added, the next login tries again,
+-- and what can change the outcome is another version, so that is what the body says.
+L["MIGRATION_DIALOG_TITLE_FAILED"] = "Your old settings could not be brought over."
+L["MIGRATION_DIALOG_BODY_FAILED"] = "This version of Debind read the settings saved by 3.0 and earlier, but could not bring them over. None of them were added, and the old file is left as it was.|n|nIf this looks like a bug in Debind, put back the last version that worked, or try a newer one. Every login tries again. You can close this window in the meantime.|n|nOnly answer below if you would rather start over without those settings."
 L["MIGRATION_DIALOG_TITLE_CHARACTER_ONLY"] ="This character's own bindings have not come across yet."
 L["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"] = "Your account bindings are already here - they moved when you logged in on another character, which is why most of your keys work.|n|nWhat is still missing is anything you set up for |cnHIGHLIGHT_FONT_COLOR:this character alone|r: its own layers and its custom targets. Those live in a separate file, and the companion addon |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r is the only thing that can read it. Right now it is switched off.|n|n|cnGREEN_FONT_COLOR:Turning it on is still the right answer.|r If it turns out you never made character-specific bindings here, nothing happens and you are done. If you did, you get them back. Either way it stops asking.|n|nUntil you answer, Debind will not open. Closing this window asks again next time you log in."
 L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r for every character and reloads your interface.|n|nThis character's settings are back as soon as the reload finishes. Your other characters keep theirs until you next log in on them - each one brings its own across on its own first login, whenever that is. Nothing else to do."

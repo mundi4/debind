@@ -2149,11 +2149,9 @@ end
 --- closed tip coming back or a spell the reader typed in going missing is a loss they would notice.
 --- **A newer version is dropped the same way**, since this build cannot read that shape and a
 --- downgrade costs the same position and filter.
-local function PrepareUIVars()
-    local vars = _G.DebindUIVars;
+local function PrepareUIVars(vars)
     if (type(vars) ~= "table") then
         vars = {};
-        _G.DebindUIVars = vars;
     end
     if (vars.version ~= Constants.UI_VARS_VERSION) then
         local tipsSeen = type(vars.tipsSeen) == "table" and vars.tipsSeen or nil;
@@ -2166,13 +2164,16 @@ local function PrepareUIVars()
     return vars;
 end
 
---- The stored profile was written by a build newer than this one. **Stand down without touching
---- one thing in it.**
+--- The stored profile cannot be read by this build. **Stand down without touching one thing in
+--- it.** Two ways to get here: it was written by a newer build (`profileIsNewer`), or raising it
+--- failed (`migrationFailed`).
 ---
 --- There is nothing to handle. `dbver` having gone up means the format changed, and the only code
 --- that knows what changed and how is the newer code; what an older build can do is not interpret
---- but step aside. Leave it alone and the file survives: WoW writes the global back out at logout
---- exactly as it came in, so as long as nobody edits that table it goes out untouched.
+--- but step aside. A ladder that failed is a bug in this build, and the fix is the next one, which
+--- has to find the profile as it was. Leave it alone and the file survives: WoW writes the global
+--- back out at logout exactly as it came in, so as long as nobody edits that table it goes out
+--- untouched.
 ---
 --- **The empty profile handed out here is a detached table, not `_G.DebindVars`.** That is the
 --- whole mechanism. The rest of the addon goes on reading `DebindPrivate.db` and `LayerArray` as
@@ -2193,6 +2194,47 @@ local function StandDown()
     DebindPrivate.LoadProfile();
 end
 
+--- Whether the reader chose to keep this profile as it is after this same build failed to raise it
+--- (`HoldFailedMigration`). Then the ladder is not run again: it would fail the same way, and the
+--- dialog the failure raises was already answered.
+---
+--- **Keyed on the version and the stored `dbver`**, so a different build (the fix, or the last one
+--- that worked) tries again with nothing for the reader to undo. A development build never holds:
+--- its version label does not move between edits, and a fix would stay held.
+local function IsMigrationHeld(dbver)
+    local hold = _G.DebindMigrationVars;
+    return not Constants.DEBUG and type(hold) == "table"
+        and hold.version == DebindPrivate.GetVersionLabel() and hold.dbver == dbver;
+end
+
+--- The failure dialog's [Keep]. What it records lives outside `DebindVars`, which stays exactly
+--- as it was (`StandDown`).
+function DebindPrivate.HoldFailedMigration()
+    _G.DebindMigrationVars = { version = DebindPrivate.GetVersionLabel(), dbver = _G.DebindVars.dbver };
+    DebindPrivate.migrationHeld = true;
+end
+
+--- Wipes everything this account saved and reloads. The answer to a profile this build cannot
+--- read, whether it is newer (`HandleNewerProfileReset`) or failed to raise (the failure dialog).
+---
+--- **`legacyNeeded = false` is not decoration, it is the difference between a reset and a fresh
+--- install.** An empty table is exactly what a first-ever login starts from, so without this the
+--- next login finds `legacyNeeded` unset, reads the pre-rename `DebounceVars` still on disk and
+--- imports the whole thing (`Legacy.lua`). Somebody who has just been told this cannot be undone
+--- would come back to a screen full of bindings and no way to tell where they came from.
+---
+--- Same value and same meaning as answering "I don't need them" in the window's overlay
+--- (`DeclineLegacyMigration`), and account wide for the same reason: the shared layers are.
+---
+--- Replacing `_G.DebindVars` at runtime is safe *here*, where it is not safe in general: nothing is
+--- holding that table. `DebindPrivate.db` and `LayerArray` are looking at the detached table
+--- `StandDown` built, and `PLAYER_LOGOUT` was never even registered (`Events.lua`).
+function DebindPrivate.WipeStoredProfile()
+    _G.DebindVars = { legacyNeeded = false };
+    _G.DebindMigrationVars = nil;
+    ReloadUI();
+end
+
 function DebindPrivate.InitDB()
     local db = _G.DebindVars;
     local profileIsNew = (db == nil);
@@ -2208,9 +2250,26 @@ function DebindPrivate.InitDB()
     -- and detaches a character entry whose content it does not recognise, and `db.dbver` stays high
     -- afterwards so nothing will ever migrate it back.
     DebindPrivate.profileIsNewer = (db.dbver ~= nil and db.dbver > Constants.DB_VERSION);
+    DebindPrivate.migrationFailed = false;
+    DebindPrivate.migrationHeld = false;
     if (DebindPrivate.profileIsNewer) then
         StandDown();
         return;
+    end
+
+    -- **An old profile is raised on a copy**, and the stored one is swapped for it only once the
+    -- whole ladder has run (`TryMigrateDB`). `DebindUIVars` goes along because a step writes there.
+    local uiVars = _G.DebindUIVars;
+    local raising = (db.dbver ~= nil and db.dbver < Constants.DB_VERSION);
+    if (raising and IsMigrationHeld(db.dbver)) then
+        DebindPrivate.migrationFailed = true;
+        DebindPrivate.migrationHeld = true;
+        StandDown();
+        return;
+    end
+    if (raising) then
+        db = CopyTable(db);
+        uiVars = type(uiVars) == "table" and CopyTable(uiVars) or nil;
     end
 
     db.dbver = db.dbver or Constants.DB_VERSION;
@@ -2235,8 +2294,18 @@ function DebindPrivate.InitDB()
     db.migrated = db.migrated or {};
 
     local guid = UnitGUID("player");
-    DebindPrivate.UIVars = PrepareUIVars();
-    DebindPrivate.MigrateDB(db, DebindPrivate.UIVars);
+    uiVars = PrepareUIVars(uiVars);
+    if (raising) then
+        if (not DebindPrivate.TryMigrateDB(db, uiVars)) then
+            DebindPrivate.migrationFailed = true;
+            StandDown();
+            return;
+        end
+        _G.DebindVars = db;
+        _G.DebindMigrationVars = nil;
+    end
+    _G.DebindUIVars = uiVars;
+    DebindPrivate.UIVars = uiVars;
 
     -- **Lazy creation.** Where there is no entry, state or layers we hand out a **detached** table
     -- rather than putting one in `characters`, `states` or `layers`. Attaching them is
@@ -2340,27 +2409,13 @@ end
 --- **This is the one path allowed to change the stored table while stood down.** What it deletes is
 --- the newer profile, and it is parked nowhere, so saying it cannot be undone is simply true. Not
 --- parking it is what the user chose by typing this.
----
---- Replacing `_G.DebindVars` at runtime is safe *here*, where it is not safe in general: nothing is
---- holding that table. `DebindPrivate.db` and `LayerArray` are looking at the detached table
---- `StandDown` built, and `PLAYER_LOGOUT` was never even registered (`Events.lua`).
 function DebindPrivate.HandleNewerProfileReset(chunks)
     if (not DebindPrivate.profileIsNewer or chunks[1] ~= "reset") then
         return false;
     end
 
     if (chunks[2] == "confirm") then
-        -- **`legacyNeeded = false` is not decoration, it is the difference between a reset and a
-        -- fresh install.** An empty table is exactly what a first-ever login starts from, so
-        -- without this the next login finds `legacyNeeded` unset, reads the pre-rename
-        -- `DebounceVars` still on disk and imports the whole thing (`Legacy.lua`). Somebody who has
-        -- just been told this cannot be undone would come back to a screen full of bindings and no
-        -- way to tell where they came from.
-        --
-        -- Same value and same meaning as answering "I don't need them" in the window's overlay
-        -- (`DeclineLegacyMigration`), and account wide for the same reason: the shared layers are.
-        _G.DebindVars = { legacyNeeded = false };
-        ReloadUI();
+        DebindPrivate.WipeStoredProfile();
         return true;
     end
 

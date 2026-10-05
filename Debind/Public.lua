@@ -81,6 +81,15 @@ function DebindPublic:ToggleUI()
 		DebindPrivate.ReportNewerProfile();
 		return
 	end
+	-- The same refusal after a ladder that failed (`TryMigrateDB`), with the failure dialog as the
+	-- answer, held or not: it is the one place to change that answer.
+	if (DebindPrivate.migrationFailed) then
+		if (DebindPrivate.Constants.DEBUG) then
+			error("Debind stood down: the profile failed to migrate at login. The first error has the stack.", 0);
+		end
+		StaticPopup_Show("DEBIND_MIGRATION_FAILED");
+		return
+	end
 	if (DebindFrame:IsShown()) then
 		DebindFrame:CloseWindow();
 		return

@@ -8,8 +8,11 @@ local band                = bit.band;
 --- Raises one layer's array of actions from `dbver` to `Constants.DB_VERSION`.
 ---
 --- **Every step opens with `dbver <= N and N < to`, never `== N`.** With `==`, a profile two
---- versions behind walks the first step and leaves. And each step has to be safe to run again on
---- data it has already finished.
+--- versions behind walks the first step and leaves. A profile never meets a step twice
+--- (`TryMigrateDB`), but a drawer entry can: the drawer raises its entries in place (`Vars` in
+--- `Import.lua`), and one stopped partway keeps its old `dbver`. So a step a payload reaches is
+--- written to be safe to run again on data it has already finished, except where its own comment
+--- says why it cannot be (the `"usual"` cleanup in `dbver <= 7`).
 ---
 --- **What comes through here is not only the profile.** A received payload's action array rides
 --- the same ladder (`BringPayloadForward` in `Export.lua`). That is what keeps one transformation
@@ -821,9 +824,9 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- `CleanUpDB` would take it.
         --
         -- **Not safe to run twice, unlike the rest of the ladder** (owner): a second pass takes a
-        -- rewritten `"usual"` with Normal Cast off for off and makes it skip. What can run a step
-        -- twice is a migration that fails partway, and that is the thing to fix
-        -- (`0-IDEAS.md`).
+        -- rewritten `"usual"` with Normal Cast off for off and makes it skip. A profile never meets
+        -- it twice (`TryMigrateDB`). A drawer entry still can, being raised in place, and that is
+        -- the thing to fix (`0-IDEAS.md`).
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             local casting = action.casting;
@@ -1380,3 +1383,21 @@ local function MigrateDB(db, uiVars)
     db.dbver = Constants.DB_VERSION;
 end
 DebindPrivate.MigrateDB = MigrateDB;
+
+--- `MigrateDB` that does not raise. Returns true when the ladder reached the end, or false and the
+--- error, which has already gone to `geterrorhandler()`.
+---
+--- **A caller hands in a table it can throw away**, and takes it only on true. `dbver` is stamped
+--- after every step has run, so a profile abandoned partway carries the old number over data some
+--- steps have already raised, and the next login walks those steps a second time. That is what
+--- this takes away: a profile is either raised whole or left as it was.
+---
+--- **The error handler and not `pcall`**, so the report carries the stack of the step that failed.
+function DebindPrivate.TryMigrateDB(db, uiVars)
+    return xpcall(function()
+        MigrateDB(db, uiVars);
+    end, function(err)
+        geterrorhandler()(err);
+        return err;
+    end);
+end
