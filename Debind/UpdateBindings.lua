@@ -748,12 +748,15 @@ local function ApplyBindingPlan(plan)
     end
 
     --- **Only an event this addon registered is unregistered.** The manager is Blizzard's and shared
-    --- with every addon, and one of them may have asked for the same event for its own drivers.
+    --- with every addon, and one of them may have asked for the same event for its own drivers. An
+    --- event already registered when we came to want it is somebody else's, and stays theirs.
     for i = 1, #plan.events do
         local entry = plan.events[i];
         if (entry.register) then
-            SecureStateDriverManager:RegisterEvent(entry.name);
-            _driverEventsOurs[entry.name] = true;
+            if (not SecureStateDriverManager:IsEventRegistered(entry.name)) then
+                SecureStateDriverManager:RegisterEvent(entry.name);
+                _driverEventsOurs[entry.name] = true;
+            end
         elseif (_driverEventsOurs[entry.name]) then
             SecureStateDriverManager:UnregisterEvent(entry.name);
             _driverEventsOurs[entry.name] = nil;
@@ -2191,38 +2194,14 @@ function DebindPrivate.IsSwitchTracked(name)
     return _switches[name] ~= nil;
 end
 
---- The order the client drops modifiers in when a chord has no binding of its own, and the order a
---- binding string spells them in (`handing-the-rest-of-a-key-to-the-game.md` §6-2, measured).
-local CHORD_MODIFIERS = { "ALT", "CTRL", "SHIFT", "META" };
-local IS_CHORD_MODIFIER = { ALT = true, CTRL = true, SHIFT = true, META = true };
-
---- A key's modifiers as a set, and the key under them. `CTRL--` is the minus key under CTRL.
-local function SplitChord(chord, mods)
-    wipe(mods);
-    local rest = chord;
-    while (true) do
-        local mod, after = strmatch(rest, "^(%u+)%-(.+)$");
-        if (not mod or not IS_CHORD_MODIFIER[mod]) then
-            return rest;
-        end
-        mods[mod] = true;
-        rest = after;
-    end
-end
+--- The order the client drops modifiers in when a chord has no binding of its own
+--- (`handing-the-rest-of-a-key-to-the-game.md` §6-2, measured), which is also the order a binding
+--- string spells them in (`Constants.MODIFIER_ORDER`).
+local CHORD_MODIFIERS = Constants.MODIFIER_ORDER;
+local SplitChord = DebindPrivate.SplitKeyModifiers;
+local JoinChord = DebindPrivate.JoinKeyModifiers;
 
 local _chordMods = {};
-
---- The binding string for these modifiers over this key, spelled the way the client spells it.
-local function JoinChord(mods, base)
-    local parts = {};
-    for _, mod in ipairs(CHORD_MODIFIERS) do
-        if (mods[mod]) then
-            parts[#parts + 1] = mod;
-        end
-    end
-    parts[#parts + 1] = base;
-    return table.concat(parts, "-");
-end
 
 --- `key` with `mod` added, or nil when it already holds it.
 local function AddModifier(key, mod)
@@ -2234,33 +2213,44 @@ local function AddModifier(key, mod)
     return JoinChord(_chordMods, base);
 end
 
---- The bare key of ours a chord is bound to, false for one of the game's, nil for none. `ours` is
---- the set of bare keys bound this rebuild; `yield` says whether the game's own set counts.
+--- The bare key of ours a chord is bound to, false for somebody else's, nil for none. `ours` is the
+--- set of bare keys bound this rebuild; `yield` says whether the game's side counts.
+---
+--- **The game's side is the saved set and every override in force but ours.** A bar or
+--- click-casting addon routes its keys through overrides with nothing saved behind them, and a press
+--- of such a chord went to it before the chords were bound. This runs after the rebuild has taken
+--- our own overrides off (`ClearPreviousBindings`), so what is left there is someone else's.
 local function DirectLanding(chord, ours, yield)
     if (ours[chord]) then
         return chord;
     end
-    if (yield and GetBindingAction(chord) ~= "") then
+    if (yield and GetBindingAction(chord, true) ~= "") then
         return false;
     end
     return nil;
 end
 
---- **Where a press of `chord` lands with nothing but the bare keys we bind and the game's own
---- set**, which is where every press landed before the chords were bound. The client takes the
---- chord's own binding, and failing that drops one modifier at a time, ALT, then CTRL, then SHIFT
---- (measured, §6-2). Dropping two is only ever asked of a chord we made from a key with both cast
---- modifiers, and both single drops are asked first there, so the order past one drop is the
---- order of the first.
-local function LandingOf(chord, ours, yield)
+--- `LandingOf`'s scratch, one pair per depth it recurses to.
+local _landingMods, _landingDropped = {}, {};
+
+--- **Where a press of `chord` lands with nothing but the bare keys we bind and the game's side**,
+--- which is where every press landed before the chords were bound. The client takes the chord's own
+--- binding, and failing that drops one modifier at a time, ALT, then CTRL, then SHIFT (measured,
+--- §6-2). Dropping two is only ever asked of a chord we made from a key with both cast modifiers,
+--- and both single drops are asked first there, so the order past one drop is the order of the
+--- first.
+local function LandingOf(chord, ours, yield, depth)
     local direct = DirectLanding(chord, ours, yield);
     if (direct ~= nil) then
         return direct;
     end
 
-    local mods = {};
+    depth = depth or 1;
+    local mods = _landingMods[depth] or {};
+    local dropped = _landingDropped[depth] or {};
+    _landingMods[depth], _landingDropped[depth] = mods, dropped;
+    wipe(dropped);
     local base = SplitChord(chord, mods);
-    local dropped = {};
     for _, mod in ipairs(CHORD_MODIFIERS) do
         if (mods[mod]) then
             mods[mod] = nil;
@@ -2275,12 +2265,26 @@ local function LandingOf(chord, ours, yield)
         end
     end
     for _, smaller in ipairs(dropped) do
-        local landing = LandingOf(smaller, ours, yield);
+        local landing = LandingOf(smaller, ours, yield, depth + 1);
         if (landing ~= nil) then
             return landing;
         end
     end
     return nil;
+end
+
+--- Every chord this rebuild weighed for a self or focus tier, and whether one of them was left
+--- because somebody else holds it. What the override hooks ask (`Events.lua`): a call on anything
+--- else cannot move a chord of ours.
+local _chordCandidates = {};
+local _chordsYielded = false;
+
+function DebindPrivate.IsCastChordCandidate(key)
+    return _chordCandidates[key] == true;
+end
+
+function DebindPrivate.CastChordsYielded()
+    return _chordsYielded;
 end
 
 --- Does the game keep its own chords over our cast key ones? On unless the reader turned it off
@@ -2296,24 +2300,30 @@ end
 --- the game's own binding, another of our keys, a chord of one -- went there before and still does.
 --- The tier is the one the press used to pick: the self modifier among the ones held on top wins
 --- over the focus one (`implementing-focus-and-self-cast.md` §3-3).
+local _castChords3, _ownMods = {}, {};
+
 local function CastChordsOf(key, ours, selfMod, focusMod, yield, out)
     wipe(out);
     local selfChord = selfMod and AddModifier(key, selfMod);
-    local chords = {
-        selfChord,
-        focusMod and AddModifier(key, focusMod),
-        selfChord and focusMod and AddModifier(selfChord, focusMod),
-    };
+    local chords = _castChords3;
+    chords[1] = selfChord;
+    chords[2] = focusMod and AddModifier(key, focusMod);
+    chords[3] = selfChord and focusMod and AddModifier(selfChord, focusMod);
     for i = 1, 3 do
         local chord = chords[i];
-        if (chord and LandingOf(chord, ours, yield) == key) then
-            SplitChord(chord, _chordMods);
-            local own = {};
-            SplitChord(key, own);
-            if (selfMod and _chordMods[selfMod] and not own[selfMod]) then
-                out[chord] = Constants.CASTMOD_SELF;
-            elseif (focusMod and _chordMods[focusMod] and not own[focusMod]) then
-                out[chord] = Constants.CASTMOD_FOCUS;
+        if (chord) then
+            _chordCandidates[chord] = true;
+            local landing = LandingOf(chord, ours, yield);
+            if (landing == false) then
+                _chordsYielded = true;
+            elseif (landing == key) then
+                SplitChord(chord, _chordMods);
+                SplitChord(key, _ownMods);
+                if (selfMod and _chordMods[selfMod] and not _ownMods[selfMod]) then
+                    out[chord] = Constants.CASTMOD_SELF;
+                elseif (focusMod and _chordMods[focusMod] and not _ownMods[focusMod]) then
+                    out[chord] = Constants.CASTMOD_FOCUS;
+                end
             end
         end
     end
@@ -2335,6 +2345,7 @@ end
 
 local _boundBare = {};
 local _castChords = {};
+local _tierItems = {};
 
 --- **Each key that holds a tail, and each chord made from one, by its binding string -> its judgment
 --- item** (`Judgment.lua`). A key with no tail has none: it is ours in every state, and so are its
@@ -2490,8 +2501,10 @@ local function EmitJudgmentItems(items)
             end
         end
         keyBundle[key] = n;
+        -- A chord's row writes at the priority its chord went on at.
         appendLine([[j=newtable() j.key=%1$q j.slot=BoundKeys[%1$q] j.bound="ours" j.bundle=JudgeBundles[%2$d] ]]
-            .. [[JudgeByKey[%1$q]=j tinsert(JudgeBundles[%2$d].keys,j)]], key, n);
+            .. [[j.priority=%3$s JudgeByKey[%1$q]=j tinsert(JudgeBundles[%2$d].keys,j)]], key, n,
+            tostring(item.base == nil));
     end
 end
 
@@ -2658,11 +2671,14 @@ local function BuildJudgeSnippet()
                 add("cell = 2 ^ (%s or 0)", state);
             end
         elseif (kind == "known") then
+            -- Through the probes the press asks through. The question goes in a local first, since
+            -- a probe's arguments end at the first `)` and a spell name can hold one.
+            add("local asked = %q", column.arg);
             if (column.knownID) then
-                add("if (SecureCmdOptionParse(%q) or FindSpellBookSlotBySpellID(%d)) then", column.arg,
+                add("if (PROBE.SecureCmdOptionParse(asked) or PROBE.FindSpellBookSlotBySpellID(%d)) then",
                     column.knownID);
             else
-                add("if (SecureCmdOptionParse(%q)) then", column.arg);
+                add("if (PROBE.SecureCmdOptionParse(asked)) then");
             end
             add("cell = %d", TRUE);
             add("else");
@@ -2977,12 +2993,16 @@ function UpdateBindingsMap()
     -- 2-3). After the loop, because where a chord lands depends on every bare key being known.
     local selfMod = CastModifier(DebindPrivate.SelfCastEnabled(), "SELFCAST");
     local focusMod = CastModifier(DebindPrivate.FocusCastEnabled(), "FOCUSCAST");
+    wipe(_chordCandidates);
+    _chordsYielded = false;
     if (selfMod or focusMod) then
         local yield = DebindPrivate.ChordsYieldToGame();
         for _, key in ipairs(sortedKeys(_boundBare, _sortedA)) do
             CastChordsOf(key, _boundBare, selfMod, focusMod, yield, _castChords);
             local first = true;
             local selfNamed, focusNamed = false, false;
+            -- Two chords can land on one tier, and its item is the same for both.
+            wipe(_tierItems);
             for _, chord in ipairs(sortedKeys(_castChords, _sortedB)) do
                 local tier = _castChords[chord];
                 local button = format("%s%s#%d", Constants.CLICKTIME_BUTTON_PREFIX, key, tier);
@@ -3007,10 +3027,18 @@ function UpdateBindingsMap()
                         focusNamed = true;
                     end
                 end
-                appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", chord, button);
-                appendLine("c=newtable() c.clickButton=%q c.base=%q BoundKeys[%q]=c", button, key, chord);
+                -- **At priority false**, where the key itself is at true. A chord is ours only because
+                -- a cast key made it, and priority decides between two owners on one key whatever
+                -- order they were set in (§6, measured): another addon's override at true wins over
+                -- it even when the loop sets it again later.
+                appendLine("self:SetBindingClick(false,%q,DefaultClickFrameName,%q)", chord, button);
+                appendLine("c=newtable() c.clickButton=%q c.base=%q c.priority=false BoundKeys[%q]=c",
+                    button, key, chord);
                 if (_chordEntries[key]) then
-                    judgmentItems[chord] = DebindPrivate.Judgment.Build(_chordEntries[key][tier], key);
+                    local item = _tierItems[tier]
+                        or DebindPrivate.Judgment.Build(_chordEntries[key][tier], key);
+                    _tierItems[tier] = item;
+                    judgmentItems[chord] = item;
                 end
             end
         end

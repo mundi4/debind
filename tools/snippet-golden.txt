@@ -440,18 +440,22 @@ DelegateFrameNames[frame] = frame:GetName()
 			bindings.givenBack = want
 			local row = JudgeByKey[key]
 			local judged = row and row.bundle.want
+			local priority = true
+			if (bindings.priority == false) then
+				priority = false
+			end
 			if (want) then
 				self:ClearBinding(key)
 				if (row) then
 					row.bound = "release"
 				end
 			elseif (not row or judged == "ours") then
-				self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickButton)
+				self:SetBindingClick(priority, key, DefaultClickFrameName, bindings.clickButton)
 				if (row) then
 					row.bound = "ours"
 				end
 			elseif (judged ~= "release") then
-				self:SetBinding(true, key, judged)
+				self:SetBinding(priority, key, judged)
 				row.bound = judged
 			end
 		end

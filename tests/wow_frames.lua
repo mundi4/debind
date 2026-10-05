@@ -462,6 +462,18 @@ function M.install()
         record("SetOverrideBinding", label(frame), key, command, frame);
         overrides[key] = { owner = frame, command = command };
     end
+    --- **The other three are another addon's, never ours.** They are here because the addon hooks
+    --- them (`Events.lua`, an override on a chord); what they answer through `GetBindingAction` is
+    --- the client's spelling of each.
+    _G.SetOverrideBindingSpell = function(frame, priority, key, spell)
+        overrides[key] = { owner = frame, command = "SPELL " .. tostring(spell) };
+    end
+    _G.SetOverrideBindingItem = function(frame, priority, key, item)
+        overrides[key] = { owner = frame, command = "ITEM " .. tostring(item) };
+    end
+    _G.SetOverrideBindingMacro = function(frame, priority, key, macro)
+        overrides[key] = { owner = frame, command = "MACRO " .. tostring(macro) };
+    end
 
     --- `hooksecurefunc` on a table method. The addon uses it on frames (`Debind.lua` logs every
     --- attribute a DEBUG build stamps), so the shell wires the post-hook the same way the game

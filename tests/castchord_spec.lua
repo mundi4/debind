@@ -160,6 +160,19 @@ return function(DebindPrivate, _, ctx)
         check(Press("F1", "FOCUSCAST") == nil, "the press reached us");
     end);
 
+    -- **Another addon's override is the game's side too.** A bar or click-casting addon puts its keys
+    -- on overrides of its own with nothing in the saved set behind them, and a press of that chord
+    -- went to it before the chords were bound. Asked of the saved set alone, the chord read as free
+    -- and was taken at priority.
+    test("N7a another addon's override on a chord is left to it by default", function()
+        local other = frames.newFrame("Frame");
+        _G.SetOverrideBindingClick(other, false, "ALT-F1", "OtherButton");
+        Bind({ action({ value = 774, key = "F1" }) });
+        local bound = BoundTo("ALT-F1");
+        _G.ClearOverrideBindings(other);
+        check(bound == "CLICK OtherButton:LeftButton", "ALT-F1 is bound to " .. bound);
+    end);
+
     test("N8 the game's own chord is taken when the reader says so", function()
         Bind({ action({ value = 774, key = "F1" }) }, { castKeyChordsOverGame = true },
             { { action = "TOGGLEWORLDMAP", keys = { "ALT-F1" } } });
@@ -225,8 +238,43 @@ return function(DebindPrivate, _, ctx)
         shim.world.modifiedClicks.SELFCAST = "CTRL";
     end);
 
+    --- Fires the login the way the client does, once per spec, so the handlers it registers and the
+    --- hooks it installs are standing.
+    local loggedIn = false;
+    local function LogIn()
+        if (loggedIn) then
+            return;
+        end
+        loggedIn = true;
+        DebindPrivate.ShowMigrationDialogIfPending =
+            DebindPrivate.ShowMigrationDialogIfPending or function() end;
+        local mark = frames.mark();
+        check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+        frames.drainTimers();
+        interp:replay(frames.since(mark));
+    end
+
+    --- Did anything since `mark` take the driver's overrides off, which a rebuild always does first.
+    local function Rebuilt(mark)
+        for _, entry in ipairs(frames.since(mark)) do
+            if (entry.kind == "ClearOverrideBindings" and entry.frame == DebindPrivate.BindingDriver) then
+                return true;
+            end
+        end
+        return false;
+    end
+
+    -- **Not before the login.** Another addon can move a cast key while its own files load, and a
+    -- rebuild queued then runs before the profile is up.
+    test("a cast key moved before the login queues no rebuild", function()
+        frames.drainTimers();
+        _G.SetModifiedClick("FOCUSCAST", "ALT");
+        check(#frames.timers == 0, "a rebuild was queued before the login");
+    end);
+
     test("N16 moving a cast key in the options moves its chords", function()
         Bind({ action({ value = 774, key = "F1" }) });
+        LogIn();
         check(Ours("ALT-F1"), "ALT-F1 is not ours to begin with");
         local mark = frames.mark();
         _G.SetModifiedClick("FOCUSCAST", "SHIFT");
@@ -245,16 +293,11 @@ return function(DebindPrivate, _, ctx)
     -- **The login is fired first**, since `UPDATE_BINDINGS` is registered in its handler and an
     -- event nobody listens for would measure nothing.
     test("N17 switching the binding set moves the chords", function()
-        DebindPrivate.ShowMigrationDialogIfPending =
-            DebindPrivate.ShowMigrationDialogIfPending or function() end;
         Bind({ action({ value = 774, key = "F1" }) });
-        local mark = frames.mark();
-        check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
-        frames.drainTimers();
-        interp:replay(frames.since(mark));
+        LogIn();
         check(Ours("ALT-F1"), "ALT-F1 is not ours to begin with");
 
-        mark = frames.mark();
+        local mark = frames.mark();
         shim.world.modifiedClicks.FOCUSCAST = "SHIFT";
         local heard = frames.fireEvent("UPDATE_BINDINGS");
         frames.drainTimers();
@@ -265,6 +308,37 @@ return function(DebindPrivate, _, ctx)
         check(heard > 0, "nothing is listening for UPDATE_BINDINGS");
         check(altF1:sub(1, 6) ~= "CLICK ", "ALT-F1 is still " .. altF1);
         check(shiftF1:sub(1, 6) == "CLICK ", "SHIFT-F1 is bound to " .. shiftF1);
+    end);
+
+    -- **An addon putting an override on one of our chords after the rebuild gets a rebuild**, which
+    -- then leaves the chord to it (N7a). Overrides move with no event; the call is the signal.
+    test("an override another addon puts on a chord later is answered with a rebuild", function()
+        Bind({ action({ value = 774, key = "F1" }) });
+        LogIn();
+        check(Ours("ALT-F1"), "ALT-F1 is not ours to begin with");
+
+        local other = frames.newFrame("Frame");
+        local mark = frames.mark();
+        _G.SetOverrideBindingClick(other, false, "ALT-F1", "OtherButton");
+        frames.drainTimers();
+        interp:replay(frames.since(mark));
+        local rebuilt, bound = Rebuilt(mark), BoundTo("ALT-F1");
+        _G.ClearOverrideBindings(other);
+        frames.drainTimers();
+        check(rebuilt, "no rebuild followed the other addon's override");
+        check(bound == "CLICK OtherButton:LeftButton", "ALT-F1 is bound to " .. bound);
+    end);
+
+    -- **Our own overrides do not count**, or the rebuild's own `ClearOverrideBindings` would queue
+    -- the next rebuild and the addon would never stop rebuilding. A chord is left to the game's
+    -- binding here, which is what makes a cleared override worth a rebuild at all.
+    test("a rebuild's own overrides queue no rebuild", function()
+        Bind({ action({ value = 774, key = "F1" }) }, nil,
+            { { action = "TOGGLEWORLDMAP", keys = { "ALT-F1" } } });
+        LogIn();
+        frames.drainTimers();
+        check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+        check(#frames.timers == 0, "a rebuild queued another");
     end);
 
     ---------------------------------------------------------------------------

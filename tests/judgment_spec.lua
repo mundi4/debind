@@ -403,6 +403,25 @@ return function(DebindPrivate, _, ctx)
         check(next(DebindPrivate.JudgmentItems) == nil, "an item was built");
     end);
 
+    -- **A tier's item is built once however many chords land on it.** With self on CTRL and focus on
+    -- ALT, CTRL-F1 and ALT-CTRL-F1 are both the self tier; building it for each is the same box
+    -- subtraction twice, for a bundle the emission folds into one anyway.
+    test("each tier's item is built once", function()
+        local build, calls = Judgment.Build, 0;
+        Judgment.Build = function(...)
+            calls = calls + 1;
+            return build(...);
+        end
+        local ok, err = pcall(Bind, {
+            action({ conditions = { combat = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        Judgment.Build = build;
+        check(ok, tostring(err));
+        check(DebindPrivate.JudgmentItems["ALT-CTRL-F1"], "ALT-CTRL-F1 has no item, bad premise");
+        check(calls == 3, "built " .. calls .. " items for the bare key and two tiers");
+    end);
+
     test("B1 B2 an unused under a conditional action", function()
         Bind({ action({ conditions = { combat = true } }), action({ type = Constants.UNUSED }) });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);

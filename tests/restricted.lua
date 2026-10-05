@@ -224,15 +224,19 @@ end
 ---
 --- `owner` is the driver, because the header the restricted call runs on is what owns the override
 --- in game. A rebuild's `ClearOverrideBindings(BindingDriver)` is what takes these back off.
+--- `priority` is kept because it decides between two owners on one key, whatever order they were
+--- set in (`handing-the-rest-of-a-key-to-the-game.md` §6, measured); this table holds one entry per
+--- key and cannot stack them, so a spec reads the value we handed the client instead.
 function handleMethods:SetBindingClick(priority, key, buttonName, mouseButton)
     self.__interp.bindings[key] = {
         owner = self.__interp.driver, buttonName = buttonName, mouseButton = mouseButton,
+        priority = priority,
     };
     self.__interp.writes[#self.__interp.writes + 1] = key;
 end
 
 function handleMethods:SetBinding(priority, key, command)
-    self.__interp.bindings[key] = { owner = self.__interp.driver, command = command };
+    self.__interp.bindings[key] = { owner = self.__interp.driver, command = command, priority = priority };
     self.__interp.writes[#self.__interp.writes + 1] = key;
 end
 

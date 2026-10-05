@@ -42,6 +42,50 @@ local function RefreshIdentity()
     entry.lastSeen  = time();
 end
 
+--- **What moves the self and focus chords without an event**, hooked once, at the login, beside the
+--- events that rebuild: a rebuild queued before the profile is up has nothing to build from.
+---
+--- **The cast key modifiers move with no event at all**, not even when the options window closes
+--- (`handing-the-rest-of-a-key-to-the-game.md` §6-1, measured). The window writes them through
+--- `SetModifiedClick`, and so does anything else that changes them. Switching between the account
+--- and the character binding set is the one other way they move, and that one raises
+--- `UPDATE_BINDINGS`.
+---
+--- **Another addon's override on a chord is that addon's**, and a chord is bound only where nothing
+--- else holds it (`CastChordsOf`). Overrides move with no event either. The restricted environment's
+--- own `SetBindingClick` and friends reach the client through copies `RestrictedFrames.lua` took
+--- at load and never come through here, which is the part a rebuild only catches the next time it
+--- runs. Our own driver's are left out, or a rebuild's `ClearOverrideBindings` would queue the next.
+local bindingSourcesHooked = false;
+local function HookBindingSources()
+    if (bindingSourcesHooked) then
+        return;
+    end
+    bindingSourcesHooked = true;
+
+    hooksecurefunc("SetModifiedClick", function(action)
+        if (action == "SELFCAST" or action == "FOCUSCAST") then
+            DebindPrivate.QueueUpdateBindings();
+        end
+    end);
+
+    local function OnOverride(owner, _, key)
+        if (owner ~= DebindPrivate.BindingDriver and DebindPrivate.IsCastChordCandidate(key)) then
+            DebindPrivate.QueueUpdateBindings();
+        end
+    end
+    hooksecurefunc("SetOverrideBinding", OnOverride);
+    hooksecurefunc("SetOverrideBindingClick", OnOverride);
+    hooksecurefunc("SetOverrideBindingSpell", OnOverride);
+    hooksecurefunc("SetOverrideBindingItem", OnOverride);
+    hooksecurefunc("SetOverrideBindingMacro", OnOverride);
+    hooksecurefunc("ClearOverrideBindings", function(owner)
+        if (owner ~= DebindPrivate.BindingDriver and DebindPrivate.CastChordsYielded()) then
+            DebindPrivate.QueueUpdateBindings();
+        end
+    end);
+end
+
 function Events.PLAYER_LOGIN()
     -- **Stood down, so this is where the addon ends.** It returns above the
     -- `RegisterEvent` lines below, and the only two registered at file scope are `ADDON_LOADED`
@@ -82,6 +126,7 @@ function Events.PLAYER_LOGIN()
     EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
     EventFrame:RegisterEvent("PLAYER_LEVEL_UP");
     EventFrame:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE");
+    HookBindingSources();
     DebindPrivate.ApplyOptions();
     DebindPrivate.UpdateBlizzardFrames(true);
 
@@ -295,16 +340,6 @@ function Events.CVAR_UPDATE(_, name, value)
         DebindPrivate.ApplyOptions("empowerTapControls");
     end
 end
-
---- **The cast key modifiers move with no event at all**, not even when the options window closes
---- (`handing-the-rest-of-a-key-to-the-game.md` §6-1, measured). The window writes them through this
---- global, and so does anything else that changes them. Switching between the account and the
---- character binding set is the one other way they move, and that one raises `UPDATE_BINDINGS`.
-hooksecurefunc("SetModifiedClick", function(action)
-    if (action == "SELFCAST" or action == "FOCUSCAST") then
-        DebindPrivate.QueueUpdateBindings();
-    end
-end);
 
 EventFrame:RegisterEvent("ADDON_LOADED");
 EventFrame:RegisterEvent("PLAYER_LOGIN");

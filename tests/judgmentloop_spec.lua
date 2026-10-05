@@ -198,6 +198,18 @@ return function(DebindPrivate)
         check(IsOurs("F1"), "the switch turning true on the beat did not take F1");
     end);
 
+    -- **The manager is Blizzard's and every addon's.** An event somebody else had already asked it
+    -- for is not ours to take back when our columns stop reading it, or their drivers stop waking.
+    test("an event another addon registered on the manager is left registered", function()
+        local manager = _G.SecureStateDriverManager;
+        manager:RegisterEvent("ZONE_CHANGED");
+        Bind({ action({ conditions = { indoors = true } }), action({ type = Constants.UNUSED }) });
+        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.UNUSED }) });
+        local still = manager:IsEventRegistered("ZONE_CHANGED");
+        manager:UnregisterEvent("ZONE_CHANGED");
+        check(still, "the rebuild unregistered an event it never registered");
+    end);
+
     ---------------------------------------------------------------------------
     -- The chords (2-3)
     ---------------------------------------------------------------------------
@@ -224,6 +236,32 @@ return function(DebindPrivate)
         interp:beat();
         check(IsOurs("F1"), "B10: F1 is not ours with a target");
         check(IsOurs("ALT-F1"), "B10: ALT-F1 was let go while F1 is ours");
+    end);
+
+    -- **A chord goes on at priority false, its key at true** (2-4). Priority decides between two
+    -- owners on one key whatever order they were set in (§6, measured), so another addon's override
+    -- at true wins over the chord even when the loop sets the chord again after it. Asked after the
+    -- rebuild, after a beat that rewrites the chord, and after a key handed to the game comes back.
+    test("the chords are bound at priority false and the keys at true", function()
+        Bind({
+            action({ key = "1", conditions = { combat = true } }),
+            action({ key = "1", type = Constants.UNUSED }),
+            action({ key = "F3" }),
+        }, { giveBackOnReplacedBar = true }, { { action = "ACTIONBUTTON1", keys = { "1" } } });
+        local function Priority(key)
+            local entry = interp.bindings[key];
+            return entry and entry.priority;
+        end
+        check(Priority("F3") == true and Priority("ALT-F3") == false,
+            "after the rebuild F3 " .. tostring(Priority("F3")) .. ", ALT-F3 " .. tostring(Priority("ALT-F3")));
+        interp.state.combat = true;
+        interp:beat();
+        check(Priority("1") == true and Priority("ALT-1") == false,
+            "after a beat 1 " .. tostring(Priority("1")) .. ", ALT-1 " .. tostring(Priority("ALT-1")));
+        interp.driverHandle:SetAttribute("state-giveback", "v");
+        interp.driverHandle:SetAttribute("state-giveback", nil);
+        check(Priority("1") == true and Priority("ALT-1") == false,
+            "after coming back 1 " .. tostring(Priority("1")) .. ", ALT-1 " .. tostring(Priority("ALT-1")));
     end);
 
     ---------------------------------------------------------------------------

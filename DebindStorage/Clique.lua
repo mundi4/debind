@@ -14,31 +14,13 @@ local luatype       = type;
 
 local SPEC_KEYS = { "spec1", "spec2", "spec3", "spec4", "spec5" };
 
---- Our modifier order, the one the capture dialog writes (`DebindUI.lua`'s chord builder). Clique
---- writes `META-ALT-CTRL-SHIFT-`.
-local MODIFIER_ORDER = { "ALT", "CTRL", "SHIFT", "META" };
-
---- The key in our spelling, and whether it is a mouse button and whether META is held.
+--- The key in our spelling (`Constants.MODIFIER_ORDER`; Clique writes `META-ALT-CTRL-SHIFT-`), and
+--- whether it is a mouse button and whether META is held.
 local function TranslateKey(key)
     local modifiers = {};
-    local rest = key;
-    while (true) do
-        local modifier, after = rest:match("^(%u+)%-(.+)$");
-        if (not modifier or not (modifier == "ALT" or modifier == "CTRL" or modifier == "SHIFT"
-                or modifier == "META")) then
-            break;
-        end
-        modifiers[modifier] = true;
-        rest = after;
-    end
-
-    local prefix = "";
-    for _, modifier in ipairs(MODIFIER_ORDER) do
-        if (modifiers[modifier]) then
-            prefix = prefix .. modifier .. "-";
-        end
-    end
-    return prefix .. rest, rest:match("^BUTTON%d+$") ~= nil, modifiers.META == true, prefix == "";
+    local rest = DebindPrivate.SplitKeyModifiers(key, modifiers);
+    local translated = DebindPrivate.JoinKeyModifiers(modifiers, rest);
+    return translated, rest:match("^BUTTON%d+$") ~= nil, modifiers.META == true, translated == rest;
 end
 
 --- Clique's two starting bindings, which every new profile gets (`OnNewProfile`). Ours does the

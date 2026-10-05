@@ -736,18 +736,22 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 			bindings.givenBack = want
 			local row = JudgeByKey[key]
 			local judged = row and row.bundle.want
+			local priority = true
+			if (bindings.priority == false) then
+				priority = false
+			end
 			if (want) then
 				self:ClearBinding(key)
 				if (row) then
 					row.bound = "release"
 				end
 			elseif (not row or judged == "ours") then
-				self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickButton)
+				self:SetBindingClick(priority, key, DefaultClickFrameName, bindings.clickButton)
 				if (row) then
 					row.bound = "ours"
 				end
 			elseif (judged ~= "release") then
-				self:SetBinding(true, key, judged)
+				self:SetBinding(priority, key, judged)
 				row.bound = judged
 			end
 		end
@@ -812,11 +816,11 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 					if (row.bound ~= want and not row.slot.givenBack) then
 						row.bound = want
 						if (want == "ours") then
-							self:SetBindingClick(true, row.key, DefaultClickFrameName, row.slot.clickButton)
+							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
 						elseif (want == "release") then
 							self:ClearBinding(row.key)
 						else
-							self:SetBinding(true, row.key, want)
+							self:SetBinding(row.priority, row.key, want)
 						end
 					end
 				end

@@ -823,6 +823,38 @@ for i = 1, 5 do
     MOUSE_BUTTONS["BUTTON" .. i] = i;
 end
 
+--- **The order a binding string spells its modifiers in**, the one the capture dialog writes
+--- (`DebindUI.lua`'s chord builder) and the one the client drops them in when a chord has no
+--- binding of its own (`handing-the-rest-of-a-key-to-the-game.md` §6-2, measured).
+Constants.MODIFIER_ORDER = { "ALT", "CTRL", "SHIFT", "META" };
+local IS_KEY_MODIFIER = { ALT = true, CTRL = true, SHIFT = true, META = true };
+
+--- A key's modifiers into `mods` as a set, and the key under them. `CTRL--` is the minus key under
+--- CTRL.
+function DebindPrivate.SplitKeyModifiers(key, mods)
+    wipe(mods);
+    local rest = key;
+    while (true) do
+        local mod, after = rest:match("^(%u+)%-(.+)$");
+        if (not mod or not IS_KEY_MODIFIER[mod]) then
+            return rest;
+        end
+        mods[mod] = true;
+        rest = after;
+    end
+end
+
+--- The binding string for the modifiers set in `mods` over `base`, in `MODIFIER_ORDER`.
+function DebindPrivate.JoinKeyModifiers(mods, base)
+    local prefix = "";
+    for _, mod in ipairs(Constants.MODIFIER_ORDER) do
+        if (mods[mod]) then
+            prefix = prefix .. mod .. "-";
+        end
+    end
+    return prefix .. base;
+end
+
 --- 수식어 접두사를 **와우의 정규 순서**(`ALT-CTRL-SHIFT-`)로 다시 쓴다.
 ---
 --- 저장된 키에서 떼어낸 접두사는 순서가 뒤집혀 있을 수 있다(손으로 고친 프로필, 가져온

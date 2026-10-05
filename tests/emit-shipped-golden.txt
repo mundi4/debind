@@ -1796,101 +1796,101 @@ Execute <Frame#2>
   | bindings=ClickTimeKeys["@CTRL-F1"]
   | ClickTimeKeys["@CTRL-F1#4"]=bindings
   | ClickTimeTiers["@CTRL-F1#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F1",DefaultClickFrameName,"@CTRL-F1#4")
-  | c=newtable() c.clickButton="@CTRL-F1#4" c.base="CTRL-F1" BoundKeys["ALT-CTRL-F1"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F1",DefaultClickFrameName,"@CTRL-F1#4")
+  | c=newtable() c.clickButton="@CTRL-F1#4" c.base="CTRL-F1" c.priority=false BoundKeys["ALT-CTRL-F1"]=c
   | bindings=ClickTimeKeys["@CTRL-F10"]
   | ClickTimeKeys["@CTRL-F10#4"]=bindings
   | ClickTimeTiers["@CTRL-F10#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F10",DefaultClickFrameName,"@CTRL-F10#4")
-  | c=newtable() c.clickButton="@CTRL-F10#4" c.base="CTRL-F10" BoundKeys["ALT-CTRL-F10"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F10",DefaultClickFrameName,"@CTRL-F10#4")
+  | c=newtable() c.clickButton="@CTRL-F10#4" c.base="CTRL-F10" c.priority=false BoundKeys["ALT-CTRL-F10"]=c
   | bindings=ClickTimeKeys["@CTRL-F11"]
   | ClickTimeKeys["@CTRL-F11#4"]=bindings
   | ClickTimeTiers["@CTRL-F11#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F11",DefaultClickFrameName,"@CTRL-F11#4")
-  | c=newtable() c.clickButton="@CTRL-F11#4" c.base="CTRL-F11" BoundKeys["ALT-CTRL-F11"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F11",DefaultClickFrameName,"@CTRL-F11#4")
+  | c=newtable() c.clickButton="@CTRL-F11#4" c.base="CTRL-F11" c.priority=false BoundKeys["ALT-CTRL-F11"]=c
   | bindings=ClickTimeKeys["@CTRL-F12"]
   | ClickTimeKeys["@CTRL-F12#4"]=bindings
   | ClickTimeTiers["@CTRL-F12#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F12",DefaultClickFrameName,"@CTRL-F12#4")
-  | c=newtable() c.clickButton="@CTRL-F12#4" c.base="CTRL-F12" BoundKeys["ALT-CTRL-F12"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F12",DefaultClickFrameName,"@CTRL-F12#4")
+  | c=newtable() c.clickButton="@CTRL-F12#4" c.base="CTRL-F12" c.priority=false BoundKeys["ALT-CTRL-F12"]=c
   | bindings=ClickTimeKeys["@CTRL-F2"]
   | ClickTimeKeys["@CTRL-F2#4"]=bindings
   | ClickTimeTiers["@CTRL-F2#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F2",DefaultClickFrameName,"@CTRL-F2#4")
-  | c=newtable() c.clickButton="@CTRL-F2#4" c.base="CTRL-F2" BoundKeys["ALT-CTRL-F2"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F2",DefaultClickFrameName,"@CTRL-F2#4")
+  | c=newtable() c.clickButton="@CTRL-F2#4" c.base="CTRL-F2" c.priority=false BoundKeys["ALT-CTRL-F2"]=c
   | bindings=ClickTimeKeys["@CTRL-F3"]
   | ClickTimeKeys["@CTRL-F3#4"]=bindings
   | ClickTimeTiers["@CTRL-F3#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F3",DefaultClickFrameName,"@CTRL-F3#4")
-  | c=newtable() c.clickButton="@CTRL-F3#4" c.base="CTRL-F3" BoundKeys["ALT-CTRL-F3"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F3",DefaultClickFrameName,"@CTRL-F3#4")
+  | c=newtable() c.clickButton="@CTRL-F3#4" c.base="CTRL-F3" c.priority=false BoundKeys["ALT-CTRL-F3"]=c
   | bindings=ClickTimeKeys["@CTRL-F4"]
   | ClickTimeKeys["@CTRL-F4#4"]=bindings
   | ClickTimeTiers["@CTRL-F4#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F4",DefaultClickFrameName,"@CTRL-F4#4")
-  | c=newtable() c.clickButton="@CTRL-F4#4" c.base="CTRL-F4" BoundKeys["ALT-CTRL-F4"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F4",DefaultClickFrameName,"@CTRL-F4#4")
+  | c=newtable() c.clickButton="@CTRL-F4#4" c.base="CTRL-F4" c.priority=false BoundKeys["ALT-CTRL-F4"]=c
   | bindings=ClickTimeKeys["@CTRL-F5"]
   | ClickTimeKeys["@CTRL-F5#4"]=bindings
   | ClickTimeTiers["@CTRL-F5#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F5",DefaultClickFrameName,"@CTRL-F5#4")
-  | c=newtable() c.clickButton="@CTRL-F5#4" c.base="CTRL-F5" BoundKeys["ALT-CTRL-F5"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F5",DefaultClickFrameName,"@CTRL-F5#4")
+  | c=newtable() c.clickButton="@CTRL-F5#4" c.base="CTRL-F5" c.priority=false BoundKeys["ALT-CTRL-F5"]=c
   | bindings=ClickTimeKeys["@CTRL-F6"]
   | ClickTimeKeys["@CTRL-F6#4"]=bindings
   | ClickTimeTiers["@CTRL-F6#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F6",DefaultClickFrameName,"@CTRL-F6#4")
-  | c=newtable() c.clickButton="@CTRL-F6#4" c.base="CTRL-F6" BoundKeys["ALT-CTRL-F6"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F6",DefaultClickFrameName,"@CTRL-F6#4")
+  | c=newtable() c.clickButton="@CTRL-F6#4" c.base="CTRL-F6" c.priority=false BoundKeys["ALT-CTRL-F6"]=c
   | bindings=ClickTimeKeys["@CTRL-F7"]
   | ClickTimeKeys["@CTRL-F7#4"]=bindings
   | ClickTimeTiers["@CTRL-F7#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F7",DefaultClickFrameName,"@CTRL-F7#4")
-  | c=newtable() c.clickButton="@CTRL-F7#4" c.base="CTRL-F7" BoundKeys["ALT-CTRL-F7"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F7",DefaultClickFrameName,"@CTRL-F7#4")
+  | c=newtable() c.clickButton="@CTRL-F7#4" c.base="CTRL-F7" c.priority=false BoundKeys["ALT-CTRL-F7"]=c
   | bindings=ClickTimeKeys["@CTRL-F8"]
   | ClickTimeKeys["@CTRL-F8#4"]=bindings
   | ClickTimeTiers["@CTRL-F8#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F8",DefaultClickFrameName,"@CTRL-F8#4")
-  | c=newtable() c.clickButton="@CTRL-F8#4" c.base="CTRL-F8" BoundKeys["ALT-CTRL-F8"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F8",DefaultClickFrameName,"@CTRL-F8#4")
+  | c=newtable() c.clickButton="@CTRL-F8#4" c.base="CTRL-F8" c.priority=false BoundKeys["ALT-CTRL-F8"]=c
   | bindings=ClickTimeKeys["@CTRL-F9"]
   | ClickTimeKeys["@CTRL-F9#4"]=bindings
   | ClickTimeTiers["@CTRL-F9#4"]=4
-  | self:SetBindingClick(true,"ALT-CTRL-F9",DefaultClickFrameName,"@CTRL-F9#4")
-  | c=newtable() c.clickButton="@CTRL-F9#4" c.base="CTRL-F9" BoundKeys["ALT-CTRL-F9"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-F9",DefaultClickFrameName,"@CTRL-F9#4")
+  | c=newtable() c.clickButton="@CTRL-F9#4" c.base="CTRL-F9" c.priority=false BoundKeys["ALT-CTRL-F9"]=c
   | bindings=ClickTimeKeys["@F12"]
   | ClickTimeKeys["@F12#4"]=bindings
   | ClickTimeTiers["@F12#4"]=4
-  | self:SetBindingClick(true,"ALT-F12",DefaultClickFrameName,"@F12#4")
-  | c=newtable() c.clickButton="@F12#4" c.base="F12" BoundKeys["ALT-F12"]=c
+  | self:SetBindingClick(false,"ALT-F12",DefaultClickFrameName,"@F12#4")
+  | c=newtable() c.clickButton="@F12#4" c.base="F12" c.priority=false BoundKeys["ALT-F12"]=c
   | bindings=ClickTimeKeys["@SHIFT-BUTTON2"]
   | ClickTimeKeys["@SHIFT-BUTTON2#2"]=bindings
   | ClickTimeTiers["@SHIFT-BUTTON2#2"]=2
-  | self:SetBindingClick(true,"ALT-CTRL-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#2")
-  | c=newtable() c.clickButton="@SHIFT-BUTTON2#2" c.base="SHIFT-BUTTON2" BoundKeys["ALT-CTRL-SHIFT-BUTTON2"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#2")
+  | c=newtable() c.clickButton="@SHIFT-BUTTON2#2" c.base="SHIFT-BUTTON2" c.priority=false BoundKeys["ALT-CTRL-SHIFT-BUTTON2"]=c
   | ClickTimeKeys["@SHIFT-BUTTON2#4"]=bindings
   | ClickTimeTiers["@SHIFT-BUTTON2#4"]=4
-  | self:SetBindingClick(true,"ALT-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#4")
-  | c=newtable() c.clickButton="@SHIFT-BUTTON2#4" c.base="SHIFT-BUTTON2" BoundKeys["ALT-SHIFT-BUTTON2"]=c
-  | self:SetBindingClick(true,"CTRL-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#2")
-  | c=newtable() c.clickButton="@SHIFT-BUTTON2#2" c.base="SHIFT-BUTTON2" BoundKeys["CTRL-SHIFT-BUTTON2"]=c
+  | self:SetBindingClick(false,"ALT-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#4")
+  | c=newtable() c.clickButton="@SHIFT-BUTTON2#4" c.base="SHIFT-BUTTON2" c.priority=false BoundKeys["ALT-SHIFT-BUTTON2"]=c
+  | self:SetBindingClick(false,"CTRL-SHIFT-BUTTON2",DefaultClickFrameName,"@SHIFT-BUTTON2#2")
+  | c=newtable() c.clickButton="@SHIFT-BUTTON2#2" c.base="SHIFT-BUTTON2" c.priority=false BoundKeys["CTRL-SHIFT-BUTTON2"]=c
   | bindings=ClickTimeKeys["@SHIFT-F12"]
   | ClickTimeKeys["@SHIFT-F12#2"]=bindings
   | ClickTimeTiers["@SHIFT-F12#2"]=2
-  | self:SetBindingClick(true,"ALT-CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
-  | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" BoundKeys["ALT-CTRL-SHIFT-F12"]=c
+  | self:SetBindingClick(false,"ALT-CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
+  | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["ALT-CTRL-SHIFT-F12"]=c
   | ClickTimeKeys["@SHIFT-F12#4"]=bindings
   | ClickTimeTiers["@SHIFT-F12#4"]=4
-  | self:SetBindingClick(true,"ALT-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#4")
-  | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" BoundKeys["ALT-SHIFT-F12"]=c
-  | self:SetBindingClick(true,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
-  | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" BoundKeys["CTRL-SHIFT-F12"]=c
+  | self:SetBindingClick(false,"ALT-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#4")
+  | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" c.priority=false BoundKeys["ALT-SHIFT-F12"]=c
+  | self:SetBindingClick(false,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
+  | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
   | c=newtable() c.bundles=newtable() JudgeColumns[1]=c
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[1]=b
   | b.restOutcome="ours"
   | e=newtable() e.outcome="release" b[1]=e
   | e[1]=JudgeColumns[1] e[2]=2
   | tinsert(JudgeColumns[1].bundles,b)
-  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeBundles[1] JudgeByKey["ALT-F5"]=j tinsert(JudgeBundles[1].keys,j)
+  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeBundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(JudgeBundles[1].keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[2]=b
   | b.restOutcome="command"
   | b.restCommand="TOGGLEWORLDMAP"
-  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeBundles[2] JudgeByKey["F10"]=j tinsert(JudgeBundles[2].keys,j)
+  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeBundles[2] j.priority=true JudgeByKey["F10"]=j tinsert(JudgeBundles[2].keys,j)
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
   | WrappedRelease["deb109"]="deb110"
@@ -2002,11 +2002,11 @@ SetAttribute <Frame#2> _onattributechanged =
   | 					if (row.bound ~= want and not row.slot.givenBack) then
   | 						row.bound = want
   | 						if (want == "ours") then
-  | 							self:SetBindingClick(true, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
   | 						elseif (want == "release") then
   | 							self:ClearBinding(row.key)
   | 						else
-  | 							self:SetBinding(true, row.key, want)
+  | 							self:SetBinding(row.priority, row.key, want)
   | 						end
   | 					end
   | 				end

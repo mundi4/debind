@@ -414,7 +414,7 @@ local realFindLayerID
 ---
 --- **It is isolated for the same reason the layers are.** A case that writes its own `casting` and
 --- expects the frame's unit gets `mouseover` instead on a profile set to Mouseover, and the case
---- never mentioned a mode. Turning the feature off per action is `DefaultCasting`'s.
+--- never mentioned a mode.
 local realPointedUnitCast
 
 --- The list the three stand-ins walk. Held here so a test can add the off-spec layer to it while
@@ -517,10 +517,11 @@ local function NestConditions(action)
     return action
 end
 
---- **A test action stands on Hover Cast off, and that is now the stored default**, so nothing has to
---- be written for it (`which-action-a-key-runs.md` §6). What the cases need from it is one
---- record per action: with a twin standing in front, every case that counts records on a key would
---- see each of its own actions twice. A case about the pointed press turns Hover Cast on for itself.
+--- **A test action stores no Hover Cast value, which means the usual target**, and with Normal Cast
+--- on that stands as one record and no pointed twin (`which-action-a-key-runs.md` §6). What the cases
+--- need from it is one record per action: with a twin standing in front, every case that counts
+--- records on a key would see each of its own actions twice. A case about the pointed press asks for
+--- the unit it points at itself.
 ---
 --- **The function stays where the writing used to be.** Every insertion goes through it, so the day
 --- a test action needs a value again there is one place to put it.
@@ -8022,6 +8023,59 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         end
 
         return Pass(NAME, "the beat took the key in combat and handed it back to the command")
+    end,
+})
+
+-- **A chord another addon holds with an override is left to it** (`handing-the-rest-of-a-key-to-the-game.md`
+-- 2-4). The decision is headless (`tests/castchord_spec.lua` N7a); what is left for the client is
+-- that `GetBindingAction(key, true)` reports somebody else's override at all, which is the one
+-- thing the decision reads.
+RegisterTest("Cast chord: another addon's override on it is left to that addon", {
+    description = "With an override of another owner on the focus chord, the rebuild does not bind that chord",
+    applies = function()
+        if not DebindPrivate.FocusCastEnabled() then
+            return false, "Focus Cast Key is off"
+        end
+        local mod = GetModifiedClick("FOCUSCAST")
+        if mod ~= "ALT" and mod ~= "CTRL" and mod ~= "SHIFT" then
+            return false, "the game has no focus cast modifier"
+        end
+        if GetBindingAction(mod .. "-F11") ~= "" then
+            return false, mod .. "-F11 is bound in the game, so the chord is left either way"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Chord left to an override"
+        local KEY = "F11"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+
+        local chord = GetModifiedClick("FOCUSCAST") .. "-" .. KEY
+        local target = DebindTestOverrideTarget or CreateFrame("Button", "DebindTestOverrideTarget")
+        local owner = CreateFrame("Frame")
+        AddTeardown(function()
+            ClearOverrideBindings(owner)
+        end)
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
+        ApplyBindings()
+        local bound = GetBindingAction(chord, true) or ""
+        if bound:sub(1, 6) ~= "CLICK " or bound == "CLICK " .. target:GetName() .. ":LeftButton" then
+            return Fail(NAME, format("with nothing else on it %s answers %q, it should be our button",
+                chord, bound))
+        end
+
+        SetOverrideBindingClick(owner, false, chord, target:GetName())
+        ApplyBindings()
+        bound = GetBindingAction(chord, true) or ""
+        if bound ~= "CLICK " .. target:GetName() .. ":LeftButton" then
+            return Fail(NAME, format("with another owner's override %s answers %q", chord, bound))
+        end
+
+        return Pass(NAME, format("%s was ours alone and left to the other owner's override", chord))
     end,
 })
 
