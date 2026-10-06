@@ -1,11 +1,10 @@
 local _, DebindPrivate = ...;
 local Constants = DebindPrivate.Constants;
 
-local band, bor = bit.band, bit.bor;
-local ipairs, pairs, tremove, sort = ipairs, pairs, tremove, table.sort;
+local band = bit.band;
+local ipairs, pairs, sort = ipairs, pairs, table.sort;
 
 local UnitConditionToState = DebindPrivate.UnitConditionToState;
-local SubtractBoxes = DebindPrivate.SubtractBoxes;
 
 --[[
     A key's judgment item (`handing-the-rest-of-a-key-to-the-game.md` 2-2): which of ours, a
@@ -116,13 +115,6 @@ function Judgment.Entry(record, outcome, command)
     return { constraints = RecordConstraints(record), outcome = outcome, command = command };
 end
 
-local function OutcomeKey(outcome, command)
-    if (command) then
-        return outcome .. " " .. command;
-    end
-    return outcome;
-end
-
 local function IsFull(box, columns)
     for i = 1, #columns do
         if (box[i] ~= columns[i].all) then
@@ -130,42 +122,6 @@ local function IsFull(box, columns)
         end
     end
     return true;
-end
-
---- Joins two boxes that differ in one column, until no pair does. **Exact as a union**: two boxes
---- equal everywhere but one column are together the box with that column's two masks joined.
-local function MergeBoxes(list, n)
-    local merged = true;
-    while (merged) do
-        merged = false;
-        for i = 1, #list - 1 do
-            local a = list[i];
-            for j = i + 1, #list do
-                local b = list[j];
-                local diff;
-                for col = 1, n do
-                    if (a[col] ~= b[col]) then
-                        if (diff) then
-                            diff = false;
-                            break;
-                        end
-                        diff = col;
-                    end
-                end
-                if (diff ~= false) then
-                    if (diff) then
-                        a[diff] = bor(a[diff], b[diff]);
-                    end
-                    tremove(list, j);
-                    merged = true;
-                    break;
-                end
-            end
-            if (merged) then
-                break;
-            end
-        end
-    end
 end
 
 --- The tests a box makes: only its columns that rule something out.
@@ -179,41 +135,22 @@ local function Checks(box, columns)
     return checks;
 end
 
-local function Cost(list, columns)
-    local cost = 0;
-    for _, box in ipairs(list) do
-        cost = cost + #Checks(box, columns);
-    end
-    return cost;
-end
-
---- Past this the item is kept as the records' own order, which is exact and only longer. The same
---- unit as the solver's (`node x covers x columns`).
-local MAX_WORK = 30000;
-
---- **What the judging loop pays to walk an entry and to read a check**, in µs (7-1's P). A check read
---- is a quarter of the difference between four entries of two checks matching at the fourth (2.966)
---- and four failing at their first (2.020); an entry walked is the rest of a quarter of 2.020. One
---- copy: `BundleAnswers` in `UpdateBindings.lua` weighs a table against these.
-Judgment.LOOP_CHECK = (2.966 - 2.020) / 4;
-Judgment.LOOP_ENTRY = 2.020 / 4 - Judgment.LOOP_CHECK;
-
---- **The order a records-form entry reads its checks in**: the states, then the units and the
+--- **The order an entry reads its checks in**: the states, then the units and the
 --- pointed frame's columns, then `known` and the switches. The loop stops at the first that fails, so
 --- the ones most often failing and cheapest to have read go first; a states column is also the one a
 --- gate is made of (`WatchGates`).
 local CHECK_RANK = { unit = 2, unitgroup = 2, role = 2, frameType = 2, known = 3, switch = 3 };
 
---- The two words whose parse costs a tenth of a beat on its own (7-1: 5.15 and 23.98).
-local EXPENSIVE = { flyable = true, advflyable = true };
+--- The two words whose parse costs a tenth of a beat on its own (7-1: 5.15 and 23.98), which
+--- `WatchGates` in `UpdateBindings.lua` puts behind a gate.
+Judgment.EXPENSIVE = { flyable = true, advflyable = true };
 
---- An item as the records themselves (R6 of `cutting-the-beat-under-a-zero-period.md`): each
---- record's box one entry, in the press's order, and the first box that holds everywhere the `rest`.
---- **Exact without cutting the boxes apart**: the loop answers the first entry that matches, which is
---- the press's own first winner. A box no state picks was dropped before (`boxes`). Entries just ahead
---- of the `rest` that answer what it does are left out: reaching them or not, the answer is the same.
+--- The records themselves as entries, in the press's order, and the first box that holds everywhere
+--- the `rest`. **Exact without cutting the boxes apart**: the loop answers the first entry that
+--- matches, which is the press's own first winner. Entries just ahead of the `rest` that answer what
+--- it does are left out: reaching them or not, the answer is the same.
 local function RecordsItem(boxes, owners, columns, base)
-    local item = { columns = columns, entries = {}, base = base, form = "records" };
+    local item = { columns = columns, entries = {}, base = base };
     for i, box in ipairs(boxes) do
         local owner = owners[i];
         if (IsFull(box, columns) or i == #boxes) then
@@ -238,92 +175,12 @@ local function RecordsItem(boxes, owners, columns, base)
     return item;
 end
 
---- **The points the two forms are priced over**: each column's cells, one per group of cells that no
---- mask either form checks tells apart, which is what `BundleAnswers` walks by (`ColumnGroups`). nil
---- past `JudgeTableCap` points.
-local function PricePoints(columns, items)
-    local masks = {};
-    for i = 1, #columns do
-        masks[i] = {};
-    end
-    for _, item in ipairs(items) do
-        for _, entry in ipairs(item.entries) do
-            for _, check in ipairs(entry.checks) do
-                masks[check.column][check.mask] = true;
-            end
-        end
-    end
-    local cells, points = {}, 1;
-    for i, column in ipairs(columns) do
-        local reps, seen = {}, {};
-        for b = 0, 30 do
-            local p = 2 ^ b;
-            if (p > column.all) then
-                break;
-            end
-            if (band(column.all, p) ~= 0) then
-                local signature = {};
-                for mask in pairs(masks[i]) do
-                    signature[#signature + 1] = (band(mask, p) ~= 0) and mask or -mask;
-                end
-                sort(signature);
-                local key = table.concat(signature, ",");
-                if (not seen[key]) then
-                    seen[key] = true;
-                    reps[#reps + 1] = p;
-                end
-            end
-        end
-        cells[i] = reps;
-        points = points * #reps;
-        if (points > (DebindPrivate.JudgeTableCap or 1024)) then
-            return nil;
-        end
-    end
-    return cells, points;
-end
-
---- **What the loop pays to answer an item**, averaged over `PricePoints` with each weighted alike, as
---- `BundleAnswers` averages it. With no points (past the cap), every entry and check the item holds:
---- more than the loop reads, since it stops at an entry's first failing check, but alike for both
---- forms.
-local function LoopPrice(item, cells, points)
-    if (not cells) then
-        local checks = 0;
-        for _, entry in ipairs(item.entries) do
-            checks = checks + #entry.checks;
-        end
-        return #item.entries * Judgment.LOOP_ENTRY + checks * Judgment.LOOP_CHECK;
-    end
-    local point, total = {}, 0;
-    for n = 0, points - 1 do
-        local rest = n;
-        for i, list in ipairs(cells) do
-            local index = rest % #list;
-            point[i] = list[index + 1];
-            rest = (rest - index) / #list;
-        end
-        local _, _, entries, checks = Judgment.Judge(item, point);
-        total = total + entries * Judgment.LOOP_ENTRY + checks * Judgment.LOOP_CHECK;
-    end
-    return total / points;
-end
-
 --- A key's item from its entries. **The list has to end in a record that holds everywhere**, the
 --- BLOCK closing the tier, so that some outcome is always answered.
 ---
---- **Two forms, and the one the loop answers cheaper is kept** (R6 of
---- `cutting-the-beat-under-a-zero-period.md`), recorded as `item.form`:
----
----   `regions`  each outcome's region is the records that give it, less every record ahead of them,
----              cut into disjoint boxes and joined back where a pair differs in one column. The
----              costliest region is left unwritten as `rest` (2-2, 3-2). Few, short entries where
----              records overlap little
----   `records`  the records themselves (`RecordsItem`). Ten records of five conditions cut apart
----              came to a median of 170 boxes on the owner's shape; as records they stay ten
----
---- Both answer every point alike. `DebindPrivate.JudgmentForm` holds one for a spec. Past
---- `MAX_WORK` only the records are built.
+--- **The records as they are, not cut apart** (`keeping-only-the-records-form.md`). Each outcome's
+--- region less every record ahead of it, cut into disjoint boxes, came to a median of 170 boxes from
+--- ten records of five conditions on the owner's shape, and building them took 30 s of a rebuild.
 ---
 --- `base` is the bare key a chord was made from, and only a chord has one.
 function Judgment.Build(entries, base)
@@ -344,7 +201,7 @@ function Judgment.Build(entries, base)
     end
     local n = #columns;
 
-    -- A box with an empty column is a record no state picks, so it neither answers nor covers.
+    -- A box with an empty column is a record no state picks, so it never answers.
     local boxes, owners = {}, {};
     for _, entry in ipairs(entries) do
         local box = {};
@@ -363,82 +220,33 @@ function Judgment.Build(entries, base)
         end
     end
 
-    local records = RecordsItem(boxes, owners, columns, base);
-    local form = DebindPrivate.JudgmentForm;
-    if (form == "records") then
-        return records;
-    end
+    local item = RecordsItem(boxes, owners, columns, base);
 
-    local item = { columns = columns, entries = {}, base = base, form = "regions" };
-
-    local regions, order, first = {}, {}, {};
-    local covers = {};
-    local budget = { work = MAX_WORK };
-    local complete = true;
-    for i, box in ipairs(boxes) do
-        local owner = owners[i];
-        local key = OutcomeKey(owner.outcome, owner.command);
-        local list = regions[key];
-        if (not list) then
-            list = {};
-            regions[key] = list;
-            order[#order + 1] = key;
-            first[key] = owner;
-        end
-        if (not SubtractBoxes(box, covers, #covers, n, list, budget)) then
-            complete = false;
-            break;
-        end
-        covers[#covers + 1] = box;
-        if (IsFull(box, columns)) then
-            break;
+    -- **Only the columns the entries kept read**: every column is measured and watched on every beat
+    -- (`CollectJudgmentColumns`) whether a bundle reads it or not, and a record left out above would
+    -- otherwise leave its columns behind.
+    local read = {};
+    for _, entry in ipairs(item.entries) do
+        for _, check in ipairs(entry.checks) do
+            read[check.column] = true;
         end
     end
-
-    if (not complete) then
-        return records;
+    local kept, place = {}, {};
+    for i, column in ipairs(columns) do
+        if (read[i]) then
+            kept[#kept + 1] = column;
+            place[i] = #kept;
+        end
     end
-
-    local restKey, restCost;
-    for _, key in ipairs(order) do
-        local list = regions[key];
-        MergeBoxes(list, n);
-        if (#list > 0) then
-            local cost = Cost(list, columns);
-            if (restKey == nil or cost > restCost) then
-                restKey, restCost = key, cost;
+    if (#kept < n) then
+        for _, entry in ipairs(item.entries) do
+            for _, check in ipairs(entry.checks) do
+                check.column = place[check.column];
             end
         end
+        item.columns = kept;
     end
-
-    item.rest = { outcome = first[restKey].outcome, command = first[restKey].command };
-    for _, key in ipairs(order) do
-        if (key ~= restKey) then
-            local owner = first[key];
-            for _, box in ipairs(regions[key]) do
-                item.entries[#item.entries + 1] = {
-                    checks = Checks(box, columns), outcome = owner.outcome, command = owner.command,
-                };
-            end
-        end
-    end
-    if (form == "regions") then
-        return item;
-    end
-    -- **An expensive word keeps the regions.** A records entry has lost the negations of the records
-    -- ahead of it, so `[combat] A; [flyable] B` asks a bare `[flyable]`, and the watch's gate
-    -- (`WatchGates`) that `[nocombat,flyable]` would have closed in combat stays open: a parse of 5
-    -- (24 for `advflyable`) on every beat, which no loop price sees.
-    for _, column in ipairs(columns) do
-        if (EXPENSIVE[column.kind]) then
-            return item;
-        end
-    end
-    local cells, points = PricePoints(columns, { item, records });
-    if (LoopPrice(item, cells, points) <= LoopPrice(records, cells, points)) then
-        return item;
-    end
-    return records;
+    return item;
 end
 
 --- What an item answers where `point[column]` is the one cell measured in each column. A chord's

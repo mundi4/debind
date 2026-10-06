@@ -3128,15 +3128,17 @@ DebindPrivate.JudgeTableLetters = #ANSWER_LETTERS;
 local FIXED_LETTERS = { ours = "o", release = "r", base = "b" };
 
 --- **What judging one bundle costs, the loop against the table**, in µs in the restricted
---- environment, from 7-1's P (2026-10-06, xptr 120105). The loop's two prices are `Judgment`'s,
---- which weighs an item's two forms by them as well. The table measured 1.158 for Q4's body over
---- three columns, 0.245 of it the joint index of the three. Scoped to `BundleAnswers`: the file is at
---- Lua's limit of 200 locals.
+--- environment, from 7-1's P (2026-10-06, xptr 120105). A check read is a quarter of the difference
+--- between four entries of two checks matching at the fourth (2.966) and four failing at their first
+--- (2.020); an entry walked is the rest of a quarter of 2.020. The table measured 1.158 for Q4's body
+--- over three columns, 0.245 of it the joint index of the three. Scoped to `BundleAnswers`: the file
+--- is at Lua's limit of 200 locals.
 local BundleAnswers;
 do
+local LOOP_CHECK = (2.966 - 2.020) / 4;
 local JUDGING_PRICE = {
-    loopCheck = DebindPrivate.Judgment.LOOP_CHECK,
-    loopEntry = DebindPrivate.Judgment.LOOP_ENTRY,
+    loopCheck = LOOP_CHECK,
+    loopEntry = 2.020 / 4 - LOOP_CHECK,
     tableColumn = 0.245 / 3,
     tableBase = 1.158 - 0.245,
 };
@@ -3571,7 +3573,8 @@ end
 --- fails, it fails whatever the column's cell says, in whichever order the loop reads them, and a
 --- table's letter is the same answer (`BundleAnswers`), so a bundle reading a gated column may take a
 --- table and its checks keep their order. So where every entry reading the column has another check
---- failing, its cell may go stale with no answer moving. Its fragment is then asked
+--- failing, or is not reached because an entry ahead of it matched, its cell may go stale with no
+--- answer moving. Its fragment is then asked
 --- behind those checks' own words: in combat `[nocombat,noflyable]` stops at `nocombat`. The words
 --- are parsed live inside the fragment, so it holds exactly where the gate is open and the column
 --- has left its cell, in the beat that opens it.
@@ -3582,7 +3585,7 @@ end
 --- else that says anything opens it always, and the column keeps its plain fragment. Past four
 --- groups, or where the gate merges to one that cannot close (`MergeGroups`), the column keeps it too.
 function DebindPrivate.WatchGates(items)
-    local expensive = { flyable = true, advflyable = true };
+    local expensive = DebindPrivate.Judgment.EXPENSIVE;
     -- **Only a boolean state's own words**: a unit's, a switch's or a `known`'s say nothing a state
     -- word can, and a unit's merged groups would come back from `StateCellClauses` as the bare word
     -- `unit`, which never holds and would close the gate for good.
@@ -3645,8 +3648,7 @@ function DebindPrivate.WatchGates(items)
                             if (inB[token]) then
                                 rest[#rest + 1] = token;
                             else
-                                local other = (token:sub(1, 2) == "no") and token:sub(3) or ("no" .. token);
-                                differ = differ + ((inB[other]) and 1 or 2);
+                                differ = differ + ((inB[Negated(token)]) and 1 or 2);
                             end
                         end
                         if (differ == 1) then
@@ -3673,12 +3675,21 @@ function DebindPrivate.WatchGates(items)
         return out;
     end
     local gates = {};
+    -- In key order: `MergeGroups` merges the first pair it meets, and `pairs` over the items table,
+    -- which is wiped and refilled, walks it in an order an earlier rebuild left behind.
+    local itemKeys = sortedKeys(items, {});
     for key, column in pairs(_judgmentColumns) do
         if (expensive[column.kind]) then
             local groups, seen, open = {}, {}, false;
-            for _, item in pairs(items) do
+            for _, itemKey in ipairs(itemKeys) do
+                local item = items[itemKey];
+                -- **The entries ahead that failed**: the loop reaches an entry only where every one
+                -- before it failed, so a gate may hold that too. Only an entry of one check whose
+                -- words are one token turns over into a token; any other's failing is an OR, and
+                -- leaving it out only opens the gate wider.
+                local failed = {};
                 for _, entry in ipairs(item.entries) do
-                    local ahead, reaches, never = {}, false, false;
+                    local ahead, inAhead, reaches, never = {}, {}, false, false;
                     for _, check in ipairs(entry.checks) do
                         local checked = item.columns[check.column];
                         if (checked.key == key) then
@@ -3689,8 +3700,23 @@ function DebindPrivate.WatchGates(items)
                                 never = true;
                             end
                             for _, token in ipairs(words or {}) do
-                                ahead[#ahead + 1] = token;
+                                if (not inAhead[token]) then
+                                    inAhead[token] = true;
+                                    ahead[#ahead + 1] = token;
+                                end
                             end
+                        end
+                    end
+                    for _, token in ipairs(failed) do
+                        if (not inAhead[token]) then
+                            inAhead[token] = true;
+                            ahead[#ahead + 1] = token;
+                        end
+                    end
+                    if (#entry.checks == 1) then
+                        local words = CheckWords(item.columns[entry.checks[1].column], entry.checks[1].mask);
+                        if (words and #words == 1) then
+                            failed[#failed + 1] = Negated(words[1]);
                         end
                     end
                     if (reaches and not never) then

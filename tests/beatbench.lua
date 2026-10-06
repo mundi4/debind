@@ -665,6 +665,26 @@ return function(DebindPrivate)
     end
     shim.world.units = {};
 
+    --- **What the tables buy**: of the last rebuild's bundles (`JudgeBundleCosts`), how many took a
+    --- table, and what it saves a judged bundle against the loop, least / mean / most.
+    local function TableSavings()
+        local all, took, least, most, sum = 0, 0, nil, nil, 0;
+        for _, cost in pairs(DebindPrivate.JudgeBundleCosts) do
+            all = all + 1;
+            if (cost.table + DebindPrivate.JudgeTableMargin < cost.loop) then
+                local saved = cost.loop - cost.table;
+                took, sum = took + 1, sum + saved;
+                least = math.min(least or saved, saved);
+                most = math.max(most or saved, saved);
+            end
+        end
+        if (took == 0) then
+            return string.format("no table of %d bundles weighed", all);
+        end
+        return string.format("%d of %d bundles weighed took a table, saving %.2f / %.2f / %.2f us", took, all,
+            least, sum / took, most);
+    end
+
     --- **The owner's shape** (R3 of `cutting-the-beat-under-a-zero-period.md`): 30 keys, each 10
     --- actions of 5 conditions over the game's command, the conditions drawn by a fixed sequence from
     --- the large shape's pieces (`mouseover` and the pointed frame left to the knob) and three more
@@ -746,6 +766,7 @@ return function(DebindPrivate)
             local started = os.clock();
             bind(owners, LARGE_SWITCHES);
             local rebuild = (os.clock() - started) * 1000;
+            local savings = TableSavings();
             local readers = 0;
             for _, item in pairs(DebindPrivate.JudgmentItems) do
                 for _, column in ipairs(item.columns) do
@@ -788,6 +809,7 @@ return function(DebindPrivate)
             print(string.format("  help alone %3d%%   quiet %6.2f   moving %7.2f   judged %4.1f of %d   %6.0f us a second"
                 .. "   the rebuild %.0f ms headless", helpOnly * 100, BodyShare(quietLines) / LARGE_BEATS, moving,
                 judged / LARGE_BEATS, all, moving * 144, rebuild));
+            print("      " .. savings);
             if (helpOnly == 0) then
                 for _, l in ipairs(movingLines) do
                     if (not OUTSIDE_THE_BODY[l.what] and l.us / LARGE_BEATS >= 1) then
@@ -816,6 +838,7 @@ return function(DebindPrivate)
             action({ type = Constants.COMMAND, value = MAP, key = "CTRL-F1", conditions = { combat = true } }),
             action({ value = 585, key = "CTRL-F1" }),
         });
+        local savings = TableSavings();
         shim.world.units = { player = { id = "me", reaction = "help" } };
         local perInstruction = instructionCost(interp);
         interp:resetState();
@@ -846,6 +869,7 @@ return function(DebindPrivate)
             .. " every beat: %3.0f / %3.0f / %4.0f", label, quietBody, movedBody,
             2 * quietBody + 3 * movedBody, 17 * quietBody + 3 * movedBody, 141 * quietBody + 3 * movedBody,
             5 * movedBody, 20 * movedBody, 144 * movedBody));
+        print("      " .. savings);
         interp:resetState();
         shim.world.units = {};
     end

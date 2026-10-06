@@ -13,6 +13,18 @@
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
     local Judgment = DebindPrivate.Judgment;
+    --- **The records each item was built from**, so a sweep walks every column they measure and not
+    --- only the ones the item kept: a column `Judgment.Build` dropped wrongly is then moved, and the
+    --- press tells it apart.
+    local builtFrom = setmetatable({}, { __mode = "k" });
+    do
+        local build = Judgment.Build;
+        Judgment.Build = function(entries, base)
+            local item = build(entries, base);
+            builtFrom[item] = entries;
+            return item;
+        end
+    end
     local shim = require("wow_shim");
     local frames = require("wow_frames");
     local restricted = require("restricted");
@@ -31,15 +43,10 @@ return function(DebindPrivate, _, ctx)
     --- a table, whatever it costs, and once more with the cap at 0, so every bundle is judged by the
     --- loop (Q4 of `implementing-the-cuts-inside-the-beat-handler.md`). Both roads are swept at every
     --- point; which one a bundle takes when nothing is forced has its own cases.
-    --- **And twice more with every item built in one form** (`Judgment.Build`, R6 of
-    --- `cutting-the-beat-under-a-zero-period.md`): the records as they are and the regions cut apart,
-    --- each on the loop, since unforced a case only sees the form its item happened to price lower.
     local RUNS = {
         { label = "attribute", signal = "attribute", margin = -math.huge },
         { label = "visibility", signal = "visibility", margin = -math.huge },
         { label = "loop", signal = "attribute", cap = 0 },
-        { label = "records", signal = "attribute", cap = 0, form = "records" },
-        { label = "regions", signal = "attribute", cap = 0, form = "regions" },
     };
     local defaultCap, defaultMargin = DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableMargin;
     local function test(name, fn)
@@ -47,7 +54,6 @@ return function(DebindPrivate, _, ctx)
             DebindPrivate.BeatSignal.comes = run.signal == "visibility" or nil;
             DebindPrivate.JudgeTableCap = run.cap or defaultCap;
             DebindPrivate.JudgeTableMargin = run.margin or defaultMargin;
-            DebindPrivate.JudgmentForm = run.form;
             local ok, err = pcall(fn);
             if (ok) then
                 T.passed = T.passed + 1;
@@ -58,7 +64,6 @@ return function(DebindPrivate, _, ctx)
         DebindPrivate.BeatSignal.comes = nil;
         DebindPrivate.JudgeTableCap = defaultCap;
         DebindPrivate.JudgeTableMargin = defaultMargin;
-        DebindPrivate.JudgmentForm = nil;
     end
 
     local function check(cond, msg)
@@ -390,18 +395,20 @@ return function(DebindPrivate, _, ctx)
         local item = items[key];
         check(item, key .. " has no judgment item");
         local columns, seen = {}, {};
-        local function take(list)
-            for _, column in ipairs(list) do
-                if (not seen[column.key]) then
-                    seen[column.key] = true;
-                    columns[#columns + 1] = column;
+        local function take(built)
+            for _, entry in ipairs(builtFrom[built]) do
+                for _, column in ipairs(entry.constraints) do
+                    if (not seen[column.key]) then
+                        seen[column.key] = true;
+                        columns[#columns + 1] = column;
+                    end
                 end
             end
         end
-        take(item.columns);
+        take(item);
         if (item.base) then
             check(items[item.base], key .. "'s base key " .. tostring(item.base) .. " has no item");
-            take(items[item.base].columns);
+            take(items[item.base]);
         end
 
         local outcomes, reached = {}, 0;
@@ -1238,9 +1245,9 @@ return function(DebindPrivate, _, ctx)
     test("flyable flipping in combat is not parsed, and the beat combat ends in follows it", GatedFlyable);
 
     -- **The gate is every entry's way to the column** (`WatchGates`): a command reaching `flyable`
-    -- behind `combat,stealth` opens it in combat as soon as the reader is stealthed, so there a flip
-    -- is followed in its own beat. Two outcomes keep the solver from writing a bare `flyable` entry
-    -- first, which would open the gate for good.
+    -- behind `stealth` opens it in combat as soon as the reader is stealthed, so there a flip is
+    -- followed in its own beat. The entry ahead has two checks, so its failing is an OR and adds
+    -- nothing to the command's group.
     local function EveryEntry()
         Bind({
             action({ conditions = { combat = false, flyable = true } }),
@@ -1252,9 +1259,7 @@ return function(DebindPrivate, _, ctx)
         local state = interp.state;
         state.combat, state.stealth = true, true;
         interp:beat();
-        -- The second entry's own words: what the records leave of it, or the region cut out of it.
-        local group = DebindPrivate.JudgmentItems.F1.form == "records" and "[stealth,flyable]"
-            or "[combat,stealth,flyable]";
+        local group = "[stealth,flyable]";
         check(interp.env.Judge.text:find(group, 1, true), "the second entry's way in is not in the gate: "
             .. interp.env.Judge.text);
         for n = 1, 2 do
@@ -1305,21 +1310,123 @@ return function(DebindPrivate, _, ctx)
         TwoKeys({ combat = false, flyable = true }, { combat = true, flyable = true }, ",flyable]", true);
     end);
 
-    -- **An item that reads `flyable` keeps the regions** (`Judgment.Build`, R6): as records,
-    -- `[combat] A; [flyable] B` would ask a bare `[flyable]` and the watch's gate could not close in
-    -- combat, a parse of 5 on every beat that no loop price sees. Only where nothing forces a form.
-    test("an item reading flyable keeps its regions, and its gate", function()
+    -- **The same items make the same gate** (`WatchGates`): three keys whose groups chain, the first
+    -- and second one word apart and the second and third, merge to two different gates by which pair
+    -- is met first. Both are sound, but the items table is wiped and refilled rather than made anew, so
+    -- the order `pairs` walks it in follows what an earlier rebuild left in it, and the watch text with
+    -- it.
+    test("a gate does not depend on the items table's history", function()
+        Bind({
+            action({ conditions = { combat = false, mounted = true, flyable = true } }),
+            action({ type = Constants.UNUSED }),
+            action({ key = "F2", conditions = { combat = false, mounted = false, flyable = true } }),
+            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F3", conditions = { combat = true, mounted = false, flyable = true } }),
+            action({ key = "F3", type = Constants.UNUSED }),
+        });
+        local function GateText(items)
+            local gates, out = DebindPrivate.WatchGates(items), {};
+            for key, groups in pairs(gates) do
+                local texts = {};
+                for g, group in ipairs(groups) do
+                    texts[g] = "[" .. table.concat(group, ",") .. "]";
+                end
+                out[#out + 1] = key .. " " .. table.concat(texts);
+            end
+            table.sort(out);
+            return table.concat(out, "; ");
+        end
+        -- The rebuild's own items (the chords made from the three keys among them), put into tables
+        -- that held `padding` other keys first, in either order.
+        local keys = {};
+        for key in pairs(DebindPrivate.JudgmentItems) do
+            keys[#keys + 1] = key;
+        end
+        table.sort(keys);
+        local function Filled(padding, reversed)
+            local items = {};
+            for k = 1, padding do
+                items["PAD" .. k] = true;
+            end
+            for k = 1, padding do
+                items["PAD" .. k] = nil;
+            end
+            for n = 1, #keys do
+                local key = keys[reversed and (#keys + 1 - n) or n];
+                items[key] = DebindPrivate.JudgmentItems[key];
+            end
+            return items;
+        end
+        local first = GateText(Filled(0, false));
+        check(first ~= "", "the three keys made no gate");
+        local moved;
+        for padding = 0, 64 do
+            for _, reversed in ipairs({ false, true }) do
+                local text = GateText(Filled(padding, reversed));
+                if (not moved and text ~= first) then
+                    moved = string.format("%d keys once in the table%s: %s | %s", padding,
+                        reversed and ", filled backwards" or "", first, text);
+                end
+            end
+        end
+        check(not moved, "the gate moved with the table's history: " .. tostring(moved));
+    end);
+
+    -- **A column no entry reads is not watched**: `[indoors]` answering what the `rest` does is left
+    -- out of the entries, so nothing reads `indoors`, and a watch of it would be a parse on every beat
+    -- for no bundle.
+    test("a column no entry reads is not watched", function()
+        Bind({
+            action({ conditions = { stealth = true } }),
+            action({ type = Constants.UNUSED, conditions = { indoors = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        interp:beat();
+        check(interp.env.Judge.text:find("stealth", 1, true), "stealth is not watched: " .. interp.env.Judge.text);
+        check(not interp.env.Judge.text:find("indoors", 1, true), "indoors is watched: " .. interp.env.Judge.text);
+        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
+        interp:resetState();
+    end);
+
+    -- **The gate closes behind a single-check earlier entry** (`WatchGates`): in `[combat] A;
+    -- [flyable] B` the second entry is a bare `[flyable]`, reached only where `combat` failed, so its
+    -- gate is `nocombat`. Without that the gate is open, and in combat every flip of the zone is
+    -- parsed again.
+    test("the gate closes behind a single-check earlier entry", function()
         Bind({
             action({ conditions = { combat = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { flyable = true } }),
             action({ type = Constants.UNUSED }),
         });
-        if (DebindPrivate.JudgmentForm == nil) then
-            check(DebindPrivate.JudgmentItems.F1.form == "regions", "the item took the "
-                .. tostring(DebindPrivate.JudgmentItems.F1.form));
-            check(interp.env.Judge.text:find("[nocombat,", 1, true), "flyable is not watched behind nocombat: "
-                .. interp.env.Judge.text);
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local state = interp.state;
+        interp:beat();
+        check(interp.env.Judge.text:find("[nocombat,flyable]", 1, true), "flyable is not watched behind nocombat: "
+            .. interp.env.Judge.text);
+        state.combat = true;
+        interp:beat();
+        for n = 1, 2 do
+            state.flyable = not state.flyable;
+            local text = interp.env.Judge.text;
+            local before = {};
+            for parsed, count in pairs(interp.parses) do
+                before[parsed] = count;
+            end
+            interp:beat();
+            local others = {};
+            for parsed, count in pairs(interp.parses) do
+                if (parsed ~= text and count ~= (before[parsed] or 0)) then
+                    others[#others + 1] = parsed;
+                end
+            end
+            check(#others == 0, string.format("flip %d in combat parsed %s", n, table.concat(others, " | ")));
+            check(Bound("F1") == Actual("F1"), string.format("flip %d in combat: the press %s, the loop %s", n,
+                Actual("F1"), Bound("F1")));
         end
+        shim.world.units = {};
+        interp:resetState();
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
 

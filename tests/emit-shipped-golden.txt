@@ -1884,9 +1884,9 @@ Execute <Frame#2>
   | w[1]="[nocombat] 1; "
   | w[2]="[combat] 1; "
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[1]=b
-  | b.restOutcome="ours"
-  | e=newtable() e.outcome="release" b[1]=e
-  | e[1]=1 e[2]=2
+  | b.restOutcome="release"
+  | e=newtable() e.outcome="ours" b[1]=e
+  | e[1]=1 e[2]=1
   | tinsert(JudgeStaged[3],b)
   | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[2]=b
