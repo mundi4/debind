@@ -172,11 +172,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
 	JudgeStaged = newtable()
 	JudgeStaged.bundles = newtable()
-	JudgeStaged.outcomes = newtable()
 	JudgeStaged.switches = newtable()
 	JudgeStaged.switchTexts = newtable()
 	JudgeStaged.classify = newtable()
@@ -4345,7 +4342,6 @@ Judge = false
 local old = JudgeStaged
 local J = newtable()
 J.bundles = newtable()
-J.outcomes = newtable()
 J.switches = newtable()
 J.switchTexts = newtable()
 J.classify = newtable()

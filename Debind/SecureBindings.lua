@@ -128,8 +128,8 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeWakes = newtable()
 	-- **Everything else the loop's bodies read is one table**, so a body pays one global read and
 	-- reads the rest as fields (`cutting-the-beat-under-a-zero-period.md` R2). Its array part is
-	-- every column an item reads, the n-th as the cell measured last at `3n - 2`, its index in the
-	-- judging tables at `3n - 1` and the bundles reading it at `3n`.
+	-- every column an item reads, the n-th as the cell measured last at `2n - 1` and the bundles
+	-- reading it at `2n`.
 	--
 	-- **`JudgeStaged` is the one the rebuild fills, `Judge` the one the beat and the wakes read**,
 	-- `false` until the rebuild's own pass has measured every column: a body before that has nothing
@@ -138,9 +138,7 @@ SecureHandlerExecute(BindingDriver, [[
 	-- in `UpdateBindings.lua`) and carries over what nothing in the rebuild measures.
 	--
 	-- `bundles` is every distinct item, once however many keys it stands for, in the order a pass
-	-- judges them: a bare key's ahead of the chords made from it. `outcomes` is what a letter of a
-	-- bundle's answers stands for (`b.answers`, `BundleAnswers` in `UpdateBindings.lua`): `"ours"`,
-	-- `"release"`, `"base"` or a command, by the letter's byte.
+	-- judges them: a bare key's ahead of the chords made from it.
 	--
 	-- `switches` is what the loop worked the computed switches it reads out to. Its own, since
 	-- `ClickSwitches` is what one press worked out, for the rest of that press. `switchTexts` is the
@@ -160,7 +158,6 @@ SecureHandlerExecute(BindingDriver, [[
 	-- `petBattle` is pushed from outside by `SetPetBattle`: nothing else measures it.
 	JudgeStaged = newtable()
 	JudgeStaged.bundles = newtable()
-	JudgeStaged.outcomes = newtable()
 	JudgeStaged.switches = newtable()
 	JudgeStaged.switchTexts = newtable()
 	JudgeStaged.classify = newtable()
@@ -881,42 +878,24 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 	end
 	local bundles = J.bundles
 
-	local outcomes
 	for n = 1, #bundles do
 		local bundle = bundles[n]
 		local base = bundle.base
 		if (bundle.stamp == generation or (base and base.changed == generation)) then
-			-- **A bundle with no rest reads one letter** of its answers at its columns' joint index
-			-- (`BundleAnswers` in `UpdateBindings.lua`), each column's index kept beside its cell. Every
-			-- loop bundle has a rest and a table bundle never does, so the field the loop reads first
-			-- is the one that tells them apart: the loop reads nothing it did not before there were
-			-- tables. `outcomes` is taken into a local by the first table, as it was priced.
-			local outcome = bundle.restOutcome
-			local command
-			if (not outcome) then
-				local cols = bundle.cols
-				local at = 1
-				for c = 1, #cols, 2 do
-					at = at + columns[cols[c]] * cols[c + 1]
-				end
-				outcomes = outcomes or J.outcomes
-				outcome = outcomes[bundle.answers:byte(at)]
-			else
-				command = bundle.restCommand
-				for e = 1, #bundle do
-					local entry = bundle[e]
-					local match = true
-					for c = 1, #entry, 2 do
-						local cell = columns[entry[c]]
-						if ((entry[c + 1] % (cell + cell)) < cell) then
-							match = false
-							break
-						end
-					end
-					if (match) then
-						outcome, command = entry.outcome, entry.command
+			local outcome, command = bundle.restOutcome, bundle.restCommand
+			for e = 1, #bundle do
+				local entry = bundle[e]
+				local match = true
+				for c = 1, #entry, 2 do
+					local cell = columns[entry[c]]
+					if ((entry[c + 1] % (cell + cell)) < cell) then
+						match = false
 						break
 					end
+				end
+				if (match) then
+					outcome, command = entry.outcome, entry.command
+					break
 				end
 			end
 			-- The base key's answer can move within a beat, so a chord's is read here, after either.

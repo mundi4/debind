@@ -20,7 +20,6 @@ Execute <Frame#2>
   | local old = JudgeStaged
   | local J = newtable()
   | J.bundles = newtable()
-  | J.outcomes = newtable()
   | J.switches = newtable()
   | J.switchTexts = newtable()
   | J.classify = newtable()
@@ -1879,7 +1878,7 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" c.priority=false BoundKeys["ALT-SHIFT-F12"]=c
   | self:SetBindingClick(false,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
-  | JudgeStaged[3]=newtable()
+  | JudgeStaged[2]=newtable()
   | w=newtable() JudgeStaged.byCell[1]=w
   | w[1]="[nocombat] 1; "
   | w[2]="[combat] 1; "
@@ -1887,7 +1886,7 @@ Execute <Frame#2>
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=1 e[2]=1
-  | tinsert(JudgeStaged[3],b)
+  | tinsert(JudgeStaged[2],b)
   | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[2]=b
   | b.restOutcome="command"
@@ -1962,42 +1961,24 @@ SetAttribute <Frame#2> JudgePass =
   | 	end
   | 	local bundles = J.bundles
   | 
-  | 	local outcomes
   | 	for n = 1, #bundles do
   | 		local bundle = bundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
-  | 
-  | 
-  | 
-  | 
-  | 
-  | 			local outcome = bundle.restOutcome
-  | 			local command
-  | 			if (not outcome) then
-  | 				local cols = bundle.cols
-  | 				local at = 1
-  | 				for c = 1, #cols, 2 do
-  | 					at = at + columns[cols[c]] * cols[c + 1]
-  | 				end
-  | 				outcomes = outcomes or J.outcomes
-  | 				outcome = outcomes[bundle.answers:byte(at)]
-  | 			else
-  | 				command = bundle.restCommand
-  | 				for e = 1, #bundle do
-  | 					local entry = bundle[e]
-  | 					local match = true
-  | 					for c = 1, #entry, 2 do
-  | 						local cell = columns[entry[c]]
-  | 						if ((entry[c + 1] % (cell + cell)) < cell) then
-  | 							match = false
-  | 							break
-  | 						end
-  | 					end
-  | 					if (match) then
-  | 						outcome, command = entry.outcome, entry.command
+  | 			local outcome, command = bundle.restOutcome, bundle.restCommand
+  | 			for e = 1, #bundle do
+  | 				local entry = bundle[e]
+  | 				local match = true
+  | 				for c = 1, #entry, 2 do
+  | 					local cell = columns[entry[c]]
+  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 						match = false
   | 						break
   | 					end
+  | 				end
+  | 				if (match) then
+  | 					outcome, command = entry.outcome, entry.command
+  | 					break
   | 				end
   | 			end
   | 
@@ -2065,7 +2046,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[3]
+  | local bundles = columns[2]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -2085,7 +2066,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[3]
+  | local bundles = columns[2]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -2128,42 +2109,24 @@ SetAttribute <Frame#2> _onattributechanged =
   | 	end
   | 	local bundles = J.bundles
   | 
-  | 	local outcomes
   | 	for n = 1, #bundles do
   | 		local bundle = bundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
-  | 
-  | 
-  | 
-  | 
-  | 
-  | 			local outcome = bundle.restOutcome
-  | 			local command
-  | 			if (not outcome) then
-  | 				local cols = bundle.cols
-  | 				local at = 1
-  | 				for c = 1, #cols, 2 do
-  | 					at = at + columns[cols[c]] * cols[c + 1]
-  | 				end
-  | 				outcomes = outcomes or J.outcomes
-  | 				outcome = outcomes[bundle.answers:byte(at)]
-  | 			else
-  | 				command = bundle.restCommand
-  | 				for e = 1, #bundle do
-  | 					local entry = bundle[e]
-  | 					local match = true
-  | 					for c = 1, #entry, 2 do
-  | 						local cell = columns[entry[c]]
-  | 						if ((entry[c + 1] % (cell + cell)) < cell) then
-  | 							match = false
-  | 							break
-  | 						end
-  | 					end
-  | 					if (match) then
-  | 						outcome, command = entry.outcome, entry.command
+  | 			local outcome, command = bundle.restOutcome, bundle.restCommand
+  | 			for e = 1, #bundle do
+  | 				local entry = bundle[e]
+  | 				local match = true
+  | 				for c = 1, #entry, 2 do
+  | 					local cell = columns[entry[c]]
+  | 					if ((entry[c + 1] % (cell + cell)) < cell) then
+  | 						match = false
   | 						break
   | 					end
+  | 				end
+  | 				if (match) then
+  | 					outcome, command = entry.outcome, entry.command
+  | 					break
   | 				end
   | 			end
   | 
