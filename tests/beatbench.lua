@@ -665,6 +665,122 @@ return function(DebindPrivate)
     end
     shim.world.units = {};
 
+    --- **The owner's shape** (R3 of `cutting-the-beat-under-a-zero-period.md`): 30 keys, each 10
+    --- actions of 5 conditions over the game's command, the conditions drawn from 12 state, 5 unit, 6
+    --- `known` and 2 computed-switch pieces by a fixed sequence, so the bundles read them mixed. 20 of
+    --- the keys read `mouseover` on two of their actions. The knob is how many of those ask `help` on
+    --- both (`help` alone) rather than `help` on one and `harm` on the other: a cursor going from an
+    --- enemy to nobody cannot move a key that asks `help` alone, which is what R3 would leave unjudged.
+    --- The moving row is the cursor on every beat, enemy, nobody, friend, nobody.
+    do
+        local PIECES = {
+            { combat = true }, { combat = false }, { stealth = true }, { mounted = true }, { mounted = false },
+            { indoors = true }, { flying = false }, { extrabar = true }, { groups = Constants.GROUP_RAID },
+            { forms = 2 ^ 1 }, { bonusbars = 2 ^ 5 }, { specialbar = false },
+            { units = { target = { reaction = Constants.REACTION_HARM, dead = false } } },
+            { units = { focus = { reaction = Constants.REACTION_HELP } } },
+            { units = { pet = { dead = false } } },
+            { units = { party1 = { reaction = Constants.REACTION_HELP } } },
+            { units = { custom1 = { reaction = Constants.REACTION_HELP } } },
+            { known = 90001 }, { known = 90002 }, { known = 90003 },
+            { known = "Bench Spell A" }, { known = "Bench Spell B" }, { known = "Bench Spell C" },
+            { ["$x"] = true }, { ["$y"] = true },
+        };
+        local seed = 12345;
+        local function nextPiece()
+            seed = (seed * 1103515245 + 12345) % 2147483648;
+            return PIECES[seed % #PIECES + 1];
+        end
+        --- Five pieces, none sharing a field with another, into one conditions table.
+        local function conditionsOf(mouseover)
+            local out, used = {}, {};
+            if (mouseover) then
+                out.units = { mouseover = { reaction = mouseover } };
+            end
+            local count = mouseover and 1 or 0;
+            while (count < 5) do
+                local piece = nextPiece();
+                local field, value = next(piece);
+                local unit = field == "units" and next(value);
+                local slot = unit and ("unit " .. unit) or field;
+                if (not used[slot]) then
+                    used[slot] = true;
+                    if (unit) then
+                        out.units = out.units or {};
+                        out.units[unit] = value[unit];
+                    else
+                        out[field] = value;
+                    end
+                    count = count + 1;
+                end
+            end
+            return out;
+        end
+        local function ownersProfile(helpOnly)
+            seed = 12345;
+            local out = {};
+            for k = 1, 30 do
+                local key = "CTRL-F" .. k;
+                local readsMouseover = k <= 20;
+                local onlyHelp = readsMouseover and (k <= math.floor(20 * helpOnly + 0.5));
+                for a = 1, 10 do
+                    local mouseover;
+                    if (readsMouseover and a == 1) then
+                        mouseover = Constants.REACTION_HELP;
+                    elseif (readsMouseover and a == 2) then
+                        mouseover = onlyHelp and Constants.REACTION_HELP or Constants.REACTION_HARM;
+                    end
+                    out[#out + 1] = action({ value = 585 + a, key = key, conditions = conditionsOf(mouseover) });
+                end
+                out[#out + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+            end
+            return out;
+        end
+        local CURSOR = {
+            { id = "enemy", reaction = "harm" }, false, { id = "friend3", reaction = "help" }, false,
+        };
+        print("\nThe owner's shape, 30 keys x 10 actions x 5 conditions, 20 reading mouseover, the body in us,"
+            .. "\nby the share of those asking help alone: bundles, quiet, the cursor moving on every beat, a second at 144:");
+        for _, helpOnly in ipairs({ 0, 0.5, 1 }) do
+            largeWorld();
+            shim.world.units.party1 = { id = "member", reaction = "help" };
+            bind(ownersProfile(helpOnly), LARGE_SWITCHES);
+            local perInstruction = instructionCost(interp);
+            interp.state.combat = false;
+            interp:beat();
+            local _, _, quietLines = price(scenario(LARGE_BEATS, {}), perInstruction);
+            local moves = {};
+            for b = 1, LARGE_BEATS do
+                moves[b] = function()
+                    shim.world.units.mouseover = CURSOR[b % #CURSOR + 1] or nil;
+                end;
+            end
+            local _, _, movingLines = price(scenario(LARGE_BEATS, moves), perInstruction);
+            local moving = BodyShare(movingLines) / LARGE_BEATS;
+            -- `#` answers 0 on the meter's proxies, so the bundles are counted through the keys' rows.
+            local bundles, seen = 0, {};
+            for k = 1, 30 do
+                local bundle = interp.env.JudgeByKey["CTRL-F" .. k].bundle;
+                if (not seen[bundle]) then
+                    seen[bundle] = true;
+                    bundles = bundles + 1;
+                end
+            end
+            print(string.format("  help alone %3d%%   %3d bundles   quiet %6.2f   moving %7.2f   %6.0f us a second",
+                helpOnly * 100, bundles, BodyShare(quietLines) / LARGE_BEATS, moving, moving * 144));
+            -- What a moving beat is made of, once.
+            if (helpOnly == 0) then
+                for i = 1, 8 do
+                    local l = movingLines[i];
+                    if (l) then
+                        print(string.format("      %-30s %9.1f a beat %8.2f us", l.what, l.n / LARGE_BEATS, l.us / LARGE_BEATS));
+                    end
+                end
+            end
+        end
+    end
+    shim.world.units = {};
+
     --- **A key of long bundles** (Q4): the Multi-axis kit case's seven records over combat, stealth,
     --- the form and the group, with outcomes that differ, so its item keeps several entries the loop
     --- walks. Each beat moves one of the four, in turn, so every beat judges it.
