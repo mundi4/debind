@@ -1513,17 +1513,20 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
 L["TYPE_BLOCK"] = "Nothing"
 L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only."
-L["TYPE_COMMAND"] = "Binding Command"
--- The two types that hand the rest of a key to WoW. Built on `TYPE_BLOCK_DESC`, since it is the same
--- place in the key and the reader meets the three side by side in the picker. What WoW does with the
--- key comes first; that nothing under it runs is the second thing they need to know.
+-- **Named for where the command is picked from**, WoW's Key Bindings list (owner, 2026-10-06).
+L["TYPE_COMMAND"] = "WoW Binding"
+-- The two types after which a key no longer runs Debind's actions. Built on `TYPE_BLOCK_DESC`, since
+-- it is the same place in the key and the reader meets the three side by side in the picker. What the
+-- key does instead comes first; that nothing under it runs is the second thing they need to know.
 L["TYPE_COMMAND_DESC"] = "The key runs this command, the way it would if you bound it in WoW's own key bindings. No action under it on the same key runs either.|n|nPut conditions on it to run the command in those cases only."
 -- The window that opens when one of the two is added (`handing-the-rest-of-a-key-to-the-game.md`
 -- 2-9). The `%s` are `AUTO_SELF_CAST_KEY_TEXT` and `FOCUS_CAST_KEY_TEXT`. **Movement comes first in
 -- the second paragraph** (owner): a key that keeps running is worse than a ping wheel left open, and
--- it is the likelier one with Use WoW's Own Binding.
-L["TAIL_NOTICE"] = "From where this action stands on the key, the key goes to WoW: to the binding WoW has on it, or to the command you picked. It is reached when none of the actions above it run, and the actions below it are then not used for that press. A press with the %1$s or the %2$s held is the exception.|n|nSome bindings do one thing when the key goes down and another when it comes up. A movement key moves while held and stops when let go; a ping key opens its wheel and closes it. If the situation changes while such a key is held, the release does not reach that binding, so you can keep moving or the wheel can stay open."
-L["TYPE_UNUSED_DESC"] ="The key does what WoW's own key bindings have on it, and nothing if they have nothing. No action under it on the same key runs either.|n|nPut conditions on it to hand the key to WoW in those cases only."
+-- it is the likelier one with Give Key Back.
+L["TAIL_NOTICE"] = "From where this action stands on the key, the key works outside Debind: it runs the command you picked, or whatever else is bound to it. It is reached when none of the actions above it run, and the actions below it are then not used for that press. A press with the %1$s or the %2$s held is the exception.|n|nSome bindings do one thing when the key goes down and another when it comes up. A movement key moves while held and stops when let go; a ping key opens its wheel and closes it. If the situation changes while such a key is held, the release does not reach that binding, so you can keep moving or the wheel can stay open."
+-- **No receiver is named.** Debind only clears its own binding; what runs is whatever else is bound
+-- to the key, which may be WoW's Key Bindings, another addon's binding, or nothing.
+L["TYPE_UNUSED_DESC"] ="The key works as if Debind had nothing on it: whatever else is bound to it runs, and nothing if nothing is. No action under it on the same key runs either.|n|nPut conditions on it to give the key back in those cases only."
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"
 -- **Numbers the two slots the client calls by one name.** `TRINKET0SLOT` and `TRINKET1SLOT` are
@@ -1631,7 +1634,10 @@ L["POINTED_UNIT_CAST_MOUSEOVER"] = "Mouseover"
 L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] = "A unit frame, a nameplate, or the unit itself in the world. This covers the unit frames as well."
 L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
 L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
-L["TYPE_UNUSED"] = "Use WoW's Own Binding"
+-- **Not "Pass Through"**: in the middle of a key's list it reads as a row that hands the press to
+-- the next action, which is `CASTING_SKIP` and the opposite of this (owner, 2026-10-06). The same act
+-- is already `GIVE_BACK_KEYS`.
+L["TYPE_UNUSED"] = "Give Key Back"
 L["TYPE_WORLDMARKER"] = "World Marker"
 L["TYPE_ACTIONBUTTON"] = "Action Button"
 L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."
