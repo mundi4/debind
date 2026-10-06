@@ -60,6 +60,19 @@ return function(DebindPrivate)
         answers("[] always", "always");
     end);
 
+    -- **A text ending in `; ` ends in an empty clause with no group, which matches and answers `""`**
+    -- (2026-10-06, 57 watch-shaped texts on the client's insecure side, `cutting-the-beat-under-a-
+    -- zero-period.md`). The beat's watch ends every fragment so and reads `""` as "no place held".
+    -- The parser already answered so; this pins it to that measurement, and goes red against one
+    -- that skips a blank clause.
+    test("a trailing empty clause answers the empty string where nothing before it matched", function()
+        fresh();
+        answers("[combat] 1; ", "");
+        answers("[nocombat] 1; ", "1");
+        answers("[combat] 1; [mounted] 2; ", "");
+        answers("; ", "");
+    end);
+
     test("groups in one clause are OR'd, words in one group AND'd", function()
         fresh();
         interp.state.mounted = true;

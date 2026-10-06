@@ -312,8 +312,9 @@ end
 --- matches unconditionally. `nil` when none matches.
 ---
 --- **The empty string is a match.** A clause with no text after its groups answers `""`, which is
---- true in Lua -- so a stand-in returning `true` and one returning `""` are the same to every
---- caller, while one returning `false` where the client says `nil` is not.
+--- true in Lua, while one returning `false` where the client says `nil` is not the same. **`""` is
+--- not interchangeable with `true` either**: the beat's watch ends in an empty clause and reads its
+--- `""` as "no place held" (`BuildJudgeSnippet`), and turns any other answer into a number.
 ---
 --- **Anything outside the grammar raises**, rather than being read as no match. A condition this
 --- does not know is a spec measuring something other than what it says.

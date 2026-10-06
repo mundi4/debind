@@ -604,6 +604,57 @@ return function(DebindPrivate)
     end
     COST["parse word form"][1] = 0;
     COST["call GetShapeshiftForm"][1] = 0.143;
+
+    --- **What the watch's cap decides** (`JudgeWatchRounds`): k of the large shape's watched
+    --- columns moved in one beat, the body by the cap. A beat measures the first `cap` columns that
+    --- answered one at a time, a round each, and every carried column at the round after. "none" is
+    --- every column a round of its own, 0 every column at the first answer. The movers are the
+    --- shape's watched states and units a beat can move here, `combat` among them for a fight
+    --- starting; `indoors` also moves `$x`, which reads it.
+    do
+        local function flip(name)
+            return function(state) state[name] = not state[name]; end;
+        end
+        local units = shim.world.units;
+        local MOVERS = {
+            flip("mounted"), flip("stealth"), flip("indoors"), flip("flying"), flip("combat"),
+            function() units.target = (units.target == TARGETS[1]) and TARGETS[2] or TARGETS[1]; end,
+            function() units.focus.reaction = (units.focus.reaction == "help") and "harm" or "help"; end,
+            function() units.pet.dead = not units.pet.dead; end,
+        };
+        local was = DebindPrivate.JudgeWatchRounds;
+        print(string.format("\nThe large shape, k watched columns moved in one beat, the body in us by the watch's cap (now %s):",
+            tostring(was or "none")));
+        local head = {};
+        for k = 1, #MOVERS do
+            head[k] = string.format("%6s", "k=" .. k);
+        end
+        print("          " .. table.concat(head, " "));
+        for _, cap in ipairs({ 0, 1, 2, 3, 6, false }) do
+            DebindPrivate.JudgeWatchRounds = cap or nil;
+            local row = {};
+            for k = 1, #MOVERS do
+                largeWorld();
+                units = shim.world.units;
+                bind(largeProfile(0), LARGE_SWITCHES);
+                local perInstruction = instructionCost(interp);
+                interp.state.combat = false;
+                interp:beat();
+                local moves = {};
+                for b = 1, LARGE_BEATS do
+                    moves[b] = function(state)
+                        for j = 1, k do
+                            MOVERS[j](state);
+                        end
+                    end;
+                end
+                local _, _, lines = price(scenario(LARGE_BEATS, moves), perInstruction);
+                row[#row + 1] = string.format("%6.2f", BodyShare(lines) / LARGE_BEATS);
+            end
+            print(string.format("  cap %-4s %s", tostring(cap or "none"), table.concat(row, " ")));
+        end
+        DebindPrivate.JudgeWatchRounds = was;
+    end
     shim.world.units = {};
 
     --- **A key of long bundles** (Q4): the Multi-axis kit case's seven records over combat, stealth,

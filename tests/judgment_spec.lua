@@ -1115,30 +1115,60 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **Past `WATCH_ROUNDS` columns moved on one beat, every carried column is measured** (Q2b):
-    -- one at a time, each costs a parse of the watch, and a fight starting moves several. Seen as
-    -- the column that did not move being measured on that beat all the same.
-    test("a beat where many columns move measures them all at once", function()
-        Bind({
-            action({ conditions = { combat = true, mounted = true, stealth = true, indoors = true, flying = true } }),
-            action({ type = Constants.COMMAND, value = MAP, conditions = { extrabar = true } }),
-            action({ type = Constants.UNUSED }),
-        });
-        interp:resetState();
-        shim.world.units = { player = { id = "me", reaction = "help" } };
-        interp:beat();
-        check(Bound("F1") == Judgment.RELEASE, "the key was not let go with nothing held");
-        local state = interp.state;
-        local _, extrabar = Parses(function()
+    -- **Many columns moved on one beat**, and every key on the press's answer after that one beat
+    -- (Q2b). The watch is `[combat] 1; [extrabar] 2; [flying] 3; [indoors] 4; [mounted] 5;
+    -- [stealth] 6; `, and all but `extrabar` move. The watch's texts are the only ones parsed here
+    -- that end in the separator, and `[extrabar]` is that column's own measure.
+    local function FiveMove(cap, watchWant, extrabarWant)
+        local was = DebindPrivate.JudgeWatchRounds;
+        DebindPrivate.JudgeWatchRounds = cap;
+        local ok, err = pcall(function()
+            Bind({
+                action({ conditions = { combat = true, mounted = true, stealth = true, indoors = true, flying = true } }),
+                action({ type = Constants.COMMAND, value = MAP, conditions = { extrabar = true } }),
+                action({ type = Constants.UNUSED }),
+            });
+            interp:resetState();
+            shim.world.units = { player = { id = "me", reaction = "help" } };
+            interp:beat();
+            check(Bound("F1") == Judgment.RELEASE, "the key was not let go with nothing held");
+            check(interp.env.Judge.text:find("%[stealth%] 6; $"), "the places are not as written: " .. interp.env.Judge.text);
+            local state = interp.state;
+            local before = {};
+            for text, count in pairs(interp.parses) do
+                before[text] = count;
+            end
             state.combat, state.mounted, state.stealth, state.indoors, state.flying = true, true, true, true, true;
             interp:beat();
-        end, "[extrabar]");
-        check(Bound("F1") == Judgment.OURS, "five columns moved on one beat and the key was not taken");
-        check(extrabar == 1, "the column that did not move was measured " .. extrabar .. " times on that beat");
-        local got = Actual("F1");
-        check(got == Judgment.OURS, "the press gave " .. got);
+            local watchParses = 0;
+            for text, count in pairs(interp.parses) do
+                if (text:sub(-2) == "; ") then
+                    watchParses = watchParses + count - (before[text] or 0);
+                end
+            end
+            local extrabar = interp:parseCount("[extrabar]") - (before["[extrabar]"] or 0);
+            check(Bound("F1") == Judgment.OURS, "five columns moved on one beat and the key was not taken");
+            check(watchParses == watchWant and extrabar == extrabarWant, string.format(
+                "five columns moved: the watch parsed %d times, the column that did not move measured %d",
+                watchParses, extrabar));
+            local got = Actual("F1");
+            check(got == Judgment.OURS, "the press gave " .. got);
+        end);
+        DebindPrivate.JudgeWatchRounds = was;
         interp:resetState();
         shim.world.units = {};
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+    -- **No cap** (`JudgeWatchRounds`): a round each, five parses (the fifth answers the last place,
+    -- which leaves nothing behind it to confirm), and the column that did not move not measured.
+    test("a beat where five columns move takes them one round each, within the beat", function()
+        FiveMove(nil, 5, 0);
+    end);
+    -- **A cap, as the bench sets one**: one round, then every carried column at the second answer.
+    test("with a cap of one, the second answer measures every carried column", function()
+        FiveMove(1, 2, 1);
     end);
 
     -- **A cell's fragment holds exactly where the text no longer answers that cell** (`FragmentsOf`).
@@ -1658,7 +1688,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.units.target = { id = "t", reaction = "harm" };
         for n = 1, 2 do
             -- The text answers the form's place twice, and the second is where every column is
-            -- measured: not two more rounds up to `WATCH_ROUNDS`.
+            -- measured, not more rounds up to `JudgeWatchRounds`.
             local text = interp.env.Judge.text;
             local before = interp:parseCount(text);
             interp:beat();
@@ -1722,7 +1752,7 @@ return function(DebindPrivate, _, ctx)
                 action({ type = Constants.UNUSED }),
             });
             local handler = interp.driver:GetAttribute("_onattributechanged");
-            check(handler and handler:find("PROBE", 1, true) == nil and handler:find("fragment:sub(3)", 1, true),
+            check(handler and handler:find("PROBE", 1, true) == nil and handler:find("SecureCmdOptionParse(fragment)", 1, true),
                 "the beat does not parse the units one at a time");
             Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
             TokenMoves();

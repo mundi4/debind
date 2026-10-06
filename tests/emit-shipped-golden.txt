@@ -1881,8 +1881,8 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
   | JudgeStaged[3]=newtable()
   | w=newtable() JudgeStaged.byCell[1]=w
-  | w[1]="; [nocombat] 1"
-  | w[2]="; [combat] 1"
+  | w[1]="[nocombat] 1; "
+  | w[2]="[combat] 1; "
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[1]=b
   | b.restOutcome="ours"
   | e=newtable() e.outcome="release" b[1]=e
@@ -1948,8 +1948,6 @@ SetAttribute <Frame#2> JudgePass =
   | local text = table.concat(frags)
   | if (text == "") then
   | text = false
-  | else
-  | text = text:sub(3)
   | end
   | J.text = text
   | end
@@ -2050,16 +2048,14 @@ SetAttribute <Frame#2> _onattributechanged =
   | local frags = J.frags
   | local dirty = false
   | local text = J.text
-  | local rounds = 0
   | local from = 0
   | while (text) do
   | local hit = SecureCmdOptionParse(text)
-  | if (not hit) then
+  | if (not hit or hit == "") then
   | break
   | end
   | local at = hit + 0
-  | rounds = rounds + 1
-  | if (at <= from or rounds > 3) then
+  | if (at <= from) then
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[1] ~= cell) then
@@ -2107,8 +2103,6 @@ SetAttribute <Frame#2> _onattributechanged =
   | local text = table.concat(frags)
   | if (text == "") then
   | text = false
-  | else
-  | text = text:sub(3)
   | end
   | J.text = text
   | end
@@ -2120,8 +2114,6 @@ SetAttribute <Frame#2> _onattributechanged =
   | local text = table.concat(frags)
   | if (text == "") then
   | text = false
-  | else
-  | text = text:sub(3)
   | end
   | J.text = text
   | end
