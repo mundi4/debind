@@ -3128,19 +3128,18 @@ DebindPrivate.JudgeTableLetters = #ANSWER_LETTERS;
 local FIXED_LETTERS = { ours = "o", release = "r", base = "b" };
 
 --- **What judging one bundle costs, the loop against the table**, in µs in the restricted
---- environment, from 7-1's P (2026-10-06, xptr 120105). The loop measured 2.966 for four entries of
---- two checks with the fourth matching and 2.020 for four entries each failing on its first check,
---- which puts a check read at a quarter of the difference and an entry walked at the rest of a
---- quarter of 2.020. The table measured 1.158 for Q4's body over three columns, 0.245 of it the
---- joint index of the three. Scoped to `BundleAnswers`: the file is at Lua's limit of 200 locals.
+--- environment, from 7-1's P (2026-10-06, xptr 120105). The loop's two prices are `Judgment`'s,
+--- which weighs an item's two forms by them as well. The table measured 1.158 for Q4's body over
+--- three columns, 0.245 of it the joint index of the three. Scoped to `BundleAnswers`: the file is at
+--- Lua's limit of 200 locals.
 local BundleAnswers;
 do
 local JUDGING_PRICE = {
-    loopCheck = (2.966 - 2.020) / 4,
+    loopCheck = DebindPrivate.Judgment.LOOP_CHECK,
+    loopEntry = DebindPrivate.Judgment.LOOP_ENTRY,
     tableColumn = 0.245 / 3,
     tableBase = 1.158 - 0.245,
 };
-JUDGING_PRICE.loopEntry = 2.020 / 4 - JUDGING_PRICE.loopCheck;
 --- Added to the table's cost before it is weighed, so a spec can put a bundle either side.
 DebindPrivate.JudgeTableMargin = 0;
 --- What the last rebuild weighed for each bundle by its number, `{ loop, table }` or nil where the

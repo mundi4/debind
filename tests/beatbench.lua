@@ -742,7 +742,10 @@ return function(DebindPrivate)
             .. "\nmoving beat judges of all, a second at 144:");
         for _, helpOnly in ipairs({ 0, 0.5, 1 }) do
             largeWorld();
-            bind(ownersProfile(helpOnly), LARGE_SWITCHES);
+            local owners = ownersProfile(helpOnly);
+            local started = os.clock();
+            bind(owners, LARGE_SWITCHES);
+            local rebuild = (os.clock() - started) * 1000;
             local readers = 0;
             for _, item in pairs(DebindPrivate.JudgmentItems) do
                 for _, column in ipairs(item.columns) do
@@ -782,8 +785,9 @@ return function(DebindPrivate)
                 end
             end
             assert(judged > 0, "no moving beat judged anything");
-            print(string.format("  help alone %3d%%   quiet %6.2f   moving %7.2f   judged %4.1f of %d   %6.0f us a second",
-                helpOnly * 100, BodyShare(quietLines) / LARGE_BEATS, moving, judged / LARGE_BEATS, all, moving * 144));
+            print(string.format("  help alone %3d%%   quiet %6.2f   moving %7.2f   judged %4.1f of %d   %6.0f us a second"
+                .. "   the rebuild %.0f ms headless", helpOnly * 100, BodyShare(quietLines) / LARGE_BEATS, moving,
+                judged / LARGE_BEATS, all, moving * 144, rebuild));
             if (helpOnly == 0) then
                 for _, l in ipairs(movingLines) do
                     if (not OUTSIDE_THE_BODY[l.what] and l.us / LARGE_BEATS >= 1) then

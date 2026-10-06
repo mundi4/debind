@@ -31,10 +31,15 @@ return function(DebindPrivate, _, ctx)
     --- a table, whatever it costs, and once more with the cap at 0, so every bundle is judged by the
     --- loop (Q4 of `implementing-the-cuts-inside-the-beat-handler.md`). Both roads are swept at every
     --- point; which one a bundle takes when nothing is forced has its own cases.
+    --- **And twice more with every item built in one form** (`Judgment.Build`, R6 of
+    --- `cutting-the-beat-under-a-zero-period.md`): the records as they are and the regions cut apart,
+    --- each on the loop, since unforced a case only sees the form its item happened to price lower.
     local RUNS = {
         { label = "attribute", signal = "attribute", margin = -math.huge },
         { label = "visibility", signal = "visibility", margin = -math.huge },
         { label = "loop", signal = "attribute", cap = 0 },
+        { label = "records", signal = "attribute", cap = 0, form = "records" },
+        { label = "regions", signal = "attribute", cap = 0, form = "regions" },
     };
     local defaultCap, defaultMargin = DebindPrivate.JudgeTableCap, DebindPrivate.JudgeTableMargin;
     local function test(name, fn)
@@ -42,6 +47,7 @@ return function(DebindPrivate, _, ctx)
             DebindPrivate.BeatSignal.comes = run.signal == "visibility" or nil;
             DebindPrivate.JudgeTableCap = run.cap or defaultCap;
             DebindPrivate.JudgeTableMargin = run.margin or defaultMargin;
+            DebindPrivate.JudgmentForm = run.form;
             local ok, err = pcall(fn);
             if (ok) then
                 T.passed = T.passed + 1;
@@ -52,6 +58,7 @@ return function(DebindPrivate, _, ctx)
         DebindPrivate.BeatSignal.comes = nil;
         DebindPrivate.JudgeTableCap = defaultCap;
         DebindPrivate.JudgeTableMargin = defaultMargin;
+        DebindPrivate.JudgmentForm = nil;
     end
 
     local function check(cond, msg)
@@ -1245,7 +1252,10 @@ return function(DebindPrivate, _, ctx)
         local state = interp.state;
         state.combat, state.stealth = true, true;
         interp:beat();
-        check(interp.env.Judge.text:find("[combat,stealth,", 1, true), "the second entry's way in is not in the gate: "
+        -- The second entry's own words: what the records leave of it, or the region cut out of it.
+        local group = DebindPrivate.JudgmentItems.F1.form == "records" and "[stealth,flyable]"
+            or "[combat,stealth,flyable]";
+        check(interp.env.Judge.text:find(group, 1, true), "the second entry's way in is not in the gate: "
             .. interp.env.Judge.text);
         for n = 1, 2 do
             state.flyable = not state.flyable;
@@ -1293,6 +1303,24 @@ return function(DebindPrivate, _, ctx)
     test("a gate that can never close is not written", function()
         TwoKeys({ combat = false, flyable = true }, { combat = true, mounted = true, flyable = true }, ",flyable]", false);
         TwoKeys({ combat = false, flyable = true }, { combat = true, flyable = true }, ",flyable]", true);
+    end);
+
+    -- **An item that reads `flyable` keeps the regions** (`Judgment.Build`, R6): as records,
+    -- `[combat] A; [flyable] B` would ask a bare `[flyable]` and the watch's gate could not close in
+    -- combat, a parse of 5 on every beat that no loop price sees. Only where nothing forces a form.
+    test("an item reading flyable keeps its regions, and its gate", function()
+        Bind({
+            action({ conditions = { combat = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { flyable = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        if (DebindPrivate.JudgmentForm == nil) then
+            check(DebindPrivate.JudgmentItems.F1.form == "regions", "the item took the "
+                .. tostring(DebindPrivate.JudgmentItems.F1.form));
+            check(interp.env.Judge.text:find("[nocombat,", 1, true), "flyable is not watched behind nocombat: "
+                .. interp.env.Judge.text);
+        end
+        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
 
     -- **Only a state's own words go into a gate** (`WatchGates`): a unit's check beside `flyable` says
