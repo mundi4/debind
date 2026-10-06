@@ -666,29 +666,27 @@ return function(DebindPrivate)
     shim.world.units = {};
 
     --- **The owner's shape** (R3 of `cutting-the-beat-under-a-zero-period.md`): 30 keys, each 10
-    --- actions of 5 conditions over the game's command, the conditions drawn from 12 state, 5 unit, 6
-    --- `known` and 2 computed-switch pieces by a fixed sequence, so the bundles read them mixed. 20 of
-    --- the keys read `mouseover` on two of their actions. The knob is how many of those ask `help` on
-    --- both (`help` alone) rather than `help` on one and `harm` on the other: a cursor going from an
-    --- enemy to nobody cannot move a key that asks `help` alone, which is what R3 would leave unjudged.
-    --- The moving row is the cursor on every beat, enemy, nobody, friend, nobody.
+    --- actions of 5 conditions over the game's command, the conditions drawn by a fixed sequence from
+    --- the large shape's pieces (`mouseover` and the pointed frame left to the knob) and three more
+    --- state sides, so the bundles read them mixed. 20 of the keys read `mouseover` on two of their
+    --- actions. The knob is how many of those ask `help` on both (`help` alone) rather than `help` on
+    --- one and `harm` on the other. The moving row is the cursor on every beat, enemy, nobody,
+    --- friend, nobody, with how many bundles a moving beat judges beside it.
     do
-        local PIECES = {
-            { combat = true }, { combat = false }, { stealth = true }, { mounted = true }, { mounted = false },
-            { indoors = true }, { flying = false }, { extrabar = true }, { groups = Constants.GROUP_RAID },
-            { forms = 2 ^ 1 }, { bonusbars = 2 ^ 5 }, { specialbar = false },
-            { units = { target = { reaction = Constants.REACTION_HARM, dead = false } } },
-            { units = { focus = { reaction = Constants.REACTION_HELP } } },
-            { units = { pet = { dead = false } } },
-            { units = { party1 = { reaction = Constants.REACTION_HELP } } },
-            { units = { custom1 = { reaction = Constants.REACTION_HELP } } },
-            { known = 90001 }, { known = 90002 }, { known = 90003 },
-            { known = "Bench Spell A" }, { known = "Bench Spell B" }, { known = "Bench Spell C" },
-            { ["$x"] = true }, { ["$y"] = true },
-        };
+        local PIECES = {};
+        for _, piece in ipairs(LARGE_PIECES) do
+            local units = piece.units;
+            if (not (units and (units.mouseover or units.unitframe))) then
+                PIECES[#PIECES + 1] = piece;
+            end
+        end
+        for _, piece in ipairs({ { combat = false }, { mounted = false }, { flying = false } }) do
+            PIECES[#PIECES + 1] = piece;
+        end
+        -- Park and Miller's: the product stays under 2^46, exact in a double on any interpreter.
         local seed = 12345;
         local function nextPiece()
-            seed = (seed * 1103515245 + 12345) % 2147483648;
+            seed = (seed * 16807) % 2147483647;
             return PIECES[seed % #PIECES + 1];
         end
         --- Five pieces, none sharing a field with another, into one conditions table.
@@ -740,11 +738,20 @@ return function(DebindPrivate)
             { id = "enemy", reaction = "harm" }, false, { id = "friend3", reaction = "help" }, false,
         };
         print("\nThe owner's shape, 30 keys x 10 actions x 5 conditions, 20 reading mouseover, the body in us,"
-            .. "\nby the share of those asking help alone: bundles, quiet, the cursor moving on every beat, a second at 144:");
+            .. "\nby the share of those asking help alone: quiet, the cursor moving on every beat, the bundles a"
+            .. "\nmoving beat judges of all, a second at 144:");
         for _, helpOnly in ipairs({ 0, 0.5, 1 }) do
             largeWorld();
-            shim.world.units.party1 = { id = "member", reaction = "help" };
             bind(ownersProfile(helpOnly), LARGE_SWITCHES);
+            local readers = 0;
+            for _, item in pairs(DebindPrivate.JudgmentItems) do
+                for _, column in ipairs(item.columns) do
+                    if (item.base == nil and column.kind == "unit" and column.arg == "mouseover") then
+                        readers = readers + 1;
+                    end
+                end
+            end
+            assert(readers == 20, "the owner's shape has " .. readers .. " keys reading mouseover");
             local perInstruction = instructionCost(interp);
             interp.state.combat = false;
             interp:beat();
@@ -757,23 +764,31 @@ return function(DebindPrivate)
             end
             local _, _, movingLines = price(scenario(LARGE_BEATS, moves), perInstruction);
             local moving = BodyShare(movingLines) / LARGE_BEATS;
-            -- `#` answers 0 on the meter's proxies, so the bundles are counted through the keys' rows.
-            local bundles, seen = 0, {};
-            for k = 1, 30 do
-                local bundle = interp.env.JudgeByKey["CTRL-F" .. k].bundle;
-                if (not seen[bundle]) then
-                    seen[bundle] = true;
-                    bundles = bundles + 1;
+            -- The same moves again, unmetered, counting the bundles each beat stamps.
+            local J, all, judged = interp.env.Judge, 0, 0;
+            while (J.bundles[all + 1]) do
+                all = all + 1;
+            end
+            for b = 1, LARGE_BEATS do
+                moves[b]();
+                local generation = J.generation;
+                interp:beat();
+                if (J.generation ~= generation) then
+                    for n = 1, all do
+                        if (J.bundles[n].stamp == J.generation) then
+                            judged = judged + 1;
+                        end
+                    end
                 end
             end
-            print(string.format("  help alone %3d%%   %3d bundles   quiet %6.2f   moving %7.2f   %6.0f us a second",
-                helpOnly * 100, bundles, BodyShare(quietLines) / LARGE_BEATS, moving, moving * 144));
-            -- What a moving beat is made of, once.
+            assert(judged > 0, "no moving beat judged anything");
+            print(string.format("  help alone %3d%%   quiet %6.2f   moving %7.2f   judged %4.1f of %d   %6.0f us a second",
+                helpOnly * 100, BodyShare(quietLines) / LARGE_BEATS, moving, judged / LARGE_BEATS, all, moving * 144));
             if (helpOnly == 0) then
-                for i = 1, 8 do
-                    local l = movingLines[i];
-                    if (l) then
-                        print(string.format("      %-30s %9.1f a beat %8.2f us", l.what, l.n / LARGE_BEATS, l.us / LARGE_BEATS));
+                for _, l in ipairs(movingLines) do
+                    if (not OUTSIDE_THE_BODY[l.what] and l.us / LARGE_BEATS >= 1) then
+                        print(string.format("      %-30s %9.1f a beat %8.2f us%s", l.what, l.n / LARGE_BEATS,
+                            l.us / LARGE_BEATS, l.measured and "" or " *"));
                     end
                 end
             end
