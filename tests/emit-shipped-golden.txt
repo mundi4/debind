@@ -2057,8 +2057,9 @@ SetAttribute <Frame#2> _onattributechanged =
   | if (not hit) then
   | break
   | end
+  | local at = hit + 0
   | rounds = rounds + 1
-  | if (rounds > 3) then
+  | if (at <= from or rounds > 3) then
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[1] ~= cell) then
@@ -2078,7 +2079,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | break
   | end
-  | if (hit == "1") then
+  | if (at == 1) then
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[1] ~= cell) then
@@ -2096,18 +2097,22 @@ SetAttribute <Frame#2> _onattributechanged =
   | dirty = true
   | end
   | end
-  | from = 1
-  | else
-  | from = 0
   | end
+  | from = at
   | if (from == 1) then
   | break
   | end
-  | text = table.concat(frags, "", from + 1, 1)
+  | if (dirty) then
+  | dirty = false
+  | local text = table.concat(frags)
   | if (text == "") then
-  | break
-  | end
+  | text = false
+  | else
   | text = text:sub(3)
+  | end
+  | J.text = text
+  | end
+  | text = J.text
   | end
   | 
   | if (dirty) then

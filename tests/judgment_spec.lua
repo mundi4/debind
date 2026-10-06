@@ -1577,10 +1577,12 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- **After a hit, only the places after it are asked again** (`BuildJudgeSnippet`): every place
-    -- before it was false in the same parse. The target sits after the states, so its move ends in
-    -- the one parse; a state's move is confirmed by a parse of the target's fragment alone.
-    test("a hit is confirmed by the places after it only", function()
+    -- **After a hit, the whole text is asked again** (`BuildJudgeSnippet`): the restricted
+    -- environment's `table.concat` takes no range, so the text cannot be cut to the places after
+    -- the hit. The target sits last, so its move ends in the one parse; a state's move is
+    -- confirmed by one parse of the whole text joined again, and the target's fragment is never
+    -- parsed alone.
+    test("a hit is confirmed by one parse of the whole text joined again", function()
         Bind({
             action({ conditions = { combat = true, units = { target = { reaction = Constants.REACTION_HARM, dead = false } } } }),
             action({ type = Constants.UNUSED }),
@@ -1615,17 +1617,58 @@ return function(DebindPrivate, _, ctx)
             interp.state.combat = true;
             interp:beat();
         end);
-        local wholes, suffix = 0, 0;
+        local joined = interp.env.Judge.text;
+        check(joined ~= whole, "combat's move left the watch text as it was: " .. tostring(joined));
+        local wholes, again, suffix = 0, 0, 0;
         for _, text in ipairs(parsed) do
             if (text == whole) then
                 wholes = wholes + 1;
+            elseif (text == joined) then
+                again = again + 1;
             elseif (text:sub(1, 8) == "[@target") then
                 suffix = suffix + 1;
             end
         end
-        check(wholes == 1 and suffix == 1, string.format(
-            "combat's move parsed the whole watch %d times and the target's fragment alone %d", wholes, suffix));
+        check(wholes == 1 and again == 1 and suffix == 0, string.format(
+            "combat's move parsed the watch %d times, the text joined again %d, the target's fragment alone %d",
+            wholes, again, suffix));
         check(Bound("F1") == Actual("F1"), "the press " .. Actual("F1") .. ", the loop " .. Bound("F1"));
+        shim.world.units = {};
+        interp:resetState();
+    end);
+
+    -- **A column whose word and measure diverge does not hide the places behind it**
+    -- (`BuildJudgeSnippet`). The form is measured by the call and watched by the word, so a word
+    -- answering another form holds its place after the call measured it again. Parsed whole, the
+    -- watch answers that place again on every round; the target's move behind it, in the same
+    -- beat, is reached only by measuring every carried column there. Stopping instead leaves the
+    -- target's key where it was for as long as the two disagree.
+    test("a diverging column early in the watch does not hide a move behind it", function()
+        Bind({
+            action({ key = "F1", conditions = { forms = 2 ^ 1 } }),
+            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F2", conditions = { units = { target = { reaction = Constants.REACTION_HARM } } } }),
+            action({ key = "F2", type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
+        interp:beat();
+        check(Bound("F2") == Judgment.RELEASE, "a friendly target took F2");
+        interp.state.diverge.form = 1;
+        shim.world.units.target = { id = "t", reaction = "harm" };
+        for n = 1, 2 do
+            -- The text answers the form's place twice, and the second is where every column is
+            -- measured: not two more rounds up to `WATCH_ROUNDS`.
+            local text = interp.env.Judge.text;
+            local before = interp:parseCount(text);
+            interp:beat();
+            check(interp:parseCount(text) - before == 2, string.format("beat %d parsed the watch %d times", n,
+                interp:parseCount(text) - before));
+            check(Bound("F2") == Actual("F2") and Bound("F2") == Judgment.OURS, string.format(
+                "beat %d with the form diverging: the press %s, the loop %s", n, Actual("F2"), Bound("F2")));
+            check(Bound("F1") == Actual("F1"), string.format("beat %d: F1 the press %s, the loop %s", n,
+                Actual("F1"), Bound("F1")));
+        end
         shim.world.units = {};
         interp:resetState();
     end);

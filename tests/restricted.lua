@@ -545,12 +545,18 @@ local function buildEnv(interp)
 
     --- **`table` is bound in apart from the rest**, because a snippet cannot write `{}` -- the
     --- restricted one hands out proxies instead. What the bodies here use of it is `concat`, in
-    --- the macro text rebuild.
+    --- the macro text rebuild and the watch.
     env.table = {
+        -- **One argument, as the client's**: `RestrictedTable_concat(T)` joins the whole table and
+        -- drops a separator or a range without a word, so a body that passes one runs a different
+        -- join in the game than here. Raised on, so that body goes red headless.
         -- Tallied here, since the meter's environment sees only the read of `table`.
         concat = function(t, ...)
+            if (select("#", ...) > 0) then
+                error("the restricted environment's table.concat takes the table alone; a separator or range is dropped in the client", 2);
+            end
             tally(interp, "call table.concat");
-            return table.concat(B(t), ...);
+            return table.concat(B(t));
         end,
         insert = env.tinsert,
         remove = env.tremove,

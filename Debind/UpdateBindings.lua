@@ -3225,10 +3225,10 @@ local function EmitJudgmentItems(items)
     end
 
     -- **Places go to the states first, then the units, the ones that move most last**: the pointed
-    -- frame, then `mouseover`, then `target`. A hit at a place leaves only the places after it to
-    -- ask again (`BuildJudgeSnippet`), and none at all after the last, so the moves that come most
-    -- often end in one parse. A development build parses the units one at a time after the states,
-    -- in this same order.
+    -- frame, then `mouseover`, then `target`. A hit at the last place ends the beat in that one
+    -- parse (`BuildJudgeSnippet`), so the moves that come most often do; a hit anywhere else is
+    -- confirmed by the whole text asked again. A development build parses the units one at a time
+    -- after the states, in this same order.
     local order = sortedKeys(_judgmentColumns, _sortedB);
     local fragmentsOf, states, units = {}, {}, {};
     for i, key in ipairs(order) do
@@ -3670,11 +3670,13 @@ end
 DebindPrivate.WatchFragmentsOf = FragmentsOf;
 
 --- How many columns one beat measures one at a time before it measures every carried column. Past
---- three, a reckoning puts the parses one at a time at about what measuring them all costs.
+--- three, a reckoning put the parses one at a time at about what measuring them all costs. That
+--- reckoning took the confirming parse to read only the places after the hit; the client has always
+--- read the whole text (`RestrictedTable_concat` takes no range), which it did not price.
 ---
 --- A fragment that holds while its column does not move (a kind measured by a call,
---- `ANSWERS_AS_THE_WORD`, whose word answers otherwise) costs its beat one more parse, of the places
---- after it: the confirming parse never asks a place the last one answered or passed.
+--- `ANSWERS_AS_THE_WORD`, whose word answers otherwise) answers its place again in the confirming
+--- parse, and the beat measures every carried column there (`at <= from`).
 local WATCH_ROUNDS = 3;
 
 --- **The loop's bodies, written for this profile** (`handing-the-rest-of-a-key-to-the-game.md` 2-5,
@@ -4269,8 +4271,7 @@ local function BuildJudgeSnippet()
     --- of the joined text with an `@` in every group cannot be. A shipped body parses the joined text.
     local probesOn = DebindPrivate.SnippetProbes ~= nil and DebindPrivate.SnippetProbes.expand ~= nil;
 
-    --- Joins the fragments again where one was written. The first clause's separator comes off. With
-    --- probes on, the states' places are joined on their own as well.
+    --- Joins the fragments again where one was written. The first clause's separator comes off.
     local function rejoin()
         add("if (dirty) then");
         add("dirty = false");
@@ -4345,9 +4346,10 @@ local function BuildJudgeSnippet()
     --- empty text, which `SecureCmdOptionParse` answers as holding. Everything else is measured on
     --- every beat as before. **The watch answers the place of the first column that left its cell**
     --- (Q2b), so that column alone is measured, its fragment written, the text joined, and the
-    --- watch asked again until it answers nothing: a second parse is what says nothing else moved.
-    --- Past `WATCH_ROUNDS` every carried column is measured, which is what the watch did before and
-    --- what a beat where many move at once (a fight starting) costs less as. A development build
+    --- whole text asked again until it answers nothing: a second parse is what says nothing else
+    --- moved. Past `WATCH_ROUNDS`, or where a place already answered answers again, every carried
+    --- column is measured, which is what the watch did before and what a beat where many move at
+    --- once (a fight starting) costs less as. A development build
     --- checks the beat after it against the columns measured again (`PROBE.WatchCheck`,
     --- `JudgeWatchCheck`).
     _judgeBeatSignal = DebindPrivate.BeatSignal.comes and "visibility" or "attribute";
@@ -4374,18 +4376,21 @@ local function BuildJudgeSnippet()
             end
             add("local text = J.text");
             add("local rounds = 0");
-            -- The places the last parse said nothing of, up to the one it answered.
+            -- The highest place answered so far in this beat.
             add("local from = 0");
             add("while (text) do");
             if (probesOn) then
+                -- The whole text, asked a place's way at a time: the states joined and parsed once,
+                -- then each unit's fragment beside its own `unit`, the first that holds answering.
                 add("local hit");
                 if (_watchStatePlaces > 0) then
-                    add("if (from < %d) then", _watchStatePlaces);
-                    add([[local stateText = table.concat(frags, "", from + 1, %d)]], _watchStatePlaces);
+                    add([[local stateText = ""]]);
+                    add("for p = 1, %d do", _watchStatePlaces);
+                    add("stateText = stateText .. frags[p]");
+                    add("end");
                     add([[if (stateText ~= "") then]]);
                     add("stateText = stateText:sub(3)");
                     add("hit = PROBE.SecureCmdOptionParse(stateText)");
-                    add("end");
                     add("end");
                 end
                 local units = {};
@@ -4396,7 +4401,7 @@ local function BuildJudgeSnippet()
                 end
                 sort(units, function(a, b) return _watchPlace[a] < _watchPlace[b]; end);
                 for _, i in ipairs(units) do
-                    add("if (not hit and from < %d) then", _watchPlace[i]);
+                    add("if (not hit) then");
                     add("local fragment = frags[%d]", _watchPlace[i]);
                     add([[if (fragment ~= "") then]]);
                     unitAndExists(_judgmentColumnOrder[i].arg, false);
@@ -4411,28 +4416,31 @@ local function BuildJudgeSnippet()
             add("if (not hit) then");
             add("break");
             add("end");
+            -- Every clause of the text answers its place's number (`WatchFragments`), so the answer is
+            -- one, read the way `asNumber` reads one.
+            add("local at = hit + 0");
             add("rounds = rounds + 1");
-            add("if (rounds > %d) then", WATCH_ROUNDS);
+            -- **The text is parsed whole every round**, because the restricted environment's
+            -- `table.concat` takes no range (`RestrictedTable_concat`). So a place at or before `from`
+            -- answering again is a column whose word and measure diverge (the form's word against
+            -- `GetShapeshiftForm()`), and it masks every place behind it: measuring them all is the
+            -- only way to reach those in this beat. Breaking there instead would leave a later move
+            -- unmeasured for as long as the divergence lasts.
+            add("if (at <= from or rounds > %d) then", WATCH_ROUNDS);
             measure(watched);
             add("break");
             add("end");
             for n, i in ipairs(watched) do
-                add("%s (hit == \"%d\") then", n == 1 and "if" or "elseif", _watchPlace[i]);
+                add("%s (at == %d) then", n == 1 and "if" or "elseif", _watchPlace[i]);
                 measure({ i });
-                add("from = %d", _watchPlace[i]);
             end
-            -- An answer that is no place: ask the whole text again, and the cap ends it.
-            add("else");
-            add("from = 0");
             add("end");
+            add("from = at");
             add("if (from == %d) then", places);
             add("break");
             add("end");
-            add([[text = table.concat(frags, "", from + 1, %d)]], places);
-            add([[if (text == "") then]]);
-            add("break");
-            add("end");
-            add("text = text:sub(3)");
+            rejoin();
+            add("text = J.text");
             add("end");
             add("PROBE.WatchCheck()");
         end
