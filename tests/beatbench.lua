@@ -29,6 +29,13 @@ return function(DebindPrivate)
         -- `SetAttribute` with no handler behind it.
         ["handler entry"] = { 3.19, true },
         ["handle:RunAttribute"] = { 3.09, true },
+        -- 7-1's P, 2026-10-06, each write changing the key: `SetBindingClick` 1.477, `SetBinding`
+        -- 1.101. A clear that changes the key was timed only alternating with a click (1.188 a call),
+        -- so it is twice that less the click. Writing what is already there cost the same each time
+        -- (1.469, 1.085, a clear over nothing 0.882): the client skips nothing.
+        ["handle:SetBindingClick"] = { 1.477, true },
+        ["handle:SetBinding"] = { 1.101, true },
+        ["handle:ClearBinding"] = { 0.899, true },
         -- A parse, each group it judges and each word in one, `@unit` counted as a word: 7-1's N,
         -- texts of 4 to 256 groups lying on this within 5%.
         ["parse"] = { 0.146, true },

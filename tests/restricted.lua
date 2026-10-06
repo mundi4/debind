@@ -467,6 +467,7 @@ end
 --- set in (`handing-the-rest-of-a-key-to-the-game.md` §6, measured); this table holds one entry per
 --- key and cannot stack them, so a spec reads the value we handed the client instead.
 function handleMethods:SetBindingClick(priority, key, buttonName, mouseButton)
+    tally(self.__interp, "handle:SetBindingClick");
     self.__interp.bindings[key] = {
         owner = self.__interp.driver, buttonName = buttonName, mouseButton = mouseButton,
         priority = priority,
@@ -475,11 +476,13 @@ function handleMethods:SetBindingClick(priority, key, buttonName, mouseButton)
 end
 
 function handleMethods:SetBinding(priority, key, command)
+    tally(self.__interp, "handle:SetBinding");
     self.__interp.bindings[key] = { owner = self.__interp.driver, command = command, priority = priority };
     self.__interp.writes[#self.__interp.writes + 1] = key;
 end
 
 function handleMethods:ClearBinding(key)
+    tally(self.__interp, "handle:ClearBinding");
     self.__interp.bindings[key] = nil;
     self.__interp.writes[#self.__interp.writes + 1] = key;
 end

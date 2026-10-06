@@ -31,7 +31,8 @@
 --   P  a bundle's answer read out of a table baked at rebuild instead of walked out of its entries:
 --      the pieces (a bit asked of a large number, `2 ^ n`, `ldexp`, `strbyte`, `strsub`, an array
 --      read, the joint index) and then the same three-column bundle judged by the loop and by a
---      table kept as two numbers, as a string and as an array
+--      table kept as two numbers, as a string and as an array; and the three binding writes a beat
+--      makes for a key whose answer moved, each writing the same value and a different one
 --
 -- Answer found, delete the file and its TOC line.
 
@@ -865,6 +866,28 @@ x = want]==], "local columns, outcomes, bundle = BenchJCols, BenchOutcomes, Benc
             CALL .. strrep("x = (m % (c + c)) >= c\n", 4));
     end
 
+    -- The three writes a beat makes for a key whose answer moved (`JUDGE_BUNDLES_SNIPPET`), on the
+    -- header's own override bindings, which `Run` clears afterwards. Each is timed writing what is
+    -- already there and writing something else, since nothing says whether the client skips the
+    -- first. Both sides of a pair carry the same `i % 2` choice so they differ only in the value.
+    -- A clear that changes something cannot be timed alone: it alternates with a click binding, so
+    -- it is that line less the click's own "changes" line, twice over.
+    local KEY = [[local K, F, G = "ALT-CTRL-SHIFT-NUMPAD9", "DebindBenchClickFrame", "DebindBenchClickFrame2"]];
+    add("P", "SetBindingClick, the same each call",
+        [[self:SetBindingClick(true, K, (i % 2 == 0) and F or F, "LeftButton")]], KEY);
+    add("P", "SetBindingClick, the frame changes each call",
+        [[self:SetBindingClick(true, K, (i % 2 == 0) and F or G, "LeftButton")]], KEY);
+    add("P", "SetBinding, the same command each call",
+        [[self:SetBinding(true, K, (i % 2 == 0) and "TOGGLEWORLDMAP" or "TOGGLEWORLDMAP")]], KEY);
+    add("P", "SetBinding, the command changes each call",
+        [[self:SetBinding(true, K, (i % 2 == 0) and "TOGGLEWORLDMAP" or "TOGGLECHARACTER0")]], KEY);
+    add("P", "ClearBinding of a key already clear", [[self:ClearBinding(K)]], KEY);
+    add("P", "SetBindingClick and ClearBinding alternating (each one changes)",
+        [[if (i % 2 == 0) then self:SetBindingClick(true, K, F, "LeftButton") else self:ClearBinding(K) end]], KEY);
+    add("P", "SetBindingClick and SetBinding alternating (each one changes)",
+        [[if (i % 2 == 0) then self:SetBindingClick(true, K, F, "LeftButton") else self:SetBinding(true, K, "TOGGLEWORLDMAP") end]],
+        KEY);
+
     -- G
     add("G", "compose, 1 switch arg", format(COMPOSE, "BenchEntry1") .. "x = s");
     add("G", "compose, 1 switch arg + parse", format(COMPOSE, "BenchEntry1") .. "x = SecureCmdOptionParse(s)");
@@ -1113,6 +1136,10 @@ local function Run()
     if (benchFrames) then
         UnregisterAttributeDriver(benchFrames.tDrv, "state-x");
         UnregisterAttributeDriver(benchFrames.tAttr, "state-x");
+    end
+    -- Group P's binding writes left the header holding an override on its key.
+    if (restricted) then
+        ClearOverrideBindings(header);
     end
 
     local rEmpty = restricted and Median(rS[1]);
