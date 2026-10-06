@@ -117,49 +117,62 @@ SecureHandlerExecute(BindingDriver, [[
 	GivenBackNow = newtable()
 
 	-- **What a tail key is bound to, kept current by the loop** (`JudgeKeys`), all rewritten whole
-	-- by the rebuild (`UpdateBindingsMap`). `JudgeColumns` is every column an item reads, the n-th
-	-- as the cell measured last at `2n - 1` and the bundles reading it at `2n`. `JudgeBundles` is
-	-- every distinct item, once however many keys it stands for, in the order a pass judges them: a
-	-- bare key's ahead of the chords made from it. `JudgeByKey` is each key's own row, which carries
-	-- what that key is bound to and its bundle. `JudgeReady` says the rebuild's own pass has
-	-- measured every column, so a wake before it has nothing to compare against.
+	-- by the rebuild (`UpdateBindingsMap`). `JudgeByKey` is each key's own row, which carries what
+	-- that key is bound to and its bundle.
 	--
 	-- `JudgeWakes` is, by the name of the wake, the attribute holding the body that wake runs with
 	-- `RunAttribute`, for each wake of ours some column answers to. **Run, not written**: whoever
 	-- wakes the loop is already on this side holding the driver, and writing an attribute to get a
 	-- body run would enter `_onattributechanged` on top (`trimming-the-tail-key-beat.md` 5-2).
-	JudgeColumns = newtable()
-	JudgeBundles = newtable()
 	JudgeByKey = newtable()
 	JudgeWakes = newtable()
-	-- What the loop worked the computed switches it reads out to. Its own, since `ClickSwitches` is
-	-- what one press worked out, for the rest of that press. `JudgeSwitchTexts` is the text the loop
-	-- last composed for one, kept until a name it reads moves (`trimming-the-tail-key-beat.md` 8-6).
-	JudgeSwitches = newtable()
-	JudgeSwitchTexts = newtable()
-	JudgeGeneration = 0
-	JudgeReady = false
+	-- **Everything else the loop's bodies read is one table**, so a body pays one global read and
+	-- reads the rest as fields (`cutting-the-beat-under-a-zero-period.md` R2). Its array part is
+	-- every column an item reads, the n-th as the cell measured last at `3n - 2`, its index in the
+	-- judging tables at `3n - 1` and the bundles reading it at `3n`.
+	--
+	-- **`JudgeStaged` is the one the rebuild fills, `Judge` the one the beat and the wakes read**,
+	-- `false` until the rebuild's own pass has measured every column: a body before that has nothing
+	-- to compare against. The pass hands the one to the other, so a beat while the rebuild is
+	-- writing the table never reads half of it. A rebuild starts a new table (`ClearPreviousBindings`
+	-- in `UpdateBindings.lua`) and carries over what nothing in the rebuild measures.
+	--
+	-- `bundles` is every distinct item, once however many keys it stands for, in the order a pass
+	-- judges them: a bare key's ahead of the chords made from it. `outcomes` is what a letter of a
+	-- bundle's answers stands for (`b.answers`, `BundleAnswers` in `UpdateBindings.lua`): `"ours"`,
+	-- `"release"`, `"base"` or a command, by the letter's byte.
+	--
+	-- `switches` is what the loop worked the computed switches it reads out to. Its own, since
+	-- `ClickSwitches` is what one press worked out, for the rest of that press. `switchTexts` is the
+	-- text the loop last composed for one, kept until a name it reads moves
+	-- (`trimming-the-tail-key-beat.md` 8-6).
+	--
 	-- **The parse that classifies an alias or frame unit for the loop** (`ClassifyPieces` in
 	-- `UpdateBindings.lua`) has the unit's token put into its text when the token changes, not on
-	-- every beat (`trimming-the-tail-key-beat.md` 8-6). `JudgeClassify` is that text by unit.
-	-- `JudgeFrame*` is the pointed frame as the beat last read it.
-	JudgeClassify = newtable()
-	-- **What a letter of a bundle's answers stands for** (`b.answers`, `BundleAnswers` in
-	-- `UpdateBindings.lua`): `"ours"`, `"release"`, `"base"` or a command, by the letter's byte.
-	JudgeOutcomes = newtable()
+	-- every beat (8-6). `classify` is that text by unit. `frameUnit`, `frameType` and `frameRole` are
+	-- the pointed frame as the beat last read it.
+	--
 	-- **The watch** (`WatchFragments` in `UpdateBindings.lua`): one text that answers only once a
 	-- column it carries has left its cell, so a beat where it does not answer measures none of
 	-- them. `byCell[p]` is the p-th carried column's fragment by cell, `frags[p]` the one standing
 	-- for its cell now, and `text` the fragments joined, `false` where there is nothing to parse.
-	JudgeWatch = newtable()
-	JudgeWatch.byCell = newtable()
-	JudgeWatch.frags = newtable()
-	JudgeWatch.text = false
-	-- Pushed from outside by `SetPetBattle`, and kept across rebuilds: nothing else measures it.
-	JudgePetBattle = false
-	JudgeFrameUnit = false
-	JudgeFrameType = false
-	JudgeFrameRole = false
+	--
+	-- `petBattle` is pushed from outside by `SetPetBattle`: nothing else measures it.
+	JudgeStaged = newtable()
+	JudgeStaged.bundles = newtable()
+	JudgeStaged.outcomes = newtable()
+	JudgeStaged.switches = newtable()
+	JudgeStaged.switchTexts = newtable()
+	JudgeStaged.classify = newtable()
+	JudgeStaged.byCell = newtable()
+	JudgeStaged.frags = newtable()
+	JudgeStaged.text = false
+	JudgeStaged.generation = 0
+	JudgeStaged.petBattle = false
+	JudgeStaged.frameUnit = false
+	JudgeStaged.frameType = false
+	JudgeStaged.frameRole = false
+	Judge = false
 
 	-- The keys the game has claimed for a binding context, written by `BakeContextKeys` on every
 	-- transition rather than by a rebuild -- a rebuild cannot cross a lockdown and the house editor
@@ -545,7 +558,7 @@ BindingDriver:SetAttribute("SetSwitch", [[
 --- 2026-09-13, `dropping-the-game-fallback.md` 5-1), so the value pushed last holds through any fight,
 --- and the beat has no `[petbattle]` to parse.
 BindingDriver:SetAttribute("SetPetBattle", [[
-	JudgePetBattle = ... and true or false
+	JudgeStaged.petBattle = ... and true or false
 	local wake = JudgeWakes.petbattle
 	if (wake) then
 		self:RunAttribute(wake)
@@ -844,9 +857,12 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 --- **The second half of the loop's body: bind every tail key whose answer moved**
 --- (`handing-the-rest-of-a-key-to-the-game.md` 2-5). The first half is the rebuild's, generated
 --- with the columns this profile reads written out one after another (`BuildJudgeSnippet`), and it
---- leaves `wake`, `generation`, `moved` and `columns` (`JudgeColumns`) for this one: each column
---- that moved has stamped the bundles reading it with `generation`. An entry holds, for each column
---- it checks, where that column's cell is in `columns`, and the mask.
+--- leaves `wake`, `generation`, `moved`, `J` and `columns` (the same table, read for its array part)
+--- for this one: each column that moved has stamped the bundles reading it with `generation`. An
+--- entry holds, for each column it checks, where that column's cell is in `columns`, and the mask.
+---
+--- **The pass is what hands `J` to the beat and the wakes** (`Judge = J`), having measured every
+--- column first.
 ---
 --- **A bundle is judged once however many keys it stands for** (§3-3). A chord's bundle follows its
 --- base key's bundle where its own tier has no winner, so a base's change re-judges it.
@@ -855,24 +871,26 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 --- on its bundle's `want`.
 local JUDGE_BUNDLES_SNIPPET = [==[
 	if (wake == 1) then
-		JudgeReady = true
-		for n = 1, #JudgeBundles do
-			JudgeBundles[n].stamp = generation
+		Judge = J
+		local bundles = J.bundles
+		for n = 1, #bundles do
+			bundles[n].stamp = generation
 		end
 	elseif (not moved) then
 		return
 	end
+	local bundles = J.bundles
 
 	local outcomes
-	for n = 1, #JudgeBundles do
-		local bundle = JudgeBundles[n]
+	for n = 1, #bundles do
+		local bundle = bundles[n]
 		local base = bundle.base
 		if (bundle.stamp == generation or (base and base.changed == generation)) then
 			-- **A bundle with no rest reads one letter** of its answers at its columns' joint index
 			-- (`BundleAnswers` in `UpdateBindings.lua`), each column's index kept beside its cell. Every
 			-- loop bundle has a rest and a table bundle never does, so the field the loop reads first
 			-- is the one that tells them apart: the loop reads nothing it did not before there were
-			-- tables. `JudgeOutcomes` is taken into a local by the first table, as it was priced.
+			-- tables. `outcomes` is taken into a local by the first table, as it was priced.
 			local outcome = bundle.restOutcome
 			local command
 			if (not outcome) then
@@ -881,7 +899,7 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 				for c = 1, #cols, 2 do
 					at = at + columns[cols[c]] * cols[c + 1]
 				end
-				outcomes = outcomes or JudgeOutcomes
+				outcomes = outcomes or J.outcomes
 				outcome = outcomes[bundle.answers:byte(at)]
 			else
 				command = bundle.restCommand

@@ -178,7 +178,7 @@ return function(DebindPrivate)
             action({ key = "F2", type = Constants.UNUSED }),
         });
         local bare = 0;
-        for _, bundle in ipairs(interp.env.JudgeBundles) do
+        for _, bundle in ipairs(interp.env.Judge.bundles) do
             if (not bundle.base) then
                 bare = bare + 1;
             end

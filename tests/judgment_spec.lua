@@ -685,7 +685,7 @@ return function(DebindPrivate, _, ctx)
                     parsed[#parsed + 1] = string.format("%q x%d", text, count - (before[text] or 0));
                 end
             end
-            check(#parsed == 1 and parsed[1]:find(interp.env.JudgeWatch.text, 1, true) and parsed[1]:sub(-3) == " x1",
+            check(#parsed == 1 and parsed[1]:find(interp.env.Judge.text, 1, true) and parsed[1]:sub(-3) == " x1",
                 string.format("quiet beat %d after the two agree parsed %s", n, table.concat(parsed, ", ")));
         end
         check(Bound("F1") == Judgment.OURS, "the loop let the key go with nothing moved");
@@ -1096,7 +1096,7 @@ return function(DebindPrivate, _, ctx)
         interp:beat();
         local function Quiet(when)
             for n = 1, 2 do
-                local text = interp.env.JudgeWatch.text;
+                local text = interp.env.Judge.text;
                 check(text, "the watch has no text");
                 local all, watch = Parses(function() interp:beat(); end, text);
                 check(all == 1 and watch == 1,
@@ -1216,7 +1216,7 @@ return function(DebindPrivate, _, ctx)
             for _, battle in ipairs({ true, false, true }) do
                 interp.state.petbattle = battle;
                 driver:RunAttribute("SetPetBattle", battle);
-                local text = interp.env.JudgeWatch.text;
+                local text = interp.env.Judge.text;
                 for n = 1, 2 do
                     local all, watch = Parses(function() interp:beat(); end, text or "");
                     if (battle) then
@@ -1381,10 +1381,10 @@ return function(DebindPrivate, _, ctx)
     -- Which road a bundle takes (Q4 of `implementing-the-cuts-inside-the-beat-handler.md`)
     ---------------------------------------------------------------------------
 
-    --- The number `JudgeBundles` holds `key`'s bundle at.
+    --- The number `Judge.bundles` holds `key`'s bundle at.
     local function BundleNumber(key)
         local bundle = interp.env.JudgeByKey[key].bundle;
-        for n, other in ipairs(interp.env.JudgeBundles) do
+        for n, other in ipairs(interp.env.Judge.bundles) do
             if (other == bundle) then
                 return n;
             end
@@ -1510,14 +1510,14 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
         interp:beat();
-        local generation = interp.env.JudgeGeneration;
+        local generation = interp.env.Judge.generation;
         shim.world.units.target = { id = "t", reaction = "neutral" };
         interp:beat();
-        check(interp.env.JudgeGeneration == generation, "a friend to a neutral raised the generation");
+        check(interp.env.Judge.generation == generation, "a friend to a neutral raised the generation");
         check(Bound("F1") == Actual("F1"), "the press " .. Actual("F1") .. ", the loop " .. Bound("F1"));
         shim.world.units.target = { id = "t", reaction = "harm" };
         interp:beat();
-        check(interp.env.JudgeGeneration ~= generation, "an enemy did not raise the generation");
+        check(interp.env.Judge.generation ~= generation, "an enemy did not raise the generation");
         check(Bound("F1") == Judgment.OURS, "an enemy alive did not take the key");
         shim.world.units = {};
         interp:resetState();
@@ -1536,7 +1536,7 @@ return function(DebindPrivate, _, ctx)
         interp.state.group = "party";
         interp:beat();
         for n = 1, 2 do
-            local text = interp.env.JudgeWatch.text;
+            local text = interp.env.Judge.text;
             local all, watch = Parses(function() interp:beat(); end, text);
             check(all == 1 and watch == 1, string.format("in a party, quiet beat %d parsed %d texts, the watch %d times",
                 n, all, watch));
@@ -1566,7 +1566,7 @@ return function(DebindPrivate, _, ctx)
         interp.driverHandle:RunAttribute("SetUnit", "custom1", "party3");
         interp:beat();
         for n = 1, 2 do
-            local text = interp.env.JudgeWatch.text;
+            local text = interp.env.Judge.text;
             check(text and text:find("@target", 1, true) and text:find("@party3", 1, true),
                 "the watch does not carry the units: " .. tostring(text));
             local all, watch = Parses(function() interp:beat(); end, text);
@@ -1588,7 +1588,7 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
         interp:beat();
-        local whole = interp.env.JudgeWatch.text;
+        local whole = interp.env.Judge.text;
         local function Parsed(fn)
             local before = {};
             for text, count in pairs(interp.parses) do
@@ -1610,7 +1610,7 @@ return function(DebindPrivate, _, ctx)
         -- The watch, then the target's own cell.
         check(#parsed == 2 and (parsed[1] == whole or parsed[2] == whole),
             "the target's move parsed: " .. table.concat(parsed, " | "));
-        whole = interp.env.JudgeWatch.text;
+        whole = interp.env.Judge.text;
         parsed = Parsed(function()
             interp.state.combat = true;
             interp:beat();

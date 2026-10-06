@@ -140,42 +140,55 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-
-
-	JudgeColumns = newtable()
-	JudgeBundles = newtable()
 	JudgeByKey = newtable()
 	JudgeWakes = newtable()
 
 
 
-	JudgeSwitches = newtable()
-	JudgeSwitchTexts = newtable()
-	JudgeGeneration = 0
-	JudgeReady = false
 
 
 
 
-	JudgeClassify = newtable()
-
-
-	JudgeOutcomes = newtable()
 
 
 
 
-	JudgeWatch = newtable()
-	JudgeWatch.byCell = newtable()
-	JudgeWatch.frags = newtable()
-	JudgeWatch.text = false
 
-	JudgePetBattle = false
-	JudgeFrameUnit = false
-	JudgeFrameType = false
-	JudgeFrameRole = false
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	JudgeStaged = newtable()
+	JudgeStaged.bundles = newtable()
+	JudgeStaged.outcomes = newtable()
+	JudgeStaged.switches = newtable()
+	JudgeStaged.switchTexts = newtable()
+	JudgeStaged.classify = newtable()
+	JudgeStaged.byCell = newtable()
+	JudgeStaged.frags = newtable()
+	JudgeStaged.text = false
+	JudgeStaged.generation = 0
+	JudgeStaged.petBattle = false
+	JudgeStaged.frameUnit = false
+	JudgeStaged.frameType = false
+	JudgeStaged.frameRole = false
+	Judge = false
 
 
 
@@ -302,7 +315,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### SecureBindings.lua #3 SetAttribute
-	JudgePetBattle = ... and true or false
+	JudgeStaged.petBattle = ... and true or false
 	local wake = JudgeWakes.petbattle
 	if (wake) then
 		self:RunAttribute(wake)
@@ -4322,21 +4335,29 @@ wipe(ClickTimeTiers)
 
 wipe(BoundKeys)
 wipe(GivenBackNow)
-wipe(JudgeColumns)
-wipe(JudgeBundles)
 wipe(JudgeByKey)
 wipe(JudgeWakes)
-wipe(JudgeClassify)
-wipe(JudgeOutcomes)
-wipe(JudgeSwitchTexts)
 
 
-wipe(JudgeSwitches)
 
-wipe(JudgeWatch.byCell)
-wipe(JudgeWatch.frags)
-JudgeWatch.text = false
-JudgeReady = false
+
+Judge = false
+local old = JudgeStaged
+local J = newtable()
+J.bundles = newtable()
+J.outcomes = newtable()
+J.switches = newtable()
+J.switchTexts = newtable()
+J.classify = newtable()
+J.byCell = newtable()
+J.frags = newtable()
+J.text = false
+J.generation = 0
+J.petBattle = old.petBattle
+J.frameUnit = old.frameUnit
+J.frameType = old.frameType
+J.frameRole = old.frameRole
+JudgeStaged = J
 
 wipe(ContextKeys)
 for _, byMod in pairs(ClickCastKeys) do

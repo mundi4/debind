@@ -10,21 +10,29 @@ Execute <Frame#2>
   | -- given back, which is what the game is in after this.
   | wipe(BoundKeys)
   | wipe(GivenBackNow)
-  | wipe(JudgeColumns)
-  | wipe(JudgeBundles)
   | wipe(JudgeByKey)
   | wipe(JudgeWakes)
-  | wipe(JudgeClassify)
-  | wipe(JudgeOutcomes)
-  | wipe(JudgeSwitchTexts)
-  | -- A composition reads this ahead of `States`, so a value left by a switch that has since become one
-  | -- set by hand would stand in front of its real one.
-  | wipe(JudgeSwitches)
-  | -- The pass writes every carried column's fragment and joins them again.
-  | wipe(JudgeWatch.byCell)
-  | wipe(JudgeWatch.frags)
-  | JudgeWatch.text = false
-  | JudgeReady = false
+  | -- A new table and not a wiped one: the values carried over sit in the same table as the column
+  | -- array, and a wipe takes both. `switches` starts empty because a composition reads it ahead of
+  | -- `States`, so a value left by a switch that has since become one set by hand would stand in front
+  | -- of its real one. The pass writes every carried column's fragment and joins them again.
+  | Judge = false
+  | local old = JudgeStaged
+  | local J = newtable()
+  | J.bundles = newtable()
+  | J.outcomes = newtable()
+  | J.switches = newtable()
+  | J.switchTexts = newtable()
+  | J.classify = newtable()
+  | J.byCell = newtable()
+  | J.frags = newtable()
+  | J.text = false
+  | J.generation = 0
+  | J.petBattle = old.petBattle
+  | J.frameUnit = old.frameUnit
+  | J.frameType = old.frameType
+  | J.frameRole = old.frameRole
+  | JudgeStaged = J
   | -- `ApplyGiveBack` bakes it again from the set as it stands, below.
   | wipe(ContextKeys)
   | for _, byMod in pairs(ClickCastKeys) do
@@ -1871,20 +1879,20 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#4" c.base="SHIFT-F12" c.priority=false BoundKeys["ALT-SHIFT-F12"]=c
   | self:SetBindingClick(false,"CTRL-SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12#2")
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
-  | JudgeColumns[3]=newtable()
-  | w=newtable() JudgeWatch.byCell[1]=w
+  | JudgeStaged[3]=newtable()
+  | w=newtable() JudgeStaged.byCell[1]=w
   | w[1]="; [nocombat] 1"
   | w[2]="; [combat] 1"
-  | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[1]=b
+  | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[1]=b
   | b.restOutcome="ours"
   | e=newtable() e.outcome="release" b[1]=e
   | e[1]=1 e[2]=2
-  | tinsert(JudgeColumns[3],b)
-  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeBundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(JudgeBundles[1].keys,j)
-  | b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[2]=b
+  | tinsert(JudgeStaged[3],b)
+  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[1] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(j.bundle.keys,j)
+  | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[2]=b
   | b.restOutcome="command"
   | b.restCommand="TOGGLEWORLDMAP"
-  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeBundles[2] j.priority=true JudgeByKey["F10"]=j tinsert(JudgeBundles[2].keys,j)
+  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[2] j.priority=true JudgeByKey["F10"]=j tinsert(j.bundle.keys,j)
   | WrappedButtons["deb109"]="deb107"
   | WrappedButtons["deb110"]="deb107"
   | WrappedRelease["deb109"]="deb110"
@@ -1921,18 +1929,18 @@ Execute <Frame#2>
   | DeferredMacroTexts["deb115"]=t
 SetAttribute <Frame#2> JudgePass =
   | local wake = 1
-  | JudgeGeneration = JudgeGeneration + 1
-  | local generation = JudgeGeneration
+  | local J = JudgeStaged
+  | local generation = J.generation + 1
+  | J.generation = generation
   | local moved = true
-  | local columns = JudgeColumns
+  | local columns = J
   | local cell
-  | local watch = JudgeWatch
-  | local frags = watch.frags
+  | local frags = J.frags
   | local dirty = false
   | do
   | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | columns[1] = cell
-  | frags[1] = watch.byCell[1][cell]
+  | frags[1] = J.byCell[1][cell]
   | dirty = true
   | end
   | if (dirty) then
@@ -1943,20 +1951,22 @@ SetAttribute <Frame#2> JudgePass =
   | else
   | text = text:sub(3)
   | end
-  | watch.text = text
+  | J.text = text
   | end
   | 	if (wake == 1) then
-  | 		JudgeReady = true
-  | 		for n = 1, #JudgeBundles do
-  | 			JudgeBundles[n].stamp = generation
+  | 		Judge = J
+  | 		local bundles = J.bundles
+  | 		for n = 1, #bundles do
+  | 			bundles[n].stamp = generation
   | 		end
   | 	elseif (not moved) then
   | 		return
   | 	end
+  | 	local bundles = J.bundles
   | 
   | 	local outcomes
-  | 	for n = 1, #JudgeBundles do
-  | 		local bundle = JudgeBundles[n]
+  | 	for n = 1, #bundles do
+  | 		local bundle = bundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
   | 
@@ -1972,7 +1982,7 @@ SetAttribute <Frame#2> JudgePass =
   | 				for c = 1, #cols, 2 do
   | 					at = at + columns[cols[c]] * cols[c + 1]
   | 				end
-  | 				outcomes = outcomes or JudgeOutcomes
+  | 				outcomes = outcomes or J.outcomes
   | 				outcome = outcomes[bundle.answers:byte(at)]
   | 			else
   | 				command = bundle.restCommand
@@ -2029,17 +2039,17 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | self:SetAttribute("judgebeat", 0)
   | local wake = true
-  | local generation
-  | local moved = false
-  | local columns = JudgeColumns
-  | local cell
-  | local watch = JudgeWatch
-  | local frags = watch.frags
-  | local dirty = false
-  | if (not JudgeReady) then
+  | local J = Judge
+  | if (not J) then
   | return
   | end
-  | local text = watch.text
+  | local generation
+  | local moved = false
+  | local columns = J
+  | local cell
+  | local frags = J.frags
+  | local dirty = false
+  | local text = J.text
   | local rounds = 0
   | local from = 0
   | while (text) do
@@ -2055,14 +2065,14 @@ SetAttribute <Frame#2> _onattributechanged =
   | columns[1] = cell
   | if (not moved) then
   | moved = true
-  | JudgeGeneration = JudgeGeneration + 1
-  | generation = JudgeGeneration
+  | generation = J.generation + 1
+  | J.generation = generation
   | end
   | local bundles = columns[3]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
-  | frags[1] = watch.byCell[1][cell]
+  | frags[1] = J.byCell[1][cell]
   | dirty = true
   | end
   | end
@@ -2075,14 +2085,14 @@ SetAttribute <Frame#2> _onattributechanged =
   | columns[1] = cell
   | if (not moved) then
   | moved = true
-  | JudgeGeneration = JudgeGeneration + 1
-  | generation = JudgeGeneration
+  | generation = J.generation + 1
+  | J.generation = generation
   | end
   | local bundles = columns[3]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
-  | frags[1] = watch.byCell[1][cell]
+  | frags[1] = J.byCell[1][cell]
   | dirty = true
   | end
   | end
@@ -2108,20 +2118,22 @@ SetAttribute <Frame#2> _onattributechanged =
   | else
   | text = text:sub(3)
   | end
-  | watch.text = text
+  | J.text = text
   | end
   | 	if (wake == 1) then
-  | 		JudgeReady = true
-  | 		for n = 1, #JudgeBundles do
-  | 			JudgeBundles[n].stamp = generation
+  | 		Judge = J
+  | 		local bundles = J.bundles
+  | 		for n = 1, #bundles do
+  | 			bundles[n].stamp = generation
   | 		end
   | 	elseif (not moved) then
   | 		return
   | 	end
+  | 	local bundles = J.bundles
   | 
   | 	local outcomes
-  | 	for n = 1, #JudgeBundles do
-  | 		local bundle = JudgeBundles[n]
+  | 	for n = 1, #bundles do
+  | 		local bundle = bundles[n]
   | 		local base = bundle.base
   | 		if (bundle.stamp == generation or (base and base.changed == generation)) then
   | 
@@ -2137,7 +2149,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | 				for c = 1, #cols, 2 do
   | 					at = at + columns[cols[c]] * cols[c + 1]
   | 				end
-  | 				outcomes = outcomes or JudgeOutcomes
+  | 				outcomes = outcomes or J.outcomes
   | 				outcome = outcomes[bundle.answers:byte(at)]
   | 			else
   | 				command = bundle.restCommand

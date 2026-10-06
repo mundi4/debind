@@ -426,21 +426,29 @@ wipe(ClickTimeTiers)
 -- given back, which is what the game is in after this.
 wipe(BoundKeys)
 wipe(GivenBackNow)
-wipe(JudgeColumns)
-wipe(JudgeBundles)
 wipe(JudgeByKey)
 wipe(JudgeWakes)
-wipe(JudgeClassify)
-wipe(JudgeOutcomes)
-wipe(JudgeSwitchTexts)
--- A composition reads this ahead of `States`, so a value left by a switch that has since become one
--- set by hand would stand in front of its real one.
-wipe(JudgeSwitches)
--- The pass writes every carried column's fragment and joins them again.
-wipe(JudgeWatch.byCell)
-wipe(JudgeWatch.frags)
-JudgeWatch.text = false
-JudgeReady = false
+-- A new table and not a wiped one: the values carried over sit in the same table as the column
+-- array, and a wipe takes both. `switches` starts empty because a composition reads it ahead of
+-- `States`, so a value left by a switch that has since become one set by hand would stand in front
+-- of its real one. The pass writes every carried column's fragment and joins them again.
+Judge = false
+local old = JudgeStaged
+local J = newtable()
+J.bundles = newtable()
+J.outcomes = newtable()
+J.switches = newtable()
+J.switchTexts = newtable()
+J.classify = newtable()
+J.byCell = newtable()
+J.frags = newtable()
+J.text = false
+J.generation = 0
+J.petBattle = old.petBattle
+J.frameUnit = old.frameUnit
+J.frameType = old.frameType
+J.frameRole = old.frameRole
+JudgeStaged = J
 -- `ApplyGiveBack` bakes it again from the set as it stands, below.
 wipe(ContextKeys)
 for _, byMod in pairs(ClickCastKeys) do
@@ -2795,7 +2803,7 @@ local _columnGroups = {};
 --- `anyKind`), by column key.
 local _indexGroups = {};
 
---- **Where column i's three values sit in `JudgeColumns`**: its cell, its index in the judging tables
+--- **Where column i's three values sit in `Judge`'s array part**: its cell, its index in the judging tables
 --- (its group's place in `_indexGroups`, from 0), and the bundles that read it. One array, so a body
 --- takes it into a local once (Q1 and Q4 of `implementing-the-cuts-inside-the-beat-handler.md`).
 local function CellSlot(i)
@@ -2854,7 +2862,7 @@ local function JudgmentSignature(item, baseBundle)
 end
 
 --- The alias and frame units the column loop classifies, `unit -> true`. Their texts are composed
---- with the unit's token when it moves (`JudgeClassify`).
+--- with the unit's token when it moves (`J.classify`).
 local _judgeClassified = {};
 --- Does anything the loop measures or composes read the pointed frame?
 local _judgeReadsFrame = false;
@@ -3261,7 +3269,7 @@ local function EmitJudgmentItems(items)
         local column = _judgmentColumns[key];
         _judgmentColumnIndex[key] = i;
         _judgmentColumnOrder[i] = column;
-        appendLine("JudgeColumns[%d]=newtable()", BundlesSlot(i));
+        appendLine("JudgeStaged[%d]=newtable()", BundlesSlot(i));
         local fragments, place = fragmentsOf[i], _watchPlace[i];
         if (place) then
             -- **As a clause answering its place** (Q2b): the parse names the first column that left
@@ -3271,7 +3279,7 @@ local function EmitJudgmentItems(items)
                 -- Written from the token where it is written (`BuildJudgeSnippet`).
                 _unitWatch[column.arg] = { place = place, fragments = fragments };
             else
-                appendLine("w=newtable() JudgeWatch.byCell[%d]=w", place);
+                appendLine("w=newtable() JudgeStaged.byCell[%d]=w", place);
                 for _, cell in ipairs(sortedKeys(fragments, {})) do
                     local fragment = fragments[cell];
                     if (column.kind == "unit") then
@@ -3298,7 +3306,7 @@ local function EmitJudgmentItems(items)
         return a < b;
     end);
 
-    -- **The letters of this rebuild's answers** (`ANSWER_LETTERS`), each put into `JudgeOutcomes` the
+    -- **The letters of this rebuild's answers** (`ANSWER_LETTERS`), each put into `outcomes` the
     -- first time a string uses it.
     local letterOfWant, nextLetter = {}, 1;
     local function letterOf(want)
@@ -3313,7 +3321,7 @@ local function EmitJudgmentItems(items)
                 nextLetter = nextLetter + 1;
             end
             letterOfWant[want] = letter;
-            appendLine("JudgeOutcomes[%d]=%q", letter:byte(), want);
+            appendLine("JudgeStaged.outcomes[%d]=%q", letter:byte(), want);
         end
         return letter;
     end
@@ -3366,9 +3374,9 @@ local function EmitJudgmentItems(items)
 
             -- Every key it stands for was bound by the line that put the key on, so it starts as
             -- ours.
-            appendLine([[b=newtable() b.want="ours" b.keys=newtable() JudgeBundles[%d]=b]], n);
+            appendLine([[b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[%d]=b]], n);
             if (baseBundle) then
-                appendLine("b.base=JudgeBundles[%d]", baseBundle);
+                appendLine("b.base=JudgeStaged.bundles[%d]", baseBundle);
             end
             if (answers) then
                 appendLine("b.answers=%q", answers);
@@ -3395,13 +3403,13 @@ local function EmitJudgmentItems(items)
                 end
             end
             for _, read in ipairs(reads) do
-                appendLine("tinsert(JudgeColumns[%d],b)", BundlesSlot(read.index));
+                appendLine("tinsert(JudgeStaged[%d],b)", BundlesSlot(read.index));
             end
         end
         keyBundle[key] = n;
         -- A chord's row writes at the priority its chord went on at.
-        appendLine([[j=newtable() j.key=%1$q j.slot=BoundKeys[%1$q] j.bound="ours" j.bundle=JudgeBundles[%2$d] ]]
-            .. [[j.priority=%3$s JudgeByKey[%1$q]=j tinsert(JudgeBundles[%2$d].keys,j)]], key, n,
+        appendLine([[j=newtable() j.key=%1$q j.slot=BoundKeys[%1$q] j.bound="ours" j.bundle=JudgeStaged.bundles[%2$d] ]]
+            .. [[j.priority=%3$s JudgeByKey[%1$q]=j tinsert(j.bundle.keys,j)]], key, n,
             tostring(item.base == nil));
     end
 
@@ -3757,10 +3765,10 @@ local function BuildJudgeSnippet()
 
     --- Clears the composed text of every switch reading `name`, so the next body to work it out
     --- composes it again.
-    --- `texts` is the local holding `JudgeSwitchTexts` where the body has one.
+    --- `texts` is the local holding `J.switchTexts` where the body has one.
     local function clearReaders(name, texts)
         for _, reader in ipairs(readers[name] or {}) do
-            add("%s[%q] = nil", texts or "JudgeSwitchTexts", reader);
+            add("%s[%q] = nil", texts or "J.switchTexts", reader);
         end
     end
 
@@ -3780,7 +3788,7 @@ local function BuildJudgeSnippet()
     local writesWatch = false;
     --- An alias or frame unit's token, as an expression.
     local function tokenOf(unit)
-        return unit == "unitframe" and "JudgeFrameUnit" or format("UnitAliasMap[%q]", unit);
+        return unit == "unitframe" and "J.frameUnit" or format("UnitAliasMap[%q]", unit);
     end
 
     --- **An alias or frame unit's fragment, for the token in the local `token` and the cell `cellExpr`
@@ -3830,7 +3838,7 @@ local function BuildJudgeSnippet()
             return;
         end
         writesWatch = true;
-        add("frags[%d] = watch.byCell[%d][cell]", place, place);
+        add("frags[%d] = J.byCell[%d][cell]", place, place);
         add("dirty = true");
     end
     --- **The column's index in the judging tables, written beside its cell** (Q4): its group's place,
@@ -3867,8 +3875,8 @@ local function BuildJudgeSnippet()
         writeIndex(index);
         add("if (not moved) then");
         add("moved = true");
-        add("JudgeGeneration = JudgeGeneration + 1");
-        add("generation = JudgeGeneration");
+        add("generation = J.generation + 1");
+        add("J.generation = generation");
         add("end");
         add("local bundles = columns[%d]", BundlesSlot(index));
         add("for k = 1, #bundles do");
@@ -3887,7 +3895,7 @@ local function BuildJudgeSnippet()
             return;
         end
         writesWatch = true;
-        add("local fragment = (not JudgePetBattle) and watch.byCell[%d][cell] or \"\"", place);
+        add("local fragment = (not J.petBattle) and J.byCell[%d][cell] or \"\"", place);
         add("if (frags[%d] ~= fragment) then", place);
         add("frags[%d] = fragment", place);
         add("dirty = true");
@@ -3907,17 +3915,16 @@ local function BuildJudgeSnippet()
     --- macro body's included, which the beat has no use for. An expression with nothing to compose
     --- is baked in as the literal the press would parse.
     ---
-    --- **A text is composed only where `JudgeSwitchTexts` has none** (8-6 of
+    --- **A text is composed only where `J.switchTexts` has none** (8-6 of
     --- `trimming-the-tail-key-beat.md`): whatever moves a name it reads clears it, a switch here
     --- included, and `SwitchesToWorkOut` puts the switch ahead of its readers.
     ---
-    --- **`JudgeSwitches` and `JudgeSwitchTexts` are taken into locals once** where the body reads
-    --- them, as `JudgeColumns` is (`body`).
+    --- **`J.switches` and `J.switchTexts` are taken into locals once** where the body reads them.
     local function workOutSwitches(order)
         if (#order == 0) then
             return;
         end
-        add("local switchValues = JudgeSwitches");
+        add("local switchValues = J.switches");
         local withTexts = false;
         for _, name in ipairs(order) do
             if (_macrotexts[_switches[name].expr] or readers[name]) then
@@ -3925,7 +3932,7 @@ local function BuildJudgeSnippet()
             end
         end
         if (withTexts) then
-            add("local switchTexts = JudgeSwitchTexts");
+            add("local switchTexts = J.switchTexts");
         end
         for _, name in ipairs(order) do
             local info = _switches[name];
@@ -3934,7 +3941,7 @@ local function BuildJudgeSnippet()
                 add("local s = switchTexts[%q]", name);
                 add("if (not s) then");
                 add("local entry = SwitchEntries[%q]", name);
-                add("local unitframeAlias = JudgeFrameUnit or nil");
+                add("local unitframeAlias = J.frameUnit or nil");
                 add("local clickSwitches = switchValues");
                 add("local pressUnit");
                 lines[#lines + 1] = DebindPrivate.COMPOSE_MACROTEXT_SNIPPET;
@@ -3963,7 +3970,7 @@ local function BuildJudgeSnippet()
     --- `prepare` read; `exists` is read only by the group cell, which stays on the API.
     local function unitAndExists(unit, withExists)
         if (unit == "unitframe") then
-            add("local unit = JudgeFrameUnit");
+            add("local unit = J.frameUnit");
         elseif (SPECIAL_UNITS[unit]) then
             add("local unit = UnitAliasMap[%q]", unit);
         else
@@ -3999,7 +4006,7 @@ local function BuildJudgeSnippet()
         add("cell = %d", Constants.UNITSTATE_NONE);
         if (SPECIAL_UNITS[unitName]) then
             add("if (unit) then");
-            add("cell = %s", asNumber(format("PROBE.ParseUnit(JudgeClassify[%q])", unitName)));
+            add("cell = %s", asNumber(format("PROBE.ParseUnit(J.classify[%q])", unitName)));
             add("end");
         else
             add("cell = %s", asNumber(format("PROBE.ParseUnit(%q)",
@@ -4042,9 +4049,9 @@ local function BuildJudgeSnippet()
             add("end");
             add("cell = 2 ^ form");
         elseif (kind == "petbattle") then
-            add("cell = JudgePetBattle and %d or %d", TRUE, FALSE);
+            add("cell = J.petBattle and %d or %d", TRUE, FALSE);
         elseif (kind == "specialbar") then
-            add("cell = (JudgePetBattle or PROBE.SecureCmdOptionParse(%q)) and %d or %d", text, TRUE, FALSE);
+            add("cell = (J.petBattle or PROBE.SecureCmdOptionParse(%q)) and %d or %d", text, TRUE, FALSE);
         elseif (text and numbered) then
             add("cell = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)));
         elseif (text) then
@@ -4107,8 +4114,8 @@ local function BuildJudgeSnippet()
         end
         -- Read off what `prepare` read at the top of the body.
         if (readsFrame) then
-            add("local unitframeFrameType = JudgeFrameType or nil");
-            add("local unitframeRole = JudgeFrameRole or nil");
+            add("local unitframeFrameType = J.frameType or nil");
+            add("local unitframeRole = J.frameRole or nil");
         end
         workOutSwitches(SwitchesToWorkOut(switches));
 
@@ -4155,7 +4162,7 @@ local function BuildJudgeSnippet()
     end
 
     --- **What a body does before it measures anything**: the pointed frame read again where
-    --- anything reads it, the classifying texts (`JudgeClassify`) composed where `mode` moves
+    --- anything reads it, the classifying texts (`J.classify`) composed where `mode` moves
     --- their unit, so no parse reads a text not yet composed, and the computed switches' texts
     --- cleared where it moves a name they read.
     ---
@@ -4181,7 +4188,7 @@ local function BuildJudgeSnippet()
     end
 
     --- **An alias or frame unit's classifying text, composed for its token** into
-    --- `JudgeClassify[unit]` (`TemplateExpression`). A unit with no token is decided absent before
+    --- `J.classify[unit]` (`TemplateExpression`). A unit with no token is decided absent before
     --- any parse, and its text is left as it was.
     local function composeClassify(unit)
         if (not _judgeClassified[unit]) then
@@ -4190,7 +4197,7 @@ local function BuildJudgeSnippet()
         add("do");
         add("local token = %s", tokenOf(unit));
         add("if (token) then");
-        add("JudgeClassify[%q] = %s", unit,
+        add("J.classify[%q] = %s", unit,
             TemplateExpression(ClassifyPieces(unit, _columnGroups["unit " .. unit]), "token"));
         add("end");
         add("end");
@@ -4210,11 +4217,11 @@ local function BuildJudgeSnippet()
             add("unitframeUnit = unitframeUnit or false");
             add("unitframeFrameType = unitframeFrameType or false");
             add("unitframeRole = unitframeRole or false");
-            add("if (unitframeUnit ~= JudgeFrameUnit or unitframeFrameType ~= JudgeFrameType"
-                .. " or unitframeRole ~= JudgeFrameRole) then");
-            add("JudgeFrameUnit = unitframeUnit");
-            add("JudgeFrameType = unitframeFrameType");
-            add("JudgeFrameRole = unitframeRole");
+            add("if (unitframeUnit ~= J.frameUnit or unitframeFrameType ~= J.frameType"
+                .. " or unitframeRole ~= J.frameRole) then");
+            add("J.frameUnit = unitframeUnit");
+            add("J.frameType = unitframeFrameType");
+            add("J.frameRole = unitframeRole");
             if (mode ~= "pass") then
                 composeClassify("unitframe");
                 refreshUnitWatch("unitframe");
@@ -4273,15 +4280,18 @@ local function BuildJudgeSnippet()
         add("else");
         add("text = text:sub(3)");
         add("end");
-        add("watch.text = text");
+        add("J.text = text");
         add("end");
     end
 
     --- One body: what `build` measures, then the judging half, which reads `wake` -- `1` for the
     --- rebuild's pass, `true` for the beat, the wake's name for a wake of ours.
     ---
-    --- **`JudgeColumns` is taken into a local once**, since a global read costs twice a field read
-    --- of a local table (`restricted-environment.md`).
+    --- **`Judge` is the one global the loop's own tables cost a body**, and its array part is the
+    --- columns, so the body reads a cell with no field read in between (R2 of
+    --- `cutting-the-beat-under-a-zero-period.md`). The pass reads `JudgeStaged`, which it hands over
+    --- as `Judge` once every column is measured (`JUDGE_BUNDLES_SNIPPET`); every other body returns
+    --- while there is none.
     ---
     --- **Every body that writes a fragment joins the text again at its end**, before the judging half,
     --- which may return early.
@@ -4294,18 +4304,22 @@ local function BuildJudgeSnippet()
         lines = {};
         add("local wake = %s", wake);
         if (inPass) then
-            add("JudgeGeneration = JudgeGeneration + 1");
-            add("local generation = JudgeGeneration");
+            add("local J = JudgeStaged");
+            add("local generation = J.generation + 1");
+            add("J.generation = generation");
             add("local moved = true");
         else
+            add("local J = Judge");
+            add("if (not J) then");
+            add("return");
+            add("end");
             add("local generation");
             add("local moved = false");
         end
-        add("local columns = JudgeColumns");
+        add("local columns = J");
         add("local cell");
         if (writesWatch) then
-            add("local watch = JudgeWatch");
-            add("local frags = watch.frags");
+            add("local frags = J.frags");
             add("local dirty = false");
         end
         for _, line in ipairs(measuring) do
@@ -4346,9 +4360,6 @@ local function BuildJudgeSnippet()
         end
     end
     local beatBody = body("true", function()
-        add("if (not JudgeReady) then");
-        add("return");
-        add("end");
         refreshed = false;
         prepare("beat");
         measure(unwatched);
@@ -4361,7 +4372,7 @@ local function BuildJudgeSnippet()
             for _, i in ipairs(watched) do
                 places = math.max(places, _watchPlace[i]);
             end
-            add("local text = watch.text");
+            add("local text = J.text");
             add("local rounds = 0");
             -- The places the last parse said nothing of, up to the one it answered.
             add("local from = 0");
@@ -4433,7 +4444,9 @@ local function BuildJudgeSnippet()
     _judgeWatchCheckBody = nil;
     if (Constants.DEBUG and #watched > 0) then
         lines = {};
-        add("local columns = JudgeColumns");
+        -- Run from the beat, past its own check that `Judge` is there.
+        add("local J = Judge");
+        add("local columns = J");
         add("local cell");
         for _, i in ipairs(watched) do
             local column = _judgmentColumnOrder[i];
@@ -4483,9 +4496,6 @@ local function BuildJudgeSnippet()
     wipe(_judgeWakeBodies);
     for _, wake in ipairs(wakeOrder) do
         local snippet = DebindPrivate.BakeSnippet(body(format("%q", wake), function()
-            add("if (not JudgeReady) then");
-            add("return");
-            add("end");
             prepare(wake == "unitframe" and "unitframe" or "wake", wake);
             measure(wakes[wake]);
         end));
@@ -4805,7 +4815,7 @@ end
 --- `DeferredMacroTexts` holds a button's `*macrotext-`, composed by the click that picks that
 --- button. `SwitchEntries` holds a computed switch's expression, composed by the press that has to
 --- know the switch's answer (`COMPUTE_SWITCHES_SNIPPET`) and by the tail-key loop, which keeps what
---- it composed in `JudgeSwitchTexts` until a name the text reads moves (`workOutSwitches`). That is
+--- it composed in `J.switchTexts` until a name the text reads moves (`workOutSwitches`). That is
 --- what takes the frame sweep down: moving an alias composes no button body, and only the loop's
 --- texts that read the alias again.
 local function EmitMacroTextEntries()
