@@ -3236,18 +3236,23 @@ local function EmitJudgmentItems(items)
         _indexGroups[key] = ColumnGroups(column, masks[key], true);
         _columnGroups[key] = GROUPED_KINDS[column.kind] and _indexGroups[key] or nil;
     end
-    -- Read off every column's groups, so before any fragment is made.
-    local gates = DebindPrivate.WatchGates(items);
+    -- An expensive word whose gate can close is measured behind it instead of watched
+    -- (`MeasureGates`). The gates' tests read the columns' places, so those come first.
+    for i, key in ipairs(order) do
+        _judgmentColumnIndex[key] = i;
+    end
+    local gates = DebindPrivate.MeasureGates(items);
     local fragmentsOf, states, units = {}, {}, {};
     for i, key in ipairs(order) do
         local column = _judgmentColumns[key];
+        column.gate = gates[key];
         if (column.kind == "unit") then
             fragmentsOf[i] = UnitWatchAlternatives(column, _columnGroups[key]);
             if (fragmentsOf[i]) then
                 units[#units + 1] = i;
             end
-        else
-            fragmentsOf[i] = WatchFragments(column, gates[key]);
+        elseif (column.gate == nil or column.gate == true) then
+            fragmentsOf[i] = WatchFragments(column);
             if (fragmentsOf[i]) then
                 states[#states + 1] = i;
             end
@@ -3270,23 +3275,9 @@ local function EmitJudgmentItems(items)
         end
     end
 
-    -- The gate as one text, which `JudgeWatchCheck` asks before it holds the column to its cell.
-    for _, key in ipairs(order) do
-        local gate, text = gates[key], nil;
-        if (gate) then
-            local texts = {};
-            for g, group in ipairs(gate) do
-                texts[g] = "[" .. tconcat(group, ",") .. "]";
-            end
-            text = tconcat(texts);
-        end
-        _judgmentColumns[key].watchGate = text;
-    end
-
     local wakes = {};
     for i, key in ipairs(order) do
         local column = _judgmentColumns[key];
-        _judgmentColumnIndex[key] = i;
         _judgmentColumnOrder[i] = column;
         appendLine("JudgeStaged[%d]=newtable()", BundlesSlot(i));
         local fragments, place = fragmentsOf[i], _watchPlace[i];
@@ -3318,7 +3309,6 @@ local function EmitJudgmentItems(items)
             _judgeClassified[column.arg] = true;
         end
     end
-
     sortedKeys(items, _judgmentKeys);
     sort(_judgmentKeys, function(a, b)
         local aChord, bChord = items[a].base ~= nil, items[b].base ~= nil;
@@ -3564,182 +3554,97 @@ local function NegatedGroups(clause)
     return { one };
 end
 
---- **The expensive words' gate** (R1-c of `cutting-the-beat-under-a-zero-period.md`), by column key,
---- each a list of groups of tokens, for `EmitJudgmentItems`; reached through `DebindPrivate` because
---- what it uses is declared below that function and the file is at Lua's limit of 200 locals.
+--- **The expensive words' gate**, by column key: a condition on the other columns' cells, as Lua,
+--- behind which `BuildJudgeSnippet` measures the column after the watch, or `true` where it measures
+--- it on every beat, where the watch carries it. Reached through `DebindPrivate` because the file is
+--- at Lua's limit of 200 locals. `slots` is the cells it reads, so a wake that moves one measures
+--- behind it as well (`BuildJudgeSnippet`).
 ---
---- `flyable` costs 5 a parse and `advflyable` 24 where every other word costs a tenth of one (7-1),
---- and a watched column is parsed on every beat. **An entry is an AND**: where another of its checks
---- fails, it fails whatever the column's cell says, in whichever order the loop reads them, and a
---- table's letter is the same answer (`BundleAnswers`), so a bundle reading a gated column may take a
---- table and its checks keep their order. So where every entry reading the column has another check
---- failing, or is not reached because an entry ahead of it matched, its cell may go stale with no
---- answer moving. Its fragment is then asked
---- behind those checks' own words: in combat `[nocombat,noflyable]` stops at `nocombat`. The words
---- are parsed live inside the fragment, so it holds exactly where the gate is open and the column
---- has left its cell, in the beat that opens it.
+--- `flyable` costs 5 a parse and `advflyable` 24 where every other word costs a tenth of one (7-1).
+--- **The loop reaches an entry only where every entry ahead of it failed, and an entry is an AND**,
+--- so the column decides something only where some entry reading it is reached with its other checks
+--- holding; elsewhere its cell may go stale with no answer moving. The gate is exactly that: over the
+--- entries reading the column, their other checks and that no entry ahead of them holds. A table's
+--- letter is the same answer (`BundleAnswers`).
 ---
---- A check's words are a boolean state's own (`StateCellClauses`) where its mask takes one cell:
---- `{}` where it takes both, `false` where it takes neither (the entry never matches), nil where no
---- one group says it, and then it is left out, which only widens the gate. An entry with nothing
---- else that says anything opens it always, and the column keeps its plain fragment. Past four
---- groups, or where the gate merges to one that cannot close (`MergeGroups`), the column keeps it too.
-function DebindPrivate.WatchGates(items)
+--- **A check on another expensive column is read as holding**, and an entry ahead with one adds
+--- nothing: that column's cell may be stale behind its own gate. Both only open the gate wider, as
+--- does an entry ahead that reads this column itself.
+---
+--- **Past `LIMIT` cells read or terms joined it is `true`**: each cell read is a local of the beat
+--- body, where Lua allows 200, and a closed gate pays a test a term, which past that many comes to
+--- what the parse it spares costs.
+function DebindPrivate.MeasureGates(items)
+    local LIMIT = 32;
     local expensive = DebindPrivate.Judgment.EXPENSIVE;
-    -- **Only a boolean state's own words**: a unit's, a switch's or a `known`'s say nothing a state
-    -- word can, and a unit's merged groups would come back from `StateCellClauses` as the bare word
-    -- `unit`, which never holds and would close the gate for good.
-    local function Words(column, mask)
-        if (not JUDGED_BOOL_STATES[column.kind] or expensive[column.kind] or MEASURED_BY[column.kind] ~= "parse") then
-            return nil;
-        end
-        local list = StateCellClauses(column.kind, _columnGroups[column.key]);
-        if (not list or #list ~= 1) then
-            return nil;
-        end
-        local clause = list[1];
-        local on = (mask % (clause.cell + clause.cell)) >= clause.cell;
-        local off = (mask % (list.default + list.default)) >= list.default;
-        if (on and off) then
-            return {};
-        elseif (not on and not off) then
-            return false;
-        elseif (on) then
-            return (#clause.groups == 1) and clause.groups[1] or nil;
-        end
-        local negated = NegatedGroups(clause);
-        return (negated and #negated == 1) and negated[1] or nil;
-    end
-    -- Once a column and mask a rebuild: the same check stands in many entries.
-    local cache = {};
-    local function CheckWords(column, mask)
-        local cacheKey = column.key .. "|" .. mask;
-        if (not cache[cacheKey]) then
-            cache[cacheKey] = { Words(column, mask) };
-        end
-        return cache[cacheKey][1];
-    end
-    --- **Two groups that differ in one word and its `no` are the rest of them**, written once:
-    --- `[nocombat,mounted][nocombat,nomounted]` is `[nocombat]`, and every word a gate keeps is parsed
-    --- ahead of the column wherever the gate is open. Until no pair is left. A gate that merges down
-    --- to an empty group can never close (the bench's `flyable` shape, `flyable` behind every pair of
-    --- `combat` and `mounted`), and is only cost; one that cannot close without merging so is kept.
-    local function MergeGroups(groups)
-        local function key(group)
-            local sorted = {};
-            for k, token in ipairs(group) do
-                sorted[k] = token;
-            end
-            sort(sorted);
-            return tconcat(sorted, ",");
-        end
-        local merged = true;
-        while (merged) do
-            merged = false;
-            for a = 1, #groups do
-                for b = a + 1, #groups do
-                    if (#groups[a] == #groups[b]) then
-                        local inB = {};
-                        for _, token in ipairs(groups[b]) do
-                            inB[token] = true;
-                        end
-                        local rest, differ = {}, 0;
-                        for _, token in ipairs(groups[a]) do
-                            if (inB[token]) then
-                                rest[#rest + 1] = token;
-                            else
-                                differ = differ + ((inB[Negated(token)]) and 1 or 2);
-                            end
-                        end
-                        if (differ == 1) then
-                            groups[a] = rest;
-                            table.remove(groups, b);
-                            merged = true;
-                            break;
-                        end
-                    end
-                end
-                if (merged) then
-                    break;
-                end
-            end
-        end
-        local out, seen = {}, {};
-        for _, group in ipairs(groups) do
-            local text = key(group);
-            if (not seen[text]) then
-                seen[text] = true;
-                out[#out + 1] = group;
-            end
-        end
-        return out;
+    -- The judging half's mask test on the check's column, as an expression on the local `c<slot>`
+    -- the measure takes the cell into, once a beat whatever the number of tests on it.
+    local function Test(item, check, slots)
+        local slot = CellSlot(_judgmentColumnIndex[item.columns[check.column].key]);
+        slots[#slots + 1] = slot;
+        return format("%d %% (c%d + c%d) >= c%d", check.mask, slot, slot, slot);
     end
     local gates = {};
-    -- In key order: `MergeGroups` merges the first pair it meets, and `pairs` over the items table,
-    -- which is wiped and refilled, walks it in an order an earlier rebuild left behind.
+    -- In key order, so the same items write the same text.
     local itemKeys = sortedKeys(items, {});
     for key, column in pairs(_judgmentColumns) do
         if (expensive[column.kind]) then
-            local groups, seen, open = {}, {}, false;
+            local terms, seen, reads, open = {}, {}, {}, false;
             for _, itemKey in ipairs(itemKeys) do
                 local item = items[itemKey];
-                -- **The entries ahead that failed**: the loop reaches an entry only where every one
-                -- before it failed, so a gate may hold that too. Only an entry of one check whose
-                -- words are one token turns over into a token; any other's failing is an OR, and
-                -- leaving it out only opens the gate wider.
+                local readsColumn = false;
+                for _, checked in ipairs(item.columns) do
+                    readsColumn = readsColumn or checked.key == key;
+                end
+                -- Each entry ahead that failed, as `{ text, slots }`.
                 local failed = {};
-                for _, entry in ipairs(item.entries) do
-                    local ahead, inAhead, reaches, never = {}, {}, false, false;
+                for _, entry in ipairs((readsColumn and not open) and item.entries or {}) do
+                    local tests, slots, reaches, certain = {}, {}, false, true;
                     for _, check in ipairs(entry.checks) do
                         local checked = item.columns[check.column];
                         if (checked.key == key) then
                             reaches = true;
+                        elseif (expensive[checked.kind]) then
+                            certain = false;
                         else
-                            local words = CheckWords(checked, check.mask);
-                            if (words == false) then
-                                never = true;
+                            tests[#tests + 1] = Test(item, check, slots);
+                        end
+                    end
+                    if (reaches) then
+                        for _, ahead in ipairs(failed) do
+                            tests[#tests + 1] = ahead.text;
+                            for _, slot in ipairs(ahead.slots) do
+                                slots[#slots + 1] = slot;
                             end
-                            for _, token in ipairs(words or {}) do
-                                if (not inAhead[token]) then
-                                    inAhead[token] = true;
-                                    ahead[#ahead + 1] = token;
-                                end
-                            end
                         end
-                    end
-                    for _, token in ipairs(failed) do
-                        if (not inAhead[token]) then
-                            inAhead[token] = true;
-                            ahead[#ahead + 1] = token;
-                        end
-                    end
-                    if (#entry.checks == 1) then
-                        local words = CheckWords(item.columns[entry.checks[1].column], entry.checks[1].mask);
-                        if (words and #words == 1) then
-                            failed[#failed + 1] = Negated(words[1]);
-                        end
-                    end
-                    if (reaches and not never) then
-                        if (#ahead == 0) then
+                        if (#tests == 0) then
                             open = true;
-                        else
-                            local text = tconcat(ahead, ",");
-                            if (not seen[text]) then
-                                seen[text] = true;
-                                groups[#groups + 1] = ahead;
+                            break;
+                        end
+                        local text = tconcat(tests, " and ");
+                        if (not seen[text]) then
+                            seen[text] = true;
+                            terms[#terms + 1] = text;
+                            for _, slot in ipairs(slots) do
+                                reads[slot] = true;
                             end
                         end
+                    elseif (certain) then
+                        failed[#failed + 1] = { text = "not (" .. tconcat(tests, " and ") .. ")", slots = slots };
                     end
                 end
             end
-            groups = MergeGroups(groups);
-            for _, group in ipairs(groups) do
-                if (#group == 0) then
-                    open = true;
+            local slots = sortedKeys(reads, {});
+            if (open or #terms > LIMIT or #slots > LIMIT) then
+                gates[key] = true;
+            else
+                local locals = {};
+                for _, slot in ipairs(slots) do
+                    locals[#locals + 1] = format("local c%d = columns[%d]", slot, slot);
                 end
-            end
-            if (not open and #groups > 0 and #groups <= 4) then
-                gates[key] = groups;
+                gates[key] = {
+                    reads = tconcat(locals, "\n"), test = "(" .. tconcat(terms, ") or (") .. ")", slots = reads,
+                };
             end
         end
     end
@@ -3766,11 +3671,8 @@ end
 --- `[noform:1/2]` holds where neither does, while `[noform:1][noform:2]` holds where either fails.
 --- Every token a fragment writes goes into `_stateTokens`, so the development build's mock answers
 --- it the way it answers the column's own text.
----
---- `gate` is the column's from `WatchGates`, or nil: each group then stands behind each of the
---- gate's groups, the gate's words first so a group whose gate fails stops before the column's word.
 local FragmentsOf;
-function WatchFragments(column, gate)
+function WatchFragments(column)
     if (MEASURED_BY[column.kind] ~= "parse" and not ANSWERS_AS_THE_WORD[column.kind]) then
         return nil;
     end
@@ -3792,12 +3694,12 @@ function WatchFragments(column, gate)
     if (not list) then
         return nil;
     end
-    return FragmentsOf(list, gate);
+    return FragmentsOf(list);
 end
 
 --- The fragments of a clause list (`StateCellClauses`' shape), by cell. nil where a clause cannot be
---- turned over without multiplying out. `gate` as `WatchFragments` takes it.
-function FragmentsOf(list, gate)
+--- turned over without multiplying out.
+function FragmentsOf(list)
     local fragments = {};
     local function add(cell, groups)
         local kept = {};
@@ -3843,17 +3745,7 @@ function FragmentsOf(list, gate)
             for _, token in ipairs(group) do
                 _stateTokens[token] = true;
             end
-            for _, behind in ipairs(gate or { false }) do
-                local tokens = {};
-                for _, token in ipairs(behind or {}) do
-                    tokens[#tokens + 1] = token;
-                    _stateTokens[token] = true;
-                end
-                for _, token in ipairs(group) do
-                    tokens[#tokens + 1] = token;
-                end
-                rendered[#rendered + 1] = "[" .. tconcat(tokens, ",") .. "]";
-            end
+            rendered[#rendered + 1] = "[" .. tconcat(group, ",") .. "]";
         end
         fragments[cell] = tconcat(rendered);
     end
@@ -4566,14 +4458,30 @@ local function BuildJudgeSnippet()
     --- says nothing else moved. Where a place already answered answers again, every carried column
     --- is measured (`JudgeWatchRounds` says why there is no cap besides). A development build checks
     --- the beat after it against the columns measured again (`PROBE.WatchCheck`, `JudgeWatchCheck`).
+    ---
+    --- **An expensive word is measured after the watch, behind its gate** (`MeasureGates`): the gate
+    --- reads other columns' cells, which have to be this beat's, and a column that moves there is
+    --- marked and judged in the same beat. One whose gate always holds is watched like the rest.
     _judgeBeatSignal = DebindPrivate.BeatSignal.comes and "visibility" or "attribute";
-    local unwatched, watched = {}, {};
+    local unwatched, watched, gated = {}, {}, {};
     for _, i in ipairs(beat) do
+        local gate = _judgmentColumnOrder[i].gate;
         if (_watchPlace[i]) then
             watched[#watched + 1] = i;
+        elseif (gate and gate ~= true) then
+            gated[#gated + 1] = i;
         else
             unwatched[#unwatched + 1] = i;
         end
+    end
+    local function measureGated(i)
+        local gate = _judgmentColumnOrder[i].gate;
+        add("do");
+        add(gate.reads);
+        add("if (%s) then", gate.test);
+        measure({ i });
+        add("end");
+        add("end");
     end
     local beatBody = body("true", function()
         refreshed = false;
@@ -4664,6 +4572,11 @@ local function BuildJudgeSnippet()
             rejoin();
             add("text = J.text");
             add("end");
+        end
+        for _, i in ipairs(gated) do
+            measureGated(i);
+        end
+        if (#watched > 0 or #gated > 0) then
             add("PROBE.WatchCheck()");
         end
     end);
@@ -4672,21 +4585,28 @@ local function BuildJudgeSnippet()
     --- again and held against its cell. A column that moved where the watch did not answer is
     --- reported, and that is a key left bound on an old cell.
     _judgeWatchCheckBody = nil;
-    if (Constants.DEBUG and #watched > 0) then
+    if (Constants.DEBUG and (#watched > 0 or #gated > 0)) then
         lines = {};
         -- Run from the beat, past its own check that `Judge` is there.
         add("local J = Judge");
         add("local columns = J");
         add("local cell");
+        -- A gated column's cell may stand stale while its gate is closed, so it is held to it only
+        -- behind the same gate: what this asks is whether a gate stayed shut where it had to open.
+        local checked = {};
         for _, i in ipairs(watched) do
+            checked[#checked + 1] = i;
+        end
+        for _, i in ipairs(gated) do
+            checked[#checked + 1] = i;
+        end
+        for _, i in ipairs(checked) do
             local column = _judgmentColumnOrder[i];
+            local gate = not _watchPlace[i] and column.gate;
             add("do");
-            -- A gated column's cell may stand stale while its gate is closed (`WatchGates`), so it is
-            -- held to it only behind the same gate. That leaves a gate narrower than its entries to
-            -- the headless sweeps, which hold every key to the press's answer at every point
-            -- (`judgment_spec.lua`); this check asks only whether the watch missed an open column.
-            if (column.watchGate) then
-                add("if (PROBE.SecureCmdOptionParse(%q)) then", column.watchGate);
+            if (gate) then
+                add(gate.reads);
+                add("if (%s) then", gate.test);
             end
             if (column.kind == "unit") then
                 unitAndExists(column.arg, false);
@@ -4697,7 +4617,7 @@ local function BuildJudgeSnippet()
             add("if (columns[%d] ~= cell) then", CellSlot(i));
             add("self:CallMethod(\"DebindTestWatchMiss\", %d)", i);
             add("end");
-            if (column.watchGate) then
+            if (gate) then
                 add("end");
             end
             add("end");
@@ -4732,12 +4652,25 @@ local function BuildJudgeSnippet()
     AssertSnippetCompiles(_judgePassBody, "JudgePass");
 
     --- A wake of ours: only what it names. Whatever else moved has an event that pulls the next
-    --- beat in.
+    --- beat in. **And the gated columns whose gate reads one of those**, after them: the wake judges
+    --- before any beat, and a gate it opens has to have its column measured by then.
     wipe(_judgeWakeBodies);
     for _, wake in ipairs(wakeOrder) do
+        local moves = {};
+        for _, i in ipairs(wakes[wake]) do
+            moves[CellSlot(i)] = true;
+        end
         local snippet = DebindPrivate.BakeSnippet(body(format("%q", wake), function()
             prepare(wake == "unitframe" and "unitframe" or "wake", wake);
             measure(wakes[wake]);
+            for _, i in ipairs(gated) do
+                for slot in pairs(_judgmentColumnOrder[i].gate.slots) do
+                    if (moves[slot]) then
+                        measureGated(i);
+                        break;
+                    end
+                end
+            end
         end));
         AssertSnippetCompiles(snippet, JUDGE_WAKE_PREFIX .. wake);
         _judgeWakeBodies[#_judgeWakeBodies + 1] = { attribute = JUDGE_WAKE_PREFIX .. wake, body = snippet };

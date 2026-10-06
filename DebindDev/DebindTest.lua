@@ -8480,11 +8480,11 @@ RegisterTest("Tail: the form moves the key by the call", {
     end,
 })
 
--- **`flyable` is watched behind `nocombat`** (`WatchGates`, R1-c of
--- `cutting-the-beat-under-a-zero-period.md`). Which key that binds at every point is headless
--- (`tests/judgment_spec.lua`); what only the client shows is the gated fragment parsed by the real
--- `SecureCmdOptionParse` and the watch check holding the cell only where the gate is open. In combat
--- the zone turning flyable moves nothing, and the beat combat ends in takes the key.
+-- **`flyable` is measured behind `nocombat`, after the watch** (`MeasureGates`). Which key that
+-- binds at every point is headless (`tests/judgment_spec.lua`); what only the client shows is the
+-- generated gate running in the restricted environment, where one that does not attach leaves the
+-- key quietly where it was. In combat the zone turning flyable moves nothing, and the beat combat
+-- ends in takes the key.
 RegisterTest("Tail: flyable in combat waits behind nocombat", {
     description = "A mount key on [nocombat,flyable]: flyable turning on in combat leaves the key, and the beat combat ends in takes it, with no rebuild",
     run = function()
@@ -8510,13 +8510,13 @@ RegisterTest("Tail: flyable in combat waits behind nocombat", {
         if Taken() then
             return Fail(NAME, "on the ground the key is taken")
         end
-        -- The watch's text as the restricted side holds it: the gate is what puts `nocombat` in front.
+        -- The watch's text as the restricted side holds it: `combat` is in it and `flyable` is not.
         local text
         driver.DebindTestJudgeText = function(_, value) text = value end
         AddTeardown(function() driver.DebindTestJudgeText = nil end)
         SecureHandlerExecute(driver, [[self:CallMethod("DebindTestJudgeText", Judge and Judge.text or "")]])
-        if not (text or ""):find("[nocombat,", 1, true) then
-            return Fail(NAME, format("flyable is not watched behind nocombat: %q", tostring(text)))
+        if not (text or ""):find("combat", 1, true) or text:find("flyable", 1, true) then
+            return Fail(NAME, format("the watch is not combat without flyable: %q", tostring(text)))
         end
 
         local witness = BeatWitness()

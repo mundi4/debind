@@ -137,12 +137,11 @@ end
 
 --- **The order an entry reads its checks in**: the states, then the units and the
 --- pointed frame's columns, then `known` and the switches. The loop stops at the first that fails, so
---- the ones most often failing and cheapest to have read go first; a states column is also the one a
---- gate is made of (`WatchGates`).
+--- the ones most often failing and cheapest to have read go first.
 local CHECK_RANK = { unit = 2, unitgroup = 2, role = 2, frameType = 2, known = 3, switch = 3 };
 
 --- The two words whose parse costs a tenth of a beat on its own (7-1: 5.15 and 23.98), which
---- `WatchGates` in `UpdateBindings.lua` puts behind a gate.
+--- `MeasureGates` in `UpdateBindings.lua` puts behind a gate.
 Judgment.EXPENSIVE = { flyable = true, advflyable = true };
 
 --- The records themselves as entries, in the press's order, and the first box that holds everywhere
