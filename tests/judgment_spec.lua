@@ -1171,6 +1171,178 @@ return function(DebindPrivate, _, ctx)
         FiveMove(1, 2, 1);
     end);
 
+    -- **`flyable` is watched behind the checks ahead of it** (`WatchGates`, R1-c of
+    -- `cutting-the-beat-under-a-zero-period.md`). A mount key on `[nocombat,flyable]` cannot reach
+    -- its `flyable` check in combat, so there the watch stops at `nocombat` and `flyable` flipping is
+    -- neither parsed nor measured. The beat where combat ends opens the gate, and the key is on the
+    -- press's answer in that same beat.
+    local function GatedFlyable()
+        Bind({
+            action({ conditions = { combat = false, flyable = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local state = interp.state;
+        interp:beat();
+        check(Bound("F1") == Judgment.RELEASE, "a ground zone took the key");
+        check(interp.env.Judge.text:find("[nocombat,", 1, true), "flyable is not watched behind nocombat: "
+            .. interp.env.Judge.text);
+        state.combat = true;
+        interp:beat();
+        for n = 1, 2 do
+            state.flyable = not state.flyable;
+            local text = interp.env.Judge.text;
+            local before = {};
+            for parsed, count in pairs(interp.parses) do
+                before[parsed] = count;
+            end
+            interp:beat();
+            local others = {};
+            for parsed, count in pairs(interp.parses) do
+                if (parsed ~= text and count ~= (before[parsed] or 0)) then
+                    others[#others + 1] = parsed;
+                end
+            end
+            check(#others == 0 and interp.parses[text] - (before[text] or 0) == 1, string.format(
+                "flip %d in combat parsed the watch %d times and %s", n, interp.parses[text] - (before[text] or 0),
+                table.concat(others, " | ")));
+            check(Bound("F1") == Actual("F1"), string.format("flip %d in combat: the press %s, the loop %s", n,
+                Actual("F1"), Bound("F1")));
+        end
+        state.flyable = true;
+        interp:beat();
+        state.combat = false;
+        interp:beat();
+        check(Bound("F1") == Judgment.OURS and Actual("F1") == Judgment.OURS, string.format(
+            "the beat combat ended in: the press %s, the loop %s", Actual("F1"), Bound("F1")));
+        state.combat = true;
+        interp:beat();
+        state.flyable = false;
+        interp:beat();
+        state.combat = false;
+        interp:beat();
+        check(Bound("F1") == Judgment.RELEASE and Actual("F1") == Judgment.RELEASE, string.format(
+            "the beat combat ended in, the zone grounded during it: the press %s, the loop %s", Actual("F1"),
+            Bound("F1")));
+        shim.world.units = {};
+        interp:resetState();
+    end
+    test("flyable flipping in combat is not parsed, and the beat combat ends in follows it", GatedFlyable);
+
+    -- **The gate is every entry's way to the column** (`WatchGates`): a command reaching `flyable`
+    -- behind `combat,stealth` opens it in combat as soon as the reader is stealthed, so there a flip
+    -- is followed in its own beat. Two outcomes keep the solver from writing a bare `flyable` entry
+    -- first, which would open the gate for good.
+    local function EveryEntry()
+        Bind({
+            action({ conditions = { combat = false, flyable = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { stealth = true, flyable = true } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local state = interp.state;
+        state.combat, state.stealth = true, true;
+        interp:beat();
+        check(interp.env.Judge.text:find("[combat,stealth,", 1, true), "the second entry's way in is not in the gate: "
+            .. interp.env.Judge.text);
+        for n = 1, 2 do
+            state.flyable = not state.flyable;
+            interp:beat();
+            check(Bound("F1") == Actual("F1"), string.format("flip %d in combat, stealthed: the press %s, the loop %s", n,
+                Actual("F1"), Bound("F1")));
+        end
+        shim.world.units = {};
+        interp:resetState();
+    end
+    test("a gate holds every entry that reaches the column", EveryEntry);
+
+    -- **Gates over several keys** (`WatchGates`): a mount key out of combat both mounted and not is
+    -- one gate, `[nocombat]`, written once; and keys on both sides of `combat` leave a gate that can
+    -- never close, which is written not at all. Both keys follow flips in and out of combat either
+    -- way, since a gate narrower than its entries would leave one stale.
+    local function TwoKeys(conditions1, conditions2, gateText, absent)
+        Bind({
+            action({ conditions = conditions1 }),
+            action({ type = Constants.UNUSED }),
+            action({ key = "F2", conditions = conditions2 }),
+            action({ key = "F2", type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" } };
+        local state = interp.state;
+        interp:beat();
+        check((interp.env.Judge.text:find(gateText, 1, true) ~= nil) ~= (absent == true), string.format(
+            "the watch %s %s: %s", absent and "holds" or "lacks", gateText, interp.env.Judge.text));
+        for _, step in ipairs({ "mounted", "combat", "flyable", "mounted", "flyable", "combat", "flyable" }) do
+            state[step] = not state[step];
+            interp:beat();
+            for _, key in ipairs({ "F1", "F2" }) do
+                check(Bound(key) == Actual(key), string.format("%s after %s moved: the press %s, the loop %s", key,
+                    step, Actual(key), Bound(key)));
+            end
+        end
+        shim.world.units = {};
+        interp:resetState();
+    end
+    test("a gate over keys mounted and not is written as nocombat alone", function()
+        TwoKeys({ combat = false, mounted = true, flyable = true }, { combat = false, mounted = false, flyable = true },
+            "[nocombat,flyable]");
+    end);
+    test("a gate that can never close is not written", function()
+        TwoKeys({ combat = false, flyable = true }, { combat = true, mounted = true, flyable = true }, ",flyable]", false);
+        TwoKeys({ combat = false, flyable = true }, { combat = true, flyable = true }, ",flyable]", true);
+    end);
+
+    -- **Only a state's own words go into a gate** (`WatchGates`): a unit's check beside `flyable` says
+    -- nothing a state word can, so it is left out and the gate is `nocombat` alone. Out of combat
+    -- with a friend targeted, the zone turning flyable takes the key in its own beat.
+    test("a unit's check beside flyable leaves the gate to the states", function()
+        Bind({
+            action({ conditions = { combat = false, flyable = true,
+                units = { target = { reaction = Constants.REACTION_HELP } } } }),
+            action({ type = Constants.UNUSED }),
+        });
+        interp:resetState();
+        shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
+        local state = interp.state;
+        interp:beat();
+        check(interp.env.Judge.text:find("[nocombat,flyable]", 1, true), "the gate is not nocombat alone: "
+            .. interp.env.Judge.text);
+        for _, step in ipairs({ "flyable", "combat", "flyable", "combat" }) do
+            state[step] = not state[step];
+            interp:beat();
+            check(Bound("F1") == Actual("F1"), string.format("after %s moved: the press %s, the loop %s", step,
+                Actual("F1"), Bound("F1")));
+        end
+        shim.world.units = {};
+        interp:resetState();
+    end);
+
+    -- **A table reading a gated column answers alike** (`WatchGates`): its letter is the item's
+    -- answer at the point it reads, and where the gate is closed that answer does not depend on the
+    -- stale cell. Both cases above, with a table priced at nothing.
+    test("a gated column read by a table follows as on the loop", function()
+        local margin = DebindPrivate.JudgeTableMargin;
+        DebindPrivate.JudgeTableMargin = -math.huge;
+        local ok, err = pcall(function()
+            GatedFlyable();
+            -- Where the run keeps every bundle on the loop (cap 0), there is no table to ask about.
+            if (DebindPrivate.JudgeTableCap > 0) then
+                check(interp.env.JudgeByKey.F1.bundle.answers, "the bundle reading flyable took no table");
+            end
+            EveryEntry();
+            if (DebindPrivate.JudgeTableCap > 0) then
+                check(interp.env.JudgeByKey.F1.bundle.answers, "the two-entry bundle took no table");
+            end
+        end);
+        DebindPrivate.JudgeTableMargin = margin;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     -- **A cell's fragment holds exactly where the text no longer answers that cell** (`FragmentsOf`).
     -- The list is made up to reach what no column's own list does yet: a clause of two tokens beside
     -- ones of one token on the same word, so a merge may not take the two-token group in, and

@@ -8480,6 +8480,71 @@ RegisterTest("Tail: the form moves the key by the call", {
     end,
 })
 
+-- **`flyable` is watched behind `nocombat`** (`WatchGates`, R1-c of
+-- `cutting-the-beat-under-a-zero-period.md`). Which key that binds at every point is headless
+-- (`tests/judgment_spec.lua`); what only the client shows is the gated fragment parsed by the real
+-- `SecureCmdOptionParse` and the watch check holding the cell only where the gate is open. In combat
+-- the zone turning flyable moves nothing, and the beat combat ends in takes the key.
+RegisterTest("Tail: flyable in combat waits behind nocombat", {
+    description = "A mount key on [nocombat,flyable]: flyable turning on in combat leaves the key, and the beat combat ends in takes it, with no rebuild",
+    run = function()
+        local NAME = "Tail flyable gate"
+        local KEY = "CTRL-SHIFT-F12"
+        local driver = DebindPrivate.BindingDriver
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = false, flyable = true })
+        InsertAction({ type = Constants.UNUSED, key = KEY })
+        ApplyBindings()
+        SetMockState("combat", false)
+        -- Ends in a rebuild, whose pass judges the key out of combat on the ground.
+        SetMockState("flyable", false)
+        local function Taken() return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK " end
+        if Taken() then
+            return Fail(NAME, "on the ground the key is taken")
+        end
+        -- The watch's text as the restricted side holds it: the gate is what puts `nocombat` in front.
+        local text
+        driver.DebindTestJudgeText = function(_, value) text = value end
+        AddTeardown(function() driver.DebindTestJudgeText = nil end)
+        SecureHandlerExecute(driver, [[self:CallMethod("DebindTestJudgeText", Judge and Judge.text or "")]])
+        if not (text or ""):find("[nocombat,", 1, true) then
+            return Fail(NAME, format("flyable is not watched behind nocombat: %q", tostring(text)))
+        end
+
+        local witness = BeatWitness()
+        local function WaitTicks(n)
+            local from = witness:GetAttribute("ticks") or 0
+            return WaitUntil(function() return (witness:GetAttribute("ticks") or 0) >= from + n end, 2)
+        end
+
+        -- Past `SetMockState`, which ends in a rebuild: only a beat moves the key from here.
+        SecureHandlerExecute(driver, MockBody("combat", true))
+        SecureHandlerExecute(driver, MockBody("flyable", true))
+        if not WaitTicks(2) then
+            return Fail(NAME, "the manager did not tick for the witness")
+        end
+        if Taken() then
+            return Fail(NAME, "in combat the zone turning flyable took the key")
+        end
+        SecureHandlerExecute(driver, MockBody("combat", false))
+        if not WaitUntil(Taken, 2) then
+            return Fail(NAME, "combat ended where it can fly and no beat took the key")
+        end
+        if #watchMisses > 0 then
+            return Fail(NAME, format("the watch let a beat pass with column %d moved", watchMisses[1]))
+        end
+        return Pass(NAME, "flyable in combat moved nothing, and the beat combat ended in took the key")
+    end,
+})
+
 -- **The loop composes a computed switch's text only when a name it reads moves**
 -- (`trimming-the-tail-key-beat.md` 8-6). Which key that binds is headless
 -- (`tests/judgment_spec.lua`); what is left for the client is that the bodies composing and clearing

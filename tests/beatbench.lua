@@ -316,6 +316,8 @@ return function(DebindPrivate)
             } };
         end,
         flyable = function(i) return { flyable = true, mounted = i % 2 == 0, combat = i % 3 == 0 }; end,
+        -- Mount keys as they are written: out of combat and where the zone allows flying (R1-c).
+        mounts = function(i) return { flyable = true, mounted = i % 2 == 0, combat = false }; end,
         -- Out of a pet battle, or off a replaced bar, beside a state. The two cannot share an action.
         bars = function(i)
             if (i % 2 == 0) then
@@ -335,10 +337,15 @@ return function(DebindPrivate)
         return actions;
     end
 
-    --- A beat with no state changed, and a beat where `combat` and `mounted` flip every 4th one, each
-    --- priced.
+    --- A beat with no state changed, out of combat and in it, and a beat where `combat` and `mounted`
+    --- flip every 4th one, each priced.
     local function gateBeat(perInstruction)
         local still = price(scenario(QUIET, {}), perInstruction) / QUIET;
+        interp.state.combat = true;
+        interp:beat();
+        local stillInCombat = price(scenario(QUIET, {}), perInstruction) / QUIET;
+        interp.state.combat = false;
+        interp:beat();
         local moves = {};
         for b = 1, MOVING do
             if (b % 4 == 0) then
@@ -346,15 +353,16 @@ return function(DebindPrivate)
             end
         end
         local flipping = price(scenario(MOVING, moves), perInstruction) / MOVING;
-        return still, flipping;
+        return still, stillInCombat, flipping;
     end
 
-    print("\nBy shape, 12 keys, a beat in us, no state changed | combat and mounted flipped every 4th beat:");
-    for _, shape in ipairs({ "shared", "distinct", "units", "flyable", "bars" }) do
+    print("\nBy shape, 12 keys, a beat in us, no state changed (out of combat / in it) | combat and mounted flipped"
+        .. " every 4th beat:");
+    for _, shape in ipairs({ "shared", "distinct", "units", "flyable", "mounts", "bars" }) do
         shim.world.units = { target = { id = "enemy", reaction = "harm" } };
         bind(gateProfile(shape, 12));
-        local still, flipping = gateBeat(instructionCost(interp));
-        print(string.format("  %-9s %5.2f | %5.2f", shape, still, flipping));
+        local still, stillInCombat, flipping = gateBeat(instructionCost(interp));
+        print(string.format("  %-9s %5.2f / %5.2f | %5.2f", shape, still, stillInCombat, flipping));
     end
     shim.world.units = {};
 
