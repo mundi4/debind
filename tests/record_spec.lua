@@ -187,9 +187,9 @@ return function(DebindPrivate)
 
     local function recordFor(binding, isClickCast, holdsKey)
         binding.conditions = binding.conditions or {};
-        local units = DebindPrivate.MergeKeyUnitConditions(binding, {});
-        check(units, "the binding's units fold to nothing");
-        return DebindPrivate.BuildKeyRecord(binding, units, isClickCast, holdsKey,
+        binding.recordUnits = DebindPrivate.MergeKeyUnitConditions(binding, {});
+        check(binding.recordUnits, "the binding's units fold to nothing");
+        return DebindPrivate.BuildKeyRecord(binding, isClickCast, holdsKey,
             { fieldNames = {}, fieldValues = {}, fieldCount = 0, switches = {} });
     end
 

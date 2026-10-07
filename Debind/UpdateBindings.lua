@@ -2122,11 +2122,14 @@ local function PrepareKeyBindings(key, bindingArray)
                     tostring(binding.type), tostring(binding.value), key));
             end
             binding.isClickCast, binding.holdsKey = false, false;
-        else
+        end
+        if (binding.isClickCast or binding.holdsKey) then
             binding.recordUnits = MergeKeyUnitConditions(binding, binding.recordUnits or {});
             if (not binding.recordUnits) then
                 binding.isClickCast, binding.holdsKey = false, false;
             end
+        else
+            binding.recordUnits = nil;
         end
 
         hasClickCast = hasClickCast or binding.isClickCast;
@@ -2282,13 +2285,13 @@ function MergeKeyUnitConditions(binding, out)
     return out;
 end
 
---- One binding, as the record the restricted side will hold. `units` is its unit conditions folded
---- (`MergeKeyUnitConditions`), which `PrepareKeyBindings` keeps on the binding as `recordUnits`.
+--- One binding, as the record the restricted side will hold. Its units are `binding.recordUnits`, the
+--- fold `PrepareKeyBindings` decided the hold by.
 ---
 --- Nothing here reaches a frame or the client. The one frame question -- which click frame the
 --- record hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a name.
-local function BuildKeyRecord(binding, units, isClickCast, holdsKey, out)
-    out.units = units;
+local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
+    out.units = binding.recordUnits;
 
     local conditions = binding.conditions;
 
@@ -4620,7 +4623,7 @@ function UpdateBindingsMap()
                 local holdsKey = hasKeyRecord and binding.holdsKey;
 
                 if (isClickCast or holdsKey) then
-                    local record = BuildKeyRecord(binding, binding.recordUnits, isClickCast, holdsKey, _record);
+                    local record = BuildKeyRecord(binding, isClickCast, holdsKey, _record);
                     if (first) then
                         first = false;
                         if (DEBUG) then

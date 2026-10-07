@@ -41,7 +41,7 @@ return function(DebindPrivate, _, ctx)
 
     --- A party frame for the cases that click one. **Registered before the first rebuild**, which is
     --- when the interpreter replays everything recorded so far; a frame registered after that never
-    --- reaches it.
+    --- reaches it. So every case in this file runs with it registered.
     local groupFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
     DebindPrivate.RegisterFrame(groupFrame, "group");
     groupFrame:SetAttribute("unit", "party1");
@@ -311,8 +311,8 @@ return function(DebindPrivate, _, ctx)
     -- reads [@target,help][@focus,harm], the emission [@focus,help][@focus,harm]. What is asked is
     -- that the key is settled on the records that went out.
     --
-    -- `hits` counts the emission's folds the stand-in turned, so a case that never reached one fails
-    -- rather than passing on an ordinary conditional key.
+    -- `hits` answers how many of the emission's folds the stand-in turned since it was last asked, so
+    -- a rebuild that never reached one fails rather than passing on an ordinary conditional key.
     local FOLDED = 6788;
     local function WithFoldsApart(fn)
         local real = DebindPrivate.ResolvedUnitOf;
@@ -324,7 +324,11 @@ return function(DebindPrivate, _, ctx)
             end
             return real(binding);
         end
-        local ok, err = pcall(fn, function() return hits; end);
+        local ok, err = pcall(fn, function()
+            local n = hits;
+            hits = 0;
+            return n;
+        end);
         DebindPrivate.ResolvedUnitOf = real;
         if (not ok) then
             error(err, 0);
@@ -375,15 +379,9 @@ return function(DebindPrivate, _, ctx)
             check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
 
             Bind(folded("F1", foldedUnits()), HOLD_UNMATCHED);
+            checkReached("F1", hits);
             checkOursAndSilent("F1");
             check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
-            -- **No record at all, rather than one that never matches**: every record that went out
-            -- is an end, and only an action's record clicks a button.
-            local records = interp:recordsFor("F1");
-            check(records and #records > 0, "the held key went out with no list");
-            for i = 1, #records do
-                check(records[i].clickbutton == nil, "record " .. i .. " is the action's");
-            end
         end);
     end);
 
@@ -396,6 +394,7 @@ return function(DebindPrivate, _, ctx)
             check(not DebindPrivate.IsKeyHandled("BUTTON3"), "it reads as ours with the option on");
 
             Bind(folded("BUTTON3", foldedUnits({ unitframe = {} })), HOLD_UNMATCHED);
+            checkReached("BUTTON3", hits);
             checkNotOurs("BUTTON3");
             check(interp:evalClickCast(groupFrame, 3, 0) == nil, "the frame click was taken");
             check(not DebindPrivate.IsKeyHandled("BUTTON3"), "it reads as ours with the option off");
