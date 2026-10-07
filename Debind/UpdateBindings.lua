@@ -1624,8 +1624,9 @@ local ROLE_NAMES = {
 --- implementations of one rule -- this one and `BuildUnitStates` -- which is why the redesign
 --- notes want this function gone once the runtime speaks masks.
 ---
---- `PrepareKeyBindings` answers a `NEVER` by **not emitting the binding at all**. Do not reach for a
---- marker value or a `never` field instead. Anything carried into the secure environment is paid for
+--- `PrepareKeyBindings` answers a `NEVER` by **not emitting the binding at all**, and no issue says
+--- so: the one for a binding that cannot stand reads `dead`. Do not reach for a marker value or a
+--- `never` field instead. Anything carried into the secure environment is paid for
 --- three times: the match loop walks and rejects the record on every re-selection, its units get
 --- registered so the update loop measures them every tick forever, and a marker field costs every
 --- *ordinary* condition a lookup on a path that runs thousands of times in a fight. All of that
@@ -2002,7 +2003,7 @@ local _record            = {
     fieldNames = {},
     fieldValues = {},
     fieldCount = 0,
-    units = {},
+    units = false,
     switches = {},
 };
 
@@ -2012,6 +2013,8 @@ local function field(record, name, value)
     record.fieldNames[count] = name;
     record.fieldValues[count] = value;
 end
+
+local MergeKeyUnitConditions;
 
 --- Stamps every binding on one key and **drops the ones with no way to fire**.
 ---
@@ -2024,10 +2027,10 @@ end
 --- owner, 2026-10-07).
 ---
 --- **What it returns is whether a record goes out**, of each kind, and that is what decides whether
---- the key is held (`UpdateBindingsMap`). So a binding `BuildKeyRecord` would make nothing of is
---- dropped here too.
-local MergeKeyUnitConditions;
-local _foldScratch = {};
+--- the key is held (`UpdateBindingsMap`). So the unit conditions are folded here, once, onto
+--- `binding.recordUnits`, which is what `BuildKeyRecord` builds the record from: a binding whose fold
+--- leaves nothing makes no record and is dropped like one with no way to fire (`mergeUnitConditions`
+--- says when that can happen).
 local function PrepareKeyBindings(key, bindingArray)
     local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
@@ -2119,9 +2122,11 @@ local function PrepareKeyBindings(key, bindingArray)
                     tostring(binding.type), tostring(binding.value), key));
             end
             binding.isClickCast, binding.holdsKey = false, false;
-        elseif ((binding.isClickCast or binding.holdsKey)
-                and not MergeKeyUnitConditions(binding, _foldScratch)) then
-            binding.isClickCast, binding.holdsKey = false, false;
+        else
+            binding.recordUnits = MergeKeyUnitConditions(binding, binding.recordUnits or {});
+            if (not binding.recordUnits) then
+                binding.isClickCast, binding.holdsKey = false, false;
+            end
         end
 
         hasClickCast = hasClickCast or binding.isClickCast;
@@ -2133,19 +2138,22 @@ end
 
 --- One BLOCK per tier, shared by every key. **Nothing hands them to the solver**, so no key and no
 --- unit state is read off them.
+---
+--- **`recordUnits` is set here** because an end never passes `PrepareKeyBindings`, which folds it
+--- for every other binding.
 local BLOCKS = {
-    [Constants.CASTMOD_SELF] = { type = Constants.BLOCK, conditions = {},
+    [Constants.CASTMOD_SELF] = { type = Constants.BLOCK, conditions = {}, recordUnits = {},
         castModifier = Constants.CASTMOD_SELF, holdsKey = true, isClickCast = false },
-    [Constants.CASTMOD_FOCUS] = { type = Constants.BLOCK, conditions = {},
+    [Constants.CASTMOD_FOCUS] = { type = Constants.BLOCK, conditions = {}, recordUnits = {},
         castModifier = Constants.CASTMOD_FOCUS, holdsKey = true, isClickCast = false },
-    [Constants.CASTMOD_NONE] = { type = Constants.BLOCK, conditions = {},
+    [Constants.CASTMOD_NONE] = { type = Constants.BLOCK, conditions = {}, recordUnits = {},
         castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false },
 };
 
 --- What closes the [none held] tier instead while `GiveBackWhenNoActionRuns` is on: a giveback,
 --- bound as a block the way a saved one is (`FillBinding`). A press that still reaches it, before
 --- the next beat lets the key go, does nothing.
-local GIVEBACK_END = { type = Constants.BLOCK, tail = Constants.GIVEBACK, conditions = {},
+local GIVEBACK_END = { type = Constants.BLOCK, tail = Constants.GIVEBACK, conditions = {}, recordUnits = {},
     castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false };
 
 local _withBlocks = {};
@@ -2223,10 +2231,8 @@ end
 --- **`"@"` lands on the unit the binding aims at**, so a condition of that unit's own lands on the
 --- same key. Unfolded, `pairs` order decides which one survives.
 ---
---- **Nothing should reach the nil.** Each of the three ways `mergeUnitConditions` answers `NEVER`
---- leaves a zero mask in `binding.unitStates`, `FillBinding` marks that binding `dead`, and
---- `UnrollIntoTiers` leaves it off the key. It stays for the day the two intersections disagree,
---- and `PrepareKeyBindings` asks it first, so such a binding holds nothing either.
+--- **Nothing should reach the nil** (`mergeUnitConditions` says why), and `PrepareKeyBindings`
+--- drops a binding that does.
 function MergeKeyUnitConditions(binding, out)
     wipe(out);
 
@@ -2276,15 +2282,13 @@ function MergeKeyUnitConditions(binding, out)
     return out;
 end
 
---- One binding, as the record the restricted side will hold. **nil where the binding can never
---- fire**, which is the unit conditions folding to nothing.
+--- One binding, as the record the restricted side will hold. `units` is its unit conditions folded
+--- (`MergeKeyUnitConditions`), which `PrepareKeyBindings` keeps on the binding as `recordUnits`.
 ---
 --- Nothing here reaches a frame or the client. The one frame question -- which click frame the
 --- record hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a name.
-local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
-    if (not MergeKeyUnitConditions(binding, out.units)) then
-        return nil;
-    end
+local function BuildKeyRecord(binding, units, isClickCast, holdsKey, out)
+    out.units = units;
 
     local conditions = binding.conditions;
 
@@ -4593,9 +4597,9 @@ function UpdateBindingsMap()
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
         -- **With `giveBackWhenNoActionRuns` off, a key an action sits on is held even with nothing on
-        -- it that holds it**: every action on it was left out before the key map, or dropped by
-        -- `PrepareKeyBindings`, which an issue should have caught first. It gets its ends alone, so
-        -- the press lands on a block and does nothing. On, such a key is not held at all
+        -- it that holds it**: every action on it was left out before the key map, or every binding
+        -- on it dropped by `PrepareKeyBindings`. It gets its ends alone, so the press lands on a
+        -- block and does nothing. On, such a key is not held at all
         -- (`giving-keys-back-when-no-action-runs.md` 1-1): bound and let go by the beat, it would
         -- still read as ours.
         hasKeyRecord = hasKeyRecord or (keysOnLiveLayers and keysOnLiveLayers[key] == true);
@@ -4616,50 +4620,39 @@ function UpdateBindingsMap()
                 local holdsKey = hasKeyRecord and binding.holdsKey;
 
                 if (isClickCast or holdsKey) then
-                    local record = BuildKeyRecord(binding, isClickCast, holdsKey, _record);
-                    if (record) then
-                        if (first) then
-                            first = false;
-                            if (DEBUG) then
-                                appendLine("-- %s", key);
-                            end
-                            appendLine("bindings=newtable()");
+                    local record = BuildKeyRecord(binding, binding.recordUnits, isClickCast, holdsKey, _record);
+                    if (first) then
+                        first = false;
+                        if (DEBUG) then
+                            appendLine("-- %s", key);
                         end
-                        CollectRecordNeeds(record);
-                        EmitRecord(record);
-                        if (holdsKey) then
-                            local tier = binding.castModifier or Constants.CASTMOD_NONE;
-                            local list = tiers[tier];
-                            list[#list + 1] = JudgmentEntryFor(binding, record, tier);
-                            if (binding ~= BLOCKS[tier]) then
-                                if (tier == Constants.CASTMOD_SELF) then
-                                    selfTwins = selfTwins + 1;
-                                elseif (tier == Constants.CASTMOD_FOCUS) then
-                                    focusTwins = focusTwins + 1;
-                                end
+                        appendLine("bindings=newtable()");
+                    end
+                    CollectRecordNeeds(record);
+                    EmitRecord(record);
+                    if (holdsKey) then
+                        local tier = binding.castModifier or Constants.CASTMOD_NONE;
+                        local list = tiers[tier];
+                        list[#list + 1] = JudgmentEntryFor(binding, record, tier);
+                        if (binding ~= BLOCKS[tier]) then
+                            if (tier == Constants.CASTMOD_SELF) then
+                                selfTwins = selfTwins + 1;
+                            elseif (tier == Constants.CASTMOD_FOCUS) then
+                                focusTwins = focusTwins + 1;
                             end
                         end
-                        if (binding.castModifier == Constants.CASTMOD_SELF) then
-                            selfCount = selfCount + 1;
-                        elseif (binding.castModifier == Constants.CASTMOD_FOCUS) then
-                            focusCount = focusCount + 1;
-                        end
+                    end
+                    if (binding.castModifier == Constants.CASTMOD_SELF) then
+                        selfCount = selfCount + 1;
+                    elseif (binding.castModifier == Constants.CASTMOD_FOCUS) then
+                        focusCount = focusCount + 1;
                     end
                 end
             end
         end
 
-        -- **An empty list rather than none.** What follows goes by `hasClickCast`, settled before
-        -- the loop above could emit nothing, and without a list of its own `bindings` would still
-        -- point at the previous key's.
-        if (first and (hasClickCast or hasKeyRecord)) then
-            first = false;
-            appendLine("bindings=newtable()");
-        end
-
         -- **Where the key's tiers start, so a press walks only the one its modifier picks**
-        -- (`EVAL_SNIPPET`). Counted off the records that went out: one that can never fire leaves
-        -- no place behind it.
+        -- (`EVAL_SNIPPET`). Counted off the records that went out.
         if (not first) then
             appendLine("bindings.focusFrom=%d", selfCount + 1);
             appendLine("bindings.noneFrom=%d", selfCount + focusCount + 1);

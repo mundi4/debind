@@ -187,8 +187,10 @@ return function(DebindPrivate)
 
     local function recordFor(binding, isClickCast, holdsKey)
         binding.conditions = binding.conditions or {};
-        return DebindPrivate.BuildKeyRecord(binding, isClickCast, holdsKey,
-            { fieldNames = {}, fieldValues = {}, fieldCount = 0, units = {}, switches = {} });
+        local units = DebindPrivate.MergeKeyUnitConditions(binding, {});
+        check(units, "the binding's units fold to nothing");
+        return DebindPrivate.BuildKeyRecord(binding, units, isClickCast, holdsKey,
+            { fieldNames = {}, fieldValues = {}, fieldCount = 0, switches = {} });
     end
 
     --- The spells the `known` tests below read, **stood up before the first record is built.**
@@ -207,19 +209,6 @@ return function(DebindPrivate)
             levelLearned = spell.levelLearned };
         shim.world.knownSpells[spellID] = spell.known or nil;
     end
-
-    -- A binding whose units fold to nothing gets **no record at all**, rather than one marked
-    -- unreachable. Carrying it would cost three times over: the match loop walks and rejects it on
-    -- every re-selection, its units get registered so the poll prices them every tick, and every
-    -- ordinary condition pays whatever lookup the marker needs.
-    test("a binding that can never fire yields no record", function()
-        local record = recordFor({
-            type = Constants.SPELL, value = 585, unit = "target",
-            clickframe = true, clickbutton = "deb1",
-            conditions = { units = { ["@"] = { reaction = HELP }, target = { reaction = HARM } } },
-        }, false, true);
-        check(record == nil, "a binding that can never fire got a record");
-    end);
 
     -- **Press and hold is not a field any more**; the press works it out from the spell, and which
     -- branch a record is on rides on `holdsKey`, which every record carries. A click-cast record

@@ -71,11 +71,15 @@
   `Inert`). 누르면 아무 일도 없고 아래 액션은 안 돈다. 반대로 이 클라이언트에 없는 소환수 명령과 행동 단축키를 누르지
   않는 명령 이름은 값이 잘못된 것이라 이슈(`UNKNOWN_PET_COMMAND`, `UNKNOWN_ACTION_BUTTON`, 결과 `OMIT`)로 건너뛴다.
   전에는 넷 다 방출 단계에서 조용히 빠져 아래 액션이 받았다.
-- **키를 쥘지와 머리글 색은 `UpdateBindingsMap`의 키 루프가 정한다.** `PrepareKeyBindings`가 걸 수단이 없는 바인딩과
-  유닛 조건이 아무것도 안 남는 바인딩(레코드가 안 나온다)을 버린 뒤라야 키에 나갈 바인딩이 남았는지 안다. 옵션이 켜져 있으면 키를 쥐는 바인딩이 남은 키만 묶는다. 꺼져 있으면
+- **키를 쥘지와 머리글 색은 `UpdateBindingsMap`의 키 루프가 정한다.** 그 앞의 `PrepareKeyBindings`가 레코드가 안 나올
+  바인딩을 버린다. 걸 수단이 없는 바인딩과 유닛 조건을 접으면 아무것도 안 남는 바인딩이다. 접은 결과는 바인딩에
+  `recordUnits`로 남고, 레코드는 그것으로 만든다. 옵션이 켜져 있으면 키를 쥐는 바인딩이 남은 키만 묶는다. 꺼져 있으면
   `KeysOnLiveLayers`(`BuildKeyMap`이 채움, 살아 있는 레이어의 액션이 선 키, 개체창으로만 받는 마우스 버튼은 뺀다)도
-  묶는다. `HandledKeys`는 실제로 키를 묶은 줄과 `ClickCastKeys`를 쓴 줄에서 채운다. 위 둘로 "버튼을 못 만드는" 경우가
-  이슈나 `Inert`로 미리 갈리니, `PrepareKeyBindings`의 빼기는 이슈가 놓친 경우의 안전망이다.
+  묶는다. `HandledKeys`는 실제로 키를 묶은 줄과 `ClickCastKeys`를 쓴 줄에서 채운다.
+- **`PrepareKeyBindings`의 두 빼기는 무엇을 받치는지가 다르다.** 걸 수단이 없는 값은 위 둘로 이슈나 `Inert`로 미리
+  갈리니, 그 빼기는 이슈가 놓친 경우의 안전망이다. 접어서 아무것도 안 남는 바인딩은 `FillBinding`이 이미 `dead`로
+  표시해 `UnrollIntoTiers`가 키에서 빼므로, 그 빼기는 두 교집합(`BuildUnitStates`와 `mergeUnitConditions`)이 어긋날 때의
+  안전망이다. 설 수 없는 바인딩의 이슈는 `dead`를 읽으므로 이것을 알리지 않는다.
 
 ## 2. 구현 순서
 

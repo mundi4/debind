@@ -39,6 +39,13 @@ return function(DebindPrivate, _, ctx)
     local GUID = "Player-1-TESTGUID";
     local interp;
 
+    --- A party frame for the cases that click one. **Registered before the first rebuild**, which is
+    --- when the interpreter replays everything recorded so far; a frame registered after that never
+    --- reaches it.
+    local groupFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
+    DebindPrivate.RegisterFrame(groupFrame, "group");
+    groupFrame:SetAttribute("unit", "party1");
+
     local function Rebuild()
         local mark = frames.mark();
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
@@ -337,38 +344,61 @@ return function(DebindPrivate, _, ctx)
         check(hits() > 0, "the emission never folded the binding");
     end
 
-    -- **A world where the solver's reading holds**, so a record that went out would fire.
-    test("a key whose only binding makes no record", function()
-        shim.world.units.target = { id = "t", reaction = "help" };
-        shim.world.units.focus = { id = "f", reaction = "harm" };
-        local ok, err = pcall(WithFoldsApart, function(hits)
-            local units = function() return { ["@"] = { reaction = Constants.REACTION_HELP },
-                focus = { reaction = Constants.REACTION_HARM } }; end
-            Bind(folded("F1", units()));
-            checkReached("F1", hits);
-            checkNotOurs("F1");
-            check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
-            Bind(folded("F1", units()), HOLD_UNMATCHED);
-            checkOursAndSilent("F1");
-            check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
-        end);
-        shim.world.units.target, shim.world.units.focus = nil, nil;
+    --- **A world where the solver's reading holds**, so a record that went out would fire: a friendly
+    --- target and party1, a hostile focus. Put back as it was, whatever the case did.
+    local function InFoldWorld(fn)
+        local units = shim.world.units;
+        local saved = { target = units.target, focus = units.focus, party1 = units.party1 };
+        units.target = { id = "t", reaction = "help" };
+        units.focus = { id = "f", reaction = "harm" };
+        units.party1 = { id = "p1", reaction = "help" };
+        local ok, err = pcall(WithFoldsApart, fn);
+        units.target, units.focus, units.party1 = saved.target, saved.focus, saved.party1;
         if (not ok) then
             error(err, 0);
         end
+    end
+
+    local function foldedUnits(extra)
+        local units = { ["@"] = { reaction = Constants.REACTION_HELP }, focus = { reaction = Constants.REACTION_HARM } };
+        for k, v in pairs(extra or {}) do
+            units[k] = v;
+        end
+        return units;
+    end
+
+    test("a key whose only binding makes no record", function()
+        InFoldWorld(function(hits)
+            Bind(folded("F1", foldedUnits()));
+            checkReached("F1", hits);
+            checkNotOurs("F1");
+            check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
+
+            Bind(folded("F1", foldedUnits()), HOLD_UNMATCHED);
+            checkOursAndSilent("F1");
+            check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
+            -- **No record at all, rather than one that never matches**: every record that went out
+            -- is an end, and only an action's record clicks a button.
+            local records = interp:recordsFor("F1");
+            check(records and #records > 0, "the held key went out with no list");
+            for i = 1, #records do
+                check(records[i].clickbutton == nil, "record " .. i .. " is the action's");
+            end
+        end);
     end);
 
     test("a frame action alone that makes no record", function()
-        WithFoldsApart(function(hits)
-            local units = function() return { unitframe = {}, ["@"] = { reaction = Constants.REACTION_HELP },
-                focus = { reaction = Constants.REACTION_HARM } }; end
-            Bind(folded("SHIFT-BUTTON2", units()));
-            checkReached("SHIFT-BUTTON2", hits);
-            checkNotOurs("SHIFT-BUTTON2");
-            check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option on");
-            Bind(folded("SHIFT-BUTTON2", units()), HOLD_UNMATCHED);
-            checkNotOurs("SHIFT-BUTTON2");
-            check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option off");
+        InFoldWorld(function(hits)
+            Bind(folded("BUTTON3", foldedUnits({ unitframe = {} })));
+            checkReached("BUTTON3", hits);
+            checkNotOurs("BUTTON3");
+            check(interp:evalClickCast(groupFrame, 3, 0) == nil, "the frame click was taken");
+            check(not DebindPrivate.IsKeyHandled("BUTTON3"), "it reads as ours with the option on");
+
+            Bind(folded("BUTTON3", foldedUnits({ unitframe = {} })), HOLD_UNMATCHED);
+            checkNotOurs("BUTTON3");
+            check(interp:evalClickCast(groupFrame, 3, 0) == nil, "the frame click was taken");
+            check(not DebindPrivate.IsKeyHandled("BUTTON3"), "it reads as ours with the option off");
         end);
     end);
 
