@@ -5,8 +5,9 @@
 >
 > 쓴 세션: `debind-56` (세션 ID `8a70b5af-30d5-4f9e-b943-6fd0a2c17be0`). `debind-99`가 검토했다(2026-10-07).
 >
-> `chords-only-where-a-twin-stands.md`, `picking-the-cast-tier-at-each-edge.md`와 그 커밋 안 된 코드를 대신한다. 그 둘은
-> 근거로 쓰지 않았다. 거기 적힌 사실은 원본에서 다시 확인한 것만 옮겼다(9절). 버리는 것과 까닭은 6절이다.
+> `debind-99`가 같은 일로 쓴 계획 둘과 그 커밋 안 된 코드를 대신한다. 그 계획들은 근거로 쓰지 않았다. 거기 적힌 사실은 원본에서
+> 다시 확인한 것만 옮겼다(9절). 버린 것과 까닭은 6절이다. 그 계획 둘과 코드, 시험, 프로브는 커밋되지 않은 채 2026-10-07에
+> 걷었다(소유자). 6절이 그 기록이다.
 
 ## 요약
 
@@ -223,10 +224,9 @@ S이고 F인 키와 견준다.
    - 키마다 `checkSelfCast`, `checkFocusCast`를 굽고, `CastKeysOn`을 굽는다.
    - `CastChordsOf`를 3절의 표대로 다시 쓴다. `_twinless`와 두 번째 패스는 걷는다.
    - 우선순위를 값 하나에서 쓴다.
-   - `debind-99`가 넣은 줄은 Edit로 걷고 다시 쓴다.
 3. `SecureBindings.lua`: `EVAL_SNIPPET`의 층 고르기를 2-1로, `JUDGE_BUNDLES_SNIPPET`은 `row.slot.priority ~= false`로.
 4. `Snippets.lua`에 `IsModifiedClick` 프로브, `DebindTest.lua`의 `PROBE_DEV`에 그 짝.
-5. golden 셋을 갱신하고 diff를 읽는다. 셋 다 `debind-99`의 변경을 이미 담고 있으니, HEAD와 비교해 내 변경만 남았는지 본다.
+5. golden 셋을 갱신하고 diff를 읽는다.
 6. 문서(8절). `npm run check`.
 
 ## 6. 앞 세션의 계획과 코드에서
@@ -241,9 +241,8 @@ S이고 F인 키와 견준다.
 | 정답표 N21, N22 | 뒤집는다 | P7, P10 |
 | N18, N19, N20, N23, N24 | 결과는 남는다 | P8, P16, P24, P15, P13 |
 | `withHeldModifiers` | 다시 짠다 | `IsModifiedClick` 흉내가 이름의 수식키를 안 가리고, 엣지가 하나뿐이다 |
-| 킷 "a tier with no twin…" | 고쳐 남긴다 | 7-3 |
-| `Probe_ReleaseEdge.lua`와 TOC 줄 | 커밋하지 않고 지운다 | 답이 나왔다. 파일 머리도 그렇게 하라고 적었다 |
-| `Probe_CastKeyEdges.lua`와 TOC 줄(이 세션) | 커밋하지 않고 지운다 | 같다. 값은 9절 F14와 SavedVariables에 있다 |
+| 킷 "a tier with no twin…" | 걷었다. 7-3대로 새로 쓴다 | `applies`가 계정 칸을 안 봤다 |
+| `Probe_ReleaseEdge.lua`, `Probe_CastKeyEdges.lua`(이 세션)와 TOC 줄 | 걷었다 | 답이 나왔다. 값은 9절과 SavedVariables에 있다 |
 
 `debind-99`는 검토에서 "이 설계가 깨는 경우를 자기 코드가 막고 있던 것은 없다"고 답했다.
 
@@ -263,6 +262,7 @@ S이고 F인 키와 견준다.
 ### 7-2. 헤드리스 시험
 
 새 시험은 넣기 전에 빨간 것을 본다. 지금 코드(HEAD)에서 빨갛지 않은 것은, 그 줄만 일부러 틀리게 만든 코드에서 본다.
+`debind-99`의 코드는 걷었으므로, 아래 표의 그 칸은 그 코드가 어떻게 답했는지의 기록이다.
 
 | 시험 | 줄 | 빨간 것을 볼 코드 |
 |---|---|---|
@@ -309,8 +309,8 @@ s=f 시험은 shim의 Cast Key 설정을 바꾸므로 실패해도 되돌린다.
 
 - `which-action-a-key-runs.md`: S1의 "둘 다 쥐면 Self Cast Key 누름이다"에 결정 4의 예외. §S4와 §3의 2026-10-07 문단을 2절로.
   §S5에 4절의 새 줄. 뗄 때 시전도 같은 답을 낸다는 문장.
-- `handing-the-rest-of-a-key-to-the-game.md`: 2-3을 3절의 표로, 2-4에 우선순위. 8-1의 N21, N22를 뒤집고 P7, P10, R1-R3, R6을 줄로.
-- 앞 세션의 두 문서: 이 문서가 대신한다는 한 줄을 달고 `legacy/`로 옮긴다.
+- `handing-the-rest-of-a-key-to-the-game.md`: 2-3을 3절의 표로. 8-1에 R1-R3, R5, R6, R6a를 줄로. 결정 1, 2와 N21, N22를 뒤집은
+  것은 2026-10-07에 들어갔다.
 - 인게임 도움말은 이 세션의 일이 아니다. 다른 세션의 수정이 그 파일들에 걸려 있다. 바뀌는 결과는 4-3이다.
 
 ## 9. 사실과 출처
