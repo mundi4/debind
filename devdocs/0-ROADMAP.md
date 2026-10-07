@@ -31,7 +31,7 @@
 | **4.0에 같이** | 전문화가 주문을 정하는 타입들. ~~4.0에 같이~~ ~~**4.0에는 안 나간다 (2026-09-22, 소유자)**~~ **4.0에 나간다 (2026-09-23, 소유자)**: ~~코드는 있고 픽커에 세우는 줄이 주석 처리되어 있어 추가할 길이 없다~~ **그 줄은 켰다 (2026-09-23, 소유자)**. `Resurrect`도 같이 나간다. `External`은 뺐고 `Resurrect`가 들어올 자리다 | `adding-spec-resolved-actions.md` |
 | **4.1** | 나갔다 (2026-09-25). 포에버(카멜롯) 클라이언트에서도 돈다. Clique 설정 가져오기가 같이 나갔다 | `legacy/shipping-on-the-camelot-client.md`<br>`legacy/preparing-the-code-for-camelot.md`<br>`legacy/importing-clique-profiles.md` |
 | **4.1.1 · 4.1.2** | 나갔다 (2026-09-28, 09-30). 투기장 Lua 에러 핫픽스, 포에버에서 아직 안 배운 주문 | `CHANGELOG.md` |
-| **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, ~~보관함의 남은 넷~~ **보류 (2026-09-19, 소유자)**. 둘 다 `0-IDEAS.md`가 든다 | `legacy/switch-bar.md`<br>`building-export-import.md` |
+| **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, ~~보관함의 남은 넷~~ **보류 (2026-09-19, 소유자)**. 둘 다 `0-ON-HOLD.md`가 든다 | `legacy/switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | ~~**다음 `dbver` 범프에**~~ **4.0에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |
 

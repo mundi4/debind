@@ -120,7 +120,7 @@ setter를 그대로 하고, 기본값으로 돌아오면 칸을 지운다(없음
 
 **Clique가 있을 때.** 지금은 유닛 프레임 항목이 통째로 회색이고 `BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE`가
 툴팁에 선다. 설정창에서는 유닛 프레임 절의 줄마다 `AddModifyPredicate(not CliqueDetected)`를 걸고 같은
-문장을 툴팁에 둔다. 이 판단을 뒤집는 안은 `0-IDEAS.md`의 "Clique와 병행 동작"이고 여기와 무관하다.
+문장을 툴팁에 둔다. 이 판단을 뒤집는 것은 `coexisting-with-clique.md`이고 여기와 무관하다.
 
 **"현재 값"에 대한 두 가지 주의.**
 

@@ -1,6 +1,6 @@
 # beat 핸들러 안을 얼마나 줄일 수 있나 (2026-10-06 보고)
 
-> 상태: 보고서. 구현된 것은 없다. 아래 합계는 모두 잰 값을 넣은 계산이고 벤치로 돌린 것이 아니다. 무엇이 잰 값이고
+> 상태: 보고서. 그 구현인 `implementing-the-cuts-inside-the-beat-handler.md`가 끝났다(2026-10-08, 소유자). 아래 합계는 모두 잰 값을 넣은 계산이고 벤치로 돌린 것이 아니다. 무엇이 잰 값이고
 > 무엇이 계산인지는 1절과 6절에 있다. `trimming-the-tail-key-beat.md`와 `implementing-the-trimmed-tail-key-beat.md`를
 > 잇는다.
 >
