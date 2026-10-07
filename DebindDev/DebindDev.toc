@@ -35,5 +35,6 @@ Probe_InitialSpecs.lua
 Probe_GateWords.lua
 Probe_BeatCost.lua
 Probe_CombatPush.lua
+# Probe_HoverOrder.lua
 # Probe_OverridePriority.lua
 # Probe_FormNil.lua
