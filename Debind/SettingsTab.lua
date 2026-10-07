@@ -254,6 +254,45 @@ local function Build()
     HelpLink(L["HELP_HOVER_CAST_TITLE"], "hover-cast");
     HelpLink(L["HELP_TARGETING_TITLE"], "targeting");
 
+    -- MOCKUP (2026-10-07): the layout only. None of these rows is stored or read; the saved
+    -- give-back options keep whatever they held and still drive the keys.
+    Header("Giving Keys Back");
+    local function MockDropdown(text, tooltip, choices, initial)
+        local current = initial;
+        Dropdown(text, tooltip, function(_, rootDescription)
+            Radios(rootDescription, choices, function()
+                return current;
+            end, function(value)
+                current = value;
+            end);
+        end, choices);
+    end
+
+    MockDropdown("When no action runs",
+        "What a key with Debind actions on it does at a press where none of them runs.", {
+            { value = "giveback", label = "Key is given back",
+                tooltip = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none." },
+            { value = "nothing", label = "Press does nothing",
+                tooltip = "The press does nothing, whatever else is bound to the key." },
+        }, "giveback");
+    local PET_BATTLE_KEYS = "During a pet battle: the keys bound to Action Buttons 1 to 5.";
+    local REPLACED_BAR_KEYS = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included.";
+    MockDropdown("Action Button keys", "When the keys bound to WoW's action buttons are given back.", {
+            { value = "replaced", label = "Replaced bars", tooltip = REPLACED_BAR_KEYS },
+            { value = "petbattle", label = "Pet battles", tooltip = PET_BATTLE_KEYS },
+            { value = "both", label = "Replaced bars and pet battles" },
+            { value = "never", label = "Never",
+                tooltip = "Debind keeps these keys, and the actions on them run as usual." },
+        }, "petbattle");
+    local mockHouseEditor = true;
+    Checkbox("House Editor keys", "While the House Editor is open, the keys it uses are given back.",
+        function()
+            return mockHouseEditor;
+        end,
+        function(value)
+            mockHouseEditor = value;
+        end);
+
     Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;
     for _, unit in ipairs(DebindPrivate.EXCLUDE_PLAYER_UNITS) do
@@ -348,29 +387,6 @@ local function Build()
         function(stored)
             Options().frameBlacklist.other = stored;
         end);
-
-    Header(L["GIVE_BACK_KEYS"]);
-    --- `set` takes the value the box now shows and stores it only where it is not the default, so
-    --- an untouched profile carries none of these (`giving-keys-back.md` §7).
-    local function GiveBack(text, tooltip, get, field, defaultOn, indent)
-        Checkbox(text, tooltip, get, function(value)
-            if (value == defaultOn) then
-                Options()[field] = nil;
-            else
-                Options()[field] = value;
-            end
-            DebindPrivate.QueueUpdateBindings();
-        end, indent);
-    end
-
-    GiveBack(L["CONDITION_SPECIALBAR"], L["GIVE_BACK_REPLACED_BAR_DESC"],
-        DebindPrivate.GiveBackOnReplacedBar, "giveBackOnReplacedBar", false);
-    GiveBack(L["GIVE_BACK_ONLY_WITH_ACTION"], L["GIVE_BACK_ONLY_WITH_ACTION_DESC"],
-        DebindPrivate.GiveBackWhenActionExists, "giveBackWhenActionExists", false, INDENT);
-    GiveBack(L["GIVE_BACK_PET_BATTLE"], L["GIVE_BACK_PET_BATTLE_DESC"],
-        DebindPrivate.GiveBackInPetBattle, "giveBackInPetBattle", true);
-    GiveBack(L["GIVE_BACK_HOUSE_EDITOR"], L["GIVE_BACK_HOUSE_EDITOR_DESC"],
-        DebindPrivate.GiveBackInBindingContext, "giveBackInBindingContext", true);
 
     Header(MISCELLANEOUS);
     Checkbox(L["SWITCH_MESSAGES"], L["SWITCH_MESSAGES_DESC"], DebindPrivate.SwitchMessagesEnabled,
