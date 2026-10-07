@@ -73,8 +73,8 @@ local MARK_KINDS = {
 	--- Only that the action has a condition. Whether something about it is wrong is the mark below.
 	conditional = { atlas = "questlog-questtypeicon-quest" },
 	--- The action is skipped some of the time or all of it (`Issues.lua`'s `GetIssueColor`). **One
-	--- mark for every code** (owner, 2026-10-07): the red bug said the key was dead, and no code does
-	--- that any more.
+	--- mark for every code** (owner, 2026-10-07): the red bug said the key was dead, but what the key
+	--- does when its actions are skipped is the key's end, not the code.
 	issue       = { atlas = "icons_16x16_important" },
 };
 
@@ -1620,10 +1620,11 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- holds no key and comes in through the frame, and it works. Asked "did we take the key",
 		-- it would go grey and the reader would read a working key as a broken one.
 		--
-		-- **A group of only issue-marked actions is grey or white by that option** (2026-09-19,
-		-- owner, for the white; 2026-10-07 for the rest). Off, the key is held and does nothing, and
-		-- the mark already says why. On, the key goes on to whatever else is bound, which is what
-		-- grey says, and the mark still says why this action does not run. A mouse button whose
+		-- **A group whose actions are all skipped by their issues is grey or white by that option**
+		-- (2026-09-19, owner, for the white; 2026-10-07 for the rest). Off, the key is held and does
+		-- nothing, and the mark already says why. On, the key goes on to whatever else is bound,
+		-- which is what grey says, and the mark still says why this action does not run. An issue
+		-- whose outcome is KEEP leaves its action on the key, so a group of those is white either way. A mouse button whose
 		-- actions run only over unit frames is grey either way: it holds no key, so with them left
 		-- out nothing of ours answers it (`BuildKeyMap`).
 		--

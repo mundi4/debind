@@ -551,9 +551,7 @@ function Registry:BuildNode(parentDescription, node, ctx)
         if (err) then
             -- The issue's colour (`resolveIssue`), for the label and for the sentence in the tooltip
             -- alike.
-            local text, issueColor = registry.config.resolveIssue(err, errArg);
-            err = text;
-            errColor = issueColor or ERROR_COLOR;
+            err, errColor = registry.config.resolveIssue(err, errArg);
             color = errColor;
         elseif (registry:IsActive(node, ctx)) then
             color = BLUE_FONT_COLOR;

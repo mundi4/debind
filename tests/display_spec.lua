@@ -206,6 +206,22 @@ return function(DebindPrivate)
     --- same `units` category as the units they picked by name, so an un-narrowed question puts one
     --- unit's contradiction on a line about somebody else -- and the reader goes and edits a
     --- condition that was never wrong.
+    --- **A value this client does not have is named in the row tooltip**, the way a missing macro
+    --- is: the value has no condition row to stand under, so without its sentence the tooltip says
+    --- nothing about why the action never runs.
+    test("an unknown pet command is named in the row tooltip", function()
+        Bind({
+            { type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1", seq = 1 },
+        }, {});
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row and row.issue == Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND,
+            "the row carries " .. tostring(row and row.issue));
+        local sentence = DebindPrivate.IssueSentence(row.issue, "PETNOSUCHCOMMAND");
+        local kind, color = LineKind(row, sentence);
+        check(kind == "colored" and color == ORANGE_FONT_COLOR,
+            "the sentence is not in the tooltip in the issue colour:\n" .. Tooltip(row));
+    end);
+
     test("another unit's contradiction leaves the reader's own life line alone", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,

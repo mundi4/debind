@@ -499,6 +499,28 @@ return function(DebindPrivate)
             "a key given back for a broken action still reads as ours");
     end);
 
+    --- **The same when only the binding builder refuses it.** An issue should mark a value the
+    --- builder refuses first (`BINDING_ISSUE_UNKNOWN_*`); where it does not, the key map has already
+    --- held the key when `PrepareKeyBindings` drops its only binding. With the option on that key is
+    --- given back, and the heading has to say so rather than read as ours.
+    test("a key whose only binding the builder refuses answers as given back", function()
+        local real = DebindPrivate.GetIssueOutcome;
+        DebindPrivate.GetIssueOutcome = function() return nil; end
+        local function refused()
+            return { { type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F6", seq = 1 } };
+        end
+        local ok, err = pcall(function()
+            Bind(refused());
+            check(DebindPrivate.IsKeyHandled("F6") == false, "a key given back still reads as ours");
+            check(not DebindPrivate.KeysToHold["F6"], "the key is still held");
+
+            Bind(refused(), nil, { giveBackWhenNoActionRuns = false });
+            check(DebindPrivate.IsKeyHandled("F6") == true, "with the option off the held key reads as dead");
+        end);
+        DebindPrivate.GetIssueOutcome = real;
+        check(ok, tostring(err));
+    end);
+
     -- **On a mouse button over a frame there are no cast key twins at all** (§7). A frame click is
     -- always [none held] (`EVAL_SNIPPET`), and the action holds no key, so nothing else can arrive
     -- either: a self or focus record there is one no press can reach, and while they were made they

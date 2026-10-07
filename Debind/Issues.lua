@@ -287,8 +287,8 @@ local function IssueOutcome(code)
 end
 
 --- What colour a problem is drawn in. **One colour for every code** (owner, 2026-10-07): an issue
---- skips its action, on some presses or on all of them, and the key's end takes what is left, so
---- no code is a key gone dead. Orange, beside the warning icon the mark wears. **Grey is not this**:
+--- skips its action, on some presses or on all of them, and what the key does then is the key's
+--- end (`giveBackWhenNoActionRuns`), not the code. Orange, beside the warning icon the mark wears. **Grey is not this**:
 --- it says an action is not running, which is the other axis, and the window paints it from there
 --- (a keyless row, an off-specialization one, one every neighbour covers).
 ---

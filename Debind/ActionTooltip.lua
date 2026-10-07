@@ -846,6 +846,14 @@ do
 				GameTooltip_AddBlankLineToTooltip(tooltip);
 				addIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, true, nil, missingMacro);
 			end
+
+			-- And for a value this client does not have (`BINDING_ISSUE_UNKNOWN_*`): the value is the
+			-- action's own, with no condition row to stand under.
+			local commandIssue = DebindPrivate.GetBindingIssue(action, "command");
+			if (commandIssue) then
+				GameTooltip_AddBlankLineToTooltip(tooltip);
+				addIssueLine(tooltip, commandIssue, true, nil, tostring(action.value));
+			end
 		end
 
 		if (action.priority and action.priority ~= Constants.DEFAULT_IMPORTANCE) then

@@ -4554,6 +4554,16 @@ function UpdateBindingsMap()
         -- is off (`Debind.lua`'s `BuildKeyMap` keeps no such key otherwise). The press then lands on a
         -- block and does nothing. The one other way here is a binding `PrepareKeyBindings` dropped
         -- for having no way to fire, which an issue should have caught first.
+        --
+        -- **That other way, with the option on, is the key `BuildKeyMap` would not have held**: it
+        -- held the key on a binding that is gone now. So it lets the key go here as it would have,
+        -- and `HandledKeys` with it unless a frame click still reaches the key.
+        if (not hasKeyRecord and keysToHold[key] and DebindPrivate.GiveBackWhenNoActionRuns()) then
+            keysToHold[key] = nil;
+            if (not hasClickCast) then
+                DebindPrivate.HandledKeys[key] = nil;
+            end
+        end
         hasKeyRecord = hasKeyRecord or keysToHold[key] == true;
         local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
 

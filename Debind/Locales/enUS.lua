@@ -99,20 +99,22 @@ L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, th
 -- wrong twice over.
 L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "A mouse button with META held cannot be used on unit frames."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
--- action sets. **This line and the macro one below are the only errors that take an argument** --
--- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
--- box it belongs to. Neither of these two has a box, so without the name there is nothing on
--- screen saying what to fix.
+-- action sets. **This line, the macro one and the three unknown values below are the only ones that
+-- take an argument** -- every other BINDING_ERROR_* is about a condition, and which condition is
+-- already visible in the box it belongs to. None of these has a box, so without the name there is
+-- nothing on screen saying what to fix.
 L["BINDING_ERROR_UNDEFINED_SWITCH"] = "There is no Switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
--- The same shape for the two commands this client may not have, from a profile or string made
--- elsewhere. `%s` is the stored command name, which is all there is to show for one that is unknown.
+-- The same shape for the three values this client may not have, from a profile or string made
+-- elsewhere: a pet command, a binding command and a flyout. `%s` is the stored value, which is all
+-- there is to show for one that is unknown.
 L["BINDING_ERROR_UNKNOWN_PET_COMMAND"] = "This game has no pet command |cnHIGHLIGHT_FONT_COLOR:%s|r."
 L["BINDING_ERROR_UNKNOWN_ACTION_BUTTON"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r does not press an action button."
 L["BINDING_ERROR_UNKNOWN_FLYOUT"] = "This game has no flyout |cnHIGHLIGHT_FONT_COLOR:%s|r."
--- The only MINOR code, so this states what happened and stops there. The key itself still fires,
+-- Not an issue but the other axis (`IsUnreachableAction`), so this states what happened and stops
+-- there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
 -- Two things it must not say. The coverage can come from several earlier actions at once
