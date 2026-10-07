@@ -415,7 +415,7 @@ return function(DebindPrivate)
             { type = Constants.SPELL, value = 1, key = "F8", seq = 1, disabled = true },
         });
         check(DebindPrivate.KeyMap["F8"] == nil, "the action reached a record");
-        check(DebindPrivate.KeysToHold["F8"] == nil, "the key was held");
+        check(not DebindPrivate.IsKeyOurs("F8"), "the key was held");
         check(DebindPrivate.IsKeyHandled("F8") == false, "the key still reads as one we answer");
     end);
 
@@ -427,7 +427,7 @@ return function(DebindPrivate)
             { type = Constants.SPELL, value = 2, key = "F8", seq = 2 },
         });
         check(Values("F8") == "2", "the key came out " .. Values("F8"));
-        check(DebindPrivate.KeysToHold["F8"] == true, "the key was not held");
+        check(DebindPrivate.IsKeyOurs("F8"), "the key was not held");
         check(DebindPrivate.IsKeyHandled("F8") == true, "the key does not read as one we answer");
     end);
 
@@ -464,7 +464,7 @@ return function(DebindPrivate)
         local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
         check(DebindPrivate.GetBindingIssue(action) == nil,
             "the action is refused: " .. tostring(DebindPrivate.GetBindingIssue(action)));
-        check(DebindPrivate.KeysToHold["BUTTON1"] == nil, "the bare left click was taken");
+        check(not DebindPrivate.IsKeyOurs("BUTTON1"), "the bare left click was taken");
         -- **Held and answered are two questions, and this is the case that parts them.** The press
         -- arrives through the frame and fires; a screen that asked whether the key was held would
         -- call a working button dead.
@@ -555,7 +555,7 @@ return function(DebindPrivate)
         local action = DebindPrivate.CollectActionsForKey("BUTTON1")[1].action;
         check(DebindPrivate.GetBindingIssue(action) == nil,
             "the action has an issue: " .. tostring(DebindPrivate.GetBindingIssue(action)));
-        check(DebindPrivate.KeysToHold["BUTTON1"] == nil, "the bare left click was taken");
+        check(not DebindPrivate.IsKeyOurs("BUTTON1"), "the bare left click was taken");
 
         local records = DebindPrivate.KeyMap["BUTTON1"];
         check(records and #records == 1, "BUTTON1 came out with " .. tostring(records and #records));

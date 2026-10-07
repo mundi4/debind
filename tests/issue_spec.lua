@@ -361,7 +361,7 @@ return function(DebindPrivate)
             "META를 쥔 개체창 클릭에 이슈가 안 났다");
     end);
 
-    -- Off a frame the same key holds itself (`BuildKeyMap`'s `KeysToHold`) and the game's own
+    -- Off a frame the same key holds itself (`PrepareKeyBindings`' `holdsKey`) and the game's own
     -- binding system answers the press, which takes `META-` prefixes. Nothing to refuse.
     test("a mouse button with META held is left alone off a unit frame", function()
         check(DebindPrivate.IsKeyInvalidForAction(nest({

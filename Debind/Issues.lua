@@ -20,7 +20,7 @@ local SOURCE_AT               = DebindPrivate.UNIT_SOURCE_AT;
 --- slot, and keys are walked in alphabetical order, so `META-BUTTON2` overwrites the working
 --- `BUTTON2`.
 ---
---- **Off a frame the same key is fine.** It holds itself (`BuildKeyMap`'s `KeysToHold`) and the
+--- **Off a frame the same key is fine.** It holds itself (`PrepareKeyBindings`' `holdsKey`) and the
 --- game's own binding system answers the press, which takes a `META-` prefix like any other.
 ---
 --- The raw key is asked rather than the prefix `GetMouseButtonAndPrefix` returns: that one is

@@ -672,26 +672,25 @@ end
 --- self tier, after its focus tier and at its end (`UpdateBindings.lua`'s `WithBlocks`), and
 --- `KeyMap` has none of them, so every index past the first tier is out of step by one or two.
 ---
---- **A key in `KeysToHold` gets the blocks even with nothing in `KeyMap` holding it**, or with no
---- `KeyMap` list at all, so its every record past its own bindings is a block. With
---- `giveBackWhenNoActionRuns` on, `BuildKeyMap` keeps no such key, and the end of a held key is a
---- giveback, which binds as a block.
+--- **Every key bound to us gets the blocks** (`IsKeyOurs`), even one held with nothing in `KeyMap`
+--- holding it, or with no `KeyMap` list at all, so its every record past its own bindings is a
+--- block. The end of a held key is a giveback while `giveBackWhenNoActionRuns` is on, which binds as
+--- a block.
 local function BindingIndexForEmitted(key, index)
     if not key or type(index) ~= "number" then
         return index
     end
-    local held = DebindPrivate.KeysToHold[key] == true
+    local holds = DebindPrivate.IsKeyOurs(key)
     local bindings = GetKeyBindings(key)
     if not bindings then
-        if not held then
+        if not holds then
             return index
         end
         bindings = {}
     end
-    local holds, selfCount, focusCount = held, 0, 0
+    local selfCount, focusCount = 0, 0
     for i = 1, #bindings do
         local binding = bindings[i]
-        holds = holds or binding.holdsKey
         if binding.castModifier == Constants.CASTMOD_SELF then
             selfCount = selfCount + 1
         elseif binding.castModifier == Constants.CASTMOD_FOCUS then
@@ -6633,7 +6632,7 @@ RegisterTest("Switch condition on a name outside the five", {
         -- `tests/issue_spec.lua` looks at that.
         --
         -- **The key is still ours**, since the action is on a live layer (`Debind.lua`'s
-        -- `KeysToHold`) and `HoldUnmatchedKeys` is on, so what is asked is the press and not
+        -- `KeysOnLiveLayers`) and `HoldUnmatchedKeys` is on, so what is asked is the press and not
         -- whether the key is bound.
         local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
         if whenUndefined:sub(1, 6) ~= "CLICK " then
@@ -6677,7 +6676,8 @@ RegisterTest("Switch condition on a name outside the five", {
 -- A specialization cannot be changed from a test, so the change and the rebuild it pulls are the
 -- spec's. What is left is the pair: the set holding this specialization fires, the set leaving it
 -- out does not. With `giveBackWhenNoActionRuns` on, the default, the second key is not held at all;
--- off, **both keys are ours** (`Debind.lua`'s `KeysToHold`), so the press is what tells them apart.
+-- off, **both keys are ours** (`Debind.lua`'s `KeysOnLiveLayers`), so the press is what tells them
+-- apart.
 -- **Both halves, because on its own "fires nothing" also describes a key nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
     description = "A binding whose specialization mask holds this one fires, one whose mask leaves it out holds the key and fires nothing",
@@ -11018,7 +11018,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 -- being red -- the window says nothing is wrong -- while the key stays dead until something
 -- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
 --
--- **The key is ours through both halves** (`Debind.lua`'s `KeysToHold`, with `HoldUnmatchedKeys`),
+-- **The key is ours through both halves** (`Debind.lua`'s `KeysOnLiveLayers`, with `HoldUnmatchedKeys`),
 -- so dead means the press fires nothing, and that is what is asked.
 --
 -- **The half that is left is the client's.** `tests/boundkey_spec.lua` sends `UPDATE_MACROS` by

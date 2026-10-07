@@ -374,9 +374,9 @@ return function(DebindPrivate)
                 conditions = { talents = { [MySpec()] = { taken = { 701 } } } } } };
         end
         Bind(actions(), { giveBackWhenNoActionRuns = false });
-        check(DebindPrivate.KeysToHold["F1"] == true, "the key was handed back with the option off");
+        check(DebindPrivate.IsKeyOurs("F1"), "the key was handed back with the option off");
         Bind(actions());
-        check(DebindPrivate.KeysToHold["F1"] == nil, "the key was held with the option on");
+        check(not DebindPrivate.IsKeyOurs("F1"), "the key was held with the option on");
     end);
 
     -- The action below it takes the key, which is the whole point of answering this early.

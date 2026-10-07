@@ -250,6 +250,54 @@ return function(DebindPrivate, _, ctx)
         checkOursAndSilent("F1");
     end);
 
+    -- **What an issue missed, the binding builder still refuses** (`PrepareKeyBindings`), and by then
+    -- the key map has taken the binding. Run with every issue answered nil, which is the only way a
+    -- refused value reaches the builder.
+    local function WithoutIssues(fn)
+        local real = DebindPrivate.GetIssueOutcome;
+        DebindPrivate.GetIssueOutcome = function() return nil; end
+        local ok, err = pcall(fn);
+        DebindPrivate.GetIssueOutcome = real;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    -- **Whether the key is ours is settled after the builder has refused**, so the window and the
+    -- key agree: with the option on nothing of ours is bound and the heading has to say so.
+    test("a key whose only binding the builder refuses", function()
+        WithoutIssues(function()
+            local function actions()
+                return { action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }) };
+            end
+            Bind(actions());
+            check(DebindPrivate.KeyMap["F1"] ~= nil, "the binding never reached the builder");
+            checkNotOurs("F1");
+            check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
+            Bind(actions(), HOLD_UNMATCHED);
+            checkOursAndSilent("F1");
+            check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
+        end);
+    end);
+
+    -- **A mouse button that answers through the frame alone** holds no key, so the frame click the
+    -- builder refused is the whole of it, whichever way the option stands.
+    test("a frame action alone whose binding the builder refuses", function()
+        WithoutIssues(function()
+            local function actions()
+                return { action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "SHIFT-BUTTON2",
+                    conditions = { units = { unitframe = {} } } }) };
+            end
+            Bind(actions());
+            check(DebindPrivate.KeyMap["SHIFT-BUTTON2"] ~= nil, "the binding never reached the builder");
+            checkNotOurs("SHIFT-BUTTON2");
+            check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option on");
+            Bind(actions(), HOLD_UNMATCHED);
+            checkNotOurs("SHIFT-BUTTON2");
+            check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option off");
+        end);
+    end);
+
     -- **Escape is not kept as a key**, so the game menu keeps it (`CleanUpDB`). The action stays,
     -- keyless. With the option off as well: nothing about holding is asked here.
     test("an action stored on Escape loses the key and the game keeps it", function()

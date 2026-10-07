@@ -197,6 +197,7 @@ end
 
 local function ResetContext()
     wipe(DebindPrivate.ClickTimeKeys);
+    wipe(DebindPrivate.HandledKeys);
     wipe(DebindPrivate.SpellFacts);
     wipe(_macrotexts);
     wipe(_macrotextBindings);
@@ -2012,22 +2013,6 @@ local function field(record, name, value)
     record.fieldValues[count] = value;
 end
 
---- Does this binding take a click on a unit frame, on the mouse button `button` (nil off one).
---- `PrepareKeyBindings` stamps it and `BuildKeyMap` asks it, so the two cannot part.
-function DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix)
-    local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
-    local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
-        or (buttonPrefix ~= nil and buttonPrefix:find("META-", 1, true) ~= nil);
-    return button ~= nil and not refusesFrame and
-        (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
-        true or false;
-end
-
---- Does this binding hold its key, on the mouse button `button` (nil off one). The same pair.
-function DebindPrivate.BindingHoldsKey(binding, button)
-    return (button == nil or type(DebindPrivate.UnitFrameConditionOf(binding)) ~= "table") and true or false;
-end
-
 --- Stamps every binding on one key and **drops the ones with no way to fire**.
 ---
 --- `DescribeBinding` refuses a value that is wrong in itself (a pet command this client has no slash
@@ -2061,8 +2046,14 @@ local function PrepareKeyBindings(key, bindingArray)
         -- frame's own attributes or another addon's wrapper, differs per frame and cannot be read
         -- reliably, so taking it would hide the game's side of every modified frame click by
         -- default (`which-action-a-key-runs.md` §7).
-        binding.isClickCast = DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix);
-        binding.holdsKey = DebindPrivate.BindingHoldsKey(binding, button);
+        local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
+        local wantsFrame = type(unitFrameCondition) == "table";
+        local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
+            or (buttonPrefix ~= nil and buttonPrefix:find("META-", 1, true) ~= nil);
+        binding.isClickCast = button ~= nil and not refusesFrame and
+            (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
+            true or false;
+        binding.holdsKey = (button == nil or not wantsFrame) and true or false;
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
         -- there is a specialization with nothing to cast: the button is still handed out, with no
         -- action on it, so the key is taken and the press does nothing (§4 of the design).
@@ -4560,7 +4551,10 @@ function UpdateBindingsMap()
         appendLine("CastKeysOn=false");
     end
 
-    local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
+    local keyMap, handledKeys = DebindPrivate.KeyMap, DebindPrivate.HandledKeys;
+    -- **Whether a key is held is settled in this loop and nowhere earlier** (`HandledKeys`): only
+    -- after `PrepareKeyBindings` is it known whether any binding on the key can go out.
+    local keysOnLiveLayers = not DebindPrivate.GiveBackWhenNoActionRuns() and DebindPrivate.KeysOnLiveLayers;
     local judgmentItems = DebindPrivate.JudgmentItems;
     wipe(judgmentItems);
     wipe(_chordEntries);
@@ -4571,8 +4565,10 @@ function UpdateBindingsMap()
     for key in pairs(keyMap) do
         _keysToWalk[key] = true;
     end
-    for key in pairs(keysToHold) do
-        _keysToWalk[key] = true;
+    if (keysOnLiveLayers) then
+        for key in pairs(keysOnLiveLayers) do
+            _keysToWalk[key] = true;
+        end
     end
 
     for _, key in ipairs(sortedKeys(_keysToWalk, _sortedA)) do
@@ -4584,12 +4580,13 @@ function UpdateBindingsMap()
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
-        -- **A key held with nothing on it that holds it** gets its ends alone: every action on it
-        -- was left out before the key map, or fires through the frame, and `giveBackWhenNoActionRuns`
-        -- is off (`Debind.lua`'s `BuildKeyMap` keeps no such key otherwise). The press then lands on a
-        -- block and does nothing. The one other way here is a binding `PrepareKeyBindings` dropped
-        -- for having no way to fire, which an issue should have caught first.
-        hasKeyRecord = hasKeyRecord or keysToHold[key] == true;
+        -- **With `giveBackWhenNoActionRuns` off, a key an action sits on is held even with nothing on
+        -- it that holds it**: every action on it was left out before the key map, or dropped by
+        -- `PrepareKeyBindings`, which an issue should have caught first. It gets its ends alone, so
+        -- the press lands on a block and does nothing. On, such a key is not held at all
+        -- (`giving-keys-back-when-no-action-runs.md` 1-1): bound and let go by the beat, it would
+        -- still read as ours.
+        hasKeyRecord = hasKeyRecord or (keysOnLiveLayers and keysOnLiveLayers[key] == true);
         local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
 
         local first = true;
@@ -4679,6 +4676,7 @@ function UpdateBindingsMap()
             -- 어느 한쪽에만 있을 수도 있다.
             appendLine("ClickCastKeys[%d]=ClickCastKeys[%d] or newtable()", button, button);
             appendLine("ClickCastKeys[%d][%d]=bindings", button, GetModifierIndex(buttonPrefix));
+            handledKeys[key] = true;
         end
 
         -- **Diagnostic only.** Nothing reads it; it is there so one `bindings` shows its kind in
@@ -4693,6 +4691,7 @@ function UpdateBindingsMap()
         if (hasKeyRecord and not first) then
             local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
             DebindPrivate.ClickTimeKeys[key] = clickTimeButton;
+            handledKeys[key] = true;
             appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
             appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key,
                 clickTimeButton);

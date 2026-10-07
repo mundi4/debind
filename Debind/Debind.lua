@@ -157,23 +157,25 @@ end
 DebindPrivate.ClickTimeKeys          = {};
 dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
 
---- Keys an action on a live layer holds whether or not any of its bindings reached `KeyMap`.
---- `BuildKeyMap` fills it, keeping one with no binding holding it only while
---- `giveBackWhenNoActionRuns` is off (`giving-keys-back-when-no-action-runs.md`), and
---- `UpdateBindingsMap` binds every key in it.
-DebindPrivate.KeysToHold             = {};
-dump("KeysToHold", DebindPrivate.KeysToHold);
+--- Keys an action on a live layer sits on, whether or not any of its bindings reached `KeyMap`,
+--- and except a mouse button whose action runs over a unit frame: that one arrives through the
+--- frame. **Not the keys held.** `UpdateBindingsMap` holds these only while
+--- `giveBackWhenNoActionRuns` is off, where a key whose actions all fail does nothing rather than
+--- going to whatever else is bound.
+DebindPrivate.KeysOnLiveLayers       = {};
+dump("KeysOnLiveLayers", DebindPrivate.KeysOnLiveLayers);
 
---- **Keys a press on which reaches this addon.** Not the same question as either table above, and
---- the only one the window has any business asking: what a reader wants to know about a key is
---- whether pressing it does anything of ours, not how it was wired.
+--- **Keys a press on which reaches this addon**, the only question the window has any business
+--- asking: what a reader wants to know about a key is whether pressing it does anything of ours, not
+--- how it was wired.
 ---
---- Wider than `KeysToHold` by exactly one case, and that case is why this exists. A mouse button
---- that runs over a unit frame holds no key at all -- the press arrives through the frame -- and it
---- works. Asked of the other two tables it reads as a key we do not have.
+--- **Filled where the rebuild hands the key out** (`UpdateBindingsMap`): bound to the click frame,
+--- or registered for a unit frame click. Only there is it known whether a binding can go out at
+--- all, since `PrepareKeyBindings` drops one with no way to fire after `KeyMap` has taken it. Settled
+--- any earlier, a key whose bindings are all dropped reads as ours while the beat gives it back.
 ---
---- Narrower by one as well: with `giveBackWhenNoActionRuns` on, a key where no action can ever run
---- is not held, and `BuildKeyMap` takes it out of here too, frame clicks aside.
+--- Wider than `ClickTimeKeys` by the mouse button that runs over a unit frame: it holds no key and
+--- works.
 DebindPrivate.HandledKeys            = {};
 dump("HandledKeys", DebindPrivate.HandledKeys);
 
@@ -194,8 +196,7 @@ end
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;
-	local KeysToHold = DebindPrivate.KeysToHold;
-	local HandledKeys = DebindPrivate.HandledKeys;
+	local KeysOnLiveLayers = DebindPrivate.KeysOnLiveLayers;
 
 	dump("KeyMap", KeyMap);
 	dump("ActiveActions", ActiveActions);
@@ -286,8 +287,7 @@ do
 	function DebindPrivate.BuildKeyMap()
 		wipe(KeyMap);
 		wipe(ActiveActions);
-		wipe(KeysToHold);
-		wipe(HandledKeys);
+		wipe(KeysOnLiveLayers);
 		wipe(Lists);
 		DebindPrivate.ClearUnreachableBindingCache();
 		-- **What is taken moves under the reader's hands**, unlike what can be obtained
@@ -339,9 +339,8 @@ do
 					-- under this one is the rebuild settling an answer early, and an answer settled
 					-- early must not do what no condition of the reader's would: baked, the binding
 					-- would lose every press, so the key gets what a key whose actions all fail gets
-					-- (2026-09-15, owner; `UpdateBindingsMap` reads `GiveBackWhenNoActionRuns` for which
-					-- that is, `giving-keys-back-when-no-action-runs.md`). That includes an action
-					-- with no binding at all, every press turned off in its Cast Options menu
+					-- (2026-09-15, owner; `giving-keys-back-when-no-action-runs.md` 1-1). That includes
+					-- an action with no binding at all, every press turned off in its Cast Options menu
 					-- (`which-action-a-key-runs.md` §6).
 					--
 					-- **A specialization condition naming another class's specializations counts
@@ -352,19 +351,16 @@ do
 					-- **An action turned off is not on the key at all** (the gate above), so it marks
 					-- nothing, whichever way that option stands.
 					--
-					-- One thing marks no key: an action that runs over a unit frame fires through the
-					-- frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`, which the bare
-					-- left and right click always answer yes). It still answers the press, which is the
-					-- whole difference between the two tables, and `HandledKeys` is the one a screen
-					-- asks (`IsKeyHandled`).
+					-- **A mouse button whose action runs over a unit frame is not marked**
+					-- (`ActionUnitFrameIsOn`, which the bare left and right click always answer yes): the
+					-- press comes through the frame, and a key held for it would take the world click.
 					--
 					-- **A key a binding context has claimed is marked like any other.** It is baked and
 					-- handed over on the restricted side while the claim stands (`BindingContexts.lua`),
 					-- so a claim that ends puts the key back without a rebuild.
-					HandledKeys[key] = true;
 					if (not (DebindPrivate.ActionUnitFrameIsOn(action)
 							and DebindPrivate.GetMouseButtonAndPrefix(key))) then
-						KeysToHold[key] = true;
+						KeysOnLiveLayers[key] = true;
 					end
 				end
 
@@ -423,33 +419,6 @@ do
 			UnrollIntoTiers(bindings);
 			if (#bindings > 1) then
 				DebindPrivate.CheckUnreachableBindings(bindings);
-			end
-		end
-
-		-- **A key where no action can ever run is not held while `giveBackWhenNoActionRuns` is on**
-		-- (`giving-keys-back-when-no-action-runs.md`). Every action on it was left out above, so it
-		-- is the key a reader would see do nothing, and to that reader those actions are on the key
-		-- with conditions that never hold: the key goes to whatever else is bound.
-		--
-		-- **`HandledKeys` follows whichever way that goes**: a key still held, or one a frame click
-		-- still reaches, is ours, and the rest is not. That includes a mouse button whose actions run
-		-- over a unit frame and were all left out, which holds nothing either way.
-		local giveBack = DebindPrivate.GiveBackWhenNoActionRuns();
-		for key in pairs(HandledKeys) do
-			local bindings = KeyMap[key];
-			local holds, clicks = false, false;
-			if (bindings) then
-				local button, buttonPrefix = bindings.button, bindings.buttonPrefix;
-				for i = 1, #bindings do
-					holds = holds or DebindPrivate.BindingHoldsKey(bindings[i], button);
-					clicks = clicks or DebindPrivate.BindingClicksThroughFrame(bindings[i], button, buttonPrefix);
-				end
-			end
-			if (giveBack and not holds) then
-				KeysToHold[key] = nil;
-			end
-			if (not KeysToHold[key] and not clicks) then
-				HandledKeys[key] = nil;
 			end
 		end
 	end

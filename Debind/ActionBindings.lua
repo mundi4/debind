@@ -1288,8 +1288,9 @@ end
 --- check asks it per row while the list is drawn, and going through `GetBindingInfoForAction` would
 --- rebuild the binding each time.
 ---
---- **Public because two places ask it and must agree**: whether the key is held (`BuildKeyMap`'s
---- `KeysToHold`) and whether a mouse button carries cast key twins (`KeyTakesCastKeyTwins`).
+--- **Public because two places ask it and must agree**: whether the key counts among those a key
+--- with nothing to run holds (`BuildKeyMap`'s `KeysOnLiveLayers`) and whether a mouse button carries
+--- cast key twins (`KeyTakesCastKeyTwins`).
 ---
 --- A profile the migration has not reached (`action.hover`) answers what `UnitFrameConditionFromLegacy`
 --- would, and a stored condition wins over it.

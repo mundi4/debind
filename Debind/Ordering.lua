@@ -145,9 +145,9 @@ end
 --- **Only the layer answers.** A row on a live layer whose own condition leaves this specialization
 --- out (`specExcluded`), or whose `known` has nothing to ask about (`noSpell`), is not one of these:
 --- it is on its key as an action whose condition never holds, so the key does what such a key does
---- (`Debind.lua`'s `KeysToHold`, `giveBackWhenNoActionRuns`), where another specialization's layer
---- is simply not in play. Filed together, the reader took the first for
---- something that comes back by itself (2026-09-15, owner).
+--- (`Debind.lua`'s `KeysOnLiveLayers`, `giveBackWhenNoActionRuns`), where another specialization's
+--- layer is simply not in play. Filed together, the reader took the first for something that comes
+--- back by itself (2026-09-15, owner).
 ---
 --- **Never ask this about a swap.** The comparator decides a row out by its layer on `specRank`
 --- before `seq` is reached, while the two above tie on `specRank` and are settled by `seq` against
