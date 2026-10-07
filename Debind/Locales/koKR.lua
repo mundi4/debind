@@ -417,7 +417,6 @@ L["SWITCH_MESSAGES_DESC"] = "스위치가 바뀌면 대화창에 한 줄 적습�
 L["CASTING"] = "시전 옵션"
 L["SETTINGS_TIP"] = "시전 옵션, 개체창 지원, 키 돌려주기를 여기서 정합니다."
 L["GIVE_BACK_KEYS"] = "키 돌려주기"
-L["GIVE_BACK_BOTH"] = "%1$s 및 %2$s"
 L["SWITCH_RENAME"] = "이름 변경"
 L["SWITCH_RENAME_PROMPT"] = "이 스위치를 뭐라고 부를까요?\n영문자, 숫자, |cnHIGHLIGHT_FONT_COLOR:_|r만 쓸 수 있어요. 앞의 |cnHIGHLIGHT_FONT_COLOR:$|r는 저절로 붙어요."
 L["SWITCH_RENAME_ERROR_GONE"] = "그 스위치는 이제 없습니다."

@@ -1203,7 +1203,8 @@ L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or a quest rep
 L["GIVE_BACK_PET_BATTLES"] = SHOW_PET_BATTLES_ON_MAP_TEXT
 L["GIVE_BACK_PET_BATTLES_DESC"] = "During a pet battle: the keys bound to Action Buttons 1 to 5."
 -- `CONDITION_SPECIALBAR` and `GIVE_BACK_PET_BATTLES`, joined, so each half reads as its own value does.
-L["GIVE_BACK_BOTH"] = "%1$s and %2$s"
+-- **The client's own joiner**, so every language gets it. Assigned here only.
+L["GIVE_BACK_BOTH"] = COVENANT_RENOWN_TOAST_REWARD_COMBINER
 -- **Not the client's `NEVER`**, which koKR renders as "do not show".
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"] = "Never"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] = "Debind keeps these keys, and the actions on them run as usual."
