@@ -2193,7 +2193,7 @@ return function(DebindPrivate, _, ctx)
             Expect(41, { Press("F1", "self", "unitframe") }, {});
             Expect(41, { Press("F1", "focus", "unitframe") }, {});
             local issue = DebindPrivate.GetBindingIssue(subject, "casting");
-            check(issue ~= nil and Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_ERROR,
+            check(issue ~= nil and Constants.BINDING_ISSUE_OUTCOMES[issue] == Constants.ISSUE_OUTCOME_OMIT,
                 "#41: the issue on Cast Options is " .. tostring(issue));
             check(DebindPrivate.GetNotRunningReason(subject) == nil,
                 "#41: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));

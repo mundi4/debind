@@ -540,9 +540,8 @@ function Registry:BuildNode(parentDescription, node, ctx)
         local err, errArg = registry:IssueOf(node, ctx);
         local errColor;
         if (err) then
-            -- **The grade picks the colour** (`resolveIssue`), for the label and for the sentence
-            -- in the tooltip alike. Painting a problem this group holds nothing to fix about the
-            -- same red as one it does sends the reader looking for a fix that is not in there.
+            -- The issue's colour (`resolveIssue`), for the label and for the sentence in the tooltip
+            -- alike.
             local text, issueColor = registry.config.resolveIssue(err, errArg);
             err = text;
             errColor = issueColor or ERROR_COLOR;

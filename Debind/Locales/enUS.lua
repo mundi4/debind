@@ -744,24 +744,21 @@ L["UNITGROUP_NONE"] = "Not in my group"
 L["UNITGROUP_PARTY"] = "In my party"
 L["UNITGROUP_RAID"] = "In my raid"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
--- Under the issue mark's title, which is the grade in words (`ORDER_FLAG_ISSUE*`). **The title says
--- what the grade is called and this says what it costs the reader**, which is the thing a name
--- alone cannot carry.
-L["MARK_TOOLTIP_ISSUE_DESC"] = "This action does not work until the problem is fixed."
+-- Under the issue mark's title (`ORDER_FLAG_ISSUE`). **The title names the mark and this says what
+-- it costs the reader.** "Sometimes or always" because one code skips the action only over party
+-- and raid frames and every other skips it on every press (`Constants.BINDING_ISSUE_OUTCOMES`);
+-- **not "on some presses"**, which a click on a unit frame does not read as (owner, 2026-10-07).
+-- Where it is skipped is each code's own sentence, right under this.
+L["MARK_TOOLTIP_ISSUE_DESC"] = "Because of this, the action is sometimes or always skipped."
 -- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
 L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
--- The other grade. **The action runs**, so what this has to say is that one part of it does not,
--- said as the action still running, because a reader who arrived at a red-looking mark needs to know
--- first that nothing is dead.
-L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it was told to do does not."
--- The same two sentences for the mark on a key's heading. **They say that an action under it has a
--- problem and never which one**: the heading cannot say which action each problem belongs to, and
--- the row's own mark does.
-L["MARK_TOOLTIP_GROUP_ISSUE_DESC"] = "An action under this heading does not work until its problem is fixed."
-L["MARK_TOOLTIP_GROUP_ISSUE_DESC_WARNING"] = "An action under this heading still runs, but one thing it was told to do does not."
-L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "Look over that action to see what is wrong."
+-- The same sentence for the mark on a key's heading. **It says that actions under it have a problem
+-- and never which**: the heading cannot say which action each problem belongs to, and the row's own
+-- mark does. "Some", because it may be one action or several (owner, 2026-10-07).
+L["MARK_TOOLTIP_GROUP_ISSUE_DESC"] = "Some actions under this heading are sometimes or always skipped."
+L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "Look over those actions to see what is wrong."
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.
 --
@@ -861,8 +858,8 @@ L["NO_SPECIALIZATION"] = "None chosen"
 --- rule shown whatever the state.
 L["CHANGES_APPLY_AFTER_COMBAT"] = "Changes take effect when combat ends."
 -- What the overview's reason column says instead of an ordering sentence when the row has something
--- wrong with it. **Two words for the whole set of problems, one per grade** -- red for a row that is
--- waiting on the reader, grey for one that is merely outranked.
+-- wrong with it. **Two words for the whole set of problems**, in orange; grey is the other column
+-- value, for a row that is merely outranked.
 --
 -- There was a short line per `BINDING_ISSUE_*` code here once ("No group selected", "Unknown state
 -- name") and they were dropped, which is worth knowing because the reasoning ran the other way at
@@ -870,13 +867,9 @@ L["CHANGES_APPLY_AFTER_COMBAT"] = "Changes take effect when combat ends."
 -- and a problem pitched several levels finer made one slot talk at two resolutions. **The detail was
 -- not lost, it was gathered** -- `BINDING_ERROR_*` says it in full, under the very condition it is
 -- about, on the surface the reader opens on purpose.
-L["ORDER_FLAG_ISSUE"] = "Needs fixing"
--- The other half of the line above, for the grade where the key works and one thing it was told to
--- do does not. **The two share their first word on purpose**: this column is scanned rather than
--- read, and a pair that differs in one place can be told apart with one of them on screen. Before,
--- both grades printed the line above and only the colour parted them, which needs both at once and
--- reaches a colour-blind reader not at all.
-L["ORDER_FLAG_ISSUE_WARNING"] = "Needs checking"
+-- **"Checking", not "fixing"** (owner, 2026-10-07): one of the codes leaves the action running
+-- everywhere but over party and raid frames, which the reader may not count as broken.
+L["ORDER_FLAG_ISSUE"] = "Needs checking"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- **The row stands where it would stand if that specialization were the active one**, so this line
 -- is the only thing on screen telling it apart from what is running right now. Which one it is comes

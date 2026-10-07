@@ -215,7 +215,7 @@ return function(DebindPrivate)
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
         local kind, color = LineKind(row, LLL["BINDING_ERROR_REACTIONS_NONE_SELECTED"]);
-        check(kind == "colored" and color == ERROR_COLOR,
+        check(kind == "colored" and color == ORANGE_FONT_COLOR,
             "the unit that carries the contradiction was not reported: " .. Tooltip(row));
         check(LineKind(row, LLL["LIFE_ALIVE"]) == "normal",
             "the reader's own life line was marked for another unit's contradiction");
@@ -523,9 +523,9 @@ return function(DebindPrivate)
     --- each can hold several problems, and a list of sentences under the heading cannot say which
     --- action each belongs to. What they are is the row mark's tooltip, which the heading points at.
     ---
-    --- **The title is the grade the mark is drawn in**, and an error further down beats a warning
-    --- that comes first.
-    test("the heading's issue mark names the grade and points at the rows", function()
+    --- **One mark for every code** (owner, 2026-10-07): a row skipped only over party and raid frames
+    --- (KEEP) and one skipped everywhere (OMIT) put up the same heading, alone or together.
+    test("the heading's issue mark is one mark and points at the rows", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1,
                 conditions = { units = { unitframe = {
@@ -535,30 +535,29 @@ return function(DebindPrivate)
         }, {});
 
         local rows = DebindPrivate.CollectActionsForKey("BUTTON3");
-        local warned, broken;
+        local kept, omitted;
         for _, row in ipairs(rows) do
             check(not DebindPrivate.IsInactiveAction(row.action),
                 "a row is inactive, so the heading would not ask it: " .. tostring(row.issue));
-            if (DebindPrivate.IsIssueError(row.issue)) then
-                broken = row;
-            elseif (row.issue and DebindPrivate.IsIssueWarning(row.issue)) then
-                warned = row;
+            local outcome = Constants.BINDING_ISSUE_OUTCOMES[row.issue];
+            if (outcome == Constants.ISSUE_OUTCOME_KEEP) then
+                kept = row;
+            elseif (outcome == Constants.ISSUE_OUTCOME_OMIT) then
+                omitted = row;
             end
         end
-        check(warned and broken, "the key does not hold one warning row and one error row");
-        check(DebindPrivate.GetGroupIssueGrade(rows) == "error",
-            "the heading's mark: " .. tostring(DebindPrivate.GetGroupIssueGrade(rows)));
+        check(kept and omitted, "the key does not hold one KEEP row and one OMIT row");
+        check(DebindPrivate.GroupHasIssue(rows), "the heading has no mark");
+        check(DebindPrivate.GroupHasIssue({ kept }), "a KEEP-only group has no mark");
+        check(not DebindPrivate.GroupHasIssue({}), "an empty group has a mark");
 
-        local function Drawn(groupRows)
-            local tooltip = shim.newTooltip();
-            DebindPrivate.AddGroupIssuesToTooltip(tooltip, groupRows);
-            return tooltip, tooltip:text();
-        end
-
-        local tooltip, text = Drawn(rows);
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddGroupIssuesToTooltip(tooltip);
+        local text = tooltip:text();
         check(tooltip.lines[1].kind == "title" and tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE"],
-            "the title is not the error grade: " .. text);
-        for _, row in ipairs({ warned, broken }) do
+            "the title is not the order flag's words: " .. text);
+        check(text:find(LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC"], 1, true), "the description is missing: " .. text);
+        for _, row in ipairs({ kept, omitted }) do
             for _, issue in ipairs(DebindPrivate.GetBindingIssues(row.action)) do
                 check(not text:find(DebindPrivate.IssueSentence(issue.code, issue.arg), 1, true),
                     "a row's own problem is written on the heading: " .. text);
@@ -566,10 +565,35 @@ return function(DebindPrivate)
         end
         check(text:find(LLL["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"], 1, true),
             "nothing points at the rows: " .. text);
+    end);
 
-        tooltip, text = Drawn({ warned });
-        check(tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE_WARNING"],
-            "a warning-only group is not titled as a warning: " .. text);
+    --- The row's own mark, on the KEEP code alone: titled and described as every other code is, its
+    --- sentence in orange under the group it is fixed in. Before the merge this row had a title of
+    --- its own.
+    test("a row skipped only over party and raid frames wears the one issue mark", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1,
+                conditions = { units = { unitframe = {
+                    frameTypes = Constants.FRAMETYPE_GROUP + Constants.FRAMETYPE_PLAYER, role = 0 } } } },
+        }, {});
+        local row = DebindPrivate.CollectActionsForKey("BUTTON3")[1];
+        check(row and row.issue == Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES,
+            "the row does not carry the KEEP code: " .. tostring(row and row.issue));
+
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddIssueMarkToTooltip(tooltip, row.action);
+        local text = tooltip:text();
+        check(tooltip.lines[1].kind == "title" and tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE"],
+            "the title is not the order flag's words: " .. text);
+        check(tooltip.lines[2].text == LLL["MARK_TOOLTIP_ISSUE_DESC"], "the description is not the one: " .. text);
+        local sentence = DebindPrivate.IssueSentence(row.issue);
+        local found;
+        for i = 1, #tooltip.lines do
+            if (tooltip.lines[i].text == sentence) then
+                found = tooltip.lines[i];
+            end
+        end
+        check(found and found.color == ORANGE_FONT_COLOR, "the code's sentence is not up in orange: " .. text);
     end);
 
     ---------------------------------------------------------------------------

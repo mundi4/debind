@@ -779,9 +779,7 @@ local ActionMenus = MenuKit.NewRegistry({
         end);
     end,
 
-    --- An issue code as a sentence and a colour. **The grade picks the colour** (`Issues.lua`'s
-    --- `GetIssueColor`). Painting red a problem that has **nothing to fix in that group**, the way
-    --- Clique taking the unit frames is, sends whoever opens it looking for a fix that is not there.
+    --- An issue code as a sentence and its colour (`Issues.lua`'s `GetIssueColor`).
     resolveIssue = function(issue, name)
         return DebindPrivate.IssueSentence(issue, name), DebindPrivate.GetIssueColor(issue);
     end,

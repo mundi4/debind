@@ -1155,8 +1155,8 @@ function M.install()
     _G.GameTooltip_AddHighlightLine = addLine("highlight");
     _G.GameTooltip_AddInstructionLine = addLine("instruction");
 
-    --- **The colour comes along.** A grade decides it (`Issues.lua`'s `GetIssueColor`), so a spec
-    --- that only saw "not an error line" could not tell the warning colour from any other.
+    --- **The colour comes along** (`Issues.lua`'s `GetIssueColor`), so a spec that only saw "not an
+    --- error line" could not tell the issue colour from any other.
     _G.GameTooltip_AddColoredLine = function(tooltip, text, color, wrap, leftOffset)
         tooltip.lines[#tooltip.lines + 1] = {
             kind = "colored", text = text, color = color, wrap = wrap, leftOffset = leftOffset,

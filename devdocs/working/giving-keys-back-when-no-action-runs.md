@@ -2,7 +2,7 @@
 
 > 상태: 진행 중. G0(8f3ca88)과 G1~G4, 1-1절(1c81ae6)이 들어갔고 G5는 쟀다(b998892). G6 가운데 설정 행 배선,
 > `OPTION_FIELDS`·`ResetToDefaults`·로케일, `giveBackWhenActionExists` 지우기(3388a85), 게임 안 키트와 G7의 두
-> 문서가 들어갔다. 남은 것은 G6의 등급 합치기다. What's New와 도움말은 다른 세션이 맡는다.
+> 문서(9780f2e), 등급 합치기가 들어갔다. 남은 것은 G7의 What's New이고 도움말과 함께 다른 세션이 맡는다.
 >
 > 쓴 세션: `debind-4a` (세션 ID `73ee6c63-8228-430b-9aca-e8140fe8facd`).
 
@@ -49,6 +49,11 @@
   - 대가: 고장 난 액션뿐인 키는 옵션이 켜져 있으면 그 아래 바인딩이 나간다. 행의 마크는 남는다.
 - **ERROR와 WARNING은 하나로 합친다** (소유자, 아이콘은 경고 아이콘). 동작이 하나이니 등급은 그 액션이 안 돈다는
   표시일 뿐이다. G6에서 한다.
+  - 색은 주황, 목록 줄은 "Needs checking", 마크 툴팁은 "Because of this, the action is sometimes or always
+    skipped.", 키 머리글은 "Some actions under this heading are sometimes or always skipped." (소유자).
+  - **`ROLES_NONE_ON_GROUP_FRAMES`는 KEEP으로 남는다** (소유자). 역할은 파티·공격대 개체창에서만 재니 다른 개체창
+    종류에서는 액션이 그대로 돈다. 액션 전체를 뺄 만한 문제가 아니다. 그래서 문구가 "건너뛴다"만이 아니라
+    "때로는"을 말하고, "누름"이라고 하지 않는다(개체창 클릭은 누름으로 안 읽힌다). 어디서인지는 코드의 문장이 말한다.
 - **ESC는 키로 남기지 않는다.** 키 지정 창이 받지 않으니, 있다면 옛 프로필이나 손으로 고친 문자열이다. 프로필을 읽을 때
   (`CleanUpDB`)와 가져올 때(`BringPayloadDataForward`, 미리보기도 같은 값을 보게) 키를 비우고, `BuildKeyMap`도 ESC를 키
   없는 것으로 읽는다(다른 길로 들어온 것에 대한 가드). 액션은 키 없이 남는다. 그래서 게임 메뉴 키 이슈와 결과 등급

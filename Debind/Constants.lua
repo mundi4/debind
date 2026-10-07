@@ -690,7 +690,7 @@ Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- condition is enough and nothing is wrong with it; what it cannot meet is the key.
 --
 -- **One state, two codes, because the sentence has two readers.** They are raised together by one
--- check and carry the same grade and the same outcome; what differs is what the reader is looking at
+-- check and carry the same outcome; what differs is what the reader is looking at
 -- when they meet it, the key or the condition. A code is how a sentence is found (`BINDING_ERROR_`
 -- plus the code, in the tooltip and in the menu alike), so two sentences need two codes.
 Constants.BINDING_ISSUE_KEY_RULED_OUT                     = "KEY_RULED_OUT";
@@ -706,69 +706,21 @@ Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON             = "UNKNOWN_ACTION_BUTT
 Constants.BINDING_ISSUE_UNKNOWN_FLYOUT                    = "UNKNOWN_FLYOUT";
 
 
--- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
--- action is the code's outcome below, so a colour is picked without moving a key
--- (`reorganizing-binding-issues.md` §3-1, §3-2).
-Constants.ISSUE_GRADE_ERROR = 1;
---- **The action runs; one thing it was told to do does not.** Orange rather than red (2026-09-06,
---- owner): the key works, and a colour that says the action is dead would be a lie.
----
---- **The grade outlived the code it was made for (2026-09-09, owner)**, so the next issue of this
---- kind needed one row below and nothing else.
-Constants.ISSUE_GRADE_WARNING = 2;
-
---- Which grade each code carries, and the question each one answers is **what the reader sees**:
----
----   ERROR    the action does not work as saved, and it is waiting on the reader
----   WARNING  the action runs, and one thing it was told to do does not
----
---- **A state the reader may have meant is not in here at all.** A mark they can only clear by
---- choosing a value they do not want is a mark they cannot clear, so an action the reader turned
---- off says so as a reason it does not run (`GetNotRunningReason`), not as a code
---- (`reorganizing-binding-issues.md` §2-3).
----
---- **Every code in here is a fault of the action itself, and why an action is not firing right now
---- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
---- covered by a neighbour on the same key (`Solver.lua`'s `IsUnreachableAction`) and having a
---- specialization condition that does not hold (`Profile.lua`'s `specExcluded`) are each answered
---- on their own, so that neither can take the slot the other needs. While the first of them was a
---- code in here, a covered action reported that instead of its own warning and the warning left
---- the screen.
----
---- **A code with no row here is treated as ERROR** (`Issues.lua`'s `IssueGrade`). Failing loud is the
---- safe direction in a keybinding addon: a grade nobody wrote would otherwise leave a binding that
---- does not work looking fine.
-Constants.BINDING_ISSUE_GRADES = {
-    [Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK]          = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_SPECS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE]             = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED]          = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES]        = Constants.ISSUE_GRADE_WARNING,
-    [Constants.BINDING_ISSUE_UNDEFINED_SWITCH]                   = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND]               = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON]             = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNKNOWN_FLYOUT]                    = Constants.ISSUE_GRADE_ERROR,
-};
-
--- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
--- asks**, so neither the grade nor the category decides it: one grade carries several outcomes, and
--- a code painted on the key box need not let go of the key.
+-- What an issue does to its action. **The one place `BuildKeyMap` asks.** Every code is drawn alike
+-- (owner, 2026-10-07), as an action skipped some of the time or all of it: which of the two is this
+-- table's, and where is the code's own sentence.
+--
+-- **A state the reader may have meant is not a code at all.** A mark they can only clear by
+-- choosing a value they do not want is a mark they cannot clear, so an action the reader turned
+-- off says so as a reason it does not run (`GetNotRunningReason`), not as a code
+-- (`reorganizing-binding-issues.md` §2-3). Being covered by a neighbour on the same key
+-- (`Solver.lua`'s `IsUnreachableAction`) and a specialization condition that does not hold
+-- (`Profile.lua`'s `specExcluded`) are answered on their own axes for the same reason (2026-09-06,
+-- owner): while the first was a code, a covered action reported that instead of its own problem.
 --
 --   OMIT     left out of `KeyMap`: the next action on the key takes the press, and with none left
 --            the key's end does (`giving-keys-back-when-no-action-runs.md`)
---   KEEP     on the key as the bindings it makes
+--   KEEP     on the key as the bindings it makes; the code takes away only some of its presses
 --
 -- **No outcome takes the key itself** (owner, 2026-10-07). An issue is about its action alone. The
 -- one that did, the game menu key, went when Escape stopped being kept as a key at all
@@ -778,8 +730,8 @@ Constants.BINDING_ISSUE_GRADES = {
 Constants.ISSUE_OUTCOME_OMIT    = 2;
 Constants.ISSUE_OUTCOME_KEEP    = 3;
 
---- **A code with no row here is OMIT** (`Issues.lua`'s `IssueOutcome`), for the reason a missing grade
---- is ERROR: leaving the action out is the direction that cannot fire something nobody meant.
+--- **A code with no row here is OMIT** (`Issues.lua`'s `IssueOutcome`): leaving the action out is the
+--- direction that cannot fire something nobody meant.
 Constants.BINDING_ISSUE_OUTCOMES = {
     -- The key is fine; this action cannot go out on it. Left out, the key writes no click-casting
     -- list, which is what stops it taking the unmodified click's slot.
