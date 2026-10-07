@@ -1624,8 +1624,8 @@ local ROLE_NAMES = {
 --- implementations of one rule -- this one and `BuildUnitStates` -- which is why the redesign
 --- notes want this function gone once the runtime speaks masks.
 ---
---- The caller answers a `NEVER` by **not emitting the binding at all**. Do not reach for a marker
---- value or a `never` field instead. Anything carried into the secure environment is paid for
+--- `PrepareKeyBindings` answers a `NEVER` by **not emitting the binding at all**. Do not reach for a
+--- marker value or a `never` field instead. Anything carried into the secure environment is paid for
 --- three times: the match loop walks and rejects the record on every re-selection, its units get
 --- registered so the update loop measures them every tick forever, and a marker field costs every
 --- *ordinary* condition a lookup on a path that runs thousands of times in a fight. All of that
@@ -2022,6 +2022,12 @@ end
 --- not refused** (a flyout with every slot empty, a stance this character lacks): it goes out as a
 --- button that does nothing, the way a spell this character does not know is still cast (`Inert`,
 --- owner, 2026-10-07).
+---
+--- **What it returns is whether a record goes out**, of each kind, and that is what decides whether
+--- the key is held (`UpdateBindingsMap`). So a binding `BuildKeyRecord` would make nothing of is
+--- dropped here too.
+local MergeKeyUnitConditions;
+local _foldScratch = {};
 local function PrepareKeyBindings(key, bindingArray)
     local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
@@ -2113,6 +2119,9 @@ local function PrepareKeyBindings(key, bindingArray)
                     tostring(binding.type), tostring(binding.value), key));
             end
             binding.isClickCast, binding.holdsKey = false, false;
+        elseif ((binding.isClickCast or binding.holdsKey)
+                and not MergeKeyUnitConditions(binding, _foldScratch)) then
+            binding.isClickCast, binding.holdsKey = false, false;
         end
 
         hasClickCast = hasClickCast or binding.isClickCast;
@@ -2160,7 +2169,9 @@ local _noBindings = {};
 ---
 --- **No block for a key turned off in the settings either.** The press never picks that tier
 --- (`EVAL_SNIPPET`), so the block would be a record nothing reads.
-local function WithBlocks(bindingArray)
+---
+--- `giveBack` is the `GiveBackWhenNoActionRuns` the caller decided the key's hold by.
+local function WithBlocks(bindingArray, giveBack)
     wipe(_withBlocks);
     local count = #bindingArray;
     local selfEnd, focusEnd = 0, 0;
@@ -2198,7 +2209,7 @@ local function WithBlocks(bindingArray)
         _withBlocks[n] = bindingArray[i];
     end
     n = n + 1;
-    if (DebindPrivate.GiveBackWhenNoActionRuns()) then
+    if (giveBack) then
         _withBlocks[n] = GIVEBACK_END;
     else
         _withBlocks[n] = BLOCKS[Constants.CASTMOD_NONE];
@@ -2215,8 +2226,8 @@ end
 --- **Nothing should reach the nil.** Each of the three ways `mergeUnitConditions` answers `NEVER`
 --- leaves a zero mask in `binding.unitStates`, `FillBinding` marks that binding `dead`, and
 --- `UnrollIntoTiers` leaves it off the key. It stays for the day the two intersections disagree,
---- and as a value it costs nothing.
-local function MergeKeyUnitConditions(binding, out)
+--- and `PrepareKeyBindings` asks it first, so such a binding holds nothing either.
+function MergeKeyUnitConditions(binding, out)
     wipe(out);
 
     -- **Hover Cast's `"skip"` is not in `conditions`** (`FillBinding`), since that table is what the
@@ -4554,7 +4565,8 @@ function UpdateBindingsMap()
     local keyMap, handledKeys = DebindPrivate.KeyMap, DebindPrivate.HandledKeys;
     -- **Whether a key is held is settled in this loop and nowhere earlier** (`HandledKeys`): only
     -- after `PrepareKeyBindings` is it known whether any binding on the key can go out.
-    local keysOnLiveLayers = not DebindPrivate.GiveBackWhenNoActionRuns() and DebindPrivate.KeysOnLiveLayers;
+    local giveBack = DebindPrivate.GiveBackWhenNoActionRuns();
+    local keysOnLiveLayers = not giveBack and DebindPrivate.KeysOnLiveLayers;
     local judgmentItems = DebindPrivate.JudgmentItems;
     wipe(judgmentItems);
     wipe(_chordEntries);
@@ -4587,7 +4599,7 @@ function UpdateBindingsMap()
         -- (`giving-keys-back-when-no-action-runs.md` 1-1): bound and let go by the beat, it would
         -- still read as ours.
         hasKeyRecord = hasKeyRecord or (keysOnLiveLayers and keysOnLiveLayers[key] == true);
-        local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
+        local keyArray = hasKeyRecord and WithBlocks(bindingArray, giveBack) or bindingArray;
 
         local first = true;
         local selfCount, focusCount = 0, 0;

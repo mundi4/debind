@@ -265,7 +265,7 @@ return function(DebindPrivate)
     end);
 
     -- **The hold reaches past a claimed key too.** With `giveBackWhenNoActionRuns` off, a key whose
-    -- actions the rebuild leaves out is still held (`Debind.lua`'s `BuildKeyMap`), and a claim no
+    -- actions the rebuild leaves out is still held (`KeysOnLiveLayers`, `UpdateBindingsMap`), and a claim no
     -- longer stops that -- the restricted side is what hands it over, and it can only hand over a
     -- key we hold.
     test("a yielded key whose action the rebuild leaves out is still held", function()

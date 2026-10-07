@@ -298,6 +298,80 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
+    -- **A binding the builder takes can still make no record**: its unit conditions folding to nothing
+    -- where the solver's own fold did not (`UpdateBindings.lua`'s `mergeUnitConditions`). Made here by
+    -- resolving `"@"` to `focus` at emission alone, which is the two folds disagreeing: the solver
+    -- reads [@target,help][@focus,harm], the emission [@focus,help][@focus,harm]. What is asked is
+    -- that the key is settled on the records that went out.
+    --
+    -- `hits` counts the emission's folds the stand-in turned, so a case that never reached one fails
+    -- rather than passing on an ordinary conditional key.
+    local FOLDED = 6788;
+    local function WithFoldsApart(fn)
+        local real = DebindPrivate.ResolvedUnitOf;
+        local hits = 0;
+        DebindPrivate.ResolvedUnitOf = function(binding)
+            if (binding.value == FOLDED) then
+                hits = hits + 1;
+                return "focus";
+            end
+            return real(binding);
+        end
+        local ok, err = pcall(fn, function() return hits; end);
+        DebindPrivate.ResolvedUnitOf = real;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    local function folded(key, units)
+        return { action({ value = FOLDED, key = key, conditions = { units = units } }) };
+    end
+
+    local function checkReached(key, hits)
+        local bindings = DebindPrivate.KeyMap[key];
+        check(bindings ~= nil and #bindings > 0, "the binding never reached the emission");
+        for i = 1, #bindings do
+            check(not bindings[i].dead, "binding " .. i .. " was left off as dead, so emission never sees it");
+        end
+        check(hits() > 0, "the emission never folded the binding");
+    end
+
+    -- **A world where the solver's reading holds**, so a record that went out would fire.
+    test("a key whose only binding makes no record", function()
+        shim.world.units.target = { id = "t", reaction = "help" };
+        shim.world.units.focus = { id = "f", reaction = "harm" };
+        local ok, err = pcall(WithFoldsApart, function(hits)
+            local units = function() return { ["@"] = { reaction = Constants.REACTION_HELP },
+                focus = { reaction = Constants.REACTION_HARM } }; end
+            Bind(folded("F1", units()));
+            checkReached("F1", hits);
+            checkNotOurs("F1");
+            check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
+            Bind(folded("F1", units()), HOLD_UNMATCHED);
+            checkOursAndSilent("F1");
+            check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
+        end);
+        shim.world.units.target, shim.world.units.focus = nil, nil;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
+    test("a frame action alone that makes no record", function()
+        WithFoldsApart(function(hits)
+            local units = function() return { unitframe = {}, ["@"] = { reaction = Constants.REACTION_HELP },
+                focus = { reaction = Constants.REACTION_HARM } }; end
+            Bind(folded("SHIFT-BUTTON2", units()));
+            checkReached("SHIFT-BUTTON2", hits);
+            checkNotOurs("SHIFT-BUTTON2");
+            check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option on");
+            Bind(folded("SHIFT-BUTTON2", units()), HOLD_UNMATCHED);
+            checkNotOurs("SHIFT-BUTTON2");
+            check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option off");
+        end);
+    end);
+
     -- **Escape is not kept as a key**, so the game menu keeps it (`CleanUpDB`). The action stays,
     -- keyless. With the option off as well: nothing about holding is asked here.
     test("an action stored on Escape loses the key and the game keeps it", function()
