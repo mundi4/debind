@@ -314,7 +314,7 @@ return function(DebindPrivate, _, ctx)
         local _, index = interp.driverHandle:RunAttribute("EvalClickTimeKey", button);
         local record = index and bindings[index];
         check(record, key .. ": nothing won, though every tier ends in a block");
-        if (record.tail == Constants.UNUSED) then
+        if (record.tail == Constants.GIVEBACK) then
             return Judgment.RELEASE;
         elseif (record.tail == Constants.COMMAND) then
             return OutcomeName(Judgment.COMMAND, record.command);
@@ -493,7 +493,7 @@ return function(DebindPrivate, _, ctx)
         end
         local ok, err = pcall(Bind, {
             action({ conditions = { combat = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Judgment.Build = build;
         check(ok, tostring(err));
@@ -502,7 +502,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     test("B1 B2 an unused under a conditional action", function()
-        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.UNUSED }) });
+        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.GIVEBACK }) });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
 
@@ -518,7 +518,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { combat = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { mounted = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
@@ -527,7 +527,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { combat = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { mounted = true } }),
-            action({ type = Constants.UNUSED, conditions = { stealth = true } }),
+            action({ type = Constants.GIVEBACK, conditions = { stealth = true } }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
@@ -536,7 +536,7 @@ return function(DebindPrivate, _, ctx)
     test("B9 to B15 an action on [@ exists] over an unused, with its chords", function()
         Bind({
             action({ conditions = { units = { ["@"] = {} } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
         Saw(Sweep("ALT-F1"), Judgment.OURS, Judgment.RELEASE);
@@ -550,7 +550,7 @@ return function(DebindPrivate, _, ctx)
     test("B10 a focus chord with no focus is held while the bare key is ours", function()
         Bind({
             action({ conditions = { units = { ["@"] = {} } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         local item = DebindPrivate.JudgmentItems["ALT-F1"];
         check(item and item.base == "F1", "ALT-F1 has no item made from F1");
@@ -575,7 +575,7 @@ return function(DebindPrivate, _, ctx)
     test("M a switch-conditioned unused between a conditional action and a pointed one", function()
         Bind({
             action({ value = 585, conditions = { combat = true } }),
-            action({ type = Constants.UNUSED, conditions = { ["$s1"] = true } }),
+            action({ type = Constants.GIVEBACK, conditions = { ["$s1"] = true } }),
             action({ casting = { hoverCast = "cast" } }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
@@ -591,7 +591,7 @@ return function(DebindPrivate, _, ctx)
                 reaction = Constants.REACTION_HELP, role = Constants.ROLE_TANK + Constants.ROLE_NONE,
                 frameTypes = Constants.FRAMETYPE_GROUP + Constants.FRAMETYPE_BOSS,
             } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
@@ -606,7 +606,7 @@ return function(DebindPrivate, _, ctx)
                 reaction = Constants.REACTION_HELP, role = Constants.ROLE_TANK + Constants.ROLE_NONE,
                 frameTypes = Constants.FRAMETYPE_GROUP + Constants.FRAMETYPE_BOSS,
             } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
@@ -629,7 +629,7 @@ return function(DebindPrivate, _, ctx)
             MeasuredBy("forms", by, function()
                 Bind({
                     action({ conditions = { forms = 2 ^ 0 + 2 ^ 2, groups = Constants.GROUP_PARTY } }),
-                    action({ type = Constants.UNUSED }),
+                    action({ type = Constants.GIVEBACK }),
                 });
                 Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
             end);
@@ -640,7 +640,7 @@ return function(DebindPrivate, _, ctx)
                     action({ conditions = { forms = 2 ^ 1, combat = true } }),
                     action({ type = Constants.COMMAND, value = MAP, conditions = { forms = 2 ^ 1 + 2 ^ 3 } }),
                     action({ value = 585, conditions = { forms = 2 ^ 0 } }),
-                    action({ type = Constants.UNUSED }),
+                    action({ type = Constants.GIVEBACK }),
                 });
                 Saw(Sweep("F1"), Judgment.OURS, OutcomeName(Judgment.COMMAND, MAP), Judgment.RELEASE);
             end);
@@ -655,7 +655,7 @@ return function(DebindPrivate, _, ctx)
             local ok = pcall(Bind, { action({ key = "F5", conditions = { combat = true } }) });
             check(not ok, "a rebuild sent combat out as a field the press never reads");
         end);
-        Bind({ action({ type = Constants.UNUSED }) });
+        Bind({ action({ type = Constants.GIVEBACK }) });
     end);
 
     -- **The form is the call's, on both sides** (`Constants.MEASURED_BY`). With the word answering
@@ -665,7 +665,7 @@ return function(DebindPrivate, _, ctx)
     test("the press and the loop follow the call where the word says otherwise", function()
         Bind({
             action({ conditions = { forms = 2 ^ 1 } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -704,7 +704,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { forms = 2 ^ 0 } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { combat = false } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -725,7 +725,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { forms = 2 ^ 1, combat = true } }),
             action({ conditions = { forms = 2 ^ 1 + 2 ^ 2 } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -748,7 +748,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { bonusbars = 2 ^ 1 + 2 ^ 5, skyriding = false } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
-            action({ type = Constants.UNUSED, conditions = { petbattle = false } }),
+            action({ type = Constants.GIVEBACK, conditions = { petbattle = false } }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
@@ -757,7 +757,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ value = 585, conditions = { known = true,
                 units = { ["@"] = { group = Constants.UNITGROUP_PARTY } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
@@ -771,7 +771,7 @@ return function(DebindPrivate, _, ctx)
     test("the beat follows the parse where the API says otherwise", function()
         Bind({
             action({ conditions = { combat = true, units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         for _, case in ipairs({
             { word = "combat", parse = true, world = { id = "friend", reaction = "help" } },
@@ -800,7 +800,7 @@ return function(DebindPrivate, _, ctx)
                 target = { reaction = Constants.REACTION_HELP + Constants.REACTION_HARM, dead = false },
                 focus = { dead = true },
             } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
@@ -811,14 +811,14 @@ return function(DebindPrivate, _, ctx)
     test("aliases classified", function()
         Bind({
             action({ key = "F1", conditions = { units = { custom1 = { reaction = Constants.REACTION_HELP } } } }),
-            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F1", type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = { units = {
                 target = { reaction = Constants.REACTION_HARM },
                 custom1 = { dead = false },
             } } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
             action({ key = "F3", conditions = { units = { tank = { dead = false } } } }),
-            action({ key = "F3", type = Constants.UNUSED }),
+            action({ key = "F3", type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
         Saw(Sweep("F2"), Judgment.OURS, Judgment.RELEASE);
@@ -830,7 +830,7 @@ return function(DebindPrivate, _, ctx)
     test("a map-only alias pointing at no unit is there to both sides", function()
         Bind({
             action({ conditions = { units = { tank = { dead = false } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -847,7 +847,7 @@ return function(DebindPrivate, _, ctx)
     test("a frame laid out again under a still cursor", function()
         Bind({
             action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         interp:clearHoverSlot();
@@ -871,7 +871,7 @@ return function(DebindPrivate, _, ctx)
     test("a computed switch beside a parsed state column", function()
         Bind({
             action({ conditions = { ["$c"] = true, mounted = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         }, { ["$c"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" } });
         for _, case in ipairs({
             { combat = false, mounted = true, want = Judgment.RELEASE },
@@ -898,7 +898,7 @@ return function(DebindPrivate, _, ctx)
     test("a computed switch on the pointed frame", function()
         Bind({
             action({ conditions = { ["$h"] = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         }, { ["$h"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@unitframe,help]" } });
         interp:resetState();
         interp:clearHoverSlot();
@@ -941,7 +941,7 @@ return function(DebindPrivate, _, ctx)
     test("a computed switch reading two others", function()
         Bind({
             action({ conditions = { ["$c"] = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         }, {
             ["$a"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
             ["$b"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
@@ -976,9 +976,9 @@ return function(DebindPrivate, _, ctx)
     test("a computed switch reading a switch set by hand, and one reading an alias", function()
         Bind({
             action({ key = "F1", conditions = { ["$h"] = true } }),
-            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F1", type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = { ["$u"] = true } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
         }, {
             ["$h"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$s1,mounted]" },
             ["$u"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@custom1,help]" },
@@ -1016,9 +1016,9 @@ return function(DebindPrivate, _, ctx)
     test("a computed switch worked out on another one's wake", function()
         Bind({
             action({ key = "F1", conditions = { ["$s"] = true } }),
-            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F1", type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = { ["$t"] = true } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
         }, {
             ["$s"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
             ["$t"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$s,$s1]" },
@@ -1064,7 +1064,7 @@ return function(DebindPrivate, _, ctx)
             action({ conditions = { combat = true, forms = 2 ^ 2, groups = Constants.GROUP_PARTY } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true, mounted = false } }),
             action({ conditions = { known = "Some Spell" } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1103,7 +1103,7 @@ return function(DebindPrivate, _, ctx)
             Bind({
                 action({ conditions = { combat = true, mounted = true, stealth = true, indoors = true, flying = true } }),
                 action({ type = Constants.COMMAND, value = MAP, conditions = { extrabar = true } }),
-                action({ type = Constants.UNUSED }),
+                action({ type = Constants.GIVEBACK }),
             });
             interp:resetState();
             shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1172,7 +1172,7 @@ return function(DebindPrivate, _, ctx)
     local function GatedFlyable()
         Bind({
             action({ conditions = { combat = false, flyable = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1228,7 +1228,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { combat = false, flyable = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { stealth = true, flyable = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1259,9 +1259,9 @@ return function(DebindPrivate, _, ctx)
     local function TwoKeys(conditions1, conditions2, measuredInCombat)
         Bind({
             action({ conditions = conditions1 }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = conditions2 }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1300,11 +1300,11 @@ return function(DebindPrivate, _, ctx)
     test("a gate does not depend on the items table's history", function()
         Bind({
             action({ conditions = { combat = false, mounted = true, flyable = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = { combat = false, mounted = false, flyable = true } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
             action({ key = "F3", conditions = { combat = true, mounted = false, flyable = true } }),
-            action({ key = "F3", type = Constants.UNUSED }),
+            action({ key = "F3", type = Constants.GIVEBACK }),
         });
         local function GateText(items)
             local out = {};
@@ -1356,8 +1356,8 @@ return function(DebindPrivate, _, ctx)
     test("a column no entry reads is not watched", function()
         Bind({
             action({ conditions = { stealth = true } }),
-            action({ type = Constants.UNUSED, conditions = { indoors = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK, conditions = { indoors = true } }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         interp:beat();
@@ -1375,7 +1375,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { combat = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { flyable = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1413,7 +1413,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { combat = false, flyable = true,
                 units = { target = { reaction = Constants.REACTION_HELP } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1441,7 +1441,7 @@ return function(DebindPrivate, _, ctx)
     test("a wake that opens a gate measures behind it", function()
         Bind({
             action({ conditions = { ["$s1"] = true, combat = false, flyable = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1465,12 +1465,12 @@ return function(DebindPrivate, _, ctx)
     test("a gate reads only the columns its entries do", function()
         local actions = {
             action({ conditions = { combat = false, flyable = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         };
         for n = 1, 200 do
             local key = "CTRL-F" .. n;
             actions[#actions + 1] = action({ key = key, conditions = { ["$s" .. n] = true } });
-            actions[#actions + 1] = action({ key = key, type = Constants.UNUSED });
+            actions[#actions + 1] = action({ key = key, type = Constants.GIVEBACK });
         end
         local switches = {};
         for n = 1, 200 do
@@ -1555,7 +1555,7 @@ return function(DebindPrivate, _, ctx)
     test("after a wake moves the watch, a quiet beat parses only the new text", function()
         Bind({
             action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1590,7 +1590,7 @@ return function(DebindPrivate, _, ctx)
         local reader = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$m]" };
         local actions = {
             action({ conditions = { ["$a"] = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         };
         Bind(actions, { ["$m"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" }, ["$a"] = reader });
         interp:resetState();
@@ -1614,7 +1614,7 @@ return function(DebindPrivate, _, ctx)
     test("a pet battle told by its events", function()
         Bind({
             action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1682,7 +1682,7 @@ return function(DebindPrivate, _, ctx)
     test("a pet battle told in a lockdown waits for its end", function()
         Bind({
             action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         interp.driverHandle:RunAttribute("SetPetBattle", false);
@@ -1709,7 +1709,7 @@ return function(DebindPrivate, _, ctx)
         Bind({
             action({ conditions = { petbattle = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         local seen = false;
         for _, entry in ipairs(frames.since(mark)) do
@@ -1735,7 +1735,7 @@ return function(DebindPrivate, _, ctx)
     test("a move inside a cell group judges nothing", function()
         Bind({
             action({ conditions = { units = { target = { reaction = Constants.REACTION_HARM, dead = false } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
@@ -1759,7 +1759,7 @@ return function(DebindPrivate, _, ctx)
     test("a quiet beat in a merged group parses only the watch", function()
         Bind({
             action({ conditions = { groups = Constants.GROUP_RAID } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" } };
@@ -1785,8 +1785,8 @@ return function(DebindPrivate, _, ctx)
                 focus = { dead = true },
             } } }),
             action({ key = "F2", conditions = { units = { custom1 = { reaction = Constants.REACTION_HELP } } } }),
-            action({ key = "F2", type = Constants.UNUSED }),
-            action({ type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = {
@@ -1815,7 +1815,7 @@ return function(DebindPrivate, _, ctx)
     test("a hit is confirmed by one parse of the whole text joined again", function()
         Bind({
             action({ conditions = { combat = true, units = { target = { reaction = Constants.REACTION_HARM, dead = false } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
@@ -1876,9 +1876,9 @@ return function(DebindPrivate, _, ctx)
     test("a diverging column early in the watch does not hide a move behind it", function()
         Bind({
             action({ key = "F1", conditions = { forms = 2 ^ 1 } }),
-            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F1", type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = { units = { target = { reaction = Constants.REACTION_HARM } } } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = { player = { id = "me", reaction = "help" }, target = { id = "t", reaction = "help" } };
@@ -1909,7 +1909,7 @@ return function(DebindPrivate, _, ctx)
     local function TokenMoves()
         Bind({
             action({ conditions = { units = { custom1 = { reaction = Constants.REACTION_HARM, dead = false } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
         shim.world.units = {
@@ -1949,7 +1949,7 @@ return function(DebindPrivate, _, ctx)
                     focus = { dead = true },
                     custom1 = { reaction = Constants.REACTION_HELP },
                 } } }),
-                action({ type = Constants.UNUSED }),
+                action({ type = Constants.GIVEBACK }),
             });
             local handler = interp.driver:GetAttribute("_onattributechanged");
             check(handler and handler:find("PROBE", 1, true) == nil and handler:find("SecureCmdOptionParse(fragment)", 1, true),

@@ -190,7 +190,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.SETSWITCH_ON] = LLL["TYPE_SETSWITCH"],
 	[Constants.SETSWITCH_OFF] = LLL["TYPE_SETSWITCH"],
 	[Constants.SETSWITCH_TOGGLE] = LLL["TYPE_SETSWITCH"],
-	[Constants.UNUSED] = LLL["TYPE_UNUSED"],
+	[Constants.GIVEBACK] = LLL["TYPE_GIVEBACK"],
 	[Constants.BLOCK] = LLL["TYPE_BLOCK"],
 };
 
@@ -431,7 +431,7 @@ local function NameAndIconForAction(action)
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
-		-- The unused one's arrow: the key goes to WoW here too. Not the action button's icon, which
+		-- The giveback one's arrow: the key goes to WoW here too. Not the action button's icon, which
 		-- stands beside a command of the same name in the picker (`BuildBindingCommands`).
 		actionIcon = "A:common-icon-undo";
 	elseif (type == Constants.ACTIONBUTTON) then
@@ -475,8 +475,8 @@ local function NameAndIconForAction(action)
 		-- Off-spec is allowed because this side draws: a flyout set up in another specialization
 		-- still needs a name and a picture to take its row in a list.
 		actionName, actionIcon = DebindPrivate.GetFlyoutNameAndIcon(value, true);
-	elseif (type == Constants.UNUSED) then
-		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
+	elseif (type == Constants.GIVEBACK) then
+		actionName = BINDING_TYPE_NAMES[Constants.GIVEBACK];
 		-- **Giving back, not forbidding.** The red X reads as "blocks, does nothing", which is the
 		-- opposite of what the row does: the key works and does what WoW's own binding says. This is
 		-- the arrow the client draws for going back to the default (the Cooldown Viewer's undo, the

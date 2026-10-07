@@ -686,7 +686,7 @@ local function BindingIndexForEmitted(key, index)
     return "block"
 end
 
---- The same, and `"block"` too where the `KeyMap` binding is one: an `UNUSED` or `COMMAND` binds
+--- The same, and `"block"` too where the `KeyMap` binding is one: a `GIVEBACK` or `COMMAND` binds
 --- as a BLOCK (`FillBinding`), and winning a press with it fires nothing either.
 local function BindingIndexForRecord(key, index)
     local mapped = BindingIndexForEmitted(key, index)
@@ -4080,7 +4080,7 @@ RegisterTest("Spell picker: where a new custom macro lands", {
 
 -- `handing-the-rest-of-a-key-to-the-game.md` §8-5 S3, S4. **Needs the game**: the window is a frame
 -- of its own (`DebindTailNotice`), and what is measured is that it stands on screen.
-RegisterTest("S3 S4 adding a command or unused opens its notice until the box is ticked", {
+RegisterTest("S3 S4 adding a command or giveback opens its notice until the box is ticked", {
     description = "Adding either type shows the notice each time; once [Don't show this again] is ticked it does not, and a spell never does",
     run = function()
         local NAME = "Tail notice"
@@ -4123,9 +4123,9 @@ RegisterTest("S3 S4 adding a command or unused opens its notice until the box is
             return Fail(NAME, "adding a spell opened the notice")
         end
 
-        DebindFrame:AddNewAction(Constants.UNUSED)
+        DebindFrame:AddNewAction(Constants.GIVEBACK)
         if not DebindTailNotice:IsShown() then
-            return Fail(NAME, "S3: adding an unused did not open the notice")
+            return Fail(NAME, "S3: adding a giveback did not open the notice")
         end
         DebindTailNotice.OkayButton:Click()
         if DebindTailNotice:IsShown() then
@@ -4143,12 +4143,12 @@ RegisterTest("S3 S4 adding a command or unused opens its notice until the box is
         DebindTailNotice.HidePopupCheckbox.Checkbox:Click()
         DebindTailNotice.OkayButton:Click()
 
-        DebindFrame:AddNewAction(Constants.UNUSED)
+        DebindFrame:AddNewAction(Constants.GIVEBACK)
         if DebindTailNotice:IsShown() then
             return Fail(NAME, "S4: the notice opened after the box was ticked")
         end
 
-        return Pass(NAME, "a spell: none; unused: opened; command after Okay: opened; after the box: none")
+        return Pass(NAME, "a spell: none; giveback: opened; command after Okay: opened; after the box: none")
     end,
 })
 
@@ -8249,7 +8249,7 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
         InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY, stealth = true })
-        InsertAction({ type = Constants.UNUSED, key = KEY })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY })
         ApplyBindings()
         -- Each ends in a rebuild, whose pass judges the key with neither held.
         SetMockState("combat", false)
@@ -8318,9 +8318,9 @@ RegisterTest("Tail: the units' watch follows a token and a life", {
         unitWatch:SetAttribute("custom1", "none")
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, units = { custom1 = { dead = false } } })
-        InsertAction({ type = Constants.UNUSED, key = KEY })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY })
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY2, units = { player = { dead = false } } })
-        InsertAction({ type = Constants.UNUSED, key = KEY2 })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY2 })
         ApplyBindings()
         -- Ends in a rebuild, whose pass judges both keys with the player alive.
         SetMockState("player-dead", false)
@@ -8389,7 +8389,7 @@ RegisterTest("Tail: the form moves the key by the call", {
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, forms = 2 ^ 1 })
         InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY, forms = 2 ^ 2 })
-        InsertAction({ type = Constants.UNUSED, key = KEY })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY })
         ApplyBindings()
         -- Ends in a rebuild, whose pass judges the key in no form.
         SetMockState("form", 0)
@@ -8447,7 +8447,7 @@ RegisterTest("Tail: flyable in combat waits behind nocombat", {
         end
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = false, flyable = true })
-        InsertAction({ type = Constants.UNUSED, key = KEY })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY })
         ApplyBindings()
         SetMockState("combat", false)
         -- Ends in a rebuild, whose pass judges the key out of combat on the ground.

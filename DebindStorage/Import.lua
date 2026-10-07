@@ -339,7 +339,7 @@ local VALUE_SHAPES = {
     [Constants.TARGET]      = false,
     [Constants.FOCUS]       = false,
     [Constants.TOGGLEMENU]  = false,
-    [Constants.UNUSED]      = false,
+    [Constants.GIVEBACK]    = false,
     [Constants.BLOCK]       = false,
     -- The spec-resolved types store no value: the spell is the receiving character's class and
     -- specialization's to decide (`SpecSpells.lua`).

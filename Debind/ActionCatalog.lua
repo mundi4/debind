@@ -1516,9 +1516,9 @@ local function BuildSpecialActions(entries)
 	-- Handing the rest of the key to WoW. **A heading of its own even alone**: the grid draws group
 	-- edges only with headings, and without one this row reads as part of the group above it.
 	AddEntry(entries, seen, {
-		type = Constants.UNUSED,
-		group = typeNames[Constants.UNUSED],
-		tooltipText = LLL["TYPE_UNUSED_DESC"],
+		type = Constants.GIVEBACK,
+		group = typeNames[Constants.GIVEBACK],
+		tooltipText = LLL["TYPE_GIVEBACK_DESC"],
 	});
 end
 

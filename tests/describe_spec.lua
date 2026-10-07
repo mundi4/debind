@@ -312,7 +312,7 @@ return function(DebindPrivate)
             { Constants.FLYOUT, 66, nil, { flyoutOpener = "opener" } },
             { Constants.WORLDMARKER, 3, nil, {} },
             { Constants.PETACTION, "PETATTACK", "target", { petMacrotext = "/petattack" } },
-            { Constants.UNUSED, nil, nil, {} },
+            { Constants.GIVEBACK, nil, nil, {} },
             { Constants.COMMAND, "TOGGLEWORLDMAP", nil, {} },
         };
 

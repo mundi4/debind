@@ -198,7 +198,7 @@ return function(DebindPrivate)
         local plan = PlanFor({
             spell({ key = "F1", conditions = { mounted = true, known = true } }),
             spell({ key = "F1", conditions = { units = { mouseover = {} } } }),
-            spell({ key = "F1", type = Constants.UNUSED, value = nil }),
+            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
         });
 
         check(plan.judges == true, "a key holding a tail did not ask for the loop");
@@ -217,7 +217,7 @@ return function(DebindPrivate)
         local function Tail(conditions)
             return PlanFor({
                 spell({ key = "F1", conditions = conditions }),
-                spell({ key = "F1", type = Constants.UNUSED, value = nil }),
+                spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
             }, { ["$hand"] = { mode = Constants.SWITCH_MODES.MANUAL } });
         end
         for _, case in ipairs({
@@ -248,7 +248,7 @@ return function(DebindPrivate)
             -- Put back even where the build raises, or every case after it plans on this signal.
             local built, plan = pcall(PlanFor, {
                 spell({ key = "F1", conditions = { combat = true } }),
-                spell({ key = "F1", type = Constants.UNUSED, value = nil }),
+                spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
             });
             DebindPrivate.BeatSignal.comes = nil;
             check(built, tostring(plan));

@@ -772,7 +772,7 @@ return function(DebindPrivate)
     -- while they bound as a plain block was turned into a BLOCK by the migration, so a row of
     -- either type is one the reader put there to hand the key on.
     test("an unused or command action is not reported", function()
-        local unused = { type = Constants.UNUSED, key = "F1" };
+        local unused = { type = Constants.GIVEBACK, key = "F1" };
         check(GetBindingIssue(unused) == nil, "unused: " .. tostring(GetBindingIssue(unused)));
         local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F1" };
         check(GetBindingIssue(command) == nil, "command: " .. tostring(GetBindingIssue(command)));

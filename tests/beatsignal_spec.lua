@@ -204,7 +204,7 @@ return function(DebindPrivate)
         local Constants = DebindPrivate.Constants;
         local tail = {
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1, conditions = { combat = true } },
-            { type = Constants.UNUSED, key = "F1", seq = 2 },
+            { type = Constants.GIVEBACK, key = "F1", seq = 2 },
         };
         for _, case in ipairs({
             { what = "no tail", actions = {}, comes = nil, queued = false },

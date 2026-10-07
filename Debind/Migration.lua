@@ -798,9 +798,12 @@ local function MigrateLayer(layerTbl, dbver, to)
         --
         -- `value` goes: a block carries none, and a command name left on one is read by nothing.
         -- Running twice is safe: no command or unused is left after the first pass.
+        --
+        -- **The two names are written out**, for the reason the Hover Cast part below gives: version
+        -- 7's unused is `"unused"`, and the live constant for that type has since become `"giveback"`.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
-            if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
+            if (action.type == "command" or action.type == "unused") then
                 action.type = Constants.BLOCK;
                 action.value = nil;
             end

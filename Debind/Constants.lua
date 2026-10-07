@@ -144,11 +144,14 @@ Constants.SETCUSTOM                       = "setcustom";
 Constants.SETSWITCH_ON                    = "setswitch_on";
 Constants.SETSWITCH_OFF                   = "setswitch_off";
 Constants.SETSWITCH_TOGGLE                = "setswitch_toggle";
-Constants.UNUSED                          = "unused";
+--- Gives the key back: Debind clears its own binding and whatever else is bound to the key takes it.
+--- **Stored as `"unused"` up to version 7**, a name that read as an action turned off; the
+--- `dbver <= 7` step turns those into blocks, so `"giveback"` is only ever a tail added since.
+Constants.GIVEBACK                        = "giveback";
 --- A record that wins the press and does nothing: what closes each tier of a key that holds one, so
 --- no press falls through to the game (`dropping-the-game-fallback.md` §3).
 ---
---- It is three things at once. The reader can pick it, `UNUSED` and `COMMAND` turn into it on the
+--- It is three things at once. The reader can pick it, `GIVEBACK` and `COMMAND` turn into it on the
 --- binding (`FillBinding`), and the self and focus twins are built out of it.
 Constants.BLOCK                           = "block";
 --- Presses one action bar button the way its binding command would. `value` is that command's

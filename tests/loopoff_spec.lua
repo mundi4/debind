@@ -134,7 +134,7 @@ return function(DebindPrivate, _, ctx)
     test("an unused action stands where it is and cuts off the action under it", function()
         Bind({
             action({ value = 585, key = "F1", conditions = { combat = true } }),
-            action({ type = Constants.UNUSED, key = "F1" }),
+            action({ type = Constants.GIVEBACK, key = "F1" }),
             action({ value = 774, key = "F1" }),
         });
 

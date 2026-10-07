@@ -2518,12 +2518,12 @@ local function EmitRecord(record)
         appendLine("t.holdsKey=true");
     end
 
-    -- **An unused that wins a frame click lets it through** to the frame's own handler, which is the
+    -- **A giveback that wins a frame click lets it through** to the frame's own handler, which is the
     -- game's side of that click (`which-action-a-key-runs.md` S4). Every other winner with nothing
     -- to click spends it (2026-10-05, owner): a block does nothing, as its own row says, and a
     -- command cannot run on a frame. Let through, either would run whatever the frame has on that
-    -- click, which the reader did not pick, and do what the unused does.
-    if (record.isClickCast and record.tail == Constants.UNUSED) then
+    -- click, which the reader did not pick, and do what the giveback does.
+    if (record.isClickCast and record.tail == Constants.GIVEBACK) then
         appendLine("t.letsClickThrough=true");
     end
 
@@ -2722,7 +2722,7 @@ local function JudgmentEntryFor(binding, record, tier)
     local outcome = Judgment.OURS;
     if (binding.tail == Constants.COMMAND) then
         outcome = Judgment.COMMAND;
-    elseif (binding.tail == Constants.UNUSED) then
+    elseif (binding.tail == Constants.GIVEBACK) then
         outcome = Judgment.RELEASE;
     elseif (tier ~= Constants.CASTMOD_NONE and binding == BLOCKS[tier]) then
         outcome = Judgment.BASE;

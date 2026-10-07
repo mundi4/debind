@@ -797,7 +797,7 @@ return function(DebindPrivate)
             action({ value = 585, key = "CTRL-F1", conditions = { stealth = true, forms = 2 ^ 0 } }),
             action({ type = Constants.COMMAND, value = CHAR, key = "CTRL-F1",
                 conditions = { combat = false, stealth = false, groups = Constants.GROUP_PARTY + Constants.GROUP_RAID } }),
-            action({ type = Constants.UNUSED, key = "CTRL-F1", conditions = { forms = 2 ^ 2 } }),
+            action({ type = Constants.GIVEBACK, key = "CTRL-F1", conditions = { forms = 2 ^ 2 } }),
             action({ type = Constants.COMMAND, value = MAP, key = "CTRL-F1", conditions = { combat = true } }),
             action({ value = 585, key = "CTRL-F1" }),
         });

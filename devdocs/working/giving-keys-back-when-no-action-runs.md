@@ -1,0 +1,107 @@
+# 아무 액션도 안 돌 때 키를 돌려주기 (2026-10-07 계획)
+
+> 상태: 진행 중. G0(이름 바꾸기)이 들어갔다. 설정 탭은 목업(b6e0d1c)이라 그 행들은 아무것도 저장하지 않는다.
+>
+> 쓴 세션: `debind-4a` (세션 ID `73ee6c63-8228-430b-9aca-e8140fe8facd`).
+
+## 1. 정한 것 (소유자, 2026-10-06~07)
+
+- **키의 액션이 하나도 안 도는 누름에서는 키를 돌려주는 것이 기본이다.** 근거는 층 구조다. Debind 액션이 아예 없는 키는
+  아래 깔린 바인딩(와우 단축키 설정, 다른 애드온, 또는 아무것도)으로 떨어지는데, 액션이 있고 하나도 안 맞는 키는 지금
+  죽는다. 층을 내세우면 둘은 같아야 한다(소유자: *"우리가 LAYERED KEYBINDING SYSTEM을 표방하니까"*).
+  `handing-the-rest-of-a-key-to-the-game.md` 1절의 "예전처럼 암묵적으로 넘기지는 않는다"(2026-10-04)를 뒤집는다.
+- **전역 옵션 `giveBackWhenNoActionRuns`, 기본 켬.** 끄면 지금처럼 쥔다. 4.0이 옵션을 거부한 근거
+  (`dropping-the-game-fallback.md` §2) 넷 가운데 셋은 이제 서지 않는다. 루프는 꼬리 때문에 이미 있고, 조합키 구멍은
+  2-3이 막았고, 클릭 시점과 루프의 두 벌 판정은 `judgment_spec`이 맞춘다. 남은 "가져온 프로필이 받는 쪽 옵션에 따라
+  다르게 돈다"는 옵션이 계정 백업(`OPTION_FIELDS`)에 실려 약해졌다.
+- **기본값을 켬으로 둔 까닭** (소유자가 물었고 이 세션이 답함). 꺼짐의 실패는 조건이 안 맞는 순간마다 키가 죽는 것이라
+  매일 겪는다. 켬의 실패는 beat가 늦은 사이 와우 바인딩이 대신 나가는 것(드물고 한 beat 안)과, 누르는 동안 동작하는
+  키에서 키 주인이 바뀌는 것(특정 설정에서만)이다.
+- **기존 사용자도 기본값을 그대로 받는다.** 마이그레이션으로 지금 동작을 지키지 않고, What's New가 알린다(소유자).
+- **이동 키 함정은 이 문서의 범위가 아니다** (소유자: 나중에 처리).
+- **타입 `UNUSED`는 `GIVEBACK = "giveback"`이 된다.** `"unused"`는 코드에서 "안 쓰는(꺼진) 액션"으로 읽힌다. 라벨은
+  이미 "Give Key Back"(a35ec65). `RELEASE`·`YIELD`는 코드에서 다른 것을 가리켜 거뒀다. `GIVE_BACK`은 이름이 값을 따르는
+  타입 상수의 꼴(`MACROTEXT = "macrotext"`)과 맞지 않고, `GIVE_BACK_*` 무리의 머리처럼 읽혀 거뒀다. 로케일 키도
+  `TYPE_GIVEBACK`, `TYPE_GIVEBACK_DESC`로 바꾼다.
+- **DB 판은 올리지 않는다.** 판 8은 아직 안 나갔고(v4.1.2가 7), 저장 값의 이름 바꾸기와 `giveBackWhenActionExists` 지우기는
+  그 7→8 단계에 얹는다.
+- **"Filled buttons only"(`giveBackWhenActionExists`)는 없앤다.** 칸이 나중에 채워지면 다시 읽지 않는 구멍이 있다
+  (`giving-keys-back.md`). 켰을 때의 실패가 차량 기술을 키로 못 누르는 것이라, 얻는 것(빈 칸 키에서 내 액션을 계속 씀)보다
+  무겁다.
+- **설정 섹션의 모양**은 목업(b6e0d1c) 그대로다. Cast Options 다음, 행은 셋이다.
+  `When no action runs < Key is given back | Press does nothing >`,
+  `Action Button keys < Replaced bars | Pet battles | Replaced bars and pet battles | Never >`, `House Editor keys [x]`.
+  Action Button keys의 네 값은 기존 불리언 `giveBackOnReplacedBar`·`giveBackInPetBattle`의 조합이고 새 필드가 아니다.
+  라벨과 문구가 어떻게 정해졌는지는 일기의 2026-10-07 절에 있다.
+
+## 2. 구현 순서
+
+### G0. 이름 바꾸기
+
+- `Constants.UNUSED = "unused"` → `Constants.GIVEBACK = "giveback"`. 이 글자는 `Constants.lua`에만 있고 나머지는 상수를 쓴다.
+- **7→8 단계는 상수가 아니라 글자 `"unused"`, `"command"`로 옛 값을 찾는다.** 단계는 판 7이 무엇을 뜻했는지 말하는 것이라
+  상수를 따라 움직이면 안 된다(같은 파일이 이미 적은 규칙). 지금은 `Constants.UNUSED`를 쓰고 있어, 상수만 바꾸면 판 7에서
+  올라오는 사용자의 `"unused"`를 못 찾는다.
+- 로케일 키는 세 파일에서 이름만 바꾼다(ruRU의 번역문은 그대로).
+- `DevSeed.lua`를 고친다. `tests/v3.5.2/`는 옛 판의 사본이라 둔다.
+- 대가: 꼬리 기능이 들어온 뒤 개발 빌드로 넣은 꼬리는 이미 판 8에 `"unused"`로 저장돼 이 단계를 다시 지나지 않는다.
+  실사용자에게는 없는 데이터다.
+
+### G1. 옵션을 읽는 자리
+
+`DebindPrivate.GiveBackWhenNoActionRuns()`: `Options().giveBackWhenNoActionRuns ~= false`. 화면 배선은 G6이다.
+
+### G2. 끝을 BLOCK 대신 GIVEBACK으로
+
+- 리빌드는 키를 쥐는 키마다 맨 끝에 BLOCK을 늘 붙인다(`WithBlocks`의 마지막 줄). 옵션이 켜져 있으면 그 자리에 공용 GIVEBACK
+  레코드를 붙인다. 바인딩으로는 BLOCK이고 `tail = GIVEBACK`이다. 저장된 꼬리가 바인딩에서 BLOCK이 되는 꼴과 같다
+  (`ActionBindings.lua`).
+- self/focus 층 끝의 BLOCK 둘은 그대로다(꼬리는 그 층에 서지 않는다, 2-1).
+- `JudgmentEntryFor`가 이 레코드를 `RELEASE`로 읽는다. 원본과 hover 쌍둥이가 함께 쓰는 맨 누름 층이 놓기로 끝난다.
+- 누름이 여기 닿아도(beat가 아직 키를 못 놓은 사이) BLOCK이라 아무것도 안 한다. 이 레코드는 클릭 갈래가 아니라 개체창
+  클릭은 지금처럼 프레임으로 간다.
+
+### G3. 루프에 넣는 조건
+
+- `hasTail`을 없애고 키를 쥐는 키는 모두 `Judgment.Build`를 돌린다. 결과가 늘 "우리 것"인 아이템(항목 없음,
+  `rest = OURS`)은 버린다.
+- "마지막 액션에 조건이 없다"로 고르지 않는 까닭: 조건은 없어도 맨 누름에서는 안 나가는 액션이 있다(개체창 위에서만
+  나가는 `normalCast = false`, 시전 값을 다 끈 액션). `RecordsItem`이 늘 맞는 상자에서 `rest`를 정하고 뒤를 잘라 내니,
+  아이템이 그것을 이미 정확히 안다.
+- 조합 키는 "기본 키에 아이템이 없으면 조합 키도 늘 우리 것"이라는 지금 규칙을 따른다.
+
+### G4. 헤드리스 시험
+
+모두 고치기 전 코드, 또는 일부러 틀린 코드에서 실패하는 것을 먼저 본다.
+
+| 경우 | 기대 | 실패를 볼 코드 |
+|---|---|---|
+| `[combat]` 액션 하나, 전투 밖 | 놓음 | 지금 코드 |
+| 같은 키, 옵션 끔 | 쥠 | 옵션을 안 읽는 코드 |
+| 조건 없는 액션으로 끝나는 키 | 아이템 없음, beat 없음 | 모든 키에 아이템을 남기는 코드 |
+| 끝에 조건 없는 Nothing | 쥠 | 같은 코드 |
+| 끝에 조건부 Nothing, 조건 거짓 | 놓음 | 지금 코드 |
+| 개체창 위에서만 나가는 액션 | 맨 누름은 놓고, 가리킨 누름은 쥠 | 지금 코드 |
+| 조합 키, focus 쌍둥이가 맞을 때와 안 맞을 때 | 맞으면 `ALT-X` 쥠, 아니면 `X`를 따라 놓음 | 지금 코드 |
+
+### G5. 비용
+
+- 리빌드: 키마다 `Judgment.Build`가 돈다. 키 수에 따른 리빌드 시간을 잰다.
+- beat: 조건부 키가 있는 프로필은 이제 beat가 선다. `--bench-beat`의 합성 프로필에 꼬리 없는 조건부 키를 넣어 잰다.
+
+### G6. 화면 배선
+
+- 목업을 실제 저장으로 바꾼다. `OPTION_FIELDS`에 `giveBackWhenNoActionRuns = "boolean"`, `ResetToDefaults`, 로케일 키.
+  `check:export-fields`가 둘을 맞춘다.
+- `giveBackWhenActionExists`를 지운다. 7→8 단계에서 저장 값, `OPTION_FIELDS`, `ResetToDefaults`,
+  `DebindPrivate.GiveBackWhenActionExists`, 스니펫의 `GiveBack.onlyWithAction`이 대상이다. 옛 계정 백업의 그 필드는
+  가져올 때 `OPTION_FIELDS`에 없어서 버려진다.
+- 게임 안 키트: 조건부 액션 하나뿐인 키가 조건 밖에서 놓이고 조건 안에서 다시 잡히는지를 등록한다.
+
+### G7. 문서와 문구
+
+- `handing-the-rest-of-a-key-to-the-game.md` 1절과 2-2 표의 "아무것도 안 맞음 → 우리 것".
+- `which-action-a-key-runs.md`의 정답표와 그 행에 묶인 시험.
+- What's New.
+- **도움말은 이 문서의 범위가 아니다** (소유자: 한 세션을 통째로 쓰는 일이다). `ordering.md`의 "The key does nothing"이
+  이 변경으로 틀린 말이 된다.

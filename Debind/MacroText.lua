@@ -393,7 +393,7 @@ end
 --- `PlaceRaidMarker` / `ClearRaidMarker` both carry `HasRestrictions` so `/run` cannot reach them
 --- either. What is lost is written in the body the window opens on.
 ---
---- **`COMMAND` and `UNUSED` are not offered** (`handing-the-rest-of-a-key-to-the-game.md` 2-7).
+--- **`COMMAND` and `GIVEBACK` are not offered** (`handing-the-rest-of-a-key-to-the-game.md` 2-7).
 --- They hand the key to the game or run a binding command, and a macro body does neither.
 function DebindPrivate.CanConvertToMacroText(action)
     if (not ConditionsSurviveMacroText(action)) then

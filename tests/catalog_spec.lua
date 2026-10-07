@@ -173,7 +173,7 @@ return function(DebindPrivate)
     -- **Every game command is offered as a command, and a bar button's once more as the action
     -- button action** (`handing-the-rest-of-a-key-to-the-game.md` §5 step 8; 2026-10-05, owner). The
     -- Special tab offers handing the key to WoW.
-    test("the Commands tab offers every game command and the Special tab offers unused", function()
+    test("the Commands tab offers every game command and the Special tab offers giveback", function()
         local shim = require("wow_shim");
         shim.world.bindings = {
             { action = "ACTIONBUTTON1", keys = {} },
@@ -196,7 +196,7 @@ return function(DebindPrivate)
         shim.world.bindings = {};
 
         for _, want in ipairs({ "command:ACTIONBUTTON1", "command:TOGGLEWORLDMAP", "command:JUMP",
-                "actionbutton:ACTIONBUTTON1", "unused:nil" }) do
+                "actionbutton:ACTIONBUTTON1", "giveback:nil" }) do
             check(offered[want], want .. " was not offered");
         end
         check(not offered["actionbutton:JUMP"], "a command that presses no bar button came as one");

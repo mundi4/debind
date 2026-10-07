@@ -584,7 +584,7 @@ Execute DebindBindingDriver
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
   | t.holdsKey=true
-  | t.tail="unused"
+  | t.tail="giveback"
   | t=newtable();tinsert(bindings,t)
   | t["castModifier"]=1
   | t.holdsKey=true

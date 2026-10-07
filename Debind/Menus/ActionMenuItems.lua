@@ -569,15 +569,15 @@ local function CreateCastingMenu(parentDescription, ctx)
                 end);
         end
 
-        -- **A command or unused casts at nothing**, so on it the two values that run say what the
+        -- **A command or giveback casts at nothing**, so on it the two values that run say what the
         -- action does instead, and say it once for both: they come to the same press. **A selection
         -- mixing it with anything else gets no sentence on those two**: none would be true of all.
         local function isTail(action)
-            return action.type == Constants.UNUSED or action.type == Constants.COMMAND;
+            return action.type == Constants.GIVEBACK or action.type == Constants.COMMAND;
         end
         local tailType;
-        if (AllActions(ctx, function(action) return action.type == Constants.UNUSED; end)) then
-            tailType = "UNUSED";
+        if (AllActions(ctx, function(action) return action.type == Constants.GIVEBACK; end)) then
+            tailType = "GIVEBACK";
         elseif (AllActions(ctx, function(action) return action.type == Constants.COMMAND; end)) then
             tailType = "COMMAND";
         end

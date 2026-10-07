@@ -399,7 +399,7 @@ return function(DebindPrivate, _, ctx)
     test("unused wins the key and fires nothing", function()
         Bind({
             action({ value = 585, key = "F1", conditions = { combat = true } }),
-            action({ type = Constants.UNUSED, key = "F1" }),
+            action({ type = Constants.GIVEBACK, key = "F1" }),
         });
 
         interp.state.combat = true;
@@ -2399,7 +2399,7 @@ return function(DebindPrivate, _, ctx)
             end
         end
         Row(64, function()
-            TailClick(64, Constants.UNUSED, nil);
+            TailClick(64, Constants.GIVEBACK, nil);
         end);
         Row(65, function()
             TailClick(65, Constants.COMMAND, "debindnull");

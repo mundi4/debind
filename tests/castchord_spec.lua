@@ -352,7 +352,7 @@ return function(DebindPrivate, _, ctx)
     local function M2(tailCasting)
         local list = { action({ value = 585, key = "F1", conditions = { combat = true } }) };
         if (tailCasting) then
-            list[#list + 1] = action({ type = Constants.UNUSED, key = "F1", casting = tailCasting });
+            list[#list + 1] = action({ type = Constants.GIVEBACK, key = "F1", casting = tailCasting });
         end
         list[#list + 1] = action({ value = 774, key = "F1", casting = { hoverCast = "cast" } });
         Bind(list);
@@ -381,7 +381,7 @@ return function(DebindPrivate, _, ctx)
     test("M3 a tail holds back the actions under it only on the key itself", function()
         Bind({
             action({ value = 585, key = "F1", conditions = { combat = true } }),
-            action({ type = Constants.UNUSED, key = "F1" }),
+            action({ type = Constants.GIVEBACK, key = "F1" }),
             action({ value = 774, key = "F1" }),
         });
         check(Press("F1") == nil, "a plain press got past the unused");

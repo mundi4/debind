@@ -240,7 +240,7 @@ return function(DebindPrivate, shim)
             --- when the one above it does not match.
             action({ type = Constants.SPELL, value = 585, key = "ALT-F5",
                 conditions = { combat = true } }),
-            action({ type = Constants.UNUSED, key = "ALT-F5" }),
+            action({ type = Constants.GIVEBACK, key = "ALT-F5" }),
 
             --- **The two ways a binding is dropped for having no way to fire**, which is the one
             --- outcome `SetBindingAttributes` reports through a DEBUG log line and nothing else.

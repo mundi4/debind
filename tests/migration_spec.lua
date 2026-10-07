@@ -670,7 +670,7 @@ return function(DebindPrivate, _, ctx)
         local layer = {
             { key = "A", type = Constants.COMMAND, value = "TOGGLEWORLDMAP", seq = 2,
                 conditions = { combat = true } },
-            { key = "B", type = Constants.UNUSED, seq = 1 },
+            { key = "B", type = "unused", seq = 1 },
         };
         MigrateLayer(layer, 7);
         check(layer[1].type == Constants.BLOCK, "command: " .. tostring(layer[1].type));

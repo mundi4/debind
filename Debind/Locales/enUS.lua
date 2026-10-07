@@ -1421,12 +1421,12 @@ L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to
 L["CASTING_SKIP"] = "Skip this action"
 L["CASTING_SKIP_DESC"] = "The action sits this press out, and the next action on the key takes it."
 L["CASTING_HOVER_CAST_DESC"] = "What this action does while you point at a unit with no key held, and which units count as pointed at."
--- **A command or unused casts at nothing**, so its two values that run say what it does instead, in
+-- **A command or giveback casts at nothing**, so its two values that run say what it does instead, in
 -- one sentence for both: on these types they come to the same press (`ActionMenuItems.lua`). **Only
 -- that press**, not "pointing makes no difference": with Normal Cast unticked these values are what
 -- the action runs on at all (2026-10-05, review). The unit frame click is said because it is where
 -- the two types part.
-L["CASTING_HOVER_TAIL_UNUSED_DESC"] = "While you point at a unit, the key does what the game has on it. A click on a unit frame goes to the frame."
+L["CASTING_HOVER_TAIL_GIVEBACK_DESC"] = "While you point at a unit, the key does what the game has on it. A click on a unit frame goes to the frame."
 L["CASTING_HOVER_TAIL_COMMAND_DESC"] = "While you point at a unit, the key runs the command. A click on a unit frame does nothing."
 -- **The key decides, so the row says so and stops.** Nothing stored here reaches a bare click, and a
 -- reader who came to change it is owed the reason rather than a row that does nothing.
@@ -1526,7 +1526,7 @@ L["TYPE_COMMAND_DESC"] = "The key runs this command, the way it would if you bou
 L["TAIL_NOTICE"] = "From where this action stands on the key, the key works outside Debind: it runs the command you picked, or whatever else is bound to it. It is reached when none of the actions above it run, and the actions below it are then not used for that press. A press with the %1$s or the %2$s held is the exception.|n|nSome bindings do one thing when the key goes down and another when it comes up. A movement key moves while held and stops when let go; a ping key opens its wheel and closes it. If the situation changes while such a key is held, the release does not reach that binding, so you can keep moving or the wheel can stay open."
 -- **No receiver is named.** Debind only clears its own binding; what runs is whatever else is bound
 -- to the key, which may be WoW's Key Bindings, another addon's binding, or nothing.
-L["TYPE_UNUSED_DESC"] ="The key works as if Debind had nothing on it: whatever else is bound to it runs, and nothing if nothing is. No action under it on the same key runs either.|n|nPut conditions on it to give the key back in those cases only."
+L["TYPE_GIVEBACK_DESC"] ="The key works as if Debind had nothing on it: whatever else is bound to it runs, and nothing if nothing is. No action under it on the same key runs either.|n|nPut conditions on it to give the key back in those cases only."
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS"] = "Set Focus Target"
 -- **Numbers the two slots the client calls by one name.** `TRINKET0SLOT` and `TRINKET1SLOT` are
@@ -1637,7 +1637,7 @@ L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such sp
 -- **Not "Pass Through"**: in the middle of a key's list it reads as a row that hands the press to
 -- the next action, which is `CASTING_SKIP` and the opposite of this (owner, 2026-10-06). The same act
 -- is already `GIVE_BACK_KEYS`.
-L["TYPE_UNUSED"] = "Give Key Back"
+L["TYPE_GIVEBACK"] = "Give Key Back"
 L["TYPE_WORLDMARKER"] = "World Marker"
 L["TYPE_ACTIONBUTTON"] = "Action Button"
 L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."

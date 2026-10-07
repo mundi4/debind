@@ -116,7 +116,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("B1 B2 the key is taken and let go as the state moves", function()
-        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.UNUSED }) });
+        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.GIVEBACK }) });
         check(Released("F1"), "the rebuild left F1 bound out of combat: " .. Bound("F1"));
         interp.state.combat = true;
         interp:beat();
@@ -144,9 +144,9 @@ return function(DebindPrivate)
     test("a beat binds again only the keys whose columns moved", function()
         Bind({
             action({ key = "F1", conditions = { combat = true } }),
-            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F1", type = Constants.GIVEBACK }),
             action({ key = "F2", conditions = { mounted = true } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
             action({ key = "F3" }),
         });
         check(IsOurs("F3"), "F3 holds no tail and is not ours");
@@ -173,9 +173,9 @@ return function(DebindPrivate)
     test("keys with the same item share one bundle", function()
         Bind({
             action({ key = "F1", conditions = { combat = true } }),
-            action({ key = "F1", type = Constants.UNUSED }),
+            action({ key = "F1", type = Constants.GIVEBACK }),
             action({ key = "F2", value = 585, conditions = { combat = true } }),
-            action({ key = "F2", type = Constants.UNUSED }),
+            action({ key = "F2", type = Constants.GIVEBACK }),
         });
         local bare = 0;
         for _, bundle in ipairs(interp.env.Judge.bundles) do
@@ -191,7 +191,7 @@ return function(DebindPrivate)
     end);
 
     test("a computed switch is worked out on the beat", function()
-        Bind({ action({ conditions = { ["$c1"] = true } }), action({ type = Constants.UNUSED }) });
+        Bind({ action({ conditions = { ["$c1"] = true } }), action({ type = Constants.GIVEBACK }) });
         check(Released("F1"), "F1 is bound with the switch false: " .. Bound("F1"));
         interp.state.combat = true;
         interp:beat();
@@ -203,8 +203,8 @@ return function(DebindPrivate)
     test("an event another addon registered on the manager is left registered", function()
         local manager = _G.SecureStateDriverManager;
         manager:RegisterEvent("ZONE_CHANGED");
-        Bind({ action({ conditions = { indoors = true } }), action({ type = Constants.UNUSED }) });
-        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.UNUSED }) });
+        Bind({ action({ conditions = { indoors = true } }), action({ type = Constants.GIVEBACK }) });
+        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.GIVEBACK }) });
         local still = manager:IsEventRegistered("ZONE_CHANGED");
         manager:UnregisterEvent("ZONE_CHANGED");
         check(still, "the rebuild unregistered an event it never registered");
@@ -217,7 +217,7 @@ return function(DebindPrivate)
     test("B9 to B13 the chords follow their tier and their base key", function()
         Bind({
             action({ conditions = { units = { ["@"] = {} } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         -- B13: no target, no focus.
         check(Released("F1"), "B13: F1 is bound");
@@ -245,7 +245,7 @@ return function(DebindPrivate)
     test("the chords are bound at priority false and the keys at true", function()
         Bind({
             action({ key = "1", conditions = { combat = true } }),
-            action({ key = "1", type = Constants.UNUSED }),
+            action({ key = "1", type = Constants.GIVEBACK }),
             action({ key = "F3" }),
         }, { giveBackOnReplacedBar = true }, { { action = "ACTIONBUTTON1", keys = { "1" } } });
         local function Priority(key)
@@ -271,7 +271,7 @@ return function(DebindPrivate)
     test("the cursor on a frame wakes the loop with no beat", function()
         Bind({
             action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         check(Released("F1"), "F1 is bound with nothing pointed at");
         shim.world.units.party1 = { id = "p1", reaction = "help" };
@@ -291,7 +291,7 @@ return function(DebindPrivate)
     test("the beat's driver follows the signal, one at a time", function()
         local actions = {
             action({ conditions = { combat = true } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         };
         local function Drivers()
             return frames.attributeDrivers[interp and interp.driver] or {};
@@ -318,7 +318,7 @@ return function(DebindPrivate)
                 interp:beat();
                 check(Released("F1"), what .. "a beat at peace did not let F1 go");
             end
-            Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.UNUSED }) });
+            Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.GIVEBACK }) });
             check(Drivers().judgebeat == nil and Drivers()["state-visibility"] == nil,
                 "a profile the beat measures nothing for kept a beat driver");
         end);
@@ -331,7 +331,7 @@ return function(DebindPrivate)
     test("a wake of ours does not run the handler", function()
         Bind({
             action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
-            action({ type = Constants.UNUSED }),
+            action({ type = Constants.GIVEBACK }),
         });
         shim.world.units.party1 = { id = "p1", reaction = "help" };
         local before = interp.handlerRuns;
@@ -347,7 +347,7 @@ return function(DebindPrivate)
     end);
 
     test("a switch set by hand wakes the loop with no beat", function()
-        Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.UNUSED }) });
+        Bind({ action({ conditions = { ["$s1"] = true } }), action({ type = Constants.GIVEBACK }) });
         check(Released("F1"), "F1 is bound with the switch unset");
         interp.driverHandle:RunAttribute("SetSwitch", "$s1", true);
         check(IsOurs("F1"), "setting the switch did not take F1");
@@ -365,7 +365,7 @@ return function(DebindPrivate)
     test("G4 G5 a key given back is left alone and comes back judged", function()
         Bind({
             action({ key = "1", conditions = { combat = true } }),
-            action({ key = "1", type = Constants.UNUSED }),
+            action({ key = "1", type = Constants.GIVEBACK }),
         }, GIVE_BACK, ACTION_BUTTON_ON_1);
         interp.driverHandle:SetAttribute("state-giveback", "v");
         check(Released("1"), "the vehicle bar did not take 1");

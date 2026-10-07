@@ -76,7 +76,7 @@ return function(DebindPrivate)
     -- is a fault: the migration turned every one saved before tails into a BLOCK, so the row has no
     -- mark (`handing-the-rest-of-a-key-to-the-game.md` 2-8).
     test("an unused or command action stands on the key as a block and is not marked", function()
-        local unused = { type = Constants.UNUSED, key = "F1", seq = 1 };
+        local unused = { type = Constants.GIVEBACK, key = "F1", seq = 1 };
         local command = { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F2", seq = 2 };
         Bind({ unused, command });
 
@@ -126,7 +126,7 @@ return function(DebindPrivate)
     test("a tail carrying an issue that leaves it out is left out", function()
         -- Special bar against pet battle, on purpose: it leaves the binding standing, so nothing but
         -- the outcome can take it off the key.
-        local tail = { type = Constants.UNUSED, key = "F1", seq = 1,
+        local tail = { type = Constants.GIVEBACK, key = "F1", seq = 1,
             conditions = { specialbar = true, petbattle = false } };
         Bind({ tail });
         -- Read off `KeyMap` itself: a block is not a record `Records` hands back.

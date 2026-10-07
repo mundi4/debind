@@ -258,7 +258,7 @@ do
         -- still reaches us, before the next beat has moved the key or as a click on a unit frame, has to stop
         -- at the tail's place rather than run the actions behind it, and the emitter has no case
         -- for either type.
-        if (action.type == Constants.UNUSED or action.type == Constants.COMMAND) then
+        if (action.type == Constants.GIVEBACK or action.type == Constants.COMMAND) then
             binding.type = Constants.BLOCK;
             binding.tail = action.type;
         else
@@ -1100,13 +1100,13 @@ do
             end
         end
 
-        -- **A command or unused follows Hover Cast like any action** (2026-10-04, owner): it does
+        -- **A command or giveback follows Hover Cast like any action** (2026-10-04, owner): it does
         -- something, handing the key to the game or running its command, and over a unit frame that
         -- is a thing a reader can want (`taking-off-out-of-hover-cast.md` §2-1).
-        local isTail = action.type == Constants.COMMAND or action.type == Constants.UNUSED;
+        local isTail = action.type == Constants.COMMAND or action.type == Constants.GIVEBACK;
         local pointedUnit, pointedCondition, pointedAim = TwinUnitFor(action, original);
         local focusTwin, selfTwin = false, false;
-        -- **A command or unused stands in no cast key tier** (`handing-the-rest-of-a-key-to-the-game.md`
+        -- **A command or giveback stands in no cast key tier** (`handing-the-rest-of-a-key-to-the-game.md`
         -- 2-1). The self and focus presses arrive on chords of their own, held down on purpose, and
         -- what the key is handed to the game for is the press on the key itself.
         if (DebindPrivate.KeyTakesCastKeyTwins(action) and not isTail) then

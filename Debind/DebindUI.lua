@@ -2960,10 +2960,10 @@ function DebindTailNoticeMixin:OnShow()
 	self:Layout();
 end
 
---- Shown each time a command or unused is added or replaced in, until the reader ticks the box
+--- Shown each time a command or giveback is added or replaced in, until the reader ticks the box
 --- (`handing-the-rest-of-a-key-to-the-game.md` 2-9, S3, S4).
 function DebindUI.ShowTailNoticeFor(actionType)
-	if ((actionType == Constants.COMMAND or actionType == Constants.UNUSED)
+	if ((actionType == Constants.COMMAND or actionType == Constants.GIVEBACK)
 			and not HelpTip.WasSeen(TAIL_NOTICE_SEEN_KEY)) then
 		StaticPopupSpecial_Show(DebindTailNotice);
 	end

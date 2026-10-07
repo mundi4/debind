@@ -88,7 +88,7 @@ return function(DebindPrivate)
         installWorld();
         for _, action in ipairs({
             { type = Constants.COMMAND, value = "TOGGLEWORLDMAP" },
-            { type = Constants.UNUSED },
+            { type = Constants.GIVEBACK },
         }) do
             local kind = action.type;
             check(not Can(action), kind .. ": the conversion is offered");

@@ -1518,7 +1518,7 @@ local EVAL_SNIPPET = [==[
 ---
 --- **A winner with nothing to click spends the click** (`debindnull`), a block or a command
 --- (2026-10-05, owner): neither does anything on a frame, and let through, the click would run what
---- the frame has on it instead. An unused is the one that lets it through (`letsClickThrough`),
+--- the frame has on it instead. A giveback is the one that lets it through (`letsClickThrough`),
 --- since the frame's own handling is the game's side of that click.
 ---
 --- The name it answers with is `debind1`, which pairs with the fixed `*type-debind1` /

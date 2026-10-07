@@ -977,7 +977,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.WORLDMARKER, value = 3, key = "L", seq = 1 },
             { type = Constants.SETCUSTOM, value = 1, key = "M", seq = 1 },
             { type = Constants.TARGET, key = "N", seq = 1 },
-            { type = Constants.UNUSED, key = "O", seq = 1 },
+            { type = Constants.GIVEBACK, key = "O", seq = 1 },
             { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "P", seq = 1 } })),
             "멀쩡한 것이 걸렸다");
     end);

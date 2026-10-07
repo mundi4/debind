@@ -164,8 +164,9 @@ SEEDS[5] = function(guid)
                 --- `0x400` is toggle, and state 2 is one the seed actually defines below.
                 { type = "setstate", value = 0x400 + 2, key = "CTRL-F4", seq = 1 },
                 --- [Unused], which carries no value at all: it stands on the key as a block, so the
-                --- key is ours and a press does nothing.
-                { type = Constants.UNUSED, key = "CTRL-F5", seq = 1 },
+                --- key is ours and a press does nothing. **The type string spelled out**: `"unused"` is
+                --- what this version stored, and the constant for the type now says `"giveback"`.
+                { type = "unused", key = "CTRL-F5", seq = 1 },
                 --- The role units, which is the whole `UnitWatch.lua` half. Nothing else in the
                 --- seed reaches it: a role unit is neither a basic unit nor a condition, it is
                 --- what the addon resolves at the click.
@@ -343,12 +344,12 @@ SEEDS[6] = function(guid)
                 },
 
                 --- What the `dbver <= 6` command step meets. Once raised, the first three are action
-                --- button actions, and the fourth and the `UNUSED` stay as saved and wear the mark.
+                --- button actions, and the fourth and the `"unused"` stay as saved and wear the mark.
                 { type = Constants.COMMAND, value = "ACTIONBUTTON3", key = "CTRL-F11", seq = 1 },
                 { type = Constants.COMMAND, value = "MULTIACTIONBAR1BUTTON5", key = "CTRL-F12", seq = 1 },
                 { type = Constants.COMMAND, value = "EXTRAACTIONBUTTON1", key = "ALT-F11", seq = 1 },
                 { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
-                { type = Constants.UNUSED, key = "ALT-F10", seq = 1 },
+                { type = "unused", key = "ALT-F10", seq = 1 },
 
                 --- **The one key nothing can be put on** (`ISSUE_OUTCOME_RELEASE`), so it is the
                 --- only seeded row that sits on a key and still leaves it to the game. The heading
@@ -485,7 +486,7 @@ SEEDS[7] = function(guid)
                 { type = Constants.ACTIONBUTTON, value = "MULTIACTIONBAR1BUTTON5", key = "CTRL-F12", seq = 1 },
                 { type = Constants.ACTIONBUTTON, value = "EXTRAACTIONBUTTON1", key = "ALT-F11", seq = 1 },
                 { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
-                { type = Constants.UNUSED, key = "ALT-F10", seq = 1 },
+                { type = "unused", key = "ALT-F10", seq = 1 },
 
                 --- 위 판의 그 줄이고, 이 단계가 건드리지 않으므로 값이 같다. 게임 메뉴 키는
                 --- 어떤 액션도 못 앉는 유일한 키라, 머리글이 회색으로 서고 행에 게임 메뉴
@@ -583,7 +584,7 @@ SEEDS[8] = function(guid)
                         { type = Constants.ACTIONBUTTON, value = "MULTIACTIONBAR1BUTTON5", key = "CTRL-F12", seq = 1 },
                         { type = Constants.ACTIONBUTTON, value = "EXTRAACTIONBUTTON1", key = "ALT-F11", seq = 1 },
                         { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
-                        { type = Constants.UNUSED, key = "ALT-F10", seq = 1 },
+                        { type = Constants.GIVEBACK, key = "ALT-F10", seq = 1 },
 
                         {
                             type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
