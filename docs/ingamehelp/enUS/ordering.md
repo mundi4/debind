@@ -13,6 +13,14 @@
 # When a key holds more than one action
 
 <!--
+**OPEN for the next release (2026-10-07).** The first paragraph and the *Cast Options* paragraph are rewritten; the give-back aside moved to `keys-given-back.md`.
+- First paragraph: wrong for a held Self/Focus Cast Key press when an action would run on the plain press (it does nothing whatever the setting). Waiting on the chords-with-no-twin discussion.
+- Item 2: "runs on every press" overstates; an action with *Normal Cast* unticked or *Hover Cast* on *Skip this action* does not. Proposed: "runs on every press it takes part in, so nothing under it is reached on those presses."
+- Action bar slot paragraph: mostly redundant now the default gives the key back. Drop it, or keep only the slot sentence for *Press does nothing*.
+- Comments: 16, 18 and 59 below are stale; 20 and 22 belong with item 3 of `keys-given-back.md`; the hover comment before the *Cast Options* paragraph describes the old tier order.
+-->
+
+<!--
 **"The key does nothing" is the line that matters to someone upgrading.** Up to the previous release a key with nothing to run was handed back to the game and its own keybinding ran; that path is gone (`dropping-the-game-fallback.md`). It also covers a held key nothing on it is set to use, so the paragraph at the end needs no sentence of its own for that. Pet battles handing keys back are left out: there the key does what the battle bar shows.
 
 **Getting the key back is an aside and not a third opening paragraph** (2026-09-22). It answers when Debind stops holding a key, which is a different question from which action runs, and it was pushing the page's own subject down to the eighth line.
@@ -22,7 +30,7 @@
 **The grey header carries the cases this sentence does not count** (`IsKeyHandled`, `DebindUI.lua`). The reader does not have to match their key against a list; the list on screen already says which side it is on.
 -->
 
-Press a key that holds more than one action and Debind runs the first one whose conditions are met. If no action's conditions are met, the key does nothing: Debind keeps the key, and what WoW has bound to it does not run.
+Press a key that holds more than one action and Debind runs the first one whose conditions are met. If none of them runs, the key is given back or the press does nothing, as set under *Keys Given Back* in Debind's settings. More is in [](keys-given-back.md).
 
 <!--
 **"Grouped by key" is what points at the left list.** The Overview tab has two, and the one on the right is a layer's actions; the shape tells them apart where "left" alone would not survive a layout change.
@@ -69,6 +77,4 @@ Leave one action on a key without conditions and it runs whenever nothing above 
 **The hover clause says the others are still tried and the key clause does not**, because that is the difference: a held key ends in its own tier and a pointed press reads on past it (`which-action-a-key-runs.md` §3). Written as one shape, Hover Cast's Off would read as taking the action out of the press.
 -->
 
-Some of the *Cast Options* change which of a key's actions are tried, and in what order. While you hold the Self Cast Key or the Focus Cast Key, only the actions set to use that key are tried, and if none of their conditions are met the key does nothing. While *Hover Cast* has a unit under your cursor, the actions set to use it are tried first and the rest after them. You set these per action, and [](targeting.md) explains them.
-
-> Debind gives a key back when nothing on it is in play: every action either turned off in its own menu, or sitting in a specialization tab you are not in. WoW's own binding works there again, and the key's header is grey in the *Overview* tab.
+Some of the *Cast Options* change which of a key's actions take part in a press. While you hold the Self Cast Key or the Focus Cast Key, only the actions set to use that key are tried. While *Hover Cast* has a unit under your cursor, the actions are tried in the same order as on any other press, and *Hover Cast* sets whether each one takes part. You set these per action. What each row of *Cast Options* does is in [](cast-options.md).

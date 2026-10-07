@@ -22,6 +22,14 @@ that runs the action (`which-action-a-key-runs.md` §5, `TARGET_UNIT_FIXED`).
 
 # What is Hover Cast?
 
+<!--
+**STALE for the next release (2026-10-07, not yet rewritten).**
+- First paragraph: "A new action is set to *Off*" is wrong. *Off* is gone; a new action starts on *Cast on the usual target*.
+- The *Off* paragraph near the end ("To stop it there, put a condition…") is wrong: *Skip this action* is now the value that keeps an action out of a pointed press.
+- To add: a pointed press tries the actions in the same order as any other press (`taking-off-out-of-hover-cast.md` §2).
+- Header comment lines 9-16 talk about *Off*.
+-->
+
 *Hover Cast* sends an action to the unit you point at instead of the usual target. You set it on each action: open *Cast Options* in its right-click menu, then *Hover Cast*, and pick *Cast on the unit you point at*. A new action is set to *Off*.
 
 > An action with a unit picked under *Target* goes to that unit whether you point at something or not.

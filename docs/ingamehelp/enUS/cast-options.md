@@ -16,6 +16,16 @@
 
 # What do Cast Options do?
 
+<!--
+**STALE for the next release (2026-10-07, not yet rewritten).**
+- *Self Cast Key* item: "with none left the press does nothing" is wrong under the give-back default. A held press where nothing set for that key runs goes as the plain press does: given back if the plain press is, nothing if an action would run there. Whether that rule itself stays is being discussed in another session (chords with no twin).
+- *Hover Cast* item: *Off* is gone. Values are *Skip this action* / *Cast on the unit you point at* / *Cast on the usual target* (new default). "tried first / keeps its place" is wrong: a pointed press uses the same order as any other press (`taking-off-out-of-hover-cast.md` §2).
+- *Normal Cast* item: "tried after the actions whose Hover Cast is not Off" is wrong for the same reason.
+- To add: *Skip this action* on *Hover Cast* together with *Normal Cast* unticked is an error.
+- The A/B example below and the *Off* in "With a unit picked" need rewriting.
+- The header comment above (2-10) talks about *Off*.
+-->
+
 In *Cast Options* in an action's right-click menu, each row covers one way of pressing a key: whether this action takes part, and where it goes. On every row, *Cast on the usual target* means the unit an action bar button would be used on.
 
 - *Self Cast Key*: a press with that key held. *Skip this action* takes the action out of that press. The next action on the key that is not skipped runs instead, and with none left the press does nothing. *Cast on yourself* sends the action to you. *Cast on the usual target* sends it to its usual target. A new action starts on *Cast on yourself*.

@@ -15,6 +15,12 @@
 # Which unit is an action used on?
 
 <!--
+**STALE for the next release (2026-10-07, not yet rewritten).**
+- Item 2: "With no focus set, the press does nothing" is wrong under the give-back default. If the plain press is given back at that moment, the Focus Cast Key press is too. Same open question as `cast-options.md` (chords with no twin).
+- Item 3: check it still reads right now that *Hover Cast* has no *Off*.
+-->
+
+<!--
 **The order comes first, as one list.** The client's own order is named after it because a reader who knows the game expects the cursor to win over a held key (2026-09-15, owner).
 
 **Auto Self Cast is named after the list, not on one step.** Debind leaves it to the client on every step of the order (`setting-the-clients-cast-automatics-per-action.md` §3, 2026-09-21), so naming it under step 4 alone would read as the other three suppressing it. What the game does with it is not ours to say (owner).
