@@ -430,9 +430,9 @@ end
 --- The handle frame that opens this flyout, which `SetBindingAttributes` puts on `*clickbutton-`.
 --- Nil with no slot at all, and the caller then sends the action out opening nothing (`Inert`).
 ---
---- **Nothing is made in combat.** The caller (`DebindPrivate.UpdateBindings`) returns on its first
---- line in combat, so this branch is never reached; it is written out because reaching it would not
---- fail to make the frame but **raise an error**.
+--- **전투 중에는 새로 만들지 않는다.** 부르는 쪽(`DebindPrivate.UpdateBindings`)이 전투
+--- 중에는 첫 줄에서 통째로 되돌아가므로 이 갈래를 밟을 일은 없지만, 밟으면 프레임 생성이
+--- 실패하는 게 아니라 **에러**가 나는 자리라 명시해둔다.
 function DebindPrivate.GetFlyoutOpener(flyoutID)
 	local entry = Flyouts[flyoutID];
 	if (not entry) then

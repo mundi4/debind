@@ -33,6 +33,7 @@ local MACRO_CHAR_LIMIT       = 1000;
 -- 이유(이름이 한 줄에 서는 표라 폭이 곧 글자 수)는 통이 405로 같이 넓어지면서 없어졌다.
 local FRAME_WIDTH            = 867;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
+local ERROR_COLOR            = _G.ERROR_COLOR;
 local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
 local dump                   = DebindPrivate.dump;
@@ -50,14 +51,17 @@ local NameAndIconForAction           = DebindUI.NameAndIconForAction;
 local ColoredNameAndIconForAction    = DebindUI.ColoredNameAndIconForAction;
 local SetActionIcon                  = DebindUI.SetActionIcon;
 
--- The box one mark takes. One size for every mark is what keeps the line reading as one line.
+-- 마크 하나가 갖는 상자. 크기가 하나인 것이 그 줄이 한 줄로 읽히게 하는 값이고, 그림마다
+-- 여백이 다른 것은 `inset`이 맞춘다 - 벌레 파일은 아트가 여백 안에 앉아 있어서 상자를 키우는
+-- 대신 가운데를 잘라낸다.
 local MARK_SIZE                      = 15;
 
---- **Which meaning is which picture is decided here and nowhere else.** One meaning drawn as two
---- pictures in two lists reads as two things.
+--- **어느 뜻이 어느 그림인지는 여기서만 정한다.** 같은 뜻이 목록마다 다른 그림으로 나가면
+--- 읽는 사람은 둘을 다른 것으로 안다.
 ---
---- `atlas` and `file` part because that is how the art exists. Setting one has to clear what the
---- other left: these frames come back from a pool carrying the previous row's state.
+--- `atlas`와 `file`이 갈리는 이유는 아트가 그렇게 있기 때문이고, 한쪽을 세우면 다른 쪽 흔적을
+--- 지워야 한다 - 이 프레임들은 풀에서 돌아오므로 앞 행이 남긴 것을 들고 온다. 좌표가 그중
+--- 물리는 것이라, 안 자르는 그림도 자기가 안 자른다고 말해야 한다.
 local MARK_KINDS = {
 	--- Hover Cast sends the action to the unit pointed at (`HoverCastChoiceOf`). **The casting
 	--- cursor**, the gauntlet with the blue glow the client shows while a spell waits for a target
@@ -67,24 +71,23 @@ local MARK_KINDS = {
 	--- would look like one at the default while it does the opposite over a unit. The casting
 	--- cursor's own off half, with the ping wheel's close mark over it. **Told apart from the one
 	--- above by shape, not colour**: an inactive row desaturates every mark (`SetInactive`), so a
-	--- glow or a tint is gone exactly there.
+	--- glow or a tint is gone exactly there, and red is the error mark's.
 	hoverSkip   = { file = "Interface\\Cursor\\UnableCast", offsetY = -1, scale = 1.1,
 		overlay = { atlas = "Radial_Wheel_Icon_Close", size = MARK_SIZE * 0.9 } },
-	--- Only that the action has a condition. Whether something about it is wrong is the mark below.
+	--- 조건이 붙어 있다는 것만 말한다. 그 조건이 틀렸는지는 아래 두 마크가 말한다.
 	conditional = { atlas = "questlog-questtypeicon-quest" },
-	--- The action is skipped some of the time or all of it (`Issues.lua`'s `GetIssueColor`). **One
-	--- mark for every code** (owner, 2026-10-07): the red bug said the key was dead, but what the key
-	--- does when its actions are skipped is the key's end, not the code.
-	issue       = { atlas = "icons_16x16_important" },
+	--- 키가 아예 안 먹는다.
+	error       = { file = "Interface\\HelpFrame\\HelpIcon-Bug", inset = 0.2, color = RED_FONT_COLOR },
+	--- 먹기는 하는데 뜻대로는 아니다.
+	warning     = { atlas = "icons_16x16_important" },
 };
 
 DebindRowMarkMixin = {};
 
---- What this mark says. A nil `kind` takes the mark down.
+--- 이 마크가 무엇을 말하는지. `kind`가 nil이면 마크가 내려간다.
 ---
---- `tooltipFunc(tooltip, self)` writes **this mark's own explanation**. The caller hands it over
---- rather than each kind carrying one sentence, because the same issue mark has a different reason
---- behind it on every row.
+--- `tooltipFunc(tooltip, self)`는 **그 마크만의 설명**을 쓴다. 종류마다 한 문장이 아니라 다는
+--- 쪽이 넘기는 이유는, 같은 벌레라도 왜 안 먹는지가 상황마다 다르기 때문이다.
 function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 	self.tooltipFunc = tooltipFunc;
 	local art = kind and MARK_KINDS[kind];
@@ -104,12 +107,14 @@ function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 	else
 		texture:SetAtlas(art.atlas);
 	end
-	-- **Coordinates are what a pooled mark carries over**: `SetTexture` keeps whatever the last kind
-	-- left. After `SetAtlas` they count within the atlas's own region, so the same full range is
-	-- right for both kinds (Blizzard's `CommunitiesList.lua` does the same after `SetAtlas`).
-	texture:SetTexCoord(0, 1, 0, 1);
-	texture:SetDesaturated(false);
-	texture:SetVertexColor(1, 1, 1);
+	local inset = art.inset or 0;
+	texture:SetTexCoord(inset, 1 - inset, inset, 1 - inset);
+	texture:SetDesaturated(art.color ~= nil);
+	if (art.color) then
+		texture:SetVertexColor(art.color:GetRGB());
+	else
+		texture:SetVertexColor(1, 1, 1);
+	end
 
 	-- **A second shape over the first, so two marks can differ where colour cannot.** An inactive
 	-- row desaturates both (`SetInactive`), and a pooled mark brings that back, so it is reset here.
@@ -169,8 +174,8 @@ local function IssueMarkTooltip(tooltip, mark)
 	DebindPrivate.AddIssueMarkToTooltip(tooltip, mark.action);
 end
 
-local function GroupIssueMarkTooltip(tooltip)
-	DebindPrivate.AddGroupIssuesToTooltip(tooltip);
+local function GroupIssueMarkTooltip(tooltip, mark)
+	DebindPrivate.AddGroupIssuesToTooltip(tooltip, mark.rows);
 end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
@@ -425,8 +430,8 @@ local function GetActionTypeAndValueFromCursorInfo()
 		elseif (cursorType == "macro") then
 			-- **The cursor carries a slot number, and an action may only carry a name**
 			-- (`GetMissingMacroName`). A number is a position in a name-ordered list, so
-			-- storing it binds whatever later comes to sit in that slot, with nothing marked
-			-- because nothing broke.
+			-- storing it binds whatever later comes to sit in that slot, with nothing going
+			-- red because nothing broke.
 			--
 			-- No name, no action. That means the macro was deleted between the pickup and
 			-- the drop, and refusing the drop beats building a `MACRO` with no name in it.
@@ -1071,7 +1076,7 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 		if (isInactive) then
 			color = INACTIVE_COLOR;
 		elseif (keyIssue) then
-			color = DebindPrivate.GetIssueColor(keyIssue);
+			color = ERROR_COLOR;
 		end
 		if (color) then
 			s = color:WrapTextInColorCode(s);
@@ -1119,10 +1124,16 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
 		ConditionalMarkTooltip);
 
-	-- The same mark the group heading carries, on the row it came from. The heading is a summary
-	-- and cannot say which row it meant, least of all while folded.
+	-- The same two marks the group heading carries, on the row they came from. The heading is a
+	-- summary and cannot say which row it meant, least of all while folded.
+	local grade;
+	if (DebindPrivate.IsIssueError(issue)) then
+		grade = "error";
+	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
+		grade = "warning";
+	end
 	self.Marks.Issue.action = action;
-	self.Marks.Issue:SetKind(issue and "issue" or nil, IssueMarkTooltip);
+	self.Marks.Issue:SetKind(grade, IssueMarkTooltip);
 
 	if (isInactive) then
 		self.Marks.Hover:SetInactive(true);
@@ -1535,8 +1546,8 @@ function DebindKeyHeaderMixin:OnEnter()
 		return;
 	end
 
-	-- The title does not inherit the colour. Blue and grey are there to be read **in place**, and the
-	-- same colour painted again on the tooltip's title says nothing more (the menu title's rule).
+	-- 제목에 색은 안 물려준다. 파랑과 회색은 **그 자리에서** 읽히라고 있는 것이고, 같은 색을
+	-- 툴팁 제목에 한 번 더 칠하면 아무것도 더 말하지 않는다(메뉴 제목과 같은 규칙).
 	--
 	-- **What the colour means is written instead, in one line.** A grey key name says only that
 	-- something is different, not what. The reasons differ per row (turned off, another
@@ -1620,18 +1631,16 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- holds no key and comes in through the frame, and it works. Asked "did we take the key",
 		-- it would go grey and the reader would read a working key as a broken one.
 		--
-		-- **A group whose actions are all skipped by their issues is grey or white by that option**
-		-- (2026-09-19, owner, for the white; 2026-10-07 for the rest). Off, the key is held and does
-		-- nothing, and the mark already says why. On, the key goes on to whatever else is bound,
-		-- which is what grey says, and the mark still says why this action does not run. An issue
-		-- whose outcome is KEEP leaves its action on the key, so a group of those is white either way. A mouse button whose
-		-- actions run only over unit frames is grey either way: it holds no key, so with them left
-		-- out nothing of ours answers it (`BuildKeyMap`).
+		-- **A group of only issue-marked actions is grey or white by that option alone**
+		-- (2026-09-19, owner, for the white; 2026-10-07 for the rest). Off, the key is held and
+		-- does nothing, and the mark already says why. On, the key goes on to whatever else is
+		-- bound, which is what grey says, and the mark still says why this action does not run.
 		--
 		-- **A key handed to the house editor or a replaced bar stays white.** That is stepping
 		-- aside for a moment and it comes back by itself; a name changing colour while mounted
 		-- reads as a key lost.
-		self.IssueIcon:SetKind(elementData.hasIssue and "issue" or nil, GroupIssueMarkTooltip);
+		self.IssueIcon.rows = elementData.rows;
+		self.IssueIcon:SetKind(elementData.issueGrade, GroupIssueMarkTooltip);
 
 		local label = KeyGroupLabel(elementData.key);
 		if (not DebindPrivate.IsKeyHandled(elementData.key)) then
@@ -1837,8 +1846,8 @@ function DebindSideTabMixin:OnEnter()
 	GameTooltip_AddNormalLine(GameTooltip, GetSideTabPath(id));
 
 	-- **Under the path, above the blank line.** It qualifies this layer, so it stays with the lines
-	-- about this layer rather than after the one about every layer. Not coloured: the issue colour is
-	-- for something wrong, and nothing here is wrong, it is simply not now.
+	-- about this layer rather than after the one about every layer. Not coloured: red is for a
+	-- condition that failed, and this one has not failed, it is simply not now.
 	if (self.isOffSpec) then
 		GameTooltip_AddNormalLine(GameTooltip, LLL["INACTIVE_SPEC_DESC"]);
 	end
@@ -4935,17 +4944,15 @@ function DebindOrderLineMixin:OnMoveLeave()
 	GameTooltip:Hide();
 end
 
---- What this row's reason column says, or an empty string.
+--- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.
 ---
---- **A problem beats the order.** This column answers "why this place", which is not worth asking
---- of a binding that is skipped. Something to fix is said first and the order story is dropped:
---- both do not fit on one line, and the issue colour loses its weight beside the grey.
+--- **문제가 순서를 이긴다.** 이 칸이 답하는 것은 "왜 이 자리인가"인데, 아예 안 나가는
+--- 바인딩에게는 그게 물어볼 값어치가 없는 질문이다. 고칠 것이 있으면 그것부터 말하고
+--- 순서 이야기는 접는다 - 둘 다 적으면 한 줄에 안 들어가고, 빨강이 회색 옆에서 힘을 잃는다.
 ---
---- **All of these are this column's words, and only one stands at a time.** A reason the action
---- does not run (another specialization, covered by a neighbour) and a fault of the action itself
---- are separate axes and can both hold for one row, but the column has one slot, so the more
---- specific one is written. What is wrong with an action that does not run anyway is a later
---- question.
+--- **넷 다 이 칸의 말이고, 한 번에 하나만 선다.** 안 나가는 사유(다른 전문화, 이웃에 덮임)와
+--- 액션 자신의 잘못(오류, 경고)은 서로 다른 축이라 한 행에 같이 설 수 있는데, 칸이 하나뿐이라
+--- 더 구체적인 쪽을 쓴다. 나가지도 않는 액션에게 무엇이 잘못됐는지는 나중 물음이다.
 ---
 --- **The problem codes arrive here as one word, and that is deliberate.** They used to be spelled
 --- out per code -- "No group selected", "Unknown state name" -- and in a list you scan that reads as
@@ -4954,8 +4961,8 @@ end
 --- to the one surface the reader opens on purpose. `BINDING_ERROR_*` under the condition it belongs
 --- to is where it now lives, and only there.
 ---
---- Which leaves this column one generic word for every problem. The one sentence that is not is
---- "never runs", which belongs to the other axis and is the more specific thing to say when it
+--- Which leaves this column one word per grade, and both are generic. The one sentence that is not
+--- is "never runs", which belongs to the other axis and is the more specific thing to say when it
 --- applies.
 local function GetOrderReasonText(elementData)
 	local row = elementData.row;
@@ -4985,7 +4992,14 @@ local function GetOrderReasonText(elementData)
 	elseif (row.specExcluded or row.unreachable or row.notRunning) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
-		return DebindPrivate.GetIssueColor(row.issue):WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
+		-- **The grade picks the words as well as the colour.** One line for both said the same thing
+		-- about a key that does not fire and a key that does, and the only thing telling them apart
+		-- was orange against red -- which needs the two to be on screen together to be read at all,
+		-- and is nothing to a reader who cannot separate the two colours.
+		local color = DebindPrivate.GetIssueColor(row.issue);
+		local flag = DebindPrivate.IsIssueWarning(row.issue) and LLL["ORDER_FLAG_ISSUE_WARNING"]
+			or LLL["ORDER_FLAG_ISSUE"];
+		return color:WrapTextInColorCode(flag);
 	end
 
 	return "";
@@ -5020,6 +5034,7 @@ function DebindOrderLineMixin:Update()
 	self:UpdateMoveButtons(elementData);
 	self:SetAlpha(elementData.searchMiss and 0.5 or 1);
 
+	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
 	local name, icon = ColoredNameAndIconForAction(row.action, row.layerID);
 	self.Name:SetText(name);
 	SetActionIcon(self.Icon, icon);
@@ -5253,10 +5268,10 @@ function BuildKeyboardElements()
 			elements[#elements + 1] = {
 				isHeader = true,
 				key = key,
-				-- What picking the heading picks. **Emptying `rows` below rebinds the local name**, so
-				-- the table carried here is left as it is.
+				-- What picking the heading picks, and the issue mark's rows. **Emptying `rows` below
+				-- rebinds the local name**, so the table carried here is left as it is.
 				rows = rows,
-				hasIssue = DebindPrivate.GroupHasIssue(rows),
+				issueGrade = DebindPrivate.GetGroupIssueGrade(rows),
 				-- Which arrival this group is, or nil for the reader's own. The heading reads it to
 				-- know whether to tint, and the menu and a group anchor are filed under it.
 				arrivalID = arrivalID,

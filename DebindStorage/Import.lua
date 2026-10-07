@@ -176,8 +176,8 @@ end
 --- The cost is that a mage's string read by a druid lands somewhere this session cannot see: the
 --- druid's `LayerArray` has no mage layer in it, so nothing about it is on screen until they
 --- log the mage. That is the answer, not a gap. The two alternatives were putting a mage's spells
---- in "all my druids" -- where the reader is asked a question they cannot answer, every line a
---- spell they cannot learn -- and refusing the string outright.
+--- in "all my druids" -- where the reader is asked a question they cannot answer, every line red
+--- because they cannot learn any of it -- and refusing the string outright.
 ---
 --- **The one real translation is the character.** The receiving character is one, so a character
 --- cell of its class means *this* character at that spec, whatever the cell's key. **One of
@@ -250,7 +250,7 @@ end
 ---
 --- **A field of the wrong type is dropped, not corrected.** What it should have been is not
 --- knowable, and an action missing a condition is a shape the rest of the addon already handles -
---- the issue mark included - while a guessed one is a binding that fires when it should not.
+--- red text included - while a guessed one is a binding that fires when it should not.
 ---
 --- `$`-prefixed names pass unlisted, the same escape hatch the export copies out through
 --- (`CopyFields`) and `CleanUpDB` keeps: a switch condition is stored under its own name, and
@@ -281,7 +281,7 @@ end
 --- but the five: the solver gave any other name no column, so the box became the whole condition
 --- space and the arriving action covered every binding under it on that key. The solver builds a
 --- column per name it finds now (`Solver.lua`), so such a condition is what it looks like -- a
---- reference to a switch that is not here, which is an issue mark and a binding that does not fire,
+--- reference to a switch that is not here, which is red text and a binding that does not fire,
 --- exactly like the spell the reader never learnt.
 local function ConditionAllowed(name, value)
     local expected = DebindStorage.CONDITION_TYPES[name];
@@ -325,7 +325,7 @@ local VALUE_SHAPES = {
     -- (`redesigning-custom-states.md` §6-C). A reader can export a layer before getting
     -- round to that, and this table is asked whether the addon *could* have made the action. So
     -- refusing it here would turn away the whole string over a half-finished row, which is the one
-    -- thing the receiving side is built not to do. It lands, it is marked
+    -- thing the receiving side is built not to do. It lands, it is red
     -- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`), and it does not bind.
     [Constants.SETSWITCH_ON]     = "string|nil",
     [Constants.SETSWITCH_OFF]    = "string|nil",
@@ -353,7 +353,7 @@ local VALUE_SHAPES = {
 --- table, so it answers about what would land rather than about how the format spells it.
 ---
 --- **This is not "is it broken".** A spell the reader never learnt, a macro name nothing answers
---- to: those are ordinary and the whole receiving side is built to show them. This asks
+--- to: those are ordinary and the whole receiving side is built to show them in red. This asks
 --- whether the action is one the addon can represent at all -- a `macro` holding a number, a
 --- `worldmarker` holding nothing. **Nothing this addon writes builds one of those**, so a string
 --- carrying one was touched by hand somewhere -- the string itself, or the SavedVariables it was
@@ -1273,7 +1273,7 @@ end
 ---
 --- **Switch definitions are not touched, and nothing about them is kept** (owner, 2026-10-03). A
 --- placed action names this profile's switches from the moment it lands, and one naming a switch
---- this profile lacks stands marked until a switch of that name exists or the condition is dropped
+--- this profile lacks stands in red until a switch of that name exists or the condition is dropped
 --- (`importing-switches-apart-from-actions.md`). Writing a switch here would
 --- change what the reader's *existing* actions do, and making one would leave it behind when the
 --- actions are rejected.

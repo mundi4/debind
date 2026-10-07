@@ -36,8 +36,8 @@ local QUESTION_MARK_ICON = 134400;
 local SEEDS = {};
 
 --- Everything here is class independent on purpose. A PTR client is whatever character happens to
---- exist on it, and a seed that named class spells would come up as a screen full of rows that
---- character cannot use on most of them. `Constants.SPELL` is left out for the same reason and nothing is lost: what these
+--- exist on it, and a seed that named class spells would come up as a screen full of red rows on
+--- most of them. `Constants.SPELL` is left out for the same reason and nothing is lost: what these
 --- rows are for is the window, not the cast.
 ---
 --- The keys are the shifted and control function rows, which is where a PTR character has nothing
@@ -60,7 +60,7 @@ SEEDS[5] = function(guid)
             --- Four of those are left out on purpose and each has a reason that is not "forgot":
             ---
             ---   * `SPELL`, `FLYOUT`, `PETACTION` name something a class has. Seeded, they come up
-            ---     as unusable rows on every character that is not that class, which is the one thing
+            ---     as red rows on every character that is not that class, which is the one thing
             ---     this seed exists to avoid.
             ---   * `known` is dropped on anything that is not a `SPELL` (`FillBinding`), so it cannot
             ---     be reached from here at all while `SPELL` is out.
@@ -143,7 +143,7 @@ SEEDS[5] = function(guid)
                 --- Mount, on the one value that resolves for every character alive: `0` is the
                 --- random favourite, drawn from a spell rather than the journal
                 --- (`ActionDisplay.lua`), so a client with nothing collected still gets a name and an
-                --- icon. A real `mountID` would be an unusable row on any character that has not
+                --- icon. A real `mountID` would be a red row on any character that has not
                 --- learned it.
                 { type = Constants.MOUNT, value = 0, key = "SHIFT-F12", seq = 1 },
                 --- The remaining two types that take a unit. Both come off the command tab with

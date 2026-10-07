@@ -236,7 +236,7 @@ DebindPrivate.UnitGroupToCells = UnitGroupToCells;
 --- "in a raid and in my subgroup" alone, and no box or combination of boxes names that one cell.
 --- So a fold that has to be written back into a profile has to ask first whether its answer can be
 --- written at all; `band` on the boxes themselves returns 0 there, which is not that answer but
---- "no box chosen", and a binding that can fire becomes one that carries an issue forever.
+--- "no box chosen", and a binding that can fire becomes one that carries an error forever.
 local function CellsToUnitGroup(cells)
     for mask = 0, Constants.UNITGROUP_ALL do
         if (UnitGroupToCells(mask) == cells) then

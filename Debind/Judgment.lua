@@ -174,25 +174,6 @@ local function RecordsItem(boxes, owners, columns, base)
     return item;
 end
 
---- **Whether `Build` would surely answer ours everywhere, asked without building**: walking the
---- entries in the press's order, one with no constraint that answers ours comes before any answer
---- of another kind. That is a key ending in an action with no condition, and every key with no
---- tail while `giveBackWhenNoActionRuns` is off; a rebuild of a profile of them would otherwise
---- build an item per key only to drop it. **A weaker form of `RecordsItem`'s rule**, which also
---- counts a box whose masks cover every column (`IsFull`): false here leaves the answer to `Build`
---- and `IsAlwaysOurs`, never a wrong one.
-function Judgment.SurelyAlwaysOurs(entries)
-    for i = 1, #entries do
-        local entry = entries[i];
-        if (entry.outcome ~= Judgment.OURS) then
-            return false;
-        elseif (#entry.constraints == 0) then
-            return true;
-        end
-    end
-    return true;
-end
-
 --- A key's item from its entries. **The list has to end in a record that holds everywhere**, the
 --- BLOCK closing the tier, so that some outcome is always answered.
 ---

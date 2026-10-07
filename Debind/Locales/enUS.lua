@@ -99,22 +99,20 @@ L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, th
 -- wrong twice over.
 L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "A mouse button with META held cannot be used on unit frames."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
--- action sets. **This line, the macro one and the three unknown values below are the only ones that
--- take an argument** -- every other BINDING_ERROR_* is about a condition, and which condition is
--- already visible in the box it belongs to. None of these has a box, so without the name there is
--- nothing on screen saying what to fix.
+-- action sets. **This line and the macro one below are the only errors that take an argument** --
+-- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
+-- box it belongs to. Neither of these two has a box, so without the name there is nothing on
+-- screen saying what to fix.
 L["BINDING_ERROR_UNDEFINED_SWITCH"] = "There is no Switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
--- The same shape for the three values this client may not have, from a profile or string made
--- elsewhere: a pet command, a binding command and a flyout. `%s` is the stored value, which is all
--- there is to show for one that is unknown.
+-- The same shape for the two commands this client may not have, from a profile or string made
+-- elsewhere. `%s` is the stored command name, which is all there is to show for one that is unknown.
 L["BINDING_ERROR_UNKNOWN_PET_COMMAND"] = "This game has no pet command |cnHIGHLIGHT_FONT_COLOR:%s|r."
 L["BINDING_ERROR_UNKNOWN_ACTION_BUTTON"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r does not press an action button."
 L["BINDING_ERROR_UNKNOWN_FLYOUT"] = "This game has no flyout |cnHIGHLIGHT_FONT_COLOR:%s|r."
--- Not an issue but the other axis (`IsUnreachableAction`), so this states what happened and stops
--- there. The key itself still fires,
+-- The only MINOR code, so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
 -- Two things it must not say. The coverage can come from several earlier actions at once
@@ -665,10 +663,8 @@ L["KEY_HEADER_TOOLTIP_SELECT"] = "Left click to select everything under this hea
 --- (`LINE_TOOLTIP_NOT_RUNNING_DISABLED`, `LINE_TOOLTIP_SPEC_INACTIVE`, an issue's mark). All of them
 --- do the same thing to the key, which is what this sentence is about.
 ---
---- **A group whose actions can never run is not grey with that option off**, except a mouse button
---- whose actions run only over unit frames: that one holds no key either way (`BuildKeyMap`), so
---- with them left out nothing of Debind's answers it. Any other key is held then and does not go
---- anywhere; that nothing comes out of it is the mark's to say.
+--- **A group whose actions can never run is not grey with that option off.** The key is held then
+--- and does not go anywhere; that nothing comes out of it is the mark's to say.
 ---
 --- **"whatever WoW has bound to it" is the phrase the switch that causes this already uses**
 --- (`ACTION_DISABLED_DESC`). One thing, one wording per screen.
@@ -748,21 +744,24 @@ L["UNITGROUP_NONE"] = "Not in my group"
 L["UNITGROUP_PARTY"] = "In my party"
 L["UNITGROUP_RAID"] = "In my raid"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
--- Under the issue mark's title (`ORDER_FLAG_ISSUE`). **The title names the mark and this says what
--- it costs the reader.** "Sometimes or always" because one code skips the action only over party
--- and raid frames and every other skips it on every press (`Constants.BINDING_ISSUE_OUTCOMES`);
--- **not "on some presses"**, which a click on a unit frame does not read as (owner, 2026-10-07).
--- Where it is skipped is each code's own sentence, right under this.
-L["MARK_TOOLTIP_ISSUE_DESC"] = "Because of this, the action is sometimes or always skipped."
+-- Under the issue mark's title, which is the grade in words (`ORDER_FLAG_ISSUE*`). **The title says
+-- what the grade is called and this says what it costs the reader**, which is the thing a name
+-- alone cannot carry.
+L["MARK_TOOLTIP_ISSUE_DESC"] = "This action does not work until the problem is fixed."
 -- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
 L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
--- The same sentence for the mark on a key's heading. **It says that actions under it have a problem
--- and never which**: the heading cannot say which action each problem belongs to, and the row's own
--- mark does. "Some", because it may be one action or several (owner, 2026-10-07).
-L["MARK_TOOLTIP_GROUP_ISSUE_DESC"] = "Some actions under this heading are sometimes or always skipped."
-L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "Look over those actions to see what is wrong."
+-- The other grade. **The action runs**, so what this has to say is that one part of it does not,
+-- said as the action still running, because a reader who arrived at a red-looking mark needs to know
+-- first that nothing is dead.
+L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it was told to do does not."
+-- The same two sentences for the mark on a key's heading. **They say that an action under it has a
+-- problem and never which one**: the heading cannot say which action each problem belongs to, and
+-- the row's own mark does.
+L["MARK_TOOLTIP_GROUP_ISSUE_DESC"] = "An action under this heading does not work until its problem is fixed."
+L["MARK_TOOLTIP_GROUP_ISSUE_DESC_WARNING"] = "An action under this heading still runs, but one thing it was told to do does not."
+L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "Look over that action to see what is wrong."
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.
 --
@@ -862,8 +861,8 @@ L["NO_SPECIALIZATION"] = "None chosen"
 --- rule shown whatever the state.
 L["CHANGES_APPLY_AFTER_COMBAT"] = "Changes take effect when combat ends."
 -- What the overview's reason column says instead of an ordering sentence when the row has something
--- wrong with it. **Two words for the whole set of problems**, in orange; grey is the other column
--- value, for a row that is merely outranked.
+-- wrong with it. **Two words for the whole set of problems, one per grade** -- red for a row that is
+-- waiting on the reader, grey for one that is merely outranked.
 --
 -- There was a short line per `BINDING_ISSUE_*` code here once ("No group selected", "Unknown state
 -- name") and they were dropped, which is worth knowing because the reasoning ran the other way at
@@ -871,9 +870,13 @@ L["CHANGES_APPLY_AFTER_COMBAT"] = "Changes take effect when combat ends."
 -- and a problem pitched several levels finer made one slot talk at two resolutions. **The detail was
 -- not lost, it was gathered** -- `BINDING_ERROR_*` says it in full, under the very condition it is
 -- about, on the surface the reader opens on purpose.
--- **"Checking", not "fixing"** (owner, 2026-10-07): one of the codes leaves the action running
--- everywhere but over party and raid frames, which the reader may not count as broken.
-L["ORDER_FLAG_ISSUE"] = "Needs checking"
+L["ORDER_FLAG_ISSUE"] = "Needs fixing"
+-- The other half of the line above, for the grade where the key works and one thing it was told to
+-- do does not. **The two share their first word on purpose**: this column is scanned rather than
+-- read, and a pair that differs in one place can be told apart with one of them on screen. Before,
+-- both grades printed the line above and only the colour parted them, which needs both at once and
+-- reaches a colour-blind reader not at all.
+L["ORDER_FLAG_ISSUE_WARNING"] = "Needs checking"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- **The row stands where it would stand if that specialization were the active one**, so this line
 -- is the only thing on screen telling it apart from what is running right now. Which one it is comes
@@ -1168,48 +1171,34 @@ L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back the way you left it when you log 
 -- fault, so which switches it covers is said here rather than left to be discovered.
 L["SWITCH_MESSAGES"] = "Switch change messages"
 L["SWITCH_MESSAGES_DESC"] = "Prints a line when a Switch changes. Only Switches you turn on and off yourself print one, never the ones the addon works out from a macro conditional."
+-- The section where Debind hands a key it holds back to the game for as long as something else
+-- needs it.
+--
+-- **The three rows are named after the situation, not after what happens to the key.** What happens
+-- is the same on all three and the heading already says it, so a row repeating it would leave the
+-- reader comparing three sentences to find the one word that differs.
+--
+-- The first row is `CONDITION_SPECIALBAR`, the name this state already has in the condition list.
+-- A second name for it would put two words on one thing in front of a reader who cannot know they
+-- are the same.
 -- The balloon on the gear, the first time this window is opened. **It names what is behind the
 -- gear rather than saying "settings are here"**: the gear already says that much, and what the
 -- reader cannot see is that the things under it are ones they have to set before Debind behaves
 -- the way they expect. Three of the four sections are named in the reader's own words, from the
 -- headings they will find there.
 L["SETTINGS_TIP"] = "Cast Options, Unit Frame Support and Keys Given Back are set here."
--- The section on when a key Debind holds goes to whatever else is bound to it.
 L["GIVE_BACK_KEYS"] = "Keys Given Back"
--- **The values are what the press comes to, not the names of the two actions that do the same for
--- one key** (Give Key Back, Nothing). With those names a reader takes the row for a list of actions
--- (owner, 2026-10-07).
-L["GIVE_BACK_NO_ACTION_RUNS"] = "When no action runs"
-L["GIVE_BACK_NO_ACTION_RUNS_DESC"] = "What a key with Debind actions on it does at a press where none of them runs."
--- **The values of both dropdowns in this section are in title case**, as the client's own dropdown
--- values are ("Quest Objectives and Mouseover": short words such as "and" stay lower case). The
--- client's "Pet Battles" below is one of them. The row labels are not values and keep sentence case.
-L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key Is Given Back"
-L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK_DESC"] = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none."
-L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press Does Nothing"
-L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever else is bound to the key."
--- **One dropdown over two situations that do not depend on each other**, the way the client's Self
--- Cast row spreads None / Auto / Key Press / Auto and Key Press: two checkboxes nested under a
--- heading could hold combinations that mean nothing. **The order is a / b / a and b / never**, the
--- client's, not the default first (owner, 2026-10-07).
---
--- **The tooltips name no kind of bar** (override, vehicle): a reader does not know them. Forms and
--- skyriding are said to be out because "or the like" read as covering them.
-L["GIVE_BACK_ACTION_BUTTON_KEYS"] = "Action Button keys"
-L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"] = "When the keys bound to WoW's action buttons are given back."
-L["GIVE_BACK_REPLACED_BARS"] = "Replaced Bars"
-L["GIVE_BACK_REPLACED_BARS_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included."
--- **The client's own name for the thing** (`SHOW_PET_BATTLES_ON_MAP_TEXT`), so every language gets it
--- for free. The values beside it are ours, so a locale that has not translated them shows them in
--- English next to it; that is the fallback working (`writing-user-facing-text.md`).
-L["GIVE_BACK_PET_BATTLES"] = SHOW_PET_BATTLES_ON_MAP_TEXT
-L["GIVE_BACK_PET_BATTLES_DESC"] = "During a pet battle: the keys bound to Action Buttons 1 to 5."
-L["GIVE_BACK_REPLACED_BARS_AND_PET_BATTLES"] = "Replaced Bars and Pet Battles"
--- **Not the client's `NEVER`**, which koKR renders as "do not show".
-L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"] = "Never"
-L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] = "Debind keeps these keys, and the actions on them run as usual."
-L["GIVE_BACK_HOUSE_EDITOR_KEYS"] = "House Editor keys"
-L["GIVE_BACK_HOUSE_EDITOR_KEYS_DESC"] = "While the House Editor is open, the keys it uses are given back."
+L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or the like has replaced your action bar, the keys bound to that bar's action buttons go back to the game. Your own actions on those keys come back when the bar does."
+L["GIVE_BACK_ONLY_WITH_ACTION"] = "Filled buttons only"
+L["GIVE_BACK_ONLY_WITH_ACTION_DESC"] = "A key goes back only where the replaced bar actually has an action. Empty buttons keep doing what you bound them to."
+-- **The client's own name for the thing** (`MAP_LEGEND_PETBATTLE`), so every language gets it for
+-- free. Assigned here only; translating it again could disagree with the game inside one window.
+L["GIVE_BACK_PET_BATTLE"] = MAP_LEGEND_PETBATTLE
+L["GIVE_BACK_PET_BATTLE_DESC"] = "During a pet battle, the keys bound to action buttons 1 to 5 go back to the game. There is no other way to reach a pet battle ability from a key."
+-- **Not taken from the client**, which has no bare name for it: every string it has is a sentence
+-- around one (`Exit House Editor`).
+L["GIVE_BACK_HOUSE_EDITOR"] = "House Editor"
+L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself while it is open. Ticked, Debind steps aside on the keys it claims and keeps every other one."
 -- **There is no "only the first key" row, and there cannot be one** (2026-09-18, measured). The
 -- client does not keep the two slots of a command in the order the keybinding screen showed: bind
 -- a key in the first slot, reload, bind another in the second, reload, and the first slot is now
@@ -1269,7 +1258,7 @@ L["SWITCH_USAGE_HERE"] = "This Character"
 L["SWITCH_USAGE_ACCOUNT"] = "Across the Account"
 L["SWITCH_USAGE_EXPRS"] = "Other Switches"
 -- This character's actions not accepted yet. The word is the one the strip's count uses
--- (`IMPORT_PENDING`): they name this Switch already and are marked if it goes, but do nothing yet.
+-- (`IMPORT_PENDING`): they name this Switch already and turn red if it goes, but do nothing yet.
 L["SWITCH_USAGE_PENDING"] = "Pending"
 -- The two halves of a row's number in the group above, in its tooltip.
 L["SWITCH_USAGE_ACTIONS"] = "Actions"
@@ -1330,7 +1319,7 @@ L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole ac
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
 L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; it and will stop working."
--- Actions waiting to be accepted name the Switch too, and are marked with it. Apart from the line
+-- Actions waiting to be accepted name the Switch too, and turn red with it. Apart from the line
 -- above because they do nothing yet, so "will stop working" is not true of them. The second is the
 -- only place other characters' pending actions are counted: nothing on this character opens them.
 L["SWITCH_DELETE_CONFIRM_PENDING"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting to be accepted |4uses:use; it too."
@@ -1347,7 +1336,7 @@ L["SWITCH_DELETE_CONFIRM_PENDING_ELSEWHERE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r wai
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
 -- What the delete dialog's two answers do to the actions that use the Switch, since that is the
 -- whole difference between them (`resolving-switches-on-accept.md` 6-7).
-L["SWITCH_DELETE_CHOICES"] = "Delete leaves the actions that use it as they are, marked so you can find them. Merge makes them use another Switch instead."
+L["SWITCH_DELETE_CHOICES"] = "Delete leaves the actions that use it as they are, marked in red so you can find them. Merge makes them use another Switch instead."
 L["SWITCH_DELETE_MERGE"] = "Merge Into..."
 L["SWITCH_MERGE_MENU_TITLE"] = "Merge %s into"
 L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."

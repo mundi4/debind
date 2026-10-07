@@ -162,7 +162,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
         return;
     end
 
-    -- The box is marked for both of this action's two ways of being wrong, and the sentence has
+    -- The box goes red for both of this action's two ways of being wrong, and the sentence has
     -- to say which. Passed in rather than left to the `switches` category, which would find the
     -- right issue code and then print `BINDING_ERROR_UNDEFINED_SWITCH` with its `%s` unfilled.
     local description = ActionMenus:BuildNode(parentDescription, {
@@ -225,9 +225,8 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
             return WriteSetSwitch(ctx.actions, "value", switchName);
         end);
         if (not DebindPrivate.ResolveSwitchDefinition(switchName)) then
-            local sentence, color = ActionMenus.config.resolveIssue(Constants.BINDING_ISSUE_UNDEFINED_SWITCH,
-                switchName);
-            MenuKit.SetIssueTooltip(switchDescription, sentence, color);
+            SetErrorTooltip(switchDescription,
+                format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], switchName));
         end
     end
 

@@ -85,7 +85,7 @@ end
 --- The switch this action's **conditions** name that nothing defines, or nil.
 ---
 --- Split out from the whole answer below because the condition menu asks exactly this: it colours
---- the box that owns switch conditions, and a macro body's typo must not mark that box -- the
+--- the box that owns switch conditions, and a macro body's typo must not turn that box red -- the
 --- conditions in it would be fine and the reader would go looking in the wrong place
 --- (`CreateSwitchConditionMenu`).
 ---
@@ -176,7 +176,7 @@ end
 ---
 --- **Deleting is what makes it reachable, and leaving the reference behind is the design.** A
 --- reference is kept so the reader can find it (`DeleteSwitch` in `Profile.lua`), which only works
---- while something is marked. Renaming already rewrites this one; deleting has no rewrite to do and
+--- while something is red. Renaming already rewrites this one; deleting has no rewrite to do and
 --- so needs this instead.
 ---
 --- **`ownerName` is not optional, and nil is not "no owner".** An expression naming its own switch
@@ -215,7 +215,7 @@ end
 --- (`building-export-import.md`). Until now a `MACRO` naming nothing simply bound and
 --- did nothing on press: `UpdateBindings` stamps `*macro-<button>` with the name and the secure
 --- handler finds no macro, with no error and no mark anywhere on screen. The imported-actions rule
---- is "send broken things too, the reader sees them marked and deletes them" -- and this was the hole in
+--- is "send broken things too, the reader sees red and deletes them" -- and this was the hole in
 --- it, the fallback for a macro that was already dangling when it was sent.
 ---
 --- **Deliberately not extended to the other types**, each for its own reason: item names arrive
@@ -233,7 +233,7 @@ function DebindPrivate.GetMissingMacroName(action)
     -- answers to either, which is the trap: a number is not a reference at all, it is a **position
     -- in a list ordered by name**, and the position moves. Create or delete any macro that sorts
     -- ahead of it and the number now belongs to a different macro. The key then casts something
-    -- nobody chose, and nothing is marked, because nothing broke.
+    -- nobody chose, and nothing goes red, because nothing broke.
     --
     -- **No sharing is involved.** This goes wrong on one account with one character, the day after
     -- the user names a new macro `Aa`. Which is why the rule sits here rather than anywhere near
@@ -265,20 +265,47 @@ function DebindPrivate.GetMissingMacroName(action)
     return value;
 end
 
---- Does a key group's heading wear the issue mark?
+--- Is this problem drawn as the action running with one thing missing?
 ---
---- **Only rows that got into the build are asked**, which keeps the heading from marking things the
---- reader cannot act on now: an off-spec or badged row is inactive for a reason of its own and
---- already says so in its own slot. A problem does not keep an action out of `ActiveActions`
+--- Takes the code rather than the action because the callers have already asked for one, often for
+--- a single category, and asking again would run the whole of `GetBindingIssue` a second time.
+function DebindPrivate.IsIssueWarning(issue)
+    return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_WARNING;
+end
+
+--- An issue code's grade, defaulting to ERROR: a code with no row in `BINDING_ISSUE_GRADES` is a
+--- code nobody graded, and the safe reading of that is the loud one.
+local function IssueGrade(code)
+    return Constants.BINDING_ISSUE_GRADES[code] or Constants.ISSUE_GRADE_ERROR;
+end
+
+--- Is this problem drawn red? **The same default as `IssueGrade`**: a table read by several functions
+--- with different defaults once let an ungraded code through one of them looking fine.
+function DebindPrivate.IsIssueError(issue)
+    return issue ~= nil and IssueGrade(issue) == Constants.ISSUE_GRADE_ERROR;
+end
+
+--- The mark a key group's heading wears, `"error"`, `"warning"` or nil, and the grade its tooltip
+--- names. One function because those two are one answer.
+---
+--- **Only rows that got into the build are asked**, which keeps the heading from reddening over
+--- things the reader cannot act on now: an off-spec or badged row is inactive for a reason of its own
+--- and already says so in its own slot. A problem does not keep an action out of `ActiveActions`
 --- (`BuildKeyMap` sets that outside the gate), so what is left is exactly "would run, except for
---- this". One row is enough, since the mark points at work waiting in the group.
-function DebindPrivate.GroupHasIssue(rows)
+--- this". One broken row is enough, since red points at work waiting in the group.
+function DebindPrivate.GetGroupIssueGrade(rows)
+    local grade;
     for i = 1, #rows do
-        if (rows[i].issue and not DebindPrivate.IsInactiveAction(rows[i].action)) then
-            return true;
+        local issue = rows[i].issue;
+        if (issue and not DebindPrivate.IsInactiveAction(rows[i].action)) then
+            if (DebindPrivate.IsIssueError(issue)) then
+                return "error";
+            elseif (DebindPrivate.IsIssueWarning(issue)) then
+                grade = "warning";
+            end
         end
     end
-    return false;
+    return grade;
 end
 
 --- What an issue code does to its action, defaulting to OMIT (`Constants.BINDING_ISSUE_OUTCOMES`).
@@ -286,11 +313,14 @@ local function IssueOutcome(code)
     return Constants.BINDING_ISSUE_OUTCOMES[code] or Constants.ISSUE_OUTCOME_OMIT;
 end
 
---- What colour a problem is drawn in. **One colour for every code** (owner, 2026-10-07): an issue
---- skips its action, on some presses or on all of them, and what the key does then is the key's
---- end (`giveBackWhenNoActionRuns`), not the code. Orange, beside the warning icon the mark wears. **Grey is not this**:
---- it says an action is not running, which is the other axis, and the window paints it from there
---- (a keyless row, an off-specialization one, one every neighbour covers).
+--- What colour a problem is drawn in. **The grade picks it, never the code** -- that is the whole
+--- of `grading-binding-issues.md`, and it is why a new issue needs one row in
+--- `BINDING_ISSUE_GRADES` and no edit anywhere that paints.
+---
+--- Red is what waits on the reader; orange is the key working with one thing it was told to do
+--- missing (2026-09-06, owner). **Grey is not one of these**: it says an action is not running,
+--- which is the other axis, and the window paints it from there (a keyless row, an
+--- off-specialization one, one every neighbour covers).
 ---
 --- **nil for no issue**, so a caller can write `color = GetIssueColor(issue)` and leave the
 --- no-problem case to whatever it already had.
@@ -298,24 +328,31 @@ function DebindPrivate.GetIssueColor(issue)
     if (issue == nil) then
         return nil;
     end
-    return ORANGE_FONT_COLOR;
+    if (Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_WARNING) then
+        return ORANGE_FONT_COLOR;
+    end
+    return ERROR_COLOR;
 end
 
---- Of the issue already found and one a branch just raised, the one that is reported, by outcome
---- (lower is stronger), so an action skipped on every press reports that before one skipped on
---- some. **A tie goes to the one already there**, so branches keep the order they are written in
---- among equals.
-local function TakeIssue(current, candidate)
-    if (candidate ~= nil and (current == nil or IssueOutcome(candidate) < IssueOutcome(current))) then
+--- Of the issue already found and one a branch just raised, the one that is reported, by `rank`
+--- (lower is stronger). **A tie goes to the one already there**, so branches keep the order they are
+--- written in among equals.
+---
+--- **Two ranks, because two questions fold differently.** The colour wants the loudest grade and
+--- `BuildKeyMap` wants the strongest outcome, and one grade can carry several outcomes: the game menu
+--- key and a condition nothing meets are both red, and only the first lets the key go. Folded by
+--- grade, the two tie and whichever check is written first decides what happens to the key.
+local function TakeIssue(current, candidate, rank)
+    if (candidate ~= nil and (current == nil or rank(candidate) < rank(current))) then
         return candidate;
     end
     return current;
 end
 
 --- Is there any point asking another branch? **Only while the strongest there is has not been
---- found**, since nothing below could replace it.
-local function LookingForWorse(issue)
-    return issue == nil or IssueOutcome(issue) > Constants.ISSUE_OUTCOME_OMIT;
+--- found**, since nothing below could replace it. Both ranks start at 1.
+local function LookingForWorse(issue, rank)
+    return issue == nil or rank(issue) > 1;
 end
 
 --- The stored unit rows, under the pre-migration name too, the way `FillBinding` reads them.
@@ -385,7 +422,7 @@ end
 
 --- The axes that leave a row matching nothing. **Not axis 6**: a role missing beside other frame
 --- types still runs over those, so that row is not empty, and counting it as one hid a
---- contradiction on the same unit behind the role's own issue (`HasAnyEmptyUnitRow`'s reader skips a row the
+--- contradiction on the same unit behind the warning (`HasAnyEmptyUnitRow`'s reader skips a row the
 --- action check already spoke for).
 local EMPTY_UNIT_ROW_AXES = 5;
 
@@ -450,7 +487,7 @@ end
 --- A pair that two menus can undo stands as two rows under the one code, so each menu hears it.
 local ACTION_CHECKS = {
     -- **The key itself, not what else is on it.** Being covered by a neighbour is not this action's
-    -- fault and `IsUnreachableAction` answers it; asked here, it hid the action's own issue.
+    -- fault and `IsUnreachableAction` answers it; asked here, it hid the action's own warning.
     { category = "key", label = "KEY", check = function(action)
         if (action.key) then
             return DebindPrivate.IsKeyInvalidForAction(action, action.key);
@@ -531,7 +568,7 @@ local ACTION_CHECKS = {
         end
     end },
     -- **Asked of the command the value names, the way the binding builder asks it**
-    -- (`DescribeBinding`), so what is marked is what the builder would refuse. A pet with nothing
+    -- (`DescribeBinding`), so what goes red is what the builder would refuse. A pet with nothing
     -- out is not asked about: the command is sent and the game answers it.
     { category = "command", label = "TYPE_PETACTION", check = function(action)
         if (action.type == Constants.PETACTION and not DebindPrivate.GetPetActionMacroText(action.value)) then
@@ -676,18 +713,19 @@ function DebindPrivate.GetNotRunningReason(action)
     return nil;
 end
 
-local function EvaluateIssues(action, category, notCategory, arg, collected)
+local function EvaluateIssues(action, category, notCategory, arg, collected, rank)
     -- **A category nothing below answers comes out nil**, which looks the same as "no problem".
     -- Stopped under DEBUG only; it is not a fault to raise in a shipped build.
     if (Constants.DEBUG and category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
         error("GetBindingIssue: 없는 갈래 " .. tostring(category), 2);
     end
 
-    --- **A branch may replace only something weaker, and a tie goes to the branch that got there
-    --- first.** Every branch used to stop at `not issue`, so the order they are written in decided
-    --- the answer: an action carrying a milder code above a stronger one reported the milder one, and
-    --- the key was decided off it. `TakeIssue` holds the tie rule and `LookingForWorse` is what the
-    --- guards ask, so a branch stops being asked only once the strongest there is has been found.
+    --- **A branch may replace only something weaker by `rank`, and a tie goes to the branch that got
+    --- there first.** Every branch used to stop at `not issue`, so the order they are written in
+    --- decided the answer: an action carrying a milder code above an ERROR reported the milder one,
+    --- and the key was decided off it. `TakeIssue` holds the tie rule and `LookingForWorse` is what
+    --- the guards ask, so a branch stops being asked only once the strongest there is has been found.
+    rank = rank or IssueGrade;
     local issue;
 
     --- Where a branch hands in the code it raised. `label` names the group that problem is fixed
@@ -709,13 +747,13 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 collected[#collected + 1] = { code = candidate, label = label, arg = arg };
             end
         end
-        issue = TakeIssue(issue, candidate);
+        issue = TakeIssue(issue, candidate, rank);
     end
 
     --- Is there any point asking another branch? **A collecting call always has one**: only the
     --- caller that folds to the strongest one stops early, which is what `LookingForWorse` decides.
     local function Looking()
-        return collected ~= nil or LookingForWorse(issue);
+        return collected ~= nil or LookingForWorse(issue, rank);
     end
 
     for i = 1, #ACTION_CHECKS do
@@ -758,7 +796,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 Report(Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY, "CONDITION_UNITS");
             end
         elseif (#list == 0) then
-            -- **Cast Options that leave the plain presses nothing are an issue there** (2026-10-04,
+            -- **Cast Options that leave the plain presses nothing are an error there** (2026-10-04,
             -- owner), closable by turning the action off, which says the reader meant it and takes
             -- the mark with it (`action.disabled`).
             --
@@ -814,7 +852,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                         CannotStand(binding, function(unit, solo)
                             local sources = binding.unitSources[unit] or 0;
                             -- A row empty on its own is already the action issue's, and its zero
-                            -- spreads to wherever `"@"` landed; painting it here would mark
+                            -- spreads to wherever `"@"` landed; painting it here would redden
                             -- menus the reader has nothing to fix in.
                             if ((band(sources, SOURCE_ROW) ~= 0 and HasAnyEmptyUnitRow(action, unit))
                                     or (band(sources, SOURCE_AT) ~= 0 and HasAnyEmptyUnitRow(action, "@"))) then
@@ -877,8 +915,8 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     return issue;
 end
 
---- One problem this action has: **the strongest by outcome**, and within one category when a category
---- is given. Every place that shows one problem uses this.
+--- One problem this action has: **the loudest by grade**, and within one category when a category is
+--- given. Every place that picks one colour or one mark uses this.
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     return EvaluateIssues(action, category, notCategory, arg, nil);
 end
@@ -886,7 +924,7 @@ end
 --- What happens to this action on its key: the strongest outcome among its problems
 --- (`Constants.ISSUE_OUTCOME_*`), or nil where it has none. `BuildKeyMap`'s one question.
 function DebindPrivate.GetIssueOutcome(action)
-    local code = EvaluateIssues(action, nil, nil, nil, nil);
+    local code = EvaluateIssues(action, nil, nil, nil, nil, IssueOutcome);
     return code and IssueOutcome(code);
 end
 

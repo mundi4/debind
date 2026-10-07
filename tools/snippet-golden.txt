@@ -411,6 +411,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 ### SecureBindings.lua #9 SetAttribute
 	wipe(GivenBackNow)
 
+	local page
 	local count = 0
 
 
@@ -420,9 +421,17 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 			count = 5
 		end
 	elseif (GiveBack.replacedBar) then
-		if (state == "v" or state == "o") then
+		if (state == "v") then
+			page = GetVehicleBarIndex()
 			count = 6
-		elseif (state == "p" or state == "s") then
+		elseif (state == "p") then
+			page = GetVehicleBarIndex()
+			count = 12
+		elseif (state == "o") then
+			page = GetOverrideBarIndex()
+			count = 6
+		elseif (state == "s") then
+			page = GetTempShapeshiftBarIndex()
 			count = 12
 		end
 	end
@@ -430,10 +439,25 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 	for i = 1, count do
 
 
-		for j = 1, select("#", GetBindingKey(ActionButtonCommands[i])) do
-			local key = select(j, GetBindingKey(ActionButtonCommands[i]))
-			if (key) then
-				GivenBackNow[key] = true
+
+
+
+
+
+
+		local slotID
+		if (page) then
+			local _
+			_, slotID = GetActionInfo(i + (page - 1) * 12)
+		end
+		if (not (page and GiveBack.onlyWithAction) or (slotID and slotID > 0)) then
+
+
+			for j = 1, select("#", GetBindingKey(ActionButtonCommands[i])) do
+				local key = select(j, GetBindingKey(ActionButtonCommands[i]))
+				if (key) then
+					GivenBackNow[key] = true
+				end
 			end
 		end
 	end

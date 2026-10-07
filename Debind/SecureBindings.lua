@@ -727,11 +727,12 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 --- is in the restricted environment, so a key the reader rebound during the fight is read as it is
 --- now.
 ---
---- **The driver's letter says which bar it is, so nothing here asks again** (`GiveBackDriver` in
---- `UpdateBindings.lua`).
+--- **The driver's letter says which bar it is, so nothing here asks again** (`GIVE_BACK_DRIVER`).
 --- Asking was a hole: the driver wakes on the macro conditional turning true and the bar is not
---- necessarily up yet at that moment, so `HasVehicleActionBar()` answered false and not one key went
---- over until the next transition (measured 2026-09-19 on a Ulduar vehicle and on the bonus bar).
+--- necessarily up yet at that moment, so `HasVehicleActionBar()` answered false, no page was found
+--- and not one key went over until the next transition (measured 2026-09-19 on a Ulduar vehicle and
+--- on the bonus bar). A page function answers a bar index rather than a state, and an index does not
+--- move over the life of a build.
 ---
 --- **How many buttons are live is not the same in every state** (§2 of the document). A skinned bar
 --- has six and the rest of the page is dead, a battle has five, and everything else has twelve.
@@ -742,12 +743,12 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 --- whether `[vehicleui]` is ever unskinned (§8). Either turning up is twelve, and this table is
 --- then wrong for it.
 ---
---- **Every live button's keys go over, whether or not its slot holds anything.** Filled buttons
---- only asked the slot and was taken out (`giving-keys-back-when-no-action-runs.md` §1): a slot
---- filled after the bar came up was never read again.
+--- **The page is worked out exactly as `ActionBarController_UpdateAll` does**, so the slot asked
+--- about is the slot the game's own binding would have pressed.
 BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 	wipe(GivenBackNow)
 
+	local page
 	local count = 0
 	-- **The rows are still read**, because the driver drops a clause the reader turned off only at
 	-- the next rebuild and a row can move between two of them.
@@ -757,20 +758,43 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 			count = 5
 		end
 	elseif (GiveBack.replacedBar) then
-		if (state == "v" or state == "o") then
+		if (state == "v") then
+			page = GetVehicleBarIndex()
 			count = 6
-		elseif (state == "p" or state == "s") then
+		elseif (state == "p") then
+			page = GetVehicleBarIndex()
+			count = 12
+		elseif (state == "o") then
+			page = GetOverrideBarIndex()
+			count = 6
+		elseif (state == "s") then
+			page = GetTempShapeshiftBarIndex()
 			count = 12
 		end
 	end
 
 	for i = 1, count do
-		-- **Every key the command has.** Which of them the keybinding screen showed first is not
-		-- kept across a reload (2026-09-18, measured), so there is no first one to prefer.
-		for j = 1, select("#", GetBindingKey(ActionButtonCommands[i])) do
-			local key = select(j, GetBindingKey(ActionButtonCommands[i]))
-			if (key) then
-				GivenBackNow[key] = true
+		-- **A battle's abilities are not action slots**, so with no page there is nothing for
+		-- "only where there is something" to ask about and it is not asked.
+		--
+		-- **Asked of `GetActionInfo` and not of `HasAction`.** A replaced bar answers `HasAction`
+		-- true on a slot that holds nothing nameable: measured on a skinned override bar,
+		-- `HasAction(206)` was true while `GetActionInfo(206)` was nil and the bar's own button was
+		-- hidden (2026-09-18). The bar hides a button on the same read, the spell id out of
+		-- `GetActionInfo` (`OverrideActionBar.lua`'s `Setup`).
+		local slotID
+		if (page) then
+			local _
+			_, slotID = GetActionInfo(i + (page - 1) * 12)
+		end
+		if (not (page and GiveBack.onlyWithAction) or (slotID and slotID > 0)) then
+			-- **Every key the command has.** Which of them the keybinding screen showed first is
+			-- not kept across a reload (2026-09-18, measured), so there is no first one to prefer.
+			for j = 1, select("#", GetBindingKey(ActionButtonCommands[i])) do
+				local key = select(j, GetBindingKey(ActionButtonCommands[i]))
+				if (key) then
+					GivenBackNow[key] = true
+				end
 			end
 		end
 	end

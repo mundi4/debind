@@ -51,15 +51,6 @@ function MenuKit.SetErrorTooltip(description, text)
     end);
 end
 
---- The item's name and the issue it carries, in the colour the menu's `resolveIssue` gives it.
---- **Not `SetErrorTooltip`**: that one is a reason an item cannot be taken, in the client's red.
-function MenuKit.SetIssueTooltip(description, sentence, color)
-    description:SetTooltip(function(tooltip, elementDescription)
-        GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
-        GameTooltip_AddColoredLine(tooltip, sentence, color, true);
-    end);
-end
-
 --------------------------------------------------------------------------------
 -- New feature marks
 --------------------------------------------------------------------------------
@@ -549,9 +540,12 @@ function Registry:BuildNode(parentDescription, node, ctx)
         local err, errArg = registry:IssueOf(node, ctx);
         local errColor;
         if (err) then
-            -- The issue's colour (`resolveIssue`), for the label and for the sentence in the tooltip
-            -- alike.
-            err, errColor = registry.config.resolveIssue(err, errArg);
+            -- **The grade picks the colour** (`resolveIssue`), for the label and for the sentence
+            -- in the tooltip alike. Painting a problem this group holds nothing to fix about the
+            -- same red as one it does sends the reader looking for a fix that is not in there.
+            local text, issueColor = registry.config.resolveIssue(err, errArg);
+            err = text;
+            errColor = issueColor or ERROR_COLOR;
             color = errColor;
         elseif (registry:IsActive(node, ctx)) then
             color = BLUE_FONT_COLOR;

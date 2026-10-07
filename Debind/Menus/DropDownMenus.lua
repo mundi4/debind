@@ -123,7 +123,7 @@ function DebindUI.SetupActionDropdownMenu(dropdown, rootDescription, ctx)
     CreateRejectImportMenuItem(rootDescription, actions);
 
     -- **First, because on a fresh one it is the only thing worth doing.** The picker adds an
-    -- on/off/toggle action with no target (§6-C), so the reader arrives here at a marked row that
+    -- on/off/toggle action with no target (§6-C), so the reader arrives here at a red row that
     -- does nothing, and what fixes it is this box.
     CreateSetSwitchMenuItem(rootDescription, ctx);
 

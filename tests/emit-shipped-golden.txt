@@ -3680,7 +3680,7 @@ Execute <Frame#2>
   | self:RunAttribute("JudgePass")
 RegisterAttributeDriver <Frame#2> judgebeat "a"
 Execute <Frame#2>
-  | GiveBack.replacedBar=false GiveBack.petBattle=true
+  | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
 RegisterAttributeDriver <Frame#2> state-giveback "[petbattle] b; 0"
 Execute <Frame#2>
   | wipe(ContextKeys)

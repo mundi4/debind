@@ -420,7 +420,7 @@
 					that arrived by import and has not been approved.
 
 					**It carries one meaning. Do not recolour it into a second one** - this window
-					already says three things with colour (grey = not firing, orange = has a problem,
+					already says three things with colour (grey = not firing, red = has a problem,
 					yellow = the menu is open on it). A fourth and none of them read.
 
 					**It has to break the icon's edge.** Wholly inside it is one more bright shape

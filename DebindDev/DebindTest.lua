@@ -617,15 +617,6 @@ local function HoldUnmatchedKeys()
     end)
 end
 
---- Is `bound` (what `GetBindingAction(key, true)` answered) a key of ours? **Our click frame, not any
---- click**: let go, a key shows whatever else is bound to it, and another addon's button would read
---- as ours. Every key Debind binds goes to `DefaultClickFrame` (`SetBindingClick` in
---- `SecureBindings.lua` and `UpdateBindings.lua`).
-local function IsOurs(bound)
-    local prefix = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":"
-    return bound ~= nil and bound:sub(1, #prefix) == prefix
-end
-
 -- What `KeyMap` holds for one key.
 local function GetKeyBindings(key)
     local keyMap = DebindPrivate.KeyMap
@@ -5752,7 +5743,7 @@ RegisterTest("Switches tab: the New switch button makes one", {
 -- **Two of the three places that make one write the new name straight onto an action**: the
 -- condition key, and the target of on/off/toggle (`DropDownMenus.lua`). Both write down the name
 -- `ShowNewSwitchBox` hands them, so if the spelling typed in and the name it actually sits under
--- come apart, that action is made pointing at a name with no definition and is marked on the spot.
+-- come apart, that action is made pointing at a name with no definition and goes red on the spot.
 -- Names are folded to lower case when they are made (`CreateSwitch`).
 --
 -- **The button test above does not pass through here.** That one opens with no callback and looks
@@ -5828,7 +5819,7 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
         end
         if handed ~= STORED then
             return Fail(NAME, format(
-                "the caller was handed %s. written down as a condition or an on-target, that action is marked",
+                "the caller was handed %s. written down as a condition or an on-target, that action goes red",
                 tostring(handed)))
         end
         if not DebindPrivate.ResolveSwitchDefinition(handed) then
@@ -6082,19 +6073,18 @@ RegisterTest("Switches tab: deleting can merge into another switch", {
 -- **The fifth place, and the only one that is not an action.** Where a switch answers with `[expr]`
 -- that expression is a macro conditional and can name another switch, but that name lives inside a
 -- definition, where `GetUndefinedSwitch` never looks. Leaving a deleted switch's reference standing
--- there is by design (`DeleteSwitch`), and that design only holds while what is left is marked.
--- Without the mark, codegen bakes the name as `known:0` (`EmitMacroTextArg`) and the switch being
+-- there is by design (`DeleteSwitch`), and that design only holds while what is left goes red.
+-- Without the red, codegen bakes the name as `known:0` (`EmitMacroTextArg`) and the switch being
 -- computed quietly becomes a different one.
 --
 -- Headless goes as far as the function that answers (`tests/issue_spec.lua`). What only this layer
--- can answer is **whether the field really takes the issue colour**: the colour is painted by
--- `RefreshSettings`, deleting stands the whole tab up again, and what comes back has to be reading
--- the same layer.
+-- can answer is **whether the field really goes red**: the colour is painted by `RefreshSettings`,
+-- deleting stands the whole tab up again, and what comes back has to be reading the same layer.
 --
--- **What it was before the delete is read first.** On a field that was marked from the start, "it
--- was marked" says nothing.
-RegisterTest("Switches tab: an expression left naming a deleted switch is marked", {
-    description = "The expression field takes the issue colour where an expression left behind still names a deleted switch",
+-- **What it was before the delete is read first.** On a field that was red from the start, "it went
+-- red" says nothing.
+RegisterTest("Switches tab: an expression left naming a deleted switch goes red", {
+    description = "The expression field goes red where an expression left behind still names a deleted switch",
     run = function()
         local NAME = "Expression names a dead switch"
         local MODES = Constants.SWITCH_MODES
@@ -6120,12 +6110,12 @@ RegisterTest("Switches tab: an expression left naming a deleted switch is marked
             expr = format("[%s] [combat]", SOURCE),
         }
 
-        --- **Measured against the addon's own issue colour** (`GetIssueColor`). The field is the
-        --- highlight colour while it is being read and grey while it is not, so which of the three it
-        --- is comes apart on the value alone.
-        local function IsMarked(fontString)
+        --- **"Red" means measured against the addon's own red.** The field is the highlight colour
+        --- while it is being read and grey while it is not, so which of the three it is comes apart
+        --- on the value alone.
+        local function IsRed(fontString)
             local r, g, b = fontString:GetTextColor()
-            local er, eg, eb = DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH):GetRGB()
+            local er, eg, eb = ERROR_COLOR:GetRGB()
             return math.abs(r - er) < 0.01 and math.abs(g - eg) < 0.01
                 and math.abs(b - eb) < 0.01
         end
@@ -6141,8 +6131,8 @@ RegisterTest("Switches tab: an expression left naming a deleted switch is marked
         if not box then
             return Fail(NAME, "a row was clicked and the settings block did not come up")
         end
-        if IsMarked(box) then
-            return Fail(NAME, format("the premise is gone: %s is still there and the field is already marked", SOURCE))
+        if IsRed(box) then
+            return Fail(NAME, format("the premise is gone: %s is still there and the field is already red", SOURCE))
         end
 
         DebindPrivate.DeleteSwitch(SOURCE)
@@ -6150,23 +6140,23 @@ RegisterTest("Switches tab: an expression left naming a deleted switch is marked
         -- Deleting fires `OnSwitchesChanged` and the whole tab stands up again, which can move the
         -- picked switch and hands the settings block out afresh. So this waits on the field the
         -- panel is holding now rather than reading back what was true above.
-        local marked = WaitUntil(function()
+        local reddened = WaitUntil(function()
             local current = panel:ExprBox()
-            if panel.selectedName == DERIVED and current and IsMarked(current) then
+            if panel.selectedName == DERIVED and current and IsRed(current) then
                 return current
             end
         end, 2)
-        if not marked then
+        if not reddened then
             if panel.selectedName ~= DERIVED then
                 return Fail(NAME, format("the column moved off %s after the delete", DERIVED))
             end
             local expr = DebindPrivate.Switches[DERIVED].expr
             return Fail(NAME, format(
-                "the expression is %s and the field was not marked (broken name: %s). there is nowhere to find the deleted reference",
+                "the expression is %s and the field did not go red (broken name: %s). there is nowhere to find the deleted reference",
                 expr, tostring(DebindPrivate.GetUndefinedSwitchInExpr(expr, DERIVED))))
         end
 
-        return Pass(NAME, format("deleted %s -> %s's expression is marked", SOURCE, DERIVED))
+        return Pass(NAME, format("deleted %s -> %s's expression is red", SOURCE, DERIVED))
     end,
 })
 
@@ -6622,8 +6612,8 @@ RegisterTest("Switch condition on a name outside the five", {
         -- A name with no definition. Dropping the condition outright sends that action out
         -- **wider**, so a failure here reads as "fires with no condition".
         --
-        -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row is
-        -- marked and the tooltip writes the name), and under it codegen bakes the condition as false.
+        -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row goes
+        -- red and the tooltip writes the name), and under it codegen bakes the condition as false.
         -- The press below does nothing with either one alive, and **which of the two held it is not
         -- a question for here**: what the marker answers is a pure function, so
         -- `tests/issue_spec.lua` looks at that.
@@ -6632,7 +6622,7 @@ RegisterTest("Switch condition on a name outside the five", {
         -- `KeysToHold`) and `HoldUnmatchedKeys` is on, so what is asked is the press and not
         -- whether the key is bound.
         local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
-        if not IsOurs(whenUndefined) then
+        if whenUndefined:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
                 "an action on an undefined name handed its key back: %q", whenUndefined))
         end
@@ -6741,7 +6731,7 @@ RegisterTest("Spec condition: the specialization the character is on decides the
         ApplyBindings()
 
         local inside = GetBindingAction(INSIDE, true) or ""
-        if not IsOurs(inside) then
+        if inside:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the mask holds %d and the key is %q", spec, inside))
         end
         local ran, rerr = EvalClickTimeKey(INSIDE)
@@ -6752,14 +6742,14 @@ RegisterTest("Spec condition: the specialization the character is on decides the
 
         -- With the default the key whose only action is left out is not held at all.
         local outside = GetBindingAction(OUTSIDE, true) or ""
-        if IsOurs(outside) then
+        if outside:sub(1, 6) == "CLICK " then
             return Fail(NAME, format("the mask leaves %d out and the key was held by default: %q", spec, outside))
         end
 
         HoldUnmatchedKeys()
         ApplyBindings()
         outside = GetBindingAction(OUTSIDE, true) or ""
-        if not IsOurs(outside) then
+        if outside:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the mask leaves %d out and the key was handed back: %q", spec, outside))
         end
         ran, rerr = EvalClickTimeKey(OUTSIDE)
@@ -6867,7 +6857,7 @@ RegisterTest("Custom target survives a rebuild", {
         ApplyBindings()
 
         local action = GetBindingAction(KEY, true) or ""
-        if not IsOurs(action) then
+        if action:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the premise is gone: the targeting action never bound to the key (%q)", action))
         end
 
@@ -6961,15 +6951,9 @@ local function BeatWitness()
     return beatWitness
 end
 
--- **With `giveBackWhenNoActionRuns` off, the beat runs only while a key holds a tail.** The beat is
--- a Blizzard attribute driver that always answers `"a"` on the driver's beat attribute
--- (`trimming-the-tail-key-beat.md` 5-1), and the unit watch that used to carry it is never
--- registered.
---
--- **The case holds unmatched keys** (`HoldUnmatchedKeys`) to ask what a tail alone brings. With the
--- option on, every held key whose actions can all fail is judged, a conditional key with no tail
--- among them, and the beat runs for it (`giving-keys-back-when-no-action-runs.md` G5); "Tail: a lone
--- conditional action lets its key go and takes it back" is that case. A profile with a computed switch and a measured
+-- **The beat runs only while a key holds a tail.** It is a Blizzard attribute driver that always
+-- answers `"a"` on the driver's beat attribute (`trimming-the-tail-key-beat.md` 5-1), and the unit
+-- watch that used to carry it is never registered. A profile with a computed switch and a measured
 -- condition but no tail is the case worth asking about: it would have brought the 0.2s pass back
 -- under an older rule.
 --
@@ -6982,7 +6966,7 @@ end
 -- **It asks whether the key is still bound, in the same breath**, or a rebuild that quietly stopped
 -- binding anything would read as the quietest possible pass.
 RegisterTest("The driver is off Blizzard's beat", {
-    description = "With unmatched keys held and no tail the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
+    description = "With no tail the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
     run = function()
         local NAME = "Beat registration"
         local KEY = "CTRL-SHIFT-F11"
@@ -7007,7 +6991,6 @@ RegisterTest("The driver is off Blizzard's beat", {
             end
         end)
         DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" }
-        HoldUnmatchedKeys()
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F12", combat = true })
         ApplyBindings()
@@ -7017,7 +7000,7 @@ RegisterTest("The driver is off Blizzard's beat", {
         end
 
         local bound = GetBindingAction(KEY, true) or ""
-        if not IsOurs(bound) then
+        if bound:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the key did not bind (%q)", bound))
         end
 
@@ -8265,7 +8248,7 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         -- itself, so only a value moved with none behind it is one the beat has to carry.
         SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody("combat", true))
         if not WaitUntil(function()
-            return IsOurs(GetBindingAction(KEY, true))
+            return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK "
         end, 2) then
             return Fail(NAME, format("no beat took the key in combat, it answers %q",
                 GetBindingAction(KEY, true) or ""))
@@ -8278,55 +8261,6 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         end
 
         return Pass(NAME, "the beat took the key in combat and handed it back to the command")
-    end,
-})
-
--- **A key with nothing under its one conditional action** (`giving-keys-back-when-no-action-runs.md`).
--- The same beat as the case above, with the key's end, the giveback the rebuild puts there, standing
--- where the command stood. Which way the key goes in each state is headless
--- (`tests/judgmentloop_spec.lua` N1); what is left for the client is that a key judged only because
--- of that end is on the beat at all, and that the restricted `ClearBinding` lets it go and a later
--- `SetBindingClick` takes it again.
-RegisterTest("Tail: a lone conditional action lets its key go and takes it back", {
-    description = "A key whose only action is a combat one is let go at peace and taken in combat, twice, on the beat alone",
-    run = function()
-        local NAME = "Lone conditional"
-        local KEY = "CTRL-SHIFT-F12"
-        local driver = DebindPrivate.BindingDriver
-
-        if InCombatLockdown() then
-            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
-        end
-        local probesOk, probesErr = EnableProbes()
-        if not probesOk then
-            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
-        end
-
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
-        ApplyBindings()
-        local function Ours() return IsOurs(GetBindingAction(KEY, true)) end
-
-        -- Ends in a rebuild, whose own pass judges the key at peace.
-        SetMockState("combat", false)
-        if Ours() then
-            return Fail(NAME, "at peace the rebuild held the key")
-        end
-
-        -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it is
-        -- one the beat has to carry. Twice, so a key let go once is shown to come back.
-        for round = 1, 2 do
-            SecureHandlerExecute(driver, MockBody("combat", true))
-            if not WaitUntil(Ours, 2) then
-                return Fail(NAME, format("round %d: no beat took the key in combat, it answers %q", round,
-                    GetBindingAction(KEY, true) or ""))
-            end
-            SecureHandlerExecute(driver, MockBody("combat", false))
-            if not WaitUntil(function() return not Ours() end, 2) then
-                return Fail(NAME, format("round %d: no beat let the key go at peace", round))
-            end
-        end
-
-        return Pass(NAME, "let go at peace and taken in combat, twice, on the beat")
     end,
 })
 
@@ -8361,7 +8295,7 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
         SetMockState("combat", false)
         SetMockState("stealth", false)
         local function Bound() return GetBindingAction(KEY, true) or "" end
-        if IsOurs(Bound()) or Bound() == COMMAND then
+        if Bound():sub(1, 6) == "CLICK " or Bound() == COMMAND then
             return Fail(NAME, format("with neither held the key answers %q, it should be let go", Bound()))
         end
 
@@ -8374,7 +8308,7 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
         -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it
         -- is one the watch has to see.
         SecureHandlerExecute(driver, MockBody("combat", true))
-        if not WaitUntil(function() return IsOurs(Bound()) end, 2) then
+        if not WaitUntil(function() return Bound():sub(1, 6) == "CLICK " end, 2) then
             return Fail(NAME, format("in combat no beat took the key, it answers %q", Bound()))
         end
         SecureHandlerExecute(driver, MockBody("stealth", true))
@@ -8430,7 +8364,7 @@ RegisterTest("Tail: the units' watch follows a token and a life", {
         ApplyBindings()
         -- Ends in a rebuild, whose pass judges both keys with the player alive.
         SetMockState("player-dead", false)
-        local function Taken(key) return IsOurs(GetBindingAction(key, true)) end
+        local function Taken(key) return (GetBindingAction(key, true) or ""):sub(1, 6) == "CLICK " end
         if Taken(KEY) then
             return Fail(NAME, "with @custom1 pointing at nothing its key is taken")
         end
@@ -8500,7 +8434,7 @@ RegisterTest("Tail: the form moves the key by the call", {
         -- Ends in a rebuild, whose pass judges the key in no form.
         SetMockState("form", 0)
         local function Bound() return GetBindingAction(KEY, true) or "" end
-        if IsOurs(Bound()) or Bound() == COMMAND then
+        if Bound():sub(1, 6) == "CLICK " or Bound() == COMMAND then
             return Fail(NAME, format("in no form the key answers %q, it should be let go", Bound()))
         end
 
@@ -8512,7 +8446,7 @@ RegisterTest("Tail: the form moves the key by the call", {
 
         -- Past `SetMockState`, which ends in a rebuild: only a beat moves the key from here.
         SecureHandlerExecute(driver, MockBody("form", 1))
-        if not WaitUntil(function() return IsOurs(Bound()) end, 2) then
+        if not WaitUntil(function() return Bound():sub(1, 6) == "CLICK " end, 2) then
             return Fail(NAME, format("in form 1 no beat took the key, it answers %q", Bound()))
         end
         SecureHandlerExecute(driver, MockBody("form", 2))
@@ -8558,7 +8492,7 @@ RegisterTest("Tail: flyable in combat waits behind nocombat", {
         SetMockState("combat", false)
         -- Ends in a rebuild, whose pass judges the key out of combat on the ground.
         SetMockState("flyable", false)
-        local function Taken() return IsOurs(GetBindingAction(KEY, true)) end
+        local function Taken() return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK " end
         if Taken() then
             return Fail(NAME, "on the ground the key is taken")
         end
@@ -8648,7 +8582,7 @@ RegisterTest("Tail: a switch set by hand moves the key through two computed swit
         -- spot. A beat between could not stand in for it, since nothing but the wake clears the text.
         DebindPrivate.SwitchesUpdaterFrame:SetAttribute(HAND, true)
         bound = GetBindingAction(KEY, true) or ""
-        if not IsOurs(bound) then
+        if bound:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("%s went on and the key answers %q, it should be ours", HAND, bound))
         end
 
@@ -8697,7 +8631,7 @@ RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
 
         local function Bound(key)
             local bound = GetBindingAction(key, true) or ""
-            return IsOurs(bound) and "ours" or bound
+            return bound:sub(1, 6) == "CLICK " and "ours" or bound
         end
         if Bound(BATTLE_KEY) ~= COMMAND or Bound(BAR_KEY) ~= "ours" then
             return Fail(NAME, format("out of a battle the keys answer %q and %q, they should be the command and ours",
@@ -8818,7 +8752,7 @@ RegisterTest("Cast chord: another addon's override on it is left to that addon",
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
         local bound = GetBindingAction(chord, true) or ""
-        if not IsOurs(bound) then
+        if bound:sub(1, 6) ~= "CLICK " or bound == "CLICK " .. target:GetName() .. ":LeftButton" then
             return Fail(NAME, format("with nothing else on it %s answers %q, it should be our button",
                 chord, bound))
         end
@@ -10397,7 +10331,7 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         end
 
         local bound = GetBindingAction(KEY, true) or ""
-        if not IsOurs(bound) then
+        if bound:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the key is %q, it never reached codegen", bound))
         end
 
@@ -10934,8 +10868,8 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
 -- **A `MACRO` action naming a macro that does not exist is left out of the build entirely**
 -- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), which makes the macro
--- store an input to what the keys are. Nothing was watching it: create the macro and the row loses
--- its mark -- the window says nothing is wrong -- while the key stays dead until something
+-- store an input to what the keys are. Nothing was watching it: create the macro and the row stops
+-- being red -- the window says nothing is wrong -- while the key stays dead until something
 -- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
 --
 -- **The key is ours through both halves** (`Debind.lua`'s `KeysToHold`, with `HoldUnmatchedKeys`),

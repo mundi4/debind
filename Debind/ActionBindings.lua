@@ -600,8 +600,8 @@ do
         return not (options and options.switchMessages == false);
     end
 
-    --- The three situations in which Debind hands a key it holds back to the game
-    --- (`giving-keys-back.md` §7). The settings tab shows the first two as one row.
+    --- The three places Debind hands a key it holds back to the game, and the two values that
+    --- narrow what goes over (`giving-keys-back.md` §7).
     ---
     --- **Two of the three are on with the value absent and one is off**, so which way a reader is
     --- asked differs per row. What decides it is whether the situation happens in a fight: a pet
@@ -611,6 +611,12 @@ do
     function DebindPrivate.GiveBackOnReplacedBar()
         local options = DebindPrivate.Options;
         return (options and options.giveBackOnReplacedBar) and true or false;
+    end
+
+    --- Narrows the row above to the buttons whose slot holds something.
+    function DebindPrivate.GiveBackWhenActionExists()
+        local options = DebindPrivate.Options;
+        return (options and options.giveBackWhenActionExists) and true or false;
     end
 
     function DebindPrivate.GiveBackInPetBattle()

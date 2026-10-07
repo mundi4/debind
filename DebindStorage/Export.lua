@@ -313,9 +313,9 @@ local OPTION_FIELDS      = {
     excludePlayer = "table",
     unitframeUseMouseDown = "boolean",
     giveBackOnReplacedBar = "boolean",
+    giveBackWhenActionExists = "boolean",
     giveBackInPetBattle = "boolean",
     giveBackInBindingContext = "boolean",
-    giveBackWhenNoActionRuns = "boolean",
     frameBlacklist = "table",
 };
 DebindStorage.OPTION_FIELDS = OPTION_FIELDS;
@@ -476,7 +476,7 @@ end
 ---
 --- Names, not indices, because the receiving side has to be able to *ask* about a collision, and
 --- `$state3` on two machines is two different switches that an index can never tell apart. A name
---- nothing defines is also the one broken switch reference the issue mark already catches
+--- nothing defines is also the one broken switch reference red text already catches
 --- (`BINDING_ISSUE_UNDEFINED_SWITCH`), so the reader is not left guessing.
 ---
 --- A referenced switch with no rows is left out rather than sent empty. The sender has nothing to
@@ -742,9 +742,9 @@ end
 --- preview to read them (`building-export-import.md`).
 ---
 --- **Nothing is validated, and nothing is rewritten.** A broken action exports exactly as it sits.
---- The receiving side shows it marked and the user deletes it, and that one rule is what removes a
+--- The receiving side shows it in red and the user deletes it, and that one rule is what removes a
 --- whole class of questions about spells the reader does not have. The one standing exception was
---- `setstate`, whose stored index would have arrived **unbroken and wrong** where no mark can
+--- `setstate`, whose stored index would have arrived **unbroken and wrong** where red text cannot
 --- see it; §9-1 made the stored form a name, so there is nothing left to rewrite.
 function DebindStorage.BuildExportPayload(selection)
     local payload, exported, layers = NewPayload(), {}, {};

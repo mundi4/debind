@@ -668,12 +668,13 @@ local function BuildBindingPlan(ctx)
     --- map means "role unknown" instead of "we only looked for two of the three".
     plan.roleMap = _readsRole and true or false;
 
-    --- The two values of Action Button keys that the driver's letter answers. The House Editor row
-    --- is not here: what crosses for it is the claimed keys themselves (`BakeContextKeys`), because
-    --- the set is the game's answer rather than a row we evaluate.
+    --- The two rows of Keys Given Back that the driver's letter answers, and the one that narrows
+    --- them. The House Editor row is not here: what crosses for it is the claimed keys themselves
+    --- (`BakeContextKeys`), because the set is the game's answer rather than a row we evaluate.
     plan.giveBack = {
         replacedBar = DebindPrivate.GiveBackOnReplacedBar(),
         petBattle = DebindPrivate.GiveBackInPetBattle(),
+        onlyWithAction = DebindPrivate.GiveBackWhenActionExists(),
     };
 
     CollectDriverEvents(plan.events);
@@ -728,8 +729,9 @@ end
 --- goes on costing a resolve on the manager's beat for a reader who turned the feature off.
 local function ApplyGiveBack(driver, giveBack)
     SecureHandlerExecute(driver, format(
-        "GiveBack.replacedBar=%s GiveBack.petBattle=%s",
-        tostring(giveBack.replacedBar), tostring(giveBack.petBattle)));
+        "GiveBack.replacedBar=%s GiveBack.petBattle=%s GiveBack.onlyWithAction=%s",
+        tostring(giveBack.replacedBar), tostring(giveBack.petBattle),
+        tostring(giveBack.onlyWithAction)));
 
     if (giveBack.replacedBar or giveBack.petBattle) then
         RegisterAttributeDriver(driver, "state-giveback", GiveBackDriver(giveBack));
@@ -1350,13 +1352,13 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         attr(out, "*attribute-name-", value);
         attr(out, "*attribute-value-", Constants.SETSWITCH_MODES[type]);
     elseif (type == Constants.FLYOUT) then
-        -- **Not `*type- = "flyout"`.** Blizzard's branch for it is the one line
-        -- `SpellFlyout:Toggle(self, ...)`, and that `self` has to be a `FlyoutButtonMixin` (it calls
-        -- `GetPopupDirection`). The `clickframe` here is a bare `SecureActionButtonTemplate`, so it
-        -- dies on a nil method call. The full story is the head comment of `Flyout.lua`.
+        -- **`*type- = "flyout"`을 안 쓴다.** 블리자드의 그 갈래는 `SpellFlyout:Toggle(self, ...)`
+        -- 한 줄이고 그 `self`는 `FlyoutButtonMixin`이어야 한다(`GetPopupDirection`을 부른다).
+        -- 여기 `clickframe`은 맨몸 `SecureActionButtonTemplate`이라 nil 메서드 호출로 죽는다.
+        -- 자세한 사정은 `Flyout.lua` 머리주석에 있다.
         --
-        -- Our handle is clicked instead. Its secure snippet opens our flyout at the cursor, and that
-        -- runs in combat too.
+        -- 대신 우리 손잡이를 클릭한다. 손잡이의 보안 스니펫이 커서 위치에 우리 플라이아웃을
+        -- 열고, 그건 전투 중에도 돈다.
         --
         -- **Whether it still opens anything is asked before the cache.** A cache hit means "no
         -- attribute needs writing again", not "it still works", and a flyout is where the two part:
@@ -2011,24 +2013,7 @@ local function field(record, name, value)
 end
 
 --- Does this binding take a click on a unit frame, on the mouse button `button` (nil off one).
---- `BuildKeyMap` stamps it as `isClickCast` and `PrepareKeyBindings` reads the stamp, so the key
---- map and the emission answer from one call.
----
---- **Every record on a mouse button stands on the frame path unless it rules the frame out**, by
---- the reader's [no unit frame] or by Hover Cast's `"skip"` on that unit
---- (`which-action-a-key-runs.md` S4). The solver has no column for the path a record takes, so a
---- box is right only where the record really is: a key-path-only record whose box spans the frame
---- half would cover, and delete, a frame record it never meets.
----
---- **Never with META held.** The secure button builds a click's prefix from Shift, Ctrl and Alt
---- alone, so a META click arrives on a frame as the bare one, and a record here would be filed under
---- that button (`GetModifierIndex`) and take its clicks.
----
---- **Never the self or focus twin** (2026-10-04, owner). A modifier held on a frame click is that
---- click as it stands: what the frame does with it is Blizzard's click bindings, the frame's own
---- attributes or another addon's wrapper, differs per frame and cannot be read reliably, so taking
---- it would hide the game's side of every modified frame click by default
---- (`which-action-a-key-runs.md` §7).
+--- `PrepareKeyBindings` stamps it and `BuildKeyMap` asks it, so the two cannot part.
 function DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix)
     local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
     local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
@@ -2038,9 +2023,7 @@ function DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix)
         true or false;
 end
 
---- Does this binding hold its key, on the mouse button `button` (nil off one). Stamped as `holdsKey`
---- the same way. **One that needs a frame does not hold the key**: a click over a frame goes to the
---- frame, so the key path never sees one, and holding the key for it would take the world click.
+--- Does this binding hold its key, on the mouse button `button` (nil off one). The same pair.
 function DebindPrivate.BindingHoldsKey(binding, button)
     return (button == nil or type(DebindPrivate.UnitFrameConditionOf(binding)) ~= "table") and true or false;
 end
@@ -2055,13 +2038,31 @@ end
 --- button that does nothing, the way a spell this character does not know is still cast (`Inert`,
 --- owner, 2026-10-07).
 local function PrepareKeyBindings(key, bindingArray)
+    local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
 
     for i = 1, #bindingArray do
         local binding = bindingArray[i];
-        -- `isClickCast` and `holdsKey` are `BuildKeyMap`'s stamps (`BindingClicksThroughFrame`,
-        -- `BindingHoldsKey`).
+        -- **Every record on a mouse button stands on the frame path unless it rules the frame out**,
+        -- by the reader's [no unit frame] or by Hover Cast's `"skip"` on that unit
+        -- (`which-action-a-key-runs.md` S4). The solver has no column for the path a record takes,
+        -- so a box is right only where the record really is: a key-path-only record whose box spans
+        -- the frame half would cover, and delete, a frame record it never meets.
         --
+        -- **Never with META held.** The secure button builds a click's prefix from Shift, Ctrl and Alt
+        -- alone, so a META click arrives on a frame as the bare one, and a record here would be filed
+        -- under that button (`GetModifierIndex`) and take its clicks.
+        --
+        -- **One that needs a frame does not hold the key**: a click over a frame goes to the frame,
+        -- so the key path never sees one, and holding the key for it would take the world click.
+        --
+        -- **Never the self or focus twin** (2026-10-04, owner). A modifier held on a frame click is
+        -- that click as it stands: what the frame does with it is Blizzard's click bindings, the
+        -- frame's own attributes or another addon's wrapper, differs per frame and cannot be read
+        -- reliably, so taking it would hide the game's side of every modified frame click by
+        -- default (`which-action-a-key-runs.md` §7).
+        binding.isClickCast = DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix);
+        binding.holdsKey = DebindPrivate.BindingHoldsKey(binding, button);
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
         -- there is a specialization with nothing to cast: the button is still handed out, with no
         -- action on it, so the key is taken and the press does nothing (§4 of the design).
@@ -4554,16 +4555,6 @@ function UpdateBindingsMap()
         -- is off (`Debind.lua`'s `BuildKeyMap` keeps no such key otherwise). The press then lands on a
         -- block and does nothing. The one other way here is a binding `PrepareKeyBindings` dropped
         -- for having no way to fire, which an issue should have caught first.
-        --
-        -- **That other way, with the option on, is the key `BuildKeyMap` would not have held**: it
-        -- held the key on a binding that is gone now. So it lets the key go here as it would have,
-        -- and `HandledKeys` with it unless a frame click still reaches the key.
-        if (not hasKeyRecord and keysToHold[key] and DebindPrivate.GiveBackWhenNoActionRuns()) then
-            keysToHold[key] = nil;
-            if (not hasClickCast) then
-                DebindPrivate.HandledKeys[key] = nil;
-            end
-        end
         hasKeyRecord = hasKeyRecord or keysToHold[key] == true;
         local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
 
@@ -4662,9 +4653,25 @@ function UpdateBindingsMap()
             -- item rather than of the key's last action: an action with no conditions still runs on
             -- no plain press when it is set to run only while pointing, or has every cast value
             -- off, and the item knows that from the records.
+            --
+            -- **Not built where the item could only say ours**: walking the entries in the press's
+            -- order, one that holds everywhere (no constraint) and answers ours is reached before any
+            -- answer of another kind. That is a key ending in an action with no condition, which with
+            -- the option on still ends in `GIVEBACK_END` behind it, and every key with no tail with
+            -- the option off.
             local Judgment = DebindPrivate.Judgment;
             local entries = tiers[Constants.CASTMOD_NONE];
-            local item = not Judgment.SurelyAlwaysOurs(entries) and Judgment.Build(entries);
+            local answersOther = false;
+            for i = 1, #entries do
+                local entry = entries[i];
+                if (entry.outcome ~= Judgment.OURS) then
+                    answersOther = true;
+                    break;
+                elseif (#entry.constraints == 0) then
+                    break;
+                end
+            end
+            local item = answersOther and Judgment.Build(entries);
             if (item and not Judgment.IsAlwaysOurs(item)) then
                 judgmentItems[key] = item;
                 _chordEntries[key] = tiers;
