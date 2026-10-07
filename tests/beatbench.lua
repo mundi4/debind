@@ -145,12 +145,16 @@ return function(DebindPrivate)
         { indoors = true },
         { combat = false, mounted = true },
     };
-    local function profile(keys)
+    --- `bare` leaves the command off: the key then ends in nothing of its own, and with
+    --- `giveBackWhenNoActionRuns` on it is judged all the same (`giving-keys-back-when-no-action-runs.md`).
+    local function profile(keys, bare)
         local actions = {};
         for i = 1, keys do
             local key = "CTRL-F" .. i;
             actions[#actions + 1] = action({ value = 585, key = key, conditions = SHAPES[(i - 1) % #SHAPES + 1] });
-            actions[#actions + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+            if (not bare) then
+                actions[#actions + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+            end
         end
         return actions;
     end
@@ -158,7 +162,9 @@ return function(DebindPrivate)
     --- **One interpreter for every profile**, made with the first rebuild and handed only what each
     --- later rebuild added. A new one replays the whole recording, earlier profiles' rebuilds with it.
     local interp;
-    local function bind(actions, switches)
+    --- The rebuild alone, the last `bind` took, in ms.
+    local lastRebuild;
+    local function bind(actions, switches, options)
         local defined = { ["$w"] = { mode = Constants.SWITCH_MODES.MANUAL } };
         for name, definition in pairs(switches or {}) do
             defined[name] = definition;
@@ -169,10 +175,13 @@ return function(DebindPrivate)
             characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = { account = { GENERAL = { [0] = defined } } },
+            options = options,
         };
         DebindPrivate.InitDB();
         local mark = frames.mark();
+        local started = os.clock();
         assert(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+        lastRebuild = (os.clock() - started) * 1000;
         if (not interp) then
             interp = restricted.new(DebindPrivate, shim.world, { meter = true });
         else
@@ -292,6 +301,50 @@ return function(DebindPrivate)
             "beat", tick);
         report(string.format("%d tail keys, combat and mounted flipping", keys), scenario(MOVING, movingWorld()),
             MOVING, perInstruction, "beat", tick);
+    end
+
+    --- **The same keys with nothing under the spell**, which `giveBackWhenNoActionRuns` alone puts
+    --- in the loop: the end of the key is the one giveback every key shares.
+    for _, keys in ipairs({ 4, 12, 30 }) do
+        bind(profile(keys, true));
+        local perInstruction = instructionCost(interp);
+        interp.state.combat = true;
+        interp:beat();
+        assert((frames.overrides["CTRL-F1"] or {}).buttonName, "a combat beat did not take the first bare key");
+        interp.state.combat = false;
+        interp:beat();
+        assert(interp.bindings["CTRL-F1"] == nil, "a peaceful beat did not let the first bare key go");
+
+        local tick = managerTick();
+        report(string.format("%d keys with no tail, no state changed", keys), scenario(QUIET, {}), QUIET,
+            perInstruction, "beat", tick);
+        report(string.format("%d keys with no tail, combat and mounted flipping", keys),
+            scenario(MOVING, movingWorld()), MOVING, perInstruction, "beat", tick);
+    end
+
+    --- **What judging every key adds to a rebuild**: the bare keys above, with the option on and off.
+    --- Off, no key of theirs is judged. The median of a few, the first dropped as the warm-up.
+    local REBUILDS = 7;
+    local function rebuildMs(actions, options)
+        local runs = {};
+        for r = 1, REBUILDS do
+            bind(actions, nil, options);
+            runs[r] = lastRebuild;
+        end
+        table.remove(runs, 1);
+        table.sort(runs);
+        return runs[math.floor(#runs / 2) + 1];
+    end
+    print("\nThe rebuild, keys with no tail, headless ms: the option on | off");
+    for _, keys in ipairs({ 12, 30, 60, 120 }) do
+        local actions = profile(keys, true);
+        local on = rebuildMs(actions);
+        local items = 0;
+        for _ in pairs(DebindPrivate.JudgmentItems) do
+            items = items + 1;
+        end
+        local off = rebuildMs(actions, { giveBackWhenNoActionRuns = false });
+        print(string.format("  %3d keys  %7.1f | %7.1f   (%d items on)", keys, on, off, items));
     end
 
     ---------------------------------------------------------------------------
@@ -699,7 +752,7 @@ return function(DebindPrivate)
             end
             return out;
         end
-        local function ownersProfile(helpOnly)
+        local function ownersProfile(helpOnly, bare)
             seed = 12345;
             local out = {};
             for k = 1, 30 do
@@ -715,7 +768,9 @@ return function(DebindPrivate)
                     end
                     out[#out + 1] = action({ value = 585 + a, key = key, conditions = conditionsOf(mouseover) });
                 end
-                out[#out + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+                if (not bare) then
+                    out[#out + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
+                end
             end
             return out;
         end
@@ -782,6 +837,20 @@ return function(DebindPrivate)
                 end
             end
         end
+
+        -- The same shape with nothing under each key's ten actions: the rebuild with every key
+        -- judged against the one where none is, and the quiet beat that judging costs.
+        largeWorld();
+        local bare = ownersProfile(0, true);
+        local tailed = rebuildMs(ownersProfile(0));
+        local off = rebuildMs(bare, { giveBackWhenNoActionRuns = false });
+        local on = rebuildMs(bare);
+        local perInstruction = instructionCost(interp);
+        interp.state.combat = false;
+        interp:beat();
+        local _, _, quietLines = price(scenario(LARGE_BEATS, {}), perInstruction);
+        print(string.format("  no tail: the rebuild %.0f ms on, %.0f ms off (%.0f with the tail); quiet %6.2f",
+            on, off, tailed, BodyShare(quietLines) / LARGE_BEATS));
     end
     shim.world.units = {};
 
