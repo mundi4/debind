@@ -236,18 +236,6 @@ return function(DebindPrivate)
         check(not IsOurs("BUTTON3"), "the second key stayed ours");
     end);
 
-    -- **An empty button's key goes over too**, whatever a saved `giveBackWhenActionExists` says: that
-    -- narrowing is gone (`giving-keys-back-when-no-action-runs.md` §1). Page 16
-    -- (`GetVehicleBarIndex`), so button 3 is slot 3 + 15 * 12.
-    test("an empty slot goes over, whatever an old Filled buttons only says", function()
-        Bind({ giveBackOnReplacedBar = true, giveBackWhenActionExists = true });
-        interp.state.emptySlots[3 + 15 * 12] = true;
-        Transition("v");
-
-        check(not IsOurs("3"), "the empty button's key stayed ours");
-        check(not IsOurs("4"), "a filled button's key stayed ours");
-    end);
-
     ---------------------------------------------------------------------------
     -- Coming back
     ---------------------------------------------------------------------------

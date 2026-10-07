@@ -730,7 +730,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         end
 
         -- `keepInBindingContext` is gone, and nothing takes its place on the action. The question
-        -- it answered is the account's now ("House Editor" under Keys Given Back), so a value left
+        -- it answered is the account's now (`giveBackInBindingContext`), so a value left
         -- here would be a second answer nothing reads (`giving-keys-back.md` §7).
         --
         -- **The reader who had it ticked loses it** rather than carrying it to the account row: the
@@ -1326,7 +1326,7 @@ local function MigrateAccount(db, dbver, to, uiVars)
             options.removeStateDriverUpdateThrottle = nil;
             options.addCustomTargetMenusOnUnitPopup = nil;
             options.addCustomTargetMenusToUnitPopup = nil;
-            -- Filled buttons only, taken out with its row (`giving-keys-back-when-no-action-runs.md` §1).
+            -- Taken out with its row (`giving-keys-back-when-no-action-runs.md` §1).
             options.giveBackWhenActionExists = nil;
             -- **Dropped, not moved.** On a profile below 7 the step above has just moved it; one
             -- still on a profile at 7 arrived afterwards through the pre-rename import's verbatim

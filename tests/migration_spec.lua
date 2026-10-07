@@ -2780,6 +2780,21 @@ return function(DebindPrivate, _, ctx)
         check(db.options.unitframeUseMouseDown == true, "an option something reads went too");
     end);
 
+    --- **A profile already at 8 runs no step**, so the option taken out after 8 was cut is dropped on
+    --- every load instead (`Profile.lua`'s `ORPHANED_OPTION_KEYS`).
+    test("a profile already at dbver 8 loses giveBackWhenActionExists", function()
+        local db = InitWith({
+            dbver = 8,
+            layers = {},
+            characters = {},
+            migrated = {},
+            switches = {},
+            options = { giveBackWhenActionExists = true, giveBackOnReplacedBar = true },
+        });
+        check(db.options.giveBackWhenActionExists == nil, "giveBackWhenActionExists is still there");
+        check(db.options.giveBackOnReplacedBar == true, "an option something reads went too");
+    end);
+
     --- **At 7 the old cell is a stray, not an answer.** The `dbver` 7 step moved it long ago; one
     --- still there came in afterwards, and folding it now would put back frames the reader has
     --- since taken.

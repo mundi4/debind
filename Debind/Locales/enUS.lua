@@ -1196,12 +1196,15 @@ L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever e
 -- skyriding are said to be out because "or the like" read as covering them.
 L["GIVE_BACK_ACTION_BUTTON_KEYS"] = "Action Button keys"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"] = "When the keys bound to WoW's action buttons are given back."
-L["GIVE_BACK_REPLACED_BARS"] = "Replaced Bars"
-L["GIVE_BACK_REPLACED_BARS_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included."
+-- The first value is `CONDITION_SPECIALBAR`, the name the condition list gives a replaced bar, so
+-- the reader meets one name for it (owner, 2026-10-08). **The two do not cover the same yet**: the
+-- condition also reads `[petbattle]` and this value does not (`need-fixing.md` 3).
+L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included."
 -- **The client's own name for the thing**, so every language gets it for free. Assigned here only.
 L["GIVE_BACK_PET_BATTLES"] = SHOW_PET_BATTLES_ON_MAP_TEXT
 L["GIVE_BACK_PET_BATTLES_DESC"] = "During a pet battle: the keys bound to Action Buttons 1 to 5."
-L["GIVE_BACK_REPLACED_BARS_AND_PET_BATTLES"] = "Replaced Bars and Pet Battles"
+-- The two values above, joined, so each half reads as its own value does in every language.
+L["GIVE_BACK_BOTH"] = "%1$s and %2$s"
 -- **Not the client's `NEVER`**, which koKR renders as "do not show".
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"] = "Never"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] = "Debind keeps these keys, and the actions on them run as usual."

@@ -2452,6 +2452,9 @@ local ORPHANED_OPTION_KEYS = {
     -- mode alone (`which-action-a-key-runs.md` §1). Never in a tag, but a worktree profile is
     -- a profile somebody is using.
     "hoverCast",
+    -- Taken out with its row (`giving-keys-back-when-no-action-runs.md` §1). The dbver 7 step drops
+    -- it; a profile already at 8 does not run that step.
+    "giveBackWhenActionExists",
 };
 
 --- Attaches or detaches this character's state and layers, and attaches its entry. `InitDB` does
