@@ -313,9 +313,9 @@ local OPTION_FIELDS      = {
     excludePlayer = "table",
     unitframeUseMouseDown = "boolean",
     giveBackOnReplacedBar = "boolean",
-    giveBackWhenActionExists = "boolean",
     giveBackInPetBattle = "boolean",
     giveBackInBindingContext = "boolean",
+    giveBackWhenNoActionRuns = "boolean",
     frameBlacklist = "table",
 };
 DebindStorage.OPTION_FIELDS = OPTION_FIELDS;

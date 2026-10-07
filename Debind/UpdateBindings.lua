@@ -668,13 +668,12 @@ local function BuildBindingPlan(ctx)
     --- map means "role unknown" instead of "we only looked for two of the three".
     plan.roleMap = _readsRole and true or false;
 
-    --- The two rows of Keys Given Back that the driver's letter answers, and the one that narrows
-    --- them. The House Editor row is not here: what crosses for it is the claimed keys themselves
-    --- (`BakeContextKeys`), because the set is the game's answer rather than a row we evaluate.
+    --- The two values of Action Button keys that the driver's letter answers. The House Editor row
+    --- is not here: what crosses for it is the claimed keys themselves (`BakeContextKeys`), because
+    --- the set is the game's answer rather than a row we evaluate.
     plan.giveBack = {
         replacedBar = DebindPrivate.GiveBackOnReplacedBar(),
         petBattle = DebindPrivate.GiveBackInPetBattle(),
-        onlyWithAction = DebindPrivate.GiveBackWhenActionExists(),
     };
 
     CollectDriverEvents(plan.events);
@@ -729,9 +728,8 @@ end
 --- goes on costing a resolve on the manager's beat for a reader who turned the feature off.
 local function ApplyGiveBack(driver, giveBack)
     SecureHandlerExecute(driver, format(
-        "GiveBack.replacedBar=%s GiveBack.petBattle=%s GiveBack.onlyWithAction=%s",
-        tostring(giveBack.replacedBar), tostring(giveBack.petBattle),
-        tostring(giveBack.onlyWithAction)));
+        "GiveBack.replacedBar=%s GiveBack.petBattle=%s",
+        tostring(giveBack.replacedBar), tostring(giveBack.petBattle)));
 
     if (giveBack.replacedBar or giveBack.petBattle) then
         RegisterAttributeDriver(driver, "state-giveback", GiveBackDriver(giveBack));

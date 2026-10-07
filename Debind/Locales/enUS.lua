@@ -1171,34 +1171,42 @@ L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back the way you left it when you log 
 -- fault, so which switches it covers is said here rather than left to be discovered.
 L["SWITCH_MESSAGES"] = "Switch change messages"
 L["SWITCH_MESSAGES_DESC"] = "Prints a line when a Switch changes. Only Switches you turn on and off yourself print one, never the ones the addon works out from a macro conditional."
--- The section where Debind hands a key it holds back to the game for as long as something else
--- needs it.
---
--- **The three rows are named after the situation, not after what happens to the key.** What happens
--- is the same on all three and the heading already says it, so a row repeating it would leave the
--- reader comparing three sentences to find the one word that differs.
---
--- The first row is `CONDITION_SPECIALBAR`, the name this state already has in the condition list.
--- A second name for it would put two words on one thing in front of a reader who cannot know they
--- are the same.
 -- The balloon on the gear, the first time this window is opened. **It names what is behind the
 -- gear rather than saying "settings are here"**: the gear already says that much, and what the
 -- reader cannot see is that the things under it are ones they have to set before Debind behaves
 -- the way they expect. Three of the four sections are named in the reader's own words, from the
 -- headings they will find there.
 L["SETTINGS_TIP"] = "Cast Options, Unit Frame Support and Keys Given Back are set here."
+-- The section on when a key Debind holds goes to whatever else is bound to it.
 L["GIVE_BACK_KEYS"] = "Keys Given Back"
-L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or the like has replaced your action bar, the keys bound to that bar's action buttons go back to the game. Your own actions on those keys come back when the bar does."
-L["GIVE_BACK_ONLY_WITH_ACTION"] = "Filled buttons only"
-L["GIVE_BACK_ONLY_WITH_ACTION_DESC"] = "A key goes back only where the replaced bar actually has an action. Empty buttons keep doing what you bound them to."
--- **The client's own name for the thing** (`MAP_LEGEND_PETBATTLE`), so every language gets it for
--- free. Assigned here only; translating it again could disagree with the game inside one window.
-L["GIVE_BACK_PET_BATTLE"] = MAP_LEGEND_PETBATTLE
-L["GIVE_BACK_PET_BATTLE_DESC"] = "During a pet battle, the keys bound to action buttons 1 to 5 go back to the game. There is no other way to reach a pet battle ability from a key."
--- **Not taken from the client**, which has no bare name for it: every string it has is a sentence
--- around one (`Exit House Editor`).
-L["GIVE_BACK_HOUSE_EDITOR"] = "House Editor"
-L["GIVE_BACK_HOUSE_EDITOR_DESC"] = "The House Editor claims some keys for itself while it is open. Ticked, Debind steps aside on the keys it claims and keeps every other one."
+-- **The values are what the press comes to, not the names of the two actions that do the same for
+-- one key** (Give Key Back, Nothing). With those names a reader takes the row for a list of actions
+-- (owner, 2026-10-07).
+L["GIVE_BACK_NO_ACTION_RUNS"] = "When no action runs"
+L["GIVE_BACK_NO_ACTION_RUNS_DESC"] = "What a key with Debind actions on it does at a press where none of them runs."
+L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key is given back"
+L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK_DESC"] = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none."
+L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press does nothing"
+L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever else is bound to the key."
+-- **One dropdown over two situations that do not depend on each other**, the way the client's Self
+-- Cast row spreads None / Auto / Key Press / Auto and Key Press: two checkboxes nested under a
+-- heading could hold combinations that mean nothing. **The order is a / b / a and b / never**, the
+-- client's, not the default first (owner, 2026-10-07).
+--
+-- **The tooltips name no kind of bar** (override, vehicle): a reader does not know them. Forms and
+-- skyriding are said to be out because "or the like" read as covering them.
+L["GIVE_BACK_ACTION_BUTTON_KEYS"] = "Action Button keys"
+L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"] = "When the keys bound to WoW's action buttons are given back."
+L["GIVE_BACK_REPLACED_BARS"] = "Replaced bars"
+L["GIVE_BACK_REPLACED_BARS_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included."
+L["GIVE_BACK_PET_BATTLES"] = "Pet battles"
+L["GIVE_BACK_PET_BATTLES_DESC"] = "During a pet battle: the keys bound to Action Buttons 1 to 5."
+L["GIVE_BACK_REPLACED_BARS_AND_PET_BATTLES"] = "Replaced bars and pet battles"
+-- **Not the client's `NEVER`**, which koKR renders as "do not show".
+L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"] = "Never"
+L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] = "Debind keeps these keys, and the actions on them run as usual."
+L["GIVE_BACK_HOUSE_EDITOR_KEYS"] = "House Editor keys"
+L["GIVE_BACK_HOUSE_EDITOR_KEYS_DESC"] = "While the House Editor is open, the keys it uses are given back."
 -- **There is no "only the first key" row, and there cannot be one** (2026-09-18, measured). The
 -- client does not keep the two slots of a command in the order the keybinding screen showed: bind
 -- a key in the first slot, reload, bind another in the second, reload, and the first slot is now
