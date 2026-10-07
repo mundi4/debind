@@ -58,9 +58,12 @@
   - **`ROLES_NONE_ON_GROUP_FRAMES`는 KEEP으로 남는다** (소유자). 역할은 파티·공격대 개체창에서만 재니, 다른 개체창
     종류에서는 액션이 그대로 돈다. "sometimes"가 이 코드다.
 - **설정 섹션 드롭다운 값은 클라이언트 드롭다운처럼 낱말마다 대문자다** (소유자, "Quest Objectives and Mouseover"를
-  보이며): Key Is Given Back / Press Does Nothing, Replaced Bars / Pet Battles / Replaced Bars and Pet Battles /
-  Never. "Pet Battles"는 클라이언트 문자열 `SHOW_PET_BATTLES_ON_MAP_TEXT`다. 머리글은 기존 `GIVE_BACK_KEYS`
+  보이며): Key Is Given Back / Press Does Nothing, Replaced Action Bar / Pet Battles / Replaced Action Bar and Pet
+  Battles / Never. "Pet Battles"는 클라이언트 문자열 `SHOW_PET_BATTLES_ON_MAP_TEXT`다. 머리글은 기존 `GIVE_BACK_KEYS`
   ("Keys Given Back")다. 도움말 세션이 이 값을 인용하므로 바꾸면 그쪽에 알린다.
+  - **"Replaced Bars"가 아니라 "Replaced Action Bar"다** (소유자, 2026-10-08). 조건 목록이 같은 상태를
+    `CONDITION_SPECIALBAR`("Replaced Action Bar")로 부르고, 두 곳은 같은 매크로 조건 낱말로 같은 상태를 읽는다
+    (`GIVE_BACK_REPLACED_BAR`). 이름이 둘이면 독자는 같은 것인 줄 모른다.
 - **ESC는 키로 남기지 않는다.** 키 지정 창이 받지 않으니, 있다면 옛 프로필이나 손으로 고친 문자열이다. 프로필을 읽을 때
   (`CleanUpDB`)와 가져올 때(`BringPayloadDataForward`, 미리보기도 같은 값을 보게) 키를 비우고, `BuildKeyMap`도 ESC를 키
   없는 것으로 읽는다(다른 길로 들어온 것에 대한 가드). 액션은 키 없이 남는다. 그래서 게임 메뉴 키 이슈와 결과 등급

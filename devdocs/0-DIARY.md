@@ -9204,6 +9204,12 @@ CTRL을 먼저 놓는 경우를 하나씩 물으며, 조합 키로 들어온 누
 `.zzz/refactor-candidates.md`가 아니라 `devdocs/working/`에 새 문서(`need-fixing.md`)로 적고, 거기 둔다. 그리고 내가 낸 "남은 것을
 한 커밋으로 끝내고 G6으로 간다"를 *"그렇게 해"*로 받았다. 갈린 자리는 없다. 내가 범위를 스스로 넓혔고, 소유자가 질문으로 멈추게 했다.
 
+## "Replaced Bars"가 "Replaced Action Bar"로 - 2026-10-08 Opus 5.5
+
+G6의 설정 배선 리뷰가 짚었다. 1-1절이 정한 값 "Replaced Bars"는 조건 목록이 같은 상태에 붙인 이름 "Replaced Action
+Bar"(`CONDITION_SPECIALBAR`)와 다르고, 옛 행은 바로 그 이유로 조건 이름을 그대로 썼다. 그 주석을 지운 것은 나다. 두 규칙(이름 하나와
+1-1의 결정)이 부딪혀서 나는 정하지 않고 물었다. 소유자: *"Replaced Action Bar로 하자"*. 1-1절의 값이 바뀌었다. 갈린 자리는 없다.
+
 ## 개체창 전이를 셈한 날 - 2026-10-08 Opus 5.5
 
 다른 세션이 다시 쓴 `measuring-only-what-the-judging-walk-reaches.md`를 검토했다. 검토에서 판정을 생성 코드로 굽는 안(R5)을
