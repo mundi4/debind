@@ -116,6 +116,10 @@ DelegateFrameNames[frame] = frame:GetName()
 	ClickTimeTiers = newtable()
 
 
+	CastKeysOn = false
+
+
+
 
 
 
@@ -492,10 +496,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 			bindings.givenBack = want
 			local row = JudgeByKey[key]
 			local judged = row and row.bundle.want
-			local priority = true
-			if (bindings.priority == false) then
-				priority = false
-			end
+			local priority = bindings.priority ~= false
 			if (want) then
 				self:ClearBinding(key)
 				if (row) then
@@ -739,11 +740,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -752,8 +781,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -1175,11 +1206,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -1188,8 +1247,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -1412,7 +1473,14 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
 	if (not winner or not winner.clickbutton) then
+		if (down) then
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
 		return false
 	end
 
@@ -1835,11 +1903,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -1848,8 +1944,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -2072,7 +2170,14 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
 	if (not winner or not winner.clickbutton) then
+		if (down) then
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
 		return false
 	end
 
@@ -2405,11 +2510,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -2418,8 +2551,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -2885,11 +3020,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -2898,8 +3061,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -3368,11 +3533,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -3381,8 +3574,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -3787,11 +3982,39 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 
+
+
+
+
+
+
+
+
+
+
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	
 
@@ -3800,8 +4023,10 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do

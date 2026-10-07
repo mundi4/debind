@@ -98,6 +98,9 @@ SecureHandlerExecute(BindingDriver, [[
 	-- `ClickTimeTiers` says which tier such a name stands for; the bare key's name is not in it.
 	ClickTimeKeys = newtable()
 	ClickTimeTiers = newtable()
+	-- `self` and `focus` for each cast key a press reads, `false` for none. The rebuild writes it
+	-- whole (`UpdateBindingsMap`).
+	CastKeysOn = false
 
 	-- **Keys given back to the game while something else needs them**
 	-- (`giving-keys-back.md`).
@@ -109,7 +112,8 @@ SecureHandlerExecute(BindingDriver, [[
 	--
 	-- A chord the key made for its self or focus tier gets a small table of its own instead, since
 	-- it shares the list but not the button, and carries `base`, the key it was made from: the
-	-- chord goes over whenever its key does.
+	-- chord goes over whenever its key does. It also carries `priority`, which every write of the
+	-- chord uses; a bare key's list has none and goes on at true.
 	--
 	-- `GiveBack` is the reader's rows, also rewritten whole by the rebuild.
 	BoundKeys = newtable()
@@ -829,10 +833,7 @@ BindingDriver:SetAttribute("UpdateGivenBackKeys", [==[
 			bindings.givenBack = want
 			local row = JudgeByKey[key]
 			local judged = row and row.bundle.want
-			local priority = true
-			if (bindings.priority == false) then
-				priority = false
-			end
+			local priority = bindings.priority ~= false
 			if (want) then
 				self:ClearBinding(key)
 				if (row) then
@@ -913,14 +914,15 @@ local JUDGE_BUNDLES_SNIPPET = [==[
 				local rows = bundle.keys
 				for k = 1, #rows do
 					local row = rows[k]
-					if (row.bound ~= want and not row.slot.givenBack) then
+					local slot = row.slot
+					if (row.bound ~= want and not slot.givenBack) then
 						row.bound = want
 						if (want == "ours") then
-							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+							self:SetBindingClick(slot.priority ~= false, row.key, DefaultClickFrameName, slot.clickButton)
 						elseif (want == "release") then
 							self:ClearBinding(row.key)
 						else
-							self:SetBinding(row.priority, row.key, want)
+							self:SetBinding(slot.priority ~= false, row.key, want)
 						end
 					end
 				end
@@ -1301,22 +1303,50 @@ local EVAL_SNIPPET = [==[
 	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
 	local subset = clickCast and "isClickCast" or "holdsKey"
 
-	-- **The binding the press arrived on picks the tier before any record is read, and only that
-	-- tier is walked** (`implementing-focus-and-self-cast.md` §3-4). Every action has a self and a
-	-- focus twin, so walking the whole key would pass over two records per action on every press
-	-- with nothing held. A tier with no winner ends the press there.
+	-- **The tier is picked before any record is read, and only that tier is walked**
+	-- (`implementing-focus-and-self-cast.md` §3-4). Every action has a self and a focus twin, so
+	-- walking the whole key would pass over two records per action on every press with nothing
+	-- held. A tier with no winner ends the press there.
 	--
-	-- **Not the modifier held at the press.** A key's self and focus chords are bindings of their
-	-- own (`handing-the-rest-of-a-key-to-the-game.md` 2-3), so the client has already picked the
-	-- tier by picking the binding, and `castTier` is the prologue's answer for the name it got. A
-	-- key handed to the game keeps its chords then, which reading the modifier off a press on the
-	-- key itself could never do. A frame click takes no tier: what a modifier does on a frame is
-	-- the frame's own, and nothing here can read it (`which-action-a-key-runs.md` §7).
+	-- **Picked the way an action button picks its target, on whichever edge runs this**
+	-- (`picking-the-cast-tier-like-an-action-button.md` §2): Self Cast Key only where the key has a
+	-- self twin (`checkSelfCast`), then Focus Cast Key. A chord is bound only for a tier with a
+	-- twin, and the client hides the modifiers in the name of the binding a press arrived on, so:
+	--
+	-- - A self chord is self, and reads nothing.
+	-- - A focus chord is focus unless a Self Cast Key shows: held after the press, it shows on the
+	--   release, and an action button casts on you there (measured, §9 F14).
+	-- - The bare key reads both. One that shows with no tier to take it ends the press: the plain
+	--   tier never takes a press with a cast key held (§1-3).
+	--
+	-- Nothing is kept between the edges: the release shows what was held at either one (F7, F8).
+	-- A focus chord with `CastKeysOn` false cannot arrive: chords are bound only while a cast key
+	-- is on, the same rebuild that writes it a table.
+	-- A frame click takes no tier: what a modifier does on a frame is the frame's own, and nothing
+	-- here can read it (`which-action-a-key-runs.md` §7).
 	local castModifier
-	if (clickCast or not castTier) then
+	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE
-	else
+	elseif (castTier == CONSTANTS.CASTMOD_SELF) then
 		castModifier = castTier
+	else
+		castModifier = CONSTANTS.CASTMOD_NONE
+		local castKeysOn = CastKeysOn
+		if (castKeysOn) then
+			local selfHeld = castKeysOn.self and PROBE.IsModifiedClick("SELFCAST")
+			if (selfHeld and bindings.checkSelfCast) then
+				castModifier = CONSTANTS.CASTMOD_SELF
+			elseif (castTier == CONSTANTS.CASTMOD_FOCUS) then
+				castModifier = castTier
+			else
+				local focusHeld = castKeysOn.focus and PROBE.IsModifiedClick("FOCUSCAST")
+				if (focusHeld and bindings.checkFocusCast) then
+					castModifier = CONSTANTS.CASTMOD_FOCUS
+				elseif (selfHeld or focusHeld) then
+					castModifier = false
+				end
+			end
+		end
 	end
 	PROBE.MockState(castModifier)
 
@@ -1325,8 +1355,10 @@ local EVAL_SNIPPET = [==[
 		first, last = 1, bindings.focusFrom - 1
 	elseif (castModifier == CONSTANTS.CASTMOD_FOCUS) then
 		first, last = bindings.focusFrom, bindings.noneFrom - 1
-	else
+	elseif (castModifier) then
 		first, last = bindings.noneFrom, #bindings
+	else
+		first, last = 1, 0
 	end
 
 	for i = first, last do
@@ -1742,7 +1774,14 @@ end, [==[
 	-- **Nothing to fire cancels the click.** The winner is the BLOCK that closes the tier, or
 	-- nothing matched at all (`dropping-the-game-fallback.md` §3). Leaving the name would
 	-- come to the same, since there is no `*type-@<key>`, but only by accident.
+	--
+	-- **A press still forgets what an earlier one held**, as every press does further down: a
+	-- release that never came leaves its spell there, and this press's release would let it go.
 	if (not winner or not winner.clickbutton) then
+		if (down) then
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
 		return false
 	end
 ]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. ACTION_SLOT_SNIPPET .. [==[

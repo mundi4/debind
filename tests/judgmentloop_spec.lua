@@ -238,30 +238,38 @@ return function(DebindPrivate)
         check(IsOurs("ALT-F1"), "B10: ALT-F1 was let go while F1 is ours");
     end);
 
-    -- **A chord goes on at priority false, its key at true** (2-4). Priority decides between two
-    -- owners on one key whatever order they were set in (§6, measured), so another addon's override
-    -- at true wins over the chord even when the loop sets the chord again after it. Asked after the
-    -- rebuild, after a beat that rewrites the chord, and after a key handed to the game comes back.
-    test("the chords are bound at priority false and the keys at true", function()
-        Bind({
-            action({ key = "1", conditions = { combat = true } }),
-            action({ key = "1", type = Constants.GIVEBACK }),
-            action({ key = "F3" }),
-        }, { giveBackOnReplacedBar = true }, { { action = "ACTIONBUTTON1", keys = { "1" } } });
+    -- **A chord goes on at priority false while the game's chords are kept, at true while they are
+    -- not; its key at true** (2-4). Priority decides between two owners on one key whatever order they
+    -- were set in (§6, measured), so another addon's override at true wins over a chord at false even
+    -- when the loop sets the chord again after it. Asked after the rebuild, after a beat that rewrites
+    -- the chord, and after a key handed to the game comes back.
+    test("the chords are bound at one priority the option picks, and the keys at true", function()
         local function Priority(key)
             local entry = interp.bindings[key];
             return entry and entry.priority;
         end
-        check(Priority("F3") == true and Priority("ALT-F3") == false,
-            "after the rebuild F3 " .. tostring(Priority("F3")) .. ", ALT-F3 " .. tostring(Priority("ALT-F3")));
-        interp.state.combat = true;
-        interp:beat();
-        check(Priority("1") == true and Priority("ALT-1") == false,
-            "after a beat 1 " .. tostring(Priority("1")) .. ", ALT-1 " .. tostring(Priority("ALT-1")));
-        interp.driverHandle:SetAttribute("state-giveback", "v");
-        interp.driverHandle:SetAttribute("state-giveback", nil);
-        check(Priority("1") == true and Priority("ALT-1") == false,
-            "after coming back 1 " .. tostring(Priority("1")) .. ", ALT-1 " .. tostring(Priority("ALT-1")));
+        for _, case in ipairs({ { options = {}, chord = false }, { options = { castKeyChordsOverGame = true }, chord = true } }) do
+            local options = case.options;
+            options.giveBackOnReplacedBar = true;
+            Bind({
+                action({ key = "1", conditions = { combat = true } }),
+                action({ key = "1", type = Constants.GIVEBACK }),
+                action({ key = "F3" }),
+            }, options, { { action = "ACTIONBUTTON1", keys = { "1" } } });
+            local label = case.chord and "over the game: " or "under the game: ";
+            check(Priority("F3") == true and Priority("ALT-F3") == case.chord,
+                label .. "after the rebuild F3 " .. tostring(Priority("F3")) .. ", ALT-F3 "
+                .. tostring(Priority("ALT-F3")));
+            interp.state.combat = true;
+            interp:beat();
+            check(Priority("1") == true and Priority("ALT-1") == case.chord,
+                label .. "after a beat 1 " .. tostring(Priority("1")) .. ", ALT-1 " .. tostring(Priority("ALT-1")));
+            interp.driverHandle:SetAttribute("state-giveback", "v");
+            interp.driverHandle:SetAttribute("state-giveback", nil);
+            check(Priority("1") == true and Priority("ALT-1") == case.chord,
+                label .. "after coming back 1 " .. tostring(Priority("1")) .. ", ALT-1 "
+                .. tostring(Priority("ALT-1")));
+        end
     end);
 
     ---------------------------------------------------------------------------

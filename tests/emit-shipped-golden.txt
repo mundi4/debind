@@ -280,6 +280,9 @@ SetAttribute DebindClickButton *macrotext-deb121 =
   | /script C_MountJournal.SummonByID(7)
 Execute <Frame#2>
   | local bindings,t,u,c,b,j,e,w,x
+  | CastKeysOn=newtable()
+  | CastKeysOn.self=true
+  | CastKeysOn.focus=true
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
@@ -322,6 +325,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F1"]=bindings
   | self:SetBindingClick(true,"ALT-F1",DefaultClickFrameName,"@ALT-F1")
@@ -353,6 +357,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F10"]=bindings
   | self:SetBindingClick(true,"ALT-F10",DefaultClickFrameName,"@ALT-F10")
@@ -384,6 +389,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F11"]=bindings
   | self:SetBindingClick(true,"ALT-F11",DefaultClickFrameName,"@ALT-F11")
@@ -431,6 +437,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F2"]=bindings
   | self:SetBindingClick(true,"ALT-F2",DefaultClickFrameName,"@ALT-F2")
@@ -465,6 +472,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F3"]=bindings
   | self:SetBindingClick(true,"ALT-F3",DefaultClickFrameName,"@ALT-F3")
@@ -499,6 +507,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F4"]=bindings
   | self:SetBindingClick(true,"ALT-F4",DefaultClickFrameName,"@ALT-F4")
@@ -539,6 +548,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F5"]=bindings
   | self:SetBindingClick(true,"ALT-F5",DefaultClickFrameName,"@ALT-F5")
@@ -570,6 +580,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F6"]=bindings
   | self:SetBindingClick(true,"ALT-F6",DefaultClickFrameName,"@ALT-F6")
@@ -605,6 +616,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F7"]=bindings
   | self:SetBindingClick(true,"ALT-F7",DefaultClickFrameName,"@ALT-F7")
@@ -680,6 +692,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=4
   | bindings.noneFrom=7
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F8"]=bindings
   | self:SetBindingClick(true,"ALT-F8",DefaultClickFrameName,"@ALT-F8")
@@ -758,6 +771,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=4
   | bindings.noneFrom=7
+  | bindings.checkSelfCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F9"]=bindings
   | self:SetBindingClick(true,"ALT-F9",DefaultClickFrameName,"@ALT-F9")
@@ -795,6 +809,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F1"]=bindings
   | self:SetBindingClick(true,"CTRL-F1",DefaultClickFrameName,"@CTRL-F1")
@@ -841,6 +856,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F10"]=bindings
   | self:SetBindingClick(true,"CTRL-F10",DefaultClickFrameName,"@CTRL-F10")
@@ -887,6 +903,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F11"]=bindings
   | self:SetBindingClick(true,"CTRL-F11",DefaultClickFrameName,"@CTRL-F11")
@@ -922,6 +939,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F12"]=bindings
   | self:SetBindingClick(true,"CTRL-F12",DefaultClickFrameName,"@CTRL-F12")
@@ -959,6 +977,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F2"]=bindings
   | self:SetBindingClick(true,"CTRL-F2",DefaultClickFrameName,"@CTRL-F2")
@@ -996,6 +1015,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F3"]=bindings
   | self:SetBindingClick(true,"CTRL-F3",DefaultClickFrameName,"@CTRL-F3")
@@ -1033,6 +1053,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F4"]=bindings
   | self:SetBindingClick(true,"CTRL-F4",DefaultClickFrameName,"@CTRL-F4")
@@ -1079,6 +1100,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F5"]=bindings
   | self:SetBindingClick(true,"CTRL-F5",DefaultClickFrameName,"@CTRL-F5")
@@ -1116,6 +1138,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F6"]=bindings
   | self:SetBindingClick(true,"CTRL-F6",DefaultClickFrameName,"@CTRL-F6")
@@ -1156,6 +1179,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F7"]=bindings
   | self:SetBindingClick(true,"CTRL-F7",DefaultClickFrameName,"@CTRL-F7")
@@ -1203,6 +1227,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F8"]=bindings
   | self:SetBindingClick(true,"CTRL-F8",DefaultClickFrameName,"@CTRL-F8")
@@ -1250,6 +1275,7 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F9"]=bindings
   | self:SetBindingClick(true,"CTRL-F9",DefaultClickFrameName,"@CTRL-F9")
@@ -1284,6 +1310,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F1"]=bindings
   | self:SetBindingClick(true,"F1",DefaultClickFrameName,"@F1")
@@ -1335,6 +1363,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F11"]=bindings
   | self:SetBindingClick(true,"F11",DefaultClickFrameName,"@F11")
@@ -1366,6 +1396,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F12"]=bindings
   | self:SetBindingClick(true,"F12",DefaultClickFrameName,"@F12")
@@ -1420,6 +1452,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=4
   | bindings.noneFrom=7
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F2"]=bindings
   | self:SetBindingClick(true,"F2",DefaultClickFrameName,"@F2")
@@ -1477,6 +1511,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=4
   | bindings.noneFrom=7
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F3"]=bindings
   | self:SetBindingClick(true,"F3",DefaultClickFrameName,"@F3")
@@ -1508,6 +1544,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F4"]=bindings
   | self:SetBindingClick(true,"F4",DefaultClickFrameName,"@F4")
@@ -1539,6 +1577,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F5"]=bindings
   | self:SetBindingClick(true,"F5",DefaultClickFrameName,"@F5")
@@ -1570,6 +1610,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F6"]=bindings
   | self:SetBindingClick(true,"F6",DefaultClickFrameName,"@F6")
@@ -1601,6 +1643,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F7"]=bindings
   | self:SetBindingClick(true,"F7",DefaultClickFrameName,"@F7")
@@ -1633,6 +1677,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F8"]=bindings
   | self:SetBindingClick(true,"F8",DefaultClickFrameName,"@F8")
@@ -1665,6 +1711,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F9"]=bindings
   | self:SetBindingClick(true,"F9",DefaultClickFrameName,"@F9")
@@ -1710,6 +1758,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | ClickCastKeys[2]=ClickCastKeys[2] or newtable()
   | ClickCastKeys[2][4]=bindings
   | bindings.hasKeyRecord=true
@@ -1743,6 +1793,8 @@ Execute <Frame#2>
   | t.holdsKey=true
   | bindings.focusFrom=3
   | bindings.noneFrom=5
+  | bindings.checkSelfCast=true
+  | bindings.checkFocusCast=true
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@SHIFT-F12"]=bindings
   | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
@@ -1899,7 +1951,7 @@ Execute <Frame#2>
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=27 e[2]=6
   | tinsert(JudgeStaged[28],b)
-  | j=newtable() j.key="ALT-F1" j.slot=BoundKeys["ALT-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[1] j.priority=true JudgeByKey["ALT-F1"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-F1" j.slot=BoundKeys["ALT-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[1] JudgeByKey["ALT-F1"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[2]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
@@ -1907,13 +1959,13 @@ Execute <Frame#2>
   | e[3]=27 e[4]=126
   | tinsert(JudgeStaged[10],b)
   | tinsert(JudgeStaged[28],b)
-  | j=newtable() j.key="ALT-F2" j.slot=BoundKeys["ALT-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[2] j.priority=true JudgeByKey["ALT-F2"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-F2" j.slot=BoundKeys["ALT-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[2] JudgeByKey["ALT-F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[3]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=3 e[2]=1
   | tinsert(JudgeStaged[4],b)
-  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[3] j.priority=true JudgeByKey["ALT-F5"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[3] JudgeByKey["ALT-F5"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[4]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
@@ -1924,7 +1976,7 @@ Execute <Frame#2>
   | tinsert(JudgeStaged[4],b)
   | tinsert(JudgeStaged[26],b)
   | tinsert(JudgeStaged[32],b)
-  | j=newtable() j.key="ALT-F8" j.slot=BoundKeys["ALT-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[4] j.priority=true JudgeByKey["ALT-F8"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-F8" j.slot=BoundKeys["ALT-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[4] JudgeByKey["ALT-F8"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[5]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
@@ -1935,77 +1987,77 @@ Execute <Frame#2>
   | tinsert(JudgeStaged[4],b)
   | tinsert(JudgeStaged[22],b)
   | tinsert(JudgeStaged[30],b)
-  | j=newtable() j.key="ALT-F9" j.slot=BoundKeys["ALT-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[5] j.priority=true JudgeByKey["ALT-F9"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-F9" j.slot=BoundKeys["ALT-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[5] JudgeByKey["ALT-F9"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[6]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=7 e[2]=3
   | tinsert(JudgeStaged[8],b)
-  | j=newtable() j.key="CTRL-F1" j.slot=BoundKeys["CTRL-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[6] j.priority=true JudgeByKey["CTRL-F1"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F1" j.slot=BoundKeys["CTRL-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[6] JudgeByKey["CTRL-F1"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[7]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=21 e[2]=24
   | tinsert(JudgeStaged[22],b)
-  | j=newtable() j.key="CTRL-F10" j.slot=BoundKeys["CTRL-F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[7] j.priority=true JudgeByKey["CTRL-F10"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F10" j.slot=BoundKeys["CTRL-F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[7] JudgeByKey["CTRL-F10"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[8]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=23 e[2]=1
   | tinsert(JudgeStaged[24],b)
-  | j=newtable() j.key="CTRL-F11" j.slot=BoundKeys["CTRL-F11"] j.bound="ours" j.bundle=JudgeStaged.bundles[8] j.priority=true JudgeByKey["CTRL-F11"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F11" j.slot=BoundKeys["CTRL-F11"] j.bound="ours" j.bundle=JudgeStaged.bundles[8] JudgeByKey["CTRL-F11"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[9]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=1 e[2]=5
   | tinsert(JudgeStaged[2],b)
-  | j=newtable() j.key="CTRL-F2" j.slot=BoundKeys["CTRL-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[9] j.priority=true JudgeByKey["CTRL-F2"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F2" j.slot=BoundKeys["CTRL-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[9] JudgeByKey["CTRL-F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[10]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=15 e[2]=1
   | tinsert(JudgeStaged[16],b)
-  | j=newtable() j.key="CTRL-F3" j.slot=BoundKeys["CTRL-F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[10] j.priority=true JudgeByKey["CTRL-F3"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F3" j.slot=BoundKeys["CTRL-F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[10] JudgeByKey["CTRL-F3"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[11]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=5 e[2]=1
   | tinsert(JudgeStaged[6],b)
-  | j=newtable() j.key="CTRL-F4" j.slot=BoundKeys["CTRL-F4"] j.bound="ours" j.bundle=JudgeStaged.bundles[11] j.priority=true JudgeByKey["CTRL-F4"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F4" j.slot=BoundKeys["CTRL-F4"] j.bound="ours" j.bundle=JudgeStaged.bundles[11] JudgeByKey["CTRL-F4"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[12]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=23 e[2]=126
   | tinsert(JudgeStaged[24],b)
-  | j=newtable() j.key="CTRL-F5" j.slot=BoundKeys["CTRL-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[12] j.priority=true JudgeByKey["CTRL-F5"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F5" j.slot=BoundKeys["CTRL-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[12] JudgeByKey["CTRL-F5"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[13]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=11 e[2]=1
   | tinsert(JudgeStaged[12],b)
-  | j=newtable() j.key="CTRL-F6" j.slot=BoundKeys["CTRL-F6"] j.bound="ours" j.bundle=JudgeStaged.bundles[13] j.priority=true JudgeByKey["CTRL-F6"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F6" j.slot=BoundKeys["CTRL-F6"] j.bound="ours" j.bundle=JudgeStaged.bundles[13] JudgeByKey["CTRL-F6"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[14]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=19 e[2]=1
   | tinsert(JudgeStaged[20],b)
-  | j=newtable() j.key="CTRL-F7" j.slot=BoundKeys["CTRL-F7"] j.bound="ours" j.bundle=JudgeStaged.bundles[14] j.priority=true JudgeByKey["CTRL-F7"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F7" j.slot=BoundKeys["CTRL-F7"] j.bound="ours" j.bundle=JudgeStaged.bundles[14] JudgeByKey["CTRL-F7"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[15]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=25 e[2]=6
   | tinsert(JudgeStaged[26],b)
-  | j=newtable() j.key="CTRL-F8" j.slot=BoundKeys["CTRL-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[15] j.priority=true JudgeByKey["CTRL-F8"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F8" j.slot=BoundKeys["CTRL-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[15] JudgeByKey["CTRL-F8"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[16]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=25 e[2]=34
   | tinsert(JudgeStaged[26],b)
-  | j=newtable() j.key="CTRL-F9" j.slot=BoundKeys["CTRL-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[16] j.priority=true JudgeByKey["CTRL-F9"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="CTRL-F9" j.slot=BoundKeys["CTRL-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[16] JudgeByKey["CTRL-F9"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[17]=b
   | b.restOutcome="command"
   | b.restCommand="TOGGLEWORLDMAP"
-  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[17] j.priority=true JudgeByKey["F10"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="F10" j.slot=BoundKeys["F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[17] JudgeByKey["F10"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[18]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
@@ -2014,7 +2066,7 @@ Execute <Frame#2>
   | e[1]=17 e[2]=1
   | tinsert(JudgeStaged[4],b)
   | tinsert(JudgeStaged[18],b)
-  | j=newtable() j.key="F2" j.slot=BoundKeys["F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[18] j.priority=true JudgeByKey["F2"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="F2" j.slot=BoundKeys["F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[18] JudgeByKey["F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[19]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
@@ -2022,84 +2074,84 @@ Execute <Frame#2>
   | e=newtable() e.outcome="ours" b[2]=e
   | e[1]=13 e[2]=2
   | tinsert(JudgeStaged[14],b)
-  | j=newtable() j.key="F3" j.slot=BoundKeys["F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[19] j.priority=true JudgeByKey["F3"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="F3" j.slot=BoundKeys["F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[19] JudgeByKey["F3"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[20]=b
   | b.base=JudgeStaged.bundles[6]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=7 e[2]=3
   | tinsert(JudgeStaged[8],b)
-  | j=newtable() j.key="ALT-CTRL-F1" j.slot=BoundKeys["ALT-CTRL-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[20] j.priority=false JudgeByKey["ALT-CTRL-F1"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F1" j.slot=BoundKeys["ALT-CTRL-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[20] JudgeByKey["ALT-CTRL-F1"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[21]=b
   | b.base=JudgeStaged.bundles[7]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=21 e[2]=24
   | tinsert(JudgeStaged[22],b)
-  | j=newtable() j.key="ALT-CTRL-F10" j.slot=BoundKeys["ALT-CTRL-F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[21] j.priority=false JudgeByKey["ALT-CTRL-F10"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F10" j.slot=BoundKeys["ALT-CTRL-F10"] j.bound="ours" j.bundle=JudgeStaged.bundles[21] JudgeByKey["ALT-CTRL-F10"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[22]=b
   | b.base=JudgeStaged.bundles[8]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=23 e[2]=1
   | tinsert(JudgeStaged[24],b)
-  | j=newtable() j.key="ALT-CTRL-F11" j.slot=BoundKeys["ALT-CTRL-F11"] j.bound="ours" j.bundle=JudgeStaged.bundles[22] j.priority=false JudgeByKey["ALT-CTRL-F11"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F11" j.slot=BoundKeys["ALT-CTRL-F11"] j.bound="ours" j.bundle=JudgeStaged.bundles[22] JudgeByKey["ALT-CTRL-F11"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[23]=b
   | b.base=JudgeStaged.bundles[9]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=1 e[2]=5
   | tinsert(JudgeStaged[2],b)
-  | j=newtable() j.key="ALT-CTRL-F2" j.slot=BoundKeys["ALT-CTRL-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[23] j.priority=false JudgeByKey["ALT-CTRL-F2"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F2" j.slot=BoundKeys["ALT-CTRL-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[23] JudgeByKey["ALT-CTRL-F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[24]=b
   | b.base=JudgeStaged.bundles[10]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=15 e[2]=1
   | tinsert(JudgeStaged[16],b)
-  | j=newtable() j.key="ALT-CTRL-F3" j.slot=BoundKeys["ALT-CTRL-F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[24] j.priority=false JudgeByKey["ALT-CTRL-F3"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F3" j.slot=BoundKeys["ALT-CTRL-F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[24] JudgeByKey["ALT-CTRL-F3"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[25]=b
   | b.base=JudgeStaged.bundles[11]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=5 e[2]=1
   | tinsert(JudgeStaged[6],b)
-  | j=newtable() j.key="ALT-CTRL-F4" j.slot=BoundKeys["ALT-CTRL-F4"] j.bound="ours" j.bundle=JudgeStaged.bundles[25] j.priority=false JudgeByKey["ALT-CTRL-F4"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F4" j.slot=BoundKeys["ALT-CTRL-F4"] j.bound="ours" j.bundle=JudgeStaged.bundles[25] JudgeByKey["ALT-CTRL-F4"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[26]=b
   | b.base=JudgeStaged.bundles[12]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=23 e[2]=126
   | tinsert(JudgeStaged[24],b)
-  | j=newtable() j.key="ALT-CTRL-F5" j.slot=BoundKeys["ALT-CTRL-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[26] j.priority=false JudgeByKey["ALT-CTRL-F5"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F5" j.slot=BoundKeys["ALT-CTRL-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[26] JudgeByKey["ALT-CTRL-F5"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[27]=b
   | b.base=JudgeStaged.bundles[13]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=11 e[2]=1
   | tinsert(JudgeStaged[12],b)
-  | j=newtable() j.key="ALT-CTRL-F6" j.slot=BoundKeys["ALT-CTRL-F6"] j.bound="ours" j.bundle=JudgeStaged.bundles[27] j.priority=false JudgeByKey["ALT-CTRL-F6"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F6" j.slot=BoundKeys["ALT-CTRL-F6"] j.bound="ours" j.bundle=JudgeStaged.bundles[27] JudgeByKey["ALT-CTRL-F6"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[28]=b
   | b.base=JudgeStaged.bundles[14]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=19 e[2]=1
   | tinsert(JudgeStaged[20],b)
-  | j=newtable() j.key="ALT-CTRL-F7" j.slot=BoundKeys["ALT-CTRL-F7"] j.bound="ours" j.bundle=JudgeStaged.bundles[28] j.priority=false JudgeByKey["ALT-CTRL-F7"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F7" j.slot=BoundKeys["ALT-CTRL-F7"] j.bound="ours" j.bundle=JudgeStaged.bundles[28] JudgeByKey["ALT-CTRL-F7"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[29]=b
   | b.base=JudgeStaged.bundles[15]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=25 e[2]=6
   | tinsert(JudgeStaged[26],b)
-  | j=newtable() j.key="ALT-CTRL-F8" j.slot=BoundKeys["ALT-CTRL-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[29] j.priority=false JudgeByKey["ALT-CTRL-F8"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F8" j.slot=BoundKeys["ALT-CTRL-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[29] JudgeByKey["ALT-CTRL-F8"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[30]=b
   | b.base=JudgeStaged.bundles[16]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
   | e[1]=25 e[2]=34
   | tinsert(JudgeStaged[26],b)
-  | j=newtable() j.key="ALT-CTRL-F9" j.slot=BoundKeys["ALT-CTRL-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[30] j.priority=false JudgeByKey["ALT-CTRL-F9"]=j tinsert(j.bundle.keys,j)
+  | j=newtable() j.key="ALT-CTRL-F9" j.slot=BoundKeys["ALT-CTRL-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[30] JudgeByKey["ALT-CTRL-F9"]=j tinsert(j.bundle.keys,j)
   | JudgeWakes["$burst"]="judge-$burst"
   | JudgeWakes["petbattle"]="judge-petbattle"
   | JudgeWakes["unitframe"]="judge-unitframe"
@@ -2215,14 +2267,15 @@ SetAttribute <Frame#2> judge-$burst =
   | 				local rows = bundle.keys
   | 				for k = 1, #rows do
   | 					local row = rows[k]
-  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 					local slot = row.slot
+  | 					if (row.bound ~= want and not slot.givenBack) then
   | 						row.bound = want
   | 						if (want == "ours") then
-  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 							self:SetBindingClick(slot.priority ~= false, row.key, DefaultClickFrameName, slot.clickButton)
   | 						elseif (want == "release") then
   | 							self:ClearBinding(row.key)
   | 						else
-  | 							self:SetBinding(row.priority, row.key, want)
+  | 							self:SetBinding(slot.priority ~= false, row.key, want)
   | 						end
   | 					end
   | 				end
@@ -2331,14 +2384,15 @@ SetAttribute <Frame#2> judge-petbattle =
   | 				local rows = bundle.keys
   | 				for k = 1, #rows do
   | 					local row = rows[k]
-  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 					local slot = row.slot
+  | 					if (row.bound ~= want and not slot.givenBack) then
   | 						row.bound = want
   | 						if (want == "ours") then
-  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 							self:SetBindingClick(slot.priority ~= false, row.key, DefaultClickFrameName, slot.clickButton)
   | 						elseif (want == "release") then
   | 							self:ClearBinding(row.key)
   | 						else
-  | 							self:SetBinding(row.priority, row.key, want)
+  | 							self:SetBinding(slot.priority ~= false, row.key, want)
   | 						end
   | 					end
   | 				end
@@ -2511,14 +2565,15 @@ SetAttribute <Frame#2> judge-unitframe =
   | 				local rows = bundle.keys
   | 				for k = 1, #rows do
   | 					local row = rows[k]
-  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 					local slot = row.slot
+  | 					if (row.bound ~= want and not slot.givenBack) then
   | 						row.bound = want
   | 						if (want == "ours") then
-  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 							self:SetBindingClick(slot.priority ~= false, row.key, DefaultClickFrameName, slot.clickButton)
   | 						elseif (want == "release") then
   | 							self:ClearBinding(row.key)
   | 						else
-  | 							self:SetBinding(row.priority, row.key, want)
+  | 							self:SetBinding(slot.priority ~= false, row.key, want)
   | 						end
   | 					end
   | 				end
@@ -2777,14 +2832,15 @@ SetAttribute <Frame#2> JudgePass =
   | 				local rows = bundle.keys
   | 				for k = 1, #rows do
   | 					local row = rows[k]
-  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 					local slot = row.slot
+  | 					if (row.bound ~= want and not slot.givenBack) then
   | 						row.bound = want
   | 						if (want == "ours") then
-  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 							self:SetBindingClick(slot.priority ~= false, row.key, DefaultClickFrameName, slot.clickButton)
   | 						elseif (want == "release") then
   | 							self:ClearBinding(row.key)
   | 						else
-  | 							self:SetBinding(row.priority, row.key, want)
+  | 							self:SetBinding(slot.priority ~= false, row.key, want)
   | 						end
   | 					end
   | 				end
@@ -3483,14 +3539,15 @@ SetAttribute <Frame#2> _onattributechanged =
   | 				local rows = bundle.keys
   | 				for k = 1, #rows do
   | 					local row = rows[k]
-  | 					if (row.bound ~= want and not row.slot.givenBack) then
+  | 					local slot = row.slot
+  | 					if (row.bound ~= want and not slot.givenBack) then
   | 						row.bound = want
   | 						if (want == "ours") then
-  | 							self:SetBindingClick(row.priority, row.key, DefaultClickFrameName, row.slot.clickButton)
+  | 							self:SetBindingClick(slot.priority ~= false, row.key, DefaultClickFrameName, slot.clickButton)
   | 						elseif (want == "release") then
   | 							self:ClearBinding(row.key)
   | 						else
-  | 							self:SetBinding(row.priority, row.key, want)
+  | 							self:SetBinding(slot.priority ~= false, row.key, want)
   | 						end
   | 					end
   | 				end

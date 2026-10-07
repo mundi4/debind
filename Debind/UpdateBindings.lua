@@ -2692,36 +2692,46 @@ function DebindPrivate.ChordsYieldToGame()
     return DebindPrivate.Options.castKeyChordsOverGame ~= true;
 end
 
---- **The chords a bound key takes for its self and focus tiers**, as `chord -> tier`.
+--- **The chords a bound key takes for its self and focus tiers**, as `chord -> tier`
+--- (`picking-the-cast-tier-like-an-action-button.md` §3).
 ---
---- Taken exactly where a press used to fall to the key and read the modifier off the press: on a
---- chord that, with only the bare keys bound, lands on this key. A chord that lands elsewhere --
---- the game's own binding, another of our keys, a chord of one -- went there before and still does.
---- The tier is the one the press used to pick: the self modifier among the ones held on top wins
---- over the focus one (`implementing-focus-and-self-cast.md` §3-3).
-local _castChords3, _ownMods = {}, {};
+--- **Only for a tier with a twin** (`hasSelf`, `hasFocus`). A chord left unbound is the client's:
+--- it lands on whatever else holds it, or falls to the key, whose press then reads the cast keys
+--- itself (`EVAL_SNIPPET`). So the self and both-held chords go with a self twin, and the focus one
+--- with a focus twin. With both cast keys on one modifier that one chord is self's where the key
+--- has a self twin and focus's otherwise, or a key no action uses the Self Cast Key on could never
+--- reach its focus twins.
+---
+--- Taken exactly where a press used to fall to the key: on a chord that, with only the bare keys
+--- bound, lands on this key. A chord that lands elsewhere -- the game's own binding, another of our
+--- keys, a chord of one -- went there before and still does.
+---
+--- **Every chord made is a candidate, bound or not**: one left to fall is on the way another one
+--- falls, and an override put on it moves where that one lands.
+local _castChords3, _castTiers3 = {}, {};
 
-local function CastChordsOf(key, ours, selfMod, focusMod, yield, out)
+local function CastChordsOf(key, ours, selfMod, focusMod, hasSelf, hasFocus, yield, out)
     wipe(out);
+    local SELF, FOCUS = Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS;
     local selfChord = selfMod and AddModifier(key, selfMod);
-    local chords = _castChords3;
-    chords[1] = selfChord;
-    chords[2] = focusMod and AddModifier(key, focusMod);
-    chords[3] = selfChord and focusMod and AddModifier(selfChord, focusMod);
+    local chords, tiers = _castChords3, _castTiers3;
+    chords[1], tiers[1] = selfChord, hasSelf and SELF or nil;
+    chords[2], tiers[2] = focusMod and AddModifier(key, focusMod), hasFocus and FOCUS or nil;
+    chords[3], tiers[3] = selfChord and focusMod and AddModifier(selfChord, focusMod), hasSelf and SELF or nil;
+    if (selfMod and selfMod == focusMod) then
+        tiers[1] = tiers[1] or tiers[2];
+        chords[2] = nil;
+    end
     for i = 1, 3 do
-        local chord = chords[i];
+        local chord, tier = chords[i], tiers[i];
         if (chord) then
             _chordCandidates[chord] = true;
-            local landing = LandingOf(chord, ours, yield);
-            if (landing == false) then
-                _chordsYielded = true;
-            elseif (landing == key) then
-                SplitChord(chord, _chordMods);
-                SplitChord(key, _ownMods);
-                if (selfMod and _chordMods[selfMod] and not _ownMods[selfMod]) then
-                    out[chord] = Constants.CASTMOD_SELF;
-                elseif (focusMod and _chordMods[focusMod] and not _ownMods[focusMod]) then
-                    out[chord] = Constants.CASTMOD_FOCUS;
+            if (tier) then
+                local landing = LandingOf(chord, ours, yield);
+                if (landing == false) then
+                    _chordsYielded = true;
+                elseif (landing == key) then
+                    out[chord] = tier;
                 end
             end
         end
@@ -2742,9 +2752,17 @@ local function CastModifier(enabled, action)
     return nil;
 end
 
+--- The modifiers of the Self Cast Key and the Focus Cast Key a press reads, each nil where it is
+--- off (`CastModifier`).
+function DebindPrivate.CastKeyModifiers()
+    return CastModifier(DebindPrivate.SelfCastEnabled(), "SELFCAST"),
+        CastModifier(DebindPrivate.FocusCastEnabled(), "FOCUSCAST");
+end
+
 local _boundBare = {};
 local _castChords = {};
 local _tierItems = {};
+local _hasSelfTwin, _hasFocusTwin = {}, {};
 
 --- **Each key some state lets go of or binds elsewhere, and each chord made from one, by its binding
 --- string -> its judgment item** (`Judgment.lua`). That is a key holding a tail, or with
@@ -3290,10 +3308,8 @@ local function EmitJudgmentItems(items)
             end
         end
         keyBundle[key] = n;
-        -- A chord's row writes at the priority its chord went on at.
         appendLine([[j=newtable() j.key=%1$q j.slot=BoundKeys[%1$q] j.bound="ours" j.bundle=JudgeStaged.bundles[%2$d] ]]
-            .. [[j.priority=%3$s JudgeByKey[%1$q]=j tinsert(j.bundle.keys,j)]], key, n,
-            tostring(item.base == nil));
+            .. [[JudgeByKey[%1$q]=j tinsert(j.bundle.keys,j)]], key, n);
     end
 
     for _, wake in ipairs(sortedKeys(wakes, {})) do
@@ -4528,11 +4544,29 @@ end
 function UpdateBindingsMap()
     appendLine("local bindings,t,u,c,b,j,e,w,x");
 
+    -- **The cast keys a press reads**, settled here so a press does not ask the client about one
+    -- turned off or on `NONE`. Like the chords, it holds until the next rebuild, which a cast key
+    -- moved in combat waits for.
+    local selfMod, focusMod = DebindPrivate.CastKeyModifiers();
+    if (selfMod or focusMod) then
+        appendLine("CastKeysOn=newtable()");
+        if (selfMod) then
+            appendLine("CastKeysOn.self=true");
+        end
+        if (focusMod) then
+            appendLine("CastKeysOn.focus=true");
+        end
+    else
+        appendLine("CastKeysOn=false");
+    end
+
     local keyMap, keysToHold = DebindPrivate.KeyMap, DebindPrivate.KeysToHold;
     local judgmentItems = DebindPrivate.JudgmentItems;
     wipe(judgmentItems);
     wipe(_chordEntries);
     wipe(_boundBare);
+    wipe(_hasSelfTwin);
+    wipe(_hasFocusTwin);
     wipe(_keysToWalk);
     for key in pairs(keyMap) do
         _keysToWalk[key] = true;
@@ -4560,6 +4594,7 @@ function UpdateBindingsMap()
 
         local first = true;
         local selfCount, focusCount = 0, 0;
+        local selfTwins, focusTwins = 0, 0;
         -- The records a press on this key or one of its chords walks, by tier.
         local tiers = {
             [Constants.CASTMOD_NONE] = {}, [Constants.CASTMOD_SELF] = {}, [Constants.CASTMOD_FOCUS] = {},
@@ -4587,6 +4622,13 @@ function UpdateBindingsMap()
                             local tier = binding.castModifier or Constants.CASTMOD_NONE;
                             local list = tiers[tier];
                             list[#list + 1] = JudgmentEntryFor(binding, record, tier);
+                            if (binding ~= BLOCKS[tier]) then
+                                if (tier == Constants.CASTMOD_SELF) then
+                                    selfTwins = selfTwins + 1;
+                                elseif (tier == Constants.CASTMOD_FOCUS) then
+                                    focusTwins = focusTwins + 1;
+                                end
+                            end
                         end
                         if (binding.castModifier == Constants.CASTMOD_SELF) then
                             selfCount = selfCount + 1;
@@ -4612,6 +4654,19 @@ function UpdateBindingsMap()
         if (not first) then
             appendLine("bindings.focusFrom=%d", selfCount + 1);
             appendLine("bindings.noneFrom=%d", selfCount + focusCount + 1);
+        end
+
+        -- **Which cast keys a press on the key itself reads**, named after the action button
+        -- attributes that mean the same: a key with no self twin is a button with `checkselfcast`
+        -- off (`picking-the-cast-tier-like-an-action-button.md` §1-4). Not where the key's own
+        -- name holds the modifier: the client hides it on every press of the key.
+        if (hasKeyRecord and not first) then
+            if (selfMod and selfTwins > 0 and AddModifier(key, selfMod)) then
+                appendLine("bindings.checkSelfCast=true");
+            end
+            if (focusMod and focusTwins > 0 and AddModifier(key, focusMod)) then
+                appendLine("bindings.checkFocusCast=true");
+            end
         end
 
         if (hasClickCast) then
@@ -4648,6 +4703,8 @@ function UpdateBindingsMap()
             appendLine("BoundKeys[%q]=bindings", key);
             appendLine("bindings.clickButton=%q", clickTimeButton);
             _boundBare[key] = true;
+            _hasSelfTwin[key] = selfTwins > 0;
+            _hasFocusTwin[key] = focusTwins > 0;
 
             -- **Kept only where some state lets the key go or binds it elsewhere.** Asked of the
             -- item rather than of the key's last action: an action with no conditions still runs on
@@ -4681,14 +4738,18 @@ function UpdateBindingsMap()
 
     -- **The self and focus tiers get chords of their own** (`handing-the-rest-of-a-key-to-the-game.md`
     -- 2-3). After the loop, because where a chord lands depends on every bare key being known.
-    local selfMod = CastModifier(DebindPrivate.SelfCastEnabled(), "SELFCAST");
-    local focusMod = CastModifier(DebindPrivate.FocusCastEnabled(), "FOCUSCAST");
     wipe(_chordCandidates);
     _chordsYielded = false;
     if (selfMod or focusMod) then
         local yield = DebindPrivate.ChordsYieldToGame();
+        -- **One value for every write of a chord**: this, the loop and a key coming back all read
+        -- it off the chord's `BoundKeys` row. Yielding to the game, a chord gives way to another
+        -- addon's override too, since priority decides between two owners on one key whatever order
+        -- they were set in (§6, measured). Not yielding, it takes the key from one at false.
+        local priority = not yield;
         for _, key in ipairs(sortedKeys(_boundBare, _sortedA)) do
-            CastChordsOf(key, _boundBare, selfMod, focusMod, yield, _castChords);
+            CastChordsOf(key, _boundBare, selfMod, focusMod, _hasSelfTwin[key], _hasFocusTwin[key], yield,
+                _castChords);
             local first = true;
             local selfNamed, focusNamed = false, false;
             -- Two chords can land on one tier, and its item is the same for both.
@@ -4717,13 +4778,10 @@ function UpdateBindingsMap()
                         focusNamed = true;
                     end
                 end
-                -- **At priority false**, where the key itself is at true. A chord is ours only because
-                -- a cast key made it, and priority decides between two owners on one key whatever
-                -- order they were set in (§6, measured): another addon's override at true wins over
-                -- it even when the loop sets it again later.
-                appendLine("self:SetBindingClick(false,%q,DefaultClickFrameName,%q)", chord, button);
-                appendLine("c=newtable() c.clickButton=%q c.base=%q c.priority=false BoundKeys[%q]=c",
-                    button, key, chord);
+                appendLine("self:SetBindingClick(%s,%q,DefaultClickFrameName,%q)", tostring(priority), chord,
+                    button);
+                appendLine("c=newtable() c.clickButton=%q c.base=%q c.priority=%s BoundKeys[%q]=c",
+                    button, key, tostring(priority), chord);
                 if (_chordEntries[key]) then
                     local item = _tierItems[tier]
                         or DebindPrivate.Judgment.Build(_chordEntries[key][tier], key);

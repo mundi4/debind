@@ -104,6 +104,24 @@ return function(DebindPrivate, _, ctx)
             unit;
     end
 
+    --- What one press of `key` on both edges fired (`restricted.lua`'s `press`), with `down` and
+    --- `up` the modifiers held at each edge: every edge the gate acted on, in order, and the name of
+    --- the binding the press came in on.
+    local function PressEdges(key, down, up, useKeyDown)
+        interp:resetState();
+        local fires, _, name = interp:press(key, { down = down, up = up, useKeyDown = useKeyDown });
+        return fires, name;
+    end
+
+    --- The one edge a press fired a click on, after checking there was exactly one and on `edge`.
+    local function OneClick(fires, edge)
+        check(#fires == 1, #fires .. " edges acted");
+        local fire = fires[1];
+        check(fire.edge == edge and fire.kind == "click",
+            "the " .. fire.edge .. " edge acted (" .. fire.kind .. ")");
+        return fire;
+    end
+
     local function BoundTo(key)
         return _G.GetBindingAction(key, true) or "";
     end
@@ -204,15 +222,17 @@ return function(DebindPrivate, _, ctx)
         check(Tier(Press("SHIFT-F1", "FOCUSCAST")) == Constants.CASTMOD_FOCUS, "not the focus twin");
     end);
 
+    local WithCastKeys = shim.withCastKeys;
+
     -- With self on SHIFT, F1's self chord is the game's SHIFT-F1 and its both-cast chord
     -- ALT-SHIFT-F1 would land there too, so neither is ours.
     test("N11a a modifier held on top goes to the game's chord under it first", function()
-        shim.world.modifiedClicks.SELFCAST = "SHIFT";
-        Bind({ action({ value = 774, key = "F1" }) }, nil,
-            { { action = "TOGGLEWORLDMAP", keys = { "SHIFT-F1" } } });
-        check(not Ours("ALT-SHIFT-F1"), "ALT-SHIFT-F1 is bound to " .. BoundTo("ALT-SHIFT-F1"));
-        check(Press("SHIFT-F1", "FOCUSCAST") == nil, "the press reached us");
-        shim.world.modifiedClicks.SELFCAST = "CTRL";
+        WithCastKeys("SHIFT", "ALT", function()
+            Bind({ action({ value = 774, key = "F1" }) }, nil,
+                { { action = "TOGGLEWORLDMAP", keys = { "SHIFT-F1" } } });
+            check(not Ours("ALT-SHIFT-F1"), "ALT-SHIFT-F1 is bound to " .. BoundTo("ALT-SHIFT-F1"));
+            check(Press("SHIFT-F1", "FOCUSCAST") == nil, "the press reached us");
+        end);
     end);
 
     test("N12 a key with a modifier of its own gets the chord on top of it", function()
@@ -222,20 +242,189 @@ return function(DebindPrivate, _, ctx)
     end);
 
     test("N14 both cast keys on ALT give ALT to self", function()
-        shim.world.modifiedClicks.SELFCAST = "ALT";
-        shim.world.modifiedClicks.FOCUSCAST = "ALT";
-        Bind({ action({ value = 774, key = "F1" }) });
-        check(Ours("ALT-F1") and not Ours("CTRL-F1"), "ALT-F1 " .. BoundTo("ALT-F1") .. ", CTRL-F1 " .. BoundTo("CTRL-F1"));
-        check(Tier(Press("ALT-F1")) == Constants.CASTMOD_SELF, "not the self twin");
-        shim.world.modifiedClicks.SELFCAST = "CTRL";
+        WithCastKeys("ALT", "ALT", function()
+            Bind({ action({ value = 774, key = "F1" }) });
+            check(Ours("ALT-F1") and not Ours("CTRL-F1"),
+                "ALT-F1 " .. BoundTo("ALT-F1") .. ", CTRL-F1 " .. BoundTo("CTRL-F1"));
+            check(Tier(Press("ALT-F1")) == Constants.CASTMOD_SELF, "not the self twin");
+        end);
     end);
 
     test("N15 a cast key on NONE has no chord", function()
-        shim.world.modifiedClicks.SELFCAST = "NONE";
-        Bind({ action({ value = 774, key = "F1" }) });
+        WithCastKeys("NONE", "ALT", function()
+            Bind({ action({ value = 774, key = "F1" }) });
+            check(not Ours("CTRL-F1"), "CTRL-F1 is bound to " .. BoundTo("CTRL-F1"));
+            check(Tier(Press("CTRL-F1")) == Constants.CASTMOD_NONE, "not the original");
+        end);
+    end);
+
+    local SKIP_SELF = { selfCastKey = "skip" };
+    local SKIP_BOTH = { selfCastKey = "skip", focusCastKey = "skip" };
+
+    test("N18 a key with no twins gets no chords and a held press does nothing", function()
+        Bind({ action({ value = 774, key = "F1", casting = SKIP_BOTH }) });
+        for _, chord in ipairs({ "CTRL-F1", "ALT-F1", "ALT-CTRL-F1" }) do
+            check(not Ours(chord), chord .. " is bound to " .. BoundTo(chord));
+        end
+        check(Tier(Press("F1")) == Constants.CASTMOD_NONE, "the bare key lost its original");
+        for _, held in ipairs({ { "SELFCAST" }, { "FOCUSCAST" }, { "SELFCAST", "FOCUSCAST" } }) do
+            local record = Press("F1", unpack(held));
+            check(record == nil, table.concat(held, "+") .. " sent " .. tostring(Tier(record)));
+        end
+    end);
+
+    test("N19 a held press over a frame with no twins does nothing", function()
+        Bind({ action({ value = 774, key = "F1", casting = { selfCastKey = "skip", focusCastKey = "skip",
+            hoverCast = "cast" } }) });
+        shim.world.units.party1 = { id = "pal", reaction = "help" };
+        interp:hoverEnter(unitFrame);
+        local _, _, pointed = Press("F1");
+        local held = Press("F1", "FOCUSCAST");
+        interp:hoverLeave(unitFrame);
+        check(pointed == "party1", "the pointed press went at " .. tostring(pointed));
+        check(held == nil, "a held pointed press sent " .. tostring(Tier(held)));
+    end);
+
+    test("N20 with the option off a chord with no twin is the game's", function()
+        Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) }, { castKeyChordsOverGame = true },
+            { { action = "TOGGLEWORLDMAP", keys = { "CTRL-F1" } } });
+        check(BoundTo("CTRL-F1") == "TOGGLEWORLDMAP", "CTRL-F1 is bound to " .. BoundTo("CTRL-F1"));
+        check(Press("F1", "SELFCAST") == nil, "the press reached us");
+    end);
+
+    test("N21 with no self twin both cast keys held fall to the focus twin", function()
+        Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) });
+        check(Ours("ALT-F1"), "ALT-F1 is bound to " .. BoundTo("ALT-F1"));
+        for _, chord in ipairs({ "CTRL-F1", "ALT-CTRL-F1" }) do
+            check(not Ours(chord), chord .. " is bound to " .. BoundTo(chord));
+        end
+        local record, _, unit = Press("F1", "SELFCAST", "FOCUSCAST");
+        check(Tier(record) == Constants.CASTMOD_FOCUS and unit == "focus",
+            "tier " .. tostring(Tier(record)) .. " at " .. tostring(unit));
+    end);
+
+    -- Either way the option is set: with it off, nothing but the rule keeps the both-held chord
+    -- from being taken for focus over the game's self chord under it.
+    test("N21a with no self twin both cast keys held go to the game's self chord", function()
+        for _, options in ipairs({ {}, { castKeyChordsOverGame = true } }) do
+            Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) }, options,
+                { { action = "TOGGLEWORLDMAP", keys = { "CTRL-F1" } } });
+            local label = options.castKeyChordsOverGame and "option off: " or "option on: ";
+            check(not Ours("ALT-CTRL-F1"), label .. "ALT-CTRL-F1 is bound to " .. BoundTo("ALT-CTRL-F1"));
+            check(Press("F1", "SELFCAST", "FOCUSCAST") == nil, label .. "the press reached us");
+        end
+    end);
+
+    test("N22 both cast keys on ALT give ALT to focus where no action uses self", function()
+        WithCastKeys("ALT", "ALT", function()
+            Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) });
+            check(Ours("ALT-F1"), "ALT-F1 is bound to " .. BoundTo("ALT-F1"));
+            local record, _, unit = Press("F1", "FOCUSCAST");
+            check(Tier(record) == Constants.CASTMOD_FOCUS and unit == "focus",
+                "tier " .. tostring(Tier(record)) .. " at " .. tostring(unit));
+        end);
+    end);
+
+    test("N22a both cast keys on ALT and no twins leave ALT alone", function()
+        WithCastKeys("ALT", "ALT", function()
+            Bind({ action({ value = 774, key = "F1", casting = SKIP_BOTH }) });
+            check(not Ours("ALT-F1"), "ALT-F1 is bound to " .. BoundTo("ALT-F1"));
+            check(Press("F1", "FOCUSCAST") == nil, "ALT reached a tier");
+        end);
+    end);
+
+    test("N23 a cast key turned off in the settings is a key not held", function()
+        Bind({ action({ value = 774, key = "F1" }) }, { selfCast = false });
         check(not Ours("CTRL-F1"), "CTRL-F1 is bound to " .. BoundTo("CTRL-F1"));
-        check(Tier(Press("CTRL-F1")) == Constants.CASTMOD_NONE, "not the original");
-        shim.world.modifiedClicks.SELFCAST = "CTRL";
+        check(Tier(Press("F1", "SELFCAST")) == Constants.CASTMOD_NONE, "not the original");
+    end);
+
+    test("N24 a key's own modifier is hidden from its press", function()
+        Bind({ action({ value = 774, key = "ALT-F1" }) });
+        check(Tier(Press("ALT-F1")) == Constants.CASTMOD_NONE, "not the original");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 8-1. Both edges of a press
+    ---------------------------------------------------------------------------
+
+    test("R0 cast on key down fires the press edge alone", function()
+        Bind({ action({ value = 774, key = "F1" }) });
+        local fire = OneClick(PressEdges("F1", {}, { "CTRL" }, true), "down");
+        check(Tier(fire.record) == Constants.CASTMOD_NONE, "tier " .. tostring(Tier(fire.record)));
+    end);
+
+    test("R1 a self cast key held before the release sends the self twin", function()
+        Bind({ action({ value = 774, key = "F1" }) });
+        local fire = OneClick(PressEdges("F1", {}, { "CTRL" }, false), "up");
+        check(Tier(fire.record) == Constants.CASTMOD_SELF and fire.unit == "player",
+            "tier " .. tostring(Tier(fire.record)) .. " at " .. tostring(fire.unit));
+    end);
+
+    test("R2 a focus cast key held before the release sends the focus twin", function()
+        Bind({ action({ value = 774, key = "F1" }) });
+        local fire = OneClick(PressEdges("F1", {}, { "ALT" }, false), "up");
+        check(Tier(fire.record) == Constants.CASTMOD_FOCUS and fire.unit == "focus",
+            "tier " .. tostring(Tier(fire.record)) .. " at " .. tostring(fire.unit));
+    end);
+
+    test("R3 a self cast key held before the release does nothing with no self twin", function()
+        Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) });
+        local fires = PressEdges("F1", {}, { "CTRL" }, false);
+        check(#fires == 0, "the " .. tostring(fires[1] and fires[1].edge) .. " edge fired "
+            .. tostring(fires[1] and Tier(fires[1].record)));
+    end);
+
+    test("R5 self cast added to a focus press before the release sends the self twin", function()
+        Bind({ action({ value = 774, key = "F1" }) });
+        local fire = OneClick(PressEdges("F1", { "ALT" }, { "ALT", "CTRL" }, false), "up");
+        check(Tier(fire.record) == Constants.CASTMOD_SELF and fire.unit == "player",
+            "tier " .. tostring(Tier(fire.record)) .. " at " .. tostring(fire.unit));
+    end);
+
+    test("R6 both cast keys held at the press send the self twin after self is let go", function()
+        Bind({ action({ value = 774, key = "F1" }) });
+        local fires, name = PressEdges("F1", { "CTRL", "ALT" }, { "ALT" }, false);
+        check(name == "ALT-CTRL-F1", "the press came in on " .. tostring(name));
+        local fire = OneClick(fires, "up");
+        check(Tier(fire.record) == Constants.CASTMOD_SELF and fire.unit == "player",
+            "tier " .. tostring(Tier(fire.record)) .. " at " .. tostring(fire.unit));
+    end);
+
+    test("R6a with no self twin the same press sends the focus twin", function()
+        Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) });
+        local fires, name = PressEdges("F1", { "CTRL", "ALT" }, { "ALT" }, false);
+        check(name == "ALT-F1", "the press came in on " .. tostring(name));
+        local fire = OneClick(fires, "up");
+        check(Tier(fire.record) == Constants.CASTMOD_FOCUS and fire.unit == "focus",
+            "tier " .. tostring(Tier(fire.record)) .. " at " .. tostring(fire.unit));
+    end);
+
+    test("R7 a held spell started at the press is let go at the release", function()
+        shim.world.spells[8936] = { name = "Regrowth", pressAndHold = true };
+        Bind({ action({ value = 8936, key = "F1" }) });
+        interp:resetState();
+        interp.state.channeling = true;
+        local fires = interp:press("F1", { up = { "CTRL" }, useKeyDown = false });
+        interp:resetState();
+        check(#fires == 2, #fires .. " edges acted");
+        check(fires[1].edge == "down" and fires[1].kind == "click"
+            and Tier(fires[1].record) == Constants.CASTMOD_NONE,
+            "the press: " .. fires[1].edge .. " " .. fires[1].kind .. " " .. tostring(Tier(fires[1].record)));
+        check(fires[2].edge == "up" and fires[2].kind == "release" and fires[2].button == fires[1].button,
+            "the release: " .. fires[2].edge .. " " .. fires[2].kind .. " " .. tostring(fires[2].button));
+    end);
+
+    test("R7a a press with nothing to run lets nothing go of a release that never came", function()
+        shim.world.spells[8936] = { name = "Regrowth", pressAndHold = true };
+        Bind({ action({ value = 8936, key = "F1", casting = SKIP_SELF }) });
+        interp:resetState();
+        interp:runWrapped(DebindPrivate.DefaultClickFrame, "OnClick", Constants.CLICKTIME_BUTTON_PREFIX .. "F1", true);
+        interp.state.channeling = true;
+        local fires = interp:press("F1", { down = { "CTRL" }, useKeyDown = false });
+        interp:resetState();
+        check(#fires == 0, "the " .. tostring(fires[1] and fires[1].edge) .. " edge "
+            .. tostring(fires[1] and fires[1].kind) .. " " .. tostring(fires[1] and fires[1].button));
     end);
 
     --- Fires the login the way the client does, once per spec, so the handlers it registers and the

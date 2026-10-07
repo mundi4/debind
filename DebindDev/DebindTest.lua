@@ -761,6 +761,7 @@ local function PlantMockTable()
         if (not MockStatesMap) then MockStatesMap = newtable() end
         if (not MockParseWords) then MockParseWords = newtable() end
         if (not MockUnitWords) then MockUnitWords = newtable() end
+        if (not MockModifiedClicks) then MockModifiedClicks = newtable() end
     ]])
     mockPlanted = true
 end
@@ -893,6 +894,16 @@ local function GetMockState(state)
     return mockStates[state]
 end
 
+--- Has every press answer `IsModifiedClick(name)` true, as with that cast key held. Needs
+--- `EnableProbes()` for the reason `SetMockState` does; let go by the teardown it registers.
+local function SetMockModifiedClick(name)
+    PlantMockTable()
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format([[MockModifiedClicks[%q] = true]], name))
+    AddTeardown(function()
+        SecureHandlerExecute(DebindPrivate.BindingDriver, format([[MockModifiedClicks[%q] = nil]], name))
+    end)
+end
+
 -----------------------------------------------------------
 -- Test Helpers: Snippet Probes
 -----------------------------------------------------------
@@ -933,6 +944,9 @@ local PROBE_DEV = {
     -- A beat the watch let pass, its columns measured again (`JudgeWatchCheck`). `self` is the
     -- driver: this stands in the beat's own handler.
     WatchCheck = [[self:RunAttribute("JudgeWatchCheck")]],
+    -- A cast key held at the press (`SetMockModifiedClick`). Only ever answers true over the real
+    -- one: what a test has to stand up is a key held, which it cannot do with its hands.
+    IsModifiedClick = [[(MockModifiedClicks[%1$s] or IsModifiedClick(%1$s))]],
 }
 
 --- The columns the watch's check found moved on a beat the watch let pass (`DebindTestWatchMiss`).
@@ -8765,6 +8779,138 @@ RegisterTest("Cast chord: another addon's override on it is left to that addon",
         end
 
         return Pass(NAME, format("%s was ours alone and left to the other owner's override", chord))
+    end,
+})
+
+local function CastKeysInForce()
+    local selfMod, focusMod = DebindPrivate.CastKeyModifiers()
+    return { SELFCAST = selfMod, FOCUSCAST = focusMod }
+end
+
+--- Every chord a cast key in force makes of `key`, one modifier at a time and all together.
+local function CastChordsOfKey(key)
+    local all, chords = {}, {}
+    for _, mod in pairs(CastKeysInForce()) do
+        chords[#chords + 1] = DebindPrivate.JoinKeyModifiers({ [mod] = true }, key)
+        all[mod] = true
+    end
+    chords[#chords + 1] = DebindPrivate.JoinKeyModifiers(all, key)
+    return chords
+end
+
+-- **A tier with no twin gets no chord** (`picking-the-cast-tier-like-an-action-button.md` §3).
+-- Which chords a rebuild binds and what a held press then does are headless (`castchord_spec.lua`
+-- N18); what is left for the client is that the game's binding table holds none of them, and that
+-- the press body reading the cast keys on the bare key compiles and still sends the original.
+RegisterTest("Cast chord: a tier with no twin leaves its chord to fall onto the key", {
+    description = "With every action skipping both cast keys, no cast key chord is ours and the bare key sends the original",
+    applies = function()
+        if not next(CastKeysInForce()) then
+            return false, "no cast key is on in both the settings tab and the game"
+        end
+        -- A chord the game binds is left to it whatever the twins, so it could not tell.
+        for _, chord in ipairs(CastChordsOfKey("F11")) do
+            if GetBindingAction(chord) ~= "" then
+                return false, chord .. " is bound in the game, so the chord is left either way"
+            end
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Twinless chords"
+        local KEY = "F11"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then return Fail(NAME, probesErr) end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY,
+            casting = { selfCastKey = "skip", focusCastKey = "skip" } })
+        ApplyBindings()
+
+        local ours = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":"
+        local bare = GetBindingAction(KEY, true) or ""
+        if bare:sub(1, #ours) ~= ours then
+            return Fail(NAME, format("%s answers %q, it should be our button", KEY, bare))
+        end
+        local chords = CastChordsOfKey(KEY)
+        for _, chord in ipairs(chords) do
+            local bound = GetBindingAction(chord, true) or ""
+            if bound:sub(1, #ours) == ours then
+                return Fail(NAME, format("%s is ours: %q", chord, bound))
+            end
+        end
+
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local winner = WaitForWinner()
+        local record = winner and GetNthBinding(KEY, winner)
+        if not record or (record.castModifier or Constants.CASTMOD_NONE) ~= Constants.CASTMOD_NONE then
+            return Fail(NAME, format("the bare key sent %s", tostring(record and record.castModifier)))
+        end
+        return Pass(NAME, format("%s is not ours and the bare key sent the original",
+            table.concat(chords, ", ")))
+    end,
+})
+
+-- **A cast key that shows on the bare key picks the tier the way an action button does**
+-- (`picking-the-cast-tier-like-an-action-button.md` §2). Every combination is headless
+-- (`castchord_spec.lua`); a test cannot hold a key, so the Self Cast Key is made to show through
+-- `PROBE.IsModifiedClick`, and what is left for the client is that its own `IsModifiedClick` and
+-- the branch reading it run in the real restricted environment.
+RegisterTest("Cast tier: a Self Cast Key on the bare key picks the self twin", {
+    description = "With the Self Cast Key showing, a key with a self twin sends it and a key without one sends nothing",
+    applies = function()
+        if not CastKeysInForce().SELFCAST then
+            return false, "the Self Cast Key is not on in both the settings tab and the game"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Self Cast Key on the bare key"
+        local TWIN, NO_TWIN = "F11", "F12"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then return Fail(NAME, probesErr) end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = TWIN })
+        InsertAction({ type = Constants.SPELL, value = 585, key = NO_TWIN, casting = { selfCastKey = "skip" } })
+        ApplyBindings()
+
+        -- The report itself rather than `LastWinner`, which answers nil for a tier's closing block
+        -- as well: that is where a press sent to a tier with no twin would end.
+        local function Tier(key)
+            local ran, rerr = EvalClickTimeKey(key)
+            if not ran then return nil, rerr end
+            local winner = probeReports[#probeReports]
+            if winner == nil or winner == "block" then
+                return winner or "nothing"
+            end
+            local record = GetNthBinding(key, winner)
+            return record and (record.castModifier or Constants.CASTMOD_NONE)
+        end
+
+        local plain, perr = Tier(TWIN)
+        if plain ~= Constants.CASTMOD_NONE then
+            return Fail(NAME, format("nothing held, %s sent %s", TWIN, tostring(perr or plain)))
+        end
+
+        SetMockModifiedClick("SELFCAST")
+        local twin, terr = Tier(TWIN)
+        if twin ~= Constants.CASTMOD_SELF then
+            return Fail(NAME, format("Self Cast Key held, %s sent %s", TWIN, tostring(terr or twin)))
+        end
+        local none, nerr = Tier(NO_TWIN)
+        if none ~= "nothing" then
+            return Fail(NAME, format("Self Cast Key held, %s with no self twin sent %s", NO_TWIN,
+                tostring(nerr or none)))
+        end
+        return Pass(NAME, "nothing held sends the original, held sends the self twin or nothing")
     end,
 })
 

@@ -159,6 +159,9 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 	-- `unit` local beside it, which a state's expression has no counterpart for.
 	ParseUnit = "SecureCmdOptionParse(%s)",
 	FindSpellBookSlotBySpellID = "FindSpellBookSlotBySpellID(%s)",
+	-- A cast key held at the press. The kit cannot hold a key, and this is its only way to run
+	-- the branch that reads one in the real restricted environment.
+	IsModifiedClick = "IsModifiedClick(%s)",
 
 	-- Reporting only. Nothing is computed from them, so there is nothing to keep.
 	Winner = false,

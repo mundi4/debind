@@ -213,10 +213,10 @@ local function wordValue(interp, name, argument, unit)
         return anyOf(function(v) return tonumber(v) == form; end);
     elseif (name == "mod" or name == "modifier") then
         if (argument == nil) then
-            return state.alt or state.ctrl or state.shift;
+            return interp:modifierDown("ALT") or interp:modifierDown("CTRL") or interp:modifierDown("SHIFT");
         end
         return anyOf(function(v)
-            return (v == "alt" and state.alt) or (v == "ctrl" and state.ctrl) or (v == "shift" and state.shift);
+            return (v == "alt" or v == "ctrl" or v == "shift") and interp:modifierDown(v:upper());
         end);
     -- **The world's pet, not a state of its own.** The gate behind `[pet]` is the pet unit's row,
     -- so answering this from anywhere else would let a case pass with the two disagreeing.
@@ -628,13 +628,28 @@ local function buildEnv(interp)
         end
         return _G.UnitPlayerOrPetInParty(unit);
     end
-    env.IsAltKeyDown = function() return state.alt; end
-    env.IsControlKeyDown = function() return state.ctrl; end
-    env.IsShiftKeyDown = function() return state.shift; end
+    env.IsAltKeyDown = function() return interp:modifierDown("ALT"); end
+    env.IsControlKeyDown = function() return interp:modifierDown("CTRL"); end
+    env.IsShiftKeyDown = function() return interp:modifierDown("SHIFT"); end
     --- **What the client answers is not what is held.** It hides the modifiers that are part of
-    --- the binding a press arrived on, so a spec sets the answer for the name directly
-    --- (`implementing-focus-and-self-cast.md` §2-1).
-    env.IsModifiedClick = function(name) return state.modifiedClick[name] and true or false; end
+    --- the binding a press arrived on (`implementing-focus-and-self-cast.md` §2-1), and it answers
+    --- this one from the same keys as the three above (F7 of
+    --- `picking-the-cast-tier-like-an-action-button.md`). Outside a press, a spec sets the answer
+    --- for the name directly.
+    ---
+    --- **A press asking about a cast key on none of the three raises.** What the client answers there
+    --- was never measured, and the rebuild settles it so a press never asks (`CastKeysOn`).
+    env.IsModifiedClick = function(name)
+        local visible = interp.visible;
+        if (visible) then
+            local mod = _G.GetModifiedClick(name);
+            if (mod ~= "ALT" and mod ~= "CTRL" and mod ~= "SHIFT") then
+                error("a press asked IsModifiedClick(" .. tostring(name) .. ") on " .. tostring(mod), 0);
+            end
+            return visible[mod] == true;
+        end
+        return state.modifiedClick[name] and true or false;
+    end
     env.SecureCmdOptionParse = function(expr) return parseCondition(interp, expr); end
 
     --- The unit queries, **forwarded to the same functions the insecure side calls**. Blizzard's
@@ -850,10 +865,10 @@ end
 --- The override entry bound to `chord`, `false` for a binding of the game's own, nil for none.
 function Interp:directLanding(chord)
     if (self.bindings[chord]) then
-        return self.bindings[chord];
+        return self.bindings[chord], chord;
     end
     if (_G.GetBindingAction(chord) ~= "") then
-        return false;
+        return false, chord;
     end
     return nil;
 end
@@ -861,11 +876,11 @@ end
 --- **Where the client sends a press of `chord`**: its own binding, the override first, and failing
 --- that every chord with one modifier dropped, ALT, then CTRL, then SHIFT, before any with two
 --- (measured, `handing-the-rest-of-a-key-to-the-game.md` §6-2). Answers the override entry,
---- `false` for a binding of the game's own, nil for nothing.
+--- `false` for a binding of the game's own, nil for nothing, and the name of the binding it found.
 function Interp:landing(mods, base)
-    local direct = self:directLanding(joinChord(mods, base));
+    local direct, name = self:directLanding(joinChord(mods, base));
     if (direct ~= nil) then
-        return direct;
+        return direct, name;
     end
     local dropped = {};
     for _, mod in ipairs(CHORD_ORDER) do
@@ -880,36 +895,149 @@ function Interp:landing(mods, base)
         end
     end
     for _, fewer in ipairs(dropped) do
-        local landing = self:directLanding(joinChord(fewer, base));
+        local landing, found = self:directLanding(joinChord(fewer, base));
         if (landing ~= nil) then
-            return landing;
+            return landing, found;
         end
     end
     for _, fewer in ipairs(dropped) do
-        local landing = self:landing(fewer, base);
+        local landing, found = self:landing(fewer, base);
         if (landing ~= nil) then
-            return landing;
+            return landing, found;
         end
     end
     return nil;
 end
 
+--- Whether a body sees `mod` down: what the edge being run shows (`seeing`), and outside a press
+--- the `alt`, `ctrl` and `shift` a spec set.
+function Interp:modifierDown(mod)
+    local visible = self.visible;
+    if (visible) then
+        return visible[mod] == true;
+    end
+    return self.state[mod:lower()] == true;
+end
+
+--- **The modifiers the client shows on an edge**: the ones held, less those in the name of the
+--- binding the press arrived on (F5 and F7 of `picking-the-cast-tier-like-an-action-button.md`).
+local function visibleThrough(held, name)
+    local named = heldChord(name, {});
+    local visible = {};
+    for mod in pairs(held) do
+        if (not named[mod]) then
+            visible[mod] = true;
+        end
+    end
+    return visible;
+end
+
+local function pack(...)
+    return { n = select("#", ...), ... };
+end
+
+--- Runs `fn` with the bodies seeing `visible` as the modifiers down, and puts the view back
+--- however `fn` ends.
+function Interp:seeing(visible, fn, ...)
+    local saved = self.visible;
+    self.visible = visible;
+    local results = pack(pcall(fn, ...));
+    self.visible = saved;
+    if (not results[1]) then
+        error(results[2], 0);
+    end
+    return unpack(results, 2, results.n);
+end
+
 --- **A press of `key` with the cast keys `state.modifiedClick` holds down, run the way the client
 --- runs it**: the chord is looked up the way the client looks it up, and the decision runs under the
---- button name the binding it landed on carries. A self or focus tier is picked by the chord's own
---- binding now, so asking under `"@" .. key` with the modifier set would miss what the client does.
+--- button name the binding it landed on carries, seeing what the client shows on that binding.
 function Interp:evalKey(key)
     local mods, base = heldChord(key, self.state.modifiedClick);
-    local entry = self:landing(mods, base);
+    local entry, name = self:landing(mods, base);
     if (not entry or not entry.mouseButton) then
         return nil;
     end
     local button = entry.mouseButton;
-    local clickbutton, index, unit = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
+    local clickbutton, index, unit = self:seeing(visibleThrough(mods, name), function()
+        return self.driverHandle:RunAttribute("EvalClickTimeKey", button);
+    end);
     if (not clickbutton) then
         return nil;
     end
     return index, clickbutton, index and self.env.ClickTimeKeys[button][index], unit;
+end
+
+--- **One press of `key` on both edges, the way the client delivers it**
+--- (`picking-the-cast-tier-like-an-action-button.md` 7-1). `held.down` and `held.up` are the
+--- modifiers held when the key goes down and when it comes up (`"ALT"`, `"CTRL"`, `"SHIFT"`);
+--- `held.useKeyDown` is `ActionButtonUseKeyDown`, on by default as the client's is (F9).
+---
+--- - The binding is picked at the press, and the release comes on the same one (F7).
+--- - The press shows what is held then, the release what was held at either edge, each less the
+---   modifiers in that binding's name (F7, F8).
+--- - The real `OnClick` wrapper runs on each edge, and Blizzard's gate stands where the frame's own
+---   handler would (`SecureActionButton_OnClick`), ahead of the wrapper's post body that clears
+---   what it reads.
+---
+--- Answers every edge the gate acted on, in order, as `{ edge = "down" | "up", kind = "click" |
+--- "release", button, record, unit }` with `unit` the one the wrapper set; the binding the press
+--- landed on: the override entry, `false`
+--- for the game's own, nil for none; and that binding's name.
+function Interp:press(key, held)
+    local downMods, base = heldChord(key, {});
+    for _, mod in ipairs(held.down or {}) do
+        downMods[mod] = true;
+    end
+    local upMods = {};
+    for mod in pairs(downMods) do
+        upMods[mod] = true;
+    end
+    for _, mod in ipairs(held.up or {}) do
+        upMods[mod] = true;
+    end
+    local useKeyDown = held.useKeyDown ~= false;
+
+    local entry, name = self:landing(downMods, base);
+    if (not entry or not entry.mouseButton) then
+        return {}, entry, name;
+    end
+    local button = entry.mouseButton;
+    local frame = self.Private.DefaultClickFrame;
+    local fires = {};
+
+    local function gate(clickbutton, down)
+        local pressAndHold = frame:GetAttribute("pressAndHoldAction");
+        local useOnKeyDown = frame:GetAttribute("useOnKeyDown");
+        if (useOnKeyDown == nil) then
+            useOnKeyDown = useKeyDown;
+        end
+        useOnKeyDown = useOnKeyDown or pressAndHold;
+        local edge = down and "down" or "up";
+        if ((down and useOnKeyDown) or (not down and not useOnKeyDown)) then
+            -- **The unit is the one the wrapper put out**, on the cast frame for a wrapped button
+            -- and on the click frame for any other: the twins click their original's button, so
+            -- the unit is what tells the wrapper's tier apart. The record, which no attribute
+            -- names, is the eval hook's answer on the same edge.
+            local target = self.env.WrappedButtons[clickbutton] and self.Private.CastFrame or frame;
+            local _, index = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
+            fires[#fires + 1] = { edge = edge, kind = "click", button = clickbutton,
+                record = index and self.env.ClickTimeKeys[button][index], unit = target:GetAttribute("unit") };
+        elseif (not down and (pressAndHold or held.useKeyHeldSpell)) then
+            fires[#fires + 1] = { edge = edge, kind = "release", button = clickbutton };
+        end
+    end
+
+    self.gate = gate;
+    local ok, err = pcall(function()
+        self:seeing(visibleThrough(downMods, name), self.runWrapped, self, frame, "OnClick", button, true);
+        self:seeing(visibleThrough(upMods, name), self.runWrapped, self, frame, "OnClick", button, false);
+    end);
+    self.gate = nil;
+    if (not ok) then
+        error(err, 0);
+    end
+    return fires, entry, name;
 end
 
 --- **The decision for a bare key run under its own button name, whoever the key is bound to now.**
@@ -926,12 +1054,14 @@ end
 --- nil for, and the record list it came from. False where the press reached no binding of ours.
 function Interp:winningRecord(key)
     local mods, base = heldChord(key, self.state.modifiedClick);
-    local entry = self:landing(mods, base);
+    local entry, name = self:landing(mods, base);
     if (not entry or not entry.mouseButton) then
         return false;
     end
     local bindings = self.env.ClickTimeKeys[entry.mouseButton];
-    local _, index = self.driverHandle:RunAttribute("EvalClickTimeKey", entry.mouseButton);
+    local _, index = self:seeing(visibleThrough(mods, name), function()
+        return self.driverHandle:RunAttribute("EvalClickTimeKey", entry.mouseButton);
+    end);
     return index and bindings[index], bindings;
 end
 
@@ -1025,7 +1155,8 @@ end
 --- `message ~= nil`.
 ---
 --- **The frame's own handler is not called.** A shell has none that does anything, and the
---- question every case here asks is which bodies ran and in what order.
+--- question every case here asks is which bodies ran and in what order. The one exception is a
+--- `press`, which stands Blizzard's gate there for the click frame.
 function Interp:runWrapped(frame, script, ...)
     local chain = frames.wrapperChain(frame, script);
     local n = chain and #chain or 0;
@@ -1035,6 +1166,9 @@ function Interp:runWrapped(frame, script, ...)
     --- 끝났는지를 묻는 스펙은 그걸 봐야 한다. `nil`은 래퍼가 클릭을 물린 것이다.
     local function descend(i, button, down)
         if (i > n) then
+            if (script == "OnClick" and self.gate and frame == self.Private.DefaultClickFrame) then
+                self.gate(button, down);
+            end
             return button;
         end
         local entry = chain[i];

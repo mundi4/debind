@@ -92,6 +92,20 @@ function M.resetWorld(client)
     M.install();
 end
 
+--- Runs `fn` with the game's Self Cast Key on `self` and Focus Cast Key on `focus`, and puts back
+--- what was there however `fn` ends: a case that fails would otherwise hand every case after it
+--- its modifiers, and `resetWorld` comes only between specs.
+function M.withCastKeys(self, focus, fn)
+    local clicks = M.world.modifiedClicks;
+    local savedSelf, savedFocus = clicks.SELFCAST, clicks.FOCUSCAST;
+    clicks.SELFCAST, clicks.FOCUSCAST = self, focus;
+    local ok, err = pcall(fn);
+    clicks.SELFCAST, clicks.FOCUSCAST = savedSelf, savedFocus;
+    if (not ok) then
+        error(err, 0);
+    end
+end
+
 local MASK32 = 4294967296;
 
 local function norm(x)

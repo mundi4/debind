@@ -2417,6 +2417,55 @@ return function(DebindPrivate, _, ctx)
             TailClick(66, Constants.BLOCK, "debindnull");
         end);
 
+        Row(68, function()
+            Bind({ A({ casting = { selfCastKey = "skip" } }) });
+            PointNothing();
+            Expect(68, { Press("F1", "both", "unitframe") }, { "A", "focus", "focus" });
+        end);
+        Row(69, function()
+            shim.withCastKeys("ALT", "ALT", function()
+                Bind({ A({ casting = { selfCastKey = "skip" } }) });
+                PointNothing();
+                Expect(69, { Press("F1", "focus", "unitframe") }, { "A", "focus", "focus" });
+            end);
+        end);
+
+        --- A press with cast on key up: `down` held at the press, `up` at the release. Answers what
+        --- the release fired the way `Press` does, and nothing where no edge fired.
+        local function PressReleasing(row, down, up)
+            local fires = interp:press("F1", { down = down, up = up, useKeyDown = false });
+            if (#fires == 0) then
+                return nil;
+            end
+            local fire = fires[1];
+            check(#fires == 1 and fire.edge == "up" and fire.kind == "click",
+                "#" .. row .. ": " .. #fires .. " edges acted, the first " .. fire.edge .. " " .. fire.kind);
+            local record = fire.record;
+            local kind = "original";
+            if (record.castModifier == Constants.CASTMOD_SELF) then
+                kind = "self";
+            elseif (record.castModifier == Constants.CASTMOD_FOCUS) then
+                kind = "focus";
+            end
+            return DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(fire.button)),
+                fire.unit, kind;
+        end
+        Row(70, function()
+            Bind({ A() });
+            PointNothing();
+            Expect(70, { PressReleasing(70, {}, { "CTRL" }) }, { "A", "player", "self" });
+        end);
+        Row(71, function()
+            Bind({ A() });
+            PointNothing();
+            Expect(71, { PressReleasing(71, { "ALT" }, { "ALT", "CTRL" }) }, { "A", "player", "self" });
+        end);
+        Row(72, function()
+            Bind({ A({ casting = { selfCastKey = "skip" } }) });
+            PointNothing();
+            Expect(72, { PressReleasing(72, {}, { "CTRL" }) }, {});
+        end);
+
         --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
         --- at `dbver` 6, so the ladder is what turns each old action into its new shape.
         ---

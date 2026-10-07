@@ -92,9 +92,19 @@ B
 
 ### 2-3. 조합 키를 진짜 바인딩으로 건다
 
-키 `X`의 층에 쌍둥이가 있으면 그 층의 조합 키 `ALT-X`(focus), `CTRL-X`(self), 둘 다 쥔 `ALT-CTRL-X`(self, 둘 다 쥐면
-self인 근거는 `implementing-focus-and-self-cast.md` §3-3)를 따로 건다. 조합키 이름은 게임 설정의 SELFCAST/FOCUSCAST가
-정한다. 층은 **도착한 바인딩이 정하고**, `IsModifiedClick`으로 층을 고르던 길은 없어진다.
+키 `X`의 층에 쌍둥이가 있으면 그 층의 조합 키를 따로 건다. 조합키 이름은 게임 설정의 SELFCAST(s)/FOCUSCAST(f)가
+정한다(2026-10-07, 소유자, `picking-the-cast-tier-like-an-action-button.md` §3).
+
+| 조합 | 층 | 거는 때 |
+|---|---|---|
+| `X`+s | self | self 층에 쌍둥이가 있음 |
+| `X`+s+f | self | 같음. 둘 다 쥐면 self인 근거는 `implementing-focus-and-self-cast.md` §3-3 |
+| `X`+f | focus | focus 층에 쌍둥이가 있음 |
+| s와 f가 같을 때의 `X`+s | self 층에 쌍둥이가 있으면 self, 없으면 focus | 둘 중 하나에 쌍둥이가 있음 |
+
+조합 키로 온 누름은 **도착한 바인딩이 층을 정한다**. 하나만 다르다. focus 조합으로 왔는데 Self Cast Key가 보이고 그 키에
+self 쌍둥이가 있으면 self 층이다. "뗄 때 시전"에서 누른 뒤 Self Cast Key를 더 쥔 경우이고, 와우 액션 버튼이 그렇게 한다.
+맨 키로 온 누름은 보이는 Cast Key를 블리자드 순서로 묻는다(`which-action-a-key-runs.md` S4).
 
 - **조합키에 맞춰 바인딩을 갈아 끼우는 길은 막혔다**(4절). 조합키 이벤트는 키보다 먼저 오지만, 제한 환경에서
   그걸 받는 길은 드라이버뿐이고 드라이버는 다음 `OnUpdate`에야 풀린다. 마우스가 조합을 한 번에 보내면 키가
@@ -486,9 +496,28 @@ MMO 마우스 여분 버튼에 `CTRL-K`를 걸고 누른 것과 손으로 누른
 | N19 | N18에서 Hover Cast가 가리킨 유닛에게, 개체창을 가리킴 | `ALT-X` | N18과 같음 | 아무것도. 가리킨 누름(`X`)은 `a` hover 쌍둥이 |
 | N20 | `a`가 Self Cast Key만 건너뜀, 와우에 `CTRL-X`, 옵션 끔 | `CTRL-X` | `CTRL-X`는 안 건다 | 와우의 `CTRL-X`. 겨룰 쌍둥이가 없다 |
 | N21 | `a`가 Self Cast Key만 건너뜀 | `ALT-CTRL-X` | `ALT-X` 우리, `CTRL-X`와 `ALT-CTRL-X`는 안 건다 | `a` focus 쌍둥이. 클라이언트가 `ALT-X`로 떨어뜨린다. 자기 자신 시전을 안 쓰는 키는 Focus Cast Key만 본다(2026-10-07, 소유자) |
+| N21a | N21에서 와우에 `CTRL-X`가 걸려 있음. 옵션은 어느 쪽이든 | `ALT-CTRL-X` | `ALT-CTRL-X`는 안 건다 | 와우의 `CTRL-X`. 클라이언트가 ALT를 먼저 뗀다(6절의 2) |
 | N22 | N14에서 `a`가 Self Cast Key만 건너뜀 | `ALT-X` | `ALT-X` 우리, **focus 층** | `a` focus 쌍둥이. 같은 까닭이다 |
+| N22a | N14에서 `a`가 두 Cast Key를 다 건너뜀 | `ALT-X` | `ALT-X`는 안 건다 | 아무것도. N18과 같다 |
 | N23 | Self Cast Key를 설정 탭에서 끔 | `CTRL-X` | `CTRL-X`는 안 건다 | `a` 원본. 끈 Cast Key는 쥔 것이 안 쥔 것과 같다 |
 | N24 | 키 자체가 `ALT-X` | `ALT-X` | `ALT-X` 우리 | `a` 원본. 바인딩 이름의 ALT는 가려진다 |
+
+**누름의 두 엣지.** 아래 줄은 쥐는 순서까지 적는다. ↓는 누름, ↑는 뗌이다. 떼는 엣지는 누를 때 간 바인딩으로 오고,
+그 엣지에서는 누를 때나 뗄 때 쥐고 있던 수식키가 보인다. 바인딩 이름에 든 것은 가려진다(2026-10-07 측정,
+`picking-the-cast-tier-like-an-action-button.md` 9절 F7, F8). "블리자드"는 와우 액션 버튼이 같은 순서에서 시전한
+대상이다(같은 문서 F14).
+
+| # | 설정 | 순서 | 나가는 것 |
+|---|---|---|---|
+| R0 | 누를 때 시전(게임 기본값) | `X`↓ CTRL↓ `X`↑ | `a` 원본. 누르는 엣지에서 나가고, 떼는 엣지는 아무것도 안 한다 |
+| R1 | 뗄 때 시전 | `X`↓ CTRL↓ `X`↑ | `a` self 쌍둥이. 블리자드도 자기 자신 |
+| R2 | 뗄 때 시전 | `X`↓ ALT↓ `X`↑ | `a` focus 쌍둥이. 블리자드도 주시 대상 |
+| R3 | 뗄 때 시전, `a`가 Self Cast Key를 건너뜀 | `X`↓ CTRL↓ `X`↑ | 아무것도. 쥔 Cast Key를 받을 층이 없다 |
+| R5 | 뗄 때 시전 | ALT↓ `X`↓ CTRL↓ `X`↑ | `a` self 쌍둥이. `ALT-X`로 들어오지만 떼는 엣지에 CTRL이 보인다. 블리자드도 자기 자신 |
+| R6 | 뗄 때 시전 | CTRL↓ ALT↓ `X`↓ CTRL↑ `X`↑ | `a` self 쌍둥이. `ALT-CTRL-X`로 들어온다. 블리자드도 자기 자신 |
+| R6a | R6에서 `a`가 Self Cast Key를 건너뜀 | 같음 | `a` focus 쌍둥이. `ALT-X`로 떨어진다. 블리자드는 자기 자신이지만, 자기 자신 시전을 안 쓰는 키는 Focus Cast Key만 본다(N21) |
+| R7 | 뗄 때 시전, `a`가 유지·시전 주문 | `X`↓ CTRL↓ `X`↑ | 누를 때 `a` 원본을 시작하고, 떼는 엣지는 다시 고르지 않고 그것을 놓는다 |
+| R7a | R7에서 `a`가 Self Cast Key를 건너뜀, 앞 누름의 떼는 엣지가 안 왔다(창 전환 등), 무언가 시전 중 | CTRL↓ `X`↓ `X`↑ | 아무것도. 앞 누름이 시작한 주문을 놓지 않는다 |
 
 ### 8-2. 맨 끝에 선 꼬리
 
