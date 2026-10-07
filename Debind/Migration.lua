@@ -813,7 +813,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- (`taking-off-out-of-hover-cast.md` §2-9, owner). Off was stored as no value, which is the
         -- usual target from here on, so every other off moves by being left alone. With Normal Cast
         -- off it stood on the cast keys alone; no new value keeps that, and this one is the one that
-        -- shows it, as an error, rather than starting to answer pointed presses without a word.
+        -- shows it, as an issue, rather than starting to answer pointed presses without a word.
         --
         -- **Not the bare left and right click**, which read no Hover Cast value then or now. The two
         -- keys are written out rather than asked of `IsBareWorldClick`, for the reason the step holds
@@ -903,7 +903,7 @@ end
 --- **Conditions and on/off/toggle targets, and nothing else.** Those two are the places a switch is
 --- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
 --- `[$burst]` is typed by hand and is deliberately left out (`redesigning-custom-states.md`
---- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
+--- §9-3): read as a use, one typo would keep a definition alive and take away the issue mark that is
 --- how the user finds out about the typo at all.
 ---
 --- **The `dbver <= 5` step's helper, so it reads version 6's names**: the types that version's
@@ -1021,7 +1021,7 @@ local function MigrateSwitches(db, dbver, to)
             -- **Another switch's expression is not among the three, rightly.** An expression is
             -- typed by hand, so one typo would keep a definition alive, which is the reason
             -- `CollectReferencedSwitches` leaves macro bodies out. A definition only `[$state3]`
-            -- pointed at goes here, and the switch that read it turns red on the Switches tab
+            -- pointed at goes here, and the switch that read it is marked on the Switches tab
             -- (`GetUndefinedSwitchInExpr`).
             --
             -- **The remembered value is dropped** (owner, 2026-09-27). It was one for the whole

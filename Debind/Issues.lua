@@ -85,7 +85,7 @@ end
 --- The switch this action's **conditions** name that nothing defines, or nil.
 ---
 --- Split out from the whole answer below because the condition menu asks exactly this: it colours
---- the box that owns switch conditions, and a macro body's typo must not turn that box red -- the
+--- the box that owns switch conditions, and a macro body's typo must not mark that box -- the
 --- conditions in it would be fine and the reader would go looking in the wrong place
 --- (`CreateSwitchConditionMenu`).
 ---
@@ -176,7 +176,7 @@ end
 ---
 --- **Deleting is what makes it reachable, and leaving the reference behind is the design.** A
 --- reference is kept so the reader can find it (`DeleteSwitch` in `Profile.lua`), which only works
---- while something is red. Renaming already rewrites this one; deleting has no rewrite to do and
+--- while something is marked. Renaming already rewrites this one; deleting has no rewrite to do and
 --- so needs this instead.
 ---
 --- **`ownerName` is not optional, and nil is not "no owner".** An expression naming its own switch
@@ -215,7 +215,7 @@ end
 --- (`building-export-import.md`). Until now a `MACRO` naming nothing simply bound and
 --- did nothing on press: `UpdateBindings` stamps `*macro-<button>` with the name and the secure
 --- handler finds no macro, with no error and no mark anywhere on screen. The imported-actions rule
---- is "send broken things too, the reader sees red and deletes them" -- and this was the hole in
+--- is "send broken things too, the reader sees them marked and deletes them" -- and this was the hole in
 --- it, the fallback for a macro that was already dangling when it was sent.
 ---
 --- **Deliberately not extended to the other types**, each for its own reason: item names arrive
@@ -233,7 +233,7 @@ function DebindPrivate.GetMissingMacroName(action)
     -- answers to either, which is the trap: a number is not a reference at all, it is a **position
     -- in a list ordered by name**, and the position moves. Create or delete any macro that sorts
     -- ahead of it and the number now belongs to a different macro. The key then casts something
-    -- nobody chose, and nothing goes red, because nothing broke.
+    -- nobody chose, and nothing is marked, because nothing broke.
     --
     -- **No sharing is involved.** This goes wrong on one account with one character, the day after
     -- the user names a new macro `Aa`. Which is why the rule sits here rather than anywhere near
@@ -385,7 +385,7 @@ end
 
 --- The axes that leave a row matching nothing. **Not axis 6**: a role missing beside other frame
 --- types still runs over those, so that row is not empty, and counting it as one hid a
---- contradiction on the same unit behind the warning (`HasAnyEmptyUnitRow`'s reader skips a row the
+--- contradiction on the same unit behind the role's own issue (`HasAnyEmptyUnitRow`'s reader skips a row the
 --- action check already spoke for).
 local EMPTY_UNIT_ROW_AXES = 5;
 
@@ -450,7 +450,7 @@ end
 --- A pair that two menus can undo stands as two rows under the one code, so each menu hears it.
 local ACTION_CHECKS = {
     -- **The key itself, not what else is on it.** Being covered by a neighbour is not this action's
-    -- fault and `IsUnreachableAction` answers it; asked here, it hid the action's own warning.
+    -- fault and `IsUnreachableAction` answers it; asked here, it hid the action's own issue.
     { category = "key", label = "KEY", check = function(action)
         if (action.key) then
             return DebindPrivate.IsKeyInvalidForAction(action, action.key);
@@ -531,7 +531,7 @@ local ACTION_CHECKS = {
         end
     end },
     -- **Asked of the command the value names, the way the binding builder asks it**
-    -- (`DescribeBinding`), so what goes red is what the builder would refuse. A pet with nothing
+    -- (`DescribeBinding`), so what is marked is what the builder would refuse. A pet with nothing
     -- out is not asked about: the command is sent and the game answers it.
     { category = "command", label = "TYPE_PETACTION", check = function(action)
         if (action.type == Constants.PETACTION and not DebindPrivate.GetPetActionMacroText(action.value)) then
@@ -758,7 +758,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 Report(Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY, "CONDITION_UNITS");
             end
         elseif (#list == 0) then
-            -- **Cast Options that leave the plain presses nothing are an error there** (2026-10-04,
+            -- **Cast Options that leave the plain presses nothing are an issue there** (2026-10-04,
             -- owner), closable by turning the action off, which says the reader meant it and takes
             -- the mark with it (`action.disabled`).
             --
@@ -814,7 +814,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                         CannotStand(binding, function(unit, solo)
                             local sources = binding.unitSources[unit] or 0;
                             -- A row empty on its own is already the action issue's, and its zero
-                            -- spreads to wherever `"@"` landed; painting it here would redden
+                            -- spreads to wherever `"@"` landed; painting it here would mark
                             -- menus the reader has nothing to fix in.
                             if ((band(sources, SOURCE_ROW) ~= 0 and HasAnyEmptyUnitRow(action, unit))
                                     or (band(sources, SOURCE_AT) ~= 0 and HasAnyEmptyUnitRow(action, "@"))) then

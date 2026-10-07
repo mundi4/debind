@@ -31,10 +31,11 @@
   (`giving-keys-back.md`). 켰을 때의 실패가 차량 기술을 키로 못 누르는 것이라, 얻는 것(빈 칸 키에서 내 액션을 계속 씀)보다
   무겁다.
 - **설정 섹션의 모양**은 목업(b6e0d1c) 그대로다. Cast Options 다음, 행은 셋이다.
-  `When no action runs < Key is given back | Press does nothing >`,
-  `Action Button keys < Replaced bars | Pet battles | Replaced bars and pet battles | Never >`, `House Editor keys [x]`.
+  `When no action runs < Key Is Given Back | Press Does Nothing >`,
+  `Action Button keys < Replaced Bars | Pet Battles | Replaced Bars and Pet Battles | Never >`, `House Editor keys [x]`.
   Action Button keys의 네 값은 기존 불리언 `giveBackOnReplacedBar`·`giveBackInPetBattle`의 조합이고 새 필드가 아니다.
-  라벨과 문구가 어떻게 정해졌는지는 일기의 2026-10-07 절에 있다.
+  라벨과 문구가 어떻게 정해졌는지는 일기의 2026-10-07 절에 있다. 값은 클라이언트 드롭다운처럼 낱말마다 대문자로 쓴다
+  ("Quest Objectives and Mouseover", 소유자). "Pet Battles"는 클라이언트 문자열 `SHOW_PET_BATTLES_ON_MAP_TEXT`다.
 
 ### 1-1. 미리 정해지는 액션, 이슈, ESC (소유자, 2026-10-07)
 

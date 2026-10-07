@@ -727,7 +727,7 @@ end
 
 --- True only when **every** binding the action puts on its key was dropped. An action whose hover
 --- twin alone is covered still fires everywhere but over a frame, and calling that unreachable
---- would paint a working action red.
+--- would mark a working action as never running.
 ---
 --- Read off the cached list rather than a fresh derivation: the cache was keyed by these tables in
 --- the last `BuildKeyMap`, and this is asked several times per drawn row. An action with no list

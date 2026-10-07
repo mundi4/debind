@@ -81,11 +81,12 @@ do
 end
 
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
---- 가져왔지만 아직 승인 안 된 액션의 이름. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
---- **뜻이 하나다** - 이 창은 이름 색으로 이미 셋을 말한다(회색·빨강·이 파랑). 넷째를 얹지 말 것.
+--- The name of an action that came in from a string and is not accepted yet. The same blue as the
+--- dot, so the two read as one mark. **One meaning only**: the name's colour already says two
+--- things (grey, and this blue); do not add another.
 ---
---- 색이 나는 곳은 여기 하나다. 드롭다운 메뉴가 행과 같은 파랑을 그려야 하는데, 사본이 하나
---- 더 있으면 원본이 움직이는 날 그쪽이 안 따라온다.
+--- The colour lives here and nowhere else. The dropdown menu has to draw the same blue as the row,
+--- and a second copy would not follow the day this one moves.
 local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
 
 local QUESTION_MARK_ICON_NUM = Constants.QUESTION_MARK_ICON;
@@ -329,6 +330,14 @@ function DebindPrivate.IssueSentence(code, name)
 	return text;
 end
 
+--- An issue's sentence as a tooltip line, in the issue colour (`GetIssueColor`). The action
+--- tooltip, its issue mark and the Switches tab draw theirs here. The menus are the one other place,
+--- through `resolveIssue` (`ActionMenuModel.lua`), which hands `MenuKit` the same two answers.
+function DebindPrivate.AddIssueLine(tooltip, code, name, wrap, leftOffset)
+	GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code, name),
+		DebindPrivate.GetIssueColor(code), wrap or false, leftOffset);
+end
+
 --- 액션 하나를 받는다. 목록 elementData를 그대로 넘기지 말 것 - 부르는 쪽이 `.action`을
 
 --- 꺼내서 넘긴다. 아래 색칠하는 쪽도 같은 계약이다.
@@ -360,7 +369,7 @@ local function NameAndIconForAction(action)
 		local macroName;
 		-- **Asked only when the value is a name.** A `MACRO` that holds anything else is one
 		-- the import refused the value of (`RefusedByActionType`), so there is nothing here
-		-- to ask about and `GetMacroInfo(nil)` raises. The row is drawn red either way:
+		-- to ask about and `GetMacroInfo(nil)` raises. The row is marked either way:
 		-- `GetMissingMacroName` already reports it.
 		if (luatype(value) == "string") then
 			macroName, actionIcon = GetMacroInfo(value);
@@ -424,7 +433,7 @@ local function NameAndIconForAction(action)
 		-- is added that way (§6-C of `redesigning-custom-states.md`), and all three
 		-- sentences have a `%s` that raises on nil. What goes in is the word, not the instruction:
 		-- a name says what the action is, and telling the reader to go pick one is the job of the
-		-- red the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.
+		-- issue mark the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` under it.
 		actionName = format(LLL["TYPE_" .. strupper(type)],
 			luatype(value) == "string" and value or LLL["TYPE_SETSWITCH_ANY"]);
 		actionIcon = 254885;

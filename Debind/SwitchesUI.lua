@@ -410,11 +410,10 @@ function DebindSwitchRowMixin:OnEnter()
 
         -- **The name, because the line above it is a row of conditions** and nothing in it looks
         -- any different once one of them stops meaning anything. It is the one reference to a
-        -- switch that no action carries, so nothing else on screen goes red for it.
+        -- switch that no action carries, so nothing else on screen marks it.
         local undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
         if (undefined) then
-            GameTooltip_AddErrorLine(GameTooltip,
-                format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefined));
+            DebindPrivate.AddIssueLine(GameTooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, undefined);
         end
     end
 
@@ -626,8 +625,8 @@ end
 --- **The name handed over is the one `CreateSwitch` filed, not the one that was typed.** The
 --- case is folded on the way in, and the two callers that pass an `onCreated` write the name
 --- straight onto an action - a condition key, an on/off/toggle target. Given the typed
---- spelling, `$Burst` would go on an action that nothing defines a switch for, so the row goes
---- red and stops binding at all (`GetUndefinedSwitch`) while the list shows `$burst` made and
+--- spelling, `$Burst` would go on an action that nothing defines a switch for, so the row is
+--- marked and stops binding at all (`GetUndefinedSwitch`) while the list shows `$burst` made and
 --- well.
 ---
 --- **Three places open this box**: the button under this list, the condition menu, and an
@@ -1331,7 +1330,7 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     settings.ExprBox:SetEnabled(autoHere);
 
     -- **This is the only place a dead name inside an expression is ever shown.** Every other
-    -- reference to a switch rides on an action, which goes red and drops out of `KeyMap`; an
+    -- reference to a switch rides on an action, which is marked and drops out of `KeyMap`; an
     -- expression belongs to a definition and reaches neither (`GetUndefinedSwitchInExpr` in
     -- `Issues.lua`). Deleting a switch leaves its references where they are on purpose
     -- (`DeleteSwitch`), and this is what makes that promise true for the one kind that is not an
@@ -1339,13 +1338,13 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     --
     -- **Asked only where the expression is the answer.** A layer keeps the words it was given
     -- after the reader moves it off that answer (`SetSwitchAnswer`), so asking regardless would
-    -- redden a box over a name it has stopped reading.
+    -- mark a box over a name it has stopped reading.
     local undefined;
     if (autoHere) then
         undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, name);
     end
     if (undefined) then
-        settings.ExprBox:SetTextColor(ERROR_COLOR:GetRGB());
+        settings.ExprBox:SetTextColor(DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH):GetRGB());
     elseif (autoHere) then
         settings.ExprBox:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
     else
@@ -1361,7 +1360,7 @@ end
 --- character can open: the rest are inside the tally above.
 ---
 --- The last is this character's pending actions. They name this switch like any other, so deleting
---- it turns them red, but they reach no key yet and are counted in neither group above
+--- it marks them, but they reach no key yet and are counted in neither group above
 --- (`CountSwitchReferences`).
 function DebindSwitchesPanelMixin:UsageList()
     local usage = self.usage[self.selectedName];
@@ -1610,7 +1609,7 @@ local function ShowSwitchMergeMenu(name, others)
 end
 
 --- **Deleting asks whether to merge instead** (`resolving-switches-on-accept.md` 6-7, owner). [Delete]
---- leaves every reference standing and red, for someone about to make the name again; merging
+--- leaves every reference standing and marked, for someone about to make the name again; merging
 --- points them at the switch picked, which is the merge where that one survives (6-6). Removing the
 --- conditions is a third answer kept for later.
 ---

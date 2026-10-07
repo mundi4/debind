@@ -663,8 +663,10 @@ L["KEY_HEADER_TOOLTIP_SELECT"] = "Left click to select everything under this hea
 --- (`LINE_TOOLTIP_NOT_RUNNING_DISABLED`, `LINE_TOOLTIP_SPEC_INACTIVE`, an issue's mark). All of them
 --- do the same thing to the key, which is what this sentence is about.
 ---
---- **A group whose actions can never run is not grey with that option off.** The key is held then
---- and does not go anywhere; that nothing comes out of it is the mark's to say.
+--- **A group whose actions can never run is not grey with that option off**, except a mouse button
+--- whose actions run only over unit frames: that one holds no key either way (`BuildKeyMap`), so
+--- with them left out nothing of Debind's answers it. Any other key is held then and does not go
+--- anywhere; that nothing comes out of it is the mark's to say.
 ---
 --- **"whatever WoW has bound to it" is the phrase the switch that causes this already uses**
 --- (`ACTION_DISABLED_DESC`). One thing, one wording per screen.
@@ -1177,9 +1179,12 @@ L["GIVE_BACK_KEYS"] = "Keys Given Back"
 -- (owner, 2026-10-07).
 L["GIVE_BACK_NO_ACTION_RUNS"] = "When no action runs"
 L["GIVE_BACK_NO_ACTION_RUNS_DESC"] = "What a key with Debind actions on it does at a press where none of them runs."
-L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key is given back"
+-- **The values of both dropdowns in this section are in title case**, as the client's own dropdown
+-- values are ("Quest Objectives and Mouseover": short words such as "and" stay lower case). The
+-- client's "Pet Battles" below is one of them. The row labels are not values and keep sentence case.
+L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key Is Given Back"
 L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK_DESC"] = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none."
-L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press does nothing"
+L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press Does Nothing"
 L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever else is bound to the key."
 -- **One dropdown over two situations that do not depend on each other**, the way the client's Self
 -- Cast row spreads None / Auto / Key Press / Auto and Key Press: two checkboxes nested under a
@@ -1190,11 +1195,14 @@ L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever e
 -- skyriding are said to be out because "or the like" read as covering them.
 L["GIVE_BACK_ACTION_BUTTON_KEYS"] = "Action Button keys"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"] = "When the keys bound to WoW's action buttons are given back."
-L["GIVE_BACK_REPLACED_BARS"] = "Replaced bars"
+L["GIVE_BACK_REPLACED_BARS"] = "Replaced Bars"
 L["GIVE_BACK_REPLACED_BARS_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included."
-L["GIVE_BACK_PET_BATTLES"] = "Pet battles"
+-- **The client's own name for the thing** (`SHOW_PET_BATTLES_ON_MAP_TEXT`), so every language gets it
+-- for free. The values beside it are ours, so a locale that has not translated them shows them in
+-- English next to it; that is the fallback working (`writing-user-facing-text.md`).
+L["GIVE_BACK_PET_BATTLES"] = SHOW_PET_BATTLES_ON_MAP_TEXT
 L["GIVE_BACK_PET_BATTLES_DESC"] = "During a pet battle: the keys bound to Action Buttons 1 to 5."
-L["GIVE_BACK_REPLACED_BARS_AND_PET_BATTLES"] = "Replaced bars and pet battles"
+L["GIVE_BACK_REPLACED_BARS_AND_PET_BATTLES"] = "Replaced Bars and Pet Battles"
 -- **Not the client's `NEVER`**, which koKR renders as "do not show".
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"] = "Never"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] = "Debind keeps these keys, and the actions on them run as usual."
@@ -1259,7 +1267,7 @@ L["SWITCH_USAGE_HERE"] = "This Character"
 L["SWITCH_USAGE_ACCOUNT"] = "Across the Account"
 L["SWITCH_USAGE_EXPRS"] = "Other Switches"
 -- This character's actions not accepted yet. The word is the one the strip's count uses
--- (`IMPORT_PENDING`): they name this Switch already and turn red if it goes, but do nothing yet.
+-- (`IMPORT_PENDING`): they name this Switch already and are marked if it goes, but do nothing yet.
 L["SWITCH_USAGE_PENDING"] = "Pending"
 -- The two halves of a row's number in the group above, in its tooltip.
 L["SWITCH_USAGE_ACTIONS"] = "Actions"
@@ -1320,7 +1328,7 @@ L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole ac
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
 L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; it and will stop working."
--- Actions waiting to be accepted name the Switch too, and turn red with it. Apart from the line
+-- Actions waiting to be accepted name the Switch too, and are marked with it. Apart from the line
 -- above because they do nothing yet, so "will stop working" is not true of them. The second is the
 -- only place other characters' pending actions are counted: nothing on this character opens them.
 L["SWITCH_DELETE_CONFIRM_PENDING"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting to be accepted |4uses:use; it too."
@@ -1337,7 +1345,7 @@ L["SWITCH_DELETE_CONFIRM_PENDING_ELSEWHERE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r wai
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
 -- What the delete dialog's two answers do to the actions that use the Switch, since that is the
 -- whole difference between them (`resolving-switches-on-accept.md` 6-7).
-L["SWITCH_DELETE_CHOICES"] = "Delete leaves the actions that use it as they are, marked in red so you can find them. Merge makes them use another Switch instead."
+L["SWITCH_DELETE_CHOICES"] = "Delete leaves the actions that use it as they are, marked so you can find them. Merge makes them use another Switch instead."
 L["SWITCH_DELETE_MERGE"] = "Merge Into..."
 L["SWITCH_MERGE_MENU_TITLE"] = "Merge %s into"
 L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."

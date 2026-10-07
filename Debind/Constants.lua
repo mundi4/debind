@@ -293,11 +293,11 @@ Constants.CONDITION_FIELDS = {
     skyriding = true,
 };
 
---- The issue categories. **Each names a control to paint red, not a field.** Some, like `macro`,
---- have no action field of that name at all, and some conditions have no category.
+--- The issue categories. **Each names a control to mark, not a field.** Some, like `macro`, have no
+--- action field of that name at all, and some conditions have no category.
 ---
---- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
---- 비켜가 언제나 nil이 나오는데, 그건 "문제 없음"과 구별되지 않는다.
+--- **The table is here for one reason.** Asked with a name that is not one, every `if` in
+--- `GetBindingIssue` misses and the answer is always nil, which cannot be told from "no problem".
 Constants.BINDING_ISSUE_CATEGORIES = {
     key = true,
     -- 조건 묶음. 메뉴가 자기 키를 그대로 넘긴다(`DropDownMenus.lua`).
@@ -649,7 +649,7 @@ Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED
 -- key answers a question nobody asked (`making-known-a-spell-name.md`).
 Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE             = "KNOWN_NAME_UNPARSABLE";
 -- No box ticked in a unit's group block. **Its own code, on the same categories the unit's other
--- axes use.** The category picks which control goes red and the block lives in those menus, so it
+-- axes use.** The category picks which control is marked and the block lives in those menus, so it
 -- is the right one; what a shared code would get wrong is the sentence, because a zero here is one
 -- axis empty rather than the unit having no state left at all.
 --
@@ -679,9 +679,9 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- Hover Cast's "don't run while pointing" with Normal Cast off: no plain press is left, so the action
--- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **Red**
--- (2026-10-04, owner): only those twins would be left, and they vary a press the action no longer
--- has. Turning the action off closes it too, and keeps what it was set with.
+-- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **The twins
+-- are not kept** (2026-10-04, owner): they would be all that is left, and they vary a press the
+-- action no longer has. Turning the action off closes it too, and keeps what it was set with.
 Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- A left or right click with no modifier answers one press, a click on a unit frame, and the action
 -- carries [when there is none] on a unit that is always there on such a click: the frame's own unit,
@@ -753,7 +753,8 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
     -- Left in, the press finds no macro and does nothing where the next action could have run.
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_OUTCOME_OMIT,
-    -- There is nothing to leave in or out; the key stays held, so the next action on it answers.
+    -- There is nothing to leave in or out; the next action on the key answers, and with none left
+    -- the key's end does.
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_OUTCOME_OMIT,
     -- The binding the solver keeps could never match at the press, so it is left off the key and the
     -- click reaches the frame rather than doing nothing.

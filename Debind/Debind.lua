@@ -172,8 +172,9 @@ dump("KeysToHold", DebindPrivate.KeysToHold);
 --- that runs over a unit frame holds no key at all -- the press arrives through the frame -- and it
 --- works. Asked of the other two tables it reads as a key we do not have.
 ---
---- Narrower by one as well: with `giveBackWhenNoActionRuns` on, a key where no action can ever run
---- is not held, and `BuildKeyMap` takes it out of here too, frame clicks aside.
+--- Narrower as well: a key where no action can ever run is not here unless it is held, which with
+--- `giveBackWhenNoActionRuns` on it is not. A mouse button whose actions run only over unit frames
+--- is never held, so with them all left out it is not here whichever way the option stands.
 DebindPrivate.HandledKeys            = {};
 dump("HandledKeys", DebindPrivate.HandledKeys);
 
@@ -399,7 +400,6 @@ do
 						action, layerRank, nil, Placements[binding]);
 
 					local key = action.key;
-					-- **The issue's outcome decides, never its grade** (`Constants.BINDING_ISSUE_OUTCOMES`).
 					if (outcome == nil or outcome == Constants.ISSUE_OUTCOME_KEEP) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};
@@ -440,9 +440,14 @@ do
 			local holds, clicks = false, false;
 			if (bindings) then
 				local button, buttonPrefix = bindings.button, bindings.buttonPrefix;
+				-- **Stamped here, once a rebuild**, and read by `PrepareKeyBindings`, which only
+				-- clears them on a binding it drops.
 				for i = 1, #bindings do
-					holds = holds or DebindPrivate.BindingHoldsKey(bindings[i], button);
-					clicks = clicks or DebindPrivate.BindingClicksThroughFrame(bindings[i], button, buttonPrefix);
+					local binding = bindings[i];
+					binding.holdsKey = DebindPrivate.BindingHoldsKey(binding, button);
+					binding.isClickCast = DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix);
+					holds = holds or binding.holdsKey;
+					clicks = clicks or binding.isClickCast;
 				end
 			end
 			if (giveBack and not holds) then

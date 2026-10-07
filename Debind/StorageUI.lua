@@ -2008,7 +2008,7 @@ function DebindStoragePanelMixin:CommitSelected(entry, accept, layer, specs, par
             CountText("actions", skipped)), 1, 0.5, 0);
     end
     -- **Nothing brings a switch in with the actions** (`importing-switches-apart-from-actions.md`
-    -- 2-3), so the ones landing red are named here, while the reader still knows which press did it.
+    -- 2-3), so the ones landing marked are named here, while the reader still knows which press did it.
     local missing = DebindPrivate.UndefinedSwitchNames(actions);
     if (#missing > 0) then
         DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_MISSING_SWITCHES"],

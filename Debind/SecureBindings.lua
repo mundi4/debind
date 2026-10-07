@@ -727,7 +727,8 @@ BindingDriver:SetAttribute("ClearRoleUnits", [==[
 --- is in the restricted environment, so a key the reader rebound during the fight is read as it is
 --- now.
 ---
---- **The driver's letter says which bar it is, so nothing here asks again** (`GIVE_BACK_DRIVER`).
+--- **The driver's letter says which bar it is, so nothing here asks again** (`GiveBackDriver` in
+--- `UpdateBindings.lua`).
 --- Asking was a hole: the driver wakes on the macro conditional turning true and the bar is not
 --- necessarily up yet at that moment, so `HasVehicleActionBar()` answered false and not one key went
 --- over until the next transition (measured 2026-09-19 on a Ulduar vehicle and on the bonus bar).

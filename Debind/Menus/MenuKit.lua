@@ -51,6 +51,15 @@ function MenuKit.SetErrorTooltip(description, text)
     end);
 end
 
+--- The item's name and the issue it carries, in the colour the menu's `resolveIssue` gives it.
+--- **Not `SetErrorTooltip`**: that one is a reason an item cannot be taken, in the client's red.
+function MenuKit.SetIssueTooltip(description, sentence, color)
+    description:SetTooltip(function(tooltip, elementDescription)
+        GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
+        GameTooltip_AddColoredLine(tooltip, sentence, color, true);
+    end);
+end
+
 --------------------------------------------------------------------------------
 -- New feature marks
 --------------------------------------------------------------------------------

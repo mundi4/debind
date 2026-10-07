@@ -326,9 +326,10 @@ local function BuildUnitConditionMenu(kit, ctx)
     CreateUnitConditionSubmenu(description, ctx, "RESOLVED_TARGET", "@");
 
     for _, unit in ipairs(SORTED_UNIT_LIST) do
-        -- **그리는 줄과 세는 유닛이 같은 목록이어야 한다.** `isListedUnit`이 그 목록이고,
-        -- 갈리면 이 메뉴가 안 그리는 조건으로 파래지거나 빨개진다. `"none"`만 여기 더 있다 -
-        -- 그건 유닛이 아니라 대상 없음이라 조건이 붙을 자리가 아예 없다.
+        -- **The rows drawn and the units counted must be one list.** `isListedUnit` is that list;
+        -- apart, this menu turns blue or takes the issue colour over a condition it does not draw.
+        -- `"none"` is the one extra here: it is no unit but no target at all, so no condition can
+        -- go on it.
         if (unit ~= "@" and isListedUnit(unit) and unit ~= "none") then
             CreateUnitConditionSubmenu(description, ctx, DebindUI.UNIT_INFO[unit].name, unit);
         end
@@ -501,7 +502,7 @@ end
 --- **A class of one specialization gets no submenu.** Camelot gives every class exactly one, named
 --- after the class, so the one box under it would write the same bit as the class box.
 ---
---- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an error
+--- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an issue
 --- rather than a destination (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the way out of the axis is
 --- the `Off` radio one row up. A button offering the error state as a shortcut is the one row
 --- this menu has no use for.
@@ -911,8 +912,8 @@ ActionMenus:Define("MISC", {
 });
 
 --- **The first branch on the kit** (`putting-the-menus-on-a-kit.md`). The row that
---- opens this used to name `{ "bonusbars", "specialbar" }` beside itself so a red child would
---- redden it; the tree says who the children are, so the list is gone and a fourth one added
+--- opens this used to name `{ "bonusbars", "specialbar" }` beside itself so a marked child would
+--- mark it; the tree says who the children are, so the list is gone and a fourth one added
 --- here brings its own colour up with it.
 ActionMenus:Define("ACTIONBAR", {
     label = "CONDITION_ACTIONBARS",
@@ -946,7 +947,7 @@ ActionMenus:Define("SPECIALBAR", {
     end,
 });
 
---- **No check carries this name**, so the row never reddens and nothing rolls up from it. It is
+--- **No check carries this name**, so the row is never marked and nothing rolls up from it. It is
 --- a value the reader sets like the two above it, which is why it stands beside them.
 ActionMenus:Define("EXTRABAR", {
     label = "CONDITION_EXTRABAR",
@@ -964,7 +965,7 @@ local function BuildSwitchConditionMenu(kit, ctx)
     -- hang one on was offering a dead end.
     --
     -- **The dead end is marked, and that is not a reason to offer it.** `GetUndefinedSwitch`
-    -- reads condition keys as well as bodies and targets, so such an action goes red and drops
+    -- reads condition keys as well as bodies and targets, so such an action is marked and drops
     -- out of `KeyMap` (`Issues.lua`). The mark is there for the ways a name goes undefined *after*
     -- the condition was hung - a switch deleted, a string from someone else - and a list that
     -- lets the reader build one on purpose is a list that manufactures work for it.
@@ -993,8 +994,8 @@ local function BuildSwitchConditionMenu(kit, ctx)
     end
     sort(switchNames);
 
-    -- 위 묶음이 빨개지는 것은 "이 액션에 끊긴 조건이 있다"이고, 여기가 빨개지는 것은
-    -- **어느 것인지**다.
+    -- The group above being marked says "this action has a broken condition"; this row being marked
+    -- says **which one**.
     local function UndefinedSwitchError(name)
         if (not DebindPrivate.ResolveSwitchDefinition(name)) then
             return Constants.BINDING_ISSUE_UNDEFINED_SWITCH, name;
@@ -1071,12 +1072,13 @@ ActionMenus:Define("SWITCHES", {
         return named;
     end,
 
-    -- **자식에서 안 올라온다.** 스위치 줄은 이름이 있을 때만 생기는 노드라 트리에 자식이
-    -- 없고, 그래서 이 갈래는 자기가 답한다. 하나로 물을 수 있는 물음이라 그래도 된다.
+    -- **Nothing rolls up from children.** A switch row is a node that exists only while the name
+    -- does, so the tree has no children here, and this branch answers for itself. One question asks
+    -- it, so that is fine.
     --
-    -- **본문 오타로는 안 빨개진다.** `GetUndefinedSwitch`는 매크로 본문과
-    -- 켜기/끄기/전환의 대상까지 같이 답하므로, 그걸 쓰면 조건은 멀쩡한데 이 칸이
-    -- 빨개져서 고칠 곳을 엉뚱한 데로 가리킨다. 조건만 보는 문이 따로 있다.
+    -- **A typo in a macro body does not mark this box.** `GetUndefinedSwitch` also answers for
+    -- macro bodies and on/off/toggle targets, so using it would mark this box while the conditions
+    -- are fine and send the reader to the wrong place. There is a door that asks the conditions alone.
     issue = function(ctx)
         for _, action in ipairs(ctx.actions) do
             local name = DebindPrivate.GetUndefinedSwitchCondition(action);

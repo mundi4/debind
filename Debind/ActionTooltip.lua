@@ -95,9 +95,9 @@ do
 	--- `addValueLines` 안에서 비워지며 돌기 때문이다.
 	local _switchNames = {};
 	local LEFT_OFFSET = 10;
-	-- **One step in, for a line that belongs to the line above it.** Two things use it. The reason a
-	-- value is red, which is red itself because the sentence is about a fault and gold would read as
-	-- a second value, so the step is the only thing left to tell the setting from the explanation.
+	-- **One step in, for a line that belongs to the line above it.** Two things use it. The issue
+	-- under a value, which is in the issue colour because the sentence is about a fault and gold
+	-- would read as a second value, so the step is what tells the setting from the explanation.
 	-- And the axes one unit condition narrows, which would otherwise stand level with the units
 	-- themselves and stop saying whose they are.
 	--
@@ -123,50 +123,31 @@ do
 	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_SKIP"] };
 	local HOVER_TEXT = { cast = LLL["CASTING_POINTED_CAST"], skip = LLL["CASTING_SKIP"] };
 
-	--- An issue's sentence written out here rather than looked up by code, in the colour every issue
-	--- takes (`GetIssueColor`).
-	local function addErrorLine(tooltip, message, wrap, leftOffset)
-		GameTooltip_AddColoredLine(tooltip, message, ORANGE_FONT_COLOR, wrap or false, leftOffset or LEFT_OFFSET);
-	end
-
-	local function addLabelLine(tooltip, label, hasError)
+	local function addLabelLine(tooltip, label)
 		GameTooltip_AddBlankLineToTooltip(tooltip);
-		if (hasError) then
-			GameTooltip_AddErrorLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
-		else
-			GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
-		end
+		GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
 	end
 
-	local function addIssueLine(tooltip, code, wrap, leftOffset)
-		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code),
-			DebindPrivate.GetIssueColor(code), wrap or false, leftOffset or LEFT_OFFSET);
+	--- An issue line at this block's left edge (`DebindPrivate.AddIssueLine`). `arg` is the name a
+	--- sentence with a `%s` prints.
+	local function addIssueLine(tooltip, code, wrap, leftOffset, arg)
+		DebindPrivate.AddIssueLine(tooltip, code, arg, wrap, leftOffset or LEFT_OFFSET);
 	end
 
-	--- **The issue colour on the value only where the value is the whole of the problem.** `error` as
-	--- `true` says exactly that -- nothing is selected, and there is no separate sentence to print, so
-	--- the value has to carry the colour itself. A code instead means the sentence goes up underneath,
-	--- and then the value is a setting the reader chose with nothing wrong in it.
+	--- A value, and under it, one step in, the sentence of the issue it carries if any. The value is
+	--- a setting the reader chose with nothing wrong in it, so it is drawn plain.
 	local function addValueLine(tooltip, value, error, wrap, leftOffset)
-		if (error == true) then
-			addErrorLine(tooltip, value, wrap, leftOffset);
-		else
-			GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
-		end
-		if (type(error) == "string") then
+		GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
+		if (error) then
 			addIssueLine(tooltip, error, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
 	local function addValueLines(tooltip, lines, error, wrap, leftOffset)
 		for i = 1, #lines do
-			if (error == true) then
-				addErrorLine(tooltip, lines[i], wrap, leftOffset);
-			else
-				GameTooltip_AddNormalLine(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
-			end
+			GameTooltip_AddNormalLine(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
-		if (type(error) == "string") then
+		if (error) then
 			addIssueLine(tooltip, error, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
@@ -413,9 +394,8 @@ do
 				end
 				addValueLine(tooltip, keyText, error);
 				-- **Stated here, not shouted, and under the key rather than on it.** The key itself
-				-- is a valid one and the sentence describes a neighbour on it, so neither half goes
-				-- red. `addValueLine`'s error argument colours both at once, which is why this is
-				-- put up as a line of its own instead of being handed to it.
+				-- is a valid one and the sentence describes a neighbour on it, not an issue, so it is
+				-- put up as a line of its own instead of being handed to `addValueLine` as one.
 				--
 				-- **A second line beside whatever the key already said**, since the two are
 				-- separate axes: an action can be covered by a neighbour and be carrying a fault of
@@ -452,7 +432,7 @@ do
 		--
 		-- **An action the reader turned off says so under the block as a reason, not as an issue**,
 		-- the way the specialization line stands under its condition (`GetNotRunningReason`). Values
-		-- that leave no plain press are the other way to stand still, and that one is an error on
+		-- that leave no plain press are the other way to stand still, and that one is an issue on
 		-- this block.
 		do
 			wipe(_lines);
@@ -635,7 +615,7 @@ do
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
 			if (conditions.groups == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED);
 			else
 				wipe(_lines);
 				for i = 1, #GROUP_TYPES do
@@ -679,7 +659,7 @@ do
 			addLabelLine(tooltip, LLL["CONDITION_SPECS"]);
 
 			if (DebindPrivate.SpecSetIsEmpty(conditions.specs)) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_SPECS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_SPECS_NONE_SELECTED);
 			else
 				addValueLine(tooltip, DebindPrivate.DescribeSpecCondition(conditions.specs),
 					hasIssues and GetIssue("specs"));
@@ -786,7 +766,7 @@ do
 		if (conditions.forms ~= nil and conditions.forms ~= Constants.FORM_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
 			if (conditions.forms == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_FORMS_NONE_SELECTED);
 			else
 				-- **Numbers on one line, the way the specializations above are drawn.** A name
 				-- each would be eleven rows of a word the label already said, and most of them
@@ -807,7 +787,7 @@ do
 		if (conditions.bonusbars ~= nil and conditions.bonusbars ~= Constants.BONUSBAR_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
 			if (conditions.bonusbars == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("bonusbars");
@@ -847,24 +827,24 @@ do
 			addValueLine(tooltip, conditions[switchName] == true and LLL["CONDITION_SWITCH_YES"] or LLL["CONDITION_SWITCH_NO"]);
 		end
 
-		-- 매크로 본문의 `[$이름]`은 위 조건 칸들과 달리 그릴 자리가 없다 - 저장에는 본문
-		-- 문자열 하나로만 있다. 그래서 이슈 코드만으로는 **어느 이름이 틀렸는지**를 못 말하고,
-		-- 그걸 말하는 것이 이 마커의 존재 이유라 여기서만 이름을 붙여 적는다.
+		-- A macro body's `[$name]` has no place to be drawn, unlike the condition rows above: it is
+		-- stored only as the body string. So the issue code alone cannot say **which name is
+		-- wrong**, and saying that is what this line is for, so the name is put in here.
 		if (hasIssues) then
 			local undefinedSwitch = DebindPrivate.GetUndefinedSwitch(action);
 			if (undefinedSwitch) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefinedSwitch), true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, true, nil, undefinedSwitch);
 			end
 
 			-- Named here for the same reason. The macro name is the action's `value`, so no
 			-- condition row above draws it, and the name on the row is the one
 			-- `NameAndIconForAction` hands back **unchanged** next to a question-mark icon -- it
-			-- cannot say on its own why the row went red.
+			-- cannot say on its own why the row is marked.
 			local missingMacro = DebindPrivate.GetMissingMacroName(action);
 			if (missingMacro) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro), true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, true, nil, missingMacro);
 			end
 		end
 
@@ -969,16 +949,6 @@ do
 		end);
 	end
 
-	--- The sentence an issue code prints. The wording fallback is the menu's (`resolveIssue` in
-	--- ActionMenuModel.lua).
-	---
-	--- **Some of the sentences name something** -- the switch, the macro or the command that was not
-	--- found -- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
-	--- raw `%s` where the name should have been.
-	local function AddIssueLine(tooltip, code, arg, leftOffset)
-		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code, arg),
-			DebindPrivate.GetIssueColor(code), true, leftOffset or 0);
-	end
 
 	--- The row's issue mark: every problem on this row, under the name of the group that can fix it.
 	---
@@ -1011,7 +981,11 @@ do
 					local other = issues[j];
 					if (not done[j] and other.label == issue.label) then
 						done[j] = true;
-						AddIssueLine(tooltip, other.code, other.arg, issue.label and ISSUE_INDENT or 0);
+						-- **The name comes with the code** (`GetBindingIssues`): some sentences name the
+						-- switch, macro or command that was not found, and without it the reader was
+						-- handed a raw `%s`.
+						DebindPrivate.AddIssueLine(tooltip, other.code, other.arg, true,
+							issue.label and ISSUE_INDENT or 0);
 					end
 				end
 			end
