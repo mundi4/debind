@@ -1,8 +1,8 @@
 # 아무 액션도 안 돌 때 키를 돌려주기 (2026-10-07 계획)
 
 > 상태: 진행 중. G0(8f3ca88)과 G1~G4, 1-1절(1c81ae6)이 들어갔고 G5는 쟀다(b998892). G6 가운데 설정 행 배선,
-> `OPTION_FIELDS`·`ResetToDefaults`·로케일, `giveBackWhenActionExists` 지우기가 들어갔다. 남은 것은 G6의 등급 합치기와
-> 게임 안 키트, G7(문서).
+> `OPTION_FIELDS`·`ResetToDefaults`·로케일, `giveBackWhenActionExists` 지우기(3388a85), 게임 안 키트와 G7의 두
+> 문서가 들어갔다. 남은 것은 G6의 등급 합치기다. What's New와 도움말은 다른 세션이 맡는다.
 >
 > 쓴 세션: `debind-4a` (세션 ID `73ee6c63-8228-430b-9aca-e8140fe8facd`).
 

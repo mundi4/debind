@@ -8264,6 +8264,55 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
     end,
 })
 
+-- **A key with nothing under its one conditional action** (`giving-keys-back-when-no-action-runs.md`).
+-- The same beat as the case above, with the key's end, the giveback the rebuild puts there, standing
+-- where the command stood. Which way the key goes in each state is headless
+-- (`tests/judgmentloop_spec.lua` N1); what is left for the client is that a key judged only because
+-- of that end is on the beat at all, and that the restricted `ClearBinding` lets it go and a later
+-- `SetBindingClick` takes it again.
+RegisterTest("Tail: a lone conditional action lets its key go and takes it back", {
+    description = "A key whose only action is a combat one is let go at peace and taken in combat, twice, on the beat alone",
+    run = function()
+        local NAME = "Lone conditional"
+        local KEY = "CTRL-SHIFT-F12"
+        local driver = DebindPrivate.BindingDriver
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        ApplyBindings()
+        local function Ours() return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK " end
+
+        -- Ends in a rebuild, whose own pass judges the key at peace.
+        SetMockState("combat", false)
+        if Ours() then
+            return Fail(NAME, "at peace the rebuild held the key")
+        end
+
+        -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it is
+        -- one the beat has to carry. Twice, so a key let go once is shown to come back.
+        for round = 1, 2 do
+            SecureHandlerExecute(driver, MockBody("combat", true))
+            if not WaitUntil(Ours, 2) then
+                return Fail(NAME, format("round %d: no beat took the key in combat, it answers %q", round,
+                    GetBindingAction(KEY, true) or ""))
+            end
+            SecureHandlerExecute(driver, MockBody("combat", false))
+            if not WaitUntil(function() return not Ours() end, 2) then
+                return Fail(NAME, format("round %d: no beat let the key go at peace", round))
+            end
+        end
+
+        return Pass(NAME, "let go at peace and taken in combat, twice, on the beat")
+    end,
+})
+
 -- **The watch in the restricted environment** (`WatchFragments`, `implementing-the-cuts-inside-the-
 -- beat-handler.md` Q2). Which key the loop binds at every point and after every one-column move is
 -- headless (`tests/judgment_spec.lua`). What only the client shows is the watch's text parsed there
