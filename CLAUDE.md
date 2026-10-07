@@ -164,6 +164,16 @@ The rest:
 **Unless told otherwise, a review covers only what this session changed.** Other sessions'
 uncommitted work sits in the same working tree, and it is not yours to review.
 
+**When a finished change looks like it needs a review, hand me the command:
+`/code-review high <target>`, with the target filled in.** The target is what decides what the
+reviewer reads, and the default does not stop at this session's work: with no argument it picks
+its own range and adds every uncommitted change and untracked file in the tree, other sessions'
+included. How each form of target actually behaves was measured in `.zzz/code-review.md` (its
+table of inputs by scope); choose the form from there, not from what the syntax suggests — a
+branch name means `main...<branch>`, a file path reviews only that file's diff, and a PR number
+is ignored. If no form there covers exactly this session's changes, say what else the command
+will pull in.
+
 ## Commits
 
 **Commit only when told to.** Finishing a change is not an instruction to commit it.
