@@ -254,43 +254,68 @@ local function Build()
     HelpLink(L["HELP_HOVER_CAST_TITLE"], "hover-cast");
     HelpLink(L["HELP_TARGETING_TITLE"], "targeting");
 
-    -- MOCKUP (2026-10-07): the layout only. None of these rows is stored or read; the saved
-    -- give-back options keep whatever they held and still drive the keys.
-    Header("Giving Keys Back");
-    local function MockDropdown(text, tooltip, choices, initial)
-        local current = initial;
-        Dropdown(text, tooltip, function(_, rootDescription)
-            Radios(rootDescription, choices, function()
-                return current;
-            end, function(value)
-                current = value;
-            end);
-        end, choices);
-    end
+    Header(L["GIVE_BACK_KEYS"]);
+    local noActionChoices = {
+        { value = true, label = L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"],
+            tooltip = L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK_DESC"] },
+        { value = false, label = L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"],
+            tooltip = L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] },
+    };
+    Dropdown(L["GIVE_BACK_NO_ACTION_RUNS"], L["GIVE_BACK_NO_ACTION_RUNS_DESC"], function(_, rootDescription)
+        Radios(rootDescription, noActionChoices, DebindPrivate.GiveBackWhenNoActionRuns, function(value)
+            if (value) then
+                Options().giveBackWhenNoActionRuns = nil;
+            else
+                Options().giveBackWhenNoActionRuns = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
+    end, noActionChoices);
 
-    MockDropdown("When no action runs",
-        "What a key with Debind actions on it does at a press where none of them runs.", {
-            { value = "giveback", label = "Key is given back",
-                tooltip = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none." },
-            { value = "nothing", label = "Press does nothing",
-                tooltip = "The press does nothing, whatever else is bound to the key." },
-        }, "giveback");
-    local PET_BATTLE_KEYS = "During a pet battle: the keys bound to Action Buttons 1 to 5.";
-    local REPLACED_BAR_KEYS = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included.";
-    MockDropdown("Action Button keys", "When the keys bound to WoW's action buttons are given back.", {
-            { value = "replaced", label = "Replaced bars", tooltip = REPLACED_BAR_KEYS },
-            { value = "petbattle", label = "Pet battles", tooltip = PET_BATTLE_KEYS },
-            { value = "both", label = "Replaced bars and pet battles" },
-            { value = "never", label = "Never",
-                tooltip = "Debind keeps these keys, and the actions on them run as usual." },
-        }, "petbattle");
-    local mockHouseEditor = true;
-    Checkbox("House Editor keys", "While the House Editor is open, the keys it uses are given back.",
-        function()
-            return mockHouseEditor;
-        end,
+    local actionButtonChoices = {
+        { replacedBar = true, petBattle = false, label = L["GIVE_BACK_REPLACED_BARS"],
+            tooltip = L["GIVE_BACK_REPLACED_BARS_DESC"] },
+        { replacedBar = false, petBattle = true, label = L["GIVE_BACK_PET_BATTLES"],
+            tooltip = L["GIVE_BACK_PET_BATTLES_DESC"] },
+        { replacedBar = true, petBattle = true, label = L["GIVE_BACK_REPLACED_BARS_AND_PET_BATTLES"] },
+        { replacedBar = false, petBattle = false, label = L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"],
+            tooltip = L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] },
+    };
+    for _, choice in ipairs(actionButtonChoices) do
+        choice.value = choice;
+    end
+    Dropdown(L["GIVE_BACK_ACTION_BUTTON_KEYS"], L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"], function(_, rootDescription)
+        Radios(rootDescription, actionButtonChoices, function()
+            local replacedBar, petBattle = DebindPrivate.GiveBackOnReplacedBar(), DebindPrivate.GiveBackInPetBattle();
+            for _, choice in ipairs(actionButtonChoices) do
+                if (choice.replacedBar == replacedBar and choice.petBattle == petBattle) then
+                    return choice;
+                end
+            end
+        end, function(choice)
+            if (choice.replacedBar) then
+                Options().giveBackOnReplacedBar = true;
+            else
+                Options().giveBackOnReplacedBar = nil;
+            end
+            if (choice.petBattle) then
+                Options().giveBackInPetBattle = nil;
+            else
+                Options().giveBackInPetBattle = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
+        end);
+    end, actionButtonChoices);
+
+    Checkbox(L["GIVE_BACK_HOUSE_EDITOR_KEYS"], L["GIVE_BACK_HOUSE_EDITOR_KEYS_DESC"],
+        DebindPrivate.GiveBackInBindingContext,
         function(value)
-            mockHouseEditor = value;
+            if (value) then
+                Options().giveBackInBindingContext = nil;
+            else
+                Options().giveBackInBindingContext = false;
+            end
+            DebindPrivate.QueueUpdateBindings();
         end);
 
     Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
@@ -443,9 +468,9 @@ local function ResetToDefaults()
     options.excludePlayer = nil;
     options.unitframeUseMouseDown = nil;
     options.giveBackOnReplacedBar = nil;
-    options.giveBackWhenActionExists = nil;
     options.giveBackInPetBattle = nil;
     options.giveBackInBindingContext = nil;
+    options.giveBackWhenNoActionRuns = nil;
     wipe(options.frameBlacklist.blizzard);
     wipe(options.frameBlacklist.addons);
     options.frameBlacklist.other = nil;

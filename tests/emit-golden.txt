@@ -3904,7 +3904,7 @@ Execute DebindBindingDriver
   | self:RunAttribute("JudgePass")
 RegisterAttributeDriver DebindBindingDriver judgebeat "a"
 Execute DebindBindingDriver
-  | GiveBack.replacedBar=false GiveBack.petBattle=true GiveBack.onlyWithAction=false
+  | GiveBack.replacedBar=false GiveBack.petBattle=true
 RegisterAttributeDriver DebindBindingDriver state-giveback "[petbattle] b; 0"
 Execute DebindBindingDriver
   | wipe(ContextKeys)

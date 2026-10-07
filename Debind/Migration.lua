@@ -1326,6 +1326,8 @@ local function MigrateAccount(db, dbver, to, uiVars)
             options.removeStateDriverUpdateThrottle = nil;
             options.addCustomTargetMenusOnUnitPopup = nil;
             options.addCustomTargetMenusToUnitPopup = nil;
+            -- Filled buttons only, taken out with its row (`giving-keys-back-when-no-action-runs.md` §1).
+            options.giveBackWhenActionExists = nil;
             -- **Dropped, not moved.** On a profile below 7 the step above has just moved it; one
             -- still on a profile at 7 arrived afterwards through the pre-rename import's verbatim
             -- copy, and moving it now would overwrite what the reader has ticked since.

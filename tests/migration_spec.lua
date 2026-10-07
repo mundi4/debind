@@ -2765,6 +2765,7 @@ return function(DebindPrivate, _, ctx)
             removeStateDriverUpdateThrottle = true,
             addCustomTargetMenusOnUnitPopup = true,
             addCustomTargetMenusToUnitPopup = true,
+            giveBackWhenActionExists = true,
             unitframeUseMouseDown = true,
         };
         local db = InitWith(profile);
@@ -2773,7 +2774,7 @@ return function(DebindPrivate, _, ctx)
         end
         for _, key in ipairs({ "overviewui", "stateDriverUpdateThrottle",
                 "removeStateDriverUpdateThrottle", "addCustomTargetMenusOnUnitPopup",
-                "addCustomTargetMenusToUnitPopup" }) do
+                "addCustomTargetMenusToUnitPopup", "giveBackWhenActionExists" }) do
             check(db.options[key] == nil, "options." .. key .. " is still there");
         end
         check(db.options.unitframeUseMouseDown == true, "an option something reads went too");

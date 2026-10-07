@@ -236,26 +236,16 @@ return function(DebindPrivate)
         check(not IsOurs("BUTTON3"), "the second key stayed ours");
     end);
 
-    -- **An empty button is not worth a key.** The slot is the vehicle page's, which is where the
-    -- body looks and not where the reader's own page is.
-    test("an empty slot keeps its key when the reader asked for that", function()
+    -- **An empty button's key goes over too**, whatever a saved `giveBackWhenActionExists` says: that
+    -- narrowing is gone (`giving-keys-back-when-no-action-runs.md` §1). Page 16
+    -- (`GetVehicleBarIndex`), so button 3 is slot 3 + 15 * 12.
+    test("an empty slot goes over, whatever an old Filled buttons only says", function()
         Bind({ giveBackOnReplacedBar = true, giveBackWhenActionExists = true });
-        -- Page 16 (`GetVehicleBarIndex`), so button 3 is slot 3 + 15 * 12.
-        interp.state.emptySlots[3 + 15 * 12] = true;
-        Transition("v");
-
-        check(IsOurs("3"), "the empty button's key went over");
-        check(not IsOurs("4"), "a filled button's key stayed ours");
-    end);
-
-    -- **Without the narrowing it goes over anyway**, which is what makes the case above the
-    -- option's doing rather than the slot's.
-    test("an empty slot goes over while the narrowing is off", function()
-        Bind({ giveBackOnReplacedBar = true });
         interp.state.emptySlots[3 + 15 * 12] = true;
         Transition("v");
 
         check(not IsOurs("3"), "the empty button's key stayed ours");
+        check(not IsOurs("4"), "a filled button's key stayed ours");
     end);
 
     ---------------------------------------------------------------------------
