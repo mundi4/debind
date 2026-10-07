@@ -2027,10 +2027,14 @@ local MergeKeyUnitConditions;
 --- owner, 2026-10-07).
 ---
 --- **What it returns is whether a record goes out**, of each kind, and that is what decides whether
---- the key is held (`UpdateBindingsMap`). So the unit conditions are folded here, once, onto
---- `binding.recordUnits`, which is what `BuildKeyRecord` builds the record from: a binding whose fold
---- leaves nothing makes no record and is dropped like one with no way to fire (`mergeUnitConditions`
---- says when that can happen).
+--- the key is held (`UpdateBindingsMap`). So a binding still holding the key or taking a frame click
+--- has its unit conditions folded here, once, onto `binding.recordUnits`, which is what
+--- `BuildKeyRecord` builds the record from: one whose fold leaves nothing makes no record and is
+--- dropped like one with no way to fire (`mergeUnitConditions` says when that can happen).
+---
+--- **`recordUnits` is good for this rebuild only**, and only on a binding left holding the key or
+--- taking a frame click. Bindings are cached across rebuilds, and one that drops off the key map is
+--- never visited here, so the field is read nowhere but `BuildKeyRecord` in the same pass.
 local function PrepareKeyBindings(key, bindingArray)
     local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
@@ -2128,8 +2132,6 @@ local function PrepareKeyBindings(key, bindingArray)
             if (not binding.recordUnits) then
                 binding.isClickCast, binding.holdsKey = false, false;
             end
-        else
-            binding.recordUnits = nil;
         end
 
         hasClickCast = hasClickCast or binding.isClickCast;

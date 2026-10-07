@@ -344,6 +344,8 @@ return function(DebindPrivate, _, ctx)
         check(bindings ~= nil and #bindings > 0, "the binding never reached the emission");
         for i = 1, #bindings do
             check(not bindings[i].dead, "binding " .. i .. " was left off as dead, so emission never sees it");
+            -- The one other caller that hands the stand-in a binding (`SkipLeavesNothing`).
+            check(not bindings[i].skipsPointedUnit, "binding " .. i .. " skips the pointed unit, so hits count more than the emission");
         end
         check(hits() > 0, "the emission never folded the binding");
     end
@@ -382,6 +384,14 @@ return function(DebindPrivate, _, ctx)
             checkReached("F1", hits);
             checkOursAndSilent("F1");
             check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
+            -- **No record at all, rather than one that never matches**: every record that went out
+            -- is an end, and only an action's record clicks a button. The press above cannot tell
+            -- the two apart in this world.
+            local records = interp:recordsFor("F1");
+            check(records and #records > 0, "the held key went out with no list");
+            for i = 1, #records do
+                check(records[i].clickbutton == nil, "record " .. i .. " is the action's");
+            end
         end);
     end);
 
