@@ -2765,7 +2765,6 @@ return function(DebindPrivate, _, ctx)
             removeStateDriverUpdateThrottle = true,
             addCustomTargetMenusOnUnitPopup = true,
             addCustomTargetMenusToUnitPopup = true,
-            giveBackWhenActionExists = true,
             unitframeUseMouseDown = true,
         };
         local db = InitWith(profile);
@@ -2774,14 +2773,14 @@ return function(DebindPrivate, _, ctx)
         end
         for _, key in ipairs({ "overviewui", "stateDriverUpdateThrottle",
                 "removeStateDriverUpdateThrottle", "addCustomTargetMenusOnUnitPopup",
-                "addCustomTargetMenusToUnitPopup", "giveBackWhenActionExists" }) do
+                "addCustomTargetMenusToUnitPopup" }) do
             check(db.options[key] == nil, "options." .. key .. " is still there");
         end
         check(db.options.unitframeUseMouseDown == true, "an option something reads went too");
     end);
 
-    --- **A profile already at 8 runs no step**, so the option taken out after 8 was cut is dropped on
-    --- every load instead (`Profile.lua`'s `ORPHANED_OPTION_KEYS`).
+    --- **Dropped on every load** (`Profile.lua`'s `ORPHANED_OPTION_KEYS`), so a profile already at 8,
+    --- which runs no step, loses it too.
     test("a profile already at dbver 8 loses giveBackWhenActionExists", function()
         local db = InitWith({
             dbver = 8,
