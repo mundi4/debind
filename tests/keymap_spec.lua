@@ -478,26 +478,25 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **A broken action still answers its key.** Nothing comes out of the press, but the key is
-    --- ours and the game's own binding does not run either -- which is why the window marks the
-    --- group rather than greying its name (`DebindKeyHeaderMixin:Init`).
-    test("an action that cannot fire still answers its key", function()
-        Bind({
-            { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "F6", seq = 1 },
-        });
+    --- **A broken action is an action that never runs** (owner, 2026-10-07): its key answers as a
+    --- key whose actions all fail does. With `giveBackWhenNoActionRuns` off the key is ours and
+    --- the game's own binding does not run, which is why the window marks the group rather than
+    --- greying its name; on, the key is not ours and the name greys beside the mark
+    --- (`DebindKeyHeaderMixin:Init`).
+    test("an action that cannot fire answers its key as one that never runs", function()
+        local function broken()
+            return { { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "F6", seq = 1 } };
+        end
+        Bind(broken(), nil, { giveBackWhenNoActionRuns = false });
         local action = DebindPrivate.CollectActionsForKey("F6")[1].action;
         check(DebindPrivate.GetBindingIssue(action) == Constants.BINDING_ISSUE_MISSING_MACRO,
             "the action carries " .. tostring(DebindPrivate.GetBindingIssue(action)));
         check(DebindPrivate.KeyMap["F6"] == nil, "the broken action reached a record");
         check(DebindPrivate.IsKeyHandled("F6") == true, "a key held for a broken action reads as dead");
-    end);
 
-    --- **Escape is the one key nothing can take** (`ISSUE_OUTCOME_RELEASE`), so it is the one error
-    --- that does not answer. That is the difference the case above is standing next to.
-    test("Escape answers nothing of ours", function()
-        Bind({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } });
-        check(DebindPrivate.KeysToHold["ESCAPE"] == nil, "Escape was held");
-        check(DebindPrivate.IsKeyHandled("ESCAPE") == false, "Escape reads as ours");
+        Bind(broken());
+        check(DebindPrivate.IsKeyHandled("F6") == false,
+            "a key given back for a broken action still reads as ours");
     end);
 
     -- **On a mouse button over a frame there are no cast key twins at all** (§7). A frame click is

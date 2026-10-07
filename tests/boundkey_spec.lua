@@ -49,10 +49,11 @@ return function(DebindPrivate, _, ctx)
     --- **The interpreter is built once and fed each rebuild after that**, for the reason
     --- `eval_spec.lua` gives at the same place: the login setup is what creates the tables, and
     --- replaying it into one environment twice is not what the game does.
-    local function Bind(actions, switches)
+    local function Bind(actions, switches, options)
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             layers = {
                 account = { GENERAL = { [0] = actions } },
                 [ME] = { [Constants.PLAYER_CLASS] = {} },
@@ -345,8 +346,8 @@ return function(DebindPrivate, _, ctx)
     -- stops being red -- the window says nothing is wrong -- while the key stays dead until
     -- something unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is what is registered for that.
     --
-    -- **The key is ours through both halves**, since the action is on a live layer; what the macro
-    -- store moves is whether the press fires.
+    -- **The key is ours through both halves**, since the action is on a live layer and
+    -- `giveBackWhenNoActionRuns` is off; what the macro store moves is whether the press fires.
     --
     -- **The login has to have happened, because that is where the listening starts.**
     -- `Events.PLAYER_LOGIN` registers `UPDATE_MACROS` and seven others, so an addon that was loaded
@@ -358,7 +359,8 @@ return function(DebindPrivate, _, ctx)
     -- handler is listening and rebuilds -- not that anything ever calls it.
     pressTest("the store moving under a key revives it, once the event arrives", function()
         shim.world.macros["Revive"] = nil;
-        Bind({ spell({ type = Constants.MACRO, value = "Revive", key = "F1" }) }, {});
+        Bind({ spell({ type = Constants.MACRO, value = "Revive", key = "F1" }) }, {},
+            { giveBackWhenNoActionRuns = false });
         check(IsLive("F1"), "an action on a live layer handed its key back: " .. Bound("F1"));
         check(not Fires("F1"), "a key naming a macro that does not exist fired");
 

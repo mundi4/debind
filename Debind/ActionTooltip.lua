@@ -945,7 +945,7 @@ do
 	--- with no frames at all.
 	local ISSUE_ORDER = {};
 	for i, label in ipairs({
-		"TYPE_MACRO", "TYPE_MACROTEXT", "TYPE_SETSWITCH", "KEY",
+		"TYPE_MACRO", "TYPE_PETACTION", "TYPE_ACTIONBUTTON", "TYPE_FLYOUT", "TYPE_MACROTEXT", "TYPE_SETSWITCH", "KEY",
 		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC", "CONDITION_TALENT",
 		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
 		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_SWITCHES",
@@ -974,8 +974,8 @@ do
 	--- The sentence an issue code prints, in its grade's colour. The wording fallback is the menu's
 	--- (`resolveIssue` in ActionMenuModel.lua), and the colour is the grade's (`GetIssueColor`).
 	---
-	--- **Two of the sentences name something** -- the switch and the macro that were not found --
-	--- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
+	--- **Some of the sentences name something** -- the switch, the macro or the command that was not
+	--- found -- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
 	--- raw `%s` where the name should have been.
 	local function AddIssueLine(tooltip, code, arg, leftOffset)
 		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code, arg),

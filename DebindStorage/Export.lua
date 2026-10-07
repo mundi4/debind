@@ -1153,6 +1153,14 @@ local function BringPayloadDataForward(payload)
             if (luatype(action) == "table" and action.type == Constants.SPELL) then
                 action.value = DebindPrivate.CanonicalSpellID(action.value);
             end
+            -- **Escape arrives keyless**, as `CleanUpDB` leaves it in a profile: nothing can take
+            -- the game menu's key, and no window of ours puts it on an action. Here, every time,
+            -- and not in the ladder above: a string written at this `dbver` reaches no step. Here
+            -- rather than in `BuildAction`, so the preview reads what will land.
+            if (luatype(action) == "table" and action.key == "ESCAPE") then
+                action.key = nil;
+                action.seq = nil;
+            end
         end
     end);
 

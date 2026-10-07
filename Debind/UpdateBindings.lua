@@ -679,7 +679,7 @@ local function BuildBindingPlan(ctx)
 
     CollectDriverEvents(plan.events);
 
-    --- Does any key hold a tail, and so need the loop (`JudgeKeys`) and its beat?
+    --- Does any key have a judgment item, and so need the loop (`JudgeKeys`) and its beat?
     plan.judges = next(DebindPrivate.JudgmentItems) ~= nil;
     --- And does the beat measure anything for it? A switch set by hand and a pet battle move only
     --- on a wake of ours, so a profile reading nothing else needs no beat.
@@ -1128,15 +1128,33 @@ local function CollectBindingFacts(type, value, unit, facts, automatics, pinnedS
     return facts;
 end
 
+--- A button with no attribute on it: the action wins its press and nothing goes out. **What an
+--- action the game has nothing to do for goes out as**, the way a spell this character does not
+--- know is still cast and the game answers it (owner, 2026-10-07): the action runs, and the ones
+--- under it on the key do not. **One button per type**, filed under a nil value, so a live button of
+--- the same type and value is never handed this one's empty attributes from the cache.
+local function Inert(out, type)
+    out.type = type;
+    out.value = nil;
+    out.unit = nil;
+    out.cacheKey = NIL;
+    out.castsAtUnit = false;
+    out.pressAndHold = false;
+    out.castSpell = nil;
+    out.actionSlot = nil;
+    out.barButton = nil;
+    out.overrideButton = nil;
+    return out;
+end
+
 --- What has to be stamped on the click frame for one binding to be able to fire, or **nil and a
 --- reason**.
 ---
---- **The reason is the point of this function existing apart from the stamping.** A binding with
---- no way to fire used to leave one DEBUG log line and nothing else, and the caller had to infer
---- the refusal from a missing return value. Getting that wrong takes the **whole key**: the secure
---- side counts an emitted record as a binding that took, so `keyBound` goes up, and every lower
---- priority action on that key is blocked along with it. A hunter with no pet and a Call Pet
---- binding is the case.
+--- **A refusal is for a value wrong in itself**: a pet command or binding command this client does
+--- not have, a switch action with no switch. The caller leaves such an action off the key, and the
+--- next action takes the press; the issue that marks it should have kept it from reaching here
+--- (`BINDING_ISSUE_UNKNOWN_*`). **A value the game has nothing to do for right now is not refused**
+--- -- a flyout with every slot empty, a stance this character lacks -- and goes out `Inert`.
 ---
 --- Nothing here asks the client anything. Everything it needs is in `facts`.
 local function DescribeBinding(type, value, unit, facts, out, automatics)
@@ -1172,19 +1190,11 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     end
 
     -- **A spec-resolved type with no spell writes no attribute at all, and is not a refusal.** A
-    -- refusal eats the whole key (below); what the design asks for is a key that stays ours and a
-    -- press that does nothing, and a button with no `*type-` on it is exactly that. One such
-    -- button per type: the cache files it under the type with a nil value.
+    -- refusal leaves the action off the key; what the design asks for is a key that stays ours and a
+    -- press that does nothing, and a button with no `*type-` on it is exactly that.
     if (Constants.SPEC_RESOLVED_TYPES[type]) then
         if (value == nil) then
-            out.type = type;
-            out.value = nil;
-            out.unit = nil;
-            out.cacheKey = NIL;
-            out.castsAtUnit = false;
-            out.pressAndHold = false;
-            out.castSpell = nil;
-            return out;
+            return Inert(out, type);
         end
         type = Constants.SPELL;
     end
@@ -1350,15 +1360,16 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         -- 대신 우리 손잡이를 클릭한다. 손잡이의 보안 스니펫이 커서 위치에 우리 플라이아웃을
         -- 열고, 그건 전투 중에도 돈다.
         --
-        -- **살아있는지는 캐시보다 먼저 본다.** 캐시 적중은 "속성을 다시 안 써도 된다"는 뜻이지
-        -- "아직 쓸 수 있다"는 뜻이 아닌데, 플라이아웃은 그 둘이 갈라진다. 마지막 야수를
-        -- 놓아주면 `RebuildFlyout`이 `numSlots = 0`으로 만들고 `GetFlyoutOpener`가 nil을 준다.
-        -- 그 검사가 캐시 안쪽에 있던 동안에는 적중에 통째로 건너뛰어졌고, 바인딩이 그대로
-        -- 남았다. 눌러도 아무 일이 없는 데다 `keyBound`가 서므로 **그 키의 하위 Debind
-        -- 바인딩까지 전부 막힌다** - 캐시를 안 지우니 `/reload` 전에는 안 풀렸다.
+        -- **Whether it still opens anything is asked before the cache.** A cache hit means "no
+        -- attribute needs writing again", not "it still works", and a flyout is where the two part:
+        -- letting the last beast go makes `RebuildFlyout` set `numSlots = 0` and `GetFlyoutOpener`
+        -- answer nil. While the check sat inside the cache, a hit skipped it and the button kept
+        -- clicking an opener for a flyout that had emptied, until a `/reload`. An emptied flyout
+        -- goes out `Inert` instead, under its own cache key.
         if (not facts.flyoutOpener) then
-            -- 안 배웠거나 슬롯이 전부 비었다(길들인 야수가 없는 야수 소환 등).
-            return nil, "no-flyout-opener";
+            -- Not learned, or every slot empty (Call Pet with no tamed beast). The action still
+            -- runs and opens nothing (`Inert`).
+            return Inert(out, type);
         end
         attr(out, "*type-", "click");
         attr(out, "*clickbutton-", facts.flyoutOpener);
@@ -1378,8 +1389,10 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
             -- No slot to work out, but the press still asks whether there is a pet.
             out.actionSlot = info;
         elseif (info.stance) then
+            -- No such stance on this character: the press does nothing, as the game's own binding
+            -- for it would (`Inert`).
             if (not facts.barButton) then
-                return nil, "no-stance-button";
+                return Inert(out, type);
             end
             attr(out, "*type-", "click");
             attr(out, "*clickbutton-", facts.barButton);
@@ -1999,12 +2012,31 @@ local function field(record, name, value)
     record.fieldValues[count] = value;
 end
 
+--- Does this binding take a click on a unit frame, on the mouse button `button` (nil off one).
+--- `PrepareKeyBindings` stamps it and `BuildKeyMap` asks it, so the two cannot part.
+function DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix)
+    local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
+    local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
+        or (buttonPrefix ~= nil and buttonPrefix:find("META-", 1, true) ~= nil);
+    return button ~= nil and not refusesFrame and
+        (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
+        true or false;
+end
+
+--- Does this binding hold its key, on the mouse button `button` (nil off one). The same pair.
+function DebindPrivate.BindingHoldsKey(binding, button)
+    return (button == nil or type(DebindPrivate.UnitFrameConditionOf(binding)) ~= "table") and true or false;
+end
+
 --- Stamps every binding on one key and **drops the ones with no way to fire**.
 ---
---- `DescribeBinding` refuses a value it cannot build attributes for (an unknown pet command, a
---- flyout with every slot empty), and a record emitted for one of those would win the press and
---- fire nothing: **every action below it on the key would go with it.** A hunter with no pet and a
---- Call Pet binding is the case. A BLOCK is the one binding that is meant to do exactly that.
+--- `DescribeBinding` refuses a value that is wrong in itself (a pet command this client has no slash
+--- command for, a binding command that presses no action button), and those reach here only if
+--- the issue that marks them did not (`BINDING_ISSUE_UNKNOWN_*`, outcome OMIT): the action is
+--- skipped and the next one takes the press. **A value the game merely has nothing to do for is
+--- not refused** (a flyout with every slot empty, a stance this character lacks): it goes out as a
+--- button that does nothing, the way a spell this character does not know is still cast (`Inert`,
+--- owner, 2026-10-07).
 local function PrepareKeyBindings(key, bindingArray)
     local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
@@ -2029,14 +2061,8 @@ local function PrepareKeyBindings(key, bindingArray)
         -- frame's own attributes or another addon's wrapper, differs per frame and cannot be read
         -- reliably, so taking it would hide the game's side of every modified frame click by
         -- default (`which-action-a-key-runs.md` §7).
-        local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
-        local wantsFrame = type(unitFrameCondition) == "table";
-        local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
-            or (buttonPrefix ~= nil and buttonPrefix:find("META-", 1, true) ~= nil);
-        binding.isClickCast = button ~= nil and not refusesFrame and
-            (binding.castModifier == nil or binding.castModifier == Constants.CASTMOD_NONE) and
-            true or false;
-        binding.holdsKey = (button == nil or not wantsFrame) and true or false;
+        binding.isClickCast = DebindPrivate.BindingClicksThroughFrame(binding, button, buttonPrefix);
+        binding.holdsKey = DebindPrivate.BindingHoldsKey(binding, button);
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
         -- there is a specialization with nothing to cast: the button is still handed out, with no
         -- action on it, so the key is taken and the press does nothing (§4 of the design).
@@ -2116,6 +2142,12 @@ local BLOCKS = {
         castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false },
 };
 
+--- What closes the [none held] tier instead while `GiveBackWhenNoActionRuns` is on: a giveback,
+--- bound as a block the way a saved one is (`FillBinding`). A press that still reaches it, before
+--- the next beat lets the key go, does nothing.
+local GIVEBACK_END = { type = Constants.BLOCK, tail = Constants.GIVEBACK, conditions = {},
+    castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false };
+
 local _withBlocks = {};
 
 --- `UpdateBindingsMap`'s scratch: the keys it walks, and the list a held key with nothing in
@@ -2123,8 +2155,12 @@ local _withBlocks = {};
 local _keysToWalk = {};
 local _noBindings = {};
 
---- The key's bindings with a BLOCK closing the self tier, the focus tier and the whole list
---- (`dropping-the-game-fallback.md` §3). **Only for a key that holds a key record**: on a
+--- The key's bindings with a BLOCK closing the self tier and the focus tier, and the whole list
+--- closed by `GIVEBACK_END` or a BLOCK (`giving-keys-back-when-no-action-runs.md`,
+--- `dropping-the-game-fallback.md` §3). **The self and focus tiers end in a block either way**: a
+--- giveback stands in no cast key tier (`handing-the-rest-of-a-key-to-the-game.md` 2-1), and their
+--- closing block answers as the base key does on a chord (`JudgmentEntryFor`). **Only for a key
+--- that holds a key record**: on a
 --- click-cast-only key a block would take the key, and the world click and camera with it.
 ---
 --- **No block between the hover twins and the originals.** They share the [none held] tier, each
@@ -2171,7 +2207,11 @@ local function WithBlocks(bindingArray)
         _withBlocks[n] = bindingArray[i];
     end
     n = n + 1;
-    _withBlocks[n] = BLOCKS[Constants.CASTMOD_NONE];
+    if (DebindPrivate.GiveBackWhenNoActionRuns()) then
+        _withBlocks[n] = GIVEBACK_END;
+    else
+        _withBlocks[n] = BLOCKS[Constants.CASTMOD_NONE];
+    end
     return _withBlocks;
 end
 
@@ -2706,12 +2746,13 @@ local _boundBare = {};
 local _castChords = {};
 local _tierItems = {};
 
---- **Each key that holds a tail, and each chord made from one, by its binding string -> its judgment
---- item** (`Judgment.lua`). A key with no tail has none: it is ours in every state, and so are its
---- chords. Rebuilt whole by every rebuild.
+--- **Each key some state lets go of or binds elsewhere, and each chord made from one, by its binding
+--- string -> its judgment item** (`Judgment.lua`). That is a key holding a tail, or with
+--- `giveBackWhenNoActionRuns` on one whose actions can all fail. A key with no item is ours in
+--- every state, and so are its chords. Rebuilt whole by every rebuild.
 DebindPrivate.JudgmentItems = {};
 
---- A tail key's self and focus tier entries, kept until its chords are known.
+--- A judged key's self and focus tier entries, kept until its chords are known.
 local _chordEntries = {};
 
 --- What a record winning a press means for the key. A tier's own closing BLOCK means nothing of its
@@ -4509,9 +4550,11 @@ function UpdateBindingsMap()
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
-        -- **A key held with nothing on it that holds it** gets the blocks alone: every action on it
-        -- was left out before the key map, dropped for having no way to fire, or fires through the
-        -- frame. The press then lands on a block and does nothing (`Debind.lua`'s `KeysToHold`).
+        -- **A key held with nothing on it that holds it** gets its ends alone: every action on it
+        -- was left out before the key map, or fires through the frame, and `giveBackWhenNoActionRuns`
+        -- is off (`Debind.lua`'s `BuildKeyMap` keeps no such key otherwise). The press then lands on a
+        -- block and does nothing. The one other way here is a binding `PrepareKeyBindings` dropped
+        -- for having no way to fire, which an issue should have caught first.
         hasKeyRecord = hasKeyRecord or keysToHold[key] == true;
         local keyArray = hasKeyRecord and WithBlocks(bindingArray) or bindingArray;
 
@@ -4521,7 +4564,6 @@ function UpdateBindingsMap()
         local tiers = {
             [Constants.CASTMOD_NONE] = {}, [Constants.CASTMOD_SELF] = {}, [Constants.CASTMOD_FOCUS] = {},
         };
-        local hasTail = false;
 
         if (hasClickCast or hasKeyRecord) then
             for i = 1, #keyArray do
@@ -4545,7 +4587,6 @@ function UpdateBindingsMap()
                             local tier = binding.castModifier or Constants.CASTMOD_NONE;
                             local list = tiers[tier];
                             list[#list + 1] = JudgmentEntryFor(binding, record, tier);
-                            hasTail = hasTail or binding.tail ~= nil;
                         end
                         if (binding.castModifier == Constants.CASTMOD_SELF) then
                             selfCount = selfCount + 1;
@@ -4591,10 +4632,9 @@ function UpdateBindingsMap()
             appendLine("bindings.hasKeyRecord=true");
         end
 
-        -- **Bound once, for good.** Every tier ends in a BLOCK, so no state leaves the key to
-        -- anyone else, and which action goes out is the wrapper's to decide at the press. The
-        -- button name carries the key there, since the wrapper gets nothing but `self` and
-        -- `button`.
+        -- **Bound here; let go and taken again by the loop where its item says so.** Which action
+        -- goes out is the wrapper's to decide at the press. The button name carries the key there,
+        -- since the wrapper gets nothing but `self` and `button`.
         if (hasKeyRecord and not first) then
             local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
             DebindPrivate.ClickTimeKeys[key] = clickTimeButton;
@@ -4609,8 +4649,31 @@ function UpdateBindingsMap()
             appendLine("bindings.clickButton=%q", clickTimeButton);
             _boundBare[key] = true;
 
-            if (hasTail) then
-                judgmentItems[key] = DebindPrivate.Judgment.Build(tiers[Constants.CASTMOD_NONE]);
+            -- **Kept only where some state lets the key go or binds it elsewhere.** Asked of the
+            -- item rather than of the key's last action: an action with no conditions still runs on
+            -- no plain press when it is set to run only while pointing, or has every cast value
+            -- off, and the item knows that from the records.
+            --
+            -- **Not built where the item could only say ours**: walking the entries in the press's
+            -- order, one that holds everywhere (no constraint) and answers ours is reached before any
+            -- answer of another kind. That is a key ending in an action with no condition, which with
+            -- the option on still ends in `GIVEBACK_END` behind it, and every key with no tail with
+            -- the option off.
+            local Judgment = DebindPrivate.Judgment;
+            local entries = tiers[Constants.CASTMOD_NONE];
+            local answersOther = false;
+            for i = 1, #entries do
+                local entry = entries[i];
+                if (entry.outcome ~= Judgment.OURS) then
+                    answersOther = true;
+                    break;
+                elseif (#entry.constraints == 0) then
+                    break;
+                end
+            end
+            local item = answersOther and Judgment.Build(entries);
+            if (item and not Judgment.IsAlwaysOurs(item)) then
+                judgmentItems[key] = item;
                 _chordEntries[key] = tiers;
             end
         end

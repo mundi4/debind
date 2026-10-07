@@ -632,6 +632,15 @@ do
         return not (options and options.giveBackInBindingContext == false);
     end
 
+    --- A press where none of a key's actions runs: given back, or held doing nothing
+    --- (`giving-keys-back-when-no-action-runs.md`). **On with the value absent**: a key with no
+    --- action of ours already goes to whatever is beneath, and one whose actions all fail is the
+    --- same key in this state.
+    function DebindPrivate.GiveBackWhenNoActionRuns()
+        local options = DebindPrivate.Options;
+        return not (options and options.giveBackWhenNoActionRuns == false);
+    end
+
 
     --- One value of `action.casting`. **The stored table is not trusted to hold a name we know**: a
     --- payload carries whatever it was written with, so an unknown value has to read as the default,

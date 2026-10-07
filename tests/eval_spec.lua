@@ -90,6 +90,10 @@ return function(DebindPrivate, _, ctx)
     --- **The interpreter is built once and fed each rebuild after that.** Standing a new one up
     --- would mean replaying the login setup again for every test, and the login setup is what
     --- creates the tables -- replaying it twice into one environment is not what the game does.
+    --- For a case that presses a key whose actions may all fail, with no beat in between: held, the
+    --- press reaches the key at all (`giving-keys-back-when-no-action-runs.md`).
+    local HOLD_UNMATCHED = { giveBackWhenNoActionRuns = false };
+
     local function Bind(actions, switches, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
@@ -710,7 +714,7 @@ return function(DebindPrivate, _, ctx)
             action({ value = 585, key = "F1", conditions = { units = { focus = {} } } }),
             action({ value = 774, key = "F2",
                 conditions = { units = { focus = { reaction = Constants.REACTION_HELP } } } }),
-        });
+        }, nil, HOLD_UNMATCHED);
 
         shim.world.units = { focus = { id = "friend", reaction = "help" } };
         check(winner("F1") == 1, "the existence key did not fire on a friendly focus");
@@ -1322,7 +1326,7 @@ return function(DebindPrivate, _, ctx)
             action({ value = 585, key = "F2", conditions = { ["$state1"] = true } }),
         }, {
             ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@@,combat]" },
-        });
+        }, HOLD_UNMATCHED);
         shim.world.units = { focus = FRIEND, party1 = FRIEND };
 
         local function body(label)
@@ -2196,10 +2200,15 @@ return function(DebindPrivate, _, ctx)
         end);
         Row(42, function()
             Bind({ A({ casting = { normalCast = false, hoverCast = "skip" } }) });
+            check(_G.GetBindingAction("F1", true) == "",
+                "#42: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
+            check(not DebindPrivate.IsKeyOurs("F1"), "#42: IsKeyOurs says yes");
+
+            Bind({ A({ casting = { normalCast = false, hoverCast = "skip" } }) }, nil, HOLD_UNMATCHED);
             check(_G.GetBindingAction("F1", true) == "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
                     .. ":" .. Constants.CLICKTIME_BUTTON_PREFIX .. "F1",
-                "#42: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
-            check(DebindPrivate.IsKeyOurs("F1"), "#42: IsKeyOurs says no");
+                "#42 off: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
+            check(DebindPrivate.IsKeyOurs("F1"), "#42 off: IsKeyOurs says no");
             PointNothing();
             Expect(42, { Press("F1", nil, "unitframe") }, {});
         end);

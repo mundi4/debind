@@ -29,9 +29,10 @@ return function(DebindPrivate)
 
     local GUID = "Player-1-TESTGUID";
 
-    local function Profile(actions)
+    local function Profile(actions, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [GUID] = { switches = {} } },
             migrated = {},
@@ -40,8 +41,8 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
     end
 
-    local function PlanFor(actions)
-        Profile(actions);
+    local function PlanFor(actions, options)
+        Profile(actions, options);
         return DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
     end
 
@@ -151,10 +152,13 @@ return function(DebindPrivate)
     --- 형태에 따라 다른 답을 낸다.
     --- **폴링은 역할을 안 잰다.** 역할이 바뀌는 사건은 `SetRoleUnits`가 도는 순간 하나뿐이라,
     --- 비트마다 다시 재면 아무것도 안 바뀐 값을 계속 재는 것이 된다.
+    --- **A key the loop does not judge**, so `giveBackWhenNoActionRuns` is off. A judged key's beat
+    --- reads the pointed frame again while it is pointed at, role included, because a frame laid
+    --- out again under a still cursor sends nothing (`implementing-the-trimmed-tail-key-beat.md` F3).
     test("the hover poll does not measure the role", function()
         local plan = PlanFor({
             roleAction(Constants.ROLE_TANK, { combat = true }),
-        });
+        }, { giveBackWhenNoActionRuns = false });
         check(not (plan.attrChangedSnippet or ""):find("UnitRoles", 1, true),
             "the poll reads the role map");
     end);

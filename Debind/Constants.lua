@@ -148,8 +148,9 @@ Constants.SETSWITCH_TOGGLE                = "setswitch_toggle";
 --- **Stored as `"unused"` up to version 7**, a name that read as an action turned off; the
 --- `dbver <= 7` step turns those into blocks, so `"giveback"` is only ever a tail added since.
 Constants.GIVEBACK                        = "giveback";
---- A record that wins the press and does nothing: what closes each tier of a key that holds one, so
---- no press falls through to the game (`dropping-the-game-fallback.md` §3).
+--- A record that wins the press and does nothing: what closes the self and focus tiers of a key that
+--- holds one, and the whole key while `giveBackWhenNoActionRuns` is off, so no press falls through
+--- to the game there (`dropping-the-game-fallback.md` §3, `giving-keys-back-when-no-action-runs.md`).
 ---
 --- It is three things at once. The reader can pick it, `GIVEBACK` and `COMMAND` turn into it on the
 --- binding (`FillBinding`), and the self and focus twins are built out of it.
@@ -316,6 +317,9 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     -- 매크로 이름이 가리키는 것이 없다. 조건이 아니라 액션 자체가 틀린 경우라 짚어 묻는
     -- 호출자가 없고, 갈래를 끄기 위한 이름으로만 쓰인다.
     macro = true,
+    -- The command or flyout the action names is not one this client has (`UNKNOWN_PET_COMMAND`,
+    -- `UNKNOWN_ACTION_BUTTON`, `UNKNOWN_FLYOUT`). The same kind of place as `macro`.
+    command = true,
     -- 액션이 스위치를 잘못 가리킨다. 정의가 없는 이름을 부르거나(매크로 본문·조건·켜기 대상),
     -- 켜기/끄기/전환인데 아직 어느 스위치인지 안 골랐거나. 위와 같은 자리다.
     switches = true,
@@ -630,7 +634,6 @@ Constants.UNITGROUP_TO_CELLS = {
 
 
 -- Binding Issues
-Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
 --- The restricted environment has no `IsMetaKeyDown` (`RestrictedEnvironment.lua` lists Alt, Ctrl
 --- and Shift and stops), so the snippet that picks a click's list cannot tell META apart, and
 --- `GetModifierIndex` folds the prefix to 0 -- the unmodified click's slot.
@@ -692,6 +695,15 @@ Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- plus the code, in the tooltip and in the menu alike), so two sentences need two codes.
 Constants.BINDING_ISSUE_KEY_RULED_OUT                     = "KEY_RULED_OUT";
 Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY            = "CONDITION_NEVER_ON_KEY";
+-- The value names a command this client does not have: a pet command with no slash command, a
+-- binding command that presses no action button. **Wrong in itself, so the action is skipped**
+-- (owner, 2026-10-07). A command the game merely has nothing to do for right now -- no pet out --
+-- is not one of these: it is sent, and the game answers it.
+Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND               = "UNKNOWN_PET_COMMAND";
+Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON             = "UNKNOWN_ACTION_BUTTON";
+-- The same for a flyout id this client has no flyout for at all. One it has and this character has
+-- not learned, or has emptied, is not this: it goes out and opens nothing (`DescribeBinding`).
+Constants.BINDING_ISSUE_UNKNOWN_FLYOUT                    = "UNKNOWN_FLYOUT";
 
 
 -- How loudly a problem is drawn. **The grade is drawing and nothing else**: what happens to the
@@ -727,7 +739,6 @@ Constants.ISSUE_GRADE_WARNING = 2;
 --- safe direction in a keybinding addon: a grade nobody wrote would otherwise leave a binding that
 --- does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
-    [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK]          = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
@@ -746,28 +757,32 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOTHING_RUNS]                      = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND]               = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON]             = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNKNOWN_FLYOUT]                    = Constants.ISSUE_GRADE_ERROR,
 };
 
 -- What an issue does to its action, apart from how loudly it is drawn. **The one place `BuildKeyMap`
 -- asks**, so neither the grade nor the category decides it: one grade carries several outcomes, and
 -- a code painted on the key box need not let go of the key.
 --
---   RELEASE  left out of `KeyMap`, and the key is not held for it: the game keeps the key
---   OMIT     left out of `KeyMap`; the key is still held, so the next action on it takes the press
+--   OMIT     left out of `KeyMap`: the next action on the key takes the press, and with none left
+--            the key's end does (`giving-keys-back-when-no-action-runs.md`)
 --   KEEP     on the key as the bindings it makes
 --
+-- **No outcome takes the key itself** (owner, 2026-10-07). An issue is about its action alone. The
+-- one that did, the game menu key, went when Escape stopped being kept as a key at all
+-- (`CleanUpDB`).
+--
 -- **Lower is stronger**, and an action carrying several issues gets the strongest.
-Constants.ISSUE_OUTCOME_RELEASE = 1;
 Constants.ISSUE_OUTCOME_OMIT    = 2;
 Constants.ISSUE_OUTCOME_KEEP    = 3;
 
 --- **A code with no row here is OMIT** (`Issues.lua`'s `IssueOutcome`), for the reason a missing grade
 --- is ERROR: leaving the action out is the direction that cannot fire something nobody meant.
 Constants.BINDING_ISSUE_OUTCOMES = {
-    -- The game menu key cannot be taken at all.
-    [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_OUTCOME_RELEASE,
-    -- **Not RELEASE.** The key is fine; this action cannot go out on it. Left out, the key writes no
-    -- click-casting list, which is what stops it taking the unmodified click's slot.
+    -- The key is fine; this action cannot go out on it. Left out, the key writes no click-casting
+    -- list, which is what stops it taking the unmodified click's slot.
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK]          = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
@@ -792,6 +807,9 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     -- click reaches the frame rather than doing nothing.
     [Constants.BINDING_ISSUE_KEY_RULED_OUT]                     = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY]            = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND]               = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON]             = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_UNKNOWN_FLYOUT]                    = Constants.ISSUE_OUTCOME_OMIT,
 };
 
 

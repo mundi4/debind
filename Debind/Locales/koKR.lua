@@ -46,7 +46,6 @@ L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "선택된 소속이 없습니다.
 L["BINDING_ERROR_KNOWN_NAME_UNPARSABLE"] = "이 주문의 이름은 이 조건에 쓸 수 없습니다. 다른 주문을 고르거나 조건을 끄십시오."
 L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "선택된 전문화가 없습니다."
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "고른 스위치가 없습니다. 고르기 전까지 이 지정은 아예 발동하지 않습니다."
-L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "ESC 키는 쓸 수 없습니다."
 -- 근거는 enUS 쪽 주석에.
 L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "META를 누른 채로 하는 마우스 클릭은 개체창에서 쓸 수 없습니다."
 L["BINDING_ERROR_MISSING_MACRO"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 매크로가 이 계정에도 이 캐릭터에도 없습니다."

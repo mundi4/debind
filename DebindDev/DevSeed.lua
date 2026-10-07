@@ -351,14 +351,9 @@ SEEDS[6] = function(guid)
                 { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
                 { type = "unused", key = "ALT-F10", seq = 1 },
 
-                --- **The one key nothing can be put on** (`ISSUE_OUTCOME_RELEASE`), so it is the
-                --- only seeded row that sits on a key and still leaves it to the game. The heading
-                --- greys and the row wears the game menu error; nothing else in here reaches that
-                --- pair.
-                ---
-                --- `ESCAPE` is the client's own default for `TOGGLEGAMEMENU`. A reader who moved it
-                --- gets an ordinary working row instead, which is what the addon says about any
-                --- other key.
+                --- **A row on Escape, as an old profile could hold one.** Loading takes the key off
+                --- (`CleanUpDB`) and the row lands among the keyless ones; nothing else in here
+                --- reaches that line.
                 {
                     type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/script print(\"escape\")", name = "Game menu key",
@@ -488,9 +483,7 @@ SEEDS[7] = function(guid)
                 { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
                 { type = "unused", key = "ALT-F10", seq = 1 },
 
-                --- 위 판의 그 줄이고, 이 단계가 건드리지 않으므로 값이 같다. 게임 메뉴 키는
-                --- 어떤 액션도 못 앉는 유일한 키라, 머리글이 회색으로 서고 행에 게임 메뉴
-                --- 오류가 붙는 자리를 씨앗에서 보는 데가 여기뿐이다.
+                --- The row above, untouched by the step. Loading takes the key off (`CleanUpDB`).
                 {
                     type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/script print(\"escape\")", name = "Game menu key",
@@ -586,10 +579,10 @@ SEEDS[8] = function(guid)
                         { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
                         { type = Constants.GIVEBACK, key = "ALT-F10", seq = 1 },
 
+                        --- The Escape row of the seeds above, as loading leaves it (`CleanUpDB`).
                         {
                             type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                             value = "/script print(\"escape\")", name = "Game menu key",
-                            key = "ESCAPE", seq = 1,
                         },
                     },
                 },

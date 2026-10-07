@@ -42,9 +42,10 @@ return function(DebindPrivate)
     --- A profile holding exactly the actions handed in, and nothing else. Every test starts from
     --- one: what gets registered depends on what is in the profile, so a leftover action from the
     --- test before is a leftover registration.
-    local function Profile(actions, switches)
+    local function Profile(actions, switches, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [GUID] = { switches = {} } },
             migrated = {},
@@ -55,8 +56,8 @@ return function(DebindPrivate)
 
     --- Builds the plan for a profile **without applying any of it**. Nothing reaches the game,
     --- which is the whole claim this file rests on.
-    local function PlanFor(actions, switches)
-        Profile(actions, switches);
+    local function PlanFor(actions, switches, options)
+        Profile(actions, switches, options);
         local ctx = DebindPrivate.CollectBindingContext();
         return DebindPrivate.BuildBindingPlan(ctx);
     end
@@ -173,15 +174,23 @@ return function(DebindPrivate)
 
     -- **An event costs a wake, and what a press decides reads none.** Every condition is measured at
     -- the press and every computed switch is worked out there. The two readers are Keys Given Back,
-    -- an account answer (`giving-keys-back.md` §4), and the loop that binds a key holding a tail.
-    -- With no tail, a condition asks for nothing.
-    test("a measured condition on a key with no tail asks for no event", function()
-        local plan = PlanFor({
-            spell({ key = "F1", conditions = { combat = true, mounted = true } }),
-            { type = Constants.MACROTEXT, key = "F2", value = "/cast [@mouseover] Renew", seq = 1 },
-        }, {
+    -- an account answer (`giving-keys-back.md` §4), and the loop that judges a key. With
+    -- `giveBackWhenNoActionRuns` off and no tail, nothing judges the key, and a condition asks for
+    -- nothing; on, its end gives the key back and the loop judges it.
+    test("a measured condition on a key the loop does not judge asks for no event", function()
+        local actions = function()
+            return {
+                spell({ key = "F1", conditions = { combat = true, mounted = true } }),
+                { type = Constants.MACROTEXT, key = "F2", value = "/cast [@mouseover] Renew", seq = 1 },
+            };
+        end
+        local switches = {
             ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
-        });
+        };
+        check(PlanFor(actions(), switches).judges == true,
+            "a key whose actions can all fail was not judged with the option on");
+
+        local plan = PlanFor(actions(), switches, { giveBackWhenNoActionRuns = false });
 
         check(registers(plan, "PLAYER_MOUNT_DISPLAY_CHANGED") == false,
             "a mounted condition asked for an event");
@@ -231,8 +240,9 @@ return function(DebindPrivate)
             check(plan.judges == true, case.what .. ": the tail key asked for no loop");
             check(plan.beats == case.beats, case.what .. ": beats is " .. tostring(plan.beats));
         end
-        check(PlanFor({ spell({ key = "F1", conditions = { combat = true } }) }).beats == false,
-            "a key with no tail asked for the beat");
+        check(PlanFor({ spell({ key = "F1", conditions = { combat = true } }) }, nil,
+                { giveBackWhenNoActionRuns = false }).beats == false,
+            "a key with no tail asked for the beat with the option off");
     end);
 
     -- **The beat goes through `state-visibility` only on the login check's yes** (`BeatSignal.lua`).

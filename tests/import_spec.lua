@@ -982,6 +982,20 @@ return function(DebindPrivate, DebindStorage)
             "멀쩡한 것이 걸렸다");
     end);
 
+    -- **Escape arrives keyless** (`BringPayloadForward`), as loading leaves a stored one
+    -- (`CleanUpDB`): a string written at this `dbver` reaches no migration step, and nothing can take
+    -- the game menu's key. The action itself comes through, and what the preview describes is the
+    -- same keyless action.
+    test("an action sent on Escape arrives with no key", function()
+        local payload = General({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 3 } });
+        local raised = assert(DebindStorage.BringPayloadForward(payload));
+        local arrived = raised.layers.account.GENERAL[0][1];
+        check(arrived.key == nil, "Escape came through: " .. tostring(arrived.key));
+        check(arrived.seq == nil, "the keyless action kept a number: " .. tostring(arrived.seq));
+        check(arrived.type == Constants.SPELL and arrived.value == 585, "the action itself did not come through");
+        check(DebindStorage.DescribePayload(raised).key == nil, "the preview still names Escape");
+    end);
+
     -- The UI reaches for `value` on these three without asking, so one arriving without it is not a
     -- broken reference to show in red, it is a row that raises while being drawn.
     test("값이 있어야 하는 타입이 값 없이 오면 걸린다", function()

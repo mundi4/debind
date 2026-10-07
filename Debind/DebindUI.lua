@@ -1549,10 +1549,11 @@ function DebindKeyHeaderMixin:OnEnter()
 	-- 제목에 색은 안 물려준다. 파랑과 회색은 **그 자리에서** 읽히라고 있는 것이고, 같은 색을
 	-- 툴팁 제목에 한 번 더 칠하면 아무것도 더 말하지 않는다(메뉴 제목과 같은 규칙).
 	--
-	-- **대신 그 색이 무슨 뜻인지를 한 줄로 쓴다.** 회색 키 이름은 무언가 다르다는 것만 말하고
-	-- 무엇이 다른지는 안 말한다. 이유는 행마다 갈리므로(꺼둔 것, 다른 전문화, 게임 메뉴 키)
-	-- 여기 적는 것은 이유가 아니라 **그룹 하나로 참인 결과**다. 이유는 행 툴팁과 이슈 마크가
-	-- 든다.
+	-- **What the colour means is written instead, in one line.** A grey key name says only that
+	-- something is different, not what. The reasons differ per row (turned off, another
+	-- specialization, an action that can never run with `giveBackWhenNoActionRuns` on), so what goes
+	-- here is not a reason but **the outcome that is true of the group as one**. The row tooltips and
+	-- the issue mark carry the reasons.
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, KeyGroupLabel(elementData.key));
 
@@ -1561,7 +1562,7 @@ function DebindKeyHeaderMixin:OnEnter()
 		-- 아래 가지와 배타적이다 - 둘 다 서면 한 툴팁이 같은 사실을 두 번 말한다.
 		GameTooltip_AddDisabledLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_NOT_ACCEPTED"], true);
 	elseif (elementData.key and not DebindPrivate.IsKeyHandled(elementData.key)) then
-		-- 머리글을 회색으로 만든 것과 같은 물음이고, 회색 셋은 다 키를 게임에 넘긴다.
+		-- The same question that greyed the heading, and every grey key goes to whatever else is bound.
 		GameTooltip_AddDisabledLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_KEY_LEFT_TO_GAME"], true);
 	end
 
@@ -1620,20 +1621,24 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- waiting on the reader, which is work.
 		self:SetHeaderText(IMPORTED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel(elementData.key)));
 	elseif (elementData.key) then
-		-- **회색은 이 키가 우리 손을 떠났다는 뜻이다.** 누르면 Debind가 무언가 하는 키가 흰색이고,
-		-- 아닌 것이 회색이다 - 꺼둔 것만 남은 그룹, 이 캐릭터가 안 서는 전문화 레이어에만 있는
-		-- 그룹, 그리고 게임 메뉴 키. 셋 다 키가 게임으로 넘어간다.
+		-- **Grey means the key has left our hands.** White is a key a press on which does something
+		-- of Debind's; grey is one where nothing can: a group with only turned-off actions, one on
+		-- a specialization layer this character is not on, and, with `GiveBackWhenNoActionRuns` on,
+		-- one where no action can ever run (`giving-keys-back-when-no-action-runs.md`). Each of
+		-- those goes to whatever else is bound.
 		--
-		-- **어떻게 걸렸는지는 묻지 않는다** (`IsKeyHandled`). 개체창 위 마우스 버튼은 키를 물지
-		-- 않고 프레임으로 들어오는데, 멀쩡히 돈다. "우리가 키를 잡았나"로 물으면 그것이 회색이
-		-- 되고, 사용자는 잘 되는 키를 안 되는 것으로 읽는다.
+		-- **How the key is wired is not asked** (`IsKeyHandled`). A mouse button over a unit frame
+		-- holds no key and comes in through the frame, and it works. Asked "did we take the key",
+		-- it would go grey and the reader would read a working key as a broken one.
 		--
-		-- **에러만 있는 그룹도 흰색이다** (2026-09-19, 소유자). 우리가 처리하는 키가 맞고, 눌러도
-		-- 아무 일이 없다는 것은 **마크가 이미 말한다.** 색까지 같은 말을 하면 마크가 할 말이
-		-- 없어진다. 게임 메뉴 키가 회색인 것은 에러여서가 아니라 우리가 손댈 수 없는 키여서다.
+		-- **A group of only issue-marked actions is grey or white by that option alone**
+		-- (2026-09-19, owner, for the white; 2026-10-07 for the rest). Off, the key is held and
+		-- does nothing, and the mark already says why. On, the key goes on to whatever else is
+		-- bound, which is what grey says, and the mark still says why this action does not run.
 		--
-		-- **집 편집기나 바뀐 바에 넘겨준 키도 흰색이다.** 잠깐 비켜 준 것이고 저절로 돌아온다.
-		-- 탈것을 타는 동안 이름 색이 변하면 키를 잃은 것처럼 읽힌다.
+		-- **A key handed to the house editor or a replaced bar stays white.** That is stepping
+		-- aside for a moment and it comes back by itself; a name changing colour while mounted
+		-- reads as a key lost.
 		self.IssueIcon.rows = elementData.rows;
 		self.IssueIcon:SetKind(elementData.issueGrade, GroupIssueMarkTooltip);
 

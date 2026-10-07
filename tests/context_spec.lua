@@ -264,9 +264,10 @@ return function(DebindPrivate)
         Reset();
     end);
 
-    -- **The hold reaches past a claimed key too.** A key whose actions the rebuild leaves out is
-    -- still held (`Debind.lua`'s `BuildKeyMap`), and a claim no longer stops that -- the restricted
-    -- side is what hands it over, and it can only hand over a key we hold.
+    -- **The hold reaches past a claimed key too.** With `giveBackWhenNoActionRuns` off, a key whose
+    -- actions the rebuild leaves out is still held (`Debind.lua`'s `BuildKeyMap`), and a claim no
+    -- longer stops that -- the restricted side is what hands it over, and it can only hand over a
+    -- key we hold.
     test("a yielded key whose action the rebuild leaves out is still held", function()
         World(
             { { action = "HOUSING_MODE_DECOR", keys = { "F5" } } },
@@ -280,7 +281,7 @@ return function(DebindPrivate)
                 conditions = { specs = otherSpec } },
             { type = Constants.SPELL, value = 774, key = "F6", seq = 2,
                 conditions = { specs = otherSpec } },
-        });
+        }, { giveBackWhenNoActionRuns = false });
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
         check(DebindPrivate.IsKeyOurs("F6"), "the key nobody claimed was not held");
         check(DebindPrivate.IsKeyOurs("F5"), "the yielded key was not held");

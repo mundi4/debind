@@ -112,17 +112,5 @@ return function(DebindPrivate)
         end);
     end);
 
-    -- **The grade does not decide what happens to the action.** The game menu key and a condition
-    -- nothing meets are both red; the first lets the key go to the game and the second keeps it held
-    -- for the next action. Read against the grade, the two would do the same.
-    test("the grade and the outcome are separate answers", function()
-        local MENU = Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
-        local NEVER = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-        check(DebindPrivate.IsIssueError(MENU) and DebindPrivate.IsIssueError(NEVER),
-            "the premise is gone: the two are not both red");
-        check(Constants.BINDING_ISSUE_OUTCOMES[MENU] ~= Constants.BINDING_ISSUE_OUTCOMES[NEVER],
-            "the two red codes do the same to their action");
-    end);
-
     return T;
 end

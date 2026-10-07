@@ -1436,5 +1436,32 @@ return function(DebindPrivate)
             == "TYPE_SETSWITCH", "wrong label");
     end);
 
+    -- **A command this client does not have is marked, and the action is skipped** (owner,
+    -- 2026-10-07). Both halves: one it has is not marked, so the check cannot pass on a rule that
+    -- marks every command.
+    test("a pet command or action button command this client lacks is marked", function()
+        check(GetBindingIssue({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" })
+            == Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND, "an unknown pet command was not marked");
+        check(GetBindingIssue({ type = Constants.ACTIONBUTTON, value = "NOSUCHBUTTON1", key = "F1" })
+            == Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON, "an unknown action button command was not marked");
+        check(GetBindingIssue({ type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON1", key = "F1" }) == nil,
+            "a known action button command was marked");
+        check(Constants.BINDING_ISSUE_OUTCOMES[Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND] == Constants.ISSUE_OUTCOME_OMIT
+                and Constants.BINDING_ISSUE_OUTCOMES[Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON] == Constants.ISSUE_OUTCOME_OMIT,
+            "the two do not skip their action");
+    end);
+
+    -- A flyout the client has no flyout for at all is marked; one it names is not, learned or not
+    -- (that one goes out opening nothing, `describe_spec.lua`).
+    test("a flyout this client has no flyout for is marked", function()
+        local world = require("wow_shim").world;
+        world.flyouts[66] = { name = "Call Pet", slots = {} };
+        check(GetBindingIssue({ type = Constants.FLYOUT, value = 90001, key = "F1" })
+            == Constants.BINDING_ISSUE_UNKNOWN_FLYOUT, "an unknown flyout was not marked");
+        check(GetBindingIssue({ type = Constants.FLYOUT, value = 66, key = "F1" }) == nil,
+            "a flyout the client names was marked");
+        world.flyouts[66] = nil;
+    end);
+
     return T;
 end

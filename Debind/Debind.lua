@@ -158,7 +158,9 @@ DebindPrivate.ClickTimeKeys          = {};
 dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
 
 --- Keys an action on a live layer holds whether or not any of its bindings reached `KeyMap`.
---- `BuildKeyMap` fills it and `UpdateBindingsMap` binds every key in it.
+--- `BuildKeyMap` fills it, keeping one with no binding holding it only while
+--- `giveBackWhenNoActionRuns` is off (`giving-keys-back-when-no-action-runs.md`), and
+--- `UpdateBindingsMap` binds every key in it.
 DebindPrivate.KeysToHold             = {};
 dump("KeysToHold", DebindPrivate.KeysToHold);
 
@@ -170,7 +172,8 @@ dump("KeysToHold", DebindPrivate.KeysToHold);
 --- that runs over a unit frame holds no key at all -- the press arrives through the frame -- and it
 --- works. Asked of the other two tables it reads as a key we do not have.
 ---
---- Narrower by one as well: the game menu key is in neither, because nothing can take it.
+--- Narrower by one as well: with `giveBackWhenNoActionRuns` on, a key where no action can ever run
+--- is not held, and `BuildKeyMap` takes it out of here too, frame clicks aside.
 DebindPrivate.HandledKeys            = {};
 dump("HandledKeys", DebindPrivate.HandledKeys);
 
@@ -318,46 +321,50 @@ do
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
 				-- **An action the reader turned off gets the same treatment as a quarantined one**,
 				-- and for the same reason: drawn, greyed, reaching nothing. Unlike every filter
-				-- below this line it also hands the key back, because "I am not using this" is what
-				-- the reader said and a key we hold for nothing is a key the game cannot use.
+				-- below this line it is not on the key at all, whatever `giveBackWhenNoActionRuns`
+				-- says, because "I am not using this" is what the reader said and a key we hold for
+				-- nothing is a key the game cannot use.
+				--
+				-- **Escape is read as no key here too.** The data paths take it off (`CleanUpDB`,
+				-- `BringPayloadDataForward`); this is for one that reaches a live layer some other
+				-- way, which would take the game menu with it until the next login.
 				local binding, list, outcome;
-				if (action.key and not action.arrivalID and not action.disabled) then
+				if (action.key and action.key ~= "ESCAPE" and not action.arrivalID and not action.disabled) then
 					list = DebindPrivate.GetBindingsForAction(action);
 					binding = list[1];
 					outcome = DebindPrivate.GetIssueOutcome(action);
 
 					local key = action.key;
-					-- **The key is held before anything below can leave the action out.** Every filter
+					-- **The key is marked before anything below can leave the action out.** Every filter
 					-- under this one is the rebuild settling an answer early, and an answer settled
-					-- early must not hand the key back to the game: baked, the binding would lose every
-					-- press and the key would do nothing (2026-09-15, owner). That includes an action
+					-- early must not do what no condition of the reader's would: baked, the binding
+					-- would lose every press, so the key gets what a key whose actions all fail gets
+					-- (2026-09-15, owner; `UpdateBindingsMap` reads `GiveBackWhenNoActionRuns` for which
+					-- that is, `giving-keys-back-when-no-action-runs.md`). That includes an action
 					-- with no binding at all, every press turned off in its Cast Options menu
-					-- (`which-action-a-key-runs.md` §6): the key is still held for it.
+					-- (`which-action-a-key-runs.md` §6).
 					--
-					-- **A specialization condition naming another class's specializations holds the
-					-- key too**, though nothing behind it can ever fire on this character
+					-- **A specialization condition naming another class's specializations counts
+					-- too**, though nothing behind it can ever fire on this character
 					-- (2026-09-19, owner). It is the same rule: the filter under this line is an
 					-- optimization, and an optimization must not change what a press does.
 					--
-					-- Two things still let the key go. An action that runs over a unit frame fires
-					-- through the frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`, which
-					-- the bare left and right click always answer yes); and an issue whose outcome is
-					-- RELEASE says this key cannot be taken at all, where the game menu key would take
-					-- Escape with it.
+					-- **An action turned off is not on the key at all** (the gate above), so it marks
+					-- nothing, whichever way that option stands.
 					--
-					-- **A key a binding context has claimed is not one of them.** It is baked like any
-					-- other and handed over on the restricted side while the claim stands
-					-- (`BindingContexts.lua`), so a claim that ends puts the key back without a rebuild.
+					-- One thing marks no key: an action that runs over a unit frame fires through the
+					-- frame on a mouse button and holds nothing (`ActionUnitFrameIsOn`, which the bare
+					-- left and right click always answer yes). It still answers the press, which is the
+					-- whole difference between the two tables, and `HandledKeys` is the one a screen
+					-- asks (`IsKeyHandled`).
 					--
-					-- **Only RELEASE takes the key out of our hands.** The frame case above still
-					-- answers the press, which is the whole difference between the two tables, and
-					-- `HandledKeys` is the one a screen asks (`IsKeyHandled`).
-					if (outcome ~= Constants.ISSUE_OUTCOME_RELEASE) then
-						HandledKeys[key] = true;
-						if (not (DebindPrivate.ActionUnitFrameIsOn(action)
-								and DebindPrivate.GetMouseButtonAndPrefix(key))) then
-							KeysToHold[key] = true;
-						end
+					-- **A key a binding context has claimed is marked like any other.** It is baked and
+					-- handed over on the restricted side while the claim stands (`BindingContexts.lua`),
+					-- so a claim that ends puts the key back without a rebuild.
+					HandledKeys[key] = true;
+					if (not (DebindPrivate.ActionUnitFrameIsOn(action)
+							and DebindPrivate.GetMouseButtonAndPrefix(key))) then
+						KeysToHold[key] = true;
 					end
 				end
 
@@ -416,6 +423,33 @@ do
 			UnrollIntoTiers(bindings);
 			if (#bindings > 1) then
 				DebindPrivate.CheckUnreachableBindings(bindings);
+			end
+		end
+
+		-- **A key where no action can ever run is not held while `giveBackWhenNoActionRuns` is on**
+		-- (`giving-keys-back-when-no-action-runs.md`). Every action on it was left out above, so it
+		-- is the key a reader would see do nothing, and to that reader those actions are on the key
+		-- with conditions that never hold: the key goes to whatever else is bound.
+		--
+		-- **`HandledKeys` follows whichever way that goes**: a key still held, or one a frame click
+		-- still reaches, is ours, and the rest is not. That includes a mouse button whose actions run
+		-- over a unit frame and were all left out, which holds nothing either way.
+		local giveBack = DebindPrivate.GiveBackWhenNoActionRuns();
+		for key in pairs(HandledKeys) do
+			local bindings = KeyMap[key];
+			local holds, clicks = false, false;
+			if (bindings) then
+				local button, buttonPrefix = bindings.button, bindings.buttonPrefix;
+				for i = 1, #bindings do
+					holds = holds or DebindPrivate.BindingHoldsKey(bindings[i], button);
+					clicks = clicks or DebindPrivate.BindingClicksThroughFrame(bindings[i], button, buttonPrefix);
+				end
+			end
+			if (giveBack and not holds) then
+				KeysToHold[key] = nil;
+			end
+			if (not KeysToHold[key] and not clicks) then
+				HandledKeys[key] = nil;
 			end
 		end
 	end

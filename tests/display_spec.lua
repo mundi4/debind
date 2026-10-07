@@ -614,20 +614,21 @@ return function(DebindPrivate)
             "a row read from another specialization was still called unreachable");
     end);
 
-    -- **Suppression reaches one branch and must not reach the next.** Escape is invalid wherever it
-    -- is read from -- nothing about that comes out of a key map -- so an off-spec view that
-    -- swallowed it would leave a reader with a key that cannot work and a tooltip that says nothing
-    -- is wrong.
+    -- **Suppression reaches one branch and must not reach the next.** A META click over a unit
+    -- frame is invalid wherever it is read from -- nothing about that comes out of a key map -- so
+    -- an off-spec view that swallowed it would leave a reader with a key that cannot work and a
+    -- tooltip that says nothing is wrong.
     test("a key that is invalid anywhere is still called invalid off-spec", function()
-        Bind({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } }, {});
+        Bind({ { type = Constants.SPELL, value = 585, key = "META-BUTTON2", seq = 1,
+            conditions = { units = { unitframe = {} } } } }, {});
 
-        local row = DebindPrivate.CollectActionsForKey("ESCAPE")[1];
-        check(row, "no row stood on ESCAPE");
-        check(row.issue == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY,
-            "the row is not carrying the Escape key issue: " .. tostring(row.issue));
+        local row = DebindPrivate.CollectActionsForKey("META-BUTTON2")[1];
+        check(row, "no row stood on META-BUTTON2");
+        check(row.issue == Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK,
+            "the row is not carrying the META click issue: " .. tostring(row.issue));
 
         row.offWorld = true;
-        check(Says(row, "BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"),
+        check(Says(row, "BINDING_ERROR_NOT_SUPPORTED_META_CLICK"),
             "being read from another specialization turned off the key validity check too");
     end);
 

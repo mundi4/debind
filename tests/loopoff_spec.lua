@@ -1,5 +1,8 @@
--- Every key that holds a key record is ours for good, and a press nothing answers does nothing
--- (`dropping-the-game-fallback.md` §2, §3). No WoW client needed.
+-- With `giveBackWhenNoActionRuns` off, every key that holds a key record is ours for good, and a
+-- press nothing answers does nothing (`dropping-the-game-fallback.md` §2, §3). On, the default, a
+-- key where no action can ever run is not held at all, and one whose actions run in some states is
+-- judged (`giving-keys-back-when-no-action-runs.md`; `judgmentloop_spec.lua`). Each case asks both
+-- where the two part. No WoW client needed.
 --
 -- **Asked of the emission fixture too**, the one profile shaped to reach every branch of
 -- `UpdateBindings.lua`, and not only of keys built to pass: a key that came out unbound there is a
@@ -55,9 +58,12 @@ return function(DebindPrivate, _, ctx)
         return t;
     end
 
-    local function Bind(actions)
+    local HOLD_UNMATCHED = { giveBackWhenNoActionRuns = false };
+
+    local function Bind(actions, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [GUID] = { switches = {} } },
             migrated = {},
@@ -90,6 +96,7 @@ return function(DebindPrivate, _, ctx)
     test("every key of the emission fixture that holds a key record and no tail is ours", function()
         local fixture = assert(loadfile(ctx.root .. "/emit_fixture.lua"))()(DebindPrivate, shim);
         fixture.install();
+        DebindPrivate.Options.giveBackWhenNoActionRuns = false;
         Rebuild();
 
         local notOurs, asked = {}, 0;
@@ -116,9 +123,12 @@ return function(DebindPrivate, _, ctx)
     ---------------------------------------------------------------------------
 
     -- The gap after the last action. Both halves are asked, so a key that never moves cannot pass.
+    -- With the option on the gap is the key's end, which gives it back (`judgmentloop_spec.lua` N1).
     test("a key with a gap stays ours and does nothing in the gap", function()
         Bind({ action({ value = 585, key = "F1", conditions = { combat = true } }) });
+        check(not IsOurs("F1"), "the option on left the key ours out of combat: " .. Bound("F1"));
 
+        Bind({ action({ value = 585, key = "F1", conditions = { combat = true } }) }, HOLD_UNMATCHED);
         check(IsOurs("F1"), "the key is not ours out of combat: " .. Bound("F1"));
         check(interp:evalKey("F1") == nil, "something fired in the gap");
 
@@ -153,9 +163,11 @@ return function(DebindPrivate, _, ctx)
     -- A key on a live layer whose every action the rebuild leaves out
     ---------------------------------------------------------------------------
 
-    -- **What a rebuild skips because it already knows the answer must not hand the key back.**
-    -- Baked, the binding would never win and the press would do nothing; skipped, the key used to
-    -- leave the build and the game's own binding went out instead.
+    -- **What a rebuild skips because it already knows the answer must do what a condition that
+    -- never holds would.** To the reader the action is on the key; it just never runs (owner,
+    -- 2026-10-07). So with the option off the key is held and the press does nothing, and with it
+    -- on the key is not held at all -- not bound and let go by a beat, which would leave
+    -- `IsKeyOurs` saying yes.
     --
     -- Each case asks `IsKeyOurs` beside the bound key, so the function and the key cannot part.
     local function checkOursAndSilent(key)
@@ -174,19 +186,52 @@ return function(DebindPrivate, _, ctx)
         return { [select(3, UnitClass("player"))] = Constants.SpecIndexFlag(2) };
     end
 
-    test("a key whose one action the specialization condition leaves out stays ours", function()
+    test("a key whose one action the specialization condition leaves out", function()
         Bind({ action({ value = 585, key = "F1", conditions = { specs = OtherSpec() } }) });
+        checkNotOurs("F1");
+        Bind({ action({ value = 585, key = "F1", conditions = { specs = OtherSpec() } }) }, HOLD_UNMATCHED);
         checkOursAndSilent("F1");
     end);
 
-    -- **The frame keeps its click and the key is still ours.** The hover action is click-cast only
-    -- and holds nothing, so all that holds the key is the action the condition left out.
-    test("a hover action on a mouse button does not stop a left-out action holding the key", function()
-        Bind({
-            action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { unitframe = {} } } }),
-            action({ value = 774, key = "SHIFT-BUTTON2", conditions = { specs = OtherSpec() } }),
-        });
+    -- **The frame keeps its click either way.** The hover action is click-cast only and holds
+    -- nothing, so all that holds the key is the action the condition left out.
+    test("a hover action on a mouse button beside a left-out action", function()
+        local actions = function()
+            return {
+                action({ value = 585, key = "SHIFT-BUTTON2", conditions = { units = { unitframe = {} } } }),
+                action({ value = 774, key = "SHIFT-BUTTON2", conditions = { specs = OtherSpec() } }),
+            };
+        end
+        Bind(actions());
+        checkNotOurs("SHIFT-BUTTON2");
+        check(DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "the frame's click no longer reads as ours");
+        Bind(actions(), HOLD_UNMATCHED);
         checkOursAndSilent("SHIFT-BUTTON2");
+    end);
+
+    -- **A mouse button whose only action runs over a frame and is left out reaches nothing of ours**,
+    -- whichever way the option stands: no frame click is written for it and no key is held, so the
+    -- window must not read it as ours.
+    test("a left-out frame action alone leaves its mouse button unhandled", function()
+        local function actions()
+            return { action({ value = 585, key = "SHIFT-BUTTON2",
+                conditions = { units = { unitframe = {} }, specs = OtherSpec() } }) };
+        end
+        Bind(actions());
+        check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option on");
+        Bind(actions(), HOLD_UNMATCHED);
+        check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option off");
+    end);
+
+    -- **Escape reaching a live layer some other way is still not a key** (`BuildKeyMap`), so the
+    -- game menu is never taken. Set after loading, which is the path the data guards do not see.
+    test("an action that comes to sit on Escape after loading does not take it", function()
+        local stored = action({ value = 585, key = "F1" });
+        Bind({ stored }, HOLD_UNMATCHED);
+        stored.key = "ESCAPE";
+        Rebuild();
+        check(not IsOurs("ESCAPE"), "Escape was taken: " .. Bound("ESCAPE"));
+        check(not DebindPrivate.IsKeyHandled("ESCAPE"), "Escape reads as ours");
     end);
 
     -- **Negative of the one above.** Without it that case also passes on a rebuild that takes
@@ -197,22 +242,24 @@ return function(DebindPrivate, _, ctx)
     end);
 
     -- A binding with no way to fire is dropped per key, which left a key holding nothing.
-    test("a key whose one action has no way to fire stays ours", function()
+    test("a key whose one action has no way to fire", function()
         Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }) });
+        checkNotOurs("F1");
+        Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }),
+            }, HOLD_UNMATCHED);
         checkOursAndSilent("F1");
     end);
 
-    -- **An ERROR about the action keeps the key; one about the key lets it go.** Taking the game menu
-    -- key would end Escape.
-    test("a key the action may not be put on is not taken", function()
+    -- **Escape is not kept as a key**, so the game menu keeps it (`CleanUpDB`). The action stays,
+    -- keyless. With the option off as well: nothing about holding is asked here.
+    test("an action stored on Escape loses the key and the game keeps it", function()
         shim.world.bindings = { { action = "TOGGLEGAMEMENU", keys = { "ESCAPE" } } };
         local ok, err = pcall(function()
-            Bind({ action({ value = 585, key = "ESCAPE" }) });
-            check(DebindPrivate.GetBindingIssue(DebindPrivate.CollectActionsForKey("ESCAPE")[1].action)
-                    == Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY, "the key carries no key issue");
-            -- The game's own binding stays on it, so what is asked is that ours is not. **What is on
-            -- it is the world's to say and not what the check reads**: the check is `ESCAPE` itself
-            -- now, so this line measures the outcome rather than restating the rule.
+            local stored = action({ value = 585, key = "ESCAPE" });
+            Bind({ stored }, HOLD_UNMATCHED);
+            check(stored.key == nil, "the action kept Escape: " .. tostring(stored.key));
+            check(#DebindPrivate.CollectActionsForKey("ESCAPE") == 0, "an action still stands on Escape");
+            -- The game's own binding stays on it, so what is asked is that ours is not.
             check(Bound("ESCAPE") == "TOGGLEGAMEMENU", "the key was bound: " .. Bound("ESCAPE"));
             check(not DebindPrivate.IsKeyOurs("ESCAPE"), "the key is not bound and IsKeyOurs says yes");
         end);

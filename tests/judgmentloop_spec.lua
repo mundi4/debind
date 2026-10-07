@@ -392,5 +392,85 @@ return function(DebindPrivate)
         check(Bound("1") == MAP, "G6: the key came back other than on its command: " .. Bound("1"));
     end);
 
+    ---------------------------------------------------------------------------
+    -- A press where no action runs (`giving-keys-back-when-no-action-runs.md`). With
+    -- `giveBackWhenNoActionRuns` on, the default, every key ends as though a giveback stood
+    -- unconditional at its end; off, it ends in a block as before.
+    ---------------------------------------------------------------------------
+
+    local HOLD_UNMATCHED = { giveBackWhenNoActionRuns = false };
+
+    test("N1 a key whose only action does not run is given back", function()
+        Bind({ action({ conditions = { combat = true } }) });
+        check(Released("F1"), "F1 is bound out of combat: " .. Bound("F1"));
+        interp.state.combat = true;
+        interp:beat();
+        check(IsOurs("F1"), "a beat in combat did not take F1: " .. Bound("F1"));
+        interp.state.combat = false;
+        interp:beat();
+        check(Released("F1"), "a beat out of combat did not let F1 go: " .. Bound("F1"));
+    end);
+
+    test("N2 with the option off the key is held", function()
+        Bind({ action({ conditions = { combat = true } }) }, HOLD_UNMATCHED);
+        check(IsOurs("F1"), "F1 was let go with the option off: " .. Bound("F1"));
+        check(DebindPrivate.JudgmentItems["F1"] == nil, "an item was built with the option off");
+    end);
+
+    -- An action that always runs ends the key before the end is reached, so the key has nothing to
+    -- judge and stays out of the loop. Nothing, unconditional, is such an action.
+    test("N3 a key ending in an action that always runs stays held and out of the loop", function()
+        Bind({ action({ conditions = { combat = true } }), action({ value = 774 }) });
+        check(IsOurs("F1"), "F1 was let go: " .. Bound("F1"));
+        check(DebindPrivate.JudgmentItems["F1"] == nil, "an item was built for F1");
+
+        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.BLOCK }) });
+        check(IsOurs("F1"), "F1 ending in Nothing was let go: " .. Bound("F1"));
+        check(DebindPrivate.JudgmentItems["F1"] == nil, "an item was built for F1 ending in Nothing");
+    end);
+
+    test("N4 a Nothing with conditions holds the key only where they hold", function()
+        Bind({
+            action({ conditions = { combat = true } }),
+            action({ type = Constants.BLOCK, conditions = { mounted = true } }),
+        });
+        check(Released("F1"), "F1 is bound out of combat and unmounted: " .. Bound("F1"));
+        interp.state.mounted = true;
+        interp:beat();
+        check(IsOurs("F1"), "mounted, the Nothing did not hold F1: " .. Bound("F1"));
+    end);
+
+    -- An action that runs only while a unit frame is pointed at runs on no plain press.
+    test("N5 an action only over unit frames gives the key back away from them", function()
+        shim.world.units.party1 = { id = "p1", reaction = "help" };
+        Bind({ action({ casting = { normalCast = false, hoverCast = "cast" } }) });
+        shim.world.units.party1 = { id = "p1", reaction = "help" };
+        interp:beat();
+        check(Released("F1"), "F1 is bound with no frame pointed at: " .. Bound("F1"));
+        interp:hoverEnter(groupFrame);
+        check(IsOurs("F1"), "F1 was not taken over the frame: " .. Bound("F1"));
+        interp:hoverLeave(groupFrame);
+        check(Released("F1"), "F1 was not let go off the frame: " .. Bound("F1"));
+    end);
+
+    -- The same case as B9 to B13 with no giveback written: the chords answer as they do there.
+    test("N6 the chords follow their tier and their base key", function()
+        Bind({ action({ conditions = { units = { ["@"] = {} } } }) });
+        check(Released("F1"), "B13: F1 is bound");
+        check(Released("ALT-F1"), "B13: ALT-F1 is bound");
+        check(IsOurs("CTRL-F1"), "the self chord always has a winner and was let go");
+
+        shim.world.units.focus = { id = "f", reaction = "help" };
+        interp:beat();
+        check(Released("F1"), "B11: F1 is bound with no target");
+        check(IsOurs("ALT-F1"), "B11: ALT-F1 is not ours with a focus");
+
+        shim.world.units.focus = nil;
+        shim.world.units.target = { id = "t", reaction = "help" };
+        interp:beat();
+        check(IsOurs("F1"), "B10: F1 is not ours with a target");
+        check(IsOurs("ALT-F1"), "B10: ALT-F1 was let go while F1 is ours");
+    end);
+
     return T;
 end

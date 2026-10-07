@@ -85,8 +85,8 @@ return function(DebindPrivate, _, ctx)
 
     --- What the last `Bind` was handed, for a sweep to rebuild on.
     local lastBind;
-    local function Bind(actions, switches)
-        lastBind = { actions, switches };
+    local function Bind(actions, switches, options)
+        lastBind = { actions, switches, options };
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         shim.world.bindings = {};
@@ -101,6 +101,7 @@ return function(DebindPrivate, _, ctx)
             characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = { account = { GENERAL = { [0] = defined } } },
+            options = options,
         };
         DebindPrivate.InitDB();
         local mark = frames.mark();
@@ -422,7 +423,7 @@ return function(DebindPrivate, _, ctx)
         --- writes are held as well as the first point's.
         local function Neighbours()
             if (reached % 3 == 0) then
-                Bind(lastBind[1], lastBind[2]);
+                Bind(lastBind[1], lastBind[2], lastBind[3]);
                 Apply(columns, cells);
                 Hold(" after a rebuild");
             end
@@ -477,8 +478,10 @@ return function(DebindPrivate, _, ctx)
 
     local MAP = "TOGGLEWORLDMAP";
 
+    -- With `giveBackWhenNoActionRuns` off. On, the same key ends in a giveback and has an item
+    -- (`judgmentloop_spec.lua` N1, N2).
     test("a key with no tail has no item, nor do its chords", function()
-        Bind({ action({ conditions = { combat = true } }) });
+        Bind({ action({ conditions = { combat = true } }) }, nil, { giveBackWhenNoActionRuns = false });
         check(next(DebindPrivate.JudgmentItems) == nil, "an item was built");
     end);
 
@@ -499,6 +502,24 @@ return function(DebindPrivate, _, ctx)
         check(ok, tostring(err));
         check(DebindPrivate.JudgmentItems["ALT-CTRL-F1"], "ALT-CTRL-F1 has no item, bad premise");
         check(calls == 3, "built " .. calls .. " items for the bare key and two tiers");
+    end);
+
+    -- **No item is built for a key that could only answer ours**, even with the option on, where
+    -- its end is a giveback behind the action with no condition. A rebuild of a profile of such keys
+    -- would otherwise build one per key to throw it away.
+    test("a key ending in an action with no condition builds no item", function()
+        local build, calls = Judgment.Build, 0;
+        Judgment.Build = function(...)
+            calls = calls + 1;
+            return build(...);
+        end
+        local ok, err = pcall(Bind, {
+            action({ conditions = { combat = true } }),
+            action({}),
+        });
+        Judgment.Build = build;
+        check(ok, tostring(err));
+        check(calls == 0, "built " .. calls .. " items");
     end);
 
     test("B1 B2 an unused under a conditional action", function()

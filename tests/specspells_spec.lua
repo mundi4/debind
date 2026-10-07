@@ -206,9 +206,10 @@ return function(DebindPrivate, _, ctx)
     test("known is baked from the resolved spell", function()
         shim.world.specIndex = 1;
         shim.world.spells[2782] = { name = "Remove Corruption" };
+        -- Held with nothing running, so the press below reaches the key with no beat in between.
         Bind({
             action({ type = Constants.DISPEL, key = "F1", conditions = { known = true } }),
-        });
+        }, { giveBackWhenNoActionRuns = false });
         check(recordField("F1", 1, "known") == "[known:Remove Corruption]",
             "dispel known: " .. tostring(recordField("F1", 1, "known")));
         check(recordField("F1", 1, "clickbutton") ~= nil, "dispel has no button");
@@ -223,7 +224,9 @@ return function(DebindPrivate, _, ctx)
     -- **A `known` this specialization has no spell for never reaches the build.** The condition is
     -- false for every press this build will see, so the rebuild leaves the action out the way it
     -- leaves out an action for another specialization (`Known.lua`'s `KnownConditionCanHold`).
-    -- **Out of the build, not off the key**: the key stays ours and the press does nothing.
+    -- **Out of the build, and the key then gets what a key whose actions all fail gets**
+    -- (`giving-keys-back-when-no-action-runs.md`): given back by default, held doing nothing with
+    -- `giveBackWhenNoActionRuns` off.
     test("a known with no spell is left out of the build", function()
         shim.world.specIndex = 1;
         withNoDispel(function()
@@ -231,7 +234,12 @@ return function(DebindPrivate, _, ctx)
                 action({ type = Constants.DISPEL, key = "F2", conditions = { known = true } }),
             });
             check(DebindPrivate.KeyMap["F2"] == nil, "the action reached the key map anyway");
-            check(DebindPrivate.IsKeyOurs("F2"), "the key was handed back");
+            check(not DebindPrivate.IsKeyOurs("F2"), "the key was held with the option on");
+
+            Bind({
+                action({ type = Constants.DISPEL, key = "F2", conditions = { known = true } }),
+            }, { giveBackWhenNoActionRuns = false });
+            check(DebindPrivate.IsKeyOurs("F2"), "the key was handed back with the option off");
             if (not shipped) then
                 check(interp:evalKey("F2") == nil, "the press fired something");
             end

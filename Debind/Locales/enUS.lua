@@ -90,15 +90,6 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- purpose. "You have not picked one" and "the one you picked is gone" send the reader to two
 -- different places, and the second names a switch while this one has none to name.
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, this binding does not fire at all."
--- **Escape by name, because Escape is what is refused** (`IsKeyInvalidForAction`). It used to name
--- Toggle Game Menu and follow that binding, which meant it could print about a key the reader had
--- moved somewhere we could not follow. "Escape" is the client's own word for the key
--- (`KEY_ESCAPE`).
---
--- **Nothing is highlighted.** The whole line is already drawn red as an error, and one white word
--- inside it reads as a second thing being said rather than as emphasis. The other errors highlight
--- a value they were handed (`%s`); there is no value here, only the one key this is about.
-L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The Escape key cannot be used."
 -- **META, because that is the word the reader has already seen on this key.** It is what the client
 -- writes wherever the key is named (`META_KEY_TEXT`), including in the key this very line is about.
 -- The Mac keyboard says Command, and naming it that would put a second word on one key.
@@ -116,6 +107,11 @@ L["BINDING_ERROR_UNDEFINED_SWITCH"] = "There is no Switch named |cnHIGHLIGHT_FON
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
+-- The same shape for the two commands this client may not have, from a profile or string made
+-- elsewhere. `%s` is the stored command name, which is all there is to show for one that is unknown.
+L["BINDING_ERROR_UNKNOWN_PET_COMMAND"] = "This game has no pet command |cnHIGHLIGHT_FONT_COLOR:%s|r."
+L["BINDING_ERROR_UNKNOWN_ACTION_BUTTON"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r does not press an action button."
+L["BINDING_ERROR_UNKNOWN_FLYOUT"] = "This game has no flyout |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- The only MINOR code, so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
@@ -662,12 +658,12 @@ L["KEY_HEADER_TOOLTIP_INSTRUCTION"] = "Right-click for what can be done to every
 L["KEY_HEADER_TOOLTIP_SELECT"] = "Left click to select everything under this heading."
 --- What the greyed key name in the column means, said once for the whole group. **The outcome and
 --- not the cause**: a group is grey because every action in it is turned off, because they all
---- belong to a specialization you are not in, or because it is the key that opens the game menu,
---- and the causes can be mixed in one group. Each row says its own (`LINE_TOOLTIP_NOT_RUNNING_DISABLED`,
---- `LINE_TOOLTIP_SPEC_INACTIVE`) and the mark says the game menu one. All three do the same thing
---- to the key, which is what this sentence is about.
+--- belong to a specialization you are not in, or, with `giveBackWhenNoActionRuns` on, because none
+--- of them can ever run, and the causes can be mixed in one group. Each row says its own
+--- (`LINE_TOOLTIP_NOT_RUNNING_DISABLED`, `LINE_TOOLTIP_SPEC_INACTIVE`, an issue's mark). All of them
+--- do the same thing to the key, which is what this sentence is about.
 ---
---- **A group that is only broken is not grey and does not get this line.** The key is still ours
+--- **A group whose actions can never run is not grey with that option off.** The key is held then
 --- and does not go anywhere; that nothing comes out of it is the mark's to say.
 ---
 --- **"whatever WoW has bound to it" is the phrase the switch that causes this already uses**

@@ -320,11 +320,12 @@ return function(DebindPrivate)
         };
     end
 
-    local function Bind(actions)
+    local function Bind(actions, options)
         _G.UnitGUID = function() return ME; end
         SetWorld();
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [ME] = { switches = {} } },
             migrated = {},
@@ -363,15 +364,19 @@ return function(DebindPrivate)
         check(Values("F1") == "<none>", "the key came out with " .. Values("F1"));
     end);
 
-    -- **The key is held all the same.** Every filter under that line in `BuildKeyMap` is the
-    -- rebuild settling an answer early, and an answer settled early must not hand the key back to
-    -- the game.
-    test("the key stays ours even where the condition is false", function()
-        Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { talents = { [MySpec()] = { taken = { 701 } } } } },
-        });
-        check(DebindPrivate.KeysToHold["F1"] == true, "the key was handed back");
+    -- **The key gets what a key whose condition never holds gets.** Every filter under that line in
+    -- `BuildKeyMap` is the rebuild settling an answer early, and an answer settled early must not
+    -- do what the reader's own condition would not (`giving-keys-back-when-no-action-runs.md`): held
+    -- with `giveBackWhenNoActionRuns` off, not held with it on.
+    test("the key goes where a false condition sends it", function()
+        local function actions()
+            return { { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { talents = { [MySpec()] = { taken = { 701 } } } } } };
+        end
+        Bind(actions(), { giveBackWhenNoActionRuns = false });
+        check(DebindPrivate.KeysToHold["F1"] == true, "the key was handed back with the option off");
+        Bind(actions());
+        check(DebindPrivate.KeysToHold["F1"] == nil, "the key was held with the option on");
     end);
 
     -- The action below it takes the key, which is the whole point of answering this early.

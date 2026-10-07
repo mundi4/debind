@@ -248,6 +248,12 @@ function Judgment.Build(entries, base)
     return item;
 end
 
+--- Does the item answer ours in every state? Such a key is bound once by the rebuild and the loop
+--- has nothing to do for it.
+function Judgment.IsAlwaysOurs(item)
+    return #item.entries == 0 and item.rest.outcome == Judgment.OURS;
+end
+
 --- What an item answers where `point[column]` is the one cell measured in each column. A chord's
 --- `BASE` is its caller's to resolve against the base key's own answer.
 function Judgment.Judge(item, point)

@@ -421,6 +421,11 @@ local realPointedUnitCast
 --- the run is already isolated (`UseOffSpecLayer`).
 local isolatedLayers
 
+--- The option's own reader while a run is isolated, and the one value it answers from
+--- (`HoldUnmatchedKeys`).
+local realGiveBackWhenNoActionRuns
+local holdUnmatchedKeys = false
+
 local function SetIsolated(isolated)
     if isolated then
         -- **Wrapped, because this is a report and the run is not.** It only reads, but a run that
@@ -434,6 +439,15 @@ local function SetIsolated(isolated)
                 hoverCastMode = DebindPrivate.Options.hoverCastMode,
             }
             DebindPrivate.Options.hoverCastMode = nil
+            -- **The default, whatever the tester runs with**, and swapped like the layer walk
+            -- rather than written: `Options` is the saved table, and a run that crosses a reload
+            -- would save a value written here over the tester's own. A key whose actions all fail is
+            -- given back or held by this option, so a tester who turned it off would see every case
+            -- built on the other answer go red (`HoldUnmatchedKeys` asks for that answer).
+            realGiveBackWhenNoActionRuns = DebindPrivate.GiveBackWhenNoActionRuns
+            DebindPrivate.GiveBackWhenNoActionRuns = function()
+                return not holdUnmatchedKeys
+            end
             isolatedLayers = { GetTestLayer() }
             local only = isolatedLayers
             -- **The live walk yields the first layer alone**, whatever else is in the list. That is
@@ -482,6 +496,9 @@ local function SetIsolated(isolated)
             DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
             DebindPrivate.FindLayerID = realFindLayerID
             DebindPrivate.Options.hoverCastMode = realPointedUnitCast.hoverCastMode
+            DebindPrivate.GiveBackWhenNoActionRuns = realGiveBackWhenNoActionRuns
+            realGiveBackWhenNoActionRuns = nil
+            holdUnmatchedKeys = false
             realEnumerate = nil
             realEnumerateAll = nil
             realFindLayerID = nil
@@ -590,6 +607,16 @@ local function ApplyBindings()
     WaitForIdle()
 end
 
+--- Holds a key whose actions all fail, for a case that asks the press on such a key rather than who
+--- has it (`giving-keys-back-when-no-action-runs.md`). **Nothing saved is written**: the isolated
+--- reader answers from this flag (`SetIsolated`), and the teardown puts it back for the cases after.
+local function HoldUnmatchedKeys()
+    holdUnmatchedKeys = true
+    AddTeardown(function()
+        holdUnmatchedKeys = false
+    end)
+end
+
 -- What `KeyMap` holds for one key.
 local function GetKeyBindings(key)
     local keyMap = DebindPrivate.KeyMap
@@ -646,7 +673,9 @@ end
 --- `KeyMap` has none of them, so every index past the first tier is out of step by one or two.
 ---
 --- **A key in `KeysToHold` gets the blocks even with nothing in `KeyMap` holding it**, or with no
---- `KeyMap` list at all, so its every record past its own bindings is a block.
+--- `KeyMap` list at all, so its every record past its own bindings is a block. With
+--- `giveBackWhenNoActionRuns` on, `BuildKeyMap` keeps no such key, and the end of a held key is a
+--- giveback, which binds as a block.
 local function BindingIndexForEmitted(key, index)
     if not key or type(index) ~= "number" then
         return index
@@ -6552,6 +6581,8 @@ RegisterTest("Switch condition on a name outside the five", {
             return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
+        -- Both keys are asked at the press, which a key given back would not reach.
+        HoldUnmatchedKeys()
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$burst"] = true })
         InsertAction({ type = Constants.SPELL, value = 585, key = UNDEFINED_KEY, ["$nodefinition"] = true })
 
@@ -6588,7 +6619,8 @@ RegisterTest("Switch condition on a name outside the five", {
         -- `tests/issue_spec.lua` looks at that.
         --
         -- **The key is still ours**, since the action is on a live layer (`Debind.lua`'s
-        -- `KeysToHold`), so what is asked is the press and not whether the key is bound.
+        -- `KeysToHold`) and `HoldUnmatchedKeys` is on, so what is asked is the press and not
+        -- whether the key is bound.
         local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
         if whenUndefined:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
@@ -6630,9 +6662,9 @@ RegisterTest("Switch condition on a name outside the five", {
 --
 -- A specialization cannot be changed from a test, so the change and the rebuild it pulls are the
 -- spec's. What is left is the pair: the set holding this specialization fires, the set leaving it
--- out does not. **Both keys are ours** either way (`Debind.lua`'s `KeysToHold`), so the press is
--- what tells them apart. **Both halves, because on its own "fires nothing" also describes a key
--- nothing was ever put on.**
+-- out does not. With `giveBackWhenNoActionRuns` on, the default, the second key is not held at all;
+-- off, **both keys are ours** (`Debind.lua`'s `KeysToHold`), so the press is what tells them apart.
+-- **Both halves, because on its own "fires nothing" also describes a key nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
     description = "A binding whose specialization mask holds this one fires, one whose mask leaves it out holds the key and fires nothing",
     -- **A class of one specialization has nothing to leave out** (every camelot class), so the
@@ -6708,7 +6740,15 @@ RegisterTest("Spec condition: the specialization the character is on decides the
             return Fail(NAME, format("the mask holds %d and the press fires nothing", spec))
         end
 
+        -- With the default the key whose only action is left out is not held at all.
         local outside = GetBindingAction(OUTSIDE, true) or ""
+        if outside:sub(1, 6) == "CLICK " then
+            return Fail(NAME, format("the mask leaves %d out and the key was held by default: %q", spec, outside))
+        end
+
+        HoldUnmatchedKeys()
+        ApplyBindings()
+        outside = GetBindingAction(OUTSIDE, true) or ""
         if outside:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format("the mask leaves %d out and the key was handed back: %q", spec, outside))
         end
@@ -10832,8 +10872,8 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 -- being red -- the window says nothing is wrong -- while the key stays dead until something
 -- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
 --
--- **The key is ours through both halves** (`Debind.lua`'s `KeysToHold`), so dead means the press
--- fires nothing, and that is what is asked.
+-- **The key is ours through both halves** (`Debind.lua`'s `KeysToHold`, with `HoldUnmatchedKeys`),
+-- so dead means the press fires nothing, and that is what is asked.
 --
 -- **The half that is left is the client's.** `tests/boundkey_spec.lua` sends `UPDATE_MACROS` by
 -- hand and holds everything downstream of it: that the addon is listening, that the handler queues
@@ -10868,6 +10908,7 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
             return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
+        HoldUnmatchedKeys()
         InsertAction({ type = Constants.MACRO, value = MACRO, key = KEY })
         ApplyBindings()
 

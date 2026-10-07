@@ -12,17 +12,7 @@ local CannotStand             = DebindPrivate.CannotStand;
 local SOURCE_ROW              = DebindPrivate.UNIT_SOURCE_ROW;
 local SOURCE_AT               = DebindPrivate.UNIT_SOURCE_AT;
 
---- **Escape, and not whatever `TOGGLEGAMEMENU` happens to be on** (2026-09-19, owner). This used to
---- read the binding, which promised something it cannot keep: the reader can move that command in
---- the middle of a fight, and `UPDATE_BINDINGS` reaches a rebuild that a lockdown refuses
---- (`CanBuildBindings`). Our override on the new key is already up and stays up for the rest of the
---- fight, so the game menu is shut either way -- the check was chasing a value it could not follow.
----
---- Escape does not move. It is also the only one of the two the addon can act on at all: the window
---- never takes it as a key, because a capture dialog reads it as cancel and bind mode reads it as
---- "clear this row" (`KeyCapture.lua`, `DebindUI.lua`). An action sitting on it arrived from an
---- import or a hand-edited file.
---- **The second one is a mouse button with META held, and only over a unit frame.** The click
+--- **A mouse button with META held, and only over a unit frame.** The click
 --- arrives at the wrapper as a bare button name, and which key it was is recovered there from the
 --- modifiers held at that instant -- but the restricted environment has no `IsMetaKeyDown`
 --- (`RestrictedEnvironment.lua` lists Alt, Ctrl and Shift and stops), so META cannot be read, and
@@ -35,10 +25,10 @@ local SOURCE_AT               = DebindPrivate.UNIT_SOURCE_AT;
 ---
 --- The raw key is asked rather than the prefix `GetMouseButtonAndPrefix` returns: that one is
 --- canonicalized, and `META-CTRL-BUTTON2` comes back as `CTRL-` with the META already dropped.
+---
+--- **Escape is not asked about here.** No action keeps it as a key (`CleanUpDB`,
+--- `BringPayloadDataForward`), and `BuildKeyMap` reads one that does as keyless.
 function DebindPrivate.IsKeyInvalidForAction(action, key)
-    if (key == "ESCAPE") then
-        return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
-    end
     if (type(key) == "string" and key:find("META-", 1, true)
             and DebindPrivate.GetMouseButtonAndPrefix(key)
             and DebindPrivate.ActionUnitFrameIsOn(action)) then
@@ -575,6 +565,26 @@ local ACTION_CHECKS = {
         local missing = DebindPrivate.GetMissingMacroName(action);
         if (missing) then
             return Constants.BINDING_ISSUE_MISSING_MACRO, missing;
+        end
+    end },
+    -- **Asked of the command the value names, the way the binding builder asks it**
+    -- (`DescribeBinding`), so what goes red is what the builder would refuse. A pet with nothing
+    -- out is not asked about: the command is sent and the game answers it.
+    { category = "command", label = "TYPE_PETACTION", check = function(action)
+        if (action.type == Constants.PETACTION and not DebindPrivate.GetPetActionMacroText(action.value)) then
+            return Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND, tostring(action.value);
+        end
+    end },
+    { category = "command", label = "TYPE_ACTIONBUTTON", check = function(action)
+        if (action.type == Constants.ACTIONBUTTON and not Constants.ACTION_BUTTON_COMMANDS[action.value]) then
+            return Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON, tostring(action.value);
+        end
+    end },
+    -- **No name is the client saying it has no such flyout.** One this character has not learned
+    -- still answers with its name, and goes out opening nothing.
+    { category = "command", label = "TYPE_FLYOUT", check = function(action)
+        if (action.type == Constants.FLYOUT and not DebindPrivate.Client.FlyoutInfo(action.value)) then
+            return Constants.BINDING_ISSUE_UNKNOWN_FLYOUT, tostring(action.value);
         end
     end },
     -- **A row empty on its own.** Every binding that asks it cannot stand, so the answer needs none of

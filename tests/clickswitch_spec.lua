@@ -53,6 +53,10 @@ return function(DebindPrivate, _, ctx)
             characters = { [GUID] = { class = Constants.PLAYER_CLASS } },
             migrated = {},
             switches = { account = { GENERAL = { [0] = switches or {} } } },
+            -- **Every key here is held with nothing running.** This file asks what the press
+            -- answers with no beat in between, and a key given back would not be pressed at all
+            -- until one came (`giving-keys-back-when-no-action-runs.md`).
+            options = { giveBackWhenNoActionRuns = false },
         };
         DebindPrivate.InitDB();
         return Rebuild();

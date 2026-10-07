@@ -2611,6 +2611,15 @@ function DebindPrivate.CleanUpDB()
                 end
             end
 
+            -- **Escape is not kept as a key.** It is the game menu's, nothing can take it, and the
+            -- capture window refuses it, so one here came from a profile or a string no window
+            -- wrote. Keyless, the action stays and waits for a key (owner, 2026-10-07). Here
+            -- rather than in a migration step, because a profile already at this `dbver` can hold
+            -- one as well.
+            if (action.key == "ESCAPE") then
+                action.key = nil;
+            end
+
             -- The ordering number's net. **It is for data the migration never reached** -- MigrateDB
             -- only walks the shapes it knows about, so a hand-edited SavedVariables or a corner left
             -- by an old client can go past it. In ordinary use nothing trips it: every path that

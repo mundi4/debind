@@ -75,13 +75,25 @@ return function(DebindPrivate)
             "body: " .. tostring(attribute(descriptor, "*macrotext-")));
     end);
 
-    -- **The flyout with no opener is the one the drop was written for.** A flyout whose slots are
-    -- all empty -- a hunter who let the last pet go -- has a handle that opens nothing, and a key
-    -- bound to it does nothing when pressed while still counting as bound.
-    test("a flyout with no opener is refused", function()
-        local descriptor, reason = describe(Constants.FLYOUT, 900, nil, { flyoutOpener = nil });
-        check(descriptor == nil, "it described a flyout that opens nothing");
-        check(reason == "no-flyout-opener", "reason: " .. tostring(reason));
+    -- **A flyout with no opener still goes out, as a button that does nothing** (owner, 2026-10-07).
+    -- A flyout whose slots are all empty -- a hunter who let the last pet go -- is a value the game
+    -- has nothing to do for, like a spell this character does not know, and that one is still cast.
+    -- Filed under a nil value, so a live flyout of the same id never gets this empty button back
+    -- from the cache.
+    test("a flyout with no opener goes out doing nothing", function()
+        local descriptor = describe(Constants.FLYOUT, 900, nil, { flyoutOpener = nil });
+        check(descriptor, "a flyout that opens nothing was refused");
+        check(descriptor.count == 0, "it wrote " .. tostring(descriptor.count) .. " attributes");
+        check(descriptor.cacheKey == Constants.NIL, "it is filed under " .. tostring(descriptor.cacheKey));
+    end);
+
+    -- The same for a stance this character has no button for: the game's own binding would do
+    -- nothing there either.
+    test("a stance with no button goes out doing nothing", function()
+        local descriptor = describe(Constants.ACTIONBUTTON, "SHAPESHIFTBUTTON7", nil, { barButton = nil });
+        check(descriptor, "a stance with no button was refused");
+        check(descriptor.count == 0, "it wrote " .. tostring(descriptor.count) .. " attributes");
+        check(descriptor.cacheKey == Constants.NIL, "it is filed under " .. tostring(descriptor.cacheKey));
     end);
 
     -- An on/off/toggle action whose switch has not been chosen yet. The name is the only thing

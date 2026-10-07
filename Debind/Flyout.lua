@@ -427,8 +427,8 @@ local function CreateFlyout(flyoutID)
 	return entry;
 end
 
---- 이 플라이아웃을 여는 손잡이 프레임. `SetBindingAttributes`가 `*clickbutton-`에 건다.
---- 슬롯이 하나도 없으면 nil - 부르는 쪽이 그 키를 안 건다.
+--- The handle frame that opens this flyout, which `SetBindingAttributes` puts on `*clickbutton-`.
+--- Nil with no slot at all, and the caller then sends the action out opening nothing (`Inert`).
 ---
 --- **전투 중에는 새로 만들지 않는다.** 부르는 쪽(`DebindPrivate.UpdateBindings`)이 전투
 --- 중에는 첫 줄에서 통째로 되돌아가므로 이 갈래를 밟을 일은 없지만, 밟으면 프레임 생성이
