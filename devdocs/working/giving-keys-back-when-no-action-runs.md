@@ -1,9 +1,11 @@
 # 아무 액션도 안 돌 때 키를 돌려주기 (2026-10-07 계획)
 
-> 상태: 진행 중. G0(8f3ca88)과 G1~G4, 1-1절(1c81ae6)이 들어갔고 G5는 쟀다(벤치와 결과). 남은 것은 G6(화면 배선과
-> 등급 합치기), G7(문서). 설정 탭은 목업(b6e0d1c)이라 그 행들은 아무것도 저장하지 않는다.
+> 상태: 진행 중. G0(8f3ca88)과 G1~G4, 1-1절(1c81ae6)이 들어갔고 G5는 쟀다(b998892). 남은 것은 G6(화면 배선과
+> 등급 합치기), G7(문서). 설정 탭은 목업(b6e0d1c)이라 그 행들은 아무것도 저장하지 않는다. G6·G7은 한 번 구현했다가
+> 통째로 되돌렸다(6462ec0). 그때 밟은 함정이 3절이고, 다시 할 때 먼저 읽는다.
 >
-> 쓴 세션: `debind-4a` (세션 ID `73ee6c63-8228-430b-9aca-e8140fe8facd`).
+> 쓴 세션: `debind-4a` (세션 ID `73ee6c63-8228-430b-9aca-e8140fe8facd`). 3절과 G5 결과를 쓴 세션: `debind-d8`
+> (세션 ID `391e6100-a76a-4f2e-987e-6da498724074`). 둘 다 문의처가 아니다.
 
 ## 1. 정한 것 (소유자, 2026-10-06~07)
 
@@ -48,6 +50,15 @@
   - 대가: 고장 난 액션뿐인 키는 옵션이 켜져 있으면 그 아래 바인딩이 나간다. 행의 마크는 남는다.
 - **ERROR와 WARNING은 하나로 합친다** (소유자, 아이콘은 경고 아이콘). 동작이 하나이니 등급은 그 액션이 안 돈다는
   표시일 뿐이다. G6에서 한다.
+  - 색은 주황, 순서 칸은 "Needs checking", 마크 툴팁은 "Because of this, the action is sometimes or always
+    skipped.", 키 머리글 툴팁은 "Some actions under this heading are sometimes or always skipped." (소유자,
+    2026-10-07). "누름"이라고 쓰지 않는 것은 개체창 클릭이 누름으로 안 읽혀서다.
+  - **`ROLES_NONE_ON_GROUP_FRAMES`는 KEEP으로 남는다** (소유자). 역할은 파티·공격대 개체창에서만 재니, 다른 개체창
+    종류에서는 액션이 그대로 돈다. "sometimes"가 이 코드다.
+- **설정 섹션 드롭다운 값은 클라이언트 드롭다운처럼 낱말마다 대문자다** (소유자, "Quest Objectives and Mouseover"를
+  보이며): Key Is Given Back / Press Does Nothing, Replaced Bars / Pet Battles / Replaced Bars and Pet Battles /
+  Never. "Pet Battles"는 클라이언트 문자열 `SHOW_PET_BATTLES_ON_MAP_TEXT`다. 머리글은 기존 `GIVE_BACK_KEYS`
+  ("Keys Given Back")다. 도움말 세션이 이 값을 인용하므로 바꾸면 그쪽에 알린다.
 - **ESC는 키로 남기지 않는다.** 키 지정 창이 받지 않으니, 있다면 옛 프로필이나 손으로 고친 문자열이다. 프로필을 읽을 때
   (`CleanUpDB`)와 가져올 때(`BringPayloadDataForward`, 미리보기도 같은 값을 보게) 키를 비우고, `BuildKeyMap`도 ESC를 키
   없는 것으로 읽는다(다른 길로 들어온 것에 대한 가드). 액션은 키 없이 남는다. 그래서 게임 메뉴 키 이슈와 결과 등급
@@ -151,3 +162,70 @@ Windows의 `os.clock`이 1 ms 단위라 작은 쪽은 그만큼 거칠다.
 - What's New.
 - **도움말은 이 문서의 범위가 아니다** (소유자: 한 세션을 통째로 쓰는 일이다). `ordering.md`의 "The key does nothing"이
   이 변경으로 틀린 말이 된다.
+
+## 3. 함정 (2026-10-07, 되돌린 G6·G7에서)
+
+`debind-d8`이 G6·G7을 구현하고 리뷰를 여섯 번 돌린 끝에 통째로 되돌렸다(6462ec0). 리뷰마다 결함이 나왔고, 대부분 아래
+꼴이었다. 되돌린 커밋(3388a85, 9780f2e, e845de6, 435ecf1, 9317497, 5bf80e7)은 `git show`로 읽을 수 있다. 참고는
+하되 그대로 다시 적용하지 않는다.
+
+### 3-1. 구조: 요구가 바뀌면 옛 구조도 고친다
+
+- **키를 쥘지와 머리글 색은 한 곳에서, 바인딩이 실제로 나갈 수 있는지 안 뒤에 정한다.** 지금은 `BuildKeyMap`(1c81ae6)이
+  `PrepareKeyBindings`가 바인딩을 버리기 전에 `KeysToHold`·`HandledKeys`를 정한다. 그래서 쥐는 바인딩이 다 버려진
+  키는 루프에서는 늘 돌려지는데 머리글은 흰색이다. 5bf80e7은 `UpdateBindingsMap`에 분기를 덧대 결정이 두 곳이 됐고,
+  개체창 클릭으로만 답하던 마우스 버튼(애초에 `KeysToHold`에 없다)을 빠뜨려 곧바로 어긋났다.
+- **실제로 내보낸 기록이 이미 있다.** `ClickTimeKeys`(키를 묶는 줄에서 채움, `IsKeyOurs`)와 방출된 `ClickCastKeys`.
+  "이 키를 누르면 우리에게 오나"는 이 둘로 답할 수 있고, `HandledKeys`를 미리 정하는 단계가 필요한지부터 따진다.
+- `BuildKeyMap`만 불러 보는 스펙(context, keygroup, role, specid, emit)은 `KeyMap`만 묻는다.
+- **조건끼리 모든 상태를 덮는 키**(`[combat]`과 `[nocombat]` 둘)도 아이템을 만들어 beat에 오른다. `IsAlwaysOurs`가
+  항목 0개만 알아보기 때문이다. 동작은 맞고 낭비다. 판정 아이템의 제약은 솔버의 바인딩 열과 일대일이 아니라, 솔버의
+  덮임 판정을 그대로 가져다 쓰면 놓아야 할 키를 쥘 수 있다. 할지는 소유자가 정하지 않았다.
+
+### 3-2. 등급 합치기: 빨강은 생각보다 많은 곳에 있다
+
+- 색과 그리기가 흩어져 있다. `Issues.lua`의 `GetIssueColor`·`IsIssueError`·`IsIssueWarning`·`GetGroupIssueGrade`,
+  `Constants.lua`의 등급 표, `DebindUI.lua`의 마크 종류·순서 칸·키 글자색, `ActionTooltip.lua`의 이슈 줄 함수 둘과
+  `addErrorLine`·`addLabelLine`의 빨강 갈래·"아무것도 안 고름" 값 줄, 없는 스위치·없는 매크로 줄, `MenuKit.lua`의
+  `SetErrorTooltip`과 `BuildNode`의 대체값, `ActionMenuItems.lua`의 스위치 하위 메뉴, `SwitchesUI.lua`의 툴팁과 식
+  입력칸 글자색.
+- **게임 안 키트도 색을 잰다.** "Switches tab: an expression left naming a deleted switch goes red"는 입력칸을
+  `ERROR_COLOR`와 비교한다. 입력칸을 주황으로 바꾸면 이 시험이 깨진다.
+- **사용자 문구:** `SWITCH_DELETE_CHOICES`가 "marked in red"라고 말한다(koKR도). 뜻이 바뀐 koKR 키는 번역하지 말고
+  지운다(`writing-user-facing-text.md`).
+- **주석 약 50곳**이 이슈를 "red", "reddens", "빨강", ERROR, WARNING, grade로 말한다. 코드, 키트, `DevSeed.lua`,
+  XML 주석, `which-action-a-key-runs.md` S5 표의 행까지다. 낱말 뿌리(`redd`, `redden`, `빨`)와 등급 낱말까지 넓혀
+  찾는다. 실제 빨강(막힌 이동 화살표, General 문구, Nothing의 X 아이콘, 시험 실패)은 남긴다. "모르는 주문은 빨갛다"
+  같은 문장은 확인 없이 남기지 말고 코드로 확인한다(이름은 회색과 파랑만 쓴다).
+- 공용 함수로 옮길 때 기본값이 바뀌는지 본다. `GameTooltip_AddErrorLine`은 줄바꿈하고, `wrap or false`는 안 한다.
+
+### 3-3. 설정 배선
+
+- `Options().x = (not value) and false or nil`은 늘 nil이다. if/else로 쓴다.
+- 클라이언트 `NEVER`는 koKR이 "표시 안 함"이라 쓰지 않는다.
+- `giveBackWhenActionExists`를 지우면 스니펫(`UpdateGivenBackKeys`)에서 페이지 계산도 같이 빠지고, 두 골든이 그만큼
+  움직인다. 7→8 단계에서 저장 값을 지우는 마이그레이션 시험은 고치기 전 코드에서 빨간 것을 봤다.
+
+### 3-4. 키트
+
+- 기본값(옵션 켬)에서 꼬리 없는 조건부 키는 돌려진다. 그 전제로 짠 "The driver is off Blizzard's beat"는
+  `HoldUnmatchedKeys()` 없이는 "the key did not bind"로 실패한다. 다른 시험도 같은 전제를 찾는다.
+- 키트 여러 곳이 아무 `"CLICK "`이나 우리 것으로 본다. 키를 놓으면 테스터의 다른 애드온 바인딩이 보이므로,
+  `DefaultClickFrame` 이름까지 맞춰 보는 함수 하나를 두고 모두 그것을 쓴다(남의 엔진 프레임을 보는 한 곳은 예외).
+
+### 3-5. 명세 문서
+
+- **승자 없는 조합 키(Self/Focus Cast Key 층)는 맨 키를 따른다**(`JudgmentEntryFor`의 `BASE`, `SecureBindings.lua`의
+  `base` 풀이). 맨 키가 우리 것이면 아무 일도 안 하고, 돌려진 것이든 `COMMAND` 꼬리든 우리 것이 아니면 조합 키를
+  놓는다. 바뀐 단축바·애완동물 대전·집 편집기로 맨 키를 돌려주는 동안엔 조합 키도 같이 넘어간다
+  (`UpdateGivenBackKeys`). "옵션과 상관없이 아무 일도 안 한다"는 두 번 다 틀렸다.
+- 다른 세션이 같은 문서(§3·§6)에 조합 키 문단을 미커밋으로 쓰고 있다.
+
+### 3-6. 진행
+
+- **다른 세션의 미커밋 작업이 같은 파일에 있다**(`UpdateBindings.lua`, `SecureBindings.lua`, `DebindTest.lua`,
+  `which-action-a-key-runs.md`, 골든). 제 hunk만 커밋한다. 문맥 없는(`-U0`) 패치는 순수 삽입을 줄 번호로 붙여 엉뚱한
+  자리에 넣은 적이 있다. 문맥 있는 패치로 넣고, 커밋할 상태만 임시 worktree에 꺼내 시험한다.
+- **리뷰 범위는 커밋 해시로 적는다.** 이 저장소의 `/code-review`는 범위를 스스로 잡는데, 미커밋 변경은 다른 세션 것으로
+  빼고 커밋 범위는 다른 세션 커밋까지 넓게 잡았다. 리뷰할 것은 먼저 커밋하고, 그 해시만 보라고 적는다.
+- 결과를 보고할 때 도구·지시문·소유자 탓으로 돌리지 않는다. 확인하지 않은 도구 동작을 사실처럼 말하지 않는다.
