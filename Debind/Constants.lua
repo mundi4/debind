@@ -293,7 +293,7 @@ Constants.CONDITION_FIELDS = {
     skyriding = true,
 };
 
---- The issue categories. **Each names a control to paint red, not a field.** Some, like `macro`,
+--- The issue categories. **Each names a control to mark, not a field.** Some, like `macro`,
 --- have no action field of that name at all, and some conditions have no category.
 ---
 --- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
@@ -649,7 +649,7 @@ Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED
 -- key answers a question nobody asked (`making-known-a-spell-name.md`).
 Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE             = "KNOWN_NAME_UNPARSABLE";
 -- No box ticked in a unit's group block. **Its own code, on the same categories the unit's other
--- axes use.** The category picks which control goes red and the block lives in those menus, so it
+-- axes use.** The category picks which control is marked and the block lives in those menus, so it
 -- is the right one; what a shared code would get wrong is the sentence, because a zero here is one
 -- axis empty rather than the unit having no state left at all.
 --
@@ -679,9 +679,9 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- Hover Cast's "don't run while pointing" with Normal Cast off: no plain press is left, so the action
--- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **Red**
--- (2026-10-04, owner): only those twins would be left, and they vary a press the action no longer
--- has. Turning the action off closes it too, and keeps what it was set with.
+-- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **An issue
+-- and left out** (2026-10-04, owner): only those twins would be left, and they vary a press the
+-- action no longer has. Turning the action off closes it too, and keeps what it was set with.
 Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- A left or right click with no modifier answers one press, a click on a unit frame, and the action
 -- carries [when there is none] on a unit that is always there on such a click: the frame's own unit,
@@ -690,7 +690,7 @@ Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- condition is enough and nothing is wrong with it; what it cannot meet is the key.
 --
 -- **One state, two codes, because the sentence has two readers.** They are raised together by one
--- check and carry the same grade and the same outcome; what differs is what the reader is looking at
+-- check and carry the same outcome; what differs is what the reader is looking at
 -- when they meet it, the key or the condition. A code is how a sentence is found (`BINDING_ERROR_`
 -- plus the code, in the tooltip and in the menu alike), so two sentences need two codes.
 Constants.BINDING_ISSUE_KEY_RULED_OUT                     = "KEY_RULED_OUT";
@@ -708,7 +708,7 @@ Constants.BINDING_ISSUE_UNKNOWN_FLYOUT                    = "UNKNOWN_FLYOUT";
 
 -- **Every issue is drawn the same way** (owner, 2026-10-07; `giving-keys-back-when-no-action-runs.md`
 -- 1-1). What happens to the action is the code's outcome below, and either outcome is the action
--- being skipped sometimes or always, so there is nothing left for a second grade to say.
+-- being skipped sometimes or always, so there is nothing left for a second way of drawing to say.
 --
 -- **A state the reader may have meant is not an issue at all.** A mark they can only clear by
 -- choosing a value they do not want is a mark they cannot clear, so an action the reader turned

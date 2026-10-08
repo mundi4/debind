@@ -96,8 +96,8 @@ do
 	local _switchNames = {};
 	local LEFT_OFFSET = 10;
 	-- **One step in, for a line that belongs to the line above it.** Two things use it. The reason a
-	-- value is red, which is red itself because the sentence is about a fault and gold would read as
-	-- a second value, so the step is the only thing left to tell the setting from the explanation.
+	-- value is marked, which is in the issue colour itself because the sentence is about a fault and
+	-- gold would read as a second value, so the step is what tells the setting from the explanation.
 	-- And the axes one unit condition narrows, which would otherwise stand level with the units
 	-- themselves and stop saying whose they are.
 	--
@@ -396,9 +396,9 @@ do
 				end
 				addValueLine(tooltip, keyText, error);
 				-- **Stated here, not shouted, and under the key rather than on it.** The key itself
-				-- is a valid one and the sentence describes a neighbour on it, so neither half goes
-				-- red. `addValueLine`'s error argument colours both at once, which is why this is
-				-- put up as a line of its own instead of being handed to it.
+				-- is a valid one and the sentence describes a neighbour on it, so neither half takes
+				-- the issue colour. `addValueLine`'s issue argument would add the code's sentence in it,
+				-- which is why this is put up as a line of its own instead of being handed to it.
 				--
 				-- **A second line beside whatever the key already said**, since the two are
 				-- separate axes: an action can be covered by a neighbour and be carrying a fault of
@@ -844,7 +844,7 @@ do
 			-- Named here for the same reason. The macro name is the action's `value`, so no
 			-- condition row above draws it, and the name on the row is the one
 			-- `NameAndIconForAction` hands back **unchanged** next to a question-mark icon -- it
-			-- cannot say on its own why the row went red.
+			-- cannot say on its own why the row is marked.
 			local missingMacro = DebindPrivate.GetMissingMacroName(action);
 			if (missingMacro) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);

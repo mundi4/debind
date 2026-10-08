@@ -1259,7 +1259,7 @@ L["SWITCH_USAGE_HERE"] = "This Character"
 L["SWITCH_USAGE_ACCOUNT"] = "Across the Account"
 L["SWITCH_USAGE_EXPRS"] = "Other Switches"
 -- This character's actions not accepted yet. The word is the one the strip's count uses
--- (`IMPORT_PENDING`): they name this Switch already and turn red if it goes, but do nothing yet.
+-- (`IMPORT_PENDING`): they name this Switch already and are marked if it goes, but do nothing yet.
 L["SWITCH_USAGE_PENDING"] = "Pending"
 -- The two halves of a row's number in the group above, in its tooltip.
 L["SWITCH_USAGE_ACTIONS"] = "Actions"
@@ -1320,7 +1320,7 @@ L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole ac
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
 L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; it and will stop working."
--- Actions waiting to be accepted name the Switch too, and turn red with it. Apart from the line
+-- Actions waiting to be accepted name the Switch too, and are marked with it. Apart from the line
 -- above because they do nothing yet, so "will stop working" is not true of them. The second is the
 -- only place other characters' pending actions are counted: nothing on this character opens them.
 L["SWITCH_DELETE_CONFIRM_PENDING"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting to be accepted |4uses:use; it too."

@@ -115,8 +115,8 @@ return function(DebindPrivate, DebindStorage)
 
     -- **The case a same-class test cannot reach, and the one that used to be wrong.** Spec 2 is
     -- Feral for a druid and Fire for a mage, and the old mapping answered "the reader's class,
-    -- no spec" - a mage's fire bindings sitting in "all my druids", every line red because the
-    -- reader cannot learn any of it, and nothing on screen they could judge.
+    -- no spec" - a mage's fire bindings sitting in "all my druids", every line a spell the reader
+    -- cannot learn, and nothing on screen they could judge.
     --
     -- It goes to the mage's own spec 2 instead, which is where it belongs on every account. The
     -- reader does not see it in this session; they see it when they log a mage.

@@ -413,9 +413,9 @@ return function(DebindPrivate)
     end);
 
     --- **An action the reader turned off says so as a reason, in the disabled colour**, the way the
-    --- specialization line does. Nothing asks them to change anything, and the warning above is gone
+    --- specialization line does. Nothing asks them to change anything, and the issue above is gone
     --- because turning it off is how that one is answered.
-    test("an action turned off draws its reason and no warning", function()
+    test("an action turned off draws its reason and no issue", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1, disabled = true,
                 casting = { normalCast = false, hoverCast = "skip" } },

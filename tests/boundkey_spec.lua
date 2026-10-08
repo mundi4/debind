@@ -343,7 +343,7 @@ return function(DebindPrivate, _, ctx)
     -- **A `MACRO` action naming a macro that does not exist is left out of the build entirely**
     -- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), which makes the
     -- macro store an input to what the keys are. Nothing was watching it: make the macro and the row
-    -- stops being red -- the window says nothing is wrong -- while the key stays dead until
+    -- stops being marked -- the window says nothing is wrong -- while the key stays dead until
     -- something unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is what is registered for that.
     --
     -- **The key is ours through both halves**, since the action is on a live layer and

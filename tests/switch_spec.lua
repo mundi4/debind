@@ -10,7 +10,7 @@
 --   * a macro body. The clause bakes to `known:0` and that binding stops firing
 --   * another switch's expression. The switch computed from it is false from then on
 --
--- Plus the value each character remembers, which is keyed by name too. Nothing red appears for the
+-- Plus the value each character remembers, which is keyed by name too. No mark appears for the
 -- first, the last, or the values.
 --
 -- **The layers here are wider than the ones on screen on purpose.** A definition is account-wide,
@@ -477,11 +477,11 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 지우기
+    -- Deleting
     --
-    -- **참조는 그대로 둔다.** 정의가 없는 이름을 가리키는 액션은 빨개지고(`GetUndefinedSwitch`),
-    -- 그 빨간 것이 사용자가 고치러 갈 자리의 목록이다. 여기서 참조까지 지우면 사용자가 잃은
-    -- 것이 무엇이었는지 화면 어디에도 안 남는다.
+    -- **References are left where they are.** An action pointing at a name with no definition is
+    -- marked (`GetUndefinedSwitch`), and the marked ones are the list of places the user goes to fix.
+    -- Deleting the references here too would leave nothing on screen of what the user lost.
     ---------------------------------------------------------------------------
 
     test("지워도 참조는 그 자리에 남는다", function()
@@ -492,7 +492,7 @@ return function(DebindPrivate)
         check(General(db)[3].value == "$state1", "액션의 대상까지 지웠다");
     end);
 
-    test("지운 스위치를 가리키는 액션은 빨개진다", function()
+    test("지운 스위치를 가리키는 액션은 표시가 붙는다", function()
         InitWith(Profile());
         DebindPrivate.DeleteSwitch("$state1");
         check(DebindPrivate.GetBindingIssue({ type = Constants.SETSWITCH_TOGGLE, value = "$state1",
@@ -500,16 +500,16 @@ return function(DebindPrivate)
             "지운 이름을 가리키는 액션이 멀쩡한 줄로 남는다");
     end);
 
-    -- **다섯 번째 참조도 같은 말을 해야 한다.** 다른 스위치의 계산식은 액션이 아니라
-    -- `GetBindingIssue`가 못 보고, 액션 수를 세는 자리도 못 센다(`CountSwitchReferences`는
-    -- 액션만 훑는다). 그래서 지우고 나면 `$state2`가 `known:0`으로 구워져 영영 거짓인데
-    -- 계산식은 화면에 맞게 보인다. 이 문 하나가 그 자리를 빨갛게 만든다 - 빨간 것이 없으면
-    -- "참조는 남기고 남은 것이 빨개진다"가 성립하지 않는다.
-    test("지운 스위치를 계산식으로 부르는 스위치도 빨개진다", function()
+    -- **The fifth reference has to say the same.** Another switch's expression is not an action, so
+    -- `GetBindingIssue` cannot see it and the count of actions cannot count it
+    -- (`CountSwitchReferences` walks actions only). After a delete `$state2` bakes as `known:0` and is
+    -- false for good while the expression looks right on screen. This one door is what marks that
+    -- place; without a mark, "references stay and what is left is marked" does not hold.
+    test("지운 스위치를 계산식으로 부르는 스위치도 표시가 붙는다", function()
         InitWith(Profile());
         local answerExpr = select(3, DebindPrivate.ResolveSwitchAnswer("$state2"));
         check(DebindPrivate.GetUndefinedSwitchInExpr(answerExpr, "$state2") == nil,
-            "전제가 깨졌다 - 지우기 전부터 빨갛다");
+            "전제가 깨졌다 - 지우기 전부터 표시가 붙어 있다");
 
         DebindPrivate.DeleteSwitch("$state1");
         answerExpr = select(3, DebindPrivate.ResolveSwitchAnswer("$state2"));
@@ -517,9 +517,10 @@ return function(DebindPrivate)
             "지운 이름을 계산식으로 부르는 스위치가 멀쩡한 줄로 남는다");
     end);
 
-    -- 같은 액션을 [매크로로 바꾸기]로 편 것도 같은 말을 해야 한다. 안 그러면 바꾸기 하나로
-    -- 빨간 줄이 멀쩡한 줄이 되고, 그 키가 아무 일도 안 한다는 것을 말해주는 자리가 사라진다.
-    test("지운 스위치를 누르는 본문도 빨개진다", function()
+    -- The same action written out with [Convert to macro text] has to say the same. Otherwise one
+    -- conversion turns a marked row into a clean one, and the place that says the key does nothing
+    -- is gone.
+    test("지운 스위치를 누르는 본문도 표시가 붙는다", function()
         ClickBody("/click DebindSwitch $state1-toggle");
         DebindPrivate.DeleteSwitch("$state1");
         check(DebindPrivate.GetBindingIssue(General(DebindPrivate.db.global)[4])
@@ -741,7 +742,7 @@ return function(DebindPrivate)
     -- `SetAttribute`가 nil 이름을 받아 속성을 지우고, 키는 조용히 아무 일도 안 한다.
     ---------------------------------------------------------------------------
 
-    test("스위치를 안 고른 켜기/끄기/전환은 빨개진다", function()
+    test("스위치를 안 고른 켜기/끄기/전환은 표시가 붙는다", function()
         InitWith(Profile());
         local NONE = Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
         for _, actionType in ipairs({ Constants.SETSWITCH_ON, Constants.SETSWITCH_OFF,
@@ -749,9 +750,10 @@ return function(DebindPrivate)
             local issue = DebindPrivate.GetBindingIssue({ type = actionType, key = "F1" });
             check(issue == NONE, actionType .. "이 " .. tostring(issue) .. "다");
         end
-        -- 고르고 나면 사라진다. 이게 없으면 위는 "이 타입은 늘 빨갛다"와 구별이 안 된다.
+        -- Gone once one is picked. Without this the case above cannot be told from "this type is
+        -- always marked".
         check(DebindPrivate.GetBindingIssue({ type = Constants.SETSWITCH_TOGGLE,
-            value = "$state1", key = "F1" }) == nil, "고른 뒤에도 빨갛다");
+            value = "$state1", key = "F1" }) == nil, "고른 뒤에도 표시가 붙어 있다");
     end);
 
     -- 이름이 없는 것과 이름이 틀린 것은 다른 이야기를 한다. 한 코드로 접으면 사용자가 읽는
@@ -1184,7 +1186,7 @@ return function(DebindPrivate)
     -- **The lower-cased name goes back to whoever asked for it.** Two of the three places a switch
     -- is made write that name onto an action the moment it exists: a condition key, and an
     -- on/off/toggle target (`DropDownMenus.lua`). Given the spelling the reader typed, an action
-    -- ends up naming a switch nothing defines, so it goes red and drops out of `KeyMap`
+    -- ends up naming a switch nothing defines, so it is marked and drops out of `KeyMap`
     -- (`GetUndefinedSwitch`) while the list shows the switch made and well.
     test("만든 이름을 부른 쪽에 알려준다", function()
         InitWith(Profile());

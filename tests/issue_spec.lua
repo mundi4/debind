@@ -155,15 +155,15 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 모순은 **고칠 수 있는 모든 묶음**이 빨개져야 한다
+    -- A contradiction marks **every group that can fix it**
     --
-    -- 한 유닛의 마스크가 0이 되는 데는 여러 메뉴가 같이 관여한다. 대상이 `hover`인 액션에
-    -- hover 조건을 [안 올렸을 때]로 걸면 겨눌 유닛이 놓일 자리가 없는데, hover 메뉴에서
-    -- 풀 수도 있고 대상 메뉴에서 다른 유닛을 골라 풀 수도 있다.
+    -- Several menus take part in one unit's mask going to zero. An action aimed at `hover` with
+    -- the hover condition set to [when not pointing] leaves the unit it aims at nowhere to be, and
+    -- that can be undone in the hover menu or by picking another unit in the target menu.
     --
-    -- 한쪽만 칠하면 나머지를 연 사람은 멀쩡한 화면을 본다. 더 나쁜 것은 그 묶음이 **하늘색
-    -- (활성)으로 뜬다**는 것이다 - "조건이 걸려 있음"과 "조건이 깨져 있음"이 같은 화면에서
-    -- 반대로 읽힌다.
+    -- Mark only one, and whoever opened the other sees a screen with nothing wrong. Worse, that
+    -- group **shows blue (active)**: "a condition is set" and "a condition is broken" read opposite
+    -- ways on the same screen.
     ---------------------------------------------------------------------------
 
     --- 대상이 hover인데 hover 조건이 "안 올렸을 때"다. 겹치는 상태가 없다.
@@ -180,17 +180,17 @@ return function(DebindPrivate)
 
     test("hover x 대상 모순은 Units 묶음을 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "units") == NEVER,
-            "Units 메뉴가 안 빨개진다 - 거기서 고칠 수 있는 문제다");
+            "Units 메뉴가 표시가 안 붙는다 - 거기서 고칠 수 있는 문제다");
     end);
 
     test("hover x 대상 모순은 대상 묶음도 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "unit") == NEVER,
-            "대상 메뉴가 안 빨개진다 - 하늘색으로 떠서 정상으로 읽힌다");
+            "대상 메뉴가 표시가 안 붙는다 - 하늘색으로 떠서 정상으로 읽힌다");
     end);
 
     test("hover x 대상 모순은 그 대상의 서브메뉴도 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "units", nil, "@") == NEVER,
-            "\"@\" 서브메뉴가 안 빨개진다");
+            "\"@\" 서브메뉴가 표시가 안 붙는다");
     end);
 
     --- `"@"`와 같은 유닛의 명시 조건이 어긋난다. 대상 메뉴와 Units 메뉴 둘 다 고칠 수 있다.
@@ -204,10 +204,10 @@ return function(DebindPrivate)
         });
     end
 
-    -- **안 거든 묶음은 안 칠한다.** 개체창 유닛에서 반응을 하나도 안 고른 것은 그 유닛의
-    -- 조건 메뉴에서 고치는 문제다. 대상 메뉴는 아무것도 안 골랐는데 빨개지면 어디를 봐야
-    -- 하는지가 오히려 안 보인다.
-    test("hover의 빈 반응만으로 대상 묶음이 빨개지지 않는다", function()
+    -- **A group that had no hand in it is not marked.** No reaction picked on the unit frame unit
+    -- is fixed in that unit's condition menu. Mark the target menu, where nothing was picked, and
+    -- where to look gets harder to see, not easier.
+    test("hover의 빈 반응만으로 대상 묶음이 표시가 안 붙는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
             units = { unitframe = { reaction = 0 } } });
         check(GetBindingIssue(action, "unit") == nil, "안 거든 묶음을 칠했다");
@@ -227,13 +227,13 @@ return function(DebindPrivate)
             "액션 전체로 물어도 잡아야 한다");
     end);
 
-    -- 짚어 물었으면 그 유닛만 답한다. 안 그러면 한 유닛의 빈 묶음으로 서브메뉴가 전부
-    -- 빨개져서 어느 것을 고쳐야 하는지가 화면에서 사라진다.
+    -- Asked about one unit, only that unit answers. Otherwise one unit's empty group marks every
+    -- submenu, and which one to fix disappears from the screen.
     test("한 유닛의 빈 소속이 남의 서브메뉴를 안 칠한다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
             units = { focus = { group = 0 }, target = {} } });
         check(GetBindingIssue(action, "units", nil, "target") == nil,
-            "남의 유닛 서브메뉴가 빨개졌다");
+            "남의 유닛 서브메뉴가 표시가 붙었다");
     end);
 
     -- 개체창 유닛의 빈 소속도 `Units` 묶음의 문제다. 그 유닛은 이제 이 메뉴가 줄로 갖고 있다.
@@ -243,11 +243,11 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units") == UNITGROUPS_NONE,
             "Units 묶음이 안 잡는다");
         check(GetBindingIssue(action, "units", nil, "focus") == nil,
-            "남의 유닛 서브메뉴가 빨개졌다");
+            "남의 유닛 서브메뉴가 표시가 붙었다");
     end);
 
     -- The same rule as the empty reaction above, on the group column.
-    test("hover의 빈 소속만으로 대상 묶음이 빨개지지 않는다", function()
+    test("hover의 빈 소속만으로 대상 묶음이 표시가 안 붙는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
             units = { unitframe = { group = 0 } } });
         check(GetBindingIssue(action, "unit") == nil,
@@ -256,7 +256,7 @@ return function(DebindPrivate)
     end);
 
     -- **Asked about `"@"`, only the Resolved Unit row answers.** Another unit's empty row is fixed in
-    -- that unit's submenu, and answering here too would redden one the reader has nothing set in.
+    -- that unit's submenu, and answering here too would mark one the reader has nothing set in.
     test("대상이 없으면 \"@\" 서브메뉴가 남의 모순을 안 보여준다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
             units = {
@@ -278,11 +278,11 @@ return function(DebindPrivate)
 
     test("\"@\" x 유닛 조건 모순은 양쪽 묶음을 다 칠한다", function()
         check(GetBindingIssue(targetUnitConflict(), "unit") == NEVER,
-            "대상 메뉴가 안 빨개진다");
+            "대상 메뉴가 표시가 안 붙는다");
         check(GetBindingIssue(targetUnitConflict(), "units") == NEVER,
-            "Units 묶음이 안 빨개진다");
+            "Units 묶음이 표시가 안 붙는다");
         check(GetBindingIssue(targetUnitConflict(), "units", nil, "focus") == NEVER,
-            "그 유닛의 서브메뉴가 안 빨개진다");
+            "그 유닛의 서브메뉴가 표시가 안 붙는다");
     end);
 
     ---------------------------------------------------------------------------
@@ -334,7 +334,7 @@ return function(DebindPrivate)
     end);
 
     -- **A saved command with hover on a mouse button stays on its key.** It binds as a block like
-    -- every other saved command (`dropping-the-game-fallback.md` §3); an ERROR here would
+    -- every other saved command (`dropping-the-game-fallback.md` §3); an issue here would
     -- take it out of `KeyMap`, leave no block, and let the action under it fire instead.
     test("호버를 켠 명령 액션도 마우스 버튼 키에서 안 빠진다", function()
         check(DebindPrivate.IsKeyInvalidForAction(nest({
@@ -467,8 +467,8 @@ return function(DebindPrivate)
     -- 조건 메뉴가 없는 갈래라 짚어 묻는 호출자는 없지만, 갈래 이름은 있어야 다른 갈래를
     -- 짚어 묻는 자리(단축키 칸, 서브메뉴)가 이 이슈를 자기 것으로 착각하지 않는다.
     test("다른 갈래를 물으면 안 나온다", function()
-        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "key") == nil, "단축키 칸이 빨개진다");
-        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "unit") == nil, "대상 메뉴가 빨개진다");
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "key") == nil, "단축키 칸이 표시가 붙는다");
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "unit") == nil, "대상 메뉴가 표시가 붙는다");
         check(GetBindingIssue(macroAction("/cast [$typo] Foo"), nil, "switches") == nil,
             "갈래를 껐는데도 나온다");
     end);
@@ -516,18 +516,19 @@ return function(DebindPrivate)
             conditions = { ["$typo"] = true } }) == UNDEFINED, "값이 문자열이 아니면 안 본다");
     end);
 
-    -- **조건만 보는 문이 따로 있는 이유.** 조건 메뉴의 스위치 칸이 이 답으로 빨개지는데
-    -- (`CreateSwitchConditionMenu`), 셋을 다 보는 쪽을 쓰면 **본문 오타 하나에 조건 칸이
-    -- 빨개진다** - 조건은 멀쩡한데 고칠 데를 엉뚱한 곳으로 가리키는 표시다.
+    -- **Why there is a door that asks the conditions alone.** The switch box of the condition menu
+    -- is marked by this answer (`CreateSwitchConditionMenu`), and the door that asks all three
+    -- would **mark the condition box over one typo in the body** - a mark pointing at the wrong
+    -- place while the conditions are fine.
     test("조건만 보는 문은 본문과 대상을 안 본다", function()
         local body = macroAction("/cast [$typo] Foo");
         check(DebindPrivate.GetUndefinedSwitch(body) == "$typo", "전제가 깨졌다");
         check(DebindPrivate.GetUndefinedSwitchCondition(body) == nil,
-            "본문 오타에 조건 칸이 빨개진다");
+            "본문 오타에 조건 칸이 표시가 붙는다");
 
         local target = { type = Constants.SETSWITCH_ON, value = "$typo", key = "F1" };
         check(DebindPrivate.GetUndefinedSwitchCondition(target) == nil,
-            "대상 오타에 조건 칸이 빨개진다");
+            "대상 오타에 조건 칸이 표시가 붙는다");
 
         check(DebindPrivate.GetUndefinedSwitchCondition(conditionAction({ ["$typo"] = true }))
             == "$typo", "조건은 잡아야 한다");
@@ -591,16 +592,17 @@ return function(DebindPrivate)
     -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
 
     ---------------------------------------------------------------------------
-    -- 계산식이 부르는 이름
+    -- The names an expression calls
     --
-    -- **이름이 적히는 다섯 번째 자리이고, 유일하게 액션 안이 아니다.** 위 넷은 전부 액션을
-    -- 물어서 답이 나오는데 계산식은 정의에 산다 - 건네줄 액션이 없어서 `GetBindingIssue`가
-    -- 아예 못 본다. 그래서 문이 따로 있고, 그 문을 읽는 곳도 `Switches` 탭 하나다.
+    -- **The fifth place a name is written, and the only one not inside an action.** The four above
+    -- are answered by asking an action, but an expression lives in a definition - there is no
+    -- action to hand over, so `GetBindingIssue` cannot see it at all. Hence a door of its own, and
+    -- the Switches tab is the one place that reads it.
     --
-    -- 여기가 비어 있으면 어떻게 되는가: 지운 이름이 코드젠에서 `known:0`으로 구워져
-    -- (`EmitMacroTextArg`) 그 스위치가 영영 거짓이 되는데, 계산식은 화면에 그대로 맞게
-    -- 보인다. 삭제가 참조를 일부러 남기는 것이 설계이므로(`DeleteSwitch`), 빨간 것이
-    -- 없으면 그 설계가 성립하지 않는다.
+    -- What happens without it: the deleted name is baked as `known:0` (`EmitMacroTextArg`), the
+    -- switch is false for good, and the expression still looks right on screen. Leaving references
+    -- behind on a delete is the design (`DeleteSwitch`), and without a mark that design does not
+    -- hold.
     ---------------------------------------------------------------------------
 
     local GetUndefinedSwitchInExpr = DebindPrivate.GetUndefinedSwitchInExpr;
@@ -611,8 +613,8 @@ return function(DebindPrivate)
             "멀쩡한 이름 뒤에 오면 못 잡는다");
     end);
 
-    -- 오탐 쪽. 여기가 틀리면 멀쩡한 계산식 스위치가 빨간 채로 앉아 있고, 읽는 사람은 고칠 것이
-    -- 없는 것을 고치러 간다.
+    -- The false-positive side. Wrong here, a sound expression switch sits marked and the reader goes
+    -- to fix something with nothing to fix.
     test("정의된 이름만 부르는 계산식은 깨끗하다", function()
         check(GetUndefinedSwitchInExpr("[$state1]", "$derived") == nil, "오탐");
         check(GetUndefinedSwitchInExpr("[combat,nostealth]", "$derived") == nil,
@@ -623,9 +625,9 @@ return function(DebindPrivate)
         check(GetUndefinedSwitchInExpr("[@unitframe,harm]", "$derived") == nil, "유닛을 스위치로 읽었다");
     end);
 
-    -- **자기 참조는 미정의가 아니다.** 코드젠이 그 자리를 지워서 굽지(`EmitMacroTextArg`) 죽은
-    -- 이름으로 치지 않는다. 여기서 갈라주지 않으면 `[$a]`를 품은 `$a`가 영원히 빨갛고, 읽는
-    -- 사람에게는 만들 수 없는 이름을 만들라는 말이 된다.
+    -- **A reference to itself is not undefined.** Codegen bakes that place empty
+    -- (`EmitMacroTextArg`) rather than as a dead name. Not told apart here, `$a` holding `[$a]` is
+    -- marked for good, and the reader is told to make a name that cannot be made.
     test("자기 자신을 부르는 것은 미정의가 아니다", function()
         check(GetUndefinedSwitchInExpr("[$a]", "$a") == nil, "자기 참조를 죽은 이름으로 읽었다");
         check(GetUndefinedSwitchInExpr("[$a,$typo]", "$a") == "$typo",
@@ -650,7 +652,7 @@ return function(DebindPrivate)
     --
     -- The one issue branch about what an action **points at**. Before it existed such an action
     -- bound normally and did nothing on press -- no error, no mark -- which is the failure the
-    -- sharing format's "send broken things too, the reader sees red" rule leans on
+    -- sharing format's "send broken things too, the reader sees them marked" rule leans on
     -- (`building-export-import.md`).
     --
     -- Both halves matter as much as they do above: a false positive here does not grey a row, it
@@ -696,7 +698,7 @@ return function(DebindPrivate)
     -- **A macro reference is a name, at every moment.** `GetMacroInfo` answering to a slot number
     -- as well is the trap: a number is a position in a name-ordered list, so it still resolves the
     -- day after a macro sorting ahead of it is created or deleted, and what it resolves to is a
-    -- different macro. Nothing goes red, because nothing broke. This is not about one install
+    -- different macro. Nothing is marked, because nothing broke. This is not about one install
     -- reading another's string; it is one account on its own.
     --
     -- Nor is there a way back to a name. Asking what slot 3 holds answers for the store as it is
@@ -742,11 +744,12 @@ return function(DebindPrivate)
         check(DebindPrivate.GetMissingMacroName(macroValueAction("Kick+Pet")) == nil, "오탐");
     end);
 
-    --- **없는 갈래로 물으면 DEBUG에서 걸린다.**
+    --- **Asking about a category that does not exist is caught under DEBUG.**
     ---
-    --- 없는 이름은 모든 `if`를 비켜가 nil을 낸다. 그건 "문제 없음"과 생김새가 같아서, 목록
-    --- 행이 그렇게 죽은 갈래 넷을 묻는 동안 아무 신호도 없었다. 배포본에서는 안 세운다 -
-    --- 잘못 물어 잃는 것은 경고 하나뿐이고, 그걸로 키를 죽일 이유가 없다.
+    --- A name nothing answers slips past every `if` and comes out nil, which looks the same as "no
+    --- problem", so while the list rows asked four dead categories that way nothing said so. A
+    --- shipped build does not stop: what a wrong question loses is one mark, and that is no reason
+    --- to kill a key.
     test("없는 갈래로 물으면 DEBUG에서 걸린다", function()
         if (not Constants.DEBUG) then
             return;
@@ -758,8 +761,8 @@ return function(DebindPrivate)
     end);
 
     test("다른 갈래를 물으면 안 나온다", function()
-        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "key") == nil, "단축키 칸이 빨개진다");
-        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴가 빨개진다");
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "key") == nil, "단축키 칸이 표시가 붙는다");
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴가 표시가 붙는다");
         check(GetBindingIssue(macroValueAction("Kick+Pet2"), nil, "macro") == nil,
             "갈래를 껐는데도 나온다");
     end);
@@ -792,7 +795,7 @@ return function(DebindPrivate)
     -- and they are opposite answers: the first fires everywhere and the second can never fire at
     -- all. The reader has to be told, and telling them is the whole of what this branch does.
     --
-    -- Each of the three carries its own code, so the window can redden the group it belongs to.
+    -- Each of the three carries its own code, so the window can mark the group it belongs to.
     test("an axis with nothing selected is reported, per axis", function()
         local CASES = {
             { field = "groups", code = Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED },
@@ -850,7 +853,7 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **Both menus that can undo it go red.** The reader can drop the group restriction or drop
+    --- **Both menus that can undo it are marked.** The reader can drop the group restriction or drop
     --- the unit condition, and whichever one they opened has to show them something -- the same
     --- rule the `specialbar`/`petbattle` pair keeps.
     test("both the groups menu and the units menu are told", function()
@@ -861,7 +864,7 @@ return function(DebindPrivate)
 
     --- **Asked about one unit, only that unit answers.** Each `units` submenu asks for its own colour
     --- with `GetBindingIssue(action, "units", nil, unit)`; answered for any unit, one unit's problem
-    --- reddens every submenu and which one to fix disappears from the screen.
+    --- marks every submenu and which one to fix disappears from the screen.
     test("asking about one unit answers about that unit only", function()
         local action = soloAction("healer");
         action.conditions.units.target = {};
@@ -932,7 +935,7 @@ return function(DebindPrivate)
         check(issue == NEVER, "not-skyriding with offset 5 only was not reported: " .. tostring(issue));
     end);
 
-    --- Both menus that can undo it go red, the same rule the `specialbar`/`petbattle` pair keeps.
+    --- Both menus that can undo it are marked, the same rule the `specialbar`/`petbattle` pair keeps.
     test("both the skyriding menu and the bonusbars menu are told", function()
         local action = barAction(true, 1);
         check(GetBindingIssue(action, "skyriding") == NEVER, "the skyriding menu was not told");
@@ -965,7 +968,7 @@ return function(DebindPrivate)
 
 
     --- `GetBindingIssues`. **What folding to one cannot do**: that one stops asking the moment the
-    --- worst grade there is has been found, so an action carrying two faults reports one of them.
+    --- strongest outcome there is has been found, so an action carrying two faults reports one of them.
     --- A tooltip handed that one sentence cannot say the rest.
     local GetBindingIssues = DebindPrivate.GetBindingIssues;
 
@@ -1065,7 +1068,7 @@ return function(DebindPrivate)
     --
     -- **`"@"` is asked of every binding, each on the unit that binding aims at** (`which-action-a-key-
     -- runs.md` S2, S3). An action is in trouble only where none of its bindings can stand, and a menu
-    -- goes red only for a zero it had a hand in.
+    -- is marked only for a zero it had a hand in.
     ---------------------------------------------------------------------------
 
     local REACTIONS_NONE = Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED;
@@ -1101,11 +1104,11 @@ return function(DebindPrivate)
             focus = NEVER, unitframe = NEVER }, unit = false },
         [15] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
         [16] = { all = false, units = false, rows = { ["@"] = false }, unit = false },
-        -- Nothing on the plain presses is an error on Cast Options, closable by turning the action off.
+        -- Nothing on the plain presses is an issue on Cast Options, closable by turning the action off.
         [17] = { all = NOTHING_RUNS, units = false, rows = { ["@"] = false }, unit = false,
             casting = NOTHING_RUNS },
-        -- **The reaction wins the action's own slot**: both are ERROR and a tie goes to the check
-        -- asked first, which is the action's own. Cast Options still carries its own.
+        -- **The reaction wins the action's own slot**: both leave the action out and a tie goes to
+        -- the check asked first, which is the action's own. Cast Options still carries its own.
         [18] = { all = REACTIONS_NONE, units = REACTIONS_NONE, rows = { ["@"] = REACTIONS_NONE }, unit = false,
             casting = NOTHING_RUNS },
         [19] = { all = false, units = false, rows = { unitframe = false }, unit = false, casting = false },
@@ -1219,7 +1222,7 @@ return function(DebindPrivate)
             "also given as a reason: " .. tostring(GetNotRunningReason(action)));
     end);
 
-    --- **Turning the action off is the way to close that warning**, and it is not a warning itself.
+    --- **Turning the action off is the way to close that issue**, and it is not an issue itself.
     --- The row says why it does not run and nothing asks the reader to change anything.
     test("an action the reader turned off carries a reason and no issue", function()
         local action = { type = Constants.SPELL, value = 585, key = "F1", disabled = true,
@@ -1287,8 +1290,8 @@ return function(DebindPrivate)
         end
     end);
 
-    --- 같은 조건이 다른 키에서는 아무 문제가 아니다. 이것이 없으면 위 둘은 "그 조건이면 언제나
-    --- 경고"로도 통과한다.
+    --- The same condition is no problem on another key. Without this the two above also pass on
+    --- "that condition is always an issue".
     test("the same condition on a keyboard key is no issue", function()
         for _, unit in ipairs({ "unitframe", "mouseover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "F1",
@@ -1357,10 +1360,10 @@ return function(DebindPrivate)
     end);
 
     --- **An empty role that still runs elsewhere does not stand in for a contradiction.** The
-    --- reactions on the frame's row and on `"@"` do not meet, so no binding stands; the role warning
-    --- beside it must not be all that is said, or the row reads orange and "still runs" on a key that
-    --- does nothing. It did: the warning's axis was counted as a row empty on its own, and the
-    --- binding check skips those because the action check already spoke for them.
+    --- reactions on the frame's row and on `"@"` do not meet, so no binding stands; the role issue
+    --- beside it must not be all that is said, or the action stays on a key it does nothing on. It
+    --- did: the role's axis was counted as a row empty on its own, and the binding check skips those
+    --- because the action check already spoke for them.
     test("a contradiction beside no role picked is still reported and leaves the key", function()
         local action = { type = Constants.SPELL, value = 585, key = "F1", unit = "unitframe",
             conditions = { units = {
@@ -1374,7 +1377,7 @@ return function(DebindPrivate)
         for _, issue in ipairs(GetBindingIssues(action)) do
             codes[issue.code] = true;
         end
-        check(codes[ROLES_ON_GROUP_FRAMES], "the role warning is missing");
+        check(codes[ROLES_ON_GROUP_FRAMES], "the role issue is missing");
     end);
 
     test("no role with party or raid frames only is an error", function()

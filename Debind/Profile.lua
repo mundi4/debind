@@ -1329,7 +1329,7 @@ end
 --- **The name comes back because it is not always the one that went in.** The case is folded here,
 --- and the callers that make a switch in order to point something at it - the condition menu and an
 --- on/off/toggle action's target menu (`DropDownMenus.lua`) - would otherwise hang that reference on
---- the typed spelling. Nothing defines `$Burst`, so the action goes red and drops out of `KeyMap`
+--- the typed spelling. Nothing defines `$Burst`, so the action is marked and drops out of `KeyMap`
 --- the moment it is made (`GetUndefinedSwitch`), while the list shows the switch sitting there
 --- under `$burst`.
 ---
@@ -1337,7 +1337,7 @@ end
 --- load (`BindDerivedTables`), so a row on disk means somebody made it. The alternative, making
 --- one wherever a reference to the name turns up, is what §9-3 of
 --- `redesigning-custom-states.md` rules out: a switch the user deleted would come back on
---- the next login and the red references to it would go quiet, which is the deletion being undone
+--- the next login and the marked references to it would go quiet, which is the deletion being undone
 --- by the thing that was supposed to report it.
 ---
 --- **There is no count.** `GetOrCreateSwitchDefinition` stood here and refused every name outside
@@ -1387,7 +1387,7 @@ end
 --- A condition key, an on/off/toggle target, and a macro body twice over: the conditions in it, and
 --- the `/click DebindSwitch …` line [Convert to macro text] writes an on/off/toggle action out as.
 --- Both halves of the body are asked through the same doors `GetUndefinedSwitch` uses, so what is
---- reported here is exactly what goes red there.
+--- reported here is exactly what is marked there.
 ---
 --- **One grammar, two readers.** `ActionNamesSwitch` asks about one name and `CollectSwitchUsage`
 --- wants them all; written twice, the day comes when a fifth place is added to one of them.
@@ -1473,13 +1473,13 @@ end
 ---
 --- **So another switch's `expr` is not counted, and the delete question can read `0` while one
 --- names it.** Widening this to cover it would make the three numbers stop meaning rows, which is
---- what the reader is being asked about. The switch computed from the deleted name goes red on its
+--- what the reader is being asked about. The switch computed from the deleted name is marked on its
 --- own row instead (`GetUndefinedSwitchInExpr`), which is the same trade every other reference
---- gets: deleting leaves it where it is and the red is what finds it.
+--- gets: deleting leaves it where it is and the mark is what finds it.
 ---
 --- **Pending actions are the last two numbers, and only those** (owner, 2026-10-03). One names this
 --- profile's switches like any other (`importing-switches-apart-from-actions.md` 2-2), so deleting a
---- switch it waits on turns it red; but it reaches no key yet, and counted into the first three it
+--- switch it waits on marks it; but it reaches no key yet, and counted into the first three it
 --- would answer "what do my keys use" wrongly. `pendingHere` is this character's, merged into its
 --- layers for the session; `pendingElsewhere` is what waits in a share (`ForEachPendingAction`),
 --- which is the other characters' -- a General layer's pending action is one character's too.
@@ -1802,7 +1802,7 @@ end
 ---
 --- **Every character and every class, not the layers on screen** (`ForEachStoredAction`), **and
 --- every pending action** (`ForEachPendingAction`). A pending action names this profile's switches
---- (`importing-switches-apart-from-actions.md` 2-2); left on the old name, it would turn red the
+--- (`importing-switches-apart-from-actions.md` 2-2); left on the old name, it would be marked the
 --- moment the switch it was waiting on moved, on a character that may not be logged in to see it.
 ---
 --- The live table is re-keyed rather than rebuilt, because `BindDerivedTables` recomputes every
@@ -1889,7 +1889,7 @@ function DebindPrivate.MergeSwitch(loser, winner)
     RenameSwitchEverywhere(DebindPrivate.db.global, loser, winner, true);
 
     -- **Not the winner's own rows.** One whose expression names the loser would come out naming
-    -- itself; left as it is, it names a switch that is gone and goes red, as after a delete.
+    -- itself; left as it is, it names a switch that is gone and is marked, as after a delete.
     local function MergeInRow(name, row)
         if (name ~= winner and luatype(row.expr) == "string") then
             row.expr = DebindPrivate.RenameSwitchInMacroText(row.expr, loser, winner, true);
@@ -1909,13 +1909,13 @@ end
 
 --- Deletes a switch. **References to it are left where they are.**
 ---
---- That is the decision and not an omission: a reference to a switch nothing defines goes red, and
---- the red is how the user finds the places they have to go and fix. Four of the five kinds are in
+--- That is the decision and not an omission: a reference to a switch nothing defines is marked, and
+--- the mark is how the user finds the places they have to go and fix. Four of the five kinds are in
 --- an action and are marked by `GetUndefinedSwitch`; the fifth is another switch's `expr`, which is
 --- in no action at all and is marked on the Switches tab instead
 --- (`GetUndefinedSwitchInExpr`, `SwitchesUI.lua`).
 --- Rewriting them here would delete parts of actions the user never asked to lose, and doing it
---- silently would be worse than the red (§9-3 of `redesigning-custom-states.md` turns the
+--- silently would be worse than the mark (§9-3 of `redesigning-custom-states.md` turns the
 --- same argument the other way round: a reference must not resurrect a definition either).
 ---
 --- **The remembered values and every override row go**, because they are this switch's and
@@ -2886,22 +2886,24 @@ end
 -- top to bottom without the record's shape sitting in front of either of them.
 local MakeRow;
 
---- 주어진 키에 걸린 액션을 활성 레이어에서 직접 모아 실제 발동 순서로 정렬해 돌려준다.
+--- The actions on the given key, gathered straight from the live layers and sorted into the order
+--- they fire in.
 ---
---- 키 맵을 안 읽고 레이어를 다시 도는 이유: 그쪽에는 오류 등급을 단 액션이 빠져 있는데
---- (`Debind.lua`의 `BuildKeyMap`), 순서 UI에서는 **그것들이야말로** 보여줘야 할 대상이다.
+--- Why the layers are walked again rather than the key map read: the key map leaves out the
+--- actions with an issue whose outcome is OMIT (`Debind.lua`'s `BuildKeyMap`), and in the order UI
+--- **those are exactly** what has to be shown.
 ---
---- spec을 주면 **그 특성이었을 때의** 순서를 돌려준다. 다른 특성 탭을 보고 있어도 답을
---- 낼 수 있는 이유는 순서를 정하는 다섯 가지(중요도/호버/조건/레이어/자리)가 전부 저장된
---- 값이라 지금 무엇을 하고 있든 바뀌지 않기 때문이다.
+--- Given `spec`, the order **as it would be in that specialization**. It can answer while another
+--- specialization's tab is on screen because the five things that decide the order (importance,
+--- hover, conditions, layer, place) are all stored values and do not move with what is being done.
 ---
---- 돌려주는 레코드는 호출자 소유의 새 테이블이다. action 테이블에는 아무것도 쓰지 말 것이며,
---- GetBindingInfoForAction이 준 테이블도 쓰지 않는다(그쪽 필드는 BuildKeyMap이 소유한다).
+--- Each record returned is a new table the caller owns. Nothing is written to the action table, nor
+--- to the one `GetBindingInfoForAction` hands out (its fields are `BuildKeyMap`'s).
 ---
---- **`arrivalID`까지 맞아야 한 그룹이다.** 도착분은 보낸 사람의 실키를 그대로 들고 오므로 내
---- 것과 같은 키 위에 앉는데, 그 둘은 머리글이 둘이고 순서도 따로다. 키만 보고 모으면 격리된
---- 것이 내 발동 순서 목록에 섞여 서고, 그 목록으로 순서를 매기는 자리가 그것을 저장한다.
---- 안 넘기면 nil, 곧 내 것이다.
+--- **One group needs `arrivalID` to match as well.** An arrival carries the sender's real key, so it
+--- sits on the same key as the reader's own, but the two have two headings and orders of their own.
+--- Gathered by key alone, the quarantined ones would stand in the reader's firing order, and what
+--- numbers that order would save them. Not passed, it is nil: the reader's own.
 function DebindPrivate.CollectActionsForKey(key, spec, arrivalID)
     local rows = {};
     if (key == nil) then
@@ -3057,7 +3059,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
         or nil;
 
     -- **The fourth way: the reader turned the action off.** Not an issue, because they asked for it
-    -- (`reorganizing-binding-issues.md` §3-3). Every press being off is a warning
+    -- (`reorganizing-binding-issues.md` §3-3). Every press being off is an issue
     -- instead, since turning the action off is how that one is closed.
     row.notRunning = DebindPrivate.GetNotRunningReason(action);
 
@@ -3253,7 +3255,7 @@ end
 --- with nothing on screen saying so.
 ---
 --- **But it stops at this character on purpose.** A layer this session cannot see is one the reader
---- cannot judge - another class's spells are all red to them because they cannot learn any of it -
+--- cannot judge - another class's spells are ones this character cannot learn -
 --- so "accept all" must not reach it. It waits until they log that class, which is what quarantine
 --- makes safe. `EnumerateAllProfileLayers` draws exactly that line (`CollectActionsWhere` says why),
 --- and **the reach is why it is used rather than walking `LayerArray`** - the two answer the same

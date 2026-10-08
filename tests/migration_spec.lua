@@ -2280,15 +2280,16 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- dbver 6: 아무도 만든 적 없는 정의를 걷어낸다
+    -- dbver 6: definitions nobody ever made are cleared
     --
-    -- 빈 정의 다섯 개를 매 로드마다 심던 자리가 `BindDerivedTables`였다. 그래서 이 기능을
-    -- 한 번도 안 쓴 프로필에도 정의 다섯이 앉아 있고, §6-B의 목록이 서는 날 그 사람은 빈 줄
-    -- 다섯 개로 시작한다. 심는 것을 그만두고, 이미 심긴 것은 이 단계가 한 번 걷어낸다.
+    -- `BindDerivedTables` used to plant five empty definitions on every load, so a profile that never
+    -- used the feature still carries five, and the day §6-B's list stands that reader starts with five
+    -- empty rows. The planting stopped, and this step clears what was planted, once.
     --
-    -- **지우는 쪽이 실수하면 조용하다.** 살아 있어야 할 정의가 사라지면 그 이름을 건 조건은
-    -- 영영 거짓이 되고, 매크로 본문의 그 이름은 빨간 마커를 달아 액션째 `KeyMap`에서 빠진다.
-    -- 그래서 아래는 "지운다" 한 줄이 아니라 **남겨야 하는 경우들**이 대부분이다.
+    -- **A mistake on the clearing side is quiet.** A definition that should have lived goes, every
+    -- condition naming it is false for good, and a macro body naming it is marked and its action
+    -- drops out of `KeyMap`. So most of what follows is **the cases that have to stay**, not one
+    -- "it clears" line.
     ---------------------------------------------------------------------------
 
     --- `dbver` 5 계정 표에 정의 다섯과 레이어를 함께 세운다. 정의는 전부 **손 안 댄 기본값**
@@ -2398,9 +2399,9 @@ return function(DebindPrivate, _, ctx)
         check(action.value == "$state2", "이름 " .. tostring(action.value));
     end);
 
-    -- **본문은 안 본다.** 조건과 SETSTATE는 목록에서 골라 넣는 자리라 오타가 못 들어오지만,
-    -- 매크로 본문의 `[$이름]`은 손으로 치는 자리다. 거기서 본 이름을 "쓰이는 중"으로 읽으면
-    -- 오타 하나가 정의를 살려두고, ⚑2가 세운 빨간 마커가 그만큼 조용해진다.
+    -- **Bodies are not read.** A condition and SETSTATE are picked from a list, so no typo gets in,
+    -- but a macro body's `[$name]` is typed by hand. Read as "in use", one typo keeps a definition
+    -- alive, and the mark ⚑2 stood up goes that much quieter.
     test("dbver 6 does not read macro bodies as a use", function()
         local db = InitWith(AccountWithUntouchedSwitches(function(account)
             account.shared.GENERAL = {

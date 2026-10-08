@@ -9,7 +9,7 @@
 --   * the action field whitelist. A field left out still saves and simply never exports, so it
 --     arrives as an action with one condition missing and nobody sees an error.
 --   * local references (macro names, state indices). Those "succeed" on the far side and point at
---     the wrong thing. Red text cannot catch that in principle, so only the format can.
+--     the wrong thing. No issue mark can catch that in principle, so only the format can.
 
 return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };

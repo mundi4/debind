@@ -136,9 +136,10 @@ return function(DebindPrivate)
         check(GetBindingIssue(subject) == nil, "나온 것: " .. tostring(GetBindingIssue(subject)));
     end);
 
-    --- **도달 불가는 문제 코드가 아니다** (2026-09-06, 소유자). 액션 자신의 잘못이 아니라 같은
-    --- 키의 이웃과의 관계라, `GetBindingIssue`가 아니라 이쪽이 답한다. 한 칸에 같이 있던 동안에는
-    --- 덮인 액션이 자기 경고 대신 도달 불가를 냈고, 경고가 화면에서 사라졌다.
+    --- **Unreachable is not an issue code** (2026-09-06, owner). It is not the action's own fault but
+    --- how it stands with a neighbour on the same key, so this answers and `GetBindingIssue` does not.
+    --- While the two shared one slot, a covered action reported unreachable instead of its own issue,
+    --- and the issue left the screen.
     test("둘 다 덮이면 도달 불가고, 그래도 문제 코드는 안 난다", function()
         local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "T" });
         check(DebindPrivate.IsUnreachableAction(subject), "둘 다 덮였는데 액션이 살아 있다");
@@ -163,7 +164,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 2. Clique가 있어도 옵션은 그대로 돌고, 액션은 빨갛지 않다
+    -- 2. With Clique there, the option still runs and the action is not marked
     ---------------------------------------------------------------------------
 
     local function withClique(fn)

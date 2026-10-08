@@ -1,7 +1,7 @@
 -- How an issue is drawn, and what it does to its action (`Constants.BINDING_ISSUE_OUTCOMES`).
 -- No WoW client needed.
 --
--- **One grade** (owner, 2026-10-07; `giving-keys-back-when-no-action-runs.md` 1-1). Every issue
+-- **One way of drawing** (owner, 2026-10-07; `giving-keys-back-when-no-action-runs.md` 1-1). Every issue
 -- means the same thing to the key, that the action is sometimes or always skipped, so every issue
 -- is drawn in one colour. `npm run check` cannot see a colour, so the value that picks it is caught
 -- here.

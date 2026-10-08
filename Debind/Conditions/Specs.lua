@@ -342,7 +342,7 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     -- -- drew plain over a dead key while the row under it showed the error; and the tooltip added
     -- "not the one being played" beside a line already saying nothing was chosen.
     --
-    -- **The error gate is what keeps it off the key**, the same gate every other ERROR goes
+    -- **The issue gate is what keeps it off the key**, the same gate every other issue goes
     -- through (`Debind.lua`). Nothing is lost by letting it past this one.
     --
     -- **A set whose masks are unreadable arrives here as an empty one and takes the same road.**

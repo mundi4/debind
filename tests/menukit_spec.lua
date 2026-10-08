@@ -264,9 +264,9 @@ return function(DebindPrivate)
             "먼저 적힌 자식의 문제가 먼저다");
     end);
 
-    --- **손목록이 없다는 것이 이 항목이다.** 자식 하나를 더 매달았을 뿐인데 그 문제가 위로
-    --- 올라온다. 예전에는 여는 줄 옆에 갈래 이름을 적어야 올라왔고, 안 적으면 조용히 안
-    --- 빨개졌다.
+    --- **The absence of a hand-kept list is what this is about.** Hanging one more child brings its
+    --- problem up. It used to come up only when the opening row named the branch beside itself, and
+    --- left unnamed, the row quietly stayed unmarked.
     test("a child added later brings its issue up with it", function()
         local registry = Registry({ extrabar = "EXTRABAR_BROKEN" });
         check(registry:IssueOf(registry:Get("BARS"), Ctx()) == nil,
@@ -409,13 +409,13 @@ return function(DebindPrivate)
             "the second press clears both");
     end);
 
-    --- The row's label and the sentence in its tooltip are one statement, so the grade that paints
-    --- one paints the other. A WARNING's label went orange while its sentence stayed red.
-    test("an issue's sentence in a row's tooltip takes the grade's colour", function()
-        local WARNING_COLOR = { GetRGB = function() return 1, 0.5, 0.25; end };
+    --- The row's label and the sentence in its tooltip are one statement, so the colour
+    --- `resolveIssue` gives paints both. The label once took it while the sentence stayed red.
+    test("an issue's sentence in a row's tooltip takes resolveIssue's colour", function()
+        local ISSUE_COLOR = { GetRGB = function() return 1, 0.5, 0.25; end };
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
-            resolveIssue = function(issue) return "sentence for " .. issue, WARNING_COLOR; end,
+            resolveIssue = function(issue) return "sentence for " .. issue, ISSUE_COLOR; end,
         });
         registry:Define("WARNED", {
             label = "WARNED",
@@ -446,7 +446,7 @@ return function(DebindPrivate)
             if (l.text == "sentence for CODE") then line = l; end
         end
         check(line ~= nil, "the sentence is not in the tooltip");
-        check(line.kind == "colored" and line.color == WARNING_COLOR,
+        check(line.kind == "colored" and line.color == ISSUE_COLOR,
             "the sentence came out as " .. tostring(line.kind));
     end);
 

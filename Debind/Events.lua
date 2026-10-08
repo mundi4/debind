@@ -304,7 +304,7 @@ end
 --- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), so the macro store is
 --- an input to what the keys are, and nothing was watching it.
 ---
---- What that cost: create the missing macro and the row stops being red - the window says nothing
+--- What that cost: create the missing macro and the row stops being marked - the window says nothing
 --- is wrong - while the key stays dead until something unrelated rebuilds, or a `/reload`. The same
 --- shape at login, where the store may not be answerable yet in the `PLAYER_LOGIN` tick: every
 --- `MACRO` action would drop for the whole session.

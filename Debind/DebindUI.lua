@@ -428,8 +428,8 @@ local function GetActionTypeAndValueFromCursorInfo()
 		elseif (cursorType == "macro") then
 			-- **The cursor carries a slot number, and an action may only carry a name**
 			-- (`GetMissingMacroName`). A number is a position in a name-ordered list, so
-			-- storing it binds whatever later comes to sit in that slot, with nothing going
-			-- red because nothing broke.
+			-- storing it binds whatever later comes to sit in that slot, with nothing marked
+			-- because nothing broke.
 			--
 			-- No name, no action. That means the macro was deleted between the pickup and
 			-- the drop, and refusing the drop beats building a `MACRO` with no name in it.
@@ -1097,7 +1097,7 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 		local s = format("@%s", UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit]);
 		-- **It names the target and nothing else**, the way the question mark below says only that
 		-- conditions exist. A fault on this axis is a second thing about the same row and the mark
-		-- in the corner carries it; red here made one word answer two questions.
+		-- in the corner carries it; a colour here made one word answer two questions.
 		if (isInactive) then
 			s = INACTIVE_COLOR:WrapTextInColorCode(s);
 		end
@@ -1116,9 +1116,9 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	end
 	self.Marks.Hover:SetKind(hoverKind, HoverCastMarkTooltip);
 
-	-- **조건 마크는 조건이 있다는 것만 말한다.** 그중 하나가 틀렸는지는 두 번째 마크가 말한다
-	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이
-	-- 어느 쪽 답인지를 먼저 알아야 했다.
+	-- **The conditional mark says only that conditions exist.** Whether one of them is wrong is the
+	-- issue mark's: painted on this one, one picture answered two questions and the reader had to
+	-- know which first.
 	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
 		ConditionalMarkTooltip);
 
@@ -1837,8 +1837,8 @@ function DebindSideTabMixin:OnEnter()
 	GameTooltip_AddNormalLine(GameTooltip, GetSideTabPath(id));
 
 	-- **Under the path, above the blank line.** It qualifies this layer, so it stays with the lines
-	-- about this layer rather than after the one about every layer. Not coloured: red is for a
-	-- condition that failed, and this one has not failed, it is simply not now.
+	-- about this layer rather than after the one about every layer. Not coloured: the issue colour is
+	-- for something wrong, and nothing here is wrong, it is simply not now.
 	if (self.isOffSpec) then
 		GameTooltip_AddNormalLine(GameTooltip, LLL["INACTIVE_SPEC_DESC"]);
 	end
@@ -4935,15 +4935,16 @@ function DebindOrderLineMixin:OnMoveLeave()
 	GameTooltip:Hide();
 end
 
---- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.
+--- What this row's reason column says, or an empty string.
 ---
---- **문제가 순서를 이긴다.** 이 칸이 답하는 것은 "왜 이 자리인가"인데, 아예 안 나가는
---- 바인딩에게는 그게 물어볼 값어치가 없는 질문이다. 고칠 것이 있으면 그것부터 말하고
---- 순서 이야기는 접는다 - 둘 다 적으면 한 줄에 안 들어가고, 빨강이 회색 옆에서 힘을 잃는다.
+--- **A problem beats the order.** This column answers "why this place", which is not worth asking
+--- of a binding that does not go out at all. Something to fix is said first and the order is
+--- folded away: both do not fit on one line, and the issue colour loses its force beside grey.
 ---
---- **넷 다 이 칸의 말이고, 한 번에 하나만 선다.** 안 나가는 사유(다른 전문화, 이웃에 덮임)와
---- 액션 자신의 잘못(오류, 경고)은 서로 다른 축이라 한 행에 같이 설 수 있는데, 칸이 하나뿐이라
---- 더 구체적인 쪽을 쓴다. 나가지도 않는 액션에게 무엇이 잘못됐는지는 나중 물음이다.
+--- **All of these are this column's words, and one stands at a time.** Why an action does not go
+--- out (another specialization, covered by a neighbour) and a fault of the action itself are two
+--- axes and can both hold on one row, but there is one column, so the more specific one is
+--- written. What is wrong with an action that does not even go out is a later question.
 ---
 --- **The problem codes arrive here as one word, and that is deliberate.** They used to be spelled
 --- out per code -- "No group selected", "Unknown state name" -- and in a list you scan that reads as
@@ -4952,7 +4953,7 @@ end
 --- to the one surface the reader opens on purpose. `BINDING_ERROR_*` under the condition it belongs
 --- to is where it now lives, and only there.
 ---
---- Which leaves this column one word per grade, and both are generic. The one sentence that is not
+--- Which leaves this column one word for every problem, and it is generic. The one sentence that is not
 --- is "never runs", which belongs to the other axis and is the more specific thing to say when it
 --- applies.
 local function GetOrderReasonText(elementData)
@@ -5018,7 +5019,6 @@ function DebindOrderLineMixin:Update()
 	self:UpdateMoveButtons(elementData);
 	self:SetAlpha(elementData.searchMiss and 0.5 or 1);
 
-	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
 	local name, icon = ColoredNameAndIconForAction(row.action, row.layerID);
 	self.Name:SetText(name);
 	SetActionIcon(self.Icon, icon);

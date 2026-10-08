@@ -81,11 +81,12 @@ do
 end
 
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
---- 가져왔지만 아직 승인 안 된 액션의 이름. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
---- **뜻이 하나다** - 이 창은 이름 색으로 이미 셋을 말한다(회색·빨강·이 파랑). 넷째를 얹지 말 것.
+--- The name of an action that arrived and is not accepted yet. The same blue as the dot, so the two
+--- read as one mark. **One meaning**: a name says two things by its colour already (grey and this
+--- blue), and a third does not go on it.
 ---
---- 색이 나는 곳은 여기 하나다. 드롭다운 메뉴가 행과 같은 파랑을 그려야 하는데, 사본이 하나
---- 더 있으면 원본이 움직이는 날 그쪽이 안 따라온다.
+--- Defined here only. The dropdown menu has to draw the row's blue, and a second copy would not
+--- follow the day this one moves.
 local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
 
 local QUESTION_MARK_ICON_NUM = Constants.QUESTION_MARK_ICON;
@@ -360,7 +361,7 @@ local function NameAndIconForAction(action)
 		local macroName;
 		-- **Asked only when the value is a name.** A `MACRO` that holds anything else is one
 		-- the import refused the value of (`RefusedByActionType`), so there is nothing here
-		-- to ask about and `GetMacroInfo(nil)` raises. The row is drawn red either way:
+		-- to ask about and `GetMacroInfo(nil)` raises. The row is marked either way:
 		-- `GetMissingMacroName` already reports it.
 		if (luatype(value) == "string") then
 			macroName, actionIcon = GetMacroInfo(value);
@@ -424,7 +425,7 @@ local function NameAndIconForAction(action)
 		-- is added that way (§6-C of `redesigning-custom-states.md`), and all three
 		-- sentences have a `%s` that raises on nil. What goes in is the word, not the instruction:
 		-- a name says what the action is, and telling the reader to go pick one is the job of the
-		-- red the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.
+		-- mark the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.
 		actionName = format(LLL["TYPE_" .. strupper(type)],
 			luatype(value) == "string" and value or LLL["TYPE_SETSWITCH_ANY"]);
 		actionIcon = 254885;

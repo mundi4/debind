@@ -1489,7 +1489,7 @@ local function BuildSpecialActions(entries)
 	-- showing somebody new **what the addon can do**; a screen of `$burst on / $burst off /
 	-- $burst toggle` says that once and then repeats itself.
 	--
-	-- **What the row adds is an action with no target**, which starts red
+	-- **What the row adds is an action with no target**, which starts marked
 	-- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`) and does not bind until the reader picks a switch in
 	-- its own menu (`CreateSetSwitchMenuItem`). That menu has to exist regardless: deleting a
 	-- switch leaves actions pointing at a name nothing defines, and repointing one is where they

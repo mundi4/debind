@@ -5756,7 +5756,7 @@ RegisterTest("Switches tab: the New switch button makes one", {
 -- **Two of the three places that make one write the new name straight onto an action**: the
 -- condition key, and the target of on/off/toggle (`DropDownMenus.lua`). Both write down the name
 -- `ShowNewSwitchBox` hands them, so if the spelling typed in and the name it actually sits under
--- come apart, that action is made pointing at a name with no definition and goes red on the spot.
+-- come apart, that action is made pointing at a name with no definition and is marked on the spot.
 -- Names are folded to lower case when they are made (`CreateSwitch`).
 --
 -- **The button test above does not pass through here.** That one opens with no callback and looks
@@ -5832,7 +5832,7 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
         end
         if handed ~= STORED then
             return Fail(NAME, format(
-                "the caller was handed %s. written down as a condition or an on-target, that action goes red",
+                "the caller was handed %s. written down as a condition or an on-target, that action is marked",
                 tostring(handed)))
         end
         if not DebindPrivate.ResolveSwitchDefinition(handed) then
@@ -6513,7 +6513,7 @@ RegisterTest("Switch toggle flips the value", {
         DebindPrivate.Switches["$state4"] = options
 
         -- Registered through a condition. What this test looks at is the toggle, not registration,
-        -- and if a broken registration turned this one red as well neither could be read off the
+        -- and if a broken registration marked this one as well neither could be read off the
         -- result. Macrotext rather than a spell because it binds whoever the character is.
         InsertAction({ type = Constants.MACROTEXT, value = "/say toggle test", key = KEY, ["$state4"] = false })
         ApplyBindings()
@@ -6626,8 +6626,8 @@ RegisterTest("Switch condition on a name outside the five", {
         -- A name with no definition. Dropping the condition outright sends that action out
         -- **wider**, so a failure here reads as "fires with no condition".
         --
-        -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row goes
-        -- red and the tooltip writes the name), and under it codegen bakes the condition as false.
+        -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row is
+        -- marked and the tooltip writes the name), and under it codegen bakes the condition as false.
         -- The press below does nothing with either one alive, and **which of the two held it is not
         -- a question for here**: what the marker answers is a pure function, so
         -- `tests/issue_spec.lua` looks at that.
@@ -11016,7 +11016,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 -- **A `MACRO` action naming a macro that does not exist is left out of the build entirely**
 -- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), which makes the macro
 -- store an input to what the keys are. Nothing was watching it: create the macro and the row stops
--- being red -- the window says nothing is wrong -- while the key stays dead until something
+-- being marked -- the window says nothing is wrong -- while the key stays dead until something
 -- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
 --
 -- **The key is ours through both halves** (`Debind.lua`'s `KeysOnLiveLayers`, with `HoldUnmatchedKeys`),

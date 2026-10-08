@@ -99,7 +99,7 @@ return function(DebindPrivate)
 
     -- **A saved BLOCK is the reader's own, not a retired type.** It stands on the key the same way,
     -- and nothing under it on that key fires, which is the whole of what the reader picked it for.
-    -- The mark is what tells the two apart: a retired type is red because there is nothing the
+    -- The mark is what tells the two apart: a retired type is marked because there is nothing the
     -- reader can do with it, and this one is not.
     test("a block action stands on the key and closes it", function()
         local block = { type = Constants.BLOCK, key = "F1", seq = 1 };
@@ -284,7 +284,7 @@ return function(DebindPrivate)
 
     -- **An imported string plants no switch definitions**, so an on/off/toggle action arriving from
     -- somebody else can name a switch this profile has never had. Nothing about the row says so;
-    -- what says so is the action going red and dropping out of the build.
+    -- what says so is the action being marked and dropping out of the build.
     --
     -- **The passing half first.** Without it a missing key reads as "switch actions do not bind at
     -- all" rather than as the marker doing its job.
@@ -450,7 +450,7 @@ return function(DebindPrivate)
     -- **An action that only runs over a frame keeps the bare left button** (§7, §8). That is the shape
     -- a unit frame condition is carried over as -- Hover Cast on Unit Frames with Normal Cast off,
     -- and **no condition left to read it off**. Asked of the condition alone, the whole of a reader's
-    -- click casting on BUTTON1 came out red the day their profile moved, and nothing they could do in
+    -- click casting on BUTTON1 came out marked the day their profile moved, and nothing they could do in
     -- the window would have cleared it.
     --
     -- **The self and focus twins have to fall the same way.** They carry no unit frame condition

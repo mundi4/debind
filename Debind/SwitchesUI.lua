@@ -626,8 +626,8 @@ end
 --- **The name handed over is the one `CreateSwitch` filed, not the one that was typed.** The
 --- case is folded on the way in, and the two callers that pass an `onCreated` write the name
 --- straight onto an action - a condition key, an on/off/toggle target. Given the typed
---- spelling, `$Burst` would go on an action that nothing defines a switch for, so the row goes
---- red and stops binding at all (`GetUndefinedSwitch`) while the list shows `$burst` made and
+--- spelling, `$Burst` would go on an action that nothing defines a switch for, so the row is
+--- marked and stops binding at all (`GetUndefinedSwitch`) while the list shows `$burst` made and
 --- well.
 ---
 --- **Three places open this box**: the button under this list, the condition menu, and an
@@ -1361,7 +1361,7 @@ end
 --- character can open: the rest are inside the tally above.
 ---
 --- The last is this character's pending actions. They name this switch like any other, so deleting
---- it turns them red, but they reach no key yet and are counted in neither group above
+--- it marks them, but they reach no key yet and are counted in neither group above
 --- (`CountSwitchReferences`).
 function DebindSwitchesPanelMixin:UsageList()
     local usage = self.usage[self.selectedName];
@@ -1610,7 +1610,7 @@ local function ShowSwitchMergeMenu(name, others)
 end
 
 --- **Deleting asks whether to merge instead** (`resolving-switches-on-accept.md` 6-7, owner). [Delete]
---- leaves every reference standing and red, for someone about to make the name again; merging
+--- leaves every reference standing and marked, for someone about to make the name again; merging
 --- points them at the switch picked, which is the merge where that one survives (6-6). Removing the
 --- conditions is a third answer kept for later.
 ---

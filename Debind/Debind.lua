@@ -395,7 +395,7 @@ do
 						action, layerRank, nil, Placements[binding]);
 
 					local key = action.key;
-					-- **The issue's outcome decides, never its grade** (`Constants.BINDING_ISSUE_OUTCOMES`).
+					-- **The issue's outcome decides** (`Constants.BINDING_ISSUE_OUTCOMES`).
 					if (outcome == nil or outcome == Constants.ISSUE_OUTCOME_KEEP) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};

@@ -294,16 +294,18 @@ return function(DebindPrivate, DebindStorage)
         check(action.value == 774 and action.key == "F", "명단에 있는 것은 들어와야 한다");
     end);
 
-    --- **스위치 이름은 무엇이든 도착한다. 여기 정의가 없어도 그렇다.**
+    --- **Any switch name arrives, defined here or not.**
     ---
-    --- `$state1`~`$state5` 밖의 이름을 실은 문자열은 통째로 거절이었다(`c6f0b17`). 근거는
-    --- 이름이 아니라 **솔버**였다 - 그 이름에 컬럼이 안 생겨서 조건이 안 보였고, 상자가 조건
-    --- 공간 전체가 되어 그 액션이 같은 키의 아래 바인딩을 전부 덮었다. 컬럼이 이름마다
-    --- 생기고 나면(`Solver.lua`) 그 근거가 없어지고, 거절만 남으면 정반대로 틀린다.
+    --- A string carrying a name outside `$state1`-`$state5` used to be refused whole (`c6f0b17`).
+    --- The reason was not the name but **the solver**: no column was made for that name, so the
+    --- condition was invisible, the box became the whole condition space, and the action covered
+    --- every binding below it on the key. Once a column is made per name (`Solver.lua`) that reason
+    --- is gone, and the refusal alone would be wrong the other way.
     ---
-    --- 남는 것은 이 포맷의 원래 규칙이다: **망가진 것도 보내고 받는 쪽이 빨간 것을 보고
-    --- 지운다.** 정의가 없는 이름은 안 배운 주문과 같은 자리 - 평범한데 이 컴퓨터에서 안
-    --- 풀리는 것 - 이고, 그 조건이 걸린 바인딩은 안 나간다.
+    --- What is left is this format's own rule: **send broken things too, and the receiving side
+    --- sees them marked and deletes them.** A name with no definition stands where a spell never
+    --- learnt does - ordinary, and not resolved on this machine - and a binding carrying that
+    --- condition does not go out.
     test("이 판에 정의가 없는 스위치 조건도 문자열을 거절하지 않는다", function()
         local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1,
             conditions = { ["$burst"] = true } } });
@@ -997,7 +999,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- The UI reaches for `value` on these three without asking, so one arriving without it is not a
-    -- broken reference to show in red, it is a row that raises while being drawn.
+    -- broken reference to show marked, it is a row that raises while being drawn.
     test("값이 있어야 하는 타입이 값 없이 오면 걸린다", function()
         for _, type in ipairs({ Constants.SETCUSTOM, Constants.COMMAND, Constants.WORLDMARKER }) do
             check(DebindStorage.PayloadIsImpossible(General({
@@ -1028,10 +1030,10 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SETSWITCH_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");
     end);
 
-    -- **값이 아예 없는 것은 반대다.** 3c부터 선택 창이 대상 없는 켜기/끄기/전환을 하나 넣으므로
-    -- (§6-C), 그 상태로 내보낸 문자열은 **이 애드온이 만들 수 있는 모양**이다. 여기서 걸면
-    -- 반쯤 만든 줄 하나 때문에 문자열이 통째로 거절되는데, 받는 쪽 규칙은 그 반대다. 깨진
-    -- 것도 보내고 읽는 사람이 빨간 줄을 보고 지운다.
+    -- **No value at all is the opposite.** Since 3c the picker adds an on/off/toggle with no target
+    -- (§6-C), so a string exported in that state is **a shape this addon can make**. Caught here,
+    -- one half-made row would refuse the whole string, and the receiving side's rule is the other
+    -- way: broken things are sent too, and the reader sees the marked row and deletes it.
     test("스위치를 안 고른 SETSWITCH는 안 걸린다", function()
         check(not DebindStorage.PayloadIsImpossible(General({
             { type = Constants.SETSWITCH_TOGGLE, key = "F", seq = 1 } })), "걸렸다");
