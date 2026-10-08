@@ -544,7 +544,9 @@ return function(DebindPrivate, _, ctx)
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
 
-    test("B6 every tail conditional leaves the key ours", function()
+    -- Item, press and loop agreeing at every point, the one where nothing holds included. Which way
+    -- the key's end goes there is `giveBackWhenNoActionRuns`'s (`judgmentloop_spec.lua` N1, N2).
+    test("B6 every tail conditional", function()
         Bind({
             action({ conditions = { combat = true } }),
             action({ type = Constants.COMMAND, value = MAP, conditions = { mounted = true } }),
