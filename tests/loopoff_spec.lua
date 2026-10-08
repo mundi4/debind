@@ -305,6 +305,50 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
+    -- **Which binding each record that went out stands for, as the emission itself says**
+    -- (`EmittedRecords`). The kit names a press's winner from it; a copy of the layout rule kept in
+    -- the kit missed that the self and focus blocks go only where those keys are on, and that a
+    -- binding the builder drops makes no record. Asked against the records the press really walks.
+    test("the emission says which binding each record it sent stands for", function()
+        local function checkKey(key, label)
+            local records = interp:recordsFor(key) or {};
+            local emitted = DebindPrivate.EmittedRecords and DebindPrivate.EmittedRecords[key] or {};
+            check(#records > 0, label .. ": no records went out");
+            check(#emitted == #records, label .. ": " .. #emitted .. " named for " .. #records .. " records");
+            for i = 1, #records do
+                local binding = emitted[i];
+                check(binding ~= nil and binding.castModifier == records[i].castModifier,
+                    label .. ": record " .. i .. " is named for another tier");
+                check((binding.type == Constants.BLOCK) == (records[i].clickbutton == nil),
+                    label .. ": record " .. i .. " is named for a block and is not one, or the other way");
+            end
+        end
+        local function actions()
+            return {
+                action({ value = 6792, key = "F4", conditions = { combat = true } }),
+                action({ value = 6793, key = "F4" }),
+            };
+        end
+        Bind(actions(), { selfCast = false });
+        checkKey("F4", "self cast key off");
+        Bind(actions(), { focusCast = false });
+        checkKey("F4", "focus cast key off");
+        WithoutIssues(function()
+            Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F4",
+                    conditions = { combat = true } }),
+                action({ value = 6793, key = "F4" }) });
+            checkKey("F4", "a binding the builder refuses");
+            local onKey, named = 0, 0;
+            for _, binding in ipairs(DebindPrivate.KeyMap["F4"] or {}) do
+                if (binding.type == Constants.PETACTION) then onKey = onKey + 1; end
+            end
+            for _, binding in ipairs(DebindPrivate.EmittedRecords["F4"] or {}) do
+                if (binding.type == Constants.PETACTION) then named = named + 1; end
+            end
+            check(onKey > 0 and named == 0, "the refused binding: " .. onKey .. " on the key, " .. named .. " named");
+        end);
+    end);
+
     -- **An action holding a value no build writes is left out, and deletes nothing under it.** Read as
     -- [when there is none], its unit condition would cover the real [when there is none] action
     -- below and the solver would delete that one (`INVALID_ACTION`).

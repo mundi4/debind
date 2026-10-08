@@ -1,38 +1,13 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 2~6. 1(유닛 조건 접기가 갈림)은 2026-10-08에 접기를 `FoldUnitCondition` 하나로 합쳐서 고쳤고
-> 여기서 뺐다.
+> 상태: 미착수. 항목 3~6. 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
+> 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다.
 >
 > 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 항목 4와 5를 쓴 세션: `debind-76` (세션 ID
 > `44a4417a-2abe-44e5-b0f9-4cbfb7431e9e`). 항목 6을 쓴 세션: `debind-f9` (세션 ID
 > `ff9c24d6-42e2-4547-916f-3d084dffcbcf`).
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
-
-## 2. 키트의 `BindingIndexForEmitted`가 실제 방출과 다르게 센다
-
-찾은 곳: f9af1bf의 리뷰(2026-10-08). 키 돌려주기 3-1절 작업 중이었다.
-
-### 무엇이 다르나
-
-`DebindTest.lua`의 `BindingIndexForEmitted`는 내보낸 레코드 번호를 `KeyMap`의 바인딩 번호로 되돌린다.
-`BindingIndexForRecord`를 거쳐 `probeReports`가 이것을 쓴다. 그런데 방출과 두 가지가 다르다.
-
-- self 블록과 focus 블록이 늘 있다고 본다. `WithBlocks`는 `SelfCastEnabled()`·`FocusCastEnabled()`가 참일 때만 그
-  블록을 넣는다. 테스터가 설정에서 Self Cast Key나 Focus Cast Key를 끄면(`options.selfCast == false`,
-  `options.focusCast == false`) 그 블록이 없다.
-- `KeyMap`의 바인딩을 다 센다. `PrepareKeyBindings`가 버린 바인딩은 레코드가 안 나가는데도 센다.
-
-### 무슨 일이 일어나나
-
-그런 키에서 프로브 보고가 이긴 레코드를 엉뚱한 바인딩이나 블록으로 적는다. 키의 동작에는 영향이 없다.
-
-이 함수 위의 주석("Every key bound to us gets the blocks")도 self·focus 블록에 대해서는 틀렸다.
-
-### 고치는 길
-
-같은 셈을 키트에 한 벌 더 두면 방출과 또 갈린다. 방출하는 쪽(`UpdateBindingsMap`)이 키마다 몇 번째 레코드가 어느
-바인딩이나 블록이었는지를 DEBUG에서만 남기고, 이 함수가 그것을 읽게 한다.
 
 ## 3. "Replaced Action Bar" 조건이 애완동물 대전까지 덮는다
 

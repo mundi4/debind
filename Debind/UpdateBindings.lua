@@ -760,6 +760,13 @@ local _record            = {
 --- A judged key's self and focus tier entries, kept until its chords are known.
 local _chordEntries = {};
 
+--- **DEBUG only, and read by nothing in the addon.** Per key, the binding each record that went out
+--- stands for, in the order the press walks them: a `KeyMap` binding, or one of `BLOCKS` and
+--- `GIVEBACK_END`. The test kit names a press's winner from it. It kept a copy of this loop's layout
+--- once, and the copy missed the blocks that go only where a cast key is on and the bindings
+--- `PrepareKeyBindings` drops.
+DebindPrivate.EmittedRecords = {};
+
 function UpdateBindingsMap()
     appendLine("local bindings,t,u,c,b,j,e,w,x");
 
@@ -786,6 +793,8 @@ function UpdateBindingsMap()
     local keysOnLiveLayers = not giveBack and DebindPrivate.KeysOnLiveLayers;
     local judgmentItems = DebindPrivate.JudgmentItems;
     wipe(judgmentItems);
+    local emittedRecords = DebindPrivate.EmittedRecords;
+    wipe(emittedRecords);
     wipe(_chordEntries);
     BeginCastChords();
     wipe(_keysToWalk);
@@ -841,6 +850,11 @@ function UpdateBindingsMap()
                     end
                     CollectRecordNeeds(record);
                     EmitRecord(record);
+                    if (DEBUG) then
+                        local emitted = emittedRecords[key] or {};
+                        emittedRecords[key] = emitted;
+                        emitted[#emitted + 1] = binding;
+                    end
                     if (holdsKey) then
                         local tier = binding.castModifier or Constants.CASTMOD_NONE;
                         local list = tiers[tier];

@@ -677,50 +677,23 @@ local function PlaceWithoutTwins(key, index)
     return place
 end
 
---- Which `KeyMap` binding an emitted record index stands for, or `"block"` for one `WithBlocks` put in.
+--- Which `KeyMap` binding an emitted record index stands for, or `"block"` for one the emission put
+--- in (`WithBlocks`).
 ---
---- **The emitted list is not `KeyMap`'s.** A key that holds a key record carries a BLOCK after its
---- self tier, after its focus tier and at its end (`KeyRecords.lua`'s `WithBlocks`), and
---- `KeyMap` has none of them, so every index past the first tier is out of step by one or two.
----
---- **Every key bound to us gets the blocks** (`IsKeyOurs`), even one held with nothing in `KeyMap`
---- holding it, or with no `KeyMap` list at all, so its every record past its own bindings is a
---- block. The end of a held key is a giveback while `giveBackWhenNoActionRuns` is on, which binds as
---- a block.
+--- **Read off what the emission says it sent** (`EmittedRecords`), not worked out here. The emitted
+--- list is not `KeyMap`'s: blocks go in where the cast keys are on, and a binding the builder drops
+--- makes no record. A copy of that layout kept here missed both.
 local function BindingIndexForEmitted(key, index)
-    if not key or type(index) ~= "number" then
+    local emitted = key and type(index) == "number" and DebindPrivate.EmittedRecords[key]
+    local binding = emitted and emitted[index]
+    if not binding then
         return index
     end
-    local holds = DebindPrivate.IsKeyOurs(key)
-    local bindings = GetKeyBindings(key)
-    if not bindings then
-        if not holds then
-            return index
-        end
-        bindings = {}
-    end
-    local selfCount, focusCount = 0, 0
+    local bindings = GetKeyBindings(key) or {}
     for i = 1, #bindings do
-        local binding = bindings[i]
-        if binding.castModifier == Constants.CASTMOD_SELF then
-            selfCount = selfCount + 1
-        elseif binding.castModifier == Constants.CASTMOD_FOCUS then
-            focusCount = focusCount + 1
+        if bindings[i] == binding then
+            return i
         end
-    end
-    if not holds then
-        return index
-    end
-    if index <= selfCount then
-        return index
-    elseif index == selfCount + 1 then
-        return "block"
-    elseif index <= selfCount + focusCount + 1 then
-        return index - 1
-    elseif index == selfCount + focusCount + 2 then
-        return "block"
-    elseif index <= #bindings + 2 then
-        return index - 2
     end
     return "block"
 end
