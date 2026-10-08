@@ -502,9 +502,9 @@ end
 --- **A class of one specialization gets no submenu.** Camelot gives every class exactly one, named
 --- after the class, so the one box under it would write the same bit as the class box.
 ---
---- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an error
+--- **No [Uncheck All] row either.** What it wrote is a set holding nothing, which is an issue
 --- rather than a destination (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the way out of the axis is
---- the `Off` radio one row up. A button offering the error state as a shortcut is the one row
+--- the `Off` radio one row up. A button offering the issue state as a shortcut is the one row
 --- this menu has no use for.
 ActionMenus:Define("SPEC", {
     label = "CONDITION_SPEC",

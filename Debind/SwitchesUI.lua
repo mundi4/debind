@@ -1360,8 +1360,8 @@ end
 --- character can open: the rest are inside the tally above.
 ---
 --- The last is this character's pending actions. They name this switch like any other, so deleting
---- it marks them, but they reach no key yet and are counted in neither group above
---- (`CountSwitchReferences`).
+--- it leaves them naming a switch nothing defines, but they reach no key yet and are counted in
+--- neither group above (`CountSwitchReferences`).
 function DebindSwitchesPanelMixin:UsageList()
     local usage = self.usage[self.selectedName];
     local list = {};

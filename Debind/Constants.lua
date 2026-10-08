@@ -296,8 +296,9 @@ Constants.CONDITION_FIELDS = {
 --- The issue categories. **Each names a control to mark, not a field.** Some, like `macro`,
 --- have no action field of that name at all, and some conditions have no category.
 ---
---- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
---- 비켜가 언제나 nil이 나오는데, 그건 "문제 없음"과 구별되지 않는다.
+--- **The table is here for one reason.** Asked with a category it does not hold, every `if` in
+--- `EvaluateIssues` steps past it and the answer is always nil, which cannot be told from
+--- "no issue".
 Constants.BINDING_ISSUE_CATEGORIES = {
     key = true,
     -- 조건 묶음. 메뉴가 자기 키를 그대로 넘긴다(`DropDownMenus.lua`).

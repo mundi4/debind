@@ -1,8 +1,9 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 1~3.
+> 상태: 미착수. 항목 1~4.
 >
-> 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`).
+> 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 항목 4를 쓴 세션: `debind-76` (세션 ID
+> `44a4417a-2abe-44e5-b0f9-4cbfb7431e9e`).
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
 
@@ -129,3 +130,31 @@
 바뀐 단축바는 대개 전투 중이라, 그때 키가 다른 일을 하는 것이 곧 손해다. 켤 근거는 "Filled buttons only"를 없앤 근거와
 같다(`giving-keys-back-when-no-action-runs.md` 1절). 끄면 차량 기술을 그 키로 못 누른다. 소유자가 생각해 보기로
 했다(2026-10-08).
+
+## 4. 키트의 Tail 시험 넷이 "beat가 옮겼다"를 리빌드와 가르지 못한다
+
+찾은 곳: 2611118의 리뷰(2026-10-08). 키 돌려주기 G6의 키트를 고치던 중이었다.
+
+### 무엇이 빠졌나
+
+`DebindTest.lua`의 Tail 시험들은 `MockBody`나 유닛 별칭으로 값을 옮긴 뒤 `WaitUntil`로 2초까지 키가 바뀌기를
+기다린다. 그 사이에 리빌드가 돌면 리빌드가 키를 스스로 판정해 건다. 그러면 beat가 고장 나 있어도 시험이 통과한다.
+
+리뷰가 짚은 두 시험("Tail: the beat takes the key and hands it back to the command", "Key given back: a lone
+conditional action lets its key go and takes it back")은 `WaitOnBeat`로 고쳤다. 리빌드 횟수를 세어, 기다리는 동안
+리빌드가 돌았으면 실패로 낸다. 남은 것은 같은 꼴의 넷이다.
+
+- "Tail: the watch follows two state words one after the other"
+- "Tail: the units' watch follows a token and a life"
+- "Tail: the form moves the key by the call"
+- "Tail: flyable in combat waits behind nocombat"
+
+### 재현 조건
+
+beat가 판정 아이템을 안 도는 회귀가 있고, 시험이 기다리는 2초 안에 다른 이벤트가 `QueueUpdateBindings`를 부른다.
+그 리빌드가 바뀐 값으로 키를 걸어 기다림이 풀린다.
+
+### 고치는 길
+
+그 넷의 `WaitUntil`을 `WaitOnBeat`로 바꾼다. 조용한 beat를 세는 `WaitTicks` 자리는 키가 안 움직이는 것을 보므로 그대로
+둔다.

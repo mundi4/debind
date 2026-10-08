@@ -325,7 +325,7 @@ local specs = {
     { name = "resurrect", path = root .. "/resurrect_spec.lua" },
     { name = "knownspells", path = root .. "/knownspells_spec.lua" },
     { name = "talents", path = root .. "/talents_spec.lua" },
-    { name = "grade", path = root .. "/grade_spec.lua" },
+    { name = "issuemark", path = root .. "/issuemark_spec.lua" },
     { name = "overview", path = root .. "/overview_spec.lua" },
     { name = "normalize", path = root .. "/normalize_spec.lua" },
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },

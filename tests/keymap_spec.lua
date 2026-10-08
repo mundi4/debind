@@ -432,7 +432,7 @@ return function(DebindPrivate)
     end);
 
     -- **An action with nothing on the plain presses is not on the key at all** (S1). It keeps its row
-    -- and its error; what it does not keep is a record, so the action behind it answers every press.
+    -- and its issue; what it does not keep is a record, so the action behind it answers every press.
     test("an action with nothing left to cast reaches no record", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F7", seq = 1,
@@ -544,7 +544,7 @@ return function(DebindPrivate)
 
     -- **Normal Cast on and Mouseover changes nothing on the bare left button** (§7). The original
     -- would hold the key off the frame and a Mouseover twin would have to hold it to stand, so the
-    -- button gets the Unit Frames twin alone, and no warning for values the reader never has to
+    -- button gets the Unit Frames twin alone, and no issue for values the reader never has to
     -- change.
     test("the bare left button with Normal Cast on gets only the unit frame twin", function()
         Bind({

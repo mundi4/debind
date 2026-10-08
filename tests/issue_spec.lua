@@ -180,17 +180,17 @@ return function(DebindPrivate)
 
     test("hover x 대상 모순은 Units 묶음을 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "units") == NEVER,
-            "Units 메뉴가 표시가 안 붙는다 - 거기서 고칠 수 있는 문제다");
+            "Units 메뉴에 표시가 안 붙는다 - 거기서 고칠 수 있는 문제다");
     end);
 
     test("hover x 대상 모순은 대상 묶음도 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "unit") == NEVER,
-            "대상 메뉴가 표시가 안 붙는다 - 하늘색으로 떠서 정상으로 읽힌다");
+            "대상 메뉴에 표시가 안 붙는다 - 하늘색으로 떠서 정상으로 읽힌다");
     end);
 
     test("hover x 대상 모순은 그 대상의 서브메뉴도 칠한다", function()
         check(GetBindingIssue(hoverTargetConflict(), "units", nil, "@") == NEVER,
-            "\"@\" 서브메뉴가 표시가 안 붙는다");
+            "\"@\" 서브메뉴에 표시가 안 붙는다");
     end);
 
     --- `"@"`와 같은 유닛의 명시 조건이 어긋난다. 대상 메뉴와 Units 메뉴 둘 다 고칠 수 있다.
@@ -207,7 +207,7 @@ return function(DebindPrivate)
     -- **A group that had no hand in it is not marked.** No reaction picked on the unit frame unit
     -- is fixed in that unit's condition menu. Mark the target menu, where nothing was picked, and
     -- where to look gets harder to see, not easier.
-    test("hover의 빈 반응만으로 대상 묶음이 표시가 안 붙는다", function()
+    test("hover의 빈 반응만으로 대상 묶음에 표시가 안 붙는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
             units = { unitframe = { reaction = 0 } } });
         check(GetBindingIssue(action, "unit") == nil, "안 거든 묶음을 칠했다");
@@ -233,7 +233,7 @@ return function(DebindPrivate)
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
             units = { focus = { group = 0 }, target = {} } });
         check(GetBindingIssue(action, "units", nil, "target") == nil,
-            "남의 유닛 서브메뉴가 표시가 붙었다");
+            "남의 유닛 서브메뉴에 표시가 붙었다");
     end);
 
     -- 개체창 유닛의 빈 소속도 `Units` 묶음의 문제다. 그 유닛은 이제 이 메뉴가 줄로 갖고 있다.
@@ -243,11 +243,11 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units") == UNITGROUPS_NONE,
             "Units 묶음이 안 잡는다");
         check(GetBindingIssue(action, "units", nil, "focus") == nil,
-            "남의 유닛 서브메뉴가 표시가 붙었다");
+            "남의 유닛 서브메뉴에 표시가 붙었다");
     end);
 
     -- The same rule as the empty reaction above, on the group column.
-    test("hover의 빈 소속만으로 대상 묶음이 표시가 안 붙는다", function()
+    test("hover의 빈 소속만으로 대상 묶음에 표시가 안 붙는다", function()
         local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "unitframe",
             units = { unitframe = { group = 0 } } });
         check(GetBindingIssue(action, "unit") == nil,
@@ -278,11 +278,11 @@ return function(DebindPrivate)
 
     test("\"@\" x 유닛 조건 모순은 양쪽 묶음을 다 칠한다", function()
         check(GetBindingIssue(targetUnitConflict(), "unit") == NEVER,
-            "대상 메뉴가 표시가 안 붙는다");
+            "대상 메뉴에 표시가 안 붙는다");
         check(GetBindingIssue(targetUnitConflict(), "units") == NEVER,
-            "Units 묶음이 표시가 안 붙는다");
+            "Units 묶음에 표시가 안 붙는다");
         check(GetBindingIssue(targetUnitConflict(), "units", nil, "focus") == NEVER,
-            "그 유닛의 서브메뉴가 표시가 안 붙는다");
+            "그 유닛의 서브메뉴에 표시가 안 붙는다");
     end);
 
     ---------------------------------------------------------------------------
@@ -467,8 +467,8 @@ return function(DebindPrivate)
     -- 조건 메뉴가 없는 갈래라 짚어 묻는 호출자는 없지만, 갈래 이름은 있어야 다른 갈래를
     -- 짚어 묻는 자리(단축키 칸, 서브메뉴)가 이 이슈를 자기 것으로 착각하지 않는다.
     test("다른 갈래를 물으면 안 나온다", function()
-        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "key") == nil, "단축키 칸이 표시가 붙는다");
-        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "unit") == nil, "대상 메뉴가 표시가 붙는다");
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "key") == nil, "단축키 칸에 표시가 붙는다");
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "unit") == nil, "대상 메뉴에 표시가 붙는다");
         check(GetBindingIssue(macroAction("/cast [$typo] Foo"), nil, "switches") == nil,
             "갈래를 껐는데도 나온다");
     end);
@@ -524,11 +524,11 @@ return function(DebindPrivate)
         local body = macroAction("/cast [$typo] Foo");
         check(DebindPrivate.GetUndefinedSwitch(body) == "$typo", "전제가 깨졌다");
         check(DebindPrivate.GetUndefinedSwitchCondition(body) == nil,
-            "본문 오타에 조건 칸이 표시가 붙는다");
+            "본문 오타로 조건 칸에 표시가 붙는다");
 
         local target = { type = Constants.SETSWITCH_ON, value = "$typo", key = "F1" };
         check(DebindPrivate.GetUndefinedSwitchCondition(target) == nil,
-            "대상 오타에 조건 칸이 표시가 붙는다");
+            "대상 오타로 조건 칸에 표시가 붙는다");
 
         check(DebindPrivate.GetUndefinedSwitchCondition(conditionAction({ ["$typo"] = true }))
             == "$typo", "조건은 잡아야 한다");
@@ -761,8 +761,8 @@ return function(DebindPrivate)
     end);
 
     test("다른 갈래를 물으면 안 나온다", function()
-        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "key") == nil, "단축키 칸이 표시가 붙는다");
-        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴가 표시가 붙는다");
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "key") == nil, "단축키 칸에 표시가 붙는다");
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴에 표시가 붙는다");
         check(GetBindingIssue(macroValueAction("Kick+Pet2"), nil, "macro") == nil,
             "갈래를 껐는데도 나온다");
     end);
@@ -1208,9 +1208,9 @@ return function(DebindPrivate)
         return out;
     end
 
-    --- **Nothing on the plain presses is an error on Cast Options** (2026-10-04, owner): the held
+    --- **Nothing on the plain presses is an issue on Cast Options** (2026-10-04, owner): the held
     --- twins go with them, so the action never runs.
-    test("Hover Cast skip with Normal Cast off is an error on Cast Options", function()
+    test("Hover Cast skip with Normal Cast off is an issue on Cast Options", function()
         local action = { type = Constants.SPELL, value = 585, key = "F1", casting = copyOf(ALL_OFF) };
         check(DebindPrivate.GetIssueOutcome(action) == Constants.ISSUE_OUTCOME_OMIT,
             "the action is not left out: " .. tostring(DebindPrivate.GetIssueOutcome(action)));
@@ -1380,7 +1380,7 @@ return function(DebindPrivate)
         check(codes[ROLES_ON_GROUP_FRAMES], "the role issue is missing");
     end);
 
-    test("no role with party or raid frames only is an error", function()
+    test("no role with party or raid frames only is an issue", function()
         check(unitFrameIssue({ role = 0, frameTypes = GROUP }) == ROLES_NONE,
             "reported: " .. tostring(unitFrameIssue({ role = 0, frameTypes = GROUP })));
     end);

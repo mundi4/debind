@@ -228,7 +228,7 @@ return function(DebindPrivate)
         --
         -- What reads this is the key heading (`DebindUI.lua`), which asks only active rows
         -- whether any of them is broken. Filtered out here, the heading draws plain over a dead
-        -- key while the row under it shows the error, and the two say different things.
+        -- key while the row under it shows the issue, and the two say different things.
         check(not DebindPrivate.IsInactiveAction(stored),
             "the empty set was filtered out as if it belonged to another specialization");
     end);
@@ -501,9 +501,9 @@ return function(DebindPrivate)
 
         -- **What has to hold is that the key stays clear, not which of the two gates keeps it
         -- clear.** A value nobody can read holds no specialization once `MaskFor` has had it, so
-        -- the set reads empty and the error gate omits it (`SPECS_NONE_SELECTED` is OMIT). Pinning
+        -- the set reads empty and the issue gate omits it (`SPECS_NONE_SELECTED` is OMIT). Pinning
         -- `SpecConditionHolds` to false instead would mark the row as another specialization's
-        -- while it is also carrying that error, which is the pair `MakeRow` exists to prevent.
+        -- while it is also carrying that issue, which is the pair `MakeRow` exists to prevent.
         Bind({
             { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                 conditions = { specs = { [mine] = true } } },

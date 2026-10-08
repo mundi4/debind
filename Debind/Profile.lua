@@ -1479,10 +1479,11 @@ end
 ---
 --- **Pending actions are the last two numbers, and only those** (owner, 2026-10-03). One names this
 --- profile's switches like any other (`importing-switches-apart-from-actions.md` 2-2), so deleting a
---- switch it waits on marks it; but it reaches no key yet, and counted into the first three it
---- would answer "what do my keys use" wrongly. `pendingHere` is this character's, merged into its
---- layers for the session; `pendingElsewhere` is what waits in a share (`ForEachPendingAction`),
---- which is the other characters' -- a General layer's pending action is one character's too.
+--- switch it waits on leaves it naming a switch nothing defines; but it reaches no key yet, and
+--- counted into the first three it would answer "what do my keys use" wrongly. `pendingHere` is
+--- this character's, merged into its layers for the session; `pendingElsewhere` is what waits in a
+--- share (`ForEachPendingAction`), which is the other characters' -- a General layer's pending
+--- action is one character's too.
 function DebindPrivate.CountSwitchReferences(name)
     local account, character, live, pendingHere, pendingElsewhere = 0, 0, 0, 0, 0;
 

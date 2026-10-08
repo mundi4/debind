@@ -99,20 +99,21 @@ L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, th
 -- wrong twice over.
 L["BINDING_ERROR_NOT_SUPPORTED_META_CLICK"] = "A mouse button with META held cannot be used on unit frames."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
--- action sets. **This line and the macro one below are the only errors that take an argument** --
--- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
--- box it belongs to. Neither of these two has a box, so without the name there is nothing on
--- screen saying what to fix.
+-- action sets. **The issues that take an argument are this one and the ones below** -- an issue
+-- about a condition shows up in the box it belongs to, and that box already says which condition.
+-- These name something that has no box, so without the name there is nothing on screen saying
+-- what to fix.
 L["BINDING_ERROR_UNDEFINED_SWITCH"] = "There is no Switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
--- The second line that takes an argument, for the reason above: a macro name also lives inside the
--- action rather than in a condition control.
+-- Takes the name for the reason above: a macro name also lives inside the action rather than in a
+-- condition control.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
 -- The same shape for the two commands this client may not have, from a profile or string made
 -- elsewhere. `%s` is the stored command name, which is all there is to show for one that is unknown.
 L["BINDING_ERROR_UNKNOWN_PET_COMMAND"] = "This game has no pet command |cnHIGHLIGHT_FONT_COLOR:%s|r."
 L["BINDING_ERROR_UNKNOWN_ACTION_BUTTON"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r does not press an action button."
 L["BINDING_ERROR_UNKNOWN_FLYOUT"] = "This game has no flyout |cnHIGHLIGHT_FONT_COLOR:%s|r."
--- The only MINOR code, so this states what happened and stops there. The key itself still fires,
+-- Not an issue: being covered is why an action is not firing, the other axis (`Constants.lua` above
+-- the issue outcomes), so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
 -- Two things it must not say. The coverage can come from several earlier actions at once
@@ -500,8 +501,8 @@ L["ACTION_SET_KEY"] = "Assign a key"
 -- a join before the words are read at all.
 L["ACTION_SET_KEY_ACCEPT"] = "Assign a key & Accept"
 --- **The one thing this has to say is what happens to the rest.** A key's actions are told apart by
---- conditions, on purpose - so a row walking off to its own key produces no error, no warning and
---- nothing on screen that looks wrong. The reader finds out later, when two keys each do half of
+--- conditions, on purpose - so a row walking off to its own key produces no issue and nothing on
+--- screen that looks wrong. The reader finds out later, when two keys each do half of
 --- what one key used to do.
 ---
 --- **It is not written as a mistake**, because it is not one: giving one condition its own shortcut
@@ -1259,7 +1260,8 @@ L["SWITCH_USAGE_HERE"] = "This Character"
 L["SWITCH_USAGE_ACCOUNT"] = "Across the Account"
 L["SWITCH_USAGE_EXPRS"] = "Other Switches"
 -- This character's actions not accepted yet. The word is the one the strip's count uses
--- (`IMPORT_PENDING`): they name this Switch already and are marked if it goes, but do nothing yet.
+-- (`IMPORT_PENDING`): they name this Switch already and go on naming it if it goes, but do nothing
+-- yet.
 L["SWITCH_USAGE_PENDING"] = "Pending"
 -- The two halves of a row's number in the group above, in its tooltip.
 L["SWITCH_USAGE_ACTIONS"] = "Actions"
@@ -1320,9 +1322,10 @@ L["SWITCH_DELETE_CONFIRM"] = "Delete |cnNORMAL_FONT_COLOR:%s|r from the whole ac
 -- Appended only when the count is not zero. The count covers the whole account, not what this
 -- character can see, so deleting from a priest can break a druid's actions.
 L["SWITCH_DELETE_CONFIRM_ACTIONS"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r |4uses:use; it and will stop working."
--- Actions waiting to be accepted name the Switch too, and are marked with it. Apart from the line
--- above because they do nothing yet, so "will stop working" is not true of them. The second is the
--- only place other characters' pending actions are counted: nothing on this character opens them.
+-- Actions waiting to be accepted name the Switch too, and are left naming one nothing defines.
+-- Apart from the line above because they do nothing yet, so "will stop working" is not true of
+-- them. The second is the only place other characters' pending actions are counted: nothing on
+-- this character opens them.
 L["SWITCH_DELETE_CONFIRM_PENDING"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting to be accepted |4uses:use; it too."
 L["SWITCH_DELETE_CONFIRM_PENDING_ELSEWHERE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r waiting on your other characters |4uses:use; it too."
 -- Appended only when there are some, so a switch that is the same everywhere is not shown a line
@@ -1441,7 +1444,7 @@ L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
 -- **Unticked, what is left is the pointed press** (`which-action-a-key-runs.md` §6): at the usual
 -- target or the pointed unit the action still runs while you point at a unit, and it sits out only
 -- the press with nothing pointed at. "Don't run while pointing" with this unticked leaves nothing,
--- and that is said by the error on the row, not here.
+-- and that is said by the issue on the row, not here.
 L["CASTING_NORMAL"] = "Normal Cast"
 L["CASTING_NORMAL_DESC"] = "The action runs on a press with no key held. Unticked, it runs on that press only while you point at a unit, and a press with nothing pointed at goes to the next action on the key."
 L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, in Debind's settings. What is set here is kept and does nothing until it is turned back on."

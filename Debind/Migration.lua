@@ -813,7 +813,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- (`taking-off-out-of-hover-cast.md` §2-9, owner). Off was stored as no value, which is the
         -- usual target from here on, so every other off moves by being left alone. With Normal Cast
         -- off it stood on the cast keys alone; no new value keeps that, and this one is the one that
-        -- shows it, as an error, rather than starting to answer pointed presses without a word.
+        -- shows it, as an issue, rather than starting to answer pointed presses without a word.
         --
         -- **Not the bare left and right click**, which read no Hover Cast value then or now. The two
         -- keys are written out rather than asked of `IsBareWorldClick`, for the reason the step holds

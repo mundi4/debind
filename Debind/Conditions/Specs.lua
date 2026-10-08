@@ -207,7 +207,7 @@ function DebindPrivate.SpecSetHoldsAnything(specs)
     return false;
 end
 
---- Does a condition that is there hold no specialization at all, which is the error the reader is
+--- Does a condition that is there hold no specialization at all, which is the issue the reader is
 --- meant to see (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
 ---
 --- **Unticking the last box is how the reader reaches it**, and the table is left standing for
@@ -339,7 +339,7 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     -- one on screen", and for that shape the answer is no. Answering `false` instead put it in
     -- the same bucket as an off-specialization action three times over: `BuildKeyMap` left it out
     -- of `ActiveActions`, so the key heading -- which asks only active rows whether one is broken
-    -- -- drew plain over a dead key while the row under it showed the error; and the tooltip added
+    -- -- drew plain over a dead key while the row under it showed the issue; and the tooltip added
     -- "not the one being played" beside a line already saying nothing was chosen.
     --
     -- **The issue gate is what keeps it off the key**, the same gate every other issue goes
@@ -349,7 +349,7 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     -- `MaskFor` turns a value a shared string left under a class id into 0, so it holds nothing,
     -- and `SPECS_NONE_SELECTED` is an OMIT outcome (`Constants.BINDING_ISSUE_OUTCOMES`): the key
     -- is kept clear by the gate rather than by this answer. Answering `false` for it instead would
-    -- set `specExcluded` on a row that is also carrying the error, which is the one pair
+    -- set `specExcluded` on a row that is also carrying the issue, which is the one pair
     -- `MakeRow` is written to prevent (`Profile.lua`).
     if (DebindPrivate.SpecSetIsEmpty(specs)) then
         return true;

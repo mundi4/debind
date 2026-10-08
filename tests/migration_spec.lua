@@ -684,7 +684,7 @@ return function(DebindPrivate, _, ctx)
     ---------------------------------------------------------------------------
     -- dbver 7: Hover Cast loses off (`taking-off-out-of-hover-cast.md` §2-9). Off was stored as no
     -- value and the usual target is no value now, so only off with Normal Cast off is written:
-    -- it becomes "don't run while pointing" and shows as the error it now is.
+    -- it becomes "don't run while pointing" and shows as the issue it now is.
     ---------------------------------------------------------------------------
 
     test("dbver 7 turns Hover Cast off with Normal Cast off into skip", function()

@@ -386,7 +386,7 @@ return function(DebindPrivate)
         check(not Says(row, "CASTING"), "a block of defaults was drawn: " .. Tooltip(row));
     end);
 
-    --- **Values that leave no plain press are an error on the Cast Options block**, which is where
+    --- **Values that leave no plain press are an issue on the Cast Options block**, which is where
     --- the values that caused it are. The block stands right under the key.
     test("skip with Normal Cast off draws the block under the key and marks it", function()
         Bind({

@@ -6692,7 +6692,7 @@ RegisterTest("Switch condition on a name outside the five", {
 -- apart.
 -- **Both halves, because on its own "fires nothing" also describes a key nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
-    description = "A binding whose specialization mask holds this one fires; one whose mask leaves it out does not hold the key, and with the option off holds it and fires nothing",
+    description = "A binding whose specialization mask holds this one fires; one whose mask leaves it out does not hold the key, and with giveBackWhenNoActionRuns off holds it and fires nothing",
     -- **A class of one specialization has nothing to leave out** (every camelot class), so the
     -- second key cannot be built there.
     applies = function()
@@ -6977,6 +6977,30 @@ local function BeatWitness()
     return beatWitness
 end
 
+--- How many rebuilds have run since the first ask. A hook on `DebindPrivate.UpdateBindings`, which a
+--- queued rebuild reaches through the table as well (`Debind.lua`'s `UpdateBindingsTimerCallback`);
+--- put on once, since `hooksecurefunc` cannot be taken off.
+local rebuilds
+local function RebuildCount()
+    if not rebuilds then
+        rebuilds = 0
+        hooksecurefunc(DebindPrivate, "UpdateBindings", function() rebuilds = rebuilds + 1 end)
+    end
+    return rebuilds
+end
+
+--- Waits for `pred` after a value was moved with no rebuild behind it, and answers whether the
+--- beat is what moved the key. **A rebuild in the wait judges every key itself**, so one that ran
+--- leaves the answer saying nothing about the beat, and that is a failure with its own reason.
+local function WaitOnBeat(pred)
+    local from = RebuildCount()
+    local ok = WaitUntil(pred, 2)
+    if RebuildCount() ~= from then
+        return false, "a rebuild ran during the wait, so the beat is not shown to have moved the key"
+    end
+    return ok, nil
+end
+
 -- **With `giveBackWhenNoActionRuns` off, the beat runs only while a key holds a tail.** It is a
 -- Blizzard attribute driver that always answers `"a"` on the driver's beat attribute
 -- (`trimming-the-tail-key-beat.md` 5-1), and the unit watch that used to carry it is never
@@ -6994,7 +7018,7 @@ end
 -- **It asks whether the key is still bound, in the same breath**, or a rebuild that quietly stopped
 -- binding anything would read as the quietest possible pass.
 RegisterTest("The driver is off Blizzard's beat", {
-    description = "With the option to give keys back off and no tail, the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
+    description = "With giveBackWhenNoActionRuns off and no tail, the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
     run = function()
         local NAME = "Beat registration"
         local KEY = "CTRL-SHIFT-F11"
@@ -7474,7 +7498,7 @@ RegisterTest("Foreign wrappers: their leave and our hover both work on one frame
         RunWrappedLeave(frame)
 
         local bound = GetBindingAction("SHIFT-F", true) or ""
-        if bound:sub(1, 6) ~= "CLICK " then
+        if bound ~= "CLICK " .. frame:GetName() .. ":fake" then
             return Fail(NAME, format("their body did not bind SHIFT-F (got %q)", bound))
         end
         if FakeHovered() ~= frame:GetName() then
@@ -8276,14 +8300,16 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         -- **Written past `SetMockState`, which ends in a rebuild.** A rebuild judges every tail key
         -- itself, so only a value moved with none behind it is one the beat has to carry.
         SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody("combat", true))
-        if not WaitUntil(function() return IsOurClick(GetBindingAction(KEY, true)) end, 2) then
-            return Fail(NAME, format("no beat took the key in combat, it answers %q",
+        local moved, why = WaitOnBeat(function() return IsOurClick(GetBindingAction(KEY, true)) end)
+        if not moved then
+            return Fail(NAME, why or format("no beat took the key in combat, it answers %q",
                 GetBindingAction(KEY, true) or ""))
         end
 
         SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody("combat", false))
-        if not WaitUntil(function() return GetBindingAction(KEY, true) == COMMAND end, 2) then
-            return Fail(NAME, format("no beat handed the key back at peace, it answers %q",
+        moved, why = WaitOnBeat(function() return GetBindingAction(KEY, true) == COMMAND end)
+        if not moved then
+            return Fail(NAME, why or format("no beat handed the key back at peace, it answers %q",
                 GetBindingAction(KEY, true) or ""))
         end
 
@@ -8296,10 +8322,10 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
 -- the command stood. Which way the key goes in each state is headless (`tests/judgmentloop_spec.lua`
 -- N1); what is left for the client is that a key judged only because of that end is on the beat at
 -- all, and that the restricted `ClearBinding` lets it go and a later `SetBindingClick` takes it again.
--- **Then the option off**, and the same key held at peace: without it, a key that something other
--- than the option let go passes.
+-- **Then `giveBackWhenNoActionRuns` off** (`HoldUnmatchedKeys`), and the same key held at peace:
+-- without it, a key that something other than `giveBackWhenNoActionRuns` let go passes.
 RegisterTest("Key given back: a lone conditional action lets its key go and takes it back", {
-    description = "A key whose only action is a combat one is let go at peace and taken in combat, twice, on the beat alone, and held at peace with the option off",
+    description = "A key whose only action is a combat one is let go at peace and taken in combat, twice, on the beat alone, and held at peace with giveBackWhenNoActionRuns off",
     run = function()
         local NAME = "Lone conditional"
         local KEY = "CTRL-SHIFT-F12"
@@ -8327,24 +8353,26 @@ RegisterTest("Key given back: a lone conditional action lets its key go and take
         -- one the beat has to carry. Twice, so a key let go once is shown to come back.
         for round = 1, 2 do
             SecureHandlerExecute(driver, MockBody("combat", true))
-            if not WaitUntil(Ours, 2) then
-                return Fail(NAME, format("round %d: no beat took the key in combat, it answers %q", round,
-                    GetBindingAction(KEY, true) or ""))
+            local moved, why = WaitOnBeat(Ours)
+            if not moved then
+                return Fail(NAME, format("round %d: %s", round, why or format(
+                    "no beat took the key in combat, it answers %q", GetBindingAction(KEY, true) or "")))
             end
             SecureHandlerExecute(driver, MockBody("combat", false))
-            if not WaitUntil(function() return not Ours() end, 2) then
-                return Fail(NAME, format("round %d: no beat let the key go at peace", round))
+            moved, why = WaitOnBeat(function() return not Ours() end)
+            if not moved then
+                return Fail(NAME, format("round %d: %s", round, why or "no beat let the key go at peace"))
             end
         end
 
         HoldUnmatchedKeys()
         ApplyBindings()
         if not Ours() then
-            return Fail(NAME, format("with the option off the key is let go at peace, it answers %q",
+            return Fail(NAME, format("with giveBackWhenNoActionRuns off the key is let go at peace, it answers %q",
                 GetBindingAction(KEY, true) or ""))
         end
 
-        return Pass(NAME, "let go at peace and taken in combat, twice, on the beat; held with the option off")
+        return Pass(NAME, "let go at peace and taken in combat, twice, on the beat; held with giveBackWhenNoActionRuns off")
     end,
 })
 

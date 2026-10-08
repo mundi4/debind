@@ -472,8 +472,8 @@ return function(DebindPrivate)
     end);
 
     --- **Nothing on the plain presses makes no binding at all**, the held twins included, and it is
-    --- an error (S1; 2026-10-04, owner).
-    test("skip with Normal Cast off has no binding and is an error", function()
+    --- an issue (S1; 2026-10-04, owner).
+    test("skip with Normal Cast off has no binding and is an issue", function()
         local action = spell();
         action.casting = {
             normalCast = false,
@@ -510,7 +510,7 @@ return function(DebindPrivate)
     end);
 
     --- The negative half: with the cast keys off, the twin at the usual target is enough to stand
-    --- on. Without it the test above also passes as "always an error".
+    --- on. Without it the test above also passes as "always an issue".
     test("one plain press left is no issue", function()
         local action = spell();
         action.casting = {

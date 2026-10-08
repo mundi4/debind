@@ -758,7 +758,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 Report(Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY, "CONDITION_UNITS");
             end
         elseif (#list == 0) then
-            -- **Cast Options that leave the plain presses nothing are an error there** (2026-10-04,
+            -- **Cast Options that leave the plain presses nothing are an issue there** (2026-10-04,
             -- owner), closable by turning the action off, which says the reader meant it and takes
             -- the mark with it (`action.disabled`).
             --
@@ -768,7 +768,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             -- Options.
             local cause = NoBindingCause(action, list);
             if (cause == "NONE_LEFT") then
-                -- **Turned off, the error has been answered.** Every other code stays, so turning the
+                -- **Turned off, the issue has been answered.** Every other code stays, so turning the
                 -- action back on is not a surprise.
                 if (not action.disabled
                         and (not category or category == "casting") and notCategory ~= "casting") then

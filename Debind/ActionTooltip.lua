@@ -443,7 +443,7 @@ do
 		--
 		-- **An action the reader turned off says so under the block as a reason, not as an issue**,
 		-- the way the specialization line stands under its condition (`GetNotRunningReason`). Values
-		-- that leave no plain press are the other way to stand still, and that one is an error on
+		-- that leave no plain press are the other way to stand still, and that one is an issue on
 		-- this block.
 		do
 			wipe(_lines);
@@ -731,7 +731,7 @@ do
 			if (taken or notTaken or elsewhere) then
 				addLabelLine(tooltip, LLL["CONDITION_TALENT"]);
 			end
-			-- The error rides on the lines the way every other condition's does: two hero trees on
+			-- The issue rides on the lines the way every other condition's does: two hero trees on
 			-- one list is a contradiction the reader undoes here (`Issues.lua`'s `ACTION_CHECKS`).
 			local talentError = hasIssues and GetIssue("talents");
 			if (taken) then
