@@ -283,10 +283,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	OldStates = newtable()
 
-	_macrotextsSeen = newtable()
-	_isUpdatingMacrotests = false
-	_switchesUpdating = newtable()
-
 
 
 
@@ -300,18 +296,13 @@ DelegateFrameNames[frame] = frame:GetName()
 ### SecureBindings.lua #2 SetAttribute
 	local name, value = ...
 	if (States[name] ~= value) then
-		if (not _switchesUpdating[name]) then
-			_switchesUpdating[name] = true
-
-			States[name] = value
-			local wake = JudgeWakes[name]
-			if (wake) then
-				self:RunAttribute(wake)
-			end
-
-			self:CallMethod("OnSwitchChanged", name, value)
-			_switchesUpdating[name] = false
+		States[name] = value
+		local wake = JudgeWakes[name]
+		if (wake) then
+			self:RunAttribute(wake)
 		end
+
+		self:CallMethod("OnSwitchChanged", name, value)
 	end
 
 

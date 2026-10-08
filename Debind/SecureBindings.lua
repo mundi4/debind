@@ -267,10 +267,6 @@ SecureHandlerExecute(BindingDriver, [[
 
 	OldStates = newtable()
 
-	_macrotextsSeen = newtable()
-	_isUpdatingMacrotests = false
-	_switchesUpdating = newtable()
-
 	-- 유닛 조건을 클릭 시점에 풀 때 필요한 분류. 화이트리스트 밖이라 스니펫이 스스로
 	-- 알 수 없으므로 아래에서 실어 보낸다.
 	--
@@ -539,18 +535,13 @@ local CAST_BUTTON_SNIPPET = [==[
 BindingDriver:SetAttribute("SetSwitch", [[
 	local name, value = ...
 	if (States[name] ~= value) then
-		if (not _switchesUpdating[name]) then
-			_switchesUpdating[name] = true
-
-			States[name] = value
-			local wake = JudgeWakes[name]
-			if (wake) then
-				self:RunAttribute(wake)
-			end
-
-			self:CallMethod("OnSwitchChanged", name, value)
-			_switchesUpdating[name] = false
+		States[name] = value
+		local wake = JudgeWakes[name]
+		if (wake) then
+			self:RunAttribute(wake)
 		end
+
+		self:CallMethod("OnSwitchChanged", name, value)
 	end
 ]]);
 
