@@ -88,9 +88,9 @@ do
 	DebindPrivate.BonusBarLabel = GetActionBarTypeLabel;
 end
 
---- The sentence an issue code prints (`IssueSentence`), in the issue colour (`GetIssueColor`). **Every
---- surface that writes one goes through here**, the action tooltip, the menus and the Switches tab, so
---- a sentence that names something gets its name the one way.
+--- The sentence an issue code prints (`IssueSentence`), in the issue colour (`GetIssueColor`), as a
+--- tooltip line. **The rows `MenuKit` builds do not come here**: it paints the row's label in the same
+--- colour, so it takes both from `resolveIssue` (`ActionMenuModel.lua`) and draws the line itself.
 ---
 --- **Some of the sentences name something** -- the switch, the macro or the command that was not
 --- found -- and the name comes as `name`. Without it the reader was handed a raw `%s`.
@@ -139,8 +139,8 @@ do
 		GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
 	end
 
-	--- The condition rows' issue line: unwrapped, at the rows' offset.
-	local function addIssueLine(tooltip, code, wrap, leftOffset, name)
+	--- This tooltip's issue line: unwrapped and at `LEFT_OFFSET` where the caller passes neither.
+	local function addTooltipIssueLine(tooltip, code, name, wrap, leftOffset)
 		DebindPrivate.AddIssueLine(tooltip, code, name, wrap or false, leftOffset or LEFT_OFFSET);
 	end
 
@@ -149,7 +149,7 @@ do
 	local function addValueLine(tooltip, value, issue, wrap, leftOffset)
 		GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		if (issue) then
-			addIssueLine(tooltip, issue, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
+			addTooltipIssueLine(tooltip, issue, nil, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
@@ -158,7 +158,7 @@ do
 			GameTooltip_AddNormalLine(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (issue) then
-			addIssueLine(tooltip, issue, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
+			addTooltipIssueLine(tooltip, issue, nil, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
@@ -234,7 +234,7 @@ do
 			return;
 		end
 		if (said.frameTypes) then
-			addIssueLine(tooltip, said.frameTypes, true);
+			addTooltipIssueLine(tooltip, said.frameTypes, nil, true);
 		elseif (value.frameTypes ~= nil) then
 			local names = FlagNames(value.frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_",
 				Constants.FRAMETYPE_ALL);
@@ -243,7 +243,7 @@ do
 			end
 		end
 		if (said.role) then
-			addIssueLine(tooltip, said.role, true);
+			addTooltipIssueLine(tooltip, said.role, nil, true);
 		elseif (value.role ~= nil and (value.frameTypes == nil
 				or bit.band(value.frameTypes, Constants.FRAMETYPE_GROUP) ~= 0)) then
 			local names = FlagNames(value.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL);
@@ -554,7 +554,7 @@ do
 		local function addUnitLine(text, under)
 			addValueLine(tooltip, text);
 			for i = 1, #under do
-				addIssueLine(tooltip, under[i], nil, LEFT_OFFSET + INDENT_STEP);
+				addTooltipIssueLine(tooltip, under[i], nil, nil, LEFT_OFFSET + INDENT_STEP);
 			end
 		end
 
@@ -626,7 +626,7 @@ do
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
 			if (conditions.groups == 0) then
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED);
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED);
 			else
 				wipe(_lines);
 				for i = 1, #GROUP_TYPES do
@@ -660,7 +660,7 @@ do
 					addUnitLine(summary, under);
 				else
 					for i = 1, #under do
-						addIssueLine(tooltip, under[i]);
+						addTooltipIssueLine(tooltip, under[i]);
 					end
 				end
 			end
@@ -670,7 +670,7 @@ do
 			addLabelLine(tooltip, LLL["CONDITION_SPECS"]);
 
 			if (DebindPrivate.SpecSetIsEmpty(conditions.specs)) then
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_SPECS_NONE_SELECTED);
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_SPECS_NONE_SELECTED);
 			else
 				addValueLine(tooltip, DebindPrivate.DescribeSpecCondition(conditions.specs),
 					hasIssues and GetIssue("specs"));
@@ -777,7 +777,7 @@ do
 		if (conditions.forms ~= nil and conditions.forms ~= Constants.FORM_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
 			if (conditions.forms == 0) then
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_FORMS_NONE_SELECTED);
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_FORMS_NONE_SELECTED);
 			else
 				-- **Numbers on one line, the way the specializations above are drawn.** A name
 				-- each would be eleven rows of a word the label already said, and most of them
@@ -798,7 +798,7 @@ do
 		if (conditions.bonusbars ~= nil and conditions.bonusbars ~= Constants.BONUSBAR_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
 			if (conditions.bonusbars == 0) then
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED);
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("bonusbars");
@@ -845,7 +845,7 @@ do
 			local undefinedSwitch = DebindPrivate.GetUndefinedSwitch(action);
 			if (undefinedSwitch) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, true, nil, undefinedSwitch);
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, undefinedSwitch, true);
 			end
 
 			-- Named here for the same reason. The macro name is the action's `value`, so no
@@ -855,7 +855,7 @@ do
 			local missingMacro = DebindPrivate.GetMissingMacroName(action);
 			if (missingMacro) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, true, nil, missingMacro);
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, missingMacro, true);
 			end
 		end
 
@@ -960,11 +960,6 @@ do
 		end);
 	end
 
-	--- The mark tooltip's issue line: wrapped, the name as `GetBindingIssues` brought it.
-	local function AddIssueLine(tooltip, code, arg, leftOffset)
-		DebindPrivate.AddIssueLine(tooltip, code, arg, true, leftOffset or 0);
-	end
-
 	--- The row's issue mark: every problem on this row, under the name of the group that can fix it.
 	---
 	--- **The title is the order flag's words** (`ORDER_FLAG_ISSUE`), and the line under it says what
@@ -996,7 +991,8 @@ do
 					local other = issues[j];
 					if (not done[j] and other.label == issue.label) then
 						done[j] = true;
-						AddIssueLine(tooltip, other.code, other.arg, issue.label and ISSUE_INDENT or 0);
+						DebindPrivate.AddIssueLine(tooltip, other.code, other.arg, true,
+							issue.label and ISSUE_INDENT or 0);
 					end
 				end
 			end

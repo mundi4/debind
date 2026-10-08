@@ -310,7 +310,9 @@ local function TakeIssue(current, candidate)
 end
 
 --- Is there any point asking another branch? **Only while the strongest there is has not been
---- found**, since nothing below could replace it.
+--- found**, since nothing below could replace it. That is OMIT because no outcome takes the key itself
+--- (`Constants.lua` above the outcomes). One that did would rank above OMIT, and this would have to
+--- stop at that one instead.
 local function LookingForWorse(issue)
     return issue == nil or IssueOutcome(issue) ~= Constants.ISSUE_OUTCOME_OMIT;
 end

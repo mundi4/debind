@@ -102,6 +102,8 @@ function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 	else
 		texture:SetAtlas(art.atlas);
 	end
+	-- **Reset though no kind crops.** `SetTexture` keeps the coordinates the frame last had, so a
+	-- pooled mark that showed an atlas would draw the cursor file cut to that atlas's region.
 	texture:SetTexCoord(0, 1, 0, 1);
 	texture:SetDesaturated(false);
 	texture:SetVertexColor(1, 1, 1);

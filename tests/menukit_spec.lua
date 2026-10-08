@@ -228,7 +228,7 @@ return function(DebindPrivate)
                 return ctx.values[key] ~= nil;
             end,
             resolveIssue = function(issue)
-                return issue, nil;
+                return issue, ORANGE_FONT_COLOR;
             end,
         });
         registry:Define("BARS", { label = "BARS", children = { "BONUS", "SPECIAL" } });
@@ -355,7 +355,7 @@ return function(DebindPrivate)
         local accessor = Accessor();
         local registry = MenuKit.NewRegistry({
             accessor = accessor,
-            resolveIssue = function(issue) return issue, nil; end,
+            resolveIssue = function(issue) return issue, ORANGE_FONT_COLOR; end,
         });
         local parent = FakeDescription();
         registry:Define("KNOWN", {
@@ -384,7 +384,7 @@ return function(DebindPrivate)
     test("the clearing checkbox on a mixed set stores everywhere, then clears everywhere", function()
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
-            resolveIssue = function(issue) return issue, nil; end,
+            resolveIssue = function(issue) return issue, ORANGE_FONT_COLOR; end,
         });
         local parent = FakeDescription();
         registry:Define("KNOWN", {
@@ -525,7 +525,7 @@ return function(DebindPrivate)
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
             newFeatures = tags,
-            resolveIssue = function(issue) return issue, nil; end,
+            resolveIssue = function(issue) return issue, ORANGE_FONT_COLOR; end,
         });
         registry:Define("OUTER", { label = "밖", children = { "INNER" } });
         registry:Define("INNER", {
@@ -597,7 +597,7 @@ return function(DebindPrivate)
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
             newFeatures = { "NEW_THING" },
-            resolveIssue = function(issue) return issue, nil; end,
+            resolveIssue = function(issue) return issue, ORANGE_FONT_COLOR; end,
         });
         registry:Define("PLAIN", {
             label = "밖",
@@ -638,7 +638,7 @@ return function(DebindPrivate)
         local seen = {};
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
-            resolveIssue = function(issue) return issue, nil; end,
+            resolveIssue = function(issue) return issue, ORANGE_FONT_COLOR; end,
             decorateChoice = function(description, ctx, isSelected, data)
                 seen[#seen + 1] = { ctx = ctx, key = data.key, isSelected = isSelected };
             end,
@@ -670,7 +670,7 @@ return function(DebindPrivate)
     test("a node row carries the family's mixed count after its label", function()
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
-            resolveIssue = function(issue) return issue, nil; end,
+            resolveIssue = function(issue) return issue, ORANGE_FONT_COLOR; end,
             mixedCount = function(node, ctx)
                 return ctx.values.mixed;
             end,

@@ -312,9 +312,9 @@ local ISSUE_FIXED_NAMES = {
 	[Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY] = "CONDITION_UNIT_DOES_NOT_EXIST",
 };
 
---- The sentence an issue code prints. **One place, because three surfaces print it**: the row mark's
---- tooltip, the action tooltip's own lines, and the menu (`ActionMenuModel.lua`'s `resolveIssue`).
---- Left to each of them, a code with a `%s` prints the `%s` on whichever one was not told.
+--- The sentence an issue code prints. **One place, because several surfaces print it**
+--- (`DebindPrivate.AddIssueLine`, and `ActionMenuModel.lua`'s `resolveIssue`). Left to each of them,
+--- a code with a `%s` prints the `%s` on whichever one was not told.
 function DebindPrivate.IssueSentence(code, name)
 	-- **`rawget` first, plain indexing second.** A code with a string of its own is the exception,
 	-- and asking for one that is not there has to miss rather than answer with the locale table's
