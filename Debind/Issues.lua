@@ -182,8 +182,8 @@ end
 --- so needs this instead.
 ---
 --- **`ownerName` is not optional, and nil is not "no owner".** An expression naming its own switch
---- is erased rather than read (`EmitMacroTextArg` again) -- a defined name behaving oddly, not a
---- dead one. Passed nil, `[$a]` inside `$a` would be reported as broken.
+--- reads it as on (`EmitMacroTextArg` again) -- a defined name behaving oddly, not a dead one.
+--- Passed nil, `[$a]` inside `$a` would be reported as broken.
 ---
 --- **The first the parser hands over, not the lowest.** These arrive in the order they were typed,
 --- unlike the condition keys above, so the first is already the same one on every draw and it is

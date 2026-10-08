@@ -379,14 +379,11 @@ return function(DebindPrivate, _, ctx)
         return list;
     end
 
-    --- Every point of the columns `key`'s item and its base key's item measure, item against press.
-    --- Answers the outcomes the press gave, so a case can say which it expected to see.
-    local function Sweep(key)
-        local items = DebindPrivate.JudgmentItems;
-        local item = items[key];
-        check(item, key .. " has no judgment item");
+    --- Every column the records `items` were built from measure, once each: not only the ones
+    --- `Judgment.Build` kept, so a column it dropped wrongly is moved too.
+    local function ColumnsOf(items)
         local columns, seen = {}, {};
-        local function take(built)
+        for _, built in ipairs(items) do
             for _, entry in ipairs(builtFrom[built]) do
                 for _, column in ipairs(entry.constraints) do
                     if (not seen[column.key]) then
@@ -396,59 +393,26 @@ return function(DebindPrivate, _, ctx)
                 end
             end
         end
-        take(item);
-        if (item.base) then
-            check(items[item.base], key .. "'s base key " .. tostring(item.base) .. " has no item");
-            take(items[item.base]);
-        end
+        return columns;
+    end
 
-        local outcomes, reached = {}, 0;
-        local cells = {};
-        local function Hold(how)
-            local want, got, looped = Expected(key, cells), Actual(key), Looped(key);
-            if (want ~= got or want ~= looped) then
-                local parts = {};
-                for _, column in ipairs(columns) do
-                    parts[#parts + 1] = column.key .. "=" .. cells[column.key];
-                end
-                error(string.format("%s at {%s}%s: the item says %s, the press %s, the loop %s",
-                    key, table.concat(parts, ", "), how, want, got, looped), 0);
-            end
-            return got;
+    local function PointText(columns, cells)
+        local parts = {};
+        for _, column in ipairs(columns) do
+            parts[#parts + 1] = column.key .. "=" .. cells[column.key];
         end
-        --- **Then one column at a time to every other cell, and back** (Q2 of
-        --- `implementing-the-cuts-inside-the-beat-handler.md`). Going from point to point moves
-        --- several columns at once, and a column whose watch fragment is wrong is covered by another
-        --- that moved with it. Every third point is rebuilt on first, so the fragments the pass
-        --- writes are held as well as the first point's.
-        local function Neighbours()
-            if (reached % 3 == 0) then
-                Bind(lastBind[1], lastBind[2], lastBind[3]);
-                Apply(columns, cells);
-                Hold(" after a rebuild");
-            end
-            for _, column in ipairs(columns) do
-                local here = cells[column.key];
-                for _, cell in ipairs(Cells(column.all)) do
-                    if (cell ~= here) then
-                        cells[column.key] = cell;
-                        if (Apply(columns, cells)) then
-                            Hold(", moved to from " .. column.key .. "=" .. here);
-                            cells[column.key] = here;
-                            Apply(columns, cells);
-                            Hold(", back from " .. column.key .. "=" .. cell);
-                        end
-                        cells[column.key] = here;
-                    end
-                end
-            end
-        end
+        return table.concat(parts, ", ");
+    end
+
+    --- Puts the world on every point of `columns` that is a world, and calls `at(cells, reached)`
+    --- there. Answers how many points that was.
+    local function EachPoint(columns, at)
+        local cells, reached = {}, 0;
         local function walk(i)
             if (i > #columns) then
                 if (Apply(columns, cells)) then
                     reached = reached + 1;
-                    outcomes[Hold("")] = true;
-                    Neighbours();
+                    at(cells, reached);
                 end
                 return;
             end
@@ -458,6 +422,62 @@ return function(DebindPrivate, _, ctx)
             end
         end
         walk(1);
+        return reached;
+    end
+
+    --- Every point of the columns `key`'s item and its base key's item measure, item against press.
+    --- Answers the outcomes the press gave, so a case can say which it expected to see.
+    local function Sweep(key)
+        local items = DebindPrivate.JudgmentItems;
+        local item = items[key];
+        check(item, key .. " has no judgment item");
+        local sources = { item };
+        if (item.base) then
+            check(items[item.base], key .. "'s base key " .. tostring(item.base) .. " has no item");
+            sources[2] = items[item.base];
+        end
+        local columns = ColumnsOf(sources);
+
+        local outcomes = {};
+        local function Hold(cells, how)
+            local want, got, looped = Expected(key, cells), Actual(key), Looped(key);
+            if (want ~= got or want ~= looped) then
+                error(string.format("%s at {%s}%s: the item says %s, the press %s, the loop %s",
+                    key, PointText(columns, cells), how, want, got, looped), 0);
+            end
+            return got;
+        end
+        --- **Then one column at a time to every other cell, and back** (Q2 of
+        --- `implementing-the-cuts-inside-the-beat-handler.md`). Going from point to point moves
+        --- several columns at once, and a column whose watch fragment is wrong is covered by another
+        --- that moved with it. Every third point is rebuilt on first, so the fragments the pass
+        --- writes are held as well as the first point's.
+        local function Neighbours(cells, reached)
+            if (reached % 3 == 0) then
+                Bind(lastBind[1], lastBind[2], lastBind[3]);
+                Apply(columns, cells);
+                Hold(cells, " after a rebuild");
+            end
+            for _, column in ipairs(columns) do
+                local here = cells[column.key];
+                for _, cell in ipairs(Cells(column.all)) do
+                    if (cell ~= here) then
+                        cells[column.key] = cell;
+                        if (Apply(columns, cells)) then
+                            Hold(cells, ", moved to from " .. column.key .. "=" .. here);
+                            cells[column.key] = here;
+                            Apply(columns, cells);
+                            Hold(cells, ", back from " .. column.key .. "=" .. cell);
+                        end
+                        cells[column.key] = here;
+                    end
+                end
+            end
+        end
+        local reached = EachPoint(columns, function(cells, reached)
+            outcomes[Hold(cells, "")] = true;
+            Neighbours(cells, reached);
+        end);
         check(reached > 0, key .. ": no point of its columns is a world");
         interp:clearHoverSlot();
         return outcomes;
@@ -504,22 +524,112 @@ return function(DebindPrivate, _, ctx)
         check(calls == 3, "built " .. calls .. " items for the bare key and two tiers");
     end);
 
-    -- **No item is built for a key that could only answer ours**, even with the option on, where
-    -- its end is a giveback behind the action with no condition. A rebuild of a profile of such keys
-    -- would otherwise build one per key to throw it away.
-    test("a key ending in an action with no condition builds no item", function()
-        local build, calls = Judgment.Build, 0;
-        Judgment.Build = function(...)
-            calls = calls + 1;
-            return build(...);
+    --- Every point of the columns `items` were built over, with the press and the loop both ours
+    --- on `key`. **For an item `IsAlwaysOurs` threw away**, which `Sweep` cannot reach: the key
+    --- keeps no item, so nothing else holds it against the press. A chord is handed its base key's
+    --- item beside its own, since its press falls to the base key where its tier has no winner.
+    local function HoldsEverywhere(key, items)
+        local columns = ColumnsOf(items);
+        local reached = EachPoint(columns, function(cells)
+            local pressed, looped = Actual(key), Looped(key);
+            if (pressed ~= Judgment.OURS or looped ~= Judgment.OURS) then
+                error(string.format("%s at {%s}: the press %s, the loop %s", key,
+                    PointText(columns, cells), pressed, looped), 0);
+            end
+        end);
+        check(reached > 0, key .. ": no point of its columns is a world");
+    end
+
+    -- **A key that answers ours in every state keeps no item, and its chords none either**: one
+    -- ending in an action with no condition, and conditional ones that between them cover every
+    -- state. Thrown away, an item is held by nothing else, so the press and the loop are asked at
+    -- every point of it. A key that does not cover keeps its item and is swept as any other.
+    test("a key ours in every state keeps no item, and holds at every point", function()
+        local cases = {
+            { what = "an action with no condition", dropped = true, actions = {
+                action({ conditions = { combat = true } }), action({}) } },
+            { what = "combat and not", dropped = true, actions = {
+                action({ conditions = { combat = true } }), action({ conditions = { combat = false } }) } },
+            { what = "every group", dropped = true, actions = {
+                action({ conditions = { groups = Constants.GROUP_NONE } }),
+                action({ conditions = { groups = Constants.GROUP_PARTY } }),
+                action({ conditions = { groups = Constants.GROUP_RAID } }) } },
+            { what = "combat, and mounted out of it", dropped = false, actions = {
+                action({ conditions = { combat = true } }),
+                action({ conditions = { combat = false, mounted = true } }) } },
+        };
+        for _, case in ipairs(cases) do
+            local build, bare = Judgment.Build, nil;
+            Judgment.Build = function(entries, base)
+                local item = build(entries, base);
+                if (base == nil) then
+                    bare = item;
+                end
+                return item;
+            end
+            local ok, err = pcall(Bind, case.actions);
+            Judgment.Build = build;
+            check(ok, tostring(err));
+            check(bare, case.what .. ": no item was built for F1");
+            if (DebindPrivate.JudgmentItems.F1) then
+                Sweep("F1");
+            else
+                HoldsEverywhere("F1", { bare });
+            end
+            check((next(DebindPrivate.JudgmentItems) == nil) == case.dropped,
+                case.what .. ": items are " .. (case.dropped and "" or "not ") .. "left");
+        end
+    end);
+
+    -- **A chord is dropped the same way.** The bare key keeps its item for the giveback ahead, which
+    -- stands in no cast key tier; the self and focus twins of `[combat]` and `[nocombat]` cover
+    -- every state, so no chord ever falls to the bare key's answer.
+    test("a chord whose twins cover every state keeps no item, and holds at every point", function()
+        local build, built = Judgment.Build, {};
+        Judgment.Build = function(entries, base)
+            local item = build(entries, base);
+            built[#built + 1] = item;
+            return item;
         end
         local ok, err = pcall(Bind, {
+            action({ type = Constants.GIVEBACK, conditions = { mounted = true } }),
             action({ conditions = { combat = true } }),
-            action({}),
+            action({ conditions = { combat = false } }),
         });
         Judgment.Build = build;
         check(ok, tostring(err));
-        check(calls == 0, "built " .. calls .. " items");
+        local items = DebindPrivate.JudgmentItems;
+        check(items.F1, "setup: F1 has no item");
+        for chord in pairs(TIER) do
+            check(items[chord] == nil, chord .. " kept an item");
+            HoldsEverywhere(chord, built);
+        end
+    end);
+
+    -- **An entry of another kind is reached only where no ours entry ahead of it holds**
+    -- (`Judgment.IsAlwaysOurs`). Asked of the item and not through a rebuild: there the solver takes a
+    -- command or a giveback that conditional actions cover off the key before any item is built
+    -- (`plan_spec.lua`), so the item never sees one. Ahead of them, the same two are reached.
+    test("entries of another kind count only against the ours entries ahead of them", function()
+        local function Record(name, value)
+            return { fieldNames = { name }, fieldValues = { value }, fieldCount = name and 1 or 0,
+                units = {}, switches = {} };
+        end
+        local OURS, COMMAND, RELEASE = Judgment.OURS, Judgment.COMMAND, Judgment.RELEASE;
+        local combat, nocombat = Judgment.Entry(Record("combat", true), OURS),
+            Judgment.Entry(Record("combat", false), OURS);
+        local mounted = Judgment.Entry(Record("mounted", true), RELEASE);
+        local stealth = Judgment.Entry(Record("stealth", true), COMMAND, MAP);
+        local rest = Judgment.Entry(Record(nil, nil), RELEASE);
+
+        local below = Judgment.Build({ combat, nocombat, mounted, stealth, rest });
+        check(#below.entries == 4, "setup: the item kept " .. #below.entries .. " entries, not four");
+        check(Judgment.IsAlwaysOurs(below), "a giveback and a command below combat and not were reached");
+
+        for _, ahead in ipairs({ mounted, stealth }) do
+            local item = Judgment.Build({ ahead, combat, nocombat, rest });
+            check(not Judgment.IsAlwaysOurs(item), ahead.outcome .. " ahead of combat and not was not reached");
+        end
     end);
 
     test("B1 B2 an unused under a conditional action", function()
@@ -596,14 +706,24 @@ return function(DebindPrivate, _, ctx)
     end);
 
     test("M a switch-conditioned unused between a conditional action and a pointed one", function()
-        Bind({
+        local build, built = Judgment.Build, {};
+        Judgment.Build = function(entries, base)
+            local item = build(entries, base);
+            built[#built + 1] = item;
+            return item;
+        end
+        local ok, err = pcall(Bind, {
             action({ value = 585, conditions = { combat = true } }),
             action({ type = Constants.GIVEBACK, conditions = { ["$s1"] = true } }),
             action({ casting = { hoverCast = "cast" } }),
         });
+        Judgment.Build = build;
+        check(ok, tostring(err));
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
-        -- The pointed action's focus twin stands on nothing, so the focus chord is never let go.
-        Saw(Sweep("ALT-F1"), Judgment.OURS);
+        -- The pointed action's focus twin stands on nothing, so the focus chord is never let go, and
+        -- keeps no item.
+        check(DebindPrivate.JudgmentItems["ALT-F1"] == nil, "ALT-F1 kept an item");
+        HoldsEverywhere("ALT-F1", built);
     end);
 
     -- **A tail follows Hover Cast like any action** (`taking-off-out-of-hover-cast.md` §2-1), so at

@@ -515,7 +515,7 @@ local _workBudget = 0;
 local _nodeCount = 0;
 local _gaveUp = false;
 
-local function isCovered(region, covers, coverCount, depth)
+local function isCovered(region, covers, coverCount, numColumns, depth)
     if (_workBudget <= 0) then
         _gaveUp = true;
         return false;   -- 포기 = "안 덮임" = 바인딩을 남긴다
@@ -523,7 +523,7 @@ local function isCovered(region, covers, coverCount, depth)
     -- 이 노드가 치를 값. 살아있는 커버를 전부, 그 안에서 컬럼을 전부 훑으므로 곱이다.
     -- 노드 수만 세면 커버가 늘거나 컬럼이 넓어지는 것을 예산이 못 본다 -- 실제로 342노드가
     -- 21ms인 것을 노드 수로는 설명할 수 없었다.
-    _workBudget = _workBudget - coverCount * _numColumns;
+    _workBudget = _workBudget - coverCount * numColumns;
     _nodeCount = _nodeCount + 1;
 
     if (depth > Stats.maxDepth) then
@@ -539,7 +539,7 @@ local function isCovered(region, covers, coverCount, depth)
         local intersects = true;
         local pieces = 0;
 
-        for col = 1, _numColumns do
+        for col = 1, numColumns do
             local value = region[col];
             if (band(value, other[col]) == 0) then
                 -- 이 축에서 분리 -> 곱공간 전체에서 분리
@@ -573,13 +573,13 @@ local function isCovered(region, covers, coverCount, depth)
     liveCount = liveCount - 1;
 
     local prefix = scratch(_prefixAt, depth);
-    for col = 1, _numColumns do
+    for col = 1, numColumns do
         prefix[col] = band(region[col], other[col]);
     end
 
     local frag = scratch(_fragAt, depth);
 
-    for split = 1, _numColumns do
+    for split = 1, numColumns do
         local remaining = band(region[split], bnot(other[split]));
         if (remaining ~= 0) then
             -- 앞쪽을 교집합으로 눌러서 조각들을 서로소로 만든다
@@ -587,17 +587,36 @@ local function isCovered(region, covers, coverCount, depth)
                 frag[col] = prefix[col];
             end
             frag[split] = remaining;
-            for col = split + 1, _numColumns do
+            for col = split + 1, numColumns do
                 frag[col] = region[col];
             end
 
-            if (not isCovered(frag, live, liveCount, depth + 1)) then
+            if (not isCovered(frag, live, liveCount, numColumns, depth + 1)) then
                 return false;
             end
         end
     end
 
     return true;
+end
+
+--- `isCovered` on boxes laid out by someone else (`Judgment.IsAlwaysOurs`). **The caller's columns
+--- have to keep the header's invariant**: each a partition, every mask inside its column's cells.
+--- Given up is answered as not covered, and that has to be the caller's safe direction too. The stats
+--- are this file's last `CheckUnreachableBindings`, so the depth this reaches is not kept in them.
+--- `_gaveUp` and `_nodeCount` are left as this search leaves them: that function sets both before
+--- each search of its own, and nothing else reads them.
+---
+--- **`budget` is what is left of one question's `MAX_WORK`, nil for a fresh one**, and the second
+--- return value is what is left after this search. A caller asking several searches to answer one
+--- question passes it on, so the question is bound and not each search (`callBudget` in
+--- `CheckUnreachableBindings` below, for the same reason).
+function DebindPrivate.IsBoxCovered(region, covers, coverCount, numColumns, budget)
+    local maxDepth = Stats.maxDepth;
+    _workBudget = budget or MAX_WORK;
+    local covered = isCovered(region, covers, coverCount, numColumns, 1);
+    Stats.maxDepth = maxDepth;
+    return covered, _workBudget;
 end
 
 ---
@@ -694,7 +713,7 @@ function DebindPrivate.CheckUnreachableBindings(bindings)
                 _nodeCount = 0;
                 _gaveUp = false;
 
-                unreachable = isCovered(_conditionsMap[binding], _covers, coverCount, 1);
+                unreachable = isCovered(_conditionsMap[binding], _covers, coverCount, _numColumns, 1);
 
                 local spent = granted - _workBudget;
                 callBudget = callBudget - spent;

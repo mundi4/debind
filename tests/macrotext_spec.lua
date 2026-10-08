@@ -455,10 +455,15 @@ return function(DebindPrivate)
         check(rev:find("[]", 1, true), "the negated form not erased: " .. rev);
     end);
 
-    -- The same name read from a button is the switch's value, so only the owner's own text erases it.
-    test("a switch reading itself in its own expression is erased", function()
+    -- **A decided rule, not a reading of what the code bakes** (owner, 2026-10-08, when marking a self
+    -- reference as an issue was shelved): a switch reads itself as on. So `[no$self]` is false,
+    -- since `$self = [no$self]` has no value that holds and false keeps a binding from firing. The
+    -- same name read from a button is the switch's value, so only the owner's own text reads it as on.
+    test("a switch reading itself in its own expression reads it as on", function()
         local out = bakedText("$self", "[$self,combat]");
         check(out == "[,combat]", "its own expression came out " .. out);
+        local rev = bakedText("$self", "[no$self,combat]");
+        check(rev == "[known:0,combat]", "the negated form came out " .. rev);
         local fromButton = bakedText("btn", "/cast [$self] Foo");
         check(fromButton:find("[<$self>]", 1, true), "read from a button it came out " .. fromButton);
     end);

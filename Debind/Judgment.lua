@@ -6,6 +6,7 @@ local ipairs, pairs, sort = ipairs, pairs, table.sort;
 
 local UnitConditionToState = DebindPrivate.UnitConditionToState;
 local FrameAxesOn = DebindPrivate.FrameAxesOn;
+local IsBoxCovered = DebindPrivate.IsBoxCovered;
 
 --[[
     A key's judgment item (`handing-the-rest-of-a-key-to-the-game.md` 2-2): which of ours, a
@@ -249,10 +250,68 @@ function Judgment.Build(entries, base)
     return item;
 end
 
+--- An entry's box, **from its checks and not from the boxes `Build` made**: those are over every
+--- record's columns, the ones `RecordsItem` left out included, and the checks are what `Judge` and
+--- the loop read. No checks is the whole space.
+local NO_CHECKS = {};
+local function BoxOf(checks, columns)
+    local box = {};
+    for i = 1, #columns do
+        box[i] = columns[i].all;
+    end
+    for _, check in ipairs(checks) do
+        box[check.column] = check.mask;
+    end
+    return box;
+end
+
 --- Does the item answer ours in every state? Such a key is bound once by the rebuild and the loop
 --- has nothing to do for it.
+---
+--- **Asked of the union of the ours entries, not of any one of them**: `[combat]` and `[nocombat]`
+--- hold nowhere alone and everywhere together, and the giveback behind them is never reached. A point
+--- the columns allow and no state reaches goes uncovered and keeps the item, which is the safe
+--- direction.
+---
+--- **Each entry of another kind against the ours entries ahead of it, not against all of them.** The
+--- first entry that holds wins, so a `[mounted]` command ahead of `[combat]` and `[nocombat]` is
+--- reached while mounted although the two cover everything. Only the rest is asked of every ours
+--- entry.
+---
+--- **One budget per item**, so an item's cost does not grow with its entries. A key has up to three
+--- items, its own and one per cast key tier (`ItemFor`). That is the solver's bound too: one budget
+--- per `CheckUnreachableBindings` call, one call per key, and nothing over a whole rebuild.
 function Judgment.IsAlwaysOurs(item)
-    return #item.entries == 0 and item.rest.outcome == Judgment.OURS;
+    local columns = item.columns;
+    local covers, count = {}, 0;
+    local budget, covered;
+    for _, entry in ipairs(item.entries) do
+        local box = BoxOf(entry.checks, columns);
+        if (entry.outcome == Judgment.OURS) then
+            count = count + 1;
+            covers[count] = box;
+        else
+            covered, budget = IsBoxCovered(box, covers, count, #columns, budget);
+            if (not covered) then
+                return false;
+            end
+        end
+    end
+    if (item.rest.outcome == Judgment.OURS) then
+        return true;
+    end
+    return (IsBoxCovered(BoxOf(NO_CHECKS, columns), covers, count, #columns, budget));
+end
+
+--- The item a bare key, or a chord's tier, is judged by: nil where it answers ours in every state,
+--- and the key or chord is then bound once by the rebuild and never judged. **A chord's tier
+--- answers through its base key only past its own entries** (`BASE`), so one whose twins cover
+--- every state is dropped whatever its base key answers.
+function Judgment.ItemFor(entries, base)
+    local item = Judgment.Build(entries, base);
+    if (not Judgment.IsAlwaysOurs(item)) then
+        return item;
+    end
 end
 
 --- What an item answers where `point[column]` is the one cell measured in each column. A chord's

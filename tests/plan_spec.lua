@@ -245,6 +245,70 @@ return function(DebindPrivate)
             "a key with no tail asked for the beat with the option off");
     end);
 
+    -- **Conditional actions that between them hold in every state leave nothing to judge.** No one
+    -- of them holds everywhere, so the key still ends in its giveback, which no state reaches. A
+    -- command or a giveback action below them is unreachable the same way, and the solver takes it
+    -- off the key before an item is built; `judgment_spec.lua` asks the item about one that gets
+    -- there. One that a state reaches, or one standing ahead of them, keeps the loop.
+    --
+    -- **Every cell of a column counts, not just the two a condition names.** Groups have three and
+    -- take all three to cover. A unit is absent or one of six states, so a focus that exists and
+    -- none cover it, and a friendly one and none leave a hostile focus, where the key is let go.
+    test("a key whose conditional actions cover every state asks for no loop", function()
+        local MAP = "TOGGLEWORLDMAP";
+        local GIVEBACK = Constants.GIVEBACK;
+        local wrong = {};
+        for _, case in ipairs({
+            { what = "a giveback below combat and not", judges = false, actions = {
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", conditions = { combat = false } }),
+                spell({ key = "F1", type = GIVEBACK, conditions = { mounted = true } }),
+            } },
+            { what = "a giveback ahead of combat and not", judges = true, actions = {
+                spell({ key = "F1", type = GIVEBACK, conditions = { mounted = true } }),
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", conditions = { combat = false } }),
+            } },
+            { what = "every group", judges = false, actions = {
+                spell({ key = "F1", conditions = { groups = Constants.GROUP_NONE } }),
+                spell({ key = "F1", conditions = { groups = Constants.GROUP_PARTY } }),
+                spell({ key = "F1", conditions = { groups = Constants.GROUP_RAID } }),
+            } },
+            { what = "a focus and none", judges = false, actions = {
+                spell({ key = "F1", conditions = { units = { focus = {} } } }),
+                spell({ key = "F1", conditions = { units = { focus = false } } }),
+            } },
+            { what = "a friendly focus and none", judges = true, actions = {
+                spell({ key = "F1", conditions = { units = { focus = { reaction = Constants.REACTION_HELP } } } }),
+                spell({ key = "F1", conditions = { units = { focus = false } } }),
+            } },
+            { what = "combat and not", judges = false, actions = {
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", conditions = { combat = false } }),
+            } },
+            { what = "a command below combat and not", judges = false, actions = {
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", conditions = { combat = false } }),
+                spell({ key = "F1", type = Constants.COMMAND, value = MAP, conditions = { mounted = true } }),
+            } },
+            { what = "combat, and mounted out of it", judges = true, actions = {
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", conditions = { combat = false, mounted = true } }),
+            } },
+            { what = "a command ahead of combat and not", judges = true, actions = {
+                spell({ key = "F1", type = Constants.COMMAND, value = MAP, conditions = { mounted = true } }),
+                spell({ key = "F1", conditions = { combat = true } }),
+                spell({ key = "F1", conditions = { combat = false } }),
+            } },
+        }) do
+            local plan = PlanFor(case.actions);
+            if (plan.judges ~= case.judges) then
+                wrong[#wrong + 1] = case.what .. ": judges is " .. tostring(plan.judges);
+            end
+        end
+        check(#wrong == 0, table.concat(wrong, "; "));
+    end);
+
     -- **The beat goes through `state-visibility` only on the login check's yes** (`BeatSignal.lua`).
     -- No answer yet and a no both keep the `"a"` driver, which is the one that works whatever the
     -- manager does.

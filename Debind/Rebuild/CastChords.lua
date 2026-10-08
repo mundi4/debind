@@ -246,10 +246,15 @@ local function EmitCastChords(selfMod, focusMod, judgmentItems, chordEntries)
                 appendLine("c=newtable() c.clickButton=%q c.base=%q c.priority=%s BoundKeys[%q]=c",
                     button, key, tostring(priority), chord);
                 if (chordEntries[key]) then
-                    local item = _tierItems[tier]
-                        or DebindPrivate.Judgment.Build(chordEntries[key][tier], key);
-                    _tierItems[tier] = item;
-                    judgmentItems[chord] = item;
+                    -- `false` keeps a tier with no item for a second chord on it.
+                    local item = _tierItems[tier];
+                    if (item == nil) then
+                        item = DebindPrivate.Judgment.ItemFor(chordEntries[key][tier], key) or false;
+                        _tierItems[tier] = item;
+                    end
+                    if (item) then
+                        judgmentItems[chord] = item;
+                    end
                 end
             end
         end

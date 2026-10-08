@@ -226,13 +226,15 @@ end
 
 --- One `[$switch]` clause of a macro body, as the argument the restricted side re-evaluates.
 ---
---- **Two cases share this branch and they bake different values.**
+--- **Two names are baked rather than read at run time**: the switch's own name inside its
+--- expression, and a name nothing defines. Their values follow from different reasons.
 ---
---- Erasing a self reference (`[$a]` inside `$a`'s own expression) to `""` is deliberate - reading
---- your own value there has the value eat itself.
+--- **A switch reads itself as on inside its own expression**, so `[$a]` there is erased to `""` and
+--- `[no$a]` is `known:0`. One rule, not two: read as a value, `$a = [$a]` admits on (and off) and
+--- `$a = [no$a]` admits nothing, so that one falls to false.
 ---
---- Undefined is the opposite. `""` turns `[$typo]` into `[]`, which is **always true**, so one
---- typo makes a binding fire more rather than less. It falls to false instead.
+--- Undefined is false either way. `""` turns `[$typo]` into `[]`, which is **always true**, so one
+--- typo would make a binding fire more rather than less.
 ---
 --- `GetBindingIssue`'s `UNDEFINED_SWITCH` keeps such an action out of `KeyMap`, **and that is no
 --- reason to leave this empty.** That side judges by the name the parser saw and this one by the

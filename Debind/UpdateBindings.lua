@@ -938,25 +938,11 @@ function UpdateBindingsMap()
             -- no plain press when it is set to run only while pointing, or has every cast value
             -- off, and the item knows that from the records.
             --
-            -- **Not built where the item could only say ours**: walking the entries in the press's
-            -- order, one that holds everywhere (no constraint) and answers ours is reached before any
-            -- answer of another kind. That is a key ending in an action with no condition, which with
-            -- the option on still ends in `GIVEBACK_END` behind it, and every key with no tail with
-            -- the option off.
-            local Judgment = DebindPrivate.Judgment;
-            local entries = tiers[Constants.CASTMOD_NONE];
-            local answersOther = false;
-            for i = 1, #entries do
-                local entry = entries[i];
-                if (entry.outcome ~= Judgment.OURS) then
-                    answersOther = true;
-                    break;
-                elseif (#entry.constraints == 0) then
-                    break;
-                end
-            end
-            local item = answersOther and Judgment.Build(entries);
-            if (item and not Judgment.IsAlwaysOurs(item)) then
+            -- **No key is spared `ItemFor`, one whose answer shows without it included** (an action
+            -- with no condition reached first). That function is the one place deciding which keys
+            -- are judged; asking it costs a rebuild hundredths of a ms per key and the beat nothing.
+            local item = DebindPrivate.Judgment.ItemFor(tiers[Constants.CASTMOD_NONE]);
+            if (item) then
                 judgmentItems[key] = item;
                 _chordEntries[key] = tiers;
             end
