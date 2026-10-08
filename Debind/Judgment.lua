@@ -48,14 +48,14 @@ local FRAMETYPE_ALL = Constants.FRAMETYPE_ALL + Judgment.FRAMETYPE_NOFRAME;
 
 local BOOL_FIELDS = {
     combat = true, stealth = true, mounted = true, indoors = true, flyable = true,
-    advflyable = true, flying = true, skyriding = true, extrabar = true, petbattle = true,
-    specialbar = true,
+    advflyable = true, flying = true, skyriding = true, extrabar = true,
 };
 
 local MASK_FIELDS = {
     groups = Constants.GROUP_ALL,
     forms = Constants.FORM_ALL,
     bonusbars = Constants.BONUSBAR_ALL,
+    bartakeover = Constants.BARTAKEOVER_ALL,
 };
 
 local function constrain(out, key, kind, arg, all, mask, knownID)

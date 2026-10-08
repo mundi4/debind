@@ -400,9 +400,7 @@ return function(DebindPrivate, DebindStorage)
         -- `DropDownMenus.lua`의 `setActionValue`가 조건에 쓰는 것: 예/아니오/안 물음 = true/false/nil.
         combat = true,
         stealth = true,
-        specialbar = true,
         extrabar = true,
-        petbattle = true,
         mounted = true,
         indoors = true,
         flyable = true,
@@ -412,6 +410,7 @@ return function(DebindPrivate, DebindStorage)
         -- Bit masks, compared `== 0` in `Issues.lua`.
         forms = 6,
         groups = 3,
+        bartakeover = Constants.BARTAKEOVER_REPLACED + Constants.BARTAKEOVER_PETBATTLE,
         -- **The skyriding offset bit is set as well.** `skyriding` and `bonusbars` read the same
         -- `GetBonusBarOffset()`, so a mask without bit 5 beside `skyriding = true` is a
         -- contradiction `GetBindingIssue` catches (`Issues.lua`). What this sample asks is whether

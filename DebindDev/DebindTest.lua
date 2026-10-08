@@ -8691,11 +8691,11 @@ RegisterTest("Tail: a switch set by hand moves the key through two computed swit
 
 -- **A pet battle is pushed to the loop, not measured on the beat** (`trimming-the-tail-key-beat.md`
 -- 3-3). What the events push is headless (`tests/judgment_spec.lua`); what is left for the client is
--- that `SetPetBattle` and the wake it runs work in the restricted environment, for `petbattle` and
--- for `specialbar`, which reads the pushed value beside the bars it parses. A battle cannot be
--- started on demand, so the value is pushed the way the events push it.
+-- that `SetPetBattle` and the wake it runs work in the restricted environment, for a `bartakeover`
+-- that asks only about the battle and for one that also parses the bars. A battle cannot be started
+-- on demand, so the value is pushed the way the events push it.
 RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
-    description = "SetPetBattle rebinds a key on [petbattle] and one on [nospecialbar] with no beat, and SeedPetBattle puts the world's value back",
+    description = "SetPetBattle rebinds a key on Pet Battles and one on None with no beat, and SeedPetBattle puts the world's value back",
     run = function()
         local NAME = "Tail pet battle"
         local BATTLE_KEY = "CTRL-SHIFT-F12"
@@ -8716,9 +8716,11 @@ RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
             end
         end)
 
-        InsertAction({ type = Constants.SPELL, value = 585, key = BATTLE_KEY, petbattle = true })
+        InsertAction({ type = Constants.SPELL, value = 585, key = BATTLE_KEY,
+            bartakeover = Constants.BARTAKEOVER_PETBATTLE })
         InsertAction({ type = Constants.COMMAND, value = COMMAND, key = BATTLE_KEY })
-        InsertAction({ type = Constants.SPELL, value = 585, key = BAR_KEY, specialbar = false })
+        InsertAction({ type = Constants.SPELL, value = 585, key = BAR_KEY,
+            bartakeover = Constants.BARTAKEOVER_NONE })
         InsertAction({ type = Constants.COMMAND, value = COMMAND, key = BAR_KEY })
         ApplyBindings()
 

@@ -273,12 +273,12 @@ local function Build()
     end, noActionChoices);
 
     local actionButtonChoices = {
-        { replacedBar = true, petBattle = false, label = L["CONDITION_SPECIALBAR"],
+        { replacedBar = true, petBattle = false, label = L["CONDITION_BARTAKEOVER_REPLACED"],
             tooltip = L["GIVE_BACK_REPLACED_BAR_DESC"] },
         { replacedBar = false, petBattle = true, label = L["GIVE_BACK_PET_BATTLES"],
             tooltip = L["GIVE_BACK_PET_BATTLES_DESC"] },
         { replacedBar = true, petBattle = true,
-            label = format(L["GIVE_BACK_BOTH"], L["CONDITION_SPECIALBAR"], L["GIVE_BACK_PET_BATTLES"]) },
+            label = format(L["GIVE_BACK_BOTH"], L["CONDITION_BARTAKEOVER_REPLACED"], L["GIVE_BACK_PET_BATTLES"]) },
         { replacedBar = false, petBattle = false, label = L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"],
             tooltip = L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] },
     };

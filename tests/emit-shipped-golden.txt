@@ -1889,38 +1889,38 @@ Execute <Frame#2>
   | c=newtable() c.clickButton="@SHIFT-F12#2" c.base="SHIFT-F12" c.priority=false BoundKeys["CTRL-SHIFT-F12"]=c
   | JudgeStaged[2]=newtable()
   | w=newtable() JudgeStaged.byCell[1]=w
-  | w[1]="[bonusbar:1/2/3/4/5,nobonusbar:2] 1; "
-  | w[2]="[nobonusbar:1/2/3/4/5][bonusbar:2] 1; "
+  | w[1]="[vehicleui][possessbar][overridebar][shapeshift] 1; "
+  | w[2]="[novehicleui,nopossessbar,nooverridebar,noshapeshift] 1; "
   | JudgeStaged[4]=newtable()
   | w=newtable() JudgeStaged.byCell[2]=w
-  | w[1]="[nocombat] 2; "
-  | w[2]="[combat] 2; "
+  | w[1]="[bonusbar:1/2/3/4/5,nobonusbar:2] 2; "
+  | w[2]="[nobonusbar:1/2/3/4/5][bonusbar:2] 2; "
   | JudgeStaged[6]=newtable()
   | w=newtable() JudgeStaged.byCell[3]=w
-  | w[1]="[noextrabar] 3; "
-  | w[2]="[extrabar] 3; "
+  | w[1]="[nocombat] 3; "
+  | w[2]="[combat] 3; "
   | JudgeStaged[8]=newtable()
   | w=newtable() JudgeStaged.byCell[4]=w
-  | w[1]="[form:1/2/3/4/5/6/7/8/9/10] 4; "
-  | w[2]="[noform:1] 4; "
-  | w[4]="[noform:2] 4; "
-  | w[8]="[noform:3] 4; "
-  | w[16]="[noform:4] 4; "
-  | w[32]="[noform:5] 4; "
-  | w[64]="[noform:6] 4; "
-  | w[128]="[noform:7] 4; "
-  | w[256]="[noform:8] 4; "
-  | w[512]="[noform:9] 4; "
-  | w[1024]="[noform:10] 4; "
+  | w[1]="[noextrabar] 4; "
+  | w[2]="[extrabar] 4; "
   | JudgeStaged[10]=newtable()
-  | JudgeStaged[12]=newtable()
   | w=newtable() JudgeStaged.byCell[5]=w
-  | w[1]="[noknown:Regrowth] 5; "
-  | w[2]="[known:Regrowth] 5; "
+  | w[1]="[form:1/2/3/4/5/6/7/8/9/10] 5; "
+  | w[2]="[noform:1] 5; "
+  | w[4]="[noform:2] 5; "
+  | w[8]="[noform:3] 5; "
+  | w[16]="[noform:4] 5; "
+  | w[32]="[noform:5] 5; "
+  | w[64]="[noform:6] 5; "
+  | w[128]="[noform:7] 5; "
+  | w[256]="[noform:8] 5; "
+  | w[512]="[noform:9] 5; "
+  | w[1024]="[noform:10] 5; "
+  | JudgeStaged[12]=newtable()
   | JudgeStaged[14]=newtable()
   | w=newtable() JudgeStaged.byCell[6]=w
-  | w[1]="[novehicleui,nopossessbar,nooverridebar,noshapeshift] 6; "
-  | w[2]="[vehicleui][possessbar][overridebar][shapeshift] 6; "
+  | w[1]="[noknown:Regrowth] 6; "
+  | w[2]="[known:Regrowth] 6; "
   | JudgeStaged[16]=newtable()
   | w=newtable() JudgeStaged.byCell[7]=w
   | w[1]="[nostealth] 7; "
@@ -1954,44 +1954,44 @@ Execute <Frame#2>
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[2]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=9 e[2]=8
+  | e[1]=11 e[2]=8
   | e[3]=25 e[4]=126
-  | tinsert(JudgeStaged[10],b)
+  | tinsert(JudgeStaged[12],b)
   | tinsert(JudgeStaged[26],b)
   | j=newtable() j.key="ALT-F2" j.slot=BoundKeys["ALT-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[2] JudgeByKey["ALT-F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[3]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=3 e[2]=1
-  | tinsert(JudgeStaged[4],b)
+  | e[1]=5 e[2]=1
+  | tinsert(JudgeStaged[6],b)
   | j=newtable() j.key="ALT-F5" j.slot=BoundKeys["ALT-F5"] j.bound="ours" j.bundle=JudgeStaged.bundles[3] JudgeByKey["ALT-F5"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[4]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=3 e[2]=1
+  | e[1]=5 e[2]=1
   | e=newtable() e.outcome="ours" b[2]=e
   | e[1]=23 e[2]=126
   | e[3]=29 e[4]=10
-  | tinsert(JudgeStaged[4],b)
+  | tinsert(JudgeStaged[6],b)
   | tinsert(JudgeStaged[24],b)
   | tinsert(JudgeStaged[30],b)
   | j=newtable() j.key="ALT-F8" j.slot=BoundKeys["ALT-F8"] j.bound="ours" j.bundle=JudgeStaged.bundles[4] JudgeByKey["ALT-F8"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[5]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=3 e[2]=1
+  | e[1]=5 e[2]=1
   | e=newtable() e.outcome="ours" b[2]=e
   | e[1]=19 e[2]=126
   | e[3]=27 e[4]=14
-  | tinsert(JudgeStaged[4],b)
+  | tinsert(JudgeStaged[6],b)
   | tinsert(JudgeStaged[20],b)
   | tinsert(JudgeStaged[28],b)
   | j=newtable() j.key="ALT-F9" j.slot=BoundKeys["ALT-F9"] j.bound="ours" j.bundle=JudgeStaged.bundles[5] JudgeByKey["ALT-F9"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[6]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=7 e[2]=3
-  | tinsert(JudgeStaged[8],b)
+  | e[1]=9 e[2]=3
+  | tinsert(JudgeStaged[10],b)
   | j=newtable() j.key="CTRL-F1" j.slot=BoundKeys["CTRL-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[6] JudgeByKey["CTRL-F1"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[7]=b
   | b.restOutcome="release"
@@ -2008,20 +2008,20 @@ Execute <Frame#2>
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[9]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=1 e[2]=5
-  | tinsert(JudgeStaged[2],b)
+  | e[1]=3 e[2]=5
+  | tinsert(JudgeStaged[4],b)
   | j=newtable() j.key="CTRL-F2" j.slot=BoundKeys["CTRL-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[9] JudgeByKey["CTRL-F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[10]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=13 e[2]=1
-  | tinsert(JudgeStaged[14],b)
+  | e[1]=1 e[2]=6
+  | tinsert(JudgeStaged[2],b)
   | j=newtable() j.key="CTRL-F3" j.slot=BoundKeys["CTRL-F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[10] JudgeByKey["CTRL-F3"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[11]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=5 e[2]=1
-  | tinsert(JudgeStaged[6],b)
+  | e[1]=7 e[2]=1
+  | tinsert(JudgeStaged[8],b)
   | j=newtable() j.key="CTRL-F4" j.slot=BoundKeys["CTRL-F4"] j.bound="ours" j.bundle=JudgeStaged.bundles[11] JudgeByKey["CTRL-F4"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[12]=b
   | b.restOutcome="release"
@@ -2032,8 +2032,8 @@ Execute <Frame#2>
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[13]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=11 e[2]=1
-  | tinsert(JudgeStaged[12],b)
+  | e[1]=13 e[2]=1
+  | tinsert(JudgeStaged[14],b)
   | j=newtable() j.key="CTRL-F6" j.slot=BoundKeys["CTRL-F6"] j.bound="ours" j.bundle=JudgeStaged.bundles[13] JudgeByKey["CTRL-F6"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[14]=b
   | b.restOutcome="release"
@@ -2060,18 +2060,18 @@ Execute <Frame#2>
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[18]=b
   | b.restOutcome="release"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=3 e[2]=1
+  | e[1]=5 e[2]=1
   | e=newtable() e.outcome="ours" b[2]=e
   | e[1]=15 e[2]=1
-  | tinsert(JudgeStaged[4],b)
+  | tinsert(JudgeStaged[6],b)
   | tinsert(JudgeStaged[16],b)
   | j=newtable() j.key="F2" j.slot=BoundKeys["F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[18] JudgeByKey["F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[19]=b
   | b.base=JudgeStaged.bundles[6]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=7 e[2]=3
-  | tinsert(JudgeStaged[8],b)
+  | e[1]=9 e[2]=3
+  | tinsert(JudgeStaged[10],b)
   | j=newtable() j.key="ALT-CTRL-F1" j.slot=BoundKeys["ALT-CTRL-F1"] j.bound="ours" j.bundle=JudgeStaged.bundles[19] JudgeByKey["ALT-CTRL-F1"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[20]=b
   | b.base=JudgeStaged.bundles[7]
@@ -2091,22 +2091,22 @@ Execute <Frame#2>
   | b.base=JudgeStaged.bundles[9]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=1 e[2]=5
-  | tinsert(JudgeStaged[2],b)
+  | e[1]=3 e[2]=5
+  | tinsert(JudgeStaged[4],b)
   | j=newtable() j.key="ALT-CTRL-F2" j.slot=BoundKeys["ALT-CTRL-F2"] j.bound="ours" j.bundle=JudgeStaged.bundles[22] JudgeByKey["ALT-CTRL-F2"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[23]=b
   | b.base=JudgeStaged.bundles[10]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=13 e[2]=1
-  | tinsert(JudgeStaged[14],b)
+  | e[1]=1 e[2]=6
+  | tinsert(JudgeStaged[2],b)
   | j=newtable() j.key="ALT-CTRL-F3" j.slot=BoundKeys["ALT-CTRL-F3"] j.bound="ours" j.bundle=JudgeStaged.bundles[23] JudgeByKey["ALT-CTRL-F3"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[24]=b
   | b.base=JudgeStaged.bundles[11]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=5 e[2]=1
-  | tinsert(JudgeStaged[6],b)
+  | e[1]=7 e[2]=1
+  | tinsert(JudgeStaged[8],b)
   | j=newtable() j.key="ALT-CTRL-F4" j.slot=BoundKeys["ALT-CTRL-F4"] j.bound="ours" j.bundle=JudgeStaged.bundles[24] JudgeByKey["ALT-CTRL-F4"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[25]=b
   | b.base=JudgeStaged.bundles[12]
@@ -2119,8 +2119,8 @@ Execute <Frame#2>
   | b.base=JudgeStaged.bundles[13]
   | b.restOutcome="base"
   | e=newtable() e.outcome="ours" b[1]=e
-  | e[1]=11 e[2]=1
-  | tinsert(JudgeStaged[12],b)
+  | e[1]=13 e[2]=1
+  | tinsert(JudgeStaged[14],b)
   | j=newtable() j.key="ALT-CTRL-F6" j.slot=BoundKeys["ALT-CTRL-F6"] j.bound="ours" j.bundle=JudgeStaged.bundles[26] JudgeByKey["ALT-CTRL-F6"]=j tinsert(j.bundle.keys,j)
   | b=newtable() b.want="ours" b.keys=newtable() JudgeStaged.bundles[27]=b
   | b.base=JudgeStaged.bundles[14]
@@ -2287,22 +2287,22 @@ SetAttribute <Frame#2> judge-petbattle =
   | local frags = J.frags
   | local dirty = false
   | do
-  | cell = (J.petBattle or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift]")) and 1 or 2
-  | if (columns[13] ~= cell) then
-  | columns[13] = cell
+  | cell = J.petBattle and 2 or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift] 2; 1") + 0
+  | if (columns[1] ~= cell) then
+  | columns[1] = cell
   | if (not moved) then
   | moved = true
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[14]
+  | local bundles = columns[2]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
   | end
-  | local fragment = (not J.petBattle) and J.byCell[6][cell] or ""
-  | if (frags[6] ~= fragment) then
-  | frags[6] = fragment
+  | local fragment = (not J.petBattle) and J.byCell[1][cell] or ""
+  | if (frags[1] ~= fragment) then
+  | frags[1] = fragment
   | dirty = true
   | end
   | end
@@ -2474,14 +2474,14 @@ SetAttribute <Frame#2> judge-unitframe =
   | end
   | do
   | cell = unitframeFrameType or 128
-  | if (columns[9] ~= cell) then
-  | columns[9] = cell
+  | if (columns[11] ~= cell) then
+  | columns[11] = cell
   | if (not moved) then
   | moved = true
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[10]
+  | local bundles = columns[12]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -2681,21 +2681,30 @@ SetAttribute <Frame#2> JudgePass =
   | dirty = true
   | end
   | do
-  | cell = SecureCmdOptionParse("[nobonusbar:1/2/3/4/5][bonusbar:2] 1; 2") + 0
+  | cell = J.petBattle and 2 or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift] 2; 1") + 0
   | columns[1] = cell
-  | frags[1] = J.byCell[1][cell]
+  | local fragment = (not J.petBattle) and J.byCell[1][cell] or ""
+  | if (frags[1] ~= fragment) then
+  | frags[1] = fragment
   | dirty = true
   | end
+  | end
   | do
-  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
+  | cell = SecureCmdOptionParse("[nobonusbar:1/2/3/4/5][bonusbar:2] 1; 2") + 0
   | columns[3] = cell
   | frags[2] = J.byCell[2][cell]
   | dirty = true
   | end
   | do
-  | cell = SecureCmdOptionParse("[extrabar]") and 1 or 2
+  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | columns[5] = cell
   | frags[3] = J.byCell[3][cell]
+  | dirty = true
+  | end
+  | do
+  | cell = SecureCmdOptionParse("[extrabar]") and 1 or 2
+  | columns[7] = cell
+  | frags[4] = J.byCell[4][cell]
   | dirty = true
   | end
   | do
@@ -2705,13 +2714,13 @@ SetAttribute <Frame#2> JudgePass =
   | form = 0
   | end
   | cell = 2 ^ form
-  | columns[7] = cell
-  | frags[4] = J.byCell[4][cell]
+  | columns[9] = cell
+  | frags[5] = J.byCell[5][cell]
   | dirty = true
   | end
   | do
   | cell = unitframeFrameType or 128
-  | columns[9] = cell
+  | columns[11] = cell
   | end
   | do
   | local asked = "[known:Regrowth]"
@@ -2720,18 +2729,9 @@ SetAttribute <Frame#2> JudgePass =
   | else
   | cell = 2
   | end
-  | columns[11] = cell
-  | frags[5] = J.byCell[5][cell]
-  | dirty = true
-  | end
-  | do
-  | cell = (J.petBattle or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift]")) and 1 or 2
   | columns[13] = cell
-  | local fragment = (not J.petBattle) and J.byCell[6][cell] or ""
-  | if (frags[6] ~= fragment) then
-  | frags[6] = fragment
+  | frags[6] = J.byCell[6][cell]
   | dirty = true
-  | end
   | end
   | do
   | cell = SecureCmdOptionParse("[stealth]") and 1 or 2
@@ -2954,14 +2954,14 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | do
   | cell = unitframeFrameType or 128
-  | if (columns[9] ~= cell) then
-  | columns[9] = cell
+  | if (columns[11] ~= cell) then
+  | columns[11] = cell
   | if (not moved) then
   | moved = true
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[10]
+  | local bundles = columns[12]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -3075,7 +3075,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | end
   | do
-  | cell = SecureCmdOptionParse("[nobonusbar:1/2/3/4/5][bonusbar:2] 1; 2") + 0
+  | cell = J.petBattle and 2 or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift] 2; 1") + 0
   | if (columns[1] ~= cell) then
   | columns[1] = cell
   | if (not moved) then
@@ -3087,12 +3087,15 @@ SetAttribute <Frame#2> _onattributechanged =
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
-  | frags[1] = J.byCell[1][cell]
+  | end
+  | local fragment = (not J.petBattle) and J.byCell[1][cell] or ""
+  | if (frags[1] ~= fragment) then
+  | frags[1] = fragment
   | dirty = true
   | end
   | end
   | do
-  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
+  | cell = SecureCmdOptionParse("[nobonusbar:1/2/3/4/5][bonusbar:2] 1; 2") + 0
   | if (columns[3] ~= cell) then
   | columns[3] = cell
   | if (not moved) then
@@ -3109,7 +3112,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | end
   | do
-  | cell = SecureCmdOptionParse("[extrabar]") and 1 or 2
+  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[5] ~= cell) then
   | columns[5] = cell
   | if (not moved) then
@@ -3126,12 +3129,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | end
   | do
-  | local form = GetShapeshiftForm()
-  | 
-  | if (form > 10) then
-  | form = 0
-  | end
-  | cell = 2 ^ form
+  | cell = SecureCmdOptionParse("[extrabar]") and 1 or 2
   | if (columns[7] ~= cell) then
   | columns[7] = cell
   | if (not moved) then
@@ -3148,20 +3146,20 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | end
   | do
-  | local asked = "[known:Regrowth]"
-  | if (SecureCmdOptionParse(asked)) then
-  | cell = 1
-  | else
-  | cell = 2
+  | local form = GetShapeshiftForm()
+  | 
+  | if (form > 10) then
+  | form = 0
   | end
-  | if (columns[11] ~= cell) then
-  | columns[11] = cell
+  | cell = 2 ^ form
+  | if (columns[9] ~= cell) then
+  | columns[9] = cell
   | if (not moved) then
   | moved = true
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[12]
+  | local bundles = columns[10]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -3170,7 +3168,12 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | end
   | do
-  | cell = (J.petBattle or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift]")) and 1 or 2
+  | local asked = "[known:Regrowth]"
+  | if (SecureCmdOptionParse(asked)) then
+  | cell = 1
+  | else
+  | cell = 2
+  | end
   | if (columns[13] ~= cell) then
   | columns[13] = cell
   | if (not moved) then
@@ -3182,10 +3185,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
-  | end
-  | local fragment = (not J.petBattle) and J.byCell[6][cell] or ""
-  | if (frags[6] ~= fragment) then
-  | frags[6] = fragment
+  | frags[6] = J.byCell[6][cell]
   | dirty = true
   | end
   | end
@@ -3210,7 +3210,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | if (at == 1) then
   | do
-  | cell = SecureCmdOptionParse("[nobonusbar:1/2/3/4/5][bonusbar:2] 1; 2") + 0
+  | cell = J.petBattle and 2 or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift] 2; 1") + 0
   | if (columns[1] ~= cell) then
   | columns[1] = cell
   | if (not moved) then
@@ -3222,13 +3222,16 @@ SetAttribute <Frame#2> _onattributechanged =
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
-  | frags[1] = J.byCell[1][cell]
+  | end
+  | local fragment = (not J.petBattle) and J.byCell[1][cell] or ""
+  | if (frags[1] ~= fragment) then
+  | frags[1] = fragment
   | dirty = true
   | end
   | end
   | elseif (at == 2) then
   | do
-  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
+  | cell = SecureCmdOptionParse("[nobonusbar:1/2/3/4/5][bonusbar:2] 1; 2") + 0
   | if (columns[3] ~= cell) then
   | columns[3] = cell
   | if (not moved) then
@@ -3246,7 +3249,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | elseif (at == 3) then
   | do
-  | cell = SecureCmdOptionParse("[extrabar]") and 1 or 2
+  | cell = SecureCmdOptionParse("[combat]") and 1 or 2
   | if (columns[5] ~= cell) then
   | columns[5] = cell
   | if (not moved) then
@@ -3264,12 +3267,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | elseif (at == 4) then
   | do
-  | local form = GetShapeshiftForm()
-  | 
-  | if (form > 10) then
-  | form = 0
-  | end
-  | cell = 2 ^ form
+  | cell = SecureCmdOptionParse("[extrabar]") and 1 or 2
   | if (columns[7] ~= cell) then
   | columns[7] = cell
   | if (not moved) then
@@ -3287,20 +3285,20 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | elseif (at == 5) then
   | do
-  | local asked = "[known:Regrowth]"
-  | if (SecureCmdOptionParse(asked)) then
-  | cell = 1
-  | else
-  | cell = 2
+  | local form = GetShapeshiftForm()
+  | 
+  | if (form > 10) then
+  | form = 0
   | end
-  | if (columns[11] ~= cell) then
-  | columns[11] = cell
+  | cell = 2 ^ form
+  | if (columns[9] ~= cell) then
+  | columns[9] = cell
   | if (not moved) then
   | moved = true
   | generation = J.generation + 1
   | J.generation = generation
   | end
-  | local bundles = columns[12]
+  | local bundles = columns[10]
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
@@ -3310,7 +3308,12 @@ SetAttribute <Frame#2> _onattributechanged =
   | end
   | elseif (at == 6) then
   | do
-  | cell = (J.petBattle or SecureCmdOptionParse("[vehicleui][possessbar][overridebar][shapeshift]")) and 1 or 2
+  | local asked = "[known:Regrowth]"
+  | if (SecureCmdOptionParse(asked)) then
+  | cell = 1
+  | else
+  | cell = 2
+  | end
   | if (columns[13] ~= cell) then
   | columns[13] = cell
   | if (not moved) then
@@ -3322,10 +3325,7 @@ SetAttribute <Frame#2> _onattributechanged =
   | for k = 1, #bundles do
   | bundles[k].stamp = generation
   | end
-  | end
-  | local fragment = (not J.petBattle) and J.byCell[6][cell] or ""
-  | if (frags[6] ~= fragment) then
-  | frags[6] = fragment
+  | frags[6] = J.byCell[6][cell]
   | dirty = true
   | end
   | end

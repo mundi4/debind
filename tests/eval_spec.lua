@@ -428,8 +428,9 @@ return function(DebindPrivate, _, ctx)
         { name = "combat", conditions = { combat = true }, on = function(s) s.combat = true; end },
         { name = "stealth", conditions = { stealth = true }, on = function(s) s.stealth = true; end },
         { name = "extrabar", conditions = { extrabar = true }, on = function(s) s.extrabar = true; end },
-        { name = "petbattle", conditions = { petbattle = true }, on = function(s) s.petbattle = true; end },
-        { name = "specialbar", conditions = { specialbar = true },
+        { name = "bartakeover battle", conditions = { bartakeover = Constants.BARTAKEOVER_PETBATTLE },
+            on = function(s) s.petbattle = true; end },
+        { name = "bartakeover replaced", conditions = { bartakeover = Constants.BARTAKEOVER_REPLACED },
             on = function(s) s.vehiclebar = true; end },
         { name = "groups", conditions = { groups = Constants.GROUP_RAID },
             on = function(s) s.group = "raid"; end },
@@ -474,21 +475,36 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
-    -- **`specialbar` is three bars folded into one value, plus pet battle.** Any one of them turns
-    -- it on, which is what the state loop measures too -- if the two sides folded it differently
-    -- the same world would answer two ways.
-    test("specialbar answers to each of the bars it folds", function()
-        Bind({
-            action({ value = 585, key = "F1", conditions = { specialbar = true } }),
-            action({ value = 774, key = "F1" }),
-        });
-
-        local FOLDS = { "vehiclebar", "overridebar", "shapeshiftbar", "petbattle" };
-        for i = 1, #FOLDS do
-            interp:resetState();
-            check(winner("F1") == 2, FOLDS[i] .. ": it won with nothing on");
-            interp.state[FOLDS[i]] = true;
-            check(winner("F1") == 1, FOLDS[i] .. " did not turn specialbar on");
+    -- **`bartakeover`, every mask against every world.** Each world lights exactly one cell, a pet
+    -- battle first, then any of the four bars, else none; a mask wins where it holds that cell. The
+    -- pet battle beside a vehicle bar is the world the order decides, and the possession is the bar
+    -- `[vehicleui]` does not answer.
+    test("bartakeover answers each world with its one cell, under every mask", function()
+        local NONE, REPLACED, BATTLE = Constants.BARTAKEOVER_NONE, Constants.BARTAKEOVER_REPLACED,
+            Constants.BARTAKEOVER_PETBATTLE;
+        local WORLDS = {
+            { name = "nothing", cell = NONE, set = {} },
+            { name = "vehicle", cell = REPLACED, set = { vehiclebar = true } },
+            { name = "possession", cell = REPLACED, set = { vehiclebar = true, possessbar = true } },
+            { name = "override", cell = REPLACED, set = { overridebar = true } },
+            { name = "shapeshift", cell = REPLACED, set = { shapeshiftbar = true } },
+            { name = "pet battle", cell = BATTLE, set = { petbattle = true } },
+            { name = "pet battle with a vehicle", cell = BATTLE, set = { petbattle = true, vehiclebar = true } },
+        };
+        for mask = 1, Constants.BARTAKEOVER_ALL do
+            Bind({
+                action({ value = 585, key = "F1", conditions = { bartakeover = mask } }),
+                action({ value = 774, key = "F1" }),
+            });
+            for _, world in ipairs(WORLDS) do
+                interp:resetState();
+                for name, value in pairs(world.set) do
+                    interp.state[name] = value;
+                end
+                local want = bit.band(mask, world.cell) ~= 0 and 1 or 2;
+                check(winner("F1") == want, format("mask %d, %s: got %s, want %d", mask, world.name,
+                    tostring(winner("F1")), want));
+            end
         end
         interp:resetState();
     end);
@@ -1739,7 +1755,10 @@ return function(DebindPrivate, _, ctx)
             local conditions = {};
             if (row.combat ~= nil) then conditions.combat = row.combat; end
             if (row.stealth ~= nil) then conditions.stealth = row.stealth; end
-            if (row.petbattle ~= nil) then conditions.petbattle = row.petbattle; end
+            if (row.petbattle ~= nil) then
+                conditions.bartakeover = row.petbattle and Constants.BARTAKEOVER_PETBATTLE
+                    or (Constants.BARTAKEOVER_NONE + Constants.BARTAKEOVER_REPLACED);
+            end
             if (row.group ~= nil) then conditions.groups = Constants.GROUP_RAID; end
             actions[i] = action({ value = 100 + i, key = "F1", conditions = conditions });
         end

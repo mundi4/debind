@@ -390,7 +390,7 @@ return function(DebindPrivate)
                 { type = Constants.SPELL, value = 3, key = "F", seq = 2,
                     conditions = { mounted = true } },
                 { type = Constants.SPELL, value = 4, key = "F", seq = 15,
-                    conditions = { petbattle = true } },
+                    conditions = { bartakeover = Constants.BARTAKEOVER_PETBATTLE } },
             },
         });
         check(KeyMapOrder("F") == "1 2 3 4", "planted: " .. KeyMapOrder("F"));

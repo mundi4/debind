@@ -29,7 +29,7 @@ local ANSWERS_AS_THE_WORD = {
 --- judges them (7-1: `[<false>,flyable]` 0.23 against `[flyable,<false>]` 5.16).
 local STATE_AXIS_ORDER = {
     "groups", "combat", "stealth", "mounted", "indoors", "flying", "skyriding", "forms", "bonusbars",
-    "specialbar", "extrabar", "petbattle", "flyable", "advflyable",
+    "bartakeover", "extrabar", "flyable", "advflyable",
 };
 local STATE_AXES = {};
 for _, axis in ipairs(STATE_AXIS_ORDER) do
@@ -59,6 +59,9 @@ local function MaskOffsets(mask, from, to)
     end
     return out;
 end
+
+--- The words `BARTAKEOVER_REPLACED` is, any one of them holding.
+local REPLACED_BAR_WORDS = { "vehicleui", "possessbar", "overridebar", "shapeshift" };
 
 --- One axis's value as alternatives of tokens.
 local function StateAlternatives(axis, value)
@@ -98,13 +101,41 @@ local function StateAlternatives(axis, value)
         return alternatives;
     elseif (axis == "skyriding") then
         return { { (value and "" or "no") .. "bonusbar:" .. Constants.BONUSBAR_SKYRIDING } };
-    elseif (axis == "specialbar") then
-        -- The words Keys Given Back already reads a replaced bar by (`GIVE_BACK_REPLACED_BAR`,
-        -- `GIVE_BACK_PET_BATTLE`), so the two read one answer.
-        if (value) then
-            return { { "vehicleui" }, { "possessbar" }, { "overridebar" }, { "shapeshift" }, { "petbattle" } };
+    elseif (axis == "bartakeover") then
+        -- A pet battle is asked first (`BARTAKEOVER_*`), so the other two cells carry `nopetbattle`
+        -- unless the battle is in the set as well.
+        local battle = band(value, Constants.BARTAKEOVER_PETBATTLE) ~= 0;
+        local replaced = band(value, Constants.BARTAKEOVER_REPLACED) ~= 0;
+        local none = band(value, Constants.BARTAKEOVER_NONE) ~= 0;
+        local guard = battle and {} or { "nopetbattle" };
+        local alternatives = {};
+        if (none and replaced) then
+            if (battle) then
+                return {};
+            end
+            return { guard };
+        elseif (replaced) then
+            for _, word in ipairs(REPLACED_BAR_WORDS) do
+                local tokens = { word };
+                for _, token in ipairs(guard) do
+                    tokens[#tokens + 1] = token;
+                end
+                alternatives[#alternatives + 1] = tokens;
+            end
+        elseif (none) then
+            local tokens = {};
+            for i, word in ipairs(REPLACED_BAR_WORDS) do
+                tokens[i] = "no" .. word;
+            end
+            for _, token in ipairs(guard) do
+                tokens[#tokens + 1] = token;
+            end
+            alternatives[1] = tokens;
         end
-        return { { "novehicleui", "nopossessbar", "nooverridebar", "noshapeshift", "nopetbattle" } };
+        if (battle) then
+            alternatives[#alternatives + 1] = { "petbattle" };
+        end
+        return alternatives;
     end
     return { { (value and "" or "no") .. axis } };
 end
@@ -274,6 +305,7 @@ end
 
 Rebuild.ANSWERS_AS_THE_WORD = ANSWERS_AS_THE_WORD;
 Rebuild.ParsedStateAxis     = ParsedStateAxis;
+Rebuild.REPLACED_BAR_WORDS  = REPLACED_BAR_WORDS;
 Rebuild.StateAlternatives   = StateAlternatives;
 Rebuild.stateTokens         = _stateTokens;
 Rebuild.StateExpression     = StateExpression;

@@ -55,7 +55,7 @@ return function(DebindPrivate)
         return t[math.floor(rnd() * #t) + 1];
     end
 
-    local BOOLS = { "combat", "stealth", "pet", "petbattle", "specialbar", "extrabar" };
+    local BOOLS = { "combat", "stealth", "pet", "extrabar" };
     local STATES = { "$state1", "$state2", "$state3", "$state4", "$state5" };
     local UNITS = { "mouseover", "player", "pet", "target", "focus", "none",
                     "tank", "healer", "maintank", "mainassist", "custom1", "custom2", "unitframe" };
@@ -67,6 +67,9 @@ return function(DebindPrivate)
         local b = { name = name, key = pick(KEYS) };
         for _, k in ipairs(BOOLS) do
             if (rnd() < density) then b[k] = rnd() < 0.5; end
+        end
+        if (rnd() < density) then
+            b.bartakeover = math.floor(rnd() * Constants.BARTAKEOVER_ALL) + 1;
         end
         for _, s in ipairs(STATES) do
             if (rnd() < density) then b[s] = rnd() < 0.5; end

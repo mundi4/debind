@@ -856,7 +856,6 @@ for _, axis in ipairs({
     { name = "ADVFLYABLE", label = "CONDITION_ADVFLYABLE", key = "advflyable" },
     { name = "FLYING",     label = "CONDITION_FLYING",     key = "flying" },
     { name = "INDOORS",    label = "CONDITION_INDOORS",    key = "indoors" },
-    { name = "PETBATTLE",  label = "CONDITION_PETBATTLE",  key = "petbattle" },
 }) do
     ActionMenus:Define(axis.name, {
         label = axis.label,
@@ -889,8 +888,8 @@ ActionMenus:Define("SHAPESHIFT", {
     end,
 });
 
---- **The four that were not worth a row each.** `petbattle` was one of the top level's own rows
---- until `mounted` and `indoors` arrived and the list ran past what an eye reads down.
+--- **The ones that were not worth a row each.** The list ran past what an eye reads down once
+--- `mounted` and `indoors` arrived.
 ---
 --- **`skyriding` is here rather than beside the bar offsets it reads**, and that is the whole
 --- reason it is an axis of its own: nobody who wants "while flying" goes looking for it under
@@ -899,31 +898,28 @@ ActionMenus:Define("SHAPESHIFT", {
 ActionMenus:Define("MISC", {
     label = "CONDITION_MISC",
     children = {
-        "MOUNTED", "SKYRIDING", "FLYABLE", "ADVFLYABLE", "FLYING", "INDOORS", "PETBATTLE",
+        "MOUNTED", "SKYRIDING", "FLYABLE", "ADVFLYABLE", "FLYING", "INDOORS",
     },
     isActive = function(ctx)
         return AnyAction(ctx, function(action)
             local c = action.conditions;
             return c ~= nil and (c.mounted ~= nil or c.skyriding ~= nil
                 or c.flyable ~= nil or c.advflyable ~= nil or c.flying ~= nil
-                or c.indoors ~= nil or c.petbattle ~= nil);
+                or c.indoors ~= nil);
         end);
     end,
 });
 
---- **The first branch on the kit** (`putting-the-menus-on-a-kit.md`). The row that
---- opens this used to name `{ "bonusbars", "specialbar" }` beside itself so a marked child would
---- mark it; the tree says who the children are, so the list is gone and a fourth one added
---- here brings its own colour up with it.
+--- **The first branch on the kit** (`putting-the-menus-on-a-kit.md`). The tree says who the
+--- children are, so a marked child marks this row and a fourth one added here brings its own colour
+--- up with it.
 ActionMenus:Define("ACTIONBAR", {
     label = "CONDITION_ACTIONBARS",
-    children = { "BONUSBAR", "SPECIALBAR", "EXTRABAR" },
+    children = { "BONUSBAR", "BARTAKEOVER", "EXTRABAR" },
     isActive = function(ctx)
-        -- `action.bars`는 아무도 안 쓰는 필드였다. `KEYS_TO_SAVE`에 없어 늘 nil이라 이
-        -- 절은 죽어 있었고, 나머지 셋이 같은 답을 낸다.
         return AnyAction(ctx, function(action)
             local c = action.conditions;
-            return c ~= nil and (c.bonusbars ~= nil or c.specialbar ~= nil or c.extrabar ~= nil);
+            return c ~= nil and (c.bonusbars ~= nil or c.bartakeover ~= nil or c.extrabar ~= nil);
         end);
     end,
 });
@@ -939,11 +935,21 @@ ActionMenus:Define("BONUSBAR", {
     end,
 });
 
-ActionMenus:Define("SPECIALBAR", {
-    label = "CONDITION_SPECIALBAR",
-    key = "specialbar",
+ActionMenus:Define("BARTAKEOVER", {
+    label = "CONDITION_BARTAKEOVER",
+    key = "bartakeover",
     build = function(kit)
-        kit:DisableYesNo("CONDITION_SPECIALBAR", "specialbar");
+        kit:Disable("CONDITION_BARTAKEOVER", "bartakeover");
+        local items = {};
+        for i, cell in ipairs(DebindPrivate.BARTAKEOVER_CELLS) do
+            items[i] = { text = LLL[cell[2]], value = cell[1] };
+        end
+        kit:Checkboxes("bartakeover", items, function(description, item)
+            if (item.value == Constants.BARTAKEOVER_REPLACED) then
+                SetInstructionTooltip(description,
+                    format(LLL["CONDITION_BARTAKEOVER_REPLACED_DESC"], LLL["CONDITION_BONUSBAR"]));
+            end
+        end);
     end,
 });
 

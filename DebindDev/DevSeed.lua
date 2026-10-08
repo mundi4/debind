@@ -181,18 +181,16 @@ SEEDS[5] = function(guid)
                 --- The three yes/no conditions with no row. `false` is here on purpose: the
                 --- menu writes it for [No] and the tooltip has a whole second sentence for it, so
                 --- a seed of nothing but `true` leaves half of every one of them unseen.
-                ---
-                --- **`petbattle` and `specialbar` cannot share an action** - the second is
-                --- dropped when both are set (`FillBinding`), so the bar row below is a row of its
-                --- own rather than more fields on this one.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F8", seq = 1,
-                    stealth = true, petbattle = true },
+                    stealth = true, bartakeover = Constants.BARTAKEOVER_PETBATTLE },
                 --- Shapeshift and the action bars. Both masks are one bit rather than several,
                 --- and it is the bit that means the same thing on every class: `[form:0]` is "not
                 --- shifted" and bonus bar `0` is the default bar. A mask naming a druid form
-                --- would be a row nobody else can read.
+                --- would be a row nobody else can read. `bartakeover` takes two boxes, so its
+                --- tooltip shows more than one line.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F9", seq = 1,
-                    forms = 1, bonusbars = 1, specialbar = true, extrabar = true },
+                    forms = 1, bonusbars = 1, extrabar = true,
+                    bartakeover = Constants.BARTAKEOVER_REPLACED + Constants.BARTAKEOVER_PETBATTLE },
             },
 
             --- The class tiers. `SHIFT-F1` is deliberately the account layer's key as well, so the

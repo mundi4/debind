@@ -26,6 +26,15 @@ local IMPORTED_FONT_COLOR    = DebindUI.IMPORTED_FONT_COLOR;
 local UNIT_INFO              = DebindUI.UNIT_INFO;
 local NameAndIconForAction   = DebindUI.NameAndIconForAction;
 
+--- Each `bartakeover` cell and its label. The condition menu draws its boxes from this list too
+--- (`ActionMenuNodes.lua`'s `BARTAKEOVER`).
+local BARTAKEOVER_CELLS = {
+	{ Constants.BARTAKEOVER_NONE, "CONDITION_BARTAKEOVER_NONE" },
+	{ Constants.BARTAKEOVER_REPLACED, "CONDITION_BARTAKEOVER_REPLACED" },
+	{ Constants.BARTAKEOVER_PETBATTLE, "CONDITION_BARTAKEOVER_PETBATTLE" },
+};
+DebindPrivate.BARTAKEOVER_CELLS = BARTAKEOVER_CELLS;
+
 local UNIT_FRAME_REACTIONS = {
 	"HELP",
 	"HARM",
@@ -815,9 +824,22 @@ do
 			end
 		end
 
-		addBooleanCondition("specialbar");
+		if (conditions.bartakeover ~= nil and conditions.bartakeover ~= Constants.BARTAKEOVER_ALL) then
+			addLabelLine(tooltip, LLL["CONDITION_BARTAKEOVER"]);
+			if (conditions.bartakeover == 0) then
+				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED);
+			else
+				wipe(_lines);
+				for _, cell in ipairs(BARTAKEOVER_CELLS) do
+					if (bit.band(conditions.bartakeover, cell[1]) ~= 0) then
+						tinsert(_lines, LLL[cell[2]]);
+					end
+				end
+				addValueLines(tooltip, _lines, hasIssues and GetIssue("bartakeover"));
+			end
+		end
+
 		addBooleanCondition("extrabar");
-		addBooleanCondition("petbattle");
 
 		-- **조건 표에 있는 이름을 그린다.** 다섯 번호를 돌던 자리라 그 밖의 이름이 걸린 액션은
 		-- 툴팁에 조건이 아예 없는 것처럼 보였다 - 안 나가는 이유가 화면 어디에도 없다는 뜻이다.
@@ -936,8 +958,8 @@ do
 	for i, label in ipairs({
 		"TYPE_MACRO", "TYPE_PETACTION", "TYPE_ACTIONBUTTON", "TYPE_FLYOUT", "TYPE_MACROTEXT", "TYPE_SETSWITCH", "KEY",
 		"CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC", "CONDITION_TALENT",
-		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
-		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_SWITCHES",
+		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_BARTAKEOVER",
+		"CONDITION_SKYRIDING", "CONDITION_SWITCHES",
 	}) do
 		ISSUE_ORDER[label] = i;
 	end

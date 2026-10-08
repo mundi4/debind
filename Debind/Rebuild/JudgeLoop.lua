@@ -19,6 +19,7 @@ local appendLine            = Rebuild.appendLine;
 local AssertSnippetCompiles = Rebuild.AssertSnippetCompiles;
 local ANSWERS_AS_THE_WORD   = Rebuild.ANSWERS_AS_THE_WORD;
 local StateAlternatives     = Rebuild.StateAlternatives;
+local REPLACED_BAR_WORDS    = Rebuild.REPLACED_BAR_WORDS;
 local _stateTokens          = Rebuild.stateTokens;
 local UnitAsksExists        = Rebuild.UnitAsksExists;
 local UnitAlternatives      = Rebuild.UnitAlternatives;
@@ -73,8 +74,8 @@ end
 local JUDGE_WAKE_PREFIX = "judge-";
 
 --- The wakes of ours that move a column, none where only Blizzard's beat does. The pointed
---- frame's columns move with the cursor, a switch with `SetSwitch`, an alias with `SetUnit`, and a
---- pet battle, which `specialbar` folds in, with `SetPetBattle`.
+--- frame's columns move with the cursor, a switch with `SetSwitch`, an alias with `SetUnit`, and
+--- `bartakeover`'s pet battle cell with `SetPetBattle`.
 ---
 --- **A computed switch moves with whatever its text reads**, through the computed switches it
 --- reads as well: that wake composes the text again, so it has to measure the switch.
@@ -82,7 +83,7 @@ local function JudgmentWakesOf(column)
     local kind, arg = column.kind, column.arg;
     if (kind == "role" or kind == "frameType") then
         return { "unitframe" };
-    elseif (kind == "petbattle" or kind == "specialbar") then
+    elseif (kind == "bartakeover") then
         return { "petbattle" };
     elseif (kind == "unit" or kind == "unitgroup") then
         if (SPECIAL_UNITS[arg]) then
@@ -112,19 +113,6 @@ local function JudgmentWakesOf(column)
         return wakes;
     end
     return {};
-end
-
---- Does the beat measure this column again? Everything but a switch set by hand, which nothing but
---- `SetSwitch` moves, and a pet battle, which nothing but `SetPetBattle` does. A computed switch is
---- worked out from the world, like any state.
-local function JudgedOnBeat(column)
-    if (column.kind == "petbattle") then
-        return false;
-    elseif (column.kind ~= "switch") then
-        return true;
-    end
-    local info = _switches[column.arg];
-    return (info and info.mode == SWITCH_MODES.EXPR) and true or false;
 end
 
 local _judgmentKeys = {};
@@ -235,7 +223,7 @@ end
 --- The kinds whose cells are grouped (`ColumnGroups`). A form is measured by a call whose answer
 --- is the cell itself, so a group there would cost a lookup on every measure; a boolean column has
 --- two cells, and a check that told neither apart would not be a column.
-local GROUPED_KINDS = { unit = true, groups = true, bonusbars = true };
+local GROUPED_KINDS = { unit = true, groups = true, bonusbars = true, bartakeover = true };
 
 --- **The cells of a column that no check tells apart, as one group each** (② of
 --- `sizing-the-cuts-inside-the-beat-handler.md`, Q3 of
@@ -307,6 +295,46 @@ local function Merged(groups)
         end
     end
     return false;
+end
+
+--- **`bartakeover`'s cells as the loop writes them**: the cell a pet battle writes, and the clauses
+--- that tell the replaced bars from none, or nil with the one cell both write where no check tells
+--- them apart. **The battle is never parsed**: it is pushed (`SetPetBattle`) and taken ahead of the
+--- clauses, which is the battle being asked first. So a column whose checks only ask about a battle
+--- leaves the beat nothing to measure, as the `petbattle` column it replaced did.
+local function BarTakeoverCells(groups)
+    local function written(cell)
+        for _, group in ipairs(groups or {}) do
+            if (band(group.mask, cell) ~= 0) then
+                return group.rep;
+            end
+        end
+        return cell;
+    end
+    local battle = written(Constants.BARTAKEOVER_PETBATTLE);
+    local replaced, none = written(Constants.BARTAKEOVER_REPLACED), written(Constants.BARTAKEOVER_NONE);
+    if (replaced == none) then
+        return battle, nil, none;
+    end
+    local alternatives = {};
+    for i, word in ipairs(REPLACED_BAR_WORDS) do
+        alternatives[i] = { word };
+    end
+    return battle, { { groups = alternatives, cell = replaced }, default = none, numbered = true };
+end
+
+--- Does the beat measure this column again? Everything but a switch set by hand, which nothing but
+--- `SetSwitch` moves, and a `bartakeover` that only a pet battle moves (`BarTakeoverCells`). A
+--- computed switch is worked out from the world, like any state.
+local function JudgedOnBeat(column)
+    if (column.kind == "bartakeover") then
+        local _, clauses = BarTakeoverCells(_columnGroups[column.key]);
+        return clauses ~= nil;
+    elseif (column.kind ~= "switch") then
+        return true;
+    end
+    local info = _switches[column.arg];
+    return (info and info.mode == SWITCH_MODES.EXPR) and true or false;
 end
 
 --- An alternative's tokens as they follow `@unit` in a group.
@@ -598,11 +626,10 @@ local function EmitJudgmentItems(items)
     _judgeReadsFrame = wakes.unitframe or false;
 end
 
---- Boolean state columns, each measured by parsing what the press parses for "on". `petbattle` is
---- not one: it is pushed (`SetPetBattle`).
+--- Boolean state columns, each measured by parsing what the press parses for "on".
 local JUDGED_BOOL_STATES = {
     combat = true, stealth = true, mounted = true, indoors = true, flyable = true, advflyable = true,
-    flying = true, skyriding = true, extrabar = true, specialbar = true,
+    flying = true, skyriding = true, extrabar = true,
 };
 
 --- **The parse that answers a state column's cell on the column loop**, and whether its value is
@@ -626,7 +653,12 @@ local JUDGED_BOOL_STATES = {
 --- most cells as the default.
 local function StateCellClauses(kind, cellGroups)
     local list;
-    if (Merged(cellGroups)) then
+    if (kind == "bartakeover") then
+        list = select(2, BarTakeoverCells(cellGroups));
+        if (not list) then
+            return nil;
+        end
+    elseif (Merged(cellGroups)) then
         local default = DefaultGroup(cellGroups);
         list = { default = default.rep, numbered = true, exclusive = true };
         for _, group in ipairs(cellGroups) do
@@ -635,14 +667,10 @@ local function StateCellClauses(kind, cellGroups)
             end
         end
     elseif (JUDGED_BOOL_STATES[kind]) then
-        local groups = {};
-        for _, alternative in ipairs(StateAlternatives(kind, true)) do
-            -- `specialbar`'s battle is the pushed one (`otherCell`).
-            if (alternative[1] ~= "petbattle") then
-                groups[#groups + 1] = alternative;
-            end
-        end
-        list = { { groups = groups, cell = Constants.JUDGMENT_TRUE }, default = Constants.JUDGMENT_FALSE };
+        list = {
+            { groups = StateAlternatives(kind, true), cell = Constants.JUDGMENT_TRUE },
+            default = Constants.JUDGMENT_FALSE,
+        };
     elseif (kind == "groups") then
         list = {
             { groups = { { "group:raid" } }, cell = Constants.GROUP_RAID },
@@ -700,7 +728,7 @@ end
 --- **Groups that hold exactly where the clause does not**, or nil where that needs a product.
 --- One group of tokens fails where any token fails, so each token turned over is a group of its
 --- own. Several groups of one token each fail where all do, so the tokens turned over make one
---- group (`specialbar`'s `[novehicleui,nopossessbar,nooverridebar,noshapeshift]`). Several groups
+--- group (`bartakeover`'s `[novehicleui,nopossessbar,nooverridebar,noshapeshift]`). Several groups
 --- with more than one token would multiply out, and such a column stays off the watch.
 local function NegatedGroups(clause)
     local groups = clause.groups;
@@ -826,7 +854,6 @@ end
 ---
 ---   a switch, the pointed frame's           nothing a conditional can ask
 ---   `known` with `knownID`                  the press asks the spell book too
----   `petbattle`                             pushed, never on the beat
 ---   not parsed, not `ANSWERS_AS_THE_WORD`   nothing says the word answers what is measured
 ---
 --- A group another one in the same fragment is a subset of is left out: it can hold only where
@@ -851,7 +878,7 @@ function WatchFragments(column)
         -- (`KNOWN_NAME_UNPARSABLE`).
         local token = column.arg:match("^%[(.+)%]$");
         list = { { groups = { { token } }, cell = Constants.JUDGMENT_TRUE }, default = Constants.JUDGMENT_FALSE };
-    elseif (column.kind ~= "petbattle") then
+    else
         -- The groups the loop writes (`ColumnGroups`): a cell is a group's `rep`, and its fragment has
         -- to hold where the group is left, not where that one cell is.
         list = StateCellClauses(column.kind, _columnGroups[column.key]);
@@ -1059,7 +1086,7 @@ local function BuildJudgeSnippet()
     --- **A column the watch carries has its fragment put back to its cell wherever it moves**, in
     --- any body, and the body joins the text again at its end (`body`). A wake that moved one and
     --- left the text would have every beat after it parse the old text, find it holding, and
-    --- measure again for nothing. `specialbar` does its own (`watchSpecialbar`).
+    --- measure again for nothing. `bartakeover` does its own (`watchBarTakeover`).
     local inPass = false;
     --- Whether the body being built writes a fragment (`body`).
     local writesWatch = false;
@@ -1106,7 +1133,7 @@ local function BuildJudgeSnippet()
     local function fragment(index)
         local place = _watchPlace[index];
         local column = _judgmentColumnOrder[index];
-        if (not place or column.kind == "specialbar") then
+        if (not place or column.kind == "bartakeover") then
             return;
         end
         if (column.kind == "unit" and SPECIAL_UNITS[column.arg]) then
@@ -1139,10 +1166,11 @@ local function BuildJudgeSnippet()
         add("end");
     end
 
-    --- **`specialbar`'s fragment follows the pushed battle as well as its cell.** In a battle the
-    --- cell is on whatever the bars do, so the watch carries nothing for it (`""`), and the battle's
-    --- wake that ends it has to write the fragment back even where the cell did not move.
-    local function watchSpecialbar(index)
+    --- **`bartakeover`'s fragment follows the pushed battle as well as its cell.** In a battle the
+    --- cell is the battle's whatever the bars do, so the watch carries nothing for it (`""`), and
+    --- the battle's wake that ends it has to write the fragment back even where the cell did not
+    --- move.
+    local function watchBarTakeover(index)
         local place = _watchPlace[index];
         if (not place) then
             return;
@@ -1301,10 +1329,10 @@ local function BuildJudgeSnippet()
             add("form = 0");
             add("end");
             add("cell = 2 ^ form");
-        elseif (kind == "petbattle") then
-            add("cell = J.petBattle and %d or %d", TRUE, FALSE);
-        elseif (kind == "specialbar") then
-            add("cell = (J.petBattle or PROBE.SecureCmdOptionParse(%q)) and %d or %d", text, TRUE, FALSE);
+        elseif (kind == "bartakeover") then
+            local battle, _, plain = BarTakeoverCells(_columnGroups[column.key]);
+            add("cell = J.petBattle and %d or %s", battle,
+                text and asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)) or tostring(plain));
         elseif (text and numbered) then
             add("cell = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)));
         elseif (text) then
@@ -1406,8 +1434,8 @@ local function BuildJudgeSnippet()
                 add("do");
                 otherCell(column);
                 mark(i);
-                if (column.kind == "specialbar") then
-                    watchSpecialbar(i);
+                if (column.kind == "bartakeover") then
+                    watchBarTakeover(i);
                 end
                 add("end");
             end

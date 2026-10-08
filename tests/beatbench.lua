@@ -369,12 +369,12 @@ return function(DebindPrivate)
         flyable = function(i) return { flyable = true, mounted = i % 2 == 0, combat = i % 3 == 0 }; end,
         -- Mount keys as they are written: out of combat and where the zone allows flying (R1-c).
         mounts = function(i) return { flyable = true, mounted = i % 2 == 0, combat = false }; end,
-        -- Out of a pet battle, or off a replaced bar, beside a state. The two cannot share an action.
+        -- Out of a pet battle, or off a replaced bar, beside a state.
         bars = function(i)
             if (i % 2 == 0) then
-                return { petbattle = false, combat = true };
+                return { bartakeover = Constants.BARTAKEOVER_NONE + Constants.BARTAKEOVER_REPLACED, combat = true };
             end
-            return { specialbar = false, mounted = true };
+            return { bartakeover = Constants.BARTAKEOVER_NONE, mounted = true };
         end,
     };
 
@@ -478,7 +478,9 @@ return function(DebindPrivate)
     };
     local LARGE_PIECES = {
         { combat = true }, { stealth = true }, { mounted = true }, { indoors = true }, { flying = true },
-        { extrabar = true }, { specialbar = true }, { groups = Constants.GROUP_RAID }, { forms = 2 ^ 1 },
+        { extrabar = true },
+        { bartakeover = Constants.BARTAKEOVER_REPLACED + Constants.BARTAKEOVER_PETBATTLE },
+        { groups = Constants.GROUP_RAID }, { forms = 2 ^ 1 },
         { bonusbars = 2 ^ 5 },
         { units = { target = { reaction = Constants.REACTION_HARM, dead = false } } },
         { units = { focus = { reaction = Constants.REACTION_HELP } } },

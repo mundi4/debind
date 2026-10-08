@@ -114,9 +114,9 @@ return function(DebindPrivate, shim)
             --- **Two axes covering their space between them**, which is the other way a key comes
             --- out `alwaysOurs` -- no unconditional action anywhere on it.
             action({ type = Constants.SPELL, value = 774, key = "F3",
-                conditions = { petbattle = true } }),
+                conditions = { bartakeover = Constants.BARTAKEOVER_PETBATTLE } }),
             action({ type = Constants.SPELL, value = 155777, key = "F3",
-                conditions = { petbattle = false } }),
+                conditions = { bartakeover = Constants.BARTAKEOVER_NONE + Constants.BARTAKEOVER_REPLACED } }),
 
             --- Macro text carrying both kinds of argument: a unit alias the parser rewrites, and
             --- a switch reference.
@@ -155,7 +155,7 @@ return function(DebindPrivate, shim)
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F2",
                 conditions = { bonusbars = 5 } }),
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F3",
-                conditions = { specialbar = true } }),
+                conditions = { bartakeover = Constants.BARTAKEOVER_REPLACED + Constants.BARTAKEOVER_PETBATTLE } }),
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F4",
                 conditions = { extrabar = true } }),
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F5",

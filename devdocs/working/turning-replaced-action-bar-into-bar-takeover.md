@@ -1,6 +1,7 @@
 # Replaced Action Bar 조건을 Bar Takeover로 바꾸기
 
-> 상태: 계획. 정할 것은 모두 정했다(2026-10-08). 코드는 아직 안 건드렸다.
+> 상태: 구현했다(2026-10-08). 남은 것은 도움말 하나다. `keys-given-back.md` 4번 항목이 "druid forms and skyriding do not
+> count"라고만 해서 은신이 빠져 있다. 도움말은 손대기 전에 범위를 소유자에게 묻는 것이 규칙이라 물어 둔 상태다.
 >
 > 쓴 세션: `debind-3e` (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`). 2026-10-08.
 
@@ -166,6 +167,20 @@ Replaced Action Bar 칸의 툴팁:
 - 키트: `DebindTest.lua` 8694행의 `SetPetBattle` 시험은 `[petbattle]`과 `[nospecialbar]`를 쓴다. 새 칸으로
   바꾼다. `DevSeed.lua` 185–195행의 "`petbattle` and `specialbar` cannot share an action"도 다시 쓴다.
 - `tests/v3.5.2/`는 옛 판의 사본이라 손대지 않는다.
+
+## 구현하며 정한 것
+
+- **대전만 묻는 열은 beat가 안 잰다.** 옛 `petbattle` 열은 밀어 넣는 값이라 beat가 없었다. `bartakeover`를 비트 열로만 바꾸면
+  대전만 묻는 키도 beat마다 바를 파싱하게 된다. 그래서 `bartakeover`를 칸 묶기(`ColumnGroups`) 대상에 넣었다. 어떤 검사도
+  None과 Replaced를 가르지 않으면 파싱할 글이 없고 beat에서 빠진다(`JudgeLoop.lua`의 `BarTakeoverCells`). `plan_spec`이
+  이것을 본다.
+- **칸 목록은 한 벌이다.** 툴팁과 메뉴가 같은 `BARTAKEOVER_CELLS`를 읽는다(`ActionTooltip.lua`).
+- **설정 값과 같은 문자열이 키 이름을 따라갔다.** "Replaced Action Bar"는 이제 `CONDITION_BARTAKEOVER_REPLACED`이고, 설정 탭도
+  그 키를 읽는다. koKR와 ruRU의 옛 키는 지웠다. 두 언어에는 아직 새 키가 없어 영어로 나간다.
+- **문구.** 메뉴 행 설명 `CONDITION_BARTAKEOVER_DESC`는 "What has taken over your main action bar, if anything.", 빈 마스크 이슈
+  문장은 "No action bar state is selected."로 썼다. 칸 툴팁은 Stance Bar를 `%s`로 받는다. 다른 컨트롤의 이름을 문장에 다시
+  치지 않는다는 규칙 때문이다.
+- **`STATE_EVAL_EXPRESSIONS`의 `bartakeover`도 파싱이다.** 제한 환경에는 대전과 possess bar를 답하는 함수가 없다.
 
 ## 이 계획 밖
 

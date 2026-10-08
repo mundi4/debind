@@ -13,6 +13,8 @@
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
     local Judgment = DebindPrivate.Judgment;
+    local NONE, REPLACED, BATTLE = Constants.BARTAKEOVER_NONE, Constants.BARTAKEOVER_REPLACED,
+        Constants.BARTAKEOVER_PETBATTLE;
     --- **The records each item was built from**, so a sweep walks every column they measure and not
     --- only the ones the item kept: a column `Judgment.Build` dropped wrongly is then moved, and the
     --- press tells it apart.
@@ -220,7 +222,7 @@ return function(DebindPrivate, _, ctx)
                         shim.world.units[arg] = unit;
                     end
                 end
-            elseif (kind == "skyriding" or kind == "specialbar" or kind == "petbattle"
+            elseif (kind == "skyriding" or kind == "bartakeover"
                     or kind == "unitgroup" or kind == "role" or kind == "frameType") then
                 -- Below, together with what they share a reading with.
             else
@@ -240,18 +242,11 @@ return function(DebindPrivate, _, ctx)
             end
         end
 
-        -- `specialbar` folds `petbattle` in (`EVAL_SNIPPET`).
-        local petbattle = cells.petbattle == Judgment.TRUE;
+        -- A pet battle is told to the loop as the events tell it in the game (`SetPetBattle`).
+        local petbattle = cells.bartakeover == Constants.BARTAKEOVER_PETBATTLE;
         state.petbattle = petbattle;
-        -- The loop is told, as the events tell it in the game (`SetPetBattle`).
         interp.driverHandle:RunAttribute("SetPetBattle", petbattle);
-        if (cells.specialbar ~= nil) then
-            local special = cells.specialbar == Judgment.TRUE;
-            if (petbattle and not special) then
-                return false;
-            end
-            state.vehiclebar = special and not petbattle;
-        end
+        state.vehiclebar = cells.bartakeover == Constants.BARTAKEOVER_REPLACED;
 
         local pointed = cells["unit unitframe"];
         local frameType = cells.frameType;
@@ -913,8 +908,19 @@ return function(DebindPrivate, _, ctx)
     test("the bars, skyriding and pet battles", function()
         Bind({
             action({ conditions = { bonusbars = 2 ^ 1 + 2 ^ 5, skyriding = false } }),
-            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
-            action({ type = Constants.GIVEBACK, conditions = { petbattle = false } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { bartakeover = REPLACED + BATTLE } }),
+            action({ type = Constants.GIVEBACK, conditions = { bartakeover = NONE + REPLACED } }),
+        });
+        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
+    end);
+
+    -- **Every cell apart**: none, a replaced bar and a pet battle each answer their own outcome, so a
+    -- loop that wrote one cell for another gives the wrong one somewhere in the sweep.
+    test("bar takeover's three cells", function()
+        Bind({
+            action({ type = Constants.COMMAND, value = MAP, conditions = { bartakeover = REPLACED } }),
+            action({ conditions = { bartakeover = BATTLE } }),
+            action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
     end);
@@ -1223,12 +1229,13 @@ return function(DebindPrivate, _, ctx)
     -- `implementing-the-cuts-inside-the-beat-handler.md`). A watch quietly off -- a text that never
     -- holds, or always does -- leaves every answer right and the gain gone, and the sweeps cannot
     -- see that. The profile here is all columns the watch carries, so the watch is all there is to
-    -- parse; `specialbar` sits on its "on" cell, whose fragment is the one group of four turned-over
-    -- tokens.
+    -- parse; `bartakeover` sits on its replaced cell, whose fragment is the one group of four
+    -- turned-over tokens.
     test("a quiet beat parses the watch and nothing else", function()
         Bind({
             action({ conditions = { combat = true, forms = 2 ^ 2, groups = Constants.GROUP_PARTY } }),
-            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true, mounted = false } }),
+            action({ type = Constants.COMMAND, value = MAP,
+                conditions = { bartakeover = REPLACED + BATTLE, mounted = false } }),
             action({ conditions = { known = "Some Spell" } }),
             action({ type = Constants.GIVEBACK }),
         });
@@ -1716,11 +1723,11 @@ return function(DebindPrivate, _, ctx)
     end);
 
     -- **A wake that moves a fragment joins the text again**, or every beat after it parses the old
-    -- one. `SetPetBattle` moves `specialbar`'s fragment to `""` and back. A text left empty is not
+    -- one. `SetPetBattle` moves `bartakeover`'s fragment to `""` and back. A text left empty is not
     -- parsed at all: `SecureCmdOptionParse` answers an empty text as holding.
     test("after a wake moves the watch, a quiet beat parses only the new text", function()
         Bind({
-            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { bartakeover = REPLACED + BATTLE } }),
             action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
@@ -1779,7 +1786,7 @@ return function(DebindPrivate, _, ctx)
     -- as the press does.
     test("a pet battle told by its events", function()
         Bind({
-            action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { bartakeover = BATTLE } }),
             action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
@@ -1847,7 +1854,7 @@ return function(DebindPrivate, _, ctx)
     -- **Nothing crosses under lockdown**, so a battle that ends in one is told once it ends.
     test("a pet battle told in a lockdown waits for its end", function()
         Bind({
-            action({ type = Constants.COMMAND, value = MAP, conditions = { petbattle = true } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { bartakeover = BATTLE } }),
             action({ type = Constants.GIVEBACK }),
         });
         interp:resetState();
@@ -1868,13 +1875,13 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- **The beat has no `[petbattle]` to parse**: the battle is pushed, and `specialbar` reads the
-    -- pushed value beside the bars it parses.
+    -- **The beat has no `[petbattle]` to parse**: the battle is pushed, and `bartakeover` reads the
+    -- pushed value ahead of the bars it parses.
     test("the beat parses no pet battle", function()
         local mark = frames.mark();
         Bind({
-            action({ conditions = { petbattle = true } }),
-            action({ type = Constants.COMMAND, value = MAP, conditions = { specialbar = true } }),
+            action({ conditions = { bartakeover = BATTLE } }),
+            action({ type = Constants.COMMAND, value = MAP, conditions = { bartakeover = REPLACED + BATTLE } }),
             action({ type = Constants.GIVEBACK }),
         });
         local seen = false;

@@ -270,12 +270,11 @@ Constants.CONDITION_FIELDS = {
     talents = true,
     forms = true,
     bonusbars = true,
-    specialbar = true,
+    bartakeover = true,
     extrabar = true,
     combat = true,
     stealth = true,
     known = true,
-    petbattle = true,
     mounted = true,
     indoors = true,
     -- **지역이 무엇을 허락하는가지 내가 무엇을 하고 있는가가 아니다.** 나머지 불리언들과
@@ -308,8 +307,7 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     talents = true,
     forms = true,
     bonusbars = true,
-    specialbar = true,
-    petbattle = true,
+    bartakeover = true,
     skyriding = true,
     units = true,
     -- 필드 이름이 아닌 하나. 액션이 **겨누는** 대상을 고르는 메뉴이고, 그 유닛에 걸린 조건이
@@ -474,6 +472,19 @@ Constants.BONUSBAR_ALL               = 2 ^ (Constants.MAX_BONUSBAR_OFFSET + 1) -
 -- from flyout 229 while every other offset it names sits behind a class check, so the number was
 -- being relied on before it had a name.
 Constants.BONUSBAR_SKYRIDING         = 5;
+
+-- **What has taken the main action bar over** (`turning-replaced-action-bar-into-bar-takeover.md`).
+-- One axis with a box per cell, because conditions only AND: "a replaced bar or a pet battle" on one
+-- action is two cells of one axis, and two axes could not say it.
+--
+-- **A pet battle is asked first, and that order is what makes this a partition.** Whether a
+-- vehicle's bar can be up in a battle was never measured; asked first, a battle is its own cell
+-- either way. `REPLACED` is the four bars `[vehicleui][possessbar][overridebar][shapeshift]` answer,
+-- told apart nowhere: which one a fight uses cannot be seen on screen.
+Constants.BARTAKEOVER_NONE           = 2 ^ 0;
+Constants.BARTAKEOVER_REPLACED       = 2 ^ 1;
+Constants.BARTAKEOVER_PETBATTLE      = 2 ^ 2;
+Constants.BARTAKEOVER_ALL            = 2 ^ 3 - 1;
 
 
 -- Unit Frame Reactions
@@ -642,6 +653,7 @@ Constants.BINDING_ISSUE_NOT_SUPPORTED_META_CLICK          = "NOT_SUPPORTED_META_
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
+Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED         = "BARTAKEOVER_NONE_SELECTED";
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_SPECS_NONE_SELECTED               = "SPECS_NONE_SELECTED";
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
@@ -750,6 +762,7 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED]         = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_SPECS_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
@@ -1031,13 +1044,14 @@ end
 Constants.MEASURED_BY = {
     groups = "parse", combat = "parse", stealth = "parse", mounted = "parse", indoors = "parse",
     flying = "parse", skyriding = "parse", bonusbars = "parse",
-    specialbar = "parse", extrabar = "parse", flyable = "parse", advflyable = "parse",
+    extrabar = "parse", flyable = "parse", advflyable = "parse",
     -- `GetShapeshiftForm()` once and a bit test (owner, 2026-10-06). On a druid `form` cost 1.07 a
     -- token, so the loop's ten clauses were 11.08 against 1.18 for the call, and the press with four
     -- records 5.13 against 2.51; a press with one record pays about 0.4 more, on any class (7-1).
     forms = "call",
-    -- The loop's is parsed on the insecure side at the battle's events and pushed (`SetPetBattle`).
-    petbattle = "parse",
+    -- The loop's pet battle cell is parsed on the insecure side at the battle's events and pushed
+    -- (`SetPetBattle`); only the bars are parsed on the beat.
+    bartakeover = "parse",
     -- With `knownID` the spell book is asked as well, on both sides: `[known:<id>]` answers false
     -- for a spell the book holds under an override (`SpecSpells.lua`).
     known = "parse",
@@ -1090,13 +1104,13 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     -- and `check:state-eval` matches these strings against it, so an expression built out of
     -- another entry is one that check cannot find.
     skyriding = format("GetBonusBarOffset() == %d", Constants.BONUSBAR_SKYRIDING),
-    specialbar = "HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false",
     extrabar = "HasExtraActionBar()",
-    -- **The one parse in here.** `specialbar` folds it in, so a profile asking about special bars
-    -- pays for this whether or not anything asks about pet battles.
+    -- **The one parse in here**: the restricted environment has nothing that answers a pet battle or
+    -- a possess bar, so no call could tell this axis's cells apart.
     --
     -- No `PROBE.` token in any of these: what this table holds is the form to compare against, and
     -- the probes belong to the body that does the measuring (`EVAL_SNIPPET`), which is where
     -- `check:state-eval` looks for these strings inside.
-    petbattle = [[SecureCmdOptionParse("[petbattle]") and true or false]],
+    bartakeover = format([[SecureCmdOptionParse("[petbattle] %d; [vehicleui][possessbar][overridebar][shapeshift] %d; %d") + 0]],
+        Constants.BARTAKEOVER_PETBATTLE, Constants.BARTAKEOVER_REPLACED, Constants.BARTAKEOVER_NONE),
 };

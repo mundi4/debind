@@ -186,6 +186,7 @@ local CONDITION_TYPES    = {
     groups = "number",
     forms = "number",
     bonusbars = "number",
+    bartakeover = "number",
     -- A specialization mask per class id. **What is inside is not filtered**, the way `units` is
     -- not: a class id this client has never heard of is never the one being played, and a bit
     -- standing for a specialization that does not exist matches nothing, so both make the condition
@@ -210,9 +211,7 @@ local CONDITION_TYPES    = {
     known = "boolean|number|string",
     combat = "boolean",
     stealth = "boolean",
-    specialbar = "boolean",
     extrabar = "boolean",
-    petbattle = "boolean",
     mounted = "boolean",
     indoors = "boolean",
     flyable = "boolean",

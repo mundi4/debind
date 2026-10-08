@@ -602,11 +602,6 @@ return function(DebindPrivate)
     -- 나머지 갈래
     ---------------------------------------------------------------------------
 
-    -- 펫 배틀 중에는 특수바가 뜨지 않는다. 둘을 같이 요구하면 남는 상태가 없다.
-    test("펫 배틀 조건이 있으면 특수바 조건이 사라진다", function()
-        check(spell({ petbattle = true, specialbar = true }).specialbar == nil, "특수바가 남음");
-    end);
-
     -- 전체 비트를 넘는 값은 정규 전체값으로 자른다. 손으로 고친 프로필이 들어오면
     -- 같은 조건이 두 숫자로 존재하게 되고, solver가 그걸 다른 상자로 본다.
     test("범위를 넘는 마스크는 정규 전체값으로 잘린다", function()
@@ -614,10 +609,12 @@ return function(DebindPrivate)
             groups = Constants.GROUP_ALL * 2 + 1,
             forms = Constants.FORM_ALL * 2 + 1,
             bonusbars = Constants.BONUSBAR_ALL * 2 + 1,
+            bartakeover = Constants.BARTAKEOVER_ALL * 2 + 1,
         });
         check(b.conditions.groups == Constants.GROUP_ALL, "groups가 안 잘림");
         check(b.conditions.forms == Constants.FORM_ALL, "forms가 안 잘림");
         check(b.conditions.bonusbars == Constants.BONUSBAR_ALL, "bonusbars가 안 잘림");
+        check(b.conditions.bartakeover == Constants.BARTAKEOVER_ALL, "bartakeover was not cut");
     end);
 
     -- 바인딩은 액션에서 다시 만들어질 뿐 되돌아 쓰이지 않는다. 이게 깨지면 정규화가

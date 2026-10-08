@@ -752,6 +752,72 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 7: `specialbar` and `petbattle` become one mask, `bartakeover`
+    -- (`turning-replaced-action-bar-into-bar-takeover.md`). `specialbar` on was "a replaced bar or a
+    -- pet battle".
+    ---------------------------------------------------------------------------
+
+    do
+        local NONE, REPLACED, BATTLE = Constants.BARTAKEOVER_NONE, Constants.BARTAKEOVER_REPLACED,
+            Constants.BARTAKEOVER_PETBATTLE;
+        --- Every pair the two fields could be stored as, and the mask it lands on: the states it ran
+        --- in, except where the old issue check kept it from running at all.
+        local PAIRS = {
+            { bar = true, battle = nil, want = REPLACED + BATTLE },
+            { bar = false, battle = nil, want = NONE },
+            { bar = nil, battle = true, want = BATTLE },
+            { bar = nil, battle = false, want = NONE + REPLACED },
+            { bar = true, battle = true, want = BATTLE },
+            -- Never ran, because the issue check read it as never holding; a vehicle outside a
+            -- battle meets it, and that is what it does from here on (owner).
+            { bar = true, battle = false, want = REPLACED },
+            -- Never held, and still does not: an issue.
+            { bar = false, battle = true, want = 0 },
+            { bar = false, battle = false, want = NONE },
+        };
+
+        test("dbver 7 folds specialbar and petbattle into bartakeover", function()
+            local layer = {};
+            for i, pair in ipairs(PAIRS) do
+                layer[i] = { key = "K" .. i, type = Constants.SPELL, value = 585, conditions = {
+                    specialbar = pair.bar, petbattle = pair.battle, combat = true,
+                } };
+            end
+            MigrateLayer(layer, 7);
+            for i, pair in ipairs(PAIRS) do
+                local c = layer[i].conditions;
+                local name = format("bar %s, battle %s", tostring(pair.bar), tostring(pair.battle));
+                check(c.bartakeover == pair.want, name .. ": " .. tostring(c.bartakeover));
+                check(c.specialbar == nil and c.petbattle == nil, name .. ": an old field stayed");
+                check(c.combat == true, name .. ": another condition went");
+            end
+        end);
+
+        test("dbver 7 drops a bar or battle value that is not a boolean", function()
+            local layer = {
+                { key = "A", type = Constants.SPELL, value = 585,
+                    conditions = { specialbar = "yes", petbattle = true } },
+                { key = "B", type = Constants.SPELL, value = 585, conditions = { specialbar = 1 } },
+            };
+            MigrateLayer(layer, 7);
+            check(layer[1].conditions.bartakeover == BATTLE,
+                "A: " .. tostring(layer[1].conditions.bartakeover));
+            check(layer[1].conditions.specialbar == nil, "A: the string stayed");
+            check(layer[2].conditions.bartakeover == nil and layer[2].conditions.specialbar == nil,
+                "B: " .. tostring(layer[2].conditions.bartakeover));
+        end);
+
+        test("dbver 7 is safe to run twice over bartakeover", function()
+            local layer = { { key = "A", type = Constants.SPELL, value = 585,
+                conditions = { specialbar = true, petbattle = false } } };
+            MigrateLayer(layer, 7);
+            MigrateLayer(layer, 7);
+            check(layer[1].conditions.bartakeover == REPLACED,
+                "second pass: " .. tostring(layer[1].conditions.bartakeover));
+        end);
+    end
+
+    ---------------------------------------------------------------------------
     -- dbver 7: `known`이 "물어본다"에서 **무엇을 묻는가**로 바뀐다
     -- (`making-known-a-spell-name.md`).
     ---------------------------------------------------------------------------

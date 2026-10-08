@@ -845,6 +845,53 @@ local function MigrateLayer(layerTbl, dbver, to)
                 end
             end
         end
+
+        -- **`specialbar` and `petbattle` become one mask, `bartakeover`**
+        -- (`turning-replaced-action-bar-into-bar-takeover.md`). `specialbar` took a pet battle in
+        -- beside the replaced bars, so on it was "replaced or battle", which two conditions joined by
+        -- AND cannot say, and one mask can. Every pair lands on exactly what it ran on, but two:
+        -- `specialbar` on with `petbattle` off ran nowhere, because an issue check read it as never
+        -- holding while a vehicle outside a battle meets it; it runs on the replaced bars from here on
+        -- (owner). Off with `petbattle` on never held at all, and lands on the empty mask, an issue
+        -- as before.
+        --
+        -- **Version 8's bits are written out**, for the reason the old type names above are.
+        --
+        -- Running twice is safe: neither old field is left after the first pass. A value that is not
+        -- a boolean is hand-made and goes without becoming anything.
+        local NONE, REPLACED, BATTLE = 1, 2, 4;
+        for i = 1, #layerTbl do
+            local conditions = layerTbl[i].conditions;
+            if (luatype(conditions) == "table") then
+                local bar, battle = conditions.specialbar, conditions.petbattle;
+                conditions.specialbar, conditions.petbattle = nil, nil;
+                if (luatype(bar) ~= "boolean") then
+                    bar = nil;
+                end
+                if (luatype(battle) ~= "boolean") then
+                    battle = nil;
+                end
+                local mask;
+                if (battle == true) then
+                    mask = (bar == false) and 0 or BATTLE;
+                elseif (battle == false) then
+                    if (bar == true) then
+                        mask = REPLACED;
+                    elseif (bar == false) then
+                        mask = NONE;
+                    else
+                        mask = NONE + REPLACED;
+                    end
+                elseif (bar == true) then
+                    mask = REPLACED + BATTLE;
+                elseif (bar == false) then
+                    mask = NONE;
+                end
+                if (mask ~= nil) then
+                    conditions.bartakeover = mask;
+                end
+            end
+        end
     end
 
 end

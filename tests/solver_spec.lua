@@ -791,8 +791,8 @@ return function(DebindPrivate)
     -- region without containing it and the split has real work to do. Not one of those columns
     -- had brute-force coverage -- the same hole that was hiding the frameTypes guard.
     --
-    -- groups (3 values) and forms (11) are the small and large end of that shape, and
-    -- specialbar rides along so a boolean is in the mix. 66 points, enumerated whole.
+    -- groups (3 values) and forms (11) are the small and large end of that shape, and bartakeover
+    -- (3) is the one whose cells a chain makes exclusive. 99 points, enumerated whole.
     ---------------------------------------------------------------------------
 
     -- The point space states the axis widths on its own instead of deriving them, so that the
@@ -801,15 +801,16 @@ return function(DebindPrivate)
     -- move without the fuzzer noticing.
     check(Constants.GROUP_ALL == 2 ^ 3 - 1, "GROUP_ALL이 3비트가 아님 -- 아래 점 공간을 고칠 것");
     check(Constants.FORM_ALL == 2 ^ 11 - 1, "FORM_ALL이 11비트가 아님 -- 아래 점 공간을 고칠 것");
+    check(Constants.BARTAKEOVER_ALL == 2 ^ 3 - 1, "BARTAKEOVER_ALL is not 3 bits -- fix the point space below");
 
     local MASK_POINTS = {};
     do
         local GROUPS = { Constants.GROUP_NONE, Constants.GROUP_PARTY, Constants.GROUP_RAID };
         for _, group in ipairs(GROUPS) do
             for formIndex = 0, 10 do
-                for _, specialbar in ipairs({ true, false }) do
+                for takeover = 0, 2 do
                     MASK_POINTS[#MASK_POINTS + 1] = {
-                        group = group, form = 2 ^ formIndex, specialbar = specialbar,
+                        group = group, form = 2 ^ formIndex, bartakeover = 2 ^ takeover,
                     };
                 end
             end
@@ -819,7 +820,7 @@ return function(DebindPrivate)
     local function matchesMaskPoint(b, p)
         if (b.groups and band(b.groups, p.group) == 0) then return false; end
         if (b.forms and band(b.forms, p.form) == 0) then return false; end
-        if (b.specialbar ~= nil and b.specialbar ~= p.specialbar) then return false; end
+        if (b.bartakeover and band(b.bartakeover, p.bartakeover) == 0) then return false; end
         return true;
     end
 
@@ -827,7 +828,7 @@ return function(DebindPrivate)
         local parts = {};
         if (b.groups) then parts[#parts + 1] = ("groups=%d"):format(b.groups); end
         if (b.forms) then parts[#parts + 1] = ("forms=%d"):format(b.forms); end
-        if (b.specialbar ~= nil) then parts[#parts + 1] = "specialbar=" .. tostring(b.specialbar); end
+        if (b.bartakeover) then parts[#parts + 1] = ("bartakeover=%d"):format(b.bartakeover); end
         if (#parts == 0) then
             return b.name .. "{}";
         end
@@ -848,8 +849,9 @@ return function(DebindPrivate)
             b.forms = math.floor(nextRandom() * Constants.FORM_ALL) + 1;
         end
 
-        local specialbar = pick({ "nil", true, false });
-        if (specialbar ~= "nil") then b.specialbar = specialbar; end
+        if (nextRandom() < 0.7) then
+            b.bartakeover = math.floor(nextRandom() * Constants.BARTAKEOVER_ALL) + 1;
+        end
 
         return b;
     end

@@ -50,7 +50,7 @@ local ROLE_NAMES = {
 };
 
 --- The condition axes that go out as a plain field, **in the order they are emitted in**, with the
---- value that means "no restriction" for the three that have one.
+--- value that means "no restriction" for the masks that have one.
 ---
 --- `known` carries `derived`: what goes out is not the condition's value but the macro conditional
 --- built from the action's own value.
@@ -67,9 +67,8 @@ local CONDITION_AXES     = {
     { field = "known",      derived = true },
     { field = "forms",      allValue = Constants.FORM_ALL },
     { field = "bonusbars",  allValue = Constants.BONUSBAR_ALL },
-    { field = "specialbar" },
+    { field = "bartakeover", allValue = Constants.BARTAKEOVER_ALL },
     { field = "extrabar" },
-    { field = "petbattle" },
 };
 
 local function field(record, name, value)

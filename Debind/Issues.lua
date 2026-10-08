@@ -445,14 +445,6 @@ local function ActionIsInvalid(action)
     return false;
 end
 
-local function SpecialBarAgainstPetBattle(action)
-    local conditions = action.conditions or EMPTY_CONDITIONS;
-    if ((conditions.specialbar and conditions.petbattle == false)
-            or (conditions.petbattle and conditions.specialbar == false)) then
-        return Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-    end
-end
-
 --- **The one pair `skyriding` costs.** It and `bonusbars` read the same `GetBonusBarOffset()`, so the
 --- two menus can set a pair no runtime state satisfies while neither looks wrong on its own.
 ---
@@ -522,6 +514,11 @@ local ACTION_CHECKS = {
     { category = "bonusbars", label = "CONDITION_BONUSBAR", check = function(action)
         if ((action.conditions or EMPTY_CONDITIONS).bonusbars == 0) then
             return Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED;
+        end
+    end },
+    { category = "bartakeover", label = "CONDITION_BARTAKEOVER", check = function(action)
+        if ((action.conditions or EMPTY_CONDITIONS).bartakeover == 0) then
+            return Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED;
         end
     end },
     -- **Each place a switch is named carries the menu it is fixed in.** One label for all of them
@@ -612,8 +609,6 @@ local ACTION_CHECKS = {
             return Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
         end
     end },
-    { category = "specialbar", label = "CONDITION_SPECIALBAR", check = SpecialBarAgainstPetBattle },
-    { category = "petbattle", label = "CONDITION_PETBATTLE", check = SpecialBarAgainstPetBattle },
     { category = "skyriding", label = "CONDITION_SKYRIDING", check = SkyridingAgainstBonusBars },
     { category = "bonusbars", label = "CONDITION_BONUSBAR", check = SkyridingAgainstBonusBars },
 };

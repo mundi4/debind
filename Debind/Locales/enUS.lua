@@ -53,6 +53,7 @@ L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
+L["BINDING_ERROR_BARTAKEOVER_NONE_SELECTED"] = "No action bar state is selected."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 -- **One state, two sentences, because the reader is looking at two different things.** Neither side
 -- is wrong on its own: the reader wrote one ordinary condition, and what it cannot meet is the key.
@@ -170,6 +171,20 @@ L["CONDITION_ADVFLYABLE_NO"] = "Where skyriding is not allowed"
 L["CONDITION_ADVFLYABLE_YES"] = "Where skyriding is allowed"
 L["CONDITION_ADVFLYABLE"] = "Skyriding Allowed"
 L["CONDITION_ACTIONBARS"] = "Action Bars"
+-- **Our word: the client has none for these three together.** "Action Bar 1" was weighed and
+-- dropped: a page and the stance bar change that bar too, and they are other conditions.
+L["CONDITION_BARTAKEOVER"] = "Bar Takeover"
+L["CONDITION_BARTAKEOVER_DESC"] = "What has taken over your main action bar, if anything."
+-- **The client's own word**, and not "Normal" or "Default": a reader in a form stops at the first,
+-- and the second reads as a default value. Assigned here only.
+L["CONDITION_BARTAKEOVER_NONE"] = NONE
+-- **Also the Keys Given Back value** (`SettingsTab.lua`), so the reader meets one name with one
+-- meaning: neither one takes a pet battle in.
+L["CONDITION_BARTAKEOVER_REPLACED"] = "Replaced Action Bar"
+-- %s is `CONDITION_BONUSBAR`, the menu beside this one.
+L["CONDITION_BARTAKEOVER_REPLACED_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar. What %s covers -- forms, stealth, skyriding -- is not included."
+-- **The client's own name for the thing**, as `GIVE_BACK_PET_BATTLES` is. Assigned here only.
+L["CONDITION_BARTAKEOVER_PETBATTLE"] = SHOW_PET_BATTLES_ON_MAP_TEXT
 L["CONDITION_BONUSBAR"] = "Stance Bar"
 L["CONDITION_COMBAT_NO"] = "While not in combat"
 L["CONDITION_COMBAT_YES"] = "While in combat"
@@ -277,9 +292,6 @@ L["CONDITION_MISC"] = "Miscellaneous"
 L["CONDITION_MOUNTED_NO"] = "While not mounted"
 L["CONDITION_MOUNTED_YES"] = "While mounted"
 L["CONDITION_MOUNTED"] = "Mounted"
-L["CONDITION_PETBATTLE_NO"] = "While not in a pet battle"
-L["CONDITION_PETBATTLE_YES"] = "While in a pet battle"
-L["CONDITION_PETBATTLE"] = "Pet Battle"
 L["CONDITION_REACTIONS"] = "Reactions"
 -- 게임의 낱말 그대로다: ROLE / TANK / HEALER / DAMAGER, 그리고 알 수 없을 때가 UNKNOWN.
 -- 우리가 붙인 이름이 하나도 없어야 하는 자리다.
@@ -316,10 +328,6 @@ L["CONDITION_SPEC"] = "Classes/Specializations"
 -- heads its own list the same way (`CLUB_FINDER_SPECIALIZATIONS`).
 L["CONDITION_SPECS"] = "Specializations"
 L["CONDITION_SPEC_DESC"] = "Pick the specializations this fires in. Every class is listed because an action in the Account tab runs on characters of another one."
-L["CONDITION_SPECIALBAR_DESC"] = "Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
-L["CONDITION_SPECIALBAR_NO"] = "While your action bar is not replaced"
-L["CONDITION_SPECIALBAR_YES"] = "While your action bar is replaced"
-L["CONDITION_SPECIALBAR"] = "Replaced Action Bar"
 L["CONDITION_STEALTH_NO"] = "While not stealthed"
 L["CONDITION_STEALTH_YES"] = "While stealthed"
 L["CONDITION_STEALTH"] = "Stealth"
@@ -1184,17 +1192,19 @@ L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever e
 -- each other (owner, 2026-10-07). **The order is a / b / a and b**, as the client's Self Cast row has
 -- Auto / Key Press / Auto and Key Press, with Never after them; the default is not put first.
 --
--- **The tooltips name no kind of bar** (override, vehicle), which a reader does not know. Forms and
--- skyriding are said to be out because "or the like" read as covering them.
+-- **The tooltips name no kind of bar** (override, vehicle), which a reader does not know. Forms,
+-- stealth and skyriding are said to be out because "or the like" read as covering them.
 L["GIVE_BACK_ACTION_BUTTON_KEYS"] = "Action Button keys"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"] = "When the keys bound to WoW's action buttons are given back."
--- The first value is `CONDITION_SPECIALBAR`, the name the condition list gives a replaced bar, so
--- the reader meets one name for it (owner, 2026-10-08).
-L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms and skyriding are not included."
+-- The first value is `CONDITION_BARTAKEOVER_REPLACED`, the box the condition menu gives a replaced
+-- bar, so the reader meets one name for it (owner, 2026-10-08). **The examples are spelled out**
+-- where the condition's own sentence points at the menu beside it: there is no such menu here.
+L["GIVE_BACK_REPLACED_BAR_DESC"] = "While a vehicle, a possession or a quest replaces your whole action bar: the keys bound to the action buttons that bar shows. Forms, stealth and skyriding are not included."
 -- **The client's own name for the thing**, so every language gets it for free. Assigned here only.
 L["GIVE_BACK_PET_BATTLES"] = SHOW_PET_BATTLES_ON_MAP_TEXT
 L["GIVE_BACK_PET_BATTLES_DESC"] = "During a pet battle: the keys bound to Action Buttons 1 to 5."
--- `CONDITION_SPECIALBAR` and `GIVE_BACK_PET_BATTLES`, joined, so each half reads as its own value does.
+-- `CONDITION_BARTAKEOVER_REPLACED` and `GIVE_BACK_PET_BATTLES`, joined, so each half reads as its
+-- own value does.
 -- **The client's own joiner**, so every language gets it. Assigned here only.
 L["GIVE_BACK_BOTH"] = COVENANT_RENOWN_TOAST_REWARD_COMBINER
 -- **Not the client's `NEVER`**, which koKR renders as "do not show".

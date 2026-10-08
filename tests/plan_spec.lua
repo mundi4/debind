@@ -19,6 +19,8 @@
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
     local shim = require("wow_shim");
+    local NONE, REPLACED, BATTLE = Constants.BARTAKEOVER_NONE, Constants.BARTAKEOVER_REPLACED,
+        Constants.BARTAKEOVER_PETBATTLE;
 
     local T = { passed = 0, failures = {} };
 
@@ -220,7 +222,7 @@ return function(DebindPrivate)
     end);
 
     -- **The beat runs only where it measures something.** A switch set by hand and a pet battle move
-    -- on our own wakes alone. A mouseover that goes away and a frame laid out again under a still
+    -- on our own wakes alone, and a `bartakeover` asking only about a battle measures no bar. A mouseover that goes away and a frame laid out again under a still
     -- cursor send nothing at all, and the beat is the only thing that sees them.
     test("the beat is asked for only where it measures a column", function()
         local function Tail(conditions)
@@ -231,10 +233,14 @@ return function(DebindPrivate)
         end
         for _, case in ipairs({
             { what = "a switch set by hand", conditions = { ["$hand"] = true }, beats = false },
-            { what = "a pet battle", conditions = { petbattle = true }, beats = false },
+            { what = "a pet battle", conditions = { bartakeover = BATTLE }, beats = false },
+            { what = "no pet battle", conditions = { bartakeover = NONE + REPLACED }, beats = false },
+            { what = "a replaced bar or a pet battle", conditions = { bartakeover = REPLACED + BATTLE },
+                beats = true },
             { what = "the mouseover", conditions = { units = { mouseover = {} } }, beats = true },
             { what = "the pointed frame", conditions = { units = { unitframe = {} } }, beats = true },
-            { what = "a pet battle beside combat", conditions = { petbattle = true, combat = true }, beats = true },
+            { what = "a pet battle beside combat", conditions = { bartakeover = BATTLE, combat = true },
+                beats = true },
         }) do
             local plan = Tail(case.conditions);
             check(plan.judges == true, case.what .. ": the tail key asked for no loop");
@@ -379,7 +385,7 @@ return function(DebindPrivate)
     test("building a plan registers nothing on the state driver", function()
         local frames = require("wow_frames");
         local mark = frames.mark();
-        PlanFor({ spell({ key = "F1", conditions = { specialbar = true } }) });
+        PlanFor({ spell({ key = "F1", conditions = { bartakeover = Constants.BARTAKEOVER_REPLACED } }) });
         local entries = frames.since(mark);
 
         for i = 1, #entries do

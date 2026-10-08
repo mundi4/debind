@@ -45,6 +45,9 @@ local pairs = pairs;
           group      `ConditionText.lua`'s `StateAlternatives` (what the press and the
                      expressions parse) and `StateCellText` (the column loop's cell), both
                      asking `group:raid` ahead of `group`
+          bartakeover  the same two, a pet battle ahead of the replaced bars: `nopetbattle`
+                     on the other cells' alternatives, and the loop's pushed battle taken
+                     before its parse
           reaction   `SecureBindings.lua` carries the click path and `setup_onenter`
 
       - **Across columns**, independence is not required. Correlated columns -- target and
@@ -98,7 +101,7 @@ local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 --                    Blizzard's own edit-mode placeholder is 10 (`StanceBar.lua:32`).
 --   bonusbars 5   -- `GetBonusBarOffset()`, a fixed set. Shapeshift and stance bars plus
 --                    skyriding at 5, which `DropDownMenus.lua` names from flyout 229.
---                    Not the vehicle/possess/override bars -- those are `specialbar`.
+--                    Not the vehicle/possess/override bars -- those are `bartakeover`.
 --   groups 2      -- none/party/raid. Cannot grow.
 --   frameTypes 6  -- ours, not the game's (`FrameRegistry.lua`). Grows only if we grow it,
 --                    and `FRAMETYPE_ALL` is checked against the spec's point space.
@@ -151,9 +154,9 @@ local FIXED_COLUMNS = {
         end
     },
     {
-        name = "specialbar",
+        name = "bartakeover",
         make = function(binding)
-            return boolToConditionFlags(binding.conditions.specialbar);
+            return binding.conditions.bartakeover or Constants.BARTAKEOVER_ALL;
         end
     },
     {
@@ -172,12 +175,6 @@ local FIXED_COLUMNS = {
         name = "stealth",
         make = function(binding)
             return boolToConditionFlags(binding.conditions.stealth);
-        end
-    },
-    {
-        name = "petbattle",
-        make = function(binding)
-            return boolToConditionFlags(binding.conditions.petbattle);
         end
     },
     {

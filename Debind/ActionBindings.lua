@@ -444,6 +444,10 @@ do
             conditions.bonusbars = Constants.BONUSBAR_ALL;
         end
 
+        if (conditions.bartakeover and band(conditions.bartakeover, Constants.BARTAKEOVER_ALL) == Constants.BARTAKEOVER_ALL) then
+            conditions.bartakeover = Constants.BARTAKEOVER_ALL;
+        end
+
         -- 대상을 못 갖는 타입이면 지운다. 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다 -
         -- 대상 메뉴를 여는 쪽(`DropDownMenus.lua`)도 같은 값을 본다. 예전에는 여기와
         -- 저기에 같은 목록이 손으로 하나씩 적혀 있었고, 한쪽에만 타입을 넣는 바람에
@@ -481,10 +485,6 @@ do
         -- **An action that takes no unit keeps `"@"`** (2026-09-15, owner). It asks the unit the
         -- press aims at, and whether the action does anything with that unit cannot be known: every
         -- action has the self and focus twins, and a macro body can aim wherever it likes.
-
-        if (conditions.petbattle and conditions.specialbar) then
-            conditions.specialbar = nil;
-        end
 
         -- **A unit frame condition fills no target in.** With no unit picked the original lets the
         -- game place the cast, condition or no condition (`which-action-a-key-runs.md` §5);

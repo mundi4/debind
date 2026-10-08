@@ -855,7 +855,7 @@ return function(DebindPrivate)
 
     --- **Both menus that can undo it are marked.** The reader can drop the group restriction or drop
     --- the unit condition, and whichever one they opened has to show them something -- the same
-    --- rule the `specialbar`/`petbattle` pair keeps.
+    --- rule the `skyriding`/`bonusbars` pair keeps.
     test("both the groups menu and the units menu are told", function()
         local action = soloAction("tank");
         check(GetBindingIssue(action, "groups") == NEVER, "the groups menu was not told");
@@ -935,7 +935,7 @@ return function(DebindPrivate)
         check(issue == NEVER, "not-skyriding with offset 5 only was not reported: " .. tostring(issue));
     end);
 
-    --- Both menus that can undo it are marked, the same rule the `specialbar`/`petbattle` pair keeps.
+    --- Both menus that can undo it are marked, the same rule the `groups`/`units` pair keeps.
     test("both the skyriding menu and the bonusbars menu are told", function()
         local action = barAction(true, 1);
         check(GetBindingIssue(action, "skyriding") == NEVER, "the skyriding menu was not told");
@@ -1049,8 +1049,8 @@ return function(DebindPrivate)
     --- One code told under two names. Folding them to one line loses the other menu.
     test("one code under two groups stands twice", function()
         local action = { type = Constants.SPELL, value = 585, key = "T", conditions = {
-            specialbar = true,
-            petbattle = false,
+            skyriding = true,
+            bonusbars = 2,
         } };
         local labels = {};
         local issues = GetBindingIssues(action);
@@ -1059,8 +1059,36 @@ return function(DebindPrivate)
                 labels[issues[i].label] = true;
             end
         end
-        check(labels["CONDITION_SPECIALBAR"], "the special bar label is missing");
-        check(labels["CONDITION_PETBATTLE"], "the pet battle label is missing");
+        check(labels["CONDITION_SKYRIDING"], "the skyriding label is missing");
+        check(labels["CONDITION_BONUSBAR"], "the stance bar label is missing");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- `bartakeover`
+    ---------------------------------------------------------------------------
+
+    local function takeoverIssue(mask)
+        return GetBindingIssue({ type = Constants.SPELL, value = 585, key = "T",
+            conditions = { bartakeover = mask } });
+    end
+
+    test("an empty bar takeover is reported as nothing selected", function()
+        local issue = takeoverIssue(0);
+        check(issue == Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED,
+            "an empty mask came back as " .. tostring(issue));
+        local codes = labelsByCode(GetBindingIssues({ type = Constants.SPELL, value = 585, key = "T",
+            conditions = { bartakeover = 0 } }));
+        check(codes[Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED] == "CONDITION_BARTAKEOVER",
+            "wrong label: " .. tostring(codes[Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED]));
+    end);
+
+    --- **Every box set on its own or with others has a state it holds in.** A replaced bar outside a
+    --- pet battle is the case that used to be reported as never holding.
+    test("no non-empty bar takeover is reported", function()
+        for mask = 1, Constants.BARTAKEOVER_ALL do
+            check(takeoverIssue(mask) == nil,
+                "mask " .. mask .. " was reported: " .. tostring(takeoverIssue(mask)));
+        end
     end);
 
     ---------------------------------------------------------------------------

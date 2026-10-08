@@ -312,8 +312,8 @@ local function CollectDriverEvents(events)
     want("UNIT_FACTION", judged.unit);
 
     local givesBackOnReplacedBar = DebindPrivate.GiveBackOnReplacedBar();
-    want("UPDATE_OVERRIDE_ACTIONBAR", givesBackOnReplacedBar or judged.specialbar);
-    want("UPDATE_VEHICLE_ACTIONBAR", givesBackOnReplacedBar or judged.specialbar);
+    want("UPDATE_OVERRIDE_ACTIONBAR", givesBackOnReplacedBar or judged.bartakeover);
+    want("UPDATE_VEHICLE_ACTIONBAR", givesBackOnReplacedBar or judged.bartakeover);
     want("UPDATE_EXTRA_ACTIONBAR", judged.extrabar);
     want("PLAYER_MOUNT_DISPLAY_CHANGED", judged.mounted);
 

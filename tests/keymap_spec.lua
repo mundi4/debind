@@ -124,10 +124,10 @@ return function(DebindPrivate)
     -- **A tail carrying an issue that leaves it out is left out**, like any action: no binding, so
     -- no judgment item, and the key is not handed on under conditions nothing meets.
     test("a tail carrying an issue that leaves it out is left out", function()
-        -- Special bar against pet battle, on purpose: it leaves the binding standing, so nothing but
-        -- the outcome can take it off the key.
+        -- An empty `bartakeover`, on purpose: it leaves the binding standing, so nothing but the
+        -- outcome can take it off the key.
         local tail = { type = Constants.GIVEBACK, key = "F1", seq = 1,
-            conditions = { specialbar = true, petbattle = false } };
+            conditions = { bartakeover = 0 } };
         Bind({ tail });
         -- Read off `KeyMap` itself: a block is not a record `Records` hands back.
         local list = DebindPrivate.KeyMap.F1 or {};
