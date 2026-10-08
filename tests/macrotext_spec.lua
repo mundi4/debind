@@ -379,51 +379,88 @@ return function(DebindPrivate)
             "상태가 꺼졌는데 no$state1이 거짓으로 나옴");
     end);
 
-    --- A **mirror** of the decision `EmitMacroTextArg` (`Rebuild.lua`) makes for each switch
-    --- argument: a name the compile found no definition for is baked as a literal, not read at run
-    --- time.
-    ---
-    --- ⚠ A mirror and not a check of that function. When the rule there changes this goes on
-    --- passing, so all it holds is "an undefined name is false", and that the parser really hands
-    --- over what the decision needs (`arg.name` / `arg.reverse`).
-    local function bakeFixed(arg, defined)
-        if (defined[arg.name]) then
-            return nil;
+    ---------------------------------------------------------------------------
+    -- What a rebuild bakes into a switch argument (`EmitMacroTextArg`)
+    ---------------------------------------------------------------------------
+
+    local Rebuild = DebindPrivate.Rebuild;
+    local SWITCH_MODES = Constants.SWITCH_MODES;
+    local BAKE_GUID = "Player-1-MACROTEXT";
+
+    --- Stood up once, on first use: the cases above ask the parser alone and need no profile.
+    local profileUp = false;
+    local function standUpProfile()
+        if (profileUp) then
+            return;
         end
-        return "known:0";
+        profileUp = true;
+        _G.UnitGUID = function() return BAKE_GUID; end
+        _G.DebindVars = {
+            dbver = Constants.DB_VERSION,
+            layers = { account = { GENERAL = { [0] = {} } } },
+            characters = { [BAKE_GUID] = { switches = {} } },
+            migrated = {},
+            switches = { account = { GENERAL = { [0] = {
+                ["$state1"] = { mode = SWITCH_MODES.MANUAL },
+                ["$ignored"] = { mode = SWITCH_MODES.IGNORE },
+                ["$self"] = { mode = SWITCH_MODES.EXPR, expr = "[$self,combat]" },
+            } } } },
+        };
+        DebindPrivate.InitDB();
     end
 
-    --- 정의된 상태가 하나도 없을 때 실제로 와우에 넘어가는 문자열.
-    local function resolveWithDefinitions(macrotext, defined)
-        local frags, args = ParseMacroText(macrotext);
-        check(args ~= nil, "상태 인자를 못 찾음");
+    --- The text the restricted side hands the game for `macrotext` read by `owner` (a button name,
+    --- or a switch name for that switch's own expression), off what `BuildMacroTextEntries` emits.
+    --- Each argument the rebuild left to run time stays as `<name>`. Also the emitted entry.
+    local function bakedText(owner, macrotext)
+        standUpProfile();
+        Rebuild.ResetContext();
+        Rebuild.addMacrotextBinding(owner, macrotext);
+        local env = { DeferredMacroTexts = {}, SwitchEntries = {}, newtable = function() return {}; end };
+        local chunk = assert(loadstring(Rebuild.BuildMacroTextEntries()));
+        setfenv(chunk, env)();
+        local entry = env.DeferredMacroTexts[owner] or env.SwitchEntries[owner];
+        check(entry, format("%q read by %s: nothing emitted", macrotext, owner));
+
         local out = {};
-        for i = 1, #frags do
-            out[i] = frags[i];
+        for i = 1, #entry.fragments do
+            out[i] = entry.fragments[i];
         end
-        for i = 1, #args do
-            out[i * 2] = bakeFixed(args[i], defined) or "";
+        for i = 1, #entry.args do
+            local arg = entry.args[i];
+            out[i * 2] = arg.fixed or arg.unit or ("<" .. tostring(arg.switch) .. ">");
         end
-        return table.concat(out);
+        return table.concat(out), entry;
     end
 
-    -- ⚑2. 정의되지 않은 이름을 `""`로 구우면 `[$typo]`가 `[]`가 되고, 빈 조건 그룹은
-    -- **항상 참**이다(위 "빈 조건 그룹" 테스트가 그 형태를 그대로 보여준다). 오타 하나로
-    -- 바인딩이 조건 없이 상시 발동하게 되는 자리라, 굽는 값은 거짓이어야 한다.
-    test("정의되지 않은 상태는 거짓으로 굽는다", function()
-        local out = resolveWithDefinitions("/cast [$typo] Foo", {});
-        check(out:find("known:0", 1, true), "거짓으로 안 굽힘: " .. out);
-        check(not out:find("[]", 1, true), "빈 조건 그룹이 됐다 - 항상 참이다: " .. out);
-
-        -- 부정형은 원래도 거짓이었다. 같은 답이 나오는지만 확인한다.
-        local rev = resolveWithDefinitions("/cast [no$typo] Foo", {});
-        check(rev:find("known:0", 1, true), "부정형이 거짓으로 안 굽힘: " .. rev);
+    -- **`""` here would turn `[$typo]` into `[]`, which is always true** ("빈 조건 그룹" below), so a
+    -- typo would fire the binding on every press.
+    test("an undefined switch is baked false", function()
+        local out = bakedText("btn", "/cast [$typo] Foo");
+        check(out:find("[known:0]", 1, true), "not baked false: " .. out);
+        local rev = bakedText("btn", "/cast [no$typo] Foo");
+        check(rev:find("[known:0]", 1, true), "the negated form not baked false: " .. rev);
     end);
 
-    test("정의된 상태는 굽지 않고 런타임에 남긴다", function()
-        local _, args = ParseMacroText("/cast [$state1] Foo");
-        check(bakeFixed(args[1], { ["$state1"] = true }) == nil,
-            "정의된 이름까지 리터럴로 굳으면 상태가 켜져도 안 바뀐다");
+    test("a defined switch is left to run time", function()
+        local out, entry = bakedText("btn", "/cast [no$state1] Foo");
+        check(out:find("[<$state1>]", 1, true), "baked to a literal: " .. out);
+        check(entry.args[1].reverse == true, "the negation was dropped");
+    end);
+
+    test("an ignored switch is erased with its comma left behind", function()
+        local out = bakedText("btn", "/cast [$ignored,combat] Foo");
+        check(out:find("[,combat]", 1, true), "not erased: " .. out);
+        local rev = bakedText("btn", "/cast [no$ignored] Foo");
+        check(rev:find("[]", 1, true), "the negated form not erased: " .. rev);
+    end);
+
+    -- The same name read from a button is the switch's value, so only the owner's own text erases it.
+    test("a switch reading itself in its own expression is erased", function()
+        local out = bakedText("$self", "[$self,combat]");
+        check(out == "[,combat]", "its own expression came out " .. out);
+        local fromButton = bakedText("btn", "/cast [$self] Foo");
+        check(fromButton:find("[<$self>]", 1, true), "read from a button it came out " .. fromButton);
     end);
 
     test("unitsOnly면 커스텀 상태를 무시한다", function()

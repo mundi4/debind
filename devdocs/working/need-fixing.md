@@ -1,11 +1,13 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 3~6. 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
-> 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다.
+> 상태: 미착수. 항목 3과 5. 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
+> 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다. 4(키트의 Tail 시험
+> 넷이 beat와 리빌드를 못 가름)도 같은 날 넷 다 `WaitOnBeat`로 바꿔서 뺐다. 6(`macrotext_spec`이 `EmitMacroTextArg`를
+> 베껴 잼)도 같은 날 `BuildMacroTextEntries`가 내는 글을 직접 재게 바꾸고 `bakeFixed`를 지워서 뺐다. 이것도 같은 규칙을
+> 두 곳에 적어 둔 것이었다.
 >
-> 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 항목 4와 5를 쓴 세션: `debind-76` (세션 ID
-> `44a4417a-2abe-44e5-b0f9-4cbfb7431e9e`). 항목 6을 쓴 세션: `debind-f9` (세션 ID
-> `ff9c24d6-42e2-4547-916f-3d084dffcbcf`).
+> 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 항목 5를 쓴 세션: `debind-76` (세션 ID
+> `44a4417a-2abe-44e5-b0f9-4cbfb7431e9e`).
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
 
@@ -46,34 +48,6 @@
 같다(`giving-keys-back-when-no-action-runs.md` 1절). 끄면 차량 기술을 그 키로 못 누른다. 소유자가 생각해 보기로
 했다(2026-10-08).
 
-## 4. 키트의 Tail 시험 넷이 "beat가 옮겼다"를 리빌드와 가르지 못한다
-
-찾은 곳: 2611118의 리뷰(2026-10-08). 키 돌려주기 G6의 키트를 고치던 중이었다.
-
-### 무엇이 빠졌나
-
-`DebindTest.lua`의 Tail 시험들은 `MockBody`나 유닛 별칭으로 값을 옮긴 뒤 `WaitUntil`로 2초까지 키가 바뀌기를
-기다린다. 그 사이에 리빌드가 돌면 리빌드가 키를 스스로 판정해 건다. 그러면 beat가 고장 나 있어도 시험이 통과한다.
-
-리뷰가 짚은 두 시험("Tail: the beat takes the key and hands it back to the command", "Key given back: a lone
-conditional action lets its key go and takes it back")은 `WaitOnBeat`로 고쳤다. 리빌드 횟수를 세어, 기다리는 동안
-리빌드가 돌았으면 실패로 낸다. 남은 것은 같은 꼴의 넷이다.
-
-- "Tail: the watch follows two state words one after the other"
-- "Tail: the units' watch follows a token and a life"
-- "Tail: the form moves the key by the call"
-- "Tail: flyable in combat waits behind nocombat"
-
-### 재현 조건
-
-beat가 판정 아이템을 안 도는 회귀가 있고, 시험이 기다리는 2초 안에 다른 이벤트가 `QueueUpdateBindings`를 부른다.
-그 리빌드가 바뀐 값으로 키를 걸어 기다림이 풀린다.
-
-### 고치는 길
-
-그 넷의 `WaitUntil`을 `WaitOnBeat`로 바꾼다. 조용한 beat를 세는 `WaitTicks` 자리는 키가 안 움직이는 것을 보므로 그대로
-둔다.
-
 ## 5. 조건끼리 모든 상태를 덮는 키도 beat에 오른다
 
 찾은 곳: 키 돌려주기 3-1절 작업(2026-10-08, `giving-keys-back-when-no-action-runs.md` 3-1절 끝에서 옮겨 왔다).
@@ -108,27 +82,3 @@ beat가 판정 아이템을 안 도는 회귀가 있고, 시험이 기다리는 
 - **그대로 둔다.** 동작은 맞고, 비용은 위의 값이다.
 
 할지는 소유자가 정하지 않았다.
-
-## 6. `macrotext_spec`이 매크로 본문의 스위치 인자를 진짜 함수 대신 손으로 베낀 규칙으로 잰다
-
-찾은 곳: `UpdateBindings.lua` 가르기의 리뷰(2026-10-08, `splitting-updatebindings.md`).
-
-### 무엇이 빠졌나
-
-`macrotext_spec.lua`의 `bakeFixed`는 `EmitMacroTextArg`(`Rebuild.lua`)가 스위치 인자마다 내리는 결정을 손으로 베낀
-것이다. 베낀 것은 한 갈래뿐이다. 정의 안 된 이름이면 `known:0`, 아니면 그대로다. 진짜 함수에는 갈래가 둘 더 있다.
-
-- 무시한 스위치는 `""`로 지운다(`IsSwitchIgnored`).
-- 자기 식 안에서 자기를 읽는 스위치(`[$a]`가 `$a`의 식 안에 있을 때)는 `""`가 된다.
-
-그리고 진짜 함수의 규칙이 바뀌어도 이 시험은 계속 통과한다. 주석이 스스로 그렇게 적고 있다.
-
-### 재현 조건
-
-`EmitMacroTextArg`가 정의 안 된 이름을 `""`로 굽도록 회귀한다. `[$typo]`가 `[]`가 되고, 빈 조건 묶음은 늘 참이라
-액션이 더 자주 나간다. `macrotext_spec`은 그대로 통과한다.
-
-### 고치는 길
-
-가르기로 `EmitMacroTextArg`가 헤드리스 스펙이 싣는 파일(`Rebuild.lua`)에 들어왔다. 등록부를 세우고
-`Rebuild.BuildMacroTextEntries()`가 내는 글을 직접 보면 세 갈래를 다 잴 수 있다. 그러면 `bakeFixed`는 지운다.

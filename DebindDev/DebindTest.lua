@@ -8393,13 +8393,15 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
         -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it
         -- is one the watch has to see.
         SecureHandlerExecute(driver, MockBody("combat", true))
-        if not WaitUntil(function() return IsOurClick(Bound()) end, 2) then
-            return Fail(NAME, format("in combat no beat took the key, it answers %q", Bound()))
+        local moved, why = WaitOnBeat(function() return IsOurClick(Bound()) end)
+        if not moved then
+            return Fail(NAME, why or format("in combat no beat took the key, it answers %q", Bound()))
         end
         SecureHandlerExecute(driver, MockBody("stealth", true))
         SecureHandlerExecute(driver, MockBody("combat", false))
-        if not WaitUntil(function() return Bound() == COMMAND end, 2) then
-            return Fail(NAME, format("stealthed at peace no beat moved the key, it answers %q", Bound()))
+        moved, why = WaitOnBeat(function() return Bound() == COMMAND end)
+        if not moved then
+            return Fail(NAME, why or format("stealthed at peace no beat moved the key, it answers %q", Bound()))
         end
         if not WaitTicks(2) then
             return Fail(NAME, "the manager did not tick for the witness")
@@ -8465,13 +8467,15 @@ RegisterTest("Tail: the units' watch follows a token and a life", {
 
         -- The token moves under the alias's wake.
         unitWatch:SetAttribute("custom1", "player")
-        if not WaitUntil(function() return Taken(KEY) end, 2) then
-            return Fail(NAME, "@custom1 pointed at the player and its key was not taken")
+        local moved, why = WaitOnBeat(function() return Taken(KEY) end)
+        if not moved then
+            return Fail(NAME, why or "@custom1 pointed at the player and its key was not taken")
         end
         -- Past `SetMockState`, which ends in a rebuild: only a beat moves the keys from here.
         SecureHandlerExecute(driver, MockBody("player-dead", true))
-        if not WaitUntil(function() return not Taken(KEY) and not Taken(KEY2) end, 2) then
-            return Fail(NAME, format("the player held dead and no beat let go: @custom1's key %s, the player's %s",
+        moved, why = WaitOnBeat(function() return not Taken(KEY) and not Taken(KEY2) end)
+        if not moved then
+            return Fail(NAME, why or format("the player held dead and no beat let go: @custom1's key %s, the player's %s",
                 tostring(Taken(KEY)), tostring(Taken(KEY2))))
         end
         if not WaitTicks(2) then
@@ -8481,8 +8485,9 @@ RegisterTest("Tail: the units' watch follows a token and a life", {
             return Fail(NAME, "a quiet beat took a key back")
         end
         SecureHandlerExecute(driver, MockBody("player-dead", false))
-        if not WaitUntil(function() return Taken(KEY) and Taken(KEY2) end, 2) then
-            return Fail(NAME, "the player alive again and no beat took both keys back")
+        moved, why = WaitOnBeat(function() return Taken(KEY) and Taken(KEY2) end)
+        if not moved then
+            return Fail(NAME, why or "the player alive again and no beat took both keys back")
         end
         if #watchMisses > 0 then
             return Fail(NAME, format("the watch let a beat pass with column %d moved", watchMisses[1]))
@@ -8531,12 +8536,14 @@ RegisterTest("Tail: the form moves the key by the call", {
 
         -- Past `SetMockState`, which ends in a rebuild: only a beat moves the key from here.
         SecureHandlerExecute(driver, MockBody("form", 1))
-        if not WaitUntil(function() return IsOurClick(Bound()) end, 2) then
-            return Fail(NAME, format("in form 1 no beat took the key, it answers %q", Bound()))
+        local moved, why = WaitOnBeat(function() return IsOurClick(Bound()) end)
+        if not moved then
+            return Fail(NAME, why or format("in form 1 no beat took the key, it answers %q", Bound()))
         end
         SecureHandlerExecute(driver, MockBody("form", 2))
-        if not WaitUntil(function() return Bound() == COMMAND end, 2) then
-            return Fail(NAME, format("in form 2 no beat moved the key, it answers %q", Bound()))
+        moved, why = WaitOnBeat(function() return Bound() == COMMAND end)
+        if not moved then
+            return Fail(NAME, why or format("in form 2 no beat moved the key, it answers %q", Bound()))
         end
         if not WaitTicks(2) then
             return Fail(NAME, "the manager did not tick for the witness")
@@ -8606,8 +8613,9 @@ RegisterTest("Tail: flyable in combat waits behind nocombat", {
             return Fail(NAME, "in combat the zone turning flyable took the key")
         end
         SecureHandlerExecute(driver, MockBody("combat", false))
-        if not WaitUntil(Taken, 2) then
-            return Fail(NAME, "combat ended where it can fly and no beat took the key")
+        local moved, why = WaitOnBeat(Taken)
+        if not moved then
+            return Fail(NAME, why or "combat ended where it can fly and no beat took the key")
         end
         if #watchMisses > 0 then
             return Fail(NAME, format("the watch let a beat pass with column %d moved", watchMisses[1]))
