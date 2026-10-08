@@ -296,8 +296,7 @@
 		<Size x="450" y="26"/>
 		<Frames>
 			<!--
-				The worst problem in the group, as a mark (`Init` picks which). One of them and not
-				two, because a heading has one of these at a time and both would want this spot.
+				Whether an action in the group has an issue, as the row's issue mark (`Init`).
 			-->
 			<Frame parentKey="IssueIcon" inherits="DebindRowMarkTemplate">
 				<Anchors>

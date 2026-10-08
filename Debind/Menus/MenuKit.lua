@@ -374,7 +374,8 @@ Registry.__index = Registry;
 --- * `accessor` -- the default `Get`/`Set` pair. A node may name its own.
 --- * `issueForKey(ctx, key)` -- optional. What is wrong with the value under `key`, or nil.
 --- * `isActiveForKey(ctx, key)` -- optional. Whether that value is set to anything.
---- * `resolveIssue(issue, arg)` -- returns the sentence and the colour for an issue. **The issue
+--- * `resolveIssue(issue, arg)` -- returns the sentence and the colour for an issue, both always:
+---   the kit has no colour of its own for one. **The issue
 ---   itself is opaque here**: only the family knows whether it is a code, a sentence or something
 ---   else. `arg` is the second value a producer returned beside it, carried through untouched --
 ---   a sentence with a name in it has nowhere else to get the name from.
@@ -544,7 +545,7 @@ function Registry:BuildNode(parentDescription, node, ctx)
             -- tooltip alike, so the two say one thing.
             local text, issueColor = registry.config.resolveIssue(err, errArg);
             err = text;
-            errColor = issueColor or ERROR_COLOR;
+            errColor = issueColor;
             color = errColor;
         elseif (registry:IsActive(node, ctx)) then
             color = BLUE_FONT_COLOR;

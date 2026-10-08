@@ -413,8 +413,7 @@ function DebindSwitchRowMixin:OnEnter()
         -- switch that no action carries, so nothing else on screen is marked for it.
         local undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
         if (undefined) then
-            GameTooltip_AddColoredLine(GameTooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefined),
-                DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH));
+            DebindPrivate.AddIssueLine(GameTooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, undefined);
         end
     end
 

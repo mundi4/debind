@@ -88,6 +88,17 @@ do
 	DebindPrivate.BonusBarLabel = GetActionBarTypeLabel;
 end
 
+--- The sentence an issue code prints (`IssueSentence`), in the issue colour (`GetIssueColor`). **Every
+--- surface that writes one goes through here**, the action tooltip, the menus and the Switches tab, so
+--- a sentence that names something gets its name the one way.
+---
+--- **Some of the sentences name something** -- the switch, the macro or the command that was not
+--- found -- and the name comes as `name`. Without it the reader was handed a raw `%s`.
+function DebindPrivate.AddIssueLine(tooltip, code, name, wrap, leftOffset)
+	GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code, name),
+		DebindPrivate.GetIssueColor(code), wrap, leftOffset);
+end
+
 local AddActionToTooltip, HideActionTooltip;
 do
 	local _lines = {};
@@ -128,16 +139,13 @@ do
 		GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
 	end
 
-	--- The sentence a code prints, in the issue colour (`Issues.lua`'s `GetIssueColor`). `text` stands
-	--- in for the code's own sentence where a name has to go into it.
-	local function addIssueLine(tooltip, code, wrap, leftOffset, text)
-		GameTooltip_AddColoredLine(tooltip, text or DebindPrivate.IssueSentence(code),
-			DebindPrivate.GetIssueColor(code), wrap or false, leftOffset or LEFT_OFFSET);
+	--- The condition rows' issue line: unwrapped, at the rows' offset.
+	local function addIssueLine(tooltip, code, wrap, leftOffset, name)
+		DebindPrivate.AddIssueLine(tooltip, code, name, wrap or false, leftOffset or LEFT_OFFSET);
 	end
 
 	--- The value as the reader set it, and the code's sentence under it where `issue` is one: the value
-	--- is then a setting the reader chose with nothing wrong in it. **An axis with nothing picked
-	--- prints its sentence in the value's place** (`addIssueLine`), there being no value to show.
+	--- is then a setting the reader chose with nothing wrong in it.
 	local function addValueLine(tooltip, value, issue, wrap, leftOffset)
 		GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		if (issue) then
@@ -837,8 +845,7 @@ do
 			local undefinedSwitch = DebindPrivate.GetUndefinedSwitch(action);
 			if (undefinedSwitch) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, true, nil,
-					format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefinedSwitch));
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, true, nil, undefinedSwitch);
 			end
 
 			-- Named here for the same reason. The macro name is the action's `value`, so no
@@ -848,8 +855,7 @@ do
 			local missingMacro = DebindPrivate.GetMissingMacroName(action);
 			if (missingMacro) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, true, nil,
-					format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro));
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, true, nil, missingMacro);
 			end
 		end
 
@@ -954,15 +960,9 @@ do
 		end);
 	end
 
-	--- The sentence an issue code prints, in the issue colour (`GetIssueColor`). The wording fallback is
-	--- the menu's (`resolveIssue` in ActionMenuModel.lua).
-	---
-	--- **Some of the sentences name something** -- the switch, the macro or the command that was not
-	--- found -- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
-	--- raw `%s` where the name should have been.
+	--- The mark tooltip's issue line: wrapped, the name as `GetBindingIssues` brought it.
 	local function AddIssueLine(tooltip, code, arg, leftOffset)
-		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code, arg),
-			DebindPrivate.GetIssueColor(code), true, leftOffset or 0);
+		DebindPrivate.AddIssueLine(tooltip, code, arg, true, leftOffset or 0);
 	end
 
 	--- The row's issue mark: every problem on this row, under the name of the group that can fix it.

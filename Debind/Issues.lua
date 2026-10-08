@@ -299,20 +299,20 @@ function DebindPrivate.GetIssueColor(issue)
     return ORANGE_FONT_COLOR;
 end
 
---- Of the issue already found and one a branch just raised, the one that is reported, by `rank`
+--- Of the issue already found and one a branch just raised, the one that is reported, by outcome
 --- (lower is stronger). **A tie goes to the one already there**, so branches keep the order they are
 --- written in among equals.
-local function TakeIssue(current, candidate, rank)
-    if (candidate ~= nil and (current == nil or rank(candidate) < rank(current))) then
+local function TakeIssue(current, candidate)
+    if (candidate ~= nil and (current == nil or IssueOutcome(candidate) < IssueOutcome(current))) then
         return candidate;
     end
     return current;
 end
 
 --- Is there any point asking another branch? **Only while the strongest there is has not been
---- found**, since nothing below could replace it. The outcomes start at 1.
-local function LookingForWorse(issue, rank)
-    return issue == nil or rank(issue) > 1;
+--- found**, since nothing below could replace it.
+local function LookingForWorse(issue)
+    return issue == nil or IssueOutcome(issue) ~= Constants.ISSUE_OUTCOME_OMIT;
 end
 
 --- The stored unit rows, under the pre-migration name too, the way `FillBinding` reads them.
@@ -686,7 +686,6 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     --- first, and the key was decided off it. `TakeIssue` holds the tie rule and `LookingForWorse` is
     --- what the guards ask, so a branch stops being asked only once the strongest there is has been
     --- found.
-    local rank = IssueOutcome;
     local issue;
 
     --- Where a branch hands in the code it raised. `label` names the group that problem is fixed
@@ -708,13 +707,13 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 collected[#collected + 1] = { code = candidate, label = label, arg = arg };
             end
         end
-        issue = TakeIssue(issue, candidate, rank);
+        issue = TakeIssue(issue, candidate);
     end
 
     --- Is there any point asking another branch? **A collecting call always has one**: only the
     --- caller that folds to the strongest one stops early, which is what `LookingForWorse` decides.
     local function Looking()
-        return collected ~= nil or LookingForWorse(issue, rank);
+        return collected ~= nil or LookingForWorse(issue);
     end
 
     for i = 1, #ACTION_CHECKS do

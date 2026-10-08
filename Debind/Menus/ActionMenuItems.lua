@@ -229,8 +229,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
         if (not DebindPrivate.ResolveSwitchDefinition(switchName)) then
             switchDescription:SetTooltip(function(tooltip, elementDescription)
                 GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
-                GameTooltip_AddColoredLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], switchName),
-                    DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH));
+                DebindPrivate.AddIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, switchName);
             end);
         end
     end

@@ -240,7 +240,6 @@ L["UNITGROUP_PARTY"] = "내 파티에 있음"
 L["UNITGROUP_RAID"] = "내 공대에 있음"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 L["MARK_TOOLTIP_CONDITIONAL"] = "지정된 조건이 맞을 때만 실행됩니다."
-L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "그 행동을 살펴보세요."
 L["LINE_TOOLTIP_IMPORTED"] = "문자열로 받아온 것입니다. 받아들이기 전까지는 어떤 키에도 걸리지 않습니다."
 -- 키를 지정한다는 말이 빠진 이유는 enUS 쪽 주석에.
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "왼쪽 클릭하면 이 행동을 선택합니다. CTRL이나 SHIFT를 누른 채 클릭하면 여러 개를 고를 수 있습니다."

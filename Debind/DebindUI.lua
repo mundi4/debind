@@ -50,17 +50,14 @@ local NameAndIconForAction           = DebindUI.NameAndIconForAction;
 local ColoredNameAndIconForAction    = DebindUI.ColoredNameAndIconForAction;
 local SetActionIcon                  = DebindUI.SetActionIcon;
 
--- 마크 하나가 갖는 상자. 크기가 하나인 것이 그 줄이 한 줄로 읽히게 하는 값이고, 그림마다
--- 여백이 다른 것은 `inset`이 맞춘다 - 벌레 파일은 아트가 여백 안에 앉아 있어서 상자를 키우는
--- 대신 가운데를 잘라낸다.
+-- The box one mark takes. One size for every mark is what lets the row of them read as one line.
 local MARK_SIZE                      = 15;
 
---- **어느 뜻이 어느 그림인지는 여기서만 정한다.** 같은 뜻이 목록마다 다른 그림으로 나가면
---- 읽는 사람은 둘을 다른 것으로 안다.
+--- **Which meaning is which picture is decided here only.** One meaning drawn as different pictures
+--- in two lists reads as two things.
 ---
---- `atlas`와 `file`이 갈리는 이유는 아트가 그렇게 있기 때문이고, 한쪽을 세우면 다른 쪽 흔적을
---- 지워야 한다 - 이 프레임들은 풀에서 돌아오므로 앞 행이 남긴 것을 들고 온다. 좌표가 그중
---- 물리는 것이라, 안 자르는 그림도 자기가 안 자른다고 말해야 한다.
+--- `atlas` and `file` part because that is how the art exists. Setting one has to clear what the
+--- other left: these frames come back from a pool carrying what the previous row put on them.
 local MARK_KINDS = {
 	--- Hover Cast sends the action to the unit pointed at (`HoverCastChoiceOf`). **The casting
 	--- cursor**, the gauntlet with the blue glow the client shows while a spell waits for a target
@@ -82,10 +79,10 @@ local MARK_KINDS = {
 
 DebindRowMarkMixin = {};
 
---- 이 마크가 무엇을 말하는지. `kind`가 nil이면 마크가 내려간다.
+--- What this mark says. A nil `kind` takes the mark down.
 ---
---- `tooltipFunc(tooltip, self)`는 **그 마크만의 설명**을 쓴다. 종류마다 한 문장이 아니라 다는
---- 쪽이 넘기는 이유는, 같은 벌레라도 왜 안 먹는지가 상황마다 다르기 때문이다.
+--- `tooltipFunc(tooltip, self)` writes **that mark's own explanation**. The caller hands it rather
+--- than each kind carrying one sentence, because why the same mark stands differs from row to row.
 function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 	self.tooltipFunc = tooltipFunc;
 	local art = kind and MARK_KINDS[kind];
@@ -105,14 +102,9 @@ function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
 	else
 		texture:SetAtlas(art.atlas);
 	end
-	local inset = art.inset or 0;
-	texture:SetTexCoord(inset, 1 - inset, inset, 1 - inset);
-	texture:SetDesaturated(art.color ~= nil);
-	if (art.color) then
-		texture:SetVertexColor(art.color:GetRGB());
-	else
-		texture:SetVertexColor(1, 1, 1);
-	end
+	texture:SetTexCoord(0, 1, 0, 1);
+	texture:SetDesaturated(false);
+	texture:SetVertexColor(1, 1, 1);
 
 	-- **A second shape over the first, so two marks can differ where colour cannot.** An inactive
 	-- row desaturates both (`SetInactive`), and a pooled mark brings that back, so it is reset here.
@@ -170,10 +162,6 @@ end
 --- (`ActionTooltip.lua`).
 local function IssueMarkTooltip(tooltip, mark)
 	DebindPrivate.AddIssueMarkToTooltip(tooltip, mark.action);
-end
-
-local function GroupIssueMarkTooltip(tooltip)
-	DebindPrivate.AddGroupIssuesToTooltip(tooltip);
 end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
@@ -1631,7 +1619,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- **A key handed to the house editor or a replaced bar stays white.** That is stepping
 		-- aside for a moment and it comes back by itself; a name changing colour while mounted
 		-- reads as a key lost.
-		self.IssueIcon:SetKind(elementData.hasIssue and "issue" or nil, GroupIssueMarkTooltip);
+		self.IssueIcon:SetKind(elementData.hasIssue and "issue" or nil, DebindPrivate.AddGroupIssuesToTooltip);
 
 		local label = KeyGroupLabel(elementData.key);
 		if (not DebindPrivate.IsKeyHandled(elementData.key)) then
