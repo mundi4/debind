@@ -727,13 +727,14 @@ return function(DebindPrivate)
             seed = (seed * 16807) % 2147483647;
             return PIECES[seed % #PIECES + 1];
         end
-        --- Five pieces, none sharing a field with another, into one conditions table.
-        local function conditionsOf(mouseover)
+        --- Five pieces, none sharing a field with another, into one conditions table. `reaction` is
+        --- asked of `asked`, `mouseover` unless said.
+        local function conditionsOf(reaction, asked)
             local out, used = {}, {};
-            if (mouseover) then
-                out.units = { mouseover = { reaction = mouseover } };
+            if (reaction) then
+                out.units = { [asked or "mouseover"] = { reaction = reaction } };
             end
-            local count = mouseover and 1 or 0;
+            local count = reaction and 1 or 0;
             while (count < 5) do
                 local piece = nextPiece();
                 local field, value = next(piece);
@@ -752,7 +753,7 @@ return function(DebindPrivate)
             end
             return out;
         end
-        local function ownersProfile(helpOnly, bare)
+        local function ownersProfile(helpOnly, bare, unit)
             seed = 12345;
             local out = {};
             for k = 1, 30 do
@@ -766,7 +767,7 @@ return function(DebindPrivate)
                     elseif (readsMouseover and a == 2) then
                         mouseover = onlyHelp and Constants.REACTION_HELP or Constants.REACTION_HARM;
                     end
-                    out[#out + 1] = action({ value = 585 + a, key = key, conditions = conditionsOf(mouseover) });
+                    out[#out + 1] = action({ value = 585 + a, key = key, conditions = conditionsOf(mouseover, unit) });
                 end
                 if (not bare) then
                     out[#out + 1] = action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = key });
@@ -851,6 +852,131 @@ return function(DebindPrivate)
         local _, _, quietLines = price(scenario(LARGE_BEATS, {}), perInstruction);
         print(string.format("  no tail: the rebuild %.0f ms on, %.0f ms off (%.0f with the tail); quiet %6.2f",
             on, off, tailed, BodyShare(quietLines) / LARGE_BEATS));
+
+        -- **The pointed frame, frame to frame** (2026-10-08, owner): the shape above with its 20 keys
+        -- reading `unitframe` instead, and the cursor going over a raid's frames, a new unit at every
+        -- step. One frame stands for all of them with its unit moved between steps: what a body
+        -- reads off a frame is its unit, and every raid frame is the same kind.
+        --
+        -- **The strings are priced too**, which nothing above does. Each text a step leaves in a slot
+        -- that held another is a new string, at its length and 33 bytes (the in-game counts of three
+        -- texts, 2026-10-08, each within 0.1 byte of that), and a KB of it 3.89 us
+        -- (`Probe_UnitCell.lua`: a full collect of the live heap over the 10% the client's pause of
+        -- 110 lets it grow, which is a model and not a timing). A text built again for a token seen
+        -- before counts as new: the collector at that pause sweeps between crossings.
+        local STRING_OVERHEAD, GC_PER_KB = 33, 3.89;
+        local RAID = 20;
+        local function token(i)
+            return "raid" .. ((i - 1) % RAID + 1);
+        end
+        local function rawOf(t)
+            return t and (interp.meter.backs[t] or t);
+        end
+        local held = {};
+        --- Bytes of the strings built since the last call, read with the meter off.
+        local function newBytes()
+            local J = interp.env.Judge;
+            local bytes = 0;
+            local function slot(key, v)
+                if (type(v) == "string" and held[key] ~= v) then
+                    bytes = bytes + #v + STRING_OVERHEAD;
+                end
+                held[key] = v;
+            end
+            if (J) then
+                for k, v in pairs(rawOf(J.classify) or {}) do
+                    slot("classify " .. k, v);
+                end
+                for k, v in pairs(rawOf(J.frags) or {}) do
+                    slot("fragment " .. k, v);
+                end
+                slot("text", J.text);
+            end
+            return bytes;
+        end
+        local function add(into, counts)
+            for what, n in pairs(counts) do
+                into[what] = (into[what] or 0) + n;
+            end
+        end
+        local STEPS = 100;
+        --- What a step does, in order. A string is the unit the frame is moved to, unmetered.
+        local ENTER, LEAVE, BEAT = {}, {}, {};
+        --- `steps` priced: the bodies metered, the unit moved between them. Answers us of the bodies
+        --- (with the manager's tick for each beat), KB of strings, and binding writes, a step.
+        local function walk(instruction, tick, steps)
+            local counts, bytes, writes, beats = {}, 0, 0, 0;
+            newBytes();
+            interp:takeWrites();
+            for i = 1, STEPS do
+                for _, part in ipairs(steps(i)) do
+                    if (type(part) == "string") then
+                        groupFrame:SetAttribute("unit", part);
+                    else
+                        interp:meterStart();
+                        if (part == BEAT) then
+                            beats = beats + 1;
+                            interp:beat();
+                        elseif (part == LEAVE) then
+                            interp:hoverLeave(groupFrame);
+                        else
+                            interp:hoverEnter(groupFrame);
+                        end
+                        add(counts, interp:meterStop());
+                    end
+                    bytes = bytes + newBytes();
+                end
+                writes = writes + #interp:takeWrites();
+            end
+            local total, _, lines = price(counts, instruction);
+            return total / STEPS + tick * beats / STEPS, bytes / 1024 / STEPS, writes / STEPS, lines;
+        end
+        -- **The deferred design over a gap is not here.** The beat reads the pointed frame only while
+        -- there is one (`prepare`), so a cursor off every frame changes nothing it reads; a leave that
+        -- only marked the slot would need the beat to learn of it, which no body does yet.
+        local SCENES = {
+            { "leave and enter, one frame (the wakes now)", function(i) return { LEAVE, token(i + 1), ENTER }; end },
+            { "leave, a beat over the gap, enter", function(i) return { LEAVE, BEAT, token(i + 1), ENTER }; end },
+            { "the beat sees the new unit, no wake (zero period, deferred)", function(i)
+                return { token(i + 1), BEAT };
+            end },
+            { "a beat on a frame, nothing moved", function() return { BEAT }; end },
+        };
+        print("\nThe owner's shape reading the pointed frame instead, the cursor over 20 raid frames, a step in us:"
+            .. "\nthe bodies + the strings' garbage at 3.89 us a KB = a step; KB; binding writes");
+        for _, helpOnly in ipairs({ 0, 1 }) do
+            largeWorld();
+            for r = 1, RAID do
+                shim.world.units["raid" .. r] = { id = "member" .. r, reaction = "help" };
+            end
+            bind(ownersProfile(helpOnly, false, "unitframe"), LARGE_SWITCHES);
+            local instruction = instructionCost(interp);
+            local tick = managerTick();
+            interp.state.combat = false;
+            interp:beat();
+            print(string.format("  help alone %3d%%:", helpOnly * 100));
+            for _, scene in ipairs(SCENES) do
+                groupFrame:SetAttribute("unit", token(1));
+                interp:hoverEnter(groupFrame);
+                interp:beat();
+                local us, kb, writes, lines = walk(instruction, tick, scene[2]);
+                print(string.format("    %-66s %6.2f + %5.2f = %6.2f; %5.3f KB; %4.1f writes",
+                    scene[1], us, kb * GC_PER_KB, us + kb * GC_PER_KB, kb, writes));
+                if (helpOnly == 0 and scene == SCENES[1]) then
+                    for _, l in ipairs(lines) do
+                        if (l.us / STEPS >= 2) then
+                            print(string.format("        %-30s %9.1f a step %8.2f us%s", l.what, l.n / STEPS,
+                                l.us / STEPS, l.measured and "" or " *"));
+                        end
+                    end
+                end
+                interp:hoverLeave(groupFrame);
+            end
+            interp:beat();
+            local us = walk(instruction, tick, function() return { BEAT }; end);
+            print(string.format("    %-66s %6.2f", "a beat, no frame under the cursor", us));
+        end
+        groupFrame:SetAttribute("unit", "party1");
     end
     shim.world.units = {};
 

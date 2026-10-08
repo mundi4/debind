@@ -38,3 +38,4 @@ Probe_CombatPush.lua
 # Probe_HoverOrder.lua
 # Probe_OverridePriority.lua
 # Probe_FormNil.lua
+Probe_UnitCell.lua

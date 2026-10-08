@@ -9219,7 +9219,7 @@ Bar"(`CONDITION_SPECIALBAR`)와 다르고, 옛 행은 바로 그 이유로 조�
 
 ## 개체창 전이를 셈한 날 - 2026-10-08 Opus 5.5
 
-다른 세션이 다시 쓴 `measuring-only-what-the-judging-walk-reaches.md`를 검토했다. 검토에서 판정을 생성 코드로 굽는 안(R5)을
+다른 세션이 다시 쓴 `cutting-the-cost-of-a-frame-transition.md`(그때 이름 `measuring-only-what-the-judging-walk-reaches.md`)를 검토했다. 검토에서 판정을 생성 코드로 굽는 안(R5)을
 "R6 전의 숫자라 낡았다"고 적었다가, 다음 답에서 거뒀다. R6 뒤에도 전이 하나의 판정 몫이 거의 그대로 남아 있었다. 숫자가 낡은
 것과 안이 낡은 것을 같은 말로 적었다.
 
