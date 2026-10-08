@@ -1809,7 +1809,8 @@ return function(DebindPrivate, _, ctx)
     -- `which-action-a-key-runs.md` §S5: one row, one test
     --
     -- Written from the table and not from the code: each row's action, press and answer are the
-    -- row's own. "Next" is the action alone on its key, so the answer is that nothing fires.
+    -- row's own. "Next" is the action alone on its key, so the answer is that no record fires. What the
+    -- key is bound to then is `judgmentloop_spec.lua`'s (N1, N5, N6).
     ---------------------------------------------------------------------------
 
     do
