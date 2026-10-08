@@ -123,53 +123,34 @@ do
 	local CHOICE_TEXT = { usual = LLL["CASTING_AS_USUAL"], skip = LLL["CASTING_SKIP"] };
 	local HOVER_TEXT = { cast = LLL["CASTING_POINTED_CAST"], skip = LLL["CASTING_SKIP"] };
 
-	local function addErrorLine(tooltip, message, wrap, leftOffset)
-		GameTooltip_AddErrorLine(tooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
-	end
-
-	local function addLabelLine(tooltip, label, hasError)
+	local function addLabelLine(tooltip, label)
 		GameTooltip_AddBlankLineToTooltip(tooltip);
-		if (hasError) then
-			GameTooltip_AddErrorLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
-		else
-			GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
-		end
+		GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
 	end
 
-	--- The sentence a code prints, in the colour its grade asks for.
-	---
-	--- **The grade paints, never the code** (`Issues.lua`'s `GetIssueColor`). This drew every sentence
-	--- red, which is the colour that says the key is dead, and the one WARNING says the opposite:
-	--- the key works and one thing it was told to do is missing. The row mark, the group heading and
-	--- the order flag were already asking the grade, so the tooltip was the one surface saying
-	--- something else about the same state.
-	local function addIssueLine(tooltip, code, wrap, leftOffset)
-		GameTooltip_AddColoredLine(tooltip, DebindPrivate.IssueSentence(code),
+	--- The sentence a code prints, in the issue colour (`Issues.lua`'s `GetIssueColor`). `text` stands
+	--- in for the code's own sentence where a name has to go into it.
+	local function addIssueLine(tooltip, code, wrap, leftOffset, text)
+		GameTooltip_AddColoredLine(tooltip, text or DebindPrivate.IssueSentence(code),
 			DebindPrivate.GetIssueColor(code), wrap or false, leftOffset or LEFT_OFFSET);
 	end
 
-	--- **Red on the value only where the value is the whole of the problem.** `error` as `true`
-	--- says exactly that -- nothing is selected, and there is no separate sentence to print, so the
-	--- value has to carry the colour itself. A code instead means the sentence goes up underneath,
-	--- and then the value is a setting the reader chose with nothing wrong in it.
-	local function addValueLine(tooltip, value, error, wrap, leftOffset)
-		if (error == true) then
-			GameTooltip_AddErrorLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
-		else
-			GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
-		end
-		if (type(error) == "string") then
-			addIssueLine(tooltip, error, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
+	--- The value as the reader set it, and the code's sentence under it where `issue` is one: the value
+	--- is then a setting the reader chose with nothing wrong in it. **An axis with nothing picked
+	--- prints its sentence in the value's place** (`addIssueLine`), there being no value to show.
+	local function addValueLine(tooltip, value, issue, wrap, leftOffset)
+		GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
+		if (issue) then
+			addIssueLine(tooltip, issue, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
-	local function addValueLines(tooltip, lines, error, wrap, leftOffset)
-		local fn = error == true and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
+	local function addValueLines(tooltip, lines, issue, wrap, leftOffset)
 		for i = 1, #lines do
-			fn(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddNormalLine(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
-		if (type(error) == "string") then
-			addIssueLine(tooltip, error, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
+		if (issue) then
+			addIssueLine(tooltip, issue, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
@@ -637,7 +618,7 @@ do
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
 			if (conditions.groups == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED);
 			else
 				wipe(_lines);
 				for i = 1, #GROUP_TYPES do
@@ -681,7 +662,7 @@ do
 			addLabelLine(tooltip, LLL["CONDITION_SPECS"]);
 
 			if (DebindPrivate.SpecSetIsEmpty(conditions.specs)) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_SPECS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_SPECS_NONE_SELECTED);
 			else
 				addValueLine(tooltip, DebindPrivate.DescribeSpecCondition(conditions.specs),
 					hasIssues and GetIssue("specs"));
@@ -788,7 +769,7 @@ do
 		if (conditions.forms ~= nil and conditions.forms ~= Constants.FORM_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
 			if (conditions.forms == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_FORMS_NONE_SELECTED);
 			else
 				-- **Numbers on one line, the way the specializations above are drawn.** A name
 				-- each would be eleven rows of a word the label already said, and most of them
@@ -809,7 +790,7 @@ do
 		if (conditions.bonusbars ~= nil and conditions.bonusbars ~= Constants.BONUSBAR_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
 			if (conditions.bonusbars == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("bonusbars");
@@ -856,7 +837,8 @@ do
 			local undefinedSwitch = DebindPrivate.GetUndefinedSwitch(action);
 			if (undefinedSwitch) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefinedSwitch), true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_UNDEFINED_SWITCH, true, nil,
+					format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefinedSwitch));
 			end
 
 			-- Named here for the same reason. The macro name is the action's `value`, so no
@@ -866,7 +848,8 @@ do
 			local missingMacro = DebindPrivate.GetMissingMacroName(action);
 			if (missingMacro) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro), true);
+				addIssueLine(tooltip, Constants.BINDING_ISSUE_MISSING_MACRO, true, nil,
+					format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro));
 			end
 		end
 
@@ -971,8 +954,8 @@ do
 		end);
 	end
 
-	--- The sentence an issue code prints, in its grade's colour. The wording fallback is the menu's
-	--- (`resolveIssue` in ActionMenuModel.lua), and the colour is the grade's (`GetIssueColor`).
+	--- The sentence an issue code prints, in the issue colour (`GetIssueColor`). The wording fallback is
+	--- the menu's (`resolveIssue` in ActionMenuModel.lua).
 	---
 	--- **Some of the sentences name something** -- the switch, the macro or the command that was not
 	--- found -- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
@@ -982,52 +965,14 @@ do
 			DebindPrivate.GetIssueColor(code), true, leftOffset or 0);
 	end
 
-	--- One grade's problems, written under the name of the group each one is fixed in. `done`
-	--- carries across the two calls, so no line stands under both grades.
+	--- The row's issue mark: every problem on this row, under the name of the group that can fix it.
+	---
+	--- **The title is the order flag's words** (`ORDER_FLAG_ISSUE`), and the line under it says what
+	--- an issue costs the action.
 	---
 	--- **Names are written in the order they first appear and every sentence under a name is
 	--- gathered there.** Walking the list as it comes puts the same name up twice whenever one axis
 	--- is caught by two branches, which is the ordinary case rather than a rare one.
-	---
-	--- `titled` is the grade the tooltip's title already names, so that grade writes no heading of
-	--- its own -- the other one does, or the reader cannot tell the two apart once both are up.
-	local function AddIssueGroup(tooltip, issues, warning, done, titled)
-		local headed = warning == titled;
-		for i = 1, #issues do
-			local issue = issues[i];
-			if (not done[i] and DebindPrivate.IsIssueWarning(issue.code) == warning) then
-				if (not headed) then
-					headed = true;
-					GameTooltip_AddBlankLineToTooltip(tooltip);
-					GameTooltip_AddHighlightLine(tooltip,
-						warning and LLL["ORDER_FLAG_ISSUE_WARNING"] or LLL["ORDER_FLAG_ISSUE"]);
-					GameTooltip_AddNormalLine(tooltip,
-						warning and LLL["MARK_TOOLTIP_ISSUE_DESC_WARNING"]
-							or LLL["MARK_TOOLTIP_ISSUE_DESC"], true);
-				end
-				GameTooltip_AddBlankLineToTooltip(tooltip);
-				if (issue.label) then
-					GameTooltip_AddHighlightLine(tooltip,
-						format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], LLL[issue.label]));
-				end
-				for j = i, #issues do
-					local other = issues[j];
-					if (not done[j] and other.label == issue.label
-							and DebindPrivate.IsIssueWarning(other.code) == warning) then
-						done[j] = true;
-						AddIssueLine(tooltip, other.code, other.arg,
-							issue.label and ISSUE_INDENT or 0);
-					end
-				end
-			end
-		end
-	end
-
-	--- The row's issue mark: every problem on this row, under the name of the group that can fix it.
-	---
-	--- **The title is the grade, in the same words the order flag uses** (`ORDER_FLAG_ISSUE*`), and
-	--- the line under it says what that grade costs. A list that only paints the two grades says
-	--- nothing to a reader who cannot part red from orange.
 	---
 	--- **The list is built here rather than on the row.** Only a hover needs it, and a row that is
 	--- rebuilt on every profile change would pay for it every time.
@@ -1035,25 +980,27 @@ do
 		local issues = DebindPrivate.GetBindingIssues(action);
 		ByGroupOrder(issues);
 
-		-- The title speaks for the worst grade in the list, which is the grade the mark itself is
-		-- drawn in (`SetKind`). Anything milder writes its own heading further down.
-		local warningIsWorst = true;
-		for i = 1, #issues do
-			if (not DebindPrivate.IsIssueWarning(issues[i].code)) then
-				warningIsWorst = false;
-				break;
-			end
-		end
-
-		GameTooltip_SetTitle(tooltip,
-			warningIsWorst and LLL["ORDER_FLAG_ISSUE_WARNING"] or LLL["ORDER_FLAG_ISSUE"]);
-		GameTooltip_AddNormalLine(tooltip,
-			warningIsWorst and LLL["MARK_TOOLTIP_ISSUE_DESC_WARNING"]
-				or LLL["MARK_TOOLTIP_ISSUE_DESC"], true);
+		GameTooltip_SetTitle(tooltip, LLL["ORDER_FLAG_ISSUE"]);
+		GameTooltip_AddNormalLine(tooltip, LLL["MARK_TOOLTIP_ISSUE_DESC"], true);
 
 		local done = {};
-		AddIssueGroup(tooltip, issues, false, done, warningIsWorst);
-		AddIssueGroup(tooltip, issues, true, done, warningIsWorst);
+		for i = 1, #issues do
+			local issue = issues[i];
+			if (not done[i]) then
+				GameTooltip_AddBlankLineToTooltip(tooltip);
+				if (issue.label) then
+					GameTooltip_AddHighlightLine(tooltip,
+						format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], LLL[issue.label]));
+				end
+				for j = i, #issues do
+					local other = issues[j];
+					if (not done[j] and other.label == issue.label) then
+						done[j] = true;
+						AddIssueLine(tooltip, other.code, other.arg, issue.label and ISSUE_INDENT or 0);
+					end
+				end
+			end
+		end
 	end
 
 	--- The group heading's issue mark: **that something under it is wrong, and where to look.**
@@ -1062,13 +1009,9 @@ do
 	--- each can hold several problems, so a list here either drops all but one per action or runs
 	--- to every sentence with nothing saying which action each belongs to. The row mark's tooltip
 	--- already says both, under the action it belongs to.
-	function DebindPrivate.AddGroupIssuesToTooltip(tooltip, rows)
-		local warning = DebindPrivate.GetGroupIssueGrade(rows) == "warning";
-		GameTooltip_SetTitle(tooltip,
-			warning and LLL["ORDER_FLAG_ISSUE_WARNING"] or LLL["ORDER_FLAG_ISSUE"]);
-		GameTooltip_AddNormalLine(tooltip,
-			warning and LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC_WARNING"]
-				or LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC"], true);
+	function DebindPrivate.AddGroupIssuesToTooltip(tooltip)
+		GameTooltip_SetTitle(tooltip, LLL["ORDER_FLAG_ISSUE"]);
+		GameTooltip_AddNormalLine(tooltip, LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC"], true);
 		GameTooltip_AddInstructionLine(tooltip, LLL["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"], true);
 	end
 end

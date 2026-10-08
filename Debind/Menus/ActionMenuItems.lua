@@ -224,9 +224,14 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
         end, function()
             return WriteSetSwitch(ctx.actions, "value", switchName);
         end);
+        -- **In the issue colour, not a locked item's red**: an action set to this name is one with
+        -- an issue (`BINDING_ISSUE_UNDEFINED_SWITCH`).
         if (not DebindPrivate.ResolveSwitchDefinition(switchName)) then
-            SetErrorTooltip(switchDescription,
-                format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], switchName));
+            switchDescription:SetTooltip(function(tooltip, elementDescription)
+                GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
+                GameTooltip_AddColoredLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], switchName),
+                    DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH));
+            end);
         end
     end
 

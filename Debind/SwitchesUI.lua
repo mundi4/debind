@@ -410,11 +410,11 @@ function DebindSwitchRowMixin:OnEnter()
 
         -- **The name, because the line above it is a row of conditions** and nothing in it looks
         -- any different once one of them stops meaning anything. It is the one reference to a
-        -- switch that no action carries, so nothing else on screen goes red for it.
+        -- switch that no action carries, so nothing else on screen is marked for it.
         local undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
         if (undefined) then
-            GameTooltip_AddErrorLine(GameTooltip,
-                format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefined));
+            GameTooltip_AddColoredLine(GameTooltip, format(LLL["BINDING_ERROR_UNDEFINED_SWITCH"], undefined),
+                DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH));
         end
     end
 
@@ -1331,7 +1331,7 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     settings.ExprBox:SetEnabled(autoHere);
 
     -- **This is the only place a dead name inside an expression is ever shown.** Every other
-    -- reference to a switch rides on an action, which goes red and drops out of `KeyMap`; an
+    -- reference to a switch rides on an action, which is marked and drops out of `KeyMap`; an
     -- expression belongs to a definition and reaches neither (`GetUndefinedSwitchInExpr` in
     -- `Issues.lua`). Deleting a switch leaves its references where they are on purpose
     -- (`DeleteSwitch`), and this is what makes that promise true for the one kind that is not an
@@ -1339,13 +1339,13 @@ function DebindSwitchesPanelMixin:RefreshSettings()
     --
     -- **Asked only where the expression is the answer.** A layer keeps the words it was given
     -- after the reader moves it off that answer (`SetSwitchAnswer`), so asking regardless would
-    -- redden a box over a name it has stopped reading.
+    -- mark a box over a name it has stopped reading.
     local undefined;
     if (autoHere) then
         undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, name);
     end
     if (undefined) then
-        settings.ExprBox:SetTextColor(ERROR_COLOR:GetRGB());
+        settings.ExprBox:SetTextColor(DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH):GetRGB());
     elseif (autoHere) then
         settings.ExprBox:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
     else

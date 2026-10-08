@@ -33,7 +33,6 @@ local MACRO_CHAR_LIMIT       = 1000;
 -- 이유(이름이 한 줄에 서는 표라 폭이 곧 글자 수)는 통이 405로 같이 넓어지면서 없어졌다.
 local FRAME_WIDTH            = 867;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
-local ERROR_COLOR            = _G.ERROR_COLOR;
 local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
 local dump                   = DebindPrivate.dump;
@@ -71,15 +70,14 @@ local MARK_KINDS = {
 	--- would look like one at the default while it does the opposite over a unit. The casting
 	--- cursor's own off half, with the ping wheel's close mark over it. **Told apart from the one
 	--- above by shape, not colour**: an inactive row desaturates every mark (`SetInactive`), so a
-	--- glow or a tint is gone exactly there, and red is the error mark's.
+	--- glow or a tint is gone exactly there.
 	hoverSkip   = { file = "Interface\\Cursor\\UnableCast", offsetY = -1, scale = 1.1,
 		overlay = { atlas = "Radial_Wheel_Icon_Close", size = MARK_SIZE * 0.9 } },
-	--- 조건이 붙어 있다는 것만 말한다. 그 조건이 틀렸는지는 아래 두 마크가 말한다.
+	--- Only that a condition is set. Whether one of them is wrong is the issue mark's.
 	conditional = { atlas = "questlog-questtypeicon-quest" },
-	--- 키가 아예 안 먹는다.
-	error       = { file = "Interface\\HelpFrame\\HelpIcon-Bug", inset = 0.2, color = RED_FONT_COLOR },
-	--- 먹기는 하는데 뜻대로는 아니다.
-	warning     = { atlas = "icons_16x16_important" },
+	--- The action is sometimes or always skipped (`Issues.lua`'s `GetIssueColor`). **The warning icon
+	--- for every issue** (owner, 2026-10-07).
+	issue       = { atlas = "icons_16x16_important" },
 };
 
 DebindRowMarkMixin = {};
@@ -168,14 +166,14 @@ local function HoverCastMarkTooltip(tooltip, mark)
 	DebindPrivate.AddHoverCastMarkToTooltip(tooltip, mark.action);
 end
 
---- A mark hands its tooltip function itself; the tooltip knows only the action and the rows it
---- came from (`ActionTooltip.lua`). These two lines are the change of shape.
+--- A mark hands its tooltip function itself; the tooltip knows only the action it came from
+--- (`ActionTooltip.lua`).
 local function IssueMarkTooltip(tooltip, mark)
 	DebindPrivate.AddIssueMarkToTooltip(tooltip, mark.action);
 end
 
-local function GroupIssueMarkTooltip(tooltip, mark)
-	DebindPrivate.AddGroupIssuesToTooltip(tooltip, mark.rows);
+local function GroupIssueMarkTooltip(tooltip)
+	DebindPrivate.AddGroupIssuesToTooltip(tooltip);
 end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
@@ -1076,7 +1074,7 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 		if (isInactive) then
 			color = INACTIVE_COLOR;
 		elseif (keyIssue) then
-			color = ERROR_COLOR;
+			color = DebindPrivate.GetIssueColor(keyIssue);
 		end
 		if (color) then
 			s = color:WrapTextInColorCode(s);
@@ -1124,16 +1122,10 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
 		ConditionalMarkTooltip);
 
-	-- The same two marks the group heading carries, on the row they came from. The heading is a
-	-- summary and cannot say which row it meant, least of all while folded.
-	local grade;
-	if (DebindPrivate.IsIssueError(issue)) then
-		grade = "error";
-	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
-		grade = "warning";
-	end
+	-- The same mark the group heading carries, on the row it came from. The heading is a summary
+	-- and cannot say which row it meant, least of all while folded.
 	self.Marks.Issue.action = action;
-	self.Marks.Issue:SetKind(grade, IssueMarkTooltip);
+	self.Marks.Issue:SetKind(issue and "issue" or nil, IssueMarkTooltip);
 
 	if (isInactive) then
 		self.Marks.Hover:SetInactive(true);
@@ -1639,8 +1631,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- **A key handed to the house editor or a replaced bar stays white.** That is stepping
 		-- aside for a moment and it comes back by itself; a name changing colour while mounted
 		-- reads as a key lost.
-		self.IssueIcon.rows = elementData.rows;
-		self.IssueIcon:SetKind(elementData.issueGrade, GroupIssueMarkTooltip);
+		self.IssueIcon:SetKind(elementData.hasIssue and "issue" or nil, GroupIssueMarkTooltip);
 
 		local label = KeyGroupLabel(elementData.key);
 		if (not DebindPrivate.IsKeyHandled(elementData.key)) then
@@ -4992,14 +4983,7 @@ local function GetOrderReasonText(elementData)
 	elseif (row.specExcluded or row.unreachable or row.notRunning) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
-		-- **The grade picks the words as well as the colour.** One line for both said the same thing
-		-- about a key that does not fire and a key that does, and the only thing telling them apart
-		-- was orange against red -- which needs the two to be on screen together to be read at all,
-		-- and is nothing to a reader who cannot separate the two colours.
-		local color = DebindPrivate.GetIssueColor(row.issue);
-		local flag = DebindPrivate.IsIssueWarning(row.issue) and LLL["ORDER_FLAG_ISSUE_WARNING"]
-			or LLL["ORDER_FLAG_ISSUE"];
-		return color:WrapTextInColorCode(flag);
+		return DebindPrivate.GetIssueColor(row.issue):WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
 	end
 
 	return "";
@@ -5268,10 +5252,10 @@ function BuildKeyboardElements()
 			elements[#elements + 1] = {
 				isHeader = true,
 				key = key,
-				-- What picking the heading picks, and the issue mark's rows. **Emptying `rows` below
-				-- rebinds the local name**, so the table carried here is left as it is.
+				-- What picking the heading picks. **Emptying `rows` below rebinds the local name**, so
+				-- the table carried here is left as it is.
 				rows = rows,
-				issueGrade = DebindPrivate.GetGroupIssueGrade(rows),
+				hasIssue = DebindPrivate.GroupHasIssue(rows),
 				-- Which arrival this group is, or nil for the reader's own. The heading reads it to
 				-- know whether to tint, and the menu and a group anchor are filed under it.
 				arrivalID = arrivalID,

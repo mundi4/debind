@@ -1208,9 +1208,9 @@ return function(DebindPrivate)
     --- **Nothing on the plain presses is an error on Cast Options** (2026-10-04, owner): the held
     --- twins go with them, so the action never runs.
     test("Hover Cast skip with Normal Cast off is an error on Cast Options", function()
-        check(Constants.BINDING_ISSUE_GRADES[Constants.BINDING_ISSUE_NOTHING_RUNS] == Constants.ISSUE_GRADE_ERROR,
-            "the code is not red");
         local action = { type = Constants.SPELL, value = 585, key = "F1", casting = copyOf(ALL_OFF) };
+        check(DebindPrivate.GetIssueOutcome(action) == Constants.ISSUE_OUTCOME_OMIT,
+            "the action is not left out: " .. tostring(DebindPrivate.GetIssueOutcome(action)));
         check(GetBindingIssue(action) == Constants.BINDING_ISSUE_NOTHING_RUNS,
             "reported: " .. tostring(GetBindingIssue(action)));
         check(GetBindingIssue(action, "casting") == Constants.BINDING_ISSUE_NOTHING_RUNS,

@@ -215,10 +215,28 @@ return function(DebindPrivate)
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
         local kind, color = LineKind(row, LLL["BINDING_ERROR_REACTIONS_NONE_SELECTED"]);
-        check(kind == "colored" and color == ERROR_COLOR,
+        check(kind == "colored" and color == ORANGE_FONT_COLOR,
             "the unit that carries the contradiction was not reported: " .. Tooltip(row));
         check(LineKind(row, LLL["LIFE_ALIVE"]) == "normal",
             "the reader's own life line was marked for another unit's contradiction");
+    end);
+
+    --- **The sentences the tooltip writes by name are drawn as issues too**: an axis with nothing
+    --- picked, written in the value's place, and a macro nothing is named, written with its name.
+    test("a sentence written in a value's place or with a name is in the issue colour", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, conditions = { groups = 0 } },
+            { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "F2", seq = 2 },
+        }, {});
+
+        local kind, color = LineKind(DebindPrivate.CollectActionsForKey("F1")[1],
+            LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"]);
+        check(kind == "colored" and color == ORANGE_FONT_COLOR,
+            "nothing picked came out as " .. tostring(kind));
+        kind, color = LineKind(DebindPrivate.CollectActionsForKey("F2")[1],
+            format(LLL["BINDING_ERROR_MISSING_MACRO"], "DebindNoSuchMacro"));
+        check(kind == "colored" and color == ORANGE_FONT_COLOR,
+            "the missing macro came out as " .. tostring(kind));
     end);
 
     ---------------------------------------------------------------------------
@@ -523,9 +541,9 @@ return function(DebindPrivate)
     --- each can hold several problems, and a list of sentences under the heading cannot say which
     --- action each belongs to. What they are is the row mark's tooltip, which the heading points at.
     ---
-    --- **The title is the grade the mark is drawn in**, and an error further down beats a warning
-    --- that comes first.
-    test("the heading's issue mark names the grade and points at the rows", function()
+    --- **One title whatever the issue is** (owner, 2026-10-07): an issue that keeps its action and
+    --- one that leaves it out are both an action sometimes or always skipped.
+    local function TwoIssueRows()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1,
                 conditions = { units = { unitframe = {
@@ -535,30 +553,32 @@ return function(DebindPrivate)
         }, {});
 
         local rows = DebindPrivate.CollectActionsForKey("BUTTON3");
-        local warned, broken;
+        local kept, omitted;
         for _, row in ipairs(rows) do
             check(not DebindPrivate.IsInactiveAction(row.action),
                 "a row is inactive, so the heading would not ask it: " .. tostring(row.issue));
-            if (DebindPrivate.IsIssueError(row.issue)) then
-                broken = row;
-            elseif (row.issue and DebindPrivate.IsIssueWarning(row.issue)) then
-                warned = row;
+            if (row.issue == Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES) then
+                kept = row;
+            elseif (row.issue == Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED) then
+                omitted = row;
             end
         end
-        check(warned and broken, "the key does not hold one warning row and one error row");
-        check(DebindPrivate.GetGroupIssueGrade(rows) == "error",
-            "the heading's mark: " .. tostring(DebindPrivate.GetGroupIssueGrade(rows)));
+        check(kept and omitted, "the key does not hold the two issue rows");
+        return rows, kept, omitted;
+    end
 
-        local function Drawn(groupRows)
-            local tooltip = shim.newTooltip();
-            DebindPrivate.AddGroupIssuesToTooltip(tooltip, groupRows);
-            return tooltip, tooltip:text();
-        end
+    test("the heading's issue mark has one title and points at the rows", function()
+        local rows, kept, omitted = TwoIssueRows();
+        check(DebindPrivate.GroupHasIssue(rows), "the heading carries no mark");
+        check(DebindPrivate.GroupHasIssue({ kept }), "a group with a kept issue carries no mark");
 
-        local tooltip, text = Drawn(rows);
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddGroupIssuesToTooltip(tooltip);
+        local text = tooltip:text();
         check(tooltip.lines[1].kind == "title" and tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE"],
-            "the title is not the error grade: " .. text);
-        for _, row in ipairs({ warned, broken }) do
+            "the title is not the issue flag: " .. text);
+        check(text:find(LLL["MARK_TOOLTIP_GROUP_ISSUE_DESC"], 1, true), "the description is missing: " .. text);
+        for _, row in ipairs({ kept, omitted }) do
             for _, issue in ipairs(DebindPrivate.GetBindingIssues(row.action)) do
                 check(not text:find(DebindPrivate.IssueSentence(issue.code, issue.arg), 1, true),
                     "a row's own problem is written on the heading: " .. text);
@@ -566,10 +586,31 @@ return function(DebindPrivate)
         end
         check(text:find(LLL["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"], 1, true),
             "nothing points at the rows: " .. text);
+    end);
 
-        tooltip, text = Drawn({ warned });
-        check(tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE_WARNING"],
-            "a warning-only group is not titled as a warning: " .. text);
+    --- The row's own mark: the same title for either issue, the description under it, and every
+    --- problem written once.
+    test("the row's issue mark has one title for either issue", function()
+        local _, kept, omitted = TwoIssueRows();
+        for _, row in ipairs({ kept, omitted }) do
+            local tooltip = shim.newTooltip();
+            DebindPrivate.AddIssueMarkToTooltip(tooltip, row.action);
+            local text = tooltip:text();
+            check(tooltip.lines[1].kind == "title" and tooltip.lines[1].text == LLL["ORDER_FLAG_ISSUE"],
+                "the title is not the issue flag: " .. text);
+            check(tooltip.lines[2].text == LLL["MARK_TOOLTIP_ISSUE_DESC"], "the description is not second: " .. text);
+            local titles = 0;
+            for i = 1, #tooltip.lines do
+                if (tooltip.lines[i].text == LLL["ORDER_FLAG_ISSUE"]) then
+                    titles = titles + 1;
+                end
+            end
+            check(titles == 1, "the flag is written " .. titles .. " times: " .. text);
+            for _, issue in ipairs(DebindPrivate.GetBindingIssues(row.action)) do
+                check(text:find(DebindPrivate.IssueSentence(issue.code, issue.arg), 1, true),
+                    "a problem is missing: " .. text);
+            end
+        end
     end);
 
     ---------------------------------------------------------------------------

@@ -6086,18 +6086,19 @@ RegisterTest("Switches tab: deleting can merge into another switch", {
 -- **The fifth place, and the only one that is not an action.** Where a switch answers with `[expr]`
 -- that expression is a macro conditional and can name another switch, but that name lives inside a
 -- definition, where `GetUndefinedSwitch` never looks. Leaving a deleted switch's reference standing
--- there is by design (`DeleteSwitch`), and that design only holds while what is left goes red.
--- Without the red, codegen bakes the name as `known:0` (`EmitMacroTextArg`) and the switch being
+-- there is by design (`DeleteSwitch`), and that design only holds while what is left is marked.
+-- Without the mark, codegen bakes the name as `known:0` (`EmitMacroTextArg`) and the switch being
 -- computed quietly becomes a different one.
 --
 -- Headless goes as far as the function that answers (`tests/issue_spec.lua`). What only this layer
--- can answer is **whether the field really goes red**: the colour is painted by `RefreshSettings`,
--- deleting stands the whole tab up again, and what comes back has to be reading the same layer.
+-- can answer is **whether the field really takes the issue colour**: the colour is painted by
+-- `RefreshSettings`, deleting stands the whole tab up again, and what comes back has to be reading
+-- the same layer.
 --
--- **What it was before the delete is read first.** On a field that was red from the start, "it went
--- red" says nothing.
-RegisterTest("Switches tab: an expression left naming a deleted switch goes red", {
-    description = "The expression field goes red where an expression left behind still names a deleted switch",
+-- **What it was before the delete is read first.** On a field marked from the start, "it was
+-- marked" says nothing.
+RegisterTest("Switches tab: an expression left naming a deleted switch is marked", {
+    description = "The expression field takes the issue colour where an expression left behind still names a deleted switch",
     run = function()
         local NAME = "Expression names a dead switch"
         local MODES = Constants.SWITCH_MODES
@@ -6123,12 +6124,12 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
             expr = format("[%s] [combat]", SOURCE),
         }
 
-        --- **"Red" means measured against the addon's own red.** The field is the highlight colour
+        --- **Measured against the issue colour** (`GetIssueColor`). The field is the highlight colour
         --- while it is being read and grey while it is not, so which of the three it is comes apart
         --- on the value alone.
-        local function IsRed(fontString)
+        local function IsMarked(fontString)
             local r, g, b = fontString:GetTextColor()
-            local er, eg, eb = ERROR_COLOR:GetRGB()
+            local er, eg, eb = DebindPrivate.GetIssueColor(Constants.BINDING_ISSUE_UNDEFINED_SWITCH):GetRGB()
             return math.abs(r - er) < 0.01 and math.abs(g - eg) < 0.01
                 and math.abs(b - eb) < 0.01
         end
@@ -6144,8 +6145,8 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         if not box then
             return Fail(NAME, "a row was clicked and the settings block did not come up")
         end
-        if IsRed(box) then
-            return Fail(NAME, format("the premise is gone: %s is still there and the field is already red", SOURCE))
+        if IsMarked(box) then
+            return Fail(NAME, format("the premise is gone: %s is still there and the field is already marked", SOURCE))
         end
 
         DebindPrivate.DeleteSwitch(SOURCE)
@@ -6153,23 +6154,23 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         -- Deleting fires `OnSwitchesChanged` and the whole tab stands up again, which can move the
         -- picked switch and hands the settings block out afresh. So this waits on the field the
         -- panel is holding now rather than reading back what was true above.
-        local reddened = WaitUntil(function()
+        local marked = WaitUntil(function()
             local current = panel:ExprBox()
-            if panel.selectedName == DERIVED and current and IsRed(current) then
+            if panel.selectedName == DERIVED and current and IsMarked(current) then
                 return current
             end
         end, 2)
-        if not reddened then
+        if not marked then
             if panel.selectedName ~= DERIVED then
                 return Fail(NAME, format("the column moved off %s after the delete", DERIVED))
             end
             local expr = DebindPrivate.Switches[DERIVED].expr
             return Fail(NAME, format(
-                "the expression is %s and the field did not go red (broken name: %s). there is nowhere to find the deleted reference",
+                "the expression is %s and the field was not marked (broken name: %s). there is nowhere to find the deleted reference",
                 expr, tostring(DebindPrivate.GetUndefinedSwitchInExpr(expr, DERIVED))))
         end
 
-        return Pass(NAME, format("deleted %s -> %s's expression is red", SOURCE, DERIVED))
+        return Pass(NAME, format("deleted %s -> %s's expression is marked", SOURCE, DERIVED))
     end,
 })
 
