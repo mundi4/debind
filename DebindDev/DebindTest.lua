@@ -607,14 +607,25 @@ local function ApplyBindings()
     WaitForIdle()
 end
 
---- Holds a key whose actions all fail, for a case that asks the press on such a key rather than who
---- has it (`giving-keys-back-when-no-action-runs.md`). **Nothing saved is written**: the isolated
---- reader answers from this flag (`SetIsolated`), and the teardown puts it back for the cases after.
+--- `giveBackWhenNoActionRuns` off for one case: one that asks the press on a key none of whose actions
+--- runs rather than who has it, or one about a key with the option off
+--- (`giving-keys-back-when-no-action-runs.md`). **Nothing saved is written**: the isolated reader
+--- answers from this flag (`SetIsolated`), and the teardown puts it back for the cases after.
 local function HoldUnmatchedKeys()
     holdUnmatchedKeys = true
     AddTeardown(function()
         holdUnmatchedKeys = false
     end)
+end
+
+--- Whether a `GetBindingAction(key, true)` answer is a click on our button.
+---
+--- **Not any `"CLICK "`.** A key given back answers whatever else is bound to it, and a tester's
+--- other addons bind keys to buttons of their own the same way, so a prefix check reads their key
+--- as ours.
+local function IsOurClick(bound)
+    local ours = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":"
+    return bound ~= nil and bound:sub(1, #ours) == ours
 end
 
 -- What `KeyMap` holds for one key.
@@ -6636,7 +6647,7 @@ RegisterTest("Switch condition on a name outside the five", {
         -- `KeysOnLiveLayers`) and `HoldUnmatchedKeys` is on, so what is asked is the press and not
         -- whether the key is bound.
         local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
-        if whenUndefined:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(whenUndefined) then
             return Fail(NAME, format(
                 "an action on an undefined name handed its key back: %q", whenUndefined))
         end
@@ -6681,7 +6692,7 @@ RegisterTest("Switch condition on a name outside the five", {
 -- apart.
 -- **Both halves, because on its own "fires nothing" also describes a key nothing was ever put on.**
 RegisterTest("Spec condition: the specialization the character is on decides the key", {
-    description = "A binding whose specialization mask holds this one fires, one whose mask leaves it out holds the key and fires nothing",
+    description = "A binding whose specialization mask holds this one fires; one whose mask leaves it out does not hold the key, and with the option off holds it and fires nothing",
     -- **A class of one specialization has nothing to leave out** (every camelot class), so the
     -- second key cannot be built there.
     applies = function()
@@ -6746,7 +6757,7 @@ RegisterTest("Spec condition: the specialization the character is on decides the
         ApplyBindings()
 
         local inside = GetBindingAction(INSIDE, true) or ""
-        if inside:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(inside) then
             return Fail(NAME, format("the mask holds %d and the key is %q", spec, inside))
         end
         local ran, rerr = EvalClickTimeKey(INSIDE)
@@ -6757,14 +6768,14 @@ RegisterTest("Spec condition: the specialization the character is on decides the
 
         -- With the default the key whose only action is left out is not held at all.
         local outside = GetBindingAction(OUTSIDE, true) or ""
-        if outside:sub(1, 6) == "CLICK " then
+        if IsOurClick(outside) then
             return Fail(NAME, format("the mask leaves %d out and the key was held by default: %q", spec, outside))
         end
 
         HoldUnmatchedKeys()
         ApplyBindings()
         outside = GetBindingAction(OUTSIDE, true) or ""
-        if outside:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(outside) then
             return Fail(NAME, format("the mask leaves %d out and the key was handed back: %q", spec, outside))
         end
         ran, rerr = EvalClickTimeKey(OUTSIDE)
@@ -6872,7 +6883,7 @@ RegisterTest("Custom target survives a rebuild", {
         ApplyBindings()
 
         local action = GetBindingAction(KEY, true) or ""
-        if action:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(action) then
             return Fail(NAME, format("the premise is gone: the targeting action never bound to the key (%q)", action))
         end
 
@@ -6966,11 +6977,13 @@ local function BeatWitness()
     return beatWitness
 end
 
--- **The beat runs only while a key holds a tail.** It is a Blizzard attribute driver that always
--- answers `"a"` on the driver's beat attribute (`trimming-the-tail-key-beat.md` 5-1), and the unit
--- watch that used to carry it is never registered. A profile with a computed switch and a measured
--- condition but no tail is the case worth asking about: it would have brought the 0.2s pass back
--- under an older rule.
+-- **With `giveBackWhenNoActionRuns` off, the beat runs only while a key holds a tail.** It is a
+-- Blizzard attribute driver that always answers `"a"` on the driver's beat attribute
+-- (`trimming-the-tail-key-beat.md` 5-1), and the unit watch that used to carry it is never
+-- registered. A profile with a computed switch and a measured condition but no tail is the case
+-- worth asking about: it would have brought the 0.2s pass back under an older rule. On, the default,
+-- each of these keys is let go where its condition fails and so is on the beat with no tail
+-- ("Key given back: ..." below), so this case holds the keys (`HoldUnmatchedKeys`).
 --
 -- **Headless cannot see this.** It is Blizzard's manager writing the attribute, and nothing a spec
 -- runs stands in for the manager. Whether the beat is running is asked of the attribute itself: put
@@ -6981,7 +6994,7 @@ end
 -- **It asks whether the key is still bound, in the same breath**, or a rebuild that quietly stopped
 -- binding anything would read as the quietest possible pass.
 RegisterTest("The driver is off Blizzard's beat", {
-    description = "With no tail the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
+    description = "With the option to give keys back off and no tail, the beat attribute is never written and the unit watch stays off, and the key still binds; a tail brings the beat",
     run = function()
         local NAME = "Beat registration"
         local KEY = "CTRL-SHIFT-F11"
@@ -7006,6 +7019,7 @@ RegisterTest("The driver is off Blizzard's beat", {
             end
         end)
         DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" }
+        HoldUnmatchedKeys()
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F12", combat = true })
         ApplyBindings()
@@ -7015,7 +7029,7 @@ RegisterTest("The driver is off Blizzard's beat", {
         end
 
         local bound = GetBindingAction(KEY, true) or ""
-        if bound:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(bound) then
             return Fail(NAME, format("the key did not bind (%q)", bound))
         end
 
@@ -8262,9 +8276,7 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         -- **Written past `SetMockState`, which ends in a rebuild.** A rebuild judges every tail key
         -- itself, so only a value moved with none behind it is one the beat has to carry.
         SecureHandlerExecute(DebindPrivate.BindingDriver, MockBody("combat", true))
-        if not WaitUntil(function()
-            return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK "
-        end, 2) then
+        if not WaitUntil(function() return IsOurClick(GetBindingAction(KEY, true)) end, 2) then
             return Fail(NAME, format("no beat took the key in combat, it answers %q",
                 GetBindingAction(KEY, true) or ""))
         end
@@ -8276,6 +8288,63 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
         end
 
         return Pass(NAME, "the beat took the key in combat and handed it back to the command")
+    end,
+})
+
+-- **A key whose one action is conditional, with nothing under it** (`giving-keys-back-when-no-action-runs.md`).
+-- The same beat as the case above, with the giveback the rebuild puts at the key's end standing where
+-- the command stood. Which way the key goes in each state is headless (`tests/judgmentloop_spec.lua`
+-- N1); what is left for the client is that a key judged only because of that end is on the beat at
+-- all, and that the restricted `ClearBinding` lets it go and a later `SetBindingClick` takes it again.
+-- **Then the option off**, and the same key held at peace: without it, a key that something other
+-- than the option let go passes.
+RegisterTest("Key given back: a lone conditional action lets its key go and takes it back", {
+    description = "A key whose only action is a combat one is let go at peace and taken in combat, twice, on the beat alone, and held at peace with the option off",
+    run = function()
+        local NAME = "Lone conditional"
+        local KEY = "CTRL-SHIFT-F12"
+        local driver = DebindPrivate.BindingDriver
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        ApplyBindings()
+        local function Ours() return IsOurClick(GetBindingAction(KEY, true)) end
+
+        -- Ends in a rebuild, whose own pass judges the key at peace.
+        SetMockState("combat", false)
+        if Ours() then
+            return Fail(NAME, "at peace the rebuild held the key")
+        end
+
+        -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it is
+        -- one the beat has to carry. Twice, so a key let go once is shown to come back.
+        for round = 1, 2 do
+            SecureHandlerExecute(driver, MockBody("combat", true))
+            if not WaitUntil(Ours, 2) then
+                return Fail(NAME, format("round %d: no beat took the key in combat, it answers %q", round,
+                    GetBindingAction(KEY, true) or ""))
+            end
+            SecureHandlerExecute(driver, MockBody("combat", false))
+            if not WaitUntil(function() return not Ours() end, 2) then
+                return Fail(NAME, format("round %d: no beat let the key go at peace", round))
+            end
+        end
+
+        HoldUnmatchedKeys()
+        ApplyBindings()
+        if not Ours() then
+            return Fail(NAME, format("with the option off the key is let go at peace, it answers %q",
+                GetBindingAction(KEY, true) or ""))
+        end
+
+        return Pass(NAME, "let go at peace and taken in combat, twice, on the beat; held with the option off")
     end,
 })
 
@@ -8310,7 +8379,7 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
         SetMockState("combat", false)
         SetMockState("stealth", false)
         local function Bound() return GetBindingAction(KEY, true) or "" end
-        if Bound():sub(1, 6) == "CLICK " or Bound() == COMMAND then
+        if IsOurClick(Bound()) or Bound() == COMMAND then
             return Fail(NAME, format("with neither held the key answers %q, it should be let go", Bound()))
         end
 
@@ -8323,7 +8392,7 @@ RegisterTest("Tail: the watch follows two state words one after the other", {
         -- **Past `SetMockState`, which ends in a rebuild**: only a value moved with none behind it
         -- is one the watch has to see.
         SecureHandlerExecute(driver, MockBody("combat", true))
-        if not WaitUntil(function() return Bound():sub(1, 6) == "CLICK " end, 2) then
+        if not WaitUntil(function() return IsOurClick(Bound()) end, 2) then
             return Fail(NAME, format("in combat no beat took the key, it answers %q", Bound()))
         end
         SecureHandlerExecute(driver, MockBody("stealth", true))
@@ -8379,7 +8448,7 @@ RegisterTest("Tail: the units' watch follows a token and a life", {
         ApplyBindings()
         -- Ends in a rebuild, whose pass judges both keys with the player alive.
         SetMockState("player-dead", false)
-        local function Taken(key) return (GetBindingAction(key, true) or ""):sub(1, 6) == "CLICK " end
+        local function Taken(key) return IsOurClick(GetBindingAction(key, true)) end
         if Taken(KEY) then
             return Fail(NAME, "with @custom1 pointing at nothing its key is taken")
         end
@@ -8449,7 +8518,7 @@ RegisterTest("Tail: the form moves the key by the call", {
         -- Ends in a rebuild, whose pass judges the key in no form.
         SetMockState("form", 0)
         local function Bound() return GetBindingAction(KEY, true) or "" end
-        if Bound():sub(1, 6) == "CLICK " or Bound() == COMMAND then
+        if IsOurClick(Bound()) or Bound() == COMMAND then
             return Fail(NAME, format("in no form the key answers %q, it should be let go", Bound()))
         end
 
@@ -8461,7 +8530,7 @@ RegisterTest("Tail: the form moves the key by the call", {
 
         -- Past `SetMockState`, which ends in a rebuild: only a beat moves the key from here.
         SecureHandlerExecute(driver, MockBody("form", 1))
-        if not WaitUntil(function() return Bound():sub(1, 6) == "CLICK " end, 2) then
+        if not WaitUntil(function() return IsOurClick(Bound()) end, 2) then
             return Fail(NAME, format("in form 1 no beat took the key, it answers %q", Bound()))
         end
         SecureHandlerExecute(driver, MockBody("form", 2))
@@ -8507,7 +8576,7 @@ RegisterTest("Tail: flyable in combat waits behind nocombat", {
         SetMockState("combat", false)
         -- Ends in a rebuild, whose pass judges the key out of combat on the ground.
         SetMockState("flyable", false)
-        local function Taken() return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK " end
+        local function Taken() return IsOurClick(GetBindingAction(KEY, true)) end
         if Taken() then
             return Fail(NAME, "on the ground the key is taken")
         end
@@ -8597,7 +8666,7 @@ RegisterTest("Tail: a switch set by hand moves the key through two computed swit
         -- spot. A beat between could not stand in for it, since nothing but the wake clears the text.
         DebindPrivate.SwitchesUpdaterFrame:SetAttribute(HAND, true)
         bound = GetBindingAction(KEY, true) or ""
-        if bound:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(bound) then
             return Fail(NAME, format("%s went on and the key answers %q, it should be ours", HAND, bound))
         end
 
@@ -8646,7 +8715,7 @@ RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
 
         local function Bound(key)
             local bound = GetBindingAction(key, true) or ""
-            return bound:sub(1, 6) == "CLICK " and "ours" or bound
+            return IsOurClick(bound) and "ours" or bound
         end
         if Bound(BATTLE_KEY) ~= COMMAND or Bound(BAR_KEY) ~= "ours" then
             return Fail(NAME, format("out of a battle the keys answer %q and %q, they should be the command and ours",
@@ -8767,7 +8836,7 @@ RegisterTest("Cast chord: another addon's override on it is left to that addon",
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
         local bound = GetBindingAction(chord, true) or ""
-        if bound:sub(1, 6) ~= "CLICK " or bound == "CLICK " .. target:GetName() .. ":LeftButton" then
+        if not IsOurClick(bound) then
             return Fail(NAME, format("with nothing else on it %s answers %q, it should be our button",
                 chord, bound))
         end
@@ -8831,15 +8900,14 @@ RegisterTest("Cast chord: a tier with no twin leaves its chord to fall onto the 
             casting = { selfCastKey = "skip", focusCastKey = "skip" } })
         ApplyBindings()
 
-        local ours = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":"
         local bare = GetBindingAction(KEY, true) or ""
-        if bare:sub(1, #ours) ~= ours then
+        if not IsOurClick(bare) then
             return Fail(NAME, format("%s answers %q, it should be our button", KEY, bare))
         end
         local chords = CastChordsOfKey(KEY)
         for _, chord in ipairs(chords) do
             local bound = GetBindingAction(chord, true) or ""
-            if bound:sub(1, #ours) == ours then
+            if IsOurClick(bound) then
                 return Fail(NAME, format("%s is ours: %q", chord, bound))
             end
         end
@@ -10478,7 +10546,7 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         end
 
         local bound = GetBindingAction(KEY, true) or ""
-        if bound:sub(1, 6) ~= "CLICK " then
+        if not IsOurClick(bound) then
             return Fail(NAME, format("the key is %q, it never reached codegen", bound))
         end
 
