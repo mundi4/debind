@@ -103,6 +103,7 @@ local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 --                    skyriding at 5, which `DropDownMenus.lua` names from flyout 229.
 --                    Not the vehicle/possess/override bars -- those are `bartakeover`.
 --   groups 2      -- none/party/raid. Cannot grow.
+--   bartakeover 2 -- none/replaced/pet battle. Cannot grow: the replaced bars are one cell.
 --   frameTypes 6  -- ours, not the game's (`FrameRegistry.lua`). Grows only if we grow it,
 --                    and `FRAMETYPE_ALL` is checked against the spec's point space.
 local function flagsToConditionFlags(value, max)
@@ -156,7 +157,7 @@ local FIXED_COLUMNS = {
     {
         name = "bartakeover",
         make = function(binding)
-            return binding.conditions.bartakeover or Constants.BARTAKEOVER_ALL;
+            return flagsToConditionFlags(binding.conditions.bartakeover, 2);
         end
     },
     {

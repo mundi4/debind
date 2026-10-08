@@ -298,7 +298,9 @@ local function CollectDriverEvents(events)
     local judged, units = {}, {};
     for _, item in pairs(DebindPrivate.JudgmentItems) do
         for _, column in ipairs(item.columns) do
-            judged[column.kind] = true;
+            if (column.kind ~= "bartakeover" or Rebuild.ParsesReplacedBars(column)) then
+                judged[column.kind] = true;
+            end
             if (column.kind == "unit") then
                 units[column.arg] = true;
             end

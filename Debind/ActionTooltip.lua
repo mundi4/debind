@@ -26,15 +26,6 @@ local IMPORTED_FONT_COLOR    = DebindUI.IMPORTED_FONT_COLOR;
 local UNIT_INFO              = DebindUI.UNIT_INFO;
 local NameAndIconForAction   = DebindUI.NameAndIconForAction;
 
---- Each `bartakeover` cell and its label. The condition menu draws its boxes from this list too
---- (`ActionMenuNodes.lua`'s `BARTAKEOVER`).
-local BARTAKEOVER_CELLS = {
-	{ Constants.BARTAKEOVER_NONE, "CONDITION_BARTAKEOVER_NONE" },
-	{ Constants.BARTAKEOVER_REPLACED, "CONDITION_BARTAKEOVER_REPLACED" },
-	{ Constants.BARTAKEOVER_PETBATTLE, "CONDITION_BARTAKEOVER_PETBATTLE" },
-};
-DebindPrivate.BARTAKEOVER_CELLS = BARTAKEOVER_CELLS;
-
 local UNIT_FRAME_REACTIONS = {
 	"HELP",
 	"HARM",
@@ -830,7 +821,7 @@ do
 				addTooltipIssueLine(tooltip, Constants.BINDING_ISSUE_BARTAKEOVER_NONE_SELECTED);
 			else
 				wipe(_lines);
-				for _, cell in ipairs(BARTAKEOVER_CELLS) do
+				for _, cell in ipairs(Constants.BARTAKEOVER_CELLS) do
 					if (bit.band(conditions.bartakeover, cell[1]) ~= 0) then
 						tinsert(_lines, LLL[cell[2]]);
 					end

@@ -485,6 +485,12 @@ Constants.BARTAKEOVER_NONE           = 2 ^ 0;
 Constants.BARTAKEOVER_REPLACED       = 2 ^ 1;
 Constants.BARTAKEOVER_PETBATTLE      = 2 ^ 2;
 Constants.BARTAKEOVER_ALL            = 2 ^ 3 - 1;
+--- Each cell and its label, in the order the condition menu draws its boxes and the tooltip its lines.
+Constants.BARTAKEOVER_CELLS = {
+    { Constants.BARTAKEOVER_NONE, "CONDITION_BARTAKEOVER_NONE" },
+    { Constants.BARTAKEOVER_REPLACED, "CONDITION_BARTAKEOVER_REPLACED" },
+    { Constants.BARTAKEOVER_PETBATTLE, "CONDITION_BARTAKEOVER_PETBATTLE" },
+};
 
 
 -- Unit Frame Reactions

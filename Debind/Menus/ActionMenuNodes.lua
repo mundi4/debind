@@ -941,7 +941,7 @@ ActionMenus:Define("BARTAKEOVER", {
     build = function(kit)
         kit:Disable("CONDITION_BARTAKEOVER", "bartakeover");
         local items = {};
-        for i, cell in ipairs(DebindPrivate.BARTAKEOVER_CELLS) do
+        for i, cell in ipairs(Constants.BARTAKEOVER_CELLS) do
             items[i] = { text = LLL[cell[2]], value = cell[1] };
         end
         kit:Checkboxes("bartakeover", items, function(description, item)

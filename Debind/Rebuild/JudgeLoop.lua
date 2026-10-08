@@ -125,6 +125,9 @@ local _judgmentColumnOrder = {};
 local _watchPlace = {};
 --- Each column's cell groups (`ColumnGroups`), by column key.
 local _columnGroups = {};
+--- Each `bartakeover` column's cells (`BarTakeoverCells`), by column key, worked out once with its
+--- groups for everything that reads them.
+local _barTakeoverCells = {};
 
 --- **Where column i's two values sit in `Judge`'s array part**: its cell and the bundles that read
 --- it. One array, so a body takes it into a local once (Q1 of
@@ -297,11 +300,11 @@ local function Merged(groups)
     return false;
 end
 
---- **`bartakeover`'s cells as the loop writes them**: the cell a pet battle writes, and the clauses
---- that tell the replaced bars from none, or nil with the one cell both write where no check tells
---- them apart. **The battle is never parsed**: it is pushed (`SetPetBattle`) and taken ahead of the
---- clauses, which is the battle being asked first. So a column whose checks only ask about a battle
---- leaves the beat nothing to measure, as the `petbattle` column it replaced did.
+--- **`bartakeover`'s cells as the loop writes them**: `battle`, the cell a pet battle writes, and
+--- `clauses`, which tell the replaced bars from none, or nil with `plain` the one cell both write
+--- where no check tells them apart. **The battle is never parsed**: it is pushed (`SetPetBattle`) and
+--- taken ahead of the clauses, which is the battle being asked first. So a column whose checks only
+--- ask about a battle leaves the beat nothing to measure, as the `petbattle` column it replaced did.
 local function BarTakeoverCells(groups)
     local function written(cell)
         for _, group in ipairs(groups or {}) do
@@ -314,13 +317,16 @@ local function BarTakeoverCells(groups)
     local battle = written(Constants.BARTAKEOVER_PETBATTLE);
     local replaced, none = written(Constants.BARTAKEOVER_REPLACED), written(Constants.BARTAKEOVER_NONE);
     if (replaced == none) then
-        return battle, nil, none;
+        return { battle = battle, plain = none };
     end
     local alternatives = {};
     for i, word in ipairs(REPLACED_BAR_WORDS) do
         alternatives[i] = { word };
     end
-    return battle, { { groups = alternatives, cell = replaced }, default = none, numbered = true };
+    return {
+        battle = battle,
+        clauses = { { groups = alternatives, cell = replaced }, default = none, numbered = true },
+    };
 end
 
 --- Does the beat measure this column again? Everything but a switch set by hand, which nothing but
@@ -328,8 +334,7 @@ end
 --- computed switch is worked out from the world, like any state.
 local function JudgedOnBeat(column)
     if (column.kind == "bartakeover") then
-        local _, clauses = BarTakeoverCells(_columnGroups[column.key]);
-        return clauses ~= nil;
+        return _barTakeoverCells[column.key].clauses ~= nil;
     elseif (column.kind ~= "switch") then
         return true;
     end
@@ -471,6 +476,7 @@ local function EmitJudgmentItems(items)
     wipe(_judgmentColumnOrder);
     wipe(_watchPlace);
     wipe(_columnGroups);
+    wipe(_barTakeoverCells);
     wipe(_unitWatch);
 
     local masks = {};
@@ -492,6 +498,9 @@ local function EmitJudgmentItems(items)
     local order = sortedKeys(_judgmentColumns, _sortedB);
     for _, key in ipairs(order) do
         _columnGroups[key] = ColumnGroups(_judgmentColumns[key], masks[key]);
+        if (_judgmentColumns[key].kind == "bartakeover") then
+            _barTakeoverCells[key] = BarTakeoverCells(_columnGroups[key]);
+        end
     end
     -- An expensive word whose gate can close is measured behind it instead of watched
     -- (`MeasureGates`). The gates' tests read the columns' places, so those come first.
@@ -648,13 +657,14 @@ local JUDGED_BOOL_STATES = {
 --- has to ask what the text asks reads the same source (the watch,
 --- `implementing-the-cuts-inside-the-beat-handler.md` Q2).
 ---
---- **With `cellGroups` merged, one clause a group** (`ColumnGroups`): the press's own alternatives for
---- its cells (`StateAlternatives`), exact, so at most one holds, answering its `rep`, and the one with
---- most cells as the default.
-local function StateCellClauses(kind, cellGroups)
+--- **With the column's cell groups merged, one clause a group** (`ColumnGroups`): the press's own
+--- alternatives for its cells (`StateAlternatives`), exact, so at most one holds, answering its
+--- `rep`, and the one with most cells as the default.
+local function StateCellClauses(column)
+    local kind, cellGroups = column.kind, _columnGroups[column.key];
     local list;
     if (kind == "bartakeover") then
-        list = select(2, BarTakeoverCells(cellGroups));
+        list = _barTakeoverCells[column.key].clauses;
         if (not list) then
             return nil;
         end
@@ -702,8 +712,8 @@ end
 
 --- The text `SecureCmdOptionParse` is handed for a state column's cell, and whether its value is
 --- the cell itself. nil for a column that is not a state.
-local function StateCellText(kind, cellGroups)
-    local list = StateCellClauses(kind, cellGroups);
+local function StateCellText(column)
+    local list = StateCellClauses(column);
     if (not list) then
         return nil;
     end
@@ -881,7 +891,7 @@ function WatchFragments(column)
     else
         -- The groups the loop writes (`ColumnGroups`): a cell is a group's `rep`, and its fragment has
         -- to hold where the group is left, not where that one cell is.
-        list = StateCellClauses(column.kind, _columnGroups[column.key]);
+        list = StateCellClauses(column);
     end
     if (not list) then
         return nil;
@@ -1318,7 +1328,7 @@ local function BuildJudgeSnippet()
         assert(by, "no way to measure a judgment column of kind " .. tostring(kind));
         local text, numbered;
         if (by == "parse") then
-            text, numbered = StateCellText(kind, _columnGroups[column.key]);
+            text, numbered = StateCellText(column);
         end
         if (kind == "forms" and by == "call") then
             -- The press's measure (`EVAL_SNIPPET`), its bit the cell. `GetShapeshiftForm()` answers 0
@@ -1330,9 +1340,9 @@ local function BuildJudgeSnippet()
             add("end");
             add("cell = 2 ^ form");
         elseif (kind == "bartakeover") then
-            local battle, _, plain = BarTakeoverCells(_columnGroups[column.key]);
-            add("cell = J.petBattle and %d or %s", battle,
-                text and asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)) or tostring(plain));
+            local cells = _barTakeoverCells[column.key];
+            add("cell = J.petBattle and %d or %s", cells.battle,
+                text and asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)) or tostring(cells.plain));
         elseif (text and numbered) then
             add("cell = %s", asNumber(format("PROBE.SecureCmdOptionParse(%q)", text)));
         elseif (text) then
@@ -1870,6 +1880,11 @@ end
 
 Rebuild.JudgmentEntryFor  = JudgmentEntryFor;
 Rebuild.EmitJudgmentItems = EmitJudgmentItems;
+--- Does this `bartakeover` column of the items just emitted parse the bars? Where it does not, no
+--- bar event can move it.
+function Rebuild.ParsesReplacedBars(column)
+    return _barTakeoverCells[column.key].clauses ~= nil;
+end
 Rebuild.BuildJudgeSnippet = BuildJudgeSnippet;
 Rebuild.FillJudgePlan     = FillJudgePlan;
 Rebuild.ClearJudgeBodies  = ClearJudgeBodies;

@@ -221,6 +221,28 @@ return function(DebindPrivate)
             "a column nobody reads asked for an event");
     end);
 
+    -- **A bar event is asked for where the column parses the bars**: one that only asks about a pet
+    -- battle is moved by `SetPetBattle` alone. Keys Given Back's replaced bar is off by default, so
+    -- nothing else asks for these.
+    test("a bar takeover column asks for the bar events only where it reads the bars", function()
+        for _, case in ipairs({
+            { what = "a pet battle", mask = BATTLE, wants = false },
+            { what = "no pet battle", mask = NONE + REPLACED, wants = false },
+            { what = "a replaced bar", mask = REPLACED, wants = true },
+            { what = "none", mask = NONE, wants = true },
+        }) do
+            local plan = PlanFor({
+                spell({ key = "F1", conditions = { bartakeover = case.mask } }),
+                spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+            });
+            check(plan.judges == true, case.what .. ": the tail key asked for no loop");
+            for _, event in ipairs({ "UPDATE_OVERRIDE_ACTIONBAR", "UPDATE_VEHICLE_ACTIONBAR" }) do
+                check(registers(plan, event) == case.wants,
+                    case.what .. ": " .. event .. " is " .. tostring(registers(plan, event)));
+            end
+        end
+    end);
+
     -- **The beat runs only where it measures something.** A switch set by hand and a pet battle move
     -- on our own wakes alone, and a `bartakeover` asking only about a battle measures no bar. A mouseover that goes away and a frame laid out again under a still
     -- cursor send nothing at all, and the beat is the only thing that sees them.

@@ -189,8 +189,9 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- 조건이다"를 말하므로 `checked`가 같은 말을 한 번 더 한다. 이름은 옮기는 길에
         -- 얹혀서 온다 - 따로 단계를 세우면 아무 데이터도 안 만나는 단계가 하나 는다.
         --
-        -- **무엇이 조건인지는 `Constants.IsConditionField` 하나가 답한다.** 여기 목록을 또
-        -- 적으면 그 표와 갈라지는 날이 온다. `$state1`~`5`도 그 함수가 같이 받는다.
+        -- **What was a condition is version 5's list, held by this step**, for the reason the
+        -- `setstate` step below holds its own names. A live table moves on: a field it stops naming
+        -- stays at the top of a profile from below this step, and `CleanUpDB` deletes it.
         --
         -- 다시 돌아도 안전하다. 최상단에 조건 이름이 안 남아 있으면 아무것도 안 한다.
         --
@@ -200,13 +201,20 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- 것은 안 된다). 그러면 뒤의 조건이 건너뛰어지고, 최상단에 남은 그것을 바로 뒤의
         -- `CleanUpDB`가 지운다. **사용자가 건 조건이 로그인 한 번에 사라지고 `dbver`는
         -- 이미 찍혀 있어서 다시 돌 기회도 없다.**
+        local CONDITIONS_AT_5 = {
+            checkedUnits = true, frameTypes = true, groups = true, forms = true, bonusbars = true,
+            specialbar = true, extrabar = true, combat = true, stealth = true, known = true, pet = true,
+            petbattle = true,
+            ["$state1"] = true, ["$state2"] = true, ["$state3"] = true, ["$state4"] = true,
+            ["$state5"] = true,
+        };
         local names = {};
         for i = 1, #layerTbl do
             local action = layerTbl[i];
 
             local count = 0;
             for k in pairs(action) do
-                if (Constants.IsConditionField(k) or k == "checkedUnits") then
+                if (CONDITIONS_AT_5[k]) then
                     count = count + 1;
                     names[count] = k;
                 end
@@ -416,25 +424,15 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- that slot and the mode goes with it. Leaving it disabled would drop the condition
         -- entirely, which widens the binding.
         --
-        -- **The axis is read from the top level as well.** Conditions moved inside `conditions` in
-        -- the `dbver <= 5` step and that step asks `Constants.IsConditionField`, which no longer
-        -- answers for `pet`. A profile riding the ladder from below that step arrives here with the
-        -- value still at the top, and `CleanUpDB` deletes what this does not take.
-        --
         -- Running twice is safe: the second pass finds no `pet`.
         for i = 1, #layerTbl do
-            local action = layerTbl[i];
-            local value = action.pet;
-            local conditions = action.conditions;
-            if (value == nil and conditions) then
+            local conditions = layerTbl[i].conditions;
+            local value;
+            if (luatype(conditions) == "table") then
                 value = conditions.pet;
             end
 
             if (value ~= nil) then
-                if (conditions == nil) then
-                    conditions = {};
-                    action.conditions = conditions;
-                end
                 local units = conditions.units;
                 if (units == nil) then
                     units = {};
@@ -448,7 +446,6 @@ local function MigrateLayer(layerTbl, dbver, to)
                     row.exists = value and true or false;
                 end
                 conditions.pet = nil;
-                action.pet = nil;
             end
         end
 
@@ -506,27 +503,18 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- (`which-action-a-key-runs.md` §0). The role mask was moved into that row by the
         -- `dbver <= 4` step and stays where it is.
         --
-        -- **Read from the top level as well.** `frameTypes` is no longer a condition field, so a
-        -- profile riding the ladder from below the `dbver <= 5` step arrives with the value still at
-        -- the top, exactly as the `pet` step above meets it.
-        --
         -- **A mask already on the row wins**, the way that step's row does: one row cannot hold two
         -- answers, and taking the outer one would undo an edit made against the new shape.
         --
         -- Running twice is safe: the second pass finds no `frameTypes` outside the row.
         for i = 1, #layerTbl do
-            local action = layerTbl[i];
-            local conditions = action.conditions;
-            local mask = action.frameTypes;
-            if (mask == nil and conditions) then
+            local conditions = layerTbl[i].conditions;
+            local mask;
+            if (luatype(conditions) == "table") then
                 mask = conditions.frameTypes;
             end
 
             if (mask ~= nil) then
-                if (conditions == nil) then
-                    conditions = {};
-                    action.conditions = conditions;
-                end
                 local units = conditions.units;
                 if (units == nil) then
                     units = {};
@@ -558,7 +546,6 @@ local function MigrateLayer(layerTbl, dbver, to)
                     row.frameTypes = mask;
                 end
                 conditions.frameTypes = nil;
-                action.frameTypes = nil;
             end
         end
 

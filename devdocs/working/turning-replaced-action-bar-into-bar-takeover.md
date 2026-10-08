@@ -174,7 +174,13 @@ Replaced Action Bar 칸의 툴팁:
   대전만 묻는 키도 beat마다 바를 파싱하게 된다. 그래서 `bartakeover`를 칸 묶기(`ColumnGroups`) 대상에 넣었다. 어떤 검사도
   None과 Replaced를 가르지 않으면 파싱할 글이 없고 beat에서 빠진다(`JudgeLoop.lua`의 `BarTakeoverCells`). `plan_spec`이
   이것을 본다.
-- **칸 목록은 한 벌이다.** 툴팁과 메뉴가 같은 `BARTAKEOVER_CELLS`를 읽는다(`ActionTooltip.lua`).
+- **그 판단은 한 번 내리고 저장한다.** `EmitJudgmentItems`가 칸 묶음을 만들 때 `BarTakeoverCells`를 한 번 부르고, loop의
+  세 곳(`JudgedOnBeat`, watch, `otherCell`)과 바 이벤트 등록(`CollectDriverEvents`)이 그 값을 읽는다. 대전만 묻는 열은 바
+  이벤트 둘도 등록하지 않는다. 옛 `petbattle` 열이 그랬다.
+- **`dbver <= 5` 단계가 5판의 조건 이름을 직접 든다.** 전에는 지금의 `Constants.IsConditionField`에 물어서, 표에서 빠진
+  `specialbar`와 `petbattle`이 5판 이하 프로필에서 안 옮겨지고 지워졌다(2125916의 리뷰가 찾음). 같은 이유로 `pet`과
+  `frameTypes` 단계가 최상단을 따로 읽던 땜질은 걷어냈다. 다른 단계에 남은 같은 모양은 `need-fixing.md` 9.
+- **칸 목록은 한 벌이다.** 툴팁과 메뉴가 같은 `Constants.BARTAKEOVER_CELLS`를 읽는다.
 - **설정 값과 같은 문자열이 키 이름을 따라갔다.** "Replaced Action Bar"는 이제 `CONDITION_BARTAKEOVER_REPLACED`이고, 설정 탭도
   그 키를 읽는다. koKR와 ruRU의 옛 키는 지웠다. 두 언어에는 아직 새 키가 없어 영어로 나간다.
 - **문구.** 메뉴 행 설명 `CONDITION_BARTAKEOVER_DESC`는 "What has taken over your main action bar, if anything.", 빈 마스크 이슈

@@ -8691,9 +8691,11 @@ RegisterTest("Tail: a switch set by hand moves the key through two computed swit
 
 -- **A pet battle is pushed to the loop, not measured on the beat** (`trimming-the-tail-key-beat.md`
 -- 3-3). What the events push is headless (`tests/judgment_spec.lua`); what is left for the client is
--- that `SetPetBattle` and the wake it runs work in the restricted environment, for a `bartakeover`
--- that asks only about the battle and for one that also parses the bars. A battle cannot be started
--- on demand, so the value is pushed the way the events push it.
+-- that `SetPetBattle` and the wake it runs work in the restricted environment. The two keys share
+-- one `bartakeover` column, so it parses the bars beside the pushed battle; a column that only asks
+-- about a battle writes a literal instead, and that body is run headless (`judgment_spec.lua`'s pet
+-- battle cases). A battle cannot be started on demand, so the value is pushed the way the events
+-- push it.
 RegisterTest("Tail: a pushed pet battle moves the key on its wake", {
     description = "SetPetBattle rebinds a key on Pet Battles and one on None with no beat, and SeedPetBattle puts the world's value back",
     run = function()

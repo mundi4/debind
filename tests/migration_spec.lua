@@ -807,6 +807,23 @@ return function(DebindPrivate, _, ctx)
                 "B: " .. tostring(layer[2].conditions.bartakeover));
         end);
 
+        -- **From below `dbver <= 5`, where both sat at the top of the action**: the step that moves
+        -- conditions inside has to know them though `Constants.CONDITION_FIELDS` no longer does.
+        test("specialbar and petbattle from before conditions moved still fold", function()
+            local layer = {
+                { key = "A", type = Constants.SPELL, value = 585, specialbar = true },
+                { key = "B", type = Constants.SPELL, value = 585, specialbar = true, petbattle = false },
+            };
+            MigrateLayer(layer, 5);
+            for i, want in ipairs({ REPLACED + BATTLE, REPLACED }) do
+                local action = layer[i];
+                check(action.specialbar == nil and action.petbattle == nil,
+                    action.key .. ": a field stayed at the top");
+                check(action.conditions and action.conditions.bartakeover == want,
+                    action.key .. ": " .. tostring(action.conditions and action.conditions.bartakeover));
+            end
+        end);
+
         test("dbver 7 is safe to run twice over bartakeover", function()
             local layer = { { key = "A", type = Constants.SPELL, value = 585,
                 conditions = { specialbar = true, petbattle = false } } };
@@ -1093,10 +1110,10 @@ return function(DebindPrivate, _, ctx)
         check(units.pet.exists == true, "행이 안 섰다");
     end);
 
-    -- **사다리를 아래 칸부터 탄 프로필.** `pet`은 저장에서 조건 이름이 아니게 됐는데, 최상단
-    -- 조건을 `conditions` 안으로 내리는 것은 `dbver <= 5`이고 그 단계가 무엇이 조건인지를
-    -- `IsConditionField`에 묻는다. 이름이 표에서 빠지면 그 액션의 `pet`은 최상단에 남고,
-    -- 접는 단계는 `conditions.pet`만 보므로 만나지 못한다. 그 뒤 `CleanUpDB`가 지운다.
+    -- **A profile riding the ladder from below `dbver <= 5`.** `pet` is no longer a condition name
+    -- in `Constants.CONDITION_FIELDS`, and the step that moves conditions into `conditions` has to
+    -- move it all the same: the fold reads `conditions.pet` only, and `CleanUpDB` deletes what stays
+    -- at the top.
     test("a pet condition from before conditions moved still folds", function()
         local layer = { { key = "A", type = Constants.SPELL, value = 1, pet = true } };
         MigrateLayer(layer, 5);
@@ -1184,9 +1201,8 @@ return function(DebindPrivate, _, ctx)
             "밖의 옛 값이 남았다: " .. tostring(layer[1].conditions.frameTypes));
     end);
 
-    -- **사다리를 아래 칸부터 탄 프로필.** 소환수 축과 같은 사정이다: `frameTypes`가 조건
-    -- 이름에서 빠졌으므로 최상단 조건을 내리는 `dbver <= 5` 단계가 그것을 안 옮기고, 마스크는
-    -- 액션 최상단에 남은 채로 이 단계를 만난다.
+    -- **A profile riding the ladder from below `dbver <= 5`**, for the reason the pet case above
+    -- gives: `frameTypes` is no longer a condition name either.
     test("a frame type mask from before conditions moved still folds", function()
         local layer = { { key = "A", type = Constants.SPELL, value = 1,
             frameTypes = Constants.FRAMETYPE_GROUP,
