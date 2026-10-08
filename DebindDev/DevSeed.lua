@@ -289,7 +289,7 @@ SEEDS[6] = function(guid)
     --- decides which of them fires.
     ---
     --- A mouse button rather than a keyboard key, because that is the path click casting takes
-    --- (`UpdateBindings.lua`'s `isClickCast`), and `hover = {}` is the condition at its widest --
+    --- (`KeyRecords.lua`'s `isClickCast`), and `hover = {}` is the condition at its widest --
     --- no reaction, life or role axis narrowing it, so the frame type is the only thing left.
     local function Hover(seq, frameType, name)
         return {

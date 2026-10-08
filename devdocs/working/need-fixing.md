@@ -1,9 +1,10 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 1~5.
+> 상태: 미착수. 항목 1~6.
 >
 > 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 항목 4와 5를 쓴 세션: `debind-76` (세션 ID
-> `44a4417a-2abe-44e5-b0f9-4cbfb7431e9e`).
+> `44a4417a-2abe-44e5-b0f9-4cbfb7431e9e`). 항목 6을 쓴 세션: `debind-f9` (세션 ID
+> `ff9c24d6-42e2-4547-916f-3d084dffcbcf`).
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
 
@@ -13,7 +14,7 @@
 
 ### 무엇이 갈리나
 
-유닛 조건은 두 곳에서 접힌다. 솔버 쪽은 `Units.lua`의 `BuildUnitStates`이고, 방출 쪽은 `UpdateBindings.lua`의
+유닛 조건은 두 곳에서 접힌다. 솔버 쪽은 `Units.lua`의 `BuildUnitStates`이고, 방출 쪽은 `KeyRecords.lua`의
 `mergeUnitConditions`다.
 
 - `BuildUnitStates`는 role과 frameTypes를 `unitframe` 행에서만 읽는다(`narrowRole`, `narrowFrameTypes`).
@@ -101,7 +102,7 @@
 ### 무엇이 다르나
 
 - 조건 `specialbar`("Replaced Action Bar", `CONDITION_SPECIALBAR`)는 `[vehicleui][possessbar][overridebar][shapeshift]`에
-  `[petbattle]`까지 읽는다(`UpdateBindings.lua`의 `specialbar` 갈래).
+  `[petbattle]`까지 읽는다(`ConditionText.lua`의 `specialbar` 갈래).
 - 애완동물 대전에는 조건이 따로 있다(`petbattle`). 그래서 대전은 두 조건에 겹쳐 들어간다. 그 겹침 때문에 이슈 검사가
   두 조건의 모순을 따로 본다(`Issues.lua`의 `SpecialBarAgainstPetBattle`). `FillBinding`도 둘 다 켠 액션에서
   `specialbar`를 지운다.
@@ -193,3 +194,27 @@ beat가 판정 아이템을 안 도는 회귀가 있고, 시험이 기다리는 
 - **그대로 둔다.** 동작은 맞고, 비용은 위의 값이다.
 
 할지는 소유자가 정하지 않았다.
+
+## 6. `macrotext_spec`이 매크로 본문의 스위치 인자를 진짜 함수 대신 손으로 베낀 규칙으로 잰다
+
+찾은 곳: `UpdateBindings.lua` 가르기의 리뷰(2026-10-08, `splitting-updatebindings.md`).
+
+### 무엇이 빠졌나
+
+`macrotext_spec.lua`의 `bakeFixed`는 `EmitMacroTextArg`(`Rebuild.lua`)가 스위치 인자마다 내리는 결정을 손으로 베낀
+것이다. 베낀 것은 한 갈래뿐이다. 정의 안 된 이름이면 `known:0`, 아니면 그대로다. 진짜 함수에는 갈래가 둘 더 있다.
+
+- 무시한 스위치는 `""`로 지운다(`IsSwitchIgnored`).
+- 자기 식 안에서 자기를 읽는 스위치(`[$a]`가 `$a`의 식 안에 있을 때)는 `""`가 된다.
+
+그리고 진짜 함수의 규칙이 바뀌어도 이 시험은 계속 통과한다. 주석이 스스로 그렇게 적고 있다.
+
+### 재현 조건
+
+`EmitMacroTextArg`가 정의 안 된 이름을 `""`로 굽도록 회귀한다. `[$typo]`가 `[]`가 되고, 빈 조건 묶음은 늘 참이라
+액션이 더 자주 나간다. `macrotext_spec`은 그대로 통과한다.
+
+### 고치는 길
+
+가르기로 `EmitMacroTextArg`가 헤드리스 스펙이 싣는 파일(`Rebuild.lua`)에 들어왔다. 등록부를 세우고
+`Rebuild.BuildMacroTextEntries()`가 내는 글을 직접 보면 세 갈래를 다 잴 수 있다. 그러면 `bakeFixed`는 지운다.

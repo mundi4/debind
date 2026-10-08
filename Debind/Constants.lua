@@ -410,7 +410,7 @@ Constants.SWITCH_MODES = {
 --- reading the mode out of it are one lookup.
 ---
 --- The values are attribute values, not locale keys. Where they go out is the second half of
---- `/click DebindSwitch $state3-on` (`UpdateBindings.lua`); what goes on screen is keyed off the
+--- `/click DebindSwitch $state3-on` (`ButtonAttributes.lua`); what goes on screen is keyed off the
 --- type name instead.
 Constants.SETSWITCH_MODES = {
     [Constants.SETSWITCH_ON]     = "on",

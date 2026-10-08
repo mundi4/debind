@@ -43,7 +43,7 @@ SwitchesUpdaterFrame:SetAttribute("_onattributechanged", [==[
 -- **A number is a shorthand for a name.** A user can type `/click DebindSwitch 3` in a macro
 -- body, so a numeric button becomes `$state3` here. This is the only door it comes through.
 -- Everything that sets an attribute on this frame either passes the `$` guard below or is a
--- stored switch name (`*attribute-name-` in `UpdateBindings.lua`), so `_onattributechanged`
+-- stored switch name (`*attribute-name-` in `ButtonAttributes.lua`), so `_onattributechanged`
 -- never sees a bare number.
 --
 -- **It does not know there are five, and does not need to.** A name nothing defines still lands

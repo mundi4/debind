@@ -3,7 +3,7 @@
 --
 -- **This is a net, not a specification.** It says nothing about whether what came out is right; it
 -- says that splitting a 578-line function did not change a byte of it. That is the only thing
--- guarding `UpdateBindings.lua` while the rest of the addon is allowed to be red, so when the
+-- guarding the rebuild's emitters while the rest of the addon is allowed to be red, so when the
 -- emission is meant to move the answer is `--update-golden` and reading the diff.
 --
 -- **What it locks is also the hot code.** What `UpdateAttrChangedHandler` builds *is* the body of

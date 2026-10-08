@@ -104,7 +104,9 @@ The pipeline, roughly:
    covered by higher-priority ones. The invariant that matters: *one column is exactly one axis*.
    Folding independent axes (each switch, each unit, each known spell) into one word breaks
    the set algebra. Read the header comment before touching it.
-4. **`UpdateBindings.lua`** — the insecure side. Builds attributes, `SetBindingAttributes`.
+4. **`UpdateBindings.lua`** + **`Rebuild/`** — the insecure side. `UpdateBindings.lua` runs the
+   rebuild and walks the keys; the parts it calls live in `Rebuild/` (button attributes and
+   `SetBindingAttributes`, condition text, key records, cast chords, the tail-key loop's snippets).
 5. **`SecureBindings.lua`** + **`Snippets.lua`** — the restricted side. Snippet bodies are Lua
    source strings baked (`BakeSnippet`) before being handed to `SecureHandlerExecute` /
    `SecureHandlerWrapScript`. `tools/lib/bake.js` runs `Snippets.lua` itself under lua5.1 so the

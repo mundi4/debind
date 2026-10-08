@@ -197,7 +197,7 @@ DebindPrivate.UnitConditionToState = UnitConditionToState;
 --- **Read each time, not kept as a field.** The pointed frame's unit is an ordinary unit
 --- (`which-action-a-key-runs.md` §0), so a second name for one entry of `units` would be
 --- the split that fold removed. The readers left are the ones that ask something about the **key**
---- rather than about the unit: which path a press takes (`UpdateBindings.lua`'s `isClickCast` and
+--- rather than about the unit: which path a press takes (`KeyRecords.lua`'s `isClickCast` and
 --- `holdsKey`), whether a mouse button can be bound at all (`IsKeyInvalidForAction`), and where the
 --- frame's unit fills in for an empty target.
 ---
@@ -255,7 +255,7 @@ DebindPrivate.CellsToUnitGroup = CellsToUnitGroup;
 --- Target (`implementing-focus-and-self-cast.md` §3-6). `""`, the hovered unit turned off, is
 --- the game placing the cast too.
 ---
---- **One rule for every reader**: the unit states below, the record `UpdateBindings.lua` emits, the
+--- **One rule for every reader**: the unit states below, the record `KeyRecords.lua` emits, the
 --- issue check and the macro conversion. Two of them landing `"@"` on different units is a binding
 --- judged on one unit and shown or fired on another.
 local function ResolvedUnitOf(binding)
@@ -287,7 +287,7 @@ DebindPrivate.UNIT_SOURCE_AT = SOURCE_AT;
 --- `@=hostile` never holds -- it keeps a binding that can never fire and warns about nothing.
 ---
 --- **A mouse button adds nothing of its own.** Its records stand on the frame path as well as the
---- key path unless they rule the frame out (`UpdateBindings.lua`'s `PrepareKeyBindings`), so a box
+--- key path unless they rule the frame out (`KeyRecords.lua`'s `PrepareKeyBindings`), so a box
 --- that spans the frame half is a record that really reaches it.
 local function BuildUnitStates(binding)
     local states;
@@ -424,7 +424,7 @@ DebindPrivate.RoleMeasuredUnder = RoleMeasuredUnder;
 --- the frame types reach past party and raid frames**: the role is measured on those alone, and the
 --- binding still runs over the rest (`RoleMeasuredUnder`). A zero two rows made between them is the
 --- other thing, a contradiction, and `mergeUnitConditions` emits nothing for it
---- (`UpdateBindings.lua`), so that one leaves nothing whatever the frame types.
+--- (`KeyRecords.lua`), so that one leaves nothing whatever the frame types.
 local function RoleLeavesNothing(binding)
     local units = binding.conditions and binding.conditions.units;
     local ownRow = false;

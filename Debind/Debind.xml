@@ -32,6 +32,12 @@
     <Script file="ClickCastTable.lua"/>
     <Script file="Judgment.lua"/>
     <Script file="BeatSignal.lua"/>
+    <Script file="Rebuild/Rebuild.lua"/>
+    <Script file="Rebuild/ButtonAttributes.lua"/>
+    <Script file="Rebuild/ConditionText.lua"/>
+    <Script file="Rebuild/KeyRecords.lua"/>
+    <Script file="Rebuild/CastChords.lua"/>
+    <Script file="Rebuild/JudgeLoop.lua"/>
     <Script file="UpdateBindings.lua"/>
     <Script file="Switches.lua"/>
 

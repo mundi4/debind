@@ -1024,7 +1024,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- The three that replaced it carry a name, and a number there is a reference to nothing: it
-    -- reaches `SetAttribute` as the name of the attribute to set (`UpdateBindings.lua`).
+    -- reaches `SetAttribute` as the name of the attribute to set (`ButtonAttributes.lua`).
     test("이름 대신 숫자를 든 SETSWITCH도 걸린다", function()
         check(DebindStorage.PayloadIsImpossible(General({
             { type = Constants.SETSWITCH_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");

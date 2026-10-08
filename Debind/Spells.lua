@@ -392,7 +392,7 @@ end
 --- in the client's own parenthesised form.
 ---
 --- **Pure, and separate from `GetSpellCastName` for one reason**: `DescribeBinding` has to spell the
---- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
+--- same value and may not ask the client anything (`ButtonAttributes.lua`'s `CollectBindingFacts`
 --- holds every call in that path). It arrives here with the two halves already in hand.
 ---
 --- **Where spells have ranks the subtext stays off unless the action is pinned** (`pinnedSpell`).

@@ -245,7 +245,7 @@ do
         -- `dbver <= 6` renames a stored `unit = "hover"` alongside the condition; the unit table
         -- below carries the same shim for the same reason. Left as it is, `binding.unit` holds a
         -- name nothing answers to any more: the click path does not recognise it
-        -- (`UpdateBindings.lua`'s `isClickCast`) and the emitter finds it in neither
+        -- (`KeyRecords.lua`'s `isClickCast`) and the emitter finds it in neither
         -- `SPECIAL_UNITS` nor `BASIC_UNITS`, so the action goes out with no unit at all.
         if (aimedUnit == "hover") then
             aimedUnit = "unitframe";
@@ -824,14 +824,15 @@ do
         return CAST_AUTOMATIC_LABELS[row];
     end
 
-    --- 네 줄이 이 액션에서 아무 일도 못 하는 이유, 또는 `nil`. **켰는데 조용히 아무 일도 안 나는
-    --- 자리를 막는 것이 전부다.**
+    --- Why the four rows can do nothing on this action, or `nil`. **All it is for is closing the spot
+    --- where a row turned on does nothing and says nothing.**
     ---
-    --- 값이 닿는 액션 종류. **감싸는 두 길이 닿는 곳이 곧 이 목록이다**: 매크로 안에서
-    --- `/click`으로 부를 수 있는 것들(주문·아이템·장비칸·주문으로 나가는 탈것)과, 본문이 우리
-    --- 문자열이라 앞뒤에 줄을 붙일 수 있는 것들(직접 쓴 매크로, 펫 명령, 매크로로 나가는 탈것).
-    --- 전문화가 주문을 정하는 셋은 주문으로 다시 쓰이므로 여기 든다
-    --- (`UpdateBindings.lua`의 `castsAtUnit`과 `AutomaticsWrap`).
+    --- The action types a value reaches. **This list is exactly where the two wrapping paths reach**:
+    --- what a `/click` inside a macro can call (spells, items, equipment slots, a mount that goes out
+    --- as a spell), and what can take lines before and after it because the body is our own string
+    --- (a macro typed in, a pet command, a mount that goes out as a macro). The three types whose
+    --- spell the specialization picks are rewritten as spells, so they are in
+    --- (`ButtonAttributes.lua`'s `castsAtUnit` and `AutomaticsWrap`).
     local CAST_AUTOMATIC_TYPES = {
         [Constants.SPELL] = true,
         [Constants.ITEM] = true,

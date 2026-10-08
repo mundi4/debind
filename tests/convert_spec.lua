@@ -111,9 +111,9 @@ return function(DebindPrivate)
     -- 착용 칸
     ---------------------------------------------------------------------------
 
-    --- `/use <칸 번호>`가 그대로 되는 타입이다. 나가는 속성도 이미 같은 것이다 - `*item-`에
-    --- 맨 숫자를 적고, `SecureCmdItemParse`가 그것을 가방 쌍이 아니라 인벤토리 칸으로 읽는다
-    --- (`UpdateBindings.lua`).
+    --- A type `/use <slot number>` already is, and the attribute it goes out on is already the same:
+    --- a bare number on `*item-`, which `SecureCmdItemParse` reads as an inventory slot rather than a
+    --- bag pair (`ButtonAttributes.lua`).
     ---
     --- **The name is the one the row showed before the conversion.** A macro text action draws its
     --- stored name, so without one the row would stay nameless for good.

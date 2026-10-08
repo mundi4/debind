@@ -4,8 +4,8 @@
 -- judged (`giving-keys-back-when-no-action-runs.md`; `judgmentloop_spec.lua`). Each case asks both
 -- where the two part. No WoW client needed.
 --
--- **Asked of the emission fixture too**, the one profile shaped to reach every branch of
--- `UpdateBindings.lua`, and not only of keys built to pass: a key that came out unbound there is a
+-- **Asked of the emission fixture too**, the one profile shaped to reach every branch of the
+-- rebuild, and not only of keys built to pass: a key that came out unbound there is a
 -- key the game still answers for.
 
 return function(DebindPrivate, _, ctx)
@@ -306,7 +306,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     -- **A binding the builder takes can still make no record**: its unit conditions folding to nothing
-    -- where the solver's own fold did not (`UpdateBindings.lua`'s `mergeUnitConditions`). Made here by
+    -- where the solver's own fold did not (`KeyRecords.lua`'s `mergeUnitConditions`). Made here by
     -- resolving `"@"` to `focus` at emission alone, which is the two folds disagreeing: the solver
     -- reads [@target,help][@focus,harm], the emission [@focus,help][@focus,harm]. What is asked is
     -- that the key is settled on the records that went out.

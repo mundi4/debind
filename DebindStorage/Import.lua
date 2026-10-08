@@ -300,7 +300,7 @@ end
 --- the two applies is the **action's type**, and the table has no column for that.
 ---
 --- Read by `IsUsableAction`, which is the whole use. Every entry was taken from what the binding
---- builder does with the value (`UpdateBindings.lua`): `item` goes through `format("item:%d", …)`
+--- builder does with the value (`ButtonAttributes.lua`): `item` goes through `format("item:%d", …)`
 --- as a number and onto `*item-` as it is as a string, `worldmarker` through
 --- `_G["WORLD_MARKER" .. value]`, `petaction` through `_G["SLASH_" .. value .. "1"]`, `macro`
 --- straight into the `*macro-` attribute.
@@ -311,14 +311,14 @@ local VALUE_SHAPES = {
     -- (`importing-clique-profiles.md` §4). Both go on `*item-` as they are.
     [Constants.ITEM]        = "number|string",
     -- An `INVSLOT_*` number, which reaches the `*item-` attribute as a bare string and is read
-    -- there as an inventory slot rather than an item id (`UpdateBindings.lua`).
+    -- there as an inventory slot rather than an item id (`ButtonAttributes.lua`).
     [Constants.USESLOT]   = "number",
     [Constants.MOUNT]       = "number",
     [Constants.FLYOUT]      = "number",
     [Constants.WORLDMARKER] = "number",
     [Constants.SETCUSTOM]   = "number",
     -- A switch name. It reaches `SetAttribute` as the name of the attribute to set
-    -- (`UpdateBindings.lua`), where a number would name an attribute nothing reads.
+    -- (`ButtonAttributes.lua`), where a number would name an attribute nothing reads.
     --
     -- **Or nothing at all**, which is a shape this addon started producing at stage 3c: the picker
     -- adds one row with no target and the switch is picked in the action's own menu afterwards

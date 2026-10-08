@@ -494,7 +494,7 @@ function DebindPrivate.ConvertToMacroText(action)
     elseif (action.type == Constants.USESLOT) then
         -- **The slot number is the whole body.** `SecureCmdItemParse` reads one bare number as an
         -- inventory slot, which is the same reading the binding's `*item-` gets
-        -- (`UpdateBindings.lua`).
+        -- (`ButtonAttributes.lua`).
         if (unit) then
             macrotext = format("%s [@%s] %d", SLASH_USE1, unit, action.value);
         else

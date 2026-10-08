@@ -22,7 +22,7 @@ take the usual ways of finding out away:
   declares (`winner`, `hoverUnit`, `unitframe`) are live in code that never declared them, and the
   declaration is in another string in another part of the file.
 - **Half the values are baked in from outside.** `t.combat` was written by `appendKeyValue` in
-  `UpdateBindings.lua`. Inside the body there is no definition to jump to at all.
+  `Rebuild.lua`. Inside the body there is no definition to jump to at all.
 
 So a body cannot be read the way ordinary Lua is read, by following a name to where it was set.
 The name has to be right on its own, and a name that says the wrong thing is not a blemish here —

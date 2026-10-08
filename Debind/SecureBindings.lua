@@ -17,11 +17,11 @@ function BindingDriver:dump(name, ...)
 	end
 end
 
---- 보안 스니펫이 완성한 매크로 본문. 클릭 때 본문을 굽는 자리가 부른다.
+--- The macro body the secure snippet finished, called where the click bakes a body.
 ---
---- 속성은 한 번 쓰면 열거할 수가 없어서, **버튼에 무엇이 올라갔는지 확인할 길이 이 로그뿐이다.**
---- 짝이 되는 정적 쪽 로그는 `UpdateBindings.lua`의 `SetBindingAttributes`에 있다 - 둘을 같이
---- 봐야 "본문이 틀렸나"와 "본문이 아예 안 올라갔나"가 갈린다.
+--- An attribute cannot be listed once it is written, so **this log is the only way to see what went
+--- onto a button.** Its static half is `StampBinding`'s log (`ButtonAttributes.lua`): read together,
+--- the two tell "the body is wrong" from "the body never went up".
 function BindingDriver:printMacroText(attr, text)
 	DebindPrivate.log(format("[secure] %s = %s", tostring(attr), tostring(text)));
 end
@@ -150,11 +150,11 @@ SecureHandlerExecute(BindingDriver, [[
 	-- (`trimming-the-tail-key-beat.md` 8-6).
 	--
 	-- **The parse that classifies an alias or frame unit for the loop** (`ClassifyPieces` in
-	-- `UpdateBindings.lua`) has the unit's token put into its text when the token changes, not on
+	-- `JudgeLoop.lua`) has the unit's token put into its text when the token changes, not on
 	-- every beat (8-6). `classify` is that text by unit. `frameUnit`, `frameType` and `frameRole` are
 	-- the pointed frame as the beat last read it.
 	--
-	-- **The watch** (`WatchFragments` in `UpdateBindings.lua`): one text that answers only once a
+	-- **The watch** (`WatchFragments` in `JudgeLoop.lua`): one text that answers only once a
 	-- column it carries has left its cell, so a beat where it does not answer measures none of
 	-- them. `byCell[p]` is the p-th carried column's fragment by cell, `frags[p]` the one standing
 	-- for its cell now, and `text` the fragments joined, `false` where there is nothing to parse.
@@ -1366,7 +1366,7 @@ local EVAL_SNIPPET = [==[
 			end
 
 			-- **Every parsed state axis the record asks is one conditional** (`StateExpression` in
-			-- `UpdateBindings.lua`). A parse is the price of one C call (7-1 of
+			-- `ConditionText.lua`). A parse is the price of one C call (7-1 of
 			-- `trimming-the-tail-key-beat.md`), and the beat parses the same words, so the two read
 			-- one answer rather than two that were measured to agree.
 			if (match and t.expr and not PROBE.SecureCmdOptionParse(t.expr)) then
@@ -1374,7 +1374,7 @@ local EVAL_SNIPPET = [==[
 			end
 
 			-- **The form is a call and a bit test, as the loop measures it** (`MEASURED_BY` in
-			-- `UpdateBindings.lua`): `form` in a conditional cost a druid 1.07 a token (7-1). Called
+			-- `Constants.lua`): `form` in a conditional cost a druid 1.07 a token (7-1). Called
 			-- once a press, by the first record that asks. It answers 0 with no form, never nil
 			-- (owner, 2026-10-06), so nothing stands before the compare.
 			if (match and t.forms) then
@@ -1443,7 +1443,7 @@ local EVAL_SNIPPET = [==[
 					end
 
 					-- **Existence, reaction and life are one parse** (`UnitExpression` in
-					-- `UpdateBindings.lua`), baked whole for a fixed unit. An alias's or the pointed
+					-- `ConditionText.lua`), baked whole for a fixed unit. An alias's or the pointed
 					-- frame's token is only known now, so theirs is composed here. A unit with nothing
 					-- to parse is one whose presence is its existence, and an absent one is decided
 					-- without a parse: `[@raid41,nodead]` holds.
@@ -1465,7 +1465,7 @@ local EVAL_SNIPPET = [==[
 						end
 					end
 
-					-- Baked as four cells (`UpdateBindings.lua`), and a cell needs both answers: the
+					-- Baked as four cells (`KeyRecords.lua`), and a cell needs both answers: the
 					-- two predicates overlap, so one alone cannot tell "in a raid and in my subgroup"
 					-- from its neighbours. Left on the API: `[@u,party]` parts from it on the player
 					-- (`implementing-the-trimmed-tail-key-beat.md`).

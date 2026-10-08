@@ -4,7 +4,7 @@
 -- `Void Volley` is the case. It replaces another spell dynamically while a buff stands, so the
 -- spell a press would reach moves mid-combat. Everything baked out of the level table assumes the
 -- opposite: `baking-the-known-condition.md` §3 rests on "a learned spell cannot be
--- forgotten and a talent cannot be taken in combat", and `UpdateBindings.lua` settles the axis away
+-- forgotten and a talent cannot be taken in combat", and `KeyRecords.lua` settles the axis away
 -- on the strength of it. One spell that flips under a buff is a counterexample to the whole table.
 --
 -- **The events are the second half of the question.** The state loop only re-measures `known` on

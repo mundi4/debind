@@ -2,7 +2,7 @@
 --
 -- **One fixture, held apart from the spec that uses it.** The golden is a net for a refactor
 -- (`going-headless-outside-the-ui.md` §6): what it is worth is decided entirely by how
--- much of `UpdateBindings.lua` this profile drives, so the profile is the thing to read and to
+-- much of the rebuild this profile drives, so the profile is the thing to read and to
 -- add to, and burying it inside the comparison would hide that.
 --
 -- **Every entry earns its place by reaching a branch.** A second spell binding that differs only

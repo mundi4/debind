@@ -439,7 +439,7 @@ function M.install()
     _G.IsInRaid = function() return false; end
     _G.GetNumGroupMembers = function() return 0; end
     --- **The insecure side's copy, and it answers only `[known:]`.** That is the one conditional
-    --- a rebuild hands this global (`UpdateBindings.lua` settles a fixed `known` here); the
+    --- a rebuild hands this global (`KeyRecords.lua` settles a fixed `known` here); the
     --- restricted environment has its own reader with the whole grammar (`tests/restricted.lua`).
     --- Everything else keeps answering the empty string, which is a match.
     _G.SecureCmdOptionParse = function(expr)

@@ -258,7 +258,7 @@ BLOCK의 뜻("누름이 아무 일도 안 한다")과도 어긋난다. 옮긴 BL
 
 - `which-action-a-key-runs.md`: S1~S5, §6(Casting), §7(개체창 클릭), §8(옮길 것).
 - `ActionBindings.lua`의 `TwinUnitFor`·`HoverCastChoiceOf`·`GetBindingsForAction`·`KeyTakesCastKeyTwins`, `Debind.lua`의
-  `UnrollIntoTiers`, `Units.lua`의 `BuildUnitStates`, `UpdateBindings.lua`의 `PrepareKeyBindings`, `SecureBindings.lua`의 개체창
+  `UnrollIntoTiers`, `Units.lua`의 `BuildUnitStates`, `KeyRecords.lua`의 `PrepareKeyBindings`, `SecureBindings.lua`의 개체창
   래퍼.
 - 메뉴(`ActionMenuItems.lua`의 Hover Cast 줄), 행 표시(`DebindUI.lua`)와 툴팁(`ActionTooltip.lua`), `Issues.lua`
   (`NoBindingCause`, Normal Cast 끔의 "안 섬"), 도움말 페이지, `Migration.lua`(끔과 키의 규칙에 기댄 주석 포함),

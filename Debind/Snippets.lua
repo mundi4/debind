@@ -262,8 +262,8 @@ end
 --- Snippet bodies are strings, so anything the restricted environment cannot reach has to be
 --- folded in before the body is handed to `SetAttribute`. This is where that folding lives.
 ---
---- It sits here rather than in `SecureBindings.lua` because `UpdateBindings.lua` generates
---- snippet text too, and both have to fold the same way from the same table.
+--- It sits here rather than in `SecureBindings.lua` because the rebuild generates snippet text too
+--- (`JudgeLoop.lua`), and both have to fold the same way from the same table.
 ---
 --- **Returns exactly one value.** `gsub` gives back (string, count), and letting that through in
 --- an argument position hands the count to the next parameter. `SetAttribute(name, body)` ignores

@@ -171,7 +171,7 @@ end
 --- above are asked of an action and answered by `GetUndefinedSwitch`; an `expr` belongs to a
 --- definition, so there is no action to hand over and nothing above ever sees it. What that costs
 --- is the quietest failure this system has: codegen bakes the dead name to `known:0`
---- (`EmitMacroTextArg` in `UpdateBindings.lua`), so the switch computed from it is false for ever
+--- (`EmitMacroTextArg` in `Rebuild.lua`), so the switch computed from it is false for ever
 --- while its expression still reads correctly wherever it is drawn.
 ---
 --- **Deleting is what makes it reachable, and leaving the reference behind is the design.** A
@@ -499,7 +499,7 @@ local ACTION_CHECKS = {
     --
     -- **Not chosen yet is asked first**: an on/off/toggle action arrives from the picker with no
     -- target, and "nothing defines nil" has no name to print. The binding builder keeps the same
-    -- guard (`UpdateBindings.lua`); an action drawn clean must not be one it turns back.
+    -- guard (`ButtonAttributes.lua`); an action drawn clean must not be one it turns back.
     { category = "switches", label = "TYPE_SETSWITCH", check = function(action)
         if (not Constants.SETSWITCH_MODES[action.type]) then
             return nil;

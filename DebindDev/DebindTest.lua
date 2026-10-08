@@ -680,7 +680,7 @@ end
 --- Which `KeyMap` binding an emitted record index stands for, or `"block"` for one `WithBlocks` put in.
 ---
 --- **The emitted list is not `KeyMap`'s.** A key that holds a key record carries a BLOCK after its
---- self tier, after its focus tier and at its end (`UpdateBindings.lua`'s `WithBlocks`), and
+--- self tier, after its focus tier and at its end (`KeyRecords.lua`'s `WithBlocks`), and
 --- `KeyMap` has none of them, so every index past the first tier is out of step by one or two.
 ---
 --- **Every key bound to us gets the blocks** (`IsKeyOurs`), even one held with nothing in `KeyMap`
@@ -796,7 +796,7 @@ end
 local MOCK_TRUE, MOCK_FALSE = "nobar:99", "bar:99"
 
 --- What one token of a state expression answers with `state` held at `value`, or nil where the
---- token is not about that state. The forms are `StateAlternatives`' in `UpdateBindings.lua`.
+--- token is not about that state. The forms are `StateAlternatives`' in `ConditionText.lua`.
 local function TokenAnswer(state, value, token)
     local negated = token:sub(1, 2) == "no"
     local word, arg = (negated and token:sub(3) or token):match("^(%a+):?(.*)$")
@@ -10490,7 +10490,7 @@ RegisterTest("Click bakes the deferred macro body", {
 
         -- **A body no run has used before, and that is what makes the check below mean anything.**
         -- `BindingAttrsCache` is keyed by (type, body) and never cleared, and a hit means
-        -- `StampBinding` writes no attribute at all (`UpdateBindings.lua`). The click further down
+        -- `StampBinding` writes no attribute at all (`ButtonAttributes.lua`). The click further down
         -- bakes `*macrotext-` itself, so on a second run in one session the same body would come
         -- back to a button still carrying what the first run's click baked -- and the assertion
         -- would read that instead of what `StampBinding` wrote. In play nothing is wrong with

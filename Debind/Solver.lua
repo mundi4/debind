@@ -42,7 +42,7 @@ local pairs = pairs;
 
         Where each chain is written, and every one of them has to keep this order:
 
-          group      `UpdateBindings.lua`'s `StateAlternatives` (what the press and the
+          group      `ConditionText.lua`'s `StateAlternatives` (what the press and the
                      expressions parse) and `StateCellText` (the column loop's cell), both
                      asking `group:raid` ahead of `group`
           reaction   `SecureBindings.lua` carries the click path and `setup_onenter`

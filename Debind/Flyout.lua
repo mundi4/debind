@@ -353,7 +353,7 @@ local function RebuildFlyout(entry, flyoutID)
 
 		-- Set by name. Some spells share a name under different ids, and set by id one of them
 		-- does not go out in another specialization. The same rule as the `Constants.SPELL`
-		-- branch in `UpdateBindings.lua`, and `GetFlyoutCastableSlots` is the one place the value
+		-- branch in `ButtonAttributes.lua`, and `GetFlyoutCastableSlots` is the one place the value
 		-- is made.
 		button:SetAttribute("spell", slot.cast);
 		button.spellID = slot.spellID;

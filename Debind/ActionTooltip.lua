@@ -170,7 +170,7 @@ do
 		-- **Nil for the full mask, so the caller drops the line.** All of them on filters nothing
 		-- out, which is the same condition as the axis being unset: `FillBinding` folds the one
 		-- into the other before a binding is built (`ActionBindings.lua`), and `frameTypes` is not written
-		-- as an attribute either (`UpdateBindings.lua`). A line for it says a condition is at work
+		-- as an attribute either (`KeyRecords.lua`). A line for it says a condition is at work
 		-- where none is.
 		--
 		-- **Nil for the empty mask too.** The issue check's sentence says an empty axis, in the
@@ -620,7 +620,7 @@ do
 		--
 		-- **A full mask is not drawn at all, label and values both.** Every one of them on rules
 		-- nothing out, which is the state the axis is in when it was never set, and the emitter
-		-- drops it against `allValue` (`UpdateBindings.lua`). Drawing it would name a condition
+		-- drops it against `allValue` (`KeyRecords.lua`). Drawing it would name a condition
 		-- that holds nothing back.
 		if (conditions.groups ~= nil and conditions.groups ~= Constants.GROUP_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);

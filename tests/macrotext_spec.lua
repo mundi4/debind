@@ -379,13 +379,13 @@ return function(DebindPrivate)
             "상태가 꺼졌는데 no$state1이 거짓으로 나옴");
     end);
 
-    --- `UpdateBindings.lua`의 `EmitMacroTextArg`가 상태 인자마다 내리는 결정의 **거울**이다.
-    --- 컴파일 시점에 정의를 못 찾은 이름은 런타임 참조가 아니라 리터럴로 굽힌다.
+    --- A **mirror** of the decision `EmitMacroTextArg` (`Rebuild.lua`) makes for each switch
+    --- argument: a name the compile found no definition for is baked as a literal, not read at run
+    --- time.
     ---
-    --- ⚠ 거울이지 그 파일의 검사가 아니다. `UpdateBindings.lua`는 로드에 프레임을 만들어서
-    --- 헤드리스 러너가 안 싣는다(`tests/run.lua`). 저쪽 규칙이 바뀌면 여기는 조용히 통과한다 -
-    --- 그래서 이 함수가 지키는 것은 "정의되지 않은 이름은 거짓" 하나뿐이고, 결정에 필요한
-    --- 것(`arg.name` / `arg.reverse`)을 파서가 실제로 넘겨준다는 것까지다.
+    --- ⚠ A mirror and not a check of that function. When the rule there changes this goes on
+    --- passing, so all it holds is "an undefined name is false", and that the parser really hands
+    --- over what the decision needs (`arg.name` / `arg.reverse`).
     local function bakeFixed(arg, defined)
         if (defined[arg.name]) then
             return nil;

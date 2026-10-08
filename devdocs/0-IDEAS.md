@@ -54,7 +54,7 @@
 짝 바깥에 서는 한 이 전제는 안 깨진다. 겹침이 생기는 기능이 들어오면 전역 테이블에 쌓고 꺼내는 방식으로
 바꾸고, 누름이 끝날 때 클릭 래퍼가 `CallMethod`로 비보안 메서드를 불러 남은 것을 되돌리고 비운다
 (2026-09-28, 소유자). `CallMethod`는 답을 못 받을 뿐 부르는 데는 문제가 없다. 지금은 필요 없다.
-캐스트 자동 동작이 이미 같은 두 길로 감싼다(`UpdateBindings.lua`의 `AutomaticsBody`와 `AutomaticsWrap`).
+캐스트 자동 동작이 이미 같은 두 길로 감싼다(`ButtonAttributes.lua`의 `AutomaticsBody`와 `AutomaticsWrap`).
 prebody와 postbody는 CVar 줄이 서는 그 자리에 들어간다. 그 두 길이 못 닿는 것은 게임 매크로뿐이고
 (`CastAutomaticsBlockedReason`의 `"gamemacro"`), 거기는 본문을 읽어 우리 문자열로 삼되 매크로가 바뀔 때마다 다시 읽어야 한다.
 
@@ -248,32 +248,4 @@ Cast 끔과 함께 값 없음으로 바뀐 `"usual"`을 두 번째 패스가 옛
 부딪힌다.
 
 **무엇이 바뀌면 다시 보나.** 조건 모델을 다시 볼 때. 또는 액션을 나눠서만 적을 수 있는 부정이 필요하다는 사람이 나오면.
-
-## `UpdateBindings.lua` 가르기 (2026-10-08)
-
-**무엇.** 이 파일은 Lua가 한 함수에 허락하는 local 200개 한도에 닿았다. 파일의 최상위가 한 함수라서 최상위 local이 다
-거기에 든다. 2026-10-08에 센 것이 198개다. 변수 하나를 더하는 단계는 `do ... end`로 자리를 만들 수 있지만, 그것은 증상만
-덮는다. 한도에 닿은 것은 5,010줄 한 파일이 성격이 다른 일을 여럿 하기 때문이다(소유자).
-
-2026-10-08의 최상위 정의로 나눠 본 덩어리는 이렇다.
-
-| 줄 | 하는 일 |
-|---|---|
-| 1–1030 | 리빌드 진행: `UpdateBindings`, `ApplyBindingPlan`, `ApplyOptions`, 키 돌려주기 드라이버 |
-| 1035–1580 | 바인딩 하나의 속성: `DescribeBinding`, `StampBinding`, `SetBindingAttributes` |
-| 1582–2040 | 조건식 글: `StateExpression`, `UnitExpression` |
-| 2040–2600 | 키 레코드: `PrepareKeyBindings`, `WithBlocks`, `BuildKeyRecord`, `EmitRecord` |
-| 2600–2790 | 시전 조합키 |
-| 2790–4540 | 판정과 beat의 watch: 컬럼, 분류, 조각, `BuildJudgeSnippet` |
-| 4544–5010 | `UpdateBindingsMap`, 매크로 텍스트 |
-
-- 판정과 beat 쪽이 1,750줄로 가장 크고, 이름도 `_judge*`, `Judgment*`, `Watch*`, `Classify*`로 모여 있다. 처음 떼어 볼
-  후보다.
-- 조건식 글은 순수한 글 생성이라 따로 서면 헤드리스 스펙으로 바로 시험할 수 있다.
-
-**왜 지금 안 하나.** 어디서 자를 수 있는지가 아직 없다. 덩어리끼리 `_ctx`, `_plan`, `_judgeBeats` 같은 파일 지역 상태를
-얼마나 나눠 쓰는지 보지 않았고, 자를 자리는 그 얽힘이 정한다. 위 표는 후보다.
-
-**무엇이 바뀌면 다시 보나.** 이 파일에 최상위 local을 더해야 하는 다음 변경. 그때 `do ... end`로 넘기지 말고 이 항목을
-작업 문서로 꺼낸다.
 

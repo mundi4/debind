@@ -11,7 +11,7 @@
 -- not the rule in the abstract, but the three answers being the same string.
 --
 -- `DescribeBinding` reaches the rule through `ComposeSpellCastName`, the pure half, because that
--- function may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts` holds every
+-- function may not ask the client anything (`ButtonAttributes.lua`'s `CollectBindingFacts` holds every
 -- call in that path). The other two go through `GetSpellCastName`, which asks.
 
 return function(DebindPrivate)
