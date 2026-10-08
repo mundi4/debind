@@ -30,10 +30,10 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 
 <!--
 **DRAFT of the next release's entries (2026-10-07, not yet written; heading and number are the owner's call).** What should go in:
-- A key where none of its actions runs is given back by default. *When no action runs* under *Keys Given Back* sets it back to *Press does nothing*. No migration: existing users get the new default. Link `keys-given-back.md`.
+- A key where none of its actions runs is given back by default. *When no action runs* under *Keys Given Back* sets it back to *Press does nothing* (on screen now *Press Does Nothing*, 2026-10-08). No migration: existing users get the new default. Link `keys-given-back.md`.
 - *Filled buttons only* is gone.
 - The press-and-release trap (movement, ping wheel) in one line, linking `keys-given-back.md`.
-- New action types *Give Key Back* and *WoW Binding*. Check whether a 4.0 "Use WoW's Own Binding" left as *Needs fixing* becomes a working *Give Key Back* through the 7→8 step.
+- New action types *Give Key Back* and *WoW Binding*. Check whether a 4.0 "Use WoW's Own Binding" left as *Needs fixing* becomes a working *Give Key Back* through the 7→8 step. The mark on screen is now *Needs checking* (2026-10-08); the 4.0 section below keeps its own wording.
 - *Hover Cast* lost *Off*; the default is *Cast on the usual target*, and a pointed press uses the same order as any other. The saved values that change are listed in `taking-off-out-of-hover-cast.md` §2-9.
 - Mouse button actions other than a bare left or right click now run on a unit frame click too.
 -->
