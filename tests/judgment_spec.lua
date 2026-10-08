@@ -554,6 +554,8 @@ return function(DebindPrivate, _, ctx)
                 action({ conditions = { groups = Constants.GROUP_NONE } }),
                 action({ conditions = { groups = Constants.GROUP_PARTY } }),
                 action({ conditions = { groups = Constants.GROUP_RAID } }) } },
+            { what = "a manual switch on and off", dropped = true, actions = {
+                action({ conditions = { ["$s1"] = true } }), action({ conditions = { ["$s1"] = false } }) } },
             { what = "combat, and mounted out of it", dropped = false, actions = {
                 action({ conditions = { combat = true } }),
                 action({ conditions = { combat = false, mounted = true } }) } },
@@ -613,7 +615,7 @@ return function(DebindPrivate, _, ctx)
     test("entries of another kind count only against the ours entries ahead of them", function()
         local function Record(name, value)
             return { fieldNames = { name }, fieldValues = { value }, fieldCount = name and 1 or 0,
-                units = {}, switches = {} };
+                units = {}, switches = {}, undefinedSwitches = {} };
         end
         local OURS, COMMAND, RELEASE = Judgment.OURS, Judgment.COMMAND, Judgment.RELEASE;
         local combat, nocombat = Judgment.Entry(Record("combat", true), OURS),
@@ -630,6 +632,27 @@ return function(DebindPrivate, _, ctx)
             local item = Judgment.Build({ ahead, combat, nocombat, rest });
             check(not Judgment.IsAlwaysOurs(item), ahead.outcome .. " ahead of combat and not was not reached");
         end
+    end);
+
+    -- **A name nothing defines keeps the unset cell**: the record bakes it anyway and it is nil at
+    -- the press (`BuildKeyRecord`), so on and off do not cover it and the key is let go there. A
+    -- defined one is on or off wherever it is read. Asked of the item: an action naming an undefined
+    -- switch is marked and never reaches a rebuild's key.
+    test("on and off cover a defined switch and not an undefined one", function()
+        local function Record(value, undefined)
+            return { fieldNames = {}, fieldValues = {}, fieldCount = 0, units = {},
+                switches = { ["$u"] = value }, undefinedSwitches = { ["$u"] = undefined } };
+        end
+        local function Covers(undefined)
+            return Judgment.IsAlwaysOurs(Judgment.Build({
+                Judgment.Entry(Record(true, undefined), Judgment.OURS),
+                Judgment.Entry(Record(false, undefined), Judgment.OURS),
+                Judgment.Entry({ fieldNames = {}, fieldValues = {}, fieldCount = 0, units = {},
+                    switches = {}, undefinedSwitches = {} }, Judgment.RELEASE),
+            }));
+        end
+        check(Covers(nil), "on and off of a defined switch left a state uncovered");
+        check(not Covers(true), "on and off of an undefined switch covered the unset state");
     end);
 
     test("B1 B2 an unused under a conditional action", function()

@@ -140,6 +140,23 @@ return function(DebindPrivate, _, ctx)
             "the rebuild pushed a stored value in: " .. tostring(i.env.States["$s1"]));
     end);
 
+    -- **What gives a defined switch no unset cell in a judgment item** (`RecordConstraints`): after a
+    -- rebuild a manual one is a boolean in `States` before anything reads it, and a computed one is in
+    -- `ComputedSwitches`, which the press works out ahead of comparing (`COMPUTE_SWITCHES_SNIPPET`).
+    -- Lose either and the item holds a key the press can no longer match.
+    test("after a rebuild a defined switch is never left unset", function()
+        local i = Bind({ ["$s1"] = { mode = MODES.MANUAL } });
+        check(type(i.env.States["$s1"]) == "boolean",
+            "a manual switch is " .. tostring(i.env.States["$s1"]) .. " in States");
+
+        i = Bind({ ["$s1"] = { mode = MODES.EXPR, expr = "[combat]" } });
+        local listed = false;
+        for _, name in ipairs(i.env.ComputedSwitches) do
+            listed = listed or name == "$s1";
+        end
+        check(listed, "a computed switch a record reads is not in ComputedSwitches");
+    end);
+
     -- **A switch built on another computed switch reads that one's answer from the same press.**
     -- Both move with combat and neither is on the beat, so a stale value on either link shows.
     test("a chain of computed switches is worked out in order at the press", function()

@@ -105,9 +105,15 @@ local function RecordConstraints(record)
             end
         end
     end
+    -- **A defined switch has no unset cell: it is on or off wherever it is read.** A rebuild empties
+    -- `States` and puts every manual one back as a boolean before its first pass
+    -- (`BuildSwitchesSnippet`), and every other write of one is a boolean too. The press and the loop
+    -- work a computed one out before reading it (`COMPUTE_SWITCHES_SNIPPET`, `workOutSwitches`).
+    -- Only a name nothing defines is nil there (`undefinedSwitches`). An ignored one never gets
+    -- here: its condition is left off the binding.
     for name, value in pairs(record.switches) do
-        constrain(out, "switch " .. name, "switch", name, SWITCH_ALL,
-            value and Judgment.TRUE or Judgment.FALSE);
+        local all = record.undefinedSwitches[name] and SWITCH_ALL or BOOL_ALL;
+        constrain(out, "switch " .. name, "switch", name, all, value and Judgment.TRUE or Judgment.FALSE);
     end
     return out;
 end

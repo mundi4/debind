@@ -755,6 +755,7 @@ local _record            = {
     fieldCount = 0,
     units = false,
     switches = {},
+    undefinedSwitches = {},
 };
 
 --- A judged key's self and focus tier entries, kept until its chords are known.

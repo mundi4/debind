@@ -253,7 +253,8 @@ return function(DebindPrivate)
     --
     -- **Every cell of a column counts, not just the two a condition names.** Groups have three and
     -- take all three to cover. A unit is absent or one of six states, so a focus that exists and
-    -- none cover it, and a friendly one and none leave a hostile focus, where the key is let go.
+    -- none cover it, and a friendly one and none leave a hostile focus, where the key is let go. A
+    -- defined switch is on or off wherever it is read, manual or computed.
     test("a key whose conditional actions cover every state asks for no loop", function()
         local MAP = "TOGGLEWORLDMAP";
         local GIVEBACK = Constants.GIVEBACK;
@@ -278,6 +279,16 @@ return function(DebindPrivate)
                 spell({ key = "F1", conditions = { units = { focus = {} } } }),
                 spell({ key = "F1", conditions = { units = { focus = false } } }),
             } },
+            { what = "a manual switch on and off", judges = false,
+                switches = { ["$x"] = { mode = Constants.SWITCH_MODES.MANUAL } }, actions = {
+                spell({ key = "F1", conditions = { ["$x"] = true } }),
+                spell({ key = "F1", conditions = { ["$x"] = false } }),
+            } },
+            { what = "a computed switch on and off", judges = false,
+                switches = { ["$c"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" } }, actions = {
+                spell({ key = "F1", conditions = { ["$c"] = true } }),
+                spell({ key = "F1", conditions = { ["$c"] = false } }),
+            } },
             { what = "a friendly focus and none", judges = true, actions = {
                 spell({ key = "F1", conditions = { units = { focus = { reaction = Constants.REACTION_HELP } } } }),
                 spell({ key = "F1", conditions = { units = { focus = false } } }),
@@ -301,7 +312,7 @@ return function(DebindPrivate)
                 spell({ key = "F1", conditions = { combat = false } }),
             } },
         }) do
-            local plan = PlanFor(case.actions);
+            local plan = PlanFor(case.actions, case.switches);
             if (plan.judges ~= case.judges) then
                 wrong[#wrong + 1] = case.what .. ": judges is " .. tostring(plan.judges);
             end

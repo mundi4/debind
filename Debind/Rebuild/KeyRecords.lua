@@ -291,6 +291,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
 
     out.fieldCount = 0;
     wipe(out.switches);
+    wipe(out.undefinedSwitches);
     out.isClickCast = isClickCast;
     out.holdsKey = holdsKey;
     -- **Where the cast goes, not where the press aims.** `none` aims like an action with no target
@@ -419,6 +420,10 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     for name, value in pairs(conditions) do
         if (Constants.IsSwitchName(name)) then
             out.switches[name] = value and true or false;
+            -- Nil wherever it is read, where every defined switch is a boolean (`RecordConstraints`).
+            if (not DebindPrivate.ResolveSwitchDefinition(name)) then
+                out.undefinedSwitches[name] = true;
+            end
         end
     end
 

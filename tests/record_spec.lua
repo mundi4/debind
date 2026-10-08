@@ -242,7 +242,7 @@ return function(DebindPrivate)
         DebindPrivate.BuildUnitStates(binding);
         check(not DebindPrivate.CannotStand(binding), "the binding's units fold to nothing");
         return DebindPrivate.BuildKeyRecord(binding, isClickCast, holdsKey,
-            { fieldNames = {}, fieldValues = {}, fieldCount = 0, switches = {} });
+            { fieldNames = {}, fieldValues = {}, fieldCount = 0, switches = {}, undefinedSwitches = {} });
     end
 
     --- The spells the `known` tests below read, **stood up before the first record is built.**
