@@ -305,110 +305,54 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
-    -- **A binding the builder takes can still make no record**: its unit conditions folding to nothing
-    -- where the solver's own fold did not (`KeyRecords.lua`'s `mergeUnitConditions`). Made here by
-    -- resolving `"@"` to `focus` at emission alone, which is the two folds disagreeing: the solver
-    -- reads [@target,help][@focus,harm], the emission [@focus,help][@focus,harm]. What is asked is
-    -- that the key is settled on the records that went out.
-    --
-    -- `hits` answers how many of the emission's folds the stand-in turned since it was last asked, so
-    -- a rebuild that never reached one fails rather than passing on an ordinary conditional key.
-    local FOLDED = 6788;
-    local function WithFoldsApart(fn)
-        local real = DebindPrivate.ResolvedUnitOf;
-        local hits = 0;
-        DebindPrivate.ResolvedUnitOf = function(binding)
-            if (binding.value == FOLDED) then
-                hits = hits + 1;
-                return "focus";
-            end
-            return real(binding);
+    -- **An action holding a value no build writes is left out, and deletes nothing under it.** Read as
+    -- [when there is none], its unit condition would cover the real [when there is none] action
+    -- below and the solver would delete that one (`INVALID_ACTION`).
+    test("an action holding a value no build writes is left out and the one under it stays", function()
+        Bind({
+            action({ value = 6790, key = "F3", conditions = { units = { target = "from a hand edit" } } }),
+            action({ value = 6791, key = "F3", conditions = { units = { target = false } } }),
+        });
+        local on = {};
+        for _, binding in ipairs(DebindPrivate.KeyMap["F3"] or {}) do
+            on[binding.value] = true;
         end
-        local ok, err = pcall(fn, function()
-            local n = hits;
-            hits = 0;
-            return n;
-        end);
-        DebindPrivate.ResolvedUnitOf = real;
-        if (not ok) then
-            error(err, 0);
-        end
-    end
-
-    local function folded(key, units)
-        return { action({ value = FOLDED, key = key, conditions = { units = units } }) };
-    end
-
-    local function checkReached(key, hits)
-        local bindings = DebindPrivate.KeyMap[key];
-        check(bindings ~= nil and #bindings > 0, "the binding never reached the emission");
-        for i = 1, #bindings do
-            check(not bindings[i].dead, "binding " .. i .. " was left off as dead, so emission never sees it");
-            -- The one other caller that hands the stand-in a binding (`SkipLeavesNothing`).
-            check(not bindings[i].skipsPointedUnit, "binding " .. i .. " skips the pointed unit, so hits count more than the emission");
-        end
-        check(hits() > 0, "the emission never folded the binding");
-    end
-
-    --- **A world where the solver's reading holds**, so a record that went out would fire: a friendly
-    --- target and party1, a hostile focus. Put back as it was, whatever the case did.
-    local function InFoldWorld(fn)
-        local units = shim.world.units;
-        local saved = { target = units.target, focus = units.focus, party1 = units.party1 };
-        units.target = { id = "t", reaction = "help" };
-        units.focus = { id = "f", reaction = "harm" };
-        units.party1 = { id = "p1", reaction = "help" };
-        local ok, err = pcall(WithFoldsApart, fn);
-        units.target, units.focus, units.party1 = saved.target, saved.focus, saved.party1;
-        if (not ok) then
-            error(err, 0);
-        end
-    end
-
-    local function foldedUnits(extra)
-        local units = { ["@"] = { reaction = Constants.REACTION_HELP }, focus = { reaction = Constants.REACTION_HARM } };
-        for k, v in pairs(extra or {}) do
-            units[k] = v;
-        end
-        return units;
-    end
-
-    test("a key whose only binding makes no record", function()
-        InFoldWorld(function(hits)
-            Bind(folded("F1", foldedUnits()));
-            checkReached("F1", hits);
-            checkNotOurs("F1");
-            check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
-
-            Bind(folded("F1", foldedUnits()), HOLD_UNMATCHED);
-            checkReached("F1", hits);
-            checkOursAndSilent("F1");
-            check(DebindPrivate.IsKeyHandled("F1"), "a key held doing nothing reads as not ours");
-            -- **No record at all, rather than one that never matches**: every record that went out
-            -- is an end, and only an action's record clicks a button. The press above cannot tell
-            -- the two apart in this world.
-            local records = interp:recordsFor("F1");
-            check(records and #records > 0, "the held key went out with no list");
-            for i = 1, #records do
-                check(records[i].clickbutton == nil, "record " .. i .. " is the action's");
-            end
-        end);
+        check(not on[6790], "the invalid action reached the key");
+        check(on[6791], "the [when there is none] action under it was deleted");
     end);
 
-    test("a frame action alone that makes no record", function()
-        InFoldWorld(function(hits)
-            Bind(folded("BUTTON3", foldedUnits({ unitframe = {} })));
-            checkReached("BUTTON3", hits);
-            checkNotOurs("BUTTON3");
-            check(interp:evalClickCast(groupFrame, 3, 0) == nil, "the frame click was taken");
-            check(not DebindPrivate.IsKeyHandled("BUTTON3"), "it reads as ours with the option on");
-
-            Bind(folded("BUTTON3", foldedUnits({ unitframe = {} })), HOLD_UNMATCHED);
-            checkReached("BUTTON3", hits);
-            checkNotOurs("BUTTON3");
-            check(interp:evalClickCast(groupFrame, 3, 0) == nil, "the frame click was taken");
-            check(not DebindPrivate.IsKeyHandled("BUTTON3"), "it reads as ours with the option off");
+    -- **A role or frame type on a unit that is not the pointed frame's is not a condition**, so it
+    -- cannot empty a binding by meeting another row there. `"@"` on an action with no target lands
+    -- on `target`, and the two picked roles below never meet; the solver keeps the binding, and the
+    -- emission has to send the record it kept.
+    test("roles that do not meet on a unit nothing measures them on still make a record", function()
+        local units = shim.world.units;
+        local saved = units.target;
+        units.target = { id = "t", reaction = "help" };
+        local ok, err = pcall(function()
+            Bind({ action({ value = 6789, key = "F2", conditions = { units = {
+                ["@"] = { role = Constants.ROLE_TANK },
+                target = { role = Constants.ROLE_HEALER },
+            } } }) }, HOLD_UNMATCHED);
+            -- **The original, which is the one whose `"@"` lands on `target`.** The self and focus twins
+            -- carry the same rows with `"@"` on `player` and `focus`, and their records go out either way.
+            local original;
+            for _, binding in ipairs(DebindPrivate.KeyMap["F2"] or {}) do
+                if (binding.castModifier == Constants.CASTMOD_NONE) then
+                    original = binding;
+                end
+            end
+            check(original and not original.dead, "the solver left the original off");
+            local sent = false;
+            for _, record in ipairs(interp:recordsFor("F2") or {}) do
+                sent = sent or (record.castModifier == Constants.CASTMOD_NONE and record.clickbutton ~= nil);
+            end
+            check(sent, "the solver kept the original and the emission sent no record for it");
         end);
+        units.target = saved;
+        if (not ok) then
+            error(err, 0);
+        end
     end);
 
     -- **Escape is not kept as a key**, so the game menu keeps it (`CleanUpDB`). The action stays,

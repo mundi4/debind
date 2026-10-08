@@ -630,7 +630,7 @@ return function(DebindPrivate)
         [8] = "", [9] = "", [10] = "self focus original", [11] = "original", [12] = "",
         [13] = "focus hover original", [14] = "", [15] = "self focus original", [16] = "self focus hover",
         [17] = "", [18] = "", [19] = "original", [20] = "", [21] = "self focus hover", [22] = "", [23] = "self focus hover original",
-        [24] = "", [25] = "self focus hover original", [26] = "self focus hover original", [27] = "",
+        [24] = "", [25] = "", [26] = "self focus hover original", [27] = "",
     };
 
     local function shapeOf(records)

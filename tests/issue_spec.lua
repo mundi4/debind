@@ -1123,7 +1123,9 @@ return function(DebindPrivate)
         [23] = { all = ROLES_ON_GROUP, units = ROLES_ON_GROUP, rows = { unitframe = ROLES_ON_GROUP }, unit = false },
         [24] = { all = NEVER, units = NEVER, rows = { unitframe = NEVER, ["@"] = false, target = false },
             unit = false, groups = NEVER },
-        [25] = { all = false, units = false, rows = { target = false }, unit = false },
+        -- A value no build writes: the action is left out, and no menu is painted for it.
+        [25] = { all = Constants.BINDING_ISSUE_INVALID_ACTION, units = false, rows = { target = false },
+            unit = false },
         [26] = { all = false, units = false, rows = { target = false }, unit = false },
         [27] = { all = NEVER, units = NEVER, rows = { ["@"] = NEVER, target = NEVER, player = NEVER,
             focus = NEVER, unitframe = false }, unit = false },
@@ -1464,6 +1466,55 @@ return function(DebindPrivate)
         check(GetBindingIssue({ type = Constants.FLYOUT, value = 66, key = "F1" }) == nil,
             "a flyout the client names was marked");
         world.flyouts[66] = nil;
+    end);
+
+    -- **A value no build of this addon writes is the action's own error**, and the action is left out
+    -- rather than judged on a guess (2026-10-08, owner). Read as [when there is none], a unit
+    -- condition nobody can read covers a real [when there is none] action below it and the solver
+    -- deletes that one. One code for all of them, painted on no menu: what is wrong is not ours to
+    -- explain.
+    local INVALID = "INVALID_ACTION";
+    test("a value no build writes makes the action invalid, and it is left out", function()
+        check(Constants.BINDING_ISSUE_INVALID_ACTION == INVALID, "no such code");
+        for _, value in ipairs({ "mostly", 7 }) do
+            local action = { type = Constants.SPELL, value = 585, key = "T",
+                conditions = { units = { target = value } } };
+            check(GetBindingIssue(action) == INVALID,
+                tostring(value) .. ": " .. tostring(GetBindingIssue(action)));
+            check(DebindPrivate.GetIssueOutcome(action) == Constants.ISSUE_OUTCOME_OMIT,
+                tostring(value) .. ": the action is not left out");
+            check(GetBindingIssue(action, "units") == nil,
+                tostring(value) .. ": a unit menu was painted: " .. tostring(GetBindingIssue(action, "units")));
+        end
+        local aimed = { type = Constants.SPELL, value = 585, key = "T", unit = 42 };
+        check(GetBindingIssue(aimed) == INVALID, "a target that is not a name: " .. tostring(GetBindingIssue(aimed)));
+    end);
+
+    -- **An invalid action says that and nothing else, to every caller.** Every other check reads the
+    -- value, so asked by its own menu it painted that menu: on the bare click, a unit frame row
+    -- holding junk read as [when there is none] and the key and the row were marked for it.
+    test("an invalid action paints no menu and lists nothing else", function()
+        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
+            conditions = { units = { unitframe = "junk" } } };
+        check(GetBindingIssue(action, "key") == nil, "key: " .. tostring(GetBindingIssue(action, "key")));
+        check(GetBindingIssue(action, "units") == nil, "units: " .. tostring(GetBindingIssue(action, "units")));
+        local issues = DebindPrivate.GetBindingIssues(action);
+        check(#issues == 1 and issues[1].code == INVALID,
+            "listed " .. #issues .. ": " .. tostring(issues[1] and issues[1].code) .. ", "
+                .. tostring(issues[2] and issues[2].code));
+    end);
+
+    --- Every value this addon has ever written stays valid. Without this half the test above cannot
+    --- tell its check from one that marks every unit condition.
+    test("every value a build writes is a valid one", function()
+        for _, value in ipairs({ true, false, "help", "harm", {}, { exists = false },
+                { reaction = Constants.REACTION_HELP }, { disabled = true } }) do
+            local action = { type = Constants.SPELL, value = 585, key = "T",
+                conditions = { units = { target = value } } };
+            check(GetBindingIssue(action) ~= INVALID, tostring(value) .. " was marked invalid");
+        end
+        check(GetBindingIssue({ type = Constants.SPELL, value = 585, key = "T", unit = "focus" }) ~= INVALID,
+            "a target by name was marked invalid");
     end);
 
     return T;

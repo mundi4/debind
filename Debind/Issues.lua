@@ -5,9 +5,11 @@ local band                    = bit.band;
 local bor                     = bit.bor;
 
 local UnitConditionForBinding = DebindPrivate.UnitConditionForBinding;
+local UnitConditionIsUnreadable = DebindPrivate.UnitConditionIsUnreadable;
 local UnitConditionToState    = DebindPrivate.UnitConditionToState;
 local UnitGroupToCells        = DebindPrivate.UnitGroupToCells;
 local RoleMeasuredUnder       = DebindPrivate.RoleMeasuredUnder;
+local FrameAxesOn             = DebindPrivate.FrameAxesOn;
 local CannotStand             = DebindPrivate.CannotStand;
 local SOURCE_ROW              = DebindPrivate.UNIT_SOURCE_ROW;
 local SOURCE_AT               = DebindPrivate.UNIT_SOURCE_AT;
@@ -336,12 +338,23 @@ local function PickedUnitOf(action)
     return RowUnitName(action.unit);
 end
 
---- The frame types every stored row that lands on the pointed frame's unit asks for together: the
---- `unitframe` row, and a `"@"` whose picked unit is `unitframe`. nil where none asks.
+--- Whether role and frame types count on this stored row **for every binding the action makes**: a
+--- row on the pointed frame's unit, or a `"@"` that every binding lands there, which is one whose
+--- picked unit is it. A `"@"` with no unit picked lands there on the hover twin alone, and
+--- `CannotStand` answers for that binding.
+local function RowCarriesFrameAxes(action, key)
+    if (key == "@") then
+        return FrameAxesOn(PickedUnitOf(action));
+    end
+    return FrameAxesOn(RowUnitName(key));
+end
+
+--- The frame types every stored row that carries them asks for together (`RowCarriesFrameAxes`).
+--- nil where none asks.
 local function PointedFrameTypes(action, rows)
     local frameTypes;
     for key, value in pairs(rows) do
-        if (RowUnitName(key) == "unitframe" or (key == "@" and PickedUnitOf(action) == "unitframe")) then
+        if (RowCarriesFrameAxes(action, key)) then
             local condition = UnitConditionForBinding(value);
             if (type(condition) == "table" and condition.frameTypes ~= nil) then
                 frameTypes = frameTypes and band(frameTypes, condition.frameTypes) or condition.frameTypes;
@@ -353,8 +366,8 @@ end
 
 --- Which axes of one stored row no unit can satisfy on their own: its states, its groups, its frame
 --- types, its reactions, and its roles in two shapes. **Role and frame types only count where they
---- are measured**, on the `unitframe` row and on a `"@"` whose picked unit is `unitframe`; anywhere
---- else they are never narrowed (`BuildUnitStates`), so a zero there empties nothing.
+--- are measured** (`RowCarriesFrameAxes`); anywhere else the fold drops them
+--- (`FoldUnitCondition`), so a zero there empties nothing.
 ---
 --- **No reaction is its own axis, not a state mask of zero.** It is the one way that mask reaches
 --- zero from a row the reader wrote, and it is nothing picked rather than a contradiction.
@@ -367,8 +380,7 @@ local function EmptyUnitRow(action, key, value, rows)
     if (type(condition) ~= "table") then
         return false, false, false, false, false, false;
     end
-    local onFrame = RowUnitName(key) == "unitframe"
-        or (key == "@" and PickedUnitOf(action) == "unitframe");
+    local onFrame = RowCarriesFrameAxes(action, key);
     local noReaction = condition.reaction == 0;
     local noRole, measured, onlyGroup = onFrame and condition.role == 0, false, false;
     if (noRole) then
@@ -414,6 +426,24 @@ local function HasAnyEmptyUnitRow(action, unit)
 end
 
 local EMPTY_CONDITIONS = {};
+
+--- Whether the action holds a value no build writes (`INVALID_ACTION`): a target that is not a name,
+--- or a unit condition `UnitConditionIsUnreadable` turns away. Whether the type uses the field does
+--- not matter.
+local function ActionIsInvalid(action)
+    if (action.unit ~= nil and type(action.unit) ~= "string") then
+        return true;
+    end
+    local rows = StoredUnitRows(action);
+    if (rows) then
+        for _, value in pairs(rows) do
+            if (UnitConditionIsUnreadable(value)) then
+                return true;
+            end
+        end
+    end
+    return false;
+end
 
 local function SpecialBarAgainstPetBattle(action)
     local conditions = action.conditions or EMPTY_CONDITIONS;
@@ -716,6 +746,16 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     --- caller that folds to the strongest one stops early, which is what `LookingForWorse` decides.
     local function Looking()
         return collected ~= nil or LookingForWorse(issue);
+    end
+
+    -- **An invalid action answers that and nothing else**, to every caller. Every check below reads
+    -- the value it holds, so a menu asking about its own category would be painted for it. No menu
+    -- is: what was typed by hand is not ours to explain.
+    if (ActionIsInvalid(action)) then
+        if (not category) then
+            Report(Constants.BINDING_ISSUE_INVALID_ACTION);
+        end
+        return issue;
     end
 
     for i = 1, #ACTION_CHECKS do

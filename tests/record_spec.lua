@@ -5,14 +5,9 @@
 -- fold, `pairs` order decides which of the two survives. A condition disappearing at random is
 -- what that looks like from the outside.
 --
--- The other half is `NEVER`: a fold that leaves nothing any state can satisfy. **Nothing should
--- reach it.** Every way it happens leaves a zero mask in `binding.unitStates`, `FillBinding` marks
--- that binding `dead`, and `BuildKeyMap` leaves it off the key -- so it reaches neither the solver
--- nor the emitter. It is the backstop for those two intersections disagreeing, which is two
--- implementations of one rule, and it is the only thing that would notice.
---
--- Verified with a one-off script every time this was touched before, because the harness did not
--- read the file (`.zzz/refactor-candidates.md` 31).
+-- **The fold is `BuildUnitStates`, and the record goes out with what it folded**
+-- (`binding.unitConditions`). The solver's columns are read off the same table, so a fold that
+-- leaves nothing is a binding `CannotStand` calls dead, and what is asked here is that answer.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -39,10 +34,14 @@ return function(DebindPrivate)
     local HARM = Constants.REACTION_HARM;
     local OTHER = Constants.REACTION_OTHER;
 
-    --- Folds one binding's unit conditions into a table of its own.
+    --- One binding's unit conditions, folded. nil where the fold leaves nothing.
     local function fold(unit, units)
-        return DebindPrivate.MergeKeyUnitConditions(
-            { unit = unit, conditions = { units = units } }, {});
+        local binding = { unit = unit, conditions = { units = units } };
+        DebindPrivate.BuildUnitStates(binding);
+        if (DebindPrivate.CannotStand(binding)) then
+            return nil;
+        end
+        return binding.unitConditions;
     end
 
     --- How many units the fold left.
@@ -98,19 +97,6 @@ return function(DebindPrivate)
         end
     end);
 
-    -- A `unit` that is not a string at all is the one place left with nowhere to put `"@"`. The fold
-    -- drops it quietly rather than inventing a unit; `BuildUnitStates` has already made the binding
-    -- opaque.
-    test("\"@\" on a unit that is not a string is dropped and nothing else is", function()
-        local folded = fold(42, {
-            ["@"] = { reaction = HELP },
-            focus = { reaction = HARM },
-        });
-        check(folded, "the fold refused a binding whose only fault was a stray @");
-        check(size(folded) == 1, "units left: " .. size(folded));
-        check(folded.focus.reaction == HARM, "the focus condition went with it");
-    end);
-
     -- Two units are two entries. Nothing folds across units.
     test("conditions on different units stay apart", function()
         local folded = fold("target", {
@@ -125,10 +111,76 @@ return function(DebindPrivate)
     -- A binding with no unit conditions folds to nothing, which is **not** the same answer as a
     -- fold that failed. The caller emits the first and skips the second.
     test("no unit conditions is an empty fold, not a refusal", function()
-        local folded = DebindPrivate.MergeKeyUnitConditions(
-            { unit = "target", conditions = {} }, {});
+        local folded = fold("target", nil);
         check(folded ~= nil, "an unconditional binding was refused");
         check(size(folded) == 0, "units left: " .. size(folded));
+    end);
+
+    -- **`BuildUnitStates` runs on every `FillBinding`**, the window's calls included, so a fold that
+    -- met two rows or carried a group allocated a table each time. A binding keeps one per unit and
+    -- every refill writes into it.
+    test("a refill writes into the table the fill before it left", function()
+        local binding = { unit = "target", conditions = { units = {
+            ["@"] = { reaction = HELP },
+            target = { dead = false, group = Constants.UNITGROUP_PARTY },
+        } } };
+        DebindPrivate.BuildUnitStates(binding);
+        local first = binding.unitConditions.target;
+        DebindPrivate.BuildUnitStates(binding);
+        check(binding.unitConditions.target == first, "the refill made a table of its own");
+        check(first.reaction == HELP and first.dead == false
+                and first.group == DebindPrivate.UnitGroupToCells(Constants.UNITGROUP_PARTY),
+            "the refill left the wrong values");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Role and frame types: the pointed frame's unit only
+    ---------------------------------------------------------------------------
+
+    local TANK, HEALER = Constants.ROLE_TANK, Constants.ROLE_HEALER;
+    local GROUP, PLAYER = Constants.FRAMETYPE_GROUP, Constants.FRAMETYPE_PLAYER;
+
+    -- **Nothing measures either on `target`**, so they are not a condition there and two rows that do
+    -- not meet on them do not empty the binding. The menu puts them on `"@"`, which lands here on an
+    -- action with no target.
+    test("role and frame types on another unit are dropped, and the rest stays", function()
+        local folded = fold(nil, {
+            ["@"] = { role = TANK, frameTypes = PLAYER },
+            target = { role = HEALER, frameTypes = GROUP, reaction = HELP },
+        });
+        check(folded, "two rows on target emptied the binding over axes nothing measures there");
+        check(folded.target.role == nil, "role: " .. tostring(folded.target.role));
+        check(folded.target.frameTypes == nil, "frame types: " .. tostring(folded.target.frameTypes));
+        check(folded.target.reaction == HELP, "the reaction went with them");
+    end);
+
+    test("\"@\" on the pointed frame's unit meets that row on role and frame types", function()
+        local folded = fold("unitframe", {
+            ["@"] = { role = TANK + HEALER, frameTypes = GROUP + PLAYER },
+            unitframe = { role = HEALER, frameTypes = GROUP },
+        });
+        check(folded, "the fold refused a pair that can be satisfied");
+        check(folded.unitframe.role == HEALER, "role: " .. tostring(folded.unitframe.role));
+        check(folded.unitframe.frameTypes == GROUP,
+            "frame types: " .. tostring(folded.unitframe.frameTypes));
+    end);
+
+    test("two picked roles that do not meet leave nothing", function()
+        check(fold("unitframe", {
+            ["@"] = { role = TANK },
+            unitframe = { role = HEALER },
+        }) == nil, "a contradiction folded to something");
+    end);
+
+    -- **A row with no role picked still runs over frames that are not party or raid frames**, where
+    -- no role is measured (`RoleLeavesNothing`). Meeting a picked role keeps that.
+    test("a row with no role picked meets another as no role, not as nothing", function()
+        local folded = fold("unitframe", {
+            ["@"] = { role = 0 },
+            unitframe = { role = TANK },
+        });
+        check(folded, "a binding that runs over other frames was emptied");
+        check(folded.unitframe.role == 0, "role: " .. tostring(folded.unitframe.role));
     end);
 
     ---------------------------------------------------------------------------
@@ -187,8 +239,8 @@ return function(DebindPrivate)
 
     local function recordFor(binding, isClickCast, holdsKey)
         binding.conditions = binding.conditions or {};
-        binding.recordUnits = DebindPrivate.MergeKeyUnitConditions(binding, {});
-        check(binding.recordUnits, "the binding's units fold to nothing");
+        DebindPrivate.BuildUnitStates(binding);
+        check(not DebindPrivate.CannotStand(binding), "the binding's units fold to nothing");
         return DebindPrivate.BuildKeyRecord(binding, isClickCast, holdsKey,
             { fieldNames = {}, fieldValues = {}, fieldCount = 0, switches = {} });
     end

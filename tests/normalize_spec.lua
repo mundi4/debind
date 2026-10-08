@@ -370,7 +370,6 @@ return function(DebindPrivate)
         check(b.conditions.units and b.conditions.units["@"] ~= nil, "\"@\"가 지워짐");
         check(b.unitStates and b.unitStates.target == Constants.UNITSTATE_EXISTS,
             "target 칸: " .. tostring(b.unitStates and b.unitStates.target));
-        check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
     test("펫 명령 때문에 대상을 잃어도 \"@\"는 target 칸에 선다", function()
@@ -382,7 +381,6 @@ return function(DebindPrivate)
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
         check(b.unitStates and b.unitStates.target == Constants.UNITSTATE_EXISTS,
             "target 칸: " .. tostring(b.unitStates and b.unitStates.target));
-        check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
     -- **대상을 못 갖는 타입의 원본은 `"@"`를 `target` 칸에 묻는다.** 대상이 지워지고 채워 넣는
@@ -410,9 +408,9 @@ return function(DebindPrivate)
         return spell({ unit = "focus", units = { ["@"] = atValue, focus = unitValue } });
     end
 
-    -- **어느 키에 남았는지는 계약이 아니다.** 예전에는 여기서 손으로 한쪽으로 접었는데, 지금은
-    -- 두 소비자가 각자 교집합을 낸다(`BuildUnitStates`의 band, 방출의 `mergeUnitConditions`).
-    -- 그래서 검사할 것은 키의 생김새가 아니라 **겨눈 유닛의 축이 어디로 좁혀졌는가**다.
+    -- **Which key it was left under is not the contract.** `BuildUnitStates` meets the two
+    -- (`FoldUnitCondition`), so what is asked is **where the aimed unit's axis narrowed to**, not
+    -- what the condition table looks like.
     test("같은 말이면 축이 그 값으로 좁혀진다", function()
         check(atAnd("help", "help").unitStates.focus == Constants.UNITSTATE_HELP, "우호");
     end);
@@ -671,50 +669,11 @@ return function(DebindPrivate)
         check(mode({ disabled = true, exists = false }) == "none", "꺼진 축보다 exists가 먼저 읽힘");
     end);
 
-    --- **모르는 값을 떨어뜨리면 그 바인딩이 걸어둔 것보다 넓어진다.** 옛 버전이 쓴 스칼라를
-    --- 우리가 모를 수 있고, 조건이 조용히 사라진 바인딩은 남의 키를 가져간다.
+    --- **The menu draws a value no build writes as [when there is none]**: it has three radios and no
+    --- fourth. The action itself is left out (`INVALID_ACTION`, `issue_spec`).
     test("유닛 조건 읽기 - 모르는 스칼라는 좁은 쪽으로", function()
         check(mode("mostly") == "absent", "모르는 문자열이 없을 때로 안 떨어짐");
         check(mode(7) == "absent", "모르는 숫자가 없을 때로 안 떨어짐");
-    end);
-
-    --- **A value this build cannot read is not put on an axis, because reading it there is not
-    --- narrower but elsewhere.**
-    ---
-    --- The absent point is smaller than "there" but not inside it. Read as the absent point, the
-    --- binding **covers a real [when there is none] binding whole** and the solver deletes it. The
-    --- reader's condition disappears with no issue shown: the mask is `UNITSTATE_NONE`, not 0, so
-    --- the binding is not `dead` either.
-    ---
-    --- `Solver.lua`'s header gives the answer: a condition that cannot be placed on an axis is not
-    --- ignored, **it makes the binding opaque and takes it out of both roles.** It neither covers
-    --- nor is covered.
-    ---
-    --- **The way in is an import.** `Import.lua` checks only that `units` is a table and copies what
-    --- is inside it with `CopyTable`, so a value a newer version wrote arrives here.
-    local function opaqueFor(value)
-        local b = normalize(nest({
-            type = Constants.SPELL, value = 585, key = "T",
-            units = { target = value },
-        }), true);
-        return b.unitStatesOpaque and true or false;
-    end
-
-    test("모르는 유닛 조건 값은 바인딩을 두 역할에서 뺀다", function()
-        check(opaqueFor("mostly"), "모르는 문자열이 축에 올라갔다");
-        check(opaqueFor(7), "모르는 숫자가 축에 올라갔다");
-    end);
-
-    --- 아는 값 전부가 그대로여야 한다. 이 쪽이 안 서면 위 검사는 **모든 유닛 조건을 판정에서
-    --- 빼버린 것**과 구별이 안 된다.
-    test("아는 유닛 조건 값은 그대로 축에 오른다", function()
-        check(not opaqueFor(true), "true가 빠졌다");
-        check(not opaqueFor(false), "false가 빠졌다");
-        check(not opaqueFor("help"), "help가 빠졌다");
-        check(not opaqueFor("harm"), "harm이 빠졌다");
-        check(not opaqueFor({}), "빈 표가 빠졌다");
-        check(not opaqueFor({ exists = false }), "exists=false가 빠졌다");
-        check(not opaqueFor({ reaction = Constants.REACTION_HELP }), "반응 표가 빠졌다");
     end);
 
     ---------------------------------------------------------------------------
@@ -944,7 +903,6 @@ return function(DebindPrivate)
                 label .. "원본이 @를 지웠다");
             check(original.unitStates and original.unitStates.target == help,
                 label .. "target 칸: " .. tostring(original.unitStates and original.unitStates.target));
-            check(not original.unitStatesOpaque, label .. "원본이 판정에서 빠졌다");
             check(DebindPrivate.IsConditionalBinding(original), label .. "원본이 조건 없음으로 읽힌다");
             check(twinFor(list, Constants.CASTMOD_SELF).unitStates.player == help,
                 label .. "self 쌍둥이가 @를 잃었다");

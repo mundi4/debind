@@ -5,6 +5,7 @@ local band = bit.band;
 local ipairs, pairs, sort = ipairs, pairs, table.sort;
 
 local UnitConditionToState = DebindPrivate.UnitConditionToState;
+local FrameAxesOn = DebindPrivate.FrameAxesOn;
 
 --[[
     A key's judgment item (`handing-the-rest-of-a-key-to-the-game.md` 2-2): which of ours, a
@@ -96,8 +97,8 @@ local function RecordConstraints(record)
                 constrain(out, "unitgroup " .. unit, "unitgroup", unit, Constants.UNITGROUPCELL_ALL,
                     condition.group);
             end
-            -- `EmitRecord` sends a role for this unit only.
-            if (unit == "unitframe" and condition.role) then
+            -- The rule `EmitRecord` sends a role by.
+            if (FrameAxesOn(unit) and condition.role) then
                 constrain(out, "role", "role", nil, ROLE_ALL,
                     band(condition.role, Constants.ROLE_ALL) + Judgment.ROLE_UNMEASURED);
             end

@@ -6,8 +6,6 @@ local bor                          = bit.bor;
 
 local UnitConditionForBinding      = DebindPrivate.UnitConditionForBinding;
 local UnitFrameConditionFromLegacy = DebindPrivate.UnitFrameConditionFromLegacy;
-local UnitGroupToCells             = DebindPrivate.UnitGroupToCells;
-local CellsToUnitGroup             = DebindPrivate.CellsToUnitGroup;
 local BuildUnitStates              = DebindPrivate.BuildUnitStates;
 local RoleLeavesNothing            = DebindPrivate.RoleLeavesNothing;
 
@@ -66,9 +64,6 @@ end
 --- **A verdict on the binding, not on one condition**, which is why it is not in `Units.lua`: the
 --- solo rule holds the `groups` condition against the unit ones.
 local function CannotStand(binding, visit)
-    if (binding.unitStatesOpaque) then
-        return false;
-    end
     local function found(unit, solo)
         return visit == nil or visit(unit, solo) == true;
     end
@@ -130,76 +125,19 @@ do
     -- nothing at the moment nothing is pointed at.
     local UNIT_IS_THERE = {};
 
-    --- A resurrection branch's own condition on the aimed unit, met with the reader's on the same
-    --- `"@"`. Answers the table to store, `false` for [when there is none], or nil where the two
-    --- cannot both hold. A branch that asks for a corpse under a reader who asked for no target is
-    --- one of those.
-    ---
-    --- **The group axis is met in cells**, as `IntersectStoredUnitConditions` does: the three values
-    --- overlap, so a bit mask `band` is not the intersection in general.
-    local function MeetResurrectUnit(existing, want)
-        if (existing == nil) then
-            if (want == false) then
-                return false;
-            end
-            local out = {};
-            for k, v in pairs(want) do
-                out[k] = v;
-            end
-            return out;
-        end
-        if (existing == false or want == false) then
-            if (existing == false and want == false) then
-                return false;
-            end
-            return nil;
-        end
-        local out = {};
-        for k, v in pairs(existing) do
-            out[k] = v;
-        end
-        if (want.reaction ~= nil) then
-            out.reaction = out.reaction and band(out.reaction, want.reaction) or want.reaction;
-            if (out.reaction == 0) then
-                return nil;
-            end
-        end
-        if (want.dead ~= nil) then
-            if (out.dead ~= nil and out.dead ~= want.dead) then
-                return nil;
-            end
-            out.dead = want.dead;
-        end
-        if (want.group ~= nil) then
-            if (out.group == nil) then
-                out.group = want.group;
-            else
-                local cells = band(UnitGroupToCells(out.group), UnitGroupToCells(want.group));
-                if (cells == 0) then
-                    return nil;
-                end
-                out.group = CellsToUnitGroup(cells);
-            end
-        end
-        return out;
-    end
-
-    --- No unit satisfies it: exists, and in none of the three reactions. The shape
-    --- `IntersectStoredUnitConditions` uses for the same answer.
-    local NO_UNIT = { reaction = 0 };
-
     --- Puts a resurrection branch's combat and target conditions on top of the reader's.
     ---
     --- **Where the two contradict, the branch still stands as one that cannot**, so the issue check
     --- sees it (`EvaluateIssues`). Left out of the list, every branch ruled out by the reader's own
     --- conditions left only the original holding the key and no mark on the row. A contradiction
-    --- on the target writes a unit nothing satisfies, which the unit menus are painted for; one on
+    --- on the target folds to a unit nothing satisfies, which the unit menus are painted for; one on
     --- combat has no such shape and answers `"combat"` for the caller to mark.
-    local function ApplyResurrectBranch(conditions, branch)
-        local units = conditions.units;
-        local met = MeetResurrectUnit(units and units["@"], branch.unit);
-        conditions.units = units or {};
-        conditions.units["@"] = met == nil and NO_UNIT or met;
+    ---
+    --- **The target condition is a row of its own (`branchUnit`), not written over the reader's
+    --- `"@"`**: `BuildUnitStates` meets the two like any two rows on one unit, which is the one
+    --- place that is done (`FoldUnitCondition`).
+    local function ApplyResurrectBranch(binding, conditions, branch)
+        binding.branchUnit = branch.unit;
         if (branch.combat ~= nil) then
             if (conditions.combat ~= nil and conditions.combat ~= branch.combat) then
                 return "combat";
@@ -302,13 +240,6 @@ do
         --
         -- 표는 **재사용한다.** 아래 정규화가 제자리에서 nil을 쓰므로 액션 쪽 표를 그대로
         -- 가리키면 사용자가 건 조건을 지우게 된다.
-        -- **The refill has to clear this too.** It is set from the conditions below and the table
-        -- is reused, so a binding once marked opaque stayed opaque for the life of the action --
-        -- the reader fixes the condition the menu could not read and the binding still covers
-        -- nothing and is covered by nothing. Reachable only by luck before `_ActionToBindingsCache`
-        -- held strong values; now the table never goes away.
-        binding.unitConditionUnreadable = nil;
-
         local conditions = binding.conditions;
         if (conditions == nil) then
             conditions = {};
@@ -360,12 +291,9 @@ do
                 if (unit == "hover") then
                     unit = "unitframe";
                 end
-                local condition, unreadable = UnitConditionForBinding(value);
-                if (unreadable) then
-                    -- 이 빌드가 못 읽는 값이 하나라도 있으면 바인딩을 판정에서 뺀다
-                    -- (`BuildUnitStates`가 이 표시를 `unitStatesOpaque`로 바꾼다).
-                    binding.unitConditionUnreadable = true;
-                end
+                -- A value no build writes reads as `false` here, and its action is left out by
+                -- `INVALID_ACTION` before any binding of it reaches the key.
+                local condition = UnitConditionForBinding(value);
                 if (condition ~= nil) then
                     conditions.units = conditions.units or {};
                     conditions.units[unit] = condition;
@@ -470,10 +398,11 @@ do
         binding.holdsOnly = nil;
         binding.omitted = nil;
         binding.combatContradicts = nil;
+        binding.branchUnit = nil;
         if (branch ~= nil) then
             conditions.known = branch.spell;
             binding.spellToCast = branch.spell;
-            binding.combatContradicts = ApplyResurrectBranch(conditions, branch) == "combat" or nil;
+            binding.combatContradicts = ApplyResurrectBranch(binding, conditions, branch) == "combat" or nil;
         elseif (binding.spell ~= nil) then
             if (entry == nil and conditions.known == true and entries) then
                 entry = entries[#entries];
@@ -492,11 +421,8 @@ do
         end
 
 
-        -- `"@"` and an explicit condition on the same unit used to be folded into one key here, by
-        -- hand, for the scalar shape. **Both consumers intersect them themselves now**:
-        -- `BuildUnitStates` with `band` for the solver, and `mergeUnitConditions` per axis on the way
-        -- to the snippet. Folding again would be a third copy of one rule, and the one that drifts is
-        -- the one nothing checks.
+        -- **`"@"` stays its own key here** and meets an explicit condition on the same unit in
+        -- `BuildUnitStates`, which the solver and the record both read.
         --
         -- **No target drops `"@"`, `none` included** (2026-09-15, owner). `none` is aimed like an
         -- action with no target and only its cast asks, so each binding of it has a unit to ask.

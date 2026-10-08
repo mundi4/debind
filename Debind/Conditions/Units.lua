@@ -51,23 +51,15 @@ local function UnitConditionForBinding(value)
     elseif (value == "harm") then
         return { reaction = Constants.REACTION_HARM };
     elseif (type(value) ~= "table") then
-        -- 모르는 스칼라. **떨어뜨리지 않는다** - 옛 버전이 쓴 값을 우리가 모를 수 있고, 조건이
-        -- 조용히 사라지면 그 바인딩이 걸어둔 것보다 넓어져 남의 키를 가져간다.
-        --
-        -- **없을 때로 읽지만, 둘째 반환값이 그게 읽어낸 값이 아니라고 말한다.** 없음 점은 크기가
-        -- 작을 뿐 "있을 때"의 부분집합이 아니라서, 좁게 틀리는 것이 아니라 **다른 자리로** 틀린다.
-        -- 그대로 축에 올리면 이 바인딩이 진짜 [없을 때] 바인딩을 통째로 덮고 solver가 그것을
-        -- 지운다. `GetBindingInfoForAction`이 둘째 값을 받아 바인딩을 두 역할에서 뺀다.
-        --
-        -- 첫째 값은 그대로 두는 것이 이 함수의 나머지 독자들 때문이다 - 툴팁과 조건 메뉴는
-        -- 라디오 셋 중 하나를 골라야 하고, 넷째 자리가 없다.
-        return false, true;
+        -- **A value no build writes** (`UnitConditionIsUnreadable`), and its action is left out by
+        -- `INVALID_ACTION`. `false` is for the readers that still draw it: the tooltip and the
+        -- condition menu pick one of three radios and have no fourth.
+        return false;
     end
 
-    -- **옛 이름 `off`는 여기서 안 받는다.** 저장된 표를 읽는 자리가 둘인데
-    -- (`IntersectStoredUnitConditions`) 한쪽만 옛 이름을 알면 같은 표를 두 가지로 읽는다.
-    -- `dbver <= 6` 단계가 프로필과 페이로드 양쪽에서 이름을 올리고 - 페이로드도 `MigrateLayer`를
-    -- 지난다(`Export.lua`의 `BringPayloadDataForward`) - 그 아래로 내려갈 저장은 없다.
+    -- **The old name `off` is not read here.** `dbver <= 6` renames it in profiles and payloads
+    -- alike -- a payload goes through `MigrateLayer` too (`Export.lua`'s
+    -- `BringPayloadDataForward`) -- and nothing stored stays below that.
     if (value.disabled) then
         return nil;
     elseif (value.exists == false) then
@@ -123,6 +115,17 @@ end
 DebindPrivate.UnitFrameConditionFromLegacy = UnitFrameConditionFromLegacy;
 DebindPrivate.UnitConditionForBinding = UnitConditionForBinding;
 
+--- Whether a stored unit condition is a value no build writes: neither a table nor one of the four
+--- old scalars. **Only hand-made data holds one**, a SavedVariables or a share string edited by
+--- hand: every build since `dbver` 4 writes a table, and the import copies the inside of `units`
+--- without looking. Read as [when there is none] it would cover a real [when there is none] binding
+--- and the solver would delete that one, so its action is left out (`INVALID_ACTION`).
+---
+--- Asked per stored row on every issue check, so it allocates nothing.
+function DebindPrivate.UnitConditionIsUnreadable(value)
+    return value ~= nil and type(value) ~= "table" and UNIT_SCALAR_TO_STATE[value] == nil;
+end
+
 --- The unit frame condition stored on this action. **The old spelling is read as well.**
 ---
 --- `dbver <= 6` moves a stored `units.hover` to `units.unitframe`, but **a place that reads the raw
@@ -159,11 +162,9 @@ local function UnitConditionToState(value)
         return Constants.UNITSTATE_NONE;
     end
     if (type(value) ~= "table") then
-        -- 아직 안 옮겨진 값. `MigrateLayer`가 올려주지만, 가져오기 도중이거나 손으로 고친
-        -- 프로필이면 여기로 온다.
-        --
-        -- **모르는 값이 여기까지 오면 이미 없음 점이다.** `UnitConditionForBinding`이 먼저
-        -- 돌면서 `false`로 바꾸고, 못 읽었다는 사실은 그쪽 둘째 반환값이 따로 나른다.
+        -- An old scalar the ladder has not reached. A value no build writes reads as the absent
+        -- point, as `UnitConditionForBinding` reads it, and its action never reaches the solver
+        -- (`INVALID_ACTION`).
         return UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE;
     end
 
@@ -270,6 +271,131 @@ local function ResolvedUnitOf(binding)
 end
 DebindPrivate.ResolvedUnitOf = ResolvedUnitOf;
 
+--- Whether `role` and `frameTypes` say anything about this unit. **Only about the pointed frame's
+--- unit**: the frame answers both, its type off the frame itself and its role off the group header
+--- that handed it the unit (`Constants.lua`), and no unit token carries either.
+---
+--- The menu offers the two on `"@"` as well, and they count wherever `"@"` lands on `unitframe`:
+--- the hover twin under Unit Frames, and every binding of an action aimed at Unit Frame.
+local function FrameAxesOn(unit)
+    return unit == "unitframe";
+end
+DebindPrivate.FrameAxesOn = FrameAxesOn;
+
+--- No unit satisfies it: exists, and in none of the three reactions. Read-only.
+local NO_UNIT = { reaction = 0 };
+
+--- `out` refilled where the caller keeps one, a new table where it does not.
+local function WriteUnitCondition(out, reaction, dead, role, frameTypes, group)
+    if (out == nil) then
+        return { reaction = reaction, dead = dead, role = role, frameTypes = frameTypes, group = group };
+    end
+    out.reaction, out.dead, out.role, out.frameTypes, out.group = reaction, dead, role, frameTypes, group;
+    return out;
+end
+
+local function EmptyUnitCondition(out)
+    if (out == nil) then
+        return NO_UNIT;
+    end
+    return WriteUnitCondition(out, 0);
+end
+
+--- One more row about `unit`, met with what has been folded onto it so far.
+---
+--- **The only place two conditions on one unit become one.** The solver's columns, the record
+--- the press checks and the row a macro text conversion writes back are all read off what this
+--- answers, so a new axis is added here and nowhere else. A second copy anywhere is two answers
+--- that drift apart one axis at a time.
+---
+--- `folded` is an earlier answer, nil for none yet. `row` is in binding shape
+--- (`UnitConditionForBinding`; a stored scalar is put through it here), with `group` in boxes. The
+--- answer is nil, `false` for [when there is none], or a table with `group` in cells
+--- (`UnitGroupToCells`). `row` is never written to.
+---
+--- **`out` is the table the answer is written into, and it may be `folded` itself.** A caller that
+--- folds on every `FillBinding` hands one in per unit so a refill allocates no condition tables
+--- (`BuildUnitStates`). Without one, a row needing no change comes back as itself and anything else
+--- is a new table.
+---
+--- **A meet nothing satisfies keeps a shape the masks already read as empty**: a zero on the axis
+--- that emptied, or `NO_UNIT` where no axis can say it -- absent against present, life asked both
+--- ways, and two picked role sets that do not meet.
+---
+--- **Two picked role sets that do not meet are a contradiction, though the press would still fire
+--- over a frame where no role is measured** (2026-10-08, owner). Tank on one row and Healer on the
+--- other was not meant as "only over frames that are not party or raid frames", and what was
+--- meant cannot be told, so it is marked for the reader to fix rather than run as a guess. A single
+--- row with no role picked is the other thing: that one says so on its own, and it keeps running
+--- over those frames (`RoleLeavesNothing`).
+local function FoldUnitCondition(unit, folded, row, out)
+    if (row ~= nil and row ~= false and type(row) ~= "table") then
+        row = UnitConditionForBinding(row);
+    end
+    if (row == nil) then
+        return folded;
+    end
+
+    -- Spelled out rather than `and false or`: that idiom cannot return `false`.
+    if (row == false) then
+        if (folded == nil or folded == false) then
+            return false;
+        end
+        return EmptyUnitCondition(out);
+    end
+
+    local reaction, dead = row.reaction, row.dead;
+    local group = row.group and UnitGroupToCells(row.group);
+    local role, frameTypes;
+    if (FrameAxesOn(unit)) then
+        role, frameTypes = row.role, row.frameTypes;
+    end
+
+    if (folded == nil) then
+        if (out == nil and row.group == nil and role == row.role and frameTypes == row.frameTypes) then
+            return row;
+        end
+        return WriteUnitCondition(out, reaction, dead, role, frameTypes, group);
+    end
+    if (folded == false) then
+        return EmptyUnitCondition(out);
+    end
+
+    if (folded.reaction ~= nil) then
+        reaction = reaction and band(reaction, folded.reaction) or folded.reaction;
+    end
+
+    if (folded.dead ~= nil) then
+        if (dead ~= nil and dead ~= folded.dead) then
+            return EmptyUnitCondition(out);
+        end
+        dead = folded.dead;
+    end
+
+    if (folded.role ~= nil) then
+        if (role == nil) then
+            role = folded.role;
+        else
+            local met = band(role, folded.role);
+            if (met == 0 and role ~= 0 and folded.role ~= 0) then
+                return EmptyUnitCondition(out);
+            end
+            role = met;
+        end
+    end
+
+    if (folded.frameTypes ~= nil) then
+        frameTypes = frameTypes and band(frameTypes, folded.frameTypes) or folded.frameTypes;
+    end
+
+    if (folded.group ~= nil) then
+        group = group and band(group, folded.group) or folded.group;
+    end
+
+    return WriteUnitCondition(out, reaction, dead, role, frameTypes, group);
+end
+DebindPrivate.FoldUnitCondition = FoldUnitCondition;
+
 local SOURCE_ROW = 1;
 local SOURCE_AT = 2;
 local SOURCE_SKIP = 8;
@@ -277,9 +403,11 @@ local SOURCE_TWIN = 16;
 DebindPrivate.UNIT_SOURCE_ROW = SOURCE_ROW;
 DebindPrivate.UNIT_SOURCE_AT = SOURCE_AT;
 
---- Fold everything that says something about a unit onto one mask per unit.
+--- Fold everything that says something about a unit onto one condition per unit
+--- (`binding.unitConditions`), and read the solver's columns off it.
 ---
---- `binding.unitStates` is the only thing the solver reads about units.
+--- **The record goes out with `unitConditions` as it is** (`KeyRecords.lua`), so what the solver
+--- judged and what the press checks are one table.
 ---
 --- The point of doing it here is that **the pointed frame's unit is just a unit, named
 --- "unitframe"**. Kept apart, the `unitframe` condition and a unit condition on the same unit are
@@ -290,15 +418,6 @@ DebindPrivate.UNIT_SOURCE_AT = SOURCE_AT;
 --- key path unless they rule the frame out (`KeyRecords.lua`'s `PrepareKeyBindings`), so a box
 --- that spans the frame half is a record that really reaches it.
 local function BuildUnitStates(binding)
-    local states;
-
-    -- **A value this build cannot read makes the binding opaque before any axis is touched.**
-    -- `GetBindingInfoForAction` sets the flag while turning the stored table into the binding one;
-    -- what it means is the same thing `"@"` with nowhere to go means below, so it lands in the same
-    -- field. Reading such a value as the absent point would cover the bindings that really are
-    -- [when there is none] and delete them.
-    local opaque = binding.unitConditionUnreadable or nil;
-
     local sources = binding.unitSources;
     if (sources == nil) then
         sources = {};
@@ -306,52 +425,36 @@ local function BuildUnitStates(binding)
     else
         wipe(sources);
     end
+    local folded = binding.unitConditions;
+    if (folded == nil) then
+        folded = {};
+        binding.unitConditions = folded;
+    else
+        wipe(folded);
+    end
+    -- **One table per unit for the life of the binding**, which every refill writes into.
+    local owned = binding.unitConditionTables;
+    if (owned == nil) then
+        owned = {};
+        binding.unitConditionTables = owned;
+    end
 
-    local function narrow(unit, mask, source)
-        states = states or {};
-        local prev = states[unit];
-        if (prev == nil) then
-            states[unit] = mask;
-        else
-            states[unit] = band(prev, mask);
+    local function add(unit, row, source)
+        local out = owned[unit];
+        if (out == nil) then
+            out = {};
+            owned[unit] = out;
         end
+        folded[unit] = FoldUnitCondition(unit, folded[unit], row, out);
         sources[unit] = bor(sources[unit] or 0, source);
     end
 
-    --- **Its own column, and only the pointed frame's unit rides it.** The map behind it is keyed
-    --- by group unit tokens, and a group frame is the only thing that hands us one
-    --- (`Constants.lua`). Two sources can name that unit -- `units.unitframe` and a `"@"` that
-    --- resolves to it -- so this narrows the same way `narrow` does.
-    local role;
-    local function narrowRole(mask)
-        if (role == nil) then
-            role = mask;
-        else
-            role = band(role, mask);
-        end
-    end
-
-    --- 프레임의 종류. 역할과 같은 자리에 산다 - 개체창을 가리켰을 때만 답이 나오는 축이라
-    --- 유닛마다 세울 값이 아니다.
-    local frameTypes;
-    local function narrowFrameTypes(mask)
-        if (frameTypes == nil) then
-            frameTypes = mask;
-        else
-            frameTypes = band(frameTypes, mask);
-        end
-    end
-
-    --- 소속도 자기 컬럼이고, 역할과 달리 **유닛마다** 선다. 어느 유닛에나 물을 수 있는
-    --- 축이라 unitframe 슬롯에 얹을 이유가 없다.
-    local groups;
-    local function narrowGroup(unit, mask)
-        groups = groups or {};
-        local prev = groups[unit];
-        if (prev == nil) then
-            groups[unit] = mask;
-        else
-            groups[unit] = band(prev, mask);
+    --- `"@"` and a resurrection branch's own row both land on the unit the binding aims at. A `unit`
+    --- that is not a name has none, and its action is left out by `INVALID_ACTION`.
+    local function addAimed(row)
+        local unit = ResolvedUnitOf(binding);
+        if (unit ~= nil) then
+            add(unit, row, SOURCE_AT);
         end
     end
 
@@ -359,48 +462,45 @@ local function BuildUnitStates(binding)
     local units = conditions and conditions.units;
 
     if (binding.skipsPointedUnit) then
-        narrow(binding.skipsPointedUnit, Constants.UNITSTATE_NONE, SOURCE_SKIP);
+        add(binding.skipsPointedUnit, false, SOURCE_SKIP);
     end
     if (units) then
         for key, value in pairs(units) do
-            local unit = key;
-            local source = SOURCE_ROW;
-            if (key == binding.twinOwnUnit) then
-                source = SOURCE_TWIN;
-            elseif (key == "@") then
-                source = SOURCE_AT;
-                unit = ResolvedUnitOf(binding);
-                if (unit == nil) then
-                    -- Nowhere to put it. Dropping the condition instead would make the binding
-                    -- look wider than it is, and a cover wider than it should be deletes
-                    -- bindings that can still fire -- so it leaves both roles, not one.
-                    opaque = true;
-                    unit = nil;
-                end
-            end
-            if (unit) then
-                narrow(unit, UnitConditionToState(value), source);
-                -- `value` is `false` for [when there is none], and role is remembered rather than
-                -- applied there -- the menu's rule for every axis under a mode it does not use.
-                if (unit == "unitframe" and type(value) == "table") then
-                    if (value.role) then
-                        narrowRole(value.role);
-                    end
-                    if (value.frameTypes) then
-                        narrowFrameTypes(value.frameTypes);
-                    end
-                end
-                if (type(value) == "table" and value.group) then
-                    narrowGroup(unit, UnitGroupToCells(value.group));
-                end
+            if (key == "@") then
+                addAimed(value);
+            else
+                add(key, value, key == binding.twinOwnUnit and SOURCE_TWIN or SOURCE_ROW);
             end
         end
     end
+    if (binding.branchUnit ~= nil) then
+        addAimed(binding.branchUnit);
+    end
+
+    local states, groups;
+    for unit, condition in pairs(folded) do
+        states = states or {};
+        states[unit] = UnitConditionToState(condition);
+        -- **Its own column, per unit.** Unlike role it can be asked of any unit.
+        if (type(condition) == "table" and condition.group ~= nil) then
+            groups = groups or {};
+            groups[unit] = condition.group;
+        end
+    end
+
+    --- **Role and frame types are one column each, not one per unit**, since only the pointed
+    --- frame's unit carries them (`FrameAxesOn`). `false` for [when there is none] carries neither:
+    --- the menu remembers axes under a mode that does not use them, and the fold drops them there.
+    local pointed = folded.unitframe;
+    if (type(pointed) == "table") then
+        binding.unitRole = pointed.role;
+        binding.unitFrameTypes = pointed.frameTypes;
+    else
+        binding.unitRole = nil;
+        binding.unitFrameTypes = nil;
+    end
 
     binding.unitStates = states;
-    binding.unitStatesOpaque = opaque;
-    binding.unitRole = role;
-    binding.unitFrameTypes = frameTypes;
     binding.unitGroups = groups;
 end
 
@@ -420,25 +520,11 @@ local function RoleMeasuredUnder(frameTypes)
 end
 DebindPrivate.RoleMeasuredUnder = RoleMeasuredUnder;
 
---- Whether a role mask of zero leaves this binding nowhere. **Not where one row picked no role and
---- the frame types reach past party and raid frames**: the role is measured on those alone, and the
---- binding still runs over the rest (`RoleMeasuredUnder`). A zero two rows made between them is the
---- other thing, a contradiction, and `mergeUnitConditions` emits nothing for it
---- (`KeyRecords.lua`), so that one leaves nothing whatever the frame types.
+--- Whether a role mask of zero leaves this binding nowhere. **Not where the frame types reach past
+--- party and raid frames**: the role is measured on those alone, and the binding still runs over the
+--- rest (`RoleMeasuredUnder`). The zero is always a row that picked no role; two picked sets that do
+--- not meet fold to no unit at all (`FoldUnitCondition`).
 local function RoleLeavesNothing(binding)
-    local units = binding.conditions and binding.conditions.units;
-    local ownRow = false;
-    if (units) then
-        for key, value in pairs(units) do
-            if ((key == "unitframe" or (key == "@" and ResolvedUnitOf(binding) == "unitframe"))
-                    and type(value) == "table" and value.role == 0) then
-                ownRow = true;
-            end
-        end
-    end
-    if (not ownRow) then
-        return true;
-    end
     local _, onlyGroup = RoleMeasuredUnder(binding.unitFrameTypes);
     return onlyGroup;
 end

@@ -3,14 +3,14 @@ local Constants               = DebindPrivate.Constants;
 
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
 
-local band                    = bit.band;
 local tinsert                 = tinsert;
 local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
 local GetSpellCastName        = DebindPrivate.GetSpellCastName;
 local GetSpellNameAndIconID   = DebindPrivate.GetSpellNameAndIconID;
 local GetBindingInfoForAction = DebindPrivate.GetBindingInfoForAction;
-local UnitGroupToCells        = DebindPrivate.UnitGroupToCells;
 local CellsToUnitGroup        = DebindPrivate.CellsToUnitGroup;
+local UnitConditionForBinding = DebindPrivate.UnitConditionForBinding;
+local FoldUnitCondition       = DebindPrivate.FoldUnitCondition;
 
 local SUMMON_MOUNT_MACROTEXT = SLASH_SCRIPT1 .. " C_MountJournal.SummonByID(%d)";
 
@@ -228,90 +228,39 @@ local function AimedUnitKeyForMacroText(action, binding)
     return unit, stored;
 end
 
---- Two stored conditions about one unit, folded onto the one key that can hold them.
+--- `"@"` and the row already stored under `unit`, folded the way the binding folds them
+--- (`FoldUnitCondition`) and written back in stored shape. **nil where the answer has no stored
+--- shape**: two group masks whose cells meet on "in a raid and in my subgroup" alone name no box
+--- combination (`CellsToUnitGroup`), and any value written instead is a different condition.
 ---
---- **This has to land on the mask `BuildUnitStates` would have built.** That one narrows a unit
---- with `band` when two keys speak about it, and an intersection of a reaction subset with a life
---- half is itself one of each, so the stored shape can always say the answer.
+--- **`at` is never switched off here**: the conversion moves only a `"@"` that reaches the binding
+--- (`AimedUnitKeyForMacroText`). **A `taken` that is switched off is replaced, and what it
+--- remembered goes with it**, since one key cannot hold two sets of remembered axes. A pair that both
+--- say [when there is none] keeps `taken` as it was.
 ---
---- `{ exists = true, reaction = 0 }` is the empty one: exists, and in none of the three reactions,
---- which no unit satisfies. Not a new marker -- `UnitFrameConditionFromLegacy` writes the same zero
---- mask where its two sides do not overlap, and `GetBindingIssue` already reads it that way.
----
---- **What the discarded side remembered is gone.** Storage keeps the axes of a condition switched
---- off so the menu can offer them back, and one key cannot hold two sets of them.
----
---- Both sides are tables. `ConditionsSurviveMacroText` refuses the conversion where either is a
---- value this build cannot read, because folding one would drop the mark that says so
---- (`binding.unitConditionUnreadable`).
-local function IntersectStoredUnitConditions(a, b)
-    if (a == nil or a.disabled) then
-        return b;
-    end
-    if (b == nil or b.disabled) then
-        return a;
-    end
-
-    local aAbsent = a.exists == false;
-    local bAbsent = b.exists == false;
-    if (aAbsent or bAbsent) then
-        if (aAbsent and bAbsent) then
-            return a;
+--- `ConditionsSurviveMacroText` refuses the conversion where either side is a value no build writes:
+--- folded, it would be written back as a condition and the action would stop being marked
+--- `INVALID_ACTION`.
+local function FoldStoredUnitConditions(unit, at, taken)
+    local a, b = UnitConditionForBinding(at), UnitConditionForBinding(taken);
+    -- **Folded even with nothing to meet**, so `"@"` comes out the same whether the unit had a row
+    -- or not: a role or frame type that counts on no unit but the frame's is dropped either way.
+    local folded = FoldUnitCondition(unit, FoldUnitCondition(unit, nil, a), b);
+    if (folded == false) then
+        if (b == nil) then
+            return at;
         end
-        return { exists = true, reaction = 0 };
+        return taken;
     end
-
-    local reaction;
-    if (a.reaction == nil) then
-        reaction = b.reaction;
-    elseif (b.reaction == nil) then
-        reaction = a.reaction;
-    else
-        reaction = band(a.reaction, b.reaction);
-    end
-
-    local dead;
-    if (a.dead == nil) then
-        dead = b.dead;
-    elseif (b.dead == nil) then
-        dead = a.dead;
-    elseif (a.dead ~= b.dead) then
-        return { exists = true, reaction = 0 };
-    else
-        dead = a.dead;
-    end
-
-    -- **Every axis a unit condition can carry has to be listed here.** This is the third place one
-    -- axis is intersected -- `BuildUnitStates` folds for the solver and `mergeUnitConditions` folds
-    -- for the snippet -- and it is the only one that writes the answer back into storage. An axis
-    -- left out of the other two makes a binding look wrong; left out of this one it is **deleted
-    -- from the profile**, and the conversion replaces the action in place.
-    --
-    -- Neither of the two below is on `unitStates`, which is what let them go missing quietly:
-    -- group and role have columns of their own, so the spec that compares that mask before and
-    -- after the fold stays green while the field is gone.
-    --- **Folded in cells and brought back**, because the boxes do not intersect as boxes
-    --- (`CellsToUnitGroup`). `ConditionsSurviveMacroText` turns away the conversion where the
-    --- answer names no box, so what comes back here is never nil.
     local group;
-    if (a.group == nil) then
-        group = b.group;
-    elseif (b.group == nil) then
-        group = a.group;
-    else
-        group = CellsToUnitGroup(band(UnitGroupToCells(a.group), UnitGroupToCells(b.group)));
+    if (folded.group ~= nil) then
+        group = CellsToUnitGroup(folded.group);
+        if (group == nil) then
+            return nil;
+        end
     end
-
-    local role;
-    if (a.role == nil) then
-        role = b.role;
-    elseif (b.role == nil) then
-        role = a.role;
-    else
-        role = band(a.role, b.role);
-    end
-
-    return { exists = true, reaction = reaction, dead = dead, group = group, role = role };
+    return { exists = true, reaction = folded.reaction, dead = folded.dead, group = group,
+        role = folded.role, frameTypes = folded.frameTypes };
 end
 
 --- Whether the conditions this action carries can come along into a macro body.
@@ -327,11 +276,8 @@ end
 ---
 --- `"@"` points at the unit the action aims at, and where the body spells that unit out the key has
 --- to become the unit's own name (`AimedUnitKeyForMacroText`). Where the name is already taken the
---- two fold into it
---- (`IntersectStoredUnitConditions`), which is the same fold `BuildUnitStates` was doing across
---- the two keys -- **except when a value cannot be read**. Folding one of those would drop the
---- mark that says it was not read, and that mark is what keeps the binding out of two roles it
---- would otherwise take by looking narrower than it is.
+--- two fold into it (`FoldStoredUnitConditions`) -- **except where one is a value no build writes**,
+--- which is the action's error and has to stay one (`FoldStoredUnitConditions`).
 local function ConditionsSurviveMacroText(action)
     local binding = GetBindingInfoForAction(action);
 
@@ -359,22 +305,7 @@ local function ConditionsSurviveMacroText(action)
         if (type(at) ~= "table" or type(taken) ~= "table") then
             return false;
         end
-        -- **The one fold whose answer may not be storable.** Two group masks whose cells meet on
-        -- "in a raid and in my subgroup" name a condition no box combination writes, and every
-        -- value that could be written instead is a different condition. The sides the intersection
-        -- short-circuits on are asked the same way it asks them, so a conversion it would have
-        -- folded cleanly is not turned away.
-        --
-        -- The `dead` fork is one of them: two sides that disagree there never reach the group
-        -- axis at all, so refusing over it would turn away a conversion that folds cleanly.
-        local deadConflict = at.dead ~= nil and taken.dead ~= nil and at.dead ~= taken.dead;
-        if (at.group and taken.group and not deadConflict
-                and not at.disabled and not taken.disabled
-                and at.exists ~= false and taken.exists ~= false) then
-            local cells = band(UnitGroupToCells(at.group), UnitGroupToCells(taken.group));
-            return DebindPrivate.CellsToUnitGroup(cells) ~= nil;
-        end
-        return true;
+        return FoldStoredUnitConditions(unit, at, taken) ~= nil;
     end
 
     return true;
@@ -532,7 +463,11 @@ function DebindPrivate.ConvertToMacroText(action)
 
     if (macrotext) then
         if (atUnit and atUnits) then
-            atUnits[atUnit] = IntersectStoredUnitConditions(atUnits[atUnit], atUnits["@"]);
+            local folded = FoldStoredUnitConditions(atUnit, atUnits["@"], atUnits[atUnit]);
+            if (folded == nil) then
+                return false;
+            end
+            atUnits[atUnit] = folded;
             atUnits["@"] = nil;
         end
 

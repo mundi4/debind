@@ -705,6 +705,10 @@ Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON             = "UNKNOWN_ACTION_BUTT
 -- The same for a flyout id this client has no flyout for at all. One it has and this character has
 -- not learned, or has emptied, is not this: it goes out and opens nothing (`DescribeBinding`).
 Constants.BINDING_ISSUE_UNKNOWN_FLYOUT                    = "UNKNOWN_FLYOUT";
+-- **A value no build of this addon writes**: only hand-made data holds one, a SavedVariables or a
+-- share string edited by hand. One code for all of them and no menu painted (2026-10-08, owner):
+-- what was typed is not ours to explain, and not ours to repair either.
+Constants.BINDING_ISSUE_INVALID_ACTION                    = "INVALID_ACTION";
 
 
 -- **Every issue is drawn the same way** (owner, 2026-10-07; `giving-keys-back-when-no-action-runs.md`
@@ -769,6 +773,7 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_UNKNOWN_PET_COMMAND]               = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON]             = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_UNKNOWN_FLYOUT]                    = Constants.ISSUE_OUTCOME_OMIT,
+    [Constants.BINDING_ISSUE_INVALID_ACTION]                    = Constants.ISSUE_OUTCOME_OMIT,
 };
 
 

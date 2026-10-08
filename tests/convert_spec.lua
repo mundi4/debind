@@ -383,6 +383,26 @@ return function(DebindPrivate)
         end
     end);
 
+    --- **Frame types fold the way roles do**, where `"@"` lands on the pointed frame's unit. Lost on
+    --- the way, the binding goes out over every frame type it was kept off.
+    test("frame types on both rows come out as their intersection", function()
+        installWorld();
+        local PLAYER, GROUP, BOSS = Constants.FRAMETYPE_PLAYER, Constants.FRAMETYPE_GROUP,
+            Constants.FRAMETYPE_BOSS;
+        local action = { type = Constants.SPELL, value = 774, unit = "unitframe",
+            conditions = { units = {
+                ["@"] = { frameTypes = PLAYER + GROUP },
+                unitframe = { frameTypes = GROUP + BOSS },
+            } } };
+        local before = DebindPrivate.GetBindingInfoForAction(action).unitFrameTypes;
+        check(before == GROUP, "the binding folded the two to " .. tostring(before));
+        check(Can(action), "the conversion is not offered");
+        check(Convert(action), "the conversion was refused");
+        check(action.conditions.units["@"] == nil, "`@` was left behind");
+        local after = DebindPrivate.GetBindingInfoForAction(action).unitFrameTypes;
+        check(after == before, "frame types moved from " .. tostring(before) .. " to " .. tostring(after));
+    end);
+
     --- 꺼둔 `"@"`는 조건이 아니다. 저장은 끈 축을 기억하지만 그것은 메뉴가 되돌려주려고 드는
     --- 것이고, 바인딩에는 애초에 안 닿는다. **변환이 건드리는 것은 닿는 것뿐이다** - 옮겨서
     --- 접으면 기억이 살아 있는 조건으로 바뀐다.
@@ -421,9 +441,8 @@ return function(DebindPrivate)
         check(not Can(mixed), "옮겨 적을 자리를 모르는데 변환이 선다");
     end);
 
-    --- 이 빌드가 못 읽는 값. `UnitConditionForBinding`이 그것을 없음 점으로 읽으면서 **읽어낸
-    --- 값이 아니라는 표시를 따로 낸다**(`binding.unitConditionUnreadable`). 접을 수 없는 값을
-    --- 접은 척하면 그 표시가 사라지므로, 그 경우만 변환을 안 내준다.
+    --- **A value no build writes is not folded into storage.** Folded, it would be written back as a
+    --- condition and the action would stop being marked `INVALID_ACTION`.
     test("못 읽는 값이 끼어 있으면 못 바꾼다", function()
         installWorld();
         check(not Can({ type = Constants.SPELL, value = 774, unit = "focus",

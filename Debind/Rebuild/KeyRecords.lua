@@ -12,7 +12,7 @@ local wipe, ipairs, pairs, tinsert       = wipe, ipairs, pairs, tinsert;
 local band                               = bit.band;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
-local UnitGroupToCells                   = DebindPrivate.UnitGroupToCells;
+local FrameAxesOn                        = DebindPrivate.FrameAxesOn;
 
 local Rebuild                 = DebindPrivate.Rebuild;
 local _unitsSeen              = Rebuild.unitsSeen;
@@ -49,116 +49,6 @@ local ROLE_NAMES = {
     [Constants.ROLE_NONE] = "norole",
 };
 
----
---- Two conditions on one unit, merged into one.
----
---- **`"@"` lands on the unit the binding aims at**, so where that unit carries a condition of its
---- own, both are written under the same key of `t.units`. Unmerged, `pairs` order decides which one
---- survives, and a condition the reader set disappears at random.
----
---- Values carry one field per axis (`Migration.lua`'s `dbver <= 4` step), so merging is an
---- intersection **per axis**. One empty axis leaves no state at all, which is `NEVER` for the
---- whole condition.
----
---- ============================================================================================
---- `NEVER` IS UNREACHABLE. DO NOT BUILD A RUNTIME REPRESENTATION FOR IT.
---- ============================================================================================
----
---- Every way this function can return `NEVER` is a zero mask in `binding.unitStates`:
----
----   absent vs a constrained axis   `band(UNITSTATE_NONE, ...)`  == 0
----   reactions do not overlap       `band(reaction, reaction)`   == 0
----   life asked both ways           `band(ALIVE, DEAD)`          == 0
----
---- `BuildUnitStates` folds the same conditions with the same intersection, `FillBinding` marks
---- a binding with a zero `dead`, and `BuildKeyMap`'s `UnrollIntoTiers` leaves every such binding off
---- the key, one binding at a time. So a binding that cannot stand reaches **neither the solver nor
---- this file**, whatever its action's other bindings do.
----
---- That makes `NEVER` a backstop for one thing only: **the two intersections disagreeing.** Two
---- implementations of one rule -- this one and `BuildUnitStates` -- which is why the redesign
---- notes want this function gone once the runtime speaks masks.
----
---- `PrepareKeyBindings` answers a `NEVER` by **not emitting the binding at all**, and no issue says
---- so: the one for a binding that cannot stand reads `dead`. Do not reach for a marker value or a
---- `never` field instead. Anything carried into the secure environment is paid for
---- three times: the match loop walks and rejects the record on every re-selection, its units get
---- registered so the update loop measures them every tick forever, and a marker field costs every
---- *ordinary* condition a lookup on a path that runs thousands of times in a fight. All of that
---- to carry a case that cannot happen.
-local NEVER = {};
-
-local function mergeUnitConditions(a, b)
-    if (a == nil) then return b; end
-    if (b == nil) then return a; end
-    if (a == NEVER or b == NEVER) then return NEVER; end
-
-    -- `false` is "absent". The absent point sits on no axis, so it cannot overlap with a condition
-    -- that constrains one -- but two conditions that both say "absent" agree, and that has to come
-    -- back as `false`. Spelled out rather than `and false or`: that idiom cannot return `false`,
-    -- so it answered `NEVER` for the one case it was written to let through and the binding was
-    -- dropped without any issue being reported.
-    if (a == false or b == false) then
-        if (a == b) then
-            return false;
-        end
-        return NEVER;
-    end
-
-    local reaction = a.reaction;
-    if (reaction == nil) then
-        reaction = b.reaction;
-    elseif (b.reaction ~= nil) then
-        reaction = band(reaction, b.reaction);
-        if (reaction == 0) then
-            return NEVER;
-        end
-    end
-
-    local dead = a.dead;
-    if (dead == nil) then
-        dead = b.dead;
-    elseif (b.dead ~= nil and b.dead ~= dead) then
-        return NEVER;
-    end
-
-    -- **Only two picked sets that do not meet are NEVER.** A row with no role picked is already
-    -- empty and still runs over every frame that is not a party or raid frame, which is the only
-    -- kind a role is measured on (`Units.lua`'s `RoleLeavesNothing`); meeting it keeps that.
-    local role = a.role;
-    if (role == nil) then
-        role = b.role;
-    elseif (b.role ~= nil) then
-        local met = band(role, b.role);
-        if (met == 0 and role ~= 0 and b.role ~= 0) then
-            return NEVER;
-        end
-        role = met;
-    end
-
-    local frameTypes = a.frameTypes;
-    if (frameTypes == nil) then
-        frameTypes = b.frameTypes;
-    elseif (b.frameTypes ~= nil) then
-        frameTypes = band(frameTypes, b.frameTypes);
-        if (frameTypes == 0) then
-            return NEVER;
-        end
-    end
-
-    local group = a.group;
-    if (group == nil) then
-        group = b.group;
-    elseif (b.group ~= nil) then
-        group = band(group, b.group);
-        if (group == 0) then
-            return NEVER;
-        end
-    end
-
-    return { reaction = reaction, dead = dead, role = role, group = group, frameTypes = frameTypes };
-end
-
 --- The condition axes that go out as a plain field, **in the order they are emitted in**, with the
 --- value that means "no restriction" for the three that have one.
 ---
@@ -189,8 +79,6 @@ local function field(record, name, value)
     record.fieldValues[count] = value;
 end
 
-local MergeKeyUnitConditions;
-
 --- Stamps every binding on one key and **drops the ones with no way to fire**.
 ---
 --- `DescribeBinding` refuses a value that is wrong in itself (a pet command this client has no slash
@@ -202,14 +90,7 @@ local MergeKeyUnitConditions;
 --- owner, 2026-10-07).
 ---
 --- **What it returns is whether a record goes out**, of each kind, and that is what decides whether
---- the key is held (`UpdateBindingsMap`). So a binding still holding the key or taking a frame click
---- has its unit conditions folded here, once, onto `binding.recordUnits`, which is what
---- `BuildKeyRecord` builds the record from: one whose fold leaves nothing makes no record and is
---- dropped like one with no way to fire (`mergeUnitConditions` says when that can happen).
----
---- **`recordUnits` is good for this rebuild only**, and only on a binding left holding the key or
---- taking a frame click. Bindings are cached across rebuilds, and one that drops off the key map is
---- never visited here, so the field is read nowhere but `BuildKeyRecord` in the same pass.
+--- the key is held (`UpdateBindingsMap`).
 local function PrepareKeyBindings(key, bindingArray)
     local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
     local hasClickCast, hasKeyRecord = false, false;
@@ -302,12 +183,6 @@ local function PrepareKeyBindings(key, bindingArray)
             end
             binding.isClickCast, binding.holdsKey = false, false;
         end
-        if (binding.isClickCast or binding.holdsKey) then
-            binding.recordUnits = MergeKeyUnitConditions(binding, binding.recordUnits or {});
-            if (not binding.recordUnits) then
-                binding.isClickCast, binding.holdsKey = false, false;
-            end
-        end
 
         hasClickCast = hasClickCast or binding.isClickCast;
         hasKeyRecord = hasKeyRecord or binding.holdsKey;
@@ -319,21 +194,20 @@ end
 --- One BLOCK per tier, shared by every key. **Nothing hands them to the solver**, so no key and no
 --- unit state is read off them.
 ---
---- **`recordUnits` is set here** because an end never passes `PrepareKeyBindings`, which folds it
---- for every other binding.
+--- **`unitConditions` is set here** because an end never goes through `BuildUnitStates`.
 local BLOCKS = {
-    [Constants.CASTMOD_SELF] = { type = Constants.BLOCK, conditions = {}, recordUnits = {},
+    [Constants.CASTMOD_SELF] = { type = Constants.BLOCK, conditions = {}, unitConditions = {},
         castModifier = Constants.CASTMOD_SELF, holdsKey = true, isClickCast = false },
-    [Constants.CASTMOD_FOCUS] = { type = Constants.BLOCK, conditions = {}, recordUnits = {},
+    [Constants.CASTMOD_FOCUS] = { type = Constants.BLOCK, conditions = {}, unitConditions = {},
         castModifier = Constants.CASTMOD_FOCUS, holdsKey = true, isClickCast = false },
-    [Constants.CASTMOD_NONE] = { type = Constants.BLOCK, conditions = {}, recordUnits = {},
+    [Constants.CASTMOD_NONE] = { type = Constants.BLOCK, conditions = {}, unitConditions = {},
         castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false },
 };
 
 --- What closes the [none held] tier instead while `GiveBackWhenNoActionRuns` is on: a giveback,
 --- bound as a block the way a saved one is (`FillBinding`). A press that still reaches it, before
 --- the next beat lets the key go, does nothing.
-local GIVEBACK_END = { type = Constants.BLOCK, tail = Constants.GIVEBACK, conditions = {}, recordUnits = {},
+local GIVEBACK_END = { type = Constants.BLOCK, tail = Constants.GIVEBACK, conditions = {}, unitConditions = {},
     castModifier = Constants.CASTMOD_NONE, holdsKey = true, isClickCast = false };
 
 local _withBlocks = {};
@@ -400,70 +274,18 @@ local function WithBlocks(bindingArray, giveBack)
     return _withBlocks;
 end
 
---- The binding's unit conditions with every unit written once. **nil where the fold leaves
---- nothing**: that binding fires in no state, so no record is made for it.
+--- One binding, as the record the restricted side will hold. Its units are
+--- `binding.unitConditions`, **the same table the solver's columns were read off**
+--- (`BuildUnitStates`), so the record checks what the solver judged.
 ---
---- **`"@"` lands on the unit the binding aims at**, so a condition of that unit's own lands on the
---- same key. Unfolded, `pairs` order decides which one survives.
----
---- **Nothing should reach the nil** (`mergeUnitConditions` says why), and `PrepareKeyBindings`
---- drops a binding that does.
-function MergeKeyUnitConditions(binding, out)
-    wipe(out);
-
-    -- **Hover Cast's `"skip"` is not in `conditions`** (`FillBinding`), since that table is what the
-    -- order counts, so it is laid in here, where the record gets the unit rows the press checks.
-    if (binding.skipsPointedUnit) then
-        out[binding.skipsPointedUnit] = false;
-    end
-
-    local units = binding.conditions.units;
-    if (not units) then
-        return out;
-    end
-
-    for k, v in pairs(units) do
-        if (k == "@") then
-            k = DebindPrivate.ResolvedUnitOf(binding);
-        end
-        -- nil is a `unit` that is not a string at all, and `BuildUnitStates` has already taken
-        -- that binding out of both solver roles, so the condition is dropped quietly here.
-        if (k ~= nil) then
-            -- **Storage holds three overlapping boxes; from here on it is four cells.** The boxes
-            -- are not closed under intersection: {party} and {raid} meet on the one cell "in a raid
-            -- and in my subgroup", and no combination of boxes names that cell alone. `band` on the
-            -- boxes answers 0 for it, and **a binding that can fire drops out whole.** The solver
-            -- uses the same cells (`BuildUnitStates`), so the two sides share one vocabulary.
-            --
-            -- The value in the condition table cannot be changed in place, so a new table is made:
-            -- only for a unit with a group on it, once per rebuild.
-            if (type(v) == "table" and v.group) then
-                v = {
-                    reaction = v.reaction,
-                    dead = v.dead,
-                    role = v.role,
-                    frameTypes = v.frameTypes,
-                    group = UnitGroupToCells(v.group),
-                };
-            end
-            v = mergeUnitConditions(out[k], v);
-            if (v == NEVER) then
-                return nil;
-            end
-            out[k] = v;
-        end
-    end
-
-    return out;
-end
-
---- One binding, as the record the restricted side will hold. Its units are `binding.recordUnits`, the
---- fold `PrepareKeyBindings` decided the hold by.
+--- **`out.units` is good only until the binding is filled again**, which the window does whenever
+--- it asks about the action: the table is rewritten in place. Every reader of a record has to be
+--- done before the key walk moves on (`UpdateBindingsMap`); `JudgmentEntryFor` copies the masks out.
 ---
 --- Nothing here reaches a frame or the client. The one frame question -- which click frame the
 --- record hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a name.
 local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
-    out.units = binding.recordUnits;
+    out.units = binding.unitConditions;
 
     local conditions = binding.conditions;
 
@@ -511,9 +333,6 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, out)
     -- describes the **frame** and only the frame record can answer it, where every other axis of
     -- that unit is answered by measuring the unit. It carries its own "is there a frame" guard in
     -- the snippet for that reason.
-    --
-    -- Read off the merged table, so a mask on `"@"` where the action aims at the frame's unit meets
-    -- the one on `units["unitframe"]` -- the same fold `BuildUnitStates` does for the solver.
     local pointedFrame = out.units.unitframe;
     if (type(pointedFrame) == "table" and pointedFrame.frameTypes
             and pointedFrame.frameTypes ~= Constants.FRAMETYPE_ALL) then
@@ -613,7 +432,7 @@ local function CollectRecordNeeds(record)
         -- **Role is read off the unitframe slot, not measured on a unit**, filled where the frame is
         -- in hand (`SecureBindings.lua`'s `setup_onenter`), so all this decides is whether the
         -- headers that fill `UnitRoles` run.
-        if (unit == "unitframe" and condition ~= false and condition.role) then
+        if (FrameAxesOn(unit) and condition ~= false and condition.role) then
             Rebuild.readsRole = true;
         end
 
@@ -677,8 +496,8 @@ local function EmitRecord(record)
             appendLine("u.exists=false");
         else
             appendLine("u.exists=true");
-            -- 칸으로 나간다. 상자로 내보내면 검사가 세 갈래가 되고, 무엇보다 `%q` 셋이
-            -- 교집합을 못 나타낸다 - `MergeKeyUnitConditions`의 주석에 그 이유가 있다.
+            -- **In cells, not the boxes the reader ticks**: the boxes are not closed under
+            -- intersection, so a folded condition may have no box form at all (`CellsToUnitGroup`).
             if (condition.group) then
                 appendLine("u.group=newtable()");
                 for _, bit in ipairs(sortedKeys(UNITGROUPCELL_NAMES, _sortedC)) do
@@ -687,12 +506,10 @@ local function EmitRecord(record)
                     end
                 end
             end
-            -- **Emitted for `unitframe` only**, for the reason `BuildUnitStates` gives that axis to
-            -- `unitframe` only. Emitted for another unit, the measuring side never fills that row, so
-            -- it reads `cond.role[nil]` and the key goes quietly dead; and the solver ignores the
-            -- condition there, so the two part ways. The menu cannot make that shape, but a
-            -- hand-edited profile or an old string arrives here with it.
-            if (unit == "unitframe" and condition.role) then
+            -- **Asked again although the fold already drops it elsewhere**: on any other unit the
+            -- measuring side never fills the row, so a role that got past the fold would read
+            -- `cond.role[nil]` at the press and leave the key quietly dead.
+            if (FrameAxesOn(unit) and condition.role) then
                 appendLine("u.role=newtable()");
                 for _, bit in ipairs(sortedKeys(ROLE_NAMES, _sortedC)) do
                     if (band(condition.role, bit) ~= 0) then
@@ -761,7 +578,6 @@ local function EmitRecord(record)
     end
 end
 
-DebindPrivate.MergeKeyUnitConditions = MergeKeyUnitConditions;
 DebindPrivate.BuildKeyRecord = BuildKeyRecord;
 
 Rebuild.BLOCKS             = BLOCKS;

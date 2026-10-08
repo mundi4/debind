@@ -95,7 +95,7 @@ return function(Constants)
         row(23, "unitframe role 0", { units = { unitframe = { role = 0 } } }),
         row(24, "unitframe role tank, solo only",
             { units = { unitframe = { role = Constants.ROLE_TANK } }, groups = Constants.GROUP_NONE }),
-        -- A scalar this build does not know (`UnitConditionForBinding`).
+        -- A value no build writes, so the action is `INVALID_ACTION` and left out.
         row(25, "target row unreadable", { units = { target = "unreadable" } }),
         row(26, "target row role 0", { units = { target = { role = 0 } } }),
         row(27, "\"@\" [none], target, player, focus [there]",

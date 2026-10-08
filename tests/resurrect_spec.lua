@@ -417,8 +417,7 @@ return function(DebindPrivate, _, ctx)
         local standing, dead = 0, 0;
         for i = 1, #list do
             local b = list[i];
-            local at = b.conditions and b.conditions.units and b.conditions.units["@"];
-            if (b.hoverTwin and at == false and b.spellToCast) then
+            if (b.hoverTwin and b.branchUnit == false and b.spellToCast) then
                 if (b.dead) then
                     dead = dead + 1;
                 else

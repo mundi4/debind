@@ -414,12 +414,6 @@ local function buildLayout(bindings)
     for i = 1, #bindings do
         local binding = bindings[i];
 
-        -- `"@"`가 어느 축에 걸리는지 못 정한 바인딩. 조건을 통째로 무시하면 실제보다 넓어
-        -- 보여서 남을 잘못 덮는다.
-        if (binding.unitStatesOpaque) then
-            _opaque[binding] = true;
-        end
-
         local states = binding.unitStates;
         if (states) then
             for unit in pairs(states) do
