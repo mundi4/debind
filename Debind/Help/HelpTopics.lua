@@ -8,6 +8,7 @@ DebindPrivate.HELP_SECTIONS = {
         topics = {
             { name = "setting-keys-up", title = "HELP_SETTING_KEYS_UP_TITLE", body = "HELP_SETTING_KEYS_UP_BODY" },
             { name = "ordering", title = "HELP_ORDERING_TITLE", body = "HELP_ORDERING_BODY" },
+            { name = "keys-given-back", title = "HELP_KEYS_GIVEN_BACK_TITLE", body = "HELP_KEYS_GIVEN_BACK_BODY" },
             { name = "targeting", title = "HELP_TARGETING_TITLE", body = "HELP_TARGETING_BODY" },
             { name = "hover-cast", title = "HELP_HOVER_CAST_TITLE", body = "HELP_HOVER_CAST_BODY" },
             { name = "cast-options", title = "HELP_CAST_OPTIONS_TITLE", body = "HELP_CAST_OPTIONS_BODY" },

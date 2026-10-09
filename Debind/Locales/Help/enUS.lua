@@ -5,29 +5,43 @@ local L = addon.L;
 
 L["HELP_CAST_OPTIONS_TITLE"] = "What do Cast Options do?"
 L["HELP_CAST_OPTIONS_BODY"] = [==[
-In |cnBLUE_FONT_COLOR:Cast Options|r in an action's right-click menu, each row covers one way of pressing a key: whether this action takes part, and where it goes. On every row, |cnBLUE_FONT_COLOR:Cast on the usual target|r means the unit an action bar button would be used on.
+In |cnBLUE_FONT_COLOR:Cast Options|r in an action's right-click menu, the first four rows each cover one way of pressing a key: whether this action takes part, and where it goes. Wherever it appears, |cnBLUE_FONT_COLOR:Cast on the usual target|r means the unit an action bar button would be used on.
 
-- |cnBLUE_FONT_COLOR:Self Cast Key|r: a press with that key held. |cnBLUE_FONT_COLOR:Skip this action|r takes the action out of that press. The next action on the key that is not skipped runs instead, and with none left the press does nothing. |cnBLUE_FONT_COLOR:Cast on yourself|r sends the action to you. |cnBLUE_FONT_COLOR:Cast on the usual target|r sends it to its usual target. A new action starts on |cnBLUE_FONT_COLOR:Cast on yourself|r.
+- |cnBLUE_FONT_COLOR:Self Cast Key|r: a press with that key held. |cnBLUE_FONT_COLOR:Skip this action|r takes the action out of that press, and the actions below it are tried instead. With none left, the press does nothing if pressing the key on its own would run one of its actions. When none would run either, the key is given back by default (|cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r), and the held press goes to the game too. A new action starts on |cnBLUE_FONT_COLOR:Cast on yourself|r.
 - |cnBLUE_FONT_COLOR:Focus Cast Key|r: the same, with |cnBLUE_FONT_COLOR:Cast on your focus|r. A new action starts on |cnBLUE_FONT_COLOR:Cast on your focus|r.
-- |cnBLUE_FONT_COLOR:Hover Cast|r: a press with no key held, while you point at a unit. |cnBLUE_FONT_COLOR:Cast on the unit you point at|r sends the action there. |cnBLUE_FONT_COLOR:Off|r and |cnBLUE_FONT_COLOR:Cast on the usual target|r both leave it on its usual target and differ only in when they are tried. With |cnBLUE_FONT_COLOR:Off|r, it comes after every action on the key whose |cnBLUE_FONT_COLOR:Hover Cast|r is not |cnBLUE_FONT_COLOR:Off|r. With |cnBLUE_FONT_COLOR:Cast on the usual target|r, it keeps its place among them. A new action starts on |cnBLUE_FONT_COLOR:Off|r.
-- |cnBLUE_FONT_COLOR:Normal Cast|r: a press with no key held, tried after the actions whose |cnBLUE_FONT_COLOR:Hover Cast|r is not |cnBLUE_FONT_COLOR:Off|r. Untick it and the action runs on such a press only while you point at a unit, and only if its |cnBLUE_FONT_COLOR:Hover Cast|r is not |cnBLUE_FONT_COLOR:Off|r. Otherwise the press goes to the next action on the key. A new action starts ticked.
-
-Say a key holds A and then B, and B is set to |cnBLUE_FONT_COLOR:Cast on the unit you point at|r. While you point at a unit, B comes first if A is on |cnBLUE_FONT_COLOR:Off|r. If A is on |cnBLUE_FONT_COLOR:Cast on the usual target|r, A comes first, on its usual target.
-
-Whether nameplates and units in the world count as pointed at, or only unit frames, is set under the same |cnBLUE_FONT_COLOR:Hover Cast|r row: |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
+- |cnBLUE_FONT_COLOR:Hover Cast|r: a press with no key held, while you point at a unit. |cnBLUE_FONT_COLOR:Skip this action|r takes the action out of that press, and the actions below it are tried instead; with none left, it is a press where no action runs, and the key is given back by default. |cnBLUE_FONT_COLOR:Cast on the usual target|r sends the action to its usual target, as if nothing were pointed at. A new action starts on |cnBLUE_FONT_COLOR:Cast on the usual target|r. Which units count as pointed at is set on the same row: |cnGREEN_FONT_COLOR:|Hdebind:help:hover-cast|h[What is Hover Cast?]|h|r.
+- |cnBLUE_FONT_COLOR:Normal Cast|r: a press with no key held. Untick it and the action runs on such a press only while you point at a unit, going where its |cnBLUE_FONT_COLOR:Hover Cast|r row sends it; with nothing pointed at, the actions below it are tried instead. For an action that, with no key held, runs only on the unit you point at, untick this and set |cnBLUE_FONT_COLOR:Hover Cast|r to |cnBLUE_FONT_COLOR:Cast on the unit you point at|r. With |cnBLUE_FONT_COLOR:Hover Cast|r on |cnBLUE_FONT_COLOR:Skip this action|r as well, the action never runs, not even with a key held, and the |cnBLUE_FONT_COLOR:Overview|r tab marks it |cnBLUE_FONT_COLOR:Needs checking|r. A new action starts ticked.
 
 The four rows below them, |cnBLUE_FONT_COLOR:Auto Self Cast|r, |cnBLUE_FONT_COLOR:Auto Cancel Form|r, |cnBLUE_FONT_COLOR:Auto Dismount|r and |cnBLUE_FONT_COLOR:Auto Dismount in Flight|r, turn that behaviour of the game on or off for this action alone. A new action starts on |cnBLUE_FONT_COLOR:Use the game's setting|r, which follows the game's own Options.
 
 Good to know:
 
-- |cnHIGHLIGHT_FONT_COLOR:With a unit picked.|r When a unit is picked under |cnBLUE_FONT_COLOR:Target|r in the same menu, every value that sends the action somewhere sends it to that unit instead. |cnBLUE_FONT_COLOR:Skip this action|r, |cnBLUE_FONT_COLOR:Off|r and an unticked |cnBLUE_FONT_COLOR:Normal Cast|r still work as above. Which of a picked target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
-- |cnHIGHLIGHT_FONT_COLOR:On a plain left or right click.|r Nothing set in these rows is read, because that action runs only on a unit frame: |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
+- |cnHIGHLIGHT_FONT_COLOR:With a unit picked.|r When a unit is picked under |cnBLUE_FONT_COLOR:Target|r in the same menu, every value that sends the action somewhere sends it to that unit instead. |cnBLUE_FONT_COLOR:Skip this action|r and an unticked |cnBLUE_FONT_COLOR:Normal Cast|r still work as above. Which of a picked target, a held key and a pointed unit comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+- |cnHIGHLIGHT_FONT_COLOR:On a plain left or right click.|r An action on the left or right mouse button with no modifier runs only on a unit frame, and nothing set in these rows is read for it: |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
 - |cnHIGHLIGHT_FONT_COLOR:Where the two keys are set.|r The Self Cast Key and the Focus Cast Key are the game's own keys, under Options > Gameplay > Combat.
-- |cnHIGHLIGHT_FONT_COLOR:One key ignores the cast key.|r If a self cast or focus cast works on every key but one, look for a binding on the two keys together, in the game's Keybindings or in Debind. With ALT as your Self Cast Key, anything bound to ALT-X runs when you press X with ALT held.
+- |cnHIGHLIGHT_FONT_COLOR:One key ignores the cast key.|r If a self cast or focus cast works on every key but one, look for a binding on the cast key together with that key, such as ALT-X, in the game's Keybindings, in another addon or in Debind. With ALT as your Self Cast Key, anything bound to ALT-X runs when you press X with ALT held.
 ]==]
 
-L["HELP_CHANGELOG_TITLE"] = "What's New in 4.1"
+L["HELP_CHANGELOG_TITLE"] = "What's New in 4.2"
 L["HELP_CHANGELOG_BODY"] = [==[
+# A key where no action runs goes back to WoW again
+
+When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Press Does Nothing|r. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
+
+# Hover Cast has no Off, and pointing at a unit follows the order on screen
+
+A press while you point at a unit now tries a key's actions in the order the |cnBLUE_FONT_COLOR:Overview|r tab shows. An action that was on Off is now on |cnBLUE_FONT_COLOR:Cast on the usual target|r. One standing above an action set to |cnBLUE_FONT_COLOR:Cast on the unit you point at|r now takes that press; set it to |cnBLUE_FONT_COLOR:Skip this action|r to pass it on. One that was on Off with |cnBLUE_FONT_COLOR:Normal Cast|r unticked is now on |cnBLUE_FONT_COLOR:Skip this action|r. As set it never runs, so it is marked |cnBLUE_FONT_COLOR:Needs checking|r: pick another |cnBLUE_FONT_COLOR:Hover Cast|r value or tick |cnBLUE_FONT_COLOR:Normal Cast|r. Each value is in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
+
+# Mouse buttons other than left and right click run on unit frames
+
+An action on a mouse button other than a plain left or right click now runs when you click a unit frame with it, and goes where its |cnBLUE_FONT_COLOR:Hover Cast|r row sends it. To leave that click to the frame as before, set it to |cnBLUE_FONT_COLOR:Skip this action|r; the frame then gets the click if nothing else on that button runs. More is in |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
+
+# New actions: Give Key Back and WoW Binding
+
+|cnBLUE_FONT_COLOR:Give Key Back|r, in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, gives the key back when it runs. |cnBLUE_FONT_COLOR:WoW Binding|r, in the |cnBLUE_FONT_COLOR:Commands|r tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a |cnBLUE_FONT_COLOR:Nothing|r action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+
+# What's New in 4.1
+
 # Debind runs on World of Warcraft: Forever
 
 Debind now loads on World of Warcraft: Forever as well as on the current game. Some of it has not been tried there yet. The |cnBLUE_FONT_COLOR:Dispel|r, |cnBLUE_FONT_COLOR:Raid Buff|r and |cnBLUE_FONT_COLOR:Resurrect|r actions, which cast whichever spell your class has rather than one you picked, may not work as they should. Dual specialization is not handled, because the author's characters are still too low level to reach it.
@@ -81,7 +95,11 @@ L["HELP_CLICKING_A_UNIT_FRAME_TITLE"] = "What happens when you click a unit fram
 L["HELP_CLICKING_A_UNIT_FRAME_BODY"] = [==[
 An action on the left or right mouse button with no modifier runs only when you click a unit frame, so a click anywhere else still reaches the game. On a frame it goes to the unit you click, and nothing set under |cnBLUE_FONT_COLOR:Cast Options|r is read.
 
-The Self Cast Key and the Focus Cast Key are not used on a unit frame click. Holding one of them there is an ordinary modified click, which runs whatever you bound to that combination, under its own |cnBLUE_FONT_COLOR:Cast Options|r.
+An action on any other mouse button, or on a left or right click with a modifier, runs on a unit frame click as well as anywhere else. On a frame it goes where its |cnBLUE_FONT_COLOR:Hover Cast|r row sends it: on |cnBLUE_FONT_COLOR:Cast on the usual target|r (the default), to the usual target, as from an action bar; on |cnBLUE_FONT_COLOR:Cast on the unit you point at|r, to the unit you click. |cnBLUE_FONT_COLOR:Skip this action|r keeps it out of a frame click, and if nothing else on the key runs there, the click goes to the frame.
+
+If the action that runs on a unit frame click is |cnBLUE_FONT_COLOR:Give Key Back|r, the click goes to the frame. With |cnBLUE_FONT_COLOR:Nothing|r or |cnBLUE_FONT_COLOR:WoW Binding|r, nothing happens: |cnBLUE_FONT_COLOR:WoW Binding|r's command does not run and the frame gets no click. If no action runs, the click goes to the frame.
+
+The |cnBLUE_FONT_COLOR:Self Cast Key|r and |cnBLUE_FONT_COLOR:Focus Cast Key|r rows are not read on a unit frame click. Holding either key there makes an ordinary modified click, which runs whatever you bound to that combination, under that action's own |cnBLUE_FONT_COLOR:Cast Options|r.
 
 What each row of |cnBLUE_FONT_COLOR:Cast Options|r does is in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
 ]==]
@@ -127,46 +145,58 @@ The exception is a party or raid custom target you set during a fight your group
 
 L["HELP_HOVER_CAST_TITLE"] = "What is Hover Cast?"
 L["HELP_HOVER_CAST_BODY"] = [==[
-|cnBLUE_FONT_COLOR:Hover Cast|r sends an action to the unit you point at instead of the usual target. You set it on each action: open |cnBLUE_FONT_COLOR:Cast Options|r in its right-click menu, then |cnBLUE_FONT_COLOR:Hover Cast|r, and pick |cnBLUE_FONT_COLOR:Cast on the unit you point at|r. A new action is set to |cnBLUE_FONT_COLOR:Off|r.
+|cnBLUE_FONT_COLOR:Hover Cast|r lets you send an action to the unit you point at instead of the usual target. You set it on each action: open |cnBLUE_FONT_COLOR:Cast Options|r in its right-click menu, then |cnBLUE_FONT_COLOR:Hover Cast|r, and pick |cnBLUE_FONT_COLOR:Cast on the unit you point at|r. A new action starts on |cnBLUE_FONT_COLOR:Cast on the usual target|r.
 
-> An action with a unit picked under |cnBLUE_FONT_COLOR:Target|r goes to that unit whether you point at something or not.
+> With a unit picked under |cnBLUE_FONT_COLOR:Target|r, the action goes to that unit even while you point at another.
 
 Which units count as pointed at is a mode:
 
-- |cnBLUE_FONT_COLOR:Unit Frames|r, the unit on a unit frame Debind works on, the game's own or a unit frame addon's. Away from one, nothing is pointed at.
-- |cnBLUE_FONT_COLOR:Mouseover|r, a unit frame, a nameplate, or the unit itself in the world.
+- |cnBLUE_FONT_COLOR:Mouseover|r: a unit frame, a nameplate, or the unit itself in the world.
+- |cnBLUE_FONT_COLOR:Unit Frames|r: the unit on a unit frame Debind works on, the game's own or a unit frame addon's. Away from one, nothing is pointed at.
 
-> |cnBLUE_FONT_COLOR:Unit Frame Support|r in Debind's settings lists the frames Debind works on. Every one counts until you take it out.
+> |cnBLUE_FONT_COLOR:Unit Frame Support|r in Debind's settings lists the frames Debind works on. Every one counts until you untick it.
 
-One mode on the settings tab covers the whole account. The same two are also on an action's own |cnBLUE_FONT_COLOR:Hover Cast|r row. Pick one there and that action uses it instead of the account's; until you do, the row is set to |cnBLUE_FONT_COLOR:Use the mode in Debind's settings|r.
+The |cnBLUE_FONT_COLOR:Hover Cast|r row on Debind's settings tab sets the mode for the whole account, |cnBLUE_FONT_COLOR:Unit Frames|r to begin with. The same two are also on an action's own |cnBLUE_FONT_COLOR:Hover Cast|r row. Pick one there and that action uses it instead of the account's; until you do, the row is set to |cnBLUE_FONT_COLOR:Use the mode in Debind's settings|r.
 
-|cnBLUE_FONT_COLOR:Off|r does not keep an action from running while you point at a unit: it runs with the target it would have anyway. To stop it there, put a condition on the unit you point at. Under |cnBLUE_FONT_COLOR:Units|r, pick |cnBLUE_FONT_COLOR:Unit Frame|r (or |cnBLUE_FONT_COLOR:Mouseover|r) and choose |cnBLUE_FONT_COLOR:When the unit doesn't exist|r.
+To keep an action from running while you point at a unit, pick |cnBLUE_FONT_COLOR:Skip this action|r on its |cnBLUE_FONT_COLOR:Hover Cast|r row. The press then goes down the key's list as if that action's conditions did not match. This holds with a unit picked under |cnBLUE_FONT_COLOR:Target|r as well.
 
-The other rows of |cnBLUE_FONT_COLOR:Cast Options|r are in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r. Which of a picked target, a held key and the unit you point at comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+The other rows of |cnBLUE_FONT_COLOR:Cast Options|r are in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r. Which of a picked target, a held Self Cast Key or Focus Cast Key, and the unit you point at comes first is in |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r.
+]==]
+
+L["HELP_KEYS_GIVEN_BACK_TITLE"] = "When is a key given back?"
+L["HELP_KEYS_GIVEN_BACK_BODY"] = [==[
+A key given back works as if Debind had nothing on it: whatever else is bound to it runs, from WoW's own keybindings or another addon, and nothing if nothing is.
+
+1. |cnHIGHLIGHT_FONT_COLOR:At a press where none of its actions runs.|r No action's conditions are met, or none is set to run on that kind of press. |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings sets this, and starts on |cnBLUE_FONT_COLOR:Key Is Given Back|r; set it to |cnBLUE_FONT_COLOR:Press Does Nothing|r and those presses do nothing instead.
+2. |cnHIGHLIGHT_FONT_COLOR:When an action set to give the key back runs.|r |cnBLUE_FONT_COLOR:Give Key Back|r stands on the key like any other action and runs when its conditions are met and nothing above it ran. No action under it is tried.
+3. |cnHIGHLIGHT_FONT_COLOR:When nothing on the key is in play.|r Each action is either turned off or in a specialization tab you are not in. This happens whatever |cnBLUE_FONT_COLOR:When no action runs|r is set to, and the key's header is grey in the |cnBLUE_FONT_COLOR:Overview|r tab.
+4. |cnHIGHLIGHT_FONT_COLOR:During a pet battle, on a replaced action bar, or in the House Editor.|r A replaced action bar is the one you get when a vehicle, a possession or a quest replaces your whole action bar; forms, stealth and skyriding do not count. Under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings, |cnBLUE_FONT_COLOR:Action Button keys|r sets the first two: a pet battle to begin with, and a replaced action bar once you pick |cnBLUE_FONT_COLOR:Replaced Action Bar|r or |cnBLUE_FONT_COLOR:Replaced Action Bar and Pet Battles|r. |cnBLUE_FONT_COLOR:House Editor keys|r sets the third, and is ticked to begin with.
+
+|cnHIGHLIGHT_FONT_COLOR:If you keep moving after releasing a key, or the ping wheel stays open.|r Some WoW keybindings do one thing when the key is pressed and another when it is released. If a key given back is still held when Debind takes it again, the release never reaches that keybinding. That is what keeps you moving or leaves the ping wheel open. For keys bound to these, it is safer not to let them be given back.
+
+If one key should do nothing when none of its actions runs, while your other keys are given back, add a |cnBLUE_FONT_COLOR:Nothing|r action to that key, with no conditions, and set its |cnBLUE_FONT_COLOR:Importance|r to |cnBLUE_FONT_COLOR:Very Low|r. You find it in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r. Check that it is the last action under the key in the |cnBLUE_FONT_COLOR:Overview|r tab, so it runs only when none of the others does.
+
+A click on a unit frame where no action runs goes to the frame.
 ]==]
 
 L["HELP_ORDERING_TITLE"] = "When a key holds more than one action"
 L["HELP_ORDERING_BODY"] = [==[
-Press a key that holds more than one action and Debind runs the first one whose conditions are met. If no action's conditions are met, the key does nothing: Debind keeps the key, and what WoW has bound to it does not run.
+Press a key that holds more than one action and Debind runs the first one whose conditions are met. If none of them runs, the key is given back by default, or the press does nothing, as set under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings; with the Self Cast Key or the Focus Cast Key held, see the end of this page. More is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
 
 The |cnBLUE_FONT_COLOR:Overview|r tab lists actions grouped by key, and under one key they stand in the order they are tried. Four things put them in that order, and the first of the four where two actions differ settles which stands higher.
 
-1. |cnHIGHLIGHT_FONT_COLOR:Importance, where the other three cannot do it.|r A higher |cnBLUE_FONT_COLOR:Importance|r stands above the rest, however they compare on the other three. It is set on the action, and an Account action is the same action on every character, so the order you give it here is the order it has on characters you are not playing and cannot see.
-2. |cnHIGHLIGHT_FONT_COLOR:Whether it has conditions.|r An action with conditions stands above one without. One with no conditions runs on every press, so nothing under it would ever be reached.
+1. |cnHIGHLIGHT_FONT_COLOR:Importance, which overrides the other three: change it last.|r A higher |cnBLUE_FONT_COLOR:Importance|r stands above the rest. Reach for it only where conditions and layers (below) cannot give the order you want: it is set on the action, and an Account action is the same action on every character, so the |cnBLUE_FONT_COLOR:Importance|r you give it here applies on characters you are not playing and cannot see.
+2. |cnHIGHLIGHT_FONT_COLOR:Whether it has conditions.|r An action with conditions stands above one without. One with no conditions runs on every press it takes part in, so nothing under it is reached on those presses.
 3. |cnHIGHLIGHT_FONT_COLOR:The layer it is in.|r The narrower layer stands higher: this character in this specialization, then this character, then the class in this specialization, then the class, then Account. |cnBLUE_FONT_COLOR:Move to...|r moves an action to another layer.
 4. |cnHIGHLIGHT_FONT_COLOR:Where you put it in that layer.|r |cnBLUE_FONT_COLOR:Run Sooner|r and |cnBLUE_FONT_COLOR:Run Later|r move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
 
 So an Account action with conditions stands above a character's action without them on the same key, unless their |cnBLUE_FONT_COLOR:Importance|r differs. That is how an action for one situation on every character, such as one set to |cnBLUE_FONT_COLOR:While skyriding|r, stays in front of each character's everyday action on that key.
 
-|cnHIGHLIGHT_FONT_COLOR:An Account action runs before this character's action on the same key.|r That happens when the action in the broader layer (Account here) has conditions and the one in the narrower layer (this character's) does not. Give the narrower one a condition too and it stands above again, because the layer then decides. If no condition fits, give it |cnBLUE_FONT_COLOR:Class/Specialization|r and tick its class: that always holds where the action runs, and it still counts as a condition. If the Account action has the higher |cnBLUE_FONT_COLOR:Importance|r, that decides first; lower it to match.
+|cnHIGHLIGHT_FONT_COLOR:An Account action runs before this character's action on the same key.|r That happens when the action in the broader layer (Account here) has conditions and the one in the narrower layer (this character's) does not. Give the narrower one a condition too and it stands above again, because the layer then decides. If no condition fits, give it |cnBLUE_FONT_COLOR:Classes/Specializations|r and tick your class: that always holds where the action runs, and it still counts as a condition. If the Account action has the higher |cnBLUE_FONT_COLOR:Importance|r, that decides first; lower it to match.
 
 |cnHIGHLIGHT_FONT_COLOR:This character's action takes the presses an Account action on the same key should get.|r If neither has conditions, give the one in the broader layer (Account here) a condition: it then stands above and takes the press whenever that condition holds, unless this character's action has the higher |cnBLUE_FONT_COLOR:Importance|r. If the one in the narrower layer (this character's) has conditions, add more to it so that it holds in fewer cases, and every press it does not take goes on to the broader one. Only when neither can be done, raise the broader one's |cnBLUE_FONT_COLOR:Importance|r.
 
-Leave one action on a key without conditions and it runs whenever nothing above it did. If the key used to press an action bar slot, that action can press the slot: pick it from the |cnBLUE_FONT_COLOR:Commands|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, where the action bar buttons are listed.
-
-Some of the |cnBLUE_FONT_COLOR:Cast Options|r change which of a key's actions are tried, and in what order. While you hold the Self Cast Key or the Focus Cast Key, only the actions set to use that key are tried, and if none of their conditions are met the key does nothing. While |cnBLUE_FONT_COLOR:Hover Cast|r has a unit under your cursor, the actions set to use it are tried first and the rest after them. You set these per action, and |cnGREEN_FONT_COLOR:|Hdebind:help:targeting|h[Which unit is an action used on?]|h|r explains them.
-
-> Debind gives a key back when nothing on it is in play: every action either turned off in its own menu, or sitting in a specialization tab you are not in. WoW's own binding works there again, and the key's header is grey in the |cnBLUE_FONT_COLOR:Overview|r tab.
+Some of the |cnBLUE_FONT_COLOR:Cast Options|r change which of a key's actions take part in a press. While you hold the Self Cast Key or the Focus Cast Key, only the actions not set to |cnBLUE_FONT_COLOR:Skip this action|r for that key are tried. If none of those runs, the press does nothing if pressing the key on its own would run one of its actions; when none would run either, the held press goes where that plain press does. While |cnBLUE_FONT_COLOR:Hover Cast|r has a unit under your cursor, the actions are tried in the same order as on any other press, and |cnBLUE_FONT_COLOR:Hover Cast|r sets whether each one takes part. With |cnBLUE_FONT_COLOR:Normal Cast|r unticked, an action takes no part in a press without either key while |cnBLUE_FONT_COLOR:Hover Cast|r has no unit under your cursor. What each row of |cnBLUE_FONT_COLOR:Cast Options|r does is in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
 ]==]
 
 L["HELP_SETTING_KEYS_UP_TITLE"] = "How do I set my keys up?"
@@ -217,18 +247,18 @@ L["HELP_TARGETING_TITLE"] = "Which unit is an action used on?"
 L["HELP_TARGETING_BODY"] = [==[
 Where an action goes is settled in this order, and the first that applies decides:
 
-1. |cnHIGHLIGHT_FONT_COLOR:The target you picked|r under |cnBLUE_FONT_COLOR:Target|r. Nothing you hold or point at moves it. While that unit is not there the press stops with this action, and no other action on the key is tried; to pass it on, add |cnBLUE_FONT_COLOR:When the unit exists|r for that unit under |cnBLUE_FONT_COLOR:Units|r.
-2. |cnHIGHLIGHT_FONT_COLOR:The key you hold.|r The Self Cast Key sends the action to you and the Focus Cast Key to your focus. With no focus set, the press does nothing. A key turned off in Debind's settings counts as not held.
-3. |cnHIGHLIGHT_FONT_COLOR:The unit you point at.|r Which units count is the |cnBLUE_FONT_COLOR:Hover Cast|r mode in Debind's settings. The game's own Mouseover Cast does not apply to Debind keys.
-4. |cnHIGHLIGHT_FONT_COLOR:None of these.|r The game places the cast as it does on an action bar.
+1. |cnHIGHLIGHT_FONT_COLOR:The unit you picked|r under |cnBLUE_FONT_COLOR:Target|r. Nothing you hold or point at moves it. While that unit is not there the press stops with this action, and no other action on the key is tried; to pass it on, add |cnBLUE_FONT_COLOR:When the unit exists|r for that unit under |cnBLUE_FONT_COLOR:Units|r.
+2. |cnHIGHLIGHT_FONT_COLOR:The key you hold.|r The Self Cast Key sends the action to you and the Focus Cast Key to your focus, unless the action's |cnBLUE_FONT_COLOR:Cast Options|r say otherwise. With no focus set, a Focus Cast Key press stops with an action whose |cnBLUE_FONT_COLOR:Focus Cast Key|r row is on |cnBLUE_FONT_COLOR:Cast on your focus|r, where a new action starts, and no other action on the key is tried. A key turned off in Debind's settings counts as not held.
+3. |cnHIGHLIGHT_FONT_COLOR:The unit you point at|r, for an action set to |cnBLUE_FONT_COLOR:Cast on the unit you point at|r under |cnBLUE_FONT_COLOR:Hover Cast|r in its |cnBLUE_FONT_COLOR:Cast Options|r. A new action is not, and pointing at a unit does not move it. Which units count is the |cnBLUE_FONT_COLOR:Hover Cast|r mode, in Debind's settings or on the action. The game's own Mouseover Cast does not apply to Debind keys.
+4. |cnHIGHLIGHT_FONT_COLOR:None of these.|r The game places the cast as it does on an action bar, ignoring Mouseover Cast.
 
-|cnBLUE_FONT_COLOR:Unit Frame|r under |cnBLUE_FONT_COLOR:Target|r is narrower than |cnBLUE_FONT_COLOR:Mouseover|r: only the unit on a unit frame Debind works on, whether that frame belongs to the game or to a unit frame addon. Which frames those are is set in Debind's settings.
+|cnBLUE_FONT_COLOR:Unit Frame|r under |cnBLUE_FONT_COLOR:Target|r is narrower than |cnBLUE_FONT_COLOR:Mouseover|r: only the unit on a unit frame Debind works on, whether that frame belongs to the game or to a unit frame addon, and never a nameplate or a unit in the world. Which frames those are is set under |cnBLUE_FONT_COLOR:Unit Frame Support|r in Debind's settings.
 
 Auto Self Cast is the game's own, and a Debind key goes out with it as an action bar button does. The |cnBLUE_FONT_COLOR:Auto Self Cast|r row under |cnBLUE_FONT_COLOR:Cast Options|r sets it for one action.
 
-The game's own settings look at the unit under your cursor before the key you hold. Debind does it the other way round.
+In the game's own settings the unit under your cursor comes before the key you hold. In Debind the key comes first.
 
-The |cnBLUE_FONT_COLOR:Resolved Unit|r condition under |cnBLUE_FONT_COLOR:Units|r asks about the unit this order arrives at. Debind does not check whether a spell suits that unit, so when it matters, put a condition there.
+The |cnBLUE_FONT_COLOR:Resolved Unit|r condition under |cnBLUE_FONT_COLOR:Units|r asks about the unit this order arrives at. Debind does not check whether a spell suits that unit, so when it matters, put a condition on it.
 
-How each action answers a held key or a pointed unit is set under |cnBLUE_FONT_COLOR:Cast Options|r in its right-click menu, explained in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
+What each action does on a held key or a pointed unit is set under |cnBLUE_FONT_COLOR:Cast Options|r in its right-click menu, explained in |cnGREEN_FONT_COLOR:|Hdebind:help:cast-options|h[What do Cast Options do?]|h|r.
 ]==]

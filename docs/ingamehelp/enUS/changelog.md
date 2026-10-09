@@ -29,14 +29,36 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 -->
 
 <!--
-**DRAFT of the next release's entries (2026-10-07, not yet written; heading and number are the owner's call).** What should go in:
-- A key where none of its actions runs is given back by default. *When no action runs* under *Keys Given Back* sets it back to *Press does nothing* (on screen now *Press Does Nothing*, 2026-10-08). No migration: existing users get the new default. Link `keys-given-back.md`.
-- *Filled buttons only* is gone.
-- The press-and-release trap (movement, ping wheel) in one line, linking `keys-given-back.md`.
-- New action types *Give Key Back* and *WoW Binding*. Check whether a 4.0 "Use WoW's Own Binding" left as *Needs fixing* becomes a working *Give Key Back* through the 7→8 step. The mark on screen is now *Needs checking* (2026-10-08); the 4.0 section below keeps its own wording.
-- *Hover Cast* lost *Off*; the default is *Cast on the usual target*, and a pointed press uses the same order as any other. The saved values that change are listed in `taking-off-out-of-hover-cast.md` §2-9.
-- Mouse button actions other than a bare left or right click now run on a unit frame click too.
+**4.2, not 4.1.3** (2026-10-10, owner). Every 4.1.x before it was one fix; this one changes what existing keys do.
+
+**The give-back default comes first.** It reverses what the 4.0 section below announced, and it reaches every key whose actions can all fail, with nothing the reader did. No migration: an existing profile takes the new default (`GiveBackWhenNoActionRuns`). The press-and-release trap rides in the same section, since it is the cost of that default.
+
+**The Hover Cast section is written for the reader whose keys moved.** The dbver 7 step stores Off as nothing, the usual target, so an action that was Off now keeps its place on a pointed press where it used to yield; Off with *Normal Cast* unticked becomes *Skip this action* and an issue (`Migration.lua`, `taking-off-out-of-hover-cast.md` §2-9).
+
+**The mouse button section says "as before" for the frame**: until 4.2 a mouse button key carried a hidden [no unit frame] (`11244be`), so an action on it let a frame click through unless it had Hover Cast on.
+
+**A 4.0 leftover becomes *Nothing*, not *Give Key Back*** (`Migration.lua`, the dbver 7 step): it has held the key and done nothing since 4.0, and turning it into a give-back would change the key with nothing the reader did. Its old names are plain text, since they are no longer on screen.
+
+**Left out: *Filled buttons only*** (2026-10-10, owner). It sat under the replaced-bar setting, both off by default, so the only reader it reaches ticked two boxes on purpose.
 -->
+
+# What's New in 4.2
+
+# A key where no action runs goes back to WoW again
+
+When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set *When no action runs* under *Keys Given Back* in Debind's settings to *Press Does Nothing*. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in [](keys-given-back.md).
+
+# Hover Cast has no Off, and pointing at a unit follows the order on screen
+
+A press while you point at a unit now tries a key's actions in the order the *Overview* tab shows. An action that was on Off is now on *Cast on the usual target*. One standing above an action set to *Cast on the unit you point at* now takes that press; set it to *Skip this action* to pass it on. One that was on Off with *Normal Cast* unticked is now on *Skip this action*. As set it never runs, so it is marked *Needs checking*: pick another *Hover Cast* value or tick *Normal Cast*. Each value is in [](cast-options.md).
+
+# Mouse buttons other than left and right click run on unit frames
+
+An action on a mouse button other than a plain left or right click now runs when you click a unit frame with it, and goes where its *Hover Cast* row sends it. To leave that click to the frame as before, set it to *Skip this action*; the frame then gets the click if nothing else on that button runs. More is in [](clicking-a-unit-frame.md).
+
+# New actions: Give Key Back and WoW Binding
+
+*Give Key Back*, in the *Special* tab of *Add an Action*, gives the key back when it runs. *WoW Binding*, in the *Commands* tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a *Nothing* action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
 
 # What's New in 4.1
 
