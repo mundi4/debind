@@ -9083,6 +9083,110 @@ RegisterTest("Action button: the press writes the slot the bar shows", {
     end,
 })
 
+-- **In a pet battle the main bar's buttons press the battle's.** Which button a press names is
+-- headless (`tests/actionbutton_spec.lua`); what is left for the client is that the real battle
+-- frames go onto the click frame from insecure code, that their names reach the restricted
+-- environment, and that the press reads the pushed battle there and answers with one of them. A
+-- battle cannot be opened on demand, so the stamp is called and the battle pushed the way the
+-- events do both.
+RegisterTest("Action button: a pushed pet battle hands the press to the battle's button", {
+    description = "The pet battle buttons are stamped onto the click frame, and in a pushed battle ACTIONBUTTON4 answers with the switch button's name",
+    applies = function()
+        if not (PetBattleFrame and PetBattleFrame.BottomFrame) then
+            return false, "this client has no pet battle UI"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Action button pet battle"
+        local KEY = "CTRL-ALT-F9"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        if SecureCmdOptionParse("[petbattle] 1") == "1" then
+            return Fail(NAME, "run out of a pet battle")
+        end
+
+        local driver = DebindPrivate.BindingDriver
+        AddTeardown(function()
+            driver.DebindTestPetBattleButtons = nil
+            driver.DebindTestPetBattleAnswer = nil
+            if not InCombatLockdown() then
+                DebindPrivate.SeedPetBattle()
+            end
+        end)
+
+        InsertAction({ type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON4", key = KEY })
+        ApplyBindings()
+        DebindPrivate.StampPetBattleButtons()
+
+        -- The ability buttons exist only once this session has had a battle.
+        local bottom = PetBattleFrame.BottomFrame
+        local ability = bottom.abilityButtons or {}
+        local frames = { ability[1], ability[2], ability[3], bottom.SwitchPetButton, bottom.CatchButton }
+        local clickFrame = DebindPrivate.DefaultClickFrame
+        local names
+        driver.DebindTestPetBattleButtons = function(_, ...)
+            names = { ... }
+        end
+        SecureHandlerExecute(driver, [[self:CallMethod("DebindTestPetBattleButtons", PetBattleButtons[1],
+            PetBattleButtons[2], PetBattleButtons[3], PetBattleButtons[4], PetBattleButtons[5])]])
+        if not names then
+            return Fail(NAME, "the restricted environment answered nothing for PetBattleButtons")
+        end
+        local stamped = 0
+        for n = 1, 5 do
+            if frames[n] then
+                local name = names[n]
+                if not name or clickFrame:GetAttribute("*type-" .. name) ~= "click"
+                        or clickFrame:GetAttribute("*clickbutton-" .. name) ~= frames[n] then
+                    return Fail(NAME, format("pet battle button %d is not on the click frame (name %s)", n, tostring(name)))
+                end
+                stamped = stamped + 1
+            end
+        end
+
+        local binding = GetKeyBindingsWithoutTwins(KEY)
+        binding = binding and binding[1]
+        local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
+        if not binding or not binding.clickbutton or not button then
+            return Fail(NAME, "ACTIONBUTTON4 has no button on its key")
+        end
+
+        -- **The name the press answers with**, which `EvalClickTimeKey` drops: a press that cancels
+        -- and one that names the switch button leave the same attributes behind.
+        local answer
+        driver.DebindTestPetBattleAnswer = function(_, name, switch)
+            answer = { name = name, switch = switch }
+        end
+        local function Answer()
+            answer = nil
+            SecureHandlerExecute(driver, format([[
+                local name = self:RunAttribute("EvalClickTimeKey", %q)
+                self:CallMethod("DebindTestPetBattleAnswer", name, PetBattleButtons[4])
+            ]], button))
+            return answer
+        end
+
+        SecureHandlerExecute(driver, [[self:RunAttribute("SetPetBattle", true)]])
+        local inBattle = Answer()
+        if not inBattle or not inBattle.switch or inBattle.name ~= inBattle.switch then
+            return Fail(NAME, format("in a pushed battle the press answered %s, the switch button is %s",
+                tostring(inBattle and inBattle.name), tostring(inBattle and inBattle.switch)))
+        end
+
+        SecureHandlerExecute(driver, [[self:RunAttribute("SetPetBattle", false)]])
+        local outOfBattle = Answer()
+        if not outOfBattle or outOfBattle.name ~= binding.clickbutton then
+            return Fail(NAME, format("out of the battle the press answered %s, its own button is %s",
+                tostring(outOfBattle and outOfBattle.name), tostring(binding.clickbutton)))
+        end
+
+        return Pass(NAME, format("%d battle buttons stamped, and the pushed battle sent the press to the switch button", stamped))
+    end,
+})
+
 -- Turning probes on rebuilds every registered snippet from its raw text, including the click
 -- wrapper -- the hottest path here and the one that decides which record wins. A rebuild that
 -- produced a body the restricted environment refuses would leave the addon looking loaded and

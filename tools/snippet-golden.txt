@@ -95,6 +95,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	ActionSlots = newtable()
 	OverrideActionBar = self:GetFrameRef("overrideActionBar")
+
+
+	PetBattleButtons = newtable()
 	
 	SwitchExpressions = newtable()
 
@@ -1577,6 +1580,11 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				return false
 			end
 			slotButton = winner.clickbutton
+		elseif (actionSlot.petBattle and JudgeStaged.petBattle) then
+			slotButton = PetBattleButtons[actionSlot.petBattle]
+			if (not slotButton) then
+				return false
+			end
 		else
 			local page = actionSlot.page
 			if (not page) then
@@ -2273,6 +2281,11 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				return false
 			end
 			slotButton = winner.clickbutton
+		elseif (actionSlot.petBattle and JudgeStaged.petBattle) then
+			slotButton = PetBattleButtons[actionSlot.petBattle]
+			if (not slotButton) then
+				return false
+			end
 		else
 			local page = actionSlot.page
 			if (not page) then
@@ -2878,6 +2891,11 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				return false
 			end
 			slotButton = winner.clickbutton
+		elseif (actionSlot.petBattle and JudgeStaged.petBattle) then
+			slotButton = PetBattleButtons[actionSlot.petBattle]
+			if (not slotButton) then
+				return false
+			end
 		else
 			local page = actionSlot.page
 			if (not page) then
@@ -3387,6 +3405,11 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				return false
 			end
 			slotButton = winner.clickbutton
+		elseif (actionSlot.petBattle and JudgeStaged.petBattle) then
+			slotButton = PetBattleButtons[actionSlot.petBattle]
+			if (not slotButton) then
+				return false
+			end
 		else
 			local page = actionSlot.page
 			if (not page) then

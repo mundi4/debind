@@ -1405,6 +1405,10 @@ local ALLOWED_ABSENT = {
     Boss4TargetFrame = true, Boss5TargetFrame = true,
     CompactUnitFrame_SetUpFrame = true,
 
+    -- **The pet battle UI, which a client may not load.** The stamp asks for it once a battle
+    -- opens (`StampPetBattleButtons`); `actionbutton_spec` opens one without it and then stands it up.
+    PetBattleFrame = true,
+
     -- **Absent is one of the two answers, and the addon asks.** `issecretvalue` arrived in 12.1
     -- and every read of it is behind `if (issecretvalue and ...)`; `EventRegistry` is asked with
     -- `~= nil` before the house-editor callback goes on. Running without them is running the

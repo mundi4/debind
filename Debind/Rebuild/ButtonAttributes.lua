@@ -501,8 +501,9 @@ end
 --- **The cache is this side's business, and `DescribeBinding` knows nothing about it.** A hit
 --- means the attributes are already there under a button name we handed out earlier, so nothing
 --- is written at all.
---- A button on the click frame that clicks one of Blizzard's bar buttons, made once per bar button.
---- Cached for the session the way `BindingAttrsCache` is: the bar buttons never go away.
+--- A button on the click frame that clicks one of Blizzard's buttons, made once per button: a bar
+--- button here, a pet battle button in `StampPetBattleButtons`. Cached for the session the way
+--- `BindingAttrsCache` is: neither kind ever goes away.
 local function BarClickButton(frame)
     if (not frame) then
         return nil;
@@ -689,6 +690,9 @@ local function EmitStampedButtons()
         if (info.pet) then
             appendLine("ActionSlots[%q].pet=true", buttonname);
         end
+        if (info.petBattle) then
+            appendLine("ActionSlots[%q].petBattle=%d", buttonname, info.petBattle);
+        end
         if (entry.bar) then
             appendLine("ActionSlots[%q].bar=%q", buttonname, entry.bar);
         end
@@ -701,3 +705,4 @@ end
 Rebuild.BindingAttrsCache    = BindingAttrsCache;
 Rebuild.SetBindingAttributes = SetBindingAttributes;
 Rebuild.EmitStampedButtons   = EmitStampedButtons;
+Rebuild.BarClickButton       = BarClickButton;

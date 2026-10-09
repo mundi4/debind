@@ -32,7 +32,9 @@ return function(DebindPrivate, _, ctx)
 
     -- The bar buttons a flyout slot is handed to. Before the first rebuild, which is when the
     -- stamp looks them up.
-    for _, name in ipairs({ "ActionButton3", "OverrideActionBarButton3", "MultiBarBottomLeftButton5",
+    for _, name in ipairs({ "ActionButton1", "ActionButton3", "ActionButton4", "ActionButton5",
+        "ActionButton7", "OverrideActionBarButton1", "OverrideActionBarButton3",
+        "OverrideActionBarButton4", "OverrideActionBarButton5", "MultiBarBottomLeftButton5",
         "ExtraActionButton1", "StanceButton3" }) do
         _G[name] = frames.newFrame("CheckButton", name, nil, "ActionBarButtonTemplate");
     end
@@ -250,6 +252,116 @@ return function(DebindPrivate, _, ctx)
             { type = Constants.ACTIONBUTTON, value = "ACTIONBUTTON3" });
         check(name == "Action Button 3", "name " .. tostring(name));
     end);
+
+    -- **In a pet battle the main bar's buttons press the battle's** (2026-10-10, owner), the turn
+    -- the binding's own `ActionButtonDown` takes there. The battle reaches the press through its
+    -- events, as in the game, and so do the buttons.
+    local function InPetBattle()
+        Bind({
+            action({ value = "ACTIONBUTTON1", key = "F1" }),
+            action({ value = "ACTIONBUTTON3", key = "F3" }),
+            action({ value = "ACTIONBUTTON4", key = "F4" }),
+            action({ value = "ACTIONBUTTON5", key = "F5" }),
+            action({ value = "ACTIONBUTTON7", key = "F7" }),
+            action({ value = "MULTIACTIONBAR1BUTTON5", key = "F2" }),
+        });
+
+        local function Event(event)
+            local mark = frames.mark();
+            check(frames.fireEvent(event) > 0, "nothing is listening for " .. event);
+            frames.drainTimers();
+            interp:replay(frames.since(mark));
+        end
+        local function Clicks(key)
+            local button = Press(key);
+            return button and clickFrame:GetAttribute("*type-" .. button) == "click"
+                and clickFrame:GetAttribute("*clickbutton-" .. button) or nil;
+        end
+
+        -- A battle with no buttons to press, which is a client without the UI.
+        Event("PET_BATTLE_OPENING_START");
+        check(Press("F1") == nil, "a press in a battle with no buttons fired");
+        Event("PET_BATTLE_CLOSE");
+
+        local bottom = {
+            abilityButtons = {},
+            SwitchPetButton = frames.newFrame("CheckButton"),
+            CatchButton = frames.newFrame("Button"),
+        };
+        for i = 1, 3 do
+            bottom.abilityButtons[i] = frames.newFrame("CheckButton");
+        end
+        _G.PetBattleFrame = { BottomFrame = bottom };
+
+        Event("PET_BATTLE_OPENING_START");
+        check(Clicks("F1") == bottom.abilityButtons[1], "1 clicks " .. tostring(Clicks("F1")));
+        check(Clicks("F3") == bottom.abilityButtons[3], "3 clicks " .. tostring(Clicks("F3")));
+        check(Clicks("F4") == bottom.SwitchPetButton, "4 clicks " .. tostring(Clicks("F4")));
+        check(Clicks("F5") == bottom.CatchButton, "5 clicks " .. tostring(Clicks("F5")));
+        check(Press("F7") == nil, "7 fired in a battle");
+        local _, fixed = Press("F2");
+        check(fixed == 65, "a fixed page bar in a battle: slot " .. tostring(fixed));
+
+        -- What was stamped is not the rebuild's to clear.
+        Bind({
+            action({ value = "ACTIONBUTTON1", key = "F1" }),
+        });
+        check(Clicks("F1") == bottom.abilityButtons[1], "after a rebuild 1 clicks " .. tostring(Clicks("F1")));
+
+        Event("PET_BATTLE_CLOSE");
+        local button, slot = Press("F1");
+        check(button and clickFrame:GetAttribute("*type-" .. button) == "action" and slot == 1,
+            "after the battle: " .. tostring(button and clickFrame:GetAttribute("*type-" .. button))
+            .. " slot " .. tostring(slot));
+    end
+
+    -- **A login in a battle stamps what is already there** (`SeedPetBattle`): the switch and catch
+    -- buttons come with the XML and do not wait for the event that brings the ability buttons.
+    local function LoginInPetBattle()
+        Bind({
+            action({ value = "ACTIONBUTTON4", key = "F4" }),
+        });
+        local bottom = {
+            SwitchPetButton = frames.newFrame("CheckButton"),
+            CatchButton = frames.newFrame("Button"),
+        };
+        _G.PetBattleFrame = { BottomFrame = bottom };
+
+        local parse = _G.SecureCmdOptionParse;
+        _G.SecureCmdOptionParse = function(expr)
+            if (expr == "[petbattle] 1") then
+                return "1";
+            end
+            return parse(expr);
+        end
+        local mark = frames.mark();
+        local ok, err = pcall(DebindPrivate.SeedPetBattle);
+        _G.SecureCmdOptionParse = parse;
+        check(ok, tostring(err));
+        interp:replay(frames.since(mark));
+
+        local button = Press("F4");
+        check(button and clickFrame:GetAttribute("*clickbutton-" .. button) == bottom.SwitchPetButton,
+            "4 clicks " .. tostring(button and clickFrame:GetAttribute("*clickbutton-" .. button)));
+
+        mark = frames.mark();
+        DebindPrivate.SeedPetBattle();
+        interp:replay(frames.since(mark));
+    end
+
+    --- Cleared on a failure too, or the specs after these find a pet battle UI.
+    local function WithPetBattleUI(fn)
+        return function()
+            local ok, err = pcall(fn);
+            _G.PetBattleFrame = nil;
+            if (not ok) then
+                error(err, 0);
+            end
+        end
+    end
+
+    test("in a pet battle the main bar's buttons press the battle's", WithPetBattleUI(InPetBattle));
+    test("a login in a pet battle stamps the buttons already there", WithPetBattleUI(LoginInPetBattle));
 
     return T;
 end

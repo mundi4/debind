@@ -355,6 +355,7 @@ globals = {
 	"PartyFrame",
 	"SecureStateDriverManager",
 	"OverrideActionBar",
+	"PetBattleFrame",
 	"CompactUnitFrame_SetUpFrame",
 	"SecureGroupHeader_OnEvent",
 	"SecureGroupPetHeader_OnEvent",

@@ -79,6 +79,9 @@ SecureHandlerExecute(BindingDriver, [[
 	-- rebuild (`UpdateBindingsMap`). `ACTION_SLOT_SNIPPET` reads it.
 	ActionSlots = newtable()
 	OverrideActionBar = self:GetFrameRef("overrideActionBar")
+	-- `n -> the button name that clicks the n-th pet battle button`, filled as each is stamped
+	-- (`StampPetBattleButtons`) and never by a rebuild.
+	PetBattleButtons = newtable()
 	
 	SwitchExpressions = newtable()
 
@@ -433,6 +436,14 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 --- with `SpellFlyout:Toggle(self, ...)`, which calls `GetPopupDirection` on the button that fired,
 --- and ours has none. The skinned override bar has its own buttons, and `IsShown` rather than
 --- `IsVisible` picks between them: the bar slides out still visible.
+---
+--- **In a pet battle the main bar's buttons press the battle's**, whatever `giveBackInPetBattle` says
+--- (2026-10-10, owner): the binding's own `ActionButtonDown` turns to `PetBattleFrame_ButtonDown`
+--- there, and a key that only reaches the game while it is given back would leave an action button
+--- on any other key firing the main bar. Past the fifth, and before the buttons are stamped,
+--- `PetBattleButtons` has nothing and the press does nothing; the binding's does nothing past the
+--- fifth either. **The battle is the value `SetPetBattle` pushed** rather than a parse here, so the
+--- restricted environment holds one answer to it.
 local ACTION_SLOT_SNIPPET = [==[
 	local slotButton
 	local actionSlot = ActionSlots[winner.clickbutton]
@@ -445,6 +456,11 @@ local ACTION_SLOT_SNIPPET = [==[
 				return false
 			end
 			slotButton = winner.clickbutton
+		elseif (actionSlot.petBattle and JudgeStaged.petBattle) then
+			slotButton = PetBattleButtons[actionSlot.petBattle]
+			if (not slotButton) then
+				return false
+			end
 		else
 			local page = actionSlot.page
 			if (not page) then
@@ -579,18 +595,87 @@ do
         end
     end
 
-    --- A reload in a battle sends no event, so the login asks. **Crosses whatever was pushed
-    --- before**: the kit writes `SetPetBattle` itself and seeds to put the world back.
+    --- `n -> frame`, the frame whose button name has crossed as `PetBattleButtons[n]`. The frames
+    --- outlive a battle: the ability buttons are made by the first battle of a session and used
+    --- again by every one after it (measured 2026-10-10, xptr 70077, `Probe_PetBattleButtons.lua`),
+    --- so a later battle sends nothing.
+    local stamped = {};
+    local stampOwed = false;
+
+    --- The pet battle buttons onto the click frame, for `ACTION_SLOT_SNIPPET` to name, in
+    --- `PetBattleFrame_ButtonDown`'s numbering. **Insecurely and as frames** (`BarClickButton`): a
+    --- handle set from the restricted environment reaches `SECURE_ACTIONS.click` as a handle, which
+    --- has no `HasAccessConstraints` (`Probe_ActionBars.lua`'s header), and these buttons have no
+    --- names to give.
+    ---
+    --- **On the frame after `PET_BATTLE_OPENING_START`**, because Blizzard's handler for that event
+    --- is what makes the ability buttons (`PetBattleFrame_UpdateActionBarLayout`) and nothing orders
+    --- it ahead of ours. Hooking that function, or the buttons' `OnLoad`, reaches them earlier but
+    --- leans on how the template is wired. At a battle's start the frame costs nothing: the ability
+    --- buttons stayed disabled for over two seconds after the event in every measured battle. After
+    --- a reload they were enabled at once, and the event came on the frame the addon loaded in, with
+    --- the next frame 1.5 seconds behind it. The fourth and fifth come from the XML and are there
+    --- from load.
+    ---
+    --- **The click is the button's own `OnClick`, which is what `PetBattleFrame_ButtonDown` comes to
+    --- as well.** The ability buttons hide both forfeit popups themselves, and a held modified click
+    --- links the ability instead of using it on the binding's press too. What `ButtonDown` adds
+    --- around the click is the pushed look, and the no-penalty forfeit popup on the switch button.
+    local function StampPetBattleButtons()
+        if (InCombatLockdown()) then
+            stampOwed = true;
+            return;
+        end
+        stampOwed = false;
+        local bottom = PetBattleFrame and PetBattleFrame.BottomFrame;
+        if (not bottom) then
+            return;
+        end
+        local ability = bottom.abilityButtons or {};
+        local body;
+        for n = 1, 5 do
+            local frame;
+            if (n == 4) then
+                frame = bottom.SwitchPetButton;
+            elseif (n == 5) then
+                frame = bottom.CatchButton;
+            else
+                frame = ability[n];
+            end
+            if (frame and stamped[n] ~= frame) then
+                stamped[n] = frame;
+                body = (body or "") .. format("PetBattleButtons[%d]=%q ", n,
+                    DebindPrivate.Rebuild.BarClickButton(frame));
+            end
+        end
+        if (body) then
+            SecureHandlerExecute(BindingDriver, body);
+        end
+    end
+    -- For the kit, which has no battle to open.
+    DebindPrivate.StampPetBattleButtons = StampPetBattleButtons;
+
+    --- **The login asks whatever the events do**, the value and the buttons both. A reload in a
+    --- battle was measured to send `PET_BATTLE_OPENING_START` again on its first frame (as above),
+    --- but neither hangs on that: the switch and catch buttons are there from load, and the ability
+    --- buttons follow when the event comes. **Crosses whatever was pushed before**: the kit writes
+    --- `SetPetBattle` itself and seeds to put the world back.
     function DebindPrivate.SeedPetBattle()
         inBattle = SecureCmdOptionParse("[petbattle] 1") == "1";
         pushed = nil;
         Push();
+        if (inBattle) then
+            StampPetBattleButtons();
+        end
     end
 
-    --- The push a fight refused, made once it ends (`Events.lua`).
+    --- What a fight refused, made once it ends (`Events.lua`).
     function DebindPrivate.FlushPetBattle()
         if (owed) then
             Push();
+        end
+        if (stampOwed) then
+            StampPetBattleButtons();
         end
     end
 
@@ -602,6 +687,7 @@ do
     frame:SetScript("OnEvent", function(_, event)
         if (event == "PET_BATTLE_OPENING_START") then
             inBattle = true;
+            C_Timer.After(0, StampPetBattleButtons);
         elseif (SecureCmdOptionParse("[petbattle] 1") ~= "1") then
             inBattle = false;
         end

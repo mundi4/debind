@@ -175,6 +175,10 @@ Constants.INVALID                         = "invalid";
 ---   `stance`    the `index`th stance, pressed through `button` (`StanceBar:Select` is plain Lua)
 ---   `button`    the bar button a flyout slot is handed to, since `type=action` cannot open one
 ---   `override`  the skinned override bar's button, which shows the main bar's first six
+---   `petBattle` the pet battle button pressed in its place during a pet battle, as
+---               `PetBattleFrame_ButtonDown(id)` numbers them. Past the fifth there is none, and the
+---               press does nothing, as the binding's own does (`SecureBindings.lua`'s
+---               `StampPetBattleButtons`)
 ---
 --- The pages are the `actionpage` each bar has in `MultiActionBars.xml`.
 Constants.ACTION_BUTTON_COMMANDS          = {};
@@ -182,7 +186,7 @@ do
     local commands = Constants.ACTION_BUTTON_COMMANDS;
     for i = 1, 12 do
         commands["ACTIONBUTTON" .. i] = { index = i, button = "ActionButton" .. i,
-            override = i <= 6 and ("OverrideActionBarButton" .. i) or nil };
+            override = i <= 6 and ("OverrideActionBarButton" .. i) or nil, petBattle = i };
     end
     local FIXED_BARS = {
         { "MultiBarBottomLeftButton", 6 },
