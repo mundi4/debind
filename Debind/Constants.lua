@@ -753,7 +753,7 @@ Constants.BINDING_ISSUE_INVALID_ACTION                    = "INVALID_ACTION";
 --
 -- **No outcome takes the key itself** (owner, 2026-10-07). An issue is about its action alone. The
 -- one that did, the game menu key, went when Escape stopped being kept as a key at all
--- (`CleanUpDB`).
+-- (`MigrateLayer`'s 7 -> 8 step, `BringPayloadDataForward`).
 --
 -- **Lower is stronger**, and an action carrying several issues reports the strongest.
 Constants.ISSUE_OUTCOME_OMIT    = 1;

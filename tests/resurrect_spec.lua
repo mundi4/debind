@@ -446,8 +446,8 @@ return function(DebindPrivate, _, ctx)
     test("the resurrection switches are kept on a resurrection and taken off a spell", function()
         local rez = { type = Constants.RESURRECT, key = "F1", seq = 1, noTargetMassRez = false,
             battleRezOutOfCombat = true };
-        local spell = { type = Constants.SPELL, value = REGROWTH, key = "F2", seq = 1,
-            noTargetMassRez = false, battleRezOutOfCombat = true };
+        local spell = ctx.HandMade({ type = Constants.SPELL, value = REGROWTH, key = "F2", seq = 1,
+            noTargetMassRez = false, battleRezOutOfCombat = true });
         Bind({ rez, spell });
         DebindPrivate.CleanUpDB();
         check(rez.noTargetMassRez == false and rez.battleRezOutOfCombat,

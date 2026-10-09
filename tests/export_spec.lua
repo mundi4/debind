@@ -11,7 +11,7 @@
 --   * local references (macro names, state indices). Those "succeed" on the far side and point at
 --     the wrong thing. No issue mark can catch that in principle, so only the format can.
 
-return function(DebindPrivate, DebindStorage)
+return function(DebindPrivate, DebindStorage, harness)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -60,6 +60,12 @@ return function(DebindPrivate, DebindStorage)
     --- spec, `switches[owner][CLASS][spec]`.
     local function ResetProfile(layout)
         layout = layout or {};
+        harness.Numbered(layout.general or {});
+        for _, cells in pairs({ layout.class or {}, layout.char or {} }) do
+            for _, actions in pairs(cells) do
+                harness.Numbered(actions);
+            end
+        end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = {
@@ -158,7 +164,7 @@ return function(DebindPrivate, DebindStorage)
     test("한 레이어 한 키가 그룹 하나", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 1, key = "F", combat = true },
+                { type = Constants.SPELL, value = 1, key = "F", conditions = { combat = true } },
                 { type = Constants.SPELL, value = 2, key = "F" },
                 { type = Constants.SPELL, value = 3, key = "G" },
             },
@@ -297,7 +303,7 @@ return function(DebindPrivate, DebindStorage)
     test("한 키에 섞여 있으면 승인된 것만 나간다", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 1, key = "F", combat = true },
+                { type = Constants.SPELL, value = 1, key = "F", conditions = { combat = true } },
                 { type = Constants.SPELL, value = 2, key = "F" },
             },
         });
@@ -311,8 +317,8 @@ return function(DebindPrivate, DebindStorage)
     test("배지 없는 숫자 키는 그대로 나간다", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 1, key = 3, seq = 1 },
-                { type = Constants.SPELL, value = 2, key = 3, seq = 2 },
+                harness.HandMade({ type = Constants.SPELL, value = 1, key = 3, seq = 1 }),
+                harness.HandMade({ type = Constants.SPELL, value = 2, key = 3, seq = 2 }),
             },
         });
 
@@ -700,7 +706,7 @@ return function(DebindPrivate, DebindStorage)
     local function SamplePayload()
         MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 재생", index = 3 } };
         StatefulProfile({
-            { type = Constants.SPELL, value = 774, key = "SHIFT-F", combat = true },
+            { type = Constants.SPELL, value = 774, key = "SHIFT-F", conditions = { combat = true } },
             { type = Constants.MACRO, value = "내매크로", key = "SHIFT-F" },
             { type = Constants.SETSWITCH_TOGGLE, value = "$state3", key = "G" },
         });
@@ -1267,7 +1273,7 @@ return function(DebindPrivate, DebindStorage)
     test("key가 액션에 실려 그룹을 나른다", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 1, key = "F", combat = true },
+                { type = Constants.SPELL, value = 1, key = "F", conditions = { combat = true } },
                 { type = Constants.SPELL, value = 2, key = "F" },
             },
         });

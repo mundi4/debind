@@ -32,8 +32,9 @@
   타입 상수의 꼴(`MACROTEXT = "macrotext"`)과 맞지 않고, `GIVE_BACK_*` 무리의 머리처럼 읽혀 거뒀다. 로케일 키도
   `TYPE_GIVEBACK`, `TYPE_GIVEBACK_DESC`로 바꾼다.
 - **DB 판은 올리지 않는다.** 판 8은 아직 안 나갔고(v4.1.2가 7), 저장 값의 이름 바꾸기는 그 7→8 단계에 얹는다.
-  `giveBackWhenActionExists`는 매번 읽을 때 지운다(`Profile.lua`의 `ORPHANED_OPTION_KEYS`). 이미 판 8인 프로필은 7→8
-  단계를 안 지나기 때문이다.
+  `giveBackWhenActionExists`는 그 7→8 단계가 지운다(`MigrateAccount`). 처음에는 이미 판 8인 프로필도 지우려고 매번 읽을
+  때 지웠는데, 2026-10-09에 단계로 옮겼다. 이미 판 8인 개발 프로필은 손댄 데이터로 보고 따지지 않는다
+  (`checking-pasted-strings-and-keeping-actions-canonical.md` 2-1).
 - **"Filled buttons only"(`giveBackWhenActionExists`)는 없앤다.** 칸이 나중에 채워지면 다시 읽지 않는 구멍이 있다
   (`giving-keys-back.md`). 켰을 때의 실패가 차량 기술을 키로 못 누르는 것이라, 얻는 것(빈 칸 키에서 내 액션을 계속 씀)보다
   무겁다.
@@ -166,7 +167,7 @@ Windows의 `os.clock`이 1 ms 단위라 작은 쪽은 그만큼 거칠다.
 
 - 목업을 실제 저장으로 바꾼다. `OPTION_FIELDS`에 `giveBackWhenNoActionRuns = "boolean"`, `ResetToDefaults`, 로케일 키.
   `check:export-fields`가 둘을 맞춘다.
-- `giveBackWhenActionExists`를 지운다. 저장 값(`ORPHANED_OPTION_KEYS`가 매번 읽을 때 지운다), `OPTION_FIELDS`,
+- `giveBackWhenActionExists`를 지운다. 저장 값(7→8 단계의 `MigrateAccount`가 지운다), `OPTION_FIELDS`,
   `ResetToDefaults`, `DebindPrivate.GiveBackWhenActionExists`, 스니펫의 `GiveBack.onlyWithAction`이 대상이다. 옛 계정
   백업의 그 필드는 가져올 때 `OPTION_FIELDS`에 없어서 버려진다.
 - 게임 안 키트: 조건부 액션 하나뿐인 키가 조건 밖에서 놓이고 조건 안에서 다시 잡히는지를 등록한다.

@@ -432,15 +432,14 @@ return function(DebindPrivate, DebindStorage)
         -- 보낸 쪽이 꺼 둔 액션은 꺼진 채로 도착한다. `setActionValue`의 체크박스 갈래이기도
         -- 하다 - 조건이 아니라 액션 최상단이다.
         disabled = true,
-        -- Skip when there is nothing to cast. Only the spec-resolved types offer it, but the list
-        -- carries it whatever the type.
+        -- Skip when there is nothing to cast, and a resurrection's two switches. Only a resurrection
+        -- reads all three, so they ride on one (`REZ_ONLY`); on the spell they would be folded away.
         skipWhenUnusable = true,
-        -- A resurrection's two switches, carried whatever the type.
         noTargetMassRez = false,
         battleRezOutOfCombat = true,
         -- A spell held at its own rank, on a client whose spells have ranks.
         pinnedSpell = 782,
-        -- The id a spell stored by name resolved to, carried whatever the value.
+        -- The id a spell stored by name resolved to. Kept beside a name alone, which `value` is.
         resolvedSpellID = 774,
         -- Another addon's values, waiting for the payload to be added.
         untranslated = { spec1 = true },
@@ -453,7 +452,7 @@ return function(DebindPrivate, DebindStorage)
         },
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,
-        value = 774,
+        value = "Rejuvenation",
         key = "F",
         seq = 1,
         priority = 2,
@@ -463,14 +462,21 @@ return function(DebindPrivate, DebindStorage)
         conditions = REAL_CONDITIONS,
     };
 
+    local REZ_ONLY = { skipWhenUnusable = true, noTargetMassRez = true, battleRezOutOfCombat = true };
+
     test("애드온이 실제로 쓰는 값이 명단의 타입을 통과한다", function()
         ResetProfile();
 
         local sent = {};
+        local rez = { type = Constants.RESURRECT, key = "G", seq = 1 };
         for field in pairs(DebindStorage.ACTION_FIELDS) do
             check(REAL_VALUES[field] ~= nil,
                 field .. "이 명단에 늘었는데 이 표에는 없다");
-            sent[field] = REAL_VALUES[field];
+            if (REZ_ONLY[field]) then
+                rez[field] = REAL_VALUES[field];
+            else
+                sent[field] = REAL_VALUES[field];
+            end
         end
 
         for field in pairs(DebindStorage.CONDITION_TYPES) do
@@ -483,7 +489,13 @@ return function(DebindPrivate, DebindStorage)
                 field .. "이 누름 명단에 늘었는데 이 표에는 없다");
         end
 
-        local action = PlanOne(General({ sent }));
+        local placements = DebindStorage.PlanArrival(General({ sent, rez }));
+        check(#placements == 2, "액션 수 " .. #placements);
+        local action, rezArrived = placements[1].action, placements[2].action;
+        for field in pairs(REZ_ONLY) do
+            check(rezArrived[field] == REAL_VALUES[field],
+                field .. "이 " .. tostring(REAL_VALUES[field]) .. " 대신 " .. tostring(rezArrived[field]));
+        end
         for field, want in pairs(REAL_CONDITIONS) do
             local got = action.conditions and action.conditions[field];
             if (type(want) == "table") then
@@ -498,7 +510,10 @@ return function(DebindPrivate, DebindStorage)
         -- payload's numbers become a condition only if it got through.
         for field, want in pairs(REAL_VALUES) do
             local got = action[field];
-            if (field == "untranslated") then
+            if (REZ_ONLY[field]) then
+                -- Asked of the resurrection above.
+                check(got == nil, field .. "이 주문에 남았다");
+            elseif (field == "untranslated") then
                 check(got == nil, "untranslated이 프로필까지 왔다");
             elseif (type(want) == "table") then
                 check(type(got) == "table", field .. "이 테이블로 안 왔다: " .. tostring(got));
@@ -529,6 +544,44 @@ return function(DebindPrivate, DebindStorage)
             local got = action.conditions and action.conditions.known;
             check(got == want, tostring(want) .. " 대신 " .. tostring(got));
         end
+    end);
+
+    -- **A value the addon reads the same as its stored spelling is not wrong data**, so it is taken
+    -- and folded into that spelling (`checking-pasted-strings-and-keeping-actions-canonical.md` 2-2).
+    test("what reads the same is folded on the way in", function()
+        ResetProfile();
+        local placements = DebindStorage.PlanArrival(General({
+            { type = Constants.SPELL, value = 774, key = "F", seq = 1,
+                priority = Constants.DEFAULT_IMPORTANCE,
+                casting = { normalCast = true },
+                skipWhenUnusable = true, noTargetMassRez = false, battleRezOutOfCombat = true,
+                resolvedSpellID = 774,
+                conditions = { talents = { [102] = { taken = { 700 }, notTaken = {} }, [103] = {} } } },
+            { type = Constants.MACROTEXT, value = "/cast Regrowth", key = "F", seq = 2,
+                pinnedSpell = 782, conditions = { known = "Regrowth" } },
+            { type = Constants.DISPEL, key = "F", seq = 3, conditions = { known = true } },
+            { type = Constants.RAIDBUFF, key = "F", seq = 4, skipWhenUnusable = false },
+        }));
+        check(#placements == 4, "placements: " .. #placements);
+        local spell, macro, dispel = placements[1].action, placements[2].action, placements[3].action;
+        check(placements[4].action.skipWhenUnusable == nil, "skipWhenUnusable = false stayed");
+
+        check(spell.priority == nil, "priority: " .. tostring(spell.priority));
+        check(spell.casting == nil, "casting: " .. tostring(spell.casting));
+        check(spell.skipWhenUnusable == nil, "skipWhenUnusable on a spell");
+        check(spell.noTargetMassRez == nil and spell.battleRezOutOfCombat == nil,
+            "a resurrection switch on a spell");
+        check(spell.resolvedSpellID == nil, "resolvedSpellID beside an id");
+        local talents = spell.conditions and spell.conditions.talents;
+        check(talents and talents[102] and talents[102].notTaken == nil, "the empty list stayed");
+        check(talents[102].taken[1] == 700, "the list with something in it went");
+        check(talents[103] == nil, "the empty entry stayed");
+
+        check(macro.pinnedSpell == nil, "pinnedSpell on a custom macro");
+        check(macro.conditions == nil, "known on a custom macro");
+
+        check(dispel.conditions == nil, "known = true stayed on the dispel");
+        check(dispel.skipWhenUnusable == true, "known = true did not become Spell to Cast");
     end);
 
     -- **A `false` is not a shape the addon writes**, and on a spec-resolved type it split the rebuild's
@@ -858,6 +911,15 @@ return function(DebindPrivate, DebindStorage)
         check(action.value == 13, "값이 " .. tostring(action.value));
     end);
 
+    --- **The raised payload is what the drawer keeps** (`Import.lua`'s `Vars` raises entries in
+    --- place), so the ladder has to hand it over in the stored shape: no `CleanUpDB` ever reaches it.
+    test("a dbver 6 payload whose only condition the ladder moved keeps no empty conditions", function()
+        local old = V2General({ { type = Constants.SPELL, value = 585, key = "F", seq = 1,
+            conditions = { units = { hover = {} } } } }, 6);
+        local raised = Forwarded(old).layers.account.GENERAL[0][1];
+        check(raised.conditions == nil, "an empty conditions table was kept");
+    end);
+
     test("dbver 6 페이로드의 행동 칸 명령은 행동 단축키 액션으로 들어온다", function()
         ResetProfile();
         local old = V2General({ { type = Constants.COMMAND, value = "ACTIONBUTTON3", key = "F", seq = 1 } }, 6);
@@ -983,10 +1045,10 @@ return function(DebindPrivate, DebindStorage)
             "멀쩡한 것이 걸렸다");
     end);
 
-    -- **Escape arrives keyless** (`BringPayloadForward`), as loading leaves a stored one
-    -- (`CleanUpDB`): a string written at this `dbver` reaches no migration step, and nothing can take
-    -- the game menu's key. The action itself comes through, and what the preview describes is the
-    -- same keyless action.
+    -- **Escape arrives keyless** (`BringPayloadForward`), as the ladder's 7 -> 8 step leaves a
+    -- stored one (`MigrateLayer`): a string written at this `dbver` reaches no migration step, and
+    -- nothing can take the game menu's key. The action itself comes through, and what the preview
+    -- describes is the same keyless action.
     test("an action sent on Escape arrives with no key", function()
         local payload = General({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 3 } });
         local raised = assert(DebindStorage.BringPayloadForward(payload));

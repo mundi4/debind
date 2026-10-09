@@ -28,8 +28,9 @@ local SOURCE_AT               = DebindPrivate.UNIT_SOURCE_AT;
 --- The raw key is asked rather than the prefix `GetMouseButtonAndPrefix` returns: that one is
 --- canonicalized, and `META-CTRL-BUTTON2` comes back as `CTRL-` with the META already dropped.
 ---
---- **Escape is not asked about here.** No action keeps it as a key (`CleanUpDB`,
---- `BringPayloadDataForward`), and `BuildKeyMap` reads one that does as keyless.
+--- **Escape is not asked about here.** No window puts it on an action and the data paths take it
+--- off (`MigrateLayer`'s 7 -> 8 step, `BringPayloadDataForward`); one put there by hand,
+--- `BuildKeyMap` reads as keyless.
 function DebindPrivate.IsKeyInvalidForAction(action, key)
     if (type(key) == "string" and key:find("META-", 1, true)
             and DebindPrivate.GetMouseButtonAndPrefix(key)

@@ -506,12 +506,16 @@ return function(DebindPrivate)
     test("a mouse button over a frame gets no cast key twins", function()
         for _, casting in ipairs({
             { normalCast = false, hoverCastMode = "unitframe" },
-            {},
+            false,
         }) do
+            local conditions;
+            if (not casting) then
+                casting = nil;
+                conditions = { units = { unitframe = { exists = true } } };
+            end
             Bind({
                 { type = Constants.SPELL, value = 585, key = "BUTTON2", seq = 1, casting = casting,
-                    conditions = casting.hoverCastMode and {}
-                        or { units = { unitframe = { exists = true } } } },
+                    conditions = conditions },
             }, nil, nil, true);
 
             local records = DebindPrivate.KeyMap["BUTTON2"];

@@ -57,7 +57,8 @@ local KEYS_TO_SAVE       = {
     -- **What a spell stored by name resolved to when it arrived**, beside a `value` that stays the
     -- name. A name stands for several ids, so the id is one guess and the name is what was meant;
     -- this is asked only where the name resolves to nothing, which is a client in another locale
-    -- (`importing-clique-profiles.md` §4). Only a `SPELL` holding a name keeps it (`CleanUpDB`).
+    -- (`importing-clique-profiles.md` §4). Only a `SPELL` holding a name keeps it
+    -- (`DropFieldsTheTypeCannotHold`).
     resolvedSpellID = true,
 };
 
@@ -2428,35 +2429,6 @@ function DebindPrivate.GetProfileLayer(layerID)
     return LayerArray[layerID];
 end
 
---- Account keys nothing reads any more.
----
---- **An option's value outliving the option is an orphan and not a setting turned off.** Turning a
---- box off keeps its value because the box can be turned back on; a box that is gone cannot, so
---- the value has nobody left to mean anything to and would sit in SavedVariables for good.
----
---- **Here rather than in a migration step**, because a step needs the profile to be behind and
---- these two were written by a build that stamped the current `dbver`.
-local ORPHANED_GLOBAL_KEYS = {
-    -- The two switches the one blacklist replaced
-    -- (`taking-every-unit-frame-with-one-blacklist.md`).
-    "workAlongsideClique",
-    "takeUnregisteredFrames",
-    -- What the class trainers were read selling on camelot, which the generated table carries
-    -- instead (`ClassSpells_Camelot.lua`).
-    "trainerSpells",
-};
-
---- The same for `options`, which the two above predate. **A name here has to be one no build reads**
---- -- this runs on a profile stamped at the current `dbver`, so a migration step cannot have it.
-local ORPHANED_OPTION_KEYS = {
-    -- Hover Cast's account-wide on/off. Turning it off is the action's now and the account keeps the
-    -- mode alone (`which-action-a-key-runs.md` §1). Never in a tag, but a worktree profile is
-    -- a profile somebody is using.
-    "hoverCast",
-    -- Taken out with its row (`giving-keys-back-when-no-action-runs.md` §1).
-    "giveBackWhenActionExists",
-};
-
 --- Attaches or detaches this character's state and layers, and attaches its entry. `InitDB` does
 --- not create any of them up front, so this is where anything actually enters `characters`,
 --- `states` or `layers`. State and layers are decided again on every logout, which is how they
@@ -2476,6 +2448,93 @@ local function AttachCharacterTables()
         db.characters[guid] = DebindPrivate.db.char;
     end
 end
+
+--- **No empty `conditions` is kept.** The table being there is the gate in more than one place
+--- (`IsConditionalBinding`), so an empty one makes an action with no condition read as conditional.
+local function PruneConditions(action)
+    if (luatype(action.conditions) == "table" and next(action.conditions) == nil) then
+        action.conditions = nil;
+    end
+end
+DebindPrivate.PruneConditions = PruneConditions;
+
+--- **No empty `casting` is kept.** It is a gate nowhere, but it would sit in SavedVariables and in
+--- every exported string for good.
+local function PruneCasting(action)
+    if (luatype(action.casting) == "table" and next(action.casting) == nil) then
+        action.casting = nil;
+    end
+end
+DebindPrivate.PruneCasting = PruneCasting;
+
+--- Drops what only some types read from an action of any other type. Left, such a field rides every
+--- export, so it goes when the type changes rather than at the next logout.
+---
+--- **Each field is kept wherever its type holds it**, so a type that holds the field keeps the
+--- reader's answer across a change: a dispel replaced by a resurrection keeps `skipWhenUnusable`.
+--- `resolvedSpellID` asks the value as well, since only a name is resolved. **One value is moved
+--- rather than dropped**: a `known` of `true` on a spec-resolved type becomes `skipWhenUnusable`.
+local function DropFieldsTheTypeCannotHold(action)
+    local specResolved = Constants.SPEC_RESOLVED_TYPES[action.type];
+    local conditions = action.conditions;
+    if (luatype(conditions) == "table") then
+        -- **Known Spell is offered on a spell alone** (`ActionMenuNodes.lua`), so on any type but a
+        -- spell and the spec-resolved ones a `known` could not have been set and cannot be cleared
+        -- on screen (`making-known-a-spell-name.md`). The binding drops it (`FillBinding`), and the
+        -- tooltip would still draw it.
+        --
+        -- **On a spec-resolved type `true` moves to `skipWhenUnusable`**, which took its row there
+        -- and reads the same (`FillBinding`). Left, that row would say Off over an action that hands
+        -- the key on.
+        if (conditions.known ~= nil and action.type ~= Constants.SPELL and not specResolved) then
+            conditions.known = nil;
+        elseif (conditions.known == true and specResolved) then
+            conditions.known = nil;
+            action.skipWhenUnusable = true;
+        end
+        PruneConditions(action);
+    end
+    if (not specResolved) then
+        action.skipWhenUnusable = nil;
+    end
+    if (action.type ~= Constants.RESURRECT) then
+        action.noTargetMassRez = nil;
+        action.battleRezOutOfCombat = nil;
+    end
+    if (action.type ~= Constants.SPELL) then
+        action.pinnedSpell = nil;
+    end
+    if (action.type ~= Constants.SPELL or luatype(action.value) ~= "string"
+            or luatype(action.resolvedSpellID) ~= "number") then
+        action.resolvedSpellID = nil;
+    end
+end
+DebindPrivate.DropFieldsTheTypeCannotHold = DropFieldsTheTypeCannotHold;
+
+--- Folds an action into the one spelling the profile stores for what it means: a default stored
+--- as none, an empty table taken off, a talent list that says nothing taken off (`Talents.Prune`),
+--- and the fields its type cannot hold (`DropFieldsTheTypeCannotHold`). Which values are folded
+--- rather than refused, and why, is `checking-pasted-strings-and-keeping-actions-canonical.md` 2-2.
+---
+--- **One spelling is what the duplicate check compares** (`IDENTITY_FIELDS`): `priority = 3` beside
+--- none would read as two different actions.
+local function FoldIntoStoredShape(action)
+    action.priority = DebindPrivate.ImportanceToStored(action.priority);
+    if (action.skipWhenUnusable == false) then
+        action.skipWhenUnusable = nil;
+    end
+    local casting = action.casting;
+    if (luatype(casting) == "table") then
+        if (casting.normalCast ~= false) then
+            casting.normalCast = nil;
+        end
+        PruneCasting(action);
+    end
+    DebindPrivate.Talents.Prune(action);
+    -- Last, since it also takes the conditions table off once nothing is left in it.
+    DropFieldsTheTypeCannotHold(action);
+end
+DebindPrivate.FoldIntoStoredShape = FoldIntoStoredShape;
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
@@ -2512,23 +2571,6 @@ function DebindPrivate.CleanUpDB()
                 end
             end
 
-            -- The menu offers it on the spec-resolved types alone, so anywhere else it is a value
-            -- the reader could not have set and cannot see to clear.
-            if (action.skipWhenUnusable ~= nil and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
-                action.skipWhenUnusable = nil;
-            end
-            if (action.type ~= Constants.RESURRECT) then
-                action.noTargetMassRez = nil;
-                action.battleRezOutOfCombat = nil;
-            end
-            if (action.type ~= Constants.SPELL) then
-                action.pinnedSpell = nil;
-            end
-            if (action.type ~= Constants.SPELL or luatype(action.value) ~= "string"
-                    or luatype(action.resolvedSpellID) ~= "number") then
-                action.resolvedSpellID = nil;
-            end
-
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
             -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
             ArmAction(action);
@@ -2547,60 +2589,12 @@ function DebindPrivate.CleanUpDB()
                         conditions[k] = nil;
                     end
                 end
-                -- **A value nobody can set is not kept.** Known Spell is offered on a spell
-                -- alone (`ActionMenuNodes.lua`), so on any type but a spell and the spec-resolved
-                -- ones a `known` could not have been set and cannot be cleared on screen
-                -- (`making-known-a-spell-name.md`). It was harmless while the binding ignored it;
-                -- once the value named a spell, the bake could use it.
-                --
-                -- **On a spec-resolved type `true` moves to Spell to Cast**, which took its row
-                -- there and reads the same (`FillBinding`). Left, that row would say Off over an
-                -- action that hands the key on.
-                if (conditions.known ~= nil and action.type ~= Constants.SPELL
-                        and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
-                    conditions.known = nil;
-                elseif (conditions.known == true and Constants.SPEC_RESOLVED_TYPES[action.type]) then
-                    conditions.known = nil;
-                    action.skipWhenUnusable = true;
-                end
-                -- **빈 칸은 조건이 아니다.** `talents`는 두 겹이라 아래의 `next` 한 번이 못
-                -- 닿는다. 아무것도 안 든 전문화 칸은 "그 전문화에 대해 아무 말도 안 했다"와
-                -- 같은 뜻인데(`adding-a-talent-condition.md` §2), 남겨 두면 조건이
-                -- 하나도 없는 액션이 조건부로 서서 발동 순서가 바뀐다.
-                local talents = conditions.talents;
-                if (luatype(talents) == "table") then
-                    for specID, entry in pairs(talents) do
-                        local taken = luatype(entry) == "table" and entry.taken;
-                        local notTaken = luatype(entry) == "table" and entry.notTaken;
-                        if (not ((luatype(taken) == "table" and next(taken) ~= nil)
-                                or (luatype(notTaken) == "table" and next(notTaken) ~= nil))) then
-                            talents[specID] = nil;
-                        end
-                    end
-                    if (next(talents) == nil) then
-                        conditions.talents = nil;
-                    end
-                end
-                -- **빈 표는 안 남긴다.** 있느냐를 게이트로 쓰는 자리가 여럿이라
-                -- (`IsConditionalBinding`이 `next` 하나로 답한다), 빈 표는 조건이 하나도
-                -- 없는 액션을 조건부로 만든다.
-                if (next(conditions) == nil) then
-                    action.conditions = nil;
-                end
-            end
-            if (action.priority == Constants.DEFAULT_IMPORTANCE) then
-                action.priority = nil;
             end
 
-            -- **An empty table does not stay**: `casting` being there is not a gate anywhere, but a
-            -- table of nothing sits in SavedVariables and in every exported string for good.
+            -- **The third answer of the four automatics rows is no value at all**, so anything but
+            -- a boolean already reads as that answer (`CastAutomaticOf`) and only lingers in storage.
             local casting = action.casting;
             if (luatype(casting) == "table") then
-                if (casting.normalCast ~= false) then
-                    casting.normalCast = nil;
-                end
-                -- 자동 동작 네 줄의 셋째 값은 **값이 없는 것**이라, 불리언이 아닌 것은 읽는
-                -- 쪽에서 이미 셋째로 읽히고 저장에만 남는다(`CastAutomaticOf`).
                 local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
                 for i = 1, #rows do
                     local row = rows[i];
@@ -2609,19 +2603,10 @@ function DebindPrivate.CleanUpDB()
                         casting[row] = nil;
                     end
                 end
-                if (next(casting) == nil) then
-                    action.casting = nil;
-                end
             end
 
-            -- **Escape is not kept as a key.** It is the game menu's, nothing can take it, and the
-            -- capture window refuses it, so one here came from a profile or a string no window
-            -- wrote. Keyless, the action stays and waits for a key (owner, 2026-10-07). Here
-            -- rather than in a migration step, because a profile already at this `dbver` can hold
-            -- one as well.
-            if (action.key == "ESCAPE") then
-                action.key = nil;
-            end
+            -- After the two filters above, which can leave a table empty.
+            FoldIntoStoredShape(action);
 
             -- The ordering number's net. **It is for data the migration never reached** -- MigrateDB
             -- only walks the shapes it knows about, so a hand-edited SavedVariables or a corner left
@@ -2664,18 +2649,6 @@ function DebindPrivate.CleanUpDB()
                     action.seq = NextSeqFor(groupID, key, action.arrivalID);
                 end
                 group[action.seq] = true;
-            end
-        end
-    end
-
-    local db = DebindPrivate.db.global;
-    if (db) then
-        for i = 1, #ORPHANED_GLOBAL_KEYS do
-            db[ORPHANED_GLOBAL_KEYS[i]] = nil;
-        end
-        if (db.options) then
-            for i = 1, #ORPHANED_OPTION_KEYS do
-                db.options[ORPHANED_OPTION_KEYS[i]] = nil;
             end
         end
     end
@@ -3512,25 +3485,26 @@ function DebindPrivate.ClearKeyForActions(actions)
     return changed;
 end
 
---- 카탈로그 엔트리 하나를 액션에 쓴다. 새로 만드는 액션과 **이미 저장돼 있던 액션**이 같은
---- 여기를 지난다 (`ActionCatalog.lua`의 엔트리 계약,
---- `changing-what-an-action-does.md`).
+--- Writes one catalog entry onto an action. A new action and **one already stored** both come
+--- through here (`ActionCatalog.lua`'s entry contract, `changing-what-an-action-does.md`).
 ---
---- **이름과 아이콘도 인자 그대로 덮는다.** 저장해둬야 하는 타입만 `props`에 담아 오므로, 안
---- 덮으면 옛 타입의 이름이 새 타입 위에 박힌 채 남는다.
+--- **The name and the icon are overwritten as given.** Only the types that have to store them bring
+--- them in `props`; left alone, the old type's name would stay on the new one.
 ---
---- 둘을 같이 떨군다. 둘 다 `GetBindingInfoForAction`이 이미 바인딩에서 떨궈내는 것이라, 저장에
---- 남으면 **행에는 그려지는데 키는 그것 없이 나가는** 상태가 된다.
+--- **What the old entry leaves behind goes here and not at the next logout.** The action can be
+--- exported before then, and the string carries whatever it holds. `known` and `unit` are dropped
+--- from the binding already (`GetBindingInfoForAction`), so left in storage they would be drawn on
+--- the row while the key goes out without them.
 ---
----   `conditions.known`  언제나. 타입을 볼 것 없이 규칙이 하나가 되고, 주문에서 주문으로
----                       바꿨을 때 시전하는 주문과 다른 주문을 묻는 조건이 안 남는다.
----                       `CleanUpDB`가 타입으로 가르는 것은 값이 안 바뀌는 청소여서다
----   `unit`              새 액션이 대상을 못 가질 때. 묻는 것은 `ActionTakesUnit`이고, 대상
----                       메뉴와 `FillBinding`이 보는 것도 그것이다 - 타입만으로는 소환수 명령과
----                       태세 버튼이 안 갈린다. 대상을 `props`로 들고 오는 엔트리가 있어서
----                       (선택 창의 대상 지정 행) 복사한 다음에 묻는다
+---   `conditions.known`  always. One rule without asking the type, and a spell replaced by a spell
+---                       keeps no condition asking about another spell than the one it casts
+---   the type's fields   whatever the new type cannot hold (`DropFieldsTheTypeCannotHold`)
+---   `unit`              when the new action cannot take one. What is asked is `ActionTakesUnit`,
+---                       as the target menu and `FillBinding` ask it: the type alone does not tell a
+---                       pet command from a stance button. Asked after `props` are copied, since
+---                       an entry can bring its target there (the picker's targeted rows)
 ---
---- 새로 만드는 자리에서는 지울 것이 없어 둘 다 아무 일도 안 한다.
+--- On a new action there is nothing to drop and all of it does nothing.
 function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, props)
     action.type = actionType;
     -- A spell goes in on its first rank, whichever rank it was picked or dropped as.
@@ -3549,15 +3523,10 @@ function DebindPrivate.SetActionEntry(action, actionType, value, name, icon, pro
         end
     end
 
-    local conditions = action.conditions;
-    if (conditions) then
-        conditions.known = nil;
-        -- **빈 표는 안 남긴다.** 있느냐를 게이트로 쓰는 자리가 여럿이라(`IsConditionalBinding`),
-        -- 빈 표는 조건이 하나도 없는 액션을 조건부로 만든다. `CleanUpDB`도 같은 줄을 든다.
-        if (next(conditions) == nil) then
-            action.conditions = nil;
-        end
+    if (action.conditions) then
+        action.conditions.known = nil;
     end
+    DropFieldsTheTypeCannotHold(action);
 
     if (not DebindPrivate.ActionTakesUnit(action)) then
         action.unit = nil;

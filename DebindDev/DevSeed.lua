@@ -178,19 +178,18 @@ SEEDS[5] = function(guid)
                 --- shape `"@"` is locked out of.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F7", seq = 1,
                     checkedUnits = { tank = {}, custom1 = { exists = false } } },
-                --- The three yes/no conditions with no row. `false` is here on purpose: the
-                --- menu writes it for [No] and the tooltip has a whole second sentence for it, so
-                --- a seed of nothing but `true` leaves half of every one of them unseen.
+                --- **`petbattle` here and `specialbar` below are `dbver` 5's names.** `bartakeover`
+                --- is version 8's, made out of those two by the `dbver <= 7` step. No step moves a
+                --- `bartakeover` planted under this stamp into `conditions`.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F8", seq = 1,
-                    stealth = true, bartakeover = Constants.BARTAKEOVER_PETBATTLE },
+                    stealth = true, petbattle = true },
                 --- Shapeshift and the action bars. Both masks are one bit rather than several,
                 --- and it is the bit that means the same thing on every class: `[form:0]` is "not
                 --- shifted" and bonus bar `0` is the default bar. A mask naming a druid form
-                --- would be a row nobody else can read. `bartakeover` takes two boxes, so its
-                --- tooltip shows more than one line.
+                --- would be a row nobody else can read. `specialbar` alone lands on two boxes of
+                --- `bartakeover`, so its tooltip shows more than one line.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F9", seq = 1,
-                    forms = 1, bonusbars = 1, extrabar = true,
-                    bartakeover = Constants.BARTAKEOVER_REPLACED + Constants.BARTAKEOVER_PETBATTLE },
+                    forms = 1, bonusbars = 1, specialbar = true, extrabar = true },
             },
 
             --- The class tiers. `SHIFT-F1` is deliberately the account layer's key as well, so the
@@ -349,8 +348,8 @@ SEEDS[6] = function(guid)
                 { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
                 { type = "unused", key = "ALT-F10", seq = 1 },
 
-                --- **A row on Escape, as an old profile could hold one.** Loading takes the key off
-                --- (`CleanUpDB`) and the row lands among the keyless ones; nothing else in here
+                --- **A row on Escape, as an old profile could hold one.** The 7 -> 8 step takes the key
+                --- off (`MigrateLayer`) and the row lands among the keyless ones; nothing else in here
                 --- reaches that line.
                 {
                     type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
@@ -481,7 +480,8 @@ SEEDS[7] = function(guid)
                 { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
                 { type = "unused", key = "ALT-F10", seq = 1 },
 
-                --- The row above, untouched by the step. Loading takes the key off (`CleanUpDB`).
+                --- The row above, which the 6 -> 7 step leaves alone. The 7 -> 8 step takes the key off
+                --- (`MigrateLayer`).
                 {
                     type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/script print(\"escape\")", name = "Game menu key",
@@ -577,7 +577,8 @@ SEEDS[8] = function(guid)
                         { type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "ALT-F12", seq = 1 },
                         { type = Constants.GIVEBACK, key = "ALT-F10", seq = 1 },
 
-                        --- The Escape row of the seeds above, as loading leaves it (`CleanUpDB`).
+                        --- The Escape row of the seeds above, as the 7 -> 8 step leaves it
+                        --- (`MigrateLayer`).
                         {
                             type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                             value = "/script print(\"escape\")", name = "Game menu key",

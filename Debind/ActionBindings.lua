@@ -352,8 +352,9 @@ do
         -- **A type with no spell carries no `known` at all**, whatever the value is. The question
         -- does stand on its own now that the value names a spell
         -- (`making-known-a-spell-name.md`), but no menu offers it on those types, so a
-        -- value there is one the reader could not have made and cannot take off. `CleanUpDB` takes
-        -- it out of storage for the same reason; this is the same rule on the binding.
+        -- value there is one the reader could not have made and cannot take off.
+        -- `DropFieldsTheTypeCannotHold` keeps it out of storage for the same reason; this is the same
+        -- rule on the binding.
         --
         -- **`false` has no state that satisfies it.** It would say "cast it only while it is
         -- unlearned" of the action's own spell, and it is checked against `false` rather than

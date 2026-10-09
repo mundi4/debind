@@ -489,5 +489,22 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **What only a spell reads goes with the spell.** The body already carries the held rank and
+    -- the name as it resolved; left on the custom macro, the two are fields nothing reads that
+    -- still go out in an export.
+    test("a converted spell keeps no held rank", function()
+        installWorld();
+        local pinned = { type = Constants.SPELL, value = 774, pinnedSpell = 774 };
+        check(DebindPrivate.ConvertToMacroText(pinned), "the pinned spell was refused");
+        check(pinned.pinnedSpell == nil, "pinnedSpell: " .. tostring(pinned.pinnedSpell));
+    end);
+
+    test("a converted spell name keeps no resolved id", function()
+        installWorld();
+        local named = { type = Constants.SPELL, value = "Rejuvenation", resolvedSpellID = 774 };
+        check(DebindPrivate.ConvertToMacroText(named), "the named spell was refused");
+        check(named.resolvedSpellID == nil, "resolvedSpellID: " .. tostring(named.resolvedSpellID));
+    end);
+
     return T;
 end

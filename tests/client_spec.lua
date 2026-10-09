@@ -4,7 +4,7 @@
 -- `run.lua` picks with the spec entry's `client`. A case states what both clients must end up with,
 -- and the world decides what it takes to get there.
 
-return function(DebindPrivate, DebindStorage)
+return function(DebindPrivate, DebindStorage, harness)
     local shim = require("wow_shim");
     local frames = require("wow_frames");
     local camelot = shim.world.client == "camelot";
@@ -338,7 +338,7 @@ return function(DebindPrivate, DebindStorage)
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = DebindPrivate.Constants.DB_VERSION,
-            layers = { account = { GENERAL = { [0] = actions } } },
+            layers = { account = { GENERAL = { [0] = harness.Numbered(actions) } } },
             characters = { [ME] = { switches = {} } },
             migrated = {},
             switches = {},

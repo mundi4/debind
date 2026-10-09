@@ -12,7 +12,7 @@
 -- What the game still owns is the client's menu calling these readings and drawing what they
 -- return; everything they return is decided here.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, harness)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -40,7 +40,7 @@ return function(DebindPrivate)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = {
-                account = { GENERAL = { [0] = actions } },
+                account = { GENERAL = { [0] = harness.Numbered(actions) } },
                 [GUID] = { [CLASS] = {} },
             },
             characters = { [GUID] = {} },

@@ -235,7 +235,7 @@ return function(DebindPrivate, _, ctx)
     test("an action that comes to sit on Escape after loading does not take it", function()
         local stored = action({ value = 585, key = "F1" });
         Bind({ stored }, HOLD_UNMATCHED);
-        stored.key = "ESCAPE";
+        ctx.HandMade(stored).key = "ESCAPE";
         Rebuild();
         check(not IsOurs("ESCAPE"), "Escape was taken: " .. Bound("ESCAPE"));
         check(not DebindPrivate.IsKeyHandled("ESCAPE"), "Escape reads as ours");
@@ -399,13 +399,25 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
-    -- **Escape is not kept as a key**, so the game menu keeps it (`CleanUpDB`). The action stays,
-    -- keyless. With the option off as well: nothing about holding is asked here.
+    -- **A profile from before 8 loses Escape as a key on the way up** (`MigrateLayer`), so the game
+    -- menu keeps it. The action stays, keyless. With the option off as well: nothing about holding
+    -- is asked here.
     test("an action stored on Escape loses the key and the game keeps it", function()
         shim.world.bindings = { { action = "TOGGLEGAMEMENU", keys = { "ESCAPE" } } };
         local ok, err = pcall(function()
-            local stored = action({ value = 585, key = "ESCAPE" });
-            Bind({ stored }, HOLD_UNMATCHED);
+            _G.DebindVars = {
+                dbver = 7,
+                options = HOLD_UNMATCHED,
+                shared = { GENERAL = { action({ value = 585, key = "ESCAPE" }) } },
+                characters = { [GUID] = { switches = {} } },
+                migrated = {},
+                switches = {},
+            };
+            DebindPrivate.InitDB();
+            Rebuild();
+            -- Read back out of the profile: the ladder raises a copy (`TryMigrateDB`).
+            local stored = _G.DebindVars.layers.account.GENERAL[0][1];
+            check(stored.value == 585, "the action did not stay");
             check(stored.key == nil, "the action kept Escape: " .. tostring(stored.key));
             check(#DebindPrivate.CollectActionsForKey("ESCAPE") == 0, "an action still stands on Escape");
             -- The game's own binding stays on it, so what is asked is that ours is not.

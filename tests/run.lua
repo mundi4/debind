@@ -400,6 +400,10 @@ local ctx = {
     writeFile = writeFile,
 };
 
+local canonical = dofile(root .. "/canonical.lua");
+ctx.HandMade = canonical.HandMade;
+ctx.Numbered = canonical.Numbered;
+
 local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
@@ -407,6 +411,9 @@ for _, spec in ipairs(specs) do
     shim.resetWorld(spec.client);
     require("wow_frames").reset();
     local DebindPrivate, DebindStorage = loadAddons(spec.cliqueFake);
+    canonical.Install(DebindPrivate, DebindStorage, function(message)
+        totalFailures[#totalFailures + 1] = spec.name .. " / canonical: " .. message;
+    end);
     local result = chunk()(DebindPrivate, DebindStorage, ctx);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do

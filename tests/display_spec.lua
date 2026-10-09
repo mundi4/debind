@@ -437,7 +437,7 @@ return function(DebindPrivate)
     --- is drawn all the same, because what that key answers with is the pointed unit.
     test("Hover Cast left at its default on the bare left click draws the pointed unit anyway", function()
         Bind({
-            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1, casting = {} },
+            { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1 },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];

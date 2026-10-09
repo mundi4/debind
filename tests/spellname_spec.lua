@@ -8,7 +8,7 @@
 -- **`C_SpellBook` in the shim takes an id only**, the way the client documents it. Before that the
 -- shim answered a name with nil, and a name reaching `FindBaseSpellByID` went unnoticed here.
 
-return function(DebindPrivate, DebindStorage)
+return function(DebindPrivate, DebindStorage, harness)
     local Constants = DebindPrivate.Constants;
     local shim = require("wow_shim");
     local castmod = require("castmod");
@@ -219,9 +219,10 @@ return function(DebindPrivate, DebindStorage)
     test("the stored id survives a save only beside a spell name", function()
         installWorld(1);
         local byName = { type = SPELL, value = "Regrowth", resolvedSpellID = 8936, key = "F1", seq = 1 };
-        local byID = { type = SPELL, value = 8936, resolvedSpellID = 8936, key = "F2", seq = 1 };
-        local macro = { type = Constants.MACRO, value = "Regrowth", resolvedSpellID = 8936, key = "F3",
-            seq = 1 };
+        local byID = harness.HandMade({ type = SPELL, value = 8936, resolvedSpellID = 8936, key = "F2",
+            seq = 1 });
+        local macro = harness.HandMade({ type = Constants.MACRO, value = "Regrowth", resolvedSpellID = 8936,
+            key = "F3", seq = 1 });
         Bind({ byName, byID, macro });
         DebindPrivate.CleanUpDB();
         check(byName.resolvedSpellID == 8936, "name: " .. tostring(byName.resolvedSpellID));

@@ -11,7 +11,7 @@
 -- (`adding-a-talent-condition.md` §6-1), and nothing headless can check them
 -- again.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, harness)
     local Constants = DebindPrivate.Constants;
     local Talents = DebindPrivate.Talents;
     local shim = require("wow_shim");
@@ -403,8 +403,8 @@ return function(DebindPrivate)
     -- there (`IsConditionalBinding`), and it moves the firing order.
     test("a specialization entry with nothing in it is swept", function()
         Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { talents = { [MySpec()] = { taken = {}, notTaken = {} } } } },
+            harness.HandMade({ type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { talents = { [MySpec()] = { taken = {}, notTaken = {} } } } }),
         });
         local stored = FirstStoredAction();
         check(stored, "the action is not in the layer");
@@ -414,21 +414,33 @@ return function(DebindPrivate)
 
     test("a talents table with no specialization in it is swept", function()
         Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { talents = {} } },
+            harness.HandMade({ type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { talents = {} } }),
         });
         local stored = FirstStoredAction();
         check(stored.conditions == nil,
             "the action is still conditional: " .. tostring(stored.conditions));
     end);
 
+    -- The menu left this shape before `Talents.Prune` (`WriteList`'s `table.remove`), so a profile
+    -- can hold one.
+    test("an empty list beside a real one goes and the real one stays", function()
+        Bind({
+            harness.HandMade({ type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { talents = { [MySpec()] = { taken = { 700 }, notTaken = {} } } } }),
+        });
+        local entry = FirstStoredAction().conditions.talents[MySpec()];
+        check(entry.notTaken == nil, "the empty list stayed");
+        check(entry.taken[1] == 700, "the real list went");
+    end);
+
     test("an empty entry beside a real one leaves the real one", function()
         Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+            harness.HandMade({ type = Constants.SPELL, value = 585, key = "F1", seq = 1,
                 conditions = { talents = {
                     [MySpec()] = { taken = { 700 } },
                     [999] = { taken = {} },
-                } } },
+                } } }),
         });
         local stored = FirstStoredAction();
         local talents = stored.conditions and stored.conditions.talents;
@@ -733,7 +745,9 @@ return function(DebindPrivate)
 
         ActionMenu.SetTalentCondition(ctx, specs, 700, "notTaken");
         check(ActionMenu.TalentConditionIs(ctx, specs, 700, "notTaken"), "the second write missed");
-        check(#action.conditions.talents[102].taken == 0, "it is on both lists");
+        -- Off a list is no list: an empty one would be a shape the profile keeps for nothing.
+        check(action.conditions.talents[102].taken == nil,
+            "taken was left as " .. tostring(action.conditions.talents[102].taken));
 
         ActionMenu.SetTalentCondition(ctx, specs, 700, nil);
         check(action.conditions == nil,

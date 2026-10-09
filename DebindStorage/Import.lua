@@ -388,14 +388,14 @@ end
 --- avoiding that was the last reason left for the ranking to travel under a name other than its own.
 --- With both ends reading one list there is no name to dodge (`building-export-import.md`).
 ---
---- **The whitelist is the last thing this does, and it is the only writer of `action`.** Grep
---- `action[` in here and there is one line. Everything decided above it writes to `fields`, which
---- is still the untrusted table, so whoever adds the next rule cannot help but hand it to the
---- whitelist. Those blocks used to run **after** the loop and assign to `action`, which held only
---- as long as everyone remembered that writing there put a value in the profile unread.
+--- **The whitelist is the only thing that brings a value into `action`.** Everything decided
+--- before it writes to `fields`, which is still the untrusted table, so whoever adds the next rule
+--- cannot help but hand it to the whitelist. What runs after the loop only takes away what the loop
+--- let through, or folds it into the spelling the profile stores. A block there that brought a value
+--- in would put it in the profile unread, which is what such blocks once did.
 ---
---- **Nothing is rebuilt on the way in any more, and the whitelist is the whole of it.** A
---- `setstate` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
+--- **Nothing is rebuilt on the way in any more.**
+--- A `setstate` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
 --- where it was turned back into the bitpack the profile stored. §9-1 made the stored form a `type`
 --- and a name, so what arrives is what lands and the loop below just copies it
 --- (`unifying-action-migration.md` §3-1). Reading the old subtable is
@@ -418,7 +418,7 @@ local function BuildAction(source)
     end
 
     -- **The conditions table is filtered after it is copied, not instead.** The loop above is
-    -- still the only writer of `action`; this walks what it just put there.
+    -- still the only thing that brings a value in; this walks what it just put there.
     local conditions = action.conditions;
     if (conditions) then
         for k, v in pairs(conditions) do
@@ -430,11 +430,6 @@ local function BuildAction(source)
         -- and on a spec-resolved type the rebuild's two readers of it disagreed.
         if (conditions.known == false) then
             conditions.known = nil;
-        end
-        -- An empty table is not "no conditions" downstream, it is an action that reads as
-        -- conditional with nothing on it (`IsConditionalBinding`).
-        if (next(conditions) == nil) then
-            action.conditions = nil;
         end
     end
 
@@ -449,10 +444,12 @@ local function BuildAction(source)
                 casting[k] = nil;
             end
         end
-        if (next(casting) == nil) then
-            action.casting = nil;
-        end
     end
+
+    -- **What the addon reads the same as its stored spelling is folded into it, not refused**
+    -- (`checking-pasted-strings-and-keeping-actions-canonical.md` 2-2). Also takes off a table the
+    -- filters above emptied.
+    DebindPrivate.FoldIntoStoredShape(action);
 
     return action;
 end

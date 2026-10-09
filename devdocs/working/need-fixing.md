@@ -1,6 +1,6 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 3, 8, 9. 3은 고칠 것이 아니라 소유자가 정할 기본값 하나로 줄었다(2026-10-09). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
+> 상태: 미착수. 항목 3, 8, 9, 10, 11, 12. 3은 고칠 것이 아니라 소유자가 정할 기본값 하나로 줄었다(2026-10-09). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
 > 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다. 4(키트의 Tail 시험
 > 넷이 beat와 리빌드를 못 가름)도 같은 날 넷 다 `WaitOnBeat`로 바꿔서 뺐다. 6(`macrotext_spec`이 `EmitMacroTextArg`를
 > 베껴 잼)도 같은 날 `BuildMacroTextEntries`가 내는 글을 직접 재게 바꾸고 `bakeFixed`를 지워서 뺐다. 이것도 같은 규칙을
@@ -10,7 +10,8 @@
 > 늘 켜짐 아니면 꺼짐이라, 그 열은 이제 두 칸이다. "설정 안 됨" 칸은 정의 없는 이름에만 남는다.
 >
 > 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 8과 9는 `debind-3e`
-> (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`).
+> (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`). 10~12는 `debind-32`
+> (세션 ID `01cfef58-000e-45b7-b719-95b834c3e734`).
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
 
@@ -64,3 +65,28 @@
 
 이 표들이 바뀌면 옛 프로필의 값이 조용히 다르게 옮겨진다. 각 단계가 자기 판의 값을 직접 들게 할지, 그 표가 그 판 이후로
 안 바뀌었다는 것만 확인하고 둘지를 단계마다 정해야 한다.
+
+## 10. 메뉴의 "끄기" 칸이 체크를 풀면 `disabled = false`를 쓴다
+
+찾은 곳: `checking-pasted-strings-and-keeping-actions-canonical.md` 3절 3번의 `/code-review high`(2026-10-09).
+
+"끄기"는 `USE_CHECKED_VALUE`(`MenuKit.TOGGLE`)로 쓰고, 토글은 꺼짐을 nil이 아니라 `false`로 쓴다(`MenuKit.lua`의
+`setValue`). 키 결과는 nil과 같지만, 같은 액션인지 묻는 비교(`IDENTITY_FIELDS`)에는 다른 값이라 한 번 켰다 끈 액션과 손대지
+않은 액션이 다르게 읽히고, 내보내기에도 `disabled = false`가 실린다. `FoldIntoStoredShape`도 확인 장치(`tests/canonical.lua`)도
+이 값을 보지 않는다. 쓰는 쪽에서 nil을 쓸지, 접기에 넣을지 정해야 한다.
+
+## 11. 빈 `conditions.units = {}`를 접지 않는다
+
+찾은 곳: 같은 리뷰.
+
+메뉴는 유닛 조건을 다 지우면 `units`를 nil로 둔다(`ActionMenuModel.lua`의 `WriteUnitConditionMode`, `ActionMenuNodes.lua`의
+`WritePlayerLife`). 붙여넣은 문자열의 `units = {}`는 타입 검사(`"table"`)를 지나 그대로 들어와 `conditions`를 비지 않은 표로
+남긴다. 바인딩은 `units`를 늘 떼고 다시 세우니(`FillBinding`) 키 결과는 같지만, 같은 액션인지 묻는 비교(`IDENTITY_FIELDS`)에는
+메뉴가 만든 같은 액션과 다르게 읽히고 내보내기에도 실린다. 접을지 정해야 한다.
+
+## 12. 확인 장치가 불러온 레이어만 본다
+
+찾은 곳: 같은 리뷰.
+
+`tests/canonical.lua`의 `Sweep`은 `GetProfileLayer(1..)`만 훑는다. 도착한 액션을 다른 직업의 칸처럼 불러오지 않은 곳에 놓으면
+(`PlaceArrivedActions`의 `StoredActionsAt`) 그 액션은 장치가 보지 못한다. `DebindVars.layers`의 모든 칸을 훑도록 넓혀야 한다.

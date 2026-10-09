@@ -2,7 +2,7 @@
 -- 없다 -- 값이 없는 것이 그것이다
 -- (`setting-the-clients-cast-automatics-per-action.md` §1).
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, harness)
     local Constants = DebindPrivate.Constants;
 
     local T = { passed = 0, failures = {} };
@@ -23,13 +23,16 @@ return function(DebindPrivate)
     end
 
     --- 액션 하나만 든 계정 층으로 시작한다. `CleanUpDB`가 훑는 것이 층이라 액션을 거기 둔다.
-    local function FreshDB(casting)
+    local function FreshDB(casting, handMade)
+        local action = { type = Constants.SPELL, value = 774, key = "F", seq = 1, casting = casting };
+        if (handMade) then
+            harness.HandMade(action);
+        end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = {
                 account = {
-                    GENERAL = { [0] = { { type = Constants.SPELL, value = 774, key = "F", seq = 1,
-                        casting = casting } } },
+                    GENERAL = { [0] = { action } },
                 },
             },
             characters = {},
@@ -81,7 +84,7 @@ return function(DebindPrivate)
     --- **기본값은 저장에 안 남는다.** 값이 없는 것이 "게임 설정 그대로"이므로, 불리언이 아닌
     --- 것은 읽는 쪽에서 이미 기본으로 읽히고 저장에만 남는다.
     test("정리기가 불리언이 아닌 값을 걷는다", function()
-        local action = FreshDB({ autoSelfCast = true, autoUnshift = "on", autoDismount = false });
+        local action = FreshDB({ autoSelfCast = true, autoUnshift = "on", autoDismount = false }, true);
         DebindPrivate.CleanUpDB();
 
         local casting = action.casting;
@@ -92,7 +95,7 @@ return function(DebindPrivate)
     end);
 
     test("네 줄만 들었다가 전부 걷히면 표도 안 남는다", function()
-        local action = FreshDB({ autoDismountFlying = "usual" });
+        local action = FreshDB({ autoDismountFlying = "usual" }, true);
         DebindPrivate.CleanUpDB();
         check(action.casting == nil, "빈 표가 남았다");
     end);

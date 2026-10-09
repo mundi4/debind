@@ -133,5 +133,32 @@ return function(DebindPrivate)
         check(action.value == nil, "값이 남았다: " .. tostring(action.value));
     end);
 
+    -- **What the new type cannot hold goes the moment the type changes**, not at the next logout:
+    -- the action can be exported before then, and the string carries whatever it holds.
+    test("a resurrection replaced by a spell keeps none of its switches", function()
+        local action = { type = Constants.RESURRECT, key = "F1", seq = 1,
+            noTargetMassRez = false, battleRezOutOfCombat = true };
+        SetActionEntry(action, Constants.SPELL, 8936);
+
+        check(action.noTargetMassRez == nil, "noTargetMassRez: " .. tostring(action.noTargetMassRez));
+        check(action.battleRezOutOfCombat == nil,
+            "battleRezOutOfCombat: " .. tostring(action.battleRezOutOfCombat));
+    end);
+
+    test("a dispel replaced by a spell keeps no Spell to Cast", function()
+        local action = { type = Constants.DISPEL, key = "F1", seq = 1, skipWhenUnusable = true };
+        SetActionEntry(action, Constants.SPELL, 8936);
+
+        check(action.skipWhenUnusable == nil, "skipWhenUnusable: " .. tostring(action.skipWhenUnusable));
+    end);
+
+    -- The negative half: a type that holds the field keeps the reader's answer.
+    test("a dispel replaced by a resurrection keeps Spell to Cast", function()
+        local action = { type = Constants.DISPEL, key = "F1", seq = 1, skipWhenUnusable = true };
+        SetActionEntry(action, Constants.RESURRECT);
+
+        check(action.skipWhenUnusable == true, "skipWhenUnusable: " .. tostring(action.skipWhenUnusable));
+    end);
+
     return T;
 end

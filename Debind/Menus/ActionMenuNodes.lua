@@ -23,7 +23,6 @@ local OnlyOneReason                  = ActionMenu.OnlyOneReason;
 local CreateRadio                    = ActionMenu.CreateRadio;
 local CreateCheckbox                 = ActionMenu.CreateCheckbox;
 local TableFor                       = ActionMenu.TableFor;
-local PruneConditions                = ActionMenu.PruneConditions;
 local UnitConditionsOf               = ActionMenu.UnitConditionsOf;
 local SpecConditionsOf               = ActionMenu.SpecConditionsOf;
 local TalentConditionIs              = ActionMenu.TalentConditionIs;
@@ -391,7 +390,7 @@ local function BuildSelfLifeConditionMenu(kit, ctx)
                     units.player = nil;
                     if (not next(units)) then
                         action.conditions.units = nil;
-                        PruneConditions(action);
+                        DebindPrivate.PruneConditions(action);
                     end
                 end
             end

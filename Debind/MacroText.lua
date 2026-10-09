@@ -481,6 +481,9 @@ function DebindPrivate.ConvertToMacroText(action)
         -- names nothing it can draw is honestly drawn as the question mark.
         action.icon = Constants.QUESTION_MARK_ICON;
         action.unit = nil;
+        -- The held rank and the resolved name are in the body now, and nothing reads them on a
+        -- custom macro.
+        DebindPrivate.DropFieldsTheTypeCannotHold(action);
         return true;
     end
 end

@@ -541,7 +541,9 @@ return function(DebindPrivate, _, ctx)
     local function M2(tailCasting)
         local list = { action({ value = 585, key = "F1", conditions = { combat = true } }) };
         if (tailCasting) then
-            list[#list + 1] = action({ type = Constants.GIVEBACK, key = "F1", casting = tailCasting });
+            -- `{}` is the usual target, which is stored as no table at all.
+            list[#list + 1] = action({ type = Constants.GIVEBACK, key = "F1",
+                casting = next(tailCasting) and tailCasting or nil });
         end
         list[#list + 1] = action({ value = 774, key = "F1", casting = { hoverCast = "cast" } });
         Bind(list);

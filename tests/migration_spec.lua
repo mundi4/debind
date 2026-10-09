@@ -320,6 +320,9 @@ return function(DebindPrivate, _, ctx)
     -- 그대로다. 실제로 그 상태로 배포될 뻔했다.
     local function LoadLayerAndClean(actions)
         FreshInit();
+        for _, action in ipairs(actions) do
+            ctx.HandMade(action);
+        end
         _G.DebindVars.layers.account = { GENERAL = { [0] = actions } };
         DebindPrivate.LoadProfile();
         DebindPrivate.CleanUpDB();
@@ -803,8 +806,8 @@ return function(DebindPrivate, _, ctx)
             check(layer[1].conditions.bartakeover == BATTLE,
                 "A: " .. tostring(layer[1].conditions.bartakeover));
             check(layer[1].conditions.specialbar == nil, "A: the string stayed");
-            check(layer[2].conditions.bartakeover == nil and layer[2].conditions.specialbar == nil,
-                "B: " .. tostring(layer[2].conditions.bartakeover));
+            -- Nothing is left of B's conditions, and an emptied table goes with them.
+            check(layer[2].conditions == nil, "B: conditions stayed");
         end);
 
         -- **From below `dbver <= 5`, where both sat at the top of the action**: the step that moves
@@ -845,10 +848,13 @@ return function(DebindPrivate, _, ctx)
         return { action };
     end
 
+    -- Each case below stops at 7. They ask what the 6 -> 7 step writes, and the 7 -> 8 step moves a
+    -- spec-resolved `true` on and takes a table its fold empties.
+
     test("dbver 7 turns a spell's known into the name it asks about", function()
         shim.world.spells[8936] = { name = "Regrowth" };
         local layer = knownLayer({ type = Constants.SPELL, value = 8936 });
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         check(layer[1].conditions.known == "Regrowth",
             "known: " .. tostring(layer[1].conditions.known));
     end);
@@ -857,7 +863,7 @@ return function(DebindPrivate, _, ctx)
     -- whose `[known:]` answer is false anyway, so the conditional it bakes says the same thing.
     test("dbver 7 keeps the id where the client has no name for it", function()
         local layer = knownLayer({ type = Constants.SPELL, value = 424242 });
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         check(layer[1].conditions.known == 424242,
             "known: " .. tostring(layer[1].conditions.known));
     end);
@@ -866,7 +872,7 @@ return function(DebindPrivate, _, ctx)
     -- "the spell this action resolves to". A name would nail it to one specialization.
     test("dbver 7 leaves a spec-resolved known as true", function()
         local layer = knownLayer({ type = Constants.DISPEL });
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         check(layer[1].conditions.known == true,
             "known: " .. tostring(layer[1].conditions.known));
     end);
@@ -877,7 +883,7 @@ return function(DebindPrivate, _, ctx)
     -- for good, so the key dies in silence.
     test("dbver 7 drops a known on a type that has no spell", function()
         local layer = knownLayer({ type = Constants.MACROTEXT, value = "/cast Foo" });
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         check(layer[1].conditions.known == nil,
             "known: " .. tostring(layer[1].conditions.known));
     end);
@@ -887,7 +893,7 @@ return function(DebindPrivate, _, ctx)
     test("dbver 7 drops a named known on a type that has no spell", function()
         local layer = { { key = "A", type = Constants.MACROTEXT, value = "/cast Foo",
             conditions = { known = "Regrowth" } } };
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         check(layer[1].conditions.known == nil,
             "known: " .. tostring(layer[1].conditions.known));
     end);
@@ -898,8 +904,8 @@ return function(DebindPrivate, _, ctx)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = {
-                { key = "F1", seq = 1, type = Constants.MACROTEXT, value = "/cast Foo",
-                    conditions = { known = "Regrowth" } },
+                ctx.HandMade({ key = "F1", seq = 1, type = Constants.MACROTEXT, value = "/cast Foo",
+                    conditions = { known = "Regrowth" } }),
                 { key = "F2", seq = 1, type = Constants.SPELL, value = 8936,
                     conditions = { known = "Regrowth" } },
             } } } },
@@ -1963,11 +1969,11 @@ return function(DebindPrivate, _, ctx)
             dbver = 4,
             migrated = {},
             shared = {
-                GENERAL = { { key = "A", type = 1, value = 1, checkedUnits = { target = "help" } } },
+                GENERAL = { { key = "A", type = "spell", value = 1, checkedUnits = { target = "help" } } },
                 classes = {
                     DRUID = {
-                        [0] = { { key = "B", type = 1, value = 1, checkedUnits = { focus = "harm" } } },
-                        [2] = { { key = "C", type = 1, value = 1, checkedUnits = { tank = true } } },
+                        [0] = { { key = "B", type = "spell", value = 1, checkedUnits = { focus = "harm" } } },
+                        [2] = { { key = "C", type = "spell", value = 1, checkedUnits = { tank = true } } },
                     },
                 },
             },
@@ -1975,7 +1981,7 @@ return function(DebindPrivate, _, ctx)
                 [GUID] = {
                     class = "DRUID",
                     layers = {
-                        [0] = { { key = "D", type = 1, value = 1, checkedUnits = { mouseover = "help" } } },
+                        [0] = { { key = "D", type = "spell", value = 1, checkedUnits = { mouseover = "help" } } },
                     },
                 },
             },
@@ -2088,7 +2094,7 @@ return function(DebindPrivate, _, ctx)
 
         -- **키를 아직 안 정한 그룹의 키도 견뎌야 한다.** 숫자라는 것만 다를 뿐 키이고, 지워지면
         -- 그 묶음이 흩어진 채로 지정 안 된 더미에 떨어진다.
-        local pending = { type = Constants.SPELL, value = 775, key = 3, seq = 1, arrivalID = 7 };
+        local pending = ctx.HandMade({ type = Constants.SPELL, value = 775, key = 3, seq = 1, arrivalID = 7 });
         layer:Insert(pending);
 
         DebindPrivate.CleanUpDB();
@@ -2103,8 +2109,8 @@ return function(DebindPrivate, _, ctx)
     test("등록 안 된 필드는 정리가 걷어낸다", function()
         FreshInit();
         local layer = DebindPrivate.GetProfileLayer(1);
-        local action = { type = Constants.SPELL, value = 774, key = "F", seq = 1,
-            importedTypo = true };
+        local action = ctx.HandMade({ type = Constants.SPELL, value = 774, key = "F", seq = 1,
+            importedTypo = true });
         layer:Insert(action);
 
         DebindPrivate.CleanUpDB();
@@ -2842,39 +2848,27 @@ return function(DebindPrivate, _, ctx)
         profile.class = { DRUID = {} };
         profile.profileKeys = { ["Name - Realm"] = "Default" };
         profile.unitFrameNoticeSeen = true;
+        profile.trainerSpells = { DRUID = { [5177] = 6 } };
         profile.options = {
             overviewui = { pos = {} },
             stateDriverUpdateThrottle = 0.2,
             removeStateDriverUpdateThrottle = true,
             addCustomTargetMenusOnUnitPopup = true,
             addCustomTargetMenusToUnitPopup = true,
+            giveBackWhenActionExists = true,
             unitframeUseMouseDown = true,
         };
         local db = InitWith(profile);
-        for _, key in ipairs({ "global", "char", "class", "profileKeys", "unitFrameNoticeSeen" }) do
+        for _, key in ipairs({ "global", "char", "class", "profileKeys", "unitFrameNoticeSeen",
+                "trainerSpells" }) do
             check(db[key] == nil, key .. " is still there");
         end
         for _, key in ipairs({ "overviewui", "stateDriverUpdateThrottle",
                 "removeStateDriverUpdateThrottle", "addCustomTargetMenusOnUnitPopup",
-                "addCustomTargetMenusToUnitPopup" }) do
+                "addCustomTargetMenusToUnitPopup", "giveBackWhenActionExists" }) do
             check(db.options[key] == nil, "options." .. key .. " is still there");
         end
         check(db.options.unitframeUseMouseDown == true, "an option something reads went too");
-    end);
-
-    --- **Dropped on every load** (`Profile.lua`'s `ORPHANED_OPTION_KEYS`), so a profile already at 8,
-    --- which runs no step, loses it too.
-    test("a profile already at dbver 8 loses giveBackWhenActionExists", function()
-        local db = InitWith({
-            dbver = 8,
-            layers = {},
-            characters = {},
-            migrated = {},
-            switches = {},
-            options = { giveBackWhenActionExists = true, giveBackOnReplacedBar = true },
-        });
-        check(db.options.giveBackWhenActionExists == nil, "giveBackWhenActionExists is still there");
-        check(db.options.giveBackOnReplacedBar == true, "an option something reads went too");
     end);
 
     --- **At 7 the old cell is a stray, not an answer.** The `dbver` 7 step moved it long ago; one
@@ -2989,28 +2983,6 @@ return function(DebindPrivate, _, ctx)
             "the badge was not raised - the premise broke");
         check(DebindPrivate.NextArrivalID() == 2,
             "a new arrival gets the number the imported badge already holds");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- 없어진 옵션의 값
-    ---------------------------------------------------------------------------
-
-    --- **끄는 것과 지우는 것은 다르다는 원칙은 옵션이 살아 있을 때의 것이다.** 상자가 없어지면
-    --- 다시 켤 길도 없으니 그 값은 아무에게도 뜻이 없는 고아고, 안 지우면 SavedVariables에
-    --- 영영 남는다 (`taking-every-unit-frame-with-one-blacklist.md` §3).
-    test("the two switches the blacklist replaced are swept out of the account file", function()
-        local db = InitWith({ workAlongsideClique = true, takeUnregisteredFrames = false });
-        DebindPrivate.CleanUpDB();
-        check(db.workAlongsideClique == nil,
-            "workAlongsideClique가 남았다: " .. tostring(db.workAlongsideClique));
-        check(db.takeUnregisteredFrames == nil,
-            "takeUnregisteredFrames가 남았다: " .. tostring(db.takeUnregisteredFrames));
-    end);
-
-    test("what the class trainers were read selling is swept out of the account file", function()
-        local db = InitWith({ trainerSpells = { DRUID = { [5177] = 6 } } });
-        DebindPrivate.CleanUpDB();
-        check(db.trainerSpells == nil, "trainerSpells is still there");
     end);
 
     ---------------------------------------------------------------------------
@@ -3269,6 +3241,70 @@ return function(DebindPrivate, _, ctx)
             TakeReportedErrors();
         end
         check(#failed == 0, "seeds that did not raise: " .. table.concat(failed, "; "));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The 7 -> 8 step's last pass: what the shipped steps and writers left behind
+    --
+    -- Asked of `MigrateLayer` itself rather than through `InitDB`, which runs `CleanUpDB` after the
+    -- ladder and would hide a pass that did nothing.
+    ---------------------------------------------------------------------------
+
+    local function Show(v)
+        if (type(v) ~= "table") then
+            return tostring(v);
+        end
+        local parts = {};
+        for k, inner in pairs(v) do
+            parts[#parts + 1] = tostring(k) .. "=" .. Show(inner);
+        end
+        table.sort(parts);
+        return "{" .. table.concat(parts, ", ") .. "}";
+    end
+
+    --- **Each value here is one a shipped build left**: the 6 -> 7 step keeps a spec-resolved `true`,
+    --- 4.x kept a talent list empty beside a full one, and its type change and turn into a macro
+    --- left the fields the new type cannot hold.
+    test("7 -> 8 folds what a version 7 build left into the version 8 shape", function()
+        local list = {
+            { type = "dispel", key = "F1", seq = 1,
+                conditions = { known = true,
+                    talents = { [62] = { taken = { 123 }, notTaken = {} }, [63] = { taken = {} } } } },
+            { type = Constants.MACROTEXT, value = "/cast Fireball", key = "F2", seq = 1,
+                skipWhenUnusable = true, noTargetMassRez = false, resolvedSpellID = 133 },
+        };
+        DebindPrivate.MigrateLayer(list, 7);
+        check(same(list[1], { type = "dispel", key = "F1", seq = 1, skipWhenUnusable = true,
+            conditions = { talents = { [62] = { taken = { 123 } } } } }),
+            "the dispel was not folded: " .. Show(list[1]));
+        check(same(list[2], { type = Constants.MACROTEXT, value = "/cast Fireball", key = "F2", seq = 1 }),
+            "the macro kept what its type cannot hold: " .. Show(list[2]));
+    end);
+
+    test("7 -> 8 takes the key off an action on Escape", function()
+        local list = { { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 1 } };
+        DebindPrivate.MigrateLayer(list, 7);
+        check(same(list[1], { type = Constants.SPELL, value = 585 }), "Escape stayed: " .. Show(list[1]));
+    end);
+
+    --- The 6 -> 7 step takes a bare [when one is pointed at] off and leaves the table it emptied.
+    test("an action whose only condition the ladder moved arrives with no conditions table", function()
+        local list = { { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+            conditions = { units = { hover = {} } } } };
+        DebindPrivate.MigrateLayer(list, 6);
+        check(list[1].conditions == nil, "conditions stayed: " .. Show(list[1].conditions));
+    end);
+
+    --- The 1 -> 2 step moves the old unit fields only when it can read them, and the 4 -> 5 step
+    --- takes `reactions` only beside `hover`, so either can leave its old names behind.
+    test("names the earlier steps retire do not reach version 8", function()
+        local list = { { type = Constants.SPELL, value = 585, key = "F1",
+            checkUnitExists = true, checkedUnit = true, checkedUnitValue = true,
+            reactions = Constants.REACTION_HELP } };
+        DebindPrivate.MigrateLayer(list, 1);
+        for _, name in ipairs({ "checkUnitExists", "checkedUnit", "checkedUnitValue", "reactions" }) do
+            check(list[1][name] == nil, name .. " stayed: " .. tostring(list[1][name]));
+        end
     end);
 
     return T;

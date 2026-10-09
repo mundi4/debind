@@ -27,6 +27,12 @@ local band                = bit.band;
 ---
 --- **`to` stops it short of the end.** `MigrateDB` raises every ladder one version at a time, so a
 --- step never meets data another ladder has already carried further (`MigrateDB`).
+---
+--- **A step leaves its version's stored shape and nothing else** (owner, 2026-10-09). Whatever it
+--- moves or retires it removes in the same pass, and it counts on nothing after it to tidy up: the
+--- drawer keeps a payload in the shape the ladder leaves it, so a field one step leaves is there for
+--- good. A step that needs a clean-up pass of its own has a conversion that is wrong. The last
+--- pass of the `dbver <= 7` step is the one exception, clearing out once what came before this.
 local function MigrateLayer(layerTbl, dbver, to)
     if (layerTbl == nil) then
         return;
@@ -179,28 +185,31 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- than opening the next number: splitting a number nobody has met makes a step for an
         -- intermediate shape that never existed, and that step meets no data forever.
         --
-        -- 조건을 액션 최상단에서 `conditions` 안으로 내리고, 옮기는 김에 이름도 간다.
+        -- The conditions move down from the top of the action into `conditions`, and a name changes
+        -- on the way.
         --
-        -- **왜 옮기나.** 저장 필드 서른 개 중 열여덟이 조건이었고, 그 사이에 `unit`이 섞여
-        -- 앉아 있었다. `unit`은 겨누는 대상이고 `checkedUnits`는 언제 발동하느냐라, 이름만
-        -- 보면 한 식구인데 성격이 정반대다. 높이가 갈리면 구조가 그것을 말한다.
+        -- **Why they move.** Eighteen of the thirty stored fields were conditions, with `unit` sitting
+        -- among them. `unit` is what the action aims at and `checkedUnits` is when it fires: by name
+        -- they look like one family and they are opposites. Put at different levels, the structure
+        -- says so.
         --
-        -- **그래서 `checkedUnits`는 `units`가 된다.** `conditions.` 접두어가 이미 "이건
-        -- 조건이다"를 말하므로 `checked`가 같은 말을 한 번 더 한다. 이름은 옮기는 길에
-        -- 얹혀서 온다 - 따로 단계를 세우면 아무 데이터도 안 만나는 단계가 하나 는다.
+        -- **So `checkedUnits` becomes `units`.** The `conditions.` prefix already says it is a
+        -- condition, and `checked` says it a second time. The rename rides along with the move; a
+        -- step of its own would be one more step that meets no data.
         --
         -- **What was a condition is version 5's list, held by this step**, for the reason the
         -- `setstate` step below holds its own names. A live table moves on: a field it stops naming
-        -- stays at the top of a profile from below this step, and `CleanUpDB` deletes it.
+        -- stays at the top of a profile from below this step, where nothing reads it, and the
+        -- condition is lost.
         --
-        -- 다시 돌아도 안전하다. 최상단에 조건 이름이 안 남아 있으면 아무것도 안 한다.
+        -- Running twice is safe: with no condition name left at the top it does nothing.
         --
-        -- **이름을 먼저 다 모으고, 그다음에 옮긴다.** 한 바퀴로 쓰면 첫 조건을 만났을 때
-        -- `action.conditions`라는 **없던 키**가 순회 중에 생기는데, Lua 5.1은 그 경우의
-        -- `next` 동작을 정의하지 않는다(있는 필드를 지우는 것은 되고, 없던 필드에 대입하는
-        -- 것은 안 된다). 그러면 뒤의 조건이 건너뛰어지고, 최상단에 남은 그것을 바로 뒤의
-        -- `CleanUpDB`가 지운다. **사용자가 건 조건이 로그인 한 번에 사라지고 `dbver`는
-        -- 이미 찍혀 있어서 다시 돌 기회도 없다.**
+        -- **Every name is gathered first and moved after.** Written as one pass, the first condition
+        -- met puts `action.conditions`, a key that was not there, into the table being walked, and
+        -- Lua 5.1 leaves `next` undefined once that happens (clearing a field is allowed, adding one
+        -- is not). The conditions after it are then skipped and stay at the top, where nothing reads
+        -- them: **the conditions the user set stop working on one login, and with `dbver` already
+        -- stamped the step never gets another go.**
         local CONDITIONS_AT_5 = {
             checkedUnits = true, frameTypes = true, groups = true, forms = true, bonusbars = true,
             specialbar = true, extrabar = true, combat = true, stealth = true, known = true, pet = true,
@@ -810,8 +819,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- **Then a stored `"usual"` becomes nothing** (2026-10-05, owner), which is how the usual
         -- target is stored from here on: one spelling for one value, so no reader has to take two.
         -- After the line above, since off is nothing as well: `"usual"` with Normal Cast off stood on
-        -- a pointed press at the usual target, and still does. A table left empty goes, as
-        -- `CleanUpDB` would take it.
+        -- a pointed press at the usual target, and still does. A table left empty goes with it.
         --
         -- **Not safe to run twice, unlike the rest of the ladder** (owner): a second pass takes a
         -- rewritten `"usual"` with Normal Cast off for off and makes it skip. A profile never meets
@@ -877,6 +885,98 @@ local function MigrateLayer(layerTbl, dbver, to)
                 if (mask ~= nil) then
                     conditions.bartakeover = mask;
                 end
+            end
+        end
+
+        -- **What every earlier step and every shipped writer left behind goes, once** (owner,
+        -- 2026-10-09; `checking-pasted-strings-and-keeping-actions-canonical.md` §3, item 4). Each
+        -- rule answers something a shipped build left in a profile, a string or a drawer entry, and
+        -- nothing else: a value only a hand could have made is the import gate's (`BuildAction`).
+        --
+        --   - the old unit fields, which the 1 -> 2 step moves only from a version 1 profile and only
+        --     when it can read them (1.11 to 1.15 wrote them at version 2), and `reactions`, which the
+        --     4 -> 5 step takes only beside `hover`;
+        --   - an empty `conditions`, which the 6 -> 7 step leaves when the condition it takes off
+        --     was the only one;
+        --   - a talent list left empty, which 4.x kept on disk while the other list was not;
+        --   - a spec-resolved `known` of `true`, which the 6 -> 7 step keeps and version 8 says
+        --     with `skipWhenUnusable`;
+        --   - what a 4.x type change (`SetActionEntry`) or a turn into a macro (`ConvertToMacroText`)
+        --     left on a type that cannot hold it, which that session's strings carried;
+        --   - an action on Escape, taken as a shape a shipped build could store (owner, 2026-10-09).
+        --
+        -- **Every rule is version 8's, written out**, for the reason the old type names above are:
+        -- `FoldIntoStoredShape` is this build's shape and moves with it. So the lines below repeat
+        -- `DropFieldsTheTypeCannotHold` and `Talents.Prune` on purpose, and the two are meant to part:
+        -- when the live fold changes, bringing data already raised along is a new step's job, and this
+        -- copy stays as version 8 left it.
+        --
+        -- A received payload rides this before its types are asked about (`BuildAction`), so nothing
+        -- here may raise on one that is wrong.
+        --
+        -- Running twice is safe: what it takes off is not put back.
+        local SPEC_RESOLVED_AT_8 = { dispel = true, dispel2 = true, raidbuff = true, resurrect = true };
+        local TALENT_LISTS_AT_8 = { "taken", "notTaken" };
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            action.checkUnitExists = nil;
+            action.checkedUnit = nil;
+            action.checkedUnitValue = nil;
+            action.reactions = nil;
+
+            if (action.key == "ESCAPE") then
+                action.key = nil;
+                action.seq = nil;
+            end
+
+            local specResolved = SPEC_RESOLVED_AT_8[action.type];
+            local conditions = action.conditions;
+            if (luatype(conditions) == "table") then
+                local talents = conditions.talents;
+                if (luatype(talents) == "table") then
+                    for specID, entry in pairs(talents) do
+                        local any = false;
+                        if (luatype(entry) == "table") then
+                            for j = 1, #TALENT_LISTS_AT_8 do
+                                local name = TALENT_LISTS_AT_8[j];
+                                if (luatype(entry[name]) == "table") then
+                                    if (#entry[name] == 0) then
+                                        entry[name] = nil;
+                                    else
+                                        any = true;
+                                    end
+                                end
+                            end
+                        end
+                        if (not any) then
+                            talents[specID] = nil;
+                        end
+                    end
+                    if (next(talents) == nil) then
+                        conditions.talents = nil;
+                    end
+                end
+
+                if (conditions.known == true and specResolved) then
+                    conditions.known = nil;
+                    action.skipWhenUnusable = true;
+                end
+
+                if (next(conditions) == nil) then
+                    action.conditions = nil;
+                end
+            end
+
+            if (not specResolved) then
+                action.skipWhenUnusable = nil;
+            end
+            if (action.type ~= "resurrect") then
+                action.noTargetMassRez = nil;
+                action.battleRezOutOfCombat = nil;
+            end
+            if (action.type ~= "spell" or luatype(action.value) ~= "string"
+                    or luatype(action.resolvedSpellID) ~= "number") then
+                action.resolvedSpellID = nil;
             end
         end
     end
@@ -1353,8 +1453,15 @@ local function MigrateAccount(db, dbver, to, uiVars)
         db.class = nil;
         db.profileKeys = nil;
         db.unitFrameNoticeSeen = nil;
+        -- **A value outliving its option is an orphan, not a setting turned off.** Turning a box off
+        -- keeps its value because the box can be turned back on; a box that is gone cannot. 4.1.2
+        -- wrote what the class trainers were read selling on camelot, which the generated table
+        -- carries now (`ClassSpells_Camelot.lua`); 4.0 to 4.1.2 wrote the row taken out with its
+        -- option (`giving-keys-back-when-no-action-runs.md` §1).
+        db.trainerSpells = nil;
         local options = db.options;
         if (luatype(options) == "table") then
+            options.giveBackWhenActionExists = nil;
             options.overviewui = nil;
             options.stateDriverUpdateThrottle = nil;
             options.removeStateDriverUpdateThrottle = nil;

@@ -8,7 +8,7 @@
 -- Which row the press came from is the in-game kit's. Here the setters are called the way the rows
 -- call them.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, harness)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -36,7 +36,7 @@ return function(DebindPrivate)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = {
-                account = { GENERAL = { [0] = actions } },
+                account = { GENERAL = { [0] = harness.Numbered(actions) } },
                 [GUID] = { [CLASS] = {} },
             },
             characters = { [GUID] = {} },

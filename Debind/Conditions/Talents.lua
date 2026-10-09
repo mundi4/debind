@@ -152,6 +152,41 @@ function Talents.ListOf(entry, name)
     return list;
 end
 
+local LIST_NAMES = { "taken", "notTaken" };
+
+--- Drops what says nothing from an action's `talents` condition: an empty list, an entry left with
+--- no list, and the table once no entry is left.
+---
+--- **An empty entry is not a condition.** A specialization key saying nothing reads as a talent
+--- condition wherever the table being there is the gate (`IsConditionalBinding`), and it moves the
+--- firing order. An empty list reads as no list (`EntryHolds` walks it by `#`), so it goes too.
+---
+--- **An entry holding no list at all goes with the empty ones**, whatever else it holds. The menu
+--- cannot make one, and one that arrived in a shared string says nothing the menu can draw or undo.
+function Talents.Prune(action)
+    local talents = action.conditions and action.conditions.talents;
+    if (type(talents) ~= "table") then
+        return;
+    end
+    for specID, entry in pairs(talents) do
+        local any = false;
+        for _, name in ipairs(LIST_NAMES) do
+            local list = Talents.ListOf(entry, name);
+            if (list and #list == 0) then
+                entry[name] = nil;
+            elseif (list) then
+                any = true;
+            end
+        end
+        if (not any) then
+            talents[specID] = nil;
+        end
+    end
+    if (next(talents) == nil) then
+        action.conditions.talents = nil;
+    end
+end
+
 --- Does one entry's `taken` list name talents from two different hero trees?
 ---
 --- **A character stands in one of them at a time**, so such a condition is false in every state

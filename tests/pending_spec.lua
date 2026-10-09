@@ -35,8 +35,8 @@ return function(DebindPrivate)
     local OTHER = "Player-1-SOMEONEELSE";
     local CLASS = C.PLAYER_CLASS;
 
-    local function spell(value, key, arrivalID)
-        return { type = C.SPELL, value = value, key = key, seq = key and 1 or nil, arrivalID = arrivalID };
+    local function spell(value, key, arrivalID, seq)
+        return { type = C.SPELL, value = value, key = key, seq = key and (seq or 1) or nil, arrivalID = arrivalID };
     end
 
     local function Login(vars)
@@ -93,7 +93,7 @@ return function(DebindPrivate)
             pendingActions = {
                 [GUID] = {
                     account = {
-                        GENERAL = { [0] = { spell(11, "F2", 4), spell(12, "F2", 4) } },
+                        GENERAL = { [0] = { spell(11, "F2", 4), spell(12, "F2", 4, 2) } },
                         [CLASS] = { [2] = { spell(13, "F3", 4) } },
                     },
                     character = { [0] = { spell(14, nil, 5) } },

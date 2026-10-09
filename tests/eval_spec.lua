@@ -1760,7 +1760,7 @@ return function(DebindPrivate, _, ctx)
                     or (Constants.BARTAKEOVER_NONE + Constants.BARTAKEOVER_REPLACED);
             end
             if (row.group ~= nil) then conditions.groups = Constants.GROUP_RAID; end
-            actions[i] = action({ value = 100 + i, key = "F1", conditions = conditions });
+            actions[i] = action({ value = 100 + i, key = "F1", conditions = next(conditions) and conditions or nil });
         end
         Bind(actions);
 
@@ -1855,6 +1855,9 @@ return function(DebindPrivate, _, ctx)
                 t.casting.hoverCast = nil;
             elseif (t.casting.hoverCast == nil) then
                 t.casting.hoverCast = "cast";
+            end
+            if (next(t.casting) == nil) then
+                t.casting = nil;
             end
             return t;
         end

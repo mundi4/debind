@@ -45,9 +45,14 @@ return function(Constants)
             if (fields.units or fields.groups) then
                 conditions = { units = copy(fields.units), groups = fields.groups };
             end
+            -- `USUAL` is stored as no table at all, the way the menu stores it.
+            local casting;
+            if (next(fields.casting) ~= nil) then
+                casting = copy(fields.casting);
+            end
             return {
                 type = Constants.SPELL, value = 585, key = fields.key or "F1", seq = 1,
-                unit = fields.unit, casting = copy(fields.casting), conditions = conditions,
+                unit = fields.unit, casting = casting, conditions = conditions,
             };
         end
         return fields;

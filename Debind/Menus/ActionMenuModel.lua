@@ -296,27 +296,12 @@ local function CastingHolder(action, key, create)
     return casting, name;
 end
 
---- 빈 표는 안 남긴다. `CleanUpDB`와 같은 규칙이고, 여기서도 하는 것은 저장과 내보내기와
---- 같은지 묻기(`IDENTITY_FIELDS`)가 로그아웃을 안 기다리기 때문이다.
-local function PruneCasting(action)
-    local casting = action.casting;
-    if (casting ~= nil and next(casting) == nil) then
-        action.casting = nil;
-    end
-end
 
 --- 이 액션의 유닛 조건 표. 없으면 nil이고, 만들지 않는다.
 local function UnitConditionsOf(action)
     return action.conditions and action.conditions.units;
 end
 
---- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
---- (`IsConditionalBinding`, `CleanUpDB`) 조건이 없는 액션이 조건부가 된다.
-local function PruneConditions(action)
-    if (action.conditions and next(action.conditions) == nil) then
-        action.conditions = nil;
-    end
-end
 
 --- This action's specialization condition, a mask per class id. nil where there is none, and none
 --- is made.
@@ -511,29 +496,6 @@ local function TalentConditionTouches(ctx, specID, ids)
     end);
 end
 
---- **The empty entry is swept here rather than left for the logout.** A specialization key with
---- both lists empty says nothing, and an action carrying one reads as conditional
---- (`IsConditionalBinding`, `CleanUpDB`).
-local function PruneTalents(action)
-    local talents = TalentConditionOf(action);
-    if (talents == nil) then
-        return;
-    end
-    -- **An entry that is not a pair of lists goes with the empty ones.** Nothing here can make
-    -- one, and one that arrived in a shared string says nothing this menu can draw or undo.
-    local Talents = DebindPrivate.Talents;
-    for specID, entry in pairs(talents) do
-        local taken = Talents.ListOf(entry, "taken");
-        local notTaken = Talents.ListOf(entry, "notTaken");
-        if ((taken == nil or #taken == 0) and (notTaken == nil or #notTaken == 0)) then
-            talents[specID] = nil;
-        end
-    end
-    if (next(talents) == nil) then
-        action.conditions.talents = nil;
-    end
-end
-
 --- Puts one talent on one of the two lists, or on neither. **Off both is how a row is cleared**,
 --- which is the third choice every row carries.
 local function WriteList(entry, name, spellID, wanted)
@@ -555,8 +517,8 @@ local function SetTalentCondition(ctx, specIDs, spellID, state)
             WriteList(entry, "taken", spellID, state == "taken");
             WriteList(entry, "notTaken", spellID, state == "notTaken");
         end
-        PruneTalents(action);
-        PruneConditions(action);
+        DebindPrivate.Talents.Prune(action);
+        DebindPrivate.PruneConditions(action);
     end
     return OnActionsChanged(ctx.actions);
 end
@@ -588,8 +550,8 @@ local function ClearOtherSpecTalents(ctx)
                     talents[specID] = nil;
                 end
             end
-            PruneTalents(action);
-            PruneConditions(action);
+            DebindPrivate.Talents.Prune(action);
+            DebindPrivate.PruneConditions(action);
         end
     end
     return OnActionsChanged(ctx.actions);
@@ -625,7 +587,7 @@ local ActionValues = {
         local holder, field = CastingHolder(action, key, value ~= nil);
         if (holder) then
             holder[field] = value;
-            PruneCasting(action);
+            DebindPrivate.PruneCasting(action);
             return;
         end
         if (value == nil) then
@@ -634,7 +596,7 @@ local ActionValues = {
             local tbl = TableFor(action, key);
             if (tbl) then
                 tbl[key] = nil;
-                PruneConditions(action);
+                DebindPrivate.PruneConditions(action);
             end
         else
             TableFor(action, key, true)[key] = value;
@@ -968,7 +930,7 @@ local function WriteUnitConditionMode(action, unit, mode)
             units[unit] = nil;
             if (not next(units)) then
                 action.conditions.units = nil;
-                PruneConditions(action);
+                DebindPrivate.PruneConditions(action);
             end
         end
     else
@@ -1113,7 +1075,6 @@ ActionMenu.CreateCheckbox            = CreateCheckbox;
 ActionMenu.ActionMenus               = ActionMenus;
 ActionMenu.OnActionsChanged          = OnActionsChanged;
 ActionMenu.TableFor                  = TableFor;
-ActionMenu.PruneConditions           = PruneConditions;
 ActionMenu.UnitConditionsOf          = UnitConditionsOf;
 ActionMenu.SpecConditionsOf          = SpecConditionsOf;
 ActionMenu.SpecConditionHasIndex     = SpecConditionHasIndex;

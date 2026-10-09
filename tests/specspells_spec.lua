@@ -208,7 +208,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[2782] = { name = "Remove Corruption" };
         -- Held with nothing running, so the press below reaches the key with no beat in between.
         Bind({
-            action({ type = Constants.DISPEL, key = "F1", conditions = { known = true } }),
+            action({ type = Constants.DISPEL, key = "F1", skipWhenUnusable = true }),
         }, { giveBackWhenNoActionRuns = false });
         check(recordField("F1", 1, "known") == "[known:Remove Corruption]",
             "dispel known: " .. tostring(recordField("F1", 1, "known")));
@@ -231,13 +231,13 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = 1;
         withNoDispel(function()
             Bind({
-                action({ type = Constants.DISPEL, key = "F2", conditions = { known = true } }),
+                action({ type = Constants.DISPEL, key = "F2", skipWhenUnusable = true }),
             });
             check(DebindPrivate.KeyMap["F2"] == nil, "the action reached the key map anyway");
             check(not DebindPrivate.IsKeyOurs("F2"), "the key was held with the option on");
 
             Bind({
-                action({ type = Constants.DISPEL, key = "F2", conditions = { known = true } }),
+                action({ type = Constants.DISPEL, key = "F2", skipWhenUnusable = true }),
             }, { giveBackWhenNoActionRuns = false });
             check(DebindPrivate.IsKeyOurs("F2"), "the key was handed back with the option off");
             if (not shipped) then
@@ -271,7 +271,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[774] = { name = "Rejuvenation" };
         withNoDispel(function()
             Bind({
-                action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } }),
+                action({ type = Constants.DISPEL, key = "F3", skipWhenUnusable = true }),
                 action({ type = Constants.SPELL, key = "F3", value = 774 }),
             });
             local records = castmod.without(Constants, interp:recordsFor("F3"));
@@ -375,7 +375,7 @@ return function(DebindPrivate, _, ctx)
         withGate(WARLOCK_GATE, function()
             warlockWorld();
 
-            local a = action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } });
+            local a = action({ type = Constants.DISPEL, key = "F3", skipWhenUnusable = true });
             local list = castmod.without(Constants, DebindPrivate.GetBindingsForAction(a));
             check(#list == 2, "list length: " .. #list);
             -- The original takes the last entry and the one before it is derived (`FillBinding`).
@@ -486,7 +486,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = 1;
         shim.world.spells[2782] = { name = "Remove Corruption" };
         Bind({
-            action({ type = Constants.DISPEL, key = "F8", conditions = { known = false } }),
+            ctx.HandMade(action({ type = Constants.DISPEL, key = "F8", conditions = { known = false } })),
         });
         interp.state.known["Remove Corruption"] = true;
         local _, _, record = interp:evalKey("F8");
@@ -559,7 +559,8 @@ return function(DebindPrivate, _, ctx)
     -- `true` stored on one moves to the switch it reads as. Left, the row would say Off over an
     -- action that hands the key on.
     test("a stored known on a dispel moves to the Spell to Cast switch", function()
-        local dispel = { type = Constants.DISPEL, key = "F1", seq = 1, conditions = { known = true } };
+        local dispel = ctx.HandMade({ type = Constants.DISPEL, key = "F1", seq = 1,
+            conditions = { known = true } });
         Bind({ dispel });
         DebindPrivate.CleanUpDB();
         check(dispel.skipWhenUnusable == true, "the switch was not set");
@@ -569,8 +570,8 @@ return function(DebindPrivate, _, ctx)
     -- The menu offers the switch on these types alone, so a stored one anywhere else is taken off.
     test("skipping is kept on a dispel and taken off a spell", function()
         local dispel = { type = Constants.DISPEL, key = "F1", seq = 1, skipWhenUnusable = true };
-        local spell = { type = Constants.SPELL, value = 8936, key = "F2", seq = 1,
-            skipWhenUnusable = true };
+        local spell = ctx.HandMade({ type = Constants.SPELL, value = 8936, key = "F2", seq = 1,
+            skipWhenUnusable = true });
         Bind({ dispel, spell });
         DebindPrivate.CleanUpDB();
         check(dispel.skipWhenUnusable == true, "taken off the dispel");
@@ -615,7 +616,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[2782] = { name = "Remove Corruption" };
         shim.world.spells[8936] = { name = "Regrowth" };
         Bind({
-            action({ type = Constants.DISPEL, key = "F6", conditions = { known = true } }),
+            action({ type = Constants.DISPEL, key = "F6", skipWhenUnusable = true }),
             action({ type = Constants.SPELL, key = "F6", value = 8936 }),
         });
         local records = castmod.without(Constants, interp:recordsFor("F6"));
@@ -638,8 +639,7 @@ return function(DebindPrivate, _, ctx)
 
             local spell = action({ type = Constants.SPELL, key = "F3", value = 8936,
                 priority = Constants.DEFAULT_IMPORTANCE - 1 });
-            local ticked = action({ type = Constants.DISPEL, key = "F3",
-                conditions = { known = true } });
+            local ticked = action({ type = Constants.DISPEL, key = "F3", skipWhenUnusable = true });
             local plain = action({ type = Constants.DISPEL, key = "F4" });
             local ahead = action({ type = Constants.SPELL, key = "F4", value = 8936 });
             ahead.seq, plain.seq = plain.seq, ahead.seq;
@@ -664,7 +664,7 @@ return function(DebindPrivate, _, ctx)
             warlockWorld();
             shim.world.spells[8936] = { name = "Regrowth" };
             Bind({
-                action({ type = Constants.DISPEL, key = "F3", conditions = { known = true } }),
+                action({ type = Constants.DISPEL, key = "F3", skipWhenUnusable = true }),
                 action({ type = Constants.SPELL, key = "F3", value = 8936 }),
             });
 
