@@ -1418,6 +1418,11 @@ L["CASTING_SELF_CAST"] = "Cast on yourself"
 L["CASTING_SELF_CAST_DESC"] = "Holding the Self Cast Key sends this action to you."
 L["CASTING_FOCUS_CAST"] = "Cast on your focus"
 L["CASTING_FOCUS_CAST_DESC"] = "Holding the Focus Cast Key sends this action to your focus."
+-- Follows the Self Cast Key, Focus Cast Key and Hover Cast rows' own sentence on the same line
+-- (`CreateCastingMenu`). **Said always, not only on a Set Custom Target**, for the reason
+-- `CAST_KEY_TARGET_PICKED` gives. The type is named because it is the case the reader cannot work
+-- out: a macro or a mount is plainly not aimed. The type name is passed in.
+L["CAST_KEY_UNIT_UNUSED"] = "Some actions do not use the unit they are sent to, such as %s, which always sets the unit you point at."
 -- **One label for the middle value of all three rows**, because it is one answer: the action takes
 -- its turn on that press and the press does not move it. The sentence under it is written per row,
 -- since what is being turned down differs.
@@ -1482,11 +1487,6 @@ L["AUTOMATIC_OFF"] = "Off"
 -- than called a default, the way Hover Cast's account row is (`CASTING_HOVER_ACCOUNT`).
 L["AUTOMATIC_GAME_SETTING"] = "Use the game's setting"
 L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever this is set to in the game's own settings, for this action as for every other."
--- The one place the four cannot be answered at all. **It says what the row does here and stops.**
--- What this addon can or cannot reach, and what the game does with the press instead, are both
--- ours to know and no part of what the reader is deciding.
-L["AUTOMATIC_GAME_MACRO"] = "This does not apply to a macro from WoW's own list."
-L["AUTOMATIC_NOT_A_CAST"] = "This does not apply to an action that casts nothing."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
 -- literal there; on the middle one it is why the row stands locked, since with a target picked the

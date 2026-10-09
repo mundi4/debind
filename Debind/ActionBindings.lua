@@ -462,9 +462,15 @@ do
         -- `unit`, it would be where `"@"` is asked and where the `unitframe` condition fills in, and neither
         -- has a unit to stand on there.
         binding.castsAtNone = (action.unit == "none" and DebindPrivate.ActionTakesUnit(binding)) or nil;
-        -- **쌍둥이도 같은 액션이라 같은 값을 든다.** 어느 누름으로 나가든 클라이언트의 자동
-        -- 동작을 어떻게 둘지는 액션이 정한 하나다.
-        binding.automatics = DebindPrivate.CastAutomaticsKeyOf(action);
+        -- **A twin carries the same value, being the same action**: whichever press it goes out
+        -- on, how the client's automatics stand is the one answer the action gave. **None where
+        -- the values cannot reach** (`CastAutomaticsBlockedReason`, 2026-10-09, owner): the menu
+        -- leaves the rows open there, and what is stored is kept and read by nothing.
+        if (DebindPrivate.CastAutomaticsBlockedReason(action) == nil) then
+            binding.automatics = DebindPrivate.CastAutomaticsKeyOf(action);
+        else
+            binding.automatics = nil;
+        end
         if (twin) then
             binding.unit = aimedUnit;
         elseif (not Constants.TYPES_WITH_UNIT[binding.type]) then
@@ -751,9 +757,6 @@ do
         return CAST_AUTOMATIC_LABELS[row];
     end
 
-    --- Why the four rows can do nothing on this action, or `nil`. **All it is for is closing the spot
-    --- where a row turned on does nothing and says nothing.**
-    ---
     --- The action types a value reaches. **This list is exactly where the two wrapping paths reach**:
     --- what a `/click` inside a macro can call (spells, items, equipment slots, a mount that goes out
     --- as a spell), and what can take lines before and after it because the body is our own string
@@ -772,12 +775,15 @@ do
         CAST_AUTOMATIC_TYPES[actionType] = true;
     end
 
-    --- 네 줄이 이 액션에서 아무 일도 못 하는 이유, 또는 `nil`. **켰는데 조용히 아무 일도 안 나는
-    --- 자리를 막는 것**이 전부다.
-    ---
-    --- 게임 매크로는 본문이 게임의 것이라 앞뒤에 붙일 문자열이 없고, 나머지는 시전이라는 것을
-    --- 아예 안 해서 클라이언트가 그 주위에 할 일도 없다
+    --- Why the four rows can do nothing on this action, or `nil`. A macro from WoW's own list has a
+    --- body that is the game's, with no string of ours to put lines around; the rest cast nothing,
+    --- so the client has nothing to do around them
     --- (`setting-the-clients-cast-automatics-per-action.md` §5).
+    ---
+    --- **The menu leaves the rows open on them** (2026-10-09, owner). What reads this is what would
+    --- otherwise act on a stored
+    --- value that does nothing: the binding leaves it off (`FillBinding`) and the tooltip draws no
+    --- line for it.
     function DebindPrivate.CastAutomaticsBlockedReason(action)
         if (action == nil) then
             return nil;

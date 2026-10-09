@@ -63,6 +63,33 @@ return function(DebindPrivate, _, harness)
             "숫자가 값으로 읽혔다");
     end);
 
+    --- **The rows stay open on every action, and a binding the values cannot reach carries none**
+    --- (2026-10-09, owner). Twins included: they are the same action.
+    test("a binding of an action the rows cannot reach carries no automatics", function()
+        local casting = { autoSelfCast = true, autoUnshift = false };
+        for _, fields in ipairs({
+            { type = Constants.SETCUSTOM, value = 1 },
+            { type = Constants.SETSWITCH_TOGGLE, value = "$burst" },
+            { type = Constants.GIVEBACK },
+            { type = Constants.COMMAND, value = "TOGGLEWORLDMAP" },
+            { type = Constants.BLOCK },
+            { type = Constants.TARGET },
+            { type = Constants.FOCUS },
+            { type = Constants.TOGGLEMENU },
+            { type = Constants.MACRO, value = "Trinkets" },
+        }) do
+            local action = { type = fields.type, value = fields.value, key = "F", casting = casting };
+            for _, binding in ipairs(DebindPrivate.GetBindingsForAction(action)) do
+                check(binding.automatics == nil,
+                    fields.type .. " carried " .. tostring(binding.automatics));
+            end
+        end
+        local spell = { type = Constants.SPELL, value = 774, key = "F", casting = casting };
+        for _, binding in ipairs(DebindPrivate.GetBindingsForAction(spell)) do
+            check(binding.automatics == "10--", "a spell carried " .. tostring(binding.automatics));
+        end
+    end);
+
     test("액션이 없어도 답한다", function()
         check(DebindPrivate.CastAutomaticOf(nil, "autoSelfCast") == nil,
             "액션 없이 물었을 때 게임 설정 그대로가 아니다");

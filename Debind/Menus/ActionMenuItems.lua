@@ -454,6 +454,15 @@ local function CreateCastingMenu(parentDescription, ctx)
         return text .. "|n|n" .. LLL["CAST_KEY_TARGET_PICKED"];
     end
 
+    --- **The three rows that move a unit say that some actions never use it, and stay open on them**
+    --- (2026-10-09, owner). Set Custom Target fills its slot from the pointed frame whatever unit
+    --- its button carries, so neither "you", "your focus" nor "the usual target" is what it sets.
+    --- Not locked: Skip this action and Normal Cast do what they say on it, and a lock takes them
+    --- too.
+    local function withUnitUnusedNote(text)
+        return text .. " " .. format(LLL["CAST_KEY_UNIT_UNUSED"], LLL["TYPE_SETCUSTOM"]);
+    end
+
     local description = ActionMenus:BuildNode(parentDescription, {
         label = "CASTING",
         key = "casting",
@@ -482,7 +491,7 @@ local function CreateCastingMenu(parentDescription, ctx)
         -- (`which-action-a-key-runs.md` §6). What is stored here is kept and waits.
         local rowDescription = ActionMenus:BuildNode(description, {
             label = row.label,
-            instruction = row.instruction,
+            instruction = withUnitUnusedNote(row.instruction),
             blocked = function()
                 if (not row.enabled()) then
                     return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
@@ -528,7 +537,7 @@ local function CreateCastingMenu(parentDescription, ctx)
     -- press those keys can serve (§7).
     local hoverDescription = ActionMenus:BuildNode(description, {
         label = "POINTED_UNIT_CAST",
-        instruction = LLL["CASTING_HOVER_CAST_DESC"],
+        instruction = withUnitUnusedNote(LLL["CASTING_HOVER_CAST_DESC"]),
         blocked = function()
             if (AllActions(ctx, function(action)
                     return DebindPrivate.IsBareWorldClick(action.key);
@@ -657,17 +666,11 @@ local function CreateCastingMenu(parentDescription, ctx)
     -- **Not set is the game's own setting**, so a reader who never opens these rows keeps exactly
     -- what the game gives everybody else
     -- (`setting-the-clients-cast-automatics-per-action.md` §2).
-    local function automaticsReason()
-        local reason = AllActions(ctx, function(action)
-            return DebindPrivate.CastAutomaticsBlockedReason(action) ~= nil;
-        end) and DebindPrivate.CastAutomaticsBlockedReason(ctx.actions[1]);
-        if (reason == "gamemacro") then
-            return LLL["AUTOMATIC_GAME_MACRO"];
-        elseif (reason == "nocast") then
-            return LLL["AUTOMATIC_NOT_A_CAST"];
-        end
-    end
-
+    --
+    -- **Open on every action, with nothing said about the ones they do not reach** (2026-10-09,
+    -- owner). A value set there is kept and does nothing (`CastAutomaticsBlockedReason`), so the
+    -- press comes out the same whatever the reader picks, and knowing would change nothing. The
+    -- unit rows above are unlike that: on them the label promises a unit the action does not use.
     for _, row in ipairs({
         { row = "autoSelfCast", instruction = LLL["AUTOMATIC_SELF_CAST_DESC"] },
         { row = "autoUnshift", instruction = LLL["AUTOMATIC_CANCEL_FORM_DESC"] },
@@ -677,7 +680,6 @@ local function CreateCastingMenu(parentDescription, ctx)
         local rowDescription = ActionMenus:BuildNode(description, {
             label = DebindPrivate.CastAutomaticLabel(row.row),
             instruction = row.instruction,
-            blocked = automaticsReason,
             isActive = function()
                 return AnyAction(ctx, function(action)
                     return DebindPrivate.CastAutomaticOf(action, row.row) ~= nil;
